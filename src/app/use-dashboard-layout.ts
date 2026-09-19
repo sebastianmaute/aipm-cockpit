@@ -20,6 +20,7 @@
  */
 import { useArrangement, type ArrangementApi } from "./use-arrangement";
 import { DEFAULT_LAYOUT } from "./dashboard-layout";
+import { upgradeDashboardLayout } from "./dashboard-layout-upgrade";
 import { DASHBOARD_LAYOUT_KEY } from "./dashboard-layout-store";
 import { DASHBOARD_TILES, type DashboardTileId } from "./dashboard-tiles";
 
@@ -49,5 +50,8 @@ export function useDashboardLayout({
     // this parameter would break `dashboard-panel.tsx` and its tests, which the
     // Phase F export-stability rule forbids.
     readOnly: isPopout,
+    // ★ Spec C decision 11: the one-time burn upgrade. A module-level function,
+    // so a stable reference like the two constants above. Reports passes none.
+    upgrade: upgradeDashboardLayout,
   });
 }

@@ -47,7 +47,7 @@ describe("restoreTile", () => {
   it("appends a hidden tile to the board at its catalogue default size", () => {
     const next = restoreTile(layout(), "burn");
     expect(next.hidden).toEqual([]);
-    expect(next.board.at(-1)).toEqual({ id: "burn", w: 1, h: 3 });
+    expect(next.board.at(-1)).toEqual({ id: "burn", w: 2, h: 8 });   // spec C catalogue default
   });
 
   it("inserts at an explicit index when given one", () => {
@@ -104,7 +104,8 @@ describe("reconcile", () => {
   });
 
   it("inserts a new catalogue tile after its nearest present predecessor", () => {
-    // Catalogue order starts kpi, topActions, insights, raid, upcoming...
+    // Catalogue order starts burn, kpi, topActions, insights, raid, upcoming...
+    // (spec C moved burn first; burn itself is absent here and lands at 0.)
     // Store knows kpi and raid only; insights must land between them.
     const stored = { v: 1 as const, board: [{ id: "kpi" as const, w: 4 as const, h: 2 as const }, { id: "raid" as const, w: 2 as const, h: 2 as const }], hidden: [] };
     const next = reconcile(stored);
@@ -116,7 +117,7 @@ describe("reconcile", () => {
   it("inserts at index 0 when no predecessor is present", () => {
     const stored = { v: 1 as const, board: [{ id: "changes" as const, w: 2 as const, h: 2 as const }], hidden: [] };
     const next = reconcile(stored);
-    expect(next.board[0].id).toBe("kpi");
+    expect(next.board[0].id).toBe("burn");   // spec C: burn is catalogue-first
   });
 
   it("clamps a stored size outside the tile's limits, per axis", () => {
@@ -124,7 +125,17 @@ describe("reconcile", () => {
     const next = reconcile(stored);
     const kpi = next.board.find((t) => t.id === "kpi")!;
     expect(kpi.w).toBe(2);   // clamped up to minW
-    expect(kpi.h).toBe(3);   // legal, and therefore PRESERVED, not reset to the default 2
+    expect(kpi.h).toBe(3);   // legal (minH === maxH === 3), and therefore PRESERVED
+  });
+
+  // §585 fix round: `kpi`'s `minH` rose to 3 (`maxH` was already 3), so a stored
+  // height below that — reachable only from a build before the raise, since the
+  // resize menu itself now offers no lower value — is clamped up on load, same
+  // as any other out-of-range axis above.
+  it("clamps a stored kpi height below the new minH (3) up to it", () => {
+    const stored = { v: 1 as const, board: [{ id: "kpi" as const, w: 2 as const, h: 2 as const }], hidden: [] };
+    const next = reconcile(stored);
+    expect(next.board.find((t) => t.id === "kpi")!.h).toBe(3);
   });
 
   it("keeps a gateable tile in the layout rather than dropping it", () => {

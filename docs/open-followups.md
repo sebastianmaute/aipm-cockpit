@@ -796,8 +796,24 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§571](#571-the-chart-box-clamps-boundary-width-has-no-test--open) | The chart-box clamp's boundary width has no test — OPEN | found 2026-09-18 by mutation-testing `anchorFor`, `>` to `>=`, suite stayed green; GitLab #356 | XS — add a case at `rect.width === 352` | open |
 | [§572](#572-agentsmds-tsc-guidance-cannot-detect-a-vacuous-run--open) | AGENTS.md's tsc guidance cannot detect a vacuous run — OPEN | measured 2026-09-18 on this branch: a corrupt generated file hides a real `src/` error from `tsc`; GitLab #357 | S — amend the Commands block's `npx tsc --noEmit` guidance | open |
 | [§573](#573-the-open-points-visual-baseline-is-stale--open) | The Open Points visual baseline is stale — OPEN | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | open |
+| [§574](#574-load-project-from-file-throws-in-firefoxsafari-and-blames-settings-instead-of-the-browser--open) | "Load project from file" throws in Firefox/Safari and blames Settings instead of the browser — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #359 | S — gate the CTA behind `isFileSystemAccessSupported()`, or have `reportProjectError` emit the specific message | open |
+| [§575](#575-ai-assistant-chat-history-re-sends-every-earlier-turns-attachments-so-a-long-thread-can-exceed-the-messages-apis-32-mb-request-limit--open) | AI Assistant chat history re-sends every earlier turn's attachments, so a long thread can exceed the Messages API's 32 MB request limit — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #360 | M — drop/summarize older attachment blocks before send, or track running payload bytes | open |
+| [§576](#576-sanitizefxrates-reorders-its-rates-object-on-a-second-decode-so-an-fx-snapshot-is-not-byte-stable-through-a-json-round-trip--open) | sanitizeFxRates reorders its rates object on a second decode, so an FX snapshot is not byte-stable through a JSON round-trip — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), found + verified during Task 9; GitLab #361 | S — iterate `SUPPORTED_CURRENCIES` unconditionally instead of conditionally inserting present keys | open |
+| [§577](#577-the-budgetvariance-insight-compares-full-window-budget-against-to-date-actuals-so-open-buckets-with-future-months-are-flagged-and-an-unstarted-bucket-can-read-100-and-win-worst--open) | The budgetVariance insight compares full-window budget against to-date actuals, so open buckets with future months are flagged and an unstarted bucket can read 100% and win "worst" — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), found + verified against sample-workspace-small.json during Task 9; GitLab #362 | M — scope budgetHours to periods to-date, and/or exclude unstarted buckets from "worst" | open |
 | [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open) | Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN | audit (2026-09) | M | open |
 | [§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--open) | An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap — OPEN | audit (2026-09) | S | open |
+| [§580](#580-dashboardmodelburn-and-forecast-have-no-reader-outside-dashboardts--closed-2026-09-18) | `DashboardModel.burn` and `forecast` have no reader outside `dashboard.ts` — CLOSED 2026-09-18 | found 2026-09-18 auditing the dashboard model after spec C removed `ForecastHeadline`; GitLab #365 | S — delete the dead field(s) or give them a reader | closed |
+| [§581](#581-the-kpi-strips-lggrid-cols-5-leaves-a-gap-when-only-one-of-spicpi-shows--closed-2026-09-19) | The KPI strip's `lg:grid-cols-5` leaves a gap when only one of SPI/CPI shows — CLOSED 2026-09-19 | found 2026-09-18 reading `dashboard-kpi-strip.tsx`'s `cols` ternary; not eye-checked; GitLab #366 | XS — branch the class on the real tile count, not the OR | closed |
+| [§582](#582-the-next-actions-heros-open-cta-renders-and-does-nothing-without-onopenaction--closed-2026-09-19) | The Next-actions hero's Open CTA renders and does nothing without `onOpenAction` — CLOSED 2026-09-19 | found 2026-09-18 reading `action-hero-card.tsx`/`action-cta-controls.tsx`; latent, every production caller passes it; GitLab #367 | S — hide the CTA when the handler is absent, or make the prop required | closed |
+| [§583](#583-budget-historypropertytestts-flaked-once-in-ci-under-an-unseeded-fast-check-run--closed-2026-09-19) | `budget-history.property.test.ts` flaked once in CI under an unseeded fast-check run — CLOSED 2026-09-19 | one failure in CI pipeline 7251's unit-tests job on the spec-B release branch, cleared by retry; root cause confirmed 2026-09-19; GitLab #368 | S — capture a counterexample at high `numRuns`, then fix the tolerance or the summation | closed |
+| [§584](#584-two-next-actions-hero-tests-are-weaker-than-they-look--closed-2026-09-18) | Two Next-actions hero tests are weaker than they look — CLOSED 2026-09-18 | found 2026-09-18 reading `actions-panel.test.tsx`, `dashboard-panel-layout.test.tsx` and `next-actions/group.test.ts`; GitLab #369 | S — add a monitor-topped fixture and a visible-text uniqueness assertion | closed |
+| [§585](#585-on-xl-the-kpi-tile-lands-below-the-2x8-burn-tile-not-beside-it--closed-2026-09-19) | On `xl` the KPI tile lands below the 2x8 burn tile, not beside it — CLOSED 2026-09-19 | accepted during spec C; measured 2026-09-18 against `DASHBOARD_TILES`/`xl:grid-cols-4`; GitLab #370 | S — revisit the burn tile's default width or the tile order | closed |
+| [§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19) | A startup autosave saves the empty workspace over the stored project before the first load lands — CLOSED 2026-09-19 | found 2026-09-19 by the startup-autosave probe; filed and fixed on fix/startup-autosave-wipe; GitLab #371 | S — gate every save to the active backend on a successful load | closed |
+| [§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19) | Changing the Turso URL or token, or the SharePoint target, saves the open project into the new target — CLOSED 2026-09-19 | found 2026-09-19 by the rebuild follow-up probe; filed already closed, fixed by the §586 change on fix/startup-autosave-wipe | S — the §586 gate, kept shut after an empty-load refusal | closed |
+| [§588](#588-a-reload-or-file-pick-still-running-from-before-a-backend-rebuild-can-shut-the-new-backends-save-gate-and-nothing-says-so--open) | A reload or file pick still running from before a backend rebuild can shut the new backend's save gate, and nothing says so — OPEN | §586 cold review (M3), read from code; GitLab #372 | S — drop results that belong to a superseded backend | open |
+| [§589](#589-an-edit-made-less-than-500-ms-before-a-backend-rebuild-is-dropped--open) | An edit made less than 500 ms before a backend rebuild is dropped — OPEN | §586 cold review (M5), read from code, pre-existing; GitLab #373 | S — flush the pending save to the old backend on a backend change | open |
+| [§590](#590-pick-storage-file-after-a-failed-load-writes-the-empty-workspace-into-the-chosen-file--open) | Pick storage file after a failed load writes the empty workspace into the chosen file — OPEN | §586 round-1 concern 6 (implementer), read from code; the cold review kept Pick ungated; GitLab #374 | S — refuse or confirm when the picked file already holds data | open |
+| [§591](#591-after-a-turso-urltoken-or-sharepoint-target-change-the-previous-projects-activity-log-and-budget-history-are-merged-into-the-new-target--open) | After a Turso URL/token or SharePoint target change, the previous project's activity log and budget history are merged into the new target — OPEN | §586 whole-branch review (I1), read from code, pre-existing; GitLab #375 | M — decide how a load tells a refresh of the same project from a new target | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -33111,7 +33127,7 @@ makes it eight and no gate will say so. Re-derive rather than trusting this para
 read the hits.
 
 **2. The 120px row unit.** `ArrangementGrid` is given `rowClass="auto-rows-[120px]"` here against
-the Dashboard's 80px, because `BlockSpan` caps at 4 and 4 × 80px would put a whole embedded report
+the Dashboard's 80px, because `REPORT_BLOCKS` caps every block's height at 4 and 4 × 80px would put a whole embedded report
 panel in a 320px box. Verify that an embedded report at `h: 4` is actually usable at 120px — this is
 the number the whole grid's vertical rhythm rides on, and nothing but an eye can price it.
 ★ The class is a WHOLE LITERAL STRING for Tailwind's scanner; the unit test asserting it is the only
@@ -39269,6 +39285,139 @@ Fix shape: after eye-checking the new Open Points screenshot against the real vi
 baseline with `npx playwright test e2e/visual.spec.ts --project=visual -g "Open Points" --update-snapshots`
 (on win32, since baselines are per-platform).
 
+## 574. "Load project from file" throws in Firefox/Safari and blames Settings instead of the browser — OPEN
+
+**Status:** OPEN 2026-09-18 — established by reading `fs-access.ts`, `use-storage-file-ops.ts` and
+`i18n.ts`; never machine-verified (no headless Firefox/Safari run in this session — the bundled
+Playwright browsers here are Chromium-family only). Verified by code reading:
+`grep -n "pickOpenFileAny\|isFileSystemAccessSupported" src/app/fs-access.ts src/app/use-storage-file-ops.ts src/app/storage-config.tsx`.
+
+**Work item:** #359
+
+`fs-access.ts`'s `pickOpenFileAny` (used by the "Load project from file" empty-state / header CTA, via
+`use-storage-file-ops.ts`'s `loadProjectFromFile`) throws `StorageNotReadyError` with hint
+`file-system-access-unsupported` whenever `showOpenFilePicker` is not on `window` — i.e. on Firefox and
+Safari, which do not implement the File System Access API. That much is a known, accepted platform
+limitation: `storage-config.tsx`'s Settings panel already checks `isFileSystemAccessSupported()` and
+shows a dedicated `storageFsaUnsupported` hint there instead of letting the picker throw.
+
+The gap: `loadProjectFromFile`'s call site is not gated the same way. It calls `pickOpenFileAny()`
+unconditionally, the throw is caught by the generic `reportProjectError` handler, and because the hint
+is `file-system-access-unsupported` (not the more specific `local-file-permission-needed`),
+`reportProjectError` maps it to the generic `storageNotReady` toast: "Storage isn't configured yet —
+pick a file in Settings." On Firefox/Safari, following that instruction into Settings still fails the
+same way (Settings correctly explains FSA is unsupported there, but only once the user has already been
+told the wrong thing once). So the user-visible defect is not merely "throws" — it is a toast that
+misdiagnoses a browser-capability gap as a configuration problem and sends the user on a detour before
+they learn the real reason.
+
+Fix shape: either gate the "Load project from file" CTA behind `isFileSystemAccessSupported()` (hide or
+disable it, matching Settings' treatment), or have `reportProjectError` recognize the
+`file-system-access-unsupported` hint specifically and emit the same `storageFsaUnsupported` message
+Settings already has, instead of falling through to the generic `storageNotReady` text.
+
+## 575. AI Assistant chat history re-sends every earlier turn's attachments, so a long thread can exceed the Messages API's 32 MB request limit — OPEN
+
+**Status:** OPEN 2026-09-18 — established by reading `chat-panel.tsx`'s `submitPrompt` and
+`chat-attachments.ts`; never machine-verified end-to-end (would need a live multi-turn send against the
+real Anthropic API with several large attachments to observe the 413 — not attempted). Verified by code
+reading: `grep -n "MAX_STAGED_PAYLOAD_BYTES" src/app/chat-attachments.ts src/app/chat-panel.tsx`.
+
+**Work item:** #360
+
+`chat-attachments.ts`'s `MAX_STAGED_PAYLOAD_BYTES` (30 MB) caps a single outgoing message's staged
+attachment payload via `planStaging`, leaving headroom under the Messages API's real 32 MB body limit —
+the constant's own doc comment says so explicitly, and adds: "Earlier turns' attachments re-sent in
+history are NOT counted here." That is exactly the gap: `chat-panel.tsx`'s `submitPrompt` builds the
+outgoing user turn's `content` from the freshly staged `attachments` (correctly capped), but then pushes
+that turn onto `history` permanently — the attachment content blocks are embedded straight into the
+persisted `ApiMessage`. Every subsequent `submitPrompt` call sends `messages = newHistory.slice()`, i.e.
+the entire accumulated history, including every prior turn's attachment blocks, as the request body.
+`stripAttachmentsForPersistence` (`chat-threads.ts`) only strips attachment bytes when a thread is
+written to Turso for storage — it is never applied to the in-memory `history` that is actually sent to
+the API mid-session.
+
+So a thread with, say, three turns each carrying a 12 MB attachment (each individually well under the
+30 MB per-message cap) sends a fourth turn's request with roughly 36 MB of attachment payload plus
+prompt/system/history overhead — over the Messages API's 32 MB limit, which the source comment names
+directly. The failure mode is a 413 that (depending on how the send-turn loop handles a non-2xx
+response) likely surfaces as a generic send failure with no indication that the cause is accumulated
+history, not the message just typed.
+
+Fix shape: either drop or summarize attachment blocks from turns beyond some recency window before
+building the outgoing `messages` array (mirroring what `stripAttachmentsForPersistence` already does for
+storage, but applied to the wire path too), or track running payload bytes across `history` and
+warn/block before a send would exceed budget.
+
+## 576. sanitizeFxRates reorders its rates object on a second decode, so an FX snapshot is not byte-stable through a JSON round-trip — OPEN
+
+**Status:** OPEN 2026-09-18 — reproduced with `npx vite-node` against a throwaway script (not
+committed); byte-stability impact confirmed as observed, not merely theoretical, by Task 7 of this same
+plan, whose golden-workspace round-trip fixture broke until the sample master's FX rates listed EUR
+first. Verified by code reading: `grep -n "SUPPORTED_CURRENCIES" src/app/sanitize-entities.ts src/app/types.ts`.
+
+**Work item:** #361
+
+`sanitize-entities.ts`'s `fxRatesWithDateReader` (backing both `sanitizeFxRates` and
+`sanitizeLoadedFxRates`) builds the `rates` record by iterating `SUPPORTED_CURRENCIES` (declared as
+`["EUR", "USD", "GBP"]` in `types.ts`) and only inserting a key when the input object already carries
+it, then unconditionally sets `rates.EUR = 1` after the loop. On a first decode of an input that lacks
+an explicit `EUR` entry (e.g. the ECB fetch only ever returns non-EUR rates, since EUR is the base),
+`EUR` is a brand-new key and JS object insertion order places it last: `{USD, GBP, EUR}`. Feed that same
+object back through the sanitizer (as happens on any load→decode round trip, e.g. a JSON file
+save/reload) and this time `EUR` is already present in the input, so the `SUPPORTED_CURRENCIES` loop
+inserts it first (matching the array's declared order), and the trailing `rates.EUR = 1` only reassigns
+the existing key's value without moving it: `{EUR, USD, GBP}`.
+
+This is a real, code-confirmed defect, not merely a suspicion — reproduced twice with two different
+staged input shapes. Severity is limited: `FxRates.rates` is a plain record consumed by property name
+everywhere it's read (`fx.ts`, budget engines), so functional behavior is unaffected by key order. The
+risk is confined to anything that treats the JSON serialization as stable — most notably the
+byte-stable serializer discipline this repo enforces elsewhere (`golden-workspace.test`). Task 7 of this
+same plan confirmed the impact is not hypothetical: the golden-workspace round-trip fixture broke until
+`sample-workspace-small.json`'s FX rates master listed EUR first, i.e. this defect already forced a
+workaround in the sample data rather than a fix in the sanitizer.
+
+Fix shape: build `rates` by iterating `SUPPORTED_CURRENCIES` unconditionally (assign every currency its
+value-or-default in one pass, including EUR at its natural array position) rather than conditionally
+inserting only currencies present in the input and patching EUR on afterward — that makes key order a
+function of `SUPPORTED_CURRENCIES` alone, independent of what the input happened to contain.
+
+## 577. The budgetVariance insight compares full-window budget against to-date actuals, so open buckets with future months are flagged and an unstarted bucket can read 100% and win "worst" — OPEN
+
+**Status:** OPEN 2026-09-18 — reproduced against the real `sample-workspace-small.json` with
+`npx vite-node` (throwaway script, not committed) calling `computeBudgetReport` and `detectInsights`
+directly. Verified by code reading: `grep -n "budgetVarianceInsight\|BUDGET_VARIANCE_PCT" src/app/insights/detect.ts`.
+
+**Work item:** #362
+
+`insights/detect.ts`'s `budgetVarianceInsight` calls `computeBudgetReport` (`budget-report.ts`) and, per
+bucket, compares `b.actualHours` against `b.budgetHours`, flagging when
+`|actualHours − budgetHours| / budgetHours * 100 >= BUDGET_VARIANCE_PCT` (10%). Inside
+`computeBucketReport`, `budgetHours` is accumulated over every active period in the bucket's whole
+window (`bucketActivePeriods`), including months that have not happened yet, while `actualHours` is
+summed only from hours actually booked to date. For any open bucket whose window extends into the
+future — which is the ordinary, expected shape of an in-progress budget bucket — this compares an
+apples (full-window plan) figure against an oranges (elapsed-to-date actual) figure, so the "variance"
+is really just "how much of the plan hasn't happened yet," not a real overrun/underrun signal. An
+unstarted bucket (0 actual hours against a nonzero full-window budget) necessarily reads exactly 100%
+variance and, because `budgetVarianceInsight` tracks the single highest-`pct` bucket as `worstName`, an
+untouched bucket routinely wins "worst" over buckets that are actually over budget.
+
+Reproduced against the real `sample-workspace-small.json` (as of 2026-09-18, today = 2026-09-18): 6 of
+the workspace's 7 budget buckets breach the 10% threshold, including both closed buckets sitting
+right at/near the line and both genuinely-over-budget open buckets — but the flagged "worst" bucket is
+"Advisory Retainer (blended)", an open bucket with 0 actual hours and 324 full-window budget hours
+(100.0% variance), beating an actually-overspent bucket ("Capped SOW (rate override)", 83.5% variance,
+real overspend signal) for the "worst" slot.
+
+Fix shape: either (1) scope `budgetHours` to periods up to `today` (elapsed-to-date budget) rather than
+the whole bucket window, so the comparison is like-for-like, or (2) exclude buckets with no actual hours
+booked yet from the "worst" ranking (an unstarted bucket has no variance to report, it simply hasn't
+started), or (3) both — compare to-date budget vs to-date actual for the breach test, and separately
+surface "unstarted with an approaching/passed budget window" as its own, differently worded signal if
+that is still worth flagging.
+
 ## 578. Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN
 
 **Status:** OPEN 2026-09-18 — this entry lists the hits of §558's widened sweep that fall outside the
@@ -39342,3 +39491,423 @@ the same reason (a 58 KB input rendered 8 MB before that cap existed). Reusing t
 the two extractors consistent.
 
 Related: [§558](#558-the-three-ooxml-extractors-were-quadratic-on-repetitive-unclosed-markup--closed-2026-09-18) (the per-row cap).
+
+## 580. `DashboardModel.burn` and `forecast` have no reader outside `dashboard.ts` — CLOSED 2026-09-18
+
+**Status:** CLOSED 2026-09-18 on `docs/spec-c-dashboard-rework`, taking the first fix-shape option below:
+`DashboardBurn`/`burn` are deleted outright (the type, the per-build computation and the model field), and
+`forecast` is now a `computeDashboard`-local `const` that feeds `budgetBucketStatus` alone — never exported
+on `DashboardModel`. `forecastBundle` (and `forecastBundle.eur`, the same value `forecast` always was) is
+unchanged and still the model's one exported forecast surface. The two `dashboard.test.ts` assertions this
+entry names were migrated (`m.forecast` → `m.forecastBundle!.eur`/`m.forecastBundle`) or dropped where the
+removed field was the only source (`m.burn!.budgetHours`, `m.forecast === m.forecastBundle!.eur`) — the
+Budget RAG's own assertions (`m.budget.computed`/`.effective`) are byte-identical. Verified with
+`npx vitest run src/app/dashboard.test.ts` (62/62 passed) and a mutation check that nulled the local
+`forecast` const and watched the pace-VAC RAG tests go red before reverting. Reproduce the "no outside
+reader" premise itself with the same two greps this entry was filed from — they still return nothing/only
+unrelated fields, which is now expected since the fields are gone rather than merely unread.
+
+Since spec C removed `ForecastHeadline` and gave the burn tile only the chart (`dashboard-tile-bodies.tsx`
+passes `model.burndown` to it, never `model.burn`), `DashboardModel.burn` (`dashboard.ts`) is read by nothing
+outside `dashboard.test.ts`'s own assertions (`expect(m.burn).toBeNull()`;
+`expect(m.forecastBundle!.hours.facts.bac).toBe(m.burn!.budgetHours)`). It is computed on every dashboard
+build, exported on the model, and consumed nowhere in production.
+
+`forecast` fares slightly better: `dashboard.ts` reads it once, internally, to feed `paceVacHealth` into
+`budgetBucketStatus` — the Budget RAG's pace-VAC input, and the "apart from the Budget RAG" exception the
+field was kept for. Outside `dashboard.ts` nothing reads `model.forecast`; the surfaces that do consume a
+forecast (Trends, the AI snapshot, the budget panel) all go through `forecastBundle`
+(`forecastBundle.eur === forecast`), not the top-level field.
+
+Both fields were kept deliberately — spec C's ground rule was "no computation changes" — so this is filed
+rather than fixed.
+
+Fix shape: delete `burn` from `DashboardModel` (updating or dropping the two `dashboard.test.ts` assertions),
+stop exporting `forecast` as a top-level model field and compute it as a local inside `dashboard.ts` for
+`budgetBucketStatus` alone, or give either field a real external reader.
+
+## 581. The KPI strip's `lg:grid-cols-5` leaves a gap when only one of SPI/CPI shows — CLOSED 2026-09-19
+
+**Status:** CLOSED 2026-09-19 on `docs/spec-c-dashboard-rework`, with §585. `DashboardKpiStrip` now counts its
+visible cells (3 + SPI + CPI) and takes the grid classes from `KPI_STRIP_COLS`, one whole literal string per
+count, as Tailwind CONTAINER queries off the strip's own `@container` wrapper, so they size to the tile (half
+width on xl since §585) rather than the viewport: 3 → one row; 4 → 2 × 2, then one row; 5 → 3 + 2 on a
+six-track grid (a full second row), then one row. Breakpoints come from measured label widths (DE's
+`evmSpi`/`evmCpi` are the widest), derived on the constant. Verified with
+`npx vitest run src/app/dashboard-sections/dashboard-kpi-strip.test.tsx` (per-count class tests; a mutant
+restoring the OR turned the 4-cell test red) and a Chromium probe at 1100/1280/1600/1920px viewports showing no
+label wrap and no empty cell for 3, 4 and 5 cells.
+
+`cols` is `showSpi || showCpi ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-3"` — an OR, not "both".
+`showSpi`/`showCpi` are independently gated on `model.evm.spi`/`model.evm.cpi` being non-null (spec C
+decision 8: each index shows whenever it alone has data, never gated on the other or on the Budget module).
+So when exactly one of them is non-null, the strip renders four tiles (Complete, Overdue, Open RAID, plus the
+one index) inside a five-column grid at `lg`, leaving the fifth cell empty. At `sm` the grid is always three
+columns regardless of tile count, so four or five tiles wrap into a second, partially-filled row.
+
+Cosmetic, and per the same spec C decision, most likely on early-stage projects where only Schedule or only
+Budget has enough data yet to derive its index — not the common case, but not rare either.
+
+Fix shape: branch the class on the actual tile count rather than the OR, e.g. `showSpi && showCpi ?
+"sm:grid-cols-3 lg:grid-cols-5" : (showSpi || showCpi) ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"`.
+The class must stay a whole literal string — an interpolated Tailwind class emits no CSS, per the comment
+already in the file.
+
+## 582. The Next-actions hero's Open CTA renders and does nothing without `onOpenAction` — CLOSED 2026-09-19
+
+**Status:** CLOSED 2026-09-19 on `docs/spec-c-dashboard-rework`, taking the "hide the CTA" fix shape
+below (the prop stays optional, since popouts and read-only callers legitimately omit it).
+`ActionHandlers.onOpen` (`action-cta-controls.tsx`) is now optional; `ActionPrimaryCta` hides both the
+primary Open button and the ghost Open alongside a different primary whenever `handlers.onOpen` is
+absent, instead of always rendering one that no-ops on click. `dashboard-panel.tsx` no longer needs
+`NOOP_OPEN` — it forwards `onOpenAction` (still optional) straight to the hero. `action-row.tsx`'s
+row-click-to-open convenience is guarded (`props.onOpen?.(action)`) to satisfy the now-optional type;
+`ActionsPanel` still always wires a real handler there, so its rows are unchanged. TDD:
+`action-hero-card.test.tsx`'s new "hides the Open CTA when onOpen is absent, and shows it once wired"
+failed RED (10 passed, 1 failed) before the fix and passed GREEN after. Mutation check: reverted the
+`onOpenHandler ? … : null` guard back to an unconditional render (with `onOpenHandler?.(action)` in the
+click handler to keep it compiling) — the RED test above failed again (10 passed, 1 failed) — then
+restored the guard. Verified with `npx vitest run src/app/action-hero-card.test.tsx
+src/app/action-row.test.tsx src/app/actions-panel.test.tsx src/app/dashboard-panel-layout.test.tsx
+src/app/workspace-section.test.tsx` (136/136 passed), `npx tsc --noEmit` (0 errors) and
+`npx eslint --max-warnings=0` on the touched files (0 warnings). **Fix round 1 (2026-09-19):** the
+Dashboard's Top-actions tile (`dashboard-sections/dashboard-top-actions.tsx`) had the identical
+Open-does-nothing fallback (`onOpenAction ?? (() => {})`) for its `ActionRow` list; it now forwards
+`onOpenAction` through as-is so that tile's Open CTA hides the same way when the handler is absent —
+covered by a new RED/GREEN test in `dashboard-top-actions.test.tsx` and its own mutation check (4
+passed/1 failed with the fallback reinstated, 5/5 passed after reverting), verified with
+`npx vitest run src/app/dashboard-sections/dashboard-top-actions.test.tsx
+src/app/dashboard-panel-layout.test.tsx src/app/dashboard-panel.test.tsx src/app/action-row.test.tsx`
+(140/140 passed), `npx tsc --noEmit` (0 errors) and `npx eslint --max-warnings=0` on the two touched
+files (0 warnings). A repo-wide grep for `onOpen=` fallbacks of this shape found no other production
+call site — every other `onOpen={() => {}}` hit is in a test file.
+
+`ActionHandlers.onOpen` (`action-cta-controls.tsx`) is non-optional, and `pickPrimaryCta`/`overflowCtas`
+(`next-actions/action-cta.ts`) always offer `"open"` as the always-available fallback verb, so
+`ActionHeroCard`'s primary CTA — or its ghost Open button when a different verb is primary — is always
+rendered and always clickable. `dashboard-panel.tsx` protects the optional `onOpenAction` prop with a local
+`NOOP_OPEN` fallback (`onOpen={onOpenAction ?? NOOP_OPEN}`) rather than hiding the control, so a caller that
+omits `onOpenAction` gets a button that renders, looks live, and silently no-ops on click.
+
+Every production caller passes it today: `workspace-section.tsx`'s single `<DashboardPanel>` call site
+forwards its own `onOpenAction` prop unconditionally, and `task-manager.tsx` wires that prop to `openAction`
+unconditionally — unlike several sibling props on the same object, it is not gated on `isPopout`. So the gap
+is latent, not live.
+
+Fix shape: hide the "open" CTA (and the ghost Open button) in `action-cta-controls.tsx` when
+`handlers.onOpen` is falsy, or drop `NOOP_OPEN` and make `onOpenAction` a required prop on `DashboardPanel`
+so a future caller cannot omit it silently.
+
+## 583. `budget-history.property.test.ts` flaked once in CI under an unseeded fast-check run — CLOSED 2026-09-19
+
+**Status:** CLOSED 2026-09-19 — root cause found and fixed on `docs/spec-c-dashboard-rework`; sharpened in
+fix round 1 after review. Reproduced by running `npx vitest run src/app/budget-history.property.test.ts -t
+"unattributed is 0"` five times with no explicit seed (unseeded, so each run drew its own); the third run
+failed at `seed -1591760474` after 39378 property runs, with `Counterexample:
+[0,[0.000001,1.0587911840678754e-22,0.0000018680146407231636,0],0]`.
+
+Root cause, confirmed against the counterexample: NOT accumulated floating-point error against large
+magnitudes (the counterexample's values are all ~1e-6, nowhere near the 1e7 ceiling the original hypothesis
+suspected). `recordBudgetChange` drops a step as a no-op when its move is below `BAC_EPSILON`
+(`Math.abs(dh) < BAC_EPSILON && Math.abs(dv) < BAC_EPSILON`) — an intentional sub-epsilon noise filter, not
+an engine defect, confirmed by review. The PRODUCTION writer, `commitBuckets` (`use-budget-buckets.ts`,
+`before = projectBac(prev)`), recomputes `before`/`after` from the live bucket state on every commit rather
+than from the last RECORDED entry; the test's `buildHistory` mirrors that exactly (its own `prev` advances
+past a dropped step the same way). So the next recorded entry's `before` is the dropped step's true (tiny)
+value, not the previous recorded entry's `after`, and the recorded delta chain omits exactly the dropped
+transition's own delta — bounded by `BAC_EPSILON` by construction (that bound is why it was droppable) but
+not exactly zero. That dropped delta surfaces later as unattributed variance, same as undo/version-restore
+bypassing this write path entirely (documented in the file header, now also on `recordBudgetChange` itself).
+
+Fix: `budget-history.property.test.ts`'s "unattributed is close to 0…" property now sizes its slack to the
+drops actually observed in that run — `droppedCount = steps.length - (history.length - 1)` — and asserts
+`Math.abs(split.unattributed) <= (droppedCount + 1) * BAC_EPSILON` (one extra `BAC_EPSILON` of headroom for
+ordinary floating summation noise on top), replacing the round-1 fix's `steps.length * BAC_EPSILON`
+worst-case bound. The captured counterexample is pinned as an explicit MECHANISM regression (history has
+baseline + 3 recorded, i.e. `steps[1]` was dropped; `split.unattributed` equals the dropped move
+`steps[1] - steps[0]` to 12 decimal places), not just the widened bound. Verified stable: 3 further runs of
+200000 `numRuns` each (600000 total) against both the droppedCount-based property bound and the original
+round-1 bound, all green; two mutation checks — reverting the regression's tolerance to a flat `1e-6` (round
+1) and temporarily disabling the `BAC_EPSILON` skip in `recordBudgetChange` itself so the sub-ε move gets
+recorded (round-1-fix round, a production mutant) — both turned the regression red, then were reverted;
+`git diff --stat` clean apart from this file and the two source files each round touched.
+
+## 584. Two Next-actions hero tests are weaker than they look — CLOSED 2026-09-18
+
+**Status:** CLOSED 2026-09-18 on `docs/spec-c-dashboard-rework`. (a) Added a discriminating fixture to
+`actions-panel.test.tsx` and `workspace-section.test.tsx`: a group list where the TOP-SCORED group is
+`monitor` tier and a lower-scored group is not (built with explicit `score` overrides, since `mk`'s own
+table always puts `now` on top and can't reach this case). `pickHeroGroup` correctly returns null for
+that fixture (it never looks past a monitor-tier top group), so both tests assert no hero renders /
+`heroGroup` is null. Mutation check: swapped `pickHeroGroup(groups)` for `groups[0]` in
+`actions-panel.tsx` and `pickHeroGroup(nextActionGroups)` for `nextActionGroups[0] ?? null` in
+`workspace-section.tsx` — both new tests (and two pre-existing ones) went red (5 failed, 51 passed) —
+then reverted both. (b) `dashboard-panel-layout.test.tsx`'s "keeps the hero's action in the Top actions
+tile too, with names that never collide" test now also asserts on VISIBLE text (`getByText`, not
+`aria-label`): one "Open" occurrence inside `tile-topActions` and one inside the hero region, plus a
+`screen.getAllByText(...)` count of exactly 2. Mutation check: temporarily blanked the hero's (prominent)
+Open button's visible text while leaving its `aria-label` intact — the pre-existing aria-label-only
+assertions in that test stayed green in isolation, but the new visible-text assertion failed (confirmed
+via the printed DOM: `Unable to find an element with the text: Open` inside the hero `<section>`) — then
+reverted. Verified with `npx vitest run src/app/action-hero-card.test.tsx src/app/action-row.test.tsx
+src/app/actions-panel.test.tsx src/app/dashboard-panel-layout.test.tsx src/app/workspace-section.test.tsx
+src/app/next-actions/group.test.ts src/app/action-chips.test.tsx` (143/143 passed), `npx tsc --noEmit`
+(0 errors) and `npx eslint --max-warnings=0` on the touched files (0 warnings).
+
+(a) `actions-panel.test.tsx`'s "promotes exactly the group `pickHeroGroup` picks, so the Dashboard's hero
+cannot differ" test (describe block "ActionsPanel — fed grouped data from above (spec C)") builds its
+fixture with `mk("low", "monitor")`, `mk("mid", "soon")`, `mk("top", "now")` — `mk`'s own score table (`now`
+60, `soon` 30, `monitor` 10) puts the `now` action on top every time. `pickHeroGroup` (`next-actions/group.ts`)
+refuses to promote past a monitor-tier TOP group even when a lower non-monitor group exists (`top &&
+top.tier !== "monitor" ? top : null`) — a naive "first non-monitor" rule would instead fall through to that
+lower group. With the top group always `now`, both rules agree, so this test (and
+`workspace-section.test.tsx`'s matching "hands the dashboard `pickHeroGroup`'s choice" test, same top-tier
+shape) cannot tell them apart. The pure function itself IS correctly pinned for the distinguishing case —
+`next-actions/group.test.ts`'s "never reaches past a monitor-tier top group for a lower Now one" — so the gap
+is only at this wiring/integration level, not in engine coverage.
+
+(b) `dashboard-panel-layout.test.tsx`'s "keeps the hero's action in the Top actions tile too, with names that
+never collide" test collects `screen.getAllByRole("button")`, maps each to `getAttribute("aria-label")`, and
+asserts the resulting set is collision-free — it never compares the buttons' or tiles' visible text, so a
+regression that left two buttons' visible labels identical while their `aria-label`s stayed disambiguated
+would pass unnoticed.
+
+Fix shape: (a) add a fixture where the first (top-ranked) group is `monitor` and a lower group is not, at the
+`actions-panel.test.tsx`/`workspace-section.test.tsx` wiring level. (b) add an assertion on visible text
+(e.g. via `textContent` or a non-aria-label query) alongside the existing `aria-label` uniqueness check.
+
+## 585. On `xl` the KPI tile lands below the 2x8 burn tile, not beside it — CLOSED 2026-09-19
+
+**Status:** CLOSED 2026-09-19 on `docs/spec-c-dashboard-rework`, with §581. The KPI tile's catalogue default in
+`DASHBOARD_TILES` is now `w: 2 h: 3` (`minW: 2`, `maxH: 3` unchanged), so on xl dense packing puts it in columns
+3–4 beside burn, and a strip that wraps to two rows at half width stays inside the tile body with no inner
+scroll. Compact density pads the strip with the new `DensityClasses.kpiPad` (`px-2 py-0`): with `cardPad`'s
+vertical padding a wrapped 4-cell strip overflowed its body by 3px at the 72px row unit. Stored layouts: the ONE
+existing upgrade, `upgradeDashboardLayout` (still keyed on `DASHBOARD_BURN_UPGRADE`; the branch is unreleased),
+also resizes a stored `kpi` block, each axis only from exactly its old default (`w: 4` → 2, `h: 2` → 3), only
+when it moves burn to the front, and never a user-chosen size. Verified with
+`npx vitest run src/app/dashboard-layout-upgrade.test.ts` (mutants dropping either axis went red) and
+`npx playwright test e2e/dashboard-grid.spec.ts --project=chromium --workers=1`: KPI right of burn with
+overlapping vertical ranges (red against `w: 4`), and at a 1280px viewport a seeded 4- and 5-cell strip, in both
+densities, ends inside the tile body with nothing to scroll (all four red against `h: 2`).
+**Fix round (2026-09-19):** `kpi`'s `minH` raised from 2 to 3 in `DASHBOARD_TILES`, so with `maxH` already 3
+its height is effectively fixed — a user can no longer shrink it back to h:2 and reopen the inner-scroll gap
+this entry exists to close. `reconcile` already clamps a stored size per axis, so a layout below the new
+floor (from a build before this raise) is lifted to 3 on the next load — the resize menu itself renders no
+height chooser at all for the tile once `min === max` (`arrangement-block-menu.tsx`'s existing `lo === hi`
+branch), so shrinking it in the UI is not merely refused but not offered. Covered by new tests: `reconcile`
+clamps a stored kpi h:2 up to 3 (`dashboard-layout.test.ts`) and `DashboardTileMenu` renders "Fixed at 3" with
+no height radiogroup for `kpi` (`dashboard-grid.test.tsx`); both went red against the pre-raise `minH: 2` and
+green after. Verified with `npx vitest run src/app/dashboard-layout.test.ts src/app/dashboard-grid.test.tsx`
+(41/41 passed) and the same e2e spec (11/11 passed) — the dense-packing and width-span specs seed a stored
+`kpi` at h:2, which the raised `minH` now clamps to h:3 on load, unaffected by width-driven assertions.
+
+Spec C's layout sketch (`docs/superpowers/specs/2026-09-17-dashboard-layout-rework-design.md`) puts the KPI
+tile beside the burn tile. `DASHBOARD_TILES` (`dashboard-tiles.ts`) places `burn` first at `w: 2 h: 8`, and
+`DEFAULT_LAYOUT`/`upgradeDashboardLayout` (`dashboard-layout.ts`/`dashboard-layout-upgrade.ts`) place a fresh
+board — and, via `DASHBOARD_BURN_UPGRADE`, migrate an existing stored board — into that catalogue order. The
+arrangeable grid is `xl:grid-cols-4` (`arrangement-layout.ts`), so at `xl` an 8-row-tall, 2-wide burn tile
+occupies the first two columns for all 8 rows; the KPI tile (`w: 4`) needs the full row width and cannot fit
+in the remaining two columns beside it, so the packer places it below the burn tile instead. On a short
+viewport its figures can drop below the fold.
+
+Accepted during spec C: the row-2 Overall status card already answers "how is the project doing", so KPI
+landing lower was judged an acceptable trade-off rather than a blocker. Revisit the burn tile's default width
+(e.g. narrower than 2, or a taller-but-narrower KPI companion) or the tile order after users try the shipped
+layout.
+
+Fix shape: none proposed yet — filing for revisit, not implementation.
+
+## 586. A startup autosave saves the empty workspace over the stored project before the first load lands — CLOSED 2026-09-19
+
+**Status:** CLOSED 2026-09-19 by `fix/startup-autosave-wipe` (`84185ece`), filed and fixed on the same branch; GitLab #371 is closed by the MR that merges it, not by this entry. `use-storage-backend.ts` now carries a save gate, `savesAllowedFor` (state + ref, keyed on backend IDENTITY like `loadedBackend`). It opens in exactly three places, and only the first is a load of that instance: `applyWorkspace` (an applied load of the load effect, `reloadCurrentProject`, and the switch/create/load-from-file ops); the load effect's suppress-branch RE-STAMP after such an op, whose memo instance is never loaded itself (the op loaded a sibling instance, built a fresh workspace, or converted the live one); and an explicit "Pick storage file" write. Three paths check it: the save effect (it schedules nothing while the gate is shut), `doSave` (the debounce timer and flush-on-hide both call it, and nothing else in `debounced-save.ts` reaches the save), and the pre-switch `flushCurrent`, which now skips rather than writing the unloaded workspace over the project being left. While the gate is shut because a load FAILED, or an empty load was refused over populated scope (§587), the hook publishes `loadPause` and task-manager mounts it on the sticky `SavingPausedBanner` (a `load` cause, primary action "Reload project") for as long as the pause holds; the first refused edit also shows an action toast that re-shows the banner. The empty-load case has its own wording, `storageSavePausedEmptyLoad`. While the gate is shut, a storage-kind switch goes ahead WITHOUT its conversion write: nothing is written, the new backend loads its own target, and `storageSwitchedWithoutCopy` says nothing was copied. Verified by `npx vitest run src/app/use-storage-backend.load-gate.test.tsx --maxWorkers=1` (the gate, the pause state and the kind switch) and, for the sticky banner, `npx vitest run src/app/task-manager.truncation-banner.test.tsx --maxWorkers=1`, describe "task-manager → load-pause banner mount": "mounts for %s with its own headline, and its primary action reloads", "dismiss hides the banner without resolving the pause, and the indicator brings it back" and "stops reporting storage as healthy while the load pause holds".
+
+At boot every workspace slice is empty, and the save effect runs on the same commit as the load
+effect because both key on `hydrated`. Nothing on the save path refused a save issued before the load
+landed. `evaluateSaveGuard` starts from 0/0 baselines, so it had nothing to compare against.
+`suppressNextSaveRef` is set only after a SUCCESSFUL load, and `workspaceLoaded` gated snapshot capture
+only. So the debounced save of the empty workspace fired unless the load won the 500 ms race. Hiding
+the tab during the load defeated even that race: flush-on-hide fired the save at once.
+
+**What was MEASURED vs what was READ.** A throwaway probe mounted the real hook over a fake backend on
+fake timers. It MEASURED three things. With a 2000 ms load, `save()` ran at 500 ms with every slice
+empty. With a 100 ms load, no save ran. With `visibilitychange` to hidden at 100 ms, the save ran at
+100 ms. Only the hook-level save was exercised. The per-backend damage was READ from the backends'
+code, never executed:
+- Turso single-DB: the backend's diff baseline is still `null`, so the save emits `DELETE FROM` for
+  every `TABLE_NAMES` table. Full wipe.
+- Turso tenant: the same diff, scoped `WHERE project_id = ?`, wipes the active project.
+- SharePoint: a full-file PUT of the empty workspace.
+- Local file: a rewrite with the empty workspace where write permission is already granted.
+  Otherwise the save throws `local-file-permission-needed`, which protects the file by accident.
+- IndexedDB: the keyed stores diff against empty baselines and are spared, but every key-value slice
+  is overwritten or deleted.
+
+**The fix, and how the gate relates to `workspaceLoaded`.** The gate opens wherever `loadedBackend` is
+stamped: in `applyWorkspace`, and at the suppress-branch re-stamp that follows a switch, create or
+load-from-file op. It also opens after an explicit "Pick storage file" write, since the backend then
+holds exactly the live workspace. That write is the only place where the gate and `workspaceLoaded`
+differ. Like `loadedBackend`
+([§77](#77-the-snapshot-capture-gate-is-a-one-way-latch-so-a-mid-session-storage-switch-can-still-capture-the-wrong-project--closed-post-02260)),
+it stays SHUT after an empty-load REFUSAL, for the reason given in
+[§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19).
+The effect-level check sits ABOVE the suppress branch, and `savesAllowed` is an effect dependency. So
+a project switch spends its one-shot suppress when the gate opens, not on the run where the gate is
+still shut. With the check below the suppress branch, the just-loaded workspace would be written back
+to the target.
+
+Open follow-ups found on the way: [§588](#588-a-reload-or-file-pick-still-running-from-before-a-backend-rebuild-can-shut-the-new-backends-save-gate-and-nothing-says-so--open), [§589](#589-an-edit-made-less-than-500-ms-before-a-backend-rebuild-is-dropped--open), [§590](#590-pick-storage-file-after-a-failed-load-writes-the-empty-workspace-into-the-chosen-file--open).
+
+★★ **The two checks mask each other, so a single-gate mutant proves little.** Removing either check
+alone leaves (a) and (b) green, and removing both turned (a) (b) (c) (e) (h) (i) red (measured on the ten-test file of `c360190f`). The `doSave` check
+cannot be the sole guard today, because a backend change re-runs the effect and cancels the pending
+save. It is there so that a future path which schedules without the effect's check still cannot write.
+
+## 587. Changing the Turso URL or token, or the SharePoint target, saves the open project into the new target — CLOSED 2026-09-19
+
+**Status:** CLOSED 2026-09-19 by `fix/startup-autosave-wipe`. It was filed already closed and fixed by the same change as [§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19): the save gate in `84185ece`, and `c360190f`, which keeps the gate shut after an empty-load refusal. Verified by `npx vitest run src/app/use-storage-backend.load-gate.test.tsx --maxWorkers=1`, tests (e), (h) and (j). ★ The fix stops the AUTOSAVE from writing the previous project into the new target. It does not stop a later applied load from MERGING the previous project's activity log and budget history into the new one, which the next save then writes there: see [§591](#591-after-a-turso-urltoken-or-sharepoint-target-change-the-previous-projects-activity-log-and-budget-history-are-merged-into-the-new-target--open), filed open.
+
+`useStorageBackend` memoises `backend` on `storageConfig` (by identity), `auth.acquireToken`, the Turso
+`databaseUrl` and `authToken`, and `tursoProjectId`. When one of them changes without going through a
+project op, both effects re-run on the new instance. Nothing suppresses the save. The destructive
+baselines equal the current populated counts, so `evaluateSaveGuard` allows it, and the save effect
+schedules a save of the PREVIOUS target's in-memory workspace to the NEW backend. Only a load that
+is applied within 500 ms cancels that save. A slow load, a failed load, or an empty load that the
+empty-load guard refuses all let the save through. On Turso the new instance's diff baseline is
+`null`, so the save is a full rewrite.
+
+**Measured vs read.** A follow-up probe drove the real hook with Turso settings. It loaded A, then
+re-rendered with a new `databaseUrl`, which returned backend B. It MEASURED three cases:
+- B populated, 2000 ms load: `B.save` received A's project at about 500 ms. B's load was then
+  applied on top, so the screen showed B while storage held A.
+- B populated, 100 ms load: no save.
+- B empty, 100 ms load: the refusal kept A on screen and left the save running, so `B.save`
+  received A's project.
+
+Which settings reach the rebuild was READ from code:
+- The Turso URL and token fields call `setSettings` on every keystroke.
+- A SharePoint target change creates a new `storageConfig` identity.
+- An `acquireToken` identity change (M365 sign-in or sign-out) rebuilds against the same target, so
+  the data written back is that target's own. On Turso that is still a full rewrite.
+
+**The fix.** It is the same gate as [§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19). A rebuilt instance fails the identity check until its own load is
+applied, so no automatic save reaches it before then. ★★★ The one addition is the empty-load refusal. It is
+reachable ONLY on such a rebuild: the load effect's `currentWorkspace` is the closure of the render
+that started it, so an empty FIRST load simply applies. The refusal therefore leaves the gate SHUT
+and marks the backend paused, where opening it would copy the previous project into the empty
+target. The pause is published as `loadPause` and stays on the sticky saving-paused banner, with its own
+wording (`storageSavePausedEmptyLoad`: the storage returned no data, the project on screen is kept
+but not written into it). Saving to that backend resumes only when one of the three openers in §586
+runs: an applied load (a reload that the user confirms, or a switch), an op's re-stamp, or a Pick
+storage file write.
+
+★ **Open file after a failed load leaves autosave paused, and that is the safe outcome.**
+`onOpenStorageFile` applies only the file's tasks and RAID, through raw setters rather than
+`applyWorkspace`, so it opens no gate; the banner keeps naming the load failure. Opening the gate
+there would have written the file back with every other slice empty, which is the §586 wipe in a
+smaller shape. The user reloads the project instead.
+
+★ **While the gate is shut, a storage-kind switch copies nothing.** Its conversion would copy the
+live workspace, which is then the empty boot one or the previous target's project, into the new kind.
+So `onRequestStorageSwitch` switches WITHOUT the conversion write and without its confirm dialog
+(both confirm texts describe a conversion): nothing is written anywhere, the new backend LOADS its own
+target (no `suppressNextLoadRef`), and the notice `storageSwitchedWithoutCopy` says nothing was copied
+because nothing had been loaded. The new backend then passes through the §586 gate like any other:
+no save until its own load is applied. After a successful load the switch converts exactly as
+before. ★ This replaced a first version that REFUSED the switch, which left a user whose storage
+never loads with no way to change storage kind.
+
+**Not affected, by design.**
+- A storage-KIND switch (`onRequestStorageSwitch`), once the current load has succeeded, writes the
+  live workspace to the new kind through `guardedWrite`, not the save effect. It then arms `suppressNextLoadRef`
+  (not `suppressNextSaveRef`). The re-stamp opens the gate, and the `savesAllowed` dependency re-runs
+  the effect. That produces the same one redundant post-switch save as before, with no edit needed;
+  test (j) pins it.
+- Pick storage file (`onPickStorageFile`) re-points the SAME instance at a new handle, so nothing is
+  rebuilt. Its write is the explicit "save the project here" the user asked for, and it goes through
+  `guardedWrite`.
+- Open file (`onOpenStorageFile`) also binds the same instance. It arms `suppressNextSaveRef` after
+  the bind and then applies the file, so the save that apply triggers is suppressed.
+- An M365 sign-in or sign-out changes the `acquireToken` identity. That rebuild targets the SAME
+  store, so it was a same-target rewrite, not a cross-target one. The gate covers it anyway.
+
+★ **Still open, and out of scope:** each keystroke in the Turso URL field still starts a `load()`
+against a partial URL. Those loads cannot save any more, but they still cost network requests and
+error toasts.
+
+## 588. A reload or file pick still running from before a backend rebuild can shut the new backend's save gate, and nothing says so — OPEN
+
+**Status:** OPEN 2026-09-19 — read from code in the §586 cold review (finding M3), not reproduced: the stall is never machine-verified. `reloadCurrentProject` and `onPickStorageFile` capture the render-scope `backend` and call `allowSavesTo` with it after an `await`.
+
+**Work item:** #372
+
+If a settings-driven rebuild ([§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19)) replaces the backend while one of those two is awaiting,
+it finishes by calling `allowSavesTo(<the OLD instance>)`. That moves the save gate
+([§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19)) away from the NEW instance. The gate then stays shut for the new backend. Nothing
+is written anywhere wrong, so it is safe, but it is a silent stall: `loadPause` is published only
+for an instance whose load failed or was refused, so no banner or toast appears. `reloadCurrentProject`
+also has no `cancelled` check of the kind the load effect has, so it applies the old target's data
+as well.
+
+**The fix shape:** have both callers compare their captured backend with the live one (a ref) before
+applying or opening, and drop a result that belongs to a superseded instance.
+
+## 589. An edit made less than 500 ms before a backend rebuild is dropped — OPEN
+
+**Status:** OPEN 2026-09-19 — read from code in the §586 cold review (finding M5), not reproduced: the dropped edit is never machine-verified. Pre-existing; neither §586 nor §587 changed it.
+
+**Work item:** #373
+
+The save effect lists `backend` as a dependency, so a rebuild (a project switch, or a settings change
+under [§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19)) runs the previous run's cleanup. `scheduleDebouncedSave`'s cleanup clears the
+timer and removes the hide listeners WITHOUT flushing, so an edit still inside the 500 ms debounce is
+never written to the old target. A switch op's own `flushCurrent` covers the op paths; a bare
+settings rebuild has no flush. Once the new target's load applies, the edit leaves memory too.
+
+**The fix shape:** flush a pending save to the OLD backend in the cleanup when the cause is a backend
+change, gated as [§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19) requires (only if the old instance's gate is open).
+
+## 590. Pick storage file after a failed load writes the empty workspace into the chosen file — OPEN
+
+**Status:** OPEN 2026-09-19 — read from code, not reproduced: the overwrite is never machine-verified. Raised as concern 6 of the §586 implementation's first round, from reading `onPickStorageFile`; the cold review kept Pick deliberately ungated (it is the only way a first-time local-file user can create a file), so this is the implementer's concern, not a review finding.
+
+**Work item:** #374
+
+After a failed load the live workspace is the empty boot one. `onPickStorageFile` writes it into the
+file the user picks, through `guardedWrite`, and then opens the save gate
+([§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19)). If the user picks the EXISTING project file (the save picker warns before
+overwriting), that file is replaced with an empty workspace. The sibling explicit write, the
+storage-kind conversion, now skips its write (switching without copying) before a load succeeds
+([§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19)); Pick storage file is not, because it is also the only way a first-time
+local-file user (whose load fails with no file picked) can create a file.
+
+**The fix shape:** refuse when the picked handle already holds data, or confirm with the task counts on
+both sides, rather than blocking the pick outright.
+
+## 591. After a Turso URL/token or SharePoint target change, the previous project's activity log and budget history are merged into the new target — OPEN
+
+**Status:** OPEN 2026-09-19 — read from code in the §586 whole-branch review (finding I1), not reproduced: the carry-over is never machine-verified. Pre-existing on main; the §587 fix does not change it.
+
+**Work item:** #375
+
+The load effect applies with `applyWorkspace(workspace, "reset", "merge")`, and `reloadCurrentProject`
+with `applyWorkspace(workspace, "raise", "merge")`. In MERGE mode `applyWorkspace` runs
+`setActivityLog(prev => mergeActivityLogs(prev, …))` and the same for `budgetHistory`, where `prev` is
+whatever is in memory. On a settings-driven rebuild ([§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19)) that is the PREVIOUS target's project:
+- **Populated new target:** its load applies, the previous project's log and budget history are merged
+  in, the save gate opens, and the next save writes them into the new target.
+- **Empty new target (the empty-load pause):** the saving-paused banner's "Reload project" runs
+  `reloadCurrentProject`. After `reloadEmptyConfirm` — whose text says the project will be REPLACED —
+  those two slices are merged, not replaced, and the next save writes them into the empty target.
+
+The merged activity log carries the previous project's `changes` payloads, which hold its old and new
+field values; once saved, nothing tells them apart from the new target's own entries.
+
+**Why merge exists:** a load or reload of the SAME backend keeps entries appended locally while the
+load was in flight (the comment on `applyWorkspace`'s `logMode`). Switch, create and load-from-file
+already pass REPLACE.
+
+**The open question:** how the load effect and `reloadCurrentProject` should tell "same project,
+refreshed" from "new target". A rebuild of the SAME target — an M365 `acquireToken` identity change —
+must keep merging, so "a new backend instance" is not the test on its own; the target's identity
+(storage kind plus URL, token scope, SharePoint item, project id) is.

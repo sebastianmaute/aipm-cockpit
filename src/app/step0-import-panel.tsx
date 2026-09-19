@@ -17,9 +17,11 @@ import { t, type Lang } from "./i18n";
 import { FieldError } from "./field-feedback";
 import { type Settings } from "./settings-types";
 import { type ProposalContent } from "./use-project-proposal";
-import { classifyAttachment, ATTACHMENT_ACCEPT, type AttachmentBlock } from "./chat-attachments";
+import { checkAttachmentSize, classifyAttachment, ATTACHMENT_ACCEPT, type AttachmentBlock } from "./chat-attachments";
 import { flattenIngestBlocks, ingestBytes, ingestFile } from "./attachment-ingest";
 import { officeKindOf } from "./office-extract";
+import { isJsonFile, parseNativeWorkspace } from "./native-workspace-import";
+import type { Workspace } from "./workspace";
 import { isSharePointEnabled, fetchSharePointFileContent } from "./m365-sharepoint";
 import { fetchConfluencePage } from "./confluence-api";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
@@ -53,6 +55,10 @@ export interface Step0ImportPanelProps {
   /** Skip the fast-path and jump to manual Step 1. */
   onSkip: () => void;
   onCancel?: () => void;
+  /** A native workspace JSON bypasses the model: the wizard imports it.
+   *  `ignored` names any other file(s) dropped in the same multi-upload —
+   *  a workspace file is imported on its own. */
+  onImportWorkspace: (ws: Workspace, fileName: string, ignored: string[]) => void;
 }
 
 export function Step0ImportPanel({
@@ -64,6 +70,7 @@ export function Step0ImportPanel({
   onResetAi,
   onSkip,
   onCancel,
+  onImportWorkspace,
 }: Step0ImportPanelProps) {
   const [description, setDescription] = useState("");
   const [method, setMethod] = useState<ImportMethod>("describe");
@@ -103,6 +110,37 @@ export function Step0ImportPanel({
     setImportError(null);
     setSkipped([]);
     onResetAi();
+    // A native workspace JSON bypasses the model entirely: routed straight to
+    // the wizard, which imports it as the new project's content. Any other
+    // file(s) in the same drop are ignored (a workspace import is a solo
+    // action) — surfaced by name so the wizard can show it was ignored.
+    const jsonFiles = files.filter(isJsonFile);
+    for (const jf of jsonFiles) {
+      // An oversize JSON is never read here: it falls through to the ingest
+      // loop, whose own size gate reports it as skipped (too large).
+      if (checkAttachmentSize(jf.size) !== null) continue;
+      let text: string;
+      try {
+        text = await jf.text();
+      } catch {
+        // Unread, so nothing says it is a workspace: the generic source error
+        // (as the ingest loop's own read failure) rather than the workspace one.
+        setImportError(t(lang, "wizardImportErrorSource"));
+        return;
+      }
+      const parsed = parseNativeWorkspace(text);
+      if (parsed.kind === "workspace") {
+        const others = files.filter((f) => f !== jf).map((f) => f.name);
+        onImportWorkspace(parsed.workspace, jf.name, others);
+        return;
+      }
+      if (parsed.kind === "invalid") {
+        setImportError(t(lang, "wizardImportWorkspaceInvalid", jf.name));
+        return;
+      }
+    }
+    // `not-workspace` JSON falls through to the ingest loop below, where it is
+    // treated as a text attachment for the model like any other document.
     const dropped: { name: string; reason: "too-large" | "unsupported" | "too-many" }[] = [];
     const blocks: AttachmentBlock[] = [];
     setReading(true);

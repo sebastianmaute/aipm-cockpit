@@ -8,6 +8,158 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.12.1] - 2026-09-19 "Child"
+
+A data-loss hotfix. Before this release, the app could write the wrong workspace over a stored
+project in two ways. At startup, it could save the still-empty workspace before the project had
+finished loading. After a Turso URL or token edit, or a SharePoint target change, it could save the
+open project into the new target before that target's own data had loaded. The autosave, the save
+flushed when the tab is hidden, and the flush before a project switch now wait until a load for that
+backend has been applied. Explicit writes are outside that gate: "Pick storage file" (which after a
+failed load writes the empty workspace, `§590`), a storage-type conversion after a successful load,
+and creating or loading a project from a file. When saving is paused because a load failed or came
+back empty, a banner says so for as long as the pause lasts.
+
+### Fixed
+
+- **The startup autosave no longer saves the empty workspace over your project (`§586`).**
+  - **What happened.** The save effect scheduled its debounced save while the first load was still
+    in flight, and nothing on the save path refused it. A load slower than the 500 ms debounce lost
+    the race. Hiding the tab during the load fired the save at once.
+  - **What was measured.** A probe against the real hook measured two cases. With a 2-second load,
+    an all-empty save ran at 500 ms. With the tab hidden at 100 ms, that save ran immediately.
+  - **What was read from code, not executed.** What that save does on each backend:
+    - Turso single database: deletes every table.
+    - Turso per-project storage: deletes the open project's rows.
+    - SharePoint: replaces the file with an empty workspace.
+    - Local file: rewrites the file with an empty workspace, but only where write permission was
+      already granted.
+    - IndexedDB: overwrites or deletes the plan, milestones, changes, stakeholders, documents,
+      activity log and the other key-value slices. The nine keyed stores (tasks, RAID, absences,
+      shifts, resources, roles, disciplines, grades and budgets) diff against empty baselines and are
+      spared.
+  - **The fix.** Saves wait for a load for that backend to be applied. This covers the debounced
+    save, the save flushed when the tab is hidden, and the flush before a project switch.
+- **Changing the Turso URL or token, or the SharePoint target, no longer saves the open project into
+  the new target (`§587`).**
+  - **What happened.** Each keystroke in the Turso fields builds a new backend. The new instance was
+    written with the previous target's project before its own load landed. On Turso that is a
+    full-table rewrite.
+  - **What was measured.** A probe against the real hook measured the Turso case. A 2-second load of
+    a populated target received the old project first. A 100 ms load of an empty target had the old
+    project copied into it.
+  - **What was read from code only.** The SharePoint case.
+  - **Not covered.** A load of the new target still MERGES the previous project's activity log and
+    budget history into it, so those two can carry over (`§591`, filed open).
+- **Saving that is paused because a project could not be loaded is now shown in a banner.** The
+  pause covers two cases: a failed load, and a storage that returns no data while a project is open.
+  In the second case the project on screen is kept, but it is not written into the empty storage.
+  - The banner stays up for as long as the pause lasts.
+  - Each case has its own wording.
+  - The banner offers "Reload project".
+  - In the modern layout the sidebar shows the pause (the classic layout has no sidebar indicator).
+  - The first edit that cannot be saved also shows a toast that brings the banner back.
+- **Switching storage type after a failed load no longer copies the empty workspace into the new
+  type.** A switch made while nothing has been loaded now changes type without writing anything,
+  says so, and loads the new storage's own data. After a successful load, the switch still converts
+  the project exactly as before.
+
+Four follow-ups found on the way are filed open. All four were read from code and not reproduced:
+- A reload or file pick still running from before a backend change can leave the new backend's
+  saving silently paused (`§588`).
+- An edit made less than 500 ms before a backend change is dropped (`§589`).
+- "Pick storage file" after a failed load writes the empty workspace into the chosen file (`§590`).
+- After a Turso URL/token or SharePoint target change, the previous project's activity log and
+  budget history are merged into the new target (`§591`); this predates 1.12.1.
+
+## [1.12.0] - 2026-09-19 "Child"
+
+The Dashboard's landing screen is reworked around three questions — what changed, what to do next, and
+how the project is doing — with the Budget burn chart now leading the tile grid at full height.
+
+### Changed
+
+- **The Dashboard's first row now holds the delta strip, the digest card and the Print / Reset layout /
+  Reset size controls**, with a hidden-tiles count badge replacing the always-visible shelf — the tray
+  it opens sits directly under row 1, shown only while open. The second row carries the Next-actions
+  hero beside Overall status, at equal height, the hero absent when there is nothing in the Now or Soon
+  tier; then the narrative summary, the coaching card and the tip-of-the-day card, and finally the
+  arrangeable tile grid.
+- **The Budget burn tile is chart-only** — the forecast headline, the Spent and hours figures, the FX
+  rollup notice and the caption all left it — and now leads the grid at 2 wide by 8 tall, the tallest
+  tile on the board.
+- **The KPI tile sits beside the burn chart on wide screens.** It carries Effort SPI and Effort CPI
+  whenever each can be computed, alongside completion, overdue and open-RAID, and its columns follow
+  how many of those cells are actually visible rather than the viewport width. Sketched as a 4-wide,
+  2-tall block below the burn chart, it shipped instead at 2 wide by 3 tall beside it, with its height
+  now fixed so a wrapped row of tiles never lands inside a scrolling tile body.
+- **A saved dashboard layout is upgraded once** — the burn tile moves to the front and, only alongside
+  that move, an untouched default-sized KPI tile resizes to match; a layout a user has already resized
+  keeps its own sizes.
+
+### Fixed
+
+- **The Next-actions hero's Open button no longer renders when it would do nothing** — it used to show
+  even without a handler wired up.
+- **A budget-history property test that flaked once in CI under an unseeded run is fixed at its root
+  cause**, not just widened: its tolerance now sizes itself to the sub-epsilon budget-change steps
+  actually dropped in a given run, rather than assuming a fixed worst case.
+
+§580–§585 were filed and closed in this release.
+
+## [1.11.0] - 2026-09-18 "Grisham"
+
+A new project can now be created straight from a workspace JSON file, the AI Assistant takes
+several attachments at once — including `.json` and files dropped onto it — within a per-message
+budget, and the demo project opens mid-flight with its dates moved to today.
+
+### Added
+
+- **Create a project from a workspace JSON file.** Give the create wizard's first step a workspace
+  file and it goes straight into the wizard instead of to the model; the details step also gains an
+  "Import workspace file…" button, shown whether or not an AI key is configured. The file's content
+  becomes the new project, the details step is pre-filled from the file's own project details, and
+  what you enter there replaces them; a notice names the file with its task, RAID and budget counts
+  and can clear the import, and Create then skips the template and functions steps. The file is read
+  with the same strict decoder as "Load project from file", so a file that has the workspace shape
+  but cannot be decoded is reported and creates nothing, and other files given alongside it are
+  named as ignored. Addresses in the file that are not safe to store are named on create, as for a
+  template.
+- **The AI Assistant accepts `.json` files**, as text — and so does the create wizard's first step,
+  which shares the same list of accepted types.
+- **Files can be dropped onto the AI Assistant.** Only a drag that carries files is taken, so text
+  or a link dragged onto the message box still lands there.
+- **The AI Assistant caps a message at 10 attachments and 30 MB**, counting what is already staged,
+  and names each file it leaves out and why — the Messages API refuses a request over 32 MB.
+- **"Explore a demo project" opens a project in mid-flight.** Every date in the demo is moved by
+  whole plan periods so that today falls where the demo was written: in a monthly plan a date on the
+  first or last day of its month stays on the first or last day, and any other date that lands on a
+  weekend moves to the Monday; a weekly plan moves by whole weeks.
+
+### Changed
+
+- **The demo workspace is brought up to date.** `sample-workspace-small.json` now runs from June to
+  December 2026 with budget buckets that are closed, current and still to come, and covers
+  budget-follows-plan, FX rates with a GBP bucket, a fixed-price, a blended and a rate-override
+  bucket, dated TimeLog-style actuals, and a seeded activity log, insights, knowledge items and
+  TimeLog links, with note logs on more RAID items. Each person is staffed in one bucket per month,
+  so the demo's budget-variance insight matches what the live detector reports. The larger generated
+  samples are regenerated from it.
+- **The AI Assistant's attach button reads "Attach documents"**, and its hint lists `.json`, drag
+  and drop and the per-message limits.
+
+### Fixed
+
+- **A demo file that cannot be read now shows "Couldn't load the demo project."** instead of
+  quietly creating an empty demo project.
+
+Four follow-ups are filed and open: "Load project from file" throws in Firefox and Safari and blames
+Settings rather than the browser (`§574`); the AI Assistant re-sends every earlier turn's
+attachments, so a long thread can exceed the Messages API's 32 MB limit (`§575`); `sanitizeFxRates`
+reorders its rates on a second decode, so an FX snapshot is not byte-stable through a JSON round
+trip (`§576`); and the budget-variance insight compares a bucket's full-window budget against its
+to-date actuals, so an open bucket with months still to come is flagged (`§577`).
+
 ## [1.10.1] - 2026-09-18 "Leonard"
 
 The 2026-09 security audit's follow-up fixes: hostile Office files can no longer stall document

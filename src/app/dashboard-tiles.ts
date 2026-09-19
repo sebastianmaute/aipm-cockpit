@@ -26,20 +26,28 @@
  * it would change the board for COMFORTABLE users to fix a COMPACT-only
  * problem. The row unit moved instead (`dashboard-density.ts`, which carries
  * the measurements). Revisit only if a per-density default ever exists.
+ * ★ `kpi` DID later move to h:3, for a different reason (§585): at half width
+ * on xl its cells wrap to a second row in BOTH densities, and h:3 is what keeps
+ * that row out of an inner scroll. `milestones` stays h:2.
+ * ★★ `kpi`'s `minH` is now 3 too (§585 fix round), so with `maxH` already 3
+ * its height is effectively FIXED — a user cannot shrink it back to h:2 and
+ * reintroduce the inner scroll the h:3 default exists to avoid. A stored
+ * layout below the new floor is clamped up by `reconcile`; the resize menu
+ * renders no chooser at all for a `min === max` axis (`arrangement-block-menu.tsx`).
  */
 
 // ★ TYPE-ONLY, and that is what keeps the "i18n-free" promise above true: the
 // import is erased at compile time, so nothing here pulls the dictionaries into
 // a bare node process. A VALUE import from `./i18n` would break that.
 import type { TranslationKey } from "./i18n";
-import { specById, type BlockSpan } from "./arrangement-layout";
+import { specById, type BlockHeight, type BlockWidth } from "./arrangement-layout";
 
-/** ★ AN ALIAS OF THE ENGINE'S `BlockSpan`, NOT A SECOND DECLARATION. The two
- *  were briefly independent spellings of the same closed union, which is how a
- *  widened engine and an un-widened catalogue could have disagreed in silence.
- *  The NAME stays because it has 20+ call sites across the Dashboard's own
- *  components — this is a rename-free collapse, not an export change. */
-export type TileSpan = BlockSpan;
+/** ★ ALIASES OF THE ENGINE'S `BlockWidth` / `BlockHeight`, NOT SECOND
+ *  DECLARATIONS. Two independent spellings of one union are how a widened
+ *  engine and an un-widened catalogue could disagree in silence. Spec C split
+ *  the former single `TileSpan` in two so an 8-wide tile cannot type-check. */
+export type TileWidth = BlockWidth;
+export type TileHeight = BlockHeight;
 
 export type DashboardTileId =
   | "kpi" | "topActions" | "insights" | "raid" | "upcoming"
@@ -74,30 +82,42 @@ export interface TileSpec {
    * to BOTH dicts first, or `tsc` is telling you the tile has no title.
    */
   labelKey: TranslationKey;
-  w: TileSpan;
-  h: TileSpan;
-  minW: TileSpan;
-  maxW: TileSpan;
-  minH: TileSpan;
-  maxH: TileSpan;
+  w: TileWidth;
+  h: TileHeight;
+  minW: TileWidth;
+  maxW: TileWidth;
+  minH: TileHeight;
+  maxH: TileHeight;
   /** True when this tile exists at all for the given project. */
   gate: (g: TileGateInput) => boolean;
 }
 
 const ALWAYS = () => true;
 
+// ★★ `burn` IS FIRST, AND ORDER HERE IS `DEFAULT_LAYOUT`'S ORDER (spec C
+// decision 7): the chart-only Budget burn tile leads a fresh board at 2 wide ×
+// 8 tall. Moving it here does NOT move it for users who already have a stored
+// layout — `reconcile` never reorders an existing tile — which is why
+// `dashboard-layout-upgrade.ts` exists.
+// ★★ `kpi` IS 2×3 SO IT SITS BESIDE `burn` ON xl (§585). The xl grid is four
+// columns with `grid-flow-row-dense`, so a 2-wide KPI tile packs into columns
+// 3–4 of burn's first rows; at its former w:4 it could not fit there and landed
+// below all eight of burn's rows. At half width its four or five cells wrap to
+// a second row, and h:3 is what keeps that row inside the tile body instead of
+// behind a scroll — measured by `e2e/dashboard-grid.spec.ts` in both
+// densities. The upgrade resizes a stored 4×2 to match.
 export const DASHBOARD_TILES: readonly TileSpec[] = [
-  { id: "kpi",             labelKey: "dashboardKpiTile",        w: 4, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 3, gate: ALWAYS },
+  { id: "burn",            labelKey: "dashboardBudgetBurn",     w: 2, h: 8, minW: 1, maxW: 4, minH: 4, maxH: 8, gate: (g) => g.showBudget },
+  { id: "kpi",             labelKey: "dashboardKpiTile",        w: 2, h: 3, minW: 2, maxW: 4, minH: 3, maxH: 3, gate: ALWAYS },
   { id: "topActions",      labelKey: "dashboardTopActions",     w: 2, h: 3, minW: 2, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.hasTopActions },
   { id: "insights",        labelKey: "dashboardInsights",       w: 2, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.hasInsights },
   { id: "raid",            labelKey: "dashboardRaidRegister",   w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.showRaid },
   { id: "upcoming",        labelKey: "dashboardUpcoming",       w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 4, gate: ALWAYS },
   { id: "progress",        labelKey: "dashboardProgress",       w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 3, gate: ALWAYS },
   { id: "trends",          labelKey: "dashboardTrends",         w: 1, h: 2, minW: 1, maxW: 2, minH: 2, maxH: 3, gate: (g) => g.tursoActive },
-  { id: "burn",            labelKey: "dashboardBudgetBurn",     w: 1, h: 3, minW: 1, maxW: 2, minH: 3, maxH: 4, gate: (g) => g.showBudget },
   { id: "milestones",      labelKey: "dashboardMilestones",     w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.showMilestones },
   { id: "changes",         labelKey: "dashboardChangesHeading", w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.showChanges },
-  { id: "completionTrend", labelKey: "dashboardCompletionTrend", w: 2, h: 1, minW: 2, maxW: 4, minH: 1, maxH: 2, gate: (g) => g.hasCompletionTrend },
+  { id: "completionTrend", labelKey: "dashboardCompletionTrend", w: 2, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.hasCompletionTrend },
 ];
 
 /** ★ DELEGATES to the engine's `specById` rather than re-implementing the find.

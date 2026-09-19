@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupNextActions, topGroupPrimaries } from "./group";
+import { groupNextActions, pickHeroGroup, topGroupPrimaries } from "./group";
 import type { SuggestedAction } from "./types";
 
 const mk = (
@@ -90,11 +90,31 @@ describe("topGroupPrimaries", () => {
     // Five signals on entity 1 outrank the lone signal on entity 2 — a flat
     // slice(0, 5) would return five entity-1 rows.
     const actions = [mk("e1a", 50, 1), mk("e1b", 49, 1), mk("e1c", 48, 1), mk("e1d", 47, 1), mk("e1e", 46, 1), mk("e2", 30, 2)];
-    expect(topGroupPrimaries(actions, 5).map((a) => a.id)).toEqual(["e1a", "e2"]);
+    expect(topGroupPrimaries(groupNextActions(actions), 5).map((a) => a.id)).toEqual(["e1a", "e2"]);
   });
 
   it("caps the result at n groups", () => {
     const actions = [mk("a", 90, 1), mk("b", 80, 2), mk("c", 70, 3), mk("c2", 10, 3)];
-    expect(topGroupPrimaries(actions, 2).map((a) => a.id)).toEqual(["a", "b"]);
+    expect(topGroupPrimaries(groupNextActions(actions), 2).map((a) => a.id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("pickHeroGroup (spec C: one rule for the Next-actions page and the Dashboard)", () => {
+  it("returns the top-ranked group when it is not monitor-tier", () => {
+    const groups = groupNextActions([mk("a", 90, 1, "now"), mk("b", 80, 2, "soon")]);
+    expect(pickHeroGroup(groups)).toBe(groups[0]);
+  });
+
+  it("returns null when the top-ranked group is monitor-tier", () => {
+    expect(pickHeroGroup(groupNextActions([mk("m", 10, 1, "monitor")]))).toBeNull();
+  });
+
+  it("never reaches past a monitor-tier top group for a lower Now one", () => {
+    // Rank is score order; a monitor group can outrank a now group.
+    expect(pickHeroGroup(groupNextActions([mk("m", 99, 1, "monitor"), mk("n", 50, 2, "now")]))).toBeNull();
+  });
+
+  it("returns null for no groups", () => {
+    expect(pickHeroGroup([])).toBeNull();
   });
 });

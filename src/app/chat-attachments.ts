@@ -52,7 +52,7 @@ export const SUPPORTED_IMAGE_MIMES: ReadonlySet<string> = new Set([
 
 export const PDF_EXTENSIONS: ReadonlySet<string> = new Set([".pdf"]);
 export const IMAGE_EXTENSIONS: ReadonlySet<string> = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
-export const TEXT_EXTENSIONS: ReadonlySet<string> = new Set([".txt", ".md", ".markdown", ".csv", ".vtt"]);
+export const TEXT_EXTENSIONS: ReadonlySet<string> = new Set([".txt", ".md", ".markdown", ".csv", ".vtt", ".json"]);
 export const HTML_EXTENSIONS: ReadonlySet<string> = new Set([".html", ".htm"]);
 export const OFFICE_EXTENSIONS: ReadonlySet<string> = new Set([".docx", ".xlsx", ".xlsm", ".pptx"]);
 export const MAIL_EXTENSIONS: ReadonlySet<string> = new Set([".eml", ".mhtml", ".mht", ".msg"]);
@@ -77,6 +77,7 @@ const ACCEPT_MIMES = [
   "text/csv",
   "text/html",
   "text/vtt",
+  "application/json",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/vnd.ms-excel.sheet.macroEnabled.12",
@@ -139,7 +140,8 @@ export function classifyAttachment(
     mime === "text/plain" ||
     mime === "text/markdown" ||
     mime === "text/csv" ||
-    mime === "text/vtt"
+    mime === "text/vtt" ||
+    mime === "application/json"
   ) {
     return "text";
   }
@@ -230,4 +232,56 @@ export function buildAttachmentBlock(
     type: "document",
     source: { type: "text", media_type: "text/plain", data },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Pure staging caps
+// ---------------------------------------------------------------------------
+
+/** Per-message attachment cap in the AI Assistant. Mirrors the wizard's
+ *  `MAX_IMPORT_FILES` so the two multi-file surfaces agree. */
+export const MAX_CHAT_ATTACHMENTS = 10;
+
+/** Cap on the staged blocks' combined payload. Measured on what is SENT
+ *  (base64 data or extracted text), not raw file bytes — an office/mail file
+ *  arrives as extracted text. The Messages API rejects a body over 32 MB (413);
+ *  30 MB leaves room for the prompt, system and history. Earlier turns'
+ *  attachments re-sent in history are NOT counted here. */
+export const MAX_STAGED_PAYLOAD_BYTES = 30 * 1024 * 1024;
+
+export function blocksPayloadBytes(blocks: readonly AttachmentBlock[]): number {
+  let total = 0;
+  for (const b of blocks) total += b.source.data.length;
+  return total;
+}
+
+export type StagingCandidate = { name: string; blocks: readonly AttachmentBlock[] };
+export type StagingRejection = { name: string; reason: "too-many" | "over-budget" };
+
+/** Decide which newly read files can join the already-staged set. Order is
+ *  preserved; a file over budget is skipped without blocking later, smaller ones. */
+export function planStaging(
+  stagedCount: number,
+  stagedBytes: number,
+  candidates: readonly StagingCandidate[],
+): { accepted: StagingCandidate[]; rejected: StagingRejection[] } {
+  const accepted: StagingCandidate[] = [];
+  const rejected: StagingRejection[] = [];
+  let count = stagedCount;
+  let bytes = stagedBytes;
+  for (const cand of candidates) {
+    if (count >= MAX_CHAT_ATTACHMENTS) {
+      rejected.push({ name: cand.name, reason: "too-many" });
+      continue;
+    }
+    const size = blocksPayloadBytes(cand.blocks);
+    if (bytes + size > MAX_STAGED_PAYLOAD_BYTES) {
+      rejected.push({ name: cand.name, reason: "over-budget" });
+      continue;
+    }
+    accepted.push(cand);
+    count += 1;
+    bytes += size;
+  }
+  return { accepted, rejected };
 }

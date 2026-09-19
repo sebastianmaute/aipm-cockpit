@@ -160,6 +160,7 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
       refresh: vi.fn(async () => {}),
     },
     nextActions: [],
+    nextActionGroups: [],
     onOpenAction: vi.fn(),
     ...overrides,
   };

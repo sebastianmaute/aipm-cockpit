@@ -234,7 +234,8 @@ test.describe("control-defects eye-verify (§414)", () => {
   // `[hidden] >> nth=0`, and than matching on the title text (the accessible
   // name is a disambiguated row token, not the raw title, per
   // documents-list.tsx). Real preview content ("Delivery is on track for the
-  // March gate.", from the seeded document's first paragraph block) stands in
+  // October go-live gate.", from the seeded document's first paragraph block,
+  // which the 1.11.0 demo refresh rewrote from "…the March gate.") stands in
   // for "the panel reflows": a `hidden` ancestor makes it non-visible to
   // Playwright exactly as a real collapse would.
   test("item 4: Documents body collapses and expands on re-click", async ({ page }) => {
@@ -253,7 +254,7 @@ test.describe("control-defects eye-verify (§414)", () => {
     await expect(toggle).toHaveCount(1);
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
 
-    const bodyText = page.getByText("Delivery is on track for the March gate.");
+    const bodyText = page.getByText("Delivery is on track for the October go-live gate.");
     await expect(bodyText).toBeVisible();
 
     await toggle.click();

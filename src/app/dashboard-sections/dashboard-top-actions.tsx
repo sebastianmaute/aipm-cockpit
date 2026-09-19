@@ -47,8 +47,12 @@ export function DashboardTopActions({ lang, topActions, onOpenAction, dc }: Dash
     <div className={`flex flex-col ${dc.kpiGap}`}>
       {topActions.map((a) => (
         // ★ `?? ""` cannot fire — the map is keyed by `a.id` over this same array.
+        // §582 — `onOpen` is optional on `ActionHandlers`; pass `onOpenAction`
+        // through as-is so the row hides its Open CTA when the handler is
+        // absent, instead of wiring one to a no-op that looked live and did
+        // nothing on click.
         <ActionRow key={a.id} lang={lang} action={a} rowToken={tokens.get(a.id) ?? ""}
-          onOpen={onOpenAction ?? (() => {})} />
+          onOpen={onOpenAction} />
       ))}
     </div>
   );

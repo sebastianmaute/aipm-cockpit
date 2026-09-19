@@ -23,7 +23,7 @@ import type { EscalateBundle } from "./escalate-popover";
 import type { RebaselineBundle } from "./rebaseline-popover";
 import type { RescheduleBundle } from "./reschedule-popover";
 import type { SuggestedAction, ActionTier } from "./next-actions/types";
-import { groupNextActions, type ActionGroup } from "./next-actions/group";
+import { pickHeroGroup, type ActionGroup } from "./next-actions/group";
 import { TIER_RAG } from "./next-actions/action-cta";
 import { buildRowTokens } from "./row-tokens";
 import { Dot } from "./dot";
@@ -49,7 +49,9 @@ export interface AiAnalysisBundle {
 
 interface ActionsPanelProps {
   lang: Lang;
-  actions: readonly SuggestedAction[];
+  /** The grouped next actions (spec C): grouped ONCE in `task-manager.tsx` and
+   *  shared with the Dashboard, which picks its hero with the same helper. */
+  groups: readonly ActionGroup[];
   onOpen: (action: SuggestedAction) => void;
   onSnooze?: (action: SuggestedAction, durationMs: number, extraIds?: readonly string[]) => void;
   onCreateTask?: (action: SuggestedAction) => void;
@@ -67,10 +69,9 @@ interface ActionsPanelProps {
   aiAnalysis?: AiAnalysisBundle;
 }
 
-export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline, reschedule, onMarkDone, onClearBlocker, onLogAsRaid, learningEnabled, expertMode, onOpenLearningSettings, aiAnalysis }: ActionsPanelProps) {
+export function ActionsPanel({ lang, groups, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline, reschedule, onMarkDone, onClearBlocker, onLogAsRaid, learningEnabled, expertMode, onOpenLearningSettings, aiAnalysis }: ActionsPanelProps) {
   const [monitorOpen, setMonitorOpen] = useState(false);
   const { ref, reset } = useResizable("aipm-cockpit:actions-size");
-  const groups = useMemo(() => groupNextActions(actions), [actions]);
   const [expanded, setExpanded] = useState<Record<"now" | "soon", boolean>>({ now: false, soon: false });
 
   // ★★ ONE map over the hero AND every tier's rows, because they are all
@@ -147,9 +148,8 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
     <ActionRow key={g.key} action={g.primary} extraReasons={g.extra} {...rowProps} rowToken={actionTokens.get(g.key) ?? ""} />
   );
 
-  // Hero = the single top-ranked group, but only when it carries real urgency
-  // (tier !== monitor — never promote a low/monitor item to "Do this first").
-  const hero = groups[0] && groups[0].tier !== "monitor" ? groups[0] : null;
+  // Hero = `pickHeroGroup` — the one rule the Dashboard's row 2 uses too.
+  const hero = pickHeroGroup(groups);
   const heroKey = hero?.key;
   return (
     <div ref={ref} className={`${VIEW_PANE_RESIZABLE_CLASS} print-root`}>

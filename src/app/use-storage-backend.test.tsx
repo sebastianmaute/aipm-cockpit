@@ -1690,7 +1690,11 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
   it("onRequestStorageSwitch: unreachable Turso → storageUnreachable toast, no switch", async () => {
     const { StorageNotReadyError } = await import("./storage");
     createBackendMock.mockReturnValue({
-      kind: "turso", load: vi.fn(),
+      // ★ §586/§587: the CURRENT backend's load must succeed, or the switch goes ahead WITHOUT the
+      // conversion write (nothing loaded, nothing copied) and never reaches the unreachable target
+      // this test is about. A bare `vi.fn()` load resolved
+      // `undefined`, which the load effect reported as a failed load.
+      kind: "turso", load: vi.fn().mockResolvedValue({ tasks: [], raid: [], absences: [], shifts: [] }),
       save: vi.fn().mockRejectedValue(new StorageNotReadyError("storage-unreachable")),
       isReady: vi.fn().mockResolvedValue(true), describe: vi.fn().mockResolvedValue(null),
     });
@@ -2019,6 +2023,9 @@ describe("useStorageBackend — project flows", () => {
   it.each([
     ["a template", { includeSeed: true, template: { id: "t", name: "T", features: [], fieldVisibility: {}, seed: { tasks: [SEED_TASK] } } }, "a,b@x.com"],
     ["an AI-import seed", { includeSeed: true, aiSeed: { tasks: [SEED_TASK] } }, ""],
+    // An imported workspace IS the project's content and is stored as-is, so
+    // it is summarised like a template — aiSeedUnsafeEmails would see no seed.
+    ["an imported workspace", { importedWorkspace: { ...emptyWorkspace(), tasks: [SEED_TASK] } }, "a,b@x.com"],
   ])("createProject with %s shows the unsafe-email notice after projectCreatedToast (spec Part 2, pre-flight I5)", async (_label, opts, stored) => {
     const targetBackend = {
       kind: "local-json",

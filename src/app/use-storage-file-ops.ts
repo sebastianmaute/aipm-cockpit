@@ -191,7 +191,7 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       deps.showToast("info", t(deps.langRef.current, "projectCreatedToast", meta.name));
       // ★ M5: a TEMPLATE is a copy source, kept and notice-only; an AI seed's unsafe addresses were left
       //  blank by `buildNewProjectWorkspace`, so its notice is judged on the seed as supplied.
-      const seededEmails = opts.template ? summarizeUnsafeEmailRecords(ws) : aiSeedUnsafeEmails(opts);
+      const seededEmails = opts.template || opts.importedWorkspace ? summarizeUnsafeEmailRecords(ws) : aiSeedUnsafeEmails(opts);
       if (seededEmails) {
         deps.announcedUnsafeEmailsRef.current.add(id); // an explicit import always announces (M4)
         deps.showToast("info", t(deps.langRef.current, "importUnsafeEmailsNotice", seededEmails.count, seededEmails.names));
@@ -387,6 +387,10 @@ export interface StorageFilePickerDeps {
   suppressNextSaveRef: React.MutableRefObject<boolean>;
   suppressNextLoadRef: React.MutableRefObject<boolean>;
   emitStorageConfig: (config: StorageConfig) => void;
+  /** §586: open the save gate for the ACTIVE backend — it now holds exactly the live workspace. */
+  allowSavesToActiveBackend: () => void;
+  /** §586: is the ACTIVE backend's save gate open, i.e. does render scope hold its project? */
+  loadSucceeded: () => boolean;
   acquireToken: UseMsAuthResult["acquireToken"];
   setTasks: React.Dispatch<React.SetStateAction<readonly Task[]>>;
   setRaid: React.Dispatch<React.SetStateAction<readonly RaidItem[]>>;
@@ -401,6 +405,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
     await promise;
     try {
       if (!(await deps.truncationOps.guardedWrite(deps.backend, deps.currentWorkspace()))) return; // ★ Kept as the backstop: the pre-check above is the one that matters, but a truncating load landing between them must still not commit.
+      deps.allowSavesToActiveBackend(); // ★★ §586: after a FAILED load autosave is refused; this write put the live workspace on the backend, so it belongs there now. Without it a user who re-picks a lost file would never autosave again this session.
       await deps.refreshBackendStatus();
       deps.emitToast("info", t(deps.langRef.current, "storageSwitchedToast"));
     } catch (err) {
@@ -480,6 +485,19 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
         // the spread branch above.
         : ({ kind: newKind } as StorageConfig);
     const label = t(deps.langRef.current, STORAGE_LABEL_KEYS[newKind]);
+    // ★★★ §586/§587 (user ruling): a conversion copies the LIVE workspace into the new kind. If the
+    // current storage's project never reached render scope (its load failed, came back empty over a
+    // populated project and was refused, or is still pending), that workspace is the empty boot one or
+    // the PREVIOUS target's project — on Turso a `DELETE FROM` every table of the target. So in that
+    // state the switch goes ahead WITHOUT the conversion write: nothing is written anywhere, the new
+    // backend LOADS its own target (no `suppressNextLoadRef`), and the §586 save gate keeps it shut
+    // until that load is applied. ★ No confirm: both confirm texts describe a conversion, and nothing
+    // here is written or overwritten. The notice says why nothing was copied.
+    if (!deps.loadSucceeded()) {
+      deps.emitStorageConfig(newConfig);
+      deps.emitToast("info", t(deps.langRef.current, "storageSwitchedWithoutCopy", label));
+      return;
+    }
     const leavingTurso = current.kind === "turso" && newKind !== "turso";
     const confirmKey = leavingTurso ? "storageTursoLeaveWarn" : "storageConvertConfirm";
     if (!window.confirm(tPlural(deps.langRef.current, confirmKey, deps.tasks.length, deps.tasks.length, label))) return;

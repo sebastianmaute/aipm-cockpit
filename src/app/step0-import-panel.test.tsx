@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { Step0ImportPanel } from "./step0-import-panel";
@@ -5,6 +7,11 @@ import { defaultSettings } from "./settings-types";
 import { t } from "./i18n";
 import { ATTACHMENT_ACCEPT, type DocumentBlock } from "./chat-attachments";
 import { buildCfbf } from "./__fixtures__/cfbf-writer";
+
+const sampleText = readFileSync(
+  join(import.meta.dirname, "..", "..", "sample-workspace-small.json"),
+  "utf8",
+);
 
 // SharePoint path stubs — the picker itself and the Graph fetch are mocked so
 // the regression test below can drive Step0ImportPanel's onSharePointPick
@@ -37,6 +44,7 @@ const baseProps = {
   aiError: null as string | null,
   onResetAi: vi.fn(),
   onSkip: vi.fn(),
+  onImportWorkspace: vi.fn(),
 };
 
 function selectFileMethod() {
@@ -208,6 +216,118 @@ describe("Step0ImportPanel multi-file", () => {
     const data = (block.source as { data: string }).data;
     expect(data).toContain("Hi");
     expect(data).not.toContain("x()");
+  });
+});
+
+describe("Step0ImportPanel native workspace routing", () => {
+  it("routes a native workspace JSON to onImportWorkspace without a model call", async () => {
+    const onIngest = vi.fn();
+    const onImportWorkspace = vi.fn();
+    render(
+      <Step0ImportPanel {...baseProps} onIngest={onIngest} onImportWorkspace={onImportWorkspace} />,
+    );
+    selectFileMethod();
+    fireEvent.change(fileInput(), {
+      target: { files: [new File([sampleText], "sample.json", { type: "application/json" })] },
+    });
+    await waitFor(() => expect(onImportWorkspace).toHaveBeenCalledTimes(1));
+    expect(onImportWorkspace.mock.calls[0][1]).toBe("sample.json");
+    expect(onIngest).not.toHaveBeenCalled();
+  });
+
+  it("sends a non-workspace JSON to Claude like any document", async () => {
+    const onIngest = vi.fn().mockResolvedValue(undefined);
+    const onImportWorkspace = vi.fn();
+    render(
+      <Step0ImportPanel {...baseProps} onIngest={onIngest} onImportWorkspace={onImportWorkspace} />,
+    );
+    selectFileMethod();
+    fireEvent.change(fileInput(), {
+      target: { files: [new File(['{"invoice":1}'], "inv.json", { type: "application/json" })] },
+    });
+    await waitFor(() => expect(onIngest).toHaveBeenCalledTimes(1));
+    expect(onImportWorkspace).not.toHaveBeenCalled();
+  });
+
+  // Controller ruling: the `ignored` sibling-file list is a real, tested
+  // value — not just plumbing. A workspace import is a solo action; anything
+  // dropped alongside it is named so the wizard can show it was skipped.
+  it("imports a workspace JSON dropped alongside another file, reporting the sibling as ignored", async () => {
+    const onIngest = vi.fn();
+    const onImportWorkspace = vi.fn();
+    render(
+      <Step0ImportPanel {...baseProps} onIngest={onIngest} onImportWorkspace={onImportWorkspace} />,
+    );
+    selectFileMethod();
+    fireEvent.change(fileInput(), {
+      target: {
+        files: [
+          new File([sampleText], "sample.json", { type: "application/json" }),
+          new File(["irrelevant"], "notes.txt", { type: "text/plain" }),
+        ],
+      },
+    });
+    await waitFor(() => expect(onImportWorkspace).toHaveBeenCalledTimes(1));
+    expect(onImportWorkspace.mock.calls[0][2]).toEqual(["notes.txt"]);
+    expect(onIngest).not.toHaveBeenCalled();
+  });
+
+  // Controller ruling: the `invalid` branch (JSON that HAS the tasks+raid
+  // shape but fails the strict decoder) is a real, tested guard — without it
+  // such a file would silently fall through to the model as a document.
+  it("shows an alert for a JSON that looks like a workspace but fails strict decode, and imports nothing", async () => {
+    const onIngest = vi.fn();
+    const onImportWorkspace = vi.fn();
+    render(
+      <Step0ImportPanel {...baseProps} onIngest={onIngest} onImportWorkspace={onImportWorkspace} />,
+    );
+    selectFileMethod();
+    fireEvent.change(fileInput(), {
+      target: { files: [new File(['{"tasks": [], "raid": 7}'], "bad.json", { type: "application/json" })] },
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "bad.json looks like a workspace file but could not be read.",
+    );
+    expect(onImportWorkspace).not.toHaveBeenCalled();
+    expect(onIngest).not.toHaveBeenCalled();
+  });
+
+  // Final-review finding: the JSON pre-parse read every .json in full before
+  // any size gate. An oversize one is now never read here; the ingest loop's
+  // own gate reports it as skipped. ★ The body IS a valid workspace and only
+  // the reported size is oversize, so a missing gate reads it and imports it.
+  it("never reads an oversize JSON as a workspace; it is skipped as too large", async () => {
+    const onIngest = vi.fn();
+    const onImportWorkspace = vi.fn();
+    render(
+      <Step0ImportPanel {...baseProps} onIngest={onIngest} onImportWorkspace={onImportWorkspace} />,
+    );
+    selectFileMethod();
+    const big = new File([sampleText], "huge.json", { type: "application/json" });
+    Object.defineProperty(big, "size", { value: 21 * 1024 * 1024 });
+    const text = vi.spyOn(big, "text");
+    fireEvent.change(fileInput(), { target: { files: [big] } });
+    expect(await screen.findByText(/skipped/i)).toHaveTextContent("huge.json");
+    expect(text).not.toHaveBeenCalled();
+    expect(onImportWorkspace).not.toHaveBeenCalled();
+    expect(onIngest).not.toHaveBeenCalled();
+  });
+
+  it("reports a JSON whose read fails instead of rejecting unhandled", async () => {
+    const onIngest = vi.fn();
+    const onImportWorkspace = vi.fn();
+    render(
+      <Step0ImportPanel {...baseProps} onIngest={onIngest} onImportWorkspace={onImportWorkspace} />,
+    );
+    selectFileMethod();
+    const broken = new File([sampleText], "broken.json", { type: "application/json" });
+    vi.spyOn(broken, "text").mockRejectedValue(new Error("NotReadableError"));
+    fireEvent.change(fileInput(), { target: { files: [broken] } });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      t("en-US", "wizardImportErrorSource"),
+    );
+    expect(onImportWorkspace).not.toHaveBeenCalled();
+    expect(onIngest).not.toHaveBeenCalled();
   });
 });
 

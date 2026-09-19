@@ -7,7 +7,7 @@
  * ACCEPT THEM. An earlier revision of this line claimed outright that "nothing
  * in here knows which surface it is serving", which is true of the code and
  * false of the types:
- *   1. `BlockSpan` is `1|2|3|4` — a FOUR-COLUMN grid, baked in as a closed
+ *   1. `BlockWidth` is `1|2|3|4` — a FOUR-COLUMN grid, baked in as a closed
  *      union. It is `xl:grid-cols-4` hardened into a type. ★ That class used to
  *      be the DASHBOARD's, in `dashboard-grid.tsx`; it is now the shared
  *      `ArrangementGrid`'s (`arrangement-grid.tsx`), so this is no longer one
@@ -75,9 +75,19 @@
 import { reorderIds } from "./list-reorder";
 import type { TranslationKey } from "./i18n";
 
-/** A block spans 1-4 grid columns/rows. A CLOSED union on purpose: `number`
- *  would let an un-clamped value through the type system into storage. */
-export type BlockSpan = 1 | 2 | 3 | 4;
+/** A block spans 1-4 grid COLUMNS. A CLOSED union on purpose: `number` would
+ *  let an un-clamped value through the type system into storage.
+ *  ★★ WIDTH AND HEIGHT ARE SEPARATE TYPES SINCE SPEC C (decision 10). They were
+ *  one `1|2|3|4` union; heights 5–8 had to exist for the Dashboard's tall Budget
+ *  burn tile, and widening a shared union would have let an 8-WIDE block
+ *  type-check — `W_CLASS` has no entry for it, so it would render one column
+ *  wide with nothing able to see it. */
+export type BlockWidth = 1 | 2 | 3 | 4;
+
+/** A block spans 1-8 grid ROWS. Rows are not a grid dimension, so nothing but a
+ *  catalogue's own `maxH` bounds a surface: the Dashboard reaches 8, Reports
+ *  caps itself at 4 (`report-blocks.test.ts` pins it). */
+export type BlockHeight = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 /**
  * One block's declaration: what it is, how big it is by default, and how far a
@@ -102,24 +112,37 @@ export interface BlockSpec<Id extends string> {
    * against.
    */
   labelKey: TranslationKey;
-  w: BlockSpan;
-  h: BlockSpan;
-  minW: BlockSpan;
-  maxW: BlockSpan;
-  minH: BlockSpan;
-  maxH: BlockSpan;
+  w: BlockWidth;
+  h: BlockHeight;
+  minW: BlockWidth;
+  maxW: BlockWidth;
+  minH: BlockHeight;
+  maxH: BlockHeight;
 }
 
 export interface PlacedBlock<Id extends string> {
   id: Id;
-  w: BlockSpan;
-  h: BlockSpan;
+  w: BlockWidth;
+  h: BlockHeight;
 }
 
 export interface ArrangementLayout<Id extends string> {
   v: 1;
   board: PlacedBlock<Id>[];
   hidden: Id[];
+  /**
+   * Ids of one-time upgrades already applied to this stored layout (spec C
+   * decision 11) — how a surface migrates its stored arrangement WITHOUT a
+   * version bump, which would be a lockstep decision across every surface
+   * (`arrangement-store.ts` says why). Optional: absent on every layout written
+   * before it existed and on every surface with no upgrade (Reports).
+   * ★★ `readArrangement` sanitises it and `isArrangementLayout` ignores it, so
+   * junk here is dropped and never rejects — i.e. never resets — a layout.
+   * `reconcile` carries it through. ★ An OLDER build's `reconcile` rebuilds
+   * `{v, board, hidden}` and drops it; a layout an older build rewrites is
+   * therefore upgraded once more. Accepted in the spec.
+   */
+  upgrades?: readonly string[];
 }
 
 /**
@@ -195,9 +218,10 @@ export function restoreBlock<Id extends string>(
   return { ...layout, board, hidden: layout.hidden.filter((h) => h !== id) };
 }
 
-/** Clamp `v` into `[lo, hi]`, keeping the BlockSpan type. */
-function clampSpan(v: number, lo: BlockSpan, hi: BlockSpan): BlockSpan {
-  return Math.max(lo, Math.min(hi, Math.round(v))) as BlockSpan;
+/** Clamp `v` into `[lo, hi]`, keeping the axis's own span type — a width
+ *  clamps to a `BlockWidth`, a height to a `BlockHeight`. */
+function clampSpan<S extends number>(v: number, lo: S, hi: S): S {
+  return Math.max(lo, Math.min(hi, Math.round(v))) as S;
 }
 
 /**
@@ -218,12 +242,19 @@ export function resizeBlock<Id extends string>(
   if (i < 0) return layout;
   const spec = specById(catalogue, id);
   if (!spec) return layout;
-  const next = axis === "w"
-    ? clampSpan(value, spec.minW, spec.maxW)
-    : clampSpan(value, spec.minH, spec.maxH);
-  if (layout.board[i][axis] === next) return layout;
+  // ★ Two branches, not a computed `[axis]` key: a computed key of type
+  // `"w" | "h"` is not checked per axis, so it would let a height value into
+  // `w` with no type error now that the two axes have different types.
   const board = [...layout.board];
-  board[i] = { ...board[i], [axis]: next };
+  if (axis === "w") {
+    const next = clampSpan(value, spec.minW, spec.maxW);
+    if (layout.board[i].w === next) return layout;
+    board[i] = { ...board[i], w: next };
+  } else {
+    const next = clampSpan(value, spec.minH, spec.maxH);
+    if (layout.board[i].h === next) return layout;
+    board[i] = { ...board[i], h: next };
+  }
   return { ...layout, board };
 }
 
@@ -315,5 +346,7 @@ export function reconcile<Id extends string>(
     present.add(spec.id);
   });
 
-  return { v: 1, board, hidden };
+  // ★ Spec C: carry the applied-upgrades list through, and add NO key when the
+  // stored layout had none, so a layout without one stays byte-identical.
+  return stored.upgrades ? { v: 1, board, hidden, upgrades: stored.upgrades } : { v: 1, board, hidden };
 }

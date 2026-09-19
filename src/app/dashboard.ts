@@ -2,7 +2,7 @@
 // single testable unit behind dashboard-panel.tsx.
 
 import { computeGroupHealth, type Health } from "./health";
-import { computeBudgetReport, type BudgetReport, type CciValue, type CostUnknownReason, type ProjectReport } from "./budget-report";
+import { computeBudgetReport, type BudgetReport, type ProjectReport } from "./budget-report";
 import { isTerminalStatus, riskSeverityFromMatrix } from "./raid";
 import { workdaysUntil } from "./due-dates";
 import { partitionMilestones } from "./milestones";
@@ -248,23 +248,6 @@ export function recentActivity(
   return entries.slice(-limit).reverse();
 }
 
-export type DashboardBurn = {
-  budgetValue: number;
-  consumedValue: number;
-  budgetHours: number;
-  actualHours: number;
-  cost: number;
-  costPerformance: CciValue;
-  consumption: CciValue;
-  /** Carried alongside `cost`/`costPerformance` deliberately. Those two are
-   *  internal-rate figures and are 0 when no rate exists, which reads as a
-   *  perfect margin — the defect this model's source spent six fixes removing.
-   *  Any consumer rendering them MUST gate on this (null ⇒ knowable), so the
-   *  reason travels with the data rather than being looked up later (or
-   *  forgotten, which is how every one of those six instances happened). */
-  costUnknownReason: CostUnknownReason | null;
-};
-
 export type DashboardModel = {
   overall: { computed: Health; effective: Health; overridden: boolean };
   schedule: { computed: Health; effective: Health; overridden: boolean };
@@ -274,14 +257,13 @@ export type DashboardModel = {
   changes: { pending: number; approved: number; implemented: number; total: number };
   topChanges: ChangeItem[];
   progress: DashboardProgress;
-  burn: DashboardBurn | null;
   burndown: BurndownSeries | null;
-  /** The pace/efficiency forecast (spec §5) driving the Budget RAG's pace-VAC
-   *  input and the dashboard tile's headline. Null exactly when `burndown` is
-   *  (no budgets, or the report/burndown pair could not be built). */
-  forecast: BudgetForecast | null;
-  /** € + hours forecasts, rate mix and earned-value history (MR 3). `forecast`
-   *  above is `forecastBundle.eur`. Null exactly when `forecast` is. */
+  /** € + hours forecasts, rate mix and earned-value history (MR 3). The
+   *  pace/efficiency € forecast (spec §5) that drives the Budget RAG's
+   *  pace-VAC input is `forecastBundle.eur` — computed as a local inside
+   *  `computeDashboard` (never exported on its own; nothing outside
+   *  `dashboard.ts` read it, §580). Null exactly when `burndown` is (no
+   *  budgets, or the report/burndown pair could not be built). */
   forecastBundle: ForecastBundle | null;
   /** Dates the burn-down chart needs beyond the series (MR 3 date axis). */
   chartDates: { today: string; planEnd: string };
@@ -452,7 +434,7 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
         progress: bucketProgressSeries(input.snapshots), budgetHistory: input.budgetHistory,
       })
     : null;
-  // The budget RAG and the tile headline stay € only (addendum §3.3).
+  // The budget RAG stays € only (addendum §3.3).
   const forecast: BudgetForecast | null = forecastBundle?.eur ?? null;
   // The budget RAG reads the pace VAC once the pace forecast exists (spec
   // §6.3); before that the consumed-vs-budget ratio stays the signal. Effort
@@ -461,14 +443,6 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
     ? paceVacHealth(forecast.pace.vac, forecast.facts.bac)
     : computeBudgetStatus(project, amberRatio);
   const budgetComputed = worstHealth(budgetBucketStatus, evmIndexHealth(evm.cpi));
-  const burn: DashboardBurn | null = project
-    ? {
-        budgetValue: project.budgetValue, consumedValue: project.consumedValue,
-        budgetHours: project.budgetHours, actualHours: project.actualHours,
-        cost: project.cost, costPerformance: project.costPerformance, consumption: project.consumption,
-        costUnknownReason: project.costUnknownReason,
-      }
-    : null;
 
   const scopeComputed = computeScopeStatus(input.changes, SCOPE_PENDING_RED);
   const changeStatusCounts = countByStatus(input.changes);
@@ -489,9 +463,7 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
     changes: changesSummary,
     topChanges: selectTopChanges(input.changes, topRaidN),
     progress: computeDashboardProgress(input.tasks, today, holidaySet),
-    burn,
     burndown,
-    forecast,
     forecastBundle,
     chartDates: { today, planEnd: input.plan.endDate },
     bucketChain,

@@ -20,6 +20,13 @@ describe("ActionHeroCard", () => {
     expect(screen.getByText(/Vendor API delay/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open – Row" })).toBeInTheDocument();
   });
+  // §582 — an Open CTA that does nothing without a handler must not render at all.
+  it("hides the Open CTA when onOpen is absent, and shows it once wired", () => {
+    const { rerender } = render(<ActionHeroCard rowToken="Row" lang="en-US" group={group(noOwner)} />);
+    expect(screen.queryByRole("button", { name: "Open – Row" })).toBeNull();
+    rerender(<ActionHeroCard rowToken="Row" lang="en-US" group={group(noOwner)} onOpen={() => {}} />);
+    expect(screen.getByRole("button", { name: "Open – Row" })).toBeInTheDocument();
+  });
   it("offers Log as RAID in the hero's overflow for a non-RAID signal (§515)", () => {
     const slip = {
       ...noOwner, id: "milestone:4:atrisk", source: "milestone",
@@ -83,5 +90,17 @@ describe("ActionHeroCard", () => {
     const demoted = { ...noOwner, learning: { bias: -12, moved: "down" as const } };
     rerender(<ActionHeroCard rowToken="Row" lang="en-US" group={group(demoted)} onOpen={() => {}} />);
     expect(screen.getByText(/demoted/i)).toBeInTheDocument();
+  });
+});
+
+describe("ActionHeroCard — the box (spec C)", () => {
+  it("keeps its bottom margin by default and takes a caller class instead", () => {
+    const { unmount } = render(<ActionHeroCard rowToken="Row" lang="en-US" group={group(noOwner)} onOpen={() => {}} />);
+    expect(screen.getByRole("region", { name: /Do this first/i }).className).toContain("mb-4");
+    unmount();
+    render(<ActionHeroCard rowToken="Row" lang="en-US" group={group(noOwner)} onOpen={() => {}} className="h-full" />);
+    const region = screen.getByRole("region", { name: /Do this first/i });
+    expect(region.className).toContain("h-full");
+    expect(region.className).not.toContain("mb-4");
   });
 });

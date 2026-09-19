@@ -71,6 +71,47 @@ export function ArrangementShelf({
   trayId: string;
 }) {
   const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-2 flex flex-col items-end print:hidden">
+      <button
+        ref={toggleRef}
+        type="button"
+        aria-expanded={open}
+        aria-controls={trayId}
+        onClick={() => setOpen((o) => !o)}
+        onDragEnter={() => { if (isDragging) setOpen(true); }}
+        {...dropProps}
+        className={`rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:text-foreground ${FOCUS_RING} ${TRANSITION}`}
+      >
+        <span aria-hidden>{open ? "▾" : "▸"}</span> {t(lang, "arrangementShelfCount", hidden.length)}
+      </button>
+      <ArrangementShelfTray lang={lang} hidden={hidden} onRestore={onRestore} dropProps={dropProps} open={open} trayId={trayId} />
+    </div>
+  );
+}
+
+/**
+ * The shelf's TRAY on its own: the always-mounted, `hidden`-toggled list of
+ * hidden blocks with their Restore buttons, and a drop target.
+ *
+ * ★★ EXTRACTED FOR SPEC C, WITH NO CHANGE TO ITS MARKUP. The Dashboard splits
+ * the toggle from the tray (its badge sits in the control stack, the tray under
+ * row 1); Reports keeps the combined `ArrangementShelf` above, which renders
+ * this, so its DOM is byte-identical. `open` is controlled by whoever owns the
+ * toggle, and the node stays mounted either way so `aria-controls` resolves.
+ */
+export function ArrangementShelfTray({
+  lang, hidden, onRestore, dropProps, open, trayId,
+}: {
+  lang: Lang;
+  hidden: { id: string; title: string }[];
+  onRestore: (id: string) => void;
+  /** The grid's own drop handlers — the tray never decodes the drag itself. */
+  dropProps: BlockDragProps;
+  open: boolean;
+  /** The tray's DOM id — see `ArrangementShelf`'s `trayId` for why it is a prop. */
+  trayId: string;
+}) {
   const restore = t(lang, "arrangementTileRestore");
   /**
    * ★★★ THE SHELF IS THE LIST OWNER, SO THE TOKEN MAP IS BUILT HERE — the repo's
@@ -109,63 +150,49 @@ export function ArrangementShelf({
     [hidden],
   );
   return (
-    <div className="mt-2 flex flex-col items-end print:hidden">
-      <button
-        ref={toggleRef}
-        type="button"
-        aria-expanded={open}
-        aria-controls={trayId}
-        onClick={() => setOpen((o) => !o)}
-        onDragEnter={() => { if (isDragging) setOpen(true); }}
-        {...dropProps}
-        className={`rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:text-foreground ${FOCUS_RING} ${TRANSITION}`}
-      >
-        <span aria-hidden>{open ? "▾" : "▸"}</span> {t(lang, "arrangementShelfCount", hidden.length)}
-      </button>
-      <div
-        id={trayId}
-        hidden={!open}
-        {...dropProps}
-        className="mt-1 w-full rounded-md border border-dashed border-line bg-surface-muted p-2"
-      >
-        {hidden.length === 0 ? (
-          <p className="text-xs italic text-muted-foreground">{t(lang, "arrangementShelfEmpty")}</p>
-        ) : (
-          <ul className="flex flex-wrap gap-2">
-            {hidden.map((h) => (
-              <li key={h.id} className="flex items-center gap-1 rounded-full border border-line bg-surface px-2 py-0.5 text-xs">
-                <span>{h.title}</span>
-                {/* ★★ The block title is in the accessible name because N chips
-                    render at once and N identical "Restore" buttons is a WCAG
-                    2.4.6 failure the axe gate cannot see, in any view, at any
-                    seed size.
-                    ★★ THIS IS THE SURFACE THAT CAN CARRY A COLLISION-SEEDED
-                    TEST, unlike `arrangement-tile.tsx`: the shelf renders the
-                    LIST, so it sees its own siblings and a fixture can seed two
-                    chips sharing a title.
-                    ★ WCAG 2.5.3 holds by CONTAINMENT: the visible label
-                    "Restore" is contained in "Restore – <block>".
-                    ★★ The `?? h.title` fallback is UNREACHABLE and therefore
-                    UNPINNED — do not read it as covered behaviour. The map is
-                    built from this very list one hook call above, so every id
-                    here is in it; no test exercises the right-hand side and none
-                    can without breaking that invariant deliberately. It is kept
-                    so the name degrades to the raw title rather than the string
-                    "undefined" if a future change ever separates the two. */}
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  aria-label={rowLabel(restore, tokens.get(h.id) ?? h.title)}
-                  onClick={() => onRestore(h.id)}
-                  className="rounded-full border border-line"
-                >
-                  {restore}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+    <div
+      id={trayId}
+      hidden={!open}
+      {...dropProps}
+      className="mt-1 w-full rounded-md border border-dashed border-line bg-surface-muted p-2"
+    >
+      {hidden.length === 0 ? (
+        <p className="text-xs italic text-muted-foreground">{t(lang, "arrangementShelfEmpty")}</p>
+      ) : (
+        <ul className="flex flex-wrap gap-2">
+          {hidden.map((h) => (
+            <li key={h.id} className="flex items-center gap-1 rounded-full border border-line bg-surface px-2 py-0.5 text-xs">
+              <span>{h.title}</span>
+              {/* ★★ The block title is in the accessible name because N chips
+                  render at once and N identical "Restore" buttons is a WCAG
+                  2.4.6 failure the axe gate cannot see, in any view, at any
+                  seed size.
+                  ★★ THIS IS THE SURFACE THAT CAN CARRY A COLLISION-SEEDED
+                  TEST, unlike `arrangement-tile.tsx`: the shelf renders the
+                  LIST, so it sees its own siblings and a fixture can seed two
+                  chips sharing a title.
+                  ★ WCAG 2.5.3 holds by CONTAINMENT: the visible label
+                  "Restore" is contained in "Restore – <block>".
+                  ★★ The `?? h.title` fallback is UNREACHABLE and therefore
+                  UNPINNED — do not read it as covered behaviour. The map is
+                  built from this very list one hook call above, so every id
+                  here is in it; no test exercises the right-hand side and none
+                  can without breaking that invariant deliberately. It is kept
+                  so the name degrades to the raw title rather than the string
+                  "undefined" if a future change ever separates the two. */}
+              <Button
+                variant="ghost"
+                size="xs"
+                aria-label={rowLabel(restore, tokens.get(h.id) ?? h.title)}
+                onClick={() => onRestore(h.id)}
+                className="rounded-full border border-line"
+              >
+                {restore}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

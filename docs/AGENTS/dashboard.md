@@ -15,11 +15,15 @@
 
 **Layout = an ORDERED, user-arrangeable grid. NOT masonry any more, and NOT coordinates.**
 `dashboard-panel.tsx` stays a thin orchestrator (data derivation + the `computeDashboard` memo) and
-renders three zones: a full-width HEADLINE (`DashboardDeltaStrip` · `NarrativeSummary` ·
-`DashboardCoachingCard` · `DashboardTipCard` · `DigestCardConnected` · `DashboardHero`), whose
-right-hand vertical control stack is `PrintButton` · `ResetLayoutButton` · `ResetSizeButton` → the
-arrangeable tile grid (`DashboardGrid`, `DashboardShelf`) → a full-width
-FOOTER (`NarrativeEditor`). ★★ `ResetLayoutButton` MOVED INTO that stack (0.277.0+) from a ghost text
+renders, top to bottom (spec C; the two rows are presentational in `dashboard-rows.tsx`): ROW 1
+(`DashboardTopRow`) — `DashboardDeltaStrip` in the free width, `DigestCardConnected` beside it at about
+a third (its slot is `empty:hidden`, so a self-hidden digest hands the delta strip the whole row) and
+the right-hand vertical control stack `PrintButton` · `ResetLayoutButton` · `ResetSizeButton` ·
+`DashboardHiddenBadge`; the hidden-tiles TRAY (`DashboardShelf`) directly under row 1, shown only while
+open; ROW 2 (`DashboardStatusRow`) — the Next-Actions `ActionHeroCard` beside `DashboardHero` (Overall
+status), equal height by stretch, the hero absent when there is no Now/Soon group; then
+`NarrativeSummary` · `DashboardCoachingCard` · `DashboardTipCard` → the arrangeable tile grid
+(`DashboardGrid`) → a full-width FOOTER (`NarrativeEditor`). Both rows stack below `lg`. ★★ `ResetLayoutButton` MOVED INTO that stack (0.277.0+) from a ghost text
 button that used to sit between the grid and the shelf; this line named it in the middle zone until
 then. It is the only member of the stack carrying its own `!arrangement.readOnly` guard — the stack is
 gated only on `print:hidden`, and a popout is read-only by design. ★ The footer was described here as `NarrativeEditor` **plus a
@@ -37,6 +41,27 @@ NOT** and never did — it allocates a fresh `{v, board, hidden}` on every non-n
 content or not. A persist-skip written against `next !== stored` would therefore fire on every load.
 This sentence used to lump all five together, which is exactly the claim someone would build that skip
 on.
+
+★★ **WIDTHS RUN 1–4 AND HEIGHTS 1–8, AS TWO TYPES (spec C).** `BlockWidth` (the four-column grid)
+and `BlockHeight` replaced the one shared union, so an 8-wide block cannot type-check; `H_CLASS`
+carries literal `row-span-5` … `row-span-8`. Only the Dashboard's catalogue reaches past 4 — `burn` is
+`w:2 h:8`, FIRST in `DEFAULT_LAYOUT`, with `kpi` second at `w:2 h:3` (§585) so that on xl dense packing puts it in
+columns 3–4 BESIDE burn rather than below its eight rows (h:3 keeps a strip that wraps to two rows at half
+width inside the tile body — measured in both densities by `e2e/dashboard-grid.spec.ts`) — and Reports caps itself through its own `maxH`, pinned in
+`report-blocks.test.ts`. The 8-row box is measured by `e2e/dashboard-grid.spec.ts`.
+
+★★ **A STORED LAYOUT CARRIES AN OPTIONAL `upgrades` LIST, NOT A NEW VERSION (spec C).** `v` stays 1
+(a bump is a lockstep decision across every surface — `arrangement-store.ts`). `useArrangement` takes
+an optional `upgrade` that runs on a stored `ok` read BEFORE `reconcile`; a different object back marks
+that read dirty, so the upgraded layout is written back once. The Dashboard passes
+`upgradeDashboardLayout` (`dashboard-layout-upgrade.ts`), keyed on `DASHBOARD_BURN_UPGRADE`: Budget burn
+to the front at 2×8 unless hidden, Completion trend's height clamped into 2–4, and — only alongside that
+burn move, each axis only from exactly its old default (`w:4`, `h:2`) — the KPI tile resized to `w:2 h:3`
+(§585; any other stored width or height is the user's and stays). Nothing else is touched.
+★★★ `DEFAULT_LAYOUT` already carries the id and must — a fresh or reset board is persisted from it,
+and without the id its next load would drag burn back to the front. `readArrangement` sanitises the list
+(junk is dropped, never a rejection) and `reconcile` carries it. ★ An older build's `reconcile` drops the
+list, so a layout it rewrites is upgraded once more — accepted in the spec.
 
 ★★★ **ALL FIVE OF THOSE WRAPPERS ARE NOW TEST-ONLY, and two successive revisions of this paragraph
 got that wrong in different ways.** The first said `reconcile`'s "ONE production call site is a load —
@@ -130,33 +155,39 @@ content becomes an inner scroll container. And **6 of 9 rendering tiles already 
 shipped comfortable/80** (measured, default catalogue board, 1600px, e2e seed: `burn` 507px over,
 `insights` 239, `upcoming` 133). Inner scrolling is this design's normal mode, not something compact
 introduced, and no row unit fixes those three — fitting `burn` at h:2 would take a ~340px unit, which
-is what per-axis resize is for. Measure comfortable before calling anything a regression.
+is what per-axis resize is for. Measure comfortable before calling anything a regression. ★ Those
+numbers predate spec C, which made `burn` chart-only at h:8 — re-measure before quoting them.
 
-★ **The `burn` tile's content (forecast figures union, MR 2):** the headline is `forecastHeadlineText`
-(`budget-forecast-headline.tsx`), the first entry of `forecastNotices` renders below it as a muted line
-(`forecastNoticeShortText`), and the tile body scrolls (`overflow-auto`, per the 507px-over measurement
-above) at its catalogue `minH` of 3. `dashboard.ts`'s `budgetComputed` reads the budget RAG from
-`paceVacHealth(forecast.pace.vac, forecast.facts.bac)` once the pace forecast exists (`BudgetForecast`
-from `computeBudgetForecast`), and falls back to the ratio-based `computeBudgetStatus` otherwise; the
-effort CPI (`evmIndexHealth(evm.cpi)`) stays in the worst-of either way. Trends' persisted `budgetRag`
-(`snapshot.ts`) reads this same `model.budget.effective`, so a Trends capture switches to the pace rule
-from this release on — an OLDER captured snapshot stays ratio-based, because it was written before the
-pace forecast existed to read.
-
-★ **The `burn` tile's chart and hours signal (MR 3):** the chart is `BurndownChartPanel`
-(`burndown-chart-panel.tsx`) — the same component the Budget report mounts — with two `SegmentedControl`s
-writing the device settings `budgetChartView` / `budgetChartUnit` through `useSettings` (no per-project
-override). The model carries `forecastBundle` (€ and hours forecasts, rate mix, earned-value history from
-`computeForecastBundle`) and `chartDates`; `forecast` stays `forecastBundle.eur`, so the budget RAG is still
-€ only. When the rate mix triggers, `ForecastHeadline` adds a `RateMixChip` under the headline; the tile
-body scrolls inside the tile at `h: 3` as before.
+★★ **The `burn` tile is CHART-ONLY (spec C decision 7).** Its body is the compact
+`BurndownChartPanel` (the component the Budget report mounts, with the device settings
+`budgetChartView` / `budgetChartUnit`) headed by `BurndownChainWarning`, or `dashboardNoBudget` with no
+burn-down series. The forecast headline, the Spent and hours tiles, the FX rollup notice, the caption
+and the Effort SPI/CPI tiles all left it; `ForecastHeadline` (`budget-forecast-headline.tsx`) is now
+DELETED — its only production caller was this tile's headline — along with its test and four i18n keys
+(`forecastTileActuals`, `forecastTileRange`, `forecastTileSingle`, `forecastTileRunsOut`) that had no
+other reader.
+★★ Effort SPI and Effort CPI moved into the KPI tile (`DashboardKpiStrip`), keeping `evmSpi`/`evmCpi`
+and their hints: they are the only figures on the dashboard that explain a Schedule or Budget badge gone
+amber on the index alone. Neither is gated on the Budget module — `showSpi`/`showCpi` inside the strip
+key on `model.evm.spi`/`model.evm.cpi` alone, never `showBudget` — because SPI feeds the Schedule RAG
+unconditionally and CPI feeds the Budget RAG, which reaches the dashboard's own delta-strip flip badges,
+the AI `get_dashboard_snapshot` tool, Trends' persisted `budgetRag` and the Portfolio health table with
+the Budget module off, none of them gated either. That RAG comes from the MODEL —
+`evmIndexHealth(evm.spi)` into Schedule, `evmIndexHealth(evm.cpi)` into Budget (`dashboard.ts`) — never
+from a tile, and a characterization test in `dashboard-panel.test.tsx` pins that moving the tiles moved
+no badge. `dashboard.ts`'s `budgetComputed` still reads the budget RAG from `paceVacHealth` once the pace
+forecast exists and falls back to `computeBudgetStatus`; Trends' persisted `budgetRag` reads the same
+`model.budget.effective`.
 
 ★ **Chart/table split and EV availability (§549):** `BurndownChartPanel`'s `compact` prop (always true here) suppresses
 the recorded-change table and its variance footer entirely — spec §5.2, "the dashboard tile shows the headline only",
-whose D7 names "tile carries the split too" as the rejected alternative. The chart, its BAC markers and the EV line all
-stay. ★★ The tile is too narrow to have carried the table anyway: at its DEFAULT width (`w: 1`) it is half the pane at
-`lg`'s 2-column grid and a quarter at `xl`'s 4-column grid (`arrangement-grid.tsx`), though a user may widen it up to
-`maxW: 2` (`dashboard-tiles.ts`), which is full pane width at `lg` (`col-span-2` there spans both columns) — and the
+whose D7 names "tile carries the split too" as the rejected alternative. ★★ THAT QUOTED CLAIM IS NOW FALSE (spec C):
+the headline left the tile along with `ForecastHeadline` itself, now DELETED (see
+the CHART-ONLY paragraph above) — `compact` now suppresses the table AND leaves no headline behind it, so
+the tile shows the chart only, not "the headline only". The chart, its BAC markers and the EV line all
+stay. ★★ The tile is too narrow to have carried the table anyway: at its DEFAULT width (`w: 2`, spec C) it is full pane width
+at `lg`'s 2-column grid and half at `xl`'s 4-column grid (`arrangement-grid.tsx`), and a user may widen it to
+`maxW: 4` (`dashboard-tiles.ts`) — and the
 panel's own `2xl:flex-row` breakpoint reads the VIEWPORT, not that box, so on a viewport of 1536px or wider it would have fired
 whatever the tile's own width was. `computeEvHistory` (`budget-ev-history.ts`) marks history
 unavailable only when at least one budgeted bucket exists and none has a known value AT TODAY: a bucket is unknown
@@ -243,7 +274,7 @@ need redoing.
 this paragraph says so.** `restoreTile` splices the tile back at its CATALOGUE default `{w, h}`
 (`spec.w`/`spec.h`), never at the size it carried when it was hidden, because `hideTile` drops the whole
 `PlacedTile` and keeps only the id on the shelf — the size is gone before restore is reached. So a user
-who widens `burn` to w:2, hides it and restores it gets w:1 back. `dashboard-layout.test.ts` pins this
+who narrows `burn` to w:1, hides it and restores it gets its catalogue 2×8 back. `dashboard-layout.test.ts` pins this
 ("appends a hidden tile to the board at its catalogue default size"), so a change of mind has to go
 through that test rather than sliding in. ★ Preserving it would mean shelving the `PlacedTile` instead
 of the id, which changes the stored shape (`hidden: DashboardTileId[]`) and therefore
@@ -327,11 +358,13 @@ close — there is no focus-restore in it, `use-dismissable.ts` or `dismissal-st
 unmounts the panel drops focus on `<body>` unless the panel puts it somewhere. That stranded a keyboard
 user at the top of the document after using the menu that IS this surface's keyboard path (the drag
 primitive's own arrow keys are off here, `keyboard: false`). Three cases, each measured:
-• **Hide** → the shelf disclosure. The ⋮ trigger it was anchored to goes with the tile, and the shelf is
-  where the tile now lives. `DashboardShelf` takes a `toggleRef` for it — the one node in that subtree
-  that never unmounts.
-• **Restore** → the shelf disclosure again. The chip's own Restore button is removed by the click that
-  restores, and the remaining chips shift, so the chip list is the wrong target in both directions.
+• **Hide** → the hidden-tiles badge (`DashboardHiddenBadge`, spec C). The ⋮ trigger it was anchored to
+  goes with the tile, and the badge is the route back. ★★ It is a POST-COMMIT focus request (the same
+  effect as Move below), never a synchronous `.focus()`: the badge is absent at a count of 0, so hiding
+  the FIRST tile MOUNTS it in the very commit the hide causes.
+• **Restore** → the badge again while tiles remain hidden; the restored tile's own ⋮ trigger when the
+  restore empties the tray, because the badge unmounts at 0. The chip's own Restore button is removed by
+  the click that restores and the remaining chips shift, so the chip list is the wrong target.
 • **Move** (earlier / later / first) → **the moved tile's own ⋮ trigger**, so a second press needs no
   re-navigation. ★★ TWO THINGS MAKE THIS DIFFERENT FROM THE OTHER TWO. It fires from a `useEffect` keyed
   on a fresh request object, NOT from the handler: React reorders a keyed list by MOVING the existing DOM
@@ -344,7 +377,9 @@ primitive's own arrow keys are off here, `keyboard: false`). Three cases, each m
 ★★ **THE ⋮ MENU AND THE SHELF ARE GENERIC NOW, and the names below are the Dashboard's ADAPTERS.**
 `ArrangementBlockMenu` / `AxisGroup` (`arrangement-block-menu.tsx`) and `ArrangementShelf`
 (`arrangement-shelf.tsx`) hold the behaviour; `dashboard-tile-menu.tsx` and `dashboard-shelf.tsx` keep
-`DashboardTileMenu` / `TileAxisGroup` / `DashboardShelf` as thin bindings, so every claim below is still
+`DashboardTileMenu` / `TileAxisGroup` / `DashboardShelf` as thin bindings (★ since spec C `DashboardShelf`
+binds only the TRAY, `ArrangementShelfTray`; the toggle is the Dashboard's own `DashboardHiddenBadge`,
+while Reports keeps the combined `ArrangementShelf`), so every claim below is still
 true of the Dashboard — read it in the generic file before changing it. ★★★ The one real design change:
 the menu takes its four span BOUNDS as props and no longer calls `tileById` itself. That lookup and its
 `return null` moved to the Dashboard adapter, so the shared component can no longer render NOTHING —
@@ -393,10 +428,17 @@ The presentational slices:
   Adjust-health `<details>`; OWNS the `OverrideSelect` helper. Props trimmed to
   `{lang, today, model, status, setStatus, showBudget?, showChanges?, dc}` — `trends`/`topActions`/
   `onOpenAction`/`onNavigate` were REMOVED (they moved with the KPI/Top-actions cards).
-- `dashboard-sections/dashboard-kpi-strip.tsx` (`DashboardKpiStrip`) — the 3 "at a glance" KPI tiles
-  (complete % · overdue · open RAID; overdue and open-RAID always carry a `TrendArrow`, completion
+- `dashboard-sections/dashboard-kpi-strip.tsx` (`DashboardKpiStrip`) — the "at a glance" KPI tiles
+  (complete % · overdue · open RAID, plus Effort SPI · Effort CPI whenever `model.evm.spi`/
+  `model.evm.cpi` is non-null — spec C, independent of the Budget module; overdue and open-RAID
+  always carry a `TrendArrow`, completion
   carries one only outside the no-active-scope state below); the body of the `kpi` tile. Uses a
-  `dc.cardPad` card wrapper (NOT `<Section boxed>`, which hardcodes `p-4` and ignores compact density).
+  `dc.kpiPad` card wrapper (NOT `<Section boxed>`, which hardcodes `p-4` and ignores compact density).
+  ★ `kpiPad`, not `cardPad` (§585): same horizontal padding, but compact drops the vertical padding — with
+  it, a wrapped strip overflowed its h:3 tile body by 3px at the 72px row unit.
+  ★★ Its columns come from `KPI_STRIP_COLS`, keyed on the VISIBLE cell count (3, 4 or 5 — so no count leaves
+  an empty cell) and read as CONTAINER queries off that wrapper, which is the `@container`: they size to the
+  tile, not the viewport (§581). The breakpoints are measured label widths; the derivation sits on the constant.
   ★★★ **NEVER RE-DERIVE "is this project all cancelled" — call `hasNoActiveScope(progress)`
   (`dashboard.ts`), or `tasksHaveNoActiveScope(tasks)` when you hold only tasks.** Both go through the
   one `scopeCounts`, so a surface gated on either cannot drift from the tiles. This rule exists
@@ -420,7 +462,11 @@ The presentational slices:
   returns `null` when `!topActions?.length`. ★★ The panel no longer gates a wrapper on that: the old
   `break-inside-avoid` masonry wrapper is gone and the condition moved into `TileGateInput`
   (`hasTopActions`), so an empty queue means the whole `topActions` TILE does not render. The other
-  inline masonry conditions moved the same way (`hasInsights`, `hasCompletionTrend`).
+  inline masonry conditions moved the same way (`hasInsights`, `hasCompletionTrend`). ★ Since spec C its
+  `topActions` prop is no longer the raw `computeNextActions` list — `workspace-section.tsx` feeds it
+  `topGroupPrimaries(nextActionGroups, 5)` (`next-actions/group.ts`), one primary action per GROUP, capped
+  at 5. That is the same grouping the hero and `ActionsPanel` read, so a snoozed/escalated signal that
+  merges into another action's group disappears from this tile too, not just from the Now/Soon rows.
 - `dashboard-sections/registers-band.tsx` — split into `RaidRegisterCard` (gated on `showRaid`) +
   `UpcomingCard`, the bodies of the `raid` and `upcoming` tiles; the old combined `RegistersBand` wrapper
   was RETIRED.
@@ -429,7 +475,8 @@ The presentational slices:
   render-time reconcile; the textarea carries an `aria-label`, NOT just a placeholder — axe).
 ★ ALL tier/card spacing uses `dc.*` density classes, never literal `gap-*`/`space-y-*`/`p-*`/`mb-*`.
 `DashboardPanelProps` is unchanged by the reorg (the ~30 test/caller sites were untouched).
-★★ `DensityClasses` has FIVE fields — `{outer, kpiGap, cardPad, sectionGap, tileRow}`. A sixth,
+★★ `DensityClasses` has SIX fields — `{outer, kpiGap, cardPad, kpiPad, sectionGap, tileRow}`; `kpiPad` is the
+KPI strip's own padding (§585). An earlier sixth,
 `cardGap` (`mb-4`/`mb-2`), was the masonry's inter-card margin and is REMOVED along with it. It
 outlived the masonry for one release because `dashboard-density.test.ts` still asserted its value, so
 nothing went red — a test over a dead field is not evidence the field is used. ★ The two surviving
@@ -441,7 +488,10 @@ The Dashboard (`dashboard-panel.tsx`, owns `computeDashboard`) opens with a gree
 looked" delta strip, with the four RAG `OverrideSelect`s folded into a `<details>` "Adjust health
 ratings" disclosure inside `DashboardHero`. ★★ This used to add "then the ranked top-actions queue
 (promoted ABOVE the health band)" — top-actions is a TILE now, so it sits in the grid BELOW the hero,
-and a user can move it anywhere or hide it. Nothing in the headline zone is ranked any more. Dashboard
+and a user can move it anywhere or hide it. ★ Since spec C row 2 carries the Next-Actions HERO
+(`pickHeroGroup`, the rule the Next-actions page uses) beside Overall status — the one ranked item above
+the grid; the Top-actions tile keeps listing that action too, by decision, and the hero's CTA names carry
+a section segment so the two never collide. Dashboard
 IS in axe `A11Y_VIEWS`. Built as slices:
 
 - **Delta strip:** pure i18n-free `dashboard-delta.ts` (`computeDelta` diffs the activity log by
@@ -549,7 +599,7 @@ IS in axe `A11Y_VIEWS`. Built as slices:
   exposes `completed`+`total`. i18n EN+DE.
 - **Density toggle ("fit more on screen"):** per-device Comfortable/Compact, SPACING ONLY (no
   font/palette/contrast change). Pure i18n-free `dashboard-density.ts` `densityClasses(d)` →
-  `{outer,kpiGap,cardPad,sectionGap,tileRow}` class strings — comfortable REPRODUCES the original
+  `{outer,kpiGap,cardPad,kpiPad,sectionGap,tileRow}` class strings — comfortable REPRODUCES the original
   literals (`space-y-4`/`gap-2`/`p-3`/`gap-4`, a no-op for existing users), compact tightens
   (`space-y-2`/`gap-1`/`p-2`/`gap-2`). ★★ `sectionGap` NO LONGER drives "the two-column section grids
   (Progress+Budget, Milestones+Changes)" — those grids went with the masonry, and its ONLY consumer today

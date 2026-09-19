@@ -27,7 +27,15 @@ import { useConfirm } from "./confirm-dialog";
 import { isPassphraseLocked } from "./secrets-store";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
-import { type AttachmentBlock, ATTACHMENT_ACCEPT } from "./chat-attachments";
+import {
+  type AttachmentBlock,
+  ATTACHMENT_ACCEPT,
+  MAX_CHAT_ATTACHMENTS,
+  MAX_STAGED_PAYLOAD_BYTES,
+  blocksPayloadBytes,
+  planStaging,
+  type StagingCandidate,
+} from "./chat-attachments";
 import { flattenIngestBlocks, ingestFile } from "./attachment-ingest";
 import { buildAttachmentSummary } from "./chat-attachment-summary";
 import {
@@ -146,6 +154,12 @@ const RUN_UNBATCHED: UndoBatch["runBatched"] = (fn) => fn();
  *   is inside the async send. */
 function stagingWorkspace(ws: Workspace | undefined): Workspace {
   return ws ?? emptyWorkspace();
+}
+
+/** True when a drag carries files — the only drag the pane-root drop target
+ *  claims. Text and link drags must pass through to the composer. */
+function isFileDrag(dt: DataTransfer | null): boolean {
+  return !!dt && Array.from(dt.types ?? []).includes("Files");
 }
 
 function ChatPanelImpl({
@@ -341,6 +355,14 @@ function ChatPanelInner({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachSeqRef = useRef(0);
+  // Read through a ref for the same reason as workspaceRef below: handleFiles
+  // is async (every file is read before the cap is enforced), so two picks
+  // fired in quick succession would otherwise plan the second against a stale
+  // `attachments` closure captured when that pick started.
+  const attachmentsRef = useRef(attachments);
+  useEffect(() => {
+    attachmentsRef.current = attachments;
+  }, [attachments]);
   const abortRef = useRef<AbortController | null>(null);
   const cancelledRef = useRef(false);
   // Latest committed projectId, read by the in-flight send to detect a mid-send
@@ -992,10 +1014,14 @@ function ChatPanelInner({
     return t(lang, "chatAttachmentReadFailed", name);
   }
 
-  async function handleFiles(files: FileList | null) {
+  async function handleFiles(files: FileList | readonly File[] | null) {
     if (!files || files.length === 0) return;
     setError(null);
-    const staged: StagedAttachment[] = [];
+    // Read every file first, THEN plan which ones fit the cap/budget — the cap
+    // is enforced against the set as a whole, not file-by-file as each read
+    // resolves (see planStaging).
+    const read: StagingCandidate[] = [];
+    const summaries = new Map<string, string | null>();
     // Collect every file's failure — a multi-file pick previously overwrote the
     // error state per file, so only the LAST failure was ever shown.
     const errors: string[] = [];
@@ -1005,14 +1031,32 @@ function ChatPanelInner({
         errors.push(attachmentErrorText(result.error, file.name));
         continue;
       }
-      const summary = buildAttachmentSummary(lang, file.name, result.node);
-      staged.push({
-        id: `att-${(attachSeqRef.current += 1)}`,
-        name: file.name,
-        blocks: flattenIngestBlocks(result.node),
-        summary,
-      });
+      summaries.set(file.name, buildAttachmentSummary(lang, file.name, result.node));
+      read.push({ name: file.name, blocks: flattenIngestBlocks(result.node) });
     }
+    const current = attachmentsRef.current;
+    const { accepted, rejected } = planStaging(
+      current.length,
+      blocksPayloadBytes(current.flatMap((a) => a.blocks)),
+      read,
+    );
+    for (const r of rejected) {
+      errors.push(
+        r.reason === "too-many"
+          ? t(lang, "chatAttachmentTooMany", r.name, MAX_CHAT_ATTACHMENTS)
+          : t(lang, "chatAttachmentOverBudget", r.name, MAX_STAGED_PAYLOAD_BYTES / (1024 * 1024)),
+      );
+    }
+    const staged: StagedAttachment[] = accepted.map((a) => ({
+      id: `att-${(attachSeqRef.current += 1)}`,
+      name: a.name,
+      blocks: [...a.blocks],
+      summary: summaries.get(a.name) ?? null,
+    }));
+    // Advance the ref NOW, not on the next render: an overlapping pick whose
+    // reads resolve before React re-renders must plan against this pick's
+    // staged set, or the two together can exceed the cap.
+    attachmentsRef.current = [...current, ...staged];
     if (staged.length > 0) setAttachments((prev) => [...prev, ...staged]);
     if (errors.length > 0) setError(errors.join("\n"));
     // Reset the input so re-selecting the same file fires onChange again.
@@ -1030,10 +1074,26 @@ function ChatPanelInner({
     }
   }
 
+  const attachDisabled = busy || apiKeyMissing || guidesPending;
+
   return (
     // Centered half-size card, top-anchored. The corner drags to a custom size
     // (persisted via useResizable); ResetSizeButton restores the default.
-    <div ref={chatRef} className={CHAT_PANE_CLASS}>
+    <div
+      ref={chatRef}
+      className={CHAT_PANE_CLASS}
+      // Only FILE drags are ours: cancelling a text or link drag here would
+      // swallow it before it reached the composer textarea.
+      onDragOver={(e) => {
+        if (attachDisabled || !isFileDrag(e.dataTransfer)) return;
+        e.preventDefault();
+      }}
+      onDrop={(e) => {
+        if (attachDisabled || !isFileDrag(e.dataTransfer)) return;
+        e.preventDefault();
+        void handleFiles(Array.from(e.dataTransfer.files));
+      }}
+    >
     <div className="flex h-full min-h-0 flex-1 gap-3">
       {tursoMode && (
         <ChatThreadSidebar
@@ -1286,7 +1346,7 @@ function ChatPanelInner({
             variant="secondary"
             className="inline-flex items-center justify-center"
             onClick={() => fileInputRef.current?.click()}
-            disabled={busy || apiKeyMissing || guidesPending}
+            disabled={attachDisabled}
             aria-label={t(lang, "chatAttach")}
             title={t(lang, "chatAttach")}
           >

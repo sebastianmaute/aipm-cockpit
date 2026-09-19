@@ -87,6 +87,15 @@ export function orderBudgetChanges(changes: readonly BudgetHistoryEntry[]): Budg
   });
 }
 
+/**
+ * A move below `BAC_EPSILON` is not recorded at all — it surfaces later as
+ * unattributed variance instead, the same as undo/version-restore bypassing
+ * this write path entirely (see the file header). The real writer,
+ * `commitBuckets` (`use-budget-buckets.ts`), recomputes `before`/`after` from
+ * the live bucket state on every commit, so a dropped move's true value still
+ * feeds the NEXT commit's `before` rather than being lost outright — it is
+ * simply never its own entry.
+ */
 export function recordBudgetChange(
   history: readonly BudgetHistoryEntry[], change: BudgetChange,
 ): readonly BudgetHistoryEntry[] {
