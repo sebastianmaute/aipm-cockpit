@@ -13,6 +13,7 @@ import { DEFAULT_TASK_STATUS, type Task } from "./types";
 import { reconcileInsights } from "./insights/reconcile";
 
 const undoCalls = vi.hoisted(() => ({ n: 0 }));
+const redoCalls = vi.hoisted(() => ({ n: 0 })); // §548 F1 item 6 — the REDO half of the same gate, unpinned before this.
 const handed = vi.hoisted(() => ({ calendar: [] as boolean[], recs: [] as boolean[] }));
 
 vi.mock("./use-calendar-integrations", async (importOriginal) => {
@@ -64,7 +65,13 @@ vi.mock("./undo/use-undo-stack", async (importOriginal) => {
         undo = () => { undoCalls.n += 1; real(); };
         wrapped.set(real, undo);
       }
-      return { ...api, undo };
+      let redo = wrapped.get(api.redo);
+      if (!redo) {
+        const real = api.redo;
+        redo = () => { redoCalls.n += 1; real(); };
+        wrapped.set(real, redo);
+      }
+      return { ...api, undo, redo };
     },
   };
 });
@@ -134,6 +141,7 @@ const loadingText = () => screen.queryByText(t("en-US", "loading"));
 beforeEach(() => {
   __resetMintStateForTests();
   undoCalls.n = 0;
+  redoCalls.n = 0;
   secretMode.mode = "real";
   handed.calendar.length = 0;
   handed.recs.length = 0;
@@ -224,6 +232,22 @@ describe("§548 — no edit can start while the load is pending", () => {
     await screen.findByTestId("ws-section-mock");
     fireEvent.keyDown(document.body, { key: "z", ctrlKey: true });
     expect(undoCalls.n).toBe(1); // control: the same keystroke does undo once the load has landed
+  }, 45000);
+
+  // §548 F1 item 6 — the REDO half of the same `loadPendingRef` gate (task-manager.tsx), previously
+  // unpinned: only the undo chord above had a test.
+  it("ignores the redo hotkey while the load is pending, and honours it once the load lands", async () => {
+    const load = holdLoad();
+    mountAt("/");
+    await waitFor(() => expect(load.spy).toHaveBeenCalled());
+    await waitFor(() => expect(loadingText()).not.toBeNull()); // the hold is up
+    fireEvent.keyDown(document.body, { key: "z", ctrlKey: true, shiftKey: true });
+    expect(redoCalls.n).toBe(0);
+
+    await act(async () => { load.land(LOADED); });
+    await screen.findByTestId("ws-section-mock");
+    fireEvent.keyDown(document.body, { key: "z", ctrlKey: true, shiftKey: true });
+    expect(redoCalls.n).toBe(1); // control: the same chord does redo once the load has landed
   }, 45000);
 
   it("hands loadPending to the background hooks: true while held, false once the load lands", async () => {

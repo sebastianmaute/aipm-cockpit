@@ -35,8 +35,20 @@ test("§548 — a delayed project load shows the skeleton, then the loaded app",
   });
 
   await page.goto("/");
+  // §548 F1 item 8 — prove the CLIENT hold, not the SSR/pre-hydration skeleton: both render the exact
+  // same "Loading…" markup, so asserting the skeleton alone would also pass if hydration silently never
+  // ran at all. `window.__aipmDiag` is set by a module-level side effect in diagnostics.ts (an existing
+  // devtools hook, not added for this test) the instant the client bundle evaluates — well before
+  // `loadPending` itself settles, since it does not depend on the gated IndexedDB open above. Waiting
+  // for it first, THEN asserting the skeleton is still up, pins that the skeleton persists past
+  // hydration because the client's own `loadPending` is holding it, not merely because the client never
+  // took over.
+  await page.waitForFunction(
+    () => typeof (window as unknown as { __aipmDiag?: unknown }).__aipmDiag === "function",
+    { timeout: 90_000 }, // the first navigation pays a dev compile
+  );
   const skeleton = page.getByRole("status").filter({ hasText: "Loading…" });
-  await expect(skeleton).toBeVisible({ timeout: 90_000 }); // the first navigation pays a dev compile
+  await expect(skeleton).toBeVisible({ timeout: 90_000 });
   await expect(page.getByRole("navigation")).toHaveCount(0); // no app chrome, so no control to edit with
 
   await page.evaluate(() => (window as unknown as { __releaseAipmLoad: () => void }).__releaseAipmLoad());

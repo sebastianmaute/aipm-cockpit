@@ -192,7 +192,7 @@ async function startHeld(row: Row) {
   act(() => { op = row.call(hook.result.current); });
   const settled = op.then(() => "fulfilled" as const, () => "rejected" as const);
   await waitFor(() => expect(g.touched()).toBe(true)); // control: the op is parked on its first await
-  return { result: hook.result, g, settled };
+  return { result: hook.result, g, settled, b };
 }
 
 describe.each(ROWS)("§548 — $op holds loadPending for its whole duration", (row) => {
@@ -215,3 +215,22 @@ describe.each(ROWS)("§548 — $op holds loadPending for its whole duration", (r
     await waitFor(() => expect(result.current.loadPending).toBe(false));
   });
 });
+
+// Fix batch F1 item 5 — the storageConfig-flip hand-off (`swapsInFlight` → `settledBackend`) is pinned
+// for `switchToProject` in use-storage-backend.load-pending.test.tsx (d): after the op applies and
+// re-points the config identity, the load effect on the REBUILT memo instance must take the SUPPRESS
+// branch (the op already put the right workspace in scope), never a real second load. Same pin here for
+// the two Turso ops, which re-point `tursoProjectId` instead of `storageConfig` but rebuild the SAME
+// (browser-kind) memo either way, via the ROWS table's own gate/backends.
+describe.each(ROWS.filter((r) => r.op === "switchToTursoProject" || r.op === "createTursoProject"))(
+  "§548 — $op: the suppressed load re-stamps it for the memo's new instance",
+  (row) => {
+    it("never calls the rebuilt memo's own load — the op's re-stamp suppresses it", async () => {
+      const { result, g, settled, b } = await startHeld(row);
+      await act(async () => { g.resolve(row.value); await settled; });
+      await waitFor(() => expect(b.target.isReady).toHaveBeenCalled()); // control: the suppress branch ran
+      expect(b.target.load).not.toHaveBeenCalled(); // the op's own re-stamp, not a real second load
+      await waitFor(() => expect(result.current.loadPending).toBe(false));
+    });
+  },
+);

@@ -246,3 +246,24 @@ it("does not store a generated recommendation while the project load is pending 
   expect(generate).toHaveBeenCalled(); // control: the generate really ran to the store point
   expect(store.read()[0].recommendation).toBeUndefined();
 });
+
+// §548 F1 item 9 — the BACKGROUND RUNNER itself must not tick while the load is pending, not just its
+// store above: without the `&& !loadPending` term on `useInsightRecommendRunner`'s `enabled`, the mount
+// effect fires a billed AI call whose result is simply discarded once the store gate above catches it.
+// `runInsightRecommendation` is the one call both the on-demand path and the runner's tick make, so a
+// mount with no candidate consuming it here is the runner's tick, not the on-demand path (which this
+// test never invokes).
+it("does not invoke the background runner's tick while the project load is pending (§548)", async () => {
+  const generate = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42, status: "In Progress" }));
+  const store = mkStore([mkInsight()]); // active, no recommendation yet — a real candidate for the runner
+  renderHook(() =>
+    useInsightRecommendations(mkDeps({
+      insights: store.read(),
+      setInsights: store.setInsights,
+      loadPending: true,
+      settings: { ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", insightRecommendations: true } } as unknown as InsightRecommendationDeps["settings"],
+    })),
+  );
+  await act(async () => {}); // flush the runner's mount-tick effect
+  expect(generate).not.toHaveBeenCalled();
+});

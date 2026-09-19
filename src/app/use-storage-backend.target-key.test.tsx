@@ -204,24 +204,29 @@ describe("§591 — a load merges the activity log and budget history only onto 
     const b = makeBackend(100, EMPTY);
     createBackendMock.mockReturnValueOnce(a).mockReturnValue(b);
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-    const { result, rerender } = render(tursoArgs("libsql://a.turso.io"));
-    await advance(300);
+    try {
+      const { result, rerender } = render(tursoArgs("libsql://a.turso.io"));
+      await advance(300);
 
-    rerender({ args: tursoArgs("libsql://b.turso.io") });
-    await advance(300);
-    expect(result.current.loadPause).toBe("empty-refused"); // control: the refusal kept A in scope
-    expect(ids(result.current.activityLog)).toEqual(["a-1"]);
+      rerender({ args: tursoArgs("libsql://b.turso.io") });
+      await advance(300);
+      expect(result.current.loadPause).toBe("empty-refused"); // control: the refusal kept A in scope
+      expect(ids(result.current.activityLog)).toEqual(["a-1"]);
 
-    await act(async () => {
-      const p = result.current.reloadCurrentProject();
-      await vi.advanceTimersByTimeAsync(200);
-      await p;
-    });
-    expect(confirmSpy).toHaveBeenCalled(); // control: the reload took the confirm path and applied
-    expect(result.current.tasks).toEqual([]);
-    expect(result.current.activityLog).toEqual([]);
-    expect(result.current.budgetHistory).toEqual([]);
-    confirmSpy.mockRestore();
+      await act(async () => {
+        const p = result.current.reloadCurrentProject();
+        await vi.advanceTimersByTimeAsync(200);
+        await p;
+      });
+      expect(confirmSpy).toHaveBeenCalled(); // control: the reload took the confirm path and applied
+      expect(result.current.tasks).toEqual([]);
+      expect(result.current.activityLog).toEqual([]);
+      expect(result.current.budgetHistory).toEqual([]);
+    } finally {
+      // §548 F1 item 3 — restore even when an assertion above throws, so the spy cannot leak into a
+      // later test.
+      confirmSpy.mockRestore();
+    }
   });
 
   // ★ HYPOTHETICAL TODAY: `useMsAuth`'s `acquireToken` is a stable `useCallback`, so an M365 sign-in/out
@@ -341,33 +346,37 @@ describe("§591 — a load merges the activity log and budget history only onto 
     const a2 = makeBackend(100, A2_WS);
     createBackendMock.mockReturnValueOnce(a1).mockReturnValueOnce(conversionTarget).mockReturnValueOnce(browserBackend).mockReturnValue(a2);
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-    const { result, rerender } = render(tursoArgs("libsql://a.turso.io"));
-    await advance(300);
-    expect(ids(result.current.activityLog)).toEqual(["a-1"]); // control: A applied
+    try {
+      const { result, rerender } = render(tursoArgs("libsql://a.turso.io"));
+      await advance(300);
+      expect(ids(result.current.activityLog)).toEqual(["a-1"]); // control: A applied
 
-    // Convert storage kind WITHOUT changing the in-memory workspace (onRequestStorageSwitch copies
-    // the LIVE workspace to the new backend; it never calls applyWorkspace).
-    await act(async () => {
-      await result.current.onRequestStorageSwitch("browser");
-    });
-    expect(conversionTarget.save).toHaveBeenCalledTimes(1); // control: the conversion write ran
-    expect(confirmSpy).toHaveBeenCalled();
+      // Convert storage kind WITHOUT changing the in-memory workspace (onRequestStorageSwitch copies
+      // the LIVE workspace to the new backend; it never calls applyWorkspace).
+      await act(async () => {
+        await result.current.onRequestStorageSwitch("browser");
+      });
+      expect(conversionTarget.save).toHaveBeenCalledTimes(1); // control: the conversion write ran
+      expect(confirmSpy).toHaveBeenCalled();
 
-    // Simulate the parent re-rendering with the new config `emitStorageConfig` just reported — this
-    // rebuilds the backend memo, and the load effect takes the SUPPRESS branch (armed by the
-    // conversion above).
-    rerender({ args: makeArgs({ kind: "browser" }) });
-    await advance(100);
-    expect(browserBackend.load).not.toHaveBeenCalled(); // control: suppressed — no real load
-    expect(browserBackend.isReady).toHaveBeenCalled(); // control: the suppress branch's status refresh ran
+      // Simulate the parent re-rendering with the new config `emitStorageConfig` just reported — this
+      // rebuilds the backend memo, and the load effect takes the SUPPRESS branch (armed by the
+      // conversion above).
+      rerender({ args: makeArgs({ kind: "browser" }) });
+      await advance(100);
+      expect(browserBackend.load).not.toHaveBeenCalled(); // control: suppressed — no real load
+      expect(browserBackend.isReady).toHaveBeenCalled(); // control: the suppress branch's status refresh ran
 
-    rerender({ args: tursoArgs("libsql://a.turso.io") });
-    await advance(300);
-    // Must be an exact REPLACE with A2's own data — NOT merged with A's original "a-1", which is
-    // still in memory (the conversion never changed it) and is what a stale ref (never updated by the
-    // suppress branch's own re-stamp) would produce.
-    expect(ids(result.current.activityLog)).toEqual(["a2-1"]);
-    expect(ids(result.current.budgetHistory)).toEqual(["ha2-1"]);
-    confirmSpy.mockRestore();
+      rerender({ args: tursoArgs("libsql://a.turso.io") });
+      await advance(300);
+      // Must be an exact REPLACE with A2's own data — NOT merged with A's original "a-1", which is
+      // still in memory (the conversion never changed it) and is what a stale ref (never updated by the
+      // suppress branch's own re-stamp) would produce.
+      expect(ids(result.current.activityLog)).toEqual(["a2-1"]);
+      expect(ids(result.current.budgetHistory)).toEqual(["ha2-1"]);
+    } finally {
+      // §548 F1 item 3 — restore even when an assertion above throws.
+      confirmSpy.mockRestore();
+    }
   });
 });
