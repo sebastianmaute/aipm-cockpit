@@ -39092,7 +39092,7 @@ gives the same diagnostic value with no dependence on what the rejection happens
 
 ## 567. `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — CLOSED 2026-09-19
 
-**Status:** CLOSED 2026-09-19 by `fix/data-loss-batch`: `isSealedSecret` (`secrets.ts`) checks the id by membership in `SECRET_IDS` and `readStore` (`secrets-store.ts`) iterates `SECRET_IDS`, so neither carries its own id list any more; pinned by a seal → store → read round-trip per id generated from `SECRET_IDS` in `secrets-store.test.ts`, and by `isSealedSecret` accepting every member and rejecting an unknown id in `secrets.test.ts`.
+**Status:** CLOSED 2026-09-19 by `fix/data-loss-batch`: `isSealedSecret` (`secrets.ts`) checks the id by membership in `SECRET_IDS` and `readStore` (`secrets-store.ts`) iterates `SECRET_IDS`, so neither carries its own id list any more; pinned by a seal → store → read round-trip per id generated from `SECRET_IDS` in `secrets-store.test.ts`, and by `isSealedSecret` accepting every member and rejecting an unknown id in `secrets.test.ts`. Review found a THIRD hardcoded copy, `use-settings.ts`'s mount-load unreadable-secret probe (same defect class: a missed id there means that id's corrupt/unreadable secret is never reported, not just never redacted or read) — folded into this closure the same day, also deriving from `SECRET_IDS` and pinned by a spy-based test in `use-settings.secrets.test.ts` asserting every `SECRET_IDS` member gets probed.
 
 Two hardcoded enumerations of the five `SecretId`s survive:
 

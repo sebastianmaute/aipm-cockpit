@@ -1,13 +1,17 @@
 import "fake-indexeddb/auto";
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { writeSettings, SETTINGS_KEY, hydrateSecretsInto, useSettings } from "./use-settings";
 import { defaultSettings } from "./settings-types";
 import { defaultTimelogConfig } from "./timelog-types";
-import { sealDevice, sealPassphrase } from "./secrets";
+import { sealDevice, sealPassphrase, SECRET_IDS } from "./secrets";
 import { saveSealed } from "./secrets-store";
+import * as secretsStoreModule from "./secrets-store";
 
-afterEach(() => localStorage.clear());
+afterEach(() => {
+  localStorage.clear();
+  vi.restoreAllMocks();
+});
 
 describe("writeSettings secret blanking", () => {
   it("never persists apiKey, turso authToken, or jira apiToken into aipm-cockpit:settings", () => {
@@ -132,5 +136,27 @@ describe("writeSettings STT apiKey blanking", () => {
     });
     const persisted = JSON.parse(localStorage.getItem(SETTINGS_KEY)!);
     expect(persisted.dictation.sttApiKey ?? "").toBe("");
+  });
+});
+
+describe("on-load unreadable-secret probe", () => {
+  // §567 (fix round 1) — the mount-load probe that flags a sealed-but-
+  // unreadable secret used to carry its OWN five-id list, a third hardcoded
+  // copy alongside isSealedSecret/readStore. A missed id there never gets
+  // probed, so a corrupt secret for that id is silently reported as
+  // "never configured" instead of "lost". Generated from SECRET_IDS, so a
+  // sixth id is covered here without being named.
+  it("probes every id in SECRET_IDS after hydration", async () => {
+    // The probe only runs on the mount-load path that finds a PERSISTED
+    // settings blob (a fresh-install default-settings mount takes the
+    // no-probe branch), so seed one first.
+    writeSettings(defaultSettings);
+    const spy = vi.spyOn(secretsStoreModule, "probeDeviceSecretReadable");
+    const { result } = renderHook(() => useSettings());
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    await waitFor(() => {
+      const probed = spy.mock.calls.map((call) => call[0]).sort();
+      expect(probed).toEqual([...SECRET_IDS].sort());
+    });
   });
 });
