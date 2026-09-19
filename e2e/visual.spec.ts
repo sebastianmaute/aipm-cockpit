@@ -94,7 +94,10 @@ test("visual: Reports budget history (cumulative)", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true }));
   });
-  await gotoApp(page);
+  // §573 round 1: this test was left on the shared FROZEN_NOW and went red
+  // (5808px) against its own committed baseline, unrelated to the 3-view
+  // pin above — bring it under the same VISUAL_FROZEN_NOW instant.
+  await gotoApp(page, VISUAL_FROZEN_NOW);
   await openView(page, "Reports");
   const block = page.getByTestId("report-block-budget-report");
   await block
