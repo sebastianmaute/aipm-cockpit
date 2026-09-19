@@ -6,6 +6,21 @@
 the peer at release time. **No new register numbers are reserved.** Any entry this batch has to file gets
 its number from the peer session first (register max on `origin/main` is §591).
 
+## Revision 2026-09-19 (plan review)
+
+The user approved the plan with three amendments. They are folded into the sections below, and the text
+they contradict has been changed:
+
+1. **The hold covers the pre-hydration window too.** `loadPending` is true while `!hydrated` (§1a). Before
+   this, the app tree was live over the empty boot workspace between `i18nReady` and `hydrated`, and an edit
+   made there was overwritten by the first load. The render hold only helps if `hydrated` always becomes
+   true. Every throw on the settings-load path already reaches `setHydrated(true)`. The one path that can
+   leave it false is a secret-store promise that never settles, so that merge is now bounded (§1e).
+2. **All nine `holdDuring` ops are tested**, not three: in flight, after resolving, and after throwing
+   (§1a Tests).
+3. **SharePoint loads time out after 10 s**, like Turso loads (`LOAD_TIMEOUT_MS`), through one shared
+   fetch-with-timeout helper, so a hung Graph read fails the load, the load settles and the hold lifts (§1d).
+
 ## Goal
 
 | § | Issue | Loss / defect today | Fix |
@@ -35,7 +50,9 @@ its number from the peer session first (register max on `origin/main` is §591).
 skeleton over a read-only UI and over merging in-flight edits.
 
 **Where:** `src/app/use-storage-backend.ts` (signal + swap hold), `src/app/task-manager.tsx` (render hold +
-background writers), the hooks named below.
+background writers), the hooks named below; and, per the 2026-09-19 revision, `src/app/use-settings.ts`
+(hydration bound), `src/app/turso-pipeline.ts` + a new shared fetch-with-timeout helper, and
+`src/app/sharepoint-backend.ts` (load timeout).
 
 ### 1a. Signal — `loadPending`
 
@@ -50,9 +67,11 @@ after one load error. Instead:
   ops: `reloadCurrentProject`, `switchToProject`, `createProject`, `loadProjectFromFile`,
   `createDemoProject`, `onOpenStorageFile`, `switchToTursoProject`, `createTursoProject`,
   `migrateCurrentProjectToTurso`. It is lowered in `finally`, so a throwing op never leaves the hold on.
-- `loadPending = settledBackend !== backend || swapsInFlight > 0`, returned from the hook.
-- Before hydration (`!hydrated`) the hook does not claim pending. The existing pre-hydration render is
-  unchanged.
+- `loadPending = !hydrated || settledBackend !== backend || swapsInFlight > 0`, returned from the hook.
+- Before hydration (`!hydrated`) the hook claims pending (revision 2026-09-19): the first load has not
+  started yet, so it is pending. That one signal feeds the render hold AND every background-writer gate, so
+  none of them can miss the pre-hydration window. The hold therefore depends on `hydrated` always becoming
+  true (§1e).
 
 ### 1b. Render hold
 
@@ -83,11 +102,37 @@ The planner re-verifies this list against the tree (the writer inventory in
 `fix/data-loss-batch:docs/superpowers/plans/2026-09-19-data-loss-batch.md`, appendix "§548 — deferred
 design notes", is the starting point, not an authority).
 
+### 1d. SharePoint load timeout (revision 2026-09-19)
+
+A load that never settles would keep the hold up with no way to reach Settings. Turso loads already fail
+after `LOAD_TIMEOUT_MS` (10 s). Its AbortController timer, and the rule that the response body is read
+inside the armed window, move into one shared helper that both Turso and the SharePoint Graph load use with
+the same 10 s. A timed-out SharePoint read throws the same kind of plain `Error` that SharePoint already
+throws for a failed HTTP status. The load effect's `catch` then settles the load and shows the existing
+`storageLoadFailed` toast and the generic storage banner. No new i18n string. Token acquisition (the MSAL
+popup) is not bounded: it waits on the user, who can close it, and closing it rejects.
+
+### 1e. Settings hydration always completes (revision 2026-09-19)
+
+`useSettings` sets `hydrated` in a `finally` after the secret merge (`migratePlaintextSecrets` +
+`hydrateSecretsInto`). A throw there already falls back to the in-memory settings, so it reaches
+`setHydrated(true)`. A merge that never settles (for example an IndexedDB open queued behind another
+connection) would leave `hydrated` false forever, and with the hold that means a permanent skeleton. The
+merge is raced against a bound (`SECRET_MERGE_TIMEOUT_MS`, 5 s). On timeout it falls back exactly like the
+throw path and logs a diagnostic.
+
 **Tests:**
-- Hook: `loadPending` is true before the first load settles and false after, in each of the four settle
-  branches. It turns true again on a backend rebuild. It is true for the duration of each held op and false
-  after that op throws.
-- Render: the main window shows the skeleton and no app chrome while pending. A popout never does.
+- Hook: `loadPending` is true before hydration, and true before the first load settles and false after, in
+  each of the four settle branches. It turns true again on a backend rebuild.
+- All nine held ops, table-driven: `loadPending` is true while the op waits on its first awaited step,
+  false after the op resolves, and false after it throws. Removing any one op's wrap turns its row red.
+- Hydration: `hydrated` becomes true when the secret merge throws, when IndexedDB is unavailable, and after
+  the bound when the merge never settles.
+- SharePoint: a never-resolving Graph fetch fails the load at 10 s and not before. The hook then settles
+  (`loadPending` false, saving paused, `storageLoadFailed` toast), and a failed load renders the app with
+  the storage banner.
+- Render: the main window shows the skeleton and no app chrome while pending, and also before hydration. A
+  hanging or failing secret merge still lifts it. A popout never shows it.
 - The §548 reproduction: an edit cannot be made during a pending load (no control rendered), and the loaded
   data is what shows after.
 - e2e: a Playwright spec with a delayed load shows the skeleton, then the app.
@@ -166,4 +211,6 @@ future-only periods do not count. The existing four `budgetVariance` tests stay 
 
 ## Order
 
-§591 (hook only) → §548 signal → §548 render hold + background writers → §577 → docs/register → §573 last.
+§591 (hook only) → §548 signal (with all nine ops tested) → settings hydration bound → SharePoint load
+timeout → §548 render hold + background writers → §577 → docs/register → §573 last. The two bounds land
+before the render hold, so the hold never ships without them.

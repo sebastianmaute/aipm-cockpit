@@ -4,7 +4,7 @@
 
 **Goal:** Close §591, §548, §577 and §573: a load after a storage-target change replaces the activity log and budget history instead of merging another project's into it; no edit can start while a project load or project swap is pending; the budget-variance insight compares actuals with budget to date; the Open Points visual baseline is refreshed.
 
-**Architecture:** §591 adds a pure `storageTargetKey` and a ref in `useStorageBackend` recording which target the in-scope workspace belongs to; the load effect and `reloadCurrentProject` merge only when it is unchanged. §548 publishes `loadPending` from `useStorageBackend` (an identity stamp set on every terminal branch of the load effect, plus a counter held by the nine project-swap ops), renders the existing `PanelSkeleton` in place of the main-window app tree while it is true, and gates the five background writers that do not unmount. §577 threads `today` into `budgetVarianceInsight` and compares actual hours with the bucket's own budget in the periods that have started. §573 re-baselines one PNG through its spec.
+**Architecture:** §591 adds a pure `storageTargetKey` and a ref in `useStorageBackend` recording which target the in-scope workspace belongs to; the load effect and `reloadCurrentProject` merge only when it is unchanged. §548 publishes `loadPending` from `useStorageBackend` (true before settings hydration, then an identity stamp set on every terminal branch of the load effect, plus a counter held by the nine project-swap ops), bounds the two waits the hold depends on (the settings secret merge in `useSettings`, and the SharePoint Graph load via a fetch-with-timeout helper shared with Turso's 10 s load timeout), renders the existing `PanelSkeleton` in place of the main-window app tree while it is true, and gates the five background writers that do not unmount. §577 threads `today` into `budgetVarianceInsight` and compares actual hours with the bucket's own budget in the periods that have started. §573 re-baselines one PNG through its spec.
 
 **Tech Stack:** Next.js (App Router, exact-pinned), React 19, TypeScript, vitest 4.1 + Testing Library, Playwright.
 
@@ -22,7 +22,7 @@
 - **No new i18n string** (spec). If a task seems to need one, stop and report it; do not add it.
 - Commits cite §N; `Closes #NN` appears only in the MR description. Stage explicit paths; never `--amend`, never `git add -A` / `git add .`. Never stage `not-in-use.env.local.bak` or `sample-workspace-huge.json`; never read `not-in-use.env.local.bak`.
 - Every "this is covered" claim is backed by a named mutation that turns the named test red. Revert every mutation before the next step and prove it with `git diff --stat`.
-- `src/app/use-insight-recommendations.ts` is also edited by the peer's §534 (`fix/data-loss-batch`). The controller tells the peer before Task 4 edits it; whichever branch merges second resolves the conflict.
+- `src/app/use-insight-recommendations.ts` is also edited by the peer's §534 (`fix/data-loss-batch`). The controller tells the peer before Task 6 edits it; whichever branch merges second resolves the conflict.
 - Cite symbols, never line numbers, in docs and comments.
 - Register max on `origin/main` is §591. This plan files no new register entry. If one becomes necessary, get its number from the peer session first.
 
@@ -74,23 +74,29 @@ Each ruling is where the tree contradicts or refines the spec.
 5. **§573 is closed in its own task, not in the docs/register task.** Closing it before the baseline lands would be a false closure. The spec's order ("docs/register → §573 last") is otherwise kept.
 6. **Popouts DO run a backend load.** The spec says popouts "never run a backend load". The load effect in `useStorageBackend` has no `isPopout` guard, so a popout calls `backend.load()` too. This does not affect the hold, because `TaskManagerInner` returns the popout tree before the main return where the hold sits. A test pins that a popout never shows the skeleton while its own load is pending.
 7. **The undo hotkey is gated through a forward ref, not by moving the hook.** Draft 4b moved `useUndoHotkey` below `useStorageBackend`, which changes the registration order of the document `keydown` listeners. This plan keeps the call where it is and reads `loadPending` through `loadPendingRef`, filled in the existing `allowDestructiveSaveRef` effect (the same forward-ref pattern that effect already serves).
-8. **Pre-hydration window, not addressed (spec: "The existing pre-hydration render is unchanged").** `useSettings` sets `hydrated` only after its async secret merge, while the tree renders as soon as `i18nReady` is true. In that window the app tree is live over the empty boot workspace, and an edit made there is still overwritten by the first load. `loadPending` deliberately reads false before hydration. Flagged for the controller; out of scope for this plan.
-9. **Coverage of the nine `holdDuring` wraps.** Three are pinned behaviourally (`reloadCurrentProject`, `switchToProject`, `onOpenStorageFile`). The other six (`createProject`, `loadProjectFromFile`, `createDemoProject`, `switchToTursoProject`, `createTursoProject`, `migrateCurrentProjectToTurso`) are held by the same one-line wrap in the return object and are verified by review only. No task may claim them as covered.
+8. **Pre-hydration is held by `loadPending` itself (user amendment 1, 2026-09-19).** `loadPending = args.hydrated === false || settledBackend !== backend || swapsInFlight > 0`, NOT a second `!hydrated ||` term at the render site. Why: `loadPending` has seven consumers — the render hold, the insight reconcile, the recommendation store, the four calendar auto-sync flags, the auto-pull runner and the undo hotkey — and a render-only term would leave six of them live in that window. The contract stays one sentence: "the workspace in scope is not yet the settled project of the current backend." Before hydration the first load has not even started, so it IS pending. Popouts are unaffected, because they return before the render hold, and their background writers are already off through `isPopout`.
+9. **`hydrated` liveness, verified in `useSettings`'s mount effect.** Safe mode, no stored settings, a stored value that is not an object, and unparseable JSON all reach `setHydrated(true)` through `Promise.resolve().then(...)` or the outer `catch`. The secret-merge path runs `migratePlaintextSecrets` + `hydrateSecretsInto` inside a `try` whose `catch` falls back to the in-memory settings, and then `setHydrated(true)` runs in a `finally`. So every THROW (no IndexedDB, no WebCrypto, a corrupt store) lifts it. **The one path that leaves it false** is a secret-store promise that NEVER settles: an IndexedDB open queued behind another connection (`secrets.ts` `idbOpen` handles `onblocked`, but not a request that fires no event) or a stalled WebCrypto call. **Ruling:** Task 3 races the merge against `SECRET_MERGE_TIMEOUT_MS` (5 s; the merge is local and normally takes well under a second) and falls back exactly like the throw path. A late result is ignored and a `settings.secretMergeTimedOut` diagnostic is logged. The cost: in that rare case the sealed secrets stay empty for the session (Turso then fails to load and shows its banner), which beats a permanently locked app.
+10. **The SharePoint timeout reuses Turso's mechanism, not its error kind (user amendment 3).** Turso's AbortController timer, and its read-the-body-inside-the-window rule, move from `turso-pipeline.ts` `postPipeline` into a new shared `src/app/fetch-with-timeout.ts` (`fetchTextWithTimeout`, `FetchTimeoutError`). `LOAD_TIMEOUT_MS` (10 s) moves there too, and `turso-pipeline.ts` re-exports it so the three existing importers are unchanged. On timeout, SharePoint throws a plain `Error("SharePoint did not respond within 10 s. Try again later.")`, the same shape as its existing `SharePoint returned <status>` error. It deliberately does NOT reuse Turso's `StorageNotReadyError("storage-unreachable")`: `classifyStorageError` would map that to the "unreachable" banner, whose text (`storageUnreachableBanner`) names the Turso database. The plain error reaches the existing `storageLoadFailed` toast and the generic `storageSaveFailedBanner`. No new i18n string.
+11. **Task placement for amendments 1 and 3.** The hydration bound (Task 3) and the SharePoint timeout (Task 4) are separate tasks between the signal (Task 2) and the render hold (Task 5), so the hold never ships without them. They are not folded into Task 2: each touches a different subsystem (`use-settings.ts`; `turso-pipeline.ts` / `sharepoint-backend.ts`), and a reviewer can reject either one on its own. Task 4 comes after Task 2 because its hook-level proof reads `loadPending`.
+12. **How each of the nine ops is made to "throw" (user amendment 2).** Eight of the nine ops catch their own errors and report them through `showToast`; only `onOpenStorageFile` rethrows by itself (its picker `await` sits outside the `try`). So the table's throw variant rejects the op's first awaited step AND makes `showToast` throw, which turns every row's error path into a genuine rejection of the op. Each row asserts `rejected`, and then `loadPending === false`.
 
 **Risks the controller should weigh (no task changes them):**
-- **A load that never settles keeps the skeleton up, with no route to Settings.** Turso loads time out (`LOAD_TIMEOUT_MS` in `turso-pipeline.ts`). SharePoint loads run through `sharepoint-graph.ts` with no fetch timeout, after an interactive `acquireToken`. Before this change a hung load left the app usable (with saving paused). A failed load settles, so the storage banner stays reachable in every failure that ends.
+- **An IndexedDB (browser-backend) open that is BLOCKED keeps the skeleton up.** `src/app/idb.ts` `openIdb` has no `onblocked` handler, and nothing in that file handles `onversionchange`. If an `IDB_VERSION` bump ships while an older tab still holds a connection, the new tab's workspace load waits until the old tab closes. Before the hold, the app rendered empty with saving paused. Not bounded here (it needs its own register entry; get the number from the peer session).
+- **A SharePoint file that takes longer than 10 s to DOWNLOAD now fails its load**: the body is read inside the window, the same trade Turso already makes. The MSAL popup in `getToken` is not bounded; it waits on the user, and closing it rejects, which settles the load.
 - The hold unmounts the whole tree, including `panel-chat` and `panel-raid` (which otherwise never remount). An in-flight chat agent loop or calendar push/pull that resolves during a swap still writes into render scope. That is pre-existing and not changed here.
-- Every boot, backend rebuild and project swap now shows a skeleton, including behind the OS file picker in `loadProjectFromFile` / `onOpenStorageFile`. The user chose this on 2026-09-19.
+- Every boot (the server render included, since `hydrated` is false there), every backend rebuild and every project swap now shows a skeleton, including behind the OS file picker in `loadProjectFromFile` / `onOpenStorageFile`. The user chose this on 2026-09-19.
 
 ## Review Focus
 
 The five inputs most likely to bite a user that the spec implies but does not spell out. Each has a test in the owning task.
 
-1. **A load that FAILS or is REFUSED must release the hold**, so the storage banner, Settings and "Pick storage file" stay reachable. Tests: Task 2 (b) and (c); Task 3 "a FAILED load releases the hold".
-2. **A project-swap op that throws must not strand the skeleton.** Test: Task 2 (g).
-3. **An M365 sign-in or sign-out (an `acquireToken`-only rebuild) must keep merging**, so the activity entries this device appended during that load survive. Test: Task 1 (d).
-4. **A popout must never show the skeleton**, even while its own load is pending. Test: Task 3 "a popout never shows the skeleton".
-5. **A bucket whose window has not started but already has hours booked must not raise a variance.** Test: Task 5 "a bucket whose window has not started is skipped even with hours booked".
+1. **A load that FAILS, is REFUSED or HANGS must release the hold**, so the storage banner, Settings and "Pick storage file" stay reachable. Tests: Task 2 (b) and (c); Task 4 "a SharePoint load that never answers settles at 10 s"; Task 5 "a FAILED load releases the hold and shows the storage banner".
+2. **Settings hydration that fails or hangs must still lift the hold.** Tests: Task 3 (all three); Task 5 "a HANGING secret merge holds, then lifts at the bound" and "a FAILING secret merge lifts the hold".
+3. **A project-swap op that throws must not strand the skeleton, for every one of the nine ops.** Test: Task 2 `use-storage-backend.hold-ops.test.tsx`, the "false after it throws" row of each op.
+4. **An M365 sign-in or sign-out (an `acquireToken`-only rebuild) must keep merging**, so the activity entries this device appended during that load survive. Test: Task 1 (d).
+5. **A popout must never show the skeleton**, even while its own load is pending. Test: Task 5 "a popout never shows the skeleton".
+
+(Also covered, just outside the five: a bucket whose window has not started but already has hours booked raises no variance. Test: Task 7 "a bucket whose window has not started is skipped even with hours booked".)
 
 ---
 
@@ -605,11 +611,12 @@ Paths: those three plus `src/app/use-storage-backend.ts`.
 **Files:**
 - Modify: `src/app/use-storage-backend.ts` (signal state; four settle stamps; `holdDuring`; return object; the "29 setters" comment)
 - Create: `src/app/use-storage-backend.load-pending.test.tsx`
+- Create: `src/app/use-storage-backend.hold-ops.test.tsx` (all nine held ops, table-driven)
 - Modify: `docs/AGENTS/activity-log.md` (the `applyWorkspace` setter-diff paragraph, which this task makes false)
 
 **Interfaces:**
 - Consumes: Task 1's `targetKey` / `scopeTargetKeyRef` (untouched here; the anchors below are the post-Task-1 text).
-- Produces: `useStorageBackend(...).loadPending: boolean`. It is `false` before hydration. After hydration it is `true` until the load effect for the CURRENT `backend` instance reaches a terminal branch (applied, suppressed re-stamp, empty-load refusal, failure), and `true` while any of the nine project-swap ops is in flight. The nine ops keep their names and signatures in the returned object. Tasks 3 and 4 consume `loadPending`.
+- Produces: `useStorageBackend(...).loadPending: boolean`. It is `true` before hydration (ruling 8). After hydration it is `true` until the load effect for the CURRENT `backend` instance reaches a terminal branch (applied, suppressed re-stamp, empty-load refusal, failure), and `true` while any of the nine project-swap ops is in flight. The nine ops keep their names and signatures in the returned object. Tasks 4, 5 and 6 consume `loadPending`. Task 4 extends `use-storage-backend.load-pending.test.tsx`: keep its module-level `showToast` / `onStorageOutcome` spies and its `makeArgs` signature.
 
 - [ ] **Step 1: Write the failing test `src/app/use-storage-backend.load-pending.test.tsx`**
 
@@ -688,6 +695,10 @@ function makeBackend(ms: number, outcome: "resolve" | "reject" = "resolve", stor
   };
 }
 
+// Module-level so a test can assert on them (Task 4 adds the SharePoint-timeout test here and reads both).
+const showToast = vi.fn();
+const onStorageOutcome = vi.fn();
+
 type Args = Parameters<typeof useStorageBackend>[0];
 function makeArgs(storageConfig: StorageConfig = { kind: "browser" }, hydrated = true): Args {
   return {
@@ -695,10 +706,11 @@ function makeArgs(storageConfig: StorageConfig = { kind: "browser" }, hydrated =
     lang: "en-US" as Lang,
     hydrated,
     isPopout: false,
-    showToast: vi.fn(),
+    showToast,
     showToastAction: vi.fn(),
     onRevealSavingPaused: vi.fn(),
     setStorageConfig: vi.fn(),
+    onStorageOutcome,
   };
 }
 
@@ -729,7 +741,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   localStorage.clear();
 });
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe("§548 — loadPending", () => {
   it("(a) is true while the first load is in flight and false once it is applied", async () => {
@@ -802,54 +814,248 @@ describe("§548 — loadPending", () => {
     expect(result.current.loadPending).toBe(false);
   });
 
-  it("(e) is true for the whole of a held reloadCurrentProject, and false after it", async () => {
-    const backend = makeBackend(0);
-    createBackendMock.mockReturnValue(backend);
-    const { result } = render();
-    await advance(100);
-    expect(result.current.loadPending).toBe(false);
+  // The nine held ops (in flight / resolved / threw) are pinned in use-storage-backend.hold-ops.test.tsx.
 
-    backend.load.mockImplementationOnce(() => new Promise((resolve) => { setTimeout(() => resolve(STORED), 1000); }));
-    let op: Promise<void> = Promise.resolve();
-    act(() => { op = result.current.reloadCurrentProject(); });
-    await advance(100);
+  it("(f) is TRUE before hydration (no load has even started), and settles once hydration runs the load", async () => {
+    const backend = makeBackend(100);
+    createBackendMock.mockReturnValue(backend);
+    const { result, rerender } = render(makeArgs({ kind: "browser" }, false));
+    await advance(300);
+    expect(backend.load).not.toHaveBeenCalled(); // control: the load effect really waits for hydration
     expect(result.current.loadPending).toBe(true);
 
-    await advance(1000);
-    await act(async () => { await op; });
-    expect(backend.load).toHaveBeenCalledTimes(2); // control: the reload really re-read the backend
-    expect(result.current.loadPending).toBe(false);
-  });
-
-  it("(f) before hydration it claims nothing, and no load starts", async () => {
-    const backend = makeBackend(0);
-    createBackendMock.mockReturnValue(backend);
-    const { result } = render(makeArgs({ kind: "browser" }, false));
-    await advance(100);
-    expect(backend.load).not.toHaveBeenCalled(); // control: the load effect really waits for hydration
-    expect(result.current.loadPending).toBe(false);
-  });
-
-  it("(g) a held op that THROWS does not strand it", async () => {
-    const backend = makeBackend(0);
-    createBackendMock.mockReturnValue(backend);
-    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockImplementationOnce(() => Promise.reject(new Error("picker boom")));
-    const { result } = render();
-    await advance(100);
-    expect(result.current.loadPending).toBe(false);
-
-    await act(async () => {
-      await expect(result.current.onOpenStorageFile()).rejects.toThrow("picker boom"); // control: the op really threw
-    });
+    rerender({ args: makeArgs({ kind: "browser" }, true) });
+    await advance(300);
+    expect(backend.load).toHaveBeenCalledTimes(1);
     expect(result.current.loadPending).toBe(false);
   });
 });
 ```
 
+- [ ] **Step 1b: Write the failing table test `src/app/use-storage-backend.hold-ops.test.tsx`**
+
+```tsx
+// §548 — every op that awaits and then REPLACES the workspace holds `loadPending` for its WHOLE duration
+// (`holdDuring`). ONE table, all nine ops, two tests per op: "in flight → resolved" and "in flight →
+// threw". Each row parks the op on its FIRST awaited step behind a gate the test controls, and
+// `touched()` proves the op really is parked there before `loadPending` is read, so a row cannot pass
+// because its op finished early.
+// ★ The Turso mocks copy use-storage-backend.test.tsx's convention: `./turso-portfolio` replaced
+//   wholesale; `./turso-pipeline` spread from the actual module with only `testTursoConnection` stubbed
+//   (the §408 connection probe); a `TursoBackend` class whose `load` reads a hoisted seam.
+// ★★ "Threw": eight of the nine ops CATCH their own errors and report them through `showToast`; only
+//   `onOpenStorageFile` rethrows by itself (its picker `await` sits outside its `try`). So the throw test
+//   rejects the gate AND makes `showToast` throw, which turns every row's error path into a genuine
+//   rejection of the op, and asserts that (plan ruling 12).
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Lang } from "./i18n";
+import type { Settings } from "./settings-types";
+import type { Task } from "./types";
+
+const seam = vi.hoisted(() => ({ tursoLoad: null as null | (() => Promise<unknown>) }));
+
+vi.mock("./storage", () => ({
+  createBackend: vi.fn(),
+  StorageNotReadyError: class StorageNotReadyError extends Error {
+    hint: string;
+    constructor(hint: string) { super(hint); this.hint = hint; }
+  },
+  StorageNotImplementedError: class StorageNotImplementedError extends Error {
+    hint: string;
+    constructor(hint: string) { super(hint); this.hint = hint; }
+  },
+  openFileForBackend: vi.fn(() => null),
+  loadFromHandleForBackend: vi.fn(() => null),
+  pickFileForBackend: vi.fn(() => null),
+  pickOpenFileAny: vi.fn(),
+  formatFromFileName: vi.fn(() => "json"),
+  requestWriteAccessForBackend: vi.fn(() => null),
+  setBackendFileHandle: vi.fn(() => null),
+  getBackendFileHandle: vi.fn(() => null),
+}));
+vi.mock("./project-file-handles", () => ({
+  getHandle: vi.fn().mockResolvedValue(null),
+  saveHandle: vi.fn().mockResolvedValue(undefined),
+  deleteHandle: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn() }));
+vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
+vi.mock("./turso-portfolio", () => ({
+  createProject: vi.fn(async () => undefined),
+  archiveProject: vi.fn(async () => undefined),
+  restoreProject: vi.fn(async () => undefined),
+  hardDeleteProject: vi.fn(async () => undefined),
+}));
+vi.mock("./turso-pipeline", async (importActual) => ({
+  ...(await importActual<typeof import("./turso-pipeline")>()),
+  testTursoConnection: vi.fn(async () => {}),
+}));
+vi.mock("./turso-backend", () => ({
+  TursoBackend: class {
+    kind = "turso" as const;
+    lastImportDroppedRows: number | undefined = undefined;
+    lastImportUnterminatedQuote: boolean | undefined = undefined;
+    constructor(public config: unknown, public projectId: string) {}
+    load = vi.fn(() => (seam.tursoLoad ? seam.tursoLoad() : Promise.resolve({ tasks: [], raid: [], absences: [], shifts: [] })));
+    save = vi.fn().mockResolvedValue(undefined);
+    isReady = vi.fn().mockResolvedValue(true);
+    describe = vi.fn().mockResolvedValue("Turso");
+  },
+  TursoLockTimeoutError: class TursoLockTimeoutError extends Error {
+    constructor() {
+      super("Turso write lock timed out");
+      this.name = "TursoLockTimeoutError";
+    }
+  },
+}));
+
+import * as storageMod from "./storage";
+import * as tursoPortfolio from "./turso-portfolio";
+import { testTursoConnection } from "./turso-pipeline";
+import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
+import { TestProviders } from "./test-providers";
+import { useStorageBackend } from "./use-storage-backend";
+
+const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
+
+// `project` is set so `migrateCurrentProjectToTurso` has a project to migrate.
+const STORED = {
+  project: { name: "Current", code: "CUR" },
+  tasks: [{ id: 1, taskName: "Stored" } as unknown as Task], raid: [], absences: [], shifts: [],
+};
+const EMPTY = { tasks: [], raid: [], absences: [], shifts: [] };
+
+type FakeBackend = {
+  kind: string;
+  load: ReturnType<typeof vi.fn>;
+  save: ReturnType<typeof vi.fn>;
+  isReady: ReturnType<typeof vi.fn>;
+  describe: ReturnType<typeof vi.fn>;
+};
+function makeBackend(): FakeBackend {
+  return {
+    kind: "browser",
+    load: vi.fn(async () => STORED),
+    save: vi.fn().mockResolvedValue(undefined),
+    isReady: vi.fn().mockResolvedValue(true),
+    describe: vi.fn().mockResolvedValue(null),
+  };
+}
+
+const showToast = vi.fn();
+type Args = Parameters<typeof useStorageBackend>[0];
+function makeArgs(): Args {
+  return {
+    settings: {
+      storageConfig: { kind: "browser" },
+      integrations: { turso: { enabled: true, databaseUrl: "https://x.turso.io", authToken: "tok" } },
+    } as unknown as Settings,
+    lang: "en-US" as Lang,
+    hydrated: true,
+    isPopout: false,
+    showToast,
+    showToastAction: vi.fn(),
+    onRevealSavingPaused: vi.fn(),
+    setStorageConfig: vi.fn(),
+  };
+}
+
+/** A gate the op's first awaited step waits on. `touched()` = the op has reached it. */
+type Gate = { wait: () => Promise<unknown>; touched: () => boolean; resolve: (v: unknown) => void; reject: (e: unknown) => void };
+function makeGate(): Gate {
+  let resolve: (v: unknown) => void = () => {};
+  let reject: (e: unknown) => void = () => {};
+  let hit = false;
+  const promise = new Promise<unknown>((res, rej) => { resolve = res; reject = rej; });
+  return { wait: () => { hit = true; return promise; }, touched: () => hit, resolve, reject };
+}
+
+type Hook = ReturnType<typeof useStorageBackend>;
+type Backends = { current: FakeBackend; target: FakeBackend };
+type Row = { op: string; arm: (g: Gate, b: Backends) => void; value: unknown; call: (h: Hook) => Promise<void> };
+
+// One row per op wrapped by `holdDuring`. `arm` parks the op on its FIRST awaited step; `value` is what
+// that step resolves with in the "resolved" test.
+const ROWS: Row[] = [
+  { op: "reloadCurrentProject", arm: (g, b) => { b.current.load.mockImplementationOnce(g.wait); }, value: STORED,
+    call: (h) => h.reloadCurrentProject() },
+  { op: "switchToProject", arm: (g, b) => { b.target.load.mockImplementationOnce(g.wait); }, value: STORED,
+    call: (h) => h.switchToProject("target") },
+  { op: "createProject", arm: (g) => { vi.mocked(storageMod.pickFileForBackend).mockImplementationOnce(g.wait as never); }, value: undefined,
+    call: (h) => h.createProject({ name: "New", code: "NEW" } as never, "json") },
+  { op: "loadProjectFromFile", arm: (g) => { vi.mocked(storageMod.pickOpenFileAny).mockImplementationOnce(g.wait as never); }, value: { name: "picked.json" },
+    call: (h) => h.loadProjectFromFile() },
+  { op: "createDemoProject", arm: (g, b) => { b.target.save.mockImplementationOnce(g.wait); }, value: undefined,
+    call: (h) => h.createDemoProject(STORED as never) },
+  { op: "onOpenStorageFile", arm: (g) => { vi.mocked(storageMod.openFileForBackend).mockImplementationOnce(g.wait as never); }, value: { name: "picked.json" },
+    call: (h) => h.onOpenStorageFile() },
+  { op: "switchToTursoProject", arm: (g) => { seam.tursoLoad = g.wait; }, value: EMPTY,
+    call: (h) => h.switchToTursoProject("turso-p2") },
+  { op: "createTursoProject", arm: (g) => { vi.mocked(tursoPortfolio.createProject).mockImplementationOnce(g.wait as never); }, value: undefined,
+    call: (h) => h.createTursoProject({ name: "T", code: "T" } as never) },
+  { op: "migrateCurrentProjectToTurso", arm: (g) => { vi.mocked(testTursoConnection).mockImplementationOnce(g.wait as never); }, value: undefined,
+    call: (h) => h.migrateCurrentProjectToTurso() },
+];
+
+const originalLocation = window.location;
+beforeEach(() => {
+  vi.clearAllMocks();
+  showToast.mockReset(); // ★ reset, not clear: the throw test installs an IMPLEMENTATION
+  seam.tursoLoad = null;
+  localStorage.clear();
+  saveRegistry(addProject(emptyRegistry(), { id: "target", name: "Target", code: "T", storageConfig: { kind: "browser" } }, false));
+  // `migrateCurrentProjectToTurso` ends in `window.location.reload()`; jsdom's is a no-op that warns.
+  Object.defineProperty(window, "location", { configurable: true, value: { ...originalLocation, reload: vi.fn() } });
+});
+afterEach(() => {
+  Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+});
+
+async function startHeld(row: Row) {
+  const b: Backends = { current: makeBackend(), target: makeBackend() };
+  createBackendMock.mockReturnValueOnce(b.current).mockReturnValue(b.target);
+  const hook = renderHook(() => useStorageBackend(makeArgs()), {
+    wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+  });
+  await waitFor(() => expect(hook.result.current.loadPending).toBe(false)); // the first load has settled
+  const g = makeGate();
+  row.arm(g, b);
+  let op: Promise<void> = Promise.resolve();
+  act(() => { op = row.call(hook.result.current); });
+  const settled = op.then(() => "fulfilled" as const, () => "rejected" as const);
+  await waitFor(() => expect(g.touched()).toBe(true)); // control: the op is parked on its first await
+  return { result: hook.result, g, settled };
+}
+
+describe.each(ROWS)("§548 — $op holds loadPending for its whole duration", (row) => {
+  it("is true while the op is in flight, and false after it RESOLVES", async () => {
+    const { result, g, settled } = await startHeld(row);
+    expect(result.current.loadPending).toBe(true);
+    let outcome = "";
+    await act(async () => { g.resolve(row.value); outcome = await settled; });
+    expect(outcome).toBe("fulfilled");
+    await waitFor(() => expect(result.current.loadPending).toBe(false));
+  });
+
+  it("is false after the op THROWS", async () => {
+    const { result, g, settled } = await startHeld(row);
+    expect(result.current.loadPending).toBe(true);
+    showToast.mockImplementation(() => { throw new Error("toast boom"); });
+    let outcome = "";
+    await act(async () => { g.reject(new Error("seam boom")); outcome = await settled; });
+    expect(outcome).toBe("rejected"); // control: the op really threw
+    await waitFor(() => expect(result.current.loadPending).toBe(false));
+  });
+});
+```
+
+If a row's "resolved" test ends `rejected` because a mock further down that op returns something the op cannot use, fix the MOCK (give it the value the real function returns), never the assertion, and name the row and the change in the task report.
+
 - [ ] **Step 2: Run it and verify it fails**
 
-Run (Global section V): `npx vitest run src/app/use-storage-backend.load-pending.test.tsx --maxWorkers=1 --reporter=dot > "$SCRATCH/t2-red.log" 2>&1; echo "EXIT=$?"`
-Expected: `EXIT=1`. Every test that asserts `loadPending` fails because it is `undefined`.
+Run (Global section V): `npx vitest run src/app/use-storage-backend.load-pending.test.tsx src/app/use-storage-backend.hold-ops.test.tsx --maxWorkers=1 --reporter=dot > "$SCRATCH/t2-red.log" 2>&1; echo "EXIT=$?"`
+Expected: `EXIT=1`. Every test that asserts `loadPending` fails because it is `undefined`. In the hold-ops file, all nine "in flight" tests fail at their first assertion. The nine "throws" tests fail at the same place (`loadPending` is not `true` while the op is parked).
 
 - [ ] **Step 3: Implement in `src/app/use-storage-backend.ts` (CRLF — Edit tool)**
 
@@ -874,8 +1080,11 @@ with:
   //   workspace, so an edit made during its await would be discarded exactly like one made during the
   //   first load.
   const [swapsInFlight, setSwapsInFlight] = useState(0);
-  // ★ False before hydration (spec: the pre-hydration render is unchanged; no load has started yet).
-  const loadPending = args.hydrated && (settledBackend !== backend || swapsInFlight > 0);
+  // ★★ TRUE before hydration (spec revision 2026-09-19): the first load has not even started, so it IS
+  //   pending, and ONE signal covers every consumer (the render hold and each background-writer gate)
+  //   through that window. The hold therefore relies on `hydrated` always becoming true — bounded in
+  //   `useSettings` by `SECRET_MERGE_TIMEOUT_MS`.
+  const loadPending = !args.hydrated || settledBackend !== backend || swapsInFlight > 0;
 ```
 
 (b) `applyWorkspace`'s stamp. Replace:
@@ -1035,8 +1244,8 @@ with:
 
 - [ ] **Step 5: Run the new test and the existing hook suites**
 
-Run (Global section V): `npx vitest run src/app/use-storage-backend.load-pending.test.tsx src/app/use-storage-backend.target-key.test.tsx src/app/use-storage-backend.test.tsx src/app/use-storage-backend.load-gate.test.tsx src/app/use-storage-backend.steering.test.tsx src/app/use-load-truncation.test.ts --maxWorkers=1 --reporter=dot > "$SCRATCH/t2-green.log" 2>&1; echo "EXIT=$?"`
-Expected: `EXIT=0`, `Test Files  6 passed (6)`.
+Run (Global section V): `npx vitest run src/app/use-storage-backend.load-pending.test.tsx src/app/use-storage-backend.hold-ops.test.tsx src/app/use-storage-backend.target-key.test.tsx src/app/use-storage-backend.test.tsx src/app/use-storage-backend.load-gate.test.tsx src/app/use-storage-backend.steering.test.tsx src/app/use-load-truncation.test.ts --maxWorkers=1 --reporter=dot > "$SCRATCH/t2-green.log" 2>&1; echo "EXIT=$?"`
+Expected: `EXIT=0`, `Test Files  7 passed (7)`.
 
 - [ ] **Step 6: Mutations (revert each; prove with `git diff --stat`)**
 
@@ -1044,30 +1253,540 @@ Expected: `EXIT=0`, `Test Files  6 passed (6)`.
 - M2b (signal source): change `settledBackend !== backend` to `loadedBackend !== backend`. Expected red: (b) and (c). Revert.
 - M2c (refusal settles): delete the `setSettledBackend(backend);` line in the refusal branch. Expected red: (c). Revert.
 - M2d (suppress re-stamp): delete the `setSettledBackend(backend);` line in the suppress branch. Expected red: (d). Revert.
-- M2e (swap hold): delete `|| swapsInFlight > 0`. Expected red: (d) and (e). Revert.
-- M2f (finally): replace the `try { await op(...opArgs); } finally { … }` body with `await op(...opArgs); if (mountedRef.current) setSwapsInFlight((n) => n - 1);`. Expected red: (g). Revert.
-- M2g (hydration): delete `args.hydrated && `. Expected red: (f). Revert.
+- M2e (swap hold): delete `|| swapsInFlight > 0`. Expected red: (d) and all nine "is true while the op is in flight…" rows. Revert.
+- M2f (finally): replace the `try { await op(...opArgs); } finally { … }` body with `await op(...opArgs); if (mountedRef.current) setSwapsInFlight((n) => n - 1);`. Expected red: all nine "is false after the op THROWS" rows. Revert.
+- M2g (hydration): delete `!args.hydrated || `. Expected red: (f). Revert.
+- M2-reload … M2-migrate (ONE PER OP): in the return object, replace that op's `<op>: holdDuring(<op>)` with the bare `<op>`, one op at a time. Expected red: exactly that op's two rows ("in flight" at its first assertion, and "THROWS" at the same place) and no other row. Do it for all nine: `reloadCurrentProject`, `switchToProject`, `createProject`, `loadProjectFromFile`, `createDemoProject`, `onOpenStorageFile`, `switchToTursoProject`, `createTursoProject`, `migrateCurrentProjectToTurso`. Revert each before the next.
 
-Run each against `src/app/use-storage-backend.load-pending.test.tsx` alone (Global section V form) and name the failing tests from the log.
+Run M2a–M2d and M2g against `src/app/use-storage-backend.load-pending.test.tsx`, and M2e, M2f and the nine per-op mutations against both new files together (Global section V form). Name the failing tests from each log.
 
 - [ ] **Step 7: Gates**
 
-- vitest: Step 5's command, `EXIT=0`, `Test Files  6 passed (6)`.
+- vitest: Step 5's command, `EXIT=0`, `Test Files  7 passed (7)`.
 - tsc: `EXIT=0`, `0`.
-- `npx eslint --max-warnings=0 src/app/use-storage-backend.ts src/app/use-storage-backend.load-pending.test.tsx; echo "EXIT=$?"` gives `EXIT=0`.
+- `npx eslint --max-warnings=0 src/app/use-storage-backend.ts src/app/use-storage-backend.load-pending.test.tsx src/app/use-storage-backend.hold-ops.test.tsx; echo "EXIT=$?"` gives `EXIT=0`.
 - `npm run docs:symbols:check; echo "EXIT=$?"` gives `EXIT=0`. `npm run docs:claims:check; echo "EXIT=$?"` gives `EXIT=0`.
 - Size: `use-storage-backend.ts` ≤ 1600.
 
 - [ ] **Step 8: Commit (Global section C)**
 
-Subject: `fix(storage): §548 — publish loadPending for loads and project swaps`
-Body: `useStorageBackend now reports whether a load is still in flight for the current backend. Every terminal branch of the load effect settles it (a failed load and the empty-load refusal too, unlike workspaceLoaded), and the nine ops that await and then replace the workspace hold it for their whole duration via holdDuring. Mutations M2a-M2g each turn a named test red.`
-New files: `src/app/use-storage-backend.load-pending.test.tsx`
-Paths: that plus `src/app/use-storage-backend.ts docs/AGENTS/activity-log.md`.
+Subject: `fix(storage): §548 — publish loadPending for hydration, loads and project swaps`
+Body: `useStorageBackend now reports whether the workspace in scope is still waiting for its load: true before settings hydration, until every terminal branch of the load effect settles it (a failed load and the empty-load refusal too, unlike workspaceLoaded), and for the whole duration of the nine ops that await and then replace the workspace (holdDuring). All nine ops are pinned in flight, after resolving and after throwing. Mutations M2a-M2g and one per op each turn named tests red.`
+New files: `src/app/use-storage-backend.load-pending.test.tsx src/app/use-storage-backend.hold-ops.test.tsx`
+Paths: those two plus `src/app/use-storage-backend.ts docs/AGENTS/activity-log.md`.
 
 ---
 
-### Task 3: §548 — hold the main-window app tree; gate the reconcile effect and the undo hotkey
+### Task 3: §548 — settings hydration always completes (bound the secret merge)
+
+**Files:**
+- Modify: `src/app/use-settings.ts` (`SECRET_MERGE_TIMEOUT_MS`; the secret merge in the mount effect)
+- Create: `src/app/use-settings.hydration.test.ts`
+
+**Interfaces:**
+- Consumes: nothing from other tasks. (Task 2's `loadPending` is true while `!hydrated`, which is why this task must land before the render hold.)
+- Produces: `export const SECRET_MERGE_TIMEOUT_MS = 5_000` from `src/app/use-settings.ts`. Task 5's render test relies on the hold lifting at this bound.
+
+- [ ] **Step 1: Write the failing test `src/app/use-settings.hydration.test.ts`**
+
+```ts
+// §548 (spec revision 2026-09-19) — the load hold is up while `hydrated` is false, so `hydrated` MUST
+// always become true. Every THROW on the secret-merge path already falls back and reaches
+// `setHydrated(true)` in a `finally` — pinned here so it stays that way. The one path that could leave it
+// false is a merge that NEVER settles (an IndexedDB open queued behind another connection, a stalled
+// WebCrypto call), now bounded by `SECRET_MERGE_TIMEOUT_MS`.
+import "fake-indexeddb/auto";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const secretMode = vi.hoisted(() => ({ mode: "real" as "real" | "throw" | "hang" }));
+
+vi.mock("./secrets-store", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./secrets-store")>();
+  return {
+    ...actual,
+    migratePlaintextSecrets: (input: Parameters<typeof actual.migratePlaintextSecrets>[0]) =>
+      secretMode.mode === "hang" ? new Promise<never>(() => {})
+        : secretMode.mode === "throw" ? Promise.reject(new Error("secret store down"))
+          : actual.migratePlaintextSecrets(input),
+  };
+});
+
+import { SECRET_MERGE_TIMEOUT_MS, SETTINGS_KEY, useSettings } from "./use-settings";
+
+/** A stored settings blob, so the mount effect takes the secret-merge path (no blob skips it). */
+function storeSettings() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ layout: "classic", expertMode: true }));
+}
+
+beforeEach(() => {
+  localStorage.clear();
+  secretMode.mode = "real";
+});
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+describe("useSettings — hydration always completes (§548)", () => {
+  it("control: the real merge hydrates with the stored settings", async () => {
+    storeSettings();
+    const { result } = renderHook(() => useSettings());
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    expect(result.current.settings.layout).toBe("classic");
+  });
+
+  it("hydrates when the secret merge THROWS, keeping the stored non-secret settings", async () => {
+    secretMode.mode = "throw";
+    storeSettings();
+    const { result } = renderHook(() => useSettings());
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    expect(result.current.settings.layout).toBe("classic");
+    expect(result.current.settings.expertMode).toBe(true);
+  });
+
+  it("hydrates when IndexedDB is unavailable", async () => {
+    vi.stubGlobal("indexedDB", undefined);
+    storeSettings();
+    const { result } = renderHook(() => useSettings());
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    expect(result.current.settings.layout).toBe("classic");
+  });
+
+  it("hydrates at SECRET_MERGE_TIMEOUT_MS when the merge NEVER settles, and not before", async () => {
+    vi.useFakeTimers();
+    secretMode.mode = "hang";
+    storeSettings();
+    const { result } = renderHook(() => useSettings());
+    await act(async () => { await vi.advanceTimersByTimeAsync(SECRET_MERGE_TIMEOUT_MS - 1); });
+    expect(result.current.hydrated).toBe(false); // control: the merge really is hanging
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(result.current.hydrated).toBe(true);
+    expect(result.current.settings.layout).toBe("classic");
+  });
+});
+```
+
+- [ ] **Step 2: Run it and verify it fails**
+
+Run (Global section V): `npx vitest run src/app/use-settings.hydration.test.ts --maxWorkers=1 --reporter=dot > "$SCRATCH/t3-red.log" 2>&1; echo "EXIT=$?"`
+Expected: `EXIT=1`. Only the timeout test fails: `SECRET_MERGE_TIMEOUT_MS` does not exist yet, and with a hanging merge `hydrated` never becomes true. The other three pass already, because they pin behaviour that exists. If any of those three FAILS, stop and report it: that contradicts plan ruling 9.
+
+- [ ] **Step 3: Implement in `src/app/use-settings.ts` (CRLF — Edit tool)**
+
+(a) The constant. Directly above `export async function hydrateSecretsInto(`, insert:
+
+```ts
+/** §548 — the most the mount effect waits for the secret merge (`migratePlaintextSecrets` +
+ *  `hydrateSecretsInto`) before hydrating on the in-memory fallback. The load hold is up while
+ *  `hydrated` is false, so a merge that never settles would lock the app. The merge is local (IndexedDB
+ *  + WebCrypto) and normally takes well under a second. */
+export const SECRET_MERGE_TIMEOUT_MS = 5_000;
+
+```
+
+(b) Turn the merge into a function. Replace:
+
+```ts
+            let committed: typeof merged;
+            try {
+```
+
+with:
+
+```ts
+            const mergeSecrets = async (): Promise<typeof merged> => {
+            try {
+```
+
+(c) Replace `              committed = {\n                ...hydratedSettings,` with `              return {\n                ...hydratedSettings,`.
+
+(d) Replace:
+
+```ts
+            } catch {
+              // IndexedDB / WebCrypto unavailable — fall back to the in-memory
+              // plaintext secrets so the app still works this session.
+              committed = merged;
+            }
+```
+
+with:
+
+```ts
+            } catch {
+              // IndexedDB / WebCrypto unavailable — fall back to the in-memory
+              // plaintext secrets so the app still works this session.
+              return merged;
+            }
+            };
+            // ★★★ §548 — THE MERGE IS BOUNDED. The load hold is up until `hydrated` flips, so a merge that
+            //   never settles (an IndexedDB open queued behind another connection, a stalled WebCrypto call)
+            //   would lock the app behind the skeleton for good. On timeout, take the same in-memory fallback
+            //   the throw path takes; the late result, when it comes, is ignored.
+            let mergeTimer: ReturnType<typeof setTimeout> | undefined;
+            const mergeOutcome = await Promise.race([
+              mergeSecrets(),
+              new Promise<null>((resolve) => { mergeTimer = setTimeout(() => resolve(null), SECRET_MERGE_TIMEOUT_MS); }),
+            ]);
+            clearTimeout(mergeTimer);
+            if (mergeOutcome === null) logDiag("warn", "settings.secretMergeTimedOut", { ms: SECRET_MERGE_TIMEOUT_MS });
+            const committed = mergeOutcome ?? merged;
+```
+
+Check before editing: `grep -n "committed = merged;" src/app/use-settings.ts` and `grep -n "let committed: typeof merged;" src/app/use-settings.ts` must each print ONE line, and `grep -n "committed = {" src/app/use-settings.ts` must print one line. Afterwards, `committed` must be read only below the new `const committed` (the `lastSyncedRef.current = committed; setSettings(committed);` lines). The body of `mergeSecrets` keeps its original indentation; only the three statements above change.
+
+- [ ] **Step 4: Run it**
+
+Run Step 2's command. Expected: `EXIT=0`, `Test Files  1 passed (1)`.
+
+- [ ] **Step 5: Mutations (revert each; prove with `git diff --stat`)**
+
+- M3a (the bound): replace the `Promise.race([...])` expression with `await mergeSecrets()` (keep the rest). Expected red: "hydrates at SECRET_MERGE_TIMEOUT_MS when the merge NEVER settles". Revert.
+- M3b (the fallback): change `const committed = mergeOutcome ?? merged;` to `const committed = mergeOutcome ?? defaultSettings;`. Expected red: the same test, on `layout`. Revert.
+
+- [ ] **Step 6: Gates**
+
+- vitest: `npx vitest run src/app/use-settings.hydration.test.ts src/app/use-settings.test.ts src/app/use-settings.secrets.test.ts src/app/use-settings.jira.test.ts --maxWorkers=1 --reporter=dot > "$SCRATCH/t3-green.log" 2>&1; echo "EXIT=$?"` gives `EXIT=0`, `Test Files  4 passed (4)`.
+- tsc: `EXIT=0`, `0`.
+- `npx eslint --max-warnings=0 src/app/use-settings.ts src/app/use-settings.hydration.test.ts; echo "EXIT=$?"` gives `EXIT=0`.
+- Size: `node -e "console.log(require('fs').readFileSync('src/app/use-settings.ts','utf8').split('\n').length)"` ≤ 1600.
+
+- [ ] **Step 7: Commit (Global section C)**
+
+Subject: `fix(settings): §548 — settings hydration always completes; bound the secret merge`
+Body: `The load hold stays up while hydrated is false, so hydrated must always become true. Every throw on the secret-merge path already fell back to the in-memory settings; a merge that never settles could not. It is now raced against SECRET_MERGE_TIMEOUT_MS (5 s) and falls back the same way, logging settings.secretMergeTimedOut. Mutations M3a and M3b each turn the timeout test red.`
+New files: `src/app/use-settings.hydration.test.ts`
+Paths: that plus `src/app/use-settings.ts`.
+
+---
+
+### Task 4: §548 — SharePoint loads time out after 10 s (shared with Turso)
+
+**Files:**
+- Create: `src/app/fetch-with-timeout.ts` (`LOAD_TIMEOUT_MS`, `FetchTimeoutError`, `FetchTextResult`, `fetchTextWithTimeout`)
+- Create: `src/app/fetch-with-timeout.test.ts`
+- Modify: `src/app/turso-pipeline.ts` (`postPipeline` delegates to the helper; `LOAD_TIMEOUT_MS` re-exported)
+- Modify: `src/app/sharepoint-backend.ts` (`load` reads through the helper)
+- Modify: `src/app/sharepoint-backend.test.ts` (the timeout test)
+- Modify: `src/app/use-storage-backend.load-pending.test.tsx` (the hook settles on a SharePoint timeout)
+
+**Interfaces:**
+- Consumes: `loadPending` (Task 2) in the hook test.
+- Produces: `fetchTextWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<FetchTextResult>` where `FetchTextResult = { status: number; ok: boolean; text: string }`; `class FetchTimeoutError extends Error { readonly timeoutMs: number }`; `LOAD_TIMEOUT_MS = 10_000` (moved here; `turso-pipeline.ts` re-exports it, so `turso-backend.ts`, `turso-backend.test.ts` and `turso-backend.tenant.test.ts` keep importing it from there).
+
+- [ ] **Step 1: Write the failing tests**
+
+(a) Create `src/app/fetch-with-timeout.test.ts`:
+
+```ts
+// The shared bounded fetch behind every backend LOAD (§548: the load hold must always lift). It owns the
+// two rules Turso's pipeline learned the hard way: abort after `timeoutMs`, and read the BODY inside the
+// armed window (a server that sends headers and then stalls the body used to hang forever).
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { FetchTimeoutError, LOAD_TIMEOUT_MS, fetchTextWithTimeout } from "./fetch-with-timeout";
+
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
+
+/** A fetch that never resolves but rejects with an AbortError when its signal aborts. */
+function stubHangingFetch() {
+  const fetchMock = vi.fn((_url: unknown, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+    init?.signal?.addEventListener("abort", () => reject(new DOMException("The operation was aborted.", "AbortError")));
+  }));
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+/** Headers resolve at once; the body stalls until the signal aborts, then errors like a real stream. */
+function stubStalledBodyFetch() {
+  vi.stubGlobal("fetch", vi.fn((_url: unknown, init?: RequestInit) => {
+    const body = new ReadableStream({
+      start(ctrl) {
+        init?.signal?.addEventListener("abort", () => ctrl.error(new DOMException("The operation was aborted.", "AbortError")));
+      },
+    });
+    return Promise.resolve(new Response(body, { status: 200 }));
+  }));
+}
+
+describe("fetchTextWithTimeout", () => {
+  it("pins the shared load bound at 10 s", () => {
+    expect(LOAD_TIMEOUT_MS).toBe(10_000);
+  });
+
+  it("returns status, ok and the body text", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("hello", { status: 201 })));
+    await expect(fetchTextWithTimeout("https://x.test/a", { method: "GET" }, 1000)).resolves.toEqual({ status: 201, ok: true, text: "hello" });
+  });
+
+  it("aborts a hung fetch at timeoutMs, not before, with a FetchTimeoutError", async () => {
+    vi.useFakeTimers();
+    const fetchMock = stubHangingFetch();
+    const pending = fetchTextWithTimeout("https://x.test/a", { method: "GET" }, 500);
+    const expectation = expect(pending).rejects.toBeInstanceOf(FetchTimeoutError);
+    await vi.advanceTimersByTimeAsync(499);
+    expect((fetchMock.mock.calls[0][1] as RequestInit).signal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await expectation;
+  });
+
+  it("bounds the BODY read too: headers that arrive and a body that stalls still time out", async () => {
+    vi.useFakeTimers();
+    stubStalledBodyFetch();
+    const pending = fetchTextWithTimeout("https://x.test/a", { method: "GET" }, 500);
+    const expectation = expect(pending).rejects.toBeInstanceOf(FetchTimeoutError);
+    await vi.advanceTimersByTimeAsync(500);
+    await expectation;
+  });
+
+  it("passes a non-timeout failure through unchanged", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("network down"); }));
+    await expect(fetchTextWithTimeout("https://x.test/a", { method: "GET" }, 1000)).rejects.toThrow(TypeError);
+  });
+
+  it("clears its timer once the body is read", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("ok", { status: 200 })));
+    await fetchTextWithTimeout("https://x.test/a", { method: "GET" }, 1000);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});
+```
+
+(b) In `src/app/sharepoint-backend.test.ts`, add `afterEach` to the `vitest` import and `import { LOAD_TIMEOUT_MS } from "./fetch-with-timeout";` below the existing imports. Inside `describe("SharePointBackend", () => {`, after the `beforeEach` block, add:
+
+```ts
+  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+
+  // §548 — the load hold is up until a load settles, so a Graph read that never answers must FAIL the
+  // load. Same bound as Turso's (LOAD_TIMEOUT_MS). A plain Error, like SharePoint's HTTP-status errors,
+  // so it surfaces as the storageLoadFailed toast + the generic storage banner (plan ruling 10).
+  it("load fails at LOAD_TIMEOUT_MS, and not before, when the Graph read never answers", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn((_url: unknown, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new DOMException("The operation was aborted.", "AbortError")));
+    })));
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
+    let outcome: unknown = "pending";
+    const pending = be.load().then(() => "resolved", (e: unknown) => e);
+    void pending.then((o) => { outcome = o; });
+    await vi.advanceTimersByTimeAsync(LOAD_TIMEOUT_MS - 1);
+    expect(outcome).toBe("pending");
+    await vi.advanceTimersByTimeAsync(1);
+    await pending;
+    expect(outcome).toBeInstanceOf(Error);
+    expect((outcome as Error).message).toBe("SharePoint did not respond within 10 s. Try again later.");
+  });
+```
+
+(`vi.stubGlobal("fetch", …)` replaces msw's interception for this one test, as `turso-pipeline.test.ts` does.)
+
+(c) In `src/app/use-storage-backend.load-pending.test.tsx`, add `import { SharePointBackend } from "./sharepoint-backend";` below the `./workspace-context` import and `import { t } from "./i18n";` beside the `Lang` type import. Inside `describe("§548 — loadPending", () => {`, append:
+
+```tsx
+  // §548 + ruling 10 — the hold must lift when a SharePoint load hangs: the Graph read times out at
+  // LOAD_TIMEOUT_MS, the load effect's catch settles it, saving pauses and the failure is reported (the
+  // outcome that raises the storage banner, and the storageLoadFailed toast).
+  it("(g) a SharePoint load that never answers settles at 10 s: loadPending drops and the failure is reported", async () => {
+    vi.stubGlobal("fetch", vi.fn((_url: unknown, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new DOMException("The operation was aborted.", "AbortError")));
+    })));
+    const sp = new SharePointBackend(
+      { kind: "sp-json", hostname: "contoso.sharepoint.com", sitePath: "/sites/pm", itemPath: "/a.json" },
+      async () => "token",
+    );
+    createBackendMock.mockReturnValue(sp);
+    const { result } = render(makeArgs({ kind: "sp-json", hostname: "contoso.sharepoint.com", sitePath: "/sites/pm", itemPath: "/a.json" }));
+    await advance(9_900);
+    expect(result.current.loadPending).toBe(true); // control: still waiting on Graph
+
+    await advance(200);
+    expect(result.current.loadPending).toBe(false);
+    expect(result.current.loadPause).toBe("load-failed");
+    expect(onStorageOutcome).toHaveBeenCalledWith(expect.objectContaining({ message: "SharePoint did not respond within 10 s. Try again later." }));
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageLoadFailed", "Error: SharePoint did not respond within 10 s. Try again later."));
+  });
+```
+
+The render half (a failed load lifts the skeleton AND shows the storage banner) is pinned in Task 5 by "a FAILED load releases the hold and shows the storage banner". Together with (b) and (c), that closes the chain: Graph hangs → load fails at 10 s → hook settles → app and banner render.
+
+- [ ] **Step 2: Run them and verify they fail**
+
+Run (Global section V): `npx vitest run src/app/fetch-with-timeout.test.ts src/app/sharepoint-backend.test.ts src/app/use-storage-backend.load-pending.test.tsx --maxWorkers=1 --reporter=dot > "$SCRATCH/t4-red.log" 2>&1; echo "EXIT=$?"`
+Expected: `EXIT=1`. `fetch-with-timeout.test.ts` cannot import its module; the SharePoint test stays `pending` at 10 s; (g) keeps `loadPending` true.
+
+- [ ] **Step 3: Create `src/app/fetch-with-timeout.ts`** (new file, so the Write tool; then convert it to CRLF as in Task 1 Step 4)
+
+```ts
+// src/app/fetch-with-timeout.ts
+//
+// ONE bounded fetch for backend reads. Extracted from turso-pipeline.ts `postPipeline` (§548) so the
+// SharePoint load gets the same bound and the same body-read rule instead of a second copy.
+
+/** A backend LOAD fails after this long. load() blocks the app — the §548 load hold is up until it
+ *  settles — so loads fail faster than the save-oriented Turso pipeline default. Shared by Turso
+ *  (`turso-pipeline.ts` re-exports it) and SharePoint. */
+export const LOAD_TIMEOUT_MS = 10_000;
+
+/** Thrown when OUR timer aborted the request, as distinct from any other network failure. */
+export class FetchTimeoutError extends Error {
+  constructor(readonly timeoutMs: number) {
+    super(`No response within ${timeoutMs} ms`);
+    this.name = "FetchTimeoutError";
+  }
+}
+
+export interface FetchTextResult {
+  status: number;
+  ok: boolean;
+  text: string;
+}
+
+/** `fetch` with an AbortController-based timeout that ALSO covers reading the response body.
+ *  ★★★ THE BODY READ IS THE POINT. `fetch` resolves when the HEADERS arrive, so clearing the timer on its
+ *  return leaves the body read unbounded: a server that sends headers and then stalls the body hung
+ *  forever. Returning the text rather than the `Response` makes that structural — a caller cannot forget
+ *  to read the body in the window, because there is no `Response` to hand it.
+ *  ★ AbortController + setTimeout (rather than `AbortSignal.timeout`) so fake-timer tests can drive the
+ *  abort deterministically.
+ *  ★★ THE BOUND IS THE PLATFORM'S, NOT OURS. The timer calls `abort()`, and nothing here rejects unless
+ *  the transport ERRORS in response. Real `fetch` does (headers and body alike), and the test doubles
+ *  model it; a transport that accepted the signal and ignored it would silently restore the hang. */
+export async function fetchTextWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<FetchTextResult> {
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    const text = await res.text();
+    return { status: res.status, ok: res.ok, text };
+  } catch (err) {
+    if (timedOut) throw new FetchTimeoutError(timeoutMs);
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+```
+
+- [ ] **Step 4: Point `src/app/turso-pipeline.ts` at it (CRLF — Edit tool)**
+
+(a) Replace:
+
+```ts
+// load() blocks the initial UI hydration, so backends fail loads faster than
+// the save-oriented pipeline default above.
+export const LOAD_TIMEOUT_MS = 10_000;
+```
+
+with:
+
+```ts
+// The LOAD bound lives in fetch-with-timeout.ts (shared with the SharePoint load); re-exported so the
+// Turso backend and its tests keep importing it from here.
+export { LOAD_TIMEOUT_MS } from "./fetch-with-timeout";
+```
+
+(b) Add `import { fetchTextWithTimeout } from "./fetch-with-timeout";` after `import type { TursoConfig } from "./turso-config";`.
+
+(c) Replace the whole `postPipeline` function, together with its docstring (from the line `/** POST a pipeline request with an AbortController-based timeout, and read the` through the function's closing `}`), with:
+
+```ts
+/** POST a pipeline request through `fetchTextWithTimeout`, which owns the timeout AND the rule that the
+ *  response body is read inside the armed window — read its docstring (fetch-with-timeout.ts) before
+ *  changing either. Every caller here catches whatever this rejects with. */
+async function postPipeline(
+  config: TursoConfig,
+  stmts: SqlStmt[],
+  timeoutMs: number,
+): Promise<{ status: number; ok: boolean; text: string }> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (config.authToken) {
+    headers.Authorization = `Bearer ${config.authToken}`;
+  }
+  return fetchTextWithTimeout(
+    `${config.httpUrl}/v2/pipeline`,
+    { method: "POST", headers, body: JSON.stringify({ requests: stmts.map(execute) }) },
+    timeoutMs,
+  );
+}
+```
+
+`runTursoPipeline` still maps ANY rejection (our timeout included) to `StorageNotReadyError("storage-unreachable")`, so Turso's behaviour is unchanged. The existing `turso-pipeline.test.ts` timeout tests (hung headers, stalled body, explicit `timeoutMs`, timer cleared) pin that.
+
+- [ ] **Step 5: Bound the SharePoint load in `src/app/sharepoint-backend.ts` (CRLF — Edit tool)**
+
+(a) After the `import type { ImportSectionKey } from "./csv-codecs-sections";` line, add:
+
+```ts
+import { FetchTimeoutError, LOAD_TIMEOUT_MS, fetchTextWithTimeout, type FetchTextResult } from "./fetch-with-timeout";
+```
+
+(b) In `load()`, replace:
+
+```ts
+      const token = await this.getToken();
+      const res = await fetch(graphUrlFor(this.location), {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+```
+
+with:
+
+```ts
+      const token = await this.getToken();
+      // ★★ §548 — BOUNDED, like Turso's load: the app is held behind a skeleton until this load settles,
+      //   so a Graph read that never answers must FAIL the load. A plain Error, the same shape as the
+      //   status errors below, so it reaches the storageLoadFailed toast and the generic storage banner —
+      //   NOT Turso's "storage-unreachable" kind, whose banner text names the Turso database. The token
+      //   step above is deliberately unbounded: an interactive MSAL popup waits on the user, and closing
+      //   it rejects.
+      let res: FetchTextResult;
+      try {
+        res = await fetchTextWithTimeout(graphUrlFor(this.location), {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+        }, LOAD_TIMEOUT_MS);
+      } catch (err) {
+        if (err instanceof FetchTimeoutError) {
+          throw new Error(`SharePoint did not respond within ${LOAD_TIMEOUT_MS / 1000} s. Try again later.`);
+        }
+        throw err;
+      }
+```
+
+(c) The body is now already read. Replace `        const csv = await res.text();` with `        const csv = res.text;`, and `      return jsonToWorkspace(await res.text(), { strict: true, diag });` with `      return jsonToWorkspace(res.text, { strict: true, diag });`. (`grep -n "res.text()" src/app/sharepoint-backend.ts` must print only the lines in `save()`, if any, afterwards. `save()` is not changed.)
+
+- [ ] **Step 6: Run the tests**
+
+Run (Global section V): `npx vitest run src/app/fetch-with-timeout.test.ts src/app/sharepoint-backend.test.ts src/app/use-storage-backend.load-pending.test.tsx src/app/turso-pipeline.test.ts src/app/turso-backend.test.ts src/app/turso-backend.tenant.test.ts --maxWorkers=1 --reporter=dot > "$SCRATCH/t4-green.log" 2>&1; echo "EXIT=$?"`
+Expected: `EXIT=0`, `Test Files  6 passed (6)`.
+
+- [ ] **Step 7: Mutations (revert each; prove with `git diff --stat`)**
+
+- M4a (SharePoint bound): in `sharepoint-backend.ts`, pass `LOAD_TIMEOUT_MS * 10` instead of `LOAD_TIMEOUT_MS` to `fetchTextWithTimeout`. Expected red: "load fails at LOAD_TIMEOUT_MS, and not before…" and (g). Revert.
+- M4b (body in the window): in `fetchTextWithTimeout`, move `clearTimeout(timer);` to directly after the `await fetch(...)` line (and drop it from `finally`). Expected red: "bounds the BODY read too…" in `fetch-with-timeout.test.ts` AND the stalled-body test in `turso-pipeline.test.ts`. Revert.
+- M4c (timeout classified): change `if (timedOut) throw new FetchTimeoutError(timeoutMs);` to `if (false) throw new FetchTimeoutError(timeoutMs);`. Expected red: "aborts a hung fetch at timeoutMs…", the SharePoint timeout test and (g) (the raw `AbortError` now surfaces with a different message). Revert.
+
+- [ ] **Step 8: Gates**
+
+- vitest: Step 6's command, `EXIT=0`, `Test Files  6 passed (6)`.
+- tsc: `EXIT=0`, `0`.
+- `npx eslint --max-warnings=0 src/app/fetch-with-timeout.ts src/app/fetch-with-timeout.test.ts src/app/turso-pipeline.ts src/app/sharepoint-backend.ts src/app/sharepoint-backend.test.ts src/app/use-storage-backend.load-pending.test.tsx; echo "EXIT=$?"` gives `EXIT=0`.
+- `npm run dup:check; echo "EXIT=$?"` gives `EXIT=0` (this task MOVES logic; confirm it duplicated none).
+- Coverage: `fetch-with-timeout.ts` is a new coverage-gated module. Its tests hit every branch (success, timeout on headers, timeout on body, non-timeout failure, timer cleared).
+
+- [ ] **Step 9: Commit (Global section C)**
+
+Subject: `fix(storage): §548 — SharePoint loads time out after 10 s, sharing Turso's bounded fetch`
+Body: `The load hold stays up until a load settles, so a hung Graph read would have kept the skeleton up for good. Turso's AbortController timeout and its read-the-body-inside-the-window rule move into fetch-with-timeout.ts (LOAD_TIMEOUT_MS moves with them and turso-pipeline re-exports it); the SharePoint load now reads through it with the same 10 s and fails with a plain Error that the existing toast and generic storage banner report. Mutations M4a-M4c each turn named tests red.`
+New files: `src/app/fetch-with-timeout.ts src/app/fetch-with-timeout.test.ts`
+Paths: those two plus `src/app/turso-pipeline.ts src/app/sharepoint-backend.ts src/app/sharepoint-backend.test.ts src/app/use-storage-backend.load-pending.test.tsx`.
+
+---
+
+### Task 5: §548 — hold the main-window app tree; gate the reconcile effect and the undo hotkey
 
 **Files:**
 - Modify: `src/app/task-manager.tsx` (destructure `loadPending`; `loadPendingRef`; undo hotkey; reconcile effect; render hold)
@@ -1078,7 +1797,7 @@ Paths: that plus `src/app/use-storage-backend.ts docs/AGENTS/activity-log.md`.
 
 **Interfaces:**
 - Consumes: `loadPending` from Task 2.
-- Produces: no new exports. Task 4 appends tests to `src/app/task-manager.load-hold.test.tsx` and passes `loadPending` from the same destructuring.
+- Produces: no new exports. Task 6 appends tests to `src/app/task-manager.load-hold.test.tsx` and passes `loadPending` from the same destructuring.
 
 - [ ] **Step 1: Write the failing test `src/app/task-manager.load-hold.test.tsx`**
 
@@ -1098,6 +1817,19 @@ import { DEFAULT_TASK_STATUS, type Task } from "./types";
 import { reconcileInsights } from "./insights/reconcile";
 
 const undoCalls = vi.hoisted(() => ({ n: 0 }));
+// §548 revision — drives the settings secret merge: "real" (default), "hang" (never settles) or "throw".
+const secretMode = vi.hoisted(() => ({ mode: "real" as "real" | "hang" | "throw" }));
+
+vi.mock("./secrets-store", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./secrets-store")>();
+  return {
+    ...actual,
+    migratePlaintextSecrets: (input: Parameters<typeof actual.migratePlaintextSecrets>[0]) =>
+      secretMode.mode === "hang" ? new Promise<never>(() => {})
+        : secretMode.mode === "throw" ? Promise.reject(new Error("secret store down"))
+          : actual.migratePlaintextSecrets(input),
+  };
+});
 
 // Count real undo calls without changing `undo`'s identity between renders.
 vi.mock("./undo/use-undo-stack", async (importOriginal) => {
@@ -1165,12 +1897,15 @@ function holdLoad() {
   };
 }
 
-function mountAt(search: string) {
+/** `withSettings` stores a settings blob, which is what makes `useSettings` take the secret-merge path
+ *  (with no blob it hydrates on the defaults at once). */
+function mountAt(search: string, opts: { withSettings?: boolean } = {}) {
   window.localStorage.clear();
   window.localStorage.setItem("aipm-cockpit:projects", JSON.stringify({
     projects: [{ id: "p1", name: "Seed", code: "SEED", storageConfig: { kind: "browser" } }],
     currentProjectId: "p1",
   }));
+  if (opts.withSettings) window.localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true }));
   window.history.replaceState(null, "", search);
   render(<TaskManager />);
 }
@@ -1180,6 +1915,7 @@ const loadingText = () => screen.queryByText(t("en-US", "loading"));
 beforeEach(() => {
   __resetMintStateForTests();
   undoCalls.n = 0;
+  secretMode.mode = "real";
   vi.mocked(reconcileInsights).mockClear();
 });
 afterEach(() => {
@@ -1204,9 +1940,33 @@ describe("§548 — no edit can start while the load is pending", () => {
     expect(screen.queryAllByRole("navigation").length).toBeGreaterThan(0);
   }, 45000);
 
-  it("a FAILED load releases the hold: the app renders", async () => {
+  it("a FAILED load releases the hold and shows the storage banner", async () => {
     vi.spyOn(BrowserBackend.prototype, "load").mockRejectedValue(new Error("load boom"));
     mountAt("/");
+    expect(await screen.findByTestId("ws-section-mock")).toBeInTheDocument();
+    expect(screen.queryAllByRole("navigation").length).toBeGreaterThan(0);
+    // A plain Error classifies as "generic" (classifyStorageError), so the sticky banner carries this text.
+    // A timed-out SharePoint load throws the same kind of error (Task 4), so this is its render half too.
+    expect(await screen.findByText(t("en-US", "storageSaveFailedBanner"))).toBeInTheDocument();
+  }, 45000);
+
+  // ── spec revision 2026-09-19: the pre-hydration window is held too ──────────────────────────────
+  it("holds BEFORE hydration: while the secret merge is pending there is a skeleton, no app, and no load yet; the bound then lifts it", async () => {
+    secretMode.mode = "hang";
+    const loadSpy = vi.spyOn(BrowserBackend.prototype, "load");
+    mountAt("/", { withSettings: true });
+    await waitFor(() => expect(loadingText()).not.toBeNull()); // i18n is ready, settings are not hydrated
+    expect(loadSpy).not.toHaveBeenCalled(); // control: this IS the pre-hydration window, no load has started
+    expect(screen.queryByTestId("ws-section-mock")).toBeNull();
+    expect(screen.queryAllByRole("navigation")).toHaveLength(0);
+
+    // SECRET_MERGE_TIMEOUT_MS (5 s) hydrates on the fallback; the load then runs and settles.
+    expect(await screen.findByTestId("ws-section-mock", {}, { timeout: 15000 })).toBeInTheDocument();
+  }, 45000);
+
+  it("a FAILING secret merge still lifts the hold", async () => {
+    secretMode.mode = "throw";
+    mountAt("/", { withSettings: true });
     expect(await screen.findByTestId("ws-section-mock")).toBeInTheDocument();
     expect(screen.queryAllByRole("navigation").length).toBeGreaterThan(0);
   }, 45000);
@@ -1249,8 +2009,8 @@ describe("§548 — no edit can start while the load is pending", () => {
 
 - [ ] **Step 2: Run it and verify it fails**
 
-Run (Global section V): `npx vitest run src/app/task-manager.load-hold.test.tsx --maxWorkers=1 --reporter=dot > "$SCRATCH/t3-red.log" 2>&1; echo "EXIT=$?"`
-Expected: `EXIT=1`. The first, fourth and fifth tests fail (the app renders during the pending load, the reconcile runs, the hotkey undoes). The failed-load and popout tests pass already; they pin the release and the popout exemption.
+Run (Global section V): `npx vitest run src/app/task-manager.load-hold.test.tsx --maxWorkers=1 --reporter=dot > "$SCRATCH/t5-red.log" 2>&1; echo "EXIT=$?"`
+Expected: `EXIT=1`. Four tests fail: "renders the loading placeholder…", "holds BEFORE hydration…" (the app renders during the pending load and before hydration), the reconcile test (it runs) and the hotkey test (it undoes). Three pass already: "a FAILED load releases the hold and shows the storage banner", "a FAILING secret merge still lifts the hold" and the popout test. They pin the release paths and the popout exemption.
 
 - [ ] **Step 3: Implement in `src/app/task-manager.tsx` (CRLF — Edit tool)**
 
@@ -1343,8 +2103,8 @@ with:
 ```ts
   const showTursoListLoading =
     hydrated && portfolioMode === "turso" && !tursoListLoaded && !showTursoUnlock && !storageError;
-  // ★★★ §548 — THE LOAD HOLD. While `loadPending` (the first load, a backend-change reload, or a
-  //   project-swap op is in flight) the MAIN window renders the same `PanelSkeleton` the Turso list-load
+  // ★★★ §548 — THE LOAD HOLD. While `loadPending` (settings not yet hydrated, the first load, a
+  //   backend-change reload, or a project-swap op in flight) the MAIN window renders the same `PanelSkeleton` the Turso list-load
   //   window uses INSTEAD of the app tree, so no control that writes workspace state exists — an edit
   //   made in that window was silently replaced when the load landed. A failed or refused load SETTLES,
   //   so the storage banner and its recovery paths stay reachable. Popouts returned above and are never
@@ -1384,7 +2144,7 @@ Run Step 2's command. Expected: `EXIT=0`, `Test Files  1 passed (1)`.
 
 - [ ] **Step 6: Run the existing TaskManager suites, which may now race the hold**
 
-Run (Global section V): `npx vitest run src/app/task-manager.load-hold.test.tsx src/app/task-manager.activity-actor.test.tsx src/app/task-manager.characterization.test.tsx src/app/task-manager.clear-unlinked-arming.test.tsx src/app/task-manager.editor-modal.test.tsx src/app/task-manager.guardrail-reconcile.test.tsx src/app/task-manager.key-facts-cache.test.tsx src/app/task-manager.popout-guard.test.tsx src/app/task-manager.portfolio-mode.test.tsx src/app/task-manager.restore-backfill.test.tsx src/app/task-manager.shell.test.tsx src/app/task-manager.snapshot-gate-failed-load.test.tsx src/app/task-manager.snapshot-gate.test.tsx src/app/task-manager.template-notice.test.tsx src/app/task-manager.timelog-links-blank.test.tsx src/app/task-manager.truncation-banner.test.tsx src/app/task-manager.version-history-wiring.test.tsx --maxWorkers=1 --reporter=dot > "$SCRATCH/t3-suites.log" 2>&1; echo "EXIT=$?"`
+Run (Global section V): `npx vitest run src/app/task-manager.load-hold.test.tsx src/app/task-manager.activity-actor.test.tsx src/app/task-manager.characterization.test.tsx src/app/task-manager.clear-unlinked-arming.test.tsx src/app/task-manager.editor-modal.test.tsx src/app/task-manager.guardrail-reconcile.test.tsx src/app/task-manager.key-facts-cache.test.tsx src/app/task-manager.popout-guard.test.tsx src/app/task-manager.portfolio-mode.test.tsx src/app/task-manager.restore-backfill.test.tsx src/app/task-manager.shell.test.tsx src/app/task-manager.snapshot-gate-failed-load.test.tsx src/app/task-manager.snapshot-gate.test.tsx src/app/task-manager.template-notice.test.tsx src/app/task-manager.timelog-links-blank.test.tsx src/app/task-manager.truncation-banner.test.tsx src/app/task-manager.version-history-wiring.test.tsx --maxWorkers=1 --reporter=dot > "$SCRATCH/t5-suites.log" 2>&1; echo "EXIT=$?"`
 Expected: `EXIT=0`, `Test Files  17 passed (17)`.
 
 If a suite goes red because it queried the app (or captured a probe's props) before the first load landed, fix it ONLY by awaiting the load: `await screen.findBy…` for the pane, or the `storage.loaded` diag wait that `task-manager.template-notice.test.tsx`'s `mount()` uses:
@@ -1455,16 +2215,18 @@ test("§548 — a delayed project load shows the skeleton, then the loaded app",
 
 Stop any dev server you started yourself first (`npm run stop`). Do not chain Playwright invocations.
 
-`npx playwright test e2e/load-hold.spec.ts --project=chromium --workers=1 > "$SCRATCH/t3-e2e.log" 2>&1; echo "EXIT=$?"` gives `EXIT=0`.
+`npx playwright test e2e/load-hold.spec.ts --project=chromium --workers=1 > "$SCRATCH/t5-e2e.log" 2>&1; echo "EXIT=$?"` gives `EXIT=0`.
 
-`npx playwright test e2e/a11y.spec.ts --project=chromium -g "Dashboard" --workers=1 > "$SCRATCH/t3-axe.log" 2>&1; echo "EXIT=$?"` gives `EXIT=0`. A timeout under local contention is not a violation: re-run once and report both runs.
+`npx playwright test e2e/a11y.spec.ts --project=chromium -g "Dashboard" --workers=1 > "$SCRATCH/t5-axe.log" 2>&1; echo "EXIT=$?"` gives `EXIT=0`. A timeout under local contention is not a violation: re-run once and report both runs.
 
 - [ ] **Step 9: Mutations (revert each; prove with `git diff --stat`)**
 
-- M3a (render hold): change `showTursoListLoading || loadPending` back to `showTursoListLoading`. Expected red: "renders the loading placeholder…" (unit) AND the e2e spec (the skeleton never appears; it fails at the 90 s visibility wait). Revert.
-- M3b (reconcile): delete `|| loadPending` from the reconcile effect's early return. Expected red: "does not run the insight reconcile…". If it stays green, the 6 s wait is too short on this machine: raise it and re-prove red. Revert.
-- M3c (hotkey): change the undo closure to `() => { undoApi.undo(); }`. Expected red: "ignores the undo hotkey…". Revert.
-- M3d (popout exemption): in the popout return, wrap `{legacyTree}` as `{loadPending ? <PanelSkeleton lang={lang} /> : legacyTree}`. Expected red: "a popout never shows the skeleton…". Revert.
+- M5a (render hold): change `showTursoListLoading || loadPending` back to `showTursoListLoading`. Expected red: "renders the loading placeholder…" (unit) AND the e2e spec (the skeleton never appears; it fails at the 90 s visibility wait). Revert.
+- M5b (reconcile): delete `|| loadPending` from the reconcile effect's early return. Expected red: "does not run the insight reconcile…". If it stays green, the 6 s wait is too short on this machine: raise it and re-prove red. Revert.
+- M5c (hotkey): change the undo closure to `() => { undoApi.undo(); }`. Expected red: "ignores the undo hotkey…". Revert.
+- M5d (popout exemption): in the popout return, wrap `{legacyTree}` as `{loadPending ? <PanelSkeleton lang={lang} /> : legacyTree}`. Expected red: "a popout never shows the skeleton…". Revert.
+- M5e (pre-hydration reaches the render): in `use-storage-backend.ts`, delete `!args.hydrated || ` from `loadPending` (Task 2's M2g). Expected red: "holds BEFORE hydration…" (the app tree renders before hydration). Revert.
+- M5f (the hold needs the bound): in `use-settings.ts`, replace the `Promise.race([...])` with `await mergeSecrets()` (Task 3's M3a). Expected red: "holds BEFORE hydration…" (the app never renders; it times out at 15 s). Revert.
 
 Run the unit mutations against `src/app/task-manager.load-hold.test.tsx` alone.
 
@@ -1489,7 +2251,7 @@ with:
   [`docs/AGENTS/platform.md`](docs/AGENTS/platform.md) "The load hold".
 ```
 
-(The platform.md section is written in Task 6. `docs:claims:check` does not validate anchors, so the forward link is safe for one commit.)
+(The platform.md section is written in Task 8. `docs:claims:check` does not validate anchors, so the forward link is safe for one commit.)
 
 - [ ] **Step 11: Gates**
 
@@ -1502,13 +2264,13 @@ with:
 - [ ] **Step 12: Commit (Global section C)**
 
 Subject: `fix(shell): §548 — hold the main window while a load or swap is pending`
-Body: `While loadPending, the main window renders the existing PanelSkeleton instead of the app tree, so no UI writer can start inside the window a landing load would overwrite. A failed or refused load settles, so the storage banner stays reachable; popouts are never held. The insight reconcile effect and the undo hotkey, which do not unmount, gate on the same signal. Mutations M3a-M3d each turn a named test red.`
+Body: `While loadPending, the main window renders the existing PanelSkeleton instead of the app tree, so no UI writer can start inside the window a landing load would overwrite. A failed or refused load settles, so the storage banner stays reachable; popouts are never held. The insight reconcile effect and the undo hotkey, which do not unmount, gate on the same signal. Mutations M5a-M5d each turn a named test red.`
 New files: `src/app/task-manager.load-hold.test.tsx e2e/load-hold.spec.ts`
 Paths: those two plus `src/app/task-manager.tsx src/app/task-manager.template-notice.test.tsx AGENTS.md` and any suite changed in Step 6.
 
 ---
 
-### Task 4: §548 — gate the background recommendation and calendar writers
+### Task 6: §548 — gate the background recommendation and calendar writers
 
 **Files:**
 - Modify: `src/app/use-insight-recommendations.ts` (`InsightRecommendationDeps.loadPending`; `applyInsightRecommendation`)
@@ -1519,7 +2281,7 @@ Paths: those two plus `src/app/task-manager.tsx src/app/task-manager.template-no
 - Modify: `src/app/task-manager.load-hold.test.tsx` (the wiring test)
 
 **Interfaces:**
-- Consumes: `loadPending` (Task 2), destructured in `task-manager.tsx` (Task 3).
+- Consumes: `loadPending` (Task 2), destructured in `task-manager.tsx` (Task 5).
 - Produces: `InsightRecommendationDeps.loadPending: boolean` and `CalendarIntegrationDeps.loadPending: boolean`, both REQUIRED, so tsc catches a missed call site.
 
 - [ ] **Step 0: Coordination (controller)**
@@ -1681,7 +2443,7 @@ In `beforeEach`, add `  handed.calendar.length = 0;` and `  handed.recs.length =
 
 - [ ] **Step 2: Run the tests and verify they fail**
 
-Run (Global section V): `npx vitest run src/app/use-insight-recommendations.test.tsx src/app/use-calendar-integrations.load-hold.test.ts src/app/task-manager.load-hold.test.tsx --maxWorkers=1 --reporter=dot > "$SCRATCH/t4-red.log" 2>&1; echo "EXIT=$?"`
+Run (Global section V): `npx vitest run src/app/use-insight-recommendations.test.tsx src/app/use-calendar-integrations.load-hold.test.ts src/app/task-manager.load-hold.test.tsx --maxWorkers=1 --reporter=dot > "$SCRATCH/t6-red.log" 2>&1; echo "EXIT=$?"`
 Expected: `EXIT=1`. The recommendation is stored while pending, the calendar flags are `true` while pending, and `handed` records `undefined`. The missing `loadPending` member shows only in Step 7's tsc run.
 
 - [ ] **Step 3: Implement (CRLF — Edit tool)**
@@ -1757,14 +2519,14 @@ Run Step 2's command. Expected: `EXIT=0`, `Test Files  3 passed (3)`.
 
 - [ ] **Step 5: Mutations (revert each; prove with `git diff --stat`)**
 
-- M4a (recommendation store): delete `if (loadPending) return;`. Expected red: "does not store a generated recommendation while the project load is pending (§548)". Revert.
-- M4b (auto-sync): delete `&& !loadPending` from `taskAutoSyncActive` only. Expected red: "keeps every auto-sync push … OFF while loadPending" (first auto-sync and first background-pull entries flip). Revert.
-- M4c (auto-pull runner): delete `&& !loadPending` from `useCalendarAutoPull`'s `enabled`. Expected red: the same test. Revert.
-- M4d (wiring): in task-manager's `useCalendarIntegrations({` call, change `loadPending,` to `loadPending: false,`. Expected red: "hands loadPending to the background hooks…". Revert.
+- M6a (recommendation store): delete `if (loadPending) return;`. Expected red: "does not store a generated recommendation while the project load is pending (§548)". Revert.
+- M6b (auto-sync): delete `&& !loadPending` from `taskAutoSyncActive` only. Expected red: "keeps every auto-sync push … OFF while loadPending" (first auto-sync and first background-pull entries flip). Revert.
+- M6c (auto-pull runner): delete `&& !loadPending` from `useCalendarAutoPull`'s `enabled`. Expected red: the same test. Revert.
+- M6d (wiring): in task-manager's `useCalendarIntegrations({` call, change `loadPending,` to `loadPending: false,`. Expected red: "hands loadPending to the background hooks…". Revert.
 
-- [ ] **Step 6: Re-run the Task 3 suite list plus the two new hook files**
+- [ ] **Step 6: Re-run the Task 5 suite list plus the two new hook files**
 
-Run the Task 3 Step 6 command with `src/app/use-insight-recommendations.test.tsx src/app/use-calendar-integrations.load-hold.test.ts` appended. Expected: `EXIT=0`, `Test Files  19 passed (19)`.
+Run the Task 5 Step 6 command with `src/app/use-insight-recommendations.test.tsx src/app/use-calendar-integrations.load-hold.test.ts` appended. Expected: `EXIT=0`, `Test Files  19 passed (19)`.
 
 - [ ] **Step 7: Gates**
 
@@ -1775,13 +2537,13 @@ Run the Task 3 Step 6 command with `src/app/use-insight-recommendations.test.tsx
 - [ ] **Step 8: Commit (Global section C)**
 
 Subject: `fix(storage): §548 — gate the background recommendation and calendar writers on loadPending`
-Body: `The recommendation store and the calendar auto-sync pushes, background pulls and auto-pull runner run on timers and never unmount with the held app tree, so they now do nothing while loadPending. Mutations M4a-M4d each turn a named test red.`
+Body: `The recommendation store and the calendar auto-sync pushes, background pulls and auto-pull runner run on timers and never unmount with the held app tree, so they now do nothing while loadPending. Mutations M6a-M6d each turn a named test red.`
 New files: `src/app/use-calendar-integrations.load-hold.test.ts`
 Paths: that plus `src/app/use-insight-recommendations.ts src/app/use-calendar-integrations.ts src/app/task-manager.tsx src/app/use-insight-recommendations.test.tsx src/app/task-manager.load-hold.test.tsx`.
 
 ---
 
-### Task 5: §577 — the budget-variance insight compares budget to date
+### Task 7: §577 — the budget-variance insight compares budget to date
 
 **Files:**
 - Modify: `src/app/insights/detect.ts` (import; `ownBudgetHoursToDate`; `budgetVarianceInsight`; `detectInsights`)
@@ -1849,7 +2611,7 @@ If tsc rejects `status: "closed"` or `successorId` on the `bucket()` factory's `
 
 - [ ] **Step 2: Run them and verify the right ones fail**
 
-Run (Global section V): `npx vitest run src/app/insights/detect.test.ts --maxWorkers=1 --reporter=dot > "$SCRATCH/t5-red.log" 2>&1; echo "EXIT=$?"`
+Run (Global section V): `npx vitest run src/app/insights/detect.test.ts --maxWorkers=1 --reporter=dot > "$SCRATCH/t7-red.log" 2>&1; echo "EXIT=$?"`
 Expected: `EXIT=1`. The first three new tests fail. The spillover test passes (today's code already counts spillover; it pins ruling 4 against the change). The existing four `budgetVariance` tests and "orders by severity desc then key asc" pass.
 
 - [ ] **Step 3: Implement in `src/app/insights/detect.ts` (CRLF — Edit tool)**
@@ -1964,14 +2726,14 @@ const out = detectInsights({
 console.log(JSON.stringify(out.find((i) => i.type === "budgetVariance") ?? null));
 ```
 
-Run `npx vite-node "$SCRATCH/bv-577.ts" > "$SCRATCH/t5-repro.log" 2>&1; echo "EXIT=$?"`. If vite-node cannot resolve the absolute import, change it to a path relative to the script. Record the printed line in the task report. The register measured 6 of 7 buckets breaching with "Advisory Retainer (blended)" (0/324) as worst, beating "Capped SOW" (83.5%). Expected now: the worst is no longer an untouched bucket. Report what it actually prints.
+Run `npx vite-node "$SCRATCH/bv-577.ts" > "$SCRATCH/t7-repro.log" 2>&1; echo "EXIT=$?"`. If vite-node cannot resolve the absolute import, change it to a path relative to the script. Record the printed line in the task report. The register measured 6 of 7 buckets breaching with "Advisory Retainer (blended)" (0/324) as worst, beating "Capped SOW" (83.5%). Expected now: the worst is no longer an untouched bucket. Report what it actually prints.
 
 - [ ] **Step 6: Mutations (revert each; prove with `git diff --stat`)**
 
-- M5a (untouched skip): delete `if (b.actualHours === 0) continue;`. Expected red: "an untouched bucket neither breaches nor wins…". Revert.
-- M5b (cutoff): in `ownBudgetHoursToDate`, change `for (const p of started)` to `for (const p of periods)`. Expected red: "future periods do not count…". Revert.
-- M5c (not-started skip): change `if (started.length === 0) return null;` to `if (started.length === 0) return 0;` AND the loop to `for (const p of periods)`. Expected red: "a bucket whose window has not started…". Revert.
-- M5d (spillover, ruling 4): change `ownToDate + b.spilloverInHours` to `ownToDate`. Expected red: "a closed predecessor's spillover counts…". Revert.
+- M7a (untouched skip): delete `if (b.actualHours === 0) continue;`. Expected red: "an untouched bucket neither breaches nor wins…". Revert.
+- M7b (cutoff): in `ownBudgetHoursToDate`, change `for (const p of started)` to `for (const p of periods)`. Expected red: "future periods do not count…". Revert.
+- M7c (not-started skip): change `if (started.length === 0) return null;` to `if (started.length === 0) return 0;` AND the loop to `for (const p of periods)`. Expected red: "a bucket whose window has not started…". Revert.
+- M7d (spillover, ruling 4): change `ownToDate + b.spilloverInHours` to `ownToDate`. Expected red: "a closed predecessor's spillover counts…". Revert.
 
 - [ ] **Step 7: Gates**
 
@@ -1982,12 +2744,12 @@ Run `npx vite-node "$SCRATCH/bv-577.ts" > "$SCRATCH/t5-repro.log" 2>&1; echo "EX
 - [ ] **Step 8: Commit (Global section C)**
 
 Subject: `fix(insights): §577 — budget variance compares actuals with budget to date`
-Body: `budgetVarianceInsight compared to-date actuals with the whole-window budget, so every open bucket with future months was flagged and an untouched bucket read 100% and won "worst". It now compares each bucket's actual hours with its own budget in the periods started by today (effectiveBudgetHours, the burn-down's cutoff) plus a closed predecessor's spillover, and skips buckets with nothing booked or whose window has not started. Mutations M5a-M5d each turn a named test red.`
+Body: `budgetVarianceInsight compared to-date actuals with the whole-window budget, so every open bucket with future months was flagged and an untouched bucket read 100% and won "worst". It now compares each bucket's actual hours with its own budget in the periods started by today (effectiveBudgetHours, the burn-down's cutoff) plus a closed predecessor's spillover, and skips buckets with nothing booked or whose window has not started. Mutations M7a-M7d each turn a named test red.`
 Paths: `src/app/insights/detect.ts src/app/insights/detect.test.ts`.
 
 ---
 
-### Task 6: Docs and register — the load hold, target-key merging; close §548 §591 §577
+### Task 8: Docs and register — the load hold, target-key merging; close §548 §591 §577
 
 **Files:**
 - Modify: `docs/AGENTS/platform.md` (new section; title)
@@ -2008,12 +2770,23 @@ Replace the title line `# Diagnostics · guards · dictation · AI master switch
 
 ### The load hold (§548)
 
-- **`loadPending` (`useStorageBackend`) is true while a project load or project swap is in flight**:
-  from hydration until the load effect for the CURRENT `backend` instance reaches a terminal branch,
-  and while any of the nine ops wrapped by `holdDuring` runs (`reloadCurrentProject`,
-  `switchToProject`, `createProject`, `loadProjectFromFile`, `createDemoProject`, `onOpenStorageFile`,
-  `switchToTursoProject`, `createTursoProject`, `migrateCurrentProjectToTurso`). It is false before
-  hydration. ★ Enumerate the wraps with `grep -n "holdDuring(" src/app/use-storage-backend.ts`.
+- **`loadPending` (`useStorageBackend`) is true until the workspace in scope is the settled project
+  of the current backend**: before settings hydration (no load has started yet), until the load effect
+  for the CURRENT `backend` instance reaches a terminal branch, and while any of the nine ops wrapped
+  by `holdDuring` runs (`reloadCurrentProject`, `switchToProject`, `createProject`,
+  `loadProjectFromFile`, `createDemoProject`, `onOpenStorageFile`, `switchToTursoProject`,
+  `createTursoProject`, `migrateCurrentProjectToTurso`). ★ The pre-hydration term lives IN the signal,
+  not at the render site, so every consumer below covers that window too. ★ Enumerate the wraps with
+  `grep -n "holdDuring(" src/app/use-storage-backend.ts`.
+- ★★★ **The hold is only safe because every wait it depends on is BOUNDED — keep it that way.**
+  `hydrated` always becomes true: a throw in the secret merge falls back, and a merge that never settles
+  is cut off at `SECRET_MERGE_TIMEOUT_MS` (`use-settings.ts`). Turso and SharePoint loads read through
+  `fetchTextWithTimeout` (`fetch-with-timeout.ts`) with `LOAD_TIMEOUT_MS` (10 s), so a hung server
+  fails the load, and a failed load settles. **A new backend, or a new await in a load path, needs the
+  same bound, or it can hold the app behind the skeleton forever.** Known unbounded waits: the MSAL
+  popup in the SharePoint `getToken` (it waits on the user, and closing it rejects), and an IndexedDB
+  open blocked by an older tab during an `IDB_VERSION` upgrade (`idb.ts` `openIdb` has no `onblocked`
+  handler).
 - ★★★ **It is NOT `workspaceLoaded`.** `workspaceLoaded` stays false after a FAILED load and after the
   empty-load refusal (§77), which is right for snapshot capture and saving. Holding edits on it would
   lock the app for the whole session after one load error. `settledBackend` is stamped on EVERY terminal
@@ -2033,13 +2806,13 @@ Replace the title line `# Diagnostics · guards · dictation · AI master switch
   (`use-calendar-integrations.ts`), and the undo hotkey (`useUndoHotkey`, read through `loadPendingRef`).
   **A new timer, interval, listener or subscription that writes workspace state must check
   `loadPending` too**; the render hold cannot reach it.
-- ★ Pinned by `use-storage-backend.load-pending.test.tsx` (the signal), `task-manager.load-hold.test.tsx`
-  (render hold, reconcile, hotkey, popout exemption, wiring), `use-calendar-integrations.load-hold.test.ts`,
-  `use-insight-recommendations.test.tsx` and `e2e/load-hold.spec.ts`. Six of the nine `holdDuring` wraps
-  are verified by review only (see the plan's ruling 9).
-- ★ Not covered: the window between `i18nReady` and `hydrated`, when the tree is live over the boot
-  workspace (the spec left the pre-hydration render unchanged), and a load that never settles, which
-  keeps the skeleton up (SharePoint's Graph fetch has no timeout).
+- ★ Pinned by `use-storage-backend.load-pending.test.tsx` (the signal, including before hydration and
+  a SharePoint load that times out), `use-storage-backend.hold-ops.test.tsx` (all nine held ops: in
+  flight, resolved, threw), `use-settings.hydration.test.ts` (hydration completes on a throw, without
+  IndexedDB and at the bound), `fetch-with-timeout.test.ts` and `sharepoint-backend.test.ts` (the 10 s
+  bound), `task-manager.load-hold.test.tsx` (render hold, pre-hydration hold, failed load with banner,
+  reconcile, hotkey, popout exemption, wiring), `use-calendar-integrations.load-hold.test.ts`,
+  `use-insight-recommendations.test.tsx` and `e2e/load-hold.spec.ts`.
 ```
 
 - [ ] **Step 2: `docs/AGENTS/activity-log.md` (LF — Edit tool)**
@@ -2154,7 +2927,7 @@ Write the three status files (one line each, no trailing newline needed):
 
 `$SCRATCH/status-548.txt`:
 ```
-**Status:** CLOSED 2026-09-19 by `fix/storage-hold-batch`: `useStorageBackend` publishes `loadPending` — true from hydration until the load effect for the current backend reaches any terminal branch (applied, suppressed re-stamp, empty-load refusal or failure), and while one of the nine project-swap ops wrapped by `holdDuring` is in flight — and `task-manager.tsx` renders the existing `PanelSkeleton` instead of the main-window app tree while it is true, so no UI edit can start inside the window; the writers that do not unmount (the insight reconcile, the recommendation store, calendar auto-sync and auto-pull, the undo hotkey) gate on the same boolean. Pinned by `src/app/use-storage-backend.load-pending.test.tsx`, `src/app/task-manager.load-hold.test.tsx`, `src/app/use-calendar-integrations.load-hold.test.ts`, `src/app/use-insight-recommendations.test.tsx` and `e2e/load-hold.spec.ts`; see `docs/AGENTS/platform.md` "The load hold" for what it does not cover.
+**Status:** CLOSED 2026-09-19 by `fix/storage-hold-batch`: `useStorageBackend` publishes `loadPending` — true before settings hydration, until the load effect for the current backend reaches any terminal branch (applied, suppressed re-stamp, empty-load refusal or failure), and while one of the nine project-swap ops wrapped by `holdDuring` is in flight — and `task-manager.tsx` renders the existing `PanelSkeleton` instead of the main-window app tree while it is true, so no UI edit can start inside the window; the writers that do not unmount (the insight reconcile, the recommendation store, calendar auto-sync and auto-pull, the undo hotkey) gate on the same boolean. Every wait the hold depends on is bounded: the settings secret merge (`SECRET_MERGE_TIMEOUT_MS`), and Turso and SharePoint loads (`LOAD_TIMEOUT_MS` via `fetchTextWithTimeout`). Pinned by `src/app/use-storage-backend.load-pending.test.tsx`, `src/app/use-storage-backend.hold-ops.test.tsx`, `src/app/use-settings.hydration.test.ts`, `src/app/fetch-with-timeout.test.ts`, `src/app/sharepoint-backend.test.ts`, `src/app/task-manager.load-hold.test.tsx`, `src/app/use-calendar-integrations.load-hold.test.ts`, `src/app/use-insight-recommendations.test.tsx` and `e2e/load-hold.spec.ts`; see `docs/AGENTS/platform.md` "The load hold" for what it does not cover.
 ```
 
 `$SCRATCH/status-577.txt`:
@@ -2199,7 +2972,7 @@ Paths: `docs/AGENTS/platform.md docs/AGENTS/activity-log.md AGENTS.md docs/open-
 
 ---
 
-### Task 7: §573 — refresh the Open Points visual baseline (LAST)
+### Task 9: §573 — refresh the Open Points visual baseline (LAST)
 
 **Files:**
 - Modify: `e2e/visual.spec.ts-snapshots/open-points-visual-win32.png`
@@ -2211,11 +2984,11 @@ Paths: `docs/AGENTS/platform.md docs/AGENTS/activity-log.md AGENTS.md docs/open-
 
 - [ ] **Step 1: Precondition**
 
-`git log --oneline -8` must show the Task 3 and Task 4 commits. Stop any dev server you started (`npm run stop`). Do not chain Playwright invocations.
+`git log --oneline -12` must show the Task 3, 4, 5 and 6 commits. Stop any dev server you started (`npm run stop`). Do not chain Playwright invocations.
 
 - [ ] **Step 2: Run the spec WITHOUT updating, to capture the actual screenshot**
 
-`npx playwright test e2e/visual.spec.ts --project=visual -g "Open Points" --workers=1 > "$SCRATCH/t7-before.log" 2>&1; echo "EXIT=$?"`
+`npx playwright test e2e/visual.spec.ts --project=visual -g "Open Points" --workers=1 > "$SCRATCH/t9-before.log" 2>&1; echo "EXIT=$?"`
 Expected: `EXIT=1` (the baseline is stale). Always go through the spec: it seeds `tourSeen` and masks the version label. Find the images with `find test-results -name "open-points*"` (expected, actual and diff PNGs).
 
 - [ ] **Step 3: Eye check — done by the CONTROLLER, not the implementer**
@@ -2224,8 +2997,8 @@ The implementer STOPS here and reports the three PNG paths and the diff pixel co
 
 - [ ] **Step 4: Update the baseline and re-run clean**
 
-`npx playwright test e2e/visual.spec.ts --project=visual -g "Open Points" --update-snapshots --workers=1 > "$SCRATCH/t7-update.log" 2>&1; echo "EXIT=$?"` gives `EXIT=0`.
-Then, as a separate invocation: `npx playwright test e2e/visual.spec.ts --project=visual -g "Open Points" --workers=1 > "$SCRATCH/t7-after.log" 2>&1; echo "EXIT=$?"` gives `EXIT=0`.
+`npx playwright test e2e/visual.spec.ts --project=visual -g "Open Points" --update-snapshots --workers=1 > "$SCRATCH/t9-update.log" 2>&1; echo "EXIT=$?"` gives `EXIT=0`.
+Then, as a separate invocation: `npx playwright test e2e/visual.spec.ts --project=visual -g "Open Points" --workers=1 > "$SCRATCH/t9-after.log" 2>&1; echo "EXIT=$?"` gives `EXIT=0`.
 `git status --short e2e/` must show ONLY `e2e/visual.spec.ts-snapshots/open-points-visual-win32.png` modified. If any other snapshot changed, do not stage it: the commit below uses `--only` with the one path, so it stays out. Report it to the controller.
 
 - [ ] **Step 5: Close §573**
@@ -2235,7 +3008,7 @@ Then, as a separate invocation: `npx playwright test e2e/visual.spec.ts --projec
 **Status:** CLOSED 2026-09-19 by `fix/storage-hold-batch`: `e2e/visual.spec.ts-snapshots/open-points-visual-win32.png` regenerated through the spec (`npx playwright test e2e/visual.spec.ts --project=visual -g "Open Points" --update-snapshots`) after an eye check of the actual capture, and re-run clean; no CI job runs the visual project, so this has no pipeline effect.
 ```
 
-Run `node "$SCRATCH/close-followup.cjs" 573 2026-09-19 "$SCRATCH/status-573.txt"; echo "EXIT=$?"` (the script from Task 6; recreate it from Task 6 Step 5 if the scratch directory was cleared). Expected anchor: `#573-the-open-points-visual-baseline-is-stale--closed-2026-09-19`. Then:
+Run `node "$SCRATCH/close-followup.cjs" 573 2026-09-19 "$SCRATCH/status-573.txt"; echo "EXIT=$?"` (the script from Task 8; recreate it from Task 8 Step 5 if the scratch directory was cleared). Expected anchor: `#573-the-open-points-visual-baseline-is-stale--closed-2026-09-19`. Then:
 
 ```bash
 s=$(grep -n "^## 573\. " docs/open-followups.md | cut -d: -f1); e=$(awk -v s="$s" 'NR>s && /^## [0-9]+\. /{print NR; exit}' docs/open-followups.md); sed -n "${s},${e}p" docs/open-followups.md | grep -c "^\*\*Work item:\*\*"
@@ -2266,11 +3039,11 @@ Paths: `e2e/visual.spec.ts-snapshots/open-points-visual-win32.png docs/open-foll
 ## After the last task (controller, not a task)
 
 - Whole-branch review (subagent-driven-development's final reviewer).
-- CHANGELOG entry and version bump at release time only (spec). The MR description carries `Closes #336`, `Closes #375`, `Closes #362`, `Closes #358`, ONE PER LINE, and the §577 reproduction output from Task 5 Step 5. After merge, verify each issue's state and close any the automation missed by hand.
+- CHANGELOG entry and version bump at release time only (spec). The MR description carries `Closes #336`, `Closes #375`, `Closes #362`, `Closes #358`, ONE PER LINE, and the §577 reproduction output from Task 7 Step 5. After merge, verify each issue's state and close any the automation missed by hand.
 
-## Self-review (done while writing)
+## Self-review (done while writing; redone for the 2026-09-19 plan-review amendments)
 
-- **Spec coverage.** §1a signal → Task 2. §1b render hold → Task 3. §1c background writers: reconcile + undo hotkey → Task 3; recommendations + calendar push/pull → Task 4 (re-verified in the tree: `applyInsightRecommendation` is the single store for `useInsightRecommend` and `useInsightRecommendRunner`; `use-calendar-integrations.ts` has four `useCalendarAutoSync({` calls, four `background: true` pulls and one `useCalendarAutoPull({`). The nine swap ops were re-verified as functions in `use-storage-file-ops.ts` / `use-storage-turso-ops.ts` plus `reloadCurrentProject` in `use-storage-backend.ts`. §1 tests: hook (Task 2), render/popout/reproduction (Task 3), e2e (Task 3 Step 7). §2 → Task 1 with all four spec tests plus (e). §3 → Task 5 with the regression, the future-only test, and the existing four kept. §4 → Task 7. Docs/register → Tasks 2, 3, 6, 7.
-- **Placeholder scan.** The only conditional instructions are Task 5 Step 1 (field spelling, if tsc objects), Task 5 Step 5 (import path fallback), Task 3 Step 4 (comment wrap), and Task 6 Step 3 (docs that may not mention the detector). Each names the exact fallback.
-- **Type consistency.** `loadPending: boolean` everywhere; `storageTargetKey(input: StorageTargetInput): string`; `scopeTargetKeyRef` / `targetKey` / `settledBackend` / `swapsInFlight` / `holdDuring` / `loadPendingRef` / `ownBudgetHoursToDate` are spelled identically in every task and in the docs text.
+- **Spec coverage.** §1a signal (including `!hydrated`) → Task 2. §1d SharePoint timeout → Task 4. §1e hydration bound → Task 3. §1b render hold → Task 5. §1c background writers: reconcile + undo hotkey → Task 5; recommendations + calendar push/pull → Task 6 (re-verified in the tree: `applyInsightRecommendation` is the single store for `useInsightRecommend` and `useInsightRecommendRunner`; `use-calendar-integrations.ts` has four `useCalendarAutoSync({` calls, four `background: true` pulls and one `useCalendarAutoPull({`). The nine swap ops were re-verified as functions in `use-storage-file-ops.ts` / `use-storage-turso-ops.ts` plus `reloadCurrentProject` in `use-storage-backend.ts`, and each row's first awaited step was read from its source: `backend.load`, the target backend's `load`, `pickFileForBackend`, `pickOpenFileAny`, the target backend's `save`, `openFileForBackend`, `TursoBackend.load`, the portfolio `createProject`, and `testTursoConnection`. §1 tests: hook and all nine ops (Task 2), hydration (Task 3), SharePoint timeout at backend and hook level (Task 4), render, pre-hydration, banner, popout and reproduction (Task 5), e2e (Task 5 Step 7). §2 → Task 1 with all four spec tests plus (e). §3 → Task 7 with the regression, the future-only test, and the existing four kept. §4 → Task 9. Docs/register → Tasks 2, 5, 8, 9.
+- **Placeholder scan.** The only conditional instructions are Task 7 Step 1 (field spelling, if tsc objects), Task 7 Step 5 (import path fallback), Task 5 Step 4 (comment wrap), Task 8 Step 3 (docs that may not mention the detector) and Task 2 Step 1b (a hold-ops row whose later mocks misfire; fix the mock, never the assertion). Each names the exact fallback.
+- **Type consistency.** `loadPending: boolean` everywhere; `storageTargetKey(input: StorageTargetInput): string`; `fetchTextWithTimeout(url, init, timeoutMs): Promise<FetchTextResult>`; `FetchTimeoutError`; `LOAD_TIMEOUT_MS`; `SECRET_MERGE_TIMEOUT_MS`; `scopeTargetKeyRef` / `targetKey` / `settledBackend` / `swapsInFlight` / `holdDuring` / `loadPendingRef` / `ownBudgetHoursToDate` are spelled identically in every task and in the docs text. Mutation IDs are unique per task (M1*…M7*, plus the nine per-op M2 mutations).
 - **Review Focus.** Five lines, each with a named test in its owning task.
