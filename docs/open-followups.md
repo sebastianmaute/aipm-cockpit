@@ -813,6 +813,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§588](#588-a-reload-or-file-pick-still-running-from-before-a-backend-rebuild-can-shut-the-new-backends-save-gate-and-nothing-says-so--open) | A reload or file pick still running from before a backend rebuild can shut the new backend's save gate, and nothing says so — OPEN | §586 cold review (M3), read from code; GitLab #372 | S — drop results that belong to a superseded backend | open |
 | [§589](#589-an-edit-made-less-than-500-ms-before-a-backend-rebuild-is-dropped--open) | An edit made less than 500 ms before a backend rebuild is dropped — OPEN | §586 cold review (M5), read from code, pre-existing; GitLab #373 | S — flush the pending save to the old backend on a backend change | open |
 | [§590](#590-pick-storage-file-after-a-failed-load-writes-the-empty-workspace-into-the-chosen-file--open) | Pick storage file after a failed load writes the empty workspace into the chosen file — OPEN | §586 round-1 concern 6 (implementer), read from code; the cold review kept Pick ungated; GitLab #374 | S — refuse or confirm when the picked file already holds data | open |
+| [§591](#591-after-a-turso-urltoken-or-sharepoint-target-change-the-previous-projects-activity-log-and-budget-history-are-merged-into-the-new-target--open) | After a Turso URL/token or SharePoint target change, the previous project's activity log and budget history are merged into the new target — OPEN | §586 whole-branch review (I1), read from code, pre-existing; GitLab #375 | M — decide how a load tells a refresh of the same project from a new target | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -39764,7 +39765,7 @@ save. It is there so that a future path which schedules without the effect's che
 
 ## 587. Changing the Turso URL or token, or the SharePoint target, saves the open project into the new target — CLOSED 2026-09-19
 
-**Status:** CLOSED 2026-09-19 by `fix/startup-autosave-wipe`. It was filed already closed and fixed by the same change as [§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19): the save gate in `84185ece`, and `c360190f`, which keeps the gate shut after an empty-load refusal. Verified by `npx vitest run src/app/use-storage-backend.load-gate.test.tsx --maxWorkers=1`, tests (e), (h) and (j).
+**Status:** CLOSED 2026-09-19 by `fix/startup-autosave-wipe`. It was filed already closed and fixed by the same change as [§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19): the save gate in `84185ece`, and `c360190f`, which keeps the gate shut after an empty-load refusal. Verified by `npx vitest run src/app/use-storage-backend.load-gate.test.tsx --maxWorkers=1`, tests (e), (h) and (j). ★ The fix stops the AUTOSAVE from writing the previous project into the new target. It does not stop a later applied load from MERGING the previous project's activity log and budget history into the new one, which the next save then writes there: see [§591](#591-after-a-turso-urltoken-or-sharepoint-target-change-the-previous-projects-activity-log-and-budget-history-are-merged-into-the-new-target--open), filed open.
 
 `useStorageBackend` memoises `backend` on `storageConfig` (by identity), `auth.acquireToken`, the Turso
 `databaseUrl` and `authToken`, and `tursoProjectId`. When one of them changes without going through a
@@ -39790,7 +39791,7 @@ Which settings reach the rebuild was READ from code:
   the data written back is that target's own. On Turso that is still a full rewrite.
 
 **The fix.** It is the same gate as [§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19). A rebuilt instance fails the identity check until its own load is
-applied, so nothing reaches it before then. ★★★ The one addition is the empty-load refusal. It is
+applied, so no automatic save reaches it before then. ★★★ The one addition is the empty-load refusal. It is
 reachable ONLY on such a rebuild: the load effect's `currentWorkspace` is the closure of the render
 that started it, so an empty FIRST load simply applies. The refusal therefore leaves the gate SHUT
 and marks the backend paused, where opening it would copy the previous project into the empty
@@ -39882,3 +39883,31 @@ local-file user (whose load fails with no file picked) can create a file.
 
 **The fix shape:** refuse when the picked handle already holds data, or confirm with the task counts on
 both sides, rather than blocking the pick outright.
+
+## 591. After a Turso URL/token or SharePoint target change, the previous project's activity log and budget history are merged into the new target — OPEN
+
+**Status:** OPEN 2026-09-19 — read from code in the §586 whole-branch review (finding I1), not reproduced: the carry-over is never machine-verified. Pre-existing on main; the §587 fix does not change it.
+
+**Work item:** #375
+
+The load effect applies with `applyWorkspace(workspace, "reset", "merge")`, and `reloadCurrentProject`
+with `applyWorkspace(workspace, "raise", "merge")`. In MERGE mode `applyWorkspace` runs
+`setActivityLog(prev => mergeActivityLogs(prev, …))` and the same for `budgetHistory`, where `prev` is
+whatever is in memory. On a settings-driven rebuild ([§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19)) that is the PREVIOUS target's project:
+- **Populated new target:** its load applies, the previous project's log and budget history are merged
+  in, the save gate opens, and the next save writes them into the new target.
+- **Empty new target (the empty-load pause):** the saving-paused banner's "Reload project" runs
+  `reloadCurrentProject`. After `reloadEmptyConfirm` — whose text says the project will be REPLACED —
+  those two slices are merged, not replaced, and the next save writes them into the empty target.
+
+The merged activity log carries the previous project's `changes` payloads, which hold its old and new
+field values; once saved, nothing tells them apart from the new target's own entries.
+
+**Why merge exists:** a load or reload of the SAME backend keeps entries appended locally while the
+load was in flight (the comment on `applyWorkspace`'s `logMode`). Switch, create and load-from-file
+already pass REPLACE.
+
+**The open question:** how the load effect and `reloadCurrentProject` should tell "same project,
+refreshed" from "new target". A rebuild of the SAME target — an M365 `acquireToken` identity change —
+must keep merging, so "a new backend instance" is not the test on its own; the target's identity
+(storage kind plus URL, token scope, SharePoint item, project id) is.

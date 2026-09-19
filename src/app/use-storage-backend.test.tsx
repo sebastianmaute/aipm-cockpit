@@ -1690,8 +1690,9 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
   it("onRequestStorageSwitch: unreachable Turso → storageUnreachable toast, no switch", async () => {
     const { StorageNotReadyError } = await import("./storage");
     createBackendMock.mockReturnValue({
-      // ★ §586 (review I2): the CURRENT backend's load must succeed, or the conversion is refused
-      // before it reaches the unreachable target this test is about. A bare `vi.fn()` load resolved
+      // ★ §586/§587: the CURRENT backend's load must succeed, or the switch goes ahead WITHOUT the
+      // conversion write (nothing loaded, nothing copied) and never reaches the unreachable target
+      // this test is about. A bare `vi.fn()` load resolved
       // `undefined`, which the load effect reported as a failed load.
       kind: "turso", load: vi.fn().mockResolvedValue({ tasks: [], raid: [], absences: [], shifts: [] }),
       save: vi.fn().mockRejectedValue(new StorageNotReadyError("storage-unreachable")),

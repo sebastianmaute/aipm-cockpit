@@ -13,9 +13,12 @@ longer carries its own changelog comment.
 A data-loss hotfix. Before this release, the app could write the wrong workspace over a stored
 project in two ways. At startup, it could save the still-empty workspace before the project had
 finished loading. After a Turso URL or token edit, or a SharePoint target change, it could save the
-open project into the new target before that target's own data had loaded. No save of any kind now
-reaches a backend until a load for that backend has been applied. When saving is paused for that
-reason, a banner says so for as long as the pause lasts.
+open project into the new target before that target's own data had loaded. The autosave, the save
+flushed when the tab is hidden, and the flush before a project switch now wait until a load for that
+backend has been applied. Explicit writes are outside that gate: "Pick storage file" (which after a
+failed load writes the empty workspace, `§590`), a storage-type conversion after a successful load,
+and creating or loading a project from a file. When saving is paused because a load failed or came
+back empty, a banner says so for as long as the pause lasts.
 
 ### Fixed
 
@@ -32,7 +35,9 @@ reason, a banner says so for as long as the pause lasts.
     - Local file: rewrites the file with an empty workspace, but only where write permission was
       already granted.
     - IndexedDB: overwrites or deletes the plan, milestones, changes, stakeholders, documents,
-      activity log and the other key-value slices. The tasks and RAID stores are spared.
+      activity log and the other key-value slices. The nine keyed stores (tasks, RAID, absences,
+      shifts, resources, roles, disciplines, grades and budgets) diff against empty baselines and are
+      spared.
   - **The fix.** Saves wait for a load for that backend to be applied. This covers the debounced
     save, the save flushed when the tab is hidden, and the flush before a project switch.
 - **Changing the Turso URL or token, or the SharePoint target, no longer saves the open project into
@@ -44,24 +49,28 @@ reason, a banner says so for as long as the pause lasts.
     a populated target received the old project first. A 100 ms load of an empty target had the old
     project copied into it.
   - **What was read from code only.** The SharePoint case.
+  - **Not covered.** A load of the new target still MERGES the previous project's activity log and
+    budget history into it, so those two can carry over (`§591`, filed open).
 - **Saving that is paused because a project could not be loaded is now shown in a banner.** The
   pause covers two cases: a failed load, and a storage that returns no data while a project is open.
   In the second case the project on screen is kept, but it is not written into the empty storage.
   - The banner stays up for as long as the pause lasts.
   - Each case has its own wording.
   - The banner offers "Reload project".
-  - The sidebar shows the pause.
+  - In the modern layout the sidebar shows the pause (the classic layout has no sidebar indicator).
   - The first edit that cannot be saved also shows a toast that brings the banner back.
 - **Switching storage type after a failed load no longer copies the empty workspace into the new
   type.** A switch made while nothing has been loaded now changes type without writing anything,
   says so, and loads the new storage's own data. After a successful load, the switch still converts
   the project exactly as before.
 
-Three follow-ups found on the way are filed open. All three were read from code and not reproduced:
+Four follow-ups found on the way are filed open. All four were read from code and not reproduced:
 - A reload or file pick still running from before a backend change can leave the new backend's
   saving silently paused (`§588`).
 - An edit made less than 500 ms before a backend change is dropped (`§589`).
 - "Pick storage file" after a failed load writes the empty workspace into the chosen file (`§590`).
+- After a Turso URL/token or SharePoint target change, the previous project's activity log and
+  budget history are merged into the new target (`§591`); this predates 1.12.1.
 
 ## [1.12.0] - 2026-09-19 "Child"
 
