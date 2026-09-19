@@ -149,6 +149,13 @@ Rules for every site:
    `n` until it gets there, even past today's N / 4. **The red margin wins over the time budget:** the
    implementer records the resulting green time and flags the site in the task report. If raising `n`
    cannot reach 12, that is a finding to report, never a reason to loosen the limit.
+
+   > **As shipped (2026-09-19):** a second exception to "never scales up" applies alongside the red
+   > margin above — a site whose calibrated loop count would exceed 4,096 (1/16 of the 65,536-loop
+   > cap) also raises `n`, so a CI machine 2–4x faster does not throw below the timer floor on a
+   > correct build (office-xml's own proof-time limit set its ceiling at 8,192 instead). Three
+   > `tag-pair-walk` sites and `office-xml` run above their former fixed size as a result. See
+   > `src/test/scaling.ts`'s `MAX_LOOPS` docstring.
 3. **Record ratios, not ms.** Each site's comment currently records green and red durations. It is
    rewritten to record the green and red RATIOS measured during conversion, with the date, in the
    style of the `DOS_BUDGET_MS` docstring. Old ms figures are removed, not left beside the ratios.
@@ -192,6 +199,11 @@ today's cost (~0.9 s for its dearest rows, from the MARGIN docstring's 865 ms at
 216 ms at 125,000 and 54 ms at 31,250). A looped site costs about `repeats` × 5 × the 20 ms floor plus
 calibration, well under 1 s. The budget is about 1.5 s green per `it`; at §593's recorded 9.6×
 slowdown that is about 14 s, far inside the 120 s hang backstop.
+
+> **As shipped (2026-09-19):** three of the five `html-extract` rows (heading, list-item, table
+> cells) were raised from n 31,250 to n 62,500 by judgement, not by the red-margin rule — each
+> measured ratio sat within a single run's noise of the 12 floor. Green cost rose to about 1.9–2.8 s
+> for those rows, over the 1.5 s target, which the red-margin rule allows.
 
 On the red side a mutant runs to completion — vitest cannot interrupt it — so mutant proofs run
 under an outer 120 s kill, and a kill counts as red (Section 3).

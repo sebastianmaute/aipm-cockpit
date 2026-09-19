@@ -106,13 +106,13 @@ describe("office-xml", () => {
     // scans to end of input from every open. extractRuns is a shared
     // primitive (xlsx-extract.ts and pptx-extract.ts both call it), so it
     // gets its own pin rather than relying only on its callers'.
-    // n is 40,000, not today's 100,000 / 4: the correct walk stops at the
+    // n is 40,000, not the former fixed 100,000 / 4: the correct walk stops at the
     // first open (no ">" anywhere), so one call is a single forward scan. At
     // 25,000 the helper calibrated 16,384 loops against its 65,536 cap; at
-    // 40,000 it calibrates 8,192 (fast-CI headroom, spec Review Focus 1). A
+    // 40,000 it calibrates 8,192 (fast-CI headroom, plan Review Focus 1). A
     // larger n would cut the loops further, but the mutant's cost grows as n²:
-    // at 50,000 it no longer finishes inside 120 s, so a regression would
-    // surface as a hung CI job rather than as this ratio.
+    // at 50,000 the mutant proof no longer finishes inside the 120 s wrapper, so
+    // 40,000 is the largest n whose regression can be proved on its ratio.
     // Measured 2026-09-19 (ratio large / small, limit 8): 3.5–3.6 green,
     // 16.9 with that lazy regex restored in extractRuns (89 s to fail).
     expectLinearScaling({

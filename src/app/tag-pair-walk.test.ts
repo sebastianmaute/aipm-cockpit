@@ -45,11 +45,11 @@ describe("forEachTagPair", () => {
     // "keeps retired-name lookups cheap ..." for that. Turning that `return`
     // into a `continue` makes every open rescan to end of input. Measured
     // 2026-09-19 (ratio large / small, limit 8): 4.1–4.3 green, 17.2 with
-    // that mutant. n is 80,000, not today's 20,000 / 4: one green call is a
+    // that mutant. n is 80,000, not the former fixed 20,000 / 4: one green call is a
     // single indexOf of a few µs, and at n 5,000 the helper calibrated
     // 16,384–32,768 loops against its 65,536 cap, so a CI machine 2–4x faster
     // would throw below the timer floor. At 80,000 it calibrates 2,048 loops
-    // (fast-CI headroom, spec Review Focus 1).
+    // (fast-CI headroom, plan Review Focus 1).
     expectLinearScaling({
       label: "no '>' anywhere (forEachTagPair)",
       build: (n) => "<w:tbl ".repeat(n),
@@ -190,9 +190,9 @@ describe("forEachOpenTag", () => {
     // rescan to end of input. indexOf is fast enough that this only shows at
     // scale. Measured 2026-09-19 (ratio large / small, limit 8): 4.1–4.3
     // green, 16.7 with `if (gt === -1) return;` turned into `continue`.
-    // n is 100,000, not today's 200,000 / 4: at 50,000 the helper calibrated
+    // n is 100,000, not the former fixed 200,000 / 4: at 50,000 the helper calibrated
     // 2,048–4,096 loops; at 100,000 it calibrates 2,048, leaving headroom
-    // under its 65,536 cap on a faster CI machine (spec Review Focus 1).
+    // under its 65,536 cap on a faster CI machine (plan Review Focus 1).
     expectLinearScaling({
       label: "no '>' anywhere (forEachOpenTag)",
       build: (n) => "<sheet ".repeat(n),
@@ -209,10 +209,10 @@ describe("forEachOpenTag", () => {
     // Measured 2026-09-19 (ratio large / small, limit 8): 4.3–4.4 green.
     // Dropping the `openRe.lastIndex = gt + 1` resume fails `check` first,
     // since every open then becomes its own tag; with `check` relaxed, the
-    // same mutant measured 18.2. n is 80,000, not today's 80,000 / 4: at
+    // same mutant measured 18.2. n is 80,000, not the former fixed 80,000 / 4: at
     // 20,000 the helper calibrated 4,096–8,192 loops; at 80,000 it
     // calibrates 2,048, leaving headroom under its 65,536 cap on a faster CI
-    // machine (spec Review Focus 1).
+    // machine (plan Review Focus 1).
     expectLinearScaling({
       label: "one '>' at the end (forEachOpenTag)",
       build: (n) => "<sheet ".repeat(n) + ">",

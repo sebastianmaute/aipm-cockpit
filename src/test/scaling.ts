@@ -27,6 +27,9 @@ import { expect } from "vitest";
 
 /** A small side cheaper than this is looped until it reaches it, so the ratio is not timer noise. */
 export const TIMER_FLOOR_MS = 20;
+/** New guards should pick `n` so calibration lands at ≤ 1/16 of this cap (≤4,096 loops, office-xml's
+ *  proof-time exception aside at ≤8,192) — headroom for a CI machine 2–4x faster than the one that
+ *  calibrated it, which would otherwise throw the "below the ... floor" error below on a correct build. */
 const MAX_LOOPS = 1 << 16;
 
 export interface ScalingOptions<I, O> {

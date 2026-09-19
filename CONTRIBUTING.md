@@ -406,7 +406,9 @@ months (`docs/open-followups.md` §54). CI job: `prod-smoke`, BLOCKING.
   — a fixed ceiling fails a correct build on a loaded machine. It requires an
   output `check` at both sizes, and the test passes `{ timeout: 120_000 }` as a
   hang backstop, because vitest checks a synchronous test's timeout only after
-  it returns.
+  it returns. Pick `n` so calibration lands at ≤ 1/16 of the 65,536-loop cap
+  (~4,096 loops) — a site nearer the cap throws "below the ... floor" on a
+  faster machine.
 
 ```bash
 npm run test           # watch

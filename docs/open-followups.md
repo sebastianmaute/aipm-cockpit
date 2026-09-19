@@ -39904,8 +39904,8 @@ must keep merging, so "a new backend instance" is not the test on its own; the t
 **Status:** CLOSED 2026-09-19 by `docs/timing-flake-592-593`: the site now uses `expectLinearScaling`
 (`src/test/scaling.ts`) at n 20,000 → 80,000, whose test comment records a green ratio of about 4.60
 and a red ratio of 15.9 for the swapped-check mutant, carries a 120 s hang backstop in place of
-vitest's 20 s default, and stayed green under the load burn at a measured 7.13× single-thread slowdown
-(`.superpowers/sdd/2026-09-19-timing-guards-scaling-ratio/load-check-report.md`). The guard no longer
+vitest's 20 s default, and stayed green under the load burn at a measured 7.13× single-thread
+slowdown, measured 2026-09-19 during the conversion. The guard no longer
 rests on the ~80x absolute-time gap the original finding below cites (~5.4 ms vs ~433 ms at 80,000): it
 instead separates the orderings by how their cost grows from 20,000 to 80,000, about 4x for the shipped
 ordering against a mutant ratio of at least 12 (measured 15.9) for the swapped one.
@@ -39935,8 +39935,8 @@ test currently relies on to catch the regression it is mutation-proved against.
 **Status:** CLOSED 2026-09-19 by `docs/timing-flake-592-593`: the site now uses `expectLinearScaling`
 (`src/test/scaling.ts`) at n 62,500 → 250,000, whose test comment records a green ratio of about 3.93
 and a red ratio of 15.0 for the list-step-reverted mutant, carries a 120 s hang backstop in place of
-vitest's 20 s default, and stayed green under the load burn at a measured 7.08× single-thread slowdown
-(`.superpowers/sdd/2026-09-19-timing-guards-scaling-ratio/load-check-report.md`). `DOS_BUDGET_MS`, named
+vitest's 20 s default, and stayed green under the load burn at a measured 7.08× single-thread
+slowdown, measured 2026-09-19 during the conversion. `DOS_BUDGET_MS`, named
 in the original finding below, has been removed; `CLAMP_CHARS` remains as the input-size clamp, now
 paired with the ratio check in place of the fixed 8,000 ms wall-clock budget.
 

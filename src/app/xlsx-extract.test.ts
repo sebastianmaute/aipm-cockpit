@@ -177,7 +177,7 @@ describe("extractXlsx", () => {
     //    while `innerStart <= gt`) is still linear in the LAZY-REGEX sense
     //    (no backtracking), but every open now re-scans forward to this
     //    row's one distant closing ">", which is its own O(n^2).
-    // n is 20,000, not today's 320,000 / 4: at 80,000 and at 40,000 the
+    // n is 20,000, not the former fixed 320,000 / 4: at 80,000 and at 40,000 the
     // lazy-regex mutant ran past the 120 s kill (it costs ~8 s at 80,000 here).
     // Measured 2026-09-19 (ratio large / small, limit 8): 3.96–4.0 green,
     // 16.5 with the lazy regex restored in forEachXmlElement, 15.8 with the
@@ -333,7 +333,7 @@ describe("extractXlsx", () => {
   // Three shapes where a name read that resumes short of what it already
   // scanned rescans out to the one ">" at the end from every open. One row
   // per test, so a mutant run can select a row with -t.
-  // n is 5,000, not today's 80,000 / 4: at 20,000 every row's mutant ran past
+  // n is 5,000, not the former fixed 80,000 / 4: at 20,000 every row's mutant ran past
   // the 120 s kill, because the rescan is a per-character quote-aware walk.
   // Measured 2026-09-19 (ratio large / small, limit 8): 3.9–4.5 green. Red:
   // "quoted names" 16.1 with the LEFTMOST name= taken; "unclosed quotes" 17.2
