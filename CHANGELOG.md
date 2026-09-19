@@ -8,6 +8,61 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.12.1] - 2026-09-19 "Child"
+
+A data-loss hotfix. Before this release, the app could write the wrong workspace over a stored
+project in two ways. At startup, it could save the still-empty workspace before the project had
+finished loading. After a Turso URL or token edit, or a SharePoint target change, it could save the
+open project into the new target before that target's own data had loaded. No save of any kind now
+reaches a backend until a load for that backend has been applied. When saving is paused for that
+reason, a banner says so for as long as the pause lasts.
+
+### Fixed
+
+- **The startup autosave no longer saves the empty workspace over your project (`§586`).**
+  - **What happened.** The save effect scheduled its debounced save while the first load was still
+    in flight, and nothing on the save path refused it. A load slower than the 500 ms debounce lost
+    the race. Hiding the tab during the load fired the save at once.
+  - **What was measured.** A probe against the real hook measured two cases. With a 2-second load,
+    an all-empty save ran at 500 ms. With the tab hidden at 100 ms, that save ran immediately.
+  - **What was read from code, not executed.** What that save does on each backend:
+    - Turso single database: deletes every table.
+    - Turso per-project storage: deletes the open project's rows.
+    - SharePoint: replaces the file with an empty workspace.
+    - Local file: rewrites the file with an empty workspace, but only where write permission was
+      already granted.
+    - IndexedDB: overwrites or deletes the plan, milestones, changes, stakeholders, documents,
+      activity log and the other key-value slices. The tasks and RAID stores are spared.
+  - **The fix.** Saves wait for a load for that backend to be applied. This covers the debounced
+    save, the save flushed when the tab is hidden, and the flush before a project switch.
+- **Changing the Turso URL or token, or the SharePoint target, no longer saves the open project into
+  the new target (`§587`).**
+  - **What happened.** Each keystroke in the Turso fields builds a new backend. The new instance was
+    written with the previous target's project before its own load landed. On Turso that is a
+    full-table rewrite.
+  - **What was measured.** A probe against the real hook measured the Turso case. A 2-second load of
+    a populated target received the old project first. A 100 ms load of an empty target had the old
+    project copied into it.
+  - **What was read from code only.** The SharePoint case.
+- **Saving that is paused because a project could not be loaded is now shown in a banner.** The
+  pause covers two cases: a failed load, and a storage that returns no data while a project is open.
+  In the second case the project on screen is kept, but it is not written into the empty storage.
+  - The banner stays up for as long as the pause lasts.
+  - Each case has its own wording.
+  - The banner offers "Reload project".
+  - The sidebar shows the pause.
+  - The first edit that cannot be saved also shows a toast that brings the banner back.
+- **Switching storage type after a failed load no longer copies the empty workspace into the new
+  type.** A switch made while nothing has been loaded now changes type without writing anything,
+  says so, and loads the new storage's own data. After a successful load, the switch still converts
+  the project exactly as before.
+
+Three follow-ups found on the way are filed open. All three were read from code and not reproduced:
+- A reload or file pick still running from before a backend change can leave the new backend's
+  saving silently paused (`§588`).
+- An edit made less than 500 ms before a backend change is dropped (`§589`).
+- "Pick storage file" after a failed load writes the empty workspace into the chosen file (`§590`).
+
 ## [1.12.0] - 2026-09-19 "Child"
 
 The Dashboard's landing screen is reworked around three questions — what changed, what to do next, and
