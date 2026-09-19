@@ -21,6 +21,7 @@ import { loadCurrentTursoProjectId } from "./portfolio-mode";
 import { isTursoLockTimeout, tursoErrorKind } from "./storage-error";
 import { mergeActivityLogs } from "./activity-log-merge";
 import { mergeBudgetHistories } from "./budget-history";
+import { storageTargetKey } from "./storage-target-key";
 import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
 import { useTursoProjectOps } from "./use-storage-turso-ops";
@@ -93,6 +94,25 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     args.settings.integrations?.turso?.authToken,
     tursoProjectId,
   ]);
+
+  // ★★★ §591 — WHICH STORAGE TARGET THE IN-SCOPE WORKSPACE BELONGS TO. `applyWorkspace`'s "merge"
+  //   unions the loaded activity log and budget history with whatever is in memory, so it is right only
+  //   when memory holds THIS target's project. A settings-driven rebuild (a Turso URL/token edit, a
+  //   SharePoint target change) leaves the PREVIOUS target's project in scope, and merging it would
+  //   carry that project's audit trail into this one. `targetKey` excludes `acquireToken`: an M365
+  //   sign-in/out rebuilds against the same target and must keep merging.
+  // ★ The ref is stamped (1) on the load effect's first hydrated run (the boot workspace holds only
+  //   this session's own appends), (2) wherever a load is APPLIED from the current target, and (3) on
+  //   the suppress-branch re-stamp after a project op. It is deliberately NOT stamped by the empty-load
+  //   refusal or a failed load: scope still holds the previous target there.
+  // ★ `targetKey` contains the Turso auth token. Never log it.
+  const targetKey = storageTargetKey({
+    storageConfig: args.settings.storageConfig,
+    tursoDatabaseUrl: args.settings.integrations?.turso?.databaseUrl,
+    tursoAuthToken: args.settings.integrations?.turso?.authToken,
+    tursoProjectId,
+  });
+  const scopeTargetKeyRef = useRef<string | null>(null);
 
   // ★★★ IDENTITY, NOT A LATCH (open-followups §77 — full rationale there).
   // Holds the BACKEND the applied workspace came from; the published boolean is
@@ -351,6 +371,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
 
   useEffect(() => {
     if (!args.hydrated) return;
+    // §591 — the boot workspace holds nothing but this session's own appends for the target being loaded.
+    if (scopeTargetKeyRef.current === null) scopeTargetKeyRef.current = targetKey;
     let cancelled = false;
     (async () => {
       if (suppressNextLoadRef.current) {
@@ -368,6 +390,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         // "fix" it by re-stamping there.
         setLoadedBackend(backend);
         allowSavesTo(backend); // §586 — the op already loaded or built what scope holds.
+        scopeTargetKeyRef.current = targetKey; // §591 — and that workspace belongs to THIS target.
         await refreshBackendStatus();
         return;
       }
@@ -389,7 +412,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
           emitOutcome(null);
           return;
         }
-        applyWorkspace(workspace, "reset", "merge"); // "merge": SAME project — keep appends made while this load was in flight.
+        // §591 — "merge" (keep appends made while this load was in flight) ONLY onto the same target;
+        // after a rebuild onto another target, scope holds the previous project, so REPLACE.
+        applyWorkspace(workspace, "reset", scopeTargetKeyRef.current === targetKey ? "merge" : "replace");
+        scopeTargetKeyRef.current = targetKey;
         logDiag("info", "storage.loaded", { records: workspaceRecordCount(workspace) });
         truncationOps.reportFor(backend); // ★ after applyWorkspace only: the empty-load REFUSAL above applies nothing, so neither raising nor lowering the TRUNCATION flag would describe the workspace that is actually live. ★★ That reasoning is TRUNCATION-specific and does NOT extend to the decode cause — the refusal path publishes that one itself, just above.
         suppressNextSaveRef.current = true;
@@ -850,7 +876,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       }
       // RAISE (not reset): this same-project reload may reflect a locally-deleted
       // max-id row; lowering the mark to the reloaded max would free that id.
-      applyWorkspace(workspace, "raise", "merge"); // "merge": SAME project — a reload must not drop this device's entries.
+      // §591 — "merge" (a reload must not drop this device's entries) ONLY while scope holds THIS target's
+      // project. After a rebuild onto an EMPTY target the refusal left the previous project in scope, and
+      // `reloadEmptyConfirm` promises the user a REPLACE.
+      applyWorkspace(workspace, "raise", scopeTargetKeyRef.current === targetKey ? "merge" : "replace");
+      scopeTargetKeyRef.current = targetKey;
       // Confirm the manual recovery action succeeded (a bare re-render gives no feedback that the reload actually re-read the backend).
       // ★★ BEFORE `reportFor`, not after — single-slot surface, see the landmine there. Safe to hoist past the await: `refreshBackendStatus` swallows every error, so this cannot report success over a status check that blew up.
       emitToast("success", t(langRef.current, "reloadProjectSuccess"));
