@@ -12,6 +12,7 @@ import {
   separateBlockBoundaries,
 } from "./rich-text-plain";
 import { logDiag } from "./diagnostics";
+import { expectLinearScaling } from "../test/scaling";
 
 // ★★ Mocked so the degrade REPORT can be asserted. Under bare node logDiag is
 // already inert (it returns early with no `window`), so without the mock there
@@ -901,36 +902,37 @@ describe("htmlPlainProjection — the bounded attribute run", () => {
   });
 });
 
-// ★★★ THE BUDGET IS ~240x THE MEASURED LINEAR COST AND THAT IS DELIBERATE,
-// copied from document-asset-patterns.differential.test.ts's rationale: the
-// loosest threshold that still separates linear from quadratic cannot flake on
-// a loaded machine while still failing instantly on a regression. Measured
-// 2026-08-27 on the UNFIXED patterns: 128 KB cost 6617 ms (TAG) and 7226 ms
-// (BLOCK_TAG) against 8.4 ms for the same byte count with tags CLOSED.
-// ★★ 128 KB, not 1 MB: the unfixed cost at 1 MB would blow vitest's 20 s test
-// timeout before the assertion ran, turning a precise number into a bare
-// timeout that names neither figure.
-// ★★ THE RATIO IS DERIVED FROM THE TWO NUMBERS ABOVE — 2000 / 8.4 — and this
-// line used to claim ~1000x while quoting 8.4 ms against the same 2000 ms
-// ceiling, so it refuted itself on the page. An independent measurement of the
-// closed-tag cost came in at 2.3 ms (855x), so the true figure moves with the
-// machine; the SEPARATION is what matters,
-// not the exact multiple. Recompute it if either number is re-measured, or
-// quote neither.
+// ★★★ A DoS guard, not a benchmark. The regression is TAG and BLOCK_TAG
+// reverted to `[^>]*` (e27eda437, §251): an unterminated opener then scans to
+// end of input from every start, which is quadratic. Each row times
+// htmlPlainProjection at n and 4n bytes and asserts the RATIO stays under 8
+// (src/test/scaling.ts); linear code gives about 4, the quadratic about 16.
+// ★★ No input here carries a `>`, so neither pattern matches and the
+// projection is the input itself, which is what `check` pins at both sizes.
+// Large 128 KB, the former fixed size; n is a quarter of it.
+// Measured 2026-09-19 (ratio large / small, limit 8), with both patterns
+// reverted to `[^>]*`:
+//   <a   green 3.95–4.07, red 15.90 (loops 256)
+//   <p   green 4.02–4.16, red 16.29 (loops 256)
+//   <li  green 3.86–4.15, red 16.14 (loops 256)
 describe("htmlPlainProjection — complexity", () => {
-  const CEILING_MS = 2000;
-  const BYTES = 128 * 1024;
+  const BYTES = 32 * 1024;
 
   for (const [label, unit] of [
     ["unterminated inline openers", "<a"],
     ["unterminated block openers", "<p"],
     ["unterminated task items", "<li"],
   ] as const) {
-    it(`stays bounded on ${label}`, () => {
-      const input = unit.repeat(Math.round(BYTES / unit.length));
-      const started = performance.now();
-      htmlPlainProjection(input);
-      expect(performance.now() - started).toBeLessThan(CEILING_MS);
+    // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+    it(`stays bounded on ${label}`, { timeout: 120_000 }, () => {
+      const build = (n: number) => unit.repeat(Math.round(n / unit.length));
+      expectLinearScaling({
+        label: `htmlPlainProjection, ${label}`,
+        build,
+        run: (input) => htmlPlainProjection(input),
+        check: (out, n) => expect(out).toBe(build(n)),
+        n: BYTES,
+      });
     });
   }
 });
@@ -938,45 +940,59 @@ describe("htmlPlainProjection — complexity", () => {
 // ★ markTaskItems carries THREE unbounded runs in one pattern and runs on both
 // projection paths. Same defect as TAG/BLOCK_TAG, found separately.
 describe("markTaskItems — complexity", () => {
-  it("stays bounded on unterminated list-item openers", () => {
-    const input = "<li".repeat(Math.round((128 * 1024) / 3));
-    const started = performance.now();
-    markTaskItems(input);
-    expect(performance.now() - started).toBeLessThan(2000);
+  // DoS guard, not a benchmark: the RATIO of the 4n run to the n run must stay
+  // under 8 (src/test/scaling.ts). No opener here closes, so nothing is
+  // replaced and `check` pins the output as the input at both sizes.
+  // Large 128 KB, the former fixed size; n is a quarter of it.
+  // Measured 2026-09-19 (ratio large / small, limit 8): green 4.04–4.21,
+  // 16.42 with run 1 reverted to `[^>]*` (550f42252) (loops 1,024).
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("stays bounded on unterminated list-item openers", { timeout: 120_000 }, () => {
+    const build = (n: number) => "<li".repeat(Math.round(n / 3));
+    expectLinearScaling({
+      label: "markTaskItems, unterminated <li",
+      build,
+      run: (input) => markTaskItems(input),
+      check: (out, n) => expect(out).toBe(build(n)),
+      n: 32 * 1024,
+    });
   });
 
   // ★★★ THE FIXTURE ABOVE ONLY WITNESSES RUN 1. The pattern has THREE bounded
-  // runs and reverting each to `[^>]*` is a separate mutant; measured against
-  // `"<li".repeat(...)`, run 1 reverted costs 4409 ms (red) while runs 2 and 3
-  // reverted cost 0.3 ms and 1.0 ms — functionally identical, so that fixture
-  // pinned one bound of three and read as pinning all of them.
+  // runs and reverting each to `[^>]*` is a separate mutant; against
+  // `"<li".repeat(...)`, run 1 reverted is red while runs 2 and 3 reverted are
+  // functionally identical to the shipped pattern, so that fixture pinned one
+  // bound of three and read as pinning all of them.
   // ★★ Run 2's witness has to actually reach the `data-type="taskItem"`
   // literal: an opener that never closes but DOES carry the attribute. (An
   // earlier wording called run 2 "the run BETWEEN the opener and the literal",
   // which is run 1 — the one the fixture above already pins. The run this
   // fixture kills is the one AFTER the literal, before the `>`.)
-  // ★★★ 256 KB WAS NOT ENOUGH, AND THIS TEST SHIPPED GREEN AGAINST ITS OWN
-  // MUTANT — the identical false-green the `<img>` guard test in this same file
-  // was raised from 128 KB to fix, in this same commit, with the note that a
-  // budget test whose mutant passes is worse than no test. The arithmetic that
-  // refutes the old sizing was already on this page and went unread: 303 ms
-  // reverted at 131 KB, and one doubling of a QUADRATIC is 4x, so ~1200 ms at
-  // 256 KB — under this 2000 ms ceiling. Measured 2026-08-28 at 256 KB, three
-  // runs: 1262/1295/2791 ms reverted, RED on only the third. At 512 KB it is
-  // 10278/14916/14463 ms against 2 ms shipped, a 5x floor.
-  // ★★ SIZE A BUDGET TEST BY THE MUTANT'S MARGIN, NEVER BY THE SHIPPED COLUMN.
-  // The shipped side is flat here at every size (1-4 ms), so it can never tell
-  // you the fixture is too small; only running the mutant can.
+  // ★★★ THIS TEST ONCE SHIPPED GREEN AGAINST ITS OWN MUTANT. Under the former
+  // 2000 ms ceiling, 256 KB left the reverted run under the ceiling on two runs
+  // in three; it was raised to 512 KB. The ratio does not depend on a ceiling:
+  // the size now rests on the mutant's RATIO at n = 128 KB (large 512 KB, the
+  // former fixed size), measured below.
+  // ★★ SIZE A GUARD BY THE MUTANT'S MARGIN, NEVER BY THE SHIPPED COLUMN. The
+  // shipped side is linear at every size, so it can never tell you the
+  // fixture is too small; only running the mutant can.
+  // Measured 2026-09-19 (ratio large / small, limit 8): green 3.99–4.06,
+  // 17.21 with run 2 reverted to `[^>]*` (loops 64–128).
   // ★ Run 3 (the optional trailing `<p …>`) has NO witness — three shapes were
   // tried and none separated it. It may be an equivalent mutant or a missing
   // test; from here those look identical, and it is recorded as unproven rather
   // than claimed as covered.
-  it("stays bounded on unterminated openers that carry the taskItem attribute", () => {
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("stays bounded on unterminated openers that carry the taskItem attribute", { timeout: 120_000 }, () => {
     const unit = '<li data-type="taskItem" ';
-    const input = unit.repeat(Math.round((512 * 1024) / unit.length));
-    const started = performance.now();
-    markTaskItems(input);
-    expect(performance.now() - started).toBeLessThan(2000);
+    const build = (n: number) => unit.repeat(Math.round(n / unit.length));
+    expectLinearScaling({
+      label: "markTaskItems, unterminated taskItem <li",
+      build,
+      run: (input) => markTaskItems(input),
+      check: (out, n) => expect(out).toBe(build(n)),
+      n: 128 * 1024,
+    });
   });
 
   // The pattern consumes the `<li …>` opener and the OPTIONAL `<p>` that
@@ -1047,28 +1063,28 @@ describe("degradeToPlain", () => {
   // oversized one. ASSET_IMG_TAG_RE's two runs sit nested around the id, which is
   // quadratic on an <img that never closes unless the guard lookahead is there.
   //
-  // ★★★ THE SIZE IS 256 KB AND MUST NOT BE LOWERED — AT 128 KB THIS TEST WAS
-  // GREEN AGAINST THE MUTANT IT NAMES. Its previous comment claimed "deleting
-  // `(?=[^<>]*>)` turns this red" while quoting its own measurement as 1062 ms
-  // at 128 KB — which is UNDER this 2000 ms ceiling, so the claim refuted
-  // itself on the page. Three independent reviewers measured the guard-deleted
-  // pattern at 128 KB: 795 ms, 974 ms, and a five-run spread of
-  // 1141/1220/1678/2620/2546 ms — i.e. green 3 times in 5. A budget test whose
-  // mutant passes is worse than no test: it reads as protection.
-  // Measured 2026-08-28, guarded vs guard-deleted, on this exact shape:
-  //   32 KB  0.3 ms vs   216 ms
-  //   64 KB  0.6 ms vs   844 ms
-  //  128 KB  0.8 ms vs  3671 ms   <- reviewers saw ~1-2.6s on slower runs
-  //  256 KB  1.4 ms vs 18321 ms   <- 9x the ceiling, on every machine measured
-  // The sibling guard test in document-asset-patterns.differential.test.ts
-  // already used 256 KB for the same defect class; this one was copied from the
-  // htmlPlainProjection family above, where 128 KB IS sufficient.
-  it("stays bounded on an unterminated <img carrying repeated ids", () => {
+  // ★★★ THIS TEST ONCE SHIPPED GREEN AGAINST THE MUTANT IT NAMES. Under the
+  // former 2000 ms ceiling, 128 KB left the guard-deleted pattern under the
+  // ceiling 3 times in 5, so it was raised to 256 KB. A guard whose mutant
+  // passes is worse than no test: it reads as protection. The ratio needs no
+  // ceiling margin: the size now rests on the mutant's RATIO at n = 64 KB
+  // (large 256 KB, the former fixed size), measured below.
+  // ★★ The input has no `>`, so no image is carried and the projection is the
+  // raw input; `check` pins the exact 100-character degrade at both sizes.
+  // Measured 2026-09-19 (ratio large / small, limit 8): green 4.12–4.26;
+  // 16.47 with branch 2's `(?=[^<>]*>)` deleted from ASSET_IMG_TAG_RE,
+  // 16.40 (39 s to fail) with branch 1's guard deleted (loops 64).
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("stays bounded on an unterminated <img carrying repeated ids", { timeout: 120_000 }, () => {
     const unit = 'data-asset-id="x" ';
-    const input = "<img " + unit.repeat(Math.round((256 * 1024) / unit.length));
-    const started = performance.now();
-    degradeToPlain(input, 100);
-    expect(performance.now() - started).toBeLessThan(2000);
+    expectLinearScaling({
+      label: "degradeToPlain, unterminated <img with repeated ids",
+      build: (n) => "<img " + unit.repeat(Math.round(n / unit.length)),
+      run: (input) => degradeToPlain(input, 100),
+      // The first 100 characters of the raw input, escaped and wrapped.
+      check: (out) => expect(out).toBe(`<p>&lt;img ${unit.repeat(5)}data-</p>`),
+      n: 64 * 1024,
+    });
   });
 
   // ★★★ THE SHAPES THE FIRST CUT SILENTLY DROPPED, AND THE REASON THE MATCHER
