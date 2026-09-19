@@ -795,7 +795,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§570](#570-the-spoken-readout-capitalises-mid-sentence--open) | The spoken readout capitalises mid-sentence — OPEN | found 2026-09-18 reading `rowText` against the tip strings in `i18n.ts`/`i18n.de.ts`; GitLab #355 | XS — lower-case the explanation or join with a full stop; German nouns make a blanket lower-case unsafe | open |
 | [§571](#571-the-chart-box-clamps-boundary-width-has-no-test--open) | The chart-box clamp's boundary width has no test — OPEN | found 2026-09-18 by mutation-testing `anchorFor`, `>` to `>=`, suite stayed green; GitLab #356 | XS — add a case at `rect.width === 352` | open |
 | [§572](#572-agentsmds-tsc-guidance-cannot-detect-a-vacuous-run--open) | AGENTS.md's tsc guidance cannot detect a vacuous run — OPEN | measured 2026-09-18 on this branch: a corrupt generated file hides a real `src/` error from `tsc`; GitLab #357 | S — amend the Commands block's `npx tsc --noEmit` guidance | open |
-| [§573](#573-the-open-points-visual-baseline-is-stale--open) | The Open Points visual baseline is stale — OPEN | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | open |
+| [§573](#573-the-open-points-visual-baseline-is-stale--closed-2026-09-19) | The Open Points visual baseline is stale | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | **CLOSED** 2026-09-19 |
 | [§574](#574-load-project-from-file-throws-in-firefoxsafari-and-blames-settings-instead-of-the-browser--open) | "Load project from file" throws in Firefox/Safari and blames Settings instead of the browser — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #359 | S — gate the CTA behind `isFileSystemAccessSupported()`, or have `reportProjectError` emit the specific message | open |
 | [§575](#575-ai-assistant-chat-history-re-sends-every-earlier-turns-attachments-so-a-long-thread-can-exceed-the-messages-apis-32-mb-request-limit--open) | AI Assistant chat history re-sends every earlier turn's attachments, so a long thread can exceed the Messages API's 32 MB request limit — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #360 | M — drop/summarize older attachment blocks before send, or track running payload bytes | open |
 | [§576](#576-sanitizefxrates-reorders-its-rates-object-on-a-second-decode-so-an-fx-snapshot-is-not-byte-stable-through-a-json-round-trip--open) | sanitizeFxRates reorders its rates object on a second decode, so an FX snapshot is not byte-stable through a JSON round-trip — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), found + verified during Task 9; GitLab #361 | S — iterate `SUPPORTED_CURRENCIES` unconditionally instead of conditionally inserting present keys | open |
@@ -39243,11 +39243,9 @@ unreadable. Clearing `.next` with no dev server running regenerates the file.
 Fix shape: amend the AGENTS.md Commands block's `npx tsc --noEmit` guidance to state the total-vs-`src/`
 distinction and the `.next`-clearing remedy. Not done in this commit — filing only, `type::docs`.
 
-## 573. The Open Points visual baseline is stale — OPEN
+## 573. The Open Points visual baseline is stale — CLOSED 2026-09-19
 
-**Status:** OPEN 2026-09-18 — measured by running `npm run e2e:visual` on this branch.
-
-**Work item:** #358
+**Status:** CLOSED 2026-09-19 by `fix/storage-hold-batch`: `e2e/visual.spec.ts-snapshots/open-points-visual-win32.png` regenerated through the spec (`npx playwright test e2e/visual.spec.ts --project=visual -g "Open Points" --update-snapshots`) after an eye check of the actual capture, and re-run clean; no CI job runs the visual project, so this has no pipeline effect.
 
 `e2e/visual.spec.ts-snapshots/open-points-visual-win32.png` was last committed 2026-09-02
 (`git log -1 --format=%cd -- e2e/visual.spec.ts-snapshots/open-points-visual-win32.png`). `npm run
