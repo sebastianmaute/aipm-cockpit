@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type FocusEvent, type MouseEvent } from "react";
+import { useId, useState } from "react";
 import { logDiag } from "../diagnostics";
 import { ArrowPathIcon, CalendarDaysIcon } from "../icons";
 import { ToggleButton } from "../toggle-button";
@@ -27,7 +27,7 @@ import { getTursoConfig, isUsableTursoUrl } from "../turso-config";
 import { testTursoConnection } from "../turso-pipeline";
 import { tursoErrorKind } from "../storage-error";
 import { INTERACTIVE } from "../interaction-styles";
-import { writeSettings } from "../use-settings";
+import { SECRET_MERGE_TIMEOUT_MS, writeSettings } from "../use-settings";
 import { loadRegistry } from "../projects-registry";
 import { defaultStorageConfig } from "../workspace";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
@@ -52,12 +52,13 @@ const TURSO_TEST_FAIL_KEYS = {
   generic: "integrationsTursoTestFailGeneric",
 } as const;
 
-// ★★ §548 — IN-FLIGHT TURSO TOKEN SEALS, tracked at MODULE scope on purpose. A blur commit on
-// Turso storage rebuilds the backend and the load hold remounts this section, so a per-instance
-// ref would forget a seal started by the instance that just went away. "Save & switch" reloads
-// the page, and a reload before the seal settles loses the token (`writeSettings` blanks it), so
-// `confirmPortfolioModeSwitch` waits on `pendingTokenSeals` first. A failed seal is logged, never
-// rethrown: the switch must still happen, exactly as it did before this wait existed.
+// ★★ §548 — IN-FLIGHT TURSO TOKEN SEALS, tracked at MODULE scope on purpose. Apply on Turso
+// storage rebuilds the backend and the load hold remounts this section, so a per-instance ref
+// would forget a seal started by the instance that just went away. "Save & switch" reloads the
+// page, and a reload before the seal settles loses the token (`writeSettings` blanks it), so
+// `confirmPortfolioModeSwitch` waits on `pendingTokenSeals` first — BOUNDED by
+// `waitForTokenSeals`, so a seal that never settles cannot hang the switch. A failed seal is
+// logged, never rethrown: the switch must still happen, exactly as it did before this wait existed.
 const inFlightTokenSeals = new Set<Promise<void>>();
 
 function trackTokenSeal(seal: Promise<unknown>): void {
@@ -73,20 +74,29 @@ function trackTokenSeal(seal: Promise<unknown>): void {
   void settled.then(() => inFlightTokenSeals.delete(settled));
 }
 
-/** ★★ §548 — for a button that acts on the Turso DRAFTS. Preventing the mousedown default keeps
- *  focus in the field, so no blur commit fires: on Turso storage that commit rebuilds the backend
- *  and the load hold remounts this section BEFORE the click lands, swallowing it. The group-level
- *  commit alone does not cover this — WebKit does not focus a button on click, so there the blur
- *  carries a null `relatedTarget` and reads as "focus left the group". Same idiom as
- *  `ResourcePicker`'s clear button. Keyboard activation never fires a mousedown. */
-function keepFocusOnMouseDown(e: MouseEvent<HTMLButtonElement>): void {
-  e.preventDefault();
-}
-
 /** A promise over every seal still in flight, or `null` when none is — so the caller can stay
  *  synchronous in the common case. */
 function pendingTokenSeals(): Promise<unknown> | null {
   return inFlightTokenSeals.size > 0 ? Promise.all([...inFlightTokenSeals]) : null;
+}
+
+/** Resolves when `seals` settles or after `SECRET_MERGE_TIMEOUT_MS`, whichever comes first — the
+ *  same bound the settings hydration puts on the secret store. A seal is a local IndexedDB +
+ *  WebCrypto write that normally takes well under a second; one that never settles (an IDB open
+ *  queued behind another tab's connection) must not leave "Save & switch" busy forever. On timeout
+ *  the switch proceeds and a diagnostic is logged — the token may then be lost to the reload,
+ *  which beats a button that never finishes. */
+function waitForTokenSeals(seals: Promise<unknown>): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<"timeout">((resolve) => {
+    timer = setTimeout(() => resolve("timeout"), SECRET_MERGE_TIMEOUT_MS);
+  });
+  return Promise.race([seals.then(() => "settled" as const), timeout]).then((outcome) => {
+    clearTimeout(timer);
+    if (outcome === "timeout") {
+      logDiag("warn", "settings.tursoTokenSealWaitTimedOut", { ms: SECRET_MERGE_TIMEOUT_MS });
+    }
+  });
 }
 
 interface IntegrationsSectionProps {
@@ -258,19 +268,26 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     });
   }
 
-  // ★★★ §548 — THE URL AND TOKEN ARE DRAFTS, COMMITTED ON BLUR (the SharePoint URL field in
-  //   `storage-config.tsx` is the precedent: blur only, no Enter). On Turso storage both values feed
-  //   the backend memo in `useStorageBackend`, so committing per keystroke built a new backend per
-  //   keystroke — and each rebuild re-arms the load hold, which replaces the whole main-window tree,
-  //   this section included, with the skeleton. The field unmounted after the first character.
+  // ★★★ §548 — TWO COMMIT MODELS, chosen by the STORAGE KIND.
+  //   • Kind "turso" (`tursoIsLive`): the URL and token feed the backend memo in
+  //     `useStorageBackend`, so a commit builds a new backend — and a rebuild re-arms the load
+  //     hold, which replaces the whole main-window tree, this section included, with the
+  //     skeleton. So both fields are pure DRAFTS: nothing commits on a keystroke, blur, Tab or
+  //     Escape. The explicit Apply button (`applyTursoDrafts`) commits both in one `onChange`, and
+  //     is the only action here that rebuilds the backend. Unapplied drafts are discarded when the
+  //     section unmounts. (An earlier cut committed on blur of the credentials group; every
+  //     variant of it lost a click, a focus or a draft to the remount.)
+  //   • Any other kind: the backend memo ignores the Turso URL/token, so each keystroke commits
+  //     (`commitTurso`) with no rebuild and no hold, exactly as before §548.
   // ★ Every read in THIS section goes through the drafts (the probe, its fingerprint, the configured
   //   check, the passphrase seal), so what the user sees is what those act on. Resynced from settings
   //   by the render-time reconcile below whenever the stored value changes from outside (reload,
   //   "remove stored secret"); `set-state-in-effect` is fatal here.
   // ★★ The reconcile resyncs a CLEAN draft only (draft === the last stored value it saw). A
   //   draft the user is editing is kept when the stored value moves underneath it — the edit
-  //   is the newer intent, and the blur commit then writes it. Without the guard an outside
-  //   write (another settings surface, a hydration) silently replaced what was being typed.
+  //   is the newer intent, and Apply then writes it. Without the guard an outside write
+  //   (another settings surface, a hydration) silently replaced what was being typed.
+  const tursoIsLive = settings.storageConfig?.kind === "turso";
   const [tursoUrl, setTursoUrl] = useState(turso.databaseUrl);
   const [tursoToken, setTursoToken] = useState(turso.authToken);
   const [prevStoredTursoUrl, setPrevStoredTursoUrl] = useState(turso.databaseUrl);
@@ -284,33 +301,40 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     if (tursoToken === prevStoredTursoToken) setTursoToken(turso.authToken);
   }
 
-  // ★★★ §548 — ONE COMMIT POINT FOR THE WHOLE CREDENTIALS GROUP, not one per field. On Turso
-  //   storage a commit rebuilds the backend and the load hold REMOUNTS this section, so a
-  //   per-field blur commit fired on the way to the next control in the group (the token field,
-  //   the lock toggle, the passphrase inputs, "Test connection") and the remount swallowed that
-  //   control's click and reset this section's state. `handleCredentialsBlur` commits only when
-  //   focus leaves the group (or goes nowhere — Escape in a `Modal` host blurs first, see
-  //   `modal.tsx`). ★ ONE `onChange`: two `updateTurso` calls in one tick would each spread the
-  //   same stale `turso`, and the second would drop the first's field.
-  function commitTursoDrafts() {
-    const urlChanged = tursoUrl !== turso.databaseUrl;
-    const tokenChanged = tursoToken !== turso.authToken;
+  // ★ ONE `onChange` for both fields: two `updateTurso` calls in one tick would each spread the
+  //   same stale `turso`, and the second would drop the first's field. ★ The device-seal rides the
+  //   COMMIT: the sealed value is the one settings hold (in passphrase mode the passphrase Save
+  //   seals, as before).
+  function commitTurso(url: string | undefined, token: string | undefined) {
+    const urlChanged = url !== turso.databaseUrl;
+    const tokenChanged = token !== turso.authToken;
     if (!urlChanged && !tokenChanged) return;
-    const tokenValue = tursoToken ?? "";
+    const tokenValue = token ?? "";
     updateTurso({
-      ...(urlChanged ? { databaseUrl: tursoUrl } : {}),
+      ...(urlChanged ? { databaseUrl: url } : {}),
       ...(tokenChanged ? { authToken: tokenValue } : {}),
     });
-    // ★ The device-seal rides the COMMIT, not the keystroke: the sealed value is the one settings hold.
     if (tokenChanged && tokenWrap === "device") {
       trackTokenSeal(saveSecretValue("tursoAuthToken", tokenValue, "device").then(() => setTokenStored(true)));
     }
   }
 
-  function handleCredentialsBlur(e: FocusEvent<HTMLDivElement>) {
-    const next = e.relatedTarget;
-    if (next instanceof Node && e.currentTarget.contains(next)) return;
-    commitTursoDrafts();
+  const tursoDraftsDirty = tursoUrl !== turso.databaseUrl || tursoToken !== turso.authToken;
+
+  function applyTursoDrafts() {
+    commitTurso(tursoUrl, tursoToken);
+  }
+
+  // Off Turso storage each keystroke commits, and it carries the OTHER field's draft too, so a
+  // draft left dirty when the kind moved away from Turso is not stranded without an Apply button.
+  function handleTursoUrlChange(value: string) {
+    setTursoUrl(value);
+    if (!tursoIsLive) commitTurso(value, tursoToken);
+  }
+
+  function handleTursoTokenChange(value: string) {
+    setTursoToken(value);
+    if (!tursoIsLive) commitTurso(tursoUrl, value);
   }
 
   // Turso auth-token at-rest wrap mode + passphrase entry. writeSettings blanks
@@ -505,9 +529,11 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     // Mark busy so a rapid second click can't re-enter before the reload tears
     // the component down (also announces the pending switch to SR users).
     setSwitchBusy(true);
-    // ★★ §548 — THE SWITCH ACTS ON WHAT THE FIELDS SHOW. The button's mousedown is
-    // prevented (below), so an uncommitted Turso draft is still a draft here; fold it
-    // in and seal it, or the reload would discard it.
+    // ★★ §548 — "SAVE & switch" ALSO APPLIES THE TURSO DRAFTS. On Turso storage the fields are
+    // drafts until Apply; the switch is itself an explicit save that reloads the page (so no hold
+    // remount can swallow anything), and the Turso option above is enabled by the DRAFTS
+    // (`tursoConfigured`). Switching to the portfolio the fields show and then reloading onto
+    // the OLD credentials would be the surprise; so fold the drafts in and seal the token here.
     const tokenDirty = tursoToken !== turso.authToken;
     if (tokenDirty && tokenWrap === "device") {
       trackTokenSeal(saveSecretValue("tursoAuthToken", tursoToken ?? "", "device"));
@@ -524,11 +550,11 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
         : settings;
     // ★★★ A RELOAD BEFORE THE SEAL SETTLES LOSES THE TOKEN: `writeSettings` blanks it, so the
     // device-sealed copy is the only one that survives. Wait for every in-flight seal (this
-    // switch's, a blur commit's — possibly from an instance a hold already remounted away).
-    // Synchronous when nothing is in flight.
+    // switch's, an Apply's or a keystroke commit's — possibly from an instance a hold already
+    // remounted away), bounded by `waitForTokenSeals`. Synchronous when nothing is in flight.
     const seals = pendingTokenSeals();
     if (seals) {
-      void seals.then(() => finishPortfolioModeSwitch(base));
+      void waitForTokenSeals(seals).then(() => finishPortfolioModeSwitch(base));
       return;
     }
     finishPortfolioModeSwitch(base);
@@ -762,9 +788,6 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
 
       {turso.enabled && (
         <div className="mt-2 space-y-2 border-l-2 border-line pl-3">
-          {/* ★★ §548 — the credentials GROUP: its drafts commit once, when focus leaves it
-              (`handleCredentialsBlur`). Everything that acts on the drafts lives inside it. */}
-          <div className="space-y-2" onBlur={handleCredentialsBlur}>
           {envTursoUrlUsable && (
             <div className="block text-xs">
               <span className="inline-flex items-center gap-1 text-muted-foreground">
@@ -797,7 +820,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   size="xs"
                   type="text"
                   value={tursoUrl ?? ""}
-                  onChange={(e) => setTursoUrl(e.target.value)}
+                  onChange={(e) => handleTursoUrlChange(e.target.value)}
                   placeholder={t(lang, "integrationsTursoUrlPlaceholder")}
                   className="w-full"
                   aria-describedby={envTursoUrlSet ? tursoUrlEnvNoticeId : undefined}
@@ -832,7 +855,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   size="xs"
                   type="password"
                   value={tursoToken ?? ""}
-                  onChange={(e) => setTursoToken(e.target.value)}
+                  onChange={(e) => handleTursoTokenChange(e.target.value)}
                   placeholder={t(lang, "integrationsTursoTokenPlaceholder")}
                   className="w-full"
                   aria-describedby={tursoTokenNoteId}
@@ -881,7 +904,6 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                     size="sm"
                     className="self-start whitespace-nowrap"
                     disabled={!(tursoToken ?? "").trim() || !tokenPassphrase || tokenPassphrase !== tokenConfirm}
-                    onMouseDown={keepFocusOnMouseDown}
                     onClick={handleTokenLockConfirm}
                   >
                     {t(lang, "secretPassphraseSave")}
@@ -902,9 +924,24 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               )}
             </div>
           )}
+          {/* ★★ §548 — Apply exists ONLY on Turso storage, the one kind where committing the
+              credentials rebuilds the backend (see `tursoIsLive`). Disabled while the drafts
+              equal the stored values, so an enabled Apply IS the "unapplied change" signal.
+              Hidden when the env supplies both values: there is nothing to draft. */}
+          {tursoIsLive && !(envTursoUrlUsable && envTursoTokenSet) && (
+            <Button
+              variant="primary"
+              size="sm"
+              className="self-start whitespace-nowrap"
+              disabled={!tursoDraftsDirty}
+              onClick={applyTursoDrafts}
+              aria-label={t(lang, "integrationsTursoApplyLabel")}
+            >
+              {t(lang, "integrationsTursoApply")}
+            </Button>
+          )}
           <button
             type="button"
-            onMouseDown={keepFocusOnMouseDown}
             onClick={() => void runTursoTest()}
             disabled={tursoTesting || !tursoConfigured}
             aria-label={t(lang, "integrationsTursoTestLabel")}
@@ -925,7 +962,6 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 )
               : null}
           </p>
-          </div>
           {/* Primary action: carry the current project into Turso.
               ★ `canMoveToTurso` stays a RENDER gate — with the portfolio already
               on Turso, or no project to move, there is nothing to migrate and a
@@ -1067,7 +1103,6 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 <Button
                   size="sm"
                   className="mt-2"
-                  onMouseDown={keepFocusOnMouseDown}
                   onClick={confirmPortfolioModeSwitch}
                   disabled={switchBusy}
                   aria-busy={switchBusy}

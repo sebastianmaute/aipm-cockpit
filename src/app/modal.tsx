@@ -204,9 +204,9 @@ export function Modal({
         // convincing it looks under React Testing Library.
         if (!claimsEscape(e, token)) return;
         e.preventDefault();
-        // ★★ §548 — BLUR BEFORE CLOSING. A field that commits a draft on blur (the Turso
-        // credentials group in `IntegrationsSection`, the SharePoint URL in
-        // `StorageConfigSection`) gets no reliable React `onBlur` when the dialog unmounts
+        // ★★ §548 — BLUR BEFORE CLOSING. A field that commits a draft on blur (the SharePoint
+        // URL in `StorageConfigSection`; NOT the Turso credentials, which on Turso storage
+        // commit only on an explicit Apply) gets no reliable React `onBlur` when the dialog unmounts
         // under it, so Escape silently dropped the draft. `blur()` dispatches focusout
         // synchronously, so the commit lands before `onClose`. Only after the claim: an
         // Escape owned by a layer above never reaches here. Backdrop click and the ✕ need

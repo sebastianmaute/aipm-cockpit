@@ -2293,6 +2293,10 @@ const enUS = {
   // ★ Qualified accessible name — see jiraTestLabel.
   integrationsTursoTestLabel: "Test connection – Turso",
   integrationsTursoTestOk: "Connected.",
+  // §548 — commits the Turso URL + token drafts while the storage kind is Turso (the only edit
+  // there that rebuilds the backend). ★ Label-in-name: the visible "Apply" is inside the name.
+  integrationsTursoApply: "Apply",
+  integrationsTursoApplyLabel: "Apply Turso connection",
   // ★★★ FOUR OUTCOME KEYS, NOT ONE PASS-THROUGH. An earlier cut had a single
   // `integrationsTursoTestFail: "Connection failed: {0}"` filled with the
   // thrown `e.message`. Every message reaching it is UNTRANSLATED ENGLISH, and

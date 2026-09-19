@@ -408,8 +408,7 @@ describe("IntegrationsSection Turso auth token sealing", () => {
     const input = container.querySelector('input[type="password"]') as HTMLInputElement;
     expect(input).toBeTruthy();
     fireEvent.change(input, { target: { value: "tok-typed" } });
-    // §548 — the seal rides the blur COMMIT, not the keystroke.
-    fireEvent.blur(input);
+    // §548 — off Turso storage (the default kind here) each keystroke commits and seals.
     await waitFor(async () => expect(await readDeviceSecret("tursoAuthToken")).toBe("tok-typed"));
   });
 

@@ -1,26 +1,23 @@
-// §548 — Settings → Turso URL / token edits must not rebuild the storage backend per keystroke.
+// §548 — Settings → Turso URL / token edits must never rebuild the storage backend by accident.
 // The load hold replaces the WHOLE main-window tree with a skeleton while `loadPending` is true, and a
-// rebuilt backend is pending by construction. So a per-keystroke rebuild unmounted this section — and
-// the field being typed into — after the first character.
+// rebuilt backend is pending by construction. So any commit on Turso storage unmounts this section.
 // ★ COMPOSED, not mocked at the seam: the harness runs the REAL `useStorageBackend` and swaps the
 //   section for a skeleton on `loadPending`, which is exactly the shape of task-manager's render hold.
-//   Only the storage factory (`createBackend`) and MSAL are mocked. Two halves, each with its own
-//   named mutation:
-//   MF1 — feed the Turso URL/token into the backend memo for EVERY storage kind again: the
-//         non-Turso-kind test goes red (its blur-commit rebuilds the backend and shows the skeleton).
-//   MF2 — commit the field to settings on CHANGE instead of on blur: the Turso-kind tests go red
-//         (the first keystroke rebuilds the backend and unmounts the input).
-// ★★ The commit point is the credentials GROUP, not the field (`handleCredentialsBlur`): moving
-//   focus between the URL, the token and "Test connection" commits nothing; leaving the group does.
-//   R1 below pins why — a per-field commit on Turso storage remounted the section on the way to
-//   "Test connection" and swallowed the click. Mutations: MG1 — drop the containment check in
-//   `handleCredentialsBlur` (commit on every blur): R1 and the Tab-within-group assertions go red.
-//   MG2 — drop `keepFocusOnMouseDown` from the Test button: R1's `defaultPrevented` assertion goes
-//   red. jsdom focuses a clicked button (WebKit does not), so ONLY that assertion can see MG2.
+//   Only the storage factory (`createBackend`) and MSAL are mocked.
+// ★★ THE MODEL (`tursoIsLive` in `integrations-section.tsx`): on Turso storage the URL and token are
+//   pure drafts and ONLY the explicit Apply button commits them; on any other kind each keystroke
+//   commits (the backend memo ignores the Turso fields there). Named mutations, each red here:
+//   MA1 — commit on blur (`onBlur={applyTursoDrafts}` on the URL input): A1 goes red.
+//   MA2a — Apply commits without sealing the token: A2 goes red (the device secret is never written).
+//   MA2b — drop Apply's `disabled={!tursoDraftsDirty}`: A2 goes red (Apply enabled while clean).
+//   MA3 — the probe reads the COMMITTED settings instead of the drafts: A3 goes red.
+//   MA4 — render Apply for every storage kind (drop the `tursoIsLive &&` gate): A4 goes red.
+//   MF1 — feed the Turso URL/token into the backend memo for EVERY storage kind again: A4 goes red
+//         (its keystroke commits rebuild the backend and show the skeleton).
 import "fake-indexeddb/auto";
 import { useEffect, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   defaultIntegrations,
@@ -82,6 +79,7 @@ function settingsFor(storageConfig: StorageConfig): Settings {
 }
 
 let latest: Settings | null = null;
+let commits = 0;
 
 function Harness({ initial }: { initial: Settings }) {
   const [settings, setSettings] = useState<Settings>(initial);
@@ -98,7 +96,13 @@ function Harness({ initial }: { initial: Settings }) {
   });
   // The render hold's shape: the skeleton REPLACES the tree, so the section unmounts.
   if (loadPending) return <div data-testid="hold-skeleton" />;
-  return <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} />;
+  return (
+    <IntegrationsSection
+      lang="en-US"
+      settings={settings}
+      onChange={(s) => { commits += 1; setSettings(s); }}
+    />
+  );
 }
 
 async function mount(storageConfig: StorageConfig) {
@@ -109,11 +113,14 @@ async function mount(storageConfig: StorageConfig) {
 
 const urlField = () => screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder"));
 const tokenField = () => screen.getByPlaceholderText(t("en-US", "integrationsTursoTokenPlaceholder"));
+const applyButton = () => screen.getByRole("button", { name: t("en-US", "integrationsTursoApplyLabel") });
+const queryApply = () => screen.queryByRole("button", { name: t("en-US", "integrationsTursoApplyLabel") });
 
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
   latest = null;
+  commits = 0;
   createBackendMock.mockImplementation(() => fakeBackend());
 });
 afterEach(async () => {
@@ -123,89 +130,73 @@ afterEach(async () => {
   localStorage.clear();
 });
 
-describe("§548 — Turso fields on TURSO storage: typing keeps the field; leaving the group commits", () => {
-  it("URL: two keystrokes keep the input mounted, focused and holding the text; leaving the group commits once", async () => {
+describe("§548 A1 — on TURSO storage nothing but Apply commits the credentials", () => {
+  it("typing, Tab, clicking elsewhere and Escape commit nothing, rebuild nothing and keep the fields", async () => {
     const user = userEvent.setup();
     await mount({ kind: "turso" });
     const builds = createBackendMock.mock.calls.length;
-    const input = urlField();
-
-    await user.click(input);
-    await user.type(input, "xy");
-
-    expect(input).toBeInTheDocument();
-    expect(input).toHaveFocus();
-    expect(input).toHaveValue(`${URL_A}xy`);
-    expect(createBackendMock.mock.calls.length).toBe(builds); // no rebuild per keystroke
-    expect(latest?.integrations?.turso?.databaseUrl).toBe(URL_A); // not committed yet
-
-    await user.tab(); // to the next control (the token's hint) — still inside the group
-    expect(document.activeElement).not.toBe(document.body);
-    expect(input).toBeInTheDocument(); // nothing committed, nothing remounted
-    expect(latest?.integrations?.turso?.databaseUrl).toBe(URL_A);
-    expect(createBackendMock.mock.calls.length).toBe(builds);
-
-    await user.click(document.body); // focus leaves the group → commit
-    expect(latest?.integrations?.turso?.databaseUrl).toBe(`${URL_A}xy`);
-    expect(createBackendMock.mock.calls.length).toBe(builds + 1); // ONE rebuild, for the commit
-    // The committed value survives the hold's remount.
-    await waitFor(() => expect(urlField()).toHaveValue(`${URL_A}xy`));
-  });
-
-  it("token: two keystrokes keep the input mounted, focused and holding the text; leaving the group commits and device-seals", async () => {
-    const user = userEvent.setup();
-    await mount({ kind: "turso" });
-    const builds = createBackendMock.mock.calls.length;
-    const input = tokenField();
-
-    await user.click(input);
-    await user.type(input, "12");
-
-    expect(input).toBeInTheDocument();
-    expect(input).toHaveFocus();
-    expect(input).toHaveValue("tok12");
-    expect(createBackendMock.mock.calls.length).toBe(builds);
-    expect(latest?.integrations?.turso?.authToken).toBe("tok");
-
-    await user.tab(); // to the lock checkbox — still inside the group
-    expect(input).toBeInTheDocument();
-    expect(latest?.integrations?.turso?.authToken).toBe("tok");
-
-    await user.click(document.body);
-    expect(latest?.integrations?.turso?.authToken).toBe("tok12");
-    expect(createBackendMock.mock.calls.length).toBe(builds + 1);
-    await waitFor(async () => expect(await readDeviceSecret("tursoAuthToken")).toBe("tok12"));
-  });
-});
-
-describe("§548 — Turso fields on NON-Turso storage never touch the backend", () => {
-  it("typing and committing the URL and token rebuilds nothing and never shows the hold", async () => {
-    const user = userEvent.setup();
-    await mount({ kind: "browser" });
-    const builds = createBackendMock.mock.calls.length;
-
     const url = urlField();
+    const token = tokenField();
+
     await user.click(url);
     await user.type(url, "xy");
     expect(url).toHaveFocus();
-    await user.click(tokenField()); // within the group: the URL stays a draft
-    expect(latest?.integrations?.turso?.databaseUrl).toBe(URL_A);
-
-    const token = tokenField();
+    await user.tab();
+    await user.click(document.body);
+    await user.click(token);
     await user.type(token, "12");
-    expect(token).toHaveFocus();
-    await user.click(document.body); // leaving the group commits BOTH, in one onChange
-    expect(latest?.integrations?.turso?.databaseUrl).toBe(`${URL_A}xy`); // control: it committed
-    expect(latest?.integrations?.turso?.authToken).toBe("tok12"); // control: it committed
+    await user.keyboard("{Escape}");
+    await user.tab();
+    await user.click(document.body);
 
+    expect(commits).toBe(0);
+    expect(latest?.integrations?.turso?.databaseUrl).toBe(URL_A);
+    expect(latest?.integrations?.turso?.authToken).toBe("tok");
     expect(createBackendMock.mock.calls.length).toBe(builds);
     expect(screen.queryByTestId("hold-skeleton")).toBeNull();
-    expect(url).toBeInTheDocument(); // the SAME element: never unmounted
-    expect(token).toBeInTheDocument();
+    // The SAME elements, still holding the drafts: nothing remounted.
+    expect(urlField()).toBe(url);
+    expect(tokenField()).toBe(token);
+    expect(url).toHaveValue(`${URL_A}xy`);
+    expect(token).toHaveValue("tok12");
+    await user.click(url);
+    expect(url).toHaveFocus();
+    // The unapplied change is visible as an ENABLED Apply.
+    expect(applyButton()).toBeEnabled();
   });
 });
 
-describe("§548 R1 — Test connection after an edit works on the FIRST click (Turso storage)", () => {
+describe("§548 A2 — Apply commits both drafts once, seals the token and rebuilds once", () => {
+  it("is named 'Apply Turso connection' and shows 'Apply'", async () => {
+    await mount({ kind: "turso" });
+    const button = screen.getByRole("button", { name: "Apply Turso connection" });
+    expect(button).toHaveTextContent(/^Apply$/);
+  });
+
+  it("disabled while clean; one commit, one seal, one rebuild; disabled again after", async () => {
+    const user = userEvent.setup();
+    await mount({ kind: "turso" });
+    const builds = createBackendMock.mock.calls.length;
+    expect(applyButton()).toBeDisabled();
+
+    await user.type(urlField(), "xy");
+    await user.type(tokenField(), "12");
+    expect(applyButton()).toBeEnabled();
+    await user.click(applyButton());
+
+    expect(commits).toBe(1);
+    expect(latest?.integrations?.turso?.databaseUrl).toBe(`${URL_A}xy`);
+    expect(latest?.integrations?.turso?.authToken).toBe("tok12");
+    expect(createBackendMock.mock.calls.length).toBe(builds + 1);
+    await waitFor(async () => expect(await readDeviceSecret("tursoAuthToken")).toBe("tok12"));
+    // After the hold's remount the fields show the applied values and Apply is clean again.
+    await waitFor(() => expect(urlField()).toHaveValue(`${URL_A}xy`));
+    expect(tokenField()).toHaveValue("tok12");
+    expect(applyButton()).toBeDisabled();
+  });
+});
+
+describe("§548 A3 — Test connection probes the drafts without committing (Turso storage)", () => {
   it("probes the draft, shows the verdict, and neither commits nor remounts", async () => {
     const user = userEvent.setup();
     vi.mocked(testTursoConnection).mockResolvedValueOnce(undefined);
@@ -215,16 +206,42 @@ describe("§548 R1 — Test connection after an edit works on the FIRST click (T
 
     await user.click(input);
     await user.type(input, "xy");
-    const button = screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") });
-    await user.click(button);
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
 
     expect(testTursoConnection).toHaveBeenCalledTimes(1);
     expect(testTursoConnection).toHaveBeenCalledWith(getTursoConfig(`${URL_A}xy`, "tok"));
     expect(await screen.findByText(t("en-US", "integrationsTursoTestOk"))).toBeInTheDocument();
-    expect(input).toBeInTheDocument(); // the SAME element: no remount
+    expect(urlField()).toBe(input); // the SAME element: no remount
     expect(createBackendMock.mock.calls.length).toBe(builds);
+    expect(commits).toBe(0);
     expect(latest?.integrations?.turso?.databaseUrl).toBe(URL_A); // still a draft
-    // ★ MG2's only witness: the mousedown must not move focus (WebKit would blur to <body>).
-    expect(fireEvent.mouseDown(button)).toBe(false);
+  });
+});
+
+describe("§548 A4 — on NON-Turso storage each keystroke commits, with no rebuild and no Apply", () => {
+  it("commits the URL and token per keystroke, seals the token, never shows the hold", async () => {
+    const user = userEvent.setup();
+    await mount({ kind: "browser" });
+    const builds = createBackendMock.mock.calls.length;
+    expect(queryApply()).toBeNull();
+
+    const url = urlField();
+    await user.type(url, "x");
+    expect(latest?.integrations?.turso?.databaseUrl).toBe(`${URL_A}x`); // committed on the keystroke
+    await user.type(url, "y");
+    expect(latest?.integrations?.turso?.databaseUrl).toBe(`${URL_A}xy`);
+    expect(url).toHaveFocus();
+
+    const token = tokenField();
+    await user.type(token, "12");
+    expect(latest?.integrations?.turso?.authToken).toBe("tok12");
+    expect(commits).toBe(4); // one per keystroke
+    await waitFor(async () => expect(await readDeviceSecret("tursoAuthToken")).toBe("tok12"));
+
+    expect(createBackendMock.mock.calls.length).toBe(builds);
+    expect(screen.queryByTestId("hold-skeleton")).toBeNull();
+    expect(urlField()).toBe(url); // the SAME element: never unmounted
+    expect(tokenField()).toBe(token);
+    expect(queryApply()).toBeNull();
   });
 });

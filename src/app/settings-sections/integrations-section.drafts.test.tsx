@@ -1,16 +1,18 @@
-// §548 — the Turso URL/token are DRAFTS committed when focus leaves the credentials group. These pin
-// the three ways a draft could still be lost or clobbered, each with a named mutation:
-//   R2 — Escape in a `Modal` host (`BackendConfigModal`) closed the dialog with no blur, so the
-//        draft never committed. Mutation: delete `blurFocusInside` in `modal.tsx`'s Escape branch.
-//   R3 — "Save & switch" reloaded before the device-seal settled, and `writeSettings` blanks the
-//        token, so the new token was lost. Mutation: drop the `pendingTokenSeals` wait in
-//        `confirmPortfolioModeSwitch` (call `finishPortfolioModeSwitch` straight away).
-//   R4 — the render-time reconcile replaced a draft being typed when the STORED value moved
-//        underneath it. Mutation: drop the clean-draft guard on the URL (or token) resync.
+// §548 — on Turso storage the Turso URL/token are DRAFTS that only the explicit Apply button commits
+// (`tursoIsLive` in `integrations-section.tsx`); on any other kind each keystroke commits. These pin
+// the host and lifecycle edges, each with a named mutation:
+//   A1 (Modal host) — Escape in `BackendConfigModal` blurs the field before closing (`modal.tsx`);
+//        on Turso storage that must NOT commit the draft. Mutation MA1: commit on blur.
+//   A4 (Modal host) — off Turso storage the same host commits per keystroke, with no Apply.
+//   A5 — "Save & switch" applies the drafts itself and waits for the token seal before reloading,
+//        BOUNDED by `waitForTokenSeals`. Mutations: MA5 — drop the bound (wait on the seals
+//        alone); M5 — skip the wait; M6 — `base = settings` (no fold).
+//   A6 — the render-time reconcile keeps a dirty draft and resyncs a clean one. Mutations M7/M8:
+//        drop the clean-draft guard on the URL / token resync.
 import "fake-indexeddb/auto";
 import { useEffect, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IntegrationsSection } from "./integrations-section";
 import { BackendConfigModal } from "../backend-config-modal";
@@ -22,7 +24,9 @@ import {
   defaultTursoIntegrations,
   type Settings,
 } from "../settings-types";
+import type { StorageConfig } from "../storage";
 import { saveSecretValue } from "../use-secrets";
+import { SECRET_MERGE_TIMEOUT_MS } from "../use-settings";
 import { savePortfolioMode } from "../portfolio-mode";
 
 vi.mock("../use-secrets", async (importActual) => ({
@@ -31,10 +35,13 @@ vi.mock("../use-secrets", async (importActual) => ({
 }));
 
 const URL_A = "libsql://a.turso.io";
+const TURSO: StorageConfig = { kind: "turso" };
+const BROWSER: StorageConfig = { kind: "browser" };
 
-function settingsWith(databaseUrl: string, authToken: string): Settings {
+function settingsWith(databaseUrl: string, authToken: string, storageConfig: StorageConfig = TURSO): Settings {
   return {
     ...defaultSettings,
+    storageConfig,
     integrations: {
       ...defaultIntegrations,
       turso: { ...defaultTursoIntegrations, enabled: true, databaseUrl, authToken },
@@ -44,6 +51,7 @@ function settingsWith(databaseUrl: string, authToken: string): Settings {
 
 const urlField = () => screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder"));
 const tokenField = () => screen.getByPlaceholderText(t("en-US", "integrationsTursoTokenPlaceholder"));
+const applyLabel = t("en-US", "integrationsTursoApplyLabel");
 
 beforeEach(() => {
   vi.mocked(saveSecretValue).mockReset();
@@ -55,58 +63,64 @@ afterEach(() => {
   localStorage.clear();
 });
 
-describe("R2 — Escape in a Modal host commits the Turso draft", () => {
+describe("A1/A4 — the Turso fields in a Modal host (BackendConfigModal)", () => {
   beforeEach(() => {
     // jsdom has no rAF; Modal's initial-focus effect queues one.
     vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => { cb(0); return 0; });
     vi.stubGlobal("cancelAnimationFrame", () => {});
   });
 
-  it("BackendConfigModal: typing into the URL then Escape commits it before onClose", async () => {
-    const user = userEvent.setup();
-    const onChangeSettings = vi.fn();
-    const onClose = vi.fn();
+  function renderModal(settings: Settings, onChangeSettings = vi.fn(), onClose = vi.fn()) {
     render(
       <BackendConfigModal
         lang="en-US"
         title="Backend"
-        settings={settingsWith(URL_A, "tok")}
+        settings={settings}
         onChangeSettings={onChangeSettings}
         onClose={onClose}
         helpConceptId={MODAL_HELP.backendConfig}
       />,
     );
-    await user.click(urlField());
-    await user.type(urlField(), "q");
-    expect(onChangeSettings).not.toHaveBeenCalled(); // still a draft
-    await user.keyboard("{Escape}");
-    expect(onChangeSettings).toHaveBeenCalledTimes(1);
-    expect(onChangeSettings.mock.calls[0][0].integrations.turso.databaseUrl).toBe(`${URL_A}q`);
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
+    return { onChangeSettings, onClose };
+  }
 
-  it("BackendConfigModal: typing into the token then Escape commits and seals it", async () => {
+  it("Turso storage: Escape closes and DISCARDS the unapplied drafts — no commit, no seal", async () => {
     const user = userEvent.setup();
-    const onChangeSettings = vi.fn();
-    render(
-      <BackendConfigModal
-        lang="en-US"
-        title="Backend"
-        settings={settingsWith(URL_A, "tok")}
-        onChangeSettings={onChangeSettings}
-        onClose={() => {}}
-        helpConceptId={MODAL_HELP.backendConfig}
-      />,
-    );
-    await user.click(tokenField());
+    const { onChangeSettings, onClose } = renderModal(settingsWith(URL_A, "tok"));
+    expect(screen.getByRole("button", { name: applyLabel })).toBeDisabled();
+    await user.type(urlField(), "q");
     await user.type(tokenField(), "9");
     await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onChangeSettings).not.toHaveBeenCalled();
+    expect(saveSecretValue).not.toHaveBeenCalled();
+  });
+
+  it("Turso storage: Apply in the modal commits both drafts in ONE change and device-seals", async () => {
+    const user = userEvent.setup();
+    const { onChangeSettings } = renderModal(settingsWith(URL_A, "tok"));
+    await user.type(urlField(), "q");
+    await user.type(tokenField(), "9");
+    await user.click(screen.getByRole("button", { name: applyLabel }));
+    expect(onChangeSettings).toHaveBeenCalledTimes(1);
+    expect(onChangeSettings.mock.calls[0][0].integrations.turso.databaseUrl).toBe(`${URL_A}q`);
+    expect(onChangeSettings.mock.calls[0][0].integrations.turso.authToken).toBe("tok9");
+    expect(saveSecretValue).toHaveBeenCalledTimes(1);
+    expect(saveSecretValue).toHaveBeenCalledWith("tursoAuthToken", "tok9", "device");
+  });
+
+  it("browser storage (configuring Turso before switching to it): commits per keystroke, no Apply", async () => {
+    const user = userEvent.setup();
+    const { onChangeSettings } = renderModal(settingsWith(URL_A, "tok", BROWSER));
+    expect(screen.queryByRole("button", { name: applyLabel })).toBeNull();
+    await user.type(tokenField(), "9");
+    expect(onChangeSettings).toHaveBeenCalledTimes(1);
     expect(onChangeSettings.mock.calls[0][0].integrations.turso.authToken).toBe("tok9");
     expect(saveSecretValue).toHaveBeenCalledWith("tursoAuthToken", "tok9", "device");
   });
 });
 
-describe("R3 — Save & switch waits for the token seal before reloading", () => {
+describe("A5 — Save & switch applies the drafts and waits (bounded) for the token seal", () => {
   let reload: ReturnType<typeof vi.fn>;
   const originalLocation = window.location;
   beforeEach(() => {
@@ -118,6 +132,7 @@ describe("R3 — Save & switch waits for the token seal before reloading", () =>
     savePortfolioMode("file");
   });
   afterEach(() => {
+    vi.useRealTimers();
     Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
   });
 
@@ -128,16 +143,16 @@ describe("R3 — Save & switch waits for the token seal before reloading", () =>
 
   const switchButton = () =>
     screen.getByRole("button", { name: t("en-US", "portfolioModeSwitchConfirm") });
+  const persisted = () => JSON.parse(localStorage.getItem("aipm-cockpit:settings") ?? "{}");
 
-  it("a committed token's pending seal holds the reload until it resolves", async () => {
+  it("an applied token's pending seal holds the reload until it resolves (M5)", async () => {
     const user = userEvent.setup();
     let release: () => void = () => {};
     vi.mocked(saveSecretValue).mockReturnValueOnce(new Promise<void>((r) => { release = r; }));
     render(<Controlled />);
 
-    await user.click(tokenField());
     await user.type(tokenField(), "2");
-    await user.click(document.body); // focus leaves the group → commit → seal starts (deferred)
+    await user.click(screen.getByRole("button", { name: applyLabel })); // seal starts (deferred)
     expect(saveSecretValue).toHaveBeenCalledWith("tursoAuthToken", "tok2", "device");
 
     await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
@@ -146,27 +161,45 @@ describe("R3 — Save & switch waits for the token seal before reloading", () =>
 
     await act(async () => release());
     await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
-    const persisted = JSON.parse(localStorage.getItem("aipm-cockpit:settings") ?? "{}");
-    expect(persisted.storageConfig?.kind).toBe("turso");
+    expect(persisted().storageConfig?.kind).toBe("turso");
   });
 
-  // The switch button keeps focus where it is (mousedown prevented), so a draft is still a
-  // draft when the click lands — the switch folds it in. Mutation: `const base = settings`.
-  it("an UNCOMMITTED URL draft is folded into the settings the switch persists", async () => {
+  it("UNAPPLIED URL and token drafts are applied by the switch and the token sealed (M6)", async () => {
     const user = userEvent.setup();
     render(<Controlled />);
     await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
-    await user.click(urlField());
     await user.type(urlField(), "x");
+    await user.type(tokenField(), "7");
     await user.click(switchButton());
-    expect(urlField()).toHaveFocus(); // the mousedown did not blur the field
     await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
-    const persisted = JSON.parse(localStorage.getItem("aipm-cockpit:settings") ?? "{}");
-    expect(persisted.integrations?.turso?.databaseUrl).toBe(`${URL_A}x`);
+    expect(persisted().integrations?.turso?.databaseUrl).toBe(`${URL_A}x`);
+    expect(saveSecretValue).toHaveBeenCalledWith("tursoAuthToken", "tok7", "device");
+  });
+
+  it("a seal that never settles delays the reload by SECRET_MERGE_TIMEOUT_MS at most (MA5)", async () => {
+    vi.useFakeTimers();
+    let release: () => void = () => {};
+    vi.mocked(saveSecretValue).mockReturnValueOnce(new Promise<void>((r) => { release = r; }));
+    try {
+      render(<Controlled />);
+      fireEvent.change(tokenField(), { target: { value: "tok5" } });
+      fireEvent.change(screen.getByLabelText(t("en-US", "portfolioModeLabel")), { target: { value: "turso" } });
+      fireEvent.click(switchButton());
+      expect(saveSecretValue).toHaveBeenCalledWith("tursoAuthToken", "tok5", "device");
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(SECRET_MERGE_TIMEOUT_MS - 1); });
+      expect(reload).not.toHaveBeenCalled();
+      await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+      expect(reload).toHaveBeenCalledTimes(1);
+      expect(persisted().storageConfig?.kind).toBe("turso");
+    } finally {
+      // Settle the stuck seal so the module-scope in-flight set is empty for later tests.
+      await act(async () => release());
+    }
   });
 });
 
-describe("R4 — an outside change to the stored value keeps a draft being edited", () => {
+describe("A6 — an outside change to the stored value keeps a draft being edited (Turso storage)", () => {
   let setExternal: (s: Settings) => void = () => {};
   function Host() {
     const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, "tok"));
@@ -174,7 +207,7 @@ describe("R4 — an outside change to the stored value keeps a draft being edite
     return <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} />;
   }
 
-  it("a dirty URL draft survives; the clean token field follows (mutation: URL guard)", async () => {
+  it("a dirty URL draft survives; the clean token field follows (M7)", async () => {
     const user = userEvent.setup();
     render(<Host />);
     await user.click(urlField());
@@ -185,7 +218,7 @@ describe("R4 — an outside change to the stored value keeps a draft being edite
     expect(tokenField()).toHaveValue("ext-tok"); // control: a clean draft resyncs
   });
 
-  it("a dirty token draft survives; the clean URL field follows (mutation: token guard)", async () => {
+  it("a dirty token draft survives; the clean URL field follows (M8)", async () => {
     const user = userEvent.setup();
     render(<Host />);
     await user.click(tokenField());
