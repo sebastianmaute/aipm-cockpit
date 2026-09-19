@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { decideReapply } from "./timelog-reapply";
+import { bucketOverlay } from "./timelog-actuals";
 import type { BudgetBucket, Resource, Role } from "./types";
 import type { ActualsAggregate } from "./timelog-actuals";
 
@@ -65,5 +66,27 @@ describe("decideReapply", () => {
     expect(
       decideReapply({ failedProjects: 0, projectCount: 1, aggregates: agg }, [bucket()], RESOURCES, ROLES, "month"),
     ).toEqual({ kind: "confirm", overlay: agg.byBucket });
+  });
+
+  // Final review Minor 3: `rows.length` at line ~85 does not distinguish a
+  // routed diff row from a §546 removal row, so a plan whose ONLY row deletes a
+  // stale other-granularity key still reads as "work to apply", not "nothing".
+  // Pinned as CURRENT behaviour, not a claim that it is right or wrong — see
+  // §546's closure. The bucket's week total (4h) already matches what this
+  // week-granularity fetch resolves, so the routed period itself produces no
+  // diff; the stale "2026-06" month total (10h) overlapping the one booked day
+  // is the only thing the plan reports, as a removal.
+  it("treats a removal-only plan as work to apply, not as nothing (§546 final review)", () => {
+    const staleMonth: BudgetBucket = {
+      ...bucket(),
+      allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-06": 100 }, actualHours: { "2026-W24": 4, "2026-06": 10 } }],
+    };
+    const agg: ActualsAggregate = {
+      byBucketDay: { 10: { "2026-06-10": { hours: 4, billableHours: 4, byResource: { 1: { hours: 4, billableHours: 4 } } } } },
+      byResource: { 1: { hours: 4, billableHours: 4 } },
+      unattributed: { hours: 0, billableHours: 0 },
+    };
+    const result = decideReapply({ failedProjects: 0, projectCount: 1, aggregates: agg }, [staleMonth], RESOURCES, ROLES, "week");
+    expect(result).toEqual({ kind: "confirm", overlay: bucketOverlay(agg, "week") });
   });
 });

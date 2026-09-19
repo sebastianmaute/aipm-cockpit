@@ -722,6 +722,26 @@ describe("dated apply", () => {
     expect(shown.length).toBeGreaterThan(0); // anti-vacuity
     expect(shown).toEqual(deleted);
   });
+
+  // Final review Minor 3: a stored `0` under an other-granularity key would
+  // otherwise list as a "0 → 0 (removed)" row — noise, since deleting a 0
+  // changes nothing. writeAllocations still deletes it exactly as any other
+  // other-granularity key; only the disclosure omits it. "2026-07" (current 5)
+  // is the positive control proving the omission is selective, not a dropped
+  // removal pass.
+  it("omits a zero-valued other-granularity key from removal rows, but still deletes it (§546)", () => {
+    const agg = aggregateActuals(
+      [tItem(1, 9, "2026-06-10", 4), tItem(2, 9, "2026-07-01", 4)],
+      links,
+    );
+    const ov = bucketOverlay(agg, "week");
+    const before = [bucketWith({ "2026-06": 0, "2026-07": 5 })];
+    const rows = planApply(before, ov, resources, roles).filter((r) => r.removal);
+    expect(rows.map((r) => r.period).sort()).toEqual(["2026-07"]);
+    const after = applyActualsToBuckets(before, ov, resources, roles)[0].allocations[0].actualHours;
+    expect(after["2026-06"]).toBeUndefined();
+    expect(after["2026-07"]).toBeUndefined();
+  });
 });
 
 describe("bucketsMissingAllocations", () => {

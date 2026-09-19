@@ -181,7 +181,10 @@ function routeBucket(
  * the write cannot drift. The whole lump sum goes, not a share of it: a bare
  * period key has no day breakdown, so splitting it would be a guess shown as data.
  * ★ Keys absent from the line are omitted — deleting one is a no-op, and listing
- * it would disclose the removal of nothing.
+ * it would disclose the removal of nothing. A key present but stored at `0` is
+ * still returned here (so `writeAllocations` deletes it, same as any other),
+ * but `buildApplyPlan` filters it back out of the DISCLOSURE — a "0 → 0
+ * (removed)" row would be noise for the same reason an absent key is.
  */
 function otherGranularityRemovals(
   actualHours: Readonly<Record<string, number>>,
@@ -272,8 +275,13 @@ export function buildApplyPlan(
       }
       // §546 — every other-granularity key the write deletes, from the SAME
       // function `writeAllocations` deletes by, so the dialog discloses it.
+      // Zero-valued keys are skipped here ONLY: writeAllocations still deletes
+      // them unconditionally (deleting a 0 changes nothing to WRITE, but a
+      // "0 → 0 (removed)" row would be pure noise to SHOW).
       for (const key of otherGranularityRemovals(a.actualHours, routed, i)) {
-        rows.push({ bucketId: b.id, allocIndex: i, period: key, current: round2(a.actualHours[key]), next: 0, removal: true });
+        const current = round2(a.actualHours[key]);
+        if (current === 0) continue;
+        rows.push({ bucketId: b.id, allocIndex: i, period: key, current, next: 0, removal: true });
       }
     });
   }
