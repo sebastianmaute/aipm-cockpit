@@ -39487,7 +39487,7 @@ Related: [§558](#558-the-three-ooxml-extractors-were-quadratic-on-repetitive-un
 
 ## 586. A startup autosave saves the empty workspace over the stored project before the first load lands — CLOSED 2026-09-19
 
-**Status:** CLOSED 2026-09-19 by `fix/startup-autosave-wipe` (`84185ece`), filed and fixed on the same branch; GitLab #371 is closed by the MR that merges it, not by this entry. `use-storage-backend.ts` now carries a save gate, `savesAllowedFor` (state + ref, keyed on backend IDENTITY like `loadedBackend`). It opens in exactly three places, and only the first is a load of that instance: `applyWorkspace` (an applied load of the load effect, `reloadCurrentProject`, and the switch/create/load-from-file ops); the load effect's suppress-branch RE-STAMP after such an op, whose memo instance is never loaded itself (the op loaded a sibling instance, built a fresh workspace, or converted the live one); and an explicit "Pick storage file" write. Three paths check it: the save effect (it schedules nothing while the gate is shut), `doSave` (the debounce timer and flush-on-hide both call it, and nothing else in `debounced-save.ts` reaches the save), and the pre-switch `flushCurrent`, which now skips rather than writing the unloaded workspace over the project being left. While the gate is shut because a load FAILED, or an empty load was refused over populated scope (§587), the hook publishes `loadPause` and task-manager mounts it on the sticky `SavingPausedBanner` (a `load` cause, primary action "Reload project") for as long as the pause holds; the first refused edit also shows an action toast that re-shows the banner. The empty-load case has its own wording, `storageSavePausedEmptyLoad`. A storage-kind conversion is refused while the gate is shut (`storageConvertRefusedNotLoaded`). Verified by `npx vitest run src/app/use-storage-backend.load-gate.test.tsx --maxWorkers=1`.
+**Status:** CLOSED 2026-09-19 by `fix/startup-autosave-wipe` (`84185ece`), filed and fixed on the same branch; GitLab #371 is closed by the MR that merges it, not by this entry. `use-storage-backend.ts` now carries a save gate, `savesAllowedFor` (state + ref, keyed on backend IDENTITY like `loadedBackend`). It opens in exactly three places, and only the first is a load of that instance: `applyWorkspace` (an applied load of the load effect, `reloadCurrentProject`, and the switch/create/load-from-file ops); the load effect's suppress-branch RE-STAMP after such an op, whose memo instance is never loaded itself (the op loaded a sibling instance, built a fresh workspace, or converted the live one); and an explicit "Pick storage file" write. Three paths check it: the save effect (it schedules nothing while the gate is shut), `doSave` (the debounce timer and flush-on-hide both call it, and nothing else in `debounced-save.ts` reaches the save), and the pre-switch `flushCurrent`, which now skips rather than writing the unloaded workspace over the project being left. While the gate is shut because a load FAILED, or an empty load was refused over populated scope (§587), the hook publishes `loadPause` and task-manager mounts it on the sticky `SavingPausedBanner` (a `load` cause, primary action "Reload project") for as long as the pause holds; the first refused edit also shows an action toast that re-shows the banner. The empty-load case has its own wording, `storageSavePausedEmptyLoad`. While the gate is shut, a storage-kind switch goes ahead WITHOUT its conversion write: nothing is written, the new backend loads its own target, and `storageSwitchedWithoutCopy` says nothing was copied. Verified by `npx vitest run src/app/use-storage-backend.load-gate.test.tsx --maxWorkers=1`.
 
 At boot every workspace slice is empty, and the save effect runs on the same commit as the load
 effect because both key on `hydrated`. Nothing on the save path refused a save issued before the load
@@ -39574,10 +39574,15 @@ storage file write.
 there would have written the file back with every other slice empty, which is the §586 wipe in a
 smaller shape. The user reloads the project instead.
 
-★ **A storage-kind conversion is refused while the gate is shut.** It would copy the live workspace,
-which is then the empty boot one or the previous target's project, into the new kind and repoint the
-app at it. `onRequestStorageSwitch` now says so (`storageConvertRefusedNotLoaded`) before its
-confirm dialog. After a successful load it converts exactly as before.
+★ **While the gate is shut, a storage-kind switch copies nothing.** Its conversion would copy the
+live workspace, which is then the empty boot one or the previous target's project, into the new kind.
+So `onRequestStorageSwitch` switches WITHOUT the conversion write and without its confirm dialog
+(both confirm texts describe a conversion): nothing is written anywhere, the new backend LOADS its own
+target (no `suppressNextLoadRef`), and the notice `storageSwitchedWithoutCopy` says nothing was copied
+because nothing had been loaded. The new backend then passes through the §586 gate like any other:
+no save until its own load is applied. After a successful load the switch converts exactly as
+before. ★ This replaced a first version that REFUSED the switch, which left a user whose storage
+never loads with no way to change storage kind.
 
 **Not affected, by design.**
 - A storage-KIND switch (`onRequestStorageSwitch`), once the current load has succeeded, writes the
@@ -39639,7 +39644,7 @@ After a failed load the live workspace is the empty boot one. `onPickStorageFile
 file the user picks, through `guardedWrite`, and then opens the save gate
 ([§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19)). If the user picks the EXISTING project file (the save picker warns before
 overwriting), that file is replaced with an empty workspace. The sibling explicit write, the
-storage-kind conversion, is now refused before a load succeeds
+storage-kind conversion, now skips its write (switching without copying) before a load succeeds
 ([§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19)); Pick storage file is not, because it is also the only way a first-time
 local-file user (whose load fails with no file picked) can create a file.
 

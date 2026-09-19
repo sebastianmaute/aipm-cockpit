@@ -32,7 +32,7 @@
   `use-storage-backend.ts` is an identity like `loadedBackend`, opened where `loadedBackend` is stamped
   plus after an explicit "Pick storage file" write. It is checked by the save effect, by `doSave` (the
   debounce timer AND flush-on-hide both call it) and by the pre-switch `flushCurrent`; a storage-kind
-  conversion is refused while it is shut. A failed load, and an empty load REFUSED over populated
+  switch skips its conversion write while it is shut (nothing is copied; the new backend loads). A failed load, and an empty load REFUSED over populated
   scope, leave it shut for that backend and publish `loadPause`, which task-manager mounts on the
   STICKY `SavingPausedBanner` (a `load` cause whose action is "Reload project") — never a toast
   alone, which times out. A new path that writes the live workspace to the ACTIVE backend must check
