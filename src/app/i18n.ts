@@ -1821,6 +1821,7 @@ const enUS = {
   timelogApply: "Apply to budget",
   timelogApplyConfirmOne: "Apply 1 bucket change to budget actual hours?",
   timelogApplyConfirm: "Apply {0} bucket changes to budget actual hours?",
+  timelogApplyRemoval: "removed: a hand-entered total for the other period type",
   timelogApplyPartial:
     "Some projects could not be fetched, so these bookings are incomplete. Applying them would overwrite the missing projects' hours with zero, so applying is disabled — refresh the bookings and try again.",
   timelogApplyNoAllocation:
@@ -4405,6 +4406,7 @@ const enUS = {
   insightRecommendationError: "Couldn't generate a recommendation right now.",
   insightRecommendationApplied: "Recommendation applied.",
   insightRecommendationApplyFailed: "Some changes in this recommendation couldn't be applied.",
+  insightRecommendationAllRejected: "Not applied — every change in this recommendation was rejected.",
   insightRecommendationStale: "This recommendation wasn't applied — the project data changed since it was generated. Generate a new one.",
   insightRecommendationStalePartial: "Some changes weren't applied — the project data changed since this recommendation was generated. Generate a new one for the rest.",
   insightRecommendationSkippedFields: "Skipped: {0}",
@@ -4513,6 +4515,7 @@ const enUS = {
   chatProposalFailedDependency: "Not applied — a row it depends on was not created",
   chatProposalFailedUnreadable: "Not applied — its target could not be read back",
   chatProposalFailedError: "Not applied",
+  chatProposalFailedRejected: "Not applied — every change in it was rejected",
   // Shown in place of the card when the transcript still carries a proposal
   // marker but the live plan is gone (a project or thread switch, or a restored
   // conversation). Deliberately NOT an error: nothing failed, the plan simply

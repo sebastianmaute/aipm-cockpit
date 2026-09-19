@@ -168,3 +168,67 @@ describe("a stale recommendation is refused visibly, not swallowed", () => {
     expect(deps.showToast).toHaveBeenCalledWith("error", t("en-US", "insightRecommendationStalePartial"));
   });
 });
+
+// §534 — confirm used to replay the stored call whole, so a field the review
+// modal showed as rejected was still sent. It now strips it, from the SAME
+// per-call plan the modal's merged plan is made of.
+describe("§534 — confirm sends only what the review modal showed", () => {
+  it("lands the valid sibling and omits a rejected assigneeEmail", async () => {
+    const store = mkStore([mkInsight({ recommendation: mkRec({ id: 42, status: "In Progress", assigneeEmail: "not-an-email", expectedToken: entityToken("task", task) }) })]);
+    const d = mkDispatcher();
+    const deps = mkDeps({ insights: store.read(), setInsights: store.setInsights, dispatcher: d.dispatcher });
+    const { result } = renderHook(() => useInsightRecommendations(deps));
+    act(() => { result.current.setReviewInsightId(1); });
+    // Parity: the modal names the same field the confirm will strip.
+    expect(result.current.reviewPlan?.rejected.map((r) => r.field)).toEqual(["assigneeEmail"]);
+    await act(async () => { await result.current.confirmInsightRecommendation(); });
+    expect(d.read().status).toBe("In Progress");
+    expect(d.read()).not.toHaveProperty("assigneeEmail");
+    expect(store.read()[0].recommendation?.status).toBe("applied");
+    expect(deps.showToast).toHaveBeenCalledWith("info", t("en-US", "insightRecommendationApplied"));
+  });
+
+  // Final review Minor 4: this is the ALL-REFUSED case — nothing committed, no
+  // hard failure, nothing stale — so the toast must say nothing was applied,
+  // not the generic partial-failure wording ("Some changes … couldn't be
+  // applied"), which overstated what happened when nothing landed at all.
+  it("sends nothing for a call whose every field was rejected, and leaves the insight where it was", async () => {
+    const store = mkStore([mkInsight({ recommendation: mkRec({ id: 42, assigneeEmail: "not-an-email", expectedToken: entityToken("task", task) }) })]);
+    const d = mkDispatcher();
+    const deps = mkDeps({ insights: store.read(), setInsights: store.setInsights, dispatcher: d.dispatcher });
+    const { result } = renderHook(() => useInsightRecommendations(deps));
+    act(() => { result.current.setReviewInsightId(1); });
+    await act(async () => { await result.current.confirmInsightRecommendation(); });
+    expect(d.read()).not.toHaveProperty("assigneeEmail");
+    expect(store.calls).not.toHaveBeenCalled();
+    expect(deps.showToast).toHaveBeenCalledWith("error", t("en-US", "insightRecommendationAllRejected"));
+    expect(deps.showToast).not.toHaveBeenCalledWith("error", t("en-US", "insightRecommendationApplyFailed"));
+    expect(deps.logActivityAs).not.toHaveBeenCalled();
+  });
+
+  // ★ The MIXED case: one call lands, one is refused whole. Something committed,
+  //  so the insight advances — but the toast must not say "Applied" when part of
+  //  what the modal showed was never sent.
+  it("advances the insight but reports an error when one call lands and another is refused whole", async () => {
+    const token = entityToken("task", task);
+    const rec: InsightRecommendation = {
+      ...mkRec({ id: 42, status: "In Progress", expectedToken: token }),
+      proposedCalls: [
+        { name: "update_task", input: { id: 42, status: "In Progress", expectedToken: token } },
+        { name: "update_task", input: { id: 42, assigneeEmail: "not-an-email", expectedToken: token } },
+      ],
+    };
+    const store = mkStore([mkInsight({ recommendation: rec })]);
+    const d = mkDispatcher();
+    const deps = mkDeps({ insights: store.read(), setInsights: store.setInsights, dispatcher: d.dispatcher });
+    const { result } = renderHook(() => useInsightRecommendations(deps));
+    act(() => { result.current.setReviewInsightId(1); });
+    await act(async () => { await result.current.confirmInsightRecommendation(); });
+    expect(d.read().status).toBe("In Progress");
+    expect(d.read()).not.toHaveProperty("assigneeEmail");
+    expect(store.read()[0].status).toBe("acted");
+    expect(store.read()[0].recommendation?.status).toBe("applied");
+    expect(deps.showToast).toHaveBeenCalledWith("error", t("en-US", "insightRecommendationApplyFailed"));
+    expect(deps.showToast).not.toHaveBeenCalledWith("info", t("en-US", "insightRecommendationApplied"));
+  });
+});

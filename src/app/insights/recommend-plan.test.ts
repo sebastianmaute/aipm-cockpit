@@ -87,6 +87,20 @@ describe("describeRecommendationPlan", () => {
     ]);
     expect(plan.rejected).toHaveLength(0);
   });
+
+  // §534 — `confirmInsightRecommendation` strips each call against
+  // describeRecommendationPlan([call]); the modal renders
+  // describeRecommendationPlan(allCalls). They agree only while the merged
+  // plan's rejections are exactly the per-call ones, in order.
+  test("the merged plan's rejections are the concatenation of each call's own (§534)", () => {
+    const calls = [
+      { name: "update_task", input: { id: 12, assigneeEmail: "not-an-email", dueDate: "2026-08-01" } },
+      { name: "update_task", input: { id: 999 } },
+    ];
+    const perCall = calls.flatMap((c) => describeRecommendationPlan([c], ws()).rejected);
+    expect(perCall.map((r) => r.field)).toEqual(["assigneeEmail", undefined]); // anti-vacuity: both kinds present
+    expect(describeRecommendationPlan(calls, ws()).rejected).toEqual(perCall);
+  });
 });
 
 // ★★ The `recommendationPlanEntity` suite that stood here was REMOVED with the

@@ -144,6 +144,7 @@ describe("ChatProposalBlock", () => {
     ["dependency", "Not applied — a row it depends on was not created"],
     ["unreadable", "Not applied — its target could not be read back"],
     ["error", "Not applied"],
+    ["rejected", "Not applied — every change in it was rejected"],
   ] as const)("labels a %s failure with its own string", (kind, expected) => {
     render(
       <ChatProposalBlock
@@ -164,7 +165,7 @@ describe("ChatProposalBlock", () => {
         onDiscard={() => {}}
       />,
     );
-    // ★★★ THE WHOLE STRING, NOT A SUBSTRING, AND THAT IS THE POINT. All four
+    // ★★★ THE WHOLE STRING, NOT A SUBSTRING, AND THAT IS THE POINT. All five
     //  labels open with "Not applied", and the `conflict` fallback contains the
     //  distinguishing clause of none of the others — so a `new RegExp(...)`
     //  substring match let the `error` case PASS AGAINST THE UNFIXED CODE, where

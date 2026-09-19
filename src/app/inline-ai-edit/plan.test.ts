@@ -1,7 +1,8 @@
 // src/app/inline-ai-edit/plan.test.ts
 import { describe, it, expect } from "vitest";
-import { describeToolCalls, describeEntityCalls, isEmptyPlan, type EditPlan, type ToolUseLike } from "./plan";
+import { describeToolCalls, describeEntityCalls, isEmptyPlan, stripRejectedFields, type EditPlan, type ToolUseLike } from "./plan";
 import { INLINE_DESCRIPTORS } from "./entity-descriptor";
+import { inlinePatchValue } from "../use-inline-entity-edit";
 import { type Workspace } from "../workspace";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -77,8 +78,8 @@ describe("describeToolCalls", () => {
     const bad = describeToolCalls([block("update_task", { id: 42, status: "Frobnicate", priority: "Critical" })], { task, ws });
     expect(bad.updates).toEqual([]);
     expect(bad.rejected).toEqual([
-      { toolName: "update_task", reason: "bad-input", detail: "status=Frobnicate" },
-      { toolName: "update_task", reason: "bad-input", detail: "priority=Critical" },
+      { toolName: "update_task", reason: "bad-input", detail: "status=Frobnicate", field: "status" },
+      { toolName: "update_task", reason: "bad-input", detail: "priority=Critical", field: "priority" },
     ]);
   });
 
@@ -91,7 +92,7 @@ describe("describeToolCalls", () => {
   it("rejects clearing the required dueDate (dispatcher throws on empty)", () => {
     const plan = describeToolCalls([block("update_task", { id: 42, dueDate: "" })], { task, ws });
     expect(plan.updates).toEqual([]);
-    expect(plan.rejected).toEqual([{ toolName: "update_task", reason: "bad-input", detail: "dueDate=empty" }]);
+    expect(plan.rejected).toEqual([{ toolName: "update_task", reason: "bad-input", detail: "dueDate=empty", field: "dueDate" }]);
   });
 
   it("deletes the target task but rejects delete_task on a different task", () => {
@@ -232,7 +233,7 @@ describe("describeEntityCalls — raid", () => {
     );
     expect(plan.updates).toEqual([]);
     expect(plan.rejected).toEqual([
-      { toolName: "update_raid_item", reason: "bad-input", detail: "probability=1" },
+      { toolName: "update_raid_item", reason: "bad-input", detail: "probability=1", field: "probability" },
     ]);
   });
 
@@ -495,7 +496,7 @@ describe("describeEntityCalls — milestone required field", () => {
     );
     expect(plan.updates).toEqual([]);
     expect(plan.rejected).toEqual([
-      { toolName: "update_milestone", reason: "bad-input", detail: "description=true" },
+      { toolName: "update_milestone", reason: "bad-input", detail: "description=true", field: "description" },
     ]);
   });
 });
@@ -811,7 +812,7 @@ describe("task lastUpdateDate", () => {
       { descriptor: d, item, ws: lupWs },
     );
     expect(plan.updates).toEqual([]);
-    expect(plan.rejected).toEqual([{ toolName: "update_task", reason: "bad-input", detail: "lastUpdateDate=02/02/2026" }]);
+    expect(plan.rejected).toEqual([{ toolName: "update_task", reason: "bad-input", detail: "lastUpdateDate=02/02/2026", field: "lastUpdateDate" }]);
   });
 });
 
@@ -1515,7 +1516,7 @@ describe("link fields honour the merge-site guard on the row and the create path
     expect(plan.rejected).toEqual([
       // ★ `str` joins an array with ", " — the detail is for a HUMAN reading the
       //  card, so it is the rendered value, not the raw JSON.
-      { toolName: "update_calendar_event", reason: "bad-input", detail: "attendeeResourceIds=7, 9" },
+      { toolName: "update_calendar_event", reason: "bad-input", detail: "attendeeResourceIds=7, 9", field: "attendeeResourceIds" },
     ]);
   });
 
@@ -1537,7 +1538,7 @@ describe("link fields honour the merge-site guard on the row and the create path
   it("refuses a string FK on an absence instead of previewing a clear", () => {
     const plan = planFor("update_absence", { id: 50, resourceId: "9" }, "absence");
     expect(plan.links).toEqual([]);
-    expect(plan.rejected[0]).toEqual({ toolName: "update_absence", reason: "bad-input", detail: "resourceId=9" });
+    expect(plan.rejected[0]).toEqual({ toolName: "update_absence", reason: "bad-input", detail: "resourceId=9", field: "resourceId" });
   });
 
   it("still previews an explicit null unlink, which the guard accepts", () => {
@@ -1593,7 +1594,7 @@ describe("a date is judged by its own writer's rule", () => {
     );
     expect(plan.updates).toEqual([]);
     expect(plan.rejected).toEqual([
-      { toolName: "update_calendar_event", reason: "bad-input", detail: "startDate=2026-01-32" },
+      { toolName: "update_calendar_event", reason: "bad-input", detail: "startDate=2026-01-32", field: "startDate" },
     ]);
   });
 
@@ -1644,9 +1645,9 @@ describe("a date is judged by its own writer's rule", () => {
 // (I2) THE WHOLE-ROW SWAP. `sanitizeAbsence` reorders a reversed date pair
 //  rather than rejecting it, so a `startDate` moved past the stored `endDate`
 //  previewed ONE change and wrote TWO, both different from what the card said.
-//  It is DISCLOSED, not refused: the write succeeds, and the two REPLAYING
-//  consumers resend the original input without reading this plan, so a
-//  rejection would put "declined" in front of a write that lands.
+//  It is DISCLOSED, not refused: the write succeeds, and since §534 the two
+//  REPLAYING consumers strip every field this plan rejects, so a rejection
+//  would DROP an edit the writer accepts.
 describe("a reversed absence date pair previews the swap the writer performs", () => {
   const holiday = { id: 50, assignee: "Ada Lovelace", startDate: "2026-03-01", endDate: "2026-03-05" };
   const absWs = wsWith({ absences: [holiday] as never });
@@ -1687,6 +1688,30 @@ describe("a reversed absence date pair previews the swap the writer performs", (
     expect(plan.rejected).toEqual([]);
   });
 
+  // §534 fix round 3 — EACH BLOCK IS JUDGED ON ITS OWN, so block 2's swap is
+  //  disclosed on block 2's own rows. With one shared plan the swap step patched
+  //  the FIRST `startDate` row across ALL blocks (block 1's), while block 2's raw
+  //  unswapped start still won the inline consumer's last-wins patch: a
+  //  zero-length 03-10 → 03-10 absence that neither block asked for. ★ The card
+  //  now also shows block 1's superseded start row; the later row wins the write.
+  it("judges two update blocks on one absence separately, so the swap patches its own block's row", () => {
+    const plan = describeEntityCalls(
+      [
+        { type: "tool_use", name: "update_absence", input: { id: 50, startDate: "2026-03-04" } },
+        { type: "tool_use", name: "update_absence", input: { id: 50, startDate: "2026-03-10" } },
+      ],
+      { descriptor: INLINE_DESCRIPTORS.absence, item: holiday as never, ws: absWs },
+    );
+    expect(plan.updates.map((u) => [u.field, u.before, u.after])).toEqual([
+      ["startDate", "2026-03-01", "2026-03-04"],
+      ["startDate", "2026-03-01", "2026-03-05"],
+      ["endDate", "2026-03-05", "2026-03-10"],
+    ]);
+    // The inline consumer's last-wins patch, built as `use-inline-entity-edit.ts` builds it.
+    const patch = Object.fromEntries(plan.updates.map((u) => [u.field, inlinePatchValue(INLINE_DESCRIPTORS.absence, u)]));
+    expect(patch).toEqual({ startDate: "2026-03-05", endDate: "2026-03-10" });
+  });
+
   // ANTI-VACUITY: an ordered pair, and an equal one, must still preview as the
   // single change they are — otherwise every assertion above would also pass
   // against a rewrite that fires unconditionally.
@@ -1711,5 +1736,109 @@ describe("a reversed absence date pair previews the swap the writer performs", (
     const plan = planFor({ id: 50, startDate: "1899-12-31" });
     expect(plan.updates).toEqual([]);
     expect(plan.rejected[0].detail).toBe("startDate=1899-12-31");
+  });
+});
+
+// §534 — the replaying consumers (chat Apply, insight-recommendation confirm)
+// send a call minus every field the card rejected. The strip reads the SAME
+// plan the card renders, so card and write cannot disagree about a field.
+describe("stripRejectedFields (§534)", () => {
+  it("records the refused field on a field-level rejection", () => {
+    const plan = describeToolCalls([block("update_task", { id: 42, taskName: "Renamed", assigneeEmail: "not-an-email" })], { task, ws });
+    expect(plan.rejected).toEqual([
+      { toolName: "update_task", reason: "bad-input", detail: "assigneeEmail=not-an-email", field: "assigneeEmail" },
+    ]);
+  });
+
+  it("removes exactly the rejected fields and keeps the id, the token and every landing sibling", () => {
+    const input = { id: 42, taskName: "Renamed", assigneeEmail: "not-an-email", expectedToken: "t" };
+    const plan = describeToolCalls([block("update_task", input)], { task, ws });
+    expect(plan.updates.map((u) => u.field)).toEqual(["taskName"]);
+    expect(stripRejectedFields(input, plan)).toEqual({
+      input: { id: 42, taskName: "Renamed", expectedToken: "t" },
+      stripped: ["assigneeEmail"],
+      writesNothing: false,
+    });
+  });
+
+  it("reports writesNothing when every field the call writes was rejected", () => {
+    const input = { id: 42, assigneeEmail: "not-an-email", expectedToken: "t" };
+    const plan = describeToolCalls([block("update_task", input)], { task, ws });
+    expect(stripRejectedFields(input, plan)).toEqual({
+      input: { id: 42, expectedToken: "t" },
+      stripped: ["assigneeEmail"],
+      writesNothing: true,
+    });
+  });
+
+  // ★ A surviving key is not a surviving WRITE: `taskName` here is unchanged, so
+  //  the card shows the rejection and nothing else, and the call must not go out.
+  it("reports writesNothing when the only survivor is an unchanged sibling", () => {
+    const input = { id: 42, taskName: "Fix login bug", assigneeEmail: "not-an-email" };
+    const plan = describeToolCalls([block("update_task", input)], { task, ws });
+    expect(plan.updates).toEqual([]);
+    expect(stripRejectedFields(input, plan)).toEqual({
+      input: { id: 42, taskName: "Fix login bug" },
+      stripped: ["assigneeEmail"],
+      writesNothing: true,
+    });
+  });
+
+  // ★★★ THE RE-JUDGE. `emails` is deduped against the MERGED primary, so judged
+  //  beside a rejected `email` it previewed `emails → x@y.com` — a change the
+  //  stripped write (merged against the STORED primary `x@y.com`) never makes.
+  //  Re-judged without `email`, the sibling dedupes away and the card is empty.
+  describe("re-judges a call without its rejected fields", () => {
+    const stored = { id: 7, firstName: "Ada", lastName: "Lovelace", email: "x@y.com", roleId: null, utilizationMode: "percent", utilization: {} };
+    const planFor = (input: Record<string, unknown>) =>
+      describeEntityCalls([block("update_resource", input)], {
+        descriptor: INLINE_DESCRIPTORS.resource,
+        item: stored as never,
+        ws: wsWith({ resources: [stored] as never }),
+      });
+
+    it("drops a sibling diff that only existed because of the rejected value", () => {
+      const plan = planFor({ id: 7, email: "not-an-email", emails: ["x@y.com"] });
+      expect(plan.rejected).toEqual([{ toolName: "update_resource", reason: "bad-input", detail: "email=not-an-email", field: "email" }]);
+      expect(plan.updates).toEqual([]);
+    });
+
+    it("keeps a sibling diff that survives without the rejected value (anti-vacuity)", () => {
+      const plan = planFor({ id: 7, email: "not-an-email", emails: ["z@y.com"] });
+      expect(plan.rejected.map((r) => r.field)).toEqual(["email"]);
+      expect(plan.updates.map((u) => [u.field, u.after])).toEqual([["emails", "z@y.com"]]);
+    });
+  });
+
+  // ★ …but only when something was stripped: an all-unchanged call is not a
+  //  rejection and is dispatched exactly as before.
+  it("does not report writesNothing for an all-unchanged call with nothing stripped", () => {
+    const input = { id: 42, taskName: "Fix login bug", status: "To Do" };
+    const plan = describeToolCalls([block("update_task", input)], { task, ws });
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected).toEqual([]);
+    expect(stripRejectedFields(input, plan)).toEqual({ input, stripped: [], writesNothing: false });
+  });
+
+  it("strips nothing for a whole-call rejection, which names no field", () => {
+    const input = { id: 999, taskName: "x" };
+    const plan = describeToolCalls([block("update_task", input)], { task, ws });
+    expect(plan.rejected).toEqual([{ toolName: "update_task", reason: "unknown-id", detail: "999" }]);
+    expect(stripRejectedFields(input, plan)).toEqual({ input, stripped: [], writesNothing: false });
+  });
+
+  // Parity: every landing field survives the strip, every rejected field is gone,
+  // and `stripped` is exactly the plan's field list — over several rejection kinds.
+  it.each([
+    { input: { id: 42, status: "Frobnicate", dueDate: "2026-08-15" } },
+    { input: { id: 42, dueDate: "", priority: "High" } },
+    { input: { id: 42, assigneeEmail: "a,b@x.com", taskName: "N" } },
+    { input: { id: 42, assigneeEmail: "a@b.co", taskName: "N" } },
+  ])("keeps every landing field and drops every rejected one: $input", ({ input }) => {
+    const plan = describeToolCalls([block("update_task", input)], { task, ws });
+    const sent = stripRejectedFields(input, plan);
+    for (const u of plan.updates) if (u.field in input) expect(sent.input).toHaveProperty(u.field);
+    for (const r of plan.rejected) if (r.field) expect(sent.input).not.toHaveProperty(r.field);
+    expect(sent.stripped).toEqual(plan.rejected.flatMap((r) => (r.field ? [r.field] : [])));
   });
 });

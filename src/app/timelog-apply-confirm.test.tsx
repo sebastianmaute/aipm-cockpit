@@ -76,4 +76,14 @@ describe("TimelogApplyConfirm", () => {
       expect(renderRows(MAX_VISIBLE_ROWS).className).not.toMatch(/max-h-/);
     });
   });
+
+  // §546 — a removal row is LABELLED as one, beside an ordinary row that is not.
+  it("labels an other-granularity removal row, and only that row", () => {
+    const removal: ApplyDiffLabel = { ...ROW, period: "2026-06", current: 6, next: 0, removal: true };
+    render(<TimelogApplyConfirm lang="en-US" rows={[ROW, removal]} onApply={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      "Bucket A · Design · 2026-W30: 10 → 14",
+      `Bucket A · Design · 2026-06: 6 → 0 (${t("en-US", "timelogApplyRemoval")})`,
+    ]);
+  });
 });

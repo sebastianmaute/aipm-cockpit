@@ -19,6 +19,10 @@ export type ApplyDiffRow = {
   period: string;
   current: number;
   next: number;
+  /** §546 — this row DELETES an other-granularity bare period key (the §543
+   *  rule) instead of rewriting a routed period. `next` is always 0. Absent on
+   *  every routed row. */
+  removal?: true;
 };
 
 // The allocation array that HOLDS actuals for a bucket: disciplineAllocations for
@@ -167,6 +171,41 @@ function routeBucket(
   return { perAlloc, perAllocDays, undatedPeriods, periods: [...routedPeriods], unmatched, unmatchedHours };
 }
 
+/**
+ * §546 — the OTHER-granularity bare period keys a dated Apply deletes from ONE
+ * line (the §543 rule: a dated Apply owns every covered day, so a bare key of
+ * the other granularity containing one of those days is stale hand input).
+ *
+ * ★★★ ONE FUNCTION, TWO READERS. `writeAllocations` deletes exactly these and
+ * `buildApplyPlan` lists exactly these as removal rows, so the confirm dialog and
+ * the write cannot drift. The whole lump sum goes, not a share of it: a bare
+ * period key has no day breakdown, so splitting it would be a guess shown as data.
+ * ★ Keys absent from the line are omitted — deleting one is a no-op, and listing
+ * it would disclose the removal of nothing. A key present but stored at `0` is
+ * still returned here (so `writeAllocations` deletes it, same as any other),
+ * but `buildApplyPlan` filters it back out of the DISCLOSURE — a "0 → 0
+ * (removed)" row would be noise for the same reason an absent key is.
+ */
+function otherGranularityRemovals(
+  actualHours: Readonly<Record<string, number>>,
+  routed: Routed,
+  allocIndex: number,
+): string[] {
+  const days = routed.perAllocDays.get(allocIndex);
+  const keys = new Set<string>();
+  for (const period of routed.periods) {
+    if (routed.undatedPeriods.has(period)) continue;
+    const own = granularityOfPeriodKey(period);
+    const other = own === "month" ? "week" : own === "week" ? "month" : null;
+    if (!other) continue;
+    for (const day of Object.keys(days?.[period] ?? {})) {
+      const key = periodKeyForDate(day, other);
+      if (Object.prototype.hasOwnProperty.call(actualHours, key)) keys.add(key);
+    }
+  }
+  return [...keys];
+}
+
 function indexes(resources: readonly Resource[], roles: readonly Role[]) {
   return {
     resourcesById: new Map(resources.map((r) => [r.id, r])),
@@ -233,6 +272,16 @@ export function buildApplyPlan(
         // unchanged lines would inflate the count and the Apply button would
         // stay enabled with nothing to do.
         if (current !== next) rows.push({ bucketId: b.id, allocIndex: i, period, current, next });
+      }
+      // §546 — every other-granularity key the write deletes, from the SAME
+      // function `writeAllocations` deletes by, so the dialog discloses it.
+      // Zero-valued keys are skipped here ONLY: writeAllocations still deletes
+      // them unconditionally (deleting a 0 changes nothing to WRITE, but a
+      // "0 → 0 (removed)" row would be pure noise to SHOW).
+      for (const key of otherGranularityRemovals(a.actualHours, routed, i)) {
+        const current = round2(a.actualHours[key]);
+        if (current === 0) continue;
+        rows.push({ bucketId: b.id, allocIndex: i, period: key, current, next: 0, removal: true });
       }
     });
   }
@@ -312,6 +361,12 @@ function writeAllocations<T extends { actualHours: Record<string, number> }>(
     const rec = routed.perAlloc.get(i);
     const days = routed.perAllocDays.get(i);
     let nextActual: Record<string, number> = { ...a.actualHours };
+    // §543/§546: the other-granularity bare keys this Apply removes. They are
+    // exactly the removal rows `buildApplyPlan` showed, because both read
+    // `otherGranularityRemovals`. Deleting them up front equals deleting them
+    // inside the loop below: `withoutPeriod` and the day writes touch only keys
+    // of the routed period's own granularity.
+    for (const key of otherGranularityRemovals(a.actualHours, routed, i)) delete nextActual[key];
     for (const period of routed.periods) {
       // Apply OWNS the period: its hand-typed period key and every day key inside
       // it are replaced, whether or not this line routed anything.
@@ -319,15 +374,7 @@ function writeAllocations<T extends { actualHours: Record<string, number> }>(
       if (routed.undatedPeriods.has(period)) {
         nextActual[period] = rec?.[period] ?? 0;
       } else {
-        // §543: a dated Apply owns every covered DAY, so a bare period key of
-        // the OTHER granularity that contains one of those days is stale hand
-        // input and would be summed on top of the day keys after a switch back.
-        const own = granularityOfPeriodKey(period);
-        const other = own === "month" ? "week" : own === "week" ? "month" : null;
-        for (const [day, h] of Object.entries(days?.[period] ?? {})) {
-          if (other) delete nextActual[periodKeyForDate(day, other)];
-          nextActual[day] = h;
-        }
+        for (const [day, h] of Object.entries(days?.[period] ?? {})) nextActual[day] = h;
       }
     }
     return { ...a, actualHours: nextActual };

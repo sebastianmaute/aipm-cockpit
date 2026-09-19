@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 1.12.1 "Child" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 1.12.2 "Child" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
 
 # Data
 
@@ -144,8 +144,9 @@ detach-only.
 
 Five `SecretId`s — `anthropicApiKey` · `tursoAuthToken` · `jiraApiToken` · `timelogApiToken` ·
 `sttApiKey` — AES-256-GCM under a non-extractable device key (optional PBKDF2 passphrase at 600k
-iters). ★ Adding one means six edits in lockstep, two of which hardcode the id list
-(`isSealedSecret` and the `readStore` loop) — a miss silently drops the ciphertext on read.
+iters). ★ Adding one starts at `SECRET_IDS`; since §567 `isSealedSecret`, the `readStore` loop and
+the mount-load unreadable-secret probe (`use-settings.ts`) all derive from it rather than restating
+the id list (the lockstep itself: AGENTS.md "Secrets at rest").
 ★ `writeSettings` is the ONLY writer of the settings key and blanks secret fields; a raw `setItem`
 dumps decrypted keys to disk.
 

@@ -17,8 +17,10 @@
 //
 // The user-visible shape: a stakeholder stored as "Sponsor" whose patch carries
 // an unrecognised category is silently demoted to "Other". The preview refuses
-// the value, so the card shows nothing about category at all, and the two
-// REPLAYING consumers resend the original input regardless.
+// the value, so the card shows nothing about category at all. The two
+// REPLAYING consumers used to resend the original input regardless; since
+// §534 they strip a field the preview rejects, but the unstaged chat tool loop
+// (`chat-panel.tsx`) still runs the model's call as sent, so the guard holds.
 import { describe, it, expect } from "vitest";
 import { dropUnacceptedStakeholderFields, sanitizeStakeholder } from "./sanitize";
 

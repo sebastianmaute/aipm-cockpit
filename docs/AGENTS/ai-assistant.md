@@ -292,7 +292,10 @@
   refusals separately from hard failures: when nothing committed and every failure was a refusal, the insight
   is left where it was and the recommendation stays `proposed` (toast
   `insightRecommendationStale`), so the user can regenerate against the moved data; a mixed run still advances
-  but reports `insightRecommendationStalePartial`. The unconditional advance-on-failure rule exists because a
+  but reports `insightRecommendationStalePartial`. ★ Since §534 a call whose every field the review modal
+  rejected is not sent at all (`stripRejectedFields`) and joins that no-write case: with nothing committed
+  and no hard failure the insight is left where it was, toasting `insightRecommendationAllRejected` unless a
+  stale refusal also occurred, in which case the stale message wins. The unconditional advance-on-failure rule exists because a
   failed call MAY have committed and a retry would duplicate `create_*` entities — a `ConcurrencyTokenError`
   is thrown before the dispatcher is reached, so that reasoning does not apply to it, and folding it in makes
   a correctly-refused recommendation silently unretryable.
@@ -902,10 +905,22 @@
   paths where there is no prior value to preserve.
   ★★ **WHICH CONSUMER LOSES DATA DEPENDS ON THE DIRECTION OF THE DIVERGENCE.** For a preview that
   shows a value apply will not store, the REBUILDING consumer (`use-inline-entity-edit.ts`, which
-  reconstructs its patch from `plan.updates`) is the one that misfires; for a preview that REJECTS
-  what apply stores, it is the two REPLAYING consumers (`chat-proposal-apply.ts`,
-  `use-insight-recommendations.ts`), which resend the original `ProposedCall.input` and never read
-  the plan. Neither is "the" data-loss path, and assuming one is how §384 was mis-scoped.
+  reconstructs its patch from `plan.updates`) is the one that misfires. The two REPLAYING consumers
+  (`chat-proposal-apply.ts`, `use-insight-recommendations.ts`) resend the original
+  `ProposedCall.input` minus every field the plan put in `plan.rejected` (`stripRejectedFields`,
+  §534), so a preview that rejects a value the writer would ACCEPT now drops a legal edit, and a call
+  whose every field was rejected is not sent at all. Neither is "the" data-loss path, and assuming one
+  is how §384 was mis-scoped.
+  ★★★ **THE PLAN JUDGES THE CALL THAT IS SENT, NOT THE ONE THE MODEL WROTE.** A sibling field is
+  normalised against the MERGED row, which carries every input value — including one the same pass
+  rejects (`resource.emails` dedupes against the merged `email`). So `describeEntityCalls` judges each
+  block, and if any field was rejected it RE-JUDGES the block with every rejected field removed, until a
+  pass adds no new rejection (`describeBlockUntilStable`). The final pass's rows are the plan's rows;
+  `rejected` is the union over passes. Every consumer inherits it, so the card, the inline patch and
+  `stripRejectedFields` all read the plan of the stripped call. ★ Each block is judged on its OWN, so
+  the absence date-swap step (`crossFieldRewrite`) no longer patches a row pushed by an EARLIER block —
+  this matters only for multi-block inline edits of one absence, where the card may now show an earlier
+  block's row that a later row for the same field overrides in the last-wins patch.
   ★★ `tool-input-coverage.test.ts` fails when a DECLARED tool input is neither previewable nor
   excluded with a written reason — the property is enforced rather than maintained. ★★★ Read its
   reach exactly, because it is WIDER than it was and still bounded (§401, CLOSED 2026-09-06). It now

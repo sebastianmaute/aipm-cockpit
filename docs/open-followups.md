@@ -756,7 +756,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§531](#531-nothing-checks-that-the-register-and-gitlab-issues-stay-one-to-one--closed-2026-09-13) | Nothing checks that the register and GitLab issues stay one-to-one — CLOSED 2026-09-13 | housekeeping audit 2026-09-13 (register ⇄ GitLab sync), GitLab #321 | S–M — a blocking register-only check, plus a warn-only GitLab comparison run on main | **CLOSED** 2026-09-13 |
 | [§532](#532-two-projects-without-a-code-look-like-the-same-project-to-the-timelog-picker--closed-2026-09-14) | Two projects without a code look like the same project to the TimeLog picker — CLOSED 2026-09-14 | found 2026-09-13 while correcting the O-1 spec's TimeLog claim against `origin/main` `c3598637` | S — pass a per-project id as the switch signal, and pin a switch between two code-less projects | **CLOSED** 2026-09-14 |
 | [§533](#533-csv-markdown-and-turso-split-a-stored-email-address-containing-a-comma-or-semicolon-on-save--closed-2026-09-14-as-an-accepted-limit) | CSV, Markdown and Turso split a stored email address containing a comma or semicolon on save — CLOSED 2026-09-14 as an accepted limit | found 2026-09-14 in the cold review of the data-loss batch, measured by a codec round-trip probe; GitLab #323 | S–M — a quote-aware join for the `emails` cell, or a one-time migration | **CLOSED** 2026-09-14 as an accepted limit |
-| [§534](#534-the-chat-review-card-can-reject-one-field-while-apply-replays-the-whole-call-so-the-fields-it-shows-as-landing-are-lost--open) | The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — OPEN | found 2026-09-14 in the cold re-review of the §422 fix (data-loss batch); pre-existing, CLOSED §384 described the class; GitLab #324 | S–M — strip plan-rejected fields from the replayed call, or reject the whole row on the card when the dispatcher would throw | open |
+| [§534](#534-the-chat-review-card-can-reject-one-field-while-apply-replays-the-whole-call-so-the-fields-it-shows-as-landing-are-lost--closed-2026-09-19) | The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — CLOSED 2026-09-19 | found 2026-09-14 in the cold re-review of the §422 fix (data-loss batch); pre-existing, CLOSED §384 described the class; GitLab #324 | S–M — strip plan-rejected fields from the replayed call, or reject the whole row on the card when the dispatcher would throw | **CLOSED** 2026-09-19 |
 | [§535](#535-a-cold-item-deep-link-to-a-non-default-view-ends-on-the-dashboard-under-strictmode-and-loses-its-item-id-outside-it--open) | A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — OPEN | found 2026-09-14 while fixing §478 on `fix/ui-a11y-batch` | S — let the cold apply's view commit before the view→hash write, and pin `#raid/123` with and without StrictMode | open |
 | [§536](#536-a-page-loaded-in-the-classic-layout-still-applies-the-cold-hash-rule-on-its-first-switch-to-modern--open) | A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — OPEN | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478) | S–M — give the hook a signal that tells a classic-loaded page from a settings load still in flight | open |
 | [§537](#537-project-contact-persons-have-no-ids--open) | Project contact persons have no ids — OPEN | filed 2026-09-14 while specifying the email-guard batch (spec Part 7); user decision: stay id-less for that batch, follow up later; GitLab #327 | M — a storage-format change to the `contactPersons` cell across CSV/Markdown/Turso-tenant, decoder back-compat, and 13 non-test call sites | open |
@@ -768,7 +768,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§543](#543-a-dated-timelog-apply-leaves-a-period-key-of-the-other-granularity-in-place-so-switching-back-counts-those-hours-twice--closed-2026-09-15) | A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — CLOSED 2026-09-15 | found 2026-09-15 by the final whole-branch review of `feat/budget-forecast-union` | S — let a dated Apply also remove other-granularity period keys that overlap its covered days | **CLOSED** 2026-09-15 |
 | [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--open) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — OPEN | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union` | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | open |
 | [§545](#545-the-ai-dashboard-snapshot-and-every-export-carry-none-of-the-budget-forecast-figures--open) | The AI dashboard snapshot and every export carry none of the budget forecast figures — OPEN | deferred 2026-09-15 by the budget forecast union spec §9 | M — add the forecast figures to the snapshot and exports once MR 2 ships them | open |
-| [§546](#546-a-dated-timelog-applys-other-granularity-delete-removes-hand-typed-hours-from-days-it-never-routed-and-the-confirm-dialog-never-discloses-it--open) | A dated TimeLog Apply's other-granularity delete removes hand-typed hours from days it never routed, and the confirm dialog never discloses it — OPEN | found 2026-09-15 while filing the §543 closure text on `feat/budget-forecast-figures`; user approved filing | S — list the removed other-granularity key in the confirm dialog; re-keying the leftover hours is not sound, since the lump sum has no day-level breakdown | open |
+| [§546](#546-a-dated-timelog-applys-other-granularity-delete-removes-hand-typed-hours-from-days-it-never-routed-and-the-confirm-dialog-never-discloses-it--closed-2026-09-19) | A dated TimeLog Apply's other-granularity delete removes hand-typed hours from days it never routed, and the confirm dialog never discloses it — CLOSED 2026-09-19 | found 2026-09-15 while filing the §543 closure text on `feat/budget-forecast-figures`; user approved filing | S — list the removed other-granularity key in the confirm dialog; re-keying the leftover hours is not sound, since the lump sum has no day-level breakdown | **CLOSED** 2026-09-19 |
 | [§547](#547-the-desktop-sign-in-popups-state-machine-has-no-unit-harness--open) | The desktop sign-in popup's state machine has no unit harness — OPEN | final review of `chore/electron-44` (M-7 + item 2 recommendation), state bugs M-C/m1/m2 found only by review; GitLab #338 | S–M — a pure `auth-flow-tracker.ts` reducer plus tests replaying the M-C/m1/m2 sequences | open |
 | [§548](#548-an-edit-made-during-a-projects-first-backend-load-is-overwritten-when-that-load-lands--open) | An edit made during a project's first backend load is overwritten when that load lands — OPEN | found 2026-09-15 debugging a `task-manager.template-notice.test.tsx` race on `chore/electron-44`; GitLab #336 | S–M — withhold edits until the first load lands, or make the load-time guard compare per slice | open |
 | [§549](#549-buckets-with-a-hand-entered--complete-have-no-earned-value-history-so-the-cumulative-chart-cannot-draw-one-for-them--closed-2026-09-16) | Buckets with a hand-entered % complete have no earned-value history, so the cumulative chart cannot draw one for them — CLOSED 2026-09-16 | deferred 2026-09-15 by the forecast chart and hours addendum (MR 3), user approved filing; GitLab #339 | M — record % complete per period for hand-entered buckets | closed |
@@ -789,7 +789,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§564](#564-diagnostics-redactts-has-no-catch-all-for-an-opaque-token-in-free-text--open) | `diagnostics-redact.ts` has no catch-all for an opaque token in free text — OPEN | audit (2026-09) | S | open |
 | [§565](#565-two-settings-sections-clear-a-token-by-resealing-an-empty-string-instead-of-removing-it--open) | Two settings sections clear a token by resealing an empty string instead of removing it — OPEN | audit (2026-09) | S | open |
 | [§566](#566-the-jira-proxy-logs-the-raw-fetch-rejection-object-server-side--open) | The Jira proxy logs the raw fetch-rejection object server-side — OPEN | audit (2026-09) | S | open |
-| [§567](#567-issealedsecret-and-readstore-still-hardcode-their-own-secretid-lists-and-a-missed-id-is-silent-data-loss--open) | `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — OPEN | slice (2026-09) | M | open |
+| [§567](#567-issealedsecret-and-readstore-still-hardcode-their-own-secretid-lists-and-a-missed-id-is-silent-data-loss--closed-2026-09-19) | `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — CLOSED 2026-09-19 | slice (2026-09) | M | **CLOSED** 2026-09-19 |
 | [§568](#568-the-registers-index-rebuild-recipe-is-not-a-no-op-on-the-committed-table-and-discards-hand-written-state-prose--open) | The register's index-rebuild recipe is not a no-op on the committed table and discards hand-written State prose — OPEN | slice (2026-09) | S–M | open |
 | [§569](#569-screen-readers-may-never-deliver-the-chart-readouts-arrow-keys--open) | Screen readers may never deliver the chart readout's arrow keys — OPEN | found 2026-09-18 reviewing the merged chart hover readout; never run under a real screen reader; GitLab #354 | S — a real NVDA and JAWS pass, then pick `role="application"`, instructions, or the live-region fallback | open |
 | [§570](#570-the-spoken-readout-capitalises-mid-sentence--open) | The spoken readout capitalises mid-sentence — OPEN | found 2026-09-18 reading `rowText` against the tip strings in `i18n.ts`/`i18n.de.ts`; GitLab #355 | XS — lower-case the explanation or join with a full stop; German nouns make a blanket lower-case unsafe | open |
@@ -37842,22 +37842,11 @@ and the first save to CSV, Markdown or Turso tears it with no edit involved.
   must still read every cell written before the change.
 - A one-time migration that finds stored addresses holding `,` or `;` and asks the user to correct them.
 
-## 534. The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — OPEN
+## 534. The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — CLOSED 2026-09-19
 
-**Status:** open 2026-09-14 — found while closing §422, in the cold re-review of the fix branch. Pre-existing,
-not specific to `emails`. `describeEntityCalls` (`src/app/inline-ai-edit/plan.ts`) judges a call PER FIELD: an
-invalid field goes into `plan.rejected` while the call's other fields still show as landing in `plan.updates`.
-Chat Apply does not consult that verdict — `applyProposal` (`src/app/chat-proposal-apply.ts`) runs
-`runTool(dispatcher, guarded.name, guarded.input)` on the model's ORIGINAL call, where `guarded` is
-`remapStagedCall(row.stamped, real)`, with only an `expectedToken` added for a row pending on a create — no
-field the card rejected is removed. When the dispatcher throws for the whole call, every sibling field the
-card promised is lost along with the rejected one. Verified with
-`grep -n "runTool(dispatcher" src/app/chat-proposal-apply.ts src/app/use-insight-recommendations.ts` (both
-replay the raw call unchanged) and
-`grep -n "assigneeEmail is invalid" src/app/chat-task-patch.ts src/app/use-chat-dispatcher.ts` (the task-side
-throw).
+**Status:** CLOSED 2026-09-19 by `fix/data-loss-batch`: `describeEntityCalls` now records the refused field on every field-level rejection and re-judges a call without its rejected fields until the verdict is stable (so a sibling is never previewed against a value that will not be sent), and `stripRejectedFields` (`inline-ai-edit/plan.ts`) removes those fields from a call before `applyProposal` and `confirmInsightRecommendation` dispatch it; a call left with nothing to write is not sent and reports as rejected (`chatProposalFailedRejected` on the card). Pinned by the §534 blocks in `chat-proposal-apply.test.tsx`, `use-insight-recommendations.test.tsx` and `plan.test.ts`, the merged-plan parity test in `recommend-plan.test.ts`, and row (iv) of the `emails-write-parity.test.ts` matrix. A row still pending an in-plan create is sent unstripped: its plan is empty, so its card shows no field diff to begin with, and the card and the write still agree; the dispatcher's own refusal of a bad field then surfaces as that row's own failure, not a silent drop.
 
-**Work item:** #324
+_Original finding, as filed 2026-09-14. Preserved as the dated record; see Status._
 
 Three instances found while closing §422:
 - **resource `emails`.** The card rejects `emails` via §422's `findTornEmail` (`src/app/sanitize-core.ts`); the
@@ -38354,15 +38343,11 @@ surfaces. The snapshot and the exports carry none of those either; they belong i
 
 Related: §499, §501.
 
-## 546. A dated TimeLog Apply's other-granularity delete removes hand-typed hours from days it never routed, and the confirm dialog never discloses it — OPEN
+## 546. A dated TimeLog Apply's other-granularity delete removes hand-typed hours from days it never routed, and the confirm dialog never discloses it — CLOSED 2026-09-19
 
-**Status:** OPEN 2026-09-15 — reproduced by running `npx vitest run src/app/timelog-apply.test.ts -t "removes
-a hand-typed month key that overlaps a weekly dated apply"` (the shipped §543 regression test): a hand-typed
-`"2026-06": 10` month total is deleted WHOLE by a weekly Apply that routes only one day (`2026-06-10`, 4h),
-leaving no trace of the other 6h; confirmed by reading `describeApplyRows` and `timelog-apply-confirm.tsx`,
-which list only the routed-granularity period rows and never the deleted other-granularity key.
+**Status:** CLOSED 2026-09-19 by `fix/data-loss-batch`: option (a) — `otherGranularityRemovals` (`timelog-apply.ts`) is now the single source of the other-granularity keys a dated Apply deletes; `writeAllocations` deletes exactly those and `buildApplyPlan` lists exactly those as removal rows, which `TimelogApplyConfirm` renders labelled `timelogApplyRemoval`. Option (b), re-keying the total into days, stays ruled out. Pinned by the §546 tests in `timelog-apply.test.ts` (the removal row, and shown-removals ≡ deleted keys over three shapes) and `timelog-apply-confirm.test.tsx`.
 
-**Work item:** #337
+_Original finding, as filed 2026-09-15. Preserved as the dated record; see Status._
 
 Since §543's fix, `writeAllocations` (`timelog-apply.ts`) runs `if (other) delete
 nextActual[periodKeyForDate(day, other)]` for EVERY routed day, which deletes the WHOLE other-granularity
@@ -39090,11 +39075,11 @@ It is filed because that is a property of the CURRENT undici error shape, not a 
 server log is a place where a future shape change would be noticed late or never. `err.message`
 gives the same diagnostic value with no dependence on what the rejection happens to hold.
 
-## 567. `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — OPEN
+## 567. `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — CLOSED 2026-09-19
 
-**Status:** OPEN 2026-09-18 — established by `grep -nE "SECRET_IDS|isSealedSecret" src/app/secrets.ts` and `grep -n "readStore" -A 14 src/app/secrets-store.ts`; **never machine-verified**, since no test drops an id to watch the read fail. Found while fixing §560, NOT in the 2026-09 audit, and the reason it was not found is the point: it is a data-loss path, not an exposure path, so a security sweep looking for leaks walked straight past it. **Deliberately not fixed in this slice.**
+**Status:** CLOSED 2026-09-19 by `fix/data-loss-batch`: `isSealedSecret` (`secrets.ts`) checks the id by membership in `SECRET_IDS` and `readStore` (`secrets-store.ts`) iterates `SECRET_IDS`, so neither carries its own id list any more; pinned by a seal → store → read round-trip per id generated from `SECRET_IDS` in `secrets-store.test.ts`, and by `isSealedSecret` accepting every member and rejecting an unknown id in `secrets.test.ts`. Review found a THIRD hardcoded copy, `use-settings.ts`'s mount-load unreadable-secret probe (same defect class: a missed id there means that id's corrupt/unreadable secret is never reported, not just never redacted or read) — folded into this closure the same day, also deriving from `SECRET_IDS` and pinned by a spy-based test in `use-settings.secrets.test.ts` asserting every `SECRET_IDS` member gets probed.
 
-**Work item:** #352
+_Original finding, as filed 2026-09-18. Preserved as the dated record; see Status._
 
 Two hardcoded enumerations of the five `SecretId`s survive:
 

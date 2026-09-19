@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { describe, it, expect } from "vitest";
-import { sealDevice, openDevice, sealPassphrase, openPassphrase, SecretUnlockError } from "./secrets";
+import { sealDevice, openDevice, sealPassphrase, openPassphrase, SecretUnlockError, isSealedSecret, SECRET_IDS } from "./secrets";
 
 describe("secrets", () => {
   it("round-trips a secret through the device key", async () => {
@@ -34,5 +34,20 @@ describe("secrets", () => {
     for (const b of bytes) s += String.fromCharCode(b);
     const flipped = { ...sealed, ciphertext: btoa(s) };
     await expect(openDevice(flipped as typeof sealed)).rejects.toBeInstanceOf(SecretUnlockError);
+  });
+
+  // §567 — the id check is DERIVED from `SECRET_IDS`: every member is accepted
+  // and nothing else is. Generated from the list, so a sixth id is covered here
+  // without being named.
+  it.each(SECRET_IDS)("isSealedSecret accepts a well-formed sealed record for %s", async (id) => {
+    expect(isSealedSecret(await sealDevice(id, "x"))).toBe(true);
+  });
+
+  it("isSealedSecret rejects an id outside SECRET_IDS, and a non-string id", async () => {
+    const sealed = await sealDevice("anthropicApiKey", "x");
+    // Control: the unmodified record is accepted, so each refusal below is the id's doing.
+    expect(isSealedSecret(sealed)).toBe(true);
+    expect(isSealedSecret({ ...sealed, id: "notASecret" })).toBe(false);
+    expect(isSealedSecret({ ...sealed, id: 7 })).toBe(false);
   });
 });

@@ -206,6 +206,25 @@ describe("BudgetUnappliedNotice", () => {
   //     and cost their hours at an internal rate. A fixture with no externals
   //     cannot express this, so seed one, and give the run a POSITIVE observable
   //     (one bucket, not two) so the assertion cannot pass by rendering nothing.
+  // Final review Minor 3: a removal-only plan (every plan row is `removal:
+  // true`, from §546's other-granularity delete) still counts as "affected" —
+  // `affected` is derived from `plan.rows` without distinguishing the two row
+  // kinds. This pins that as CURRENT behaviour rather than leaving it
+  // unobserved: a stale "2026-06" month total (10h) overlaps the one day this
+  // week-granularity fetch books, and that day's own week total (4h) already
+  // matches what is stored, so the ONLY plan row is the month key's removal.
+  test("shows the notice for a removal-only plan (§546 final review)", () => {
+    const withStaleMonth: BudgetBucket = {
+      ...bucket(1, "PAM"),
+      allocations: [{ roleId: 3, resourceIds: [], budgetHours: {}, actualHours: { "2026-W24": 4, "2026-06": 10 } }],
+    };
+    seed(aggregate({
+      byBucketDay: { 1: { "2026-06-10": { hours: 4, billableHours: 4, byResource: { 1: { hours: 4, billableHours: 4 } } } } },
+    }));
+    render(<BudgetUnappliedNotice {...props} buckets={[withStaleMonth]} granularity="week" />);
+    expect(screen.getByText(/1 budget bucket/i)).toBeInTheDocument();
+  });
+
   test("excludes external resources from the plan", () => {
     seed(aggregate({
       byBucket: {

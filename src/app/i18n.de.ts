@@ -1725,6 +1725,7 @@ export const de: Record<TranslationKey, string> = {
   timelogApply: "Auf Budget anwenden",
   timelogApplyConfirm: "{0} Bucket-Änderungen auf die Ist-Stunden des Budgets anwenden?",
   timelogApplyConfirmOne: "1 Bucket-Änderung auf die Ist-Stunden des Budgets anwenden?",
+  timelogApplyRemoval: "entfernt: eine von Hand eingetragene Summe für den anderen Zeitraumtyp",
   timelogApplyPartial:
     "Einige Projekte konnten nicht geladen werden, daher sind diese Buchungen unvollständig. Ein Übernehmen würde die Stunden der fehlenden Projekte auf null setzen — deshalb ist das Übernehmen deaktiviert. Laden Sie die Buchungen erneut.",
   timelogApplyNoAllocation:
@@ -4165,6 +4166,7 @@ export const de: Record<TranslationKey, string> = {
   insightRecommendationError: "Es konnte gerade keine Empfehlung generiert werden.",
   insightRecommendationApplied: "Empfehlung angewendet.",
   insightRecommendationApplyFailed: "Einige Änderungen dieser Empfehlung konnten nicht angewendet werden.",
+  insightRecommendationAllRejected: "Nicht übernommen — jede Änderung in dieser Empfehlung wurde abgelehnt.",
   insightRecommendationStale: "Diese Empfehlung wurde nicht angewendet — die Projektdaten haben sich seit der Erstellung geändert. Erstellen Sie eine neue Empfehlung.",
   insightRecommendationStalePartial: "Einige Änderungen wurden nicht angewendet — die Projektdaten haben sich seit der Erstellung dieser Empfehlung geändert. Erstellen Sie für den Rest eine neue Empfehlung.",
   insightRecommendationSkippedFields: "Übersprungen: {0}",
@@ -4253,6 +4255,7 @@ export const de: Record<TranslationKey, string> = {
   chatProposalFailedDependency: "Nicht übernommen – ein Eintrag, den diese Änderung benötigt, wurde nicht erstellt",
   chatProposalFailedUnreadable: "Nicht übernommen – das Ziel konnte nicht erneut gelesen werden",
   chatProposalFailedError: "Nicht übernommen",
+  chatProposalFailedRejected: "Nicht übernommen – jede Änderung darin wurde abgelehnt",
   chatProposalExpired: "Dieser Vorschlag ist nicht mehr aktiv.",
   chatProposalDiscarded: "Vorschlag verworfen.",
 };

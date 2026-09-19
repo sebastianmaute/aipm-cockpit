@@ -14,6 +14,7 @@ import { sanitizeVersionRetention } from "./version-history";
 import { isPlainObject } from "./sanitize";
 import { isSafeMode } from "./safe-mode";
 import { migratePlaintextSecrets, readDeviceSecret, probeDeviceSecretReadable } from "./secrets-store";
+import { SECRET_IDS } from "./secrets";
 import { dropLegacyActivityLog } from "./activity-log";
 import { sanitizeJiraExtraProjects } from "./jira-projects";
 import { logDiag } from "./diagnostics";
@@ -433,8 +434,8 @@ export function useSettings(): {
             // a window event (task-manager listens).
             if (!cancelled) {
               try {
-                const ids = ["anthropicApiKey", "tursoAuthToken", "jiraApiToken", "timelogApiToken", "sttApiKey"] as const;
-                const states = await Promise.all(ids.map((id) => probeDeviceSecretReadable(id)));
+                // §567 — every sealed id, from the one runtime list (see secrets.ts).
+                const states = await Promise.all(SECRET_IDS.map((id) => probeDeviceSecretReadable(id)));
                 if (states.some((s) => s === "unreadable")) {
                   window.dispatchEvent(new CustomEvent("aipm-cockpit-secret-unreadable"));
                 }

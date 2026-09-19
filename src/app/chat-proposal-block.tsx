@@ -266,9 +266,11 @@ function ProposalRow({
               ? "chatProposalFailedDependency"
               : row.failedKind === "unreadable"
                 ? "chatProposalFailedUnreadable"
-                : row.failedKind === "error"
-                  ? "chatProposalFailedError"
-                  : "chatProposalFailed",
+                : row.failedKind === "rejected"
+                  ? "chatProposalFailedRejected"
+                  : row.failedKind === "error"
+                    ? "chatProposalFailedError"
+                    : "chatProposalFailed",
           )}
         </p>
       )}

@@ -2,12 +2,14 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../test/chat-dispatcher-fixture";
 import {
+  ALL_FIELDS_REJECTED_ERROR,
   applyProposal,
   failureKindOf,
   NEW_ROW_TOKEN_UNAVAILABLE_ERROR,
   PENDING_MINT_ERROR,
   TOKEN_REQUIRED_TOOLS,
   TOKEN_ROW_SOURCE,
+  type FailedAppliedRow,
 } from "./chat-proposal-apply";
 import { buildPlanRows, type ProposedCall } from "./chat-proposal";
 import { entityToken, TOKEN_EXCLUDED, type TokenEntity } from "./ai-entity-token";
@@ -15,7 +17,7 @@ import { runTool, type ToolDispatcher } from "./chat-tools";
 import { TOOL_DEFS } from "./chat-tool-defs";
 import { describeProposal } from "./chat-proposal-describe";
 import { type TestSeed } from "./test-providers";
-import { DEFAULT_TASK_STATUS, type Milestone, type Task } from "./types";
+import { DEFAULT_TASK_STATUS, type Milestone, type Resource, type Task } from "./types";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { useUndoBatch } from "./use-undo-batch";
 import { useUndoStack } from "./undo/use-undo-stack";
@@ -42,6 +44,10 @@ function seedTask(id: number, taskName: string, assigneeEmail = ""): Task {
 
 function seedMilestone(id: number, name: string): Milestone {
   return { id, name, date: "2026-06-30", linkedTaskIds: [] };
+}
+
+function seedResource(id: number): Resource {
+  return { id, firstName: "Ada", lastName: "Lovelace", roleId: null, utilizationMode: "percent", utilization: {} };
 }
 
 /** THREE rows per slice, ids 1-2-3, every write targeting the MIDDLE one — a
@@ -962,5 +968,96 @@ describe("failureKindOf", () => {
     expect(
       failureKindOf({ index: 0, ok: false, stale: false, error: "assigneeEmail is invalid" }),
     ).toBe("error");
+  });
+
+  test("calls a row whose every field the card rejected 'rejected', not a plain error", () => {
+    expect(failureKindOf({ index: 0, ok: false, error: ALL_FIELDS_REJECTED_ERROR })).toBe("rejected");
+  });
+});
+
+// §534 — Apply used to replay the model's WHOLE call, so a field the card
+// rejected made the dispatcher throw and took every sibling the card showed as
+// landing down with it. Real undo stack, real dispatcher, real providers.
+describe("§534 — Apply sends only what the card showed", () => {
+  test("a task update whose assigneeEmail the card rejected still lands its taskName", async () => {
+    const { result } = renderApply();
+    const calls: ProposedCall[] = [
+      { name: "update_task", input: { id: 2, taskName: "After", assigneeEmail: "not-an-email" } },
+    ];
+    // Parity: the card's verdict, computed from the same plan the apply strips.
+    const rows = describeProposal(calls, seedWorkspace());
+    expect(rows[0].plan.rejected.map((r) => r.field)).toEqual(["assigneeEmail"]);
+    expect(rows[0].plan.updates.map((u) => u.field)).toEqual(["taskName"]);
+
+    const outcome = await applyAll(result, calls);
+    expect(outcome.rows).toEqual([{ index: 0, ok: true }]);
+    expect(result.current.dispatcher.getTask(2)?.taskName).toBe("After");
+    expect(result.current.dispatcher.getTask(2)?.assigneeEmail).toBe("");
+  });
+
+  test("a resource update whose emails the card rejected still lands its title (the §422 instance)", async () => {
+    const seed: TestSeed = { ...SEED, resources: [seedResource(2)] };
+    const { result } = renderApply(seed);
+    // ★ The token is derived from the row AS STORED, so read it back rather than
+    //   trusting the literal — the seeder may normalise it.
+    const live = result.current.dispatcher.getResourceRow(2) as Resource | null;
+    expect(live).not.toBeNull();
+    const ws: Workspace = { ...seedWorkspace(seed), resources: [live as Resource] };
+    // ★ `describeProposal` does not stamp `update_resource` (`stampCall`'s
+    //   `UPDATE_TARGET` has no resource row, by design), so the call carries the
+    //   token a model would have read — without it the row refuses as stale.
+    const calls: ProposedCall[] = [
+      {
+        name: "update_resource",
+        input: { id: 2, title: "Lead", emails: ["new;x@y.com"], expectedToken: entityToken("resource", live as Resource) },
+      },
+    ];
+    const rows = describeProposal(calls, ws);
+    expect(rows[0].plan.rejected.map((r) => r.field)).toEqual(["emails"]);
+    expect(rows[0].plan.updates.map((u) => u.field)).toEqual(["title"]);
+
+    const outcome = await applyAll(result, calls, ws);
+    expect(outcome.rows).toEqual([{ index: 0, ok: true }]);
+    const after = result.current.dispatcher.getResourceRow(2) as Resource;
+    expect(after.title).toBe("Lead");
+    expect(after.emails).toBeUndefined();
+  });
+
+  // ★★★ PARITY UNDER A REJECTED SIBLING (§534 fix round 2). `emails` is deduped
+  //  against the primary `email`; judged beside the REJECTED `email` it used to
+  //  preview `"" → x@y.com` while the stripped write, deduping against the
+  //  stored `x@y.com`, stored nothing and still reported ok. The plan now
+  //  re-judges without the rejected field, so the card shows no `emails`
+  //  change, nothing is left to write, and the row is refused as rejected.
+  test("a rejected primary email does not leave a sibling emails diff the write cannot make", async () => {
+    const seed: TestSeed = { ...SEED, resources: [{ ...seedResource(2), email: "x@y.com" }] };
+    const { result } = renderApply(seed);
+    const live = result.current.dispatcher.getResourceRow(2) as Resource;
+    const ws: Workspace = { ...seedWorkspace(seed), resources: [live] };
+    const calls: ProposedCall[] = [
+      {
+        name: "update_resource",
+        input: { id: 2, email: "not-an-email", emails: ["x@y.com"], expectedToken: entityToken("resource", live) },
+      },
+    ];
+    const rows = describeProposal(calls, ws);
+    expect(rows[0].plan.rejected.map((r) => r.field)).toEqual(["email"]);
+    expect(rows[0].plan.updates).toEqual([]);
+    expect(rows[0].plan.links).toEqual([]);
+
+    const outcome = await applyAll(result, calls, ws);
+    expect(outcome.rows).toEqual([{ index: 0, ok: false, error: ALL_FIELDS_REJECTED_ERROR }]);
+    const after = result.current.dispatcher.getResourceRow(2) as Resource;
+    expect(after.email).toBe("x@y.com");
+    expect(after.emails).toBeUndefined();
+  });
+
+  test("a call whose every written field the card rejected is not sent, and reports as rejected", async () => {
+    const { result } = renderApply();
+    const calls: ProposedCall[] = [{ name: "update_task", input: { id: 2, assigneeEmail: "not-an-email" } }];
+    const outcome = await applyAll(result, calls);
+    expect(outcome.rows).toEqual([{ index: 0, ok: false, error: ALL_FIELDS_REJECTED_ERROR }]);
+    expect(failureKindOf(outcome.rows[0] as FailedAppliedRow)).toBe("rejected");
+    expect(result.current.dispatcher.getTask(2)?.assigneeEmail).toBe("");
   });
 });

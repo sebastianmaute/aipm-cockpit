@@ -1,8 +1,8 @@
 import "fake-indexeddb/auto";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import * as secrets from "./secrets";
-import { sealDevice, sealPassphrase } from "./secrets";
-import { saveSealed, loadSealed, removeSealed, readDeviceSecret, isPassphraseLocked, migratePlaintextSecrets, probeDeviceSecretReadable } from "./secrets-store";
+import { sealDevice, sealPassphrase, SECRET_IDS } from "./secrets";
+import { saveSealed, loadSealed, removeSealed, readDeviceSecret, isPassphraseLocked, migratePlaintextSecrets, probeDeviceSecretReadable, SECRETS_KEY } from "./secrets-store";
 import { logDiag } from "./diagnostics";
 
 vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
@@ -94,5 +94,22 @@ describe("secrets-store", () => {
   it("probeDeviceSecretReadable reports a passphrase-wrapped secret as empty (device read n/a)", async () => {
     saveSealed(await sealPassphrase("tursoAuthToken", "tok-1", "pw"));
     expect(await probeDeviceSecretReadable("tursoAuthToken")).toBe("empty");
+  });
+
+  // §567 — ONE seal → store → read round-trip per id, generated from
+  // `SECRET_IDS`, so an id added to the list is covered without being named.
+  // A missed id in either derivation fails its own row here.
+  it.each(SECRET_IDS)("seals, stores and reads back %s", async (id) => {
+    saveSealed(await sealDevice(id, `value-for-${id}`));
+    expect(loadSealed(id)?.id).toBe(id);
+    expect(await readDeviceSecret(id)).toBe(`value-for-${id}`);
+  });
+
+  it("reads back every SECRET_IDS entry when all are stored together", async () => {
+    for (const id of SECRET_IDS) saveSealed(await sealDevice(id, id));
+    // Control: all of them really are on disk, so a null below is a READ drop.
+    const onDisk = JSON.parse(localStorage.getItem(SECRETS_KEY) ?? "{}") as Record<string, unknown>;
+    expect(Object.keys(onDisk).sort()).toEqual([...SECRET_IDS].sort());
+    for (const id of SECRET_IDS) expect(loadSealed(id), id).not.toBeNull();
   });
 });

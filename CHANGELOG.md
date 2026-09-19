@@ -8,6 +8,33 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.12.2] - 2026-09-19 "Child"
+
+A data-loss patch. Three places could lose data without saying so: the assistant's review card, a
+dated TimeLog Apply, and the list of sealed secrets.
+
+### Fixed
+
+- **Applying an assistant proposal now writes exactly the fields its review card showed (`§534`).**
+  - **What happened.** When the card refused one field of a change, Apply still sent the whole
+    change. The tool then refused all of it, so the fields the card showed as landing were lost too.
+  - **The fix.** Apply now removes the refused fields and sends the rest. The card judges each change
+    again without the refused fields until nothing new is refused, so what it shows is what is
+    written.
+  - **What you may notice.** A field the card refuses is now left out of the write rather than
+    failing the whole change. Two absence updates in one proposal are judged one at a time, so they
+    no longer collapse to zero length. When every field of a change is refused, the row says so
+    instead of reporting it applied. An insight recommendation whose changes are all refused now
+    says nothing was applied.
+- **The TimeLog Apply dialog now lists the hand-typed hours a dated Apply removes (`§546`).** A dated
+  Apply deletes the other granularity's period total that overlaps the days it covers. That total can
+  hold hours typed by hand for days the Apply never routed. The confirm dialog now shows each such
+  removal with its hours. A total of zero hours is still removed, without a row.
+- **Every sealed secret is read back from one list (`§567`).** The sealed-secret check, the loop
+  that reads stored secrets and the check for a secret that can no longer be decrypted each kept
+  their own list of secret ids. An id missing from one of them was silently dropped on read, or never
+  reported as lost. All three now derive from `SECRET_IDS`.
+
 ## [1.12.1] - 2026-09-19 "Child"
 
 A data-loss hotfix. Before this release, the app could write the wrong workspace over a stored

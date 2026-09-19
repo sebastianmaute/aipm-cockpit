@@ -36,6 +36,7 @@ import { useInsightRecommend } from "./use-insight-recommend";
 import { useInsightRecommendRunner } from "./use-insight-recommend-runner";
 import { buildRecommendContext } from "./insights/recommend-context";
 import { describeRecommendationPlan } from "./insights/recommend-plan";
+import { stripRejectedFields } from "./inline-ai-edit/plan";
 import { buildGroundingIndex } from "./action-ai";
 import { runTool, type ToolDispatcher } from "./chat-tools";
 import { ConcurrencyTokenError } from "./chat-tools-updates";
@@ -310,9 +311,24 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     let failed = 0;
     let stale = 0;
     let committed = 0;
+    // ★★ §534 — calls whose every written field the review modal rejected. They
+    //  are sent NOWHERE, so like a stale refusal they wrote nothing.
+    let refused = 0;
     for (const call of calls) {
+      // ★★★ §534 — strip against this call's OWN plan, from the SAME slices
+      //  the modal's `reviewPlan` reads. That plan is the concatenation of these
+      //  per-call plans (pinned in recommend-plan.test.ts), so what the modal
+      //  showed as rejected is exactly what is not sent.
+      const sent = stripRejectedFields(
+        call.input,
+        describeRecommendationPlan([call], { tasks, raid, changes, milestones, stakeholders }),
+      );
+      if (sent.writesNothing) {
+        refused++;
+        continue;
+      }
       try {
-        await runTool(dispatcher, call.name, call.input as Record<string, unknown>);
+        await runTool(dispatcher, call.name, sent.input);
         committed++;
       } catch (e) {
         if (e instanceof ConcurrencyTokenError) stale++;
@@ -327,8 +343,16 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     // the moved data. Any run with a HARD failure, or with even one committed
     // call, still advances exactly as before — a hard failure may have written
     // something, and this task is not the place to re-open that rule.
-    if (committed === 0 && failed === 0 && stale > 0) {
-      showToast("error", t(lang, "insightRecommendationStale"));
+    // ★ A refused call wrote nothing either, so it joins the no-write case.
+    //   The stale message still wins when both kinds occurred.
+    // ★★ Final review Minor 4: this branch is also the ALL-REFUSED case (no
+    //   committed, no hard failure, nothing stale) — nothing was applied at
+    //   all, so the generic partial-failure wording ("Some changes … couldn't
+    //   be applied") overstated it. `insightRecommendationAllRejected` says
+    //   nothing landed, mirroring the chat card's `chatProposalFailedRejected`.
+    if (committed === 0 && failed === 0 && (stale > 0 || refused > 0)) {
+      const key = stale > 0 ? "insightRecommendationStale" : "insightRecommendationAllRejected";
+      showToast("error", t(lang, key));
       return;
     }
     setInsights((prev) =>
@@ -354,10 +378,10 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
       return;
     }
     showToast(
-      failed > 0 ? "error" : "info",
-      t(lang, failed > 0 ? "insightRecommendationApplyFailed" : "insightRecommendationApplied"),
+      failed + refused > 0 ? "error" : "info",
+      t(lang, failed + refused > 0 ? "insightRecommendationApplyFailed" : "insightRecommendationApplied"),
     );
-  }, [insights, reviewInsightId, dispatcher, setInsights, setReviewInsightId, today, logActivityAs, showToast, lang]);
+  }, [insights, reviewInsightId, dispatcher, setInsights, setReviewInsightId, today, logActivityAs, showToast, lang, tasks, raid, changes, milestones, stakeholders]);
 
   return {
     insightActions,
