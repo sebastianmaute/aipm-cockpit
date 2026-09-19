@@ -917,7 +917,10 @@
   block, and if any field was rejected it RE-JUDGES the block with every rejected field removed, until a
   pass adds no new rejection (`describeBlockUntilStable`). The final pass's rows are the plan's rows;
   `rejected` is the union over passes. Every consumer inherits it, so the card, the inline patch and
-  `stripRejectedFields` all read the plan of the stripped call.
+  `stripRejectedFields` all read the plan of the stripped call. ★ Each block is judged on its OWN, so
+  the absence date-swap step (`crossFieldRewrite`) no longer patches a row pushed by an EARLIER block —
+  this matters only for multi-block inline edits of one absence, where the card may now show an earlier
+  block's row that a later row for the same field overrides in the last-wins patch.
   ★★ `tool-input-coverage.test.ts` fails when a DECLARED tool input is neither previewable nor
   excluded with a written reason — the property is enforced rather than maintained. ★★★ Read its
   reach exactly, because it is WIDER than it was and still bounded (§401, CLOSED 2026-09-06). It now

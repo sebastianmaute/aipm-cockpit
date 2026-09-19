@@ -2,6 +2,7 @@
 import { describe, it, expect } from "vitest";
 import { describeToolCalls, describeEntityCalls, isEmptyPlan, stripRejectedFields, type EditPlan, type ToolUseLike } from "./plan";
 import { INLINE_DESCRIPTORS } from "./entity-descriptor";
+import { inlinePatchValue } from "../use-inline-entity-edit";
 import { type Workspace } from "../workspace";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1685,6 +1686,30 @@ describe("a reversed absence date pair previews the swap the writer performs", (
     const plan = planFor({ id: 50, startDate: "2026-03-05", endDate: "2026-03-01" });
     expect(plan.updates).toEqual([]);
     expect(plan.rejected).toEqual([]);
+  });
+
+  // §534 fix round 3 — EACH BLOCK IS JUDGED ON ITS OWN, so block 2's swap is
+  //  disclosed on block 2's own rows. With one shared plan the swap step patched
+  //  the FIRST `startDate` row across ALL blocks (block 1's), while block 2's raw
+  //  unswapped start still won the inline consumer's last-wins patch: a
+  //  zero-length 03-10 → 03-10 absence that neither block asked for. ★ The card
+  //  now also shows block 1's superseded start row; the later row wins the write.
+  it("judges two update blocks on one absence separately, so the swap patches its own block's row", () => {
+    const plan = describeEntityCalls(
+      [
+        { type: "tool_use", name: "update_absence", input: { id: 50, startDate: "2026-03-04" } },
+        { type: "tool_use", name: "update_absence", input: { id: 50, startDate: "2026-03-10" } },
+      ],
+      { descriptor: INLINE_DESCRIPTORS.absence, item: holiday as never, ws: absWs },
+    );
+    expect(plan.updates.map((u) => [u.field, u.before, u.after])).toEqual([
+      ["startDate", "2026-03-01", "2026-03-04"],
+      ["startDate", "2026-03-01", "2026-03-05"],
+      ["endDate", "2026-03-05", "2026-03-10"],
+    ]);
+    // The inline consumer's last-wins patch, built as `use-inline-entity-edit.ts` builds it.
+    const patch = Object.fromEntries(plan.updates.map((u) => [u.field, inlinePatchValue(INLINE_DESCRIPTORS.absence, u)]));
+    expect(patch).toEqual({ startDate: "2026-03-05", endDate: "2026-03-10" });
   });
 
   // ANTI-VACUITY: an ordered pair, and an equal one, must still preview as the
