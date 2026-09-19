@@ -42,6 +42,16 @@ it has no table of its own, NOT because it sits outside the workspace.
   typed `(ws: Workspace) => void`, one parameter, so those call sites structurally CANNOT pass a
   `logMode` and silently take the default. Widening that contract is what would let one of them opt into
   the contaminating branch — check the TYPE, not the call text.
+  ★★★ **The two MERGE callers merge only onto the SAME storage target (§591).** The load effect and
+  `reloadCurrentProject` compare `storageTargetKey` (the storage kind plus the Turso URL, token and
+  project id, or the SharePoint host, site and item path; `acquireToken` deliberately excluded) with
+  `scopeTargetKeyRef`, the target the in-scope workspace belongs to, and pass "replace" when they differ.
+  A settings-driven rebuild used to merge the PREVIOUS target's log and budget history into the new one.
+  The ref is stamped on the load effect's first hydrated run (so the boot load merges this session's own
+  appends), on every applied load and on the suppress-branch re-stamp after a project op; the empty-load
+  refusal and a failed load leave it alone, so a later "Reload project" onto that target REPLACES, as
+  `reloadEmptyConfirm` says. An M365 sign-in/out (an `acquireToken`-only rebuild) keeps merging. Pinned
+  by `use-storage-backend.target-key.test.tsx`.
   ★★ **`applyRestoredWorkspace` (`task-manager.tsx`, the SECOND load funnel) deliberately does NOT set
   `activityLog`.** `getVersionPayload` builds its snapshot from an explicit field list carrying no
   `activityLog`, so fanning it out would blank the audit trail on every version restore.

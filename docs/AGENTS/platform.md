@@ -7,7 +7,7 @@
      Every claim here was true when written and some have outlived their code —
      grep before relying on one, and correct what you disprove in the same commit. -->
 
-# Diagnostics · guards · dictation · AI master switch
+# Diagnostics · guards · dictation · AI master switch · the load hold
 
 [← AGENTS.md](../../AGENTS.md) · [doc set](../../AGENTS.md#the-doc-set--what-lives-where)
 
@@ -88,4 +88,80 @@
   fallback (manage/remove configured extras when the project list isn't loaded); row-unique aria-labels (Settings is
   axe-scanned). Editor read-only banner (`jira-readonly-banner.tsx`) threads to the floating `TaskFormModal`
   (via `app-modals.tsx`).
+
+### The load hold (§548)
+
+- **`loadPending` (`useStorageBackend`) is true until the workspace in scope is the settled project
+  of the current backend**: before settings hydration (no load has started yet), until the load effect
+  for the CURRENT `backend` instance reaches a terminal branch, and while any of the nine ops wrapped
+  by `holdDuring` runs (`reloadCurrentProject`, `switchToProject`, `createProject`,
+  `loadProjectFromFile`, `createDemoProject`, `onOpenStorageFile`, `switchToTursoProject`,
+  `createTursoProject`, `migrateCurrentProjectToTurso`). ★ The pre-hydration term lives IN the signal,
+  not at the render site, so every consumer below covers that window too. ★ Enumerate the wraps with
+  `grep -n "holdDuring(" src/app/use-storage-backend.ts`.
+- ★★★ **The hold is only safe because every wait it depends on is BOUNDED — keep it that way.**
+  `hydrated` always becomes true: a throw in the secret merge falls back, and a merge that never settles
+  is cut off at `SECRET_MERGE_TIMEOUT_MS` (`use-settings.ts`). Turso and SharePoint loads read through
+  `fetchTextWithTimeout` (`fetch-with-timeout.ts`) with `LOAD_TIMEOUT_MS` (10 s), so a hung server
+  fails the load, and a failed load settles. **A new backend, or a new await in a load path, needs the
+  same bound, or it can hold the app behind the skeleton forever.** The one known unbounded wait left is
+  the MSAL popup in the SharePoint `getToken` — it waits on the user, and closing it rejects, which
+  settles the load anyway.
+- ★★★ **It is NOT `workspaceLoaded`.** `workspaceLoaded` stays false after a FAILED load and after the
+  empty-load refusal (§77), which is right for snapshot capture and saving. Holding edits on it would
+  lock the app for the whole session after one load error. `settledBackend` is stamped on EVERY terminal
+  branch: applied (inside `applyWorkspace`), the suppress-branch re-stamp, the refusal and the `catch`.
+  Identity, not a latch, so a rebuilt backend (project switch, kind switch, Turso or SharePoint target
+  edit) starts unsettled with no reset code.
+- **The render hold.** `task-manager.tsx` renders `PanelSkeleton` instead of the main-window app tree
+  while `loadPending` is true (the same ternary `showTursoListLoading` uses). No control that writes
+  workspace state exists during the hold, so the UI writers outside `guardEdit` are covered, and so is
+  any writer added later. A failed or refused load settles, so the storage banner, Settings and "Pick
+  storage file" stay reachable. Popouts return before this ternary and are never held. `guardEdit` /
+  `makeEditGuard` are unchanged.
+- ★★ **Background writers do not unmount, and each gates itself.** Today: the insight reconcile effect
+  (`task-manager.tsx`), the recommendation store `applyInsightRecommendation`
+  (`use-insight-recommendations.ts`, which both the background runner and the on-demand generate write
+  through), the four calendar auto-sync pushes and four background pulls plus the auto-pull runner
+  (`use-calendar-integrations.ts`), and the undo hotkey (`useUndoHotkey`, read through `loadPendingRef`).
+  **A new timer, interval, listener or subscription that writes workspace state must check
+  `loadPending` too**; the render hold cannot reach it. ★ `useCalendarAutoPull` re-ticks when its
+  `enabled` flag flips false→true (a mount-value-seeded `prevEnabledRef`, `use-calendar-auto-pull.ts`),
+  so the startup background pull — gated off for the whole hold — actually runs once the load settles
+  instead of waiting for the next interval or `visibilitychange`; the four `useCalendarAutoSync` pushes
+  re-arm the same way on their own `active` flag. ★★ Gating is at OP INITIATION only: a Graph pull/push
+  or an AI recommendation already in flight when a swap starts can still land its write after the swap
+  resolves. Pre-existing, unchanged by this batch.
+- ★ Pinned by `use-storage-backend.load-pending.test.tsx` (the signal, including before hydration and
+  a SharePoint load that times out), `use-storage-backend.hold-ops.test.tsx` (all nine held ops: in
+  flight, resolved, threw), `use-settings.hydration.test.ts` (hydration completes on a throw, without
+  IndexedDB and at the bound), `fetch-with-timeout.test.ts` and `sharepoint-backend.test.ts` (the 10 s
+  bound), `task-manager.load-hold.test.tsx` (render hold, pre-hydration hold, failed load with banner,
+  reconcile, hotkey, popout exemption, wiring), `use-calendar-integrations.load-hold.test.ts`,
+  `use-insight-recommendations.test.tsx` and `e2e/load-hold.spec.ts`.
+- ★ **The settings secret merge is itself bounded, and the bound has a cost.** `useSettings` races
+  `migratePlaintextSecrets`/`hydrateSecretsInto` against `SECRET_MERGE_TIMEOUT_MS` (5 s; `use-settings.ts`)
+  and falls back exactly like the existing throw path on a timeout, which is what keeps `hydrated`
+  bounded for the hold above. The trade is user-visible: on a timeout, sealed secrets (AI, Turso, Jira,
+  Timelog, STT) stay blank for the session — those features read as unconfigured, with only the
+  `settings.secretMergeTimedOut` diagnostic entry saying why — and a legacy PLAINTEXT secret still
+  pending sealing is blanked from `localStorage` by `writeSettings` and survives only in memory, lost on
+  reload if the seal never completes. Same trade the pre-existing throw path already made.
+- ★ **The Turso/SharePoint load bound is a shared module, and SharePoint's timeout is a different
+  error SHAPE than Turso's on purpose.** `fetch-with-timeout.ts` (`fetchTextWithTimeout`,
+  `FetchTimeoutError`, `LOAD_TIMEOUT_MS`) is the one AbortController-timer implementation; `turso-pipeline.ts`
+  re-exports `LOAD_TIMEOUT_MS` so its existing importers are unchanged. On a timeout, Turso keeps its own
+  `StorageNotReadyError` ("unreachable" banner); `sharepoint-backend.ts` deliberately throws a plain
+  `Error` instead (reaching the generic `storageLoadFailed`/`storageSaveFailedBanner` path, not the
+  Turso-worded unreachable banner), because that banner's text names the Turso database. A SharePoint
+  file whose download takes longer than 10 s now fails its load — the same trade Turso already makes.
+- ★ **An `IndexedDB` open BLOCKED by an older tab is bounded too, and carries no register entry.**
+  `idb.ts` `openIdb` sets `db.onversionchange = () => db.close()` on every connection it resolves (so
+  this tab yields to a LATER tab's own upgrade — existing callers never close a connection themselves,
+  so this is the only thing that lets an older tab release one), and `req.onblocked` now REJECTS with a
+  plain "IndexedDB upgrade is blocked by another open tab of this app. Close the other tabs and reload."
+  Error rather than waiting for the blocking tab to close on its own; a late `onsuccess` after that
+  reject closes the connection at once rather than resolving twice. This is the fix for the risk the
+  plan carried as open ("an IndexedDB open that is BLOCKED keeps the skeleton up") — filed as a plan
+  ruling, not as its own register entry.
 
