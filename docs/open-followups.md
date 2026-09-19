@@ -39501,8 +39501,6 @@ Budget RAG's own assertions (`m.budget.computed`/`.effective`) are byte-identica
 reader" premise itself with the same two greps this entry was filed from — they still return nothing/only
 unrelated fields, which is now expected since the fields are gone rather than merely unread.
 
-**Work item:** #365
-
 Since spec C removed `ForecastHeadline` and gave the burn tile only the chart (`dashboard-tile-bodies.tsx`
 passes `model.burndown` to it, never `model.burn`), `DashboardModel.burn` (`dashboard.ts`) is read by nothing
 outside `dashboard.test.ts`'s own assertions (`expect(m.burn).toBeNull()`;
@@ -39533,8 +39531,6 @@ six-track grid (a full second row), then one row. Breakpoints come from measured
 `npx vitest run src/app/dashboard-sections/dashboard-kpi-strip.test.tsx` (per-count class tests; a mutant
 restoring the OR turned the 4-cell test red) and a Chromium probe at 1100/1280/1600/1920px viewports showing no
 label wrap and no empty cell for 3, 4 and 5 cells.
-
-**Work item:** #366
 
 `cols` is `showSpi || showCpi ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-3"` — an OR, not "both".
 `showSpi`/`showCpi` are independently gated on `model.evm.spi`/`model.evm.cpi` being non-null (spec C
@@ -39580,8 +39576,6 @@ src/app/dashboard-panel-layout.test.tsx src/app/dashboard-panel.test.tsx src/app
 files (0 warnings). A repo-wide grep for `onOpen=` fallbacks of this shape found no other production
 call site — every other `onOpen={() => {}}` hit is in a test file.
 
-**Work item:** #367
-
 `ActionHandlers.onOpen` (`action-cta-controls.tsx`) is non-optional, and `pickPrimaryCta`/`overflowCtas`
 (`next-actions/action-cta.ts`) always offer `"open"` as the always-available fallback verb, so
 `ActionHeroCard`'s primary CTA — or its ghost Open button when a different verb is primary — is always
@@ -39605,8 +39599,6 @@ fix round 1 after review. Reproduced by running `npx vitest run src/app/budget-h
 "unattributed is 0"` five times with no explicit seed (unseeded, so each run drew its own); the third run
 failed at `seed -1591760474` after 39378 property runs, with `Counterexample:
 [0,[0.000001,1.0587911840678754e-22,0.0000018680146407231636,0],0]`.
-
-**Work item:** #368
 
 Root cause, confirmed against the counterexample: NOT accumulated floating-point error against large
 magnitudes (the counterexample's values are all ~1e-6, nowhere near the 1e7 ceiling the original hypothesis
@@ -39656,8 +39648,6 @@ src/app/actions-panel.test.tsx src/app/dashboard-panel-layout.test.tsx src/app/w
 src/app/next-actions/group.test.ts src/app/action-chips.test.tsx` (143/143 passed), `npx tsc --noEmit`
 (0 errors) and `npx eslint --max-warnings=0` on the touched files (0 warnings).
 
-**Work item:** #369
-
 (a) `actions-panel.test.tsx`'s "promotes exactly the group `pickHeroGroup` picks, so the Dashboard's hero
 cannot differ" test (describe block "ActionsPanel — fed grouped data from above (spec C)") builds its
 fixture with `mk("low", "monitor")`, `mk("mid", "soon")`, `mk("top", "now")` — `mk`'s own score table (`now`
@@ -39705,8 +39695,6 @@ no height radiogroup for `kpi` (`dashboard-grid.test.tsx`); both went red agains
 green after. Verified with `npx vitest run src/app/dashboard-layout.test.ts src/app/dashboard-grid.test.tsx`
 (41/41 passed) and the same e2e spec (11/11 passed) — the dense-packing and width-span specs seed a stored
 `kpi` at h:2, which the raised `minH` now clamps to h:3 on load, unaffected by width-driven assertions.
-
-**Work item:** #370
 
 Spec C's layout sketch (`docs/superpowers/specs/2026-09-17-dashboard-layout-rework-design.md`) puts the KPI
 tile beside the burn tile. `DASHBOARD_TILES` (`dashboard-tiles.ts`) places `burn` first at `w: 2 h: 8`, and
