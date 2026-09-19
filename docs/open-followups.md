@@ -803,7 +803,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open) | Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN | audit (2026-09) | M | open |
 | [§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--open) | An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap — OPEN | audit (2026-09) | S | open |
 | [§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19) | A startup autosave saves the empty workspace over the stored project before the first load lands — CLOSED 2026-09-19 | found 2026-09-19 by the startup-autosave probe; filed and fixed on fix/startup-autosave-wipe; GitLab #371 | S — gate every save to the active backend on a successful load | closed |
-| [§587](#587-a-settings-driven-backend-rebuild-saves-the-previous-targets-workspace-into-the-new-target--closed-2026-09-19) | A settings-driven backend rebuild saves the previous target's workspace into the new target — CLOSED 2026-09-19 | found 2026-09-19 by the rebuild follow-up probe; filed already closed, fixed by the §586 change on fix/startup-autosave-wipe | S — the §586 gate, kept shut after an empty-load refusal | closed |
+| [§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19) | Changing the Turso URL or token, or the SharePoint target, saves the open project into the new target — CLOSED 2026-09-19 | found 2026-09-19 by the rebuild follow-up probe; filed already closed, fixed by the §586 change on fix/startup-autosave-wipe | S — the §586 gate, kept shut after an empty-load refusal | closed |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -39514,7 +39514,7 @@ holds exactly the live workspace. That write is the only place where the gate an
 differ. Like `loadedBackend`
 ([§77](#77-the-snapshot-capture-gate-is-a-one-way-latch-so-a-mid-session-storage-switch-can-still-capture-the-wrong-project--closed-post-02260)),
 it stays SHUT after an empty-load REFUSAL, for the reason given in
-[§587](#587-a-settings-driven-backend-rebuild-saves-the-previous-targets-workspace-into-the-new-target--closed-2026-09-19).
+[§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19).
 The effect-level check sits ABOVE the suppress branch, and `savesAllowed` is an effect dependency. So
 a project switch spends its one-shot suppress when the gate opens, not on the run where the gate is
 still shut. With the check below the suppress branch, the just-loaded workspace would be written back
@@ -39525,7 +39525,7 @@ alone leaves (a) and (b) green, and removing both turns six of the ten tests red
 cannot be the sole guard today, because a backend change re-runs the effect and cancels the pending
 save. It is there so that a future path which schedules without the effect's check still cannot write.
 
-## 587. A settings-driven backend rebuild saves the previous target's workspace into the new target — CLOSED 2026-09-19
+## 587. Changing the Turso URL or token, or the SharePoint target, saves the open project into the new target — CLOSED 2026-09-19
 
 **Status:** CLOSED 2026-09-19 by `fix/startup-autosave-wipe`. It was filed already closed and fixed by the same change as [§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19): the save gate in `84185ece`, and `c360190f`, which keeps the gate shut after an empty-load refusal. Verified by `npx vitest run src/app/use-storage-backend.load-gate.test.tsx --maxWorkers=1`, tests (e), (h) and (j).
 
@@ -39552,7 +39552,7 @@ Which settings reach the rebuild was READ from code:
 - An `acquireToken` identity change (M365 sign-in or sign-out) rebuilds against the same target, so
   the data written back is that target's own. On Turso that is still a full rewrite.
 
-**The fix.** It is the §586 gate. A rebuilt instance fails the identity check until its own load is
+**The fix.** It is the same gate as [§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19). A rebuilt instance fails the identity check until its own load is
 applied, so nothing reaches it before then. ★★★ The one addition is the empty-load refusal. It is
 reachable ONLY on such a rebuild: the load effect's `currentWorkspace` is the closure of the render
 that started it, so an empty FIRST load simply applies. The refusal therefore leaves the gate SHUT
@@ -39567,7 +39567,13 @@ Pick storage file.
   (not `suppressNextSaveRef`). The re-stamp opens the gate, and the `savesAllowed` dependency re-runs
   the effect. That produces the same one redundant post-switch save as before, with no edit needed;
   test (j) pins it.
-- Pick file and open file bind the same instance, so there is no rebuild.
+- Pick storage file (`onPickStorageFile`) re-points the SAME instance at a new handle, so nothing is
+  rebuilt. Its write is the explicit "save the project here" the user asked for, and it goes through
+  `guardedWrite`.
+- Open file (`onOpenStorageFile`) also binds the same instance. It arms `suppressNextSaveRef` after
+  the bind and then applies the file, so the save that apply triggers is suppressed.
+- An M365 sign-in or sign-out changes the `acquireToken` identity. That rebuild targets the SAME
+  store, so it was a same-target rewrite, not a cross-target one. The gate covers it anyway.
 
 ★ **Still open, and out of scope:** each keystroke in the Turso URL field still starts a `load()`
 against a partial URL. Those loads cannot save any more, but they still cost network requests and
