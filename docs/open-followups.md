@@ -789,7 +789,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§564](#564-diagnostics-redactts-has-no-catch-all-for-an-opaque-token-in-free-text--open) | `diagnostics-redact.ts` has no catch-all for an opaque token in free text — OPEN | audit (2026-09) | S | open |
 | [§565](#565-two-settings-sections-clear-a-token-by-resealing-an-empty-string-instead-of-removing-it--open) | Two settings sections clear a token by resealing an empty string instead of removing it — OPEN | audit (2026-09) | S | open |
 | [§566](#566-the-jira-proxy-logs-the-raw-fetch-rejection-object-server-side--open) | The Jira proxy logs the raw fetch-rejection object server-side — OPEN | audit (2026-09) | S | open |
-| [§567](#567-issealedsecret-and-readstore-still-hardcode-their-own-secretid-lists-and-a-missed-id-is-silent-data-loss--open) | `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — OPEN | slice (2026-09) | M | open |
+| [§567](#567-issealedsecret-and-readstore-still-hardcode-their-own-secretid-lists-and-a-missed-id-is-silent-data-loss--closed-2026-09-19) | `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS | slice (2026-09) | M | **CLOSED** 2026-09-19 |
 | [§568](#568-the-registers-index-rebuild-recipe-is-not-a-no-op-on-the-committed-table-and-discards-hand-written-state-prose--open) | The register's index-rebuild recipe is not a no-op on the committed table and discards hand-written State prose — OPEN | slice (2026-09) | S–M | open |
 | [§569](#569-screen-readers-may-never-deliver-the-chart-readouts-arrow-keys--open) | Screen readers may never deliver the chart readout's arrow keys — OPEN | found 2026-09-18 reviewing the merged chart hover readout; never run under a real screen reader; GitLab #354 | S — a real NVDA and JAWS pass, then pick `role="application"`, instructions, or the live-region fallback | open |
 | [§570](#570-the-spoken-readout-capitalises-mid-sentence--open) | The spoken readout capitalises mid-sentence — OPEN | found 2026-09-18 reading `rowText` against the tip strings in `i18n.ts`/`i18n.de.ts`; GitLab #355 | XS — lower-case the explanation or join with a full stop; German nouns make a blanket lower-case unsafe | open |
@@ -39090,11 +39090,9 @@ It is filed because that is a property of the CURRENT undici error shape, not a 
 server log is a place where a future shape change would be noticed late or never. `err.message`
 gives the same diagnostic value with no dependence on what the rejection happens to hold.
 
-## 567. `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — OPEN
+## 567. `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — CLOSED 2026-09-19
 
-**Status:** OPEN 2026-09-18 — established by `grep -nE "SECRET_IDS|isSealedSecret" src/app/secrets.ts` and `grep -n "readStore" -A 14 src/app/secrets-store.ts`; **never machine-verified**, since no test drops an id to watch the read fail. Found while fixing §560, NOT in the 2026-09 audit, and the reason it was not found is the point: it is a data-loss path, not an exposure path, so a security sweep looking for leaks walked straight past it. **Deliberately not fixed in this slice.**
-
-**Work item:** #352
+**Status:** CLOSED 2026-09-19 by `fix/data-loss-batch`: `isSealedSecret` (`secrets.ts`) checks the id by membership in `SECRET_IDS` and `readStore` (`secrets-store.ts`) iterates `SECRET_IDS`, so neither carries its own id list any more; pinned by a seal → store → read round-trip per id generated from `SECRET_IDS` in `secrets-store.test.ts`, and by `isSealedSecret` accepting every member and rejecting an unknown id in `secrets.test.ts`.
 
 Two hardcoded enumerations of the five `SecretId`s survive:
 

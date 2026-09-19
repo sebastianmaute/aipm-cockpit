@@ -617,12 +617,14 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `"anthropicApiKey"` (field `settings.ai.apiKey`), `"tursoAuthToken"` (field `authToken`),
   `"jiraApiToken"` (field `settings.jira.apiToken`), `"timelogApiToken"` and `"sttApiKey"` (5th;
   lives under `settings.dictation`, browser→same-origin `/api/stt` SSRF proxy). Use the ID spellings
-  above for the hardcoded allowlists below — earlier text here listed the field names as if they were
-  the ids. All five are
+  above wherever an id is named — earlier text here listed the field names as if they were the ids.
+  All five are
   ENCRYPTED via `secrets.ts` (AES-256-GCM; non-extractable device key in IndexedDB by default,
   optional per-secret PBKDF2 passphrase — Jira is device-only so far, no passphrase UI). ★ Adding a
-  SecretId means SIX edits in lockstep: `SecretId` union, `isSealedSecret` id allowlist + `readStore`
-  allowlist loop (both HARDCODE the id list — a missed one silently drops the ciphertext on read),
+  SecretId starts at the runtime list `SECRET_IDS` in `secrets.ts`. The `SecretId` union, the
+  `isSealedSecret` id check and the `readStore` loop (`secrets-store.ts`) all DERIVE from it (§567 —
+  a hand-kept copy that missed an id silently dropped the ciphertext on read), and
+  `SECRET_SETTINGS_PATHS` is a total record, so tsc demands its entry. The edits that remain by hand:
   `migratePlaintextSecrets` (seal + return), `writeSettings` blank, `hydrateSecretsInto` restore +
   the load-effect migrate/hydrate/re-merge block, and a seal-on-edit call in the field's settings
   section (`saveSecretValue(id,…,"device")`). ★ `jira` lives at TOP-LEVEL `settings.jira` (NOT under

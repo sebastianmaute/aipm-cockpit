@@ -144,8 +144,8 @@ detach-only.
 
 Five `SecretId`s — `anthropicApiKey` · `tursoAuthToken` · `jiraApiToken` · `timelogApiToken` ·
 `sttApiKey` — AES-256-GCM under a non-extractable device key (optional PBKDF2 passphrase at 600k
-iters). ★ Adding one means six edits in lockstep, two of which hardcode the id list
-(`isSealedSecret` and the `readStore` loop) — a miss silently drops the ciphertext on read.
+iters). ★ Adding one starts at `SECRET_IDS`; since §567 `isSealedSecret` and the `readStore` loop
+derive from it rather than restating the id list (the lockstep itself: AGENTS.md "Secrets at rest").
 ★ `writeSettings` is the ONLY writer of the settings key and blanks secret fields; a raw `setItem`
 dumps decrypted keys to disk.
 

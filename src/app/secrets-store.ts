@@ -4,7 +4,7 @@
 // localStorage["aipm-cockpit:secrets"], keyed by SecretId; the device key lives in
 // IndexedDB (see secrets.ts). Kept OUT of aipm-cockpit:settings and out of Turso.
 
-import { type SealedSecret, type SecretId, openDevice, sealDevice, isSealedSecret } from "./secrets";
+import { type SealedSecret, type SecretId, SECRET_IDS, openDevice, sealDevice, isSealedSecret } from "./secrets";
 import { logDiag } from "./diagnostics";
 
 export const SECRETS_KEY = "aipm-cockpit:secrets";
@@ -16,13 +16,8 @@ function readStore(): Store {
     if (!raw) return {};
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const out: Store = {};
-    for (const id of [
-      "anthropicApiKey",
-      "tursoAuthToken",
-      "jiraApiToken",
-      "timelogApiToken",
-      "sttApiKey",
-    ] as const) {
+    // §567 — every sealed id, from the one runtime list (see `isSealedSecret`).
+    for (const id of SECRET_IDS) {
       if (isSealedSecret(parsed[id])) out[id] = parsed[id] as SealedSecret;
     }
     return out;

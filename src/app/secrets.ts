@@ -60,11 +60,11 @@ export function isSealedSecret(x: unknown): x is SealedSecret {
   const s = x as Record<string, unknown>;
   return (
     s.v === 1 &&
-    (s.id === "anthropicApiKey" ||
-      s.id === "tursoAuthToken" ||
-      s.id === "jiraApiToken" ||
-      s.id === "timelogApiToken" ||
-      s.id === "sttApiKey") &&
+    // ★★ §567 — membership in `SECRET_IDS`, never a restated list. A hand-kept
+    //   copy that missed an id made this return false for a correctly sealed
+    //   secret, and `readStore` then dropped it on read with nothing reported.
+    typeof s.id === "string" &&
+    (SECRET_IDS as readonly string[]).includes(s.id) &&
     typeof s.wrap === "string" &&
     WRAP_MODES.includes(s.wrap as WrapMode) &&
     s.alg === "AES-GCM" &&
