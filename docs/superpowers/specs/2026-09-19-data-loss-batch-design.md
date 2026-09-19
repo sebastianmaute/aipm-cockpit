@@ -7,14 +7,13 @@
 
 ## Goal
 
-Close four open register entries where user data is lost silently. Each is an independent, bounded fix to
+Close three open register entries where user data is lost silently (§548 was deferred on 2026-09-19 — see Out of scope). Each is an independent, bounded fix to
 existing code; they ship together because they share a theme and a review lens, not because they touch each
 other.
 
 | § | Issue | Loss today | Fix |
 |---|---|---|---|
 | 567 | #352 | a correctly sealed secret is dropped on read if its id is missing from a hardcoded list | derive both lists from `SECRET_IDS` |
-| 548 | #336 | an edit made while the first backend load is pending is overwritten when the load lands | refuse edits until the load lands |
 | 534 | #324 | the chat card shows sibling fields as landing, Apply replays the whole call, the dispatcher throws, all are lost | strip plan-rejected fields before dispatch |
 | 546 | #337 | a dated TimeLog Apply deletes a hand-typed other-granularity period total the confirm dialog never showed | disclose the deletion in the confirm dialog |
 
@@ -45,6 +44,8 @@ Mutation: remove one id from each derivation's source path → red.
 steps are no longer separate edits; say so, and cite the symbol (no line numbers). Close §567 in the register.
 
 ## 2. §548 — no edits until the first load lands
+
+**Deferred 2026-09-19 — not part of this batch; see Out of scope. Kept as the starting brief for its own slice.**
 
 **Principle:** an edit that cannot start cannot be lost. Until the project's first backend load has landed,
 the workspace is read-only for editing.
@@ -104,11 +105,15 @@ disclosed.
 
 ## Order and review
 
-Tasks in the order 567 → 534 → 546 → 548 (smallest blast radius first; §548 last because its writer
-inventory is the widest). Subagent-driven: one implementer per task, a task review after each, a final cold
+Tasks in the order 567 → 534 → 546 (smallest blast radius first), then a docs-only task that records §548's
+planning findings in the register; §548 itself stays OPEN. Subagent-driven: one implementer per task, a task review after each, a final cold
 whole-branch review.
 
 ## Out of scope
+
+§548, by user ruling on 2026-09-19: the writer inventory found 39 UI writers outside `guardEdit`, so the
+complete fix is a whole-app hold, a UX change owed its own decision; it becomes its own slice (findings in the
+register entry and in the plan appendix, `docs/superpowers/plans/2026-09-19-data-loss-batch.md`).
 
 Anything the writer inventory turns up that is not a §548 writer; §575 (chat history re-sends attachments);
 the tag-pair-walk timing flake (file separately as §586 on the user's say).

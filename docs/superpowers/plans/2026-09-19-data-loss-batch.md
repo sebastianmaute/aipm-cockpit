@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Close register entries §567, §534, §546 and §548, four places where user data is silently lost, with one bounded fix each.
+**Goal:** Close register entries §567, §534 and §546, three places where user data is silently lost, with one bounded fix each, and record §548's planning findings in the register (§548 itself is deferred to its own slice).
 
-**Architecture:** §567 derives the two hardcoded secret-id lists from `SECRET_IDS`. §534 records which field each card rejection refuses (`Rejected.field`) and strips those fields before chat Apply and insight-recommendation confirm dispatch. §546 makes one function the source of both the other-granularity keys a dated TimeLog Apply deletes and the removal rows the confirm dialog lists. §548 publishes one signal, `loadPending`, from `useStorageBackend` (a load or project swap is still in flight). The main window renders the existing `PanelSkeleton` instead of the app tree while it is true, and the background writers that do not unmount gate on it.
+**Architecture:** §567 derives the two hardcoded secret-id lists from `SECRET_IDS`. §534 records which field each card rejection refuses (`Rejected.field`) and strips those fields before chat Apply and insight-recommendation confirm dispatch. §546 makes one function the source of both the other-granularity keys a dated TimeLog Apply deletes and the removal rows the confirm dialog lists. §548 is NOT fixed here: Task 4 only records its planning findings in the register, and the drafted design lives in the appendix, not to be executed.
 
 **Tech Stack:** Next.js (App Router, pinned), React 19, TypeScript, vitest 4 + Testing Library, fast-check, fake-indexeddb.
 
@@ -19,25 +19,24 @@
 - Commits cite §N; `Closes #NN` only in the MR description. Explicit-path staging; never `--amend`.
 - Every "this is covered" claim is backed by a mutation that turns the test red, named in the task report.
 - Work in `C:/Projects/aipm-wt-a` on `fix/data-loss-batch`. Use absolute paths in every tool call. Do not touch other worktrees.
-- Tasks run in this order: 1 (§567) → 2 (§534) → 3 (§546) → 4a → 4b → 4c (§548). Each task folds in its own docs and register closure.
+- Tasks run in this order: 1 (§567) → 2 (§534) → 3 (§546) → 4 (§548 register notes, docs only). Each task folds in its own docs and register edits. The appendix "§548 — deferred design notes" is NOT a task and must not be executed.
 
 ---
 
 ## Spec corrections (ruled — plan against the code, not the spec)
 
-1. **§548: "guardEdit + four named writers" is not the UI writer set.** `guardEdit` wraps exactly the 33 `workspaceProps` handlers in `task-manager.tsx` (`grep -c "guardEdit(" src/app/task-manager.tsx` → 33). The writer inventory (Task 4) finds **39 further UI writer entry points** outside it: task rows, the task modal, bulk ops, voice, roles, knowledge, milestones, dashboard status, settings, notes, action center, documents, the steering committee and more. The popout "read-only" never covered them either. It is leaky by design, because a popout never saves. **Ruling:** do not gate writers one at a time. While `loadPending` is true, the main window renders the existing `PanelSkeleton` in place of the app tree. That is the primitive and pattern `showTursoListLoading` already uses for the Turso list-load window. It means no UI control that writes exists, and it covers future writers automatically. `guardEdit`/`makeEditGuard` stay unchanged. No new i18n string is needed, because the skeleton's `role="status"` carries the existing `loading` string, which is the notice. The four spec-named writers (template apply, chat Apply, insight-recommendation confirm, AI tool dispatch) are UI-only (`grep -rn "runTool(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\.\|^src/app/chat-tools.ts"` → four files: `chat-panel.tsx`, `chat-proposal-apply.ts`, `use-inline-entity-edit.ts` (three calls) and `use-insight-recommendations.ts`, all reached from a rendered control), so the hold covers them. The rejected alternative, per-writer guards on 72 entry points each with its own test, would decay the way the popout guards did.
-2. **§548 signal: `loadedBackend`/`workspaceLoaded` does not mean "the first load landed" for editing purposes.** The load effect leaves it unstamped on the empty-load refusal branch and on the `catch` (by design, §77). Holding edits on it would lock the app for the whole session after any load error: `local-file-not-picked`, a misconfigured Turso project, or signed-out SharePoint. **Ruling:** add `settledBackend`, an identity state like `loadedBackend` that every terminal branch of the load effect stamps. Add `swapsInFlight`, a counter held by the project-swap ops. Publish `loadPending = !(settledBackend === backend) || swapsInFlight > 0`. It is named `loadPending`, not the spec's `firstLoadDone`, because it also covers reloads and swaps.
-3. **§548: a project switch opens the same window, and is included.** (a) A backend change from Settings, or a `tursoProjectId` change without the suppress flag, re-runs the load effect. The identity derivation covers this for free. (b) The ops path is `switchToProject`, `createProject`, `loadProjectFromFile`, `createDemoProject`, `onOpenStorageFile`, `switchToTursoProject`, `createTursoProject`, `migrateCurrentProjectToTurso` and `reloadCurrentProject`. Each op awaits, then replaces the workspace (or reloads the page). The outgoing flush runs before the await. An edit made during the await re-arms the debounced save, and the apply's re-render clears that timer (`scheduleDebouncedSave`'s cleanup calls `clearTimeout`) and sets `suppressNextSaveRef`, so the edit is never saved and is replaced in memory. **Ruling:** wrap exactly these nine in `holdDuring` at the hook's `return`.
-4. **§567 docs: the spec names AGENTS.md only.** `docs/AGENTS/integrations.md` (the `timelogApiToken` bullet) and `docs/CODEMAPS/data.md` ("Secrets at rest") also say the two lists are hardcoded, and both become false. **Ruling:** fix all three in Task 1. AGENTS.md also lists "`SecretId` union" as a lockstep edit, but since §560 the union is derived from `SECRET_IDS`. The rewrite says so.
-5. **§534: `Rejected` carries no field.** Its `detail` is display text: `field=value`, or `firstName+lastName=empty` for a group. **Ruling:** add optional `Rejected.field`, set by the update branch's `bad()` guards and by the row-link merge-site guard in `pushLinkDiffs`. Whole-call rejections (an unknown or unsupported id, and `set_task_dependencies`' per-link rejections) carry no field and strip nothing. This breaks 9 exact-equality assertions, which Task 2 migrates.
-6. **§534: "the row reports as rejected" has no existing outcome.** **Ruling:** add the exported `ALL_FIELDS_REJECTED_ERROR` and a fifth `ProposalFailureKind`, `"rejected"`, with card string `chatProposalFailedRejected` (EN + DE). On the recommendation route, a fully stripped call counts as refused. If nothing committed and nothing hard-failed, the insight is not advanced (the same rule as a stale refusal) and the toast is `insightRecommendationApplyFailed`.
-7. **§534: the recommendation modal renders one MERGED plan for all calls,** so stripping needs per-call attribution. **Ruling:** `confirmInsightRecommendation` recomputes `describeRecommendationPlan([call], …)` per call, from the same render-scope slices the modal used. A parity test pins merged-rejections ≡ the concatenation of per-call rejections.
-8. **§546: `describeApplyRows` needs no change.** It spreads each row, so the new `removal` flag rides through. Only `buildApplyPlan` emits the flag. A removal row now counts in `rows.length`, which `timelog-reapply.ts` and `canApplyToBudget` read. So an Apply whose only change is a removal is now pending work, which is correct: the write deletes that key.
-9. **New register entries:** none are filed by this plan. The open risk in "Open risks" below is reported to the lead, not filed.
+§548 left this batch by user ruling on 2026-09-19 (see the spec's Out of scope). Its three rulings, drafted before that, are kept as D1–D3 in the appendix.
+
+1. **§567 docs: the spec names AGENTS.md only.** `docs/AGENTS/integrations.md` (the `timelogApiToken` bullet) and `docs/CODEMAPS/data.md` ("Secrets at rest") also say the two lists are hardcoded, and both become false. **Ruling:** fix all three in Task 1. AGENTS.md also lists "`SecretId` union" as a lockstep edit, but since §560 the union is derived from `SECRET_IDS`. The rewrite says so.
+2. **§534: `Rejected` carries no field.** Its `detail` is display text: `field=value`, or `firstName+lastName=empty` for a group. **Ruling:** add optional `Rejected.field`, set by the update branch's `bad()` guards and by the row-link merge-site guard in `pushLinkDiffs`. Whole-call rejections (an unknown or unsupported id, and `set_task_dependencies`' per-link rejections) carry no field and strip nothing. This breaks 9 exact-equality assertions, which Task 2 migrates.
+3. **§534: "the row reports as rejected" has no existing outcome.** **Ruling:** add the exported `ALL_FIELDS_REJECTED_ERROR` and a fifth `ProposalFailureKind`, `"rejected"`, with card string `chatProposalFailedRejected` (EN + DE). On the recommendation route, a fully stripped call counts as refused. If nothing committed and nothing hard-failed, the insight is not advanced (the same rule as a stale refusal) and the toast is `insightRecommendationApplyFailed`.
+4. **§534: the recommendation modal renders one MERGED plan for all calls,** so stripping needs per-call attribution. **Ruling:** `confirmInsightRecommendation` recomputes `describeRecommendationPlan([call], …)` per call, from the same render-scope slices the modal used. A parity test pins merged-rejections ≡ the concatenation of per-call rejections.
+5. **§546: `describeApplyRows` needs no change.** It spreads each row, so the new `removal` flag rides through. Only `buildApplyPlan` emits the flag. A removal row now counts in `rows.length`, which `timelog-reapply.ts` and `canApplyToBudget` read. So an Apply whose only change is a removal is now pending work, which is correct: the write deletes that key.
+6. **New register entries:** none are filed by this plan.
 
 ---
 
-## Global section R — register closure recipe (used by Tasks 1, 2, 3 and 4c)
+## Global section R — register closure recipe (used by Tasks 1, 2 and 3)
 
 The register's conventions, measured on the most recent closures (§558, §560, §539): the `##` heading's ` — OPEN` becomes ` — CLOSED <date>`. The `**Status:**` paragraph is replaced by one `**Status:** CLOSED <date> by \`fix/data-loss-batch\`: …` line. The `**Work item:** #NN` line is **deleted**, because `followups:workitems:check` fails a closed entry that still carries one. The index row gets the new anchor, its Item cell loses ` — OPEN`, and its State cell becomes `**CLOSED** <date>`. That is the format the in-file REBUILD recipe generates. Origin and Size are kept. The GitLab side is the MR's `Closes #NN` line, not this recipe.
 
@@ -101,7 +100,6 @@ Expected anchors, computed from the current headings with the recipe's slug rule
 | 567 | `#567-issealedsecret-and-readstore-still-hardcode-their-own-secretid-lists-and-a-missed-id-is-silent-data-loss--closed-2026-09-19` |
 | 534 | `#534-the-chat-review-card-can-reject-one-field-while-apply-replays-the-whole-call-so-the-fields-it-shows-as-landing-are-lost--closed-2026-09-19` |
 | 546 | `#546-a-dated-timelog-applys-other-granularity-delete-removes-hand-typed-hours-from-days-it-never-routed-and-the-confirm-dialog-never-discloses-it--closed-2026-09-19` |
-| 548 | `#548-an-edit-made-during-a-projects-first-backend-load-is-overwritten-when-that-load-lands--closed-2026-09-19` |
 
 Register gates. Run each one unpiped and read `EXIT` (1 = drift; 2 = the gate could not scan, which demands the opposite response):
 
@@ -1352,9 +1350,62 @@ Paths: `src/app/timelog-apply.ts src/app/timelog-apply-confirm.tsx src/app/i18n.
 
 ---
 
-### Task 4: §548 — no edits while a load or project swap is pending
+### Task 4: §548 — record the deferred planning findings in the register (docs only; §548 stays OPEN)
 
-#### 4.0 Writer inventory (read-only survey, done while planning, at `0efaf771`)
+**Files:**
+- Modify: `docs/open-followups.md` (§548's body only). The heading, the `**Status:**` line, the `**Work item:** #336` line and the index row stay unchanged, because the entry stays OPEN.
+
+**Interfaces:** none. No source file changes.
+
+- [ ] **Step 1: Insert the dated notes**
+
+In `docs/open-followups.md` (LF, Edit tool), find the line in §548 that starts with `Related: §284 (a different Turso load-time data-loss mechanism`. Insert this block directly above it, followed by one blank line:
+
+```
+**Planning notes 2026-09-19** (`fix/data-loss-batch`; not executed — the fix moved to its own slice by user ruling, with its own UX decision):
+- **Writer inventory: 96 rows.** 33 are already wrapped by `guardEdit`, 53 a fix must gate, 1 starts only after the load (snapshot capture), and 9 write nothing a pending load can discard. The 53 are 39 UI writers outside `guardEdit` (task rows, the task modal, bulk ops, voice, roles, knowledge, milestones, dashboard status, settings, notes, the action center, documents, the steering committee and more), 5 background writers that never unmount (the insight reconcile timer, the recommendation store, calendar auto-sync, calendar auto-pull, the undo hotkey) and 9 project-swap ops. The table and the commands that reproduce it are in the appendix of `docs/superpowers/plans/2026-09-19-data-loss-batch.md` ("§548 — deferred design notes").
+- **A project switch opens the same window.** A backend change re-runs the load effect. The swap ops (`switchToProject`, `createProject`, `loadProjectFromFile`, `createDemoProject`, `onOpenStorageFile`, `switchToTursoProject`, `createTursoProject`, `migrateCurrentProjectToTurso`, `reloadCurrentProject`) flush the outgoing project, await, and then replace the workspace; the apply's re-render clears the debounced save of any edit made during the await, so that edit is never written.
+- **`workspaceLoaded` cannot be the signal.** It stays false after a failed load and after the empty-load refusal (by design, §77), so holding edits on it would lock editing for the session after any load error. The drafted signal settles on every terminal branch of the load effect and also counts in-flight swaps.
+- **Two fix shapes are on the table.** (a) A whole-app hold: render the existing `PanelSkeleton` instead of the app tree while a load or swap is pending, plus explicit gates on the 5 background writers. It is structural and covers future writers, but it is a UX change (a skeleton on every start, backend change and swap). (b) A per-writer guard on every UI entry point, the spec's original shape: no UX change, but 72 guarded entry points each needing a test, and it decays the way the popout guards did.
+```
+
+Do not change any other line of §548.
+
+- [ ] **Step 2: Gates**
+
+Run each one unpiped and read `EXIT`:
+
+```bash
+cd /c/Projects/aipm-wt-a
+npm run followups:index:check; echo "EXIT=$?"
+npm run followups:status:check; echo "EXIT=$?"
+npm run docs:claims:check; echo "EXIT=$?"
+npm run docs:symbols:check; echo "EXIT=$?"
+```
+
+Expected: every `EXIT=0`. Also confirm the entry is still open: `grep -E "^## 548\. " docs/open-followups.md` must still end in ` — OPEN`.
+
+- [ ] **Step 3: Commit (Global section C)**
+
+Subject: `docs(register): §548 — record the deferred planning findings`
+Body: `§548 left the data-loss batch by user ruling and stays OPEN. The notes record the 96-row writer inventory, that a project switch opens the same window, why workspaceLoaded cannot be the signal, and the two fix shapes now on the table, pointing at the plan appendix.`
+Paths: `docs/open-followups.md`
+
+---
+
+## §548 — deferred design notes (not executed in this batch)
+
+> **DO NOT EXECUTE ANYTHING IN THIS APPENDIX.** By user ruling on 2026-09-19, §548 is its own later slice, with its own UX decision on the whole-app hold. This appendix keeps the planning work so that slice starts from it: the writer inventory, the signal analysis, the project-switch finding and a drafted implementation. The drafts are unreviewed input to that slice, not steps for this batch. Task 4 above records the summary in the register.
+
+### Design rulings as drafted (D1–D3)
+
+D1. **§548: "guardEdit + four named writers" is not the UI writer set.** `guardEdit` wraps exactly the 33 `workspaceProps` handlers in `task-manager.tsx` (`grep -c "guardEdit(" src/app/task-manager.tsx` → 33). The writer inventory (below) finds **39 further UI writer entry points** outside it: task rows, the task modal, bulk ops, voice, roles, knowledge, milestones, dashboard status, settings, notes, action center, documents, the steering committee and more. The popout "read-only" never covered them either. It is leaky by design, because a popout never saves. **Ruling:** do not gate writers one at a time. While `loadPending` is true, the main window renders the existing `PanelSkeleton` in place of the app tree. That is the primitive and pattern `showTursoListLoading` already uses for the Turso list-load window. It means no UI control that writes exists, and it covers future writers automatically. `guardEdit`/`makeEditGuard` stay unchanged. No new i18n string is needed, because the skeleton's `role="status"` carries the existing `loading` string, which is the notice. The four spec-named writers (template apply, chat Apply, insight-recommendation confirm, AI tool dispatch) are UI-only (`grep -rn "runTool(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\.\|^src/app/chat-tools.ts"` → four files: `chat-panel.tsx`, `chat-proposal-apply.ts`, `use-inline-entity-edit.ts` (three calls) and `use-insight-recommendations.ts`, all reached from a rendered control), so the hold covers them. The rejected alternative, per-writer guards on 72 entry points each with its own test, would decay the way the popout guards did.
+D2. **§548 signal: `loadedBackend`/`workspaceLoaded` does not mean "the first load landed" for editing purposes.** The load effect leaves it unstamped on the empty-load refusal branch and on the `catch` (by design, §77). Holding edits on it would lock the app for the whole session after any load error: `local-file-not-picked`, a misconfigured Turso project, or signed-out SharePoint. **Ruling:** add `settledBackend`, an identity state like `loadedBackend` that every terminal branch of the load effect stamps. Add `swapsInFlight`, a counter held by the project-swap ops. Publish `loadPending = !(settledBackend === backend) || swapsInFlight > 0`. It is named `loadPending`, not the spec's `firstLoadDone`, because it also covers reloads and swaps.
+D3. **§548: a project switch opens the same window, and is included.** (a) A backend change from Settings, or a `tursoProjectId` change without the suppress flag, re-runs the load effect. The identity derivation covers this for free. (b) The ops path is `switchToProject`, `createProject`, `loadProjectFromFile`, `createDemoProject`, `onOpenStorageFile`, `switchToTursoProject`, `createTursoProject`, `migrateCurrentProjectToTurso` and `reloadCurrentProject`. Each op awaits, then replaces the workspace (or reloads the page). The outgoing flush runs before the await. An edit made during the await re-arms the debounced save, and the apply's re-render clears that timer (`scheduleDebouncedSave`'s cleanup calls `clearTimeout`) and sets `suppressNextSaveRef`, so the edit is never saved and is replaced in memory. **Ruling:** wrap exactly these nine in `holdDuring` at the hook's `return`.
+
+### Writer inventory and signal analysis
+
+#### Writer inventory (read-only survey, done while planning, at `0efaf771`)
 
 **Survey commands.** Run these from `C:/Projects/aipm-wt-a` to reproduce the table:
 
@@ -1426,7 +1477,7 @@ Scan false positives, which are not workspace writers: `setFeatures` in `create-
 | `catch` | — | stamped | nothing is in flight; holding would lock the session |
 
 **Legend (exactly one label per row).**
-- `guardEdit`: already wrapped by `guardEdit` at the `workspaceProps` site. It is UI-reachable only, and while `loadPending` is true it is unmounted by the hold like every other UI writer. `makeEditGuard` itself is unchanged (Spec correction 1).
+- `guardEdit`: already wrapped by `guardEdit` at the `workspaceProps` site. It is UI-reachable only, and while `loadPending` is true it is unmounted by the hold like every other UI writer. `makeEditGuard` itself is unchanged (D1).
 - `gate-new`: gated by this task. **H** means the render hold (4b): the entry point is reachable only from a control inside the held tree. **E** means an explicit `loadPending` check (4b/4c): a background writer that does not unmount. **S** means the swap hold, `holdDuring` (4a).
 - `starts-after-load`: shown to start only after the load, with evidence.
 - `not-a-workspace-writer`: writes nothing the pending load can discard. It either writes non-workspace state, writes a slice the load MERGES rather than replaces, only mirrors another window's already-persisting state, or cannot run before the load with anything to lose (evidence given).
@@ -1539,11 +1590,11 @@ Scan false positives, which are not workspace writers: `setFeatures` in `create-
 
 **Counts:** `guardEdit` 33 · `gate-new` 53 (H 39, E 5, S 9) · `starts-after-load` 1 · `not-a-workspace-writer` 9. That is 96 rows.
 
-**Project switch: decided and included** (Spec correction 3). A settings-driven backend change re-runs the load effect, so the identity derivation covers it. The nine op rows W45–W53 are held by `holdDuring`.
+**Project switch: decided and included** (D3). A settings-driven backend change re-runs the load effect, so the identity derivation covers it. The nine op rows W45–W53 are held by `holdDuring`.
 
 ---
 
-### Task 4a: §548 — publish `loadPending` from `useStorageBackend`
+### Draft 4a (not executed): §548 — publish `loadPending` from `useStorageBackend`
 
 **Files:**
 - Modify: `src/app/use-storage-backend.ts`
@@ -1552,7 +1603,7 @@ Scan false positives, which are not workspace writers: `setFeatures` in `create-
 **Interfaces:**
 - Produces: `useStorageBackend(...).loadPending: boolean`. It is true from mount until the load effect for the CURRENT `backend` reaches a terminal branch, and true while any `holdDuring`-wrapped op is in flight. The nine ops keep their names and signatures in the returned object, now wrapped.
 
-- [ ] **Step 1: Write the failing tests**
+- **Step 1: Write the failing tests**
 
 Append to `src/app/use-storage-backend.test.tsx`, after the `describe("useStorageBackend — workspaceLoaded (snapshot-capture gate)", …)` block:
 
@@ -1647,12 +1698,12 @@ describe("useStorageBackend — loadPending (§548 edit hold)", () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests and verify they fail**
+- **Step 2: Run the tests and verify they fail**
 
 Run (Global section V): `npx vitest run src/app/use-storage-backend.test.tsx --maxWorkers=1 --reporter=dot`
 Expected: `EXIT=1`. The five new tests fail because `loadPending` is `undefined`.
 
-- [ ] **Step 3: Implement**
+- **Step 3: Implement**
 
 In `src/app/use-storage-backend.ts`, directly after `const workspaceLoaded = loadedBackend !== null && loadedBackend === backend;`, insert:
 
@@ -1786,24 +1837,24 @@ with:
 
 Leave `onPickStorageFile`, `onGrantWriteAccess`, `onRequestStorageSwitch` and the archive/restore/hard-delete ops unwrapped. They replace nothing (inventory N08, N09).
 
-- [ ] **Step 4: Run the tests**
+- **Step 4: Run the tests**
 
 Run Step 2's command. Expected: `EXIT=0`, `Test Files  1 passed (1)`.
 
-- [ ] **Step 5: Mutations**
+- **Step 5: Mutations**
 
 - MH (failure branch): delete the `if (mountedRef.current) setSettledBackend(backend);` line in the `catch`. Expected red: `drops when the load FAILS`. Revert.
 - MI (signal source): change `loadPending`'s first term to `!(loadedBackend !== null && loadedBackend === backend)`. Expected red: `drops when the load FAILS`. Revert.
 - MJ (swap hold): delete `|| swapsInFlight > 0`. Expected red: `is true for the whole of a project-swap op`. Revert.
 
-- [ ] **Step 6: Gates**
+- **Step 6: Gates**
 
 - vitest: Step 2's command → `EXIT=0`, `Test Files  1 passed (1)`.
 - tsc → `EXIT=0`, `0`.
 - `npx eslint --max-warnings=0 src/app/use-storage-backend.ts src/app/use-storage-backend.test.tsx` → `EXIT=0`.
 - Size: `node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"` must be ≤ 1600.
 
-- [ ] **Step 7: Commit (Global section C)**
+- **Step 7: Commit (Global section C)**
 
 Subject: `fix(storage): §548 — publish loadPending for the load and project swaps`
 Body: `useStorageBackend now reports whether a load is still in flight for the current backend: every terminal branch of the load effect settles it (a failed load too, unlike workspaceLoaded), and the nine ops that await and then replace the workspace hold it for their whole duration. Mutations MH, MI and MJ each turn a named test red.`
@@ -1811,7 +1862,7 @@ Paths: `src/app/use-storage-backend.ts src/app/use-storage-backend.test.tsx`
 
 ---
 
-### Task 4b: §548 — hold the app tree, the reconcile effect and the undo hotkey
+### Draft 4b (not executed): §548 — hold the app tree, the reconcile effect and the undo hotkey
 
 **Files:**
 - Modify: `src/app/task-manager.tsx` (destructure `loadPending`, render hold, reconcile gate, the undo-hotkey move)
@@ -1819,10 +1870,10 @@ Paths: `src/app/use-storage-backend.ts src/app/use-storage-backend.test.tsx`
 - Docs: `AGENTS.md` ("Remount-swallow" bullet)
 
 **Interfaces:**
-- Consumes: `loadPending` from Task 4a.
+- Consumes: `loadPending` from Draft 4a.
 - Produces: no new exports. Every main-window panel now mounts fresh after a hold.
 
-- [ ] **Step 1: Write the failing test file `src/app/task-manager.load-hold.test.tsx`**
+- **Step 1: Write the failing test file `src/app/task-manager.load-hold.test.tsx`**
 
 ```tsx
 // §548 — the edit hold, pinned at its only call site. While `loadPending` is
@@ -1971,12 +2022,12 @@ describe("§548 — no edit can start while the load is pending", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify it fails**
+- **Step 2: Run the test and verify it fails**
 
 Run (Global section V): `npx vitest run src/app/task-manager.load-hold.test.tsx --maxWorkers=1 --reporter=dot`
 Expected: `EXIT=1`, and all three tests fail. The app renders during the pending load, the reconcile runs, and the hotkey undoes.
 
-- [ ] **Step 3: Implement in `src/app/task-manager.tsx` (CRLF, Edit tool)**
+- **Step 3: Implement in `src/app/task-manager.tsx` (CRLF, Edit tool)**
 
 (a) Destructure the signal. In the `useStorageBackend` destructuring, replace `    restoreTursoProject, hardDeleteTursoProject, tursoProjectId,` with:
 
@@ -2048,11 +2099,11 @@ and in that effect's dependency array, replace `holidaySet, holidaysReady, shift
 
 and replace `            ) : showTursoListLoading ? (` with `            ) : showTursoListLoading || loadPending ? (`.
 
-- [ ] **Step 4: Run the new test**
+- **Step 4: Run the new test**
 
 Run Step 2's command. Expected: `EXIT=0`, `Test Files  1 passed (1)`.
 
-- [ ] **Step 5: Run the 16 existing TaskManager suites**
+- **Step 5: Run the 16 existing TaskManager suites**
 
 These render `<TaskManager />` and may now race the hold. Run (Global section V):
 
@@ -2071,13 +2122,13 @@ await waitFor(
 
 Never weaken or delete an assertion. List every suite you changed, and why, in the task report, and add each changed file to this task's commit paths.
 
-- [ ] **Step 6: Mutations**
+- **Step 6: Mutations**
 
 - MK (render hold): revert `showTursoListLoading || loadPending` to `showTursoListLoading`. Expected red: `renders the loading placeholder…`. Revert.
 - ML (reconcile): delete `|| loadPending` from the reconcile effect's early return. Expected red: `does not run the insight reconcile…`. If it stays GREEN, the 8 s wait is too short on this machine: raise it, and re-prove red. Revert.
 - MM (hotkey): change the undo closure to `() => { undoApi.undo(); }`. Expected red: `ignores the undo hotkey…`. Revert.
 
-- [ ] **Step 7: AGENTS.md (LF, Edit tool)**
+- **Step 7: AGENTS.md (LF, Edit tool)**
 
 In the "Remount-swallow" bullet, replace:
 
@@ -2096,7 +2147,7 @@ with:
   the two exceptions below included, mounts fresh after each; the sentinel rule applies to them too.
 ```
 
-- [ ] **Step 8: Gates**
+- **Step 8: Gates**
 
 - vitest: Step 5's command → `EXIT=0`, `Test Files  17 passed (17)`.
 - tsc → `EXIT=0`, `0`.
@@ -2104,7 +2155,7 @@ with:
 - `npm run docs:symbols:check; echo "EXIT=$?"` → `EXIT=0`.
 - a11y, since this is a UI change and the unit suite never runs axe: `npx playwright test e2e/a11y.spec.ts --project=chromium -g "Dashboard" --workers=1; echo "EXIT=$?"` → `EXIT=0`. A timeout under local contention is not a violation: re-run once, and report both runs.
 
-- [ ] **Step 9: Commit (Global section C)**
+- **Step 9: Commit (Global section C)**
 
 Subject: `fix(shell): §548 — hold the app tree while a load or swap is pending`
 Body: `While loadPending, the main window renders the existing PanelSkeleton instead of the app tree, so no UI writer can start inside the window the load would overwrite. The insight reconcile effect and the undo hotkey, which do not unmount, gate on the same signal. Mutations MK, ML and MM each turn a named test red.`
@@ -2112,7 +2163,7 @@ Paths: `src/app/task-manager.tsx src/app/task-manager.load-hold.test.tsx AGENTS.
 
 ---
 
-### Task 4c: §548 — gate the background hooks; close §548
+### Draft 4c (not executed): §548 — gate the background hooks; close §548
 
 **Files:**
 - Modify: `src/app/use-insight-recommendations.ts` (`InsightRecommendationDeps.loadPending`, `applyInsightRecommendation`)
@@ -2122,10 +2173,10 @@ Paths: `src/app/task-manager.tsx src/app/task-manager.load-hold.test.tsx AGENTS.
 - Docs: `docs/open-followups.md` (§548)
 
 **Interfaces:**
-- Consumes: `loadPending` (Task 4a), threaded by task-manager.
+- Consumes: `loadPending` (Draft 4a), threaded by task-manager.
 - Produces: `InsightRecommendationDeps.loadPending: boolean` and `CalendarIntegrationDeps.loadPending: boolean`, both required.
 
-- [ ] **Step 1: Write the failing tests**
+- **Step 1: Write the failing tests**
 
 `src/app/use-insight-recommendations.test.tsx`. In `mkDeps`, add `loadPending: false,` after `isPopout: false,`. Then append:
 
@@ -2283,12 +2334,12 @@ In `beforeEach`, add `handed.calendar.length = 0; handed.recs.length = 0;`. Insi
   }, 45000);
 ```
 
-- [ ] **Step 2: Run the tests and verify they fail**
+- **Step 2: Run the tests and verify they fail**
 
 Run (Global section V): `npx vitest run src/app/use-insight-recommendations.test.tsx src/app/use-calendar-integrations.load-hold.test.ts src/app/task-manager.load-hold.test.tsx --maxWorkers=1 --reporter=dot`
 Expected: `EXIT=1`. The new tests fail: the recommendation is stored while pending, the flags are `true` while pending, and `handed` records `undefined`. vitest does not typecheck, so the missing `loadPending` member shows up only in Step 7's tsc run.
 
-- [ ] **Step 3: Implement**
+- **Step 3: Implement**
 
 `use-insight-recommendations.ts`. In `InsightRecommendationDeps`, after `isPopout: boolean;` add:
 
@@ -2358,18 +2409,18 @@ Add `loadPending,` to the destructuring after `isPopout,`. Then change these fiv
 
 Edit only this call: the object literal passed to `useCalendarIntegrations`.
 
-- [ ] **Step 4: Run the tests**
+- **Step 4: Run the tests**
 
 Run Step 2's command. Expected: `EXIT=0`, `Test Files  3 passed (3)`.
 
-- [ ] **Step 5: Mutations**
+- **Step 5: Mutations**
 
 - MN (recommendation store): delete `if (loadPending) return;`. Expected red: `does not store a generated recommendation while the project load is pending (§548)`. Revert.
 - MO (auto-sync): delete `&& !loadPending` from `taskAutoSyncActive`. Expected red: `keeps every auto-sync push … OFF`. Revert.
 - MP (auto-pull runner): delete `&& !loadPending` from `useCalendarAutoPull`'s `enabled`. Expected red: the same test. Revert.
 - MQ (wiring): in task-manager's `useCalendarIntegrations({` call, change `loadPending,` to `loadPending: false,`. Expected red: `hands loadPending to the background hooks`. Revert.
 
-- [ ] **Step 6: Close §548 (Global section R)**
+- **Step 6: Close §548 (Global section R)**
 
 Write `$SCRATCH/status-548.txt`:
 
@@ -2379,24 +2430,21 @@ Write `$SCRATCH/status-548.txt`:
 
 Run `node "$SCRATCH/close-followup.cjs" 548 2026-09-19 "$SCRATCH/status-548.txt"`.
 
-- [ ] **Step 7: Gates**
+- **Step 7: Gates**
 
 - vitest: Step 2's command → `EXIT=0`, `Test Files  3 passed (3)`.
 - tsc → `EXIT=0`, `0`. This is where a missed `loadPending` at another call site of either hook fails, because the member is required.
 - `npx eslint --max-warnings=0 src/app/use-insight-recommendations.ts src/app/use-calendar-integrations.ts src/app/task-manager.tsx src/app/use-insight-recommendations.test.tsx src/app/use-calendar-integrations.load-hold.test.ts src/app/task-manager.load-hold.test.tsx` → `EXIT=0`.
 - The four register gates → all `EXIT=0`.
 
-- [ ] **Step 8: Commit (Global section C)**
+- **Step 8: Commit (Global section C)**
 
 Subject: `fix(storage): §548 — gate the background writers on loadPending; close §548`
 Body: `The recommendation store and the calendar auto-sync pushes, background pulls and auto-pull runner run on timers and never unmount with the held app tree, so they now refuse while loadPending. Mutations MN-MQ each turn a named test red.`
 Paths: `src/app/use-insight-recommendations.ts src/app/use-calendar-integrations.ts src/app/task-manager.tsx src/app/use-insight-recommendations.test.tsx src/app/use-calendar-integrations.load-hold.test.ts src/app/task-manager.load-hold.test.tsx docs/open-followups.md`. `git add -- src/app/use-calendar-integrations.load-hold.test.ts` first.
 
----
+### Risks of the drafted design
 
-## Open risks (reported, not fixed here)
-
-1. **Pre-load autosave (unverified, and possibly worse than §548).** The save effect is not gated on the load. At hydration it schedules a debounced save of the empty pre-load workspace, and only the load's own commit cancels it within `SAVE_DEBOUNCE_MS` (500 ms). A load slower than that, such as a cold Turso connection, may write the empty workspace. No backend-level `isWorkspaceEmpty` refusal was found, and `destructive.evaluate` against zero baselines was not traced. This is outside §548's edit-refusal scope. Probe before the batch ships, and file it at the next free number (§586 or later) on the user's say.
-2. **The 16 TaskManager suites may race the new hold** (Task 4b Step 5). The fix recipe is to await the load, and only that.
-3. **UX change the user has not seen:** a skeleton on every boot, on each backend change and during every project swap, including behind the OS file picker in `createProject` / `loadProjectFromFile`. The a11y axe gate runs in CI only. Task 4b runs one view locally.
-4. **Pre-existing, left alone:** a chat agent loop in flight across a project swap keeps dispatching into the next project, and the undo stack is not cleared on a project switch.
+1. **The 16 TaskManager suites may race the new hold** (Draft 4b Step 5). The fix recipe is to await the load, and only that.
+2. **UX change the user has not seen:** a skeleton on every boot, on each backend change and during every project swap, including behind the OS file picker in `createProject` / `loadProjectFromFile`. The a11y axe gate runs in CI only. Draft 4b runs one view locally.
+3. **Pre-existing, left alone:** a chat agent loop in flight across a project swap keeps dispatching into the next project, and the undo stack is not cleared on a project switch.
