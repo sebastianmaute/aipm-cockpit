@@ -4,7 +4,7 @@
 
 **Goal:** Replace every unit-test wall-clock ceiling with a load-independent scaling-ratio check, so machine load can no longer fail a correct build while each guard still goes red on the regression it exists for.
 
-**Architecture:** One helper, `expectLinearScaling` in `src/test/scaling.ts`, times the code under test at `n` and `n * factor`, interleaved, keeps each size's minimum, and asserts the ratio is below `maxRatio`. It requires an output check at both sizes. Nine test files move onto it; no production code changes.
+**Architecture:** One helper, `expectLinearScaling` in `src/test/scaling.ts`, times the code under test at `n` and `n * factor` after one untimed warm-up, interleaved, keeps each size's minimum, and asserts the ratio is below `maxRatio`. It requires an output check at both sizes. Nine test files move onto it: 22 call sites (34 executions) convert to a ratio, and one site (`xlsx-extract`'s XFD case, which has no size axis) drops its timing and keeps its exact output assertion. No production code changes.
 
 **Tech Stack:** TypeScript, Vitest 4.1.11.
 
@@ -13,14 +13,15 @@
 ## Global Constraints
 
 - No production code changes. A guard found vacuous by its mutant proof is filed in the register, not fixed here.
-- Defaults: `factor = 4`, `repeats = 5`, `maxRatio = factor ** 1.5` (8 at factor 4). Timer floor 20 ms.
+- Defaults: `factor = 4`, `repeats = 3`, `maxRatio = factor ** 1.5` (8 at factor 4). Timer floor 20 ms. No converted site passes `maxRatio`.
 - The output `check` is mandatory at every call site, and it must be specific to the fixture — "is non-empty" does not count.
-- Scaling direction: DOWN from a clamp (`html-extract`, the `MAX_HTML_TEXT_CHARS` row of `document-asset-patterns.differential`); UP from today's N where a comment records smaller sizes as unsafe (`rich-text-plain`, `xlsx-extract`, `docx-extract`, `pptx-extract`); elsewhere today's N becomes the LARGE size.
-- `raid-escalation`: `factor: 4, maxRatio: 2`.
+- Sizes: NEVER scale up. Today's N becomes the LARGE size everywhere, or something smaller; `n` is a quarter of the large size (the per-site table in each task gives the starting `n`). `html-extract` goes further down: large 125,000, `n` 31,250. The "smaller sizes were unsafe" notes in `rich-text-plain`, `xlsx-extract`, `docx-extract`, `pptx-extract` and `office-xml` sized a CEILING margin, not a ratio — their own tables show the mutant quadratic dominating at a quarter of today's size.
+- Every site is verified by the ratio its mutant produces at the new sizes. If a mutant's ratio does not exceed 8 at the starting `n`, pick the smallest `n` (at most today's N / 4) where it does, and record why in the site's comment. If even N / 4 does not, stop and report `DONE_WITH_CONCERNS`; never loosen the limit.
+- Budget about 1.5 s green per converted `it`, or less, on the development machine. A fixture-row loop whose rows together would exceed that becomes `it.each`, one row per test, named by the row label.
+- Every converted test passes `{ timeout: 120_000 }` as its OPTIONS argument — in vitest 4.1.11 that is the second argument, `it(name, { timeout: 120_000 }, fn)` or `it.each(cases)(name, { timeout: 120_000 }, fn)`; the third-argument slot takes only a bare number. Put this comment on the line above: `// Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).`
 - Comments record the green and red RATIOS measured during conversion, with the date (2026-09-19 or the day measured). Old ms figures are removed. "DoS guard, not a benchmark" banners stay.
-- Each `it` must stay under 10 s green on the development machine (half the 20 s `testTimeout`). A fixture-row loop whose rows together would exceed that becomes `it.each`, one row per test, named by the row label.
-- vitest: `npx vitest run <files> --maxWorkers=1 --reporter=dot`. Never two vitest processes at once. Never read an exit code through a pipe: redirect to a log, `echo "EXIT=$?"`, then read the log.
-- Keep each file's existing line endings. Check with `git ls-files --eol <file>` before and after editing: a file that is `w/crlf` stays CRLF, a file that is `w/lf` stays LF. `src/test/*.ts` is CRLF.
+- vitest: `npx vitest run <files> --maxWorkers=1 --reporter=dot`. Never two vitest processes at once. Never read an exit code through a pipe: redirect to a log, `echo "EXIT=$?"`, then read the log. Mutant runs use the 120 s kill wrapper in "Mutant procedure".
+- Keep each existing file's line endings. Check with `git ls-files --eol <file>` before and after editing: a file that is `w/crlf` stays CRLF, a file that is `w/lf` stays LF. The two NEW files in Task 1 come out of the Write tool as LF; leave them so — the committed blob is LF either way and no gate reads the working-tree ending.
 - Git: never `git add -A` or `git add .`; commit with `git commit --only <paths> -F <msgfile>`. Never `--amend`, never a bare `git stash`, never `npm ci`. `git checkout --` and `git restore` are blocked; revert a mutant by writing the original bytes back and proving `git diff --stat` is empty for that file.
 - Commit messages cite §N, never `#NN` or "Closes". End every commit message with the line `Claude-Session: https://[session link removed]`.
 - Never open, print or stage any `.env*` file.
@@ -30,33 +31,71 @@
 
 1. **A fast CI machine makes the small side sub-millisecond.** Expected: the helper loops the call up to the 20 ms floor and still produces a meaningful ratio, not a noise ratio. Pinned in Task 1 ("loops a sub-floor small side...").
 2. **Fixture building is slow compared with the call.** Expected: build time never enters the ratio. Pinned in Task 1 ("does not time build").
-3. **A load spike lands on one measurement.** Expected: a linear curve still passes. Pinned in Task 1 ("ignores one spike").
-4. **A regression bails early at the large size only.** Expected: `check` at the large size fails the test. Pinned in Task 1 ("runs check at both sizes").
-5. **A large size that crosses a clamp makes the guard vacuous** (both sizes do the same work, ratio ≈ 1, passes whatever the code does). Expected: each clamp-bound site asserts its large input does not exceed the clamp. Pinned in Task 2 (`html-extract`) and Task 4 (`document-asset-patterns` row).
+3. **A load spike lands on one measurement.** Expected: a linear curve still passes, wherever the spike lands — first small run, first large run, or last large run. Pinned in Task 1 (the three "ignores one spike" tests).
+4. **Load arrives mid-run and stays.** Expected: interleaving leaves the first small/large pair clean, so a linear curve passes. Pinned in Task 1 ("keeps sizes interleaved").
+5. **A regression bails early at the large size only.** Expected: `check` at the large size fails the test. Pinned in Task 1 ("fails when check throws at the large size only").
+6. **A large size that crosses a clamp makes the guard vacuous** (both sizes do the same work, ratio ≈ 1, passes whatever the code does). Expected: the one clamp-bound site, `html-extract`, asserts its large input does not exceed `CLAMP_CHARS`. Pinned in Task 2. (`document-asset-patterns`' `MAX_HTML_TEXT_CHARS` row carries a size pin too, but its timed regexes run on the raw input with no clamp, so that pin keeps the row at its stated "real exposure" size; it is not a vacuity guard.)
+7. **A passing converted test takes longer than vitest's timeout on a loaded machine.** vitest checks a synchronous test's elapsed time only after it returns, so the default 20 s `testTimeout` would be a wall-clock ceiling in its own right. Expected: every converted test passes `{ timeout: 120_000 }`, and each `it` costs about 1.5 s green or less.
 
 ## Peer protocol and load check (all tasks that run vitest)
 
-The controller sends "starting vitest" to the peer session before dispatching a task that runs vitest, and "vitest done" after the task reports. An implementer takes timing measurements (mutant ratios, load check) only inside that window.
+The controller sends "starting vitest" to the peer session before dispatching a task that runs vitest, and "vitest done" after the task reports. An implementer takes timing measurements (mutant ratios, load check) only inside that window. Never two vitest runs at once — including as a way to create load.
 
-Load check script — create it once in the SDD workspace (NOT in the repo) as `burn.mjs`:
+The CPU burn below saturates the WHOLE machine and can fail a peer's own timing tests or full-suite run. The controller therefore also sends "starting load burn (about 4 minutes)" before a load check and "load burn done" after it, and the peer runs nothing timing-sensitive in between.
+
+Create two scripts once in the SDD workspace (NOT in the repo).
+
+`burn.mjs` — saturates the machine with 2 × the logical core count of worker threads for N seconds, then exits by itself:
 
 ```js
-// Saturates every core for N seconds, then exits by itself.
 import { Worker } from "node:worker_threads";
 import os from "node:os";
-const secs = Number(process.argv[2] ?? 120);
+const secs = Number(process.argv[2] ?? 240);
 const code = `const end = Date.now() + ${secs} * 1000; while (Date.now() < end) {}`;
-for (let i = 0; i < os.cpus().length; i++) new Worker(code, { eval: true });
+for (let i = 0; i < 2 * os.cpus().length; i++) new Worker(code, { eval: true });
+console.log(`burn: ${2 * os.cpus().length} threads for ${secs} s, pid ${process.pid}`);
 ```
 
-Run it in the background (`node <workspace>/burn.mjs 180 &`), then run the converted file's vitest while it burns. It exits on its own; nothing needs to be killed. Record in the report that the file stayed green under the burn.
+`ref.mjs` — a fixed single-threaded reference loop, used to measure how much the burn actually slowed the machine:
+
+```js
+const started = performance.now();
+let x = 0;
+for (let i = 0; i < 200_000_000; i++) x = (x + i) % 1_000_003;
+console.log(`ref ${(performance.now() - started).toFixed(0)} ms (x=${x})`);
+```
+
+Load check, in PowerShell, from the repo root (replace `<workspace>`, `<files>` and `<log>`):
+
+```powershell
+node <workspace>\ref.mjs                                   # idle: record the ms
+$burn = Start-Process -FilePath node -ArgumentList @("<workspace>\burn.mjs", "240") -NoNewWindow -PassThru
+node <workspace>\ref.mjs                                   # under the burn: record the ms
+npx vitest run <files> --maxWorkers=1 --reporter=dot > <log> 2>&1; "EXIT=$LASTEXITCODE"
+node <workspace>\ref.mjs                                   # still under the burn: confirms it covered the run
+if (-not $burn.HasExited) { Stop-Process -Id $burn.Id }    # by PID only, never a blanket node kill
+```
+
+Record in the report: the idle ms, the two under-burn ms, the slowdown factor (under-burn ÷ idle, taking the smaller under-burn figure), and the vitest EXIT with its `Test Files` line. If the third `ref` line runs after the burn has exited (its ms is back near idle), the burn did not cover the vitest run: raise the seconds and repeat. A green result with no recorded factor does not count. With 2C burners on C cores a single thread gets about C / (2C + 1) of a core, so expect a factor near 2; record what you measure, not this estimate.
 
 ## Mutant procedure (Tasks 2–4)
+
+vitest cannot interrupt a synchronous test (see the "Hang backstop" docstring in `src/test/scaling.ts`), so a mutant runs to completion however long it takes. Every mutant run therefore goes through this wrapper, which runs vitest on ONE file and kills that process tree by its PID after 120 s. In PowerShell, from the repo root:
+
+```powershell
+$file = "src/app/<name>.test.ts"; $log = "<workspace>\mutant-<site>.log"
+$sp = @{ FilePath = "npx.cmd"; ArgumentList = @("vitest", "run", $file, "--maxWorkers=1", "--reporter=dot"); RedirectStandardOutput = $log; RedirectStandardError = "$log.err"; NoNewWindow = $true; PassThru = $true }
+$p = Start-Process @sp
+$null = $p.Handle   # keeps ExitCode readable once the process exits
+if ($p.WaitForExit(120000)) { "EXIT=$($p.ExitCode)" } else { taskkill /PID $p.Id /T /F | Out-Null; "KILLED after 120 s - counts as RED" }
+```
+
+`taskkill /PID <id> /T` ends only the tree rooted at the vitest process this wrapper started. Never kill node processes by name.
 
 For each converted call site:
 
 1. Find the regression it guards. First from the site's own comment. If the comment does not name it, run `git log -S '<a distinctive fixture string>' --oneline -- <test file>` to find the commit that added the guard, and read that commit's change to the SOURCE file — the mutant is reverting that source hunk.
-2. Apply the mutant to the source file, run only that test file, and record: red or green, and the printed ratio, or "timeout" if it hit 20 s.
+2. Apply the mutant to the source file, run the wrapper on that test file, and record: red or green; if red, the ratio printed in the failure message, or "killed at 120 s". A kill is red. A ratio failure is reported as the ratio even when the run took longer than the test's own timeout, because a test that throws never reaches vitest's elapsed-time check.
 3. Write the original bytes back and confirm `git diff --stat -- <source file>` prints nothing.
 4. A mutant that survives (stays green) is NOT a reason to loosen the ratio. Stop and report it as `DONE_WITH_CONCERNS`, with the ratio numbers.
 
@@ -67,8 +106,8 @@ Mutants run one at a time. The report ends with `git diff --stat` showing only t
 ### Task 1: The scaling helper
 
 **Files:**
-- Create: `src/test/scaling.ts` (CRLF)
-- Test: `src/test/scaling.test.ts` (CRLF)
+- Create: `src/test/scaling.ts`
+- Test: `src/test/scaling.test.ts`
 
 **Interfaces:**
 - Produces:
@@ -86,25 +125,43 @@ Mutants run one at a time. The report ends with `git diff --stat` showing only t
 import { describe, expect, it } from "vitest";
 import { expectLinearScaling, measureScaling, TIMER_FLOOR_MS } from "./scaling";
 
-/** A fake clock the fake workload advances. `cost(n)` is the ms one run costs at size n. */
-function fakeWorkload(cost: (n: number) => number) {
-  const clock = { t: 0 };
+/**
+ * A fake clock the fake workload advances. `cost(n, call)` is the ms one run
+ * costs at size n; `call` counts every `run` from 1.
+ */
+function fakeWorkload(cost: (n: number, call: number) => number) {
+  const clock = { t: 0, calls: 0 };
   return {
     now: () => clock.t,
     build: (n: number) => n,
     run: (n: number) => {
-      clock.t += cost(n);
+      clock.calls += 1;
+      clock.t += cost(n, clock.calls);
       return n;
     },
   };
 }
 
+// Call order at the default repeats (3), for a run of 100 ms or more at n, so
+// calibration needs exactly one probe:
+//   call 1 = untimed warm-up (small), call 2 = calibration probe (small),
+//   then repeat r times small at call 3 + 2r and large at call 4 + 2r.
+const FIRST_SMALL_CALL = 3;
+const FIRST_LARGE_CALL = 4;
+const LAST_LARGE_CALL = 2 * 3 + 2; // 8
+const slow = (n: number) => (n / 1000) * 50;
+
 describe("measureScaling", () => {
-  it("passes a linear curve", () => {
-    const w = fakeWorkload((n) => n / 1000);
+  it("passes a linear curve, in 1 warm-up + 1 probe + 3 small/large pairs", () => {
+    let lastCall = 0;
+    const w = fakeWorkload((n, call) => {
+      lastCall = call;
+      return n / 1000;
+    });
     const r = expectLinearScaling({ label: "linear", ...w, check: () => {}, n: 100_000 });
     expect(r.ratio).toBeCloseTo(4, 5);
     expect(r.nLarge).toBe(400_000);
+    expect(lastCall).toBe(LAST_LARGE_CALL);
   });
 
   it("fails a quadratic curve, naming both minima and the ratio", () => {
@@ -114,26 +171,32 @@ describe("measureScaling", () => {
     ).toThrow(/quad: small n=100000 .*ms, large n=400000 .*ms, ratio 16\.00 \(max 8\)/);
   });
 
-  it("ignores one spike on the small side", () => {
-    let calls = 0;
-    const w = fakeWorkload((n) => {
-      calls += 1;
-      // Call 1 is the calibration probe (100 ms, already above the floor, so no
-      // extra calibration calls); call 2 is repeat 0's SMALL run. Make it 50x slower.
-      return calls === 2 ? (n / 1000) * 50 : n / 1000;
-    });
+  it("ignores one spike on the first small run", () => {
+    const w = fakeWorkload((n, call) => (call === FIRST_SMALL_CALL ? slow(n) : n / 1000));
     const r = expectLinearScaling({ label: "spike", ...w, check: () => {}, n: 100_000 });
     expect(r.ratio).toBeCloseTo(4, 5);
   });
 
-  it("ignores one spike on the large side", () => {
-    let calls = 0;
-    const w = fakeWorkload((n) => {
-      calls += 1;
-      // Call 3 is repeat 0's LARGE run.
-      return calls === 3 ? (n / 1000) * 50 : n / 1000;
-    });
+  it("ignores one spike on the first large run", () => {
+    const w = fakeWorkload((n, call) => (call === FIRST_LARGE_CALL ? slow(n) : n / 1000));
     const r = expectLinearScaling({ label: "spike", ...w, check: () => {}, n: 100_000 });
+    expect(r.ratio).toBeCloseTo(4, 5);
+  });
+
+  it("ignores one spike on the LAST large run", () => {
+    // A helper that kept the last measurement instead of the minimum would
+    // see 20,000 ms against 100 ms here: ratio 200.
+    const w = fakeWorkload((n, call) => (call === LAST_LARGE_CALL ? slow(n) : n / 1000));
+    const r = expectLinearScaling({ label: "spike", ...w, check: () => {}, n: 100_000 });
+    expect(r.ratio).toBeCloseTo(4, 5);
+  });
+
+  it("keeps sizes interleaved, so load that arrives mid-run and stays does not fail", () => {
+    // From call 5 (repeat 1's small run) on, every run is 50x slower. Interleaved,
+    // repeat 0's pair (calls 3 and 4) is clean. A helper that ran every small
+    // repeat before any large one would time all three large runs under load.
+    const w = fakeWorkload((n, call) => (call >= FIRST_SMALL_CALL + 2 ? slow(n) : n / 1000));
+    const r = expectLinearScaling({ label: "sustained", ...w, check: () => {}, n: 100_000 });
     expect(r.ratio).toBeCloseTo(4, 5);
   });
 
@@ -188,7 +251,9 @@ describe("measureScaling", () => {
   });
 
   it("honours a maxRatio override", () => {
-    const w = fakeWorkload(() => 25); // flat: clamped input
+    // No converted site passes maxRatio today; this pins the option for a
+    // future guard whose expected curve is flatter than linear.
+    const w = fakeWorkload(() => 25); // a flat curve
     const r = expectLinearScaling({ label: "flat", ...w, check: () => {}, n: 1000, maxRatio: 2 });
     expect(r.ratio).toBeCloseTo(1, 5);
     const g = fakeWorkload((n) => n / 40); // linear against a flat expectation
@@ -232,6 +297,20 @@ Expected: EXIT=1, failing on the missing module `./scaling`.
 // ★ `check` is mandatory and runs at BOTH sizes: an early bail that made the
 //   input trivial would otherwise pass a ratio check exactly as it passed a
 //   ceiling.
+// ★ One untimed warm-up run precedes calibration. A cold first call carries
+//   JIT compilation and the flattening of a `repeat()` string; timed, a cold
+//   probe of 20 ms or more would lock the loop count at 1 while the steady
+//   state is a few ms.
+// ★ HANG BACKSTOP. Give every test that calls this `{ timeout: 120_000 }` as
+//   its options argument (`it(name, { timeout: 120_000 }, fn)` in vitest 4).
+//   vitest cannot interrupt synchronous code: `withTimeout` in @vitest/runner
+//   wraps the test in `runWithTimeout`, whose setTimeout timer cannot fire
+//   while a synchronous test holds the thread, so elapsed time is checked
+//   only once the test RETURNS, in that function's inner `resolve()`. A
+//   passing test is then failed if it took longer than its timeout, so the
+//   default 20 s testTimeout would itself be a wall-clock ceiling on a slowed
+//   machine. A throwing test takes the `reject()` path, which never checks
+//   elapsed time, so a red ratio is always reported as the ratio.
 import { expect } from "vitest";
 
 /** A small side cheaper than this is looped until it reaches it, so the ratio is not timer noise. */
@@ -243,7 +322,11 @@ export interface ScalingOptions<I, O> {
   label: string;
   /** Builds the fixture at size n. Never timed. */
   build: (n: number) => I;
-  /** The code under test. Timed. */
+  /**
+   * The code under test. Timed. Called many times on the SAME input, so it
+   * must be stateless across calls: no global or sticky regex whose
+   * `lastIndex` carries over, no cache keyed on the input.
+   */
   run: (input: I) => O;
   /** Asserts on the output. Runs once at each size. */
   check: (output: O, n: number) => void;
@@ -266,7 +349,7 @@ export interface ScalingResult {
 
 export function measureScaling<I, O>(opts: ScalingOptions<I, O>): ScalingResult {
   const factor = opts.factor ?? 4;
-  const repeats = opts.repeats ?? 5;
+  const repeats = opts.repeats ?? 3;
   const now = opts.now ?? (() => performance.now());
   if (!Number.isInteger(opts.n) || opts.n < 1) throw new Error(`${opts.label}: n must be a positive integer`);
   if (!(factor > 1)) throw new Error(`${opts.label}: factor must be greater than 1`);
@@ -283,20 +366,24 @@ export function measureScaling<I, O>(opts: ScalingOptions<I, O>): ScalingResult 
     return { ms: now() - started, out };
   };
 
-  // Calibrate the loop count on the small side; check its output once.
+  // Untimed warm-up at the small size; its output is the small-size check.
+  opts.check(opts.run(small), opts.n);
+
+  // Calibrate the loop count on the small side.
   let loops = 1;
-  let probe = time(small, loops);
-  opts.check(probe.out, opts.n);
-  while (probe.ms < TIMER_FLOOR_MS) {
+  let probeMs = time(small, loops).ms;
+  while (probeMs < TIMER_FLOOR_MS) {
     if (loops >= MAX_LOOPS) {
       throw new Error(
-        `${opts.label}: ${loops} runs at n=${opts.n} took ${probe.ms.toFixed(3)}ms, below the ${TIMER_FLOOR_MS} ms floor — use a larger n`,
+        `${opts.label}: ${loops} runs at n=${opts.n} took ${probeMs.toFixed(3)}ms, below the ${TIMER_FLOOR_MS} ms floor — use a larger n`,
       );
     }
     loops *= 2;
-    probe = time(small, loops);
+    probeMs = time(small, loops).ms;
   }
 
+  // Interleave: each repeat times small, then large, and each size keeps its
+  // fastest run, so load that arrives mid-run leaves the first pair clean.
   let smallMs = Infinity;
   let largeMs = Infinity;
   for (let r = 0; r < repeats; r++) {
@@ -321,24 +408,30 @@ export function expectLinearScaling<I, O>(opts: ScalingOptions<I, O>): ScalingRe
 }
 ```
 
-Call order the spike tests depend on: the calibration probe is call 1 (at `n/1000` = 100 ms it is already above the floor, so no further calibration calls); then each repeat runs small, then large. Call 2 is repeat 0's small run, call 3 its large run. If you change the calibration or repeat order, update the two spike tests' indices to match.
+Call order the spike and interleaving tests depend on (every `run` counts, whether timed or not): call 1 is the untimed warm-up; call 2 is the calibration probe (at `n/1000` = 100 ms it is already above the floor, so there is no further calibration call); then repeat `r` runs small at call `3 + 2r` and large at call `4 + 2r`. At the default `repeats` of 3 the first small run is call 3, the first large run call 4, and the last large run call `2 * repeats + 2` = 8. (Without the warm-up the last large run would be call `2 * repeats + 1`; the warm-up shifts every index by one.) The linear test pins the total of 8 calls, so a changed default or a changed order goes red there first; update the constants at the top of the test file to match.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run src/test/scaling.test.ts --maxWorkers=1 --reporter=dot > <log> 2>&1; echo "EXIT=$?"`
-Expected: EXIT=0, `Test Files 1 passed`, 11 tests passed.
+Expected: EXIT=0, `Test Files 1 passed`, 13 tests passed.
 
 - [ ] **Step 5: Mutation-prove the helper**
 
-Apply each mutant alone, run the file, confirm red, restore, confirm `git diff --stat -- src/test/scaling.ts` is empty:
-1. Replace `Math.min` with the LAST measurement (`smallMs = time(small, loops).ms`, same for large) → a spike test goes red.
-2. Delete the `if (r === 0) opts.check(l.out, nLarge);` line → "fails when check throws at the large size only" goes red.
-3. Change `while (probe.ms < TIMER_FLOOR_MS)` to `while (false)` → the sub-floor test goes red.
-4. Move `const small = opts.build(opts.n);` inside `time` so build is timed → "does not time build" goes red.
+Apply each mutant alone, run the file, confirm red, restore, confirm `git diff --stat -- src/test/scaling.ts` is empty. Each edit is exact:
+1. **Take the last measurement.** Replace `smallMs = Math.min(smallMs, time(small, loops).ms);` with `smallMs = time(small, loops).ms;` and `largeMs = Math.min(largeMs, l.ms);` with `largeMs = l.ms;` → "ignores one spike on the LAST large run" goes red (ratio 200).
+2. **Take the first measurement.** Replace `smallMs = Math.min(smallMs, time(small, loops).ms);` with `const s = time(small, loops).ms; if (r === 0) smallMs = s;` and `largeMs = Math.min(largeMs, l.ms);` with `if (r === 0) largeMs = l.ms;` → "ignores one spike on the first large run" goes red (ratio 200), and "ignores one spike on the first small run" goes red on `toBeCloseTo(4)` (ratio 0.08).
+3. **Run sizes in sequence, not interleaved.** Replace the whole `for (let r = 0; r < repeats; r++) { … }` repeat loop with `for (let r = 0; r < repeats; r++) smallMs = Math.min(smallMs, time(small, loops).ms);` followed by `for (let r = 0; r < repeats; r++) { const l = time(large, loops); if (r === 0) opts.check(l.out, nLarge); largeMs = Math.min(largeMs, l.ms); }` → "keeps sizes interleaved" goes red (ratio 200).
+4. **Skip the large-size check.** Delete the `if (r === 0) opts.check(l.out, nLarge);` line → "fails when check throws at the large size only" goes red (and "runs check at both sizes").
+5. **Skip calibration.** Change `while (probeMs < TIMER_FLOOR_MS)` to `while (false)` → the sub-floor test goes red (and "refuses a run too cheap…").
+6. **Time the build.** Inside `time`, replace `const started = now();` with `const started = now(); opts.build(input === small ? opts.n : nLarge);` → "does not time build" goes red (each timed call now carries the fake build's 10,000 ms, so the ratio falls to about 1.03).
+
+The warm-up itself has no mutant: on a fake clock there is no JIT, so deleting the warm-up line changes no timing. (Deleting it DOES turn "runs check at both sizes" red, but through the small-size check it carries, not through the warm-up.) Say so in the report rather than claiming it is pinned.
+
+These six outcomes, and the 13 green tests, were checked while revising this plan against a tsc-transpiled copy of the two code blocks run under a minimal stand-in for vitest's `describe`/`it`/`expect` — not under vitest itself. Re-prove them under vitest here; that check is evidence the blocks are consistent, not a substitute.
 
 - [ ] **Step 6: Gates**
 
-`npx tsc --noEmit > <log> 2>&1; echo "EXIT=$?"` → 0 total errors. `npx eslint --max-warnings=0 src/test/scaling.ts src/test/scaling.test.ts; echo "EXIT=$?"` → 0. `git ls-files --eol src/test/scaling.ts src/test/scaling.test.ts` → `w/crlf` for both after `git add`.
+`npx tsc --noEmit > <log> 2>&1; echo "EXIT=$?"` → 0 total errors. `npx eslint --max-warnings=0 src/test/scaling.ts src/test/scaling.test.ts; echo "EXIT=$?"` → 0. `git ls-files --eol src/test/scaling.ts src/test/scaling.test.ts` after `git add` → `i/lf` for both (the working-tree column may read `w/lf`; that is fine, see Global Constraints).
 
 - [ ] **Step 7: Commit**
 
@@ -363,16 +456,29 @@ Claude-Session: https://[session link removed]
 
 - [ ] **Step 1: Convert `tag-pair-walk.test.ts`**
 
-For each of the 4 sites, replace the `performance.now()` pair and the ceiling with `expectLinearScaling`. Today's N becomes the LARGE size, so `n` is today's repetition count divided by 4. The retired-name site becomes:
+Add `import { expectLinearScaling } from "../test/scaling";`. For each of the 4 sites, replace the `performance.now()` pair and the ceiling with `expectLinearScaling`, and pass the hang backstop. Today's N becomes the LARGE size, so the starting `n` is today's repetition count divided by 4:
+
+| Site (test name) | Today's N | Starting `n` |
+|---|---|---|
+| "stays linear when the input has no '>' anywhere at all" (`forEachTagPair`) | 20,000 | 5,000 |
+| "keeps retired-name lookups cheap, so a missing close stays linear" | 80,000 | 20,000 |
+| "stays linear on opens with no '>' anywhere at all" (`forEachOpenTag` via `tagsOf`) | 200,000 | 50,000 |
+| "stays linear on opens with no '>' before the end of a long input" | 80,000 | 20,000 |
+
+The retired-name site becomes (the callback receives a `TagPair`, whose `inner` is a string):
 
 ```ts
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("keeps retired-name lookups cheap, so a missing close stays linear", { timeout: 120_000 }, () => {
+    // (keep the WHY of the ordering from today's comment; the ms figures
+    // become the green and red ratios measured in Step 3)
     expectLinearScaling({
       label: "retired-name lookups",
       build: (n) => "<w:tbl".repeat(n) + ">",
       run: (input) => {
         const seen: string[] = [];
         forEachTagPair(input, SPEC, (pair) => {
-          seen.push(pair);
+          seen.push(pair.inner);
           return true;
         });
         return seen;
@@ -381,51 +487,84 @@ For each of the 4 sites, replace the `performance.now()` pair and the ceiling wi
       check: (seen) => expect(seen).toEqual([]),
       n: 20_000,
     });
+  });
 ```
 
-Adapt `run`/`check` to each site's actual callback signature and to what that fixture really yields — read the callback type in `tag-pair-walk.ts` first, and run the site once on green code to learn the true output before pinning it. Rewrite each site's measurement comment: keep the explanation of WHY the ordering matters, and replace the ms figures with the green and red ratios you measure (Step 3).
+Adapt `run`/`check` to each other site's callback and to what that fixture really yields, and run the site once on green code to learn the true output before pinning it. The two `forEachOpenTag` sites already pin their output (`toEqual([])`, `toHaveLength(1)`); move those into `check`. Rewrite each site's measurement comment: keep the explanation of WHY the ordering matters, and replace the ms figures with the green and red ratios you measure (Step 3). The green side of the smaller sites is a millisecond or two, so the helper loops it up to the 20 ms floor; that is expected.
 
 - [ ] **Step 2: Convert `html-extract.test.ts`**
 
-- Delete `DOS_BUDGET_MS` once nothing reads it. Keep `CLAMP_CHARS` and `repeatTo`. Keep the ★★★ banner above the tests. Rewrite the MARGIN docstring as a ratio table (green → red per fixture, with the date), keeping its ★★ note about `TAG_STRIP_RE`'s constant.
-- Replace `timeExtract` with `expectLinearScaling` calls. Scale DOWN: the large size is today's size (at the clamp), `n` is a quarter of it (125,000). `build` takes the character count:
+- Add `import { expectLinearScaling } from "../test/scaling";`. Delete `DOS_BUDGET_MS` and `timeExtract` once nothing reads them. Keep `CLAMP_CHARS` and `repeatTo`. Keep the ★★★ banner above the tests. Rewrite the MARGIN docstring as a ratio table (green → red per fixture, with the date), keeping its ★★ note about `TAG_STRIP_RE`'s constant. Its last ★ note ("a per-fixture probe is needed to get all five") no longer applies once each row is its own test; replace it with that fact.
+- Sizes: well BELOW the clamp, for time rather than correctness. The heading and list-item rows cost 865 ms green per call at 500,000 (the MARGIN docstring), so keeping the clamp as the large size would cost about 3.7 s per row. Use large 125,000 and `n` 31,250 for all five fixtures. Expected red ratios, from the docstring's own green/red columns, taking red as a quadratic term on top of the green linear cost: about 12 for the heading and list-item rows, about 16 for the two table rows (their green cost is 8–12 ms at 500,000), and about 13 for the trailing-tag test. Verify each by its mutant (Step 3); if one does not exceed 8, raise `n` per Global Constraints. Keep `n` a multiple of 5, since the trailing-tag fixture divides it by 5.
+- The 4-row test becomes `it.each`, one row per test: the heading and list-item rows each cost about 0.9 s green at these sizes, so the four together would exceed the 1.5 s budget. The code, complete:
+
   ```ts
-  // rows 1–2 (and the same with "<li")
-  build: (n) => repeatTo("<h1", n),
-  // rows 3–4 keep their wrapper arithmetic
-  build: (n) => `<table>${repeatTo("<tr", n - 15)}</table>`,
-  build: (n) => `<table><tr>${repeatTo("<td", n - 24)}</tr></table>`,
-  // trailing-tag test: today's 100,000 opens over 500,000 chars is one fifth;
-  // keep that proportion at both sizes.
-  build: (n) => {
-    const opens = "<".repeat(n / 5);
-    return `${opens}${"x".repeat(n - opens.length - 1)}>`;
-  },
+  /** Pins a fixture under the clamp, so a later edit cannot push the large
+   *  size past it and make both sizes measure the same truncated input. */
+  const underClamp = (input: string): string => {
+    expect(input.length).toBeLessThanOrEqual(CLAMP_CHARS);
+    return input;
+  };
+
+  const emptyDoc = (out: string) =>
+    expect(out).toBe("_(document contained no extractable text)_");
+
+  const QUADRATIC_ROWS: Array<[string, (n: number) => string]> = [
+    // No ">" ANYWHERE, so `[^>]*` backtracked to end of input from every start.
+    ["heading, no '>' at all", (n) => underClamp(repeatTo("<h1", n))],
+    ["list item, no '>' at all", (n) => underClamp(repeatTo("<li", n))],
+    // The adversarial case for the walks NESTED inside one rendered table.
+    ["table rows, never closed", (n) => underClamp(`<table>${repeatTo("<tr", n - 15)}</table>`)],
+    ["table cells, never closed", (n) => underClamp(`<table><tr>${repeatTo("<td", n - 24)}</tr></table>`)],
+  ];
+
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it.each(QUADRATIC_ROWS)(
+    "bounds processing time on unterminated tags that the pair-regex steps walked quadratically: %s",
+    { timeout: 120_000 },
+    (label, build) => {
+      expectLinearScaling({ label, build, run: extractHtmlMarkdown, check: emptyDoc, n: 31_250 });
+    },
+  );
+
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("bounds processing time on a trailing unterminated tag far from any '>'", { timeout: 120_000 }, () => {
+    // (keep today's explanation of `<[^>]*$` here)
+    expectLinearScaling({
+      label: "trailing open tag",
+      // Today's 100,000 opens over 500,000 chars is one fifth; keep that
+      // proportion at both sizes.
+      build: (n) => {
+        const opens = "<".repeat(n / 5);
+        return underClamp(`${opens}${"x".repeat(n - opens.length - 1)}>`);
+      },
+      run: extractHtmlMarkdown,
+      // Nothing is strippable here, so the run survives as text; the point is
+      // only that the function got far enough to return it. Half of the size
+      // being checked, not of CLAMP_CHARS.
+      check: (out, n) => expect(out.length).toBeGreaterThan(n / 2),
+      n: 31_250,
+    });
+  });
   ```
-- `check`: rows 1–4 keep `expect(out).toBe("_(document contained no extractable text)_")`. The trailing-tag test keeps `expect(out.length).toBeGreaterThan(n / 2)` — note it becomes `n / 2` of the size being checked, not `CLAMP_CHARS / 2`.
-- **Clamp pin (Review Focus 5):** each `build` asserts it never exceeds the clamp, so a later edit cannot push the large size past it and make both sizes do identical work:
-  ```ts
-  const input = repeatTo("<h1", n);
-  expect(input.length).toBeLessThanOrEqual(CLAMP_CHARS);
-  return input;
-  ```
-- The 4-row test: if the rows together exceed 10 s green, convert it to `it.each(cases)("bounds processing time: %s", ...)`. The failure label is the row label.
+
+  The test NAME of the 4-row test keeps today's text as its prefix, so §593's quotation of it still finds it.
 
 - [ ] **Step 3: Run green, measure, then mutation-prove**
 
 Run: `npx vitest run src/app/tag-pair-walk.test.ts src/app/html-extract.test.ts --maxWorkers=1 --reporter=dot > <log> 2>&1; echo "EXIT=$?"`
-Expected: EXIT=0, `Test Files 2 passed`. Record each site's green ratio (temporarily log `expectLinearScaling`'s return value, then remove the log).
+Expected: EXIT=0, `Test Files 2 passed`. Record each site's green ratio (temporarily log `expectLinearScaling`'s return value, then remove the log). Check the 1.5 s budget with one extra run using `--reporter=json --outputFile=<workspace>/durations.json` in place of `--reporter=dot`, and read each converted test's `duration`; a test over budget gets a smaller `n` (never below the size its mutant needs).
 
-Mutants (follow the Mutant procedure section):
-- `tag-pair-walk` retired-name site: swap the two checks inside `forEachTagPair` so the `indexOf(">", ...)` scan runs before the `closeRe === null` check. Expected red.
+Mutants (follow the Mutant procedure section, with its 120 s kill wrapper):
+- `tag-pair-walk` retired-name site: swap the two checks inside `forEachTagPair` so the `indexOf(">", ...)` scan runs before the `closeRe === null` check. Expected red on the ratio (today's comment measured ~80x between the orderings at 80,000, i.e. quadratic).
 - the three 250 ms sites: the mutant each site's comment names.
-- `html-extract`, each of the 5 fixtures: revert the linear walk it guards to the regex it replaced (the MARGIN docstring says each was taken by reverting a fix; `git log -S 'repeatTo("<li"' -- src/app/html-extract.test.ts` finds the commit). Expected red, on the ratio or by timeout.
+- `html-extract`, each of the 5 fixtures: revert the linear walk it guards to the regex it replaced (the MARGIN docstring says each was taken by reverting a fix; `git log -S 'repeatTo("<li"' -- src/app/html-extract.test.ts` finds the commit). Expected red on the ratio, at roughly the ratios given in Step 2; a kill at 120 s also counts as red, but at these sizes each mutant run should finish in well under a minute and print its ratio.
 
 Record every green and red ratio in the site comments.
 
 - [ ] **Step 4: Load check**
 
-Run the two files under `burn.mjs` (see "Peer protocol and load check"). Expected: EXIT=0.
+Run the two files under the burn (see "Peer protocol and load check"). Expected: EXIT=0, and the report records the idle and under-burn reference times and the slowdown factor.
 
 - [ ] **Step 5: Gates**
 
@@ -446,7 +585,7 @@ Claude-Session: https://[session link removed]
 
 **Files:**
 - Modify: `src/app/docx-extract.test.ts` (2 sites, both `toBeLessThan(1000)`)
-- Modify: `src/app/xlsx-extract.test.ts` (6 sites / 8 executions, all `toBeLessThan(1000)`; one already asserts its output)
+- Modify: `src/app/xlsx-extract.test.ts` (6 sites / 8 executions today, all `toBeLessThan(1000)`: 5 sites / 7 executions convert to a ratio; the XFD site drops its timing and keeps its exact output assertion)
 - Modify: `src/app/pptx-extract.test.ts` (1 site)
 - Modify: `src/app/office-xml.test.ts` (1 site)
 
@@ -455,31 +594,64 @@ Claude-Session: https://[session link removed]
 
 - [ ] **Step 1: Convert each site**
 
-Pattern for every site (shown for a generic extractor; adapt `build`, `run` and `check` to each site's real fixture and function):
+Add `import { expectLinearScaling } from "../test/scaling";` to each file. The pattern, shown complete for `docx-extract`'s `<w:pStyle` site (its file already has the `entries(documentXml)` helper); every other site follows the same shape with its own fixture, function and output:
 
 ```ts
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("does not blow up on unclosed <w:pStyle opens inside one paragraph", { timeout: 120_000 }, () => {
+    // (keep the WHY from today's comment; the ms figures become the green and
+    // red ratios measured in Step 3)
     expectLinearScaling({
-      label: "<the it() name, or the row label>",
-      build: (n) => /* today's fixture with its repetition count replaced by n */,
-      run: (input) => /* the call today's test times */,
-      check: (out) => /* a specific assertion on out: an exact text, a cell count, a run count */,
-      n: /* see the direction rule below */,
+      label: "unclosed <w:pStyle opens",
+      // Untimed: the fixture INCLUDING its TextEncoder step and entries Map.
+      build: (n) =>
+        entries(
+          "<w:document><w:body><w:p><w:r><w:t>x</w:t></w:r>" +
+            "<w:pStyle ".repeat(n) +
+            "</w:p></w:body></w:document>",
+        ),
+      run: extractDocx,
+      // The paragraph's one run survives the unclosed opens. Confirm this
+      // literal on green code first and pin whatever the true output is.
+      check: (out) => expect(out).toBe("x"),
+      n: 10_000,
     });
+  });
 ```
 
-Direction: `docx-extract`, `xlsx-extract`, `pptx-extract` scale UP — today's N is `n`, and the large size is 4N. Their comments record that smaller sizes were unreliable, so shrinking is not allowed. `office-xml` has no such note: today's N becomes the large size, so `n` is N/4. If a site's comment contradicts this for that specific site, follow the comment and say so in the report.
+`docx-extract.test.ts`'s `<w:tbl` site is declared `async` today, though its body awaits nothing; the converted test can drop `async`. Read the body first and keep `async` if anything is awaited.
 
-`check`: run the site once on green code to learn its true output, then pin something specific to the fixture. "Is truthy" and "length > 0" do not count.
+Sizes — today's N becomes the LARGE size; the starting `n` is N / 4:
 
-Rewrite each measurement comment: ms figures out, green and red ratios in, with the date. The "N-doubling" series in `docx-extract`/`xlsx-extract` comments can stay as the historical evidence for the chosen N, marked as measured on the date it was, but the assertion text must describe the ratio.
+| File | Site (test name) | Today's N | Starting `n` |
+|---|---|---|---|
+| `docx-extract` | "does not blow up on repetitive unclosed markup" (`<w:tbl ` opens) | 120,000 | 30,000 |
+| `docx-extract` | "does not blow up on unclosed <w:pStyle opens inside one paragraph" | 40,000 | 10,000 |
+| `xlsx-extract` | "does not blow up on repetitive unclosed markup" (`<c ` opens) | 320,000 | 80,000 |
+| `xlsx-extract` | "does not blow up on unclosed <sheet opens in workbook.xml" | 80,000 | 20,000 |
+| `xlsx-extract` | "does not blow up on unclosed <sheet and <Relationship opens with no '>' at all" (both files scale together) | 40,000 | 10,000 |
+| `xlsx-extract` | "does not blow up on many unclosed <v> inside one cell" | 160,000 | 40,000 |
+| `xlsx-extract` | "stays linear on quoted names, unclosed quotes and opens inside one tag" (3 rows) | 80,000 each | 20,000 each |
+| `pptx-extract` | "does not blow up on repetitive unclosed markup" (`<a:p ` opens) | 120,000 | 30,000 |
+| `office-xml` | "does not blow up on repetitive unclosed markup" (`<t ` opens, `extractRuns`) | 100,000 | 25,000 |
+
+The "smaller sizes were unreliable" notes in these files sized a margin over a 1000 ms CEILING, not a ratio. Their own measurements show the mutant quadratic already dominating at these starting sizes — for example the `xlsx-extract` no-cache mutant is 195 ms at 80,000 against 3783 ms at 320,000, a ratio near 19 — so they do not forbid a smaller `n`. The mutant ratio at the new sizes is what decides (Global Constraints).
+
+**The XFD site** ("drops a cell whose column is past Excel's last (XFD) instead of padding out to it") has no size axis: its fixture is a fixed four-cell row, and the regression it guards exhausts memory rather than growing with an N. Delete its `start` line and its `toBeLessThan(1000)` line, keep `expect(out).toBe("## Sheet: Sheet1\n\n| 1 | 2 |\n| --- | --- |")` unchanged, and replace the timing wording in its comment with the mutant results below. Do not invent an N for it. It gets no `{ timeout }`, since it is no longer a timing test.
+
+`check`: run each converted site once on green code to learn its true output, then pin something specific to the fixture. "Is truthy" and "length > 0" do not count. For a looped site, one `it` per row (the rows already loop inside one `it` today; split them with `it.each` if the three together would pass the 1.5 s budget).
+
+`run` must be stateless across calls (see the `run` docstring in `src/test/scaling.ts`): the extractors take a `Map` they only read, which is fine; confirm it for each function by reading it once.
+
+Rewrite each measurement comment: ms figures out, green and red ratios in, with the date. The "N-doubling" series in `docx-extract`/`xlsx-extract` comments can stay as historical evidence, marked as measured on the date it was, but the assertion text must describe the ratio.
 
 - [ ] **Step 2: Run green and measure**
 
-`npx vitest run src/app/docx-extract.test.ts src/app/xlsx-extract.test.ts src/app/pptx-extract.test.ts src/app/office-xml.test.ts --maxWorkers=1 --reporter=dot > <log> 2>&1; echo "EXIT=$?"` → EXIT=0, `Test Files 4 passed`. Record each green ratio. Every `it` must be under 10 s green; if an up-scaled site is not, lower `repeats` for that site (not below 3) and say so.
+`npx vitest run src/app/docx-extract.test.ts src/app/xlsx-extract.test.ts src/app/pptx-extract.test.ts src/app/office-xml.test.ts --maxWorkers=1 --reporter=dot > <log> 2>&1; echo "EXIT=$?"` → EXIT=0, `Test Files 4 passed`. Record each green ratio. Check the 1.5 s-per-`it` budget with the JSON-reporter run described in Task 2 Step 3.
 
-- [ ] **Step 3: Mutation-prove each site** (Mutant procedure). Record red ratios or "timeout" in the comments.
+- [ ] **Step 3: Mutation-prove each site** (Mutant procedure, with its 120 s kill wrapper). Record red ratios, or "killed at 120 s", in the comments. The lazy-regex mutants are the slowest: `docx-extract`'s measured ~24.4 s at 120,000 and `xlsx-extract`'s ~24 s at 320,000, so at the starting sizes one mutant run costs roughly 80 s (warm-up and probe at `n`, then 3 × (small + large)) and should finish inside the kill; if it does not, that is still red. For the XFD site, run two mutants against the unchanged output assertion: (a) change `if (idx >= MAX_XLSX_COLUMNS) return true;` in `src/app/xlsx-extract.ts` to `if (idx > MAX_XLSX_COLUMNS) return true;` — `XFE1` (index 16,384) is then padded out to and kept, so the row renders 16,385 cells and the assertion goes red at once; (b) delete that line — the `ZZZZZZZ1` cell pads toward ~8e9 columns and the run dies of memory or is killed at 120 s. Both count as red; record which happened.
 
-- [ ] **Step 4: Load check** — the four files under `burn.mjs`. EXIT=0.
+- [ ] **Step 4: Load check** — the four files under the burn (see "Peer protocol and load check"). EXIT=0, with the reference times and slowdown factor recorded.
 
 - [ ] **Step 5: Gates** — `npx tsc --noEmit` → 0 total errors; `npx eslint --max-warnings=0` on the four files → 0; line endings unchanged.
 
@@ -499,47 +671,64 @@ Claude-Session: https://[session link removed]
 **Files:**
 - Modify: `src/app/rich-text-plain.test.ts` (4 sites / 6 executions: one looped over rows under `CEILING_MS`, three `toBeLessThan(2000)`)
 - Modify: `src/app/document-asset-patterns.differential.test.ts` (2 sites / 7 executions under `CEILING_MS`; one row sized to `MAX_HTML_TEXT_CHARS`)
-- Modify: `src/app/raid-escalation.test.ts` (1 site, `toBeLessThan(1000)`)
+- Modify: `src/app/raid-escalation.test.ts` (1 site, `toBeLessThan(1000)`; default limit, no `maxRatio`)
 
 **Interfaces:**
 - Consumes: `expectLinearScaling` from `../test/scaling`.
 
 - [ ] **Step 1: Convert `rich-text-plain.test.ts`**
 
-Scale UP: today's size is `n`, and the large size is 4×. Its comments record that 128 KB and 256 KB were too small for two mutants — never go below today's size. Looped rows become `it.each` if they would pass 10 s together. Delete `CEILING_MS` once nothing reads it. Output checks: specific to each fixture (for example, the exact plain text a fixture reduces to), learned by running on green code once.
+Add `import { expectLinearScaling } from "../test/scaling";`. Today's size becomes the LARGE size; the starting `n` is a quarter of it:
+
+| Site | Today's size | Starting `n` |
+|---|---|---|
+| `htmlPlainProjection` — complexity, 3 looped rows (`<a`, `<p`, `<li`), one `it` per row already | 128 KB | 32 KB |
+| `markTaskItems` — "stays bounded on unterminated list-item openers" | 128 KB | 32 KB |
+| `markTaskItems` — "stays bounded on unterminated openers that carry the taskItem attribute" | 512 KB | 128 KB |
+| `degradeToPlain` — "stays bounded on an unterminated <img carrying repeated ids" | 256 KB | 64 KB |
+
+The ★★★ notes that 128 KB and 256 KB were "not enough" measured the mutant against a 2000 ms CEILING. Their own tables settle the ratio question: the guard-deleted `<img>` pattern is 844 ms at 64 KB against 18,321 ms at 256 KB (ratio about 22) while the guarded one is 0.6 → 1.4 ms, and the taskItem mutant is 303 ms at 131 KB against 10–15 s at 512 KB. Rewrite those notes to say what the sizes now rest on — the mutant's RATIO at the new sizes — keeping the lesson they record ("size a guard by the mutant's margin, never by the shipped column"), which still holds. Delete `CEILING_MS` once nothing reads it. Output checks: specific to each fixture (for example, the exact plain text a fixture reduces to), learned by running on green code once. Each site passes the hang backstop.
 
 - [ ] **Step 2: Convert `document-asset-patterns.differential.test.ts`**
 
-The row sized to `MAX_HTML_TEXT_CHARS` scales DOWN: large = `MAX_HTML_TEXT_CHARS`, `n` = a quarter of it, and its `build` asserts `input.length <= MAX_HTML_TEXT_CHARS` (Review Focus 5). The other rows: today's size becomes the large size. Keep the "A PATTERN-LEVEL BOUND, DELIBERATELY SEPARATE FROM THE ROWS" explanation. Delete `CEILING_MS` once unused.
+Add `import { expectLinearScaling } from "../test/scaling";`. The ADVERSARIAL rows already run one `it` per row; keep that. Sizes: the five rows sized by `BYTES` (256 KB today) start at `n` = 64 KB; the "<img with N data-asset-id, unterminated" row keeps `MAX_HTML_TEXT_CHARS` (20,000) as its LARGE size, so `n` = 5,000; the separate "IMG_TAG_ASSET_ID_RE is linear on an unterminated <img carrying repeated ids" test (256 KB today) starts at `n` = 64 KB. The `MAX_HTML_TEXT_CHARS` row's `build` asserts `input.length <= MAX_HTML_TEXT_CHARS` — not a vacuity guard (the timed regexes run on the raw input; there is no clamp to cross), but a pin that keeps the row at the "real exposure" size its comment names. Keep the "A PATTERN-LEVEL BOUND, DELIBERATELY SEPARATE FROM THE ROWS" explanation, and replace its ms series with ratios. Delete `CEILING_MS` once unused, and rewrite the `BYTES` ★★ note (it argued for 256 KB over 1 MB on failure legibility against the 20 s timeout, which the ratio and the 120 s backstop now carry). Each row passes the hang backstop (`it(\`stays bounded on ${label}\`, { timeout: 120_000 }, () => …)`).
 
 - [ ] **Step 3: Convert `raid-escalation.test.ts`**
 
+Add `import { expectLinearScaling } from "../test/scaling";`. The shipped path is LINEAR in the name's length, not flat: `stripBreakTagsWithin` searches the 200-character head for `TRAILING_BREAK_PREFIX`, finds a cut at 0 on this fixture, and the sticky `BREAK_TAG_AT` then scans the FULL raw value once from that position. So this site takes the DEFAULT limit (8), with no `maxRatio`:
+
 ```ts
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("does not blow up on a huge stored toName full of unclosed <br opens", { timeout: 120_000 }, () => {
+    // BREAK_TAG's `\s*` and `[^>]*` backtrack to the end of the value from
+    // every start, so stripping BEFORE the length cap was quadratic. The
+    // shipped code clamps first; the one anchored scan left over the full
+    // value keeps it linear. (Green and red ratios, with the date, go here.)
     expectLinearScaling({
-      label: "escalation name is clamped before the regex runs",
-      build: (n) => /* today's huge toName fixture, with its length set to n */,
-      run: (input) => /* today's sanitizeRaidEscalations call */,
-      check: (out) => /* today's existing output assertion, kept */,
-      n: /* today's length divided by 4, and at least 1_000 so it stays far above the 200-char clamp */,
-      factor: 4,
-      // The name is clamped to RAID_ESCALATION_NAME_MAX before the regex runs, so the
-      // work does not grow with n. Linear would be 4; the clamp makes it ≈ 1.
-      maxRatio: 2,
+      label: "unclosed <br opens in toName",
+      build: (n) => "<br ".repeat(n),
+      run: (toName) => sanitizeRaidEscalations([{ ...NOTIFY, toName }]),
+      check: (out) => {
+        expect(out).toHaveLength(1);
+        expect(out[0].toName!.length).toBeLessThanOrEqual(RAID_ESCALATION_NAME_MAX);
+      },
+      n: 20_000,
     });
+  });
 ```
 
-The mutant is removing the clamp (pass the unsliced input to the regex). Expected red: the ratio rises to at least linear.
+Today's N (80,000 repeats) is the large size. The green side is well under the floor and is looped up to it. `run` is stateless: `BREAK_TAG_AT.lastIndex` is set before every use. The mutant removes the clamp: in `stripBreakTagsWithin` (`src/app/raid-escalation.ts`), replace its body with `return stripBreakTags(raw);`. That strips the full value first, which is quadratic ("~4x per doubling" in today's comment), so expect a red ratio near 16. At `n` = 20,000 the mutant's small run costs about 1 s and its large run about 15.6 s (today's comment), so one mutant run takes roughly 50 s and finishes inside the kill.
 
 - [ ] **Step 4: Run green, measure, mutation-prove, load check**
 
-`npx vitest run src/app/rich-text-plain.test.ts src/app/document-asset-patterns.differential.test.ts src/app/raid-escalation.test.ts --maxWorkers=1 --reporter=dot > <log> 2>&1; echo "EXIT=$?"` → EXIT=0, `Test Files 3 passed`. Then mutants per the Mutant procedure (the `rich-text-plain` comments name its mutants), then the three files under `burn.mjs`.
+`npx vitest run src/app/rich-text-plain.test.ts src/app/document-asset-patterns.differential.test.ts src/app/raid-escalation.test.ts --maxWorkers=1 --reporter=dot > <log> 2>&1; echo "EXIT=$?"` → EXIT=0, `Test Files 3 passed`. Check the 1.5 s budget with the JSON-reporter run from Task 2 Step 3. Then mutants per the Mutant procedure, with its 120 s kill wrapper (the `rich-text-plain` and `document-asset-patterns` comments name theirs), then the three files under the burn, recording the reference times and slowdown factor.
 
 - [ ] **Step 5: Gates** — `npx tsc --noEmit` → 0 total errors; eslint on the three files → 0; line endings unchanged. Then confirm no ceiling is left anywhere:
 
 ```bash
 git grep -nE "performance\.now\(\)|Date\.now\(\)" -- "src/**/*.test.ts" "src/**/*.test.tsx"
 ```
-Expected: no hit that compares a duration against a fixed number (hits inside `src/test/scaling.ts` itself, or unrelated `Date.now()` fixtures, are fine — list them in the report and say why each is not a ceiling).
+Expected: no hit that compares a duration against a fixed number. This pathspec cannot match `src/test/scaling.ts` (not a `.test.ts` file); `src/test/scaling.test.ts` matches but uses a fake clock. The known non-ceiling hits today are `reminder-snooze.test.ts`, `use-reminder-snooze.test.tsx` and `use-toast.test.ts` (`Date.now()` as a timestamp or in a comment), `view-ai-digest.test.ts` (comments), and `use-drag-autoscroll.test.tsx` (`performance.now()` passed as a frame timestamp). List every hit in the report and say why each is not a ceiling.
 
 - [ ] **Step 6: Commit**
 
@@ -562,26 +751,32 @@ Claude-Session: https://[session link removed]
 
 For each entry, following the closed-entry format §567 uses:
 - Heading: replace `— OPEN` with `— CLOSED 2026-09-19`.
-- Replace the `**Status:**` paragraph with: `**Status:** CLOSED 2026-09-19 by \`docs/timing-flake-592-593\`: ` followed by one or two sentences saying what now holds — the site uses `expectLinearScaling` (`src/test/scaling.ts`), its green and red ratios as recorded in the test comment, and that it stayed green under a saturated-CPU run.
+- Replace the `**Status:**` paragraph with: `**Status:** CLOSED 2026-09-19 by \`docs/timing-flake-592-593\`: ` followed by one or two sentences saying what now holds — the site uses `expectLinearScaling` (`src/test/scaling.ts`), its green and red ratios as recorded in the test comment, that it carries a 120 s hang backstop in place of the 20 s default, and that it stayed green under the burn with the MEASURED slowdown factor from the task report (quote the factor; do not write "saturated" without it).
 - Delete the `**Work item:** #376` / `#377` line. A closed entry must not carry one.
 - Insert, directly after the Status paragraph: `_Original finding, as filed 2026-09-19. Preserved as the dated record; see Status._`
 - Leave the original body untouched.
 - §593's body links to §592 by anchor. Update that link to §592's new anchor: `#592-the-50-ms-wall-clock-ceiling-in-tag-pair-walktestts-can-fail-a-correct-build-under-load--closed-2026-09-19`.
 
-Index rows (between the real INDEX markers, not the fenced sample): update each row's anchor to end `--closed-2026-09-19` and its title text to end `— CLOSED 2026-09-19`, matching the §567 row.
+Index rows (between the real INDEX markers, not the fenced sample): each row has five cells, and three of them change, matching the §567 row (`| [§567](#567-…--closed-2026-09-19) | … — CLOSED 2026-09-19 | slice (2026-09) | M | **CLOSED** 2026-09-19 |`):
+- the anchor ends `--closed-2026-09-19` in place of `--open`: §592's becomes `#592-the-50-ms-wall-clock-ceiling-in-tag-pair-walktestts-can-fail-a-correct-build-under-load--closed-2026-09-19`, §593's becomes `#593-html-extracts-8000-ms-dos-budget-test-failed-at-8301-ms-under-a-saturated-full-suite-run--closed-2026-09-19`;
+- the title cell ends `— CLOSED 2026-09-19` in place of `— OPEN`;
+- the LAST cell, today `open`, becomes `**CLOSED** 2026-09-19`. No gate compares this cell (`followups:index:check` compares §-number sets only), so a stale `open` would ship silently — check it by hand in Step 3.
 
 - [ ] **Step 2: CONTRIBUTING line**
 
 In "Unit + component tests — Vitest", add one bullet:
 
 ```markdown
-- Timing guards (a test that fails when code turns quadratic or backtracks) use `expectLinearScaling` from `src/test/scaling.ts`, never `elapsed < CEILING_MS` — a fixed ceiling fails a correct build on a loaded machine. It requires an output `check` at both sizes.
+- Timing guards (a test that fails when code turns quadratic or backtracks) use `expectLinearScaling` from `src/test/scaling.ts`, never `elapsed < CEILING_MS` — a fixed ceiling fails a correct build on a loaded machine. It requires an output `check` at both sizes, and the test passes `{ timeout: 120_000 }` as a hang backstop, because vitest checks a synchronous test's timeout only after it returns.
 ```
 
 - [ ] **Step 3: Gates**
 
 Each redirected to a log, then `echo "EXIT=$?"`, all EXIT=0:
-`npm run followups:index:check`, `npm run followups:workitems:check`, `npm run docs:claims:check`, `npm run docs:symbols:check`, `npm run docs:scripts:check`. Confirm `git ls-files --eol docs/open-followups.md` stays `w/lf`, and that `grep -c "#592-.*--open\|#593-.*--open" docs/open-followups.md` prints 0.
+`npm run followups:index:check`, `npm run followups:status:check`, `npm run followups:workitems:check`, `npm run docs:claims:check`, `npm run docs:symbols:check`, `npm run docs:scripts:check`. Then:
+- `git ls-files --eol docs/open-followups.md` stays `w/lf`;
+- `grep -c "#592-.*--open\|#593-.*--open" docs/open-followups.md` prints 0;
+- `grep -cE '^\| \[§59[23]\].*\| \*\*CLOSED\*\* 2026-09-19 \|$' docs/open-followups.md` prints 2 — both index rows end with the CLOSED status cell. (Before the edit it prints 0, and the same pattern with `§567` prints 1, so it can match.)
 
 - [ ] **Step 4: Commit**
 
@@ -593,3 +788,20 @@ Claude-Session: https://[session link removed]
 `git commit --only docs/open-followups.md CONTRIBUTING.md -F <msgfile>`. No "Closes" line and no `#376`/`#377` in the commit message — those go only in the MR description.
 
 The GitLab issues #376 and #377 are closed by the MR description's `Closes` lines at release, and verified closed after merge. Not in this task.
+
+---
+
+## Review dispositions
+
+The plan review (2026-09-19) raised ten Minors. All ten were verified against the tree and applied; none was rejected.
+
+- M1 (tag-pair-walk sample pushed a `TagPair` into `string[]`) — applied: Task 2 Step 1 pushes `pair.inner`.
+- M2 (html-extract is 2 sites → 5 executions, total 35) — applied in the spec inventory, with the XFD change giving 22 sites / 34 executions converted.
+- M3 (cold first call calibrates) — applied: one untimed warm-up run, which also carries the small-size check.
+- M4 (`run` must be stateless) — applied: `run` docstring, and per-task notes (raid's sticky regex resets `lastIndex`; `ASSET_IMG_TEST_RE` is non-global).
+- M5 (the `MAX_HTML_TEXT_CHARS` row has no clamp in the timed code) — applied: Review Focus 6 and Task 4 Step 2 give that pin its real purpose.
+- M6 (new `src/test` files will not come out CRLF) — applied: the CRLF requirement for the two new files is dropped.
+- M7 (Task 4 Step 5 pathspec cannot match `src/test/scaling.ts`) — applied, with the known non-ceiling hits listed.
+- M8 (helper mutant 4 ambiguous) — applied: every helper mutant is now an exact edit.
+- M9 (the burn can fail a peer's run) — applied: "starting load burn" / "load burn done" messages.
+- M10 (suite runtime grows) — applied through the scale-down and `repeats` 3; the spec's Cost paragraph gives the arithmetic.
