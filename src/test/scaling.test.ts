@@ -40,11 +40,23 @@ describe("measureScaling", () => {
     expect(lastCall).toBe(LAST_LARGE_CALL);
   });
 
-  it("fails a quadratic curve, naming both minima and the ratio", () => {
+  it("fails a quadratic curve, naming both minima, the ratio and every pair ratio", () => {
     const w = fakeWorkload((n) => (n / 1000) ** 2 / 100);
     expect(() =>
       expectLinearScaling({ label: "quad", ...w, check: () => {}, n: 100_000 }),
-    ).toThrow(/quad: small n=100000 .*ms, large n=400000 .*ms, ratio 16\.00 \(max 8\)/);
+    ).toThrow(
+      /quad: small n=100000 .*ms, large n=400000 .*ms, ratio 16\.00 \(max 8\), pair ratios \[16\.00, 16\.00, 16\.00\]/,
+    );
+  });
+
+  it("fails a quadratic curve even when a spike spoils one pair", () => {
+    // A spike on the first small run drags pair 0 down to 0.32; the other two
+    // pairs are still 16, so the median stays 16. The MINIMUM of the per-pair
+    // ratios would pass this quadratic.
+    const w = fakeWorkload((n, call) => (call === FIRST_SMALL_CALL ? slow(n) : (n / 1000) ** 2 / 100));
+    expect(() =>
+      expectLinearScaling({ label: "quad-spike", ...w, check: () => {}, n: 100_000 }),
+    ).toThrow(/ratio 16\.00 \(max 8\), pair ratios \[0\.32, 16\.00, 16\.00\]/);
   });
 
   it("ignores one spike on the first small run", () => {
@@ -57,11 +69,13 @@ describe("measureScaling", () => {
     const w = fakeWorkload((n, call) => (call === FIRST_LARGE_CALL ? slow(n) : n / 1000));
     const r = expectLinearScaling({ label: "spike", ...w, check: () => {}, n: 100_000 });
     expect(r.ratio).toBeCloseTo(4, 5);
+    // The reported large figure is the fastest large run, not the spiked first one.
+    expect(r.largeMs).toBeCloseTo(400, 5);
   });
 
   it("ignores one spike on the LAST large run", () => {
-    // A helper that kept the last measurement instead of the minimum would
-    // see 20,000 ms against 100 ms here: ratio 200.
+    // A helper that judged the last pair alone would see 20,000 ms against
+    // 100 ms here: ratio 200. The median outvotes that one pair.
     const w = fakeWorkload((n, call) => (call === LAST_LARGE_CALL ? slow(n) : n / 1000));
     const r = expectLinearScaling({ label: "spike", ...w, check: () => {}, n: 100_000 });
     expect(r.ratio).toBeCloseTo(4, 5);
@@ -69,11 +83,46 @@ describe("measureScaling", () => {
 
   it("keeps sizes interleaved, so load that arrives mid-run and stays does not fail", () => {
     // From call 5 (repeat 1's small run) on, every run is 50x slower. Interleaved,
-    // repeat 0's pair (calls 3 and 4) is clean. A helper that ran every small
-    // repeat before any large one would time all three large runs under load.
+    // repeat 0's pair (calls 3 and 4) is clean and pairs 1 and 2 are loaded on
+    // both sides, so every pair is 4. A helper that ran every small repeat
+    // before any large one would pair clean small runs with loaded large ones.
     const w = fakeWorkload((n, call) => (call >= FIRST_SMALL_CALL + 2 ? slow(n) : n / 1000));
     const r = expectLinearScaling({ label: "sustained", ...w, check: () => {}, n: 100_000 });
     expect(r.ratio).toBeCloseTo(4, 5);
+  });
+
+  it("passes when load steps up on the FIRST large run and stays", () => {
+    // From call 4 on, every run is 50x slower. Only pair 0 straddles the step
+    // (clean small, loaded large: ratio 200); pairs 1 and 2 are loaded on both
+    // sides (ratio 4), so the median is 4. min(large) / min(small) would pair
+    // the one clean small run with a loaded large run and report 200.
+    const w = fakeWorkload((n, call) => (call >= FIRST_LARGE_CALL ? slow(n) : n / 1000));
+    const r = expectLinearScaling({ label: "step", ...w, check: () => {}, n: 100_000 });
+    expect(r.ratio).toBeCloseTo(4, 5);
+    expect(r.pairRatios.map((p) => Math.round(p))).toEqual([200, 4, 4]);
+    // The per-size minima are reporting only: here they come from different load.
+    expect(r.smallMs).toBeCloseTo(100, 5);
+    expect(r.largeMs).toBeCloseTo(20_000, 5);
+  });
+
+  it("passes when load steps up on a later large run and stays", () => {
+    // From call 6 (repeat 1's large run) on, every run is 50x slower: pair 1
+    // straddles the step, pair 0 is clean and pair 2 is loaded on both sides.
+    const w = fakeWorkload((n, call) => (call >= FIRST_LARGE_CALL + 2 ? slow(n) : n / 1000));
+    const r = expectLinearScaling({ label: "late-step", ...w, check: () => {}, n: 100_000 });
+    expect(r.ratio).toBeCloseTo(4, 5);
+    expect(r.pairRatios.map((p) => Math.round(p))).toEqual([4, 200, 4]);
+  });
+
+  it("takes the median of an even number of pairs as the mean of the two middle ratios", () => {
+    // Four repeats, spikes on the first two large runs (calls 4 and 6): the
+    // pairs are [200, 200, 4, 4], and the mean of the middle two is 102 —
+    // neither middle value alone, so this pins the even-count rule.
+    const w = fakeWorkload((n, call) =>
+      call === FIRST_LARGE_CALL || call === FIRST_LARGE_CALL + 2 ? slow(n) : n / 1000,
+    );
+    const r = measureScaling({ label: "even", ...w, check: () => {}, n: 100_000, repeats: 4 });
+    expect(r.ratio).toBeCloseTo(102, 5);
   });
 
   it("loops a sub-floor small side up to the floor, with the same count on the large side", () => {

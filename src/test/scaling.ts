@@ -2,10 +2,23 @@
 //
 // ★ Replaces "elapsed < CEILING_MS". A fixed ceiling fails a CORRECT build
 //   when the machine is saturated (register §592, §593). This times the code
-//   at n and n * factor, interleaved so a load spike lands on both sizes, keeps
-//   each size's MINIMUM, and asserts on the RATIO. Linear code gives ≈ factor,
-//   quadratic ≈ factor²; the default maxRatio factor^1.5 sits between them on a
-//   log scale.
+//   at n and n * factor in back-to-back PAIRS (one small run, then one large
+//   run), takes each pair's own ratio large_i / small_i, and asserts on the
+//   MEDIAN of those per-pair ratios. Linear code gives ≈ factor, quadratic
+//   ≈ factor²; the default maxRatio factor^1.5 sits between them on a log
+//   scale.
+// ★ Why the median of per-pair ratios, and not min(large) / min(small): the
+//   minima are taken independently, so they can pair a small run timed on an
+//   idle machine with a large run timed under load. Load that STEPS up after
+//   the first small run and stays gives min/min ≈ factor × the slowdown, which
+//   fails a correct build. Per pair, both sides share the load in force at
+//   that moment: a step that starts inside pair k spoils pair k only (every
+//   later pair is loaded on BOTH sides and stays ≈ factor), and a one-off
+//   spike spoils one pair. The median of 3 outvotes one spoiled pair, while a
+//   real quadratic pushes EVERY pair to ≈ factor², so it stays red. With an
+//   even `repeats` the median is the mean of the two middle ratios.
+//   `smallMs` / `largeMs` stay in the result as the per-size minima, for the
+//   failure message and for reporting only; they never decide pass or fail.
 // ★ `check` is mandatory and runs at BOTH sizes: an early bail that made the
 //   input trivial would otherwise pass a ratio check exactly as it passed a
 //   ceiling.
@@ -55,9 +68,14 @@ export interface ScalingOptions<I, O> {
 }
 
 export interface ScalingResult {
+  /** Fastest small run across the repeats. Reporting only — not the ratio's numerator or denominator. */
   smallMs: number;
+  /** Fastest large run across the repeats. Reporting only. */
   largeMs: number;
+  /** The median of `pairRatios`: the value the guard judges. */
   ratio: number;
+  /** large_i / small_i for each repeat i, in the order the pairs ran. */
+  pairRatios: number[];
   loops: number;
   nLarge: number;
 }
@@ -97,17 +115,28 @@ export function measureScaling<I, O>(opts: ScalingOptions<I, O>): ScalingResult 
     probeMs = time(small, loops).ms;
   }
 
-  // Interleave: each repeat times small, then large, and each size keeps its
-  // fastest run, so load that arrives mid-run leaves the first pair clean.
+  // Interleave: each repeat times small, then large, back to back, so both
+  // halves of a pair run under the same load. The guard judges the median of
+  // the per-pair ratios (see the header); the per-size minima are reporting only.
   let smallMs = Infinity;
   let largeMs = Infinity;
+  const pairRatios: number[] = [];
   for (let r = 0; r < repeats; r++) {
-    smallMs = Math.min(smallMs, time(small, loops).ms);
+    const s = time(small, loops).ms;
     const l = time(large, loops);
     if (r === 0) opts.check(l.out, nLarge);
+    smallMs = Math.min(smallMs, s);
     largeMs = Math.min(largeMs, l.ms);
+    pairRatios.push(l.ms / s);
   }
-  return { smallMs, largeMs, ratio: largeMs / smallMs, loops, nLarge };
+  return { smallMs, largeMs, ratio: median(pairRatios), pairRatios, loops, nLarge };
+}
+
+/** The middle value; for an even count, the mean of the two middle values. */
+function median(values: readonly number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 export function expectLinearScaling<I, O>(opts: ScalingOptions<I, O>): ScalingResult {
@@ -117,7 +146,8 @@ export function expectLinearScaling<I, O>(opts: ScalingOptions<I, O>): ScalingRe
   expect(
     r.ratio,
     `${opts.label}: small n=${opts.n} ${r.smallMs.toFixed(1)}ms, large n=${r.nLarge} ${r.largeMs.toFixed(1)}ms, ` +
-      `ratio ${r.ratio.toFixed(2)} (max ${Number(maxRatio.toFixed(2))}), loops ${r.loops}`,
+      `ratio ${r.ratio.toFixed(2)} (max ${Number(maxRatio.toFixed(2))}), ` +
+      `pair ratios [${r.pairRatios.map((p) => p.toFixed(2)).join(", ")}], loops ${r.loops}`,
   ).toBeLessThan(maxRatio);
   return r;
 }
