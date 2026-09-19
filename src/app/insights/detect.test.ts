@@ -189,6 +189,54 @@ describe("budgetVariance", () => {
     expect(bv).toHaveLength(1);
     expect(bv[0].data.name).toBe("Capacity PO");
   });
+
+  // ★★★ §577 — the register's reproduction, reduced: an OPEN bucket budgeted across the whole year with
+  // nothing booked read 100% against the whole-window budget and beat a real overspend to "worst".
+  it("an untouched bucket neither breaches nor wins; the real overspend is worst (§577)", () => {
+    const months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
+    const untouched = bucket({
+      id: 1, name: "Advisory retainer",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: Object.fromEntries(months.map((m) => [`2026-${m}`, 27])), actualHours: {} }],
+    });
+    const overspend = bucket({
+      id: 2, name: "Capped SOW",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 150 } }],
+    });
+    const bv = detect({ budgets: [untouched, overspend], plan: PLAN }).filter((i) => i.type === "budgetVariance");
+    expect(bv).toHaveLength(1);
+    expect(bv[0].data.name).toBe("Capped SOW");
+    expect(bv[0].data.buckets).toBe(1);
+    expect(bv[0].data.variancePct).toBe(50);
+  });
+
+  it("future periods do not count toward the budget (§577)", () => {
+    // Whole-window budget 1000 vs 105 read as an 89% variance; to date it is 100 vs 105 = 5%.
+    const b = bucket({ allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100, "2026-12": 900 }, actualHours: { "2026-01": 105 } }] });
+    expect(detect({ budgets: [b], plan: PLAN }).filter((i) => i.type === "budgetVariance")).toHaveLength(0);
+  });
+
+  it("a bucket whose window has not started is skipped even with hours booked (§577)", () => {
+    const b = bucket({
+      startDate: "2026-09-01", endDate: "2026-12-31",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-09": 100 }, actualHours: { "2026-09": 40 } }],
+    });
+    expect(detect({ budgets: [b], plan: PLAN }).filter((i) => i.type === "budgetVariance")).toHaveLength(0);
+  });
+
+  // Ruling 4 in the plan: a closed predecessor's spillover stays part of the successor's budget to date.
+  // Predecessor: 1000 budgeted, 910 booked (9%, under the threshold), so 90 h spill into the successor.
+  // Successor: 300 budgeted Apr–Jun, 380 booked. Own-only that is 26.7%; with the spillover 390 vs 380.
+  it("a closed predecessor's spillover counts toward the successor's budget to date", () => {
+    const predecessor = bucket({
+      id: 1, name: "Phase 1", status: "closed", successorId: 2, startDate: "2026-01-01", endDate: "2026-03-31",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 400, "2026-02": 300, "2026-03": 300 }, actualHours: { "2026-01": 910 } }],
+    });
+    const successor = bucket({
+      id: 2, name: "Phase 2", startDate: "2026-04-01", endDate: "2026-12-31",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-04": 100, "2026-05": 100, "2026-06": 100 }, actualHours: { "2026-04": 380 } }],
+    });
+    expect(detect({ budgets: [predecessor, successor], plan: PLAN }).filter((i) => i.type === "budgetVariance")).toHaveLength(0);
+  });
 });
 
 describe("raidAging", () => {
