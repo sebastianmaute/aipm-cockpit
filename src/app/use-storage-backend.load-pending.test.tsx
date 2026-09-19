@@ -44,6 +44,7 @@ import * as storageMod from "./storage";
 import * as handles from "./project-file-handles";
 import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
 import { TestProviders } from "./test-providers";
+import { isScopeStale } from "./scope-epoch";
 import { useStorageBackend } from "./use-storage-backend";
 import { useWorkspace } from "./workspace-context";
 import { SharePointBackend } from "./sharepoint-backend";
@@ -253,53 +254,154 @@ describe("§548 — loadPending", () => {
 // §548 (F7) — the SCOPE EPOCH, the companion signal `loadPending` cannot supply: a Graph/AI call that
 // started before a swap and resolves AFTER it finished sees `loadPending === false` again, so only a
 // changed epoch tells it the workspace it would write into is no longer the one it read from.
-describe("§548 — getScopeEpoch", () => {
-  it("(h) does NOT bump for the first load, bumps once per false→true transition, and never on the way back down", async () => {
+// ★★★ THE PREDICATE IS NARROW (round 1). The first cut bumped on every false→true transition of
+//   `loadPending`, which also fires when the PROJECT never changed — a same-target reload, a held op
+//   the user cancelled, a same-target rebuild — and dropped in-flight results that would have landed
+//   in the RIGHT project. These tests assert through `isScopeStale`, the very predicate every writer
+//   calls, so they pin what a writer would actually DO, not just the number.
+describe("§548 — getScopeEpoch: transitions that must NOT move it", () => {
+  it("(h) the first load, a settled load and a SAME-TARGET rebuild all leave an in-flight write landing", async () => {
     const a = makeBackend(100);
     const b = makeBackend(100);
     createBackendMock.mockReturnValue(a);
     const { result, rerender } = render(makeArgs({ kind: "browser" }, false));
     const read = result.current.getScopeEpoch;
-    expect(read()).toBe(0); // pre-hydration is pending, but nothing can have been in flight yet
+    const started = read(); // what a writer captures before its first await
+    expect(started).toBe(0); // pre-hydration is pending, but nothing can have been in flight yet
 
     rerender({ args: makeArgs({ kind: "browser" }, true) }); // same instance → the first load, not a rebuild
     await advance(300);
     expect(a.load).toHaveBeenCalledTimes(1); // control: the first load really ran
     expect(result.current.loadPending).toBe(false);
-    expect(read()).toBe(0); // …and settling is a true→false transition, which must not bump
+    expect(isScopeStale(read, started)).toBe(false);
 
     createBackendMock.mockReturnValue(b);
-    rerender({ args: makeArgs({ kind: "browser" }, true) }); // new config identity → rebuilt backend
+    rerender({ args: makeArgs({ kind: "browser" }, true) }); // new config identity → REBUILT backend…
     await advance(50);
-    expect(result.current.loadPending).toBe(true); // control: the rebuild raised the hold
-    expect(read()).toBe(1);
-
+    expect(result.current.loadPending).toBe(true); // control: the rebuild really raised the hold…
     await advance(300);
+    expect(b.load).toHaveBeenCalledTimes(1); // …and really re-loaded
     expect(result.current.loadPending).toBe(false);
-    expect(read()).toBe(1); // still 1 — the swap is over, but scope is a DIFFERENT project than at 0
+    // …but onto the SAME target, so §591 merged rather than replaced: the project never changed.
+    expect(isScopeStale(read, started)).toBe(false);
   });
 
-  it("(i) bumps while a held op runs, and the reader identity is stable across every render", async () => {
+  it("(h2) a SAME-TARGET reloadCurrentProject leaves an in-flight write landing", async () => {
     const backend = makeBackend(300);
     createBackendMock.mockReturnValue(backend);
     const { result } = render();
     await advance(400);
     const read = result.current.getScopeEpoch;
+    const started = read();
     expect(result.current.loadPending).toBe(false);
-    expect(read()).toBe(0);
 
     let op: Promise<void> = Promise.resolve();
     act(() => { op = result.current.reloadCurrentProject(); });
     await advance(100);
-    expect(result.current.loadPending).toBe(true); // control: holdDuring raised it
-    expect(read()).toBe(1);
-
+    expect(result.current.loadPending).toBe(true); // control: holdDuring really raised the hold
     await advance(400);
     await act(async () => { await op; });
     await advance(100);
+    expect(backend.load).toHaveBeenCalledTimes(2); // control: the reload really re-loaded
     expect(result.current.loadPending).toBe(false);
-    expect(read()).toBe(1);
+    expect(isScopeStale(read, started)).toBe(false);
     // Stable identity: a consumer mirrors this into a `[]`-dep ref and must not re-subscribe.
     expect(result.current.getScopeEpoch).toBe(read);
+  });
+
+  it("(h3) a held op the user CANCELLED at the OS file picker leaves an in-flight write landing", async () => {
+    const backend = makeBackend(0);
+    createBackendMock.mockReturnValue(backend);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(null); // the picker was dismissed
+    const { result } = render();
+    await advance(100);
+    const read = result.current.getScopeEpoch;
+    const started = read();
+
+    let op: Promise<void> = Promise.resolve();
+    act(() => { op = result.current.onOpenStorageFile(); });
+    await advance(50);
+    await act(async () => { await op; });
+    await advance(50);
+    expect(storageMod.openFileForBackend).toHaveBeenCalled(); // control: the op really ran
+    expect(result.current.loadPending).toBe(false); // …and the hold it raised is released
+    expect(isScopeStale(read, started)).toBe(false); // nothing was applied, so nothing may be dropped
+  });
+});
+
+describe("§548 — getScopeEpoch: transitions that MUST move it", () => {
+  it("(i) a load that REPLACES (a different storage target) makes an in-flight write stale", async () => {
+    const a = makeBackend(100);
+    const b = makeBackend(100);
+    createBackendMock.mockReturnValue(a);
+    const { result, rerender } = render(makeArgs({ kind: "browser" }, true));
+    await advance(300);
+    const read = result.current.getScopeEpoch;
+    const started = read();
+    expect(result.current.loadPending).toBe(false);
+    expect(isScopeStale(read, started)).toBe(false);
+
+    createBackendMock.mockReturnValue(b);
+    rerender({ args: makeArgs({ kind: "local-json" }, true) }); // a DIFFERENT storageTargetKey
+    await advance(300);
+    expect(b.load).toHaveBeenCalledTimes(1); // control: the new target really loaded
+    expect(result.current.loadPending).toBe(false);
+    expect(isScopeStale(read, started)).toBe(true);
+  });
+
+  it("(i2) a held op that applies ANOTHER project's workspace makes an in-flight write stale", async () => {
+    saveRegistry(addProject(emptyRegistry(), { id: "target", name: "Target", code: "T", storageConfig: { kind: "local-json" } }, false));
+    (handles.getHandle as ReturnType<typeof vi.fn>).mockResolvedValue({ name: "t.json" });
+    const current = makeBackend(0);
+    const built = makeBackend(200); // backendFor(target) — the instance the switch loads
+    const memo = makeBackend(0);
+    createBackendMock.mockReturnValueOnce(current).mockReturnValueOnce(built).mockReturnValue(memo);
+    let rerenderWith: (cfg: StorageConfig) => void = () => {};
+    const setStorageConfig = vi.fn((cfg: StorageConfig) => rerenderWith(cfg));
+    const { result, rerender } = render({ ...makeArgs(), setStorageConfig });
+    rerenderWith = (cfg) => rerender({ args: { ...makeArgs(cfg), setStorageConfig } });
+    await advance(100);
+    const read = result.current.getScopeEpoch;
+    const started = read();
+    expect(isScopeStale(read, started)).toBe(false);
+
+    let op: Promise<void> = Promise.resolve();
+    act(() => { op = result.current.switchToProject("target"); });
+    await advance(400);
+    await act(async () => { await op; });
+    await advance(100);
+    expect(built.load).toHaveBeenCalledTimes(1); // control: the target really loaded
+    // ★ `storageTargetKey` keys every local-* kind on the KIND alone (§591 ruling 3), so the load
+    //   effect's replace rule cannot see this switch — only clause (b), `applyWorkspaceForOp`, can.
+    expect(isScopeStale(read, started)).toBe(true);
+  });
+
+  // The picker path replaces tasks+raid through RAW setters, never `applyWorkspace`, so neither clause
+  // (a) (the local-* target key does not move — §591 ruling 3) nor `applyWorkspaceForOp` can see it.
+  it("(i3) onOpenStorageFile's ACCEPT branch makes an in-flight write stale", async () => {
+    const backend = makeBackend(0);
+    createBackendMock.mockReturnValue(backend);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve({ name: "other.json" }));
+    (storageMod.loadFromHandleForBackend as ReturnType<typeof vi.fn>).mockReturnValue(
+      Promise.resolve({ tasks: [{ id: 9, taskName: "From the other file" } as unknown as Task], raid: [] }),
+    );
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    try {
+      const { result } = render();
+      await advance(100);
+      const read = result.current.getScopeEpoch;
+      const started = read();
+      expect(isScopeStale(read, started)).toBe(false);
+
+      let op: Promise<void> = Promise.resolve();
+      act(() => { op = result.current.onOpenStorageFile(); });
+      await advance(100);
+      await act(async () => { await op; });
+      await advance(50);
+      expect(result.current.tasks.map((x) => x.id)).toEqual([9]); // control: the other file really landed
+      expect(isScopeStale(read, started)).toBe(true);
+    } finally {
+      confirmSpy.mockRestore();
+    }
   });
 });

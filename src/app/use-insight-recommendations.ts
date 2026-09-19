@@ -309,6 +309,12 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     // never drive a destructive tool (delete_*/update_settings) through runTool,
     // even if it slipped a stale load path. Load-time sanitize also strips these.
     const calls = rec.proposedCalls.filter((c) => ALLOWED_REC_TOOLS.has(c.name));
+    // ★★ §548 — NO scope-epoch guard here, and NOT because closing the modal cancels anything: it
+    // does not, this function runs to completion after the unmount. It is safe because every
+    // `ALLOWED_REC_TOOLS` dispatcher writes local state only, so each `await runTool` below resolves
+    // in the MICROTASK queue and the whole loop finishes inside one macrotask — no swap can
+    // interleave. That condition is stated on `ALLOWED_REC_TOOLS` itself, where a tool author will
+    // meet it; a dispatcher that gains I/O must bring `dropStaleScopeWrite` with it.
     // Per-call, NON-transactional apply. Each runTool is its own try/catch so one
     // call that THROWS (e.g. an enum/date the entity's sanitizer rejects) can't
     // abort the remaining calls. (A stale update id does NOT throw — the

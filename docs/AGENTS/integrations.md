@@ -64,11 +64,18 @@ entities: ★★ NEW entity types MUST use a TYPE-SCOPED category `categoryFor(p
 404-on-PATCH self-heal, popout no-op). ★★ A MODULE-LEVEL `inFlightReconcile` Set keyed `${projectId}:${type}`
 serializes the auto + manual push instances so a manual click during an in-flight auto reconcile can't DOUBLE-CREATE
 (check-then-add is synchronous before the first await; released in `finally`). ★★★ §548 — EVERY calendar hook that
-awaits Graph takes an optional `getScopeEpoch` and DROPS its workspace write when a project swap or backend change
-happened meanwhile (`dropStaleScopeWrite`, `scope-epoch.ts`; the load hold's own gates only ask when a call STARTS).
-`use-calendar-integrations.ts` threads the reader into all seventeen child-hook call sites; a hook mounted outside
-that reach — `tasks-section.tsx`'s own manual task push/pull — passes nothing and is NOT guarded. The full mechanism
-is in [platform.md](platform.md) "The load hold". ★ `interactive:false` (auto runner)
+awaits Graph takes an optional `getScopeEpoch` and DROPS its workspace write when the workspace in scope became
+ANOTHER PROJECT meanwhile (`dropStaleScopeWrite`, `scope-epoch.ts`; the load hold's own gates only ask when a call
+STARTS). `use-calendar-integrations.ts` threads the reader into all seventeen child-hook call sites; a hook mounted
+outside that reach — `tasks-section.tsx`'s own manual task push/pull — passes nothing and is NOT guarded.
+★★★ WHAT A DROPPED PUSH COSTS DIFFERS BY HOOK, and "the next push re-links it" is FALSE everywhere. `useEntityCalendarPush`
+and `useOutlookCalendarPush` list Outlook, and `planEntityReconcile`/`planCalendarReconcile` put every listed id not
+referenced by an item into `plan.delete` — so the next push in the right project DELETES the orphan and RE-CREATES the
+event (churn, once, self-healing). `useCommitteeOutlookPush` does NOT list Outlook: `planCommitteeReconcile` derives
+`deleteEventIds` from the committee's own STORED ids, so an event created just before a drop is a PERMANENT orphan in
+the user's calendar AND every later push adds a DUPLICATE beside it, accumulating per occurrence. No compensating
+delete is issued (a rollback that fails mid-way is worse), which is exactly why the epoch's predicate is narrow —
+a reload or a cancelled op must never trigger this. The full mechanism is in [platform.md](platform.md) "The load hold". ★ `interactive:false` (auto runner)
 → non-interactive token + FULLY SILENT (no result/partial/no-access toasts). **Tasks (SP1, v0.157+):**
 `Task.outlookEventId?` persists across the 6 write paths (mirrors `Milestone.outlookEventId` — CSV `CSV_COLUMNS`
 generic `fieldToString` default arm; MD decoder lives in `markdown-codecs-decode.ts` not `-core`; Turso derives from

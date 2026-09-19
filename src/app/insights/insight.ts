@@ -124,7 +124,16 @@ export const MAX_BG_RECS_PER_TICK = 3;
  *  enforced at THREE points: generation (parseRecommendation), load (sanitizeInsights),
  *  and apply (task-manager) — a persisted/imported blob must never smuggle a
  *  destructive tool (delete_*, update_settings) past any of them. Lives on this
- *  leaf module so the sanitizer can import it without pulling in action-ai. */
+ *  leaf module so the sanitizer can import it without pulling in action-ai.
+ *  ★★★ §548 — EVERY DISPATCHER FOR A TOOL LISTED HERE MUST RESOLVE WITHOUT I/O, and adding one that
+ *  does not is a silent correctness change elsewhere. `confirmInsightRecommendation`
+ *  (`use-insight-recommendations.ts`) awaits `runTool` once per proposed call and then writes the
+ *  workspace; it carries NO scope-epoch guard, and it is safe only because every dispatcher here
+ *  performs local state writes, so each `await` resolves in the MICROTASK queue and the whole confirm
+ *  completes inside one macrotask — no project swap can interleave. Unmounting the modal does NOT
+ *  cancel it; the loop runs to completion either way. A tool that gains a network call breaks that
+ *  and puts the confirm in the §548 in-flight class: give it the `getScopeEpoch` /
+ *  `dropStaleScopeWrite` treatment (`scope-epoch.ts`) in the same change. */
 export const ALLOWED_REC_TOOLS: ReadonlySet<string> = new Set([
   "update_task",
   "create_task",

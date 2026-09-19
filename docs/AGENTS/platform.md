@@ -185,27 +185,57 @@
 - ★★★ **`loadPending` ANSWERS "may I START?", NOT "may I still WRITE?" — that is what the SCOPE EPOCH
   is for.** A Graph or AI call that began before a swap can resolve after the swap FINISHED, when
   `loadPending` is false again, and write the previous project's result into the new project's
-  workspace. `useStorageBackend` therefore keeps a monotonic counter beside `loadPending`, bumped in an
-  effect on every false→true transition of it, and publishes a STABLE reader `getScopeEpoch` (a
-  `useCallback` over a ref — deliberately not a render value, which would re-render every consumer on
-  each swap). `scope-epoch.ts` holds the shared guard: a writer captures `getScopeEpoch()` BEFORE its
-  first await and calls `dropStaleScopeWrite` before it touches workspace state, which returns true and
-  logs one `storage.staleScopeWriteDropped` naming the writer. Dropped, never queued — the runners
-  regenerate. ★ A bump happens when scope stops being settled, so a result landing DURING a hold is
-  already stale; the epoch subsumes the `loadPending`-at-write question. ★ Bumped in an EFFECT, not in
-  render (a ref write during render trips the react-hooks purity rules): the one-commit lag is safe,
-  because a write landing inside it goes into scope that still holds the OUTGOING project and is then
-  replaced by the incoming load — lost, never misattributed. ★ Guarded today: `useEntityCalendarPush`
-  and `useOutlookCalendarPush` (TWICE each — once before any Graph mutation, once before the workspace
-  write, so a swap during the create/update loop orphans event ids rather than writing them onto the
-  next project's rows), `useEntityCalendarPull`, `useMilestoneCalendarPull`, `useCommitteeOutlookPush`,
-  `useInsightRecommend` and `useInsightRecommendRunner` (per CANDIDATE, and the tick `break`s — every
-  remaining candidate came from the project that just left). ★★ The reader is OPTIONAL at each child
-  hook, so a caller outside the storage hook's reach keeps the pre-§548 behaviour and is NOT guarded:
-  `tasks-section.tsx`'s own manual task push/pull, and the chat agent loop (which has no such reader at
-  all). Both `deps` members (`CalendarIntegrationDeps` / `InsightRecommendationDeps`) are REQUIRED, so
-  tsc proves `task-manager.tsx` hands the reader over. ★ Enumerate the guarded sites with
-  `grep -rn "dropStaleScopeWrite(" src/app --include=*.ts | grep -v test`.
+  workspace. `useStorageBackend` therefore keeps a monotonic counter (`scopeEpochRef`, beside
+  `scopeTargetKeyRef`) and publishes a STABLE reader `getScopeEpoch` (a `useCallback` over a ref —
+  deliberately not a render value, which would re-render every consumer on each swap). `scope-epoch.ts`
+  holds the shared guard: a writer captures `getScopeEpoch()` BEFORE its first await and calls
+  `dropStaleScopeWrite` before it touches workspace state, which returns true and logs one
+  `storage.staleScopeWriteDropped` naming the writer. Dropped, never queued — the runners regenerate.
+- ★★★ **THE EPOCH'S PREDICATE IS NARROW, AND THE OBVIOUS WIDE ONE IS A BUG.** It means exactly "the
+  workspace in scope has become a DIFFERENT PROJECT", not "a load is happening". The first cut bumped
+  on every false→true transition of `loadPending`, which also fires for a same-target reload, a held op
+  the user CANCELLED at the OS file picker, and a settings-driven rebuild onto the same target — in all
+  of which an in-flight result that would have landed in the RIGHT project was dropped. It now bumps in
+  exactly two places: **(a)** a load that REPLACES rather than merges, decided inside
+  `resolveLogModeAndStamp` so §591's rule has one implementation and the epoch cannot drift from it;
+  and **(b)** an op that put another project's data in scope — `applyWorkspaceForOp` (the wrapper the
+  two project-op hooks receive as their `applyWorkspace`, covering `switchToProject` · `createProject` ·
+  `loadProjectFromFile` · `createDemoProject` · `switchToTursoProject` · `createTursoProject`) and
+  `onOpenStorageFile`'s ACCEPT branch, which replaces tasks+raid through raw setters. ★★ (b) is NOT
+  redundant with (a): `storageTargetKey` keys `browser` and every `local-*` kind on the KIND ALONE
+  (§591 ruling 3), so a file-mode project switch never moves the key. ★ `migrateCurrentProjectToTurso`
+  never calls `applyWorkspace` — same project, new backend — so it correctly never bumps, and neither
+  does a failed load or the empty-load refusal (nothing applied, scope still holds the right project).
+  ★★ The bump is SYNCHRONOUS and immediately precedes the replacement it announces, so there is no
+  instant at which the new project's workspace is in scope while the epoch still reads old. A writer
+  resolving between the bump and React's commit is dropped although scope still holds the OUTGOING
+  project — the conservative direction, and that write would have been replaced anyway.
+- ★ **Guarded today** (`grep -rn "dropStaleScopeWrite(" src/app --include=*.ts | grep -v test`):
+  `useEntityCalendarPush` and `useOutlookCalendarPush` (TWICE each — once before any Graph mutation,
+  once before the workspace write), `useEntityCalendarPull`, `useMilestoneCalendarPull`,
+  `useCommitteeOutlookPush` (also twice), `useInsightRecommend` and `useInsightRecommendRunner` (per
+  CANDIDATE, and the tick `break`s — every remaining candidate came from the project that just left).
+  ★★ The reader is OPTIONAL at each child hook, so a caller outside the storage hook's reach keeps the
+  pre-§548 behaviour and is NOT guarded: `tasks-section.tsx`'s own manual task push/pull, and the chat
+  agent loop (which has no such reader at all). Both `deps` members (`CalendarIntegrationDeps` /
+  `InsightRecommendationDeps`) are REQUIRED, so tsc proves `task-manager.tsx` hands the reader over.
+- ★★★ **WHAT A DROPPED PUSH COSTS, and it is NOT "the next push re-links it".** For the entity and
+  milestone pushes the ids just created are orphaned and the reconcile SELF-HEALS the wrong way round:
+  `planEntityReconcile` / `planCalendarReconcile` put every listed event id not referenced by an item
+  into `plan.delete`, so the next push in the right project DELETES the orphan and RE-CREATES the
+  event — one extra delete plus one extra create, once. `planCommitteeReconcile` does NOT list Outlook
+  at all: it derives `deleteEventIds` from the committee's own STORED ids, so a committee event created
+  just before a drop is a **permanent orphan in the user's calendar AND a duplicate on every later
+  push**, accumulating per occurrence. ★ No compensating delete is issued anywhere — a rollback that
+  fails mid-way is worse than the orphan. ★★ That committee cost is the reason the predicate above is
+  narrow; widening it back re-introduces the orphan for reloads and cancelled ops.
+- ★★ **`confirmInsightRecommendation` awaits and then writes, and carries NO epoch guard — for a
+  reason that is a CONDITION, not a property.** Closing the modal cancels nothing; the loop runs to
+  completion after the unmount. It is safe only because every `ALLOWED_REC_TOOLS` dispatcher writes
+  local state and does no I/O, so each `await runTool` resolves in the MICROTASK queue and the whole
+  confirm finishes inside one macrotask, where no swap can interleave. The condition is written on
+  `ALLOWED_REC_TOOLS` itself (`insights/insight.ts`), where a tool author will meet it: a dispatcher
+  that gains a network call must bring `dropStaleScopeWrite` with it.
 - ★ Pinned by `use-storage-backend.load-pending.test.tsx` (the signal, including before hydration and
   a SharePoint load that times out), `use-storage-backend.hold-ops.test.tsx` (all nine held ops: in
   flight, resolved, threw), `use-settings.hydration.test.ts` (hydration completes on a throw, without

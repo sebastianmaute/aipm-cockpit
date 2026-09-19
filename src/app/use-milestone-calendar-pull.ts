@@ -36,6 +36,9 @@ export function useMilestoneCalendarPull({ milestones, projectId, setMilestones,
     writeBaselineDate(projectId, "milestone", eventId, newDate);
   }, [setMilestones, projectId]);
 
+  // ★ §548 — awaits Graph and then writes, deliberately NOT epoch-guarded: it touches no workspace
+  //   state, and the baseline it writes is keyed by the closure's `projectId` — the OUTGOING
+  //   project's — so a swap mid-flight still files the entry under the project it belongs to.
   const keepApp = useCallback(async (c: { id: number; eventId: string; appDate: string }) => {
     // App-wins: converge Outlook to the milestone's (kept) date so baseline===appDate
     // becomes GENUINELY true. Just refreshing the baseline would make the next pull

@@ -395,6 +395,14 @@ export interface StorageFilePickerDeps {
   setTasks: React.Dispatch<React.SetStateAction<readonly Task[]>>;
   setRaid: React.Dispatch<React.SetStateAction<readonly RaidItem[]>>;
   tasks: readonly Task[];
+  /** §548 clause (b) — announce that the workspace in scope has become ANOTHER project's, so an
+   *  in-flight Graph/AI write that resolves afterwards is dropped (`scope-epoch.ts`). Called ONLY on
+   *  `onOpenStorageFile`'s accept branch: that path replaces tasks+raid from another file through raw
+   *  setters, never `applyWorkspace`, so the wrapper the project ops get cannot cover it — and
+   *  `storageTargetKey` keys every `local-*` kind on the KIND alone (§591 ruling 3), so the load
+   *  effect's replace rule cannot either. `onPickStorageFile` deliberately does NOT call it: it
+   *  writes the CURRENT workspace out, leaving the same project in scope. */
+  bumpScopeEpoch: () => void;
 }
 
 export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
@@ -443,6 +451,10 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
         // kind's mark, so the absences/shifts NOT applied below keep their
         // current-project high-water intact.
         seedMintFromWorkspace(loaded, "raise");
+        // §548 — SYNCHRONOUSLY before the two setters, so no in-flight Graph/AI write can resolve
+        // between the replacement and the announcement. A CANCELLED picker or a declined confirm
+        // never reaches this line, which is exactly the false drop the narrow predicate avoids.
+        deps.bumpScopeEpoch();
         deps.setTasks(loaded.tasks);
         deps.setRaid(loaded.raid);
         // NOTE: absences and shifts intentionally NOT restored here —

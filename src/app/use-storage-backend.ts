@@ -122,12 +122,41 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     tursoProjectId,
   });
   const scopeTargetKeyRef = useRef<string | null>(null);
+  // ★★★ §548 — THE SCOPE EPOCH. A monotonic counter whose ONLY meaning is: the workspace in scope has
+  //   become a DIFFERENT PROJECT since you read this. A writer that awaits Graph or the AI captures it
+  //   before its first await and DROPS its write when the value differs at resolution —
+  //   `scope-epoch.ts` (`isScopeStale` / `dropStaleScopeWrite`) is the shared guard. `loadPending`
+  //   cannot answer this: it is back to FALSE by the time a promise started before the swap resolves.
+  // ★★★ THE PREDICATE IS NARROW ON PURPOSE, and the first cut got it wrong: it bumped on every
+  //   false→true transition of `loadPending`, which also fires for a same-target reload, a held op the
+  //   user CANCELLED at the OS file picker, and a settings-driven rebuild onto the same target. In
+  //   each of those the project never changed, so an in-flight result that would have landed in the
+  //   RIGHT project was dropped — and for the committee push that costs a permanent orphan plus a
+  //   duplicate event (see `useCommitteeOutlookPush`). It now bumps in exactly two places:
+  //   (a) a load that REPLACES rather than merges — i.e. §591's own rule, decided once in
+  //       `resolveLogModeAndStamp` below so there is no second copy of it; and
+  //   (b) an op that put ANOTHER project's data in scope — `applyWorkspaceForOp` (the six
+  //       switch/create/load ops) and `onOpenStorageFile`'s accept branch, which replaces tasks+raid
+  //       with another file's through raw setters.
+  // ★★ (b) is NOT redundant with (a): `storageTargetKey` keys `browser` and every `local-*` kind on
+  //   the KIND ALONE (§591 ruling 3), so a file-mode project switch does not move the key at all.
+  // ★★ It is bumped SYNCHRONOUSLY, immediately BEFORE the replacement it announces, so there is no
+  //   instant at which the new project's workspace is in scope while the epoch still reads old. A
+  //   writer resolving between the bump and React's commit is dropped although scope still holds the
+  //   OUTGOING project — the conservative direction, and that write would have been replaced anyway.
+  // ★ A FAILED load and the empty-load refusal apply nothing and stamp nothing, so neither bumps:
+  //   scope still holds the previous project, and a write landing there is still correct.
+  const scopeEpochRef = useRef(0);
+  const bumpScopeEpoch = () => { scopeEpochRef.current += 1; };
   // §591 — the one place the "merge onto the same target, else replace" ternary is decided, shared by
   // the load effect's applied branch and reloadCurrentProject (previously duplicated at both sites).
   // Reads the ref BEFORE stamping it to the CURRENT load's target — same order as the duplicated code.
+  // ★ §548 clause (a) lives HERE rather than at the two call sites, so "replace" and "the scope epoch
+  //   moved" cannot drift apart: a replace IS the in-scope workspace becoming another target's.
   const resolveLogModeAndStamp = (): "merge" | "replace" => {
     const logMode = scopeTargetKeyRef.current === targetKey ? "merge" : "replace";
     scopeTargetKeyRef.current = targetKey;
+    if (logMode === "replace") bumpScopeEpoch();
     return logMode;
   };
 
@@ -163,29 +192,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   through that window. The hold therefore relies on `hydrated` always becoming true — bounded in
   //   `useSettings` by `SECRET_MERGE_TIMEOUT_MS`.
   const loadPending = !args.hydrated || settledBackend !== backend || swapsInFlight > 0;
-  // ★★★ §548 — THE SCOPE EPOCH. A monotonic counter bumped on every false→true transition of
-  //   `loadPending`, i.e. every time the in-scope workspace stops being the settled project of the
-  //   current backend (a backend rebuild, one of the nine `holdDuring` ops starting). A writer that
-  //   awaits Graph or the AI captures it before its first await and DROPS its write when the value
-  //   differs at resolution — `scope-epoch.ts` (`isScopeStale` / `dropStaleScopeWrite`) is the shared
-  //   guard, and the hold's own gates (`loadPending` at START) do not cover that case: the swap can
-  //   have COMPLETED by the time the promise resolves, which puts `loadPending` back to false.
-  // ★ Bumped in an EFFECT, never in render: a ref write during render trips the react-hooks purity
-  //   rules, and the one-commit lag is safe — a write landing inside it goes into scope that still
-  //   holds the OUTGOING project and is then replaced by the incoming load, i.e. lost, never
-  //   misattributed. (Every held op flushes the outgoing project BEFORE its first await.)
-  // ★ `lastLoadPendingRef` is seeded with the MOUNT value, so the first-ever render does not count as
-  //   a transition — nothing can have been in flight before the hook existed.
-  const scopeEpochRef = useRef(0);
-  const lastLoadPendingRef = useRef(loadPending);
-  useEffect(() => {
-    const was = lastLoadPendingRef.current;
-    lastLoadPendingRef.current = loadPending;
-    if (loadPending && !was) scopeEpochRef.current += 1;
-  }, [loadPending]);
-  // ★ STABLE for the hook's lifetime, so a consumer can mirror it into a `[]`-dep ref or callback
-  //   without re-subscribing anything. Deliberately NOT a render value: publishing the number would
-  //   re-render every consumer on each swap.
+  // §548 — the scope epoch's reader; the counter and the two places that bump it are declared beside
+  // `scopeTargetKeyRef` above. ★ STABLE for the hook's lifetime, so a consumer can mirror it into a
+  // `[]`-dep ref or callback without re-subscribing anything. Deliberately NOT a render value:
+  // publishing the number would re-render every consumer on each swap.
   const getScopeEpoch = useCallback(() => scopeEpochRef.current, []);
   // ★★★ §586 — THE SAVE GATE: the backend instance render scope may be written to. Before it opens,
   //   the boot workspace is EMPTY, and a save of it is `DELETE FROM` every Turso table, an empty
@@ -388,6 +398,17 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setSettledBackend(backend); // §548 — see `settledBackend`; beside the stamp, and late for the same reason.
     allowSavesTo(backend); // §586 — beside the stamp, and LAST for the same reason.
   };
+
+  // ★★★ §548 clause (b) — THE ONLY `applyWorkspace` THE PROJECT OPS SEE. Every call the two op hooks
+  //   make (`switchToProject` · `createProject` · `loadProjectFromFile` · `createDemoProject` ·
+  //   `switchToTursoProject` · `createTursoProject`) puts ANOTHER project's data in scope, so the bump
+  //   belongs at the boundary rather than at those six sites, where it could be forgotten by the next
+  //   op. `migrateCurrentProjectToTurso` never calls it — the project is the same, only the backend
+  //   moves — and so never bumps, which is correct. ★ An op that REJECTS or is cancelled never reaches
+  //   its `applyWorkspace`, so it never bumps either: that is the whole point of the narrow predicate.
+  // ★ The raw `applyWorkspace` above stays the load effect's and `reloadCurrentProject`'s, which decide
+  //   by `resolveLogModeAndStamp` (clause (a)) instead.
+  const applyWorkspaceForOp = (workspace: Workspace) => { bumpScopeEpoch(); applyWorkspace(workspace); };
 
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
   //     four setters. These are the last §72 setters in this hook that can
@@ -855,7 +876,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setTursoProjectId,
     truncationOps,
     currentWorkspace,
-    applyWorkspace,
+    applyWorkspace: applyWorkspaceForOp, // §548 clause (b)
     suppressNextLoadRef,
     suppressNextSaveRef,
     reportProjectError,
@@ -873,7 +894,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     langRef,
     settingsRef,
     truncationOps,
-    applyWorkspace,
+    applyWorkspace: applyWorkspaceForOp, // §548 clause (b)
     backendFor,
     commitRegistry,
     persistBackendHandle,
@@ -906,6 +927,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setTasks,
     setRaid,
     tasks,
+    bumpScopeEpoch, // §548 clause (b) — onOpenStorageFile's accept branch only
   });
 
   // Re-load the CURRENT project's workspace from its backend, discarding the

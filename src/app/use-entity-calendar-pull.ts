@@ -71,6 +71,10 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
     removeBaselineEntry(projectId, entityType, eventId);
   }, [setItems, projectId, entityType]);
 
+  // ★ §548 — this awaits Graph and then writes, and is deliberately NOT epoch-guarded. It touches no
+  //   workspace state at all: it pushes the entity's kept date to Outlook and writes the baseline,
+  //   which is keyed by the closure's `projectId` — the OUTGOING project's — so a swap mid-flight
+  //   still files the entry under the project it belongs to. Its toasts are the only other effect.
   const keepApp = useCallback(async (c: { id: number; eventId: string; appDate: string; appEndDate?: string }) => {
     // App-wins: converge Outlook to the entity's (kept) date so baseline===appDate
     // becomes GENUINELY true. Just refreshing the baseline would make the next pull

@@ -94,9 +94,13 @@ export function useEntityCalendarPush<T extends HasEventLink>(
         try { await deleteEvent(token, id); }
         catch (err) { failed++; logDiag("warn", "calendar.pushItemFailed", { entityType, op: "delete", message: err instanceof Error ? err.message : String(err) }); }
       }
-      // §548 — the swap can also land DURING the create/update/delete loop above. The event ids are
-      // then orphaned (the next push in the right project re-links them), which beats writing this
-      // project's ids onto the next project's rows.
+      // §548 — the swap can also land DURING the create/update/delete loop above, so the ids just
+      // created are dropped on the floor. ★★ THEY ARE NOT RE-LINKED: `planEntityReconcile` puts every
+      // listed event id NOT referenced by an item into `plan.delete`, so the next push in the right
+      // project DELETES the orphan and RE-CREATES the entity's event. Churn (one extra delete + one
+      // extra create, once), self-healing, and far better than writing this project's ids onto the
+      // next project's rows. ★ No compensating delete is issued here on purpose: a rollback that
+      // itself fails mid-way is a worse failure than the churn.
       if (dropStaleScopeWrite(getScopeEpoch, startEpoch, "useEntityCalendarPush", { entityType, at: "write" })) return;
       if (newIds.size > 0 || staleIds.size > 0) {
         setItems((prev) => prev.map((it) => {

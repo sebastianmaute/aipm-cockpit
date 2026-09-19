@@ -62,8 +62,10 @@ export function useOutlookCalendarPush({ milestones, projectId, setMilestones, i
         try { await deleteEvent(token, id); }
         catch (err) { failed++; logDiag("warn", "calendar.pushItemFailed", { entityType: "milestone", op: "delete", message: err instanceof Error ? err.message : String(err) }); }
       }
-      // §548 — the swap can land during the create/update/delete loop too; orphaned event ids beat
-      // this project's ids written onto the next project's milestones.
+      // §548 — the swap can land during the create/update/delete loop too, so the ids just created are
+      // dropped. ★★ NOT re-linked: `planCalendarReconcile` puts every listed event id not referenced
+      // by a milestone into `plan.delete`, so the next push DELETES the orphan and RE-CREATES the
+      // event — self-healing churn, and better than this project's ids on the next project's rows.
       if (dropStaleScopeWrite(getScopeEpoch, startEpoch, "useOutlookCalendarPush", { at: "write" })) return;
       if (newIds.size > 0 || staleIds.size > 0) {
         setMilestones((prev) => prev.map((m) => {

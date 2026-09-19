@@ -105,8 +105,16 @@ export function useCommitteeOutlookPush({
       const deletedSet = new Set(plan.deleteEventIds);
       const persist = newMeetingIds.size > 0 || newInfoIds.size > 0 || deletedSet.size > 0
         || staleMeetingIds.size > 0 || staleInfoKeys.size > 0;
-      // §548 — the swap can land during the create/update/delete loops too; orphaned event ids beat
-      // this project's ids written onto the next project's committee.
+      // ★★★ §548 — THE COSTLIEST DROP IN THE APP, and it does NOT self-heal like the milestone and
+      //   entity pushes. Those list Outlook, so their next push deletes the orphan and re-creates the
+      //   event. `planCommitteeReconcile` derives `deleteEventIds` from the committee's OWN STORED ids
+      //   (`infoReminderEventIds` + `pendingDeleteEventIds`) and NEVER lists Outlook — so an event
+      //   created just before this drop is a PERMANENT orphan in the user's calendar, AND every later
+      //   push creates a DUPLICATE beside it, accumulating per occurrence. ★ Still the right trade
+      //   against writing this project's ids onto the next project's committee, and it is why the
+      //   epoch's predicate is narrow (`use-storage-backend.ts`): this must fire only for a REAL
+      //   project change, never for a reload or a cancelled op. ★ No compensating delete is issued —
+      //   a rollback that fails mid-way is worse than the orphan.
       if (dropStaleScopeWrite(getScopeEpoch, startEpoch, "useCommitteeOutlookPush", { at: "write" })) return;
       if (persist) {
         setSteeringCommittee((prev) => {

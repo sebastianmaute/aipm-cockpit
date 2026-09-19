@@ -268,4 +268,24 @@ describe("useCommitteeOutlookPush", () => {
     expect(createEvent).toHaveBeenCalledTimes(2);
     expect(setSteeringCommittee).toHaveBeenCalledTimes(1);
   });
+
+  // ★★★ The COSTLIEST drop in the app, so it gets its own pin rather than riding on
+  //   `use-entity-calendar-push.test.tsx`'s copy of the same guard: `planCommitteeReconcile` derives
+  //   `deleteEventIds` from STORED ids and never lists Outlook, so an event created just before this
+  //   drop is never cleaned up AND the next push creates a duplicate. That is why round 1 narrowed the
+  //   epoch predicate — this must fire only for a real project change.
+  it("drops the workspace write when the scope epoch changes DURING the create loop", async () => {
+    const epoch = { v: 1 };
+    createEvent.mockImplementationOnce(async () => { epoch.v = 2; return "meet-evt"; });
+    const setSteeringCommittee = vi.fn();
+    const { result } = renderHook(() =>
+      useCommitteeOutlookPush({
+        committee: committee(), committeeName: "Board", projectId: "p", today: TODAY,
+        setSteeringCommittee, isPopout: false, lang: "en-US", enabled: true, getScopeEpoch: () => epoch.v,
+      }));
+    await act(async () => { await result.current.pushToOutlook(); });
+
+    expect(createEvent).toHaveBeenCalled(); // control: the event WAS created in Outlook…
+    expect(setSteeringCommittee).not.toHaveBeenCalled(); // …and its id is deliberately orphaned
+  });
 });
