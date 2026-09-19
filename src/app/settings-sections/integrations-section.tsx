@@ -29,7 +29,7 @@ import { tursoErrorKind } from "../storage-error";
 import { SECRET_MERGE_TIMEOUT_MS, writeSettings } from "../use-settings";
 import { loadRegistry } from "../projects-registry";
 import { defaultStorageConfig } from "../workspace";
-import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
+import { saveSecretValue, setSecretPassphrase, unlockSecret } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
 import { Button } from "../button";
@@ -327,6 +327,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   //   the OLD token (or, via "Save & switch", none: `writeSettings` blanks it) — so Apply and
   //   "Save & switch" stay disabled until it is typed (`tokenSealBlocked`), exactly as the
   //   passphrase Save button is. Clears the fields afterwards, as that button does.
+  // ★★ When a passphrase-sealed record ALREADY exists, both actions first VERIFY that the typed
+  //   passphrase opens it (`typedPassphraseOpensRecord`), so a mistyped or different passphrase
+  //   cannot silently become the new one — "Save passphrase" stays the only way to CHANGE it.
   async function sealUnderTypedPassphrase(token: string) {
     await setSecretPassphrase("tursoAuthToken", token, tokenPassphrase);
     setTokenStored(true);
@@ -341,7 +344,19 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   //   draft IS the committed value (each keystroke commits), so the two are the same.
   const sealableTursoToken = tursoIsLive ? turso.authToken : tursoToken;
 
-  function applyTursoDrafts() {
+  // ★★ §548 — THE VERIFY RUNS BEFORE `commitTurso`, never after: a commit rebuilds the backend and
+  //   the load hold unmounts this section, so an error shown after it would vanish with the tree.
+  //   A wrong passphrase commits nothing, seals nothing and keeps every draft and typed field.
+  async function applyTursoDrafts() {
+    if (tokenSealsUnderTypedPassphrase) {
+      setPassphraseVerifying(true);
+      const opens = await typedPassphraseOpensRecord();
+      setPassphraseVerifying(false);
+      if (!opens) {
+        setPassphraseVerifyFailedAt("apply");
+        return;
+      }
+    }
     commitTurso(tursoUrl, tursoToken);
   }
 
@@ -350,7 +365,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     // ★ `isComposing`: an IME commits its composition with Enter — that Enter is not an Apply.
     if (e.key !== "Enter" || e.nativeEvent.isComposing || !tursoIsLive || !canApplyTurso) return;
     e.preventDefault();
-    applyTursoDrafts();
+    void applyTursoDrafts();
   }
 
   // Off Turso storage each keystroke commits, and it carries the OTHER field's draft too, so a
@@ -379,11 +394,59 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // `sealUnderTypedPassphrase`); until then Apply and "Save & switch" are disabled.
   const tokenSealBlocked =
     tursoIsLive && tokenWrap === "passphrase" && tursoToken !== turso.authToken && !passphraseReady;
-  const canApplyTurso = tursoDraftsDirty && !tokenSealBlocked;
+  // The action about to seal a changed token under the typed passphrase (Apply's and "Save &
+  // switch"'s passphrase branch) — the case that must verify an existing record first.
+  const tokenSealsUnderTypedPassphrase =
+    tokenWrap === "passphrase" && tursoToken !== turso.authToken && passphraseReady;
+  // ★ Read at render, like `chat-panel.tsx`'s unlock gate: derived, so a seal elsewhere cannot
+  //   leave it stale. Picks the blocked hint's wording (current vs new passphrase).
+  const tokenHasPassphraseRecord = isPassphraseLocked("tursoAuthToken");
+  const [passphraseVerifying, setPassphraseVerifying] = useState(false);
+  // WHICH action failed the verify, so the "Wrong passphrase." hint renders under that button only.
+  const [passphraseVerifyFailedAt, setPassphraseVerifyFailedAt] = useState<"apply" | "switch" | null>(null);
+  const canApplyTurso = tursoDraftsDirty && !tokenSealBlocked && !passphraseVerifying;
   // ★ A blocked Apply / "Save & switch" states WHY, visibly and as each button's description
   //   (one key, two ids: the switch sits far below in the portfolio block).
   const applyBlockedHintId = `${useId()}-turso-apply-blocked`;
   const switchBlockedHintId = `${useId()}-turso-switch-blocked`;
+  const applyVerifyFailedId = `${useId()}-turso-apply-wrong-passphrase`;
+  const switchVerifyFailedId = `${useId()}-turso-switch-wrong-passphrase`;
+  const tokenSealBlockedHintKey = tokenHasPassphraseRecord
+    ? "integrationsTursoApplyNeedsPassphrase"
+    : "integrationsTursoApplyNeedsNewPassphrase";
+  const applyDescribedBy =
+    [tokenSealBlocked && applyBlockedHintId, passphraseVerifyFailedAt === "apply" && applyVerifyFailedId]
+      .filter(Boolean)
+      .join(" ") || undefined;
+  const switchDescribedBy =
+    [tokenSealBlocked && switchBlockedHintId, passphraseVerifyFailedAt === "switch" && switchVerifyFailedId]
+      .filter(Boolean)
+      .join(" ") || undefined;
+
+  /** True when no passphrase-sealed record exists (the typed passphrase becomes the passphrase)
+   *  or when the typed passphrase opens the existing one. An unexpected failure (not a wrong
+   *  passphrase) is logged and treated as a failed verify: committing nothing is the safe side. */
+  async function typedPassphraseOpensRecord(): Promise<boolean> {
+    if (!isPassphraseLocked("tursoAuthToken")) return true;
+    try {
+      return (await unlockSecret("tursoAuthToken", tokenPassphrase)) !== null;
+    } catch (err) {
+      logDiag("error", "settings.tursoPassphraseVerifyFailed", {
+        message: err instanceof Error ? err.message : String(err),
+      });
+      return false;
+    }
+  }
+
+  function handleTokenPassphraseChange(value: string) {
+    setTokenPassphrase(value);
+    setPassphraseVerifyFailedAt(null);
+  }
+
+  function handleTokenConfirmChange(value: string) {
+    setTokenConfirm(value);
+    setPassphraseVerifyFailedAt(null);
+  }
   // ★ The env-unusable notice is a DESCRIPTION, not part of the field's name —
   // see the render site for why it sits outside the <label>.
   const tursoUrlEnvNoticeId = `${useId()}-turso-url-env`;
@@ -561,13 +624,21 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // Turso is configured, and the portfolio is still on File.
   const canMoveToTurso = !!onMigrateToTurso && !onTurso && tursoConfigured;
   const portfolioModeDirty = pendingMode !== portfolioMode;
-  function confirmPortfolioModeSwitch() {
+  async function confirmPortfolioModeSwitch() {
     if (!portfolioModeDirty || switchBusy) return;
     if (pendingMode === "turso" && !tursoConfigured) return; // guard
     if (tokenSealBlocked) return; // the button is disabled; a changed passphrase-mode token needs the passphrase
     // Mark busy so a rapid second click can't re-enter before the reload tears
-    // the component down (also announces the pending switch to SR users).
+    // the component down (also announces the pending switch to SR users). It also covers the
+    // passphrase verify below, so the switch cannot be submitted twice while it runs.
     setSwitchBusy(true);
+    // ★★ §548 — verify an existing passphrase record BEFORE anything is sealed or written (see
+    //   `applyTursoDrafts`): a wrong passphrase switches nothing and keeps every typed field.
+    if (tokenSealsUnderTypedPassphrase && !(await typedPassphraseOpensRecord())) {
+      setSwitchBusy(false);
+      setPassphraseVerifyFailedAt("switch");
+      return;
+    }
     // ★★ §548 — "SAVE & switch" ALSO APPLIES THE TURSO DRAFTS. On Turso storage the fields are
     // drafts until Apply; the switch is itself an explicit save that reloads the page (so no hold
     // remount can swallow anything), and the Turso option above is enabled by the DRAFTS
@@ -926,7 +997,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                     aria-label={t(lang, "secretPassphrasePlaceholder")}
                     placeholder={t(lang, "secretPassphrasePlaceholder")}
                     value={tokenPassphrase}
-                    onChange={(e) => setTokenPassphrase(e.target.value)}
+                    onChange={(e) => handleTokenPassphraseChange(e.target.value)}
                     className="w-full"
                   />
                   <Input
@@ -936,7 +1007,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                     aria-label={t(lang, "secretPassphraseConfirm")}
                     placeholder={t(lang, "secretPassphraseConfirm")}
                     value={tokenConfirm}
-                    onChange={(e) => setTokenConfirm(e.target.value)}
+                    onChange={(e) => handleTokenConfirmChange(e.target.value)}
                     className="w-full"
                   />
                   {tokenPassphraseMismatch && (
@@ -980,9 +1051,10 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               size="xs"
               className="whitespace-nowrap border border-transparent"
               disabled={!canApplyTurso}
-              onClick={applyTursoDrafts}
+              onClick={() => void applyTursoDrafts()}
               aria-label={t(lang, "integrationsTursoApplyLabel")}
-              aria-describedby={tokenSealBlocked ? applyBlockedHintId : undefined}
+              aria-busy={passphraseVerifying}
+              aria-describedby={applyDescribedBy}
             >
               {t(lang, "integrationsTursoApply")}
             </Button>
@@ -999,7 +1071,14 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
           </Button>
           </div>
           {tokenSealBlocked && (
-            <FieldHint id={applyBlockedHintId}>{t(lang, "integrationsTursoApplyNeedsPassphrase")}</FieldHint>
+            <FieldHint id={applyBlockedHintId}>{t(lang, tokenSealBlockedHintKey)}</FieldHint>
+          )}
+          {/* ★ `role="alert"` on a wrapper: focus stays on Apply, and a changed description is not
+              re-announced, so the failed verify must announce itself. */}
+          {passphraseVerifyFailedAt === "apply" && (
+            <div role="alert">
+              <FieldHint id={applyVerifyFailedId}>{t(lang, "secretUnlockFailed")}</FieldHint>
+            </div>
           )}
           <p role="status" className="text-xs text-muted-foreground">
             {/* ★ No `?.` — `tursoTestFresh` opens with `tursoTest !== null`, and
@@ -1155,17 +1234,24 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 <Button
                   size="sm"
                   className="mt-2"
-                  onClick={confirmPortfolioModeSwitch}
+                  onClick={() => void confirmPortfolioModeSwitch()}
                   disabled={switchBusy || tokenSealBlocked}
                   aria-busy={switchBusy}
-                  aria-describedby={tokenSealBlocked ? switchBlockedHintId : undefined}
+                  aria-describedby={switchDescribedBy}
                 >
                   {t(lang, noCurrentProject ? "portfolioModeSwitchConfirmNoProject" : "portfolioModeSwitchConfirm")}
                 </Button>
                 {tokenSealBlocked && (
                   <FieldHint id={switchBlockedHintId} className="mt-1">
-                    {t(lang, "integrationsTursoApplyNeedsPassphrase")}
+                    {t(lang, tokenSealBlockedHintKey)}
                   </FieldHint>
+                )}
+                {passphraseVerifyFailedAt === "switch" && (
+                  <div role="alert">
+                    <FieldHint id={switchVerifyFailedId} className="mt-1">
+                      {t(lang, "secretUnlockFailed")}
+                    </FieldHint>
+                  </div>
                 )}
               </div>
             )}

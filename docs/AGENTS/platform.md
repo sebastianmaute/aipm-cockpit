@@ -133,8 +133,17 @@
   device-sealed in device mode; in passphrase mode a CHANGED token is re-sealed under the passphrase
   typed into the section's own passphrase fields (`sealUnderTypedPassphrase`) — the passphrase is never
   held in memory, so until it is typed Apply and "Save & switch" stay disabled (`tokenSealBlocked`) and each shows
-  the `integrationsTursoApplyNeedsPassphrase` hint as its visible text and `aria-describedby`,
-  else a reload + unlock would yield the OLD token, or none after the switch); nothing
+  the blocked hint as its visible text and `aria-describedby`,
+  else a reload + unlock would yield the OLD token, or none after the switch. ★★ When a
+  passphrase-sealed record ALREADY exists, both actions first VERIFY the typed passphrase opens it
+  (`typedPassphraseOpensRecord`, over `unlockSecret`) and only then commit — the verify must precede
+  `commitTurso`, because a commit rebuilds the backend and the hold unmounts Settings, taking any
+  later error with it. A wrong passphrase commits, seals and switches nothing, keeps every field, and
+  shows `secretUnlockFailed` under the button that was pressed (in its `aria-describedby`, inside a
+  `role="alert"` wrapper); editing either passphrase field clears it. So the hint reads
+  `integrationsTursoApplyNeedsPassphrase` (enter the CURRENT passphrase) with a record and
+  `integrationsTursoApplyNeedsNewPassphrase` (it becomes the passphrase) without one, and the
+  passphrase Save button stays the one way to CHANGE the passphrase); nothing
   commits on a keystroke, blur, Tab or Escape, and unapplied drafts are discarded when the section
   unmounts. Apply is disabled while the drafts equal the stored values, so an enabled Apply is the
   "unapplied change" signal; it is the only action that commits the drafts (Remove token,

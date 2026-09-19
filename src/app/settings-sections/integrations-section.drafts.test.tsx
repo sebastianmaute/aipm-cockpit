@@ -27,7 +27,9 @@ import {
 import type { StorageConfig } from "../storage";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { SECRET_MERGE_TIMEOUT_MS } from "../use-settings";
-import { savePortfolioMode } from "../portfolio-mode";
+import { loadPortfolioMode, savePortfolioMode } from "../portfolio-mode";
+import { loadSealed, saveSealed } from "../secrets-store";
+import { sealPassphrase } from "../secrets";
 
 vi.mock("../use-secrets", async (importActual) => ({
   ...(await importActual<typeof import("../use-secrets")>()),
@@ -271,6 +273,8 @@ describe("I1 — on Turso storage the passphrase actions seal the APPLIED token,
 //   MA9b — `tokenSealBlocked` always false → the Apply test goes red (enabled while blocked).
 //   MA10 — drop the passphrase seal from `confirmPortfolioModeSwitch` → the switch test goes red.
 //   MA10b — Save & switch `disabled={switchBusy}` only → the switch test goes red.
+// These run with NO passphrase record (case (c) of the verify below): the typed passphrase becomes it.
+//   MV3 — drop `typedPassphraseOpensRecord`'s no-record early return → the Apply test goes red.
 describe("Passphrase mode — Apply and Save & switch re-seal the new token under the typed passphrase", () => {
   const lock = () => screen.getByLabelText(t("en-US", "secretLockPassphrase"));
   const typePassphrase = async (user: ReturnType<typeof userEvent.setup>) => {
@@ -303,7 +307,8 @@ describe("Passphrase mode — Apply and Save & switch re-seal the new token unde
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(<IntegrationsSection lang="en-US" settings={settingsWith(URL_A, "tok")} onChange={onChange} />);
-    const hint = t("en-US", "integrationsTursoApplyNeedsPassphrase");
+    // No passphrase record yet, so the hint says the typed passphrase BECOMES the passphrase.
+    const hint = t("en-US", "integrationsTursoApplyNeedsNewPassphrase");
     await user.click(lock());
     expect(screen.queryByText(hint)).toBeNull(); // nothing changed yet: not blocked
     await user.type(tokenField(), "NEW");
@@ -325,7 +330,7 @@ describe("Passphrase mode — Apply and Save & switch re-seal the new token unde
     await user.type(urlField(), "u");
     const apply = screen.getByRole("button", { name: applyLabel });
     expect(apply).toBeEnabled();
-    expect(screen.queryByText(t("en-US", "integrationsTursoApplyNeedsPassphrase"))).toBeNull();
+    expect(screen.queryByText(t("en-US", "integrationsTursoApplyNeedsNewPassphrase"))).toBeNull();
     await user.click(apply);
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0][0].integrations.turso).toMatchObject({ databaseUrl: `${URL_A}u`, authToken: "tok" });
@@ -357,13 +362,126 @@ describe("Passphrase mode — Apply and Save & switch re-seal the new token unde
       await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
       const switchBtn = screen.getByRole("button", { name: t("en-US", "portfolioModeSwitchConfirm") });
       expect(switchBtn).toBeDisabled();
-      expect(switchBtn).toHaveAccessibleDescription(t("en-US", "integrationsTursoApplyNeedsPassphrase"));
+      expect(switchBtn).toHaveAccessibleDescription(t("en-US", "integrationsTursoApplyNeedsNewPassphrase"));
 
       await typePassphrase(user);
       expect(switchBtn).toBeEnabled();
       await user.click(switchBtn);
       await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
       expect(setSecretPassphrase).toHaveBeenCalledWith("tursoAuthToken", "tokNEW", "pw");
+    });
+  });
+});
+
+// §548 — with a passphrase-sealed record ALREADY stored, Apply and "Save & switch" must VERIFY the
+// typed passphrase opens it before committing or sealing anything; otherwise a mistyped (or
+// different) passphrase silently became the new one. The record is sealed for real (PBKDF2 via
+// WebCrypto) and `unlockSecret` is the real one — only the RE-seal (`setSecretPassphrase`) is mocked.
+//   MV1 — skip the verify in `applyTursoDrafts` → (b) goes red.
+//   MV2 — the verify always fails (`=== null` for `!== null`) → (a) goes red.
+//   MV4 — drop the verify from `confirmPortfolioModeSwitch` → (d) goes red.
+//   MV5 — drop `!passphraseVerifying` from `canApplyTurso` → (a) goes red (double submit).
+//   MV6 — the blocked hint always uses the no-record key → (a) goes red.
+describe("Passphrase mode with an existing record — Apply and Save & switch verify the CURRENT passphrase", () => {
+  const passphraseField = () => screen.getByLabelText(t("en-US", "secretPassphrasePlaceholder"));
+  const confirmField = () => screen.getByLabelText(t("en-US", "secretPassphraseConfirm"));
+  const wrong = t("en-US", "secretUnlockFailed");
+  const typePassphrase = async (user: ReturnType<typeof userEvent.setup>, pass: string) => {
+    await user.type(passphraseField(), pass);
+    await user.type(confirmField(), pass);
+  };
+  const storedRecord = () => JSON.stringify(loadSealed("tursoAuthToken"));
+
+  beforeEach(async () => {
+    // Real seal: the section reads it at mount (`tokenWrap` starts in "passphrase").
+    saveSealed(await sealPassphrase("tursoAuthToken", "tok", "pw"));
+  });
+
+  it("(a) the correct current passphrase applies the token and re-seals it; no double submit", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<IntegrationsSection lang="en-US" settings={settingsWith(URL_A, "tok")} onChange={onChange} />);
+    await user.type(tokenField(), "NEW");
+    const apply = screen.getByRole("button", { name: applyLabel });
+    expect(apply).toBeDisabled();
+    const hint = t("en-US", "integrationsTursoApplyNeedsPassphrase");
+    expect(apply).toHaveAccessibleDescription(hint);
+    expect(hint).not.toMatch(/becomes/); // the record case never says it becomes the passphrase
+
+    await typePassphrase(user, "pw");
+    await user.click(apply);
+    // The verify is in flight (PBKDF2): Apply is disabled and busy, so a second click is a no-op.
+    expect(apply).toBeDisabled();
+    expect(apply).toHaveAttribute("aria-busy", "true");
+    await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+    expect(onChange.mock.calls[0][0].integrations.turso.authToken).toBe("tokNEW");
+    await waitFor(() => expect(setSecretPassphrase).toHaveBeenCalledWith("tursoAuthToken", "tokNEW", "pw"));
+    expect(screen.queryByText(wrong)).toBeNull();
+  });
+
+  it("(b) a wrong passphrase commits nothing, seals nothing, keeps the fields and says why", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<IntegrationsSection lang="en-US" settings={settingsWith(URL_A, "tok")} onChange={onChange} />);
+    const before = storedRecord();
+    await user.type(tokenField(), "NEW");
+    await typePassphrase(user, "nope");
+    const apply = screen.getByRole("button", { name: applyLabel });
+    await user.click(apply);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(wrong);
+    expect(apply).toHaveAccessibleDescription(wrong);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(setSecretPassphrase).not.toHaveBeenCalled();
+    expect(saveSecretValue).not.toHaveBeenCalled();
+    expect(storedRecord()).toBe(before);
+    expect(tokenField()).toHaveValue("tokNEW");
+    expect(passphraseField()).toHaveValue("nope");
+    expect(confirmField()).toHaveValue("nope");
+    expect(apply).toBeEnabled(); // not stuck busy
+
+    await user.type(passphraseField(), "x"); // editing the passphrase clears the error
+    expect(screen.queryByText(wrong)).toBeNull();
+    expect(apply).not.toHaveAccessibleDescription(wrong);
+  });
+
+  describe("Save & switch", () => {
+    let reload: ReturnType<typeof vi.fn>;
+    const originalLocation = window.location;
+    beforeEach(() => {
+      reload = vi.fn();
+      Object.defineProperty(window, "location", { configurable: true, value: { ...originalLocation, reload } });
+      savePortfolioMode("file");
+    });
+    afterEach(() => {
+      Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+    });
+
+    it("(d) a wrong passphrase switches nothing and says why under the switch button", async () => {
+      const user = userEvent.setup();
+      function Controlled() {
+        const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, "tok"));
+        return <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} />;
+      }
+      render(<Controlled />);
+      const before = storedRecord();
+      await user.type(tokenField(), "NEW");
+      await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
+      await typePassphrase(user, "nope");
+      const switchBtn = screen.getByRole("button", { name: t("en-US", "portfolioModeSwitchConfirm") });
+      await user.click(switchBtn);
+
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent(wrong);
+      expect(switchBtn).toHaveAccessibleDescription(wrong);
+      expect(switchBtn).toBeEnabled(); // busy released
+      expect(reload).not.toHaveBeenCalled();
+      expect(loadPortfolioMode()).toBe("file");
+      expect(localStorage.getItem("aipm-cockpit:settings")).toBeNull();
+      expect(setSecretPassphrase).not.toHaveBeenCalled();
+      expect(storedRecord()).toBe(before);
+      expect(tokenField()).toHaveValue("tokNEW");
     });
   });
 });

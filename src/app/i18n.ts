@@ -2298,7 +2298,11 @@ const enUS = {
   integrationsTursoApply: "Apply",
   integrationsTursoApplyLabel: "Apply Turso connection",
   // Shown while Apply / Save & switch wait for the passphrase (passphrase mode, changed token).
+  // ★ Two keys: with a passphrase-sealed record the typed one must be the CURRENT passphrase (it is
+  //   verified first); without one it becomes the passphrase.
   integrationsTursoApplyNeedsPassphrase:
+    "Enter and confirm your current passphrase above to apply the new token.",
+  integrationsTursoApplyNeedsNewPassphrase:
     "Enter and confirm your passphrase above to apply the new token. It becomes the passphrase for this token.",
   // ★★★ FOUR OUTCOME KEYS, NOT ONE PASS-THROUGH. An earlier cut had a single
   // `integrationsTursoTestFail: "Connection failed: {0}"` filled with the
