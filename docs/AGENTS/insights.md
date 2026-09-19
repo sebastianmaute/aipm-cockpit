@@ -100,7 +100,13 @@
   (`{direction: improved|unchanged|worsened, baseline, current, delta, measuredAt}`). Both ride the SAME
   insights blob (no new backend path, byte-stable when absent). Pure i18n-free `insights/outcome.ts` owns
   `METRIC_FIELD` (milestoneSlip→`daysOverdue` · overdueTrend→`current` · stalledWork→`count` ·
-  budgetVariance→`variancePct` · raidAging→`daysSinceUpdate` · each of the four TimeLog guardrail types→`count`), `insightMetricValue`/`insightMetricSnapshot`/
+  budgetVariance→`variancePct` · raidAging→`daysSinceUpdate` · each of the four TimeLog guardrail types→`count`). ★ **Since §577, `budgetVariance`'s `variancePct` means TO-DATE variance, not whole-window.**
+  `budgetVarianceInsight` compares a bucket's actual hours (summed over its whole active window, so a
+  future-dated booking still counts) against its budget TO DATE — its own budget over the periods whose
+  start is ≤ `today` (`ownBudgetHoursToDate`), plus a closed predecessor's spillover once the bucket's
+  own window has started — and skips a bucket with nothing booked or whose window has not started. An
+  outcome `baseline` captured before this change compares a whole-window figure against this to-date
+  one. `insightMetricValue`/`insightMetricSnapshot`/
   `metricAtActionPatch`/`baselineOf`/`computeOutcome`. ★★ ALL metrics are LOWER-IS-BETTER, so `improved` ⇔
   current < baseline and `delta = baseline − current` — there is deliberately NO per-type direction table;
   a new detector whose metric is higher-is-better would break that assumption and needs one. ★ `delta` is

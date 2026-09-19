@@ -104,9 +104,11 @@
   is cut off at `SECRET_MERGE_TIMEOUT_MS` (`use-settings.ts`). Turso and SharePoint loads read through
   `fetchTextWithTimeout` (`fetch-with-timeout.ts`) with `LOAD_TIMEOUT_MS` (10 s), so a hung server
   fails the load, and a failed load settles. **A new backend, or a new await in a load path, needs the
-  same bound, or it can hold the app behind the skeleton forever.** The one known unbounded wait left is
-  the MSAL popup in the SharePoint `getToken` — it waits on the user, and closing it rejects, which
-  settles the load anyway.
+  same bound, or it can hold the app behind the skeleton forever.** The remaining unbounded waits are
+  waits ON THE USER, each settling only when dismissed: the MSAL popup in the SharePoint `getToken`
+  (closing it rejects, which settles the load), and the native file picker plus the `window.confirm`
+  overwrite prompt inside the held `onOpenStorageFile` (`use-storage-file-ops.ts`) — cancelling either
+  one settles the op the same way.
 - ★★★ **It is NOT `workspaceLoaded`.** `workspaceLoaded` stays false after a FAILED load and after the
   empty-load refusal (§77), which is right for snapshot capture and saving. Holding edits on it would
   lock the app for the whole session after one load error. `settledBackend` is stamped on EVERY terminal
@@ -129,9 +131,13 @@
   `enabled` flag flips false→true (a mount-value-seeded `prevEnabledRef`, `use-calendar-auto-pull.ts`),
   so the startup background pull — gated off for the whole hold — actually runs once the load settles
   instead of waiting for the next interval or `visibilitychange`; the four `useCalendarAutoSync` pushes
-  re-arm the same way on their own `active` flag. ★★ Gating is at OP INITIATION only: a Graph pull/push
-  or an AI recommendation already in flight when a swap starts can still land its write after the swap
-  resolves. Pre-existing, unchanged by this batch.
+  re-arm the same way on their own `active` flag. ★★ Each background writer checks `loadPending` when
+  it STARTS, except the recommendation store, which checks it when it WRITES
+  (`applyInsightRecommendation`'s `if (loadPending) return;`, the one choke point both the background
+  runner and on-demand generate write through — a result computed during a hold is dropped, not
+  queued, and the runner's next tick regenerates it). Either way, a Graph pull/push already in flight
+  when a swap starts can still land its write after the swap resolves. Pre-existing, unchanged by this
+  batch.
 - ★ Pinned by `use-storage-backend.load-pending.test.tsx` (the signal, including before hydration and
   a SharePoint load that times out), `use-storage-backend.hold-ops.test.tsx` (all nine held ops: in
   flight, resolved, threw), `use-settings.hydration.test.ts` (hydration completes on a throw, without
