@@ -106,21 +106,22 @@ describe("office-xml", () => {
     // scans to end of input from every open. extractRuns is a shared
     // primitive (xlsx-extract.ts and pptx-extract.ts both call it), so it
     // gets its own pin rather than relying only on its callers'.
-    // n is 250,000, not today's 100,000 / 4: the correct walk stops at the
+    // n is 40,000, not today's 100,000 / 4: the correct walk stops at the
     // first open (no ">" anywhere), so one call is a single forward scan. At
     // 25,000 the helper calibrated 16,384 loops against its 65,536 cap; at
-    // 250,000 it calibrates 1,024–2,048 (fast-CI headroom, spec Review Focus 1).
-    // Measured 2026-09-19 (ratio large / small, limit 8): 3.9–4.2 green. With
-    // that lazy regex restored in extractRuns the test is killed at 120 s at
-    // this n (its small side alone is ~1 minute); at n 25,000 the same mutant
-    // measured 17.1, and a quadratic's ratio only grows with n.
+    // 40,000 it calibrates 8,192 (fast-CI headroom, spec Review Focus 1). A
+    // larger n would cut the loops further, but the mutant's cost grows as n²:
+    // at 50,000 it no longer finishes inside 120 s, so a regression would
+    // surface as a hung CI job rather than as this ratio.
+    // Measured 2026-09-19 (ratio large / small, limit 8): 3.5–3.6 green,
+    // 16.9 with that lazy regex restored in extractRuns (89 s to fail).
     expectLinearScaling({
       label: "unclosed <t opens (extractRuns)",
       build: (n) => "<t ".repeat(n),
       run: (xml) => extractRuns(xml, "t"),
       // No open has a ">", so no run is extracted.
       check: (runs) => expect(runs).toEqual([]),
-      n: 250_000,
+      n: 40_000,
     });
   });
 });
