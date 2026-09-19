@@ -139,8 +139,9 @@
   (`typedPassphraseOpensRecord`, over `unlockSecret`) and only then commit — the verify must precede
   `commitTurso`, because a commit rebuilds the backend and the hold unmounts Settings, taking any
   later error with it. A wrong passphrase commits, seals and switches nothing, keeps every field, and
-  shows `secretUnlockFailed` under the button that was pressed (in its `aria-describedby`, inside a
-  `role="alert"` wrapper); editing either passphrase field clears it. So the hint reads
+  shows `secretUnlockFailed` as a `FieldError` under the button that was pressed (in its
+  `aria-describedby`); editing either passphrase field or the token clears it. While either action
+  verifies, the other is disabled. So the hint reads
   `integrationsTursoApplyNeedsPassphrase` (enter the CURRENT passphrase) with a record and
   `integrationsTursoApplyNeedsNewPassphrase` (it becomes the passphrase) without one, and the
   passphrase Save button stays the one way to CHANGE the passphrase); nothing

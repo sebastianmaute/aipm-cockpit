@@ -5,7 +5,7 @@ import { logDiag } from "../diagnostics";
 import { ArrowPathIcon, CalendarDaysIcon } from "../icons";
 import { ToggleButton } from "../toggle-button";
 import { type Lang, t } from "../i18n";
-import { FieldNotice } from "../field-feedback";
+import { FieldError, FieldNotice } from "../field-feedback";
 import { Banner } from "../banner";
 import { FieldHint } from "../field-hint";
 import {
@@ -347,6 +347,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // ★★ §548 — THE VERIFY RUNS BEFORE `commitTurso`, never after: a commit rebuilds the backend and
   //   the load hold unmounts this section, so an error shown after it would vanish with the tree.
   //   A wrong passphrase commits nothing, seals nothing and keeps every draft and typed field.
+  // ★ The commit after the await spreads the CLICK-time `settings`: `onChange` takes a value, not
+  //   an updater, so a settings write landing during the (sub-second) verify is overwritten — the
+  //   same shape as every `updateTurso` in this section and the switch's seal wait.
   async function applyTursoDrafts() {
     if (tokenSealsUnderTypedPassphrase) {
       setPassphraseVerifying(true);
@@ -377,6 +380,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
 
   function handleTursoTokenChange(value: string) {
     setTursoToken(value);
+    setPassphraseVerifyFailedAt(null); // a "Wrong passphrase." about the old draft no longer applies
     if (!tursoIsLive) commitTurso(tursoUrl, value);
   }
 
@@ -404,7 +408,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const [passphraseVerifying, setPassphraseVerifying] = useState(false);
   // WHICH action failed the verify, so the "Wrong passphrase." hint renders under that button only.
   const [passphraseVerifyFailedAt, setPassphraseVerifyFailedAt] = useState<"apply" | "switch" | null>(null);
-  const canApplyTurso = tursoDraftsDirty && !tokenSealBlocked && !passphraseVerifying;
+  // ★ Apply and "Save & switch" exclude each other while either is busy (the switch's verify runs
+  //   under `switchBusy`), so the two can never verify and seal side by side.
+  const canApplyTurso = tursoDraftsDirty && !tokenSealBlocked && !passphraseVerifying && !switchBusy;
   // ★ A blocked Apply / "Save & switch" states WHY, visibly and as each button's description
   //   (one key, two ids: the switch sits far below in the portfolio block).
   const applyBlockedHintId = `${useId()}-turso-apply-blocked`;
@@ -1073,12 +1079,10 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
           {tokenSealBlocked && (
             <FieldHint id={applyBlockedHintId}>{t(lang, tokenSealBlockedHintKey)}</FieldHint>
           )}
-          {/* ★ `role="alert"` on a wrapper: focus stays on Apply, and a changed description is not
-              re-announced, so the failed verify must announce itself. */}
+          {/* ★ `FieldError` (role="alert"), as in `secret-unlock-gate.tsx`: focus stays on Apply,
+              and a changed description is not re-announced, so the failed verify announces itself. */}
           {passphraseVerifyFailedAt === "apply" && (
-            <div role="alert">
-              <FieldHint id={applyVerifyFailedId}>{t(lang, "secretUnlockFailed")}</FieldHint>
-            </div>
+            <FieldError id={applyVerifyFailedId}>{t(lang, "secretUnlockFailed")}</FieldError>
           )}
           <p role="status" className="text-xs text-muted-foreground">
             {/* ★ No `?.` — `tursoTestFresh` opens with `tursoTest !== null`, and
@@ -1235,7 +1239,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   size="sm"
                   className="mt-2"
                   onClick={() => void confirmPortfolioModeSwitch()}
-                  disabled={switchBusy || tokenSealBlocked}
+                  disabled={switchBusy || tokenSealBlocked || passphraseVerifying}
                   aria-busy={switchBusy}
                   aria-describedby={switchDescribedBy}
                 >
@@ -1247,11 +1251,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   </FieldHint>
                 )}
                 {passphraseVerifyFailedAt === "switch" && (
-                  <div role="alert">
-                    <FieldHint id={switchVerifyFailedId} className="mt-1">
-                      {t(lang, "secretUnlockFailed")}
-                    </FieldHint>
-                  </div>
+                  <FieldError id={switchVerifyFailedId}>{t(lang, "secretUnlockFailed")}</FieldError>
                 )}
               </div>
             )}

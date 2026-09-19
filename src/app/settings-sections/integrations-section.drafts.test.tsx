@@ -25,17 +25,24 @@ import {
   type Settings,
 } from "../settings-types";
 import type { StorageConfig } from "../storage";
-import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
+import { saveSecretValue, setSecretPassphrase, unlockSecret } from "../use-secrets";
 import { SECRET_MERGE_TIMEOUT_MS } from "../use-settings";
 import { loadPortfolioMode, savePortfolioMode } from "../portfolio-mode";
 import { loadSealed, saveSealed } from "../secrets-store";
 import { sealPassphrase } from "../secrets";
 
-vi.mock("../use-secrets", async (importActual) => ({
-  ...(await importActual<typeof import("../use-secrets")>()),
-  saveSecretValue: vi.fn(),
-  setSecretPassphrase: vi.fn(),
-}));
+// `unlockSecret` stays REAL, wrapped in a spy only so `afterEach` can drain every in-flight verify:
+// a test that fails mid-verify would otherwise leave a PBKDF2 continuation that reaches the shared
+// `setSecretPassphrase` mock after the NEXT test's `mockReset`, poisoning it.
+vi.mock("../use-secrets", async (importActual) => {
+  const actual = await importActual<typeof import("../use-secrets")>();
+  return {
+    ...actual,
+    saveSecretValue: vi.fn(),
+    setSecretPassphrase: vi.fn(),
+    unlockSecret: vi.fn(actual.unlockSecret),
+  };
+});
 
 const URL_A = "libsql://a.turso.io";
 const TURSO: StorageConfig = { kind: "turso" };
@@ -63,7 +70,11 @@ beforeEach(() => {
   vi.mocked(setSecretPassphrase).mockResolvedValue(undefined);
   localStorage.clear();
 });
-afterEach(() => {
+afterEach(async () => {
+  // Drain in-flight verifies, then one macrotask so each continuation (commit + re-seal) runs here.
+  await Promise.allSettled(vi.mocked(unlockSecret).mock.results.map((r) => r.value));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  vi.mocked(unlockSecret).mockClear();
   vi.unstubAllGlobals();
   localStorage.clear();
 });
@@ -382,6 +393,11 @@ describe("Passphrase mode — Apply and Save & switch re-seal the new token unde
 //   MV4 — drop the verify from `confirmPortfolioModeSwitch` → (d) goes red.
 //   MV5 — drop `!passphraseVerifying` from `canApplyTurso` → (a) goes red (double submit).
 //   MV6 — the blocked hint always uses the no-record key → (a) goes red.
+//   MV7 — refuse EVERY switch while a record exists (guard `isPassphraseLocked(...) || !verify`)
+//         → (e) goes red.
+//   MV8 — drop `!switchBusy` from `canApplyTurso` → (e) goes red.
+//   MV9 — drop `|| passphraseVerifying` from the switch's `disabled` → (f) goes red.
+//   MV10 — drop the error reset from `handleTursoTokenChange` → the Enter test goes red.
 describe("Passphrase mode with an existing record — Apply and Save & switch verify the CURRENT passphrase", () => {
   const passphraseField = () => screen.getByLabelText(t("en-US", "secretPassphrasePlaceholder"));
   const confirmField = () => screen.getByLabelText(t("en-US", "secretPassphraseConfirm"));
@@ -446,6 +462,32 @@ describe("Passphrase mode with an existing record — Apply and Save & switch ve
     expect(apply).not.toHaveAccessibleDescription(wrong);
   });
 
+  it("Enter in the token field: a wrong passphrase is refused, editing the token clears the error, the right one applies", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<IntegrationsSection lang="en-US" settings={settingsWith(URL_A, "tok")} onChange={onChange} />);
+    await user.type(tokenField(), "NEW");
+    await typePassphrase(user, "nope");
+    await user.click(tokenField());
+    await user.keyboard("{Enter}");
+    expect(await screen.findByRole("alert")).toHaveTextContent(wrong);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(setSecretPassphrase).not.toHaveBeenCalled();
+
+    await user.type(tokenField(), "2"); // a new token draft: the old error no longer applies
+    expect(screen.queryByText(wrong)).toBeNull();
+
+    await user.clear(passphraseField());
+    await user.clear(confirmField());
+    await typePassphrase(user, "pw");
+    await user.click(tokenField());
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+    expect(onChange.mock.calls[0][0].integrations.turso.authToken).toBe("tokNEW2");
+    await waitFor(() => expect(setSecretPassphrase).toHaveBeenCalledWith("tursoAuthToken", "tokNEW2", "pw"));
+    expect(screen.queryByText(wrong)).toBeNull();
+  });
+
   describe("Save & switch", () => {
     let reload: ReturnType<typeof vi.fn>;
     const originalLocation = window.location;
@@ -482,6 +524,47 @@ describe("Passphrase mode with an existing record — Apply and Save & switch ve
       expect(setSecretPassphrase).not.toHaveBeenCalled();
       expect(storedRecord()).toBe(before);
       expect(tokenField()).toHaveValue("tokNEW");
+    });
+
+    it("(e) the correct current passphrase switches and re-seals under it; Apply is disabled meanwhile", async () => {
+      const user = userEvent.setup();
+      function Controlled() {
+        const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, "tok"));
+        return <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} />;
+      }
+      render(<Controlled />);
+      await user.type(tokenField(), "NEW");
+      await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
+      await typePassphrase(user, "pw");
+      const switchBtn = screen.getByRole("button", { name: t("en-US", "portfolioModeSwitchConfirm") });
+      await user.click(switchBtn);
+      // The switch's verify is in flight: Apply cannot start a second, parallel verify + seal.
+      expect(screen.getByRole("button", { name: applyLabel })).toBeDisabled();
+
+      await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+      expect(setSecretPassphrase).toHaveBeenCalledWith("tursoAuthToken", "tokNEW", "pw");
+      expect(loadPortfolioMode()).toBe("turso");
+      expect(screen.queryByText(wrong)).toBeNull();
+    });
+
+    it("(f) while Apply verifies, Save & switch is disabled", async () => {
+      const user = userEvent.setup();
+      function Controlled() {
+        const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, "tok"));
+        return <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} />;
+      }
+      render(<Controlled />);
+      await user.type(tokenField(), "NEW");
+      await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
+      await typePassphrase(user, "pw");
+      const switchBtn = screen.getByRole("button", { name: t("en-US", "portfolioModeSwitchConfirm") });
+      const apply = screen.getByRole("button", { name: applyLabel });
+      await user.click(apply);
+      expect(apply).toHaveAttribute("aria-busy", "true");
+      expect(switchBtn).toBeDisabled();
+      // Settle: Apply's verify finishes and commits, releasing both.
+      await waitFor(() => expect(setSecretPassphrase).toHaveBeenCalledWith("tursoAuthToken", "tokNEW", "pw"));
+      expect(reload).not.toHaveBeenCalled();
     });
   });
 });
