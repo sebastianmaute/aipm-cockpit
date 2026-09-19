@@ -22,29 +22,38 @@ test("§548 — a delayed project load shows the skeleton, then the loaded app",
     const realOpen = IDBFactory.prototype.open;
     IDBFactory.prototype.open = function open(this: IDBFactory, name: string, version?: number): IDBOpenDBRequest {
       const req = version === undefined ? realOpen.call(this, name) : realOpen.call(this, name, version);
-      if (name === "aipm-cockpit" && onsuccess?.set) {
-        Object.defineProperty(req, "onsuccess", {
-          configurable: true,
-          set(fn: ((this: IDBRequest, ev: Event) => unknown) | null) {
-            onsuccess.set!.call(req, fn === null ? null : (ev: Event) => { void gate.then(() => fn.call(req, ev)); });
-          },
-        });
+      if (name === "aipm-cockpit") {
+        // §548 F1 round 1 (review I-1) — this `open("aipm-cockpit")` call is issued ONLY by the client
+        // load effect (`use-storage-backend.ts`'s load effect, via `BrowserBackend`), which runs after
+        // hydration and after `hydrated` has settled — unlike `window.__aipmDiag` (a module-level side
+        // effect in diagnostics.ts that fires at bundle EVALUATION, before `hydrateRoot` commits). No
+        // production code reads this flag; it exists only for this init script's own gate below.
+        (window as unknown as { __aipmLoadStarted?: boolean }).__aipmLoadStarted = true;
+        if (onsuccess?.set) {
+          Object.defineProperty(req, "onsuccess", {
+            configurable: true,
+            set(fn: ((this: IDBRequest, ev: Event) => unknown) | null) {
+              onsuccess.set!.call(req, fn === null ? null : (ev: Event) => { void gate.then(() => fn.call(req, ev)); });
+            },
+          });
+        }
       }
       return req;
     };
   });
 
   await page.goto("/");
-  // §548 F1 item 8 — prove the CLIENT hold, not the SSR/pre-hydration skeleton: both render the exact
-  // same "Loading…" markup, so asserting the skeleton alone would also pass if hydration silently never
-  // ran at all. `window.__aipmDiag` is set by a module-level side effect in diagnostics.ts (an existing
-  // devtools hook, not added for this test) the instant the client bundle evaluates — well before
-  // `loadPending` itself settles, since it does not depend on the gated IndexedDB open above. Waiting
-  // for it first, THEN asserting the skeleton is still up, pins that the skeleton persists past
-  // hydration because the client's own `loadPending` is holding it, not merely because the client never
-  // took over.
+  // §548 F1 item 8 (review round 1, I-1) — prove the CLIENT hold, not the SSR/pre-hydration skeleton:
+  // both render the exact same "Loading…" markup, so asserting the skeleton alone would also pass if
+  // hydration silently never ran at all. `window.__aipmLoadStarted` (set above, inside the patched
+  // `IDBFactory.prototype.open`) is set only when the CLIENT load effect actually issues the
+  // "aipm-cockpit" open — which happens after hydration commits and after settings hydration — so
+  // waiting for it first, THEN asserting the skeleton is still up, pins that the skeleton persists
+  // because the client's own `loadPending` is holding it open, not merely because the client never took
+  // over. (An earlier version of this wait used `window.__aipmDiag`, which is set at client BUNDLE
+  // EVALUATION — before `hydrateRoot` commits — so it did not actually prove hydration.)
   await page.waitForFunction(
-    () => typeof (window as unknown as { __aipmDiag?: unknown }).__aipmDiag === "function",
+    () => (window as unknown as { __aipmLoadStarted?: boolean }).__aipmLoadStarted === true,
     { timeout: 90_000 }, // the first navigation pays a dev compile
   );
   const skeleton = page.getByRole("status").filter({ hasText: "Loading…" });
