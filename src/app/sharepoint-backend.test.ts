@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Mock } from "vitest";
 import { http, HttpResponse } from "msw";
 import { server } from "../test/msw-server";
+import { LOAD_TIMEOUT_MS } from "./fetch-with-timeout";
 import { parseSharePointFileUrl, parseSharePointSiteUrl } from "./sharepoint-backend";
 
 describe("parseSharePointFileUrl", () => {
@@ -163,6 +164,28 @@ describe("SharePointBackend", () => {
 
   beforeEach(() => {
     acquireToken = vi.fn().mockResolvedValue("fake-token");
+  });
+
+  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+
+  // §548 — the load hold is up until a load settles, so a Graph read that never answers must FAIL the
+  // load. Same bound as Turso's (LOAD_TIMEOUT_MS). A plain Error, like SharePoint's HTTP-status errors,
+  // so it surfaces as the storageLoadFailed toast + the generic storage banner (plan ruling 10).
+  it("load fails at LOAD_TIMEOUT_MS, and not before, when the Graph read never answers", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn((_url: unknown, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new DOMException("The operation was aborted.", "AbortError")));
+    })));
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
+    let outcome: unknown = "pending";
+    const pending = be.load().then(() => "resolved", (e: unknown) => e);
+    void pending.then((o) => { outcome = o; });
+    await vi.advanceTimersByTimeAsync(LOAD_TIMEOUT_MS - 1);
+    expect(outcome).toBe("pending");
+    await vi.advanceTimersByTimeAsync(1);
+    await pending;
+    expect(outcome).toBeInstanceOf(Error);
+    expect((outcome as Error).message).toBe("SharePoint did not respond within 10 s. Try again later.");
   });
 
   it("isReady returns false when acquireToken returns null", async () => {

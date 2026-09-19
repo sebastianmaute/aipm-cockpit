@@ -13,6 +13,7 @@ import {
   type Workspace,
 } from "./workspace";
 import type { ImportSectionKey } from "./csv-codecs-sections";
+import { FetchTimeoutError, LOAD_TIMEOUT_MS, fetchTextWithTimeout, type FetchTextResult } from "./fetch-with-timeout";
 
 export interface SpFileLocation {
   hostname: string;
@@ -118,10 +119,24 @@ export class SharePointBackend implements StorageBackend {
     this.lastImportMalformedQuotes = 0;
     try {
       const token = await this.getToken();
-      const res = await fetch(graphUrlFor(this.location), {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // ★★ §548 — BOUNDED, like Turso's load: the app is held behind a skeleton until this load settles,
+      //   so a Graph read that never answers must FAIL the load. A plain Error, the same shape as the
+      //   status errors below, so it reaches the storageLoadFailed toast and the generic storage banner —
+      //   NOT Turso's "storage-unreachable" kind, whose banner text names the Turso database. The token
+      //   step above is deliberately unbounded: an interactive MSAL popup waits on the user, and closing
+      //   it rejects.
+      let res: FetchTextResult;
+      try {
+        res = await fetchTextWithTimeout(graphUrlFor(this.location), {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+        }, LOAD_TIMEOUT_MS);
+      } catch (err) {
+        if (err instanceof FetchTimeoutError) {
+          throw new Error(`SharePoint did not respond within ${LOAD_TIMEOUT_MS / 1000} s. Try again later.`);
+        }
+        throw err;
+      }
       if (res.status === 404) return emptyWorkspace();
       if (res.status === 401) {
         throw new StorageNotReadyError(
@@ -137,7 +152,7 @@ export class SharePointBackend implements StorageBackend {
         throw new Error(`SharePoint returned ${res.status}. Try again later.`);
       }
       if (this.kind === "sp-csv") {
-        const csv = await res.text();
+        const csv = res.text;
         const ws = csvToWorkspace(csv, diag);
         this.lastImportDroppedRows = diag.droppedRows;
         this.lastImportDroppedBySection = diag.droppedBySection;
@@ -147,7 +162,7 @@ export class SharePointBackend implements StorageBackend {
       }
       // Validate + migrate like every other JSON backend (was a raw cast that
       // risked a downstream TypeError on a malformed-but-valid-JSON file).
-      return jsonToWorkspace(await res.text(), { strict: true, diag });
+      return jsonToWorkspace(res.text, { strict: true, diag });
     } finally {
       this.lastLoadTruncation = {
         entries: diag.truncatedEntries ?? 0,

@@ -8,6 +8,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Lang } from "./i18n";
+import { t } from "./i18n";
 import type { Settings } from "./settings-types";
 import type { StorageConfig } from "./storage";
 import type { Task } from "./types";
@@ -45,6 +46,7 @@ import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
 import { TestProviders } from "./test-providers";
 import { useStorageBackend } from "./use-storage-backend";
 import { useWorkspace } from "./workspace-context";
+import { SharePointBackend } from "./sharepoint-backend";
 
 const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
 
@@ -222,5 +224,28 @@ describe("§548 — loadPending", () => {
     await act(async () => { await op; });
     expect(result.current.tasks.map((x) => x.id)).toEqual([1]); // control: applyWorkspace ran and settled this backend
     expect(result.current.loadPending).toBe(true);
+  });
+
+  // §548 + ruling 10 — the hold must lift when a SharePoint load hangs: the Graph read times out at
+  // LOAD_TIMEOUT_MS, the load effect's catch settles it, saving pauses and the failure is reported (the
+  // outcome that raises the storage banner, and the storageLoadFailed toast).
+  it("(g) a SharePoint load that never answers settles at 10 s: loadPending drops and the failure is reported", async () => {
+    vi.stubGlobal("fetch", vi.fn((_url: unknown, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new DOMException("The operation was aborted.", "AbortError")));
+    })));
+    const sp = new SharePointBackend(
+      { kind: "sp-json", hostname: "contoso.sharepoint.com", sitePath: "/sites/pm", itemPath: "/a.json" },
+      async () => "token",
+    );
+    createBackendMock.mockReturnValue(sp);
+    const { result } = render(makeArgs({ kind: "sp-json", hostname: "contoso.sharepoint.com", sitePath: "/sites/pm", itemPath: "/a.json" }));
+    await advance(9_900);
+    expect(result.current.loadPending).toBe(true); // control: still waiting on Graph
+
+    await advance(200);
+    expect(result.current.loadPending).toBe(false);
+    expect(result.current.loadPause).toBe("load-failed");
+    expect(onStorageOutcome).toHaveBeenCalledWith(expect.objectContaining({ message: "SharePoint did not respond within 10 s. Try again later." }));
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageLoadFailed", "Error: SharePoint did not respond within 10 s. Try again later."));
   });
 });
