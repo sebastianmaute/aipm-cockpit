@@ -5,19 +5,19 @@ import {
 } from "./report-blocks";
 import { ADDABLE_REPORTS } from "./addable-reports";
 import { DASHBOARD_LAYOUT_KEY } from "./dashboard-layout-store";
-import { defaultLayout, reconcile, type BlockSpan } from "./arrangement-layout";
+import { defaultLayout, reconcile, resizeBlock, type BlockWidth } from "./arrangement-layout";
 import { loadI18n, t } from "./i18n";
 
 /**
  * Every block's intended `minW`, spelled out.
  *
- * ★★★ TYPED `Record<ReportBlockId, BlockSpan>` ON PURPOSE. A new catalogue id
+ * ★★★ TYPED `Record<ReportBlockId, BlockWidth>` ON PURPOSE. A new catalogue id
  * is then a COMPILE error until someone states its minimum width — which is the
  * one decision in this file that no test, and no gate, and no amount of axe can
  * check once it is wrong, because jsdom has no layout. The type does the
  * enumeration a hand-copied list kept getting wrong.
  */
-const EXPECTED_MIN_W: Record<ReportBlockId, BlockSpan> = {
+const EXPECTED_MIN_W: Record<ReportBlockId, BlockWidth> = {
   stats: 2,
   groupHealth: 2,
   openByStatus: 2,
@@ -72,7 +72,7 @@ describe("report-blocks — the catalogue", () => {
   });
 
   it("keeps the minW table in step with the catalogue, in both directions", () => {
-    // ★★ `Record<ReportBlockId, BlockSpan>` already makes a NEW block a COMPILE
+    // ★★ `Record<ReportBlockId, BlockWidth>` already makes a NEW block a COMPILE
     // error — the table cannot omit a key. This catches the other direction: a
     // STALE entry for a block that has been removed, which the type cannot see.
     expect([...Object.keys(EXPECTED_MIN_W)].sort())
@@ -107,6 +107,23 @@ describe("report-blocks — the catalogue", () => {
       expect(b.w, `${b.id} w`).toBeLessThanOrEqual(b.maxW);
       expect(b.minH, `${b.id} h`).toBeLessThanOrEqual(b.h);
       expect(b.h, `${b.id} h`).toBeLessThanOrEqual(b.maxH);
+    }
+  });
+
+  // ★★ Spec C decision 10: heights 5–8 exist for the DASHBOARD only. The engine
+  // type now admits 8, so the Reports cap is this catalogue's own `maxH` — and
+  // nothing else. These two pin it.
+  it("caps every block's height at 4", () => {
+    for (const b of REPORT_BLOCKS) {
+      expect(b.maxH, `${b.id} maxH`).toBeLessThanOrEqual(4);
+      expect(b.h, `${b.id} h`).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it("refuses a resize past 4 on every block", () => {
+    for (const b of REPORT_BLOCKS) {
+      const next = resizeBlock(REPORT_BLOCKS, REPORTS_DEFAULT_LAYOUT, b.id, "h", 8);
+      expect(next.board.find((p) => p.id === b.id)!.h, b.id).toBeLessThanOrEqual(4);
     }
   });
 

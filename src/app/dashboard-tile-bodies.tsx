@@ -35,17 +35,14 @@ import type { ReactNode } from "react";
 import { Tile } from "./report-table";
 import { RagDot } from "./rag-dot";
 import { RagBadge } from "./rag-badge";
-import { ratioHealth } from "./budget-health";
 import { changeImpactRag } from "./change-log";
 import { BurndownChartPanel } from "./burndown-chart-panel";
 import { BurndownChainWarning } from "./budget-chain-warning";
-import { BudgetFxRollupNotice } from "./budget-fx-rollup-notice";
 import { VarianceSummary } from "./variance-summary";
 import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
 import { Sparkline } from "./sparkline";
 import { EmptyState } from "./empty-state";
 import { INTERACTIVE } from "./interaction-styles";
-import { ForecastHeadline } from "./budget-forecast-headline";
 import { DashboardKpiStrip } from "./dashboard-sections/dashboard-kpi-strip";
 import { DashboardTopActions } from "./dashboard-sections/dashboard-top-actions";
 import { RaidRegisterCard, UpcomingCard } from "./dashboard-sections/registers-band";
@@ -61,7 +58,7 @@ import type { VarianceRow } from "./snapshot";
 import type { SuggestedAction } from "./next-actions/types";
 import type { Insight, InsightActions, InsightEntityRef } from "./insights/insight";
 import type { AppView } from "./nav-config";
-import type { BudgetBucket, ChangeStatus, FxRates } from "./types";
+import type { ChangeStatus } from "./types";
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
   Proposed: "changeStatusProposed",
@@ -100,20 +97,10 @@ export interface TileBodyArgs {
   dc: DensityClasses;
   model: DashboardModel;
   trends: Record<MetricKey, MetricTrend>;
-  /** Formats a number in EUR + the panel's locale. Both money surfaces here
-   *  render budget-engine figures, which are EUR and are converted nowhere —
-   *  see the comment on `money` in `dashboard-panel.tsx`. */
-  money: (n: number) => string;
-  /** Currency label for the burn-down axis. EUR for the same reason. */
+  /** Currency label for the burn-down axis. EUR: the engine's burn-down series
+   *  is `budgetHours × role.rates.external` and converts nothing — see the
+   *  `currency` argument in `dashboard-panel.tsx`. */
   currency: string;
-  /** §474 (third surface): the same raw inputs `BudgetFxRollupNotice` reads on
-   *  budget-panel.tsx / budget-report-panel.tsx, so the tile's EUR burn figures
-   *  get the same "Includes N bucket(s) counted 1:1 without an FX rate" disclosure those two surfaces
-   *  already carry. Passed through unconverted — the component recomputes the
-   *  count itself via `countUnresolvedBuckets`, exactly like the other two call
-   *  sites, rather than a count threaded off a dashboard-engine field. */
-  buckets: readonly Pick<BudgetBucket, "type" | "currency" | "fxRateOverride">[];
-  fxRates: FxRates | null;
   /** `hasNoActiveScope(model.progress)` — shared with the KPI card. */
   noActiveScope: boolean;
   completionSeries: readonly CompletionPoint[];
@@ -143,9 +130,8 @@ export interface TileBodyArgs {
  * pure function of the model.
  */
 export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId, ReactNode>> {
-  const { lang, dc, model, money } = a;
+  const { lang, dc, model } = a;
   const openTasks = a.onNavigate ? () => a.onNavigate!("open-points") : undefined;
-  const openBudget = a.onNavigate ? () => a.onNavigate!("budget") : undefined;
 
   return {
     kpi: (
@@ -237,74 +223,26 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
       </ActivateBody>
     ),
 
-    burn: (
+    // ★★ Spec C decision 7: CHART-ONLY. The forecast headline, the Spent and
+    // hours tiles, the FX rollup notice and the Effort SPI/CPI tiles all left:
+    // the indices moved to the KPI tile (decision 8); the rest live on the
+    // Budget view and report. `compact` still suppresses the change table. The
+    // chain warning stays because it qualifies the chart it heads.
+    burn: model.burndown ? (
       <>
-        {model.forecast ? (
-          <ForecastHeadline
-            lang={lang}
-            forecast={model.forecast}
-            hours={model.forecastBundle?.hours ?? null}
-            mix={model.forecastBundle?.mix ?? null}
-          />
-        ) : null}
-        {model.burn ? (
-          <div className="flex flex-wrap gap-2">
-            <Tile
-              label={t(lang, "dashboardSubSpent")} hint={t(lang, "dashboardSpentHint")}
-              value={`${money(model.burn.consumedValue)} / ${money(model.burn.budgetValue)}`}
-              rag={<RagBadge value={ratioHealth(model.burn.consumedValue, model.burn.budgetValue)} lang={lang} title={t(lang, "dashboardSubSpent")} />}
-              onActivate={openBudget}
-              activateLabel={`${t(lang, "dashboardSubSpent")} – ${t(lang, "dashboardOpenBudgetView")}`}
-            />
-            <Tile
-              label="h" hint={t(lang, "dashboardHoursHint")}
-              value={`${Math.round(model.burn.actualHours)} / ${Math.round(model.burn.budgetHours)}`}
-              rag={<RagBadge value={ratioHealth(model.burn.actualHours, model.burn.budgetHours)} lang={lang} title="h" />}
-              onActivate={openBudget}
-              activateLabel={`${t(lang, "resourcesUtilModeHours")} – ${t(lang, "dashboardOpenBudgetView")}`}
-            />
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">{t(lang, "dashboardNoBudget")}</p>
-        )}
-        {/* The count covers every bucket in the EUR rollup, not only those inside the burn chart's window. */}
-        {model.burn ? <BudgetFxRollupNotice lang={lang} buckets={a.buckets} fxRates={a.fxRates} /> : null}
-        {model.evm.coverage.withEstimate > 0 ? (
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Tile
-              label={t(lang, "evmSpi")} hint={t(lang, "evmSpiHint")}
-              value={model.evm.spi != null ? model.evm.spi.toFixed(2) : "—"}
-              onActivate={openBudget}
-              activateLabel={`${t(lang, "evmSpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
-            />
-            <Tile
-              label={t(lang, "evmCpi")} hint={t(lang, "evmCpiHint")}
-              value={model.evm.cpi != null ? model.evm.cpi.toFixed(2) : "—"}
-              onActivate={openBudget}
-              activateLabel={`${t(lang, "evmCpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
-            />
-          </div>
-        ) : (
-          <p className="mt-2 text-sm text-muted-foreground">{t(lang, "evmNoEstimates")}</p>
-        )}
-        {model.burndown ? (
-          <div className="mt-3">
-            <BurndownChainWarning lang={lang} chain={model.bucketChain} />
-            <BurndownChartPanel
-              lang={lang}
-              series={model.burndown}
-              bundle={model.forecastBundle}
-              today={model.chartDates.today}
-              planEnd={model.chartDates.planEnd}
-              currency={a.currency}
-              compact
-            />
-          </div>
-        ) : null}
-        {model.burn ? (
-          <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardBurnCaption")}</p>
-        ) : null}
+        <BurndownChainWarning lang={lang} chain={model.bucketChain} />
+        <BurndownChartPanel
+          lang={lang}
+          series={model.burndown}
+          bundle={model.forecastBundle}
+          today={model.chartDates.today}
+          planEnd={model.chartDates.planEnd}
+          currency={a.currency}
+          compact
+        />
       </>
+    ) : (
+      <p className="text-sm text-muted-foreground">{t(lang, "dashboardNoBudget")}</p>
     ),
 
     milestones: (

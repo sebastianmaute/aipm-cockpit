@@ -2,7 +2,7 @@
 import { Button } from "./button";
 import { SegmentedControl } from "./segmented-control";
 import { t, type Lang } from "./i18n";
-import type { BlockSpan } from "./arrangement-layout";
+import type { BlockHeight, BlockWidth } from "./arrangement-layout";
 
 /**
  * The ⋮ menu's CONTENT: two independent size axes plus the keyboard move
@@ -49,19 +49,24 @@ import type { BlockSpan } from "./arrangement-layout";
  * one action is redundant.
  */
 
-/** `SegmentedControl` is generic over a STRING union, so spans cross as text. */
-type SpanValue = "1" | "2" | "3" | "4";
+/** `SegmentedControl` is generic over a STRING union, so spans cross as text.
+ *  ★ Covers the HEIGHT range (1–8, spec C); widths are the 1–4 subset. */
+type SpanValue = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8";
 
-function spansBetween(lo: BlockSpan, hi: BlockSpan): BlockSpan[] {
-  const out: BlockSpan[] = [];
-  for (let n = lo; n <= hi; n += 1) out.push(n as BlockSpan);
+/** ★ Typed on `BlockHeight`, the wider union: one picker serves both axes, and
+ *  every width is a valid height value, never the reverse. */
+function spansBetween(lo: BlockHeight, hi: BlockHeight): BlockHeight[] {
+  const out: BlockHeight[] = [];
+  for (let n: number = lo; n <= hi; n += 1) out.push(n as BlockHeight);
   return out;
 }
 
 /**
- * One axis. Exported for its own test: no block in the Dashboard catalogue pins
- * an axis today, so the `lo === hi` branch is unreachable through
- * `ArrangementBlockMenu` there and can only be exercised directly.
+ * One axis. Exported for its own test: it used to be true that no block in the
+ * Dashboard catalogue pinned an axis, making the `lo === hi` branch unreachable
+ * through `ArrangementBlockMenu` and exercisable only directly. The Dashboard's
+ * `kpi` tile now pins its height (`minH === maxH === 3`, §585 fix round), so the
+ * branch is reachable there too — this direct test still stands beside it.
  */
 export function AxisGroup({
   lang, axis, blockTitle, value, lo, hi, onPick,
@@ -69,10 +74,10 @@ export function AxisGroup({
   lang: Lang;
   axis: "w" | "h";
   blockTitle: string;
-  value: BlockSpan;
-  lo: BlockSpan;
-  hi: BlockSpan;
-  onPick: (v: BlockSpan) => void;
+  value: BlockHeight;
+  lo: BlockHeight;
+  hi: BlockHeight;
+  onPick: (v: BlockHeight) => void;
 }) {
   const label = t(lang, axis === "w" ? "arrangementTileWidth" : "arrangementTileHeight");
   return (
@@ -84,7 +89,7 @@ export function AxisGroup({
         <SegmentedControl<SpanValue>
           value={String(value) as SpanValue}
           options={spansBetween(lo, hi).map((n) => ({ value: String(n) as SpanValue, label: String(n) }))}
-          onChange={(v) => onPick(Number(v) as BlockSpan)}
+          onChange={(v) => onPick(Number(v) as BlockHeight)}
           ariaLabel={`${label} – ${blockTitle}`}
           // ★★ Both axes offer a value labelled "2", so the visible label alone
           // is a WCAG 2.4.6 collision INSIDE one menu. The axis and the block
@@ -113,17 +118,17 @@ export function ArrangementBlockMenu({
 }: {
   lang: Lang;
   title: string;
-  w: BlockSpan;
-  h: BlockSpan;
+  w: BlockWidth;
+  h: BlockHeight;
   /** The four bounds, from whoever owns the catalogue. See the ★★★ above. */
-  minW: BlockSpan;
-  maxW: BlockSpan;
-  minH: BlockSpan;
-  maxH: BlockSpan;
+  minW: BlockWidth;
+  maxW: BlockWidth;
+  minH: BlockHeight;
+  maxH: BlockHeight;
   /** Position of this block in the visible board, for the move commands. */
   index: number;
   count: number;
-  onResize: (axis: "w" | "h", value: BlockSpan) => void;
+  onResize: (axis: "w" | "h", value: BlockHeight) => void;
   onMove: (delta: -1 | 1 | "first") => void;
   onHide: () => void;
   onClose: () => void;

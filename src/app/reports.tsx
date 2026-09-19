@@ -616,7 +616,7 @@ export function ReportsPanel({
       {/* ★★★ `auto-rows-[120px]` and `gap-4` are WHOLE LITERAL STRINGS. Tailwind
           v4 scans source for class candidates, so an interpolated value emits no
           CSS at all — and jsdom has no layout, so no unit test can see the
-          difference. ★★ 120px, not the Dashboard's 80px: `BlockSpan` caps at 4,
+          difference. ★★ 120px, not the Dashboard's 80px: `REPORT_BLOCKS` caps heights at 4,
           which would put an embedded report in a 320px box. The class assertion
           in `reports.test.tsx` is the only guard that exists for either. */}
       <ArrangementGrid rowClass="auto-rows-[120px]" gapClass="gap-4" testId="reports-grid">

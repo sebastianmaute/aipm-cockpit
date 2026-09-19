@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 import {
   defaultLayout, moveBlock, hideBlock, restoreBlock, resizeBlock, reconcile,
-  type BlockSpec, type ArrangementLayout, type BlockSpan,
+  type BlockSpec, type ArrangementLayout, type BlockWidth, type BlockHeight,
 } from "./arrangement-layout";
 
 type TestId = "a" | "b" | "c";
@@ -15,7 +15,8 @@ const CAT: readonly BlockSpec<TestId>[] = [
 const DEF = defaultLayout(CAT);
 
 const idArb = fc.constantFrom<TestId>("a", "b", "c");
-const spanArb = fc.constantFrom<BlockSpan>(1, 2, 3, 4);
+const widthArb = fc.constantFrom<BlockWidth>(1, 2, 3, 4);
+const heightArb = fc.constantFrom<BlockHeight>(1, 2, 3, 4, 5, 6, 7, 8);
 const axisArb = fc.constantFrom("w" as const, "h" as const);
 
 const opArb = fc.oneof(
@@ -29,14 +30,14 @@ const opArb = fc.oneof(
 );
 
 // ★ `satisfies`, NOT `as`. The assertion bought nothing — tsc accepts the plain
-// record — and it MASKED drift: with `as` in place, changing `w: spanArb` to
+// record — and it MASKED drift: with `as` in place, changing `w: widthArb` to
 // `fc.integer({min:-9,max:99})` still compiled clean, even though the arbitrary
 // then produces `{w: number}`, which is not an `ArrangementLayout<TestId>`.
 // Measured, not assumed. `satisfies` keeps the type import referenced, so
 // `--max-warnings=0` stays happy where a bare deletion would orphan it.
 const layoutArb = fc.record({
   v: fc.constant(1 as const),
-  board: fc.array(fc.record({ id: idArb, w: spanArb, h: spanArb }), { maxLength: 8 }),
+  board: fc.array(fc.record({ id: idArb, w: widthArb, h: heightArb }), { maxLength: 8 }),
   hidden: fc.array(idArb, { maxLength: 6 }),
 }) satisfies fc.Arbitrary<ArrangementLayout<TestId>>;
 

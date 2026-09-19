@@ -48,6 +48,7 @@ import type {
 import type {
   SuggestedAction,
 } from "./next-actions";
+import type { ActionGroup } from "./next-actions/group";
 import type {
   AssignOwnerBundle,
 } from "./action-row";
@@ -312,6 +313,10 @@ export interface WorkspaceSectionProps {
   onRestoreProject?: (id: string) => void;
   onHardDeleteProject?: (id: string) => void;
   nextActions: readonly SuggestedAction[];
+  /** `groupNextActions(nextActions)`, computed ONCE in `task-manager.tsx`
+   *  (spec C decision 4). `ActionsPanel` renders it; the Dashboard gets its
+   *  hero (`pickHeroGroup`) and Top-actions primaries from it. */
+  nextActionGroups: readonly ActionGroup[];
   onOpenAction: (a: SuggestedAction) => void;
   /** Insights lifecycle callbacks (#6B SP1/SP2). Forwarded to DashboardPanel +
    *  InsightsPanel. Undefined in popouts. */

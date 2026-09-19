@@ -49,7 +49,7 @@ import {
 import {
   DashboardPanel,
 } from "./dashboard-panel";
-import { topGroupPrimaries } from "./next-actions/group";
+import { pickHeroGroup, topGroupPrimaries } from "./next-actions/group";
 import {
   MilestonesPanel,
 } from "./milestones-panel";
@@ -192,6 +192,7 @@ export function WorkspaceSection({
   onRestoreProject,
   onHardDeleteProject,
   nextActions,
+  nextActionGroups,
   onOpenAction,
   insightActions,
   insightGeneratingId,
@@ -875,7 +876,16 @@ export function WorkspaceSection({
               variance={trends.variance}
               snapshots={trends.snapshots}
               tursoActive={trends.active}
-              topActions={topGroupPrimaries(nextActions, 5)}
+              topActions={topGroupPrimaries(nextActionGroups, 5)}
+              // ★ Spec C decision 4: the SAME hero rule and the SAME ten
+              // handlers `ActionsPanel` gets below — one bag, not ten props.
+              // The panel itself drops the bag in a popout.
+              heroGroup={pickHeroGroup(nextActionGroups)}
+              actionHandlers={{
+                onSnooze, onCreateTask, onDraftMessage, assignOwner, escalate,
+                rebaseline, reschedule, onMarkDone, onClearBlocker, onLogAsRaid,
+              }}
+              expertMode={expertMode}
               onOpenAction={onOpenAction}
               projectId={currentProjectId ?? "default"}
               isPopout={isPopout}
@@ -958,7 +968,7 @@ export function WorkspaceSection({
 
         {activeTab === "actions" && (
           <div id="panel-actions" role="tabpanel" className={panelClass}>
-            <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} onSnooze={onSnooze} onCreateTask={onCreateTask} onDraftMessage={onDraftMessage} assignOwner={assignOwner} escalate={escalate} rebaseline={rebaseline} reschedule={reschedule} onMarkDone={onMarkDone} onClearBlocker={onClearBlocker} onLogAsRaid={onLogAsRaid} learningEnabled={learningEnabled} expertMode={expertMode} onOpenLearningSettings={onOpenLearningSettings} aiAnalysis={aiAnalysis} />
+            <ActionsPanel lang={lang} groups={nextActionGroups} onOpen={onOpenAction} onSnooze={onSnooze} onCreateTask={onCreateTask} onDraftMessage={onDraftMessage} assignOwner={assignOwner} escalate={escalate} rebaseline={rebaseline} reschedule={reschedule} onMarkDone={onMarkDone} onClearBlocker={onClearBlocker} onLogAsRaid={onLogAsRaid} learningEnabled={learningEnabled} expertMode={expertMode} onOpenLearningSettings={onOpenLearningSettings} aiAnalysis={aiAnalysis} />
           </div>
         )}
 

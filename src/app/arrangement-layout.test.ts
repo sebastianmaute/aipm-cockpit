@@ -103,3 +103,22 @@ describe("arrangement-layout", () => {
     expect(out.hidden).toEqual(["b"]);
   });
 });
+
+describe("arrangement-layout — the applied-upgrades list (spec C)", () => {
+  const withUpgrades: ArrangementLayout<TestId> = { ...DEF, upgrades: ["u1"] };
+
+  it("reconcile carries a stored upgrades list through", () => {
+    expect(reconcile(CAT, withUpgrades, DEF).upgrades).toEqual(["u1"]);
+  });
+
+  it("reconcile adds no upgrades key to a layout that had none", () => {
+    expect("upgrades" in reconcile(CAT, { v: 1, board: DEF.board, hidden: [] }, DEF)).toBe(false);
+  });
+
+  it("the four mutators keep the list", () => {
+    expect(moveBlock(withUpgrades, "a", "c").upgrades).toEqual(["u1"]);
+    expect(hideBlock(withUpgrades, "b").upgrades).toEqual(["u1"]);
+    expect(restoreBlock(CAT, hideBlock(withUpgrades, "b"), "b").upgrades).toEqual(["u1"]);
+    expect(resizeBlock(CAT, withUpgrades, "a", "w", 4).upgrades).toEqual(["u1"]);
+  });
+});

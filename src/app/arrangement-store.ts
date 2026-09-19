@@ -114,11 +114,14 @@ function isPlacedBlock(v: unknown): boolean {
  * assignable TO that but not FROM it. The cast back down belongs at the
  * surface's adapter, where it is one visible line rather than a hidden generic.
  * ★★ THE ID IS NOT THE ONLY UNSOUND AXIS — the SPANS are too, and by more. A
- * `PlacedBlock`'s `w`/`h` are `BlockSpan = 1|2|3|4`, while this accepts any
+ * `PlacedBlock`'s `w`/`h` are `BlockWidth`/`BlockHeight` (1–4 / 1–8), while this accepts any
  * finite number: `99`, `-3` and `2.7` all pass. That is the deliberate
  * looseness `isPlacedBlock` documents (range is `reconcile`'s job — it clamps
  * per axis), but do not read the narrowing as proving anything about the values
  * beyond "there is a number there".
+ * ★ It IGNORES the optional `upgrades` list on purpose: `readArrangement`
+ * sanitises that field on the way out, so a junk list can never reject a
+ * layout (spec C decision 11).
  */
 export function isArrangementLayout(v: unknown): v is ArrangementLayout<string> {
   if (!v || typeof v !== "object" || Array.isArray(v)) return false;
@@ -126,6 +129,27 @@ export function isArrangementLayout(v: unknown): v is ArrangementLayout<string> 
   if (l.v !== 1 || !Array.isArray(l.board) || !Array.isArray(l.hidden)) return false;
   return (l.board as unknown[]).every(isPlacedBlock)
     && (l.hidden as unknown[]).every((h) => typeof h === "string");
+}
+
+/**
+ * The optional `upgrades` list, made safe to trust (spec C decision 11): a
+ * non-array is dropped (`undefined`), an array keeps only its distinct string
+ * members, in order.
+ *
+ * ★★ SANITISED HERE, NOT REJECTED BY `isArrangementLayout`. A junk list must
+ * cost the user nothing but a re-run of an idempotent upgrade; rejecting the
+ * whole layout for it would reset their arrangement, which is the one outcome
+ * the guard exists to prevent.
+ */
+export function sanitizeUpgrades(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  return [...new Set(raw.filter((u): u is string => typeof u === "string"))];
+}
+
+function withSanitizedUpgrades(entry: ArrangementLayout<string>): ArrangementLayout<string> {
+  const { upgrades: raw, ...core } = entry as Omit<ArrangementLayout<string>, "upgrades"> & { upgrades?: unknown };
+  const upgrades = sanitizeUpgrades(raw);
+  return upgrades === undefined ? core : { ...core, upgrades };
 }
 
 /** The whole `{[projectId]: layout}` map for ONE key, unvalidated. A missing
@@ -170,7 +194,9 @@ export function readArrangement(key: string, projectId: string): ArrangementRead
   const map = readMap(key);
   if (!Object.prototype.hasOwnProperty.call(map, projectId)) return { status: "missing" };
   const entry = map[projectId];
-  return isArrangementLayout(entry) ? { status: "ok", layout: entry } : { status: "rejected" };
+  return isArrangementLayout(entry)
+    ? { status: "ok", layout: withSanitizedUpgrades(entry) }
+    : { status: "rejected" };
 }
 
 /**

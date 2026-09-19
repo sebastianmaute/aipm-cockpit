@@ -1,6 +1,6 @@
 "use client";
 import type { ReactNode } from "react";
-import type { BlockSpan } from "./arrangement-layout";
+import type { BlockHeight, BlockWidth } from "./arrangement-layout";
 
 /**
  * ★★★ THESE MUST STAY WHOLE LITERAL STRINGS. Tailwind v4 builds its stylesheet
@@ -20,18 +20,25 @@ import type { BlockSpan } from "./arrangement-layout";
  * That is not hypothetical: the scan that used to guard them was pinned to
  * `dashboard-grid.tsx`'s path and could not follow them here.
  */
-export const W_CLASS: Record<BlockSpan, string> = {
+export const W_CLASS: Record<BlockWidth, string> = {
   1: "col-span-1",
   2: "col-span-1 lg:col-span-2",
   3: "col-span-1 lg:col-span-2 xl:col-span-3",
   4: "col-span-1 lg:col-span-2 xl:col-span-4",
 };
 
-export const H_CLASS: Record<BlockSpan, string> = {
+// ★★ 5–8 exist for the Dashboard only (spec C decision 10): its Budget burn
+// tile defaults to 8 rows. Reports caps its own heights at 4 through its
+// catalogue. Whole literals, like every entry here.
+export const H_CLASS: Record<BlockHeight, string> = {
   1: "row-span-1",
   2: "row-span-2",
   3: "row-span-3",
   4: "row-span-4",
+  5: "row-span-5",
+  6: "row-span-6",
+  7: "row-span-7",
+  8: "row-span-8",
 };
 
 /**
@@ -46,8 +53,8 @@ export const H_CLASS: Record<BlockSpan, string> = {
  * re-places everything after the move) — consumers render the reorder hook's
  * `previewOrder` instead.
  *
- * ★★ THE FOUR-COLUMN GRID IS BAKED IN HERE AND IN `BlockSpan`, and the two must
- * move together. `xl:grid-cols-4` below is the same assumption `BlockSpan`'s
+ * ★★ THE FOUR-COLUMN GRID IS BAKED IN HERE AND IN `BlockWidth`, and the two must
+ * move together. `xl:grid-cols-4` below is the same assumption `BlockWidth`'s
  * `1|2|3|4` closed union encodes (`arrangement-layout.ts` says so at its head),
  * and `W_CLASS` above spells the clamp for exactly those four. A surface wanting
  * six columns changes all three at once; treat it as one cost, not a local one.

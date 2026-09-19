@@ -131,6 +131,24 @@ export interface ArrangementOptions<Id extends string> {
    * that must run at most once globally has to carry that condition itself.
    */
   seed?: () => ArrangementLayout<Id> | null;
+  /**
+   * ★ Optional one-time migration of a STORED layout (spec C decision 11). It
+   * runs on a read that found a usable stored layout (`ok`) — never on a
+   * `missing` or `rejected` read and never on the seed — and BEFORE `reconcile`,
+   * so it sees the stored order and sizes and `reconcile` then clamps whatever
+   * it produced. The Dashboard passes `upgradeDashboardLayout`; Reports passes
+   * nothing and is never upgraded.
+   * ★★★ IT MUST RETURN ITS INPUT BY REFERENCE WHEN IT HAS NOTHING TO DO. The
+   * hook reads "returned a different object" as "the stored blob needs
+   * rewriting" and starts that read DIRTY, so the persist effect writes the
+   * upgraded layout back exactly once; the next load then finds the upgrade's
+   * id and gets its input back. An upgrade that always copies would rewrite
+   * storage on every load. That is a contract on THIS function's output, and it
+   * is not a persist-skip on `reconcile`'s identity, which stays forbidden.
+   * ★★ PURE, for the same reason as `seed`: both `readLayout` call sites run in
+   * render (the lazy initialiser and the project-switch reconcile).
+   */
+  upgrade?: (stored: ArrangementLayout<Id>) => ArrangementLayout<Id>;
 }
 
 /**
@@ -234,6 +252,7 @@ export function useArrangement<Id extends string>({
   projectId,
   readOnly = false,
   seed,
+  upgrade,
 }: ArrangementOptions<Id>): ArrangementApi<Id> {
   /**
    * The stored arrangement for `pid`, reconciled. SSR-safe.
@@ -254,8 +273,8 @@ export function useArrangement<Id extends string>({
    * initialiser and a render-phase reconcile, so that throw is a surface that
    * fails to RENDER, not one that degrades.
    */
-  const readLayout = (pid: string): ArrangementLayout<Id> => {
-    if (typeof window === "undefined") return fallback;
+  const readLayout = (pid: string): { layout: ArrangementLayout<Id>; upgraded: boolean } => {
+    if (typeof window === "undefined") return { layout: fallback, upgraded: false };
     // ★★★ THE SEED IS OFFERED ON `missing` ALONE, AND THAT IS THE WHOLE FIX FOR
     // open-followups §427. This used to be `stored ?? seed?.() ?? null` over a
     // `loadArrangement` that returned `null` for BOTH an absent entry and a
@@ -266,8 +285,12 @@ export function useArrangement<Id extends string>({
     // visible reset rather than a quiet partial one.
     const read = readArrangement(storageKey, pid) as ArrangementRead<Id>;
     const stored = read.status === "ok" ? read.layout : null;
+    const upgradedStored = stored && upgrade ? upgrade(stored) : stored;
     const seeded = read.status === "missing" ? (seed?.() ?? null) : null;
-    return reconcile(catalogue, stored ?? seeded, fallback);
+    return {
+      layout: reconcile(catalogue, upgradedStored ?? seeded, fallback),
+      upgraded: upgradedStored !== stored,
+    };
   };
 
   // ★★ `dirty` IS STATE, NOT A REF, and it lives INSIDE this object rather than
@@ -281,11 +304,17 @@ export function useArrangement<Id extends string>({
   // swap one of the three without the other two.
   const [state, setState] = useState<{
     projectId: string; layout: ArrangementLayout<Id>; dirty: boolean;
-  }>(() => ({ projectId, layout: readLayout(projectId), dirty: false }));
+  }>(() => {
+    const read = readLayout(projectId);
+    // ★ Spec C: a read the `upgrade` rewrote starts DIRTY, so the persist
+    // effect below writes the upgraded layout back once.
+    return { projectId, layout: read.layout, dirty: read.upgraded };
+  });
 
   // Render-time reconcile — NOT an effect (`set-state-in-effect` is banned).
   if (state.projectId !== projectId) {
-    setState({ projectId, layout: readLayout(projectId), dirty: false });
+    const read = readLayout(projectId);
+    setState({ projectId, layout: read.layout, dirty: read.upgraded });
   }
 
   // Hoisted to locals: `react-hooks/exhaustive-deps` rejects an `obj.member` dep.

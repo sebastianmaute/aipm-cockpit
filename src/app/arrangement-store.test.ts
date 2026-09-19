@@ -185,3 +185,37 @@ describe("readArrangement — missing vs rejected", () => {
     expect(readArrangement(KEY_A, "p1")).toEqual({ status: "ok", layout: L });
   });
 });
+
+describe("the optional upgrades list (spec C)", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("accepts a v:1 layout with and without an upgrades list", () => {
+    expect(isArrangementLayout(L)).toBe(true);
+    expect(isArrangementLayout({ ...L, upgrades: ["dashboard-burn-2x8"] })).toBe(true);
+  });
+
+  it("never rejects a layout for a junk upgrades value", () => {
+    for (const junk of ["nope", 7, null, { a: 1 }, [1, null]]) {
+      expect(isArrangementLayout({ ...L, upgrades: junk }), JSON.stringify(junk)).toBe(true);
+    }
+  });
+
+  it("reads a non-array upgrades value as absent, keeping the layout", () => {
+    for (const junk of ["nope", 7, null, { a: 1 }]) {
+      localStorage.setItem(KEY_A, JSON.stringify({ p1: { ...L, upgrades: junk } }));
+      const read = readArrangement(KEY_A, "p1");
+      expect(read.status, JSON.stringify(junk)).toBe("ok");
+      expect(read.status === "ok" && "upgrades" in read.layout, JSON.stringify(junk)).toBe(false);
+    }
+  });
+
+  it("keeps only the distinct string members of an upgrades array", () => {
+    localStorage.setItem(KEY_A, JSON.stringify({ p1: { ...L, upgrades: ["a", 3, null, "a", "b"] } }));
+    expect(readArrangement(KEY_A, "p1")).toEqual({ status: "ok", layout: { ...L, upgrades: ["a", "b"] } });
+  });
+
+  it("round-trips a clean list through save and load", () => {
+    saveArrangement(KEY_A, "p1", { ...L, upgrades: ["u1"] });
+    expect(loadArrangement(KEY_A, "p1")).toEqual({ ...L, upgrades: ["u1"] });
+  });
+});

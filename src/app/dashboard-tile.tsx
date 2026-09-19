@@ -17,7 +17,7 @@ import { ArrangementTile, type ArrangementTileProps } from "./arrangement-tile";
 import type { DashboardTileId } from "./dashboard-tiles";
 
 /* ★ ALIASED, NOT RENAMED AT THE CALL SITES. The generic module speaks the
- * ENGINE's vocabulary — `BlockSpec`, `PlacedBlock`, `BlockSpan`, `moveBlock` —
+ * ENGINE's vocabulary — `BlockSpec`, `PlacedBlock`, `BlockWidth`, `moveBlock` —
  * so its prop types are `Block*` too. `dashboard-panel.tsx` and
  * `dashboard-shelf.tsx` import the `Tile*` spellings, and the Phase F rule keeps
  * this file's exported NAMES fixed, so the translation happens here. */

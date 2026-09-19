@@ -16,11 +16,17 @@ describe("DASHBOARD_TILES", () => {
     }
   });
 
-  it("keeps every limit within the 1..4 span range", () => {
+  it("keeps every width within 1..4 and every height within 1..8", () => {
+    // ★ Spec C split the span type: widths stay on the four-column grid,
+    // heights reach 8 for the Dashboard's tall tiles.
     for (const t of DASHBOARD_TILES) {
-      for (const v of [t.minW, t.maxW, t.minH, t.maxH]) {
-        expect(v).toBeGreaterThanOrEqual(1);
-        expect(v).toBeLessThanOrEqual(4);
+      for (const v of [t.minW, t.maxW]) {
+        expect(v, `${t.id} width`).toBeGreaterThanOrEqual(1);
+        expect(v, `${t.id} width`).toBeLessThanOrEqual(4);
+      }
+      for (const v of [t.minH, t.maxH]) {
+        expect(v, `${t.id} height`).toBeGreaterThanOrEqual(1);
+        expect(v, `${t.id} height`).toBeLessThanOrEqual(8);
       }
     }
   });
@@ -29,7 +35,9 @@ describe("DASHBOARD_TILES", () => {
     // ★ Tile chrome costs a fixed ~26px off every tile. At the 80px row unit a
     // h:1 tile has ~54px of body — a sparkline fits, a list of rows does not.
     // Any tile claiming minH 1 must be on this list deliberately.
-    const singleLine = new Set(["completionTrend"]);
+    // ★ Spec C raised Completion trend to minH 2, so NO tile claims 1 today;
+    // the empty set makes this pin that. Adding one means adding it here.
+    const singleLine = new Set<string>();
     for (const t of DASHBOARD_TILES) {
       if (t.minH === 1) expect(singleLine.has(t.id), `${t.id} claims minH 1`).toBe(true);
     }

@@ -802,6 +802,12 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§577](#577-the-budgetvariance-insight-compares-full-window-budget-against-to-date-actuals-so-open-buckets-with-future-months-are-flagged-and-an-unstarted-bucket-can-read-100-and-win-worst--open) | The budgetVariance insight compares full-window budget against to-date actuals, so open buckets with future months are flagged and an unstarted bucket can read 100% and win "worst" — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), found + verified against sample-workspace-small.json during Task 9; GitLab #362 | M — scope budgetHours to periods to-date, and/or exclude unstarted buckets from "worst" | open |
 | [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open) | Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN | audit (2026-09) | M | open |
 | [§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--open) | An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap — OPEN | audit (2026-09) | S | open |
+| [§580](#580-dashboardmodelburn-and-forecast-have-no-reader-outside-dashboardts--closed-2026-09-18) | `DashboardModel.burn` and `forecast` have no reader outside `dashboard.ts` — CLOSED 2026-09-18 | found 2026-09-18 auditing the dashboard model after spec C removed `ForecastHeadline`; GitLab #365 | S — delete the dead field(s) or give them a reader | closed |
+| [§581](#581-the-kpi-strips-lggrid-cols-5-leaves-a-gap-when-only-one-of-spicpi-shows--closed-2026-09-19) | The KPI strip's `lg:grid-cols-5` leaves a gap when only one of SPI/CPI shows — CLOSED 2026-09-19 | found 2026-09-18 reading `dashboard-kpi-strip.tsx`'s `cols` ternary; not eye-checked; GitLab #366 | XS — branch the class on the real tile count, not the OR | closed |
+| [§582](#582-the-next-actions-heros-open-cta-renders-and-does-nothing-without-onopenaction--closed-2026-09-19) | The Next-actions hero's Open CTA renders and does nothing without `onOpenAction` — CLOSED 2026-09-19 | found 2026-09-18 reading `action-hero-card.tsx`/`action-cta-controls.tsx`; latent, every production caller passes it; GitLab #367 | S — hide the CTA when the handler is absent, or make the prop required | closed |
+| [§583](#583-budget-historypropertytestts-flaked-once-in-ci-under-an-unseeded-fast-check-run--closed-2026-09-19) | `budget-history.property.test.ts` flaked once in CI under an unseeded fast-check run — CLOSED 2026-09-19 | one failure in CI pipeline 7251's unit-tests job on the spec-B release branch, cleared by retry; root cause confirmed 2026-09-19; GitLab #368 | S — capture a counterexample at high `numRuns`, then fix the tolerance or the summation | closed |
+| [§584](#584-two-next-actions-hero-tests-are-weaker-than-they-look--closed-2026-09-18) | Two Next-actions hero tests are weaker than they look — CLOSED 2026-09-18 | found 2026-09-18 reading `actions-panel.test.tsx`, `dashboard-panel-layout.test.tsx` and `next-actions/group.test.ts`; GitLab #369 | S — add a monitor-topped fixture and a visible-text uniqueness assertion | closed |
+| [§585](#585-on-xl-the-kpi-tile-lands-below-the-2x8-burn-tile-not-beside-it--closed-2026-09-19) | On `xl` the KPI tile lands below the 2x8 burn tile, not beside it — CLOSED 2026-09-19 | accepted during spec C; measured 2026-09-18 against `DASHBOARD_TILES`/`xl:grid-cols-4`; GitLab #370 | S — revisit the burn tile's default width or the tile order | closed |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -33115,7 +33121,7 @@ makes it eight and no gate will say so. Re-derive rather than trusting this para
 read the hits.
 
 **2. The 120px row unit.** `ArrangementGrid` is given `rowClass="auto-rows-[120px]"` here against
-the Dashboard's 80px, because `BlockSpan` caps at 4 and 4 × 80px would put a whole embedded report
+the Dashboard's 80px, because `REPORT_BLOCKS` caps every block's height at 4 and 4 × 80px would put a whole embedded report
 panel in a 320px box. Verify that an embedded report at `h: 4` is actually usable at 120px — this is
 the number the whole grid's vertical rhythm rides on, and nothing but an eye can price it.
 ★ The class is a WHOLE LITERAL STRING for Tailwind's scanner; the unit test asserting it is the only
@@ -39479,3 +39485,229 @@ the same reason (a 58 KB input rendered 8 MB before that cap existed). Reusing t
 the two extractors consistent.
 
 Related: [§558](#558-the-three-ooxml-extractors-were-quadratic-on-repetitive-unclosed-markup--closed-2026-09-18) (the per-row cap).
+
+## 580. `DashboardModel.burn` and `forecast` have no reader outside `dashboard.ts` — CLOSED 2026-09-18
+
+**Status:** CLOSED 2026-09-18 on `docs/spec-c-dashboard-rework`, taking the first fix-shape option below:
+`DashboardBurn`/`burn` are deleted outright (the type, the per-build computation and the model field), and
+`forecast` is now a `computeDashboard`-local `const` that feeds `budgetBucketStatus` alone — never exported
+on `DashboardModel`. `forecastBundle` (and `forecastBundle.eur`, the same value `forecast` always was) is
+unchanged and still the model's one exported forecast surface. The two `dashboard.test.ts` assertions this
+entry names were migrated (`m.forecast` → `m.forecastBundle!.eur`/`m.forecastBundle`) or dropped where the
+removed field was the only source (`m.burn!.budgetHours`, `m.forecast === m.forecastBundle!.eur`) — the
+Budget RAG's own assertions (`m.budget.computed`/`.effective`) are byte-identical. Verified with
+`npx vitest run src/app/dashboard.test.ts` (62/62 passed) and a mutation check that nulled the local
+`forecast` const and watched the pace-VAC RAG tests go red before reverting. Reproduce the "no outside
+reader" premise itself with the same two greps this entry was filed from — they still return nothing/only
+unrelated fields, which is now expected since the fields are gone rather than merely unread.
+
+Since spec C removed `ForecastHeadline` and gave the burn tile only the chart (`dashboard-tile-bodies.tsx`
+passes `model.burndown` to it, never `model.burn`), `DashboardModel.burn` (`dashboard.ts`) is read by nothing
+outside `dashboard.test.ts`'s own assertions (`expect(m.burn).toBeNull()`;
+`expect(m.forecastBundle!.hours.facts.bac).toBe(m.burn!.budgetHours)`). It is computed on every dashboard
+build, exported on the model, and consumed nowhere in production.
+
+`forecast` fares slightly better: `dashboard.ts` reads it once, internally, to feed `paceVacHealth` into
+`budgetBucketStatus` — the Budget RAG's pace-VAC input, and the "apart from the Budget RAG" exception the
+field was kept for. Outside `dashboard.ts` nothing reads `model.forecast`; the surfaces that do consume a
+forecast (Trends, the AI snapshot, the budget panel) all go through `forecastBundle`
+(`forecastBundle.eur === forecast`), not the top-level field.
+
+Both fields were kept deliberately — spec C's ground rule was "no computation changes" — so this is filed
+rather than fixed.
+
+Fix shape: delete `burn` from `DashboardModel` (updating or dropping the two `dashboard.test.ts` assertions),
+stop exporting `forecast` as a top-level model field and compute it as a local inside `dashboard.ts` for
+`budgetBucketStatus` alone, or give either field a real external reader.
+
+## 581. The KPI strip's `lg:grid-cols-5` leaves a gap when only one of SPI/CPI shows — CLOSED 2026-09-19
+
+**Status:** CLOSED 2026-09-19 on `docs/spec-c-dashboard-rework`, with §585. `DashboardKpiStrip` now counts its
+visible cells (3 + SPI + CPI) and takes the grid classes from `KPI_STRIP_COLS`, one whole literal string per
+count, as Tailwind CONTAINER queries off the strip's own `@container` wrapper, so they size to the tile (half
+width on xl since §585) rather than the viewport: 3 → one row; 4 → 2 × 2, then one row; 5 → 3 + 2 on a
+six-track grid (a full second row), then one row. Breakpoints come from measured label widths (DE's
+`evmSpi`/`evmCpi` are the widest), derived on the constant. Verified with
+`npx vitest run src/app/dashboard-sections/dashboard-kpi-strip.test.tsx` (per-count class tests; a mutant
+restoring the OR turned the 4-cell test red) and a Chromium probe at 1100/1280/1600/1920px viewports showing no
+label wrap and no empty cell for 3, 4 and 5 cells.
+
+`cols` is `showSpi || showCpi ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-3"` — an OR, not "both".
+`showSpi`/`showCpi` are independently gated on `model.evm.spi`/`model.evm.cpi` being non-null (spec C
+decision 8: each index shows whenever it alone has data, never gated on the other or on the Budget module).
+So when exactly one of them is non-null, the strip renders four tiles (Complete, Overdue, Open RAID, plus the
+one index) inside a five-column grid at `lg`, leaving the fifth cell empty. At `sm` the grid is always three
+columns regardless of tile count, so four or five tiles wrap into a second, partially-filled row.
+
+Cosmetic, and per the same spec C decision, most likely on early-stage projects where only Schedule or only
+Budget has enough data yet to derive its index — not the common case, but not rare either.
+
+Fix shape: branch the class on the actual tile count rather than the OR, e.g. `showSpi && showCpi ?
+"sm:grid-cols-3 lg:grid-cols-5" : (showSpi || showCpi) ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"`.
+The class must stay a whole literal string — an interpolated Tailwind class emits no CSS, per the comment
+already in the file.
+
+## 582. The Next-actions hero's Open CTA renders and does nothing without `onOpenAction` — CLOSED 2026-09-19
+
+**Status:** CLOSED 2026-09-19 on `docs/spec-c-dashboard-rework`, taking the "hide the CTA" fix shape
+below (the prop stays optional, since popouts and read-only callers legitimately omit it).
+`ActionHandlers.onOpen` (`action-cta-controls.tsx`) is now optional; `ActionPrimaryCta` hides both the
+primary Open button and the ghost Open alongside a different primary whenever `handlers.onOpen` is
+absent, instead of always rendering one that no-ops on click. `dashboard-panel.tsx` no longer needs
+`NOOP_OPEN` — it forwards `onOpenAction` (still optional) straight to the hero. `action-row.tsx`'s
+row-click-to-open convenience is guarded (`props.onOpen?.(action)`) to satisfy the now-optional type;
+`ActionsPanel` still always wires a real handler there, so its rows are unchanged. TDD:
+`action-hero-card.test.tsx`'s new "hides the Open CTA when onOpen is absent, and shows it once wired"
+failed RED (10 passed, 1 failed) before the fix and passed GREEN after. Mutation check: reverted the
+`onOpenHandler ? … : null` guard back to an unconditional render (with `onOpenHandler?.(action)` in the
+click handler to keep it compiling) — the RED test above failed again (10 passed, 1 failed) — then
+restored the guard. Verified with `npx vitest run src/app/action-hero-card.test.tsx
+src/app/action-row.test.tsx src/app/actions-panel.test.tsx src/app/dashboard-panel-layout.test.tsx
+src/app/workspace-section.test.tsx` (136/136 passed), `npx tsc --noEmit` (0 errors) and
+`npx eslint --max-warnings=0` on the touched files (0 warnings). **Fix round 1 (2026-09-19):** the
+Dashboard's Top-actions tile (`dashboard-sections/dashboard-top-actions.tsx`) had the identical
+Open-does-nothing fallback (`onOpenAction ?? (() => {})`) for its `ActionRow` list; it now forwards
+`onOpenAction` through as-is so that tile's Open CTA hides the same way when the handler is absent —
+covered by a new RED/GREEN test in `dashboard-top-actions.test.tsx` and its own mutation check (4
+passed/1 failed with the fallback reinstated, 5/5 passed after reverting), verified with
+`npx vitest run src/app/dashboard-sections/dashboard-top-actions.test.tsx
+src/app/dashboard-panel-layout.test.tsx src/app/dashboard-panel.test.tsx src/app/action-row.test.tsx`
+(140/140 passed), `npx tsc --noEmit` (0 errors) and `npx eslint --max-warnings=0` on the two touched
+files (0 warnings). A repo-wide grep for `onOpen=` fallbacks of this shape found no other production
+call site — every other `onOpen={() => {}}` hit is in a test file.
+
+`ActionHandlers.onOpen` (`action-cta-controls.tsx`) is non-optional, and `pickPrimaryCta`/`overflowCtas`
+(`next-actions/action-cta.ts`) always offer `"open"` as the always-available fallback verb, so
+`ActionHeroCard`'s primary CTA — or its ghost Open button when a different verb is primary — is always
+rendered and always clickable. `dashboard-panel.tsx` protects the optional `onOpenAction` prop with a local
+`NOOP_OPEN` fallback (`onOpen={onOpenAction ?? NOOP_OPEN}`) rather than hiding the control, so a caller that
+omits `onOpenAction` gets a button that renders, looks live, and silently no-ops on click.
+
+Every production caller passes it today: `workspace-section.tsx`'s single `<DashboardPanel>` call site
+forwards its own `onOpenAction` prop unconditionally, and `task-manager.tsx` wires that prop to `openAction`
+unconditionally — unlike several sibling props on the same object, it is not gated on `isPopout`. So the gap
+is latent, not live.
+
+Fix shape: hide the "open" CTA (and the ghost Open button) in `action-cta-controls.tsx` when
+`handlers.onOpen` is falsy, or drop `NOOP_OPEN` and make `onOpenAction` a required prop on `DashboardPanel`
+so a future caller cannot omit it silently.
+
+## 583. `budget-history.property.test.ts` flaked once in CI under an unseeded fast-check run — CLOSED 2026-09-19
+
+**Status:** CLOSED 2026-09-19 — root cause found and fixed on `docs/spec-c-dashboard-rework`; sharpened in
+fix round 1 after review. Reproduced by running `npx vitest run src/app/budget-history.property.test.ts -t
+"unattributed is 0"` five times with no explicit seed (unseeded, so each run drew its own); the third run
+failed at `seed -1591760474` after 39378 property runs, with `Counterexample:
+[0,[0.000001,1.0587911840678754e-22,0.0000018680146407231636,0],0]`.
+
+Root cause, confirmed against the counterexample: NOT accumulated floating-point error against large
+magnitudes (the counterexample's values are all ~1e-6, nowhere near the 1e7 ceiling the original hypothesis
+suspected). `recordBudgetChange` drops a step as a no-op when its move is below `BAC_EPSILON`
+(`Math.abs(dh) < BAC_EPSILON && Math.abs(dv) < BAC_EPSILON`) — an intentional sub-epsilon noise filter, not
+an engine defect, confirmed by review. The PRODUCTION writer, `commitBuckets` (`use-budget-buckets.ts`,
+`before = projectBac(prev)`), recomputes `before`/`after` from the live bucket state on every commit rather
+than from the last RECORDED entry; the test's `buildHistory` mirrors that exactly (its own `prev` advances
+past a dropped step the same way). So the next recorded entry's `before` is the dropped step's true (tiny)
+value, not the previous recorded entry's `after`, and the recorded delta chain omits exactly the dropped
+transition's own delta — bounded by `BAC_EPSILON` by construction (that bound is why it was droppable) but
+not exactly zero. That dropped delta surfaces later as unattributed variance, same as undo/version-restore
+bypassing this write path entirely (documented in the file header, now also on `recordBudgetChange` itself).
+
+Fix: `budget-history.property.test.ts`'s "unattributed is close to 0…" property now sizes its slack to the
+drops actually observed in that run — `droppedCount = steps.length - (history.length - 1)` — and asserts
+`Math.abs(split.unattributed) <= (droppedCount + 1) * BAC_EPSILON` (one extra `BAC_EPSILON` of headroom for
+ordinary floating summation noise on top), replacing the round-1 fix's `steps.length * BAC_EPSILON`
+worst-case bound. The captured counterexample is pinned as an explicit MECHANISM regression (history has
+baseline + 3 recorded, i.e. `steps[1]` was dropped; `split.unattributed` equals the dropped move
+`steps[1] - steps[0]` to 12 decimal places), not just the widened bound. Verified stable: 3 further runs of
+200000 `numRuns` each (600000 total) against both the droppedCount-based property bound and the original
+round-1 bound, all green; two mutation checks — reverting the regression's tolerance to a flat `1e-6` (round
+1) and temporarily disabling the `BAC_EPSILON` skip in `recordBudgetChange` itself so the sub-ε move gets
+recorded (round-1-fix round, a production mutant) — both turned the regression red, then were reverted;
+`git diff --stat` clean apart from this file and the two source files each round touched.
+
+## 584. Two Next-actions hero tests are weaker than they look — CLOSED 2026-09-18
+
+**Status:** CLOSED 2026-09-18 on `docs/spec-c-dashboard-rework`. (a) Added a discriminating fixture to
+`actions-panel.test.tsx` and `workspace-section.test.tsx`: a group list where the TOP-SCORED group is
+`monitor` tier and a lower-scored group is not (built with explicit `score` overrides, since `mk`'s own
+table always puts `now` on top and can't reach this case). `pickHeroGroup` correctly returns null for
+that fixture (it never looks past a monitor-tier top group), so both tests assert no hero renders /
+`heroGroup` is null. Mutation check: swapped `pickHeroGroup(groups)` for `groups[0]` in
+`actions-panel.tsx` and `pickHeroGroup(nextActionGroups)` for `nextActionGroups[0] ?? null` in
+`workspace-section.tsx` — both new tests (and two pre-existing ones) went red (5 failed, 51 passed) —
+then reverted both. (b) `dashboard-panel-layout.test.tsx`'s "keeps the hero's action in the Top actions
+tile too, with names that never collide" test now also asserts on VISIBLE text (`getByText`, not
+`aria-label`): one "Open" occurrence inside `tile-topActions` and one inside the hero region, plus a
+`screen.getAllByText(...)` count of exactly 2. Mutation check: temporarily blanked the hero's (prominent)
+Open button's visible text while leaving its `aria-label` intact — the pre-existing aria-label-only
+assertions in that test stayed green in isolation, but the new visible-text assertion failed (confirmed
+via the printed DOM: `Unable to find an element with the text: Open` inside the hero `<section>`) — then
+reverted. Verified with `npx vitest run src/app/action-hero-card.test.tsx src/app/action-row.test.tsx
+src/app/actions-panel.test.tsx src/app/dashboard-panel-layout.test.tsx src/app/workspace-section.test.tsx
+src/app/next-actions/group.test.ts src/app/action-chips.test.tsx` (143/143 passed), `npx tsc --noEmit`
+(0 errors) and `npx eslint --max-warnings=0` on the touched files (0 warnings).
+
+(a) `actions-panel.test.tsx`'s "promotes exactly the group `pickHeroGroup` picks, so the Dashboard's hero
+cannot differ" test (describe block "ActionsPanel — fed grouped data from above (spec C)") builds its
+fixture with `mk("low", "monitor")`, `mk("mid", "soon")`, `mk("top", "now")` — `mk`'s own score table (`now`
+60, `soon` 30, `monitor` 10) puts the `now` action on top every time. `pickHeroGroup` (`next-actions/group.ts`)
+refuses to promote past a monitor-tier TOP group even when a lower non-monitor group exists (`top &&
+top.tier !== "monitor" ? top : null`) — a naive "first non-monitor" rule would instead fall through to that
+lower group. With the top group always `now`, both rules agree, so this test (and
+`workspace-section.test.tsx`'s matching "hands the dashboard `pickHeroGroup`'s choice" test, same top-tier
+shape) cannot tell them apart. The pure function itself IS correctly pinned for the distinguishing case —
+`next-actions/group.test.ts`'s "never reaches past a monitor-tier top group for a lower Now one" — so the gap
+is only at this wiring/integration level, not in engine coverage.
+
+(b) `dashboard-panel-layout.test.tsx`'s "keeps the hero's action in the Top actions tile too, with names that
+never collide" test collects `screen.getAllByRole("button")`, maps each to `getAttribute("aria-label")`, and
+asserts the resulting set is collision-free — it never compares the buttons' or tiles' visible text, so a
+regression that left two buttons' visible labels identical while their `aria-label`s stayed disambiguated
+would pass unnoticed.
+
+Fix shape: (a) add a fixture where the first (top-ranked) group is `monitor` and a lower group is not, at the
+`actions-panel.test.tsx`/`workspace-section.test.tsx` wiring level. (b) add an assertion on visible text
+(e.g. via `textContent` or a non-aria-label query) alongside the existing `aria-label` uniqueness check.
+
+## 585. On `xl` the KPI tile lands below the 2x8 burn tile, not beside it — CLOSED 2026-09-19
+
+**Status:** CLOSED 2026-09-19 on `docs/spec-c-dashboard-rework`, with §581. The KPI tile's catalogue default in
+`DASHBOARD_TILES` is now `w: 2 h: 3` (`minW: 2`, `maxH: 3` unchanged), so on xl dense packing puts it in columns
+3–4 beside burn, and a strip that wraps to two rows at half width stays inside the tile body with no inner
+scroll. Compact density pads the strip with the new `DensityClasses.kpiPad` (`px-2 py-0`): with `cardPad`'s
+vertical padding a wrapped 4-cell strip overflowed its body by 3px at the 72px row unit. Stored layouts: the ONE
+existing upgrade, `upgradeDashboardLayout` (still keyed on `DASHBOARD_BURN_UPGRADE`; the branch is unreleased),
+also resizes a stored `kpi` block, each axis only from exactly its old default (`w: 4` → 2, `h: 2` → 3), only
+when it moves burn to the front, and never a user-chosen size. Verified with
+`npx vitest run src/app/dashboard-layout-upgrade.test.ts` (mutants dropping either axis went red) and
+`npx playwright test e2e/dashboard-grid.spec.ts --project=chromium --workers=1`: KPI right of burn with
+overlapping vertical ranges (red against `w: 4`), and at a 1280px viewport a seeded 4- and 5-cell strip, in both
+densities, ends inside the tile body with nothing to scroll (all four red against `h: 2`).
+**Fix round (2026-09-19):** `kpi`'s `minH` raised from 2 to 3 in `DASHBOARD_TILES`, so with `maxH` already 3
+its height is effectively fixed — a user can no longer shrink it back to h:2 and reopen the inner-scroll gap
+this entry exists to close. `reconcile` already clamps a stored size per axis, so a layout below the new
+floor (from a build before this raise) is lifted to 3 on the next load — the resize menu itself renders no
+height chooser at all for the tile once `min === max` (`arrangement-block-menu.tsx`'s existing `lo === hi`
+branch), so shrinking it in the UI is not merely refused but not offered. Covered by new tests: `reconcile`
+clamps a stored kpi h:2 up to 3 (`dashboard-layout.test.ts`) and `DashboardTileMenu` renders "Fixed at 3" with
+no height radiogroup for `kpi` (`dashboard-grid.test.tsx`); both went red against the pre-raise `minH: 2` and
+green after. Verified with `npx vitest run src/app/dashboard-layout.test.ts src/app/dashboard-grid.test.tsx`
+(41/41 passed) and the same e2e spec (11/11 passed) — the dense-packing and width-span specs seed a stored
+`kpi` at h:2, which the raised `minH` now clamps to h:3 on load, unaffected by width-driven assertions.
+
+Spec C's layout sketch (`docs/superpowers/specs/2026-09-17-dashboard-layout-rework-design.md`) puts the KPI
+tile beside the burn tile. `DASHBOARD_TILES` (`dashboard-tiles.ts`) places `burn` first at `w: 2 h: 8`, and
+`DEFAULT_LAYOUT`/`upgradeDashboardLayout` (`dashboard-layout.ts`/`dashboard-layout-upgrade.ts`) place a fresh
+board — and, via `DASHBOARD_BURN_UPGRADE`, migrate an existing stored board — into that catalogue order. The
+arrangeable grid is `xl:grid-cols-4` (`arrangement-layout.ts`), so at `xl` an 8-row-tall, 2-wide burn tile
+occupies the first two columns for all 8 rows; the KPI tile (`w: 4`) needs the full row width and cannot fit
+in the remaining two columns beside it, so the packer places it below the burn tile instead. On a short
+viewport its figures can drop below the fold.
+
+Accepted during spec C: the row-2 Overall status card already answers "how is the project doing", so KPI
+landing lower was judged an acceptable trade-off rather than a blocker. Revisit the burn tile's default width
+(e.g. narrower than 2, or a taller-but-narrower KPI companion) or the tile order after users try the shipped
+layout.
+
+Fix shape: none proposed yet — filing for revisit, not implementation.

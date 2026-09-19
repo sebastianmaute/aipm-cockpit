@@ -24,10 +24,15 @@ interface ActionHeroCardProps extends ActionHandlers {
    *  full argument lives at the map itself in `actions-panel.tsx`; read it
    *  there rather than restating it here. */
   rowToken: string;
+  /** The card's outer spacing. Default `"mb-4"` — the Next-actions page, where
+   *  the hero sits above the tier lists. The Dashboard's row 2 passes
+   *  `"h-full"`: a bottom margin there would leave the hero shorter than the
+   *  Overall status card beside it (spec C decision 3). */
+  className?: string;
 }
 
 export function ActionHeroCard(props: ActionHeroCardProps) {
-  const { lang, group, expertMode, rowToken } = props;
+  const { lang, group, expertMode, rowToken, className = "mb-4" } = props;
   const action = group.primary;
   const caps = useActionCaps(props);
   const rag = TIER_RAG[group.tier];
@@ -36,7 +41,7 @@ export function ActionHeroCard(props: ActionHeroCardProps) {
   return (
     <section
       aria-label={t(lang, "actionHeroEyebrow")}
-      className={`mb-4 rounded-lg border border-line border-l-4 ${rag.stripe} bg-surface p-4 shadow-[var(--shadow-card)]`}
+      className={`${className} rounded-lg border border-line border-l-4 ${rag.stripe} bg-surface p-4 shadow-[var(--shadow-card)]`}
     >
       <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
         <span aria-hidden>⚑</span>
