@@ -419,8 +419,8 @@ export async function applyProposal(args: ApplyProposalArgs): Promise<ApplyPropo
         //  model's input verbatim lost every sibling the card promised. Stripped
         //  AFTER the remap and the token stamp, which rewrite VALUES (`id`,
         //  link-field refs via `forEachLinkRef`, `expectedToken`) but never add
-        //  or rename a key, so a strip by key is unaffected, and against this
-        //  row's OWN one-call plan. A pending
+        //  or rename a key a rejection can name, so a strip by key is
+        //  unaffected, and against this row's OWN one-call plan. A pending
         //  row's plan is empty, so it strips nothing and sends the call as-is;
         //  its card showed no field diff either, so the card and the write
         //  still agree, and the dispatcher's own refusal of a bad field
