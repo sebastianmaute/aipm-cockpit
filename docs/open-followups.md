@@ -37844,7 +37844,9 @@ and the first save to CSV, Markdown or Turso tears it with no edit involved.
 
 ## 534. The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — CLOSED 2026-09-19
 
-**Status:** CLOSED 2026-09-19 by `fix/data-loss-batch`: `describeEntityCalls` now records the refused field on every field-level rejection and re-judges a call without its rejected fields until the verdict is stable (so a sibling is never previewed against a value that will not be sent), and `stripRejectedFields` (`inline-ai-edit/plan.ts`) removes those fields from a call before `applyProposal` and `confirmInsightRecommendation` dispatch it; a call left with nothing to write is not sent and reports as rejected (`chatProposalFailedRejected` on the card). Pinned by the §534 blocks in `chat-proposal-apply.test.tsx`, `use-insight-recommendations.test.tsx` and `plan.test.ts`, the merged-plan parity test in `recommend-plan.test.ts`, and row (iv) of the `emails-write-parity.test.ts` matrix.
+**Status:** CLOSED 2026-09-19 by `fix/data-loss-batch`: `describeEntityCalls` now records the refused field on every field-level rejection and re-judges a call without its rejected fields until the verdict is stable (so a sibling is never previewed against a value that will not be sent), and `stripRejectedFields` (`inline-ai-edit/plan.ts`) removes those fields from a call before `applyProposal` and `confirmInsightRecommendation` dispatch it; a call left with nothing to write is not sent and reports as rejected (`chatProposalFailedRejected` on the card). Pinned by the §534 blocks in `chat-proposal-apply.test.tsx`, `use-insight-recommendations.test.tsx` and `plan.test.ts`, the merged-plan parity test in `recommend-plan.test.ts`, and row (iv) of the `emails-write-parity.test.ts` matrix. A row still pending an in-plan create is sent unstripped: its plan is empty, so its card shows no field diff to begin with, and the card and the write still agree; the dispatcher's own refusal of a bad field then surfaces as that row's own failure, not a silent drop.
+
+_Original finding, as filed 2026-09-14. Preserved as the dated record; see Status._
 
 Three instances found while closing §422:
 - **resource `emails`.** The card rejects `emails` via §422's `findTornEmail` (`src/app/sanitize-core.ts`); the
@@ -38344,6 +38346,8 @@ Related: §499, §501.
 ## 546. A dated TimeLog Apply's other-granularity delete removes hand-typed hours from days it never routed, and the confirm dialog never discloses it — CLOSED 2026-09-19
 
 **Status:** CLOSED 2026-09-19 by `fix/data-loss-batch`: option (a) — `otherGranularityRemovals` (`timelog-apply.ts`) is now the single source of the other-granularity keys a dated Apply deletes; `writeAllocations` deletes exactly those and `buildApplyPlan` lists exactly those as removal rows, which `TimelogApplyConfirm` renders labelled `timelogApplyRemoval`. Option (b), re-keying the total into days, stays ruled out. Pinned by the §546 tests in `timelog-apply.test.ts` (the removal row, and shown-removals ≡ deleted keys over three shapes) and `timelog-apply-confirm.test.tsx`.
+
+_Original finding, as filed 2026-09-15. Preserved as the dated record; see Status._
 
 Since §543's fix, `writeAllocations` (`timelog-apply.ts`) runs `if (other) delete
 nextActual[periodKeyForDate(day, other)]` for EVERY routed day, which deletes the WHOLE other-granularity
@@ -39074,6 +39078,8 @@ gives the same diagnostic value with no dependence on what the rejection happens
 ## 567. `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — CLOSED 2026-09-19
 
 **Status:** CLOSED 2026-09-19 by `fix/data-loss-batch`: `isSealedSecret` (`secrets.ts`) checks the id by membership in `SECRET_IDS` and `readStore` (`secrets-store.ts`) iterates `SECRET_IDS`, so neither carries its own id list any more; pinned by a seal → store → read round-trip per id generated from `SECRET_IDS` in `secrets-store.test.ts`, and by `isSealedSecret` accepting every member and rejecting an unknown id in `secrets.test.ts`. Review found a THIRD hardcoded copy, `use-settings.ts`'s mount-load unreadable-secret probe (same defect class: a missed id there means that id's corrupt/unreadable secret is never reported, not just never redacted or read) — folded into this closure the same day, also deriving from `SECRET_IDS` and pinned by a spy-based test in `use-settings.secrets.test.ts` asserting every `SECRET_IDS` member gets probed.
+
+_Original finding, as filed 2026-09-18. Preserved as the dated record; see Status._
 
 Two hardcoded enumerations of the five `SecretId`s survive:
 

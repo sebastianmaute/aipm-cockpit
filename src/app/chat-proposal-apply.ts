@@ -421,7 +421,10 @@ export async function applyProposal(args: ApplyProposalArgs): Promise<ApplyPropo
         //  link-field refs via `forEachLinkRef`, `expectedToken`) but never add
         //  or rename a key, so a strip by key is unaffected, and against this
         //  row's OWN one-call plan. A pending
-        //  row's plan is empty, so it strips nothing.
+        //  row's plan is empty, so it strips nothing and sends the call as-is;
+        //  its card showed no field diff either, so the card and the write
+        //  still agree, and the dispatcher's own refusal of a bad field
+        //  surfaces as that row's own failure, not a silent drop.
         const sent = stripRejectedFields(guarded.input, row.plan);
         if (sent.writesNothing) {
           applied.push({ index, ok: false, error: ALL_FIELDS_REJECTED_ERROR });
