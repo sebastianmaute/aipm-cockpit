@@ -225,18 +225,18 @@ describe("extractHtmlMarkdown", () => {
    *    trailing open tag           31,250 -> 125,000   4.6 -> 14.4
    *
    *  The red margin is a ratio of at least 12. At n 31,250 the heading and
-   *  list-item rows measured only 12.9 and 12.1 red and the cells row 13.0,
-   *  all within one run's noise of the floor, so those three run at
-   *  n 62,500: about 2.7s green for the heading and list-item rows (over the
-   *  ~1.5s per-test target, which the margin outranks) and under 1s for the
-   *  cells row.
+   *  list-item rows measured 12.9 and 12.1 red and the cells row 13.0. All
+   *  three met the rule, so it did not force a larger n. They were raised to
+   *  n 62,500 by judgement, because each figure came from a single run and
+   *  sat within that run's noise of the floor. The cost is about 2.7s green
+   *  for the heading and list-item rows, which is over the ~1.5s per-test
+   *  target, and under 1s for the cells row.
    *
    *  ★★ THE GREEN SIDE IS NOT THE ~2ms AN ALL-`<script>` INPUT COSTS. Three of
    *  these five spend most of their green time in TAG_STRIP_RE, which is
    *  linear but carries a MAX_TAG_SCAN_CHARS-sized constant — a large linear
-   *  term under the red quadratic, which is part of why the heading and
-   *  list-item rows need a larger n than the others to reach a red ratio of
-   *  12.
+   *  term under the red quadratic, which is why the heading and list-item
+   *  rows sat closest to the red floor of 12 at the smaller n.
    *  ★ Each row is its own test, so a reverted fix prints that row's own
    *  ratio in its own assertion message; that is how the red column was
    *  taken. */
