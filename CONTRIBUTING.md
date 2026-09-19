@@ -401,6 +401,12 @@ months (`docs/open-followups.md` §54). CI job: `prod-smoke`, BLOCKING.
 - Sample tests: `src/app/sanitize.test.ts`, `src/app/due-dates.test.ts`,
   `src/app/segmented-control.test.tsx`, `src/app/task-form-modal.test.tsx`,
   `src/app/bulk-edit-modal.test.tsx`.
+- Timing guards (a test that fails when code turns quadratic or backtracks) use
+  `expectLinearScaling` from `src/test/scaling.ts`, never `elapsed < CEILING_MS`
+  — a fixed ceiling fails a correct build on a loaded machine. It requires an
+  output `check` at both sizes, and the test passes `{ timeout: 120_000 }` as a
+  hang backstop, because vitest checks a synchronous test's timeout only after
+  it returns.
 
 ```bash
 npm run test           # watch
