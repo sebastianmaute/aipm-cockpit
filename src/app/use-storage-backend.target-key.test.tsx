@@ -73,6 +73,11 @@ const B_WS = { tasks: TASK_B, raid: [], absences: [], shifts: [], activityLog: [
 const EMPTY = { tasks: [], raid: [], absences: [], shifts: [] };
 const LOCAL_ENTRY = entry("local-1", "2026-09-03T08:00:00.000Z");
 const LOCAL_HIST = hist("hl-1");
+// Fix round 1 (§591 reviewer finding): a SECOND target-A payload, distinguishable from A_WS, so a
+// round trip back to A can tell a REPLACE (this data alone) from a MERGE (this data plus whatever
+// was left in memory from the leg in between).
+const A2_WS = { tasks: [{ id: 30, taskName: "A2" } as unknown as Task], raid: [], absences: [], shifts: [], activityLog: [entry("a2-1", "2026-09-06T08:00:00.000Z")], budgetHistory: [hist("ha2-1")] };
+const RELOAD_B_WS = { tasks: [{ id: 20, taskName: "RB" } as unknown as Task], raid: [], absences: [], shifts: [], activityLog: [entry("rb-1", "2026-09-05T08:00:00.000Z")], budgetHistory: [hist("hrb-1")] };
 
 type FakeBackend = {
   kind: string;
@@ -87,6 +92,27 @@ function makeBackend(ms: number, stored: object): FakeBackend {
   return {
     kind: "browser",
     load: vi.fn(() => new Promise((resolve) => { setTimeout(() => resolve(stored), ms); })),
+    save: vi.fn().mockResolvedValue(undefined),
+    isReady: vi.fn().mockResolvedValue(true),
+    describe: vi.fn().mockResolvedValue(null),
+  };
+}
+
+/**
+ * Fix round 1 — a backend whose `load` returns `values[0]` on its first call and `values[1]`
+ * (held thereafter) on every call after that, each after `ms` on the (fake) clock. Lets one mocked
+ * instance stand in for "the same backend object, read twice" (the load effect's initial read, then
+ * `reloadCurrentProject`'s re-read of that SAME `backend` — no second `createBackend` call happens).
+ */
+function makeSequentialBackend(ms: number, values: readonly [object, object]): FakeBackend {
+  let call = 0;
+  return {
+    kind: "browser",
+    load: vi.fn(() => new Promise((resolve) => {
+      const v = values[Math.min(call, values.length - 1)];
+      call += 1;
+      setTimeout(() => resolve(v), ms);
+    })),
     save: vi.fn().mockResolvedValue(undefined),
     isReady: vi.fn().mockResolvedValue(true),
     describe: vi.fn().mockResolvedValue(null),
@@ -233,5 +259,111 @@ describe("§591 — a load merges the activity log and budget history only onto 
     await advance(1000);
 
     expect(ids(result.current.activityLog)).toEqual(["a-1", "local-1"]);
+  });
+
+  // ── Fix round 1 (reviewer finding) ──────────────────────────────────────────
+  // (a)-(e) above pin the two TERNARIES (merge-vs-replace). None of them can tell a working
+  // post-apply RE-STAMP (`scopeTargetKeyRef.current = targetKey`) from a deleted one, because within
+  // a single load neither test re-reads the ref afterward. Each of (f)-(h) is a ROUND TRIP —
+  // A → (something else) → A — where the THIRD leg's correctness depends on the SECOND leg having
+  // left the ref pointing at its own target, not at whatever the ref held before it ran. A deleted
+  // stamp leaves the ref stale, so the third leg's ternary wrongly matches A's key and MERGES
+  // leftover data from the middle leg into A's fresh load — the same leak class §591 exists to close,
+  // one hop later than (a)/(b) can see.
+  it("(f) an A→B→A round trip: returning to A REPLACES (pins the load effect's applied-branch re-stamp, not just its ternary)", async () => {
+    const a1 = makeBackend(100, A_WS);
+    const b = makeBackend(100, B_WS);
+    const a2 = makeBackend(100, A2_WS);
+    createBackendMock.mockReturnValueOnce(a1).mockReturnValueOnce(b).mockReturnValue(a2);
+    const { result, rerender } = render(tursoArgs("libsql://a.turso.io"));
+    await advance(300);
+    expect(ids(result.current.activityLog)).toEqual(["a-1"]); // control: A applied
+
+    rerender({ args: tursoArgs("libsql://b.turso.io") });
+    await advance(300);
+    expect(ids(result.current.activityLog)).toEqual(["b-1"]); // control: B applied (replace — different target)
+
+    rerender({ args: tursoArgs("libsql://a.turso.io") });
+    await advance(300);
+    // Must be an exact REPLACE with A2's own data — NOT merged with B's "b-1", which is what a stale
+    // ref (still reading "A" from boot, never updated when B's load applied) would produce.
+    expect(ids(result.current.activityLog)).toEqual(["a2-1"]);
+    expect(ids(result.current.budgetHistory)).toEqual(["ha2-1"]);
+  });
+
+  it("(g) a same-target reload after a rebuild onto an empty (refused) target, then a return to A: A REPLACES (pins reloadCurrentProject's own re-stamp)", async () => {
+    const a1 = makeBackend(100, A_WS);
+    // ★ ONE mocked instance stands in for `backend` across BOTH the load effect's read of it (returns
+    //   EMPTY, triggering the empty-refusal) and reloadCurrentProject's re-read of that SAME instance
+    //   (returns RELOAD_B_WS) — reloadCurrentProject calls `backend.load()` again, it does not call
+    //   `createBackend` again, so this must be one object, not a second queued mock.
+    const bThenReload = makeSequentialBackend(100, [EMPTY, RELOAD_B_WS]);
+    const a2 = makeBackend(100, A2_WS);
+    createBackendMock.mockReturnValueOnce(a1).mockReturnValueOnce(bThenReload).mockReturnValue(a2);
+    const { result, rerender } = render(tursoArgs("libsql://a.turso.io"));
+    await advance(300);
+    expect(ids(result.current.activityLog)).toEqual(["a-1"]); // control: A applied
+
+    rerender({ args: tursoArgs("libsql://b.turso.io") });
+    await advance(300);
+    expect(result.current.loadPause).toBe("empty-refused"); // control: the refusal kept A in scope
+    expect(ids(result.current.activityLog)).toEqual(["a-1"]);
+
+    await act(async () => {
+      const p = result.current.reloadCurrentProject();
+      await vi.advanceTimersByTimeAsync(150);
+      await p;
+    });
+    // Control: the reload really read B's (non-empty this time) data and replaced with it —
+    // this leg's correctness comes from the ternary, which fix round 1 is not re-testing.
+    expect(ids(result.current.activityLog)).toEqual(["rb-1"]);
+    expect(ids(result.current.budgetHistory)).toEqual(["hrb-1"]);
+
+    rerender({ args: tursoArgs("libsql://a.turso.io") });
+    await advance(300);
+    // Must be an exact REPLACE with A2's own data — NOT merged with the reload's "rb-1", which is
+    // what a stale ref (never updated by reloadCurrentProject's own re-stamp) would produce.
+    expect(ids(result.current.activityLog)).toEqual(["a2-1"]);
+    expect(ids(result.current.budgetHistory)).toEqual(["ha2-1"]);
+  });
+
+  it("(h) a storage-kind conversion (suppress-branch re-stamp), then a return to A: A REPLACES", async () => {
+    const a1 = makeBackend(100, A_WS);
+    // The conversion target (write-only: onRequestStorageSwitch never calls its `load`) and the
+    // rebuilt memo backend for the new ("browser") kind (suppressed: its `load` must not be called
+    // either) — neither is ever read, so their stored payload is irrelevant.
+    const conversionTarget = makeBackend(0, {});
+    const browserBackend = makeBackend(0, {});
+    const a2 = makeBackend(100, A2_WS);
+    createBackendMock.mockReturnValueOnce(a1).mockReturnValueOnce(conversionTarget).mockReturnValueOnce(browserBackend).mockReturnValue(a2);
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { result, rerender } = render(tursoArgs("libsql://a.turso.io"));
+    await advance(300);
+    expect(ids(result.current.activityLog)).toEqual(["a-1"]); // control: A applied
+
+    // Convert storage kind WITHOUT changing the in-memory workspace (onRequestStorageSwitch copies
+    // the LIVE workspace to the new backend; it never calls applyWorkspace).
+    await act(async () => {
+      await result.current.onRequestStorageSwitch("browser");
+    });
+    expect(conversionTarget.save).toHaveBeenCalledTimes(1); // control: the conversion write ran
+    expect(confirmSpy).toHaveBeenCalled();
+
+    // Simulate the parent re-rendering with the new config `emitStorageConfig` just reported — this
+    // rebuilds the backend memo, and the load effect takes the SUPPRESS branch (armed by the
+    // conversion above).
+    rerender({ args: makeArgs({ kind: "browser" }) });
+    await advance(100);
+    expect(browserBackend.load).not.toHaveBeenCalled(); // control: suppressed — no real load
+    expect(browserBackend.isReady).toHaveBeenCalled(); // control: the suppress branch's status refresh ran
+
+    rerender({ args: tursoArgs("libsql://a.turso.io") });
+    await advance(300);
+    // Must be an exact REPLACE with A2's own data — NOT merged with A's original "a-1", which is
+    // still in memory (the conversion never changed it) and is what a stale ref (never updated by the
+    // suppress branch's own re-stamp) would produce.
+    expect(ids(result.current.activityLog)).toEqual(["a2-1"]);
+    expect(ids(result.current.budgetHistory)).toEqual(["ha2-1"]);
+    confirmSpy.mockRestore();
   });
 });
