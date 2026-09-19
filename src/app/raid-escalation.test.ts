@@ -12,6 +12,7 @@ import {
   stripBreakTags,
 } from "./raid-escalation";
 import type { RaidEscalation } from "./types";
+import { expectLinearScaling } from "../test/scaling";
 
 const RAISED: RaidEscalation = {
   at: "2026-05-20T09:30:00.000Z", toName: "Sam Placeholder", toEmail: "Fictional.Jordan@example.com",
@@ -46,16 +47,30 @@ describe("sanitizeRaidEscalations", () => {
     // Positive control: a name with no tag is kept verbatim, and a name that was ONLY a tag is dropped.
     expect(sanitizeRaidEscalations([RAISED, { ...NOTIFY, toName: "<br>" }])).toEqual([RAISED, NOTIFY]);
   });
-  it("does not blow up on a huge stored toName full of unclosed <br opens", () => {
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("does not blow up on a huge stored toName full of unclosed <br opens", { timeout: 120_000 }, () => {
     // BREAK_TAG's `\s*` and `[^>]*` backtrack to the end of the value from
-    // every start, so stripping BEFORE the length cap measured ~15.6 s here
-    // (the bare regex, ~4x per doubling, took ~23 s at 80k). The ceiling is deliberately loose — it fails
-    // on the pattern class, not on a machine's speed.
-    const toName = "<br ".repeat(80_000);
-    const start = performance.now();
-    const [entry] = sanitizeRaidEscalations([{ ...NOTIFY, toName }]);
-    expect(performance.now() - start).toBeLessThan(1000);
-    expect(entry.toName!.length).toBeLessThanOrEqual(RAID_ESCALATION_NAME_MAX);
+    // every start, so stripping BEFORE the length cap was quadratic. The
+    // shipped code clamps first; the one anchored scan left over the full
+    // value keeps it linear, so this takes the default limit.
+    // n is 20,000 (large 80,000, the former fixed N). Measured 2026-09-19
+    // (ratio large / small, limit 8): 3.31–3.64 green, loops 256–512; 16.37
+    // with the pre-fix `stripBreakTags(raw).slice(0, max)` from ee584d716
+    // (54 s to fail).
+    // ★ `check` stays at the length bound on purpose. The pre-fix code trims
+    // BEFORE it slices, so it returns 200 characters where the shipped code
+    // returns 199; pinning the exact value would fail that mutant on the
+    // untimed warm-up, before any ratio is measured.
+    expectLinearScaling({
+      label: "unclosed <br opens in toName",
+      build: (n) => "<br ".repeat(n),
+      run: (toName) => sanitizeRaidEscalations([{ ...NOTIFY, toName }]),
+      check: (out) => {
+        expect(out).toHaveLength(1);
+        expect(out[0].toName!.length).toBeLessThanOrEqual(RAID_ESCALATION_NAME_MAX);
+      },
+      n: 20_000,
+    });
   });
   it("strips a within-cap name exactly as stripBreakTags does", () => {
     const names = ["Ada Lovelace", "  Ada <br/> Lovelace  ", "Ada<BR class=\"x\">Lovelace", "a".repeat(RAID_ESCALATION_NAME_MAX)];

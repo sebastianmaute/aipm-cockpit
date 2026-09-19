@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { extractHtmlMarkdown, decodeEntities } from "./html-extract";
+import { expectLinearScaling } from "../test/scaling";
 
 describe("extractHtmlMarkdown", () => {
   // ★★★ THE DEFECT THIS EXISTS FOR. .html classified as `text`, so the raw
@@ -199,85 +200,101 @@ describe("extractHtmlMarkdown", () => {
     expect(colCount).toBeLessThanOrEqual(64);
   });
 
-  // ★★★ THE TWO TESTS BELOW ARE DoS GUARDS, NOT PERFORMANCE BENCHMARKS.
+  // ★★★ THE TESTS BELOW ARE DoS GUARDS, NOT PERFORMANCE BENCHMARKS.
   //  Nothing else in this repo bounds processing time, which is why every
-  //  input below passed a fully green suite while taking 12s to 31s, four of
-  //  the five to produce 42 characters. extractHtmlMarkdown runs on the MAIN
+  //  input below once passed a fully green suite while taking many seconds,
+  //  four of the five to produce 42 characters. extractHtmlMarkdown runs on the MAIN
   //  THREAD over attacker-supplied bytes (any .html attachment, any text/html
   //  MIME part, up to MAX_INGEST_NODES of them per mail), so the property
-  //  under test is "finishes", not "finishes fast". Do NOT tighten the budget
-  //  to chase a slowdown — that converts a security guard into a flaky timing
-  //  assertion, and the suite runs shuffled on loaded CI machines.
-  //  MARGIN: see the comment on DOS_BUDGET_MS.
-  /** MARGIN, measured per fixture on the development machine 2026-09-03, with
-   *  the linear walks in place and then with each one reverted to the regex it
-   *  replaced (ms, green -> red):
+  //  under test is "finishes", not "finishes fast". Each guard asserts that
+  //  the work SCALES linearly (src/test/scaling.ts), not that it beats a
+  //  wall-clock ceiling — a ceiling failed correct builds on saturated
+  //  machines (§592, §593), and the suite runs shuffled on loaded CI. Do NOT
+  //  pass a tighter maxRatio to chase a slowdown — that converts a security
+  //  guard back into a flaky timing assertion.
+  //  MARGIN: see the comment on CLAMP_CHARS.
+  /** MARGIN, measured per fixture on the development machine 2026-09-19 as
+   *  the ratio large / small (limit 8), with the linear walks in place and
+   *  then with each one reverted to the regex it replaced (green -> red):
    *
-   *    heading, no '>' at all        865 -> 30,796
-   *    list item, no '>' at all      859 -> 27,569
-   *    table rows, never closed        8 -> 12,218
-   *    table cells, never closed      12 -> 27,435
-   *    trailing open tag             503 -> 25,638
+   *    fixture                     n -> large         green -> red
+   *    heading, no '>' at all      62,500 -> 250,000   4.4 -> 14.5
+   *    list item, no '>' at all    62,500 -> 250,000   3.9 -> 15.0
+   *    table rows, never closed    31,250 -> 125,000   5.0 -> 18.2
+   *    table cells, never closed   62,500 -> 250,000   3.3 -> 19.1
+   *    trailing open tag           31,250 -> 125,000   4.6 -> 14.4
    *
-   *  So the budget sits 9.2x above the slowest GREEN input and, at worst,
-   *  1.5x below the fastest RED one — the rows fixture, whose regex had only
-   *  the lazy-rescan mechanism to be slow by, where the other four had two.
-   *  ★★ THE SPREAD IS ~36x, NOT THE ~4 ORDERS OF MAGNITUDE THE LINEAR
-   *  CONTROL SUGGESTS. The floor is not the 2ms an all-`<script>` input
-   *  costs: three of these five spend most of their green time in
-   *  TAG_STRIP_RE, which is linear but carries a MAX_TAG_SCAN_CHARS-sized
-   *  constant. Budget both sides against the numbers above, not against the
-   *  control.
-   *  ★ Reverting a fix prints the real number in the assertion message, which
-   *  is how the red column was taken; a per-fixture probe is needed to get all
-   *  five, since the first test stops at its first failing case. */
-  const DOS_BUDGET_MS = 8_000;
+   *  The red margin is a ratio of at least 12. At n 31,250 the heading and
+   *  list-item rows measured 12.9 and 12.1 red and the cells row 13.0. All
+   *  three met the rule, so it did not force a larger n. They were raised to
+   *  n 62,500 by judgement, because each figure came from a single run and
+   *  sat within that run's noise of the floor. The cost, measured green
+   *  across the 2026-09-19 runs, is 1.9–2.6 s for the heading row and
+   *  2.3–2.8 s for the list-item row, over the ~1.5 s per-test target, and
+   *  under 1 s for the cells row.
+   *
+   *  ★★ THE GREEN SIDE IS NOT THE ~2ms AN ALL-`<script>` INPUT COSTS. Three of
+   *  these five spend most of their green time in TAG_STRIP_RE, which is
+   *  linear but carries a MAX_TAG_SCAN_CHARS-sized constant — a large linear
+   *  term under the red quadratic, which is why the heading and list-item
+   *  rows sat closest to the red floor of 12 at the smaller n.
+   *  ★ Each row is its own test, so a reverted fix prints that row's own
+   *  ratio in its own assertion message; that is how the red column was
+   *  taken. */
   const CLAMP_CHARS = 500_000;
   const repeatTo = (unit: string, chars: number) =>
     unit.repeat(Math.ceil(chars / unit.length)).slice(0, chars);
 
-  /** Time one extraction, asserting its OUTPUT too — a future early bail that
-   *  made these inputs trivial would otherwise leave a vacuous timing test. */
-  function timeExtract(input: string, assertOutput: (out: string) => void): number {
-    const started = performance.now();
-    const out = extractHtmlMarkdown(input);
-    const elapsed = performance.now() - started;
-    assertOutput(out);
-    return elapsed;
-  }
+  /** Pins a fixture under the clamp, so a later edit cannot push the large
+   *  size past it and make both sizes measure the same truncated input. */
+  const underClamp = (input: string): string => {
+    expect(input.length).toBeLessThanOrEqual(CLAMP_CHARS);
+    return input;
+  };
 
-  it("bounds processing time on unterminated tags that the pair-regex steps walked quadratically", () => {
-    const emptyDoc = (out: string) =>
-      expect(out).toBe("_(document contained no extractable text)_");
-    const cases: Array<[string, string]> = [
-      // No ">" ANYWHERE, so `[^>]*` backtracks to end of input from each of
-      // the ~166,000 start positions.
-      ["heading, no '>' at all", repeatTo("<h1", CLAMP_CHARS)],
-      ["list item, no '>' at all", repeatTo("<li", CLAMP_CHARS)],
-      // These two are the
-      // adversarial case for the walks NESTED inside one rendered table.
-      ["table rows, never closed", `<table>${repeatTo("<tr", CLAMP_CHARS - 15)}</table>`],
-      ["table cells, never closed", `<table><tr>${repeatTo("<td", CLAMP_CHARS - 24)}</tr></table>`],
-    ];
-    for (const [label, input] of cases) {
-      const ms = timeExtract(input, emptyDoc);
-      expect(ms, `${label} took ${Math.round(ms)}ms`).toBeLessThan(DOS_BUDGET_MS);
-    }
-  });
+  const emptyDoc = (out: string) =>
+    expect(out).toBe("_(document contained no extractable text)_");
 
-  it("bounds processing time on a trailing unterminated tag far from any '>'", () => {
+  const QUADRATIC_ROWS: Array<[string, (n: number) => string, number]> = [
+    // No ">" ANYWHERE, so `[^>]*` backtracked to end of input from every start.
+    ["heading, no '>' at all", (n) => underClamp(repeatTo("<h1", n)), 62_500],
+    ["list item, no '>' at all", (n) => underClamp(repeatTo("<li", n)), 62_500],
+    // The adversarial case for the walks NESTED inside one rendered table.
+    ["table rows, never closed", (n) => underClamp(`<table>${repeatTo("<tr", n - 15)}</table>`), 31_250],
+    ["table cells, never closed", (n) => underClamp(`<table><tr>${repeatTo("<td", n - 24)}</tr></table>`), 62_500],
+  ];
+
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it.each(QUADRATIC_ROWS)(
+    "bounds processing time on unterminated tags that the pair-regex steps walked quadratically: %s",
+    { timeout: 120_000 },
+    (label, build, n) => {
+      expectLinearScaling({ label, build, run: extractHtmlMarkdown, check: emptyDoc, n });
+    },
+  );
+
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("bounds processing time on a trailing unterminated tag far from any '>'", { timeout: 120_000 }, () => {
     // `<[^>]*$` READ as bounded — anchored to end of input, so it can match at
     // most once — and was the worst quadratic in the module. A ">" further
     // than MAX_TAG_SCAN_CHARS from any "<" survives TAG_STRIP_RE, and every
     // "<" left of it then backtracks its whole `[^>]*` run before failing.
-    const opens = "<".repeat(100_000);
-    const input = `${opens}${"x".repeat(CLAMP_CHARS - opens.length - 1)}>`;
-    const ms = timeExtract(input, (out) => {
+    expectLinearScaling({
+      label: "trailing open tag",
+      // The original 100,000 opens over 500,000 chars is one fifth; keep that
+      // proportion at both sizes. The ">" stays well over MAX_TAG_SCAN_CHARS
+      // (4096) from the last "<" even at the small size.
+      build: (n) => {
+        const opens = "<".repeat(n / 5);
+        return underClamp(`${opens}${"x".repeat(n - opens.length - 1)}>`);
+      },
+      run: extractHtmlMarkdown,
       // Nothing is strippable here, so the run survives as text; the point is
-      // only that the function got far enough to return it.
-      expect(out.length).toBeGreaterThan(CLAMP_CHARS / 2);
+      // only that the function got far enough to return it. Half of the size
+      // being checked, not of CLAMP_CHARS.
+      check: (out, n) => expect(out.length).toBeGreaterThan(n / 2),
+      n: 31_250,
     });
-    expect(ms, `trailing open tag took ${Math.round(ms)}ms`).toBeLessThan(DOS_BUDGET_MS);
   });
 
   it("clamps a pathologically tall table to a bounded row count", () => {

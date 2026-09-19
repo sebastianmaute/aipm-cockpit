@@ -814,6 +814,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§589](#589-an-edit-made-less-than-500-ms-before-a-backend-rebuild-is-dropped--open) | An edit made less than 500 ms before a backend rebuild is dropped — OPEN | §586 cold review (M5), read from code, pre-existing; GitLab #373 | S — flush the pending save to the old backend on a backend change | open |
 | [§590](#590-pick-storage-file-after-a-failed-load-writes-the-empty-workspace-into-the-chosen-file--open) | Pick storage file after a failed load writes the empty workspace into the chosen file — OPEN | §586 round-1 concern 6 (implementer), read from code; the cold review kept Pick ungated; GitLab #374 | S — refuse or confirm when the picked file already holds data | open |
 | [§591](#591-after-a-turso-urltoken-or-sharepoint-target-change-the-previous-projects-activity-log-and-budget-history-are-merged-into-the-new-target--open) | After a Turso URL/token or SharePoint target change, the previous project's activity log and budget history are merged into the new target — OPEN | §586 whole-branch review (I1), read from code, pre-existing; GitLab #375 | M — decide how a load tells a refresh of the same project from a new target | open |
+| [§592](#592-the-50-ms-wall-clock-ceiling-in-tag-pair-walktestts-can-fail-a-correct-build-under-load--closed-2026-09-19) | The 50 ms wall-clock ceiling in tag-pair-walk.test.ts can fail a correct build under load — CLOSED 2026-09-19 | found 2026-09-19 reading the test's own comment, no failure observed; GitLab #376 | S — a load-independent assertion, or evidence the ceiling holds under CI load | **CLOSED** 2026-09-19 |
+| [§593](#593-html-extracts-8000-ms-dos-budget-test-failed-at-8301-ms-under-a-saturated-full-suite-run--closed-2026-09-19) | html-extract's 8000 ms DoS-budget test failed at 8301 ms under a saturated full-suite run — CLOSED 2026-09-19 | observed 2026-09-08 in a local full-suite run, filed 2026-09-19; GitLab #377 | S — a load-independent assertion, or a ceiling with margin measured under load | **CLOSED** 2026-09-19 |
+| [§594](#594-the-document-asset-patterns-one-huge-tag-scaling-ratio-row-has-no-known-mutant-that-turns-it-red--open) | The document-asset-patterns "one huge tag" scaling-ratio row has no known mutant that turns it red — OPEN | found 2026-09-19 converting the file's timing guards to a scaling ratio (§592, §593 class); GitLab #378 | S — find the regression it guards, or delete/re-scope the row | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -39896,3 +39899,104 @@ already pass REPLACE.
 refreshed" from "new target". A rebuild of the SAME target — an M365 `acquireToken` identity change —
 must keep merging, so "a new backend instance" is not the test on its own; the target's identity
 (storage kind plus URL, token scope, SharePoint item, project id) is.
+
+## 592. The 50 ms wall-clock ceiling in tag-pair-walk.test.ts can fail a correct build under load — CLOSED 2026-09-19
+
+**Status:** CLOSED 2026-09-19 by `docs/timing-flake-592-593`: the site now uses `expectLinearScaling`
+(`src/test/scaling.ts`) at n 20,000 → 80,000, whose test comment records a green ratio of about 4.60
+and a red ratio of 15.9 for the swapped-check mutant, carries a 120 s hang backstop in place of
+vitest's 20 s default, and stayed green under the load burn at a measured 7.13× single-thread
+slowdown, measured 2026-09-19 during the conversion. The guard no longer
+rests on the ~80x absolute-time gap the original finding below cites (~5.4 ms vs ~433 ms at 80,000): it
+instead separates the orderings by how their cost grows from 20,000 to 80,000, about 4x for the shipped
+ordering against a mutant ratio of at least 12 (measured 15.9) for the swapped one. Before merge the
+helper was changed to judge the MEDIAN of the per-pair ratios (large_i / small_i) instead of the
+fastest large run over the fastest small run, because a load step starting after the first small run
+could still fail a correct build under min/min; four sites were re-proved red under the median, at
+16.09 (raid-escalation), 16.23 (tag-pair-walk, no '>' anywhere), 13.62 (html-extract heading row) and
+16.28 (office-xml).
+
+_Original finding, as filed 2026-09-19. Preserved as the dated record; see Status._
+
+The test "keeps retired-name lookups cheap, so a missing close stays linear"
+(`src/app/tag-pair-walk.test.ts`) asserts `performance.now() - start` is under 50 ms over
+`"<w:tbl".repeat(80_000) + ">"`. Its own comment records what it measured when written: "correct order
+(checked-first): ~5.4ms", "swapped order (scanned-first): ~433.2ms (~80x slower)", and that "the 50ms
+ceiling sits roughly midway between the two on a log scale (correct-order margin ~9x under budget,
+swapped ~9x over it)" — the comment is explicit that the ~80x gap between orderings, not the exact
+ceiling, is what makes the test discriminating.
+
+This is a filed RISK, not an observed failure. A ~9x margin on the passing side is real headroom on an
+idle machine but is not orders of magnitude — a full-suite run, or a concurrent `vitest` invocation
+(this repo already warns against running two at once), could plausibly saturate the CPU enough to push
+a correct build's ~5.4ms measurement past the 50ms ceiling, failing a build that has not regressed.
+
+**The fix shape:** a load-independent assertion — for example, measuring the swapped (naive) ordering
+or a smaller-N run inside the same test and asserting a ratio against it — or evidence that the flat
+50ms ceiling holds under genuine CI load. Either way, the fix must not shrink the ~80x ordering gap the
+test currently relies on to catch the regression it is mutation-proved against.
+
+## 593. html-extract's 8000 ms DoS-budget test failed at 8301 ms under a saturated full-suite run — CLOSED 2026-09-19
+
+**Status:** CLOSED 2026-09-19 by `docs/timing-flake-592-593`: the site now uses `expectLinearScaling`
+(`src/test/scaling.ts`) at n 62,500 → 250,000, whose test comment records a green ratio of about 3.93
+and a red ratio of 15.0 for the list-step-reverted mutant, carries a 120 s hang backstop in place of
+vitest's 20 s default, and stayed green under the load burn at a measured 7.08× single-thread
+slowdown, measured 2026-09-19 during the conversion. `DOS_BUDGET_MS`, named
+in the original finding below, has been removed; `CLAMP_CHARS` remains as the input-size clamp, now
+paired with the ratio check in place of the fixed 8,000 ms wall-clock budget. The ratio is now the
+median of the per-pair ratios (see §592's Status), and all nine converted files stayed green with a
+20-process load step starting about 3 s into a `--maxWorkers=1` run, at a measured 3.25× slowdown.
+
+_Original finding, as filed 2026-09-19. Preserved as the dated record; see Status._
+
+On 2026-09-08 a local full-suite run failed `src/app/html-extract.test.ts` > `extractHtmlMarkdown` >
+"bounds processing time on unterminated tags that the pair-regex steps walked quadratically", with
+exactly: `list item, no '>' at all took 8301ms: expected 8301.290800000002 to be less than 8000`. In
+the same run, `i18n-plural.test.ts` and `label-binding.guard.test.ts` each separately hit `Test timed
+out in 20000ms` — evidence the machine was saturated at the time, not that the extractor regressed.
+`DOS_BUDGET_MS = 8_000` and `CLAMP_CHARS = 500_000` in that test file.
+
+Same class as [§592](#592-the-50-ms-wall-clock-ceiling-in-tag-pair-walktestts-can-fail-a-correct-build-under-load--closed-2026-09-19):
+a wall-clock ceiling in a unit test, sized with margin measured on one idle machine rather than against
+load, tripped exactly once under contention rather than by a real regression in the extractor.
+
+**The fix shape:** a load-independent assertion, or a ceiling carrying margin measured under a
+saturated full-suite run, without letting a genuine quadratic regression in the pair-regex walk pass
+silently.
+
+## 594. The document-asset-patterns "one huge tag" scaling-ratio row has no known mutant that turns it red — OPEN
+
+**Status:** OPEN 2026-09-19 — found converting `document-asset-patterns.differential.test.ts`'s timing
+guards to a scaling ratio (§592, §593 class, `docs/timing-flake-592-593`); machine-verified by
+`npx vitest run src/app/document-asset-patterns.differential.test.ts -t "stays bounded on one huge tag" --maxWorkers=1 --reporter=dot`
+against three reverted-source mutants (predicate, ANY_TAG tag-name class, IMG_TAG without its §253
+guard), each staying green; the underlying regression this row is meant to catch is not reproduced —
+none is known. That command proves only the green half (the shipped row passes); the red half — that
+no mutant turns it red — comes from the mutant runs recorded on 2026-09-19 with each revert applied by
+hand, and no single command can re-verify it.
+
+**Work item:** #378
+
+The `"one huge tag"` row (`` `<img alt="${"a".repeat(n)}" x=1>` ``) is one of the `ADVERSARIAL` rows
+converted to `expectLinearScaling`. Against all three historical mutants — the predicate widened to
+`[^>]*`, `ANY_TAG_ASSET_ID_RE`'s tag-name class widened to `[^\s/>"']*`, and `IMG_TAG_ASSET_ID_RE`
+without its §253 guard — the row stayed linear, with green ratios of 4.08, 3.90 and 3.97
+respectively (the guard's pass threshold is a ratio under 8; a real quadratic regression measures
+near 16 elsewhere in the same file). Several other plausible variants — `[^<>]` without the quote
+exclusion, a nested `+` inside `*`, `[^\s/>]*`, and the old `\b` predicate — were also checked in a
+node replica and stayed linear; only a contrived, implausible `"(?:[^"]|a)*"` pattern went
+super-linear.
+
+No commit names a regression this row is meant to catch:
+``git log -S'" x=1>`' --oneline -- src/app/document-asset-patterns.differential.test.ts`` returns one
+commit, `afcf29591`, which added the row and touched only that test file. One commit added it; none
+has a source hunk that changes the pattern it exercises (the conversion to a ratio left the row's text
+unchanged, so `-S` does not list it). The row was already
+unproven under the old fixed wall-clock ceiling this branch replaced — the guard has never had a
+demonstrated kill.
+
+**The open question:** find the regression this row is meant to guard against, so a mutant can prove
+it, or delete the row, or re-scope it to a pattern that does have a known quadratic case. The row's
+own comment in `document-asset-patterns.differential.test.ts` (beside the `"one huge tag"` entry)
+already records it as unproven rather than claimed as covered.

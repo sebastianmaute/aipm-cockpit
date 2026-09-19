@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { extractPptx } from "./pptx-extract";
+import { expectLinearScaling } from "../test/scaling";
 
 function enc(s: string): Uint8Array {
   return new TextEncoder().encode(s);
@@ -27,20 +28,27 @@ describe("extractPptx", () => {
     expect(extractPptx(new Map())).toBe("");
   });
 
-  it("does not blow up on repetitive unclosed markup", () => {
-    // 120k unclosed <a:p opens inside one slide - same shape as
-    // docx-extract.test.ts's fixture, sized up from its 40k: at 40k the
-    // former `<a:p\b[\s\S]*?<\/a:p>` lazy pair regex measured well under a
-    // second here (a wrapper containing real ">" characters keeps the
-    // blowup slower than office-xml's no-">"-anywhere case), so 40k would
-    // not reliably fail this test on a loaded machine. 120k measured
-    // ~11s old vs <5ms new, a >1000x margin. The ceiling is deliberately
-    // loose - it fails on the pattern class, not on a machine's speed.
-    const slide =
-      "<p:sld><p:cSld><p:spTree>" + "<a:p ".repeat(120_000) + "</p:spTree></p:cSld></p:sld>";
-    const entries = new Map<string, Uint8Array>([["ppt/slides/slide1.xml", enc(slide)]]);
-    const start = performance.now();
-    extractPptx(entries);
-    expect(performance.now() - start).toBeLessThan(1000);
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("does not blow up on repetitive unclosed markup", { timeout: 120_000 }, () => {
+    // Unclosed <a:p opens inside one slide - same shape as
+    // docx-extract.test.ts's fixture. The regression is the former
+    // `<a:p\b[\s\S]*?<\/a:p>` lazy pair regex, which rescans to end of input
+    // from every open.
+    // Measured 2026-09-19 (ratio large / small, limit 8): 3.9–4.1 green,
+    // 16.7 with that lazy regex restored in extractPptx.
+    expectLinearScaling({
+      label: "unclosed <a:p opens",
+      build: (n) =>
+        new Map<string, Uint8Array>([
+          [
+            "ppt/slides/slide1.xml",
+            enc("<p:sld><p:cSld><p:spTree>" + "<a:p ".repeat(n) + "</p:spTree></p:cSld></p:sld>"),
+          ],
+        ]),
+      run: extractPptx,
+      // The slide is read, and no open finds its </a:p>, so it has no bullets.
+      check: (out) => expect(out).toBe("## Slide 1"),
+      n: 30_000,
+    });
   });
 });

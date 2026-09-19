@@ -34,6 +34,7 @@ import { ANY_TAG_ASSET_ID_RE, IMG_TAG_ASSET_ID_RE, ASSET_IMG_TEST_RE } from "./d
 // a round number, so it reads the constant instead of restating it — a literal
 // here would silently stop tracking the cap the moment it moved.
 import { MAX_HTML_TEXT_CHARS } from "./document-model";
+import { expectLinearScaling } from "../test/scaling";
 
 const REAL = "realid";
 
@@ -369,16 +370,24 @@ describe("document-asset-patterns — differential against a real HTML parser", 
  *   them; the bare `"<img".repeat(n)` and `"<a".repeat(n)` families are the
  *   only two that catch widening the tag-name class to `[^\s/>"']*` — the
  *   module docstring's own "first attempt", which is correctness-green in both
- *   test files and measured ~5.9 s at 64 KB here. Pruning to "the one that
- *   matters" would delete the only detector for the mutant the docs name by
- *   hand. */
+ *   test files and quadratic here (ratio in the table below). Pruning to "the
+ *   one that matters" would delete the only detector for the mutant the docs
+ *   name by hand.
+ *
+ *  Each row's third field, when present, is its LARGE size in bytes; the
+ *  complexity test below times the row at a quarter of it and at the full size
+ *  and asserts the ratio. Rows without one use `BYTES`. */
 const ADVERSARIAL: ReadonlyArray<
   readonly [string, (bytes: number) => string, number?]
 > = [
   ["<img SP repeated, closed", (n) => "<img ".repeat(Math.round(n / 5)) + ">"],
-  ["<img repeated", (n) => "<img".repeat(Math.round(n / 4))],
+  // ★★ 128 KB large, not `BYTES`: the tag-name mutant costs whole seconds per
+  // call, and at 256 KB large the selected test does not finish inside the
+  // 120 s mutant wrapper, so it would never report a ratio.
+  ["<img repeated", (n) => "<img".repeat(Math.round(n / 4)), 128 * 1024],
   ["<img alt= repeated", (n) => "<img alt=".repeat(Math.round(n / 9))],
-  ["<a repeated", (n) => "<a".repeat(Math.round(n / 2))],
+  // ★★ 128 KB large for the same reason as "<img repeated".
+  ["<a repeated", (n) => "<a".repeat(Math.round(n / 2)), 128 * 1024],
   ["one huge tag", (n) => `<img alt="${"a".repeat(n)}" x=1>`],
   // ★★★ THE ONLY FAMILY THAT CARRIES THE ATTRIBUTE, AND THE ONLY ONE SIZED TO
   //  A CAP RATHER THAN TO `BYTES`. Every family above stresses the ANCHOR, so
@@ -387,11 +396,11 @@ const ADVERSARIAL: ReadonlyArray<
   //  attribute — is never exercised. It is quadratic there: an UNTERMINATED
   //  `<img` carrying N real `data-asset-id="…"` makes the greedy prefix
   //  backtrack through every occurrence, re-scanning the tail for a `>` that
-  //  never comes. Measured on the shipped pattern, `matchAll`: 112 ms at 32 KB,
-  //  388 at 64, 1548 at 128, 8029 at 256 — exponent ~2.1. Closing the tag is
-  //  1.0 ms at 256 KB, so the trigger is specifically the missing `>`;
+  //  never comes. Measured on the pattern as it stood before §253's guard,
+  //  `matchAll`: exponent ~2.1 across 32–256 KB. Closing the tag made it
+  //  linear, so the trigger is specifically the missing `>`;
   //  `ANY_TAG_ASSET_ID_RE` (lazy, no trailing requirement) and the predicate
-  //  are ~0.1 ms throughout.
+  //  stay linear throughout.
   //  ★★★ IT IS SIZED AT `MAX_HTML_TEXT_CHARS`, NOT `BYTES`, BECAUSE THAT IS
   //   THE WHOLE PRODUCTION EXPOSURE — and running it at 256 KB would assert a
   //   size no stored block can reach, i.e. fail the branch over a shape the app
@@ -410,10 +419,11 @@ const ADVERSARIAL: ReadonlyArray<
   //    is not the one protecting it.
   //   Measured end to end —
   //   `sanitizeProjectDocuments` and `normalizeBlockForStorage` both store
-  //   20 010 chars of a 262 157-char payload. At that size the quadratic is
-  //   ~38 ms, so this row runs with a ~50x margin and goes red if the cap is
-  //   raised or the pattern degrades further. The unbounded property itself is
-  //   recorded in `docs/open-followups.md` §253.
+  //   20 010 chars of a 262 157-char payload. The row's large size is that
+  //   cap, so its `build` asserts it never exceeds it. This is not a vacuity
+  //   guard (the timed regexes run on the raw input; there is no clamp to
+  //   cross); it pins the row at the real-exposure size named above. The
+  //   unbounded property itself is recorded in `docs/open-followups.md` §253.
   //   ★★★ THAT ENTRY IS NOW CLOSED AND THIS COMMENT SAID THE OPPOSITE — it read
   //   "deliberately NOT fixed here, because bounding the trailing run is the
   //   same narrowing class that produced §250's two regressions", roughly forty
@@ -431,59 +441,105 @@ const ADVERSARIAL: ReadonlyArray<
 ];
 
 describe("document-asset-patterns — complexity", () => {
-  // ★★★ THE CEILING IS DELIBERATELY ~1000x THE MEASURED COST, and that is the
-  // point rather than sloppiness. Measured linear behaviour is single-digit
-  // milliseconds at 1 MB; the shipped quadratic was ~44 SECONDS at 512 KB. Any
-  // threshold between those two separates them, so the loosest one that still
-  // does is correct — it cannot flake on a loaded machine (this repo's suite
-  // runs 16-wide and a starved worker is a known flake source) while still
-  // failing instantly on a genuine complexity regression.
-  // ★ Do NOT tighten this to track the real number. A perf assertion that is
-  // close to the measurement is a flake generator, and a flaky gate gets
-  // deleted, which costs the whole check.
-  const CEILING_MS = 2000;
-  // ★★ 256 KB, not 1 MB, and the reason is FAILURE LEGIBILITY rather than
-  // speed. The quadratic that shipped measured ~44 s at 512 KB, so at 1 MB it
-  // would blow vitest's 20 s test timeout BEFORE the assertion ran — turning a
-  // precise "took 11 000 ms, ceiling 2 000" into a bare timeout that names
-  // neither number and reads like a hung worker. At 256 KB the quadratic lands
-  // around 11 s: still ~5x over the ceiling, still red, and it says why.
-  // ★ The linear cost here is ~1 ms, so the margin is unchanged in the direction
-  // that matters.
+  // ★★★ A DoS guard, not a benchmark. Each row times the three patterns at a
+  // quarter of its large size and at the full size, and asserts the RATIO
+  // stays under 8 (src/test/scaling.ts): linear code gives about 4, a
+  // quadratic about 16. A ratio does not move with machine load, so there is
+  // no ceiling to size and no margin to keep; a quadratic's ratio tends to 16
+  // as n grows, and the sizes below are the ones its mutant reaches at least
+  // 12 at.
+  // ★★ `BYTES` is the LARGE size for rows that do not name their own, 256 KB,
+  // the former fixed size. It no longer has to leave room under vitest's 20 s
+  // timeout: every row runs with a 120 s hang backstop, and a red ratio is
+  // reported as the ratio however long it took.
+  // ★ `check` pins each row's exact result. Only the attribute-carrying row
+  // matches anything: the predicate is true and the lazy ANY_TAG pattern takes
+  // the first id; the greedy IMG_TAG pattern needs a `>` that never comes.
+  // Every other row matches nothing at either size.
+  // ★ So `check` cannot catch an early bail on those rows, nor on the
+  // pattern-level test below: "matches nothing" IS the correct result. `run`
+  // is the patterns themselves, and a sentinel tag after the soup would hand
+  // them the `>` or the close each row exists to withhold, changing the
+  // backtracking the mutants depend on. Those rows rely on the ratio alone.
+  // Measured 2026-09-19 (ratio large / small, limit 8; mutants reverted by
+  // hand from the commits named):
+  //   <img SP repeated, closed  n 64 KB  green 4.01–4.07, 15.12 with the
+  //     predicate's first branch back to `[^>]*` (ad42411d0) (loops 32)
+  //   <img repeated  n 32 KB  green 4.04–4.26, 15.09 with that same
+  //     predicate mutant, 16.35 (63 s to fail) with ANY_TAG's tag name widened to
+  //     `[^\s/>"']*` (loops 64)
+  //   <img alt= repeated  n 64 KB  green 3.90–4.00, 14.42 with the
+  //     predicate mutant (loops 32)
+  //   <a repeated  n 32 KB  green 3.83–3.99, 16.41 (44 s to fail) with the tag-name
+  //     mutant (loops 512)
+  //   one huge tag  n 64 KB  green 3.96–4.04 (loops 128). ★★ NO
+  //     MUTANT TURNS THIS ROW RED: the three mutants above and IMG_TAG without
+  //     its §253 guard all stay linear on it. It is recorded as unproven rather
+  //     than claimed as covered.
+  //   <img with N data-asset-id, unterminated  n 5,000  green 3.92–4.01,
+  //     17.06 with IMG_TAG's §253 guard deleted (3faa3932b) (loops 1,024–2,048)
   const BYTES = 256 * 1024;
 
   for (const [label, make, bytes] of ADVERSARIAL) {
-    it(`stays bounded on ${label}`, () => {
-      const input = make(bytes ?? BYTES);
-      const started = performance.now();
-      ASSET_IMG_TEST_RE.test(input);
-      ANY_TAG_ASSET_ID_RE.lastIndex = 0;
-      Array.from(input.matchAll(ANY_TAG_ASSET_ID_RE));
-      Array.from(input.matchAll(IMG_TAG_ASSET_ID_RE));
-      expect(performance.now() - started).toBeLessThan(CEILING_MS);
+    const large = bytes ?? BYTES;
+    // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+    it(`stays bounded on ${label}`, { timeout: 120_000 }, () => {
+      expectLinearScaling({
+        label,
+        build: (n) => {
+          const input = make(n);
+          // Keeps the cap-sized row at the real-exposure size its comment names.
+          if (large === MAX_HTML_TEXT_CHARS) expect(input.length).toBeLessThanOrEqual(MAX_HTML_TEXT_CHARS);
+          return input;
+        },
+        // Stateless across calls: ANY_TAG_ASSET_ID_RE is global, so its
+        // lastIndex is reset every run; ASSET_IMG_TEST_RE is not global, and
+        // matchAll clones the regex it is given.
+        run: (input) => {
+          const predicate = ASSET_IMG_TEST_RE.test(input);
+          ANY_TAG_ASSET_ID_RE.lastIndex = 0;
+          const anyIds = Array.from(input.matchAll(ANY_TAG_ASSET_ID_RE), (m) => m[1]);
+          const imgIds = Array.from(input.matchAll(IMG_TAG_ASSET_ID_RE), (m) => m[1]);
+          return { predicate, anyIds, imgIds };
+        },
+        check: (out, n) =>
+          expect(out).toEqual(
+            make(n).includes('data-asset-id="x"')
+              ? { predicate: true, anyIds: ["x"], imgIds: [] }
+              : { predicate: false, anyIds: [], imgIds: [] },
+          ),
+        n: Math.round(large / 4),
+      });
     });
   }
 
   // ★★★ A PATTERN-LEVEL BOUND, DELIBERATELY SEPARATE FROM THE ROWS ABOVE. The
-  // ADVERSARIAL family is sized to MAX_HTML_TEXT_CHARS because that is the
-  // app's real exposure, and at that size the quadratic still fits the ceiling
-  // with a ~50x margin — so it cannot pin the pattern's own complexity. This
-  // one asserts the MATCHER is linear, at a size no stored block can reach, and
-  // it is the only thing that goes red if the quadratic returns. Measured on
-  // the PRE-FIX pattern 2026-08-27: 143 ms at 32 KB, 529 at 64, 1961 at 128,
-  // 16098 at 256 — an exponent above 2. The guarded pattern, which is what
-  // ships today, is 0.2 / 0.4 / 0.6 / 2.5 ms across the same four sizes.
-  // ★★ The first two numbers were labelled "the shipped pattern" while the
+  // attribute-carrying ADVERSARIAL row is sized to MAX_HTML_TEXT_CHARS because
+  // that is the app's real exposure. Under the former ceiling the quadratic
+  // fitted inside it with a wide margin at that size, so the row could not pin
+  // the pattern's own complexity; under the ratio it does go red (table
+  // above), but it still says nothing about sizes past the cap. This one
+  // asserts the MATCHER is linear at a size no stored block can reach.
+  // Measured on the PRE-FIX pattern 2026-08-27: an exponent above 2 across
+  // 32–256 KB, where the guarded pattern, which is what ships today, stayed
+  // linear.
+  // ★★ The pre-fix figures were once labelled "the shipped pattern" while the
   // guarded one was already shipping, so a reader would have concluded today's
   // code is quadratic. Name the pattern a measurement belongs to, not its
   // status at the moment of writing — status moves, and the sentence does not.
-  // These are BUDGET numbers off one machine under load: re-measure rather than
-  // trusting the cells.
-  it("IMG_TAG_ASSET_ID_RE is linear on an unterminated <img carrying repeated ids", () => {
+  // Measured 2026-09-19 (ratio large / small, limit 8), n 64 KB (large 256 KB,
+  // the former fixed size): green 3.98–4.11, 16.62 with the §253 guard
+  // deleted (3faa3932b) (loops 128). `check` pins that no id is
+  // extracted: the tag never closes.
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("IMG_TAG_ASSET_ID_RE is linear on an unterminated <img carrying repeated ids", { timeout: 120_000 }, () => {
     const unit = 'data-asset-id="x" ';
-    const input = "<img " + unit.repeat(Math.round((256 * 1024) / unit.length));
-    const started = performance.now();
-    Array.from(input.matchAll(IMG_TAG_ASSET_ID_RE));
-    expect(performance.now() - started).toBeLessThan(CEILING_MS);
+    expectLinearScaling({
+      label: "IMG_TAG_ASSET_ID_RE, unterminated <img with repeated ids",
+      build: (n) => "<img " + unit.repeat(Math.round(n / unit.length)),
+      run: (input) => Array.from(input.matchAll(IMG_TAG_ASSET_ID_RE), (m) => m[1]),
+      check: (ids) => expect(ids).toEqual([]),
+      n: 64 * 1024,
+    });
   });
 });

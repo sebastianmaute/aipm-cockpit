@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { decodeUtf8, unescapeXml, extractRuns } from "./office-xml";
+import { expectLinearScaling } from "../test/scaling";
 
 describe("office-xml", () => {
   it("decodes UTF-8 bytes", () => {
@@ -98,20 +99,32 @@ describe("office-xml", () => {
     expect(extractRuns(xml, "a:t")).toEqual(["Hello", " world"]);
   });
 
-  it("does not blow up on repetitive unclosed markup", () => {
-    // 100k unclosed <t opens, no closing tag anywhere - same shape as
-    // docx-extract.test.ts's fixture, sized up from its 40k: at 40k the
-    // former `<tag(?:\s[^>]*)?>([\s\S]*?)</tag>` lazy pair regex measured
-    // only ~1.3-2s here (a thin margin over the ceiling on a loaded
-    // machine), so this pins the class at a size with real headroom -
-    // measured ~11.5s old vs <5ms new, a >100x margin. extractRuns is now a
-    // shared primitive (xlsx-extract.ts and pptx-extract.ts both call it),
-    // so it gets its own pin rather than relying only on its callers'. The
-    // ceiling is deliberately loose - it fails on the pattern class, not on
-    // a machine's speed.
-    const xml = "<t ".repeat(100_000);
-    const start = performance.now();
-    extractRuns(xml, "t");
-    expect(performance.now() - start).toBeLessThan(1000);
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("does not blow up on repetitive unclosed markup", { timeout: 120_000 }, () => {
+    // Unclosed <t opens, no ">" or closing tag anywhere. The regression is
+    // the former `<tag(?:\s[^>]*)?>([\s\S]*?)</tag>` lazy pair regex, which
+    // scans to end of input from every open. extractRuns is a shared
+    // primitive (xlsx-extract.ts and pptx-extract.ts both call it), so it
+    // gets its own pin rather than relying only on its callers'.
+    // n is 40,000, not the former fixed 100,000 / 4: the correct walk stops at the
+    // first open (no ">" anywhere), so one call is a single forward scan. At
+    // 25,000 the helper calibrated 16,384 loops against its 65,536 cap; at
+    // 40,000 it calibrates 8,192 (fast-CI headroom, plan Review Focus 1). A
+    // larger n would cut the loops further, but the mutant's cost grows as n²:
+    // at 50,000 the mutant proof no longer finishes inside the 120 s wrapper, so
+    // 40,000 is the largest n whose regression can be proved on its ratio.
+    // Measured 2026-09-19 (ratio large / small, limit 8): 3.5–3.6 green,
+    // 16.9 with that lazy regex restored in extractRuns (89 s to fail).
+    expectLinearScaling({
+      label: "unclosed <t opens (extractRuns)",
+      build: (n) => "<t ".repeat(n),
+      run: (xml) => extractRuns(xml, "t"),
+      // No open has a ">", so no run is extracted. `check` cannot catch an
+      // early bail: the correct walk stops at the first open, and a sentinel
+      // run after the soup would add the ">" the fixture withholds. The
+      // mutant is caught on its ratio alone.
+      check: (runs) => expect(runs).toEqual([]),
+      n: 40_000,
+    });
   });
 });

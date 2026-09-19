@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { forEachOpenTag, forEachTagPair, replaceTagPairs, type TagPairSpec } from "./tag-pair-walk";
+import { expectLinearScaling } from "../test/scaling";
 
 const SPEC: TagPairSpec = {
   openPattern: "<(w:tbl)\\b",
@@ -35,17 +36,39 @@ describe("forEachTagPair", () => {
     expect(pairs).toEqual([]);
   });
 
-  it("stays linear when the input has no '>' anywhere at all", () => {
-    // 20k unclosed opens with no ">" anywhere: every one hits the
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("stays linear when the input has no '>' anywhere at all", { timeout: 120_000 }, () => {
+    // Unclosed opens with no ">" anywhere: the first one hits the
     // `if (gt === -1) return;` branch on the very FIRST iteration, so this
     // does not exercise the closeRe===null retirement path below (that one
     // needs a ">" present so the walk gets past the first open) — see
-    // "keeps retired-name lookups cheap ..." for that. Quadratic scanning
-    // here would take seconds, linear is ms.
-    const input = "<w:tbl ".repeat(20_000);
-    const start = performance.now();
-    forEachTagPair(input, SPEC, () => true);
-    expect(performance.now() - start).toBeLessThan(250);
+    // "keeps retired-name lookups cheap ..." for that. Turning that `return`
+    // into a `continue` makes every open rescan to end of input. Measured
+    // 2026-09-19 (ratio large / small, limit 8): 4.1–4.3 green, 17.2 with
+    // that mutant. n is 80,000, not the former fixed 20,000 / 4: one green call is a
+    // single indexOf of a few µs, and at n 5,000 the helper calibrated
+    // 16,384–32,768 loops against its 65,536 cap, so a CI machine 2–4x faster
+    // would throw below the timer floor. At 80,000 it calibrates 2,048 loops
+    // (fast-CI headroom, plan Review Focus 1).
+    expectLinearScaling({
+      label: "no '>' anywhere (forEachTagPair)",
+      build: (n) => "<w:tbl ".repeat(n),
+      run: (input) => {
+        const seen: string[] = [];
+        forEachTagPair(input, SPEC, (pair) => {
+          seen.push(pair.inner);
+          return true;
+        });
+        return seen;
+      },
+      // No open has a ">", so nothing is yielded. `check` cannot catch an
+      // early bail here: the correct walk IS one (it returns at the first
+      // open), and a sentinel pair after the soup would put a ">" in the
+      // input, which is the one thing this fixture exists to withhold. The
+      // mutant is caught on its ratio alone.
+      check: (seen) => expect(seen).toEqual([]),
+      n: 80_000,
+    });
   });
 
   it("retires one name's close lookup without affecting a different name", () => {
@@ -97,7 +120,8 @@ describe("forEachTagPair", () => {
     expect(pairs).toEqual(["/>real"]);
   });
 
-  it("keeps retired-name lookups cheap, so a missing close stays linear", () => {
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("keeps retired-name lookups cheap, so a missing close stays linear", { timeout: 120_000 }, () => {
     // A single ">" at the very end (no space after "w:tbl", so `\b` still
     // matches against the following "<") means the FIRST open pays for one
     // real `indexOf(">", ...)` scan, finds no close, and retires the name to
@@ -107,24 +131,31 @@ describe("forEachTagPair", () => {
     // NOT cover: that one returns out of the whole function on the first
     // open, so its N-1 remaining opens are never reached.
     //
-    // Measured on this machine at N=80,000 (git commit 0ac53c0c code, i.e.
-    // the retired-name check placed BEFORE the attribute scan):
-    //   correct order (checked-first):  ~5.4ms
-    //   swapped order (scanned-first): ~433.2ms   (~80x slower)
     // Reordering the two checks inside forEachTagPair (running the
     // `indexOf(">", ...)` scan before the `closeRe === null` check) turns
     // this back into the O(n^2) walk the docstring warns against, because
     // every retired open re-scans to the one ">" at the end of the input.
-    // The 50ms ceiling sits roughly midway between the two on a log scale
-    // (correct-order margin ~9x under budget, swapped ~9x over it), with
-    // room either way for a slower or faster CI box — the ~80x gap between
-    // the two orderings is what actually makes this test discriminating,
-    // not the exact ceiling chosen.
-    const n = 80_000;
-    const input = "<w:tbl".repeat(n) + ">";
-    const start = performance.now();
-    forEachTagPair(input, SPEC, () => true);
-    expect(performance.now() - start).toBeLessThan(50);
+    // Measured 2026-09-19 (ratio large / small, limit 8): 4.6 in the correct
+    // order, 15.9 with the two checks swapped.
+    expectLinearScaling({
+      label: "retired-name lookups",
+      build: (n) => "<w:tbl".repeat(n) + ">",
+      run: (input) => {
+        const seen: string[] = [];
+        forEachTagPair(input, SPEC, (pair) => {
+          seen.push(pair.inner);
+          return true;
+        });
+        return seen;
+      },
+      // No open ever finds its close, so nothing is yielded. `check` cannot
+      // tell a walk that stopped after the first retirement from one that
+      // consulted it N-1 times: both yield nothing. A sentinel "</w:tbl>"
+      // would give the first open a close and un-retire the name, removing
+      // the path under test, so the mutant is caught on its ratio alone.
+      check: (seen) => expect(seen).toEqual([]),
+      n: 20_000,
+    });
   });
 });
 
@@ -161,22 +192,51 @@ describe("forEachOpenTag", () => {
     expect(tagsOf(`<sheet a/><sheet b/>`, 1)).toEqual([`<sheet a/>`]);
   });
 
-  it("stays linear on opens with no '>' anywhere at all", () => {
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("stays linear on opens with no '>' anywhere at all", { timeout: 120_000 }, () => {
     // Skipping such an open instead of ending the walk makes every later one
     // rescan to end of input. indexOf is fast enough that this only shows at
-    // scale: ~0.2s per walk at 40k opens, ~4s at this size.
-    const input = "<sheet ".repeat(200_000);
-    const start = performance.now();
-    expect(tagsOf(input)).toEqual([]);
-    expect(performance.now() - start).toBeLessThan(250);
+    // scale. Measured 2026-09-19 (ratio large / small, limit 8): 4.1–4.3
+    // green, 16.7 with `if (gt === -1) return;` turned into `continue`.
+    // n is 100,000, not the former fixed 200,000 / 4: at 50,000 the helper calibrated
+    // 2,048–4,096 loops; at 100,000 it calibrates 2,048, leaving headroom
+    // under its 65,536 cap on a faster CI machine (plan Review Focus 1).
+    expectLinearScaling({
+      label: "no '>' anywhere (forEachOpenTag)",
+      build: (n) => "<sheet ".repeat(n),
+      run: (input) => tagsOf(input),
+      // As in the forEachTagPair case above: the correct walk returns at the
+      // first open, so `check` cannot catch an early bail, and a sentinel tag
+      // would add the ">" the fixture withholds. The ratio catches the mutant.
+      check: (tags) => expect(tags).toEqual([]),
+      n: 100_000,
+    });
   });
 
-  it("stays linear on opens with no '>' before the end of a long input", () => {
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("stays linear on opens with no '>' before the end of a long input", { timeout: 120_000 }, () => {
     // Resuming the open scan anywhere short of the visited tag's ">" makes
     // every one of these opens rescan out to the single ">" at the end.
-    const input = "<sheet ".repeat(80_000) + ">";
-    const start = performance.now();
-    expect(tagsOf(input)).toHaveLength(1);
-    expect(performance.now() - start).toBeLessThan(250);
+    // Measured 2026-09-19 (ratio large / small, limit 8): 4.3–4.4 green.
+    // Dropping the `openRe.lastIndex = gt + 1` resume fails `check` first,
+    // since every open then becomes its own tag; with `check` relaxed, the
+    // same mutant measured 18.2. n is 80,000, not the former fixed 80,000 / 4: at
+    // 20,000 the helper calibrated 4,096–8,192 loops; at 80,000 it
+    // calibrates 2,048, leaving headroom under its 65,536 cap on a faster CI
+    // machine (plan Review Focus 1).
+    expectLinearScaling({
+      label: "one '>' at the end (forEachOpenTag)",
+      build: (n) => "<sheet ".repeat(n) + ">",
+      run: (input) => tagsOf(input),
+      // The first open's tag runs through the one ">", consuming every later
+      // open inside it, as `<sheet\b[^>]*>` did. Compared by length, not by
+      // value: a failing toEqual would print every tag, which overflows the
+      // formatter at these sizes.
+      check: (tags, n) => {
+        expect(tags.length).toBe(1);
+        expect(tags[0].length).toBe("<sheet ".length * n + 1);
+      },
+      n: 80_000,
+    });
   });
 });
