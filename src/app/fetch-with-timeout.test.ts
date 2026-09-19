@@ -62,10 +62,33 @@ describe("fetchTextWithTimeout", () => {
     await expect(fetchTextWithTimeout("https://x.test/a", { method: "GET" }, 1000)).rejects.toThrow(TypeError);
   });
 
+  it("does not misreport a non-abort error that arrives after the timer fires", async () => {
+    // §548 fix round 2 — the timer flips `timedOut` and calls abort() in the same tick, so a naive
+    // `if (timedOut) throw FetchTimeoutError` wraps EVERY error that arrives once the timer has fired,
+    // even one that has nothing to do with our abort. Model that: the transport rejects with a plain
+    // (non-AbortError) Error only once the abort signal fires.
+    vi.useFakeTimers();
+    const fetchMock = vi.fn((_url: unknown, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new Error("ECONNRESET")));
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const pending = fetchTextWithTimeout("https://x.test/a", { method: "GET" }, 500);
+    const expectation = expect(pending).rejects.toThrow("ECONNRESET");
+    await vi.advanceTimersByTimeAsync(500);
+    await expectation;
+  });
+
   it("clears its timer once the body is read", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("fetch", vi.fn(async () => new Response("ok", { status: 200 })));
     await fetchTextWithTimeout("https://x.test/a", { method: "GET" }, 1000);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("clears its timer on the error path too (no stray abort later)", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("network down"); }));
+    await expect(fetchTextWithTimeout("https://x.test/a", { method: "GET" }, 1000)).rejects.toThrow(TypeError);
     expect(vi.getTimerCount()).toBe(0);
   });
 });
