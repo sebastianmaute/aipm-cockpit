@@ -116,13 +116,16 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   ACTIVE backend checks it: the save effect (no schedule), `doSave` (the debounce timer AND the
   //   flush-on-hide, which both call it) and the pre-switch `flushCurrent`. Identity, like
   //   `loadedBackend`, so a rebuilt backend starts closed and a failed load never opens it.
-  // ★★ NOT `workspaceLoaded`, and the difference is one site: the empty-load REFUSAL below. That load
-  //   SUCCEEDED but was not applied, so `loadedBackend` stays unstamped (§77, snapshot capture) — yet
-  //   once a load has succeeded saving goes on exactly as before §586. ★ The refusal is reachable only
-  //   when the load effect STARTED over populated scope (its `currentWorkspace` is that render's
-  //   closure), i.e. a backend REBUILD — never a first load, which applies even an empty result.
-  //   Opened wherever `loadedBackend` is stamped, plus that refusal, plus an explicit "Pick storage
-  //   file" write (the backend then holds exactly what is in memory).
+  //   ★★ That covers a settings-driven REBUILD too (§587): a Turso URL/token keystroke or a SharePoint
+  //   target change builds a new instance with the PREVIOUS target's workspace still in scope, and the
+  //   gate stays shut until the new instance's own load is APPLIED.
+  // ★★ Opened wherever `loadedBackend` is stamped, plus one site it is not: an explicit "Pick storage
+  //   file" write (the backend then holds exactly what is in memory). So it is `workspaceLoaded` plus
+  //   that write — and it stays SHUT after the empty-load REFUSAL below. ★★★ Deliberately: the
+  //   refusal is reachable only when the load effect STARTED over populated scope (its
+  //   `currentWorkspace` is that render's closure), i.e. a REBUILD onto an empty target, and opening
+  //   there would copy the previous project into it (§587). Saving stays paused for that backend and
+  //   is announced like a failed load (`savesPausedForRef`); a reload or switch reopens it.
   // ★ The REF is what `doSave`/`flushCurrent` read — they run after this render, possibly much
   //   later; the STATE is a save-effect dep so the effect re-runs when the gate opens.
   const [savesAllowedFor, setSavesAllowedFor] = useState<ReturnType<typeof createBackend> | null>(null);
@@ -134,9 +137,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     savesAllowedForRef.current = target;
     setSavesAllowedFor(target);
   };
-  // The backend whose load FAILED (set in the load effect's catch), and the one the save-paused
-  // toast was already shown for — once per backend, not once per refused edit.
-  const loadFailedForRef = useRef<ReturnType<typeof createBackend> | null>(null);
+  // The backend whose load FAILED or was REFUSED as empty (so saving to it stays paused), and the
+  // one the save-paused toast was already shown for — once per backend, not once per refused edit.
+  const savesPausedForRef = useRef<ReturnType<typeof createBackend> | null>(null);
   const savePausedAnnouncedForRef = useRef<ReturnType<typeof createBackend> | null>(null);
 
   // Storage status
@@ -369,8 +372,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         if (isWorkspaceEmpty(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
           recordDataLossEvent({ path: "load", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: 0, refused: true });
           emitToast("info", t(langRef.current, "storageKeptCurrentData"));
-          allowSavesTo(backend); // ★★ §586: the load SUCCEEDED, so saving continues exactly as before the gate existed — see `savesAllowedFor`. Deliberately NOT `setLoadedBackend` (§77).
-          truncationOps.raiseDecodeFailuresFor(backend); // ★★ Refusing to APPLY does not un-arm autosave against THIS backend, and a decode failure is a fact about its stored bytes, not about the workspace that stayed live — so the decode half is published while truncation's is not. AFTER the toast above: single-slot surface, see the landmine on `reportFor`. Raise-only; the doc on `raiseDecodeFailuresFor` carries why lowering here would clear a warning that is still true.
+          savesPausedForRef.current = backend; // ★★★ §587: the save gate stays SHUT — opening it here copied the previous project into this (empty) target. See `savesAllowedFor`; the save effect announces the pause.
+          truncationOps.raiseDecodeFailuresFor(backend); // ★★ Since §587 this refusal also leaves the save gate SHUT for THIS backend, but a later load that lands reopens it, so the flag is still published: a decode failure is a fact about its stored bytes, not about the workspace that stayed live — so the decode half is published while truncation's is not. AFTER the toast above: single-slot surface, see the landmine on `reportFor`. Raise-only; the doc on `raiseDecodeFailuresFor` carries why lowering here would clear a warning that is still true.
           await refreshBackendStatus();
           emitOutcome(null);
           return;
@@ -383,7 +386,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         emitOutcome(null);
       } catch (err) {
         if (cancelled) return;
-        loadFailedForRef.current = backend; // §586: saves stay refused; the save effect announces it on the first refused edit.
+        savesPausedForRef.current = backend; // §586: saves stay refused; the save effect announces it on the first refused edit.
         emitOutcome(err);
         logDiag("error", "storage.loadFailed", { kind: settingsRef.current.storageConfig.kind, message: String(err) });
         // Turso connectivity/auth failures surface as the persistent storage
@@ -450,7 +453,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   run and the re-run the gate's opening triggers (`savesAllowed` is a dep) would re-write the
     //   workspace the op had just loaded.
     if (!savesAllowed) {
-      if (loadFailedForRef.current === backend && savePausedAnnouncedForRef.current !== backend) {
+      if (savesPausedForRef.current === backend && savePausedAnnouncedForRef.current !== backend) {
         savePausedAnnouncedForRef.current = backend;
         emitToast("error", t(langRef.current, "storageSavePausedLoadFailed"));
       }

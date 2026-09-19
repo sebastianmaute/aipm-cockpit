@@ -57,6 +57,7 @@ import { useWorkspace } from "./workspace-context";
 const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
 
 const STORED = { tasks: [{ id: 1, taskName: "Stored" } as unknown as Task], raid: [], absences: [], shifts: [] };
+const STORED_B = { tasks: [{ id: 9, taskName: "Target" } as unknown as Task], raid: [], absences: [], shifts: [] };
 const EMPTY = { tasks: [], raid: [], absences: [], shifts: [] };
 const EDIT = [{ id: 1, taskName: "Stored" }, { id: 2, taskName: "Edited" }] as unknown as Task[];
 
@@ -205,27 +206,33 @@ describe("§586 — no save before a load for the current backend has succeeded"
     expect(showToast).not.toHaveBeenCalledWith("error", t("en-US", "storageSavePausedLoadFailed"));
   });
 
-  it("(e) a REBUILT backend (config change) gets no save until its own load succeeds", async () => {
+  it("(e) §587 — a REBUILT backend (e.g. a Turso URL/token edit) with a slow POPULATED load: nothing saved before its load, and the old workspace never", async () => {
+    // The probe's worst case: before the fix B.save got A's project at ~500 ms, then B's load was
+    // applied on top — the screen showed B while storage held A.
     const a = makeBackend(100);
-    const b = makeBackend(2000);
+    const b = makeBackend(2000, "resolve", STORED_B);
     createBackendMock.mockReturnValueOnce(a).mockReturnValue(b);
     const { result, rerender } = render();
     await advance(700); // A loaded; nothing pending
 
-    // A settings-driven rebuild: new storageConfig identity → new backend memo.
+    // A settings-driven rebuild: new storageConfig identity → new backend memo, no op, no suppress.
     rerender({ args: makeArgs({ kind: "browser" }) });
     await advance(600);
     hideTab();
     await advance(0);
-    expect(b.save).not.toHaveBeenCalled(); // A's workspace is NOT written into B
-    expect(a.save).not.toHaveBeenCalled();
+    expect(b.save).not.toHaveBeenCalled();
 
     Reflect.deleteProperty(document, "visibilityState");
     await advance(1500); // B's load lands
     await advance(600);
-    await act(async () => { result.current.setTasks(EDIT); });
+    expect(result.current.tasks.map((x) => x.id)).toEqual([9]);
+    await act(async () => { result.current.setTasks([...result.current.tasks, { id: 10, taskName: "New" } as unknown as Task]); });
     await advance(600);
+
     expect(b.save).toHaveBeenCalledTimes(1);
+    expect(b.save.mock.calls[0][0].tasks.map((x: Task) => x.id)).toEqual([9, 10]);
+    const everSavedOld = b.save.mock.calls.some((c) => c[0].tasks.some((x: Task) => x.id === 1));
+    expect(everSavedOld).toBe(false);
     expect(a.save).not.toHaveBeenCalled();
   });
 
@@ -267,30 +274,33 @@ describe("§586 — no save before a load for the current backend has succeeded"
     expect(backend.save).toHaveBeenCalledTimes(before + 1);
     expect(backend.save.mock.calls[before][0].tasks.map((x: Task) => x.id)).toEqual([1, 2]);
   });
-  it("(h) a rebuilt backend whose load returns EMPTY: nothing while pending, and once the refusal lands saving goes on as before", async () => {
-    // ★★ The empty-load REFUSAL is reachable only when the load effect STARTED with populated scope —
-    //   its `currentWorkspace` is that render's closure, so an edit made during a pending FIRST load
-    //   does not count, and an empty first load simply applies. So this is a rebuild. That load
-    //   SUCCEEDED, so the gate opens there (`workspaceLoaded` does not, §77 — which is why it is not
-    //   the gate). ★ What saving "as before" means here is writing the kept workspace to the new
-    //   backend — the cross-target write the §586 probe flagged as a separate question. This pins
-    //   that §586 leaves it unchanged; it does not endorse it.
+  it("(h) §587 — a rebuild onto an EMPTY target (100 ms load): the old project is never copied in, and the pause is announced", async () => {
+    // ★★ The empty-load REFUSAL is reachable only when the load effect STARTED over populated scope
+    //   (its `currentWorkspace` is that render's closure — an empty FIRST load simply applies), so a
+    //   rebuild is the only way here. Before the fix the refusal left A's pending save running and
+    //   B.save received A's project. The gate stays SHUT after a refusal, announced like a failure.
     const a = makeBackend(100);
-    const b = makeBackend(2000, "resolve", EMPTY);
+    const b = makeBackend(100, "resolve", EMPTY);
     createBackendMock.mockReturnValueOnce(a).mockReturnValue(b);
     const { result, rerender } = render();
     await advance(700);
 
     rerender({ args: makeArgs({ kind: "browser" }) });
-    await advance(600);
-    expect(b.save).not.toHaveBeenCalled(); // still pending
+    await advance(700); // the empty load lands and is refused
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]); // kept on screen
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "storageKeptCurrentData"));
 
-    await advance(1500); // the empty load lands and is refused
-    expect(result.current.tasks.map((x) => x.id)).toEqual([1]); // kept
     await act(async () => { result.current.setTasks(EDIT); });
     await advance(600);
-    expect(b.save).toHaveBeenCalled();
-    expect(b.save.mock.lastCall?.[0].tasks.map((x: Task) => x.id)).toEqual([1, 2]);
+    hideTab();
+    await advance(0);
+    await act(async () => { result.current.setTasks([...EDIT, { id: 3, taskName: "More" } as unknown as Task]); });
+    await advance(600);
+
+    expect(b.save).not.toHaveBeenCalled();
+    expect(a.save).not.toHaveBeenCalled();
+    const paused = showToast.mock.calls.filter((c) => c[1] === t("en-US", "storageSavePausedLoadFailed"));
+    expect(paused).toEqual([["error", t("en-US", "storageSavePausedLoadFailed")]]);
   });
 
   it("(i) a project switch still loads-then-suppresses: the gate adds no write to the target", async () => {
@@ -325,5 +335,34 @@ describe("§586 — no save before a load for the current backend has succeeded"
     await act(async () => { result.current.setTasks(EDIT); });
     await advance(600);
     expect(memo.save).toHaveBeenCalledTimes(1); // and the gate IS open on the target
+  });
+  it("(j) a storage-KIND switch keeps its conversion write, and the gate opening makes one post-switch save with no edit", async () => {
+    // `onRequestStorageSwitch` writes the live workspace to the new kind through `guardedWrite` —
+    // not the save effect, so the gate does not touch it — then arms suppressNextLoad (NOT
+    // suppressNextSave) and flips the config. Before §586 the rebuilt save effect re-wrote the same
+    // workspace 500 ms later; now the re-stamp opens the gate and the `savesAllowed` dep re-runs the
+    // effect, so that one redundant write still happens WITHOUT waiting for an edit. Pinned here.
+    const current = makeBackend(0);
+    const converted = makeBackend(0); // built inside onRequestStorageSwitch
+    const memo = makeBackend(0); // the memo's own instance once storageConfig flips
+    createBackendMock.mockReturnValueOnce(current).mockReturnValueOnce(converted).mockReturnValue(memo);
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    let rerenderWith: (cfg: StorageConfig) => void = () => {};
+    const setStorageConfig = vi.fn((cfg: StorageConfig) => rerenderWith(cfg));
+    const { result, rerender } = render({ ...makeArgs(), setStorageConfig });
+    rerenderWith = (cfg) => rerender({ args: { ...makeArgs(cfg), setStorageConfig } });
+    await advance(100);
+
+    await act(async () => { await result.current.onRequestStorageSwitch("local-json"); });
+    expect(converted.save).toHaveBeenCalledTimes(1); // the deliberate conversion write
+    expect(converted.save.mock.calls[0][0].tasks.map((x: Task) => x.id)).toEqual([1]);
+    expect(setStorageConfig).toHaveBeenCalledWith({ kind: "local-json" });
+
+    await advance(700);
+    expect(memo.load).not.toHaveBeenCalled(); // suppressNextLoad honoured
+    expect(memo.save).toHaveBeenCalledTimes(1); // the gate opened and the effect re-ran, no edit needed
+    expect(memo.save.mock.calls[0][0].tasks.map((x: Task) => x.id)).toEqual([1]);
+    expect(current.save).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
   });
 });
