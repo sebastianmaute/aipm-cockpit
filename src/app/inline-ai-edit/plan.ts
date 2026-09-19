@@ -899,16 +899,14 @@ export function isEmptyPlan(p: EditPlan): boolean {
   return p.updates.length === 0 && p.creates.length === 0 && p.deletes.length === 0 && p.links.length === 0;
 }
 
-/** Keys a tool input carries that ADDRESS the write rather than make one. */
-const ADDRESS_KEYS: ReadonlySet<string> = new Set(["id", "expectedToken"]);
-
 /** What a replaying consumer may send for ONE call (§534). */
 export interface StrippedInput {
   /** The call's input minus every field the plan refused. */
   readonly input: Record<string, unknown>;
   /** The fields removed, in input order. */
   readonly stripped: readonly string[];
-  /** Stripping removed every field the call writes — dispatch nothing. */
+  /** A field was stripped and nothing the card shows as landing is left —
+   *  dispatch nothing, report the row as rejected. */
   readonly writesNothing: boolean;
 }
 
@@ -923,6 +921,12 @@ export interface StrippedInput {
  *   one call's rejected field from another call that sent it legally.
  * ★ A whole-call rejection names no field, so it strips nothing: that call is
  *   still dispatched and fails exactly as it did before.
+ * ★★ `writesNothing` is judged from the SAME plan, not from which keys survive:
+ *   a surviving key can still write nothing (a field the descriptor ignores, or
+ *   one `before === after` skipped), so "only address keys left" would dispatch
+ *   a call whose card showed nothing but a rejection. It needs a strip, though —
+ *   a call that was merely all-unchanged is not "rejected" and keeps today's
+ *   dispatch.
  */
 export function stripRejectedFields(input: Readonly<Record<string, unknown>>, plan: EditPlan): StrippedInput {
   const refused = new Set(plan.rejected.flatMap((r) => (r.field === undefined ? [] : [r.field])));
@@ -932,6 +936,6 @@ export function stripRejectedFields(input: Readonly<Record<string, unknown>>, pl
     if (refused.has(key)) stripped.push(key);
     else kept[key] = value;
   }
-  const writesNothing = stripped.length > 0 && Object.keys(kept).every((key) => ADDRESS_KEYS.has(key));
+  const writesNothing = stripped.length > 0 && plan.updates.length === 0 && plan.links.length === 0;
   return { input: kept, stripped, writesNothing };
 }

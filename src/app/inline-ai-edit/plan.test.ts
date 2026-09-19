@@ -1644,9 +1644,9 @@ describe("a date is judged by its own writer's rule", () => {
 // (I2) THE WHOLE-ROW SWAP. `sanitizeAbsence` reorders a reversed date pair
 //  rather than rejecting it, so a `startDate` moved past the stored `endDate`
 //  previewed ONE change and wrote TWO, both different from what the card said.
-//  It is DISCLOSED, not refused: the write succeeds, and the two REPLAYING
-//  consumers resend the original input without reading this plan, so a
-//  rejection would put "declined" in front of a write that lands.
+//  It is DISCLOSED, not refused: the write succeeds, and since §534 the two
+//  REPLAYING consumers strip every field this plan rejects, so a rejection
+//  would DROP an edit the writer accepts.
 describe("a reversed absence date pair previews the swap the writer performs", () => {
   const holiday = { id: 50, assignee: "Ada Lovelace", startDate: "2026-03-01", endDate: "2026-03-05" };
   const absWs = wsWith({ absences: [holiday] as never });
@@ -1744,6 +1744,29 @@ describe("stripRejectedFields (§534)", () => {
       stripped: ["assigneeEmail"],
       writesNothing: true,
     });
+  });
+
+  // ★ A surviving key is not a surviving WRITE: `taskName` here is unchanged, so
+  //  the card shows the rejection and nothing else, and the call must not go out.
+  it("reports writesNothing when the only survivor is an unchanged sibling", () => {
+    const input = { id: 42, taskName: "Fix login bug", assigneeEmail: "not-an-email" };
+    const plan = describeToolCalls([block("update_task", input)], { task, ws });
+    expect(plan.updates).toEqual([]);
+    expect(stripRejectedFields(input, plan)).toEqual({
+      input: { id: 42, taskName: "Fix login bug" },
+      stripped: ["assigneeEmail"],
+      writesNothing: true,
+    });
+  });
+
+  // ★ …but only when something was stripped: an all-unchanged call is not a
+  //  rejection and is dispatched exactly as before.
+  it("does not report writesNothing for an all-unchanged call with nothing stripped", () => {
+    const input = { id: 42, taskName: "Fix login bug", status: "To Do" };
+    const plan = describeToolCalls([block("update_task", input)], { task, ws });
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected).toEqual([]);
+    expect(stripRejectedFields(input, plan)).toEqual({ input, stripped: [], writesNothing: false });
   });
 
   it("strips nothing for a whole-call rejection, which names no field", () => {

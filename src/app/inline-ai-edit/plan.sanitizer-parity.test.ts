@@ -841,8 +841,10 @@ function sweep(entity: InlineEntity, base: Record<string, unknown>, read: Stored
       if (preview.rejected) {
         // ★★★ NOT A SAFE DIRECTION, and the comment this replaces said it was:
         // "nothing is written". That holds only for the REBUILDING consumer.
-        // The two REPLAYING ones resend the original tool input, so a field the
-        // preview calls rejected is still put through the writer — §384.
+        // The two REPLAYING ones resent the original tool input, so a field the
+        // preview called rejected was still put through the writer — §384.
+        // Since §534 they strip it, so the same mismatch now DROPS an edit the
+        // writer accepts; the unstaged chat tool loop still sends it through.
         // Enumerated known gaps live in `PREVIEW_REJECTS_APPLY_WRITES`.
         out.previewOnlyRejects += 1;
         if (stored !== unchanged) {

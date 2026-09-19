@@ -417,8 +417,10 @@ export async function applyProposal(args: ApplyProposalArgs): Promise<ApplyPropo
         // ★★★ §534 — SEND ONLY WHAT THE CARD SHOWED AS LANDING. The dispatcher
         //  throws for the whole call on one field it refuses, so replaying the
         //  model's input verbatim lost every sibling the card promised. Stripped
-        //  AFTER the remap and the token stamp, which only touch `id` and
-        //  `expectedToken`, and against this row's OWN one-call plan. A pending
+        //  AFTER the remap and the token stamp, which rewrite VALUES (`id`,
+        //  link-field refs via `forEachLinkRef`, `expectedToken`) but never add
+        //  or rename a key, so a strip by key is unaffected, and against this
+        //  row's OWN one-call plan. A pending
         //  row's plan is empty, so it strips nothing.
         const sent = stripRejectedFields(guarded.input, row.plan);
         if (sent.writesNothing) {

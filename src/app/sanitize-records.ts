@@ -129,8 +129,11 @@ type MilestoneFieldGuard = (value: unknown) => boolean;
  *  whole record — so a value it does not accept does not merely fail to apply,
  *  it OMITS the key and CLEARS a populated field. The AI edit preview refuses
  *  the same value, so the card reads "unchanged" while the write wipes the date.
- *  Two of the three apply paths replay the original tool input and never consult
- *  the preview, so that wipe really lands.
+ *  Two of the three apply paths used to replay the original tool input without
+ *  consulting the preview, so that wipe really landed. Since §534 they strip a
+ *  field the preview rejects, but the unstaged chat tool loop (`chat-panel.tsx`)
+ *  still runs the model's call as sent, and this guard is what stops the wipe
+ *  on that path.
  *
  *  The rule, shared with `dropUnacceptedRaidFields` and
  *  `dropUnacceptedChangeFields`: hoist the sanitizer's OWN acceptance predicate
