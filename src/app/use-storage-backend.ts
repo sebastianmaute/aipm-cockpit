@@ -130,6 +130,22 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // someone to delete the suppress-path re-stamp below. §77 has the seven arm
   // sites and its reproduce grep.
   const workspaceLoaded = loadedBackend !== null && loadedBackend === backend;
+  // ★★★ §548 — THE LOAD HOLD'S SIGNAL, and deliberately NOT `workspaceLoaded`. That gate stays shut
+  //   after a FAILED load and on the empty-load refusal, which is right for snapshots and saving and
+  //   wrong for editing: a hold keyed on it would lock the app for the session after one load error.
+  //   This asks a narrower question — is a load still IN FLIGHT for the current backend? — so EVERY
+  //   terminal branch of the load effect stamps it: applied, suppressed re-stamp, refused, failed.
+  //   Identity, not a latch (§77): a rebuilt backend starts unsettled by construction.
+  const [settledBackend, setSettledBackend] = useState<ReturnType<typeof createBackend> | null>(null);
+  // ★★ §548 — project-swap ops in flight (see `holdDuring`): each awaits and THEN replaces the
+  //   workspace, so an edit made during its await would be discarded exactly like one made during the
+  //   first load.
+  const [swapsInFlight, setSwapsInFlight] = useState(0);
+  // ★★ TRUE before hydration (spec revision 2026-09-19): the first load has not even started, so it IS
+  //   pending, and ONE signal covers every consumer (the render hold and each background-writer gate)
+  //   through that window. The hold therefore relies on `hydrated` always becoming true — bounded in
+  //   `useSettings` by `SECRET_MERGE_TIMEOUT_MS`.
+  const loadPending = !args.hydrated || settledBackend !== backend || swapsInFlight > 0;
   // ★★★ §586 — THE SAVE GATE: the backend instance render scope may be written to. Before it opens,
   //   the boot workspace is EMPTY, and a save of it is `DELETE FROM` every Turso table, an empty
   //   SharePoint PUT, an overwritten file. The AUTOMATIC writes of the live workspace to the ACTIVE
@@ -328,13 +344,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // ★ An earlier revision of this comment asserted the opposite (that a
     // flushSync would defeat the ordering) and invited the first-line move.
     setLoadedBackend(backend);
+    setSettledBackend(backend); // §548 — see `settledBackend`; beside the stamp, and late for the same reason.
     allowSavesTo(backend); // §586 — beside the stamp, and LAST for the same reason.
   };
 
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
   //     four setters. These are the last §72 setters in this hook that can
   //     escape as an UNHANDLED REJECTION rather than a merely discarded update;
-  //     `applyWorkspace`'s 29 setters and `onOpenStorageFile`'s raw ones are
+  //     `applyWorkspace`'s 31 setters and `onOpenStorageFile`'s raw ones are
   //     still unguarded, deliberately, because every one of them sits inside a
   //     `try` whose `catch` calls only guarded emitters. Three of the eight
   //     call sites await this function outside any `try`: the load effect's
@@ -347,10 +364,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //     this is the hook's OWN state, so there is no superseded-run result a
   //     caller still needs. `logDiag` stays OUTSIDE the guard so a teardown-time
   //     status failure is still recorded.
-  //     ★ That "29" is the likeliest claim here to rot — it has already read 25, then
-  //     28. Re-derive with the sed commands in `docs/AGENTS/activity-log.md`, NOT in
+  //     ★ That "31" is the likeliest claim here to rot — it has already read 25, 28,
+  //     then 29. Re-derive with the sed commands in `docs/AGENTS/activity-log.md`, NOT in
   //     AGENTS.md. Anchor the START on a LINE-INITIAL two-space `const applyWorkspace`,
-  //     spelled short HERE so it cannot match itself. Bare, sed RE-TRIGGERS at every later mention (573 printed lines, 32) — it does NOT start earlier.
+  //     spelled short HERE so it cannot match itself. Bare, sed RE-TRIGGERS at every later mention (707 printed lines, 35) — it does NOT start earlier.
   const refreshBackendStatus = async () => {
     try {
       const ready = await backend.isReady();
@@ -389,6 +406,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         // review read that as a regression; it is not, and §77 says why. Do not
         // "fix" it by re-stamping there.
         setLoadedBackend(backend);
+        setSettledBackend(backend); // §548 — nothing is in flight: the op already put this target in scope.
         allowSavesTo(backend); // §586 — the op already loaded or built what scope holds.
         scopeTargetKeyRef.current = targetKey; // §591 — and that workspace belongs to THIS target.
         await refreshBackendStatus();
@@ -405,6 +423,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         // workspace is empty, so a normal first load is never blocked.
         if (isWorkspaceEmpty(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
           recordDataLossEvent({ path: "load", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: 0, refused: true });
+          setSettledBackend(backend); // §548 — nothing applied, but nothing is still in flight either.
           emitToast("info", t(langRef.current, "storageKeptCurrentData"));
           setSavesPaused({ backend, reason: "empty-refused" }); // ★★★ §587: the save gate stays SHUT — opening it here copied the previous project into this (empty) target. See `savesAllowedFor`; the save effect announces the pause.
           truncationOps.raiseDecodeFailuresFor(backend); // ★★ Since §587 this refusal also leaves the save gate SHUT for THIS backend, but a later load that lands reopens it, so the flag is still published: a decode failure is a fact about its stored bytes, not about the workspace that stayed live — so the decode half is published while truncation's is not. AFTER the toast above: single-slot surface, see the landmine on `reportFor`. Raise-only; the doc on `raiseDecodeFailuresFor` carries why lowering here would clear a warning that is still true.
@@ -423,6 +442,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         emitOutcome(null);
       } catch (err) {
         if (cancelled) return;
+        setSettledBackend(backend); // §548 — a FAILED load leaves nothing in flight to overwrite an edit. (`cancelled` above covers teardown.)
         setSavesPaused({ backend, reason: "load-failed" }); // §586: saves stay refused; published as `loadPause` (sticky banner), and the first refused edit toasts once.
         emitOutcome(err);
         logDiag("error", "storage.loadFailed", { kind: settingsRef.current.storageConfig.kind, message: String(err) });
@@ -898,16 +918,33 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }
   };
 
+  // ★★ §548 — hold `loadPending` for the WHOLE of an op that awaits and then REPLACES the workspace.
+  //   The op flushes the outgoing project BEFORE its await; an edit made during the await would be
+  //   replaced in memory when the op applies. `finally`, so a throwing op cannot strand the hold;
+  //   `mountedRef`, so a teardown cannot throw (§72). Wraps exactly the nine ops in the return object.
+  function holdDuring<A extends unknown[]>(op: (...opArgs: A) => Promise<void>): (...opArgs: A) => Promise<void> {
+    return async (...opArgs: A) => {
+      setSwapsInFlight((n) => n + 1);
+      try {
+        await op(...opArgs);
+      } finally {
+        if (mountedRef.current) setSwapsInFlight((n) => n - 1);
+      }
+    };
+  }
+
   // Grouped one line per concern — a plain re-export list, and the cheapest block
   // to compress in a file that runs close to the size ratchet's LIMIT. ★ Do not quote a
   // number here — this comment said "sits AT" while the file had 14 lines of headroom.
   // Measure: node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
   return {
-    storageDescription, storageReady, workspaceLoaded, loadPause,
-    onPickStorageFile, onGrantWriteAccess, onOpenStorageFile, onRequestStorageSwitch,
-    reloadCurrentProject, allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
-    switchToProject, createProject, createDemoProject, loadProjectFromFile,
-    switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso,
+    storageDescription, storageReady, workspaceLoaded, loadPause, loadPending,
+    onPickStorageFile, onGrantWriteAccess, onOpenStorageFile: holdDuring(onOpenStorageFile), onRequestStorageSwitch,
+    reloadCurrentProject: holdDuring(reloadCurrentProject), allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
+    switchToProject: holdDuring(switchToProject), createProject: holdDuring(createProject),
+    createDemoProject: holdDuring(createDemoProject), loadProjectFromFile: holdDuring(loadProjectFromFile),
+    switchToTursoProject: holdDuring(switchToTursoProject), createTursoProject: holdDuring(createTursoProject),
+    migrateCurrentProjectToTurso: holdDuring(migrateCurrentProjectToTurso),
     archiveTursoProject, restoreTursoProject, hardDeleteTursoProject,
     tursoProjectId,
   };

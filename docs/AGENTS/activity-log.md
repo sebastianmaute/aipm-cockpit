@@ -45,20 +45,23 @@ it has no table of its own, NOT because it sits outside the workspace.
   ★★ **`applyRestoredWorkspace` (`task-manager.tsx`, the SECOND load funnel) deliberately does NOT set
   `activityLog`.** `getVersionPayload` builds its snapshot from an explicit field list carrying no
   `activityLog`, so fanning it out would blank the audit trail on every version restore.
-  ★★ It is ONE OF FOUR slices on which the two funnels disagree, NOT the only one — `features`,
-  `fieldVisibility` and `documentAssets` are also absent from the restore fan-out. An earlier revision
-  said "the one slice" and its successor said THREE; either sends a reader who diffs the funnels off to
-  distrust the doc or to "complete the pattern" on the rest. ★★★ **THAT SENTENCE HAS NOW BEEN
-  OVERTAKEN TWICE BY SLICES THAT NEVER OPENED THIS FILE** — `documentAssets` joined `applyWorkspace`
-  with S3c-1 and nothing here moved. Do not repair it by writing FOUR and walking away; re-derive,
-  which is why the commands sit below rather than the count. ★★ That diff returns FIVE names, not
-  four — the fifth is `setLoadedBackend`, which is the load GATE (`workspaceLoaded` derives from it),
-  not a workspace slice, and the comment above `applyRestoredWorkspace` already says the restore
-  funnel deliberately omits it. Four SLICES, five NAMES; a reader who stops at the count will think
-  this line is wrong. ★ A range that stops at `setCalendarEvents` hides `setLoadedBackend` and returns
-  four — it is deliberately the LAST setter in `applyWorkspace` (only the §586 save-gate call
-  `allowSavesTo`, which the `set` grep does not match, follows it), so end the range at the function's close
-  brace. ★ It does NOT hide `setDocumentAssets`, which shares `setCalendarEvents`' source line.
+  ★★ It is ONE OF FIVE slices on which the two funnels disagree, NOT the only one — `features`,
+  `fieldVisibility`, `documentAssets` and `budgetHistory` are also absent from the restore fan-out. An
+  earlier revision said "the one slice" and its successors said THREE and FOUR; each sends a reader who
+  diffs the funnels off to distrust the doc or to "complete the pattern" on the rest. ★★★ **THAT
+  SENTENCE HAS NOW BEEN OVERTAKEN THREE TIMES BY SLICES THAT NEVER OPENED THIS FILE** —
+  `documentAssets` joined `applyWorkspace` with S3c-1, `budgetHistory` with the budget-history
+  persistence slice, and nothing here moved either time. Do not repair it by writing FIVE and walking
+  away; re-derive, which is why the commands sit below rather than the count. ★★ That diff returns
+  SEVEN names, not five — the sixth and seventh are `setLoadedBackend` and `setSettledBackend`: the load
+  GATE (`workspaceLoaded` derives from the first) and the §548 load-hold signal (`loadPending` derives
+  from the second), not workspace slices. The comment above `applyRestoredWorkspace` already says the
+  restore funnel deliberately omits the first; a restore settles no load, so it omits the second too.
+  Five SLICES, seven NAMES; a reader who stops at the count will think this line is wrong. ★ A range
+  that stops at `setCalendarEvents` hides both — they are deliberately the LAST two setters in
+  `applyWorkspace` (only the §586 save-gate call `allowSavesTo`, which the `set` grep does not match,
+  follows them), so end the range at the function's close brace. ★ It does NOT hide
+  `setDocumentAssets`, which shares `setCalendarEvents`' source line.
   ★★★ RUN THESE RATHER THAN PARAPHRASE THEM. The paragraph above described this diff in prose
   ("extract the setter names … and `comm` them") while the code comment that carried the real command
   lost it to a size-ratchet condense — and prose describing a command is not a command. It cannot go
@@ -66,26 +69,26 @@ it has no table of its own, NOT because it sits outside the workspace.
   `wc -l` plus one) — ONE line of headroom, not the two this used to imply — and this file is outside
   that gate's `src` walk, so the command lives here.
   ★★ **SUPERSEDED 2026-09-03 — the headroom half of that argument no longer holds.** The ratchet
-  LIMIT was doubled 800 → 1600, so `use-storage-backend.ts` (still 799) now has ~800 lines of room
+  LIMIT was doubled 800 → 1600, so `use-storage-backend.ts` (no longer 799 — measure it with the node one-liner in AGENTS.md's size:check note) has hundreds of lines of room
   and the command COULD go back into the source comment. The reason to keep it HERE is unchanged and
   is the one that always mattered: prose describing a command is not a command, and a comment that
   gets condensed loses it again. Read the paragraph above as the rationale, not the line count.
-  `sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **29**
+  `sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **31**
   `sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **24**
   `comm -23 <(sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u) <(sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u)`
-  → `setActivityLog(` `setDocumentAssets(` `setFeatures(` `setFieldVisibility(` `setLoadedBackend(`
+  → `setActivityLog(` `setBudgetHistory(` `setDocumentAssets(` `setFeatures(` `setFieldVisibility(` `setLoadedBackend(` `setSettledBackend(`
   ★★ THE TWO RANGES TAKE DIFFERENT ANCHORS AND BOTH WRONG FORMS INFLATE SILENTLY rather than error.
   `applyRestoredWorkspace` is a `useCallback`, so it closes on `}, [` — reusing the first command's
-  end anchor there runs 626 lines and reports 39. And that first command's start pattern needs the
-  `const … = ` prefix: bare, it spans 573 printed lines and reports 32.
+  end anchor there runs 676 lines and reports 39. And that first command's start pattern needs the
+  `const … = ` prefix: bare, it spans 707 printed lines and reports 35.
   ★★★ **THE NUMBERS ARE RIGHT AND THE MECHANISM WAS WRONG, and the correct one is two lines below.**
   This said a bare match "starts at an earlier mention". It does not: the FIRST occurrence of
   `applyWorkspace` in that file IS the declaration, so anchored and bare open at the very same line.
-  573 is not an offset — it is the TOTAL printed span, because `sed` RE-TRIGGERS the range at every
+  707 is not an offset — it is the TOTAL printed span, because `sed` RE-TRIGGERS the range at every
   LATER mention (the comments, the call site, the two return-object keys), each opening a fresh
   range that runs to the next `^  };$`. That is exactly the re-trigger the paragraph below already
   describes correctly, which is what makes this the file contradicting itself rather than merely
-  being stale. The anchored form spans 64 lines. Reproduce both spans:
+  being stale. The anchored form spans 68 lines. Reproduce both spans:
   `sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | wc -l` against
   `sed -n '/applyWorkspace/,/^  };$/p' src/app/use-storage-backend.ts | wc -l`, and
   `grep -n applyWorkspace src/app/use-storage-backend.ts | head -1` for the start line.
@@ -95,7 +98,7 @@ it has no table of its own, NOT because it sits outside the workspace.
   the START PATTERN in full again, so `sed` opened a SECOND range there: measured, the unanchored
   form returned **31** against the anchored form's **29**, and only the leading two-space anchor
   saved the anchored one, because the quoted copy is indented as a comment body. That comment now
-  spells the pattern short on purpose and both forms return **29** — but the RECURRENCE is the point,
+  spells the pattern short on purpose and both forms return **31** — but the RECURRENCE is the point,
   not the repair. ★★ The durable rule, which survived all three revisions of this line: a command
   quoted inside the file it scans WILL eventually match itself, and it fails by returning a plausible
   LARGER number rather than by erroring. Never write "dormant" about it — write the anchor and keep it.
