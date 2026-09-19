@@ -146,6 +146,14 @@ export type SavingPausedCause =
       prevRecords: number;
       curRecords: number;
       fullWipe: boolean;
+    }
+  | {
+      /** §586/§587: the ACTIVE backend's save gate is shut because its load FAILED, or came back
+       *  EMPTY over a populated project and was refused. ★ Unlike the other two causes there is
+       *  NOTHING to "save anyway" — the live workspace is the empty boot one or the PREVIOUS
+       *  target's project — so the primary action is a non-destructive "Reload project". */
+      kind: "load";
+      reason: "load-failed" | "empty-refused";
     };
 
 /** The headline, aria-label and count line for the TRUNCATION cause. Pure
@@ -237,6 +245,21 @@ function destructiveCopy(lang: Lang, c: Extract<SavingPausedCause, { kind: "dest
   };
 }
 
+/** The headline and aria-label for the LOAD cause (§586/§587). No count line: nothing was loaded,
+ *  so there is no magnitude to name. ★ Two headlines, because "could not be loaded" is FALSE for the
+ *  empty-load refusal — that load succeeded and came back empty (review I1). */
+function loadCopy(c: Extract<SavingPausedCause, { kind: "load" }>): {
+  countText: null;
+  bannerKey: "storageSavePausedLoadFailed" | "storageSavePausedEmptyLoad";
+  bannerAriaKey: "storageSavingPaused";
+} {
+  return {
+    countText: null,
+    bannerKey: c.reason === "empty-refused" ? "storageSavePausedEmptyLoad" : "storageSavePausedLoadFailed",
+    bannerAriaKey: "storageSavingPaused",
+  };
+}
+
 /** The ONE banner for "saving is paused", rendering whichever cause holds. It
  *  is the ONLY route out of either lockout, and dismissing it hides the banner
  *  but must NOT clear the underlying guard — only the confirmed primary action
@@ -291,6 +314,8 @@ export function SavingPausedBanner({
   /** The layout shows a persistent "saving paused" control elsewhere (the modern
    *  shell's sidebar footer). FALSE in the classic layout, which has none. */
   hasFooterIndicator: boolean;
+  /** The primary action: "save anyway" for truncation/destructive. For `load` it is "Reload
+   *  project", rendered secondary and unconfirmed because it discards nothing. */
   onSaveAnyway: () => void;
   onDismiss: () => void;
   onReopen: () => void;
@@ -301,7 +326,9 @@ export function SavingPausedBanner({
   // rules of hooks the first time a banner was dismissed.
   const [wipeConfirmOpen, setWipeConfirmOpen] = useState(false);
   const { countText, bannerKey, bannerAriaKey } =
-    cause.kind === "destructive" ? destructiveCopy(lang, cause) : truncationCopy(lang, cause);
+    cause.kind === "destructive" ? destructiveCopy(lang, cause)
+      : cause.kind === "load" ? loadCopy(cause)
+        : truncationCopy(lang, cause);
   // ★★ THREE trigger labels, not two.
   // ★ It stays distinct from `storageDestructiveWipeSaveAnyway`, the wipe
   // dialog's commit button: that dialog opens OVER this banner, so the two are
@@ -386,12 +413,18 @@ export function SavingPausedBanner({
     <>
       <AlertBanner severity="error" role="alert" ariaLabel={t(lang, bannerAriaKey)} icon="⚠"
         actions={<>
+          {cause.kind === "load" ? (
+            <Button variant="secondary" size="xs" onClick={onSaveAnyway}>
+              {t(lang, "reloadProject")}
+            </Button>
+          ) : (
           <Button variant="destructive" size="xs" onClick={() => {
             if (cause.kind === "destructive" && cause.fullWipe) { setWipeConfirmOpen(true); return; }
             void askThenSave();
           }}>
             {saveLabel}
           </Button>
+          )}
           <DismissButton lang={lang} onClick={onDismiss} />
         </>}>
         <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">

@@ -419,6 +419,7 @@ function TaskManagerInner() {
   const [storageErrorDismissed, setStorageErrorDismissed] = useState(false); // ★ §103's banner dismissal is SEPARATE and hides only the banner — the save guard stays armed (use-load-truncation.ts).
   const [truncationBannerDismissed, setTruncationBannerDismissed] = useState(false);
   const [destructiveBannerDismissed, setDestructiveBannerDismissed] = useState(false);
+  const [loadPauseBannerDismissed, setLoadPauseBannerDismissed] = useState(false); // §586/§587 — hides the banner only; the save gate stays shut.
   // Bridges a successful save into the version-history idle-capture timer. The
   // hook is instantiated later, so this ref is wired up via an effect below.
   const versionNotifyRef = useRef<() => void>(() => {});
@@ -490,14 +491,14 @@ function TaskManagerInner() {
   const [tursoListLoaded, setTursoListLoaded] = useState(false);
 
   const {
-    storageDescription, storageReady, workspaceLoaded, onPickStorageFile, onGrantWriteAccess,
+    storageDescription, storageReady, workspaceLoaded, loadPause, onPickStorageFile, onGrantWriteAccess,
     onOpenStorageFile, onRequestStorageSwitch, reloadCurrentProject, allowDestructiveSave,
     allowDestructiveSaveAnyway, destructiveRefusal,
     truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
-  } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, showToastAction, onRevealSavingPaused: () => setDestructiveBannerDismissed(false), setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
+  } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, showToastAction, onRevealSavingPaused: () => { setDestructiveBannerDismissed(false); setLoadPauseBannerDismissed(false); }, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
 
   // Fills the forward-ref declared above `useUndoStack`, so an undo-stack redo
   // that re-removes rows can arm the one-shot destructive-save bypass (§295).
@@ -581,6 +582,13 @@ function TaskManagerInner() {
   if (destructiveRefusal !== destructiveRefusalSeen) {
     setDestructiveRefusalSeen(destructiveRefusal);
     setDestructiveBannerDismissed(false);
+  }
+  // ★ Same render-time reconcile for the §586/§587 LOAD pause: a NEW pause (or a new reason) re-shows
+  // a banner dismissed for an earlier one. Seeded null for the remount-swallow reason above.
+  const [loadPauseSeen, setLoadPauseSeen] = useState<typeof loadPause>(null);
+  if (loadPause !== loadPauseSeen) {
+    setLoadPauseSeen(loadPause);
+    setLoadPauseBannerDismissed(false);
   }
 
   // Refresh the Turso project list (active + archived) from the shared DB. The
@@ -2940,6 +2948,11 @@ function TaskManagerInner() {
           "save anyway" buttons authorising different things. That consequence is
           characterized in `task-manager.truncation-banner.test.tsx`; the exclusivity
           itself is pinned in `use-storage-backend.test.tsx`, which is where it lives. */}
+      {/* §586/§587 — the save gate is shut for the active backend (its load failed, or came back empty over
+          a populated project). STICKY for as long as the pause holds: the refused-edit toast times out. */}
+      {!isPopout && loadPause !== null && (
+        <SavingPausedBanner lang={lang} cause={{ kind: "load", reason: loadPause }} dismissed={loadPauseBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={() => { void reloadCurrentProject(); }} onDismiss={() => setLoadPauseBannerDismissed(true)} onReopen={() => setLoadPauseBannerDismissed(false)} />
+      )}
       {!isPopout && destructiveRefusal !== null && (
         <SavingPausedBanner lang={lang} cause={{ kind: "destructive", prevRecords: destructiveRefusal.prevRecords, curRecords: destructiveRefusal.curRecords, fullWipe: destructiveRefusal.fullWipe }} dismissed={destructiveBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowDestructiveSaveAnyway} onDismiss={() => setDestructiveBannerDismissed(true)} onReopen={() => setDestructiveBannerDismissed(false)} />
       )}
@@ -3155,8 +3168,8 @@ function TaskManagerInner() {
             lang={lang}
             collapsed={sidebarCollapsed}
             storageDescription={storageDescription}
-            storageReady={storageOk && !loadWasIncomplete && destructiveRefusal === null}
-            savingPaused={!isPopout && (loadWasIncomplete || destructiveRefusal !== null)}
+            storageReady={storageOk && !loadWasIncomplete && destructiveRefusal === null && loadPause === null}
+            savingPaused={!isPopout && (loadWasIncomplete || destructiveRefusal !== null || loadPause !== null)}
             // ★ Clearing BOTH dismissals is correct, not sloppiness: the two causes
             // cannot hold at once — truncation returns ABOVE the destructive guard so
             // no new refusal is raised, AND the save effect's suppress-after-load
@@ -3165,7 +3178,7 @@ function TaskManagerInner() {
             // ★ It stays correct if that ever stopped holding: clearing both re-shows
             // both, which is the honest outcome for a user who asked to see why
             // saving is paused.
-            onRestoreSavingNotice={() => { setTruncationBannerDismissed(false); setDestructiveBannerDismissed(false); }}
+            onRestoreSavingNotice={() => { setTruncationBannerDismissed(false); setDestructiveBannerDismissed(false); setLoadPauseBannerDismissed(false); }}
             isSignedIn={msAuth.account != null}
             accountName={msAuth.account?.username ?? null}
             onSignOut={() => { void msAuth.signOut().catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed")); }}

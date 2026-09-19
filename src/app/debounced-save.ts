@@ -28,8 +28,13 @@ export const SAVE_DEBOUNCE_MS = 500;
  *  with the back/forward cache and is not used elsewhere in this codebase).
  *
  *  ★ The caller must only call this on effect runs that already passed its
- *  hydrated/popout/suppress gates, so the flush obeys the exact same gating as
- *  the debounced save and never fires when no save is pending. */
+ *  hydrated/popout/load/suppress gates, so the flush obeys the exact same gating as
+ *  the debounced save and never fires when no save is pending.
+ *
+ *  ★★ Both exits — the timer and `flush` — reach the caller's save through the
+ *  ONE `save` argument and nothing else. That is why use-storage-backend.ts's
+ *  §586 load gate sits inside the `save` it passes (`doSave`): one check there
+ *  covers the debounced write AND the flush-on-hide. */
 export function scheduleDebouncedSave(save: () => void, delayMs: number): () => void {
   let fired = false;
   const timer = setTimeout(() => { fired = true; save(); }, delayMs);

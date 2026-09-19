@@ -110,6 +110,48 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // someone to delete the suppress-path re-stamp below. §77 has the seven arm
   // sites and its reproduce grep.
   const workspaceLoaded = loadedBackend !== null && loadedBackend === backend;
+  // ★★★ §586 — THE SAVE GATE: the backend instance render scope may be written to. Before it opens,
+  //   the boot workspace is EMPTY, and a save of it is `DELETE FROM` every Turso table, an empty
+  //   SharePoint PUT, an overwritten file. The AUTOMATIC writes of the live workspace to the ACTIVE
+  //   backend check it: the save effect (no schedule), `doSave` (the debounce timer AND the
+  //   flush-on-hide, which both call it) and the pre-switch `flushCurrent`; a storage-KIND switch
+  //   skips its conversion write while it is shut (`loadSucceeded` below). ★ EXPLICIT writes do not:
+  //   "Pick storage file" (`guardedWrite`, open follow-up §590), a conversion after a successful load,
+  //   create and load-from-file. Identity, like `loadedBackend`, so a rebuilt
+  //   backend starts shut and a failed load never opens it.
+  //   ★★ That covers a settings-driven REBUILD too (§587): a Turso URL/token keystroke or a SharePoint
+  //   target change builds a new instance with the PREVIOUS target's workspace still in scope.
+  // ★★★ IT OPENS IN EXACTLY THREE PLACES, and only one of them is "a load of THIS instance":
+  //   1. `applyWorkspace` — the load effect's applied load, `reloadCurrentProject`, and the switch /
+  //      create / load-from-file ops (those stamp the render-scope, i.e. OUTGOING, instance);
+  //   2. the load effect's suppress-branch RE-STAMP after such an op — the op loaded a SIBLING instance
+  //      of the same target, built a fresh workspace, or (a kind conversion) wrote the live one there;
+  //      the memo's own instance is never loaded;
+  //   3. an explicit "Pick storage file" write — the backend then holds exactly what is in memory.
+  //   So it is `workspaceLoaded` plus (3). It stays SHUT after a failed load and after the empty-load
+  //   REFUSAL below. ★★★ The refusal is deliberate: it is reachable only when the load effect STARTED
+  //   over populated scope (its `currentWorkspace` is that render's closure), i.e. a REBUILD onto an
+  //   empty target, and opening there would copy the previous project into it (§587). Both states are
+  //   published as `loadPause`, which task-manager mounts on the sticky saving-paused banner.
+  // ★ The REF is what `doSave`/`flushCurrent`/`loadSucceeded` read — they run after this render,
+  //   possibly much later; the STATE is a save-effect dep so the effect re-runs when the gate opens.
+  const [savesAllowedFor, setSavesAllowedFor] = useState<ReturnType<typeof createBackend> | null>(null);
+  const savesAllowedForRef = useRef<ReturnType<typeof createBackend> | null>(null);
+  const savesAllowed = savesAllowedFor !== null && savesAllowedFor === backend;
+  // ★ A `const`, not a `function` declaration: `use-load-truncation.test.ts` keys each `.save(` on the
+  // nearest preceding DECLARATION, and one here would rename the `flushCurrent` write's key below.
+  const allowSavesTo = (target: ReturnType<typeof createBackend>): void => {
+    savesAllowedForRef.current = target;
+    setSavesAllowedFor(target);
+  };
+  // Why saving to an instance is paused: its load FAILED, or it came back EMPTY over a populated
+  // project and was refused. STATE, not a ref, because the banner must stay up for as long as the
+  // pause holds — a toast alone disappears after seven seconds (review I1). Published only while the
+  // gate for the CURRENT instance is shut, so any opener above clears it by construction.
+  const [savesPaused, setSavesPaused] = useState<{ backend: ReturnType<typeof createBackend>; reason: "load-failed" | "empty-refused" } | null>(null);
+  const loadPause = savesPaused !== null && savesPaused.backend === backend && !savesAllowed ? savesPaused.reason : null;
+  // The instance the save-paused toast was already shown for — once per backend, not per refused edit.
+  const savePausedAnnouncedForRef = useRef<ReturnType<typeof createBackend> | null>(null);
 
   // Storage status
   const [storageReady, setStorageReady] = useState(false);
@@ -133,7 +175,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // destroyed counts standing as "last committed". The `.catch` restores THIS.
   const committedBaselineRef = useRef({ collections: 0, records: 0 });
   // ★★ §103 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
-  const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, () => backend.save(currentWorkspace())); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend.
+  const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, async () => { if (savesAllowedForRef.current === backend) await backend.save(currentWorkspace()); else logDiag("warn", "storage.flushSkippedBeforeLoad", {}); }); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend. ★★★ §586: this is `flushCurrent`'s write (the pre-switch flush), so it obeys the save gate too — a switch away from a project whose load failed must not write the empty workspace over it. A skip, not a throw: the flush is best-effort.
 
   // ── §72: caller-callback teardown guard ─────────────────────────────────────
   // Every callback this hook fires back into the component drives React state up
@@ -266,6 +308,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // ★ An earlier revision of this comment asserted the opposite (that a
     // flushSync would defeat the ordering) and invited the first-line move.
     setLoadedBackend(backend);
+    allowSavesTo(backend); // §586 — beside the stamp, and LAST for the same reason.
   };
 
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
@@ -324,6 +367,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         // review read that as a regression; it is not, and §77 says why. Do not
         // "fix" it by re-stamping there.
         setLoadedBackend(backend);
+        allowSavesTo(backend); // §586 — the op already loaded or built what scope holds.
         await refreshBackendStatus();
         return;
       }
@@ -339,7 +383,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         if (isWorkspaceEmpty(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
           recordDataLossEvent({ path: "load", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: 0, refused: true });
           emitToast("info", t(langRef.current, "storageKeptCurrentData"));
-          truncationOps.raiseDecodeFailuresFor(backend); // ★★ Refusing to APPLY does not un-arm autosave against THIS backend, and a decode failure is a fact about its stored bytes, not about the workspace that stayed live — so the decode half is published while truncation's is not. AFTER the toast above: single-slot surface, see the landmine on `reportFor`. Raise-only; the doc on `raiseDecodeFailuresFor` carries why lowering here would clear a warning that is still true.
+          setSavesPaused({ backend, reason: "empty-refused" }); // ★★★ §587: the save gate stays SHUT — opening it here copied the previous project into this (empty) target. See `savesAllowedFor`; the save effect announces the pause.
+          truncationOps.raiseDecodeFailuresFor(backend); // ★★ Since §587 this refusal also leaves the save gate SHUT for THIS backend, but a later load that lands reopens it, so the flag is still published: a decode failure is a fact about its stored bytes, not about the workspace that stayed live — so the decode half is published while truncation's is not. AFTER the toast above: single-slot surface, see the landmine on `reportFor`. Raise-only; the doc on `raiseDecodeFailuresFor` carries why lowering here would clear a warning that is still true.
           await refreshBackendStatus();
           emitOutcome(null);
           return;
@@ -352,6 +397,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         emitOutcome(null);
       } catch (err) {
         if (cancelled) return;
+        setSavesPaused({ backend, reason: "load-failed" }); // §586: saves stay refused; published as `loadPause` (sticky banner), and the first refused edit toasts once.
         emitOutcome(err);
         logDiag("error", "storage.loadFailed", { kind: settingsRef.current.storageConfig.kind, message: String(err) });
         // Turso connectivity/auth failures surface as the persistent storage
@@ -411,6 +457,24 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // windows would also race, and popup storage is often blocked
     // ("AbortError: Aborted due to security policy") — skipping fixes both.
     if (args.isPopout) return;
+    // ★★★ §586 — NO SAVE BEFORE A LOAD FOR THIS BACKEND SUCCEEDED. Scope still holds the empty boot
+    //   workspace (or the PREVIOUS backend's, after a rebuild), and `evaluateSaveGuard` cannot see it:
+    //   its baselines start at 0/0. ★★ ABOVE the suppress branch, so an op's one-shot survives until
+    //   the gate opens and is spent THEN — below it, the op's suppress would be spent on this closed
+    //   run and the re-run the gate's opening triggers (`savesAllowed` is a dep) would re-write the
+    //   workspace the op had just loaded.
+    if (!savesAllowed) {
+      if (loadPause !== null && savePausedAnnouncedForRef.current !== backend) {
+        savePausedAnnouncedForRef.current = backend;
+        // ★ The SAME shape as the destructive refusal's toast: it names the pause and its action
+        // re-shows the sticky banner (the toast itself times out; the banner is the lasting surface).
+        emitToastAction("error", t(langRef.current, loadPause === "empty-refused" ? "storageSavePausedEmptyLoad" : "storageSavePausedLoadFailed"), {
+          labelKey: "storageSavingPausedAction",
+          run: () => args.onRevealSavingPaused(),
+        });
+      }
+      return;
+    }
     // ★ ONE object: counted by the guard below AND handed to backend.save. The save used to
     //   re-spell this 28-field literal, so a new Workspace field could be counted here and
     //   never written. ★★ The `: Workspace` annotation (not `as`) only catches a missing
@@ -535,6 +599,16 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //    §72 failure. They are routed through emitOutcome/emitToast for that
     //    reason; do not call args.* directly here.
     const doSave = () => {
+      // ★★ §586, second check: the debounce timer AND flush-on-hide both call this (debounced-save.ts),
+      // possibly long after this run — so it re-reads the gate's REF rather than trusting the run above.
+      // ★★★ DEFENCE IN DEPTH — NO TEST CAN REACH IT TODAY, and none claims to. A save is scheduled only
+      // on a run that passed the effect-level check, and the gate for THAT backend never closes again:
+      // the ref moves only when a DIFFERENT backend opens it, which means a rebuild, which re-runs this
+      // effect and whose cleanup clears the timer and drops both hide listeners first. Measured by
+      // mutation: deleting this line alone leaves every load-gate test green; deleting it together with
+      // the effect-level check turns (a) (b) (c) (e) (h) (i) red. It is here for a future path that
+      // schedules without that check.
+      if (savesAllowedForRef.current !== backend) return;
       backend.save(outgoing).then(() => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
         committedBaselineRef.current = { collections: curCollections, records: curRecords }; // the write landed: these are on disk now
         emitOutcome(null);
@@ -575,8 +649,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     };
     // ★ Debounce + flush-on-hide (the double-fire guard, why `pagehide` backs up
     //   `visibilitychange`, and why this may only be reached AFTER the hydrated/
-    //   popout/suppress gates above) all live in debounced-save.ts. Read it there.
+    //   popout/load/suppress gates above) all live in debounced-save.ts. Read it there.
     return scheduleDebouncedSave(doSave, SAVE_DEBOUNCE_MS);
+    // ★ `savesAllowed` is a dep so the gate OPENING re-runs this effect (after an op's re-stamp, it is
+    // the only thing that changes) — the run spends that op's suppress, or saves an edit made meanwhile.
     // ★ `loadWasIncomplete` is a dep so LOWERING it (the user's "save anyway") re-runs this effect
     // and the escape actually WRITES — otherwise it no-ops until the next unrelated edit. ★★ Keep
     // the disable directive DIRECTLY below: a comment between it and the deps line silently voids it.
@@ -584,7 +660,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // `allowDestructiveSaveAnyway` does, and without the dep the authorised save
     // would wait for an unrelated edit — with saving paused, there may not be one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, args.hydrated, args.isPopout, backend, loadWasIncomplete, destructive.refusal]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, args.hydrated, args.isPopout, backend, loadWasIncomplete, destructive.refusal, savesAllowed]);
 
   const canSend = !args.isPopout;
   useBroadcastSync("tasks", tasks, setTasks, canSend);
@@ -738,6 +814,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     suppressNextSaveRef,
     suppressNextLoadRef,
     emitStorageConfig,
+    allowSavesToActiveBackend: () => allowSavesTo(backend),
+    loadSucceeded: () => savesAllowedForRef.current === backend,
     acquireToken: auth.acquireToken,
     setTasks,
     setRaid,
@@ -795,7 +873,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // number here — this comment said "sits AT" while the file had 14 lines of headroom.
   // Measure: node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
   return {
-    storageDescription, storageReady, workspaceLoaded,
+    storageDescription, storageReady, workspaceLoaded, loadPause,
     onPickStorageFile, onGrantWriteAccess, onOpenStorageFile, onRequestStorageSwitch,
     reloadCurrentProject, allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,

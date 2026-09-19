@@ -808,6 +808,12 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§583](#583-budget-historypropertytestts-flaked-once-in-ci-under-an-unseeded-fast-check-run--closed-2026-09-19) | `budget-history.property.test.ts` flaked once in CI under an unseeded fast-check run — CLOSED 2026-09-19 | one failure in CI pipeline 7251's unit-tests job on the spec-B release branch, cleared by retry; root cause confirmed 2026-09-19; GitLab #368 | S — capture a counterexample at high `numRuns`, then fix the tolerance or the summation | closed |
 | [§584](#584-two-next-actions-hero-tests-are-weaker-than-they-look--closed-2026-09-18) | Two Next-actions hero tests are weaker than they look — CLOSED 2026-09-18 | found 2026-09-18 reading `actions-panel.test.tsx`, `dashboard-panel-layout.test.tsx` and `next-actions/group.test.ts`; GitLab #369 | S — add a monitor-topped fixture and a visible-text uniqueness assertion | closed |
 | [§585](#585-on-xl-the-kpi-tile-lands-below-the-2x8-burn-tile-not-beside-it--closed-2026-09-19) | On `xl` the KPI tile lands below the 2x8 burn tile, not beside it — CLOSED 2026-09-19 | accepted during spec C; measured 2026-09-18 against `DASHBOARD_TILES`/`xl:grid-cols-4`; GitLab #370 | S — revisit the burn tile's default width or the tile order | closed |
+| [§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19) | A startup autosave saves the empty workspace over the stored project before the first load lands — CLOSED 2026-09-19 | found 2026-09-19 by the startup-autosave probe; filed and fixed on fix/startup-autosave-wipe; GitLab #371 | S — gate every save to the active backend on a successful load | closed |
+| [§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19) | Changing the Turso URL or token, or the SharePoint target, saves the open project into the new target — CLOSED 2026-09-19 | found 2026-09-19 by the rebuild follow-up probe; filed already closed, fixed by the §586 change on fix/startup-autosave-wipe | S — the §586 gate, kept shut after an empty-load refusal | closed |
+| [§588](#588-a-reload-or-file-pick-still-running-from-before-a-backend-rebuild-can-shut-the-new-backends-save-gate-and-nothing-says-so--open) | A reload or file pick still running from before a backend rebuild can shut the new backend's save gate, and nothing says so — OPEN | §586 cold review (M3), read from code; GitLab #372 | S — drop results that belong to a superseded backend | open |
+| [§589](#589-an-edit-made-less-than-500-ms-before-a-backend-rebuild-is-dropped--open) | An edit made less than 500 ms before a backend rebuild is dropped — OPEN | §586 cold review (M5), read from code, pre-existing; GitLab #373 | S — flush the pending save to the old backend on a backend change | open |
+| [§590](#590-pick-storage-file-after-a-failed-load-writes-the-empty-workspace-into-the-chosen-file--open) | Pick storage file after a failed load writes the empty workspace into the chosen file — OPEN | §586 round-1 concern 6 (implementer), read from code; the cold review kept Pick ungated; GitLab #374 | S — refuse or confirm when the picked file already holds data | open |
+| [§591](#591-after-a-turso-urltoken-or-sharepoint-target-change-the-previous-projects-activity-log-and-budget-history-are-merged-into-the-new-target--open) | After a Turso URL/token or SharePoint target change, the previous project's activity log and budget history are merged into the new target — OPEN | §586 whole-branch review (I1), read from code, pre-existing; GitLab #375 | M — decide how a load tells a refresh of the same project from a new target | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -39711,3 +39717,197 @@ landing lower was judged an acceptable trade-off rather than a blocker. Revisit 
 layout.
 
 Fix shape: none proposed yet — filing for revisit, not implementation.
+
+## 586. A startup autosave saves the empty workspace over the stored project before the first load lands — CLOSED 2026-09-19
+
+**Status:** CLOSED 2026-09-19 by `fix/startup-autosave-wipe` (`84185ece`), filed and fixed on the same branch; GitLab #371 is closed by the MR that merges it, not by this entry. `use-storage-backend.ts` now carries a save gate, `savesAllowedFor` (state + ref, keyed on backend IDENTITY like `loadedBackend`). It opens in exactly three places, and only the first is a load of that instance: `applyWorkspace` (an applied load of the load effect, `reloadCurrentProject`, and the switch/create/load-from-file ops); the load effect's suppress-branch RE-STAMP after such an op, whose memo instance is never loaded itself (the op loaded a sibling instance, built a fresh workspace, or converted the live one); and an explicit "Pick storage file" write. Three paths check it: the save effect (it schedules nothing while the gate is shut), `doSave` (the debounce timer and flush-on-hide both call it, and nothing else in `debounced-save.ts` reaches the save), and the pre-switch `flushCurrent`, which now skips rather than writing the unloaded workspace over the project being left. While the gate is shut because a load FAILED, or an empty load was refused over populated scope (§587), the hook publishes `loadPause` and task-manager mounts it on the sticky `SavingPausedBanner` (a `load` cause, primary action "Reload project") for as long as the pause holds; the first refused edit also shows an action toast that re-shows the banner. The empty-load case has its own wording, `storageSavePausedEmptyLoad`. While the gate is shut, a storage-kind switch goes ahead WITHOUT its conversion write: nothing is written, the new backend loads its own target, and `storageSwitchedWithoutCopy` says nothing was copied. Verified by `npx vitest run src/app/use-storage-backend.load-gate.test.tsx --maxWorkers=1` (the gate, the pause state and the kind switch) and, for the sticky banner, `npx vitest run src/app/task-manager.truncation-banner.test.tsx --maxWorkers=1`, describe "task-manager → load-pause banner mount": "mounts for %s with its own headline, and its primary action reloads", "dismiss hides the banner without resolving the pause, and the indicator brings it back" and "stops reporting storage as healthy while the load pause holds".
+
+At boot every workspace slice is empty, and the save effect runs on the same commit as the load
+effect because both key on `hydrated`. Nothing on the save path refused a save issued before the load
+landed. `evaluateSaveGuard` starts from 0/0 baselines, so it had nothing to compare against.
+`suppressNextSaveRef` is set only after a SUCCESSFUL load, and `workspaceLoaded` gated snapshot capture
+only. So the debounced save of the empty workspace fired unless the load won the 500 ms race. Hiding
+the tab during the load defeated even that race: flush-on-hide fired the save at once.
+
+**What was MEASURED vs what was READ.** A throwaway probe mounted the real hook over a fake backend on
+fake timers. It MEASURED three things. With a 2000 ms load, `save()` ran at 500 ms with every slice
+empty. With a 100 ms load, no save ran. With `visibilitychange` to hidden at 100 ms, the save ran at
+100 ms. Only the hook-level save was exercised. The per-backend damage was READ from the backends'
+code, never executed:
+- Turso single-DB: the backend's diff baseline is still `null`, so the save emits `DELETE FROM` for
+  every `TABLE_NAMES` table. Full wipe.
+- Turso tenant: the same diff, scoped `WHERE project_id = ?`, wipes the active project.
+- SharePoint: a full-file PUT of the empty workspace.
+- Local file: a rewrite with the empty workspace where write permission is already granted.
+  Otherwise the save throws `local-file-permission-needed`, which protects the file by accident.
+- IndexedDB: the keyed stores diff against empty baselines and are spared, but every key-value slice
+  is overwritten or deleted.
+
+**The fix, and how the gate relates to `workspaceLoaded`.** The gate opens wherever `loadedBackend` is
+stamped: in `applyWorkspace`, and at the suppress-branch re-stamp that follows a switch, create or
+load-from-file op. It also opens after an explicit "Pick storage file" write, since the backend then
+holds exactly the live workspace. That write is the only place where the gate and `workspaceLoaded`
+differ. Like `loadedBackend`
+([§77](#77-the-snapshot-capture-gate-is-a-one-way-latch-so-a-mid-session-storage-switch-can-still-capture-the-wrong-project--closed-post-02260)),
+it stays SHUT after an empty-load REFUSAL, for the reason given in
+[§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19).
+The effect-level check sits ABOVE the suppress branch, and `savesAllowed` is an effect dependency. So
+a project switch spends its one-shot suppress when the gate opens, not on the run where the gate is
+still shut. With the check below the suppress branch, the just-loaded workspace would be written back
+to the target.
+
+Open follow-ups found on the way: [§588](#588-a-reload-or-file-pick-still-running-from-before-a-backend-rebuild-can-shut-the-new-backends-save-gate-and-nothing-says-so--open), [§589](#589-an-edit-made-less-than-500-ms-before-a-backend-rebuild-is-dropped--open), [§590](#590-pick-storage-file-after-a-failed-load-writes-the-empty-workspace-into-the-chosen-file--open).
+
+★★ **The two checks mask each other, so a single-gate mutant proves little.** Removing either check
+alone leaves (a) and (b) green, and removing both turned (a) (b) (c) (e) (h) (i) red (measured on the ten-test file of `c360190f`). The `doSave` check
+cannot be the sole guard today, because a backend change re-runs the effect and cancels the pending
+save. It is there so that a future path which schedules without the effect's check still cannot write.
+
+## 587. Changing the Turso URL or token, or the SharePoint target, saves the open project into the new target — CLOSED 2026-09-19
+
+**Status:** CLOSED 2026-09-19 by `fix/startup-autosave-wipe`. It was filed already closed and fixed by the same change as [§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19): the save gate in `84185ece`, and `c360190f`, which keeps the gate shut after an empty-load refusal. Verified by `npx vitest run src/app/use-storage-backend.load-gate.test.tsx --maxWorkers=1`, tests (e), (h) and (j). ★ The fix stops the AUTOSAVE from writing the previous project into the new target. It does not stop a later applied load from MERGING the previous project's activity log and budget history into the new one, which the next save then writes there: see [§591](#591-after-a-turso-urltoken-or-sharepoint-target-change-the-previous-projects-activity-log-and-budget-history-are-merged-into-the-new-target--open), filed open.
+
+`useStorageBackend` memoises `backend` on `storageConfig` (by identity), `auth.acquireToken`, the Turso
+`databaseUrl` and `authToken`, and `tursoProjectId`. When one of them changes without going through a
+project op, both effects re-run on the new instance. Nothing suppresses the save. The destructive
+baselines equal the current populated counts, so `evaluateSaveGuard` allows it, and the save effect
+schedules a save of the PREVIOUS target's in-memory workspace to the NEW backend. Only a load that
+is applied within 500 ms cancels that save. A slow load, a failed load, or an empty load that the
+empty-load guard refuses all let the save through. On Turso the new instance's diff baseline is
+`null`, so the save is a full rewrite.
+
+**Measured vs read.** A follow-up probe drove the real hook with Turso settings. It loaded A, then
+re-rendered with a new `databaseUrl`, which returned backend B. It MEASURED three cases:
+- B populated, 2000 ms load: `B.save` received A's project at about 500 ms. B's load was then
+  applied on top, so the screen showed B while storage held A.
+- B populated, 100 ms load: no save.
+- B empty, 100 ms load: the refusal kept A on screen and left the save running, so `B.save`
+  received A's project.
+
+Which settings reach the rebuild was READ from code:
+- The Turso URL and token fields call `setSettings` on every keystroke.
+- A SharePoint target change creates a new `storageConfig` identity.
+- An `acquireToken` identity change (M365 sign-in or sign-out) rebuilds against the same target, so
+  the data written back is that target's own. On Turso that is still a full rewrite.
+
+**The fix.** It is the same gate as [§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19). A rebuilt instance fails the identity check until its own load is
+applied, so no automatic save reaches it before then. ★★★ The one addition is the empty-load refusal. It is
+reachable ONLY on such a rebuild: the load effect's `currentWorkspace` is the closure of the render
+that started it, so an empty FIRST load simply applies. The refusal therefore leaves the gate SHUT
+and marks the backend paused, where opening it would copy the previous project into the empty
+target. The pause is published as `loadPause` and stays on the sticky saving-paused banner, with its own
+wording (`storageSavePausedEmptyLoad`: the storage returned no data, the project on screen is kept
+but not written into it). Saving to that backend resumes only when one of the three openers in §586
+runs: an applied load (a reload that the user confirms, or a switch), an op's re-stamp, or a Pick
+storage file write.
+
+★ **Open file after a failed load leaves autosave paused, and that is the safe outcome.**
+`onOpenStorageFile` applies only the file's tasks and RAID, through raw setters rather than
+`applyWorkspace`, so it opens no gate; the banner keeps naming the load failure. Opening the gate
+there would have written the file back with every other slice empty, which is the §586 wipe in a
+smaller shape. The user reloads the project instead.
+
+★ **While the gate is shut, a storage-kind switch copies nothing.** Its conversion would copy the
+live workspace, which is then the empty boot one or the previous target's project, into the new kind.
+So `onRequestStorageSwitch` switches WITHOUT the conversion write and without its confirm dialog
+(both confirm texts describe a conversion): nothing is written anywhere, the new backend LOADS its own
+target (no `suppressNextLoadRef`), and the notice `storageSwitchedWithoutCopy` says nothing was copied
+because nothing had been loaded. The new backend then passes through the §586 gate like any other:
+no save until its own load is applied. After a successful load the switch converts exactly as
+before. ★ This replaced a first version that REFUSED the switch, which left a user whose storage
+never loads with no way to change storage kind.
+
+**Not affected, by design.**
+- A storage-KIND switch (`onRequestStorageSwitch`), once the current load has succeeded, writes the
+  live workspace to the new kind through `guardedWrite`, not the save effect. It then arms `suppressNextLoadRef`
+  (not `suppressNextSaveRef`). The re-stamp opens the gate, and the `savesAllowed` dependency re-runs
+  the effect. That produces the same one redundant post-switch save as before, with no edit needed;
+  test (j) pins it.
+- Pick storage file (`onPickStorageFile`) re-points the SAME instance at a new handle, so nothing is
+  rebuilt. Its write is the explicit "save the project here" the user asked for, and it goes through
+  `guardedWrite`.
+- Open file (`onOpenStorageFile`) also binds the same instance. It arms `suppressNextSaveRef` after
+  the bind and then applies the file, so the save that apply triggers is suppressed.
+- An M365 sign-in or sign-out changes the `acquireToken` identity. That rebuild targets the SAME
+  store, so it was a same-target rewrite, not a cross-target one. The gate covers it anyway.
+
+★ **Still open, and out of scope:** each keystroke in the Turso URL field still starts a `load()`
+against a partial URL. Those loads cannot save any more, but they still cost network requests and
+error toasts.
+
+## 588. A reload or file pick still running from before a backend rebuild can shut the new backend's save gate, and nothing says so — OPEN
+
+**Status:** OPEN 2026-09-19 — read from code in the §586 cold review (finding M3), not reproduced: the stall is never machine-verified. `reloadCurrentProject` and `onPickStorageFile` capture the render-scope `backend` and call `allowSavesTo` with it after an `await`.
+
+**Work item:** #372
+
+If a settings-driven rebuild ([§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19)) replaces the backend while one of those two is awaiting,
+it finishes by calling `allowSavesTo(<the OLD instance>)`. That moves the save gate
+([§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19)) away from the NEW instance. The gate then stays shut for the new backend. Nothing
+is written anywhere wrong, so it is safe, but it is a silent stall: `loadPause` is published only
+for an instance whose load failed or was refused, so no banner or toast appears. `reloadCurrentProject`
+also has no `cancelled` check of the kind the load effect has, so it applies the old target's data
+as well.
+
+**The fix shape:** have both callers compare their captured backend with the live one (a ref) before
+applying or opening, and drop a result that belongs to a superseded instance.
+
+## 589. An edit made less than 500 ms before a backend rebuild is dropped — OPEN
+
+**Status:** OPEN 2026-09-19 — read from code in the §586 cold review (finding M5), not reproduced: the dropped edit is never machine-verified. Pre-existing; neither §586 nor §587 changed it.
+
+**Work item:** #373
+
+The save effect lists `backend` as a dependency, so a rebuild (a project switch, or a settings change
+under [§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19)) runs the previous run's cleanup. `scheduleDebouncedSave`'s cleanup clears the
+timer and removes the hide listeners WITHOUT flushing, so an edit still inside the 500 ms debounce is
+never written to the old target. A switch op's own `flushCurrent` covers the op paths; a bare
+settings rebuild has no flush. Once the new target's load applies, the edit leaves memory too.
+
+**The fix shape:** flush a pending save to the OLD backend in the cleanup when the cause is a backend
+change, gated as [§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19) requires (only if the old instance's gate is open).
+
+## 590. Pick storage file after a failed load writes the empty workspace into the chosen file — OPEN
+
+**Status:** OPEN 2026-09-19 — read from code, not reproduced: the overwrite is never machine-verified. Raised as concern 6 of the §586 implementation's first round, from reading `onPickStorageFile`; the cold review kept Pick deliberately ungated (it is the only way a first-time local-file user can create a file), so this is the implementer's concern, not a review finding.
+
+**Work item:** #374
+
+After a failed load the live workspace is the empty boot one. `onPickStorageFile` writes it into the
+file the user picks, through `guardedWrite`, and then opens the save gate
+([§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19)). If the user picks the EXISTING project file (the save picker warns before
+overwriting), that file is replaced with an empty workspace. The sibling explicit write, the
+storage-kind conversion, now skips its write (switching without copying) before a load succeeds
+([§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19)); Pick storage file is not, because it is also the only way a first-time
+local-file user (whose load fails with no file picked) can create a file.
+
+**The fix shape:** refuse when the picked handle already holds data, or confirm with the task counts on
+both sides, rather than blocking the pick outright.
+
+## 591. After a Turso URL/token or SharePoint target change, the previous project's activity log and budget history are merged into the new target — OPEN
+
+**Status:** OPEN 2026-09-19 — read from code in the §586 whole-branch review (finding I1), not reproduced: the carry-over is never machine-verified. Pre-existing on main; the §587 fix does not change it.
+
+**Work item:** #375
+
+The load effect applies with `applyWorkspace(workspace, "reset", "merge")`, and `reloadCurrentProject`
+with `applyWorkspace(workspace, "raise", "merge")`. In MERGE mode `applyWorkspace` runs
+`setActivityLog(prev => mergeActivityLogs(prev, …))` and the same for `budgetHistory`, where `prev` is
+whatever is in memory. On a settings-driven rebuild ([§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19)) that is the PREVIOUS target's project:
+- **Populated new target:** its load applies, the previous project's log and budget history are merged
+  in, the save gate opens, and the next save writes them into the new target.
+- **Empty new target (the empty-load pause):** the saving-paused banner's "Reload project" runs
+  `reloadCurrentProject`. After `reloadEmptyConfirm` — whose text says the project will be REPLACED —
+  those two slices are merged, not replaced, and the next save writes them into the empty target.
+
+The merged activity log carries the previous project's `changes` payloads, which hold its old and new
+field values; once saved, nothing tells them apart from the new target's own entries.
+
+**Why merge exists:** a load or reload of the SAME backend keeps entries appended locally while the
+load was in flight (the comment on `applyWorkspace`'s `logMode`). Switch, create and load-from-file
+already pass REPLACE.
+
+**The open question:** how the load effect and `reloadCurrentProject` should tell "same project,
+refreshed" from "new target". A rebuild of the SAME target — an M365 `acquireToken` identity change —
+must keep merging, so "a new backend instance" is not the test on its own; the target's identity
+(storage kind plus URL, token scope, SharePoint item, project id) is.
