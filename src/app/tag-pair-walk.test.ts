@@ -61,7 +61,11 @@ describe("forEachTagPair", () => {
         });
         return seen;
       },
-      // No open has a ">", so nothing is yielded.
+      // No open has a ">", so nothing is yielded. `check` cannot catch an
+      // early bail here: the correct walk IS one (it returns at the first
+      // open), and a sentinel pair after the soup would put a ">" in the
+      // input, which is the one thing this fixture exists to withhold. The
+      // mutant is caught on its ratio alone.
       check: (seen) => expect(seen).toEqual([]),
       n: 80_000,
     });
@@ -144,7 +148,11 @@ describe("forEachTagPair", () => {
         });
         return seen;
       },
-      // No open ever finds its close, so nothing is yielded.
+      // No open ever finds its close, so nothing is yielded. `check` cannot
+      // tell a walk that stopped after the first retirement from one that
+      // consulted it N-1 times: both yield nothing. A sentinel "</w:tbl>"
+      // would give the first open a close and un-retire the name, removing
+      // the path under test, so the mutant is caught on its ratio alone.
       check: (seen) => expect(seen).toEqual([]),
       n: 20_000,
     });
@@ -197,6 +205,9 @@ describe("forEachOpenTag", () => {
       label: "no '>' anywhere (forEachOpenTag)",
       build: (n) => "<sheet ".repeat(n),
       run: (input) => tagsOf(input),
+      // As in the forEachTagPair case above: the correct walk returns at the
+      // first open, so `check` cannot catch an early bail, and a sentinel tag
+      // would add the ">" the fixture withholds. The ratio catches the mutant.
       check: (tags) => expect(tags).toEqual([]),
       n: 100_000,
     });

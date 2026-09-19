@@ -19,6 +19,12 @@
 //   even `repeats` the median is the mean of the two middle ratios.
 //   `smallMs` / `largeMs` stay in the result as the per-size minima, for the
 //   failure message and for reporting only; they never decide pass or fail.
+// ★ The "Measured 2026-09-19 (ratio large / small, limit 8)" figures in the
+//   call sites' comments were taken while this helper still judged
+//   min(large) / min(small). On an idle machine every pair agrees within
+//   noise, so the two definitions give the same figure. Four sites were
+//   re-proved red under the median before merge; the §592 closure in
+//   docs/open-followups.md records them.
 // ★ `check` is mandatory and runs at BOTH sizes: an early bail that made the
 //   input trivial would otherwise pass a ratio check exactly as it passed a
 //   ceiling.

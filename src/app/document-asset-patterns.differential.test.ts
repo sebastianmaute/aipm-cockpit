@@ -456,6 +456,11 @@ describe("document-asset-patterns — complexity", () => {
   // matches anything: the predicate is true and the lazy ANY_TAG pattern takes
   // the first id; the greedy IMG_TAG pattern needs a `>` that never comes.
   // Every other row matches nothing at either size.
+  // ★ So `check` cannot catch an early bail on those rows, nor on the
+  // pattern-level test below: "matches nothing" IS the correct result. `run`
+  // is the patterns themselves, and a sentinel tag after the soup would hand
+  // them the `>` or the close each row exists to withhold, changing the
+  // backtracking the mutants depend on. Those rows rely on the ratio alone.
   // Measured 2026-09-19 (ratio large / small, limit 8; mutants reverted by
   // hand from the commits named):
   //   <img SP repeated, closed  n 64 KB  green 4.01–4.07, 15.12 with the

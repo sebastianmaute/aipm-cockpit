@@ -58,9 +58,6 @@ describe("extractDocx", () => {
     // Unclosed table opens. The regression is the former lazy
     // `<w:tbl\b[\s\S]*?<\/w:tbl>|<w:p\b[\s\S]*?<\/w:p>` pair regex, which
     // rescans to end of input from every open; the cursor walk stays linear.
-    // Historical, measured before 2026-09-19 against that regex at the old
-    // fixed size: ~1.5s at 40k reps, ~24.4s at 120k reps (an earlier comment
-    // that quoted char counts instead of reps was unreproducible).
     // Measured 2026-09-19 (ratio large / small, limit 8): 3.8–3.9 green,
     // 16.8 with that lazy regex restored in extractDocx.
     expectLinearScaling({

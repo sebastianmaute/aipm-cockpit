@@ -202,8 +202,8 @@ describe("extractHtmlMarkdown", () => {
 
   // ★★★ THE TESTS BELOW ARE DoS GUARDS, NOT PERFORMANCE BENCHMARKS.
   //  Nothing else in this repo bounds processing time, which is why every
-  //  input below passed a fully green suite while taking 12s to 31s, four of
-  //  the five to produce 42 characters. extractHtmlMarkdown runs on the MAIN
+  //  input below once passed a fully green suite while taking many seconds,
+  //  four of the five to produce 42 characters. extractHtmlMarkdown runs on the MAIN
   //  THREAD over attacker-supplied bytes (any .html attachment, any text/html
   //  MIME part, up to MAX_INGEST_NODES of them per mail), so the property
   //  under test is "finishes", not "finishes fast". Each guard asserts that
@@ -228,9 +228,10 @@ describe("extractHtmlMarkdown", () => {
    *  list-item rows measured 12.9 and 12.1 red and the cells row 13.0. All
    *  three met the rule, so it did not force a larger n. They were raised to
    *  n 62,500 by judgement, because each figure came from a single run and
-   *  sat within that run's noise of the floor. The cost is about 2.7s green
-   *  for the heading and list-item rows, which is over the ~1.5s per-test
-   *  target, and under 1s for the cells row.
+   *  sat within that run's noise of the floor. The cost, measured green
+   *  across the 2026-09-19 runs, is 1.9–2.6 s for the heading row and
+   *  2.3–2.8 s for the list-item row, over the ~1.5 s per-test target, and
+   *  under 1 s for the cells row.
    *
    *  ★★ THE GREEN SIDE IS NOT THE ~2ms AN ALL-`<script>` INPUT COSTS. Three of
    *  these five spend most of their green time in TAG_STRIP_RE, which is

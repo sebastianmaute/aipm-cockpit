@@ -119,7 +119,10 @@ describe("office-xml", () => {
       label: "unclosed <t opens (extractRuns)",
       build: (n) => "<t ".repeat(n),
       run: (xml) => extractRuns(xml, "t"),
-      // No open has a ">", so no run is extracted.
+      // No open has a ">", so no run is extracted. `check` cannot catch an
+      // early bail: the correct walk stops at the first open, and a sentinel
+      // run after the soup would add the ">" the fixture withholds. The
+      // mutant is caught on its ratio alone.
       check: (runs) => expect(runs).toEqual([]),
       n: 40_000,
     });

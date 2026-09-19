@@ -1071,6 +1071,12 @@ describe("degradeToPlain", () => {
   // (large 256 KB, the former fixed size), measured below.
   // ★★ The input has no `>`, so no image is carried and the projection is the
   // raw input; `check` pins the exact 100-character degrade at both sizes.
+  // ★ That degrade is the same at both sizes, so `check` alone cannot catch a
+  // scan that stopped early; the ratio does. A trailing sentinel `<img
+  // data-asset-id>` would be carried into the output and make `check` see the
+  // end, but it was NOT added: degradeToPlain's own source comment reasons
+  // from this input yielding ZERO matches, and this branch changes no
+  // production file.
   // Measured 2026-09-19 (ratio large / small, limit 8): green 4.12–4.26;
   // 16.47 with branch 2's `(?=[^<>]*>)` deleted from ASSET_IMG_TAG_RE,
   // 16.40 (39 s to fail) with branch 1's guard deleted (loops 64).
