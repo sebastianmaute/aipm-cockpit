@@ -2184,6 +2184,8 @@ export const de: Record<TranslationKey, string> = {
   integrationsTursoTestOk: "Verbunden.",
   integrationsTursoApply: "Übernehmen",
   integrationsTursoApplyLabel: "Turso-Verbindung übernehmen",
+  integrationsTursoApplyNeedsPassphrase:
+    "Geben Sie oben Ihre Passphrase ein und bestätigen Sie sie, um das neue Token zu übernehmen. Sie wird zur Passphrase für dieses Token.",
   integrationsTursoTestUnreachable:
     "Datenbank nicht erreichbar. Bitte URL und Netzwerkverbindung prüfen.",
   integrationsTursoTestAuth: "Das Auth-Token wurde abgelehnt. Bitte Token prüfen.",

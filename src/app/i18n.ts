@@ -2297,6 +2297,9 @@ const enUS = {
   // there that rebuilds the backend). ★ Label-in-name: the visible "Apply" is inside the name.
   integrationsTursoApply: "Apply",
   integrationsTursoApplyLabel: "Apply Turso connection",
+  // Shown while Apply / Save & switch wait for the passphrase (passphrase mode, changed token).
+  integrationsTursoApplyNeedsPassphrase:
+    "Enter and confirm your passphrase above to apply the new token. It becomes the passphrase for this token.",
   // ★★★ FOUR OUTCOME KEYS, NOT ONE PASS-THROUGH. An earlier cut had a single
   // `integrationsTursoTestFail: "Connection failed: {0}"` filled with the
   // thrown `e.message`. Every message reaching it is UNTRANSLATED ENGLISH, and

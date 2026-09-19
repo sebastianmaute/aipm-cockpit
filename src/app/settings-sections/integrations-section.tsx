@@ -347,7 +347,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
 
   // The keyboard path to Apply: Enter in either field applies, exactly when Apply is enabled.
   function handleTursoFieldKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key !== "Enter" || !tursoIsLive || !canApplyTurso) return;
+    // ★ `isComposing`: an IME commits its composition with Enter — that Enter is not an Apply.
+    if (e.key !== "Enter" || e.nativeEvent.isComposing || !tursoIsLive || !canApplyTurso) return;
     e.preventDefault();
     applyTursoDrafts();
   }
@@ -379,6 +380,10 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const tokenSealBlocked =
     tursoIsLive && tokenWrap === "passphrase" && tursoToken !== turso.authToken && !passphraseReady;
   const canApplyTurso = tursoDraftsDirty && !tokenSealBlocked;
+  // ★ A blocked Apply / "Save & switch" states WHY, visibly and as each button's description
+  //   (one key, two ids: the switch sits far below in the portfolio block).
+  const applyBlockedHintId = `${useId()}-turso-apply-blocked`;
+  const switchBlockedHintId = `${useId()}-turso-switch-blocked`;
   // ★ The env-unusable notice is a DESCRIPTION, not part of the field's name —
   // see the render site for why it sits outside the <label>.
   const tursoUrlEnvNoticeId = `${useId()}-turso-url-env`;
@@ -977,6 +982,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               disabled={!canApplyTurso}
               onClick={applyTursoDrafts}
               aria-label={t(lang, "integrationsTursoApplyLabel")}
+              aria-describedby={tokenSealBlocked ? applyBlockedHintId : undefined}
             >
               {t(lang, "integrationsTursoApply")}
             </Button>
@@ -992,6 +998,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
             {t(lang, "integrationsTursoTest")}
           </Button>
           </div>
+          {tokenSealBlocked && (
+            <FieldHint id={applyBlockedHintId}>{t(lang, "integrationsTursoApplyNeedsPassphrase")}</FieldHint>
+          )}
           <p role="status" className="text-xs text-muted-foreground">
             {/* ★ No `?.` — `tursoTestFresh` opens with `tursoTest !== null`, and
                 TS narrows through the aliased const, so the optional chain would
@@ -1149,9 +1158,15 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   onClick={confirmPortfolioModeSwitch}
                   disabled={switchBusy || tokenSealBlocked}
                   aria-busy={switchBusy}
+                  aria-describedby={tokenSealBlocked ? switchBlockedHintId : undefined}
                 >
                   {t(lang, noCurrentProject ? "portfolioModeSwitchConfirmNoProject" : "portfolioModeSwitchConfirm")}
                 </Button>
+                {tokenSealBlocked && (
+                  <FieldHint id={switchBlockedHintId} className="mt-1">
+                    {t(lang, "integrationsTursoApplyNeedsPassphrase")}
+                  </FieldHint>
+                )}
               </div>
             )}
           </div>

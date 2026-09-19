@@ -132,7 +132,8 @@
   (`applyTursoDrafts`, or Enter in either field: one `onChange` for both fields, the token
   device-sealed in device mode; in passphrase mode a CHANGED token is re-sealed under the passphrase
   typed into the section's own passphrase fields (`sealUnderTypedPassphrase`) — the passphrase is never
-  held in memory, so until it is typed Apply and "Save & switch" stay disabled (`tokenSealBlocked`),
+  held in memory, so until it is typed Apply and "Save & switch" stay disabled (`tokenSealBlocked`) and each shows
+  the `integrationsTursoApplyNeedsPassphrase` hint as its visible text and `aria-describedby`,
   else a reload + unlock would yield the OLD token, or none after the switch); nothing
   commits on a keystroke, blur, Tab or Escape, and unapplied drafts are discarded when the section
   unmounts. Apply is disabled while the drafts equal the stored values, so an enabled Apply is the

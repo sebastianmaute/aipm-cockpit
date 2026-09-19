@@ -298,6 +298,41 @@ describe("Passphrase mode — Apply and Save & switch re-seal the new token unde
     expect(saveSecretValue).not.toHaveBeenCalled();
   });
 
+  // MA11 — drop the blocked hint under Apply → red.
+  it("a blocked Apply states why (visible + as its description); the hint goes once unblocked", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<IntegrationsSection lang="en-US" settings={settingsWith(URL_A, "tok")} onChange={onChange} />);
+    const hint = t("en-US", "integrationsTursoApplyNeedsPassphrase");
+    await user.click(lock());
+    expect(screen.queryByText(hint)).toBeNull(); // nothing changed yet: not blocked
+    await user.type(tokenField(), "NEW");
+    const apply = screen.getByRole("button", { name: applyLabel });
+    expect(screen.getByText(hint)).toBeVisible();
+    expect(apply).toHaveAccessibleDescription(hint);
+    await user.keyboard("{Enter}"); // Enter while blocked commits nothing
+    expect(onChange).not.toHaveBeenCalled();
+    await typePassphrase(user);
+    expect(screen.queryByText(hint)).toBeNull();
+    expect(apply).not.toHaveAccessibleDescription(hint);
+  });
+
+  it("a URL-only change in passphrase mode is not blocked: Apply applies without a passphrase", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<IntegrationsSection lang="en-US" settings={settingsWith(URL_A, "tok")} onChange={onChange} />);
+    await user.click(lock());
+    await user.type(urlField(), "u");
+    const apply = screen.getByRole("button", { name: applyLabel });
+    expect(apply).toBeEnabled();
+    expect(screen.queryByText(t("en-US", "integrationsTursoApplyNeedsPassphrase"))).toBeNull();
+    await user.click(apply);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0].integrations.turso).toMatchObject({ databaseUrl: `${URL_A}u`, authToken: "tok" });
+    expect(setSecretPassphrase).not.toHaveBeenCalled();
+    expect(saveSecretValue).not.toHaveBeenCalled();
+  });
+
   describe("Save & switch", () => {
     let reload: ReturnType<typeof vi.fn>;
     const originalLocation = window.location;
@@ -322,6 +357,7 @@ describe("Passphrase mode — Apply and Save & switch re-seal the new token unde
       await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
       const switchBtn = screen.getByRole("button", { name: t("en-US", "portfolioModeSwitchConfirm") });
       expect(switchBtn).toBeDisabled();
+      expect(switchBtn).toHaveAccessibleDescription(t("en-US", "integrationsTursoApplyNeedsPassphrase"));
 
       await typePassphrase(user);
       expect(switchBtn).toBeEnabled();
@@ -350,5 +386,17 @@ describe("Enter applies the Turso drafts on Turso storage", () => {
     await user.keyboard("{Enter}");
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0][0].integrations.turso).toMatchObject(expected);
+  });
+
+  // MA12 — drop the `isComposing` guard → red. An IME commits its composition with Enter.
+  it("an Enter that commits an IME composition does not apply", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<IntegrationsSection lang="en-US" settings={settingsWith(URL_A, "tok")} onChange={onChange} />);
+    await user.type(urlField(), "x");
+    fireEvent.keyDown(urlField(), { key: "Enter", isComposing: true });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.keyDown(urlField(), { key: "Enter" }); // control: a plain Enter applies
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 });
