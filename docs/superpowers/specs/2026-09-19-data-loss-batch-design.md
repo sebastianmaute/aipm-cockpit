@@ -1,9 +1,8 @@
 # Data-loss batch — §567 · §548 · §534 · §546
 
 **Date:** 2026-09-19 · **Branch:** `fix/data-loss-batch` (off `origin/main` at 1.10.1 merge `07af82d3`)
-**Target version:** a patch on whatever `main` carries when this ships (1.11.1 if it lands after 1.11.0
-"Grisham"); settled with the peer session at release time. New register entries, if any, start at **§586**
-(§580–§585 are reserved by the spec-C session).
+**Target version:** a patch on whatever `main` carries when this ships, settled with the peer session at
+release time. New register entries, if any, need a § agreed with the peer session first.
 
 ## Goal
 
@@ -116,4 +115,4 @@ complete fix is a whole-app hold, a UX change owed its own decision; it becomes 
 register entry and in the plan appendix, `docs/superpowers/plans/2026-09-19-data-loss-batch.md`).
 
 Anything the writer inventory turns up that is not a §548 writer; §575 (chat history re-sends attachments);
-the tag-pair-walk timing flake (file separately as §586 on the user's say).
+the tag-pair-walk timing flake (file separately on the user's say, under a § agreed with the peer session).
