@@ -54,6 +54,9 @@ const ENTITY_DIGEST_TEXT_CAP = 200;
 /** Live render-scope values the insight recommendation cluster reads each render. */
 export interface InsightRecommendationDeps {
   isPopout: boolean;
+  /** §548 — a load or project swap is still in flight (`useStorageBackend`). A recommendation stored
+   *  meanwhile would be replaced when the load lands. */
+  loadPending: boolean;
   settings: Settings;
   lang: Lang;
   today: string;
@@ -79,6 +82,7 @@ export interface InsightRecommendationDeps {
 export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   const {
     isPopout,
+    loadPending,
     settings,
     lang,
     today,
@@ -192,10 +196,14 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   // own ref, so neither re-subscribes a listener or re-arms an interval on it.
   const applyInsightRecommendation = useCallback(
     (id: number, rec: InsightRecommendation) => {
+      // §548 — this is the ONE store both the background runner and the on-demand generate write
+      // through, so the hold lives here: a result stored while a load or swap is pending would be
+      // replaced when it lands. Dropped, not queued — the runner's next tick regenerates it.
+      if (loadPending) return;
       const stamped = stampRecommendationTokens(rec, { tasks, raid, changes, milestones, stakeholders });
       setInsights((prev) => (prev ?? []).map((i) => (i.id === id ? { ...i, recommendation: stamped } : i)));
     },
-    [setInsights, tasks, raid, changes, milestones, stakeholders],
+    [setInsights, tasks, raid, changes, milestones, stakeholders, loadPending],
   );
   const {
     generatingId: insightGeneratingId,

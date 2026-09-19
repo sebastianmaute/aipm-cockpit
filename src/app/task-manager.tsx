@@ -2098,7 +2098,7 @@ function TaskManagerInner() {
     reviewPlan,
     setReviewInsightId,
   } = useInsightRecommendations({
-    isPopout, settings, lang, today, project,
+    isPopout, loadPending, settings, lang, today, project,
     tasks, raid, milestones, changes, stakeholders,
     resourcesById, insights, setInsights, dispatcher,
     showToast, logActivityAs,
@@ -2363,6 +2363,7 @@ function TaskManagerInner() {
     absencePull,
   } = useCalendarIntegrations({
     isPopout,
+    loadPending,
     settings,
     m365Enabled,
     portfolioCurrentId,

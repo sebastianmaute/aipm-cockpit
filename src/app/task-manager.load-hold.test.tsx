@@ -13,6 +13,29 @@ import { DEFAULT_TASK_STATUS, type Task } from "./types";
 import { reconcileInsights } from "./insights/reconcile";
 
 const undoCalls = vi.hoisted(() => ({ n: 0 }));
+const handed = vi.hoisted(() => ({ calendar: [] as boolean[], recs: [] as boolean[] }));
+
+vi.mock("./use-calendar-integrations", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./use-calendar-integrations")>();
+  return {
+    ...actual,
+    useCalendarIntegrations: (d: Parameters<typeof actual.useCalendarIntegrations>[0]) => {
+      handed.calendar.push(d.loadPending);
+      return actual.useCalendarIntegrations(d);
+    },
+  };
+});
+
+vi.mock("./use-insight-recommendations", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./use-insight-recommendations")>();
+  return {
+    ...actual,
+    useInsightRecommendations: (d: Parameters<typeof actual.useInsightRecommendations>[0]) => {
+      handed.recs.push(d.loadPending);
+      return actual.useInsightRecommendations(d);
+    },
+  };
+});
 // §548 revision — drives the settings secret merge: "real" (default), "hang" (never settles) or "throw".
 const secretMode = vi.hoisted(() => ({ mode: "real" as "real" | "hang" | "throw" }));
 
@@ -112,6 +135,8 @@ beforeEach(() => {
   __resetMintStateForTests();
   undoCalls.n = 0;
   secretMode.mode = "real";
+  handed.calendar.length = 0;
+  handed.recs.length = 0;
   vi.mocked(reconcileInsights).mockClear();
 });
 afterEach(() => {
@@ -199,5 +224,19 @@ describe("§548 — no edit can start while the load is pending", () => {
     await screen.findByTestId("ws-section-mock");
     fireEvent.keyDown(document.body, { key: "z", ctrlKey: true });
     expect(undoCalls.n).toBe(1); // control: the same keystroke does undo once the load has landed
+  }, 45000);
+
+  it("hands loadPending to the background hooks: true while held, false once the load lands", async () => {
+    const load = holdLoad();
+    mountAt("/");
+    await waitFor(() => expect(load.spy).toHaveBeenCalled());
+    await waitFor(() => expect(loadingText()).not.toBeNull()); // the hold is up
+    expect(handed.calendar[handed.calendar.length - 1]).toBe(true);
+    expect(handed.recs[handed.recs.length - 1]).toBe(true);
+
+    await act(async () => { load.land(LOADED); });
+    await screen.findByTestId("ws-section-mock");
+    expect(handed.calendar[handed.calendar.length - 1]).toBe(false);
+    expect(handed.recs[handed.recs.length - 1]).toBe(false);
   }, 45000);
 });

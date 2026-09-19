@@ -48,6 +48,7 @@ function mkDispatcher() {
 function mkDeps(over: Partial<InsightRecommendationDeps> = {}): InsightRecommendationDeps {
   return {
     isPopout: false,
+    loadPending: false,
     settings: { ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x" } } as unknown as InsightRecommendationDeps["settings"],
     lang: "en-US",
     today: "2026-09-03",
@@ -231,4 +232,17 @@ describe("§534 — confirm sends only what the review modal showed", () => {
     expect(deps.showToast).toHaveBeenCalledWith("error", t("en-US", "insightRecommendationApplyFailed"));
     expect(deps.showToast).not.toHaveBeenCalledWith("info", t("en-US", "insightRecommendationApplied"));
   });
+});
+
+// §548 — the recommendation store is the ONE choke point both the background runner and the on-demand
+// generate write through. A result stored while a load or swap is pending would be replaced when the
+// load lands. The settled control is "stores the target row's real token on a generated recommendation"
+// above, which runs with `loadPending: false`.
+it("does not store a generated recommendation while the project load is pending (§548)", async () => {
+  const generate = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42, status: "In Progress" }));
+  const store = mkStore([mkInsight()]);
+  const { result } = renderHook(() => useInsightRecommendations(mkDeps({ insights: store.read(), setInsights: store.setInsights, loadPending: true })));
+  await act(async () => { result.current.insightActions.onGenerateRecommendation(1); });
+  expect(generate).toHaveBeenCalled(); // control: the generate really ran to the store point
+  expect(store.read()[0].recommendation).toBeUndefined();
 });
