@@ -1352,6 +1352,9 @@ Paths: `src/app/timelog-apply.ts src/app/timelog-apply-confirm.tsx src/app/i18n.
 
 ### Task 4: §548 — record the deferred planning findings in the register (docs only; §548 stays OPEN)
 
+**Dropped 2026-09-19:** this task was not executed. §548 went to a separate session, which carries this
+appendix; the planning findings below stay here rather than being copied into the register.
+
 **Files:**
 - Modify: `docs/open-followups.md` (§548's body only). The heading, the `**Status:**` line, the `**Work item:** #336` line and the index row stay unchanged, because the entry stays OPEN.
 

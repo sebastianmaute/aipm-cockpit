@@ -104,15 +104,15 @@ disclosed.
 
 ## Order and review
 
-Tasks in the order 567 → 534 → 546 (smallest blast radius first), then a docs-only task that records §548's
-planning findings in the register; §548 itself stays OPEN. Subagent-driven: one implementer per task, a task review after each, a final cold
+Tasks in the order 567 → 534 → 546 (smallest blast radius first). §548 stays OPEN and is carried by a
+separate session. Subagent-driven: one implementer per task, a task review after each, a final cold
 whole-branch review.
 
 ## Out of scope
 
 §548, by user ruling on 2026-09-19: the writer inventory found 39 UI writers outside `guardEdit`, so the
 complete fix is a whole-app hold, a UX change owed its own decision; it becomes its own slice (findings in the
-register entry and in the plan appendix, `docs/superpowers/plans/2026-09-19-data-loss-batch.md`).
+plan appendix, `docs/superpowers/plans/2026-09-19-data-loss-batch.md`).
 
 Anything the writer inventory turns up that is not a §548 writer; §575 (chat history re-sends attachments);
 the tag-pair-walk timing flake (file separately on the user's say, under a § agreed with the peer session).
