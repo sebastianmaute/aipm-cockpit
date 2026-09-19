@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { extractDocx } from "./docx-extract";
+import { expectLinearScaling } from "../test/scaling";
 
 function entries(documentXml: string): Map<string, Uint8Array> {
   return new Map([["word/document.xml", new TextEncoder().encode(documentXml)]]);
@@ -52,43 +53,55 @@ describe("extractDocx", () => {
     expect(extractDocx(entries(xml))).toBe("Real");
   });
 
-  it("does not blow up on repetitive unclosed markup", async () => {
-    // 120k unclosed table opens - 840,063 chars for THIS fixture as
-    // committed (`node -e` and print `xml.length` to re-check; don't trust
-    // a number here without doing that). Raised from 40k: at 40k (280,063
-    // chars) the old lazy `[\s\S]*?` pair regex measured ~1.5s here, only
-    // 1.5x over the 1000ms ceiling - too thin a margin on a loaded machine.
-    // An earlier revision of this comment conflated repetition count with
-    // char count ("142ms at 40k chars, 1861ms at 160k") and both numbers
-    // were unreproducible against the actual committed fixture, which
-    // measured ~1.5s at 40k reps, not 142ms. At 120k reps the old regex
-    // measured ~24.4s; the cursor walk stays linear. The ceiling is
-    // deliberately loose - it fails on the pattern class, not on a
-    // machine's speed.
-    const xml =
-      '<?xml version="1.0"?><w:document><w:body>' +
-      "<w:tbl ".repeat(120_000) +
-      "</w:body></w:document>";
-    const entries = new Map([["word/document.xml", new TextEncoder().encode(xml)]]);
-    const start = performance.now();
-    extractDocx(entries);
-    expect(performance.now() - start).toBeLessThan(1000);
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("does not blow up on repetitive unclosed markup", { timeout: 120_000 }, () => {
+    // Unclosed table opens. The regression is the former lazy
+    // `<w:tbl\b[\s\S]*?<\/w:tbl>|<w:p\b[\s\S]*?<\/w:p>` pair regex, which
+    // rescans to end of input from every open; the cursor walk stays linear.
+    // Historical, measured before 2026-09-19 against that regex at the old
+    // fixed size: ~1.5s at 40k reps, ~24.4s at 120k reps (an earlier comment
+    // that quoted char counts instead of reps was unreproducible).
+    // Measured 2026-09-19 (ratio large / small, limit 8): 3.8–3.9 green,
+    // 16.8 with that lazy regex restored in extractDocx.
+    expectLinearScaling({
+      label: "unclosed <w:tbl opens",
+      // Untimed: the fixture INCLUDING its TextEncoder step and entries Map.
+      build: (n) =>
+        entries(
+          '<?xml version="1.0"?><w:document><w:body>' +
+            "<w:tbl ".repeat(n) +
+            "<w:p><w:r><w:t>end</w:t></w:r></w:p></w:body></w:document>",
+        ),
+      run: extractDocx,
+      // No open finds its </w:tbl>, so no table renders; the fixed-size
+      // paragraph after them proves the walk went on past the soup.
+      check: (out) => expect(out).toBe("end"),
+      n: 30_000,
+    });
   });
 
-  it("does not blow up on unclosed <w:pStyle opens inside one paragraph", () => {
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("does not blow up on unclosed <w:pStyle opens inside one paragraph", { timeout: 120_000 }, () => {
     // §558 remainder: the paragraph's own heading read was a
     // `<w:pStyle\b[^>]*w:val=...` regex. With no ">" before the paragraph's
-    // close, `[^>]*` runs to it from EVERY open and backtracks all the way,
-    // so 40k opens measured ~5s against the old read (20k ~1.2s, 80k ~21s —
-    // ~4x per doubling). The ceiling is deliberately loose: it fails on the
-    // pattern class, not on a machine's speed.
-    const xml =
-      "<w:document><w:body><w:p><w:r><w:t>x</w:t></w:r>" +
-      "<w:pStyle ".repeat(40_000) +
-      "</w:p></w:body></w:document>";
-    const start = performance.now();
-    extractDocx(entries(xml));
-    expect(performance.now() - start).toBeLessThan(1000);
+    // close, `[^>]*` runs to it from EVERY open and backtracks all the way —
+    // ~4x per doubling of the open count (measured before 2026-09-19).
+    // Measured 2026-09-19 (ratio large / small, limit 8): 4.8–5.3 green,
+    // 17.2 with that regex restored in headingDigit.
+    expectLinearScaling({
+      label: "unclosed <w:pStyle opens",
+      // Untimed: the fixture INCLUDING its TextEncoder step and entries Map.
+      build: (n) =>
+        entries(
+          "<w:document><w:body><w:p><w:r><w:t>x</w:t></w:r>" +
+            "<w:pStyle ".repeat(n) +
+            "</w:p></w:body></w:document>",
+        ),
+      run: extractDocx,
+      // The paragraph's one run survives the unclosed opens, with no heading.
+      check: (out) => expect(out).toBe("x"),
+      n: 10_000,
+    });
   });
 
   it("still reads the heading level whatever the pStyle's attribute order", () => {

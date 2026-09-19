@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { extractXlsx } from "./xlsx-extract";
+import { expectLinearScaling } from "../test/scaling";
 
 function enc(s: string): Uint8Array {
   return new TextEncoder().encode(s);
 }
+
+// Fixed-size sentinels for the scaling guards: a fixture whose scaled part
+// renders nothing would pass its output check even if a large input bailed
+// early, so each guard also renders this one cell.
+const SENTINEL_ROW = '<row r="2"><c r="A2"><v>7</v></c></row>';
+const SENTINEL_SHEET = `<worksheet><sheetData>${SENTINEL_ROW}</sheetData></worksheet>`;
+const SENTINEL_OUT = "## Sheet: Sheet1\n\n| 7 |\n| --- |";
 
 describe("extractXlsx", () => {
   it("renders each sheet as a named Markdown table, resolving shared strings", () => {
@@ -159,82 +167,129 @@ describe("extractXlsx", () => {
     expect(extractXlsx(entries)).toContain("| 1 |  | 3 |");
   });
 
-  it("does not blow up on repetitive unclosed markup", () => {
-    // 320k unclosed <c opens inside one row. Sized to kill TWO different
-    // mutants, not just the lazy-regex one this was originally written
-    // against - do not shrink this back down:
-    //  - the former `<c\b[^>]*\/>|<c\b[\s\S]*?<\/c>` lazy pair regex
-    //    (measured ~24s old vs <10ms new here at this size);
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("does not blow up on repetitive unclosed markup", { timeout: 120_000 }, () => {
+    // Unclosed <c opens inside one row. Guards TWO different mutants, not
+    // just the lazy-regex one this was originally written against:
+    //  - the former `<c\b[^>]*\/>|<c\b[\s\S]*?<\/c>` lazy pair regex;
     //  - forEachXmlElement's `gt` CACHE specifically. Forcing a fresh
     //    `indexOf(">", ...)` on every iteration (instead of reusing `gt`
     //    while `innerStart <= gt`) is still linear in the LAZY-REGEX sense
-    //    (no backtracking), but every one of the 320k opens now re-scans
-    //    forward to this row's one distant closing ">", which is its own
-    //    O(n^2): measured 195ms/785ms/3783ms at 80k/160k/320k reps without
-    //    the cache, against <10ms at every size with it. At 80k the
-    //    no-cache mutant measured ~195ms - comfortably UNDER the 1000ms
-    //    ceiling, so that size could not have caught it; 320k measures
-    //    ~3.8s, reliably over.
-    const sheet =
-      "<worksheet><sheetData><row>" + "<c ".repeat(320_000) + "</row></sheetData></worksheet>";
-    const entries = new Map<string, Uint8Array>([["xl/worksheets/sheet1.xml", enc(sheet)]]);
-    const start = performance.now();
-    extractXlsx(entries);
-    expect(performance.now() - start).toBeLessThan(1000);
+    //    (no backtracking), but every open now re-scans forward to this
+    //    row's one distant closing ">", which is its own O(n^2).
+    // n is 20,000, not today's 320,000 / 4: at 80,000 and at 40,000 the
+    // lazy-regex mutant ran past the 120 s kill (it costs ~8 s at 80,000 here).
+    // Measured 2026-09-19 (ratio large / small, limit 8): 3.96–4.0 green,
+    // 16.5 with the lazy regex restored in forEachXmlElement, 15.8 with the
+    // `gt` cache disabled.
+    expectLinearScaling({
+      label: "unclosed <c opens in one row",
+      build: (n) =>
+        new Map<string, Uint8Array>([
+          [
+            "xl/worksheets/sheet1.xml",
+            enc(
+              "<worksheet><sheetData><row>" +
+                "<c ".repeat(n) +
+                `</row>${SENTINEL_ROW}</sheetData></worksheet>`,
+            ),
+          ],
+        ]),
+      run: extractXlsx,
+      // No open finds its </c>, so that row is empty; the sentinel row after
+      // it proves the walk went on past the soup.
+      check: (out) => expect(out).toBe(SENTINEL_OUT),
+      n: 20_000,
+    });
   });
 
   // §558 remainder. Each fixture below measured ~4x slower per doubling of
-  // its repeat count against the read it replaces; the ceiling is loose on
-  // purpose — it fails on the pattern class, not on a machine's speed.
-  it("does not blow up on unclosed <sheet opens in workbook.xml", () => {
+  // its repeat count against the read it replaces (before 2026-09-19).
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("does not blow up on unclosed <sheet opens in workbook.xml", { timeout: 120_000 }, () => {
     // sheetNames' `<sheet\b[^>]*\bname="..."` ran `[^>]*` to the one ">" at
-    // the end from every open and backtracked all the way: ~3.6s at 40k,
-    // ~14s at 80k.
-    const workbook = "<workbook><sheets>" + "<sheet ".repeat(80_000) + "</sheets></workbook>";
-    const entries = new Map<string, Uint8Array>([["xl/workbook.xml", enc(workbook)]]);
-    const start = performance.now();
-    extractXlsx(entries);
-    expect(performance.now() - start).toBeLessThan(1000);
+    // the end from every open and backtracked all the way.
+    // Measured 2026-09-19 (ratio large / small, limit 8): 3.9–4.0 green,
+    // 17.5 with that regex restored in sheetNames.
+    expectLinearScaling({
+      label: "unclosed <sheet opens in workbook.xml",
+      build: (n) =>
+        new Map<string, Uint8Array>([
+          ["xl/workbook.xml", enc("<workbook><sheets>" + "<sheet ".repeat(n) + "</sheets></workbook>")],
+          ["xl/worksheets/sheet1.xml", enc(SENTINEL_SHEET)],
+        ]),
+      run: extractXlsx,
+      // No open carries a name, so the one sheet falls back to "Sheet1".
+      check: (out) => expect(out).toBe(SENTINEL_OUT),
+      n: 20_000,
+    });
   });
 
-  it("does not blow up on unclosed <sheet and <Relationship opens with no '>' at all", () => {
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("does not blow up on unclosed <sheet and <Relationship opens with no '>' at all", { timeout: 120_000 }, () => {
     // The rels mapping's `<sheet\b[^>]*\/?>` and `<Relationship\b[^>]*\/?>`
     // match fine once a ">" follows, but with none anywhere every open scans
-    // to end of input and fails — as does sheetNames' read. Measured 63s for
-    // all three at 80k; 40k keeps each one alone well over the ceiling.
-    const workbook = "<sheet ".repeat(40_000);
-    const rels = "<Relationship ".repeat(40_000);
-    const entries = new Map<string, Uint8Array>([
-      ["xl/workbook.xml", enc(workbook)],
-      ["xl/_rels/workbook.xml.rels", enc(rels)],
-    ]);
-    const start = performance.now();
-    extractXlsx(entries);
-    expect(performance.now() - start).toBeLessThan(1000);
+    // to end of input and fails — as does sheetNames' read. Both files scale
+    // together.
+    // Measured 2026-09-19 (ratio large / small, limit 8): 4.2–4.4 green;
+    // with one read at a time restored to its regex, 16.8 (Relationship),
+    // 16.1 (the rels-mapping <sheet read), 16.0 (sheetNames).
+    expectLinearScaling({
+      label: "unclosed <sheet and <Relationship opens, no '>'",
+      build: (n) =>
+        new Map<string, Uint8Array>([
+          ["xl/workbook.xml", enc("<sheet ".repeat(n))],
+          ["xl/_rels/workbook.xml.rels", enc("<Relationship ".repeat(n))],
+          ["xl/worksheets/sheet1.xml", enc(SENTINEL_SHEET)],
+        ]),
+      run: extractXlsx,
+      // Nothing maps and no name is read, so the one sheet falls back to "Sheet1".
+      check: (out) => expect(out).toBe(SENTINEL_OUT),
+      n: 10_000,
+    });
   });
 
-  it("does not blow up on many unclosed <v> inside one cell", () => {
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it("does not blow up on many unclosed <v> inside one cell", { timeout: 120_000 }, () => {
     // cellValue's `<v>([\s\S]*?)<\/v>` rescanned to the cell's end from every
-    // <v>: ~2.4s at 80k. One <c> can hold the whole sheet, so "a cell's own
-    // short content" was never a bound.
-    const sheet =
-      "<worksheet><sheetData><row><c>" + "<v>".repeat(160_000) + "</c></row></sheetData></worksheet>";
-    const entries = new Map<string, Uint8Array>([["xl/worksheets/sheet1.xml", enc(sheet)]]);
-    const start = performance.now();
-    extractXlsx(entries);
-    expect(performance.now() - start).toBeLessThan(1000);
+    // <v>. One <c> can hold the whole sheet, so "a cell's own short content"
+    // was never a bound.
+    // Measured 2026-09-19 (ratio large / small, limit 8): 4.0 green, 16.0
+    // with that lazy regex restored in cellValue.
+    expectLinearScaling({
+      label: "unclosed <v> inside one cell",
+      build: (n) =>
+        new Map<string, Uint8Array>([
+          [
+            "xl/worksheets/sheet1.xml",
+            enc(
+              "<worksheet><sheetData><row><c>" +
+                "<v>".repeat(n) +
+                `</c></row>${SENTINEL_ROW}</sheetData></worksheet>`,
+            ),
+          ],
+        ]),
+      run: extractXlsx,
+      // The first <v> has no </v>, so that cell is empty; the sentinel row
+      // after it proves the walk went on past the soup.
+      check: (out) => expect(out).toBe(SENTINEL_OUT),
+      n: 40_000,
+    });
   });
 
   it("drops a cell whose column is past Excel's last (XFD) instead of padding out to it", () => {
     // colIndex("ZZZZZZZ") is ~8e9; padding the row out to it exhausted memory.
-    // XFE is the first column past XFD.
+    // XFE is the first column past XFD. Not a timing test: the fixture has no
+    // size axis, and the exact output is the guard.
+    // Mutation-proved 2026-09-19: with `idx >= MAX_XLSX_COLUMNS` loosened to
+    // `>`, XFE1 is padded out to and kept, and this assertion fails at once;
+    // with the check deleted, padding toward ZZZZZZZ1 throws "RangeError:
+    // Invalid array length" within ~2 s.
     const sheet = `<worksheet><sheetData>
       <row r="1"><c r="A1"><v>1</v></c><c r="ZZZZZZZ1"><v>9</v></c><c r="B1"><v>2</v></c><c r="XFE1"><v>8</v></c></row>
     </sheetData></worksheet>`;
     const entries = new Map<string, Uint8Array>([["xl/worksheets/sheet1.xml", enc(sheet)]]);
-    const start = performance.now();
     const out = extractXlsx(entries);
-    expect(performance.now() - start).toBeLessThan(1000);
     expect(out).toBe("## Sheet: Sheet1\n\n| 1 | 2 |\n| --- | --- |");
   });
 
@@ -275,19 +330,31 @@ describe("extractXlsx", () => {
     expect(namesOnly(workbook, 1)).toEqual(["right"]);
   });
 
-  it("stays linear on quoted names, unclosed quotes and opens inside one tag", () => {
-    // Three shapes where a name read that resumes short of what it already
-    // scanned rescans out to the one ">" at the end from every open.
-    const fixtures = [
-      '<sheet name="v" '.repeat(80_000) + ">",
-      '<sheet name="'.repeat(80_000) + ">",
-      '<sheet name="v"' + " <sheet".repeat(80_000) + ">",
-    ];
-    for (const workbook of fixtures) {
-      const start = performance.now();
-      namesOnly(workbook, 0);
-      expect(performance.now() - start).toBeLessThan(1000);
-    }
+  // Three shapes where a name read that resumes short of what it already
+  // scanned rescans out to the one ">" at the end from every open. One row
+  // per test, so a mutant run can select a row with -t.
+  // n is 5,000, not today's 80,000 / 4: at 20,000 every row's mutant ran past
+  // the 120 s kill, because the rescan is a per-character quote-aware walk.
+  // Measured 2026-09-19 (ratio large / small, limit 8): 3.9–4.5 green. Red:
+  // "quoted names" 16.1 with the LEFTMOST name= taken; "unclosed quotes" 17.2
+  // with an unclosed quote resuming at the open instead of stopping; "opens
+  // inside one tag" 18.7 with a nameless tag resuming at the open instead of
+  // past its real end.
+  // One sheet file, so the name read is observable: the rightmost name= wins,
+  // and a tag with no readable name falls back to "Sheet1".
+  // Hang backstop, not the guard: vitest cannot interrupt a synchronous test (see src/test/scaling.ts).
+  it.each<[string, (n: number) => string, string[]]>([
+    ["quoted names", (n) => '<sheet name="v" '.repeat(n) + ">", ["v"]],
+    ["unclosed quotes", (n) => '<sheet name="'.repeat(n) + ">", ["Sheet1"]],
+    ["opens inside one tag", (n) => '<sheet name="v"' + " <sheet".repeat(n) + ">", ["v"]],
+  ])("stays linear on quoted names, unclosed quotes and opens inside one tag: %s", { timeout: 120_000 }, (row, build, names) => {
+    expectLinearScaling({
+      label: `sheet-name read: ${row}`,
+      build,
+      run: (workbook) => namesOnly(workbook, 1),
+      check: (out) => expect(out).toEqual(names),
+      n: 5_000,
+    });
   });
 
   it("resolves a sheet name containing '>' to the right rels target (M-7)", () => {
