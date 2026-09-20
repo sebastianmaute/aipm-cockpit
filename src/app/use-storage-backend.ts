@@ -102,6 +102,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     tursoProjectId,
   ]);
 
+  // §588/§589 — the backend of the CURRENT render, readable by any caller that
+  // resumes after an await. Assigned during render ON PURPOSE: React runs every
+  // effect cleanup before any effect body, so a ref mirrored in an effect still
+  // holds the OLD backend at the one moment the save effect's cleanup reads it.
+  const backendRef = useRef<ReturnType<typeof createBackend> | null>(null);
+  backendRef.current = backend;
+
   // ★★★ §591 — WHICH STORAGE TARGET THE IN-SCOPE WORKSPACE BELONGS TO. `applyWorkspaceFromLoad`'s "merge"
   //   unions the loaded activity log and budget history with whatever is in memory, so it is right only
   //   when memory holds THIS target's project. A settings-driven rebuild (a Turso URL/token edit, a
