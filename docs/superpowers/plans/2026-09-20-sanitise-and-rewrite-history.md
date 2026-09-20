@@ -411,8 +411,26 @@ git grep -lE "<!-- END AUTO-GENERATED --[>]" -- "*.md"
 - Produces: a rewritten clone at a known path, plus the commit map
   `.git/filter-repo/commit-map`, which Task 9 consumes.
 
-**PRECONDITION — do not start this task until the companion brand-rename plan is merged**, or the
-old brand spelling is baked into every rewritten commit and this task must be redone from scratch.
+**PRECONDITIONS — all three, checked on the day, not inherited from this paragraph:**
+
+1. **The companion brand-rename plan is merged**, or the old brand spelling is baked into every
+   rewritten commit and this task must be redone from scratch.
+2. **No unmerged work exists that anyone intends to keep.** A rewrite gives every commit a new
+   hash, so any branch not included in the rewritten history becomes unmergeable against it — its
+   commits describe a parent chain that no longer exists. There are ~34 branches on the remote;
+   enumerate them and get a live/abandoned verdict for each before starting. A `--mirror` clone
+   rewrites all refs together, so branches that ARE present survive; the danger is work sitting in
+   someone's local clone, or a branch nobody thought to check.
+3. **Every collaborator knows to re-clone**, and has stopped pushing. After the rewrite, an old
+   clone shares no history with the new one: a `git pull` either refuses or, worse, succeeds into
+   a merge that reintroduces the unsanitised commits. ★★ That last case is how a rewrite silently
+   undoes itself — the identifiers come back through a merge from a stale clone, and every scan
+   that passed at rewrite time stays passed in the record while the tip carries them again.
+
+```bash
+git ls-remote --heads origin | wc -l     # branch count, verify against your expectation
+git for-each-ref --format='%(refname:short) %(committerdate:relative)' refs/remotes/origin
+```
 
 - [ ] **Step 1: Confirm the tool exists.** `git filter-repo --version` — it is a separate Python
   program, not part of git. If it is absent, stop and report; do not substitute `filter-branch`,
