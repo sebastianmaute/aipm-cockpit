@@ -2183,9 +2183,12 @@ export const de: Record<TranslationKey, string> = {
   integrationsTursoTest: "Verbindung testen",
   integrationsTursoTestLabel: "Verbindung testen – Turso",
   integrationsTursoTestOk: "Verbunden.",
-  // ★★ §548 — ALSO das sichtbare Label der SharePoint-Übernehmen-Schaltfläche
-  //   (`storage-config.tsx`); deren zugänglicher Name `spStorageApplyLabel` muss diesen Text
-  //   ENTHALTEN (WCAG 2.5.3). Eine Änderung hier betrifft beide Schaltflächen — siehe i18n.ts.
+  // ★★ §548 — ALSO the visible label of the SharePoint Apply button
+  //   (`storage-config.tsx`), whose accessible name `spStorageApplyLabel` must CONTAIN this
+  //   string (WCAG 2.5.3 label-in-name). In DE that containment holds only case-INSENSITIVELY,
+  //   which is what the SC asks for; `storage-config.test.tsx`'s "Apply buttons — label-in-name
+  //   in DE" pins both buttons. Rewording here reworders BOTH of them — see i18n.ts.
+  // ★ Written in English like every other comment in this file: only the STRINGS are German.
   integrationsTursoApply: "Übernehmen",
   integrationsTursoApplyLabel: "Turso-Verbindung übernehmen",
   integrationsTursoApplyNeedsPassphrase:
