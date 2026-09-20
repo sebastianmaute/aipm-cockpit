@@ -844,6 +844,26 @@ function ChatPanelInner({
       // If the user switched project or thread mid-send, this run belongs to
       // another conversation now showing on screen — don't write its notes or
       // history onto the current one (billing is still recorded).
+      // ★★ §596 — THIS DELIBERATELY DOES *NOT* INCLUDE `isScopeStale(getScopeEpoch,
+      //   sendEpoch)`, although `stale()` (declared beside `sendThreadId`) does. The two gate
+      //   different things and want OPPOSITE answers: the epoch gates WORKSPACE
+      //   WRITES (drop them — they would land in the wrong project), this gates
+      //   USER-FACING DISCLOSURE. On an epoch-only move the panel has not
+      //   remounted and `projectId` has not changed, so the conversation on screen
+      //   is still THIS one — and the `chatTruncatedNote` below is the user's ONLY
+      //   signal that their turn was dropped. Drop the write, still tell the user.
+      // ★★★ THE WRONG FIX, NAMED SO IT IS NOT REDISCOVERED AS AN IMPROVEMENT:
+      //   "complete the pattern" by OR-ing the epoch in here, and a dropped turn
+      //   becomes invisible — the same silent-failure class as the unconditional
+      //   unmount cancel this task had to undo. If you think this needs changing,
+      //   the change is a DIFFERENT note ("the storage target changed"), never
+      //   silence.
+      // ★ NOT a claim that nothing persists. Verify, don't trust this line:
+      //   `grep -n "saveThread(" src/app/use-chat-threads.ts` — every hit passes the
+      //   LIVE `tursoConfig`, which on a target change is already the NEW one, so a
+      //   transcript can land in a different database under the same projectId.
+      //   Smaller than a workspace write, out of scope here, and filed rather than
+      //   fixed — do not read this bullet as saying it is fine.
       const switchedAway = projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId;
       if (!switchedAway) {
         if (cancelledRef.current) {

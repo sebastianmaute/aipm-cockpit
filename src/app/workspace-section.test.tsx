@@ -815,8 +815,11 @@ describe("WorkspaceSection — Timelog cache key agreement", () => {
 });
 
 describe("WorkspaceSection — staged-proposal wiring into ChatPanel", () => {
-  // ★★ THE PRODUCTION SEAM. Both props are OPTIONAL on ChatPanel so the ~39
-  //  mounts in `chat-panel.test.tsx` compile unchanged — which means the ONLY
+  // ★★ THE PRODUCTION SEAM. `workspace` and `runBatched` are OPTIONAL on
+  //  ChatPanel so every mount in `chat-panel.test.tsx` compiles unchanged
+  //  (`grep -c "<ChatPanel" src/app/chat-panel.test.tsx` — a number here rots;
+  //  the §548/§596 readers beside them went the other way and are REQUIRED,
+  //  which is why the case below asserts identity rather than presence) — which means the ONLY
   //  thing standing between a working review card and a silently unwired one is
   //  this file. A missing `workspace` costs the card its per-row diffs and
   //  resolved titles; a missing `runBatched` costs an applied plan its single
@@ -846,6 +849,31 @@ describe("WorkspaceSection — staged-proposal wiring into ChatPanel", () => {
     for (const key of ["tasks", "raid", "changes", "milestones", "stakeholders", "resources"]) {
       expect(Array.isArray(ws?.[key])).toBe(true);
     }
+  });
+
+  it("hands ChatPanel the very scope readers it was handed (§548/§596)", async () => {
+    // ★★★ REQUIRED PROPS PROVE A FUNCTION IS PASSED, NEVER WHICH ONE, and both of
+    //  these have a type-correct constant that silently disarms them:
+    //  `getScopeEpoch={() => 0}` makes every stale write read as in-scope, and
+    //  `isSwapInFlight={() => false}` makes the unmount cancel never fire. Both
+    //  typecheck at this seam and at every hop above it. That is the same outcome
+    //  as `tasks-section.tsx`'s release-long gap by a DIFFERENT mechanism — there
+    //  an optional prop nobody threaded, here a wrong value — so identity is the
+    //  only assertion worth making.
+    // ★ The other hop (task-manager → this section) is pinned by identity in
+    //   `task-manager.scope-epoch-wiring.test.tsx`; the two meet here.
+    const getScopeEpoch = () => 7;
+    const isSwapInFlight = () => true;
+    render(<WorkspaceSection {...makeProps({ getScopeEpoch, isSwapInFlight })} />, { wrapper: Wrapper });
+    await screen.findByTestId("chat-panel");
+    const props = chatPanelMock.props.at(-1)!;
+
+    expect(props.getScopeEpoch).toBe(getScopeEpoch);
+    expect(props.isSwapInFlight).toBe(isSwapInFlight);
+    // Anti-vacuity: both would also "be" each other if the section passed
+    // `undefined` for both and `makeProps` had dropped them. Read them.
+    expect((props.getScopeEpoch as () => number)()).toBe(7);
+    expect((props.isSwapInFlight as () => boolean)()).toBe(true);
   });
 });
 

@@ -20,12 +20,20 @@
 //         "the tasks pane gets the same reader" is red, the calendar one stays green.
 //   MS2 — drop `getScopeEpoch,` from the `useCalendarIntegrations({…})` deps object:
 //         "the calendar deps bag gets the same reader" is red, the tasks one stays green.
+//   MS3 — `getScopeEpoch,` in `workspaceProps` → `getScopeEpoch: () => 0`:
+//         "the workspace pane gets both real readers" is red, MS1/MS2's assertions stay green.
+//   MS4 — `isSwapInFlight,` in `workspaceProps` → `isSwapInFlight: () => false`:
+//         the same test is red on the OTHER reader — which is the §596 near-miss worth naming:
+//         a constant of the right type disarms the chat panel's §548 unmount cancel outright
+//         (nothing would ever be cancelled) while tsc, eslint and every rendered assertion stay
+//         green. Required props prove a function is PASSED, never WHICH ONE.
 import type { ReactElement } from "react";
 import { describe, expect, it, beforeAll, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 const captured = vi.hoisted(() => ({
   storageReader: undefined as unknown,
+  swapReader: undefined as unknown,
   calendarReader: undefined as unknown,
   shellProps: null as Record<string, unknown> | null,
 }));
@@ -38,6 +46,7 @@ vi.mock("./use-storage-backend", async (importOriginal) => {
   function useStorageBackend(args: Parameters<typeof actual.useStorageBackend>[0]) {
     const result = actual.useStorageBackend(args);
     captured.storageReader = result.getScopeEpoch;
+    captured.swapReader = result.isSwapInFlight;
     return result;
   }
   return { ...actual, useStorageBackend };
@@ -101,5 +110,21 @@ describe("§548 task-manager threads the real scope-epoch reader", () => {
 
   it("the calendar-integrations deps bag gets the same reader instance (MS2)", () => {
     expect(captured.calendarReader).toBe(captured.storageReader);
+  });
+
+  // §596 — the second hop (WorkspaceSection → ChatPanel) is pinned by
+  // `workspace-section.test.tsx`'s "the very readers it was handed" case; together
+  // the two cover useStorageBackend → … → ChatPanel by identity at every hop.
+  it("useStorageBackend really returned a swap reader, and it answers with a boolean", () => {
+    // Anti-vacuity for the identity assertion below, same reason as above.
+    expect(typeof captured.swapReader).toBe("function");
+    expect(typeof (captured.swapReader as () => boolean)()).toBe("boolean");
+  });
+
+  it("the workspace pane element gets both real readers (MS3, MS4)", () => {
+    const el = captured.shellProps?.workspace as ReactElement<Record<string, unknown>> | undefined;
+    expect(el, "the shell never received a workspace element").toBeTruthy();
+    expect(el!.props.getScopeEpoch).toBe(captured.storageReader);
+    expect(el!.props.isSwapInFlight).toBe(captured.swapReader);
   });
 });
