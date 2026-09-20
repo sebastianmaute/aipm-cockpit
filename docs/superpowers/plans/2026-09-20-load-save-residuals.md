@@ -167,13 +167,20 @@ it("a reload that resolves after a rebuild does not open the new backend's gate"
 
   await act(async () => { releaseLoad(populatedWorkspace()); await reload; });
 
-  // The second backend is live. Its save gate must still be shut, because no
-  // load for IT has landed — and the superseded reload must not have applied
-  // the first backend's data either.
+  // `second` is live and ITS OWN load effect has landed, so `allowSavesTo(second)`
+  // ran and its gate is OPEN. A load is not a save, so nothing is persisted yet.
   expect(second.save).not.toHaveBeenCalled();
+
   await act(async () => { result.current.setTasks([{ ...aTask, title: "edited" }]); });
   await act(async () => { await vi.advanceTimersByTimeAsync(SAVE_DEBOUNCE_MS + 50); });
-  expect(second.save).not.toHaveBeenCalled();
+
+  // ★ RED TODAY, AND THIS IS THE ASSERTION THE PROBE EXISTS FOR. The superseded
+  // reload resolved against `first` and ran `allowSavesTo(first)`
+  // (`use-storage-backend.ts:421`, via `applyWorkspaceFromLoad`), moving the gate
+  // OFF the live backend. The edit above is then silently never persisted —
+  // §588's stall, with no banner and no toast, because `loadPause` is published
+  // only for an instance whose own load failed or was refused.
+  expect(second.save).toHaveBeenCalled();
 });
 ```
 
@@ -186,7 +193,14 @@ npx vitest run src/app/use-storage-backend.superseded-gate.test.tsx > /tmp/t2.lo
 grep -E "Test Files|Tests |AssertionError" /tmp/t2.log
 ```
 
-Expected: FAIL. The superseded reload calls `allowSavesTo(first)`, moving the gate away from `second`.
+Expected: FAIL, on the `expect(second.save).toHaveBeenCalled()` line — "number of calls: 0".
+The superseded reload calls `allowSavesTo(first)`, moving the gate away from `second`.
+
+★★ A failure anywhere ELSE is a broken test, not a reproduced defect. In particular, if the
+run fails because `second`'s own load never landed, the gate was never open for it in the
+first place and the probe proves nothing — fix the fixture so `second` reaches
+`allowSavesTo(second)` before the superseded reload resolves, and re-run. The whole probe
+turns on `second`'s gate being OPEN at the moment the stale caller shuts it.
 
 **If it PASSES**, the defect as filed does not reproduce. Do not "fix" anything. Stop, write what you observed into the report, and say so plainly — the entry may be wrong, and that is a finding worth more than a fix.
 
