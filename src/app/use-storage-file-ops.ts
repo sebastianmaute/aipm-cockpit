@@ -391,6 +391,12 @@ export interface StorageFilePickerDeps {
   allowSavesToActiveBackend: () => void;
   /** §586: is the ACTIVE backend's save gate open, i.e. does render scope hold its project? */
   loadSucceeded: () => boolean;
+  /** §588 — is the backend THIS deps object was built for still the live one? False once a
+   *  settings-driven rebuild (a Turso URL/token edit, a SharePoint target change) landed while an op
+   *  here was awaiting. `backend` above is the render's instance and is captured in every closure in
+   *  this hook, so after such a rebuild an op that resumes is writing to, and opening the gate of, an
+   *  instance nobody is using — and the live one's gate stays shut in silence. */
+  isBackendCurrent: () => boolean;
   acquireToken: UseMsAuthResult["acquireToken"];
   setTasks: React.Dispatch<React.SetStateAction<readonly Task[]>>;
   setRaid: React.Dispatch<React.SetStateAction<readonly RaidItem[]>>;
@@ -411,6 +417,12 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
     const promise = pickFileForBackend(deps.backend);
     if (!promise) return;
     await promise;
+    // ★★ §588 — the picker is the longest await in this file (it waits on a human at an OS dialog), so
+    //   a settings-driven rebuild landing inside it is the likeliest instance of the superseded-caller
+    //   defect. `deps.backend` is render-#1's instance; writing the live workspace to it and opening
+    //   its gate would move the gate OFF the backend now on screen, which then stays shut with no
+    //   banner and no toast. Guarded HERE, ahead of BOTH the write and `allowSavesToActiveBackend`.
+    if (!deps.isBackendCurrent()) return;
     try {
       if (!(await deps.truncationOps.guardedWrite(deps.backend, deps.currentWorkspace()))) return; // ★ Kept as the backstop: the pre-check above is the one that matters, but a truncating load landing between them must still not commit.
       deps.allowSavesToActiveBackend(); // ★★ §586: after a FAILED load autosave is refused; this write put the live workspace on the backend, so it belongs there now. Without it a user who re-picks a lost file would never autosave again this session.

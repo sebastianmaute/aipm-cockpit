@@ -106,7 +106,19 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // resumes after an await. Assigned during render ON PURPOSE: React runs every
   // effect cleanup before any effect body, so a ref mirrored in an effect still
   // holds the OLD backend at the one moment the save effect's cleanup reads it.
-  const backendRef = useRef<ReturnType<typeof createBackend> | null>(null);
+  // ★ SEEDED WITH `backend`, NOT `null`, and that is load-bearing for the TESTS rather than for the
+  //   runtime: the write below always runs before any consumer, so a null was never observable — but
+  //   with a null seed, DELETING the write makes every `backendRef.current !== backend` guard read
+  //   "superseded" ALWAYS, which is the same answer the guard should give in every scenario a test
+  //   sets up, so the deletion survives the whole suite. Seeded with `backend` the ref instead FREEZES
+  //   at mount, the guards read "still current" after a rebuild, and §588's probe goes red. Measured,
+  //   not reasoned: the same deletion survives 4/4 under the null seed and kills 3 of 4 under this one.
+  // ★ A render React DISCARDS would also run this write. Not reachable today — `src/app` has no
+  //   `startTransition`, `useTransition`, `useDeferredValue` or Suspense boundary, and this hook is
+  //   called once — but that is a property of the app, not of this line, and it can stop being true
+  //   without anything here changing. The consequence would be a ref pointing at a backend from a
+  //   render that never committed.
+  const backendRef = useRef<ReturnType<typeof createBackend>>(backend);
   backendRef.current = backend;
 
   // ★★★ §591 — WHICH STORAGE TARGET THE IN-SCOPE WORKSPACE BELONGS TO. `applyWorkspaceFromLoad`'s "merge"
@@ -946,6 +958,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     emitStorageConfig,
     allowSavesToActiveBackend: () => allowSavesTo(backend),
     loadSucceeded: () => savesAllowedForRef.current === backend,
+    isBackendCurrent: () => backendRef.current === backend, // §588 — `backend` here is THIS render's instance; the ref is the live one.
     acquireToken: auth.acquireToken,
     setTasks,
     setRaid,
@@ -963,6 +976,21 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     reloadInFlightRef.current = true;
     try {
       const workspace = await backend.load();
+      // ★★★ §588 — A SETTINGS-DRIVEN REBUILD MAY HAVE REPLACED THE BACKEND WHILE WE AWAITED, and this
+      //   closure still holds the one the click started against. Applying now would (a) stomp the live
+      //   project with THIS instance's payload, (b) `setSettledBackend` the superseded instance, which
+      //   strands `loadPending` true forever — the §548 skeleton, permanently, since nothing rebuilds
+      //   the backend again — and (c) `allowSavesTo` it, moving the save gate OFF the live one, which
+      //   then stays shut IN SILENCE: `loadPause` is published only for an instance whose own load
+      //   failed or was refused, and a superseded reload is neither, so no banner and no toast appear.
+      // ★ ONE guard, placed BEFORE the whole tail, closes all three: they are three consequences of a
+      //   single superseded resolution, not three defects. Do not split it into three.
+      // ★ Nothing is emitted but the diagnostic: the click's outcome belongs to the backend the user
+      //   is no longer on, and the live instance's own load effect owns the screen now.
+      if (backendRef.current !== backend) {
+        logDiag("warn", "storage.supersededLoadDropped", { writer: "reloadCurrentProject" });
+        return;
+      }
       // ★ DATA-LOSS GUARD: a reload that would EMPTY a populated project is
       // almost always a transient/failed backend read, not intent — applying it
       // wipes the in-memory workspace and autosave then persists the empty (a
