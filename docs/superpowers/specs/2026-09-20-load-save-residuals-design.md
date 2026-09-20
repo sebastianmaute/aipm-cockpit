@@ -134,15 +134,49 @@ whose load fails with no file picked, can create a file. So blocking it is not
 available.
 
 **Decided behaviour:** read the picked file first; if it already holds a
-non-empty workspace, do not write, and offer to load it instead.
+non-empty workspace *and the live workspace is empty*, do not write, and offer
+to load it instead.
+
+★★★ **The live-side condition was missing from this paragraph and its absence
+was a defect in this spec, corrected after implementation measured it.** Stated
+unconditionally, the rule breaks legitimate Save-As: `pickFile` goes through
+`showSaveFilePicker` (`fs-access.ts:74`), which is a SAVE dialog and already
+prompts for overwrite at the OS level. A user with real work who deliberately
+picks an existing file has been asked once by the OS and means it — refusing
+there is redundant and removes their ability to overwrite at all, which is
+worse than the defect being fixed. §590's actual harm is the user who does
+**not know** their workspace is empty, because a load failed. That is the case
+this closes. Do not "restore" the unconditional wording.
+
+★★ A second correction from implementation: the emptiness test cannot be
+`isWorkspaceEmpty` or `workspaceRecordCount` as this spec originally named
+them. Decoding any workspace JSON seeds 4 disciplines and 6 grades
+(`migrateWorkspaceV5`), and both helpers count them — so every parseable file,
+including one the app itself just created, reads as "already holds a project
+with 10 records". The predicate must discount that seeded reference data.
 
 The machinery exists. `pickFile()` uses `showSaveFilePicker` (`fs-access.ts:74`)
 and the returned handle supports `getFile()` (`fs-access.ts:61`);
 `loadFromHandleForBackend` (`storage.ts:99-105`) plus `workspaceRecordCount` /
 `nonEmptyCollectionCount` are already the pair `onOpenStorageFile` uses to size a
-workspace before deciding (`use-storage-backend.ts:11`, `:608-609`). The offer
-uses `useConfirm()` / `ConfirmDialog` (`confirm-dialog.tsx:1-52`, `Promise<boolean>`),
-already used at `absence-edit-modal.tsx:113`. No hand-rolled control.
+workspace before deciding (`use-storage-backend.ts:11`, `:608-609`). ★★★ **The offer CANNOT use `useConfirm()` here, and this spec was wrong to
+require it.** Measured during implementation: `useStorageBackend` is called in
+`TaskManagerInner`'s body, and the only two `ConfirmProvider` mounts in the
+tree are inside that same component's returned JSX — so `useConfirm()` there
+reads the context default, `() => Promise.resolve(false)`
+(`confirm-dialog.tsx`), and resolves **false unconditionally**. The offer would
+have been declined for every user, every time: a feature that looks
+implemented, passes tests written against the same wrong assumption, and never
+works once.
+
+The offer therefore uses `window.confirm`, which is what the two sibling gates
+in the same function already use, so the file stays internally consistent. ★ This
+is against the project's direction of travel — Tasks "Clear all" now routes
+through `TypeToConfirmDialog` — and is accepted only because the alternative
+honouring this spec's letter is dead code. The real fix is to hoist
+`ConfirmProvider` above `TaskManagerInner`; that is a two-site change to the
+app shell (classic and modern layouts both mount one) and is filed rather than
+done at the end of a slice. No hand-rolled control either way.
 
 **The wrinkle, and the decided answer:** `pickFile()` persists the new handle
 via `idbSet` (`local-file-backend.ts:97-98`) *before* anything is read or
