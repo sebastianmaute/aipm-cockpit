@@ -80,6 +80,13 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
   // Set by a layout RE-ENTRY; consumed by the view→hash effect below, which
   // is the one that can see the live `activeTab`.
   const reentryRepairRef = useRef(false);
+  // ★★ Set by an apply that ROUTES; consumed by the view→hash effect below.
+  //    setActiveTab does not commit until the next render, so the passive effect
+  //    runs once with the OLD activeTab — it would then see the deep link's view
+  //    as a mismatch and rewrite the URL to the old view, destroying `/123`
+  //    (§535). One-shot, NOT "suppress until activeTab matches": a user click in
+  //    the same tick would make a match-based suppression permanent.
+  const pendingApplyRef = useRef(false);
 
   // Mount + back/forward: hash drives the view (and any deep-linked item).
   useLayoutEffect(() => {
@@ -96,6 +103,7 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
       //    route at all (§478).
       windowActiveRef.current = false;
       reentryRepairRef.current = false;
+      pendingApplyRef.current = false;
       return;
     }
     const apply = (cold: boolean) => {
@@ -121,6 +129,7 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
       const { view, itemId } =
         cold && !blank && parsed.itemId == null ? { view: blankView, itemId: null } : parsed;
       if (features && !isViewEnabled(view, features)) return; // disabled target: ignore the hash
+      pendingApplyRef.current = true;
       setActiveTab(view);
       if (itemId != null) requestOpen(view, itemId);
     };
@@ -173,7 +182,15 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
     if (!enabled || typeof window === "undefined" || isPopout) return;
     const reentry = reentryRepairRef.current;
     reentryRepairRef.current = false;
+    const pending = pendingApplyRef.current;
+    pendingApplyRef.current = false;
     if (isAuthResponseHash(window.location.hash)) return; // don't clobber an MSAL response
+    // An apply routed in this commit; activeTab has not caught up. Writing now
+    // would rewrite the URL to the view we are leaving (§535). The apply's own
+    // requestOpen has already written `#<view>/<id>` for an item-bearing hash,
+    // and the next run — with activeTab committed — finds the hash correct and
+    // writes nothing.
+    if (pending) return;
     // ★★ A layout re-entry writes the BARE view unconditionally: the base-view
     //    comparison below would keep a stale `#raid/123` whenever `activeTab`
     //    is already `raid` (§478).

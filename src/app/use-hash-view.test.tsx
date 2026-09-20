@@ -465,6 +465,55 @@ describe("useHashView", () => {
     expect(window.location.hash).toBe("#dashboard/5");
   });
 
+  it("keeps the item id in the URL when a cold deep link routes to another view", () => {
+    // §535: the layout effect's cold apply sees "#raid/123" and calls
+    // setActiveTab("raid"), but React has not committed that yet — the passive
+    // view→hash effect used to run in the SAME commit with activeTab still
+    // "dashboard", see a mismatch, and rewrite the URL to "#dashboard",
+    // destroying the deep link before the tab change even lands.
+    window.location.hash = "#raid/123";
+    const replaceSpy = vi.spyOn(window.history, "replaceState");
+    const { result } = renderHook(
+      () => { useHashView(); return useWorkspaceTab(); },
+      { wrapper },
+    );
+    expect(result.current.activeTab).toBe("raid");
+    expect(result.current.pendingOpen).toEqual({ view: "raid", id: 123 });
+    // The bug wrote "#dashboard" here, then "#raid", losing /123.
+    const urls = replaceSpy.mock.calls.map((call) => String(call[2]));
+    expect(urls).not.toContain("#dashboard");
+    expect(window.location.hash).toBe("#raid/123");
+    replaceSpy.mockRestore();
+  });
+
+  it("does not treat StrictMode's double invoke as a reason to drop a cold deep link", () => {
+    window.location.hash = "#raid/123";
+    const addSpy = vi.spyOn(window, "addEventListener");
+    const { result } = renderHook(
+      () => { useHashView(); return useWorkspaceTab(); },
+      { wrapper, reactStrictMode: true },
+    );
+    // Positive observable: the layout effect really was double-invoked here
+    // (see strictmode.meta.test.tsx), otherwise this test is vacuous.
+    expect(addSpy.mock.calls.filter(([type]) => type === "hashchange")).toHaveLength(2);
+    addSpy.mockRestore();
+    expect(result.current.activeTab).toBe("raid");
+    expect(window.location.hash).toBe("#raid/123");
+  });
+
+  it("still rewrites the hash on a normal view change after the cold apply", () => {
+    // Anti-vacuity guard: a fix that suppressed the passive write forever
+    // (rather than one-shot) would pass the two tests above but fail this one.
+    window.location.hash = "#raid/123";
+    const { result } = renderHook(
+      () => { useHashView(); return useWorkspaceTab(); },
+      { wrapper },
+    );
+    expect(result.current.activeTab).toBe("raid");
+    act(() => { result.current.setActiveTab("budget"); });
+    expect(window.location.hash).toBe("#budget");
+  });
+
   it("applies the cold rule on the first EXECUTED run, not the first render", () => {
     // The effect returns early while disabled, so a Classic→Modern switch makes
     // the first EXECUTED run the cold load for that window. The ref must
