@@ -109,6 +109,11 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     workspaceCollapsed: false,
     setWorkspaceCollapsed: vi.fn(),
     dispatcher: {} as ToolDispatcher,
+    // §548/§596 — required on the pane contract for the same reason as the line
+    // above: an optional scope reader that nobody threads is a silently
+    // unguarded chat turn, not a visible failure.
+    getScopeEpoch: () => 0,
+    isSwapInFlight: () => false,
     handleGanttBarUpdate: vi.fn(),
     handleCancelEdit: vi.fn(),
     setTaskModalOpen: vi.fn(),

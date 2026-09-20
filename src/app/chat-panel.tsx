@@ -57,6 +57,7 @@ import { buildWireMessages } from "./chat-cache-layout";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { ToolBlock } from "./chat-tool-block";
 import type { TursoConfig } from "./turso-config";
+import { dropStaleScopeWrite, isScopeStale, type ScopeEpochReader } from "./scope-epoch";
 import { useChatThreads } from "./use-chat-threads";
 import { ChatThreadSidebar } from "./chat-thread-sidebar";
 import {
@@ -181,6 +182,8 @@ function ChatPanelImpl({
   tursoConfig = null,
   workspace,
   runBatched,
+  getScopeEpoch,
+  isSwapInFlight,
 }: {
   lang: Lang;
   ai: AiConfig;
@@ -201,7 +204,8 @@ function ChatPanelImpl({
   tursoMode?: boolean;
   tursoConfig?: TursoConfig | null;
 } & ChatProposalProps &
-  ChatConversationStoreProps) {
+  ChatConversationStoreProps &
+  ChatScopeProps) {
   if (!ai.consentAccepted) {
     return <ConsentScreen lang={lang} onAccept={onAcceptConsent} />;
   }
@@ -224,8 +228,34 @@ function ChatPanelImpl({
       tursoConfig={tursoConfig}
       workspace={workspace}
       runBatched={runBatched}
+      getScopeEpoch={getScopeEpoch}
+      isSwapInFlight={isSwapInFlight}
     />
   );
+}
+
+/** §548/§596 — this panel's two windows onto storage scope, both REQUIRED.
+ *
+ *  ★★★ REQUIRED IS THE POINT, and it is the one thing `ChatProposalProps` below
+ *   deliberately did not do. An optional reader that nobody threads degrades to
+ *   the pre-§548 behaviour SILENTLY — `scope-epoch.ts`'s header records
+ *   `tasks-section.tsx` living that way for a whole release. The cost is that every
+ *   `<ChatPanel>` mount in `chat-panel.test.tsx` has to say so — they spread one
+ *   `SCOPE_PROPS` const; count them with `grep -c "<ChatPanel" src/app/chat-panel.test.tsx`
+ *   rather than trusting a number here. That churn is what buys a tsc error
+ *   instead of a turn writing into the next project. */
+interface ChatScopeProps {
+  /** Reads `useStorageBackend`'s scope epoch. Captured once per send and
+   *  re-read at every `stale()` check and between individual tool calls. */
+  getScopeEpoch: ScopeEpochReader;
+  /** True while a project swap / load hold is in flight.
+   *
+   *  ★★★ READ FROM THE UNMOUNT CLEANUP, WHICH IS WHY IT IS A FUNCTION AND NOT A
+   *   BOOLEAN. The §548 teardown and the commit raising the hold are the same
+   *   commit, so this panel's last render saw the pre-swap value — any prop or
+   *   ref mirroring a render value is stale exactly when the cleanup asks. The
+   *   backing ref moves synchronously inside `holdDuring`. */
+  isSwapInFlight: () => boolean;
 }
 
 /** Wiring for the destructive-write review card. BOTH are optional with safe
@@ -287,6 +317,8 @@ function ChatPanelInner({
   tursoConfig = null,
   workspace,
   runBatched,
+  getScopeEpoch,
+  isSwapInFlight,
 }: {
   lang: Lang;
   ai: AiConfig;
@@ -303,7 +335,8 @@ function ChatPanelInner({
   tursoMode?: boolean;
   tursoConfig?: TursoConfig | null;
 } & ChatProposalProps &
-  ChatConversationStoreProps) {
+  ChatConversationStoreProps &
+  ChatScopeProps) {
   const confirm = useConfirm();
   // Restore this project's in-memory conversation on (re)mount — the modern
   // shell remounts the chat view on every visit, so local state alone is lost.
@@ -447,25 +480,46 @@ function ChatPanelInner({
     return () => document.removeEventListener("keydown", onKey);
   }, [busy, chatRef]);
 
-  // ★★★ Cancel an in-flight send when this panel goes away. Before this effect
-  // nothing did: the cleanup above is the file's ONLY other effect cleanup
-  // (`grep -c "useEffect(" src/app/chat-panel.tsx` → 8 effects;
-  // `grep -n "return () =>" src/app/chat-panel.tsx` → the keydown detach and
-  // this one) and it merely detaches a listener, while the projectId effect
-  // fires only on an ACTUAL prop change. Under the §548 load hold
-  // `task-manager.tsx` swaps the whole main-window tree for `PanelSkeleton`
-  // WITHOUT such a change, so the dying instance's `projectIdRef` is never
-  // bumped, its `stale()` reads not-stale forever, and its setters and
-  // dispatcher are still live (`useStorageBackend` lives in `TaskManager`,
-  // which does not unmount) — so a turn in flight across a project swap ran
-  // its tools into the project the user swapped TO.
+  /** Live handle on `isSwapInFlight` for the unmount cleanup below.
+   *
+   *  ★ A ref, and the effect below keeps `[]` deps, because putting the prop in
+   *   the dep array would make React fire the CLEANUP on every identity change —
+   *   i.e. cancel the user's turn on an ordinary re-render, which is the very bug
+   *   this pair exists to stop. Only the FUNCTION is captured; it reads live
+   *   storage state at call time, so a one-commit-stale identity still answers
+   *   correctly (the production reader is a `useCallback([])` and never changes). */
+  const isSwapInFlightRef = useRef(isSwapInFlight);
+  useEffect(() => { isSwapInFlightRef.current = isSwapInFlight; }, [isSwapInFlight]);
+
+  // ★★★ Cancel an in-flight send when this panel goes away UNDER A SWAP. Before
+  // this effect nothing cancelled at all: the keydown cleanup above merely
+  // detaches a listener, and the projectId effect fires only on an ACTUAL prop
+  // change. Under the §548 load hold `task-manager.tsx` swaps the whole
+  // main-window tree for `PanelSkeleton` WITHOUT such a change, so the dying
+  // instance's `projectIdRef` is never bumped, its `stale()` reads not-stale
+  // forever, and its DISPATCHER is still live (`useStorageBackend` lives in
+  // `TaskManager`, which does not unmount) — so a turn in flight across a project
+  // swap ran its tools into the project the user swapped TO.
+  // ★★ THE DISPATCHER IS THE LIVE PART, not the panel's own setters: `history`
+  // and `display` are local `useState` in this component, so those setters are
+  // no-ops once it is gone. That asymmetry is the whole shape of the bug — the
+  // transcript goes nowhere while the WRITES land.
+  // ★★★ CONDITIONAL, §596. An unconditional version shipped first and was a live
+  // regression: `modern-shell.tsx`'s content ternary gives `open-points`,
+  // `settings` and `learning-insights` their own subtrees, so navigating to any
+  // of the three unmounts this panel on an ORDINARY click — and a user who asked
+  // the assistant to create tasks and then clicked Open Points to watch them
+  // appear got nothing, silently. `isSwapInFlight` is the discriminator: TRUE at
+  // the instant of a §548 teardown (it is WHY the panel is unmounting), FALSE on
+  // navigation. When it is false the turn is left alone to finish into the
+  // project the user is still in, and the scope epoch is what drops it if the
+  // scope really did move while it was in flight.
   // ★ Safe under StrictMode's mount→unmount→mount: `submitPrompt` resets
-  // `cancelledRef` to false at its own start — the sole `= false` write in
-  // this file (`grep -n "cancelledRef.current = false" src/app/chat-panel.tsx`
-  // → one hit, inside submitPrompt), so a cancelled flag left by a discarded
-  // first mount cannot outlive the next send. `chat-panel.scope.test.tsx` pins
-  // both halves, and its StrictMode test goes red if that reset is deleted.
+  // `cancelledRef` to false at its own start, so a cancelled flag left by a
+  // discarded first mount cannot outlive the next send. `chat-panel.scope.test.tsx`
+  // pins both branches of the condition and both halves of that reset.
   useEffect(() => () => {
+    if (!isSwapInFlightRef.current()) return;
     cancelledRef.current = true;
     abortRef.current?.abort();
   }, []);
@@ -526,6 +580,13 @@ function ChatPanelInner({
     // binding (`sendThreadId`) is captured further down, only after
     // ensureThreadForSend has resolved — see the comment there.
     const sendProjectId = projectId;
+    // §596 — the SCOPE half of this send's binding, captured before the first
+    // await like every other §548 writer. `sendProjectId` cannot see a
+    // storage-target change that KEEPS the project id — a Turso URL or token
+    // change, a SharePoint target swap, a same-project reload — because it
+    // compares the very thing those leave alone. The epoch can: it moves on
+    // exactly the replacements that make this send's workspace the wrong one.
+    const sendEpoch = getScopeEpoch();
 
     // With attachments the user turn is a multimodal content array (text first,
     // then each document/image block); otherwise a plain string.
@@ -564,8 +625,12 @@ function ChatPanelInner({
     // would then wrongly see the newly-adopted id as a mismatch and treat
     // this send as already stale (see ensureThreadForSend's own comment).
     const sendThreadId = chatThreads.ensureThreadForSend(newHistory, [...display, userDisplayItem]);
+    // ★ ONE predicate, so the three existing check sites (before the call, after
+    //   it, and after the transcript append) all gain the scope test together —
+    //   a fourth, per-TOOL check lives inside the loop below for the case none of
+    //   these can reach.
     const stale = () =>
-      cancelledRef.current || projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId;
+      cancelledRef.current || projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId || isScopeStale(getScopeEpoch, sendEpoch);
 
     const snapshot = dispatcher.getSnapshot();
     const system = buildStableSystemBlocks(lang, snapshot, guides, ai.groundInGuides, ai);
@@ -709,6 +774,13 @@ function ChatPanelInner({
           const results: ToolResultBlock[] = [];
           for (const block of response.content) {
             if (block.type !== "tool_use") continue;
+            // ★★★ §596 — RE-CHECKED PER TOOL, NOT PER TURN, and no `stale()` call
+            // site can stand in for this one: all three run BEFORE this loop. A
+            // turn can carry several `tool_use` blocks and each `runTool` awaits,
+            // so a swap landing mid-batch would otherwise let every REMAINING
+            // tool write into the next project. Scope only — cancel and the
+            // project/thread refs are the outer loop's job and cannot move here.
+            if (dropStaleScopeWrite(getScopeEpoch, sendEpoch, "chat-panel.toolLoop", { tool: block.name })) break;
             let resultStr: string;
             let isError = false;
             try {

@@ -195,6 +195,50 @@ describe("§548 — loadPending", () => {
     expect(result.current.loadPending).toBe(false);
   });
 
+  it("(e) isSwapInFlight is true SYNCHRONOUSLY with the call, before any render or effect", async () => {
+    // ★★★ §596 — THE POINT OF THIS TEST IS THE WORD *SYNCHRONOUSLY*, and it is
+    //  the only reason `isSwapInFlight` exists beside `loadPending` at all. Its
+    //  consumer is `chat-panel.tsx`'s UNMOUNT CLEANUP, and the §548 teardown
+    //  happens in the very commit this call triggers: React flushes every passive
+    //  DESTROY before any passive CREATE, so a ref that an effect copies
+    //  `loadPending` into has NOT been written when the dying subtree asks. It
+    //  would read the pre-swap `false` and the turn would not be cancelled.
+    //  `holdDuring` therefore moves a ref in the same statement pair as the
+    //  setter, exactly as `bumpScopeEpoch` does. Delete that `+= 1` and the
+    //  in-act read below goes false.
+    saveRegistry(addProject(emptyRegistry(), { id: "target", name: "Target", code: "T", storageConfig: { kind: "local-json" } }, false));
+    (handles.getHandle as ReturnType<typeof vi.fn>).mockResolvedValue({ name: "t.json" });
+    const current = makeBackend(0);
+    const built = makeBackend(500);
+    const memo = makeBackend(0);
+    createBackendMock.mockReturnValueOnce(current).mockReturnValueOnce(built).mockReturnValue(memo);
+    let rerenderWith: (cfg: StorageConfig) => void = () => {};
+    const setStorageConfig = vi.fn((cfg: StorageConfig) => rerenderWith(cfg));
+    const { result, rerender } = render({ ...makeArgs(), setStorageConfig });
+    rerenderWith = (cfg) => rerender({ args: { ...makeArgs(cfg), setStorageConfig } });
+    await advance(100);
+    // Two-way pin: false BEFORE, or "true during" is true for some other reason.
+    expect(result.current.isSwapInFlight()).toBe(false);
+
+    let duringInvoke = false;
+    let op: Promise<void> = Promise.resolve();
+    act(() => {
+      op = result.current.switchToProject("target");
+      // Read INSIDE act and immediately after the call: no re-render has been
+      // committed and no effect has run. This is the instant the chat panel's
+      // cleanup asks the question.
+      duringInvoke = result.current.isSwapInFlight();
+    });
+    expect(duringInvoke).toBe(true);
+    expect(result.current.loadPending).toBe(true); // control: the hold really is up
+
+    await advance(600);
+    await act(async () => { await op; });
+    await advance(100);
+    // Released in the op's `finally`, so a thrown op cannot strand it true.
+    expect(result.current.isSwapInFlight()).toBe(false);
+  });
+
   // The nine held ops (in flight / resolved / threw) are pinned in use-storage-backend.hold-ops.test.tsx.
 
   it("(f) is TRUE before hydration (no load has even started), and settles once hydration runs the load", async () => {

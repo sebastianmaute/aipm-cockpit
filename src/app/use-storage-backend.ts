@@ -244,6 +244,18 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   workspace, so an edit made during its await would be discarded exactly like one made during the
   //   first load.
   const [swapsInFlight, setSwapsInFlight] = useState(0);
+  // ★★★ §596 — THE SAME COUNT AS A REF, AND THE REF IS NOT AN OPTIMISATION. A consumer that must
+  //   answer "is a swap in flight?" from an UNMOUNT CLEANUP cannot read any mirror of the render
+  //   value: React flushes every passive DESTROY before any passive CREATE, so an effect that
+  //   copies `loadPending` into a ref has not run yet when the subtree the hold is unmounting
+  //   tears down — the mirror still reads the pre-swap `false`. This ref is written SYNCHRONOUSLY
+  //   inside `holdDuring`, beside its `setSwapsInFlight`, exactly as `scopeEpochRef` is written
+  //   beside the replacement it announces, so it is already true at that instant.
+  // ★ Deliberately NOT `loadPending`'s other two disjuncts: `!hydrated` is pre-mount (nothing is
+  //   in flight to cancel) and `settledBackend !== backend` needs Settings, which unmounts the
+  //   chat panel on its own before the backend can change. Both are covered by the scope epoch at
+  //   RESOLUTION time instead. This answers the narrower question its name asks.
+  const swapsInFlightRef = useRef(0);
   // ★★ TRUE before hydration (spec revision 2026-09-19): the first load has not even started, so it IS
   //   pending, and ONE signal covers every consumer (the render hold and each background-writer gate)
   //   through that window. The hold therefore relies on `hydrated` always becoming true — bounded in
@@ -259,6 +271,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // `[]`-dep ref or callback without re-subscribing anything. Deliberately NOT a render value:
   // publishing the number would re-render every consumer on each swap.
   const getScopeEpoch = useCallback(() => scopeEpochRef.current, []);
+  // §596 — the swap-in-flight reader, published for the same reason and with the same contract as
+  // `getScopeEpoch`: STABLE for the hook's lifetime, reads a synchronously-maintained ref, never a
+  // render value. `chat-panel.tsx` uses it to tell a §548 teardown from ordinary view navigation.
+  const isSwapInFlight = useCallback(() => swapsInFlightRef.current > 0, []);
   // ★★★ §586 — THE SAVE GATE: the backend instance render scope may be written to. Before it opens,
   //   the boot workspace is EMPTY, and a save of it is `DELETE FROM` every Turso table, an empty
   //   SharePoint PUT, an overwritten file. The AUTOMATIC writes of the live workspace to the ACTIVE
@@ -1154,10 +1170,16 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   declaration, so read the hits rather than the number.
   function holdDuring<A extends unknown[]>(op: (...opArgs: A) => Promise<void>): (...opArgs: A) => Promise<void> {
     return async (...opArgs: A) => {
+      // §596 — the ref moves in the SAME synchronous statement pair as the state, so a cleanup
+      // running inside the commit this triggers already sees the hold. Decremented in the same
+      // `finally`, unconditionally: unlike the state setter it has no mounted guard to respect,
+      // and leaving it raised after a teardown would make `isSwapInFlight` lie forever.
+      swapsInFlightRef.current += 1;
       setSwapsInFlight((n) => n + 1);
       try {
         await op(...opArgs);
       } finally {
+        swapsInFlightRef.current -= 1;
         if (mountedRef.current) setSwapsInFlight((n) => n - 1);
       }
     };
@@ -1168,7 +1190,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // number here — this comment said "sits AT" while the file had 14 lines of headroom.
   // Measure: node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
   return {
-    storageDescription, storageReady, workspaceLoaded, loadPause, loadPending, getScopeEpoch,
+    storageDescription, storageReady, workspaceLoaded, loadPause, loadPending, getScopeEpoch, isSwapInFlight,
     // ★★★ §590 PUT `onPickStorageFile` UNDER THE HOLD, and it was deliberately outside it before.
     //   The exclusion was right while the op only ever wrote the live workspace OUTWARD — nothing was
     //   replaced, so there was nothing for a background writer to land in the middle of. Its

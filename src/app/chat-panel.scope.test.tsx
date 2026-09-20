@@ -108,6 +108,21 @@ const TOOL_TURN = {
   usage,
 };
 
+/** The epoch reader every test that does not care about the epoch passes: a
+ *  frozen scope. ★ A FUNCTION PER CALL, never one shared const — two tests
+ *  sharing a closure over the same `let` is how a mutated epoch leaks sideways. */
+const FROZEN_EPOCH = () => 0;
+
+/** A `fetch` reply carrying `body` as its JSON. Only the three members
+ *  `callClaude` touches are present — `ok`, `text` (the error path) and `json`. */
+function jsonResponse(body: unknown): Response {
+  return {
+    ok: true,
+    text: () => Promise.resolve(""),
+    json: () => Promise.resolve(body),
+  } as unknown as Response;
+}
+
 function send(text = "add a task") {
   fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), {
     target: { value: text },
@@ -119,13 +134,18 @@ describe("in-flight send vs. the panel's lifetime", () => {
   beforeEach(() => vi.restoreAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
-  it("cancels an in-flight send when the panel unmounts", async () => {
-    // OBSERVABLE: `dispatcher.createTask`.
-    //   WITHOUT the unmount cleanup — 1 call. The orphaned closure resumes
-    //   after the release, `stale()` reads not-stale (nothing bumped any of
-    //   its three refs), and the immediate path runs `create_task`.
-    //   WITH it — 0 calls. The cleanup sets `cancelledRef`, so the `stale()`
-    //   check between `await callClaude(...)` and the tool loop breaks out.
+  /** The shared body of the unmount PAIR below. Renders, parks the send
+   *  mid-await, unmounts, releases the response, and hands back what both
+   *  branches assert on.
+   *
+   *  ★★★ ONE BODY, ONE PARAMETER, AND THAT IS THE POINT. The discriminator under
+   *   test is `isSwapInFlight` and nothing else; two hand-copied bodies would let
+   *   some other difference creep in and still read as a pair. A single-sided
+   *   version of this pair is literally how the regression got in — Task 6 pinned
+   *   the cancel and nothing pinned the not-cancel, so an UNCONDITIONAL cleanup
+   *   was green while it silently killed every turn a user left by navigating to
+   *   Open Points (`modern-shell.tsx`'s view ternary unmounts this subtree). */
+  async function unmountMidSend(swapInFlight: boolean) {
     let releaseFetch!: (r: Response) => void;
     // ★ Spied, and asserted below, as the POSITIVE CONTROL that the awaited
     //   continuation actually resumed after the release. Without it a run in
@@ -152,7 +172,14 @@ describe("in-flight send vs. the panel's lifetime", () => {
     const dispatcher = makeDispatcher();
 
     const { unmount } = render(
-      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()} />,
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        onAcceptConsent={vi.fn()}
+        getScopeEpoch={FROZEN_EPOCH}
+        isSwapInFlight={() => swapInFlight}
+      />,
     );
     send();
 
@@ -167,8 +194,9 @@ describe("in-flight send vs. the panel's lifetime", () => {
     expect(signals[0].aborted).toBe(false);
 
     unmount();
-
-    expect(signals[0].aborted).toBe(true);
+    // Read BEFORE the release, because the abort is the cleanup's own effect and
+    // must be attributed to the unmount rather than to anything downstream.
+    const abortedAtUnmount = signals[0].aborted;
 
     await act(async () => {
       releaseFetch(released);
@@ -177,8 +205,52 @@ describe("in-flight send vs. the panel's lifetime", () => {
       await new Promise((r) => setTimeout(r, 0));
     });
 
+    return { dispatcher, jsonSpy, abortedAtUnmount };
+  }
+
+  it("cancels an in-flight send when the panel unmounts under a swap", async () => {
+    // The §548 case: `task-manager.tsx` swapped the whole main-window tree for
+    // `PanelSkeleton` because a project op is in flight, so this teardown IS the
+    // swap. OBSERVABLE: `dispatcher.createTask`.
+    //   WITHOUT the unmount cleanup — 1 call. The orphaned closure resumes after
+    //   the release, `stale()` reads not-stale (nothing bumped any of its three
+    //   refs — the epoch has not moved yet either, it bumps only when the
+    //   incoming workspace is applied), and the immediate path runs `create_task`.
+    //   WITH it — 0 calls. The cleanup sets `cancelledRef`, so the `stale()`
+    //   check between `await callClaude(...)` and the tool loop breaks out.
+    const { dispatcher, jsonSpy, abortedAtUnmount } = await unmountMidSend(true);
+
+    // The send's own AbortSignal, so the cleanup's second line (the
+    // `abortRef.current?.abort()`) has an observable of its own — releasing the
+    // HTTP request is a separate effect from breaking the loop, and a mutant
+    // deleting it survives every other assertion here.
+    expect(abortedAtUnmount).toBe(true);
+    // POSITIVE CONTROL: the awaited continuation really did resume after the
+    // release. Without it a run in which nothing ever resolved would report zero
+    // createTask calls too, and read as a pass.
     expect(jsonSpy).toHaveBeenCalledTimes(1);
     expect(dispatcher.createTask).not.toHaveBeenCalled();
+  });
+
+  it("lets an in-flight send finish when the panel unmounts with no swap in flight", async () => {
+    // ★★★ THE OPEN POINTS CASE, and a live regression against Task 6's
+    //  UNCONDITIONAL cleanup. `modern-shell.tsx`'s content ternary renders
+    //  `open-points`, `settings` and `learning-insights` as their own subtrees and
+    //  everything else as `workspace`, so navigating to any of the three unmounts
+    //  this panel on an ORDINARY click. A user who asks the assistant to create
+    //  tasks and then clicks Open Points to watch them appear must still get them.
+    //  ★★ Do not read AGENTS.md's "the chat panel NEVER remounts" as covering
+    //  this: that is about TAB switches inside `workspace-section`, which keep
+    //  `panel-chat` mounted and merely `hidden`. Both claims are true and they are
+    //  about different things.
+    // OBSERVABLE: `dispatcher.createTask` — ONE call, not zero.
+    const { dispatcher, jsonSpy, abortedAtUnmount } = await unmountMidSend(false);
+
+    // Two-way with the branch above: the request must NOT have been aborted, or
+    // "the turn finished" would be true for a reason the condition did not cause.
+    expect(abortedAtUnmount).toBe(false);
+    expect(jsonSpy).toHaveBeenCalledTimes(1);
+    expect(dispatcher.createTask).toHaveBeenCalledTimes(1);
   });
 
   it("still sends after a StrictMode double-invoked mount", async () => {
@@ -214,6 +286,13 @@ describe("in-flight send vs. the panel's lifetime", () => {
         dispatcher={makeDispatcher()}
         onAcceptConsent={vi.fn()}
         saveChatConversation={saveChatConversation}
+        getScopeEpoch={FROZEN_EPOCH}
+        // ★★ TRUE on purpose: StrictMode's DISCARDED first mount must fire the
+        //   cleanup for this test to be about anything, and after this task the
+        //   cleanup only fires under a swap. With `false` the test still passes —
+        //   and proves nothing, because no `cancelledRef` was ever left set for
+        //   `submitPrompt`'s reset to clear.
+        isSwapInFlight={() => true}
       />,
       // ★★★ RTL's own option — NEVER a composed
       // `({children}) => <StrictMode>{children}</StrictMode>` wrapper, which
@@ -227,5 +306,186 @@ describe("in-flight send vs. the panel's lifetime", () => {
 
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByText("hello")).toBeInTheDocument());
+  });
+});
+
+describe("in-flight send vs. the storage scope", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  /** Parks a send mid-await, moves the epoch to `epochAtRelease`, then releases a
+   *  one-`create_task` turn. The pair below differ in THAT NUMBER ALONE.
+   *
+   *  ★★★ THE PANEL STAYS MOUNTED AND THE PROJECT ID NEVER CHANGES, which is the
+   *   whole case: a Turso URL/token change, a SharePoint target swap and a
+   *   same-project reload all replace the workspace while `projectId` holds, so
+   *   `stale()`'s three original reads are STRUCTURALLY blind to them. Only the
+   *   epoch moves. (It is also why this is not folded into the unmount pair
+   *   above — that one tests a lifetime, this one tests a target.) */
+  async function sendAcrossEpoch(epochAtRelease: number) {
+    let epoch = 1;
+    let releaseFetch!: (r: Response) => void;
+    const jsonSpy = vi.fn(() => Promise.resolve(TOOL_TURN));
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(
+      () => new Promise<Response>((res) => { releaseFetch = res; }),
+    );
+    const dispatcher = makeDispatcher();
+
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        onAcceptConsent={vi.fn()}
+        getScopeEpoch={() => epoch}
+        // FALSE throughout: no unmount happens here, and a true would only
+        // muddy which guard the result is attributable to.
+        isSwapInFlight={() => false}
+      />,
+    );
+    send("add a task");
+
+    // PRECONDITION, asserted not assumed: the send really left the panel and is
+    // parked mid-await. Task 6 learned this the hard way — a send that never
+    // started makes the final assertion vacuous.
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+
+    epoch = epochAtRelease;
+    await act(async () => {
+      releaseFetch({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: jsonSpy,
+      } as unknown as Response);
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    return { dispatcher, jsonSpy };
+  }
+
+  it("drops a tool write when the storage target changed but the project id did not", async () => {
+    // OBSERVABLE: `dispatcher.createTask`. Unguarded — 1 call, into whatever
+    // workspace the new target just installed. Guarded — 0.
+    const { dispatcher, jsonSpy } = await sendAcrossEpoch(2);
+
+    // POSITIVE CONTROL: the awaited continuation resumed. A run in which nothing
+    // ever resolved would also report zero createTask calls.
+    expect(jsonSpy).toHaveBeenCalledTimes(1);
+    expect(dispatcher.createTask).not.toHaveBeenCalled();
+  });
+
+  it("still runs the tool when the scope never moved", async () => {
+    // ★★ THE ANTI-VACUITY HALF, and it is not optional: without it "0 calls"
+    //  above is satisfied by a fixture that could never have written at all —
+    //  a staged turn, a wedged send, a dispatcher never reached. Same helper,
+    //  same release, epoch left where it started.
+    const { dispatcher } = await sendAcrossEpoch(1);
+    expect(dispatcher.createTask).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops a multi-tool turn at the tool where the scope changed", async () => {
+    // ★★★ THE CASE `stale()` STRUCTURALLY CANNOT REACH. All three of its call
+    //  sites run BEFORE the `for (const block of response.content)` loop, so an
+    //  epoch that moves BETWEEN two tools of the SAME turn is invisible to every
+    //  one of them and the remaining tools write into the next project. A fixture
+    //  that moved the epoch before the send started would be caught by the
+    //  loop-top check and would pass with the per-tool guard DELETED — the
+    //  vacuous shape. Here the FIRST TOOL moves it, mid-turn.
+    let epoch = 1;
+    const dispatcher = makeDispatcher();
+    // The swap lands during the first tool — a READ, so `writes` stays 1 and the
+    // turn takes the immediate path. ★★ Two ENTITY WRITE tools here would make
+    // `shouldStage` (`writes > 1`) route the turn to the REVIEW CARD, which never
+    // reaches this loop at all: the test would then be green or red for reasons
+    // having nothing to do with the guard.
+    vi.mocked(dispatcher.listTasks).mockImplementation(() => { epoch = 2; return []; });
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(""),
+      json: () => Promise.resolve({
+        content: [
+          { type: "tool_use", id: "t1", name: "list_tasks", input: {} },
+          {
+            type: "tool_use", id: "t2", name: "create_task",
+            input: { taskName: "A", assignee: "me", dueDate: "2026-06-10" },
+          },
+        ],
+        stop_reason: "tool_use",
+        usage,
+      }),
+    } as unknown as Response);
+
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        onAcceptConsent={vi.fn()}
+        getScopeEpoch={() => epoch}
+        isSwapInFlight={() => false}
+      />,
+    );
+    send("list them then add a task");
+
+    // POSITIVE CONTROL: the first tool really ran, so a zero on the second means
+    // "dropped", not "the turn never got there".
+    await waitFor(() => expect(dispatcher.listTasks).toHaveBeenCalledTimes(1));
+    // ★★ AND THEN DRAIN. `waitFor` resolves the instant the FIRST tool has run,
+    //  which is one `await` before the second would — asserting straight off it
+    //  reads a moment at which an UNGUARDED loop has not reached `create_task`
+    //  either, and passes against the deleted guard. A macrotask turn lets the
+    //  whole chain finish first.
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(dispatcher.createTask).not.toHaveBeenCalled();
+  });
+
+  it("makes no further API call once the scope has moved mid-turn", async () => {
+    // ★★★ THIS TEST EXISTS BECAUSE A MUTANT SURVIVED. Deleting the epoch clause
+    //  from `stale()` left the whole suite green: for a TOOL WRITE the per-tool
+    //  guard fires first, so the two guards are indistinguishable on
+    //  `createTask`. The clause earns its place on a DIFFERENT observable — the
+    //  NEXT round trip. Without it an orphaned send keeps calling (and billing)
+    //  the API and keeps appending the model's text to a transcript that now
+    //  belongs to another storage target; the per-tool guard cannot see that,
+    //  because it only ever guards a tool.
+    // OBSERVABLE: `fetch` call count. Guarded — 1. Unguarded — 2.
+    let epoch = 1;
+    const dispatcher = makeDispatcher();
+    vi.mocked(dispatcher.listTasks).mockImplementation(() => { epoch = 2; return []; });
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({
+        content: [{ type: "tool_use", id: "t1", name: "list_tasks", input: {} }],
+        stop_reason: "tool_use",
+        usage,
+      }))
+      // A plain `list_tasks` is not an entity write, so `shouldStage` stays false
+      // and this turn takes the immediate path — the tool runs, moves the epoch,
+      // and the loop comes back around for a second round trip it must not make.
+      .mockResolvedValue(jsonResponse({
+        content: [{ type: "text", text: "second round trip" }],
+        stop_reason: "end_turn",
+        usage,
+      }));
+
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        onAcceptConsent={vi.fn()}
+        getScopeEpoch={() => epoch}
+        isSwapInFlight={() => false}
+      />,
+    );
+    send("list them");
+
+    await waitFor(() => expect(dispatcher.listTasks).toHaveBeenCalledTimes(1));
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    // The second turn's text is the same claim seen from the transcript side —
+    // an absence assertion, so it rides ALONGSIDE the count, never instead of it.
+    expect(screen.queryByText("second round trip")).toBeNull();
   });
 });

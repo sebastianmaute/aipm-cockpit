@@ -18,6 +18,7 @@ import type {
 } from "./activity-log";
 import type { LogActivityAsFn } from "./activity-log-context";
 import type { UndoBatch } from "./use-undo-batch";
+import type { ScopeEpochReader } from "./scope-epoch";
 import type { CalendarEvent } from "./calendar-event";
 import type { ProjectDocument } from "./document-model";
 import type { BucketCommitMeta } from "./use-budget-buckets";
@@ -136,6 +137,23 @@ export interface WorkspaceSectionProps {
    *   times. Optional so popouts and tests need not thread it; the degradation
    *   is N entries instead of 1, never a lost write. */
   runProposalBatch?: UndoBatch["runBatched"];
+  /** §548 — the scope-epoch reader, for the chat panel one hop below.
+   *
+   *  ★★ REQUIRED, unlike every consumer HOOK's copy of it, and deliberately so:
+   *   `scope-epoch.ts`'s header records that the hook-level optionality is exactly
+   *   how `tasks-section.tsx`'s manual push/pull went unguarded for a whole release
+   *   — nothing failed, it simply kept the pre-§548 behaviour. A required prop at a
+   *   pane boundary is the only thing that turns a dropped thread into a tsc error. */
+  getScopeEpoch: ScopeEpochReader;
+  /** §596 — true while a project swap / load hold is in flight.
+   *
+   *  ★★★ THE CHAT PANEL'S UNMOUNT CLEANUP IS THE ONLY CALLER, AND IT ASKS AT
+   *   CLEANUP TIME. Do not "simplify" this to a `loadPending` boolean prop: the
+   *   §548 teardown and the commit that sets the hold are the SAME commit, so the
+   *   panel's last render saw the pre-swap value and any mirror of it is stale
+   *   exactly when it matters. `useStorageBackend` backs this with a ref written
+   *   synchronously in `holdDuring`. Required for the same reason as the reader above. */
+  isSwapInFlight: () => boolean;
   fullBleed?: boolean;
   handleGanttBarUpdate: (edit: {
     taskId: number;

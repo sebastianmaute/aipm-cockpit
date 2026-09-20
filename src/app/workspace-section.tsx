@@ -228,6 +228,8 @@ export function WorkspaceSection({
   guides = [],
   guidesReady = true,
   runProposalBatch,
+  getScopeEpoch,
+  isSwapInFlight,
 }: WorkspaceSectionProps) {
   const { settings, setSettings, lang } = useSettings();
   const features = settings.features;
@@ -395,6 +397,8 @@ export function WorkspaceSection({
             tursoConfig={chatTursoConfig}
             workspace={workspace}
             runBatched={runProposalBatch}
+            getScopeEpoch={getScopeEpoch}
+            isSwapInFlight={isSwapInFlight}
           />
         </div>
 

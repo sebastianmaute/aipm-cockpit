@@ -511,7 +511,7 @@ function TaskManagerInner() {
     truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
-    restoreTursoProject, hardDeleteTursoProject, tursoProjectId, loadPending, getScopeEpoch,
+    restoreTursoProject, hardDeleteTursoProject, tursoProjectId, loadPending, getScopeEpoch, isSwapInFlight,
   } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, showToastAction, onRevealSavingPaused: () => { setDestructiveBannerDismissed(false); setLoadPauseBannerDismissed(false); }, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
 
   // Fills the forward-ref declared above `useUndoStack`, so an undo-stack redo
@@ -2416,6 +2416,11 @@ function TaskManagerInner() {
     // Same `useUndoBatch` instance whose `.undo` is the dispatcher's `undo` prop
     // — see the note at that call.
     runProposalBatch: chatUndoBatch.runBatched,
+    // §548/§596 — both readers ride `workspaceProps` for the reason above: the chat
+    // panel is the consumer and it is a hop below `WorkspaceSection`. REQUIRED all the
+    // way down, so a dropped thread is a tsc error rather than a silently unguarded turn.
+    getScopeEpoch,
+    isSwapInFlight,
     handleGanttBarUpdate: guardEdit(handleGanttBarUpdate),
     handleCancelEdit,
     setTaskModalOpen,
