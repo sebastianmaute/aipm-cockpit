@@ -66,8 +66,14 @@ serializes the auto + manual push instances so a manual click during an in-fligh
 (check-then-add is synchronous before the first await; released in `finally`). ★★★ §548 — EVERY calendar hook that
 awaits Graph takes an optional `getScopeEpoch` and DROPS its workspace write when the workspace in scope became
 ANOTHER PROJECT meanwhile (`dropStaleScopeWrite`, `scope-epoch.ts`; the load hold's own gates only ask when a call
-STARTS). `use-calendar-integrations.ts` threads the reader into all seventeen child-hook call sites; a hook mounted
-outside that reach — `tasks-section.tsx`'s own manual task push/pull — passes nothing and is NOT guarded.
+STARTS). `use-calendar-integrations.ts` threads the reader into all seventeen child-hook call sites, and `tasks-section.tsx`
+— which mounts its OWN push/pull instances for the Open Points toolbar instead of taking them from that hook — gets
+it from its own `TasksSectionProps.getScopeEpoch`, threaded straight from `task-manager.tsx`. ★★ THAT PROP IS
+REQUIRED WHERE THE HOOK ARG IS OPTIONAL, and the asymmetry is the lesson: the optional arg let this one pane ship
+unguarded for a release with nothing failing — it simply kept the pre-§548 behaviour while every sibling was covered,
+and a push resolving after a project switch stamped the old project's `outlookEventId`s (or its Outlook dates as
+`dueDate`) onto the new project's same-id tasks. Declaring the PANE/deps boundary required makes a missing thread a
+tsc error. ★ The chat agent loop still has no reader at all and remains unguarded; see `docs/AGENTS/platform.md`.
 ★★★ WHAT A DROPPED PUSH COSTS DIFFERS BY HOOK, and "the next push re-links it" is FALSE everywhere. `useEntityCalendarPush`
 and `useOutlookCalendarPush` list Outlook, and `planEntityReconcile`/`planCalendarReconcile` put every listed id not
 referenced by an item into `plan.delete` — so the next push in the right project DELETES the orphan and RE-CREATES the

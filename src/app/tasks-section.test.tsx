@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
-import { render, screen, fireEvent, act, within } from "@testing-library/react";
+import { render, screen, fireEvent, act, waitFor, within } from "@testing-library/react";
 import { t, loadI18n } from "./i18n";
 import { ToastProvider } from "./toast-context";
 import { getAppearanceSnapshot, saveProjectAppearance } from "./project-appearance-prefs";
@@ -39,17 +39,42 @@ vi.mock("./use-deeplink-row-flash", () => ({
   useDeepLinkRowFlash: () => ({ flashId: null, containerRef: { current: null } }),
   flashOutlineClass: () => "",
 }));
-const { pullSpy } = vi.hoisted(() => ({ pullSpy: vi.fn() }));
-vi.mock("./use-entity-calendar-pull", () => ({
-  useEntityCalendarPull: () => ({
-    pull: pullSpy,
-    busy: false,
-    result: null,
-    clearResult: vi.fn(),
-    keepApp: vi.fn(),
-    applyMove: vi.fn(),
-  }),
+// §548 — `pullArgs` records what the pane hands the pull hook. The hook itself is
+// mocked out for this whole file, so its DROP behaviour is pinned in
+// `use-entity-calendar-pull.test.tsx`; what is only visible from here is whether the
+// pane threads the scope-epoch reader into it at all, which is what it went a release
+// without doing. The push hook below is NOT mocked, so that one is pinned end-to-end.
+const { pullSpy, pullArgs } = vi.hoisted(() => ({
+  pullSpy: vi.fn(),
+  pullArgs: [] as Array<Record<string, unknown>>,
 }));
+vi.mock("./use-entity-calendar-pull", () => ({
+  useEntityCalendarPull: (args: Record<string, unknown>) => {
+    pullArgs.push(args);
+    return {
+      pull: pullSpy,
+      busy: false,
+      result: null,
+      clearResult: vi.fn(),
+      keepApp: vi.fn(),
+      applyMove: vi.fn(),
+    };
+  },
+}));
+// The REAL `useEntityCalendarPush` runs in this file, so its Graph edges are stubbed
+// (and only its edges — `taskToGraphEvent`, which the pane itself imports, stays real).
+const { acquireTokenMock } = vi.hoisted(() => ({ acquireTokenMock: vi.fn() }));
+vi.mock("./use-ms-auth", () => ({ useMsAuth: () => ({ acquireToken: acquireTokenMock }) }));
+vi.mock("./outlook-calendar-write", async (imp) => {
+  const actual = await imp<typeof import("./outlook-calendar-write")>();
+  return {
+    ...actual,
+    listEntityEvents: vi.fn().mockResolvedValue([]),
+    createEvent: vi.fn().mockResolvedValue("NEW1"),
+    updateEvent: vi.fn().mockResolvedValue(undefined),
+    deleteEvent: vi.fn().mockResolvedValue(undefined),
+  };
+});
 // Inline "Ask Claude" task edit (SP1): stub the hook out entirely so this
 // suite stays focused on the pane's own rendering/behavior; the hook itself
 // is covered by use-inline-ai-edit.test.ts.
@@ -79,6 +104,7 @@ import { TasksSection, CONFIGURABLE_COLS, type TasksSectionProps } from "./tasks
 import { TASK_STATUSES } from "./types";
 import { DEFAULT_COL_WIDTHS } from "./tasks-section-columns";
 import { GUTTER_WIDTH_PX, visibleTaskCols } from "./open-points-table-geometry";
+import { listEntityEvents, createEvent } from "./outlook-calendar-write";
 
 const mockUseWorkspace = useWorkspace as ReturnType<typeof vi.fn>;
 const mockUseFilters = useFilters as ReturnType<typeof vi.fn>;
@@ -118,10 +144,12 @@ function stubWorkspace(
   tasks: unknown[],
   filteredSortedTasks: unknown[],
   resources: unknown[] = [],
+  /** The workspace `setTasks` — passed in when a test needs to assert on it. */
+  setTasks: unknown = vi.fn(),
 ) {
   mockUseWorkspace.mockReturnValue({
     tasks,
-    setTasks: vi.fn(),
+    setTasks,
     filteredSortedTasks,
     uniqueAssignees: [],
     uniqueGroups: [],
@@ -217,6 +245,9 @@ function makeProps(): TasksSectionProps {
     cancelBulkEdit: vi.fn(),
     // Inline "Ask Claude" task edit (SP1)
     dispatcher: { getSnapshot: () => ({}) } as unknown as ToolDispatcher,
+    // §548 — required, so every render here proves the prop exists; the scope-epoch
+    // describe below overrides it with a reader it can move mid-flight.
+    getScopeEpoch: () => 0,
   };
 }
 
@@ -1516,5 +1547,82 @@ describe("TasksSection clear-all dialog — German", () => {
     // Only the German phrase enables confirm.
     fireEvent.change(input, { target: { value: t("de", "tasksClearAllConfirmValue") } });
     expect(confirm).toBeEnabled();
+  });
+});
+
+// §548 — the Open Points pane mounts its OWN `useEntityCalendarPush` / `useEntityCalendarPull`
+// rather than taking them from `use-calendar-integrations.ts`, so it is the one manual push/pull
+// that has to carry the scope-epoch reader itself. Unguarded it was a real corruption path, not an
+// edge case: task ids are small integers minted PER PROJECT, so a push started in project A and
+// resolving after a switch to B stamps A's `outlookEventId`s onto B's same-id rows, and a pull
+// writes A's Outlook dates as B's `dueDate` — which autosave then persists.
+describe("TasksSection — the scope epoch reaches the manual Outlook push/pull (§548)", () => {
+  const calPushLabel = `${t("en-US", "calendarPush")} – ${t("en-US", "calendarSyncEntityTask")}`;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    pullArgs.length = 0;
+    stubFilters();
+    stubTaskForm();
+    stubSettings({ outlookCalendar: { task: { enabled: true, auto: false } } });
+    stubHolidaySet();
+    acquireTokenMock.mockResolvedValue("tok");
+    vi.mocked(listEntityEvents).mockResolvedValue([]);
+    vi.mocked(createEvent).mockResolvedValue("NEW1");
+  });
+
+  /** Renders the pane and clicks Push with the Outlook LISTING held open, so the test can
+   *  move the epoch (= switch project) while the push sits mid-flight. */
+  function renderHeldPush(epoch: { v: number }) {
+    const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
+    const setTasks = vi.fn();
+    stubWorkspace([task], [task], [], setTasks);
+    let resolveListing!: () => void;
+    vi.mocked(listEntityEvents).mockReturnValueOnce(
+      new Promise((r) => { resolveListing = () => r([]); }),
+    );
+    render(
+      <ToastProvider value={{ showToast: vi.fn(), showToastAction: vi.fn() }}>
+        <TasksSection {...makeProps()} m365Configured getScopeEpoch={() => epoch.v} />
+      </ToastProvider>,
+    );
+    const btn = screen.getByRole("button", { name: calPushLabel });
+    fireEvent.click(btn);
+    return { setTasks, btn, release: () => resolveListing() };
+  }
+
+  it("drops the push write when the project changed while Graph was answering", async () => {
+    const epoch = { v: 7 };
+    const { setTasks, btn, release } = renderHeldPush(epoch);
+    epoch.v = 8; // the user switched project while Outlook was still listing
+    await act(async () => { release(); });
+    // The button re-enables when the push settles — so this is not a race with the assertions.
+    await waitFor(() => expect(btn).not.toBeDisabled());
+    // Control: the push really ran and really reached Graph. Without it "no write" would
+    // pass for a pane that never started a push at all.
+    expect(vi.mocked(listEntityEvents)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(createEvent)).not.toHaveBeenCalled();
+    expect(setTasks).not.toHaveBeenCalled();
+  });
+
+  it("CONTROL — the same push writes back when the project is unchanged", async () => {
+    const epoch = { v: 7 };
+    const { setTasks, btn, release } = renderHeldPush(epoch);
+    await act(async () => { release(); });
+    await waitFor(() => expect(btn).not.toBeDisabled());
+    expect(vi.mocked(createEvent)).toHaveBeenCalledTimes(1);
+    expect(setTasks).toHaveBeenCalledTimes(1);
+  });
+
+  // The pull hook is mocked for this whole file (its drop behaviour is pinned in
+  // `use-entity-calendar-pull.test.tsx`), so what is checkable from the PANE is that the same
+  // reader is threaded into it — the half that was actually missing.
+  it("hands the SAME reader to the pull hook", () => {
+    const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
+    stubWorkspace([task], [task]);
+    const getScopeEpoch = () => 42;
+    render(<TasksSection {...makeProps()} m365Configured getScopeEpoch={getScopeEpoch} />);
+    expect(pullArgs.length).toBeGreaterThan(0); // control: the hook was mounted at all
+    expect(pullArgs[pullArgs.length - 1].getScopeEpoch).toBe(getScopeEpoch);
   });
 });

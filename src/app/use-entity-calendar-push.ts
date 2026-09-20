@@ -32,7 +32,9 @@ interface Args<T extends HasEventLink> {
    *  missing/expired token doesn't spam an error toast on every reconcile. */
   interactive?: boolean;
   /** §548 — `useStorageBackend`'s scope-epoch reader. Omitted by a caller outside the storage hook's
-   *  reach (tests, `tasks-section.tsx`), which keeps the pre-§548 behaviour. */
+   *  reach (unit tests), which keeps the pre-§548 behaviour. ★ Every production call site passes it:
+   *  the seventeen in `use-calendar-integrations.ts` from its required deps member, and
+   *  `tasks-section.tsx`'s own manual push from its own required `getScopeEpoch` prop. */
   getScopeEpoch?: ScopeEpochReader;
 }
 

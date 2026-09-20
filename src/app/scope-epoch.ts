@@ -46,9 +46,14 @@
 //   (`use-calendar-integrations.ts`), `useInsightRecommendRunner`'s `enabled` plus
 //   `applyInsightRecommendation`'s own early return (`use-insight-recommendations.ts`),
 //   and the `PanelSkeleton` render hold for every manual control.
-// ★ The reader is OPTIONAL at every consumer: a hook mounted outside the storage
-//   hook's reach (unit tests, `tasks-section.tsx`'s own manual push/pull) passes
-//   nothing and keeps its pre-§548 behaviour rather than dropping every write.
+// ★ The reader is OPTIONAL at every consumer hook: one mounted outside the storage
+//   hook's reach (a unit test) passes nothing and keeps its pre-§548 behaviour rather
+//   than dropping every write. ★★ That optionality is exactly how `tasks-section.tsx`'s
+//   own manual push/pull went unguarded for a release while every other calendar
+//   instance was covered — nothing failed, it simply kept the old behaviour. So every
+//   PANE/deps boundary that hands the reader down declares it REQUIRED
+//   (`CalendarIntegrationDeps`, `InsightRecommendationDeps`, `TasksSectionProps`), which
+//   is the only thing that can make a missing thread a tsc error instead of silence.
 import { logDiag } from "./diagnostics";
 
 /** Stable reader for the epoch `useStorageBackend` publishes as `getScopeEpoch`. */

@@ -2671,6 +2671,10 @@ function TaskManagerInner() {
       projectId={calendarProjectId}
       settingsProjectId={portfolioCurrentId ?? "default"}
       m365Configured={m365Enabled}
+      // §548 — the pane owns its own Outlook push/pull instances, so the scope-epoch
+      // reader has to reach it here; every other calendar instance gets it from
+      // `useCalendarIntegrations`'s deps bag. The prop is REQUIRED, so tsc proves it.
+      getScopeEpoch={getScopeEpoch}
       dispatcher={dispatcher}
       logActivityAs={logActivityAs}
       captureFieldEdit={undoApi.captureFieldEdit}

@@ -28,7 +28,9 @@ interface Args<T extends { id: number; outlookEventId?: string }> {
    *  applied count — lets the caller record an audit-trail activity entry. */
   onBackgroundApply?: (count: number) => void;
   /** §548 — `useStorageBackend`'s scope-epoch reader. Omitted by a caller outside the storage hook's
-   *  reach (tests, `tasks-section.tsx`), which keeps the pre-§548 behaviour. */
+   *  reach (unit tests), which keeps the pre-§548 behaviour. ★ Every production call site passes it:
+   *  the seventeen in `use-calendar-integrations.ts` from its required deps member, and
+   *  `tasks-section.tsx`'s own manual pull from its own required `getScopeEpoch` prop. */
   getScopeEpoch?: ScopeEpochReader;
 }
 

@@ -217,10 +217,16 @@
   once before the workspace write), `useEntityCalendarPull`, `useMilestoneCalendarPull`,
   `useCommitteeOutlookPush` (also twice), `useInsightRecommend` and `useInsightRecommendRunner` (per
   CANDIDATE, and the tick `break`s — every remaining candidate came from the project that just left).
-  ★★ The reader is OPTIONAL at each child hook, so a caller outside the storage hook's reach keeps the
-  pre-§548 behaviour and is NOT guarded: `tasks-section.tsx`'s own manual task push/pull, and the chat
-  agent loop (which has no such reader at all). Both `deps` members (`CalendarIntegrationDeps` /
-  `InsightRecommendationDeps`) are REQUIRED, so tsc proves `task-manager.tsx` hands the reader over.
+  ★★★ The reader is OPTIONAL at each child hook, and that optionality is how `tasks-section.tsx`'s own
+  manual task push/pull — the highest-traffic entity, and the one calendar pair mounted from the PANE
+  rather than from `use-calendar-integrations.ts` — went a whole release unguarded with nothing failing:
+  a missing thread does not error, it silently restores the pre-§548 behaviour. It is guarded now, from
+  a REQUIRED `TasksSectionProps.getScopeEpoch` threaded straight from `task-manager.tsx`. ★★ THE RULE
+  THAT FOLLOWS: the hook ARG stays optional (a unit test must be able to opt out), but every PANE or
+  `deps` boundary that hands the reader down declares it REQUIRED — `CalendarIntegrationDeps`,
+  `InsightRecommendationDeps`, `TasksSectionProps` — because tsc is the only thing that can see the
+  omission. ★ Still NOT guarded, deliberately and unchanged: the chat agent loop, which has no such
+  reader at all.
 - ★★★ **WHAT A DROPPED PUSH COSTS, and it is NOT "the next push re-links it".** For the entity and
   milestone pushes the ids just created are orphaned and the reconcile SELF-HEALS the wrong way round:
   `planEntityReconcile` / `planCalendarReconcile` put every listed event id not referenced by an item
@@ -250,7 +256,11 @@
   `use-entity-calendar-push.test.tsx`, `use-entity-calendar-pull.test.tsx`,
   `use-outlook-calendar-push.test.tsx`, `use-milestone-calendar-pull.test.tsx`,
   `use-committee-outlook-push.test.tsx`, `use-insight-recommend.test.tsx` and
-  `use-insight-recommend-runner.test.ts`.
+  `use-insight-recommend-runner.test.ts`. ★★ `tasks-section.test.tsx`'s own "the scope epoch reaches the
+  manual Outlook push/pull (§548)" block pins the PANE'S WIRING rather than the guard: for the push it
+  drives the real hook end-to-end through the toolbar button (drop + control), for the pull — mocked out
+  file-wide — it asserts the reader is the one the pane was handed. That is the only place a lost thread
+  from `task-manager.tsx` to the pane can be caught by a test rather than by tsc.
 - ★ **The settings secret merge is itself bounded, and the bound has a cost.** `useSettings` races
   `migratePlaintextSecrets`/`hydrateSecretsInto` against `SECRET_MERGE_TIMEOUT_MS` (5 s; `use-settings.ts`)
   and falls back exactly like the existing throw path on a timeout, which is what keeps `hydrated`
