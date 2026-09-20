@@ -942,8 +942,11 @@ function ChatPanelInner({
       //   `grep -n "saveThread(" src/app/use-chat-threads.ts` — every hit passes the
       //   LIVE `tursoConfig`, which on a target change is already the NEW one, so a
       //   transcript can land in a different database under the same projectId.
-      //   Smaller than a workspace write, out of scope here, and filed rather than
-      //   fixed — do not read this bullet as saying it is fine.
+      //   Smaller than a workspace write, out of scope here, and OPEN as §604 in
+      //   `docs/open-followups.md` — do not read this bullet as saying it is fine.
+      //   ★ The §-number is the point of this sentence: without it a reader can
+      //   see the hazard described and has no way to reach the record, which is
+      //   indistinguishable from a hazard nobody filed.
       const switchedAway = projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId;
       if (!switchedAway) {
         if (cancelledRef.current) {

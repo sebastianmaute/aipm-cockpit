@@ -206,19 +206,18 @@ describe("§548 — loadPending", () => {
     //  `holdDuring` therefore moves a ref in the same statement pair as the
     //  setter, exactly as `bumpScopeEpoch` does. Delete that `+= 1` and the
     //  in-act read below goes false.
-    // ★★ THE REF MOVES FOR `"changes-scope"` OPS ONLY, which is why this test uses
-    //  `switchToProject` and (e2) beside it uses a same-scope op. Read the pair:
-    //  alone, this one passes against arming every held op — the B1 regression.
-    saveRegistry(addProject(emptyRegistry(), { id: "target", name: "Target", code: "T", storageConfig: { kind: "local-json" } }, false));
-    (handles.getHandle as ReturnType<typeof vi.fn>).mockResolvedValue({ name: "t.json" });
-    const current = makeBackend(0);
-    const built = makeBackend(500);
-    const memo = makeBackend(0);
-    createBackendMock.mockReturnValueOnce(current).mockReturnValueOnce(built).mockReturnValue(memo);
-    let rerenderWith: (cfg: StorageConfig) => void = () => {};
-    const setStorageConfig = vi.fn((cfg: StorageConfig) => rerenderWith(cfg));
-    const { result, rerender } = render({ ...makeArgs(), setStorageConfig });
-    rerenderWith = (cfg) => rerender({ args: { ...makeArgs(cfg), setStorageConfig } });
+    // ★★ THE REF MOVES FOR `"changes-scope"` OPS ONLY, which is why this drives
+    //  `createDemoProject` while (e2) drives a same-scope op. Read the pair: alone,
+    //  this one passes against arming every held op — the B1 regression.
+    // ★★★ IT USED `switchToProject` AND HAD TO BE MOVED OFF IT. That op looked like
+    //  the obvious `"changes-scope"` example and is not one: it has four abort
+    //  paths AFTER the hold (unknown id, already-current, missing file handle, a
+    //  write-permission prompt the user can DENY), so it was reclassified. A test
+    //  whose fixture is the misclassified op is the shape that lets a
+    //  misclassification read as pinned.
+    const backend = makeBackend(0);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
     await advance(100);
     // Two-way pin: false BEFORE, or "true during" is true for some other reason.
     expect(result.current.isSwapInFlight()).toBe(false);
@@ -226,7 +225,7 @@ describe("§548 — loadPending", () => {
     let duringInvoke = false;
     let op: Promise<void> = Promise.resolve();
     act(() => {
-      op = result.current.switchToProject("target");
+      op = result.current.createDemoProject(STORED as never);
       // Read INSIDE act and immediately after the call: no re-render has been
       // committed and no effect has run. This is the instant the chat panel's
       // cleanup asks the question.
@@ -235,7 +234,7 @@ describe("§548 — loadPending", () => {
     expect(duringInvoke).toBe(true);
     expect(result.current.loadPending).toBe(true); // control: the hold really is up
 
-    await advance(600);
+    await advance(200);
     await act(async () => { await op; });
     await advance(100);
     // Released in the op's `finally`, so a thrown op cannot strand it true.
@@ -277,7 +276,44 @@ describe("§548 — loadPending", () => {
     expect(result.current.isSwapInFlight()).toBe(false);
   });
 
-  // The nine held ops (in flight / resolved / threw) are pinned in use-storage-backend.hold-ops.test.tsx.
+  it("(e3) switchToProject does NOT arm isSwapInFlight — it can abort after the hold", async () => {
+    // ★★★ THE CRITICAL THIS PIN EXISTS FOR. `switchToProject` shipped as
+    //  `"changes-scope"` for one round, which re-opened B1 on four paths: an
+    //  unknown id, an already-current target, a missing file handle, and a
+    //  write-permission prompt the user can DENY. On each of those nothing is
+    //  replaced — so arming the ref kills a live AI turn for a switch that never
+    //  happened, silently, which is the exact defect the flag was added to stop.
+    // ★★ THE FIXTURE IS THE FIRST OF THOSE PATHS, chosen because it needs no
+    //  mocking to reach: an id the registry does not hold. The op toasts and
+    //  returns without touching a backend, so if the ref were armed it would be
+    //  armed for nothing, which is the whole claim.
+    // ★ It is named on the op, not the flag, so flipping `switchToProject` back to
+    //  `"changes-scope"` turns this red.
+    const backend = makeBackend(0);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(100);
+    expect(result.current.isSwapInFlight()).toBe(false);
+
+    let duringInvoke = true;
+    let op: Promise<void> = Promise.resolve();
+    act(() => {
+      op = result.current.switchToProject("no-such-project");
+      duringInvoke = result.current.isSwapInFlight();
+    });
+    expect(duringInvoke).toBe(false);
+    // Control: the op really ran and really bailed — without this, "false" could
+    // just mean nothing was invoked.
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "projectSwitchNotFound"));
+
+    await act(async () => { await op; });
+    await advance(100);
+    expect(result.current.isSwapInFlight()).toBe(false);
+  });
+
+  // The TEN held ops (in flight → resolved / threw, and each one's §596 scope flag) are pinned in
+  // use-storage-backend.hold-ops.test.tsx. ★ It said nine, and was missing `onPickStorageFile` —
+  // the op whose flag is the B1 fix — for as long as that table was.
 
   it("(f) is TRUE before hydration (no load has even started), and settles once hydration runs the load", async () => {
     const backend = makeBackend(100);

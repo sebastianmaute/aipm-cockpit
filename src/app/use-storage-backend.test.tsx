@@ -2806,8 +2806,13 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
   // ── the SECOND unspent early return: the suppress-after-load branch ────────
   // ★★★ THE SAME LEAK, ONE BRANCH HIGHER, AND ITS MECHANISM IS DIFFERENT ENOUGH
   // TO HAVE BEEN MISSED WHEN THE TRUNCATION ONE WAS FIXED. `suppressNextSaveRef`
-  // is set by NINE load/apply sites (project switch and create included, not just
-  // the three load paths), and its early return RESYNCS the baselines to the
+  // is set by TEN load/apply sites (project switch and create included, not just
+  // the three load paths) — ★★ it said NINE, and the count was corrected in
+  // production by §596 while this copy was missed for a round; re-derive rather
+  // than trust either, and note the bracket class is what stops the pattern
+  // matching this very line:
+  //   grep -rn "suppressNextSave[R]ef.current = true" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+  // and its early return RESYNCS the baselines to the
   // freshly-loaded counts — so a deletion that already landed is folded into the
   // baseline, the arm is never needed, and it is never spent.
   // ★★ HOW LONG IT SURVIVES, stated correctly: a live arm makes `refuse`

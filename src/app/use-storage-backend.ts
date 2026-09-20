@@ -911,7 +911,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   Flushing: SEVEN of the ten — all but `onPickStorageFile`, `onOpenStorageFile` and
     //   `reloadCurrentProject`. Re-derive; `use-storage-turso-ops.ts` flushes through the shared
     //   `flushOutgoing`, so a grep for `flushCurrent` alone under-counts it by two:
-    //     grep -n "flushCurrent()\|flushOutgoing()" src/app/use-storage-*-ops.ts
+    //   ★ The glob must include THIS file: `reloadCurrentProject` is declared here, not in a
+    //   `use-storage-*-ops.ts`, so a recipe scoped to that glob cannot see it and silently reports
+    //   a universe one op short of the ten it is being compared against.
+    //   ★★ Bracketed, because widening the glob to `use-storage-*.ts` brought THIS FILE into scope
+    //   and the recipe promptly matched its own line — the fifth self-confirming check on this
+    //   branch, created by fixing the fourth. Widening a check's universe can poison it.
+    //     grep -n "flush[C]urrent()\|flush[O]utgoing()" src/app/use-storage-*.ts
     //   Rebuilding — i.e. reaching this cleanup at all: `switchToProject`, `createProject`,
     //   `loadProjectFromFile`, `createDemoProject` (each calls `deps.setStorageConfig`) and
     //   `switchToTursoProject`, `createTursoProject` (each calls `deps.setTursoProjectId`); both
@@ -1249,10 +1255,17 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   op earns `"changes-scope"` only when it has NO user-cancellable step between raising the hold
   //   and replacing the workspace. Getting it wrong towards `"same-scope"` costs tokens; getting it
   //   wrong towards `"changes-scope"` destroys the user's work silently.
-  // ★★ KNOWN RESIDUAL, stated rather than hidden: `switchToProject` is `"changes-scope"` but
-  //   early-returns when the target is already current, so that one path still cancels for nothing.
-  //   It is a cost, not a loss — the write it would have dropped was never wrong-scope — and it is
-  //   not reachable from the project picker, which does not offer the current project.
+  // ★★★ "CANCELLABLE" MEANS *THE USER DECLINES*, NOT *THE OP FAILS*, and the distinction is the
+  //   whole rule — read it before reclassifying anything. All four `"changes-scope"` ops can still
+  //   ABORT: a Turso guard returning null, a save or load throwing, a same-target early return. Each
+  //   of those false-cancels a turn too, and that is ACCEPTED, because a failure announces itself —
+  //   the user gets a toast and knows something went wrong. A user who backs out of an OS dialog
+  //   gets no signal at all, and a turn dying silently beside it is the B1 shape. So the flag
+  //   separates "silent" from "loud", not "certain" from "uncertain".
+  // ★★ KNOWN RESIDUALS, stated rather than hidden, both of the loud kind: `switchToTursoProject`
+  //   early-returns when the target is already current (`deps.tursoProjectId === id`), and both
+  //   Turso ops return early when `guardTurso()` finds no config. Neither is reachable from the
+  //   project picker, which does not offer the current project, and neither is silent.
   // ★ A `"same-scope"` op that DOES end up moving the target (the user accepts the dialog in
   //   `onOpenStorageFile` or `loadProjectFromFile`) is not a hole: the turn keeps running and the
   //   epoch drops its write at resolution. Only the tokens are spent.
@@ -1280,9 +1293,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     };
   }
 
-  // Grouped one line per concern — a plain re-export list, and the cheapest block
-  // to compress in a file that runs close to the size ratchet's LIMIT. ★ Do not quote a
-  // number here — this comment said "sits AT" while the file had 14 lines of headroom.
+  // Grouped one line per concern — a plain re-export list, and the cheapest block to compress if
+  // this file ever approaches the size ratchet's LIMIT. ★★ IT IS NOT NEAR IT AND THIS SAID IT WAS:
+  // the LIMIT was doubled to 1600 on 2026-09-03 and the file has hundreds of lines of headroom, so
+  // "runs close to" survived the change that falsified it — the same rot as the "sits AT" it had
+  // already replaced. A qualitative claim about a threshold decays exactly like a number.
+  // ★ Do not quote the length here either; measure both sides instead
+  // (`LIMIT` lives in `scripts/check-file-sizes.mjs`).
   // Measure: node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
   return {
     storageDescription, storageReady, workspaceLoaded, loadPause, loadPending, getScopeEpoch, isSwapInFlight,
@@ -1312,7 +1329,19 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   nothing of another project's and never bumps the epoch — `scope-epoch.ts` says so).
     onPickStorageFile: holdDuring(onPickStorageFile, "same-scope"), onGrantWriteAccess, onOpenStorageFile: holdDuring(onOpenStorageFile, "same-scope"), onRequestStorageSwitch,
     reloadCurrentProject: holdDuring(reloadCurrentProject, "same-scope"), allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
-    switchToProject: holdDuring(switchToProject, "changes-scope"), createProject: holdDuring(createProject, "same-scope"),
+    // ★★★ `switchToProject` IS `"same-scope"`, AND IT SHIPPED AS `"changes-scope"` FOR ONE ROUND —
+    //   the B1 regression re-opened for four paths by the very fix that closed it. It has abort
+    //   paths AFTER the hold is raised: an unknown id (toast + return), the target already being
+    //   current, a missing file handle (toast + return), and a write-permission prompt the user can
+    //   DENY. On any of those nothing is replaced, so arming the ref cancels a live AI turn for a
+    //   switch that never happened.
+    // ★★ RAISING THE REF LATER, AFTER THOSE PATHS, IS NOT AN OPTION — it is the one fix that cannot
+    //   work here, and it reads like the better one. The ref exists to be TRUE at the §548 teardown,
+    //   and that teardown is the commit `setSwapsInFlight` above triggers, i.e. hold ENTRY. Anything
+    //   armed after the op's first `await` is armed after the panel is already gone. The decision is
+    //   forced to hold entry by the mechanism, which is exactly why the flag is a prediction and why
+    //   it is biased safe.
+    switchToProject: holdDuring(switchToProject, "same-scope"), createProject: holdDuring(createProject, "same-scope"),
     createDemoProject: holdDuring(createDemoProject, "changes-scope"), loadProjectFromFile: holdDuring(loadProjectFromFile, "same-scope"),
     switchToTursoProject: holdDuring(switchToTursoProject, "changes-scope"), createTursoProject: holdDuring(createTursoProject, "changes-scope"),
     migrateCurrentProjectToTurso: holdDuring(migrateCurrentProjectToTurso, "same-scope"),

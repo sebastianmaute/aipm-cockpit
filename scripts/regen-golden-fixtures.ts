@@ -45,9 +45,12 @@ const ws = jsonToWorkspace(sample);
 // slice added after it was written; walking the master cannot.
 const rawSlices = JSON.parse(sample) as Record<string, unknown>;
 const decoded = ws as unknown as Record<string, unknown>;
-// Every top-level key the master authors as a NON-EMPTY array. Object slices
-// (`plan`, `fxRates`, `timelogLinks`) are out of scope: they have no row count
-// to lose, and the empty-decode case this catches empties the arrays too.
+// Every top-level key the master authors as a NON-EMPTY array. Non-array keys are
+// out of scope: they have no row count to lose, and the empty-decode case this
+// catches empties the arrays too. ★ There are seven of them, not the three this
+// comment used to name (`plan`, `fxRates`, `timelogLinks`) — naming a subset of an
+// exclusion set reads as naming the set. Derive it instead of listing it:
+//   node -e "const r=require('./sample-workspace-small.json');console.log(Object.keys(r).filter(k=>!Array.isArray(r[k])).join(', '))"
 const sliceKeys = Object.keys(rawSlices).filter(
   (k) => Array.isArray(rawSlices[k]) && (rawSlices[k] as unknown[]).length > 0,
 );

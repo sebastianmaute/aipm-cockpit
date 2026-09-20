@@ -1,8 +1,15 @@
 // §548 — every op that awaits and then REPLACES the workspace holds `loadPending` for its WHOLE duration
-// (`holdDuring`). ONE table, all nine ops, two tests per op: "in flight → resolved" and "in flight →
-// threw". Each row parks the op on its FIRST awaited step behind a gate the test controls, and
-// `touched()` proves the op really is parked there before `loadPending` is read, so a row cannot pass
-// because its op finished early.
+// (`holdDuring`). ONE table, all TEN ops, three tests per op: "in flight → resolved", "in flight →
+// threw", and §596's `isSwapInFlight` flag. Each row parks the op on its FIRST awaited step behind a
+// gate the test controls, and `touched()` proves the op really is parked there before `loadPending` is
+// read, so a row cannot pass because its op finished early.
+// ★★★ IT SAID "all nine ops" AND WAS MISSING `onPickStorageFile` — the op whose §590 wrapping composed
+//   with §596's unmount cancel into B1 (a plain Save-As silently killing a live AI turn). A table that
+//   names its own completeness and is not complete is worse than one that says nothing: the gap reads
+//   as covered. Re-derive the universe rather than trusting this line:
+//     grep -n "hold[D]uring(" src/app/use-storage-backend.ts
+// ★★ THE TWO SIGNALS DISAGREE ON PURPOSE. `loadPending` rises for all ten; `isSwapInFlight` rises for
+//   the four `"changes-scope"` rows alone, and the third test asserts each row's own expectation.
 // ★ The Turso mocks copy use-storage-backend.test.tsx's convention: `./turso-portfolio` replaced
 //   wholesale; `./turso-pipeline` spread from the actual module with only `testTursoConnection` stubbed
 //   (the §408 connection probe); a `TursoBackend` class whose `load` reads a hoisted seam.
@@ -137,29 +144,46 @@ function makeGate(): Gate {
 
 type Hook = ReturnType<typeof useStorageBackend>;
 type Backends = { current: FakeBackend; target: FakeBackend };
-type Row = { op: string; arm: (g: Gate, b: Backends) => void; value: unknown; call: (h: Hook) => Promise<void> };
+type Row = {
+  op: string;
+  arm: (g: Gate, b: Backends) => void;
+  value: unknown;
+  call: (h: Hook) => Promise<void>;
+  /** §596 — the op's `holdDuring(..., scope)` argument, asserted by the third test
+   *  below. ★★★ THE FLAGS WERE UNPINNED AND `onPickStorageFile` WAS NOT EVEN IN
+   *  THIS TABLE — the op whose misclassification caused B1 in the first place. A
+   *  mutant flipping it back to `"changes-scope"` was green everywhere. Declaring
+   *  the expectation per ROW pins all ten at once and makes a new op's flag a
+   *  decision someone has to write down rather than inherit. */
+  scope: "changes-scope" | "same-scope";
+};
 
 // One row per op wrapped by `holdDuring`. `arm` parks the op on its FIRST awaited step; `value` is what
 // that step resolves with in the "resolved" test.
 const ROWS: Row[] = [
   { op: "reloadCurrentProject", arm: (g, b) => { b.current.load.mockImplementationOnce(g.wait); }, value: STORED,
-    call: (h) => h.reloadCurrentProject() },
+    call: (h) => h.reloadCurrentProject(), scope: "same-scope" },
   { op: "switchToProject", arm: (g, b) => { b.target.load.mockImplementationOnce(g.wait); }, value: STORED,
-    call: (h) => h.switchToProject("target") },
+    call: (h) => h.switchToProject("target"), scope: "same-scope" },
   { op: "createProject", arm: (g) => { vi.mocked(storageMod.pickFileForBackend).mockImplementationOnce(g.wait as never); }, value: undefined,
-    call: (h) => h.createProject({ name: "New", code: "NEW" } as never, "json") },
+    call: (h) => h.createProject({ name: "New", code: "NEW" } as never, "json"), scope: "same-scope" },
   { op: "loadProjectFromFile", arm: (g) => { vi.mocked(storageMod.pickOpenFileAny).mockImplementationOnce(g.wait as never); }, value: { name: "picked.json" },
-    call: (h) => h.loadProjectFromFile() },
+    call: (h) => h.loadProjectFromFile(), scope: "same-scope" },
   { op: "createDemoProject", arm: (g, b) => { b.target.save.mockImplementationOnce(g.wait); }, value: undefined,
-    call: (h) => h.createDemoProject(STORED as never) },
+    call: (h) => h.createDemoProject(STORED as never), scope: "changes-scope" },
+  // ★★★ §596 — THE ROW THAT WAS MISSING, and it is the op whose §590 wrapping
+  //   composed with the §596 cancel into B1: a plain Save-As killing a live AI
+  //   turn. It was absent from a table whose header called itself "all nine ops".
+  { op: "onPickStorageFile", arm: (g) => { vi.mocked(storageMod.pickFileHandleForBackend).mockImplementationOnce(g.wait as never); }, value: { name: "picked.json" },
+    call: (h) => h.onPickStorageFile(), scope: "same-scope" },
   { op: "onOpenStorageFile", arm: (g) => { vi.mocked(storageMod.openFileForBackend).mockImplementationOnce(g.wait as never); }, value: { name: "picked.json" },
-    call: (h) => h.onOpenStorageFile() },
+    call: (h) => h.onOpenStorageFile(), scope: "same-scope" },
   { op: "switchToTursoProject", arm: (g) => { seam.tursoLoad = g.wait; }, value: EMPTY,
-    call: (h) => h.switchToTursoProject("turso-p2") },
+    call: (h) => h.switchToTursoProject("turso-p2"), scope: "changes-scope" },
   { op: "createTursoProject", arm: (g) => { vi.mocked(tursoPortfolio.createProject).mockImplementationOnce(g.wait as never); }, value: undefined,
-    call: (h) => h.createTursoProject({ name: "T", code: "T" } as never) },
+    call: (h) => h.createTursoProject({ name: "T", code: "T" } as never), scope: "changes-scope" },
   { op: "migrateCurrentProjectToTurso", arm: (g) => { vi.mocked(testTursoConnection).mockImplementationOnce(g.wait as never); }, value: undefined,
-    call: (h) => h.migrateCurrentProjectToTurso() },
+    call: (h) => h.migrateCurrentProjectToTurso(), scope: "same-scope" },
 ];
 
 const originalLocation = window.location;
@@ -204,6 +228,20 @@ describe.each(ROWS)("§548 — $op holds loadPending for its whole duration", (r
     await act(async () => { g.resolve(row.value); outcome = await settled; });
     expect(outcome).toBe("fulfilled");
     await waitFor(() => expect(result.current.loadPending).toBe(false));
+  });
+
+  it(`arms isSwapInFlight only when it is "changes-scope" (§596)`, async () => {
+    // ★★★ THE FLAG, PINNED PER OP. `loadPending` above holds for all ten; this
+    //  reads the OTHER signal at the same instant, and the two must disagree for
+    //  six of them. Before this, 2 of 10 flags were pinned and a mutant flipping
+    //  any of the other eight was green — including `onPickStorageFile`, whose
+    //  flag IS the B1 fix.
+    // ★★ Read while the op is PARKED, which is what makes it the same instant the
+    //  chat panel's unmount cleanup asks: `startHeld` has already asserted
+    //  `g.touched()`, so the op is inside its first await and the hold is up.
+    const { result } = await startHeld(row);
+    expect(result.current.loadPending).toBe(true); // control: the hold is up either way
+    expect(result.current.isSwapInFlight()).toBe(row.scope === "changes-scope");
   });
 
   it("is false after the op THROWS", async () => {

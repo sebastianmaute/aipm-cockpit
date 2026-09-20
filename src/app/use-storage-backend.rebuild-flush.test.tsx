@@ -13,11 +13,16 @@
 // ★★ WHY THE OP PATHS DID NOT COVER IT: a project switch/create/load runs a pre-switch flush
 // (`flushCurrent`, use-load-truncation.ts) before it flips its target, so those paths write the
 // pending edit themselves. A BARE settings rebuild has no op and therefore no flush — that was the
-// hole. ★ NOT ALL NINE `holdDuring` OPS, in either direction: seven flush (`onOpenStorageFile` and
-// `reloadCurrentProject` do not) and six rebuild the backend, so six now take TWO writes rather than
-// one. The named sets, why the doubling is safe for those six, which three never reach the cleanup
-// at all, and what it additionally rescues are all recorded at the `scheduleDebouncedSave` call site
-// in use-storage-backend.ts — kept in ONE place so the two copies cannot drift.
+// hole. ★ NOT ALL TEN `holdDuring` OPS, in either direction: seven flush (`onPickStorageFile`,
+// `onOpenStorageFile` and `reloadCurrentProject` do not) and six rebuild the backend, so six now
+// take TWO writes rather than one. The named sets, why the doubling is safe for those six, which
+// FOUR never reach the cleanup at all, and what it additionally rescues are all recorded at the
+// `scheduleDebouncedSave` call site in use-storage-backend.ts.
+// ★★★ "KEPT IN ONE PLACE SO THE TWO COPIES CANNOT DRIFT" IS WHAT THIS USED TO SAY, WHILE DRIFTING.
+//   It read NINE, and carried a two-item flush-exclusion list, for as long as the production copy
+//   did — and then for one round longer, because the sweep that fixed the production copy stopped at
+//   `src/**` non-test files. A cross-reference is not a single source: it is a second copy with a
+//   promise attached. Both copies are edited together or neither is.
 //
 // ★ WHAT EACH TEST HERE IS. Exactly one assertion in this file was RED before the fix: the flush
 // itself, in the first `it`. The other two are REGRESSION assertions — green before AND after —
