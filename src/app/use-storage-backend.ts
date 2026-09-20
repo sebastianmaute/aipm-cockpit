@@ -835,18 +835,41 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   an ORDINARY dep change — the next edit, a re-render — and the effect re-schedules against
     //   the newer workspace immediately, so flushing on those would write on every keystroke and
     //   throw away the debounce. Only a BACKEND change leaves nobody to re-schedule.
-    // ★★★ CONSEQUENCE ON THE NINE `holdDuring` OP PATHS: THEY NOW WRITE THE PENDING EDIT TWICE —
-    //   once via the op's own pre-switch `flushCurrent`, then again here, because `flushCurrent`
-    //   writes directly and never cancels this timer. Both writes carry the OUTGOING project and
-    //   both go to the OUTGOING backend, so the second is redundant, not wrong.
-    // ★★ WHAT MAKES IT SAFE, and it is two independent things — do not remove one on the strength
-    //   of the other. (1) Each op applies the new workspace and flips `storageConfig` in ONE
-    //   synchronous block (verified by reading `switchToProject` in use-storage-file-ops.ts: no
-    //   `await` sits between `applyWorkspace(loaded)` and `setStorageConfig(...)`), so React commits
-    //   them together and the cleanup that runs belongs to the effect from BEFORE the apply — its
-    //   `outgoing` is the old project by construction. (2) Every op arms `suppressNextSaveRef` in
-    //   that same block, so even if an apply and a flip ever landed in SEPARATE commits, the run
-    //   between them would be suppressed and would schedule nothing for this cleanup to flush.
+    // ★★★ CONSEQUENCE ON SIX OF THE NINE `holdDuring` OP PATHS: THEY NOW WRITE THE PENDING EDIT
+    //   TWICE — once via the op's own pre-switch flush, then again here, because that flush writes
+    //   directly and never cancels this timer. Both writes carry the OUTGOING project and both go to
+    //   the OUTGOING backend, so the second is redundant, not wrong.
+    // ★★★ SIX, NOT NINE, AND THE SET IS NAMED BECAUSE A COUNT ALONE ROTS. The doubling needs an op
+    //   to BOTH flush AND rebuild the backend, and those two sets differ. Flushing: seven (all but
+    //   `onOpenStorageFile` and `reloadCurrentProject`). Rebuilding — i.e. reaching this cleanup at
+    //   all: `switchToProject`, `createProject`, `loadProjectFromFile`, `createDemoProject` (each
+    //   calls `deps.setStorageConfig`) and `switchToTursoProject`, `createTursoProject` (each calls
+    //   `deps.setTursoProjectId`); both setters feed the `backend` memo's deps. The intersection is
+    //   those six. Re-derive rather than trust this list:
+    //     grep -n "deps.setStorageConfig\|deps.setTursoProjectId" src/app/use-storage-*-ops.ts
+    // ★★ THE THREE THAT NEVER REACH THIS CLEANUP, and the third is the one worth knowing:
+    //   `onOpenStorageFile` binds a handle to the SAME instance and `reloadCurrentProject` re-loads
+    //   it, so neither mints a backend; `migrateCurrentProjectToTurso` ends in
+    //   `window.location.reload()` (use-storage-turso-ops.ts), so the whole context goes and no
+    //   cleanup runs at all. ★ This note does NOT claim the first two are free of a pending-edit
+    //   drop of their own — they change no backend, so they are simply outside §589's premise, and
+    //   nothing here investigated them.
+    // ★★ WHAT MAKES THE DOUBLING SAFE FOR THOSE SIX, and it is two independent things — do not
+    //   remove one on the strength of the other. (1) Each of the six applies the new workspace and
+    //   flips its target in ONE synchronous block: in all six the last `await` precedes
+    //   `applyWorkspace`, and the `setStorageConfig`/`setTursoProjectId` call follows with no
+    //   `await` between. So React commits them together and the cleanup that runs belongs to the
+    //   effect from BEFORE the apply — its `outgoing` is the old project by construction. (2) Each
+    //   of the six arms `suppressNextSaveRef` in that same block, so even if an apply and a flip
+    //   ever landed in SEPARATE commits, the run between them would be suppressed and would
+    //   schedule nothing for this cleanup to flush.
+    // ★★★ BOTH LEGS ARE SCOPED TO THE SIX ON PURPOSE. As universals over the nine they were FALSE,
+    //   and the note said in the same breath that the legs are independent and must be checked —
+    //   so it invited exactly the verification it failed. `migrateCurrentProjectToTurso` arms
+    //   `suppressNextSaveRef` nowhere (that file arms it only in `switchToTursoProject` and
+    //   `createTursoProject`); what carries it is the page reload, not leg 2. Enumerate before
+    //   widening either leg:
+    //     grep -rn "suppressNextSaveRef.current = true" src/app --include=*.ts | grep -v "\.test\."
     // ★ AND IT RESCUES SOMETHING: an edit made during an op's own await window used to be dropped —
     //   `flushCurrent` had already run, and the apply's re-render cleared the timer and armed the
     //   suppress. That drop is the shape ruled on as D3 in the 2026-09-19 data-loss plan. It is now

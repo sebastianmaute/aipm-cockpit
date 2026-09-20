@@ -10,11 +10,14 @@
 // the edit out of memory too. Silent: no banner, no toast, nothing refused. The first `it` below is
 // what proved it; it was red before the fix and is the only assertion here that ever was.
 //
-// ★★ WHY THE OP PATHS DID NOT COVER IT: a project switch/open/create runs `flushCurrent`
-// (use-load-truncation.ts) before it flips config, so those nine paths write the pending edit
-// themselves. A BARE settings rebuild has no op and therefore no flush — that was the hole. ★ Those
-// nine now take TWO writes rather than one; why that is safe, and what it additionally rescues, is
-// recorded at the `scheduleDebouncedSave` call site in use-storage-backend.ts.
+// ★★ WHY THE OP PATHS DID NOT COVER IT: a project switch/create/load runs a pre-switch flush
+// (`flushCurrent`, use-load-truncation.ts) before it flips its target, so those paths write the
+// pending edit themselves. A BARE settings rebuild has no op and therefore no flush — that was the
+// hole. ★ NOT ALL NINE `holdDuring` OPS, in either direction: seven flush (`onOpenStorageFile` and
+// `reloadCurrentProject` do not) and six rebuild the backend, so six now take TWO writes rather than
+// one. The named sets, why the doubling is safe for those six, which three never reach the cleanup
+// at all, and what it additionally rescues are all recorded at the `scheduleDebouncedSave` call site
+// in use-storage-backend.ts — kept in ONE place so the two copies cannot drift.
 //
 // ★ WHAT EACH TEST HERE IS. Exactly one assertion in this file was RED before the fix: the flush
 // itself, in the first `it`. The other two are REGRESSION assertions — green before AND after —
