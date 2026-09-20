@@ -68,16 +68,33 @@ asserted.
 
 Tasks, each its own commit:
 
-1. **Brand rename, with a read-compatible settings migration.** The brand trigram is not
-   cosmetic: it is a **persisted** style value and a legacy built-in scheme id, referenced by
-   reconcile logic and tests. Rename the union member, the CSS custom-property family and the
-   scheme id, and keep **reading** the old literal on load while writing the new one.
-   ★★★ A rename that only changes the union resets saved appearance settings on every device
-   that has one. That is the silent-data-loss shape this register is full of; the migration is
-   the point of this task, not a detail of it.
-   Chosen names: the style value becomes `standard` — deliberately **not** `classic`, which
-   already names a *layout* in this app and would make the collision permanent — and the custom
-   properties become a `--brand-*` family.
+1. **Brand rename.** ★★ Measured 2026-09-20, and it corrected this spec twice: the brand trigram
+   is far smaller than assumed in code, and far larger than assumed outside it.
+   - The `--AIPM-*` custom properties **do not exist**. They were renamed to `--ui-*` in an earlier
+     release; all that survives is a stale comment claiming the rename is still pending, and a
+     stale document title. Comment and doc cleanup, not a code change.
+   - The legacy built-in scheme id is **retired**, surviving only in a hand-built test fixture
+     that exercises a generic built-in guard. No live scheme carries it.
+   - The persisted style value's load path **already normalises** any legacy value, and that
+     behaviour is pinned by a test. So the read-compatible migration this task was created for is
+     already shipped: renaming the union member is a type-declaration change.
+   Chosen name: the style value becomes `standard` — deliberately **not** `classic`, which already
+   names a *layout* here. ★ Note that `"standard"` already exists as an unrelated literal in the
+   help reading-level union, surfaced in the same settings panel; not a build break, but the two
+   must not be conflated by a future reader.
+
+   ★★★ **ONE OCCURRENCE IS A PROTOCOL VALUE, NOT A MENTION — AND IT IS RENAMED DIRECTLY ONLY
+   BECAUSE THE INSTALLED BASE IS EMPTY.** `categoryFor` in `outlook-calendar-write.ts` embeds a
+   literal company-name prefix as the **Outlook category on every synced calendar event**, and
+   the read side matches it with OData string equality. That value lives in users' Microsoft 365
+   calendars, outside this repository and outside every test it has, so ordinarily a rename would
+   need a dual-read shim and would orphan every previously synced event.
+   **It is renamed outright, with no shim**, on the repository owner's statement (2026-09-20) that
+   **no user has ever run a calendar sync**, so no event carrying the old prefix exists anywhere.
+   ★★ That is a point-in-time fact about the installed base, not a property of the code: the
+   equality filter is still unforgiving, and the same rename after a single real sync would
+   silently break recognition of every event created before it. Anyone revisiting this must
+   re-establish the premise rather than inherit it from this paragraph.
 2. **Make the wiki deep link configurable**, hidden when unset. This is a behaviour change with
    a test, not a string edit: a public build must not hand every user a link into a tenant they
    cannot reach.
@@ -103,6 +120,15 @@ the working tree:
 - a message callback dropping the session trailers and assistant co-author lines
 - an identity mapping for the 8,355 author/committer records and the 90 bot identities
 - **keep the emitted old→new commit map** — Phase C depends on it
+
+★★★ **Classify every candidate as *disclosure* or *protocol* before it enters the list.** A
+disclosure is a mention; a protocol value is written to or read back from something outside this
+repository, and `filter-repo` rewrites the **tip** as well as history — so including one silently
+changes product behaviour in a way no test here can detect. The Outlook category prefix is the
+known instance. It is renamed in Phase A (see above, and note the empty-installed-base premise
+that permits it) rather than being swept up by a text substitution, because a protocol value's
+change needs a deliberate decision and a migration story, even when the story turns out to be
+"there is nothing to migrate".
 
 ★ The 89 commits that mention the assistant *without* a trailer are legitimate product content:
 the assistant's name is a shipped feature name and appears in real function names. They stay.
