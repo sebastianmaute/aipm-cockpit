@@ -228,11 +228,17 @@ export function parseSharePointFileUrl(url: string): SpFileLocation | null {
   //   current target, because typing "Shared%20" passes through "Shared%" and crashed the section on
   //   a keystroke. Found by a test, not by reading. The contract is now one-way: null for anything
   //   this cannot parse.
+  // ★★ THE CATCH IS NARROWED TO `URIError` AND RETHROWS EVERYTHING ELSE, deliberately. A bare
+  //   `catch { return null; }` is only correct for as long as `decodeURIComponent` is the sole
+  //   thing inside the `try` — and nothing stops a later edit moving a statement in there, where a
+  //   genuine bug would then be silently reported to every caller as "unparseable URL". Narrowing
+  //   costs one line and makes that edit fail loudly instead.
   let decoded: string[];
   try {
     decoded = segments.map((s) => decodeURIComponent(s));
-  } catch {
-    return null;
+  } catch (e) {
+    if (e instanceof URIError) return null;
+    throw e;
   }
   const sitePath = `/${decoded[0]}/${decoded[1]}`;
   const itemSegs = decoded.slice(2);

@@ -132,8 +132,15 @@
   caused the blur never landed on its target, with no Apply to retry from if the new target then failed
   to load. Both live storage targets now use the same model, each with its own Apply: the Turso URL +
   token (`applyTursoDrafts`, `integrations-section.tsx`) and the SharePoint file URL (`applySpUrl`,
-  `storage-config.tsx`, whose `canApplySpUrl` disables it while the draft is clean, so an ENABLED Apply
-  IS the unapplied-change signal). ★ A picker that commits from inside its own modal is NOT an
+  `storage-config.tsx`). ★★★ **AN ENABLED APPLY MEANS AN UNAPPLIED CHANGE; THE CONVERSE IS FALSE FOR
+  BOTH BUTTONS, and this file asserted it twice.** `canApplySpUrl` is false for an EMPTY field, which
+  is itself an unapplied change — transient, because `restoreSpUrlOnEmptyBlur` puts the committed URL
+  back on blur, so it is observable only while the empty field still has focus. `canApplyTurso` is
+  false for THREE further reasons that have nothing to do with the drafts being clean
+  (`tokenSealBlocked`, a passphrase verify in flight, and `switchBusy`), each of which leaves a dirty
+  draft behind a disabled button — that one is not transient, which is why each carries its own
+  visible blocked hint. Read "disabled ⇒ clean" as false in both sections; the exact predicate lives
+  beside each symbol and is restated nowhere. ★ A picker that commits from inside its own modal is NOT an
   exception to this — the SharePoint Browse dialog's `onSelect` and the OS file pickers are themselves
   the explicit action, and unlike a blur they cannot swallow a click. The memo reads the Turso URL and
   token only for storage kind "turso",
@@ -156,8 +163,12 @@
   `integrationsTursoApplyNeedsNewPassphrase` (it becomes the passphrase) without one, and the
   passphrase Save button stays the one way to CHANGE the passphrase); nothing
   commits on a keystroke, blur, Tab or Escape, and unapplied drafts are discarded when the section
-  unmounts. Apply is disabled while the drafts equal the stored values, so an enabled Apply is the
-  "unapplied change" signal; it is the only action that commits the drafts (Remove token,
+  unmounts. An enabled Apply means an unapplied change — but NOT the converse, and this sentence used
+  to claim it: `canApplyTurso` is `tursoDraftsDirty && !tokenSealBlocked && !passphraseVerifying &&
+  !switchBusy`, so a DIRTY draft sits behind a disabled Apply whenever a changed token cannot yet be
+  sealed, or while either action is verifying a passphrase. That is deliberate and is why each of
+  those states renders its own blocked hint rather than relying on the button; see the ★★★ above.
+  Apply is the only action that commits the drafts (Remove token,
   `handleRemoveToken`, also rebuilds: it commits an empty token). ★★ The passphrase lock toggle and
   its Save seal the COMMITTED token on Turso storage (`sealableTursoToken`), never the draft:
   `hydrateSecretsInto` restores `authToken` from the sealed store at boot, so sealing a draft would

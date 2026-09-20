@@ -207,8 +207,12 @@ describe("StorageConfigSection — the SharePoint URL commits only on an explici
   // paste dirty, armed Apply, and applying it rebuilt the backend (identity dep) for a no-op — a
   // whole-app skeleton plus a re-download of the same file, on every site with a space in its path.
   // Mutation: `canApplySpUrl`'s `!spDraftIsCurrentTarget` → `spUrl.trim() !== spCommittedUrl`
-  // (the raw-string comparison) → the first expect is red; the second is the positive control that
-  // keeps a "never enabled" regression from passing it.
+  // (the raw-string comparison) → the `toBeDisabled()` assertion goes red. ★ Count the expects
+  // before trusting a note like this one: the FIRST expect here is a control (the two spellings
+  // really do differ as strings, so the test is not passing because they happen to be equal), the
+  // disabled assertion is the second, and the trailing `toBeEnabled()` is the other control — it
+  // keeps a "never enabled" regression from passing this test. An earlier revision of this note
+  // said "the first expect is red", which named the control instead of the pin.
   it("the live target's own %20-encoded URL leaves Apply disabled; a different file enables it", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
@@ -239,7 +243,9 @@ describe("StorageConfigSection — the SharePoint URL commits only on an explici
   // ★ The one surviving blur behaviour, and it is a pure setState: this Input is the ONLY place the
   // section shows the SharePoint target (the `description` readout is Turso-gated), so an accidental
   // Ctrl-A/Delete used to leave it blank behind a dead Apply until a remount.
-  // Mutation: empty `restoreSpUrlOnEmptyBlur`'s body (or drop the `onBlur`) → the first expect red.
+  // Mutation: empty `restoreSpUrlOnEmptyBlur`'s body (or drop the `onBlur`) → the `value` assertion
+  // AFTER the tab goes red — the second expect, not the first, which is the control proving the
+  // field really was emptied. (Same mis-numbering the note above had; count them.)
   // The "blur does NOT commit" test above is the control for the non-empty half: a blur that
   // restores unconditionally would wipe a real draft and turn THAT test red.
   it("blur with an EMPTY field restores the committed URL, and commits nothing", async () => {
@@ -257,7 +263,13 @@ describe("StorageConfigSection — the SharePoint URL commits only on an explici
   });
 
   // Mutation: `disabled={!canApplySpUrl}` → `disabled={false}` → red.
-  // An enabled Apply IS the "unapplied change" signal, so a clean draft must leave it disabled.
+  // A CLEAN draft must leave Apply disabled — that is this test, and it is the direction that
+  // matters for the UI. ★★ It is NOT the converse, which this comment used to assert outright: a
+  // disabled Apply does NOT imply a clean draft, because an EMPTIED field is also disabled while
+  // being an unapplied change (transient — `restoreSpUrlOnEmptyBlur` puts the committed URL back on
+  // blur, so it lasts only while that empty field has focus). The exact predicate is stated once, at
+  // `canApplySpUrl` in `storage-config.tsx`; `integrations-section.tsx`'s Turso Apply has the same
+  // asymmetry for three other reasons. Do not restate it here — correct it there.
   it("Apply is disabled while the draft is clean and enabled once it differs", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

@@ -1072,9 +1072,17 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
             </div>
           )}
           {/* ★★ §548 — Apply exists ONLY on Turso storage, the one kind where committing the
-              credentials rebuilds the backend (see `tursoIsLive`). Disabled while the drafts
-              equal the stored values, so an enabled Apply IS the "unapplied change" signal.
-              Hidden when the env supplies both values: there is nothing to draft. */}
+              credentials rebuilds the backend (see `tursoIsLive`). Hidden when the env supplies
+              both values: there is nothing to draft.
+              ★★ AN ENABLED APPLY MEANS AN UNAPPLIED CHANGE, BUT NOT THE CONVERSE — this comment
+              used to claim "disabled ⟺ the drafts equal the stored values", which is false about
+              reachable state. `canApplyTurso` ANDs three further conjuncts (`tokenSealBlocked`,
+              `passphraseVerifying`, `switchBusy`), so a dirty draft sits behind a disabled button
+              whenever a changed token cannot yet be sealed under a typed passphrase, or while
+              Apply or "Save & switch" is verifying one. That is exactly why those states render
+              their own blocked hint / FieldError instead of leaning on the button's state — the
+              button cannot say WHY it is dead. The SharePoint Apply has the same asymmetry for a
+              different reason (an emptied field); `storage-config.tsx` states its own predicate. */}
           <div className="flex flex-wrap gap-2">
           {tursoIsLive && !(envTursoUrlUsable && envTursoTokenSet) && (
             // ★ Same `size` as "Test connection" beside it; the transparent border matches the

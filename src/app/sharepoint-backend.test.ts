@@ -33,6 +33,30 @@ describe("parseSharePointFileUrl", () => {
     expect(parseSharePointFileUrl(url)).toBeNull();
   });
 
+  // ★★ THE OTHER ARM OF THAT GUARD, and it is the one a bare `catch {}` would lose: anything the
+  // decode throws that is NOT a `URIError` is a real bug and must PROPAGATE, not be reported to
+  // every caller as "this URL is unparseable". The guard is only narrow enough to be correct while
+  // `decodeURIComponent` is the sole thing inside the `try`, and nothing stops a later edit moving
+  // a statement in there — so the rethrow is what makes that edit fail loudly.
+  // Mutation (the counterpart of the it.each above): swap `if (e instanceof URIError) return null;
+  // throw e;` back to a bare `catch { return null; }` → this goes red while the it.each stays green.
+  it("PROPAGATES a non-URIError thrown by the decode instead of reporting 'unparseable'", () => {
+    const url = "https://contoso.sharepoint.com/sites/A/Shared%20Documents/file.json";
+    // Control: unstubbed, this exact URL parses — so the throw below can only come from the stub,
+    // and the test cannot pass because the URL was rejected before the decode was ever reached.
+    expect(parseSharePointFileUrl(url)?.itemPath).toBe("Shared Documents/file.json");
+    const realDecode = globalThis.decodeURIComponent;
+    try {
+      globalThis.decodeURIComponent = () => { throw new TypeError("not a URIError"); };
+      expect(() => parseSharePointFileUrl(url)).toThrow(TypeError);
+      expect(() => parseSharePointFileUrl(url)).toThrow("not a URIError");
+    } finally {
+      globalThis.decodeURIComponent = realDecode;
+    }
+    // The global really is back — a leak here would silently break every later case in this file.
+    expect(parseSharePointFileUrl(url)?.itemPath).toBe("Shared Documents/file.json");
+  });
+
   it("decodes %20 escapes in itemPath", () => {
     const result = parseSharePointFileUrl(
       "https://contoso.sharepoint.com/sites/A/Shared%20Documents/Project%20X/file.json",
