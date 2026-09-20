@@ -253,7 +253,12 @@ function TaskManagerInner() {
     resetColWidths,
     startColResize,
   } = useColumnManager();
-  useHashView(settings.layout === "modern", settings.features);
+  // ★★ `hydrated` is load-bearing, not defensive. use-settings.ts seeds
+  //    `defaultSettings` synchronously (layout "modern"), so without this gate
+  //    the hook is enabled on render 1 for EVERY user: a classic user is routed
+  //    before the layout flips (§536), and the cold rule judges the hash against
+  //    defaultSettings.features and never revisits it (§595).
+  useHashView(hydrated && settings.layout === "modern", settings.features);
   // Classic mode has no panel for the modern-only views; fall back to chat.
   useEffect(() => {
     if (

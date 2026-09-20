@@ -1,11 +1,15 @@
-import type { ReactElement } from "react";
-import { render as rtlRender, screen, fireEvent, within, waitFor } from "@testing-library/react";
+import type { ReactElement, ReactNode } from "react";
+import { useEffect } from "react";
+import { render as rtlRender, renderHook, act, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ResourceDirectory } from "./resource-directory";
 import { ResourcesReportPanel } from "./resources-report";
 import { ConfirmProvider } from "./confirm-dialog";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
+import { WorkspaceProvider, useWorkspace } from "./workspace-context";
+import { FiltersProvider } from "./filters-context";
+import { useResourceDirectory } from "./use-resource-directory";
 import type { Resource, ResourcePlan } from "./types";
 import { t, loadI18n } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
@@ -580,13 +584,13 @@ describe("ResourceDirectory deep-link open", () => {
 // hand a live pendingOpen to the Directory consumer for this to pass.
 const testPlan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-01-31", granularity: "month", currency: "USD" };
 
-function ActiveTabHarness({ onEdit }: { onEdit: (r: Resource) => void }) {
+function ActiveTabHarness({ onEdit, resources = rs }: { onEdit: (r: Resource) => void; resources?: Resource[] }) {
   const { activeTab } = useWorkspaceTab();
   if (activeTab === "resources") {
     return (
       <ResourcesReportPanel
         lang="en-US"
-        resources={rs}
+        resources={resources}
         roles={[]}
         disciplines={[]}
         grades={[]}
@@ -598,9 +602,91 @@ function ActiveTabHarness({ onEdit }: { onEdit: (r: Resource) => void }) {
     );
   }
   if (activeTab === "directory") {
-    return <ResourceDirectory {...common} resources={rs} onEditResource={onEdit} />;
+    return <ResourceDirectory {...common} resources={resources} onEditResource={onEdit} />;
   }
   return null;
+}
+
+// §540: `handleEditResource`'s guard lives in `useResourceDirectory`, whose
+// `editingResource` state sits ABOVE the `ResourceDirectory` remount driven by
+// the tab switch in `ActiveTabHarness` (see the guard's own comment in
+// use-resource-directory.ts). This harness owns a REAL `useResourceDirectory`
+// instance and threads its `handleEditResource` down as `ActiveTabHarness`'s
+// `onEdit` — mirroring production, where `onEditResource` IS `handleEditResource`
+// (threaded through task-manager.tsx / workspace-section.tsx) — so the guard
+// under test is the real one, not a stand-in.
+//
+// `onOpen` fires from an EFFECT (not a render-time reconcile — calling an
+// external callback is a legitimate effect; only DERIVING LOCAL STATE from a
+// changed prop belongs in render, per AGENTS.md) whenever the hook's
+// `editingResource` WRAPPER object changes identity and the result is an EDIT
+// (not an ADD draft). The wrapper, not `.resource`, is the load-bearing
+// observable: `resource-directory.tsx`'s `.find()` returns the SAME array
+// element on every repeat regardless of the guard, so `.resource` alone stays
+// stable either way and cannot tell a guarded repeat from an unguarded one
+// (measured — an earlier draft of this harness kept that check and stayed
+// green with the guard deleted). The WRAPPER reference is what the guard
+// actually controls: React only bails a `setEditingResource` update, and
+// skips re-rendering this component (and firing its effects) at all, when the
+// updater returns the EXACT SAME wrapper — which is precisely what keeps
+// `onOpen` from firing again on an unguarded call's fresh `{resource, isNew}`
+// object.
+//
+// `onRawEdit`, when passed, is called on EVERY dispatch into
+// `handleEditResource` regardless of the guard — a positive observable that a
+// repeated deep link actually reached the handler twice, so a call-count
+// assertion on `onOpen` alone can't misread "the second dispatch never
+// happened" as "the guard collapsed it" (absence-needs-a-positive-observable).
+//
+// `data-testid="editing-resource-id"` exposes the live draft/edit id so a
+// test can PIN a premise it depends on (e.g. the ADD-draft test's engineered
+// id collision) instead of asserting it only in a comment.
+function GuardedDirectoryHarness({
+  onOpen,
+  onRawEdit,
+  resources = rs,
+}: {
+  onOpen: (r: Resource) => void;
+  onRawEdit?: (r: Resource) => void;
+  resources?: Resource[];
+}) {
+  const { setResources } = useWorkspace();
+  const directory = useResourceDirectory({
+    lang: "en-US",
+    logActivity: vi.fn(),
+    showToast: vi.fn(),
+    logUpdate: vi.fn(),
+  });
+  useEffect(() => {
+    if (directory.editingResource && !directory.editingResource.isNew) onOpen(directory.editingResource.resource);
+  }, [directory.editingResource, onOpen]);
+  const handleEdit = (r: Resource) => {
+    onRawEdit?.(r);
+    directory.handleEditResource(r);
+  };
+  return (
+    <>
+      {/* Seeds ws.resources with id 1. mintId is a SESSION-scoped module-level
+          high-water mark (not max(list)+1), so this only deterministically
+          hands the next draft id 2 while nothing else in this file has minted
+          a "resource" id first — true today, but not guaranteed by mintId's
+          own contract. The ADD-draft test below PINS the resulting id via
+          `editing-resource-id` rather than assuming it. */}
+      <button
+        type="button"
+        onClick={() => setResources([{ id: 1, firstName: "Seed", lastName: "R", roleId: null, utilizationMode: "percent", utilization: {} }])}
+      >
+        seed-ws-resources
+      </button>
+      <button type="button" onClick={() => directory.handleOpenAddResource()}>
+        open-add
+      </button>
+      <span data-testid="editing-resource-id">
+        {directory.editingResource ? String(directory.editingResource.resource.id) : "none"}
+      </span>
+      <ActiveTabHarness onEdit={handleEdit} resources={resources} />
+    </>
+  );
 }
 
 describe("§362 deep-link seam: ResourcesReportPanel redirect -> ResourceDirectory consumer", () => {
@@ -619,32 +705,155 @@ describe("§362 deep-link seam: ResourcesReportPanel redirect -> ResourceDirecto
     expect(screen.getByTestId("pending-open")).toHaveTextContent("null");
   });
 
-  // Known residual (§362): every producer of this deep link tags the request
-  // "resources", so `requestOpen` flips `activeTab` through "resources" first
-  // and back to "directory", forcing ResourceDirectory through an
-  // unmount/remount before any per-mount skip guard could see a repeat. This
-  // test goes through that SAME real hop (ActiveTabHarness, not a
-  // statically-mounted ResourceDirectory): firing the identical resource id
-  // twice re-invokes the edit handler both times.
-  // ★ It observes the HANDLER only, not the editor. Whether unsaved edits
-  // survive is decided in `ResourceEditModal`, which resets its draft only when
-  // its `resource` prop changes identity, so a repeat with the same stored row
-  // keeps the draft (reasoned, not measured here). A working guard needs the
-  // editor state (`editingResource`), which sits above this remount.
-  it("KNOWN RESIDUAL: re-fires the edit handler for a repeated deep-link to the resource whose editor is already open", () => {
-    const onEdit = vi.fn();
+  // §540: every producer of this deep link tags the request "resources", so
+  // `requestOpen` flips `activeTab` through "resources" first and back to
+  // "directory", forcing ResourceDirectory through an unmount/remount before
+  // any per-mount ref could see a repeat. This test goes through that SAME
+  // real hop (ActiveTabHarness, not a statically-mounted ResourceDirectory) —
+  // the guard has to live in useResourceDirectory's `editingResource` state,
+  // which sits above the remount (GuardedDirectoryHarness owns that hook
+  // instance and does not remount when the tab does).
+  it("does not re-fire the edit handler for a repeated deep-link to the resource whose editor is already open", () => {
+    const onOpen = vi.fn();
+    const rawEdit = vi.fn();
     rtlRender(
-      <WorkspaceTabProvider>
-        <DeepLinkTrigger id={1} />
-        <ActiveTabHarness onEdit={onEdit} />
-      </WorkspaceTabProvider>,
+      <FiltersProvider>
+        <WorkspaceProvider>
+          <WorkspaceTabProvider>
+            <DeepLinkTrigger id={1} />
+            <GuardedDirectoryHarness onOpen={onOpen} onRawEdit={rawEdit} />
+          </WorkspaceTabProvider>
+        </WorkspaceProvider>
+      </FiltersProvider>,
     );
 
     fireEvent.click(screen.getByText("go")); // opens id 1 (through the real resources -> directory hop)
     fireEvent.click(screen.getByText("go")); // a second request for the same id
 
-    // Today's behaviour: called AGAIN, not skipped — the residual this round
-    // discloses rather than papering over with a guard that cannot fire.
-    expect(onEdit).toHaveBeenCalledTimes(2);
+    // Positive observable that the second dispatch genuinely reached the
+    // handler (absence-needs-a-positive-observable): `onOpen` alone reading 1
+    // cannot distinguish "the guard collapsed a real repeat" from "the second
+    // requestOpen -> consumer-effect hop never fired at all". Pinning the raw
+    // call count at 2 rules out the latter.
+    expect(rawEdit).toHaveBeenCalledTimes(2);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(onOpen).toHaveBeenCalledWith(rs[0]);
+  });
+
+  // Review Focus (§540): the guard's `!prev.isNew` conjunct must not swallow a
+  // deep link that arrives while an unsaved ADD draft is open. Seeding ws
+  // resources with id 1 is intended to force `mintId` to hand the draft id 2
+  // — the SAME id as the deep-link target below — so an id match alone
+  // (dropping the `!prev.isNew` conjunct; §540 mutation table row 1) is what
+  // would incorrectly suppress this open, not an id mismatch. That collision
+  // is PINNED below via `editing-resource-id` rather than assumed: mintId is
+  // a session-scoped module-level high-water mark, not max(list)+1, so the
+  // draft landing on id 2 also depends on nothing else in this file having
+  // minted a "resource" id first — true today, but not something mintId's
+  // own contract guarantees against e.g. a reordering under `test:shuffle`.
+  it("still honours a deep link to another resource while an unsaved ADD draft is open", () => {
+    const onOpen = vi.fn();
+    rtlRender(
+      <FiltersProvider>
+        <WorkspaceProvider>
+          <WorkspaceTabProvider>
+            <DeepLinkTrigger id={2} />
+            <GuardedDirectoryHarness onOpen={onOpen} resources={twoResources} />
+          </WorkspaceTabProvider>
+        </WorkspaceProvider>
+      </FiltersProvider>,
+    );
+
+    fireEvent.click(screen.getByText("seed-ws-resources"));
+    fireEvent.click(screen.getByText("open-add")); // handleOpenAddResource: { isNew: true }
+
+    // Pin the id collision this test's non-vacuity depends on (see the
+    // comment above) instead of only asserting it in prose: if `mintId` ever
+    // hands the draft a different id, this fails loudly here rather than the
+    // mutant-row-1 coverage silently going vacuous below.
+    expect(screen.getByTestId("editing-resource-id")).toHaveTextContent("2");
+
+    fireEvent.click(screen.getByText("go")); // deep link to id 2 — a DIFFERENT, already-saved resource
+
+    // `toHaveBeenLastCalledWith(twoResources[1])` (exact object identity),
+    // not `objectContaining({ id: 2 })` — the latter can't distinguish the
+    // id-2 ADD draft from the id-2 STORED row, which is exactly the
+    // collision this test engineers.
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(onOpen).toHaveBeenLastCalledWith(twoResources[1]);
+  });
+});
+
+describe("§540 mutation guard: editingResource identity survives a same-id repeat", () => {
+  // §540 mutation table row 3: a guard returning `{ ...prev }` instead of
+  // `prev` unchanged defeats React's setState bail-out and hands
+  // ResourceEditModal (app-modals.tsx, `resource={editingResource.resource}`)
+  // a fresh wrapper on every repeat. ★ MEASURED, not merely reasoned: the
+  // DOM-based "does not re-fire" test above also catches this mutant, because
+  // its `onOpen` watcher keys on the `editingResource` WRAPPER's identity
+  // (necessary — the wrapper is the only thing an id-vs-reference comparison
+  // mutant, row 2, can be told apart by; see that test's own comment).
+  // ★★ NECESSARY IS NOT SUFFICIENT, and reading it as such is what an
+  // independent review caught: the wrapper is the right OBSERVABLE for the
+  // id-vs-reference mutant, but that mutant also needs a fresh-object INPUT,
+  // and the DOM harness never supplies one — its `.find()` returns the SAME
+  // array element on both dispatches. MEASURED: under
+  // `prev.resource === resource` the DOM test stays GREEN and only the
+  // fresh-object case below goes red. This renderHook
+  // test is still worth keeping: it pins the exact mechanism
+  // (React's setState bail-out returning the SAME object) directly, without
+  // going through the tab-remount harness, and independently of whatever
+  // observable the DOM harness happens to use.
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <FiltersProvider>
+      <WorkspaceProvider>{children}</WorkspaceProvider>
+    </FiltersProvider>
+  );
+  const mountDirectory = () =>
+    renderHook(
+      () => useResourceDirectory({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), logUpdate: vi.fn() }),
+      { wrapper },
+    );
+
+  it("returns the exact editingResource object on a repeated handleEditResource call for the same id", () => {
+    const { result } = mountDirectory();
+
+    act(() => { result.current.handleEditResource(rs[0]); });
+    const opened = result.current.editingResource;
+
+    act(() => { result.current.handleEditResource(rs[0]); });
+
+    expect(result.current.editingResource).toBe(opened);
+  });
+
+  // Independent review: the guard's `prev.resource.id === resource.id`
+  // comparison had ZERO test contact before this case. Every other dispatch in
+  // this file hands `handleEditResource` the SAME object twice — the DOM
+  // harness above resolves through `.find()` over a module-constant array, and
+  // the test above passes `rs[0]` literally — so a mutant weakening the
+  // comparison to reference equality (`prev.resource === resource`, which is
+  // also exactly the pre-branch behaviour) stayed GREEN in both. A FRESH object
+  // carrying the SAME id is the only input that can tell an id comparison from
+  // a reference one, and it is precisely the case §540 was filed for: a
+  // concurrent writer replaced the stored row while the editor was open, so the
+  // repeated deep link now resolves to a NEW object for the row already being
+  // edited. The unsaved draft must still survive.
+  // ★ This case is what kills the id-vs-reference mutant; the same-reference
+  //   test above cannot, and neither can the DOM harness.
+  it("returns the exact editingResource object when a repeat resolves to a FRESH object carrying the same id", () => {
+    const { result } = mountDirectory();
+
+    act(() => { result.current.handleEditResource(rs[0]); });
+    const opened = result.current.editingResource;
+
+    // Pin the premise this case's non-vacuity rests on instead of assuming it:
+    // the replacement really is a DIFFERENT object, so the guard is genuinely
+    // being asked an id question rather than handed the same reference again.
+    const replacement = { ...rs[0] };
+    expect(replacement).not.toBe(rs[0]);
+
+    act(() => { result.current.handleEditResource(replacement); });
+
+    expect(result.current.editingResource).toBe(opened);
   });
 });

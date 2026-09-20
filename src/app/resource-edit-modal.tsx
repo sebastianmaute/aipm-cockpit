@@ -1,9 +1,11 @@
 "use client";
 
 // Resource address-book editor modal — create / edit / delete a Resource.
-// Mirrors AbsenceEditModal's structure: local `draft` state synced from prop
-// via useEffect, `update(key, value)` helper, footer with Delete/Cancel/Save.
-// Does NOT edit discipline/grade (those are owned by the Roles modal).
+// Mirrors AbsenceEditModal's structure: local `draft` state reconciled from
+// the `resource` prop in a render-time reconcile (not a useEffect — see the
+// `prevResource !== resource` check below), `update(key, value)` helper,
+// footer with Delete/Cancel/Save. Does NOT edit discipline/grade (those are
+// owned by the Roles modal).
 
 import { useState } from "react";
 import { type Lang, t } from "./i18n";

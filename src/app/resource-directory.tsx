@@ -183,28 +183,33 @@ function ResourceDirectoryInner({
   // once acted on. An id matching no resource (deleted, stale link) is still
   // consumed so the request cannot get stuck.
   //
-  // ★ KNOWN RESIDUAL, not a guard: unlike stakeholders/raid, this does NOT
-  // skip calling `onEditResource` when that resource's editor is already open.
-  // A per-mount skip guard cannot work here: every producer of this deep link
-  // (insights/detect.ts, global-search.ts, use-hash-view.ts) tags the request
-  // "resources", `requestOpen` flips `activeTab` through "resources" first,
-  // and `workspace-section.tsx` renders this panel only while
+  // ★ This component itself still has NO skip guard: it unconditionally calls
+  // `onEditResource` on every distinct `pendingOpen`. A per-mount skip guard
+  // cannot work here: every producer of this deep link (insights/detect.ts,
+  // global-search.ts, use-hash-view.ts) tags the request "resources",
+  // `requestOpen` flips `activeTab` through "resources" first, and
+  // `workspace-section.tsx` renders this panel only while
   // `activeTab === "directory"`, so a repeat request unmounts and remounts a
-  // fresh `ResourceDirectoryInner` before its consumer effect runs.
+  // fresh `ResourceDirectoryInner` before its consumer effect runs — no ref
+  // local to this component can see a repeat.
   //
-  // What a repeat does (reasoned from the code, not measured): the edit handler
-  // fires again with the row from `resources`, and the editor stays open on the
-  // same resource. `ResourceEditModal` resets its draft only when its `resource`
-  // prop changes identity (the `prevResource` reconcile), so unsaved edits are
-  // KEPT when that row is the same reference the editor already holds. They are
-  // lost only if the stored row was replaced while the editor was open (e.g. a
-  // concurrent write), because the handler then passes the new reference.
+  // ★★★ §540: the guard lives one level up instead, in `handleEditResource`
+  // (`useResourceDirectory`, whose `editingResource` state — unlike this
+  // component — does NOT remount on the tab switch). It decides by id whether
+  // a repeat targets the resource whose editor is already open and, if so,
+  // returns its previous state unchanged, which bails the re-render entirely.
+  // `ResourceEditModal` resets its draft only when its `resource` prop changes
+  // identity (the `prevResource` reconcile), so the bailed re-render is what
+  // keeps an unsaved draft alive on a same-id repeat. The draft is deliberately
+  // NOT refreshed when the stored row was replaced while the editor was open
+  // (e.g. a concurrent write) — the guard trades a stale copy for the draft.
   //
-  // Pinned as current behaviour by "KNOWN RESIDUAL: re-fires the edit handler
-  // for a repeated deep-link to the resource whose editor is already open" in
-  // resource-directory.test.tsx. A working guard needs the editor state
-  // (`editingResource`, owned by `useResourceDirectory` in `task-manager.tsx`
-  // and rendered by `app-modals.tsx`), which sits above this remount.
+  // Pinned by "does not re-fire the edit handler for a repeated deep-link to
+  // the resource whose editor is already open" and "still honours a deep link
+  // to another resource while an unsaved ADD draft is open" in
+  // resource-directory.test.tsx (both exercise `useResourceDirectory` for
+  // real, not a stand-in), plus a `renderHook` reference-identity test in the
+  // same file.
   const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
   const { flashId, containerRef } = useDeepLinkRowFlash("resources");
   useEffect(() => {

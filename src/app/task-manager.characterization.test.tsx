@@ -8,7 +8,7 @@
 // is understood (e.g. the future calendar prop-bag consolidation renames these) —
 // it is NOT a golden fixture. Coarse on purpose: a tripwire, not a spec.
 import { render, screen, within } from "@testing-library/react";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
 
 // task-manager mints task/resource ids from session-scoped state on interaction;
@@ -227,4 +227,75 @@ describe("@characterization task-manager → Ask Claude pill gate", () => {
     const header = screen.getByRole("banner");
     expect(within(header).queryByRole("button", { name: "Ask Claude" })).toBeNull();
   });
+});
+
+// Own describe, own mount, no shared beforeAll — task-manager.tsx:
+// `useHashView(hydrated && settings.layout === "modern", settings.features)`
+// (§536, §595). use-settings.ts seeds `defaultSettings` (layout "modern")
+// synchronously and only flips `hydrated` via a MICROTASK (a bare
+// `Promise.resolve().then(...)` on the no-persisted-settings path, or the
+// async secret-merge chain otherwise) — never synchronously during the
+// initial commit. ★★★ This assertion therefore deliberately does NOT await
+// anything: `useHashView`'s cold-apply effect is a `useLayoutEffect`, which
+// DOES flush synchronously inside `render()`, so a t=0 read is the only one
+// that can tell "gated on hydrated" from "gated on nothing" — an `await
+// screen.findByTestId(...)` first would let that microtask resolve and pass
+// off the already-hydrated state whether or not the gate is wired at all
+// (same idiom as timelog-panel.test.tsx's "never flashes the empty state at
+// a configured user before settings load").
+describe("@characterization task-manager → hash-view hydration gate (§536)", () => {
+  afterEach(() => {
+    // NOT `window.location.hash = ""`: assigning `.hash` fires a `hashchange`
+    // event (see use-hash-view.ts's own doc comment on why the hook itself
+    // uses `replaceState`), and RTL's global `cleanup()` — registered outside
+    // every describe, so it runs LAST relative to this nested afterEach —
+    // has not yet unmounted the tree at this point. A still-mounted
+    // TaskManager from either test above would receive that event and
+    // re-route on it before cleanup gets to it. `replaceState` never fires
+    // `hashchange`, so it resets the URL without touching a live listener.
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("does not route from the hash until settings have hydrated", () => {
+    // ★ A VIEW-ONLY hash, not an item-bearing one: `requestOpen`'s own write
+    //   re-encodes an item-bearing hash back to itself (`#raid/123` ->
+    //   `#raid/123`), which would make a rewrite invisible here. A view-only
+    //   "#raid" is stale-residue under the cold rule (see use-hash-view.ts),
+    //   so an ungated apply resolves to the Dashboard — a real mismatch
+    //   against the current "#raid" that the passive view->hash effect then
+    //   rewrites to "#dashboard". That is the observable this test relies on.
+    // ★★ No DOM assertion here (e.g. `ws-section-mock`): TaskManager returns
+    //   `null` on its very first render regardless of this gate (`i18nReady`
+    //   starts false too, task-manager.tsx's `if (!i18nReady) return null`),
+    //   so nothing is ever in the DOM at t=0 either way. `useHashView`'s
+    //   effects still run — hooks execute unconditionally before that early
+    //   return — so the hash is still a valid, non-vacuous observable.
+    window.location.hash = "#raid";
+    window.localStorage.clear();
+    seedRegistry();
+    render(<TaskManager />);
+    // Pre-hydration the stored layout is not yet known; nothing may be routed.
+    expect(window.location.hash).toBe("#raid");
+  });
+  // ★★ §595 (the features half of the gate) is deliberately NOT pinned here.
+  //    A call-site-level test using a dashboard-disabled hydrated `features`
+  //    seed cannot distinguish the gated from the ungated call site: a
+  //    SECOND, independent effect in this file — `disabledViewRedirect`,
+  //    unconditional and not gated on `hydrated` — corrects `activeTab` away
+  //    from any disabled module regardless of which `useHashView` call-site
+  //    variant is live, and for the dashboard-disabled case its target
+  //    ("open-points") is identical to `useHashView`'s own `blankView`
+  //    fallback. A test built that way passed GREEN under the reverted call
+  //    site (measured, not assumed) — it would also pass with the gate
+  //    deleted entirely, which is the definition of a test that cannot fail.
+  //    §595's GATE is pinned by the call-site test above instead, not at the
+  //    hook level: the hook has no notion of `hydrated`, and nothing about
+  //    `enabled` semantics changed on this branch, so reverting this call
+  //    site back to `settings.layout === "modern"` leaves every hook-level
+  //    test green regardless. use-hash-view.test.tsx's "judges the cold rule
+  //    against the features it is enabled with, not the ones it started
+  //    disabled with" instead pins the CONTRACT the gate relies on — a
+  //    disabled hook runs nothing, and the first executed run judges against
+  //    whatever features it is then given — which is a different claim from
+  //    the gate itself.
 });

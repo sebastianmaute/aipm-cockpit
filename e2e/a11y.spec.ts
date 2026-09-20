@@ -1,4 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
+import type { Page } from "@playwright/test";
 import { test, expect, gotoApp, openView, waitForViewSettled } from "./seed";
 import {
   HARBOR_DARK, HARBOR_LIGHT,
@@ -26,6 +27,66 @@ const HASH_VIEW: Partial<Record<(typeof A11Y_VIEWS)[number], string>> = {
   "Next actions": "#actions",
   Insights: "#insights",
 };
+
+// ★★★ THE HASH MUST STICK, OR THESE TWO VIEWS ARE SCANNED AS THE DASHBOARD AND
+// NOTHING SAYS SO. `gotoApp` waits for <main> and the "Dashboard" nav entry,
+// both gated on `i18nReady` — NOT on `hydrated`. `useHashView` is enabled only
+// once `hydrated` is true, and its early return sits ABOVE the
+// `addEventListener` calls, so its hashchange/popstate listeners do not exist
+// before hydration. For `en-US` `loadI18n` resolves on a microtask while
+// `hydrated` waits on the IndexedDB secret reads, so a bare
+// `location.hash = h` can fire into a window with NO listener attached and be
+// lost outright. The later cold apply then reads the view-only hash live,
+// applies the stale-residue rule and lands on the DASHBOARD — and nothing
+// downstream notices: `waitForViewSettled` polls <main>'s innerHTML for
+// STABILITY, never for WHICH view, so axe passes on the Dashboard and
+// `Next actions` / `Insights` go permanently unscanned on a green run.
+//
+// SELF-HEALING rather than merely loud: the loss is a race, and a red nobody
+// can reproduce is worth less than a spec that repairs itself. Each round
+// re-assigns the hash when the app has rewritten it away. Once a rewrite is
+// observable the cold apply has necessarily already run, so the repair is
+// heard.
+//
+// ★★ A ONE-SHOT `expect.poll(...).toBe(hash)` CANNOT DISCRIMINATE HERE, which
+// is why this is a stability window instead. `location.hash = h` updates
+// `location.hash` SYNCHRONOUSLY whether or not any listener heard it, so the
+// first read after the assignment returns the expected value on BOTH the
+// success and the failure path — a poll that stops at its first success just
+// races the rewrite it exists to catch. Requiring the value to SURVIVE several
+// consecutive reads spanning ~1 s outlasts the hydration window instead. That
+// is the same stability heuristic `waitForViewSettled` already uses, applied to
+// the one value that actually tells the two paths apart. Bounded on both axes,
+// so a genuine regression (a disabled view, a broken parse) still fails red
+// rather than spinning forever.
+const HASH_STABLE_READS = 5;
+const HASH_POLL_MS = 200;
+const HASH_MAX_ROUNDS = 40; // ~8 s ceiling
+
+async function settleHash(page: Page, hash: string, name: string): Promise<void> {
+  let stable = 0;
+  let rounds = 0;
+  for (; rounds < HASH_MAX_ROUNDS && stable < HASH_STABLE_READS; rounds++) {
+    // Read BEFORE repairing, and judge the streak on what was SEEN — a round
+    // that had to repair must not count towards it, or the repair would
+    // certify itself.
+    const seen = await page.evaluate((h) => {
+      const cur = window.location.hash;
+      if (cur !== h) window.location.hash = h;
+      return cur;
+    }, hash);
+    stable = seen === hash ? stable + 1 : 0;
+    await page.waitForTimeout(HASH_POLL_MS);
+  }
+  expect(
+    stable,
+    `${name}: the hash never held at "${hash}" for ${HASH_STABLE_READS} consecutive reads ` +
+      `(gave up after ${rounds} rounds x ${HASH_POLL_MS} ms). The app keeps rewriting it — ` +
+      `almost certainly to "#dashboard", meaning the cold apply treated the view-only hash as ` +
+      `stale session residue. Scanning now would have run axe against the Dashboard instead ` +
+      `of ${name}, and passed.`,
+  ).toBe(HASH_STABLE_READS);
+}
 
 // AIPM and Dashboard no longer exist in the app in any form — a theme is a file
 // the user loads. The matrix runs on the four BUILT-IN schemes. Harbor/
@@ -141,7 +202,34 @@ for (const combo of COMBOS) {
       const hash = HASH_VIEW[name];
       if (hash) {
         await page.evaluate((h) => { window.location.hash = h; }, hash);
+        // Make the assignment STICK before scanning — see settleHash above.
+        await settleHash(page, hash, name);
         await waitForViewSettled(page);
+        // ★★★ THE HASH IS ONLY A PROXY FOR THE THING THIS GUARDS, so pin the
+        // thing itself: the finding is "axe silently scans the Dashboard
+        // instead of the named view", and a correct hash does not entail a
+        // routed view. It leaks BOTH ways. (a) If hydration opens later than
+        // settleHash's ~1 s stability streak, the streak completes, the cold
+        // apply then rewrites the hash during `waitForViewSettled`, and the
+        // scan runs on the Dashboard — green, wrong view. (b) A hash pointing
+        // at a DISABLED module is honoured-but-not-routed: `use-hash-view.ts`
+        // returns above `setActiveTab` for such a view, so the hash stays
+        // exactly right while `activeTab` never moves, and settleHash is
+        // vacuous. The TopBar `<h1>` is `t(lang, navLabelKey(activeView))`
+        // (modern-shell.tsx → top-bar.tsx), i.e. it is DERIVED from the routed
+        // view and from nothing else — the only h1 the modern shell renders,
+        // and the same label these A11Y_VIEWS entries are spelled with. So it
+        // reads "Next actions" / "Insights" only when that view is genuinely
+        // on screen, and "Dashboard" in every failure above.
+        // ★★ `exact: true` is NOT optional: Playwright's `getByRole` name
+        // matching defaults to a case-insensitive SUBSTRING (the opposite of
+        // RTL's), so a bare name would match a longer view title — the very
+        // defect class this assertion exists to close, one layer down.
+        // ★ Retrying (`toBeVisible` polls), so a merely slow render still
+        // passes while a wrong view fails.
+        await expect(
+          page.getByRole("heading", { name, level: 1, exact: true }),
+        ).toBeVisible();
       } else {
         await openView(page, name);
       }
