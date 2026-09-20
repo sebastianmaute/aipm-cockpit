@@ -166,8 +166,12 @@ with 10 records". The predicate must discount that seeded reference data.
 The machinery exists. `pickFile()` uses `showSaveFilePicker` (`fs-access.ts:74`)
 and the returned handle supports `getFile()` (`fs-access.ts:61`);
 `loadFromHandleForBackend` (`storage.ts:99-105`) plus `workspaceRecordCount` /
-`nonEmptyCollectionCount` are already the pair `onOpenStorageFile` uses to size a
-workspace before deciding (`use-storage-backend.ts:11`, `:608-609`). ★★★ **The offer CANNOT use `useConfirm()` here, and this spec was wrong to
+`nonEmptyCollectionCount` are already the pair `reloadCurrentProject` and the
+load effect use to size a workspace before deciding. ★★ NOT `onOpenStorageFile`,
+as an earlier revision of this line said — that op sizes on `deps.tasks.length`
+and touches neither helper, and the `:608-609` it cited is the
+destructive-save-guard comment, not a sizing decision. Cite the symbol, not a
+line range. ★★★ **The offer CANNOT use `useConfirm()` here, and this spec was wrong to
 require it.** Measured during implementation: `useStorageBackend` is called in
 `TaskManagerInner`'s body, and the only two `ConfirmProvider` mounts in the
 tree are inside that same component's returned JSX — so `useConfirm()` there
@@ -186,13 +190,30 @@ honouring this spec's letter is dead code. The real fix is to hoist
 app shell (classic and modern layouts both mount one) and is filed rather than
 done at the end of a slice. No hand-rolled control either way.
 
-**The wrinkle, and the decided answer:** `pickFile()` persists the new handle
-via `idbSet` (`local-file-backend.ts:97-98`) *before* anything is read or
-written, so by the time we ask, the app is already pointed at the picked file.
-Declining must therefore restore the previous handle, so Cancel means nothing
-happened. That requires `pickFile()` to stop swallowing the handle and return
-it — a backend contract change — and the first-time case (no previous handle to
-restore) must be handled explicitly rather than falling through to a null.
+**The wrinkle — ★★★ CORRECTED AFTER IMPLEMENTATION MEASURED IT. Do not build what
+the struck-through version below prescribes.** The wrinkle is real: `pickFile()`
+persists the new handle via `idbSet` *before* anything is read or written, so by
+the time we ask, the app is already pointed at the picked file.
+
+~~Declining must therefore restore the previous handle … that requires
+`pickFile()` to stop swallowing the handle and return it — a backend contract
+change — and the first-time case (no previous handle to restore) must be handled
+explicitly rather than falling through to a null.~~
+
+**What was built instead, and why it is strictly better.** Nothing restores
+anything, because nothing is ever bound before the accept. `pickFile()` is
+UNTOUCHED — a sibling `pickFileHandle()` was added beside it, returning the handle
+without the `idbSet`, and `onPickStorageFile` binds through `setBackendFileHandle`
+inside whichever branch the user chose. So there is no previous handle to restore
+and no first-time case to handle: Cancel means nothing happened because nothing
+had happened yet.
+
+★★ The struck-through prescription is left visible rather than deleted because it
+is the dangerous kind of stale: it asks for a contract change to a method that
+`createProject` and `onRequestStorageSwitch` still depend on, and a reader working
+from the spec would make it. Verify with
+`grep -rnE "pickFileForBackend[(]" src --include=*.ts --include=*.tsx | grep -v "[.]test[.]"`,
+which returns the facade helper's declaration plus those two call sites.
 
 **Probe first:** fail a load, pick a file holding a real project, assert the
 file is unchanged and the offer appeared. Unreproduced today.

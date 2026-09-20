@@ -141,10 +141,17 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   render that never committed.
   const backendRef = useRef<ReturnType<typeof createBackend> | null>(null);
   backendRef.current = backend;
-  // §588 — "the backend THIS closure was built for is no longer the live one". Four resumption points
-  // ask it: `reloadCurrentProject` after its load resolves and again in its catch, and (as
-  // `isBackendCurrent`, the NEGATION — the phrasing the mutation coverage rides on, see above)
-  // `onPickStorageFile` after its picker and again after its write.
+  // §588 — "the backend THIS closure was built for is no longer the live one". Asked at every point
+  // an op resumes after an await: `reloadCurrentProject` after its load resolves and again in its
+  // catch, and (as `isBackendCurrent`, the NEGATION — the phrasing the mutation coverage rides on,
+  // see above) `onPickStorageFile` after its picker, after it reads the chosen file, after each of
+  // its two binds, and again after its write.
+  // ★★ NO TALLY ON PURPOSE. This said "Four resumption points" and was already five when it was
+  // written — §590's read guard was the one omitted. Re-derive rather than trust:
+  //   grep -rnE "isSupersededBackend[(][)]|isBackendCurrent[(][)]" src/app --include=*.ts --include=*.tsx | grep -v "[.]test[.]"
+  // ★ The brackets stop the pattern matching THIS comment; the plain spelling does not, which is how
+  // a re-derivation quietly counts its own instructions. Read the hits anyway: one is
+  // `isBackendCurrent`'s declaration in the deps object, not a resumption point.
   const isSupersededBackend = () => backendRef.current !== backend;
 
   // ★★★ §591 — WHICH STORAGE TARGET THE IN-SCOPE WORKSPACE BELONGS TO. `applyWorkspaceFromLoad`'s "merge"
@@ -1140,7 +1147,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // ★★ §548 — hold `loadPending` for the WHOLE of an op that awaits and then REPLACES the workspace.
   //   The op flushes the outgoing project BEFORE its await; an edit made during the await would be
   //   replaced in memory when the op applies. `finally`, so a throwing op cannot strand the hold;
-  //   `mountedRef`, so a teardown cannot throw (§72). Wraps exactly the nine ops in the return object.
+  //   `mountedRef`, so a teardown cannot throw (§72).
+  // ★★ WHICH ops, not how many — this said "exactly the nine" and §590 made it ten.
+  //   Re-derive: `grep -c "holdDuring(" src/app/use-storage-backend.ts` counts the wraps plus this
+  //   declaration, so read the hits rather than the number.
   function holdDuring<A extends unknown[]>(op: (...opArgs: A) => Promise<void>): (...opArgs: A) => Promise<void> {
     return async (...opArgs: A) => {
       setSwapsInFlight((n) => n + 1);
@@ -1158,7 +1168,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // Measure: node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
   return {
     storageDescription, storageReady, workspaceLoaded, loadPause, loadPending, getScopeEpoch,
-    onPickStorageFile, onGrantWriteAccess, onOpenStorageFile: holdDuring(onOpenStorageFile), onRequestStorageSwitch,
+    // ★★★ §590 PUT `onPickStorageFile` UNDER THE HOLD, and it was deliberately outside it before.
+    //   The exclusion was right while the op only ever wrote the live workspace OUTWARD — nothing was
+    //   replaced, so there was nothing for a background writer to land in the middle of. Its
+    //   load-instead branch now replaces the WHOLE workspace with another file's, which is
+    //   `holdDuring`'s stated job, and `onOpenStorageFile` beside it already takes the hold across
+    //   its own OS picker — so "a dialog would sit behind a skeleton" is not an available objection;
+    //   the precedent accepts it. ★ `bumpScopeEpoch` inside `applyWorkspaceForOp` is NOT a substitute:
+    //   it drops background writes that honour the epoch, and does nothing about the tree.
+    onPickStorageFile: holdDuring(onPickStorageFile), onGrantWriteAccess, onOpenStorageFile: holdDuring(onOpenStorageFile), onRequestStorageSwitch,
     reloadCurrentProject: holdDuring(reloadCurrentProject), allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject: holdDuring(switchToProject), createProject: holdDuring(createProject),
     createDemoProject: holdDuring(createDemoProject), loadProjectFromFile: holdDuring(loadProjectFromFile),

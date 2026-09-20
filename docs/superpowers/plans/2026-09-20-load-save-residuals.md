@@ -501,7 +501,7 @@ Claude-Session: https://[session link removed]"
 ### Task 5: §590 — pick, read, and bind only if accepted
 
 **Files:**
-- Modify: `src/app/local-file-backend.ts` — `pickFile()` (lines 95-99)
+- Modify: `src/app/local-file-backend.ts` — ADD `pickFileHandle()` beside `pickFile()`. ★ `pickFile()` itself is NOT replaced: `createProject` and `onRequestStorageSwitch` still depend on it.
 - Modify: `src/app/storage.ts` — add `pickFileHandleForBackend` beside `loadFromHandleForBackend` (lines 94-105)
 - Modify: `src/app/use-storage-file-ops.ts` — `onPickStorageFile` (lines 409-422)
 - Modify: `src/app/i18n.ts` and `src/app/i18n.de.ts` — four new keys
@@ -551,7 +551,7 @@ never there.
 
 - [ ] **Step 2: Add the non-binding pick**
 
-In `src/app/local-file-backend.ts`, replace `pickFile()`:
+In `src/app/local-file-backend.ts`, ADD a sibling to `pickFile()` (do NOT replace it — two other callers depend on the bind-and-go behaviour):
 
 ```ts
   /** Pick a save target WITHOUT binding it (§590, mirroring §287's open split).

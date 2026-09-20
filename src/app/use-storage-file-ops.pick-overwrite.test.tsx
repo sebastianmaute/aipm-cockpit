@@ -28,7 +28,7 @@ import type { Lang } from "./i18n";
 import { t } from "./i18n";
 import type { Settings } from "./settings-types";
 import type { FsHandle, StorageConfig } from "./storage";
-import { jsonToWorkspace, StorageNotReadyError, workspaceToJson } from "./storage";
+import { jsonToWorkspace, LocalFileBackend, StorageNotReadyError, workspaceToJson } from "./storage";
 import type { Task } from "./types";
 import { taskRec, ws } from "../test/workspace-records";
 
@@ -43,12 +43,23 @@ import { taskRec, ws } from "../test/workspace-records";
  *  "the active backend now points at the picked file", which is §590's root — the old pick did that
  *  before anything could be read.
  *  ★★ `vi.hoisted` is required, not stylistic: `vi.mock` is hoisted above every import, so the
- *  factory would otherwise read `KV` before its `const` had run. */
-const { KV } = vi.hoisted(() => ({ KV: new Map<string, unknown>() }));
+ *  factory would otherwise read `KV` before its `const` had run.
+ *  ★ `idbGate` makes the BIND a controllable await as well. `setBackendFileHandle` resolves to
+ *  `LocalFileBackend.setHandle`, which is `await idbSet(...)` — the resumption point §590 inserted
+ *  between the read guard and both commits. A test that needs to land a rebuild INSIDE it sets
+ *  `idbGate.current` to a promise and releases it when it is ready; the gate is one-shot, so only
+ *  the next `idbSet` waits. */
+const { KV, idbGate } = vi.hoisted(() => ({
+  KV: new Map<string, unknown>(),
+  idbGate: { current: null as Promise<void> | null },
+}));
 vi.mock("./idb", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./idb")>()),
   idbGet: vi.fn(async (key: string) => KV.get(key)),
-  idbSet: vi.fn(async (key: string, value: unknown) => { KV.set(key, value); }),
+  idbSet: vi.fn(async (key: string, value: unknown) => {
+    if (idbGate.current) { const g = idbGate.current; idbGate.current = null; await g; }
+    KV.set(key, value);
+  }),
   idbDelete: vi.fn(async (key: string) => { KV.delete(key); }),
 }));
 // Cross-tab plumbing and the per-project handle store: neither is on any path this file exercises,
@@ -59,6 +70,49 @@ vi.mock("./project-file-handles", () => ({
   saveHandle: vi.fn().mockResolvedValue(undefined),
   deleteHandle: vi.fn().mockResolvedValue(undefined),
 }));
+/** The §588 pick guards emit `storage.supersededPickDropped` with a `stage` label, and the label is
+ *  the only thing telling an operator WHICH window dropped the op. Spied rather than swallowed, so
+ *  a renamed stage or a deleted diagnostic is visible. ★ `importOriginal`, so every other
+ *  `diagnostics` export stays real — the module is on the load path for more than this. */
+const { logDiagSpy } = vi.hoisted(() => ({ logDiagSpy: vi.fn() }));
+vi.mock("./diagnostics", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./diagnostics")>()),
+  logDiag: logDiagSpy,
+}));
+/** ★★★ C1's seam. `truncationOps` is built by the REAL `useLoadTruncation` — the op depends on its
+ *  `wouldRefuseWrite`/`guardedWrite` behaving properly, so it must not be stubbed. Only the two
+ *  reporters are wrapped, call-through, so a test can ask WHICH one the load-instead branch uses.
+ *  That is the whole of the C1 ruling: `reportFor`, not `reportImportFor`, and not both. */
+const { reportForSpy, reportImportForSpy } = vi.hoisted(() => ({
+  reportForSpy: vi.fn(),
+  reportImportForSpy: vi.fn(),
+}));
+vi.mock("./use-load-truncation", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("./use-load-truncation")>();
+  return {
+    ...mod,
+    useLoadTruncation: (...args: Parameters<typeof mod.useLoadTruncation>) => {
+      const real = mod.useLoadTruncation(...args);
+      return {
+        ...real,
+        truncationOps: {
+          ...real.truncationOps,
+          reportFor: (backend: Parameters<typeof real.truncationOps.reportFor>[0]) => {
+            reportForSpy(backend);
+            return real.truncationOps.reportFor(backend);
+          },
+          reportImportFor: (
+            backend: Parameters<typeof real.truncationOps.reportImportFor>[0],
+            applied: Parameters<typeof real.truncationOps.reportImportFor>[1],
+          ) => {
+            reportImportForSpy(backend, applied);
+            return real.truncationOps.reportImportFor(backend, applied);
+          },
+        },
+      };
+    },
+  };
+});
 
 import { TestProviders } from "./test-providers";
 import { useStorageBackend } from "./use-storage-backend";
@@ -147,6 +201,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   DISK.clear();
   KV.clear();
+  idbGate.current = null;
   localStorage.clear();
   (window as unknown as { showSaveFilePicker: unknown }).showSaveFilePicker = showSaveFilePicker;
 });
@@ -292,6 +347,32 @@ describe("§590 — the picked file already holds a project and the app is empty
     expect(KV.get(HANDLE_KEY)).toMatchObject({ name: PICKED_FILE });
     await waitFor(() => expect(result.current.loadPause).toBeNull());
   });
+
+  // ★★★ C1 — THE LOAD THIS BRANCH PERFORMS MUST BE REPORTED. It reads a file (publishing
+  //   `lastLoadTruncation` and the four import fields), APPLIES the decoded rows, BINDS the handle
+  //   and opens the save gate — so whatever the decode dropped is what the next debounced save
+  //   writes back over that file. Without a report there is no banner, no toast and no hold: §590's
+  //   own harm, one branch later and quieter.
+  // ★★ THE ASSERTION IS ON WHICH REPORTER, because that is the whole ruling. `reportImportFor` is
+  //   raise-only on the quoting hold and never touches truncation or decode — correct for
+  //   `onOpenStorageFile`, which applies tasks+raid ONLY, and wrong here, where
+  //   `applyWorkspaceFromLoad` replaces the whole workspace including documents. Calling BOTH would
+  //   be redundant, not safer: `reportFor` already calls `reportImportDiagnostics(backend, true)`
+  //   and `reportMalformedQuotes` internally.
+  //   KILLED BY: deleting the `reportFor` call; swapping it for `reportImportFor`.
+  it("reports the load it just applied, through reportFor and not the import-only reporter", async () => {
+    await setupPick({ ...POPULATED(), confirmAnswer: true });
+    expect(reportForSpy).toHaveBeenCalledTimes(1);
+    expect(reportImportForSpy).not.toHaveBeenCalled();
+  });
+
+  // ★ …and only on the branch that actually loaded something. A decline reads the file but applies
+  //   nothing and binds nothing, so there is no in-scope workspace for a report to describe.
+  //   KILLED BY: hoisting the `reportFor` call above the confirm.
+  it("reports nothing when the user declines, because nothing was applied", async () => {
+    await setupPick({ ...POPULATED(), confirmAnswer: false });
+    expect(reportForSpy).not.toHaveBeenCalled();
+  });
 });
 
 describe("§590 — the cases that must NOT be interrupted", () => {
@@ -363,20 +444,22 @@ describe("§590 — the cases that must NOT be interrupted", () => {
   });
 });
 
-describe("§588 — the two windows §590 changed", () => {
-  // ★★★ GUARD 1'S ONLY REMAINING UNIQUE EFFECT, and the reason this test had to be written: §590
-  //   put guard 2 ABOVE `guardedWrite`, which is where all three hazards guard 1's own comment
-  //   claims for itself live (the wrong-target write, the spent one-shot, the refusal toast). So
-  //   guard 2 now subsumes every one of them, and guard 1 disabled ALONE leaves this file and
-  //   use-storage-backend.superseded-gate.test.tsx at 23/23 GREEN — measured, and the reason the
-  //   comment in use-storage-file-ops.ts no longer claims a kill it cannot produce.
-  //   What guard 1 still uniquely prevents is the READ: `loadFromHandleForBackend` against an
-  //   instance nobody is on, which spends a file read on a dead backend and resets and republishes
-  //   ITS import diagnostics (`resetLoadDiagnostics` plus the `finally` in
-  //   `LocalFileBackend.loadFrom`). Harmless today, because nothing on this path calls
-  //   `truncationOps.reportFor`. That is the whole of its remaining value, and it is worth a line
-  //   of code — but it must be SAID, not implied by a comment describing hazards a sibling covers.
+describe("§588 — the windows §590 opened", () => {
+  // ★★★ THE PICKER GUARD'S ONLY REMAINING UNIQUE EFFECT, and the reason this test had to be
+  //   written: §590 put the read guard above `guardedWrite`, which is where all three hazards the
+  //   picker guard's own comment claims for itself live (the wrong-target write, the spent
+  //   one-shot, the refusal toast). So a later guard subsumes every one of them, and the picker
+  //   guard disabled ALONE reds exactly this one test and leaves every other test in this file and
+  //   in use-storage-backend.superseded-gate.test.tsx green — measured, and the reason the comment
+  //   in use-storage-file-ops.ts no longer claims a kill it cannot produce.
+  //   What the picker guard still uniquely prevents is the READ: `loadFromHandleForBackend` against
+  //   an instance nobody is on, which spends a file read on a dead backend and resets and
+  //   republishes ITS import diagnostics (`resetLoadDiagnostics` plus the `finally` in
+  //   `LocalFileBackend.loadFrom`) — and since C1 the load-instead branch DOES call
+  //   `truncationOps.reportFor`, so those republished fields now have a live reader.
   //   KILLED BY: deleting the `stage: "picker"` guard (`readStarted` is then called once).
+  // ★ NO TALLY. This paragraph said "23/23 green" and was stale by two the day it was written —
+  //   the very tests it went on to name as the killer were the ones it had not counted.
   it("does not even read the picked file when a rebuild lands while the picker is open", async () => {
     DISK.set(PICKED_FILE, populatedProjectBytes());
     let releasePicker: (handle: FsHandle) => void = () => {};
@@ -411,24 +494,29 @@ describe("§588 — the two windows §590 changed", () => {
       await pick;
     });
 
-    expect(readStarted).not.toHaveBeenCalled(); // ★ the discriminating one — guard 2 cannot produce it
+    expect(readStarted).not.toHaveBeenCalled(); // ★ the discriminating one — no later guard can produce it
     expect(KV.has(HANDLE_KEY)).toBe(false);
     expect(tasksInFile()).toHaveLength(2);
+    // ★ The `stage` label is the only thing that tells an operator WHICH window dropped the op, and
+    //   nothing else in the suite observes it — a renamed stage or a deleted diagnostic would be
+    //   invisible. Asserted per guard, here and below.
+    expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.supersededPickDropped", { stage: "picker" });
   });
 
-  // ★★★ READING THE PICKED FILE IS A NEW AWAIT, so guard 1 (after the picker) can no longer see as
-  //   far as the first commit and a third guard was added between them. This is that guard's own
-  //   window: a settings-driven rebuild lands while the file is being read, and the op resumes
-  //   holding a backend nobody is on. Without it the op would bind the handle into the ACTIVE
+  // ★★★ READING THE PICKED FILE IS A NEW AWAIT, so the picker guard can no longer see as far as the
+  //   first commit and the read guard was added between them. This is that guard's own window: a
+  //   settings-driven rebuild lands while the file is being read, and the op resumes holding a
+  //   backend nobody is on. Without it the op would bind the handle into the ACTIVE
   //   `file-handle:local-json` slot and `guardedWrite` the empty workspace to the dead
   //   `LocalFileBackend` — i.e. it would destroy the picked file's project, which is §590's own
   //   damage reached through §588's door.
-  //   ★ It lives HERE rather than in use-storage-backend.superseded-gate.test.tsx, which pins guards
-  //   1 and 3: that file replaces the whole `./storage` facade, so there is no file read to pause.
+  //   ★ It lives HERE rather than in use-storage-backend.superseded-gate.test.tsx, which pins the
+  //   picker and write windows: that file replaces the whole `./storage` facade, so there is no file
+  //   read to pause.
   //   ★★ THE PICKED FILE IS EMPTY ON PURPOSE, so the op takes the WRITE branch — which is the hazard
-  //   guard 2 exists for. With a POPULATED file the op takes the offer branch instead, and a decline
-  //   commits nothing whether the guard is there or not, so the mutant survives and the test proves
-  //   nothing. Measured, not assumed: that was this test's first arrangement.
+  //   this guard exists for. With a POPULATED file the op takes the offer branch instead, and a
+  //   decline commits nothing whether the guard is there or not, so the mutant survives and the test
+  //   proves nothing. Measured, not assumed: that was this test's first arrangement.
   //   KILLED BY: deleting the `stage: "read"` guard.
   it("drops the pick when a rebuild lands while the picked file is being read", async () => {
     DISK.set(PICKED_FILE, "");
@@ -457,7 +545,7 @@ describe("§588 — the two windows §590 changed", () => {
     let pick!: Promise<void>;
     act(() => { pick = result.current.onPickStorageFile(); });
     // ★ PRECONDITION, ASSERTED: the op is parked INSIDE the read, i.e. it got past the picker AND
-    //   past guard 1. Without this the test would pass on an op that returned at guard 1 — which is
+    //   past the picker guard. Without this the test would pass on an op that returned earlier — which is
     //   a different guard's window and would make this test silently vacuous.
     await waitFor(() => expect(readStarted).toHaveBeenCalledTimes(1));
 
@@ -466,6 +554,140 @@ describe("§588 — the two windows §590 changed", () => {
 
     expect(KV.has(HANDLE_KEY)).toBe(false); // nothing bound on the backend the user has left…
     expect(DISK.get(PICKED_FILE)).toBe(""); // …and nothing written through it
+    expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.supersededPickDropped", { stage: "read" });
+  });
+
+  // ★★★ I2's WINDOW, and the load-bearing half of it. `await setBackendFileHandle` resolves to
+  //   `LocalFileBackend.setHandle` → `await idbSet(...)`, a real resumption point that §590 itself
+  //   inserted between the read guard and this branch's whole tail. Without a guard after it,
+  //   `applyPickedWorkspace` runs `applyWorkspaceFromLoad` on a dead instance, whose last three
+  //   statements are `setLoadedBackend` / `setSettledBackend` / `allowSavesTo` — §588's three harms
+  //   verbatim, and preceded by ~31 state setters that are not backend-scoped at all. The
+  //   observable is that the OTHER file's project never lands in scope.
+  //   ★★ A POPULATED file and an ACCEPTED confirm here, the opposite of its sibling above: this
+  //   window only exists on the load-instead branch, and a decline never reaches the bind.
+  //   ★ The bind itself is NOT undone and the assertion does not claim it is — `KV` holds the handle
+  //   by the time the guard runs, because the await IS the bind. What the guard saves is the apply.
+  //   KILLED BY: deleting the load-instead branch's `stage: "bind"` guard.
+  it("drops the apply when a rebuild lands while the picked handle is being bound", async () => {
+    DISK.set(PICKED_FILE, populatedProjectBytes());
+    let releaseBind: () => void = () => {};
+    idbGate.current = new Promise<void>((resolve) => { releaseBind = resolve; });
+    showSaveFilePicker.mockResolvedValue(handleFor(PICKED_FILE));
+    confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    const { result, rerender } = renderHook(
+      (props: { args: Parameters<typeof useStorageBackend>[0] }) => useProbe(props.args),
+      {
+        wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+        initialProps: { args: makeArgs({ kind: "local-json" } as StorageConfig) },
+      },
+    );
+    await waitFor(() => expect(result.current.loadPause).toBe("load-failed"));
+
+    let pick!: Promise<void>;
+    act(() => { pick = result.current.onPickStorageFile(); });
+    // ★ PRECONDITION, ASSERTED: the op got past the picker, past the read and past the confirm, and
+    //   is parked INSIDE the bind. Without this the test passes on an op that stopped earlier, which
+    //   is another guard's window.
+    await waitFor(() => expect(confirmSpy).toHaveBeenCalledTimes(1));
+
+    rerender({ args: makeArgs({ kind: "browser" } as StorageConfig) });
+    await act(async () => { releaseBind(); await pick; });
+
+    // ★★★ TWO OBVIOUS OBSERVABLES WERE TRIED HERE AND BOTH ARE NON-DISCRIMINATING, each measured
+    //   against this very mutant rather than reasoned about. Do not re-add either:
+    //     • `expect(result.current.tasks).toHaveLength(0)` — the superseded apply DOES set the tasks,
+    //       but the rebuilt backend's own load lands moments later and replaces them with its own
+    //       empty content, so it reads 0 in both states for a reason unrelated to the guard;
+    //     • `expect(result.current.loadPending).toBe(false)` — the superseded
+    //       `setSettledBackend(first)` should strand it TRUE (§588's harm (b)), and it would, except
+    //       that the rebuilt backend's own load FAILS in this harness and its catch re-stamps
+    //       `setSettledBackend(second)` afterwards, clearing the strand.
+    //   The rebuilt instance's own lifecycle masks every piece of workspace-level state. What it
+    //   cannot mask is a report filed for an instance nobody is on — the tail's own last statement.
+    // ★★ NOT a bare `not.toHaveBeenCalled()`, and the first cut was: the REBUILT backend's own load
+    //   effect legitimately calls `reportFor` for ITSELF once it lands, so the bare form fails with a
+    //   `BrowserBackend` in the call list and says nothing about the pick. The claim is that no
+    //   report was filed for the SUPERSEDED file backend.
+    expect(reportForSpy.mock.calls.filter(([b]) => b instanceof LocalFileBackend)).toHaveLength(0);
+    expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.supersededPickDropped", { stage: "bind" });
+  });
+
+  // ★★ THE OVERWRITE BRANCH'S COPY OF THE BIND GUARD, which its sibling above cannot pin: the two
+  //   branches have separate guards over the same new await, and the branch is chosen before either
+  //   runs. Measured: with only the load-instead test present, disabling THIS guard left both picker
+  //   suites green.
+  //   ★ The picked file is EMPTY so the op takes the write branch, and the observable is the write
+  //   itself — without the guard, `guardedWrite` saves the live (empty) workspace through the dead
+  //   `LocalFileBackend`, which is a real write into the user's file by a backend nobody is on. The
+  //   write guard below it cannot help: by the time that one runs, the save has already happened.
+  //   KILLED BY: deleting the overwrite branch's `stage: "bind"` guard.
+  it("drops the write when a rebuild lands while the picked handle is being bound", async () => {
+    DISK.set(PICKED_FILE, "");
+    let releaseBind: () => void = () => {};
+    idbGate.current = new Promise<void>((resolve) => { releaseBind = resolve; });
+    showSaveFilePicker.mockResolvedValue(handleFor(PICKED_FILE));
+    confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    const { result, rerender } = renderHook(
+      (props: { args: Parameters<typeof useStorageBackend>[0] }) => useProbe(props.args),
+      {
+        wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+        initialProps: { args: makeArgs({ kind: "local-json" } as StorageConfig) },
+      },
+    );
+    await waitFor(() => expect(result.current.loadPause).toBe("load-failed"));
+
+    let pick!: Promise<void>;
+    act(() => { pick = result.current.onPickStorageFile(); });
+    // ★ PRECONDITION, ASSERTED: the op got past the picker and the read with no offer raised (an
+    //   empty file holds no project), and is parked INSIDE the bind.
+    await waitFor(() => expect(showSaveFilePicker).toHaveBeenCalledTimes(1));
+    expect(confirmSpy).not.toHaveBeenCalled();
+
+    rerender({ args: makeArgs({ kind: "browser" } as StorageConfig) });
+    await act(async () => { releaseBind(); await pick; });
+
+    expect(DISK.get(PICKED_FILE)).toBe(""); // nothing written through the backend the user has left
+    expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.supersededPickDropped", { stage: "bind" });
+  });
+});
+
+describe("§548 — the pick takes the load hold", () => {
+  // ★★★ I3. `holdDuring`'s contract is "hold `loadPending` for the WHOLE of an op that awaits and
+  //   then REPLACES the workspace". Before §590 this op only ever wrote the live workspace OUTWARD,
+  //   so its exclusion from the hold was correct; its load-instead branch now replaces the whole
+  //   workspace with another file's, which is exactly that contract. The window is long by
+  //   construction — it waits on a human at two dialogs.
+  //   ★ `bumpScopeEpoch` is not a substitute: it drops background writes that HONOUR the epoch and
+  //   does nothing about the tree.
+  //   ★★ The observable is `loadPending` WHILE the picker is open, not after. At rest it is false
+  //   here (a failed load still calls `setSettledBackend`), so it discriminates.
+  //   KILLED BY: removing the `holdDuring(...)` wrapper from `onPickStorageFile`.
+  it("holds loadPending for as long as the picker is open", async () => {
+    DISK.set(PICKED_FILE, populatedProjectBytes());
+    let releasePicker: (handle: FsHandle) => void = () => {};
+    showSaveFilePicker.mockImplementation(() => new Promise<FsHandle>((resolve) => { releasePicker = resolve; }));
+    confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    const args = makeArgs({ kind: "local-json" } as StorageConfig);
+    const { result } = renderHook(() => useProbe(args), {
+      wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+    });
+    await waitFor(() => expect(result.current.loadPause).toBe("load-failed"));
+    // ★ PRECONDITION, ASSERTED: the hold is DOWN before the op starts, so the assertion below
+    //   observes this op raising it rather than a hold that was already up.
+    expect(result.current.loadPending).toBe(false);
+
+    let pick!: Promise<void>;
+    act(() => { pick = result.current.onPickStorageFile(); });
+    await waitFor(() => expect(showSaveFilePicker).toHaveBeenCalledTimes(1));
+
+    expect(result.current.loadPending).toBe(true);
+
+    await act(async () => { releasePicker(handleFor(PICKED_FILE)); await pick; });
+    await waitFor(() => expect(result.current.loadPending).toBe(false)); // …and released on the way out
   });
 });
 

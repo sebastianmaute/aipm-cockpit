@@ -1,5 +1,5 @@
 import { renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Settings } from "./settings-types";
 import type { Lang } from "./i18n";
 import type { StorageConfig } from "./storage";
@@ -84,23 +84,61 @@ function makeArgs(config: StorageConfig): Parameters<typeof useStorageBackend>[0
   };
 }
 
+// ★★★ THIS FILE HAD NO RESET, and until a second test existed nothing could show it. `createBackend`
+// is a module-level mock, so its call COUNT accumulated across tests — the negative test below read
+// 3 where it expected 1, made up entirely of the previous test's two calls plus its own one. A
+// count-based assertion in a file without a reset is measuring the whole file, not the test, and
+// `test:shuffle` reorders WITHIN a file, so which number it measures is not even fixed.
+// ★ `clearAllMocks` clears CALLS only; a queued `mockReturnValueOnce` survives it (see the same
+// landmine in use-storage-backend.superseded-gate.test.tsx). Both tests here queue what they consume.
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
 describe("useStorageBackend — backend-ref precondition (§588/§589)", () => {
-  it("mints a new backend instance when storageConfig changes", () => {
+  // ★★★ THE TITLE SAYS WHAT THE BODY CHECKS, AND IT USED TO PROMISE MORE. It was "mints a new
+  //   backend instance when storageConfig changes" and closed on
+  //   `expect(result.current).not.toBe(before)` — which reads TRUE in every state, because
+  //   `useStorageBackend` returns a fresh object literal on every render. That line passed on any
+  //   `rerender`, including one with the config unchanged and no backend minted, so it read as
+  //   evidence while proving nothing; and neither assertion ever observed the two minted backends
+  //   being distinct, or `backendRef` moving to the new one.
+  // ★ What `createBackend` × 2 DOES prove is the memo's dependency on `storageConfig` identity,
+  //   which is the precondition every later §588/§589 guard rests on. That is the whole claim now.
+  //   The ref's own coverage lives in the picker suites — see the landmine on `backendRef` itself.
+  it("rebuilds the backend memo when storageConfig changes", () => {
     const first = makeBackendStub("browser");
     const second = makeBackendStub("turso");
     vi.mocked(createBackend).mockReturnValueOnce(first).mockReturnValueOnce(second);
 
-    const { result, rerender } = renderHook<ReturnType<typeof useStorageBackend>, { config: StorageConfig }>(
+    const { rerender } = renderHook<ReturnType<typeof useStorageBackend>, { config: StorageConfig }>(
       (props) => useStorageBackend(makeArgs(props.config)),
       {
         wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
         initialProps: { config: fileConfig },
       },
     );
-    const before = result.current;
+    expect(createBackend).toHaveBeenCalledTimes(1); // ★ the baseline, so the "2" below is this rerender's doing
     rerender({ config: tursoConfig });
 
     expect(createBackend).toHaveBeenCalledTimes(2);
-    expect(result.current).not.toBe(before);
+  });
+
+  // ★ The negative half, and the reason the count above means anything: a rerender that does NOT
+  //   change the config must not rebuild. Without it "2 after a rerender" is consistent with a memo
+  //   that rebuilds on every render.
+  it("does not rebuild the backend memo when storageConfig is unchanged", () => {
+    vi.mocked(createBackend).mockReturnValue(makeBackendStub("browser"));
+
+    const { rerender } = renderHook<ReturnType<typeof useStorageBackend>, { config: StorageConfig }>(
+      (props) => useStorageBackend(makeArgs(props.config)),
+      {
+        wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+        initialProps: { config: fileConfig },
+      },
+    );
+    rerender({ config: fileConfig });
+
+    expect(createBackend).toHaveBeenCalledTimes(1);
   });
 });

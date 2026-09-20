@@ -368,10 +368,12 @@ describe("§588 — a superseded reload must not shut the new backend's gate", (
 // These three tests are the only thing standing under them.
 // ★★ §590 RENUMBERED THEM 1-of-3, and this file pins the OUTER two. The op picks
 // without binding and then READS the chosen file, which is a new await between
-// the old guards — so what was "guard 2" is now guard 3, and the new guard 2
-// covers the read. Guard 2 is NOT pinned here; its window needs a controllable
-// file read, which only the real-backend harness in
-// use-storage-file-ops.pick-overwrite.test.tsx has.
+// the old guards. ★★ THE GUARDS ARE NAMED BY THEIR `stage` LABEL NOW, NOT
+// NUMBERED — picker · read · bind · write — because every addition renumbered
+// every citation in two files and the last one left three of them wrong. This
+// file pins the PICKER-to-write stretch and the WRITE window; the read and bind
+// windows need a controllable file read and a controllable `idbSet`, which only
+// the real-backend harness in use-storage-file-ops.pick-overwrite.test.tsx has.
 // ───────────────────────────────────────────────────────────────────────────────
 
 /** Queue ONE "Pick storage file" whose OS dialog stays open until the returned
@@ -386,7 +388,7 @@ function openPickerDialog(): { release: () => void } {
   return { release: () => release() };
 }
 
-/** GUARD 1's window. Mount on `first` and let its own load open its gate, open
+/** THE PICKER WINDOW. Mount on `first` and let its own load open its gate, open
  *  the picker dialog against it, THEN rebuild onto `second` and let its load
  *  land — so when the user finally picks a file, the op resumes holding a
  *  backend nobody is on. The precondition (`second`'s gate really is open) is
@@ -435,11 +437,12 @@ describe("§588 — a superseded pick must not write to, or arm, the dead backen
   // sibling test below: `second` does still receive a save on the same
   // arrangement, so "not called" here cannot pass because saving stopped working
   // altogether.
-  // ★★★ THIS NO LONGER PINS GUARD 1 EITHER, AND IT SAID IT DID. §590 put guard 2
-  // (after the file read) ABOVE `guardedWrite`, so guard 2 stops this write too:
-  // disabling guard 1 ALONE leaves this file and
-  // use-storage-file-ops.pick-overwrite.test.tsx at 23/23 GREEN — measured, not
-  // predicted. Guard 1's only remaining unique kill lives in that other file
+  // ★★★ THIS NO LONGER PINS THE PICKER GUARD, AND IT SAID IT DID. §590 added the
+  // READ guard above `guardedWrite`, so that one stops this write too: disabling
+  // the picker guard ALONE reds exactly one test, and it is not in this file —
+  // measured, not predicted. ★ No tally here on purpose; this said "23/23 green"
+  // and was stale by two within a day of being written.
+  // The picker guard's only remaining unique kill lives in that other file
   // ("does not even read the picked file when a rebuild lands while the picker is
   // open"), because what it uniquely prevents now is the READ, which this harness
   // has no way to observe: it replaces the whole `./storage` facade, so no file is
@@ -453,19 +456,20 @@ describe("§588 — a superseded pick must not write to, or arm, the dead backen
   // ★ THE GATE HALF — the durable one. `allowSavesToActiveBackend()` resolves to
   // `allowSavesTo(first)`, moving the save gate off the backend on screen; every
   // later edit is then dropped in silence for the rest of the session.
-  // ★★★ THIS TEST DOES NOT PIN GUARD 1, AND THE MUTATION TABLE SAYS SO — measured,
-  // not predicted (I predicted it would). Deleting guard 1 leaves it GREEN,
+  // ★★★ THIS TEST DOES NOT PIN THE PICKER GUARD, AND THE MUTATION TABLE SAYS SO —
+  // measured, not predicted (I predicted it would). Deleting it leaves this GREEN,
   // because the op then runs on to a later guard, which catches the same rebuild
   // and refuses the same gate move. Its own sibling short-circuits the mutant.
   // Only deleting EVERY guard turns it red. Keep it anyway: it is the only
   // witness that the guards TOGETHER close the gate half, and it is the positive
   // control for its sibling's `not.toHaveBeenCalled()` — but do NOT cite it as
-  // evidence for any guard on its own. Guard 3's unique kill is the write-window
-  // test below; guard 1's is in use-storage-file-ops.pick-overwrite.test.tsx, and
-  // guard 2 is the one that makes the write test above pass.
-  // ★ §590 added guard 2 (the file read) between them, so "the op runs on to a
-  // later guard" is now true of two guards rather than one — which is also why
-  // the write test above stopped pinning guard 1.
+  // evidence for any guard on its own. The WRITE guard's unique kill is the
+  // write-window test below; the PICKER guard's is in
+  // use-storage-file-ops.pick-overwrite.test.tsx, and the READ guard is the one
+  // that makes the write test above pass.
+  // ★ §590 added the read and bind guards between them, so "the op runs on to a
+  // later guard" is now true of several rather than one — which is also why the
+  // write test above stopped pinning the picker guard.
   it("a rebuild during the picker leaves the live backend's gate open", async () => {
     const { result, second, savesBeforePick } = await setupSupersededPickScenario();
 
@@ -476,11 +480,11 @@ describe("§588 — a superseded pick must not write to, or arm, the dead backen
     expect(second.save.mock.calls[savesBeforePick][0].tasks.map((x: Task) => x.id)).toEqual([1, 2]);
   });
 
-  // ★ GUARD 3's window, which guards 1 and 2 cannot see: the rebuild lands
+  // ★ THE WRITE GUARD's window, which no earlier guard can see: the rebuild lands
   // INSIDE `guardedWrite`'s own await, i.e. after both have already answered
   // "current". Here the picker resolves at once and `first.save` is what hangs.
   // ★★ The write is NOT recoverable at this point and the assertion says so —
-  // `first.save` HAS been called. Guard 3 exists for the half that outlives the
+  // `first.save` HAS been called. The write guard exists for the half that outlives the
   // tick: the gate. Asserting `first.save` was called is also what stops this
   // test passing vacuously by never entering the window at all.
   it("a rebuild during the write still leaves the live backend's gate open (the write itself is already gone)", async () => {
@@ -499,7 +503,7 @@ describe("§588 — a superseded pick must not write to, or arm, the dead backen
     );
     await advance(100);
 
-    // The dialog closes IMMEDIATELY, so guard 1 sees a still-current backend and
+    // The dialog closes IMMEDIATELY, so the picker guard sees a still-current backend and
     // waves the op through into the write.
     (storageMod.pickFileHandleForBackend as ReturnType<typeof vi.fn>).mockReturnValueOnce(Promise.resolve({ name: "picked.json" }));
     let pick!: Promise<void>;
