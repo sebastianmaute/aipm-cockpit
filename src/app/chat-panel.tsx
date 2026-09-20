@@ -818,7 +818,42 @@ function ChatPanelInner({
             });
           }
 
-          messages.push({ role: "user", content: results });
+          // ★★★ NEVER PUSH AN EMPTY CARRIER. `content: []` is not "a carrier with
+          // nothing in it" to the API — it is an INVALID message, and it kills the
+          // conversation permanently: `closeDanglingToolUses` runs at the top of
+          // every send and (before §596) had no rule that removes an empty
+          // message, so every later send rebuilt the same invalid array, and in
+          // Turso mode the `setHistory` below is persisted by `use-chat-threads`'s
+          // save effect, so it survives reload and tab close. A new thread is the
+          // only recovery.
+          // ★★★ IT DOES NOT BITE ON *THIS* SEND'S CONTINUATION, AND GUESSING THAT
+          // IT DID PRODUCED A GREEN TEST AGAINST THE UNGUARDED CODE. While the
+          // empty message is the history TAIL, `buildWireMessages` appends the
+          // turn-context block INTO a trailing user message, so the wire sees
+          // `content: [ctx]` and the next round trip looks perfectly healthy. The
+          // damage lands on the NEXT send: the user's new turn is appended after
+          // the empty one, which is then no longer the tail, gets no backfill, and
+          // goes out as `content: []` behind two consecutive `user` turns. Any
+          // test of this must span TWO sends; one that reads this send's second
+          // request passes either way.
+          // ★★ TWO WAYS TO GET HERE WITH NOTHING, and only the second needs an
+          // await, which is why the guard is at the SOURCE rather than left to a
+          // downstream repair. (1) A turn with `stop_reason: "tool_use"` and no
+          // `tool_use` block in its content — malformed, but it is external data
+          // and nothing upstream validates it; `shouldStage([])` is false, so it
+          // reaches this loop and matches nothing. That one is reachable TODAY
+          // and is pinned by "a tool_use turn carrying no tool_use block…" in
+          // `chat-panel.test.tsx`. (2) The §596 per-tool guard breaking on the
+          // FIRST tool — unreachable today, since nothing awaits between the
+          // post-`callClaude` `stale()` and the first `runTool`, and deliberately
+          // guarded anyway rather than left as a trap for whoever adds one.
+          // ★ Skipping the push is correct, not a second bug: the assistant turn
+          // then has NO carrier at all, which is exactly the shape
+          // `closeDanglingToolUses` was written to repair, and it runs before the
+          // next request either way.
+          if (results.length > 0) {
+            messages.push({ role: "user", content: results });
+          }
           continueBubble = false; // tool output breaks the text flow — new bubble
           continue;
         }

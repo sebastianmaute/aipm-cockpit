@@ -373,11 +373,18 @@ export const INTERRUPTED_TOOL_RESULT =
  * in history, the NEXT send appends a user turn right after the dangling
  * tool_use and the whole request is rejected — wedging the chat.
  *
- * The tool loop builds a turn's results all-or-nothing (one user message with
- * every result, or none), so a dangling turn never has a partial carrier —
- * detection is simply "is the next message a user tool_result carrier for these
- * ids?". If not, inject one with `is_error` results for all the ids. A
- * well-formed history is returned unchanged (identity).
+ * Detection is "is the next message a user tool_result carrier for these ids?".
+ * If not, inject one with `is_error` results for all the ids. A well-formed
+ * history is returned unchanged (identity).
+ *
+ * ★★ THE PARTIAL-CARRIER BRANCH IS LIVE, and this docstring used to say the
+ *  opposite ("the tool loop builds a turn's results all-or-nothing … so a
+ *  dangling turn never has a partial carrier"). §596's per-tool scope guard
+ *  breaks out of the loop between tools, so a turn whose swap lands mid-batch
+ *  leaves a carrier holding the results of the tools that DID run. That branch
+ *  is no longer defensive; it is the normal repair for that case.
+ * ★★ AN EMPTY carrier (`content: []`) is a third shape, and it is the dangerous
+ *  one — see the comment at the branch that consumes it.
  */
 export function closeDanglingToolUses(messages: ApiMessage[]): ApiMessage[] {
   const out: ApiMessage[] = [];
@@ -414,6 +421,30 @@ export function closeDanglingToolUses(messages: ApiMessage[]): ApiMessage[] {
     } else {
       // No carrier at all: insert one covering every dangling id.
       out.push({ role: "user", content: synthetic });
+      // ★★★ AN EMPTY ARRAY IS A CARRIER, NOT AN ABSENCE, and conflating the two
+      // killed threads permanently. `[]` is truthy with length 0, so the branch
+      // above is skipped and this one runs — but without consuming `i + 1` the
+      // empty message was emitted verbatim on the next iteration, so the array
+      // this function RETURNED was invalid twice over: an empty `content`, and two
+      // consecutive `user` turns. This function runs at the top of every send and
+      // had no rule that removes an empty message, so the next send rebuilt the
+      // same array forever. In Turso mode the history is persisted, so the thread
+      // stayed dead across reloads and only a new thread recovered it.
+      // ★★ THE EMPTY-CONTENT HALF CAN BE MASKED, which is worth knowing before
+      // testing this: `buildWireMessages` appends the turn-context block into a
+      // TRAILING user message, so while the empty one is last it goes out as
+      // `content: [ctx]` and looks healthy. Once anything follows it, it does not.
+      // The consecutive-`user` half is never masked.
+      // ★★ THIS IS THE RESCUE HALF. `chat-panel.tsx` no longer CREATES an empty
+      // carrier; this is what repairs a history that already contains one — the
+      // only thing that can help a thread already persisted in that state.
+      // ★ Scoped to EMPTY on purpose: a non-empty, non-`tool_result` `next` is the
+      // user's own following message, and consuming that would delete what they
+      // typed. The first test in this file's `closeDanglingToolUses` block pins
+      // that it survives.
+      if (next?.role === "user" && Array.isArray(next.content) && next.content.length === 0) {
+        consumed.add(i + 1);
+      }
     }
   }
   return out;

@@ -1440,6 +1440,81 @@ describe("dangling tool_use recovery (max_tokens truncation)", () => {
     ).toBe(true);
   });
 
+  it("a tool_use turn carrying no tool_use block never puts an empty carrier on the wire", async () => {
+    // ★★★ REACHABLE WITH NO AWAIT ANYWHERE, which is why the guard sits at the
+    //  push rather than in a downstream repair. `stop_reason: "tool_use"` with no
+    //  `tool_use` block in the content is malformed — but it is EXTERNAL DATA and
+    //  nothing between the socket and here validates it. `shouldStage([])` is
+    //  false, so the turn takes the immediate path, the loop matches nothing, and
+    //  `results` ends empty.
+    // ★★ WHY AN EMPTY CARRIER IS FATAL AND NOT MERELY UNTIDY: `content: []` is an
+    //  INVALID message, so the request 400s; `closeDanglingToolUses` runs at the
+    //  top of every send and (before §596) had no rule that removes an empty
+    //  message, so the next send rebuilt the same invalid array — forever. The
+    //  history is `setHistory`'d, and in Turso mode persisted by
+    //  `use-chat-threads`'s save effect, so the thread stayed dead across reload
+    //  and tab close and only a new thread recovered it.
+    // ★★★ IT BITES ON THE *NEXT* SEND, NOT ON THIS SEND'S CONTINUATION, and the
+    //  first cut of this test asserted the wrong one and PASSED against the
+    //  unguarded code. Within a send the empty carrier is the history TAIL, and
+    //  `buildWireMessages` appends the turn-context block INTO a trailing user
+    //  message — so the wire sees `content: [ctx]` and nothing looks wrong. The
+    //  next send appends the user's new turn AFTER the empty one, which is then
+    //  no longer the tail, gets no backfill, and goes out as `content: []` behind
+    //  two consecutive `user` turns. Hence the second send below; asserting on
+    //  `bodies[1]` proves nothing.
+    // OBSERVABLE: the THIRD request's `messages` (the second SEND's first call).
+    //  Guarded — no empty content, no consecutive user turns. Unguarded — both.
+    const bodies: string[] = [];
+    let call = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+      bodies.push(String(init?.body ?? ""));
+      call += 1;
+      const body =
+        call === 1
+          ? {
+              // Malformed: says tool_use, carries none.
+              content: [{ type: "text", text: "let me look" }],
+              stop_reason: "tool_use",
+              usage: { input_tokens: 1, output_tokens: 1 },
+            }
+          : {
+              content: [{ type: "text", text: call === 2 ? "all done" : "second answer" }],
+              stop_reason: "end_turn",
+              usage: { input_tokens: 1, output_tokens: 1 },
+            };
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () => Promise.resolve(body),
+      } as unknown as Response);
+    });
+
+    render(
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "what is open?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(screen.getByText("all done")).toBeInTheDocument());
+
+    fireEvent.change(ta, { target: { value: "and now?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(screen.getByText("second answer")).toBeInTheDocument());
+
+    // PRECONDITION: the first send really round-tripped twice and the second send
+    // really went out, so a clean read below is not a read of nothing.
+    expect(bodies).toHaveLength(3);
+    const sent = JSON.parse(bodies[2]) as { messages: { role: string; content: unknown }[] };
+    expect(sent.messages.some((m) => Array.isArray(m.content) && m.content.length === 0)).toBe(false);
+    // The second property the API rejects, pinned beside it: an empty carrier that
+    // `closeDanglingToolUses` later "repairs" also splits the turn into two
+    // consecutive user messages.
+    expect(
+      sent.messages.some((m, i) => i > 0 && m.role === "user" && sent.messages[i - 1].role === "user"),
+    ).toBe(false);
+  });
+
   it("auto-continues a truncated TEXT answer without a prod (both halves shown, nudge hidden)", async () => {
     const bodies: string[] = [];
     let call = 0;

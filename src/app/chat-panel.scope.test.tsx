@@ -16,8 +16,9 @@
 
 import "fake-indexeddb/auto";
 import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { ChatPanel } from "./chat-panel";
+import { isValidAnthropicApiKey } from "./chat-models";
 import type { ToolDispatcher } from "./chat-tools";
 import { defaultAiConfig as baseAiConfig } from "./settings-types";
 
@@ -51,6 +52,13 @@ vi.mock("./use-push-to-talk", () => ({
   }),
 }));
 
+/** ★★★ `"sk-test"` IS LOAD-BEARING AND READS AS ARBITRARY. It deliberately FAILS
+ *  `isValidAnthropicApiKey` (`/^sk-ant-[A-Za-z0-9_-]{16,}$/`), which is what keeps
+ *  `useChatModels` from firing its own `GET /v1/models` on mount. Every test here
+ *  asserts `fetch` call COUNTS and several park the first call's promise, so a
+ *  second, unrelated request would break the preconditions and the parking alike.
+ *  Tidy this into a realistic-looking `sk-ant-…` and the whole file changes
+ *  meaning — the guard test in the first describe fails first and says so. */
 const AI_WITH_KEY = {
   ...baseAiConfig,
   enabled: true,
@@ -137,8 +145,19 @@ function send(text = "add a task") {
 }
 
 describe("in-flight send vs. the panel's lifetime", () => {
-  beforeEach(() => vi.restoreAllMocks());
+  // ★ ONE restore, not two. `vitest.config.ts` sets no `restoreMocks`, so this is
+  //   doing real work — but a `beforeEach` doing the same thing cannot add any:
+  //   nothing in this file spies outside a test body, so after this hook has run
+  //   once there is never anything left over for a `beforeEach` to clean up.
   afterEach(() => vi.restoreAllMocks());
+
+  it("fixture guard: the test API key is deliberately NOT a well-formed Anthropic key", () => {
+    // Executable form of the comment at `AI_WITH_KEY`. A key that passed this
+    // would make `useChatModels` issue a second `fetch` on every mount here, and
+    // every call-count assertion in this file would start failing for a reason
+    // that has nothing to do with what it is testing.
+    expect(isValidAnthropicApiKey(AI_WITH_KEY.apiKey)).toBe(false);
+  });
 
   /** The shared body of the unmount PAIR below. Renders, parks the send
    *  mid-await, unmounts, releases the response, and hands back what both
@@ -226,10 +245,19 @@ describe("in-flight send vs. the panel's lifetime", () => {
     //   check between `await callClaude(...)` and the tool loop breaks out.
     const { dispatcher, jsonSpy, abortedAtUnmount } = await unmountMidSend(true);
 
-    // The send's own AbortSignal, so the cleanup's second line (the
-    // `abortRef.current?.abort()`) has an observable of its own — releasing the
-    // HTTP request is a separate effect from breaking the loop, and a mutant
-    // deleting it survives every other assertion here.
+    // ★★ A PRESENCE PIN, NOT A BEHAVIOURAL ONE, and it should be read as exactly
+    //   that: it observes the MUTATED LINE itself. Delete `abortRef.current
+    //   ?.abort()` and of course the signal is not aborted — the assertion cannot
+    //   fail for any other reason, so it proves the call happens and nothing about
+    //   what the call achieves. The CONSEQUENCE — the HTTP request actually being
+    //   released — is not observed anywhere in this file.
+    // ★★ THAT IS A TRADE, not an oversight. Observing the consequence means a
+    //   `fetch` double that REJECTS on abort, and then the awaited `callClaude`
+    //   throws before `stale()` is ever consulted — which would silently delete
+    //   this test's other half, the `cancelledRef` loop break that the release
+    //   path below is what pins. Keeping the release shape keeps both lines under
+    //   test, one behaviourally and one by presence. A consequence test needs its
+    //   own case with its own double; it is not a stronger version of this one.
     expect(abortedAtUnmount).toBe(true);
     // POSITIVE CONTROL: the awaited continuation really did resume after the
     // release. Without it a run in which nothing ever resolved would report zero
@@ -306,7 +334,14 @@ describe("in-flight send vs. the panel's lifetime", () => {
       // `src/app/strictmode.meta.test.tsx`.
       { reactStrictMode: true },
     );
-    expect(saveChatConversation.mock.calls.length).toBeGreaterThanOrEqual(2);
+    // ★★ EXACTLY 2, not `>= 2`. The claim this witness exists to make is
+    //   "StrictMode DOUBLE-invoked the mount", and `>= 2` cannot tell that from
+    //   three mounts or from an effect re-firing on a dependency change — it
+    //   proves "at least double", which is a different and weaker claim than the
+    //   one the non-vacuity argument below rests on. If this ever goes red at 3,
+    //   the right response is to find out what mounted a third time, not to
+    //   loosen the comparison back.
+    expect(saveChatConversation).toHaveBeenCalledTimes(2);
 
     send("hi");
 
@@ -316,8 +351,7 @@ describe("in-flight send vs. the panel's lifetime", () => {
 });
 
 describe("in-flight send vs. the storage scope", () => {
-  beforeEach(() => vi.restoreAllMocks());
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.restoreAllMocks()); // see the note on the sibling describe's hook
 
   /** Parks a send mid-await, moves the epoch to `epochAtRelease`, then releases a
    *  one-`create_task` turn. The pair below differ in THAT NUMBER ALONE.
