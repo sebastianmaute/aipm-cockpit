@@ -630,8 +630,12 @@ describe("useHashView", () => {
 
   it("never routes for a user whose hydrated layout stays classic", () => {
     window.location.hash = "#raid";
+    // Cold target must differ from WorkspaceTabProvider's own default
+    // ("dashboard") or the activeTab assertion below is true whether or not
+    // the cold rule ran — see the sibling tests above for the same fixture.
+    const features = ALL_MODULE_IDS.filter((m) => m !== "dashboard");
     const { result, rerender } = renderHook(
-      ({ enabled }: { enabled: boolean }) => { useHashView(enabled); return useWorkspaceTab(); },
+      ({ enabled }: { enabled: boolean }) => { useHashView(enabled, features); return useWorkspaceTab(); },
       { wrapper, initialProps: { enabled: false } },
     );
     rerender({ enabled: false }); // hydration resolves: classic — still disabled
