@@ -132,12 +132,16 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   user CANCELLED at the OS file picker, and a settings-driven rebuild onto the same target. In
   //   each of those the project never changed, so an in-flight result that would have landed in the
   //   RIGHT project was dropped — and for the committee push that costs a permanent orphan plus a
-  //   duplicate event (see `useCommitteeOutlookPush`). It now bumps in exactly two places:
+  //   duplicate event (see `useCommitteeOutlookPush`). It now has exactly THREE bump sites — the
+  //   same three `scope-epoch.ts`'s header enumerates, and the same three
+  //   `grep -rn "bumpScopeEpoch()" src/app --include=*.ts --include=*.tsx | grep -v test` prints:
   //   (a) a load that REPLACES rather than merges — i.e. §591's own rule, decided once in
-  //       `resolveLogModeAndStamp` below so there is no second copy of it; and
-  //   (b) an op that put ANOTHER project's data in scope — `applyWorkspaceForOp` (the six
-  //       switch/create/load ops) and `onOpenStorageFile`'s accept branch, which replaces tasks+raid
-  //       with another file's through raw setters.
+  //       `resolveLogModeAndStamp` below so there is no second copy of it;
+  //   (b) an op that put ANOTHER project's data in scope — `applyWorkspaceForOp`, the wrapper the
+  //       two project-op hooks receive as their `applyWorkspace` dep (the six switch/create/load
+  //       ops); and
+  //   (c) `onOpenStorageFile`'s accept branch, which replaces tasks+raid with another file's
+  //       through raw setters and so reaches neither (a) nor (b).
   // ★★ (b) is NOT redundant with (a): `storageTargetKey` keys `browser` and every `local-*` kind on
   //   the KIND ALONE (§591 ruling 3), so a file-mode project switch does not move the key at all.
   // ★★ It is bumped SYNCHRONOUSLY, immediately BEFORE the replacement it announces, so there is no

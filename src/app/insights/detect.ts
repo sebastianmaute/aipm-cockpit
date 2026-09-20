@@ -205,6 +205,16 @@ function budgetVarianceInsight(
     //   against its (correctly small) to-date budget. An untouched-to-date bucket is not a variance,
     //   even one carrying hours in a later period — epsilon, not `=== 0`, because summed float hours
     //   can land a hair off zero.
+    // ★★ WHAT THIS DELIBERATELY STOPS SIGNALLING, said plainly because it is a DETECTION LOSS and
+    //   not a side effect: a bucket that HAS started and is fully budgeted to date but has ZERO
+    //   bookings used to produce a 100% UNDER-spend variance and could be flagged. It no longer is.
+    //   The threshold below is on |variance %|, so "budgeted and nothing booked" is arithmetically
+    //   the strongest under-spend signal this detector could raise — and that is exactly why it had
+    //   to go: before the fix above it was indistinguishable from the far more common case of a
+    //   bucket whose bookings simply have not been entered yet, or whose only hours sit in a future
+    //   period, so it fired constantly and the insight was noise. Under-spend-to-zero is therefore
+    //   OUT OF SCOPE for `budgetVariance`; it belongs to a detector with its own evidence (a bucket
+    //   near its end date with nothing booked), not to a percentage over an empty numerator.
     if (Math.abs(toDate.actualHours) < RATIO_EPSILON) continue;
     // A closed predecessor's spillover (±) is available from this bucket's start, as in the report.
     const budgetToDate = toDate.budgetHours + b.spilloverInHours;

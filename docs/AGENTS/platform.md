@@ -205,13 +205,17 @@
   workspace in scope has become a DIFFERENT PROJECT", not "a load is happening". The first cut bumped
   on every false→true transition of `loadPending`, which also fires for a same-target reload, a held op
   the user CANCELLED at the OS file picker, and a settings-driven rebuild onto the same target — in all
-  of which an in-flight result that would have landed in the RIGHT project was dropped. It now bumps in
-  exactly two places: **(a)** a load that REPLACES rather than merges, decided inside
+  of which an in-flight result that would have landed in the RIGHT project was dropped. It now has exactly
+  THREE bump sites — the count and the labelling that `scope-epoch.ts`'s header and
+  `use-storage-backend.ts` both use, and what
+  `grep -rn "bumpScopeEpoch()" src/app --include=*.ts --include=*.tsx | grep -v test` prints:
+  **(a)** a load that REPLACES rather than merges, decided inside
   `resolveLogModeAndStamp` so §591's rule has one implementation and the epoch cannot drift from it;
-  and **(b)** an op that put another project's data in scope — `applyWorkspaceForOp` (the wrapper the
+  **(b)** an op that put another project's data in scope — `applyWorkspaceForOp` (the wrapper the
   two project-op hooks receive as their `applyWorkspace`, covering `switchToProject` · `createProject` ·
-  `loadProjectFromFile` · `createDemoProject` · `switchToTursoProject` · `createTursoProject`) and
-  `onOpenStorageFile`'s ACCEPT branch, which replaces tasks+raid through raw setters. ★★ (b) is NOT
+  `loadProjectFromFile` · `createDemoProject` · `switchToTursoProject` · `createTursoProject`); and
+  **(c)** `onOpenStorageFile`'s ACCEPT branch, which replaces tasks+raid through raw setters and so
+  reaches neither of the other two. ★★ (b) and (c) are NOT
   redundant with (a): `storageTargetKey` keys `browser` and every `local-*` kind on the KIND ALONE
   (§591 ruling 3), so a file-mode project switch never moves the key. ★ `migrateCurrentProjectToTurso`
   never calls `applyWorkspace` — same project, new backend — so it correctly never bumps, and neither

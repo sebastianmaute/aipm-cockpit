@@ -105,7 +105,16 @@
   actual hours TO DATE against its budget TO DATE — both restricted to the SAME periods, whose start is ≤
   `today` (`bucketFiguresToDate`) — plus a closed predecessor's spillover added to the budget side once
   the bucket's own window has started — and skips a bucket with nothing booked to date or whose window
-  has not started. A booking in a future period no longer inflates either side. An outcome `baseline`
+  has not started. A booking in a future period no longer inflates either side. ★★★ **THAT SKIP IS A
+  DELIBERATE DETECTION LOSS, NOT A SIDE EFFECT, and it is worth stating because the lost case is the
+  arithmetically LOUDEST one.** A started, fully-budgeted bucket with ZERO bookings to date used to
+  produce a 100% UNDER-spend variance and could be flagged; it no longer is. The threshold is on
+  |variance %|, so an empty numerator over a non-zero budget always maxes it out — and before the to-date
+  fix that state was indistinguishable from the ordinary case of bookings not yet entered, or of hours
+  sitting only in a later period, so it fired constantly and made the insight noise. **Under-spend-to-zero
+  is now OUT OF SCOPE for `budgetVariance`**; surfacing it needs a detector with its own evidence (a
+  bucket near its END date with nothing booked), not a percentage over an empty numerator. Do not
+  "restore" it by deleting the `RATIO_EPSILON` skip in `budgetVarianceInsight` — that re-opens §577. An outcome `baseline`
   captured before the F3 follow-up compares a figure that still counted future-period actuals against
   this fully to-date one — a one-time delta jump, same as the original §577 change. `insightMetricValue`/`insightMetricSnapshot`/
   `metricAtActionPatch`/`baselineOf`/`computeOutcome`. ★★ ALL metrics are LOWER-IS-BETTER, so `improved` ⇔
