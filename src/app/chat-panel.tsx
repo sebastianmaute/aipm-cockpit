@@ -534,7 +534,9 @@ function ChatPanelInner({
   // Save-As, a cancelled OS file dialog and a same-project Reload all tear this
   // panel down without the workspace becoming another project's. It is TRUE only
   // while an op that WILL replace this workspace with another project's is in
-  // flight (`holdDuring(..., "changes-scope")`, four rows). When it is false the
+  // flight — the `holdDuring(..., "changes-scope")` rows, a minority of the ten
+  // and deliberately not counted here: the split moved once and took seven
+  // sentences with it. When it is false the
   // turn is left alone to finish into the project the user is still in — and if
   // the scope did move after all, the epoch drops the write at resolution, which
   // is the correctness guarantee. This cancel is only ever a cost optimisation.

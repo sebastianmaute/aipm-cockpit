@@ -247,7 +247,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // ★★★ §596 — A NARROWER COUNT, NOT A MIRROR OF THE ONE ABOVE, AND THE DIFFERENCE IS THE POINT.
   //   ★★ THIS COMMENT SAID "THE SAME COUNT AS A REF" AND WAS TRUE WHEN WRITTEN — the B1 fix below
   //   then split the two and left the sentence standing. `setSwapsInFlight` counts ALL TEN held
-  //   ops; this ref counts only the FOUR `hold[D]uring(..., "changes-scope")` rows. Do NOT "restore"
+  //   ops; this ref counts only the `hold[D]uring(..., "changes-scope")` rows — a strict subset,
+  //   and deliberately not quoted as a number here (see the derive recipes at the call-site block;
+  //   the number moved once already and seven sentences went stale). Do NOT "restore"
   //   the invariant by re-coupling them: that is precisely the B1 regression (a plain Save-As, a
   //   cancelled OS dialog and a same-project Reload silently killing a live AI turn), and the two
   //   counts answer different questions on purpose.
@@ -303,7 +305,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // render value.
   // ★★ WHAT IT SELECTS FOR, stated precisely because the first wording was "tell a §548 teardown
   //   from ordinary view navigation" and the B1 fix made that misleading. It does NOT select §548
-  //   teardowns: SIX of the ten held ops raise the §548 hold and leave this FALSE. It answers the
+  //   teardowns: MOST of the ten held ops raise the §548 hold and leave this FALSE — every one that
+  //   is not `"changes-scope"`, which is the majority (derive it at the call-site block rather than
+  //   reading a number here; this sentence said SIX and was falsified by one reclassification). It answers the
   //   narrower question `chat-panel.tsx`'s unmount cleanup actually asks — "is the workspace about
   //   to become another project's?" — so a teardown caused by a Save-As, a cancelled dialog or a
   //   same-project reload reads false and the in-flight AI turn is left alone. Reading the old
@@ -1263,7 +1267,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   and replacing the workspace. Getting it wrong towards `"same-scope"` costs tokens; getting it
   //   wrong towards `"changes-scope"` destroys the user's work silently.
   // ★★★ "CANCELLABLE" MEANS *THE USER DECLINES*, NOT *THE OP FAILS*, and the distinction is the
-  //   whole rule — read it before reclassifying anything. All four `"changes-scope"` ops can still
+  //   whole rule — read it before reclassifying anything. EVERY `"changes-scope"` op can still
   //   ABORT: a Turso guard returning null, a save or load throwing, a same-target early return. Each
   //   of those false-cancels a turn too. A FAILURE is accepted because it announces itself — the
   //   user gets a toast and knows something went wrong — where a user who backs out of an OS dialog
@@ -1333,15 +1337,33 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   and wrong for the one that matters: the branch is not chosen until AFTER the picker and the
     //   read have both resolved, so a hold raised there starts after the window it exists to cover.
     //   A wrapper that holds too much is a visual cost; a hold that starts late is not a hold.
-    // ★★★ §596 — THE SECOND ARGUMENT IS NOT BOILERPLATE, and the four `"changes-scope"` rows are
-    //   the ONLY ones that may cancel a live AI turn. Read the rule at `holdDuring` before adding a
-    //   row: `"same-scope"` is the safe default, and an op earns `"changes-scope"` only when NOTHING
-    //   the user can cancel sits between the hold and the replacement. The six `"same-scope"` rows
-    //   each fail that on a stated ground — a picker/dialog that may be cancelled or declined
-    //   (`onPickStorageFile`, `onOpenStorageFile`, `loadProjectFromFile`, `createProject`, whose own
-    //   comment names "the user cancels the save-file picker"), or a target that cannot move at all
-    //   (`reloadCurrentProject` reloads the CURRENT one; `migrateCurrentProjectToTurso` applies
-    //   nothing of another project's and never bumps the epoch — `scope-epoch.ts` says so).
+    // ★★★ §596 — THE SECOND ARGUMENT IS NOT BOILERPLATE: the `"changes-scope"` rows are the ONLY
+    //   ones that may cancel a live AI turn. Read the rule at `holdDuring` before adding a row:
+    //   `"same-scope"` is the safe default, and an op earns `"changes-scope"` only when NOTHING the
+    //   user can cancel sits between the hold and the replacement.
+    // ★★ NO COUNT IS QUOTED IN THIS FILE ANY MORE, and that is a correction, not a style: the split
+    //   was 4/6, `switchToProject` moved, and SEVEN live sentences across three files went on saying
+    //   4 and 6 — three of them written by the two commits whose whole subject was sweeping stale
+    //   claims. A number here is falsified by the next reclassification, which is exactly the edit a
+    //   reader of this block is about to make. Derive it — ★★ `-o … | wc -l`, NEVER `grep -c`: the
+    //   rows below are packed several to a LINE, so a line count reported 2/5 against a real 3/7
+    //   while I was writing this very recipe, which is the same miscount the `hold[D]uring(`
+    //   recipe up at the declaration already warns about. Use `-n` to READ them, `-o` to COUNT:
+    //     grep -o 'hold[D]uring([a-zA-Z]*, "changes-scope")' src/app/use-storage-backend.ts | wc -l
+    //     grep -o 'hold[D]uring([a-zA-Z]*, "same-scope")'    src/app/use-storage-backend.ts | wc -l
+    //     grep -n 'hold[D]uring([a-zA-Z]*, "\(changes\|same\)-scope")' src/app/use-storage-backend.ts
+    // ★★★ EVERY `"same-scope"` ROW FAILS THE RULE ON A STATED GROUND, and this list is the whole
+    //   set — it omitted `switchToProject` for a round while that op sat four lines below under its
+    //   own ★★★ block, i.e. a paragraph asserting its own completeness while incomplete, which is
+    //   the same shape as the "all nine ops" table that was missing its tenth. Grounds:
+    //   a picker/dialog that may be cancelled or declined (`onPickStorageFile`, `onOpenStorageFile`,
+    //   `loadProjectFromFile`, `createProject`, whose own comment names "the user cancels the
+    //   save-file picker"); abort paths after the hold (`switchToProject` — unknown id,
+    //   already-current, missing file handle, and a write-permission prompt the user can DENY); or a
+    //   target that cannot move at all (`reloadCurrentProject` reloads the CURRENT one;
+    //   `migrateCurrentProjectToTurso` applies nothing of another project's and never bumps the
+    //   epoch — `scope-epoch.ts` says so). If you add a row, add its ground here or the next reader
+    //   cannot check your classification.
     onPickStorageFile: holdDuring(onPickStorageFile, "same-scope"), onGrantWriteAccess, onOpenStorageFile: holdDuring(onOpenStorageFile, "same-scope"), onRequestStorageSwitch,
     reloadCurrentProject: holdDuring(reloadCurrentProject, "same-scope"), allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     // ★★★ `switchToProject` IS `"same-scope"`, AND IT SHIPPED AS `"changes-scope"` FOR ONE ROUND —

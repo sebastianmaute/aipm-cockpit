@@ -147,8 +147,10 @@ export interface WorkspaceSectionProps {
   getScopeEpoch: ScopeEpochReader;
   /** §596 — true while an op that will replace this workspace with ANOTHER
    *  project's is in flight. NOT the load hold: `loadPending` rises for all ten
-   *  held ops plus `!hydrated` plus every backend rebuild, this for the four
-   *  `holdDuring(..., "changes-scope")` rows alone.
+   *  held ops plus `!hydrated` plus every backend rebuild, this for the
+   *  `holdDuring(..., "changes-scope")` rows alone — a strict subset, not counted
+   *  here on purpose: the split moved once and falsified seven sentences that had
+   *  quoted it. `use-storage-backend.ts`'s call-site block carries the recipe.
    *
    *  ★★★ THE CHAT PANEL'S UNMOUNT CLEANUP IS THE ONLY CALLER, AND IT ASKS AT
    *   CLEANUP TIME. Do not "simplify" this to a `loadPending` boolean prop —

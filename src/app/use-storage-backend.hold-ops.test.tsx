@@ -9,7 +9,10 @@
 //   as covered. Re-derive the universe rather than trusting this line:
 //     grep -n "hold[D]uring(" src/app/use-storage-backend.ts
 // ★★ THE TWO SIGNALS DISAGREE ON PURPOSE. `loadPending` rises for all ten; `isSwapInFlight` rises for
-//   the four `"changes-scope"` rows alone, and the third test asserts each row's own expectation.
+//   the `"changes-scope"` rows alone, and the third test asserts each row's OWN declared expectation
+//   — which is why no count belongs in this sentence: the table below is the enumeration, and a
+//   number here would be a third copy of a split that has already moved once and taken seven
+//   sentences with it.
 // ★ The Turso mocks copy use-storage-backend.test.tsx's convention: `./turso-portfolio` replaced
 //   wholesale; `./turso-pipeline` spread from the actual module with only `testTursoConnection` stubbed
 //   (the §408 connection probe); a `TursoBackend` class whose `load` reads a hoisted seam.
