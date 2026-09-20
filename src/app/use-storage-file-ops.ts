@@ -14,6 +14,7 @@ import type { Lang } from "./i18n";
 import { t, tPlural } from "./i18n";
 import type { Settings } from "./settings-types";
 import {
+  type FsHandle,
   type LocalStorageFormat,
   type StorageBackend,
   type StorageConfig,
@@ -24,11 +25,25 @@ import {
   loadFromHandleForBackend,
   openFileForBackend,
   pickFileForBackend,
+  pickFileHandleForBackend,
   pickOpenFileAny,
   requestWriteAccessForBackend,
   setBackendFileHandle,
   StorageNotReadyError,
 } from "./storage";
+// ★★ §590 — imported from `./workspace`, NOT through the `./storage` facade that also re-exports
+//   them, and that is a TESTABILITY constraint rather than a style choice. Several suites replace the
+//   whole facade with a hand-written export list; a name reached through it is `undefined` in every
+//   one of them unless each list is extended, and a hand-kept list that misses a name fails as a
+//   TypeError inside the op rather than at import. `./workspace` is replaced by none of them. Same
+//   module `use-storage-backend.ts` takes these two from.
+// ★ Enumerate the suites with a self-match-proof pattern — the obvious literal also matches THIS
+//   comment and any prose quoting it, which is how a first cut of this line counted eleven files
+//   where there are nine:
+//     grep -rln 'vi[.]mock("[.]/storage"' src/app
+//   Read the hits rather than counting them: a file that merely MENTIONS the call in prose is a
+//   false positive that no pattern can exclude.
+import { workspaceRecordCount } from "./workspace";
 import { addProject, loadRegistry, saveRegistry, setCurrentProject as setCurrentProjectInRegistry } from "./projects-registry";
 import { getHandle } from "./project-file-handles";
 import { localKindForFormat, deriveRegistryEntry } from "./use-project-switch";
@@ -407,25 +422,118 @@ export interface StorageFilePickerDeps {
    *  `onOpenStorageFile`'s accept branch: that path replaces tasks+raid from another file through raw
    *  setters, never `applyWorkspace`, so the wrapper the project ops get cannot cover it — and
    *  `storageTargetKey` keys every `local-*` kind on the KIND alone (§591 ruling 3), so the load
-   *  effect's replace rule cannot either. `onPickStorageFile` deliberately does NOT call it: it
-   *  writes the CURRENT workspace out, leaving the same project in scope. */
+   *  effect's replace rule cannot either. `onPickStorageFile` deliberately does NOT call it DIRECTLY,
+   *  and since §590 that is a statement about ONE of its two branches rather than about the op: the
+   *  overwrite branch writes the CURRENT workspace out and leaves the same project in scope, so there
+   *  is nothing to announce; the load-instead branch replaces scope with ANOTHER file's project and
+   *  does need the bump — it gets it inside `applyPickedWorkspace` below, which is
+   *  `applyWorkspaceForOp`, the wrapper whose whole job is to bump. Calling this too would double-bump. */
   bumpScopeEpoch: () => void;
+  /** §590 — apply a workspace read from the file the user just picked, when they chose to LOAD it
+   *  rather than overwrite it. Wired to `applyWorkspaceForOp` (use-storage-backend.ts), so it bumps
+   *  the scope epoch, REPLACES the activity log rather than merging the outgoing project's entries
+   *  into it, resets the id minter for a different id space, and opens the §586 save gate for the
+   *  active backend on its way out. ★ That last one is why the accept branch does NOT also call
+   *  `allowSavesToActiveBackend` — one mechanism, not two. */
+  applyPickedWorkspace: (workspace: Workspace) => void;
+}
+
+/**
+ * Records a USER authored — `workspaceRecordCount` minus the three reference-data slices.
+ *
+ * ★★★ THIS EXISTS BECAUSE `isWorkspaceEmpty` AND THE BARE RECORD COUNT BOTH ANSWER THE WRONG
+ * QUESTION HERE, and the first cut of §590 used the former and mis-fired. DECODING ANY VALID
+ * WORKSPACE JSON SEEDS REFERENCE DATA: the migration chain inside `jsonToWorkspace` gives an
+ * otherwise-record-free file 4 disciplines and 6 grades, and both counters count both. So every
+ * parseable file — INCLUDING one this app itself wrote seconds earlier while its workspace was
+ * empty, which is exactly what a second pick of the same file meets — read as "already holds a
+ * project with 10 records" and would have raised the offer over nothing.
+ * Measured, not reasoned. Run it before trusting this paragraph — `vite-node` has NO `-e` flag, so
+ * it has to be a file (an earlier revision of this comment documented a `-e` one-liner that cannot
+ * run at all, which is the same class of unverified recipe §590's own brief shipped):
+ *   printf '%s\n' "import { jsonToWorkspace, workspaceToJson, emptyWorkspace } from './src/app/storage';" \
+ *     "const w = jsonToWorkspace(workspaceToJson(emptyWorkspace()));" \
+ *     "console.log('disciplines', w.disciplines?.length, 'grades', w.grades?.length, 'roles', w.roles?.length);" > seed-probe.ts
+ *   npx vite-node seed-probe.ts; rm -f seed-probe.ts
+ * It printed `disciplines 4 grades 6 roles 0` on 2026-09-20. The behaviour is also pinned in the
+ * suite, by "writes normally, without asking, when the picked file holds only seeded reference data".
+ * ★★ `roles` came back 0 in that measurement, i.e. it is NOT seeded today; it is excluded anyway
+ * because it is the third member of the reference-data trio (resources/roles/disciplines/grades in
+ * AGENTS.md's sample-data rule) and the question being asked is "is there anything here a person
+ * made". `resources` is deliberately KEPT: it is user-authored in general, and where the decode
+ * chain does derive it (`migrateWorkspaceV5` builds a directory from assignee strings) it derives it
+ * FROM tasks, which are counted anyway.
+ */
+function authoredRecordCount(workspace: Workspace): number {
+  return workspaceRecordCount(workspace)
+    - (workspace.roles?.length ?? 0)
+    - (workspace.disciplines?.length ?? 0)
+    - (workspace.grades?.length ?? 0);
 }
 
 export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
+  /**
+   * Read what a picked handle ALREADY holds, or null when it holds no project.
+   *
+   * ★ A brand-new or empty file and an unparseable one are both "no project": the normal write must
+   *   proceed, not an offer to load nothing. `showSaveFilePicker` CREATES the file when the user
+   *   types a new name, so the zero-byte case is the common one, not an edge case —
+   *   `LocalFileBackend.loadFrom` short-circuits it to `emptyWorkspace()`.
+   * ★★ `loadFromHandleForBackend` is §287's read half: it reads the EXPLICIT handle and never
+   *   consults or touches the backend's stored one, so nothing here re-points anything. The bind
+   *   stays the caller's decision, which is the entire point of §590.
+   * ★★ It DOES reset and republish the backend's import diagnostics (`resetLoadDiagnostics` plus the
+   *   `finally` in `LocalFileBackend.loadFrom`). Harmless on this path because nothing in
+   *   `onPickStorageFile` calls `truncationOps.reportFor`, the only reader of those fields — verify
+   *   before adding one below, rather than trusting this line:
+   *   `grep -rn "reportFor(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`.
+   */
+  async function readPickedProject(
+    handle: FsHandle,
+  ): Promise<{ workspace: Workspace; records: number } | null> {
+    const load = loadFromHandleForBackend(deps.backend, handle);
+    if (!load) return null; // not a file backend — unreachable here, since the pick above returned non-null on the same `instanceof`.
+    try {
+      const workspace = await load;
+      return { workspace, records: authoredRecordCount(workspace) };
+    } catch {
+      return null;
+    }
+  }
+
   async function onPickStorageFile() {
     if (deps.truncationOps.wouldRefuseWrite()) { deps.truncationOps.refuseWrite(); return; } // ★★★ §103: refuse BEFORE the picker — it creates the file and persists the handle on the ACTIVE backend, so a write-only guard stranded the app on an empty file. See `refuseWrite` (use-load-truncation.ts).
-    const promise = pickFileForBackend(deps.backend);
+    // ★★★ §590 — THE NON-BINDING PICK. `pickFileForBackend` (still used by `createProject` and
+    //   `onRequestStorageSwitch` below) `idbSet`s the handle onto the ACTIVE backend before the
+    //   caller can ask anything about the chosen file. After a FAILED load the live workspace is the
+    //   empty boot one, so the `guardedWrite` further down then wrote THAT into whatever file the
+    //   user picked — destroying the project of a user who reached for the picker to recover a file
+    //   whose handle or permission had been lost. This one commits nothing; the bind happens below,
+    //   per branch, after the decision. Same split `openFileForBackend` already applies to open (§287).
+    const promise = pickFileHandleForBackend(deps.backend);
     if (!promise) return;
-    await promise;
-    // ★★ §588 — GUARD 1 of 2. The picker is the longest await in this file (it waits on a human at an
+    let picked: FsHandle;
+    try {
+      picked = await promise;
+    } catch {
+      // ★★ §590 — THE CANCELLED DIALOG, which is the single most common path through this code.
+      //   `pickSaveFile` PROPAGATES the picker's `AbortError` (and `StorageNotReadyError` when the
+      //   File System Access API is absent). Nothing was picked, so there is nothing to bind, write
+      //   or undo, and dismissing your own dialog is not an error to report: the app is left
+      //   byte-identical to before the click.
+      // ★ Its OWN `try`, deliberately above the main one — the catch at the foot speaks
+      //   `storageSaveFailed`, and an abort announced as a failed save is a claim about a write that
+      //   never started.
+      return;
+    }
+    // ★★ §588 — GUARD 1 of 3. The picker is the longest await in this file (it waits on a human at an
     //   OS dialog), so a settings-driven rebuild landing inside it is the likeliest instance of the
     //   superseded-caller defect. `deps.backend` is render-#1's instance, and once it is no longer
     //   live, everything past this line is being done on behalf of a backend nobody is on.
-    // ★★★ DO NOT DELETE THIS ON THE GROUNDS THAT GUARD 2 COVERS IT — guard 2 covers exactly ONE of
+    // ★★★ DO NOT DELETE THIS ON THE GROUNDS THAT GUARD 3 COVERS IT — guard 3 covers exactly ONE of
     //   the three hazards here, the gate, and cannot prevent or undo the other two. What guard 1
     //   uniquely stops, all of it inside `guardedWrite` (`use-load-truncation.ts`), which runs BEFORE
-    //   guard 2 is ever reached:
+    //   guard 3 is ever reached:
     //     1. the WRONG-TARGET WRITE — `guardedWrite` calls `save` on the captured instance, putting
     //        the live project's workspace on a backend the user has left;
     //     2. the SPENT ONE-SHOT — it first calls `mayCommitAfterIncompleteLoad()`, which CONSUMES
@@ -436,20 +544,63 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
     //        putting a truncation refusal about the OLD backend into the new project's UI.
     //   ★ 2 and 3 are not observable as a wrong FILE; they are hook state and a toast, which is why
     //   they read as unrelated defects later. ★★ The suite will not stop a deletion either: the
-    //   picker's GATE test stays GREEN with this guard gone, because guard 2 catches that half. The
+    //   picker's GATE test stays GREEN with this guard gone, because guard 3 catches that half. The
     //   test that dies is "a rebuild during the picker drops the write to the superseded backend".
     if (!deps.isBackendCurrent()) { logDiag("warn", "storage.supersededPickDropped", { stage: "picker" }); return; }
     try {
+      // ★★★ §590 — READ BEFORE BINDING. Nothing is committed yet: the handle is still just a value
+      //   this function holds, so every exit between here and the two `setBackendFileHandle` calls
+      //   below leaves the backend on the file it was already using, with nothing to undo.
+      const existing = await readPickedProject(picked);
+      // ★★ §588 — GUARD 2 of 3, and the window is NEW with §590: the read above is an await that did
+      //   not exist before, so guard 1 can no longer see as far as the first commit. It covers the
+      //   confirm below too — `window.confirm` blocks the main thread, so no rebuild can land inside
+      //   it, which is why this guard is placed once here rather than once per branch.
+      if (!deps.isBackendCurrent()) { logDiag("warn", "storage.supersededPickDropped", { stage: "read" }); return; }
+      // ★★★ §590 — THE OFFER. Both halves of the condition are load-bearing and neither implies the
+      //   other. (a) the PICKED file holds records somebody authored, so overwriting it destroys
+      //   something; (b) the LIVE workspace holds none, so there is nothing of the user's to lose by
+      //   loading instead. With (b) dropped this would interrupt an ordinary "save as" over an old
+      //   file, and with the user's real work in scope, loading over it would be the DESTRUCTIVE
+      //   answer — the very thing §590 is about, pointed the other way.
+      // ★★ ONE predicate, asked of both sides, on purpose: a file is "a project" by exactly the test
+      //   that decides whether the live workspace is one. Two different tests here drift, and the
+      //   drift is invisible because each side is only ever read on its own branch.
+      // ★★★ It is `authoredRecordCount`, NOT `isWorkspaceEmpty` — read its docstring before changing
+      //   this line. The obvious predicate counts auto-seeded reference data and fires over nothing.
+      if (existing !== null && existing.records > 0 && authoredRecordCount(deps.currentWorkspace()) === 0) {
+        // ★★★ `window.confirm`, NOT the branded `useConfirm()`, and this is measured rather than
+        //   preferred: `useStorageBackend` is called in `TaskManagerInner`'s BODY
+        //   (task-manager.tsx), while `ConfirmProvider` is rendered in that same component's own
+        //   JSX — so a `useConfirm()` here reads the DEFAULT context, which resolves `false`
+        //   unconditionally. The offer would then always be declined and this click would do nothing,
+        //   for every user, with no test able to see it. `use-activity-log.ts` records the identical
+        //   trap for the identical reason. It is also the idiom the two sibling gates in this file
+        //   already use (`onOpenStorageFile`, `onRequestStorageSwitch`).
+        // ★ OK = load the existing project; Cancel = leave both the file and the app untouched. The
+        //   safe answer is the one the dialog's own Cancel gives, so an accidental dismissal
+        //   destroys nothing.
+        if (!window.confirm(t(deps.langRef.current, "storagePickFileHasProject", picked.name ?? "", existing.records))) return;
+        await setBackendFileHandle(deps.backend, picked); // ★ commit the pick ONLY now — the §287 shape `onOpenStorageFile` already uses.
+        deps.suppressNextSaveRef.current = true; // ★★★ AFTER the bind, never before: a bind that THROWS jumps to the catch, and an already-armed flag would then swallow the next legitimate save of a workspace nothing had modified. Same landmine as `onOpenStorageFile`.
+        deps.applyPickedWorkspace(existing.workspace); // bumps the scope epoch, replaces the activity log, and opens the §586 gate — see its doc on `StorageFilePickerDeps`.
+        await deps.refreshBackendStatus();
+        deps.emitToast("info", t(deps.langRef.current, "storageOpenedToast", existing.workspace.tasks.length));
+        return;
+      }
+      // The ordinary pick: a new, empty or unreadable file, or a live workspace that is really the
+      // user's. Bind, then write — `save()` reads the STORED handle, so the bind cannot follow it.
+      await setBackendFileHandle(deps.backend, picked);
       if (!(await deps.truncationOps.guardedWrite(deps.backend, deps.currentWorkspace()))) return; // ★ Kept as the backstop: the pre-check above is the one that matters, but a truncating load landing between them must still not commit.
-      // ★★ §588 — GUARD 2 of 2, for a DIFFERENT window: `guardedWrite` is itself an await, so a
-      //   rebuild can land inside it, after guard 1 has already said "current". One guard per await,
-      //   because one guard cannot see past the next one. ★ Its hazard set is a STRICT SUBSET of
-      //   guard 1's — the gate alone. By the time we get here `guardedWrite` has already written and
-      //   already spent the one-shot, and this cannot undo either; the gate is simply the half that
-      //   outlives the tick, since a stray write to a file the user picked themselves is recoverable
-      //   while a save gate pointed at a dead backend silently drops every later edit for the
-      //   session. ★ Pinned alone by "a rebuild during the write still leaves the live backend's gate
-      //   open (the write itself is already gone)".
+      // ★★ §588 — GUARD 3 of 3, for a DIFFERENT window: `guardedWrite` is itself an await, so a
+      //   rebuild can land inside it, after guards 1 and 2 have already said "current". One guard per
+      //   await, because one guard cannot see past the next one. ★ Its hazard set is a STRICT SUBSET
+      //   of guard 1's — the gate alone. By the time we get here `guardedWrite` has already written
+      //   and already spent the one-shot, and this cannot undo either; the gate is simply the half
+      //   that outlives the tick, since a stray write to a file the user picked themselves is
+      //   recoverable while a save gate pointed at a dead backend silently drops every later edit for
+      //   the session. ★ Pinned alone by "a rebuild during the write still leaves the live backend's
+      //   gate open (the write itself is already gone)".
       if (!deps.isBackendCurrent()) { logDiag("warn", "storage.supersededPickDropped", { stage: "write" }); return; }
       deps.allowSavesToActiveBackend(); // ★★ §586: after a FAILED load autosave is refused; this write put the live workspace on the backend, so it belongs there now. Without it a user who re-picks a lost file would never autosave again this session.
       await deps.refreshBackendStatus();

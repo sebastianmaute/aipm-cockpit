@@ -31,6 +31,7 @@ vi.mock("./storage", () => ({
   openFileForBackend: vi.fn(() => null),
   loadFromHandleForBackend: vi.fn(() => null),
   pickFileForBackend: vi.fn(() => null),
+  pickFileHandleForBackend: vi.fn(() => null),
   pickOpenFileAny: vi.fn(),
   formatFromFileName: vi.fn(() => "json"),
   requestWriteAccessForBackend: vi.fn(() => null),

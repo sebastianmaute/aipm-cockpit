@@ -72,10 +72,29 @@ export function createBackend(
   }
 }
 
+/**
+ * Pick a save target and bind it to the backend in one step. For callers that
+ * are creating or converting INTO a file and have nothing to read first — see
+ * the landmine on {@link LocalFileBackend.pickFile}.
+ */
 export function pickFileForBackend(
   backend: StorageBackend,
 ): Promise<void> | null {
   if (backend instanceof LocalFileBackend) return backend.pickFile();
+  return null;
+}
+
+/**
+ * Pick a save target from a file-based backend WITHOUT binding it — the pick
+ * half of the commit-on-accept split (§590), so a caller can read what the
+ * chosen file already contains before committing to overwrite it. Pair it with
+ * {@link loadFromHandleForBackend} to read, then {@link setBackendFileHandle}
+ * to commit; mirrors {@link openFileForBackend}, which does the same for open.
+ */
+export function pickFileHandleForBackend(
+  backend: StorageBackend,
+): Promise<FsHandle> | null {
+  if (backend instanceof LocalFileBackend) return backend.pickFileHandle();
   return null;
 }
 

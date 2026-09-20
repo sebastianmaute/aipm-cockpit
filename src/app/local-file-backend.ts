@@ -92,10 +92,44 @@ export class LocalFileBackend implements StorageBackend {
     return this.getHandle();
   }
 
+  /**
+   * Pick a save target AND bind it in one step.
+   *
+   * ★★ THE BIND-AND-GO HALF OF THE PICK PAIR, and it is still correct for the
+   * callers that reach it. Both are creating or converting INTO a file and have
+   * nothing to read first: `createProject` picks a target for a workspace it has
+   * just BUILT, and `onRequestStorageSwitch` picks one for a conversion it has
+   * already gated on `loadSucceeded()`, so the workspace it is about to write is
+   * a real project rather than the empty boot one.
+   * ★★★ NOT for "Pick storage file". That one must read what the chosen file
+   * already holds before committing to overwrite it — see {@link pickFileHandle}
+   * and §590. Enumerate today's callers of this one with
+   * `grep -rn "pickFileForBackend" src --include=*.ts --include=*.tsx | grep -v "\.test\."`,
+   * which returns the facade helper plus exactly those two call sites.
+   */
   async pickFile(): Promise<void> {
     // showSaveFilePicker grants readwrite implicitly when the user picks a file.
     const handle = await pickSaveFile(this.format);
     await idbSet(this.idbKey, handle);
+  }
+
+  /**
+   * Pick a save target and return its handle WITHOUT binding it.
+   *
+   * ★★★ THE PICK HALF OF THE COMMIT-ON-ACCEPT SPLIT (§590), exactly mirroring
+   * what {@link openFile} is to `load` under §287. `pickFile` above binds before
+   * the caller can ask anything, and `idbKey` is derived from the backend KIND
+   * rather than the instance — so it really is the ACTIVE slot, and after a
+   * FAILED load the very next `save()` wrote the empty boot workspace into a file
+   * that may already have held the user's project.
+   * ★ Commit with {@link setHandle} once the user has accepted; a decline leaves
+   * the backend on the previous file with nothing to undo.
+   * ★★ No `tryGrantPermission` here, unlike `openFile`: `showSaveFilePicker`
+   * grants readwrite implicitly when the user picks a file, which is why
+   * `pickFile` never asked either.
+   */
+  async pickFileHandle(): Promise<FsHandle> {
+    return pickSaveFile(this.format);
   }
 
   /**

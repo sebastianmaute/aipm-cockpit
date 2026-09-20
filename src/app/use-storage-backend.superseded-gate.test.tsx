@@ -34,6 +34,7 @@ vi.mock("./storage", () => ({
   openFileForBackend: vi.fn(() => null),
   loadFromHandleForBackend: vi.fn(),
   pickFileForBackend: vi.fn(() => null),
+  pickFileHandleForBackend: vi.fn(() => null),
   pickOpenFileAny: vi.fn(),
   formatFromFileName: vi.fn(() => "json"),
   requestWriteAccessForBackend: vi.fn(() => null),
@@ -170,7 +171,7 @@ afterEach(() => {
   //   `test:shuffle` reorders WITHIN a file, so "the next test" is not a fixed one. Without this the
   //   symptom would be a test failing only in shuffled order, only after an unrelated test went red.
   createBackendMock.mockReset();
-  (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReset();
+  (storageMod.pickFileHandleForBackend as ReturnType<typeof vi.fn>).mockReset();
 });
 
 /** The shared arrangement all four `it`s below run identically, so they cannot
@@ -361,19 +362,26 @@ describe("§588 — a superseded reload must not shut the new backend's gate", (
 // ───────────────────────────────────────────────────────────────────────────────
 // §588, THE PICKER HALF. `onPickStorageFile` has the same shape as the reload —
 // it captures the render-scope backend and reaches `allowSavesToActiveBackend`
-// after an await — but it has TWO awaits, and each needs its own witness. Every
-// existing test of this op mocks `pickFileForBackend` to `null`, so it returns
-// before either guard: deleting BOTH guards outright leaves the whole suite
-// green. These three tests are the only thing standing under them.
+// after an await — but it has several awaits, and each needs its own witness.
+// Every other test of this op mocks the picker to `null`, so it returns before
+// any guard: deleting them all outright leaves the rest of the suite green.
+// These three tests are the only thing standing under them.
+// ★★ §590 RENUMBERED THEM 1-of-3, and this file pins the OUTER two. The op picks
+// without binding and then READS the chosen file, which is a new await between
+// the old guards — so what was "guard 2" is now guard 3, and the new guard 2
+// covers the read. Guard 2 is NOT pinned here; its window needs a controllable
+// file read, which only the real-backend harness in
+// use-storage-file-ops.pick-overwrite.test.tsx has.
 // ───────────────────────────────────────────────────────────────────────────────
 
 /** Queue ONE "Pick storage file" whose OS dialog stays open until the returned
- *  `release` is called. `onPickStorageFile` only checks the promise for
- *  truthiness and discards its value. */
+ *  `release` is called. ★ Since §590 the promise's VALUE is used — it is the
+ *  picked handle the op then reads and later binds — so it resolves with a
+ *  handle-shaped stub rather than `undefined`. */
 function openPickerDialog(): { release: () => void } {
   let release: () => void = () => {};
-  (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-    new Promise<void>((resolve) => { release = () => resolve(); }),
+  (storageMod.pickFileHandleForBackend as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+    new Promise<{ name: string }>((resolve) => { release = () => resolve({ name: "picked.json" }); }),
   );
   return { release: () => release() };
 }
@@ -402,7 +410,7 @@ async function setupSupersededPickScenario() {
   const dialog = openPickerDialog();
   let pick!: Promise<void>;
   act(() => { pick = result.current.onPickStorageFile(); });
-  expect(storageMod.pickFileForBackend).toHaveBeenCalledTimes(1); // the op is genuinely parked on the dialog, not returned early
+  expect(storageMod.pickFileHandleForBackend).toHaveBeenCalledTimes(1); // the op is genuinely parked on the dialog, not returned early
 
   rerender({ config: { kind: "turso" } as StorageConfig });
   await advance(150);
@@ -436,13 +444,15 @@ describe("§588 — a superseded pick must not write to, or arm, the dead backen
   // later edit is then dropped in silence for the rest of the session.
   // ★★★ THIS TEST DOES NOT PIN GUARD 1, AND THE MUTATION TABLE SAYS SO — measured,
   // not predicted (I predicted it would). Deleting guard 1 leaves it GREEN,
-  // because the op then runs on to guard 2, which catches the same rebuild and
-  // refuses the same gate move. Its own sibling short-circuits the mutant. Only
-  // deleting BOTH guards turns it red. Keep it anyway: it is the only witness
-  // that the two guards TOGETHER close the gate half, and it is the positive
+  // because the op then runs on to a later guard, which catches the same rebuild
+  // and refuses the same gate move. Its own sibling short-circuits the mutant.
+  // Only deleting EVERY guard turns it red. Keep it anyway: it is the only
+  // witness that the guards TOGETHER close the gate half, and it is the positive
   // control for its sibling's `not.toHaveBeenCalled()` — but do NOT cite it as
-  // evidence for either guard on its own. Guard 1's unique kill is the write
-  // test above; guard 2's is the write-window test below.
+  // evidence for any guard on its own. Guard 1's unique kill is the write test
+  // above; guard 3's is the write-window test below.
+  // ★ §590 added guard 2 (the file read) between them, so "the op runs on to a
+  // later guard" is now true of two guards rather than one.
   it("a rebuild during the picker leaves the live backend's gate open", async () => {
     const { result, second, savesBeforePick } = await setupSupersededPickScenario();
 
@@ -453,11 +463,11 @@ describe("§588 — a superseded pick must not write to, or arm, the dead backen
     expect(second.save.mock.calls[savesBeforePick][0].tasks.map((x: Task) => x.id)).toEqual([1, 2]);
   });
 
-  // ★ GUARD 2's window, which guard 1 cannot see: the rebuild lands INSIDE
-  // `guardedWrite`'s own await, i.e. after guard 1 has already answered
+  // ★ GUARD 3's window, which guards 1 and 2 cannot see: the rebuild lands
+  // INSIDE `guardedWrite`'s own await, i.e. after both have already answered
   // "current". Here the picker resolves at once and `first.save` is what hangs.
   // ★★ The write is NOT recoverable at this point and the assertion says so —
-  // `first.save` HAS been called. Guard 2 exists for the half that outlives the
+  // `first.save` HAS been called. Guard 3 exists for the half that outlives the
   // tick: the gate. Asserting `first.save` was called is also what stops this
   // test passing vacuously by never entering the window at all.
   it("a rebuild during the write still leaves the live backend's gate open (the write itself is already gone)", async () => {
@@ -478,7 +488,7 @@ describe("§588 — a superseded pick must not write to, or arm, the dead backen
 
     // The dialog closes IMMEDIATELY, so guard 1 sees a still-current backend and
     // waves the op through into the write.
-    (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValueOnce(Promise.resolve());
+    (storageMod.pickFileHandleForBackend as ReturnType<typeof vi.fn>).mockReturnValueOnce(Promise.resolve({ name: "picked.json" }));
     let pick!: Promise<void>;
     act(() => { pick = result.current.onPickStorageFile(); });
     await advance(1);

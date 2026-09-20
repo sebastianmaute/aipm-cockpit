@@ -33,6 +33,7 @@ vi.mock("./storage", () => ({
   openFileForBackend: vi.fn(() => null),
   loadFromHandleForBackend: vi.fn(),
   pickFileForBackend: vi.fn(() => null),
+  pickFileHandleForBackend: vi.fn(() => null),
   pickOpenFileAny: vi.fn(),
   formatFromFileName: vi.fn(() => "json"),
   requestWriteAccessForBackend: vi.fn(() => null),
@@ -269,7 +270,11 @@ describe("§586 — no save before a load for the current backend has succeeded"
   it("(g) picking a storage file after a failed load arms autosave — the backend now holds what is in memory", async () => {
     const backend = makeBackend(100, "reject");
     createBackendMock.mockReturnValue(backend);
-    (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve());
+    // §590 — the op now picks WITHOUT binding and reads the chosen file first. `loadFromHandleForBackend`
+    // is mocked to `undefined` in this file, so the read yields "no project" and the ordinary write
+    // branch runs, which is what this test is about. The "already holds a project" branch has its own
+    // suite (use-storage-file-ops.pick-overwrite.test.tsx), over a real LocalFileBackend.
+    (storageMod.pickFileHandleForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve({ name: "picked.json" }));
     const { result } = render();
     await advance(200);
 

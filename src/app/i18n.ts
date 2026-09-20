@@ -393,6 +393,10 @@ const enUS = {
   storageOpenedToast: "Loaded {0} task(s) from file.",
   storageConfirmOverwrite:
     "This will replace the {0} task(s) currently in the app with the contents of the file. Continue?",
+  // §590 — shown when "Save as new file" is pointed at a file that ALREADY holds a project while the
+  // open project is empty (its last load failed). {0} = file name, {1} = record count in that file.
+  storagePickFileHasProject:
+    "\"{0}\" already holds a project with {1} record(s). The open project is empty because its last load did not succeed, so saving into this file would replace what is already there.\n\nOK loads the existing project from this file instead. Cancel leaves both the file and the app untouched.",
   storagePermissionNeeded: "permission required on next save",
   storageSwitchedToast: "Storage backend switched.",
   projectSwitchedToast: "Switched to project {0}.",

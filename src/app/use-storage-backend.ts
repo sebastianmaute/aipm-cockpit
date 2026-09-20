@@ -1059,6 +1059,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setRaid,
     tasks,
     bumpScopeEpoch, // §548 clause (b) — onOpenStorageFile's accept branch only
+    applyPickedWorkspace: applyWorkspaceForOp, // §590 — onPickStorageFile's load-instead branch; the wrapper bumps the epoch itself, so that branch must NOT also call `bumpScopeEpoch`.
   });
 
   // Re-load the CURRENT project's workspace from its backend, discarding the
