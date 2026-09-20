@@ -73,7 +73,19 @@ vi.mock("./project-file-handles", () => ({
 /** The §588 pick guards emit `storage.supersededPickDropped` with a `stage` label, and the label is
  *  the only thing telling an operator WHICH window dropped the op. Spied rather than swallowed, so
  *  a renamed stage or a deleted diagnostic is visible. ★ `importOriginal`, so every other
- *  `diagnostics` export stays real — the module is on the load path for more than this. */
+ *  `diagnostics` export stays real — the module is on the load path for more than this.
+ *  ★★★ THE SET IS FIVE — picker · read · bind-load · bind-overwrite · write — and EVERY ONE is
+ *  asserted, which is a claim that goes stale the moment a sixth guard is added. Re-derive it with
+ *  `grep -nE "stage: .(picker|read|bind|write)" src/app/use-storage-file-ops.ts`; four are asserted
+ *  in this file and `write` in use-storage-backend.superseded-gate.test.tsx, which is the only
+ *  harness that can hang a `guardedWrite`. ★★ A previous round asserted three of the five and its
+ *  report said "all three", which is how a named set hides a missing member: the sentence was true
+ *  of the set it named and the set was not the set.
+ *  ★★ `logDiag` ITSELF IS A BARE SPY, NOT CALL-THROUGH, and that is deliberate rather than an
+ *  oversight of the `importOriginal` beside it: the real one appends to a module-level diagnostics
+ *  ring that outlives the test, and nothing here asserts on the ring. Call-through would add shared
+ *  mutable state between tests to buy an observable no test wants. The `importOriginal` exists for
+ *  the module's OTHER exports, which are on the load path. */
 const { logDiagSpy } = vi.hoisted(() => ({ logDiagSpy: vi.fn() }));
 vi.mock("./diagnostics", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./diagnostics")>()),
@@ -568,7 +580,7 @@ describe("§588 — the windows §590 opened", () => {
   //   window only exists on the load-instead branch, and a decline never reaches the bind.
   //   ★ The bind itself is NOT undone and the assertion does not claim it is — `KV` holds the handle
   //   by the time the guard runs, because the await IS the bind. What the guard saves is the apply.
-  //   KILLED BY: deleting the load-instead branch's `stage: "bind"` guard.
+  //   KILLED BY: deleting the load-instead branch's bind guard (the one labelled bind-load).
   it("drops the apply when a rebuild lands while the picked handle is being bound", async () => {
     DISK.set(PICKED_FILE, populatedProjectBytes());
     let releaseBind: () => void = () => {};
@@ -611,7 +623,7 @@ describe("§588 — the windows §590 opened", () => {
     //   `BrowserBackend` in the call list and says nothing about the pick. The claim is that no
     //   report was filed for the SUPERSEDED file backend.
     expect(reportForSpy.mock.calls.filter(([b]) => b instanceof LocalFileBackend)).toHaveLength(0);
-    expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.supersededPickDropped", { stage: "bind" });
+    expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.supersededPickDropped", { stage: "bind-load" });
   });
 
   // ★★ THE OVERWRITE BRANCH'S COPY OF THE BIND GUARD, which its sibling above cannot pin: the two
@@ -622,7 +634,7 @@ describe("§588 — the windows §590 opened", () => {
   //   itself — without the guard, `guardedWrite` saves the live (empty) workspace through the dead
   //   `LocalFileBackend`, which is a real write into the user's file by a backend nobody is on. The
   //   write guard below it cannot help: by the time that one runs, the save has already happened.
-  //   KILLED BY: deleting the overwrite branch's `stage: "bind"` guard.
+  //   KILLED BY: deleting the overwrite branch's bind guard (the one labelled bind-overwrite).
   it("drops the write when a rebuild lands while the picked handle is being bound", async () => {
     DISK.set(PICKED_FILE, "");
     let releaseBind: () => void = () => {};
@@ -650,7 +662,7 @@ describe("§588 — the windows §590 opened", () => {
     await act(async () => { releaseBind(); await pick; });
 
     expect(DISK.get(PICKED_FILE)).toBe(""); // nothing written through the backend the user has left
-    expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.supersededPickDropped", { stage: "bind" });
+    expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.supersededPickDropped", { stage: "bind-overwrite" });
   });
 });
 

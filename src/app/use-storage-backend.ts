@@ -119,8 +119,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   `use-storage-backend.test.tsx` (its `reloadCurrentProject` tests, which lose their apply, their
   //   toast and their report, plus its picker ones), in `use-storage-backend.load-gate.test.tsx`, and in the §588
   //   probe, where the one that dies is "a rebuild during the write still leaves the live backend's
-  //   gate open" — its `first.save` precondition stops being reachable once guard 1 drops the pick
-  //   before the write. Same ref, same deletion, opposite observability, decided entirely by how each
+  //   gate open" — its `first.save` precondition stops being reachable once the PICKER guard drops
+  //   the pick before the write. (Named, not numbered: the guards in `onPickStorageFile` carry
+  //   `stage` labels, and this line said "guard 1" after the renumbering that removed them.) Same ref, same deletion, opposite observability, decided entirely by how each
   //   consumer phrases the comparison.
   // ★ NAMED, NOT COUNTED, ON PURPOSE: an earlier revision said "1 of §588's own 7" and the file
   //   already collected 9 by the time it was committed — stale inside its own round. Re-measure with
@@ -1176,6 +1177,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   its own OS picker — so "a dialog would sit behind a skeleton" is not an available objection;
     //   the precedent accepts it. ★ `bumpScopeEpoch` inside `applyWorkspaceForOp` is NOT a substitute:
     //   it drops background writes that honour the epoch, and does nothing about the tree.
+    // ★★ THE COST, STATED: the hold covers the WHOLE op, and only ONE of its two branches replaces
+    //   anything — so a user doing a plain Save-As, or cancelling the dialog, pays for a skeleton
+    //   they never needed, for as long as the OS dialog is open. The alternative considered was
+    //   raising the hold INSIDE the load-instead branch only, which is cheaper for the common path
+    //   and wrong for the one that matters: the branch is not chosen until AFTER the picker and the
+    //   read have both resolved, so a hold raised there starts after the window it exists to cover.
+    //   A wrapper that holds too much is a visual cost; a hold that starts late is not a hold.
     onPickStorageFile: holdDuring(onPickStorageFile), onGrantWriteAccess, onOpenStorageFile: holdDuring(onOpenStorageFile), onRequestStorageSwitch,
     reloadCurrentProject: holdDuring(reloadCurrentProject), allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject: holdDuring(switchToProject), createProject: holdDuring(createProject),

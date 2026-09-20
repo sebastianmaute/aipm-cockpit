@@ -440,7 +440,7 @@ export interface StorageFilePickerDeps {
 
 /**
  * Records a USER authored — `workspaceRecordCount` minus the TWO slices the decode chain seeds.
- * (Two, not three: `roles` is the third member of the reference trio and is deliberately NOT
+ * (Two, not three: `roles` is the third member of the reference-data trio and is deliberately NOT
  * subtracted — the ★★★ paragraph below is the argument, and an earlier opening line said "three"
  * while pointing the skimming reader straight at the slice its own body forbids removing.)
  *
@@ -490,11 +490,23 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
    * ★★ `loadFromHandleForBackend` is §287's read half: it reads the EXPLICIT handle and never
    *   consults or touches the backend's stored one, so nothing here re-points anything. The bind
    *   stays the caller's decision, which is the entire point of §590.
-   * ★★ It DOES reset and republish the backend's import diagnostics (`resetLoadDiagnostics` plus the
-   *   `finally` in `LocalFileBackend.loadFrom`). Harmless on this path because nothing in
-   *   `onPickStorageFile` calls `truncationOps.reportFor`, the only reader of those fields — verify
-   *   before adding one below, rather than trusting this line:
-   *   `grep -rn "reportFor(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`.
+   * ★★★ IT RESETS AND REPUBLISHES THE BACKEND'S IMPORT DIAGNOSTICS (`resetLoadDiagnostics` plus the
+   *   `finally` in `LocalFileBackend.loadFrom`), AND THOSE FIELDS NOW HAVE A READER ON THIS PATH.
+   *   An earlier revision of this line called that harmless "because nothing in `onPickStorageFile`
+   *   calls `truncationOps.reportFor`" — true when written, and falsified by §590's own C1 fix,
+   *   which added exactly that call to the load-instead branch below. So this read is what the
+   *   report describes, which is the intended coupling; what it also means is that a read performed
+   *   on behalf of a SUPERSEDED backend would republish ITS fields under the live report, which is
+   *   why the picker guard above still earns its line.
+   * ★ Re-derive the readers rather than trusting this paragraph:
+   *   `grep -rn "reportFor[(]" src/app --include=*.ts --include=*.tsx | grep -v "[.]test[.]"`
+   *   ★★ THE BRACKETS ARE LOAD-BEARING AND NOT STYLE. The bare spelling matches THIS LINE, and a
+   *   census in `use-load-truncation.test.ts` tallies that call per file to check that every load
+   *   reports — so the unbracketed recipe did not merely mislead a reader, it fed the gate a phantom
+   *   report and held it green over the missing one. That census now strips comments before counting;
+   *   the brackets are the second line of defence.
+   *   ★ This sentence deliberately says "that call" rather than spelling the token: prose naming a
+   *   pattern sits inside that pattern's corpus, which is the whole defect being described.
    */
   async function readPickedProject(
     handle: FsHandle,
@@ -554,7 +566,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       deps.emitToast("error", t(deps.langRef.current, "storageNotReady"));
       return;
     }
-    // ★★ §588 — GUARD 1 of 3. The picker is the longest await in this file (it waits on a human at an
+    // ★★ §588 — THE PICKER GUARD. The picker is the longest await in this file (it waits on a human at an
     //   OS dialog), so a settings-driven rebuild landing inside it is the likeliest instance of the
     //   superseded-caller defect. `deps.backend` is render-#1's instance, and once it is no longer
     //   live, everything past this line is being done on behalf of a backend nobody is on.
@@ -562,8 +574,20 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
     //   of 2", then "of 3", and §590's bind guards would have made it "of 5" — every addition
     //   renumbers every comment in this file AND in the two suites that cite them, and the last
     //   renumber left three citations wrong. The label is the thing the diagnostic emits, so it
-    //   cannot drift from the code: picker · read · bind · write. Enumerate them with
-    //   `grep -n 'supersededPickDropped' src/app/use-storage-file-ops.ts`.
+    //   cannot drift from the code. FIVE guards, FIVE distinct labels:
+    //   picker · read · bind-load · bind-overwrite · write. Enumerate them with (bracketed so the
+    //   pattern cannot match this line, which is how the first cut of this recipe answered SIX):
+    //   `grep -nE "stage: .(picker|read|bind|write)" src/app/use-storage-file-ops.ts`
+    // ★★★ THE TWO BIND GUARDS CARRY DIFFERENT LABELS ON PURPOSE, and they shared one until a review
+    //   caught it — which defeated the rename in the one place it was supposed to pay off. They sit
+    //   over the SAME await in DIFFERENT branches with different consequences: `bind-load` drops an
+    //   apply that would have replaced the whole workspace from another file, `bind-overwrite` drops
+    //   a write of the live workspace into the picked file. An operator reading an undifferentiated
+    //   bind label in the field could not tell which happened, and no test could tell them apart.
+    // ★★ THAT SENTENCE IS DELIBERATELY WORDED WITHOUT THE LITERAL. Quoting the old shared label here
+    //   made the recipe above answer SIX for five guards — the same self-match the recipe is written
+    //   in brackets to avoid, reintroduced one paragraph below its own warning, in the round that
+    //   was fixing it elsewhere. Prose naming a pattern is inside that pattern's corpus.
     // ★★★ §590 CHANGED WHAT THE PICKER GUARD IS FOR, AND AN EARLIER VERSION OF THIS COMMENT WENT ON
     //   CLAIMING THE OLD JOB. It used to be the only thing standing between a superseded pick and
     //   `guardedWrite`, and listed three hazards it uniquely stopped: the WRONG-TARGET WRITE
@@ -582,8 +606,9 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
     //   and a previous revision of this line said it was on the grounds that "nothing on this path
     //   calls `truncationOps.reportFor`". The §103 fix in the load-instead branch below now does
     //   exactly that — so a read against a dead instance would republish ITS diagnostics under the
-    //   live report. Re-check with:
-    //   `grep -n "reportFor(" src/app/use-storage-file-ops.ts`.
+    //   live report. Re-check with (bracketed so the pattern cannot match this line — the bare
+    //   spelling fed a phantom report to the load/report census; see `readPickedProject`):
+    //   `grep -n 'reportFor[(]' src/app/use-storage-file-ops.ts`
     // ★ Pinned, so the claim above is checkable: "does not even read the picked file when a rebuild
     //   lands while the picker is open" (use-storage-file-ops.pick-overwrite.test.tsx) is the ONLY
     //   test that reds when this guard alone is disabled.
@@ -663,7 +688,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
           //   the whole apply — the workspace is NOT replaced and the gate is NOT moved. A bound
           //   handle with no apply is recoverable (re-pick, or the next load); a save gate pointed at
           //   a dead backend is not.
-          if (!deps.isBackendCurrent()) { logDiag("warn", "storage.supersededPickDropped", { stage: "bind" }); return; }
+          if (!deps.isBackendCurrent()) { logDiag("warn", "storage.supersededPickDropped", { stage: "bind-load" }); return; }
           deps.suppressNextSaveRef.current = true; // ★★★ AFTER the bind, never before: a bind that THROWS jumps to the catch, and an already-armed flag would then swallow the next legitimate save of a workspace nothing had modified. Same landmine as `onOpenStorageFile`.
           deps.applyPickedWorkspace(existing.workspace); // bumps the scope epoch, replaces the activity log, and opens the §586 gate — see its doc on `StorageFilePickerDeps`.
           await deps.refreshBackendStatus();
@@ -701,7 +726,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       // ★ Pinned alone by "drops the write when a rebuild lands while the picked handle is being
       //   bound" — measured as a SURVIVOR before that test existed, with its load-instead sibling in
       //   place: the two branches carry separate guards and the branch is chosen before either runs.
-      if (!deps.isBackendCurrent()) { logDiag("warn", "storage.supersededPickDropped", { stage: "bind" }); return; }
+      if (!deps.isBackendCurrent()) { logDiag("warn", "storage.supersededPickDropped", { stage: "bind-overwrite" }); return; }
       if (!(await deps.truncationOps.guardedWrite(deps.backend, deps.currentWorkspace()))) return; // ★ Kept as the backstop: the pre-check above is the one that matters, but a truncating load landing between them must still not commit.
       // ★★ §588 — THE WRITE GUARD, for a DIFFERENT window: `guardedWrite` is itself an await, so a
       //   rebuild can land inside it, after every guard above has already said "current". One guard

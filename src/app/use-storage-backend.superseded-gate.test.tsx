@@ -526,5 +526,13 @@ describe("§588 — a superseded pick must not write to, or arm, the dead backen
     await advance(SAVE_DEBOUNCE_MS + 100);
     expect(second.save).toHaveBeenCalledTimes(savesBeforeWriteLands + 1);
     expect(second.save.mock.calls[savesBeforeWriteLands][0].tasks.map((x: Task) => x.id)).toEqual([1, 2]);
+    // ★★ THE `write` STAGE LABEL, asserted HERE because this is the only suite that can reach that
+    //   window: it needs a `guardedWrite` that hangs, which means a controllable `backend.save`, and
+    //   the real-backend harness in use-storage-file-ops.pick-overwrite.test.tsx writes through a
+    //   real `LocalFileBackend`. The other four labels are asserted there.
+    // ★ It was the one label of the five that nothing observed — the round that added the
+    //   assertions pinned picker, read and the two binds and reported "all three", naming a set that
+    //   did not include this one.
+    expect(logDiag).toHaveBeenCalledWith("warn", "storage.supersededPickDropped", { stage: "write" });
   });
 });
