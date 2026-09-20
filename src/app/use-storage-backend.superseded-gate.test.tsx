@@ -429,11 +429,22 @@ async function setupSupersededPickScenario() {
 
 describe("§588 — a superseded pick must not write to, or arm, the dead backend", () => {
   // ★ THE WRITE HALF. `guardedWrite(deps.backend, …)` calls `save` on the
-  // captured instance, so without guard 1 the live project's workspace is
-  // written to a backend the user has left — a wrong-target write, not merely a
-  // misplaced gate. Its POSITIVE control is the sibling test below: `second`
-  // does still receive a save on the same arrangement, so "not called" here
-  // cannot pass because saving stopped working altogether.
+  // captured instance, so with NO guard in the picker→write stretch the live
+  // project's workspace is written to a backend the user has left — a
+  // wrong-target write, not merely a misplaced gate. Its POSITIVE control is the
+  // sibling test below: `second` does still receive a save on the same
+  // arrangement, so "not called" here cannot pass because saving stopped working
+  // altogether.
+  // ★★★ THIS NO LONGER PINS GUARD 1 EITHER, AND IT SAID IT DID. §590 put guard 2
+  // (after the file read) ABOVE `guardedWrite`, so guard 2 stops this write too:
+  // disabling guard 1 ALONE leaves this file and
+  // use-storage-file-ops.pick-overwrite.test.tsx at 23/23 GREEN — measured, not
+  // predicted. Guard 1's only remaining unique kill lives in that other file
+  // ("does not even read the picked file when a rebuild lands while the picker is
+  // open"), because what it uniquely prevents now is the READ, which this harness
+  // has no way to observe: it replaces the whole `./storage` facade, so no file is
+  // ever read here. What this test still pins is that SOME guard stands between
+  // the picker and the write.
   it("a rebuild during the picker drops the write to the superseded backend", async () => {
     const { first } = await setupSupersededPickScenario();
     expect(first.save).not.toHaveBeenCalled();
@@ -449,10 +460,12 @@ describe("§588 — a superseded pick must not write to, or arm, the dead backen
   // Only deleting EVERY guard turns it red. Keep it anyway: it is the only
   // witness that the guards TOGETHER close the gate half, and it is the positive
   // control for its sibling's `not.toHaveBeenCalled()` — but do NOT cite it as
-  // evidence for any guard on its own. Guard 1's unique kill is the write test
-  // above; guard 3's is the write-window test below.
+  // evidence for any guard on its own. Guard 3's unique kill is the write-window
+  // test below; guard 1's is in use-storage-file-ops.pick-overwrite.test.tsx, and
+  // guard 2 is the one that makes the write test above pass.
   // ★ §590 added guard 2 (the file read) between them, so "the op runs on to a
-  // later guard" is now true of two guards rather than one.
+  // later guard" is now true of two guards rather than one — which is also why
+  // the write test above stopped pinning guard 1.
   it("a rebuild during the picker leaves the live backend's gate open", async () => {
     const { result, second, savesBeforePick } = await setupSupersededPickScenario();
 

@@ -28,7 +28,7 @@ import type { Lang } from "./i18n";
 import { t } from "./i18n";
 import type { Settings } from "./settings-types";
 import type { FsHandle, StorageConfig } from "./storage";
-import { jsonToWorkspace, workspaceToJson } from "./storage";
+import { jsonToWorkspace, StorageNotReadyError, workspaceToJson } from "./storage";
 import type { Task } from "./types";
 import { taskRec, ws } from "../test/workspace-records";
 
@@ -133,6 +133,8 @@ interface Scenario {
   liveTasks?: Task[];
   /** Dismiss the OS dialog — `pickSaveFile` PROPAGATES the picker's `AbortError`. */
   cancelPicker?: boolean;
+  /** Fail the picker with something that is NOT a cancel. Takes precedence over `cancelPicker`. */
+  pickerError?: unknown;
 }
 
 /** Held at module scope so `afterEach` can restore exactly this spy and nothing else. Typed by the
@@ -171,7 +173,9 @@ afterEach(() => {
 async function setupPick(scenario: Scenario) {
   DISK.set(PICKED_FILE, scenario.fileBytes);
 
-  if (scenario.cancelPicker) {
+  if (scenario.pickerError !== undefined) {
+    showSaveFilePicker.mockRejectedValue(scenario.pickerError);
+  } else if (scenario.cancelPicker) {
     showSaveFilePicker.mockRejectedValue(new DOMException("The user aborted a request.", "AbortError"));
   } else {
     showSaveFilePicker.mockResolvedValue(handleFor(PICKED_FILE));
@@ -234,7 +238,13 @@ describe("§590 — the picked file already holds a project and the app is empty
   // ★ THE OFFER ITSELF — the positive observable that the new branch was ENTERED, rather than the
   //   file merely surviving for some other reason. Asserted on the real message, so a branch that
   //   fired with the wrong file or an unrelated prompt does not pass.
-  //   KILLED BY: deleting the offer block; `!isWorkspaceEmpty(existing.workspace)` → `false`.
+  //   KILLED BY: disabling the offer block (the confirm is then never called); and
+  //   `authoredRecordCount` → `workspaceRecordCount` inside `readPickedProject`, which makes the
+  //   message name 13 records instead of 3. Both measured.
+  //   ★★ AN EARLIER REVISION OF THIS LINE NAMED A MUTANT AGAINST AN `isWorkspaceEmpty` CONJUNCT THE
+  //   SHIPPED CONDITION DOES NOT CONTAIN. That is worse than a vague recipe: the obvious way to
+  //   "make the recipe work" is to reintroduce the very predicate that counts auto-seeded reference
+  //   data — see `authoredRecordCount`'s docstring — which breaks the sibling test below.
   it("asks before overwriting, naming the file and what it holds", async () => {
     const { confirmSpy } = await setupPick({ ...POPULATED(), confirmAnswer: false });
     expect(confirmSpy).toHaveBeenCalledTimes(1);
@@ -293,7 +303,7 @@ describe("§590 — the cases that must NOT be interrupted", () => {
   //   live workspace is empty here too, so the bytes written are the empty workspace. `""` and
   //   `workspaceToJson(empty)` are both "no tasks", which is why the assertion is on the write
   //   HAPPENING (`DISK` now parses) rather than on a task count that reads 0 either way.
-  //   KILLED BY: `!isWorkspaceEmpty(existing.workspace)` → `true`.
+  //   KILLED BY: `existing.records > 0` → `existing.records >= 0` (measured).
   it("writes normally, without asking, when the picked file is empty", async () => {
     const { confirmSpy } = await setupPick({ fileBytes: "" });
     expect(confirmSpy).not.toHaveBeenCalled();
@@ -326,8 +336,10 @@ describe("§590 — the cases that must NOT be interrupted", () => {
   //   `isWorkspaceEmpty` (and on `workspaceRecordCount`) that reads as "already holds a project with
   //   10 records" and the offer fired over nothing. `authoredRecordCount` subtracts the reference
   //   trio, so it reads 0.
-  //   KILLED BY: `authoredRecordCount` → `workspaceRecordCount` in `readPickedProject`; or restoring
-  //   the `!isWorkspaceEmpty(existing.workspace)` form of the condition.
+  //   KILLED BY: `authoredRecordCount` → `workspaceRecordCount` in `readPickedProject`; and
+  //   `existing.records > 0` → `>= 0`. Both measured. ★ It is ALSO what would go red if the decode
+  //   chain ever started seeding `roles` as well — `authoredRecordCount` deliberately does NOT
+  //   subtract that one, because the measurement says it is not seeded.
   it("writes normally, without asking, when the picked file holds only seeded reference data", async () => {
     const { confirmSpy } = await setupPick({ fileBytes: workspaceToJson(ws({})) });
     expect(confirmSpy).not.toHaveBeenCalled();
@@ -342,7 +354,8 @@ describe("§590 — the cases that must NOT be interrupted", () => {
   //   AND so does the app — that is an ordinary "save as" over an old file, and the user's own work
   //   is what must win. Offering to LOAD here would be the destructive answer: it would replace the
   //   work they are trying to save.
-  //   KILLED BY: dropping `isWorkspaceEmpty(deps.currentWorkspace())` from the condition.
+  //   KILLED BY: dropping `authoredRecordCount(deps.currentWorkspace()) === 0` from the condition
+  //   (measured).
   it("overwrites without asking when the app holds the user's own project", async () => {
     const { confirmSpy } = await setupPick({ ...POPULATED(), liveTasks: [LIVE_TASK] });
     expect(confirmSpy).not.toHaveBeenCalled();
@@ -350,7 +363,59 @@ describe("§590 — the cases that must NOT be interrupted", () => {
   });
 });
 
-describe("§588 — the read window §590 opened", () => {
+describe("§588 — the two windows §590 changed", () => {
+  // ★★★ GUARD 1'S ONLY REMAINING UNIQUE EFFECT, and the reason this test had to be written: §590
+  //   put guard 2 ABOVE `guardedWrite`, which is where all three hazards guard 1's own comment
+  //   claims for itself live (the wrong-target write, the spent one-shot, the refusal toast). So
+  //   guard 2 now subsumes every one of them, and guard 1 disabled ALONE leaves this file and
+  //   use-storage-backend.superseded-gate.test.tsx at 23/23 GREEN — measured, and the reason the
+  //   comment in use-storage-file-ops.ts no longer claims a kill it cannot produce.
+  //   What guard 1 still uniquely prevents is the READ: `loadFromHandleForBackend` against an
+  //   instance nobody is on, which spends a file read on a dead backend and resets and republishes
+  //   ITS import diagnostics (`resetLoadDiagnostics` plus the `finally` in
+  //   `LocalFileBackend.loadFrom`). Harmless today, because nothing on this path calls
+  //   `truncationOps.reportFor`. That is the whole of its remaining value, and it is worth a line
+  //   of code — but it must be SAID, not implied by a comment describing hazards a sibling covers.
+  //   KILLED BY: deleting the `stage: "picker"` guard (`readStarted` is then called once).
+  it("does not even read the picked file when a rebuild lands while the picker is open", async () => {
+    DISK.set(PICKED_FILE, populatedProjectBytes());
+    let releasePicker: (handle: FsHandle) => void = () => {};
+    const readStarted = vi.fn();
+    showSaveFilePicker.mockImplementation(() => new Promise<FsHandle>((resolve) => { releasePicker = resolve; }));
+    confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    const { result, rerender } = renderHook(
+      (props: { args: Parameters<typeof useStorageBackend>[0] }) => useProbe(props.args),
+      {
+        wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+        initialProps: { args: makeArgs({ kind: "local-json" } as StorageConfig) },
+      },
+    );
+    await waitFor(() => expect(result.current.loadPause).toBe("load-failed"));
+
+    let pick!: Promise<void>;
+    act(() => { pick = result.current.onPickStorageFile(); });
+    // ★ PRECONDITION, ASSERTED: the op is parked ON the OS dialog, not returned early. Without this
+    //   "the file was never read" passes for an op that never started.
+    await waitFor(() => expect(showSaveFilePicker).toHaveBeenCalledTimes(1));
+
+    rerender({ args: makeArgs({ kind: "browser" } as StorageConfig) });
+    await act(async () => {
+      releasePicker({
+        ...handleFor(PICKED_FILE),
+        getFile: async () => {
+          readStarted();
+          return ({ text: async () => DISK.get(PICKED_FILE) ?? "" }) as unknown as File;
+        },
+      });
+      await pick;
+    });
+
+    expect(readStarted).not.toHaveBeenCalled(); // ★ the discriminating one — guard 2 cannot produce it
+    expect(KV.has(HANDLE_KEY)).toBe(false);
+    expect(tasksInFile()).toHaveLength(2);
+  });
+
   // ★★★ READING THE PICKED FILE IS A NEW AWAIT, so guard 1 (after the picker) can no longer see as
   //   far as the first commit and a third guard was added between them. This is that guard's own
   //   window: a settings-driven rebuild lands while the file is being read, and the op resumes
@@ -430,5 +495,27 @@ describe("§590 — the dismissed OS dialog", () => {
     const { confirmSpy } = await setupPick({ ...POPULATED(), cancelPicker: true });
     expect(confirmSpy).not.toHaveBeenCalled();
     expect(showToast).not.toHaveBeenCalled();
+  });
+
+  // ★★★ THE OTHER SIDE OF THAT CATCH, and its sibling above is why it needs its own test: the two
+  //   are the same `catch` reached by two different errors, and an over-broad "return silently"
+  //   satisfies the abort tests while silencing a real failure. `pickSaveFile` throws
+  //   `StorageNotReadyError` when the File System Access API is absent. That is NOT reachable
+  //   through the button today — storage-config.tsx renders a notice instead of the control when
+  //   `isFileSystemAccessSupported()` is false — so this pins a deliberate choice rather than a
+  //   live path: a silent return on an explicit click is what `refuseWrite`'s landmine forbids, and
+  //   an unreachable path that goes quiet stays quiet once it becomes reachable.
+  //   KILLED BY: returning unconditionally from that `catch` (the pre-§590 shape).
+  it("speaks when the picker fails for a reason that is not a cancel", async () => {
+    const { confirmSpy } = await setupPick({
+      ...POPULATED(),
+      pickerError: new StorageNotReadyError("file-system-access-unsupported"),
+    });
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageNotReady"));
+    // …and it is NOT reported as a failed save, because no write was started.
+    expect(showToast).not.toHaveBeenCalledWith("error", expect.stringContaining("Couldn't save"));
+    expect(KV.has(HANDLE_KEY)).toBe(false);
+    expect(tasksInFile()).toHaveLength(2);
   });
 });

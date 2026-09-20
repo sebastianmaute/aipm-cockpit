@@ -391,9 +391,10 @@ export const de: Record<TranslationKey, string> = {
   storageOpenedToast: "{0} Aufgabe(n) aus Datei geladen.",
   storageConfirmOverwrite:
     "Die {0} Aufgabe(n) in der App werden durch den Inhalt der Datei ersetzt. Fortfahren?",
-  // §590 - siehe i18n.ts. {0} = Dateiname, {1} = Anzahl Datensätze in dieser Datei.
+  // §590 - siehe i18n.ts (auch für den Grund, warum hier keine Ursache genannt wird).
+  // {0} = Dateiname, {1} = Anzahl Datensätze in dieser Datei.
   storagePickFileHasProject:
-    "\"{0}\" enthält bereits ein Projekt mit {1} Datensatz/Datensätzen. Das geöffnete Projekt ist leer, weil das letzte Laden fehlgeschlagen ist — ein Speichern in diese Datei würde den vorhandenen Inhalt ersetzen.\n\nOK lädt stattdessen das vorhandene Projekt aus dieser Datei. Abbrechen lässt Datei und App unverändert.",
+    "\"{0}\" enthält bereits ein Projekt mit {1} Datensatz/Datensätzen. Das geöffnete Projekt ist leer — ein Speichern in diese Datei würde den vorhandenen Inhalt ersetzen.\n\nOK lädt stattdessen das vorhandene Projekt aus dieser Datei. Abbrechen lässt Datei und App unverändert.",
   storagePermissionNeeded: "Berechtigung beim nächsten Speichern erforderlich",
   storageSwitchedToast: "Speicherort gewechselt.",
   projectSwitchedToast: "Zu Projekt {0} gewechselt.",

@@ -3735,13 +3735,17 @@ describe("useStorageBackend — §103 truncation reaches every load/flush path",
     // …and NOTHING claims the store was switched.
     expect(showToast).not.toHaveBeenCalledWith("info", expect.any(String));
     // ★★★ THE KILL LINE FOR THE PRE-CHECK, and without it this test cannot tell
-    // the fix from the bug. The picker runs on the ACTIVE backend and
-    // its side effects are irreversible — it creates the file on disk and
-    // persists the new handle — so refusing only at the write left the app
-    // pointed at a new EMPTY file with the original unreferenced. Delete the
+    // the fix from the bug. The picker's side effect is irreversible: it CREATES
+    // the file on disk the moment the user confirms a name, so refusing only at
+    // the write left the user staring at a new EMPTY file. Delete the
     // `refuseWrite` pre-check and the `guardedWrite` backstop still refuses,
     // through the SAME implementation, so every assertion above stays green and
     // the toast is byte-identical. Only this one changes.
+    // ★★ "…AND PERSISTS THE NEW HANDLE" USED TO SIT IN THAT SENTENCE AND IS NO
+    // LONGER TRUE: since §590 the pick binds nothing, so the app is not left
+    // pointed at the new file. The file creation alone still justifies the
+    // pre-check, and this assertion still kills — verified by disabling
+    // `refuseWrite` and watching this line fail alone.
     expect(storageMod.pickFileHandleForBackend).not.toHaveBeenCalled();
   });
 

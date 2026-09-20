@@ -95,12 +95,22 @@ export class LocalFileBackend implements StorageBackend {
   /**
    * Pick a save target AND bind it in one step.
    *
-   * ★★ THE BIND-AND-GO HALF OF THE PICK PAIR, and it is still correct for the
-   * callers that reach it. Both are creating or converting INTO a file and have
-   * nothing to read first: `createProject` picks a target for a workspace it has
-   * just BUILT, and `onRequestStorageSwitch` picks one for a conversion it has
-   * already gated on `loadSucceeded()`, so the workspace it is about to write is
-   * a real project rather than the empty boot one.
+   * ★★ THE BIND-AND-GO HALF OF THE PICK PAIR, left in place for its two callers —
+   * but NOT because there is nothing in their files worth reading. An earlier
+   * revision said exactly that and it is FALSE of `createProject`, which builds an
+   * EMPTY workspace and `save()`s it over whatever file the user picks, unread:
+   * the same shape of damage §590 is about.
+   * ★★★ What makes it acceptable there, and what does NOT: both callers reach
+   * `showSaveFilePicker`, an OS SAVE dialog that has already asked the user about
+   * replacing that file, and in both the user has just asked for this explicitly
+   * — a new project HERE, or a conversion of the project in scope. Neither can be
+   * reached in §590's state: `onRequestStorageSwitch` is gated on
+   * `loadSucceeded()`, and `createProject` writes a workspace it built rather than
+   * whatever scope happened to hold. §590 is the user who does NOT know their
+   * workspace is empty, because a load failed.
+   * ★ The residual risk is real and is a judgement, not an absence: a user who
+   * picks an existing project file while creating a new project still loses it,
+   * with only the OS prompt between them and that.
    * ★★★ NOT for "Pick storage file". That one must read what the chosen file
    * already holds before committing to overwrite it — see {@link pickFileHandle}
    * and §590. Enumerate today's callers of this one with the pattern below — it returns the facade
