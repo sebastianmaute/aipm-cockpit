@@ -140,11 +140,19 @@ to load it instead.
 ★★★ **The live-side condition was missing from this paragraph and its absence
 was a defect in this spec, corrected after implementation measured it.** Stated
 unconditionally, the rule breaks legitimate Save-As: `pickFile` goes through
-`showSaveFilePicker` (`fs-access.ts:74`), which is a SAVE dialog and already
-prompts for overwrite at the OS level. A user with real work who deliberately
-picks an existing file has been asked once by the OS and means it — refusing
-there is redundant and removes their ability to overwrite at all, which is
-worse than the defect being fixed. §590's actual harm is the user who does
+`showSaveFilePicker` (`fs-access.ts:74`), which is a SAVE dialog, so a user
+with real work who deliberately picks an existing file is overwriting it on
+purpose. Refusing there removes their ability to overwrite at all, which is
+worse than the defect being fixed.
+
+★★ **THE CARRYING CLAUSE IS *WHAT* THE OS ASKS, NOT *THAT* IT ASKS.** An
+earlier revision of this paragraph argued "the OS already prompted for
+overwrite, so a second question is redundant" — which does not separate the two
+cases at all, because the OS prompts in the §590 case too. What distinguishes
+them is that the OS asks about **replacing a file**, never about **replacing it
+with nothing**. A user who knows what they are writing has answered the only
+question that matters; a user whose load silently failed has answered a
+question that was not the dangerous one. §590's actual harm is the user who does
 **not know** their workspace is empty, because a load failed. That is the case
 this closes. Do not "restore" the unconditional wording.
 
