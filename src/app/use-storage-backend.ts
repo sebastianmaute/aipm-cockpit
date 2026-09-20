@@ -767,15 +767,21 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //    §72 failure. They are routed through emitOutcome/emitToast for that
     //    reason; do not call args.* directly here.
     const doSave = () => {
-      // ★★ §586, second check: the debounce timer AND flush-on-hide both call this (debounced-save.ts),
-      // possibly long after this run — so it re-reads the gate's REF rather than trusting the run above.
+      // ★★ §586, second check: the debounce timer, flush-on-hide AND — since §589 — the cleanup flush
+      // all call this (debounced-save.ts), possibly long after this run, so it re-reads the gate's REF
+      // rather than trusting the run above.
       // ★★★ DEFENCE IN DEPTH — NO TEST CAN REACH IT TODAY, and none claims to. A save is scheduled only
       // on a run that passed the effect-level check, and the gate for THAT backend never closes again:
-      // the ref moves only when a DIFFERENT backend opens it, which means a rebuild, which re-runs this
-      // effect and whose cleanup clears the timer and drops both hide listeners first. Measured by
-      // mutation: deleting this line alone leaves every load-gate test green; deleting it together with
-      // the effect-level check turns (a) (b) (c) (e) (h) (i) red. It is here for a future path that
-      // schedules without that check.
+      // the ref moves only when a DIFFERENT backend opens it, i.e. when that backend's own load applies.
+      // ★★ §589 TURNED THE CLEANUP INTO A CALLER OF THIS AND STILL DOES NOT REACH IT — but the OLD
+      // reason no longer holds and was removed rather than kept: this used to rest on "the cleanup
+      // clears the timer and drops both hide listeners first", which is now only what happens when the
+      // predicate says no. On a rebuild the cleanup DOES call `doSave` — in the same commit as the
+      // render that minted the new backend, long before that backend's load can have applied, so
+      // `savesAllowedForRef.current` is still this run's `backend` and the check passes.
+      // Measured by mutation: deleting this line alone leaves every load-gate test green; deleting it
+      // together with the effect-level check turns (a) (b) (c) (e) (h) (i) red. It is here for a future
+      // path that schedules without that check.
       if (savesAllowedForRef.current !== backend) return;
       backend.save(outgoing).then(() => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
         committedBaselineRef.current = { collections: curCollections, records: curRecords }; // the write landed: these are on disk now
@@ -818,7 +824,29 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // ★ Debounce + flush-on-hide (the double-fire guard, why `pagehide` backs up
     //   `visibilitychange`, and why this may only be reached AFTER the hydrated/
     //   popout/load/suppress gates above) all live in debounced-save.ts. Read it there.
-    return scheduleDebouncedSave(doSave, SAVE_DEBOUNCE_MS);
+    // ★★★ §589 — FLUSH ON CLEANUP, BUT ONLY WHEN THE SAVE TARGET ITSELF CHANGED. `backend` is a dep
+    //   of this effect, so a settings-driven rebuild (a Turso URL/token edit, a SharePoint target
+    //   change) runs this cleanup; it used to clear the timer and return, and an edit still inside
+    //   the 500 ms window was then written nowhere — the new target's load replaces scope straight
+    //   after, so it left memory too. Silent: nothing refuses, nothing pauses, no toast.
+    // ★★ THE PREDICATE IS `!==`, NOT `true`, AND THAT IS THE WHOLE DESIGN. Most cleanups here are
+    //   an ORDINARY dep change — the next edit, a re-render — and the effect re-schedules against
+    //   the newer workspace immediately, so flushing on those would write on every keystroke and
+    //   throw away the debounce. Only a BACKEND change leaves nobody to re-schedule.
+    // ★★ WHY NO EXTRA GATE CHECK: the flush reaches `doSave`, the same single `save` argument the
+    //   timer and the hide listeners use, and `doSave` closes over the `savesAllowed`/`backend` of
+    //   THIS render — i.e. the OLD instance. So §586 already covers this exit. A second check here
+    //   would be a different question asked in the same words.
+    // ★ `backendRef.current` is assigned during RENDER (see its declaration), which is what makes
+    //   this readable at all: React runs every cleanup before any effect body, so a ref mirrored in
+    //   an effect would still hold the OLD backend here and this would never fire.
+    // ★★ SPELLED OUT RATHER THAN REUSING `isSupersededBackend` ABOVE, WHICH IS THE IDENTICAL
+    //   EXPRESSION — on purpose. A null ref answers `!==` with TRUE, which for that helper's
+    //   consumers means DROP (fail-closed, and the reason its seed is `null`) and here means FLUSH
+    //   on an ordinary cleanup (fail-open). Same three tokens, opposite fail direction; one name
+    //   covering both would hide that from whoever next revisits the seed. Neither is reachable
+    //   today — the render-time write precedes every cleanup — so this is noted, not relied on.
+    return scheduleDebouncedSave(doSave, SAVE_DEBOUNCE_MS, () => backendRef.current !== backend);
     // ★ `savesAllowed` is a dep so the gate OPENING re-runs this effect (after an op's re-stamp, it is
     // the only thing that changes) — the run spends that op's suppress, or saves an edit made meanwhile.
     // ★ `loadWasIncomplete` is a dep so LOWERING it (the user's "save anyway") re-runs this effect

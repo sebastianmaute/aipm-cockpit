@@ -73,4 +73,56 @@ describe("scheduleDebouncedSave", () => {
     window.dispatchEvent(new Event("pagehide"));
     expect(save).not.toHaveBeenCalled();
   });
+
+  // ── §589: the optional cleanup-flush predicate ────────────────────────────
+  // ★ The DEFAULT (no predicate) is already pinned by "cancels the pending save when cleaned up"
+  //   and "stops listening after cleanup" above — both call the two-argument form — so there is
+  //   deliberately no duplicate of that here. What these add is the third exit's own behaviour.
+
+  it("§589: flushes the pending save on cleanup when the predicate says the target changed", () => {
+    const save = vi.fn();
+    scheduleDebouncedSave(save, 500, () => true)();
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it("§589: does not flush on cleanup when the predicate says the target is unchanged", () => {
+    const save = vi.fn();
+    scheduleDebouncedSave(save, 500, () => false)();
+    vi.advanceTimersByTime(1000); // and the cancelled timer must not resurrect it either
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  // ★★ THE COALESCING GUARANTEE, stated as a test rather than left to the predicate's caller: the
+  //    predicate must be consulted ONLY on cleanup. If the timer or a hide listener asked it too,
+  //    an ordinary debounced save would start depending on the caller's backend comparison.
+  it("§589: consults the predicate only on cleanup — never on the timer or a hide flush", () => {
+    const shouldFlush = vi.fn(() => false);
+    const save = vi.fn();
+    const cleanup = scheduleDebouncedSave(save, 500, shouldFlush);
+    vi.advanceTimersByTime(500);
+    window.dispatchEvent(new Event("pagehide"));
+    expect(shouldFlush).not.toHaveBeenCalled();
+    cleanup();
+    expect(shouldFlush).toHaveBeenCalledTimes(1);
+  });
+
+  it("§589: never double-fires — a cleanup flush after the timer already fired is a no-op", () => {
+    const save = vi.fn();
+    const cleanup = scheduleDebouncedSave(save, 500, () => true);
+    vi.advanceTimersByTime(500);
+    cleanup();
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it("§589: a cleanup flush cancels the timer, so the delay elapsing cannot save again", () => {
+    const save = vi.fn();
+    scheduleDebouncedSave(save, 500, () => true)();
+    vi.advanceTimersByTime(1000);
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  // ★★ DELIBERATELY ABSENT: "a cleanup flush still removes the listeners". Written and dropped —
+  //    after a flush `fired` is already true, so a later `pagehide` is a no-op whether the listener
+  //    was removed or not. It cannot fail for the reason its title would claim. Listener removal is
+  //    isolated by "stops listening after cleanup" above, which takes the NO-flush path.
 });
