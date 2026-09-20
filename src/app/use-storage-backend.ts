@@ -254,8 +254,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // ★★★ §586 — THE SAVE GATE: the backend instance render scope may be written to. Before it opens,
   //   the boot workspace is EMPTY, and a save of it is `DELETE FROM` every Turso table, an empty
   //   SharePoint PUT, an overwritten file. The AUTOMATIC writes of the live workspace to the ACTIVE
-  //   backend check it: the save effect (no schedule), `doSave` (the debounce timer AND the
-  //   flush-on-hide, which both call it) and the pre-switch `flushCurrent`; a storage-KIND switch
+  //   backend check it: the save effect (no schedule), `doSave` — reached by the debounce timer, by
+  //   the flush-on-hide, and since §589 by the cleanup flush a backend rebuild triggers, all three
+  //   through the ONE `save` argument `scheduleDebouncedSave` takes — and the pre-switch
+  //   `flushCurrent`; a storage-KIND switch
   //   skips its conversion write while it is shut (`loadSucceeded` below). ★ EXPLICIT writes do not:
   //   "Pick storage file" (`guardedWrite`, open follow-up §590), a conversion after a successful load,
   //   create and load-from-file. Identity, like `loadedBackend`, so a rebuilt
@@ -833,6 +835,22 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   an ORDINARY dep change — the next edit, a re-render — and the effect re-schedules against
     //   the newer workspace immediately, so flushing on those would write on every keystroke and
     //   throw away the debounce. Only a BACKEND change leaves nobody to re-schedule.
+    // ★★★ CONSEQUENCE ON THE NINE `holdDuring` OP PATHS: THEY NOW WRITE THE PENDING EDIT TWICE —
+    //   once via the op's own pre-switch `flushCurrent`, then again here, because `flushCurrent`
+    //   writes directly and never cancels this timer. Both writes carry the OUTGOING project and
+    //   both go to the OUTGOING backend, so the second is redundant, not wrong.
+    // ★★ WHAT MAKES IT SAFE, and it is two independent things — do not remove one on the strength
+    //   of the other. (1) Each op applies the new workspace and flips `storageConfig` in ONE
+    //   synchronous block (verified by reading `switchToProject` in use-storage-file-ops.ts: no
+    //   `await` sits between `applyWorkspace(loaded)` and `setStorageConfig(...)`), so React commits
+    //   them together and the cleanup that runs belongs to the effect from BEFORE the apply — its
+    //   `outgoing` is the old project by construction. (2) Every op arms `suppressNextSaveRef` in
+    //   that same block, so even if an apply and a flip ever landed in SEPARATE commits, the run
+    //   between them would be suppressed and would schedule nothing for this cleanup to flush.
+    // ★ AND IT RESCUES SOMETHING: an edit made during an op's own await window used to be dropped —
+    //   `flushCurrent` had already run, and the apply's re-render cleared the timer and armed the
+    //   suppress. That drop is the shape ruled on as D3 in the 2026-09-19 data-loss plan. It is now
+    //   written, because at that commit the backend really has changed.
     // ★★ WHY NO EXTRA GATE CHECK: the flush reaches `doSave`, the same single `save` argument the
     //   timer and the hide listeners use, and `doSave` closes over the `savesAllowed`/`backend` of
     //   THIS render — i.e. the OLD instance. So §586 already covers this exit. A second check here

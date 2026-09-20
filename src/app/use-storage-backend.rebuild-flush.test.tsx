@@ -1,15 +1,20 @@
 // Probe for open-followups §589 — filed from reading code, never reproduced.
 //
-// ★★★ THE CLAIM: the save effect lists `backend` in its deps, so a settings-driven rebuild (a Turso
-// URL/token edit, a SharePoint target change) runs the PREVIOUS run's cleanup. That cleanup
-// (`scheduleDebouncedSave`'s return, debounced-save.ts) clears the debounce timer and drops both
-// hide listeners WITHOUT flushing — so an edit still inside the 500 ms window is never written to
-// the backend it was made against, and the new target's load then replaces scope, taking the edit
-// out of memory too. Silent: no banner, no toast, nothing refused.
+// ★★★ THE CLAIM, IN THE PAST TENSE BECAUSE IT NO LONGER DESCRIBES THIS TREE — the fix landed in the
+// same commit as this file, so a present-tense claim here would read as current behaviour to
+// everyone after us. The save effect lists `backend` in its deps, so a settings-driven rebuild (a
+// Turso URL/token edit, a SharePoint target change) runs the PREVIOUS run's cleanup. That cleanup
+// (`scheduleDebouncedSave`'s return, debounced-save.ts) USED TO clear the debounce timer and drop
+// both hide listeners without flushing — so an edit still inside the 500 ms window was never
+// written to the backend it was made against, and the new target's load then replaced scope, taking
+// the edit out of memory too. Silent: no banner, no toast, nothing refused. The first `it` below is
+// what proved it; it was red before the fix and is the only assertion here that ever was.
 //
-// ★★ WHY THE OP PATHS DO NOT COVER IT: a project switch/open/create runs `flushCurrent`
+// ★★ WHY THE OP PATHS DID NOT COVER IT: a project switch/open/create runs `flushCurrent`
 // (use-load-truncation.ts) before it flips config, so those nine paths write the pending edit
-// themselves. A BARE settings rebuild has no op and therefore no flush — that is the hole.
+// themselves. A BARE settings rebuild has no op and therefore no flush — that was the hole. ★ Those
+// nine now take TWO writes rather than one; why that is safe, and what it additionally rescues, is
+// recorded at the `scheduleDebouncedSave` call site in use-storage-backend.ts.
 //
 // ★ WHAT EACH TEST HERE IS. Exactly one assertion in this file was RED before the fix: the flush
 // itself, in the first `it`. The other two are REGRESSION assertions — green before AND after —
@@ -58,6 +63,13 @@ import { useWorkspace } from "./workspace-context";
 const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
 
 const EMPTY = { tasks: [], raid: [], absences: [], shifts: [] };
+/** ★★ What the REBUILT backend has in store, and it is POPULATED ON PURPOSE — an EMPTY payload here
+ *  would arrive over a populated scope (the edit under test is still in memory) and take the §587
+ *  empty-load REFUSAL instead, which leaves the new gate SHUT. The second `it` would then be green
+ *  because nothing could ever be written to `second`, rather than because nothing was REDIRECTED
+ *  there. An earlier revision of this file used `EMPTY` and described the open-gate mechanism in
+ *  the comment anyway; a reviewer traced it and the comment was false. */
+const SECOND_STORED = { tasks: [{ id: 7, taskName: "What the rebuilt backend already held" } as unknown as Task], raid: [], absences: [], shifts: [] };
 /** The edit that lands normally, proving `first`'s gate is OPEN before anything else is asked of it. */
 const EDIT_ONE = [{ id: 1, taskName: "First edit — lands normally, proves the gate is open" }] as unknown as Task[];
 /** The edit under test: made, then left pending inside the debounce window when the rebuild happens. */
@@ -65,6 +77,8 @@ const EDIT_TWO = [
   { id: 1, taskName: "First edit — lands normally, proves the gate is open" },
   { id: 2, taskName: "Second edit — still inside the debounce when the backend is rebuilt" },
 ] as unknown as Task[];
+/** Made AFTER the rebuilt backend's own load has applied — the witness that its gate is open. */
+const EDIT_THREE = [{ id: 7, taskName: "Edit on the rebuilt backend, after its own load applied" }] as unknown as Task[];
 
 type FakeBackend = {
   kind: string;
@@ -161,7 +175,7 @@ afterEach(() => {
  *  test below advances past it on purpose. */
 async function setupPendingEditAcrossRebuild() {
   const first = makeBackend(50);
-  const second = makeBackend(100, EMPTY, "turso");
+  const second = makeBackend(100, SECOND_STORED, "turso");
   createBackendMock.mockReturnValueOnce(first).mockReturnValue(second);
 
   const { result, rerender } = renderHook(
@@ -215,18 +229,33 @@ describe("§589 — an edit inside the debounce survives a backend rebuild", () 
   });
 
   // ★ REGRESSION ASSERTION — EXPECTED GREEN BOTH BEFORE AND AFTER THE §589 FIX. Not probe evidence.
-  //   The flush must reach the backend the edit was MADE against, never the new one: `second`'s own
-  //   gate is shut until its load applies, and after it applies the save effect's suppress branch
-  //   consumes the run. This test advances past `second`'s load (100 ms) on purpose so it is
-  //   asserting against an OPEN new gate rather than an untouched one.
+  //   The flush must reach the backend the edit was MADE against and never the new one, so what this
+  //   has to rule out is a flush REDIRECTED to `second` — which means it is only worth anything while
+  //   `second` is genuinely writable. It advances past `second`'s load (100 ms) so that load applies:
+  //   `applyWorkspaceFromLoad` runs `allowSavesTo(second)` (opening its gate) and arms
+  //   `suppressNextSaveRef`, which the next save-effect run then spends without writing.
+  // ★★ THE ORDER OF THE LAST THREE LINES IS THE POINT, and an earlier revision of this comment got
+  //   the mechanism wrong in a way only a trace caught: `not.toHaveBeenCalled()` on a backend whose
+  //   gate never opened is green for a structural reason and proves nothing about redirection. So
+  //   the assertion is made FIRST, and the gate is then shown to be open by landing a real edit on
+  //   it — after the assertion, where it cannot weaken it. Observe a precondition by watching
+  //   something pass THROUGH it; `loadPause` is null for an open gate and for an untouched one
+  //   alike, so it cannot witness this.
   // ★ KILLED BY: nothing in this file. A predicate mutation cannot redirect the flush — `doSave`
   //   closes over `first` — so if this ever goes RED the fix has been rewritten, not mutated.
   it("REGRESSION (green before and after the fix): the rebuilt backend receives no save of its own", async () => {
-    const { second } = await setupPendingEditAcrossRebuild();
+    const { result, second } = await setupPendingEditAcrossRebuild();
 
-    await advance(SAVE_DEBOUNCE_MS + 200); // let `second`'s load land and its gate open
+    await advance(SAVE_DEBOUNCE_MS + 200); // `second`'s own load lands and applies, opening its gate
     expect(second.load).toHaveBeenCalledTimes(1);
-    expect(second.save).not.toHaveBeenCalled();
+    expect(second.save).not.toHaveBeenCalled(); // THE REGRESSION ASSERTION — nothing was redirected here
+    expect(result.current.tasks.map((x) => x.id)).toEqual([7]); // and that load really did apply
+
+    // The witness, deliberately AFTER the assertion above: `second` is writable, so the line above
+    // is green because nothing was redirected, not because nothing could ever be written.
+    await act(async () => { result.current.setTasks(EDIT_THREE); });
+    await advance(SAVE_DEBOUNCE_MS + 100);
+    expect(second.save).toHaveBeenCalledTimes(1);
   });
 
   // ★ REGRESSION ASSERTION — EXPECTED GREEN BOTH BEFORE AND AFTER THE §589 FIX. Not probe evidence.
@@ -240,8 +269,15 @@ describe("§589 — an edit inside the debounce survives a backend rebuild", () 
   //   instance whose own load failed AND whose gate is shut (`savesPaused.backend === backend &&
   //   !savesAllowed`, use-storage-backend.ts). Unlike a null `loadPause` it cannot mean "nothing
   //   has happened yet", so it is a real witness rather than an absence.
-  it("REGRESSION (green before and after the fix): a rebuild never flushes to a backend whose own save gate never opened", async () => {
+  it("REGRESSION (green before and after the fix): with the old gate shut nothing was ever scheduled, so a rebuild has no pending save to flush", async () => {
     const first = makeFailingBackend(50);
+    // ★ EMPTY here, unlike the shared helper's `second`: this test only needs the rebuild to happen,
+    //   and an empty load over the populated scope takes the §587 refusal, which keeps `second` shut
+    //   too. Both `not.toHaveBeenCalled()` assertions below are therefore structural on BOTH sides —
+    //   stated so nobody reads either as gate-refusal coverage, and ASSERTED below rather than left
+    //   in this comment, because a claim about which branch a load took is exactly the kind that
+    //   rots silently. `"empty-refused"` is the discriminating reading: unlike a null `loadPause` it
+    //   cannot also mean "nothing has happened to this instance yet".
     const second = makeBackend(100, EMPTY, "turso");
     createBackendMock.mockReturnValueOnce(first).mockReturnValue(second);
 
@@ -262,6 +298,9 @@ describe("§589 — an edit inside the debounce survives a backend rebuild", () 
     await act(async () => { rerender({ config: { kind: "turso" } as StorageConfig }); });
     await advance(SAVE_DEBOUNCE_MS + 200);
 
+    // `second`'s own load came back EMPTY over the still-populated scope, so it took the §587
+    // refusal and its gate stayed shut too — the claim on the fixture above, now checked.
+    expect(result.current.loadPause).toBe("empty-refused");
     expect(first.save).not.toHaveBeenCalled();
     expect(second.save).not.toHaveBeenCalled();
   });
