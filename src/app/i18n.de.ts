@@ -379,6 +379,7 @@ export const de: Record<TranslationKey, string> = {
   spStorageNeedsToggle: "SharePoint-Speicher zuerst in Einstellungen → Integrationen aktivieren.",
   spStorageInvalidUrl: "URL konnte nicht ausgewertet werden. Vollständige SharePoint-Datei-URL verwenden.",
   spStorageBrowse: "Durchsuchen…",
+  spStorageApplyLabel: "SharePoint-Datei-URL übernehmen",
   comingSoon: "demnächst",
   storageFsaUnsupported:
     "Dieser Browser unterstützt keinen direkten Dateizugriff. Bitte Chrome, Edge oder Opera verwenden.",

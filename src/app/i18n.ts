@@ -380,6 +380,9 @@ const enUS = {
   spStorageNeedsToggle: "Enable SharePoint storage in Settings → Integrations first.",
   spStorageInvalidUrl: "Could not parse this URL. Use the full SharePoint file URL.",
   spStorageBrowse: "Browse…",
+  /** Accessible name of the SharePoint URL's Apply button — its VISIBLE label is the shared
+   *  `integrationsTursoApply` ("Apply"), which this contains (WCAG 2.5.3 label-in-name). */
+  spStorageApplyLabel: "Apply SharePoint file URL",
   comingSoon: "coming soon",
   storageFsaUnsupported:
     "This browser doesn't support direct file access. Use Chrome, Edge, or Opera.",

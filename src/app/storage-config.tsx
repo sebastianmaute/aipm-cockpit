@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState, type KeyboardEvent } from "react";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { Banner } from "./banner";
 import {
@@ -15,6 +15,7 @@ import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import { useToastContext } from "./toast-context";
 import { reportSilentFailure } from "./guard-feedback";
 import { Button } from "./button";
+import { FieldError } from "./field-feedback";
 import { Input, Select } from "./form-controls";
 
 type Props = {
@@ -111,10 +112,24 @@ export function StorageConfigSection({
     return "";
   }
 
+  // ★★★ §548 — THE SHAREPOINT FILE URL IS A PURE DRAFT, COMMITTED ONLY BY AN EXPLICIT APPLY.
+  //   It feeds `useStorageBackend`'s backend memo (this is the LIVE storage target), so any commit
+  //   rebuilds the backend, which re-arms the load hold, which replaces the whole main-window tree —
+  //   Settings included — with `PanelSkeleton`. It used to commit on BLUR, which made the worst
+  //   version of that: the mousedown on any neighbouring control blurred the field, the commit
+  //   unmounted the section, and the click never landed on its target. Same failure the Turso
+  //   credentials had, closed the same way (`integrations-section.tsx` `applyTursoDrafts`).
+  //   So: nothing commits on a keystroke, blur, Tab or Escape. Apply (or Enter in the field) is the
+  //   only commit, and it is disabled while the draft equals the stored value — so an ENABLED Apply
+  //   IS the "unapplied change" signal. An unapplied draft is discarded when the section unmounts.
+  // ★ The Browse picker (`onSelect` below) still commits directly, deliberately: choosing a file in
+  //   a modal IS the explicit action, there is nothing left for the user to confirm, and it cannot
+  //   swallow a click the way a blur can.
   const [prevConfig, setPrevConfig] = useState(config);
   const [spUrl, setSpUrl] = useState(spUrlForConfig());
   const [spUrlError, setSpUrlError] = useState<string | null>(null);
   const [spPickerOpen, setSpPickerOpen] = useState(false);
+  const spUrlErrorId = `${useId()}-sp-url-error`;
 
   if (prevConfig !== config) {
     setPrevConfig(config);
@@ -122,12 +137,13 @@ export function StorageConfigSection({
     setSpUrlError(null);
   }
 
-  function handleSpUrlBlur() {
+  const spCommittedUrl = spUrlForConfig();
+  // Empty is excluded rather than treated as a value: the field's only committable content is a
+  // parseable file URL, and an "Apply" that silently reverted the field would be a different verb.
+  const canApplySpUrl = spUrl.trim() !== "" && spUrl.trim() !== spCommittedUrl;
+
+  function applySpUrl() {
     setSpUrlError(null);
-    if (!spUrl.trim()) {
-      setSpUrl(spUrlForConfig());
-      return;
-    }
     const parsed = parseSharePointFileUrl(spUrl.trim());
     if (!parsed) {
       setSpUrlError(t(lang, "spStorageInvalidUrl"));
@@ -136,6 +152,14 @@ export function StorageConfigSection({
     if (config.kind === "sp-json" || config.kind === "sp-csv") {
       onChange({ kind: config.kind, ...parsed });
     }
+  }
+
+  // The keyboard path to Apply, exactly when Apply is enabled.
+  // ★ `isComposing`: an IME commits its composition with Enter — that Enter is not an Apply.
+  function handleSpUrlKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Enter" || e.nativeEvent.isComposing || !canApplySpUrl) return;
+    e.preventDefault();
+    applySpUrl();
   }
 
   return (
@@ -264,24 +288,40 @@ export function StorageConfigSection({
               type="text"
               value={spUrl}
               onChange={(e) => setSpUrl(e.target.value)}
-              onBlur={handleSpUrlBlur}
+              onKeyDown={handleSpUrlKeyDown}
               placeholder={t(lang, "spStorageUrlPlaceholder")}
               invalid={!!spUrlError}
+              aria-describedby={spUrlError ? spUrlErrorId : undefined}
               className="mt-1 w-full"
             />
           </label>
           <p className="text-xs text-muted-foreground">{t(lang, "spStorageHint")}</p>
           {spUrlError && (
-            <Banner severity="error">{spUrlError}</Banner>
+            <FieldError id={spUrlErrorId}>{spUrlError}</FieldError>
           )}
-          <Button
-            variant="secondary"
-            size="sm"
-            className="mt-1"
-            onClick={() => setSpPickerOpen(true)}
-          >
-            {t(lang, "spStorageBrowse")}
-          </Button>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {/* ★ The visible label deliberately REUSES `integrationsTursoApply` ("Apply"): the word
+                is the same action and a second key would be a second thing to keep translated. The
+                ACCESSIBLE name must still name the target (two Apply buttons can be on screen at
+                once in Settings), and it contains the visible "Apply" — WCAG 2.5.3 label-in-name. */}
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={!canApplySpUrl}
+              onClick={applySpUrl}
+              aria-label={t(lang, "spStorageApplyLabel")}
+              aria-describedby={spUrlError ? spUrlErrorId : undefined}
+            >
+              {t(lang, "integrationsTursoApply")}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setSpPickerOpen(true)}
+            >
+              {t(lang, "spStorageBrowse")}
+            </Button>
+          </div>
           {spPickerOpen && (config.kind === "sp-json" || config.kind === "sp-csv") && (
             <SharePointPickerModal
               mode="location"

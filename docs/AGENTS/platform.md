@@ -124,9 +124,19 @@
   `holdDuring`). A failed or refused load settles, so the storage banner, Settings and "Pick
   storage file" stay reachable. Popouts return before this ternary and are never held. `guardEdit` /
   `makeEditGuard` are unchanged.
-  ★★ The hold unmounts Settings too, so **a Settings field that feeds `useStorageBackend`'s backend memo
-  must never commit per keystroke** — else the first character rebuilds the backend and the field
-  vanishes under the cursor. The memo reads the Turso URL and token only for storage kind "turso",
+  ★★★ The hold unmounts Settings too, so **a Settings field that feeds `useStorageBackend`'s backend
+  memo must not commit until the user EXPLICITLY applies it** — no keystroke, no blur, no Tab, no
+  Escape. ★★ THE RULE USED TO SAY "never commit PER KEYSTROKE", and the SharePoint file URL satisfied
+  that wording while producing the whole failure anyway: it committed on BLUR, so the mousedown on any
+  neighbouring control rebuilt the backend, raised the hold, unmounted the section — and the click that
+  caused the blur never landed on its target, with no Apply to retry from if the new target then failed
+  to load. Both live storage targets now use the same model, each with its own Apply: the Turso URL +
+  token (`applyTursoDrafts`, `integrations-section.tsx`) and the SharePoint file URL (`applySpUrl`,
+  `storage-config.tsx`, whose `canApplySpUrl` disables it while the draft is clean, so an ENABLED Apply
+  IS the unapplied-change signal). ★ A picker that commits from inside its own modal is NOT an
+  exception to this — the SharePoint Browse dialog's `onSelect` and the OS file pickers are themselves
+  the explicit action, and unlike a blur they cannot swallow a click. The memo reads the Turso URL and
+  token only for storage kind "turso",
   and `integrations-section.tsx` picks the commit model by that same kind (`tursoIsLive`):
   **on Turso storage both fields are pure drafts that ONLY the explicit Apply button commits**
   (`applyTursoDrafts`, or Enter in either field: one `onChange` for both fields, the token

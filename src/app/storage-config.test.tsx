@@ -17,6 +17,8 @@ vi.mock("./use-ms-auth", () => ({
 
 const noop = vi.fn();
 const noopAsync = async () => {};
+/** Accessible name of the SharePoint URL's Apply button (its visible label is just "Apply"). */
+const SP_APPLY = t("en-US", "spStorageApplyLabel");
 
 function baseProps(overrides: Partial<React.ComponentProps<typeof StorageConfigSection>> = {}): React.ComponentProps<typeof StorageConfigSection> {
   return {
@@ -81,68 +83,137 @@ describe("StorageConfigSection — SharePoint gating", () => {
     expect(screen.getByText(/sharepoint file url/i)).toBeInTheDocument();
   });
 
-  it("invalid SharePoint URL on blur shows error and does NOT call onChange", async () => {
+  it("an invalid SharePoint URL fails on Apply and does NOT call onChange", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(
       <StorageConfigSection
-        lang="en-US"
-        config={{ kind: "sp-json", hostname: "x.sharepoint.com", sitePath: "/sites/a", itemPath: "f.json" }}
-        onChange={onChange}
-        onRequestSwitch={noop}
-        m365Enabled={true}
-        sharepointEnabled={true}
-        tursoEnabled={false}
-        description={null}
-        ready={false}
-        onPickFile={noopAsync}
-        onOpenFile={noopAsync}
-        onGrantWrite={noopAsync}
+        {...baseProps({
+          config: { kind: "sp-json", hostname: "x.sharepoint.com", sitePath: "/sites/a", itemPath: "f.json" },
+          onChange,
+          m365Enabled: true,
+          sharepointEnabled: true,
+        })}
       />,
     );
     const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
     await user.clear(input);
     await user.type(input, "not a url");
-    await user.tab();
+    await user.click(screen.getByRole("button", { name: SP_APPLY }));
     expect(screen.getByText(/could not parse/i)).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
   });
+});
 
-  it("valid SharePoint URL on blur calls onChange with parsed location", async () => {
-    const user = userEvent.setup();
-    const onChange = vi.fn();
-    render(
+// ★★★ §548 — the SharePoint file URL is the LIVE storage target, so a commit rebuilds the backend,
+// which raises the load hold, which unmounts Settings. It used to commit on BLUR, so the mousedown
+// on any neighbouring control took the section away and swallowed its own click. These pin the
+// Turso-shaped replacement: drafts + one explicit Apply.
+describe("StorageConfigSection — the SharePoint URL commits only on an explicit Apply (§548)", () => {
+  const SP_URL = "https://contoso.sharepoint.com/sites/Alpha/Shared%20Documents/workspace.json";
+  const SP_PARSED = {
+    kind: "sp-json",
+    hostname: "contoso.sharepoint.com",
+    sitePath: "/sites/Alpha",
+    itemPath: "Shared Documents/workspace.json",
+  };
+
+  function renderSp(onChange: React.ComponentProps<typeof StorageConfigSection>["onChange"]) {
+    return render(
       <StorageConfigSection
-        lang="en-US"
-        config={{ kind: "sp-json", hostname: "old.sharepoint.com", sitePath: "/sites/old", itemPath: "old.json" }}
-        onChange={onChange}
-        onRequestSwitch={noop}
-        m365Enabled={true}
-        sharepointEnabled={true}
-        tursoEnabled={false}
-        description={null}
-        ready={false}
-        onPickFile={noopAsync}
-        onOpenFile={noopAsync}
-        onGrantWrite={noopAsync}
+        {...baseProps({
+          config: { kind: "sp-json", hostname: "old.sharepoint.com", sitePath: "/sites/old", itemPath: "old.json" },
+          onChange,
+          m365Enabled: true,
+          sharepointEnabled: true,
+        })}
       />,
     );
+  }
+
+  // Mutation: restore `onChange({kind, ...parsed})` inside the input's `onChange` handler
+  // (a per-keystroke commit) → this goes red on the first character.
+  it("holds the typed URL as a draft — typing commits nothing", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderSp(onChange);
     const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
     await user.clear(input);
-    await user.type(input, "https://contoso.sharepoint.com/sites/Alpha/Shared%20Documents/workspace.json");
-    await user.tab();
-    expect(onChange).toHaveBeenCalledWith({
-      kind: "sp-json",
-      hostname: "contoso.sharepoint.com",
-      sitePath: "/sites/Alpha",
-      itemPath: "Shared Documents/workspace.json",
-    });
+    await user.type(input, SP_URL);
+    expect((input as HTMLInputElement).value).toBe(SP_URL); // control: the draft really is held
+    expect(onChange).not.toHaveBeenCalled();
   });
 
-  // §548 — inside a `Modal` host, Escape unmounted the field with no blur, so the blur commit
-  // never ran and the typed URL was dropped. Mutation: delete `blurFocusInside` in `modal.tsx`'s
-  // Escape branch → `onChange` is never called.
-  it("Escape in a Modal host commits the typed SharePoint URL before the dialog closes", async () => {
+  // Mutation: put `onBlur={applySpUrl}` back on the Input → this goes red.
+  // ★ Tab is the realistic blur: it moves focus to the Apply button, i.e. exactly the
+  //   mousedown-then-click sequence the old model broke.
+  it("blur does NOT commit — the draft survives leaving the field", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderSp(onChange);
+    const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
+    await user.clear(input);
+    await user.type(input, SP_URL);
+    await user.tab();
+    expect(input).not.toHaveFocus(); // control: the blur really happened
+    expect(onChange).not.toHaveBeenCalled();
+    expect((input as HTMLInputElement).value).toBe(SP_URL);
+  });
+
+  // Mutation: `if (config.kind === …) onChange(…)` → `return;` in `applySpUrl` → red.
+  it("Apply commits the parsed location exactly once", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderSp(onChange);
+    const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
+    await user.clear(input);
+    await user.type(input, SP_URL);
+    await user.click(screen.getByRole("button", { name: SP_APPLY }));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(SP_PARSED);
+  });
+
+  // Mutation: drop the `handleSpUrlKeyDown` wiring (`onKeyDown` off the Input) → red.
+  it("Enter in the field applies", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderSp(onChange);
+    const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
+    await user.clear(input);
+    await user.type(input, `${SP_URL}{Enter}`);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(SP_PARSED);
+  });
+
+  // Mutation: `disabled={!canApplySpUrl}` → `disabled={false}` → red.
+  // An enabled Apply IS the "unapplied change" signal, so a clean draft must leave it disabled.
+  it("Apply is disabled while the draft is clean and enabled once it differs", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderSp(onChange);
+    const apply = screen.getByRole("button", { name: SP_APPLY });
+    expect(apply).toBeDisabled();
+    const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
+    await user.type(input, "x");
+    expect(apply).toBeEnabled();
+  });
+
+  // The visible label is the shared "Apply"; the accessible name names the target and CONTAINS it,
+  // which is WCAG 2.5.3 label-in-name. Mutation: drop " SharePoint file URL" from
+  // `spStorageApplyLabel` so the two names collide with the Turso Apply → the second expect is red.
+  it("the Apply button's accessible name names SharePoint and contains its visible label", () => {
+    renderSp(vi.fn());
+    const apply = screen.getByRole("button", { name: SP_APPLY });
+    expect(apply.textContent).toBe(t("en-US", "integrationsTursoApply"));
+    expect(SP_APPLY).toContain(t("en-US", "integrationsTursoApply"));
+    expect(SP_APPLY).not.toBe(t("en-US", "integrationsTursoApplyLabel"));
+  });
+
+  // §548 — Escape now DISCARDS an unapplied draft rather than committing it; there is no
+  // blur-commit left on this field to rescue. ★ `modal.tsx`'s `blurFocusInside` is unaffected and
+  // still serves the other blur-commit fields (budget + change modals); it keeps its own named
+  // mutation in `modal.test.tsx`.
+  it("Escape in a Modal host discards the unapplied draft and closes the dialog", async () => {
     vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => { cb(0); return 0; });
     vi.stubGlobal("cancelAnimationFrame", () => {});
     try {
@@ -163,15 +234,10 @@ describe("StorageConfigSection — SharePoint gating", () => {
       );
       const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
       await user.clear(input);
-      await user.type(input, "https://contoso.sharepoint.com/sites/Alpha/Shared%20Documents/workspace.json");
+      await user.type(input, SP_URL);
       await user.keyboard("{Escape}");
-      expect(onChange).toHaveBeenCalledWith({
-        kind: "sp-json",
-        hostname: "contoso.sharepoint.com",
-        sitePath: "/sites/Alpha",
-        itemPath: "Shared Documents/workspace.json",
-      });
-      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(onChange).not.toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalledTimes(1); // control: Escape really reached the dialog
     } finally {
       vi.unstubAllGlobals();
     }
