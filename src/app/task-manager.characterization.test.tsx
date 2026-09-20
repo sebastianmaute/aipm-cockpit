@@ -7,10 +7,9 @@
 // load-bearing prop KEYS reaching the child. It MAY be updated freely when a diff
 // is understood (e.g. the future calendar prop-bag consolidation renames these) —
 // it is NOT a golden fixture. Coarse on purpose: a tripwire, not a spec.
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
-import { ALL_MODULE_IDS } from "./feature-modules";
 
 // task-manager mints task/resource ids from session-scoped state on interaction;
 // clear it before each test so the suite never inherits another test's mark.
@@ -244,7 +243,7 @@ describe("@characterization task-manager → Ask Claude pill gate", () => {
 // off the already-hydrated state whether or not the gate is wired at all
 // (same idiom as timelog-panel.test.tsx's "never flashes the empty state at
 // a configured user before settings load").
-describe("@characterization task-manager → hash-view hydration gate (§536, §595)", () => {
+describe("@characterization task-manager → hash-view hydration gate (§536)", () => {
   afterEach(() => {
     // NOT `window.location.hash = ""`: assigning `.hash` fires a `hashchange`
     // event (see use-hash-view.ts's own doc comment on why the hook itself
@@ -278,43 +277,20 @@ describe("@characterization task-manager → hash-view hydration gate (§536, §
     // Pre-hydration the stored layout is not yet known; nothing may be routed.
     expect(window.location.hash).toBe("#raid");
   });
-
-  // §595's OWN failure mode, distinct from §536's above: an UNGATED cold
-  // apply runs on render 1 against DEFAULT features (every module on),
-  // treats the stale-residue "#raid" hash as residue, and resolves blankView
-  // to "dashboard" — equal to the provider's own default activeTab, so
-  // nothing arms `pendingApplyRef` and the passive view->hash effect rewrites
-  // the URL to "#dashboard" regardless. Hydration then commits the REAL
-  // (dashboard-disabled) features and the effect re-runs WARM, not cold — it
-  // reads "#dashboard" straight back, finds `isViewEnabled("dashboard",
-  // features)` false, and returns without fixing anything. The user is
-  // stranded on a disabled view permanently. Gating the whole hook on
-  // `hydrated` means the ONE cold apply it ever runs already sees the real
-  // features and never takes that wrong first step.
-  //
-  // Neither WorkspaceSection (mocked here) nor the real component exposes
-  // `activeTab` as a prop at this level (workspace-section reads it from
-  // WorkspaceTabProvider's own context, which lives INSIDE TaskManager's
-  // default export — nothing outside can reach it), so the URL — written by
-  // the passive view->hash effect once things settle — is the only
-  // externally observable signal. `waitFor` polls directly for that
-  // settled value rather than waiting on `i18nReady`/DOM: `i18nReady` and
-  // the settings/features hydration are two INDEPENDENT async chains raced
-  // in the same mount effect (use-settings.ts), so a DOM-readiness wait
-  // (e.g. `findByTestId`) could resolve before the features commit that
-  // this test depends on.
-  it("does not strand the user on a disabled module once the real (hydrated) features arrive", async () => {
-    window.location.hash = "#raid";
-    window.localStorage.clear();
-    seedRegistry();
-    const withoutDashboard = ALL_MODULE_IDS.filter((m) => m !== "dashboard");
-    window.localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ features: withoutDashboard }));
-    render(<TaskManager />);
-    await waitFor(
-      () => expect(window.location.hash).toBe("#open-points"),
-      { timeout: 5000 },
-    );
-    // Never the disabled module — the positive observable this test exists for.
-    expect(window.location.hash).not.toBe("#dashboard");
-  });
+  // ★★ §595 (the features half of the gate) is deliberately NOT pinned here.
+  //    A call-site-level test using a dashboard-disabled hydrated `features`
+  //    seed cannot distinguish the gated from the ungated call site: a
+  //    SECOND, independent effect in this file — `disabledViewRedirect`,
+  //    unconditional and not gated on `hydrated` — corrects `activeTab` away
+  //    from any disabled module regardless of which `useHashView` call-site
+  //    variant is live, and for the dashboard-disabled case its target
+  //    ("open-points") is identical to `useHashView`'s own `blankView`
+  //    fallback. A test built that way passed GREEN under the reverted call
+  //    site (measured, not assumed) — it would also pass with the gate
+  //    deleted entirely, which is the definition of a test that cannot fail.
+  //    §595 is pinned at the hook level instead, in use-hash-view.test.tsx's
+  //    "judges the cold rule against the features it is enabled with, not
+  //    the ones it started disabled with" — `disabledViewRedirect` lives in
+  //    THIS file and never runs for a bare `renderHook` mount, so the
+  //    masking cannot reach that test.
 });
