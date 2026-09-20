@@ -247,7 +247,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // ★★★ §596 — A NARROWER COUNT, NOT A MIRROR OF THE ONE ABOVE, AND THE DIFFERENCE IS THE POINT.
   //   ★★ THIS COMMENT SAID "THE SAME COUNT AS A REF" AND WAS TRUE WHEN WRITTEN — the B1 fix below
   //   then split the two and left the sentence standing. `setSwapsInFlight` counts ALL TEN held
-  //   ops; this ref counts only the FOUR `holdDuring(..., "changes-scope")` rows. Do NOT "restore"
+  //   ops; this ref counts only the FOUR `hold[D]uring(..., "changes-scope")` rows. Do NOT "restore"
   //   the invariant by re-coupling them: that is precisely the B1 regression (a plain Save-As, a
   //   cancelled OS dialog and a same-project Reload silently killing a live AI turn), and the two
   //   counts answer different questions on purpose.
@@ -1232,12 +1232,19 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   LINES, not occurrences, and the wraps are packed several to a line, so its 7 was not the wrap
   //   count either: there are 10 wraps on 6 lines. A self-matching recipe whose miscount is then
   //   explained away by a plausible-sounding subtraction reads as verified forever.
-  // ★★ EVERY MENTION BELOW USES THE BRACKET CLASS, INCLUDING THE ONES IN PROSE, and that is not
-  //   decoration: the first attempt at this correction spelled the old broken pattern twice while
-  //   describing it, which pushed the corrected recipe from 10 back to 12. An explanation of a
-  //   self-matching check can re-poison the check. Count OCCURRENCES, never lines:
+  // ★★★ EVERY PROSE MENTION OF THIS FUNCTION'S NAME ANYWHERE IN THIS FILE USES THE BRACKET CLASS —
+  //   above this line as well as below it, and that scope is the whole point. This warning used to
+  //   say "every mention BELOW", which describes a REGION while the recipe scans a FILE: a mention
+  //   added 970 lines ABOVE poisoned it just the same, and did, while the warning still read as
+  //   satisfied. A guard whose stated scope is narrower than the thing it guards is a loophole with
+  //   documentation. Match the two, or the hole re-opens on the next edit anywhere in the file.
+  // ★★ It is not decoration either: the first attempt at this correction spelled the old broken
+  //   pattern twice while describing it, which pushed the corrected recipe from 10 back to 12. An
+  //   explanation of a self-matching check can re-poison the check. Count OCCURRENCES, never lines:
   //     grep -o "hold[D]uring(" src/app/use-storage-backend.ts | wc -l
-  //   It printed 10 on 2026-09-20. Read the hits rather than the number either way —
+  //   It printed 10 on 2026-09-20, re-run after the prose around it was final (it printed 11 in
+  //   between, from the unbracketed prose mention up at the ref declaration — the miss that made
+  //   the scope fix above necessary). Read the hits rather than the number either way —
   //   `grep -n "hold[D]uring(" src/app/use-storage-backend.ts` names each wrapped op.
   // ★★★ §596 — `scope` IS REQUIRED, AND IT GATES ONLY THE REF, NEVER THE HOLD. Every op below
   //   raises `loadPending` exactly as before; what this decides is whether `isSwapInFlight` — read
@@ -1258,14 +1265,22 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // ★★★ "CANCELLABLE" MEANS *THE USER DECLINES*, NOT *THE OP FAILS*, and the distinction is the
   //   whole rule — read it before reclassifying anything. All four `"changes-scope"` ops can still
   //   ABORT: a Turso guard returning null, a save or load throwing, a same-target early return. Each
-  //   of those false-cancels a turn too, and that is ACCEPTED, because a failure announces itself —
-  //   the user gets a toast and knows something went wrong. A user who backs out of an OS dialog
-  //   gets no signal at all, and a turn dying silently beside it is the B1 shape. So the flag
-  //   separates "silent" from "loud", not "certain" from "uncertain".
-  // ★★ KNOWN RESIDUALS, stated rather than hidden, both of the loud kind: `switchToTursoProject`
-  //   early-returns when the target is already current (`deps.tursoProjectId === id`), and both
-  //   Turso ops return early when `guardTurso()` finds no config. Neither is reachable from the
-  //   project picker, which does not offer the current project, and neither is silent.
+  //   of those false-cancels a turn too. A FAILURE is accepted because it announces itself — the
+  //   user gets a toast and knows something went wrong — where a user who backs out of an OS dialog
+  //   gets no signal at all, and a turn dying silently beside it is the B1 shape. So the axis is
+  //   "does the user learn something went wrong", not "is the outcome certain".
+  // ★★★ THAT AXIS DOES NOT COVER A NO-OP GUARD, and claiming it did was this paragraph's own worked
+  //   example contradicting its rule. Of the three aborts named above, only `guardTurso`'s
+  //   missing-config branch toasts. Its `isPopout` branch and `switchToTursoProject`'s same-target
+  //   return emit NOTHING, so they are silent false-cancels by the definition one line up — the
+  //   thing the rule exists to prevent. They are acceptable on a DIFFERENT and checkable ground:
+  //   neither is reachable from the UI. A popout offers no project ops, and the project picker does
+  //   not offer the project already open. ★★ If either ever becomes reachable, it is not a residual
+  //   any more — it is a B1-shaped defect, and the fix is to move that op to `"same-scope"`, not to
+  //   re-argue this paragraph.
+  //   (The three sites, so the classification can be re-checked rather than re-argued:
+  //   `use-storage-turso-ops.ts`'s `guardTurso` — its `isPopout` and missing-config branches — and
+  //   `switchToTursoProject`'s `deps.tursoProjectId === id` return.)
   // ★ A `"same-scope"` op that DOES end up moving the target (the user accepts the dialog in
   //   `onOpenStorageFile` or `loadProjectFromFile`) is not a hole: the turn keeps running and the
   //   epoch drops its write at resolution. Only the tokens are spent.

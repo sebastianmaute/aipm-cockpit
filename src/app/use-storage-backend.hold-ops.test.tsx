@@ -13,8 +13,11 @@
 // ★ The Turso mocks copy use-storage-backend.test.tsx's convention: `./turso-portfolio` replaced
 //   wholesale; `./turso-pipeline` spread from the actual module with only `testTursoConnection` stubbed
 //   (the §408 connection probe); a `TursoBackend` class whose `load` reads a hoisted seam.
-// ★★ "Threw": eight of the nine ops CATCH their own errors and report them through `showToast`; only
-//   `onOpenStorageFile` rethrows by itself (its picker `await` sits outside its `try`). So the throw test
+// ★★ "Threw": NINE of the TEN ops CATCH their own errors and report them through `showToast`; only
+//   `onOpenStorageFile` rethrows by itself (its picker `await` sits outside its `try`). ★ It said
+//   "eight of the nine" three lines under a header the same commit had just corrected to ten — the
+//   tenth op, `onPickStorageFile`, catches its picker's AbortError by design (§590, the cancelled
+//   dialog), so the ratio moved but the exception did not. So the throw test
 //   rejects the gate AND makes `showToast` throw, which turns every row's error path into a genuine
 //   rejection of the op, and asserts that (plan ruling 12).
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -160,6 +163,18 @@ type Row = {
 
 // One row per op wrapped by `holdDuring`. `arm` parks the op on its FIRST awaited step; `value` is what
 // that step resolves with in the "resolved" test.
+// ★★ `scope` IS A SECOND COPY OF THE CLASSIFICATION, and this table is where that has to be said out
+//   loud, because the commit that added it also coined the sentence for exactly this shape over in
+//   `use-storage-backend.rebuild-flush.test.tsx`: a cross-reference is not a single source, it is a
+//   second copy with a promise attached. What it CATCHES is a production-only flip — changing a
+//   `holdDuring(..., "...")` argument and nothing else turns that row red (measured: MH3, MH4, MH5).
+//   What it CANNOT catch is someone editing both sides together, which is the ordinary way a
+//   deliberate reclassification arrives. So read a green run as "production still says what this
+//   table says", never as "the classification is right"; the argument for each row lives at the
+//   `holdDuring` declaration and is the thing to re-read when a row changes.
+//   ★ Deriving `scope` from production instead was considered and NOT done: the call sites are
+//   inside `useStorageBackend`'s body and exporting a map of them would restructure production code
+//   to serve a test, which is a worse trade than a copy that is honest about being one.
 const ROWS: Row[] = [
   { op: "reloadCurrentProject", arm: (g, b) => { b.current.load.mockImplementationOnce(g.wait); }, value: STORED,
     call: (h) => h.reloadCurrentProject(), scope: "same-scope" },
