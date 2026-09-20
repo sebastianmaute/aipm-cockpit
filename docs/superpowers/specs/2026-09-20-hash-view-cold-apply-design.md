@@ -227,3 +227,38 @@ description, never in a commit message. Each issue's state is verified after the
 - Any change to `requestOpen`'s own `replaceState` in `workspace-tab-context.tsx` beyond what the hook
   needs; it is the other real hash writer in `src/` and is left alone.
 - `safe-mode.ts`, which reads the hash and never writes it.
+
+## As shipped (2026-09-20)
+
+Two prescriptions above were superseded during implementation. Recorded here rather than edited into
+the sections above, which describe the plan as written, not the code as it landed.
+
+- **No hash snapshot.** The design's `use-hash-view.ts` point 1 called for snapshotting the incoming
+  hash into a ref at mount, read only by the cold apply, so a post-hydration apply could not see a URL
+  the passive effect had already overwritten. That mechanism was not built. Instead, `pendingApplyRef`
+  (armed by the apply effect only when its routed view differs from the current tab, consumed by the
+  view→hash passive effect as a suppress-while-in-flight guard) makes the snapshot unnecessary: the
+  passive effect no longer runs ahead of a routing apply at all, so there is nothing for a snapshot to
+  protect against. A snapshot would also have had a real cost the design did not weigh: it would ignore
+  a hash a user or script edited during the pre-hydration window, where the shipped guard reads
+  `window.location.hash` live throughout and only ever suppresses the one write that would otherwise
+  race the routing `setActiveTab`.
+- **The gate is folded into `enabled`, not a third parameter.** The design's point 2 had `useHashView`
+  take `hydrated` as its own argument alongside `enabled` and `features`. The call site instead passes
+  `hydrated && settings.layout === "modern"` as the existing `enabled` argument — `useHashView` keeps its
+  original two-parameter signature. This reads as the more direct fix for what the entries actually
+  named: `enabled` was already supposed to mean "the hook may act now"; a page mid-hydration was never a
+  case the hook itself needed to distinguish from a disabled layout, since both mean the same thing to
+  it — do nothing yet.
+
+The spec's own DELETE/MIGRATE labels for the two `use-hash-view.test.tsx` tests were also retired in
+favour of a smaller diff, for both tests, not just one. `is cold on the first enabled window even when
+the page loaded disabled and the cold target is not the default tab` (labelled DELETE) was kept, with
+only its comment rewritten: since the call site is now gated on `hydrated`, that `enabled: false`
+initial-props scenario is no longer a hypothetical defensive case but the real startup path every page
+load takes (see §478 and §536's closures). `applies the cold rule on the first EXECUTED run, not the
+first render` (labelled MIGRATE, to be rephrased) was left untouched, byte-for-byte, comment included —
+its own §478-era comment about a Classic→Modern switch making the first executed run cold still holds
+under the gate, and a rewrite was judged to add words without changing what the test proves. Every other
+design decision above — the resource-directory guard shape, the register closures, the Playwright bar —
+landed as specified.

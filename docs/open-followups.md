@@ -757,12 +757,12 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§532](#532-two-projects-without-a-code-look-like-the-same-project-to-the-timelog-picker--closed-2026-09-14) | Two projects without a code look like the same project to the TimeLog picker — CLOSED 2026-09-14 | found 2026-09-13 while correcting the O-1 spec's TimeLog claim against `origin/main` `c3598637` | S — pass a per-project id as the switch signal, and pin a switch between two code-less projects | **CLOSED** 2026-09-14 |
 | [§533](#533-csv-markdown-and-turso-split-a-stored-email-address-containing-a-comma-or-semicolon-on-save--closed-2026-09-14-as-an-accepted-limit) | CSV, Markdown and Turso split a stored email address containing a comma or semicolon on save — CLOSED 2026-09-14 as an accepted limit | found 2026-09-14 in the cold review of the data-loss batch, measured by a codec round-trip probe; GitLab #323 | S–M — a quote-aware join for the `emails` cell, or a one-time migration | **CLOSED** 2026-09-14 as an accepted limit |
 | [§534](#534-the-chat-review-card-can-reject-one-field-while-apply-replays-the-whole-call-so-the-fields-it-shows-as-landing-are-lost--closed-2026-09-19) | The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — CLOSED 2026-09-19 | found 2026-09-14 in the cold re-review of the §422 fix (data-loss batch); pre-existing, CLOSED §384 described the class; GitLab #324 | S–M — strip plan-rejected fields from the replayed call, or reject the whole row on the card when the dispatcher would throw | **CLOSED** 2026-09-19 |
-| [§535](#535-a-cold-item-deep-link-to-a-non-default-view-ends-on-the-dashboard-under-strictmode-and-loses-its-item-id-outside-it--open) | A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — OPEN | found 2026-09-14 while fixing §478 on `fix/ui-a11y-batch` | S — let the cold apply's view commit before the view→hash write, and pin `#raid/123` with and without StrictMode | open |
-| [§536](#536-a-page-loaded-in-the-classic-layout-still-applies-the-cold-hash-rule-on-its-first-switch-to-modern--open) | A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — OPEN | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478) | S–M — give the hook a signal that tells a classic-loaded page from a settings load still in flight | open |
+| [§535](#535-a-cold-item-deep-link-to-a-non-default-view-ends-on-the-dashboard-under-strictmode-and-loses-its-item-id-outside-it--closed-2026-09-20) | A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — CLOSED 2026-09-20 | found 2026-09-14 while fixing §478 on `fix/ui-a11y-batch` | S — let the cold apply's view commit before the view→hash write, and pin `#raid/123` with and without StrictMode | **CLOSED** 2026-09-20 |
+| [§536](#536-a-page-loaded-in-the-classic-layout-still-applies-the-cold-hash-rule-on-its-first-switch-to-modern--closed-2026-09-20) | A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — CLOSED 2026-09-20 | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478); stated mechanism refuted 2026-09-20 | S–M — give the hook a signal that tells a classic-loaded page from a settings load still in flight | **CLOSED** 2026-09-20 |
 | [§537](#537-project-contact-persons-have-no-ids--open) | Project contact persons have no ids — OPEN | filed 2026-09-14 while specifying the email-guard batch (spec Part 7); user decision: stay id-less for that batch, follow up later; GitLab #327 | M — a storage-format change to the `contactPersons` cell across CSV/Markdown/Turso-tenant, decoder back-compat, and 13 non-test call sites | open |
 | [§538](#538-single-db-turso-never-persists-project-meta--open) | Single-DB Turso never persists project meta — OPEN | found 2026-09-14 while filing §537; GitLab #328 | M — a single-tenant project meta row/table (or reuse of the tenant `projects` table), `dirtyWorkspaceTables` taught about project-only edits, and a `turso-migrate.ts` self-heal entry | open |
 | [§539](#539-sanitizeisodate-accepts-dates-that-are-not-real-calendar-dates--closed-2026-09-14) | `sanitizeIsoDate` accepts dates that are not real calendar dates — CLOSED 2026-09-14 | reported 2026-09-14 by a peer session's §273 work; user approved "file and fix" in the email-guard batch; GitLab #329 | S — a month/day calendar check in one function plus test migration across ~30 referencing files | **CLOSED** 2026-09-14 |
-| [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--open) | A repeated resource deep link re-runs the open while that resource's editor is open — OPEN | found 2026-09-14 by the fix-round reviews of §362 on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | open |
+| [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--closed-2026-09-20) | A repeated resource deep link re-runs the open while that resource's editor is open — CLOSED 2026-09-20 | found 2026-09-14 by the fix-round reviews of §362 on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | **CLOSED** 2026-09-20 |
 | [§541](#541-the-stakeholder-editor-saves-its-text-fields-uncapped-when-submitted-with-enter--open) | The stakeholder editor saves its text fields uncapped when submitted with Enter — OPEN | found 2026-09-14 by the email-guard batch's Task 3 review; user approved filing; GitLab #331 | S — cap each field in `handleSubmit` before `onSave`, or sanitise in `handleSaveStakeholder` | open |
 | [§542](#542-the-calendar-event-writer-accepts-a-day-past-its-months-end-and-rolls-it-over--open) | The calendar event writer accepts a day past its month's end and rolls it over — OPEN | found 2026-09-14 by the whole-branch and cold reviews of `fix/email-and-guard-batch`; user approved filing; GitLab #332 | S — replace the `Date.parse` leg with a calendar round trip (as `sanitizeIsoDate` does since §539) | open |
 | [§543](#543-a-dated-timelog-apply-leaves-a-period-key-of-the-other-granularity-in-place-so-switching-back-counts-those-hours-twice--closed-2026-09-15) | A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — CLOSED 2026-09-15 | found 2026-09-15 by the final whole-branch review of `feat/budget-forecast-union` | S — let a dated Apply also remove other-granularity period keys that overlap its covered days | **CLOSED** 2026-09-15 |
@@ -817,6 +817,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§592](#592-the-50-ms-wall-clock-ceiling-in-tag-pair-walktestts-can-fail-a-correct-build-under-load--closed-2026-09-19) | The 50 ms wall-clock ceiling in tag-pair-walk.test.ts can fail a correct build under load — CLOSED 2026-09-19 | found 2026-09-19 reading the test's own comment, no failure observed; GitLab #376 | S — a load-independent assertion, or evidence the ceiling holds under CI load | **CLOSED** 2026-09-19 |
 | [§593](#593-html-extracts-8000-ms-dos-budget-test-failed-at-8301-ms-under-a-saturated-full-suite-run--closed-2026-09-19) | html-extract's 8000 ms DoS-budget test failed at 8301 ms under a saturated full-suite run — CLOSED 2026-09-19 | observed 2026-09-08 in a local full-suite run, filed 2026-09-19; GitLab #377 | S — a load-independent assertion, or a ceiling with margin measured under load | **CLOSED** 2026-09-19 |
 | [§594](#594-the-document-asset-patterns-one-huge-tag-scaling-ratio-row-has-no-known-mutant-that-turns-it-red--open) | The document-asset-patterns "one huge tag" scaling-ratio row has no known mutant that turns it red — OPEN | found 2026-09-19 converting the file's timing guards to a scaling ratio (§592, §593 class); GitLab #378 | S — find the regression it guards, or delete/re-scope the row | open |
+| [§595](#595-the-cold-hash-apply-judges-a-disabled-module-hash-against-default-features-and-never-revisits-the-decision--closed-2026-09-20) | The cold hash apply judges a disabled-module hash against default features and never revisits the decision — CLOSED 2026-09-20 | found and closed 2026-09-20 fixing §535/§536 on `fix/hash-view-cold-apply` | S — the same hydration gate that closed §536 | **CLOSED** 2026-09-20 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -36577,6 +36578,14 @@ enabled window even when the page loaded disabled and the cold target is not the
 ★ 2026-09-14: the re-entry repair flag is consumed before the MSAL auth-response guard in the
 view→hash effect (`use-hash-view.ts`), so a re-entry that coincides with an auth-response fragment
 skips the bare-hash repair — low probability, and not a regression from before this fix.
+★ 2026-09-20 (`fix/hash-view-cold-apply`, closing §536): the "an async settings load starts the hook
+disabled" rationale this closure first gave (quoted and disputed in §536's own body) is refuted by the
+same evidence that closed §536 — `use-settings.ts`'s non-lazy `useState<Settings>(defaultSettings)` and
+`defaultSettings.layout` (`settings-types.ts`) being `"modern"` mean the hook's first executed run is
+ENABLED for every user, not disabled. The `enabled: false` initial-props scenario the hook test `is cold
+on the first enabled window even when the page loaded disabled and the cold target is not the default
+tab` (`use-hash-view.test.tsx`) pins is, since §536 gated the call site on `hydrated`, the real startup
+path every page load now takes, not the defensive edge case it was introduced to cover.
 
 `useHashView` (`src/app/use-hash-view.ts`) is enabled only in the modern layout —
 `useHashView(settings.layout === "modern", settings.features)` in `task-manager.tsx`. The first EXECUTED
@@ -37877,14 +37886,42 @@ nothing open tracked the class itself once it closed — this entry does.
 - Reject the whole row on the card whenever the dispatcher would throw on a field it rejects, so the card never
   promises a sibling that will not land.
 
-## 535. A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — OPEN
+## 535. A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — CLOSED 2026-09-20
+
+**Status:** CLOSED 2026-09-20 on `fix/hash-view-cold-apply`. Fixed in `use-hash-view.ts` by
+`pendingApplyRef` (typed `AppView | null`), armed in the apply effect only when the routed view differs
+from the current tab — tracked via a dedicated no-deps `useLayoutEffect` that syncs an `activeTabRef`,
+declared before the apply effect so the ref is fresh by commit time — and consumed at the top of the
+view→hash passive effect as `if (pending !== null && pending !== activeTab) return;`, suppressing the
+passive write while the routed tab is still in flight so it can no longer clobber the URL before the tab
+change commits.
+
+Pinned by `use-hash-view.test.tsx`: `keeps the item id in the URL when a cold deep link routes to another
+view`, `does not treat StrictMode's double invoke as a reason to drop a cold deep link`, `still rewrites
+the hash on a normal view change after the cold apply`, plus three tests added after mutation testing
+found the flag could arm on a no-op `setActiveTab` (a same-view target) and then never be consumed:
+`rewrites the hash to the current view when the deep link targets a disabled module`, `rewrites a cold
+view-only stale hash to the current view in the URL`, `does not leave the flag armed after a warm
+re-apply whose target already matches activeTab`. Witnessed live under the dev server's real StrictMode by
+`e2e/hash-deep-link.spec.ts`'s `a cold item deep link lands on the item's view and keeps the id in the
+URL`, confirmed red against a reverted guard (expected `"#raid/1"` in the URL, received the bare
+`"#raid"`). Commits `5d62a8086`, `ba1fd1701`.
+
+Mutation-proved: deleting the suppress check or never arming the flag both turn the item-id and
+StrictMode tests red; consuming the flag without clearing it turns the normal-navigation test red; arming
+with the parsed view before the disabled-target bail is killed by the disabled-module test; dropping only
+the arm-side `view !== activeTabRef.current` guard turns the warm-re-apply test red but — measured, not
+predicted — NOT the stale-hash test, which the suppress-side check saves independently; and dropping the
+suppress-side `pending !== activeTab` comparator while the arm-side guard stays intact is a genuine
+equivalent mutant, proved structurally (the two states cannot coincide while the arm-side guard holds),
+not just by an empirical green run.
+
+_Original finding, as filed 2026-09-14. Preserved as the dated record of what was believed._
 
 **Status:** OPEN 2026-09-14 — never machine-verified in a browser. Measured on 2026-09-14 with a
 throwaway probe of the hook that was not kept, and found identical in the hook before and after the §478
 fix. Presence witness: `grep -n "does not treat StrictMode" src/app/use-hash-view.test.tsx` returns the
 StrictMode test, which uses `#dashboard/5` precisely to stay clear of this race.
-
-**Work item:** #325
 
 On a cold page load whose hash deep-links an item on a view that is NOT the default tab (for example
 `#raid/123`), `useHashView` (`src/app/use-hash-view.ts`) applies the deep link from its mount layout
@@ -37905,13 +37942,39 @@ committed, or have the cold apply write the hash it honoured. Pin it with a Stri
 
 Related: §478, §536.
 
-## 536. A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — OPEN
+## 536. A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — CLOSED 2026-09-20
+
+**Status:** CLOSED 2026-09-20 on `fix/hash-view-cold-apply`. The mechanism this entry describes is
+REFUTED. It assumed the first classic→modern switch is the page's first enabled window (`false →
+true`). It is not: `use-settings.ts`'s `useState<Settings>(defaultSettings)` seeds synchronously
+(non-lazily), and `defaultSettings.layout` (`settings-types.ts`) is `"modern"`, so `task-manager.tsx`'s
+`useHashView` call passed `enabled === true` on render 1 for every user, and a real classic load ran
+`true → false` — never the `false → true` this entry names. The symptom filed was real; the cause was the
+cold apply running before hydration, not the transition described.
+
+Fixed by gating the call site on hydration: `useHashView(hydrated && settings.layout === "modern",
+settings.features)` in `task-manager.tsx` (`hydrated` is the flag `useSettings` already returns, which
+only flips once the persisted-settings/secret merge resolves, including the no-persisted-settings path).
+While `hydrated` is false, `useHashView` does nothing at all — no `setActiveTab`, no `requestOpen`, no
+`replaceState`. A classic-layout user therefore never reaches an enabled window in the first place:
+hydration resolves `layout: "classic"` before anything ever applies.
+
+Pinned by `does not route from the hash until settings have hydrated`
+(`task-manager.characterization.test.tsx`) at the call-site level, and by seven new hydration-boundary
+tests in `use-hash-view.test.tsx` modelling the `enabled` transition across hydration. Commits
+`b7c514681`, `5d731a4a3`, `7a6d89b62`, `cad92528f`, `32189bbec`. Mutation-proved: reverting the call site
+to `settings.layout === "modern"` alone, or to `hydrated || settings.layout === "modern"`, both turn the
+call-site test red; the hook's own §478 re-entry tests stay green throughout, unchanged.
+
+★ Do not read the original body below as still accurate — a future reader who inherits its premise would
+go looking for a `false → true` transition that never happens. Preserved anyway, as the dated record of
+what was believed; see §595 for the sibling defect this same fix also closed.
+
+_Original finding, as filed 2026-09-14. Preserved as the dated record of what was believed._
 
 **Status:** OPEN 2026-09-14 — the hook-level behaviour is pinned as current by
 `npx vitest run src/app/use-hash-view.test.tsx -t "is cold on the first enabled window even when the page loaded disabled"`;
 everything user-visible below is reasoned from that test and the call sites, not watched in a browser.
-
-**Work item:** #326
 
 §478 made a layout RE-ENTRY (modern → classic → modern) keep the current view. It does not cover a page
 that LOADED in the classic layout. `useHashView` is disabled while classic is active, so the first
@@ -38192,13 +38255,44 @@ git grep -c sanitizeIsoDate -- src                                        # refe
 also checks the month range and the true day-of-month via a `Date.UTC` round trip, so re-running that
 grep today shows the calendar check too. Left as a dated record of the pre-fix shape.
 
-## 540. A repeated resource deep link re-runs the open while that resource's editor is open — OPEN
+## 540. A repeated resource deep link re-runs the open while that resource's editor is open — CLOSED 2026-09-20
+
+**Status:** CLOSED 2026-09-20 on `fix/hash-view-cold-apply`. This entry names `task-manager.tsx` as the
+guard site — that is wrong. The state (`editingResource`) and the fix both live in
+`use-resource-directory.ts`; `task-manager.tsx` only threads the value through.
+
+Fixed by a functional `setEditingResource` updater in `handleEditResource`: a repeat of the same
+already-open, already-saved resource (`prev` non-null, `!prev.isNew`, same `resource.id`) now returns
+`prev` unchanged, so React's setState bail-out skips the re-render and the downstream open never re-fires.
+An unsaved ADD draft, and a deep link to a different resource, still open normally.
+
+**Deliberate behaviour change, recorded so it is not discovered later.** When a concurrent writer (AI,
+sync, another tab) has replaced the stored row while the editor is open and the link is then repeated, the
+guard now bails on id alone — the editor keeps showing the stale copy it already had rather than picking
+up the concurrent write. Preserving the user's in-progress draft, which is what this entry asked for, is
+the trade; the cost is staleness, not further data loss, and is written down here rather than left for
+someone to rediscover.
+
+Pinned by `resource-directory.test.tsx`'s inverted `does not re-fire the edit handler for a repeated
+deep-link to the resource whose editor is already open`, `still honours a deep link to another resource
+while an unsaved ADD draft is open`, and a dedicated `renderHook` mutation-guard test asserting
+`editingResource` reference identity survives a same-id repeat. Commits `cd5a50e71`, `23a28e614`.
+Mutation-proved: dropping the `!prev.isNew` conjunct is killed by the ADD-draft test; comparing
+`prev.resource !== resource` instead of by id, or spreading `{ ...prev }` instead of returning `prev`
+itself, are both killed by the repeat test together with the `renderHook` identity test.
+
+A Playwright case for this guard was written, run live against its own reverted fix, and found to pass for
+a reason unconnected to the defect: `ResourceEditModal` resets its draft on the INNER `resource` object's
+reference identity, the guard bails on the WRAPPER, and the flow that test drove never changed the inner
+reference either way — the assertion held in both arms. Discriminating it would need a genuine concurrent
+write staged between the two opens, judged more machinery than the coverage is worth given the unit-level
+pinning above, so the case was deleted rather than kept as a false positive.
+
+_Original finding, as filed 2026-09-14. Preserved as the dated record of what was believed._
 
 **Status:** OPEN 2026-09-14 — the re-fire is pinned as current by
 `npx vitest run src/app/resource-directory.test.tsx -t "KNOWN RESIDUAL"`; the draft-loss consequence below is
 read from the code, not watched in a browser.
-
-**Work item:** #330
 
 §362 made a guardrail insight's resource link — and global-search resource hits, Recents and
 `#resources/<id>` links — open that resource's editor in the Resources directory. Repeating the request while
@@ -40000,3 +40094,48 @@ demonstrated kill.
 it, or delete the row, or re-scope it to a pattern that does have a known quadratic case. The row's
 own comment in `document-asset-patterns.differential.test.ts` (beside the `"one huge tag"` entry)
 already records it as unproven rather than claimed as covered.
+
+## 595. The cold hash apply judges a disabled-module hash against default features and never revisits the decision — CLOSED 2026-09-20
+
+**Status:** CLOSED 2026-09-20 on `fix/hash-view-cold-apply`, filed and closed in the same slice.
+`features` is read only inside `use-hash-view.ts`'s apply effect, for two decisions: the blank-hash
+target (`dashboard`, or `open-points` when the dashboard module is off) and the disabled-target bail.
+Before this slice the cold apply ran on render 1 against `defaultSettings.features` (see §536's closure
+for why), and because `pageColdDoneRef` is set the moment it runs, a later re-run on the real, hydrated
+`features` identity was always WARM — the decision was never revisited. A user who had disabled the
+dashboard module was still landed on it by a stale-residue hash, and a hash naming a module they had
+disabled was still honoured.
+
+Fixed by the same hydration gate that closed §536: the cold apply's one execution now happens after
+`hydrated` is true, so it always judges the real `features`, never the defaults.
+
+**Severity correction, recorded because two independent hand-traces got it wrong in the same direction
+before a live mutant run caught it.** The plan that scoped this slice, and this implementer's own first
+pass, both described a user left PERMANENTLY stranded on a disabled view. That is false.
+`task-manager.tsx` carries a second, always-on effect calling `disabledViewRedirect(activeTab,
+settings.features, settings.layout, isPopout)`, unconditional and not gated on `hydrated`. For the
+dashboard-disabled case measured here (`activeTab === "dashboard"`, real features without the dashboard
+module, modern layout, non-popout), it returns `"open-points"` — the same fallback `useHashView`'s own
+blank-hash target computes independently — so the final landing view converges to `"open-points"` either
+way, confirmed by an actual mutant run (a call-site test built to catch this resolved in ~78ms, not a
+timeout, meaning a real convergence rather than a broken fixture). This boundary is not claimed to hold
+for every disabled module, every layout or the popout case — only the one traced and measured.
+
+**The residual defect, once the false framing is corrected:** a transient landing on the disabled view
+before `disabledViewRedirect` fires on the next commit, and — for an item-bearing deep link to a disabled
+module specifically — `pendingOpen` left holding a request for an id on a view the user is no longer on.
+`disabledViewRedirect` changes `activeTab` but never touches `pendingOpen`, and the passive view→hash
+effect writes only the bare view (no item id), so the stray `pendingOpen` is silently orphaned. This is
+not observable outside `TaskManager` (`pendingOpen` is read only internally and is never threaded to
+`WorkspaceSection` as a prop), which is also why no call-site-level test could pin it.
+
+Pinned at the hook level by `judges the cold rule against the features it is enabled with, not the ones
+it started disabled with` (`use-hash-view.test.tsx`) — the level where the defect is real, since
+`disabledViewRedirect` lives in `task-manager.tsx` and never runs for a bare hook mount and so cannot mask
+it there. A call-site-level test for the same claim was written, run, and then deleted once measurement
+showed it passed regardless of which `useHashView` call site was live, for the `disabledViewRedirect`
+reason above — keeping it would have been the same false-positive shape as §540's deleted Playwright
+case. Commits `b7c514681` through `32189bbec` (see §536's closure for the full commit list; both entries
+share the same fix).
+
+Related: §536, §540.
