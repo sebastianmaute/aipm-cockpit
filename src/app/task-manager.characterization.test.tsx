@@ -243,7 +243,7 @@ describe("@characterization task-manager → Ask Claude pill gate", () => {
 // off the already-hydrated state whether or not the gate is wired at all
 // (same idiom as timelog-panel.test.tsx's "never flashes the empty state at
 // a configured user before settings load").
-describe("@characterization task-manager → hash-view hydration gate (§536)", () => {
+describe("@characterization task-manager → hash-view hydration gate (§536, §595)", () => {
   afterEach(() => {
     // NOT `window.location.hash = ""`: assigning `.hash` fires a `hashchange`
     // event (see use-hash-view.ts's own doc comment on why the hook itself
