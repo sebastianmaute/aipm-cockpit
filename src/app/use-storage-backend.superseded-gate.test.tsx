@@ -2,10 +2,10 @@
 //
 // ★★★ THE CLAIM: a reload started against the backend of the CURRENT render (`first`) can still be
 // AWAITING when a settings-driven rebuild (e.g. a Turso URL/token edit) mints a NEW backend instance
-// (`second`) and its own load effect lands, opening `second`'s save gate (`allowSavesTo(second)`,
-// use-storage-backend.ts:421 via `applyWorkspaceFromLoad`). If the STALE reload against `first` then
+// (`second`) and its own load effect lands, opening `second`'s save gate (`applyWorkspaceFromLoad`'s
+// trailing `allowSavesTo` call, use-storage-backend.ts). If the STALE reload against `first` then
 // resolves, its own `applyWorkspaceFromLoad` call — reached through `reloadCurrentProject`'s render-#1
-// closure — calls `allowSavesTo(first)` (use-storage-backend.ts:421), which moves the gate OFF the
+// closure — runs that same `allowSavesTo`, with `first` as the target, which moves the gate OFF the
 // live backend. An edit made after that point is silently never persisted: no banner, no toast,
 // because `loadPause` is published only for an instance whose OWN load failed or was refused — a
 // superseded reload is neither.
@@ -183,10 +183,12 @@ async function setupSupersededReloadScenario() {
   expect(second.save.mock.calls[0][0].tasks.map((x: Task) => x.id)).toEqual([1]);
   const savesBeforeStaleReload = second.save.mock.calls.length;
 
-  // Now let the STALE reload (against `first`) resolve. On today's code this
-  // resolves through `reloadCurrentProject`'s render-#1 closure, whose
-  // `applyWorkspaceFromLoad` calls `allowSavesTo(first)` — moving the gate away
-  // from `second`, the backend actually live and on screen.
+  // Now let the STALE reload (against `first`) resolve. It resolves through
+  // `reloadCurrentProject`'s render-#1 closure; BEFORE the §588 guard that
+  // closure ran on to `applyWorkspaceFromLoad`, whose trailing `allowSavesTo`
+  // then took `first` as its target — moving the gate away from `second`, the
+  // backend actually live and on screen. The guard now returns ahead of all of
+  // it; the four assertions below are what that return has to buy.
   await act(async () => { releaseFirstLoad(STALE_RELOAD_RESULT); await reload; });
 
   return { result, first, second, savesBeforeStaleReload };
@@ -209,7 +211,7 @@ describe("§588 — a superseded reload must not shut the new backend's gate", (
   // `setSettledBackend(first)` from its render-#1 closure, while the render's
   // live `backend` is `second` — so `settledBackend !== backend` and
   // `loadPending` (`!hydrated || settledBackend !== backend || swapsInFlight >
-  // 0`, use-storage-backend.ts:205) is stranded `true` forever: no further load
+  // 0`, declared beside `settledBackend` in use-storage-backend.ts) is stranded `true` forever: no further load
   // or op will ever re-run to clear it, since nothing rebuilds the backend again
   // in this scenario. A fix that only patches `allowSavesTo` and leaves this
   // stamp misrouted would hang the app on the load-hold skeleton
@@ -221,13 +223,16 @@ describe("§588 — a superseded reload must not shut the new backend's gate", (
   });
 
   // ★ F2 (split 3/3) — THE PERSISTENCE HALF, and the assertion the probe was
-  // originally written for. RED TODAY: `second` is still the live, on-screen
-  // backend (the config passed to the hook never reverted), so an edit made
-  // after the stale reload landed must be persisted to it. Today it silently is
-  // not — no banner, no toast (see the separate silence test below), because
+  // originally written for. `second` is still the live, on-screen backend (the
+  // config passed to the hook never reverted), so an edit made after the stale
+  // reload resolved must be persisted to it. Before the §588 guard it silently
+  // was not — no banner, no toast (see the separate silence test below), because
   // `loadPause` only publishes for an instance whose own load failed or was
   // refused, and this reload did neither.
-  it("a superseded reload shuts the live backend's gate, so an edit after it is never persisted", async () => {
+  // ★ The title states the GUARANTEE, not the defect. It was renamed with the
+  // fix: a test called "… is never persisted" that passes because the edit IS
+  // persisted reads as a latent inversion to everyone after you.
+  it("a superseded reload must not shut the live backend's gate — an edit after it is still persisted", async () => {
     const { result, first, second, savesBeforeStaleReload } = await setupSupersededReloadScenario();
 
     await act(async () => { result.current.setTasks(EDIT_TWO); });
