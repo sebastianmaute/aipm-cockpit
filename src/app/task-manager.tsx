@@ -219,10 +219,19 @@ function TaskManagerInner() {
   // to the other hotkey hooks.
   const allowDestructiveSaveRef = useRef<(() => void) | undefined>(undefined);
   const isPopoutRef = useRef(isPopout);
+  const loadPendingRef = useRef(true); // §548 — filled beside `allowDestructiveSaveRef`, read by the undo hotkey below. Starts TRUE (fail safe) so a keystroke landing before the first effect commit cannot slip through the false-by-default window; `loadPending` itself is true pre-hydration anyway (ruling 8), so the effect below overwrites this immediately either way.
   const armDestructiveForUndo = useCallback(() => { allowDestructiveSaveRef.current?.(); }, []);
   const readOnlyForUndo = useCallback(() => isPopoutRef.current, []);
   const undoApi = useUndoStack({ lang, logActivity: logActivityUser, showToast, showToastAction, allowDestructiveSave: armDestructiveForUndo, isReadOnly: readOnlyForUndo });
-  useUndoHotkey(undoApi.undo, undoApi.redo);
+  // ★★ §548 — the one undo path that does NOT unmount with the app tree during the load hold (a document
+  //   keydown listener), and an undo applied then is replaced when the load lands, so it is dropped.
+  //   `loadPending` comes from `useStorageBackend` further down, so it is read through a ref (the same
+  //   forward-ref pattern as `allowDestructiveSaveRef`). The call stays HERE so the document keydown
+  //   listeners keep their registration order.
+  useUndoHotkey(
+    () => { if (!loadPendingRef.current) undoApi.undo(); },
+    () => { if (!loadPendingRef.current) undoApi.redo(); },
+  );
   // ★★★ ONE INSTANCE, TWO CONSUMERS, AND THEY MUST BE THE SAME ONE. `.undo`
   // goes in as the chat dispatcher's `undo` prop (below) so the fourteen AI
   // capture sites are intercepted; `.runBatched` goes down to `ChatPanel` so an
@@ -502,12 +511,12 @@ function TaskManagerInner() {
     truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
-    restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
+    restoreTursoProject, hardDeleteTursoProject, tursoProjectId, loadPending, getScopeEpoch,
   } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, showToastAction, onRevealSavingPaused: () => { setDestructiveBannerDismissed(false); setLoadPauseBannerDismissed(false); }, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
 
   // Fills the forward-ref declared above `useUndoStack`, so an undo-stack redo
   // that re-removes rows can arm the one-shot destructive-save bypass (§295).
-  useEffect(() => { allowDestructiveSaveRef.current = allowDestructiveSave; isPopoutRef.current = isPopout; }, [allowDestructiveSave, isPopout]);
+  useEffect(() => { allowDestructiveSaveRef.current = allowDestructiveSave; isPopoutRef.current = isPopout; loadPendingRef.current = loadPending; }, [allowDestructiveSave, isPopout, loadPending]);
 
   // ★★ Render-time reconcile, NOT an effect (`set-state-in-effect` is banned): a NEW
   // incomplete load re-shows the banner after a dismiss (the ONLY "Save anyway" surface).
@@ -957,7 +966,9 @@ function TaskManagerInner() {
   // would climb without bound). Writes via the setter only (a side effect, not
   // render-phase setState). Popout is read-only; pre-hydration is skipped.
   useEffect(() => {
-    if (!hydrated || isPopout) return;
+    // §548 — never while a load or swap is pending: its write would be replaced when the load lands.
+    // `loadPending` is a dep, so the reconcile runs once the load does.
+    if (!hydrated || isPopout || loadPending) return;
     const timer = setTimeout(() => {
       // The guardrail rules read the per-device daily roll from the actuals
       // cache — keyed the same way TimelogPanel WRITES it (open-followups §14).
@@ -1096,7 +1107,7 @@ function TaskManagerInner() {
     // ★ `priorOverdueCount` is a dep in its OWN right, not merely via
     // `buildInsightInput`: the predicate above reads it directly to decide
     // whether `overdueTrend` was evaluated at all.
-  }, [buildInsightInput, today, hydrated, isPopout, setInsights, currentProjectId, timelogLinks, holidaySet, holidaysReady, shifts, priorOverdueCount]);
+  }, [buildInsightInput, today, hydrated, isPopout, setInsights, currentProjectId, timelogLinks, holidaySet, holidaysReady, shifts, priorOverdueCount, loadPending]);
 
   // Lifecycle handlers (threaded to the dashboard as an insightActions bag; the
   // review UI that invokes them is built in Task 6/7). Each is a functional
@@ -2092,7 +2103,7 @@ function TaskManagerInner() {
     reviewPlan,
     setReviewInsightId,
   } = useInsightRecommendations({
-    isPopout, settings, lang, today, project,
+    isPopout, loadPending, getScopeEpoch, settings, lang, today, project,
     tasks, raid, milestones, changes, stakeholders,
     resourcesById, insights, setInsights, dispatcher,
     showToast, logActivityAs,
@@ -2357,6 +2368,8 @@ function TaskManagerInner() {
     absencePull,
   } = useCalendarIntegrations({
     isPopout,
+    loadPending,
+    getScopeEpoch,
     settings,
     m365Enabled,
     portfolioCurrentId,
@@ -2663,6 +2676,10 @@ function TaskManagerInner() {
       projectId={calendarProjectId}
       settingsProjectId={portfolioCurrentId ?? "default"}
       m365Configured={m365Enabled}
+      // §548 — the pane owns its own Outlook push/pull instances, so the scope-epoch
+      // reader has to reach it here; every other calendar instance gets it from
+      // `useCalendarIntegrations`'s deps bag. The prop is REQUIRED, so tsc proves it.
+      getScopeEpoch={getScopeEpoch}
       dispatcher={dispatcher}
       logActivityAs={logActivityAs}
       captureFieldEdit={undoApi.captureFieldEdit}
@@ -3267,6 +3284,16 @@ function TaskManagerInner() {
   // error restores the storage-error banner + Settings recovery path.
   const showTursoListLoading =
     hydrated && portfolioMode === "turso" && !tursoListLoaded && !showTursoUnlock && !storageError;
+  // ★★★ §548 — THE LOAD HOLD. While `loadPending` (settings not yet hydrated, the first load, a
+  //   backend-change reload, or a project-swap op in flight) the MAIN window renders the same `PanelSkeleton` the Turso list-load
+  //   window uses INSTEAD of the app tree, so no control that writes workspace state exists — an edit
+  //   made in that window was silently replaced when the load landed. ★ EXCEPT the two branches that
+  //   rank ABOVE the hold in this ternary: `SecretUnlockGate` and `ProjectEmptyState` (file mode with an
+  //   empty registry keeps the latter up through the first load and its own create/demo ops, whose
+  //   swaps are themselves held via `holdDuring`). A failed or refused load SETTLES,
+  //   so the storage banner and its recovery paths stay reachable. Popouts returned above and are never
+  //   held. Every panel mounts FRESH after a hold (AGENTS.md "Remount-swallow"). Writers that do not
+  //   unmount gate on `loadPending` themselves (docs/AGENTS/platform.md, "The load hold").
 
   return (
     <ActivityLogProvider value={logActivityAs}>
@@ -3308,7 +3335,7 @@ function TaskManagerInner() {
                 onRestore={handleRestoreFromEmptyState}
                 onDeleteArchived={handleHardDeleteTursoProject}
               />
-            ) : showTursoListLoading ? (
+            ) : showTursoListLoading || loadPending ? (
               <PanelSkeleton lang={lang} />
             ) : settings.layout === "classic" ? (
               legacyTree

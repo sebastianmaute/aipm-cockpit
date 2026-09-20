@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { render, screen, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Modal } from "./modal";
 
 // jsdom doesn't implement requestAnimationFrame on the global; install a
@@ -198,6 +198,50 @@ describe("Modal", () => {
     act(() => first.focus());
     fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
     expect(last).toHaveFocus();
+  });
+
+  // §548 — a field that commits its draft on blur got no blur when Escape unmounted the dialog
+  // under it (jsdom, like Firefox, fires no focusout on removal), so the draft was dropped.
+  // Mutation: delete the `blurFocusInside` call in the Escape branch → the log reads ["close"].
+  test("Escape blurs the focused field BEFORE onClose, so a blur commit lands (§548)", async () => {
+    const user = userEvent.setup();
+    const log: string[] = [];
+    function Host() {
+      const [open, setOpen] = useState(true);
+      return (
+        <Modal
+          open={open}
+          onClose={() => {
+            log.push("close");
+            setOpen(false);
+          }}
+          ariaLabel="Drafts"
+        >
+          <input aria-label="draft" onBlur={() => log.push("blur")} />
+        </Modal>
+      );
+    }
+    render(<Host />);
+    await user.click(screen.getByLabelText("draft"));
+    await user.keyboard("{Escape}");
+    expect(log).toEqual(["blur", "close"]);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  // Mutation: delete the `queueMicrotask` refocus → focus stays on <body>.
+  test("Escape whose onClose does not close puts focus back on the blurred field (§548)", async () => {
+    const user = userEvent.setup();
+    const onBlur = vi.fn();
+    render(
+      <Modal open onClose={() => {}} ariaLabel="Busy">
+        <input aria-label="draft" onBlur={onBlur} />
+      </Modal>,
+    );
+    const input = screen.getByLabelText("draft");
+    await user.click(input);
+    await user.keyboard("{Escape}");
+    expect(onBlur).toHaveBeenCalledTimes(1);
+    expect(input).toHaveFocus();
   });
 });
 

@@ -7,13 +7,14 @@
 import { StorageNotReadyError } from "./workspace";
 import type { PipelineResultLike, SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
+import { fetchTextWithTimeout } from "./fetch-with-timeout";
 
 // A hung endpoint must not leave the debounced autosave pending forever: abort
 // and surface the same "storage-unreachable" kind an unreachable host produces.
 export const DEFAULT_PIPELINE_TIMEOUT_MS = 15_000;
-// load() blocks the initial UI hydration, so backends fail loads faster than
-// the save-oriented pipeline default above.
-export const LOAD_TIMEOUT_MS = 10_000;
+// The LOAD bound lives in fetch-with-timeout.ts (shared with the SharePoint load); re-exported so the
+// Turso backend and its tests keep importing it from here.
+export { LOAD_TIMEOUT_MS } from "./fetch-with-timeout";
 // Short budget for the best-effort ROLLBACK follow-up after a statement error.
 const ROLLBACK_TIMEOUT_MS = 5_000;
 
@@ -27,27 +28,9 @@ function isTransactional(stmts: SqlStmt[]): boolean {
   return /^\s*BEGIN\b/i.test(stmts[0]?.sql ?? "");
 }
 
-/** POST a pipeline request with an AbortController-based timeout, and read the
- *  response body INSIDE the armed window.
- *  ★★★ THE BODY READ IS THE POINT. `fetch` resolves when the HEADERS arrive, so
- *  clearing the timer on its return leaves `res.json()` unbounded: a server that
- *  sends headers and then stalls the body hung forever, on every caller of
- *  `runTursoPipeline` — workspace load and save, snapshots, chat threads,
- *  document assets and version history alike. Measured, not reasoned: `json()`
- *  on a never-completing body is still pending with no signal armed, and an
- *  abort raised DURING a body read rejects `AbortError`. Returning the parsed
- *  text rather than the `Response` is what makes that structural — a caller
- *  cannot forget to read the body in the window, because there is no `Response`
- *  to hand it.
- *  ★ AbortController + setTimeout (rather than `AbortSignal.timeout`, used by
- *  the server routes) so fake-timer tests can drive the abort deterministically.
- *  ★★ THE BOUND IS THE PLATFORM'S, NOT OURS. There is no independent watchdog:
- *  the timer calls `abort()` and nothing here rejects unless the transport
- *  ERRORS THE BODY STREAM in response. Real `fetch` does, and the test double
- *  models it — but a transport swap that accepted the signal and ignored it
- *  during the body read would silently restore the unbounded hang with every
- *  test still green, because the tests assert on the rejection the double
- *  raises. Re-verify against the new transport, not against the double. */
+/** POST a pipeline request through `fetchTextWithTimeout`, which owns the timeout AND the rule that the
+ *  response body is read inside the armed window — read its docstring (fetch-with-timeout.ts) before
+ *  changing either. Every caller here catches whatever this rejects with. */
 async function postPipeline(
   config: TursoConfig,
   stmts: SqlStmt[],
@@ -57,23 +40,11 @@ async function postPipeline(
   if (config.authToken) {
     headers.Authorization = `Bearer ${config.authToken}`;
   }
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(`${config.httpUrl}/v2/pipeline`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ requests: stmts.map(execute) }),
-      signal: controller.signal,
-    });
-    // ★ Read the body even on 401 and other non-ok statuses. It is discarded,
-    // but draining it inside the armed window keeps a stalled error body from
-    // hanging and releases the connection instead of leaving it undrained.
-    const text = await res.text();
-    return { status: res.status, ok: res.ok, text };
-  } finally {
-    clearTimeout(timer);
-  }
+  return fetchTextWithTimeout(
+    `${config.httpUrl}/v2/pipeline`,
+    { method: "POST", headers, body: JSON.stringify({ requests: stmts.map(execute) }) },
+    timeoutMs,
+  );
 }
 
 // Best-effort ROLLBACK after a mid-pipeline statement error so a concurrent

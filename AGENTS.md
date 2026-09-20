@@ -35,7 +35,7 @@ before your first edit — the rest is reference, reachable from here.
 | [insights](docs/AGENTS/insights.md) | detect · reconcile · recommend · outcome · digest |
 | [ai-assistant](docs/AGENTS/ai-assistant.md) | wire layer · tools · write-concurrency tokens · inline edit · dedup · scheduled jobs |
 | [integrations](docs/AGENTS/integrations.md) | steering committee · calendar write-back + two-way pull · Timelog |
-| [platform](docs/AGENTS/platform.md) | diagnostics · guard transparency · dictation · AI master switch |
+| [platform](docs/AGENTS/platform.md) | diagnostics · guard transparency · dictation · AI master switch · the load hold (§548) |
 | [features](docs/AGENTS/features.md) | guided tour + demo · timezones · saved views · PWA · resource calendar meetings |
 | [documents](docs/AGENTS/documents.md) | version before-images · retention + tombstones · the single mutation path · `documentVersions` across the six write paths · surfaces + the block editor |
 | [rich-text](docs/AGENTS/rich-text.md) | note logs · the seven rich fields · DOM-free vs browser-only · sanitizers + model-write boundaries · export fidelity · the toolbar |
@@ -222,6 +222,9 @@ npm run test:coverage       # vitest + coverage. The floors in vitest.config.ts 
 npm run e2e                 # playwright (incl. the 17-view axe a11y gate)
 npm run e2e:smoke           # fast subset. e2e:visual / e2e:visual:update drive the visual-regression
                             # specs; e2e:ui opens the Playwright UI; e2e:install fetches browsers.
+                            # ★ The visual project pins its own frozen clock (`VISUAL_FROZEN_NOW` in
+                            # `e2e/visual.spec.ts`, passed through `gotoApp`'s `time` param) so a
+                            # `FROZEN_NOW` bump in `e2e/seed.ts` no longer forces a re-baseline (§573).
 npm run e2e:smoke:prod      # smoke against a REAL production server (build FIRST — it does not build).
                             # ★★★ THE ONLY LOCAL REPRODUCTION OF THE PROD CSP. `e2e:smoke` starts no
                             # server, so it is only ever pointed at a dev server — and dev grants
@@ -831,6 +834,14 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   pending request. Seed `undefined`/sentinel + guard `!== undefined`; parent must CLEAR (consume) or
   monotonically bump the nonce so re-mounts don't re-fire stale. Bit settings-view learning deep-link AND
   milestones-panel `openCreateNonce` (Gantt "Add milestone").
+  ★★ **THE WHOLE MAIN-WINDOW TREE UNMOUNTS WHILE `loadPending` IS TRUE (§548)** — the first load, a
+  backend-change reload and every project-swap op render `PanelSkeleton` instead — so EVERY panel, the
+  two exceptions below included, mounts fresh after each; the sentinel rule applies to them too. A new
+  BACKGROUND writer (timer, listener, interval) does not unmount and must gate on `loadPending` itself:
+  [`docs/AGENTS/platform.md`](docs/AGENTS/platform.md) "The load hold". ★★ AND THAT IS ONLY HALF —
+  `loadPending` answers "may I START?"; a writer that AWAITS (Graph, the AI) can resolve after the swap
+  FINISHED, when it is false again, so it must also capture `getScopeEpoch()` before its first await and
+  drop its write through `dropStaleScopeWrite` (`scope-epoch.ts`). Same file, same section.
   ★★★ **TWO PANELS ARE THE EXCEPTION AND THIS BULLET USED TO DENY IT** — it said flatly that
   workspace-section "renders ONLY the active tabpanel", which is true of 27 of its 29 tabpanels and
   FALSE for `panel-chat` and `panel-raid`: those two are mounted UNCONDITIONALLY and merely
@@ -1254,7 +1265,7 @@ proves only that a backticked NAME is real, never that a CLAIM about it is true.
 | [insights.md](docs/AGENTS/insights.md) | detect → reconcile → recommend → outcome → digest |
 | [ai-assistant.md](docs/AGENTS/ai-assistant.md) | wire layer · tools · write-concurrency tokens on the six `update_*` tools · inline edit · dedup · scheduled jobs · allocation & RACI planning |
 | [integrations.md](docs/AGENTS/integrations.md) | steering committee · Outlook calendar write-back and two-way pull · Timelog |
-| [platform.md](docs/AGENTS/platform.md) | diagnostics ring · guard transparency · dictation · the AI master switch |
+| [platform.md](docs/AGENTS/platform.md) | diagnostics ring · guard transparency · dictation · the AI master switch · the load hold (`loadPending`, the render hold, the background-writer gates) |
 | [features.md](docs/AGENTS/features.md) | guided tour + demo · timezones · saved views · PWA · resource calendar meetings |
 | [rich-text.md](docs/AGENTS/rich-text.md) | ALL rich HTML — the three note-log registers (each closing the SAME defect by a DIFFERENT mechanism) · the seven rich entity fields · the DOM-free vs browser-only module split · `sanitizeRichText` / `sanitizeAiRichText` / `AI_RICH_FIELDS` write boundaries · the per-sink `isHtmlStart` rule · `RichCell` export fidelity · the `role="toolbar"` keyboard contract |
 | [activity-log.md](docs/AGENTS/activity-log.md) | `Workspace.activityLog` — meta-blob persistence · storage-only on every path · `logMode` REPLACE-by-default · entry ids and actors · forward-compat sanitising · the THREE incompatible completion-trend delta shapes |

@@ -326,9 +326,9 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85
     "severity": "medium",
     "status": "active",
     "data": {
-      "name": "Advisory Retainer (blended)",
-      "variancePct": 100,
-      "buckets": 6
+      "name": "Identity Platform – T&M",
+      "variancePct": 22,
+      "buckets": 3
     },
     "firstSeenAt": "2026-08-03T07:00:00.000Z",
     "lastSeenAt": "2026-09-18T07:00:00.000Z",

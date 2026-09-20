@@ -228,4 +228,64 @@ describe("useCommitteeOutlookPush", () => {
     expect(setSteeringCommittee).not.toHaveBeenCalled();
     expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
   });
+
+  // §548 (F7) — a push in flight when a project swap starts must not write the OLD project's event
+  // ids onto the NEW project's committee. See `scope-epoch.ts`.
+  it("drops the whole reconcile when the scope epoch changed while the token was acquired", async () => {
+    const epoch = { v: 1 };
+    let release!: () => void;
+    acquireToken.mockReturnValueOnce(new Promise((r) => { release = () => r("tok"); }));
+    const setSteeringCommittee = vi.fn();
+    const { result } = renderHook(() =>
+      useCommitteeOutlookPush({
+        committee: committee(), committeeName: "Board", projectId: "p", today: TODAY,
+        setSteeringCommittee, isPopout: false, lang: "en-US", enabled: true, getScopeEpoch: () => epoch.v,
+      }));
+    let push: Promise<void> = Promise.resolve();
+    act(() => { push = result.current.pushToOutlook(); });
+    epoch.v = 2;
+    await act(async () => { release(); await push; });
+
+    expect(acquireToken).toHaveBeenCalledTimes(1); // control: the push really ran
+    expect(createEvent).not.toHaveBeenCalled();
+    expect(setSteeringCommittee).not.toHaveBeenCalled();
+  });
+
+  it("CONTROL — the same push persists the ids when the scope epoch is unchanged", async () => {
+    const epoch = { v: 1 };
+    let release!: () => void;
+    acquireToken.mockReturnValueOnce(new Promise((r) => { release = () => r("tok"); }));
+    const setSteeringCommittee = vi.fn();
+    const { result } = renderHook(() =>
+      useCommitteeOutlookPush({
+        committee: committee(), committeeName: "Board", projectId: "p", today: TODAY,
+        setSteeringCommittee, isPopout: false, lang: "en-US", enabled: true, getScopeEpoch: () => epoch.v,
+      }));
+    let push: Promise<void> = Promise.resolve();
+    act(() => { push = result.current.pushToOutlook(); });
+    await act(async () => { release(); await push; });
+
+    expect(createEvent).toHaveBeenCalledTimes(2);
+    expect(setSteeringCommittee).toHaveBeenCalledTimes(1);
+  });
+
+  // ★★★ The COSTLIEST drop in the app, so it gets its own pin rather than riding on
+  //   `use-entity-calendar-push.test.tsx`'s copy of the same guard: `planCommitteeReconcile` derives
+  //   `deleteEventIds` from STORED ids and never lists Outlook, so an event created just before this
+  //   drop is never cleaned up AND the next push creates a duplicate. That is why round 1 narrowed the
+  //   epoch predicate — this must fire only for a real project change.
+  it("drops the workspace write when the scope epoch changes DURING the create loop", async () => {
+    const epoch = { v: 1 };
+    createEvent.mockImplementationOnce(async () => { epoch.v = 2; return "meet-evt"; });
+    const setSteeringCommittee = vi.fn();
+    const { result } = renderHook(() =>
+      useCommitteeOutlookPush({
+        committee: committee(), committeeName: "Board", projectId: "p", today: TODAY,
+        setSteeringCommittee, isPopout: false, lang: "en-US", enabled: true, getScopeEpoch: () => epoch.v,
+      }));
+    await act(async () => { await result.current.pushToOutlook(); });
+
+    expect(createEvent).toHaveBeenCalled(); // control: the event WAS created in Outlook…
+    expect(setSteeringCommittee).not.toHaveBeenCalled(); // …and its id is deliberately orphaned
+  });
 });

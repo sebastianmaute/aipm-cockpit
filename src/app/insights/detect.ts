@@ -6,7 +6,9 @@ import { milestoneStatus } from "../milestones";
 import { isRaidActiveForReview } from "../raid-review";
 import { isTaskFinished } from "../task-status";
 import { partitionUpcoming } from "../dashboard";
-import { computeBudgetReport } from "../budget-report";
+import { bucketActivePeriods, bucketRateRows, computeBudgetReport, effectiveBudgetHours } from "../budget-report";
+import { actualHoursIn } from "../actual-hours";
+import { RATIO_EPSILON } from "../budget-health";
 import { resourceDisplayName } from "../resource-foundation";
 import type { TimelogViolation } from "../timelog-policy";
 import type { Task, Milestone, RaidItem, BudgetBucket, ResourcePlan, Role, Resource } from "../types";
@@ -134,14 +136,48 @@ function stalledWorkInsight(tasks: readonly Task[], today: string): DetectedInsi
 }
 
 // --- budgetVariance --------------------------------------------------------
-// Reuses computeBudgetReport for the real budget-vs-actual HOURS figures, then
-// flags the worst bucket whose |variance %| meets the threshold. Singleton.
+// Reuses computeBudgetReport for the spillover, then compares each started bucket's actual hours TO
+// DATE with its budget TO DATE and flags the worst |variance %| that meets the threshold. Singleton.
+
+/** §577 — a bucket's OWN budget hours AND actual hours, both restricted to the periods that have
+ *  STARTED by `today`: the same per-period rule the report and the burn-down use for budget
+ *  (`effectiveBudgetHours`, budget-follows-plan included) and the burn-down's cutoff (a period counts
+ *  once its start is <= today) — applied to actuals too, over the SAME filtered period list (one
+ *  predicate, shared), so a booking in a future period cannot inflate the to-date actual either.
+ *  `null` when no period of the bucket's window has started. Periods are filtered by DATE, never by
+ *  bucket status. `followsPlan`/`byId` are per-call invariants the caller hoists out of the per-bucket
+ *  loop (§577 F3 — this used to recompute both on every bucket). */
+function bucketFiguresToDate(
+  bucket: BudgetBucket,
+  plan: ResourcePlan,
+  roles: readonly Role[],
+  resources: readonly Resource[],
+  holidaySet: ReadonlySet<string>,
+  today: string,
+  followsPlan: boolean,
+  byId: ReadonlyMap<number, Resource>,
+): { budgetHours: number; actualHours: number } | null {
+  const periods = bucketActivePeriods(bucket, plan);
+  const started = periods.filter((p) => p.start <= today);
+  if (started.length === 0) return null;
+  let budgetHours = 0;
+  let actualHours = 0;
+  for (const row of bucketRateRows(bucket, roles)) {
+    for (const p of started) {
+      budgetHours += effectiveBudgetHours(row, p, periods, resources, BUDGET_WORKDAY_HOURS, holidaySet, plan.granularity, [], followsPlan, byId);
+      actualHours += actualHoursIn(row.actualHours, p.key);
+    }
+  }
+  return { budgetHours, actualHours };
+}
+
 function budgetVarianceInsight(
   budgets: readonly BudgetBucket[],
   plan: ResourcePlan | null,
   roles: readonly Role[],
   resources: readonly Resource[],
   holidaySet: ReadonlySet<string>,
+  today: string,
 ): DetectedInsight | null {
   if (plan === null || budgets.length === 0) return null;
   // roles/resources are forwarded so that when plan.budgetFollowsPlan is true the
@@ -152,12 +188,38 @@ function budgetVarianceInsight(
   // it is a visible decision, not a silent default. If this detector ever reads
   // a money figure, thread fxRates through InsightInput first (§465).
   const report = computeBudgetReport(budgets, plan, roles, resources, BUDGET_WORKDAY_HOURS, holidaySet, [], [], null);
+  const bucketsById = new Map(budgets.map((b) => [b.id, b]));
+  // Per-call invariants, hoisted out of the per-bucket loop below (§577 F3).
+  const followsPlan = plan.budgetFollowsPlan ?? false;
+  const resourcesById = new Map(resources.map((r) => [r.id, r]));
   let worstName = "";
   let worstPct = 0;
   let breaching = 0;
   for (const b of report.buckets) {
-    if (b.budgetHours <= 0) continue;
-    const pct = Math.abs(((b.actualHours - b.budgetHours) / b.budgetHours) * 100);
+    const source = bucketsById.get(b.bucketId);
+    if (!source) continue;
+    const toDate = bucketFiguresToDate(source, plan, roles, resources, holidaySet, today, followsPlan, resourcesById);
+    if (toDate === null) continue; // the window has not started: nothing is budgeted or booked to date
+    // ★★★ §577 — actuals are TO DATE, so a booking in a FUTURE period must not count either: a started
+    //   bucket with on-plan past actuals plus a big future-period booking read as wildly overspent
+    //   against its (correctly small) to-date budget. An untouched-to-date bucket is not a variance,
+    //   even one carrying hours in a later period — epsilon, not `=== 0`, because summed float hours
+    //   can land a hair off zero.
+    // ★★ WHAT THIS DELIBERATELY STOPS SIGNALLING, said plainly because it is a DETECTION LOSS and
+    //   not a side effect: a bucket that HAS started and is fully budgeted to date but has ZERO
+    //   bookings used to produce a 100% UNDER-spend variance and could be flagged. It no longer is.
+    //   The threshold below is on |variance %|, so "budgeted and nothing booked" is arithmetically
+    //   the strongest under-spend signal this detector could raise — and that is exactly why it had
+    //   to go: before the fix above it was indistinguishable from the far more common case of a
+    //   bucket whose bookings simply have not been entered yet, or whose only hours sit in a future
+    //   period, so it fired constantly and the insight was noise. Under-spend-to-zero is therefore
+    //   OUT OF SCOPE for `budgetVariance`; it belongs to a detector with its own evidence (a bucket
+    //   near its end date with nothing booked), not to a percentage over an empty numerator.
+    if (Math.abs(toDate.actualHours) < RATIO_EPSILON) continue;
+    // A closed predecessor's spillover (±) is available from this bucket's start, as in the report.
+    const budgetToDate = toDate.budgetHours + b.spilloverInHours;
+    if (budgetToDate <= 0) continue;
+    const pct = Math.abs(((toDate.actualHours - budgetToDate) / budgetToDate) * 100);
     if (pct < BUDGET_VARIANCE_PCT) continue;
     breaching++;
     if (pct > worstPct) { worstPct = pct; worstName = b.name; }
@@ -279,7 +341,7 @@ export function detectInsights(input: InsightInput, today: string): DetectedInsi
   if (trend) out.push(trend);
   const stalled = stalledWorkInsight(input.tasks, today);
   if (stalled) out.push(stalled);
-  const budget = budgetVarianceInsight(input.budgets, input.plan, input.roles, input.resources, input.holidaySet);
+  const budget = budgetVarianceInsight(input.budgets, input.plan, input.roles, input.resources, input.holidaySet, today);
   if (budget) out.push(budget);
   out.push(...timelogGuardrailInsights(input.timelogViolations, input.resources));
 

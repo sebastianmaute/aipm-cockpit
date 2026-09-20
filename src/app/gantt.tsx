@@ -56,11 +56,11 @@ import {
   fmtMonth,
   type GanttBarEdit,
   LEFT_GUTTER_PX,
+  localTodayUTC,
   naturalCompare,
   parseISO,
   type PlacedMilestone,
   type PlacedTask,
-  todayUTC,
   toISODay,
 } from "./gantt-engine";
 
@@ -178,13 +178,15 @@ export function GanttPanel({
 
   // Today is used in date math (overdue computation, range padding). It's
   // evaluated once per render — server / client first paint produce the
-  // same value as long as they fall on the same UTC day.
-  const today = todayUTC();
+  // same value as long as they fall on the same LOCAL calendar day
+  // (localTodayUTC reads local Date getters; see its docstring).
+  const today = localTodayUTC();
   // YYYY-MM-DD form of the chart's "today", for milestone status math.
-  // Computed from a fresh todayUTC() rather than the `today` const above so
-  // the React Compiler doesn't treat the shared `today` as passed-and-mutable
-  // (which would bail out the component's manual memoization).
-  const todayISO = toISODay(todayUTC());
+  // Computed from a fresh localTodayUTC() rather than the `today` const above
+  // so the React Compiler doesn't treat the shared `today` as
+  // passed-and-mutable (which would bail out the component's manual
+  // memoization).
+  const todayISO = toISODay(localTodayUTC());
 
   // Resource lookup for resolving the LIVE display name of a linked person
   // reference. Kept as its own memo keyed on [resources] so it doesn't bust the
@@ -532,7 +534,7 @@ export function GanttPanel({
 
   // Date range for the time axis.
   const range = useMemo(() => {
-    const today = todayUTC();
+    const today = localTodayUTC();
     let min: Date = today;
     let max: Date = today;
     let initialized = false;

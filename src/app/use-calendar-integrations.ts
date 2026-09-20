@@ -23,6 +23,7 @@ import { useEntityCalendarPull } from "./use-entity-calendar-pull";
 import { useCalendarAutoPull } from "./use-calendar-auto-pull";
 import { useCalendarAutoSync } from "./use-calendar-auto-sync";
 import { calendarSyncFor } from "./calendar-sync-config";
+import type { ScopeEpochReader } from "./scope-epoch";
 import { useCommitteeOutlookPush } from "./use-committee-outlook-push";
 import { taskToGraphEvent, raidToGraphEvent, changeToGraphEvent, absenceToGraphEvent } from "./outlook-calendar-write";
 
@@ -36,6 +37,15 @@ const AUTO_SYNC_STAGGER_STEP_MS = 750;
 /** Live render-scope values the calendar write-back block reads each render. */
 export interface CalendarIntegrationDeps {
   isPopout: boolean;
+  /** §548 — a load or project swap is still in flight (`useStorageBackend`). The BACKGROUND writers
+   *  below (auto-sync pushes, background pulls, the auto-pull runner) run on timers and never unmount
+   *  with the held app tree, so they hold themselves; the manual controls are unmounted by the hold. */
+  loadPending: boolean;
+  /** §548 — `useStorageBackend`'s stable scope-epoch reader, threaded into every calendar hook below.
+   *  `loadPending` gates a call when it STARTS; this catches the other half — a Graph call already in
+   *  flight when the swap starts, resolving after it FINISHED (`loadPending` false again). See
+   *  `scope-epoch.ts`. Required, so tsc proves the call site hands it over. */
+  getScopeEpoch: ScopeEpochReader;
   settings: Settings;
   m365Enabled: boolean;
   portfolioCurrentId: string | null;
@@ -66,6 +76,8 @@ export interface CalendarIntegrationDeps {
 export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   const {
     isPopout,
+    loadPending,
+    getScopeEpoch,
     settings,
     m365Enabled,
     portfolioCurrentId,
@@ -115,6 +127,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     isPopout,
     lang,
     enabled: calendarPushEnabled,
+    getScopeEpoch,
   });
   const calendarPushToOutlook = calendarPush.pushToOutlook;
   const calendarPushBusy = calendarPush.busy;
@@ -125,6 +138,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     isPopout,
     lang,
     enabled: calendarPushEnabled,
+    getScopeEpoch,
   });
 
   // Push the steering committee's meetings + info-pack reminders to Outlook.
@@ -138,6 +152,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     isPopout,
     lang,
     enabled: calendarPushEnabled,
+    getScopeEpoch,
   });
 
   // Background AUTO calendar-sync for tasks (opt-in enable + auto). When the
@@ -145,7 +160,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   // without the manual Push button. Popout/M365-gated + non-interactive token
   // (no consent popup, no error toast on a missing session). Fail-once-per-change.
   const taskSync = calendarSyncFor(settings, "task");
-  const taskAutoSyncActive = taskSync.auto && m365Enabled && !isPopout;
+  const taskAutoSyncActive = taskSync.auto && m365Enabled && !isPopout && !loadPending;
   const pushableTasks = useMemo(
     () => tasks.filter((x) => !isTaskFinished(x) && !!x.dueDate),
     [tasks],
@@ -174,13 +189,14 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     lang,
     enabled: taskAutoSyncActive,
     interactive: false,
+    getScopeEpoch,
   });
   useCalendarAutoSync({ active: taskAutoSyncActive, contentKey: taskAutoSyncKey, push: autoPushTasks, staggerMs: 0 });
 
   // --- RAID review-date calendar write-back (SP2) — mirrors the task block ---
   const raidSync = calendarSyncFor(settings, "raid");
   const calendarRaidEnabled = raidSync.enabled && m365Enabled && !isPopout;
-  const raidAutoSyncActive = raidSync.auto && m365Enabled && !isPopout;
+  const raidAutoSyncActive = raidSync.auto && m365Enabled && !isPopout && !loadPending;
   const pushableRaid = useMemo(
     () => raid.filter((r) => isRaidActiveForReview(r) && !!r.targetDate),
     [raid],
@@ -197,12 +213,12 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   const { pushToOutlook: pushRaidToOutlook, busy: calendarRaidPushBusy } = useEntityCalendarPush<RaidItem>({
     items: pushableRaid, entityType: "raid", projectId: calendarProjectId,
     toGraphEvent: raidToGraphEvent, setItems: setRaidForCalendar,
-    isPopout, lang, enabled: calendarRaidEnabled,
+    isPopout, lang, enabled: calendarRaidEnabled, getScopeEpoch,
   });
   const { pushToOutlook: autoPushRaid } = useEntityCalendarPush<RaidItem>({
     items: pushableRaid, entityType: "raid", projectId: calendarProjectId,
     toGraphEvent: raidToGraphEvent, setItems: setRaidForCalendar,
-    isPopout, lang, enabled: raidAutoSyncActive, interactive: false,
+    isPopout, lang, enabled: raidAutoSyncActive, interactive: false, getScopeEpoch,
   });
   useCalendarAutoSync({ active: raidAutoSyncActive, contentKey: raidAutoSyncKey, push: autoPushRaid, staggerMs: AUTO_SYNC_STAGGER_STEP_MS });
   const onToggleCalendarRaid = useCallback(
@@ -227,12 +243,13 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     isPopout,
     lang,
     enabled: calendarRaidEnabled,
+    getScopeEpoch,
   });
 
   // --- Change decision-date calendar write-back (SP3) — mirrors the RAID block ---
   const changeSync = calendarSyncFor(settings, "change");
   const calendarChangeEnabled = changeSync.enabled && m365Enabled && !isPopout;
-  const changeAutoSyncActive = changeSync.auto && m365Enabled && !isPopout;
+  const changeAutoSyncActive = changeSync.auto && m365Enabled && !isPopout && !loadPending;
   const pushableChanges = useMemo(() => changes.filter((c) => !!c.decisionDate), [changes]);
   // EXCLUDES outlookEventId — an OUTPUT the push writes back.
   const changeAutoSyncKey = useMemo(
@@ -246,12 +263,12 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   const { pushToOutlook: pushChangeToOutlook, busy: calendarChangePushBusy } = useEntityCalendarPush<ChangeItem>({
     items: pushableChanges, entityType: "change", projectId: calendarProjectId,
     toGraphEvent: changeToGraphEvent, setItems: setChangeForCalendar,
-    isPopout, lang, enabled: calendarChangeEnabled,
+    isPopout, lang, enabled: calendarChangeEnabled, getScopeEpoch,
   });
   const { pushToOutlook: autoPushChange } = useEntityCalendarPush<ChangeItem>({
     items: pushableChanges, entityType: "change", projectId: calendarProjectId,
     toGraphEvent: changeToGraphEvent, setItems: setChangeForCalendar,
-    isPopout, lang, enabled: changeAutoSyncActive, interactive: false,
+    isPopout, lang, enabled: changeAutoSyncActive, interactive: false, getScopeEpoch,
   });
   useCalendarAutoSync({ active: changeAutoSyncActive, contentKey: changeAutoSyncKey, push: autoPushChange, staggerMs: AUTO_SYNC_STAGGER_STEP_MS * 2 });
   const onToggleCalendarChange = useCallback(
@@ -276,12 +293,13 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     isPopout,
     lang,
     enabled: calendarChangeEnabled,
+    getScopeEpoch,
   });
 
   // --- Absence calendar write-back (SP4) — mirrors the Change block ---
   const absenceSync = calendarSyncFor(settings, "absence");
   const calendarAbsenceEnabled = absenceSync.enabled && m365Enabled && !isPopout;
-  const absenceAutoSyncActive = absenceSync.auto && m365Enabled && !isPopout;
+  const absenceAutoSyncActive = absenceSync.auto && m365Enabled && !isPopout && !loadPending;
   const pushableAbsences = useMemo(
     () => absences.filter((a) => a.type !== "sick" && !!a.startDate && !!a.endDate && a.endDate >= today),
     [absences, today],
@@ -299,12 +317,12 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   const { pushToOutlook: pushAbsenceToOutlook, busy: calendarAbsencePushBusy } = useEntityCalendarPush<Absence>({
     items: pushableAbsences, entityType: "absence", projectId: calendarProjectId,
     toGraphEvent: absenceToGraphEvent, setItems: setAbsenceForCalendar,
-    isPopout, lang, enabled: calendarAbsenceEnabled,
+    isPopout, lang, enabled: calendarAbsenceEnabled, getScopeEpoch,
   });
   const { pushToOutlook: autoPushAbsence } = useEntityCalendarPush<Absence>({
     items: pushableAbsences, entityType: "absence", projectId: calendarProjectId,
     toGraphEvent: absenceToGraphEvent, setItems: setAbsenceForCalendar,
-    isPopout, lang, enabled: absenceAutoSyncActive, interactive: false,
+    isPopout, lang, enabled: absenceAutoSyncActive, interactive: false, getScopeEpoch,
   });
   useCalendarAutoSync({ active: absenceAutoSyncActive, contentKey: absenceAutoSyncKey, push: autoPushAbsence, staggerMs: AUTO_SYNC_STAGGER_STEP_MS * 3 });
   const onToggleCalendarAbsence = useCallback(
@@ -330,32 +348,33 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     isPopout,
     lang,
     enabled: calendarAbsenceEnabled,
+    getScopeEpoch,
   });
 
   // --- Background auto-pull (two-way SP5) — periodic reverse-sync for the four
   // entities carrying a per-entity `.auto` flag. Each background pull self-gates
-  // on its own `<entity>AutoSyncActive` (`.auto && m365Enabled && !isPopout`) and
+  // on its own `<entity>AutoSyncActive` (`.auto && m365Enabled && !isPopout && !loadPending`) and
   // is inert otherwise; the runner below owns only the cadence. Milestone is
   // excluded (different sync model, no `.auto` flag).
   const { pull: autoPullTasks } = useEntityCalendarPull<Task>({
     items: pushableTasks, entityType: "task", projectId: calendarProjectId,
     getDate: (x) => x.dueDate, withDate: (x, date) => ({ ...x, dueDate: date }),
     toGraphEvent: taskToGraphEvent, setItems: setTasksForAuto,
-    isPullable: (x) => !x.jiraKey, isPopout, lang, enabled: taskAutoSyncActive, background: true,
+    isPullable: (x) => !x.jiraKey, isPopout, lang, enabled: taskAutoSyncActive, background: true, getScopeEpoch,
     onBackgroundApply: (n) => logActivityAs("integration", "calendar.autoPulled", n, t(lang, "calendarSyncEntityTask")),
   });
   const { pull: autoPullRaid } = useEntityCalendarPull<RaidItem>({
     items: pushableRaid, entityType: "raid", projectId: calendarProjectId,
     getDate: (r) => r.targetDate, withDate: (r, date) => ({ ...r, targetDate: date }),
     toGraphEvent: raidToGraphEvent, setItems: setRaidForCalendar,
-    isPopout, lang, enabled: raidAutoSyncActive, background: true,
+    isPopout, lang, enabled: raidAutoSyncActive, background: true, getScopeEpoch,
     onBackgroundApply: (n) => logActivityAs("integration", "calendar.autoPulled", n, t(lang, "calendarSyncEntityRaid")),
   });
   const { pull: autoPullChange } = useEntityCalendarPull<ChangeItem>({
     items: pushableChanges, entityType: "change", projectId: calendarProjectId,
     getDate: (c) => c.decisionDate, withDate: (c, date) => ({ ...c, decisionDate: date }),
     toGraphEvent: changeToGraphEvent, setItems: setChangeForCalendar,
-    isPopout, lang, enabled: changeAutoSyncActive, background: true,
+    isPopout, lang, enabled: changeAutoSyncActive, background: true, getScopeEpoch,
     onBackgroundApply: (n) => logActivityAs("integration", "calendar.autoPulled", n, t(lang, "calendarSyncEntityChange")),
   });
   const { pull: autoPullAbsence } = useEntityCalendarPull<Absence>({
@@ -363,11 +382,11 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     getDate: (a) => a.startDate, getEndDate: (a) => a.endDate,
     withDate: (a, start, end) => ({ ...a, startDate: start, endDate: end ?? a.endDate }),
     toGraphEvent: absenceToGraphEvent, setItems: setAbsenceForCalendar,
-    isPopout, lang, enabled: absenceAutoSyncActive, background: true,
+    isPopout, lang, enabled: absenceAutoSyncActive, background: true, getScopeEpoch,
     onBackgroundApply: (n) => logActivityAs("integration", "calendar.autoPulled", n, t(lang, "calendarSyncEntityAbsence")),
   });
   useCalendarAutoPull({
-    enabled: m365Enabled && !isPopout,
+    enabled: m365Enabled && !isPopout && !loadPending,
     pulls: [autoPullTasks, autoPullRaid, autoPullChange, autoPullAbsence],
   });
 

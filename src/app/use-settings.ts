@@ -51,6 +51,12 @@ export function writeSettings(settings: Settings): boolean {
   }
 }
 
+/** §548 — the most the mount effect waits for the secret merge (`migratePlaintextSecrets` +
+ *  `hydrateSecretsInto`) before hydrating on the in-memory fallback. The load hold is up while
+ *  `hydrated` is false, so a merge that never settles would lock the app. The merge is local (IndexedDB
+ *  + WebCrypto) and normally takes well under a second. */
+export const SECRET_MERGE_TIMEOUT_MS = 5_000;
+
 /** Merge device-wrapped secrets into an in-memory Settings (passphrase-wrapped
  *  ones stay blank until an explicit unlock). Reads the secret store. */
 export async function hydrateSecretsInto(settings: Settings): Promise<Settings> {
@@ -355,7 +361,7 @@ export function useSettings(): {
             // any reason — no IndexedDB, no crypto.subtle, locked-down browser,
             // test env — we commit this instead of crashing or losing the
             // secret for the session.
-            let committed: typeof merged;
+            const mergeSecrets = async (): Promise<typeof merged> => {
             try {
               // migratePlaintextSecrets is hardened to never reject: a failed
               // seal (no IndexedDB / WebCrypto) leaves that secret un-migrated
@@ -385,7 +391,7 @@ export function useSettings(): {
               const jira = hydratedSettings.jira;
               const timelog = hydratedSettings.timelog;
               const dictation = hydratedSettings.dictation;
-              committed = {
+              return {
                 ...hydratedSettings,
                 ai: {
                   ...hydratedSettings.ai,
@@ -411,8 +417,21 @@ export function useSettings(): {
             } catch {
               // IndexedDB / WebCrypto unavailable — fall back to the in-memory
               // plaintext secrets so the app still works this session.
-              committed = merged;
+              return merged;
             }
+            };
+            // ★★★ §548 — THE MERGE IS BOUNDED. The load hold is up until `hydrated` flips, so a merge that
+            //   never settles (an IndexedDB open queued behind another connection, a stalled WebCrypto call)
+            //   would lock the app behind the skeleton for good. On timeout, take the same in-memory fallback
+            //   the throw path takes; the late result, when it comes, is ignored.
+            let mergeTimer: ReturnType<typeof setTimeout> | undefined;
+            const mergeOutcome = await Promise.race([
+              mergeSecrets(),
+              new Promise<null>((resolve) => { mergeTimer = setTimeout(() => resolve(null), SECRET_MERGE_TIMEOUT_MS); }),
+            ]);
+            clearTimeout(mergeTimer);
+            if (mergeOutcome === null) logDiag("warn", "settings.secretMergeTimedOut", { ms: SECRET_MERGE_TIMEOUT_MS });
+            const committed = mergeOutcome ?? merged;
             try {
               if (!cancelled) {
                 // Load applies locally only — every instance reads the same

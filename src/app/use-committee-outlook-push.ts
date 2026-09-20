@@ -5,6 +5,7 @@ import { useToastContext } from "./toast-context";
 import { t, type Lang } from "./i18n";
 import { committeePushKey, planCommitteeReconcile, type CommitteeReconcileTarget } from "./committee-calendar-reconcile";
 import { logDiag } from "./diagnostics";
+import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 import {
   CALENDAR_READWRITE_SCOPE, committeeMeetingToGraphEvent, committeeInfoToGraphEvent,
   createEvent, updateEvent, deleteEvent, GraphCalendarError,
@@ -20,6 +21,8 @@ interface Args {
   isPopout: boolean;
   lang: Lang;
   enabled: boolean;
+  /** §548 — `useStorageBackend`'s scope-epoch reader; omitted outside the storage hook's reach. */
+  getScopeEpoch?: ScopeEpochReader;
 }
 
 /**
@@ -32,7 +35,7 @@ interface Args {
  * token or any response body.
  */
 export function useCommitteeOutlookPush({
-  committee, committeeName, projectId, today, setSteeringCommittee, isPopout, lang, enabled,
+  committee, committeeName, projectId, today, setSteeringCommittee, isPopout, lang, enabled, getScopeEpoch,
 }: Args) {
   const { acquireToken } = useMsAuth(enabled);
   const showToast = useToastContext();
@@ -55,9 +58,13 @@ export function useCommitteeOutlookPush({
     if (inFlightRef.current) return; // a push is already running — ignore (no double-write)
     inFlightRef.current = true;
     setPushingTarget(committeePushKey(target));
+    // §548 — the project `committee` was read from; see `scope-epoch.ts`.
+    const startEpoch = getScopeEpoch?.();
     try {
       const token = await acquireToken(CALENDAR_READWRITE_SCOPE, { interactive: true }).catch(() => null);
       if (!token) { showToast("error", t(lang, "committeePushError")); return; }
+      // A swap started while the token was being acquired — bail before any Graph mutation.
+      if (dropStaleScopeWrite(getScopeEpoch, startEpoch, "useCommitteeOutlookPush", { at: "plan" })) return;
 
       const plan = planCommitteeReconcile(committee, today, target);
       const newMeetingIds = new Map<number, string>(); // meetingId -> created eventId
@@ -98,6 +105,17 @@ export function useCommitteeOutlookPush({
       const deletedSet = new Set(plan.deleteEventIds);
       const persist = newMeetingIds.size > 0 || newInfoIds.size > 0 || deletedSet.size > 0
         || staleMeetingIds.size > 0 || staleInfoKeys.size > 0;
+      // ★★★ §548 — THE COSTLIEST DROP IN THE APP, and it does NOT self-heal like the milestone and
+      //   entity pushes. Those list Outlook, so their next push deletes the orphan and re-creates the
+      //   event. `planCommitteeReconcile` derives `deleteEventIds` from the committee's OWN STORED ids
+      //   (`infoReminderEventIds` + `pendingDeleteEventIds`) and NEVER lists Outlook — so an event
+      //   created just before this drop is a PERMANENT orphan in the user's calendar, AND every later
+      //   push creates a DUPLICATE beside it, accumulating per occurrence. ★ Still the right trade
+      //   against writing this project's ids onto the next project's committee, and it is why the
+      //   epoch's predicate is narrow (`use-storage-backend.ts`): this must fire only for a REAL
+      //   project change, never for a reload or a cancelled op. ★ No compensating delete is issued —
+      //   a rollback that fails mid-way is worse than the orphan.
+      if (dropStaleScopeWrite(getScopeEpoch, startEpoch, "useCommitteeOutlookPush", { at: "write" })) return;
       if (persist) {
         setSteeringCommittee((prev) => {
           if (!prev) return prev;
@@ -138,7 +156,7 @@ export function useCommitteeOutlookPush({
       inFlightRef.current = false;
       setPushingTarget(null);
     }
-  }, [isPopout, committee, acquireToken, showToast, lang, today, committeeName, projectId, setSteeringCommittee]);
+  }, [isPopout, committee, acquireToken, showToast, lang, today, committeeName, projectId, setSteeringCommittee, getScopeEpoch]);
 
   return { pushToOutlook, pushingTarget };
 }

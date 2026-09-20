@@ -63,7 +63,25 @@ entities: ★★ NEW entity types MUST use a TYPE-SCOPED category `categoryFor(p
 `useEntityCalendarPush<T>` (`use-entity-calendar-push.ts`) = a parameterized `useOutlookCalendarPush` clone (same
 404-on-PATCH self-heal, popout no-op). ★★ A MODULE-LEVEL `inFlightReconcile` Set keyed `${projectId}:${type}`
 serializes the auto + manual push instances so a manual click during an in-flight auto reconcile can't DOUBLE-CREATE
-(check-then-add is synchronous before the first await; released in `finally`). ★ `interactive:false` (auto runner)
+(check-then-add is synchronous before the first await; released in `finally`). ★★★ §548 — EVERY calendar hook that
+awaits Graph takes an optional `getScopeEpoch` and DROPS its workspace write when the workspace in scope became
+ANOTHER PROJECT meanwhile (`dropStaleScopeWrite`, `scope-epoch.ts`; the load hold's own gates only ask when a call
+STARTS). `use-calendar-integrations.ts` threads the reader into all seventeen child-hook call sites, and `tasks-section.tsx`
+— which mounts its OWN push/pull instances for the Open Points toolbar instead of taking them from that hook — gets
+it from its own `TasksSectionProps.getScopeEpoch`, threaded straight from `task-manager.tsx`. ★★ THAT PROP IS
+REQUIRED WHERE THE HOOK ARG IS OPTIONAL, and the asymmetry is the lesson: the optional arg let this one pane ship
+unguarded for a release with nothing failing — it simply kept the pre-§548 behaviour while every sibling was covered,
+and a push resolving after a project switch stamped the old project's `outlookEventId`s (or its Outlook dates as
+`dueDate`) onto the new project's same-id tasks. Declaring the PANE/deps boundary required makes a missing thread a
+tsc error. ★ The chat agent loop still has no reader at all and remains unguarded; see `docs/AGENTS/platform.md`.
+★★★ WHAT A DROPPED PUSH COSTS DIFFERS BY HOOK, and "the next push re-links it" is FALSE everywhere. `useEntityCalendarPush`
+and `useOutlookCalendarPush` list Outlook, and `planEntityReconcile`/`planCalendarReconcile` put every listed id not
+referenced by an item into `plan.delete` — so the next push in the right project DELETES the orphan and RE-CREATES the
+event (churn, once, self-healing). `useCommitteeOutlookPush` does NOT list Outlook: `planCommitteeReconcile` derives
+`deleteEventIds` from the committee's own STORED ids, so an event created just before a drop is a PERMANENT orphan in
+the user's calendar AND every later push adds a DUPLICATE beside it, accumulating per occurrence. No compensating
+delete is issued (a rollback that fails mid-way is worse), which is exactly why the epoch's predicate is narrow —
+a reload or a cancelled op must never trigger this. The full mechanism is in [platform.md](platform.md) "The load hold". ★ `interactive:false` (auto runner)
 → non-interactive token + FULLY SILENT (no result/partial/no-access toasts). **Tasks (SP1, v0.157+):**
 `Task.outlookEventId?` persists across the 6 write paths (mirrors `Milestone.outlookEventId` — CSV `CSV_COLUMNS`
 generic `fieldToString` default arm; MD decoder lives in `markdown-codecs-decode.ts` not `-core`; Turso derives from

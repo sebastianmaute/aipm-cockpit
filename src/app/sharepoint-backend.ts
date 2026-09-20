@@ -13,6 +13,7 @@ import {
   type Workspace,
 } from "./workspace";
 import type { ImportSectionKey } from "./csv-codecs-sections";
+import { FetchTimeoutError, LOAD_TIMEOUT_MS, fetchTextWithTimeout, type FetchTextResult } from "./fetch-with-timeout";
 
 export interface SpFileLocation {
   hostname: string;
@@ -118,10 +119,24 @@ export class SharePointBackend implements StorageBackend {
     this.lastImportMalformedQuotes = 0;
     try {
       const token = await this.getToken();
-      const res = await fetch(graphUrlFor(this.location), {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // ★★ §548 — BOUNDED, like Turso's load: the app is held behind a skeleton until this load settles,
+      //   so a Graph read that never answers must FAIL the load. A plain Error, the same shape as the
+      //   status errors below, so it reaches the storageLoadFailed toast and the generic storage banner —
+      //   NOT Turso's "storage-unreachable" kind, whose banner text names the Turso database. The token
+      //   step above is deliberately unbounded: an interactive MSAL popup waits on the user, and closing
+      //   it rejects.
+      let res: FetchTextResult;
+      try {
+        res = await fetchTextWithTimeout(graphUrlFor(this.location), {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+        }, LOAD_TIMEOUT_MS);
+      } catch (err) {
+        if (err instanceof FetchTimeoutError) {
+          throw new Error(`SharePoint did not respond within ${LOAD_TIMEOUT_MS / 1000} s. Try again later.`);
+        }
+        throw err;
+      }
       if (res.status === 404) return emptyWorkspace();
       if (res.status === 401) {
         throw new StorageNotReadyError(
@@ -137,7 +152,7 @@ export class SharePointBackend implements StorageBackend {
         throw new Error(`SharePoint returned ${res.status}. Try again later.`);
       }
       if (this.kind === "sp-csv") {
-        const csv = await res.text();
+        const csv = res.text;
         const ws = csvToWorkspace(csv, diag);
         this.lastImportDroppedRows = diag.droppedRows;
         this.lastImportDroppedBySection = diag.droppedBySection;
@@ -147,7 +162,7 @@ export class SharePointBackend implements StorageBackend {
       }
       // Validate + migrate like every other JSON backend (was a raw cast that
       // risked a downstream TypeError on a malformed-but-valid-JSON file).
-      return jsonToWorkspace(await res.text(), { strict: true, diag });
+      return jsonToWorkspace(res.text, { strict: true, diag });
     } finally {
       this.lastLoadTruncation = {
         entries: diag.truncatedEntries ?? 0,
@@ -206,7 +221,25 @@ export function parseSharePointFileUrl(url: string): SpFileLocation | null {
   if (segments.length < 3) return null;
   if (segments[0] !== "sites") return null;
 
-  const decoded = segments.map((s) => decodeURIComponent(s));
+  // ★★ `decodeURIComponent` THROWS on a malformed escape ("%", "%zz", "%e0%a4"), where every other
+  //   rejection here returns null — so an unparseable URL used to leave this function two different
+  //   ways. That was survivable while the only callers were click handlers; it stopped being so when
+  //   `storage-config.tsx` started calling this during RENDER to decide whether the draft denotes the
+  //   current target, because typing "Shared%20" passes through "Shared%" and crashed the section on
+  //   a keystroke. Found by a test, not by reading. The contract is now one-way: null for anything
+  //   this cannot parse.
+  // ★★ THE CATCH IS NARROWED TO `URIError` AND RETHROWS EVERYTHING ELSE, deliberately. A bare
+  //   `catch { return null; }` is only correct for as long as `decodeURIComponent` is the sole
+  //   thing inside the `try` — and nothing stops a later edit moving a statement in there, where a
+  //   genuine bug would then be silently reported to every caller as "unparseable URL". Narrowing
+  //   costs one line and makes that edit fail loudly instead.
+  let decoded: string[];
+  try {
+    decoded = segments.map((s) => decodeURIComponent(s));
+  } catch (e) {
+    if (e instanceof URIError) return null;
+    throw e;
+  }
   const sitePath = `/${decoded[0]}/${decoded[1]}`;
   const itemSegs = decoded.slice(2);
   const itemPath = itemSegs.join("/");

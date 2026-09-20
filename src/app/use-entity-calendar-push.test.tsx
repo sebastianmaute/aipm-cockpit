@@ -126,3 +126,70 @@ describe("useEntityCalendarPush", () => {
     expect(vi.mocked(createEvent)).toHaveBeenCalledTimes(1);
   });
 });
+
+// §548 (F7) — a push already in flight when a project swap starts must not write the OLD project's
+// event ids onto the NEW project's rows. `enabled`/`loadPending` only gate a push that has not started.
+describe("useEntityCalendarPush — the scope epoch (§548)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    acquireTokenMock.mockResolvedValue("tok");
+    vi.mocked(createEvent).mockResolvedValue("NEW1");
+    vi.mocked(listEntityEvents).mockResolvedValue([]);
+  });
+
+  /** A push whose Outlook LISTING is held open, so the test can swap projects mid-flight. */
+  function startHeldPush(epochRef: { v: number }) {
+    let release!: () => void;
+    vi.mocked(listEntityEvents).mockReturnValueOnce(new Promise((r) => { release = () => r([]); }));
+    let items: LinkedTask[] = [makeTask()];
+    const setItems = vi.fn((u: (p: LinkedTask[]) => LinkedTask[]) => { items = u(items); });
+    const { result } = renderHook(() => useEntityCalendarPush<LinkedTask>({
+      items, entityType: "task", projectId: "p1", toGraphEvent: taskToGraphEvent,
+      setItems, isPopout: false, lang: "en-US", enabled: true, getScopeEpoch: () => epochRef.v,
+    }));
+    return { result, setItems, release, getItems: () => items };
+  }
+
+  it("drops the whole reconcile — no Graph mutation, no workspace write — when the scope changed during the listing", async () => {
+    const epoch = { v: 7 };
+    const { result, setItems, release, getItems } = startHeldPush(epoch);
+    let push: Promise<void> = Promise.resolve();
+    act(() => { push = result.current.pushToOutlook(); });
+    epoch.v = 8; // a swap/backend change started while Graph was answering
+    await act(async () => { release(); await push; });
+
+    expect(vi.mocked(listEntityEvents)).toHaveBeenCalledTimes(1); // control: the push really ran
+    expect(vi.mocked(createEvent)).not.toHaveBeenCalled();
+    expect(setItems).not.toHaveBeenCalled();
+    expect(getItems()[0].outlookEventId).toBeUndefined();
+  });
+
+  it("CONTROL — the same push writes back normally when the scope is unchanged", async () => {
+    const epoch = { v: 7 };
+    const { result, setItems, release, getItems } = startHeldPush(epoch);
+    let push: Promise<void> = Promise.resolve();
+    act(() => { push = result.current.pushToOutlook(); });
+    await act(async () => { release(); await push; });
+
+    expect(vi.mocked(createEvent)).toHaveBeenCalledTimes(1);
+    expect(setItems).toHaveBeenCalledTimes(1);
+    expect(getItems()[0].outlookEventId).toBe("NEW1");
+  });
+
+  it("drops the workspace write when the scope changes DURING the create/update loop (the ids are orphaned on purpose)", async () => {
+    const epoch = { v: 7 };
+    let items: LinkedTask[] = [makeTask()];
+    const setItems = vi.fn((u: (p: LinkedTask[]) => LinkedTask[]) => { items = u(items); });
+    // The swap lands after the plan was judged fresh, while Outlook is being written.
+    vi.mocked(createEvent).mockImplementationOnce(async () => { epoch.v = 8; return "NEW1"; });
+    const { result } = renderHook(() => useEntityCalendarPush<LinkedTask>({
+      items, entityType: "task", projectId: "p2", toGraphEvent: taskToGraphEvent,
+      setItems, isPopout: false, lang: "en-US", enabled: true, getScopeEpoch: () => epoch.v,
+    }));
+    await act(async () => { await result.current.pushToOutlook(); });
+
+    expect(vi.mocked(createEvent)).toHaveBeenCalledTimes(1); // control: the event WAS created in Outlook
+    expect(setItems).not.toHaveBeenCalled();
+    expect(items[0].outlookEventId).toBeUndefined();
+  });
+});

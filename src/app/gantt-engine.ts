@@ -306,7 +306,19 @@ export function parseISO(s: string | undefined | null): Date | null {
   );
 }
 
-export function todayUTC(): Date {
+/**
+ * "Today" as the caller's LOCAL calendar date (the user's own clock — the
+ * Gantt today-line and RAG status are meant to track that, not UTC's date),
+ * represented as a `Date` at UTC midnight so it stays comparable to
+ * `parseISO`'s cross-timezone-stable representation for whole-day diffs.
+ * ★ Despite the historical `UTC` in this name, the read is LOCAL:
+ * `getFullYear()/getMonth()/getDate()`, not `getUTCFullYear()`/etc — only the
+ * *representation* is UTC (midnight), not the calendar the date comes from.
+ * At a large negative offset (UTC-10/-11, e.g. Hawaii/American Samoa) this
+ * can be one calendar day behind `new Date().toISOString()`'s date; that is
+ * the intended behaviour (§573 review finding 2), not a bug to fix here.
+ */
+export function localTodayUTC(): Date {
   const n = new Date();
   return new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()));
 }

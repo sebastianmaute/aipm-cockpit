@@ -674,9 +674,14 @@ export const FROZEN_NOW = new Date("2026-09-18T09:00:00.000Z");
  * timeout is generous because the FIRST navigation against the dev `webServer`
  * pays a one-time Turbopack compile (well over the default action timeout);
  * subsequent in-app navigations are fast.
+ *
+ * `time` defaults to `FROZEN_NOW` (every existing caller is unaffected). The
+ * visual project (§573) passes its OWN fixed instant so that bumping
+ * `FROZEN_NOW` to follow a `DEMO_AS_OF` refresh — a periodic, expected edit —
+ * no longer invalidates the visual baselines too.
  */
-export async function gotoApp(page: Page): Promise<void> {
-  await page.clock.install({ time: FROZEN_NOW });
+export async function gotoApp(page: Page, time: Date = FROZEN_NOW): Promise<void> {
+  await page.clock.install({ time });
   await page.goto("/");
   await expect(page.locator("main").first()).toBeVisible();
   await page.waitForFunction(

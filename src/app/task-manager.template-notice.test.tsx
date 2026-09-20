@@ -57,33 +57,25 @@ async function mount() {
   window.history.replaceState(null, "", "/");
   render(<TaskManager />);
   await screen.findByTestId("ws-section-mock");
-  // ★★★ WAIT FOR THE FIRST BACKEND LOAD TO LAND, not just for the mock to
-  // mount. use-storage-backend.ts's load effect calls
-  // applyWorkspace(workspace, "reset", "merge") once it resolves, which
-  // REPLACES tasks with whatever was in browser storage -- empty, on the
-  // freshly-cleared localStorage this test seeds. `ws-section-mock` renders
-  // unconditionally on mount, before that load effect has necessarily
-  // finished, so a template apply issued right after `mount()` returns can
-  // land BEFORE the load and then get silently wiped when the load lands
-  // after it: apply sets tasks to [seed], the load resets to [], and a
-  // second apply re-mints the same id, so the count never exceeds 1 no
-  // matter how long a caller waits on it. THIS IS A PRODUCT DEFECT, not just
-  // a test race -- filed as **§548** in docs/open-followups.md (an edit made
-  // during a project's first backend load is silently overwritten when that
-  // load lands); this test merely raced the same window. Instrumented
-  // locally (M-4, final-review-report.md; the capture itself lived in a
-  // gitignored scratch file and is not checked in -- the numbers are
-  // recorded here instead): without this wait, the apply → reset → re-mint
-  // sequence above raced 3 of 13 local runs; with it, 8 of 8. No waitFor
-  // timeout on the taskCount assertions below could ever have fixed it,
-  // since the count settles at a wrong value rather than merely arriving
-  // late. `storage.loaded` is the product's own diag-log marker for "the
-  // load effect ran" (`logDiag("info", "storage.loaded", ...)` in
-  // use-storage-backend.ts's load effect, written into
-  // localStorage["aipm-cockpit:diag-log"]); 15000ms because the load is a
-  // real IndexedDB/localStorage read, not a synchronous re-render -- the
-  // timeouts removed from the taskCount waits below are unrelated and stay
-  // at the default now that they no longer have a race to paper over.
+  // ★★ WAIT FOR THE FIRST BACKEND LOAD TO LAND. `useStorageBackend`'s load
+  // effect applies the loaded workspace with `applyWorkspace` (mode "reset"),
+  // which REPLACES tasks with whatever browser storage holds -- empty, on the
+  // freshly-cleared localStorage this test seeds. A template apply that landed
+  // BEFORE that load would be wiped by it (apply sets tasks to [seed], the
+  // load resets to [], a second apply re-mints the same id), so the count
+  // would settle at a wrong value rather than arriving late.
+  // ★ That window was the §548 defect (an edit made during a project's first
+  // backend load is overwritten when the load lands), and the load hold now
+  // CLOSES it: while `loadPending` is true the main window renders
+  // `PanelSkeleton` in place of the whole tree, so the WorkspaceSection mock
+  // cannot mount until the load has settled, and `findByTestId` above already
+  // implies the load landed. Before the hold this test raced it in 3 of 13
+  // local runs (M-4, final-review-report.md).
+  // ★ This wait is kept as a second, independent pin on the same fact.
+  // `storage.loaded` is the product's own diag-log marker for "the load effect
+  // applied a workspace" (`logDiag` in the load effect, written into
+  // localStorage["aipm-cockpit:diag-log"]); 15000ms because the load is a real
+  // IndexedDB/localStorage read.
   await waitFor(
     () =>
       expect(window.localStorage.getItem("aipm-cockpit:diag-log") ?? "").toContain("storage.loaded"),

@@ -32,6 +32,7 @@ import {
 import type { Insight, InsightActions, InsightRecommendation } from "./insights/insight";
 import { ALLOWED_REC_TOOLS } from "./insights/insight";
 import { metricAtActionPatch } from "./insights/outcome";
+import type { ScopeEpochReader } from "./scope-epoch";
 import { useInsightRecommend } from "./use-insight-recommend";
 import { useInsightRecommendRunner } from "./use-insight-recommend-runner";
 import { buildRecommendContext } from "./insights/recommend-context";
@@ -54,6 +55,14 @@ const ENTITY_DIGEST_TEXT_CAP = 200;
 /** Live render-scope values the insight recommendation cluster reads each render. */
 export interface InsightRecommendationDeps {
   isPopout: boolean;
+  /** §548 — a load or project swap is still in flight (`useStorageBackend`). A recommendation stored
+   *  meanwhile would be replaced when the load lands. */
+  loadPending: boolean;
+  /** §548 — `useStorageBackend`'s stable scope-epoch reader, threaded into both AI hooks below.
+   *  `loadPending` covers a result landing DURING the hold; this covers one landing after the swap
+   *  FINISHED, when `loadPending` is false again. See `scope-epoch.ts`. Required, so tsc proves the
+   *  call site hands it over. */
+  getScopeEpoch: ScopeEpochReader;
   settings: Settings;
   lang: Lang;
   today: string;
@@ -79,6 +88,8 @@ export interface InsightRecommendationDeps {
 export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   const {
     isPopout,
+    loadPending,
+    getScopeEpoch,
     settings,
     lang,
     today,
@@ -192,10 +203,14 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   // own ref, so neither re-subscribes a listener or re-arms an interval on it.
   const applyInsightRecommendation = useCallback(
     (id: number, rec: InsightRecommendation) => {
+      // §548 — this is the ONE store both the background runner and the on-demand generate write
+      // through, so the hold lives here: a result stored while a load or swap is pending would be
+      // replaced when it lands. Dropped, not queued — the runner's next tick regenerates it.
+      if (loadPending) return;
       const stamped = stampRecommendationTokens(rec, { tasks, raid, changes, milestones, stakeholders });
       setInsights((prev) => (prev ?? []).map((i) => (i.id === id ? { ...i, recommendation: stamped } : i)));
     },
-    [setInsights, tasks, raid, changes, milestones, stakeholders],
+    [setInsights, tasks, raid, changes, milestones, stakeholders, loadPending],
   );
   const {
     generatingId: insightGeneratingId,
@@ -208,13 +223,17 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     buildIndex: buildInsightGroundingIndex,
     buildContextFor: buildInsightRecommendContext,
     applyRecommendation: applyInsightRecommendation,
+    getScopeEpoch,
     isPopout,
     onError: (kind) => {
       showToast("error", t(lang, kind === "limit" ? "aiUsageLimitReached" : "insightRecommendationError"));
     },
   });
   useInsightRecommendRunner({
-    enabled: isAiEnabled(settings.ai) && settings.ai.insightRecommendations === true && !isPopout,
+    // §548 F1 item 9 — the RUNNER itself must not tick while a load/swap is pending, not just its
+    // store (`applyInsightRecommendation` above): without this a billed AI call still runs during the
+    // hold and its result is simply discarded when it lands.
+    enabled: isAiEnabled(settings.ai) && settings.ai.insightRecommendations === true && !isPopout && !loadPending,
     insights: insights ?? [],
     ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5" },
     today,
@@ -222,6 +241,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     buildIndex: buildInsightGroundingIndex,
     buildContextFor: buildInsightRecommendContext,
     applyRecommendation: applyInsightRecommendation,
+    getScopeEpoch,
   });
 
   const onGenerateRecommendationInsight = useCallback(
@@ -289,6 +309,12 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     // never drive a destructive tool (delete_*/update_settings) through runTool,
     // even if it slipped a stale load path. Load-time sanitize also strips these.
     const calls = rec.proposedCalls.filter((c) => ALLOWED_REC_TOOLS.has(c.name));
+    // ★★ §548 — NO scope-epoch guard here, and NOT because closing the modal cancels anything: it
+    // does not, this function runs to completion after the unmount. It is safe because every
+    // `ALLOWED_REC_TOOLS` dispatcher writes local state only, so each `await runTool` below resolves
+    // in the MICROTASK queue and the whole loop finishes inside one macrotask — no swap can
+    // interleave. That condition is stated on `ALLOWED_REC_TOOLS` itself, where a tool author will
+    // meet it; a dispatcher that gains I/O must bring `dropStaleScopeWrite` with it.
     // Per-call, NON-transactional apply. Each runTool is its own try/catch so one
     // call that THROWS (e.g. an enum/date the entity's sanitizer rejects) can't
     // abort the remaining calls. (A stale update id does NOT throw — the

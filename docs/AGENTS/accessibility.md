@@ -240,10 +240,11 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   Resources · Budget · RAID · Settings · Stakeholders · Changes · Milestones · Reports · Activity ·
   Time bookings · AI Assistant · Next actions · Insights · Documents — so a passing run reports 7 scheme
   COMBOS (harbor/meridian/umber L+D, Beacon light-only) × 17 + 7 Kanban-board variants (one per combo)
-  + 1 notes-window rich-text-toolbar scan + 1 Documents block-editor scan (both harbor-light only and
-  hardcoded, so neither scales with the combo count) = **128** axe scans, plus ONE non-scan guard test
-  (asserts the served app's `data-app-version` matches this checkout, open-followups §58) — **129**
-  tests total in the spec file. ★ Don't derive these numbers, MEASURE them, in the same
+  + 1 notes-window rich-text-toolbar scan + 1 Documents block-editor scan + 1 Reports cumulative-chart
+  scan + 1 Reports chart-readout scan + 2 Turso-storage Settings tests (all harbor-light only and
+  hardcoded, so none scales with the combo count) = **132** axe tests, plus ONE non-scan guard test
+  (asserts the served app's `data-app-version` matches this checkout, open-followups §58) — **133**
+  tests total in the spec file (measured 2026-09-19; this line said 128/129 while the file held 131). ★ Don't derive these numbers, MEASURE them, in the same
   commit that changes the list: `npx playwright test e2e/a11y.spec.ts --list` prints the total (no
   browsers needed, and it also proves `e2e/seed.ts`'s module-level sample read still resolves), and
   `grep -c "a11y:"` over that output splits scans from the guard.
@@ -253,6 +254,28 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   nothing to collide. Seeding `documents` for the first time immediately turned up a real serious
   violation the empty state had been hiding. Most of BrowserBackend's optional kv slices are still
   unseeded — Insights is in this list and affected today (`docs/open-followups.md`).
+  ★★ THE SEED IS FILE MODE, so every control gated on `settings.storageConfig.kind === "turso"` is
+  absent from the view loop. The Settings → Integrations Turso controls that exist only there — Apply,
+  its blocked-state hint, the "Wrong passphrase." error, and the "Save & switch" blocked hint — are
+  reached by two dedicated tests ("Turso storage Apply controls (device token)" / "(passphrase
+  token)", §548) that seed Turso as the storage kind against a fake `.invalid` host. The load fails
+  fast (CSP refuses the fetch; with a passphrase-sealed token no request is made at all) and settles,
+  so the main tree renders. Any OTHER Turso-live surface is still unscanned — and so are the
+  Turso-PORTFOLIO views (`TURSO_ONLY_VIEWS`) and the `SecretUnlockGate`, which a file-mode
+  portfolio never shows.
+  ★★★ **SO IS THE SECOND APPLY BUTTON IN SETTINGS, and nothing above hints at it: the SHAREPOINT
+  STORAGE controls in Settings → Storage are unreachable by ANY axe scan.** The file-URL `Input`, its
+  `FieldError` and the Apply button (`storage-config.tsx`, §548) render only under `isSp && spGateOk
+  && auth.account` — and while the first two are seedable exactly like the Turso pair above
+  (`storageConfig.kind: "sp-json"` plus `m365.enabled` / `sharepoint.enabled`), **`auth.account` is
+  not**: it comes from `pca.getAllAccounts()[0]` on a live `@azure/msal-browser` client built from the
+  browser's MSAL cache. ★★ Faking it was EVALUATED AND DELIBERATELY NOT BUILT — it means hand-writing
+  msal-browser's internal cache layout, which breaks silently on any upgrade with no gate to say so,
+  bought for controls made entirely of `Button` / `Input` / `FieldError` that the two Turso-Apply scans
+  already exercise in the same surface and the same colour combos. `storage-config.test.tsx` is their
+  ONLY coverage, and it is a jsdom suite — so the things axe cannot see anyway (duplicate accessible
+  names, WCAG 2.5.3 label-in-name, toggle state) are pinned there, and **CONTRAST on that block has
+  never been machine-checked at all**. Check it by hand, as with the Calendar sub-tab below.
   It does NOT include Projects, Knowledge, or the
   Resources → **Calendar** sub-tab (Resources defaults to the directory), so controls only on those
   surfaces aren't scanned; anything in the always-present top bar IS (scanned via every view).

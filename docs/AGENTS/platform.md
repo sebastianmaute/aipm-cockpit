@@ -7,7 +7,7 @@
      Every claim here was true when written and some have outlived their code —
      grep before relying on one, and correct what you disprove in the same commit. -->
 
-# Diagnostics · guards · dictation · AI master switch
+# Diagnostics · guards · dictation · AI master switch · the load hold
 
 [← AGENTS.md](../../AGENTS.md) · [doc set](../../AGENTS.md#the-doc-set--what-lives-where)
 
@@ -25,8 +25,8 @@
   (`relationalReadIsEmpty`); the save effect refuses a full-wipe / mass-deletion over a populated project
   unless `allowDestructiveSave()` armed (clear-all self-arms) — the data-loss defense.
   ★★★ **NO AUTOMATIC SAVE RUNS BEFORE A LOAD FOR THE CURRENT BACKEND HAS BEEN APPLIED (§586, §587).** Before it,
-  render scope holds the EMPTY boot workspace — or, after a settings-driven rebuild (a Turso URL/token
-  keystroke, a SharePoint target change), the PREVIOUS target's — and that guard cannot see it: its
+  render scope holds the EMPTY boot workspace — or, after a settings-driven rebuild (an applied Turso
+  URL/token change, a SharePoint target change), the PREVIOUS target's — and that guard cannot see it: its
   baselines start at 0/0, or equal the previous project's counts. So a pre-load save was a Turso
   `DELETE FROM` every table, or a copy of one project over another. `savesAllowedFor` in
   `use-storage-backend.ts` is an identity like `loadedBackend`, opened where `loadedBackend` is stamped
@@ -88,4 +88,227 @@
   fallback (manage/remove configured extras when the project list isn't loaded); row-unique aria-labels (Settings is
   axe-scanned). Editor read-only banner (`jira-readonly-banner.tsx`) threads to the floating `TaskFormModal`
   (via `app-modals.tsx`).
+
+### The load hold (§548)
+
+- **`loadPending` (`useStorageBackend`) is true until the workspace in scope is the settled project
+  of the current backend**: before settings hydration (no load has started yet), until the load effect
+  for the CURRENT `backend` instance reaches a terminal branch, and while any of the nine ops wrapped
+  by `holdDuring` runs (`reloadCurrentProject`, `switchToProject`, `createProject`,
+  `loadProjectFromFile`, `createDemoProject`, `onOpenStorageFile`, `switchToTursoProject`,
+  `createTursoProject`, `migrateCurrentProjectToTurso`). ★ The pre-hydration term lives IN the signal,
+  not at the render site, so every consumer below covers that window too. ★ Enumerate the wraps with
+  `grep -n "holdDuring(" src/app/use-storage-backend.ts`.
+- ★★★ **The hold is only safe because every wait it depends on is BOUNDED — keep it that way.**
+  `hydrated` always becomes true: a throw in the secret merge falls back, and a merge that never settles
+  is cut off at `SECRET_MERGE_TIMEOUT_MS` (`use-settings.ts`). Turso and SharePoint loads read through
+  `fetchTextWithTimeout` (`fetch-with-timeout.ts`) with `LOAD_TIMEOUT_MS` (10 s), so a hung server
+  fails the load, and a failed load settles. **A new backend, or a new await in a load path, needs the
+  same bound, or it can hold the app behind the skeleton forever.** The remaining unbounded waits are
+  waits ON THE USER, each settling only when dismissed: the MSAL popup in the SharePoint `getToken`
+  (closing it rejects, which settles the load), and the native file picker plus the `window.confirm`
+  overwrite prompt inside the held `onOpenStorageFile` (`use-storage-file-ops.ts`) — cancelling either
+  one settles the op the same way.
+- ★★★ **It is NOT `workspaceLoaded`.** `workspaceLoaded` stays false after a FAILED load and after the
+  empty-load refusal (§77), which is right for snapshot capture and saving. Holding edits on it would
+  lock the app for the whole session after one load error. `settledBackend` is stamped on EVERY terminal
+  branch: applied (inside `applyWorkspace`), the suppress-branch re-stamp, the refusal and the `catch`.
+  Identity, not a latch, so a rebuilt backend (project switch, kind switch, Turso or SharePoint target
+  edit) starts unsettled with no reset code.
+- **The render hold.** `task-manager.tsx` renders `PanelSkeleton` instead of the main-window app tree
+  while `loadPending` is true (the same ternary `showTursoListLoading` uses). No control that writes
+  workspace state exists during the hold, so the UI writers outside `guardEdit` are covered, and so is
+  any writer added later — ★ EXCEPT the two branches ranked ABOVE the hold in that ternary,
+  `SecretUnlockGate` and `ProjectEmptyState` (file mode with an empty registry keeps the latter up
+  through the first load and through its own create/demo ops, whose swaps are themselves held by
+  `holdDuring`). A failed or refused load settles, so the storage banner, Settings and "Pick
+  storage file" stay reachable. Popouts return before this ternary and are never held. `guardEdit` /
+  `makeEditGuard` are unchanged.
+  ★★★ The hold unmounts Settings too, so **a Settings field that feeds `useStorageBackend`'s backend
+  memo must not commit until the user EXPLICITLY applies it** — no keystroke, no blur, no Tab, no
+  Escape. ★★ THE RULE USED TO SAY "never commit PER KEYSTROKE", and the SharePoint file URL satisfied
+  that wording while producing the whole failure anyway: it committed on BLUR, so the mousedown on any
+  neighbouring control rebuilt the backend, raised the hold, unmounted the section — and the click that
+  caused the blur never landed on its target, with no Apply to retry from if the new target then failed
+  to load. Both live storage targets now use the same model, each with its own Apply: the Turso URL +
+  token (`applyTursoDrafts`, `integrations-section.tsx`) and the SharePoint file URL (`applySpUrl`,
+  `storage-config.tsx`). ★★★ **AN ENABLED APPLY MEANS AN UNAPPLIED CHANGE; THE CONVERSE IS FALSE FOR
+  BOTH BUTTONS, and this file asserted it twice.** `canApplySpUrl` is false for an EMPTY field, which
+  is itself an unapplied change — transient, because `restoreSpUrlOnEmptyBlur` puts the committed URL
+  back on blur, so it is observable only while the empty field still has focus. `canApplyTurso` is
+  false for THREE further reasons that have nothing to do with the drafts being clean
+  (`tokenSealBlocked`, a passphrase verify in flight, and `switchBusy`), each of which leaves a dirty
+  draft behind a disabled button — that one is not transient, which is why each carries its own
+  visible blocked hint. Read "disabled ⇒ clean" as false in both sections; the exact predicate lives
+  beside each symbol and is restated nowhere. ★ A picker that commits from inside its own modal is NOT an
+  exception to this — the SharePoint Browse dialog's `onSelect` and the OS file pickers are themselves
+  the explicit action, and unlike a blur they cannot swallow a click. The memo reads the Turso URL and
+  token only for storage kind "turso",
+  and `integrations-section.tsx` picks the commit model by that same kind (`tursoIsLive`):
+  **on Turso storage both fields are pure drafts that ONLY the explicit Apply button commits**
+  (`applyTursoDrafts`, or Enter in either field: one `onChange` for both fields, the token
+  device-sealed in device mode; in passphrase mode a CHANGED token is re-sealed under the passphrase
+  typed into the section's own passphrase fields (`sealUnderTypedPassphrase`) — the passphrase is never
+  held in memory, so until it is typed Apply and "Save & switch" stay disabled (`tokenSealBlocked`) and each shows
+  the blocked hint as its visible text and `aria-describedby`,
+  else a reload + unlock would yield the OLD token, or none after the switch. ★★ When a
+  passphrase-sealed record ALREADY exists, both actions first VERIFY the typed passphrase opens it
+  (`typedPassphraseOpensRecord`, over `unlockSecret`) and only then commit — the verify must precede
+  `commitTurso`, because a commit rebuilds the backend and the hold unmounts Settings, taking any
+  later error with it. A wrong passphrase commits, seals and switches nothing, keeps every field, and
+  shows `secretUnlockFailed` as a `FieldError` under the button that was pressed (in its
+  `aria-describedby`); editing either passphrase field or the token clears it. While either action
+  verifies, the other is disabled. So the hint reads
+  `integrationsTursoApplyNeedsPassphrase` (enter the CURRENT passphrase) with a record and
+  `integrationsTursoApplyNeedsNewPassphrase` (it becomes the passphrase) without one, and the
+  passphrase Save button stays the one way to CHANGE the passphrase); nothing
+  commits on a keystroke, blur, Tab or Escape, and unapplied drafts are discarded when the section
+  unmounts. An enabled Apply means an unapplied change — but NOT the converse, and this sentence used
+  to claim it: `canApplyTurso` is `tursoDraftsDirty && !tokenSealBlocked && !passphraseVerifying &&
+  !switchBusy`, so a DIRTY draft sits behind a disabled Apply whenever a changed token cannot yet be
+  sealed, or while either action is verifying a passphrase. That is deliberate and is why each of
+  those states renders its own blocked hint rather than relying on the button; see the ★★★ above.
+  Apply is the only action that commits the drafts (Remove token,
+  `handleRemoveToken`, also rebuilds: it commits an empty token). ★★ The passphrase lock toggle and
+  its Save seal the COMMITTED token on Turso storage (`sealableTursoToken`), never the draft:
+  `hydrateSecretsInto` restores `authToken` from the sealed store at boot, so sealing a draft would
+  silently apply it on the next reload.
+  On any OTHER kind each keystroke commits (`commitTurso`) with no rebuild, and no Apply renders —
+  that covers the hosts that configure Turso before switching the kind to it (the setup wizard,
+  `BackendConfigModal` from create-project). "Test connection" probes the drafts without committing.
+  (`integrations-section.backend-hold.test.tsx` pins both models against the real hook.)
+  ★★ The blur-commit design this replaced — commit when focus left the credentials group — lost a
+  click (WebKit does not focus a clicked button), a focus (Tab out dropped it to `<body>` after the
+  remount) or a draft (an unmount with no blur) in every variant; do NOT reintroduce a blur commit.
+  Edges pinned in `integrations-section.drafts.test.tsx`: Escape in a `Modal` host blurs the field
+  before `onClose` (`docs/AGENTS/ui-shell.md` dismissal) and must NOT commit a Turso draft;
+  "Save & switch" is itself an explicit save, so it APPLIES any unapplied drafts (the Turso option it
+  offers is enabled by the drafts, and the reload means no hold can swallow anything) and waits for
+  every in-flight token seal before reloading — tracked at MODULE scope (`pendingTokenSeals`),
+  because the instance that started a seal may already be remounted away, and BOUNDED by
+  `waitForTokenSeals` (`SECRET_MERGE_TIMEOUT_MS`; on timeout it proceeds and logs
+  `settings.tursoTokenSealWaitTimedOut`); and the render-time reconcile resyncs a CLEAN draft only,
+  keeping a dirty one when the stored value moves.
+- ★★ **Background writers do not unmount, and each gates itself.** Today: the insight reconcile effect
+  (`task-manager.tsx`), the recommendation store `applyInsightRecommendation`
+  (`use-insight-recommendations.ts`), the four calendar auto-sync pushes and four background pulls plus the auto-pull runner
+  (`use-calendar-integrations.ts`), and the undo hotkey (`useUndoHotkey`, read through `loadPendingRef`).
+  **A new timer, interval, listener or subscription that writes workspace state must check
+  `loadPending` too**; the render hold cannot reach it. ★ `useCalendarAutoPull` re-ticks when its
+  `enabled` flag flips false→true (a mount-value-seeded `prevEnabledRef`, `use-calendar-auto-pull.ts`),
+  so the startup background pull — gated off for the whole hold — actually runs once the load settles
+  instead of waiting for the next interval or `visibilitychange`; the four `useCalendarAutoSync` pushes
+  re-arm the same way on their own `active` flag. ★★ Each background writer checks `loadPending` when
+  it STARTS, except the recommendation store, which checks it when it WRITES
+  (`applyInsightRecommendation`'s `if (loadPending) return;`, the one choke point both the background
+  runner and on-demand generate write through — a result computed during a hold is dropped, not
+  queued, and the runner's next tick regenerates it).
+- ★★★ **`loadPending` ANSWERS "may I START?", NOT "may I still WRITE?" — that is what the SCOPE EPOCH
+  is for.** A Graph or AI call that began before a swap can resolve after the swap FINISHED, when
+  `loadPending` is false again, and write the previous project's result into the new project's
+  workspace. `useStorageBackend` therefore keeps a monotonic counter (`scopeEpochRef`, beside
+  `scopeTargetKeyRef`) and publishes a STABLE reader `getScopeEpoch` (a `useCallback` over a ref —
+  deliberately not a render value, which would re-render every consumer on each swap). `scope-epoch.ts`
+  holds the shared guard: a writer captures `getScopeEpoch()` BEFORE its first await and calls
+  `dropStaleScopeWrite` before it touches workspace state, which returns true and logs one
+  `storage.staleScopeWriteDropped` naming the writer. Dropped, never queued — the runners regenerate.
+- ★★★ **THE EPOCH'S PREDICATE IS NARROW, AND THE OBVIOUS WIDE ONE IS A BUG.** It means exactly "the
+  workspace in scope has become a DIFFERENT PROJECT", not "a load is happening". The first cut bumped
+  on every false→true transition of `loadPending`, which also fires for a same-target reload, a held op
+  the user CANCELLED at the OS file picker, and a settings-driven rebuild onto the same target — in all
+  of which an in-flight result that would have landed in the RIGHT project was dropped. It now has exactly
+  THREE bump sites — the count and the labelling that `scope-epoch.ts`'s header and
+  `use-storage-backend.ts` both use, and what
+  `grep -rn "bumpScopeEpoch()" src/app --include=*.ts --include=*.tsx | grep -v test` prints:
+  **(a)** a load that REPLACES rather than merges, decided inside
+  `resolveLogModeAndStamp` so §591's rule has one implementation and the epoch cannot drift from it;
+  **(b)** an op that put another project's data in scope — `applyWorkspaceForOp` (the wrapper the
+  two project-op hooks receive as their `applyWorkspace`, covering `switchToProject` · `createProject` ·
+  `loadProjectFromFile` · `createDemoProject` · `switchToTursoProject` · `createTursoProject`); and
+  **(c)** `onOpenStorageFile`'s ACCEPT branch, which replaces tasks+raid through raw setters and so
+  reaches neither of the other two. ★★ (b) and (c) are NOT
+  redundant with (a): `storageTargetKey` keys `browser` and every `local-*` kind on the KIND ALONE
+  (§591 ruling 3), so a file-mode project switch never moves the key. ★ `migrateCurrentProjectToTurso`
+  never calls `applyWorkspace` — same project, new backend — so it correctly never bumps, and neither
+  does a failed load or the empty-load refusal (nothing applied, scope still holds the right project).
+  ★★ The bump is SYNCHRONOUS and immediately precedes the replacement it announces, so there is no
+  instant at which the new project's workspace is in scope while the epoch still reads old. A writer
+  resolving between the bump and React's commit is dropped although scope still holds the OUTGOING
+  project — the conservative direction, and that write would have been replaced anyway.
+- ★ **Guarded today** (`grep -rn "dropStaleScopeWrite(" src/app --include=*.ts | grep -v test` — ★★ one
+  of its rows is the DECLARATION in `scope-epoch.ts`, so subtract it before quoting a count; today it
+  prints 10 call sites plus that row):
+  `useEntityCalendarPush` and `useOutlookCalendarPush` (TWICE each — once before any Graph mutation,
+  once before the workspace write), `useEntityCalendarPull`, `useMilestoneCalendarPull`,
+  `useCommitteeOutlookPush` (also twice), `useInsightRecommend` and `useInsightRecommendRunner` (per
+  CANDIDATE, and the tick `break`s — every remaining candidate came from the project that just left).
+  ★★★ The reader is OPTIONAL at each child hook, and that optionality is how `tasks-section.tsx`'s own
+  manual task push/pull — the highest-traffic entity, and the one calendar pair mounted from the PANE
+  rather than from `use-calendar-integrations.ts` — went a whole release unguarded with nothing failing:
+  a missing thread does not error, it silently restores the pre-§548 behaviour. It is guarded now, from
+  a REQUIRED `TasksSectionProps.getScopeEpoch` threaded straight from `task-manager.tsx`. ★★ THE RULE
+  THAT FOLLOWS: the hook ARG stays optional (a unit test must be able to opt out), but every PANE or
+  `deps` boundary that hands the reader down declares it REQUIRED — `CalendarIntegrationDeps`,
+  `InsightRecommendationDeps`, `TasksSectionProps` — because tsc is the only thing that can see the
+  omission. ★ Still NOT guarded, deliberately and unchanged: the chat agent loop, which has no such
+  reader at all.
+- ★★★ **WHAT A DROPPED PUSH COSTS, and it is NOT "the next push re-links it".** For the entity and
+  milestone pushes the ids just created are orphaned and the reconcile SELF-HEALS the wrong way round:
+  `planEntityReconcile` / `planCalendarReconcile` put every listed event id not referenced by an item
+  into `plan.delete`, so the next push in the right project DELETES the orphan and RE-CREATES the
+  event — one extra delete plus one extra create, once. `planCommitteeReconcile` does NOT list Outlook
+  at all: it derives `deleteEventIds` from the committee's own STORED ids, so a committee event created
+  just before a drop is a **permanent orphan in the user's calendar AND a duplicate on every later
+  push**, accumulating per occurrence. ★ No compensating delete is issued anywhere — a rollback that
+  fails mid-way is worse than the orphan. ★★ That committee cost is the reason the predicate above is
+  narrow; widening it back re-introduces the orphan for reloads and cancelled ops.
+- ★★ **`confirmInsightRecommendation` awaits and then writes, and carries NO epoch guard — for a
+  reason that is a CONDITION, not a property.** Closing the modal cancels nothing; the loop runs to
+  completion after the unmount. It is safe only because every `ALLOWED_REC_TOOLS` dispatcher writes
+  local state and does no I/O, so each `await runTool` resolves in the MICROTASK queue and the whole
+  confirm finishes inside one macrotask, where no swap can interleave. The condition is written on
+  `ALLOWED_REC_TOOLS` itself (`insights/insight.ts`), where a tool author will meet it: a dispatcher
+  that gains a network call must bring `dropStaleScopeWrite` with it.
+- ★ Pinned by `use-storage-backend.load-pending.test.tsx` (the signal, including before hydration and
+  a SharePoint load that times out), `use-storage-backend.hold-ops.test.tsx` (all nine held ops: in
+  flight, resolved, threw), `use-settings.hydration.test.ts` (hydration completes on a throw, without
+  IndexedDB and at the bound), `fetch-with-timeout.test.ts` and `sharepoint-backend.test.ts` (the 10 s
+  bound), `task-manager.load-hold.test.tsx` (render hold, pre-hydration hold, failed load with banner,
+  reconcile, hotkey, popout exemption, wiring), `use-calendar-integrations.load-hold.test.ts`,
+  `use-insight-recommendations.test.tsx` and `e2e/load-hold.spec.ts`. The scope epoch adds
+  `scope-epoch.test.ts` (the guard), `use-storage-backend.load-pending.test.tsx` cases (h)+(i) (the
+  bump, and that settling does NOT bump), and a drop + a positive control per writer in
+  `use-entity-calendar-push.test.tsx`, `use-entity-calendar-pull.test.tsx`,
+  `use-outlook-calendar-push.test.tsx`, `use-milestone-calendar-pull.test.tsx`,
+  `use-committee-outlook-push.test.tsx`, `use-insight-recommend.test.tsx` and
+  `use-insight-recommend-runner.test.ts`. ★★ `tasks-section.test.tsx`'s own "the scope epoch reaches the
+  manual Outlook push/pull (§548)" block pins the PANE'S WIRING rather than the guard: for the push it
+  drives the real hook end-to-end through the toolbar button (drop + control), for the pull — mocked out
+  file-wide — it asserts the reader is the one the pane was handed. That is the only place a lost thread
+  from `task-manager.tsx` to the pane can be caught by a test rather than by tsc.
+- ★ **The settings secret merge is itself bounded, and the bound has a cost.** `useSettings` races
+  `migratePlaintextSecrets`/`hydrateSecretsInto` against `SECRET_MERGE_TIMEOUT_MS` (5 s; `use-settings.ts`)
+  and falls back exactly like the existing throw path on a timeout, which is what keeps `hydrated`
+  bounded for the hold above. The trade is user-visible: on a timeout, sealed secrets (AI, Turso, Jira,
+  Timelog, STT) stay blank for the session — those features read as unconfigured, with only the
+  `settings.secretMergeTimedOut` diagnostic entry saying why — and a legacy PLAINTEXT secret still
+  pending sealing is blanked from `localStorage` by `writeSettings` and survives only in memory, lost on
+  reload if the seal never completes. Same trade the pre-existing throw path already made.
+- ★ **The Turso/SharePoint load bound is a shared module, and SharePoint's timeout is a different
+  error SHAPE than Turso's on purpose.** `fetch-with-timeout.ts` (`fetchTextWithTimeout`,
+  `FetchTimeoutError`, `LOAD_TIMEOUT_MS`) is the one AbortController-timer implementation; `turso-pipeline.ts`
+  re-exports `LOAD_TIMEOUT_MS` so its existing importers are unchanged. On a timeout, Turso keeps its own
+  `StorageNotReadyError` ("unreachable" banner); `sharepoint-backend.ts` deliberately throws a plain
+  `Error` instead (reaching the generic `storageLoadFailed`/`storageSaveFailedBanner` path, not the
+  Turso-worded unreachable banner), because that banner's text names the Turso database. A SharePoint
+  file whose download takes longer than 10 s now fails its load — the same trade Turso already makes.
+- ★ **An `IndexedDB` open BLOCKED by an older tab is bounded too, and carries no register entry.**
+  `idb.ts` `openIdb` sets `db.onversionchange = () => db.close()` on every connection it resolves (so
+  this tab yields to a LATER tab's own upgrade — existing callers never close a connection themselves,
+  so this is the only thing that lets an older tab release one), and `req.onblocked` now REJECTS with a
+  plain "IndexedDB upgrade is blocked by another open tab of this app. Close the other tabs and reload."
+  Error rather than waiting for the blocking tab to close on its own; a late `onsuccess` after that
+  reject closes the connection at once rather than resolving twice. This is the fix for the risk the
+  plan carried as open ("an IndexedDB open that is BLOCKED keeps the skeleton up") — filed as a plan
+  ruling, not as its own register entry.
 
