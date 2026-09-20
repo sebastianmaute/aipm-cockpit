@@ -2301,6 +2301,10 @@ const enUS = {
   // ★★ THIS KEY HAS TWO CONSUMERS AND THE NAME ONLY ADMITS ONE. It is ALSO the visible label of
   //   the SharePoint file URL's Apply button (`storage-config.tsx`), whose accessible name is the
   //   separate `spStorageApplyLabel` and must CONTAIN this string (WCAG 2.5.3 label-in-name).
+  //   ★ THE PIN IS EN-ONLY, and DE satisfies 2.5.3 only case-INSENSITIVELY — accepted, because the
+  //   shipped `integrationsTursoApplyLabel` pair already does exactly this ("Übernehmen" inside
+  //   "Turso-Verbindung übernehmen", lower-cased) and 2.5.3 matching is case-insensitive in
+  //   practice. So a DE reword that breaks containment goes unnoticed by any test.
   //   So rewording this reworders BOTH buttons and can break that containment — if you change it,
   //   change `spStorageApplyLabel` (and its DE twin) to match. `storage-config.test.tsx`'s
   //   "the Apply button's accessible name names SharePoint and contains its visible label" is what

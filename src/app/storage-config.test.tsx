@@ -202,6 +202,60 @@ describe("StorageConfigSection — the SharePoint URL commits only on an explici
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  // ★★ `spUrlForConfig()` renders `itemPath` DECODED, so the live target shows a raw space while
+  // the address a user copies out of the browser is `%20`-encoded. A string comparison called that
+  // paste dirty, armed Apply, and applying it rebuilt the backend (identity dep) for a no-op — a
+  // whole-app skeleton plus a re-download of the same file, on every site with a space in its path.
+  // Mutation: `canApplySpUrl`'s `!spDraftIsCurrentTarget` → `spUrl.trim() !== spCommittedUrl`
+  // (the raw-string comparison) → the first expect is red; the second is the positive control that
+  // keeps a "never enabled" regression from passing it.
+  it("the live target's own %20-encoded URL leaves Apply disabled; a different file enables it", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <StorageConfigSection
+        {...baseProps({
+          // The committed item path holds a SPACE, so the encoded and decoded spellings differ.
+          config: { kind: "sp-json", hostname: "contoso.sharepoint.com", sitePath: "/sites/Alpha", itemPath: "Shared Documents/workspace.json" },
+          onChange,
+          m365Enabled: true,
+          sharepointEnabled: true,
+        })}
+      />,
+    );
+    const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
+    const apply = screen.getByRole("button", { name: SP_APPLY });
+    await user.clear(input);
+    await user.type(input, SP_URL); // the SAME file, %20-encoded as the browser gives it
+    expect((input as HTMLInputElement).value).not.toBe(
+      "https://contoso.sharepoint.com/sites/Alpha/Shared Documents/workspace.json",
+    ); // control: the two spellings really do differ as strings
+    expect(apply).toBeDisabled();
+    await user.clear(input);
+    await user.type(input, "https://contoso.sharepoint.com/sites/Alpha/Shared%20Documents/other.json");
+    expect(apply).toBeEnabled();
+  });
+
+  // ★ The one surviving blur behaviour, and it is a pure setState: this Input is the ONLY place the
+  // section shows the SharePoint target (the `description` readout is Turso-gated), so an accidental
+  // Ctrl-A/Delete used to leave it blank behind a dead Apply until a remount.
+  // Mutation: empty `restoreSpUrlOnEmptyBlur`'s body (or drop the `onBlur`) → the first expect red.
+  // The "blur does NOT commit" test above is the control for the non-empty half: a blur that
+  // restores unconditionally would wipe a real draft and turn THAT test red.
+  it("blur with an EMPTY field restores the committed URL, and commits nothing", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderSp(onChange);
+    const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
+    await user.clear(input);
+    expect((input as HTMLInputElement).value).toBe(""); // control: it really was emptied
+    await user.tab();
+    expect((input as HTMLInputElement).value).toBe(
+      "https://old.sharepoint.com/sites/old/old.json",
+    );
+    expect(onChange).not.toHaveBeenCalled(); // a restore is setState, never a commit
+  });
+
   // Mutation: `disabled={!canApplySpUrl}` → `disabled={false}` → red.
   // An enabled Apply IS the "unapplied change" signal, so a clean draft must leave it disabled.
   it("Apply is disabled while the draft is clean and enabled once it differs", async () => {
@@ -218,6 +272,11 @@ describe("StorageConfigSection — the SharePoint URL commits only on an explici
   // The visible label is the shared "Apply"; the accessible name names the target and CONTAINS it,
   // which is WCAG 2.5.3 label-in-name. Mutation: drop " SharePoint file URL" from
   // `spStorageApplyLabel` so the two names collide with the Turso Apply → the second expect is red.
+  // ★★ EN ONLY, deliberately. In DE the visible label is "Übernehmen" and the accessible name is
+  //    "SharePoint-Datei-URL übernehmen", which contains it only case-INSENSITIVELY — accepted,
+  //    since the shipped Turso pair already has that exact shape and 2.5.3 matching is
+  //    case-insensitive in practice. Consequence: a DE reword that breaks containment is caught by
+  //    nothing here. Said again at `integrationsTursoApply` in `i18n.ts`.
   it("the Apply button's accessible name names SharePoint and contains its visible label", () => {
     renderSp(vi.fn());
     const apply = screen.getByRole("button", { name: SP_APPLY });

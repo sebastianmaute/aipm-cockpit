@@ -221,7 +221,19 @@ export function parseSharePointFileUrl(url: string): SpFileLocation | null {
   if (segments.length < 3) return null;
   if (segments[0] !== "sites") return null;
 
-  const decoded = segments.map((s) => decodeURIComponent(s));
+  // ★★ `decodeURIComponent` THROWS on a malformed escape ("%", "%zz", "%e0%a4"), where every other
+  //   rejection here returns null — so an unparseable URL used to leave this function two different
+  //   ways. That was survivable while the only callers were click handlers; it stopped being so when
+  //   `storage-config.tsx` started calling this during RENDER to decide whether the draft denotes the
+  //   current target, because typing "Shared%20" passes through "Shared%" and crashed the section on
+  //   a keystroke. Found by a test, not by reading. The contract is now one-way: null for anything
+  //   this cannot parse.
+  let decoded: string[];
+  try {
+    decoded = segments.map((s) => decodeURIComponent(s));
+  } catch {
+    return null;
+  }
   const sitePath = `/${decoded[0]}/${decoded[1]}`;
   const itemSegs = decoded.slice(2);
   const itemPath = itemSegs.join("/");

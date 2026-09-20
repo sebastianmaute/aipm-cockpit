@@ -39,11 +39,16 @@ vi.mock("./use-deeplink-row-flash", () => ({
   useDeepLinkRowFlash: () => ({ flashId: null, containerRef: { current: null } }),
   flashOutlineClass: () => "",
 }));
-// §548 — `pullArgs` records what the pane hands the pull hook. The hook itself is
-// mocked out for this whole file, so its DROP behaviour is pinned in
+// §548 — `pullArgs` records what the pane hands the pull hook. The pull hook is STUBBED for this
+// whole file (its return value is invented here), so its DROP behaviour is pinned in
 // `use-entity-calendar-pull.test.tsx`; what is only visible from here is whether the
 // pane threads the scope-epoch reader into it at all, which is what it went a release
-// without doing. The push hook below is NOT mocked, so that one is pinned end-to-end.
+// without doing.
+// ★★ The push hook below IS `vi.mock`ed too — do not read that as a stub. It is WRAPPED: the
+//    factory records the args and then calls the REAL hook, so the drop/control tests further down
+//    drive the real Graph path end-to-end. Deleting the wrapper to "remove the mock" would silently
+//    take `pushArgs` with it, and the `setItems` identity assertion — the only thing pinning that
+//    the pull writes through the workspace setter — would then have nothing to compare against.
 const { pullSpy, pullArgs } = vi.hoisted(() => ({
   pullSpy: vi.fn(),
   pullArgs: [] as Array<Record<string, unknown>>,

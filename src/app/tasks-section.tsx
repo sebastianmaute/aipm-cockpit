@@ -189,7 +189,13 @@ export interface TasksSectionProps {
    *  `dueDate` — onto the next project's same-id tasks. ★ REQUIRED, not optional,
    *  exactly like `CalendarIntegrationDeps.getScopeEpoch`: the reader is optional at the
    *  hooks themselves, so a pane that silently stopped passing it would keep working and
-   *  keep corrupting. tsc is the only thing that can see that, so it is made to. */
+   *  keep corrupting. tsc is the only thing that can see that, so it is made to.
+   *  ★★ KNOWN GAP, recorded rather than assumed away: `ScopeEpochReader` is `() => number`, so tsc
+   *  proves a reader of the right TYPE arrives — never that it is `useStorageBackend`'s. Nothing
+   *  MOUNTS this wiring either (`task-manager.characterization.test.tsx` mocks `workspace-section`
+   *  and only ever constructs `tasksSectionEl` as JSX), so a `() => 0` substituted at the call site
+   *  would pass every gate. The risk is low because the same identifier already feeds the two deps
+   *  bags in the same render scope, and those ARE covered — but do not read this prop as pinned. */
   getScopeEpoch: ScopeEpochReader;
   // Inline "Ask Claude" task edit (SP1): the ToolDispatcher backing the single
   // useInlineAiEdit instance owned here, plus optional activity logging —

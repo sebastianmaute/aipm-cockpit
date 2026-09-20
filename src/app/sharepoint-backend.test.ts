@@ -18,6 +18,21 @@ describe("parseSharePointFileUrl", () => {
     });
   });
 
+  // ★★ A MALFORMED ESCAPE MUST RETURN null, NOT THROW. `decodeURIComponent` throws on these, which
+  // was survivable while the only callers were click handlers and stopped being so when
+  // `storage-config.tsx` began calling this during RENDER: typing "Shared%20" passes through
+  // "Shared%" and crashed the whole Settings section on a keystroke.
+  // Mutation: remove the try/catch around the `segments.map(decodeURIComponent)` in
+  // `parseSharePointFileUrl` → every case here throws instead of returning null, so all three go red.
+  it.each([
+    ["a bare percent", "https://contoso.sharepoint.com/sites/A/Shared%/file.json"],
+    ["a non-hex escape", "https://contoso.sharepoint.com/sites/A/Shared%zz/file.json"],
+    ["a truncated UTF-8 sequence", "https://contoso.sharepoint.com/sites/A/%e0%a4/file.json"],
+  ])("returns null (never throws) for %s", (_label, url) => {
+    expect(() => parseSharePointFileUrl(url)).not.toThrow();
+    expect(parseSharePointFileUrl(url)).toBeNull();
+  });
+
   it("decodes %20 escapes in itemPath", () => {
     const result = parseSharePointFileUrl(
       "https://contoso.sharepoint.com/sites/A/Shared%20Documents/Project%20X/file.json",

@@ -119,9 +119,31 @@ export function StorageConfigSection({
   //   version of that: the mousedown on any neighbouring control blurred the field, the commit
   //   unmounted the section, and the click never landed on its target. Same failure the Turso
   //   credentials had, closed the same way (`integrations-section.tsx` `applyTursoDrafts`).
-  //   So: nothing commits on a keystroke, blur, Tab or Escape. Apply (or Enter in the field) is the
-  //   only commit, and it is disabled while the draft equals the stored value — so an ENABLED Apply
-  //   IS the "unapplied change" signal. An unapplied draft is discarded when the section unmounts.
+  //   So: nothing COMMITS on a keystroke, blur, Tab or Escape. Apply (or Enter in the field) is the
+  //   only commit. An unapplied draft is discarded when the section unmounts.
+  // ★★ WHEN APPLY IS ENABLED, stated so it is true in every reachable state rather than nearly so.
+  //   Apply is disabled exactly when the draft is EMPTY, or when it denotes the CURRENT target. An
+  //   enabled Apply therefore means "an unapplied change", but the converse has ONE exception: an
+  //   emptied field is an unapplied change with Apply disabled. That exception is transient —
+  //   leaving the field puts the committed URL back (`restoreSpUrlOnEmptyBlur`) — so it can only be
+  //   observed while the empty field still has focus. An earlier revision of this comment claimed
+  //   the invariant held outright, which was false about reachable state.
+  // ★★★ "DENOTES THE CURRENT TARGET" IS A PARSED COMPARISON, NOT A STRING ONE, and a string one was
+  //   a real (harmless-looking) bug. `spUrlForConfig()` renders `itemPath` DECODED (a raw space in
+  //   "Shared Documents"), while the address a user copies out of the browser is `%20`-encoded — so
+  //   pasting the file's OWN address read as dirty, armed Apply, and applying it called `onChange`
+  //   with field-identical values. Because the backend memo deps on `settings.storageConfig` BY
+  //   IDENTITY that still rebuilds the backend: skeleton over the whole app plus a re-download of
+  //   the same file. No data risk (`storageTargetKey` does not move, so the load MERGES and the
+  //   scope epoch correctly does not bump) — but it hit every site with a space in the path.
+  //   `parseSharePointFileUrl` is reused rather than a second normaliser being written, so the
+  //   comparison and the commit can never disagree about what a URL means.
+  // ★ The ONE surviving blur behaviour is `restoreSpUrlOnEmptyBlur`, and it is a pure `setState`:
+  //   it never calls `onChange`, so it cannot rebuild the backend or raise the hold. The dangerous
+  //   half of the old `handleSpUrlBlur` was the COMMIT, never this. It matters because this input is
+  //   the only place in the section that shows the SharePoint target at all (the `description`
+  //   readout is `isTurso`-gated), so without it an accidental Ctrl-A/Delete left the section saying
+  //   nothing about where the project lives, behind a dead Apply, until a remount.
   // ★ The Browse picker (`onSelect` below) still commits directly, deliberately: choosing a file in
   //   a modal IS the explicit action, there is nothing left for the user to confirm, and it cannot
   //   swallow a click the way a blur can.
@@ -138,9 +160,25 @@ export function StorageConfigSection({
   }
 
   const spCommittedUrl = spUrlForConfig();
+  // The draft's TARGET, not its text — `null` for an empty or unparseable draft, which is why an
+  // unparseable one still arms Apply: pressing it is how the user gets the "could not parse" error.
+  const spDraftTarget = isSp ? parseSharePointFileUrl(spUrl.trim()) : null;
+  const spDraftIsCurrentTarget =
+    spDraftTarget !== null &&
+    (config.kind === "sp-json" || config.kind === "sp-csv") &&
+    spDraftTarget.hostname === config.hostname &&
+    spDraftTarget.sitePath === config.sitePath &&
+    spDraftTarget.itemPath === config.itemPath;
   // Empty is excluded rather than treated as a value: the field's only committable content is a
-  // parseable file URL, and an "Apply" that silently reverted the field would be a different verb.
-  const canApplySpUrl = spUrl.trim() !== "" && spUrl.trim() !== spCommittedUrl;
+  // file URL, and an "Apply" that silently reverted the field would be a different verb. Emptying
+  // it is undone by the blur restore below instead.
+  const canApplySpUrl = spUrl.trim() !== "" && !spDraftIsCurrentTarget;
+
+  /** Blur with an EMPTY field puts the committed URL back. Pure `setState` — never `onChange`, so
+   *  no backend rebuild and no load hold; see the ★ in the block above for why it exists. */
+  function restoreSpUrlOnEmptyBlur() {
+    if (spUrl.trim() === "") setSpUrl(spCommittedUrl);
+  }
 
   function applySpUrl() {
     setSpUrlError(null);
@@ -289,6 +327,7 @@ export function StorageConfigSection({
               value={spUrl}
               onChange={(e) => setSpUrl(e.target.value)}
               onKeyDown={handleSpUrlKeyDown}
+              onBlur={restoreSpUrlOnEmptyBlur}
               placeholder={t(lang, "spStorageUrlPlaceholder")}
               invalid={!!spUrlError}
               aria-describedby={spUrlError ? spUrlErrorId : undefined}
