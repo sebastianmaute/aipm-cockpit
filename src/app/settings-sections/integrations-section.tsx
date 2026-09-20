@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { logDiag } from "../diagnostics";
 import { ArrowPathIcon, CalendarDaysIcon } from "../icons";
 import { ToggleButton } from "../toggle-button";
@@ -260,10 +260,36 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // changing the deployment env; §337 (still open) is the nearest tracker.
   const envTursoTokenSet = !!process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN;
 
+  // ★★★ §548 — `updateTurso` BUILDS FROM THE LATEST SETTINGS, NOT THE ONES ITS CALLER CLOSED OVER.
+  //   `onChange` takes a VALUE, not an updater (the prop contract of every settings section, shared
+  //   by four parents), so a commit that spreads render-scope `settings` reverts anything written
+  //   between that render and the call. That is a 0 ms window for a keystroke commit — but Apply
+  //   first AWAITS `typedPassphraseOpensRecord` (a ~600k-iteration PBKDF2, sub-second but real), and
+  //   a settings write landing in it — a toggle in this same section, a background write — was
+  //   silently rolled back by the commit that followed.
+  // ★★ The ref is filled in an EFFECT, not during render (`react-hooks/refs` forbids a render-phase
+  //   ref write; the repo's forward-ref pattern in `task-manager.tsx` does the same). That makes it
+  //   the last COMMITTED settings, which is what closes the window: React flushes pending passive
+  //   effects before the next discrete event, so on the synchronous path the ref and `settings` are
+  //   the same object and behaviour is unchanged. It is not an absolute guarantee — a write that
+  //   renders after the verify resolves is still last-writer-wins — but the second-long window a
+  //   user is actively waiting through is gone.
+  // ★ Only the TURSO updater needs this: `updateM365` / `updateSnapshots` commit synchronously from
+  //   the same click, so they have no window to lose. `confirmPortfolioModeSwitch` is deliberately
+  //   NOT routed through here either — it ends in `writeSettings` + `window.location.reload()`, a
+  //   different mechanism with a different answer.
+  const latestSettingsRef = useRef(settings);
+  useEffect(() => {
+    latestSettingsRef.current = settings;
+  }, [settings]);
+
   function updateTurso(patch: Partial<TursoIntegrationsSettings>) {
+    const live = latestSettingsRef.current;
+    const liveIntegrations = live.integrations ?? defaultIntegrations;
+    const liveTurso = liveIntegrations.turso ?? defaultTursoIntegrations;
     onChange({
-      ...settings,
-      integrations: { ...integrations, turso: { ...turso, ...patch } },
+      ...live,
+      integrations: { ...liveIntegrations, turso: { ...liveTurso, ...patch } },
     });
   }
 
@@ -347,9 +373,10 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // ★★ §548 — THE VERIFY RUNS BEFORE `commitTurso`, never after: a commit rebuilds the backend and
   //   the load hold unmounts this section, so an error shown after it would vanish with the tree.
   //   A wrong passphrase commits nothing, seals nothing and keeps every draft and typed field.
-  // ★ The commit after the await spreads the CLICK-time `settings`: `onChange` takes a value, not
-  //   an updater, so a settings write landing during the (sub-second) verify is overwritten — the
-  //   same shape as every `updateTurso` in this section and the switch's seal wait.
+  // ★ The commit after the await does NOT spread the click-time `settings` — see `updateTurso`,
+  //   which builds from the latest committed settings precisely because of this await. The DRAFTS
+  //   and the verified passphrase still come from the click-time closure, which is the point: the
+  //   token that gets sealed is the one whose passphrase was verified.
   async function applyTursoDrafts() {
     if (tokenSealsUnderTypedPassphrase) {
       setPassphraseVerifying(true);

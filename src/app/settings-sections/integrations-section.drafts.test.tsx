@@ -567,6 +567,57 @@ describe("Passphrase mode with an existing record — Apply and Save & switch ve
       expect(reload).not.toHaveBeenCalled();
     });
   });
+
+  // ★★★ F4 M1 — THE COMMIT AFTER THE AWAIT MUST NOT REVERT A SETTINGS WRITE THAT LANDED DURING IT.
+  //   `onChange` is `(s: Settings) => void` — a value, not an updater — and every parent replaces
+  //   settings wholesale, so a commit spreading the CLICK-time `settings` silently rolls back
+  //   anything written meanwhile. For a keystroke commit that window is 0 ms; here it is the whole
+  //   PBKDF2 verify, which the user is actively waiting through with the button busy. `updateTurso`
+  //   therefore builds from the LATEST committed settings (`latestSettingsRef`) rather than the
+  //   closure's, without touching the prop contract its four parents share.
+  //   Mutation MV11: restore `onChange({ ...settings, integrations: { ...integrations, turso: {
+  //   ...turso, ...patch } } })` in `updateTurso` → the `layout` assertion is red while the
+  //   `authToken` one (the positive control that Apply still applied at all) stays green.
+  // ★ `aria-busy` is asserted BEFORE the outside write: without it a test that wrote after the
+  //   verify had already resolved would pass no matter what `updateTurso` spreads.
+  it("(g) a settings write landing DURING the verify survives the commit", async () => {
+    const user = userEvent.setup();
+    const commits: Settings[] = [];
+    // A handle on the host's setter, filled in an effect — this stands in for any OTHER surface
+    // writing settings while this section waits (a background write, another settings pane).
+    const elsewhere: { write: (patch: (s: Settings) => Settings) => void } = { write: () => {} };
+    function Controlled() {
+      const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, "tok"));
+      useEffect(() => {
+        elsewhere.write = (patch) => setSettings(patch);
+      }, []);
+      return (
+        <IntegrationsSection
+          lang="en-US"
+          settings={settings}
+          onChange={(next) => {
+            commits.push(next);
+            setSettings(next);
+          }}
+        />
+      );
+    }
+    render(<Controlled />);
+    await user.type(tokenField(), "NEW");
+    await typePassphrase(user, "pw");
+    const apply = screen.getByRole("button", { name: applyLabel });
+    await user.click(apply);
+    expect(apply).toHaveAttribute("aria-busy", "true"); // control: the verify really is in flight
+    act(() => {
+      elsewhere.write((s) => ({ ...s, layout: "classic" }));
+    });
+    expect(defaultSettings.layout).not.toBe("classic"); // anti-vacuity: the write really changed it
+
+    await waitFor(() => expect(commits).toHaveLength(1));
+    expect(commits[0].layout).toBe("classic"); // the concurrent write survived the commit
+    expect(commits[0].integrations?.turso?.authToken).toBe("tokNEW"); // …and Apply still applied
+    await waitFor(() => expect(setSecretPassphrase).toHaveBeenCalledWith("tursoAuthToken", "tokNEW", "pw"));
+  });
 });
 
 // Enter in either field applies on Turso storage, exactly when Apply is enabled.
