@@ -1,18 +1,24 @@
 // src/app/chat-panel.scope.test.tsx
 //
 // Scope/lifetime guards for the chat panel's in-flight send. Kept OUT of
-// chat-panel.test.tsx (3022 lines) on purpose — this file owns the question
-// "whose project does a turn that is still in flight belong to?".
+// chat-panel.test.tsx on purpose — this file owns the question "whose project
+// does a turn that is still in flight belong to?".
 //
 // ★★★ WHY THE PANEL UNMOUNTING IS NOT ENOUGH ON ITS OWN. `submitPrompt`'s
-// `stale()` reads three things (`grep -n "const stale = ()" -A 2
-// src/app/chat-panel.tsx`): `cancelledRef`, `projectIdRef` vs the send's
-// project, and the thread ref. Under the §548 load hold `task-manager.tsx`
-// swaps the whole main-window tree for `PanelSkeleton` WITHOUT a projectId
-// prop change, so the dying instance's projectId effect never fires and all
-// three keep reading not-stale — while the dispatcher it closed over is still
-// live, because `useStorageBackend` sits in `TaskManager`, which does not
-// unmount.
+// `stale()` reads FOUR things (`grep -n "const stale = ()" -A 2
+// src/app/chat-panel.tsx` — read the hits): `cancelledRef`, `projectIdRef` vs
+// the send's project, the thread ref, and `isScopeStale(getScopeEpoch,
+// sendEpoch)`. Under the §548 load hold `task-manager.tsx` swaps the whole
+// main-window tree for `PanelSkeleton` WITHOUT a projectId prop change, so the
+// dying instance's projectId effect never fires and the first THREE keep
+// reading not-stale — while the dispatcher it closed over is still live,
+// because `useStorageBackend` sits in `TaskManager`, which does not unmount.
+// ★★★ THE FOURTH IS NOT OPTIONAL AND THIS HEADER USED TO OMIT IT, describing
+// pre-§596 code as current. That is not a tidy-up: read as a complete list it
+// licenses deleting the `isScopeStale` clause as "not one of the three" — and
+// a mutant doing exactly that SURVIVED every other test in this file, which is
+// why "makes no further API call once the scope has moved mid-turn" exists. A
+// stale census of a guard is a licence to remove the part it forgot.
 
 import "fake-indexeddb/auto";
 import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";

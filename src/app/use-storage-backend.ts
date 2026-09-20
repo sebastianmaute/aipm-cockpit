@@ -719,8 +719,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // ★★★ ONE SITE COVERS ALL LOAD/SWITCH/CREATE PATHS, which is why there is no
       //   per-path obligation to add. `suppressNextSaveRef` is set by every one of them, and
       //   this branch is INSIDE the save effect, so clearing here dominates the lot and a
-      //   tenth path cannot forget it. Enumerate them:
-      //     grep -rn "suppressNextSaveRef.current = true" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+      //   tenth path cannot forget it. Enumerate them — ★★ the bracket class is LOAD-BEARING:
+      //   spelled plainly the pattern matches THIS comment line and its sibling below, and a
+      //   recipe that counts its own documentation reads as verified forever (§596 found this
+      //   one and the one below doing exactly that, the fourth self-confirming check on this
+      //   branch). Re-run it after the prose around it is final, never before:
+      //     grep -rn "suppressNextSave[R]ef.current = true" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+      //   It printed 10 hits across 3 files on 2026-09-20 — 6 in `use-storage-file-ops.ts`,
+      //   2 in `use-storage-turso-ops.ts`, 2 here. Read the hits, not the number.
       // ★★ DO NOT "complete the pattern" by copying the PEER lockout's shape — the
       //   asymmetry is real, not an oversight. `use-load-truncation.ts` exposes
       //   `clearForFreshWorkspace` and needs THREE explicit call sites (two in
@@ -879,25 +885,32 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   an ORDINARY dep change — the next edit, a re-render — and the effect re-schedules against
     //   the newer workspace immediately, so flushing on those would write on every keystroke and
     //   throw away the debounce. Only a BACKEND change leaves nobody to re-schedule.
-    // ★★★ CONSEQUENCE ON SIX OF THE NINE `holdDuring` OP PATHS: THEY NOW WRITE THE PENDING EDIT
+    // ★★★ CONSEQUENCE ON SIX OF THE TEN `holdDuring` OP PATHS: THEY NOW WRITE THE PENDING EDIT
     //   TWICE — once via the op's own pre-switch flush, then again here, because that flush writes
     //   directly and never cancels this timer. Both writes carry the OUTGOING project and both go to
     //   the OUTGOING backend, so the second is redundant, not wrong.
-    // ★★★ SIX, NOT NINE, AND THE SET IS NAMED BECAUSE A COUNT ALONE ROTS. The doubling needs an op
-    //   to BOTH flush AND rebuild the backend, and those two sets differ. Flushing: seven (all but
-    //   `onOpenStorageFile` and `reloadCurrentProject`). Rebuilding — i.e. reaching this cleanup at
-    //   all: `switchToProject`, `createProject`, `loadProjectFromFile`, `createDemoProject` (each
-    //   calls `deps.setStorageConfig`) and `switchToTursoProject`, `createTursoProject` (each calls
-    //   `deps.setTursoProjectId`); both setters feed the `backend` memo's deps. The intersection is
-    //   those six. Re-derive rather than trust this list:
+    // ★★★ SIX, NOT TEN, AND THE SET IS NAMED BECAUSE A COUNT ALONE ROTS — which is exactly what
+    //   happened here: this block said SIX OF THE NINE and listed the exclusions for nine, while
+    //   §590 had already made it ten and said so at `holdDuring` itself. The CONCLUSION was right
+    //   throughout; only the universe and the exclusions were stale. The doubling needs an op to
+    //   BOTH flush AND rebuild the backend, and those two sets differ.
+    //   Flushing: SEVEN of the ten — all but `onPickStorageFile`, `onOpenStorageFile` and
+    //   `reloadCurrentProject`. Re-derive; `use-storage-turso-ops.ts` flushes through the shared
+    //   `flushOutgoing`, so a grep for `flushCurrent` alone under-counts it by two:
+    //     grep -n "flushCurrent()\|flushOutgoing()" src/app/use-storage-*-ops.ts
+    //   Rebuilding — i.e. reaching this cleanup at all: `switchToProject`, `createProject`,
+    //   `loadProjectFromFile`, `createDemoProject` (each calls `deps.setStorageConfig`) and
+    //   `switchToTursoProject`, `createTursoProject` (each calls `deps.setTursoProjectId`); both
+    //   setters feed the `backend` memo's deps. The intersection is those six. Re-derive that too:
     //     grep -n "deps.setStorageConfig\|deps.setTursoProjectId" src/app/use-storage-*-ops.ts
-    // ★★ THE THREE THAT NEVER REACH THIS CLEANUP, and the third is the one worth knowing:
-    //   `onOpenStorageFile` binds a handle to the SAME instance and `reloadCurrentProject` re-loads
-    //   it, so neither mints a backend; `migrateCurrentProjectToTurso` ends in
-    //   `window.location.reload()` (use-storage-turso-ops.ts), so the whole context goes and no
-    //   cleanup runs at all. ★ This note does NOT claim the first two are free of a pending-edit
-    //   drop of their own — they change no backend, so they are simply outside §589's premise, and
-    //   nothing here investigated them.
+    // ★★ THE FOUR THAT NEVER REACH THIS CLEANUP, and the last is the one worth knowing:
+    //   `onPickStorageFile` commits no handle to a new instance (§590) and `onOpenStorageFile` binds
+    //   one to the SAME instance, while `reloadCurrentProject` re-loads it — so none of the three
+    //   mints a backend; `migrateCurrentProjectToTurso` ends in `window.location.reload()`
+    //   (use-storage-turso-ops.ts), so the whole context goes and no cleanup runs at all.
+    //   ★ This note does NOT claim the first three are free of a pending-edit drop of their own —
+    //   they change no backend, so they are simply outside §589's premise, and nothing here
+    //   investigated them.
     // ★★ WHAT MAKES THE DOUBLING SAFE FOR THOSE SIX, and it is two independent things — do not
     //   remove one on the strength of the other. (1) Each of the six applies the new workspace and
     //   flips its target in ONE synchronous block: in all six the last `await` precedes
@@ -907,13 +920,17 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   of the six arms `suppressNextSaveRef` in that same block, so even if an apply and a flip
     //   ever landed in SEPARATE commits, the run between them would be suppressed and would
     //   schedule nothing for this cleanup to flush.
-    // ★★★ BOTH LEGS ARE SCOPED TO THE SIX ON PURPOSE. As universals over the nine they were FALSE,
+    // ★★★ BOTH LEGS ARE SCOPED TO THE SIX ON PURPOSE. As universals over the ten they were FALSE,
     //   and the note said in the same breath that the legs are independent and must be checked —
     //   so it invited exactly the verification it failed. `migrateCurrentProjectToTurso` arms
     //   `suppressNextSaveRef` nowhere (that file arms it only in `switchToTursoProject` and
     //   `createTursoProject`); what carries it is the page reload, not leg 2. Enumerate before
-    //   widening either leg:
-    //     grep -rn "suppressNextSaveRef.current = true" src/app --include=*.ts | grep -v "\.test\."
+    //   widening either leg — ★★ bracketed AND `.tsx`-inclusive, which this recipe was neither:
+    //   spelled plainly it matched its own line and its sibling's, and omitting `--include=*.tsx`
+    //   silently narrowed the universe it claims to enumerate (the sibling above already carried
+    //   the flag). Both defects made it agree with whatever the reader already believed:
+    //     grep -rn "suppressNextSave[R]ef.current = true" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+    //   Same 10 hits as the sibling above; read them, not the number.
     // ★ AND IT RESCUES SOMETHING: an edit made during an op's own await window used to be dropped —
     //   `flushCurrent` had already run, and the apply's re-render cleared the timer and armed the
     //   suppress. That drop is the shape ruled on as D3 in the 2026-09-19 data-loss plan. It is now
@@ -1202,18 +1219,44 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //     grep -o "hold[D]uring(" src/app/use-storage-backend.ts | wc -l
   //   It printed 10 on 2026-09-20. Read the hits rather than the number either way —
   //   `grep -n "hold[D]uring(" src/app/use-storage-backend.ts` names each wrapped op.
-  function holdDuring<A extends unknown[]>(op: (...opArgs: A) => Promise<void>): (...opArgs: A) => Promise<void> {
+  // ★★★ §596 — `scope` IS REQUIRED, AND IT GATES ONLY THE REF, NEVER THE HOLD. Every op below
+  //   raises `loadPending` exactly as before; what this decides is whether `isSwapInFlight` — read
+  //   by ONE caller, `chat-panel.tsx`'s unmount cleanup — also goes true.
+  // ★★★ WHY THE SPLIT EXISTS: A COMPOSITION REGRESSION NO PER-TASK REVIEW COULD SEE. §590 put
+  //   `onPickStorageFile` under the hold and §596 made an unmount-under-hold cancel the in-flight
+  //   AI turn. Each is right alone; composed, a plain Save-As, a CANCELLED OS file dialog and a
+  //   same-project Reload each silently killed a turn — and the "stopped" note lands on an unmounted
+  //   panel, so the user is not even told. That is the exact silent shape §596 existed to undo,
+  //   arriving by another route.
+  // ★★★ THE RULE, and it decides every row below: CANCELLING IS A COST OPTIMISATION — do not pay
+  //   for tokens on a turn whose project is going away. DROPPING a wrong-scope write is the
+  //   CORRECTNESS guarantee and belongs to the scope EPOCH, which runs at resolution and needs no
+  //   prediction. So this flag is biased the safe way: `"same-scope"` is the default posture, and an
+  //   op earns `"changes-scope"` only when it has NO user-cancellable step between raising the hold
+  //   and replacing the workspace. Getting it wrong towards `"same-scope"` costs tokens; getting it
+  //   wrong towards `"changes-scope"` destroys the user's work silently.
+  // ★★ KNOWN RESIDUAL, stated rather than hidden: `switchToProject` is `"changes-scope"` but
+  //   early-returns when the target is already current, so that one path still cancels for nothing.
+  //   It is a cost, not a loss — the write it would have dropped was never wrong-scope — and it is
+  //   not reachable from the project picker, which does not offer the current project.
+  // ★ A `"same-scope"` op that DOES end up moving the target (the user accepts the dialog in
+  //   `onOpenStorageFile` or `loadProjectFromFile`) is not a hole: the turn keeps running and the
+  //   epoch drops its write at resolution. Only the tokens are spent.
+  function holdDuring<A extends unknown[]>(
+    op: (...opArgs: A) => Promise<void>,
+    scope: "changes-scope" | "same-scope",
+  ): (...opArgs: A) => Promise<void> {
     return async (...opArgs: A) => {
       // §596 — the ref moves in the SAME synchronous statement pair as the state, so a cleanup
       // running inside the commit this triggers already sees the hold. Decremented in the same
       // `finally`, unconditionally: unlike the state setter it has no mounted guard to respect,
       // and leaving it raised after a teardown would make `isSwapInFlight` lie forever.
-      swapsInFlightRef.current += 1;
+      if (scope === "changes-scope") swapsInFlightRef.current += 1;
       setSwapsInFlight((n) => n + 1);
       try {
         await op(...opArgs);
       } finally {
-        swapsInFlightRef.current -= 1;
+        if (scope === "changes-scope") swapsInFlightRef.current -= 1;
         if (mountedRef.current) setSwapsInFlight((n) => n - 1);
       }
     };
@@ -1240,12 +1283,21 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   and wrong for the one that matters: the branch is not chosen until AFTER the picker and the
     //   read have both resolved, so a hold raised there starts after the window it exists to cover.
     //   A wrapper that holds too much is a visual cost; a hold that starts late is not a hold.
-    onPickStorageFile: holdDuring(onPickStorageFile), onGrantWriteAccess, onOpenStorageFile: holdDuring(onOpenStorageFile), onRequestStorageSwitch,
-    reloadCurrentProject: holdDuring(reloadCurrentProject), allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
-    switchToProject: holdDuring(switchToProject), createProject: holdDuring(createProject),
-    createDemoProject: holdDuring(createDemoProject), loadProjectFromFile: holdDuring(loadProjectFromFile),
-    switchToTursoProject: holdDuring(switchToTursoProject), createTursoProject: holdDuring(createTursoProject),
-    migrateCurrentProjectToTurso: holdDuring(migrateCurrentProjectToTurso),
+    // ★★★ §596 — THE SECOND ARGUMENT IS NOT BOILERPLATE, and the four `"changes-scope"` rows are
+    //   the ONLY ones that may cancel a live AI turn. Read the rule at `holdDuring` before adding a
+    //   row: `"same-scope"` is the safe default, and an op earns `"changes-scope"` only when NOTHING
+    //   the user can cancel sits between the hold and the replacement. The six `"same-scope"` rows
+    //   each fail that on a stated ground — a picker/dialog that may be cancelled or declined
+    //   (`onPickStorageFile`, `onOpenStorageFile`, `loadProjectFromFile`, `createProject`, whose own
+    //   comment names "the user cancels the save-file picker"), or a target that cannot move at all
+    //   (`reloadCurrentProject` reloads the CURRENT one; `migrateCurrentProjectToTurso` applies
+    //   nothing of another project's and never bumps the epoch — `scope-epoch.ts` says so).
+    onPickStorageFile: holdDuring(onPickStorageFile, "same-scope"), onGrantWriteAccess, onOpenStorageFile: holdDuring(onOpenStorageFile, "same-scope"), onRequestStorageSwitch,
+    reloadCurrentProject: holdDuring(reloadCurrentProject, "same-scope"), allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
+    switchToProject: holdDuring(switchToProject, "changes-scope"), createProject: holdDuring(createProject, "same-scope"),
+    createDemoProject: holdDuring(createDemoProject, "changes-scope"), loadProjectFromFile: holdDuring(loadProjectFromFile, "same-scope"),
+    switchToTursoProject: holdDuring(switchToTursoProject, "changes-scope"), createTursoProject: holdDuring(createTursoProject, "changes-scope"),
+    migrateCurrentProjectToTurso: holdDuring(migrateCurrentProjectToTurso, "same-scope"),
     archiveTursoProject, restoreTursoProject, hardDeleteTursoProject,
     tursoProjectId,
   };

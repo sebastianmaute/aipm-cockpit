@@ -239,6 +239,41 @@ describe("§548 — loadPending", () => {
     expect(result.current.isSwapInFlight()).toBe(false);
   });
 
+  it("(e2) a SAME-SCOPE hold raises loadPending but does NOT arm isSwapInFlight", async () => {
+    // ★★★ THE OTHER HALF OF (e), AND A COMPOSITION REGRESSION THIS PAIR EXISTS TO STOP
+    //  COMING BACK. §590 put `onPickStorageFile` under the hold; §596 made an
+    //  unmount-under-hold cancel the in-flight AI turn. Each is correct alone —
+    //  composed, a plain Save-As, a cancelled OS file dialog and this same-project
+    //  reload each silently killed the turn the user had just asked for, and the
+    //  "stopped" note lands on an unmounted panel so they are not even told.
+    // ★★ A SINGLE-SIDED VERSION OF THIS PAIR IS HOW BOTH PREVIOUS INSTANCES SHIPPED:
+    //  (e) alone passes against arming EVERY op, and this one alone passes against
+    //  arming NONE. Neither is the claim; the pair is.
+    // OBSERVABLE: `isSwapInFlight()` read inside `act`, exactly where the chat
+    //  panel's cleanup reads it. `loadPending` beside it is the control that the
+    //  hold really is up — without it, "false" could just mean nothing happened.
+    const backend = makeBackend(300);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(400);
+    expect(result.current.isSwapInFlight()).toBe(false);
+
+    let duringInvoke = true;
+    let op: Promise<void> = Promise.resolve();
+    act(() => {
+      op = result.current.reloadCurrentProject();
+      duringInvoke = result.current.isSwapInFlight();
+    });
+    expect(result.current.loadPending).toBe(true); // control: the hold IS up…
+    expect(duringInvoke).toBe(false); // …and the turn is still not cancelled.
+
+    await advance(400);
+    await act(async () => { await op; });
+    await advance(100);
+    expect(backend.load).toHaveBeenCalledTimes(2); // control: the reload really re-loaded
+    expect(result.current.isSwapInFlight()).toBe(false);
+  });
+
   // The nine held ops (in flight / resolved / threw) are pinned in use-storage-backend.hold-ops.test.tsx.
 
   it("(f) is TRUE before hydration (no load has even started), and settles once hydration runs the load", async () => {

@@ -76,9 +76,18 @@ export function scheduleDebouncedSave(
     //   `clearTimeout` first would work too; putting the flush AFTER the listener removals would
     //   not change behaviour either, but keeping the one line that can still CALL `save` at the
     //   top keeps the reading order "decide, then dismantle".
-    if (shouldFlushOnCleanup?.() === true) flush();
-    clearTimeout(timer);
-    document.removeEventListener("visibilitychange", onVisibilityChange);
-    window.removeEventListener("pagehide", flush);
+    // ★★ §596 — THE `finally` IS WHAT MAKES THAT ORDER SAFE RATHER THAN MERELY CORRECT. The two
+    //   lines above it are the only ones that can throw — a predicate supplied by a caller, and
+    //   `save` itself — and without it a throw there leaves the timer armed AND both listeners
+    //   attached on a teardown, i.e. a save firing into a torn-down scope. Nothing reaches that
+    //   today (the predicate is a ref read and `doSave` catches its own failures), so this costs
+    //   two lines to close a class rather than a known defect.
+    try {
+      if (shouldFlushOnCleanup?.() === true) flush();
+    } finally {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", flush);
+    }
   };
 }

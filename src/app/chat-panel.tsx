@@ -786,10 +786,20 @@ function ChatPanelInner({
             if (block.type !== "tool_use") continue;
             // ★★★ §596 — RE-CHECKED PER TOOL, NOT PER TURN, and no `stale()` call
             // site can stand in for this one: all three run BEFORE this loop. A
-            // turn can carry several `tool_use` blocks and each `runTool` awaits,
-            // so a swap landing mid-batch would otherwise let every REMAINING
-            // tool write into the next project. Scope only — cancel and the
-            // project/thread refs are the outer loop's job and cannot move here.
+            // turn can carry several `tool_use` blocks, so a scope move landing
+            // mid-batch would otherwise let every REMAINING tool write into the
+            // next project. Scope only — cancel and the project/thread refs are
+            // the outer loop's job and cannot move here.
+            // ★★ WHAT CAN MOVE IT BETWEEN TWO TOOLS, stated narrowly because the
+            // first version of this comment said "each `runTool` awaits" and that
+            // is false — `chat-tools.ts` contains no `await` at all
+            // (`grep -c await src/app/chat-tools.ts` → 0), so `runTool` resolves
+            // on the next microtask and nothing that needs a task (a click, a
+            // timer, IO) can interleave. What CAN move it is a dispatcher handler
+            // itself, which is a write surface into the same app — that is the
+            // case pinned by "stops a multi-tool turn at the tool where the scope
+            // changed". The rest is cheap insurance for the day a handler becomes
+            // genuinely async.
             if (dropStaleScopeWrite(getScopeEpoch, sendEpoch, "chat-panel.toolLoop", { tool: block.name })) break;
             let resultStr: string;
             let isError = false;
@@ -895,8 +905,19 @@ function ChatPanelInner({
       //   WRITES (drop them — they would land in the wrong project), this gates
       //   USER-FACING DISCLOSURE. On an epoch-only move the panel has not
       //   remounted and `projectId` has not changed, so the conversation on screen
-      //   is still THIS one — and the `chatTruncatedNote` below is the user's ONLY
-      //   signal that their turn was dropped. Drop the write, still tell the user.
+      //   is still THIS one, so the `chatTruncatedNote` below belongs to it. Drop
+      //   the write, still try to tell the user.
+      // ★★ "TRY" IS EXACT, AND AN EARLIER VERSION OF THIS ARGUMENT OVERCLAIMED IT.
+      //   It called the note "the user's ONLY signal", which is not a reason that
+      //   survives its own premises: a scope move that arrives through the §548
+      //   hold unmounts this panel (`task-manager.tsx` renders `PanelSkeleton`
+      //   while `loadPending`, and `scope-epoch.ts`'s header argues `loadPending`
+      //   is committed-true at every bump), and a note appended to an unmounted
+      //   component reaches nobody and is never persisted. The note is BEST-EFFORT.
+      //   The decision stands on the narrower claim that survives: this gate asks a
+      //   DIFFERENT question from the epoch, and answering it with the epoch can
+      //   only ever suppress a disclosure — it cannot make one appear. Suppressing
+      //   is the failure mode we are avoiding, so an unreliable note beats none.
       // ★★★ THE WRONG FIX, NAMED SO IT IS NOT REDISCOVERED AS AN IMPROVEMENT:
       //   "complete the pattern" by OR-ing the epoch in here, and a dropped turn
       //   becomes invisible — the same silent-failure class as the unconditional

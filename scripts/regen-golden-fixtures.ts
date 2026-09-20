@@ -35,19 +35,43 @@ const fixturesDir = join(repoRoot, "src", "app", "__fixtures__");
 const sample = readFileSync(join(repoRoot, "sample-workspace-small.json"), "utf8");
 const ws = jsonToWorkspace(sample);
 
-// The guard the docstring above exists for: a DOM-less decode yields every
-// slice empty, and every downstream signal of that is a SUCCESS signal.
-const counts = { tasks: ws.tasks.length, raid: ws.raid.length, milestones: ws.milestones.length };
-if (counts.tasks === 0 || counts.raid === 0 || counts.milestones === 0) {
-  throw new Error(`refusing to write: decode came back empty — ${JSON.stringify(counts)}`);
+// ★★★ THE GUARD, AND IT IS DISCOVERED FROM THE MASTER RATHER THAN LISTED.
+// A first cut named THREE slices — tasks, raid, milestones — while the master
+// carries many more non-empty ones (18 on 2026-09-20; the success line below
+// prints today's, so do not trust this number), so a decode that lost any of
+// the rest wrote truncated fixtures and exited 0 with a success message: the
+// exact shape the docstring above says this guard exists to prevent, surviving
+// inside the guard itself. A hardcoded list also silently under-covers every
+// slice added after it was written; walking the master cannot.
+const rawSlices = JSON.parse(sample) as Record<string, unknown>;
+const decoded = ws as unknown as Record<string, unknown>;
+// Every top-level key the master authors as a NON-EMPTY array. Object slices
+// (`plan`, `fxRates`, `timelogLinks`) are out of scope: they have no row count
+// to lose, and the empty-decode case this catches empties the arrays too.
+const sliceKeys = Object.keys(rawSlices).filter(
+  (k) => Array.isArray(rawSlices[k]) && (rawSlices[k] as unknown[]).length > 0,
+);
+// ★★ ANTI-VACUITY FLOOR. A discovery sweep passes over an empty set, so a
+// renamed/reshaped master would make every check below vacuous and still print
+// success. The floor is `sample-workspace-coverage.test.ts`'s enumerated set
+// (14 keys); this sweep is WIDER — it also reaches `shifts`, `disciplines`,
+// `grades` and `documentVersions`, which that list does not — so read the real
+// number off the script's own success line rather than from here. A master that
+// genuinely drops below the floor should fail and be looked at, not waved through.
+const MIN_SLICES = 14;
+if (sliceKeys.length < MIN_SLICES) {
+  throw new Error(`refusing to write: found only ${sliceKeys.length} non-empty slices in the master (expected >= ${MIN_SLICES}) — ${sliceKeys.join(", ")}`);
 }
-// Cross-check against the master's own counts, so a PARTIAL decode is caught too.
-const rawCounts = JSON.parse(sample) as { tasks?: unknown[]; raid?: unknown[]; milestones?: unknown[] };
-const expected = { tasks: rawCounts.tasks?.length ?? 0, raid: rawCounts.raid?.length ?? 0, milestones: rawCounts.milestones?.length ?? 0 };
-if (counts.tasks !== expected.tasks || counts.raid !== expected.raid || counts.milestones !== expected.milestones) {
-  throw new Error(`refusing to write: decode lost rows — got ${JSON.stringify(counts)}, master has ${JSON.stringify(expected)}`);
+const lost = sliceKeys
+  .map((k) => ({ k, got: (decoded[k] as unknown[] | undefined)?.length ?? 0, want: (rawSlices[k] as unknown[]).length }))
+  .filter((r) => r.got !== r.want);
+if (lost.length > 0) {
+  throw new Error(
+    `refusing to write: decode lost rows in ${lost.length} slice(s) — ` +
+      lost.map((r) => `${r.k}: got ${r.got}, master has ${r.want}`).join("; "),
+  );
 }
 
 writeFileSync(join(fixturesDir, "golden-workspace.csv"), workspaceToCsv(ws), "utf8");
 writeFileSync(join(fixturesDir, "golden-workspace.md"), workspaceToMarkdown(ws), "utf8");
-console.log(`regenerated golden fixtures from ${counts.tasks} tasks, ${counts.raid} RAID, ${counts.milestones} milestones`);
+console.log(`regenerated golden fixtures — ${sliceKeys.length} slices verified: ${sliceKeys.map((k) => `${k} ${(rawSlices[k] as unknown[]).length}`).join(", ")}`);
