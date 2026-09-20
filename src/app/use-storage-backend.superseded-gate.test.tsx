@@ -47,9 +47,24 @@ vi.mock("./project-file-handles", () => ({
   deleteHandle: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn() }));
-vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
+// ★★ CALL-THROUGH, for the same reason as its sibling in
+// use-storage-file-ops.pick-overwrite.test.tsx: this suite asserts on the ARGUMENTS handed to
+// `logDiag` (the `stage: "write"` label, and the reload leg's `outcome`), and a bare stub pins the
+// call while leaving the emission unexercised. ★ It also replaces the whole module wholesale until
+// now — `importOriginal` keeps `readDiagLog`/`clearDiagLog`/`buildDiagnosticBundle` real for
+// anything else on the load path.
+const { logDiagSpy } = vi.hoisted(() => ({ logDiagSpy: vi.fn() }));
+vi.mock("./diagnostics", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("./diagnostics")>();
+  return {
+    ...mod,
+    logDiag: (...args: Parameters<typeof mod.logDiag>) => {
+      logDiagSpy(...args);
+      return mod.logDiag(...args);
+    },
+  };
+});
 
-import { logDiag } from "./diagnostics";
 import * as storageMod from "./storage";
 import { TestProviders } from "./test-providers";
 import { useStorageBackend } from "./use-storage-backend";
@@ -350,7 +365,7 @@ describe("§588 — a superseded reload must not shut the new backend's gate", (
   // the first assertion fires and the second is never evaluated.
   it("a superseded reload that REJECTS takes the drop path (its own diagnostic, labelled rejected)", async () => {
     await setupSupersededRejectingReloadScenario();
-    expect(logDiag).toHaveBeenCalledWith("warn", "storage.supersededLoadDropped", { writer: "reloadCurrentProject", outcome: "rejected" });
+    expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.supersededLoadDropped", { writer: "reloadCurrentProject", outcome: "rejected" });
   });
 
   it("a superseded reload that REJECTS raises no error toast over the project the user switched to", async () => {
@@ -533,6 +548,6 @@ describe("§588 — a superseded pick must not write to, or arm, the dead backen
     // ★ It was the one label of the five that nothing observed — the round that added the
     //   assertions pinned picker, read and the two binds and reported "all three", naming a set that
     //   did not include this one.
-    expect(logDiag).toHaveBeenCalledWith("warn", "storage.supersededPickDropped", { stage: "write" });
+    expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.supersededPickDropped", { stage: "write" });
   });
 });

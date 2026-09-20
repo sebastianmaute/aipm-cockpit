@@ -81,16 +81,28 @@ vi.mock("./project-file-handles", () => ({
  *  harness that can hang a `guardedWrite`. ★★ A previous round asserted three of the five and its
  *  report said "all three", which is how a named set hides a missing member: the sentence was true
  *  of the set it named and the set was not the set.
- *  ★★ `logDiag` ITSELF IS A BARE SPY, NOT CALL-THROUGH, and that is deliberate rather than an
- *  oversight of the `importOriginal` beside it: the real one appends to a module-level diagnostics
- *  ring that outlives the test, and nothing here asserts on the ring. Call-through would add shared
- *  mutable state between tests to buy an observable no test wants. The `importOriginal` exists for
- *  the module's OTHER exports, which are on the load path. */
+ *  ★★★ CALL-THROUGH, NOT A BARE STUB, and an earlier revision of this file got that wrong on a
+ *  reason that does not survive checking. It argued the real `logDiag` appends to a ring that
+ *  outlives the test — it does not: the ring is `localStorage`, which `beforeEach` clears. What the
+ *  stub really cost is the distinction the five `stage` assertions now rest on. Stubbing the emitter
+ *  while asserting on what it was called with pins THE CALL, never THE EMISSION: the guards could
+ *  hand `logDiag` a payload it cannot serialise and every one of those assertions would still pass.
+ *  Calling through runs the real `redactFields` over the real payload, and one test below reads the
+ *  ring back so the emission itself is observed at least once.
+ *  ★ `logDiag` is internally total — its whole body sits in a `try {} catch {}` so diagnostics can
+ *  never break the app — so call-through cannot surface a THROW. It surfaces a payload the emitter
+ *  silently drops, which is the half that matters here. */
 const { logDiagSpy } = vi.hoisted(() => ({ logDiagSpy: vi.fn() }));
-vi.mock("./diagnostics", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./diagnostics")>()),
-  logDiag: logDiagSpy,
-}));
+vi.mock("./diagnostics", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("./diagnostics")>();
+  return {
+    ...mod,
+    logDiag: (...args: Parameters<typeof mod.logDiag>) => {
+      logDiagSpy(...args);
+      return mod.logDiag(...args);
+    },
+  };
+});
 /** ★★★ C1's seam. `truncationOps` is built by the REAL `useLoadTruncation` — the op depends on its
  *  `wouldRefuseWrite`/`guardedWrite` behaving properly, so it must not be stubbed. Only the two
  *  reporters are wrapped, call-through, so a test can ask WHICH one the load-instead branch uses.
@@ -126,6 +138,7 @@ vi.mock("./use-load-truncation", async (importOriginal) => {
   };
 });
 
+import { readDiagLog } from "./diagnostics"; // the REAL one — the mock above spreads `importOriginal`
 import { TestProviders } from "./test-providers";
 import { useStorageBackend } from "./use-storage-backend";
 import { useWorkspace } from "./workspace-context";
@@ -513,6 +526,15 @@ describe("§588 — the windows §590 opened", () => {
     //   nothing else in the suite observes it — a renamed stage or a deleted diagnostic would be
     //   invisible. Asserted per guard, here and below.
     expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.supersededPickDropped", { stage: "picker" });
+    // ★★★ THE EMISSION, not the call — read back out of the real diagnostics ring, which the
+    //   call-through above actually writes to. Every other `stage` assertion in these suites observes
+    //   the ARGUMENTS handed to `logDiag`; this one is the single place that proves the emitter accepted
+    //   them and kept them, so a payload the real `redactFields` drops cannot pass unnoticed
+    //   everywhere. One test carries it because the ring is shared, capped and cleared per test —
+    //   repeating it buys nothing and couples every test to the ring's shape.
+    expect(readDiagLog()).toContainEqual(
+      expect.objectContaining({ level: "warn", code: "storage.supersededPickDropped", fields: { stage: "picker" } }),
+    );
   });
 
   // ★★★ READING THE PICKED FILE IS A NEW AWAIT, so the picker guard can no longer see as far as the
