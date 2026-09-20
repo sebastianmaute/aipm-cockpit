@@ -30,8 +30,12 @@
   baselines start at 0/0, or equal the previous project's counts. So a pre-load save was a Turso
   `DELETE FROM` every table, or a copy of one project over another. `savesAllowedFor` in
   `use-storage-backend.ts` is an identity like `loadedBackend`, opened where `loadedBackend` is stamped
-  plus after an explicit "Pick storage file" write. It is checked by the save effect, by `doSave` (the
-  debounce timer AND flush-on-hide both call it) and by the pre-switch `flushCurrent`; a storage-kind
+  plus after an explicit "Pick storage file" write. It is checked by the save effect, by `doSave` — and
+  since §589 that is THREE callers, not the two this line used to name: the debounce timer, flush-on-hide,
+  and the cleanup flush a backend rebuild triggers (`shouldFlushOnCleanup`, `debounced-save.ts`). ★ All
+  three reach it through the ONE `save` argument `scheduleDebouncedSave` takes, which is why the gate
+  sits inside `doSave` and a new exit needs no gate of its own — enumerate them by reading that
+  function, never by trusting a count here — and by the pre-switch `flushCurrent`; a storage-kind
   switch skips its conversion write while it is shut (nothing is copied; the new backend loads). A failed load, and an empty load REFUSED over populated
   scope, leave it shut for that backend and publish `loadPause`, which task-manager mounts on the
   STICKY `SavingPausedBanner` (a `load` cause whose action is "Reload project") — never a toast
