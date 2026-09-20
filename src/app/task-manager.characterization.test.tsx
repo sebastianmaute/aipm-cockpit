@@ -288,9 +288,14 @@ describe("@characterization task-manager → hash-view hydration gate (§536)", 
   //    fallback. A test built that way passed GREEN under the reverted call
   //    site (measured, not assumed) — it would also pass with the gate
   //    deleted entirely, which is the definition of a test that cannot fail.
-  //    §595 is pinned at the hook level instead, in use-hash-view.test.tsx's
-  //    "judges the cold rule against the features it is enabled with, not
-  //    the ones it started disabled with" — `disabledViewRedirect` lives in
-  //    THIS file and never runs for a bare `renderHook` mount, so the
-  //    masking cannot reach that test.
+  //    §595's GATE is pinned by the call-site test above instead, not at the
+  //    hook level: the hook has no notion of `hydrated`, and nothing about
+  //    `enabled` semantics changed on this branch, so reverting this call
+  //    site back to `settings.layout === "modern"` leaves every hook-level
+  //    test green regardless. use-hash-view.test.tsx's "judges the cold rule
+  //    against the features it is enabled with, not the ones it started
+  //    disabled with" instead pins the CONTRACT the gate relies on — a
+  //    disabled hook runs nothing, and the first executed run judges against
+  //    whatever features it is then given — which is a different claim from
+  //    the gate itself.
 });

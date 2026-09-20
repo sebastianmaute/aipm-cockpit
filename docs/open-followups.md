@@ -38001,8 +38001,10 @@ means. Giving the hook a signal that distinguishes a mid-session enable followin
 genuine cold start is the fix this entry now asks for.
 
 Pinned (page-load half only) by `does not route from the hash until settings have hydrated`
-(`task-manager.characterization.test.tsx`) at the call-site level, and by seven hydration-boundary tests
-in `use-hash-view.test.tsx` modelling the `enabled` transition across hydration. Commits `b7c514681`,
+(`task-manager.characterization.test.tsx`) at the call-site level — that is the gate, and the only test
+that can fail if it is removed. Seven hydration-boundary tests in `use-hash-view.test.tsx` model the
+`enabled` transition across hydration, but the hook has no notion of `hydrated`; they pin the hook's
+`enabled` contract the gate relies on, not the gate itself. Commits `b7c514681`,
 `5d731a4a3`, `7a6d89b62`, `cad92528f`, `32189bbec`. Mutation-proved: reverting the call site to
 `settings.layout === "modern"` alone, or to `hydrated || settings.layout === "modern"`, both turn the
 call-site test red; the hook's own §478 re-entry tests stay green throughout, unchanged. None of this
@@ -38321,9 +38323,12 @@ Pinned by `resource-directory.test.tsx`'s inverted `does not re-fire the edit ha
 deep-link to the resource whose editor is already open`, `still honours a deep link to another resource
 while an unsaved ADD draft is open`, and a dedicated `renderHook` mutation-guard test asserting
 `editingResource` reference identity survives a same-id repeat. Commits `cd5a50e71`, `23a28e614`.
-Mutation-proved: dropping the `!prev.isNew` conjunct is killed by the ADD-draft test; comparing
-`prev.resource !== resource` instead of by id, or spreading `{ ...prev }` instead of returning `prev`
-itself, are both killed by the repeat test together with the `renderHook` identity test.
+Mutation-proved: dropping the `!prev.isNew` conjunct is killed by the ADD-draft test; spreading
+`{ ...prev }` instead of returning `prev` itself is killed by the repeat test together with the
+`renderHook` identity test. Comparing `prev.resource !== resource` instead of by id is killed by the
+`renderHook` identity test's second call against a fresh object carrying the same id — same id,
+different object reference — not by the repeat test, whose dispatches all pass the same object twice
+and so cannot see a by-reference mutant survive.
 
 A Playwright case for this guard was written, run live against its own reverted fix, and found to pass for
 a reason unconnected to the defect: `ResourceEditModal` resets its draft on the INNER `resource` object's
@@ -40173,13 +40178,18 @@ effect writes only the bare view (no item id), so the stray `pendingOpen` is sil
 not observable outside `TaskManager` (`pendingOpen` is read only internally and is never threaded to
 `WorkspaceSection` as a prop), which is also why no call-site-level test could pin it.
 
-Pinned at the hook level by `judges the cold rule against the features it is enabled with, not the ones
-it started disabled with` (`use-hash-view.test.tsx`) — the level where the defect is real, since
-`disabledViewRedirect` lives in `task-manager.tsx` and never runs for a bare hook mount and so cannot mask
-it there. A call-site-level test for the same claim was written, run, and then deleted once measurement
-showed it passed regardless of which `useHashView` call site was live, for the `disabledViewRedirect`
-reason above — keeping it would have been the same false-positive shape as §540's deleted Playwright
-case. Commits `b7c514681` through `32189bbec` (see §536's closure for the full commit list; both entries
-share the same fix).
+Pinned by the call-site test `does not route from the hash until settings have hydrated`
+(`task-manager.characterization.test.tsx`) — that is the gate this closure adds, and the only test that
+can fail if it is removed. The hook-level test `judges the cold rule against the features it is enabled
+with, not the ones it started disabled with` (`use-hash-view.test.tsx`) pins the CONTRACT the gate
+relies on — a disabled hook runs nothing, and the first executed run judges against whatever features it
+is then given — not the gate itself: the hook has no notion of `hydrated`, and nothing about `enabled`
+semantics changed on this branch, so reverting `task-manager.tsx`'s call site back to
+`settings.layout === "modern"` leaves that hook test green regardless. A call-site-level test for the
+disabled-module claim itself was written, run, and then deleted once measurement showed it passed
+regardless of which `useHashView` call site was live, for the `disabledViewRedirect` reason above —
+keeping it would have been the same false-positive shape as §540's deleted Playwright case. Commits
+`b7c514681` through `32189bbec` (see §536's closure for the full commit list; both entries share the
+same fix).
 
 Related: §536, §540.

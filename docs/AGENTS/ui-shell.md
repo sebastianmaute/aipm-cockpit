@@ -179,7 +179,9 @@
 
   • Default landing view is `dashboard` (`workspace-tab-context.tsx` initial `activeTab`); `useHashView`
   also lands a fresh/empty hash ("" or bare "#") on `dashboard` (not the `slugToView` "open-points"
-  fallback), so opening the app at `/` goes to the Dashboard home. Deep-links + reload-on-a-view still honour the hash.
+  fallback), so opening the app at `/` goes to the Dashboard home. An item-bearing deep link (e.g.
+  `#raid/123`) is still honoured on a cold load; a view-only hash left over from an earlier session is
+  instead treated as stale residue and discarded to the Dashboard (since §478).
   • Nav: `actions` (Next actions) + `trends` are SUB-MENU children of `dashboard` in the Overview group
   (`nav-config.ts`); `trends` is in `TURSO_ONLY_VIEWS` so the Trends sub-entry only shows on a Turso backend.
   ★ TURSO_ONLY child views are pruned in TWO places: `filterNavGroups` (sidebar) AND `subTabsFor(view,
