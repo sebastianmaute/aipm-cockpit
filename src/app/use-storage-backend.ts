@@ -1186,8 +1186,22 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   replaced in memory when the op applies. `finally`, so a throwing op cannot strand the hold;
   //   `mountedRef`, so a teardown cannot throw (§72).
   // ★★ WHICH ops, not how many — this said "exactly the nine" and §590 made it ten.
-  //   Re-derive: `grep -c "holdDuring(" src/app/use-storage-backend.ts` counts the wraps plus this
-  //   declaration, so read the hits rather than the number.
+  // ★★★ THE RE-DERIVE RECIPE HERE WAS ITSELF A DEFEATED CHECK UNTIL 2026-09-20, in TWO ways, and
+  //   both are worth knowing because the shape recurs. It ran `grep -c` for this function's name
+  //   followed by an open paren, spelled plainly, and claimed the result "counts the wraps plus this
+  //   declaration". (1) THERE IS NO DECLARATION ROW to subtract: the declaration below is spelled
+  //   with an open ANGLE bracket, not a paren, so it never matched — the extra hit being attributed
+  //   to it was THE RECIPE'S OWN COMMENT LINE, matching the pattern it spelled. (2) `grep -c` counts
+  //   LINES, not occurrences, and the wraps are packed several to a line, so its 7 was not the wrap
+  //   count either: there are 10 wraps on 6 lines. A self-matching recipe whose miscount is then
+  //   explained away by a plausible-sounding subtraction reads as verified forever.
+  // ★★ EVERY MENTION BELOW USES THE BRACKET CLASS, INCLUDING THE ONES IN PROSE, and that is not
+  //   decoration: the first attempt at this correction spelled the old broken pattern twice while
+  //   describing it, which pushed the corrected recipe from 10 back to 12. An explanation of a
+  //   self-matching check can re-poison the check. Count OCCURRENCES, never lines:
+  //     grep -o "hold[D]uring(" src/app/use-storage-backend.ts | wc -l
+  //   It printed 10 on 2026-09-20. Read the hits rather than the number either way —
+  //   `grep -n "hold[D]uring(" src/app/use-storage-backend.ts` names each wrapped op.
   function holdDuring<A extends unknown[]>(op: (...opArgs: A) => Promise<void>): (...opArgs: A) => Promise<void> {
     return async (...opArgs: A) => {
       // §596 — the ref moves in the SAME synchronous statement pair as the state, so a cleanup

@@ -239,13 +239,21 @@
   instant at which the new project's workspace is in scope while the epoch still reads old. A writer
   resolving between the bump and React's commit is dropped although scope still holds the OUTGOING
   project — the conservative direction, and that write would have been replaced anyway.
-- ★ **Guarded today** (`grep -rn "dropStaleScopeWrite(" src/app --include=*.ts | grep -v test` — ★★ one
-  of its rows is the DECLARATION in `scope-epoch.ts`, so subtract it before quoting a count; today it
-  prints 10 call sites plus that row):
+- ★ **Guarded today** (`grep -rn "dropStaleScopeWrite(" src/app --include=*.ts --include=*.tsx | grep -v test`
+  — ★★ one of its rows is the DECLARATION in `scope-epoch.ts`, so subtract it before quoting a count;
+  today it prints 11 call sites plus that row.
+  ★★★ **THE SECOND `--include` IS LOAD-BEARING AND WAS MISSING UNTIL 2026-09-20.** With
+  `--include=*.ts` alone the recipe cannot see a `.tsx` file, so it went blind to the chat panel's call
+  site below — and printed 10 call sites plus the row, which is word for word what the sentence beside
+  it claimed. That is the most dangerous shape a rotting claim takes: the instrument and the prose
+  agree, so RE-RUNNING IT CONFIRMS THE ERROR and the reader checking it sees green. Fix an instrument
+  BEFORE re-measuring with it, and never carry the old number forward):
   `useEntityCalendarPush` and `useOutlookCalendarPush` (TWICE each — once before any Graph mutation,
   once before the workspace write), `useEntityCalendarPull`, `useMilestoneCalendarPull`,
   `useCommitteeOutlookPush` (also twice), `useInsightRecommend` and `useInsightRecommendRunner` (per
-  CANDIDATE, and the tick `break`s — every remaining candidate came from the project that just left).
+  CANDIDATE, and the tick `break`s — every remaining candidate came from the project that just left),
+  and `chat-panel.tsx`'s tool loop (per TOOL, and the loop `break`s — but read the separate bullet
+  below before treating it as a fourth row of this rule; its cancel rides a different signal).
   ★★★ The reader is OPTIONAL at each child hook, and that optionality is how `tasks-section.tsx`'s own
   manual task push/pull — the highest-traffic entity, and the one calendar pair mounted from the PANE
   rather than from `use-calendar-integrations.ts` — went a whole release unguarded with nothing failing:
@@ -253,9 +261,38 @@
   a REQUIRED `TasksSectionProps.getScopeEpoch` threaded straight from `task-manager.tsx`. ★★ THE RULE
   THAT FOLLOWS: the hook ARG stays optional (a unit test must be able to opt out), but every PANE or
   `deps` boundary that hands the reader down declares it REQUIRED — `CalendarIntegrationDeps`,
-  `InsightRecommendationDeps`, `TasksSectionProps` — because tsc is the only thing that can see the
-  omission. ★ Still NOT guarded, deliberately and unchanged: the chat agent loop, which has no such
-  reader at all.
+  `InsightRecommendationDeps`, `TasksSectionProps`, `ChatScopeProps` — because tsc is the only thing
+  that can see the omission. The list IS the rule's evidence, so an omission from it weakens the rule.
+- ★★★ **THE CHAT PANEL IS A THIRD SHAPE, NOT A FOURTH ROW OF THE RULE ABOVE (§596).** Until 2026-09-20
+  this file said "★ Still NOT guarded, deliberately and unchanged: the chat agent loop, which has no
+  such reader at all." That is now false, and left standing it would not merely mislead — it
+  **licenses deleting the guard as dead code**, so here is the reason not to. The panel guards TWO
+  things on TWO DIFFERENT SIGNALS, and that is what makes it a third shape:
+  - **The WRITE guard rides the epoch**, exactly like every row above: `submitPrompt` captures
+    `getScopeEpoch()` once per send, `stale()` re-reads it at its three call sites, and the block loop
+    calls `dropStaleScopeWrite` PER TOOL — a turn can carry several `tool_use` blocks and each
+    `runTool` awaits, so a swap landing mid-batch would otherwise let every REMAINING tool write into
+    the next project.
+  - **The unmount CANCEL rides `isSwapInFlight`**, a separate reader on the same props boundary, and
+    it is CONDITIONAL on that flag. Nothing cancelled at all before §596: under the §548 load hold
+    `task-manager.tsx` swaps the whole main-window tree for `PanelSkeleton` WITHOUT a prop change, so
+    the dying instance's `projectIdRef` never moves, its `stale()` reads not-stale forever, and its
+    dispatcher is still live because `useStorageBackend` sits in `TaskManager`, which does not
+    unmount. The panel's own `history`/`display` setters are local `useState` and are no-ops once it
+    is gone — so the transcript went nowhere while the WRITES landed.
+  ★★★ **WHY UNCONDITIONAL WAS WRONG — refuting beats omitting, because the plausible wrong reason is
+  re-derivable.** An unconditional cleanup shipped first and was a live regression: `modern-shell.tsx`'s
+  content ternary gives `open-points`, `settings` and `learning-insights` their own subtrees, so
+  ORDINARY navigation to any of the three unmounts this panel. A user who asked the assistant to
+  create tasks and then clicked Open Points to watch them appear got nothing, silently.
+  `isSwapInFlight` is the discriminator — TRUE at the instant of a §548 teardown (it is WHY the panel
+  is unmounting), FALSE on navigation — and its backing `swapsInFlightRef` moves synchronously inside
+  `holdDuring`, which is why it is a FUNCTION and not a boolean prop: the teardown and the commit
+  raising the hold are the same commit, so any mirrored render value is stale exactly when the cleanup
+  asks. A reader who applies the pane/hook rule above to this panel will make the cancel unconditional
+  again, which is precisely the regression that had to be undone.
+  ★ Pinned by `chat-panel.scope.test.tsx` (both branches of the condition, and both halves of
+  `submitPrompt`'s `cancelledRef` reset that keeps it safe under StrictMode's mount→unmount→mount).
 - ★★★ **WHAT A DROPPED PUSH COSTS, and it is NOT "the next push re-links it".** For the entity and
   milestone pushes the ids just created are orphaned and the reconcile SELF-HEALS the wrong way round:
   `planEntityReconcile` / `planCalendarReconcile` put every listed event id not referenced by an item
