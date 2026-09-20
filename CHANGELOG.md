@@ -8,7 +8,49 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [1.12.3] - 2026-09-19 "Child"
+## [1.12.4] - 2026-09-20 "Child"
+
+A data-loss patch: an edit made while a project is loading, or while projects are being swapped,
+can no longer be lost or land in the wrong project.
+
+### Fixed
+
+- **An edit made during a load is no longer overwritten when that load lands (§548).** While the
+  workspace in scope is not yet the settled project of the current backend — the first load, a
+  backend change, and each of the nine project-swap operations — the main window shows the loading
+  skeleton instead of the editable app. Pop-outs are unaffected, and the "no project yet" and
+  "unlock your secrets" screens still take precedence.
+- **Every load now ends.** A settings load whose sealed secrets never resolve falls back after five
+  seconds; a SharePoint file that stops responding fails after ten, the same bound Turso already
+  had; and an IndexedDB upgrade blocked by an older tab of the app now fails with a message naming
+  the cause instead of waiting forever. Before this release a blocked upgrade left the app empty
+  with saving paused; with the loading screen it would have hung.
+- **Background writers wait for the project.** Calendar auto-sync and two-way pull, the insight
+  reconcile, the insight-recommendation runner and the undo/redo hotkeys all stay off while a load
+  or swap is in flight, and resume once it settles.
+- **A request still in flight when you switch project no longer writes into the new one.** Calendar
+  pushes and pulls and insight recommendations record which project they started in and discard
+  their result if the project changed while they were waiting. The assistant's own tool loop is not
+  covered and is documented as such.
+- **Changing the storage target no longer merges the previous project's history into it (§591).**
+  A load merges the activity log and budget history only when the target is unchanged; a changed
+  Turso URL or token, or a changed SharePoint file, replaces them.
+- **The budget variance insight compares like with like (§577).** It now measures hours booked up
+  to today against the budget up to today, counting a bucket's spillover once the bucket has
+  started, and says nothing about a bucket with no bookings yet. Previously an untouched bucket
+  reported a 100% variance and outranked real overspend.
+
+### Changed
+
+- **Turso credentials are applied with a button.** While Turso is the live storage, the database
+  URL and auth token are drafts until Apply (Enter in either field does the same); typing no longer
+  rebuilds the connection on every keystroke. In passphrase mode, Apply and "Save & switch" first
+  check the passphrase you type against the stored one, and say "Wrong passphrase." without saving
+  anything if it does not match. Other storage kinds are unchanged.
+- **The SharePoint file URL is applied the same way**, instead of committing when you leave the
+  field. A half-typed percent escape in that field no longer breaks the Settings screen.
+- **Screenshot comparison tests pin their own clock, timezone and locale (§573)**, so their
+  baselines no longer go stale as days pass.
 
 Test infrastructure only — no production code changes, no user-visible behaviour change.
 
