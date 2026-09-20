@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from "react";
-import { useState } from "react";
+import { useEffect } from "react";
 import { render as rtlRender, renderHook, act, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -616,23 +616,38 @@ function ActiveTabHarness({ onEdit, resources = rs }: { onEdit: (r: Resource) =>
 // (threaded through task-manager.tsx / workspace-section.tsx) — so the guard
 // under test is the real one, not a stand-in.
 //
-// `onOpen` fires whenever the hook's `editingResource` WRAPPER object changes
-// identity and the result is an EDIT (not an ADD draft). The wrapper, not
-// `.resource`, is the load-bearing observable: `resource-directory.tsx`'s
-// `.find()` returns the SAME array element on every repeat regardless of the
-// guard, so `.resource` alone stays stable either way and cannot tell a
-// guarded repeat from an unguarded one (measured — an earlier draft of this
-// harness kept that check and stayed green with the guard deleted). The
-// WRAPPER reference is what the guard actually controls: React only bails a
-// `setEditingResource` update, and skips re-rendering this component at all,
-// when the updater returns the EXACT SAME wrapper — which is precisely what
-// keeps `onOpen` from firing again on an unguarded call's fresh `{resource,
-// isNew}` object.
+// `onOpen` fires from an EFFECT (not a render-time reconcile — calling an
+// external callback is a legitimate effect; only DERIVING LOCAL STATE from a
+// changed prop belongs in render, per AGENTS.md) whenever the hook's
+// `editingResource` WRAPPER object changes identity and the result is an EDIT
+// (not an ADD draft). The wrapper, not `.resource`, is the load-bearing
+// observable: `resource-directory.tsx`'s `.find()` returns the SAME array
+// element on every repeat regardless of the guard, so `.resource` alone stays
+// stable either way and cannot tell a guarded repeat from an unguarded one
+// (measured — an earlier draft of this harness kept that check and stayed
+// green with the guard deleted). The WRAPPER reference is what the guard
+// actually controls: React only bails a `setEditingResource` update, and
+// skips re-rendering this component (and firing its effects) at all, when the
+// updater returns the EXACT SAME wrapper — which is precisely what keeps
+// `onOpen` from firing again on an unguarded call's fresh `{resource, isNew}`
+// object.
+//
+// `onRawEdit`, when passed, is called on EVERY dispatch into
+// `handleEditResource` regardless of the guard — a positive observable that a
+// repeated deep link actually reached the handler twice, so a call-count
+// assertion on `onOpen` alone can't misread "the second dispatch never
+// happened" as "the guard collapsed it" (absence-needs-a-positive-observable).
+//
+// `data-testid="editing-resource-id"` exposes the live draft/edit id so a
+// test can PIN a premise it depends on (e.g. the ADD-draft test's engineered
+// id collision) instead of asserting it only in a comment.
 function GuardedDirectoryHarness({
   onOpen,
+  onRawEdit,
   resources = rs,
 }: {
   onOpen: (r: Resource) => void;
+  onRawEdit?: (r: Resource) => void;
   resources?: Resource[];
 }) {
   const { setResources } = useWorkspace();
@@ -642,15 +657,21 @@ function GuardedDirectoryHarness({
     showToast: vi.fn(),
     logUpdate: vi.fn(),
   });
-  const [lastWrapper, setLastWrapper] = useState(directory.editingResource);
-  if (directory.editingResource !== lastWrapper) {
-    setLastWrapper(directory.editingResource);
+  useEffect(() => {
     if (directory.editingResource && !directory.editingResource.isNew) onOpen(directory.editingResource.resource);
-  }
+  }, [directory.editingResource, onOpen]);
+  const handleEdit = (r: Resource) => {
+    onRawEdit?.(r);
+    directory.handleEditResource(r);
+  };
   return (
     <>
-      {/* Seeds ws.resources with id 1 so a freshly-minted ADD draft lands on
-          id 2 — deterministic (mintId never reuses an id already present). */}
+      {/* Seeds ws.resources with id 1. mintId is a SESSION-scoped module-level
+          high-water mark (not max(list)+1), so this only deterministically
+          hands the next draft id 2 while nothing else in this file has minted
+          a "resource" id first — true today, but not guaranteed by mintId's
+          own contract. The ADD-draft test below PINS the resulting id via
+          `editing-resource-id` rather than assuming it. */}
       <button
         type="button"
         onClick={() => setResources([{ id: 1, firstName: "Seed", lastName: "R", roleId: null, utilizationMode: "percent", utilization: {} }])}
@@ -660,7 +681,10 @@ function GuardedDirectoryHarness({
       <button type="button" onClick={() => directory.handleOpenAddResource()}>
         open-add
       </button>
-      <ActiveTabHarness onEdit={directory.handleEditResource} resources={resources} />
+      <span data-testid="editing-resource-id">
+        {directory.editingResource ? String(directory.editingResource.resource.id) : "none"}
+      </span>
+      <ActiveTabHarness onEdit={handleEdit} resources={resources} />
     </>
   );
 }
@@ -691,12 +715,13 @@ describe("§362 deep-link seam: ResourcesReportPanel redirect -> ResourceDirecto
   // instance and does not remount when the tab does).
   it("does not re-fire the edit handler for a repeated deep-link to the resource whose editor is already open", () => {
     const onOpen = vi.fn();
+    const rawEdit = vi.fn();
     rtlRender(
       <FiltersProvider>
         <WorkspaceProvider>
           <WorkspaceTabProvider>
             <DeepLinkTrigger id={1} />
-            <GuardedDirectoryHarness onOpen={onOpen} />
+            <GuardedDirectoryHarness onOpen={onOpen} onRawEdit={rawEdit} />
           </WorkspaceTabProvider>
         </WorkspaceProvider>
       </FiltersProvider>,
@@ -705,16 +730,27 @@ describe("§362 deep-link seam: ResourcesReportPanel redirect -> ResourceDirecto
     fireEvent.click(screen.getByText("go")); // opens id 1 (through the real resources -> directory hop)
     fireEvent.click(screen.getByText("go")); // a second request for the same id
 
+    // Positive observable that the second dispatch genuinely reached the
+    // handler (absence-needs-a-positive-observable): `onOpen` alone reading 1
+    // cannot distinguish "the guard collapsed a real repeat" from "the second
+    // requestOpen -> consumer-effect hop never fired at all". Pinning the raw
+    // call count at 2 rules out the latter.
+    expect(rawEdit).toHaveBeenCalledTimes(2);
     expect(onOpen).toHaveBeenCalledTimes(1);
     expect(onOpen).toHaveBeenCalledWith(rs[0]);
   });
 
   // Review Focus (§540): the guard's `!prev.isNew` conjunct must not swallow a
   // deep link that arrives while an unsaved ADD draft is open. Seeding ws
-  // resources with id 1 forces `mintId` to hand the draft id 2 — the SAME id
-  // as the deep-link target below — so an id match alone (dropping the
-  // `!prev.isNew` conjunct; §540 mutation table row 1) is what would
-  // incorrectly suppress this open, not an id mismatch.
+  // resources with id 1 is intended to force `mintId` to hand the draft id 2
+  // — the SAME id as the deep-link target below — so an id match alone
+  // (dropping the `!prev.isNew` conjunct; §540 mutation table row 1) is what
+  // would incorrectly suppress this open, not an id mismatch. That collision
+  // is PINNED below via `editing-resource-id` rather than assumed: mintId is
+  // a session-scoped module-level high-water mark, not max(list)+1, so the
+  // draft landing on id 2 also depends on nothing else in this file having
+  // minted a "resource" id first — true today, but not something mintId's
+  // own contract guarantees against e.g. a reordering under `test:shuffle`.
   it("still honours a deep link to another resource while an unsaved ADD draft is open", () => {
     const onOpen = vi.fn();
     rtlRender(
@@ -729,11 +765,22 @@ describe("§362 deep-link seam: ResourcesReportPanel redirect -> ResourceDirecto
     );
 
     fireEvent.click(screen.getByText("seed-ws-resources"));
-    fireEvent.click(screen.getByText("open-add")); // handleOpenAddResource: { isNew: true }, minted id 2
+    fireEvent.click(screen.getByText("open-add")); // handleOpenAddResource: { isNew: true }
+
+    // Pin the id collision this test's non-vacuity depends on (see the
+    // comment above) instead of only asserting it in prose: if `mintId` ever
+    // hands the draft a different id, this fails loudly here rather than the
+    // mutant-row-1 coverage silently going vacuous below.
+    expect(screen.getByTestId("editing-resource-id")).toHaveTextContent("2");
+
     fireEvent.click(screen.getByText("go")); // deep link to id 2 — a DIFFERENT, already-saved resource
 
+    // `toHaveBeenLastCalledWith(twoResources[1])` (exact object identity),
+    // not `objectContaining({ id: 2 })` — the latter can't distinguish the
+    // id-2 ADD draft from the id-2 STORED row, which is exactly the
+    // collision this test engineers.
     expect(onOpen).toHaveBeenCalledTimes(1);
-    expect(onOpen).toHaveBeenLastCalledWith(expect.objectContaining({ id: 2 }));
+    expect(onOpen).toHaveBeenLastCalledWith(twoResources[1]);
   });
 });
 

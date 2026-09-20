@@ -6,8 +6,10 @@
 // (open-followups §2); mirrors use-calendar-events.ts, which owns its editing
 // state the same way.
 //
-// MOVE ONLY, no behaviour change: every handler keeps the body and the
-// memoization form it had in use-resource-planner.ts.
+// MOVE ONLY, no behaviour change at the time of extraction: every handler kept
+// the body and the memoization form it had in use-resource-planner.ts. ★ NO
+// LONGER TRUE OF `handleEditResource` — its body now carries the §540 repeat
+// guard (a functional `setEditingResource` updater), added after the move.
 //
 // ★ Unlike the reference-data cluster, these handlers DO reach the memo()'d
 // components open-followups §1 is about — ResourceDirectory
