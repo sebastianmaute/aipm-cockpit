@@ -2124,9 +2124,9 @@
       "type": "budgetVariance",
       "severity": "medium",
       "data": {
-        "name": "Advisory Retainer (blended)",
-        "variancePct": 100,
-        "buckets": 6
+        "name": "Identity Platform – T&M",
+        "variancePct": 22,
+        "buckets": 3
       },
       "status": "active",
       "firstSeenAt": "2026-08-03T07:00:00.000Z",
