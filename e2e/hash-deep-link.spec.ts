@@ -9,7 +9,7 @@ test("a cold item deep link lands on the item's view and keeps the id in the URL
     "page",
   );
   // The deep-linked item's own editor is open, confirming the id routed too.
-  await expect(page.getByRole("dialog", { name: "Editing RAID #1" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Editing RAID #1", exact: true })).toBeVisible();
   expect(page.url()).toContain("#raid/1");
 });
 
@@ -25,7 +25,9 @@ test("a page loaded in the classic layout is not routed by a stale hash", async 
   // and modern's own "AI PM Cockpit" text is an <img> alt, not a heading. A
   // silently-ignored settings write (shallow merge, wrong shape) would leave
   // this false.
-  await expect(page.getByRole("heading", { name: "AI PM Cockpit", level: 1 })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "AI PM Cockpit", level: 1, exact: true }),
+  ).toBeVisible();
 
   // Positive proof of WHERE the user landed: this copy only renders inside
   // the Dashboard tabpanel (dashboard-delta-strip.tsx), which is
