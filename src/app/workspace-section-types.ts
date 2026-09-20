@@ -145,11 +145,15 @@ export interface WorkspaceSectionProps {
    *   — nothing failed, it simply kept the pre-§548 behaviour. A required prop at a
    *   pane boundary is the only thing that turns a dropped thread into a tsc error. */
   getScopeEpoch: ScopeEpochReader;
-  /** §596 — true while a project swap / load hold is in flight.
+  /** §596 — true while an op that will replace this workspace with ANOTHER
+   *  project's is in flight. NOT the load hold: `loadPending` rises for all ten
+   *  held ops plus `!hydrated` plus every backend rebuild, this for the four
+   *  `holdDuring(..., "changes-scope")` rows alone.
    *
    *  ★★★ THE CHAT PANEL'S UNMOUNT CLEANUP IS THE ONLY CALLER, AND IT ASKS AT
-   *   CLEANUP TIME. Do not "simplify" this to a `loadPending` boolean prop: the
-   *   §548 teardown and the commit that sets the hold are the SAME commit, so the
+   *   CLEANUP TIME. Do not "simplify" this to a `loadPending` boolean prop —
+   *   neither in type nor in meaning, and the second is the easier mistake: the
+   *   teardown and the commit that sets the hold are the SAME commit, so the
    *   panel's last render saw the pre-swap value and any mirror of it is stale
    *   exactly when it matters. `useStorageBackend` backs this with a ref written
    *   synchronously in `holdDuring`. Required for the same reason as the reader above.

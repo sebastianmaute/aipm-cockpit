@@ -248,12 +248,20 @@ interface ChatScopeProps {
   /** Reads `useStorageBackend`'s scope epoch. Captured once per send and
    *  re-read at every `stale()` check and between individual tool calls. */
   getScopeEpoch: ScopeEpochReader;
-  /** True while a project swap / load hold is in flight.
+  /** True while an op that will replace this workspace with ANOTHER project's is
+   *  in flight.
    *
+   *  ★★★ NOT THE LOAD HOLD, AND THIS DOC SAID "a project swap / load hold" UNTIL
+   *   THE TWO WERE SPLIT. `loadPending` rises for all ten held ops plus
+   *   `!hydrated` plus every backend rebuild; this rises for the FOUR
+   *   `holdDuring(..., "changes-scope")` rows alone. Naming the load hold here
+   *   makes them read as one signal, which is the coupling the split deliberately
+   *   broke — a Save-As, a cancelled OS dialog and a same-project reload all
+   *   raise the hold and must NOT cancel the user's turn.
    *  ★★★ READ FROM THE UNMOUNT CLEANUP, WHICH IS WHY IT IS A FUNCTION AND NOT A
-   *   BOOLEAN. The §548 teardown and the commit raising the hold are the same
-   *   commit, so this panel's last render saw the pre-swap value — any prop or
-   *   ref mirroring a render value is stale exactly when the cleanup asks. The
+   *   BOOLEAN. The teardown and the commit raising the hold are the same commit,
+   *   so this panel's last render saw the pre-swap value — any prop or ref
+   *   mirroring a render value is stale exactly when the cleanup asks. The
    *   backing ref moves synchronously inside `holdDuring`. */
   isSwapInFlight: () => boolean;
 }
@@ -519,11 +527,17 @@ function ChatPanelInner({
   // `settings` and `learning-insights` their own subtrees, so navigating to any
   // of the three unmounts this panel on an ORDINARY click — and a user who asked
   // the assistant to create tasks and then clicked Open Points to watch them
-  // appear got nothing, silently. `isSwapInFlight` is the discriminator: TRUE at
-  // the instant of a §548 teardown (it is WHY the panel is unmounting), FALSE on
-  // navigation. When it is false the turn is left alone to finish into the
-  // project the user is still in, and the scope epoch is what drops it if the
-  // scope really did move while it was in flight.
+  // appear got nothing, silently. `isSwapInFlight` is the discriminator.
+  // ★★★ AND IT IS NARROWER THAN "A §548 TEARDOWN", which is what this comment
+  // said until the B1 fix and is the second regression of this exact shape: SIX
+  // of the ten held ops raise the §548 hold and leave it FALSE, because a plain
+  // Save-As, a cancelled OS file dialog and a same-project Reload all tear this
+  // panel down without the workspace becoming another project's. It is TRUE only
+  // while an op that WILL replace this workspace with another project's is in
+  // flight (`holdDuring(..., "changes-scope")`, four rows). When it is false the
+  // turn is left alone to finish into the project the user is still in — and if
+  // the scope did move after all, the epoch drops the write at resolution, which
+  // is the correctness guarantee. This cancel is only ever a cost optimisation.
   // ★ Safe under StrictMode's mount→unmount→mount: `submitPrompt` resets
   // `cancelledRef` to false at its own start, so a cancelled flag left by a
   // discarded first mount cannot outlive the next send. `chat-panel.scope.test.tsx`

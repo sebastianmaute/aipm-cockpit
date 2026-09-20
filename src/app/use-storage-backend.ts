@@ -244,13 +244,20 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   workspace, so an edit made during its await would be discarded exactly like one made during the
   //   first load.
   const [swapsInFlight, setSwapsInFlight] = useState(0);
-  // ★★★ §596 — THE SAME COUNT AS A REF, AND THE REF IS NOT AN OPTIMISATION. A consumer that must
-  //   answer "is a swap in flight?" from an UNMOUNT CLEANUP cannot read any mirror of the render
-  //   value: React flushes every passive DESTROY before any passive CREATE, so an effect that
-  //   copies `loadPending` into a ref has not run yet when the subtree the hold is unmounting
-  //   tears down — the mirror still reads the pre-swap `false`. This ref is written SYNCHRONOUSLY
-  //   inside `holdDuring`, beside its `setSwapsInFlight`, exactly as `scopeEpochRef` is written
-  //   beside the replacement it announces, so it is already true at that instant.
+  // ★★★ §596 — A NARROWER COUNT, NOT A MIRROR OF THE ONE ABOVE, AND THE DIFFERENCE IS THE POINT.
+  //   ★★ THIS COMMENT SAID "THE SAME COUNT AS A REF" AND WAS TRUE WHEN WRITTEN — the B1 fix below
+  //   then split the two and left the sentence standing. `setSwapsInFlight` counts ALL TEN held
+  //   ops; this ref counts only the FOUR `holdDuring(..., "changes-scope")` rows. Do NOT "restore"
+  //   the invariant by re-coupling them: that is precisely the B1 regression (a plain Save-As, a
+  //   cancelled OS dialog and a same-project Reload silently killing a live AI turn), and the two
+  //   counts answer different questions on purpose.
+  //   ★★★ WHY A REF AT ALL, which is unchanged: a consumer that must answer "is a swap in flight?"
+  //   from an UNMOUNT CLEANUP cannot read any mirror of the render value. React flushes every
+  //   passive DESTROY before any passive CREATE, so an effect that copies `loadPending` into a ref
+  //   has not run yet when the subtree the hold is unmounting tears down — the mirror still reads
+  //   the pre-swap `false`. This ref is written SYNCHRONOUSLY inside `holdDuring`, beside its
+  //   `setSwapsInFlight`, exactly as `scopeEpochRef` is written beside the replacement it
+  //   announces, so it is already true at that instant.
   // ★★★ DELIBERATELY NARROWER THAN `loadPending`, AND THE FIRST REASON WRITTEN HERE WAS FALSE.
   //   It said `settledBackend !== backend` "needs Settings, which unmounts the chat panel on its
   //   own before the backend can change". It does not. `PanelSkeleton` in `task-manager.tsx` sits
@@ -293,7 +300,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const getScopeEpoch = useCallback(() => scopeEpochRef.current, []);
   // §596 — the swap-in-flight reader, published for the same reason and with the same contract as
   // `getScopeEpoch`: STABLE for the hook's lifetime, reads a synchronously-maintained ref, never a
-  // render value. `chat-panel.tsx` uses it to tell a §548 teardown from ordinary view navigation.
+  // render value.
+  // ★★ WHAT IT SELECTS FOR, stated precisely because the first wording was "tell a §548 teardown
+  //   from ordinary view navigation" and the B1 fix made that misleading. It does NOT select §548
+  //   teardowns: SIX of the ten held ops raise the §548 hold and leave this FALSE. It answers the
+  //   narrower question `chat-panel.tsx`'s unmount cleanup actually asks — "is the workspace about
+  //   to become another project's?" — so a teardown caused by a Save-As, a cancelled dialog or a
+  //   same-project reload reads false and the in-flight AI turn is left alone. Reading the old
+  //   wording as a spec is how the flag gets widened back to the B1 regression.
   const isSwapInFlight = useCallback(() => swapsInFlightRef.current > 0, []);
   // ★★★ §586 — THE SAVE GATE: the backend instance render scope may be written to. Before it opens,
   //   the boot workspace is EMPTY, and a save of it is `DELETE FROM` every Turso table, an empty
@@ -1247,10 +1261,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     scope: "changes-scope" | "same-scope",
   ): (...opArgs: A) => Promise<void> {
     return async (...opArgs: A) => {
-      // §596 — the ref moves in the SAME synchronous statement pair as the state, so a cleanup
-      // running inside the commit this triggers already sees the hold. Decremented in the same
-      // `finally`, unconditionally: unlike the state setter it has no mounted guard to respect,
-      // and leaving it raised after a teardown would make `isSwapInFlight` lie forever.
+      // §596 — for a `"changes-scope"` op the ref moves in the SAME synchronous statement pair as
+      // the state, so a cleanup running inside the commit this triggers already sees it.
+      // ★★ "UNCONDITIONALLY" USED TO BE THE WORD HERE and the B1 fix falsified it: both arms are
+      // now gated on the SAME closure constant, which is what keeps them symmetric — a raise
+      // without its matching release would leave `isSwapInFlight` lying forever. What is still
+      // unconditional is the STATE setter, and deliberately: `loadPending` must hold for all ten.
+      // ★ The release has no `mountedRef` guard, unlike the setter beside it: there is no state to
+      // update after a teardown, only a ref that must not stay raised.
       if (scope === "changes-scope") swapsInFlightRef.current += 1;
       setSwapsInFlight((n) => n + 1);
       try {

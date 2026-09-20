@@ -206,6 +206,9 @@ describe("§548 — loadPending", () => {
     //  `holdDuring` therefore moves a ref in the same statement pair as the
     //  setter, exactly as `bumpScopeEpoch` does. Delete that `+= 1` and the
     //  in-act read below goes false.
+    // ★★ THE REF MOVES FOR `"changes-scope"` OPS ONLY, which is why this test uses
+    //  `switchToProject` and (e2) beside it uses a same-scope op. Read the pair:
+    //  alone, this one passes against arming every held op — the B1 regression.
     saveRegistry(addProject(emptyRegistry(), { id: "target", name: "Target", code: "T", storageConfig: { kind: "local-json" } }, false));
     (handles.getHandle as ReturnType<typeof vi.fn>).mockResolvedValue({ name: "t.json" });
     const current = makeBackend(0);
