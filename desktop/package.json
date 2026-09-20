@@ -1,6 +1,6 @@
 {
   "name": "aipm-cockpit-desktop",
-  "version": "1.12.3",
+  "version": "1.12.4",
   "author": "Sebastian Maute",
   "private": true,
   "description": "Desktop shell for AI PM Cockpit",

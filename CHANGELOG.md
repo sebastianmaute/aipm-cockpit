@@ -8,6 +8,38 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.12.4] - 2026-09-20 "Child"
+
+A deep-link patch. Three ways an address in the browser's address bar was read wrongly on a
+fresh page load.
+
+### Fixed
+
+- **A link to a specific item now opens that item's view and keeps its id in the address bar.**
+  The decision that a leftover view-only address is stale ran before the view actually changed,
+  so the check that suppresses the address rewrite compared against the previous view and let the
+  rewrite through — dropping the item id, and under React's development double-render landing on
+  the Dashboard instead of the linked item. `§535` is closed.
+- **A repeated link to the person whose editor is already open no longer resets it.** Re-opening
+  the same person replaced the editor's record with an equal copy, and the editor reconciles its
+  draft on that record's identity, so anything typed and not yet saved was discarded. The open
+  record is now kept as-is when the link resolves to the person already being edited. `§540` is
+  closed; the editor therefore keeps its copy when another writer changes that person concurrently,
+  which is recorded in the register as a deliberate trade.
+- **A leftover address is no longer judged before your settings have loaded.** The rule that
+  decides whether an address is a genuine deep link or stale residue ran on first render, against
+  the default set of modules rather than yours, and never revisited the decision — so a link to a
+  module you had switched off was judged against modules you do not have. The decision now waits
+  for your settings and is made once. `§595` is closed.
+
+### Known
+
+- Switching from the classic layout to modern mid-session still applies the stale-address rule to
+  an address left over from classic. This is reachable because of the fix above — the decision now
+  waits for settings, and a mid-session layout switch arrives after they have loaded — though the
+  overall exposure is smaller than before, and it can happen at most once per session. Filed open
+  as `§536`.
+
 ## [1.12.3] - 2026-09-19 "Child"
 
 Test infrastructure only — no production code changes, no user-visible behaviour change.
