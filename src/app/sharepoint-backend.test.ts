@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Mock } from "vitest";
 import { http, HttpResponse } from "msw";
 import { server } from "../test/msw-server";
+import { LOAD_TIMEOUT_MS } from "./fetch-with-timeout";
 import { parseSharePointFileUrl, parseSharePointSiteUrl } from "./sharepoint-backend";
 
 describe("parseSharePointFileUrl", () => {
@@ -15,6 +16,45 @@ describe("parseSharePointFileUrl", () => {
       sitePath: "/sites/Alpha",
       itemPath: "Shared Documents/lop/workspace.json",
     });
+  });
+
+  // ★★ A MALFORMED ESCAPE MUST RETURN null, NOT THROW. `decodeURIComponent` throws on these, which
+  // was survivable while the only callers were click handlers and stopped being so when
+  // `storage-config.tsx` began calling this during RENDER: typing "Shared%20" passes through
+  // "Shared%" and crashed the whole Settings section on a keystroke.
+  // Mutation: remove the try/catch around the `segments.map(decodeURIComponent)` in
+  // `parseSharePointFileUrl` → every case here throws instead of returning null, so all three go red.
+  it.each([
+    ["a bare percent", "https://contoso.sharepoint.com/sites/A/Shared%/file.json"],
+    ["a non-hex escape", "https://contoso.sharepoint.com/sites/A/Shared%zz/file.json"],
+    ["a truncated UTF-8 sequence", "https://contoso.sharepoint.com/sites/A/%e0%a4/file.json"],
+  ])("returns null (never throws) for %s", (_label, url) => {
+    expect(() => parseSharePointFileUrl(url)).not.toThrow();
+    expect(parseSharePointFileUrl(url)).toBeNull();
+  });
+
+  // ★★ THE OTHER ARM OF THAT GUARD, and it is the one a bare `catch {}` would lose: anything the
+  // decode throws that is NOT a `URIError` is a real bug and must PROPAGATE, not be reported to
+  // every caller as "this URL is unparseable". The guard is only narrow enough to be correct while
+  // `decodeURIComponent` is the sole thing inside the `try`, and nothing stops a later edit moving
+  // a statement in there — so the rethrow is what makes that edit fail loudly.
+  // Mutation (the counterpart of the it.each above): swap `if (e instanceof URIError) return null;
+  // throw e;` back to a bare `catch { return null; }` → this goes red while the it.each stays green.
+  it("PROPAGATES a non-URIError thrown by the decode instead of reporting 'unparseable'", () => {
+    const url = "https://contoso.sharepoint.com/sites/A/Shared%20Documents/file.json";
+    // Control: unstubbed, this exact URL parses — so the throw below can only come from the stub,
+    // and the test cannot pass because the URL was rejected before the decode was ever reached.
+    expect(parseSharePointFileUrl(url)?.itemPath).toBe("Shared Documents/file.json");
+    const realDecode = globalThis.decodeURIComponent;
+    try {
+      globalThis.decodeURIComponent = () => { throw new TypeError("not a URIError"); };
+      expect(() => parseSharePointFileUrl(url)).toThrow(TypeError);
+      expect(() => parseSharePointFileUrl(url)).toThrow("not a URIError");
+    } finally {
+      globalThis.decodeURIComponent = realDecode;
+    }
+    // The global really is back — a leak here would silently break every later case in this file.
+    expect(parseSharePointFileUrl(url)?.itemPath).toBe("Shared Documents/file.json");
   });
 
   it("decodes %20 escapes in itemPath", () => {
@@ -163,6 +203,28 @@ describe("SharePointBackend", () => {
 
   beforeEach(() => {
     acquireToken = vi.fn().mockResolvedValue("fake-token");
+  });
+
+  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+
+  // §548 — the load hold is up until a load settles, so a Graph read that never answers must FAIL the
+  // load. Same bound as Turso's (LOAD_TIMEOUT_MS). A plain Error, like SharePoint's HTTP-status errors,
+  // so it surfaces as the storageLoadFailed toast + the generic storage banner (plan ruling 10).
+  it("load fails at LOAD_TIMEOUT_MS, and not before, when the Graph read never answers", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn((_url: unknown, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new DOMException("The operation was aborted.", "AbortError")));
+    })));
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
+    let outcome: unknown = "pending";
+    const pending = be.load().then(() => "resolved", (e: unknown) => e);
+    void pending.then((o) => { outcome = o; });
+    await vi.advanceTimersByTimeAsync(LOAD_TIMEOUT_MS - 1);
+    expect(outcome).toBe("pending");
+    await vi.advanceTimersByTimeAsync(1);
+    await pending;
+    expect(outcome).toBeInstanceOf(Error);
+    expect((outcome as Error).message).toBe("SharePoint did not respond within 10 s. Try again later.");
   });
 
   it("isReady returns false when acquireToken returns null", async () => {

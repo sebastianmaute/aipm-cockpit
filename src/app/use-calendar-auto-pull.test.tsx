@@ -40,6 +40,27 @@ describe("useCalendarAutoPull", () => {
     expect(p1).not.toHaveBeenCalled();
   });
 
+  // §548 — the runner mounts while the load is pending (`enabled` false), so its mount tick is a
+  // no-op. The false→true flip when the load settles must pull at once, not wait for the next
+  // visibilitychange or the 15-minute interval.
+  it("pulls once when enabled flips false→true after mount (§548 — the load settles)", async () => {
+    vi.useFakeTimers();
+    const p1 = vi.fn().mockResolvedValue(undefined);
+    let hook: { rerender: (props: { enabled: boolean }) => void } | undefined;
+    await act(async () => {
+      hook = renderHook<void, { enabled: boolean }>(({ enabled }) => useCalendarAutoPull({ enabled, pulls: [p1] }), { initialProps: { enabled: false } });
+    });
+    await flush();
+    expect(p1).not.toHaveBeenCalled(); // control: nothing while pending
+    await act(async () => { hook!.rerender({ enabled: true }); });
+    await flush();
+    expect(p1).toHaveBeenCalledTimes(1);
+    // A re-render that stays enabled does not pull again.
+    await act(async () => { hook!.rerender({ enabled: true }); });
+    await flush();
+    expect(p1).toHaveBeenCalledTimes(1);
+  });
+
   it("fires each pull again after the 15-minute interval", async () => {
     vi.useFakeTimers();
     const p1 = vi.fn().mockResolvedValue(undefined);

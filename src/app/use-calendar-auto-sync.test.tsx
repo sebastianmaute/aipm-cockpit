@@ -30,6 +30,22 @@ describe("useCalendarAutoSync", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  // §548 — the push mounts inactive while the load is pending; `active` is an effect dep, so the
+  // flip when the load settles arms the debounce by itself (no extra trigger needed, unlike the
+  // auto-pull runner).
+  it("pushes once the debounce elapses after active flips false→true (§548 — the load settles)", () => {
+    const push = vi.fn().mockResolvedValue(undefined);
+    const { rerender } = renderHook(
+      ({ active }) => useCalendarAutoSync({ active, contentKey: "a", push }),
+      { initialProps: { active: false } },
+    );
+    vi.advanceTimersByTime(10_000);
+    expect(push).not.toHaveBeenCalled(); // control: nothing while pending
+    rerender({ active: true });
+    vi.advanceTimersByTime(4000);
+    expect(push).toHaveBeenCalledTimes(1);
+  });
+
   it("does not re-fire when the same contentKey re-renders", () => {
     const push = vi.fn().mockResolvedValue(undefined);
     const { rerender } = renderHook(

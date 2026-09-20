@@ -15,7 +15,8 @@ import { ToggleButton } from "./toggle-button";
 import { MAX_HOURS_PER_DAY } from "./types";
 import { saveSecretValue } from "./use-secrets";
 import { listUsers, getPrivileges } from "./timelog-api";
-import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
+import { FOCUS_RING } from "./interaction-styles";
+import { Button } from "./button";
 import { useIntegrationDisclaimer } from "./integration-disclaimer";
 import { Input, Select } from "./form-controls";
 import { emailWriteRefusal } from "./sanitize";
@@ -178,15 +179,16 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
               <option value="org">{t(lang, "timelogScopeOrg")}</option>
             </Select>
           </label>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="xs"
+            className="self-start whitespace-nowrap"
             onClick={() => void test()}
             disabled={testing}
             aria-label={t(lang, "timelogTestLabel")}
-            className={`self-start rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-ui-dark-blue disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
           >
             {t(lang, "timelogTest")}
-          </button>
+          </Button>
           <p role="status" className="text-xs text-muted-foreground">{testResult}</p>
         </div>
       )}

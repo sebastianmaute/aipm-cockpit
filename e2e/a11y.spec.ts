@@ -9,6 +9,7 @@ import {
 import { resolveSchemeColors } from "../src/app/scheme-tokens";
 import type { SchemeColorMap } from "../src/app/scheme-apply";
 import { APP_VERSION } from "../src/app/version";
+import { sealPassphrase, type SealedSecret } from "../src/app/secrets";
 
 // Accessibility gate: scan the critical views (with a DATA-SEEDED project, so
 // colour-coded RAG/status states actually render) for WCAG 2.0/2.1 A & AA
@@ -37,22 +38,23 @@ const HASH_VIEW: Partial<Record<(typeof A11Y_VIEWS)[number], string>> = {
 // ★ 7 combos × 17 views = 119, + the Kanban-board scan below (ONE PER COMBO,
 // its own `for (const combo of COMBOS)` loop — it scales with the combo count,
 // it is NOT a fixed 5) = 126, + 1 notes-window toolbar scan + 1 Documents
-// block-editor scan + 1 Reports cumulative-chart scan (all three harbor-light
-// only, hardcoded — none scales with the combo count) = 129 `a11y:`-prefixed
-// scans, + 1 chart-readout scan whose name does NOT carry that prefix (its
-// name is asserted verbatim by the chart-hover-readout plan, so `grep -c
-// "a11y:"` undercounts by exactly one) + the one non-scan guard below = 131
-// tests.
+// block-editor scan + 1 Reports cumulative-chart scan + 2 Turso-storage
+// Settings tests (the second runs axe in two states, but counts once) (all
+// five harbor-light only, hardcoded — none scales with the combo count) = 131
+// `a11y:`-prefixed tests, + 1 chart-readout scan whose name does NOT carry
+// that prefix (its name is asserted verbatim by the chart-hover-readout plan,
+// so `grep -c "a11y:"` undercounts by exactly one) + the one non-scan guard
+// below = 133 tests.
 // MEASURE it in the same commit that changes A11Y_VIEWS or adds a scan rather
 // than deriving it — this comment said 85 for as long as the list said 16
 // views, and a beacon-added-combo draft of this very comment still said "108
 // scans / 109 tests" by carrying forward the pre-beacon "5 Kanban variants"
 // instead of re-measuring. The 128/129 above were likewise MEASURED, not
 // derived, in the commit that added the umber-dark combo, and 129/130
-// re-measured when the Reports cumulative scan was added (§557). Reproduce
-// (no browsers needed):
-//   npx playwright test e2e/a11y.spec.ts --list   # 131 total
-//   …then `grep -c "a11y:"` over that output       # 129 scans (+1 unprefixed)
+// re-measured when the Reports cumulative scan was added (§557), and 131/133
+// when the two Turso-storage tests were (§548). Reproduce (no browsers needed):
+//   npx playwright test e2e/a11y.spec.ts --list   # 133 total
+//   …then `grep -c "a11y:"` over that output       # 131 (+1 unprefixed)
 const COMBOS = [
   { scheme: "harbor",   dark: false },
   { scheme: "harbor",   dark: true  },
@@ -401,4 +403,127 @@ test("Reports with the chart readout open has no axe violations", async ({ page 
     .map((v) => `${v.impact} · ${v.id}: ${v.help} (${v.nodes.length} node(s))`)
     .join("\n");
   expect(blocking, `Reports chart readout a11y violations:\n${summary}`).toEqual([]);
+});
+
+// §548: Settings → Integrations shows the Turso "Apply" button, its blocked-state
+// hint, the "Wrong passphrase." error and the "Save & switch" blocked hint ONLY
+// while `settings.storageConfig.kind === "turso"` (`tursoIsLive` in
+// integrations-section.tsx). e2e/seed.ts seeds FILE mode, so the Settings scan
+// in the A11Y_VIEWS loop never renders any of them. These two scans seed Turso
+// as the storage kind against a database that does not exist.
+// ★★ NOTHING LEAVES THE MACHINE. The URL is on the reserved `.invalid` TLD, and
+// every request to it (plus any *.turso.io host, in case a deployment env var
+// ever supplied a real URL) is aborted by `page.route`. The route is a
+// backstop, never the mechanism — measured 2026-09-19, it recorded ZERO hits:
+//   - device token: `connect-src` (src/proxy.ts) does not admit the fake host
+//     and CSP is enforced in the renderer BEFORE routing, so every
+//     `/v2/pipeline` fetch is refused by CSP and rejects at once;
+//   - passphrase token: the sealed record is only unlocked by the boot gate in
+//     TURSO portfolio mode (`showTursoUnlock`), and the seed is file mode, so
+//     the token stays empty, `getTursoConfig` returns null for the https URL
+//     and no request is made at all ("Storage isn't configured yet" toast).
+// Either way the load fails fast and SETTLES (a failed load is a terminal
+// branch of the load effect, so `loadPending` goes false) and the main tree
+// renders with the "Saving is paused" storage banner — which is scanned too.
+// ★ Same axe configuration as every scan above; harbor-light only.
+const TURSO_FIXTURE_URL = "libsql://axe-fixture.invalid";
+const TURSO_FIXTURE_TOKEN = "axe-fixture-token";
+
+async function seedTursoLiveStorage(
+  page: import("@playwright/test").Page,
+  sealed: SealedSecret | null,
+): Promise<void> {
+  await page.route(/axe-fixture\.invalid|turso\.io/, (route) => route.abort());
+  await page.addInitScript(seedScript(COMBOS[0]));
+  await page.addInitScript(
+    ({ url, token, sealedRecord }) => {
+      localStorage.setItem(
+        "aipm-cockpit:settings",
+        JSON.stringify({
+          tourSeen: true,
+          storageConfig: { kind: "turso" },
+          // A passphrase-sealed token is never kept in settings in plaintext.
+          integrations: { turso: { enabled: true, databaseUrl: url, authToken: sealedRecord ? "" : token } },
+        }),
+      );
+      if (sealedRecord) {
+        localStorage.setItem("aipm-cockpit:secrets", JSON.stringify({ tursoAuthToken: sealedRecord }));
+      }
+    },
+    { url: TURSO_FIXTURE_URL, token: TURSO_FIXTURE_TOKEN, sealedRecord: sealed },
+  );
+}
+
+async function openTursoSettings(page: import("@playwright/test").Page): Promise<void> {
+  await gotoApp(page);
+  await openView(page, "Settings");
+  await page.getByRole("button", { name: "Integrations", exact: true }).click();
+  await waitForViewSettled(page);
+}
+
+async function expectNoBlockingViolations(
+  page: import("@playwright/test").Page,
+  label: string,
+): Promise<void> {
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  const blocking = results.violations.filter(
+    (v) => v.impact === "critical" || v.impact === "serious",
+  );
+  const summary = blocking
+    .map((v) => `${v.impact} · ${v.id}: ${v.help} (${v.nodes.length} node(s))`)
+    .join("\n");
+  expect(blocking, `${label} a11y violations:\n${summary}`).toEqual([]);
+}
+
+test("a11y: harbor-light — Turso storage Apply controls (device token)", async ({ page }) => {
+  test.setTimeout(120_000);
+  await seedTursoLiveStorage(page, null);
+  await openTursoSettings(page);
+
+  // A dirty URL draft enables Apply. Assert the enabled state so the scan
+  // cannot run over a missing or disabled button and report GREEN.
+  await page.getByRole("textbox", { name: "Database URL", exact: true }).fill("libsql://axe-fixture-2.invalid");
+  const apply = page.getByRole("button", { name: "Apply Turso connection", exact: true });
+  await expect(apply).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Test connection – Turso", exact: true })).toBeVisible();
+  await waitForViewSettled(page);
+
+  await expectNoBlockingViolations(page, "Turso Apply (device token)");
+});
+
+test("a11y: harbor-light — Turso storage Apply controls (passphrase token)", async ({ page }) => {
+  // PBKDF2 at 600k iterations runs twice (the node-side seal below, the in-page
+  // verify after Apply) on top of a possibly cold first navigation.
+  test.setTimeout(120_000);
+  const sealed = await sealPassphrase("tursoAuthToken", TURSO_FIXTURE_TOKEN, "axe-fixture-passphrase");
+  await seedTursoLiveStorage(page, sealed);
+  await openTursoSettings(page);
+
+  // State 1 — BLOCKED: a changed token in passphrase mode with no passphrase
+  // typed. Apply is disabled and described by the blocked hint; picking the
+  // Turso portfolio mode brings up "Save & switch" with its own blocked hint.
+  await page.getByLabel("Auth token", { exact: true }).fill("axe-fixture-token-2");
+  const apply = page.getByRole("button", { name: "Apply Turso connection", exact: true });
+  await expect(apply).toBeDisabled();
+  await expect(apply).toHaveAttribute("aria-describedby", /turso-apply-blocked/);
+  await page.getByRole("combobox", { name: "Portfolio storage", exact: true }).selectOption("turso");
+  const saveSwitch = page.getByRole("button", { name: "Save & switch portfolio", exact: true });
+  await expect(saveSwitch).toBeDisabled();
+  await expect(saveSwitch).toHaveAttribute("aria-describedby", /turso-switch-blocked/);
+  await waitForViewSettled(page);
+  await expectNoBlockingViolations(page, "Turso Apply (passphrase, blocked)");
+
+  // State 2 — WRONG PASSPHRASE: a typed passphrase that does not open the
+  // sealed record. Apply verifies it, commits nothing and shows the error.
+  await page.getByRole("combobox", { name: "Portfolio storage", exact: true }).selectOption("file");
+  await page.getByLabel("Passphrase", { exact: true }).fill("not-the-passphrase");
+  await page.getByLabel("Confirm passphrase", { exact: true }).fill("not-the-passphrase");
+  await expect(apply).toBeEnabled();
+  await apply.click();
+  await expect(page.getByText("Wrong passphrase.", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(apply).toHaveAttribute("aria-describedby", /turso-apply-wrong-passphrase/);
+  await waitForViewSettled(page);
+  await expectNoBlockingViolations(page, "Turso Apply (passphrase, wrong passphrase)");
 });

@@ -129,3 +129,39 @@ describe("useInsightRecommend", () => {
     expect(args.onError).not.toHaveBeenCalled();
   });
 });
+
+// §548 (F7) — a billed generate already in flight when a project swap starts must not store its
+// recommendation against the NEW project's insights. `applyInsightRecommendation`'s own `loadPending`
+// gate cannot see this: by the time the model answers, the swap may already have FINISHED.
+describe("useInsightRecommend — the scope epoch (§548)", () => {
+  beforeEach(() => { runInsightRecommendation.mockReset(); });
+
+  it("drops the recommendation when the scope changed while the model was answering", async () => {
+    const epoch = { v: 5 };
+    let release!: (v: InsightRecommendation) => void;
+    runInsightRecommendation.mockReturnValue(new Promise((r) => { release = r; }));
+    const args = makeArgs({ getScopeEpoch: () => epoch.v });
+    const { result } = renderHook(() => useInsightRecommend(args));
+    let gen!: Promise<void>;
+    act(() => { gen = result.current.generate(1); });
+    epoch.v = 6; // a swap/backend change started while the call was in flight
+    await act(async () => { release(recommendation); await gen; });
+
+    expect(runInsightRecommendation).toHaveBeenCalledTimes(1); // control: the call really ran
+    expect(args.applyRecommendation).not.toHaveBeenCalled();
+    expect(result.current.generatingId).toBeNull(); // the spinner still clears
+  });
+
+  it("CONTROL — the same generate stores its result when the scope is unchanged", async () => {
+    const epoch = { v: 5 };
+    let release!: (v: InsightRecommendation) => void;
+    runInsightRecommendation.mockReturnValue(new Promise((r) => { release = r; }));
+    const args = makeArgs({ getScopeEpoch: () => epoch.v });
+    const { result } = renderHook(() => useInsightRecommend(args));
+    let gen!: Promise<void>;
+    act(() => { gen = result.current.generate(1); });
+    await act(async () => { release(recommendation); await gen; });
+
+    expect(args.applyRecommendation).toHaveBeenCalledWith(1, recommendation);
+  });
+});

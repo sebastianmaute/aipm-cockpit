@@ -7,6 +7,7 @@ import { CALENDAR_READWRITE_SCOPE, updateEvent, milestoneToGraphEvent } from "./
 import { fetchProjectEventDates } from "./outlook-calendar-read";
 import { planCalendarPull, type PullPlan } from "./calendar-pull";
 import { loadBaseline, writeBaselineDate, removeBaselineEntry } from "./calendar-sync-baseline";
+import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 import type { Milestone } from "./types";
 
 interface Args {
@@ -16,13 +17,15 @@ interface Args {
   isPopout: boolean;
   lang: Lang;
   enabled: boolean;
+  /** §548 — `useStorageBackend`'s scope-epoch reader; omitted outside the storage hook's reach. */
+  getScopeEpoch?: ScopeEpochReader;
 }
 
 // Own module-level in-flight lock keyed `${projectId}:milestone` — milestone keys
 // never collide with the generic entities' set, so a separate one is fine.
 const inFlightPull = new Set<string>();
 
-export function useMilestoneCalendarPull({ milestones, projectId, setMilestones, isPopout, lang, enabled }: Args) {
+export function useMilestoneCalendarPull({ milestones, projectId, setMilestones, isPopout, lang, enabled, getScopeEpoch }: Args) {
   const { acquireToken } = useMsAuth(enabled);
   const showToast = useToastContext();
   const [busy, setBusy] = useState(false);
@@ -33,6 +36,9 @@ export function useMilestoneCalendarPull({ milestones, projectId, setMilestones,
     writeBaselineDate(projectId, "milestone", eventId, newDate);
   }, [setMilestones, projectId]);
 
+  // ★ §548 — awaits Graph and then writes, deliberately NOT epoch-guarded: it touches no workspace
+  //   state, and the baseline it writes is keyed by the closure's `projectId` — the OUTGOING
+  //   project's — so a swap mid-flight still files the entry under the project it belongs to.
   const keepApp = useCallback(async (c: { id: number; eventId: string; appDate: string }) => {
     // App-wins: converge Outlook to the milestone's (kept) date so baseline===appDate
     // becomes GENUINELY true. Just refreshing the baseline would make the next pull
@@ -58,10 +64,14 @@ export function useMilestoneCalendarPull({ milestones, projectId, setMilestones,
     if (inFlightPull.has(lockKey)) return; // another milestone pull is already running
     inFlightPull.add(lockKey);
     setBusy(true);
+    // §548 — the project `milestones` (and every write below) belong to.
+    const startEpoch = getScopeEpoch?.();
     try {
       const token = await acquireToken(CALENDAR_READWRITE_SCOPE, { interactive: true }).catch(() => null);
       if (!token) { showToast("error", t(lang, "calendarPushNoAccess")); return; }
       const { events, truncated } = await fetchProjectEventDates(token, projectId);
+      // A swap started while Graph was answering; every write this pull makes is below this line.
+      if (dropStaleScopeWrite(getScopeEpoch, startEpoch, "useMilestoneCalendarPull")) return;
       const baseline = loadBaseline(projectId, "milestone");
       const plan = planCalendarPull({
         entities: milestones.map((m) => ({ id: m.id, date: m.date, outlookEventId: m.outlookEventId })),
@@ -96,7 +106,7 @@ export function useMilestoneCalendarPull({ milestones, projectId, setMilestones,
       inFlightPull.delete(lockKey);
       setBusy(false);
     }
-  }, [isPopout, enabled, acquireToken, showToast, lang, milestones, projectId, applyMove, setMilestones]);
+  }, [isPopout, enabled, acquireToken, showToast, lang, milestones, projectId, applyMove, setMilestones, getScopeEpoch]);
 
   return { pull, busy, result, clearResult: useCallback(() => setResult(null), []), keepApp, applyMove };
 }

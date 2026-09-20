@@ -1,12 +1,12 @@
 "use client";
 // Two-way calendar sync SP5: while the app is open this runner fires each entity's
-// BACKGROUND `pull` (task/raid/change/absence) on mount, on tab re-focus, and every
-// 15 minutes. Each pull self-gates on its own `.auto` enablement and early-returns
+// BACKGROUND `pull` (task/raid/change/absence) on mount, when `enabled` flips on (§548 —
+// the load settles), on tab re-focus, and every 15 minutes. Each pull self-gates on its own `.auto` enablement and early-returns
 // when disabled/popout, so this runner only owns the CADENCE. It owns NO React state
 // — args are mirrored behind refs so the tick callback stays stable and the
 // interval/visibility listener subscribe exactly once (also keeps us clear of the
 // banned react-hooks/set-state-in-effect rule — no render state here).
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 const AUTO_PULL_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -28,25 +28,38 @@ export function useCalendarAutoPull({ enabled, pulls }: CalendarAutoPullArgs): v
   // Overlap guard: skip a tick while a previous async run is still in flight.
   const isRunningRef = useRef(false);
 
-  useEffect(() => {
-    const tick = async () => {
-      if (!enabledRef.current) return;
-      if (isRunningRef.current) return; // a run is already in flight
-      isRunningRef.current = true;
-      try {
-        // Serial: a slow reconcile on one entity must not overlap the next.
-        for (const p of pullsRef.current) {
-          try {
-            await p();
-          } catch (e) {
-            console.warn("calendar auto-pull failed", e);
-          }
+  // Reads only refs, so it is stable for the hook's lifetime.
+  const tick = useCallback(async () => {
+    if (!enabledRef.current) return;
+    if (isRunningRef.current) return; // a run is already in flight
+    isRunningRef.current = true;
+    try {
+      // Serial: a slow reconcile on one entity must not overlap the next.
+      for (const p of pullsRef.current) {
+        try {
+          await p();
+        } catch (e) {
+          console.warn("calendar auto-pull failed", e);
         }
-      } finally {
-        isRunningRef.current = false;
       }
-    };
+    } finally {
+      isRunningRef.current = false;
+    }
+  }, []);
 
+  // §548 — the runner usually MOUNTS disabled (the load is still pending), so the mount tick below is a
+  // no-op. Pull as soon as `enabled` flips false→true instead of waiting for the next visibilitychange
+  // or interval. Seeded with the MOUNT value so a runner that mounts enabled does not fire twice; the
+  // in-flight guard in `tick` covers any overlap with the mount tick or the interval. Declared after
+  // the `enabledRef` mirror effect, so `tick` already reads the new value.
+  const prevEnabledRef = useRef(enabled);
+  useEffect(() => {
+    const was = prevEnabledRef.current;
+    prevEnabledRef.current = enabled;
+    if (enabled && !was) void tick();
+  }, [enabled, tick]);
+
+  useEffect(() => {
     // Fire on mount.
     void tick();
 
@@ -60,5 +73,5 @@ export function useCalendarAutoPull({ enabled, pulls }: CalendarAutoPullArgs): v
       document.removeEventListener("visibilitychange", onVisibilityChange);
       clearInterval(interval);
     };
-  }, []);
+  }, [tick]);
 }

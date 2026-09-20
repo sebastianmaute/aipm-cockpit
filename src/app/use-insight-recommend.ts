@@ -12,6 +12,7 @@ import { isAbortError } from "./abort-error";
 import { AiHttpError, classifyAiError, type AiErrorClass } from "./ai-errors";
 import type { Insight, InsightRecommendation } from "./insights/insight";
 import type { GroundingIndex } from "./action-ai";
+import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 
 export interface UseInsightRecommendArgs {
   insights: readonly Insight[];
@@ -23,6 +24,10 @@ export interface UseInsightRecommendArgs {
   isPopout?: boolean;
   /** Caller surfaces the toast for a failed generate. */
   onError?: (kind: AiErrorClass) => void;
+  /** §548 — `useStorageBackend`'s scope-epoch reader. Captured before the billed call and re-read
+   *  before `applyRecommendation`, so a generate started in one project cannot store its result in
+   *  the next one. Omitted by a caller outside the storage hook's reach (tests). */
+  getScopeEpoch?: ScopeEpochReader;
 }
 
 export interface UseInsightRecommendResult {
@@ -57,6 +62,8 @@ export function useInsightRecommend(args: UseInsightRecommendArgs): UseInsightRe
     if (!insight) return;
 
     setGeneratingId(insightId);
+    // §548 — the project this insight (and its grounding context) was read from.
+    const startEpoch = current.getScopeEpoch?.();
     try {
       const rec = await run(async (signal) => {
         try {
@@ -81,6 +88,10 @@ export function useInsightRecommend(args: UseInsightRecommendArgs): UseInsightRe
         }
       });
       if (rec == null) return; // aborted, or an error already surfaced above
+      // §548 — a swap or backend change ran while the model was answering: `insightId` names a row of
+      // the PREVIOUS project. `applyInsightRecommendation`'s own `loadPending` gate cannot see this,
+      // because the swap may already have FINISHED. Dropped, not queued.
+      if (dropStaleScopeWrite(current.getScopeEpoch, startEpoch, "useInsightRecommend", { insightId })) return;
       current.applyRecommendation(insightId, rec);
     } finally {
       // Functional, and guarded on OUR id: a superseded generate settles AFTER

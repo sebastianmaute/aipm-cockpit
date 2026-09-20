@@ -40,6 +40,7 @@ import type { UndoStackApi } from "./undo/use-undo-stack";
 import { valuesDiffer } from "./undo/field-groups";
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
 import { useEntityCalendarPull } from "./use-entity-calendar-pull";
+import type { ScopeEpochReader } from "./scope-epoch";
 import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
 import { taskToGraphEvent } from "./outlook-calendar-write";
 import { calendarSyncFor } from "./calendar-sync-config";
@@ -182,6 +183,20 @@ export interface TasksSectionProps {
   // (the calendar id has a `project.code` fallback). Used for the effective view mode.
   settingsProjectId?: string;
   m365Configured?: boolean;
+  /** §548 — `useStorageBackend`'s scope-epoch reader, threaded into this pane's OWN
+   *  `useEntityCalendarPush` / `useEntityCalendarPull` instances so a Graph call started
+   *  in one project cannot stamp its `outlookEventId`s — or its Outlook dates as
+   *  `dueDate` — onto the next project's same-id tasks. ★ REQUIRED, not optional,
+   *  exactly like `CalendarIntegrationDeps.getScopeEpoch`: the reader is optional at the
+   *  hooks themselves, so a pane that silently stopped passing it would keep working and
+   *  keep corrupting. tsc is the only thing that can see that, so it is made to.
+   *  ★★ KNOWN GAP, recorded rather than assumed away: `ScopeEpochReader` is `() => number`, so tsc
+   *  proves a reader of the right TYPE arrives — never that it is `useStorageBackend`'s. Nothing
+   *  MOUNTS this wiring either (`task-manager.characterization.test.tsx` mocks `workspace-section`
+   *  and only ever constructs `tasksSectionEl` as JSX), so a `() => 0` substituted at the call site
+   *  would pass every gate. The risk is low because the same identifier already feeds the two deps
+   *  bags in the same render scope, and those ARE covered — but do not read this prop as pinned. */
+  getScopeEpoch: ScopeEpochReader;
   // Inline "Ask Claude" task edit (SP1): the ToolDispatcher backing the single
   // useInlineAiEdit instance owned here, plus optional activity logging —
   // both threaded from task-manager.
@@ -248,6 +263,7 @@ export function TasksSection({
   projectId,
   settingsProjectId,
   m365Configured,
+  getScopeEpoch,
   dispatcher,
   logActivityAs,
   captureFieldEdit,
@@ -370,6 +386,9 @@ export function TasksSection({
     isPopout: !!isPopout,
     lang,
     enabled: !!m365Configured && !isPopout,
+    // §548 — this pane mounts its own push instance, so it must carry the reader itself;
+    // the seventeen instances in `use-calendar-integrations.ts` get it from the deps bag.
+    getScopeEpoch,
   });
   // Outlook calendar two-way sync (SP2): manual pull of due dates from Outlook.
   // Jira-synced tasks are excluded (Jira owns their dates).
@@ -385,6 +404,9 @@ export function TasksSection({
     isPopout: !!isPopout,
     lang,
     enabled: !!m365Configured && !isPopout,
+    // §548 — same reader as the push above: a pull resolving after a project change would
+    // otherwise write the OLD project's Outlook dates as `dueDate` on the NEW project's tasks.
+    getScopeEpoch,
   });
   // RAG health filter (toolbar) applies to BOTH the table and the board; the
   // separate hide-finished toggle stays table-only (below). "all" is a no-op.

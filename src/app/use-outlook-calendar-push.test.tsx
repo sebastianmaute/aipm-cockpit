@@ -74,4 +74,38 @@ describe("useOutlookCalendarPush", () => {
     await act(async () => { await result.current.pushToOutlook(); });
     expect(acquireToken).not.toHaveBeenCalled();
   });
+
+  // §548 (F7) — a push in flight when a project swap starts must not write the OLD project's event
+  // ids onto the NEW project's milestones. See `scope-epoch.ts`.
+  it("drops the whole reconcile when the scope epoch changed during the Outlook listing", async () => {
+    const epoch = { v: 1 };
+    let release!: () => void;
+    listProjectEvents.mockReturnValueOnce(new Promise((r) => { release = () => r([]); }));
+    const setMilestones = vi.fn();
+    const { result } = renderHook(() =>
+      useOutlookCalendarPush({ milestones: [ms(1)], projectId: "p", setMilestones, isPopout: false, lang: "en-US", enabled: true, getScopeEpoch: () => epoch.v }));
+    let push: Promise<void> = Promise.resolve();
+    act(() => { push = result.current.pushToOutlook(); });
+    epoch.v = 2;
+    await act(async () => { release(); await push; });
+
+    expect(listProjectEvents).toHaveBeenCalledTimes(1); // control: the push really ran
+    expect(createEvent).not.toHaveBeenCalled();
+    expect(setMilestones).not.toHaveBeenCalled();
+  });
+
+  it("CONTROL — the same push writes back when the scope epoch is unchanged", async () => {
+    const epoch = { v: 1 };
+    let release!: () => void;
+    listProjectEvents.mockReturnValueOnce(new Promise((r) => { release = () => r([]); }));
+    const setMilestones = vi.fn();
+    const { result } = renderHook(() =>
+      useOutlookCalendarPush({ milestones: [ms(1)], projectId: "p", setMilestones, isPopout: false, lang: "en-US", enabled: true, getScopeEpoch: () => epoch.v }));
+    let push: Promise<void> = Promise.resolve();
+    act(() => { push = result.current.pushToOutlook(); });
+    await act(async () => { release(); await push; });
+
+    expect(createEvent).toHaveBeenCalledTimes(1);
+    expect(setMilestones).toHaveBeenCalledTimes(1);
+  });
 });

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBroadcastSync } from "./broadcast-sync";
 import { t } from "./i18n";
 import {
@@ -21,6 +21,7 @@ import { loadCurrentTursoProjectId } from "./portfolio-mode";
 import { isTursoLockTimeout, tursoErrorKind } from "./storage-error";
 import { mergeActivityLogs } from "./activity-log-merge";
 import { mergeBudgetHistories } from "./budget-history";
+import { storageTargetKey } from "./storage-target-key";
 import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
 import { useTursoProjectOps } from "./use-storage-turso-ops";
@@ -75,12 +76,19 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // so load/save scope to the per-project (tenant-mode) TursoBackend.
   const [tursoProjectId, setTursoProjectId] = useState<string | null>(loadCurrentTursoProjectId());
 
+  // ★★★ §548 — THE TURSO URL AND TOKEN FEED THE BACKEND ONLY WHEN THE STORAGE KIND IS TURSO.
+  //   `createBackend` reads `tursoConfig` for kind "turso" alone, but these two used to sit in the
+  //   memo deps for EVERY kind — so on file or SharePoint storage an edit to either Settings field
+  //   built a new (identical) backend, which re-armed the load hold and unmounted the Settings view
+  //   under the user's cursor. `undefined` for every other kind keeps the deps still.
+  //   `storageTargetKey` already ignores both fields for a non-Turso kind, so key and backend agree.
+  const isTursoStorage = args.settings.storageConfig.kind === "turso";
+  const tursoUrlForBackend = isTursoStorage ? args.settings.integrations?.turso?.databaseUrl : undefined;
+  const tursoTokenForBackend = isTursoStorage ? args.settings.integrations?.turso?.authToken : undefined;
+
   // Backend instance — memoised on storageConfig identity
   const backend = useMemo(() => {
-    const tursoConfig = getTursoConfig(
-      args.settings.integrations?.turso?.databaseUrl,
-      args.settings.integrations?.turso?.authToken,
-    );
+    const tursoConfig = getTursoConfig(tursoUrlForBackend, tursoTokenForBackend);
     return createBackend(args.settings.storageConfig, {
       acquireToken: auth.acquireToken,
       tursoConfig,
@@ -89,10 +97,72 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   }, [
     args.settings.storageConfig,
     auth.acquireToken,
-    args.settings.integrations?.turso?.databaseUrl,
-    args.settings.integrations?.turso?.authToken,
+    tursoUrlForBackend,
+    tursoTokenForBackend,
     tursoProjectId,
   ]);
+
+  // ★★★ §591 — WHICH STORAGE TARGET THE IN-SCOPE WORKSPACE BELONGS TO. `applyWorkspaceFromLoad`'s "merge"
+  //   unions the loaded activity log and budget history with whatever is in memory, so it is right only
+  //   when memory holds THIS target's project. A settings-driven rebuild (a Turso URL/token edit, a
+  //   SharePoint target change) leaves the PREVIOUS target's project in scope, and merging it would
+  //   carry that project's audit trail into this one. `targetKey` excludes `acquireToken` so that IF
+  //   its identity ever changed (a rebuild against the same target), the load would keep merging.
+  //   Today `useMsAuth`'s `acquireToken` is a stable `useCallback`, so an M365 sign-in/out does not
+  //   rebuild the backend at all.
+  // ★ The ref is stamped (1) on the load effect's first hydrated run (the boot workspace holds only
+  //   this session's own appends), (2) wherever a load is APPLIED from the current target, and (3) on
+  //   the suppress-branch re-stamp after a project op. It is deliberately NOT stamped by the empty-load
+  //   refusal or a failed load: scope still holds the previous target there.
+  // ★ `targetKey` contains the Turso auth token. Never log it.
+  const targetKey = storageTargetKey({
+    storageConfig: args.settings.storageConfig,
+    tursoDatabaseUrl: tursoUrlForBackend,
+    tursoAuthToken: tursoTokenForBackend,
+    tursoProjectId,
+  });
+  const scopeTargetKeyRef = useRef<string | null>(null);
+  // ★★★ §548 — THE SCOPE EPOCH. A monotonic counter whose ONLY meaning is: the workspace in scope has
+  //   become a DIFFERENT PROJECT since you read this. A writer that awaits Graph or the AI captures it
+  //   before its first await and DROPS its write when the value differs at resolution —
+  //   `scope-epoch.ts` (`isScopeStale` / `dropStaleScopeWrite`) is the shared guard. `loadPending`
+  //   cannot answer this: it is back to FALSE by the time a promise started before the swap resolves.
+  // ★★★ THE PREDICATE IS NARROW ON PURPOSE, and the first cut got it wrong: it bumped on every
+  //   false→true transition of `loadPending`, which also fires for a same-target reload, a held op the
+  //   user CANCELLED at the OS file picker, and a settings-driven rebuild onto the same target. In
+  //   each of those the project never changed, so an in-flight result that would have landed in the
+  //   RIGHT project was dropped — and for the committee push that costs a permanent orphan plus a
+  //   duplicate event (see `useCommitteeOutlookPush`). It now has exactly THREE bump sites — the
+  //   same three `scope-epoch.ts`'s header enumerates, and the same three
+  //   `grep -rn "bumpScopeEpoch()" src/app --include=*.ts --include=*.tsx | grep -v test` prints:
+  //   (a) a load that REPLACES rather than merges — i.e. §591's own rule, decided once in
+  //       `resolveLogModeAndStamp` below so there is no second copy of it;
+  //   (b) an op that put ANOTHER project's data in scope — `applyWorkspaceForOp`, the wrapper the
+  //       two project-op hooks receive as their `applyWorkspace` dep (the six switch/create/load
+  //       ops); and
+  //   (c) `onOpenStorageFile`'s accept branch, which replaces tasks+raid with another file's
+  //       through raw setters and so reaches neither (a) nor (b).
+  // ★★ (b) is NOT redundant with (a): `storageTargetKey` keys `browser` and every `local-*` kind on
+  //   the KIND ALONE (§591 ruling 3), so a file-mode project switch does not move the key at all.
+  // ★★ It is bumped SYNCHRONOUSLY, immediately BEFORE the replacement it announces, so there is no
+  //   instant at which the new project's workspace is in scope while the epoch still reads old. A
+  //   writer resolving between the bump and React's commit is dropped although scope still holds the
+  //   OUTGOING project — the conservative direction, and that write would have been replaced anyway.
+  // ★ A FAILED load and the empty-load refusal apply nothing and stamp nothing, so neither bumps:
+  //   scope still holds the previous project, and a write landing there is still correct.
+  const scopeEpochRef = useRef(0);
+  const bumpScopeEpoch = () => { scopeEpochRef.current += 1; };
+  // §591 — the one place the "merge onto the same target, else replace" ternary is decided, shared by
+  // the load effect's applied branch and reloadCurrentProject (previously duplicated at both sites).
+  // Reads the ref BEFORE stamping it to the CURRENT load's target — same order as the duplicated code.
+  // ★ §548 clause (a) lives HERE rather than at the two call sites, so "replace" and "the scope epoch
+  //   moved" cannot drift apart: a replace IS the in-scope workspace becoming another target's.
+  const resolveLogModeAndStamp = (): "merge" | "replace" => {
+    const logMode = scopeTargetKeyRef.current === targetKey ? "merge" : "replace";
+    scopeTargetKeyRef.current = targetKey;
+    if (logMode === "replace") bumpScopeEpoch();
+    return logMode;
+  };
 
   // ★★★ IDENTITY, NOT A LATCH (open-followups §77 — full rationale there).
   // Holds the BACKEND the applied workspace came from; the published boolean is
@@ -110,6 +180,32 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // someone to delete the suppress-path re-stamp below. §77 has the seven arm
   // sites and its reproduce grep.
   const workspaceLoaded = loadedBackend !== null && loadedBackend === backend;
+  // ★★★ §548 — THE LOAD HOLD'S SIGNAL, and deliberately NOT `workspaceLoaded`. That gate stays shut
+  //   after a FAILED load and on the empty-load refusal, which is right for snapshots and saving and
+  //   wrong for editing: a hold keyed on it would lock the app for the session after one load error.
+  //   This asks a narrower question — is a load still IN FLIGHT for the current backend? — so EVERY
+  //   terminal branch of the load effect stamps it: applied, suppressed re-stamp, refused, failed.
+  //   Identity, not a latch (§77): a rebuilt backend starts unsettled by construction.
+  const [settledBackend, setSettledBackend] = useState<ReturnType<typeof createBackend> | null>(null);
+  // ★★ §548 — project-swap ops in flight (see `holdDuring`): each awaits and THEN replaces the
+  //   workspace, so an edit made during its await would be discarded exactly like one made during the
+  //   first load.
+  const [swapsInFlight, setSwapsInFlight] = useState(0);
+  // ★★ TRUE before hydration (spec revision 2026-09-19): the first load has not even started, so it IS
+  //   pending, and ONE signal covers every consumer (the render hold and each background-writer gate)
+  //   through that window. The hold therefore relies on `hydrated` always becoming true — bounded in
+  //   `useSettings` by `SECRET_MERGE_TIMEOUT_MS`.
+  const loadPending = !args.hydrated || settledBackend !== backend || swapsInFlight > 0;
+  // §548 — the scope epoch's reader. The counter (`scopeEpochRef`) and `bumpScopeEpoch` are declared
+  // beside `scopeTargetKeyRef` above, but only ONE of the THREE bump sites is up there: (a) is inside
+  // `resolveLogModeAndStamp`, (b) is `applyWorkspaceForOp` further down THIS file, and (c) is in
+  // `use-storage-file-ops.ts` (`onOpenStorageFile`'s accept branch, through the required
+  // `bumpScopeEpoch` dep). Re-derive rather than trust this sentence:
+  // `grep -rn "bumpScopeEpoch()" src/app --include=*.ts --include=*.tsx | grep -v test`.
+  // ★ STABLE for the hook's lifetime, so a consumer can mirror it into a
+  // `[]`-dep ref or callback without re-subscribing anything. Deliberately NOT a render value:
+  // publishing the number would re-render every consumer on each swap.
+  const getScopeEpoch = useCallback(() => scopeEpochRef.current, []);
   // ★★★ §586 — THE SAVE GATE: the backend instance render scope may be written to. Before it opens,
   //   the boot workspace is EMPTY, and a save of it is `DELETE FROM` every Turso table, an empty
   //   SharePoint PUT, an overwritten file. The AUTOMATIC writes of the live workspace to the ACTIVE
@@ -119,11 +215,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   "Pick storage file" (`guardedWrite`, open follow-up §590), a conversion after a successful load,
   //   create and load-from-file. Identity, like `loadedBackend`, so a rebuilt
   //   backend starts shut and a failed load never opens it.
-  //   ★★ That covers a settings-driven REBUILD too (§587): a Turso URL/token keystroke or a SharePoint
+  //   ★★ That covers a settings-driven REBUILD too (§587): a committed Turso URL/token edit (on Turso storage) or a SharePoint
   //   target change builds a new instance with the PREVIOUS target's workspace still in scope.
   // ★★★ IT OPENS IN EXACTLY THREE PLACES, and only one of them is "a load of THIS instance":
-  //   1. `applyWorkspace` — the load effect's applied load, `reloadCurrentProject`, and the switch /
-  //      create / load-from-file ops (those stamp the render-scope, i.e. OUTGOING, instance);
+  //   1. `applyWorkspaceFromLoad` — the load effect's applied load, `reloadCurrentProject`, and (through
+  //      `applyWorkspaceForOp`) the switch / create / load-from-file ops (those stamp the render-scope,
+  //      i.e. OUTGOING, instance);
   //   2. the load effect's suppress-branch RE-STAMP after such an op — the op loaded a SIBLING instance
   //      of the same target, built a fresh workspace, or (a kind conversion) wrote the live one there;
   //      the memo's own instance is never loaded;
@@ -243,7 +340,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // default loses another project's audit trail into this one, unrecoverably once saved.
   // ★ SEPARATE from `seedMode` because the initial load is "reset" + "merge" — one flag cannot carry
   // both ("different id space?" vs "same project I already hold state for?"). See the branch below.
-  const applyWorkspace = (workspace: Workspace, seedMode: "reset" | "raise" = "reset", logMode: "merge" | "replace" = "replace") => {
+  // ★★★ §548 — NAMED `…FromLoad` ON PURPOSE (round 2, N3). This is the RAW apply, and it does NOT
+  //   bump the scope epoch: its two legitimate callers (the load effect's applied branch and
+  //   `reloadCurrentProject`) decide by `resolveLogModeAndStamp`, which bumps only on "replace".
+  //   Anything that replaces the workspace with ANOTHER PROJECT's must go through
+  //   `applyWorkspaceForOp` below instead. The old bare name made the wrong one the obvious one.
+  const applyWorkspaceFromLoad = (workspace: Workspace, seedMode: "reset" | "raise" = "reset", logMode: "merge" | "replace" = "replace") => {
     // ★★★ NO MIGRATION HAS EVER BACK-FILLED `Task.resourceId` FOR A REAL
     // PROJECT, on any backend. Two near-misses make it look otherwise and both
     // were written into an earlier version of this comment before being
@@ -308,13 +410,26 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // ★ An earlier revision of this comment asserted the opposite (that a
     // flushSync would defeat the ordering) and invited the first-line move.
     setLoadedBackend(backend);
+    setSettledBackend(backend); // §548 — see `settledBackend`; beside the stamp, and late for the same reason.
     allowSavesTo(backend); // §586 — beside the stamp, and LAST for the same reason.
   };
+
+  // ★★★ §548 clause (b) — THE ONLY `applyWorkspace` THE PROJECT OPS SEE. Every call the two op hooks
+  //   make (`switchToProject` · `createProject` · `loadProjectFromFile` · `createDemoProject` ·
+  //   `switchToTursoProject` · `createTursoProject`) puts ANOTHER project's data in scope, so the bump
+  //   belongs at the boundary rather than at those six sites, where it could be forgotten by the next
+  //   op. `migrateCurrentProjectToTurso` never calls it — the project is the same, only the backend
+  //   moves — and so never bumps, which is correct. ★ An op that REJECTS or is cancelled never reaches
+  //   its `applyWorkspace`, so it never bumps either: that is the whole point of the narrow predicate.
+  // ★ `applyWorkspaceFromLoad` above stays the load effect's and `reloadCurrentProject`'s, which decide
+  //   by `resolveLogModeAndStamp` (clause (a)) instead — its name says so, so this wrapper cannot be
+  //   bypassed by reaching for the obvious one.
+  const applyWorkspaceForOp = (workspace: Workspace) => { bumpScopeEpoch(); applyWorkspaceFromLoad(workspace); };
 
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
   //     four setters. These are the last §72 setters in this hook that can
   //     escape as an UNHANDLED REJECTION rather than a merely discarded update;
-  //     `applyWorkspace`'s 29 setters and `onOpenStorageFile`'s raw ones are
+  //     `applyWorkspaceFromLoad`'s 31 setters and `onOpenStorageFile`'s raw ones are
   //     still unguarded, deliberately, because every one of them sits inside a
   //     `try` whose `catch` calls only guarded emitters. Three of the eight
   //     call sites await this function outside any `try`: the load effect's
@@ -327,10 +442,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //     this is the hook's OWN state, so there is no superseded-run result a
   //     caller still needs. `logDiag` stays OUTSIDE the guard so a teardown-time
   //     status failure is still recorded.
-  //     ★ That "29" is the likeliest claim here to rot — it has already read 25, then
-  //     28. Re-derive with the sed commands in `docs/AGENTS/activity-log.md`, NOT in
-  //     AGENTS.md. Anchor the START on a LINE-INITIAL two-space `const applyWorkspace`,
-  //     spelled short HERE so it cannot match itself. Bare, sed RE-TRIGGERS at every later mention (573 printed lines, 32) — it does NOT start earlier.
+  //     ★ That "31" is the likeliest claim here to rot — it has already read 25, 28,
+  //     then 29. Re-derive with the sed commands in `docs/AGENTS/activity-log.md`, NOT in
+  //     AGENTS.md. Anchor the START on a LINE-INITIAL two-space `const applyWorkspaceFromLoad`,
+  //     spelled short HERE so it cannot match itself. Bare, sed RE-TRIGGERS at every later mention (717 printed lines, 35) — and since the §548 round-2 rename it DOES also start earlier, at the first comment mentioning the name. Re-measure both; do not quote these.
   const refreshBackendStatus = async () => {
     try {
       const ready = await backend.isReady();
@@ -351,6 +466,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
 
   useEffect(() => {
     if (!args.hydrated) return;
+    // §591 — the boot workspace holds nothing but this session's own appends for the target being loaded.
+    if (scopeTargetKeyRef.current === null) scopeTargetKeyRef.current = targetKey;
     let cancelled = false;
     (async () => {
       if (suppressNextLoadRef.current) {
@@ -358,7 +475,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         // ★★★ REQUIRED re-stamp (open-followups §77 — seven arm sites, the
         // reproduce grep and the full argument live there). Every op that arms
         // this ref already put the right workspace in render scope, but does so
-        // BEFORE flipping `storageConfig`/`tursoProjectId`; `applyWorkspace` is
+        // BEFORE flipping `storageConfig`/`tursoProjectId`; `applyWorkspaceFromLoad` is
         // a plain render-scope function, so it stamped the PREVIOUS backend and
         // the derived gate reads false. Without this the gate strands CLOSED for
         // the session, silently disabling snapshot capture.
@@ -367,7 +484,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         // review read that as a regression; it is not, and §77 says why. Do not
         // "fix" it by re-stamping there.
         setLoadedBackend(backend);
+        setSettledBackend(backend); // §548 — nothing is in flight: the op already put this target in scope.
         allowSavesTo(backend); // §586 — the op already loaded or built what scope holds.
+        scopeTargetKeyRef.current = targetKey; // §591 — and that workspace belongs to THIS target.
         await refreshBackendStatus();
         return;
       }
@@ -382,6 +501,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         // workspace is empty, so a normal first load is never blocked.
         if (isWorkspaceEmpty(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
           recordDataLossEvent({ path: "load", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: 0, refused: true });
+          setSettledBackend(backend); // §548 — nothing applied, but nothing is still in flight either.
           emitToast("info", t(langRef.current, "storageKeptCurrentData"));
           setSavesPaused({ backend, reason: "empty-refused" }); // ★★★ §587: the save gate stays SHUT — opening it here copied the previous project into this (empty) target. See `savesAllowedFor`; the save effect announces the pause.
           truncationOps.raiseDecodeFailuresFor(backend); // ★★ Since §587 this refusal also leaves the save gate SHUT for THIS backend, but a later load that lands reopens it, so the flag is still published: a decode failure is a fact about its stored bytes, not about the workspace that stayed live — so the decode half is published while truncation's is not. AFTER the toast above: single-slot surface, see the landmine on `reportFor`. Raise-only; the doc on `raiseDecodeFailuresFor` carries why lowering here would clear a warning that is still true.
@@ -389,14 +509,17 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
           emitOutcome(null);
           return;
         }
-        applyWorkspace(workspace, "reset", "merge"); // "merge": SAME project — keep appends made while this load was in flight.
+        // §591 — "merge" (keep appends made while this load was in flight) ONLY onto the same target;
+        // after a rebuild onto another target, scope holds the previous project, so REPLACE.
+        applyWorkspaceFromLoad(workspace, "reset", resolveLogModeAndStamp());
         logDiag("info", "storage.loaded", { records: workspaceRecordCount(workspace) });
-        truncationOps.reportFor(backend); // ★ after applyWorkspace only: the empty-load REFUSAL above applies nothing, so neither raising nor lowering the TRUNCATION flag would describe the workspace that is actually live. ★★ That reasoning is TRUNCATION-specific and does NOT extend to the decode cause — the refusal path publishes that one itself, just above.
+        truncationOps.reportFor(backend); // ★ after applyWorkspaceFromLoad only: the empty-load REFUSAL above applies nothing, so neither raising nor lowering the TRUNCATION flag would describe the workspace that is actually live. ★★ That reasoning is TRUNCATION-specific and does NOT extend to the decode cause — the refusal path publishes that one itself, just above.
         suppressNextSaveRef.current = true;
         await refreshBackendStatus();
         emitOutcome(null);
       } catch (err) {
         if (cancelled) return;
+        setSettledBackend(backend); // §548 — a FAILED load leaves nothing in flight to overwrite an edit. (`cancelled` above covers teardown.)
         setSavesPaused({ backend, reason: "load-failed" }); // §586: saves stay refused; published as `loadPause` (sticky banner), and the first refused edit toasts once.
         emitOutcome(err);
         logDiag("error", "storage.loadFailed", { kind: settingsRef.current.storageConfig.kind, message: String(err) });
@@ -769,7 +892,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setTursoProjectId,
     truncationOps,
     currentWorkspace,
-    applyWorkspace,
+    applyWorkspace: applyWorkspaceForOp, // §548 clause (b)
     suppressNextLoadRef,
     suppressNextSaveRef,
     reportProjectError,
@@ -787,7 +910,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     langRef,
     settingsRef,
     truncationOps,
-    applyWorkspace,
+    applyWorkspace: applyWorkspaceForOp, // §548 clause (b)
     backendFor,
     commitRegistry,
     persistBackendHandle,
@@ -820,6 +943,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setTasks,
     setRaid,
     tasks,
+    bumpScopeEpoch, // §548 clause (b) — onOpenStorageFile's accept branch only
   });
 
   // Re-load the CURRENT project's workspace from its backend, discarding the
@@ -850,7 +974,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       }
       // RAISE (not reset): this same-project reload may reflect a locally-deleted
       // max-id row; lowering the mark to the reloaded max would free that id.
-      applyWorkspace(workspace, "raise", "merge"); // "merge": SAME project — a reload must not drop this device's entries.
+      // §591 — "merge" (a reload must not drop this device's entries) ONLY while scope holds THIS target's
+      // project. After a rebuild onto an EMPTY target the refusal left the previous project in scope, and
+      // `reloadEmptyConfirm` promises the user a REPLACE.
+      applyWorkspaceFromLoad(workspace, "raise", resolveLogModeAndStamp());
       // Confirm the manual recovery action succeeded (a bare re-render gives no feedback that the reload actually re-read the backend).
       // ★★ BEFORE `reportFor`, not after — single-slot surface, see the landmine there. Safe to hoist past the await: `refreshBackendStatus` swallows every error, so this cannot report success over a status check that blew up.
       emitToast("success", t(langRef.current, "reloadProjectSuccess"));
@@ -868,16 +995,33 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }
   };
 
+  // ★★ §548 — hold `loadPending` for the WHOLE of an op that awaits and then REPLACES the workspace.
+  //   The op flushes the outgoing project BEFORE its await; an edit made during the await would be
+  //   replaced in memory when the op applies. `finally`, so a throwing op cannot strand the hold;
+  //   `mountedRef`, so a teardown cannot throw (§72). Wraps exactly the nine ops in the return object.
+  function holdDuring<A extends unknown[]>(op: (...opArgs: A) => Promise<void>): (...opArgs: A) => Promise<void> {
+    return async (...opArgs: A) => {
+      setSwapsInFlight((n) => n + 1);
+      try {
+        await op(...opArgs);
+      } finally {
+        if (mountedRef.current) setSwapsInFlight((n) => n - 1);
+      }
+    };
+  }
+
   // Grouped one line per concern — a plain re-export list, and the cheapest block
   // to compress in a file that runs close to the size ratchet's LIMIT. ★ Do not quote a
   // number here — this comment said "sits AT" while the file had 14 lines of headroom.
   // Measure: node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
   return {
-    storageDescription, storageReady, workspaceLoaded, loadPause,
-    onPickStorageFile, onGrantWriteAccess, onOpenStorageFile, onRequestStorageSwitch,
-    reloadCurrentProject, allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
-    switchToProject, createProject, createDemoProject, loadProjectFromFile,
-    switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso,
+    storageDescription, storageReady, workspaceLoaded, loadPause, loadPending, getScopeEpoch,
+    onPickStorageFile, onGrantWriteAccess, onOpenStorageFile: holdDuring(onOpenStorageFile), onRequestStorageSwitch,
+    reloadCurrentProject: holdDuring(reloadCurrentProject), allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
+    switchToProject: holdDuring(switchToProject), createProject: holdDuring(createProject),
+    createDemoProject: holdDuring(createDemoProject), loadProjectFromFile: holdDuring(loadProjectFromFile),
+    switchToTursoProject: holdDuring(switchToTursoProject), createTursoProject: holdDuring(createTursoProject),
+    migrateCurrentProjectToTurso: holdDuring(migrateCurrentProjectToTurso),
     archiveTursoProject, restoreTursoProject, hardDeleteTursoProject,
     tursoProjectId,
   };

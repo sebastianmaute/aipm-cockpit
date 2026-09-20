@@ -32,33 +32,50 @@ it has no table of its own, NOT because it sits outside the workspace.
   `nonEmptyCollectionCount`/`workspaceRecordCount`. Pinned by `workspace.test.ts` ("a workspace holding
   ONLY activity entries is still EMPTY (inverse of documents)"). Do not "complete" the documents
   precedent.
-  ★★★ **`applyWorkspace`'s `logMode` has TWO branches and they are not interchangeable.** MERGE
+  ★★★ **`applyWorkspaceFromLoad`'s `logMode` has TWO branches and they are not interchangeable.** MERGE
   (same-project load/reload) unions by id via `mergeActivityLogs` so entries appended while a load was
   in flight survive; REPLACE (project switch/create/load-from-file) stops the outgoing project's trail
   leaking into the target. **The default is REPLACE — the contaminating direction must be asked for
   explicitly.** ★★ Those switch/create/load-from-file sites do NOT hide from a bare
-  `grep "applyWorkspace("` — they spell it `deps.applyWorkspace(ws)` and the grep finds all six. What
+  `grep "applyWorkspace("` — they spell it `deps.applyWorkspace(ws)` and the grep finds all six (that
+  deps member is now wired to `applyWorkspaceForOp`, §548 clause (b), which bumps the scope epoch and
+  then calls `applyWorkspaceFromLoad`). What
   hides is the ARGUMENT: the deps contract in `use-storage-file-ops.ts` / `use-storage-turso-ops.ts` is
   typed `(ws: Workspace) => void`, one parameter, so those call sites structurally CANNOT pass a
   `logMode` and silently take the default. Widening that contract is what would let one of them opt into
   the contaminating branch — check the TYPE, not the call text.
+  ★★★ **The two MERGE callers merge only onto the SAME storage target (§591).** The load effect and
+  `reloadCurrentProject` compare `storageTargetKey` (the storage kind plus the Turso URL, token and
+  project id, or the SharePoint host, site and item path; `acquireToken` deliberately excluded) with
+  `scopeTargetKeyRef`, the target the in-scope workspace belongs to, and pass "replace" when they differ.
+  A settings-driven rebuild used to merge the PREVIOUS target's log and budget history into the new one.
+  The ref is stamped on the load effect's first hydrated run (so the boot load merges this session's own
+  appends), on every applied load and on the suppress-branch re-stamp after a project op; the empty-load
+  refusal and a failed load leave it alone, so a later "Reload project" onto that target REPLACES, as
+  `reloadEmptyConfirm` says. `acquireToken` is excluded so that IF its identity ever changed (a rebuild
+  against the same target), the load would keep merging; today `useMsAuth`'s `acquireToken` is a stable
+  `useCallback`, so an M365 sign-in/out does not rebuild the backend at all. Pinned by
+  `use-storage-backend.target-key.test.tsx`.
   ★★ **`applyRestoredWorkspace` (`task-manager.tsx`, the SECOND load funnel) deliberately does NOT set
   `activityLog`.** `getVersionPayload` builds its snapshot from an explicit field list carrying no
   `activityLog`, so fanning it out would blank the audit trail on every version restore.
-  ★★ It is ONE OF FOUR slices on which the two funnels disagree, NOT the only one — `features`,
-  `fieldVisibility` and `documentAssets` are also absent from the restore fan-out. An earlier revision
-  said "the one slice" and its successor said THREE; either sends a reader who diffs the funnels off to
-  distrust the doc or to "complete the pattern" on the rest. ★★★ **THAT SENTENCE HAS NOW BEEN
-  OVERTAKEN TWICE BY SLICES THAT NEVER OPENED THIS FILE** — `documentAssets` joined `applyWorkspace`
-  with S3c-1 and nothing here moved. Do not repair it by writing FOUR and walking away; re-derive,
-  which is why the commands sit below rather than the count. ★★ That diff returns FIVE names, not
-  four — the fifth is `setLoadedBackend`, which is the load GATE (`workspaceLoaded` derives from it),
-  not a workspace slice, and the comment above `applyRestoredWorkspace` already says the restore
-  funnel deliberately omits it. Four SLICES, five NAMES; a reader who stops at the count will think
-  this line is wrong. ★ A range that stops at `setCalendarEvents` hides `setLoadedBackend` and returns
-  four — it is deliberately the LAST setter in `applyWorkspace` (only the §586 save-gate call
-  `allowSavesTo`, which the `set` grep does not match, follows it), so end the range at the function's close
-  brace. ★ It does NOT hide `setDocumentAssets`, which shares `setCalendarEvents`' source line.
+  ★★ It is ONE OF FIVE slices on which the two funnels disagree, NOT the only one — `features`,
+  `fieldVisibility`, `documentAssets` and `budgetHistory` are also absent from the restore fan-out. An
+  earlier revision said "the one slice" and its successors said THREE and FOUR; each sends a reader who
+  diffs the funnels off to distrust the doc or to "complete the pattern" on the rest. ★★★ **THAT
+  SENTENCE HAS NOW BEEN OVERTAKEN THREE TIMES BY SLICES THAT NEVER OPENED THIS FILE** —
+  `documentAssets` joined `applyWorkspaceFromLoad` with S3c-1, `budgetHistory` with the budget-history
+  persistence slice, and nothing here moved either time. Do not repair it by writing FIVE and walking
+  away; re-derive, which is why the commands sit below rather than the count. ★★ That diff returns
+  SEVEN names, not five — the sixth and seventh are `setLoadedBackend` and `setSettledBackend`: the load
+  GATE (`workspaceLoaded` derives from the first) and the §548 load-hold signal (`loadPending` derives
+  from the second), not workspace slices. The comment above `applyRestoredWorkspace` already says the
+  restore funnel deliberately omits the first; a restore settles no load, so it omits the second too.
+  Five SLICES, seven NAMES; a reader who stops at the count will think this line is wrong. ★ A range
+  that stops at `setCalendarEvents` hides both — they are deliberately the LAST two setters in
+  `applyWorkspaceFromLoad` (only the §586 save-gate call `allowSavesTo`, which the `set` grep does not match,
+  follows them), so end the range at the function's close brace. ★ It does NOT hide
+  `setDocumentAssets`, which shares `setCalendarEvents`' source line.
   ★★★ RUN THESE RATHER THAN PARAPHRASE THEM. The paragraph above described this diff in prose
   ("extract the setter names … and `comm` them") while the code comment that carried the real command
   lost it to a size-ratchet condense — and prose describing a command is not a command. It cannot go
@@ -66,27 +83,31 @@ it has no table of its own, NOT because it sits outside the workspace.
   `wc -l` plus one) — ONE line of headroom, not the two this used to imply — and this file is outside
   that gate's `src` walk, so the command lives here.
   ★★ **SUPERSEDED 2026-09-03 — the headroom half of that argument no longer holds.** The ratchet
-  LIMIT was doubled 800 → 1600, so `use-storage-backend.ts` (still 799) now has ~800 lines of room
+  LIMIT was doubled 800 → 1600, so `use-storage-backend.ts` (no longer 799 — measure it with the node one-liner in AGENTS.md's size:check note) has hundreds of lines of room
   and the command COULD go back into the source comment. The reason to keep it HERE is unchanged and
   is the one that always mattered: prose describing a command is not a command, and a comment that
   gets condensed loses it again. Read the paragraph above as the rationale, not the line count.
-  `sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **29**
+  `sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **31**
   `sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **24**
-  `comm -23 <(sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u) <(sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u)`
-  → `setActivityLog(` `setDocumentAssets(` `setFeatures(` `setFieldVisibility(` `setLoadedBackend(`
+  `comm -23 <(sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u) <(sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u)`
+  → `setActivityLog(` `setBudgetHistory(` `setDocumentAssets(` `setFeatures(` `setFieldVisibility(` `setLoadedBackend(` `setSettledBackend(`
   ★★ THE TWO RANGES TAKE DIFFERENT ANCHORS AND BOTH WRONG FORMS INFLATE SILENTLY rather than error.
   `applyRestoredWorkspace` is a `useCallback`, so it closes on `}, [` — reusing the first command's
-  end anchor there runs 626 lines and reports 39. And that first command's start pattern needs the
-  `const … = ` prefix: bare, it spans 573 printed lines and reports 32.
+  end anchor there runs 676 lines and reports 39. And that first command's start pattern needs the
+  `const … = ` prefix: bare, it spans 717 printed lines and reports 35 (it was 707 before §548 round
+  2 renamed the function — re-measure rather than trusting either number).
   ★★★ **THE NUMBERS ARE RIGHT AND THE MECHANISM WAS WRONG, and the correct one is two lines below.**
-  This said a bare match "starts at an earlier mention". It does not: the FIRST occurrence of
-  `applyWorkspace` in that file IS the declaration, so anchored and bare open at the very same line.
-  573 is not an offset — it is the TOTAL printed span, because `sed` RE-TRIGGERS the range at every
+  This said a bare match "starts at an earlier mention". ★★ THAT WAS TRUE OF THE OLD NAME AND IS NOT
+  TRUE NOW: §548 round 2 renamed the function to `applyWorkspaceFromLoad`, so the substring
+  `applyWorkspace` first occurs in a COMMENT well above the declaration and the bare form really does
+  open earlier (`grep -n applyWorkspace src/app/use-storage-backend.ts | head -1`). The span was
+  never an offset either — it is the TOTAL printed span, because `sed` RE-TRIGGERS the range at every
   LATER mention (the comments, the call site, the two return-object keys), each opening a fresh
   range that runs to the next `^  };$`. That is exactly the re-trigger the paragraph below already
   describes correctly, which is what makes this the file contradicting itself rather than merely
-  being stale. The anchored form spans 64 lines. Reproduce both spans:
-  `sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | wc -l` against
+  being stale. The anchored form spans 68 lines and the bare one 717 (it reported 707 before the
+  rename, and it moves on any edit) — re-measure, never quote these:
+  `sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | wc -l` against
   `sed -n '/applyWorkspace/,/^  };$/p' src/app/use-storage-backend.ts | wc -l`, and
   `grep -n applyWorkspace src/app/use-storage-backend.ts | head -1` for the start line.
   ★★★ **THE SELF-MATCH CAME BACK, AND THIS PARAGRAPH HAD DECLARED IT RETIRED.** It read: the code
@@ -95,7 +116,7 @@ it has no table of its own, NOT because it sits outside the workspace.
   the START PATTERN in full again, so `sed` opened a SECOND range there: measured, the unanchored
   form returned **31** against the anchored form's **29**, and only the leading two-space anchor
   saved the anchored one, because the quoted copy is indented as a comment body. That comment now
-  spells the pattern short on purpose and both forms return **29** — but the RECURRENCE is the point,
+  spells the pattern short on purpose and both forms return **31** — but the RECURRENCE is the point,
   not the repair. ★★ The durable rule, which survived all three revisions of this line: a command
   quoted inside the file it scans WILL eventually match itself, and it fails by returning a plausible
   LARGER number rather than by erroring. Never write "dormant" about it — write the anchor and keep it.

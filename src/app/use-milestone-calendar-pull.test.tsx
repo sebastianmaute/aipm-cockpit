@@ -99,3 +99,43 @@ describe("useMilestoneCalendarPull pull (prune stale link on deletion)", () => {
     expect(result.current.result!.plan.deletions).toHaveLength(1);
   });
 });
+
+// §548 (F7) — a pull in flight when a project swap starts must not prune/apply against the NEW
+// project's milestones. See `scope-epoch.ts`.
+describe("useMilestoneCalendarPull — the scope epoch (§548)", () => {
+  const startHeld = (epochRef: { v: number }) => {
+    let release!: () => void;
+    fetchProjectEventDates.mockReturnValueOnce(new Promise((r) => { release = () => r({ events: [], truncated: false }); }));
+    const view = renderHook(() =>
+      useMilestoneCalendarPull({
+        milestones: [ms(1, { outlookEventId: "evt" })], projectId: "p", setMilestones,
+        isPopout: false, lang: "en-US", enabled: true, getScopeEpoch: () => epochRef.v,
+      }));
+    return { result: view.result, release };
+  };
+
+  it("drops the prune and the summary modal when the scope epoch changed during the Graph read", async () => {
+    const epoch = { v: 1 };
+    const { result, release } = startHeld(epoch);
+    let pull: Promise<void> = Promise.resolve();
+    act(() => { pull = result.current.pull(); });
+    epoch.v = 2;
+    await act(async () => { release(); await pull; });
+
+    expect(fetchProjectEventDates).toHaveBeenCalledTimes(1); // control: the pull really ran
+    expect(setMilestones).not.toHaveBeenCalled();
+    expect(removeBaselineEntry).not.toHaveBeenCalled();
+    expect(result.current.result).toBeNull();
+  });
+
+  it("CONTROL — the same pull prunes when the scope epoch is unchanged", async () => {
+    const epoch = { v: 1 };
+    const { result, release } = startHeld(epoch);
+    let pull: Promise<void> = Promise.resolve();
+    act(() => { pull = result.current.pull(); });
+    await act(async () => { release(); await pull; });
+
+    expect(setMilestones).toHaveBeenCalledTimes(1);
+    expect(removeBaselineEntry).toHaveBeenCalledWith("p", "milestone", "evt");
+  });
+});

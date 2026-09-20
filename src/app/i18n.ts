@@ -380,6 +380,9 @@ const enUS = {
   spStorageNeedsToggle: "Enable SharePoint storage in Settings → Integrations first.",
   spStorageInvalidUrl: "Could not parse this URL. Use the full SharePoint file URL.",
   spStorageBrowse: "Browse…",
+  /** Accessible name of the SharePoint URL's Apply button — its VISIBLE label is the shared
+   *  `integrationsTursoApply` ("Apply"), which this contains (WCAG 2.5.3 label-in-name). */
+  spStorageApplyLabel: "Apply SharePoint file URL",
   comingSoon: "coming soon",
   storageFsaUnsupported:
     "This browser doesn't support direct file access. Use Chrome, Edge, or Opera.",
@@ -2293,6 +2296,30 @@ const enUS = {
   // ★ Qualified accessible name — see jiraTestLabel.
   integrationsTursoTestLabel: "Test connection – Turso",
   integrationsTursoTestOk: "Connected.",
+  // §548 — commits the Turso URL + token drafts while the storage kind is Turso (the only edit
+  // there that rebuilds the backend). ★ Label-in-name: the visible "Apply" is inside the name.
+  // ★★ THIS KEY HAS TWO CONSUMERS AND THE NAME ONLY ADMITS ONE. It is ALSO the visible label of
+  //   the SharePoint file URL's Apply button (`storage-config.tsx`), whose accessible name is the
+  //   separate `spStorageApplyLabel` and must CONTAIN this string (WCAG 2.5.3 label-in-name).
+  //   ★ BOTH LANGUAGES ARE PINNED, in two different shapes, and the DE one is case-INSENSITIVE on
+  //   purpose: DE differs in case by construction ("Übernehmen" standalone, "… übernehmen" inside
+  //   the compound name), and 2.5.3 matching ignores case and position. `storage-config.test.tsx`'s
+  //   "Apply buttons — label-in-name in DE" covers both buttons; do not re-tighten it to a
+  //   case-sensitive containment, which would flag conformant German.
+  //   So rewording this reworders BOTH buttons and can break that containment — if you change it,
+  //   change `spStorageApplyLabel` (and its DE twin) to match. `storage-config.test.tsx`'s
+  //   "the Apply button's accessible name names SharePoint and contains its visible label" is what
+  //   goes red; the key NAME staying `integrationsTurso*` while rendering in the Storage section is
+  //   a known, accepted smell — a second key would be a second thing to keep translated.
+  integrationsTursoApply: "Apply",
+  integrationsTursoApplyLabel: "Apply Turso connection",
+  // Shown while Apply / Save & switch wait for the passphrase (passphrase mode, changed token).
+  // ★ Two keys: with a passphrase-sealed record the typed one must be the CURRENT passphrase (it is
+  //   verified first); without one it becomes the passphrase.
+  integrationsTursoApplyNeedsPassphrase:
+    "Enter and confirm your current passphrase above to apply the new token.",
+  integrationsTursoApplyNeedsNewPassphrase:
+    "Enter and confirm your passphrase above to apply the new token. It becomes the passphrase for this token.",
   // ★★★ FOUR OUTCOME KEYS, NOT ONE PASS-THROUGH. An earlier cut had a single
   // `integrationsTursoTestFail: "Connection failed: {0}"` filled with the
   // thrown `e.message`. Every message reaching it is UNTRANSLATED ENGLISH, and
