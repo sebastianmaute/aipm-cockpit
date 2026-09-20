@@ -16,8 +16,13 @@
 // ★ The Turso mocks copy use-storage-backend.test.tsx's convention: `./turso-portfolio` replaced
 //   wholesale; `./turso-pipeline` spread from the actual module with only `testTursoConnection` stubbed
 //   (the §408 connection probe); a `TursoBackend` class whose `load` reads a hoisted seam.
-// ★★ "Threw": NINE of the TEN ops CATCH their own errors and report them through `showToast`; only
-//   `onOpenStorageFile` rethrows by itself (its picker `await` sits outside its `try`). ★ It said
+// ★★ "Threw": EVERY OP BUT `onOpenStorageFile` catches its own errors and reports them through
+//   `showToast`; that one rethrows by itself (its picker `await` sits outside its `try`).
+//   ★★★ DELIBERATELY NOT A COUNT, and this line is why. It said "NINE of the TEN" — true when
+//   written, with a tenure of exactly one reclassification, three lines above a sentence rewritten
+//   in the same round for that very reason. The exception is the fact; the count was a second copy
+//   of it that could rot while the exception stayed correct. Name the exception, never the total.
+//   ★ It said
 //   "eight of the nine" three lines under a header the same commit had just corrected to ten — the
 //   tenth op, `onPickStorageFile`, catches its picker's AbortError by design (§590, the cancelled
 //   dialog), so the ratio moved but the exception did not. So the throw test
