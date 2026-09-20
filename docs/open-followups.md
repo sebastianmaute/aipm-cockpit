@@ -37983,10 +37983,21 @@ re-entry. This branch's hydration gate means a classic-hydrated page now consume
 until the user leaves classic, so the switch that used to be warm is cold again. The fix that closed the
 load case is exactly what opened this door.
 
-**Deliberately not changed here.** `pageColdDoneRef`'s "first EXECUTED run is cold" semantics were left
-alone at the end of this slice, because §478's retained hook-level tests (`use-hash-view.test.tsx`) pin
-that behaviour, and this slice was scoped to the hydration gate, not to re-litigating what "cold" means.
-Giving the hook a signal that distinguishes a mid-session enable following a classic stretch from a
+**This is not a regression, and it is not a full fix — the net exposure is strictly smaller than before
+this branch.** Pre-branch, a classic user's render 1 was already enabled, so the cold apply fired at PAGE
+LOAD, against default settings, and could route them by a stale hash before the layout ever flipped to
+classic — unprompted, on every load, with no action of their own. Post-branch, the load itself is inert;
+the only remaining path is a user explicitly switching Classic→Modern in Settings during a session where
+a hash was left behind — user-initiated, at most once per session, and correctable with a single click of
+the nav. The symptom named in the title is not yet eliminated, which is why this entry stays open, but
+the hydration gate removed the unprompted page-load path entirely and narrowed what remains to that one
+user-initiated trigger.
+
+**Deliberately not changed here.** Eliminating the remaining path means changing WHEN `pageColdDoneRef` is
+set — its "first EXECUTED run is cold" semantics — and §478's retained hook-level tests
+(`use-hash-view.test.tsx`) pin that behaviour, so leaving it alone at the end of this slice is a deliberate
+deferral, not an oversight; this slice was scoped to the hydration gate, not to re-litigating what "cold"
+means. Giving the hook a signal that distinguishes a mid-session enable following a classic stretch from a
 genuine cold start is the fix this entry now asks for.
 
 Pinned (page-load half only) by `does not route from the hash until settings have hydrated`
