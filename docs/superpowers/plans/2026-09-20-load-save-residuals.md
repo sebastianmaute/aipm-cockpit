@@ -450,9 +450,24 @@ Run the file again; both tests must pass.
 
 - [ ] **Step 7: Mutation-prove both**
 
-Mutant A: change the predicate to `() => true`. The Step 6 test must go RED (it would flush through a shut gate only if `doSave`'s gate check were also broken — if it stays green, that is itself the finding: report it, because it means the §586 gate and not the predicate is doing the work).
-Mutant B: change the predicate to `() => false`. The Step 5 test must go RED.
-Revert both. Name each mutant and the test it killed in the report.
+★★★ **MUTANT A IS AN EQUIVALENT MUTANT AND THIS IS A CERTAINTY, NOT AN OPEN QUESTION.** An
+earlier revision of this step told you to change the predicate to `() => true`, expect the Step 6
+test to go RED, and treat a green as "itself the finding". Do not run it as a coverage claim. It
+kills nothing anywhere in the file, and that is derivable by reading `use-storage-backend.ts:741`
+rather than by running anything: for the Step 6 test the old gate is shut by premise, so `doSave`'s
+own `if (savesAllowedForRef.current !== backend) return;` blocks the write whatever the predicate
+says; for the Step 5 test the predicate is already `true` at that cleanup, so the mutant changes
+nothing. A "surviving mutant" reported here would be read as a missing test and send someone
+hunting for coverage that cannot exist.
+
+Mutant B (`() => false`) is therefore **the only mutant that pins the new predicate**. The Step 5
+test must go RED, naming the assertion and its expected-vs-received values.
+
+★★ And state this plainly in the report: the Step 6 test's assertions pin the **§586 gate**, not
+the new code. They are a regression guard that would stay green if the predicate were deleted
+outright. Do not present them as coverage of this task's change.
+
+Revert Mutant B. Name it and the test it killed, with the assertion text quoted.
 
 - [ ] **Step 8: Run the debounce unit suite and neighbours, then tsc and commit**
 
