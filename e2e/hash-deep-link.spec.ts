@@ -1,4 +1,4 @@
-import { test, expect, gotoApp } from "./seed";
+import { test, expect } from "./seed";
 
 test("a cold item deep link lands on the item's view and keeps the id in the URL", async ({ page }) => {
   await page.goto("/#raid/1");
@@ -46,14 +46,23 @@ test("a page loaded in the classic layout is not routed by a stale hash", async 
   await expect.poll(() => page.evaluate(() => window.location.hash)).toBe("#budget");
 });
 
-test("repeating a resource deep link keeps an in-progress draft", async ({ page }) => {
-  await gotoApp(page);
-  await page.goto("/#resources/1");
-
-  const firstName = page.getByRole("textbox", { name: "First name", exact: true });
-  await firstName.fill("Draft-Only-Text");
-
-  await page.goto("/#resources/1"); // repeat the same deep link
-
-  await expect(firstName).toHaveValue("Draft-Only-Text");
-});
+// §540 (the repeated-resource-deep-link draft guard in
+// use-resource-directory.ts's handleEditResource) is deliberately NOT
+// witnessed here. A version of this test navigated to "/#resources/1" twice
+// and asserted the in-progress "First name" draft survived. Run live against
+// the reverted guard it came back GREEN: ResourceEditModal resets its draft
+// on the INNER `resource` object's reference identity, but the guard only
+// bails the WRAPPER `{resource, isNew}` — and this test's own repeat never
+// changes the inner reference either way, because `resources` is a plain
+// useState array nothing here ever replaces, so `resources.find(...)` hands
+// back the SAME object on both navigations regardless of the guard. The
+// assertion was true in both arms for a reason unconnected to the defect.
+// Redesigning it would need a genuine concurrent write between the two
+// opens (a second writer replacing the stored row) — exactly what §540
+// protects against, but staging that in Playwright means a second tab or an
+// AI tool call, far more machinery than this coverage is worth. §540 is
+// already pinned at the unit level in resource-directory.test.tsx (33 tests,
+// including a mutation-verified `{ ...prev }` case a call-count assertion
+// alone would have missed). Do not re-add an e2e repeat-deep-link test for
+// this guard without first proving it can fail — see docs/open-followups.md
+// §535/§536/§540 history for how this one was caught.
