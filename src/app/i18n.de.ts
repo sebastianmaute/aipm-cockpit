@@ -2183,6 +2183,9 @@ export const de: Record<TranslationKey, string> = {
   integrationsTursoTest: "Verbindung testen",
   integrationsTursoTestLabel: "Verbindung testen – Turso",
   integrationsTursoTestOk: "Verbunden.",
+  // ★★ §548 — ALSO das sichtbare Label der SharePoint-Übernehmen-Schaltfläche
+  //   (`storage-config.tsx`); deren zugänglicher Name `spStorageApplyLabel` muss diesen Text
+  //   ENTHALTEN (WCAG 2.5.3). Eine Änderung hier betrifft beide Schaltflächen — siehe i18n.ts.
   integrationsTursoApply: "Übernehmen",
   integrationsTursoApplyLabel: "Turso-Verbindung übernehmen",
   integrationsTursoApplyNeedsPassphrase:

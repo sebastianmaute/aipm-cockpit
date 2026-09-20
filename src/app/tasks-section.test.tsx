@@ -63,7 +63,21 @@ vi.mock("./use-entity-calendar-pull", () => ({
 }));
 // The REAL `useEntityCalendarPush` runs in this file, so its Graph edges are stubbed
 // (and only its edges — `taskToGraphEvent`, which the pane itself imports, stays real).
-const { acquireTokenMock } = vi.hoisted(() => ({ acquireTokenMock: vi.fn() }));
+// ★ The push hook is wrapped rather than replaced: the wrapper records the args and then DELEGATES
+//   to the real hook, so the end-to-end drop/control tests below still drive the real Graph path
+//   while `pushArgs` can be compared against `pullArgs` (the two hooks must share ONE writer).
+const { acquireTokenMock, pushArgs } = vi.hoisted(() => ({
+  acquireTokenMock: vi.fn(),
+  pushArgs: [] as Array<Record<string, unknown>>,
+}));
+vi.mock("./use-entity-calendar-push", async (imp) => {
+  const actual = await imp<typeof import("./use-entity-calendar-push")>();
+  const wrapped = ((args: Record<string, unknown>) => {
+    pushArgs.push(args);
+    return (actual.useEntityCalendarPush as unknown as (a: Record<string, unknown>) => unknown)(args);
+  }) as unknown as typeof actual.useEntityCalendarPush;
+  return { ...actual, useEntityCalendarPush: wrapped };
+});
 vi.mock("./use-ms-auth", () => ({ useMsAuth: () => ({ acquireToken: acquireTokenMock }) }));
 vi.mock("./outlook-calendar-write", async (imp) => {
   const actual = await imp<typeof import("./outlook-calendar-write")>();
@@ -1562,6 +1576,7 @@ describe("TasksSection — the scope epoch reaches the manual Outlook push/pull 
   beforeEach(() => {
     vi.clearAllMocks();
     pullArgs.length = 0;
+    pushArgs.length = 0;
     stubFilters();
     stubTaskForm();
     stubSettings({ outlookCalendar: { task: { enabled: true, auto: false } } });
@@ -1617,12 +1632,20 @@ describe("TasksSection — the scope epoch reaches the manual Outlook push/pull 
   // The pull hook is mocked for this whole file (its drop behaviour is pinned in
   // `use-entity-calendar-pull.test.tsx`), so what is checkable from the PANE is that the same
   // reader is threaded into it — the half that was actually missing.
-  it("hands the SAME reader to the pull hook", () => {
+  it("hands the SAME reader to the pull hook, and both hooks write through ONE setter", () => {
     const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
     stubWorkspace([task], [task]);
     const getScopeEpoch = () => 42;
     render(<TasksSection {...makeProps()} m365Configured getScopeEpoch={getScopeEpoch} />);
-    expect(pullArgs.length).toBeGreaterThan(0); // control: the hook was mounted at all
-    expect(pullArgs[pullArgs.length - 1].getScopeEpoch).toBe(getScopeEpoch);
+    expect(pullArgs.length).toBeGreaterThan(0); // control: the pull hook was mounted at all
+    expect(pushArgs.length).toBeGreaterThan(0); // control: so was the push hook
+    // Identity, not merely presence: a stale closure or a `() => 0` substitute also fails this.
+    expect(pullArgs.at(-1)!.getScopeEpoch).toBe(getScopeEpoch);
+    // ★★ THE COMPOSITION, which the reader assertion alone does NOT give. The push test above
+    //   proves the PUSH's `setItems` really reaches the workspace `setTasks` (it asserts on that
+    //   spy end-to-end); this ties the pull to the very same function object. Without it the pull
+    //   could be rewired to a pane-local or second, unbridged setter and every test in the repo
+    //   would stay green while "a stale pull cannot touch project B's tasks" stopped being proved.
+    expect(pullArgs.at(-1)!.setItems).toBe(pushArgs.at(-1)!.setItems);
   });
 });

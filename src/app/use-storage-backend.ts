@@ -196,8 +196,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   through that window. The hold therefore relies on `hydrated` always becoming true — bounded in
   //   `useSettings` by `SECRET_MERGE_TIMEOUT_MS`.
   const loadPending = !args.hydrated || settledBackend !== backend || swapsInFlight > 0;
-  // §548 — the scope epoch's reader; the counter and the two places that bump it are declared beside
-  // `scopeTargetKeyRef` above. ★ STABLE for the hook's lifetime, so a consumer can mirror it into a
+  // §548 — the scope epoch's reader. The counter (`scopeEpochRef`) and `bumpScopeEpoch` are declared
+  // beside `scopeTargetKeyRef` above, but only ONE of the THREE bump sites is up there: (a) is inside
+  // `resolveLogModeAndStamp`, (b) is `applyWorkspaceForOp` further down THIS file, and (c) is in
+  // `use-storage-file-ops.ts` (`onOpenStorageFile`'s accept branch, through the required
+  // `bumpScopeEpoch` dep). Re-derive rather than trust this sentence:
+  // `grep -rn "bumpScopeEpoch()" src/app --include=*.ts --include=*.tsx | grep -v test`.
+  // ★ STABLE for the hook's lifetime, so a consumer can mirror it into a
   // `[]`-dep ref or callback without re-subscribing anything. Deliberately NOT a render value:
   // publishing the number would re-render every consumer on each swap.
   const getScopeEpoch = useCallback(() => scopeEpochRef.current, []);

@@ -263,6 +263,19 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   so the main tree renders. Any OTHER Turso-live surface is still unscanned — and so are the
   Turso-PORTFOLIO views (`TURSO_ONLY_VIEWS`) and the `SecretUnlockGate`, which a file-mode
   portfolio never shows.
+  ★★★ **SO IS THE SECOND APPLY BUTTON IN SETTINGS, and nothing above hints at it: the SHAREPOINT
+  STORAGE controls in Settings → Storage are unreachable by ANY axe scan.** The file-URL `Input`, its
+  `FieldError` and the Apply button (`storage-config.tsx`, §548) render only under `isSp && spGateOk
+  && auth.account` — and while the first two are seedable exactly like the Turso pair above
+  (`storageConfig.kind: "sp-json"` plus `m365.enabled` / `sharepoint.enabled`), **`auth.account` is
+  not**: it comes from `pca.getAllAccounts()[0]` on a live `@azure/msal-browser` client built from the
+  browser's MSAL cache. ★★ Faking it was EVALUATED AND DELIBERATELY NOT BUILT — it means hand-writing
+  msal-browser's internal cache layout, which breaks silently on any upgrade with no gate to say so,
+  bought for controls made entirely of `Button` / `Input` / `FieldError` that the two Turso-Apply scans
+  already exercise in the same surface and the same colour combos. `storage-config.test.tsx` is their
+  ONLY coverage, and it is a jsdom suite — so the things axe cannot see anyway (duplicate accessible
+  names, WCAG 2.5.3 label-in-name, toggle state) are pinned there, and **CONTRAST on that block has
+  never been machine-checked at all**. Check it by hand, as with the Calendar sub-tab below.
   It does NOT include Projects, Knowledge, or the
   Resources → **Calendar** sub-tab (Resources defaults to the directory), so controls only on those
   surfaces aren't scanned; anything in the always-present top bar IS (scanned via every view).

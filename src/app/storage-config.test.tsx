@@ -185,6 +185,23 @@ describe("StorageConfigSection — the SharePoint URL commits only on an explici
     expect(onChange).toHaveBeenCalledWith(SP_PARSED);
   });
 
+  // ★ An IME commits its composition with Enter, and THAT Enter is not an Apply — committing there
+  // would rebuild the backend and unmount Settings mid-word for every CJK typist.
+  // Mutation: drop `e.nativeEvent.isComposing` from `handleSpUrlKeyDown`'s early return → red.
+  // The plain-Enter test above is the positive control for this pair: the same keydown WITHOUT the
+  // composing flag does apply, so this cannot pass on a handler that is simply dead.
+  it("Enter that commits an IME composition does NOT apply", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderSp(onChange);
+    const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
+    await user.clear(input);
+    await user.type(input, SP_URL);
+    expect(screen.getByRole("button", { name: SP_APPLY })).toBeEnabled(); // control: Apply IS armed
+    fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   // Mutation: `disabled={!canApplySpUrl}` → `disabled={false}` → red.
   // An enabled Apply IS the "unapplied change" signal, so a clean draft must leave it disabled.
   it("Apply is disabled while the draft is clean and enabled once it differs", async () => {
