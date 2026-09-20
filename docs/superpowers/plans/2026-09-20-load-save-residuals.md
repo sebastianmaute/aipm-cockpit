@@ -25,6 +25,10 @@
 - File-size ratchet LIMIT is 1600, counted as `split("\n").length` (one MORE than `wc -l`).
 - Register entries are one-to-one with GitLab issues: each new `§NNN` heading needs an index row, a `**Work item:** #NN` line, a `§NNN:` issue title and the `source::register` label.
 - Register numbers **§596–§599** are reserved for this slice (peer session holds §595). A § is only reserved once it is on `origin/main` — re-verify immediately before push, not merely before filing.
+- ★★★ **EVERY TASK THAT FIXES A DEFECT CARRIES A PROBE, AND THE PROBE IS *RUN RED* BEFORE ANY PRODUCTION EDIT.** This is the spec's Verification rule ("a fix without a failing probe first is fixing a theory") and it is restated here because the plan broke it twice: Task 5 had no probe at all, and Task 7 wrote a failing test at Step 2 but did not execute it until Step 6 — after the prop, the epoch capture and the guard were all in place. **A test written before the fix but only ever EXECUTED after it is not a probe.** Nothing observed it red, so nothing distinguishes "the fix works" from "the test could never have failed". Both are corrected (Steps 1b and 2b).
+  - Probe coverage, stated so a future reader can check it rather than assume it: Task 1 is a LINT probe (no defect to reproduce); **Task 2** is §588's probe, consumed by Task 3; **Task 4** Steps 1–2; **Task 5** Step 1b; **Task 6** Steps 1–2; **Task 7** Steps 2–2b. Task 8 is docs and register only.
+  - A probe must be red for the RIGHT reason: read the message, check it matches the prediction, quote it in the report. A `TypeError`, an import error or a `beforeEach` failure is a BROKEN TEST, not a reproduced defect.
+  - **A GREEN probe against unfixed code is a FINDING, not a failure.** Stop, change no production code, report what you ran and saw. A defect that does not reproduce is worth more than a fix for one that was never there.
 
 ## Review Focus
 
@@ -517,6 +521,34 @@ grep -rn "pickFileForBackend\|\.pickFile(" src scripts e2e --include=*.ts --incl
 
 Every hit must be handled in this task or explicitly listed in the report as untouched with the reason. Do not leave a second pick idiom behind.
 
+- [ ] **Step 1b: Write the §590 probe and prove it RED — BEFORE any production edit**
+
+★★★ This step was MISSING from the plan and its absence violated the spec, which says: "Each fix is
+preceded by a probe that fails against today's tree and passes after. A fix without a failing probe
+first is fixing a theory." §590 is the ONE defect in this slice never shown to reproduce, and the
+plan omitted its probe on precisely the task where the evidence was weakest. Do this before Step 2.
+
+Create `src/app/use-storage-file-ops.pick-overwrite.test.tsx`. The scenario: a load has FAILED, so
+the live workspace is the empty boot one; the user picks a file that ALREADY HOLDS a real project.
+Today `onPickStorageFile` writes the empty workspace straight over it.
+
+```bash
+npx vitest run src/app/use-storage-file-ops.pick-overwrite.test.tsx > <scratchpad>/t5-probe.log 2>&1; echo "EXIT=$?"
+grep -E "Test Files|Tests |AssertionError" <scratchpad>/t5-probe.log
+```
+
+Expected: FAIL, on an assertion that the picked file's contents are unchanged — the real project is
+still there and `backend.save` was never called with the empty workspace.
+
+★★ The probe must assert a POSITIVE observable that the scenario ran (the pick was invoked, the read
+happened) alongside the negative. An "it was not overwritten" assertion alone is satisfied by a test
+that never reached the picker at all — and the audit found five assertions in this very task's
+original Step 6 that passed with the whole fix reverted, for exactly that reason.
+
+**If it comes back GREEN, STOP.** Do not write the fix. §590 may not reproduce as filed; report what
+you ran and what you saw. A defect that does not reproduce is worth more than a fix for one that was
+never there.
+
 - [ ] **Step 2: Add the non-binding pick**
 
 In `src/app/local-file-backend.ts`, replace `pickFile()`:
@@ -916,6 +948,30 @@ it("drops a tool write when the storage target changed but the project id did no
 ```
 
 Run it; expect FAIL (the write lands, because `projectIdRef.current === sendProjectId` stays true).
+
+- [ ] **Step 2b: Run that test and confirm it FAILS — BEFORE Steps 3-5 build the fix**
+
+★★★ This step was MISSING. Step 2 said "write the failing test" and the next time anything ran it was
+Step 6, AFTER the prop, the epoch capture and the guard were all in place. A test written before a fix
+but only ever EXECUTED after it is not a probe — nothing ever observed it red, so nothing distinguishes
+"the fix works" from "the test never could have failed". That is the defect this branch exists to stop
+shipping, sitting in the plan's own method.
+
+```bash
+npx vitest run src/app/chat-panel.scope.test.tsx > <scratchpad>/t7-probe.log 2>&1; echo "EXIT=$?"
+grep -E "Test Files|Tests |AssertionError" <scratchpad>/t7-probe.log
+```
+
+Expected: FAIL, naming the assertion about a write landing after the scope changed.
+
+★★ Read the message and check it is the defect, not the scaffolding. `ChatPanel` does not take
+`getScopeEpoch` yet, so a test that merely fails to compile, or dies in `beforeEach`, is a BROKEN TEST
+and not evidence. If the only way to make it run is to thread the prop first, then thread ONLY the prop
+(Step 3), re-run, and confirm it is red on the ASSERTION before adding the epoch logic in Steps 4-5 —
+and say in your report that you did it in that order and why.
+
+**If it comes back GREEN, STOP and report.** The tool-loop write may not reach the new scope the way the
+spec describes.
 
 - [ ] **Step 3: Thread the prop**
 
