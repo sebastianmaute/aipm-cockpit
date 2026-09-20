@@ -589,7 +589,13 @@ describe("useHashView", () => {
     // no re-render is scheduled and the passive effect never runs to consume
     // the flag, and the stale "raid" swallows the NEXT genuine navigation's
     // hash write exactly once.
-    // Kills the mutant that restores the `if (...)` form of that assignment.
+    // ★★ THE MUTANT THIS KILLS, NAMED — an unnamed mutation claim is
+    // uncheckable. It reds on restoring the `if (view !== activeTabRef.current)`
+    // ARM FORM of that assignment, and on nothing else: it also passes with
+    // `pendingApplyRef` DELETED outright, so it does not pin the ref's
+    // existence or the suppression mechanism. Those are pinned by the §535
+    // tests above ("keeps the item id in the URL when a cold deep link routes
+    // to another view", and its StrictMode sibling).
     window.location.hash = "";
     const { result } = renderHook(
       () => { useHashView(); return useWorkspaceTab(); },

@@ -10,7 +10,12 @@ test("a cold item deep link lands on the item's view and keeps the id in the URL
   );
   // The deep-linked item's own editor is open, confirming the id routed too.
   await expect(page.getByRole("dialog", { name: "Editing RAID #1", exact: true })).toBeVisible();
-  expect(page.url()).toContain("#raid/1");
+  // Retrying, not a one-shot snapshot: this is the ONE assertion carrying the
+  // §535 claim (the passive view→hash effect must not rewrite `/1` away while
+  // `activeTab` catches up), and the write it guards can land a tick after the
+  // editor becomes visible. A bare `expect(page.url())` reads once and would
+  // fail on timing rather than on the defect.
+  await expect.poll(() => page.url()).toContain("#raid/1");
 });
 
 test("a page loaded in the classic layout is not routed by a stale hash", async ({ page }) => {

@@ -203,6 +203,31 @@ for (const combo of COMBOS) {
         // Make the assignment STICK before scanning — see settleHash above.
         await settleHash(page, hash, name);
         await waitForViewSettled(page);
+        // ★★★ THE HASH IS ONLY A PROXY FOR THE THING THIS GUARDS, so pin the
+        // thing itself: the finding is "axe silently scans the Dashboard
+        // instead of the named view", and a correct hash does not entail a
+        // routed view. It leaks BOTH ways. (a) If hydration opens later than
+        // settleHash's ~1 s stability streak, the streak completes, the cold
+        // apply then rewrites the hash during `waitForViewSettled`, and the
+        // scan runs on the Dashboard — green, wrong view. (b) A hash pointing
+        // at a DISABLED module is honoured-but-not-routed: `use-hash-view.ts`
+        // returns above `setActiveTab` for such a view, so the hash stays
+        // exactly right while `activeTab` never moves, and settleHash is
+        // vacuous. The TopBar `<h1>` is `t(lang, navLabelKey(activeView))`
+        // (modern-shell.tsx → top-bar.tsx), i.e. it is DERIVED from the routed
+        // view and from nothing else — the only h1 the modern shell renders,
+        // and the same label these A11Y_VIEWS entries are spelled with. So it
+        // reads "Next actions" / "Insights" only when that view is genuinely
+        // on screen, and "Dashboard" in every failure above.
+        // ★★ `exact: true` is NOT optional: Playwright's `getByRole` name
+        // matching defaults to a case-insensitive SUBSTRING (the opposite of
+        // RTL's), so a bare name would match a longer view title — the very
+        // defect class this assertion exists to close, one layer down.
+        // ★ Retrying (`toBeVisible` polls), so a merely slow render still
+        // passes while a wrong view fails.
+        await expect(
+          page.getByRole("heading", { name, level: 1, exact: true }),
+        ).toBeVisible();
       } else {
         await openView(page, name);
       }

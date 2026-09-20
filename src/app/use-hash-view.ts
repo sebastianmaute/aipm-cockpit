@@ -160,10 +160,19 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
       // CURRENT activeTab makes setActiveTab a no-op, which triggers no
       // re-render and therefore no passive-effect run to consume the flag
       // (see the ref's doc comment above).
-      // ★★ ALWAYS ASSIGN, so a superseding apply DISARMS as well as arms. Two
-      //    applies inside ONE React batch (two synchronous hashchange/popstate
-      //    dispatches, or a listener-driven apply plus an effect-driven one)
-      //    otherwise leave the flag armed for a view nobody is navigating to:
+      // ★★ ALWAYS ASSIGN, so a superseding apply DISARMS as well as arms.
+      //    ★ WHAT IS ESTABLISHED, AND WHAT IS NOT: the two-applies-in-one-batch
+      //    sequence below is reachable UNDER TEST — two synchronous
+      //    `hashchange` dispatches inside one `act()` — and the test named at
+      //    the end of this comment was OBSERVED RED against the `if` form. A
+      //    PRODUCTION trigger was looked for and not constructed: this hook's
+      //    own view→hash write uses `replaceState`, which fires neither event,
+      //    and real `hashchange`/`popstate` arrive in separate tasks, so they
+      //    do not batch. Treat the unconditional assignment as cheap insurance
+      //    (it costs one branch and is equivalent on every single-apply path),
+      //    not as a fix for a reproduced user-facing bug. Two applies inside
+      //    ONE React batch otherwise leave the flag armed for a view nobody is
+      //    navigating to:
       //    the first arms "raid", the second resolves to the tab already in
       //    `activeTabRef` (a LAYOUT-effect-maintained ref, so within the batch
       //    it still reads the pre-batch tab) and, with a bare `if`, does not
