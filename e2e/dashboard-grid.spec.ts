@@ -191,11 +191,20 @@ test.describe("dashboard grid width spans", () => {
  * still fits the tile BODY (the `overflow-auto` box under the chrome), so this
  * measures it, in both densities.
  *
- * ★ The sample workspace carries no estimates, so its strip shows three cells
- * only. This seeds EVM data straight into the IndexedDB tasks store the seed
+ * ★ This seeds EVM data straight into the IndexedDB tasks store the seed
  * fixture wrote (the page is still on its same-origin `/favicon.ico` here):
  * every task gets an estimate, so the tasks already due by `FROZEN_NOW` make
  * SPI non-null; booked minutes also make CPI non-null (`evm.ts`).
+ *
+ * ★★★ `timeSpentMinutes` IS WRITTEN ON BOTH BRANCHES, AND THE ZERO IS THE
+ * LOAD-BEARING ONE. The sample master now authors effort on every task (SPI
+ * 0.82 / CPI 0.88 as of `DEMO_AS_OF`), so a spread that merely OMITS the key
+ * when `booked` is false inherits the master's booked minutes, CPI stays
+ * non-null, and the four-cell case silently becomes a five-cell one — the test
+ * would still pass its `rows === 2` and no-scroll assertions while measuring
+ * the wrong strip. An earlier revision of this comment said the sample carried
+ * no estimates and the strip showed three cells; that was true when written and
+ * was falsified by authoring EVM data into the master.
  */
 async function seedEvm(page: import("@playwright/test").Page, withBookedHours: boolean) {
   await page.evaluate((booked) => new Promise<void>((resolve, reject) => {
@@ -208,7 +217,7 @@ async function seedEvm(page: import("@playwright/test").Page, withBookedHours: b
       const all = store.getAll();
       all.onsuccess = () => {
         for (const task of all.result as Record<string, unknown>[]) {
-          store.put({ ...task, originalEstimateMinutes: 480, ...(booked ? { timeSpentMinutes: 240 } : {}) });
+          store.put({ ...task, originalEstimateMinutes: 480, timeSpentMinutes: booked ? 240 : 0 });
         }
       };
       tx.oncomplete = () => { db.close(); resolve(); };

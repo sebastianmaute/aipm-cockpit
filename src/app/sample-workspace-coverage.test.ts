@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { jsonToWorkspace } from "./workspace";
 import { isDayKey } from "./actual-hours";
 import { DEMO_AS_OF } from "./demo-workspace";
+import { computeEvm } from "./evm";
+import { EVM_INDEX_AMBER, EVM_INDEX_RED } from "./dashboard";
 
 // The content contract of the hand-curated sample master: it is authored as of
 // DEMO_AS_OF (mid-project) and exercises every feature a demo should show.
@@ -41,6 +43,35 @@ describe("sample master is current (as of DEMO_AS_OF)", () => {
     const dayKeys = new Set(b.flatMap((x) => x.allocations.flatMap((a) => Object.keys(a.actualHours).filter(isDayKey))));
     expect(dayKeys.size).toBeGreaterThanOrEqual(15);
     expect([...dayKeys].every((k) => k <= AS_OF)).toBe(true);
+  });
+
+  // ★★★ THE DEMO'S "At a glance" TILE SHOWS Effort SPI AND Effort CPI ONLY WHEN
+  // THE MASTER AUTHORS EFFORT, and nothing else in the suite can see that. The
+  // master shipped with ZERO tasks carrying `originalEstimateMinutes` or
+  // `timeSpentMinutes`, so `computeEvm` returned `spi: null` / `cpi: null`
+  // (`evm.ts` — null on a zero divisor), `dashboard-kpi-strip.tsx` hid both
+  // cells, and the demo silently showed a three-cell strip for every release.
+  // No gate objected: the fields are OPTIONAL, so a decode is clean without
+  // them, and the golden fixtures pin whatever bytes the master happens to
+  // have. This test is the only thing standing between a re-authored master and
+  // that same silent regression.
+  it("exercises the EVM indices, so the demo's At-a-glance strip shows five cells", () => {
+    const evm = computeEvm(ws.tasks, AS_OF);
+    // Both non-null is the property the tile actually reads.
+    expect(evm.spi).not.toBeNull();
+    expect(evm.cpi).not.toBeNull();
+    // ★ NOT 1.00, deliberately: a demo whose indices both read exactly on-plan
+    // teaches nothing about what they are for. Authored into the amber band
+    // (`dashboard.ts` EVM_INDEX_AMBER 0.9 / EVM_INDEX_RED 0.8) so each drives a
+    // visible RAG contribution without reading as a project in crisis.
+    expect(evm.spi!).toBeGreaterThanOrEqual(EVM_INDEX_RED);
+    expect(evm.spi!).toBeLessThan(EVM_INDEX_AMBER);
+    expect(evm.cpi!).toBeGreaterThanOrEqual(EVM_INDEX_RED);
+    expect(evm.cpi!).toBeLessThan(EVM_INDEX_AMBER);
+    // The terms behind them, so a master that keeps estimates but drops booked
+    // minutes (CPI's only input) fails here naming which half went missing.
+    expect(ws.tasks.every((t) => (t.originalEstimateMinutes ?? 0) > 0)).toBe(true);
+    expect(ws.tasks.filter((t) => (t.timeSpentMinutes ?? 0) > 0).length).toBeGreaterThanOrEqual(5);
   });
 
   it("seeds the previously empty slices", () => {
