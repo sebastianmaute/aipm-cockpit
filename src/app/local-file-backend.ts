@@ -103,9 +103,14 @@ export class LocalFileBackend implements StorageBackend {
    * a real project rather than the empty boot one.
    * ★★★ NOT for "Pick storage file". That one must read what the chosen file
    * already holds before committing to overwrite it — see {@link pickFileHandle}
-   * and §590. Enumerate today's callers of this one with
-   * `grep -rn "pickFileForBackend" src --include=*.ts --include=*.tsx | grep -v "\.test\."`,
-   * which returns the facade helper plus exactly those two call sites.
+   * and §590. Enumerate today's callers of this one with the pattern below — it returns the facade
+   * helper's declaration plus exactly those two call sites (three lines on 2026-09-20):
+   *   grep -rnE "pickFileForBackend[(]" src --include=*.ts --include=*.tsx | grep -v "[.]test[.]"
+   * ★★ THE `[(]` IS NOT DECORATION. The bare name matches the import line, two prose mentions in
+   * `use-storage-file-ops.ts` AND this very comment, so a name-only grep answers SEVEN and reads as
+   * a refutation of the sentence above it. Writing the pattern in brackets also stops it matching
+   * itself — an earlier revision here claimed "exactly those two call sites" beside a grep that did
+   * not produce them.
    */
   async pickFile(): Promise<void> {
     // showSaveFilePicker grants readwrite implicitly when the user picks a file.
