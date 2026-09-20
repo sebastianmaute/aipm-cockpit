@@ -38325,10 +38325,15 @@ while an unsaved ADD draft is open`, and a dedicated `renderHook` mutation-guard
 `editingResource` reference identity survives a same-id repeat. Commits `cd5a50e71`, `23a28e614`.
 Mutation-proved: dropping the `!prev.isNew` conjunct is killed by the ADD-draft test; spreading
 `{ ...prev }` instead of returning `prev` itself is killed by the repeat test together with the
-`renderHook` identity test. Comparing `prev.resource !== resource` instead of by id is killed by the
-`renderHook` identity test's second call against a fresh object carrying the same id — same id,
-different object reference — not by the repeat test, whose dispatches all pass the same object twice
-and so cannot see a by-reference mutant survive.
+`renderHook` identity test. Comparing `prev.resource !== resource` instead of by id is killed by a
+dedicated sibling case in the same `renderHook` describe — `returns the exact editingResource object
+when a repeat resolves to a FRESH object carrying the same id` (commit `c2dbcb1e1`), i.e. same id,
+different object reference. ★★ It is killed by that case ALONE, and the other half of that measurement
+is the part worth keeping: under this mutant the DOM repeat test stays GREEN. The wrapper it asserts on
+was always the right observable, but the harness only ever dispatches the same object twice, so the
+assertion never had an input that could separate by-id from by-reference. A fixture, not a missing
+assertion — and this entry asserted the mutant was killed until an independent review asked what the
+fixtures actually contained.
 
 A Playwright case for this guard was written, run live against its own reverted fix, and found to pass for
 a reason unconnected to the defect: `ResourceEditModal` resets its draft on the INNER `resource` object's
