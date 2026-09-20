@@ -37946,6 +37946,14 @@ Related: §478, §536.
 
 **Status:** OPEN (reopened) 2026-09-20 on `fix/hash-view-cold-apply`. Closed earlier the same day;
 reopened the same day once review found the closure covered only half of this entry's original symptom.
+Mechanism verified 2026-09-20 by `npx vitest run src/app/use-hash-view.test.tsx --maxWorkers=1`
+(40/40): `is cold on the first enabled window even when the page loaded disabled and the cold target is
+not the default tab` demonstrates exactly the remaining path — a stretch with the hook disabled never
+sets `pageColdDoneRef`, so the first enabled window applies the stale-residue rule and lands on
+`open-points` rather than keeping the current view. ★★ That pins the MECHANISM at the hook level, not
+the user-visible route to it: nothing exercises the actual Settings layout toggle end to end, so the
+claim that a mid-session classic→modern switch reaches this path is still reasoned from the call site
+(`task-manager.tsx` passes `hydrated && settings.layout === "modern"`), not observed.
 
 **Work item:** #326
 
