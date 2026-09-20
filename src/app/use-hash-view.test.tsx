@@ -211,6 +211,21 @@ describe("useHashView", () => {
     expect(result.current.pendingOpen).toBeNull();
   });
 
+  it("rewrites the hash to the current view when the deep link targets a disabled module", () => {
+    // Fix round 1, mutant-4 gap: a mutant that arms pendingApplyRef BEFORE the
+    // disabled-target bail (rather than after) leaves this hash stale forever
+    // — "#raid/123" would point at a view the user cannot reach. The sibling
+    // test above never asserts the hash, so it could not catch that.
+    window.location.hash = "#raid/123";
+    const features: import("./feature-modules").FeatureModuleId[] = []; // raid is not enabled
+    const { result } = renderHook(
+      () => { useHashView(true, features); return useWorkspaceTab(); },
+      { wrapper },
+    );
+    expect(result.current.activeTab).toBe("dashboard"); // positive observable
+    expect(window.location.hash).toBe("#dashboard");
+  });
+
   it("navigates to a view when its module is enabled", () => {
     window.location.hash = "#raid/123";
     const features: import("./feature-modules").FeatureModuleId[] = ["raid"];
@@ -234,6 +249,23 @@ describe("useHashView", () => {
     );
     expect(result.current.activeTab).toBe("dashboard");
     expect(result.current.pendingOpen).toBeNull();
+  });
+
+  it("rewrites a cold view-only stale hash to the current view in the URL", () => {
+    // Fix round 1, Critical (§478 re-opened): arming pendingApplyRef even when
+    // setActiveTab(view) is a no-op (view === activeTab, as it is for the
+    // stale-residue target here) starves the passive effect of the run it
+    // needs to normalise the hash. Pre-fix this left "#budget" in the URL for
+    // the rest of the session, and a later warm re-apply (e.g. a fresh
+    // `features` identity from the async settings load) would then read that
+    // stale hash back and misroute the user onto Budget.
+    window.location.hash = "#budget";
+    const { result } = renderHook(
+      () => { useHashView(); return useWorkspaceTab(); },
+      { wrapper },
+    );
+    expect(result.current.activeTab).toBe("dashboard"); // positive observable
+    expect(window.location.hash).toBe("#dashboard");
   });
 
   it("honours an item-bearing deep link on a cold load", () => {
@@ -330,6 +362,32 @@ describe("useHashView", () => {
     const withoutKnowledge = ALL_MODULE_IDS.filter((m) => m !== "knowledge");
     rerender({ features: withoutKnowledge });
     expect(result.current.activeTab).toBe("raid");
+  });
+
+  it("does not leave the flag armed after a warm re-apply whose target already matches activeTab", () => {
+    // Fix round 1, Important: a warm apply whose target equals activeTab also
+    // armed the flag pre-fix. setActiveTab is then a no-op (same value), so no
+    // second passive-effect run ever consumes the flag — it stays armed and
+    // swallows the hash write for the NEXT genuine view change.
+    window.location.hash = "";
+    const { result, rerender } = renderHook(
+      ({ features }: { features: readonly FeatureModuleId[] }) => {
+        useHashView(true, features);
+        return useWorkspaceTab();
+      },
+      { wrapper, initialProps: { features: [...ALL_MODULE_IDS] as readonly FeatureModuleId[] } },
+    );
+    expect(result.current.activeTab).toBe("dashboard");
+
+    // A features re-run whose resolved target ("dashboard", the hash is still
+    // blank) already equals activeTab: a warm apply, not a navigation.
+    const withoutKnowledge = ALL_MODULE_IDS.filter((m) => m !== "knowledge");
+    rerender({ features: withoutKnowledge });
+    expect(result.current.activeTab).toBe("dashboard");
+
+    // A genuine view change afterwards must still write the hash.
+    act(() => { result.current.setActiveTab("raid"); });
+    expect(window.location.hash).toBe("#raid");
   });
 
   // MIGRATED (§478): this test used to be "re-arms the cold rule when the hook is

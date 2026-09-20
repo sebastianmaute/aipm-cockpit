@@ -80,13 +80,36 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
   // Set by a layout RE-ENTRY; consumed by the view→hash effect below, which
   // is the one that can see the live `activeTab`.
   const reentryRepairRef = useRef(false);
-  // ★★ Set by an apply that ROUTES; consumed by the view→hash effect below.
-  //    setActiveTab does not commit until the next render, so the passive effect
-  //    runs once with the OLD activeTab — it would then see the deep link's view
-  //    as a mismatch and rewrite the URL to the old view, destroying `/123`
-  //    (§535). One-shot, NOT "suppress until activeTab matches": a user click in
-  //    the same tick would make a match-based suppression permanent.
-  const pendingApplyRef = useRef(false);
+  // ★★ Set by an apply that ROUTES to a DIFFERENT view; consumed by the view→
+  //    hash effect below. setActiveTab does not commit until the next render,
+  //    so the passive effect runs once with the OLD activeTab — it would then
+  //    see the deep link's view as a mismatch and rewrite the URL to the old
+  //    view, destroying `/123` (§535). Carries the TARGET view, not a bare
+  //    boolean (fix round 1 follow-up): the passive effect suppresses only
+  //    while its own `activeTab` has not yet caught up to that target
+  //    (`pending !== activeTab`), so a warm apply whose target already EQUALS
+  //    `activeTab` — a no-op `setActiveTab` — never arms this at all (armed-
+  //    but-nothing-to-consume left the URL stale forever, and could swallow
+  //    the NEXT genuine navigation's write too, since a no-op setActiveTab
+  //    triggers no re-render and therefore no passive-effect run to consume
+  //    the flag). One-shot, NOT "suppress until activeTab matches this specific
+  //    value forever": each run reads and clears it exactly once.
+  const pendingApplyRef = useRef<AppView | null>(null);
+  // ★ The layout effect deliberately does NOT depend on `activeTab` (see its
+  //   dep array below), so `apply` cannot compare its own routing target
+  //   against a stale closed-over value — it needs the CURRENT activeTab at
+  //   the moment it runs. Kept fresh by a DEDICATED layout effect with NO dep
+  //   array (declared BEFORE the apply layout effect, so same-commit ordering
+  //   guarantees this one runs first) rather than synced during render —
+  //   eslint's `react-hooks/refs` rule rejects a ref write in the render body
+  //   (`Cannot access refs during render`) — and rather than in a PASSIVE
+  //   effect: a passive effect runs AFTER the apply layout effect on a commit
+  //   where `features` and `activeTab` change together, so `apply` would still
+  //   read the previous value on exactly the commits that matter most.
+  const activeTabRef = useRef(activeTab);
+  useLayoutEffect(() => {
+    activeTabRef.current = activeTab;
+  });
 
   // Mount + back/forward: hash drives the view (and any deep-linked item).
   useLayoutEffect(() => {
@@ -103,7 +126,7 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
       //    route at all (§478).
       windowActiveRef.current = false;
       reentryRepairRef.current = false;
-      pendingApplyRef.current = false;
+      pendingApplyRef.current = null;
       return;
     }
     const apply = (cold: boolean) => {
@@ -129,7 +152,11 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
       const { view, itemId } =
         cold && !blank && parsed.itemId == null ? { view: blankView, itemId: null } : parsed;
       if (features && !isViewEnabled(view, features)) return; // disabled target: ignore the hash
-      pendingApplyRef.current = true;
+      // Arm ONLY when this actually moves the tab — a target equal to the
+      // CURRENT activeTab makes setActiveTab a no-op, which triggers no
+      // re-render and therefore no passive-effect run to consume the flag
+      // (see the ref's doc comment above).
+      if (view !== activeTabRef.current) pendingApplyRef.current = view;
       setActiveTab(view);
       if (itemId != null) requestOpen(view, itemId);
     };
@@ -179,18 +206,25 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
   // Uses replaceState (not `location.hash =`) so the write does NOT re-enter
   // the hashchange listener above — see the hook doc comment.
   useEffect(() => {
+    // Consumed FIRST, above every early return (including the disabled/popout
+    // one): a disabled or popout run of this effect must still clear the flag,
+    // or it survives — armed and stale — into whatever run re-enables it. That
+    // ordering was implicit before (the layout effect's own disabled branch
+    // happened to clear it first, same commit) rather than pinned here.
+    const pending = pendingApplyRef.current;
+    pendingApplyRef.current = null;
     if (!enabled || typeof window === "undefined" || isPopout) return;
     const reentry = reentryRepairRef.current;
     reentryRepairRef.current = false;
-    const pending = pendingApplyRef.current;
-    pendingApplyRef.current = false;
     if (isAuthResponseHash(window.location.hash)) return; // don't clobber an MSAL response
-    // An apply routed in this commit; activeTab has not caught up. Writing now
-    // would rewrite the URL to the view we are leaving (§535). The apply's own
-    // requestOpen has already written `#<view>/<id>` for an item-bearing hash,
-    // and the next run — with activeTab committed — finds the hash correct and
-    // writes nothing.
-    if (pending) return;
+    // An apply routed to `pending` in this commit; activeTab has not caught up
+    // to it yet. Writing now would rewrite the URL to the view we are leaving
+    // (§535). The apply's own requestOpen has already written `#<view>/<id>`
+    // for an item-bearing hash, and the next run — once activeTab committed to
+    // `pending` — finds `pending === activeTab`, falls through, and the
+    // ordinary comparison below finds the hash already correct and writes
+    // nothing.
+    if (pending !== null && pending !== activeTab) return;
     // ★★ A layout re-entry writes the BARE view unconditionally: the base-view
     //    comparison below would keep a stale `#raid/123` whenever `activeTab`
     //    is already `raid` (§478).
