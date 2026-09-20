@@ -440,8 +440,9 @@ describe("§590 — the cases that must NOT be interrupted", () => {
   //   another failed load, they pick that same file again. Its bytes are a VALID workspace holding
   //   nothing, but decoding it runs the migration chain, which seeds 4 disciplines and 6 grades. On
   //   `isWorkspaceEmpty` (and on `workspaceRecordCount`) that reads as "already holds a project with
-  //   10 records" and the offer fired over nothing. `authoredRecordCount` subtracts the reference
-  //   trio, so it reads 0.
+  //   10 records" and the offer fired over nothing. `authoredRecordCount` subtracts the TWO slices
+  //   the decode chain actually seeds — disciplines and grades, the same two counted above — so it
+  //   reads 0.
   //   KILLED BY: `authoredRecordCount` → `workspaceRecordCount` in `readPickedProject`; and
   //   `existing.records > 0` → `>= 0`. Both measured. ★ It is ALSO what would go red if the decode
   //   chain ever started seeding `roles` as well — `authoredRecordCount` deliberately does NOT
