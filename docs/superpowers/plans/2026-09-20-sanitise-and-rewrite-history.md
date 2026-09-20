@@ -457,6 +457,15 @@ git for-each-ref --format='%(refname:short) %(committerdate:relative)' refs/remo
 git grep -nIiE "ic[- ]consult|AIPM:" -- src desktop e2e scripts
 ```
 
+  ★★ **Label the COMMENTS near each hit, not just the hit.** A stale comment about a value is what
+  talks the next reader out of checking it, and it survives every gate in this repo. This plan has
+  a worked example of each polarity: a comment asserting the custom-property family is still
+  brand-named and a neutral rename is "coming in a later release" — false on both halves, the
+  rename shipped under a different name — and, from the peer session, a pair of comments asserting
+  that nothing on a given path reports diagnostics, which was true when written and documented a
+  gap as though it were a property. Either kind is consulted INSTEAD of re-deriving. When you
+  classify a hit, read what is written beside it and correct or delete it in the same commit.
+
   The known protocol value is the Outlook category prefix in `categoryFor`
   (`outlook-calendar-write.ts`), matched by OData string equality on the read side. It is renamed
   by the companion brand-rename plan **before** this task runs, so by the time you build this list
