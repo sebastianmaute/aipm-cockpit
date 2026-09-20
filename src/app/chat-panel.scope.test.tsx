@@ -109,8 +109,14 @@ const TOOL_TURN = {
 };
 
 /** The epoch reader every test that does not care about the epoch passes: a
- *  frozen scope. ★ A FUNCTION PER CALL, never one shared const — two tests
- *  sharing a closure over the same `let` is how a mutated epoch leaks sideways. */
+ *  frozen scope.
+ *
+ *  ★ SHARING ONE CONST IS SAFE HERE ONLY BECAUSE IT CLOSES OVER NOTHING. It
+ *   returns a literal, so no test can move what another test reads. A reader that
+ *   closes over a mutable `let` must NEVER be hoisted like this — that is how one
+ *   test's epoch bump leaks into the next. The tests that DO move the epoch
+ *   (`sendAcrossEpoch` and the two multi-tool cases) therefore each declare their
+ *   own `let epoch` and their own inline `() => epoch`. */
 const FROZEN_EPOCH = () => 0;
 
 /** A `fetch` reply carrying `body` as its JSON. Only the three members

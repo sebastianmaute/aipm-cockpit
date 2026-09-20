@@ -870,8 +870,17 @@ describe("WorkspaceSection — staged-proposal wiring into ChatPanel", () => {
 
     expect(props.getScopeEpoch).toBe(getScopeEpoch);
     expect(props.isSwapInFlight).toBe(isSwapInFlight);
-    // Anti-vacuity: both would also "be" each other if the section passed
-    // `undefined` for both and `makeProps` had dropped them. Read them.
+    // ★ NOT an anti-vacuity guard, and an earlier comment here wrongly said it
+    //   was ("both would also 'be' each other if the section passed `undefined`").
+    //   That cannot happen: the EXPECTED side of each `toBe` is a live local
+    //   function, so `undefined` on the received side fails outright. The two
+    //   `toBe`s are the load-bearing assertions on their own.
+    //   Nor do these catch a failure the `toBe`s would miss — a wrapper, or a
+    //   `makeProps` that ignored its overrides, both break identity first. They
+    //   are kept as a READABILITY witness only: the fixtures are deliberately 7
+    //   and true rather than `makeProps`'s inert `() => 0` / `() => false`, so a
+    //   reader can see at a glance which pair a green run actually observed.
+    //   Do not cite them as coverage.
     expect((props.getScopeEpoch as () => number)()).toBe(7);
     expect((props.isSwapInFlight as () => boolean)()).toBe(true);
   });

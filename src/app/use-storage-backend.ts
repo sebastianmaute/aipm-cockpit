@@ -251,10 +251,30 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   tears down — the mirror still reads the pre-swap `false`. This ref is written SYNCHRONOUSLY
   //   inside `holdDuring`, beside its `setSwapsInFlight`, exactly as `scopeEpochRef` is written
   //   beside the replacement it announces, so it is already true at that instant.
-  // ★ Deliberately NOT `loadPending`'s other two disjuncts: `!hydrated` is pre-mount (nothing is
-  //   in flight to cancel) and `settledBackend !== backend` needs Settings, which unmounts the
-  //   chat panel on its own before the backend can change. Both are covered by the scope epoch at
-  //   RESOLUTION time instead. This answers the narrower question its name asks.
+  // ★★★ DELIBERATELY NARROWER THAN `loadPending`, AND THE FIRST REASON WRITTEN HERE WAS FALSE.
+  //   It said `settledBackend !== backend` "needs Settings, which unmounts the chat panel on its
+  //   own before the backend can change". It does not. `PanelSkeleton` in `task-manager.tsx` sits
+  //   ABOVE the `settings.layout === "classic"` ternary, so CLASSIC unmounts the panel too; and a
+  //   storage change committed from the CLASSIC HEADER MENU reaches `StorageConfigSection`'s plain
+  //   `onChange` and never touches `onRequestStorageSwitch` (which is itself outside `holdDuring`).
+  //   So `isSwapInFlight()` really can read false at a teardown the backend rebuild caused.
+  // ★★★ WHAT THAT COSTS, stated as a residual rather than an absence: a turn in flight when the
+  //   user swaps the Turso URL/token or SharePoint target from the classic header is NOT cancelled,
+  //   its API call is not aborted and is still billed, and its tool write lands in the OUTGOING
+  //   project's in-memory workspace — where the arriving load discards it. A LOST write, silently.
+  // ★★ WHY THAT IS THE WHOLE RESIDUAL, which is the real argument the old one should have made.
+  //   It cannot become a WRONG-SCOPE write, blocked twice over and independently: (1) the §586 save
+  //   gate is IDENTITY-based and a rebuilt backend starts shut, so the debounced autosave is
+  //   refused and nothing reaches the NEW target; (2) a replacing load bumps the epoch
+  //   SYNCHRONOUSLY immediately before it applies, so there is no instant at which the new target's
+  //   workspace is in scope while the epoch still reads old. `!hydrated` is pre-mount and has no
+  //   turn to cancel at all.
+  // ★★ UNCHANGED FROM `main`. The loss predates Task 6, which closed it only as a side effect of an
+  //   unconditional cancel that broke ordinary navigation. Narrowing re-opens it behind a five-term
+  //   conjunction to close the common case; that trade was made knowingly.
+  // ★ Do NOT "fix" it by wrapping `onRequestStorageSwitch` in `holdDuring` — checked, and it does
+  //   not cover the direct `onChange` rebuild, which is the reachable path. Any real fix has to
+  //   reach the rebuild itself.
   const swapsInFlightRef = useRef(0);
   // ★★ TRUE before hydration (spec revision 2026-09-19): the first load has not even started, so it IS
   //   pending, and ONE signal covers every consumer (the render hold and each background-writer gate)

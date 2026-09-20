@@ -259,8 +259,18 @@ interface ChatScopeProps {
 }
 
 /** Wiring for the destructive-write review card. BOTH are optional with safe
- *  defaults so the ~39 `<ChatPanel>` mounts in `chat-panel.test.tsx` compile
- *  unchanged; the PRODUCTION seam is pinned by `workspace-section.test.tsx`.
+ *  defaults so the existing `<ChatPanel>` mounts in `chat-panel.test.tsx`
+ *  compile unchanged; the PRODUCTION seam is pinned by
+ *  `workspace-section.test.tsx`.
+ *
+ *  ★★ NO COUNT IS QUOTED HERE ON PURPOSE. This said "~39" while the real number
+ *   was 57 — and it sat four lines under a docstring telling you not to trust a
+ *   number in a comment. Read it if you need it, never off this line:
+ *   `grep -c "<ChatPanel" src/app/chat-panel.test.tsx`
+ *  ★ Contrast `ChatScopeProps` directly above, which is REQUIRED: that is the
+ *   whole point of the distinction, and it is why those mounts did NOT compile
+ *   unchanged when the scope readers landed. Optional buys silence; required
+ *   buys a tsc error. Only one of those can catch an unthreaded prop.
  *
  *  ★★ THE TWO DEGRADE DIFFERENTLY AND NEITHER LOSES DATA. Without `workspace`
  *   the card still lists every staged call and apply still replays it — only the

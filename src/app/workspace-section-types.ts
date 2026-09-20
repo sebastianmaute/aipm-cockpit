@@ -152,7 +152,20 @@ export interface WorkspaceSectionProps {
    *   §548 teardown and the commit that sets the hold are the SAME commit, so the
    *   panel's last render saw the pre-swap value and any mirror of it is stale
    *   exactly when it matters. `useStorageBackend` backs this with a ref written
-   *   synchronously in `holdDuring`. Required for the same reason as the reader above. */
+   *   synchronously in `holdDuring`. Required for the same reason as the reader above.
+   *
+   *  ★★★ IT IS NARROWER THAN `loadPending` AND THAT LEAVES A RESIDUAL — not an
+   *   absence, and not "safe". It counts held project ops only, so a backend
+   *   REBUILD (a Turso URL/token or SharePoint target change committed from the
+   *   CLASSIC HEADER MENU, which reaches `StorageConfigSection`'s plain `onChange`)
+   *   unmounts this pane with the flag reading false: the in-flight turn is not
+   *   cancelled, its API call is not aborted and is still billed, and its write
+   *   lands in the OUTGOING workspace, where the arriving load discards it. A LOST
+   *   write. It cannot become a wrong-scope one — the §586 save gate is
+   *   identity-based and a rebuilt backend starts shut, and a replacing load bumps
+   *   the epoch synchronously ahead of applying. Unchanged from `main`; the full
+   *   argument, and why wrapping `onRequestStorageSwitch` in `holdDuring` does NOT
+   *   close it, is beside `swapsInFlightRef` in `use-storage-backend.ts`. */
   isSwapInFlight: () => boolean;
   fullBleed?: boolean;
   handleGanttBarUpdate: (edit: {
