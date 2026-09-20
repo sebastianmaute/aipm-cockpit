@@ -7,9 +7,10 @@
 // load-bearing prop KEYS reaching the child. It MAY be updated freely when a diff
 // is understood (e.g. the future calendar prop-bag consolidation renames these) —
 // it is NOT a golden fixture. Coarse on purpose: a tripwire, not a spec.
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
+import { ALL_MODULE_IDS } from "./feature-modules";
 
 // task-manager mints task/resource ids from session-scoped state on interaction;
 // clear it before each test so the suite never inherits another test's mark.
@@ -245,7 +246,15 @@ describe("@characterization task-manager → Ask Claude pill gate", () => {
 // a configured user before settings load").
 describe("@characterization task-manager → hash-view hydration gate (§536, §595)", () => {
   afterEach(() => {
-    window.location.hash = "";
+    // NOT `window.location.hash = ""`: assigning `.hash` fires a `hashchange`
+    // event (see use-hash-view.ts's own doc comment on why the hook itself
+    // uses `replaceState`), and RTL's global `cleanup()` — registered outside
+    // every describe, so it runs LAST relative to this nested afterEach —
+    // has not yet unmounted the tree at this point. A still-mounted
+    // TaskManager from either test above would receive that event and
+    // re-route on it before cleanup gets to it. `replaceState` never fires
+    // `hashchange`, so it resets the URL without touching a live listener.
+    window.history.replaceState(null, "", "/");
   });
 
   it("does not route from the hash until settings have hydrated", () => {
@@ -268,5 +277,44 @@ describe("@characterization task-manager → hash-view hydration gate (§536, §
     render(<TaskManager />);
     // Pre-hydration the stored layout is not yet known; nothing may be routed.
     expect(window.location.hash).toBe("#raid");
+  });
+
+  // §595's OWN failure mode, distinct from §536's above: an UNGATED cold
+  // apply runs on render 1 against DEFAULT features (every module on),
+  // treats the stale-residue "#raid" hash as residue, and resolves blankView
+  // to "dashboard" — equal to the provider's own default activeTab, so
+  // nothing arms `pendingApplyRef` and the passive view->hash effect rewrites
+  // the URL to "#dashboard" regardless. Hydration then commits the REAL
+  // (dashboard-disabled) features and the effect re-runs WARM, not cold — it
+  // reads "#dashboard" straight back, finds `isViewEnabled("dashboard",
+  // features)` false, and returns without fixing anything. The user is
+  // stranded on a disabled view permanently. Gating the whole hook on
+  // `hydrated` means the ONE cold apply it ever runs already sees the real
+  // features and never takes that wrong first step.
+  //
+  // Neither WorkspaceSection (mocked here) nor the real component exposes
+  // `activeTab` as a prop at this level (workspace-section reads it from
+  // WorkspaceTabProvider's own context, which lives INSIDE TaskManager's
+  // default export — nothing outside can reach it), so the URL — written by
+  // the passive view->hash effect once things settle — is the only
+  // externally observable signal. `waitFor` polls directly for that
+  // settled value rather than waiting on `i18nReady`/DOM: `i18nReady` and
+  // the settings/features hydration are two INDEPENDENT async chains raced
+  // in the same mount effect (use-settings.ts), so a DOM-readiness wait
+  // (e.g. `findByTestId`) could resolve before the features commit that
+  // this test depends on.
+  it("does not strand the user on a disabled module once the real (hydrated) features arrive", async () => {
+    window.location.hash = "#raid";
+    window.localStorage.clear();
+    seedRegistry();
+    const withoutDashboard = ALL_MODULE_IDS.filter((m) => m !== "dashboard");
+    window.localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ features: withoutDashboard }));
+    render(<TaskManager />);
+    await waitFor(
+      () => expect(window.location.hash).toBe("#open-points"),
+      { timeout: 5000 },
+    );
+    // Never the disabled module — the positive observable this test exists for.
+    expect(window.location.hash).not.toBe("#dashboard");
   });
 });

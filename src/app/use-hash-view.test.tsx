@@ -640,11 +640,22 @@ describe("useHashView", () => {
   });
 
   it("judges the cold rule against the features it is enabled with, not the ones it started disabled with", () => {
-    // The gate's second failure mode (§595): a user who disabled the
-    // dashboard module was landed on it anyway, because the cold rule ran
-    // against defaultSettings.features (every module on) before the real
-    // value arrived.
-    window.location.hash = "";
+    // §595 — and a BLANK hash cannot pin this: a blank hash self-heals under a
+    // later WARM re-apply (blankView is recomputed against whatever `features`
+    // the effect re-runs with, cold or not), so it cannot tell "judged the
+    // hydrated features" from "judged the defaults, then healed on the next
+    // run". A view-only, NON-blank hash does NOT self-heal, which is exactly
+    // what makes the real bug permanent: an ungated call site's cold apply
+    // (render 1, DEFAULT features — dashboard still on) treats "#raid" as
+    // stale residue and resolves blankView to "dashboard", rewriting the URL
+    // to "#dashboard". The next run is WARM (not cold), so when the real
+    // (dashboard-disabled) features arrive it reads "#dashboard" back,
+    // finds `isViewEnabled("dashboard", features)` false, and returns without
+    // fixing anything — the user is stranded on a disabled view permanently.
+    // Gating the whole hook on `hydrated` means the ONE cold apply it ever
+    // runs already sees the real features, so it never takes that wrong first
+    // step.
+    window.location.hash = "#raid";
     const { result, rerender } = renderHook(
       ({ enabled, features }: { enabled: boolean; features: readonly FeatureModuleId[] }) => {
         useHashView(enabled, features);
@@ -653,7 +664,9 @@ describe("useHashView", () => {
       { wrapper, initialProps: { enabled: false, features: [...ALL_MODULE_IDS] as readonly FeatureModuleId[] } },
     );
     const withoutDashboard = ALL_MODULE_IDS.filter((m) => m !== "dashboard");
-    rerender({ enabled: true, features: withoutDashboard }); // first enabled run
+    rerender({ enabled: true, features: withoutDashboard }); // first enabled run, real features
+    // Positive observable: a real, reachable view — never the disabled module.
+    expect(result.current.activeTab).not.toBe("dashboard");
     expect(result.current.activeTab).toBe("open-points");
   });
 
@@ -663,6 +676,14 @@ describe("useHashView", () => {
       ({ enabled }: { enabled: boolean }) => { useHashView(enabled); return useWorkspaceTab(); },
       { wrapper, initialProps: { enabled: false } },
     );
+    // Pre-hydration: nothing has routed yet, on the ORIGINAL hash — without
+    // this a "delete the hook's disabled branch" mutant would warm-reapply
+    // from #raid/123 to #budget/7 on the very next hashchange/rerun and pass
+    // this test regardless of whether anything was ever actually gated.
+    expect(result.current.activeTab).toBe("dashboard");
+    expect(result.current.pendingOpen).toBeNull();
+    expect(window.location.hash).toBe("#raid/123");
+
     window.location.hash = "#budget/7"; // user edits the URL during load
     rerender({ enabled: true });
     expect(result.current.activeTab).toBe("budget");
@@ -713,8 +734,13 @@ describe("useHashView", () => {
 
   it("does not rewrite a #safe fragment before safe mode can read it", () => {
     // safe-mode.ts reads the fragment at module load, before any effect runs.
-    // This asserts only that the pre-hydration window leaves it alone; once
-    // enabled the hook may normalise an unrecognised hash like any other.
+    // The load-bearing claim is the pre-hydration assertion below: the window
+    // during which safe-mode.ts must see "#safe" untouched. Once enabled,
+    // "safe" is an unrecognised slug (slugToView falls back to "open-points",
+    // nav-config.ts), so the cold rule's stale-residue substitution applies
+    // exactly as it does for any other view-only hash (see the sibling
+    // "falls back to a valid view on an unknown hash" test) and resolves to
+    // the Dashboard — a real, pinned value, not merely "something non-empty".
     window.location.hash = "#safe";
     const { rerender } = renderHook(
       ({ enabled }: { enabled: boolean }) => { useHashView(enabled); return useWorkspaceTab(); },
@@ -723,6 +749,6 @@ describe("useHashView", () => {
     expect(window.location.hash).toBe("#safe");
 
     rerender({ enabled: true });
-    expect(window.location.hash).not.toBe("");
+    expect(window.location.hash).toBe("#dashboard");
   });
 });
