@@ -115,11 +115,18 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   `isBackendCurrent` (`=== backend`) reads a null ref as FALSE, so the LIVE path breaks — and
   //   every `reloadCurrentProject` test breaks too, for the same reason from the other side (a reload
   //   that always drops never applies, never toasts, never reports).
-  // ★★ MEASURED, and the number is the point: deleting this line turns 19 tests red across three
-  //   files — 17 in `use-storage-backend.test.tsx`, 1 in `use-storage-backend.load-gate.test.tsx`,
-  //   and exactly 1 of §588's own 7 ("a rebuild during the write still leaves the live backend's
-  //   gate open", whose `first.save` precondition stops being reachable). Same ref, same deletion,
-  //   opposite observability, decided entirely by how each consumer phrases the comparison.
+  // ★★ MEASURED, and the breadth is the point: deleting this line turns tests red in
+  //   `use-storage-backend.test.tsx` (its `reloadCurrentProject` tests, which lose their apply, their
+  //   toast and their report, plus its picker ones), in `use-storage-backend.load-gate.test.tsx`, and in the §588
+  //   probe, where the one that dies is "a rebuild during the write still leaves the live backend's
+  //   gate open" — its `first.save` precondition stops being reachable once guard 1 drops the pick
+  //   before the write. Same ref, same deletion, opposite observability, decided entirely by how each
+  //   consumer phrases the comparison.
+  // ★ NAMED, NOT COUNTED, ON PURPOSE: an earlier revision said "1 of §588's own 7" and the file
+  //   already collected 9 by the time it was committed — stale inside its own round. Re-measure with
+  //   `npx vitest run src/app/use-storage-backend.superseded-gate.test.tsx
+  //   src/app/use-storage-backend.test.tsx src/app/use-storage-backend.load-gate.test.tsx` after
+  //   deleting the write; do not restore a tally here.
   // ★★ SEEDED `null`, NOT `backend`, and the reason is FAIL-CLOSED. The write always runs before any
   //   consumer, so the seed is unobservable at runtime today; what it decides is which way the ref
   //   fails if that ever stops being true. `null` makes every superseded-check DROP, which is safe.

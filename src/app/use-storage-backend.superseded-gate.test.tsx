@@ -157,6 +157,20 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  // ★★★ DRAIN THE `…Once` QUEUES — `vi.clearAllMocks()` IN `beforeEach` DOES NOT. Read off
+  //   @vitest/spy's source rather than recalled: `mockClear` assigns only `state.calls`, `contexts`,
+  //   `instances`, `invocationCallOrder`, `results` and `settledResults`; `mockReset` is the one that
+  //   sets `config.onceMockImplementations = []`, and (because `vi.fn(impl)` is created with
+  //   `resetToMockImplementation: true`) also restores the mock factory's own `() => null`.
+  // ★★ So a queued `mockReturnValueOnce` SURVIVES into the next test. Nothing leaks TODAY: every
+  //   test consumes what it queues, and no statement between a queue and its consuming call can
+  //   throw. That is the problem — it is a premise held by statement ORDER inside each helper, which
+  //   the tests do not own. A test that aborts mid-helper, or an assertion added into that gap later,
+  //   would hand the NEXT test an already-open picker dialog or somebody else's backend, and
+  //   `test:shuffle` reorders WITHIN a file, so "the next test" is not a fixed one. Without this the
+  //   symptom would be a test failing only in shuffled order, only after an unrelated test went red.
+  createBackendMock.mockReset();
+  (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReset();
 });
 
 /** The shared arrangement all four `it`s below run identically, so they cannot
