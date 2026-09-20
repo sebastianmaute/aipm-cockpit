@@ -106,20 +106,39 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // resumes after an await. Assigned during render ON PURPOSE: React runs every
   // effect cleanup before any effect body, so a ref mirrored in an effect still
   // holds the OLD backend at the one moment the save effect's cleanup reads it.
-  // ★ SEEDED WITH `backend`, NOT `null`, and that is load-bearing for the TESTS rather than for the
-  //   runtime: the write below always runs before any consumer, so a null was never observable — but
-  //   with a null seed, DELETING the write makes every `backendRef.current !== backend` guard read
-  //   "superseded" ALWAYS, which is the same answer the guard should give in every scenario a test
-  //   sets up, so the deletion survives the whole suite. Seeded with `backend` the ref instead FREEZES
-  //   at mount, the guards read "still current" after a rebuild, and §588's probe goes red. Measured,
-  //   not reasoned: the same deletion survives 4/4 under the null seed and kills 3 of 4 under this one.
+  // ★★★ WHERE THIS WRITE IS PINNED, AND WHY THE OBVIOUS PLACE IS THE WRONG PLACE TO LOOK. Deleting
+  //   the write does NOT turn §588's four RELOAD tests red, and that silence is misleading rather
+  //   than informative: those guards are phrased `backendRef.current !== backend` — "am I
+  //   superseded?" — and a permanently-null ref answers TRUE, i.e. "drop", which is the answer the
+  //   guard owes in every scenario they set up. Read that file alone and you will conclude this line
+  //   is untestable. It is not. The kill lives wherever a caller asks the OPPOSITE question:
+  //   `isBackendCurrent` (`=== backend`) reads a null ref as FALSE, so the LIVE path breaks — and
+  //   every `reloadCurrentProject` test breaks too, for the same reason from the other side (a reload
+  //   that always drops never applies, never toasts, never reports).
+  // ★★ MEASURED, and the number is the point: deleting this line turns 19 tests red across three
+  //   files — 17 in `use-storage-backend.test.tsx`, 1 in `use-storage-backend.load-gate.test.tsx`,
+  //   and exactly 1 of §588's own 7 ("a rebuild during the write still leaves the live backend's
+  //   gate open", whose `first.save` precondition stops being reachable). Same ref, same deletion,
+  //   opposite observability, decided entirely by how each consumer phrases the comparison.
+  // ★★ SEEDED `null`, NOT `backend`, and the reason is FAIL-CLOSED. The write always runs before any
+  //   consumer, so the seed is unobservable at runtime today; what it decides is which way the ref
+  //   fails if that ever stops being true. `null` makes every superseded-check DROP, which is safe.
+  //   Seeding it with `backend` would freeze the ref at the FIRST instance and tell stale callers
+  //   they are still current — which is §588 itself, i.e. fail-OPEN. A seed picked to make the probe
+  //   able to kill the mutant was briefly tried and reverted: it bought testability that the picker
+  //   suites above already give for free, at the price of the wrong failure direction.
   // ★ A render React DISCARDS would also run this write. Not reachable today — `src/app` has no
   //   `startTransition`, `useTransition`, `useDeferredValue` or Suspense boundary, and this hook is
   //   called once — but that is a property of the app, not of this line, and it can stop being true
   //   without anything here changing. The consequence would be a ref pointing at a backend from a
   //   render that never committed.
-  const backendRef = useRef<ReturnType<typeof createBackend>>(backend);
+  const backendRef = useRef<ReturnType<typeof createBackend> | null>(null);
   backendRef.current = backend;
+  // §588 — "the backend THIS closure was built for is no longer the live one". Four resumption points
+  // ask it: `reloadCurrentProject` after its load resolves and again in its catch, and (as
+  // `isBackendCurrent`, the NEGATION — the phrasing the mutation coverage rides on, see above)
+  // `onPickStorageFile` after its picker and again after its write.
+  const isSupersededBackend = () => backendRef.current !== backend;
 
   // ★★★ §591 — WHICH STORAGE TARGET THE IN-SCOPE WORKSPACE BELONGS TO. `applyWorkspaceFromLoad`'s "merge"
   //   unions the loaded activity log and budget history with whatever is in memory, so it is right only
@@ -958,7 +977,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     emitStorageConfig,
     allowSavesToActiveBackend: () => allowSavesTo(backend),
     loadSucceeded: () => savesAllowedForRef.current === backend,
-    isBackendCurrent: () => backendRef.current === backend, // §588 — `backend` here is THIS render's instance; the ref is the live one.
+    isBackendCurrent: () => !isSupersededBackend(), // §588 — `backend` inside the predicate is THIS render's instance; the ref is the live one.
     acquireToken: auth.acquireToken,
     setTasks,
     setRaid,
@@ -987,8 +1006,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       //   single superseded resolution, not three defects. Do not split it into three.
       // ★ Nothing is emitted but the diagnostic: the click's outcome belongs to the backend the user
       //   is no longer on, and the live instance's own load effect owns the screen now.
-      if (backendRef.current !== backend) {
-        logDiag("warn", "storage.supersededLoadDropped", { writer: "reloadCurrentProject" });
+      if (isSupersededBackend()) {
+        logDiag("warn", "storage.supersededLoadDropped", { writer: "reloadCurrentProject", outcome: "resolved" });
         return;
       }
       // ★ DATA-LOSS GUARD: a reload that would EMPTY a populated project is
@@ -1021,6 +1040,17 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       await refreshBackendStatus();
       emitOutcome(null);
     } catch (err) {
+      // ★★ §588 — A SUPERSEDED REJECTION MUST BE AS QUIET AS A SUPERSEDED RESOLUTION, and the guard
+      //   after the await covers only the resolve leg. A load that REJECTS after a rebuild would
+      //   otherwise reach `emitOutcome` and the error toast, raising a STICKY storage banner over the
+      //   project the user has since switched TO, about a backend they are no longer on — the same
+      //   wrong-target visibility §588 is about, wearing an error's clothes, and the banner outlives
+      //   the toast. The live instance's own load effect owns the screen now, including its errors.
+      // ★ `finally` still clears `reloadInFlightRef`, so a dropped rejection cannot wedge the button.
+      if (isSupersededBackend()) {
+        logDiag("warn", "storage.supersededLoadDropped", { writer: "reloadCurrentProject", outcome: "rejected" });
+        return;
+      }
       // onStorageOutcome raises the sticky banner; the toast is the transient
       // acknowledgement of THIS click (reload has no other toast path).
       emitOutcome(err);

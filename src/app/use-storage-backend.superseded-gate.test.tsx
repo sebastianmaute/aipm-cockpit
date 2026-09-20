@@ -48,6 +48,7 @@ vi.mock("./project-file-handles", () => ({
 vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn() }));
 vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
 
+import { logDiag } from "./diagnostics";
 import * as storageMod from "./storage";
 import { TestProviders } from "./test-providers";
 import { useStorageBackend } from "./use-storage-backend";
@@ -85,14 +86,35 @@ function makeControlledBackend(): { backend: FakeBackend; release: (ws: object) 
 
 /** A backend whose load settles after `ms` on the (fake) clock — same shape as
  *  use-storage-backend.load-gate.test.tsx's `makeBackend`. */
-function makeBackend(ms: number, stored: object = EMPTY): FakeBackend {
+function makeBackend(ms: number, stored: object = EMPTY, kind = "turso"): FakeBackend {
   return {
-    kind: "turso",
+    kind,
     load: vi.fn(() => new Promise((resolve) => { setTimeout(() => resolve(stored), ms); })),
     save: vi.fn().mockResolvedValue(undefined),
     isReady: vi.fn().mockResolvedValue(true),
     describe: vi.fn().mockResolvedValue(null),
   };
+}
+
+/** Mount load settles normally (so this backend's gate opens); the SECOND
+ *  `load()` — `reloadCurrentProject`'s — hangs until the test REJECTS it. That
+ *  is the half `reloadCurrentProject`'s post-await guard cannot see: a
+ *  superseded reload that fails rather than succeeds resumes in the `catch`. */
+function makeBackendWithRejectingReload(ms: number): { backend: FakeBackend; rejectReload: (err: Error) => void } {
+  let reject: (err: Error) => void = () => {};
+  let calls = 0;
+  const backend: FakeBackend = {
+    kind: "browser",
+    load: vi.fn(() => {
+      calls += 1;
+      if (calls === 1) return new Promise<object>((resolve) => { setTimeout(() => resolve(EMPTY), ms); });
+      return new Promise<object>((_resolve, rej) => { reject = rej; });
+    }),
+    save: vi.fn().mockResolvedValue(undefined),
+    isReady: vi.fn().mockResolvedValue(true),
+    describe: vi.fn().mockResolvedValue(null),
+  };
+  return { backend, rejectReload: (err) => reject(err) };
 }
 
 const showToast = vi.fn();
@@ -194,6 +216,37 @@ async function setupSupersededReloadScenario() {
   return { result, first, second, savesBeforeStaleReload };
 }
 
+/** The REJECTION arrangement: mount on `first` and let its gate open, start a
+ *  reload against it, rebuild onto `second` and let ITS load land, then make the
+ *  stale reload FAIL. The op resumes in `reloadCurrentProject`'s `catch`, which
+ *  is the branch the post-await guard cannot reach. */
+async function setupSupersededRejectingReloadScenario() {
+  const { backend: first, rejectReload } = makeBackendWithRejectingReload(50);
+  const second = makeBackend(100);
+  createBackendMock.mockReturnValueOnce(first).mockReturnValue(second);
+
+  const { result, rerender } = renderHook(
+    (props: { config: StorageConfig }) => useProbe(makeArgs(props.config)),
+    {
+      wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+      initialProps: { config: { kind: "browser" } as StorageConfig },
+    },
+  );
+  await advance(100);
+
+  let reload!: Promise<void>;
+  act(() => { reload = result.current.reloadCurrentProject(); });
+  expect(first.load).toHaveBeenCalledTimes(2); // ★ the reload really started — without this the catch is never entered and both tests below are vacuous
+
+  rerender({ config: { kind: "turso" } as StorageConfig });
+  await advance(150);
+  expect(second.load).toHaveBeenCalledTimes(1);
+
+  await act(async () => { rejectReload(new Error("backend gone")); await reload; });
+
+  return { result, first, second };
+}
+
 describe("§588 — a superseded reload must not shut the new backend's gate", () => {
   // ★ F2 (split 1/3) — THE DATA HALF, not just the gate. A fix that guards
   // `allowSavesTo` alone would still let the superseded reload's
@@ -267,5 +320,170 @@ describe("§588 — a superseded reload must not shut the new backend's gate", (
   it("regression: a superseded reload announces no saving-paused banner (documents the silence, not the defect)", async () => {
     const { result } = await setupSupersededReloadScenario();
     expect(result.current.loadPause).toBeNull();
+  });
+
+  // ★★★ THE REJECTION LEG. The guard after `await backend.load()` only covers a
+  // reload that RESOLVES; one that THROWS resumes in the `catch`, which raises
+  // the sticky storage banner (`emitOutcome`) and an error toast — against the
+  // project the user switched TO, about a backend they are no longer on. Same
+  // defect class as the four above, and worse than the toast suggests: the
+  // banner is sticky and outlives it.
+  // ★★ Split into two `it`s over one helper for the same reason the four above
+  // are: an `expect` that throws stops the ones after it, so a single test
+  // asserting both would leave whichever came second UNREACHED under the very
+  // mutant that is supposed to prove it. Measured: with the catch guard deleted,
+  // the first assertion fires and the second is never evaluated.
+  it("a superseded reload that REJECTS takes the drop path (its own diagnostic, labelled rejected)", async () => {
+    await setupSupersededRejectingReloadScenario();
+    expect(logDiag).toHaveBeenCalledWith("warn", "storage.supersededLoadDropped", { writer: "reloadCurrentProject", outcome: "rejected" });
+  });
+
+  it("a superseded reload that REJECTS raises no error toast over the project the user switched to", async () => {
+    await setupSupersededRejectingReloadScenario();
+    expect(showToast).not.toHaveBeenCalledWith("error", expect.any(String));
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────────
+// §588, THE PICKER HALF. `onPickStorageFile` has the same shape as the reload —
+// it captures the render-scope backend and reaches `allowSavesToActiveBackend`
+// after an await — but it has TWO awaits, and each needs its own witness. Every
+// existing test of this op mocks `pickFileForBackend` to `null`, so it returns
+// before either guard: deleting BOTH guards outright leaves the whole suite
+// green. These three tests are the only thing standing under them.
+// ───────────────────────────────────────────────────────────────────────────────
+
+/** Queue ONE "Pick storage file" whose OS dialog stays open until the returned
+ *  `release` is called. `onPickStorageFile` only checks the promise for
+ *  truthiness and discards its value. */
+function openPickerDialog(): { release: () => void } {
+  let release: () => void = () => {};
+  (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+    new Promise<void>((resolve) => { release = () => resolve(); }),
+  );
+  return { release: () => release() };
+}
+
+/** GUARD 1's window. Mount on `first` and let its own load open its gate, open
+ *  the picker dialog against it, THEN rebuild onto `second` and let its load
+ *  land — so when the user finally picks a file, the op resumes holding a
+ *  backend nobody is on. The precondition (`second`'s gate really is open) is
+ *  asserted with a real save, exactly as the reload scenario does. */
+async function setupSupersededPickScenario() {
+  const first = makeBackend(50, EMPTY, "browser");
+  const second = makeBackend(100);
+  createBackendMock.mockReturnValueOnce(first).mockReturnValue(second);
+
+  const { result, rerender } = renderHook(
+    (props: { config: StorageConfig }) => useProbe(makeArgs(props.config)),
+    {
+      wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+      initialProps: { config: { kind: "browser" } as StorageConfig },
+    },
+  );
+
+  await advance(100);
+  expect(first.load).toHaveBeenCalledTimes(1);
+
+  const dialog = openPickerDialog();
+  let pick!: Promise<void>;
+  act(() => { pick = result.current.onPickStorageFile(); });
+  expect(storageMod.pickFileForBackend).toHaveBeenCalledTimes(1); // the op is genuinely parked on the dialog, not returned early
+
+  rerender({ config: { kind: "turso" } as StorageConfig });
+  await advance(150);
+  expect(second.load).toHaveBeenCalledTimes(1);
+
+  // ★ PRECONDITION, ASSERTED: `second`'s gate is open, shown by a save landing.
+  await act(async () => { result.current.setTasks(EDIT_ONE); });
+  await advance(SAVE_DEBOUNCE_MS + 100);
+  expect(second.save).toHaveBeenCalledTimes(1);
+  const savesBeforePick = second.save.mock.calls.length;
+
+  await act(async () => { dialog.release(); await pick; });
+
+  return { result, first, second, savesBeforePick };
+}
+
+describe("§588 — a superseded pick must not write to, or arm, the dead backend", () => {
+  // ★ THE WRITE HALF. `guardedWrite(deps.backend, …)` calls `save` on the
+  // captured instance, so without guard 1 the live project's workspace is
+  // written to a backend the user has left — a wrong-target write, not merely a
+  // misplaced gate. Its POSITIVE control is the sibling test below: `second`
+  // does still receive a save on the same arrangement, so "not called" here
+  // cannot pass because saving stopped working altogether.
+  it("a rebuild during the picker drops the write to the superseded backend", async () => {
+    const { first } = await setupSupersededPickScenario();
+    expect(first.save).not.toHaveBeenCalled();
+  });
+
+  // ★ THE GATE HALF — the durable one. `allowSavesToActiveBackend()` resolves to
+  // `allowSavesTo(first)`, moving the save gate off the backend on screen; every
+  // later edit is then dropped in silence for the rest of the session.
+  // ★★★ THIS TEST DOES NOT PIN GUARD 1, AND THE MUTATION TABLE SAYS SO — measured,
+  // not predicted (I predicted it would). Deleting guard 1 leaves it GREEN,
+  // because the op then runs on to guard 2, which catches the same rebuild and
+  // refuses the same gate move. Its own sibling short-circuits the mutant. Only
+  // deleting BOTH guards turns it red. Keep it anyway: it is the only witness
+  // that the two guards TOGETHER close the gate half, and it is the positive
+  // control for its sibling's `not.toHaveBeenCalled()` — but do NOT cite it as
+  // evidence for either guard on its own. Guard 1's unique kill is the write
+  // test above; guard 2's is the write-window test below.
+  it("a rebuild during the picker leaves the live backend's gate open", async () => {
+    const { result, second, savesBeforePick } = await setupSupersededPickScenario();
+
+    await act(async () => { result.current.setTasks(EDIT_TWO); });
+    await advance(SAVE_DEBOUNCE_MS + 100);
+
+    expect(second.save).toHaveBeenCalledTimes(savesBeforePick + 1);
+    expect(second.save.mock.calls[savesBeforePick][0].tasks.map((x: Task) => x.id)).toEqual([1, 2]);
+  });
+
+  // ★ GUARD 2's window, which guard 1 cannot see: the rebuild lands INSIDE
+  // `guardedWrite`'s own await, i.e. after guard 1 has already answered
+  // "current". Here the picker resolves at once and `first.save` is what hangs.
+  // ★★ The write is NOT recoverable at this point and the assertion says so —
+  // `first.save` HAS been called. Guard 2 exists for the half that outlives the
+  // tick: the gate. Asserting `first.save` was called is also what stops this
+  // test passing vacuously by never entering the window at all.
+  it("a rebuild during the write still leaves the live backend's gate open (the write itself is already gone)", async () => {
+    const first = makeBackend(50, EMPTY, "browser");
+    const second = makeBackend(100);
+    createBackendMock.mockReturnValueOnce(first).mockReturnValue(second);
+    let releaseSave: () => void = () => {};
+    first.save = vi.fn(() => new Promise<void>((resolve) => { releaseSave = () => resolve(); }));
+
+    const { result, rerender } = renderHook(
+      (props: { config: StorageConfig }) => useProbe(makeArgs(props.config)),
+      {
+        wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+        initialProps: { config: { kind: "browser" } as StorageConfig },
+      },
+    );
+    await advance(100);
+
+    // The dialog closes IMMEDIATELY, so guard 1 sees a still-current backend and
+    // waves the op through into the write.
+    (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValueOnce(Promise.resolve());
+    let pick!: Promise<void>;
+    act(() => { pick = result.current.onPickStorageFile(); });
+    await advance(1);
+    expect(first.save).toHaveBeenCalledTimes(1); // parked INSIDE guardedWrite — the window this test is about
+
+    rerender({ config: { kind: "turso" } as StorageConfig });
+    await advance(150);
+    expect(second.load).toHaveBeenCalledTimes(1);
+
+    await act(async () => { result.current.setTasks(EDIT_ONE); });
+    await advance(SAVE_DEBOUNCE_MS + 100);
+    expect(second.save).toHaveBeenCalledTimes(1);
+    const savesBeforeWriteLands = second.save.mock.calls.length;
+
+    await act(async () => { releaseSave(); await pick; });
+
+    await act(async () => { result.current.setTasks(EDIT_TWO); });
+    await advance(SAVE_DEBOUNCE_MS + 100);
+    expect(second.save).toHaveBeenCalledTimes(savesBeforeWriteLands + 1);
+    expect(second.save.mock.calls[savesBeforeWriteLands][0].tasks.map((x: Task) => x.id)).toEqual([1, 2]);
   });
 });

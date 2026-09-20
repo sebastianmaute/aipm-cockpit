@@ -9,6 +9,7 @@
 // the hook's refs; it holds no state/effects — useStorageBackend still owns all
 // state, refs, the load/save effects, and the shared helpers passed in via deps.
 import type React from "react";
+import { logDiag } from "./diagnostics";
 import type { Lang } from "./i18n";
 import { t, tPlural } from "./i18n";
 import type { Settings } from "./settings-types";
@@ -417,14 +418,23 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
     const promise = pickFileForBackend(deps.backend);
     if (!promise) return;
     await promise;
-    // ★★ §588 — the picker is the longest await in this file (it waits on a human at an OS dialog), so
-    //   a settings-driven rebuild landing inside it is the likeliest instance of the superseded-caller
-    //   defect. `deps.backend` is render-#1's instance; writing the live workspace to it and opening
-    //   its gate would move the gate OFF the backend now on screen, which then stays shut with no
-    //   banner and no toast. Guarded HERE, ahead of BOTH the write and `allowSavesToActiveBackend`.
-    if (!deps.isBackendCurrent()) return;
+    // ★★ §588 — GUARD 1 of 2, and this is the window that matters: the picker is the longest await in
+    //   this file (it waits on a human at an OS dialog), so a settings-driven rebuild landing inside
+    //   it is the likeliest instance of the superseded-caller defect. `deps.backend` is render-#1's
+    //   instance; writing the live workspace to it and opening its gate would move the gate OFF the
+    //   backend now on screen, which then stays shut with no banner and no toast. Placed ahead of
+    //   BOTH hazards — the write and `allowSavesToActiveBackend`.
+    if (!deps.isBackendCurrent()) { logDiag("warn", "storage.supersededPickDropped", { stage: "picker" }); return; }
     try {
       if (!(await deps.truncationOps.guardedWrite(deps.backend, deps.currentWorkspace()))) return; // ★ Kept as the backstop: the pre-check above is the one that matters, but a truncating load landing between them must still not commit.
+      // ★★ §588 — GUARD 2 of 2, for a DIFFERENT window: `guardedWrite` is itself an await, so a
+      //   rebuild can land inside it, after guard 1 has already said "current". Narrower than guard 1
+      //   and deliberately kept anyway — one guard per await, because one guard cannot see past the
+      //   next one. ★ It CANNOT un-write: `guardedWrite` has already called `save` on the superseded
+      //   instance by the time we get here. What it saves is the GATE, which is the durable half —
+      //   a stray write to a file the user picked themselves is recoverable, a save gate pointed at a
+      //   dead backend silently drops every later edit for the rest of the session.
+      if (!deps.isBackendCurrent()) { logDiag("warn", "storage.supersededPickDropped", { stage: "write" }); return; }
       deps.allowSavesToActiveBackend(); // ★★ §586: after a FAILED load autosave is refused; this write put the live workspace on the backend, so it belongs there now. Without it a user who re-picks a lost file would never autosave again this session.
       await deps.refreshBackendStatus();
       deps.emitToast("info", t(deps.langRef.current, "storageSwitchedToast"));
