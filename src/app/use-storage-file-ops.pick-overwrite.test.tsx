@@ -91,7 +91,17 @@ vi.mock("./project-file-handles", () => ({
  *  ring back so the emission itself is observed at least once.
  *  ★ `logDiag` is internally total — its whole body sits in a `try {} catch {}` so diagnostics can
  *  never break the app — so call-through cannot surface a THROW. It surfaces a payload the emitter
- *  silently drops, which is the half that matters here. */
+ *  silently drops, which is the half that matters here.
+ *  ★★★ SO EVERY GUARD'S `stage` PAYLOAD MUST STAY A PRIMITIVE, and this is the rule the
+ *  call-through exists to defend rather than a style note. `redactFields`
+ *  (`diagnostics-redact.ts`) DROPS objects, arrays, functions and `undefined` outright, returns
+ *  `undefined` when nothing survives, `[redacted]`s any secret-ish key, and truncates strings at
+ *  500. A guard handing it `{ stage: { name: "picker" } }`, or adding a field whose key contains
+ *  `token`, would satisfy EVERY argument assertion in this file and still reach storage mangled or
+ *  gone. The five `stage` payloads share one shape today (a short plain string), so the ring
+ *  assertion below and the argument assertions agree exactly — ★★ it is a TRIPWIRE for a future
+ *  sixth guard, NOT a discrepancy it catches now. Do not read a green run as proof it is doing
+ *  work, and do not delete it as redundant on that basis. */
 const { logDiagSpy } = vi.hoisted(() => ({ logDiagSpy: vi.fn() }));
 vi.mock("./diagnostics", async (importOriginal) => {
   const mod = await importOriginal<typeof import("./diagnostics")>();

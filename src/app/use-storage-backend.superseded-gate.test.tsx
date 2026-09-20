@@ -168,6 +168,16 @@ async function advance(ms: number) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // ★★ THE DIAGNOSTICS RING IS SHARED MUTABLE STATE AND `clearAllMocks` DOES NOT TOUCH IT. This
+  //   file calls through to the real `logDiag`, which appends to `localStorage`
+  //   (`aipm-cockpit:diag-log`), and jsdom scopes `localStorage` per test FILE — so without this
+  //   the ring accumulates across every test here. It is inert TODAY only because nothing in this
+  //   file reads the ring back (every assertion goes through `logDiagSpy`) — a CONTINGENT fact,
+  //   not an invariant: the sibling `pick-overwrite` suite added exactly such a ring assertion in
+  //   the round that introduced the call-through. `test:shuffle` reorders within a file, so the
+  //   first test to read the ring would see a different prefix depending on the seed. One line
+  //   here costs nothing and removes the whole class.
+  localStorage.clear();
   vi.useFakeTimers();
 });
 
