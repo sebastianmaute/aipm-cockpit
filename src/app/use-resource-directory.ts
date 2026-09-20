@@ -164,7 +164,18 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
   );
 
   const handleEditResource = useCallback((resource: Resource) => {
-    setEditingResource({ resource, isNew: false });
+    // ★★ A repeated deep link (guardrail insight, global search, Recents,
+    //    #resources/<id>) re-runs the open, and ResourceDirectory remounts on the
+    //    tab switch the request causes, so the guard has to live here (§540).
+    //    Returning `prev` UNCHANGED does two things: React bails the re-render,
+    //    and the modal keeps the SAME `resource` object — resource-edit-modal.tsx
+    //    resets its draft on reference inequality, so an unsaved draft survives.
+    //    COST, deliberate: when a concurrent writer replaced that row while the
+    //    editor was open, the editor now shows the stale copy rather than wiping
+    //    the draft. Preserving the draft is what §540 asks for.
+    setEditingResource((prev) =>
+      prev && !prev.isNew && prev.resource.id === resource.id ? prev : { resource, isNew: false },
+    );
   }, []);
 
   const handleCloseResourceModal = useCallback(() => setEditingResource(null), []);
