@@ -40471,7 +40471,7 @@ Related: §577, §598, §599.
 
 **Status:** OPEN 2026-09-20 — established from the pipeline record and the commit order, not from a new probe. §577 changed `budgetVarianceInsight` to compare budget and actuals over the same started periods. Pipeline 7271 on MR !506 then went red, on `sample-workspace-budget.test.ts` alone, and the repair (`be6b8ebc8`) updated the curated insight in the sample master. Nothing was wrong with the fix or with the test — **the omission is that the closure note never said a detector change moves curated sample data**, so the next person to change a detector has no reason to look.
 
-**Work item:** _(pending — controller to backfill; this entry needs a GitLab issue before push)_
+**Work item:** #379
 
 **Why this class of test is the easy one to miss.** `sample-workspace-budget.test.ts` does not look like a detector test. It lives outside `insights/`, its describe is about budgets, and its assertion is inside a test titled for closed-bucket plan variance — the curated-insight comparison is the second half of `closed buckets land within 15% of plan, and the curated budgetVariance insight matches the live detector`. A sweep scoped to `insights/` finds nothing; only a repo-wide sweep for the detector's own name does. Re-derive the exposed set with `grep -rln "detectInsights(" src/app --include=*.ts --include=*.tsx`, which finds the callers a detector change can move, including the ones filed under other subsystems.
 
@@ -40485,7 +40485,7 @@ Related: §577, §597, §599.
 
 **Status:** OPEN 2026-09-20 — read from the test and the detector, and confirmed by grep; no drift exists TODAY and the entry says so rather than overstating. `sample-workspace-budget.test.ts` is the only place a curated sample insight is checked against a live detection, and its assertion compares `data` ALONE: `grep -n "curated" src/app/sample-workspace-budget.test.ts` prints three lines, the last of which is `expect(curated?.data).toEqual(live?.data);`. `key`, `type` and `severity` are compared by nothing, here or anywhere.
 
-**Work item:** _(pending — controller to backfill; this entry needs a GitLab issue before push)_
+**Work item:** #380
 
 **The risk is latent, not active, and the distinction is the whole entry.** `budgetVarianceInsight` returns a LITERAL `severity: "medium"`, so today the curated value and the detected one agree by construction and no test is needed to keep them agreeing. The exposure opens the moment that literal becomes conditional — a severity derived from the breach magnitude is the obvious next change, and it is exactly the sort of change §577 already made to the field beside it. At that point the curated `"medium"` becomes a stale answer with nothing to catch it, which is precisely what happened to `variancePct` ([§597](#597-the-scaled-sample-workspaces-carried-the-pre-577-curated-budget-variance-insight-for-two-releases-because-no-test-reads-them--closed-2026-09-20)) and what cost pipeline 7271 ([§598](#598-the-577-closure-ran-no-repo-wide-sweep-for-the-tests-its-detector-change-invalidated-and-curated-sample-data-is-one-of-the-things-a-detector-change-moves--open)).
 
@@ -40499,7 +40499,7 @@ Related: §577, §597, §598.
 
 **Status:** OPEN 2026-09-20 — read from code in the assertion audit for [§596](#596-the-ai-chat-tool-loop-runs-its-writes-into-whatever-project-is-in-scope-when-each-tools-turn-comes-and-it-is-unconditional-on-unmount-rather-than-a-race--closed-2026-09-20), not reproduced. Ruled out of scope for that slice as a mid-slice discovery rather than silently folded in, and this entry records that reasoning so the decision is reviewable.
 
-**Work item:** _(pending — controller to backfill; this entry needs a GitLab issue before push)_
+**Work item:** #381
 
 §596 guarded the per-tool loop in `chat-panel.tsx`. It did NOT guard `applyPendingProposal`, which awaits `applyProposal` and then writes, with no epoch captured before the await and no `dropStaleScopeWrite` after it. Measured, with a positive control so the zero is not vacuity: counting scope-reader mentions inside each function with `awk '/async function applyPendingProposal/,/^  \}$/' src/app/chat-panel.tsx | grep -c "dropStaleScopeWrite\|getScopeEpoch"` prints **0**, while the same count over `submitPrompt` prints **4**.
 
@@ -40517,7 +40517,7 @@ Related: §548, §596.
 
 **Status:** OPEN 2026-09-20 — read from code with both bounds checked, not reproduced against a live backend. ★★★ **This entry is deliberately NARROWER than it was first stated, and the wide version must not be reintroduced.** It was first written as "the empty-load guards are essentially never able to fire for a JSON-file load". That is false, and a register entry claiming a guard "never fires" when it demonstrably fires on the commonest failure shape would be read once, checked once, dismissed — taking the real defect down with it. The narrow claim is both true and MORE alarming, because the shape it names is what a half-written or truncated-but-still-valid file takes.
 
-**Work item:** _(pending — controller to backfill; this entry needs a GitLab issue before push)_
+**Work item:** #382
 
 **The two bounds, stated as what was checked.** In `LocalFileBackend.loadFrom`: (1) the `if (!text.trim())` short-circuit returns `emptyWorkspace()` and **BYPASSES the migration chain entirely**, so a zero-byte read carries no seeded reference data and the guard DOES fire — and a zero-byte file is the common case, not an edge one, because `showSaveFilePicker` creates the file when the user types a new name; (2) the JSON decode runs with `strict: true`, which THROWS on a malformed file, so that path never reaches the guard at all.
 
@@ -40533,7 +40533,7 @@ Related: §586, §587, §590.
 
 **Status:** OPEN 2026-09-20 — MEASURED twice, and the numbers are the entry. FIXED for the census that was defeated (`f68ff914f`); OPEN because the neighbouring `.save(` census in the same file still uses a line-prefix comment heuristic rather than the shared stripper.
 
-**Work item:** _(pending — controller to backfill; this entry needs a GitLab issue before push)_
+**Work item:** #383
 
 **What happened.** `use-load-truncation.test.ts` carries a census asserting that every load path in a file either calls `truncationOps.reportFor`, or `reportImportFor`, or carries a `NO reportFor:` exemption marker. It counted matches over RAW FILE TEXT, comments included. Measured against `use-storage-file-ops.ts` at base `280207fc`:
 
@@ -40562,7 +40562,7 @@ Related: §590, §596, §603.
 
 **Status:** OPEN 2026-09-20 — read from code, not reproduced, and filed as an ACCEPTED residual with its rationale rather than as a defect awaiting a fix. Raised as concern C2 of the [§588](#588-a-reload-or-file-pick-still-running-from-before-a-backend-rebuild-can-shut-the-new-backends-save-gate-and-nothing-says-so--closed-2026-09-20) implementation. ★★ **C2 as originally stated — that a rebuild landing in that window "would still reach `allowSavesToActiveBackend`" — is FALSE at today's HEAD**, and the entry says so rather than preserving the stronger claim: C2 was written when `onPickStorageFile` carried one guard, and §588's fix round added a second AFTER `guardedWrite` (the drop logged with `stage` `"write"`), which closes the gate half. What remains is narrower.
 
-**Work item:** _(pending — controller to backfill; this entry needs a GitLab issue before push)_
+**Work item:** #384
 
 `guardedWrite` is itself an `await`, so a backend rebuild can land INSIDE it, after every guard above has already answered "current". By the time control returns, the write has already gone to the superseded instance and the destructive-save one-shot has already been spent; no post-await guard can undo either. The guard that follows therefore recovers only the half that OUTLIVES the tick — the save gate — and its own comment says so, calling its hazard set a strict SUBSET of the picker guard's.
 
