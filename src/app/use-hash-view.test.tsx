@@ -576,6 +576,47 @@ describe("useHashView", () => {
     expect(window.location.hash).toBe("#budget");
   });
 
+  it("clears the pending flag when a second apply in the same batch supersedes the first", () => {
+    // Independent review: `apply` used to ARM `pendingApplyRef` but never CLEAR
+    // it — `if (view !== activeTabRef.current) pendingApplyRef.current = view`.
+    // Two synchronous applies inside ONE React batch (two hashchange dispatches,
+    // or a listener-driven apply plus an effect-driven one) can therefore leave
+    // the flag armed for a view nobody is navigating to: the first arms "raid",
+    // the second resolves to the tab already active and does NOT disarm it.
+    // `activeTabRef` is maintained by a LAYOUT EFFECT, so inside the batch it
+    // still reads the pre-batch tab — which is what makes the second apply take
+    // the `===` branch. `setActiveTab` then collapses to the current value, so
+    // no re-render is scheduled and the passive effect never runs to consume
+    // the flag, and the stale "raid" swallows the NEXT genuine navigation's
+    // hash write exactly once.
+    // Kills the mutant that restores the `if (...)` form of that assignment.
+    window.location.hash = "";
+    const { result } = renderHook(
+      () => { useHashView(); return useWorkspaceTab(); },
+      { wrapper },
+    );
+    expect(result.current.activeTab).toBe("dashboard"); // premise: the pre-batch tab
+
+    act(() => {
+      // Arms the flag for "raid" (≠ the current "dashboard").
+      window.location.hash = "#raid";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+      // Supersedes it with the tab that is ALREADY active, so the arming
+      // condition is false. Post-fix this assigns null; pre-fix it left "raid".
+      window.location.hash = "#dashboard";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    // Positive observable that the batch really was a no-op for the tab —
+    // otherwise a re-render would have run the passive effect and consumed the
+    // flag, and this test would pass for a reason that has nothing to do with
+    // the assignment under test.
+    expect(result.current.activeTab).toBe("dashboard");
+
+    // The NEXT genuine navigation must still get its hash write.
+    act(() => { result.current.setActiveTab("budget"); });
+    expect(window.location.hash).toBe("#budget");
+  });
+
   it("applies the cold rule on the first EXECUTED run, not the first render", () => {
     // The effect returns early while disabled, so a Classic→Modern switch makes
     // the first EXECUTED run the cold load for that window. The ref must
@@ -753,6 +794,14 @@ describe("useHashView", () => {
     expect(window.location.hash).toBe("#safe");
 
     rerender({ enabled: true });
+    // ★★ CONSEQUENCE, recorded rather than asserted: this rewrite makes the
+    //    escape hatch SINGLE-USE. Once hydration replaces "#safe" with
+    //    "#dashboard" the fragment is gone from the URL, so a second reload no
+    //    longer enters safe mode and the user has to retype "#safe" — which is
+    //    exactly when they are least able to (the reason they are in safe mode
+    //    at all). Pre-existing and deliberate, NOT introduced by the hydration
+    //    gate: the pre-branch cold apply rewrote it on render 1 just the same.
+    //    Noted here so the rewrite is not read as free.
     expect(window.location.hash).toBe("#dashboard");
   });
 });

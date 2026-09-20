@@ -160,7 +160,24 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
       // CURRENT activeTab makes setActiveTab a no-op, which triggers no
       // re-render and therefore no passive-effect run to consume the flag
       // (see the ref's doc comment above).
-      if (view !== activeTabRef.current) pendingApplyRef.current = view;
+      // ★★ ALWAYS ASSIGN, so a superseding apply DISARMS as well as arms. Two
+      //    applies inside ONE React batch (two synchronous hashchange/popstate
+      //    dispatches, or a listener-driven apply plus an effect-driven one)
+      //    otherwise leave the flag armed for a view nobody is navigating to:
+      //    the first arms "raid", the second resolves to the tab already in
+      //    `activeTabRef` (a LAYOUT-effect-maintained ref, so within the batch
+      //    it still reads the pre-batch tab) and, with a bare `if`, does not
+      //    clear it. `setActiveTab` then collapses to the current value, no
+      //    re-render is scheduled, the passive effect never runs to consume the
+      //    flag, and the stale view swallows the NEXT genuine navigation's hash
+      //    write exactly once. MEASURED, not reasoned — the test named below
+      //    reds on the `if` form with `expected '#dashboard' to be '#budget'`.
+      //    Equivalent to the `if` form on every SINGLE-apply path: the `!==`
+      //    case is unchanged, and in the `===` case the flag is already null
+      //    (the passive effect clears it above its own early returns).
+      //    Pinned by "clears the pending flag when a second apply in the same
+      //    batch supersedes the first" (use-hash-view.test.tsx).
+      pendingApplyRef.current = view !== activeTabRef.current ? view : null;
       setActiveTab(view);
       if (itemId != null) requestOpen(view, itemId);
     };

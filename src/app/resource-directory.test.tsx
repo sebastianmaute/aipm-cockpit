@@ -792,26 +792,67 @@ describe("§540 mutation guard: editingResource identity survives a same-id repe
   // DOM-based "does not re-fire" test above also catches this mutant, because
   // its `onOpen` watcher keys on the `editingResource` WRAPPER's identity
   // (necessary — the wrapper is the only thing an id-vs-reference comparison
-  // mutant, row 2, can be told apart by; see that test's own comment). This
-  // renderHook test is still worth keeping: it pins the exact mechanism
+  // mutant, row 2, can be told apart by; see that test's own comment).
+  // ★★ NECESSARY IS NOT SUFFICIENT, and reading it as such is what an
+  // independent review caught: the wrapper is the right OBSERVABLE for the
+  // id-vs-reference mutant, but that mutant also needs a fresh-object INPUT,
+  // and the DOM harness never supplies one — its `.find()` returns the SAME
+  // array element on both dispatches. MEASURED: under
+  // `prev.resource === resource` the DOM test stays GREEN and only the
+  // fresh-object case below goes red. This renderHook
+  // test is still worth keeping: it pins the exact mechanism
   // (React's setState bail-out returning the SAME object) directly, without
   // going through the tab-remount harness, and independently of whatever
   // observable the DOM harness happens to use.
-  it("returns the exact editingResource object on a repeated handleEditResource call for the same id", () => {
-    const wrapper = ({ children }: { children: ReactNode }) => (
-      <FiltersProvider>
-        <WorkspaceProvider>{children}</WorkspaceProvider>
-      </FiltersProvider>
-    );
-    const { result } = renderHook(
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <FiltersProvider>
+      <WorkspaceProvider>{children}</WorkspaceProvider>
+    </FiltersProvider>
+  );
+  const mountDirectory = () =>
+    renderHook(
       () => useResourceDirectory({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), logUpdate: vi.fn() }),
       { wrapper },
     );
+
+  it("returns the exact editingResource object on a repeated handleEditResource call for the same id", () => {
+    const { result } = mountDirectory();
 
     act(() => { result.current.handleEditResource(rs[0]); });
     const opened = result.current.editingResource;
 
     act(() => { result.current.handleEditResource(rs[0]); });
+
+    expect(result.current.editingResource).toBe(opened);
+  });
+
+  // Independent review: the guard's `prev.resource.id === resource.id`
+  // comparison had ZERO test contact before this case. Every other dispatch in
+  // this file hands `handleEditResource` the SAME object twice — the DOM
+  // harness above resolves through `.find()` over a module-constant array, and
+  // the test above passes `rs[0]` literally — so a mutant weakening the
+  // comparison to reference equality (`prev.resource === resource`, which is
+  // also exactly the pre-branch behaviour) stayed GREEN in both. A FRESH object
+  // carrying the SAME id is the only input that can tell an id comparison from
+  // a reference one, and it is precisely the case §540 was filed for: a
+  // concurrent writer replaced the stored row while the editor was open, so the
+  // repeated deep link now resolves to a NEW object for the row already being
+  // edited. The unsaved draft must still survive.
+  // ★ This case is what kills the id-vs-reference mutant; the same-reference
+  //   test above cannot, and neither can the DOM harness.
+  it("returns the exact editingResource object when a repeat resolves to a FRESH object carrying the same id", () => {
+    const { result } = mountDirectory();
+
+    act(() => { result.current.handleEditResource(rs[0]); });
+    const opened = result.current.editingResource;
+
+    // Pin the premise this case's non-vacuity rests on instead of assuming it:
+    // the replacement really is a DIFFERENT object, so the guard is genuinely
+    // being asked an id question rather than handed the same reference again.
+    const replacement = { ...rs[0] };
+    expect(replacement).not.toBe(rs[0]);
+
+    act(() => { result.current.handleEditResource(replacement); });
 
     expect(result.current.editingResource).toBe(opened);
   });
