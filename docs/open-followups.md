@@ -758,7 +758,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§533](#533-csv-markdown-and-turso-split-a-stored-email-address-containing-a-comma-or-semicolon-on-save--closed-2026-09-14-as-an-accepted-limit) | CSV, Markdown and Turso split a stored email address containing a comma or semicolon on save — CLOSED 2026-09-14 as an accepted limit | found 2026-09-14 in the cold review of the data-loss batch, measured by a codec round-trip probe; GitLab #323 | S–M — a quote-aware join for the `emails` cell, or a one-time migration | **CLOSED** 2026-09-14 as an accepted limit |
 | [§534](#534-the-chat-review-card-can-reject-one-field-while-apply-replays-the-whole-call-so-the-fields-it-shows-as-landing-are-lost--closed-2026-09-19) | The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — CLOSED 2026-09-19 | found 2026-09-14 in the cold re-review of the §422 fix (data-loss batch); pre-existing, CLOSED §384 described the class; GitLab #324 | S–M — strip plan-rejected fields from the replayed call, or reject the whole row on the card when the dispatcher would throw | **CLOSED** 2026-09-19 |
 | [§535](#535-a-cold-item-deep-link-to-a-non-default-view-ends-on-the-dashboard-under-strictmode-and-loses-its-item-id-outside-it--closed-2026-09-20) | A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — CLOSED 2026-09-20 | found 2026-09-14 while fixing §478 on `fix/ui-a11y-batch` | S — let the cold apply's view commit before the view→hash write, and pin `#raid/123` with and without StrictMode | **CLOSED** 2026-09-20 |
-| [§536](#536-a-page-loaded-in-the-classic-layout-still-applies-the-cold-hash-rule-on-its-first-switch-to-modern--closed-2026-09-20) | A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — CLOSED 2026-09-20 | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478); stated mechanism refuted 2026-09-20 | S–M — give the hook a signal that tells a classic-loaded page from a settings load still in flight | **CLOSED** 2026-09-20 |
+| [§536](#536-a-mid-session-switch-from-classic-to-modern-layout-still-applies-the-cold-hash-rule-to-a-hash-left-stale-during-classic--open) | A mid-session switch from classic to modern layout still applies the cold hash rule to a hash left stale during classic — OPEN | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478); page-load half fixed and mechanism refuted 2026-09-20, mid-session-switch half reopened same day | S–M — give the hook a signal that distinguishes a mid-session enable following a classic stretch from a genuine cold start | open |
 | [§537](#537-project-contact-persons-have-no-ids--open) | Project contact persons have no ids — OPEN | filed 2026-09-14 while specifying the email-guard batch (spec Part 7); user decision: stay id-less for that batch, follow up later; GitLab #327 | M — a storage-format change to the `contactPersons` cell across CSV/Markdown/Turso-tenant, decoder back-compat, and 13 non-test call sites | open |
 | [§538](#538-single-db-turso-never-persists-project-meta--open) | Single-DB Turso never persists project meta — OPEN | found 2026-09-14 while filing §537; GitLab #328 | M — a single-tenant project meta row/table (or reuse of the tenant `projects` table), `dirtyWorkspaceTables` taught about project-only edits, and a `turso-migrate.ts` self-heal entry | open |
 | [§539](#539-sanitizeisodate-accepts-dates-that-are-not-real-calendar-dates--closed-2026-09-14) | `sanitizeIsoDate` accepts dates that are not real calendar dates — CLOSED 2026-09-14 | reported 2026-09-14 by a peer session's §273 work; user approved "file and fix" in the email-guard batch; GitLab #329 | S — a month/day calendar check in one function plus test migration across ~30 referencing files | **CLOSED** 2026-09-14 |
@@ -37942,33 +37942,66 @@ committed, or have the cold apply write the hash it honoured. Pin it with a Stri
 
 Related: §478, §536.
 
-## 536. A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — CLOSED 2026-09-20
+## 536. A mid-session switch from classic to modern layout still applies the cold hash rule to a hash left stale during classic — OPEN
 
-**Status:** CLOSED 2026-09-20 on `fix/hash-view-cold-apply`. The mechanism this entry describes is
-REFUTED. It assumed the first classic→modern switch is the page's first enabled window (`false →
-true`). It is not: `use-settings.ts`'s `useState<Settings>(defaultSettings)` seeds synchronously
-(non-lazily), and `defaultSettings.layout` (`settings-types.ts`) is `"modern"`, so `task-manager.tsx`'s
-`useHashView` call passed `enabled === true` on render 1 for every user, and a real classic load ran
-`true → false` — never the `false → true` this entry names. The symptom filed was real; the cause was the
-cold apply running before hydration, not the transition described.
+**Status:** OPEN (reopened) 2026-09-20 on `fix/hash-view-cold-apply`. Closed earlier the same day;
+reopened the same day once review found the closure covered only half of this entry's original symptom.
 
-Fixed by gating the call site on hydration: `useHashView(hydrated && settings.layout === "modern",
-settings.features)` in `task-manager.tsx` (`hydrated` is the flag `useSettings` already returns, which
-only flips once the persisted-settings/secret merge resolves, including the no-persisted-settings path).
-While `hydrated` is false, `useHashView` does nothing at all — no `setActiveTab`, no `requestOpen`, no
-`replaceState`. A classic-layout user therefore never reaches an enabled window in the first place:
-hydration resolves `layout: "classic"` before anything ever applies.
+**Work item:** #326
 
-Pinned by `does not route from the hash until settings have hydrated`
-(`task-manager.characterization.test.tsx`) at the call-site level, and by seven new hydration-boundary
-tests in `use-hash-view.test.tsx` modelling the `enabled` transition across hydration. Commits
-`b7c514681`, `5d731a4a3`, `7a6d89b62`, `cad92528f`, `32189bbec`. Mutation-proved: reverting the call site
-to `settings.layout === "modern"` alone, or to `hydrated || settings.layout === "modern"`, both turn the
-call-site test red; the hook's own §478 re-entry tests stay green throughout, unchanged.
+**What the closure got right — the mechanism as originally stated is REFUTED.** It assumed the first
+classic→modern switch is the page's first enabled window (`false → true`). It is not: `use-settings.ts`'s
+`useState<Settings>(defaultSettings)` seeds synchronously (non-lazily), and pre-branch
+`defaultSettings.layout` (`settings-types.ts`) was `"modern"`, so `task-manager.tsx`'s `useHashView` call
+passed `enabled === true` on render 1 for every user, and a real classic load ran `true → false` — never
+the `false → true` this entry named. The symptom filed was real; the cause was the cold apply running
+before hydration, not the transition described.
 
-★ Do not read the original body below as still accurate — a future reader who inherits its premise would
-go looking for a `false → true` transition that never happens. Preserved anyway, as the dated record of
-what was believed; see §595 for the sibling defect this same fix also closed.
+**What the closure fixed — the PAGE-LOAD case only.** Gating the call site on hydration —
+`useHashView(hydrated && settings.layout === "modern", settings.features)` in `task-manager.tsx` — means
+a page whose persisted settings resolve to `layout: "classic"` never reaches an enabled window from load:
+`hydrated` stays false until the persisted-settings/secret merge resolves (including the
+no-persisted-settings path), `useHashView` does nothing while it is false, and hydration lands on
+`"classic"` before anything ever applies. That half stays fixed; see the commits and mutation notes
+below.
+
+**What is still open, and is now the ONLY reachable path to the original symptom: the MID-SESSION
+switch.** A page that hydrates into (or stays in) classic layout runs its whole classic stretch with
+`useHashView` disabled, so `pageColdDoneRef` is never set during that stretch. A hash write can still
+happen while classic is active — `requestOpen` (global search) writes `#<view>/<id>` in any non-popout
+layout, gated only on `isPopout`, never on `layout` — so the URL can carry a stale `#raid/123` (or a
+stale view-only hash) with nothing having consumed the cold window. When the user later switches to
+Modern in Settings, `enabled` goes `false → true` with `pageColdDoneRef.current` still `false`, so the
+apply runs COLD: an item-bearing stale hash reopens that item and moves the user to its view; a
+view-only stale hash lands them on the Dashboard. This is the original §536 body's symptom, verbatim —
+only the trigger moved from "page load" to "mid-session switch".
+
+**Why this is NEWLY reachable, not merely still-open.** Before this branch, `defaultSettings.layout` was
+`"modern"`, so a classic user's render 1 was already enabled and the cold window was consumed AT LOAD,
+before the user ever switched layouts — a later classic→modern switch was therefore always a WARM §478
+re-entry. This branch's hydration gate means a classic-hydrated page now consumes NO cold window at all
+until the user leaves classic, so the switch that used to be warm is cold again. The fix that closed the
+load case is exactly what opened this door.
+
+**Deliberately not changed here.** `pageColdDoneRef`'s "first EXECUTED run is cold" semantics were left
+alone at the end of this slice, because §478's retained hook-level tests (`use-hash-view.test.tsx`) pin
+that behaviour, and this slice was scoped to the hydration gate, not to re-litigating what "cold" means.
+Giving the hook a signal that distinguishes a mid-session enable following a classic stretch from a
+genuine cold start is the fix this entry now asks for.
+
+Pinned (page-load half only) by `does not route from the hash until settings have hydrated`
+(`task-manager.characterization.test.tsx`) at the call-site level, and by seven hydration-boundary tests
+in `use-hash-view.test.tsx` modelling the `enabled` transition across hydration. Commits `b7c514681`,
+`5d731a4a3`, `7a6d89b62`, `cad92528f`, `32189bbec`. Mutation-proved: reverting the call site to
+`settings.layout === "modern"` alone, or to `hydrated || settings.layout === "modern"`, both turn the
+call-site test red; the hook's own §478 re-entry tests stay green throughout, unchanged. None of this
+coverage touches the mid-session-switch case above — it is untested and unfixed.
+
+★ Do not read the "Original finding" body below as accurate about the TRIGGER — a future reader who
+inherits its premise would go looking for a `false → true` transition at PAGE LOAD that never happens.
+Its SYMPTOM description (stale view-only hash → Dashboard; stale item-bearing hash → reopened item) is
+still exactly what happens, just triggered by the mid-session switch instead of page load. Preserved as
+the dated record of what was believed; see §595 for the sibling defect this same fix also closed.
 
 _Original finding, as filed 2026-09-14. Preserved as the dated record of what was believed._
 
@@ -37997,7 +38030,7 @@ is already enabled on the first render. If nothing else starts it disabled, "loa
 the signal that a page loaded in classic, and the fix is small. Identify what the first-EXECUTED test
 protects before changing it.
 
-Related: §478 (closed on the same branch), §535.
+Related: §478 (closed on the same branch), §535, §595 (the sibling defect closed by the same fix).
 
 ## 537. Project contact persons have no ids — OPEN
 

@@ -12,18 +12,22 @@
 // guard (a functional `setEditingResource` updater), added after the move.
 //
 // ★ Unlike the reference-data cluster, these handlers DO reach the memo()'d
-// components open-followups §1 is about — ResourceDirectory
-// (resource-directory.tsx:442) and ResourcesPanel (resources-panel.tsx:682),
-// via workspace-section.tsx:487-490 and :539-540. That still does NOT make
-// their identities load-bearing: all four that get there arrive wrapped in
-// guardEdit(...) (task-manager.tsx:2258-2261), and guardEdit is
-// makeEditGuard(...) called unmemoized during render (task-manager.tsx:2041),
-// so it mints a fresh identity every render regardless of what this file does.
+// components open-followups §1 is about — the `memo(ResourceDirectoryInner)`
+// export in resource-directory.tsx and the `memo(ResourcesPanelInner)` export
+// in resources-panel.tsx, via the `onEditResource={onEditResource}` prop each
+// receives in workspace-section.tsx. That still does NOT make their
+// identities load-bearing: all four that get there arrive wrapped in
+// `guardEdit(handleEditResource)` (the `onEditResource` entry of
+// task-manager.tsx's `workspaceProps`), and `guardEdit` is
+// `makeEditGuard(isPopout, ...)` called unmemoized during render
+// (task-manager.tsx), so it mints a fresh identity every render regardless of
+// what this file does.
 // The rest (editingResource, handleSaveResource via
 // handleSaveResourceFromAnywhere, handleDeleteResource, handleCloseResourceModal)
-// reach AppModals (task-manager.tsx:2680), which is a plain function component,
-// not memo()'d (app-modals.tsx:113). So preserving the memoization form needs no
-// justification beyond this being a move-only commit — don't invent one.
+// reach the `<AppModals` render in task-manager.tsx, which is a plain function
+// component, not memo()'d (`AppModals` in app-modals.tsx). So preserving the
+// memoization form needs no justification beyond this being a move-only
+// commit — don't invent one.
 //
 // The SIX refs the moved bodies read are re-derived here rather than threaded
 // in: exhaustive-deps only knows a value is render-stable when it can see the
