@@ -38,12 +38,16 @@ export function isAuthResponseHash(raw: string): boolean {
  * requestOpen. On view change we only rewrite the hash when the BASE view
  * differs, so an existing `#raid/123` is preserved while the user stays on RAID.
  *
- * `enabled` gates the whole sync — pass false in Classic mode. Turning it back
- * on is a LAYOUT RE-ENTRY, not a navigation: the view stays, nothing is
- * routed or opened, and the URL is rewritten to the bare current view. Only
- * the first enabled window of the PAGE LOAD applies the cold rule (a view-only
- * hash is stale residue → Dashboard; an item-bearing hash is a deep link).
- * See docs/open-followups.md §478.
+ * `enabled` gates the whole sync. The call site passes
+ * `hydrated && layout === "modern"`: FALSE in Classic mode, and ALSO false
+ * before settings hydrate. That second half is load-bearing — use-settings.ts
+ * seeds defaultSettings (layout "modern") synchronously, so without it the cold
+ * apply would fire on render 1 for every user, against default `features`
+ * (§536, §595). Turning it back on is a LAYOUT RE-ENTRY, not a navigation:
+ * the view stays, nothing is routed or opened, and the URL is rewritten to
+ * the bare current view. Only the first enabled window of the PAGE LOAD
+ * applies the cold rule (a view-only hash is stale residue → Dashboard; an
+ * item-bearing hash is a deep link). See docs/open-followups.md §478.
  * `features` gates navigation to disabled-module views — if the hash points at
  * a view whose module is off, the hash is ignored (the redirect effect keeps
  * the user on a valid view and will rewrite the hash).

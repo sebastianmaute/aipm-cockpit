@@ -8,7 +8,7 @@
 // is understood (e.g. the future calendar prop-bag consolidation renames these) —
 // it is NOT a golden fixture. Coarse on purpose: a tripwire, not a spec.
 import { render, screen, within } from "@testing-library/react";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
 
 // task-manager mints task/resource ids from session-scoped state on interaction;
@@ -226,5 +226,47 @@ describe("@characterization task-manager → Ask Claude pill gate", () => {
     // `aiAskClaude`, "Ask Claude") must not render in either header mount.
     const header = screen.getByRole("banner");
     expect(within(header).queryByRole("button", { name: "Ask Claude" })).toBeNull();
+  });
+});
+
+// Own describe, own mount, no shared beforeAll — task-manager.tsx:
+// `useHashView(hydrated && settings.layout === "modern", settings.features)`
+// (§536, §595). use-settings.ts seeds `defaultSettings` (layout "modern")
+// synchronously and only flips `hydrated` via a MICROTASK (a bare
+// `Promise.resolve().then(...)` on the no-persisted-settings path, or the
+// async secret-merge chain otherwise) — never synchronously during the
+// initial commit. ★★★ This assertion therefore deliberately does NOT await
+// anything: `useHashView`'s cold-apply effect is a `useLayoutEffect`, which
+// DOES flush synchronously inside `render()`, so a t=0 read is the only one
+// that can tell "gated on hydrated" from "gated on nothing" — an `await
+// screen.findByTestId(...)` first would let that microtask resolve and pass
+// off the already-hydrated state whether or not the gate is wired at all
+// (same idiom as timelog-panel.test.tsx's "never flashes the empty state at
+// a configured user before settings load").
+describe("@characterization task-manager → hash-view hydration gate (§536, §595)", () => {
+  afterEach(() => {
+    window.location.hash = "";
+  });
+
+  it("does not route from the hash until settings have hydrated", () => {
+    // ★ A VIEW-ONLY hash, not an item-bearing one: `requestOpen`'s own write
+    //   re-encodes an item-bearing hash back to itself (`#raid/123` ->
+    //   `#raid/123`), which would make a rewrite invisible here. A view-only
+    //   "#raid" is stale-residue under the cold rule (see use-hash-view.ts),
+    //   so an ungated apply resolves to the Dashboard — a real mismatch
+    //   against the current "#raid" that the passive view->hash effect then
+    //   rewrites to "#dashboard". That is the observable this test relies on.
+    // ★★ No DOM assertion here (e.g. `ws-section-mock`): TaskManager returns
+    //   `null` on its very first render regardless of this gate (`i18nReady`
+    //   starts false too, task-manager.tsx's `if (!i18nReady) return null`),
+    //   so nothing is ever in the DOM at t=0 either way. `useHashView`'s
+    //   effects still run — hooks execute unconditionally before that early
+    //   return — so the hash is still a valid, non-vacuous observable.
+    window.location.hash = "#raid";
+    window.localStorage.clear();
+    seedRegistry();
+    render(<TaskManager />);
+    // Pre-hydration the stored layout is not yet known; nothing may be routed.
+    expect(window.location.hash).toBe("#raid");
   });
 });

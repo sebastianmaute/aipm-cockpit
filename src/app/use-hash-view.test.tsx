@@ -478,6 +478,10 @@ describe("useHashView", () => {
   });
 
   it("is cold on the first enabled window even when the page loaded disabled and the cold target is not the default tab", () => {
+    // ★★ This is no longer a defensive case. Since §536, task-manager.tsx
+    //    passes `hydrated && layout === "modern"`, so EVERY page load starts
+    //    this hook disabled and enables it once settings resolve. This test
+    //    pins the whole app's startup path, not an edge case.
     // Sibling of the first-EXECUTED-run test below, which cannot tell "cold"
     // from "re-entry" on its own: its cold target (Dashboard) is also the
     // provider's default tab, and a re-entry keeps the default tab. Dropping the
@@ -596,5 +600,129 @@ describe("useHashView", () => {
     rerender({ enabled: true });
     // Cold: the view-only "#raid" is stale session residue, so we land home.
     expect(result.current.activeTab).toBe("dashboard");
+  });
+
+  // ★★★ §536, §595 — task-manager.tsx gates this hook on `hydrated &&
+  //    settings.layout === "modern"`, not bare `settings.layout === "modern"`.
+  //    use-settings.ts seeds `defaultSettings` (layout "modern") synchronously
+  //    and only flips `hydrated` once the persisted settings resolve, so
+  //    without that gate the cold apply fires on the FIRST executed run for
+  //    EVERY user, against default settings: a classic user gets routed
+  //    before the layout flips (§536), and the cold rule judges the hash
+  //    against defaultSettings.features and never revisits it (§595). The
+  //    tests below model that boundary as a disabled→enabled transition,
+  //    matching how the real call site behaves across hydration.
+  it("honours an item-bearing hash across the hydration boundary, once enabled", () => {
+    window.location.hash = "#raid/123";
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) => { useHashView(enabled); return useWorkspaceTab(); },
+      { wrapper, initialProps: { enabled: false } },
+    );
+    // Pre-hydration: the stored layout is not yet known, so nothing runs.
+    expect(result.current.activeTab).toBe("dashboard");
+    expect(result.current.pendingOpen).toBeNull();
+    expect(window.location.hash).toBe("#raid/123");
+
+    rerender({ enabled: true }); // hydration resolves: modern
+    expect(result.current.activeTab).toBe("raid");
+    expect(result.current.pendingOpen).toEqual({ view: "raid", id: 123 });
+  });
+
+  it("never routes for a user whose hydrated layout stays classic", () => {
+    window.location.hash = "#raid";
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) => { useHashView(enabled); return useWorkspaceTab(); },
+      { wrapper, initialProps: { enabled: false } },
+    );
+    rerender({ enabled: false }); // hydration resolves: classic — still disabled
+    expect(result.current.activeTab).toBe("dashboard");
+    expect(window.location.hash).toBe("#raid");
+  });
+
+  it("judges the cold rule against the features it is enabled with, not the ones it started disabled with", () => {
+    // The gate's second failure mode (§595): a user who disabled the
+    // dashboard module was landed on it anyway, because the cold rule ran
+    // against defaultSettings.features (every module on) before the real
+    // value arrived.
+    window.location.hash = "";
+    const { result, rerender } = renderHook(
+      ({ enabled, features }: { enabled: boolean; features: readonly FeatureModuleId[] }) => {
+        useHashView(enabled, features);
+        return useWorkspaceTab();
+      },
+      { wrapper, initialProps: { enabled: false, features: [...ALL_MODULE_IDS] as readonly FeatureModuleId[] } },
+    );
+    const withoutDashboard = ALL_MODULE_IDS.filter((m) => m !== "dashboard");
+    rerender({ enabled: true, features: withoutDashboard }); // first enabled run
+    expect(result.current.activeTab).toBe("open-points");
+  });
+
+  it("honours a hash the user edited during the pre-hydration window", () => {
+    window.location.hash = "#raid/123";
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) => { useHashView(enabled); return useWorkspaceTab(); },
+      { wrapper, initialProps: { enabled: false } },
+    );
+    window.location.hash = "#budget/7"; // user edits the URL during load
+    rerender({ enabled: true });
+    expect(result.current.activeTab).toBe("budget");
+    expect(result.current.pendingOpen).toEqual({ view: "budget", id: 7 });
+  });
+
+  it("leaves an MSAL auth-response fragment untouched across the hydration boundary", () => {
+    // Same non-colliding features list as the cold-load MSAL test above, and
+    // for the same reason: with the default (all modules) this would pass
+    // even with isAuthResponseHash's early return deleted, because
+    // "dashboard" is both the provider default and blankView.
+    window.location.hash = "#code=abc&state=xyz";
+    const features = ALL_MODULE_IDS.filter((m) => m !== "dashboard");
+    const replaceSpy = vi.spyOn(window.history, "replaceState");
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) => { useHashView(enabled, features); return useWorkspaceTab(); },
+      { wrapper, initialProps: { enabled: false } },
+    );
+    rerender({ enabled: true });
+    expect(result.current.activeTab).toBe("dashboard");
+    expect(window.location.hash).toBe("#code=abc&state=xyz");
+    expect(replaceSpy).not.toHaveBeenCalled();
+    replaceSpy.mockRestore();
+  });
+
+  it("stays inert across the hydration boundary in a popout", () => {
+    // Order matters: replaceState replaces the WHOLE URL, so setting the
+    // popout query param first (before the hash) avoids clobbering it.
+    window.history.replaceState(null, "", "/?popout=budget");
+    window.location.hash = "#raid/123";
+    try {
+      const { result, rerender } = renderHook(
+        ({ enabled }: { enabled: boolean }) => { useHashView(enabled); return useWorkspaceTab(); },
+        { wrapper, initialProps: { enabled: false } },
+      );
+      expect(result.current.activeTab).toBe("budget"); // the popout's own tab
+      expect(result.current.pendingOpen).toBeNull();
+      expect(window.location.hash).toBe("#raid/123");
+
+      rerender({ enabled: true });
+      expect(result.current.activeTab).toBe("budget");
+      expect(result.current.pendingOpen).toBeNull();
+      expect(window.location.hash).toBe("#raid/123");
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
+
+  it("does not rewrite a #safe fragment before safe mode can read it", () => {
+    // safe-mode.ts reads the fragment at module load, before any effect runs.
+    // This asserts only that the pre-hydration window leaves it alone; once
+    // enabled the hook may normalise an unrecognised hash like any other.
+    window.location.hash = "#safe";
+    const { rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) => { useHashView(enabled); return useWorkspaceTab(); },
+      { wrapper, initialProps: { enabled: false } },
+    );
+    expect(window.location.hash).toBe("#safe");
+
+    rerender({ enabled: true });
+    expect(window.location.hash).not.toBe("");
   });
 });
