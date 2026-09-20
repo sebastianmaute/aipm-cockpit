@@ -447,6 +447,29 @@ function ChatPanelInner({
     return () => document.removeEventListener("keydown", onKey);
   }, [busy, chatRef]);
 
+  // ★★★ Cancel an in-flight send when this panel goes away. Before this effect
+  // nothing did: the cleanup above is the file's ONLY other effect cleanup
+  // (`grep -c "useEffect(" src/app/chat-panel.tsx` → 8 effects;
+  // `grep -n "return () =>" src/app/chat-panel.tsx` → the keydown detach and
+  // this one) and it merely detaches a listener, while the projectId effect
+  // fires only on an ACTUAL prop change. Under the §548 load hold
+  // `task-manager.tsx` swaps the whole main-window tree for `PanelSkeleton`
+  // WITHOUT such a change, so the dying instance's `projectIdRef` is never
+  // bumped, its `stale()` reads not-stale forever, and its setters and
+  // dispatcher are still live (`useStorageBackend` lives in `TaskManager`,
+  // which does not unmount) — so a turn in flight across a project swap ran
+  // its tools into the project the user swapped TO.
+  // ★ Safe under StrictMode's mount→unmount→mount: `submitPrompt` resets
+  // `cancelledRef` to false at its own start — the sole `= false` write in
+  // this file (`grep -n "cancelledRef.current = false" src/app/chat-panel.tsx`
+  // → one hit, inside submitPrompt), so a cancelled flag left by a discarded
+  // first mount cannot outlive the next send. `chat-panel.scope.test.tsx` pins
+  // both halves, and its StrictMode test goes red if that reset is deleted.
+  useEffect(() => () => {
+    cancelledRef.current = true;
+    abortRef.current?.abort();
+  }, []);
+
   /** The card's view of the pending plan. `index` is the row's POSITION, which
    *  is the identity `PlanRow.index`, `cascadeDeselect` and `AppliedRow.index`
    *  all key on — `describeProposal` emits one row per call in the input's
