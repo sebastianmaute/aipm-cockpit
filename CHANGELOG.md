@@ -38,7 +38,10 @@ here too.
   but opening Open Points, Settings or Learning Insights closes it too — so asking the assistant
   to create tasks and then switching to Open Points to watch them appear silently did nothing.
   The same applied to a Save-As, a file dialog you cancelled, and a same-project reload.
-  Cancelling is now tied to an operation that actually changes which project is in scope.
+  Cancelling now happens only for an operation that replaces the project outright. It is not
+  the other way round: a storage-target change made from the classic header still changes
+  scope without cancelling, so that turn's remaining writes are dropped rather than the turn
+  being stopped — recorded as a named residual on `§596`.
 - **A reload or file pick left running from before a storage change no longer shuts the new
   target's save gate.** Saves could be refused with nothing on screen saying why. `§588` is
   closed.
@@ -53,7 +56,7 @@ here too.
 
 ### Notes
 
-- Eleven follow-ups were filed or closed with this work — `§596`–`§604` filed or closed here,
+- Twelve follow-ups were filed or closed with this work — the nine from `§596` to `§604`,
   plus `§588`, `§589` and `§590` closed. Among them: a source-scanning gate that had been
   counting its own documentation and reporting success while standing over the defect it was
   built to catch.
