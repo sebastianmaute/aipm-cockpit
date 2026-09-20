@@ -1,9 +1,9 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StorageConfigSection } from "./storage-config";
 import { Modal } from "./modal";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 
 vi.mock("./use-ms-auth", () => ({
   useMsAuth: (enabled: boolean) => ({
@@ -272,11 +272,12 @@ describe("StorageConfigSection — the SharePoint URL commits only on an explici
   // The visible label is the shared "Apply"; the accessible name names the target and CONTAINS it,
   // which is WCAG 2.5.3 label-in-name. Mutation: drop " SharePoint file URL" from
   // `spStorageApplyLabel` so the two names collide with the Turso Apply → the second expect is red.
-  // ★★ EN ONLY, deliberately. In DE the visible label is "Übernehmen" and the accessible name is
-  //    "SharePoint-Datei-URL übernehmen", which contains it only case-INSENSITIVELY — accepted,
-  //    since the shipped Turso pair already has that exact shape and 2.5.3 matching is
-  //    case-insensitive in practice. Consequence: a DE reword that breaks containment is caught by
-  //    nothing here. Said again at `integrationsTursoApply` in `i18n.ts`.
+  // ★★ EN ONLY, and case-SENSITIVE only because EN's two keys happen to share the casing. DE is
+  //    pinned separately at the bottom of this file ("SharePoint Apply label-in-name (DE)"),
+  //    case-INSENSITIVELY, because there the visible label is "Übernehmen" and the accessible name
+  //    is "SharePoint-Datei-URL übernehmen". Do not "unify" the two into one case-sensitive
+  //    assertion: SC 2.5.3 matching ignores case, so a case-sensitive DE test would flag
+  //    conformant code. Said again at `integrationsTursoApply` in `i18n.ts`.
   it("the Apply button's accessible name names SharePoint and contains its visible label", () => {
     renderSp(vi.fn());
     const apply = screen.getByRole("button", { name: SP_APPLY });
@@ -410,5 +411,73 @@ describe("StorageConfigSection — kind select routing", () => {
     fireEvent.change(select, { target: { value: "browser" } });
     // value stays — controlled, parent hasn't updated config
     expect(select.value).toBe("local-json");
+  });
+});
+
+// ★★★ §548 — THE DE HALF OF THE LABEL-IN-NAME PIN (WCAG 2.5.3). EN containment says NOTHING about
+//   DE: the visible label (`integrationsTursoApply`) and the accessible name (`spStorageApplyLabel`)
+//   are two INDEPENDENTLY AUTHORED keys, and in EN they happen to share both the word and its
+//   casing. `asset-library.test.tsx` carries the bug this rule comes from — an EN-green pair that
+//   was a straight 2.5.3 failure in DE, where a German speech-input user saying the word printed on
+//   the button could not activate it. Until this describe the DE side of BOTH Apply buttons was
+//   unpinned, which is what the EN comments above used to record as accepted.
+// ★★ CASE-INSENSITIVE IS THE CORRECT COMPARISON HERE, NOT A WEAKENED ONE. DE differs in case by
+//   construction — "Übernehmen" standalone, "… übernehmen" inside a compound name — and SC 2.5.3
+//   matching ignores case and position (Understanding SC 2.5.3, "Punctuation and capitalization";
+//   axe's own `label-content-name-mismatch` ends in a position-independent `includes` over curated,
+//   case-folded text). A case-SENSITIVE DE assertion would therefore fail code that CONFORMS, and
+//   "fixing" it by capitalising the verb mid-sentence would break German orthography instead.
+// ★★ NO GATE CATCHES THIS EITHER WAY: the SharePoint block needs `auth.account` (a live MSAL cache)
+//   so axe never renders it, and axe's 2.5.3 rule is `experimental`, which its default tagExclude
+//   drops — see `docs/AGENTS/accessibility.md`. A unit test is the only possible detector.
+// ★ The DE dictionary is LAZY, so `loadI18n("de")` must run before any `t("de", …)`; without it
+//   `t` serves the EN string and every assertion below compares EN with EN, i.e. is vacuous. The
+//   `expect(visible).not.toBe(t("en-US", …))` line is the anti-vacuity check for exactly that.
+// Mutation (named, both halves): in `i18n.de.ts` change `spStorageApplyLabel` to
+//   "SharePoint-Datei-URL anwenden" → the SharePoint case is red and the EN case above stays
+//   green; change `integrationsTursoApplyLabel` to "Turso-Verbindung anwenden" → the Turso case is
+//   red on its own.
+describe("Apply buttons — label-in-name in DE (WCAG 2.5.3)", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  it("the SharePoint Apply's accessible name contains its visible label, case-insensitively", () => {
+    render(
+      <StorageConfigSection
+        {...baseProps({
+          lang: "de",
+          config: { kind: "sp-json", hostname: "old.sharepoint.com", sitePath: "/sites/old", itemPath: "old.json" },
+          onChange: vi.fn(),
+          m365Enabled: true,
+          sharepointEnabled: true,
+        })}
+      />,
+    );
+    const visible = t("de", "integrationsTursoApply");
+    expect(visible.trim().length).toBeGreaterThan(0); // anti-vacuity: "" is inside everything
+    expect(visible).not.toBe(t("en-US", "integrationsTursoApply")); // the DE dict really loaded
+    // ★★★ LOCATED BY VISIBLE TEXT, never by the accessible name — `getByRole`'s `name` reads the
+    //   accessible name, so using it here would make the selector assume the very thing under test.
+    const applies = screen.getAllByRole("button").filter((b) => b.textContent?.trim() === visible);
+    expect(applies).toHaveLength(1); // the sibling "Browse" button must not be swept in
+    const accessible = applies[0].getAttribute("aria-label") ?? "";
+    expect(accessible).toBe(t("de", "spStorageApplyLabel"));
+    expect(accessible.toLowerCase()).toContain(visible.toLowerCase());
+  });
+
+  // ★ STRING-LEVEL for the Turso twin, deliberately: rendering `IntegrationsSection` here would
+  //   pull in its secrets/MSAL setup for one assertion. What this cannot see is the key→button
+  //   BINDING, and that is already pinned in EN — `integrations-section.backend-hold.test.tsx` and
+  //   `integrations-section.drafts.test.tsx` both locate that button by `integrationsTursoApplyLabel`
+  //   and the `drafts` suite reads its visible text. So the untested half was the DE STRINGS, which
+  //   is what this closes.
+  it("the Turso Apply's accessible name contains its visible label, case-insensitively", () => {
+    const visible = t("de", "integrationsTursoApply");
+    const accessible = t("de", "integrationsTursoApplyLabel");
+    expect(visible.trim().length).toBeGreaterThan(0);
+    expect(visible).not.toBe(t("en-US", "integrationsTursoApply")); // the DE dict really loaded
+    expect(accessible.toLowerCase()).toContain(visible.toLowerCase());
+    expect(accessible).not.toBe(t("de", "spStorageApplyLabel")); // the two names stay distinct
   });
 });
