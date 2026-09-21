@@ -20,24 +20,27 @@ overwritten, found during that work, are closed here too.
 
 ### Added
 
-- **Dashboard tiles size themselves to their content.** Each tile's height is measured when the
-  Dashboard opens, when the density changes and on Reset layout, so a tile no longer shows empty
-  space or an inner scrollbar at its default size. A height you choose from a tile's ⋮ menu is
-  kept and wins over the measurement.
+- **Dashboard tiles size themselves to their content.** Each tile's height is measured whenever
+  the board changes — when the Dashboard opens, when the density changes, when a tile is hidden or
+  restored, and on Reset layout — so a tile fits its content within its size limits instead of
+  showing empty space or an inner scrollbar. A height you choose from a tile's ⋮ menu is kept and
+  wins over the measurement.
 - **Reports opens with the Dashboard's At a glance strip.** The Headline block (Total, Open,
   Completed, Overdue) is replaced by the same tiles the Dashboard shows — Complete, R/A/G,
-  Overdue, Open RAID and, where tasks carry estimates, Effort SPI and Effort CPI — computed by the
+  Overdue, Open RAID and, where tasks carry estimates (and, for CPI, logged time), Effort SPI and
+  Effort CPI — computed by the
   same function, so the two views cannot disagree. The block keeps its place on a saved Reports
   layout and sizes itself to its content like a Dashboard tile.
 - **The Completion trend is dated and drawn to scale.** The first and last value and date sit
   around the line ("Today" when the last point is today's), points are spaced by date so a gap
   of weeks looks like weeks, and the line uses a fixed 0–100 % scale so a five-point move looks
-  like five points. The tile is hidden on a fresh board and explains itself in a tooltip.
+  like five points. The tile starts hidden on a fresh board and after Reset layout (a saved
+  layout keeps it where it was), and explains itself in a tooltip.
 - **The AI usage policy on the AI Assistant's consent screen is configurable.** Settings → AI
   Assistant has a policy owner and a policy link; a deployment can set both at build time with
   `NEXT_PUBLIC_AI_POLICY_ORG` and `NEXT_PUBLIC_AI_POLICY_URL`, which then win. With nothing set it
-  is the same Acme owner and link as before; a custom owner gets only the link configured
-  for it, never Acme's. With no link, the policy bullet, link and checkbox disappear and
+  is the same Acme owner and link as before; a custom or cleared owner gets only a link
+  configured for it, never Acme's, and Settings says so under the link field. With no link, the policy bullet, link and checkbox disappear and
   Accept works on its own. Only an `https://` link is ever used.
 - **The export footer is configurable.** Settings → Appearance has an "Export footer" field for
   the line at the foot of HTML document downloads, print/PDF exports and PowerPoint exports —
@@ -47,13 +50,15 @@ overwritten, found during that work, are closed here too.
 ### Changed
 
 - **At a glance is the one completion tile.** The separate Progress tile is merged into it, its
-  trend arrows sit beside each number instead of on a line of their own, and every card in the
+  trend arrows sit beside the number they belong to instead of on a line of their own, and every
+  card in the
   strip is the same height.
 - **One status summary, edited in place.** The Dashboard shows a single status summary, edited
-  inline from a pencil icon at its top right.
+  inline from a pencil icon at its top right (an Add button while it is empty).
 - **The Dashboard's print and reset controls sit in two columns**, so the stack beside the
   greeting is shorter.
-- **A closed budget bucket with no percent complete counts as 100 %** in earned value, instead of
+- **A closed budget bucket with neither a percent complete nor linked tasks counts as 100 %** in
+  earned value, instead of
   leaving the project's earned value and the at-current-efficiency forecast blank.
 - **The demo project** gives every open budgeted bucket a percent complete, so its budget
   forecast is filled in, and the README's screenshot and product-tour video show the current UI.
