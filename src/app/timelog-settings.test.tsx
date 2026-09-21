@@ -291,6 +291,24 @@ describe("TimelogSettings guardrails", () => {
     };
   }
 
+  // §365: the attributes must describe the window the code accepts (0 < x ≤ 24, fractional).
+  // ★ jsdom enforces neither min nor step, so these attribute assertions are the ONLY automated
+  // pin: the real consequence (8 or 8.5 flagged invalid by the browser) no test here can see.
+  it("declares a threshold input the browser will not flag for a valid fractional cap", () => {
+    const { field } = renderControlled({ timelogCapPerDay: { enabled: true } });
+    expect(field()).toHaveAttribute("min", "0");
+    expect(field()).toHaveAttribute("step", "any");
+    expect(field()).toHaveAttribute("max", String(MAX_HOURS_PER_DAY));
+  });
+
+  // Characterization, NOT a reproduction: these persist TODAY. They guard the window the
+  // attributes now describe, so a later "tidy" that narrows parseCap to >= 1 fails here.
+  it.each(["0.5", "8.5"])("persists the fractional threshold %s", (typed) => {
+    const { field, links } = renderControlled({ timelogCapPerDay: { enabled: true } });
+    fireEvent.change(field(), { target: { value: typed } });
+    expect(links().policy).toEqual({ timelogCapPerDay: { enabled: true, threshold: Number(typed) } });
+  });
+
   it.each([
     ["above the daily maximum", "999"],
     ["negative", "-5"],

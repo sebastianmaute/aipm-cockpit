@@ -591,7 +591,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§362](#362-a-guardrail-insights-deep-link-arms-pendingopen-with-no-consumer--closed-2026-09-14) | A guardrail insight's deep link arms `pendingOpen` with no consumer — CLOSED 2026-09-14 | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-14 |
 | [§363](#363-the-reconcile-freeze-guarantee-is-not-absolute--max_insights-can-drop-a-frozen-row--open) | The reconcile freeze guarantee is not absolute — `MAX_INSIGHTS` can drop a frozen row | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§364](#364-an-older-build-prunes-the-four-guardrail-insight-types-on-load-and-can-write-the-pruned-list-back--open) | An older build prunes the four guardrail insight types on load, and can write the pruned list back | found 2026-09-04 in the §347 guardrails review | S | open |
-| [§365](#365-the-threshold-fields-min1-understates-the-window-the-writer-engine-and-sanitiser-share--open) | The threshold field's `min={1}` understates the window the writer, engine and sanitiser share | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§365](#365-the-threshold-fields-min1-understates-the-window-the-writer-engine-and-sanitiser-share--closed-2026-09-21) | The threshold field's `min={1}` understates the window the writer, engine and sanitiser share — CLOSED 2026-09-21 | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-21 |
 | [§366](#366-project-scope-timelog-fetches-can-never-certify-a-guardrail-clean-so-those-insights-freeze-until-another-scope-runs--open) | Project-scope TimeLog fetches can never certify a guardrail clean, so those insights freeze until another scope runs | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§367](#367-parsedailykey-never-validates-the-date-so-a-malformed-one-reaches-the-rules-and-a-single-oversized-cell-is-constructible--closed-2026-09-07) | `parseDailyKey` never validates the date, so a malformed one reaches the rules and a single oversized cell is constructible | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-07 |
 | [§370](#370-redo-of-an-ai-captured-delete-is-unproved--closed-2026-09-05) | ~~Redo of an AI-captured delete is unproved~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 (a redo leg added to the existing AI `deleteTask` round trip in `use-chat-dispatcher.undo.test.tsx`, asserting the row is gone again after `redo()`) |
@@ -29128,16 +29128,28 @@ both builds can write.
 job is bounding what it admits), but it is recorded nowhere in the slice and is not obvious from
 either build.
 
-## 365. The threshold field's `min={1}` understates the window the writer, engine and sanitiser share — OPEN
+## 365. The threshold field's `min={1}` understates the window the writer, engine and sanitiser share — CLOSED 2026-09-21
 
-**Status:** OPEN. Filed 2026-09-04 with the fix that aligned the three consumers. Verified by
-reading, 2026-09-04: `grep -n "min={1}" src/app/timelog-settings.tsx` against `parseCap` in the same
-file, `isCap` in `src/app/timelog-policy.ts`, and `sanitizeTimelogPolicy` in
-`src/app/timelog-sanitize.ts`.
+**Status:** CLOSED 2026-09-21 on `fix/backlog-sweep`. Filed 2026-09-04 with the fix that aligned
+the three consumers; the attribute itself was left as the open half. Closed by widening
+`thresholdField`'s `min` to `0` and adding `step="any"` (`src/app/timelog-settings.tsx`), pinned by
+`src/app/timelog-settings.test.tsx`'s "declares a threshold input the browser will not flag for a
+valid fractional cap" plus the `it.each(["0.5", "8.5"])` characterization test beside it. Mutant 4a
+(remove `step="any"`): predicted RED on the `step` assertion, actual RED on the `step` assertion —
+match. Mutant 4b (`min={0.5}` with `step="any"` kept): predicted RED on the `min` assertion, actual
+RED on the `min` assertion — match.
 
-**Work item:** #261
+★ This entry named only `min` as the attribute to widen; the missing `step` was the larger half of
+the bug. The step base is `min`, so even a correctly widened `min={0}` alone leaves the default step
+of 1, which flags a real `8.5` cap as a browser `stepMismatch` — mutant 4a demonstrates exactly that
+gap. ★ This entry's own reasoning ("which admits `0.5`") points toward `min={0.5}` as the naive
+fix; mutant 4b shows that choice would, under the default step it leaves in place, flag the ordinary
+`8` as invalid instead — `min` alone, at either value, cannot close this without `step="any"`.
+★ Honestly: no automated test can see either browser consequence — jsdom enforces neither `min` nor
+`step` — so the attribute assertions above are the only pin; the real stepMismatch behaviour this
+closes stays unverified by this suite.
 
-All three now enforce `> 0 && <= MAX_HOURS_PER_DAY`, which admits `0.5`. The field's `min={1}` is
+All three now enforce `> 0 && <= MAX_HOURS_PER_DAY`, which admits `0.5`. The field's `min={1}` was
 pre-existing, decorative (it blocks nothing) and narrower than the real window.
 
 ★ Deliberately NOT narrowed to `>= 1` in the fix round: doing so at the writer alone would

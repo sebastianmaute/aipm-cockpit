@@ -348,7 +348,13 @@ function TimelogGuardrails({
       <Input
         size="xs"
         type="number"
-        min={1}
+        // §365: the window is 0 < x ≤ MAX_HOURS_PER_DAY, fractional (parseCap / isCap /
+        // sanitizeTimelogPolicy agree, and the notice says "above 0"). HTML cannot express an
+        // exclusive bound, so min is 0 and parseCap refuses 0 with that notice. ★ step="any"
+        // is load-bearing: the step base is `min`, so the default step of 1 flagged 8.5 as
+        // invalid, and a min of 0.5 would have flagged 8.
+        min={0}
+        step="any"
         max={MAX_HOURS_PER_DAY}
         aria-label={t(lang, labelKey)}
         invalid={incomplete}
