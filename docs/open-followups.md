@@ -792,7 +792,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§567](#567-issealedsecret-and-readstore-still-hardcode-their-own-secretid-lists-and-a-missed-id-is-silent-data-loss--closed-2026-09-19) | `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — CLOSED 2026-09-19 | slice (2026-09) | M | **CLOSED** 2026-09-19 |
 | [§568](#568-the-registers-index-rebuild-recipe-is-not-a-no-op-on-the-committed-table-and-discards-hand-written-state-prose--open) | The register's index-rebuild recipe is not a no-op on the committed table and discards hand-written State prose — OPEN | slice (2026-09) | S–M | open |
 | [§569](#569-screen-readers-may-never-deliver-the-chart-readouts-arrow-keys--open) | Screen readers may never deliver the chart readout's arrow keys — OPEN | found 2026-09-18 reviewing the merged chart hover readout; never run under a real screen reader; GitLab #354 | S — a real NVDA and JAWS pass, then pick `role="application"`, instructions, or the live-region fallback | open |
-| [§570](#570-the-spoken-readout-capitalises-mid-sentence--open) | The spoken readout capitalises mid-sentence — OPEN | found 2026-09-18 reading `rowText` against the tip strings in `i18n.ts`/`i18n.de.ts`; GitLab #355 | XS — lower-case the explanation or join with a full stop; German nouns make a blanket lower-case unsafe | open |
+| [§570](#570-the-spoken-readout-capitalises-mid-sentence--closed-2026-09-21) | The spoken readout capitalises mid-sentence — CLOSED 2026-09-21 | found 2026-09-18 reading `rowText` against the tip strings in `i18n.ts`/`i18n.de.ts`; GitLab #355 | XS — lower-case the explanation or join with a full stop; German nouns make a blanket lower-case unsafe | closed |
 | [§571](#571-the-chart-box-clamps-boundary-width-has-no-test--open) | The chart-box clamp's boundary width has no test — OPEN | found 2026-09-18 by mutation-testing `anchorFor`, `>` to `>=`, suite stayed green; GitLab #356 | XS — add a case at `rect.width === 352` | open |
 | [§572](#572-agentsmds-tsc-guidance-cannot-detect-a-vacuous-run--open) | AGENTS.md's tsc guidance cannot detect a vacuous run — OPEN | measured 2026-09-18 on this branch: a corrupt generated file hides a real `src/` error from `tsc`; GitLab #357 | S — amend the Commands block's `npx tsc --noEmit` guidance | open |
 | [§573](#573-the-open-points-visual-baseline-is-stale--closed-2026-09-19) | The Open Points visual baseline is stale | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | **CLOSED** 2026-09-19 |
@@ -39477,13 +39477,24 @@ Fix shape: run a real NVDA pass and a real JAWS pass against the trigger button,
 fourth option the pass turns up), and record which mechanism was actually verified. No `theme::a11y` label
 exists in this project today, so this entry carries none.
 
-## 570. The spoken readout capitalises mid-sentence — OPEN
+## 570. The spoken readout capitalises mid-sentence — CLOSED 2026-09-21
 
-**Status:** OPEN 2026-09-18 — found reading `rowText` in `src/app/chart-readout.tsx` against the tip strings
-in `i18n.ts` and `i18n.de.ts` (reproduce: `grep -n "burndownReadoutTip" src/app/i18n.ts src/app/i18n.de.ts`
-shows every tip opening with a capital); not measured against a real screen reader.
-
-**Work item:** #355
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`: `rowText` (`src/app/chart-readout.tsx`) now joins the
+row's sentence and its tip with a full stop, `` `${flagged}. ${t(lang, ROW[row.kind].tip)}` ``, so every
+spoken tip starts its own sentence instead of reading as a capitalised word mid-sentence. No `i18n.ts` /
+`i18n.de.ts` change was needed — the fix is entirely in the join, per the entry's own preferred option below.
+Test: `chart-readout.test.tsx` — the pre-existing "speaks each row's explanation after its value" pinning
+assertion was updated to the full-stop form (its third, unmentioned-in-brief expectation for the `runOut` row
+also needed the same comma-to-period edit, or it would have stayed red after the fix; not a departure from
+this entry, which never specified test wording), plus a new `it.each(["en-US", "de"])` case
+("§570: each spoken explanation starts its own sentence") that reads all ten tips off the rendered box via
+`loadI18n("de")` for the German half, so no tip string is hand-copied, and asserts both `.toContain('. ${tip}')`
+and `.not.toContain(', ${tip}')` against `readoutSentence`. Mutant 8a (revert the join to `, `) — predicted RED
+in both languages, actual RED (3 failed / 22 passed: the pinning test plus both `it.each` cases), no mismatch.
+`git diff --stat` proved clean before and after the mutant. Gates: `npx tsc --noEmit` EXIT=0;
+`npx eslint --max-warnings=0 src/app/chart-readout.tsx src/app/chart-readout.test.tsx` EXIT=0. No departure
+from the entry's fix-shape line: it named the full-stop join as "the safer fix" for exactly the reason this
+patch relies on (a future German tip may open with a capitalised noun), and that is what shipped.
 
 `rowText` joins a row's sentence and its explanation (`ROW[row.kind].tip`) with a comma:
 `` `${flagged}, ${t(lang, ROW[row.kind].tip)}` ``. All ten `tip` strings in both `i18n.ts` and `i18n.de.ts`

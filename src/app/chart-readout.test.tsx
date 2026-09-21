@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Readout } from "./burndown-readout";
 import { ChartReadout, readoutSentence } from "./chart-readout";
+import { loadI18n } from "./i18n";
 
 const fmt = (v: number) => `${v} EUR`;
 /** The portal ROOT this readout renders into, reached through the readout's own
@@ -186,11 +187,11 @@ describe("readoutSentence", () => {
   // screen-reader user through.
   it("speaks each row's explanation after its value", () => {
     const text = readoutSentence("en-US", full, fmt, "en-US");
-    expect(text).toContain("Planned: 80 EUR, What the plan expected to be spent by this date.");
+    expect(text).toContain("Planned: 80 EUR. What the plan expected to be spent by this date.");
     expect(text).toContain(
-      "At current pace: 60 EUR, forecast, Where spending lands if it continues at the recent daily average.",
+      "At current pace: 60 EUR, forecast. Where spending lands if it continues at the recent daily average.",
     );
-    expect(text).toContain("Runs out: 0 EUR, The day the budget is used up at the current pace.");
+    expect(text).toContain("Runs out: 0 EUR. The day the budget is used up at the current pace.");
   });
 
   it("formats the date in day-month order for an en-GB locale", () => {
@@ -200,5 +201,21 @@ describe("readoutSentence", () => {
 
   it("is empty for a readout with no rows", () => {
     expect(readoutSentence("en-US", { date: "2026-02-01", today: false, rows: [] }, fmt, "en-US")).toBe("");
+  });
+});
+
+describe("§570: each spoken explanation starts its own sentence", () => {
+  it.each(["en-US", "de"] as const)("joins every row's tip with a full stop in %s", async (lang) => {
+    if (lang === "de") await loadI18n("de");
+    render(<ChartReadout lang={lang} readout={full} anchor={{ top: 10, left: 20 }} fmt={fmt} locale={lang} />);
+    const tips = screen.getAllByRole("listitem", { hidden: true })
+      .map((li) => li.lastElementChild?.textContent ?? "");
+    expect(tips).toHaveLength(10);                  // presence: ten tips read, not zero
+    expect(tips.every((tip) => tip.length > 0)).toBe(true);
+    const text = readoutSentence(lang, full, fmt, lang);
+    for (const tip of tips) {
+      expect(text).toContain(`. ${tip}`);
+      expect(text).not.toContain(`, ${tip}`);
+    }
   });
 });
