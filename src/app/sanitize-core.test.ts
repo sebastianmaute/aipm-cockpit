@@ -10,8 +10,8 @@ describe("isRealCalendarDate (§544, §542)", () => {
       expect(isRealCalendarDate(d)).toBe(false);
     },
   );
-  // ★ NO YEAR BOUND: that is `sanitizeIsoDate`'s own policy, kept there.
-  it("has no year bound, while sanitizeIsoDate keeps its own", () => {
+  // ★ NO 1900–2100 BOUND: that is `sanitizeIsoDate`'s own policy, kept there.
+  it("has no 1900–2100 bound, while sanitizeIsoDate keeps its own", () => {
     expect(isRealCalendarDate("2200-06-15")).toBe(true);
     expect(sanitizeIsoDate("2200-06-15")).toBe("");
   });

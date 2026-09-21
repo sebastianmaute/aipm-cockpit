@@ -32,9 +32,10 @@ user-facing feature changes; every fix below closes a register entry found in an
 - **Diagnostics redaction now catches an opaque token in free text that carries no vendor prefix or
   `key=` frame**, as long as it mixes lowercase, uppercase and a digit across 32+ characters — without
   redacting single-case ids such as UUIDs, commit SHAs or MSAL GUIDs. `§564` is closed.
-- **Clearing a stored secret now removes it instead of resealing an empty string, at four places in
-  three settings sections** — the Jira and Timelog token fields, and two Turso paths (saving the
-  Turso token, and the portfolio-mode switch). This closes a gap where the Turso one visibly re-armed a
+- **Clearing a stored secret now removes it instead of resealing an empty string, at four sites
+  across three files** — `jira-settings.tsx` and `timelog-settings.tsx` (the Jira and Timelog token
+  fields), and two Turso paths in `integrations-section.tsx` (saving the Turso token, and the
+  portfolio-mode switch). This closes a gap where the Turso one visibly re-armed a
   "Remove stored secret" button right after use. `§565` is closed.
 - **The Jira proxy no longer logs the raw fetch-rejection object server-side.** Both `console.error`
   sites now log a plain `{ message, cause, code }` object instead. `§566` is closed.

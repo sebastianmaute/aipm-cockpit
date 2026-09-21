@@ -7,7 +7,7 @@
 //
 // ★★★ THREE PUBLIC FORMS, ONE PER PATH, differing ONLY in how they read a
 //  date (§542): `sanitizeCalendarEvent` (CREATE: a real calendar date, no
-//  1900–2100 bound),`sanitizeLoadedCalendarEvent` (LOAD: exactly what loaded before
+//  1900–2100 bound), `sanitizeLoadedCalendarEvent` (LOAD: exactly what loaded before
 //  §542, a kept non-calendar value reported) and
 //  `sanitizeCalendarEventForUpdate` (UPDATE: an untouched stored date carried
 //  verbatim, a changed one judged as on create). See the reader block below.

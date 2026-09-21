@@ -328,8 +328,9 @@ const kept = () => readDiagLog().filter((e) => e.code === "storage.nonCalendarDa
 describe("§542 date rules — create, load and update each have their own", () => {
   beforeEach(() => { __resetNonCalendarDateReportsForTests(); clearDiagLog(); });
 
-  // (a) CREATE: a real calendar date, any year. (a1)–(a3) are RED against the
-  //  pre-§542 rule, which accepted every one of these and rolled it over.
+  // (a) CREATE: a real calendar date, no 1900–2100 bound. (a1)–(a3) are RED
+  //  against the pre-§542 rule, which accepted every one of these and rolled
+  //  it over.
   it("(a1) refuses a calendar-invalid startDate", () => {
     expect(sanitizeCalendarEvent(ev({ startDate: "2026-02-30" }))).toBeNull();
   });
@@ -348,7 +349,7 @@ describe("§542 date rules — create, load and update each have their own", () 
     }));
     expect(out?.exceptions).toEqual([{ date: "2026-03-09", kind: "skip" }]);
   });
-  it("(a4) has no year bound: 2200 is accepted on create", () => {
+  it("(a4) has no 1900–2100 bound: 2200 is accepted on create", () => {
     expect(sanitizeCalendarEvent(ev({ startDate: "2200-01-05" }))?.startDate).toBe("2200-01-05");
   });
 

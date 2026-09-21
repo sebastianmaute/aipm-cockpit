@@ -1575,9 +1575,13 @@ describe("link fields honour the merge-site guard on the row and the create path
 // (C4) THE PER-ENTITY DATE VALIDATOR. The preview defaults to
 //  `sanitizeIsoDate` (regex + a real calendar date (§539) + 1900-2100) for
 //  every entity, but a calendar event's write rule is a real calendar date
-//  with NO year bound (§542; `acceptsEventDate`). §539 closed the field-range
-//  overflow direction (day > 31 / month > 12, e.g. "2026-01-32") — pinned by
-//  the first case below — and §542 the month-specific one ("2026-02-30"). ONE
+//  with NO 1900–2100 bound (§542; `acceptsEventDate`). §539 closed a preview
+//  mismatch: a field-range overflow (day > 31 / month > 12, e.g.
+//  "2026-01-32") used to preview as accepted and then be refused by the
+//  write — pinned by the first case below. §542 closed a different gap: a
+//  month overflow ("2026-02-30") was never refused by the write at all — the
+//  old `Date.parse` leg accepted it too, so preview and write already
+//  agreed, on the wrong answer, until §542 made the write refuse it. ONE
 //  direction still differs: the year bound (second case).
 describe("a date is judged by its own writer's rule", () => {
   const meeting = { id: 60, title: "Steering committee", startDate: "2026-07-08" };

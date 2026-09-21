@@ -38455,7 +38455,7 @@ Related: §533, §539 (the email-guard batch that found it).
 **Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`. Every calendar-event date (`startDate`, recurrence
 `until`, exception `date` / `toDate`) is now read through one of THREE readers, one per path, behind one
 private body, `calendarEventWithDateReader` (`calendar-event.ts`): CREATE, `sanitizeCalendarEvent`, requires
-a real calendar date (`isRealCalendarDate`, no year bound); LOAD, `sanitizeLoadedCalendarEvent`, reads
+a real calendar date (`isRealCalendarDate`, no 1900–2100 bound); LOAD, `sanitizeLoadedCalendarEvent`, reads
 through `calendarEventDateOnLoad` (`sanitize-load-date.ts`); UPDATE, `sanitizeCalendarEventForUpdate(input,
 stored)`, carries a date equal to the stored one for that field and judges any other as on create.
 `acceptsEventDate` asks the create rule. Load sites: `BrowserBackend.load`, `jsonToWorkspace` and
@@ -38546,9 +38546,9 @@ the fix-shape line below: the round trip was NOT inlined into `aggregateActuals`
 was extracted as a named, exported helper, `isRealCalendarDate` (`sanitize-core.ts`), because
 `sanitizeIsoDate` needed the identical round trip and a second inline copy would have been the third
 spelling of it in the file (`sanitizeIsoDate` already carried one). `sanitizeIsoDate` is now rewired to
-call it too, with its own 1900..2100 year bound kept local to itself (the helper carries no year bound).
-Tests: `sanitize-core.test.ts` (`isRealCalendarDate` accepts/refuses cases, incl. the no-year-bound
-contrast with `sanitizeIsoDate`) and `timelog-actuals.test.ts` ("routes a calendar-invalid day to undated
+call it too, with its own 1900..2100 year bound kept local to itself (the helper carries no 1900–2100
+bound). Tests: `sanitize-core.test.ts` (`isRealCalendarDate` accepts/refuses cases, incl. the
+1900–2100-bound contrast with `sanitizeIsoDate`) and `timelog-actuals.test.ts` ("routes a calendar-invalid day to undated
 instead of any period"). Mutants: 1a (`isRealCalendarDate` returns `ISO_DATE_RE.test(value)` alone, no
 round trip) — predicted RED on the helper's `2026-02-30`/`2026-04-31`/`2026-02-29` refusal cases, actual
 RED on those plus `2026-13-01`/`2026-00-10` and the TimeLog test (stronger kill than predicted, no
@@ -40676,6 +40676,13 @@ ordering was outside its scope. The exposure predates §565 and is not introduce
 field (`ai-section.tsx` `handleApiKeyChange`, `void saveSecretValue("anthropicApiKey", …)`) and the
 dictation STT key field (`dictation-section.tsx`) already called `removeSealed` on clear before this
 branch, and both carry the same unguarded ordering.
+
+**The stored flag re-arms too, not just the ciphertext.** `ai-section.tsx`'s `handleApiKeyChange`,
+`dictation-section.tsx`'s `handleSttKeyBlur` and `integrations-section.tsx`'s `commitTurso` each chain
+`.then(() => set…Stored(true))` on the seal they fire. A late seal therefore also flips the visible
+"stored" flag back on, so the "Remove stored secret" button reappears immediately, without a reload —
+the same visible symptom §565 fixed for the synchronous clear-and-reseal case, now produced instead by
+this async race.
 
 **The fix shape:** a per-secret generation guard — stamp a monotonic counter (or the value being
 sealed) when `saveSecretValue` starts, and have its `saveSealed` write apply only if no later call for
