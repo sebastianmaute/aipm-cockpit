@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
@@ -11,6 +11,9 @@ import { rowLabel } from "./row-tokens";
 import { t, tPlural } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
 import { useMeasuredHeights } from "./use-measured-heights";
+import { H_CLASS } from "./arrangement-grid";
+import { rowsForHeight } from "./arrangement-measure";
+import { tileById } from "./dashboard-tiles";
 
 // A pass-through spy: the real hook runs, and its arguments are observable.
 vi.mock("./use-measured-heights", async (orig) => {
@@ -254,5 +257,97 @@ describe("DashboardPanel Reset layout re-measures (adaptive heights)", () => {
     expect(afterFirst).not.toBe(initial);
     await user.click(reset);
     expect(lastNonce()).not.toBe(afterFirst);
+  });
+});
+
+// ★★ m3: the panel's height WIRING, pinned with the layout stubbed the way
+//   use-measured-heights.test.tsx stubs it. jsdom returns 0 for every rect, so without the stub the
+//   hook measures nothing and every tile renders at its stored height — which is why these three
+//   wiring faults used to survive the unit suite: `renderedH` ignoring the measurement, the ⋮ menu
+//   reading the stored `h`, and the panel reporting no tile as flagged.
+describe("DashboardPanel renders measured heights (adaptive heights)", () => {
+  const SECTION = 176;
+  const BODY = 137;
+  const CONTENT = 400;
+  afterEach(() => vi.restoreAllMocks());
+
+  function stubBoard() {
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      const r = (h: number) => ({ top: 0, bottom: h, height: h, left: 0, right: 10, width: 10, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+      if (this.hasAttribute("data-arrangement-section")) return r(SECTION);
+      if (this.parentElement?.hasAttribute("data-arrangement-body")) return r(CONTENT);
+      return r(0);
+    });
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute("data-arrangement-body") ? BODY : 0;
+    });
+  }
+
+  /** jsdom computes no Tailwind, so the grid's row unit and gap are given inline, BEFORE the
+   *  mount frame reads them; the frame is then flushed. */
+  async function mountMeasured(projectId: string) {
+    stubBoard();
+    const user = userEvent.setup();
+    render(<DashboardPanel {...baseProps} projectId={projectId} />, { wrapper });
+    const grid = screen.getByTestId("dashboard-grid");
+    grid.style.gridAutoRows = "80px";
+    grid.style.rowGap = "16px";
+    await act(async () => { await new Promise((r) => requestAnimationFrame(() => r(null))); });
+    return user;
+  }
+
+  const UPCOMING = "Upcoming & overdue";
+  const spec = tileById("upcoming")!;
+  // Body padding reads 0 here: jsdom computes no `p-2`.
+  const measuredH = rowsForHeight(CONTENT, 80, 16, SECTION - BODY, spec.minH, spec.maxH);
+
+  const heightGroup = () => within(screen.getByRole("dialog", { name: kebab(UPCOMING) }))
+    .getByRole("radiogroup", { name: /height/i });
+  const checkedIn = (group: HTMLElement) =>
+    within(group).getAllByRole("radio").filter((b) => b.getAttribute("aria-checked") === "true");
+
+  it("renders an unflagged tile, its ⋮ menu and the resize announcement at the MEASURED height", async () => {
+    // Non-vacuity: the fixture measures to something other than the stored default.
+    expect(measuredH).not.toBe(spec.h);
+    const user = await mountMeasured("p-measured-render");
+    const tile = screen.getByTestId("tile-upcoming");
+    expect(tile.className.split(" ")).toContain(H_CLASS[measuredH]);
+    expect(tile.className.split(" ")).not.toContain(H_CLASS[spec.h]);
+
+    await user.click(screen.getByRole("button", { name: kebab(UPCOMING) }));
+    const checked = checkedIn(heightGroup());
+    expect(checked).toHaveLength(1);
+    expect(checked[0]).toHaveTextContent(String(measuredH));
+
+    // A WIDTH pick announces the height too, and it must be the height on screen.
+    const widthGroup = within(screen.getByRole("dialog", { name: kebab(UPCOMING) }))
+      .getByRole("radiogroup", { name: /width/i });
+    const otherW = within(widthGroup).getAllByRole("radio").find((b) => b.getAttribute("aria-checked") !== "true")!;
+    await user.click(otherW);
+    expect(screen.getByText(
+      t(EN, "arrangementTileResized", UPCOMING, otherW.textContent ?? "", String(measuredH)),
+    )).toBeInTheDocument();
+  });
+
+  it("keeps a height the user picked over the measurement, and reports that tile as flagged", async () => {
+    const user = await mountMeasured("p-measured-flagged");
+    await user.click(screen.getByRole("button", { name: kebab(UPCOMING) }));
+    const pick = within(heightGroup()).getAllByRole("radio")
+      .find((b) => b.textContent !== String(measuredH) && b.textContent !== String(spec.h))!;
+    const picked = Number(pick.textContent) as keyof typeof H_CLASS;
+    await user.click(pick);
+    // At once, before any re-measure frame: the stale map still holds this tile's reading, so only
+    // `renderedH` putting the flag first can show the pick here.
+    expect(screen.getByTestId("tile-upcoming").className.split(" ")).toContain(H_CLASS[picked]);
+    // The pick flips the flag, which is a re-measure trigger: let that pass run too.
+    await act(async () => { await new Promise((r) => requestAnimationFrame(() => r(null))); });
+    const cls = screen.getByTestId("tile-upcoming").className.split(" ");
+    expect(cls).toContain(H_CLASS[picked]);
+    expect(cls).not.toContain(H_CLASS[measuredH]);
+    const calls = vi.mocked(useMeasuredHeights).mock.calls;
+    const tiles = calls[calls.length - 1][0].tiles;
+    expect(tiles.find((x) => x.id === "upcoming")?.flagged).toBe(true);
+    // …and only that one: every other tile is still handed over for measuring.
+    expect(tiles.filter((x) => x.flagged).map((x) => x.id)).toEqual(["upcoming"]);
   });
 });

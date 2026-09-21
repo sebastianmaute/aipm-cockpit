@@ -136,6 +136,8 @@ A hook owned by `dashboard-panel.tsx` measures once per trigger.
   measured value is the **vertical extent of the body's element children** (the last child's
   `getBoundingClientRect().bottom` minus the first child's `.top`) plus the body's computed vertical
   padding. That reading does not depend on the box height, so it can shrink a tile as well as grow it.
+  Only children in flow count: a `position: fixed` child and an all-zero rect (`display: none`) are
+  skipped, since either would stretch the extent towards `maxH`.
 - **★★ No wrapper is added around the body's children to measure them, and adding one would be a
   regression.** The body renders `{children}` directly. A wrapper of automatic height would make every
   child styled `h-full` resolve against an auto height and collapse. The children-extent reading
@@ -156,7 +158,9 @@ A hook owned by `dashboard-panel.tsx` measures once per trigger.
   `tour-overlay.tsx`. A synchronous `setState` in an effect body trips `react-hooks/set-state-in-effect`,
   which is fatal in this repo. The rAF callback also lets the freshly rendered board lay out before any
   rect is read. Content that finishes loading after that frame (a lazily loaded body) is caught on the
-  next open, which decision 4 already accepts.
+  next trigger, which decision 4 already accepts. The one late change that is closed is the web-font
+  swap: while `document.fonts` is still loading, a trigger also schedules one more pass for when
+  `document.fonts.ready` resolves.
 - **Nothing is quoted; everything is read.** Row unit and gap exist in the code only as Tailwind class
   strings (`auto-rows-[80px]`, `gap-4`), and `gap-4` is rem-based, so a literal 16 would assume a 16px
   root. Both are read from the grid element's computed style (`gridAutoRows`, `rowGap`). The non-body

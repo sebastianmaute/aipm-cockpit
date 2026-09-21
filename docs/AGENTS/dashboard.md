@@ -179,10 +179,16 @@ depends on width, so a tile widened or narrowed either way keeps its measured he
 TRIGGER of any kind, and may scroll inside itself until then. ★ That next trigger can be unrelated: a
 height picked for another tile, a hide or a restore re-measures EVERY unflagged tile, so a tile widened
 earlier in the session can change height then. That is the width ruling's accepted consequence, not a
-defect. `rowsForHeight` (`arrangement-measure.ts`) converts the reading — the
-vertical extent of the tile body's element children plus the body's padding, never the body's
-`scrollHeight` (which can only grow a tile, never shrink it) — into the smallest row count that holds
-it, clamped to the tile's own `[minH, maxH]`.
+defect. ★ A trigger that fires while web fonts are still loading gets ONE more pass once
+`document.fonts.ready` resolves: the landing view is measured on its first frame, which can come before
+the `next/font` swap re-wraps its text. Once the fonts are loaded no extra pass is scheduled, and a
+resolution after unmount or after a newer trigger schedules nothing. `rowsForHeight`
+(`arrangement-measure.ts`) converts the reading — the vertical extent of the tile body's IN-FLOW element
+children plus the body's padding, never the body's `scrollHeight` (which can only grow a tile, never
+shrink it) — into the smallest row count that holds it, clamped to the tile's own `[minH, maxH]`.
+★★ "In flow" is enforced: a `position: fixed` child and a child whose rect is all zero (`display:
+none`) are skipped. Either one, taken into the min-top/max-bottom extent, stretched the reading
+towards `maxH`.
 ★★ **Never persisted.** A stored measurement would read as a user's choice on the next open and freeze
 the board — the same gate-decides-render-never-store rule this file states elsewhere for gated tiles.
 ★★ **Applied ONLY where `hSet` is absent.** A tile the user has explicitly sized through the ⋮ menu

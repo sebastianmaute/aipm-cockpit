@@ -36,7 +36,13 @@ function measureTile(section: HTMLElement, t: MeasuredTile): BlockHeight | null 
   const rowUnit = parseFloat(gs.gridAutoRows);
   const gap = parseFloat(gs.rowGap);
   if (!(rowUnit > 0) || !Number.isFinite(gap)) return null;
-  const kids = Array.from(body.children).map((k) => k.getBoundingClientRect());
+  // ★ Only children IN FLOW count. A display:none child reads as an all-zero rect at the viewport
+  // origin, and a position:fixed one sits wherever the viewport puts it; either one, taken into
+  // min(top)/max(bottom), stretches the extent towards maxH.
+  const kids = Array.from(body.children)
+    .filter((k) => getComputedStyle(k).position !== "fixed")
+    .map((k) => k.getBoundingClientRect())
+    .filter((r) => r.width !== 0 || r.height !== 0);
   if (kids.length === 0) return null;
   const extent = Math.max(...kids.map((r) => r.bottom)) - Math.min(...kids.map((r) => r.top));
   const sectionH = section.getBoundingClientRect().height;
@@ -70,7 +76,7 @@ export function useMeasuredHeights(args: {
   const tileKey = JSON.stringify([...tiles].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)));
 
   useEffect(() => {
-    const raf = requestAnimationFrame(() => {
+    const measure = () => {
       const next = new Map<string, BlockHeight>();
       for (const t of JSON.parse(tileKey) as MeasuredTile[]) {
         if (t.flagged) continue;
@@ -86,8 +92,26 @@ export function useMeasuredHeights(args: {
         if (rows !== null) next.set(t.id, rows);
       }
       setMeasured((prev) => (sameMap(prev, next) ? prev : next));
-    });
-    return () => cancelAnimationFrame(raf);
+    };
+    const raf = requestAnimationFrame(measure);
+    // ★★ The landing view is measured on its first frame, which can come before the web font
+    // (next/font) swaps in; the re-wrapped text can then end a line short. One more pass once
+    // `document.fonts.ready` resolves catches it — only while fonts are still loading, so a board
+    // re-measured later in the session pays nothing. `document.fonts` is absent in jsdom.
+    // `cancelled` stops a late resolution scheduling a pass after unmount or a newer trigger.
+    let cancelled = false;
+    let fontRaf = 0;
+    const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
+    if (fonts && fonts.status !== "loaded") {
+      void fonts.ready.then(() => {
+        if (!cancelled) fontRaf = requestAnimationFrame(measure);
+      });
+    }
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      cancelAnimationFrame(fontRaf);
+    };
   }, [density, tileKey, resetNonce]);
 
   return measured;
