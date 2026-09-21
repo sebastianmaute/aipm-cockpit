@@ -37,6 +37,11 @@
  * so this step is gated exactly as the burn step is, and so a layout that
  * recorded it is never re-examined. The load-path round trip is pinned in
  * `use-dashboard-layout.test.tsx`.
+ * ★★ THE FILTER DUPLICATES `reconcile`, which drops an id with no catalogue
+ * spec from `board` and `hidden` anyway. What this step is load-bearing for is
+ * returning a NEW reference: `useArrangement` writes the reconciled layout back
+ * only for a read `upgrade` changed, so without the step a layout that already
+ * carries the burn id would keep `progress` in storage for good.
  * ★★★ EACH STEP RETURNS ITS INPUT BY REFERENCE WHEN ITS OWN ID IS ALREADY
  * RECORDED. That is the hook's signal that nothing needs writing; a copy
  * would rewrite storage on every load (`use-arrangement.ts`, the `upgrade`

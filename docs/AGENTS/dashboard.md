@@ -72,6 +72,12 @@ already has an earlier id. Two steps today, run in this order:
     `hidden` — a presence-only gate would remove it and have it put straight back, appending one more id
     each load. With `progress` gone from `DASHBOARD_TILES` a presence check alone would now terminate,
     but the id gate stays so this step matches the burn step's contract.
+    ★★ Its FILTER duplicates `reconcile`, which drops any id with no catalogue spec from both lists; what
+    the step is load-bearing for is returning a NEW reference. `useArrangement` marks a read dirty only when
+    `upgrade` changed it (`upgraded: upgradedStored !== stored`), and only a dirty read writes the reconciled
+    layout back. Delete the step and a layout that already carries the burn id keeps `progress` in storage
+    for good — measured: skipping the step fails `use-dashboard-layout.test.tsx`'s "drops a stored progress
+    tile…" on the STORED board, while removing only the two filter lines leaves it green.
 Nothing else is touched by either step.
 ★★★ `DEFAULT_LAYOUT` already carries the burn id and must — a fresh or reset board is persisted from it,
 and without the id its next load would drag burn back to the front. `readArrangement` sanitises the list
@@ -533,7 +539,12 @@ The presentational slices:
   renders, because it is the only UI writer of `status.narrative`, except read-only AND empty, which
   renders null; a popout gets no button) + `NarrativeEditor` (owns the draft + the render-time reconcile +
   the Clear nonce; the rich-text surface is named by its `label`, NOT a placeholder — axe). ★★ The editor
-  closes on Save, or when focus leaves its whole region, decided from `relatedTarget`. A popover the
+  closes on Save, on Escape, or when focus leaves its whole region, decided from `relatedTarget`.
+  ★★ Escape COMMITS the draft (it never discards) and returns focus to Edit. It goes through
+  `useDismissable` as a `layer` gated by `useClaimsWhenFocusWithin`, so the heading menu (opened later)
+  takes the first Escape and a surface opened before the editor never sees the one it consumed. The
+  focus return uses `preventScroll` (a click on tile text far down the page also
+  closes with focus on `<body>`), and its frame is cancelled on unmount. A popover the
   region opened (the heading menu, portaled to `document.body`) counts as inside through its trigger's
   `aria-controls`, and a null `relatedTarget` with `document.hasFocus()` false (leaving the window)
   keeps it open. A toolbar-button
