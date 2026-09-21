@@ -788,7 +788,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§563](#563-the-desktop-installer-is-unsigned--open-tied-to-the-publishing-decision) | The desktop installer is unsigned — OPEN (tied to the publishing decision) | audit (2026-09) | decision | open |
 | [§564](#564-diagnostics-redactts-has-no-catch-all-for-an-opaque-token-in-free-text--closed-2026-09-21) | `diagnostics-redact.ts` has no catch-all for an opaque token in free text — CLOSED 2026-09-21 | audit (2026-09) | S | closed |
 | [§565](#565-two-settings-sections-clear-a-token-by-resealing-an-empty-string-instead-of-removing-it--closed-2026-09-21) | Two settings sections clear a token by resealing an empty string instead of removing it — CLOSED 2026-09-21 | audit (2026-09) | S | closed |
-| [§566](#566-the-jira-proxy-logs-the-raw-fetch-rejection-object-server-side--open) | The Jira proxy logs the raw fetch-rejection object server-side — OPEN | audit (2026-09) | S | open |
+| [§566](#566-the-jira-proxy-logs-the-raw-fetch-rejection-object-server-side--closed-2026-09-21) | The Jira proxy logs the raw fetch-rejection object server-side — CLOSED 2026-09-21 | audit (2026-09) | S | **CLOSED** 2026-09-21 |
 | [§567](#567-issealedsecret-and-readstore-still-hardcode-their-own-secretid-lists-and-a-missed-id-is-silent-data-loss--closed-2026-09-19) | `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — CLOSED 2026-09-19 | slice (2026-09) | M | **CLOSED** 2026-09-19 |
 | [§568](#568-the-registers-index-rebuild-recipe-is-not-a-no-op-on-the-committed-table-and-discards-hand-written-state-prose--open) | The register's index-rebuild recipe is not a no-op on the committed table and discards hand-written State prose — OPEN | slice (2026-09) | S–M | open |
 | [§569](#569-screen-readers-may-never-deliver-the-chart-readouts-arrow-keys--open) | Screen readers may never deliver the chart readout's arrow keys — OPEN | found 2026-09-18 reviewing the merged chart hover readout; never run under a real screen reader; GitLab #354 | S — a real NVDA and JAWS pass, then pick `role="application"`, instructions, or the live-region fallback | open |
@@ -39346,11 +39346,28 @@ wrong for two of five ids. Route both through `removeSealed` on an empty value.
 
 Related: §567 (the same file family, a heavier version of the same problem).
 
-## 566. The Jira proxy logs the raw fetch-rejection object server-side — OPEN
+## 566. The Jira proxy logs the raw fetch-rejection object server-side — CLOSED 2026-09-21
 
-**Status:** OPEN 2026-09-18 — established by `grep -n "console[.]" src/app/api/jira/_helpers.ts`; **never machine-verified**, and there is nothing to verify until the undici error shape changes. No reachable leak today; filed as robustness, at the bottom of the priority order.
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`: both `console.error` sites in
+`src/app/api/jira/_helpers.ts` now pass a new `describeUpstreamError(err)` — a plain
+`{ message, cause?, code? }` object — instead of the raw rejection, pinned by
+`src/app/api/jira/_helpers.test.ts`. Mutants (each run alone, `git diff --stat` clean between):
+(7a) `describeUpstreamError` returns `{ message }` only — predicted RED on `toEqual` (cause lost),
+actual RED, same reason (`expected { message: 'fetch failed' } to deeply equal { message:
+'fetch failed', …(2) }`). (7b) the fetch-failure site passes raw `err` again — predicted RED on
+`not.toBeInstanceOf(Error)`, actual RED, same reason. (7c) the redirect body-cancel site passes
+raw `err` — predicted RED on the cancel test's `not.toBeInstanceOf(Error)`, actual RED, same
+reason. All three matched their prediction; no mismatch.
+Departures from this entry's own fix-shape line (`err.message` "gives the same diagnostic value"):
+(1) the shipped fix does NOT log bare `err.message` — Node's `fetch` always rejects with
+`TypeError("fetch failed", …)`, so `err.message` alone would log the same literal `"fetch failed"`
+for DNS, refused, TLS and timeout alike, which is the opposite of the diagnostic value this entry
+was filed to preserve; the reason lives in `.cause`, which `describeUpstreamError` extracts (plus
+`.cause.code` when present) instead. (2) this entry named only the fetch-failure site; the
+redirect body-cancel logger a few lines below it (`res.body?.cancel().catch(...)`) carried the
+identical defect and is fixed in the same commit.
 
-**Work item:** #351
+_Original finding, as filed 2026-09-18. Preserved as the dated record; see Status._
 
 `console.error("Jira upstream fetch failed:", err)` serialises whatever the rejection carries. No
 `Authorization` header is reachable through an undici fetch error as it stands — the error does not

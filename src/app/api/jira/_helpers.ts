@@ -77,6 +77,19 @@ function basicAuth(email: string, apiToken: string): string {
   return "Basic " + Buffer.from(`${email}:${apiToken}`).toString("base64");
 }
 
+/** §566: what the proxy logs for an upstream failure — a plain object, never the raw error.
+ *  ★★ NOT `err.message` alone: Node's `fetch` ALWAYS rejects with `TypeError("fetch failed",
+ *  { cause })`, so the message is the same literal for DNS, refused, TLS and timeout alike, and
+ *  the reason lives in `cause`. Never the object itself: nothing in it is a credential today,
+ *  but its shape is undici's to change. */
+function describeUpstreamError(err: unknown): { message: string; cause?: string; code?: string } {
+  const message = err instanceof Error ? err.message : String(err);
+  const c = err instanceof Error ? (err as Error & { cause?: unknown }).cause : undefined;
+  if (c === undefined) return { message };
+  const code = typeof (c as { code?: unknown })?.code === "string" ? (c as { code: string }).code : undefined;
+  return { message, cause: c instanceof Error ? c.message : String(c), ...(code ? { code } : {}) };
+}
+
 // Bound every upstream call so a hung Atlassian endpoint cannot hold the
 // serverless function (and the client's spinner) for the platform timeout.
 // A timeout rejects the fetch, which the catch below turns into the same
@@ -120,7 +133,7 @@ export async function callJira(
       // until the body is garbage-collected. Not awaited: a cancel that never
       // settles must not hold back the 502.
       void res.body?.cancel().catch((err: unknown) => {
-        console.error("Jira upstream redirect body cancel failed:", err);
+        console.error("Jira upstream redirect body cancel failed:", describeUpstreamError(err));
       });
       return Response.json(
         { error: "upstream-redirect" },
@@ -133,7 +146,7 @@ export async function callJira(
     // timeout). Log the detail server-side and hand the client the app's error
     // envelope with a 502 — a structured response the client already classifies
     // as "network" — rather than letting the rejection surface as a generic 500.
-    console.error("Jira upstream fetch failed:", err);
+    console.error("Jira upstream fetch failed:", describeUpstreamError(err));
     return Response.json(
       { error: "upstream-unreachable" },
       { status: 502 },
