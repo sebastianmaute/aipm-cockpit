@@ -148,6 +148,22 @@ describe("useChartReadout", () => {
       // Raw x 500 + 20 = 520: inside both viewport bounds, and the chart-box clamp is off.
       expect(await anchorAt("{Home}")).toBe("58/520");
     });
+
+    // §571: the boundary. At exactly the box's width (352) the clamp range collapses to one
+    // point, the chart's centre, and the box fits exactly. Home's raw x is
+    // left + 64 × width/640 = 335 at both widths; the chart centre is 300 + 176 = 476.
+    const rectOf = (left: number, width: number) =>
+      ({ left, top: 50, width, height: 240, right: left + width, bottom: 290, x: left, y: 50, toJSON: () => ({}) }) as DOMRect;
+
+    it("clamps into the chart when the chart is exactly as wide as the box", async () => {
+      stubRect(rectOf(300, 352));
+      expect(await anchorAt("{Home}")).toBe("58/476");
+    });
+
+    it("leaves the stop raw one pixel below the boundary", async () => {
+      stubRect(rectOf(300, 351));
+      expect(await anchorAt("{Home}")).toBe("58/335");
+    });
   });
 
   it("closes on scroll and on resize", async () => {

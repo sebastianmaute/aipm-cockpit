@@ -54,7 +54,7 @@ import {
   resolveEscalationRecipient,
 } from "./action-escalate";
 import { AI_RICH_FIELDS, withAiRichFields } from "./ai-rich-text";
-import { sanitizeCalendarEvent, type CalendarEvent } from "./calendar-event";
+import { sanitizeCalendarEvent, sanitizeCalendarEventForUpdate, type CalendarEvent } from "./calendar-event";
 import { applyChangeStatus, applyModelChangeStatus, withStoredNoteLog } from "./change-log";
 import {
   type ToolDispatcher,
@@ -951,12 +951,15 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         const events = calendarEventsRef.current ?? [];
         const existing = events.find((e) => e.id === id);
         if (!existing) return null;
-        const merged = sanitizeCalendarEvent({
+        // ★★ The UPDATE form (§542): a date the patch leaves equal to the stored
+        //  one is carried verbatim, so editing a title never fails on an old
+        //  calendar-invalid date the load funnel kept; a changed date is strict.
+        const merged = sanitizeCalendarEventForUpdate({
           ...existing,
           ...dropUnacceptedCalendarEventFields(patch),
           id,
           localModifiedAt: new Date().toISOString(),
-        });
+        }, existing);
         if (!merged) throw new Error("invalid meeting update");
         const next = events.map((e) => (e.id === id ? merged : e));
         undoRef.current?.captureComposite({

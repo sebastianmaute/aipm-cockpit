@@ -24,7 +24,7 @@ import { encodeNoteLog, decodeNoteLog } from "./note-log";
 import { decodeRaidEscalations, encodeRaidEscalations } from "./raid-escalation";
 import {
   type CalendarEvent,
-  sanitizeCalendarEvent,
+  sanitizeLoadedCalendarEvent,
   encodeRecurrence,
   decodeRecurrence,
   encodeExceptions,
@@ -596,21 +596,26 @@ export function calendarEventFieldToString(e: CalendarEvent, col: string): strin
 /**
  * Builds a CalendarEvent from a header→value object produced by the CSV / MD
  * parsers. Runs the three JSON-in-cell decoders on the matching columns, then
- * defers to `sanitizeCalendarEvent` for everything else — mirrors
+ * defers to `sanitizeLoadedCalendarEvent` for everything else — mirrors
  * `buildChangeFromObj`/`buildStakeholderFromObj`. Shared by both the CSV and
  * Markdown decoders, so a fix here (or in the sanitizer it calls) covers both
  * formats at once.
  *
  * Every scalar column — including `localModifiedAt`/`outlookEventId`/
  * `location`/`notes` — round-trips an unset value as a raw `""` cell, and
- * `sanitizeCalendarEvent` normalizes each of those empty->undefined on its
+ * `sanitizeLoadedCalendarEvent` normalizes each of those empty->undefined on its
  * own (`sanitizeText(...) || undefined`), so nothing needs pre-normalizing
  * here. (This function used to also strip `localModifiedAt` before handing
  * it off, working around a since-fixed gap in the sanitizer's own arm for
  * that field — removed once the fix landed there, to keep one mechanism.)
+ *
+ * ★★ LOAD-ONLY (§542): it is the `fromObj` of the `calendar_events` entry in
+ * `ENTITY_SPECS`, so it is the load funnel for CSV, Markdown AND both Turso
+ * layouts, and must keep what they stored. Never call it on a write path —
+ * a write uses `sanitizeCalendarEvent` or `sanitizeCalendarEventForUpdate`.
  */
 export function buildCalendarEventFromObj(obj: Record<string, string>): CalendarEvent | null {
-  return sanitizeCalendarEvent({
+  return sanitizeLoadedCalendarEvent({
     ...obj,
     recurrence: decodeRecurrence(obj.recurrence ?? ""),
     exceptions: decodeExceptions(obj.exceptions ?? ""),

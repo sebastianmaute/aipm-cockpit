@@ -101,6 +101,30 @@ describe("timelog proxy SSRF guard", () => {
     expect(cancel).toHaveBeenCalledOnce();
   });
 
+  it("§607: logs the redirect body-cancel failure as a plain object with its cause", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const cause = Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        new ReadableStream({ cancel: () => Promise.reject(new TypeError("fetch failed", { cause })) }),
+        { status: 302, headers: { location: "https://evil.example/" } },
+      ),
+    );
+    const r = await callTimelog(creds, "/v1/user", { method: "GET" });
+    expect(r.status).toBe(502);
+    await new Promise((resolve) => setTimeout(resolve, 0)); // the cancel is deliberately not awaited
+    const call = errSpy.mock.calls.find(
+      ([label]) => label === "Timelog upstream redirect body cancel failed:",
+    );
+    expect(call).toBeDefined(); // presence: the cancel path really ran
+    expect(call![1]).not.toBeInstanceOf(Error);
+    expect(call![1]).toEqual({
+      message: "fetch failed",
+      cause: "connect ECONNREFUSED",
+      code: "ECONNREFUSED",
+    });
+  });
+
   it("answers a refused 3xx without waiting for a cancel that never settles", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(new ReadableStream({ cancel: () => new Promise<void>(() => {}) }), { status: 302 }),

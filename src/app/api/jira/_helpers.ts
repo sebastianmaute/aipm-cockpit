@@ -5,6 +5,7 @@
 
 import { rateLimit } from "./_rate-limit";
 import { isPrivateHost, isAllowedHostSuffix } from "../_shared/proxy-ssrf";
+import { describeUpstreamError } from "../_shared/upstream-error";
 
 export type Creds = {
   siteUrl: string;
@@ -120,7 +121,7 @@ export async function callJira(
       // until the body is garbage-collected. Not awaited: a cancel that never
       // settles must not hold back the 502.
       void res.body?.cancel().catch((err: unknown) => {
-        console.error("Jira upstream redirect body cancel failed:", err);
+        console.error("Jira upstream redirect body cancel failed:", describeUpstreamError(err));
       });
       return Response.json(
         { error: "upstream-redirect" },
@@ -133,7 +134,7 @@ export async function callJira(
     // timeout). Log the detail server-side and hand the client the app's error
     // envelope with a 502 — a structured response the client already classifies
     // as "network" — rather than letting the rejection surface as a generic 500.
-    console.error("Jira upstream fetch failed:", err);
+    console.error("Jira upstream fetch failed:", describeUpstreamError(err));
     return Response.json(
       { error: "upstream-unreachable" },
       { status: 502 },

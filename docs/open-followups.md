@@ -591,7 +591,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§362](#362-a-guardrail-insights-deep-link-arms-pendingopen-with-no-consumer--closed-2026-09-14) | A guardrail insight's deep link arms `pendingOpen` with no consumer — CLOSED 2026-09-14 | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-14 |
 | [§363](#363-the-reconcile-freeze-guarantee-is-not-absolute--max_insights-can-drop-a-frozen-row--open) | The reconcile freeze guarantee is not absolute — `MAX_INSIGHTS` can drop a frozen row | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§364](#364-an-older-build-prunes-the-four-guardrail-insight-types-on-load-and-can-write-the-pruned-list-back--open) | An older build prunes the four guardrail insight types on load, and can write the pruned list back | found 2026-09-04 in the §347 guardrails review | S | open |
-| [§365](#365-the-threshold-fields-min1-understates-the-window-the-writer-engine-and-sanitiser-share--open) | The threshold field's `min={1}` understates the window the writer, engine and sanitiser share | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§365](#365-the-threshold-fields-min1-understates-the-window-the-writer-engine-and-sanitiser-share--closed-2026-09-21) | The threshold field's `min={1}` understates the window the writer, engine and sanitiser share — CLOSED 2026-09-21 | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-21 |
 | [§366](#366-project-scope-timelog-fetches-can-never-certify-a-guardrail-clean-so-those-insights-freeze-until-another-scope-runs--open) | Project-scope TimeLog fetches can never certify a guardrail clean, so those insights freeze until another scope runs | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§367](#367-parsedailykey-never-validates-the-date-so-a-malformed-one-reaches-the-rules-and-a-single-oversized-cell-is-constructible--closed-2026-09-07) | `parseDailyKey` never validates the date, so a malformed one reaches the rules and a single oversized cell is constructible | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-07 |
 | [§370](#370-redo-of-an-ai-captured-delete-is-unproved--closed-2026-09-05) | ~~Redo of an AI-captured delete is unproved~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 (a redo leg added to the existing AI `deleteTask` round trip in `use-chat-dispatcher.undo.test.tsx`, asserting the row is gone again after `redo()`) |
@@ -615,7 +615,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§388](#388-the-task-name-mic-is-now-invisible-to-the-label-binding-source-scan--open) | The task-name mic is now invisible to the label-binding source scan | found 2026-09-05 in the edit-task modal rework | S | open |
 | [§389](#389-modalheader-names-every-modals--identically-so-any-two-stacked-modals-collide--closed-2026-09-14) | `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide — CLOSED 2026-09-14 | found 2026-09-05 in the edit-task modal rework | M | **CLOSED** 2026-09-14 |
 | [§390](#390-the-inline-create-path-writes-link-fields-with-no-preview-at-all--closed-2026-09-06) | The inline CREATE path writes link fields with no preview at all | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
-| [§391](#391-chat-proposal-describetss-emptyplan-is-safe-at-two-of-its-three-call-sites-and-the-reason-is-per-site--open) | `chat-proposal-describe.ts`'s `emptyPlan()` is safe at two of its three call sites, and the reason is per-site | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§391](#391-chat-proposal-describetss-emptyplan-is-safe-at-two-of-its-three-call-sites-and-the-reason-is-per-site--closed-2026-09-21) | `chat-proposal-describe.ts`'s `emptyPlan()` is safe at two of its three call sites, and the reason is per-site — CLOSED 2026-09-21 | found 2026-09-06 by the preview/apply-parity slice | S | closed |
 | [§392](#392-a-rejection-only-inline-plan-never-reaches-the-preview-so-the-user-is-told-no-changes--closed-2026-09-06) | A rejection-only inline plan never reaches the preview, so the user is told "no changes" | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
 | [§393](#393-describerecommendationplan-merges-entities-so-a-fields-label-cannot-always-be-resolved--closed-2026-09-06) | `describeRecommendationPlan` merges entities, so a field's label cannot always be resolved | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
 | [§394](#394-the-parity-sweep-cannot-exercise-the-silent-reset-half-of-the-rejects-direction--closed-2026-09-08) | The parity sweep cannot exercise the silent-RESET half of the rejects direction | found 2026-09-06 by the preview/apply-parity slice | S | **CLOSED** 2026-09-08 |
@@ -763,10 +763,10 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§538](#538-single-db-turso-never-persists-project-meta--open) | Single-DB Turso never persists project meta — OPEN | found 2026-09-14 while filing §537; GitLab #328 | M — a single-tenant project meta row/table (or reuse of the tenant `projects` table), `dirtyWorkspaceTables` taught about project-only edits, and a `turso-migrate.ts` self-heal entry | open |
 | [§539](#539-sanitizeisodate-accepts-dates-that-are-not-real-calendar-dates--closed-2026-09-14) | `sanitizeIsoDate` accepts dates that are not real calendar dates — CLOSED 2026-09-14 | reported 2026-09-14 by a peer session's §273 work; user approved "file and fix" in the email-guard batch; GitLab #329 | S — a month/day calendar check in one function plus test migration across ~30 referencing files | **CLOSED** 2026-09-14 |
 | [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--closed-2026-09-20) | A repeated resource deep link re-runs the open while that resource's editor is open — CLOSED 2026-09-20 | found 2026-09-14 by the fix-round reviews of §362 on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | **CLOSED** 2026-09-20 |
-| [§541](#541-the-stakeholder-editor-saves-its-text-fields-uncapped-when-submitted-with-enter--open) | The stakeholder editor saves its text fields uncapped when submitted with Enter — OPEN | found 2026-09-14 by the email-guard batch's Task 3 review; user approved filing; GitLab #331 | S — cap each field in `handleSubmit` before `onSave`, or sanitise in `handleSaveStakeholder` | open |
-| [§542](#542-the-calendar-event-writer-accepts-a-day-past-its-months-end-and-rolls-it-over--open) | The calendar event writer accepts a day past its month's end and rolls it over — OPEN | found 2026-09-14 by the whole-branch and cold reviews of `fix/email-and-guard-batch`; user approved filing; GitLab #332 | S — replace the `Date.parse` leg with a calendar round trip (as `sanitizeIsoDate` does since §539) | open |
+| [§541](#541-the-stakeholder-editor-saves-its-text-fields-uncapped-when-submitted-with-enter--closed-2026-09-21) | The stakeholder editor saves its text fields uncapped when submitted with Enter — CLOSED 2026-09-21 | found 2026-09-14 by the email-guard batch's Task 3 review; user approved filing; GitLab #331 | S — cap each field in `handleSubmit` before `onSave`, or sanitise in `handleSaveStakeholder` | closed |
+| [§542](#542-the-calendar-event-writer-accepts-a-day-past-its-months-end-and-rolls-it-over--closed-2026-09-21) | The calendar event writer accepts a day past its month's end and rolls it over — CLOSED 2026-09-21 | found 2026-09-14 by the whole-branch and cold reviews of `fix/email-and-guard-batch`; user approved filing; GitLab #332 | S — replace the `Date.parse` leg with a calendar round trip (as `sanitizeIsoDate` does since §539) | closed |
 | [§543](#543-a-dated-timelog-apply-leaves-a-period-key-of-the-other-granularity-in-place-so-switching-back-counts-those-hours-twice--closed-2026-09-15) | A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — CLOSED 2026-09-15 | found 2026-09-15 by the final whole-branch review of `feat/budget-forecast-union` | S — let a dated Apply also remove other-granularity period keys that overlap its covered days | **CLOSED** 2026-09-15 |
-| [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--open) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — OPEN | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union` | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | open |
+| [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--closed-2026-09-21) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — CLOSED 2026-09-21 | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union` | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | closed |
 | [§545](#545-the-ai-dashboard-snapshot-and-every-export-carry-none-of-the-budget-forecast-figures--open) | The AI dashboard snapshot and every export carry none of the budget forecast figures — OPEN | deferred 2026-09-15 by the budget forecast union spec §9 | M — add the forecast figures to the snapshot and exports once MR 2 ships them | open |
 | [§546](#546-a-dated-timelog-applys-other-granularity-delete-removes-hand-typed-hours-from-days-it-never-routed-and-the-confirm-dialog-never-discloses-it--closed-2026-09-19) | A dated TimeLog Apply's other-granularity delete removes hand-typed hours from days it never routed, and the confirm dialog never discloses it — CLOSED 2026-09-19 | found 2026-09-15 while filing the §543 closure text on `feat/budget-forecast-figures`; user approved filing | S — list the removed other-granularity key in the confirm dialog; re-keying the leftover hours is not sound, since the lump sum has no day-level breakdown | **CLOSED** 2026-09-19 |
 | [§547](#547-the-desktop-sign-in-popups-state-machine-has-no-unit-harness--open) | The desktop sign-in popup's state machine has no unit harness — OPEN | final review of `chore/electron-44` (M-7 + item 2 recommendation), state bugs M-C/m1/m2 found only by review; GitLab #338 | S–M — a pure `auth-flow-tracker.ts` reducer plus tests replaying the M-C/m1/m2 sequences | open |
@@ -786,19 +786,19 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§561](#561-the-electron-fuses-are-confirmed-on-a-local-package-only-not-by-the-ci-desktop-package-job--open) | The Electron fuses are confirmed on a local package only, not by the CI desktop-package job — OPEN | audit (2026-09) | S (verify) | open |
 | [§562](#562-the-shared-proxy-rate-limiter-is-bypassable-by-a-client-supplied-header-and-its-store-is-in-memory--open-decision-owed) | The shared proxy rate limiter is bypassable by a client-supplied header, and its store is in-memory — OPEN (decision owed) | audit (2026-09) | decision | open |
 | [§563](#563-the-desktop-installer-is-unsigned--open-tied-to-the-publishing-decision) | The desktop installer is unsigned — OPEN (tied to the publishing decision) | audit (2026-09) | decision | open |
-| [§564](#564-diagnostics-redactts-has-no-catch-all-for-an-opaque-token-in-free-text--open) | `diagnostics-redact.ts` has no catch-all for an opaque token in free text — OPEN | audit (2026-09) | S | open |
-| [§565](#565-two-settings-sections-clear-a-token-by-resealing-an-empty-string-instead-of-removing-it--open) | Two settings sections clear a token by resealing an empty string instead of removing it — OPEN | audit (2026-09) | S | open |
-| [§566](#566-the-jira-proxy-logs-the-raw-fetch-rejection-object-server-side--open) | The Jira proxy logs the raw fetch-rejection object server-side — OPEN | audit (2026-09) | S | open |
+| [§564](#564-diagnostics-redactts-has-no-catch-all-for-an-opaque-token-in-free-text--closed-2026-09-21) | `diagnostics-redact.ts` has no catch-all for an opaque token in free text — CLOSED 2026-09-21 | audit (2026-09) | S | closed |
+| [§565](#565-two-settings-sections-clear-a-token-by-resealing-an-empty-string-instead-of-removing-it--closed-2026-09-21) | Two settings sections clear a token by resealing an empty string instead of removing it — CLOSED 2026-09-21 | audit (2026-09) | S | closed |
+| [§566](#566-the-jira-proxy-logs-the-raw-fetch-rejection-object-server-side--closed-2026-09-21) | The Jira proxy logs the raw fetch-rejection object server-side — CLOSED 2026-09-21 | audit (2026-09) | S | **CLOSED** 2026-09-21 |
 | [§567](#567-issealedsecret-and-readstore-still-hardcode-their-own-secretid-lists-and-a-missed-id-is-silent-data-loss--closed-2026-09-19) | `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — CLOSED 2026-09-19 | slice (2026-09) | M | **CLOSED** 2026-09-19 |
 | [§568](#568-the-registers-index-rebuild-recipe-is-not-a-no-op-on-the-committed-table-and-discards-hand-written-state-prose--open) | The register's index-rebuild recipe is not a no-op on the committed table and discards hand-written State prose — OPEN | slice (2026-09) | S–M | open |
 | [§569](#569-screen-readers-may-never-deliver-the-chart-readouts-arrow-keys--open) | Screen readers may never deliver the chart readout's arrow keys — OPEN | found 2026-09-18 reviewing the merged chart hover readout; never run under a real screen reader; GitLab #354 | S — a real NVDA and JAWS pass, then pick `role="application"`, instructions, or the live-region fallback | open |
-| [§570](#570-the-spoken-readout-capitalises-mid-sentence--open) | The spoken readout capitalises mid-sentence — OPEN | found 2026-09-18 reading `rowText` against the tip strings in `i18n.ts`/`i18n.de.ts`; GitLab #355 | XS — lower-case the explanation or join with a full stop; German nouns make a blanket lower-case unsafe | open |
-| [§571](#571-the-chart-box-clamps-boundary-width-has-no-test--open) | The chart-box clamp's boundary width has no test — OPEN | found 2026-09-18 by mutation-testing `anchorFor`, `>` to `>=`, suite stayed green; GitLab #356 | XS — add a case at `rect.width === 352` | open |
+| [§570](#570-the-spoken-readout-capitalises-mid-sentence--closed-2026-09-21) | The spoken readout capitalises mid-sentence — CLOSED 2026-09-21 | found 2026-09-18 reading `rowText` against the tip strings in `i18n.ts`/`i18n.de.ts`; GitLab #355 | XS — lower-case the explanation or join with a full stop; German nouns make a blanket lower-case unsafe | closed |
+| [§571](#571-the-chart-box-clamps-boundary-width-has-no-test--closed-2026-09-21) | The chart-box clamp's boundary width has no test — CLOSED 2026-09-21 | found 2026-09-18 by mutation-testing `anchorFor`, `>` to `>=`, suite stayed green; GitLab #356 | XS — add a case at `rect.width === 352` | closed |
 | [§572](#572-agentsmds-tsc-guidance-cannot-detect-a-vacuous-run--open) | AGENTS.md's tsc guidance cannot detect a vacuous run — OPEN | measured 2026-09-18 on this branch: a corrupt generated file hides a real `src/` error from `tsc`; GitLab #357 | S — amend the Commands block's `npx tsc --noEmit` guidance | open |
 | [§573](#573-the-open-points-visual-baseline-is-stale--closed-2026-09-19) | The Open Points visual baseline is stale | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | **CLOSED** 2026-09-19 |
 | [§574](#574-load-project-from-file-throws-in-firefoxsafari-and-blames-settings-instead-of-the-browser--open) | "Load project from file" throws in Firefox/Safari and blames Settings instead of the browser — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #359 | S — gate the CTA behind `isFileSystemAccessSupported()`, or have `reportProjectError` emit the specific message | open |
 | [§575](#575-ai-assistant-chat-history-re-sends-every-earlier-turns-attachments-so-a-long-thread-can-exceed-the-messages-apis-32-mb-request-limit--open) | AI Assistant chat history re-sends every earlier turn's attachments, so a long thread can exceed the Messages API's 32 MB request limit — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #360 | M — drop/summarize older attachment blocks before send, or track running payload bytes | open |
-| [§576](#576-sanitizefxrates-reorders-its-rates-object-on-a-second-decode-so-an-fx-snapshot-is-not-byte-stable-through-a-json-round-trip--open) | sanitizeFxRates reorders its rates object on a second decode, so an FX snapshot is not byte-stable through a JSON round-trip — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), found + verified during Task 9; GitLab #361 | S — iterate `SUPPORTED_CURRENCIES` unconditionally instead of conditionally inserting present keys | open |
+| [§576](#576-sanitizefxrates-reorders-its-rates-object-on-a-second-decode-so-an-fx-snapshot-is-not-byte-stable-through-a-json-round-trip--closed-2026-09-21) | sanitizeFxRates reorders its rates object on a second decode, so an FX snapshot is not byte-stable through a JSON round-trip — CLOSED 2026-09-21 | json-import-multi-attach-demo-refresh (2026-09-18), found + verified during Task 9; GitLab #361 | S — iterate `SUPPORTED_CURRENCIES` unconditionally instead of conditionally inserting present keys | closed |
 | [§577](#577-the-budgetvariance-insight-compares-full-window-budget-against-to-date-actuals-so-open-buckets-with-future-months-are-flagged-and-an-unstarted-bucket-can-read-100-and-win-worst--closed-2026-09-19) | The budgetVariance insight compares full-window budget against to-date actuals, so open buckets with future months are flagged and an unstarted bucket can read 100% and win "worst" | json-import-multi-attach-demo-refresh (2026-09-18), found + verified against sample-workspace-small.json during Task 9; GitLab #362 | M — scope budgetHours to periods to-date, and/or exclude unstarted buckets from "worst" | **CLOSED** 2026-09-19 |
 | [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open) | Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN | audit (2026-09) | M | open |
 | [§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--open) | An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap — OPEN | audit (2026-09) | S | open |
@@ -818,6 +818,11 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§593](#593-html-extracts-8000-ms-dos-budget-test-failed-at-8301-ms-under-a-saturated-full-suite-run--closed-2026-09-19) | html-extract's 8000 ms DoS-budget test failed at 8301 ms under a saturated full-suite run — CLOSED 2026-09-19 | observed 2026-09-08 in a local full-suite run, filed 2026-09-19; GitLab #377 | S — a load-independent assertion, or a ceiling with margin measured under load | **CLOSED** 2026-09-19 |
 | [§594](#594-the-document-asset-patterns-one-huge-tag-scaling-ratio-row-has-no-known-mutant-that-turns-it-red--open) | The document-asset-patterns "one huge tag" scaling-ratio row has no known mutant that turns it red — OPEN | found 2026-09-19 converting the file's timing guards to a scaling ratio (§592, §593 class); GitLab #378 | S — find the regression it guards, or delete/re-scope the row | open |
 | [§595](#595-the-cold-hash-apply-judges-a-disabled-module-hash-against-default-features-and-never-revisits-the-decision--closed-2026-09-20) | The cold hash apply judges a disabled-module hash against default features and never revisits the decision — CLOSED 2026-09-20 | found and closed 2026-09-20 fixing §535/§536 on `fix/hash-view-cold-apply` | S — the same hydration gate that closed §536 | **CLOSED** 2026-09-20 |
+| [§605](#605-an-ai-calendar-event-update-that-re-sends-a-stored-invalid-until-with-a-count-previews-the-count-while-the-write-keeps-the-until--closed-2026-09-21) | An AI calendar-event update that re-sends a stored invalid until with a count previews the count while the write keeps the until — CLOSED 2026-09-21 | found 2026-09-21 reviewing §542 on `fix/backlog-sweep`, filed and closed on the same branch | S — one carry predicate and one carried-date derivation shared by the update writer and the card's recurrence line | closed |
+| [§606](#606-the-diagnostics-catch-all-misses-a-base64-secret-whose-separators-split-it-into-short-runs--closed-2026-09-21) | The diagnostics catch-all misses a base64 secret whose separators split it into short runs — CLOSED 2026-09-21 | found 2026-09-21 reviewing §564 on `fix/backlog-sweep`, filed and closed on the same branch | S — one base64-alphabet rule placed before the §564 catch-all | closed |
+| [§607](#607-the-timelog-and-ecb-proxies-log-a-raw-error-object-on-upstream-failure--closed-2026-09-21) | The Timelog and ECB proxies log a raw error object on upstream failure — CLOSED 2026-09-21 | found 2026-09-21 reviewing §566 on `fix/backlog-sweep`, filed and closed on the same branch | S — one shared helper (`describeUpstreamError`) moved and reused at two more call sites | closed |
+| [§608](#608-the-diagnostics-secret-patterns-take-quadratic-time-on-a-long-run-that-fails-them--open) | The diagnostics secret patterns take quadratic time on a long run that fails them — OPEN | final-review M6 on `fix/backlog-sweep`, measured 2026-09-21 reviewing §606; GitLab #389 | M — bound backtracking or the input length before matching (see §578) | open |
+| [§609](#609-a-late-seal-can-resurrect-a-sealed-secret-the-user-just-cleared--open) | A late seal can resurrect a sealed secret the user just cleared — OPEN | final-review M7 on `fix/backlog-sweep` (Task 5 deferred minor, upgraded), read from code, pre-existing and family-wide; GitLab #390 | S — a per-secret generation guard | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -29128,16 +29133,28 @@ both builds can write.
 job is bounding what it admits), but it is recorded nowhere in the slice and is not obvious from
 either build.
 
-## 365. The threshold field's `min={1}` understates the window the writer, engine and sanitiser share — OPEN
+## 365. The threshold field's `min={1}` understates the window the writer, engine and sanitiser share — CLOSED 2026-09-21
 
-**Status:** OPEN. Filed 2026-09-04 with the fix that aligned the three consumers. Verified by
-reading, 2026-09-04: `grep -n "min={1}" src/app/timelog-settings.tsx` against `parseCap` in the same
-file, `isCap` in `src/app/timelog-policy.ts`, and `sanitizeTimelogPolicy` in
-`src/app/timelog-sanitize.ts`.
+**Status:** CLOSED 2026-09-21 on `fix/backlog-sweep`. Filed 2026-09-04 with the fix that aligned
+the three consumers; the attribute itself was left as the open half. Closed by widening
+`thresholdField`'s `min` to `0` and adding `step="any"` (`src/app/timelog-settings.tsx`), pinned by
+`src/app/timelog-settings.test.tsx`'s "declares a threshold input the browser will not flag for a
+valid fractional cap" plus the `it.each(["0.5", "8.5"])` characterization test beside it. Mutant 4a
+(remove `step="any"`): predicted RED on the `step` assertion, actual RED on the `step` assertion —
+match. Mutant 4b (`min={0.5}` with `step="any"` kept): predicted RED on the `min` assertion, actual
+RED on the `min` assertion — match.
 
-**Work item:** #261
+★ This entry named only `min` as the attribute to widen; the missing `step` was the larger half of
+the bug. The step base is `min`, so even a correctly widened `min={0}` alone leaves the default step
+of 1, which flags a real `8.5` cap as a browser `stepMismatch` — mutant 4a demonstrates exactly that
+gap. ★ This entry's own reasoning ("which admits `0.5`") points toward `min={0.5}` as the naive
+fix; mutant 4b shows that choice would, under the default step it leaves in place, flag the ordinary
+`8` as invalid instead — `min` alone, at either value, cannot close this without `step="any"`.
+★ Honestly: no automated test can see either browser consequence — jsdom enforces neither `min` nor
+`step` — so the attribute assertions above are the only pin; the real stepMismatch behaviour this
+closes stays unverified by this suite.
 
-All three now enforce `> 0 && <= MAX_HOURS_PER_DAY`, which admits `0.5`. The field's `min={1}` is
+All three now enforce `> 0 && <= MAX_HOURS_PER_DAY`, which admits `0.5`. The field's `min={1}` was
 pre-existing, decorative (it blocks nothing) and narrower than the real window.
 
 ★ Deliberately NOT narrowed to `>= 1` in the fix round: doing so at the writer alone would
@@ -30454,13 +30471,30 @@ popover may create a RAID item, and projecting that create's links through the t
 read the wrong entity's `linkFields`, which is worse than not projecting them. Both are stated at
 the call site.
 
-## 391. `chat-proposal-describe.ts`'s `emptyPlan()` is safe at two of its three call sites, and the reason is per-site — OPEN
+## 391. `chat-proposal-describe.ts`'s `emptyPlan()` is safe at two of its three call sites, and the reason is per-site — CLOSED 2026-09-21
 
-**Status:** OPEN as a RECORD, not as a defect to fix. Filed 2026-09-06. Last executed verification
+**Status:** CLOSED 2026-09-21 as a record — this entry was never a live defect once checked against
+the current tree; closing it corrects the fix-shape belief it left behind. Branch
+`fix/backlog-sweep`. The third call site this entry flagged as unsafe — the `entity === undefined ||
+op === undefined` fallback rendering a blank card for `set_task_dependencies` — was already fixed by
+a dedicated `set_task_dependencies` branch in `describeProposal` ahead of that empty-plan fallback,
+producing a real link diff instead. Pinned by the test "omits exactly the stageable write tools the
+descriptor engine cannot diff" in `chat-proposal-describe.test.ts`, which asserts `set_task_dependencies`
+produces a `plan.links` diff while `delete_all_tasks` and `send_inquiry` still produce the empty plan.
+The remaining empty-plan tools (the three `*_document` tools, `delete_all_tasks`, `send_inquiry`, and
+`escalate_raid_item`) are empty by design, not by omission — each has no before-image to diff against
+(a create has written nothing yet; a rejected call writes nothing; an escalation notifies rather than
+mutating fields), the same reasoning this entry already gave for its two forever-correct sites. This
+closure also corrects `chat-proposal-block.tsx`'s `★★★ EVERY STAGED CALL GETS A ROW` comment, which
+had drifted to list `set_task_dependencies` among the empty-plan tools and to omit
+`escalate_raid_item`; it now points at the test above as the single authoritative list instead of
+restating one that can go stale again. No shipped-code fix departs from this entry's fix-shape line —
+the underlying `describeProposal` behavior was already correct; only the register entry and the
+comment needed to catch up to it.
+
+**Original filing (2026-09-06):** OPEN as a RECORD, not as a defect to fix. Last executed verification
 2026-09-06 — `grep -n "emptyPlan()" src/app/chat-proposal-describe.ts` → FIVE lines: the declaration
 plus FOUR uses; read of each and of its surrounding comments.
-
-**Work item:** #270
 
 ★★ THE FILING SAID THAT COMMAND "returns 4 — the factory plus its three call sites", AND IT RETURNED
 5 THEN TOO — `git show 9699f0a5:src/app/chat-proposal-describe.ts | grep -c "emptyPlan()"` → 5, so
@@ -38374,14 +38408,28 @@ statically mounted directory. The residual test named above must then be inverte
 
 Related: §362.
 
-## 541. The stakeholder editor saves its text fields uncapped when submitted with Enter — OPEN
+## 541. The stakeholder editor saves its text fields uncapped when submitted with Enter — CLOSED 2026-09-21
 
-**Status:** OPEN 2026-09-14, narrowed 2026-09-15 — read from the code, not watched in a browser. Checked with
-`grep -n "adj.track\|onSave(" src/app/stakeholder-edit-modal.tsx` (the caps are tracked, then `onSave(...)` runs
-with only the email replaced by its judged value) and
-`grep -n "sanitizeStakeholder\|describeTextCap" src/app/use-stakeholders.ts` (no hits).
-
-**Work item:** #331
+**Status:** CLOSED 2026-09-21 on `fix/backlog-sweep`. `normalizeStakeholderName` / `normalizeStakeholderShortText` /
+`normalizeStakeholderNotes` (`stakeholder-edit-modal.tsx`) are each called from BOTH the field's `onBlur` and
+`handleSubmit`, so an Enter-submit without a blur now caps and trims exactly as blur did. Pinned by
+`stakeholder-edit-modal.test.tsx`'s "§541: Enter-submit applies the same normalization as blur" — four
+`it.each` cap cases, an under-cap passthrough case, and a trim case (organization/title trim, notes does not).
+Five mutants, each run alone with a written prediction, all matched: (1) raw `draft.name` in `handleSubmit` →
+predicted/actual: only the name cap case red (250≠200); (2) raw `draft.organization` → predicted/actual: the
+organization cap case AND the trim case both red (250≠200, then `"  Acme  "`≠`"Acme"`); (3) raw `draft.title` →
+predicted/actual: the title cap case AND the trim case both red, same shape as (2); (4) raw `draft.notes` →
+predicted/actual: only the notes cap case red (5050≠5000); (5) `normalizeStakeholderShortText` swapped in for
+`normalizeStakeholderNotes` on notes → predicted/actual: the notes cap case red for the WRONG limit (200 instead
+of 5000, since short-text caps at `BUDGET_NAME_MAX`) AND the trim case red (`"line"`≠`"  line  "`, since
+short-text trims and notes must not). `git diff --stat` was confirmed clean after each restore.
+Departure from the entry's fix-shape line: the entry proposed capping directly in `handleSubmit`; the shipped
+fix instead factors each field's cap (and, where applicable, trim) into a single named normalizer shared with
+that field's `onBlur` handler, so the two paths cannot drift apart on trimming as they could if `handleSubmit`
+capped independently. Caveat: `name`'s `<input>`/`ResourcePicker` already carried a native `maxLength={BUDGET_NAME_MAX}`,
+so only `organization`, `title` and `notes` lacked any DOM-level cap before this fix — `name` was already capped
+by the browser on ordinary typing, and this fix closes only the Enter-without-blur gap that a native `maxLength`
+does not cover for any of the four fields (a paste, or a value set programmatically, bypasses `maxLength` too).
 
 `StakeholderEditModal` caps `name`, `organization` and `title` at `BUDGET_NAME_MAX` (200) only in each field's
 `onBlur`. `handleSubmit` runs `describeTextCap` on name, organization, title, email and notes (`TEXTAREA_MAX`),
@@ -38402,14 +38450,46 @@ asserts the saved row, not the toast.
 
 Related: §533, §539 (the email-guard batch that found it).
 
-## 542. The calendar event writer accepts a day past its month's end and rolls it over — OPEN
+## 542. The calendar event writer accepts a day past its month's end and rolls it over — CLOSED 2026-09-21
 
-**Status:** OPEN 2026-09-14 — located with
-`grep -n "isoDateOrUndefined\|acceptsEventDate\|Date.parse" src/app/calendar-event.ts` and measured with
-`node -e 'for (const d of ["2026-02-30","2026-04-31","2026-13-01"]) console.log(d, Date.parse(d+"T00:00:00Z"))'`
-(the first two parse to 2026-03-02 and 2026-05-01; the third is NaN).
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`. Every calendar-event date (`startDate`, recurrence
+`until`, exception `date` / `toDate`) is now read through one of THREE readers, one per path, behind one
+private body, `calendarEventWithDateReader` (`calendar-event.ts`): CREATE, `sanitizeCalendarEvent`, requires
+a real calendar date (`isRealCalendarDate`, no 1900–2100 bound); LOAD, `sanitizeLoadedCalendarEvent`, reads
+through `calendarEventDateOnLoad` (`sanitize-load-date.ts`); UPDATE, `sanitizeCalendarEventForUpdate(input,
+stored)`, carries a date equal to the stored one for that field and judges any other as on create.
+`acceptsEventDate` asks the create rule. Load sites: `BrowserBackend.load`, `jsonToWorkspace` and
+`buildCalendarEventFromObj` (CSV, Markdown, both Turso layouts), so all six backends. Update sites: the AI
+`updateCalendarEvent`, `handleSaveCalendarEvent` and the modal's `handleSubmit` (the last two strict on a
+create). ★★ **A stored calendar-invalid date is KEPT and REPORTED (`storage.nonCalendarDateKept`), NOT
+repaired, and it still rolls over when rendered.** New bad dates are stopped at every create and update
+path; old data is not rewritten.
 
-**Work item:** #332
+Departures from the fix-shape line below, and why: (1) the round trip was NOT added to
+`isoDateOrUndefined`, which served load and write alike and is deleted. The LOAD path needed its own
+reader: `requiredIsoDateOnLoad` / `optionalIsoDateOnLoad` both judge through `sanitizeIsoDate`, whose
+1900–2100 bound calendar events never had (a stored 2200 meeting would be dropped), and the optional one
+BLANKS, which for `until` turns a bounded series unbounded. So load keeps exactly the pre-§542 rule. (2) The
+UPDATE path needed a CARRY reader: a strict rebuild of the merged row refused every edit of an event whose
+untouched stored date was calendar-invalid (the milestone `requiredIsoDateOnUpdate` precedent). (3) Beyond
+the three comments named below, `calendar-recurrence-text.ts` (the review card's recurrence line) held a
+hand-copy of the old rule; it now calls `isRealCalendarDate`, else the card printed an `until` the write
+drops.
+
+Tests: `calendar-event.test.ts` "§542 date rules" (a1–a4, b1–b6, d1–d3) plus an `acceptsEventDate`
+month-overflow case; the IndexedDB funnel case in `browser-backend.test.ts`; one call-site case each in
+`calendar-event-modal.test.tsx`, `use-calendar-events.test.tsx` and `use-chat-dispatcher.test.tsx`; two
+differential cases in `calendar-recurrence-text.test.ts`. Mutants, predicted then actual: 2a (strict reader
+on the old shape + `Date.parse` rule) predicted RED on a1, a2, a3, d2, the `acceptsEventDate` overflow case,
+both recurrence-text cases and the dispatcher case; actual the same MINUS the recurrence-text "no
+terminator" case — a MISMATCH: that differential renders both sides through `recurrenceText`, so it is
+blind to a writer mutant and pins only the card's own rule (it was RED against the unfixed card). 2b (adds
+the year bound) predicted and actual RED on a4, the 1899 `acceptsEventDate` case and `plan.test.ts`'s
+pre-1900 case. 2c, 2d, 2e (each load site back on the strict form) predicted and actual RED on the IndexedDB
+case, b6 and b5 respectively, each alone. 2f (load reader blanks) predicted and actual RED on b1, b2, b5, b6
+and the IndexedDB case. 2g (update without carry) predicted and actual RED on d1 plus the dispatcher and
+modal call-site cases. 2h (AI update strict), 2i (modal strict on an update) and 2j (save handler strict on
+an update) each predicted and actual RED on its own call-site case alone.
 
 `isoDateOrUndefined` (`src/app/calendar-event.ts`), also exposed as `acceptsEventDate`, is a regex plus
 `Date.parse`. That rejects a day or month outside its field range (`2026-01-32`, `2026-13-01`) but not a day
@@ -38458,12 +38538,23 @@ pin it with a month → week → month test.
 
 Related: §169, §544.
 
-## 544. A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — OPEN
+## 544. A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — CLOSED 2026-09-21
 
-**Status:** OPEN 2026-09-15 — `never machine-verified` in the repo: measured with a scratch `vite-node` probe
-outside the tree against `periodKeyForDate` and `actualHoursIn`; TimeLog is not known to emit such dates.
-
-**Work item:** #334
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep` — `aggregateActuals`'s `dated` check
+(`timelog-actuals.ts`) is now `ISO_DAY_RE.test(it.date) && isRealCalendarDate(it.date)`. Departure from
+the fix-shape line below: the round trip was NOT inlined into `aggregateActuals` as a local check — it
+was extracted as a named, exported helper, `isRealCalendarDate` (`sanitize-core.ts`), because
+`sanitizeIsoDate` needed the identical round trip and a second inline copy would have been the third
+spelling of it in the file (`sanitizeIsoDate` already carried one). `sanitizeIsoDate` is now rewired to
+call it too, with its own 1900..2100 year bound kept local to itself (the helper carries no 1900–2100
+bound). Tests: `sanitize-core.test.ts` (`isRealCalendarDate` accepts/refuses cases, incl. the
+1900–2100-bound contrast with `sanitizeIsoDate`) and `timelog-actuals.test.ts` ("routes a calendar-invalid day to undated
+instead of any period"). Mutants: 1a (`isRealCalendarDate` returns `ISO_DATE_RE.test(value)` alone, no
+round trip) — predicted RED on the helper's `2026-02-30`/`2026-04-31`/`2026-02-29` refusal cases, actual
+RED on those plus `2026-13-01`/`2026-00-10` and the TimeLog test (stronger kill than predicted, no
+mismatch in direction). 1b (the `dated` line reverted to `ISO_DAY_RE.test(it.date)` alone) — predicted RED
+on the TimeLog test's `out.undated` assertion, actual RED on exactly that test alone. `buildDailyRoll` was
+deliberately left untouched, per the file's own capitalised warning at its keying site.
 
 `aggregateActuals` (`timelog-actuals.ts`) checks a booking date's SHAPE only, and the `actualHours` codec
 (`encodeActualMap` / `decodeActualMap` in `sanitize-entities.ts`) bounds the day at 31, not by month, so
@@ -39173,11 +39264,44 @@ actual risk.
 ★ This is deliberately tied to the open publishing decision rather than filed as work. Do not close
 it by signing; close it by deciding, and sign if the decision is "public".
 
-## 564. `diagnostics-redact.ts` has no catch-all for an opaque token in free text — OPEN
+## 564. `diagnostics-redact.ts` has no catch-all for an opaque token in free text — CLOSED 2026-09-21
 
-**Status:** OPEN 2026-09-18 — established by reading `SECRET_VALUE_PATTERNS` via `grep -n "SECRET_VALUE_PATTERNS" -A 8 src/app/diagnostics-redact.ts`; no live leak found, and the gap is **never machine-verified** because no test feeds it an opaque token. Structurally the same hardcoded-list rot as §560, which is why it is worth a line rather than a shrug.
-
-**Work item:** #349
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`: `SECRET_VALUE_PATTERNS` gained a seventh
+pattern — a mixed-class catch-all, `/(?=[A-Za-z0-9_-]*[a-z])(?=[A-Za-z0-9_-]*[A-Z])(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{32,}/g`
+— that redacts any run of 32+ token-alphabet characters mixing lowercase, uppercase AND a digit,
+with no vendor prefix or `key=` frame required. The three lookaheads are exactly what keeps
+legitimate ids readable: a canonical UUID or a commit SHA is single-case hex (no uppercase), an
+MSAL GUID is upper-only (no lowercase), and an i18n key or a German compound word carries no digit
+— each survives because it fails exactly one of the three checks, not because of a separate
+exclusion. Test: `diagnostics-redact.test.ts`, the §564 describe block (one positive case plus
+`it.each` over the seven negative shapes: lowercase UUID, uppercase GUID, 40-char commit SHA,
+i18n key, German word, stack frame, and a 31-char mixed-class run one under the floor). Mutants,
+each run alone with a written prediction first, `git diff --stat` proved clean before the next:
+6a (drop the `[A-Z]` lookahead) — predicted RED on the lowercase UUID and commit SHA, actual RED on
+exactly those two (2 failed / 15 passed), no mismatch. 6b (drop the `[a-z]` lookahead) — predicted
+RED on the uppercase GUID, actual RED on exactly that one (1 failed / 16 passed), no mismatch. 6c
+(drop the `\d` lookahead) — predicted RED on the i18n key and the German word, actual RED on
+exactly those two (2 failed / 15 passed), no mismatch. 6d (`{32,}` to `{31,}`) — predicted RED on
+the 31-char row, actual RED on exactly that one (1 failed / 16 passed), no mismatch. No UUID-shape
+exclusion was added, per the brief: with the class rule in place, removing one would change no
+output on any canonical UUID, so it would be a guard with no killing mutant. No lookbehind was
+used either, since the tsconfig target rejects it. **Known miss:** a token that is entirely
+single-case hex (e.g. an all-lowercase or all-uppercase opaque secret with no digit, or one that
+happens to mix case but carries no digit) is NOT caught by this pattern — that is the price of
+keeping UUIDs, SHAs and GUIDs unredacted in diagnostics. This is the OPPOSITE trade from the one
+the finding's own text accepted below ("at the cost of some false positives"): the finding's plain
+`{32,}` run would have over-redacted real ids; the shipped, narrower pattern under-redacts
+single-case-hex secrets instead. **Two departures from
+the entry's own fix-shape line below** (both load-bearing, not incidental): (1) the fix-shape line
+proposed a plain unbroken `[A-Za-z0-9_-]{32,}` run with no class requirement — the mutant results
+above show why that would not do: a plain run redacts the lowercase UUID, the uppercase GUID, the
+commit SHA, the i18n key and the German word alike, which the brief's own requirement (legitimate
+ids must survive) rules out. The three mixed-class lookaheads are what makes the difference. (2) the
+fix-shape line called for redacting "with its length preserved"; the shipped pattern instead emits
+the same fixed `[redacted]` string as the other six patterns in this list (`scrubSecretValues`
+applies one `"[redacted]"` replacement per pattern — a length-preserving variant would need a
+per-match replacer, which no other entry in `SECRET_VALUE_PATTERNS` uses), so this fix does not
+special-case its own output shape.
 
 `scrubSecretValues` runs a fixed list of six patterns: `sk-ant-…`, `Bearer …`, `Basic …`, JWTs,
 Atlassian `ATATT…`, and a `key=value` form whose alternation covers the api-key/api-token/
@@ -39195,11 +39319,41 @@ the cost of some false positives in diagnostics — which is the right trade for
 
 Related: §560, §567.
 
-## 565. Two settings sections clear a token by resealing an empty string instead of removing it — OPEN
+## 565. Two settings sections clear a token by resealing an empty string instead of removing it — CLOSED 2026-09-21
 
-**Status:** OPEN 2026-09-18 — established by `grep -rnE "saveSecretValue|removeSealed" src/app --include=*.tsx | grep -v "[.]test[.]"`, which shows which sections call which; **never machine-verified** by a test asserting the store is empty after a clear. An inconsistent mechanism, NOT an exposure: the resealed value is empty, so nothing recoverable is left behind.
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`. The original finding undercounted the sites: FOUR
+unconditional seals, not two — `jira-settings.tsx` `handleApiTokenChange`, `timelog-settings.tsx`
+`handleToken`, and TWO in `settings-sections/integrations-section.tsx` (`commitTurso` and
+`confirmPortfolioModeSwitch`), which the original finding's own grep had credited (wrongly) to the
+`removeSealed`-using column alongside the AI-key and Turso-lock-toggle sections. The Turso site was
+**visible in the UI, not merely a ciphertext-hygiene issue**: `commitTurso`'s seal `.then(() =>
+setTokenStored(true))` turned the "Remove stored secret" button ON immediately after the user
+cleared the token field. Recon (this branch's own task brief) had also wrongly named
+`handleTokenLockToggle` as the pattern to follow — that function already special-cases blank
+correctly; the two unconditional sealers below it (`commitTurso`,
+`confirmPortfolioModeSwitch`) did not.
+Each of the four sites now checks `value.trim() === ""` (or the token-draft equivalent) FIRST and
+calls `removeSealed(id)` instead of sealing `""`; the two Turso sites also clear `tokenStored`.
+Test: `jira-settings.test.tsx`, `timelog-settings.test.tsx`,
+`settings-sections/integrations-section.drafts.test.tsx` (one case per site; the Turso off-storage
+case asserts the "Remove stored secret" button disappears and reappears, not just the seal call).
+Mutants (revert each site to its original unconditional seal, one at a time): jira — predicted red,
+actual red (its own §565 test); timelog — predicted red, actual red (its own §565 test);
+`commitTurso` — predicted red, actual red (the off-Turso §565 test only, 1 failed / 25 passed);
+`confirmPortfolioModeSwitch` — predicted red, actual red (the switch §565 test only, 1 failed / 25
+passed). No mismatch. The shipped fix departs from the entry's own fix-shape line — "Route both
+through `removeSealed` on an **empty** value" — in three ways: (1) it tests `value.trim() === ""`,
+not `value === ""`, so a whitespace-only token (e.g. `"  "`) now also counts as a clear and is
+removed rather than sealed — before this fix a whitespace-only token was NOT empty, so it sealed
+and hydrated back on reload as a useless but present secret; this is a behaviour change beyond the
+finding's wording, not merely a wording gap. (2) it covers FOUR sites, not the "both" the fix-shape
+line named — the entry's own scope, not just its prose, undercounted the defect (see the mutant
+list above). (3) the two Turso sites also reset `tokenStored`, a UI-state write the fix-shape line
+never mentioned — needed because `commitTurso`'s device branch sets that flag on seal and the
+passphrase-lock UI reads it to decide whether to show the "Remove stored secret" button; without
+resetting it the button would have stayed on after a clear even once the ciphertext was gone.
 
-**Work item:** #350
+_Original finding, as filed 2026-09-18. Preserved as the dated record; see Status._
 
 `jira-settings.tsx` and `timelog-settings.tsx` each call `saveSecretValue(<id>, value, "device")`
 unconditionally on change, so clearing the field seals `""` and leaves a ciphertext entry in
@@ -39214,11 +39368,28 @@ wrong for two of five ids. Route both through `removeSealed` on an empty value.
 
 Related: §567 (the same file family, a heavier version of the same problem).
 
-## 566. The Jira proxy logs the raw fetch-rejection object server-side — OPEN
+## 566. The Jira proxy logs the raw fetch-rejection object server-side — CLOSED 2026-09-21
 
-**Status:** OPEN 2026-09-18 — established by `grep -n "console[.]" src/app/api/jira/_helpers.ts`; **never machine-verified**, and there is nothing to verify until the undici error shape changes. No reachable leak today; filed as robustness, at the bottom of the priority order.
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`: both `console.error` sites in
+`src/app/api/jira/_helpers.ts` now pass a new `describeUpstreamError(err)` — a plain
+`{ message, cause?, code? }` object — instead of the raw rejection, pinned by
+`src/app/api/jira/_helpers.test.ts`. Mutants (each run alone, `git diff --stat` clean between):
+(7a) `describeUpstreamError` returns `{ message }` only — predicted RED on `toEqual` (cause lost),
+actual RED, same reason (`expected { message: 'fetch failed' } to deeply equal { message:
+'fetch failed', …(2) }`). (7b) the fetch-failure site passes raw `err` again — predicted RED on
+`not.toBeInstanceOf(Error)`, actual RED, same reason. (7c) the redirect body-cancel site passes
+raw `err` — predicted RED on the cancel test's `not.toBeInstanceOf(Error)`, actual RED, same
+reason. All three matched their prediction; no mismatch.
+Departures from this entry's own fix-shape line (`err.message` "gives the same diagnostic value"):
+(1) the shipped fix does NOT log bare `err.message` — Node's `fetch` always rejects with
+`TypeError("fetch failed", …)`, so `err.message` alone would log the same literal `"fetch failed"`
+for DNS, refused, TLS and timeout alike, which is the opposite of the diagnostic value this entry
+was filed to preserve; the reason lives in `.cause`, which `describeUpstreamError` extracts (plus
+`.cause.code` when present) instead. (2) this entry named only the fetch-failure site; the
+redirect body-cancel logger a few lines below it (`res.body?.cancel().catch(...)`) carried the
+identical defect and is fixed in the same commit.
 
-**Work item:** #351
+_Original finding, as filed 2026-09-18. Preserved as the dated record; see Status._
 
 `console.error("Jira upstream fetch failed:", err)` serialises whatever the rejection carries. No
 `Authorization` header is reachable through an undici fetch error as it stands — the error does not
@@ -39328,13 +39499,24 @@ Fix shape: run a real NVDA pass and a real JAWS pass against the trigger button,
 fourth option the pass turns up), and record which mechanism was actually verified. No `theme::a11y` label
 exists in this project today, so this entry carries none.
 
-## 570. The spoken readout capitalises mid-sentence — OPEN
+## 570. The spoken readout capitalises mid-sentence — CLOSED 2026-09-21
 
-**Status:** OPEN 2026-09-18 — found reading `rowText` in `src/app/chart-readout.tsx` against the tip strings
-in `i18n.ts` and `i18n.de.ts` (reproduce: `grep -n "burndownReadoutTip" src/app/i18n.ts src/app/i18n.de.ts`
-shows every tip opening with a capital); not measured against a real screen reader.
-
-**Work item:** #355
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`: `rowText` (`src/app/chart-readout.tsx`) now joins the
+row's sentence and its tip with a full stop, `` `${flagged}. ${t(lang, ROW[row.kind].tip)}` ``, so every
+spoken tip starts its own sentence instead of reading as a capitalised word mid-sentence. No `i18n.ts` /
+`i18n.de.ts` change was needed — the fix is entirely in the join, per the entry's own preferred option below.
+Test: `chart-readout.test.tsx` — the pre-existing "speaks each row's explanation after its value" pinning
+assertion was updated to the full-stop form (its third, unmentioned-in-brief expectation for the `runOut` row
+also needed the same comma-to-period edit, or it would have stayed red after the fix; not a departure from
+this entry, which never specified test wording), plus a new `it.each(["en-US", "de"])` case
+("§570: each spoken explanation starts its own sentence") that reads all ten tips off the rendered box via
+`loadI18n("de")` for the German half, so no tip string is hand-copied, and asserts both `.toContain('. ${tip}')`
+and `.not.toContain(', ${tip}')` against `readoutSentence`. Mutant 8a (revert the join to `, `) — predicted RED
+in both languages, actual RED (3 failed / 22 passed: the pinning test plus both `it.each` cases), no mismatch.
+`git diff --stat` proved clean before and after the mutant. Gates: `npx tsc --noEmit` EXIT=0;
+`npx eslint --max-warnings=0 src/app/chart-readout.tsx src/app/chart-readout.test.tsx` EXIT=0. No departure
+from the entry's fix-shape line: it named the full-stop join as "the safer fix" for exactly the reason this
+patch relies on (a future German tip may open with a capitalised noun), and that is what shipped.
 
 `rowText` joins a row's sentence and its explanation (`ROW[row.kind].tip`) with a comma:
 `` `${flagged}, ${t(lang, ROW[row.kind].tip)}` ``. All ten `tip` strings in both `i18n.ts` and `i18n.de.ts`
@@ -39352,12 +39534,22 @@ wherever they sit in a sentence, so a blanket "lower-case the first character" r
 first tip string ever written to start with a noun would be mis-capitalised by it. The full-stop join
 sidesteps the question for every language and is the safer fix.
 
-## 571. The chart-box clamp's boundary width has no test — OPEN
+## 571. The chart-box clamp's boundary width has no test — CLOSED 2026-09-21
 
-**Status:** OPEN 2026-09-18 — found by mutation-testing `anchorFor` in `src/app/use-chart-readout.ts`:
-mutating `>` to `>=` and rerunning `npx vitest run src/app/use-chart-readout.test.tsx` left all 19 tests green.
-
-**Work item:** #356
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`: `anchorFor`'s clamp threshold
+(`src/app/use-chart-readout.ts`) changed from `rect.width > HALF * 2` to `rect.width >= HALF * 2`, so at
+exactly 352px — where the clamp range collapses to the single point at the chart's centre and the box fits
+there exactly — the chart-box clamp now fires instead of the raw/viewport branch. Test:
+`use-chart-readout.test.tsx`, two new cases beside the existing narrow-chart ones: "clamps into the chart
+when the chart is exactly as wide as the box" (352px, asserts the clamped centre `58/476`) and "leaves the
+stop raw one pixel below the boundary" (351px, asserts the raw `58/335` — pinned by the raw position rather
+than distance from centre, since the clamped value there, 475.5, rounds to the same 476 and so cannot tell
+the two states apart). Mutant 8b (revert to `>`) — predicted RED on the 352 case alone, actual RED on exactly
+that case (1 failed / 20 passed), no mismatch. `git diff --stat` proved clean before and after the mutant.
+Gates: `npx tsc --noEmit` EXIT=0; `npx eslint --max-warnings=0 src/app/use-chart-readout.ts
+src/app/use-chart-readout.test.tsx` EXIT=0. No departure from the entry's fix-shape line: it asked for a case
+at `rect.width === 352` asserting which clamp it takes, and for the boundary to be pinned, not just each side
+of it — both cases above do that, with the 351 case as the immediate below-boundary control.
 
 `anchorFor` decides which clamp to apply to the readout box's horizontal position with
 `rect.width > HALF * 2` (`HALF = 176`, so the threshold is 352px — the readout box's own `max-w-[22rem]`).
@@ -39509,14 +39701,32 @@ building the outgoing `messages` array (mirroring what `stripAttachmentsForPersi
 storage, but applied to the wire path too), or track running payload bytes across `history` and
 warn/block before a send would exceed budget.
 
-## 576. sanitizeFxRates reorders its rates object on a second decode, so an FX snapshot is not byte-stable through a JSON round-trip — OPEN
+## 576. sanitizeFxRates reorders its rates object on a second decode, so an FX snapshot is not byte-stable through a JSON round-trip — CLOSED 2026-09-21
 
-**Status:** OPEN 2026-09-18 — reproduced with `npx vite-node` against a throwaway script (not
-committed); byte-stability impact confirmed as observed, not merely theoretical, by Task 7 of this same
-plan, whose golden-workspace round-trip fixture broke until the sample master's FX rates listed EUR
-first. Verified by code reading: `grep -n "SUPPORTED_CURRENCIES" src/app/sanitize-entities.ts src/app/types.ts`.
-
-**Work item:** #361
+**Status:** CLOSED 2026-09-21 — branch `fix/backlog-sweep`. Fixed in `fxRatesWithDateReader`
+(`sanitize-entities.ts`, backing both `sanitizeFxRates` and `sanitizeLoadedFxRates`): the loop over
+`SUPPORTED_CURRENCIES` now assigns `rates.EUR = 1` AT EUR's OWN ARRAY POSITION, unconditionally, in
+the same pass as every other currency, instead of patching it in after the loop. Key order is now a
+function of `SUPPORTED_CURRENCIES` alone, never of whether the input happened to already carry an
+`EUR` key. **Correction to this entry's own causal story:** the instability was never about EUR's
+*position* in the loop — it was about EUR's *presence* in the input. The original code already
+placed EUR first whenever the input carried an EUR key (as every re-decode of the sanitizer's own
+output does); the bug only showed on a *first* decode of an EUR-less input, e.g. a raw ECB fetch. No
+sample-data or golden-fixture change was needed: `sample-workspace-small.json`'s FX block already
+carries EUR (a Task 7 workaround, noted in this entry before the fix), so it was never exercising the
+missing-EUR path this fix corrects. §597's regenerate-and-diff ratchet is not blocked by this on
+current data.
+Test: `sanitize-budget.test.ts` — `describe("§576: FX rate key order is stable across decodes")`, new
+(3 tests: strict + load decode-key-order parity, missing-currency-still-no-key). Reproduce:
+```
+npx vitest run src/app/sanitize-budget.test.ts src/app/golden-workspace.test.ts src/app/sanitize-branches.test.ts src/app/sanitize-load-date.test.ts --maxWorkers=1 --reporter=dot
+git diff --stat -- src/app/__fixtures__/ sample-workspace-small.json   # empty
+```
+Mutant 9a (restore the post-loop `rates.EUR = 1` and skip EUR in the loop, i.e. the original code):
+predicted RED on the key-order assertions — actual RED, same 3 failures
+(`['USD','GBP','EUR']` vs `['EUR','USD','GBP']`), match.
+Departure from this entry's own fix-shape line: none — "iterate `SUPPORTED_CURRENCIES`
+unconditionally instead of conditionally inserting present keys" is exactly what shipped.
 
 `sanitize-entities.ts`'s `fxRatesWithDateReader` (backing both `sanitizeFxRates` and
 `sanitizeLoadedFxRates`) builds the `rates` record by iterating `SUPPORTED_CURRENCIES` (declared as
@@ -40216,3 +40426,268 @@ keeping it would have been the same false-positive shape as §540's deleted Play
 same fix).
 
 Related: §536, §540.
+
+## 605. An AI calendar-event update that re-sends a stored invalid until with a count previews the count while the write keeps the until — CLOSED 2026-09-21
+
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`, filed and closed on the same branch (the fix
+commit and one review-round commit); found by the review of §542's fix. The update writer's carry
+rule is now ONE predicate, `acceptsCarriedOrRealDate` (`sanitize-core.ts`), and the dates it carries
+for a recurrence are derived by ONE function, `carriedRecurrenceDatesOf` (`calendar-event.ts`), which
+returns the carried `startDate` and `recurrence.until` sets. The writer's update reader
+(`carryStoredEventDates`) builds those two fields from it, and the card's recurrence line
+(`recurrenceText`, `calendar-recurrence-text.ts`) judges BOTH its dates with the same predicate
+against the same sets: the `until` terminator (in `rangeSuffix`) and the start that a monthly rule's
+byMonthDay fallback is taken from (in `fallbackDayOfMonth`). `INLINE_DESCRIPTORS.calendarEvent.
+fieldSanitizers.recurrence` passes `carriedRecurrenceDatesOf(stored)`. A `fieldSanitizers` entry now
+takes the STORED row as an optional third argument, which `describeEntityCalls`' update diff loop
+passes on both the before and the after side. `recurrenceText` takes the carried sets as an optional
+third argument; without them (a create) both dates are judged strictly exactly as before.
+
+Tests: "a recurrence re-sending a stored invalid until previews what the update writes" and "a
+monthly rule on a stored invalid start previews the fallback day the update writes" (`plan.test.ts`,
+each asserting the card and the real `sanitizeCalendarEventForUpdate` together), and
+"recurrenceText on an update matches sanitizeCalendarEventForUpdate (§605)"
+(`calendar-recurrence-text.test.ts`). The start half pins the review's probe: a stored `startDate`
+of `"2026-02-30"` with a monthly byMonthDay 30, and a patch re-sending the monthly rule, used to show
+`Every month on day 30` → `Every month` while the write left the rule byte-identical; it now shows
+no row. A separate case pins what the before-side change made visible: a patch that DROPS a stored
+invalid `until` used to show no row (both sides rendered `Every day`) while the write made the
+bounded series unbounded; it now shows `Every day until 2026-04-31` → `Every day`.
+
+Mutants (each run alone, the original bytes written back and compared between; every result
+matched its written prediction). Fix commit: (11a) `recurrenceText` ignores the carried `until` —
+RED on the 2 carried cases; (11b) the preview carries ANY string `until` — RED on the 3 non-carried
+and create cases plus 5 pre-existing strict-`until` cases, 8 in all; (11c, added) the diff loop stops
+passing the stored row on the after side — RED on the card's carried case alone. Review round,
+against the final code: (11a, re-run) RED on 3, the drop-the-`until` case now included; (11b,
+re-run) the same 8; (11d, added) the card's byMonthDay fallback ignores the carried start — RED on
+the 2 start-half `plan.test.ts` cases and the start case in `calendar-recurrence-text.test.ts`, 3 in
+all; (11e, added) the diff loop stops passing the stored row on the BEFORE side — RED on the carried
+case and the drop-the-`until` case, 2 in all.
+
+Limits of the fix: (1) the BEFORE side changes — a stored invalid `until` now renders as its
+terminator where the card used to omit it, because the before value is judged by the same rule
+against the same stored row. That is what is stored, and it is what makes the dropped-`until` write
+visible. (2) Only the two dates a recurrence reads are threaded. Exception dates are not rendered by
+the card (`exceptions` is not a model-writable field). (3) The two other normaliser calls in
+`describeEntityCalls` (the resource name-alias projection and the resource group guard) do not pass
+the stored row; they run only for `resource`, whose entries take at most two arguments. (4) The rest
+of the terminator rule — `until >= startDate`, the count range, and `until` winning over `count` —
+is still mirrored in `recurrenceText` rather than shared, as it was before §605.
+
+The defect, as found: since §542, `sanitizeCalendarEventForUpdate(input, stored)` carries a stored
+date verbatim when the patch leaves it unchanged, even when it is calendar-invalid — for example a
+stored `recurrence.until` of `"2026-04-31"`, which the load funnel keeps. The review card renders
+recurrence through `recurrenceText`, whose range terminator judged `until` by the create rule alone
+and knew nothing about the stored value. So an `update_calendar_event` that re-sent the stored invalid
+`until` together with a `count` previewed the count while the write kept the `until` and dropped the
+count. Measured before the fix, stored rule `{ freq: "daily", interval: 1, until: "2026-04-31" }` and
+patch `{ freq: "daily", interval: 2, until: "2026-04-31", count: 5 }`: the write stored
+`{"freq":"daily","interval":2,"until":"2026-04-31"}`, and the card showed `Every day` →
+`Every 2 days, 5 times`. `calendar-recurrence-text.ts` recorded the gap in a comment beside
+a helper named isValidIsoDate; the review round deleted that helper, whose one remaining caller now
+asks the shared predicate, and its comment went with it.
+
+Related: §542.
+
+## 606. The diagnostics catch-all misses a base64 secret whose separators split it into short runs — CLOSED 2026-09-21
+
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`; found reviewing §564's fix. `SECRET_VALUE_PATTERNS`
+gained an eighth pattern, placed immediately before the §564 catch-all: a run of 32+ from the base64
+alphabet `[A-Za-z0-9+/]`, mixing lowercase, uppercase AND a digit (the same three scoped lookaheads
+as §564, over this rule's own character class), that EITHER contains a `+` OR ends in `=`/`==`
+padding. It is one regex literal with an internal alternation, not a replace-callback. Padding counts
+only when it terminates the token: each padding group is followed by `(?![A-Za-z0-9+/=])`, so a 32+ run
+followed by `=` and more text (`/api/v1/Tenants/Chart2Panel/Settings=on`) is not a token. In the `+`
+branch the padding group is optional as a whole, so a `+` run followed by `=on` is still redacted and
+only `=on` stays visible. A boundary after a bare `={0,2}` there would reject the whole run instead, and
+a `+`-split secret whose pieces are all under 32 would then be logged in full (mutant 12f below).
+
+What the rule newly catches: a secret containing a `+` that splits it into runs under 32 for §564, and a
+`/`-split secret ending in `=` padding. A secret with no `+` and no `/` that ends in `=` was already
+redacted by §564 except for its padding, so for that shape the rule changes only whether `==` stays
+visible. The order matters for a different reason: §564's alphabet excludes `+`, so run first it would
+redact a 32+ head alone and leave `+<tail>` of the secret in the log.
+
+Test: `diagnostics-redact.test.ts`, the §606 describe block. Five positives, each asserting the exact
+output: a 40-char run with one `+`; a 44-char run ending `==`; a 47-char `/`-split run ending `==` with
+no `+`, which was logged in full before the fix; a 34-char head, `+`, then a 15-char tail; and a 40-char
+`+` run followed by `=on`, which must come out as `[redacted]=on`. An `it.each` over twelve negatives:
+the seven §564 negatives, shared with the §564 block through one constant
+(`SHARED_OPAQUE_TOKEN_NEGATIVES`) so the two lists cannot drift, plus a long mixed-case path with digits
+(`webpack-internal:///./src/app/Chart2Panel/UseChartReadout3.tsx`), a 31-char base64 run with `+`, a
+`+`-containing string with no uppercase, a `key=value`-shaped string with an 11-char key
+(`Chart2Panel=UseReadout3AndMoreLettersHereX`), and a 36-char path run followed by `=on`
+(`/api/v1/Tenants/Chart2Panel/Settings=on`).
+
+Mutants, against the final code. Each was predicted in writing, run alone on
+`diagnostics-redact.test.ts` (34 tests), and reverted by writing the intended bytes back, checked
+with `cmp` against a saved copy:
+- 12a (drop the `+`/`=` requirement: `[A-Za-z0-9+/]{32,}={0,2}` with no boundary) — predicted RED on the
+  webpack path and the `/api/…=on` path; actual RED on both plus the `=on` positive (3 failed), which
+  the prediction missed: without a boundary the mutant consumes the `=`, giving `[redacted]on`.
+- 12b (drop `+` from every class) — predicted RED on the 40-char `+`, head-`+`-tail and `=on` positives;
+  actual RED on exactly those three.
+- 12c (move the rule after the §564 catch-all) — predicted RED on the `==` positive (`[redacted]==`) and
+  the head-`+`-tail positive (`[redacted]+4vN6yH1sJ5dF0g`); actual RED on exactly those two. The second
+  is a real leak of 15 secret characters, so 12c is not an equivalent mutant.
+- 12d (drop `/` from every class) and 12e (drop `/` from the padding branch only) — each predicted RED on
+  the `/`-split positive alone; actual RED on exactly that case, logged in full, for each.
+- 12f (the `+` branch's padding as a bare `={0,2}(?![A-Za-z0-9+/=])`) — predicted RED on the `=on`
+  positive alone; actual RED on exactly that case, logged in full.
+- 12g (drop the padding branch's trailing boundary) — predicted RED on the `/api/…=on` negative alone;
+  actual RED on exactly that case (`[redacted]on`).
+
+Limits of the fix. Stated in the code comment: a token split ONLY by `/` (no `+`, no `=` padding) is
+still not caught, and long `+`-joined text that mixes case and carries a digit is redacted — a URL
+search query (`?q=Project+Status+Report+Q3+Summary`), a `+` chain with no spaces
+(`renderChartReadout+useChartReadout3+formatValue`), and
+`total=TaskHours2025Q3+RaidHours2025Q3+ChangeHours2025Q3`. These false positives are the owner's
+accepted trade. Not in the code comment: this rule and §564 are two patterns over two different
+alphabets, so a secret that needs both (a run broken by `-` into pieces AND split by `+`) is caught only
+where one alphabet alone sees a 32+ run. Also not in the code comment, and not fixed here: the scoped
+lookaheads are quadratic on a long run that lacks one of the required features, and
+`scrubSecretValues` runs over the whole string BEFORE `redactFields` truncates it to `FIELD_MAX`. §564
+already had this cost on single-feature runs. This rule adds a second shape, a long mixed-case
+alphanumeric run with no `+` and no `=`; the review measured about 1.4 s for a 16,000-character run
+under this pattern alone, where §564 is linear on that shape.
+
+Related: §564.
+
+## 607. The Timelog and ECB proxies log a raw error object on upstream failure — CLOSED 2026-09-21
+
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`; found reviewing §566's fix. `describeUpstreamError`
+moved out of `src/app/api/jira/_helpers.ts` into a new shared module, `src/app/api/_shared/upstream-error.ts`
+(function body unchanged; only its docstring's scope widened from the Jira proxy alone to all three
+proxies), and the Timelog redirect body-cancel `.catch` and the ECB route's fetch-failure `catch` now
+call it instead of logging the raw rejection — mirroring the two Jira sites §566 already fixed. Jira's
+import re-points to the shared module; its own call-site tests stayed in `jira/_helpers.test.ts`
+untouched. Pinned by a new `src/app/api/_shared/upstream-error.test.ts` (direct unit tests: no-cause,
+an Error cause with/without `.code`, a non-Error cause coerced with `String()`, a non-Error `err`
+coerced with `String()` — the two "omits code" tests use `toStrictEqual` plus an explicit `"code" in
+out` check, never `toEqual`, which silently ignores a key whose value is `undefined`), a new §607 test
+in `timelog/_helpers.test.ts` (the undici-shaped fixture from §566, asserting the logged payload is a
+plain object carrying the cause message and code), and two migrated tests in `ecb/route.test.ts` that
+used to assert `expect.any(Error)` / `expect.any(DOMException)` and now assert the exact plain object.
+`ecb/route.test.ts` runs under `// @vitest-environment node` (precedent: `stt/route.test.ts`), matching
+the route's own `runtime = "nodejs"`: under Node a `DOMException` IS `instanceof Error`, so the timeout
+test's expected log is `{ message: "The operation was aborted due to timeout" }`, with no `cause`/`code`
+(a `DOMException` carries neither). Verified by grep (`console.error` in `src/app/api`, excluding
+tests) that no other raw-object site remained — `confluence` and `stt` carry no `console.error` at all.
+
+Mutants, fix commit (each run alone; restored by writing the original bytes back and checking, via
+`git diff`, that the restoration reproduced exactly the pre-mutant fix diff — not a literal empty
+`git diff --stat`, since the fix itself was still uncommitted at mutant time): (13a) revert the Timelog
+redirect-cancel site to raw `err` — predicted RED on the new §607 Timelog test's
+`not.toBeInstanceOf(Error)`, actual RED, same reason (`expected TypeError: fetch failed to not be an
+instance of Error`). (13b) revert the ECB site to raw `err` — predicted RED on both migrated ECB tests
+(`not.toBeInstanceOf(Error)` on the fetch-failure test, and the exact-object `toHaveBeenCalledWith` on
+the timeout test), actual RED on both, same reasons. Both matched their prediction; no mismatch.
+
+Fix round 1 (review finding I1 — the timeout test pinned what jsdom's `DOMException` produces, not
+what the Node route actually logs): `ecb/route.test.ts` moved to `// @vitest-environment node` and the
+timeout assertion corrected to the real Node-logged shape (see Status above). 13b was re-run against
+this final code with the same prediction — actual RED on both ECB tests again, the timeout test's diff
+this time showing a real `TimeoutError` (Node's own `DOMException`, not jsdom's); match, no mismatch.
+
+Departures from this entry's fix task: (1) no unit tests needed to move — at the pre-fix commit,
+`jira/_helpers.test.ts` had no direct test for `describeUpstreamError`, only call-site tests exercising
+it through `callJira`, which correctly stayed in place, so the shared module gained its own new test
+file instead of an inherited one. (2) The Timelog fetch-failure `catch` (`Timelog upstream fetch
+failed: …`) is UNCHANGED, as directed: it deliberately logs only `failureClass`, elapsed time and the
+query-stripped path — never the raw error object — so it was never in scope.
+
+Related: §566.
+
+## 608. The diagnostics secret patterns take quadratic time on a long run that fails them — OPEN
+
+**Status:** OPEN 2026-09-21 — timing measured directly against the bare `SECRET_VALUE_PATTERNS`
+regexes with `node -e` one-liners (below), not through `redactFields` end to end. Ordering confirmed
+by `grep -n "SECRET_VALUE_PATTERNS: RegExp\[\]" -A 35 src/app/diagnostics-redact.ts`, which shows the
+§606 pattern before the §564 catch-all in the array.
+
+**Work item:** #389
+
+`redactFields` (`diagnostics-redact.ts`) calls `scrubSecretValues`, which runs every pattern in
+`SECRET_VALUE_PATTERNS` over the FULL field value in array order — and only afterwards does
+`redactFields` slice the result to `FIELD_MAX` (500 chars). §606's pattern (the base64-shaped run with
+a `+`-or-padding branch) is ordered BEFORE §564's catch-all, so a run that fails BOTH patterns pays
+§606's quadratic cost, on the full untruncated field, before §564 ever gets to match it linearly.
+
+Measured on Node, `.replace` on one run (final-review M6, `af138b491..1d9f83469`):
+
+| Run | §606 | §564 |
+|---|---|---|
+| 16k lowercase-hex | 213 ms | 178 ms |
+| 64k lowercase-hex | 3.4 s | 3.5 s |
+| 64k mixed-case, no `+`, no padding | 12.7 s | 1 ms |
+
+The last row is exactly the shape §564 exists to catch (mixed case, no vendor frame, no `+` or
+padding), and §606 now runs first against it, so a genuinely adversarial run pays the quadratic branch
+that used to belong to the narrower §564 catch-all alone. Reproduced this session, same shape, a
+different machine:
+`node -e "const p=/(?=[A-Za-z0-9+/]*[a-z])(?=[A-Za-z0-9+/]*[A-Z])(?=[A-Za-z0-9+/]*\d)(?:(?=[A-Za-z0-9+/]*\+)[A-Za-z0-9+/]{32,}(?:={1,2}(?![A-Za-z0-9+/=]))?|[A-Za-z0-9+/]{32,}={1,2}(?![A-Za-z0-9+/=]))/g;for(const n of [16000,64000]){let s='';for(let i=0;i<n;i++)s+='aB3zQ9zK7mP2wR8tYuJ5hG0fD1sA6lM4nB2'[i%35];const t=performance.now();s.replace(p,'X');console.log(n,Math.round(performance.now()-t))}"`
+(printed `16000 849` and `64000 14042`; the same generated string against the bare §564 pattern alone
+printed `0` at both sizes).
+
+**Why pre-capping is not free.** Slicing to `FIELD_MAX` before the scrub, to bound what each pattern
+sees, can leave a secret FRAGMENT past the cut — the redaction exists precisely because a field can
+carry a real credential, and a half-redacted credential reads as already scrubbed, which is worse than
+one truncated whole and never scrubbed at all. A fix has to keep the whole value in front of the
+patterns while bounding their cost, which the current `.replace` loop over `SECRET_VALUE_PATTERNS`
+does not do.
+
+Related: [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open),
+the catalogue of backtracking-quadratic regexes elsewhere in `src` — this pattern sits in
+`diagnostics-redact.ts`, outside that sweep's scope, and could be folded into it rather than tracked as
+a fifth site of its own. Found reviewing [§606](#606-the-diagnostics-catch-all-misses-a-base64-secret-whose-separators-split-it-into-short-runs--closed-2026-09-21)
+(final-review M6).
+
+**The fix shape:** bound the input each pattern sees, or bound the patterns' own backtracking, without
+letting a real credential's tail survive the cut unredacted — see §578 for the general shape.
+
+## 609. A late seal can resurrect a sealed secret the user just cleared — OPEN
+
+**Status:** OPEN 2026-09-21 — read from code; call sites confirmed by
+`grep -rn "removeSealed(" src/app/jira-settings.tsx src/app/timelog-settings.tsx src/app/settings-sections/integrations-section.tsx src/app/settings-sections/ai-section.tsx src/app/settings-sections/dictation-section.tsx`.
+Never machine-verified against a live timed race — an in-flight seal outrunning a clear was not
+reproduced end to end.
+
+**Work item:** #390
+
+`saveSecretValue` (`use-secrets.ts`) is async: it `await`s `sealDevice`/`sealPassphrase` (WebCrypto)
+before calling `saveSealed`. Every per-field change handler fires it fire-and-forget
+(`void saveSecretValue(...)`), so a keystroke whose value is later overwritten or cleared can still
+have a seal in flight. If the user then CLEARS the field, the handler calls `removeSealed(id)`
+synchronously — but nothing orders that against the earlier keystroke's still-pending
+`saveSecretValue` promise. If that promise resolves AFTER the clear, its `saveSealed` call lands last
+and writes the ciphertext back: the record the user just cleared reappears at rest, and the next
+load's `hydrateSecretsInto` restores it.
+
+This is the [§565](#565-two-settings-sections-clear-a-token-by-resealing-an-empty-string-instead-of-removing-it--closed-2026-09-21)
+family, at the same four sites §565 fixed — `jira-settings.tsx` `handleApiTokenChange`,
+`timelog-settings.tsx` `handleToken`, and `integrations-section.tsx`'s `commitTurso` and
+`confirmPortfolioModeSwitch`. §565 made the CLEAR itself call `removeSealed` reliably (instead of
+sealing `""`); it never ordered a clear against an in-flight seal from a PRIOR keystroke, because that
+ordering was outside its scope. The exposure predates §565 and is not introduced by it.
+
+**Family-wide, not settings-only.** The same `saveSecretValue`/`removeSealed` pair backs all five
+`SecretId`s, and the race is a property of that pair, not of any one settings section: the AI key
+field (`ai-section.tsx` `handleApiKeyChange`, `void saveSecretValue("anthropicApiKey", …)`) and the
+dictation STT key field (`dictation-section.tsx`) already called `removeSealed` on clear before this
+branch, and both carry the same unguarded ordering.
+
+**The stored flag re-arms too, not just the ciphertext.** `ai-section.tsx`'s `handleApiKeyChange`,
+`dictation-section.tsx`'s `handleSttKeyBlur` and `integrations-section.tsx`'s `commitTurso` each chain
+`.then(() => set…Stored(true))` on the seal they fire. A late seal therefore also flips the visible
+"stored" flag back on, so the "Remove stored secret" button reappears immediately, without a reload —
+the same visible symptom §565 fixed for the synchronous clear-and-reseal case, now produced instead by
+this async race.
+
+**The fix shape:** a per-secret generation guard — stamp a monotonic counter (or the value being
+sealed) when `saveSecretValue` starts, and have its `saveSealed` write apply only if no later call for
+that same id (a newer keystroke, or a clear) has started since. `removeSealed` on clear should bump the
+same guard, so a seal already in flight at clear time is discarded instead of racing it.
+
+Related: §565 (final-review M7, the finding that raised this while reviewing the §565 fix; pre-existing
+across the family and not closed by that fix).

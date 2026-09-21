@@ -24,6 +24,7 @@ import {
   defaultJiraConfig,
 } from "./settings-types";
 import { saveSecretValue } from "./use-secrets";
+import { removeSealed } from "./secrets-store";
 import { emailWriteRefusal } from "./sanitize";
 import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
 import { useEmailDraft } from "./use-email-draft";
@@ -188,7 +189,10 @@ export function JiraSettingsSection({
   // survives a reload; on load it is decrypted back into memory (hydrateSecretsInto).
   function handleApiTokenChange(value: string) {
     update("apiToken", value);
-    void saveSecretValue("jiraApiToken", value, "device");
+    // §565: a blank token REMOVES the sealed record. Sealing "" left a ciphertext that
+    // decrypts to nothing — a presence check would read it as a stored token.
+    if (value.trim() === "") removeSealed("jiraApiToken");
+    else void saveSecretValue("jiraApiToken", value, "device");
   }
 
   function toggleIssueType(name: string) {

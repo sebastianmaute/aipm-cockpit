@@ -5,6 +5,7 @@
 
 import { rateLimit } from "../jira/_rate-limit";
 import { isPrivateHost, isAllowedHostSuffix } from "../_shared/proxy-ssrf";
+import { describeUpstreamError } from "../_shared/upstream-error";
 
 export type TimelogCreds = { host: string; tenant: string; token: string };
 
@@ -154,7 +155,8 @@ export async function callTimelog(
       // until the body is garbage-collected. Not awaited: a cancel that never
       // settles must not hold back the 502.
       void res.body?.cancel().catch((err: unknown) => {
-        console.error("Timelog upstream redirect body cancel failed:", err);
+        // §607: a plain object, never the raw error — mirrors the Jira proxy (§566).
+        console.error("Timelog upstream redirect body cancel failed:", describeUpstreamError(err));
       });
       return Response.json(
         { error: "upstream-redirect" },

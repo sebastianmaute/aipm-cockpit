@@ -2,6 +2,7 @@
 import type { PlanGranularity } from "./types";
 import { periodKeyForDate } from "./resource-capacity";
 import { granularityOfPeriodKey } from "./actual-hours";
+import { isRealCalendarDate } from "./sanitize-core";
 import { dailyKey, type TimelogDailyRoll } from "./timelog-types";
 import type { TimelogTimeItem, TimelogLinks } from "./timelog-types";
 
@@ -123,7 +124,9 @@ export function aggregateActuals(
     // dates this file's ISO_DAY_RE docstring lists: month keys "" and "05/01/2",
     // week key "NaN-WNaN" for both — matching no rendered column, so the hours
     // silently disappear from the Budget view rather than being surfaced.
-    const dated = ISO_DAY_RE.test(it.date);
+    // §544: shape AND a real calendar day. Shape alone let "2026-02-30" count as dated, so the
+    // month key filed it under February while the ISO-week key's Date rolled it into March.
+    const dated = ISO_DAY_RE.test(it.date) && isRealCalendarDate(it.date);
     if (resourceId === undefined || bucketId === undefined || bucketId === null || !dated) {
       unattributed = add(unattributed, it);
       // Deliberately NOT an `else` on the link checks: a row can fail both, and

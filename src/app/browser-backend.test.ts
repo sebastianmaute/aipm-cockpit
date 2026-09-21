@@ -233,6 +233,21 @@ describe("BrowserBackend parallel IDB save/load", () => {
     expect(loaded.calendarEvents?.[0]).toMatchObject({ id: 3, title: "Standup" });
   });
 
+  it("§542: a stored calendar-invalid meeting survives a fresh IndexedDB load", async () => {
+    const ws = {
+      ...emptyWorkspace(),
+      calendarEvents: [{
+        id: 4, title: "Retro", startDate: "2026-02-30", startTime: "09:00", durationMinutes: 30,
+        recurrence: { freq: "weekly" as const, interval: 1, until: "2026-04-31" },
+      }],
+    };
+    await new BrowserBackend().save(ws);
+    const loaded = await new BrowserBackend().load();
+    expect(loaded.calendarEvents).toHaveLength(1);
+    expect(loaded.calendarEvents?.[0]).toMatchObject({ id: 4, startDate: "2026-02-30" });
+    expect(loaded.calendarEvents?.[0].recurrence?.until).toBe("2026-04-31");
+  });
+
   it("save → fresh load round-trips fieldVisibility and features", async () => {
     const ws = {
       ...emptyWorkspace(),

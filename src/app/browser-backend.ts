@@ -14,7 +14,7 @@ import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersionsWithDiag } from "./document-versions";
 import { sanitizeDocumentAsset, type DocumentAsset } from "./document-asset";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
-import { type CalendarEvent, sanitizeCalendarEvent } from "./calendar-event";
+import { type CalendarEvent, sanitizeLoadedCalendarEvent } from "./calendar-event";
 import { migrateTask } from "./task-status";
 import {
   sanitizeNoteFields,
@@ -296,12 +296,12 @@ export class BrowserBackend implements StorageBackend {
         const so = sanitizeSettingsOverrides(idbSettingsOverrides);
         settingsOverrides = hasAnyOverride(so) ? so : undefined;
       }
-      // Optional list: garbage rows dropped individually (sanitizeCalendarEvent
+      // Optional list: garbage rows dropped individually (sanitizeLoadedCalendarEvent
       // never throws); junk/empty list sanitizes to [] → keep undefined.
       {
         const rawEvents = Array.isArray(idbCalendarEvents) ? idbCalendarEvents : [];
         const evs = rawEvents
-          .map((e) => sanitizeCalendarEvent(e))
+          .map((e) => sanitizeLoadedCalendarEvent(e))
           .filter((e): e is CalendarEvent => e !== null);
         calendarEvents = evs.length ? evs : undefined;
       }

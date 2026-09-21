@@ -4,6 +4,7 @@ import { describeToolCalls, describeEntityCalls, isEmptyPlan, stripRejectedField
 import { INLINE_DESCRIPTORS } from "./entity-descriptor";
 import { inlinePatchValue } from "../use-inline-entity-edit";
 import { type Workspace } from "../workspace";
+import { sanitizeCalendarEventForUpdate, type CalendarEvent } from "../calendar-event";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const task = { id: 42, taskName: "Fix login bug", assignee: "Anna", dueDate: "2026-08-12", status: "To Do", priority: "Medium" } as any;
@@ -1573,19 +1574,22 @@ describe("link fields honour the merge-site guard on the row and the create path
 
 // (C4) THE PER-ENTITY DATE VALIDATOR. The preview defaults to
 //  `sanitizeIsoDate` (regex + a real calendar date (§539) + 1900-2100) for
-//  every entity, but `sanitizeCalendarEvent` calls `isoDateOrUndefined` (regex
-//  + `Date.parse`, NO year bound). §539 closed the field-range overflow
-//  direction (day > 31 / month > 12, e.g. "2026-01-32") — pinned by the first
-//  case below. Two directions still differ: the year bound (second case), and
-//  a month-specific overflow ("2026-02-30") that `sanitizeIsoDate` refuses but
-//  `isoDateOrUndefined` still accepts and rolls over (`Date.parse` succeeds).
+//  every entity, but a calendar event's write rule is a real calendar date
+//  with NO 1900–2100 bound (§542; `acceptsEventDate`). §539 closed a preview
+//  mismatch: a field-range overflow (day > 31 / month > 12, e.g.
+//  "2026-01-32") used to preview as accepted and then be refused by the
+//  write — pinned by the first case below. §542 closed a different gap: a
+//  month overflow ("2026-02-30") was never refused by the write at all — the
+//  old `Date.parse` leg accepted it too, so preview and write already
+//  agreed, on the wrong answer, until §542 made the write refuse it. ONE
+//  direction still differs: the year bound (second case).
 describe("a date is judged by its own writer's rule", () => {
   const meeting = { id: 60, title: "Steering committee", startDate: "2026-07-08" };
   const holiday = { id: 50, assignee: "Ada Lovelace", startDate: "2026-07-06", endDate: "2026-07-10" };
   const calWs = wsWith({ calendarEvents: [meeting] as never, absences: [holiday] as never });
 
   it("rejects an impossible calendar day the write would throw on", () => {
-    // `isoDateOrUndefined` returns undefined -> `sanitizeCalendarEvent` returns
+    // The write's date reader returns undefined -> the sanitizer returns
     // null -> `updateCalendarEvent` throws "invalid meeting update", which costs
     // the WHOLE patch. Previewing it as an accepted change was the worse half.
     const plan = describeEntityCalls(
@@ -1600,7 +1604,7 @@ describe("a date is judged by its own writer's rule", () => {
 
   it("accepts a pre-1900 date the write stores", () => {
     // The other direction: `sanitizeIsoDate`'s year bound rejected this in the
-    // preview while `isoDateOrUndefined` has none, so the write landed it behind
+    // preview while the calendar-event write rule has none, so it landed behind
     // a card that said it would not.
     const plan = describeEntityCalls(
       [{ type: "tool_use", name: "update_calendar_event", input: { id: 60, startDate: "1899-12-31" } }],
@@ -1639,6 +1643,89 @@ describe("a date is judged by its own writer's rule", () => {
     );
     expect(plan.updates).toEqual([]);
     expect(plan.rejected[0].detail).toBe("startDate=2026-01-32");
+  });
+});
+
+// §605 — CARD ⇔ WRITE on a CARRIED `until`. The update writer keeps a stored `until` equal to
+//  the incoming one even when it is calendar-invalid (§542), and then drops a co-sent `count`.
+//  The card judged `until` by the create rule alone and printed ", 5 times" instead. Each case
+//  pins the card AND the real writer's outcome, so the two cannot agree by both being wrong.
+describe("a recurrence re-sending a stored invalid until previews what the update writes", () => {
+  const meeting = {
+    id: 60, title: "Standup", startDate: "2026-01-05", startTime: "09:00", durationMinutes: 15,
+    recurrence: { freq: "daily", interval: 1, until: "2026-04-31" },
+  } as CalendarEvent;
+  const calWs = wsWith({ calendarEvents: [meeting] as never });
+
+  function cardAndWrite(recurrence: Record<string, unknown>) {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_calendar_event", input: { id: 60, recurrence } }],
+      { descriptor: INLINE_DESCRIPTORS.calendarEvent, item: meeting as never, ws: calWs },
+    );
+    const written = sanitizeCalendarEventForUpdate({ ...meeting, recurrence }, meeting);
+    return { plan, written: written?.recurrence };
+  }
+
+  it("shows the carried until as the terminator, as the write keeps it", () => {
+    const { plan, written } = cardAndWrite({ freq: "daily", interval: 2, until: "2026-04-31", count: 5 });
+    expect(written).toEqual({ freq: "daily", interval: 2, until: "2026-04-31" });
+    expect(plan.rejected).toEqual([]);
+    expect(plan.updates.map((u) => [u.field, u.before, u.after])).toEqual([
+      ["recurrence", "Every day until 2026-04-31", "Every 2 days until 2026-04-31"],
+    ]);
+  });
+
+  it("still shows the count for an invalid until the write does not carry", () => {
+    const { plan, written } = cardAndWrite({ freq: "daily", interval: 2, until: "2026-02-30", count: 5 });
+    expect(written).toEqual({ freq: "daily", interval: 2, count: 5 });
+    expect(plan.updates.map((u) => [u.field, u.after])).toEqual([["recurrence", "Every 2 days, 5 times"]]);
+  });
+
+  // The BEFORE side is judged against the same stored row, so a patch that DROPS the stored
+  //  invalid until now shows a row. It used to render the stored until as absent too, so
+  //  before === after and the card hid a write that makes a bounded series unbounded.
+  it("shows a row when the patch drops the stored invalid until", () => {
+    const { plan, written } = cardAndWrite({ freq: "daily", interval: 1 });
+    expect(written).toEqual({ freq: "daily", interval: 1 });
+    expect(plan.updates.map((u) => [u.field, u.before, u.after])).toEqual([
+      ["recurrence", "Every day until 2026-04-31", "Every day"],
+    ]);
+  });
+});
+
+// §605, the START half. The update writer also carries a stored calendar-invalid `startDate`, and
+//  derives a monthly rule's byMonthDay fallback from it (`Number(startDate.slice(8, 10))`). The
+//  card judged that start by the create rule, omitted the day, and so showed "on day 30" being
+//  removed from a rule the write leaves byte-identical.
+describe("a monthly rule on a stored invalid start previews the fallback day the update writes", () => {
+  const meeting = {
+    id: 61, title: "Month end", startDate: "2026-02-30", startTime: "09:00", durationMinutes: 30,
+    recurrence: { freq: "monthly", interval: 1, byMonthDay: 30 },
+  } as CalendarEvent;
+  const calWs = wsWith({ calendarEvents: [meeting] as never });
+
+  function cardAndWrite(recurrence: Record<string, unknown>) {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_calendar_event", input: { id: 61, recurrence } }],
+      { descriptor: INLINE_DESCRIPTORS.calendarEvent, item: meeting as never, ws: calWs },
+    );
+    const written = sanitizeCalendarEventForUpdate({ ...meeting, recurrence }, meeting);
+    return { plan, written: written?.recurrence };
+  }
+
+  it("shows no row when the write leaves the rule unchanged", () => {
+    const { plan, written } = cardAndWrite({ freq: "monthly", interval: 1 });
+    expect(written).toEqual(meeting.recurrence);
+    expect(plan.rejected).toEqual([]);
+    expect(plan.updates).toEqual([]);
+  });
+
+  it("keeps the carried start's day in the after text of a real change", () => {
+    const { plan, written } = cardAndWrite({ freq: "monthly", interval: 2 });
+    expect(written).toEqual({ freq: "monthly", interval: 2, byMonthDay: 30 });
+    expect(plan.updates.map((u) => [u.field, u.before, u.after])).toEqual([
+      ["recurrence", "Every month on day 30", "Every 2 months on day 30"],
+    ]);
   });
 });
 

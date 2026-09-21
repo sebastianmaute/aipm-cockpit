@@ -78,6 +78,20 @@ const RACI_LABEL_KEYS: Record<RaciRole, TranslationKey> = {
   I: "raciRoleI",
 };
 
+/** §541: ONE normalizer per field shape, called by BOTH the field's blur handler and
+ *  `handleSubmit`. The caps used to run only on blur, so typing and pressing Enter without
+ *  leaving the field saved an uncapped value while the toast claimed fields were adjusted. */
+function normalizeStakeholderName(value: string): string {
+  return describeTextCap(value, BUDGET_NAME_MAX).value.trim();
+}
+function normalizeStakeholderShortText(value: string | undefined): string | undefined {
+  return describeTextCap(value ?? "", BUDGET_NAME_MAX).value.trim() || undefined;
+}
+/** Notes are multiline, so they are capped but NOT trimmed — exactly as their blur did. */
+function normalizeStakeholderNotes(value: string | undefined): string | undefined {
+  return describeTextCap(value ?? "", TEXTAREA_MAX).value || undefined;
+}
+
 export function StakeholderEditModal({
   lang,
   draft,
@@ -178,7 +192,14 @@ export function StakeholderEditModal({
     adj.track(describeTextCap(draft.notes ?? "", TEXTAREA_MAX));
     if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
     // M-C4: store the judged value, not the raw draft. An absent email stays absent.
-    onSave(draft.email === undefined ? draft : { ...draft, email: cappedEmail || undefined });
+    onSave({
+      ...draft,
+      name: normalizeStakeholderName(draft.name),
+      organization: normalizeStakeholderShortText(draft.organization),
+      title: normalizeStakeholderShortText(draft.title),
+      notes: normalizeStakeholderNotes(draft.notes),
+      ...(draft.email === undefined ? {} : { email: cappedEmail || undefined }),
+    });
   }
 
   const title = isNew ? t(lang, "stakeholdersAdd") : t(lang, "stakeholderEditTitle");
@@ -228,7 +249,7 @@ export function StakeholderEditModal({
                   onChange({ ...draft, name: next.name, email: next.email, resourceId: next.resourceId })
                 }
                 onBlur={(e) => {
-                  onChange({ ...draft, name: describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim(), resourceId: draft.resourceId });
+                  onChange({ ...draft, name: normalizeStakeholderName(e.target.value), resourceId: draft.resourceId });
                   nameDictationReg.onBlur();
                 }}
                 maxLength={BUDGET_NAME_MAX}
@@ -259,8 +280,7 @@ export function StakeholderEditModal({
                 onChange={(e) => update("organization", e.target.value || undefined)}
                 onFocus={orgDictationReg.onFocus}
                 onBlur={(e) => {
-                  const trimmed = describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim();
-                  update("organization", trimmed || undefined);
+                  update("organization", normalizeStakeholderShortText(e.target.value));
                   orgDictationReg.onBlur();
                 }}
                 aria-describedby="stakeholder-organization-counter"
@@ -289,8 +309,7 @@ export function StakeholderEditModal({
                   onChange={(e) => update("title", e.target.value || undefined)}
                   onFocus={titleDictationReg.onFocus}
                   onBlur={(e) => {
-                    const trimmed = describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim();
-                    update("title", trimmed || undefined);
+                    update("title", normalizeStakeholderShortText(e.target.value));
                     titleDictationReg.onBlur();
                   }}
                   aria-describedby="stakeholder-title-counter"
@@ -395,8 +414,7 @@ export function StakeholderEditModal({
                 onChange={(e) => update("notes", e.target.value || undefined)}
                 onFocus={notesDictationReg.onFocus}
                 onBlur={(e) => {
-                  const capped = describeTextCap(e.target.value, TEXTAREA_MAX).value;
-                  update("notes", capped || undefined);
+                  update("notes", normalizeStakeholderNotes(e.target.value));
                   notesDictationReg.onBlur();
                 }}
                 aria-describedby="stakeholder-notes-counter"

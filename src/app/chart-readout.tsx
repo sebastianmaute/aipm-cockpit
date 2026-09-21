@@ -54,11 +54,16 @@ function valueText(lang: Lang, row: ReadoutRow, fmt: (v: number) => string): str
  *  uses, which read as stray punctuation spoken aloud), mirroring the marker's
  *  own position after the value in the box. The row's explanation goes last,
  *  as it sits last in the box's row: it is the readout's stated purpose, and
- *  the live region is the only channel a screen-reader user gets it from. */
+ *  the live region is the only channel a screen-reader user gets it from.
+ *  ★ The explanation is joined with a full stop, not a comma (§570): every tip
+ *  starts with a capital letter, and a comma join reads it as a capitalised
+ *  word mid-sentence. A full stop makes it its own sentence instead — safe for
+ *  a future German tip that opens with a capitalised noun, where lower-casing
+ *  the first letter would misspell it. */
 function rowText(lang: Lang, row: ReadoutRow, fmt: (v: number) => string): string {
   const base = t(lang, "burndownReadoutSentence", t(lang, labelKey(row)), valueText(lang, row, fmt));
   const flagged = row.forecast ? `${base}, ${t(lang, "burndownReadoutForecast")}` : base;
-  return `${flagged}, ${t(lang, ROW[row.kind].tip)}`;
+  return `${flagged}. ${t(lang, ROW[row.kind].tip)}`;
 }
 
 /** The live region's text: the date, then every row, semicolon separated. */

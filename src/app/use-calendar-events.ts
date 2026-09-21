@@ -30,7 +30,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { useWorkspace } from "./workspace-context";
 import { resolveEntitySave } from "./entity-id-mint";
 import { mintId } from "./id-mint-session";
-import { sanitizeCalendarEvent, type CalendarEvent } from "./calendar-event";
+import { sanitizeCalendarEvent, sanitizeCalendarEventForUpdate, type CalendarEvent } from "./calendar-event";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import { captureFieldChanges } from "./undo/capture-field-changes";
 import { CALENDAR_EVENT_UNDO_GROUPS } from "./undo/field-groups";
@@ -102,13 +102,16 @@ export function useCalendarEvents(args: UseCalendarEventsArgs) {
     (next: CalendarEvent, isNew?: boolean) => {
       const events = calendarEvents ?? [];
       const { create, id } = resolveEntitySave(events, next.id, isNew, () => mintId("calendarEvent", events));
-      const sanitized = sanitizeCalendarEvent({ ...next, id });
-      if (!sanitized) return;
       // Read the before-image as a VALUE from the pre-update array, never from
       // inside the updater below — capture and the activity diff both need it,
       // and reading it in there would make them a side effect of a React state
-      // computation.
+      // computation. ★ It is read FIRST because the sanitizer needs it too: an
+      // update carries an untouched stored date verbatim (§542), a create is strict.
       const previous = create ? undefined : events.find((e) => e.id === id);
+      const sanitized = previous
+        ? sanitizeCalendarEventForUpdate({ ...next, id }, previous)
+        : sanitizeCalendarEvent({ ...next, id });
+      if (!sanitized) return;
       // Functional updater so N saves in one tick (e.g. a drag-reschedule
       // landing in the same tick as a modal save) compose instead of the
       // second clobbering the first — the same landmine that already bit

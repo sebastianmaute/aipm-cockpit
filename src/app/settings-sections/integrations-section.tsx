@@ -340,7 +340,13 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       ...(urlChanged ? { databaseUrl: url } : {}),
       ...(tokenChanged ? { authToken: tokenValue } : {}),
     });
-    if (tokenChanged && tokenWrap === "device") {
+    if (tokenChanged && tokenValue.trim() === "") {
+      // §565: a cleared token REMOVES the seal and the flag, in either wrap mode. Sealing ""
+      // (device OR passphrase) left a record that decrypts to nothing and turned the Remove
+      // button ON right after the user cleared the field.
+      removeSealed("tursoAuthToken");
+      setTokenStored(false);
+    } else if (tokenChanged && tokenWrap === "device") {
       trackTokenSeal(saveSecretValue("tursoAuthToken", tokenValue, "device").then(() => setTokenStored(true)));
     } else if (tokenChanged && tursoIsLive && passphraseReady) {
       trackTokenSeal(sealUnderTypedPassphrase(tokenValue));
@@ -678,7 +684,12 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     // (`tursoConfigured`). Switching to the portfolio the fields show and then reloading onto
     // the OLD credentials would be the surprise; so fold the drafts in and seal the token here.
     const tokenDirty = tursoToken !== turso.authToken;
-    if (tokenDirty && tokenWrap === "device") {
+    if (tokenDirty && (tursoToken ?? "").trim() === "") {
+      // §565: same blank-first rule as `commitTurso` — a cleared token removes the seal rather
+      // than resealing "".
+      removeSealed("tursoAuthToken");
+      setTokenStored(false);
+    } else if (tokenDirty && tokenWrap === "device") {
       trackTokenSeal(saveSecretValue("tursoAuthToken", tursoToken ?? "", "device"));
     } else if (tokenDirty && passphraseReady) {
       trackTokenSeal(sealUnderTypedPassphrase(tursoToken ?? ""));

@@ -19,6 +19,13 @@ vi.mock("./jira-api", () => ({
   searchUsers: vi.fn(() => Promise.resolve([])),
   testConnection: vi.fn(() => Promise.resolve({ displayName: "Test User" })),
 }));
+vi.mock("./use-secrets", () => ({ saveSecretValue: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("./secrets-store", async (importActual) => ({
+  ...(await importActual<object>()),
+  removeSealed: vi.fn(),
+}));
+import * as secrets from "./use-secrets";
+import * as secretsStore from "./secrets-store";
 
 function renderSection() {
   return render(
@@ -69,6 +76,16 @@ describe("JiraSettingsSection — hinted field names (§386)", () => {
     expect(screen.getByLabelText(t("en-US", "jiraApiToken"))).toHaveAccessibleDescription(
       t("en-US", "credentialStorageNote"),
     );
+  });
+});
+
+describe("JiraSettingsSection — clearing the token (§565)", () => {
+  it("§565: clearing the API token removes the sealed secret instead of sealing an empty one", () => {
+    const config = { ...defaultJiraConfig, enabled: true, apiToken: "ATATT-token" };
+    render(<JiraSettingsSection lang="en-US" config={config} onChange={vi.fn()} alwaysOpen />);
+    fireEvent.change(screen.getByLabelText(t("en-US", "jiraApiToken")), { target: { value: "" } });
+    expect(secretsStore.removeSealed).toHaveBeenCalledWith("jiraApiToken");
+    expect(secrets.saveSecretValue).not.toHaveBeenCalledWith("jiraApiToken", "", "device");
   });
 });
 

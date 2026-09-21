@@ -2,11 +2,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useState } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 vi.mock("./use-secrets", () => ({ saveSecretValue: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("./secrets-store", async (importActual) => ({
+  ...(await importActual<object>()),
+  removeSealed: vi.fn(),
+}));
 vi.mock("./timelog-api", () => ({
   listUsers: vi.fn(),
   getPrivileges: vi.fn(),
 }));
 import * as secrets from "./use-secrets";
+import * as secretsStore from "./secrets-store";
 import * as timelogApi from "./timelog-api";
 import { TimelogSettings } from "./timelog-settings";
 import { defaultTimelogConfig, type TimelogLinks, type TimelogPolicy } from "./timelog-types";
@@ -24,6 +29,14 @@ describe("TimelogSettings", () => {
       target: { value: "tok123" },
     });
     expect(secrets.saveSecretValue).toHaveBeenCalledWith("timelogApiToken", "tok123", "device");
+  });
+
+  it("§565: clearing the token removes the sealed secret instead of sealing an empty one", () => {
+    let cfg = { ...defaultTimelogConfig, enabled: true, apiToken: "tok123" };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={(n) => (cfg = n)} />);
+    fireEvent.change(screen.getByLabelText(t("en-US", "timelogToken")), { target: { value: "" } });
+    expect(secretsStore.removeSealed).toHaveBeenCalledWith("timelogApiToken");
+    expect(secrets.saveSecretValue).not.toHaveBeenCalledWith("timelogApiToken", "", "device");
   });
 
   it("hides config fields until enabled", () => {
@@ -290,6 +303,24 @@ describe("TimelogSettings guardrails", () => {
       links: () => seen,
     };
   }
+
+  // §365: the attributes must describe the window the code accepts (0 < x ≤ 24, fractional).
+  // ★ jsdom enforces neither min nor step, so these attribute assertions are the ONLY automated
+  // pin: the real consequence (8 or 8.5 flagged invalid by the browser) no test here can see.
+  it("declares a threshold input the browser will not flag for a valid fractional cap", () => {
+    const { field } = renderControlled({ timelogCapPerDay: { enabled: true } });
+    expect(field()).toHaveAttribute("min", "0");
+    expect(field()).toHaveAttribute("step", "any");
+    expect(field()).toHaveAttribute("max", String(MAX_HOURS_PER_DAY));
+  });
+
+  // Characterization, NOT a reproduction: these persist TODAY. They guard the window the
+  // attributes now describe, so a later "tidy" that narrows parseCap to >= 1 fails here.
+  it.each(["0.5", "8.5"])("persists the fractional threshold %s", (typed) => {
+    const { field, links } = renderControlled({ timelogCapPerDay: { enabled: true } });
+    fireEvent.change(field(), { target: { value: typed } });
+    expect(links().policy).toEqual({ timelogCapPerDay: { enabled: true, threshold: Number(typed) } });
+  });
 
   it.each([
     ["above the daily maximum", "999"],

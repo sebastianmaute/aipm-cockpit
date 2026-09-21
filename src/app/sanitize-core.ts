@@ -262,6 +262,32 @@ export function sanitizeVoiceTranscript(s: string): string {
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** §544 / §542: whether `value` is a REAL calendar date — the `YYYY-MM-DD` shape AND a
+ *  `Date.UTC` round trip that gives back the same year, month and day, so "2026-02-30" and
+ *  "2026-04-31" are refused where `Date.parse` would silently roll them into the next month.
+ *  ★ NO YEAR BOUND: that is `sanitizeIsoDate`'s own policy, and neither calendar events nor
+ *  TimeLog rows ever had one. ★ Years 0000–0099 read as non-calendar (`Date.UTC` maps them to
+ *  19xx) — far below any date this app stores. One spelling of the check; its callers are
+ *  `sanitizeIsoDate`, the calendar-event date readers and `aggregateActuals`. */
+export function isRealCalendarDate(value: string): boolean {
+  if (!ISO_DATE_RE.test(value)) return false;
+  const y = Number(value.slice(0, 4));
+  const m = Number(value.slice(5, 7));
+  const d = Number(value.slice(8, 10));
+  const utc = new Date(Date.UTC(y, m - 1, d));
+  return utc.getUTCFullYear() === y && utc.getUTCMonth() === m - 1 && utc.getUTCDate() === d;
+}
+
+/** §542 / §605: the UPDATE rule for a date an update may leave untouched — a value in
+ *  `carried` (the stored date(s) for that field) is accepted verbatim even when it is not a
+ *  real calendar date; any other must be one (`isRealCalendarDate`). ★★ ONE spelling, shared
+ *  by the writer (`carryStoredEventDates` in calendar-event.ts) and the review card's
+ *  recurrence line (`recurrenceText`): a per-path copy is how the card came to print a
+ *  count the write dropped in favour of a carried `until` (§605). */
+export function acceptsCarriedOrRealDate(value: unknown, carried: ReadonlySet<string>): value is string {
+  return typeof value === "string" && (carried.has(value) || isRealCalendarDate(value));
+}
+
 /** A `YYYY-MM-DD` string that is a REAL calendar date in 1900..2100, returned
  *  verbatim; otherwise "". ★ §539: the shape and year alone let "2026-13-01",
  *  "2026-00-10" and "2026-02-30" through. The `Date.UTC` round trip rejects a
@@ -273,14 +299,9 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  *  `requiredIsoDateOnLoad` (sanitize-load-date.ts) instead, which keeps the raw
  *  value with a diagnostic: blanking it would drop the whole record. */
 export function sanitizeIsoDate(s: unknown): string {
-  if (typeof s !== "string" || !ISO_DATE_RE.test(s)) return "";
+  if (typeof s !== "string" || !isRealCalendarDate(s)) return "";
   const y = Number(s.slice(0, 4));
-  if (!Number.isFinite(y) || y < 1900 || y > 2100) return "";
-  const m = Number(s.slice(5, 7));
-  const d = Number(s.slice(8, 10));
-  const utc = new Date(Date.UTC(y, m - 1, d));
-  if (utc.getUTCFullYear() !== y || utc.getUTCMonth() !== m - 1 || utc.getUTCDate() !== d) return "";
-  return s;
+  return y >= 1900 && y <= 2100 ? s : "";
 }
 
 /** How an entity sanitizer reads a REQUIRED date field: `sanitizeIsoDate` on

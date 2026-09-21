@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { recurrenceText } from "./calendar-recurrence-text";
-import { sanitizeCalendarEvent } from "./calendar-event";
+import {
+  carriedRecurrenceDatesOf, sanitizeCalendarEvent, sanitizeCalendarEventForUpdate, type CalendarEvent,
+} from "./calendar-event";
 
 describe("recurrenceText", () => {
   it("describes a plain daily rule", () => {
@@ -333,6 +335,20 @@ describe("recurrenceText matches sanitizeCalendarEvent (differential)", () => {
     expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
   });
 
+  // §542: since the write refuses a day that overflows its MONTH, the card must
+  //  too — "2026-04-31" PARSES (to May 1), so before §542 both sides printed it.
+  //  Now the write drops it: the count survives here, and with no count the
+  //  series has no terminator at all, which the card must not dress up as one.
+  it("agrees that a month-overflowing until falls through to count (§542)", () => {
+    const raw = { freq: "daily", interval: 1, until: "2026-04-31", count: 5 };
+    expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
+    expect(recurrenceText(raw, START_DATE)).toBe("Every day, 5 times"); // presence: not vacuously ""
+  });
+  it("agrees that a month-overflowing until with no count leaves no terminator (§542)", () => {
+    const raw = { freq: "weekly", interval: 2, until: "2026-04-31" };
+    expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
+  });
+
   // The `fallbackDayOfMonth` half. An unparseable START makes the write reject
   // the whole event, so a day number derived from it is a guess about a write
   // that never happens — "omit, don't guess" is the rule this module states.
@@ -343,5 +359,53 @@ describe("recurrenceText matches sanitizeCalendarEvent (differential)", () => {
     // so the assertion above is about the parse leg and not about the branch
     // being dead.
     expect(recurrenceText(raw, "2026-07-08")).toBe("Every month on day 8");
+  });
+});
+
+// §605: an UPDATE carries a stored `until` equal to the incoming one VERBATIM, even when it is
+//  calendar-invalid (§542), so a rule re-sending it WITH a count keeps the until and drops the
+//  count. Differential against the REAL update writer; each case also pins a literal, because
+//  the RHS renders the written rule through this module too.
+describe("recurrenceText on an update matches sanitizeCalendarEventForUpdate (§605)", () => {
+  const stored = {
+    id: 1, title: "Standup", startDate: "2026-01-15", startTime: "09:00", durationMinutes: 15,
+    recurrence: { freq: "daily", interval: 1, until: "2026-04-31" },
+  } as CalendarEvent;
+
+  function writtenOnUpdate(raw: unknown): string {
+    const event = sanitizeCalendarEventForUpdate({ ...stored, recurrence: raw }, stored);
+    return recurrenceText(event?.recurrence, stored.startDate, carriedRecurrenceDatesOf(stored));
+  }
+
+  it("keeps a carried invalid until as the terminator, not the count", () => {
+    const raw = { freq: "daily", interval: 2, until: "2026-04-31", count: 5 };
+    expect(recurrenceText(raw, stored.startDate, carriedRecurrenceDatesOf(stored))).toBe(writtenOnUpdate(raw));
+    expect(recurrenceText(raw, stored.startDate, carriedRecurrenceDatesOf(stored))).toBe("Every 2 days until 2026-04-31");
+  });
+
+  it("still falls through to the count for an invalid until the update does not carry", () => {
+    const raw = { freq: "daily", interval: 2, until: "2026-02-30", count: 5 };
+    expect(recurrenceText(raw, stored.startDate, carriedRecurrenceDatesOf(stored))).toBe(writtenOnUpdate(raw));
+    expect(recurrenceText(raw, stored.startDate, carriedRecurrenceDatesOf(stored))).toBe("Every 2 days, 5 times");
+  });
+
+  it("falls through to the count on a create, which carries nothing", () => {
+    const raw = { freq: "daily", interval: 2, until: "2026-04-31", count: 5 };
+    const created = sanitizeCalendarEvent({ id: 1, title: "Standup", startDate: stored.startDate, recurrence: raw });
+    expect(recurrenceText(raw, stored.startDate)).toBe(recurrenceText(created?.recurrence, stored.startDate));
+    expect(recurrenceText(raw, stored.startDate)).toBe("Every 2 days, 5 times");
+  });
+
+  // The START half: the update writer carries a stored invalid start and takes a monthly rule's
+  //  byMonthDay fallback from it, so the card must print that day; a create omits it.
+  it("takes the byMonthDay fallback from a carried invalid start, as the update writes", () => {
+    const monthEnd = {
+      ...stored, startDate: "2026-02-30", recurrence: { freq: "monthly", interval: 1, byMonthDay: 30 },
+    } as CalendarEvent;
+    const raw = { freq: "monthly", interval: 2 };
+    const written = sanitizeCalendarEventForUpdate({ ...monthEnd, recurrence: raw }, monthEnd);
+    expect(written?.recurrence).toEqual({ freq: "monthly", interval: 2, byMonthDay: 30 });
+    expect(recurrenceText(raw, monthEnd.startDate, carriedRecurrenceDatesOf(monthEnd))).toBe("Every 2 months on day 30");
+    expect(recurrenceText(raw, monthEnd.startDate)).toBe("Every 2 months"); // a create: omit, don't guess
   });
 });

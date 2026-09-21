@@ -252,12 +252,37 @@ describe("callJira — SSRF / URL hardening", () => {
 
   it("returns a 502 envelope (not an unhandled throw) when the upstream fetch fails", async () => {
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    fetchMock.mockRejectedValueOnce(new Error("ECONNREFUSED"));
+    // The REAL undici shape: `fetch` always rejects with "fetch failed" and puts the reason in
+    // `cause`. A plain Error("ECONNREFUSED") fixture could not tell a logged cause from a lost one.
+    const cause = Object.assign(new Error("connect ECONNREFUSED 10.0.0.1:443"), { code: "ECONNREFUSED" });
+    fetchMock.mockRejectedValueOnce(new TypeError("fetch failed", { cause }));
     const res = await callWith("https://acme.atlassian.net");
     expect(res.status).toBe(502);
     await expect(res.json()).resolves.toEqual({ error: "upstream-unreachable" });
     // Detail is logged server-side, never returned to the client.
-    expect(errSpy).toHaveBeenCalledWith("Jira upstream fetch failed:", expect.any(Error));
+    // §566: log a plain object carrying the cause, never the raw error object.
+    const [label, payload] = errSpy.mock.calls[0];
+    expect(label).toBe("Jira upstream fetch failed:");
+    expect(payload).not.toBeInstanceOf(Error);
+    expect(payload).toEqual({ message: "fetch failed", cause: "connect ECONNREFUSED 10.0.0.1:443", code: "ECONNREFUSED" });
+    errSpy.mockRestore();
+  });
+
+  it("§566: logs the redirect body-cancel failure as a plain object with its cause", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const cause = Object.assign(new Error("socket hang up"), { code: "ECONNRESET" });
+    fetchMock.mockResolvedValueOnce({
+      status: 302,
+      headers: new Headers({ location: "https://evil.example/" }),
+      body: { cancel: () => Promise.reject(new TypeError("terminated", { cause })) },
+    } as unknown as Response);
+    const res = await callWith("https://acme.atlassian.net");
+    expect(res.status).toBe(502);
+    await new Promise((r) => setTimeout(r, 0)); // the cancel is deliberately not awaited
+    const call = errSpy.mock.calls.find(([label]) => label === "Jira upstream redirect body cancel failed:");
+    expect(call).toBeDefined(); // presence: the cancel path really ran
+    expect(call![1]).not.toBeInstanceOf(Error);
+    expect(call![1]).toEqual({ message: "terminated", cause: "socket hang up", code: "ECONNRESET" });
     errSpy.mockRestore();
   });
 });

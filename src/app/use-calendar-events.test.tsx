@@ -5,6 +5,7 @@ import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { useCalendarEvents } from "./use-calendar-events";
 import type { CalendarEvent } from "./calendar-event";
+import { TestProviders } from "./test-providers";
 
 // Mirrors use-stakeholders.test.tsx's wrapper — the real WorkspaceProvider,
 // not a mock, so a save/delete round-trips through the actual context state
@@ -71,6 +72,21 @@ describe("useCalendarEvents", () => {
     act(() => { result.current.handleSaveCalendarEvent({ ...base, title: "Renamed" }, false); });
     expect(result.current.calendarEvents).toHaveLength(1);
     expect(result.current.calendarEvents?.[0].title).toBe("Renamed");
+  });
+
+  // §542: the load funnel KEEPS a stored calendar-invalid date, so the row is
+  //  SEEDED — no write path can create it. An update must carry that untouched
+  //  date; before the fix the handler re-judged it strictly and dropped the save.
+  it("handleSaveCalendarEvent saves a title-only edit of an event whose stored startDate is calendar-invalid", () => {
+    const stored: CalendarEvent = { ...base, id: 3, startDate: "2026-02-30" };
+    const { result } = renderHook(
+      () => useCalendarEvents({ today: "2026-06-20" }),
+      { wrapper: ({ children }: { children: ReactNode }) => <TestProviders seed={{ calendarEvents: [stored] }}>{children}</TestProviders> },
+    );
+    expect(result.current.calendarEvents?.[0]?.startDate).toBe("2026-02-30");
+    act(() => { result.current.handleSaveCalendarEvent({ ...stored, title: "Daily" }, false); });
+    expect(result.current.calendarEvents).toHaveLength(1);
+    expect(result.current.calendarEvents?.[0]).toMatchObject({ id: 3, title: "Daily", startDate: "2026-02-30" });
   });
 
   it("handleSaveCalendarEvent rejects an invalid save (blank title) and leaves the modal open", () => {

@@ -14,6 +14,7 @@ import type {
 import { ToggleButton } from "./toggle-button";
 import { MAX_HOURS_PER_DAY } from "./types";
 import { saveSecretValue } from "./use-secrets";
+import { removeSealed } from "./secrets-store";
 import { listUsers, getPrivileges } from "./timelog-api";
 import { FOCUS_RING } from "./interaction-styles";
 import { Button } from "./button";
@@ -57,7 +58,10 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
 
   function handleToken(value: string) {
     set({ apiToken: value, tokenInvalidAt: undefined });
-    void saveSecretValue("timelogApiToken", value, "device");
+    // §565: a blank token REMOVES the sealed record. Sealing "" left a ciphertext that
+    // decrypts to nothing — a presence check would read it as a stored token.
+    if (value.trim() === "") removeSealed("timelogApiToken");
+    else void saveSecretValue("timelogApiToken", value, "device");
   }
 
   async function test() {
@@ -348,7 +352,13 @@ function TimelogGuardrails({
       <Input
         size="xs"
         type="number"
-        min={1}
+        // §365: the window is 0 < x ≤ MAX_HOURS_PER_DAY, fractional (parseCap / isCap /
+        // sanitizeTimelogPolicy agree, and the notice says "above 0"). HTML cannot express an
+        // exclusive bound, so min is 0 and parseCap refuses 0 with that notice. ★ step="any"
+        // is load-bearing: the step base is `min`, so the default step of 1 flagged 8.5 as
+        // invalid, and a min of 0.5 would have flagged 8.
+        min={0}
+        step="any"
         max={MAX_HOURS_PER_DAY}
         aria-label={t(lang, labelKey)}
         invalid={incomplete}

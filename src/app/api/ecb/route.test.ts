@@ -1,3 +1,11 @@
+// @vitest-environment node
+//
+// This route declares `runtime = "nodejs"` and has no DOM dependency. Run it
+// under the real `node` environment (precedent: src/app/api/stt/route.test.ts)
+// rather than the repo-wide jsdom default: jsdom's DOMException is NOT
+// `instanceof Error`, unlike Node's own global one, so a jsdom run of the
+// timeout test below would pin a `String(err)`-fallback message the route
+// never actually logs (see the §607 register entry's departure (3)).
 import { describe, expect, test, vi, beforeEach, afterEach } from "vitest";
 import { MAX_REQUESTS } from "../jira/_rate-limit";
 import { GET } from "./route";
@@ -51,17 +59,23 @@ describe("GET /api/ecb", () => {
     expect((await res.json()).error).toMatch(/parse/i);
   });
 
-  test("returns 502 with a generic message when the fetch throws, leaking no detail", async () => {
+  test("returns 502 with a generic message when the fetch throws, leaking no detail, and logs a plain object (§607)", async () => {
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    mockFetch(async () => { throw new Error("network down"); });
+    // The REAL undici shape: `fetch` always rejects with "fetch failed" and puts the reason in
+    // `cause`. A plain Error("network down") fixture could not tell a logged cause from a lost one.
+    const cause = Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" });
+    mockFetch(async () => { throw new TypeError("fetch failed", { cause }); });
     const res = await GET(ecbRequest("203.0.113.4"));
     expect(res.status).toBe(502);
     // Client sees a generic message — the internal error text must NOT leak.
     const body = (await res.json()) as { error: string };
     expect(body.error).toBe("ECB fetch failed");
-    expect(body.error).not.toMatch(/network down/);
-    // The detail is preserved server-side for diagnostics.
-    expect(errSpy).toHaveBeenCalledWith("ECB fetch failed:", expect.any(Error));
+    expect(body.error).not.toMatch(/ECONNREFUSED/);
+    // §607: the detail is preserved server-side as a plain object, never the raw error.
+    const [label, payload] = errSpy.mock.calls[0];
+    expect(label).toBe("ECB fetch failed:");
+    expect(payload).not.toBeInstanceOf(Error);
+    expect(payload).toEqual({ message: "fetch failed", cause: "connect ECONNREFUSED", code: "ECONNREFUSED" });
   });
 
   test("bounds the upstream call with an abort signal so a hung ECB cannot stall the route", async () => {
@@ -82,7 +96,12 @@ describe("GET /api/ecb", () => {
     expect(res.status).toBe(502);
     const body = (await res.json()) as { error: string };
     expect(body.error).toBe("ECB fetch failed");
-    expect(errSpy).toHaveBeenCalledWith("ECB fetch failed:", expect.any(DOMException));
+    // §607: under Node (this file's real environment, per the directive above), a DOMException
+    // IS `instanceof Error`, so describeUpstreamError reads its `.message` directly. It carries no
+    // `.cause`, so the logged object has no cause/code — this is what the route actually logs.
+    expect(errSpy).toHaveBeenCalledWith("ECB fetch failed:", {
+      message: "The operation was aborted due to timeout",
+    });
   });
 
   test("returns 429 with Retry-After once an IP exceeds the rate limit, without fetching", async () => {

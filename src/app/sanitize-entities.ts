@@ -810,10 +810,13 @@ function fxRatesWithDateReader(input: unknown, readDate: RequiredDateReader): Fx
   if (!fetchedAt) return null;
   const ratesIn = isPlainObject(input.rates) ? input.rates : {};
   const rates: Record<string, number> = {};
+  // §576: EUR is assigned AT ITS POSITION in SUPPORTED_CURRENCIES, unconditionally. It used to
+  // be patched in after the loop, so an input WITHOUT EUR (a raw ECB fetch) came out
+  // USD,GBP,EUR and re-decoded as EUR,USD,GBP: not byte-stable through a JSON round trip.
   for (const code of SUPPORTED_CURRENCIES) {
+    if (code === "EUR") { rates.EUR = 1; continue; }
     const n = toNumber((ratesIn as Record<string, unknown>)[code]);
     if (Number.isFinite(n) && n > 0) rates[code] = Math.round(n * 1e6) / 1e6;
   }
-  rates.EUR = 1;
   return { base: "EUR", date, fetchedAt, rates };
 }
