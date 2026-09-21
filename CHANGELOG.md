@@ -8,6 +8,46 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.12.7] - 2026-09-21 "Child"
+
+A backlog-sweep patch — eleven register entries closed across settings secrets, calendar/date
+validation, the Jira proxy, chart readouts and the assistant's review card. No user-facing feature
+changes; every fix below closes a register entry found in an earlier review.
+
+### Fixed
+
+- **A TimeLog cap threshold field now accepts a fractional value.** Its `min` was `1`, tighter than
+  the aggregation engine and the sanitiser it feeds, so the browser blocked a valid cap like `0.5`
+  before it reached either. `min` is now `0` with `step="any"`. `§365` is closed.
+- **Submitting the stakeholder editor with Enter now caps and trims its text fields the same way
+  blur already did**, instead of saving them uncapped. `§541` is closed.
+- **A calendar event's date fields no longer accept a day past its month's end and roll it over.**
+  Create, load and update each now read every date field through one canonical reader for that
+  path. `§542` is closed.
+- **A calendar-invalid TimeLog day, such as 2026-02-30, is no longer aggregated into a real month
+  and a different real ISO week.** `aggregateActuals`'s dated check now also rejects a day that
+  fails a real calendar round trip. `§544` is closed.
+- **Diagnostics redaction now catches an opaque token in free text that carries no vendor prefix or
+  `key=` frame**, as long as it mixes lowercase, uppercase and a digit across 32+ characters — without
+  redacting single-case ids such as UUIDs, commit SHAs or MSAL GUIDs. `§564` is closed.
+- **Clearing a stored secret in four settings sections now removes it instead of resealing an empty
+  string**, closing a gap where one of the four visibly re-armed a "Remove stored secret" button
+  right after use. `§565` is closed.
+- **The Jira proxy no longer logs the raw fetch-rejection object server-side.** Both `console.error`
+  sites now log a plain `{ message, cause, code }` object instead. `§566` is closed.
+- **The chart readout's spoken tip no longer reads as a capitalised word in the middle of a
+  sentence.** The row's explanation and its tip are now joined with a full stop, so the tip starts
+  its own sentence. `§570` is closed.
+- **The chart-box clamp now fires at exactly its boundary width**, instead of leaving that one stop
+  unclamped and reading from the raw/viewport branch. `§571` is closed.
+- **An FX rates snapshot now round-trips through JSON byte-stable.** `sanitizeFxRates` assigns EUR
+  at its own position in `SUPPORTED_CURRENCIES` on every decode, unconditionally, instead of only
+  when the input already carried an EUR key. `§576` is closed.
+- **Closed §391 as a record.** The empty-plan fallback it flagged for `set_task_dependencies` was
+  already superseded by that tool's own describer, which produces a real link diff; the review
+  card's comment listing the tools that still render an empty plan is corrected to point at the
+  test that pins that list, rather than restating a copy that had already gone stale once.
+
 ## [1.12.5] - 2026-09-20 "Child"
 
 A deep-link patch. Three ways an address in the browser's address bar was read wrongly on a
