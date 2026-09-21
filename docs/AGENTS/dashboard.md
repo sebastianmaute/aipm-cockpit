@@ -55,11 +55,25 @@ width inside the tile body — measured in both densities by `e2e/dashboard-grid
 (a bump is a lockstep decision across every surface — `arrangement-store.ts`). `useArrangement` takes
 an optional `upgrade` that runs on a stored `ok` read BEFORE `reconcile`; a different object back marks
 that read dirty, so the upgraded layout is written back once. The Dashboard passes
-`upgradeDashboardLayout` (`dashboard-layout-upgrade.ts`), keyed on `DASHBOARD_BURN_UPGRADE`: Budget burn
-to the front at 2×8 unless hidden, Completion trend's height clamped into 2–4, and — only alongside that
-burn move, each axis only from exactly its old default (`w:4`, `h:2`) — the KPI tile resized to `w:2 h:3`
-(§585; any other stored width or height is the user's and stays). Nothing else is touched.
-★★★ `DEFAULT_LAYOUT` already carries the id and must — a fresh or reset board is persisted from it,
+`upgradeDashboardLayout` (`dashboard-layout-upgrade.ts`), which is a COMPOSER over independently gated
+STEPS, each keyed on its own id in `upgrades` — a step whose id is already recorded returns its input BY
+REFERENCE, so adding a step never re-runs an earlier one and never skips a later one for a layout that
+already has an earlier id. Two steps today, run in this order:
+  - `burnUpgradeStep` (`DASHBOARD_BURN_UPGRADE`): Budget burn to the front at 2×8 unless hidden,
+    Completion trend's height clamped into 2–4, and — only alongside that burn move, each axis only from
+    exactly its old default (`w:4`, `h:2`) — the KPI tile resized to `w:2 h:3` (§585; any other stored
+    width or height is the user's and stays).
+  - `progressRemovalStep` (`DASHBOARD_PROGRESS_REMOVAL_UPGRADE`): drops the retired `"progress"` tile
+    (compared as a string — it is no longer in the `DashboardTileId` union) from `board` and `hidden`,
+    and records its id only when it actually removed something; a layout that never held `progress` is
+    returned unchanged, unrecorded. ★★ The id gate is load-bearing here for a reason the burn step
+    doesn't share: while `"progress"` was still in the catalogue, `reconcile` (which runs AFTER this
+    composer, on every load) would have re-inserted any catalogue tile absent from both `board` and
+    `hidden` — a presence-only gate would remove it and have it put straight back, appending one more id
+    each load. With `progress` gone from `DASHBOARD_TILES` a presence check alone would now terminate,
+    but the id gate stays so this step matches the burn step's contract.
+Nothing else is touched by either step.
+★★★ `DEFAULT_LAYOUT` already carries the burn id and must — a fresh or reset board is persisted from it,
 and without the id its next load would drag burn back to the front. `readArrangement` sanitises the list
 (junk is dropped, never a rejection) and `reconcile` carries it. ★ An older build's `reconcile` drops the
 list, so a layout it rewrites is upgraded once more — accepted in the spec.
@@ -135,9 +149,14 @@ geometry (`getComputedStyle` on the container, `getBoundingClientRect` on real t
 makes no class-string assertion at all. The two layers catch the same defect by different means; neither
 is redundant, and calling either one "the ONLY detector" is what went stale here.
 
-★ **The responsive clamp lives ENTIRELY in the width table** — `W_CLASS`'s literal `lg:`/`xl:` variants
-plus the container's own `lg:grid-cols-2 xl:grid-cols-4`. No width measurement, no `ResizeObserver`, no
-JavaScript anywhere in the feature; height does not clamp, so a tall tile stays tall.
+★ **The WIDTH responsive clamp lives ENTIRELY in the width table** — `W_CLASS`'s literal `lg:`/`xl:`
+variants plus the container's own `lg:grid-cols-2 xl:grid-cols-4`. No width measurement, no
+`ResizeObserver`, no JavaScript in that clamp — it is pure CSS at every breakpoint.
+★★ **HEIGHT IS NO LONGER LIKE THIS.** This bullet used to say flatly "height does not clamp, so a tall
+tile stays tall", which held before tile heights were measured and is false now: an unflagged tile's
+height IS clamped, to its own `[minH, maxH]`, by `useMeasuredHeights`/`rowsForHeight` (see the
+measured-heights paragraph below) — JavaScript, not CSS, and driven by measured CONTENT height, never by
+width or a breakpoint. A tile past its `maxH` scrolls inside itself rather than growing further.
 
 ★★ **The row unit is a density class, and only ONE of its two values is GATED.** `dc.tileRow` is
 `auto-rows-[80px]` comfortable / `auto-rows-[72px]` compact (`dashboard-density.ts`). The e2e geometry
@@ -149,15 +168,39 @@ a different property from gated: 72 replaced a provisional 64 on 2026-08-15 afte
 measurement of every tile at 64/72/80/88. `dashboard-density.ts`'s own test carries the numbers and
 the two rejected alternatives — read it before moving either value.
 
+★★★ **TILE HEIGHTS ARE MEASURED, NOT JUST STORED.** `useMeasuredHeights` (`use-measured-heights.ts`)
+measures every UNFLAGGED tile's content once per TRIGGER — mount, a density change, the rendered tile
+SET changing, or any tile's `hSet` flag changing (that last one is what makes Reset re-measure: it
+clears every flag without touching density or the tile set). A width change (the ⋮ menu) or a
+breakpoint change (resizing the window) is deliberately NOT a trigger — content height depends on
+width, so a tile widened or narrowed either way keeps its measured height until the next open, and may
+scroll inside itself until then. `rowsForHeight` (`arrangement-measure.ts`) converts the reading — the
+vertical extent of the tile body's element children plus the body's padding, never the body's
+`scrollHeight` (which can only grow a tile, never shrink it) — into the smallest row count that holds
+it, clamped to the tile's own `[minH, maxH]`.
+★★ **Never persisted.** A stored measurement would read as a user's choice on the next open and freeze
+the board — the same gate-decides-render-never-store rule this file states elsewhere for gated tiles.
+★★ **Applied ONLY where `hSet` is absent.** A tile the user has explicitly sized through the ⋮ menu
+keeps that height regardless of what it measures to.
+★★★ **`renderedH` (`dashboard-panel.tsx`) IS THE ONE PLACE A TILE'S DISPLAYED HEIGHT IS DECIDED** — the
+tile itself, the ⋮ menu's current value and the resize announcement spoken after a change all read it,
+never the stored `h` directly, which would show the catalogue default on a measured tile (the menu
+reporting a stale value would make a real resize look like a no-op to the user; the announcement would
+speak the wrong height after a width change).
+★ `burn`'s chart is an SVG sized by its own width (`viewBox`, no fixed height), so it has a natural
+height and measures to it — typically well under its 2×8 catalogue default — rather than filling the
+tile the way a naive "the chart is the body" reading would assume. `kpi` widened from a fixed
+`minH:3,maxH:3` to `minH:2,maxH:4` for exactly this: a stored or chosen h:2 put its second row of cells
+(wrapped at half width on xl, §585) behind an inner scroll, and the tile is now measured to whatever its
+cells need at the current width instead.
+
 ★★★ **DO NOT READ A SCROLLBAR ON A COMPACT TILE AS A ROW-UNIT DEFECT.** The tile body is
 `min-h-0 flex-1 overflow-auto p-2` (`arrangement-tile.tsx` since the chrome was extracted;
 `dashboard-tile.tsx` is a thin adapter), so nothing ever clips or spills — over-tall
-content becomes an inner scroll container. And **6 of 9 rendering tiles already overflow at the
-shipped comfortable/80** (measured, default catalogue board, 1600px, e2e seed: `burn` 507px over,
-`insights` 239, `upcoming` 133). Inner scrolling is this design's normal mode, not something compact
-introduced, and no row unit fixes those three — fitting `burn` at h:2 would take a ~340px unit, which
-is what per-axis resize is for. Measure comfortable before calling anything a regression. ★ Those
-numbers predate spec C, which made `burn` chart-only at h:8 — re-measure before quoting them.
+content becomes an inner scroll container. Measuring to content removes that scroll up to each tile's
+own `maxH`; a tile already at its `maxH` still scrolls, because there is no more row to give it, and
+per-axis resize through the ⋮ menu is the user's way past a `maxH` that is still too tight for their
+content. That is this design's normal mode, not a regression.
 
 ★★ **The `burn` tile is CHART-ONLY (spec C decision 7).** Its body is the compact
 `BurndownChartPanel` (the component the Budget report mounts, with the device settings
