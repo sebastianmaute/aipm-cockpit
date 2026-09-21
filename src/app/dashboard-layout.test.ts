@@ -66,7 +66,7 @@ import { resizeTile } from "./dashboard-layout";
 describe("resizeTile", () => {
   it("sets one axis without touching the other", () => {
     const next = resizeTile(layout(), "raid", "h", 4);
-    expect(next.board.find((t) => t.id === "raid")).toEqual({ id: "raid", w: 2, h: 4 });
+    expect(next.board.find((t) => t.id === "raid")).toEqual({ id: "raid", w: 2, h: 4, hSet: true });
   });
 
   it("clamps a value above the tile's max", () => {
@@ -84,9 +84,10 @@ describe("resizeTile", () => {
     expect(next.board.find((t) => t.id === "kpi")!.w).toBe(2);
   });
 
-  it("returns the same object when the value does not change", () => {
+  it("returns the same object when the value does not change on an already-chosen axis", () => {
     const l = layout();
-    expect(resizeTile(l, "raid", "w", 2)).toBe(l);
+    const chosen = resizeTile(l, "raid", "w", 2);
+    expect(resizeTile(chosen, "raid", "w", 2)).toBe(chosen);
   });
 
   it("returns the same object for a tile not on the board", () => {

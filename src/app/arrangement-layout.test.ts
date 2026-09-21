@@ -67,8 +67,9 @@ describe("arrangement-layout", () => {
     expect(back.hidden).toEqual([]);
   });
 
-  it("returns the same object when a resize changes nothing", () => {
-    expect(resizeBlock(CAT, DEF, "c", "w", 4)).toBe(DEF);
+  it("returns the same object when a resize changes nothing on an already-chosen axis", () => {
+    const chosen = resizeBlock(CAT, DEF, "c", "w", 4);
+    expect(resizeBlock(CAT, chosen, "c", "w", 4)).toBe(chosen);
   });
 
   // ★★ ALL FOUR MUTATORS NEED THEIR OWN NO-OP PIN, and the two below were the
@@ -120,5 +121,73 @@ describe("arrangement-layout — the applied-upgrades list (spec C)", () => {
     expect(hideBlock(withUpgrades, "b").upgrades).toEqual(["u1"]);
     expect(restoreBlock(CAT, hideBlock(withUpgrades, "b"), "b").upgrades).toEqual(["u1"]);
     expect(resizeBlock(CAT, withUpgrades, "a", "w", 4).upgrades).toEqual(["u1"]);
+  });
+});
+
+describe("per-axis provenance (hSet / wSet)", () => {
+  it("stamps only the axis that was set", () => {
+    const next = resizeBlock(CAT, DEF, "c", "h", 3);
+    const c = next.board.find((b) => b.id === "c")!;
+    expect(c.hSet).toBe(true);
+    expect(c.wSet).toBeUndefined();
+  });
+
+  it("stamps an unflagged axis even when the value equals the stored one, and returns a NEW object", () => {
+    const c0 = DEF.board.find((b) => b.id === "c")!;
+    const next = resizeBlock(CAT, DEF, "c", "w", c0.w);
+    expect(next).not.toBe(DEF);
+    expect(next.board.find((b) => b.id === "c")!.wSet).toBe(true);
+  });
+
+  it("is a same-reference no-op when the value is unchanged AND the axis is already flagged", () => {
+    const once = resizeBlock(CAT, DEF, "c", "w", 4);
+    expect(resizeBlock(CAT, once, "c", "w", 4)).toBe(once);
+  });
+
+  // ★ Mirrors "stamps an unflagged axis..." above on the OTHER axis — Review
+  // Focus 3: a keyboard user choosing the HEIGHT already shown in the resize
+  // menu is an explicit choice and must stamp `hSet`, not be treated as a
+  // no-op. The `w`-only version above cannot catch the `hSet === true` guard
+  // being dropped from the `h` branch alone (found by mutation testing it).
+  it("stamps an unflagged h axis even when the value equals the stored one, and returns a NEW object", () => {
+    const c0 = DEF.board.find((b) => b.id === "c")!;
+    const next = resizeBlock(CAT, DEF, "c", "h", c0.h);
+    expect(next).not.toBe(DEF);
+    expect(next.board.find((b) => b.id === "c")!.hSet).toBe(true);
+  });
+
+  it("reconcile carries a true flag through", () => {
+    const stored: ArrangementLayout<TestId> = {
+      v: 1, hidden: [], board: [{ id: "c", w: 4, h: 3, hSet: true }],
+    };
+    expect(reconcile(CAT, stored, DEF).board.find((b) => b.id === "c")!.hSet).toBe(true);
+  });
+
+  it("reconcile drops a flag whose value is not exactly true, without rejecting the block", () => {
+    const stored = { v: 1 as const, hidden: [], board: [{ id: "c", w: 4, h: 3, hSet: "yes" }] };
+    const c = reconcile(CAT, stored as never, DEF).board.find((b) => b.id === "c")!;
+    expect(c).toBeDefined();
+    expect("hSet" in c).toBe(false);
+  });
+
+  it("reconcile keeps hSet through a clamp: a chosen height the clamp moves is still a choice", () => {
+    const spec = CAT.find((s) => s.id === "c")!;
+    const stored = { v: 1 as const, hidden: [], board: [{ id: "c", w: 4, h: 99, hSet: true as const }] };
+    const c = reconcile(CAT, stored as never, DEF).board.find((b) => b.id === "c")!;
+    expect(c.h).toBe(spec.maxH);
+    expect(c.hSet).toBe(true);
+  });
+
+  it("reconcile drops junk keys a stored block carries", () => {
+    const stored = { v: 1 as const, hidden: [], board: [{ id: "c", w: 4, h: 3, junk: 1 }] };
+    const c = reconcile(CAT, stored as never, DEF).board.find((b) => b.id === "c")!;
+    expect(Object.keys(c).sort()).toEqual(["h", "id", "w"]);
+  });
+
+  it("the reset target carries no flags, so a reset board is measured again", () => {
+    for (const b of defaultLayout(CAT).board) {
+      expect("hSet" in b).toBe(false);
+      expect("wSet" in b).toBe(false);
+    }
   });
 });
