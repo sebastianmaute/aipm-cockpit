@@ -136,8 +136,8 @@ A hook owned by `dashboard-panel.tsx` measures once per trigger.
   measured value is the **vertical extent of the body's element children** (the last child's
   `getBoundingClientRect().bottom` minus the first child's `.top`) plus the body's computed vertical
   padding. That reading does not depend on the box height, so it can shrink a tile as well as grow it.
-  Only children in flow count: a `position: fixed` child and an all-zero rect (`display: none`) are
-  skipped, since either would stretch the extent towards `maxH`.
+  Only children in flow count: a `position: fixed` or `position: absolute` child, and an all-zero
+  rect (`display: none`), are skipped, since any of them would stretch the extent towards `maxH`.
 - **★★ No wrapper is added around the body's children to measure them, and adding one would be a
   regression.** The body renders `{children}` directly. A wrapper of automatic height would make every
   child styled `h-full` resolve against an auto height and collapse. The children-extent reading

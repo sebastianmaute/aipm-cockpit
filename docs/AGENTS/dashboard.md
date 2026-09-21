@@ -186,9 +186,10 @@ resolution after unmount or after a newer trigger schedules nothing. `rowsForHei
 (`arrangement-measure.ts`) converts the reading — the vertical extent of the tile body's IN-FLOW element
 children plus the body's padding, never the body's `scrollHeight` (which can only grow a tile, never
 shrink it) — into the smallest row count that holds it, clamped to the tile's own `[minH, maxH]`.
-★★ "In flow" is enforced: a `position: fixed` child and a child whose rect is all zero (`display:
-none`) are skipped. Either one, taken into the min-top/max-bottom extent, stretched the reading
-towards `maxH`.
+★★ "In flow" is enforced: a `position: fixed` or `position: absolute` child, and a child whose rect
+is all zero (`display: none`), are skipped. Any of them, taken into the min-top/max-bottom extent,
+stretched the reading towards `maxH`. `e2e/dashboard-grid.spec.ts`'s `tileReading` mirrors the same
+filter, so its expected rows follow the hook's.
 ★★ **Never persisted.** A stored measurement would read as a user's choice on the next open and freeze
 the board — the same gate-decides-render-never-store rule this file states elsewhere for gated tiles.
 ★★ **Applied ONLY where `hSet` is absent.** A tile the user has explicitly sized through the ⋮ menu
