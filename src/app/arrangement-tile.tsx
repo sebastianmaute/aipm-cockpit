@@ -126,6 +126,8 @@ export function ArrangementTile({
   return (
     <section
       data-testid={`${testIdPrefix}-${id}`}
+      data-arrangement-section=""
+      data-tile-id={id}
       aria-label={title}
       className={`flex min-w-0 flex-col overflow-hidden rounded-lg border border-line bg-surface ${W_CLASS[w]} ${H_CLASS[h]}`}
       {...(readOnly ? {} : dragProps)}
@@ -160,7 +162,7 @@ export function ArrangementTile({
           </button>
         )}
       </div>
-      <div className="min-h-0 flex-1 overflow-auto p-2">{children}</div>
+      <div data-arrangement-body="" className="min-h-0 flex-1 overflow-auto p-2">{children}</div>
     </section>
   );
 }

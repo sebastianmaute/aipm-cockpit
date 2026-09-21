@@ -7,6 +7,7 @@ import { render, screen, within } from "@testing-library/react";
 import { H_CLASS, W_CLASS } from "./dashboard-grid";
 import { DashboardTile } from "./dashboard-tile";
 import { DashboardTileMenu, TileAxisGroup } from "./dashboard-tile-menu";
+import { tileById } from "./dashboard-tiles";
 
 describe("span class tables", () => {
   it("resolves to the class strings the grid expects at runtime", () => {
@@ -194,11 +195,20 @@ describe("DashboardTileMenu", () => {
     expect(screen.getByText("Fixed at 2")).toBeInTheDocument();
   });
 
-  it("renders no height chooser for the KPI tile — minH === maxH === 3 (§585 fix round)", () => {
+  // ★ Inverted from "renders no height chooser for the KPI tile": the §585 pin
+  // (minH === maxH) is gone now that Dashboard heights are measured, so the KPI
+  // tile offers a real range again.
+  it("renders a height chooser for the KPI tile, spanning its catalogue range", () => {
     menuFor("kpi", { h: 3 });
-    expect(screen.getByRole("radiogroup", { name: /width/i })).toBeInTheDocument();
-    expect(screen.queryByRole("radiogroup", { name: /height/i })).toBeNull();
-    expect(screen.getByText("Fixed at 3")).toBeInTheDocument();
+    const kpi = tileById("kpi")!;
+    const group = screen.getByRole("radiogroup", { name: /height/i });
+    const offered = within(group).getAllByRole("radio")
+      .map((r) => Number(/^Height (\d+) –/.exec(r.getAttribute("aria-label") ?? "")?.[1]));
+    const expected: number[] = [];
+    for (let n: number = kpi.minH; n <= kpi.maxH; n += 1) expected.push(n);
+    expect(offered).toEqual(expected);
+    expect([kpi.minH, kpi.maxH]).toEqual([2, 4]);
+    expect(screen.queryByText(/Fixed at/)).toBeNull();
   });
 
   it("calls onResize with the axis and the picked value", () => {

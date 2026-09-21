@@ -73,9 +73,9 @@ describe("resizeTile", () => {
     // ★★ THE VALUE HAS TO EXCEED THE LIMIT. This read `resizeTile(layout(),
     // "raid", "h", 4)` against a raid whose maxH IS 4 — nothing was clamped, it
     // duplicated the test above byte for byte, and deleting `Math.min(hi, …)`
-    // from `clampSpan` left it green. `kpi` is maxH 3, so 4 is genuinely over.
-    const next = resizeTile(layout(), "kpi", "h", 4);
-    expect(next.board.find((t) => t.id === "kpi")!.h).toBe(3);
+    // from `clampSpan` left it green. `kpi` is maxH 4, so 5 is genuinely over.
+    const next = resizeTile(layout(), "kpi", "h", 5);
+    expect(next.board.find((t) => t.id === "kpi")!.h).toBe(4);
   });
 
   it("clamps a value below the tile's min", () => {
@@ -126,17 +126,17 @@ describe("reconcile", () => {
     const next = reconcile(stored);
     const kpi = next.board.find((t) => t.id === "kpi")!;
     expect(kpi.w).toBe(2);   // clamped up to minW
-    expect(kpi.h).toBe(3);   // legal (minH === maxH === 3), and therefore PRESERVED
+    expect(kpi.h).toBe(3);   // legal (inside kpi's minH–maxH), and therefore PRESERVED
   });
 
-  // §585 fix round: `kpi`'s `minH` rose to 3 (`maxH` was already 3), so a stored
-  // height below that — reachable only from a build before the raise, since the
-  // resize menu itself now offers no lower value — is clamped up on load, same
-  // as any other out-of-range axis above.
-  it("clamps a stored kpi height below the new minH (3) up to it", () => {
-    const stored = { v: 1 as const, board: [{ id: "kpi" as const, w: 2 as const, h: 2 as const }], hidden: [] };
+  // `kpi`'s `minH` is 2 again (measured heights replaced the §585 pin), so a stored
+  // h:2 is now LEGAL. A stored height below the floor — never offered by the
+  // resize menu, so reachable only from hand-edited or corrupted storage — is
+  // clamped up on load, same as any other out-of-range axis above.
+  it("clamps a stored kpi height below its minH (2) up to it", () => {
+    const stored = { v: 1 as const, board: [{ id: "kpi" as const, w: 2 as const, h: 1 as const }], hidden: [] };
     const next = reconcile(stored);
-    expect(next.board.find((t) => t.id === "kpi")!.h).toBe(3);
+    expect(next.board.find((t) => t.id === "kpi")!.h).toBe(2);
   });
 
   it("keeps a gateable tile in the layout rather than dropping it", () => {

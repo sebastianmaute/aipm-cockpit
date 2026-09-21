@@ -40,7 +40,8 @@ import { DashboardHiddenBadge } from "./dashboard-hidden-badge";
 import { buildTileBodies } from "./dashboard-tile-bodies";
 import { useDashboardLayout } from "./use-dashboard-layout";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
-import { tileById, type DashboardTileId, type TileGateInput } from "./dashboard-tiles";
+import { tileById, type DashboardTileId, type TileGateInput, type TileHeight } from "./dashboard-tiles";
+import { useMeasuredHeights } from "./use-measured-heights";
 import type { PlacedTile } from "./dashboard-layout";
 
 // A stable identity for the "no snapshots yet" default — an inline `[]`
@@ -402,6 +403,19 @@ export function DashboardPanel(props: DashboardPanelProps) {
     .map((id) => sizeById.get(id))
     .filter((p): p is PlacedTile => p !== undefined && isRenderable(p.id));
   const visibleIds = visible.map((p) => p.id);
+  const measured = useMeasuredHeights({
+    density,
+    tiles: visible.map((p) => {
+      const s = tileById(p.id)!;
+      return { id: p.id, minH: s.minH, maxH: s.maxH, flagged: p.hSet === true };
+    }),
+  });
+  /** ★★ The ONE place a tile's displayed height is decided. The tile, the ⋮ menu and the resize
+   *  announcement all read it. Reading `p.h` directly in any of them shows the STORED default of a
+   *  measured tile, which is exactly the mismatch the spec forbids. The measured value is never
+   *  written back: a stored measurement would read as a user's choice on the next open. */
+  const renderedH = (p: PlacedTile): TileHeight =>
+    p.hSet === true ? p.h : (measured.get(p.id) ?? p.h);
 
   // ★★★ HIDING AND RESTORING BOTH DESTROY THE CONTROL THE USER JUST PRESSED, so
   // one of them has to say where focus goes or the browser drops it on `<body>`.
@@ -673,7 +687,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 id={p.id}
                 title={t(lang, spec.labelKey)}
                 w={p.w}
-                h={p.h}
+                h={renderedH(p)}
                 lang={lang}
                 readOnly={arrangement.readOnly}
                 // ★★★ §425: MUST MATCH `keyboard: false` ON THE
@@ -724,7 +738,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
               tileId={menu.id}
               title={t(lang, menuSpec.labelKey)}
               w={menuSize.w}
-              h={menuSize.h}
+              h={renderedH(menuSize)}
               index={menu.index}
               count={menu.count}
               onResize={(axis, v) => {
@@ -734,7 +748,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 setAnnouncement(t(lang, "arrangementTileResized",
                   t(lang, menuSpec.labelKey),
                   String(axis === "w" ? v : menuSize.w),
-                  String(axis === "h" ? v : menuSize.h)));
+                  String(axis === "h" ? v : renderedH(menuSize))));
               }}
               onMove={(delta) => moveByDelta(menu.id, delta)}
               onHide={() => {

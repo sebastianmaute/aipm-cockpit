@@ -91,6 +91,7 @@ export function ArrangementGrid({
   return (
     <div
       data-testid={testId}
+      data-arrangement-grid=""
       className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 grid-flow-row-dense ${rowClass} ${gapClass}`}
     >
       {children}

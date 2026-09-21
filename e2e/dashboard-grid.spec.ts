@@ -1,6 +1,8 @@
-import { test, expect, gotoApp, openView } from "./seed";
+import { test, expect, gotoApp, openView, waitForViewSettled } from "./seed";
 import { DASHBOARD_LAYOUT_KEY } from "../src/app/dashboard-layout-store";
 import { DASHBOARD_BURN_UPGRADE } from "../src/app/dashboard-layout";
+import { rowsForHeight } from "../src/app/arrangement-measure";
+import { tileById, type DashboardTileId } from "../src/app/dashboard-tiles";
 
 /**
  * The ONE measurement of the Dashboard grid that no unit test can make.
@@ -47,6 +49,64 @@ async function tileBox(page: import("@playwright/test").Page, id: string) {
   return box!;
 }
 
+/**
+ * Everything the measuring hook reads for one tile, read the same way from the live page.
+ * ★★ Nothing here is quoted: the row unit, gap, padding and chrome are the page's own numbers, so
+ * an expectation built from them follows a restyle instead of pinning today's pixels.
+ */
+async function tileReading(page: import("@playwright/test").Page, id: DashboardTileId) {
+  const r = await page.getByTestId(`tile-${id}`).evaluate((section) => {
+    const grid = section.closest("[data-arrangement-grid]") as HTMLElement;
+    const body = section.querySelector("[data-arrangement-body]") as HTMLElement;
+    const gs = getComputedStyle(grid);
+    const bs = getComputedStyle(body);
+    const kids = [...body.children].map((k) => k.getBoundingClientRect());
+    return {
+      rowUnit: parseFloat(gs.gridAutoRows),
+      gap: parseFloat(gs.rowGap),
+      sectionH: section.getBoundingClientRect().height,
+      bodyClient: body.clientHeight,
+      bodyScroll: body.scrollHeight,
+      content: Math.max(...kids.map((k) => k.bottom)) - Math.min(...kids.map((k) => k.top))
+        + parseFloat(bs.paddingTop) + parseFloat(bs.paddingBottom),
+    };
+  });
+  const spec = tileById(id)!;
+  return {
+    ...r,
+    /** Rows the tile spans on screen, inverted from `n * unit + (n - 1) * gap`. */
+    renderedRows: Math.round((r.sectionH + r.gap) / (r.rowUnit + r.gap)),
+    /** Rows the hook should have chosen, from the same readings. */
+    measuredRows: rowsForHeight(r.content, r.rowUnit, r.gap, r.sectionH - r.bodyClient, spec.minH, spec.maxH),
+  };
+}
+
+/** Seeds one stored layout for the e2e project (`e2e-1`, see the dense-packing describe). */
+async function seedLayout(page: import("@playwright/test").Page, layout: unknown) {
+  await page.addInitScript(
+    ([key, l]) => {
+      localStorage.setItem(key as string, JSON.stringify({ "e2e-1": l }));
+    },
+    [DASHBOARD_LAYOUT_KEY, layout] as const,
+  );
+}
+
+/**
+ * ★★ `hSet: true` MAKES A HEIGHT A RECORDED CHOICE, which is the only kind of height a
+ * row-unit assertion can pin now: every tile WITHOUT it is measured to its content, so its height
+ * says nothing about the `H_CLASS` rule it would otherwise prove. The layout carries the burn
+ * upgrade id so `upgradeDashboardLayout` leaves these entries as written.
+ */
+const CHOSEN_HEIGHTS_LAYOUT = {
+  v: 1,
+  board: [
+    { id: "burn", w: 2, h: 8, hSet: true },
+    { id: "upcoming", w: 2, h: 2, hSet: true },
+  ],
+  hidden: [],
+  upgrades: [DASHBOARD_BURN_UPGRADE],
+};
+
 test.describe("dashboard grid geometry", () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: XL, height: 1000 });
@@ -85,6 +145,59 @@ test.describe("dashboard grid geometry", () => {
     expect((await gridMetrics(page)).tracks).toHaveLength(4);
   });
 
+  test("places the KPI tile BESIDE the burn tile on xl, not below it (§585)", async ({ page }) => {
+    // ★ The default board (no stored layout): burn w2 takes columns 1-2, and
+    // the KPI tile's w:2 default lets dense packing put it in columns 3-4 of
+    // burn's first rows. At its former w:4 it could only fit below burn.
+    // ★★ Neither tile carries `hSet` here, so both render at their MEASURED
+    // heights — burn well under its stored h:8 on this seed. The assertion is
+    // about WIDTH-driven placement and holds at any height.
+    const burn = await tileBox(page, "burn");
+    const kpi = await tileBox(page, "kpi");
+    expect(kpi.x).toBeGreaterThanOrEqual(burn.x + burn.width - 1.5);
+    // Overlapping vertical ranges: each starts before the other ends.
+    expect(kpi.y).toBeLessThan(burn.y + burn.height);
+    expect(burn.y).toBeLessThan(kpi.y + kpi.height);
+  });
+
+  test("a tile with no chosen height renders at its measured height", async ({ page }) => {
+    // ★★ The expectation is computed from the page's own readings through the same pure
+    // conversion the hook uses — never a row count written here. `expect.poll` because the
+    // measurement lands one animation frame after mount.
+    await expect.poll(async () => {
+      const r = await tileReading(page, "upcoming");
+      return r.renderedRows === r.measuredRows ? "match" : `rendered ${r.renderedRows}, measured ${r.measuredRows}`;
+    }).toBe("match");
+    // ★ Not vacuous: the measurement actually MOVED the tile off its stored default. Without
+    // this, a `renderedH` that ignored the measurement would pass whenever the two coincide.
+    expect((await tileReading(page, "upcoming")).renderedRows).not.toBe(tileById("upcoming")!.h);
+    // …and below `maxH` the body holds its content without an inner scroll.
+    const r = await tileReading(page, "upcoming");
+    if (r.renderedRows < tileById("upcoming")!.maxH) expect(r.bodyScroll).toBeLessThanOrEqual(r.bodyClient);
+  });
+
+  test("a tile measured shorter than its default renders shorter", async ({ page }) => {
+    // ★★ This is the test a `scrollHeight` measurement fails: scrollHeight equals the box when the
+    // content fits, so it can grow a tile but never shrink one. `burn`'s chart has a natural
+    // height well under its tall default on this seed; the guard below proves that precondition
+    // from the page, so the test cannot pass on a tile that had nothing to shrink to.
+    const spec = tileById("burn")!;
+    await expect.poll(async () => (await tileReading(page, "burn")).renderedRows).toBeLessThan(spec.h);
+    const r = await tileReading(page, "burn");
+    expect(r.measuredRows).toBeLessThan(spec.h);
+    expect(r.renderedRows).toBe(r.measuredRows);
+  });
+});
+
+test.describe("dashboard grid chosen heights", () => {
+  test.beforeEach(async ({ page }) => {
+    await seedLayout(page, CHOSEN_HEIGHTS_LAYOUT);
+    await page.setViewportSize({ width: XL, height: 1000 });
+    await gotoApp(page);
+    await openView(page, "Dashboard");
+    await waitForViewSettled(page);
+  });
+
   test("applies the 80px comfortable row unit to the container AND to a real tile", async ({ page }) => {
     const m = await gridMetrics(page);
     expect(m.autoRows).toBe("80px");
@@ -92,8 +205,10 @@ test.describe("dashboard grid geometry", () => {
     // ★ The container property alone would not prove the row unit reaches a
     // tile: `row-span-2` is a SECOND literal class table (`H_CLASS`) that
     // Tailwind must also have emitted. A h:2 tile is two row units plus the row
-    // gap between them.
-    const upcoming = await tileBox(page, "upcoming"); // catalogue default h: 2
+    // gap between them. ★★ `upcoming` carries `hSet: true` in the seed: an
+    // unflagged tile is measured to its content, so its height would say
+    // nothing about `row-span-2`.
+    const upcoming = await tileBox(page, "upcoming"); // seeded h: 2, chosen
     expect(Math.abs(upcoming.height - (2 * 80 + m.rowGap))).toBeLessThan(1.5);
   });
 
@@ -101,8 +216,9 @@ test.describe("dashboard grid geometry", () => {
     // ★★ Spec C: `H_CLASS` gained literal `row-span-5`…`row-span-8`, and only
     // the rendered box can prove Tailwind emitted the rule — a missing one
     // would collapse the tile to one implicit row with every unit test green.
-    // `burn` is 2×8 by default and first on a fresh board (this seed stores no
-    // layout, so the default is what renders).
+    // ★★ `burn` is seeded at h:8 WITH `hSet: true`. Unflagged, it is measured,
+    // and on this seed its chart measures well under eight rows — see "a tile
+    // measured shorter than its default renders shorter".
     const m = await gridMetrics(page);
     expect(m.autoRows).toBe("80px");
     const burn = await tileBox(page, "burn");
@@ -110,18 +226,107 @@ test.describe("dashboard grid geometry", () => {
     // …and it is two of the four xl tracks wide.
     expect(Math.abs(burn.width - (m.contentWidth - m.colGap) / 2)).toBeLessThan(1.5);
   });
+});
 
-  test("places the KPI tile BESIDE the 2×8 burn tile on xl, not below it (§585)", async ({ page }) => {
-    // ★ The default board (no stored layout): burn w2 h8 takes columns 1-2 for
-    // eight rows, and the KPI tile's 2×3 default lets dense packing put it in
-    // columns 3-4 of burn's first rows. At its former w:4 it could only fit
-    // below all eight.
-    const burn = await tileBox(page, "burn");
-    const kpi = await tileBox(page, "kpi");
-    expect(kpi.x).toBeGreaterThanOrEqual(burn.x + burn.width - 1.5);
-    // Overlapping vertical ranges: each starts before the other ends.
-    expect(kpi.y).toBeLessThan(burn.y + burn.height);
-    expect(burn.y).toBeLessThan(kpi.y + kpi.height);
+test.describe("dashboard grid measured heights across reload and density", () => {
+  test.beforeEach(async ({ page }) => {
+    // ★ These tests CLICK, and the auto-launched guided tour's backdrop intercepts pointer
+    // events (the same reason `seed-content.spec.ts` seeds `tourSeen`). The script re-runs on
+    // the reload below, which only re-asserts the same flag.
+    await page.addInitScript(() => {
+      localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true }));
+    });
+    await page.setViewportSize({ width: XL, height: 1000 });
+    await gotoApp(page);
+    await openView(page, "Dashboard");
+  });
+
+  const UPCOMING = "Upcoming & overdue";
+  const storedUpcoming = (page: import("@playwright/test").Page) =>
+    page.evaluate((key) => {
+      const all = JSON.parse(localStorage.getItem(key) ?? "{}") as Record<string, { board: { id: string }[] }>;
+      return all["e2e-1"]?.board.find((b) => b.id === "upcoming") ?? null;
+    }, DASHBOARD_LAYOUT_KEY);
+  const pickHeight = async (page: import("@playwright/test").Page, v: number) => {
+    await page.getByRole("button", { name: `More actions – ${UPCOMING}`, exact: true }).click();
+    await page.getByRole("radio", { name: `Height ${v} – ${UPCOMING}`, exact: true }).click();
+    await page.keyboard.press("Escape");
+  };
+
+  test("an explicitly resized tile keeps its height across a reload", async ({ page }) => {
+    await expect.poll(async () => {
+      const r = await tileReading(page, "upcoming");
+      return r.renderedRows === r.measuredRows;
+    }).toBe(true);
+    const measured = (await tileReading(page, "upcoming")).renderedRows;
+    const spec = tileById("upcoming")!;
+    // A value the measurement did NOT choose, so the reload below can tell the two apart.
+    const chosen = measured < spec.maxH ? measured + 1 : measured - 1;
+    await pickHeight(page, chosen);
+    await expect.poll(async () => (await tileReading(page, "upcoming")).renderedRows).toBe(chosen);
+    await expect.poll(() => storedUpcoming(page)).toMatchObject({ h: chosen, hSet: true });
+
+    await page.reload();
+    await openView(page, "Dashboard");
+    await waitForViewSettled(page);
+    // After the frame in which an unflagged tile would have been re-measured.
+    expect((await tileReading(page, "upcoming")).renderedRows).toBe(chosen);
+  });
+
+  test("choosing the height already shown still records it as a choice (review focus 3)", async ({ page }) => {
+    await expect.poll(async () => {
+      const r = await tileReading(page, "upcoming");
+      return r.renderedRows === r.measuredRows;
+    }).toBe(true);
+    const shown = (await tileReading(page, "upcoming")).renderedRows;
+    // ★ The ⋮ menu must show the RENDERED height, or this radio is not the checked one.
+    await page.getByRole("button", { name: `More actions – ${UPCOMING}`, exact: true }).click();
+    await expect(page.getByRole("radio", { name: `Height ${shown} – ${UPCOMING}`, exact: true })).toBeChecked();
+    await page.keyboard.press("Escape");
+    await pickHeight(page, shown);
+    await expect.poll(() => storedUpcoming(page)).toMatchObject({ h: shown, hSet: true });
+  });
+
+  test("a width change announces the RENDERED height, not the stored default", async ({ page }) => {
+    // ★★ The third height reader. jsdom measures nothing, so a unit test sees rendered === stored
+    // and cannot tell the two apart; only a measured tile can.
+    await expect.poll(async () => {
+      const r = await tileReading(page, "upcoming");
+      return r.renderedRows === r.measuredRows;
+    }).toBe(true);
+    const shown = (await tileReading(page, "upcoming")).renderedRows;
+    expect(shown).not.toBe(tileById("upcoming")!.h);   // else stored and rendered coincide
+    const wider = tileById("upcoming")!.maxW;
+    await page.getByRole("button", { name: `More actions – ${UPCOMING}`, exact: true }).click();
+    await page.getByRole("radio", { name: `Width ${wider} – ${UPCOMING}`, exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: "resized to" }))
+      .toHaveText(`${UPCOMING} resized to ${wider} by ${shown}`);
+  });
+
+  test("a density change re-measures", async ({ page }) => {
+    const before = await tileReading(page, "upcoming");
+    expect(before.rowUnit).toBe(80);
+
+    await openView(page, "Settings");
+    await page.getByRole("button", { name: "Appearance", exact: true }).first().click();
+    await page.getByRole("radiogroup", { name: "Density", exact: true })
+      .getByRole("radio", { name: "Compact", exact: true }).click();
+    // ★ Not `openView`: off the Dashboard its nav button carries a count badge, so its text is no
+    // longer exactly "Dashboard" and `openView`'s whole-string match never resolves.
+    await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: /^Dashboard/ }).click();
+    await waitForViewSettled(page);
+
+    // Derived from the NEW page readings: the row unit moved, and the rendered height follows
+    // the measurement taken against it.
+    // ★★ What this does NOT cover: the modern shell renders only the active view, so the
+    // Dashboard REMOUNTS on the way back and this pass is the MOUNT trigger at the new unit. The
+    // in-place density trigger (the hook's `density` dependency) is pinned by
+    // `use-measured-heights.test.tsx`, not here.
+    await expect.poll(async () => {
+      const r = await tileReading(page, "upcoming");
+      return r.rowUnit !== before.rowUnit && r.renderedRows === r.measuredRows
+        ? "match" : `unit ${r.rowUnit}, rendered ${r.renderedRows}, measured ${r.measuredRows}`;
+    }).toBe("match");
   });
 });
 
@@ -280,16 +485,16 @@ for (const density of ["comfortable", "compact"] as const) {
  * backfills. This seeds an arrangement whose only correct rendering REQUIRES the
  * backfill, then reads the resulting tops.
  *
- * Seeded board (all three are ungated catalogue tiles; `upcoming` and `progress`
- * are inside their own min/max so `reconcile` cannot clamp either — `kpi`'s
- * stored h:2 is NOT: its `minH` is now 3 (§585 fix round, `maxH` was already 3),
- * so `reconcile` clamps it up to h:3 on load. That clamp does not change what
- * this test measures — the backfill turns on `kpi`'s WIDTH (w:4 cannot fit the
- * two free columns beside `upcoming`), never its height):
+ * Seeded board (all three are ungated catalogue tiles, each inside its own
+ * min/max so `reconcile` clamps none of them). ★★ None carries `hSet`, so all
+ * three render at their MEASURED heights, not the stored h:2 below — the row
+ * numbers are therefore nominal. That does not change what this test measures:
+ * the backfill turns on `kpi`'s WIDTH (w:4 cannot fit the two free columns
+ * beside `upcoming`), never on any height, and the assertions compare tops:
  *   1. upcoming w2 h2        → rows 1-2, cols 1-2
- *   2. kpi      w4 h2(→h3)   → cannot fit the two free columns, so rows 3-5
+ *   2. kpi      w4 h2        → cannot fit the two free columns, so below upcoming
  *   3. progress w2 h2        → dense pulls it UP into rows 1-2, cols 3-4
- * Without `dense` it would sit at rows 5-6, below kpi.
+ * Without `dense` it would sit below kpi.
  *
  * ★ Every other tile is HIDDEN, not merely omitted: `reconcile` re-inserts any
  * catalogue tile that is absent from both lists, next to its nearest present
