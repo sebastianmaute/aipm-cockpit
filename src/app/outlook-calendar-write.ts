@@ -12,6 +12,9 @@ export const CALENDAR_READWRITE_SCOPE = ["Calendars.ReadWrite"] as const;
 export const categoryFor = (projectId: string, entityType?: string): string =>
   entityType ? `AIPM:${projectId}:${entityType}` : `AIPM:${projectId}`;
 
+/** Trailing line appended to every event body this module writes. */
+export const EVENT_BODY_MANAGED_BY = "Managed by the AIPM PM Tracker.";
+
 export interface GraphEvent {
   subject: string;
   isAllDay: true;
@@ -38,7 +41,7 @@ export function milestoneToGraphEvent(m: Milestone, projectId: string): GraphEve
     start: { dateTime: `${m.date}T00:00:00`, timeZone: "UTC" },
     end: { dateTime: `${nextDay(m.date)}T00:00:00`, timeZone: "UTC" },
     categories: [categoryFor(projectId)],
-    body: { contentType: "Text", content: "Managed by the AIPM PM Tracker." },
+    body: { contentType: "Text", content: EVENT_BODY_MANAGED_BY },
   };
 }
 
@@ -59,7 +62,7 @@ export function taskToGraphEvent(task: Task, projectId: string): GraphEvent {
       content: [
         task.assignee ? `Owner: ${task.assignee}` : "",
         task.status ? `Status: ${task.status}` : "",
-        "Managed by the AIPM PM Tracker.",
+        EVENT_BODY_MANAGED_BY,
       ]
         .filter(Boolean)
         .join("\n"),
@@ -86,7 +89,7 @@ export function raidToGraphEvent(raid: RaidItem, projectId: string): GraphEvent 
         raid.owner ? `Owner: ${raid.owner}` : "",
         raid.severity ? `Severity: ${raid.severity}` : "",
         raid.status ? `Status: ${raid.status}` : "",
-        "Managed by the AIPM PM Tracker.",
+        EVENT_BODY_MANAGED_BY,
       ]
         .filter(Boolean)
         .join("\n"),
@@ -114,7 +117,7 @@ export function changeToGraphEvent(change: ChangeItem, projectId: string): Graph
         change.impact ? `Impact: ${change.impact}` : "",
         change.status ? `Status: ${change.status}` : "",
         change.decisionBy ? `Decision by: ${change.decisionBy}` : "",
-        "Managed by the AIPM PM Tracker.",
+        EVENT_BODY_MANAGED_BY,
       ]
         .filter(Boolean)
         .join("\n"),
@@ -146,7 +149,7 @@ export function absenceToGraphEvent(absence: Absence, projectId: string): GraphE
         `Type: ${absence.type}`,
         `Assignee: ${absence.assignee}`,
         absence.note ? absence.note : "",
-        "Managed by the AIPM PM Tracker.",
+        EVENT_BODY_MANAGED_BY,
       ]
         .filter(Boolean)
         .join("\n"),
@@ -173,7 +176,7 @@ export function committeeMeetingToGraphEvent(
     categories: [categoryFor(projectId)],
     body: {
       contentType: "Text",
-      content: [meeting.location ? `Location: ${meeting.location}` : "", meeting.agenda ?? "", "Managed by the AIPM PM Tracker."]
+      content: [meeting.location ? `Location: ${meeting.location}` : "", meeting.agenda ?? "", EVENT_BODY_MANAGED_BY]
         .filter(Boolean)
         .join("\n\n"),
     },
@@ -194,7 +197,7 @@ export function committeeInfoToGraphEvent(
     start: { dateTime: `${item.dueDate}T00:00:00`, timeZone: "UTC" },
     end: { dateTime: `${nextDay(item.dueDate)}T00:00:00`, timeZone: "UTC" },
     categories: [categoryFor(projectId)],
-    body: { contentType: "Text", content: "Managed by the AIPM PM Tracker." },
+    body: { contentType: "Text", content: EVENT_BODY_MANAGED_BY },
   };
 }
 
