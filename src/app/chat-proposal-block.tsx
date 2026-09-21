@@ -8,11 +8,13 @@
 // visual concern and cannot change what a later apply writes.
 //
 // ★★★ EVERY STAGED CALL GETS A ROW, INCLUDING ONE THE DESCRIPTOR ENGINE CANNOT
-// DIFF. `describeProposal` emits an EMPTY plan (`{updates:[],creates:[],
-// deletes:[],rejected:[],links:[]}`) for every tool with no `INLINE_DESCRIPTORS` entity —
-// the three `*_document` tools, plus `delete_all_tasks`, `send_inquiry` and
-// `set_task_dependencies`. Those rows carry only `call.name` and `call.input`,
-// and they are the rows that most need to be VISIBLE: document writes take no
+// DIFF. `describeProposal` emits an EMPTY plan for the stageable write tools that have no
+// `INLINE_DESCRIPTORS` entity and no hand-written describer. The authoritative list is the test
+// "omits exactly the stageable write tools the descriptor engine cannot diff" in
+// `chat-proposal-describe.test.ts` — read it there rather than restating it here; a copy of
+// that list in this comment went stale once already (it named a tool that had since gained
+// a describer). Those rows carry only `call.name` and `call.input`, and they are the rows
+// that most need to be VISIBLE: document writes take no
 // undo capture at all (`use-document-tools.ts` says so at three sites), so this
 // card is the only thing between the model and an unreviewed multi-document
 // rewrite. The TOOL NAME is therefore rendered on EVERY row rather than as an

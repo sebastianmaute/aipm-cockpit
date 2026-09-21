@@ -615,7 +615,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§388](#388-the-task-name-mic-is-now-invisible-to-the-label-binding-source-scan--open) | The task-name mic is now invisible to the label-binding source scan | found 2026-09-05 in the edit-task modal rework | S | open |
 | [§389](#389-modalheader-names-every-modals--identically-so-any-two-stacked-modals-collide--closed-2026-09-14) | `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide — CLOSED 2026-09-14 | found 2026-09-05 in the edit-task modal rework | M | **CLOSED** 2026-09-14 |
 | [§390](#390-the-inline-create-path-writes-link-fields-with-no-preview-at-all--closed-2026-09-06) | The inline CREATE path writes link fields with no preview at all | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
-| [§391](#391-chat-proposal-describetss-emptyplan-is-safe-at-two-of-its-three-call-sites-and-the-reason-is-per-site--open) | `chat-proposal-describe.ts`'s `emptyPlan()` is safe at two of its three call sites, and the reason is per-site | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§391](#391-chat-proposal-describetss-emptyplan-is-safe-at-two-of-its-three-call-sites-and-the-reason-is-per-site--closed-2026-09-21) | `chat-proposal-describe.ts`'s `emptyPlan()` is safe at two of its three call sites, and the reason is per-site — CLOSED 2026-09-21 | found 2026-09-06 by the preview/apply-parity slice | S | closed |
 | [§392](#392-a-rejection-only-inline-plan-never-reaches-the-preview-so-the-user-is-told-no-changes--closed-2026-09-06) | A rejection-only inline plan never reaches the preview, so the user is told "no changes" | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
 | [§393](#393-describerecommendationplan-merges-entities-so-a-fields-label-cannot-always-be-resolved--closed-2026-09-06) | `describeRecommendationPlan` merges entities, so a field's label cannot always be resolved | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
 | [§394](#394-the-parity-sweep-cannot-exercise-the-silent-reset-half-of-the-rejects-direction--closed-2026-09-08) | The parity sweep cannot exercise the silent-RESET half of the rejects direction | found 2026-09-06 by the preview/apply-parity slice | S | **CLOSED** 2026-09-08 |
@@ -30466,13 +30466,30 @@ popover may create a RAID item, and projecting that create's links through the t
 read the wrong entity's `linkFields`, which is worse than not projecting them. Both are stated at
 the call site.
 
-## 391. `chat-proposal-describe.ts`'s `emptyPlan()` is safe at two of its three call sites, and the reason is per-site — OPEN
+## 391. `chat-proposal-describe.ts`'s `emptyPlan()` is safe at two of its three call sites, and the reason is per-site — CLOSED 2026-09-21
 
-**Status:** OPEN as a RECORD, not as a defect to fix. Filed 2026-09-06. Last executed verification
+**Status:** CLOSED 2026-09-21 as a record — this entry was never a live defect once checked against
+the current tree; closing it corrects the fix-shape belief it left behind. Branch
+`fix/backlog-sweep`. The third call site this entry flagged as unsafe — the `entity === undefined ||
+op === undefined` fallback rendering a blank card for `set_task_dependencies` — was already fixed by
+a dedicated `set_task_dependencies` branch in `describeProposal` ahead of that empty-plan fallback,
+producing a real link diff instead. Pinned by the test "omits exactly the stageable write tools the
+descriptor engine cannot diff" in `chat-proposal-describe.test.ts`, which asserts `set_task_dependencies`
+produces a `plan.links` diff while `delete_all_tasks` and `send_inquiry` still produce the empty plan.
+The remaining empty-plan tools (the three `*_document` tools, `delete_all_tasks`, `send_inquiry`, and
+`escalate_raid_item`) are empty by design, not by omission — each has no before-image to diff against
+(a create has written nothing yet; a rejected call writes nothing; an escalation notifies rather than
+mutating fields), the same reasoning this entry already gave for its two forever-correct sites. This
+closure also corrects `chat-proposal-block.tsx`'s `★★★ EVERY STAGED CALL GETS A ROW` comment, which
+had drifted to list `set_task_dependencies` among the empty-plan tools and to omit
+`escalate_raid_item`; it now points at the test above as the single authoritative list instead of
+restating one that can go stale again. No shipped-code fix departs from this entry's fix-shape line —
+the underlying `describeProposal` behavior was already correct; only the register entry and the
+comment needed to catch up to it.
+
+**Original filing (2026-09-06):** OPEN as a RECORD, not as a defect to fix. Last executed verification
 2026-09-06 — `grep -n "emptyPlan()" src/app/chat-proposal-describe.ts` → FIVE lines: the declaration
 plus FOUR uses; read of each and of its surrounding comments.
-
-**Work item:** #270
 
 ★★ THE FILING SAID THAT COMMAND "returns 4 — the factory plus its three call sites", AND IT RETURNED
 5 THEN TOO — `git show 9699f0a5:src/app/chat-proposal-describe.ts | grep -c "emptyPlan()"` → 5, so
