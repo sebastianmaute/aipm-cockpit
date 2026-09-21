@@ -11,7 +11,7 @@
 
 <sub>The landing dashboard.</sub>
 
-![A guided tour of AI PM Cockpit: dashboard, next actions, Gantt, budget and the Claude assistant](public/demos/demo-aipm-cockpit.webm)
+![A guided tour of AI PM Cockpit: dashboard, next actions, open points, Gantt, milestones, the Claude assistant, resources, budget, RAID, changes and stakeholders](public/demos/demo-aipm-cockpit.webm)
 
 <sub>Guided product tour (no audio). If your viewer does not play it inline, [download the clip](public/demos/demo-aipm-cockpit.webm).</sub>
 
