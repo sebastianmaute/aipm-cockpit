@@ -10,41 +10,53 @@ longer carries its own changelog comment.
 
 ## [1.12.8] - 2026-09-21 "Child"
 
-A load-and-save patch for the AI assistant. A turn that was already running when the project
-underneath it changed went on writing into whatever project was in scope by the time each tool
-came up.
+A load-and-save patch. A chat turn that was already running when the project underneath it
+changed went on writing into whatever project was in scope by the time each tool came up; and
+three ways a save could be refused or a file overwritten, found during that work, are closed
+here too.
 
 ### Fixed
 
 - **The assistant no longer finishes a turn into the next project.** A chat turn holds the
   project it was sent for, but the check that compares them could not see two of the ways that
   project changes: the load hold swaps the whole main-window tree without changing the project
-  id, and a storage-target change (a Turso URL or token edit, a SharePoint target swap, a
-  same-project reload) keeps the id as well. The turn now carries the scope it was sent in and
-  is re-checked against it before each tool, not only once per round trip, so a turn whose
-  project has moved stops instead of writing into the one that replaced it. `§596` is closed.
-- **A dropped turn no longer leaves the conversation permanently broken.** When a turn stopped
-  before its first tool ran, it recorded an empty result carrier. The repair pass that closes
-  unanswered tool calls did not recognise that carrier as something to absorb, so it was kept
-  alongside the repair — and every later message in that conversation was rejected. The fault
-  did not show on the send that caused it, only on the next one, and it survived a reload,
-  leaving a new conversation as the only way out. Both halves are fixed: the carrier is no
-  longer recorded, and the repair pass now absorbs one already saved.
+  id, and a storage-target change — a Turso URL or token edit, a SharePoint target swap — keeps
+  the id as well. The turn now carries the scope it was sent in and is re-checked against it
+  before each tool, not only once per round trip. This covers the turn's own tool loop; a plan
+  you stage and then apply from the review card is not yet guarded the same way, which is filed
+  open as `§600`. `§596` is closed.
+- **A dropped turn no longer leaves the conversation permanently broken.** A turn that ended
+  before any tool ran recorded an empty result carrier. The repair pass that closes unanswered
+  tool calls did not recognise that carrier as something to absorb, so it was kept alongside the
+  repair — and every later message in that conversation was rejected. The fault did not show on
+  the send that caused it, only on the next one, and it survived a reload, leaving a new
+  conversation as the only way out. Both halves are fixed: the carrier is no longer recorded,
+  and the repair pass now absorbs one already saved, which is the only thing that helps a
+  conversation already in that state.
 - **Leaving the assistant no longer cancels the work you asked for.** Cancelling an in-flight
   turn when the panel closed was correct while a project swap was the only thing that closed it,
   but opening Open Points, Settings or Learning Insights closes it too — so asking the assistant
   to create tasks and then switching to Open Points to watch them appear silently did nothing.
-  Cancelling is now tied to a project swap actually being in progress rather than to the panel
-  going away.
-- **The demo project shows Effort SPI and CPI again.** The sample workspace carried no effort
-  estimates or booked time, so both indices were undefined and the dashboard's At-a-glance tile
-  hid them, showing three figures where it should show five. The sample now carries effort, and
-  a test pins both indices so a re-authored sample cannot silently drop them again.
+  The same applied to a Save-As, a file dialog you cancelled, and a same-project reload.
+  Cancelling is now tied to an operation that actually changes which project is in scope.
+- **A reload or file pick left running from before a storage change no longer shuts the new
+  target's save gate.** Saves could be refused with nothing on screen saying why. `§588` is
+  closed.
+- **An edit made in the moment before a storage change is no longer dropped.** `§589` is closed.
+- **"Pick storage file" after a failed load no longer writes an empty workspace into the file
+  you chose.** This one could overwrite an existing project file with nothing; it now counts the
+  records at risk and asks first. `§590` is closed.
+- **The demo project shows Effort SPI and CPI.** The sample workspace carried no effort estimates
+  or booked time, so both indices were undefined and the dashboard's At-a-glance tile hid them,
+  showing three figures where it should show five. The sample now carries effort, and a test pins
+  both indices so a re-authored sample cannot silently drop them again.
 
 ### Notes
 
-- Eight follow-ups were filed or closed with this work (`§596`–`§603`), including two source
-  scanning gates that had been reading their own documentation and reporting success.
+- Eleven follow-ups were filed or closed with this work — `§596`–`§604` filed or closed here,
+  plus `§588`, `§589` and `§590` closed. Among them: a source-scanning gate that had been
+  counting its own documentation and reporting success while standing over the defect it was
+  built to catch.
 
 ## [1.12.7] - 2026-09-21 "Child"
 
