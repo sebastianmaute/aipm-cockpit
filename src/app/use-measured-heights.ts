@@ -27,6 +27,8 @@ function sameMap(a: ReadonlyMap<string, BlockHeight>, b: ReadonlyMap<string, Blo
   return true;
 }
 
+const OUT_OF_FLOW: ReadonlySet<string> = new Set(["fixed", "absolute"]);
+
 /** One tile's reading, or null when there is nothing to measure (jsdom, an empty body). */
 function measureTile(section: HTMLElement, t: MeasuredTile): BlockHeight | null {
   const grid = section.closest<HTMLElement>("[data-arrangement-grid]");
@@ -37,10 +39,10 @@ function measureTile(section: HTMLElement, t: MeasuredTile): BlockHeight | null 
   const gap = parseFloat(gs.rowGap);
   if (!(rowUnit > 0) || !Number.isFinite(gap)) return null;
   // ★ Only children IN FLOW count. A display:none child reads as an all-zero rect at the viewport
-  // origin, and a position:fixed one sits wherever the viewport puts it; either one, taken into
-  // min(top)/max(bottom), stretches the extent towards maxH.
+  // origin, and a fixed or absolute one sits wherever its containing block puts it; any of them,
+  // taken into min(top)/max(bottom), stretches the extent towards maxH.
   const kids = Array.from(body.children)
-    .filter((k) => getComputedStyle(k).position !== "fixed")
+    .filter((k) => !OUT_OF_FLOW.has(getComputedStyle(k).position))
     .map((k) => k.getBoundingClientRect())
     .filter((r) => r.width !== 0 || r.height !== 0);
   if (kids.length === 0) return null;

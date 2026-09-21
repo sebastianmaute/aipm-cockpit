@@ -61,7 +61,11 @@ async function tileReading(page: import("@playwright/test").Page, id: DashboardT
     const body = section.querySelector("[data-arrangement-body]") as HTMLElement;
     const gs = getComputedStyle(grid);
     const bs = getComputedStyle(body);
-    const kids = [...body.children].map((k) => k.getBoundingClientRect());
+    // Mirrors `measureTile`: only children in flow count.
+    const kids = [...body.children]
+      .filter((k) => !["fixed", "absolute"].includes(getComputedStyle(k).position))
+      .map((k) => k.getBoundingClientRect())
+      .filter((k) => k.width !== 0 || k.height !== 0);
     return {
       rowUnit: parseFloat(gs.gridAutoRows),
       gap: parseFloat(gs.rowGap),
@@ -327,6 +331,62 @@ test.describe("dashboard grid measured heights across reload and density", () =>
       const r = await tileReading(page, "upcoming");
       return r.rowUnit !== before.rowUnit && r.renderedRows === r.measuredRows
         ? "match" : `unit ${r.rowUnit}, rendered ${r.renderedRows}, measured ${r.measuredRows}`;
+    }).toBe("match");
+  });
+});
+
+/**
+ * ★★ A board that differs from the default ONLY in a width: no `hSet` anywhere, nothing hidden, so
+ * the tile set and every flag are the same before and after Reset. Only the reset nonce can make
+ * Reset re-measure it. `reconcile` re-inserts every other catalogue tile, so the tile SET matches the
+ * default too.
+ * ★ `milestones`, not `upcoming`: `upcoming`'s body is a plain one-item-per-line list
+ * (`UpcomingCard`), whose row count does not depend on width at these two widths — the sample
+ * workspace's items are short enough to stay on one line at w:1 as well as w:2, so `1 col → 2 col`
+ * never changes the ROW COUNT (only the free space beside the text), making the non-vacuity check
+ * below unsatisfiable. `milestones`' body (`MilestoneHorizonStrip`) is `flex flex-wrap` chips, whose
+ * wrap genuinely depends on width — measured 3 rows narrow vs 2 rows at the default width for this
+ * sample data.
+ */
+const NARROW_MILESTONES_LAYOUT = {
+  v: 1,
+  board: [{ id: "milestones", w: 1, h: 2, wSet: true }],
+  hidden: [],
+  upgrades: [DASHBOARD_BURN_UPGRADE],
+};
+
+test.describe("dashboard grid Reset re-measures", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true }));
+    });
+    await seedLayout(page, NARROW_MILESTONES_LAYOUT);
+    await page.setViewportSize({ width: XL, height: 1000 });
+    await gotoApp(page);
+    await openView(page, "Dashboard");
+  });
+
+  test("a tile narrowed by a stored width is measured again after Reset layout", async ({ page }) => {
+    // Mount: measured at the stored narrow width.
+    await expect.poll(async () => {
+      const r = await tileReading(page, "milestones");
+      return r.renderedRows === r.measuredRows ? "match" : `rendered ${r.renderedRows}, measured ${r.measuredRows}`;
+    }).toBe("match");
+    const narrow = await tileReading(page, "milestones");
+    const narrowW = (await tileBox(page, "milestones")).width;
+
+    await page.getByRole("button", { name: "Reset layout", exact: true }).click();
+    // The width really went back to the default.
+    await expect.poll(async () => (await tileBox(page, "milestones")).width).toBeGreaterThan(narrowW);
+
+    // ★★ Non-vacuity, read from the page: at the default width the content needs a DIFFERENT row
+    // count than the one the tile was measured to while narrow. Without that, a Reset that never
+    // re-measured would still pass the match below.
+    const wide = await tileReading(page, "milestones");
+    expect(wide.measuredRows, "the seed must wrap differently at the two widths").not.toBe(narrow.renderedRows);
+    await expect.poll(async () => {
+      const r = await tileReading(page, "milestones");
+      return r.renderedRows === r.measuredRows ? "match" : `rendered ${r.renderedRows}, measured ${r.measuredRows}`;
     }).toBe("match");
   });
 });

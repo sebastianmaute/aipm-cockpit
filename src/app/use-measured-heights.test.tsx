@@ -167,15 +167,17 @@ describe("useMeasuredHeights", () => {
   });
 
   // ★ m4: a direct child that takes no part in the body's flow must not stretch the extent. A
-  //   display:none element reads as an all-zero rect at the viewport origin, and a position:fixed one
-  //   sits wherever the viewport puts it; either, taken into min(top)/max(bottom), inflated the
-  //   reading towards maxH.
-  it("ignores a display:none child and a position:fixed child when taking the extent", async () => {
+  //   display:none element reads as an all-zero rect at the viewport origin, and a fixed or absolute
+  //   one sits wherever its containing block puts it; any of them, taken into min(top)/max(bottom),
+  //   inflated the reading towards maxH.
+  it("ignores a display:none child and a fixed or absolute child when taking the extent", async () => {
     const TOP = 300;
     vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
       if (this.hasAttribute("data-arrangement-section")) return rect(0, 176);
       if (this.hasAttribute("data-child")) return rect(TOP, CHILD);
-      if (this.hasAttribute("data-fixed-child")) return { ...rect(0, 40), width: 40, right: 40 } as DOMRect;
+      if (this.hasAttribute("data-fixed-child") || this.hasAttribute("data-absolute-child")) {
+        return { ...rect(0, 40), width: 40, right: 40 } as DOMRect;
+      }
       return rect(0, 0);                      // the display:none child: every edge 0
     });
     vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) {
@@ -187,7 +189,7 @@ describe("useMeasuredHeights", () => {
         onResult={(m) => { last = m; }}
         density="comfortable"
         tiles={[{ ...TILE_A, maxH: 8 }]}
-        extra={<><div data-hidden-child="" style={{ display: "none" }} /><div data-fixed-child="" style={{ position: "fixed" }} /></>}
+        extra={<><div data-hidden-child="" style={{ display: "none" }} /><div data-fixed-child="" style={{ position: "fixed" }} /><div data-absolute-child="" style={{ position: "absolute" }} /></>}
       />,
     );
     await flushRaf();
