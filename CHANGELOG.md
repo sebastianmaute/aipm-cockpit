@@ -8,12 +8,54 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [1.12.8] - 2026-09-21 "Child"
+## [1.13.0] - 2026-09-21 "Connelly"
 
-A load-and-save patch. A chat turn that was already running when the project underneath it
-changed went on writing into whatever project was in scope by the time each tool came up; and
-three ways a save could be refused or a file overwritten, found during that work, are closed
-here too.
+A Dashboard and branding release. Dashboard tiles now size themselves to what they show, the
+landing page has one At a glance tile and one status summary, Reports opens with the same At a
+glance strip, and the company name on exports and on the AI Assistant's consent screen is
+configurable. It also carries a load-and-save patch for the AI assistant: a chat turn that was
+already running when the project underneath it changed went on writing into whatever project was
+in scope by the time each tool came up, and three ways a save could be refused or a file
+overwritten, found during that work, are closed here too.
+
+### Added
+
+- **Dashboard tiles size themselves to their content.** Each tile's height is measured when the
+  Dashboard opens, when the density changes and on Reset layout, so a tile no longer shows empty
+  space or an inner scrollbar at its default size. A height you choose from a tile's ⋮ menu is
+  kept and wins over the measurement.
+- **Reports opens with the Dashboard's At a glance strip.** The Headline block (Total, Open,
+  Completed, Overdue) is replaced by the same tiles the Dashboard shows — Complete, R/A/G,
+  Overdue, Open RAID and, where tasks carry estimates, Effort SPI and Effort CPI — computed by the
+  same function, so the two views cannot disagree. The block keeps its place on a saved Reports
+  layout and sizes itself to its content like a Dashboard tile.
+- **The Completion trend is dated and drawn to scale.** The first and last value and date sit
+  around the line ("Today" when the last point is today's), points are spaced by date so a gap
+  of weeks looks like weeks, and the line uses a fixed 0–100 % scale so a five-point move looks
+  like five points. The tile is hidden on a fresh board and explains itself in a tooltip.
+- **The AI usage policy on the AI Assistant's consent screen is configurable.** Settings → AI
+  Assistant has a policy owner and a policy link; a deployment can set both at build time with
+  `NEXT_PUBLIC_AI_POLICY_ORG` and `NEXT_PUBLIC_AI_POLICY_URL`, which then win. With nothing set it
+  is the same Acme owner and link as before. With no link, the policy bullet, link and
+  checkbox disappear and Accept works on its own. Only an `https://` link is ever used.
+- **The export footer is configurable.** Settings → Appearance has an "Export footer" field for
+  the line at the foot of HTML document downloads, print/PDF exports and PowerPoint exports —
+  where it is also printed on every slide and names the deck's theme. With nothing set it is the
+  familiar "Acme — AI PM Cockpit"; clearing it prints just "AI PM Cockpit".
+
+### Changed
+
+- **At a glance is the one completion tile.** The separate Progress tile is merged into it, its
+  trend arrows sit beside each number instead of on a line of their own, and every card in the
+  strip is the same height.
+- **One status summary, edited in place.** The Dashboard shows a single status summary, edited
+  inline from a pencil icon at its top right.
+- **The Dashboard's print and reset controls sit in two columns**, so the stack beside the
+  greeting is shorter.
+- **A closed budget bucket with no percent complete counts as 100 %** in earned value, instead of
+  leaving the project's earned value and the at-current-efficiency forecast blank.
+- **The demo project** gives every open budgeted bucket a percent complete, so its budget
+  forecast is filled in, and the README's screenshot and product-tour video show the current UI.
 
 ### Fixed
 
