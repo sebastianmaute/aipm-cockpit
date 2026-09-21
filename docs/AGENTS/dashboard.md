@@ -429,14 +429,16 @@ The presentational slices:
   `{lang, today, model, status, setStatus, showBudget?, showChanges?, dc}` — `trends`/`topActions`/
   `onOpenAction`/`onNavigate` were REMOVED (they moved with the KPI/Top-actions cards).
 - `dashboard-sections/dashboard-kpi-strip.tsx` (`DashboardKpiStrip`) — the "at a glance" KPI tiles
-  (complete % · overdue · open RAID, plus Effort SPI · Effort CPI whenever `model.evm.spi`/
+  (complete % with its `dashboardCompletedOf` count · R/A/G · overdue · open RAID, plus Effort SPI · Effort CPI whenever `model.evm.spi`/
   `model.evm.cpi` is non-null — spec C, independent of the Budget module; overdue and open-RAID
   always carry a `TrendArrow`, completion
   carries one only outside the no-active-scope state below); the body of the `kpi` tile. Uses a
   `dc.kpiPad` card wrapper (NOT `<Section boxed>`, which hardcodes `p-4` and ignores compact density).
   ★ `kpiPad`, not `cardPad` (§585): same horizontal padding, but compact drops the vertical padding — with
   it, a wrapped strip overflowed its h:3 tile body by 3px at the 72px row unit.
-  ★★ Its columns come from `KPI_STRIP_COLS`, keyed on the VISIBLE cell count (3, 4 or 5 — so no count leaves
+  ★ The count and the R/A/G cell came from the retired `progress` tile, merged here so completion renders once; the
+  Progress caption split into the two cells' tooltips (`dashboardCompleteHint` · `dashboardRagSplitHint`).
+  ★★ Its columns come from `KPI_STRIP_COLS`, keyed on the VISIBLE cell count (every member of `KpiCellCount` — so no count leaves
   an empty cell) and read as CONTAINER queries off that wrapper, which is the `@container`: they size to the
   tile, not the viewport (§581). The breakpoints are measured label widths; the derivation sits on the constant.
   ★★★ **NEVER RE-DERIVE "is this project all cancelled" — call `hasNoActiveScope(progress)`
@@ -454,10 +456,9 @@ The presentational slices:
   in the grid between the two states. Harmless in the `grid` strip (cells stretch), but jsdom has no
   layout so no test here can see it — eye-verify this tile in both states, and never assume the
   wrapper is there when writing a `.parentElement` walk against it.
-  ★★ STILL INCONSISTENT, recorded not fixed (`docs/open-followups.md` §66): the R/A/G tile beside it
-  counts a cancelled task GREEN, because `computeGroupHealth` tallies `computeTaskHealth` per task
-  and that returns Green for anything finished. So an all-cancelled project reads "No active scope"
-  next to "G 2".
+  ★ The R/A/G cell beside it leaves closed-but-never-delivered work out of its counts and discloses it
+  as a ✕ count (`outOfScope`; `docs/open-followups.md` §66, closed), so an all-cancelled project reads
+  "No active scope" beside zero R/A/G counts and the cancelled count.
 - `dashboard-sections/dashboard-top-actions.tsx` (`DashboardTopActions`) — the ranked Top-actions queue;
   returns `null` when `!topActions?.length`. ★★ The panel no longer gates a wrapper on that: the old
   `break-inside-avoid` masonry wrapper is gone and the condition moved into `TileGateInput`
@@ -560,8 +561,8 @@ IS in axe `A11Y_VIEWS`. Built as slices:
   props.milestones?.length ?? 0`) and depend on that. ★ The greeting summary is suppressed when
   `needsYou===0 && milestonesSoon===0` (avoids "0 items need you" on a blank project). ★ The live demo seeds
   a POPULATED project so the coaching card is ABSENT at scan time (buttons eye/unit-verified, not axe-gated).
-- **KPI trend arrows ("which way is it moving"):** an "at a glance" 3-tile KPI strip (completion % · overdue
-  · open RAID) below the coaching card, each tile with a trend arrow (↑/↓/→) + signed delta vs LAST VISIT.
+- **KPI trend arrows ("which way is it moving"):** the "at a glance" KPI strip's completion % · overdue
+  · open RAID cells, each with a trend arrow (↑/↓/→) + signed delta vs LAST VISIT.
   Pure i18n-free `dashboard-trends.ts` `computeMetricTrends(prior, current)` → `Record<MetricKey,
   MetricTrend>` (`{value, delta, direction, improved}`); per-metric `HIGHER_IS_BETTER` (completion up = good;
   overdue/openRaid up = bad). ★ `delta===null ⟺ improved===null ⟺ no prior value` → arrow renders NOTHING;

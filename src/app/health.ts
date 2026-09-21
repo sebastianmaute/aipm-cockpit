@@ -184,7 +184,7 @@ export function computeGroupHealth(
   for (const t of tasks) {
     // ★★ `healthOverride` is checked FIRST, before the exclusion — a hand-pinned
     //    cancelled row keeps the colour its user chose, which is exactly what
-    //    `dashboardProgressCaption`'s "unless its health was set by hand" clause
+    //    `dashboardRagSplitHint`'s "unless its health was set by hand" clause
     //    has always described. Do not simplify that away.
     if (!t.healthOverride && isTaskOutOfScope(t)) {
       outOfScope += 1;

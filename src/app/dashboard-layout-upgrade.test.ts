@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { burnUpgradeStep, progressRemovalStep, upgradeDashboardLayout } from "./dashboard-layout-upgrade";
+import { progressRemovalStep, upgradeDashboardLayout } from "./dashboard-layout-upgrade";
 import {
   DASHBOARD_BURN_UPGRADE, DASHBOARD_PROGRESS_REMOVAL_UPGRADE, DEFAULT_LAYOUT, reconcile, type DashboardLayout,
 } from "./dashboard-layout";
@@ -130,12 +130,12 @@ describe("DEFAULT_LAYOUT (spec C)", () => {
 
   it("already carries the upgrade id, so a fresh or reset board is never upgraded", () => {
     expect(DEFAULT_LAYOUT.upgrades).toEqual([DASHBOARD_BURN_UPGRADE]);
-    // burnUpgradeStep, not the composed upgradeDashboardLayout: until Task 5 removes
-    // "progress" from DASHBOARD_TILES, a fresh board's catalogue-derived board still
-    // holds a progress tile, so the composed function would (correctly) also run
-    // progressRemovalStep and return a new object — a reference break unrelated to
-    // what this test pins, which is the burn step's own id-gating.
-    expect(burnUpgradeStep(DEFAULT_LAYOUT)).toBe(DEFAULT_LAYOUT);
+    // Through the COMPOSED function, not one step: every step must hand a fresh
+    // board back by reference, or a fresh or reset board is rewritten on every
+    // load. The progress step needs no id here — `progress` is not in
+    // DASHBOARD_TILES, so a catalogue-derived board never holds it.
+    expect(upgradeDashboardLayout(DEFAULT_LAYOUT)).toBe(DEFAULT_LAYOUT);
+    expect(DEFAULT_LAYOUT.board.map((b) => b.id as string)).not.toContain("progress");
   });
 });
 
@@ -176,7 +176,7 @@ describe("upgradeDashboardLayout composes both steps", () => {
       v: 1 as const, upgrades: [DASHBOARD_BURN_UPGRADE], hidden: [],
       board: [{ id: "burn", w: 2, h: 8 }, { id: "progress", w: 2, h: 2 }],
     };
-    expect(upgradeDashboardLayout(l).board.map((b) => b.id)).toEqual(["burn"]);
+    expect(upgradeDashboardLayout(l as never).board.map((b) => b.id)).toEqual(["burn"]);
   });
 
   it("returns the same object when neither step has anything to do", () => {

@@ -6,7 +6,7 @@
  * ★★ THE TILE CHROME OWNS THE FRAME AND THE TITLE. `dashboard-tile.tsx` draws
  * the border and renders `<h3>{t(lang, spec.labelKey)}</h3>`, and the catalogue's
  * label keys were chosen to MATCH the headings these cards used to carry
- * themselves (`dashboardProgress`, `dashboardBudgetBurn`, `dashboardMilestones`,
+ * themselves (`dashboardBudgetBurn`, `dashboardMilestones`,
  * `dashboardChangesHeading`, `dashboardCompletionTrend`, `dashboardTrends` =
  * `navTrends`). So a body must NOT re-render its own `Section`/`Card` box or its
  * own heading — doing both stacks two identical `<h3>`s inside two nested
@@ -32,8 +32,6 @@
  */
 
 import type { ReactNode } from "react";
-import { Tile } from "./report-table";
-import { RagDot } from "./rag-dot";
 import { RagBadge } from "./rag-badge";
 import { changeImpactRag } from "./change-log";
 import { BurndownChartPanel } from "./burndown-chart-panel";
@@ -101,8 +99,6 @@ export interface TileBodyArgs {
    *  is `budgetHours × role.rates.external` and converts nothing — see the
    *  `currency` argument in `dashboard-panel.tsx`. */
   currency: string;
-  /** `hasNoActiveScope(model.progress)` — shared with the KPI card. */
-  noActiveScope: boolean;
   completionSeries: readonly CompletionPoint[];
   milestoneBuckets: MilestoneHorizonBuckets;
   varianceRows: readonly VarianceRow[];
@@ -131,7 +127,6 @@ export interface TileBodyArgs {
  */
 export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId, ReactNode>> {
   const { lang, dc, model } = a;
-  const openTasks = a.onNavigate ? () => a.onNavigate!("open-points") : undefined;
 
   return {
     kpi: (
@@ -162,50 +157,6 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
 
     upcoming: (
       <UpcomingCard lang={lang} overdue={model.overdue} dueSoon={model.dueSoon} onOpenTask={a.onOpenTask} />
-    ),
-
-    progress: (
-      <>
-        <div className="flex flex-wrap gap-2">
-          <Tile
-            label={a.noActiveScope
-              ? t(lang, "dashboardNoActiveScope")
-              : t(lang, "dashboardPercentComplete", String(model.progress.percent))}
-            value={a.noActiveScope
-              ? t(lang, "dashboardAllCancelled", String(model.progress.total))
-              : t(lang, "dashboardCompletedOf", String(model.progress.completed), String(model.progress.inScope))}
-            onActivate={openTasks}
-            activateLabel={a.noActiveScope
-              ? `${t(lang, "dashboardNoActiveScope")} – ${t(lang, "dashboardOpenTasksView")}`
-              : `${t(lang, "dashboardPercentComplete", String(model.progress.percent))} – ${t(lang, "dashboardOpenTasksView")}`}
-          />
-          <Tile
-            label="R / A / G" hint={t(lang, "dashboardRagHint")}
-            value={
-              <span className="inline-flex items-center gap-2">
-                <span className="inline-flex items-center gap-1"><RagDot level="R" />{model.progress.counts.R}</span>
-                <span className="inline-flex items-center gap-1"><RagDot level="A" />{model.progress.counts.A}</span>
-                <span className="inline-flex items-center gap-1"><RagDot level="G" />{model.progress.counts.G}</span>
-                {/* ★ Conditional on > 0 — "✕ 0" on every healthy project is
-                    noise. ★ The glyph is aria-hidden with an sr-only
-                    companion: a bare "✕" announces inconsistently across
-                    screen readers, and unlike the three RagDots it cannot
-                    lean on the tile's own "R / A / G" label for meaning. */}
-                {model.progress.outOfScope > 0 && (
-                  <span className="inline-flex items-center gap-1">
-                    <span aria-hidden="true" className="text-muted-foreground">✕</span>
-                    <span className="sr-only">{t(lang, "dashboardOutOfScopeCount")}</span>
-                    {model.progress.outOfScope}
-                  </span>
-                )}
-              </span>
-            }
-            onActivate={openTasks}
-            activateLabel={`R / A / G – ${t(lang, "dashboardOpenTasksView")}`}
-          />
-        </div>
-        <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardProgressCaption")}</p>
-      </>
     ),
 
     // Turso-only. Clicking jumps to the Trends view.

@@ -143,13 +143,14 @@ export function computeDashboardProgress(
  *  greets that screen with the coaching card, and changing the most common
  *  first-run view to fix a case that is not broken is the wrong trade.
  *
- *  ★★ Shared rather than re-derived at each call site, and that is the whole
- *  point: the Progress tile and the at-a-glance KPI card render the SAME
- *  metric, so a copy of this expression that drifts puts two cards on one
- *  screen disagreeing about whether the project has any scope left. That is
- *  not hypothetical — it happened, across four commits on this branch, while
- *  only one of the two had been updated. Caught in review, not by a gate, and
- *  never released. */
+ *  ★★ Shared rather than re-derived at each call site. The landing page now
+ *  shows completion on ONE card (At a glance; the Progress tile it absorbed is
+ *  retired), but this state also reaches the dashboard panel's completion-trend
+ *  gate and the AI snapshot (`ai-dashboard-snapshot.ts`), and a copy that
+ *  drifts puts two surfaces in disagreement about whether the project has any
+ *  scope left. That is not hypothetical — it happened between the retired
+ *  Progress tile and the KPI card while only one had been updated. Caught in
+ *  review, not by a gate, and never released. */
 export function hasNoActiveScope(progress: Pick<DashboardProgress, "total" | "inScope">): boolean {
   return progress.total > 0 && progress.inScope === 0;
 }

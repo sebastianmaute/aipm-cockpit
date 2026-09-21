@@ -27,16 +27,16 @@
  * it actually removed something — a layout that never held `progress` is
  * returned by reference, unchanged, without recording anything.
  *
- * ★★★ THE ID GATE IS LOAD-BEARING, NOT JUST "NOTHING TO REMOVE". Until Task 5
- * drops `"progress"` from `DASHBOARD_TILES`, `reconcile` (which runs AFTER
- * this composer, on every load) re-inserts any catalogue tile absent from
- * both `board` and `hidden` — so a step gated only on presence would remove
- * `progress` on every load, `reconcile` would put it straight back, and the
- * NEXT load would remove it again: an infinite re-dirty loop, one more
- * `DASHBOARD_PROGRESS_REMOVAL_UPGRADE` appended to `upgrades` each time.
- * Checking `layout.upgrades?.includes(DASHBOARD_PROGRESS_REMOVAL_UPGRADE)`
- * first breaks that loop after the first pass, exactly as the burn step's own
- * id check does.
+ * ★★ THE ID GATE WAS LOAD-BEARING WHILE `"progress"` WAS STILL IN THE
+ * CATALOGUE. `reconcile` (which runs AFTER this composer, on every load)
+ * re-inserts any catalogue tile absent from both `board` and `hidden`, so a
+ * step gated only on presence would have removed `progress` on every load and
+ * had it put straight back: a re-dirty loop, one more id appended each time.
+ * With `progress` gone from `DASHBOARD_TILES`, `reconcile` no longer
+ * re-inserts it and a presence check alone would terminate; the id gate stays
+ * so this step is gated exactly as the burn step is, and so a layout that
+ * recorded it is never re-examined. The load-path round trip is pinned in
+ * `use-dashboard-layout.test.tsx`.
  * ★★★ EACH STEP RETURNS ITS INPUT BY REFERENCE WHEN ITS OWN ID IS ALREADY
  * RECORDED. That is the hook's signal that nothing needs writing; a copy
  * would rewrite storage on every load (`use-arrangement.ts`, the `upgrade`
@@ -98,9 +98,9 @@ export function burnUpgradeStep(layout: DashboardLayout): DashboardLayout {
   };
 }
 
-/** Retired ids are compared as strings — Task 5 removes `"progress"` from the
- *  `DashboardTileId` union, after which comparing a tile's `id` to it stops
- *  typechecking. */
+/** Retired ids are compared as strings — `"progress"` is no longer in the
+ *  `DashboardTileId` union, so comparing a tile's `id` to it directly does
+ *  not typecheck. */
 export function progressRemovalStep(layout: DashboardLayout): DashboardLayout {
   if (layout.upgrades?.includes(DASHBOARD_PROGRESS_REMOVAL_UPGRADE)) return layout;
   const onBoard = layout.board.some((p) => (p.id as string) === "progress");

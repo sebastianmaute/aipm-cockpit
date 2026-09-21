@@ -3,6 +3,7 @@ import { DASHBOARD_LAYOUT_KEY } from "../src/app/dashboard-layout-store";
 import { DASHBOARD_BURN_UPGRADE } from "../src/app/dashboard-layout";
 import { rowsForHeight } from "../src/app/arrangement-measure";
 import { tileById, type DashboardTileId } from "../src/app/dashboard-tiles";
+import { KPI_STRIP_COLS, type KpiCellCount } from "../src/app/dashboard-sections/dashboard-kpi-strip";
 
 /**
  * The ONE measurement of the Dashboard grid that no unit test can make.
@@ -390,11 +391,16 @@ test.describe("dashboard grid width spans", () => {
  * §585: nothing that shows a value may be hidden, and a cell reachable only by
  * scrolling inside its tile counts as hidden.
  *
- * ★★ At a 1280px viewport the half-width KPI tile is too narrow for four or
- * five cells in one row, so `KPI_STRIP_COLS` wraps them to a second row — which
- * is why the KPI default is h:3. Only a real layout can show the second row
- * still fits the tile BODY (the `overflow-auto` box under the chrome), so this
- * measures it, in both densities.
+ * ★★ At a 1280px viewport the half-width KPI tile is too narrow for five or
+ * six cells in one row, so `KPI_STRIP_COLS` wraps them. The number of rows is
+ * DERIVED here from that constant and the strip's measured container width
+ * (`expectedKpiRows`), not written down, so a re-tuned breakpoint moves the
+ * expectation with it. Only a real layout can show the wrapped rows still fit
+ * the tile BODY (the `overflow-auto` box under the chrome) — since the tile is
+ * measured, that no-scroll check is a check on measurement — so this runs in
+ * both densities.
+ * ★ R/A/G is always a cell since the Progress tile merged into this one, so
+ * the two counts reachable by seeding are the strip with and without CPI.
  *
  * ★ This seeds EVM data straight into the IndexedDB tasks store the seed
  * fixture wrote (the page is still on its same-origin `/favicon.ico` here):
@@ -405,8 +411,8 @@ test.describe("dashboard grid width spans", () => {
  * LOAD-BEARING ONE. The sample master now authors effort on every task (SPI
  * 0.82 / CPI 0.88 as of `DEMO_AS_OF`), so a spread that merely OMITS the key
  * when `booked` is false inherits the master's booked minutes, CPI stays
- * non-null, and the four-cell case silently becomes a five-cell one — the test
- * would still pass its `rows === 2` and no-scroll assertions while measuring
+ * non-null, and the five-cell case silently becomes a six-cell one — the test
+ * would still pass its row-count and no-scroll assertions while measuring
  * the wrong strip. An earlier revision of this comment said the sample carried
  * no estimates and the strip showed three cells; that was true when written and
  * was falsified by authoring EVM data into the master.
@@ -433,10 +439,36 @@ async function seedEvm(page: import("@playwright/test").Page, withBookedHours: b
 
 const KPI_FIT_VW = 1280;
 
+/** Tailwind v4's named container sizes this strip's classes use, in rem. */
+const CONTAINER_REM: Record<string, number> = { "2xs": 18, "2xl": 42, "4xl": 56 };
+
+/** The rows `KPI_STRIP_COLS[cells]` lays `cells` cells into at a container
+ *  `widthPx` wide (16px root): the widest active `grid-cols-N`, each cell's
+ *  active `*:col-span-K`, the last two's active `nth-last` span, packed in order. */
+function expectedKpiRows(cells: KpiCellCount, widthPx: number): number {
+  const active = KPI_STRIP_COLS[cells].split(" ").map((tok) => {
+    const m = /^@(?:\[(\d+)rem\]|([a-z0-9]+)):(.+)$/.exec(tok)!;
+    const rem = m[1] ? Number(m[1]) : CONTAINER_REM[m[2]];
+    if (rem === undefined) throw new Error(`unknown container size in ${tok}`);
+    return { min: rem * 16, rule: m[3] };
+  }).filter((t) => widthPx >= t.min).sort((a, b) => a.min - b.min);
+  const last = (re: RegExp) => active.map((t) => re.exec(t.rule)).filter(Boolean).pop();
+  const cols = Number(last(/^grid-cols-(\d+)$/)?.[1] ?? 1);
+  const span = Number(last(/^\*:col-span-(\d+)$/)?.[1] ?? 1);
+  const tailSpan = Number(last(/^\*:nth-last-\[-n\+2\]:col-span-(\d+)$/)?.[1] ?? span);
+  let rows = 1, used = 0;
+  for (let i = 0; i < cells; i++) {
+    const w = Math.min(cols, i >= cells - 2 ? tailSpan : span);
+    if (used + w > cols) { rows += 1; used = 0; }
+    used += w;
+  }
+  return rows;
+}
+
 for (const density of ["comfortable", "compact"] as const) {
-  for (const cells of [5, 4] as const) {
+  for (const cells of [6, 5] as const) {
     test(`the ${cells}-cell KPI strip fits its tile body at half-width xl — ${density} (§585)`, async ({ page }) => {
-      await seedEvm(page, cells === 5);
+      await seedEvm(page, cells === 6);
       await page.addInitScript((d) => {
         localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ dashboardDensity: d }));
       }, density);
@@ -449,14 +481,18 @@ for (const density of ["comfortable", "compact"] as const) {
       expect((await gridMetrics(page)).autoRows).toBe(density === "compact" ? "72px" : "80px");
       const tile = page.getByTestId("tile-kpi");
       await expect(tile.getByText("Effort SPI")).toBeVisible();
-      await expect(tile.getByText("Effort CPI")).toHaveCount(cells === 5 ? 1 : 0);
+      await expect(tile.getByText("Effort CPI")).toHaveCount(cells === 6 ? 1 : 0);
 
       const fit = await tile.evaluate((section) => {
         const body = section.lastElementChild as HTMLElement; // the overflow-auto body
-        const strip = body.querySelector('[class*="@container"] > div') as HTMLElement;
+        const wrapper = body.querySelector('[class*="@container"]') as HTMLElement;
+        const strip = wrapper.firstElementChild as HTMLElement;
         const cellBottoms = [...strip.children].map((c) => c.getBoundingClientRect().bottom);
+        const cs = getComputedStyle(wrapper);
         return {
           count: strip.children.length,
+          // The container query reads the wrapper's CONTENT box.
+          containerWidth: wrapper.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
           rows: new Set([...strip.children].map((c) => Math.round(c.getBoundingClientRect().top))).size,
           lowestCell: Math.max(...cellBottoms),
           bodyBottom: body.getBoundingClientRect().bottom,
@@ -465,8 +501,10 @@ for (const density of ["comfortable", "compact"] as const) {
         };
       });
       expect(fit.count).toBe(cells);
+      const rows = expectedKpiRows(cells, fit.containerWidth);
+      expect(fit.rows, `rows at a ${fit.containerWidth}px container`).toBe(rows);
       // The case this exists for: the cells really did wrap.
-      expect(fit.rows).toBe(2);
+      expect(rows).toBeGreaterThan(1);
       // Every cell ends inside the body's visible box, and the body has nothing
       // to scroll.
       expect(fit.lowestCell).toBeLessThanOrEqual(fit.bodyBottom + 0.5);
@@ -485,15 +523,18 @@ for (const density of ["comfortable", "compact"] as const) {
  * backfills. This seeds an arrangement whose only correct rendering REQUIRES the
  * backfill, then reads the resulting tops.
  *
- * Seeded board (all three are ungated catalogue tiles, each inside its own
- * min/max so `reconcile` clamps none of them). ★★ None carries `hSet`, so all
- * three render at their MEASURED heights, not the stored h:2 below — the row
- * numbers are therefore nominal. That does not change what this test measures:
- * the backfill turns on `kpi`'s WIDTH (w:4 cannot fit the two free columns
- * beside `upcoming`), never on any height, and the assertions compare tops:
+ * Seeded board (each tile inside its own min/max so `reconcile` clamps none of
+ * them; `upcoming` and `kpi` are ungated, and `raid` is gated on `showRaid`,
+ * which the seed turns on). ★★ None carries `hSet`, so all three render at
+ * their MEASURED heights, not the stored h:2 below — `kpi` in particular is
+ * adjustable (`minH`/`maxH` in DASHBOARD_TILES) and takes whatever its strip
+ * measures at w:4. The row numbers are therefore nominal. That does not change
+ * what this test measures: the backfill turns on `kpi`'s WIDTH (w:4 cannot fit
+ * the two free columns beside `upcoming`), never on any height, and the
+ * assertions compare tops:
  *   1. upcoming w2 h2        → rows 1-2, cols 1-2
  *   2. kpi      w4 h2        → cannot fit the two free columns, so below upcoming
- *   3. progress w2 h2        → dense pulls it UP into rows 1-2, cols 3-4
+ *   3. raid     w2 h2        → dense pulls it UP into rows 1-2, cols 3-4
  * Without `dense` it would sit below kpi.
  *
  * ★ Every other tile is HIDDEN, not merely omitted: `reconcile` re-inserts any
@@ -509,10 +550,10 @@ const DENSE_LAYOUT = {
   board: [
     { id: "upcoming", w: 2, h: 2 },
     { id: "kpi", w: 4, h: 2 },
-    { id: "progress", w: 2, h: 2 },
+    { id: "raid", w: 2, h: 2 },
   ],
   hidden: [
-    "topActions", "insights", "raid", "trends",
+    "topActions", "insights", "trends",
     "burn", "milestones", "changes", "completionTrend",
   ],
 };
@@ -536,17 +577,17 @@ test.describe("dashboard grid dense packing", () => {
     // Guard: the seed has to have taken. If reconcile rewrote the board, the
     // hidden tiles would still be on it and the tops below would compare the
     // wrong things.
-    await expect(page.getByTestId("tile-raid")).toHaveCount(0);
+    await expect(page.getByTestId("tile-milestones")).toHaveCount(0);
 
     const upcoming = await tileBox(page, "upcoming");
     const kpi = await tileBox(page, "kpi");
-    const progress = await tileBox(page, "progress");
+    const raid = await tileBox(page, "raid");
 
-    // DOM order is upcoming → kpi → progress; only dense packing can put the
+    // DOM order is upcoming → kpi → raid; only dense packing can put the
     // third one level with the first.
-    expect(Math.abs(progress.y - upcoming.y)).toBeLessThan(1.5);
-    expect(progress.y).toBeLessThan(kpi.y);
+    expect(Math.abs(raid.y - upcoming.y)).toBeLessThan(1.5);
+    expect(raid.y).toBeLessThan(kpi.y);
     // …and it lands in the columns kpi vacated, not on top of upcoming.
-    expect(progress.x).toBeGreaterThan(upcoming.x + upcoming.width - 1.5);
+    expect(raid.x).toBeGreaterThan(upcoming.x + upcoming.width - 1.5);
   });
 });

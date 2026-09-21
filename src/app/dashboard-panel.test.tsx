@@ -150,7 +150,10 @@ describe("DashboardPanel captions and thresholds", () => {
       <DashboardPanel
         lang="en-US"
         tasks={[
-          { id: 1, title: "Done task", status: "Done", health: "G", linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [] } as never,
+          // ★ `completedDate` makes the task DELIVERED. Without it a Done task is
+          // closed-but-never-delivered, i.e. out of scope, and a one-task project
+          // then reads as no-active-scope — which suppresses the Complete hint.
+          { id: 1, title: "Done task", status: "Done", completedDate: "2026-05-02", health: "G", linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [] } as never,
         ]}
         raid={[]}
         budgets={minimalBudget as never}
@@ -172,6 +175,9 @@ describe("DashboardPanel captions and thresholds", () => {
   });
 
   // Assert the KEY renders, not a hardcoded fragment of its English wording.
+  // ★ The Progress caption is no longer visible text: its completion sentence is
+  // now the Complete cell's tooltip (`dashboardCompleteHint`), whose trigger's
+  // accessible name IS the text.
   // The old form matched /Tasks completed vs total/ — a sentence that had been
   // FALSE since the completion denominator became `inScope` (the tile beneath
   // it reads "{completed} of {inScope}"), and the test kept passing precisely
@@ -182,9 +188,9 @@ describe("DashboardPanel captions and thresholds", () => {
   // ★ Spec C: the burn caption described the Spent/hours figures, which left the
   // chart-only burn tile, so the caption left with them (the Budget report
   // keeps it). The positive half keeps this from passing on an empty render.
-  it("renders the progress caption, and no longer the burn caption", () => {
+  it("renders the completion hint, and no longer the burn caption", () => {
     renderDashboard();
-    expect(screen.getByText(t("en-US", "dashboardProgressCaption"))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("en-US", "dashboardCompleteHint") })).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "dashboardBurnCaption"))).toBeNull();
   });
 
@@ -258,7 +264,7 @@ describe("DashboardPanel RAG polish (Task 3)", () => {
     expect(document.querySelector("span.bg-\\[var\\(--rag-green\\)\\]")).not.toBeNull();
   });
 
-  it("wraps the Progress section in a boxed rounded-lg card", () => {
+  it("wraps the Upcoming section in a boxed rounded-lg card", () => {
     render(
       <DashboardPanel
         lang="en-US"
@@ -279,12 +285,12 @@ describe("DashboardPanel RAG polish (Task 3)", () => {
     );
     // The boxed card is now the arrangeable TILE CHROME (a <section>), not a
     // <div> the body drew itself — the body no longer boxes or titles itself at
-    // all, or the tile would stack two identical "Progress" headings inside two
-    // nested borders.
-    const heading = screen.getByText("Progress");
+    // all, or the tile would stack two identical headings inside two nested
+    // borders.
+    const heading = screen.getByText("Upcoming & overdue");
     const tile = heading.closest("section.rounded-lg");
     expect(tile).not.toBeNull();
-    expect(tile!.getAttribute("data-testid")).toBe("tile-progress");
+    expect(tile!.getAttribute("data-testid")).toBe("tile-upcoming");
   });
 });
 
@@ -619,14 +625,15 @@ describe("DashboardPanel module visibility gates (Task 8)", () => {
     expect(screen.queryByText("Changes")).toBeNull();
   });
 
-  it("still renders overall RAG and progress when all module flags are false", () => {
+  it("still renders overall RAG and the always-on tiles when all module flags are false", () => {
     render(
       <DashboardPanel {...fullProps} showBudget={false} showRaid={false} showMilestones={false} showChanges={false} />,
       { wrapper },
     );
     // Always-on sections must still render
     expect(screen.getByText("Overall")).toBeInTheDocument();
-    expect(screen.getByText("Progress")).toBeInTheDocument();
+    expect(screen.getByText("At a glance")).toBeInTheDocument();
+    expect(screen.getByText("Upcoming & overdue")).toBeInTheDocument();
   });
 });
 
@@ -771,9 +778,11 @@ describe("DashboardPanel completion-trend card", () => {
     }));
     const snapshots = [snapRec("2026-06-10T00:00:00.000Z", 20), snapRec("2026-06-14T00:00:00.000Z", 55)];
     render(<DashboardPanel {...baseProps} tasks={cancelled} snapshots={snapshots} />, { wrapper });
-    // Two, for the same reason as the paired assertion further down this file:
-    // the Progress tile and the at-a-glance KPI card both carry the state.
-    expect(screen.getAllByText(t("en-US", "dashboardNoActiveScope"))).toHaveLength(2);
+    // One, for the same reason as the paired assertion further down this file:
+    // At a glance is the only card that carries the state since Progress merged
+    // into it. The positive count also keeps the trend-card absence below from
+    // passing on a render that never reached the no-active-scope state.
+    expect(screen.getAllByText(t("en-US", "dashboardNoActiveScope"))).toHaveLength(1);
     expect(screen.queryByText("Completion trend")).toBeNull();
   });
 });
@@ -882,17 +891,18 @@ describe("DashboardPanel arrangeable tile grid", () => {
     // the ordered list into cells, which is why nothing stores coordinates.
     expect(grid!.className).toContain("grid-flow-row-dense");
     expect(grid!.querySelectorAll('[data-testid^="tile-"]').length).toBeGreaterThan(0);
-    // Progress, Milestones + Changes all live in the SAME grid.
+    // Upcoming, Milestones + Changes all live in the SAME grid.
     expect(grid!.textContent).toContain("Milestones");
     expect(grid!.textContent).toContain("Changes");
   });
 
   it("gives each tile the span classes its catalogue entry declares", () => {
     render(<DashboardPanel {...fullProps} projectId="p-grid-span" />, { wrapper });
-    // `progress` is w:2 h:2 in DASHBOARD_TILES, and the classes must be WHOLE
+    // `upcoming` is w:2 h:2 in DASHBOARD_TILES (jsdom measures nothing, so the
+    // catalogue height stands), and the classes must be WHOLE
     // literals — an interpolated `col-span-${w}` emits no CSS at all, and jsdom
     // has no layout to notice.
-    const tile = screen.getByTestId("tile-progress");
+    const tile = screen.getByTestId("tile-upcoming");
     expect(tile.className).toContain("lg:col-span-2");
     expect(tile.className).toContain("row-span-2");
   });
@@ -901,17 +911,17 @@ describe("DashboardPanel arrangeable tile grid", () => {
     // WCAG 2.4.6, and the axe gate cannot see a duplicate accessible name in any
     // view at any seed size — a multi-tile render is the only possible detector.
     render(<DashboardPanel {...fullProps} projectId="p-grid-names" />, { wrapper });
-    expect(screen.getByRole("button", { name: grip("Progress") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: grip("Upcoming & overdue") })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: grip("Milestones") })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: kebab("Progress") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: kebab("Upcoming & overdue") })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: kebab("Milestones") })).toBeInTheDocument();
   });
 
   it("renders no grip, menu, shelf or reset in a popout (read-only)", () => {
     render(<DashboardPanel {...fullProps} projectId="p-grid-popout" isPopout />, { wrapper });
-    expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: grip("Progress") })).toBeNull();
-    expect(screen.queryByRole("button", { name: kebab("Progress") })).toBeNull();
+    expect(screen.getByTestId("tile-upcoming")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: grip("Upcoming & overdue") })).toBeNull();
+    expect(screen.queryByRole("button", { name: kebab("Upcoming & overdue") })).toBeNull();
     // ★★★ queryByRole, NOT queryByText. This button is icon-only, so it renders
     // no text node and a text query passes whether it is guarded or not — the
     // assertion would read as coverage while pinning nothing. The accessible
@@ -925,18 +935,18 @@ describe("DashboardPanel arrangeable tile grid", () => {
   it("hides a tile from the ⋮ menu onto the shelf, announces it, and restores it", async () => {
     const user = userEvent.setup();
     render(<DashboardPanel {...fullProps} projectId="p-grid-hide" />, { wrapper });
-    await user.click(screen.getByRole("button", { name: kebab("Progress") }));
+    await user.click(screen.getByRole("button", { name: kebab("Upcoming & overdue") }));
     // PopoverPanel owns the dismissal protocol and portals the panel to <body>.
-    const menu = screen.getByRole("dialog", { name: kebab("Progress") });
+    const menu = screen.getByRole("dialog", { name: kebab("Upcoming & overdue") });
     await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
 
-    expect(screen.queryByTestId("tile-progress")).toBeNull();
+    expect(screen.queryByTestId("tile-upcoming")).toBeNull();
     const announced = screen.getAllByRole("status").map((el) => el.textContent);
-    expect(announced).toContain(t(EN, "arrangementTileHidden", "Progress"));
+    expect(announced).toContain(t(EN, "arrangementTileHidden", "Upcoming & overdue"));
 
     await user.click(screen.getByRole("button", { name: badgeName(1) }));
-    await user.click(screen.getByRole("button", { name: `${t(EN, "arrangementTileRestore")} – Progress` }));
-    expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: `${t(EN, "arrangementTileRestore")} – Upcoming & overdue` }));
+    expect(screen.getByTestId("tile-upcoming")).toBeInTheDocument();
   });
 
   it("lands focus on the hidden-tiles badge after hiding, instead of dropping it on <body>", async () => {
@@ -948,11 +958,11 @@ describe("DashboardPanel arrangeable tile grid", () => {
     // the document, with no route back to the tile they had put on the shelf.
     const user = userEvent.setup();
     render(<DashboardPanel {...fullProps} projectId="p-grid-hide-focus" />, { wrapper });
-    await user.click(screen.getByRole("button", { name: kebab("Progress") }));
-    const menu = screen.getByRole("dialog", { name: kebab("Progress") });
+    await user.click(screen.getByRole("button", { name: kebab("Upcoming & overdue") }));
+    const menu = screen.getByRole("dialog", { name: kebab("Upcoming & overdue") });
     await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
 
-    expect(screen.queryByTestId("tile-progress")).toBeNull();      // the trigger really did unmount
+    expect(screen.queryByTestId("tile-upcoming")).toBeNull();      // the trigger really did unmount
     // ★ Spec C: the badge MOUNTS in the commit this hide causes (it is absent at
     // 0), which is why the panel focuses it post-commit rather than inline.
     expect(document.activeElement).toBe(screen.getByRole("button", { name: badgeName(1) }));
@@ -964,15 +974,15 @@ describe("DashboardPanel arrangeable tile grid", () => {
     // the board, and its own ⋮ is the route to act on it again.
     const user = userEvent.setup();
     render(<DashboardPanel {...fullProps} projectId="p-grid-restore-focus" />, { wrapper });
-    await user.click(screen.getByRole("button", { name: kebab("Progress") }));
-    const menu = screen.getByRole("dialog", { name: kebab("Progress") });
+    await user.click(screen.getByRole("button", { name: kebab("Upcoming & overdue") }));
+    const menu = screen.getByRole("dialog", { name: kebab("Upcoming & overdue") });
     await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
 
     await user.click(screen.getByRole("button", { name: badgeName(1) }));
-    await user.click(screen.getByRole("button", { name: `${t(EN, "arrangementTileRestore")} – Progress` }));
-    expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: `${t(EN, "arrangementTileRestore")} – Upcoming & overdue` }));
+    expect(screen.getByTestId("tile-upcoming")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /hidden tiles?$/ })).toBeNull();
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: kebab("Progress") }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: kebab("Upcoming & overdue") }));
   });
 
   it("moves a tile earlier from the ⋮ menu and announces its new position", async () => {
@@ -1030,12 +1040,12 @@ describe("DashboardPanel arrangeable tile grid", () => {
     // menu, it goes red and the decision gets made deliberately.
     const user = userEvent.setup();
     render(<DashboardPanel {...fullProps} projectId="p-grid-resize-focus" />, { wrapper });
-    await user.click(screen.getByRole("button", { name: kebab("Progress") }));
-    const menu = screen.getByRole("dialog", { name: kebab("Progress") });
+    await user.click(screen.getByRole("button", { name: kebab("Upcoming & overdue") }));
+    const menu = screen.getByRole("dialog", { name: kebab("Upcoming & overdue") });
     const taller = within(menu).getByRole("radio", { name: /height 3/i });
     await user.click(taller);
 
-    expect(screen.getByRole("dialog", { name: kebab("Progress") })).toBeInTheDocument();  // still open
+    expect(screen.getByRole("dialog", { name: kebab("Upcoming & overdue") })).toBeInTheDocument();  // still open
     expect(document.activeElement).toBe(taller);
   });
 
@@ -1047,10 +1057,10 @@ describe("DashboardPanel arrangeable tile grid", () => {
     // exactly what `dashboard-grid.test.tsx`'s "leaves the tray shut when a
     // pointer wanders in with nothing being dragged" test pins at the component.
     render(<DashboardPanel {...fullProps} projectId="p-grid-shelfdrop" />, { wrapper });
-    fireEvent.dragStart(screen.getByRole("button", { name: grip("Progress") }));
+    fireEvent.dragStart(screen.getByRole("button", { name: grip("Upcoming & overdue") }));
     // Spec C: the badge is the drop target; during a drag it shows even at 0.
     fireEvent.drop(screen.getByRole("button", { name: badgeName(0) }));
-    expect(screen.queryByTestId("tile-progress")).toBeNull();     // the grip really did unmount
+    expect(screen.queryByTestId("tile-upcoming")).toBeNull();     // the grip really did unmount
 
     const shelf = screen.getByRole("button", { name: badgeName(1) });
     expect(shelf).toHaveAttribute("aria-expanded", "false");
@@ -1063,7 +1073,7 @@ describe("DashboardPanel arrangeable tile grid", () => {
     // drag is genuinely in flight. Without this, the assertion above would pass
     // against a shelf whose guard was broken shut.
     render(<DashboardPanel {...fullProps} projectId="p-grid-shelfopen" />, { wrapper });
-    fireEvent.dragStart(screen.getByRole("button", { name: grip("Progress") }));
+    fireEvent.dragStart(screen.getByRole("button", { name: grip("Upcoming & overdue") }));
     const shelf = screen.getByRole("button", { name: badgeName(0) });
     fireEvent.dragEnter(shelf);
     expect(shelf).toHaveAttribute("aria-expanded", "true");
@@ -1094,11 +1104,11 @@ describe("DashboardPanel arrangeable tile grid", () => {
     expect(screen.getByRole("button", { name: chip })).toBeInTheDocument();
   });
 
-  it("renders the RAID register (Top open RAID) BEFORE the Progress card in DOM order", () => {
+  it("renders the RAID register (Top open RAID) BEFORE the Upcoming card in DOM order", () => {
     render(<DashboardPanel {...fullProps} projectId="p-grid-order" />, { wrapper });
     const registers = screen.getByText("Top open RAID");
-    const progress = screen.getByText("Progress");
-    expect(registers.compareDocumentPosition(progress) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const upcoming = screen.getByText("Upcoming & overdue");
+    expect(registers.compareDocumentPosition(upcoming) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
 
@@ -1129,8 +1139,8 @@ describe("DashboardPanel reset-layout control", () => {
     render(<DashboardPanel {...fullProps} projectId="p-reset-order" />, { wrapper });
     expectButtonOrder(["printHint", "arrangementResetLayout", "tableResetSizeHint"], { contiguous: true });
 
-    await user.click(screen.getByRole("button", { name: kebab("Progress") }));
-    const menu = screen.getByRole("dialog", { name: kebab("Progress") });
+    await user.click(screen.getByRole("button", { name: kebab("Upcoming & overdue") }));
+    const menu = screen.getByRole("dialog", { name: kebab("Upcoming & overdue") });
     await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
     expectButtonOrder(
       ["printHint", "arrangementResetLayout", "tableResetSizeHint", "dashboardHiddenTilesBadgeOne"],
@@ -1141,22 +1151,24 @@ describe("DashboardPanel reset-layout control", () => {
   it("restores a hidden tile when the reset button is clicked", async () => {
     const user = userEvent.setup();
     render(<DashboardPanel {...fullProps} projectId="p-reset-click" />, { wrapper });
-    await user.click(screen.getByRole("button", { name: kebab("Progress") }));
-    const menu = screen.getByRole("dialog", { name: kebab("Progress") });
+    await user.click(screen.getByRole("button", { name: kebab("Upcoming & overdue") }));
+    const menu = screen.getByRole("dialog", { name: kebab("Upcoming & overdue") });
     await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
-    expect(screen.queryByTestId("tile-progress")).toBeNull();
+    expect(screen.queryByTestId("tile-upcoming")).toBeNull();
 
     await user.click(screen.getByRole("button", { name: t(EN, "arrangementResetLayout") }));
-    expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
+    expect(screen.getByTestId("tile-upcoming")).toBeInTheDocument();
   });
 });
 
 describe("DashboardPanel Tier-3 folds", () => {
-  it("renders the narrative editor (Status summary) AFTER the bento Progress card", () => {
+  // ★ Task 6 replaces this test; its vehicle moved from the retired Progress
+  // card to Upcoming only so it stays green until then.
+  it("renders the narrative editor (Status summary) AFTER the bento Upcoming card", () => {
     render(<DashboardPanel {...fullProps} />, { wrapper });
-    const progress = screen.getByText("Progress");
+    const upcoming = screen.getByText("Upcoming & overdue");
     const editor = screen.getByText("Status summary");
-    expect(progress.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(upcoming.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
 
@@ -1208,7 +1220,7 @@ describe("DashboardPanel completion tile self-consistency", () => {
     })),
   ] as never;
 
-  it("renders '5 of 5 complete' beside '100% complete'", () => {
+  it("renders '5 of 5 complete' beside '100%' in the Complete cell", () => {
     render(
       <DashboardPanel
         lang="en-US"
@@ -1225,8 +1237,10 @@ describe("DashboardPanel completion tile self-consistency", () => {
       />,
       { wrapper },
     );
-    expect(screen.getByText(t("en-US", "dashboardPercentComplete", "100"))).toBeInTheDocument();
-    expect(screen.getByText(t("en-US", "dashboardCompletedOf", "5", "5"))).toBeInTheDocument();
+    // value span → value row → the cell, which also holds the count as its `sub`.
+    const cell = screen.getByText("100%").parentElement!.parentElement!;
+    expect(within(cell).getByText(t("en-US", "dashboardKpiComplete"))).toBeInTheDocument();
+    expect(within(cell).getByText(t("en-US", "dashboardCompletedOf", "5", "5"))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "dashboardCompletedOf", "5", "10"))).toBeNull();
   });
 });
@@ -1266,15 +1280,12 @@ describe("DashboardPanel completion tile", () => {
         priority: "Medium", blockers: "", description: "",
       },
     ]);
-    // TWO, not one, and the count is the point: the Progress tile and the
-    // at-a-glance KPI card both render this state, and a dashboard showing
-    // "No active scope" on one card while the other still reads "0% complete"
-    // is the defect this pair exists to prevent. `getByText` would throw on
-    // the second match, and `getAllByText(...)[0]` would pass with the KPI
-    // card left unfixed — so assert the length.
-    expect(screen.getAllByText(t("en-US", "dashboardNoActiveScope"))).toHaveLength(2);
-    expect(screen.getAllByText(t("en-US", "dashboardAllCancelled", "2"))).toHaveLength(2);
-    expect(screen.queryByText(t("en-US", "dashboardPercentComplete", "0"))).toBeNull();
+    // ONE: the retired Progress tile used to render this state beside the KPI
+    // card, and this test guarded against the two drifting apart. With a single
+    // completion card that drift is gone by construction; the length still pins
+    // that nothing renders a second copy.
+    expect(screen.getAllByText(t("en-US", "dashboardNoActiveScope"))).toHaveLength(1);
+    expect(screen.getAllByText(t("en-US", "dashboardAllCancelled", "2"))).toHaveLength(1);
     // The KPI card's own percentage must be gone too — a 0% gradient bar reads
     // as "nothing done yet", which is exactly the misreading being fixed.
     expect(screen.queryByText("0%")).toBeNull();
@@ -1318,7 +1329,7 @@ describe("DashboardPanel completion tile", () => {
 
   it("leaves an empty project on 0% complete", () => {
     renderDashboardWithTasks([]);
-    expect(screen.getByText(t("en-US", "dashboardPercentComplete", "0"))).toBeInTheDocument();
+    expect(screen.getByText("0%")).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "dashboardNoActiveScope"))).toBeNull();
   });
 });

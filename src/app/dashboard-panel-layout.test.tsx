@@ -153,13 +153,13 @@ describe("DashboardPanel row 1, the badge and the tray (spec C)", () => {
     const user = userEvent.setup();
     render(<DashboardPanel {...baseProps} projectId="p-row1-badge" />, { wrapper });
     expect(screen.queryByRole("button", { name: /hidden tiles?$/ })).toBeNull();
-    await hideFromMenu(user, "Progress");
+    await hideFromMenu(user, "Upcoming & overdue");
     expect(screen.getByRole("button", { name: badgeName(1) })).toHaveTextContent(/^1$/);
   });
 
   it("shows the badge while a tile is being dragged, even at a count of 0", () => {
     render(<DashboardPanel {...baseProps} projectId="p-row1-drag" />, { wrapper });
-    fireEvent.dragStart(screen.getByRole("button", { name: grip("Progress") }));
+    fireEvent.dragStart(screen.getByRole("button", { name: grip("Upcoming & overdue") }));
     expect(screen.getByRole("button", { name: badgeName(0) })).toBeInTheDocument();
   });
 
@@ -167,10 +167,10 @@ describe("DashboardPanel row 1, the badge and the tray (spec C)", () => {
     // A tile hidden in the editable view, then the same project read-only.
     const user = userEvent.setup();
     const { unmount } = render(<DashboardPanel {...baseProps} projectId="p-row1-popout" />, { wrapper });
-    await hideFromMenu(user, "Progress");
+    await hideFromMenu(user, "Upcoming & overdue");
     unmount();                                                        // flushes the write
     render(<DashboardPanel {...baseProps} projectId="p-row1-popout" isPopout />, { wrapper });
-    expect(screen.queryByTestId("tile-progress")).toBeNull();         // the hide was persisted
+    expect(screen.queryByTestId("tile-upcoming")).toBeNull();         // the hide was persisted
     expect(screen.queryByRole("button", { name: /hidden tiles?$/ })).toBeNull();
     // ★ Fix round 1: the tray itself (not just the badge) must be absent in a
     // popout — it was guarded by the same `!arrangement.readOnly`, but nothing
@@ -181,10 +181,10 @@ describe("DashboardPanel row 1, the badge and the tray (spec C)", () => {
   it("returns focus to the badge after a Restore that leaves tiles hidden", async () => {
     const user = userEvent.setup();
     render(<DashboardPanel {...baseProps} projectId="p-row1-restore" />, { wrapper });
-    await hideFromMenu(user, "Progress");
     await hideFromMenu(user, "Upcoming & overdue");
+    await hideFromMenu(user, "At a glance");
     await user.click(screen.getByRole("button", { name: badgeName(2) }));
-    await user.click(screen.getByRole("button", { name: `${t(EN, "arrangementTileRestore")} – Progress` }));
+    await user.click(screen.getByRole("button", { name: `${t(EN, "arrangementTileRestore")} – Upcoming & overdue` }));
     expect(document.activeElement).toBe(screen.getByRole("button", { name: badgeName(1) }));
   });
 
@@ -194,12 +194,12 @@ describe("DashboardPanel row 1, the badge and the tray (spec C)", () => {
     // with `aria-expanded="true"` although nobody asked for the tray open).
     const user = userEvent.setup();
     render(<DashboardPanel {...baseProps} projectId="p-row1-tray-restale" />, { wrapper });
-    await hideFromMenu(user, "Progress");
+    await hideFromMenu(user, "Upcoming & overdue");
     await user.click(screen.getByRole("button", { name: badgeName(1) }));         // open the tray
-    await user.click(screen.getByRole("button", { name: `${t(EN, "arrangementTileRestore")} – Progress` }));
+    await user.click(screen.getByRole("button", { name: `${t(EN, "arrangementTileRestore")} – Upcoming & overdue` }));
     expect(screen.queryByRole("button", { name: /hidden tiles?$/ })).toBeNull();  // badge unmounted at 0
 
-    await hideFromMenu(user, "Upcoming & overdue");
+    await hideFromMenu(user, "At a glance");
     const badge = screen.getByRole("button", { name: badgeName(1) });
     expect(badge).toHaveAttribute("aria-expanded", "false");
     expect(document.getElementById(DASHBOARD_SHELF_TRAY_ID)).toHaveAttribute("hidden");
@@ -213,7 +213,7 @@ describe("DashboardPanel row 1, the badge and the tray (spec C)", () => {
     // drag instead of restore.
     const user = userEvent.setup();
     render(<DashboardPanel {...baseProps} projectId="p-row1-drag-empty-close" />, { wrapper });
-    const gripButton = screen.getByRole("button", { name: grip("Progress") });
+    const gripButton = screen.getByRole("button", { name: grip("Upcoming & overdue") });
     fireEvent.dragStart(gripButton);
     const dragBadge = screen.getByRole("button", { name: badgeName(0) });
     fireEvent.dragEnter(dragBadge);
@@ -221,7 +221,7 @@ describe("DashboardPanel row 1, the badge and the tray (spec C)", () => {
     fireEvent.dragEnd(gripButton);                                      // ends WITHOUT a drop
     expect(screen.queryByRole("button", { name: /hidden tiles?$/ })).toBeNull(); // badge unmounted at 0
 
-    await hideFromMenu(user, "Progress");
+    await hideFromMenu(user, "Upcoming & overdue");
     const badge = screen.getByRole("button", { name: badgeName(1) });
     expect(badge).toHaveAttribute("aria-expanded", "false");
     expect(document.getElementById(DASHBOARD_SHELF_TRAY_ID)).toHaveAttribute("hidden");

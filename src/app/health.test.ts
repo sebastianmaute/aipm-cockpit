@@ -926,7 +926,7 @@ describe("out-of-scope work in the group tally (open-followups §66)", () => {
     expect(g.outOfScope).toBe(2);
   });
 
-  // ★★ `dashboardProgressCaption`'s "unless its health was set by hand" clause
+  // ★★ `dashboardRagSplitHint`'s "unless its health was set by hand" clause
   //    has always described this. Do not simplify it away.
   it("keeps a HAND-PINNED cancelled task in the tally", () => {
     const g = computeGroupHealth(
