@@ -67,7 +67,7 @@ type Weekday = (typeof WEEKDAYS)[number];
  *  ★★ HOW THIS MODULE JUDGES A DATE. The writer's date readers are one
  *   predicate, `acceptsCarriedOrRealDate` (imported from the leaf
  *   `sanitize-core.ts`, no barrel, so the header rule holds): a real calendar
- *   date (`isRealCalendarDate`, any year), or one the UPDATE carries because it
+ *   date (`isRealCalendarDate`, no 1900–2100 bound), or one the UPDATE carries because it
  *   equals the stored one (§542). Both the `until` terminator and the start a
  *   byMonthDay fallback is taken from go through it, with the carried sets from
  *   `carriedRecurrenceDatesOf(stored)` — the writer's own derivation (§605).

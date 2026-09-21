@@ -684,11 +684,14 @@ function describeEntityCallsOnce(
         //  so seven of the eight descriptors want the default and must keep it.
         //  Calendar events differ: their writers read dates through one of
         //  three readers, one per path (§542) — CREATE a real calendar date
-        //  with NO year bound, LOAD what loaded before §542, UPDATE carrying a
-        //  date equal to the stored one and judging any other as on create.
-        //  §539 and §542 closed the overflow direction (`"2026-01-32"`, then
-        //  `"2026-02-30"`, each of which used to preview as accepted then throw
-        //  in `updateCalendarEvent`). ONE direction still differs, the year
+        //  with NO 1900–2100 bound, LOAD what loaded before §542, UPDATE
+        //  carrying a date equal to the stored one and judging any other as on
+        //  create. §539 closed the field-range overflow (`"2026-01-32"`, which
+        //  used to preview as accepted then throw in `updateCalendarEvent`).
+        //  A month overflow (`"2026-02-30"`) was different: the default rule
+        //  refused it but the writer ACCEPTED it (and this descriptor's
+        //  override, asking the writer's rule, previewed it as accepted), so it
+        //  was stored and rolled over on render, until §542. ONE direction still differs, the year
         //  bound (`"1899-12-31"` lands), so that descriptor's `acceptsDate`
         //  asks the create rule — exact for an update too, because the update
         //  form only carries an UNCHANGED date and this guard never sees one.

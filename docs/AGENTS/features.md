@@ -224,7 +224,7 @@ calendar actually shows; always derive it via `expandOccurrences`, never read th
   UNTRUSTED; any caller assembling a `CalendarEvent` from decoded cells MUST re-run the whole object through
   a calendar-event sanitizer before using it — on a load path the load form, `sanitizeLoadedCalendarEvent()`.
 - ★★★ THREE SANITIZER FORMS, ONE PER PATH, differing only in how they read a date (§542):
-  `sanitizeCalendarEvent` (CREATE: a real calendar date, NO year bound), `sanitizeLoadedCalendarEvent`
+  `sanitizeCalendarEvent` (CREATE: a real calendar date, NO 1900–2100 bound; years 0000–0099 are still refused, because `Date.UTC` maps them to 19xx), `sanitizeLoadedCalendarEvent`
   (LOAD: exactly what loaded before §542, via `calendarEventDateOnLoad`, a kept non-calendar value reported)
   and `sanitizeCalendarEventForUpdate(input, stored)` (UPDATE: a date equal to the stored one is carried, any
   other judged as on create). A load site left on the strict form silently DROPS a stored meeting, and a load

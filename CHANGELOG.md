@@ -24,16 +24,18 @@ user-facing feature changes; every fix below closes a register entry found in an
   blur already did**, instead of saving them uncapped. `§541` is closed.
 - **A calendar event's date fields no longer accept a day past its month's end and roll it over.**
   Create, load and update each now read every date field through one canonical reader for that
-  path. `§542` is closed.
+  path. New or edited dates are refused; a date already stored that is not a real calendar date is
+  kept and reported, not repaired, and still renders rolled over. `§542` is closed.
 - **A calendar-invalid TimeLog day, such as 2026-02-30, is no longer aggregated into a real month
   and a different real ISO week.** `aggregateActuals`'s dated check now also rejects a day that
   fails a real calendar round trip. `§544` is closed.
 - **Diagnostics redaction now catches an opaque token in free text that carries no vendor prefix or
   `key=` frame**, as long as it mixes lowercase, uppercase and a digit across 32+ characters — without
   redacting single-case ids such as UUIDs, commit SHAs or MSAL GUIDs. `§564` is closed.
-- **Clearing a stored secret in four settings sections now removes it instead of resealing an empty
-  string**, closing a gap where one of the four visibly re-armed a "Remove stored secret" button
-  right after use. `§565` is closed.
+- **Clearing a stored secret now removes it instead of resealing an empty string, at four places in
+  three settings sections** — the Jira and Timelog token fields, and two Turso paths (saving the
+  Turso token, and the portfolio-mode switch). This closes a gap where the Turso one visibly re-armed a
+  "Remove stored secret" button right after use. `§565` is closed.
 - **The Jira proxy no longer logs the raw fetch-rejection object server-side.** Both `console.error`
   sites now log a plain `{ message, cause, code }` object instead. `§566` is closed.
 - **The chart readout's spoken tip no longer reads as a capitalised word in the middle of a

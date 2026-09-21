@@ -6,8 +6,8 @@
 // an unrecoverable record rather than an exception.
 //
 // ★★★ THREE PUBLIC FORMS, ONE PER PATH, differing ONLY in how they read a
-//  date (§542): `sanitizeCalendarEvent` (CREATE: a real calendar date, any
-//  year), `sanitizeLoadedCalendarEvent` (LOAD: exactly what loaded before
+//  date (§542): `sanitizeCalendarEvent` (CREATE: a real calendar date, no
+//  1900–2100 bound),`sanitizeLoadedCalendarEvent` (LOAD: exactly what loaded before
 //  §542, a kept non-calendar value reported) and
 //  `sanitizeCalendarEventForUpdate` (UPDATE: an untouched stored date carried
 //  verbatim, a changed one judged as on create). See the reader block below.
@@ -80,7 +80,9 @@ const DURATION_MAX = 1440;
 //  `until` into an UNBOUNDED series. §539 shipped exactly that regression for
 //  milestones and reversed it. So each path gets its own reader:
 //   - CREATE (`readStrictEventDate`): a real calendar date (`isRealCalendarDate`),
-//     ANY year — calendar events never had the 1900–2100 bound.
+//     with NO 1900–2100 bound — calendar events never had it. ★ Years
+//     0000–0099 are still refused: `Date.UTC` maps them to 19xx, so the round
+//     trip in `isRealCalendarDate` fails.
 //   - LOAD (`readEventDateOnLoad`): `calendarEventDateOnLoad`, which keeps
 //     exactly the old rule's values and REPORTS a kept non-calendar one. Kept,
 //     not repaired: such a date still rolls over when rendered.
@@ -92,7 +94,7 @@ type EventDateField = "startDate" | "recurrence.until" | "exceptions.date" | "ex
 /** How `calendarEventWithDateReader` reads each date: the stored string, or undefined. */
 type EventDateReader = (value: unknown, field: EventDateField, id: number) => string | undefined;
 
-/** CREATE (§542): a real calendar date, any year. */
+/** CREATE (§542): a real calendar date, no 1900–2100 bound (years 0000–0099 are refused — see `isRealCalendarDate`). */
 function strictEventDate(value: unknown): string | undefined {
   return typeof value === "string" && isRealCalendarDate(value) ? value : undefined;
 }
@@ -282,27 +284,31 @@ export function acceptsEventDuration(v: unknown): boolean {
 }
 
 /** Whether the CREATE rule (`sanitizeCalendarEvent`) would ACCEPT this value
- *  as `startDate`: a real calendar date, with NO year bound (§542).
+ *  as `startDate`: a real calendar date, with NO 1900–2100 bound (§542).
  *
  *  ★★★ IT EXISTS BECAUSE THE PREVIEW'S DEFAULT DATE RULE AND THIS MODULE'S
  *   DISAGREE, and the disagreement was once a defect in each direction.
  *   `sanitizeIsoDate` (sanitize-core.ts) is regex + a calendar check (§539) +
  *   a 1900–2100 year bound; this module's create rule is the calendar check
- *   with NO year bound. So without this override `"1899-12-31"` previews as
+ *   with NO 1900–2100 bound. So without this override `"1899-12-31"` previews as
  *   REJECTED and lands. `INLINE_DESCRIPTORS.calendarEvent.acceptsDate` points
  *   here so the card asks the writer's own question (§405), rather than a
- *   second spelling of a similar one. ★ The other direction (`"2026-01-32"`,
- *   then month overflow like `"2026-02-30"`, previewed as accepted and then
- *   refused by the write) was closed at the source by §539 and §542; the
- *   year bound is why this override remains.
+ *   second spelling of a similar one. ★ Two older mismatches are closed at
+ *   the source. A field-range overflow (`"2026-01-32"`) used to preview as
+ *   accepted and then be refused by the write; §539 closed that. A month
+ *   overflow (`"2026-02-30"`) was never refused by the write: the old
+ *   `Date.parse` leg ACCEPTED it and the stored date rolled over when
+ *   rendered, until §542. The year bound is why this override remains.
  *
  *  ★★ THE CREATE RULE, NOT THE UPDATE ONE, and that is exact rather than
  *   approximate: the update form differs only by CARRYING a date equal to the
  *   stored one, and the card never judges a field whose value is unchanged.
  *
  *  ★★ THE YEAR BOUND STAYS OFF ON PURPOSE. Adding one here would close the
- *   gap by CHANGING WHAT IS STORED, and a stored meeting outside 1900–2100
- *   would then be refused on its next edit. Parity, not policy.
+ *   gap by CHANGING WHAT IS STORED: new events outside 1900–2100 could no
+ *   longer be created, and an edit that CHANGES a date to one outside it
+ *   would be refused. (An edit that leaves a stored date untouched still
+ *   carries it, through the UPDATE reader.) Parity, not policy.
  *
  *  ★★★ A HOISTED `function` DECLARATION, for exactly the reason spelled out on
  *   `acceptsEventDuration` above: an importer building a module-level const off

@@ -65,6 +65,10 @@ describe("redactFields", () => {
   });
 });
 
+// ★ SYNTHETIC FIXTURES: every token literal in the §564 and §606 blocks below is made up, built
+// from the stem `aB3xQ9zK7mP2wR8t…`; the SHA is a hand-typed hex run and the UUID/GUID is the
+// RFC 4122 example. None is a credential. Do not rebuild them: the mutant proofs depend on
+// their exact lengths and split positions.
 // The §564 negatives, shared with the §606 block below so the two lists cannot drift apart.
 const SHARED_OPAQUE_TOKEN_NEGATIVES: Array<[string, string]> = [
   ["a lowercase UUID (crypto.randomUUID ids)", "f47ac10b-58cc-4372-a567-0e02b2c3d479"],

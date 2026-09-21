@@ -29,7 +29,7 @@ import { saveSecretValue, setSecretPassphrase, unlockSecret } from "../use-secre
 import { SECRET_MERGE_TIMEOUT_MS } from "../use-settings";
 import { loadPortfolioMode, savePortfolioMode } from "../portfolio-mode";
 import { loadSealed, saveSealed } from "../secrets-store";
-import { sealPassphrase } from "../secrets";
+import { sealDevice, sealPassphrase } from "../secrets";
 
 // `unlockSecret` stays REAL, wrapped in a spy only so `afterEach` can drain every in-flight verify:
 // a test that fails mid-verify would otherwise leave a PBKDF2 continuation that reaches the shared
@@ -138,11 +138,16 @@ describe("A1/A4 — the Turso fields in a Modal host (BackendConfigModal)", () =
   // §565: off Turso storage every keystroke commits, and a clear used to seal "" AND set the
   // stored flag, so the "Remove" button appeared right after the user removed the token.
   it("§565: clearing the token off Turso removes the seal and hides Remove; retyping restores both", async () => {
+    // A REAL device-sealed record, so the clear has something to remove: `removeSealed` is the
+    // real store function here, and without this seed its deletion would leave the case green.
+    saveSealed(await sealDevice("tursoAuthToken", "tok"));
+    expect(loadSealed("tursoAuthToken")).not.toBeNull();
     const user = userEvent.setup();
     renderModal(settingsWith(URL_A, "tok", BROWSER));
     const remove = () => screen.queryByRole("button", { name: t("en-US", "secretPassphraseRemove") });
     await user.clear(tokenField());
     expect(remove()).toBeNull();
+    expect(loadSealed("tursoAuthToken")).toBeNull();
     expect(saveSecretValue).not.toHaveBeenCalledWith("tursoAuthToken", "", "device");
     await user.type(tokenField(), "tok2");
     expect(saveSecretValue).toHaveBeenLastCalledWith("tursoAuthToken", "tok2", "device");
@@ -210,14 +215,18 @@ describe("A5 — Save & switch applies the drafts and waits (bounded) for the to
   // leg, so clearing the token and switching back to File still reaches the (separate) unconditional
   // seal below it — which used to seal "" exactly like `commitTurso` did.
   it("§565: switching off Turso with a cleared token does not seal an empty string", async () => {
+    // A REAL device-sealed record for the switch to remove (see the off-Turso §565 case above).
+    saveSealed(await sealDevice("tursoAuthToken", "tok"));
     const user = userEvent.setup();
     savePortfolioMode("turso");
     render(<Controlled />);
     await user.clear(tokenField());
+    expect(loadSealed("tursoAuthToken")).not.toBeNull(); // live Turso: the clear is only a draft
     await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "file");
     await user.click(switchButton());
     await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
     expect(saveSecretValue).not.toHaveBeenCalledWith("tursoAuthToken", "", "device");
+    expect(loadSealed("tursoAuthToken")).toBeNull();
   });
 
   it("a seal that never settles delays the reload by SECRET_MERGE_TIMEOUT_MS at most (MA5)", async () => {
