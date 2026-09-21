@@ -36,8 +36,9 @@ overwritten, found during that work, are closed here too.
 - **The AI usage policy on the AI Assistant's consent screen is configurable.** Settings → AI
   Assistant has a policy owner and a policy link; a deployment can set both at build time with
   `NEXT_PUBLIC_AI_POLICY_ORG` and `NEXT_PUBLIC_AI_POLICY_URL`, which then win. With nothing set it
-  is the same Acme owner and link as before. With no link, the policy bullet, link and
-  checkbox disappear and Accept works on its own. Only an `https://` link is ever used.
+  is the same Acme owner and link as before; a custom owner gets only the link configured
+  for it, never Acme's. With no link, the policy bullet, link and checkbox disappear and
+  Accept works on its own. Only an `https://` link is ever used.
 - **The export footer is configurable.** Settings → Appearance has an "Export footer" field for
   the line at the foot of HTML document downloads, print/PDF exports and PowerPoint exports —
   where it is also printed on every slide and names the deck's theme. With nothing set it is the
