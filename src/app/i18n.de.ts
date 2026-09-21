@@ -1128,12 +1128,13 @@ export const de: Record<TranslationKey, string> = {
   aiConsentAccept: "Verstanden – Chat aktivieren",
   aiPolicyOwnerFallback: "Ihrer Organisation",
   aiPolicyOrgLabel: "Herausgeber der KI-Nutzungsrichtlinie",
-  aiPolicyOrgHint: "Wird im Einwilligungsdialog des KI-Assistenten genannt. Leer lassen für eine neutrale Formulierung.",
+  aiPolicyOrgHint: "Wird im Einwilligungsdialog des KI-Assistenten genannt. Leer lassen für eine neutrale Formulierung. Der eingebaute Richtlinien-Link gehört zu Acme; wird der Herausgeber geändert oder geleert, entfällt er, sofern unten kein eigener Link eingetragen ist.",
   aiPolicyOrgFromEnv: "Wird in dieser Installation über NEXT_PUBLIC_AI_POLICY_ORG gesetzt und hat Vorrang vor dieser Einstellung.",
   aiPolicyUrlLabel: "Link zur KI-Nutzungsrichtlinie",
   aiPolicyUrlHint: "Ein https://-Link, den der Einwilligungsdialog zum Lesen und Akzeptieren anbietet. Leer lassen, wenn es keine Richtlinie gibt.",
   aiPolicyUrlInvalid: "Bitte einen vollständigen https://-Link eingeben. Bis dahin zeigt der Einwilligungsdialog keine Richtlinie.",
   aiPolicyUrlFromEnv: "Wird in dieser Installation über NEXT_PUBLIC_AI_POLICY_URL gesetzt und hat Vorrang vor dieser Einstellung.",
+  aiPolicyUrlNoBuiltin: "Der eingebaute Link ist eine Seite von Acme und wird für einen anderen Herausgeber nicht verwendet. Tragen Sie den Link Ihrer Organisation ein; bleibt das Feld leer, zeigt der Einwilligungsdialog keine Richtlinie zum Lesen und Akzeptieren.",
   aiPolicyUrlEnvRejected: "NEXT_PUBLIC_AI_POLICY_URL ist in dieser Installation gesetzt, aber kein vollständiger https://-Link. Er wird ignoriert und stattdessen dieses Feld verwendet.",
   aiConsentRequired:
     "Einwilligung erforderlich. Öffnen Sie den KI-Assistenten-Tab, um sie zu prüfen und zu aktivieren.",
@@ -1209,7 +1210,7 @@ export const de: Record<TranslationKey, string> = {
     "Öffnet die Druckvorschau; im Dialog 'Als PDF speichern' wählen.",
   exportDocx: "Word (.docx)",
   exportDocxHint:
-    "A4-Querformat mit einer Aufgabentabelle im Markendesign.",
+    "A4-Querformat mit einer Tabelle aller Aufgaben im Markendesign.",
   exportXlsx: "Excel (.xlsx)",
   exportXlsxHint:
     "Fixierte Kopfzeile, Auto-Filter aktiviert, Markenfarben.",

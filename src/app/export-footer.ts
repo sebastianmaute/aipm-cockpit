@@ -21,7 +21,9 @@ export function exportFooterText(branding: { exportFooter?: string } | undefined
   if (v === undefined) return DEFAULT_EXPORT_FOOTER;
   const oneLine = Array.from(v, (ch) => (ch.charCodeAt(0) < 32 || ch.charCodeAt(0) === 127 ? " " : ch))
     .join("")
-    .replace(/\s+/g, " ")
+    // ★ Plain spaces only: `\s` would also flatten a non-breaking space someone
+    //   typed on purpose (e.g. between a name and its legal form).
+    .replace(/ {2,}/g, " ")
     .trim();
   return oneLine || NEUTRAL_EXPORT_FOOTER;
 }

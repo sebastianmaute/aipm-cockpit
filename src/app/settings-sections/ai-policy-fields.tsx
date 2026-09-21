@@ -30,12 +30,24 @@ export function AiPolicyFields({
   const urlId = useId();
   const urlHintId = useId();
   const urlErrorId = useId();
+  const urlEnvRejectedId = useId();
+  const urlNoBuiltinId = useId();
   const policy = resolveAiPolicy(ai);
   const orgValue = ai.policyOrgName ?? DEFAULT_AI_POLICY_ORG;
   // ★ A never-set link shows what the consent screen will actually use — the built-in
   //   link only while the owner is the built-in one, otherwise nothing.
   const urlValue = ai.policyUrl ?? policy.url ?? "";
   const urlInvalid = urlValue.trim() !== "" && !isSafePolicyUrl(urlValue);
+  // ★★ Say WHY the link went blank. Renaming or clearing the owner drops the built-in
+  //   link, and with it the consent screen's "read and accept" checkbox — on a consent
+  //   surface that must never happen silently.
+  const builtinLinkDropped = !policy.urlFromEnv && ai.policyUrl === undefined && policy.org !== DEFAULT_AI_POLICY_ORG;
+  const urlDescribedBy = [
+    urlHintId,
+    urlInvalid && urlErrorId,
+    builtinLinkDropped && urlNoBuiltinId,
+    policy.urlEnvRejected && urlEnvRejectedId,
+  ].filter(Boolean).join(" ");
 
   return (
     <div className="mt-3 space-y-2">
@@ -73,12 +85,15 @@ export function AiPolicyFields({
               maxLength={MAX_AI_POLICY_FIELD}
               onChange={(e) => onChange({ policyUrl: e.target.value })}
               aria-invalid={urlInvalid || undefined}
-              aria-describedby={urlInvalid ? `${urlHintId} ${urlErrorId}` : urlHintId}
+              aria-describedby={urlDescribedBy}
             />
             <FieldHint id={urlHintId} className="mt-1">{t(lang, "aiPolicyUrlHint")}</FieldHint>
             {urlInvalid && <FieldError id={urlErrorId}>{t(lang, "aiPolicyUrlInvalid")}</FieldError>}
+            {builtinLinkDropped && (
+              <FieldHint id={urlNoBuiltinId} className="mt-1">{t(lang, "aiPolicyUrlNoBuiltin")}</FieldHint>
+            )}
             {policy.urlEnvRejected && (
-              <FieldHint className="mt-1">{t(lang, "aiPolicyUrlEnvRejected")}</FieldHint>
+              <FieldHint id={urlEnvRejectedId} className="mt-1">{t(lang, "aiPolicyUrlEnvRejected")}</FieldHint>
             )}
           </>
         )}

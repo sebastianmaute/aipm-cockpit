@@ -10,9 +10,11 @@ import { t } from "./i18n";
 
 // Capture the exportConfig prop ExportMenu receives so we can assert it.
 let capturedExportConfig: ExportConfig | undefined;
+let capturedExportFooter: string | undefined;
 vi.mock("./export-menu", () => ({
-  ExportMenu: (props: { exportConfig?: ExportConfig }) => {
+  ExportMenu: (props: { exportConfig?: ExportConfig; exportFooter?: string }) => {
     capturedExportConfig = props.exportConfig;
+    capturedExportFooter = props.exportFooter;
     return null;
   },
 }));
@@ -28,6 +30,16 @@ function Wrapper({ children }: { children: React.ReactNode }) {
 }
 
 describe("ActionMenus", () => {
+  it("hands the export footer on to the Export menu", () => {
+    // ★ Optional on both components: a dropped hop would print the built-in footer.
+    capturedExportFooter = undefined;
+    render(
+      <ActionMenus lang="en-US" onCommand={vi.fn()} onVoiceError={vi.fn()} exportFooter="Acme GmbH" />,
+      { wrapper: Wrapper },
+    );
+    expect(capturedExportFooter).toBe("Acme GmbH");
+  });
+
   it("renders the Export, Help, and Version menu triggers", () => {
     capturedExportConfig = undefined;
     render(

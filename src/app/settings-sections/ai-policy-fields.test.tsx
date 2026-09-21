@@ -46,11 +46,29 @@ describe("AiPolicyFields", () => {
     expect(urlBox()).toHaveValue("");
   });
 
-  it("says so when the deployment's link was rejected", () => {
+  it("says so when the deployment's link was rejected, as the field's description", () => {
     vi.stubEnv("NEXT_PUBLIC_AI_POLICY_URL", "http://intranet/policy");
     render(<AiPolicyFields lang="en-US" ai={defaultAiConfig} onChange={vi.fn()} />);
-    expect(screen.getByText(t("en-US", "aiPolicyUrlEnvRejected"))).toBeInTheDocument();
-    expect(urlBox()).toBeInTheDocument(); // still editable: the rejected value does not win
+    expect(urlBox()).toHaveAccessibleDescription(expect.stringContaining(t("en-US", "aiPolicyUrlEnvRejected")));
+  });
+
+  // ★★ Renaming or clearing the owner drops the built-in link and, with it, the
+  //    consent screen's accept checkbox. That must be SAID, on the field itself.
+  it.each([
+    ["cleared", ""],
+    ["renamed", "Acme GmbH"],
+  ])("explains the missing link when the owner is %s", (_label, owner) => {
+    render(<AiPolicyFields lang="en-US" ai={{ ...defaultAiConfig, policyOrgName: owner }} onChange={vi.fn()} />);
+    expect(urlBox()).toHaveValue("");
+    expect(urlBox()).toHaveAccessibleDescription(expect.stringContaining(t("en-US", "aiPolicyUrlNoBuiltin")));
+  });
+
+  it("shows no such note for the built-in owner, or once a link is entered", () => {
+    const { unmount } = render(<AiPolicyFields lang="en-US" ai={defaultAiConfig} onChange={vi.fn()} />);
+    expect(screen.queryByText(t("en-US", "aiPolicyUrlNoBuiltin"))).toBeNull();
+    unmount();
+    render(<AiPolicyFields lang="en-US" ai={{ ...defaultAiConfig, policyOrgName: "Acme", policyUrl: "https://acme.example/p" }} onChange={vi.fn()} />);
+    expect(screen.queryByText(t("en-US", "aiPolicyUrlNoBuiltin"))).toBeNull();
   });
 
   it("replaces a field with a note when the deployment sets it", () => {

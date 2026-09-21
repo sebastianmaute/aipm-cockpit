@@ -1229,12 +1229,13 @@ const enUS = {
   // {0} in the three policy strings above when no owner is configured.
   aiPolicyOwnerFallback: "your organisation",
   aiPolicyOrgLabel: "AI usage policy owner",
-  aiPolicyOrgHint: "Named on the AI Assistant's consent screen. Leave empty for neutral wording.",
+  aiPolicyOrgHint: "Named on the AI Assistant's consent screen. Leave empty for neutral wording. The built-in policy link belongs to Acme, so changing or clearing the owner removes it unless you enter a link below.",
   aiPolicyOrgFromEnv: "Set by NEXT_PUBLIC_AI_POLICY_ORG in this deployment, which overrides this setting.",
   aiPolicyUrlLabel: "AI usage policy link",
   aiPolicyUrlHint: "An https:// link the consent screen asks people to read and accept. Leave empty if there is no policy.",
   aiPolicyUrlInvalid: "Enter a full https:// link. Until then the consent screen shows no policy.",
   aiPolicyUrlFromEnv: "Set by NEXT_PUBLIC_AI_POLICY_URL in this deployment, which overrides this setting.",
+  aiPolicyUrlNoBuiltin: "The built-in link is Acme's page, so it is not used for another owner. Enter your organisation's link; left empty, the consent screen shows no policy to read or accept.",
   aiPolicyUrlEnvRejected: "NEXT_PUBLIC_AI_POLICY_URL is set in this deployment but is not a full https:// link, so it is ignored and this field is used instead.",
   aiConsentRequired:
     "Consent required. Open the AI Assistant tab to review and enable.",

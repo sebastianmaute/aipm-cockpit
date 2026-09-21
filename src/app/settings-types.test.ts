@@ -292,6 +292,10 @@ describe("exportFooter branding", () => {
     expect(exportFooterText({ exportFooter: "Acme\nGmbH\t\u0007 Co" })).toBe("Acme GmbH Co");
     expect(exportFooterText({ exportFooter: "\n\u0001 \n" })).toBe(NEUTRAL_EXPORT_FOOTER);
   });
+
+  it("keeps a non-breaking space inside the footer — it is a deliberate character, not a break", () => {
+    expect(exportFooterText({ exportFooter: "Acme GmbH" })).toBe("Acme GmbH");
+  });
 });
 
 describe("sanitizeAiConfig — AI policy fields", () => {
