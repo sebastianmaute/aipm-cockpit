@@ -134,6 +134,20 @@ describe("A1/A4 — the Turso fields in a Modal host (BackendConfigModal)", () =
     expect(onChangeSettings.mock.calls[0][0].integrations.turso.authToken).toBe("tok9");
     expect(saveSecretValue).toHaveBeenCalledWith("tursoAuthToken", "tok9", "device");
   });
+
+  // §565: off Turso storage every keystroke commits, and a clear used to seal "" AND set the
+  // stored flag, so the "Remove" button appeared right after the user removed the token.
+  it("§565: clearing the token off Turso removes the seal and hides Remove; retyping restores both", async () => {
+    const user = userEvent.setup();
+    renderModal(settingsWith(URL_A, "tok", BROWSER));
+    const remove = () => screen.queryByRole("button", { name: t("en-US", "secretPassphraseRemove") });
+    await user.clear(tokenField());
+    expect(remove()).toBeNull();
+    expect(saveSecretValue).not.toHaveBeenCalledWith("tursoAuthToken", "", "device");
+    await user.type(tokenField(), "tok2");
+    expect(saveSecretValue).toHaveBeenLastCalledWith("tursoAuthToken", "tok2", "device");
+    expect(await screen.findByRole("button", { name: t("en-US", "secretPassphraseRemove") })).toBeInTheDocument();
+  });
 });
 
 describe("A5 — Save & switch applies the drafts and waits (bounded) for the token seal", () => {
@@ -190,6 +204,20 @@ describe("A5 — Save & switch applies the drafts and waits (bounded) for the to
     await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
     expect(persisted().integrations?.turso?.databaseUrl).toBe(`${URL_A}x`);
     expect(saveSecretValue).toHaveBeenCalledWith("tursoAuthToken", "tok7", "device");
+  });
+
+  // §565: confirmPortfolioModeSwitch's `pendingMode === "turso"` guard gates only the switch-TO-turso
+  // leg, so clearing the token and switching back to File still reaches the (separate) unconditional
+  // seal below it — which used to seal "" exactly like `commitTurso` did.
+  it("§565: switching off Turso with a cleared token does not seal an empty string", async () => {
+    const user = userEvent.setup();
+    savePortfolioMode("turso");
+    render(<Controlled />);
+    await user.clear(tokenField());
+    await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "file");
+    await user.click(switchButton());
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    expect(saveSecretValue).not.toHaveBeenCalledWith("tursoAuthToken", "", "device");
   });
 
   it("a seal that never settles delays the reload by SECRET_MERGE_TIMEOUT_MS at most (MA5)", async () => {

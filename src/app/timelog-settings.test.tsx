@@ -2,11 +2,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useState } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 vi.mock("./use-secrets", () => ({ saveSecretValue: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("./secrets-store", async (importActual) => ({
+  ...(await importActual<object>()),
+  removeSealed: vi.fn(),
+}));
 vi.mock("./timelog-api", () => ({
   listUsers: vi.fn(),
   getPrivileges: vi.fn(),
 }));
 import * as secrets from "./use-secrets";
+import * as secretsStore from "./secrets-store";
 import * as timelogApi from "./timelog-api";
 import { TimelogSettings } from "./timelog-settings";
 import { defaultTimelogConfig, type TimelogLinks, type TimelogPolicy } from "./timelog-types";
@@ -24,6 +29,14 @@ describe("TimelogSettings", () => {
       target: { value: "tok123" },
     });
     expect(secrets.saveSecretValue).toHaveBeenCalledWith("timelogApiToken", "tok123", "device");
+  });
+
+  it("§565: clearing the token removes the sealed secret instead of sealing an empty one", () => {
+    let cfg = { ...defaultTimelogConfig, enabled: true, apiToken: "tok123" };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={(n) => (cfg = n)} />);
+    fireEvent.change(screen.getByLabelText(t("en-US", "timelogToken")), { target: { value: "" } });
+    expect(secretsStore.removeSealed).toHaveBeenCalledWith("timelogApiToken");
+    expect(secrets.saveSecretValue).not.toHaveBeenCalledWith("timelogApiToken", "", "device");
   });
 
   it("hides config fields until enabled", () => {

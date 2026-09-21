@@ -787,7 +787,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§562](#562-the-shared-proxy-rate-limiter-is-bypassable-by-a-client-supplied-header-and-its-store-is-in-memory--open-decision-owed) | The shared proxy rate limiter is bypassable by a client-supplied header, and its store is in-memory — OPEN (decision owed) | audit (2026-09) | decision | open |
 | [§563](#563-the-desktop-installer-is-unsigned--open-tied-to-the-publishing-decision) | The desktop installer is unsigned — OPEN (tied to the publishing decision) | audit (2026-09) | decision | open |
 | [§564](#564-diagnostics-redactts-has-no-catch-all-for-an-opaque-token-in-free-text--open) | `diagnostics-redact.ts` has no catch-all for an opaque token in free text — OPEN | audit (2026-09) | S | open |
-| [§565](#565-two-settings-sections-clear-a-token-by-resealing-an-empty-string-instead-of-removing-it--open) | Two settings sections clear a token by resealing an empty string instead of removing it — OPEN | audit (2026-09) | S | open |
+| [§565](#565-two-settings-sections-clear-a-token-by-resealing-an-empty-string-instead-of-removing-it--closed-2026-09-21) | Two settings sections clear a token by resealing an empty string instead of removing it — CLOSED 2026-09-21 | audit (2026-09) | S | closed |
 | [§566](#566-the-jira-proxy-logs-the-raw-fetch-rejection-object-server-side--open) | The Jira proxy logs the raw fetch-rejection object server-side — OPEN | audit (2026-09) | S | open |
 | [§567](#567-issealedsecret-and-readstore-still-hardcode-their-own-secretid-lists-and-a-missed-id-is-silent-data-loss--closed-2026-09-19) | `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — CLOSED 2026-09-19 | slice (2026-09) | M | **CLOSED** 2026-09-19 |
 | [§568](#568-the-registers-index-rebuild-recipe-is-not-a-no-op-on-the-committed-table-and-discards-hand-written-state-prose--open) | The register's index-rebuild recipe is not a no-op on the committed table and discards hand-written State prose — OPEN | slice (2026-09) | S–M | open |
@@ -39264,11 +39264,32 @@ the cost of some false positives in diagnostics — which is the right trade for
 
 Related: §560, §567.
 
-## 565. Two settings sections clear a token by resealing an empty string instead of removing it — OPEN
+## 565. Two settings sections clear a token by resealing an empty string instead of removing it — CLOSED 2026-09-21
 
-**Status:** OPEN 2026-09-18 — established by `grep -rnE "saveSecretValue|removeSealed" src/app --include=*.tsx | grep -v "[.]test[.]"`, which shows which sections call which; **never machine-verified** by a test asserting the store is empty after a clear. An inconsistent mechanism, NOT an exposure: the resealed value is empty, so nothing recoverable is left behind.
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`. The original finding undercounted the sites: FOUR
+unconditional seals, not two — `jira-settings.tsx` `handleApiTokenChange`, `timelog-settings.tsx`
+`handleToken`, and TWO in `settings-sections/integrations-section.tsx` (`commitTurso` and
+`confirmPortfolioModeSwitch`), which the original finding's own grep had credited (wrongly) to the
+`removeSealed`-using column alongside the AI-key and Turso-lock-toggle sections. The Turso site was
+**visible in the UI, not merely a ciphertext-hygiene issue**: `commitTurso`'s seal `.then(() =>
+setTokenStored(true))` turned the "Remove stored secret" button ON immediately after the user
+cleared the token field. Recon (this branch's own task brief) had also wrongly named
+`handleTokenLockToggle` as the pattern to follow — that function already special-cases blank
+correctly; the two unconditional sealers below it (`commitTurso`,
+`confirmPortfolioModeSwitch`) did not.
+Each of the four sites now checks `value.trim() === ""` (or the token-draft equivalent) FIRST and
+calls `removeSealed(id)` instead of sealing `""`; the two Turso sites also clear `tokenStored`.
+Test: `jira-settings.test.tsx`, `timelog-settings.test.tsx`,
+`settings-sections/integrations-section.drafts.test.tsx` (one case per site; the Turso off-storage
+case asserts the "Remove stored secret" button disappears and reappears, not just the seal call).
+Mutants (revert each site to its original unconditional seal, one at a time): jira — predicted red,
+actual red (its own §565 test); timelog — predicted red, actual red (its own §565 test);
+`commitTurso` — predicted red, actual red (the off-Turso §565 test only, 1 failed / 25 passed);
+`confirmPortfolioModeSwitch` — predicted red, actual red (the switch §565 test only, 1 failed / 25
+passed). No mismatch. The shipped fix matches the entry's own fix-shape line (`removeSealed` on a
+blank value) at all four sites; no departure.
 
-**Work item:** #350
+_Original finding, as filed 2026-09-18. Preserved as the dated record; see Status._
 
 `jira-settings.tsx` and `timelog-settings.tsx` each call `saveSecretValue(<id>, value, "device")`
 unconditionally on change, so clearing the field seals `""` and leaves a ciphertext entry in

@@ -14,6 +14,7 @@ import type {
 import { ToggleButton } from "./toggle-button";
 import { MAX_HOURS_PER_DAY } from "./types";
 import { saveSecretValue } from "./use-secrets";
+import { removeSealed } from "./secrets-store";
 import { listUsers, getPrivileges } from "./timelog-api";
 import { FOCUS_RING } from "./interaction-styles";
 import { Button } from "./button";
@@ -57,7 +58,10 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
 
   function handleToken(value: string) {
     set({ apiToken: value, tokenInvalidAt: undefined });
-    void saveSecretValue("timelogApiToken", value, "device");
+    // §565: a blank token REMOVES the sealed record. Sealing "" left a ciphertext that
+    // decrypts to nothing — a presence check would read it as a stored token.
+    if (value.trim() === "") removeSealed("timelogApiToken");
+    else void saveSecretValue("timelogApiToken", value, "device");
   }
 
   async function test() {
