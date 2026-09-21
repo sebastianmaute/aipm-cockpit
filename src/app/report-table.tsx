@@ -493,7 +493,10 @@ export function Tile({
         <span>{value}</span>
         {rag && trend ? <span className="inline-flex items-center gap-1.5">{rag}{trend}</span> : (rag ?? trend)}
       </div>
-      {bar ? <div className="mt-1.5">{bar}</div> : null}
+      {/* ★ `mt-1`, not `mt-1.5`: those 2px are what let a one-row KPI strip fit a
+          2-row (`minH`) dashboard tile — it overflowed by 1px in both densities.
+          Pinned by the "user-sized 2-row KPI tile" test in `e2e/dashboard-grid.spec.ts`. */}
+      {bar ? <div className="mt-1">{bar}</div> : null}
       {sub ? (
         <p data-tile-sub className="mt-1 text-xs text-muted-foreground">{sub}</p>
       ) : null}

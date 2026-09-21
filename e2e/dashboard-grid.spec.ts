@@ -411,6 +411,48 @@ const W4_LAYOUT = {
   upgrades: [DASHBOARD_BURN_UPGRADE],
 };
 
+/**
+ * A KPI tile the user sized to its `minH` of 2 rows must still hold ONE row of
+ * cells without scrolling. A stored height (`hSet`) wins over the measured one,
+ * so nothing re-measures it upward — the cells have to fit the box. It
+ * overflowed by exactly 1px in both densities (146 in 145, 122 in 121) until
+ * the bar margin in `Tile` went from `mt-1.5` to `mt-1`. 2540px puts all six
+ * cells in one row on the half-width tile.
+ */
+for (const density of ["comfortable", "compact"] as const) {
+  test(`a user-sized 2-row KPI tile holds one row of cells without scrolling — ${density}`, async ({ page }) => {
+    const layout = {
+      v: 1,
+      board: [{ id: "burn", w: 2, h: 8 }, { id: "kpi", w: 2, h: 2, hSet: true }],
+      hidden: [],
+      upgrades: [DASHBOARD_BURN_UPGRADE],
+    };
+    await page.addInitScript(([key, l, d]) => {
+      localStorage.setItem(key as string, JSON.stringify({ "e2e-1": l }));
+      localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ dashboardDensity: d, tourSeen: true }));
+    }, [DASHBOARD_LAYOUT_KEY, layout, density] as const);
+    await page.setViewportSize({ width: 2540, height: 1289 });
+    await gotoApp(page);
+    await openView(page, "Dashboard");
+    // Guard: the seeded density took (the row unit is the density's).
+    expect((await gridMetrics(page)).autoRows).toBe(density === "compact" ? "72px" : "80px");
+    const tile = page.getByTestId("tile-kpi");
+    await expect(tile.getByText("Effort CPI")).toBeVisible();
+
+    const m = await tile.evaluate((section) => {
+      const body = section.lastElementChild as HTMLElement; // the overflow-auto body
+      const strip = (body.querySelector('[class*="@container"]') as HTMLElement).firstElementChild as HTMLElement;
+      return {
+        rows: new Set([...strip.children].map((c) => Math.round(c.getBoundingClientRect().top))).size,
+        scrollHeight: body.scrollHeight,
+        clientHeight: body.clientHeight,
+      };
+    });
+    expect(m.rows).toBe(1);   // the case this pins: one row of cells, not a wrapped strip
+    expect(m.scrollHeight, `scroll ${m.scrollHeight} vs client ${m.clientHeight}`).toBeLessThanOrEqual(m.clientHeight);
+  });
+}
+
 test.describe("dashboard grid width spans", () => {
   test.beforeEach(async ({ page }) => {
     // `e2e-1`: see the dense-packing describe below.
