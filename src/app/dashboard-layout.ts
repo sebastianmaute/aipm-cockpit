@@ -30,6 +30,15 @@ export type DashboardLayout = ArrangementLayout<DashboardTileId>;
  *  burn to the front at 2×8, Completion trend's height into 2–4. */
 export const DASHBOARD_BURN_UPGRADE = "dashboard-burn-2x8";
 
+/** Removes the retired Progress tile from stored layouts (its content moved into At a glance).
+ *  ★ NOT added to DEFAULT_LAYOUT.upgrades: the step records its id only when it removed something.
+ *  ★★ Until Task 5 drops `"progress"` from `DASHBOARD_TILES`, a fresh or reset board (`DEFAULT_LAYOUT`,
+ *  built from that catalogue) STILL contains a progress tile, so the step is NOT a no-op on it yet —
+ *  it removes the tile and returns a new object. See the moved-to-`burnUpgradeStep` assertion in
+ *  `dashboard-layout-upgrade.test.ts`'s "already carries the upgrade id" test. Once Task 5 lands, this
+ *  becomes correctly a no-op on any fresh board. */
+export const DASHBOARD_PROGRESS_REMOVAL_UPGRADE = "dashboard-progress-into-kpi";
+
 // ★★★ THE DEFAULT CARRIES THE UPGRADE ID, AND MUST. A fresh board and a Reset
 // layout both persist THIS object; without the id they would be upgraded again
 // on the next load, dragging burn back to the front of a board the user has

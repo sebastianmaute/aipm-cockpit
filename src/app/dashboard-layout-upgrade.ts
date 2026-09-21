@@ -1,10 +1,15 @@
 /**
- * The Dashboard's one-time stored-layout upgrade — spec C decision 11. Pure,
- * i18n-free, DOM-free.
+ * The Dashboard's stored-layout upgrade — spec C decision 11. Pure, i18n-free,
+ * DOM-free.
  *
- * Runs through `useArrangement`'s `upgrade` option on every read that found a
- * stored layout, BEFORE `reconcile`, and is keyed on `DASHBOARD_BURN_UPGRADE`
- * in the layout's `upgrades` list:
+ * `upgradeDashboardLayout` runs through `useArrangement`'s `upgrade` option on
+ * every read that found a stored layout, BEFORE `reconcile`. It is a composer
+ * over independently gated STEPS, each keyed on its own id in the layout's
+ * `upgrades` list — a step that finds its id already recorded returns its
+ * input untouched, so adding a step never re-runs an earlier one and never
+ * skips a later one for a layout that already has an earlier id.
+ *
+ * `burnUpgradeStep` (`DASHBOARD_BURN_UPGRADE`):
  *   · Budget burn moves to the FRONT of the board at 2×8 — unless the user has
  *     hidden it: a hidden tile stays hidden, and restoring it later gives it the
  *     catalogue default, which is 2×8 anyway.
@@ -15,11 +20,16 @@
  *     hidden), and each axis only from exactly its old default (`w: 4`,
  *     `h: 2`): any other stored width or height is the user's choice and stays.
  *   · Every other tile keeps its order, size and hidden state.
- * The id is then recorded, so it never runs again.
  *
- * ★★★ IT RETURNS ITS INPUT BY REFERENCE WHEN THE ID IS ALREADY RECORDED. That
- * is the hook's signal that nothing needs writing; a copy would rewrite storage
- * on every load (`use-arrangement.ts`, the `upgrade` option).
+ * `progressRemovalStep` (`DASHBOARD_PROGRESS_REMOVAL_UPGRADE`): drops the
+ * retired Progress tile from `board` and `hidden`, recording its id only when
+ * it actually removed something — a layout that never held `progress` is
+ * returned by reference, unchanged.
+ *
+ * ★★★ EACH STEP RETURNS ITS INPUT BY REFERENCE WHEN ITS OWN ID IS ALREADY
+ * RECORDED (or, for the progress step, when there is nothing to remove). That
+ * is the hook's signal that nothing needs writing; a copy would rewrite
+ * storage on every load (`use-arrangement.ts`, the `upgrade` option).
  * ★★ WHY A SEPARATE STEP, not a catalogue edit: `reconcile` never reorders or
  * resizes a tile the stored layout already holds, so moving `burn` first in
  * `DASHBOARD_TILES` changes a FRESH board only.
@@ -29,7 +39,7 @@
  */
 import { isArrangementLayout } from "./arrangement-store";
 import {
-  DASHBOARD_BURN_UPGRADE, DEFAULT_LAYOUT,
+  DASHBOARD_BURN_UPGRADE, DASHBOARD_PROGRESS_REMOVAL_UPGRADE, DEFAULT_LAYOUT,
   type DashboardLayout, type PlacedTile,
 } from "./dashboard-layout";
 import type { TileHeight } from "./dashboard-tiles";
@@ -60,17 +70,7 @@ function resizeKpi(p: PlacedTile): PlacedTile {
   };
 }
 
-/**
- * ★ Takes `unknown`, not a layout: junk falls back to `DEFAULT_LAYOUT` (by
- * reference). Through the hook it only ever sees a validated, sanitised layout
- * — `readArrangement` applied `isArrangementLayout` first — so that branch is
- * for direct callers.
- */
-export function upgradeDashboardLayout(stored: unknown): DashboardLayout {
-  if (!isArrangementLayout(stored)) return DEFAULT_LAYOUT;
-  // Membership is `reconcile`'s job: an unknown id rides through untouched and
-  // is dropped there, exactly as for any other stored layout.
-  const layout = stored as DashboardLayout;
+export function burnUpgradeStep(layout: DashboardLayout): DashboardLayout {
   if (layout.upgrades?.includes(DASHBOARD_BURN_UPGRADE)) return layout;
 
   const rest: PlacedTile[] = layout.board
@@ -85,4 +85,37 @@ export function upgradeDashboardLayout(stored: unknown): DashboardLayout {
     board: burnHidden ? rest : [{ id: "burn", w: 2, h: 8 }, ...rest.map(resizeKpi)],
     upgrades: [...(layout.upgrades ?? []), DASHBOARD_BURN_UPGRADE],
   };
+}
+
+/** Retired ids are compared as strings — Task 5 removes `"progress"` from the
+ *  `DashboardTileId` union, after which comparing a tile's `id` to it stops
+ *  typechecking. */
+export function progressRemovalStep(layout: DashboardLayout): DashboardLayout {
+  const onBoard = layout.board.some((p) => (p.id as string) === "progress");
+  const inHidden = layout.hidden.some((h) => (h as string) === "progress");
+  if (!onBoard && !inHidden) return layout;
+  return {
+    ...layout,
+    board: layout.board.filter((p) => (p.id as string) !== "progress"),
+    hidden: layout.hidden.filter((h) => (h as string) !== "progress"),
+    upgrades: [...(layout.upgrades ?? []), DASHBOARD_PROGRESS_REMOVAL_UPGRADE],
+  };
+}
+
+/**
+ * ★ Takes `unknown`, not a layout: junk falls back to `DEFAULT_LAYOUT` (by
+ * reference). Through the hook it only ever sees a validated, sanitised layout
+ * — `readArrangement` applied `isArrangementLayout` first — so that branch is
+ * for direct callers.
+ *
+ * Each step is gated on its OWN id and runs independently. A single function
+ * with an early return would skip every later step for a user who already has
+ * an earlier one — exactly the users a later step exists for.
+ */
+export function upgradeDashboardLayout(stored: unknown): DashboardLayout {
+  if (!isArrangementLayout(stored)) return DEFAULT_LAYOUT;
+  // Membership is `reconcile`'s job: an unknown id rides through untouched and
+  // is dropped there, exactly as for any other stored layout.
+  const layout = stored as DashboardLayout;
+  return progressRemovalStep(burnUpgradeStep(layout));
 }

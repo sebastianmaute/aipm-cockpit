@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { upgradeDashboardLayout } from "./dashboard-layout-upgrade";
-import { DASHBOARD_BURN_UPGRADE, DEFAULT_LAYOUT, reconcile, type DashboardLayout } from "./dashboard-layout";
+import { burnUpgradeStep, progressRemovalStep, upgradeDashboardLayout } from "./dashboard-layout-upgrade";
+import {
+  DASHBOARD_BURN_UPGRADE, DASHBOARD_PROGRESS_REMOVAL_UPGRADE, DEFAULT_LAYOUT, reconcile, type DashboardLayout,
+} from "./dashboard-layout";
 import type { TileHeight } from "./dashboard-tiles";
 
 /** A pre-spec-C stored layout: no upgrades list, burn mid-board at its old
@@ -128,6 +130,50 @@ describe("DEFAULT_LAYOUT (spec C)", () => {
 
   it("already carries the upgrade id, so a fresh or reset board is never upgraded", () => {
     expect(DEFAULT_LAYOUT.upgrades).toEqual([DASHBOARD_BURN_UPGRADE]);
-    expect(upgradeDashboardLayout(DEFAULT_LAYOUT)).toBe(DEFAULT_LAYOUT);
+    // burnUpgradeStep, not the composed upgradeDashboardLayout: until Task 5 removes
+    // "progress" from DASHBOARD_TILES, a fresh board's catalogue-derived board still
+    // holds a progress tile, so the composed function would (correctly) also run
+    // progressRemovalStep and return a new object — a reference break unrelated to
+    // what this test pins, which is the burn step's own id-gating.
+    expect(burnUpgradeStep(DEFAULT_LAYOUT)).toBe(DEFAULT_LAYOUT);
+  });
+});
+
+describe("progressRemovalStep", () => {
+  const base = { v: 1 as const, upgrades: [DASHBOARD_BURN_UPGRADE] };
+
+  it("removes progress from the board and records its id", () => {
+    const l = { ...base, hidden: [], board: [{ id: "kpi", w: 2, h: 3 }, { id: "progress", w: 2, h: 2 }] };
+    const out = progressRemovalStep(l as never);
+    expect(out.board.map((b) => b.id)).toEqual(["kpi"]);
+    expect(out.upgrades).toContain(DASHBOARD_PROGRESS_REMOVAL_UPGRADE);
+  });
+
+  it("removes progress from the hidden list too", () => {
+    const l = { ...base, hidden: ["progress"], board: [{ id: "kpi", w: 2, h: 3 }] };
+    expect(progressRemovalStep(l as never).hidden).toEqual([]);
+  });
+
+  it("returns the SAME object, and records nothing, when there is no progress to remove", () => {
+    const l = { ...base, hidden: [], board: [{ id: "kpi", w: 2, h: 3 }] };
+    expect(progressRemovalStep(l as never)).toBe(l);
+  });
+});
+
+describe("upgradeDashboardLayout composes both steps", () => {
+  it("still removes progress from a layout the burn step already upgraded", () => {
+    const l = {
+      v: 1 as const, upgrades: [DASHBOARD_BURN_UPGRADE], hidden: [],
+      board: [{ id: "burn", w: 2, h: 8 }, { id: "progress", w: 2, h: 2 }],
+    };
+    expect(upgradeDashboardLayout(l).board.map((b) => b.id)).toEqual(["burn"]);
+  });
+
+  it("returns the same object when neither step has anything to do", () => {
+    const l = {
+      v: 1 as const, upgrades: [DASHBOARD_BURN_UPGRADE], hidden: [],
+      board: [{ id: "burn", w: 2, h: 8 }],
+    };
+    expect(upgradeDashboardLayout(l)).toBe(l);
   });
 });
