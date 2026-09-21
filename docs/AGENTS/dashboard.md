@@ -477,7 +477,10 @@ The presentational slices:
   renders, because it is the only UI writer of `status.narrative`, except read-only AND empty, which
   renders null; a popout gets no button) + `NarrativeEditor` (owns the draft + the render-time reconcile +
   the Clear nonce; the rich-text surface is named by its `label`, NOT a placeholder — axe). ★★ The editor
-  closes on Save, or when focus leaves its whole region, decided from `relatedTarget`: a toolbar-button
+  closes on Save, or when focus leaves its whole region, decided from `relatedTarget`. A popover the
+  region opened (the heading menu, portaled to `document.body`) counts as inside through its trigger's
+  `aria-controls`, and a null `relatedTarget` with `document.hasFocus()` false (leaving the window)
+  keeps it open. A toolbar-button
   CLICK never blurs the editor, so the Bold test cannot pin that rule — the keyboard Tab/Shift+Tab tests
   in `dashboard-narrative.test.tsx` do. ★ Inline, Save is never disabled: pressing it blurs the editor,
   the blur commits, and a Save disabled by that commit swallowed the click.

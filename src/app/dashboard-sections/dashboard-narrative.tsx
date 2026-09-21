@@ -94,6 +94,20 @@ export function NarrativeSummary({ lang, status, setStatus, readOnly }: {
   );
 }
 
+/** Whether `node` is inside `region`, or inside a panel that a control in the
+ *  region names through `aria-controls` (a popover portaled out of the region's
+ *  DOM subtree). `aria-controls` is an ID list, so each token is checked. */
+function isInsideRegion(region: HTMLElement | null, node: Node): boolean {
+  if (!region) return false;
+  if (region.contains(node)) return true;
+  for (const el of region.querySelectorAll("[aria-controls]")) {
+    for (const id of (el.getAttribute("aria-controls") ?? "").split(/\s+/)) {
+      if (id && document.getElementById(id)?.contains(node)) return true;
+    }
+  }
+  return false;
+}
+
 /** The status-summary editor, shown in place of `NarrativeSummary` while
  *  editing. Owns the draft + the render-time reconcile that re-seeds it when an
  *  external workspace reload changes status.narrative (NOT a useEffect —
@@ -166,12 +180,25 @@ export function NarrativeEditor({
   //   keyboard Tab / Shift+Tab tests in the sibling test file do. The region is
   //   `tabIndex={-1}` so a click on its heading or padding focuses the region
   //   itself instead of <body>.
-  // ★ `relatedTarget` is also null when focus leaves the WINDOW, so switching
-  //   browser tabs closes the editor. Accepted: the inner wrapper has already
-  //   committed the draft by then, so nothing is lost.
+  // ★★ A POPOVER THE REGION OPENED COUNTS AS INSIDE IT. The toolbar's heading
+  //   menu is a PopoverPanel portaled to document.body that autofocuses its
+  //   first item, so `contains` alone saw focus leave and closed the editor
+  //   under the menu. Its trigger (inside the region) names the panel through
+  //   `aria-controls`, so that link — already required for a11y — identifies it
+  //   without a marker on any shared component.
+  // ★★ LEAVING THE WINDOW IS NOT LEAVING THE EDITOR. Alt-Tab, the address bar
+  //   or devtools fire focusout with a null `relatedTarget` while the document
+  //   loses focus; that keeps the editor open. A null `relatedTarget` while the
+  //   document still has focus (a click on a dead area of the page) still
+  //   closes.
   const onRegionBlur = (e: FocusEvent<HTMLDivElement>) => {
+    if (!onDone) return;
     const next = e.relatedTarget as Node | null;
-    if (onDone && (!next || !regionRef.current?.contains(next))) onDone();
+    if (!next) {
+      if (document.hasFocus()) onDone();
+      return;
+    }
+    if (!isInsideRegion(regionRef.current, next)) onDone();
   };
 
   return (

@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeAll } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, beforeAll, vi } from "vitest";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { t } from "../i18n";
@@ -202,6 +202,53 @@ describe("NarrativeSummary inline editing", () => {
     await user.tab();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: t("en-US", "dashboardStatusSave") }));
     expect(screen.getByRole("textbox", { name: surfaceName() })).toBe(surface);
+  });
+
+  // ★★ The heading menu is a PopoverPanel PORTALED to document.body and it
+  //   autofocuses its first item, so opening it moves focus OUTSIDE the region's
+  //   DOM. A `contains`-only close rule unmounted the editor under the menu.
+  it("stays open while the heading menu is used, and applies the picked level", async () => {
+    const user = userEvent.setup();
+    render(<SummaryHost />);
+    await user.click(screen.getByRole("button", { name: ADD }));
+    const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    await user.click(surface);
+    await user.keyboard("Title");
+    await user.click(screen.getByRole("button", { name: "Text style" }));
+    const menu = await screen.findByRole("dialog", { name: "Text style" });
+    await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+    await user.click(within(menu).getByRole("button", { name: "Heading 2" }));
+    const after = screen.getByRole("textbox", { name: surfaceName() });
+    expect(after).toBe(surface);
+    expect(after.querySelector("h2")?.textContent).toBe("Title");
+    expect(screen.queryByRole("button", { name: EDIT })).toBeNull();
+    expect(screen.queryByRole("button", { name: ADD })).toBeNull();
+  });
+
+  // ★★ Alt-Tab, the address bar or devtools fire focusout with a null
+  //   relatedTarget while the DOCUMENT loses focus. That is leaving the window,
+  //   not leaving the editor, and must not close it. Driven by a raw focusout
+  //   because no user-event gesture can take focus away from the window.
+  it.each([false, true])("a null-relatedTarget focusout with document.hasFocus()=%s closes only when true", async (hasFocus) => {
+    const user = userEvent.setup();
+    render(<SummaryHost initial="<p>Old</p>" />);
+    await user.click(screen.getByRole("button", { name: EDIT }));
+    const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    const spy = vi.spyOn(document, "hasFocus").mockReturnValue(hasFocus);
+    try {
+      act(() => {
+        surface.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: null }));
+      });
+    } finally {
+      spy.mockRestore();
+    }
+    if (hasFocus) {
+      expect(screen.queryByRole("textbox", { name: surfaceName() })).toBeNull();
+      expect(screen.getByRole("button", { name: EDIT })).toBeInTheDocument();
+    } else {
+      expect(screen.getByRole("textbox", { name: surfaceName() })).toBe(surface);
+      expect(screen.queryByRole("button", { name: EDIT })).toBeNull();
+    }
   });
 
   // ★ A click on non-focusable content INSIDE the region (its heading, its
