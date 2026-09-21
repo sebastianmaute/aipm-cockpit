@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { ThemeProvider, useTheme } from "./use-theme";
-import { CiStyleProvider } from "./use-style";
+import { CiStyleProvider, useCiStyle } from "./use-style";
 import { THEME_STORAGE_KEY } from "./theme";
 import { STYLE_STORAGE_KEY } from "./style-ci";
 import { HARBOR_DARK, HARBOR_LIGHT } from "./builtin-schemes";
@@ -37,6 +37,14 @@ function tree(child: React.ReactNode = <div />) {
       <CiStyleProvider>{child}</CiStyleProvider>
     </ThemeProvider>
   );
+}
+
+// Consumes useCiStyle() so a test can pin the STATE the context exposes, not just
+// the data-style DOM attribute (which the effect sets to "custom" unconditionally,
+// regardless of the context's own style value) or the localStorage write-back.
+function StyleProbe() {
+  const { style } = useCiStyle();
+  return <span data-testid="style">{style}</span>;
 }
 
 describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
@@ -162,9 +170,13 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
   it("does NOT activate a scheme for a legacy aipm-cockpit-style='mockup'; normalises to custom", () => {
     setActive("meridian"); // pre-existing active scheme
     localStorage.setItem(STYLE_STORAGE_KEY, "mockup"); // legacy value
-    render(tree());
+    render(tree(<StyleProbe />));
     expect(document.documentElement.getAttribute("data-style")).toBe("custom");
     expect(localStorage.getItem(STYLE_STORAGE_KEY)).toBe("custom");
+    // The context's own exposed style, not just the DOM attribute (always "custom")
+    // or the localStorage write-back — pins the initializer actually normalised the
+    // STATE, not merely the persisted value.
+    expect(screen.getByTestId("style").textContent).toBe("custom");
     // Legacy migration dropped — AIPM/Mockup are importable theme files, not built-ins.
     // The scheme store is left untouched (no setActive("mockup")).
     expect(loadSchemes().activeId).toBe("meridian");
@@ -173,9 +185,13 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
   it("does NOT activate a scheme for a legacy aipm-cockpit-style='AIPM'; normalises to custom", () => {
     setActive("meridian"); // pre-existing active scheme
     localStorage.setItem(STYLE_STORAGE_KEY, "AIPM"); // legacy value
-    render(tree());
+    render(tree(<StyleProbe />));
     expect(document.documentElement.getAttribute("data-style")).toBe("custom");
     expect(localStorage.getItem(STYLE_STORAGE_KEY)).toBe("custom");
+    // The context's own exposed style, not just the DOM attribute (always "custom")
+    // or the localStorage write-back — pins the initializer actually normalised the
+    // STATE, not merely the persisted value.
+    expect(screen.getByTestId("style").textContent).toBe("custom");
     // Legacy migration dropped — the scheme store is left untouched (no setActive("AIPM")).
     expect(loadSchemes().activeId).toBe("meridian");
   });
