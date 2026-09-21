@@ -106,10 +106,12 @@ const ALWAYS = () => true;
 // ★★ `kpi` IS 2×3 SO IT SITS BESIDE `burn` ON xl (§585). The xl grid is four
 // columns with `grid-flow-row-dense`, so a 2-wide KPI tile packs into columns
 // 3–4 of burn's first rows; at its former w:4 it could not fit there and landed
-// below all eight of burn's rows. At half width its four or five cells wrap to
-// a second row, and h:3 is what keeps that row inside the tile body instead of
-// behind a scroll — measured by `e2e/dashboard-grid.spec.ts` in both
-// densities. The upgrade resizes a stored 4×2 to match.
+// below all of burn's rows. At half width its cells wrap to a second row.
+// ★ h:3 is now only the height rendered BEFORE a measurement (and when none
+// can be taken). What keeps the wrapped row inside the tile body is the
+// measured height (`use-measured-heights.ts`), checked by
+// `e2e/dashboard-grid.spec.ts` in both densities. The upgrade resizes a stored
+// 4×2 to match.
 export const DASHBOARD_TILES: readonly TileSpec[] = [
   { id: "burn",            labelKey: "dashboardBudgetBurn",     w: 2, h: 8, minW: 1, maxW: 4, minH: 4, maxH: 8, gate: (g) => g.showBudget },
   { id: "kpi",             labelKey: "dashboardKpiTile",        w: 2, h: 3, minW: 2, maxW: 4, minH: 2, maxH: 4, gate: ALWAYS },

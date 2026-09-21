@@ -123,6 +123,11 @@ measured tile would announce the wrong height.
 A hook owned by `dashboard-panel.tsx` measures once per trigger.
 
 - **Triggers:** mount, and a change of density. Nothing else. Density reaches the panel as a prop.
+  ★ A width change (the ⋮ menu) or a breakpoint change (resizing the window) is NOT a trigger, by the
+  user's choice of mount and density only. Content height depends on width, so a tile widened or
+  narrowed this way keeps its measured height until the next open, and may scroll inside itself
+  until then. (The implementation also re-measures when the set of rendered tiles or a tile's `hSet`
+  flag changes, which is what makes Reset re-measure; neither is a width change.)
 - **What is measured: the height of the body's CONTENT, never the body's `scrollHeight`.** The body is
   `min-h-0 flex-1 overflow-auto`. When content fits, its `scrollHeight` equals the box height, so a
   `scrollHeight` reading can grow a tile but never shrink it below the height it was rendered at. The
@@ -131,10 +136,18 @@ A hook owned by `dashboard-panel.tsx` measures once per trigger.
   padding. That reading does not depend on the box height, so it can shrink a tile as well as grow it.
 - **★★ No wrapper is added around the body's children to measure them, and adding one would be a
   regression.** The body renders `{children}` directly. A wrapper of automatic height would make every
-  child styled `h-full` resolve against an auto height and collapse. The charts fill their tile that
-  way. The children-extent reading needs no wrapper, so rendering is unchanged. A child that fills
-  the box measures as the box, so a fill-the-box tile keeps the height it has. That is the honest
-  outcome: a chart has no natural height to adapt to. (Revision 2 as first written said "the content
+  child styled `h-full` resolve against an auto height and collapse. The children-extent reading
+  needs no wrapper, so rendering is unchanged. A child that fills the box (`h-full` against the body)
+  would measure as the box and so keep the height it has, which is the honest outcome for content
+  with no natural height. ★★ No current Dashboard tile body has such a child. The `h-full` that
+  appears inside tile bodies (for example `Tile`'s hint wrapper in `report-table.tsx`) resolves
+  against its own cell, not against the body. Re-check before relying on this: grep `h-full` in the
+  components `dashboard-tile-bodies.tsx` imports. ★★ The charts do NOT fill their tile. This spec
+  first said they did, and it was false for `burn`: `BurndownChart` renders an `<svg className="w-full">`
+  with a `viewBox`, so its height follows its WIDTH. `burn` therefore has a natural height and
+  measures to it: well under its tall catalogue default on the e2e seed, which `e2e/dashboard-grid.spec.ts`
+  "a tile measured shorter than its default renders shorter" reads off the page. That is the design
+  working, not a regression. (Revision 2 as first written said "the content
   element" and listed a `content` data attribute. No such element exists, and creating one would
   cause the collapse described here.)
 - **Measurement runs in a `requestAnimationFrame` callback scheduled from an effect**, following
