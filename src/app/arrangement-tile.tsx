@@ -3,6 +3,7 @@ import type { DragEvent, KeyboardEvent, ReactNode } from "react";
 import { W_CLASS, H_CLASS } from "./arrangement-grid";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { DragHandle } from "./drag-handle";
+import { InfoTooltip } from "./info-tooltip";
 import { t, type Lang } from "./i18n";
 import type { BlockHeight, BlockWidth } from "./arrangement-layout";
 
@@ -79,6 +80,11 @@ export interface ArrangementTileProps {
    *  detached is a silent no-op. Called with `null` on unmount, so the caller's
    *  map cannot accumulate detached nodes. */
   menuButtonRef?: (el: HTMLButtonElement | null) => void;
+  /** Optional explanation of what the block shows, as an info tooltip right
+   *  after the title. ★ In the HEADER, never the body: a body is often one big
+   *  button (the Dashboard's `ActivateBody`), and a tooltip trigger nested in a
+   *  button is an axe nested-interactive failure. */
+  hint?: string;
   children: ReactNode;
 }
 
@@ -118,7 +124,7 @@ export interface ArrangementTileProps {
  */
 export function ArrangementTile({
   id, title, w, h, lang, readOnly, dragProps, handleProps,
-  testIdPrefix, keyboardReorder, onOpenMenu, menuButtonRef, children,
+  testIdPrefix, keyboardReorder, onOpenMenu, menuButtonRef, hint, children,
 }: ArrangementTileProps) {
   const moveKey = keyboardReorder ? "reorderHandle" : "reorderHandleDragOnly";
   const moveLabel = `${t(lang, moveKey)} – ${title}`;
@@ -126,6 +132,8 @@ export function ArrangementTile({
   return (
     <section
       data-testid={`${testIdPrefix}-${id}`}
+      data-arrangement-section=""
+      data-tile-id={id}
       aria-label={title}
       className={`flex min-w-0 flex-col overflow-hidden rounded-lg border border-line bg-surface ${W_CLASS[w]} ${H_CLASS[h]}`}
       {...(readOnly ? {} : dragProps)}
@@ -143,9 +151,16 @@ export function ArrangementTile({
             className="cursor-grab touch-none rounded px-1 py-0.5 text-muted-foreground hover:text-foreground"
           />
         )}
-        <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
-          {title}
-        </h3>
+        <div className="flex min-w-0 flex-1 items-center gap-1">
+          <h3 className="min-w-0 truncate text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
+            {title}
+          </h3>
+          {hint ? (
+            <span className="shrink-0 print:hidden">
+              <InfoTooltip text={hint} />
+            </span>
+          ) : null}
+        </div>
         {!readOnly && (
           <button
             ref={menuButtonRef}
@@ -160,7 +175,7 @@ export function ArrangementTile({
           </button>
         )}
       </div>
-      <div className="min-h-0 flex-1 overflow-auto p-2">{children}</div>
+      <div data-arrangement-body="" className="min-h-0 flex-1 overflow-auto p-2">{children}</div>
     </section>
   );
 }

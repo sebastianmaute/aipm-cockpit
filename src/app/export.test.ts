@@ -451,3 +451,15 @@ describe("buildPdfHtml — rich cells (§141(b))", () => {
     expect(html).toContain('td li[data-type="taskItem"]::before');
   });
 });
+
+describe("buildPdfHtml — export footer", () => {
+  it("keeps today's footer when none is passed", () => {
+    expect(buildPdfHtml(makeBaseWorkspace(), defaultExportConfig, "en-US")).toContain("<footer>Acme — AI PM Cockpit</footer>");
+  });
+
+  it("prints the configured footer, HTML-escaped", () => {
+    const html = buildPdfHtml(makeBaseWorkspace(), defaultExportConfig, "en-US", "Acme <GmbH> & Co");
+    expect(html).toContain("<footer>Acme &lt;GmbH&gt; &amp; Co</footer>");
+    expect(html).not.toContain("Acme");
+  });
+});

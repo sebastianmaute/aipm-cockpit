@@ -66,6 +66,7 @@ import { isAllowedAssetMime, safeBase64ToBytes } from "./document-asset-upload";
 import type { ExportCell } from "./export-sections";
 import type { Workspace } from "./workspace";
 import { t, type Lang } from "./i18n";
+import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
 
 export type DocHtmlMode = "preview" | "standalone";
 
@@ -327,6 +328,8 @@ export function renderDocumentHtml(
   // visible instead of silent. See `inlineDocumentImages` for why this only
   // ever applies in standalone mode.
   assets: ExportAssets = NO_EXPORT_ASSETS,
+  /** Footer line of a standalone render (`exportFooterText(settings.branding)`). */
+  footer: string = DEFAULT_EXPORT_FOOTER,
 ): string {
   const body = doc.blocks
     .map((b) => renderBlock(b, ws, lang))
@@ -364,7 +367,7 @@ export function renderDocumentHtml(
 <body>
   <header><h1>${htmlEscape(doc.title)}</h1></header>
   ${inlinedBody}
-  <footer>Acme — AI PM Cockpit</footer>
+  <footer>${htmlEscape(footer)}</footer>
 </body>
 </html>`;
 }

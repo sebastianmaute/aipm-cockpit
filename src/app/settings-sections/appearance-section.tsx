@@ -5,7 +5,10 @@ import { type Lang, t } from "../i18n";
 import { SegmentedControl } from "../segmented-control";
 import type { DashboardDensity } from "../dashboard-density";
 import type { HelpReadingLevel } from "../help-content";
-import { type BrandingConfig, type Settings, DEFAULT_FOOTER_SLOGAN } from "../settings-types";
+import {
+  type BrandingConfig, type Settings, DEFAULT_FOOTER_SLOGAN,
+  BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, NEUTRAL_EXPORT_FOOTER,
+} from "../settings-types";
 import type { Theme } from "../theme";
 import { useTheme } from "../use-theme";
 import { InfoTooltip } from "../info-tooltip";
@@ -61,7 +64,8 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
     // here. Omitting one drops the WHOLE blob when that field is the only thing
     // set, so the upload appears to do nothing and any sibling field goes with it.
     const cleaned =
-      next.logo || next.slogan?.trim() || next.footerSlogan?.trim() || next.favicon || next.startLogo
+      next.logo || next.slogan?.trim() || next.footerSlogan?.trim() || next.favicon || next.startLogo ||
+      next.exportFooter !== undefined // "" is a real value here: the cleared (neutral) export footer
         ? next
         : undefined;
     onChange({ ...settings, branding: cleaned });
@@ -364,6 +368,25 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
             </div>
           </>
         )}
+
+        {/* Export footer — like startLogo, no scheme owns it, so it is NOT gated. */}
+        <div className="mt-3">
+          <label htmlFor="branding-export-footer" className="mb-1 block text-xs font-medium text-muted-foreground">
+            {t(lang, "brandingExportFooter")}
+          </label>
+          <Input
+            size="xs"
+            id="branding-export-footer"
+            type="text"
+            maxLength={BRANDING_EXPORT_FOOTER_MAX}
+            value={branding?.exportFooter ?? DEFAULT_EXPORT_FOOTER}
+            placeholder={NEUTRAL_EXPORT_FOOTER}
+            onChange={(e) => setBranding({ ...branding, exportFooter: e.target.value })}
+            aria-describedby="branding-export-footer-hint"
+            className="w-full"
+          />
+          <FieldHint id="branding-export-footer-hint" className="mt-1">{t(lang, "brandingExportFooterHint")}</FieldHint>
+        </div>
       </div>
     </>
   );

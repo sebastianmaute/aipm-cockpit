@@ -360,6 +360,19 @@ describe("forecastFacts", () => {
     expect(f.bucketsMissingPercent).toEqual([{ id: 2, name: "Design" }, { id: 3, name: "Rollout" }]);
   });
 
+  // ★ The consequence the closed-bucket fallback exists for: a closed budgeted
+  //   bucket with no percent no longer withholds the project's EV, so the
+  //   efficiency forecast can run. It earns its OWN budget in full (100 h ×
+  //   €100 = €10,000 here, beside bucket 1's half of the same).
+  it("counts a closed bucket with no percent as fully earned instead of withholding EV", () => {
+    const f = forecastFacts(input([
+      withActual(1, {}, { percentComplete: 50 } as Partial<BudgetBucket>),
+      withActual(2, {}, { name: "Discovery", status: "closed" } as Partial<BudgetBucket>),
+    ]));
+    expect(f.bucketsMissingPercent).toEqual([]);
+    expect(f.ev).toBe(15_000);
+  });
+
   it("derives PV from the burn-down series (review finding 2: literal values, not a re-derivation)", () => {
     // A re-derivation using the SAME burndown output (`s.plannedRemainingValue[s.todayIndex]`)
     // can't catch a mutated index — the mutant computes its wrong answer from the

@@ -16,7 +16,7 @@ import { ActionMenus } from "./action-menus";
 import { GlobalSearchConnected } from "./global-search-box";
 import { DisplayTzSwitcher } from "./display-tz-switcher";
 import { useDisplayTimezone } from "./display-timezone-context";
-import { aiAssistantOpener, defaultExportConfig, isAiEnabled } from "./settings-types";
+import { aiAssistantOpener, defaultExportConfig, exportFooterText, isAiEnabled } from "./settings-types";
 
 function DisplayTzSwitcherConnected({ lang, additionalTimezones }: { lang: Lang; additionalTimezones: readonly string[] }) {
   const ctx = useDisplayTimezone();
@@ -109,6 +109,7 @@ export function buildShellChrome(deps: ShellChromeDeps): { appHeaderEl: ReactNod
         onCommand={handleCommand}
         onVoiceError={(msg) => showToast("error", msg)}
         exportConfig={settings.export ?? defaultExportConfig}
+        exportFooter={exportFooterText(settings.branding)}
         templates={projectTemplates}
         onSaveTemplate={handleSaveTemplate}
         onApplyTemplate={handleApplyTemplate}

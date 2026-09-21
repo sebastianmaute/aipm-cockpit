@@ -687,3 +687,15 @@ describe("renderDocumentHtml — S3c-2 standalone image branches", () => {
     expect(out).toContain(`data-asset-id="a1"`);
   });
 });
+
+describe("renderDocumentHtml — export footer", () => {
+  it("prints the configured footer on a standalone render, HTML-escaped", () => {
+    const html = renderDocumentHtml(doc([]), ws, "en-US", "standalone", undefined, "Acme <GmbH>");
+    expect(html).toContain("<footer>Acme &lt;GmbH&gt;</footer>");
+    expect(html).not.toContain("Acme");
+  });
+
+  it("keeps today's footer when none is passed", () => {
+    expect(renderDocumentHtml(doc([]), ws, "en-US", "standalone")).toContain("<footer>Acme — AI PM Cockpit</footer>");
+  });
+});

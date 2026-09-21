@@ -92,10 +92,59 @@ export class LocalFileBackend implements StorageBackend {
     return this.getHandle();
   }
 
+  /**
+   * Pick a save target AND bind it in one step.
+   *
+   * ★★ THE BIND-AND-GO HALF OF THE PICK PAIR, left in place for its two callers —
+   * but NOT because there is nothing in their files worth reading. An earlier
+   * revision said exactly that and it is FALSE of `createProject`, which builds an
+   * EMPTY workspace and `save()`s it over whatever file the user picks, unread:
+   * the same shape of damage §590 is about.
+   * ★★★ What makes it acceptable there, and what does NOT: both callers reach
+   * `showSaveFilePicker`, an OS SAVE dialog that has already asked the user about
+   * replacing that file, and in both the user has just asked for this explicitly
+   * — a new project HERE, or a conversion of the project in scope. Neither can be
+   * reached in §590's state: `onRequestStorageSwitch` is gated on
+   * `loadSucceeded()`, and `createProject` writes a workspace it built rather than
+   * whatever scope happened to hold. §590 is the user who does NOT know their
+   * workspace is empty, because a load failed.
+   * ★ The residual risk is real and is a judgement, not an absence: a user who
+   * picks an existing project file while creating a new project still loses it,
+   * with only the OS prompt between them and that.
+   * ★★★ NOT for "Pick storage file". That one must read what the chosen file
+   * already holds before committing to overwrite it — see {@link pickFileHandle}
+   * and §590. Enumerate today's callers of this one with the pattern below — it returns the facade
+   * helper's declaration plus exactly those two call sites (three lines on 2026-09-20):
+   *   grep -rnE "pickFileForBackend[(]" src --include=*.ts --include=*.tsx | grep -v "[.]test[.]"
+   * ★★ THE `[(]` IS NOT DECORATION. The bare name matches the import line, two prose mentions in
+   * `use-storage-file-ops.ts` AND this very comment, so a name-only grep answers SEVEN and reads as
+   * a refutation of the sentence above it. Writing the pattern in brackets also stops it matching
+   * itself — an earlier revision here claimed "exactly those two call sites" beside a grep that did
+   * not produce them.
+   */
   async pickFile(): Promise<void> {
     // showSaveFilePicker grants readwrite implicitly when the user picks a file.
     const handle = await pickSaveFile(this.format);
     await idbSet(this.idbKey, handle);
+  }
+
+  /**
+   * Pick a save target and return its handle WITHOUT binding it.
+   *
+   * ★★★ THE PICK HALF OF THE COMMIT-ON-ACCEPT SPLIT (§590), exactly mirroring
+   * what {@link openFile} is to `load` under §287. `pickFile` above binds before
+   * the caller can ask anything, and `idbKey` is derived from the backend KIND
+   * rather than the instance — so it really is the ACTIVE slot, and after a
+   * FAILED load the very next `save()` wrote the empty boot workspace into a file
+   * that may already have held the user's project.
+   * ★ Commit with {@link setHandle} once the user has accepted; a decline leaves
+   * the backend on the previous file with nothing to undo.
+   * ★★ No `tryGrantPermission` here, unlike `openFile`: `showSaveFilePicker`
+   * grants readwrite implicitly when the user picks a file, which is why
+   * `pickFile` never asked either.
+   */
+  async pickFileHandle(): Promise<FsHandle> {
+    return pickSaveFile(this.format);
   }
 
   /**

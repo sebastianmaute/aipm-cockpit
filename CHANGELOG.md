@@ -8,6 +8,107 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.13.0] - 2026-09-21 "Connelly"
+
+A Dashboard and branding release. Dashboard tiles now size themselves to what they show, the
+landing page has one At a glance tile and one status summary, Reports opens with the same At a
+glance strip, and the company name on exports and on the AI Assistant's consent screen is
+configurable. It also carries a load-and-save patch for the AI assistant: a chat turn that was
+already running when the project underneath it changed went on writing into whatever project was
+in scope by the time each tool came up, and three ways a save could be refused or a file
+overwritten, found during that work, are closed here too.
+
+### Added
+
+- **Dashboard tiles size themselves to their content.** Each tile's height is measured whenever
+  the board changes — when the Dashboard opens, when the density changes, when a tile is hidden or
+  restored, and on Reset layout — so a tile fits its content within its size limits instead of
+  showing empty space or an inner scrollbar. A height you choose from a tile's ⋮ menu is kept and
+  wins over the measurement.
+- **Reports opens with the Dashboard's At a glance strip.** The Headline block (Total, Open,
+  Completed, Overdue) is replaced by the same tiles the Dashboard shows — Complete, R/A/G,
+  Overdue, Open RAID and, where tasks carry estimates (and, for CPI, logged time), Effort SPI and
+  Effort CPI — computed by the
+  same function, so the two views cannot disagree. The block keeps its place on a saved Reports
+  layout and sizes itself to its content like a Dashboard tile.
+- **The Completion trend is dated and drawn to scale.** The first and last value and date sit
+  around the line ("Today" when the last point is today's), points are spaced by date so a gap
+  of weeks looks like weeks, and the line uses a fixed 0–100 % scale so a five-point move looks
+  like five points. The tile starts hidden on a fresh board and after Reset layout (a saved
+  layout keeps it where it was), and explains itself in a tooltip.
+- **The AI usage policy on the AI Assistant's consent screen is configurable.** Settings → AI
+  Assistant has a policy owner and a policy link; a deployment can set both at build time with
+  `NEXT_PUBLIC_AI_POLICY_ORG` and `NEXT_PUBLIC_AI_POLICY_URL`, which then win. With nothing set it
+  is the same Acme owner and link as before; a custom or cleared owner gets only a link
+  configured for it, never Acme's, and Settings says so under the link field. With no link, the policy bullet, link and checkbox disappear and
+  Accept works on its own. Only an `https://` link is ever used.
+- **The export footer is configurable.** Settings → Appearance has an "Export footer" field for
+  the line at the foot of HTML document downloads, print/PDF exports and PowerPoint exports —
+  where it is also printed on every slide and names the deck's theme. With nothing set it is the
+  familiar "Acme — AI PM Cockpit"; clearing it prints just "AI PM Cockpit".
+
+### Changed
+
+- **At a glance is the one completion tile.** The separate Progress tile is merged into it, its
+  trend arrows sit beside the number they belong to instead of on a line of their own, and every
+  card in the
+  strip is the same height.
+- **One status summary, edited in place.** The Dashboard shows a single status summary, edited
+  inline from a pencil icon at its top right (an Add button while it is empty).
+- **The Dashboard's print and reset controls sit in two columns**, so the stack beside the
+  greeting is shorter.
+- **A closed budget bucket with neither a percent complete nor linked tasks counts as 100 %** in
+  earned value, instead of
+  leaving the project's earned value and the at-current-efficiency forecast blank.
+- **The demo project** gives every open budgeted bucket a percent complete, so its budget
+  forecast is filled in, and the README's screenshot and product-tour video show the current UI.
+
+### Fixed
+
+- **The assistant no longer finishes a turn into the next project.** A chat turn holds the
+  project it was sent for, but the check that compares them could not see two of the ways that
+  project changes: the load hold swaps the whole main-window tree without changing the project
+  id, and a storage-target change — a Turso URL or token edit, a SharePoint target swap — keeps
+  the id as well. The turn now carries the scope it was sent in and is re-checked against it
+  before each tool, not only once per round trip. This covers the turn's own tool loop; a plan
+  you stage and then apply from the review card is not yet guarded the same way, which is filed
+  open as `§600`. `§596` is closed.
+- **A dropped turn no longer leaves the conversation permanently broken.** A turn that ended
+  before any tool ran recorded an empty result carrier. The repair pass that closes unanswered
+  tool calls did not recognise that carrier as something to absorb, so it was kept alongside the
+  repair — and every later message in that conversation was rejected. The fault did not show on
+  the send that caused it, only on the next one, and it survived a reload, leaving a new
+  conversation as the only way out. Both halves are fixed: the carrier is no longer recorded,
+  and the repair pass now absorbs one already saved, which is the only thing that helps a
+  conversation already in that state.
+- **Leaving the assistant no longer cancels the work you asked for.** Cancelling an in-flight
+  turn when the panel closed was correct while a project swap was the only thing that closed it,
+  but opening Open Points, Settings or Learning Insights closes it too — so asking the assistant
+  to create tasks and then switching to Open Points to watch them appear silently did nothing.
+  The same applied to a Save-As, a file dialog you cancelled, and a same-project reload.
+  Cancelling now happens only for an operation that replaces the project outright. It is not
+  the other way round: a storage-target change made from the classic header still changes
+  scope without cancelling, so that turn's remaining writes are dropped rather than the turn
+  being stopped — recorded as a named residual on `§596`.
+- **A reload or file pick left running from before a storage change no longer shuts the new
+  target's save gate.** Saves could be refused with nothing on screen saying why. `§588` is
+  closed.
+- **An edit made in the moment before a storage change is no longer dropped.** `§589` is closed.
+- **"Pick storage file" after a failed load no longer writes an empty workspace into the file
+  you chose.** This one could overwrite an existing project file with nothing; it now counts the
+  records at risk and asks first. `§590` is closed.
+- **The demo project shows Effort SPI and CPI.** The sample workspace carried no effort estimates
+  or booked time, so both indices were undefined and the dashboard's At-a-glance tile hid them,
+  showing three figures where it should show five. The sample now carries effort, and a test pins
+  both indices so a re-authored sample cannot silently drop them again.
+
+### Notes
+
+- Twelve follow-ups were filed or closed with this work — the nine from `§596` to `§604`,
+  plus `§588`, `§589` and `§590` closed. Among them: a source-scanning gate that had been
+  counting its own documentation and reporting success while standing over the defect it was
+  built to catch.
+
 ## [1.12.7] - 2026-09-21 "Child"
 
 A backlog-sweep patch — fourteen register entries closed across settings secrets, calendar/date

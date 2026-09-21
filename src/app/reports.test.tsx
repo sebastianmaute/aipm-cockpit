@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ReportsPanel } from "./reports";
-import type { BudgetBucket, ResourcePlan, Role, Task } from "./types";
+import type { BudgetBucket, RaidItem, ResourcePlan, Role, Task } from "./types";
 import type { AddableReportId } from "./addable-reports";
 import { REPORT_BLOCKS } from "./report-blocks";
 import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
@@ -429,27 +429,34 @@ describe("ReportsPanel — drag-reorder extra reports", () => {
   });
 });
 
-describe("ReportsPanel — Total tile names the cancelled count", () => {
-  it("names the cancelled count under Total when there is any", () => {
-    const { container } = renderReports([
-      makeTask({ id: 1, assignee: "Alex", status: "To Do" }),
-      makeTask({ id: 2, assignee: "Bea", status: "Cancelled" }),
-    ]);
-    expect(screen.getByText(t("en-US", "reportsCancelledCount", "1"))).toBeInTheDocument();
-    // WHICH tile carries the qualifier is the decision, not merely that some
-    // tile does: `Total` is the number that stopped reconciling with Open +
-    // Completed, so the sub must sit in ITS tile. A bare getByText passes with
-    // the line moved onto Open or Completed.
-    const subs = container.querySelectorAll("[data-tile-sub]");
-    // Exactly one, so this cannot silently start testing some other section's
-    // sub line if one is ever added earlier in the panel.
-    expect(subs).toHaveLength(1);
-    expect(subs[0].parentElement?.textContent).toContain(t("en-US", "reportsTotal"));
+describe("ReportsPanel — the At a glance block", () => {
+  // The value row sits right after the label <p>, so this reads ONE cell's figure,
+  // never a neighbour's (the tables below also carry an "Overdue" header).
+  const cellValue = (block: HTMLElement, key: "dashboardKpiComplete" | "dashboardKpiOverdue" | "dashboardKpiOpenRaid") =>
+    within(block).getByText(t("en-US", key), { selector: "p" }).nextElementSibling?.textContent;
+  const raidItem = (id: number, status: string) =>
+    ({ id, category: "R", title: `Risk ${id}`, status, severity: "High", owner: "", stakeholderIds: [], linkedTaskIds: [], raisedDate: TODAY, causedByRaidIds: [] }) as unknown as RaidItem;
+  const tasks = [
+    makeTask({ id: 1, assignee: "A", status: "Done", completedDate: "2026-05-01" }),
+    makeTask({ id: 2, assignee: "B", status: "To Do", dueDate: "2026-05-01" }),
+    makeTask({ id: 3, assignee: "C", status: "To Do", dueDate: "2026-05-02" }),
+    makeTask({ id: 4, assignee: "D", status: "To Do", dueDate: "2026-06-30" }),
+  ];
+  const raid = [raidItem(1, "Open"), raidItem(2, "Open"), raidItem(3, "Closed")];
+
+  it("is titled At a glance and shows the Dashboard's figures", () => {
+    render(<ReportsPanel tasks={tasks} raid={raid} lang="en-US" today={TODAY} holidaySet={new Set()} />);
+    const block = screen.getByTestId("report-block-stats");
+    expect(within(block).getByRole("heading", { name: t("en-US", "dashboardKpiTile") })).toBeInTheDocument();
+    expect(cellValue(block, "dashboardKpiComplete")).toBe("25%");
+    expect(cellValue(block, "dashboardKpiOverdue")).toBe("2");
+    expect(cellValue(block, "dashboardKpiOpenRaid")).toBe("2");
   });
 
-  it("shows no cancelled line when nothing is cancelled", () => {
-    const { container } = renderReports([makeTask({ id: 1, assignee: "Alex", status: "To Do" })]);
-    expect(container.querySelector("[data-tile-sub]")).toBeNull();
+  it("counts no RAID while the RAID module is off, as the Dashboard does", () => {
+    const features = ALL_MODULE_IDS.filter((m) => m !== "raid");
+    render(<ReportsPanel tasks={tasks} raid={raid} features={features} lang="en-US" today={TODAY} holidaySet={new Set()} />);
+    expect(cellValue(screen.getByTestId("report-block-stats"), "dashboardKpiOpenRaid")).toBe("0");
   });
 });
 
@@ -479,11 +486,10 @@ describe("ReportsPanel — a group card does not count cancelled work Green", ()
       makeTask({ id: 1, assignee: "Alex", group: "Alpha", status: "To Do" }),
       makeTask({ id: 2, assignee: "Bea", group: "Alpha", status: "Cancelled" }),
     ]);
-    // TWO, and the count is the point: the Total tile's sub line already said
-    // "1 cancelled" before this change, so a bare getByText finds that one and
-    // passes with the group card left unfixed. (It does not merely pass — it
-    // THROWS on the second match, which is how this was caught.)
-    expect(screen.getAllByText(/1 cancelled/)).toHaveLength(2);
+    // ONE, and it is the group card's. It used to be TWO: the old Headline block's
+    // Total tile also said "1 cancelled", and that block is now the At a glance
+    // strip, which has no such line — so a match here can only be the card.
+    expect(screen.getAllByText(/1 cancelled/)).toHaveLength(1);
     // The point of §66: before this, the cancelled row was tallied Green, so
     // the same fixture read "… · 1 green". Asserting the absence is what fails
     // on the unfixed code — the presence assertion above would pass either way

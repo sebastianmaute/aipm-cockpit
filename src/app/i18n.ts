@@ -393,6 +393,14 @@ const enUS = {
   storageOpenedToast: "Loaded {0} task(s) from file.",
   storageConfirmOverwrite:
     "This will replace the {0} task(s) currently in the app with the contents of the file. Continue?",
+  // §590 — shown when "Save as new file" is pointed at a file that ALREADY holds a project while the
+  // open project holds no records. {0} = file name, {1} = record count in that file.
+  // ★★ IT STATES WHAT IS KNOWN, NOT WHAT IS LIKELY. An earlier wording said the open project was
+  // empty "because its last load did not succeed" — the usual cause, and the one §590 is about, but
+  // the gate establishes only that the count is zero. A dialog that tells the user why, wrongly, is
+  // worse than one that tells them what.
+  storagePickFileHasProject:
+    "\"{0}\" already holds a project with {1} record(s). The open project is empty, so saving into this file would replace what is already there.\n\nOK loads the existing project from this file instead. Cancel leaves both the file and the app untouched.",
   storagePermissionNeeded: "permission required on next save",
   storageSwitchedToast: "Storage backend switched.",
   projectSwitchedToast: "Switched to project {0}.",
@@ -1136,8 +1144,9 @@ const enUS = {
   wizardImportWorkspaceNotWorkspace: "{0} is not a workspace file.",
   wizardImportWorkspaceIgnored: "A workspace file is imported on its own — ignored: {0}",
   dashboardCompletionTrend: "Completion trend",
-  dashboardCompletionTrendPoints: "{0} points",
-  dashboardCompletionTrendAria: "Completion trend: {0}% now, from {1}% over {2} points",
+  dashboardCompletionTrendAria: "Completion trend: {0}% on {1}, from {2}% on {3}",
+  dashboardCompletionTrendToday: "Today",
+  dashboardCompletionTrendHint: "Share of tasks complete on each day that had task activity, over the last 12 such days. Taken from saved snapshots when there are two or more; otherwise rebuilt from the activity log and task completion dates, so older points can read low if tasks were later deleted or reopened. The last point is today's figure.",
   dashboardKpiStrip: "At a glance",
   dashboardKpiComplete: "Complete",
   dashboardKpiOverdue: "Overdue",
@@ -1212,11 +1221,22 @@ const enUS = {
   aiConsentBullet5:
     "You can revoke consent at any time in Settings, which disables the chat without deleting your tasks or API key.",
   aiConsentBullet6:
-    "Acme's policy on AI usage applies to this feature. You must read it before enabling chat.",
-  aiConsentPolicyLink: "Open Acme AI usage policy",
+    "The AI usage policy of {0} applies to this feature. You must read it before enabling chat.",
+  aiConsentPolicyLink: "Open the AI usage policy of {0}",
   aiConsentPolicyCheckbox:
-    "I have read and accept Acme's policy on AI usage.",
+    "I have read and accept the AI usage policy of {0}.",
   aiConsentAccept: "I understand — enable chat",
+  // {0} in the three policy strings above when no owner is configured.
+  aiPolicyOwnerFallback: "your organisation",
+  aiPolicyOrgLabel: "AI usage policy owner",
+  aiPolicyOrgHint: "Named on the AI Assistant's consent screen. Leave empty for neutral wording. The built-in policy link belongs to Acme, so changing or clearing the owner removes it unless you enter a link below.",
+  aiPolicyOrgFromEnv: "Set by NEXT_PUBLIC_AI_POLICY_ORG in this deployment, which overrides this setting.",
+  aiPolicyUrlLabel: "AI usage policy link",
+  aiPolicyUrlHint: "An https:// link the consent screen asks people to read and accept. Leave empty if there is no policy.",
+  aiPolicyUrlInvalid: "Enter a full https:// link. Until then the consent screen shows no policy.",
+  aiPolicyUrlFromEnv: "Set by NEXT_PUBLIC_AI_POLICY_URL in this deployment, which overrides this setting.",
+  aiPolicyUrlNoBuiltin: "The built-in link is Acme's page, so it is not used for another owner. Enter your organisation's link; left empty, the consent screen shows no policy to read or accept.",
+  aiPolicyUrlEnvRejected: "NEXT_PUBLIC_AI_POLICY_URL is set in this deployment but is not a full https:// link, so it is ignored and this field is used instead.",
   aiConsentRequired:
     "Consent required. Open the AI Assistant tab to review and enable.",
   aiConsentGranted: "Chat enabled",
@@ -1381,7 +1401,6 @@ const enUS = {
   healthDriverCancelled: "cancelled",
   healthDriverOnTrack: "on track",
   healthTooltip: "{0}: {1}",
-  reportsHeadline: "Headline",
   reportsGroupHealth: "Group health",
   reportsUngrouped: "Ungrouped",
   reportsGroupCounts: "{0} red · {1} amber · {2} green",
@@ -1461,7 +1480,6 @@ const enUS = {
   reportsOpen: "Open",
   reportsCompleted: "Completed",
   reportsCancelled: "Cancelled",
-  reportsCancelledCount: "{0} cancelled",
   reportsOverdue: "Overdue",
   reportsOpenByStatus: "Open tasks by status",
   reportsDueSoon: "Due soon (≤3 work days)",
@@ -1565,7 +1583,7 @@ const enUS = {
     "When the storage backend is Turso and the History module is enabled, every project keeps an append-only history of full-workspace versions. Captures happen automatically a few minutes after your edits settle (rapid autosaves coalesce into one version; identical payloads are skipped), and you can take a named checkpoint anytime with \"Save version now\". Open the History view to compare a version with the current data or tick two versions to diff them against each other — a field-level diff grouped by entity type, each record expandable before → after. From a \"compared with current\" view, tick whole records or individual fields and click \"Restore selected\" to revert just those — a non-destructive change that is itself captured as a new version and recorded in the activity log. Auto-versions are pruned to the limit in Settings → \"Version history: keep N versions\" (minimum 50, in steps of 10); named checkpoints are never pruned.",
   helpSecAiTitle: "AI chat",
   helpSecAiBody:
-    "Add an Anthropic API key in Settings → AI, then accept the consent screen on the AI Assistant tab. Messages and task data are sent directly from your browser to api.anthropic.com — Acme's AI usage policy applies. The key is encrypted at rest in this browser (AES-256-GCM under a non-extractable device key) and is never written to disk in plain text. Claude can list, create, update, and delete tasks on your behalf via tool calls. Claude is also told which view you are on and what that view is for, and on Open Points what your current filters are showing, while Workload, Gantt and Budget report project-wide totals rather than the rows on screen — so ask about “what I am looking at” and it answers from the screen. Settings → AI lists, read-only, exactly what it is told about each view. On a Turso project your conversations are kept as named threads in a sidebar you can resize; on file storage the panel holds a single unsaved conversation. Claude can also search this project's earlier chats and its activity history, and is given a short recap of the last seven days — each of those three is its own switch in Settings → AI, on by default. Switching a search off removes that tool from Claude outright rather than hiding its results; switching the recap off simply stops supplying it.",
+    "Add an Anthropic API key in Settings → AI, then accept the consent screen on the AI Assistant tab. Messages and task data are sent directly from your browser to api.anthropic.com — your organisation's AI usage policy applies. The key is encrypted at rest in this browser (AES-256-GCM under a non-extractable device key) and is never written to disk in plain text. Claude can list, create, update, and delete tasks on your behalf via tool calls. Claude is also told which view you are on and what that view is for, and on Open Points what your current filters are showing, while Workload, Gantt and Budget report project-wide totals rather than the rows on screen — so ask about “what I am looking at” and it answers from the screen. Settings → AI lists, read-only, exactly what it is told about each view. On a Turso project your conversations are kept as named threads in a sidebar you can resize; on file storage the panel holds a single unsaved conversation. Claude can also search this project's earlier chats and its activity history, and is given a short recap of the last seven days — each of those three is its own switch in Settings → AI, on by default. Switching a search off removes that tool from Claude outright rather than hiding its results; switching the recap off simply stops supplying it.",
   helpSecAiAdvancedTitle: "AI assistance (advanced)",
   helpSecAiAdvancedBody:
     "Beyond the chat, an Anthropic key unlocks several optional, advisory AI helpers. Create project with AI: in the new-project wizard, describe the project in plain words or import a source — upload a file, pick a SharePoint document, or paste a Confluence page URL — and Claude pre-fills the form for you to review. Analyze with AI: the Action Center's button runs one analysis pass over your reports and suggests where to focus; it never edits your data, and the deterministic next-action engine is untouched. Suggest with AI: in the next-actions settings, Claude proposes tweaks to the ranking weights that you accept per row. Scheduled jobs: opt in (Settings → Scheduled jobs) to run a recurring portfolio analysis on a daily or weekly cadence — the scheduler runs due jobs while the app is open and catches up missed runs on next launch, surfacing results as a notification and a run history. Each scheduled run is a billed API call, so it is off by default. None of these features run in pop-out windows.",
@@ -1590,7 +1608,6 @@ const enUS = {
   helpSecKeysTitle: "Keyboard & shortcuts",
   helpSecKeysBody:
     "Ctrl+K / ⌘K — focus the global search from anywhere.\n/ — focus the global search when you are not typing in a field.\nF4 (configurable in Settings → Dictation) — hold to dictate into the focused field.\nEsc — close any open modal, popover, or task form.\nEnter in chat — send message. Shift+Enter — newline.\n+ button in header — open the New task modal.\nChevron in the workspace tab strip — collapse / expand the pane.\nClick a tab while collapsed — auto-expands.",
-  helpPolicyLink: "Acme AI usage policy",
 
   version: "Version",
   versionVersion: "Version",
@@ -2605,6 +2622,8 @@ const enUS = {
   dashboardSubBudget: "Budget",
   dashboardSubScope: "Scope",
   dashboardStatusSummary: "Status summary",
+  dashboardStatusSummaryEdit: "Edit status summary",
+  dashboardStatusSummaryAdd: "Add status summary",
   dashboardNarrativePlaceholder: "Summarize the current status, what changed, and what needs attention.",
   dashboardNarrativeUpdated: "Updated {0}",
   dashboardKpiTile: "At a glance",
@@ -2637,8 +2656,6 @@ const enUS = {
   arrangementTileMoved: "{0} moved to position {1} of {2}",
   arrangementTileHidden: "{0} is now hidden",
   arrangementTileResized: "{0} resized to {1} by {2}",
-  dashboardProgress: "Progress",
-  dashboardPercentComplete: "{0}% complete",
   dashboardCompletedOf: "{0} of {1} complete",
   dashboardNoActiveScope: "No active scope",
   dashboardOutOfScopeCount: "Cancelled",
@@ -2722,7 +2739,6 @@ const enUS = {
   dashboardScopeUnset: "Not set",
   dashboardMilestones: "Milestones",
   dashboardRagThresholds: "Consumption / hours: Amber ≥ 90%, Red > 100% · Cost burn: Red < 0.80, Amber < 0.90 · Margin: Green ≥ 15%, Amber 0–15%, Red < 0",
-  dashboardProgressCaption: "Completed tasks vs tasks in scope — cancelled work is out of both. The Red / Amber / Green split covers work still in scope; delivered work counts Green and cancelled work is counted separately, unless its health was set by hand.",
   dashboardBurnCaption: "Budget and hours consumed vs available. The burn-down shows remaining budget against the planned glide-path — the actual line above the dashed line means you are behind plan.",
   navMilestones: "Milestones",
   milestoneNew: "New milestone",
@@ -2766,6 +2782,8 @@ const enUS = {
   brandingLogoError: "Use a PNG, JPG, WebP or GIF image under 512 KB.",
   brandingAppName: "App name",
   brandingFooterSlogan: "Slogan",
+  brandingExportFooter: "Export footer",
+  brandingExportFooterHint: "Printed at the foot of HTML, PDF and PowerPoint exports, and names the PowerPoint theme. Leave empty to print only “AI PM Cockpit”.",
   brandingFavicon: "Favicon (browser tab icon)",
   brandingFaviconChoose: "Choose favicon…",
   brandingFaviconHint: "Shown in the browser tab. Square PNG recommended (32×32 or 64×64), up to 512 KB. PNG, JPG, WebP or GIF.",
@@ -3858,7 +3876,7 @@ const enUS = {
   helpSecTimelogTitle: "Time bookings",
   helpSecTimelogBody: "Pulls booked hours from Timelog and lines them up against this project. Time bookings is a per-project module, so the view is only there when it is switched on for the project you are in. People are matched automatically on email, then initials, then name; projects on bucket name, then PO number. You confirm or correct the rest by hand, and a manual link always wins. Summary tiles show what was found. The apply step writes matched actuals into your budget buckets and lists exactly which rows would change, so you confirm the effect rather than the intent.",
   helpSecReportsTitle: "Reports",
-  helpSecReportsBody: "Read-only summaries, built for printing. Reports covers tasks: totals for open, completed, cancelled and overdue, on-time against late completion, inquiry counts, and breakdowns by group, label, assignee and priority. The RAID report breaks the register down by severity, status, owner, category and age. Change and Budget have their own reports on the same pattern. Nothing on these views edits anything. Most tables let you resize and sort their columns, and some carry a text filter.",
+  helpSecReportsBody: "Read-only summaries, built for printing. Reports covers tasks: an At a glance strip (completion, R/A/G, overdue, open RAID and, where tasks carry estimates, Effort SPI and Effort CPI), on-time against late completion, inquiry counts, and breakdowns by group, label, assignee and priority. The RAID report breaks the register down by severity, status, owner, category and age. Change and Budget have their own reports on the same pattern. Nothing on these views edits anything. Most tables let you resize and sort their columns, and some carry a text filter.",
   helpSecHelpTitle: "Finding your way around Help",
   helpSecHelpBody: "This view. Its tabs are Help itself, How it all connects and Information flows, with Guided tours added wherever a tour can actually be launched from. The search box filters entries by title and body together, so a word you remember from a description finds the entry even when the heading does not contain it. Beside it sits the reading level: Guided adds a plain-language primer to each concept, Standard is the default, and Expert puts the reference sections ahead of the explanatory ones. It writes the same device-wide setting as Settings, Appearance, so changing it in either place moves the other. Printing gives you the entries currently on screen, so clear the search box first if you want the whole set.",
   helpSecSavedViewsTitle: "Saved views",
@@ -4333,10 +4351,11 @@ const enUS = {
   contactPersonsTip:
     "How to add a contact: in “Add manually” pick a team member or saved contact to link them, or type a new name for someone outside your directory; use the email field to record an address for a typed-in (external) contact; click Add to put them on the list.",
   // UX batch "Aldiss" (0.177.0)
-  dashboardKpiCompleteHint: "Share of tasks with a completion date, out of every task still counted as scope. Trending up is good; a flat line signals stalled delivery.",
+  dashboardCompleteHint: "Share of tasks with a completion date, out of every task still counted as scope — cancelled work is out of both. Trending up is good; a flat line signals stalled delivery.",
+  dashboardCompleteHintNoTrend: "Share of tasks with a completion date, out of every task still counted as scope — cancelled work is out of both.",
+  dashboardRagSplitHint: "The Red / Amber / Green split covers work still in scope; delivered work counts Green and cancelled work is counted separately, unless its health was set by hand.",
   dashboardKpiOverdueHint: "Tasks past their due date and not yet done. Drive this toward zero.",
   dashboardKpiOpenRaidHint: "Open risks, assumptions, issues and dependencies that still need attention.",
-  dashboardRagHint: "Red / Amber / Green health counts across your project areas — how many are off track, at risk, or healthy.",
   dashboardBudgetHint: "Actual spend against planned budget. Above 100% means you have exceeded the plan.",
   raciFilterAdd: "Filter people…",
   raciFilterRemove: "Remove {0} from filter",

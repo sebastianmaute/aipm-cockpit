@@ -32,6 +32,36 @@ describe("bucketPercentComplete", () => {
   it("is null when every link is dangling", () => {
     expect(bucketPercentComplete({ taskIds: [99] }, [{ id: 1, status: "Done" }])).toBeNull();
   });
+
+  // ★ A closed bucket's work is over, so with no other signal it is 100 % —
+  //   rather than null, which blanks the project's whole EV (one bucket missing
+  //   a percent withholds it). It fills ONLY the null case: a manual value and
+  //   resolvable links both still win, so a closed bucket whose linked tasks are
+  //   unfinished keeps reporting that, not a flattering 100.
+  describe("closed bucket", () => {
+    it("is 100 with neither a manual value nor links", () => {
+      expect(bucketPercentComplete({ taskIds: [], status: "closed" }, [])).toBe(100);
+      expect(bucketPercentComplete({ status: "closed" }, [])).toBe(100);
+    });
+
+    it("is 100 when every link is dangling", () => {
+      expect(bucketPercentComplete({ taskIds: [99], status: "closed" }, [{ id: 1, status: "Done" }])).toBe(100);
+    });
+
+    it("still lets a manual value win, including 0", () => {
+      expect(bucketPercentComplete({ status: "closed", percentComplete: 40 }, [])).toBe(40);
+      expect(bucketPercentComplete({ status: "closed", percentComplete: 0 }, [])).toBe(0);
+    });
+
+    it("still derives from resolvable links", () => {
+      const tasks = [{ id: 1, status: "Done" }, { id: 2, status: "To Do" }];
+      expect(bucketPercentComplete({ taskIds: [1, 2], status: "closed" }, tasks)).toBe(50);
+    });
+
+    it("stays null for an OPEN bucket with no signal (control)", () => {
+      expect(bucketPercentComplete({ taskIds: [], status: "open" }, [])).toBeNull();
+    });
+  });
 });
 
 describe("earnedValueFor", () => {

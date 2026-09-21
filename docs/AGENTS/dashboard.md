@@ -18,12 +18,14 @@
 renders, top to bottom (spec C; the two rows are presentational in `dashboard-rows.tsx`): ROW 1
 (`DashboardTopRow`) — `DashboardDeltaStrip` in the free width, `DigestCardConnected` beside it at about
 a third (its slot is `empty:hidden`, so a self-hidden digest hands the delta strip the whole row) and
-the right-hand vertical control stack `PrintButton` · `ResetLayoutButton` · `ResetSizeButton` ·
-`DashboardHiddenBadge`; the hidden-tiles TRAY (`DashboardShelf`) directly under row 1, shown only while
+the right-hand control stack, a 2×2 grid — `PrintButton` | `ResetLayoutButton` over `ResetSizeButton` |
+`DashboardHiddenBadge`, each PINNED to its cell (`col-start-*`/`row-start-*`) so a popout, which lacks the
+right-hand pair, keeps Reset size under Print; DOM order is unchanged, so Tab order reads row by row; the hidden-tiles TRAY (`DashboardShelf`) directly under row 1, shown only while
 open; ROW 2 (`DashboardStatusRow`) — the Next-Actions `ActionHeroCard` beside `DashboardHero` (Overall
 status), equal height by stretch, the hero absent when there is no Now/Soon group; then
 `NarrativeSummary` · `DashboardCoachingCard` · `DashboardTipCard` → the arrangeable tile grid
-(`DashboardGrid`) → a full-width FOOTER (`NarrativeEditor`). Both rows stack below `lg`. ★★ `ResetLayoutButton` MOVED INTO that stack (0.277.0+) from a ghost text
+(`DashboardGrid`). There is NO footer any more: the folded `NarrativeEditor` that sat below the grid
+was deleted, and the one status summary above the grid is edited in place. Both rows stack below `lg`. ★★ `ResetLayoutButton` MOVED INTO that stack (0.277.0+) from a ghost text
 button that used to sit between the grid and the shelf; this line named it in the middle zone until
 then. It is the only member of the stack carrying its own `!arrangement.readOnly` guard — the stack is
 gated only on `print:hidden`, and a popout is read-only by design. ★ The footer was described here as `NarrativeEditor` **plus a
@@ -54,11 +56,37 @@ width inside the tile body — measured in both densities by `e2e/dashboard-grid
 (a bump is a lockstep decision across every surface — `arrangement-store.ts`). `useArrangement` takes
 an optional `upgrade` that runs on a stored `ok` read BEFORE `reconcile`; a different object back marks
 that read dirty, so the upgraded layout is written back once. The Dashboard passes
-`upgradeDashboardLayout` (`dashboard-layout-upgrade.ts`), keyed on `DASHBOARD_BURN_UPGRADE`: Budget burn
-to the front at 2×8 unless hidden, Completion trend's height clamped into 2–4, and — only alongside that
-burn move, each axis only from exactly its old default (`w:4`, `h:2`) — the KPI tile resized to `w:2 h:3`
-(§585; any other stored width or height is the user's and stays). Nothing else is touched.
-★★★ `DEFAULT_LAYOUT` already carries the id and must — a fresh or reset board is persisted from it,
+`upgradeDashboardLayout` (`dashboard-layout-upgrade.ts`), which is a COMPOSER over independently gated
+STEPS, each keyed on its own id in `upgrades` — a step whose id is already recorded returns its input BY
+REFERENCE, so adding a step never re-runs an earlier one and never skips a later one for a layout that
+already has an earlier id. Two steps today, run in this order:
+  - `burnUpgradeStep` (`DASHBOARD_BURN_UPGRADE`): Budget burn to the front at 2×8 unless hidden,
+    Completion trend's height clamped into 2–4, and — only alongside that burn move, each axis only from
+    exactly its old default (`w:4`, `h:2`) — the KPI tile resized to `w:2 h:3` (§585; any other stored
+    width or height is the user's and stays).
+  - `progressRemovalStep` (`DASHBOARD_PROGRESS_REMOVAL_UPGRADE`): drops the retired `"progress"` tile
+    (compared as a string — it is no longer in the `DashboardTileId` union) from `board` and `hidden`,
+    and records its id only when it actually removed something; a layout that never held `progress` is
+    returned unchanged, unrecorded. ★★ The id gate is load-bearing here for a reason the burn step
+    doesn't share: while `"progress"` was still in the catalogue, `reconcile` (which runs AFTER this
+    composer, on every load) would have re-inserted any catalogue tile absent from both `board` and
+    `hidden` — a presence-only gate would remove it and have it put straight back, appending one more id
+    each load. With `progress` gone from `DASHBOARD_TILES` a presence check alone would now terminate,
+    but the id gate stays so this step matches the burn step's contract.
+    ★★ Its FILTER duplicates `reconcile`, which drops any id with no catalogue spec from both lists; what
+    the step is load-bearing for is returning a NEW reference. `useArrangement` marks a read dirty only when
+    `upgrade` changed it (`upgraded: upgradedStored !== stored`), and only a dirty read writes the reconciled
+    layout back. Delete the step and a layout that already carries the burn id keeps `progress` in storage
+    for good — measured: skipping the step fails `use-dashboard-layout.test.tsx`'s "drops a stored progress
+    tile…" on the STORED board, while removing only the two filter lines leaves it green.
+Nothing else is touched by either step.
+★ `DEFAULT_LAYOUT` HIDES `completionTrend` (it starts in the tray): its line is reconstructed from the activity
+log and easy to misread, so it is opt-in, and its header carries a `hintKey` tooltip (`dashboardCompletionTrendHint`)
+saying what it shows — rendered by `ArrangementTile`'s optional `hint`, in the HEADER because a tile body is often
+one big button and a tooltip trigger nested in it is an axe nested-interactive failure. DEFAULT only: a stored layout
+keeps the tile where the user left it (no upgrade step), and the tray offers it only while it has data (`shelfHidden`
+filters on `isRenderable`), so a project with a series shows "1 hidden tile" on a fresh board.
+★★★ `DEFAULT_LAYOUT` already carries the burn id and must — a fresh or reset board is persisted from it,
 and without the id its next load would drag burn back to the front. `readArrangement` sanitises the list
 (junk is dropped, never a rejection) and `reconcile` carries it. ★ An older build's `reconcile` drops the
 list, so a layout it rewrites is upgraded once more — accepted in the spec.
@@ -134,9 +162,14 @@ geometry (`getComputedStyle` on the container, `getBoundingClientRect` on real t
 makes no class-string assertion at all. The two layers catch the same defect by different means; neither
 is redundant, and calling either one "the ONLY detector" is what went stale here.
 
-★ **The responsive clamp lives ENTIRELY in the width table** — `W_CLASS`'s literal `lg:`/`xl:` variants
-plus the container's own `lg:grid-cols-2 xl:grid-cols-4`. No width measurement, no `ResizeObserver`, no
-JavaScript anywhere in the feature; height does not clamp, so a tall tile stays tall.
+★ **The WIDTH responsive clamp lives ENTIRELY in the width table** — `W_CLASS`'s literal `lg:`/`xl:`
+variants plus the container's own `lg:grid-cols-2 xl:grid-cols-4`. No width measurement, no
+`ResizeObserver`, no JavaScript in that clamp — it is pure CSS at every breakpoint.
+★★ **HEIGHT IS NO LONGER LIKE THIS.** This bullet used to say flatly "height does not clamp, so a tall
+tile stays tall", which held before tile heights were measured and is false now: an unflagged tile's
+height IS clamped, to its own `[minH, maxH]`, by `useMeasuredHeights`/`rowsForHeight` (see the
+measured-heights paragraph below) — JavaScript, not CSS, and driven by measured CONTENT height, never by
+width or a breakpoint. A tile past its `maxH` scrolls inside itself rather than growing further.
 
 ★★ **The row unit is a density class, and only ONE of its two values is GATED.** `dc.tileRow` is
 `auto-rows-[80px]` comfortable / `auto-rows-[72px]` compact (`dashboard-density.ts`). The e2e geometry
@@ -148,15 +181,52 @@ a different property from gated: 72 replaced a provisional 64 on 2026-08-15 afte
 measurement of every tile at 64/72/80/88. `dashboard-density.ts`'s own test carries the numbers and
 the two rejected alternatives — read it before moving either value.
 
+★★★ **TILE HEIGHTS ARE MEASURED, NOT JUST STORED.** `useMeasuredHeights` (`use-measured-heights.ts`)
+measures every UNFLAGGED tile's content once per TRIGGER — mount, a density change, the rendered tile
+SET changing (a hide, a restore, a gate opening or closing), any tile's `hSet` flag changing, or a
+Reset layout. ★★ Reset is a trigger in its OWN right, through a `resetNonce` the panel bumps on every
+press: the flag alone does not cover it, because a board that differs from the default only in widths
+or order has no flag to clear, and would otherwise keep every stale reading after Reset. A width change
+(the ⋮ menu) or a breakpoint change (resizing the window) is deliberately NOT a trigger — content height
+depends on width, so a tile widened or narrowed either way keeps its measured height until the NEXT
+TRIGGER of any kind, and may scroll inside itself until then. ★ That next trigger can be unrelated:
+another tile's FIRST height pick, a hide or a restore re-measures EVERY unflagged tile, so a tile
+widened earlier in the session can change height then. (A later pick on a tile whose flag is already
+set does not re-trigger — the key holds the flag, not the height, and the flag only flips once.) That
+is the width ruling's accepted consequence, not a defect. ★ A trigger that fires while web fonts are still loading gets ONE more pass once
+`document.fonts.ready` resolves: the landing view is measured on its first frame, which can come before
+the `next/font` swap re-wraps its text. Once the fonts are loaded no extra pass is scheduled, and a
+resolution after unmount or after a newer trigger schedules nothing. `rowsForHeight`
+(`arrangement-measure.ts`) converts the reading — the vertical extent of the tile body's IN-FLOW element
+children plus the body's padding, never the body's `scrollHeight` (which can only grow a tile, never
+shrink it) — into the smallest row count that holds it, clamped to the tile's own `[minH, maxH]`.
+★★ "In flow" is enforced: a `position: fixed` or `position: absolute` child, and a child whose rect
+is all zero (`display: none`), are skipped. Any of them, taken into the min-top/max-bottom extent,
+stretched the reading towards `maxH`. `e2e/dashboard-grid.spec.ts`'s `tileReading` mirrors the same
+filter, so its expected rows follow the hook's.
+★★ **Never persisted.** A stored measurement would read as a user's choice on the next open and freeze
+the board — the same gate-decides-render-never-store rule this file states elsewhere for gated tiles.
+★★ **Applied ONLY where `hSet` is absent.** A tile the user has explicitly sized through the ⋮ menu
+keeps that height regardless of what it measures to.
+★★★ **`renderedH` (`dashboard-panel.tsx`) IS THE ONE PLACE A TILE'S DISPLAYED HEIGHT IS DECIDED** — the
+tile itself, the ⋮ menu's current value and the resize announcement spoken after a change all read it,
+never the stored `h` directly, which would show the catalogue default on a measured tile (the menu
+reporting a stale value would make a real resize look like a no-op to the user; the announcement would
+speak the wrong height after a width change).
+★ `burn`'s chart is an SVG sized by its own width (`viewBox`, no fixed height), so it has a natural
+height and measures to it — typically well under its 2×8 catalogue default — rather than filling the
+tile the way a naive "the chart is the body" reading would assume. `kpi` widened from a fixed
+`minH:3,maxH:3` to `minH:2,maxH:4` for exactly this: a stored or chosen h:2 put its second row of cells
+(wrapped at half width on xl, §585) behind an inner scroll, and the tile is now measured to whatever its
+cells need at the current width instead.
+
 ★★★ **DO NOT READ A SCROLLBAR ON A COMPACT TILE AS A ROW-UNIT DEFECT.** The tile body is
 `min-h-0 flex-1 overflow-auto p-2` (`arrangement-tile.tsx` since the chrome was extracted;
 `dashboard-tile.tsx` is a thin adapter), so nothing ever clips or spills — over-tall
-content becomes an inner scroll container. And **6 of 9 rendering tiles already overflow at the
-shipped comfortable/80** (measured, default catalogue board, 1600px, e2e seed: `burn` 507px over,
-`insights` 239, `upcoming` 133). Inner scrolling is this design's normal mode, not something compact
-introduced, and no row unit fixes those three — fitting `burn` at h:2 would take a ~340px unit, which
-is what per-axis resize is for. Measure comfortable before calling anything a regression. ★ Those
-numbers predate spec C, which made `burn` chart-only at h:8 — re-measure before quoting them.
+content becomes an inner scroll container. Measuring to content removes that scroll up to each tile's
+own `maxH`; a tile already at its `maxH` still scrolls, because there is no more row to give it, and
+per-axis resize through the ⋮ menu is the user's way past a `maxH` that is still too tight for their
+content. That is this design's normal mode, not a regression.
 
 ★★ **The `burn` tile is CHART-ONLY (spec C decision 7).** Its body is the compact
 `BurndownChartPanel` (the component the Budget report mounts, with the device settings
@@ -191,8 +261,9 @@ at `lg`'s 2-column grid and half at `xl`'s 4-column grid (`arrangement-grid.tsx`
 panel's own `2xl:flex-row` breakpoint reads the VIEWPORT, not that box, so on a viewport of 1536px or wider it would have fired
 whatever the tile's own width was. `computeEvHistory` (`budget-ev-history.ts`) marks history
 unavailable only when at least one budgeted bucket exists and none has a known value AT TODAY: a bucket is unknown
-there when it has neither a hand-entered percent nor any resolvable task link (`bucketPercentComplete` returns null —
-no `taskIds` at all, or every linked task deleted). Its snapshot input (`bucketProgressSeries`) is Turso-only, so in a
+there when it has neither a hand-entered percent nor any resolvable task link and is not closed (`bucketPercentComplete`
+returns null — no `taskIds` at all, or every linked task deleted; a CLOSED bucket in that state is 100 instead, and
+joins the history at today, never back-dated). Its snapshot input (`bucketProgressSeries`) is Turso-only, so in a
 file-mode project a hand-entered bucket (it has no recorded progress there) is known-zero before its `startDate`
 (when it has one), partial from then (from the first point, without one) until today, and known at today's point from its current percent
 (`valueFn` in `budget-ev-history.ts`).
@@ -429,14 +500,19 @@ The presentational slices:
   `{lang, today, model, status, setStatus, showBudget?, showChanges?, dc}` — `trends`/`topActions`/
   `onOpenAction`/`onNavigate` were REMOVED (they moved with the KPI/Top-actions cards).
 - `dashboard-sections/dashboard-kpi-strip.tsx` (`DashboardKpiStrip`) — the "at a glance" KPI tiles
-  (complete % · overdue · open RAID, plus Effort SPI · Effort CPI whenever `model.evm.spi`/
-  `model.evm.cpi` is non-null — spec C, independent of the Budget module; overdue and open-RAID
-  always carry a `TrendArrow`, completion
-  carries one only outside the no-active-scope state below); the body of the `kpi` tile. Uses a
+  (complete % with its `dashboardCompletedOf` count · R/A/G · overdue · open RAID, plus Effort SPI · Effort CPI whenever `model.evm.spi`/
+  `model.evm.cpi` is non-null — spec C, independent of the Budget module; when `trends` is passed,
+  overdue and open-RAID carry a `TrendArrow` and completion carries one only outside the
+  no-active-scope state below). The body of the Dashboard's `kpi` tile AND of Reports' `stats`
+  block, which passes no `trends` (the arrows compare against the last DASHBOARD visit) and no
+  `onNavigate`. Its `model` is a `KpiStripModel` from `computeKpiStripModel`, which
+  `computeDashboard` also reads, so the two surfaces cannot disagree. Uses a
   `dc.kpiPad` card wrapper (NOT `<Section boxed>`, which hardcodes `p-4` and ignores compact density).
   ★ `kpiPad`, not `cardPad` (§585): same horizontal padding, but compact drops the vertical padding — with
   it, a wrapped strip overflowed its h:3 tile body by 3px at the 72px row unit.
-  ★★ Its columns come from `KPI_STRIP_COLS`, keyed on the VISIBLE cell count (3, 4 or 5 — so no count leaves
+  ★ The count and the R/A/G cell came from the retired `progress` tile, merged here so completion renders once; the
+  Progress caption split into the two cells' tooltips (`dashboardCompleteHint` · `dashboardRagSplitHint`).
+  ★★ Its columns come from `KPI_STRIP_COLS`, keyed on the VISIBLE cell count (every member of `KpiCellCount` — so no count leaves
   an empty cell) and read as CONTAINER queries off that wrapper, which is the `@container`: they size to the
   tile, not the viewport (§581). The breakpoints are measured label widths; the derivation sits on the constant.
   ★★★ **NEVER RE-DERIVE "is this project all cancelled" — call `hasNoActiveScope(progress)`
@@ -454,10 +530,9 @@ The presentational slices:
   in the grid between the two states. Harmless in the `grid` strip (cells stretch), but jsdom has no
   layout so no test here can see it — eye-verify this tile in both states, and never assume the
   wrapper is there when writing a `.parentElement` walk against it.
-  ★★ STILL INCONSISTENT, recorded not fixed (`docs/open-followups.md` §66): the R/A/G tile beside it
-  counts a cancelled task GREEN, because `computeGroupHealth` tallies `computeTaskHealth` per task
-  and that returns Green for anything finished. So an all-cancelled project reads "No active scope"
-  next to "G 2".
+  ★ The R/A/G cell beside it leaves closed-but-never-delivered work out of its counts and discloses it
+  as a ✕ count (`outOfScope`; `docs/open-followups.md` §66, closed), so an all-cancelled project reads
+  "No active scope" beside zero R/A/G counts and the cancelled count.
 - `dashboard-sections/dashboard-top-actions.tsx` (`DashboardTopActions`) — the ranked Top-actions queue;
   returns `null` when `!topActions?.length`. ★★ The panel no longer gates a wrapper on that: the old
   `break-inside-avoid` masonry wrapper is gone and the condition moved into `TileGateInput`
@@ -470,9 +545,27 @@ The presentational slices:
 - `dashboard-sections/registers-band.tsx` — split into `RaidRegisterCard` (gated on `showRaid`) +
   `UpcomingCard`, the bodies of the `raid` and `upcoming` tiles; the old combined `RegistersBand` wrapper
   was RETIRED.
-- `dashboard-sections/dashboard-narrative.tsx` — `NarrativeSummary` (headline, read-only saved text,
-  renders null when empty) + `NarrativeEditor` (footer folded `<details>`, owns the draft + autogrow + the
-  render-time reconcile; the textarea carries an `aria-label`, NOT just a placeholder — axe).
+- `dashboard-sections/dashboard-narrative.tsx` — `NarrativeSummary` (the ONE status summary: saved text
+  plus an Edit button (a pencil `IconButton` in the card's top-right corner, beside the text, its name on `label` + `title`), or a TEXT Add button when empty, that swaps in `NarrativeEditor` in place; it ALWAYS
+  renders, because it is the only UI writer of `status.narrative`, except read-only AND empty, which
+  renders null; a popout gets no button) + `NarrativeEditor` (owns the draft + the render-time reconcile +
+  the Clear nonce; the rich-text surface is named by its `label`, NOT a placeholder — axe). ★★ The editor
+  closes on Save, on Escape, or when focus leaves its whole region, decided from `relatedTarget`.
+  ★★ Escape COMMITS the draft (it never discards) and returns focus to Edit. It goes through
+  `useDismissable` as a `layer` gated by `useClaimsWhenFocusWithin`, so the heading menu (opened later)
+  takes the first Escape and a surface opened before the editor never sees the one it consumed. The
+  focus return uses `preventScroll` (a click on tile text far down the page also
+  closes with focus on `<body>`), and its frame is cancelled on unmount. A popover the
+  region opened (the heading menu, portaled to `document.body`) counts as inside through its trigger's
+  `aria-controls`, and a null `relatedTarget` with `document.hasFocus()` false (leaving the window)
+  keeps it open. A toolbar-button
+  CLICK never blurs the editor, so the Bold test cannot pin that rule — the keyboard Tab/Shift+Tab tests
+  in `dashboard-narrative.test.tsx` do. ★ Inline, Save is never disabled: pressing it blurs the editor,
+  the blur commits, and a Save disabled by that commit swallowed the click. ★★ The editor region is
+  `print:hidden` and a print from the BROWSER menu leaves it open (that is leaving the window), so while
+  editing `NarrativeSummary` also renders a `hidden print:block` copy of the STORED summary — without it
+  that printout has no status summary at all. The in-app Print button never reaches this state: pressing
+  it moves focus out of the region, which closes the editor first.
 ★ ALL tier/card spacing uses `dc.*` density classes, never literal `gap-*`/`space-y-*`/`p-*`/`mb-*`.
 `DashboardPanelProps` is unchanged by the reorg (the ~30 test/caller sites were untouched).
 ★★ `DensityClasses` has SIX fields — `{outer, kpiGap, cardPad, kpiPad, sectionGap, tileRow}`; `kpiPad` is the
@@ -560,8 +653,8 @@ IS in axe `A11Y_VIEWS`. Built as slices:
   props.milestones?.length ?? 0`) and depend on that. ★ The greeting summary is suppressed when
   `needsYou===0 && milestonesSoon===0` (avoids "0 items need you" on a blank project). ★ The live demo seeds
   a POPULATED project so the coaching card is ABSENT at scan time (buttons eye/unit-verified, not axe-gated).
-- **KPI trend arrows ("which way is it moving"):** an "at a glance" 3-tile KPI strip (completion % · overdue
-  · open RAID) below the coaching card, each tile with a trend arrow (↑/↓/→) + signed delta vs LAST VISIT.
+- **KPI trend arrows ("which way is it moving"):** the "at a glance" KPI strip's completion % · overdue
+  · open RAID cells, each with a trend arrow (↑/↓/→) + signed delta vs LAST VISIT.
   Pure i18n-free `dashboard-trends.ts` `computeMetricTrends(prior, current)` → `Record<MetricKey,
   MetricTrend>` (`{value, delta, direction, improved}`); per-metric `HIGHER_IS_BETTER` (completion up = good;
   overdue/openRaid up = bad). ★ `delta===null ⟺ improved===null ⟺ no prior value` → arrow renders NOTHING;
@@ -579,18 +672,29 @@ IS in axe `A11Y_VIEWS`. Built as slices:
   capped at 5 so can't be the source; REQUIRED field but the only literal `DashboardModel` construction
   (`snapshot.test`) is an `as unknown as` cast. ★ `complete` KPI is a PERCENTAGE → `TrendArrow` takes a
   `unit` prop (`"%"`) so the visible delta (`+5%`) + aria-label aren't ambiguous; counts pass `""`. ★ `Tile`
-  (`report-table.tsx`) gained an optional `trend` slot. Trend templates are i18n EN+DE.
-- **Completion-trend sparkline ("trajectory"):** compact axis-less line of % complete over time, in a
+  (`report-table.tsx`) gained an optional `trend` slot, rendered at the RIGHT END OF THE VALUE ROW (not a
+  line of its own), sharing that end with `rag` — wrapped together only when both are passed, since
+  `justify-between` would centre the middle one. ★ Every KPI cell is as tall as the tallest (Complete, with
+  bar + count): the strip's grid is `auto-rows-fr` (equal rows even when it wraps) and each `Tile` takes
+  `fill` (`h-full`, and `flex flex-col` on the button — a stretched `<button>` otherwise centres its content
+  vertically). jsdom sees only the classes; the heights are measured in `e2e/dashboard-grid.spec.ts`'s
+  KPI-strip fit test. Trend templates are i18n EN+DE.
+- **Completion-trend sparkline ("trajectory"):** compact DATED line of % complete over time (first/last value above it, first/last date below it — "Today" when the
+  last point is today's figure; `CompletionTrendBody` in `dashboard-tile-bodies.tsx`), in a
   self-hiding card below the KPI strip. Pure i18n-free `completion-trend.ts`
   `computeCompletionTrend({snapshots, activity, currentDone, currentTotal, today})` → `CompletionPoint[]`
-  (`{label,percent}`). ★★ SOURCE PRIORITY: if `snapshots` yields ≥2 points → exact
+  (`{date,label,percent}` — `date` is the full "YYYY-MM-DD" day on BOTH paths, what the line is spaced by). ★★ SOURCE PRIORITY: if `snapshots` yields ≥2 points → exact
   `SnapshotRecord.pctComplete` series (Turso path); ELSE reconstruct done/total from the LOCAL activity log —
   anchor at the live counts and walk `task.created/completed/reopened/deleted` BACKWARD per day (deleted
   task's done-state unknown → assumed NOT done; documented approximation, like `newOverdue`). Neither ≥2 →
   `[]` (card hidden). Pure: `today`+counts passed in; percents clamped 0–100; future-dated + non-task events
   ignored; trailing cap `MAX_POINTS=12`. ★ ALWAYS-ON, no `tursoConfig` guard — on file/IDB `snapshots` is
   `[]` so the log path runs automatically (reads snapshots opportunistically, never WRITES). Presentational
-  `sparkline.tsx` (pure SVG `<polyline>`, `stroke-ui-dark-blue`, null for <2 points; optional `ariaLabel`
+  `sparkline.tsx` (pure SVG `<polyline>` plus one dot per point, `stroke-ui-dark-blue`, null for <2 points; ★ X is TIME —
+  points placed by `date`, so a three-week gap between activity days looks like one (even spacing only as a fallback
+  for an unparseable or single-day series); ★ Y is a FIXED 0–100 scale, never min–max-stretched, so a 5-point move
+  looks like 5 points; each dot is a zero-length round-capped path with `vector-effect: non-scaling-stroke`, because
+  the SVG is stretched non-uniformly and a `<circle>` would draw as an ellipse; optional `ariaLabel`
   prop → SVG gets `role="img"`+`aria-label`, else `aria-hidden` decorative — name rides the GRAPHIC, not the
   bare card div). ★ New optional `DashboardPanel` prop `snapshots?` threaded from `trends.snapshots`; the
   panel reads `activity` straight off `useWorkspace()`'s `activityLog` slice (no activity prop —

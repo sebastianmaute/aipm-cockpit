@@ -113,6 +113,30 @@ describe("ArrangementTile — accessible names", () => {
     twoTiles();
     expect(screen.getByRole("region", { name: "Alpha board" })).toBeInTheDocument();
   });
+
+  // ★ An optional `hint` puts an info tooltip in the header beside the title.
+  //   It sits in the HEADER, never in the body, because a body is often one big
+  //   button (ActivateBody) and a tooltip trigger nested in a button is an axe
+  //   nested-interactive failure.
+  it("renders a hint as an info tooltip in the header, after the title", () => {
+    render(
+      <ArrangementTile id="alpha" title="Alpha board" w={2} h={2} lang="en-US" readOnly={false}
+        keyboardReorder hint="What Alpha shows"
+        testIdPrefix="block" dragProps={{}} handleProps={{}} onOpenMenu={() => {}}>
+        <button type="button">body</button>
+      </ArrangementTile>,
+    );
+    const trigger = screen.getByRole("button", { name: "What Alpha shows" });
+    const heading = screen.getByRole("heading", { name: "Alpha board" });
+    expect(trigger.closest("[data-arrangement-body]")).toBeNull();   // not in the body
+    expect(heading.compareDocumentPosition(trigger) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("renders no tooltip without a hint", () => {
+    twoTiles();
+    expect(screen.queryByRole("button", { name: /What/ })).toBeNull();
+    expect(screen.getAllByRole("heading")).toHaveLength(2);   // positive control: the headers rendered
+  });
 });
 
 describe("ArrangementTile — the surface bindings", () => {

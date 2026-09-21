@@ -253,9 +253,12 @@ describe("closeDanglingToolUses", () => {
   });
 
   it("merges missing results into a partial carrier instead of splitting across two user turns", () => {
-    // Defensive: the current tool loop is all-or-nothing, but as an exported
-    // helper it must still heal a partial carrier into ONE user message that
-    // covers every id (not assistant → user(B) → user(A), which stays invalid).
+    // ★★ NO LONGER DEFENSIVE, and this comment used to say it was ("the current
+    // tool loop is all-or-nothing"). §596's per-tool scope guard breaks out
+    // BETWEEN tools, so a turn whose swap lands mid-batch leaves exactly this
+    // shape: a carrier holding the results of the tools that did run. Healing it
+    // into ONE user message covering every id (not assistant → user(B) → user(A),
+    // which stays invalid) is now the normal repair for that case.
     const input: ApiMessage[] = [
       { role: "user", content: "go" },
       toolUseMsg(["a", "b"]),
@@ -265,6 +268,33 @@ describe("closeDanglingToolUses", () => {
     expect(out).toHaveLength(3); // no extra message inserted
     const ids = resultsOf(out[2]).map((r) => r.tool_use_id).sort();
     expect(ids).toEqual(["a", "b"]);
+  });
+
+  it("REPLACES an empty carrier instead of emitting it beside the synthetic one", () => {
+    // ★★★ `content: []` IS TRUTHY WITH LENGTH 0, so the partial-carrier branch is
+    //  skipped and the no-carrier branch runs — and before the §596 fix it did not
+    //  consume the empty message, which was then emitted verbatim on the next
+    //  iteration. The returned array was then invalid twice over: an empty
+    //  `content`, and two consecutive `user` turns. This function runs at the top
+    //  of every send and nothing removed the empty message, so the next send
+    //  rebuilt the same array. In Turso mode the history is persisted, so the
+    //  thread stayed dead across reload and tab close; a new thread was the only
+    //  recovery.
+    // ★ This is the RESCUE half of the fix — `chat-panel.tsx` no longer creates an
+    //  empty carrier, but only this repairs a history that already holds one.
+    const input: ApiMessage[] = [
+      { role: "user", content: "go" },
+      toolUseMsg(["a1"]),
+      { role: "user", content: [] },
+    ];
+    const out = closeDanglingToolUses(input);
+    expect(out).toHaveLength(3);
+    expect(resultsOf(out[2]).map((r) => r.tool_use_id)).toEqual(["a1"]);
+    // ★ The two properties the API actually rejects, asserted as PROPERTIES and
+    //  not via the length above: a length alone would pass against an output that
+    //  merely reordered the same two broken messages.
+    expect(out.some((m) => Array.isArray(m.content) && m.content.length === 0)).toBe(false);
+    expect(out.some((m, i) => i > 0 && m.role === "user" && out[i - 1].role === "user")).toBe(false);
   });
 
   it("is an identity for histories with no tool_use blocks", () => {

@@ -90,9 +90,16 @@ function parseXml(xml: string): Document {
   return parsed;
 }
 
+/** The slide without its export footer shape. ★ Every slide carries one line of
+ *  footer text; the body assertions below are about the BODY, so they read the
+ *  slide with it removed. The footer has tests of its own at the end of this file. */
+function stripFooter(xml: string): string {
+  return xml.replace(/<p:sp>\s*<p:nvSpPr>\s*<p:cNvPr id="9999" name="Footer"\/>[\s\S]*?<\/p:sp>/, "");
+}
+
 /** Every <a:t> in document order — what a viewer actually reads. */
 function textNodes(xml: string): string[] {
-  return Array.from(parseXml(xml).getElementsByTagName("a:t")).map((n) => n.textContent ?? "");
+  return Array.from(parseXml(stripFooter(xml)).getElementsByTagName("a:t")).map((n) => n.textContent ?? "");
 }
 
 /** Text of every CONTENT slide (i.e. excluding the leading title slide). */
@@ -126,7 +133,7 @@ type RunInfo = {
  * text and reads that run's properties.
  */
 function runInfos(xml: string): RunInfo[] {
-  return Array.from(parseXml(xml).getElementsByTagName("a:r")).map((r) => {
+  return Array.from(parseXml(stripFooter(xml)).getElementsByTagName("a:r")).map((r) => {
     const rPr = r.getElementsByTagName("a:rPr")[0] ?? null;
     const attrs: Record<string, string> = {};
     for (const a of Array.from(rPr?.attributes ?? [])) attrs[a.name] = a.value;
@@ -175,7 +182,7 @@ function runsByText(xml: string): Map<string, RunInfo> {
 function paraInfos(
   xml: string,
 ): Array<{ text: string; marL: string | null; indent: string | null }> {
-  return Array.from(parseXml(xml).getElementsByTagName("a:p"))
+  return Array.from(parseXml(stripFooter(xml)).getElementsByTagName("a:p"))
     .filter((p) => p.getElementsByTagName("a:t").length > 0)
     .map((p) => ({
       text: Array.from(p.getElementsByTagName("a:t"))
@@ -1732,5 +1739,39 @@ describe("hyperlinks", () => {
     for (const [path, xml] of all) {
       if (path.endsWith(".rels")) expect(xml).not.toContain("hyperlink");
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Export footer (branding.exportFooter)
+// ---------------------------------------------------------------------------
+
+describe("renderDocumentPptx — export footer", () => {
+  async function partsWith(footer?: string): Promise<Map<string, string>> {
+    const d = doc([{ type: "paragraph", html: "<p>Body</p>" }]);
+    const blob = footer === undefined
+      ? renderDocumentPptx(d, ws, "en-US")
+      : renderDocumentPptx(d, ws, "en-US", undefined, footer);
+    const out = new Map<string, string>();
+    for (const [path, data] of await readZipEntries(await blob.arrayBuffer())) out.set(path, decodeUtf8(data));
+    return out;
+  }
+
+  it("prints the configured footer on the title slide AND every content slide", async () => {
+    const parts = await partsWith("Acme GmbH");
+    const slideXml = [...parts.entries()].filter(([p]) => SLIDE_RE.test(p)).map(([, x]) => x);
+    expect(slideXml.length).toBeGreaterThanOrEqual(2);
+    for (const xml of slideXml) expect(xml).toContain("<a:t>Acme GmbH</a:t>");
+    // The body helpers read the slide WITHOUT it, so it never leaks into a body assertion.
+    expect(textNodes(slideXml[1])).not.toContain("Acme GmbH");
+  });
+
+  it("names the theme after the footer", async () => {
+    expect((await partsWith("Acme GmbH")).get("ppt/theme/theme1.xml")).toContain('<a:clrScheme name="Acme GmbH">');
+  });
+
+  it("keeps today's footer when none is passed", async () => {
+    const parts = await partsWith();
+    expect(parts.get("ppt/slides/slide1.xml")).toContain("<a:t>Acme — AI PM Cockpit</a:t>");
   });
 });

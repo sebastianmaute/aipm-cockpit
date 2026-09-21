@@ -6,6 +6,7 @@ import { STYLE_STORAGE_KEY } from "../style-ci";
 import { defaultSettings, type Settings } from "../settings-types";
 import { addScheme, loadSchemes, setActive } from "../color-schemes";
 import { t } from "../i18n";
+import { DEFAULT_EXPORT_FOOTER } from "../export-footer";
 import { expectRowUniqueNames } from "../../test/row-unique-names";
 
 function renderSection(
@@ -252,5 +253,39 @@ describe("AppearanceSection Phase 3 (DB-stored schemes)", () => {
   it("hides the hint when no Turso config", () => {
     renderSection();
     expect(screen.queryByText(t("en-US", "schemeStoredInDb"))).not.toBeInTheDocument();
+  });
+});
+
+describe("AppearanceSection export footer", () => {
+  const box = () => screen.getByRole("textbox", { name: t("en-US", "brandingExportFooter") });
+
+  it("shows today's footer when none was ever set", () => {
+    renderSection({ branding: undefined }, "custom");
+    expect(box()).toHaveValue(DEFAULT_EXPORT_FOOTER);
+  });
+
+  it("saves an edited footer", () => {
+    const { onChange } = renderSection({ branding: undefined }, "custom");
+    fireEvent.change(box(), { target: { value: "Acme GmbH" } });
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ branding: expect.objectContaining({ exportFooter: "Acme GmbH" }) }),
+    );
+  });
+
+  it("keeps a CLEARED footer as \"\" rather than dropping the branding blob", () => {
+    // setBranding's presence gate would otherwise write branding: undefined,
+    // which reads back as never-set — the default footer, not the neutral one.
+    const { onChange } = renderSection({ branding: { exportFooter: "Acme GmbH" } }, "custom");
+    fireEvent.change(box(), { target: { value: "" } });
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ branding: expect.objectContaining({ exportFooter: "" }) }),
+    );
+  });
+
+  it("stays reachable under a USER scheme, because no scheme owns it", () => {
+    addScheme("Draft", { "--ui-green": "#000000" }, {});
+    renderSection({ branding: undefined }, "custom");
+    expect(box()).toBeInTheDocument();
+    expect(document.getElementById("branding-footer-slogan")).toBeNull(); // positive control: scheme rows hidden
   });
 });

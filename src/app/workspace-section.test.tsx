@@ -109,6 +109,11 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     workspaceCollapsed: false,
     setWorkspaceCollapsed: vi.fn(),
     dispatcher: {} as ToolDispatcher,
+    // §548/§596 — required on the pane contract for the same reason as the line
+    // above: an optional scope reader that nobody threads is a silently
+    // unguarded chat turn, not a visible failure.
+    getScopeEpoch: () => 0,
+    isSwapInFlight: () => false,
     handleGanttBarUpdate: vi.fn(),
     handleCancelEdit: vi.fn(),
     setTaskModalOpen: vi.fn(),
@@ -620,6 +625,19 @@ describe("WorkspaceSection — Turso config wiring into ChatPanel", () => {
     expect(props.tursoConfig).not.toBeNull();
   });
 
+  it("hands ChatPanel the export footer from settings.branding, for its document card", async () => {
+    // ★ Optional all the way down to `downloadDocument`: dropping it here would
+    //   bring the built-in footer back on a chat card's download with every
+    //   leaf test green.
+    vi.mocked(useSettings).mockReturnValue({
+      ...settingsWithoutTurso,
+      settings: { ...settingsWithoutTurso.settings, branding: { exportFooter: "Acme GmbH" } },
+    } as typeof settingsWithoutTurso);
+    render(<WorkspaceSection {...makeProps({ mode: "file" })} />, { wrapper: Wrapper });
+    await screen.findByTestId("chat-panel");
+    expect(chatPanelMock.props.at(-1)!.exportFooter).toBe("Acme GmbH");
+  });
+
   // ★ Pins that with valid Turso credentials but NEITHER OR-operand set to
   // "turso" (mode=file, storageConfig.kind=browser), tursoMode stays false —
   // i.e. `chatTursoConfig !== null` alone can't carry the gate open.
@@ -810,8 +828,11 @@ describe("WorkspaceSection — Timelog cache key agreement", () => {
 });
 
 describe("WorkspaceSection — staged-proposal wiring into ChatPanel", () => {
-  // ★★ THE PRODUCTION SEAM. Both props are OPTIONAL on ChatPanel so the ~39
-  //  mounts in `chat-panel.test.tsx` compile unchanged — which means the ONLY
+  // ★★ THE PRODUCTION SEAM. `workspace` and `runBatched` are OPTIONAL on
+  //  ChatPanel so every mount in `chat-panel.test.tsx` compiles unchanged
+  //  (`grep -c "<ChatPanel" src/app/chat-panel.test.tsx` — a number here rots;
+  //  the §548/§596 readers beside them went the other way and are REQUIRED,
+  //  which is why the case below asserts identity rather than presence) — which means the ONLY
   //  thing standing between a working review card and a silently unwired one is
   //  this file. A missing `workspace` costs the card its per-row diffs and
   //  resolved titles; a missing `runBatched` costs an applied plan its single
@@ -841,6 +862,40 @@ describe("WorkspaceSection — staged-proposal wiring into ChatPanel", () => {
     for (const key of ["tasks", "raid", "changes", "milestones", "stakeholders", "resources"]) {
       expect(Array.isArray(ws?.[key])).toBe(true);
     }
+  });
+
+  it("hands ChatPanel the very scope readers it was handed (§548/§596)", async () => {
+    // ★★★ REQUIRED PROPS PROVE A FUNCTION IS PASSED, NEVER WHICH ONE, and both of
+    //  these have a type-correct constant that silently disarms them:
+    //  `getScopeEpoch={() => 0}` makes every stale write read as in-scope, and
+    //  `isSwapInFlight={() => false}` makes the unmount cancel never fire. Both
+    //  typecheck at this seam and at every hop above it. That is the same outcome
+    //  as `tasks-section.tsx`'s release-long gap by a DIFFERENT mechanism — there
+    //  an optional prop nobody threaded, here a wrong value — so identity is the
+    //  only assertion worth making.
+    // ★ The other hop (task-manager → this section) is pinned by identity in
+    //   `task-manager.scope-epoch-wiring.test.tsx`; the two meet here.
+    const getScopeEpoch = () => 7;
+    const isSwapInFlight = () => true;
+    render(<WorkspaceSection {...makeProps({ getScopeEpoch, isSwapInFlight })} />, { wrapper: Wrapper });
+    await screen.findByTestId("chat-panel");
+    const props = chatPanelMock.props.at(-1)!;
+
+    expect(props.getScopeEpoch).toBe(getScopeEpoch);
+    expect(props.isSwapInFlight).toBe(isSwapInFlight);
+    // ★ NOT an anti-vacuity guard, and an earlier comment here wrongly said it
+    //   was ("both would also 'be' each other if the section passed `undefined`").
+    //   That cannot happen: the EXPECTED side of each `toBe` is a live local
+    //   function, so `undefined` on the received side fails outright. The two
+    //   `toBe`s are the load-bearing assertions on their own.
+    //   Nor do these catch a failure the `toBe`s would miss — a wrapper, or a
+    //   `makeProps` that ignored its overrides, both break identity first. They
+    //   are kept as a READABILITY witness only: the fixtures are deliberately 7
+    //   and true rather than `makeProps`'s inert `() => 0` / `() => false`, so a
+    //   reader can see at a glance which pair a green run actually observed.
+    //   Do not cite them as coverage.
+    expect((props.getScopeEpoch as () => number)()).toBe(7);
+    expect((props.isSwapInFlight as () => boolean)()).toBe(true);
   });
 });
 

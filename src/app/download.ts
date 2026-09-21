@@ -101,7 +101,7 @@ export function exportCellHtml(cell: ExportCell): string {
 }
 
 export const PRINT_STYLES = `
-    /* Print-tuned styles — Acme palette. */
+    /* Print-tuned styles — brand palette. */
     @page { size: A4 landscape; margin: 10mm 8mm; }
     * { box-sizing: border-box; }
     body {

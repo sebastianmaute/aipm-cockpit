@@ -391,6 +391,10 @@ export const de: Record<TranslationKey, string> = {
   storageOpenedToast: "{0} Aufgabe(n) aus Datei geladen.",
   storageConfirmOverwrite:
     "Die {0} Aufgabe(n) in der App werden durch den Inhalt der Datei ersetzt. Fortfahren?",
+  // §590 - siehe i18n.ts (auch für den Grund, warum hier keine Ursache genannt wird).
+  // {0} = Dateiname, {1} = Anzahl Datensätze in dieser Datei.
+  storagePickFileHasProject:
+    "\"{0}\" enthält bereits ein Projekt mit {1} Datensatz/Datensätzen. Das geöffnete Projekt ist leer — ein Speichern in diese Datei würde den vorhandenen Inhalt ersetzen.\n\nOK lädt stattdessen das vorhandene Projekt aus dieser Datei. Abbrechen lässt Datei und App unverändert.",
   storagePermissionNeeded: "Berechtigung beim nächsten Speichern erforderlich",
   storageSwitchedToast: "Speicherort gewechselt.",
   projectSwitchedToast: "Zu Projekt {0} gewechselt.",
@@ -1042,8 +1046,9 @@ export const de: Record<TranslationKey, string> = {
   wizardImportWorkspaceNotWorkspace: "{0} ist keine Workspace-Datei.",
   wizardImportWorkspaceIgnored: "Eine Workspace-Datei wird allein importiert — ignoriert: {0}",
   dashboardCompletionTrend: "Fertigstellungstrend",
-  dashboardCompletionTrendPoints: "{0} Punkte",
-  dashboardCompletionTrendAria: "Fertigstellungstrend: {0}% jetzt, von {1}% über {2} Punkte",
+  dashboardCompletionTrendAria: "Fertigstellungstrend: {0}% am {1}, von {2}% am {3}",
+  dashboardCompletionTrendToday: "Heute",
+  dashboardCompletionTrendHint: "Anteil der erledigten Aufgaben an jedem Tag mit Aufgabenaktivität, über die letzten 12 solcher Tage. Aus gespeicherten Snapshots, wenn mindestens zwei vorhanden sind; sonst aus dem Aktivitätsprotokoll und den Erledigungsdaten rekonstruiert – ältere Punkte können daher zu niedrig ausfallen, wenn Aufgaben später gelöscht oder wieder geöffnet wurden. Der letzte Punkt ist der heutige Wert.",
   dashboardKpiStrip: "Auf einen Blick",
   dashboardKpiComplete: "Fertig",
   dashboardKpiOverdue: "Überfällig",
@@ -1116,11 +1121,21 @@ export const de: Record<TranslationKey, string> = {
   aiConsentBullet5:
     "Die Einwilligung kann jederzeit in den Einstellungen widerrufen werden; dabei bleiben Ihre Aufgaben und der API-Schlüssel erhalten.",
   aiConsentBullet6:
-    "Die Richtlinie der Acme zur KI-Nutzung gilt für diese Funktion. Bitte vor der Aktivierung des Chats lesen.",
-  aiConsentPolicyLink: "Acme Richtlinie zur KI-Nutzung öffnen",
+    "Die KI-Nutzungsrichtlinie von {0} gilt für diese Funktion. Bitte vor der Aktivierung des Chats lesen.",
+  aiConsentPolicyLink: "KI-Nutzungsrichtlinie von {0} öffnen",
   aiConsentPolicyCheckbox:
-    "Ich habe die Richtlinie der Acme zur KI-Nutzung gelesen und akzeptiere sie.",
+    "Ich habe die KI-Nutzungsrichtlinie von {0} gelesen und akzeptiere sie.",
   aiConsentAccept: "Verstanden – Chat aktivieren",
+  aiPolicyOwnerFallback: "Ihrer Organisation",
+  aiPolicyOrgLabel: "Herausgeber der KI-Nutzungsrichtlinie",
+  aiPolicyOrgHint: "Wird im Einwilligungsdialog des KI-Assistenten genannt. Leer lassen für eine neutrale Formulierung. Der eingebaute Richtlinien-Link gehört zu Acme; wird der Herausgeber geändert oder geleert, entfällt er, sofern unten kein eigener Link eingetragen ist.",
+  aiPolicyOrgFromEnv: "Wird in dieser Installation über NEXT_PUBLIC_AI_POLICY_ORG gesetzt und hat Vorrang vor dieser Einstellung.",
+  aiPolicyUrlLabel: "Link zur KI-Nutzungsrichtlinie",
+  aiPolicyUrlHint: "Ein https://-Link, den der Einwilligungsdialog zum Lesen und Akzeptieren anbietet. Leer lassen, wenn es keine Richtlinie gibt.",
+  aiPolicyUrlInvalid: "Bitte einen vollständigen https://-Link eingeben. Bis dahin zeigt der Einwilligungsdialog keine Richtlinie.",
+  aiPolicyUrlFromEnv: "Wird in dieser Installation über NEXT_PUBLIC_AI_POLICY_URL gesetzt und hat Vorrang vor dieser Einstellung.",
+  aiPolicyUrlNoBuiltin: "Der eingebaute Link ist eine Seite von Acme und wird für einen anderen Herausgeber nicht verwendet. Tragen Sie den Link Ihrer Organisation ein; bleibt das Feld leer, zeigt der Einwilligungsdialog keine Richtlinie zum Lesen und Akzeptieren.",
+  aiPolicyUrlEnvRejected: "NEXT_PUBLIC_AI_POLICY_URL ist in dieser Installation gesetzt, aber kein vollständiger https://-Link. Er wird ignoriert und stattdessen dieses Feld verwendet.",
   aiConsentRequired:
     "Einwilligung erforderlich. Öffnen Sie den KI-Assistenten-Tab, um sie zu prüfen und zu aktivieren.",
   aiConsentGranted: "Chat aktiviert",
@@ -1195,7 +1210,7 @@ export const de: Record<TranslationKey, string> = {
     "Öffnet die Druckvorschau; im Dialog 'Als PDF speichern' wählen.",
   exportDocx: "Word (.docx)",
   exportDocxHint:
-    "A4-Querformat mit einer Acme-gestylten Aufgabentabelle.",
+    "A4-Querformat mit einer Tabelle aller Aufgaben im Markendesign.",
   exportXlsx: "Excel (.xlsx)",
   exportXlsxHint:
     "Fixierte Kopfzeile, Auto-Filter aktiviert, Markenfarben.",
@@ -1295,7 +1310,6 @@ export const de: Record<TranslationKey, string> = {
   healthDriverCancelled: "abgebrochen",
   healthDriverOnTrack: "im Plan",
   healthTooltip: "{0}: {1}",
-  reportsHeadline: "Überblick",
   reportsGroupHealth: "Status nach Gruppe",
   reportsUngrouped: "Ohne Gruppe",
   reportsGroupCounts: "{0} rot · {1} gelb · {2} grün",
@@ -1375,7 +1389,6 @@ export const de: Record<TranslationKey, string> = {
   reportsOpen: "Offen",
   reportsCompleted: "Erledigt",
   reportsCancelled: "Abgebrochen",
-  reportsCancelledCount: "{0} abgebrochen",
   reportsOverdue: "Überfällig",
   reportsOpenByStatus: "Offene Aufgaben nach Status",
   reportsDueSoon: "Bald fällig (≤3 Arbeitstage)",
@@ -1479,7 +1492,7 @@ export const de: Record<TranslationKey, string> = {
     "Wenn das Speicher-Backend Turso ist und das Modul Verlauf aktiviert ist, führt jedes Projekt einen Append-only-Verlauf vollständiger Arbeitsbereich-Versionen. Versionen werden einige Minuten nach Abschluss Ihrer Bearbeitungen automatisch erfasst (schnell aufeinanderfolgende Speichervorgänge werden zu einer Version zusammengefasst; identische Inhalte werden übersprungen), und Sie können jederzeit mit \"Version jetzt speichern\" einen benannten Prüfpunkt anlegen. In der Verlaufsansicht können Sie eine Version mit den aktuellen Daten vergleichen oder zwei Versionen markieren, um sie miteinander zu vergleichen – ein feldgenauer Vergleich, gruppiert nach Entitätstyp, mit aufklappbarem Vorher → Nachher je Datensatz. In einer Ansicht \"mit aktuellen Daten verglichen\" markieren Sie ganze Datensätze oder einzelne Felder und klicken auf \"Auswahl wiederherstellen\", um nur diese zurückzusetzen – eine zerstörungsfreie Änderung, die selbst als neue Version erfasst und im Aktivitätslog protokolliert wird. Automatische Versionen werden auf das Limit unter Einstellungen → \"Versionsverlauf: N Versionen behalten\" begrenzt (mindestens 50, in Schritten von 10); benannte Prüfpunkte werden nie entfernt.",
   helpSecAiTitle: "KI-Chat",
   helpSecAiBody:
-    "API-Schlüssel unter Einstellungen → KI hinterlegen und im KI-Assistenten-Tab die Einwilligung akzeptieren. Nachrichten und Aufgabendaten werden direkt aus dem Browser an api.anthropic.com gesendet – die KI-Nutzungsrichtlinie der Acme gilt. Der Schlüssel wird in diesem Browser verschlüsselt gespeichert (AES-256-GCM mit einem nicht exportierbaren Geräteschlüssel) und niemals im Klartext auf die Festplatte geschrieben. Claude kann Aufgaben über Tool-Calls auflisten, anlegen, ändern und löschen. Claude erfährt außerdem, welche Ansicht Sie gerade geöffnet haben und wofür sie da ist, und in Offene Punkte, was Ihre aktuellen Filter anzeigen, während Auslastung, Gantt und Budget projektweite Gesamtwerte statt der angezeigten Zeilen melden — fragen Sie also ruhig nach „was ich gerade sehe“. Unter Einstellungen → KI steht schreibgeschützt genau, was Claude über jede Ansicht erfährt. In einem Turso-Projekt werden Ihre Unterhaltungen als benannte Threads in einer Seitenleiste gespeichert, deren Breite Sie ziehen können; bei Datei-Speicherung enthält das Panel eine einzelne, nicht gespeicherte Unterhaltung. Claude kann außerdem frühere Chats und die Aktivitätshistorie dieses Projekts durchsuchen und erhält eine kurze Zusammenfassung der letzten sieben Tage — jede dieser drei Funktionen ist ein eigener Schalter unter Einstellungen → KI, standardmäßig aktiv. Wird eine Suche ausgeschaltet, entfällt dieses Werkzeug für Claude ganz, statt nur die Ergebnisse zu verbergen; wird die Zusammenfassung ausgeschaltet, wird sie schlicht nicht mehr mitgegeben.",
+    "API-Schlüssel unter Einstellungen → KI hinterlegen und im KI-Assistenten-Tab die Einwilligung akzeptieren. Nachrichten und Aufgabendaten werden direkt aus dem Browser an api.anthropic.com gesendet – die KI-Nutzungsrichtlinie Ihrer Organisation gilt. Der Schlüssel wird in diesem Browser verschlüsselt gespeichert (AES-256-GCM mit einem nicht exportierbaren Geräteschlüssel) und niemals im Klartext auf die Festplatte geschrieben. Claude kann Aufgaben über Tool-Calls auflisten, anlegen, ändern und löschen. Claude erfährt außerdem, welche Ansicht Sie gerade geöffnet haben und wofür sie da ist, und in Offene Punkte, was Ihre aktuellen Filter anzeigen, während Auslastung, Gantt und Budget projektweite Gesamtwerte statt der angezeigten Zeilen melden — fragen Sie also ruhig nach „was ich gerade sehe“. Unter Einstellungen → KI steht schreibgeschützt genau, was Claude über jede Ansicht erfährt. In einem Turso-Projekt werden Ihre Unterhaltungen als benannte Threads in einer Seitenleiste gespeichert, deren Breite Sie ziehen können; bei Datei-Speicherung enthält das Panel eine einzelne, nicht gespeicherte Unterhaltung. Claude kann außerdem frühere Chats und die Aktivitätshistorie dieses Projekts durchsuchen und erhält eine kurze Zusammenfassung der letzten sieben Tage — jede dieser drei Funktionen ist ein eigener Schalter unter Einstellungen → KI, standardmäßig aktiv. Wird eine Suche ausgeschaltet, entfällt dieses Werkzeug für Claude ganz, statt nur die Ergebnisse zu verbergen; wird die Zusammenfassung ausgeschaltet, wird sie schlicht nicht mehr mitgegeben.",
   helpSecAiAdvancedTitle: "KI-Unterstützung (erweitert)",
   helpSecAiAdvancedBody:
     "Über den Chat hinaus schaltet ein Anthropic-Schlüssel mehrere optionale, beratende KI-Helfer frei. Projekt mit KI erstellen: Beschreiben Sie das Projekt im Anlege-Assistenten in eigenen Worten oder importieren Sie eine Quelle – laden Sie eine Datei hoch, wählen Sie ein SharePoint-Dokument oder fügen Sie die URL einer Confluence-Seite ein – und Claude füllt das Formular zur Prüfung vor. Mit KI analysieren: Die Schaltfläche im Action Center führt einen Analysedurchlauf über Ihre Berichte aus und schlägt vor, worauf Sie sich konzentrieren sollten; sie ändert nie Ihre Daten, und die deterministische Nächste-Schritte-Engine bleibt unberührt. Mit KI vorschlagen: In den Nächste-Schritte-Einstellungen schlägt Claude Anpassungen der Gewichtungen vor, die Sie je Zeile übernehmen. Geplante Jobs: Aktivieren Sie optional (Einstellungen → Geplante Jobs) eine wiederkehrende Portfolio-Analyse im täglichen oder wöchentlichen Rhythmus – der Planer führt fällige Jobs aus, solange die App geöffnet ist, holt verpasste Läufe beim nächsten Start nach und zeigt Ergebnisse als Benachrichtigung und Lauf-Historie. Jeder geplante Lauf ist ein kostenpflichtiger API-Aufruf, daher ist die Funktion standardmäßig aus. Keine dieser Funktionen läuft in Popout-Fenstern.",
@@ -1504,7 +1517,6 @@ export const de: Record<TranslationKey, string> = {
   helpSecKeysTitle: "Tastatur & Shortcuts",
   helpSecKeysBody:
     "Strg+K / ⌘K – globale Suche von überall fokussieren.\nSchrägstrich (/) – globale Suche fokussieren, wenn kein Feld aktiv ist.\nF4 (konfigurierbar unter Einstellungen → Diktat) – gedrückt halten, um in das fokussierte Feld zu diktieren.\nEsc – aktuell geöffneten Dialog, Pop-up oder Aufgaben-Formular schließen.\nEnter im Chat – Nachricht senden. Shift+Enter – Zeilenumbruch.\n+-Symbol im Header – Dialog \"Neue Aufgabe\" öffnen.\nPfeil in der Workspace-Tableiste – Bereich ein-/ausklappen.\nKlick auf einen Tab bei eingeklapptem Bereich – klappt automatisch aus.",
-  helpPolicyLink: "Acme Richtlinie zur KI-Nutzung",
 
   version: "Version",
   versionVersion: "Version",
@@ -2452,6 +2464,8 @@ export const de: Record<TranslationKey, string> = {
   dashboardSubSchedule: "Zeitplan",
   dashboardSubBudget: "Budget",
   dashboardSubScope: "Umfang",
+  dashboardStatusSummaryEdit: "Statuszusammenfassung bearbeiten",
+  dashboardStatusSummaryAdd: "Statuszusammenfassung hinzufügen",
   dashboardStatusSummary: "Statuszusammenfassung",
   dashboardNarrativePlaceholder: "Aktuellen Status, Änderungen und offene Punkte zusammenfassen.",
   dashboardNarrativeUpdated: "Aktualisiert {0}",
@@ -2475,8 +2489,6 @@ export const de: Record<TranslationKey, string> = {
   arrangementTileMoved: "{0} an Position {1} von {2} verschoben",
   arrangementTileHidden: "{0} ist jetzt ausgeblendet",
   arrangementTileResized: "{0} auf {1} mal {2} geändert",
-  dashboardProgress: "Fortschritt",
-  dashboardPercentComplete: "{0}% abgeschlossen",
   dashboardCompletedOf: "{0} von {1} abgeschlossen",
   dashboardNoActiveScope: "Kein aktiver Umfang",
   dashboardOutOfScopeCount: "Abgebrochen",
@@ -2560,7 +2572,6 @@ export const de: Record<TranslationKey, string> = {
   dashboardScopeUnset: "Nicht gesetzt",
   dashboardMilestones: "Meilensteine",
   dashboardRagThresholds: "Verbrauch / Stunden: Gelb ≥ 90%, Rot > 100% · Kostenverbrauch: Rot < 0,80, Gelb < 0,90 · Marge: Grün ≥ 15%, Gelb 0–15%, Rot < 0",
-  dashboardProgressCaption: "Erledigte Aufgaben im Verhältnis zum Umfang — abgebrochene Arbeit bleibt in beiden außen vor. Die Rot/Gelb/Grün-Aufteilung umfasst Aufgaben im Umfang; gelieferte Arbeit zählt als Grün, abgebrochene wird separat gezählt, sofern die Ampel nicht manuell gesetzt wurde.",
   dashboardBurnCaption: "Verbrauchtes Budget und Stunden gegenüber dem Verfügbaren. Das Burn-down zeigt das verbleibende Budget gegen den geplanten Verlauf — die Ist-Linie über der gestrichelten Linie bedeutet Rückstand zum Plan.",
   navMilestones: "Meilensteine",
   milestoneNew: "Neuer Meilenstein",
@@ -2604,6 +2615,8 @@ export const de: Record<TranslationKey, string> = {
   brandingLogoError: "Bitte ein PNG-, JPG-, WebP- oder GIF-Bild unter 512 KB verwenden.",
   brandingAppName: "App-Name",
   brandingFooterSlogan: "Slogan",
+  brandingExportFooter: "Fußzeile in Exporten",
+  brandingExportFooterHint: "Erscheint am Ende von HTML-, PDF- und PowerPoint-Exporten und benennt das PowerPoint-Design. Leer lassen, um nur „AI PM Cockpit“ zu drucken.",
   brandingFavicon: "Favicon (Browser-Tab-Symbol)",
   brandingFaviconChoose: "Favicon auswählen…",
   brandingFaviconHint: "Wird im Browser-Tab angezeigt. Quadratisches PNG empfohlen (32×32 oder 64×64), bis 512 KB. PNG, JPG, WebP oder GIF.",
@@ -3605,7 +3618,7 @@ export const de: Record<TranslationKey, string> = {
   helpSecTimelogTitle: "Zeitbuchungen",
   helpSecTimelogBody: "Holt gebuchte Stunden aus Timelog und stellt sie diesem Projekt gegenüber. Zeitbuchungen ist ein Modul je Projekt — die Ansicht gibt es also nur, wenn sie für das Projekt, in dem Sie gerade sind, eingeschaltet ist. Personen werden automatisch über E-Mail, dann Initialen, dann Namen zugeordnet; Projekte über den Bucket-Namen, dann die Bestellnummer. Den Rest bestätigen oder korrigieren Sie von Hand, wobei eine manuelle Zuordnung immer Vorrang hat. Kennzahlen-Kacheln fassen zusammen, was gefunden wurde. Der Übernahmeschritt schreibt die zugeordneten Ist-Werte in Ihre Budget-Buckets und listet vorher genau die Zeilen auf, die sich ändern würden — Sie bestätigen also die Wirkung, nicht die Absicht.",
   helpSecReportsTitle: "Berichte",
-  helpSecReportsBody: "Auswertungen zum Lesen und Drucken, ohne Bearbeitungsmöglichkeit. Berichte deckt die Aufgaben ab: Summen für offen, abgeschlossen, abgebrochen und überfällig, pünktlich gegenüber verspätet abgeschlossen, Rückfragen sowie Aufschlüsselungen nach Gruppe, Label, Zuständigkeit und Priorität. Der RAID-Bericht gliedert das Register nach Schweregrad, Status, Verantwortung, Kategorie und Alter. Für Änderungen und Budget gibt es eigene Berichte nach demselben Muster. Bei den meisten Tabellen lassen sich die Spalten in der Breite ändern und sortieren, manche Tabellen lassen sich zusätzlich über ein Textfeld filtern.",
+  helpSecReportsBody: "Auswertungen zum Lesen und Drucken, ohne Bearbeitungsmöglichkeit. Berichte deckt die Aufgaben ab: einen Streifen „Auf einen Blick“ (Fertigstellung, R/A/G, überfällig, offene RAID-Einträge und, sofern Aufgaben Schätzungen haben, Aufwands-SPI und Aufwands-CPI), pünktlich gegenüber verspätet abgeschlossen, Rückfragen sowie Aufschlüsselungen nach Gruppe, Label, Zuständigkeit und Priorität. Der RAID-Bericht gliedert das Register nach Schweregrad, Status, Verantwortung, Kategorie und Alter. Für Änderungen und Budget gibt es eigene Berichte nach demselben Muster. Bei den meisten Tabellen lassen sich die Spalten in der Breite ändern und sortieren, manche Tabellen lassen sich zusätzlich über ein Textfeld filtern.",
   helpSecHelpTitle: "Zurechtfinden in der Hilfe",
   helpSecHelpBody: "Diese Ansicht. Ihre Reiter sind Hilfe selbst, Wie alles zusammenhängt und Informationsflüsse; Geführte Touren kommt überall dort hinzu, wo sich eine Tour tatsächlich starten lässt. Die Suche filtert Einträge über Titel und Text zugleich, sodass ein Wort aus der Beschreibung den Eintrag auch dann findet, wenn die Überschrift es nicht enthält. Daneben steht die Lesestufe: Geführt stellt jedem Konzept eine alltagssprachliche Einführung voran, Standard ist die Vorgabe, und Experte rückt die Nachschlageteile vor die erklärenden. Sie schreibt dieselbe geräteweite Einstellung wie Einstellungen, Darstellung — eine Änderung an einer Stelle bewegt also die andere mit. Gedruckt wird, was gerade angezeigt wird — leeren Sie also zuerst das Suchfeld, wenn Sie den gesamten Satz möchten.",
   helpSecSavedViewsTitle: "Gespeicherte Ansichten",
@@ -4082,10 +4095,11 @@ export const de: Record<TranslationKey, string> = {
   contactPersonsTip:
     "Kontakt hinzufügen: unter „Manuell hinzufügen“ ein Teammitglied oder einen gespeicherten Kontakt wählen, um ihn zu verknüpfen, oder einen neuen Namen für eine Person außerhalb Ihres Verzeichnisses eingeben; im E-Mail-Feld eine Adresse für einen manuell eingegebenen (externen) Kontakt hinterlegen; mit Hinzufügen zur Liste hinzufügen.",
   // UX batch "Aldiss" (0.177.0)
-  dashboardKpiCompleteHint: "Anteil der Aufgaben mit Abschlussdatum an allen Aufgaben, die noch zum Umfang zählen. Steigend ist gut; eine flache Linie deutet auf stockende Lieferung hin.",
+  dashboardCompleteHint: "Anteil der Aufgaben mit Abschlussdatum an allen Aufgaben, die noch zum Umfang zählen — abgebrochene Arbeit bleibt in beiden außen vor. Steigend ist gut; eine flache Linie deutet auf stockende Lieferung hin.",
+  dashboardCompleteHintNoTrend: "Anteil der Aufgaben mit Abschlussdatum an allen Aufgaben, die noch zum Umfang zählen — abgebrochene Arbeit bleibt in beiden außen vor.",
+  dashboardRagSplitHint: "Die Rot/Gelb/Grün-Aufteilung umfasst Aufgaben im Umfang; gelieferte Arbeit zählt als Grün, abgebrochene wird separat gezählt, sofern die Ampel nicht manuell gesetzt wurde.",
   dashboardKpiOverdueHint: "Aufgaben, die überfällig und noch nicht erledigt sind. Möglichst auf null senken.",
   dashboardKpiOpenRaidHint: "Offene Risiken, Annahmen, Probleme und Abhängigkeiten, die noch Aufmerksamkeit brauchen.",
-  dashboardRagHint: "Rot / Gelb / Grün: Anzahl der Projektbereiche, die vom Kurs abweichen, gefährdet oder gesund sind.",
   dashboardBudgetHint: "Ist-Kosten gegenüber geplantem Budget. Über 100% bedeutet, der Plan wurde überschritten.",
   raciFilterAdd: "Personen filtern…",
   raciFilterRemove: "{0} aus Filter entfernen",

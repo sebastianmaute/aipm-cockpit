@@ -80,7 +80,9 @@ export interface ReportBlockSpec extends BlockSpec<ReportBlockId> {
 export const REPORTS_LAYOUT_KEY = "aipm-cockpit:reports-layout";
 
 export const REPORT_BLOCKS: readonly ReportBlockSpec[] = [
-  { id: "stats",              labelKey: "reportsHeadline",            w: 4, h: 1, minW: 2, maxW: 4, minH: 1, maxH: 2 },
+  // ★ "stats" is the Dashboard's "At a glance" strip. The id predates that and stays, so a
+  // stored board keeps the block where the user put it; an old h:1 is clamped up to minH.
+  { id: "stats",              labelKey: "dashboardKpiTile",           w: 4, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 4 },
   { id: "groupHealth",        labelKey: "reportsGroupHealth",         w: 4, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 4 },
   { id: "openByStatus",       labelKey: "reportsOpenByStatus",        w: 2, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 3 },
   { id: "completionOutcomes", labelKey: "reportsCompletionOutcomes",  w: 2, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 3 },

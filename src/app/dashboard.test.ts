@@ -3,7 +3,7 @@ import {
   computeDashboardProgress, computeScheduleStatus, computeBudgetStatus,
   selectTopRaid, partitionUpcoming, recentActivity, computeDashboard,
   evmIndexHealth, scopeCounts, tasksHaveNoActiveScope, hasNoActiveScope,
-  buildLiveDashboardInput, type DashboardInput,
+  buildLiveDashboardInput, computeKpiStripModel, type DashboardInput,
 } from "./dashboard";
 import type { ProjectReport } from "./budget-report";
 import { isPaceAvailable } from "./budget-forecast";
@@ -686,5 +686,21 @@ describe("buildLiveDashboardInput", () => {
     const a = buildLiveDashboardInput({ ...entities, budgetHistory: [] }, ctx, { active: false, snapshots: records });
     const b = buildLiveDashboardInput({ ...entities, budgetHistory: [] }, ctx, null);
     expect(a.snapshots).toBe(b.snapshots);
+  });
+});
+
+describe("computeKpiStripModel", () => {
+  it("computes the four At a glance figures on its own", () => {
+    const tasks = [
+      task({ id: 1, status: "Done", completedDate: "2026-05-30" }),
+      task({ id: 2, dueDate: "2026-05-01" }),               // overdue
+      task({ id: 3, dueDate: "2026-06-01" }),               // overdue
+      task({ id: 4, dueDate: "2026-06-03" }),               // due soon, NOT overdue
+    ];
+    const items = [raid({ id: 1 }), raid({ id: 2, status: "Closed" })];
+    const k = computeKpiStripModel({ tasks, raid: items, roles: [], today, holidaySet: holidays });
+    expect(k.progress.percent).toBe(25);
+    expect(k.overdue.map((x) => x.id)).toEqual([2, 3]);
+    expect(k.openRaidCount).toBe(1);
   });
 });

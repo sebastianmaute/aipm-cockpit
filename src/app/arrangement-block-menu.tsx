@@ -65,8 +65,12 @@ function spansBetween(lo: BlockHeight, hi: BlockHeight): BlockHeight[] {
  * One axis. Exported for its own test: it used to be true that no block in the
  * Dashboard catalogue pinned an axis, making the `lo === hi` branch unreachable
  * through `ArrangementBlockMenu` and exercisable only directly. The Dashboard's
- * `kpi` tile now pins its height (`minH === maxH === 3`, §585 fix round), so the
- * branch is reachable there too — this direct test still stands beside it.
+ * `kpi` tile pinned its height for a while (§585 fix round) and so reached the
+ * branch; it no longer does, because Dashboard heights are now MEASURED
+ * (`use-measured-heights.ts`) and the pin was a stand-in for that measurement.
+ * No Dashboard tile pins an axis now. Reports still can — find its pinned
+ * blocks with `grep -n "minW: 4, maxW: 4" src/app/report-blocks.ts` — so the
+ * branch stays reachable there, and this direct test stands beside it.
  */
 export function AxisGroup({
   lang, axis, blockTitle, value, lo, hi, onPick,

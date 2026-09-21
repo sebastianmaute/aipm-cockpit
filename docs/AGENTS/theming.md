@@ -372,7 +372,7 @@
   stakeholders/RAID/resources/
   knowledge/history/steering/portfolio/RACI/timelog) + the ReportCard views are wired; Settings/Chat/Projects
   are not (nothing to print).
-- **Branding (per-device `settings.branding {logo?, slogan?, footerSlogan?, favicon?, startLogo?}`):** rides the
+- **Branding (per-device `settings.branding {logo?, slogan?, footerSlogan?, favicon?, startLogo?, exportFooter?}`):** rides the
   `writeSettings` spread (no allowlist edit); validated by `sanitizeBranding` — logo/favicon/startLogo must be a
   size-capped RASTER `data:image` URL (SVG EXCLUDED — XSS surface), slogan/footerSlogan trimmed+capped. Edited
   in Settings → Appearance. `logo` overrides the sidebar logo; `slogan` = sidebar app-name subtitle;
@@ -416,6 +416,23 @@
   `appearance-section.test.tsx` "keeps the start-logo row reachable under a USER scheme"). Do not add it to
   `color-scheme-editor.tsx` either — a scheme cannot carry it into `settings`, so that control would appear
   to work and do nothing.
+- **Export footer (`branding.exportFooter`):** the `<footer>` line of HTML document downloads
+  (`renderDocumentHtml`) and the print/PDF table export (`buildPdfHtml`), AND of PowerPoint: a 9 pt
+  line on every slide (`pptxFooterShape`, via `wrapPptxSlide`, whose footer argument is REQUIRED so a
+  new slide builder cannot ship without it) plus the theme/colour/font scheme names
+  (`buildPptxTheme`, via `buildPptxPackage`) — both exporters, `buildPptx` and `renderDocumentPptx`.
+  ★ Changing the theme bytes moves `docs/baselines/ooxml-parts.json`; regenerate it only with
+  `npm run ooxml:manifest`. All of it is resolved by ONE function,
+  `exportFooterText` (`export-footer.ts`, dependency-free so the renderers stay out of the
+  settings-types import cycle; re-exported from `settings-types.ts`). ★★ THREE states, and `""` is
+  one of them: `undefined` = never set → `DEFAULT_EXPORT_FOOTER` (the pre-configurable text),
+  `""` = cleared → `NEUTRAL_EXPORT_FOOTER`. So `sanitizeBranding` KEEPS an empty value and both
+  presence checks test `!== undefined`, never truthiness — a truthy test turns "cleared" back into
+  the default on the next load. ★ Like `startLogo`, no scheme owns it (`mergeAppliedBranding` leaves
+  it alone), so its Appearance row is ungated. The renderers take it as a trailing defaulted argument;
+  the callers read `settings.branding` (both top bars via `ActionMenus`, the voice export in
+  `task-manager.tsx`, the Documents panel via `workspace-panels.tsx`, the chat document card via
+  `ChatPanel` → `ToolBlock`).
 - **Footer bar / page scrollbars (★★):** the footer (`app-modals.tsx`, `!isPopout`) is `position: fixed`
   bottom-right ON PURPOSE — `modalsBlock` is an in-flow SIBLING of the `h-screen` ModernShell, so an in-flow
   footer adds height > 100vh → a page VERTICAL scrollbar. Keep it fixed (out of flow) + `pointer-events-none`;

@@ -115,7 +115,7 @@ import { useInsightRecommendations } from "./use-insight-recommendations";
 import { RecommendationReviewModal } from "./insights/recommendation-review-modal";
 import { executeActionCta } from "./action-cta-exec";
 import { getTursoConfig } from "./turso-config";
-import { aiAssistantOpener, aiKeyIfEnabled, isAiEnabled, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
+import { aiAssistantOpener, aiKeyIfEnabled, isAiEnabled, defaultExportConfig, exportFooterText, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
 import { resolveEffectiveSettings } from "./settings-effective";
 import { TaskDeleteButton, TaskEditorActions, TaskEditorExtras } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
@@ -511,7 +511,7 @@ function TaskManagerInner() {
     truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
-    restoreTursoProject, hardDeleteTursoProject, tursoProjectId, loadPending, getScopeEpoch,
+    restoreTursoProject, hardDeleteTursoProject, tursoProjectId, loadPending, getScopeEpoch, isSwapInFlight,
   } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, showToastAction, onRevealSavingPaused: () => { setDestructiveBannerDismissed(false); setLoadPauseBannerDismissed(false); }, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
 
   // Fills the forward-ref declared above `useUndoStack`, so an undo-stack redo
@@ -2155,15 +2155,16 @@ function TaskManagerInner() {
 
   // Export the CURRENT project's workspace. Snapshot is assembled from context
   // (same field set the save effect uses), including `project`.
+  const exportFooter = exportFooterText(settings.branding);
   const handleExportCurrentProject = useCallback(
     (format: string) => {
       const ws = {
         tasks, raid, absences, shifts, resources, roles, disciplines, grades,
         plan, budgets, fxRates, status, project, milestones, changes, stakeholders,
       };
-      void exportWorkspace(ws, format as ExportFormat, settings.export ?? defaultExportConfig, lang).catch((e) => reportSilentFailure(showToast, lang, "export.failed", e, "guardExportFailed"));
+      void exportWorkspace(ws, format as ExportFormat, settings.export ?? defaultExportConfig, lang, exportFooter).catch((e) => reportSilentFailure(showToast, lang, "export.failed", e, "guardExportFailed"));
     },
-    [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders, settings.export, lang, showToast],
+    [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders, settings.export, exportFooter, lang, showToast],
   );
 
   // De-register a project: drop it from the registry (observable copy updated),
@@ -2416,6 +2417,11 @@ function TaskManagerInner() {
     // Same `useUndoBatch` instance whose `.undo` is the dispatcher's `undo` prop
     // — see the note at that call.
     runProposalBatch: chatUndoBatch.runBatched,
+    // §548/§596 — both readers ride `workspaceProps` for the reason above: the chat
+    // panel is the consumer and it is a hop below `WorkspaceSection`. REQUIRED all the
+    // way down, so a dropped thread is a tsc error rather than a silently unguarded turn.
+    getScopeEpoch,
+    isSwapInFlight,
     handleGanttBarUpdate: guardEdit(handleGanttBarUpdate),
     handleCancelEdit,
     setTaskModalOpen,

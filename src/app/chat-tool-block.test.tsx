@@ -433,6 +433,19 @@ describe("ToolBlock — document file card", () => {
     expect(loadAssetData).toHaveBeenCalledWith(TURSO_CONFIG, "asset-9", "proj-42");
   });
 
+  // ★ Same shape as the loader above: an OPTIONAL trailing argument that, if the
+  //   card dropped it, would export with the built-in footer and pass everything.
+  it("passes the export footer ToolBlock was given on to the download", async () => {
+    const user = userEvent.setup();
+    const result = JSON.stringify({ id: 4, title: "Steering deck", blockCount: 12 });
+    renderTree(
+      [doc(4, "Steering deck", 12)],
+      <ToolBlock name="create_document" input={{}} result={result} error={false} lang="en-US" exportFooter="Acme GmbH" />,
+    );
+    await user.click(screen.getByRole("button", { name: downloadName("Steering deck", 4) }));
+    expect(vi.mocked(downloadDocument).mock.calls.at(-1)![5]).toBe("Acme GmbH");
+  });
+
   // ★ The other branch of the same guard. In file mode there is no byte store,
   // and `undefined` — not a loader that will throw on its first image — is the
   // documented "no assets available" signal.

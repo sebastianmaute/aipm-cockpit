@@ -3,7 +3,8 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { PaperClipIcon } from "./icons";
 import { type ToolDispatcher, runTool } from "./chat-tools";
-import { type Lang, type TranslationKey, t } from "./i18n";
+import { type Lang, t } from "./i18n";
+import { resolveAiPolicy, type AiPolicy } from "./ai-policy";
 import { type OperatingGuide } from "./operating-guide";
 import { ChatPromptChips } from "./chat-prompt-chips";
 import { Markdown } from "./markdown";
@@ -57,6 +58,7 @@ import { buildWireMessages } from "./chat-cache-layout";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { ToolBlock } from "./chat-tool-block";
 import type { TursoConfig } from "./turso-config";
+import { dropStaleScopeWrite, isScopeStale, type ScopeEpochReader } from "./scope-epoch";
 import { useChatThreads } from "./use-chat-threads";
 import { ChatThreadSidebar } from "./chat-thread-sidebar";
 import {
@@ -179,8 +181,11 @@ function ChatPanelImpl({
   saveChatConversation,
   tursoMode = false,
   tursoConfig = null,
+  exportFooter,
   workspace,
   runBatched,
+  getScopeEpoch,
+  isSwapInFlight,
 }: {
   lang: Lang;
   ai: AiConfig;
@@ -200,10 +205,13 @@ function ChatPanelImpl({
    *  exactly as before: one ephemeral in-memory conversation, no sidebar. */
   tursoMode?: boolean;
   tursoConfig?: TursoConfig | null;
+  /** Footer line of a document card's HTML/PDF/PowerPoint download (`exportFooterText(settings.branding)`). */
+  exportFooter?: string;
 } & ChatProposalProps &
-  ChatConversationStoreProps) {
+  ChatConversationStoreProps &
+  ChatScopeProps) {
   if (!ai.consentAccepted) {
-    return <ConsentScreen lang={lang} onAccept={onAcceptConsent} />;
+    return <ConsentScreen lang={lang} policy={resolveAiPolicy(ai)} onAccept={onAcceptConsent} />;
   }
   return (
     <ChatPanelInner
@@ -222,15 +230,60 @@ function ChatPanelImpl({
       saveChatConversation={saveChatConversation}
       tursoMode={tursoMode}
       tursoConfig={tursoConfig}
+      exportFooter={exportFooter}
       workspace={workspace}
       runBatched={runBatched}
+      getScopeEpoch={getScopeEpoch}
+      isSwapInFlight={isSwapInFlight}
     />
   );
 }
 
+/** §548/§596 — this panel's two windows onto storage scope, both REQUIRED.
+ *
+ *  ★★★ REQUIRED IS THE POINT, and it is the one thing `ChatProposalProps` below
+ *   deliberately did not do. An optional reader that nobody threads degrades to
+ *   the pre-§548 behaviour SILENTLY — `scope-epoch.ts`'s header records
+ *   `tasks-section.tsx` living that way for a whole release. The cost is that every
+ *   `<ChatPanel>` mount in `chat-panel.test.tsx` has to say so — they spread one
+ *   `SCOPE_PROPS` const; count them with `grep -c "<ChatPanel" src/app/chat-panel.test.tsx`
+ *   rather than trusting a number here. That churn is what buys a tsc error
+ *   instead of a turn writing into the next project. */
+interface ChatScopeProps {
+  /** Reads `useStorageBackend`'s scope epoch. Captured once per send and
+   *  re-read at every `stale()` check and between individual tool calls. */
+  getScopeEpoch: ScopeEpochReader;
+  /** True while an op that will replace this workspace with ANOTHER project's is
+   *  in flight.
+   *
+   *  ★★★ NOT THE LOAD HOLD, AND THIS DOC SAID "a project swap / load hold" UNTIL
+   *   THE TWO WERE SPLIT. `loadPending` rises for all ten held ops plus
+   *   `!hydrated` plus every backend rebuild; this rises for the FOUR
+   *   `holdDuring(..., "changes-scope")` rows alone. Naming the load hold here
+   *   makes them read as one signal, which is the coupling the split deliberately
+   *   broke — a Save-As, a cancelled OS dialog and a same-project reload all
+   *   raise the hold and must NOT cancel the user's turn.
+   *  ★★★ READ FROM THE UNMOUNT CLEANUP, WHICH IS WHY IT IS A FUNCTION AND NOT A
+   *   BOOLEAN. The teardown and the commit raising the hold are the same commit,
+   *   so this panel's last render saw the pre-swap value — any prop or ref
+   *   mirroring a render value is stale exactly when the cleanup asks. The
+   *   backing ref moves synchronously inside `holdDuring`. */
+  isSwapInFlight: () => boolean;
+}
+
 /** Wiring for the destructive-write review card. BOTH are optional with safe
- *  defaults so the ~39 `<ChatPanel>` mounts in `chat-panel.test.tsx` compile
- *  unchanged; the PRODUCTION seam is pinned by `workspace-section.test.tsx`.
+ *  defaults so the existing `<ChatPanel>` mounts in `chat-panel.test.tsx`
+ *  compile unchanged; the PRODUCTION seam is pinned by
+ *  `workspace-section.test.tsx`.
+ *
+ *  ★★ NO COUNT IS QUOTED HERE ON PURPOSE. This said "~39" while the real number
+ *   was 57 — and it sat four lines under a docstring telling you not to trust a
+ *   number in a comment. Read it if you need it, never off this line:
+ *   `grep -c "<ChatPanel" src/app/chat-panel.test.tsx`
+ *  ★ Contrast `ChatScopeProps` directly above, which is REQUIRED: that is the
+ *   whole point of the distinction, and it is why those mounts did NOT compile
+ *   unchanged when the scope readers landed. Optional buys silence; required
+ *   buys a tsc error. Only one of those can catch an unthreaded prop.
  *
  *  ★★ THE TWO DEGRADE DIFFERENTLY AND NEITHER LOSES DATA. Without `workspace`
  *   the card still lists every staged call and apply still replays it — only the
@@ -285,8 +338,11 @@ function ChatPanelInner({
   saveChatConversation,
   tursoMode = false,
   tursoConfig = null,
+  exportFooter,
   workspace,
   runBatched,
+  getScopeEpoch,
+  isSwapInFlight,
 }: {
   lang: Lang;
   ai: AiConfig;
@@ -302,8 +358,11 @@ function ChatPanelInner({
   onConfigureAi?: () => void;
   tursoMode?: boolean;
   tursoConfig?: TursoConfig | null;
+  /** Footer line of a document card's HTML/PDF/PowerPoint download (`exportFooterText(settings.branding)`). */
+  exportFooter?: string;
 } & ChatProposalProps &
-  ChatConversationStoreProps) {
+  ChatConversationStoreProps &
+  ChatScopeProps) {
   const confirm = useConfirm();
   // Restore this project's in-memory conversation on (re)mount — the modern
   // shell remounts the chat view on every visit, so local state alone is lost.
@@ -447,6 +506,58 @@ function ChatPanelInner({
     return () => document.removeEventListener("keydown", onKey);
   }, [busy, chatRef]);
 
+  /** Live handle on `isSwapInFlight` for the unmount cleanup below.
+   *
+   *  ★ A ref, and the effect below keeps `[]` deps, because putting the prop in
+   *   the dep array would make React fire the CLEANUP on every identity change —
+   *   i.e. cancel the user's turn on an ordinary re-render, which is the very bug
+   *   this pair exists to stop. Only the FUNCTION is captured; it reads live
+   *   storage state at call time, so a one-commit-stale identity still answers
+   *   correctly (the production reader is a `useCallback([])` and never changes). */
+  const isSwapInFlightRef = useRef(isSwapInFlight);
+  useEffect(() => { isSwapInFlightRef.current = isSwapInFlight; }, [isSwapInFlight]);
+
+  // ★★★ Cancel an in-flight send when this panel goes away UNDER A SWAP. Before
+  // this effect nothing cancelled at all: the keydown cleanup above merely
+  // detaches a listener, and the projectId effect fires only on an ACTUAL prop
+  // change. Under the §548 load hold `task-manager.tsx` swaps the whole
+  // main-window tree for `PanelSkeleton` WITHOUT such a change, so the dying
+  // instance's `projectIdRef` is never bumped, its `stale()` reads not-stale
+  // forever, and its DISPATCHER is still live (`useStorageBackend` lives in
+  // `TaskManager`, which does not unmount) — so a turn in flight across a project
+  // swap ran its tools into the project the user swapped TO.
+  // ★★ THE DISPATCHER IS THE LIVE PART, not the panel's own setters: `history`
+  // and `display` are local `useState` in this component, so those setters are
+  // no-ops once it is gone. That asymmetry is the whole shape of the bug — the
+  // transcript goes nowhere while the WRITES land.
+  // ★★★ CONDITIONAL, §596. An unconditional version shipped first and was a live
+  // regression: `modern-shell.tsx`'s content ternary gives `open-points`,
+  // `settings` and `learning-insights` their own subtrees, so navigating to any
+  // of the three unmounts this panel on an ORDINARY click — and a user who asked
+  // the assistant to create tasks and then clicked Open Points to watch them
+  // appear got nothing, silently. `isSwapInFlight` is the discriminator.
+  // ★★★ AND IT IS NARROWER THAN "A §548 TEARDOWN", which is what this comment
+  // said until the B1 fix and is the second regression of this exact shape: SIX
+  // of the ten held ops raise the §548 hold and leave it FALSE, because a plain
+  // Save-As, a cancelled OS file dialog and a same-project Reload all tear this
+  // panel down without the workspace becoming another project's. It is TRUE only
+  // while an op that WILL replace this workspace with another project's is in
+  // flight — the `holdDuring(..., "changes-scope")` rows, a minority of the ten
+  // and deliberately not counted here: the split moved once and took seven
+  // sentences with it. When it is false the
+  // turn is left alone to finish into the project the user is still in — and if
+  // the scope did move after all, the epoch drops the write at resolution, which
+  // is the correctness guarantee. This cancel is only ever a cost optimisation.
+  // ★ Safe under StrictMode's mount→unmount→mount: `submitPrompt` resets
+  // `cancelledRef` to false at its own start, so a cancelled flag left by a
+  // discarded first mount cannot outlive the next send. `chat-panel.scope.test.tsx`
+  // pins both branches of the condition and both halves of that reset.
+  useEffect(() => () => {
+    if (!isSwapInFlightRef.current()) return;
+    cancelledRef.current = true;
+    abortRef.current?.abort();
+  }, []);
+
   /** The card's view of the pending plan. `index` is the row's POSITION, which
    *  is the identity `PlanRow.index`, `cascadeDeselect` and `AppliedRow.index`
    *  all key on — `describeProposal` emits one row per call in the input's
@@ -503,6 +614,13 @@ function ChatPanelInner({
     // binding (`sendThreadId`) is captured further down, only after
     // ensureThreadForSend has resolved — see the comment there.
     const sendProjectId = projectId;
+    // §596 — the SCOPE half of this send's binding, captured before the first
+    // await like every other §548 writer. `sendProjectId` cannot see a
+    // storage-target change that KEEPS the project id — a Turso URL or token
+    // change, a SharePoint target swap, a same-project reload — because it
+    // compares the very thing those leave alone. The epoch can: it moves on
+    // exactly the replacements that make this send's workspace the wrong one.
+    const sendEpoch = getScopeEpoch();
 
     // With attachments the user turn is a multimodal content array (text first,
     // then each document/image block); otherwise a plain string.
@@ -541,8 +659,12 @@ function ChatPanelInner({
     // would then wrongly see the newly-adopted id as a mismatch and treat
     // this send as already stale (see ensureThreadForSend's own comment).
     const sendThreadId = chatThreads.ensureThreadForSend(newHistory, [...display, userDisplayItem]);
+    // ★ ONE predicate, so the three existing check sites (before the call, after
+    //   it, and after the transcript append) all gain the scope test together —
+    //   a fourth, per-TOOL check lives inside the loop below for the case none of
+    //   these can reach.
     const stale = () =>
-      cancelledRef.current || projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId;
+      cancelledRef.current || projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId || isScopeStale(getScopeEpoch, sendEpoch);
 
     const snapshot = dispatcher.getSnapshot();
     const system = buildStableSystemBlocks(lang, snapshot, guides, ai.groundInGuides, ai);
@@ -686,6 +808,23 @@ function ChatPanelInner({
           const results: ToolResultBlock[] = [];
           for (const block of response.content) {
             if (block.type !== "tool_use") continue;
+            // ★★★ §596 — RE-CHECKED PER TOOL, NOT PER TURN, and no `stale()` call
+            // site can stand in for this one: all three run BEFORE this loop. A
+            // turn can carry several `tool_use` blocks, so a scope move landing
+            // mid-batch would otherwise let every REMAINING tool write into the
+            // next project. Scope only — cancel and the project/thread refs are
+            // the outer loop's job and cannot move here.
+            // ★★ WHAT CAN MOVE IT BETWEEN TWO TOOLS, stated narrowly because the
+            // first version of this comment said "each `runTool` awaits" and that
+            // is false — `chat-tools.ts` contains no `await` at all
+            // (`grep -c await src/app/chat-tools.ts` → 0), so `runTool` resolves
+            // on the next microtask and nothing that needs a task (a click, a
+            // timer, IO) can interleave. What CAN move it is a dispatcher handler
+            // itself, which is a write surface into the same app — that is the
+            // case pinned by "stops a multi-tool turn at the tool where the scope
+            // changed". The rest is cheap insurance for the day a handler becomes
+            // genuinely async.
+            if (dropStaleScopeWrite(getScopeEpoch, sendEpoch, "chat-panel.toolLoop", { tool: block.name })) break;
             let resultStr: string;
             let isError = false;
             try {
@@ -713,7 +852,42 @@ function ChatPanelInner({
             });
           }
 
-          messages.push({ role: "user", content: results });
+          // ★★★ NEVER PUSH AN EMPTY CARRIER. `content: []` is not "a carrier with
+          // nothing in it" to the API — it is an INVALID message, and it kills the
+          // conversation permanently: `closeDanglingToolUses` runs at the top of
+          // every send and (before §596) had no rule that removes an empty
+          // message, so every later send rebuilt the same invalid array, and in
+          // Turso mode the `setHistory` below is persisted by `use-chat-threads`'s
+          // save effect, so it survives reload and tab close. A new thread is the
+          // only recovery.
+          // ★★★ IT DOES NOT BITE ON *THIS* SEND'S CONTINUATION, AND GUESSING THAT
+          // IT DID PRODUCED A GREEN TEST AGAINST THE UNGUARDED CODE. While the
+          // empty message is the history TAIL, `buildWireMessages` appends the
+          // turn-context block INTO a trailing user message, so the wire sees
+          // `content: [ctx]` and the next round trip looks perfectly healthy. The
+          // damage lands on the NEXT send: the user's new turn is appended after
+          // the empty one, which is then no longer the tail, gets no backfill, and
+          // goes out as `content: []` behind two consecutive `user` turns. Any
+          // test of this must span TWO sends; one that reads this send's second
+          // request passes either way.
+          // ★★ TWO WAYS TO GET HERE WITH NOTHING, and only the second needs an
+          // await, which is why the guard is at the SOURCE rather than left to a
+          // downstream repair. (1) A turn with `stop_reason: "tool_use"` and no
+          // `tool_use` block in its content — malformed, but it is external data
+          // and nothing upstream validates it; `shouldStage([])` is false, so it
+          // reaches this loop and matches nothing. That one is reachable TODAY
+          // and is pinned by "a tool_use turn carrying no tool_use block…" in
+          // `chat-panel.test.tsx`. (2) The §596 per-tool guard breaking on the
+          // FIRST tool — unreachable today, since nothing awaits between the
+          // post-`callClaude` `stale()` and the first `runTool`, and deliberately
+          // guarded anyway rather than left as a trap for whoever adds one.
+          // ★ Skipping the push is correct, not a second bug: the assistant turn
+          // then has NO carrier at all, which is exactly the shape
+          // `closeDanglingToolUses` was written to repair, and it runs before the
+          // next request either way.
+          if (results.length > 0) {
+            messages.push({ role: "user", content: results });
+          }
           continueBubble = false; // tool output breaks the text flow — new bubble
           continue;
         }
@@ -749,6 +923,40 @@ function ChatPanelInner({
       // If the user switched project or thread mid-send, this run belongs to
       // another conversation now showing on screen — don't write its notes or
       // history onto the current one (billing is still recorded).
+      // ★★ §596 — THIS DELIBERATELY DOES *NOT* INCLUDE `isScopeStale(getScopeEpoch,
+      //   sendEpoch)`, although `stale()` (declared beside `sendThreadId`) does. The two gate
+      //   different things and want OPPOSITE answers: the epoch gates WORKSPACE
+      //   WRITES (drop them — they would land in the wrong project), this gates
+      //   USER-FACING DISCLOSURE. On an epoch-only move the panel has not
+      //   remounted and `projectId` has not changed, so the conversation on screen
+      //   is still THIS one, so the `chatTruncatedNote` below belongs to it. Drop
+      //   the write, still try to tell the user.
+      // ★★ "TRY" IS EXACT, AND AN EARLIER VERSION OF THIS ARGUMENT OVERCLAIMED IT.
+      //   It called the note "the user's ONLY signal", which is not a reason that
+      //   survives its own premises: a scope move that arrives through the §548
+      //   hold unmounts this panel (`task-manager.tsx` renders `PanelSkeleton`
+      //   while `loadPending`, and `scope-epoch.ts`'s header argues `loadPending`
+      //   is committed-true at every bump), and a note appended to an unmounted
+      //   component reaches nobody and is never persisted. The note is BEST-EFFORT.
+      //   The decision stands on the narrower claim that survives: this gate asks a
+      //   DIFFERENT question from the epoch, and answering it with the epoch can
+      //   only ever suppress a disclosure — it cannot make one appear. Suppressing
+      //   is the failure mode we are avoiding, so an unreliable note beats none.
+      // ★★★ THE WRONG FIX, NAMED SO IT IS NOT REDISCOVERED AS AN IMPROVEMENT:
+      //   "complete the pattern" by OR-ing the epoch in here, and a dropped turn
+      //   becomes invisible — the same silent-failure class as the unconditional
+      //   unmount cancel this task had to undo. If you think this needs changing,
+      //   the change is a DIFFERENT note ("the storage target changed"), never
+      //   silence.
+      // ★ NOT a claim that nothing persists. Verify, don't trust this line:
+      //   `grep -n "saveThread(" src/app/use-chat-threads.ts` — every hit passes the
+      //   LIVE `tursoConfig`, which on a target change is already the NEW one, so a
+      //   transcript can land in a different database under the same projectId.
+      //   Smaller than a workspace write, out of scope here, and OPEN as §604 in
+      //   `docs/open-followups.md` — do not read this bullet as saying it is fine.
+      //   ★ The §-number is the point of this sentence: without it a reader can
+      //   see the hazard described and has no way to reach the record, which is
+      //   indistinguishable from a hazard nobody filed.
       const switchedAway = projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId;
       if (!switchedAway) {
         if (cancelledRef.current) {
@@ -1211,7 +1419,7 @@ function ChatPanelInner({
                     input={item.input}
                     result={item.result}
                     error={item.error}
-                    lang={lang} tursoConfig={tursoConfig} projectId={projectId}
+                    lang={lang} tursoConfig={tursoConfig} projectId={projectId} exportFooter={exportFooter}
                   />
                 )}
                 {/* ★★★ THE ID MATCH IS THE CLEAR. The marker is persisted and
@@ -1389,23 +1597,28 @@ function ChatPanelInner({
   );
 }
 
-const POLICY_URL = "https://wiki.example.com/wiki/x/ewB2bwE";
-
+/** ★ The organisation policy block (bullet 6, the link and the checkbox) comes from
+ *  `resolveAiPolicy`: the owner fills all three strings, and with no link there is no
+ *  policy to read or accept, so the block drops out and Accept is enabled on its own. */
 function ConsentScreen({
   lang,
+  policy,
   onAccept,
 }: {
   lang: Lang;
+  policy: AiPolicy;
   onAccept: () => void;
 }) {
   const [policyAccepted, setPolicyAccepted] = useState(false);
-  const bullets: TranslationKey[] = [
-    "aiConsentBullet1",
-    "aiConsentBullet2",
-    "aiConsentBullet3",
-    "aiConsentBullet4",
-    "aiConsentBullet5",
-    "aiConsentBullet6",
+  const hasPolicy = policy.url !== null;
+  const owner = policy.org ?? t(lang, "aiPolicyOwnerFallback");
+  const bullets: string[] = [
+    t(lang, "aiConsentBullet1"),
+    t(lang, "aiConsentBullet2"),
+    t(lang, "aiConsentBullet3"),
+    t(lang, "aiConsentBullet4"),
+    t(lang, "aiConsentBullet5"),
+    ...(hasPolicy ? [t(lang, "aiConsentBullet6", owner)] : []),
   ];
   return (
     <div className="rounded-lg border border-ui-purple/40 bg-ui-purple/10 p-5 dark:border-ui-purple/50 dark:bg-ui-purple/15">
@@ -1416,23 +1629,25 @@ function ConsentScreen({
         {t(lang, "aiConsentNotAccepted")}
       </p>
       <ul className="mt-3 space-y-2 text-sm text-ui-purple-strong">
-        {bullets.map((k) => (
-          <li key={k} className="flex gap-2">
+        {bullets.map((text) => (
+          <li key={text} className="flex gap-2">
             <span aria-hidden className="mt-0.5">
               •
             </span>
-            <span>{t(lang, k)}</span>
+            <span>{text}</span>
           </li>
         ))}
       </ul>
+      {hasPolicy && (
+      <>
       <p className="mt-3 text-sm">
         <a
-          href={POLICY_URL}
+          href={policy.url!}
           target="_blank"
           rel="noopener noreferrer"
           className="font-medium text-ui-purple-strong underline underline-offset-2 hover:decoration-2"
         >
-          {t(lang, "aiConsentPolicyLink")} ↗
+          {t(lang, "aiConsentPolicyLink", owner)} ↗
         </a>
       </p>
       <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm text-ui-purple-strong">
@@ -1441,13 +1656,15 @@ function ConsentScreen({
           onChange={(e) => setPolicyAccepted(e.target.checked)}
           className="mt-0.5 cursor-pointer"
         />
-        <span>{t(lang, "aiConsentPolicyCheckbox")}</span>
+        <span>{t(lang, "aiConsentPolicyCheckbox", owner)}</span>
       </label>
+      </>
+      )}
       <div className="mt-5 flex justify-end gap-2">
         <button
           type="button"
           onClick={onAccept}
-          disabled={!policyAccepted}
+          disabled={hasPolicy && !policyAccepted}
           className={`rounded-md bg-ui-purple px-4 py-2 text-sm font-medium text-white hover:bg-ui-purple/90 focus:outline-none focus:ring-2 focus:ring-ui-purple focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${TRANSITION} ${PRESS}`}
         >
           {t(lang, "aiConsentAccept")}

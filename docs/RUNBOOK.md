@@ -280,7 +280,7 @@ Integration config (storage backend, AI, Jira, Timelog, M365) can be done via th
 ### Environment variables (build-time, optional)
 
 The optional `NEXT_PUBLIC_*` build-time variables (Microsoft Entra client/tenant
-ID, Turso database URL and auth token) and their caveats are documented in
+ID, Turso database URL and auth token, the AI-usage policy owner and link) and their caveats are documented in
 [security.md → Environment variables](security.md#environment-variables), which
 owns that list.
 

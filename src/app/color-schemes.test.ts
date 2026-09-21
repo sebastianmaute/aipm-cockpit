@@ -286,3 +286,10 @@ describe("portable theme format (structural + pins)", () => {
     expect(round.structural?.["--shadow-card"]).toBe("0 1px 3px rgba(0,65,89,0.12)");
   });
 });
+
+describe("mergeAppliedBranding — export footer", () => {
+  it("leaves exportFooter alone, like startLogo: no scheme owns it", () => {
+    expect(mergeAppliedBranding({ exportFooter: "Acme" }, {}).exportFooter).toBe("Acme");
+    expect(mergeAppliedBranding({ exportFooter: "" }, { slogan: "X" }).exportFooter).toBe("");
+  });
+});

@@ -25,7 +25,8 @@ describe("useDashboardLayout", () => {
   it("starts from the default layout when nothing is stored", () => {
     render(<Harness />);
     expect(screen.getByTestId("order").textContent).toContain("kpi");
-    expect(screen.getByTestId("hidden").textContent).toBe("");
+    // A fresh board hides only Completion trend (DEFAULT_LAYOUT).
+    expect(screen.getByTestId("hidden").textContent).toBe("completionTrend");
   });
 
   it("reconciles a stored layout on load", () => {
@@ -62,13 +63,14 @@ describe("useDashboardLayout", () => {
     expect(loadLayout("p1")).toBeNull();
   });
 
-  it("reset restores the default and clears hidden", async () => {
+  it("reset restores the default and clears what the user hid", async () => {
     vi.useFakeTimers();
     render(<Harness />);
     act(() => { screen.getByText("hide").click(); });
+    expect(screen.getByTestId("hidden").textContent).toBe("completionTrend,raid");   // positive control
     act(() => { screen.getByText("reset").click(); });
     await act(async () => { vi.advanceTimersByTime(1000); });
-    expect(screen.getByTestId("hidden").textContent).toBe("");
+    expect(screen.getByTestId("hidden").textContent).toBe("completionTrend");
   });
 });
 
@@ -84,7 +86,7 @@ describe("useDashboardLayout across a project switch", () => {
   it("re-reads the layout when projectId changes", async () => {
     saveLayout("p2", { v: 1, board: [{ id: "changes", w: 2, h: 2 }], hidden: ["upcoming"] });
     const { rerender } = render(<Harness projectId="p1" />);
-    expect(screen.getByTestId("hidden").textContent).toBe("");
+    expect(screen.getByTestId("hidden").textContent).toBe("completionTrend");   // p1: nothing stored, the default
 
     rerender(<Harness projectId="p2" />);
     expect(screen.getByTestId("hidden").textContent).toBe("upcoming");
@@ -183,5 +185,40 @@ describe("useDashboardLayout — the one-time burn upgrade (spec C)", () => {
     act(() => { screen.getByText("reset").click(); });
     await act(async () => { vi.advanceTimersByTime(LAYOUT_PERSIST_MS + 50); });
     expect(loadLayout("p1")!.upgrades).toContain("dashboard-burn-2x8");
+  });
+});
+
+// Through the REAL load path — `useArrangement` reads, runs the composed upgrade,
+// then `reconcile` — because the step alone cannot show that a retired id
+// survives the read long enough to be removed and recorded, nor that the result
+// then stays put.
+describe("useDashboardLayout — the retired Progress tile", () => {
+  beforeEach(() => { localStorage.clear(); vi.useRealTimers(); });
+  const KEY = "aipm-cockpit:dashboard-layout";
+
+  it("drops a stored progress tile from board and hidden, and is stable on the next read", async () => {
+    vi.useFakeTimers();
+    saveLayout("p1", {
+      v: 1, upgrades: ["dashboard-burn-2x8"],
+      board: [{ id: "kpi", w: 2, h: 3 }, { id: "progress", w: 2, h: 2 }, { id: "raid", w: 2, h: 2 }],
+      hidden: ["progress", "changes"],
+    } as never);
+    const first = render(<Harness />);
+    expect(screen.getByTestId("order").textContent!.split(",")).not.toContain("progress");
+    expect(screen.getByTestId("order").textContent!.split(",")).toContain("raid");   // positive control
+    expect(screen.getByTestId("hidden").textContent).toBe("changes");
+    await act(async () => { vi.advanceTimersByTime(LAYOUT_PERSIST_MS + 50); });
+    const stored = loadLayout("p1")!;
+    expect(stored.board.map((b) => b.id as string)).not.toContain("progress");
+    expect(stored.hidden as string[]).toEqual(["changes"]);
+    expect(stored.upgrades).toContain("dashboard-progress-into-kpi");
+    first.unmount();
+
+    // Second read: nothing left to upgrade, so nothing is written.
+    const before = localStorage.getItem(KEY);
+    render(<Harness />);
+    expect(screen.getByTestId("order").textContent!.split(",")).not.toContain("progress");
+    await act(async () => { vi.advanceTimersByTime(LAYOUT_PERSIST_MS + 50); });
+    expect(localStorage.getItem(KEY)).toBe(before);
   });
 });

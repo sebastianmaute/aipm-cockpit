@@ -9,7 +9,7 @@ import { IconButton } from "./icon-button";
 import { SettingsMenu } from "./settings-menu";
 import { ActionMenus } from "./action-menus";
 import { ProjectSwitcher, type ProjectSwitcherProps } from "./project-switcher";
-import { defaultExportConfig, type Settings } from "./settings-types";
+import { defaultExportConfig, exportFooterText, type Settings } from "./settings-types";
 import { AskClaudeMenu } from "./ask-claude-menu";
 import type { AppView } from "./nav-config";
 
@@ -148,6 +148,7 @@ export function AppHeader({
             onCommand={handleCommand}
             onVoiceError={(msg) => showToast("error", msg)}
             exportConfig={settings.export ?? defaultExportConfig}
+            exportFooter={exportFooterText(settings.branding)}
             expertMode={settings.expertMode}
           />
           <SettingsMenu

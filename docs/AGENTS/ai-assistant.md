@@ -13,6 +13,17 @@
 
 ### AI Assistant
 
+- **Consent screen policy block:** `ConsentScreen` (`chat-panel.tsx`) names an organisation AI-usage
+  policy in its sixth bullet, a link and a required checkbox. Owner and link come from ONE resolver,
+  `resolveAiPolicy` (`ai-policy.ts`): a `NEXT_PUBLIC_AI_POLICY_ORG`/`_URL` build value, then
+  `settings.ai.policyOrgName`/`policyUrl` (Settings → AI Assistant, `ai-policy-fields.tsx`), then the
+  built-in Acme default. `undefined` = never set (default), `""` = cleared: no owner → neutral
+  wording (`aiPolicyOwnerFallback`), no link → the whole block drops out and Accept needs no checkbox.
+  ★★ The built-in LINK applies only while the owner is the built-in one too: a custom owner (Settings
+  or env) — or a CLEARED one — with no link of its own gets NO link, never Acme's wiki page
+  presented as that owner's policy; Settings explains it under the link field (`aiPolicyUrlNoBuiltin`). A `NEXT_PUBLIC_AI_POLICY_URL` that is not https is ignored and reported (`urlEnvRejected`).
+  ★★ The link becomes an `href`, so only an `https:` URL ever leaves the resolver (`isSafePolicyUrl`);
+  the sanitizer only length-caps, so do not judge the URL anywhere else.
 - **Wire layer:** `chat-panel.tsx` is the React surface; the non-React WIRE LAYER (Anthropic protocol types
   `TextBlock`/`ContentBlock`/`SystemBlock`/`ApiMessage`/`DisplayItem`, `callClaude`, `buildSystemPrompt`,
   `systemBlocksText`, `stringifyResult`) lives in pure i18n-free `chat-api.ts` — import

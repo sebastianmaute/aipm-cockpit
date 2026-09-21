@@ -178,10 +178,10 @@ test("Time bookings renders the not-configured gate, so its tables reach NO e2e 
 // ONE tile, or none, still scans green: there would be no per-tile controls left
 // for axe to look at, and the six Dashboard scans would report an improvement.
 //
-// ★ Asserts a FLOOR, not the exact tile count. Nine tiles render today
-// (kpi · topActions · insights · raid · upcoming · progress · burn · milestones ·
-// changes; `trends` is Turso-gated off and `completionTrend` needs trend data),
-// but that number moves with the seed and with the catalogue. Two is the number
+// ★ Asserts a FLOOR, not the exact tile count. The tiles that render today are
+// kpi · topActions · insights · raid · upcoming · burn · milestones · changes
+// (`trends` is Turso-gated off and `completionTrend` needs trend data), but that
+// set moves with the seed and with the catalogue. Two is the number
 // that matters — one tile cannot exercise a per-tile control's row-uniqueness at
 // all. Re-measure rather than trusting this parenthesis:
 //   page.locator('[data-testid^="tile-"]').count()
@@ -220,9 +220,9 @@ test("the seeded dashboard renders a populated board, not an empty one", async (
     grid.getByRole("button", { name: "Drag to reorder" }),
   ).toHaveCount(tileCount);
 
-  // Three UNGATED catalogue tiles — these render for every project, so naming
-  // them cannot go stale with the seed's data.
-  for (const title of ["At a glance", "Progress", "Upcoming & overdue"]) {
+  // The UNGATED catalogue tiles (`gate: ALWAYS` in DASHBOARD_TILES) — these render
+  // for every project, so naming them cannot go stale with the seed's data.
+  for (const title of ["At a glance", "Upcoming & overdue"]) {
     await expect(page.getByRole("region", { name: title, exact: true })).toBeVisible();
     await expect(
       page.getByRole("button", { name: `Drag to reorder – ${title}`, exact: true }),

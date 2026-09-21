@@ -1,13 +1,31 @@
 // §548 — every op that awaits and then REPLACES the workspace holds `loadPending` for its WHOLE duration
-// (`holdDuring`). ONE table, all nine ops, two tests per op: "in flight → resolved" and "in flight →
-// threw". Each row parks the op on its FIRST awaited step behind a gate the test controls, and
-// `touched()` proves the op really is parked there before `loadPending` is read, so a row cannot pass
-// because its op finished early.
+// (`holdDuring`). ONE table, all TEN ops, three tests per op: "in flight → resolved", "in flight →
+// threw", and §596's `isSwapInFlight` flag. Each row parks the op on its FIRST awaited step behind a
+// gate the test controls, and `touched()` proves the op really is parked there before `loadPending` is
+// read, so a row cannot pass because its op finished early.
+// ★★★ IT SAID "all nine ops" AND WAS MISSING `onPickStorageFile` — the op whose §590 wrapping composed
+//   with §596's unmount cancel into B1 (a plain Save-As silently killing a live AI turn). A table that
+//   names its own completeness and is not complete is worse than one that says nothing: the gap reads
+//   as covered. Re-derive the universe rather than trusting this line:
+//     grep -n "hold[D]uring(" src/app/use-storage-backend.ts
+// ★★ THE TWO SIGNALS DISAGREE ON PURPOSE. `loadPending` rises for all ten; `isSwapInFlight` rises for
+//   the `"changes-scope"` rows alone, and the third test asserts each row's OWN declared expectation
+//   — which is why no count belongs in this sentence: the table below is the enumeration, and a
+//   number here would be a third copy of a split that has already moved once and taken seven
+//   sentences with it.
 // ★ The Turso mocks copy use-storage-backend.test.tsx's convention: `./turso-portfolio` replaced
 //   wholesale; `./turso-pipeline` spread from the actual module with only `testTursoConnection` stubbed
 //   (the §408 connection probe); a `TursoBackend` class whose `load` reads a hoisted seam.
-// ★★ "Threw": eight of the nine ops CATCH their own errors and report them through `showToast`; only
-//   `onOpenStorageFile` rethrows by itself (its picker `await` sits outside its `try`). So the throw test
+// ★★ "Threw": EVERY OP BUT `onOpenStorageFile` catches its own errors and reports them through
+//   `showToast`; that one rethrows by itself (its picker `await` sits outside its `try`).
+//   ★★★ DELIBERATELY NOT A COUNT, and this line is why. It said "NINE of the TEN" — true when
+//   written, with a tenure of exactly one reclassification, three lines above a sentence rewritten
+//   in the same round for that very reason. The exception is the fact; the count was a second copy
+//   of it that could rot while the exception stayed correct. Name the exception, never the total.
+//   ★ It said
+//   "eight of the nine" three lines under a header the same commit had just corrected to ten — the
+//   tenth op, `onPickStorageFile`, catches its picker's AbortError by design (§590, the cancelled
+//   dialog), so the ratio moved but the exception did not. So the throw test
 //   rejects the gate AND makes `showToast` throw, which turns every row's error path into a genuine
 //   rejection of the op, and asserts that (plan ruling 12).
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -31,6 +49,7 @@ vi.mock("./storage", () => ({
   openFileForBackend: vi.fn(() => null),
   loadFromHandleForBackend: vi.fn(() => null),
   pickFileForBackend: vi.fn(() => null),
+  pickFileHandleForBackend: vi.fn(() => null),
   pickOpenFileAny: vi.fn(),
   formatFromFileName: vi.fn(() => "json"),
   requestWriteAccessForBackend: vi.fn(() => null),
@@ -136,29 +155,58 @@ function makeGate(): Gate {
 
 type Hook = ReturnType<typeof useStorageBackend>;
 type Backends = { current: FakeBackend; target: FakeBackend };
-type Row = { op: string; arm: (g: Gate, b: Backends) => void; value: unknown; call: (h: Hook) => Promise<void> };
+type Row = {
+  op: string;
+  arm: (g: Gate, b: Backends) => void;
+  value: unknown;
+  call: (h: Hook) => Promise<void>;
+  /** §596 — the op's `holdDuring(..., scope)` argument, asserted by the third test
+   *  below. ★★★ THE FLAGS WERE UNPINNED AND `onPickStorageFile` WAS NOT EVEN IN
+   *  THIS TABLE — the op whose misclassification caused B1 in the first place. A
+   *  mutant flipping it back to `"changes-scope"` was green everywhere. Declaring
+   *  the expectation per ROW pins all ten at once and makes a new op's flag a
+   *  decision someone has to write down rather than inherit. */
+  scope: "changes-scope" | "same-scope";
+};
 
 // One row per op wrapped by `holdDuring`. `arm` parks the op on its FIRST awaited step; `value` is what
 // that step resolves with in the "resolved" test.
+// ★★ `scope` IS A SECOND COPY OF THE CLASSIFICATION, and this table is where that has to be said out
+//   loud, because the commit that added it also coined the sentence for exactly this shape over in
+//   `use-storage-backend.rebuild-flush.test.tsx`: a cross-reference is not a single source, it is a
+//   second copy with a promise attached. What it CATCHES is a production-only flip — changing a
+//   `holdDuring(..., "...")` argument and nothing else turns that row red (measured: MH3, MH4, MH5).
+//   What it CANNOT catch is someone editing both sides together, which is the ordinary way a
+//   deliberate reclassification arrives. So read a green run as "production still says what this
+//   table says", never as "the classification is right"; the argument for each row lives at the
+//   `holdDuring` declaration and is the thing to re-read when a row changes.
+//   ★ Deriving `scope` from production instead was considered and NOT done: the call sites are
+//   inside `useStorageBackend`'s body and exporting a map of them would restructure production code
+//   to serve a test, which is a worse trade than a copy that is honest about being one.
 const ROWS: Row[] = [
   { op: "reloadCurrentProject", arm: (g, b) => { b.current.load.mockImplementationOnce(g.wait); }, value: STORED,
-    call: (h) => h.reloadCurrentProject() },
+    call: (h) => h.reloadCurrentProject(), scope: "same-scope" },
   { op: "switchToProject", arm: (g, b) => { b.target.load.mockImplementationOnce(g.wait); }, value: STORED,
-    call: (h) => h.switchToProject("target") },
+    call: (h) => h.switchToProject("target"), scope: "same-scope" },
   { op: "createProject", arm: (g) => { vi.mocked(storageMod.pickFileForBackend).mockImplementationOnce(g.wait as never); }, value: undefined,
-    call: (h) => h.createProject({ name: "New", code: "NEW" } as never, "json") },
+    call: (h) => h.createProject({ name: "New", code: "NEW" } as never, "json"), scope: "same-scope" },
   { op: "loadProjectFromFile", arm: (g) => { vi.mocked(storageMod.pickOpenFileAny).mockImplementationOnce(g.wait as never); }, value: { name: "picked.json" },
-    call: (h) => h.loadProjectFromFile() },
+    call: (h) => h.loadProjectFromFile(), scope: "same-scope" },
   { op: "createDemoProject", arm: (g, b) => { b.target.save.mockImplementationOnce(g.wait); }, value: undefined,
-    call: (h) => h.createDemoProject(STORED as never) },
+    call: (h) => h.createDemoProject(STORED as never), scope: "changes-scope" },
+  // ★★★ §596 — THE ROW THAT WAS MISSING, and it is the op whose §590 wrapping
+  //   composed with the §596 cancel into B1: a plain Save-As killing a live AI
+  //   turn. It was absent from a table whose header called itself "all nine ops".
+  { op: "onPickStorageFile", arm: (g) => { vi.mocked(storageMod.pickFileHandleForBackend).mockImplementationOnce(g.wait as never); }, value: { name: "picked.json" },
+    call: (h) => h.onPickStorageFile(), scope: "same-scope" },
   { op: "onOpenStorageFile", arm: (g) => { vi.mocked(storageMod.openFileForBackend).mockImplementationOnce(g.wait as never); }, value: { name: "picked.json" },
-    call: (h) => h.onOpenStorageFile() },
+    call: (h) => h.onOpenStorageFile(), scope: "same-scope" },
   { op: "switchToTursoProject", arm: (g) => { seam.tursoLoad = g.wait; }, value: EMPTY,
-    call: (h) => h.switchToTursoProject("turso-p2") },
+    call: (h) => h.switchToTursoProject("turso-p2"), scope: "changes-scope" },
   { op: "createTursoProject", arm: (g) => { vi.mocked(tursoPortfolio.createProject).mockImplementationOnce(g.wait as never); }, value: undefined,
-    call: (h) => h.createTursoProject({ name: "T", code: "T" } as never) },
+    call: (h) => h.createTursoProject({ name: "T", code: "T" } as never), scope: "changes-scope" },
   { op: "migrateCurrentProjectToTurso", arm: (g) => { vi.mocked(testTursoConnection).mockImplementationOnce(g.wait as never); }, value: undefined,
-    call: (h) => h.migrateCurrentProjectToTurso() },
+    call: (h) => h.migrateCurrentProjectToTurso(), scope: "same-scope" },
 ];
 
 const originalLocation = window.location;
@@ -203,6 +251,20 @@ describe.each(ROWS)("§548 — $op holds loadPending for its whole duration", (r
     await act(async () => { g.resolve(row.value); outcome = await settled; });
     expect(outcome).toBe("fulfilled");
     await waitFor(() => expect(result.current.loadPending).toBe(false));
+  });
+
+  it(`arms isSwapInFlight only when it is "changes-scope" (§596)`, async () => {
+    // ★★★ THE FLAG, PINNED PER OP. `loadPending` above holds for all ten; this
+    //  reads the OTHER signal at the same instant, and the two must disagree for
+    //  six of them. Before this, 2 of 10 flags were pinned and a mutant flipping
+    //  any of the other eight was green — including `onPickStorageFile`, whose
+    //  flag IS the B1 fix.
+    // ★★ Read while the op is PARKED, which is what makes it the same instant the
+    //  chat panel's unmount cleanup asks: `startHeld` has already asserted
+    //  `g.touched()`, so the op is inside its first await and the hold is up.
+    const { result } = await startHeld(row);
+    expect(result.current.loadPending).toBe(true); // control: the hold is up either way
+    expect(result.current.isSwapInFlight()).toBe(row.scope === "changes-scope");
   });
 
   it("is false after the op THROWS", async () => {

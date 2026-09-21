@@ -41,6 +41,14 @@
  * ★★ THE FOUR MUTATORS RETURN THE SAME OBJECT REFERENCE ON A NO-OP, so callers
  * can skip a persist cheaply — `moveBlock` · `hideBlock` · `restoreBlock` ·
  * `resizeBlock`, each pinned by its own "returns the same object" test.
+ * ★ `resizeBlock` HAS ONE EXCEPTION, and it is load-bearing. Choosing a value on
+ * an axis that carries no `wSet`/`hSet` flag yet stamps the flag and returns a
+ * NEW object even when the value equals the stored one — selecting a size is a
+ * choice, and choices are recorded. The same value on an axis that is ALREADY
+ * flagged is still a same-reference no-op. This matters because
+ * `useArrangement`'s `mutate` treats a same-reference result as "not dirty" and
+ * drops it; without the exception, a user picking the height already shown in
+ * the resize menu would never persist that choice.
  * **`reconcile` IS NOT ONE OF THEM** and never has been: it allocates a fresh
  * `{v, board, hidden}` on EVERY non-null input, identical content or not. That
  * costs nothing today because every production call site is a LOAD — a
@@ -124,6 +132,10 @@ export interface PlacedBlock<Id extends string> {
   id: Id;
   w: BlockWidth;
   h: BlockHeight;
+  /** Set by `resizeBlock` when the USER chose this axis. Absent = the value is a default.
+   *  `reconcile` keeps it only when it is exactly `true`. */
+  wSet?: true;
+  hSet?: true;
 }
 
 export interface ArrangementLayout<Id extends string> {
@@ -248,12 +260,12 @@ export function resizeBlock<Id extends string>(
   const board = [...layout.board];
   if (axis === "w") {
     const next = clampSpan(value, spec.minW, spec.maxW);
-    if (layout.board[i].w === next) return layout;
-    board[i] = { ...board[i], w: next };
+    if (layout.board[i].w === next && layout.board[i].wSet === true) return layout;
+    board[i] = { ...board[i], w: next, wSet: true };
   } else {
     const next = clampSpan(value, spec.minH, spec.maxH);
-    if (layout.board[i].h === next) return layout;
-    board[i] = { ...board[i], h: next };
+    if (layout.board[i].h === next && layout.board[i].hSet === true) return layout;
+    board[i] = { ...board[i], h: next, hSet: true };
   }
   return { ...layout, board };
 }
@@ -329,6 +341,11 @@ export function reconcile<Id extends string>(
       id: p.id,
       w: clampSpan(p.w, spec.minW, spec.maxW),
       h: clampSpan(p.h, spec.minH, spec.maxH),
+      // ★★ Exactly `true` or absent. This literal is also the ONLY place a stored block's junk
+      // keys are dropped (the store's validator ignores extra keys), so a spread here would
+      // let junk straight through into the saved layout.
+      ...((p as { wSet?: unknown }).wSet === true ? { wSet: true as const } : {}),
+      ...((p as { hSet?: unknown }).hSet === true ? { hSet: true as const } : {}),
     });
   }
 

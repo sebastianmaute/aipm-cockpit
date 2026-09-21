@@ -28,7 +28,7 @@ import { DashboardTipCard } from "./dashboard-tip-card";
 import { DigestCardConnected } from "./digest/digest-card-connected";
 import { densityClasses, type DashboardDensity } from "./dashboard-density";
 import { type AppView } from "./nav-config";
-import { NarrativeSummary, NarrativeEditor } from "./dashboard-sections/dashboard-narrative";
+import { NarrativeSummary } from "./dashboard-sections/dashboard-narrative";
 import { DashboardHero } from "./dashboard-sections/dashboard-hero";
 import type { Insight, InsightEntityRef } from "./insights/insight";
 import { PopoverPanel } from "./popover-panel";
@@ -40,7 +40,8 @@ import { DashboardHiddenBadge } from "./dashboard-hidden-badge";
 import { buildTileBodies } from "./dashboard-tile-bodies";
 import { useDashboardLayout } from "./use-dashboard-layout";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
-import { tileById, type DashboardTileId, type TileGateInput } from "./dashboard-tiles";
+import { tileById, type DashboardTileId, type TileGateInput, type TileHeight } from "./dashboard-tiles";
+import { useMeasuredHeights } from "./use-measured-heights";
 import type { PlacedTile } from "./dashboard-layout";
 
 // A stable identity for the "no snapshots yet" default — an inline `[]`
@@ -117,6 +118,10 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // never invalidates for no input change.
   const snapshots = props.snapshots ?? EMPTY_SNAPSHOTS;
   const { ref: sizeRef, reset: resetSize } = useResizable("aipm-cockpit:dashboard-size");
+  // ★★ Every Reset layout is a re-measure trigger, whatever it changed. A board that differed from
+  // the default only in widths or order leaves the measure key otherwise unchanged; see
+  // `useMeasuredHeights`.
+  const [resetNonce, setResetNonce] = useState(0);
 
   const model = useMemo(
     () =>
@@ -344,7 +349,6 @@ export function DashboardPanel(props: DashboardPanelProps) {
     // union still admits USD/GBP — and labelling with it printed EUR money
     // under another symbol on the LANDING view (docs/open-followups.md §465).
     currency: "EUR",
-    noActiveScope,
     completionSeries,
     milestoneBuckets,
     varianceRows,
@@ -381,17 +385,18 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // reappears on the shelf the moment its module is switched back on.
   //
   // ★★★ THE `bodies[id] != null` HALF IS REDUNDANT AT EVERY TILE TODAY — do not
-  // read it as a safety net, which is what this comment used to call it. TEN of
-  // the eleven bodies are React ELEMENTS built unconditionally, and an element
-  // whose component renders `null` is still a non-null element, so the check
-  // cannot see it. The eleventh, `completionTrend`, is the one ternary
-  // (`… >= 2 ? (…) : null`) — and its gate, `hasCompletionTrend`, is
-  // `completionSeries.length >= 2 && !noActiveScope`, i.e. STRICTLY STRONGER
-  // than the body's own condition, so the gate has already excluded every input
-  // that would make the body null. Count the two shapes with:
+  // read it as a safety net, which is what this comment used to call it. Every
+  // body but one is a React ELEMENT — built unconditionally, or (`burn`) chosen
+  // between two elements — and an element whose component renders `null` is
+  // still a non-null element, so the check cannot see it. The one that can be
+  // null, `completionTrend` (`… >= 2 ? (…) : null`), has a gate,
+  // `hasCompletionTrend` = `completionSeries.length >= 2 && !noActiveScope`,
+  // that is STRICTLY STRONGER than the body's own condition, so the gate has
+  // already excluded every input that would make the body null. List every
+  // body key, then the ones that can be null, with:
   //   awk '/^export function buildTileBodies/,0' src/app/dashboard-tile-bodies.tsx \
-  //     | grep -cE '^    [a-zA-Z]+: \('
-  // (10, against 11 keys total.) ★★ It is KEPT as the second half of a two-sided
+  //     | grep -nE '^    [a-zA-Z]+:|\) : null'
+  // (a `) : null` line closes the body whose key precedes it.) ★★ It is KEPT as the second half of a two-sided
   // contract: a body that becomes conditional without its gate following would
   // otherwise render empty tile chrome — a frame and a heading over nothing.
   // NOTHING ENFORCES THE REDUNDANCY, so a new tile still has to get its gate
@@ -402,6 +407,24 @@ export function DashboardPanel(props: DashboardPanelProps) {
     .map((id) => sizeById.get(id))
     .filter((p): p is PlacedTile => p !== undefined && isRenderable(p.id));
   const visibleIds = visible.map((p) => p.id);
+  const resetLayout = () => {
+    arrangement.reset();
+    setResetNonce((n) => n + 1);
+  };
+  const measured = useMeasuredHeights({
+    density,
+    resetNonce,
+    tiles: visible.map((p) => {
+      const s = tileById(p.id)!;
+      return { id: p.id, minH: s.minH, maxH: s.maxH, flagged: p.hSet === true };
+    }),
+  });
+  /** ★★ The ONE place a tile's displayed height is decided. The tile, the ⋮ menu and the resize
+   *  announcement all read it. Reading `p.h` directly in any of them shows the STORED default of a
+   *  measured tile, which is exactly the mismatch the spec forbids. The measured value is never
+   *  written back: a stored measurement would read as a user's choice on the next open. */
+  const renderedH = (p: PlacedTile): TileHeight =>
+    p.hSet === true ? p.h : (measured.get(p.id) ?? p.h);
 
   // ★★★ HIDING AND RESTORING BOTH DESTROY THE CONTROL THE USER JUST PRESSED, so
   // one of them has to say where focus goes or the browser drops it on `<body>`.
@@ -591,29 +614,41 @@ export function DashboardPanel(props: DashboardPanelProps) {
           controls={
             // ★ `gap-2` here is MOVED, unchanged, from this same control stack
             // before spec C — not a new literal (D7 binds new spacing to `dc.*`).
-            <div className="flex shrink-0 flex-col gap-2 print:hidden">
-              <PrintButton lang={lang} />
+            // ★ Two columns — Print | Reset layout, then Reset size | badge. Each
+            // control is PINNED to its cell: auto-placement would slide Reset size
+            // up beside Print in a popout, where Reset layout and the badge are
+            // absent. DOM order is unchanged, so Tab order still reads row by row.
+            <div className="grid shrink-0 grid-cols-[auto_auto] gap-2 self-start print:hidden">
+              <div data-stack-cell className="col-start-1 row-start-1">
+                <PrintButton lang={lang} />
+              </div>
               {/* ★★★ The `!arrangement.readOnly` guard is LOAD-BEARING and is not
                   inherited here: the stack itself is gated only on `print:hidden`.
                   Without it a popout — a surface with no grip, no ⋮ menu and no
                   tray by design — gains a working reset. */}
               {!arrangement.readOnly && (
-                <ResetLayoutButton onClick={arrangement.reset} lang={lang} />
+                <div data-stack-cell className="col-start-2 row-start-1">
+                  <ResetLayoutButton onClick={resetLayout} lang={lang} />
+                </div>
               )}
-              <ResetSizeButton onClick={resetSize} lang={lang} />
-              {/* Spec C decision 2: the hidden-tiles badge, directly under Reset
-                  size; carries its own `readOnly` guard like Reset layout. */}
+              <div data-stack-cell className="col-start-1 row-start-2">
+                <ResetSizeButton onClick={resetSize} lang={lang} />
+              </div>
+              {/* Spec C decision 2: the hidden-tiles badge, under Reset layout;
+                  carries its own `readOnly` guard like Reset layout. */}
               {!arrangement.readOnly && (
-                <DashboardHiddenBadge
-                  lang={lang}
-                  count={shelfHidden.length}
-                  open={trayShown}
-                  onOpenChange={setTrayOpen}
-                  isDragging={reorder.isDragging}
-                  dropProps={shelfDropProps}
-                  trayId={DASHBOARD_SHELF_TRAY_ID}
-                  badgeRef={badgeRef}
-                />
+                <div data-stack-cell className="col-start-2 row-start-2">
+                  <DashboardHiddenBadge
+                    lang={lang}
+                    count={shelfHidden.length}
+                    open={trayShown}
+                    onOpenChange={setTrayOpen}
+                    isDragging={reorder.isDragging}
+                    dropProps={shelfDropProps}
+                    trayId={DASHBOARD_SHELF_TRAY_ID}
+                    badgeRef={badgeRef}
+                  />
+                </div>
               )}
             </div>
           }
@@ -652,8 +687,10 @@ export function DashboardPanel(props: DashboardPanelProps) {
           }
         />
 
-        {/* Tier 0 — read-only status narrative summary (self-hides when empty) */}
-        <NarrativeSummary lang={lang} status={status} />
+        {/* Tier 0 — the ONE status summary, edited in place (Edit, or Add when
+            empty). It always renders outside a popout: it is the only way to
+            write a narrative. */}
+        <NarrativeSummary lang={lang} status={status} setStatus={setStatus} readOnly={arrangement.readOnly} />
 
         {/* First-open coaching — self-hides once the project has any task */}
         <DashboardCoachingCard lang={lang} ctas={coachingCtas} onNavigate={props.onNavigate ?? (() => {})} />
@@ -672,8 +709,9 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 key={p.id}
                 id={p.id}
                 title={t(lang, spec.labelKey)}
+                hint={spec.hintKey ? t(lang, spec.hintKey) : undefined}
                 w={p.w}
-                h={p.h}
+                h={renderedH(p)}
                 lang={lang}
                 readOnly={arrangement.readOnly}
                 // ★★★ §425: MUST MATCH `keyboard: false` ON THE
@@ -724,7 +762,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
               tileId={menu.id}
               title={t(lang, menuSpec.labelKey)}
               w={menuSize.w}
-              h={menuSize.h}
+              h={renderedH(menuSize)}
               index={menu.index}
               count={menu.count}
               onResize={(axis, v) => {
@@ -734,7 +772,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 setAnnouncement(t(lang, "arrangementTileResized",
                   t(lang, menuSpec.labelKey),
                   String(axis === "w" ? v : menuSize.w),
-                  String(axis === "h" ? v : menuSize.h)));
+                  String(axis === "h" ? v : renderedH(menuSize))));
               }}
               onMove={(delta) => moveByDelta(menu.id, delta)}
               onHide={() => {
@@ -751,9 +789,6 @@ export function DashboardPanel(props: DashboardPanelProps) {
             and without an announcement a keyboard user gets no feedback that
             anything moved, resized or was hidden. */}
         <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
-
-        {/* Tier 3 — folded status-summary editor */}
-        <NarrativeEditor lang={lang} status={status} setStatus={setStatus} />
       </div>
     </ReportCard>
   );

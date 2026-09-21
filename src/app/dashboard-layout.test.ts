@@ -66,16 +66,16 @@ import { resizeTile } from "./dashboard-layout";
 describe("resizeTile", () => {
   it("sets one axis without touching the other", () => {
     const next = resizeTile(layout(), "raid", "h", 4);
-    expect(next.board.find((t) => t.id === "raid")).toEqual({ id: "raid", w: 2, h: 4 });
+    expect(next.board.find((t) => t.id === "raid")).toEqual({ id: "raid", w: 2, h: 4, hSet: true });
   });
 
   it("clamps a value above the tile's max", () => {
     // ★★ THE VALUE HAS TO EXCEED THE LIMIT. This read `resizeTile(layout(),
     // "raid", "h", 4)` against a raid whose maxH IS 4 — nothing was clamped, it
     // duplicated the test above byte for byte, and deleting `Math.min(hi, …)`
-    // from `clampSpan` left it green. `kpi` is maxH 3, so 4 is genuinely over.
-    const next = resizeTile(layout(), "kpi", "h", 4);
-    expect(next.board.find((t) => t.id === "kpi")!.h).toBe(3);
+    // from `clampSpan` left it green. `kpi` is maxH 4, so 5 is genuinely over.
+    const next = resizeTile(layout(), "kpi", "h", 5);
+    expect(next.board.find((t) => t.id === "kpi")!.h).toBe(4);
   });
 
   it("clamps a value below the tile's min", () => {
@@ -84,9 +84,10 @@ describe("resizeTile", () => {
     expect(next.board.find((t) => t.id === "kpi")!.w).toBe(2);
   });
 
-  it("returns the same object when the value does not change", () => {
+  it("returns the same object when the value does not change on an already-chosen axis", () => {
     const l = layout();
-    expect(resizeTile(l, "raid", "w", 2)).toBe(l);
+    const chosen = resizeTile(l, "raid", "w", 2);
+    expect(resizeTile(chosen, "raid", "w", 2)).toBe(chosen);
   });
 
   it("returns the same object for a tile not on the board", () => {
@@ -125,17 +126,17 @@ describe("reconcile", () => {
     const next = reconcile(stored);
     const kpi = next.board.find((t) => t.id === "kpi")!;
     expect(kpi.w).toBe(2);   // clamped up to minW
-    expect(kpi.h).toBe(3);   // legal (minH === maxH === 3), and therefore PRESERVED
+    expect(kpi.h).toBe(3);   // legal (inside kpi's minH–maxH), and therefore PRESERVED
   });
 
-  // §585 fix round: `kpi`'s `minH` rose to 3 (`maxH` was already 3), so a stored
-  // height below that — reachable only from a build before the raise, since the
-  // resize menu itself now offers no lower value — is clamped up on load, same
-  // as any other out-of-range axis above.
-  it("clamps a stored kpi height below the new minH (3) up to it", () => {
-    const stored = { v: 1 as const, board: [{ id: "kpi" as const, w: 2 as const, h: 2 as const }], hidden: [] };
+  // `kpi`'s `minH` is 2 again (measured heights replaced the §585 pin), so a stored
+  // h:2 is now LEGAL. A stored height below the floor — never offered by the
+  // resize menu, so reachable only from hand-edited or corrupted storage — is
+  // clamped up on load, same as any other out-of-range axis above.
+  it("clamps a stored kpi height below its minH (2) up to it", () => {
+    const stored = { v: 1 as const, board: [{ id: "kpi" as const, w: 2 as const, h: 1 as const }], hidden: [] };
     const next = reconcile(stored);
-    expect(next.board.find((t) => t.id === "kpi")!.h).toBe(3);
+    expect(next.board.find((t) => t.id === "kpi")!.h).toBe(2);
   });
 
   it("keeps a gateable tile in the layout rather than dropping it", () => {
@@ -184,6 +185,10 @@ describe("reconcile", () => {
   });
 
   it("returns the default layout for null", () => {
-    expect(reconcile(null).board.length).toBe(DASHBOARD_TILES.length);
+    // Every tile is on the board or in the tray; a fresh board hides only
+    // Completion trend (DEFAULT_LAYOUT), so the two together cover the catalogue.
+    const l = reconcile(null);
+    expect(l.board.length + l.hidden.length).toBe(DASHBOARD_TILES.length);
+    expect(l.hidden).toEqual(["completionTrend"]);
   });
 });

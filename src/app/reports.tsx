@@ -13,6 +13,8 @@ import { ReportCard } from "./report-table";
 import { ArrangementGrid } from "./arrangement-grid";
 import { ArrangementTile } from "./arrangement-tile";
 import { useReportsArrangement } from "./use-reports-arrangement";
+import { useMeasuredHeights } from "./use-measured-heights";
+import type { BlockHeight } from "./arrangement-layout";
 import { reportBlockById, type ReportBlockId } from "./report-blocks";
 import {
   computeGroupHealth,
@@ -21,6 +23,9 @@ import {
   type HealthDriver,
 } from "./health";
 import { computeStats } from "./reports-stats";
+import { computeKpiStripModel } from "./dashboard";
+import { DashboardKpiStrip } from "./dashboard-sections/dashboard-kpi-strip";
+import { densityClasses } from "./dashboard-density";
 import {
   REPORTS_ASSIGNEE_COL_WIDTHS,
   REPORTS_BY_X_COL_WIDTHS,
@@ -47,7 +52,6 @@ import {
   GroupHealthBlock,
   InquiriesBlock,
   OpenByStatusBlock,
-  StatsBlock,
 } from "./reports-blocks";
 import { type Lang, t } from "./i18n";
 import { type Task } from "./types";
@@ -58,7 +62,7 @@ import { StakeholderReportPanel } from "./stakeholder-report-panel";
 import { ADDABLE_REPORTS, type AddableReportId } from "./addable-reports";
 import { ReportsViewsControl } from "./reports-views-control";
 import { type ReportsViewState } from "./reports-views";
-import { visibleReports, type FeatureModuleId, ALL_MODULE_IDS } from "./feature-modules";
+import { visibleReports, isModuleEnabled, type FeatureModuleId, ALL_MODULE_IDS } from "./feature-modules";
 import { ActionChips, chipsForView } from "./action-chips";
 import type { AppView } from "./nav-config";
 import type { SuggestedAction } from "./next-actions/types";
@@ -79,6 +83,16 @@ const EMPTY_EXTRA_REPORTS: AddableReportId[] = [];
 // `[]` default would mint a fresh array every render.
 const EMPTY_SNAPSHOTS: readonly SnapshotRecord[] = [];
 const EMPTY_BUDGET_HISTORY: readonly BudgetHistoryEntry[] = [];
+/** Reports has no density setting; the strip uses the Dashboard's default. */
+/**
+ * The blocks whose height follows their content, as every Dashboard tile's does
+ * (`useMeasuredHeights`), until the user sets one from the ⋮ menu. ★ Only the At a
+ * glance strip: it wraps to more rows as the block narrows, and at a fixed 2 rows
+ * a wrapped strip overflowed by 31px. The other blocks keep their catalogue
+ * heights, as before.
+ */
+const ADAPTIVE_BLOCKS: ReadonlySet<ReportBlockId> = new Set(["stats"]);
+const KPI_DENSITY = densityClasses("comfortable");
 
 /** ★ Narrows a block id to one of the four embedded report panels. Those are
  *  the only blocks a feature module can switch off; the nine built-ins read
@@ -164,6 +178,13 @@ export function ReportsPanel({
     () => new Map(resources.map((r) => [r.id, r])),
     [resources],
   );
+  // The "At a glance" block is the Dashboard's strip. RAID counts only while the RAID module is
+  // on, as on the Dashboard. No trend arrows: those compare against the last DASHBOARD visit.
+  const raidOn = isModuleEnabled("raid", features);
+  const kpiModel = useMemo(
+    () => computeKpiStripModel({ tasks, raid: raidOn ? raid : [], roles, today, holidaySet }),
+    [tasks, raid, raidOn, roles, today, holidaySet],
+  );
   const stats = useMemo(
     () => computeStats(tasks, today, holidaySet, resourcesById),
     [tasks, today, holidaySet, resourcesById],
@@ -245,6 +266,29 @@ export function ReportsPanel({
     // menu is the one that can also announce the result.
     keyboard: false,
   });
+
+  // ★★ Called BEFORE the empty-state return below, so it reads the stored board
+  // rather than `visible` (built after that return). A hidden block is simply
+  // absent from the DOM and the hook skips it.
+  // ★ Every Reset layout is a re-measure trigger, as on the Dashboard: a board
+  // differing from the default only in widths has no flag to clear.
+  const [resetNonce, setResetNonce] = useState(0);
+  const measured = useMeasuredHeights({
+    density: "comfortable",
+    resetNonce,
+    tiles: arrangement.layout.board.flatMap((b) => {
+      const spec = ADAPTIVE_BLOCKS.has(b.id) ? reportBlockById(b.id) : undefined;
+      return spec ? [{ id: b.id, minH: spec.minH, maxH: spec.maxH, flagged: b.hSet === true }] : [];
+    }),
+  });
+  /** The ONE place a block's displayed height is decided — the tile, the ⋮ menu and the
+   *  resize announcement all read it. The measured value is never written back. */
+  const renderedH = (b: { id: ReportBlockId; h: BlockHeight; hSet?: true }): BlockHeight =>
+    b.hSet === true ? b.h : (measured.get(b.id) ?? b.h);
+  const resetLayout = () => {
+    arrangement.reset();
+    setResetNonce((n) => n + 1);
+  };
 
   // ★★★ HIDING AND RESTORING BOTH DESTROY THE CONTROL THE USER JUST PRESSED, so
   // one of them has to say where focus goes or the browser drops it on `<body>`.
@@ -408,18 +452,8 @@ export function ReportsPanel({
    * never drawn over nothing.
    */
   const renderBlock = (id: ReportBlockId): React.ReactNode => {
-    if (id === "stats") {
-      return (
-        <StatsBlock
-          lang={lang}
-          total={stats.total}
-          cancelled={stats.cancelled}
-          open={stats.open}
-          completed={stats.completed}
-          overdue={stats.overdue}
-        />
-      );
-    }
+    // No `onNavigate`: Reports has no view router to hand it, so the cells are static here.
+    if (id === "stats") return <DashboardKpiStrip lang={lang} model={kpiModel} dc={KPI_DENSITY} />;
     if (id === "groupHealth") return <GroupHealthBlock lang={lang} rows={groupHealth} driverKey={driverKey} />;
     if (id === "openByStatus") return <OpenByStatusBlock lang={lang} openByStatus={stats.openByStatus} open={stats.open} />;
     if (id === "completionOutcomes") {
@@ -598,7 +632,7 @@ export function ReportsPanel({
          `contiguous` can catch a regression here — `contiguous` only orders the
          buttons that ARE rendered, so a reset wrongly present in a popout
          satisfies it perfectly. The popout test is the only detector. */
-      onResetLayout={arrangement.readOnly ? undefined : arrangement.reset}
+      onResetLayout={arrangement.readOnly ? undefined : resetLayout}
       /* ★★★ THE SAME GUARD, AND THIS ONE IS THE HARSHER FAILURE OF THE TWO. A
          stray reset merely works where it should not; an unguarded "Add report"
          RESTORES a block into a surface that has no ⋮ menu and no shelf, so
@@ -628,7 +662,7 @@ export function ReportsPanel({
               id={b!.id}
               title={t(lang, spec.labelKey)}
               w={b!.w}
-              h={b!.h}
+              h={renderedH(b!)}
               lang={lang}
               readOnly={arrangement.readOnly}
               testIdPrefix="report-block"
@@ -704,7 +738,7 @@ export function ReportsPanel({
             lang={lang}
             title={t(lang, menuSpec.labelKey)}
             w={menuSize.w}
-            h={menuSize.h}
+            h={renderedH(menuSize)}
             // ★ Bounds straight off the spec: the menu takes them as props and
             // does no catalogue lookup of its own — that was Task 8's change.
             minW={menuSpec.minW}
@@ -720,7 +754,7 @@ export function ReportsPanel({
               setAnnouncement(t(lang, "arrangementTileResized",
                 t(lang, menuSpec.labelKey),
                 String(axis === "w" ? v : menuSize.w),
-                String(axis === "h" ? v : menuSize.h)));
+                String(axis === "h" ? v : renderedH(menuSize))));
             }}
             onMove={(delta) => moveByDelta(menu.id, delta)}
             onHide={() => {

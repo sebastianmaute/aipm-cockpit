@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { upgradeDashboardLayout } from "./dashboard-layout-upgrade";
-import { DASHBOARD_BURN_UPGRADE, DEFAULT_LAYOUT, reconcile, type DashboardLayout } from "./dashboard-layout";
-import type { TileHeight } from "./dashboard-tiles";
+import { progressRemovalStep, upgradeDashboardLayout } from "./dashboard-layout-upgrade";
+import {
+  DASHBOARD_BURN_UPGRADE, DASHBOARD_PROGRESS_REMOVAL_UPGRADE, DEFAULT_LAYOUT, reconcile, type DashboardLayout,
+} from "./dashboard-layout";
+import { DASHBOARD_TILES, type TileHeight } from "./dashboard-tiles";
 
 /** A pre-spec-C stored layout: no upgrades list, burn mid-board at its old
  *  1×3, Completion trend at its old h:1, one tile hidden. */
@@ -126,8 +128,71 @@ describe("DEFAULT_LAYOUT (spec C)", () => {
     expect(DEFAULT_LAYOUT.board[1]).toEqual({ id: "kpi", w: 2, h: 3 });
   });
 
+  // ★ Completion trend starts in the hidden tray: its line is a reconstruction
+  //   that is easy to misread, so it is opt-in. Only a FRESH or RESET board is
+  //   affected — a stored layout keeps wherever the user left it.
+  it("hides Completion trend on a fresh board, and leaves every other tile on it", () => {
+    expect(DEFAULT_LAYOUT.hidden).toEqual(["completionTrend"]);
+    expect(DEFAULT_LAYOUT.board.map((b) => b.id)).not.toContain("completionTrend");
+    expect(DEFAULT_LAYOUT.board).toHaveLength(DASHBOARD_TILES.length - 1);   // positive control
+  });
+
   it("already carries the upgrade id, so a fresh or reset board is never upgraded", () => {
     expect(DEFAULT_LAYOUT.upgrades).toEqual([DASHBOARD_BURN_UPGRADE]);
+    // Through the COMPOSED function, not one step: every step must hand a fresh
+    // board back by reference, or a fresh or reset board is rewritten on every
+    // load. The progress step needs no id here — `progress` is not in
+    // DASHBOARD_TILES, so a catalogue-derived board never holds it.
     expect(upgradeDashboardLayout(DEFAULT_LAYOUT)).toBe(DEFAULT_LAYOUT);
+    expect(DEFAULT_LAYOUT.board.map((b) => b.id as string)).not.toContain("progress");
+  });
+});
+
+describe("progressRemovalStep", () => {
+  const base = { v: 1 as const, upgrades: [DASHBOARD_BURN_UPGRADE] };
+
+  it("removes progress from the board and records its id", () => {
+    const l = { ...base, hidden: [], board: [{ id: "kpi", w: 2, h: 3 }, { id: "progress", w: 2, h: 2 }] };
+    const out = progressRemovalStep(l as never);
+    expect(out.board.map((b) => b.id)).toEqual(["kpi"]);
+    expect(out.upgrades).toContain(DASHBOARD_PROGRESS_REMOVAL_UPGRADE);
+  });
+
+  it("removes progress from the hidden list too", () => {
+    const l = { ...base, hidden: ["progress"], board: [{ id: "kpi", w: 2, h: 3 }] };
+    expect(progressRemovalStep(l as never).hidden).toEqual([]);
+  });
+
+  it("returns the SAME object, and records nothing, when there is no progress to remove", () => {
+    const l = { ...base, hidden: [], board: [{ id: "kpi", w: 2, h: 3 }] };
+    expect(progressRemovalStep(l as never)).toBe(l);
+  });
+
+  it("is gated on its own id: already recorded, it comes back by reference even with a progress tile still on the board", () => {
+    const l = {
+      ...base,
+      upgrades: [DASHBOARD_BURN_UPGRADE, DASHBOARD_PROGRESS_REMOVAL_UPGRADE],
+      hidden: [],
+      board: [{ id: "kpi", w: 2, h: 3 }, { id: "progress", w: 2, h: 2 }],
+    };
+    expect(progressRemovalStep(l as never)).toBe(l);
+  });
+});
+
+describe("upgradeDashboardLayout composes both steps", () => {
+  it("still removes progress from a layout the burn step already upgraded", () => {
+    const l = {
+      v: 1 as const, upgrades: [DASHBOARD_BURN_UPGRADE], hidden: [],
+      board: [{ id: "burn", w: 2, h: 8 }, { id: "progress", w: 2, h: 2 }],
+    };
+    expect(upgradeDashboardLayout(l as never).board.map((b) => b.id)).toEqual(["burn"]);
+  });
+
+  it("returns the same object when neither step has anything to do", () => {
+    const l = {
+      v: 1 as const, upgrades: [DASHBOARD_BURN_UPGRADE], hidden: [],
+      board: [{ id: "burn", w: 2, h: 8 }],
+    };
+    expect(upgradeDashboardLayout(l)).toBe(l);
   });
 });

@@ -1,6 +1,6 @@
 # AI PM Cockpit
 
-[![version](https://img.shields.io/badge/version-v1.12.7_%22Child%22-2e7d32)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-v1.13.0_%22Connelly%22-2e7d32)](./CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-EUPL--1.2-blue)](./LICENSE)
 
 > **The AI project-management cockpit that knows *your* project.**
@@ -11,7 +11,7 @@
 
 <sub>The landing dashboard.</sub>
 
-![A guided tour of AI PM Cockpit: dashboard, next actions, Gantt, budget and the Claude assistant](public/demos/demo-aipm-cockpit.webm)
+![A guided tour of AI PM Cockpit: dashboard, next actions, open points, Gantt, milestones, the Claude assistant, resources, budget, RAID, changes and stakeholders](public/demos/demo-aipm-cockpit.webm)
 
 <sub>Guided product tour (no audio). If your viewer does not play it inline, [download the clip](public/demos/demo-aipm-cockpit.webm).</sub>
 

@@ -41,6 +41,7 @@ vi.mock("./storage", () => ({
   //    `load()` still reach `reportImportFor` exactly as they did.
   loadFromHandleForBackend: vi.fn((backend: { load: () => Promise<unknown> }) => backend.load()),
   pickFileForBackend: vi.fn(),
+  pickFileHandleForBackend: vi.fn(),
   pickOpenFileAny: vi.fn(),
   formatFromFileName: vi.fn(() => "json"),
   requestWriteAccessForBackend: vi.fn(),
@@ -1045,15 +1046,15 @@ describe("useStorageBackend — handlers", () => {
   });
 
   it("onPickStorageFile saves current workspace + refreshes status", async () => {
-    (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(
-      Promise.resolve(undefined),
+    (storageMod.pickFileHandleForBackend as ReturnType<typeof vi.fn>).mockReturnValue(
+      Promise.resolve({ name: "picked.json" }),
     );
     const { result } = renderBackend();
     await act(async () => { await Promise.resolve(); });
 
     await act(async () => { await result.current.onPickStorageFile(); });
 
-    expect(storageMod.pickFileForBackend).toHaveBeenCalledWith(mockBackend);
+    expect(storageMod.pickFileHandleForBackend).toHaveBeenCalledWith(mockBackend);
     expect(mockBackend.save).toHaveBeenCalled();
     expect(mockBackend.isReady).toHaveBeenCalled();
   });
@@ -1216,8 +1217,8 @@ describe("useStorageBackend — activity log write paths", () => {
   });
 
   it("onPickStorageFile writes the activity log to the newly picked file", async () => {
-    (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(
-      Promise.resolve(undefined),
+    (storageMod.pickFileHandleForBackend as ReturnType<typeof vi.fn>).mockReturnValue(
+      Promise.resolve({ name: "picked.json" }),
     );
     const { result } = renderBackend();
     await act(async () => { await Promise.resolve(); });
@@ -2805,8 +2806,13 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
   // ── the SECOND unspent early return: the suppress-after-load branch ────────
   // ★★★ THE SAME LEAK, ONE BRANCH HIGHER, AND ITS MECHANISM IS DIFFERENT ENOUGH
   // TO HAVE BEEN MISSED WHEN THE TRUNCATION ONE WAS FIXED. `suppressNextSaveRef`
-  // is set by NINE load/apply sites (project switch and create included, not just
-  // the three load paths), and its early return RESYNCS the baselines to the
+  // is set by TEN load/apply sites (project switch and create included, not just
+  // the three load paths) — ★★ it said NINE, and the count was corrected in
+  // production by §596 while this copy was missed for a round; re-derive rather
+  // than trust either, and note the bracket class is what stops the pattern
+  // matching this very line:
+  //   grep -rn "suppressNextSave[R]ef.current = true" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+  // and its early return RESYNCS the baselines to the
   // freshly-loaded counts — so a deletion that already landed is folded into the
   // baseline, the arm is never needed, and it is never spent.
   // ★★ HOW LONG IT SURVIVES, stated correctly: a live arm makes `refuse`
@@ -3719,7 +3725,7 @@ describe("useStorageBackend — §103 truncation reaches every load/flush path",
     // they just picked holds their project.
     const b = makeBackend({ entries: 8, blocks: 0 });
     createBackendMock.mockReturnValue(b);
-    (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(true));
+    (storageMod.pickFileHandleForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve({ name: "picked.json" }));
 
     const { result } = renderBackend(makeArgs({ setStorageConfig }));
     await act(async () => { await Promise.resolve(); });
@@ -3734,14 +3740,18 @@ describe("useStorageBackend — §103 truncation reaches every load/flush path",
     // …and NOTHING claims the store was switched.
     expect(showToast).not.toHaveBeenCalledWith("info", expect.any(String));
     // ★★★ THE KILL LINE FOR THE PRE-CHECK, and without it this test cannot tell
-    // the fix from the bug. `pickFileForBackend` runs on the ACTIVE backend and
-    // its side effects are irreversible — it creates the file on disk and
-    // persists the new handle — so refusing only at the write left the app
-    // pointed at a new EMPTY file with the original unreferenced. Delete the
+    // the fix from the bug. The picker's side effect is irreversible: it CREATES
+    // the file on disk the moment the user confirms a name, so refusing only at
+    // the write left the user staring at a new EMPTY file. Delete the
     // `refuseWrite` pre-check and the `guardedWrite` backstop still refuses,
     // through the SAME implementation, so every assertion above stays green and
     // the toast is byte-identical. Only this one changes.
-    expect(storageMod.pickFileForBackend).not.toHaveBeenCalled();
+    // ★★ "…AND PERSISTS THE NEW HANDLE" USED TO SIT IN THAT SENTENCE AND IS NO
+    // LONGER TRUE: since §590 the pick binds nothing, so the app is not left
+    // pointed at the new file. The file creation alone still justifies the
+    // pre-check, and this assertion still kills — verified by disabling
+    // `refuseWrite` and watching this line fail alone.
+    expect(storageMod.pickFileHandleForBackend).not.toHaveBeenCalled();
   });
 
   it("onRequestStorageSwitch REFUSES, and critically does NOT repoint the app at the short copy", async () => {
@@ -3773,7 +3783,7 @@ describe("useStorageBackend — §103 truncation reaches every load/flush path",
     // Control for the two refusals: they must be a pause, not a dead end.
     const b = makeBackend({ entries: 8, blocks: 0 });
     createBackendMock.mockReturnValue(b);
-    (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(true));
+    (storageMod.pickFileHandleForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve({ name: "picked.json" }));
 
     const { result } = renderBackend(makeArgs({ setStorageConfig }));
     await act(async () => { await Promise.resolve(); });

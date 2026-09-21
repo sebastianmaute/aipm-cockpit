@@ -30,12 +30,28 @@ export type DashboardLayout = ArrangementLayout<DashboardTileId>;
  *  burn to the front at 2×8, Completion trend's height into 2–4. */
 export const DASHBOARD_BURN_UPGRADE = "dashboard-burn-2x8";
 
+/** Removes the retired Progress tile from stored layouts (its content moved into At a glance).
+ *  ★ NOT added to DEFAULT_LAYOUT.upgrades: the step records its id only when it removed something.
+ *  ★★ `"progress"` is not in `DASHBOARD_TILES`, so a fresh or reset board (`DEFAULT_LAYOUT`, built
+ *  from that catalogue) never contains it and the step hands it back by reference. Pinned through the
+ *  COMPOSED `upgradeDashboardLayout` in `dashboard-layout-upgrade.test.ts`'s "already carries the
+ *  upgrade id" test. */
+export const DASHBOARD_PROGRESS_REMOVAL_UPGRADE = "dashboard-progress-into-kpi";
+
 // ★★★ THE DEFAULT CARRIES THE UPGRADE ID, AND MUST. A fresh board and a Reset
 // layout both persist THIS object; without the id they would be upgraded again
 // on the next load, dragging burn back to the front of a board the user has
 // since rearranged. Still ONE module-level instance (see above).
+// ★ Completion trend starts in the hidden tray: its line is reconstructed from
+// the activity log and easy to misread, so it is opt-in (its header tooltip says
+// what it shows). This is the DEFAULT only — a fresh or reset board. A stored
+// layout keeps the tile wherever the user left it; there is no upgrade step.
+const DEFAULT_HIDDEN: readonly DashboardTileId[] = ["completionTrend"];
+const catalogueDefault = defaultLayout(DASHBOARD_TILES);
 export const DEFAULT_LAYOUT: DashboardLayout = {
-  ...defaultLayout(DASHBOARD_TILES),
+  ...catalogueDefault,
+  board: catalogueDefault.board.filter((p) => !DEFAULT_HIDDEN.includes(p.id)),
+  hidden: [...DEFAULT_HIDDEN],
   upgrades: [DASHBOARD_BURN_UPGRADE],
 };
 

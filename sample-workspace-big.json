@@ -9,6 +9,8 @@
       "createdDate": "2026-06-01",
       "startDate": "2026-06-01",
       "dueDate": "2026-07-07",
+      "originalEstimateMinutes": 4800,
+      "timeSpentMinutes": 5460,
       "lastUpdateDate": "2026-07-10",
       "priority": "High",
       "status": "Done",
@@ -58,6 +60,8 @@
       "createdDate": "2026-06-29",
       "startDate": "2026-06-29",
       "dueDate": "2026-07-27",
+      "originalEstimateMinutes": 6000,
+      "timeSpentMinutes": 6720,
       "lastUpdateDate": "2026-08-03",
       "priority": "High",
       "status": "Done",
@@ -96,6 +100,8 @@
       "assigneeEmail": "aria.patel@example.com",
       "createdDate": "2026-08-04",
       "dueDate": "2026-08-04",
+      "originalEstimateMinutes": 1200,
+      "timeSpentMinutes": 1320,
       "lastUpdateDate": "2026-08-04",
       "priority": "Medium",
       "status": "Done",
@@ -133,6 +139,7 @@
       "createdDate": "2026-08-03",
       "startDate": "2026-08-03",
       "dueDate": "2026-08-17",
+      "originalEstimateMinutes": 1800,
       "lastUpdateDate": "2026-08-19",
       "priority": "Urgent",
       "status": "To Do",
@@ -181,6 +188,7 @@
       "createdDate": "2026-08-21",
       "startDate": "2026-08-24",
       "dueDate": "2026-09-07",
+      "originalEstimateMinutes": 1080,
       "lastUpdateDate": "2026-08-21",
       "priority": "High",
       "status": "To Do",
@@ -218,6 +226,7 @@
       "createdDate": "2026-08-17",
       "startDate": "2026-08-17",
       "dueDate": "2026-09-10",
+      "originalEstimateMinutes": 600,
       "lastUpdateDate": "2026-08-24",
       "priority": "High",
       "status": "To Do",
@@ -255,6 +264,7 @@
       "createdDate": "2026-08-24",
       "startDate": "2026-09-01",
       "dueDate": "2026-09-24",
+      "originalEstimateMinutes": 1920,
       "lastUpdateDate": "2026-08-24",
       "priority": "Medium",
       "status": "To Do",
@@ -291,6 +301,7 @@
       "createdDate": "2026-08-24",
       "startDate": "2026-09-25",
       "dueDate": "2026-10-05",
+      "originalEstimateMinutes": 1440,
       "lastUpdateDate": "2026-08-24",
       "priority": "Medium",
       "status": "To Do",
@@ -330,6 +341,7 @@
       "assigneeEmail": "aria.patel@example.com",
       "createdDate": "2026-08-13",
       "dueDate": "2026-10-13",
+      "originalEstimateMinutes": 1200,
       "lastUpdateDate": "2026-08-13",
       "priority": "Low",
       "status": "To Do",
@@ -371,6 +383,7 @@
       "assigneeEmail": "Sample.Dummy@example.com",
       "createdDate": "2026-08-24",
       "dueDate": "2026-10-20",
+      "originalEstimateMinutes": 960,
       "lastUpdateDate": "2026-08-24",
       "priority": "Urgent",
       "status": "To Do",
@@ -410,6 +423,7 @@
       "assigneeEmail": "Invented.Riley@example.com",
       "createdDate": "2026-08-10",
       "dueDate": "2026-09-21",
+      "originalEstimateMinutes": 480,
       "lastUpdateDate": "2026-08-10",
       "priority": "Medium",
       "status": "To Do",
@@ -440,6 +454,7 @@
       "assigneeEmail": "aria.patel@example.com",
       "createdDate": "2026-08-24",
       "dueDate": "2026-11-05",
+      "originalEstimateMinutes": 240,
       "lastUpdateDate": "2026-08-24",
       "priority": "Low",
       "status": "To Do",
@@ -476,6 +491,8 @@
       "createdDate": "2026-05-28",
       "startDate": "2026-05-28",
       "dueDate": "2026-06-08",
+      "originalEstimateMinutes": 2400,
+      "timeSpentMinutes": 2760,
       "lastUpdateDate": "2026-06-09",
       "priority": "Medium",
       "status": "Done",
@@ -511,6 +528,8 @@
       "createdDate": "2026-06-15",
       "startDate": "2026-06-15",
       "dueDate": "2026-06-18",
+      "originalEstimateMinutes": 1440,
+      "timeSpentMinutes": 1740,
       "lastUpdateDate": "2026-06-18",
       "priority": "Medium",
       "status": "Done",
@@ -548,6 +567,8 @@
       "createdDate": "2026-06-01",
       "startDate": "2026-06-01",
       "dueDate": "2026-07-07",
+      "originalEstimateMinutes": 4800,
+      "timeSpentMinutes": 5460,
       "lastUpdateDate": "2026-07-10",
       "priority": "High",
       "status": "Done",
@@ -597,6 +618,8 @@
       "createdDate": "2026-06-29",
       "startDate": "2026-06-29",
       "dueDate": "2026-07-27",
+      "originalEstimateMinutes": 6000,
+      "timeSpentMinutes": 6720,
       "lastUpdateDate": "2026-08-03",
       "priority": "High",
       "status": "Done",
@@ -635,6 +658,8 @@
       "assigneeEmail": "aria.patel@example.com",
       "createdDate": "2026-08-04",
       "dueDate": "2026-08-04",
+      "originalEstimateMinutes": 1200,
+      "timeSpentMinutes": 1320,
       "lastUpdateDate": "2026-08-04",
       "priority": "Medium",
       "status": "Done",
@@ -672,6 +697,7 @@
       "createdDate": "2026-08-03",
       "startDate": "2026-08-03",
       "dueDate": "2026-08-17",
+      "originalEstimateMinutes": 1800,
       "lastUpdateDate": "2026-08-19",
       "priority": "Urgent",
       "status": "To Do",
@@ -720,6 +746,7 @@
       "createdDate": "2026-08-21",
       "startDate": "2026-08-24",
       "dueDate": "2026-09-07",
+      "originalEstimateMinutes": 1080,
       "lastUpdateDate": "2026-08-21",
       "priority": "High",
       "status": "To Do",
@@ -757,6 +784,7 @@
       "createdDate": "2026-08-17",
       "startDate": "2026-08-17",
       "dueDate": "2026-09-10",
+      "originalEstimateMinutes": 600,
       "lastUpdateDate": "2026-08-24",
       "priority": "High",
       "status": "To Do",
@@ -794,6 +822,7 @@
       "createdDate": "2026-08-24",
       "startDate": "2026-09-01",
       "dueDate": "2026-09-24",
+      "originalEstimateMinutes": 1920,
       "lastUpdateDate": "2026-08-24",
       "priority": "Medium",
       "status": "To Do",
@@ -830,6 +859,7 @@
       "createdDate": "2026-08-24",
       "startDate": "2026-09-25",
       "dueDate": "2026-10-05",
+      "originalEstimateMinutes": 1440,
       "lastUpdateDate": "2026-08-24",
       "priority": "Medium",
       "status": "To Do",
@@ -869,6 +899,7 @@
       "assigneeEmail": "aria.patel@example.com",
       "createdDate": "2026-08-13",
       "dueDate": "2026-10-13",
+      "originalEstimateMinutes": 1200,
       "lastUpdateDate": "2026-08-13",
       "priority": "Low",
       "status": "To Do",
@@ -910,6 +941,7 @@
       "assigneeEmail": "Sample.Dummy@example.com",
       "createdDate": "2026-08-24",
       "dueDate": "2026-10-20",
+      "originalEstimateMinutes": 960,
       "lastUpdateDate": "2026-08-24",
       "priority": "Urgent",
       "status": "To Do",
@@ -949,6 +981,7 @@
       "assigneeEmail": "Invented.Riley@example.com",
       "createdDate": "2026-08-10",
       "dueDate": "2026-09-21",
+      "originalEstimateMinutes": 480,
       "lastUpdateDate": "2026-08-10",
       "priority": "Medium",
       "status": "To Do",
@@ -979,6 +1012,7 @@
       "assigneeEmail": "aria.patel@example.com",
       "createdDate": "2026-08-24",
       "dueDate": "2026-11-05",
+      "originalEstimateMinutes": 240,
       "lastUpdateDate": "2026-08-24",
       "priority": "Low",
       "status": "To Do",
@@ -1015,6 +1049,8 @@
       "createdDate": "2026-05-28",
       "startDate": "2026-05-28",
       "dueDate": "2026-06-08",
+      "originalEstimateMinutes": 2400,
+      "timeSpentMinutes": 2760,
       "lastUpdateDate": "2026-06-09",
       "priority": "Medium",
       "status": "Done",
@@ -1050,6 +1086,8 @@
       "createdDate": "2026-06-15",
       "startDate": "2026-06-15",
       "dueDate": "2026-06-18",
+      "originalEstimateMinutes": 1440,
+      "timeSpentMinutes": 1740,
       "lastUpdateDate": "2026-06-18",
       "priority": "Medium",
       "status": "Done",
@@ -1087,6 +1125,8 @@
       "createdDate": "2026-06-01",
       "startDate": "2026-06-01",
       "dueDate": "2026-07-07",
+      "originalEstimateMinutes": 4800,
+      "timeSpentMinutes": 5460,
       "lastUpdateDate": "2026-07-10",
       "priority": "High",
       "status": "Done",
@@ -1136,6 +1176,8 @@
       "createdDate": "2026-06-29",
       "startDate": "2026-06-29",
       "dueDate": "2026-07-27",
+      "originalEstimateMinutes": 6000,
+      "timeSpentMinutes": 6720,
       "lastUpdateDate": "2026-08-03",
       "priority": "High",
       "status": "Done",
@@ -1174,6 +1216,8 @@
       "assigneeEmail": "aria.patel@example.com",
       "createdDate": "2026-08-04",
       "dueDate": "2026-08-04",
+      "originalEstimateMinutes": 1200,
+      "timeSpentMinutes": 1320,
       "lastUpdateDate": "2026-08-04",
       "priority": "Medium",
       "status": "Done",
@@ -1211,6 +1255,7 @@
       "createdDate": "2026-08-03",
       "startDate": "2026-08-03",
       "dueDate": "2026-08-17",
+      "originalEstimateMinutes": 1800,
       "lastUpdateDate": "2026-08-19",
       "priority": "Urgent",
       "status": "To Do",
@@ -1259,6 +1304,7 @@
       "createdDate": "2026-08-21",
       "startDate": "2026-08-24",
       "dueDate": "2026-09-07",
+      "originalEstimateMinutes": 1080,
       "lastUpdateDate": "2026-08-21",
       "priority": "High",
       "status": "To Do",
@@ -1296,6 +1342,7 @@
       "createdDate": "2026-08-17",
       "startDate": "2026-08-17",
       "dueDate": "2026-09-10",
+      "originalEstimateMinutes": 600,
       "lastUpdateDate": "2026-08-24",
       "priority": "High",
       "status": "To Do",
@@ -1333,6 +1380,7 @@
       "createdDate": "2026-08-24",
       "startDate": "2026-09-01",
       "dueDate": "2026-09-24",
+      "originalEstimateMinutes": 1920,
       "lastUpdateDate": "2026-08-24",
       "priority": "Medium",
       "status": "To Do",
@@ -1369,6 +1417,7 @@
       "createdDate": "2026-08-24",
       "startDate": "2026-09-25",
       "dueDate": "2026-10-05",
+      "originalEstimateMinutes": 1440,
       "lastUpdateDate": "2026-08-24",
       "priority": "Medium",
       "status": "To Do",
@@ -1408,6 +1457,7 @@
       "assigneeEmail": "aria.patel@example.com",
       "createdDate": "2026-08-13",
       "dueDate": "2026-10-13",
+      "originalEstimateMinutes": 1200,
       "lastUpdateDate": "2026-08-13",
       "priority": "Low",
       "status": "To Do",
@@ -1449,6 +1499,7 @@
       "assigneeEmail": "Sample.Dummy@example.com",
       "createdDate": "2026-08-24",
       "dueDate": "2026-10-20",
+      "originalEstimateMinutes": 960,
       "lastUpdateDate": "2026-08-24",
       "priority": "Urgent",
       "status": "To Do",
@@ -1488,6 +1539,7 @@
       "assigneeEmail": "Invented.Riley@example.com",
       "createdDate": "2026-08-10",
       "dueDate": "2026-09-21",
+      "originalEstimateMinutes": 480,
       "lastUpdateDate": "2026-08-10",
       "priority": "Medium",
       "status": "To Do",
@@ -1518,6 +1570,7 @@
       "assigneeEmail": "aria.patel@example.com",
       "createdDate": "2026-08-24",
       "dueDate": "2026-11-05",
+      "originalEstimateMinutes": 240,
       "lastUpdateDate": "2026-08-24",
       "priority": "Low",
       "status": "To Do",
@@ -1554,6 +1607,8 @@
       "createdDate": "2026-05-28",
       "startDate": "2026-05-28",
       "dueDate": "2026-06-08",
+      "originalEstimateMinutes": 2400,
+      "timeSpentMinutes": 2760,
       "lastUpdateDate": "2026-06-09",
       "priority": "Medium",
       "status": "Done",
@@ -1589,6 +1644,8 @@
       "createdDate": "2026-06-15",
       "startDate": "2026-06-15",
       "dueDate": "2026-06-18",
+      "originalEstimateMinutes": 1440,
+      "timeSpentMinutes": 1740,
       "lastUpdateDate": "2026-06-18",
       "priority": "Medium",
       "status": "Done",
@@ -3417,7 +3474,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 3,
@@ -3523,7 +3581,8 @@
       "createdDate": "2026-07-20",
       "fxRateOverride": 1.1,
       "order": 3,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "percentComplete": 30
     },
     {
       "id": 5,
@@ -3627,7 +3686,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 7,
@@ -3801,7 +3861,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 100003,
@@ -3907,7 +3968,8 @@
       "createdDate": "2026-07-20",
       "fxRateOverride": 1.1,
       "order": 3,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "percentComplete": 30
     },
     {
       "id": 100005,
@@ -4011,7 +4073,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 100007,
@@ -4185,7 +4248,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 200003,
@@ -4291,7 +4355,8 @@
       "createdDate": "2026-07-20",
       "fxRateOverride": 1.1,
       "order": 3,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "percentComplete": 30
     },
     {
       "id": 200005,
@@ -4395,7 +4460,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 200007,
@@ -5221,9 +5287,9 @@
       "severity": "medium",
       "status": "active",
       "data": {
-        "name": "Advisory Retainer (blended)",
-        "variancePct": 100,
-        "buckets": 6
+        "name": "Identity Platform – T&M",
+        "variancePct": 22,
+        "buckets": 3
       },
       "firstSeenAt": "2026-08-03T07:00:00.000Z",
       "lastSeenAt": "2026-09-18T07:00:00.000Z",

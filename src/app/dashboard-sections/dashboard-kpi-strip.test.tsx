@@ -97,7 +97,7 @@ describe("DashboardKpiStrip", () => {
     );
     // InfoTooltip renders a span[role=button] whose accessible name defaults to the hint text.
     expect(
-      screen.getByRole("button", { name: t("en-US", "dashboardKpiCompleteHint") }),
+      screen.getByRole("button", { name: t("en-US", "dashboardCompleteHint") }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: t("en-US", "dashboardKpiOverdueHint") }),
@@ -133,7 +133,7 @@ describe("DashboardKpiStrip completion tile no-active-scope state", () => {
     // is derived, and this tile shows none. InfoTooltip's accessible name IS
     // the hint text (`info-tooltip.tsx:47`, `aria-label={label ?? text}`), and
     // the control test proves it renders for a normal project.
-    expect(screen.queryByLabelText(t("en-US", "dashboardKpiCompleteHint"))).toBeNull();
+    expect(screen.queryByLabelText(t("en-US", "dashboardCompleteHint"))).toBeNull();
   });
 
   it("still renders the percent + gradient bar for a normal (non-cancelled) project", () => {
@@ -156,7 +156,7 @@ describe("DashboardKpiStrip completion tile no-active-scope state", () => {
     // The half that makes the suppression above meaningful: with the same
     // fixture, an arrow really does render here.
     expect(screen.getByLabelText(COMPLETE_TREND_LABEL)).toBeInTheDocument();
-    expect(screen.getByLabelText(t("en-US", "dashboardKpiCompleteHint"))).toBeInTheDocument();
+    expect(screen.getByLabelText(t("en-US", "dashboardCompleteHint"))).toBeInTheDocument();
   });
 
   it("leaves an empty project on 0% complete (not no-active-scope)", () => {
@@ -172,6 +172,94 @@ describe("DashboardKpiStrip completion tile no-active-scope state", () => {
     );
     expect(screen.getByText("0%")).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "dashboardNoActiveScope"))).toBeNull();
+  });
+});
+
+// ── The retired Progress tile's content, merged into At a glance ────────────
+describe("DashboardKpiStrip — merged Progress cells", () => {
+  // 2 delivered, 2 open (both overdue against today 2026-06-02), 1 cancelled:
+  // 2 of 4 in scope complete → 50%, and one task out of scope.
+  const MIXED = [
+    taskFixture(1, "Done", "2026-05-01"), taskFixture(2, "Done", "2026-05-01"),
+    taskFixture(3, "In Progress"), taskFixture(4, "To Do"),
+    taskFixture(5, "Cancelled"),
+  ];
+  const openTasks = t("en-US", "dashboardOpenTasksView");
+  const ragCell = () => screen.getByRole("button", { name: `R / A / G – ${openTasks}` });
+
+  it("the Complete cell carries its percentage, bar, trend arrow AND the count", () => {
+    render(<DashboardKpiStrip lang="en-US" model={modelFor(MIXED)} trends={trendsWithPrior} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    const cell = screen.getByRole("button", { name: `${t("en-US", "dashboardKpiComplete")} – ${openTasks}` });
+    expect(within(cell).getByText("50%")).toBeInTheDocument();
+    expect(within(cell).getByRole("img")).toBeInTheDocument();
+    expect(within(cell).getByLabelText(COMPLETE_TREND_LABEL)).toBeInTheDocument();
+    expect(within(cell).getByText(t("en-US", "dashboardCompletedOf", "2", "4"))).toBeInTheDocument();
+  });
+
+  it("puts the trend arrow in the value row, after the number", () => {
+    render(<DashboardKpiStrip lang="en-US" model={modelFor(MIXED)} trends={trendsWithPrior} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    const valueRow = screen.getByText("50%").parentElement!;
+    const arrow = within(valueRow).getByLabelText(COMPLETE_TREND_LABEL);   // same row, not a line below
+    expect(valueRow.lastElementChild).toBe(arrow);                          // right end of the row
+    expect(valueRow).toHaveClass("justify-between");
+  });
+
+  it("names the Complete tooltip with dashboardCompleteHint", () => {
+    render(<DashboardKpiStrip lang="en-US" model={modelFor(MIXED)} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    expect(screen.getByRole("button", { name: t("en-US", "dashboardCompleteHint") })).toBeInTheDocument();
+  });
+
+  // Reports renders the strip with no trends, so its tooltip must not describe one.
+  it("drops the trend sentence from the Complete tooltip when no trends are passed", () => {
+    render(<DashboardKpiStrip lang="en-US" model={modelFor(MIXED)} dc={densityClasses("comfortable")} />);
+    expect(screen.getByRole("button", { name: t("en-US", "dashboardCompleteHintNoTrend") })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: t("en-US", "dashboardCompleteHint") })).toBeNull();
+  });
+
+  it("drops the Complete tooltip and the count in the no-active-scope state", () => {
+    render(<DashboardKpiStrip lang="en-US" model={modelFor([taskFixture(1, "Cancelled")])} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    expect(screen.getByText(t("en-US", "dashboardNoActiveScope"))).toBeInTheDocument();   // positive control
+    expect(screen.queryByRole("button", { name: t("en-US", "dashboardCompleteHint") })).toBeNull();
+    expect(screen.queryByText(t("en-US", "dashboardCompletedOf", "0", "0"))).toBeNull();
+  });
+
+  it("renders an R / A / G cell with its tooltip and the ✕ marker when work is out of scope", () => {
+    const m = modelFor(MIXED);
+    expect(m.progress.outOfScope).toBe(1);   // the fixture really has out-of-scope work
+    render(<DashboardKpiStrip lang="en-US" model={m} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    const cell = ragCell();
+    const { R, A, G } = m.progress.counts;
+    expect(cell.textContent).toContain(`${R}${A}${G}`);
+    expect(within(cell).getByText("✕")).toHaveAttribute("aria-hidden", "true");
+    expect(within(cell).getByText(t("en-US", "dashboardOutOfScopeCount"))).toHaveClass("sr-only");
+    expect(screen.getByRole("button", { name: t("en-US", "dashboardRagSplitHint") })).toBeInTheDocument();
+  });
+
+  it("omits the ✕ marker when nothing is out of scope", () => {
+    const m = modelFor(MIXED.slice(0, 4));
+    expect(m.progress.outOfScope).toBe(0);
+    render(<DashboardKpiStrip lang="en-US" model={m} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    expect(ragCell()).toBeInTheDocument();                                   // positive control
+    expect(within(ragCell()).queryByText("✕")).toBeNull();
+    expect(within(ragCell()).queryByText(t("en-US", "dashboardOutOfScopeCount"))).toBeNull();
+  });
+
+  it("orders the cells Complete · R/A/G · Overdue · Open RAID, then SPI · CPI when present", () => {
+    const labels = (grid: Element) => Array.from(grid.children, (c) => c.querySelector("p")!.textContent);
+    const base = [t("en-US", "dashboardKpiComplete"), "R / A / G", t("en-US", "dashboardKpiOverdue"), t("en-US", "dashboardKpiOpenRaid")];
+    const cases: Array<[unknown[], string[]]> = [
+      [[], base],
+      [[{ ...taskFixture(1, "In Progress", "2026-06-01"), dueDate: "2026-06-01", originalEstimateMinutes: 4800, timeSpentMinutes: 0 }], [...base, t("en-US", "evmSpi")]],
+      [[
+        { ...taskFixture(1, "Done", "2026-06-02"), dueDate: "2026-06-02", originalEstimateMinutes: 4800, timeSpentMinutes: 6000 },
+        { ...taskFixture(2, "To Do"), dueDate: "2026-06-02", originalEstimateMinutes: 2400 },
+      ], [...base, t("en-US", "evmSpi"), t("en-US", "evmCpi")]],
+    ];
+    for (const [tasks, expected] of cases) {
+      const { container, unmount } = render(<DashboardKpiStrip lang="en-US" model={modelFor(tasks)} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+      expect(labels(container.firstElementChild!.firstElementChild!)).toEqual(expected);
+      unmount();
+    }
   });
 });
 
@@ -197,6 +285,19 @@ describe("DashboardKpiStrip — Effort SPI and CPI (spec C)", () => {
   const CPI_ONLY_TASKS = [
     { ...taskFixture(1, "In Progress"), dueDate: "2026-07-01", originalEstimateMinutes: 4800, timeSpentMinutes: 6000 },
   ];
+
+  it("stretches every cell to the tallest one, so Complete sets the height for all", () => {
+    const { container } = render(<DashboardKpiStrip lang="en-US" model={modelFor(EVM_TASKS)} trends={trendsWithPrior} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    // Equal rows even when the strip wraps (3 + 3, 3 + 2, 2 + 2 …).
+    expect(container.querySelector(".grid")).toHaveClass("auto-rows-fr");
+    const cells = screen.getAllByRole("button", { name: / – / });
+    expect(cells).toHaveLength(6);   // positive control: all six KPI cells, SPI + CPI included
+    for (const cell of cells) {
+      expect(cell).toHaveClass("h-full");
+      // A stretched <button> centres its content vertically unless it is a flex column.
+      expect(cell).toHaveClass("flex", "flex-col");
+    }
+  });
 
   // Each index's own `<Tile>` — a `<button>` here since every render in this
   // describe block passes `onNavigate`. Scoping a value to its own tile (not
@@ -269,16 +370,8 @@ describe("DashboardKpiStrip — Effort SPI and CPI (spec C)", () => {
       expect(wrapper).not.toContain("p-2");
     });
 
-    it("3 cells: one row of three, never four or five columns", () => {
+    it("4 cells (no index): two by two, then one row of four — never five columns", () => {
       const { container } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={densityClasses("comfortable")} />);
-      const { grid } = stripGrid(container);
-      expect(grid.children).toHaveLength(3);
-      expect(classesOf(grid)).toEqual(expect.arrayContaining(KPI_STRIP_COLS[3].split(" ")));
-      expect(KPI_STRIP_COLS[3]).toBe("@[25rem]:grid-cols-3");
-    });
-
-    it("4 cells (one index): two by two, then one row of four — never five columns", () => {
-      const { container } = render(<DashboardKpiStrip lang="en-US" model={modelFor(SPI_ONLY_TASKS)} trends={trends} dc={densityClasses("comfortable")} />);
       const { grid } = stripGrid(container);
       expect(grid.children).toHaveLength(4);
       expect(classesOf(grid)).toEqual(expect.arrayContaining(KPI_STRIP_COLS[4].split(" ")));
@@ -286,8 +379,8 @@ describe("DashboardKpiStrip — Effort SPI and CPI (spec C)", () => {
       expect(grid.className).not.toMatch(/grid-cols-[35]\b/);
     });
 
-    it("5 cells: 3 + 2 on six tracks (a full second row), then one row of five", () => {
-      const { container } = render(<DashboardKpiStrip lang="en-US" model={modelFor(EVM_TASKS)} trends={trends} dc={densityClasses("comfortable")} />);
+    it("5 cells (one index): 3 + 2 on six tracks (a full second row), then one row of five", () => {
+      const { container } = render(<DashboardKpiStrip lang="en-US" model={modelFor(SPI_ONLY_TASKS)} trends={trends} dc={densityClasses("comfortable")} />);
       const { grid } = stripGrid(container);
       expect(grid.children).toHaveLength(5);
       expect(classesOf(grid)).toEqual(expect.arrayContaining(KPI_STRIP_COLS[5].split(" ")));
@@ -297,8 +390,16 @@ describe("DashboardKpiStrip — Effort SPI and CPI (spec C)", () => {
       ]);
     });
 
+    it("6 cells (both indices): two, then three, then one row of six", () => {
+      const { container } = render(<DashboardKpiStrip lang="en-US" model={modelFor(EVM_TASKS)} trends={trends} dc={densityClasses("comfortable")} />);
+      const { grid } = stripGrid(container);
+      expect(grid.children).toHaveLength(6);
+      expect(classesOf(grid)).toEqual(expect.arrayContaining(KPI_STRIP_COLS[6].split(" ")));
+      expect(KPI_STRIP_COLS[6]).toBe("@2xs:grid-cols-2 @[25rem]:grid-cols-3 @[51rem]:grid-cols-6");
+    });
+
     it("gives each count its own classes", () => {
-      expect(new Set([KPI_STRIP_COLS[3], KPI_STRIP_COLS[4], KPI_STRIP_COLS[5]]).size).toBe(3);
+      expect(new Set([KPI_STRIP_COLS[4], KPI_STRIP_COLS[5], KPI_STRIP_COLS[6]]).size).toBe(3);
     });
   });
 

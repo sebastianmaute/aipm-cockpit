@@ -102,6 +102,59 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     tursoProjectId,
   ]);
 
+  // §588/§589 — the backend of the CURRENT render, readable by any caller that
+  // resumes after an await. Assigned during render ON PURPOSE: React runs every
+  // effect cleanup before any effect body, so a ref mirrored in an effect still
+  // holds the OLD backend at the one moment the save effect's cleanup reads it.
+  // ★★★ WHERE THIS WRITE IS PINNED, AND WHY THE OBVIOUS PLACE IS THE WRONG PLACE TO LOOK. Deleting
+  //   the write does NOT turn §588's four RELOAD tests red, and that silence is misleading rather
+  //   than informative: those guards are phrased `backendRef.current !== backend` — "am I
+  //   superseded?" — and a permanently-null ref answers TRUE, i.e. "drop", which is the answer the
+  //   guard owes in every scenario they set up. Read that file alone and you will conclude this line
+  //   is untestable. It is not. The kill lives wherever a caller asks the OPPOSITE question:
+  //   `isBackendCurrent` (`=== backend`) reads a null ref as FALSE, so the LIVE path breaks — and
+  //   every `reloadCurrentProject` test breaks too, for the same reason from the other side (a reload
+  //   that always drops never applies, never toasts, never reports).
+  // ★★ MEASURED, and the breadth is the point: deleting this line turns tests red in
+  //   `use-storage-backend.test.tsx` (its `reloadCurrentProject` tests, which lose their apply, their
+  //   toast and their report, plus its picker ones), in `use-storage-backend.load-gate.test.tsx`, and in the §588
+  //   probe, where the one that dies is "a rebuild during the write still leaves the live backend's
+  //   gate open" — its `first.save` precondition stops being reachable once the PICKER guard drops
+  //   the pick before the write. (Named, not numbered: the guards in `onPickStorageFile` carry
+  //   `stage` labels, and this line said "guard 1" after the renumbering that removed them.) Same ref, same deletion, opposite observability, decided entirely by how each
+  //   consumer phrases the comparison.
+  // ★ NAMED, NOT COUNTED, ON PURPOSE: an earlier revision said "1 of §588's own 7" and the file
+  //   already collected 9 by the time it was committed — stale inside its own round. Re-measure with
+  //   `npx vitest run src/app/use-storage-backend.superseded-gate.test.tsx
+  //   src/app/use-storage-backend.test.tsx src/app/use-storage-backend.load-gate.test.tsx` after
+  //   deleting the write; do not restore a tally here.
+  // ★★ SEEDED `null`, NOT `backend`, and the reason is FAIL-CLOSED. The write always runs before any
+  //   consumer, so the seed is unobservable at runtime today; what it decides is which way the ref
+  //   fails if that ever stops being true. `null` makes every superseded-check DROP, which is safe.
+  //   Seeding it with `backend` would freeze the ref at the FIRST instance and tell stale callers
+  //   they are still current — which is §588 itself, i.e. fail-OPEN. A seed picked to make the probe
+  //   able to kill the mutant was briefly tried and reverted: it bought testability that the picker
+  //   suites above already give for free, at the price of the wrong failure direction.
+  // ★ A render React DISCARDS would also run this write. Not reachable today — `src/app` has no
+  //   `startTransition`, `useTransition`, `useDeferredValue` or Suspense boundary, and this hook is
+  //   called once — but that is a property of the app, not of this line, and it can stop being true
+  //   without anything here changing. The consequence would be a ref pointing at a backend from a
+  //   render that never committed.
+  const backendRef = useRef<ReturnType<typeof createBackend> | null>(null);
+  backendRef.current = backend;
+  // §588 — "the backend THIS closure was built for is no longer the live one". Asked at every point
+  // an op resumes after an await: `reloadCurrentProject` after its load resolves and again in its
+  // catch, and (as `isBackendCurrent`, the NEGATION — the phrasing the mutation coverage rides on,
+  // see above) `onPickStorageFile` after its picker, after it reads the chosen file, after each of
+  // its two binds, and again after its write.
+  // ★★ NO TALLY ON PURPOSE. This said "Four resumption points" and was already five when it was
+  // written — §590's read guard was the one omitted. Re-derive rather than trust:
+  //   grep -rnE "isSupersededBackend[(][)]|isBackendCurrent[(][)]" src/app --include=*.ts --include=*.tsx | grep -v "[.]test[.]"
+  // ★ The brackets stop the pattern matching THIS comment; the plain spelling does not, which is how
+  // a re-derivation quietly counts its own instructions. Read the hits anyway: one is
+  // `isBackendCurrent`'s declaration in the deps object, not a resumption point.
+  const isSupersededBackend = () => backendRef.current !== backend;
+
   // ★★★ §591 — WHICH STORAGE TARGET THE IN-SCOPE WORKSPACE BELONGS TO. `applyWorkspaceFromLoad`'s "merge"
   //   unions the loaded activity log and budget history with whatever is in memory, so it is right only
   //   when memory holds THIS target's project. A settings-driven rebuild (a Turso URL/token edit, a
@@ -191,6 +244,47 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   workspace, so an edit made during its await would be discarded exactly like one made during the
   //   first load.
   const [swapsInFlight, setSwapsInFlight] = useState(0);
+  // ★★★ §596 — A NARROWER COUNT, NOT A MIRROR OF THE ONE ABOVE, AND THE DIFFERENCE IS THE POINT.
+  //   ★★ THIS COMMENT SAID "THE SAME COUNT AS A REF" AND WAS TRUE WHEN WRITTEN — the B1 fix below
+  //   then split the two and left the sentence standing. `setSwapsInFlight` counts ALL TEN held
+  //   ops; this ref counts only the `hold[D]uring(..., "changes-scope")` rows — a strict subset,
+  //   and deliberately not quoted as a number here (see the derive recipes at the call-site block;
+  //   the number moved once already and seven sentences went stale). Do NOT "restore"
+  //   the invariant by re-coupling them: that is precisely the B1 regression (a plain Save-As, a
+  //   cancelled OS dialog and a same-project Reload silently killing a live AI turn), and the two
+  //   counts answer different questions on purpose.
+  //   ★★★ WHY A REF AT ALL, which is unchanged: a consumer that must answer "is a swap in flight?"
+  //   from an UNMOUNT CLEANUP cannot read any mirror of the render value. React flushes every
+  //   passive DESTROY before any passive CREATE, so an effect that copies `loadPending` into a ref
+  //   has not run yet when the subtree the hold is unmounting tears down — the mirror still reads
+  //   the pre-swap `false`. This ref is written SYNCHRONOUSLY inside `holdDuring`, beside its
+  //   `setSwapsInFlight`, exactly as `scopeEpochRef` is written beside the replacement it
+  //   announces, so it is already true at that instant.
+  // ★★★ DELIBERATELY NARROWER THAN `loadPending`, AND THE FIRST REASON WRITTEN HERE WAS FALSE.
+  //   It said `settledBackend !== backend` "needs Settings, which unmounts the chat panel on its
+  //   own before the backend can change". It does not. `PanelSkeleton` in `task-manager.tsx` sits
+  //   ABOVE the `settings.layout === "classic"` ternary, so CLASSIC unmounts the panel too; and a
+  //   storage change committed from the CLASSIC HEADER MENU reaches `StorageConfigSection`'s plain
+  //   `onChange` and never touches `onRequestStorageSwitch` (which is itself outside `holdDuring`).
+  //   So `isSwapInFlight()` really can read false at a teardown the backend rebuild caused.
+  // ★★★ WHAT THAT COSTS, stated as a residual rather than an absence: a turn in flight when the
+  //   user swaps the Turso URL/token or SharePoint target from the classic header is NOT cancelled,
+  //   its API call is not aborted and is still billed, and its tool write lands in the OUTGOING
+  //   project's in-memory workspace — where the arriving load discards it. A LOST write, silently.
+  // ★★ WHY THAT IS THE WHOLE RESIDUAL, which is the real argument the old one should have made.
+  //   It cannot become a WRONG-SCOPE write, blocked twice over and independently: (1) the §586 save
+  //   gate is IDENTITY-based and a rebuilt backend starts shut, so the debounced autosave is
+  //   refused and nothing reaches the NEW target; (2) a replacing load bumps the epoch
+  //   SYNCHRONOUSLY immediately before it applies, so there is no instant at which the new target's
+  //   workspace is in scope while the epoch still reads old. `!hydrated` is pre-mount and has no
+  //   turn to cancel at all.
+  // ★★ UNCHANGED FROM `main`. The loss predates Task 6, which closed it only as a side effect of an
+  //   unconditional cancel that broke ordinary navigation. Narrowing re-opens it behind a five-term
+  //   conjunction to close the common case; that trade was made knowingly.
+  // ★ Do NOT "fix" it by wrapping `onRequestStorageSwitch` in `holdDuring` — checked, and it does
+  //   not cover the direct `onChange` rebuild, which is the reachable path. Any real fix has to
+  //   reach the rebuild itself.
+  const swapsInFlightRef = useRef(0);
   // ★★ TRUE before hydration (spec revision 2026-09-19): the first load has not even started, so it IS
   //   pending, and ONE signal covers every consumer (the render hold and each background-writer gate)
   //   through that window. The hold therefore relies on `hydrated` always becoming true — bounded in
@@ -206,11 +300,26 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // `[]`-dep ref or callback without re-subscribing anything. Deliberately NOT a render value:
   // publishing the number would re-render every consumer on each swap.
   const getScopeEpoch = useCallback(() => scopeEpochRef.current, []);
+  // §596 — the swap-in-flight reader, published for the same reason and with the same contract as
+  // `getScopeEpoch`: STABLE for the hook's lifetime, reads a synchronously-maintained ref, never a
+  // render value.
+  // ★★ WHAT IT SELECTS FOR, stated precisely because the first wording was "tell a §548 teardown
+  //   from ordinary view navigation" and the B1 fix made that misleading. It does NOT select §548
+  //   teardowns: MOST of the ten held ops raise the §548 hold and leave this FALSE — every one that
+  //   is not `"changes-scope"`, which is the majority (derive it at the call-site block rather than
+  //   reading a number here; this sentence said SIX and was falsified by one reclassification). It answers the
+  //   narrower question `chat-panel.tsx`'s unmount cleanup actually asks — "is the workspace about
+  //   to become another project's?" — so a teardown caused by a Save-As, a cancelled dialog or a
+  //   same-project reload reads false and the in-flight AI turn is left alone. Reading the old
+  //   wording as a spec is how the flag gets widened back to the B1 regression.
+  const isSwapInFlight = useCallback(() => swapsInFlightRef.current > 0, []);
   // ★★★ §586 — THE SAVE GATE: the backend instance render scope may be written to. Before it opens,
   //   the boot workspace is EMPTY, and a save of it is `DELETE FROM` every Turso table, an empty
   //   SharePoint PUT, an overwritten file. The AUTOMATIC writes of the live workspace to the ACTIVE
-  //   backend check it: the save effect (no schedule), `doSave` (the debounce timer AND the
-  //   flush-on-hide, which both call it) and the pre-switch `flushCurrent`; a storage-KIND switch
+  //   backend check it: the save effect (no schedule), `doSave` — reached by the debounce timer, by
+  //   the flush-on-hide, and since §589 by the cleanup flush a backend rebuild triggers, all three
+  //   through the ONE `save` argument `scheduleDebouncedSave` takes — and the pre-switch
+  //   `flushCurrent`; a storage-KIND switch
   //   skips its conversion write while it is shut (`loadSucceeded` below). ★ EXPLICIT writes do not:
   //   "Pick storage file" (`guardedWrite`, open follow-up §590), a conversion after a successful load,
   //   create and load-from-file. Identity, like `loadedBackend`, so a rebuilt
@@ -628,8 +737,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // ★★★ ONE SITE COVERS ALL LOAD/SWITCH/CREATE PATHS, which is why there is no
       //   per-path obligation to add. `suppressNextSaveRef` is set by every one of them, and
       //   this branch is INSIDE the save effect, so clearing here dominates the lot and a
-      //   tenth path cannot forget it. Enumerate them:
-      //     grep -rn "suppressNextSaveRef.current = true" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+      //   tenth path cannot forget it. Enumerate them — ★★ the bracket class is LOAD-BEARING:
+      //   spelled plainly the pattern matches THIS comment line and its sibling below, and a
+      //   recipe that counts its own documentation reads as verified forever (§596 found this
+      //   one and the one below doing exactly that, the fourth self-confirming check on this
+      //   branch). Re-run it after the prose around it is final, never before:
+      //     grep -rn "suppressNextSave[R]ef.current = true" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+      //   It printed 10 hits across 3 files on 2026-09-20 — 6 in `use-storage-file-ops.ts`,
+      //   2 in `use-storage-turso-ops.ts`, 2 here. Read the hits, not the number.
       // ★★ DO NOT "complete the pattern" by copying the PEER lockout's shape — the
       //   asymmetry is real, not an oversight. `use-load-truncation.ts` exposes
       //   `clearForFreshWorkspace` and needs THREE explicit call sites (two in
@@ -722,15 +837,21 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //    §72 failure. They are routed through emitOutcome/emitToast for that
     //    reason; do not call args.* directly here.
     const doSave = () => {
-      // ★★ §586, second check: the debounce timer AND flush-on-hide both call this (debounced-save.ts),
-      // possibly long after this run — so it re-reads the gate's REF rather than trusting the run above.
+      // ★★ §586, second check: the debounce timer, flush-on-hide AND — since §589 — the cleanup flush
+      // all call this (debounced-save.ts), possibly long after this run, so it re-reads the gate's REF
+      // rather than trusting the run above.
       // ★★★ DEFENCE IN DEPTH — NO TEST CAN REACH IT TODAY, and none claims to. A save is scheduled only
       // on a run that passed the effect-level check, and the gate for THAT backend never closes again:
-      // the ref moves only when a DIFFERENT backend opens it, which means a rebuild, which re-runs this
-      // effect and whose cleanup clears the timer and drops both hide listeners first. Measured by
-      // mutation: deleting this line alone leaves every load-gate test green; deleting it together with
-      // the effect-level check turns (a) (b) (c) (e) (h) (i) red. It is here for a future path that
-      // schedules without that check.
+      // the ref moves only when a DIFFERENT backend opens it, i.e. when that backend's own load applies.
+      // ★★ §589 TURNED THE CLEANUP INTO A CALLER OF THIS AND STILL DOES NOT REACH IT — but the OLD
+      // reason no longer holds and was removed rather than kept: this used to rest on "the cleanup
+      // clears the timer and drops both hide listeners first", which is now only what happens when the
+      // predicate says no. On a rebuild the cleanup DOES call `doSave` — in the same commit as the
+      // render that minted the new backend, long before that backend's load can have applied, so
+      // `savesAllowedForRef.current` is still this run's `backend` and the check passes.
+      // Measured by mutation: deleting this line alone leaves every load-gate test green; deleting it
+      // together with the effect-level check turns (a) (b) (c) (e) (h) (i) red. It is here for a future
+      // path that schedules without that check.
       if (savesAllowedForRef.current !== backend) return;
       backend.save(outgoing).then(() => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
         committedBaselineRef.current = { collections: curCollections, records: curRecords }; // the write landed: these are on disk now
@@ -773,7 +894,85 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // ★ Debounce + flush-on-hide (the double-fire guard, why `pagehide` backs up
     //   `visibilitychange`, and why this may only be reached AFTER the hydrated/
     //   popout/load/suppress gates above) all live in debounced-save.ts. Read it there.
-    return scheduleDebouncedSave(doSave, SAVE_DEBOUNCE_MS);
+    // ★★★ §589 — FLUSH ON CLEANUP, BUT ONLY WHEN THE SAVE TARGET ITSELF CHANGED. `backend` is a dep
+    //   of this effect, so a settings-driven rebuild (a Turso URL/token edit, a SharePoint target
+    //   change) runs this cleanup; it used to clear the timer and return, and an edit still inside
+    //   the 500 ms window was then written nowhere — the new target's load replaces scope straight
+    //   after, so it left memory too. Silent: nothing refuses, nothing pauses, no toast.
+    // ★★ THE PREDICATE IS `!==`, NOT `true`, AND THAT IS THE WHOLE DESIGN. Most cleanups here are
+    //   an ORDINARY dep change — the next edit, a re-render — and the effect re-schedules against
+    //   the newer workspace immediately, so flushing on those would write on every keystroke and
+    //   throw away the debounce. Only a BACKEND change leaves nobody to re-schedule.
+    // ★★★ CONSEQUENCE ON SIX OF THE TEN `holdDuring` OP PATHS: THEY NOW WRITE THE PENDING EDIT
+    //   TWICE — once via the op's own pre-switch flush, then again here, because that flush writes
+    //   directly and never cancels this timer. Both writes carry the OUTGOING project and both go to
+    //   the OUTGOING backend, so the second is redundant, not wrong.
+    // ★★★ SIX, NOT TEN, AND THE SET IS NAMED BECAUSE A COUNT ALONE ROTS — which is exactly what
+    //   happened here: this block said SIX OF THE NINE and listed the exclusions for nine, while
+    //   §590 had already made it ten and said so at `holdDuring` itself. The CONCLUSION was right
+    //   throughout; only the universe and the exclusions were stale. The doubling needs an op to
+    //   BOTH flush AND rebuild the backend, and those two sets differ.
+    //   Flushing: SEVEN of the ten — all but `onPickStorageFile`, `onOpenStorageFile` and
+    //   `reloadCurrentProject`. Re-derive; `use-storage-turso-ops.ts` flushes through the shared
+    //   `flushOutgoing`, so a grep for `flushCurrent` alone under-counts it by two:
+    //   ★ The glob must include THIS file: `reloadCurrentProject` is declared here, not in a
+    //   `use-storage-*-ops.ts`, so a recipe scoped to that glob cannot see it and silently reports
+    //   a universe one op short of the ten it is being compared against.
+    //   ★★ Bracketed, because widening the glob to `use-storage-*.ts` brought THIS FILE into scope
+    //   and the recipe promptly matched its own line — the fifth self-confirming check on this
+    //   branch, created by fixing the fourth. Widening a check's universe can poison it.
+    //     grep -n "flush[C]urrent()\|flush[O]utgoing()" src/app/use-storage-*.ts
+    //   Rebuilding — i.e. reaching this cleanup at all: `switchToProject`, `createProject`,
+    //   `loadProjectFromFile`, `createDemoProject` (each calls `deps.setStorageConfig`) and
+    //   `switchToTursoProject`, `createTursoProject` (each calls `deps.setTursoProjectId`); both
+    //   setters feed the `backend` memo's deps. The intersection is those six. Re-derive that too:
+    //     grep -n "deps.setStorageConfig\|deps.setTursoProjectId" src/app/use-storage-*-ops.ts
+    // ★★ THE FOUR THAT NEVER REACH THIS CLEANUP, and the last is the one worth knowing:
+    //   `onPickStorageFile` commits no handle to a new instance (§590) and `onOpenStorageFile` binds
+    //   one to the SAME instance, while `reloadCurrentProject` re-loads it — so none of the three
+    //   mints a backend; `migrateCurrentProjectToTurso` ends in `window.location.reload()`
+    //   (use-storage-turso-ops.ts), so the whole context goes and no cleanup runs at all.
+    //   ★ This note does NOT claim the first three are free of a pending-edit drop of their own —
+    //   they change no backend, so they are simply outside §589's premise, and nothing here
+    //   investigated them.
+    // ★★ WHAT MAKES THE DOUBLING SAFE FOR THOSE SIX, and it is two independent things — do not
+    //   remove one on the strength of the other. (1) Each of the six applies the new workspace and
+    //   flips its target in ONE synchronous block: in all six the last `await` precedes
+    //   `applyWorkspace`, and the `setStorageConfig`/`setTursoProjectId` call follows with no
+    //   `await` between. So React commits them together and the cleanup that runs belongs to the
+    //   effect from BEFORE the apply — its `outgoing` is the old project by construction. (2) Each
+    //   of the six arms `suppressNextSaveRef` in that same block, so even if an apply and a flip
+    //   ever landed in SEPARATE commits, the run between them would be suppressed and would
+    //   schedule nothing for this cleanup to flush.
+    // ★★★ BOTH LEGS ARE SCOPED TO THE SIX ON PURPOSE. As universals over the ten they were FALSE,
+    //   and the note said in the same breath that the legs are independent and must be checked —
+    //   so it invited exactly the verification it failed. `migrateCurrentProjectToTurso` arms
+    //   `suppressNextSaveRef` nowhere (that file arms it only in `switchToTursoProject` and
+    //   `createTursoProject`); what carries it is the page reload, not leg 2. Enumerate before
+    //   widening either leg — ★★ bracketed AND `.tsx`-inclusive, which this recipe was neither:
+    //   spelled plainly it matched its own line and its sibling's, and omitting `--include=*.tsx`
+    //   silently narrowed the universe it claims to enumerate (the sibling above already carried
+    //   the flag). Both defects made it agree with whatever the reader already believed:
+    //     grep -rn "suppressNextSave[R]ef.current = true" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+    //   Same 10 hits as the sibling above; read them, not the number.
+    // ★ AND IT RESCUES SOMETHING: an edit made during an op's own await window used to be dropped —
+    //   `flushCurrent` had already run, and the apply's re-render cleared the timer and armed the
+    //   suppress. That drop is the shape ruled on as D3 in the 2026-09-19 data-loss plan. It is now
+    //   written, because at that commit the backend really has changed.
+    // ★★ WHY NO EXTRA GATE CHECK: the flush reaches `doSave`, the same single `save` argument the
+    //   timer and the hide listeners use, and `doSave` closes over the `savesAllowed`/`backend` of
+    //   THIS render — i.e. the OLD instance. So §586 already covers this exit. A second check here
+    //   would be a different question asked in the same words.
+    // ★ `backendRef.current` is assigned during RENDER (see its declaration), which is what makes
+    //   this readable at all: React runs every cleanup before any effect body, so a ref mirrored in
+    //   an effect would still hold the OLD backend here and this would never fire.
+    // ★★ SPELLED OUT RATHER THAN REUSING `isSupersededBackend` ABOVE, WHICH IS THE IDENTICAL
+    //   EXPRESSION — on purpose. A null ref answers `!==` with TRUE, which for that helper's
+    //   consumers means DROP (fail-closed, and the reason its seed is `null`) and here means FLUSH
+    //   on an ordinary cleanup (fail-open). Same three tokens, opposite fail direction; one name
+    //   covering both would hide that from whoever next revisits the seed. Neither is reachable
+    //   today — the render-time write precedes every cleanup — so this is noted, not relied on.
+    return scheduleDebouncedSave(doSave, SAVE_DEBOUNCE_MS, () => backendRef.current !== backend);
     // ★ `savesAllowed` is a dep so the gate OPENING re-runs this effect (after an op's re-stamp, it is
     // the only thing that changes) — the run spends that op's suppress, or saves an edit made meanwhile.
     // ★ `loadWasIncomplete` is a dep so LOWERING it (the user's "save anyway") re-runs this effect
@@ -939,11 +1138,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     emitStorageConfig,
     allowSavesToActiveBackend: () => allowSavesTo(backend),
     loadSucceeded: () => savesAllowedForRef.current === backend,
+    isBackendCurrent: () => !isSupersededBackend(), // §588 — `backend` inside the predicate is THIS render's instance; the ref is the live one.
     acquireToken: auth.acquireToken,
     setTasks,
     setRaid,
     tasks,
     bumpScopeEpoch, // §548 clause (b) — onOpenStorageFile's accept branch only
+    applyPickedWorkspace: applyWorkspaceForOp, // §590 — onPickStorageFile's load-instead branch; the wrapper bumps the epoch itself, so that branch must NOT also call `bumpScopeEpoch`.
   });
 
   // Re-load the CURRENT project's workspace from its backend, discarding the
@@ -956,6 +1157,21 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     reloadInFlightRef.current = true;
     try {
       const workspace = await backend.load();
+      // ★★★ §588 — A SETTINGS-DRIVEN REBUILD MAY HAVE REPLACED THE BACKEND WHILE WE AWAITED, and this
+      //   closure still holds the one the click started against. Applying now would (a) stomp the live
+      //   project with THIS instance's payload, (b) `setSettledBackend` the superseded instance, which
+      //   strands `loadPending` true forever — the §548 skeleton, permanently, since nothing rebuilds
+      //   the backend again — and (c) `allowSavesTo` it, moving the save gate OFF the live one, which
+      //   then stays shut IN SILENCE: `loadPause` is published only for an instance whose own load
+      //   failed or was refused, and a superseded reload is neither, so no banner and no toast appear.
+      // ★ ONE guard, placed BEFORE the whole tail, closes all three: they are three consequences of a
+      //   single superseded resolution, not three defects. Do not split it into three.
+      // ★ Nothing is emitted but the diagnostic: the click's outcome belongs to the backend the user
+      //   is no longer on, and the live instance's own load effect owns the screen now.
+      if (isSupersededBackend()) {
+        logDiag("warn", "storage.supersededLoadDropped", { writer: "reloadCurrentProject", outcome: "resolved" });
+        return;
+      }
       // ★ DATA-LOSS GUARD: a reload that would EMPTY a populated project is
       // almost always a transient/failed backend read, not intent — applying it
       // wipes the in-memory workspace and autosave then persists the empty (a
@@ -986,6 +1202,17 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       await refreshBackendStatus();
       emitOutcome(null);
     } catch (err) {
+      // ★★ §588 — A SUPERSEDED REJECTION MUST BE AS QUIET AS A SUPERSEDED RESOLUTION, and the guard
+      //   after the await covers only the resolve leg. A load that REJECTS after a rebuild would
+      //   otherwise reach `emitOutcome` and the error toast, raising a STICKY storage banner over the
+      //   project the user has since switched TO, about a backend they are no longer on — the same
+      //   wrong-target visibility §588 is about, wearing an error's clothes, and the banner outlives
+      //   the toast. The live instance's own load effect owns the screen now, including its errors.
+      // ★ `finally` still clears `reloadInFlightRef`, so a dropped rejection cannot wedge the button.
+      if (isSupersededBackend()) {
+        logDiag("warn", "storage.supersededLoadDropped", { writer: "reloadCurrentProject", outcome: "rejected" });
+        return;
+      }
       // onStorageOutcome raises the sticky banner; the toast is the transient
       // acknowledgement of THIS click (reload has no other toast path).
       emitOutcome(err);
@@ -998,30 +1225,163 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // ★★ §548 — hold `loadPending` for the WHOLE of an op that awaits and then REPLACES the workspace.
   //   The op flushes the outgoing project BEFORE its await; an edit made during the await would be
   //   replaced in memory when the op applies. `finally`, so a throwing op cannot strand the hold;
-  //   `mountedRef`, so a teardown cannot throw (§72). Wraps exactly the nine ops in the return object.
-  function holdDuring<A extends unknown[]>(op: (...opArgs: A) => Promise<void>): (...opArgs: A) => Promise<void> {
+  //   `mountedRef`, so a teardown cannot throw (§72).
+  // ★★ WHICH ops, not how many — this said "exactly the nine" and §590 made it ten.
+  // ★★★ THE RE-DERIVE RECIPE HERE WAS ITSELF A DEFEATED CHECK UNTIL 2026-09-20, in TWO ways, and
+  //   both are worth knowing because the shape recurs. It ran `grep -c` for this function's name
+  //   followed by an open paren, spelled plainly, and claimed the result "counts the wraps plus this
+  //   declaration". (1) THERE IS NO DECLARATION ROW to subtract: the declaration below is spelled
+  //   with an open ANGLE bracket, not a paren, so it never matched — the extra hit being attributed
+  //   to it was THE RECIPE'S OWN COMMENT LINE, matching the pattern it spelled. (2) `grep -c` counts
+  //   LINES, not occurrences, and the wraps are packed several to a line, so its 7 was not the wrap
+  //   count either: there are 10 wraps on 6 lines. A self-matching recipe whose miscount is then
+  //   explained away by a plausible-sounding subtraction reads as verified forever.
+  // ★★★ EVERY PROSE MENTION OF THIS FUNCTION'S NAME ANYWHERE IN THIS FILE USES THE BRACKET CLASS —
+  //   above this line as well as below it, and that scope is the whole point. This warning used to
+  //   say "every mention BELOW", which describes a REGION while the recipe scans a FILE: a mention
+  //   added 970 lines ABOVE poisoned it just the same, and did, while the warning still read as
+  //   satisfied. A guard whose stated scope is narrower than the thing it guards is a loophole with
+  //   documentation. Match the two, or the hole re-opens on the next edit anywhere in the file.
+  // ★★ It is not decoration either: the first attempt at this correction spelled the old broken
+  //   pattern twice while describing it, which pushed the corrected recipe from 10 back to 12. An
+  //   explanation of a self-matching check can re-poison the check. Count OCCURRENCES, never lines:
+  //     grep -o "hold[D]uring(" src/app/use-storage-backend.ts | wc -l
+  //   It printed 10 on 2026-09-20, re-run after the prose around it was final (it printed 11 in
+  //   between, from the unbracketed prose mention up at the ref declaration — the miss that made
+  //   the scope fix above necessary). Read the hits rather than the number either way —
+  //   `grep -n "hold[D]uring(" src/app/use-storage-backend.ts` names each wrapped op.
+  // ★★★ §596 — `scope` IS REQUIRED, AND IT GATES ONLY THE REF, NEVER THE HOLD. Every op below
+  //   raises `loadPending` exactly as before; what this decides is whether `isSwapInFlight` — read
+  //   by ONE caller, `chat-panel.tsx`'s unmount cleanup — also goes true.
+  // ★★★ WHY THE SPLIT EXISTS: A COMPOSITION REGRESSION NO PER-TASK REVIEW COULD SEE. §590 put
+  //   `onPickStorageFile` under the hold and §596 made an unmount-under-hold cancel the in-flight
+  //   AI turn. Each is right alone; composed, a plain Save-As, a CANCELLED OS file dialog and a
+  //   same-project Reload each silently killed a turn — and the "stopped" note lands on an unmounted
+  //   panel, so the user is not even told. That is the exact silent shape §596 existed to undo,
+  //   arriving by another route.
+  // ★★★ THE RULE, and it decides every row below: CANCELLING IS A COST OPTIMISATION — do not pay
+  //   for tokens on a turn whose project is going away. DROPPING a wrong-scope write is the
+  //   CORRECTNESS guarantee and belongs to the scope EPOCH, which runs at resolution and needs no
+  //   prediction. So this flag is biased the safe way: `"same-scope"` is the default posture, and an
+  //   op earns `"changes-scope"` only when it has NO user-cancellable step between raising the hold
+  //   and replacing the workspace. Getting it wrong towards `"same-scope"` costs tokens; getting it
+  //   wrong towards `"changes-scope"` destroys the user's work silently.
+  // ★★★ "CANCELLABLE" MEANS *THE USER DECLINES*, NOT *THE OP FAILS*, and the distinction is the
+  //   whole rule — read it before reclassifying anything. EVERY `"changes-scope"` op can still
+  //   ABORT: a Turso guard returning null, a save or load throwing, a same-target early return. Each
+  //   of those false-cancels a turn too. A FAILURE is accepted because it announces itself — the
+  //   user gets a toast and knows something went wrong — where a user who backs out of an OS dialog
+  //   gets no signal at all, and a turn dying silently beside it is the B1 shape. So the axis is
+  //   "does the user learn something went wrong", not "is the outcome certain".
+  // ★★★ THAT AXIS DOES NOT COVER A NO-OP GUARD, and claiming it did was this paragraph's own worked
+  //   example contradicting its rule. Of the three aborts named above, only `guardTurso`'s
+  //   missing-config branch toasts. Its `isPopout` branch and `switchToTursoProject`'s same-target
+  //   return emit NOTHING, so they are silent false-cancels by the definition one line up — the
+  //   thing the rule exists to prevent. They are acceptable on a DIFFERENT and checkable ground:
+  //   neither is reachable from the UI. A popout offers no project ops, and the project picker does
+  //   not offer the project already open. ★★ If either ever becomes reachable, it is not a residual
+  //   any more — it is a B1-shaped defect, and the fix is to move that op to `"same-scope"`, not to
+  //   re-argue this paragraph.
+  //   (The three sites, so the classification can be re-checked rather than re-argued:
+  //   `use-storage-turso-ops.ts`'s `guardTurso` — its `isPopout` and missing-config branches — and
+  //   `switchToTursoProject`'s `deps.tursoProjectId === id` return.)
+  // ★ A `"same-scope"` op that DOES end up moving the target (the user accepts the dialog in
+  //   `onOpenStorageFile` or `loadProjectFromFile`) is not a hole: the turn keeps running and the
+  //   epoch drops its write at resolution. Only the tokens are spent.
+  function holdDuring<A extends unknown[]>(
+    op: (...opArgs: A) => Promise<void>,
+    scope: "changes-scope" | "same-scope",
+  ): (...opArgs: A) => Promise<void> {
     return async (...opArgs: A) => {
+      // §596 — for a `"changes-scope"` op the ref moves in the SAME synchronous statement pair as
+      // the state, so a cleanup running inside the commit this triggers already sees it.
+      // ★★ "UNCONDITIONALLY" USED TO BE THE WORD HERE and the B1 fix falsified it: both arms are
+      // now gated on the SAME closure constant, which is what keeps them symmetric — a raise
+      // without its matching release would leave `isSwapInFlight` lying forever. What is still
+      // unconditional is the STATE setter, and deliberately: `loadPending` must hold for all ten.
+      // ★ The release has no `mountedRef` guard, unlike the setter beside it: there is no state to
+      // update after a teardown, only a ref that must not stay raised.
+      if (scope === "changes-scope") swapsInFlightRef.current += 1;
       setSwapsInFlight((n) => n + 1);
       try {
         await op(...opArgs);
       } finally {
+        if (scope === "changes-scope") swapsInFlightRef.current -= 1;
         if (mountedRef.current) setSwapsInFlight((n) => n - 1);
       }
     };
   }
 
-  // Grouped one line per concern — a plain re-export list, and the cheapest block
-  // to compress in a file that runs close to the size ratchet's LIMIT. ★ Do not quote a
-  // number here — this comment said "sits AT" while the file had 14 lines of headroom.
+  // Grouped one line per concern — a plain re-export list, and the cheapest block to compress if
+  // this file ever approaches the size ratchet's LIMIT. ★★ IT IS NOT NEAR IT AND THIS SAID IT WAS:
+  // the LIMIT was doubled to 1600 on 2026-09-03 and the file has hundreds of lines of headroom, so
+  // "runs close to" survived the change that falsified it — the same rot as the "sits AT" it had
+  // already replaced. A qualitative claim about a threshold decays exactly like a number.
+  // ★ Do not quote the length here either; measure both sides instead
+  // (`LIMIT` lives in `scripts/check-file-sizes.mjs`).
   // Measure: node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
   return {
-    storageDescription, storageReady, workspaceLoaded, loadPause, loadPending, getScopeEpoch,
-    onPickStorageFile, onGrantWriteAccess, onOpenStorageFile: holdDuring(onOpenStorageFile), onRequestStorageSwitch,
-    reloadCurrentProject: holdDuring(reloadCurrentProject), allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
-    switchToProject: holdDuring(switchToProject), createProject: holdDuring(createProject),
-    createDemoProject: holdDuring(createDemoProject), loadProjectFromFile: holdDuring(loadProjectFromFile),
-    switchToTursoProject: holdDuring(switchToTursoProject), createTursoProject: holdDuring(createTursoProject),
-    migrateCurrentProjectToTurso: holdDuring(migrateCurrentProjectToTurso),
+    storageDescription, storageReady, workspaceLoaded, loadPause, loadPending, getScopeEpoch, isSwapInFlight,
+    // ★★★ §590 PUT `onPickStorageFile` UNDER THE HOLD, and it was deliberately outside it before.
+    //   The exclusion was right while the op only ever wrote the live workspace OUTWARD — nothing was
+    //   replaced, so there was nothing for a background writer to land in the middle of. Its
+    //   load-instead branch now replaces the WHOLE workspace with another file's, which is
+    //   `holdDuring`'s stated job, and `onOpenStorageFile` beside it already takes the hold across
+    //   its own OS picker — so "a dialog would sit behind a skeleton" is not an available objection;
+    //   the precedent accepts it. ★ `bumpScopeEpoch` inside `applyWorkspaceForOp` is NOT a substitute:
+    //   it drops background writes that honour the epoch, and does nothing about the tree.
+    // ★★ THE COST, STATED: the hold covers the WHOLE op, and only ONE of its two branches replaces
+    //   anything — so a user doing a plain Save-As, or cancelling the dialog, pays for a skeleton
+    //   they never needed, for as long as the OS dialog is open. The alternative considered was
+    //   raising the hold INSIDE the load-instead branch only, which is cheaper for the common path
+    //   and wrong for the one that matters: the branch is not chosen until AFTER the picker and the
+    //   read have both resolved, so a hold raised there starts after the window it exists to cover.
+    //   A wrapper that holds too much is a visual cost; a hold that starts late is not a hold.
+    // ★★★ §596 — THE SECOND ARGUMENT IS NOT BOILERPLATE: the `"changes-scope"` rows are the ONLY
+    //   ones that may cancel a live AI turn. Read the rule at `holdDuring` before adding a row:
+    //   `"same-scope"` is the safe default, and an op earns `"changes-scope"` only when NOTHING the
+    //   user can cancel sits between the hold and the replacement.
+    // ★★ NO COUNT IS QUOTED IN THIS FILE ANY MORE, and that is a correction, not a style: the split
+    //   was 4/6, `switchToProject` moved, and SEVEN live sentences across three files went on saying
+    //   4 and 6 — three of them written by the two commits whose whole subject was sweeping stale
+    //   claims. A number here is falsified by the next reclassification, which is exactly the edit a
+    //   reader of this block is about to make. Derive it — ★★ `-o … | wc -l`, NEVER `grep -c`: the
+    //   rows below are packed several to a LINE, so a line count reported 2/5 against a real 3/7
+    //   while I was writing this very recipe, which is the same miscount the `hold[D]uring(`
+    //   recipe up at the declaration already warns about. Use `-n` to READ them, `-o` to COUNT:
+    //     grep -o 'hold[D]uring([a-zA-Z]*, "changes-scope")' src/app/use-storage-backend.ts | wc -l
+    //     grep -o 'hold[D]uring([a-zA-Z]*, "same-scope")'    src/app/use-storage-backend.ts | wc -l
+    //     grep -n 'hold[D]uring([a-zA-Z]*, "\(changes\|same\)-scope")' src/app/use-storage-backend.ts
+    // ★★★ EVERY `"same-scope"` ROW FAILS THE RULE ON A STATED GROUND, and this list is the whole
+    //   set — it omitted `switchToProject` for a round while that op sat four lines below under its
+    //   own ★★★ block, i.e. a paragraph asserting its own completeness while incomplete, which is
+    //   the same shape as the "all nine ops" table that was missing its tenth. Grounds:
+    //   a picker/dialog that may be cancelled or declined (`onPickStorageFile`, `onOpenStorageFile`,
+    //   `loadProjectFromFile`, `createProject`, whose own comment names "the user cancels the
+    //   save-file picker"); abort paths after the hold (`switchToProject` — unknown id,
+    //   already-current, missing file handle, and a write-permission prompt the user can DENY); or a
+    //   target that cannot move at all (`reloadCurrentProject` reloads the CURRENT one;
+    //   `migrateCurrentProjectToTurso` applies nothing of another project's and never bumps the
+    //   epoch — `scope-epoch.ts` says so). If you add a row, add its ground here or the next reader
+    //   cannot check your classification.
+    onPickStorageFile: holdDuring(onPickStorageFile, "same-scope"), onGrantWriteAccess, onOpenStorageFile: holdDuring(onOpenStorageFile, "same-scope"), onRequestStorageSwitch,
+    reloadCurrentProject: holdDuring(reloadCurrentProject, "same-scope"), allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
+    // ★★★ `switchToProject` IS `"same-scope"`, AND IT SHIPPED AS `"changes-scope"` FOR ONE ROUND —
+    //   the B1 regression re-opened for four paths by the very fix that closed it. It has abort
+    //   paths AFTER the hold is raised: an unknown id (toast + return), the target already being
+    //   current, a missing file handle (toast + return), and a write-permission prompt the user can
+    //   DENY. On any of those nothing is replaced, so arming the ref cancels a live AI turn for a
+    //   switch that never happened.
+    // ★★ RAISING THE REF LATER, AFTER THOSE PATHS, IS NOT AN OPTION — it is the one fix that cannot
+    //   work here, and it reads like the better one. The ref exists to be TRUE at the §548 teardown,
+    //   and that teardown is the commit `setSwapsInFlight` above triggers, i.e. hold ENTRY. Anything
+    //   armed after the op's first `await` is armed after the panel is already gone. The decision is
+    //   forced to hold entry by the mechanism, which is exactly why the flag is a prediction and why
+    //   it is biased safe.
+    switchToProject: holdDuring(switchToProject, "same-scope"), createProject: holdDuring(createProject, "same-scope"),
+    createDemoProject: holdDuring(createDemoProject, "changes-scope"), loadProjectFromFile: holdDuring(loadProjectFromFile, "same-scope"),
+    switchToTursoProject: holdDuring(switchToTursoProject, "changes-scope"), createTursoProject: holdDuring(createTursoProject, "changes-scope"),
+    migrateCurrentProjectToTurso: holdDuring(migrateCurrentProjectToTurso, "same-scope"),
     archiveTursoProject, restoreTursoProject, hardDeleteTursoProject,
     tursoProjectId,
   };

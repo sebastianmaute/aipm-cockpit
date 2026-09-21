@@ -26,6 +26,7 @@ vi.mock("./storage", () => ({
   openFileForBackend: vi.fn(() => null),
   loadFromHandleForBackend: vi.fn(),
   pickFileForBackend: vi.fn(() => null),
+  pickFileHandleForBackend: vi.fn(() => null),
   pickOpenFileAny: vi.fn(),
   formatFromFileName: vi.fn(() => "json"),
   requestWriteAccessForBackend: vi.fn(() => null),
@@ -194,7 +195,125 @@ describe("§548 — loadPending", () => {
     expect(result.current.loadPending).toBe(false);
   });
 
-  // The nine held ops (in flight / resolved / threw) are pinned in use-storage-backend.hold-ops.test.tsx.
+  it("(e) isSwapInFlight is true SYNCHRONOUSLY with the call, before any render or effect", async () => {
+    // ★★★ §596 — THE POINT OF THIS TEST IS THE WORD *SYNCHRONOUSLY*, and it is
+    //  the only reason `isSwapInFlight` exists beside `loadPending` at all. Its
+    //  consumer is `chat-panel.tsx`'s UNMOUNT CLEANUP, and the §548 teardown
+    //  happens in the very commit this call triggers: React flushes every passive
+    //  DESTROY before any passive CREATE, so a ref that an effect copies
+    //  `loadPending` into has NOT been written when the dying subtree asks. It
+    //  would read the pre-swap `false` and the turn would not be cancelled.
+    //  `holdDuring` therefore moves a ref in the same statement pair as the
+    //  setter, exactly as `bumpScopeEpoch` does. Delete that `+= 1` and the
+    //  in-act read below goes false.
+    // ★★ THE REF MOVES FOR `"changes-scope"` OPS ONLY, which is why this drives
+    //  `createDemoProject` while (e2) drives a same-scope op. Read the pair: alone,
+    //  this one passes against arming every held op — the B1 regression.
+    // ★★★ IT USED `switchToProject` AND HAD TO BE MOVED OFF IT. That op looked like
+    //  the obvious `"changes-scope"` example and is not one: it has four abort
+    //  paths AFTER the hold (unknown id, already-current, missing file handle, a
+    //  write-permission prompt the user can DENY), so it was reclassified. A test
+    //  whose fixture is the misclassified op is the shape that lets a
+    //  misclassification read as pinned.
+    const backend = makeBackend(0);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(100);
+    // Two-way pin: false BEFORE, or "true during" is true for some other reason.
+    expect(result.current.isSwapInFlight()).toBe(false);
+
+    let duringInvoke = false;
+    let op: Promise<void> = Promise.resolve();
+    act(() => {
+      op = result.current.createDemoProject(STORED as never);
+      // Read INSIDE act and immediately after the call: no re-render has been
+      // committed and no effect has run. This is the instant the chat panel's
+      // cleanup asks the question.
+      duringInvoke = result.current.isSwapInFlight();
+    });
+    expect(duringInvoke).toBe(true);
+    expect(result.current.loadPending).toBe(true); // control: the hold really is up
+
+    await advance(200);
+    await act(async () => { await op; });
+    await advance(100);
+    // Released in the op's `finally`, so a thrown op cannot strand it true.
+    expect(result.current.isSwapInFlight()).toBe(false);
+  });
+
+  it("(e2) a SAME-SCOPE hold raises loadPending but does NOT arm isSwapInFlight", async () => {
+    // ★★★ THE OTHER HALF OF (e), AND A COMPOSITION REGRESSION THIS PAIR EXISTS TO STOP
+    //  COMING BACK. §590 put `onPickStorageFile` under the hold; §596 made an
+    //  unmount-under-hold cancel the in-flight AI turn. Each is correct alone —
+    //  composed, a plain Save-As, a cancelled OS file dialog and this same-project
+    //  reload each silently killed the turn the user had just asked for, and the
+    //  "stopped" note lands on an unmounted panel so they are not even told.
+    // ★★ A SINGLE-SIDED VERSION OF THIS PAIR IS HOW BOTH PREVIOUS INSTANCES SHIPPED:
+    //  (e) alone passes against arming EVERY op, and this one alone passes against
+    //  arming NONE. Neither is the claim; the pair is.
+    // OBSERVABLE: `isSwapInFlight()` read inside `act`, exactly where the chat
+    //  panel's cleanup reads it. `loadPending` beside it is the control that the
+    //  hold really is up — without it, "false" could just mean nothing happened.
+    const backend = makeBackend(300);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(400);
+    expect(result.current.isSwapInFlight()).toBe(false);
+
+    let duringInvoke = true;
+    let op: Promise<void> = Promise.resolve();
+    act(() => {
+      op = result.current.reloadCurrentProject();
+      duringInvoke = result.current.isSwapInFlight();
+    });
+    expect(result.current.loadPending).toBe(true); // control: the hold IS up…
+    expect(duringInvoke).toBe(false); // …and the turn is still not cancelled.
+
+    await advance(400);
+    await act(async () => { await op; });
+    await advance(100);
+    expect(backend.load).toHaveBeenCalledTimes(2); // control: the reload really re-loaded
+    expect(result.current.isSwapInFlight()).toBe(false);
+  });
+
+  it("(e3) switchToProject does NOT arm isSwapInFlight — it can abort after the hold", async () => {
+    // ★★★ THE CRITICAL THIS PIN EXISTS FOR. `switchToProject` shipped as
+    //  `"changes-scope"` for one round, which re-opened B1 on four paths: an
+    //  unknown id, an already-current target, a missing file handle, and a
+    //  write-permission prompt the user can DENY. On each of those nothing is
+    //  replaced — so arming the ref kills a live AI turn for a switch that never
+    //  happened, silently, which is the exact defect the flag was added to stop.
+    // ★★ THE FIXTURE IS THE FIRST OF THOSE PATHS, chosen because it needs no
+    //  mocking to reach: an id the registry does not hold. The op toasts and
+    //  returns without touching a backend, so if the ref were armed it would be
+    //  armed for nothing, which is the whole claim.
+    // ★ It is named on the op, not the flag, so flipping `switchToProject` back to
+    //  `"changes-scope"` turns this red.
+    const backend = makeBackend(0);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(100);
+    expect(result.current.isSwapInFlight()).toBe(false);
+
+    let duringInvoke = true;
+    let op: Promise<void> = Promise.resolve();
+    act(() => {
+      op = result.current.switchToProject("no-such-project");
+      duringInvoke = result.current.isSwapInFlight();
+    });
+    expect(duringInvoke).toBe(false);
+    // Control: the op really ran and really bailed — without this, "false" could
+    // just mean nothing was invoked.
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "projectSwitchNotFound"));
+
+    await act(async () => { await op; });
+    await advance(100);
+    expect(result.current.isSwapInFlight()).toBe(false);
+  });
+
+  // The TEN held ops (in flight → resolved / threw, and each one's §596 scope flag) are pinned in
+  // use-storage-backend.hold-ops.test.tsx. ★ It said nine, and was missing `onPickStorageFile` —
+  // the op whose flag is the B1 fix — for as long as that table was.
 
   it("(f) is TRUE before hydration (no load has even started), and settles once hydration runs the load", async () => {
     const backend = makeBackend(100);

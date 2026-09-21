@@ -10,6 +10,7 @@
 // `use-storage-turso-ops.test.ts`. Those are the tests that fail if a call site
 // is missed; these are the ones that fail if the machine itself is wrong.
 import { readFileSync } from "node:fs";
+import { stripComments } from "../test/strip-comments";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useLoadTruncation } from "./use-load-truncation";
@@ -785,8 +786,71 @@ describe("ops files — no unguarded backend access (source scan)", () => {
   // dormant. It is kept because the next path that genuinely must stay silent
   // needs somewhere to say so — a bare lower count would be satisfied by a file
   // that simply forgot.
+  /**
+   * The census's four tallies for one file's source.
+   *
+   * ★★★ EXTRACTED SO THE COMMENT-STRIP CAN BE KILLED. With the two `reportFor[(]` recipes in
+   * `use-storage-file-ops.ts` now bracketed, removing the strip leaves the real files GREEN — the
+   * brackets and the strip are defence in depth over the same hazard, so neither mutates the other
+   * into failure. A strip that no real file can kill is a gesture, so the fixture test below feeds
+   * this helper a source whose ONLY `reportFor(` is inside a comment. That fixture cannot be
+   * "fixed" by bracketing, because its whole purpose is to be the unbracketed shape.
+   * ★★ `fileName` is passed through to the stripper on purpose: it picks TS vs TSX parse mode, and
+   * `strip-comments.ts` records a real `.ts`-only shape that garbles under a TSX parse.
+   */
+  const censusCounts = (raw: string, fileName: string) => {
+    const src = stripComments(raw, fileName);
+    const LOAD_SPELLINGS = [/\.load\(\)/g, /loadFromHandleForBackend\(/g];
+    return {
+      loads: LOAD_SPELLINGS.reduce((acc, re) => acc + (src.match(re)?.length ?? 0), 0),
+      reports: src.match(/reportFor\(/g)?.length ?? 0,
+      importReports: src.match(/reportImportFor\(/g)?.length ?? 0,
+      // ★★★ READ FROM `raw`, NOT `src`, AND THE ASYMMETRY IS DELIBERATE — the marker IS a comment,
+      // so stripping removes it and an exempt site would read as an unreported load. The two reads
+      // answer two different questions: "what does this file DO" (stripped) and "what does it CLAIM"
+      // (original). ★ It also cannot inflate `reports`: the marker is `NO reportFor:`, with no open
+      // paren, so it never matched `/reportFor\(/` even before the strip.
+      exempt: raw.match(new RegExp(REPORT_EXEMPT_MARKER, "g"))?.length ?? 0,
+    };
+  };
+
+  it("the census counts code, not prose — a reporter named in a comment is not a report", () => {
+    // A load that reports NOTHING, with a grep recipe in its docstring — the exact shape that held
+    // this census green over §590's missing report for a whole branch.
+    const fixture = [
+      "/** Re-derive the readers with `grep -rn \"reportFor(\" src/app`. */",
+      "async function readIt(backend: B, handle: H) {",
+      "  return loadFromHandleForBackend(backend, handle);",
+      "}",
+    ].join("\n");
+    const counted = censusCounts(fixture, "fixture.ts");
+    expect(counted.loads).toBe(1); // control: the load IS seen, so the 0 below is not vacuity
+    expect(counted.reports).toBe(0);
+    // …and the same source read raw is what the defect looked like: a phantom report balancing the
+    // ledger over a load that reports nothing.
+    expect(fixture.match(/reportFor\(/g)).toHaveLength(1);
+  });
+
   it.each(CENSUS_FILES)("%s reports for every load it does not explicitly exempt", (file) => {
-    const src = readFileSync(file, "utf8");
+    // ★★★ COUNTED AGAINST COMMENT-STRIPPED SOURCE, AND THAT IS THE WHOLE POINT OF THIS LINE.
+    // This census read RAW text until §590's review round, so PROSE COULD FILL EITHER SIDE OF THE
+    // LEDGER. It did: two comments in `use-storage-file-ops.ts` carry `grep -n "reportFor("` recipes
+    // naming this very function, and each counted as a report. Measured at that round's base, with
+    // the recipes discounted, the file read `loads=4, sum=3` — RED. In other words THIS GATE WAS
+    // BUILT TO CATCH EXACTLY THE DEFECT §590's C1 WAS (a load path that applies rows and reports
+    // nothing), it was standing over that defect for a whole branch, and it stayed green because a
+    // comment explaining how to find its own call sites was occupying the missing report's slot.
+    // A gate defeated by prose reports success, which is worse than no gate.
+    // ★★ The DANGEROUS direction is the other one, and it has not happened yet: a comment mentioning
+    // `.load()` or `loadFromHandleForBackend(` inflates `loads`, which makes the ledger demand a
+    // report that no code needs — and the obvious repair is to add one, or to mark an exemption, at
+    // a site that has neither. Both sides are stripped, so neither can happen.
+    // ★★★ THE STRIPPER IS THE SHARED `src/test/strip-comments.ts`, NOT A REGEX AND NOT
+    // `ts.transpileModule`. That module's header records three hand-rolled attempts that were each
+    // tested, reviewed and wrong; and it is length-PRESERVING (comments blanked to spaces), which
+    // `transpileModule` is not — it also rewrites the code it emits, so a count taken over its
+    // output is a count over something the repo does not ship.
+    const raw = readFileSync(file, "utf8");
     // ★★★ A LOAD IS COUNTED BY ITS SPELLING, AND A NEW SPELLING IS INVISIBLE
     // UNTIL ADDED HERE. onOpenStorageFile used to call `await backend.load()`; closing
     // open-followups §287 replaced it with `loadFromHandleForBackend(backend, handle)`
@@ -807,12 +871,10 @@ describe("ops files — no unguarded backend access (source scan)", () => {
     // spelling added tomorrow counts as zero loads, and a file that also adds no report
     // stays green. Re-derive today's facade load helpers with:
     //   grep -n 'export function load' src/app/storage.ts
-    const LOAD_SPELLINGS = [/\.load\(\)/g, /loadFromHandleForBackend\(/g];
-    const loads = LOAD_SPELLINGS.reduce((acc, re) => acc + (src.match(re)?.length ?? 0), 0);
-    const reports = src.match(/reportFor\(/g)?.length ?? 0;
-    const importReports = src.match(/reportImportFor\(/g)?.length ?? 0;
-    const exemptRe = new RegExp(REPORT_EXEMPT_MARKER, "g");
-    const exempt = src.match(exemptRe)?.length ?? 0;
+    //
+    // The counting itself lives in `censusCounts` above, so the comment-strip it performs can be
+    // mutated and killed by the fixture test beside it — see that helper's own landmine.
+    const { loads, reports, importReports, exempt } = censusCounts(raw, file);
     expect(loads, `${file}: no load sites found — the census would be vacuous`).toBeGreaterThan(0);
     expect(
       reports + importReports + exempt,

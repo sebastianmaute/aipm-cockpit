@@ -15,6 +15,8 @@ No environment variables are **required** — all integrations work via in-app S
 | `NEXT_PUBLIC_MSAL_TENANT_ID` | Microsoft Entra tenant ID (overrides Settings → Integrations input) |
 | `NEXT_PUBLIC_TURSO_DATABASE_URL` | Turso database URL (overrides Settings → Integrations input) |
 | `NEXT_PUBLIC_TURSO_AUTH_TOKEN` | Turso auth token (overrides Settings → Integrations input); **recommend a scoped token** |
+| `NEXT_PUBLIC_AI_POLICY_ORG` | Organisation named as the AI-usage policy owner on the AI Assistant consent screen (overrides Settings → AI Assistant input) |
+| `NEXT_PUBLIC_AI_POLICY_URL` | Link to that AI-usage policy (overrides Settings → AI Assistant input). Must be `https://`; any other value is ignored and Settings says so. Set it together with `NEXT_PUBLIC_AI_POLICY_ORG`: a custom owner without a link shows no policy link at all, never the built-in Acme one |
 
 > ⚠️ **Security:** When entered in Settings, the Anthropic API key and Turso auth token are **encrypted at rest** (AES-256-GCM; see [Security Model](#security-model)). A Turso token supplied via `NEXT_PUBLIC_TURSO_AUTH_TOKEN` is different — `NEXT_PUBLIC_*` env vars are **inlined into the build at compile time and are not secret**, so prefer a database/operation-scoped token there and rotate it if it may have been exposed. The Jira and Timelog API tokens and the dictation (STT) API key are likewise **encrypted at rest**; their identifying fields (Jira site URL & email; Timelog host, tenant & email) are stored in `localStorage` unencrypted (identifying, not secret).
 

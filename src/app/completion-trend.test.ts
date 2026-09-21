@@ -69,6 +69,8 @@ describe("computeCompletionTrend", () => {
     const out = computeCompletionTrend({ snapshots, activity, tasks: [], currentDone: 9, currentTotal: 10, today: "2026-06-21" });
     expect(out.map((p) => p.percent)).toEqual([20, 55]);
     expect(out[1].label).toBe("06-14");
+    // The full day too, so the tile can space points by TIME and print dates.
+    expect(out.map((p) => p.date)).toEqual(["2026-06-10", "2026-06-14"]);
   });
 
   test("falls back to activity-log reconstruction when < 2 snapshots", () => {
@@ -86,6 +88,7 @@ describe("computeCompletionTrend", () => {
     const out = computeCompletionTrend({ snapshots: [], activity, tasks, currentDone: 6, currentTotal: 10, today: "2026-06-21" });
     expect(out.map((p) => p.percent)).toEqual([50, 60]);
     expect(out.map((p) => p.label)).toEqual(["06-18", "06-20"]);
+    expect(out.map((p) => p.date)).toEqual(["2026-06-18", "2026-06-20"]);
   });
 
   // ★★ WAS "created/deleted shift total; reopened decrements done", and the

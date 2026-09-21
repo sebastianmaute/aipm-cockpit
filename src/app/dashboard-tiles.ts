@@ -29,11 +29,15 @@
  * ★ `kpi` DID later move to h:3, for a different reason (§585): at half width
  * on xl its cells wrap to a second row in BOTH densities, and h:3 is what keeps
  * that row out of an inner scroll. `milestones` stays h:2.
- * ★★ `kpi`'s `minH` is now 3 too (§585 fix round), so with `maxH` already 3
- * its height is effectively FIXED — a user cannot shrink it back to h:2 and
- * reintroduce the inner scroll the h:3 default exists to avoid. A stored
- * layout below the new floor is clamped up by `reconcile`; the resize menu
- * renders no chooser at all for a `min === max` axis (`arrangement-block-menu.tsx`).
+ * ★★ `kpi`'s height is no longer FIXED. The §585 fix round pinned it
+ * (`minH === maxH`) because a stored or chosen h:2 put the wrapped second row
+ * of cells behind an inner scroll. The Dashboard now MEASURES every tile whose
+ * height the user has not chosen (`use-measured-heights.ts`), so the strip gets
+ * the rows its cells actually need at the current width — the pin was a proxy
+ * for that measurement, taken at one viewport, and every wider screen paid for
+ * it. The range is therefore a real range again: a user may choose a height,
+ * and a chosen height is kept as chosen. The h:3 default above is now only what
+ * renders before (or without) a measurement.
  */
 
 // ★ TYPE-ONLY, and that is what keeps the "i18n-free" promise above true: the
@@ -51,7 +55,7 @@ export type TileHeight = BlockHeight;
 
 export type DashboardTileId =
   | "kpi" | "topActions" | "insights" | "raid" | "upcoming"
-  | "progress" | "trends" | "burn" | "milestones" | "changes" | "completionTrend";
+  | "trends" | "burn" | "milestones" | "changes" | "completionTrend";
 
 /** Which module flags must be on for a tile to exist for this project. */
 export interface TileGateInput {
@@ -82,6 +86,9 @@ export interface TileSpec {
    * to BOTH dicts first, or `tsc` is telling you the tile has no title.
    */
   labelKey: TranslationKey;
+  /** Optional i18n key for an info tooltip beside the title, saying what the
+   *  tile shows. Same KEY-not-string rule as `labelKey`. */
+  hintKey?: TranslationKey;
   w: TileWidth;
   h: TileHeight;
   minW: TileWidth;
@@ -102,22 +109,23 @@ const ALWAYS = () => true;
 // ★★ `kpi` IS 2×3 SO IT SITS BESIDE `burn` ON xl (§585). The xl grid is four
 // columns with `grid-flow-row-dense`, so a 2-wide KPI tile packs into columns
 // 3–4 of burn's first rows; at its former w:4 it could not fit there and landed
-// below all eight of burn's rows. At half width its four or five cells wrap to
-// a second row, and h:3 is what keeps that row inside the tile body instead of
-// behind a scroll — measured by `e2e/dashboard-grid.spec.ts` in both
-// densities. The upgrade resizes a stored 4×2 to match.
+// below all of burn's rows. At half width its cells wrap to a second row.
+// ★ h:3 is now only the height rendered BEFORE a measurement (and when none
+// can be taken). What keeps the wrapped row inside the tile body is the
+// measured height (`use-measured-heights.ts`), checked by
+// `e2e/dashboard-grid.spec.ts` in both densities. The upgrade resizes a stored
+// 4×2 to match.
 export const DASHBOARD_TILES: readonly TileSpec[] = [
   { id: "burn",            labelKey: "dashboardBudgetBurn",     w: 2, h: 8, minW: 1, maxW: 4, minH: 4, maxH: 8, gate: (g) => g.showBudget },
-  { id: "kpi",             labelKey: "dashboardKpiTile",        w: 2, h: 3, minW: 2, maxW: 4, minH: 3, maxH: 3, gate: ALWAYS },
+  { id: "kpi",             labelKey: "dashboardKpiTile",        w: 2, h: 3, minW: 2, maxW: 4, minH: 2, maxH: 4, gate: ALWAYS },
   { id: "topActions",      labelKey: "dashboardTopActions",     w: 2, h: 3, minW: 2, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.hasTopActions },
   { id: "insights",        labelKey: "dashboardInsights",       w: 2, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.hasInsights },
   { id: "raid",            labelKey: "dashboardRaidRegister",   w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.showRaid },
   { id: "upcoming",        labelKey: "dashboardUpcoming",       w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 4, gate: ALWAYS },
-  { id: "progress",        labelKey: "dashboardProgress",       w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 3, gate: ALWAYS },
   { id: "trends",          labelKey: "dashboardTrends",         w: 1, h: 2, minW: 1, maxW: 2, minH: 2, maxH: 3, gate: (g) => g.tursoActive },
   { id: "milestones",      labelKey: "dashboardMilestones",     w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.showMilestones },
   { id: "changes",         labelKey: "dashboardChangesHeading", w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.showChanges },
-  { id: "completionTrend", labelKey: "dashboardCompletionTrend", w: 2, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.hasCompletionTrend },
+  { id: "completionTrend", labelKey: "dashboardCompletionTrend", hintKey: "dashboardCompletionTrendHint", w: 2, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.hasCompletionTrend },
 ];
 
 /** ★ DELEGATES to the engine's `specById` rather than re-implementing the find.

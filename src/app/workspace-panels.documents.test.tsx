@@ -78,6 +78,7 @@ import { SETTINGS_KEY } from "./use-settings";
 import { emptyRegistry, saveRegistry } from "./projects-registry";
 import { savePortfolioMode, saveCurrentTursoProjectId } from "./portfolio-mode";
 import { __resetSafeModeCache } from "./safe-mode";
+import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
 
 /** A loopback URL so `getTursoConfig` needs no auth token: it requires one only
  *  for `https://` endpoints. That keeps the settings fixture clear of the
@@ -138,6 +139,23 @@ describe("DocumentsTabPanel — call-site wiring", () => {
     renderTab(true);
     await screen.findByTestId("documents-panel-stub");
     expect(seen.at(-1)).toMatchObject({ isReadOnly: true });
+  });
+
+  it("passes the export footer from the stored branding", async () => {
+    // ★ The prop is optional on the panel and on `downloadDocument`, so dropping
+    //   it here would fall back to the built-in footer with tsc and every
+    //   leaf test green. Settings hydrate after mount, hence the waitFor.
+    renderTab(false, () =>
+      window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ branding: { exportFooter: "Acme GmbH" } })),
+    );
+    await screen.findByTestId("documents-panel-stub");
+    await waitFor(() => expect(seen.at(-1)).toMatchObject({ exportFooter: "Acme GmbH" }));
+  });
+
+  it("passes the built-in footer when none is stored — the control for the case above", async () => {
+    renderTab(false);
+    await screen.findByTestId("documents-panel-stub");
+    expect(seen.at(-1)).toMatchObject({ exportFooter: DEFAULT_EXPORT_FOOTER });
   });
 
   it("passes isReadOnly=false in the main window", async () => {

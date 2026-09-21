@@ -4,6 +4,9 @@ import type { AddableReportId } from "./addable-reports";
 import type { StakeholderQuadrant } from "./stakeholders";
 import type { FeatureModuleId } from "./feature-modules";
 import { ALL_MODULE_IDS } from "./feature-modules";
+import { MAX_AI_POLICY_FIELD } from "./ai-policy";
+import { BRANDING_EXPORT_FOOTER_MAX } from "./export-footer";
+export { DEFAULT_EXPORT_FOOTER, NEUTRAL_EXPORT_FOOTER, BRANDING_EXPORT_FOOTER_MAX, exportFooterText } from "./export-footer";
 import type { Lang } from "./i18n";
 // Type-only: erased at compile time, so this does NOT create a runtime cycle
 // with help-content.ts (which has runtime exports of its own).
@@ -51,6 +54,10 @@ export type AiConfig = {
   activityRecap?: boolean; // The ambient activity recap sentence. Default ON (undefined = on).
   chatSearch?: boolean; // The search_chats tool + the ambient chat pointer. Default ON (undefined = on).
   maxChatTurns?: number; // Max assistant round-trips per user message (integer 1–50). Default 12.
+  // The AI-usage policy the consent screen points to (`ai-policy.ts`). undefined = the built-in
+  // default, "" = deliberately cleared. A NEXT_PUBLIC_AI_POLICY_* build value overrides both.
+  policyOrgName?: string;
+  policyUrl?: string;
 };
 
 /** Is the `search_history` tool live?
@@ -164,6 +171,10 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     actionSuggestions: obj.actionSuggestions === false ? false : undefined,
     chatSearch: obj.chatSearch === false ? false : undefined,
     maxChatTurns: coerceTurns(obj.maxChatTurns),
+    // ★ Kept as typed (length-capped only): `resolveAiPolicy` is the one place that
+    //   judges them, so a stored unsafe link resolves to "no policy", never an href.
+    policyOrgName: typeof obj.policyOrgName === "string" ? obj.policyOrgName.slice(0, MAX_AI_POLICY_FIELD) : undefined,
+    policyUrl: typeof obj.policyUrl === "string" ? obj.policyUrl.slice(0, MAX_AI_POLICY_FIELD) : undefined,
   };
 }
 
@@ -514,6 +525,11 @@ export interface BrandingConfig {
    *  scheme JSON carrying one would survive sanitizeBranding and round-trip
    *  through exportScheme, but could still never be applied.) */
   startLogo?: string;
+  /** Footer line of HTML, print/PDF and PowerPoint exports (`exportFooterText`). `undefined` =
+   *  never set → `DEFAULT_EXPORT_FOOTER`; `""` = cleared → `NEUTRAL_EXPORT_FOOTER`.
+   *  ★ Like `startLogo`, no scheme owns it: `mergeAppliedBranding` leaves it alone,
+   *  so its only editor is the ungated row in Settings → Appearance. */
+  exportFooter?: string;
 }
 /** Default bottom footer-bar tagline (used when no custom footerSlogan is set). */
 export const DEFAULT_FOOTER_SLOGAN = "Command your projects - AI-assisted tracking that plugs into M365, Jira and Timelog. Local-first, no backend.";
@@ -549,7 +565,14 @@ export function sanitizeBranding(obj: unknown): BrandingConfig | undefined {
   if (typeof o.startLogo === "string" && BRANDING_LOGO_RE.test(o.startLogo) && o.startLogo.length <= BRANDING_LOGO_MAX_LEN) {
     out.startLogo = o.startLogo;
   }
-  return out.logo || out.slogan || out.footerSlogan || out.favicon || out.startLogo ? out : undefined;
+  // ★ An EMPTY export footer is kept: it means "cleared" (the neutral footer),
+  //   which is not the same as never set (the default), so it counts as present.
+  if (typeof o.exportFooter === "string") {
+    out.exportFooter = o.exportFooter.trim().slice(0, BRANDING_EXPORT_FOOTER_MAX);
+  }
+  return out.logo || out.slogan || out.footerSlogan || out.favicon || out.startLogo || out.exportFooter !== undefined
+    ? out
+    : undefined;
 }
 
 /** Entity types that can be written back to the Outlook calendar. */

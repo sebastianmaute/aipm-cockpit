@@ -178,11 +178,11 @@ describe("report-blocks — label keys in DE", () => {
     // ★★ THE MEASUREMENT, so nobody re-litigates this from the prop argument
     // alone. Derived from `labelKey:` in `report-blocks.ts` plus `titleKey:` in
     // `addable-reports.ts` (13 keys), resolved through both dictionaries:
-    //   EN: Headline · Group health · Open tasks by status · Completion
+    //   EN: At a glance · Group health · Open tasks by status · Completion
     //       outcomes · Status inquiries · By assignee · By priority · By group ·
     //       By label · RAID Report · Budget Report · Resource report ·
     //       Stakeholder Report
-    //   DE: Überblick · Status nach Gruppe · Offene Aufgaben nach Status ·
+    //   DE: Auf einen Blick · Status nach Gruppe · Offene Aufgaben nach Status ·
     //       Erledigungsergebnisse · Statusabfragen · Nach Zugewiesenem · Nach
     //       Priorität · Nach Gruppe · Nach Label · RAID-Report · Budgetbericht ·
     //       Ressourcen-Bericht · Stakeholder-Bericht
@@ -218,10 +218,10 @@ describe("report-blocks — label keys in DE", () => {
   it("actually loaded the DE dictionary, rather than falling back to EN", () => {
     // ★ The positive control for the test above. Without it, a broken
     // `loadI18n` would make every DE assertion an EN assertion in disguise —
-    // green, and covering nothing. `reportsHeadline` is the key this slice
-    // added, and its two values differ.
-    expect(t("de", "reportsHeadline")).toBe("Überblick");
-    expect(t("de", "reportsHeadline")).not.toBe(t("en-US", "reportsHeadline"));
+    // green, and covering nothing. `reportsGroupHealth` is a catalogue title
+    // whose two values differ.
+    expect(t("de", "reportsGroupHealth")).toBe("Status nach Gruppe");
+    expect(t("de", "reportsGroupHealth")).not.toBe(t("en-US", "reportsGroupHealth"));
   });
 });
 
