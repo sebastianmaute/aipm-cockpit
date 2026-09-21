@@ -118,6 +118,10 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // never invalidates for no input change.
   const snapshots = props.snapshots ?? EMPTY_SNAPSHOTS;
   const { ref: sizeRef, reset: resetSize } = useResizable("aipm-cockpit:dashboard-size");
+  // ★★ Every Reset layout is a re-measure trigger, whatever it changed. A board that differed from
+  // the default only in widths or order leaves the measure key otherwise unchanged; see
+  // `useMeasuredHeights`.
+  const [resetNonce, setResetNonce] = useState(0);
 
   const model = useMemo(
     () =>
@@ -403,8 +407,13 @@ export function DashboardPanel(props: DashboardPanelProps) {
     .map((id) => sizeById.get(id))
     .filter((p): p is PlacedTile => p !== undefined && isRenderable(p.id));
   const visibleIds = visible.map((p) => p.id);
+  const resetLayout = () => {
+    arrangement.reset();
+    setResetNonce((n) => n + 1);
+  };
   const measured = useMeasuredHeights({
     density,
+    resetNonce,
     tiles: visible.map((p) => {
       const s = tileById(p.id)!;
       return { id: p.id, minH: s.minH, maxH: s.maxH, flagged: p.hSet === true };
@@ -612,7 +621,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                   Without it a popout — a surface with no grip, no ⋮ menu and no
                   tray by design — gains a working reset. */}
               {!arrangement.readOnly && (
-                <ResetLayoutButton onClick={arrangement.reset} lang={lang} />
+                <ResetLayoutButton onClick={resetLayout} lang={lang} />
               )}
               <ResetSizeButton onClick={resetSize} lang={lang} />
               {/* Spec C decision 2: the hidden-tiles badge, directly under Reset

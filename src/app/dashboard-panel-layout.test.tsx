@@ -10,6 +10,13 @@ import { groupNextActions } from "./next-actions/group";
 import { rowLabel } from "./row-tokens";
 import { t, tPlural } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
+import { useMeasuredHeights } from "./use-measured-heights";
+
+// A pass-through spy: the real hook runs, and its arguments are observable.
+vi.mock("./use-measured-heights", async (orig) => {
+  const m = await orig<typeof import("./use-measured-heights")>();
+  return { ...m, useMeasuredHeights: vi.fn(m.useMeasuredHeights) };
+});
 
 /**
  * Spec C: the Dashboard's fixed rows, exercised through the real panel.
@@ -225,5 +232,27 @@ describe("DashboardPanel row 1, the badge and the tray (spec C)", () => {
     const badge = screen.getByRole("button", { name: badgeName(1) });
     expect(badge).toHaveAttribute("aria-expanded", "false");
     expect(document.getElementById(DASHBOARD_SHELF_TRAY_ID)).toHaveAttribute("hidden");
+  });
+});
+
+describe("DashboardPanel Reset layout re-measures (adaptive heights)", () => {
+  // ★★ jsdom has no layout, so the hook measures nothing here; what is pinned is the WIRING. A board
+  // that differs from the default only in widths or order leaves every other key input unchanged,
+  // so without a fresh nonce on each Reset the hook would never run again.
+  it("hands the measure hook a new reset nonce on every Reset layout, and not on a plain re-render", async () => {
+    const user = userEvent.setup();
+    const spy = vi.mocked(useMeasuredHeights);
+    const lastNonce = () => spy.mock.calls[spy.mock.calls.length - 1][0].resetNonce;
+    const { rerender } = render(<DashboardPanel {...baseProps} projectId="p-reset-nonce" />, { wrapper });
+    const initial = lastNonce();
+    rerender(<DashboardPanel {...baseProps} projectId="p-reset-nonce" />);
+    expect(lastNonce()).toBe(initial);
+
+    const reset = screen.getByRole("button", { name: t(EN, "arrangementResetLayout") });
+    await user.click(reset);
+    const afterFirst = lastNonce();
+    expect(afterFirst).not.toBe(initial);
+    await user.click(reset);
+    expect(lastNonce()).not.toBe(afterFirst);
   });
 });

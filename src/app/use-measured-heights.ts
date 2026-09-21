@@ -1,5 +1,5 @@
 /**
- * Measures each unflagged tile's content once per trigger (mount, density change) and returns a
+ * Measures each unflagged tile's content once per trigger (see the key comment) and returns a
  * render-time height override. NEVER persisted: a stored measured height would read as a user's
  * choice on the next open and freeze the board.
  *
@@ -49,13 +49,18 @@ function measureTile(section: HTMLElement, t: MeasuredTile): BlockHeight | null 
 export function useMeasuredHeights(args: {
   density: string;
   tiles: readonly MeasuredTile[];
+  /** Bumped by the panel on every Reset layout. See the key comment below. */
+  resetNonce: number;
 }): ReadonlyMap<string, BlockHeight> {
   const [measured, setMeasured] = useState<ReadonlyMap<string, BlockHeight>>(() => new Map());
-  const { density, tiles } = args;
-  // ★★ The re-measure key covers density, WHICH tiles are present, and each tile's FLAG — never its
-  // height, which would loop. The flag is in the key because Reset clears every flag without
-  // changing density or the tile set. Without it, a tile the user had resized would stay at its
-  // default after Reset instead of being measured, which is what the spec says Reset does.
+  const { density, tiles, resetNonce } = args;
+  // ★★ The re-measure key covers density, WHICH tiles are present, each tile's FLAG and the reset
+  // nonce — never a height, which would loop, and never a WIDTH (a width change alone does not
+  // re-measure; a widened tile is picked up at the next trigger of any kind). The flag is in the key
+  // because clearing it hands the tile back to measurement. ★★ The flag alone does NOT make Reset
+  // re-measure: a board that differs from the default only in widths or order has no flag to clear,
+  // so its key would be unchanged and Reset would keep every stale reading. `resetNonce` is what
+  // makes every Reset a trigger.
   // ★ Sorted by id, so a drag preview that only REORDERS the board does not re-measure: order
   // changes position, never width, so it cannot change a reading.
   // ★★ The effect reads its tiles back OUT OF THE KEY rather than closing over `tiles`. The panel
@@ -83,7 +88,7 @@ export function useMeasuredHeights(args: {
       setMeasured((prev) => (sameMap(prev, next) ? prev : next));
     });
     return () => cancelAnimationFrame(raf);
-  }, [density, tileKey]);
+  }, [density, tileKey, resetNonce]);
 
   return measured;
 }

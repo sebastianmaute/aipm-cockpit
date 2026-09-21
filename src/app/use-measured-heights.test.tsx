@@ -6,13 +6,14 @@ import { rowsForHeight } from "./arrangement-measure";
 const TILE_A: MeasuredTile = { id: "a", minH: 2, maxH: 4, flagged: false };
 
 function Probe({
-  onResult, density, tiles = [TILE_A],
+  onResult, density, tiles = [TILE_A], resetNonce = 0,
 }: {
   onResult: (m: ReadonlyMap<string, number>) => void;
   density: string;
   tiles?: MeasuredTile[];
+  resetNonce?: number;
 }) {
-  const m = useMeasuredHeights({ density, tiles });
+  const m = useMeasuredHeights({ density, tiles, resetNonce });
   onResult(m);
   return (
     <div data-arrangement-grid="" style={{ gridAutoRows: "80px", rowGap: "16px" }}>
@@ -120,5 +121,29 @@ describe("useMeasuredHeights", () => {
     await flushRaf();
     expect(last.get("a")).toBe(2);
 
+  });
+
+  it("re-measures on a Reset nonce alone — a width-only board has no flag to clear", async () => {
+    stubLayout(CHILD);
+    let last: ReadonlyMap<string, number> = new Map();
+    const onResult = (m: ReadonlyMap<string, number>) => { last = m; };
+    const { rerender } = render(<Probe onResult={onResult} density="comfortable" resetNonce={0} />);
+    await flushRaf();
+    const before = rowsForHeight(CHILD + 16, 80, 16, 39, 2, 4);
+    expect(last.get("a")).toBe(before);
+
+    // The content now reads differently (as it would after Reset narrows a widened tile), but
+    // density, tile set and flags are all unchanged: without a trigger the old reading stays.
+    vi.restoreAllMocks();
+    stubLayout(20);
+    rerender(<Probe onResult={onResult} density="comfortable" resetNonce={0} />);
+    await flushRaf();
+    expect(last.get("a")).toBe(before);
+
+    // Reset bumps the nonce, and that alone must pick the new reading up.
+    rerender(<Probe onResult={onResult} density="comfortable" resetNonce={1} />);
+    await flushRaf();
+    expect(last.get("a")).toBe(rowsForHeight(20 + 16, 80, 16, 39, 2, 4));
+    expect(last.get("a")).not.toBe(before);
   });
 });
