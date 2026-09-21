@@ -47,6 +47,10 @@ changes; every fix below closes a register entry found in an earlier review.
   already superseded by that tool's own describer, which produces a real link diff; the review
   card's comment listing the tools that still render an empty plan is corrected to point at the
   test that pins that list, rather than restating a copy that had already gone stale once.
+- **The assistant's review card now shows a recurring meeting's end the way an update saves it.**
+  When a change re-sent a stored end date that is not a real calendar day together with a repeat
+  count, the card showed the count while the save kept the end date. The card and the save now
+  judge that end date by one shared rule. `§605` is closed.
 
 ## [1.12.5] - 2026-09-20 "Child"
 

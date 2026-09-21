@@ -4,6 +4,7 @@ import { describeToolCalls, describeEntityCalls, isEmptyPlan, stripRejectedField
 import { INLINE_DESCRIPTORS } from "./entity-descriptor";
 import { inlinePatchValue } from "../use-inline-entity-edit";
 import { type Workspace } from "../workspace";
+import { sanitizeCalendarEventForUpdate, type CalendarEvent } from "../calendar-event";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const task = { id: 42, taskName: "Fix login bug", assignee: "Anna", dueDate: "2026-08-12", status: "To Do", priority: "Medium" } as any;
@@ -1638,6 +1639,42 @@ describe("a date is judged by its own writer's rule", () => {
     );
     expect(plan.updates).toEqual([]);
     expect(plan.rejected[0].detail).toBe("startDate=2026-01-32");
+  });
+});
+
+// §605 — CARD ⇔ WRITE on a CARRIED `until`. The update writer keeps a stored `until` equal to
+//  the incoming one even when it is calendar-invalid (§542), and then drops a co-sent `count`.
+//  The card judged `until` by the create rule alone and printed ", 5 times" instead. Each case
+//  pins the card AND the real writer's outcome, so the two cannot agree by both being wrong.
+describe("a recurrence re-sending a stored invalid until previews what the update writes", () => {
+  const meeting = {
+    id: 60, title: "Standup", startDate: "2026-01-05", startTime: "09:00", durationMinutes: 15,
+    recurrence: { freq: "daily", interval: 1, until: "2026-04-31" },
+  } as CalendarEvent;
+  const calWs = wsWith({ calendarEvents: [meeting] as never });
+
+  function cardAndWrite(recurrence: Record<string, unknown>) {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_calendar_event", input: { id: 60, recurrence } }],
+      { descriptor: INLINE_DESCRIPTORS.calendarEvent, item: meeting as never, ws: calWs },
+    );
+    const written = sanitizeCalendarEventForUpdate({ ...meeting, recurrence }, meeting);
+    return { plan, written: written?.recurrence };
+  }
+
+  it("shows the carried until as the terminator, as the write keeps it", () => {
+    const { plan, written } = cardAndWrite({ freq: "daily", interval: 2, until: "2026-04-31", count: 5 });
+    expect(written).toEqual({ freq: "daily", interval: 2, until: "2026-04-31" });
+    expect(plan.rejected).toEqual([]);
+    expect(plan.updates.map((u) => [u.field, u.before, u.after])).toEqual([
+      ["recurrence", "Every day until 2026-04-31", "Every 2 days until 2026-04-31"],
+    ]);
+  });
+
+  it("still shows the count for an invalid until the write does not carry", () => {
+    const { plan, written } = cardAndWrite({ freq: "daily", interval: 2, until: "2026-02-30", count: 5 });
+    expect(written).toEqual({ freq: "daily", interval: 2, count: 5 });
+    expect(plan.updates.map((u) => [u.field, u.after])).toEqual([["recurrence", "Every 2 days, 5 times"]]);
   });
 });
 

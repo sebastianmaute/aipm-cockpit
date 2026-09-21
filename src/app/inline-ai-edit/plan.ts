@@ -317,7 +317,7 @@ function numberPreview(v: unknown): string {
 export function previewNormalizerFor(
   d: EntityDescriptor,
   field: string,
-): ((v: unknown, row: Record<string, unknown>) => string) | undefined {
+): EntityDescriptor["fieldSanitizers"][string] | undefined {
   return d.fieldSanitizers[field] ?? (d.numberFields.has(field) ? numberPreview : undefined);
 }
 
@@ -602,9 +602,11 @@ function describeEntityCallsOnce(
         // ★★ BOTH SIDES ALSO TAKE THE SAME (MERGED) ROW, for the same reason:
         // normalising `before` against the OLD row and `after` against the new
         // one would report a change the write does not make.
+        // ★ The STORED row goes third, for an entry whose writer judges a value
+        //  by what it replaces (§605, `calendarEvent.recurrence`).
         const normalize = previewNormalizerFor(d, f);
-        const before = normalize ? normalize(item[f], merged) : str(item[f]);
-        const after = normalize ? normalize(input[f], merged) : str(input[f]);
+        const before = normalize ? normalize(item[f], merged, item) : str(item[f]);
+        const after = normalize ? normalize(input[f], merged, item) : str(input[f]);
         // ★ `field: f` for EVERY field-level refusal, the group one included: its
         //  detail names the whole group, but the field under judgement is `f`.
         const bad = (detail: string) => plan.rejected.push({ toolName: name, reason: "bad-input", detail, field: f });

@@ -13,7 +13,7 @@
 //  verbatim, a changed one judged as on create). See the reader block below.
 
 import { sanitizeMultiline, sanitizeText, toNumber } from "./sanitize";
-import { isRealCalendarDate } from "./sanitize-core";
+import { acceptsCarriedOrRealDate, isRealCalendarDate } from "./sanitize-core";
 import { calendarEventDateOnLoad } from "./sanitize-load-date";
 
 export const WEEKDAYS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] as const;
@@ -109,15 +109,25 @@ function readEventDateOnLoad(value: unknown, field: EventDateField, id: number):
 function carryStoredEventDates(stored: CalendarEvent): EventDateReader {
   const carried: Record<EventDateField, ReadonlySet<string>> = {
     startDate: new Set([stored.startDate]),
-    "recurrence.until": new Set(stored.recurrence?.until ? [stored.recurrence.until] : []),
+    "recurrence.until": carriedUntilOf(stored),
     "exceptions.date": new Set((stored.exceptions ?? []).map((e) => e.date)),
     "exceptions.toDate": new Set(
       (stored.exceptions ?? []).flatMap((e) => (e.kind === "move" ? [e.toDate] : [])),
     ),
   };
   return function readForUpdate(value, field) {
-    return typeof value === "string" && carried[field].has(value) ? value : strictEventDate(value);
+    return acceptsCarriedOrRealDate(value, carried[field]) ? value : undefined;
   };
+}
+
+/** The `recurrence.until` an UPDATE of `stored` carries verbatim (§542), as the set
+ *  `acceptsCarriedOrRealDate` reads. Exported so the review card derives it from the stored
+ *  row the same way the writer does (§605). Takes an untyped row because the card holds one.
+ *  ★ A hoisted `function` declaration, for the barrel-cycle reason on `acceptsEventDuration`. */
+export function carriedUntilOf(stored: { readonly recurrence?: unknown }): ReadonlySet<string> {
+  const rule = stored.recurrence;
+  const until = rule && typeof rule === "object" ? (rule as { until?: unknown }).until : undefined;
+  return new Set(typeof until === "string" && until ? [until] : []);
 }
 
 function intInRange(v: unknown, lo: number, hi: number, fallback: number): number {

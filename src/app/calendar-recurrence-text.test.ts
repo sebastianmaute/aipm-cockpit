@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { recurrenceText } from "./calendar-recurrence-text";
-import { sanitizeCalendarEvent } from "./calendar-event";
+import {
+  carriedUntilOf, sanitizeCalendarEvent, sanitizeCalendarEventForUpdate, type CalendarEvent,
+} from "./calendar-event";
 
 describe("recurrenceText", () => {
   it("describes a plain daily rule", () => {
@@ -357,5 +359,40 @@ describe("recurrenceText matches sanitizeCalendarEvent (differential)", () => {
     // so the assertion above is about the parse leg and not about the branch
     // being dead.
     expect(recurrenceText(raw, "2026-07-08")).toBe("Every month on day 8");
+  });
+});
+
+// §605: an UPDATE carries a stored `until` equal to the incoming one VERBATIM, even when it is
+//  calendar-invalid (§542), so a rule re-sending it WITH a count keeps the until and drops the
+//  count. Differential against the REAL update writer; each case also pins a literal, because
+//  the RHS renders the written rule through this module too.
+describe("recurrenceText on an update matches sanitizeCalendarEventForUpdate (§605)", () => {
+  const stored = {
+    id: 1, title: "Standup", startDate: "2026-01-15", startTime: "09:00", durationMinutes: 15,
+    recurrence: { freq: "daily", interval: 1, until: "2026-04-31" },
+  } as CalendarEvent;
+
+  function writtenOnUpdate(raw: unknown): string {
+    const event = sanitizeCalendarEventForUpdate({ ...stored, recurrence: raw }, stored);
+    return recurrenceText(event?.recurrence, stored.startDate, carriedUntilOf(stored));
+  }
+
+  it("keeps a carried invalid until as the terminator, not the count", () => {
+    const raw = { freq: "daily", interval: 2, until: "2026-04-31", count: 5 };
+    expect(recurrenceText(raw, stored.startDate, carriedUntilOf(stored))).toBe(writtenOnUpdate(raw));
+    expect(recurrenceText(raw, stored.startDate, carriedUntilOf(stored))).toBe("Every 2 days until 2026-04-31");
+  });
+
+  it("still falls through to the count for an invalid until the update does not carry", () => {
+    const raw = { freq: "daily", interval: 2, until: "2026-02-30", count: 5 };
+    expect(recurrenceText(raw, stored.startDate, carriedUntilOf(stored))).toBe(writtenOnUpdate(raw));
+    expect(recurrenceText(raw, stored.startDate, carriedUntilOf(stored))).toBe("Every 2 days, 5 times");
+  });
+
+  it("falls through to the count on a create, which carries nothing", () => {
+    const raw = { freq: "daily", interval: 2, until: "2026-04-31", count: 5 };
+    const created = sanitizeCalendarEvent({ id: 1, title: "Standup", startDate: stored.startDate, recurrence: raw });
+    expect(recurrenceText(raw, stored.startDate)).toBe(recurrenceText(created?.recurrence, stored.startDate));
+    expect(recurrenceText(raw, stored.startDate)).toBe("Every 2 days, 5 times");
   });
 });

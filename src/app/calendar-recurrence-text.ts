@@ -30,7 +30,9 @@
 // `INLINE_DESCRIPTORS.calendarEvent.fieldSanitizers.recurrence`, whose entries
 // are typed `(v, row) => string` and which `describeEntityCalls` calls with the
 // MERGED row (the model may be moving `startDate` in the same call, and
-// `sanitizeRecurrence` reads the NEW start). No signature had to widen at all.
+// `sanitizeRecurrence` reads the NEW start). No signature had to widen for
+// that. §605 later widened it by an optional third argument, the STORED row,
+// for the carried `until` (see `rangeSuffix`).
 // ★ The degrade still matters: pass the rule alone and the card silently loses
 // the `until >= startDate` resolution and the byMonthDay fallback, with nothing
 // failing — which is why the descriptor entry spells the row read out rather
@@ -49,7 +51,7 @@
 // this projection. That is a design call for wiring time, not for this
 // module; tracked separately.
 
-import { isRealCalendarDate, toNumber } from "./sanitize-core";
+import { acceptsCarriedOrRealDate, isRealCalendarDate, toNumber } from "./sanitize-core";
 import type { RecurrenceRule } from "./calendar-event";
 
 // Mirrors WEEKDAYS in calendar-event.ts. Duplicated rather than imported —
@@ -60,6 +62,9 @@ import type { RecurrenceRule } from "./calendar-event";
 const WEEKDAYS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] as const;
 type Weekday = (typeof WEEKDAYS)[number];
 
+/** A create's carry-set: nothing, so `until` is judged by the strict rule. */
+const NOTHING_CARRIED: ReadonlySet<string> = new Set();
+
 /** The date rule `sanitizeCalendarEvent` WRITES with (§542): a real calendar
  *  date, any year — `isRealCalendarDate`, the same function the writer calls,
  *  imported from the leaf `sanitize-core.ts` (no barrel, so the header rule
@@ -68,11 +73,9 @@ type Weekday = (typeof WEEKDAYS)[number];
  *  May 1); the write now refuses it, so a card that still printed it named a
  *  terminator the write discards — the false-claim shape the header forbids.
  *  The differential tests against the REAL `sanitizeCalendarEvent` pin it.
- *  ★ The card asks the CREATE rule, not the update one. An update CARRIES a
- *   date equal to the stored one, so a rule re-sending a stored month-overflow
- *   `until` is kept by the write while this omits it: incomplete, and on the
- *   safe side except when the same rule also carries a `count`, which the
- *   card then prints and the write drops. */
+ *  ★ This is the CREATE rule, and since §605 it judges only the start date.
+ *   The `until` is judged in `rangeSuffix` by the UPDATE rule when the caller
+ *   passes the stored event's carried `until`. */
 function isValidIsoDate(v: string): boolean {
   return isRealCalendarDate(v);
 }
@@ -173,12 +176,21 @@ function validCount(v: unknown): number | undefined {
 // `count` there could show a terminator the write silently discards in
 // favour of `until`, and printing `until` could show one the write rejects
 // in favour of `count`. Both are false-claim shapes the header forbids.
-function rangeSuffix(r: { until?: unknown; count?: unknown }, startDate: string | undefined): string {
-  // ★★ `isValidIsoDate`, not the bare regex. `sanitizeRecurrence` runs its
-  //  date reader here, so a regex-shaped but INVALID `until` ("2026-13-01",
-  //  and since §542 "2026-04-31") is known-rejected by the write and must fall
-  //  through to `count` — printing it named a terminator the write discards.
-  const until = typeof r.until === "string" && isValidIsoDate(r.until) ? r.until : undefined;
+function rangeSuffix(
+  r: { until?: unknown; count?: unknown },
+  startDate: string | undefined,
+  carriedUntil: ReadonlySet<string>,
+): string {
+  // ★★ The writer's own date rule, not the bare regex. `sanitizeRecurrence`
+  //  runs its date reader here, so a regex-shaped but INVALID `until`
+  //  ("2026-13-01", and since §542 "2026-04-31") is known-rejected by a create
+  //  and must fall through to `count` — printing it named a terminator the
+  //  write discards.
+  // ★★★ UNLESS AN UPDATE CARRIES IT (§605). The update writer keeps an `until`
+  //  equal to the stored one verbatim, calendar-invalid or not, and then drops
+  //  a co-sent `count`. `acceptsCarriedOrRealDate` is the writer's predicate,
+  //  not a copy of it; an empty `carriedUntil` (a create) makes it the strict rule.
+  const until = acceptsCarriedOrRealDate(r.until, carriedUntil) ? r.until : undefined;
   if (until) {
     if (startDate === undefined) return "";
     if (until >= startDate) return ` until ${until}`;
@@ -191,8 +203,11 @@ function rangeSuffix(r: { until?: unknown; count?: unknown }, startDate: string 
  *  with an optional ` until <date>` or `, N times` tail. "" for a non-rule.
  *  Pass `startDate` (the entity's own, ISO `YYYY-MM-DD`) to resolve the
  *  byMonthDay fallback and the until/count precedence exactly as the write
- *  path would; omit it and both degrade to "omit, don't guess" (see header). */
-export function recurrenceText(rule: unknown, startDate?: string): string {
+ *  path would; omit it and both degrade to "omit, don't guess" (see header).
+ *  On an UPDATE, pass `carriedUntil` — `carriedUntilOf(stored)` — so a stored
+ *  `until` the patch re-sends is judged as the update writer judges it (§605);
+ *  omit it for a create, which carries nothing. */
+export function recurrenceText(rule: unknown, startDate?: string, carriedUntil?: ReadonlySet<string>): string {
   if (!isRule(rule)) return "";
   const r = rule as RecurrenceRule & {
     byDay?: unknown;
@@ -224,5 +239,5 @@ export function recurrenceText(rule: unknown, startDate?: string): string {
     }
   }
 
-  return out + rangeSuffix(r, startDate);
+  return out + rangeSuffix(r, startDate, carriedUntil ?? NOTHING_CARRIED);
 }

@@ -278,6 +278,16 @@ export function isRealCalendarDate(value: string): boolean {
   return utc.getUTCFullYear() === y && utc.getUTCMonth() === m - 1 && utc.getUTCDate() === d;
 }
 
+/** §542 / §605: the UPDATE rule for a date an update may leave untouched — a value in
+ *  `carried` (the stored date(s) for that field) is accepted verbatim even when it is not a
+ *  real calendar date; any other must be one (`isRealCalendarDate`). ★★ ONE spelling, shared
+ *  by the writer (`carryStoredEventDates` in calendar-event.ts) and the review card's
+ *  recurrence line (`recurrenceText`): a per-path copy is how the card came to print a
+ *  count the write dropped in favour of a carried `until` (§605). */
+export function acceptsCarriedOrRealDate(value: unknown, carried: ReadonlySet<string>): value is string {
+  return typeof value === "string" && (carried.has(value) || isRealCalendarDate(value));
+}
+
 /** A `YYYY-MM-DD` string that is a REAL calendar date in 1900..2100, returned
  *  verbatim; otherwise "". ★ §539: the shape and year alone let "2026-13-01",
  *  "2026-00-10" and "2026-02-30" through. The `Date.UTC` round trip rejects a
