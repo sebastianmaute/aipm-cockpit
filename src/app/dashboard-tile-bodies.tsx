@@ -39,6 +39,8 @@ import { BurndownChainWarning } from "./budget-chain-warning";
 import { VarianceSummary } from "./variance-summary";
 import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
 import { Sparkline } from "./sparkline";
+import { formatDayMonth } from "./forecast-format";
+import { localeFor } from "./date-format";
 import { EmptyState } from "./empty-state";
 import { INTERACTIVE } from "./interaction-styles";
 import { DashboardKpiStrip } from "./dashboard-sections/dashboard-kpi-strip";
@@ -252,22 +254,43 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
         ariaLabel={t(lang, a.tursoActive ? "dashboardOpenTrendsView" : "dashboardOpenTasksView")}
         className={dc.cardPad}
       >
-        <div className="mb-1 flex items-baseline justify-end">
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {t(lang, "dashboardCompletionTrendPoints", a.completionSeries.length)}
-          </span>
-        </div>
-        <Sparkline
-          points={a.completionSeries}
-          ariaLabel={t(
-            lang,
-            "dashboardCompletionTrendAria",
-            a.completionSeries[a.completionSeries.length - 1].percent,
-            a.completionSeries[0].percent,
-            a.completionSeries.length,
-          )}
-        />
+        <CompletionTrendBody lang={lang} points={a.completionSeries} today={a.model.chartDates.today} />
       </ActivateBody>
     ) : null,
   };
 }
+
+/** The Completion trend line with the context that makes it a trend: the first
+ *  and last values above it, and their dates below it ("Today" when the last
+ *  point is today's figure). ★ The dates are the point of this component — a
+ *  line with no time axis says nothing. The accessible name carries the same
+ *  four facts, dated, for a screen reader. */
+function CompletionTrendBody({ lang, points, today }: {
+  lang: Lang;
+  points: readonly CompletionPoint[];
+  today: string;
+}) {
+  const first = points[0];
+  const last = points[points.length - 1];
+  const locale = localeFor(lang);
+  const firstDate = formatDayMonth(first.date, locale);
+  const lastDate = formatDayMonth(last.date, locale);
+  const edge = "flex justify-between text-xs text-muted-foreground tabular-nums";
+  return (
+    <>
+      <div className={`mb-1 ${edge}`} aria-hidden="true">
+        <span>{first.percent}%</span>
+        <span>{last.percent}%</span>
+      </div>
+      <Sparkline
+        points={points}
+        ariaLabel={t(lang, "dashboardCompletionTrendAria", last.percent, lastDate, first.percent, firstDate)}
+      />
+      <div className={`mt-1 ${edge}`} aria-hidden="true">
+        <span>{firstDate}</span>
+        <span>{last.date === today ? t(lang, "dashboardCompletionTrendToday") : lastDate}</span>
+      </div>
+    </>
+  );
+}
+

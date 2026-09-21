@@ -12,6 +12,9 @@ import { isTaskDelivered } from "./task-closed";
 import type { Task } from "./types";
 
 export interface CompletionPoint {
+  /** The day, "YYYY-MM-DD" — what the Sparkline spaces points by and the tile
+   *  prints under the line. A trend with no dates says nothing. */
+  date: string;
   /** Short day label "MM-DD" for tooltips/labels. */
   label: string;
   /** Completion percentage, clamped to [0, 100]. */
@@ -70,6 +73,7 @@ function fromSnapshots(snapshots: readonly SnapshotRecord[]): CompletionPoint[] 
   if (snapshots.length < 2) return [];
   const sorted = [...snapshots].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
   return trailing(sorted).map((s) => ({
+    date: s.capturedAt.slice(0, 10),
     label: dayLabel(s.capturedAt),
     percent: clampPctValue(s.pctComplete),
   }));
@@ -328,6 +332,7 @@ function reconstructFromActivity(
     total -= days[i].dTotal;
   }
   const points = days.map((d, i) => ({
+    date: d.day.slice(0, 10),
     label: dayLabel(`${d.day}`),
     percent: clampPctFromCounts(endState[i].done, endState[i].total),
   }));

@@ -783,7 +783,30 @@ describe("DashboardPanel completion-trend card", () => {
     expect(container.querySelector("polyline")).not.toBeNull();
     // The graphic carries an announced accessible name (role=img), not a dead
     // aria-label on a bare wrapper div.
-    expect(screen.getByRole("img", { name: /Completion trend: \d+% now/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Completion trend: 55% on Jun 14, from 20% on Jun 10" })).toBeInTheDocument();
+    // ★ Dated, because a trend with no time axis says nothing: the start and
+    //   end dates sit under the line, the start and end values above it.
+    const tile = screen.getByTestId("tile-completionTrend");
+    for (const text of ["Jun 10", "Jun 14", "20%", "55%"]) {
+      expect(within(tile).getByText(text)).toBeInTheDocument();
+    }
+    expect(within(tile).queryByText("Today")).toBeNull();   // the last point is not today (2026-06-21)
+    expect(within(tile).queryByText(/points$/)).toBeNull(); // the bare point count is gone
+  });
+
+  it("labels the last point Today when it is today's figure", () => {
+    withTrendOnBoard("p-trend-today");
+    render(
+      <DashboardPanel
+        {...baseProps}
+        projectId="p-trend-today"
+        snapshots={[snapRec("2026-06-10T00:00:00.000Z", 20), snapRec("2026-06-21T09:00:00.000Z", 60)]}
+      />,
+      { wrapper },
+    );
+    const tile = screen.getByTestId("tile-completionTrend");
+    expect(within(tile).getByText("Today")).toBeInTheDocument();
+    expect(within(tile).getByText("Jun 10")).toBeInTheDocument();   // positive control: the start still dated
   });
 
   it("hides the trend card when there is no series", () => {

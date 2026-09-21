@@ -676,17 +676,22 @@ IS in axe `A11Y_VIEWS`. Built as slices:
   `fill` (`h-full`, and `flex flex-col` on the button — a stretched `<button>` otherwise centres its content
   vertically). jsdom sees only the classes; the heights are measured in `e2e/dashboard-grid.spec.ts`'s
   KPI-strip fit test. Trend templates are i18n EN+DE.
-- **Completion-trend sparkline ("trajectory"):** compact axis-less line of % complete over time, in a
+- **Completion-trend sparkline ("trajectory"):** compact DATED line of % complete over time (first/last value above it, first/last date below it — "Today" when the
+  last point is today's figure; `CompletionTrendBody` in `dashboard-tile-bodies.tsx`), in a
   self-hiding card below the KPI strip. Pure i18n-free `completion-trend.ts`
   `computeCompletionTrend({snapshots, activity, currentDone, currentTotal, today})` → `CompletionPoint[]`
-  (`{label,percent}`). ★★ SOURCE PRIORITY: if `snapshots` yields ≥2 points → exact
+  (`{date,label,percent}` — `date` is the full "YYYY-MM-DD" day on BOTH paths, what the line is spaced by). ★★ SOURCE PRIORITY: if `snapshots` yields ≥2 points → exact
   `SnapshotRecord.pctComplete` series (Turso path); ELSE reconstruct done/total from the LOCAL activity log —
   anchor at the live counts and walk `task.created/completed/reopened/deleted` BACKWARD per day (deleted
   task's done-state unknown → assumed NOT done; documented approximation, like `newOverdue`). Neither ≥2 →
   `[]` (card hidden). Pure: `today`+counts passed in; percents clamped 0–100; future-dated + non-task events
   ignored; trailing cap `MAX_POINTS=12`. ★ ALWAYS-ON, no `tursoConfig` guard — on file/IDB `snapshots` is
   `[]` so the log path runs automatically (reads snapshots opportunistically, never WRITES). Presentational
-  `sparkline.tsx` (pure SVG `<polyline>`, `stroke-ui-dark-blue`, null for <2 points; optional `ariaLabel`
+  `sparkline.tsx` (pure SVG `<polyline>` plus one dot per point, `stroke-ui-dark-blue`, null for <2 points; ★ X is TIME —
+  points placed by `date`, so a three-week gap between activity days looks like one (even spacing only as a fallback
+  for an unparseable or single-day series); ★ Y is a FIXED 0–100 scale, never min–max-stretched, so a 5-point move
+  looks like 5 points; each dot is a zero-length round-capped path with `vector-effect: non-scaling-stroke`, because
+  the SVG is stretched non-uniformly and a `<circle>` would draw as an ellipse; optional `ariaLabel`
   prop → SVG gets `role="img"`+`aria-label`, else `aria-hidden` decorative — name rides the GRAPHIC, not the
   bare card div). ★ New optional `DashboardPanel` prop `snapshots?` threaded from `trends.snapshots`; the
   panel reads `activity` straight off `useWorkspace()`'s `activityLog` slice (no activity prop —
