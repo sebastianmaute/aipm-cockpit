@@ -680,13 +680,16 @@ function describeEntityCallsOnce(
         // ★★★ THE ENTITY'S OWN DATE RULE, defaulting to `sanitizeIsoDate` —
         //  which is what `sanitizeAbsence` and every register sanitizer call,
         //  so seven of the eight descriptors want the default and must keep it.
-        //  `sanitizeCalendarEvent` calls `isoDateOrUndefined` instead (regex +
-        //  `Date.parse`, NO year bound, against the default's regex + calendar
-        //  check + 1900–2100). §539 closed the field-range overflow direction
-        //  (`"2026-01-32"`, which used to preview as accepted then throw in
-        //  `updateCalendarEvent`). Two directions still differ: the year bound
-        //  (`"1899-12-31"` still lands), and a month-specific overflow
-        //  (`"2026-02-30"`) this rule refuses but the writer still accepts.
+        //  Calendar events differ: their writers read dates through one of
+        //  three readers, one per path (§542) — CREATE a real calendar date
+        //  with NO year bound, LOAD what loaded before §542, UPDATE carrying a
+        //  date equal to the stored one and judging any other as on create.
+        //  §539 and §542 closed the overflow direction (`"2026-01-32"`, then
+        //  `"2026-02-30"`, each of which used to preview as accepted then throw
+        //  in `updateCalendarEvent`). ONE direction still differs, the year
+        //  bound (`"1899-12-31"` lands), so that descriptor's `acceptsDate`
+        //  asks the create rule — exact for an update too, because the update
+        //  form only carries an UNCHANGED date and this guard never sees one.
         if (d.dateFields.has(f) && after !== "" && !(d.acceptsDate ?? defaultAcceptsDate)(after)) { bad(`${f}=${after}`); continue; }
         // ★★ A THROW ON APPLY COSTS THE WHOLE PATCH, not just this field. Every
         // email field's writer now throws through `refuseEmailWrite` (changed-

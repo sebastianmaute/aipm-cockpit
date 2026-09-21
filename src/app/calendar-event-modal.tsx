@@ -21,8 +21,11 @@
 // pure, so they're exhaustively testable directly rather than only through
 // DOM simulation of this form.
 //
-// ★★ Submit routes the assembled draft through sanitizeCalendarEvent — the
-// single validator — and calls onSave ONLY with its result. A null result
+// ★★ Submit routes the assembled draft through the calendar-event sanitizer —
+// `sanitizeCalendarEvent` for a new event, `sanitizeCalendarEventForUpdate`
+// against the stored `event` otherwise, so an untouched stored date the load
+// funnel kept (§542) is carried rather than refused — and calls onSave ONLY
+// with its result. A null result
 // (missing title/startDate) sets a field error and does not save, so this
 // modal can never emit a shape storage would reject.
 //
@@ -47,6 +50,7 @@ import { useDraftState } from "./use-draft-state";
 import {
   WEEKDAYS,
   sanitizeCalendarEvent,
+  sanitizeCalendarEventForUpdate,
   type CalendarEvent,
   type Weekday,
 } from "./calendar-event";
@@ -140,7 +144,7 @@ export function CalendarEventModal({ lang, event, isNew, onSave, onDelete, onClo
     e.preventDefault();
     if (!draft) return;
     const raw = { ...draft, recurrence: buildRecurrenceRule(recurrence) };
-    const sanitized = sanitizeCalendarEvent(raw);
+    const sanitized = isNew || !event ? sanitizeCalendarEvent(raw) : sanitizeCalendarEventForUpdate(raw, event);
     if (!sanitized) {
       setError(t(lang, "calendarEventErrorTitleRequired"));
       return;

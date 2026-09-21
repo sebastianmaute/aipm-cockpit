@@ -222,7 +222,15 @@ calendar actually shows; always derive it via `expandOccurrences`, never read th
   etc.). ★★ UNLIKE note-log's decoders, these do NOT self-validate — `sanitizeRecurrence` needs `startDate`
   for the `until >= start` cross-field check, which a decoder alone has no access to. A decoded cell is
   UNTRUSTED; any caller assembling a `CalendarEvent` from decoded cells MUST re-run the whole object through
-  `sanitizeCalendarEvent()` before using it.
+  a calendar-event sanitizer before using it — on a load path the load form, `sanitizeLoadedCalendarEvent()`.
+- ★★★ THREE SANITIZER FORMS, ONE PER PATH, differing only in how they read a date (§542):
+  `sanitizeCalendarEvent` (CREATE: a real calendar date, NO year bound), `sanitizeLoadedCalendarEvent`
+  (LOAD: exactly what loaded before §542, via `calendarEventDateOnLoad`, a kept non-calendar value reported)
+  and `sanitizeCalendarEventForUpdate(input, stored)` (UPDATE: a date equal to the stored one is carried, any
+  other judged as on create). A load site left on the strict form silently DROPS a stored meeting, and a load
+  reader that blanks a stored `until` turns a bounded series unbounded. The three load sites —
+  `BrowserBackend.load`, `jsonToWorkspace`, `buildCalendarEventFromObj` (CSV, Markdown, both Turso layouts) —
+  reach all six backends. ★ The update form takes TWO arguments: never pass it point-free.
 - ★★ Every CSV/MD cell for an unset column decodes to a real `""`, never `undefined`, so
   `sanitizeText(...) || undefined` is the RULE for any optional string arm — a bare
   `typeof === "string"` check keeps the empty string as a value and it round-trips as one.

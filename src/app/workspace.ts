@@ -48,7 +48,7 @@ import { sanitizeDocumentVersionsWithDiag, type DocVersion } from "./document-ve
 import { logDiag } from "./diagnostics";
 import type { SettingsOverrides } from "./settings-types";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
-import { type CalendarEvent, sanitizeCalendarEvent } from "./calendar-event";
+import { type CalendarEvent, sanitizeLoadedCalendarEvent } from "./calendar-event";
 import { sanitizeDocumentAsset, type DocumentAsset } from "./document-asset";
 import {
   type Absence,
@@ -166,7 +166,7 @@ export type Workspace = {
    *  undefined/empty serializes to nothing (byte-stable). Field declaration
    *  only — load/save wiring (JSON/IndexedDB/app state) lands in a later task;
    *  this task wires CSV + Turso persistence via ENTITY_SPECS. Sanitized by
-   *  sanitizeCalendarEvent. */
+   *  sanitizeLoadedCalendarEvent on load (§542). */
   calendarEvents?: readonly CalendarEvent[];
   /** Document asset METADATA. Bytes live in the `document_asset_data` side
    *  table and never travel here — a JSON backup re-imported into a different
@@ -780,11 +780,11 @@ export function jsonToWorkspace(
       if (hasAnyOverride(overrides)) raw.settingsOverrides = overrides;
     }
     // Additive: sanitize incoming calendar events when present; garbage rows
-    // are dropped individually (sanitizeCalendarEvent never throws), and an
+    // are dropped individually (sanitizeLoadedCalendarEvent never throws), and an
     // all-garbage/empty list stays off the key rather than emitting [].
     if (p.calendarEvents !== undefined) {
       const events = ((p.calendarEvents as unknown[]) ?? [])
-        .map((e) => sanitizeCalendarEvent(e))
+        .map((e) => sanitizeLoadedCalendarEvent(e))
         .filter((e): e is CalendarEvent => e !== null);
       if (events.length) raw.calendarEvents = events;
     }

@@ -1,10 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   sanitizeCalendarEvent, encodeRecurrence, decodeRecurrence,
   encodeExceptions, decodeExceptions, encodeAttendees, decodeAttendees,
   applyOccurrenceMove, acceptsEventDate,
+  sanitizeLoadedCalendarEvent, sanitizeCalendarEventForUpdate,
 } from "./calendar-event";
 import type { CalendarEvent, RecurrenceRule } from "./calendar-event";
+import { buildCalendarEventFromObj } from "./csv-codecs-core";
+import { __resetNonCalendarDateReportsForTests } from "./sanitize-load-date";
+import { clearDiagLog, readDiagLog } from "./diagnostics";
+import { emptyWorkspace, jsonToWorkspace, workspaceToJson } from "./workspace";
 
 const base = { id: 1, title: "Standup", startDate: "2026-07-27", startTime: "09:00", durationMinutes: 15 };
 
@@ -304,5 +309,105 @@ describe("acceptsEventDate", () => {
     expect(acceptsEventDate("2026-1-1")).toBe(false);
     expect(acceptsEventDate(null)).toBe(false);
     expect(acceptsEventDate("2026-07-27")).toBe(true);
+  });
+
+  // §542: the preview asks the CREATE rule, so a day that overflows its own
+  //  month is refused here exactly as the strict write refuses it.
+  it("refuses a day that overflows its month, as the create rule does", () => {
+    expect(acceptsEventDate("2026-02-30")).toBe(false);
+    expect(acceptsEventDate("2028-02-29")).toBe(true);
+  });
+});
+
+const ev = (over: Record<string, unknown> = {}) => ({
+  id: 7, title: "Standup", startDate: "2026-03-02", startTime: "09:00", durationMinutes: 15, ...over,
+});
+const weekly = (until: string) => ({ freq: "weekly", interval: 1, until });
+const kept = () => readDiagLog().filter((e) => e.code === "storage.nonCalendarDateKept").map((e) => e.fields);
+
+describe("§542 date rules — create, load and update each have their own", () => {
+  beforeEach(() => { __resetNonCalendarDateReportsForTests(); clearDiagLog(); });
+
+  // (a) CREATE: a real calendar date, any year. (a1)–(a3) are RED against the
+  //  pre-§542 rule, which accepted every one of these and rolled it over.
+  it("(a1) refuses a calendar-invalid startDate", () => {
+    expect(sanitizeCalendarEvent(ev({ startDate: "2026-02-30" }))).toBeNull();
+  });
+  it("(a2) omits a calendar-invalid until and keeps the rule", () => {
+    const out = sanitizeCalendarEvent(ev({ recurrence: weekly("2026-04-31") }));
+    expect(out?.recurrence).toBeDefined();
+    expect(out?.recurrence?.until).toBeUndefined();
+  });
+  it("(a3) drops an exception with an invalid date, and degrades a move with an invalid toDate to a skip", () => {
+    const out = sanitizeCalendarEvent(ev({
+      recurrence: weekly("2026-06-30"),
+      exceptions: [
+        { date: "2026-02-30", kind: "skip" },
+        { date: "2026-03-09", kind: "move", toDate: "2026-04-31" },
+      ],
+    }));
+    expect(out?.exceptions).toEqual([{ date: "2026-03-09", kind: "skip" }]);
+  });
+  it("(a4) has no year bound: 2200 is accepted on create", () => {
+    expect(sanitizeCalendarEvent(ev({ startDate: "2200-01-05" }))?.startDate).toBe("2200-01-05");
+  });
+
+  // (b) LOAD: everything that loaded before §542 still loads, unchanged.
+  //  ★★ These are GREEN against the pre-§542 code too, and must be: they are the
+  //  REGRESSION GUARD for the load funnels, not evidence of the fix. They go red
+  //  only when a load site is left on the strict form, or when the load reader
+  //  blanks instead of keeping (mutants 2c–2f).
+  it("(b1) keeps a stored calendar-invalid startDate, and reports it", () => {
+    const out = sanitizeLoadedCalendarEvent(ev({ startDate: "2026-02-30" }));
+    expect(out?.startDate).toBe("2026-02-30");
+    expect(kept()).toEqual([{ source: "workspace", entity: "calendarEvent", id: 7, field: "startDate" }]);
+  });
+  it("(b1b) reports nothing for a real date", () => {
+    sanitizeLoadedCalendarEvent(ev());
+    expect(kept()).toEqual([]); // absence: paired with (b1), which proves the probe can see one
+  });
+  it("(b2) keeps a stored calendar-invalid until, so the series stays BOUNDED", () => {
+    const out = sanitizeLoadedCalendarEvent(ev({ recurrence: weekly("2026-04-31") }));
+    expect(out?.recurrence?.until).toBe("2026-04-31");
+  });
+  it("(b3) keeps a stored event outside 1900–2100", () => {
+    expect(sanitizeLoadedCalendarEvent(ev({ startDate: "2200-01-05" }))?.startDate).toBe("2200-01-05");
+  });
+  it("(b4) still drops what was always dropped: a month outside 01–12", () => {
+    expect(sanitizeLoadedCalendarEvent(ev({ startDate: "2026-13-01" }))).toBeNull();
+  });
+  it("(b5) the CSV / Markdown / Turso funnel keeps it too", () => {
+    const out = buildCalendarEventFromObj({
+      id: "7", title: "Standup", startDate: "2026-02-30", startTime: "09:00", durationMinutes: "15",
+      recurrence: JSON.stringify(weekly("2026-04-31")), exceptions: "", attendeeResourceIds: "",
+    });
+    expect(out?.startDate).toBe("2026-02-30");
+    expect(out?.recurrence?.until).toBe("2026-04-31");
+  });
+
+  // (d) UPDATE: an untouched stored date is carried; a changed one must be real.
+  const stored: CalendarEvent = {
+    id: 7, title: "Standup", startDate: "2026-02-30", startTime: "09:00", durationMinutes: 15,
+    recurrence: { freq: "weekly", interval: 1, until: "2026-04-31" },
+  };
+  it("(b6) the JSON funnel keeps it too", () => {
+    const text = workspaceToJson({ ...emptyWorkspace(), calendarEvents: [stored] });
+    expect(text).toContain("2026-02-30"); // presence: the fixture really reached the stored form
+    const out = jsonToWorkspace(text);
+    expect(out.calendarEvents?.[0]?.startDate).toBe("2026-02-30");
+    expect(out.calendarEvents?.[0]?.recurrence?.until).toBe("2026-04-31");
+  });
+  it("(d1) saves a title-only edit of an event whose stored dates are calendar-invalid", () => {
+    const out = sanitizeCalendarEventForUpdate({ ...stored, title: "Daily" }, stored);
+    expect(out?.title).toBe("Daily");
+    expect(out?.startDate).toBe("2026-02-30");
+    expect(out?.recurrence?.until).toBe("2026-04-31");
+  });
+  it("(d2) refuses a CHANGE to another calendar-invalid date", () => {
+    expect(sanitizeCalendarEventForUpdate({ ...stored, startDate: "2026-04-31" }, stored)).toBeNull();
+  });
+  it("(d3) accepts a change to a real date", () => {
+    expect(sanitizeCalendarEventForUpdate({ ...stored, startDate: "2026-03-02" }, stored)?.startDate)
+      .toBe("2026-03-02");
   });
 });

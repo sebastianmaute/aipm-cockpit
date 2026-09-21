@@ -1326,6 +1326,10 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
       <TestProviders seed={{
         milestones: [{ id: 7, name: "Go-live", date: "2026-02-30", linkedTaskIds: [] }],
         absences: [{ id: 9, assignee: "Alice", startDate: "2026-02-30", endDate: "2026-03-05", type: "vacation" }],
+        calendarEvents: [{
+          id: 11, title: "Standup", startDate: "2026-02-30", startTime: "09:00", durationMinutes: 15,
+          recurrence: { freq: "weekly", interval: 1, until: "2026-04-31" },
+        }],
       }}>
         {children}
       </TestProviders>
@@ -1364,6 +1368,22 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     const { result } = renderKeptRawProbe();
     expect(result.current.updateMilestone(7, { date: "2026-02-30", name: "Renamed" })?.name).toBe("Renamed");
     expect(result.current.updateAbsence(9, { startDate: "2026-02-30", note: "n" })?.startDate).toBe("2026-02-30");
+  });
+
+  // §542: calendar events ride the same carry. Before it, `updateCalendarEvent`
+  //  rebuilt the merged row through the STRICT create sanitizer, which refused
+  //  the untouched stored "2026-02-30" and threw on a title-only edit.
+  it("updates the title of a meeting whose stored dates were kept raw, carrying both dates (§542)", () => {
+    const { result } = renderKeptRawProbe();
+    expect(result.current.getCalendarEventRow(11)?.startDate).toBe("2026-02-30");
+
+    expect(() => result.current.updateCalendarEvent(11, { title: "Daily" })).not.toThrow();
+    const row = result.current.getCalendarEventRow(11);
+    expect(row?.title).toBe("Daily");
+    expect(row?.startDate).toBe("2026-02-30");
+    expect(row?.recurrence?.until).toBe("2026-04-31");
+    // …and a CHANGE to another non-calendar date is still refused.
+    expect(() => result.current.updateCalendarEvent(11, { startDate: "2026-04-31" })).toThrow("invalid meeting update");
   });
 
   it("still refuses a CHANGED non-calendar date on a kept-raw row, and leaves the row alone", () => {

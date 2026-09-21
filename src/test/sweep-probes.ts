@@ -114,7 +114,7 @@ export function changedInKind(v: unknown): unknown {
       // A regex-valid YYYY-MM-DD can still be calendar-invalid ("2026-13-01",
       // "2026-01-32") — `Date.parse` rejects an out-of-range month or day
       // (unlike a day that merely overflows its own month, which rolls over
-      // silently; see `isoDateOrUndefined` in calendar-event.ts). Such a
+      // silently; see the date-reader block in calendar-event.ts). Such a
       // `Date` is Invalid, and `.toISOString()` throws a RangeError.
       if (Number.isNaN(d.getTime())) return undefined;
       d.setUTCDate(d.getUTCDate() + 1);

@@ -1573,19 +1573,18 @@ describe("link fields honour the merge-site guard on the row and the create path
 
 // (C4) THE PER-ENTITY DATE VALIDATOR. The preview defaults to
 //  `sanitizeIsoDate` (regex + a real calendar date (§539) + 1900-2100) for
-//  every entity, but `sanitizeCalendarEvent` calls `isoDateOrUndefined` (regex
-//  + `Date.parse`, NO year bound). §539 closed the field-range overflow
-//  direction (day > 31 / month > 12, e.g. "2026-01-32") — pinned by the first
-//  case below. Two directions still differ: the year bound (second case), and
-//  a month-specific overflow ("2026-02-30") that `sanitizeIsoDate` refuses but
-//  `isoDateOrUndefined` still accepts and rolls over (`Date.parse` succeeds).
+//  every entity, but a calendar event's write rule is a real calendar date
+//  with NO year bound (§542; `acceptsEventDate`). §539 closed the field-range
+//  overflow direction (day > 31 / month > 12, e.g. "2026-01-32") — pinned by
+//  the first case below — and §542 the month-specific one ("2026-02-30"). ONE
+//  direction still differs: the year bound (second case).
 describe("a date is judged by its own writer's rule", () => {
   const meeting = { id: 60, title: "Steering committee", startDate: "2026-07-08" };
   const holiday = { id: 50, assignee: "Ada Lovelace", startDate: "2026-07-06", endDate: "2026-07-10" };
   const calWs = wsWith({ calendarEvents: [meeting] as never, absences: [holiday] as never });
 
   it("rejects an impossible calendar day the write would throw on", () => {
-    // `isoDateOrUndefined` returns undefined -> `sanitizeCalendarEvent` returns
+    // The write's date reader returns undefined -> the sanitizer returns
     // null -> `updateCalendarEvent` throws "invalid meeting update", which costs
     // the WHOLE patch. Previewing it as an accepted change was the worse half.
     const plan = describeEntityCalls(
@@ -1600,7 +1599,7 @@ describe("a date is judged by its own writer's rule", () => {
 
   it("accepts a pre-1900 date the write stores", () => {
     // The other direction: `sanitizeIsoDate`'s year bound rejected this in the
-    // preview while `isoDateOrUndefined` has none, so the write landed it behind
+    // preview while the calendar-event write rule has none, so it landed behind
     // a card that said it would not.
     const plan = describeEntityCalls(
       [{ type: "tool_use", name: "update_calendar_event", input: { id: 60, startDate: "1899-12-31" } }],

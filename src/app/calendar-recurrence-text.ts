@@ -12,7 +12,7 @@
 //
 // ★★★ PREVIEW⟺WRITE PARITY IS THE WHOLE POINT, so every branch below MIRRORS
 // the matching check in `sanitizeRecurrence` (calendar-event.ts) rather than
-// approximating it. `intInRange`/`isoDateOrUndefined`/`weekdayOrUndefined` and
+// approximating it. `intInRange`/`weekdayOrUndefined` and
 // `WEEKDAYS` are not exported from there (or would drag in that module's own
 // "./sanitize" barrel import if taken as a VALUE import), so this is a
 // deliberate hand-copy — kept honest by the differential tests below, which
@@ -49,7 +49,7 @@
 // this projection. That is a design call for wiring time, not for this
 // module; tracked separately.
 
-import { toNumber } from "./sanitize-core";
+import { isRealCalendarDate, toNumber } from "./sanitize-core";
 import type { RecurrenceRule } from "./calendar-event";
 
 // Mirrors WEEKDAYS in calendar-event.ts. Duplicated rather than imported —
@@ -60,24 +60,21 @@ import type { RecurrenceRule } from "./calendar-event";
 const WEEKDAYS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] as const;
 type Weekday = (typeof WEEKDAYS)[number];
 
-// Mirrors ISO_DATE in calendar-event.ts (also not exported).
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-/** Mirrors `isoDateOrUndefined` in calendar-event.ts, WHICH IS TWO LEGS, NOT
- *  ONE. Both call sites below used to test `ISO_DATE` alone, so `"2026-13-01"`
- *  — regex-shaped, unparseable — was treated as a valid date HERE while the
- *  write rejects it. On `rangeSuffix` that meant `{until: "2026-13-01", count:
- *  5}` printing "until 2026-13-01" against a write that stores "5 times": the
- *  card naming a terminator the write discards, which is the false-claim shape
- *  this module's header forbids.
- *
- *  ★★ HAND-COPIED RATHER THAN IMPORTED, deliberately and on this module's own
- *   standing rule: a VALUE import from `calendar-event.ts` pulls in that
- *   module's `./sanitize` barrel at runtime, which the header says this module
- *   avoids. The differential tests against the REAL `sanitizeCalendarEvent` are
- *   what keep the copy honest — that is the whole arrangement, not a shortcut. */
+/** The date rule `sanitizeCalendarEvent` WRITES with (§542): a real calendar
+ *  date, any year — `isRealCalendarDate`, the same function the writer calls,
+ *  imported from the leaf `sanitize-core.ts` (no barrel, so the header rule
+ *  holds). Before §542 this mirrored a two-leg rule, regex + `Date.parse`, and
+ *  that rule ACCEPTED a day that overflows its month (`"2026-04-31"` parses, to
+ *  May 1); the write now refuses it, so a card that still printed it named a
+ *  terminator the write discards — the false-claim shape the header forbids.
+ *  The differential tests against the REAL `sanitizeCalendarEvent` pin it.
+ *  ★ The card asks the CREATE rule, not the update one. An update CARRIES a
+ *   date equal to the stored one, so a rule re-sending a stored month-overflow
+ *   `until` is kept by the write while this omits it: incomplete, and on the
+ *   safe side except when the same rule also carries a `count`, which the
+ *   card then prints and the write drops. */
 function isValidIsoDate(v: string): boolean {
-  return ISO_DATE.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`));
+  return isRealCalendarDate(v);
 }
 
 const FREQ_UNIT: Readonly<Record<string, [string, string]>> = {
@@ -141,8 +138,8 @@ function validWeekdays(raw: unknown): Weekday[] {
 // rather than a guess.
 function fallbackDayOfMonth(startDate: string | undefined): number | undefined {
   // ★ `isValidIsoDate`, not the bare regex: the write derives this fallback from
-  //  a start that has ALREADY been through `isoDateOrUndefined`, so a
-  //  regex-shaped but unparseable start reaches the write as no event at all.
+  //  a start that has ALREADY been through its date reader, so a regex-shaped
+  //  but invalid start reaches the write as no event at all.
   //  "Omit, don't guess" is the honest answer here, not a day number.
   return typeof startDate === "string" && isValidIsoDate(startDate)
     ? Number(startDate.slice(8, 10))
@@ -177,10 +174,10 @@ function validCount(v: unknown): number | undefined {
 // favour of `until`, and printing `until` could show one the write rejects
 // in favour of `count`. Both are false-claim shapes the header forbids.
 function rangeSuffix(r: { until?: unknown; count?: unknown }, startDate: string | undefined): string {
-  // ★★ `isValidIsoDate`, not the bare regex. `sanitizeRecurrence` runs
-  //  `isoDateOrUndefined` here, so a regex-shaped but UNPARSEABLE `until`
-  //  ("2026-13-01") is known-rejected by the write and must fall through to
-  //  `count` — printing it named a terminator the write discards.
+  // ★★ `isValidIsoDate`, not the bare regex. `sanitizeRecurrence` runs its
+  //  date reader here, so a regex-shaped but INVALID `until` ("2026-13-01",
+  //  and since §542 "2026-04-31") is known-rejected by the write and must fall
+  //  through to `count` — printing it named a terminator the write discards.
   const until = typeof r.until === "string" && isValidIsoDate(r.until) ? r.until : undefined;
   if (until) {
     if (startDate === undefined) return "";

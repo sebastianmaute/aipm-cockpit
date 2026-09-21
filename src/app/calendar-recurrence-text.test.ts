@@ -333,6 +333,20 @@ describe("recurrenceText matches sanitizeCalendarEvent (differential)", () => {
     expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
   });
 
+  // §542: since the write refuses a day that overflows its MONTH, the card must
+  //  too — "2026-04-31" PARSES (to May 1), so before §542 both sides printed it.
+  //  Now the write drops it: the count survives here, and with no count the
+  //  series has no terminator at all, which the card must not dress up as one.
+  it("agrees that a month-overflowing until falls through to count (§542)", () => {
+    const raw = { freq: "daily", interval: 1, until: "2026-04-31", count: 5 };
+    expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
+    expect(recurrenceText(raw, START_DATE)).toBe("Every day, 5 times"); // presence: not vacuously ""
+  });
+  it("agrees that a month-overflowing until with no count leaves no terminator (§542)", () => {
+    const raw = { freq: "weekly", interval: 2, until: "2026-04-31" };
+    expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
+  });
+
   // The `fallbackDayOfMonth` half. An unparseable START makes the write reject
   // the whole event, so a day number derived from it is a guess about a write
   // that never happens — "omit, don't guess" is the rule this module states.

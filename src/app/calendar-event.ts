@@ -1,11 +1,20 @@
 // CalendarEvent — a timed meeting on the resource calendar, optionally
 // recurring. Pure, i18n-free, clock-free.
 //
-// The sanitizer NEVER throws: every load path (JSON import, CSV/MD decode,
-// Turso row, IndexedDB) runs untrusted data through it and expects null for an
-// unrecoverable record rather than an exception.
+// The sanitizers NEVER throw: every load path (JSON import, CSV/MD decode,
+// Turso row, IndexedDB) runs untrusted data through one and expects null for
+// an unrecoverable record rather than an exception.
+//
+// ★★★ THREE PUBLIC FORMS, ONE PER PATH, differing ONLY in how they read a
+//  date (§542): `sanitizeCalendarEvent` (CREATE: a real calendar date, any
+//  year), `sanitizeLoadedCalendarEvent` (LOAD: exactly what loaded before
+//  §542, a kept non-calendar value reported) and
+//  `sanitizeCalendarEventForUpdate` (UPDATE: an untouched stored date carried
+//  verbatim, a changed one judged as on create). See the reader block below.
 
 import { sanitizeMultiline, sanitizeText, toNumber } from "./sanitize";
+import { isRealCalendarDate } from "./sanitize-core";
+import { calendarEventDateOnLoad } from "./sanitize-load-date";
 
 export const WEEKDAYS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
@@ -36,7 +45,6 @@ export interface CalendarEvent {
   outlookEventId?: string;
 }
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const TITLE_MAX = 200;
 const LOCATION_MAX = 200;
@@ -48,25 +56,68 @@ const DEFAULT_DURATION = 60;
 const DURATION_MIN = 5;
 const DURATION_MAX = 1440;
 
-/** ★★★ THE `Date.parse` LEG IS A FIELD-RANGE CHECK, NOT A CALENDAR CHECK, and
- *  three comments across this slice called it the latter before it was
- *  measured. On an ISO date-ONLY string the spec's Date Time String Format
- *  requires MM in 01–12 and DD in 01–31, so `"2026-13-01"` and `"2026-01-32"`
- *  are NaN — but a day that overflows its own MONTH is accepted and silently
- *  rolled over: `"2026-02-30"` parses (to Mar 2) and `"2026-04-31"` parses (to
- *  May 1). This function returns the INPUT `v`, never the parsed date, so such
- *  a value is stored verbatim as written.
- *  ★★ THAT MATTERS TO ANYONE WRITING A TEST HERE: a case built on `2026-02-30`
- *   is VACUOUS, because both this rule and a bare regex accept it. One was
- *   written that way in `calendar-recurrence-text.test.ts` and survived the
- *   mutant meant to kill it. Reproduce:
- *   `node -e "for (const d of ['2026-01-32','2026-02-30','2026-13-01']) console.log(d, Date.parse(d+'T00:00:00Z'))"`
- *  ★ Closing the month-overflow hole would change what is STORED, and this
- *   sanitizer runs on every LOAD — an existing row would start being dropped.
- *   Stated, not fixed. */
-function isoDateOrUndefined(v: unknown): string | undefined {
-  return typeof v === "string" && ISO_DATE.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`))
-    ? v : undefined;
+// --- date readers: one per path (§542) -------------------------------------
+//
+// ★★★ BEFORE §542 ONE RULE SERVED EVERY PATH: the ISO shape plus
+//  `Date.parse`. THAT `Date.parse` LEG IS A FIELD-RANGE CHECK, NOT A CALENDAR
+//  CHECK, and three comments across this slice called it the latter before it
+//  was measured. On an ISO date-ONLY string the spec's Date Time String Format
+//  requires MM in 01–12 and DD in 01–31, so `"2026-13-01"` and `"2026-01-32"`
+//  are NaN — but a day that overflows its own MONTH is accepted and silently
+//  rolled over: `"2026-02-30"` parses (to Mar 2) and `"2026-04-31"` parses (to
+//  May 1). The rule returned the INPUT, never the parsed date, so such a value
+//  was stored verbatim as written and rendered on the wrong day.
+//  ★★ THAT MATTERS TO ANYONE WRITING A TEST HERE: against that old rule a case
+//   built on `2026-02-30` is VACUOUS, because it and a bare regex both accept
+//   it. One was written that way in `calendar-recurrence-text.test.ts` and
+//   survived the mutant meant to kill it. Reproduce:
+//   `node -e "for (const d of ['2026-01-32','2026-02-30','2026-13-01']) console.log(d, Date.parse(d+'T00:00:00Z'))"`
+//
+// ★★★ WHY THREE READERS AND NOT ONE STRICTER ONE. `startDate` is REQUIRED, and
+//  this module's body runs on every LOAD as well as every write, so tightening
+//  the one rule in place would have made every stored event with a
+//  month-overflow `startDate` vanish on its next load, and blanked a stored
+//  `until` into an UNBOUNDED series. §539 shipped exactly that regression for
+//  milestones and reversed it. So each path gets its own reader:
+//   - CREATE (`readStrictEventDate`): a real calendar date (`isRealCalendarDate`),
+//     ANY year — calendar events never had the 1900–2100 bound.
+//   - LOAD (`readEventDateOnLoad`): `calendarEventDateOnLoad`, which keeps
+//     exactly the old rule's values and REPORTS a kept non-calendar one. Kept,
+//     not repaired: such a date still rolls over when rendered.
+//   - UPDATE (`carryStoredEventDates`): a date equal to the STORED one for that
+//     field is carried verbatim; any other is judged as on create.
+
+/** Which date a reader judges — named so a load diagnostic and an update's carry-set say which. */
+type EventDateField = "startDate" | "recurrence.until" | "exceptions.date" | "exceptions.toDate";
+/** How `calendarEventWithDateReader` reads each date: the stored string, or undefined. */
+type EventDateReader = (value: unknown, field: EventDateField, id: number) => string | undefined;
+
+/** CREATE (§542): a real calendar date, any year. */
+function strictEventDate(value: unknown): string | undefined {
+  return typeof value === "string" && isRealCalendarDate(value) ? value : undefined;
+}
+function readStrictEventDate(value: unknown): string | undefined {
+  return strictEventDate(value);
+}
+/** LOAD (§542): what loaded before, reported when it is not a real day. */
+function readEventDateOnLoad(value: unknown, field: EventDateField, id: number): string | undefined {
+  return calendarEventDateOnLoad(value, id, field);
+}
+/** UPDATE (§542): carry a date equal to the STORED one for that field verbatim; judge any
+ *  other strictly. Same stance as `requiredIsoDateOnUpdate` for milestones — without it an AI
+ *  edit of a title failed on a stored "2026-02-30" the edit never touched. */
+function carryStoredEventDates(stored: CalendarEvent): EventDateReader {
+  const carried: Record<EventDateField, ReadonlySet<string>> = {
+    startDate: new Set([stored.startDate]),
+    "recurrence.until": new Set(stored.recurrence?.until ? [stored.recurrence.until] : []),
+    "exceptions.date": new Set((stored.exceptions ?? []).map((e) => e.date)),
+    "exceptions.toDate": new Set(
+      (stored.exceptions ?? []).flatMap((e) => (e.kind === "move" ? [e.toDate] : [])),
+    ),
+  };
+  return function readForUpdate(value, field) {
+    return typeof value === "string" && carried[field].has(value) ? value : strictEventDate(value);
+  };
 }
 
 function intInRange(v: unknown, lo: number, hi: number, fallback: number): number {
@@ -78,14 +129,16 @@ function weekdayOrUndefined(v: unknown): Weekday | undefined {
   return typeof v === "string" && (WEEKDAYS as readonly string[]).includes(v) ? (v as Weekday) : undefined;
 }
 
-function sanitizeRecurrence(raw: unknown, startDate: string): RecurrenceRule | undefined {
+function sanitizeRecurrence(
+  raw: unknown, startDate: string, readDate: EventDateReader, id: number,
+): RecurrenceRule | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const r = raw as Record<string, unknown>;
   const interval = intInRange(r.interval, 1, 52, 1);
 
   // At most ONE range terminator survives. Both present is ambiguous, and
   // `until` is the one a user can verify by reading it.
-  const until = isoDateOrUndefined(r.until);
+  const until = readDate(r.until, "recurrence.until", id);
   const validUntil = until && until >= startDate ? until : undefined;
   const count = validUntil ? undefined : (() => {
     const n = toNumber(r.count);
@@ -117,16 +170,16 @@ function sanitizeRecurrence(raw: unknown, startDate: string): RecurrenceRule | u
   return undefined;
 }
 
-function sanitizeExceptions(raw: unknown): EventException[] | undefined {
+function sanitizeExceptions(raw: unknown, readDate: EventDateReader, id: number): EventException[] | undefined {
   if (!Array.isArray(raw)) return undefined;
   const byDate = new Map<string, EventException>();
   for (const item of raw.slice(0, MAX_EXCEPTIONS)) {
     if (!item || typeof item !== "object") continue;
     const e = item as Record<string, unknown>;
-    const date = isoDateOrUndefined(e.date);
+    const date = readDate(e.date, "exceptions.date", id);
     if (!date) continue;
     if (e.kind === "move") {
-      const toDate = isoDateOrUndefined(e.toDate);
+      const toDate = readDate(e.toDate, "exceptions.toDate", id);
       // A move whose target is unusable degrades to a skip, never to nothing:
       // an occurrence the user moved must not reappear on its original date.
       if (!toDate) { byDate.set(date, { date, kind: "skip" }); continue; }
@@ -211,32 +264,35 @@ export function acceptsEventDuration(v: unknown): boolean {
   return intInRange(v, DURATION_MIN, DURATION_MAX, Number.NaN) === v;
 }
 
-/** Whether `sanitizeCalendarEvent` would ACCEPT this value as `startDate`.
+/** Whether the CREATE rule (`sanitizeCalendarEvent`) would ACCEPT this value
+ *  as `startDate`: a real calendar date, with NO year bound (§542).
  *
  *  ★★★ IT EXISTS BECAUSE THE PREVIEW'S DEFAULT DATE RULE AND THIS MODULE'S
- *   DISAGREE IN BOTH DIRECTIONS, and each direction is its own defect.
+ *   DISAGREE, and the disagreement was once a defect in each direction.
  *   `sanitizeIsoDate` (sanitize-core.ts) is regex + a calendar check (§539) +
- *   a 1900–2100 year bound; `isoDateOrUndefined` here is regex + `Date.parse`
- *   and NO year bound. So `"2026-01-32"` previewed as an accepted change and
- *   then made `sanitizeCalendarEvent` return null — which `updateCalendarEvent`
- *   throws on, costing the WHOLE patch — while `"1899-12-31"` previewed as
- *   REJECTED and landed. `INLINE_DESCRIPTORS.calendarEvent.acceptsDate` points
+ *   a 1900–2100 year bound; this module's create rule is the calendar check
+ *   with NO year bound. So without this override `"1899-12-31"` previews as
+ *   REJECTED and lands. `INLINE_DESCRIPTORS.calendarEvent.acceptsDate` points
  *   here so the card asks the writer's own question (§405), rather than a
- *   second spelling of a similar one. ★ The `"2026-01-32"` direction was
- *   closed at the source by §539; the year-bound direction is why this
- *   override remains.
+ *   second spelling of a similar one. ★ The other direction (`"2026-01-32"`,
+ *   then month overflow like `"2026-02-30"`, previewed as accepted and then
+ *   refused by the write) was closed at the source by §539 and §542; the
+ *   year bound is why this override remains.
  *
- *  ★★ THE FIX IS ON THE PREVIEW SIDE ON PURPOSE. Adding a year bound to
- *   `isoDateOrUndefined` would close the same gap by CHANGING WHAT IS STORED —
- *   and this sanitizer runs on every LOAD, so an existing out-of-range row
- *   would start returning null and drop the meeting. Parity, not policy.
+ *  ★★ THE CREATE RULE, NOT THE UPDATE ONE, and that is exact rather than
+ *   approximate: the update form differs only by CARRYING a date equal to the
+ *   stored one, and the card never judges a field whose value is unchanged.
+ *
+ *  ★★ THE YEAR BOUND STAYS OFF ON PURPOSE. Adding one here would close the
+ *   gap by CHANGING WHAT IS STORED, and a stored meeting outside 1900–2100
+ *   would then be refused on its next edit. Parity, not policy.
  *
  *  ★★★ A HOISTED `function` DECLARATION, for exactly the reason spelled out on
  *   `acceptsEventDuration` above: an importer building a module-level const off
  *   it across this module's `./sanitize` barrel cycle reads the binding before
  *   either body runs. Do not tidy it into a `const` arrow. */
 export function acceptsEventDate(v: unknown): boolean {
-  return isoDateOrUndefined(v) !== undefined;
+  return strictEventDate(v) !== undefined;
 }
 
 /** The stored shape of `sendInvitations`: PRESENT-ONLY-WHEN-TRUE, exactly like
@@ -247,7 +303,21 @@ export function isSendInvitationsFlag(v: unknown): boolean {
   return v === true;
 }
 
+/** CREATE. ONE argument, so safe point-free. */
 export function sanitizeCalendarEvent(input: unknown): CalendarEvent | null {
+  return calendarEventWithDateReader(input, readStrictEventDate);
+}
+/** LOAD funnels only (IndexedDB, JSON, and `buildCalendarEventFromObj` for CSV / Markdown / Turso). */
+export function sanitizeLoadedCalendarEvent(input: unknown): CalendarEvent | null {
+  return calendarEventWithDateReader(input, readEventDateOnLoad);
+}
+/** UPDATE of `stored`. ★ TWO arguments — never pass it point-free. */
+export function sanitizeCalendarEventForUpdate(input: unknown, stored: CalendarEvent): CalendarEvent | null {
+  return calendarEventWithDateReader(input, carryStoredEventDates(stored));
+}
+
+/** The one body behind all three public forms; only `readDate` differs. */
+function calendarEventWithDateReader(input: unknown, readDate: EventDateReader): CalendarEvent | null {
   if (!input || typeof input !== "object") return null;
   const raw = input as Record<string, unknown>;
 
@@ -257,12 +327,12 @@ export function sanitizeCalendarEvent(input: unknown): CalendarEvent | null {
   const title = sanitizeEventTitle(raw.title);
   if (!title) return null;
 
-  const startDate = isoDateOrUndefined(raw.startDate);
+  const startDate = readDate(raw.startDate, "startDate", id);
   if (!startDate) return null;
 
   const startTime = normalizeEventStartTime(raw.startTime);
 
-  const recurrence = sanitizeRecurrence(raw.recurrence, startDate);
+  const recurrence = sanitizeRecurrence(raw.recurrence, startDate, readDate, id);
   return {
     id,
     title,
@@ -281,7 +351,7 @@ export function sanitizeCalendarEvent(input: unknown): CalendarEvent | null {
     // every load path — form submit, JSON/CSV/MD/Turso decode, AI tools —
     // routes through) closes that for every source at once, not just the
     // editor's own submit path.
-    exceptions: recurrence ? sanitizeExceptions(raw.exceptions) : undefined,
+    exceptions: recurrence ? sanitizeExceptions(raw.exceptions, readDate, id) : undefined,
     attendeeResourceIds: sanitizeAttendees(raw.attendeeResourceIds),
     sendInvitations: isSendInvitationsFlag(raw.sendInvitations) ? true : undefined,
     localModifiedAt: sanitizeText(raw.localModifiedAt, 1024) || undefined,
@@ -297,7 +367,8 @@ export function sanitizeCalendarEvent(input: unknown): CalendarEvent | null {
 // sanitizeRecurrence needs `startDate` for cross-field checks (until >= start)
 // that a decoder has no access to. A decoded cell is therefore UNTRUSTED —
 // whoever assembles a CalendarEvent from decoded cells MUST run the whole
-// object back through sanitizeCalendarEvent() before using it.
+// object back through a sanitizer before using it — on a LOAD path the load
+// form, `sanitizeLoadedCalendarEvent` (as `buildCalendarEventFromObj` does).
 
 export function encodeRecurrence(rule: RecurrenceRule | undefined): string {
   return rule ? JSON.stringify(rule) : "";

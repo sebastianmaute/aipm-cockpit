@@ -38,7 +38,7 @@ describe("changedInKind", () => {
 
   // A regex-valid YYYY-MM-DD can still be calendar-invalid: `Date.parse`
   // rejects an out-of-range month or day (unlike a day that merely overflows
-  // its own month, which rolls over silently — `isoDateOrUndefined` in
+  // its own month, which rolls over silently — see the date-reader block in
   // calendar-event.ts). Without a guard the resulting Invalid Date throws a
   // RangeError from `.toISOString()`.
   it("has nothing to derive from a calendar-invalid date", () => {

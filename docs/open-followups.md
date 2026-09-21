@@ -764,7 +764,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§539](#539-sanitizeisodate-accepts-dates-that-are-not-real-calendar-dates--closed-2026-09-14) | `sanitizeIsoDate` accepts dates that are not real calendar dates — CLOSED 2026-09-14 | reported 2026-09-14 by a peer session's §273 work; user approved "file and fix" in the email-guard batch; GitLab #329 | S — a month/day calendar check in one function plus test migration across ~30 referencing files | **CLOSED** 2026-09-14 |
 | [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--closed-2026-09-20) | A repeated resource deep link re-runs the open while that resource's editor is open — CLOSED 2026-09-20 | found 2026-09-14 by the fix-round reviews of §362 on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | **CLOSED** 2026-09-20 |
 | [§541](#541-the-stakeholder-editor-saves-its-text-fields-uncapped-when-submitted-with-enter--open) | The stakeholder editor saves its text fields uncapped when submitted with Enter — OPEN | found 2026-09-14 by the email-guard batch's Task 3 review; user approved filing; GitLab #331 | S — cap each field in `handleSubmit` before `onSave`, or sanitise in `handleSaveStakeholder` | open |
-| [§542](#542-the-calendar-event-writer-accepts-a-day-past-its-months-end-and-rolls-it-over--open) | The calendar event writer accepts a day past its month's end and rolls it over — OPEN | found 2026-09-14 by the whole-branch and cold reviews of `fix/email-and-guard-batch`; user approved filing; GitLab #332 | S — replace the `Date.parse` leg with a calendar round trip (as `sanitizeIsoDate` does since §539) | open |
+| [§542](#542-the-calendar-event-writer-accepts-a-day-past-its-months-end-and-rolls-it-over--closed-2026-09-21) | The calendar event writer accepts a day past its month's end and rolls it over — CLOSED 2026-09-21 | found 2026-09-14 by the whole-branch and cold reviews of `fix/email-and-guard-batch`; user approved filing; GitLab #332 | S — replace the `Date.parse` leg with a calendar round trip (as `sanitizeIsoDate` does since §539) | closed |
 | [§543](#543-a-dated-timelog-apply-leaves-a-period-key-of-the-other-granularity-in-place-so-switching-back-counts-those-hours-twice--closed-2026-09-15) | A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — CLOSED 2026-09-15 | found 2026-09-15 by the final whole-branch review of `feat/budget-forecast-union` | S — let a dated Apply also remove other-granularity period keys that overlap its covered days | **CLOSED** 2026-09-15 |
 | [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--closed-2026-09-21) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — CLOSED 2026-09-21 | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union` | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | closed |
 | [§545](#545-the-ai-dashboard-snapshot-and-every-export-carry-none-of-the-budget-forecast-figures--open) | The AI dashboard snapshot and every export carry none of the budget forecast figures — OPEN | deferred 2026-09-15 by the budget forecast union spec §9 | M — add the forecast figures to the snapshot and exports once MR 2 ships them | open |
@@ -38402,14 +38402,46 @@ asserts the saved row, not the toast.
 
 Related: §533, §539 (the email-guard batch that found it).
 
-## 542. The calendar event writer accepts a day past its month's end and rolls it over — OPEN
+## 542. The calendar event writer accepts a day past its month's end and rolls it over — CLOSED 2026-09-21
 
-**Status:** OPEN 2026-09-14 — located with
-`grep -n "isoDateOrUndefined\|acceptsEventDate\|Date.parse" src/app/calendar-event.ts` and measured with
-`node -e 'for (const d of ["2026-02-30","2026-04-31","2026-13-01"]) console.log(d, Date.parse(d+"T00:00:00Z"))'`
-(the first two parse to 2026-03-02 and 2026-05-01; the third is NaN).
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`. Every calendar-event date (`startDate`, recurrence
+`until`, exception `date` / `toDate`) is now read through one of THREE readers, one per path, behind one
+private body, `calendarEventWithDateReader` (`calendar-event.ts`): CREATE, `sanitizeCalendarEvent`, requires
+a real calendar date (`isRealCalendarDate`, no year bound); LOAD, `sanitizeLoadedCalendarEvent`, reads
+through `calendarEventDateOnLoad` (`sanitize-load-date.ts`); UPDATE, `sanitizeCalendarEventForUpdate(input,
+stored)`, carries a date equal to the stored one for that field and judges any other as on create.
+`acceptsEventDate` asks the create rule. Load sites: `BrowserBackend.load`, `jsonToWorkspace` and
+`buildCalendarEventFromObj` (CSV, Markdown, both Turso layouts), so all six backends. Update sites: the AI
+`updateCalendarEvent`, `handleSaveCalendarEvent` and the modal's `handleSubmit` (the last two strict on a
+create). ★★ **A stored calendar-invalid date is KEPT and REPORTED (`storage.nonCalendarDateKept`), NOT
+repaired, and it still rolls over when rendered.** New bad dates are stopped at every create and update
+path; old data is not rewritten.
 
-**Work item:** #332
+Departures from the fix-shape line below, and why: (1) the round trip was NOT added to
+`isoDateOrUndefined`, which served load and write alike and is deleted. The LOAD path needed its own
+reader: `requiredIsoDateOnLoad` / `optionalIsoDateOnLoad` both judge through `sanitizeIsoDate`, whose
+1900–2100 bound calendar events never had (a stored 2200 meeting would be dropped), and the optional one
+BLANKS, which for `until` turns a bounded series unbounded. So load keeps exactly the pre-§542 rule. (2) The
+UPDATE path needed a CARRY reader: a strict rebuild of the merged row refused every edit of an event whose
+untouched stored date was calendar-invalid (the milestone `requiredIsoDateOnUpdate` precedent). (3) Beyond
+the three comments named below, `calendar-recurrence-text.ts` (the review card's recurrence line) held a
+hand-copy of the old rule; it now calls `isRealCalendarDate`, else the card printed an `until` the write
+drops.
+
+Tests: `calendar-event.test.ts` "§542 date rules" (a1–a4, b1–b6, d1–d3) plus an `acceptsEventDate`
+month-overflow case; the IndexedDB funnel case in `browser-backend.test.ts`; one call-site case each in
+`calendar-event-modal.test.tsx`, `use-calendar-events.test.tsx` and `use-chat-dispatcher.test.tsx`; two
+differential cases in `calendar-recurrence-text.test.ts`. Mutants, predicted then actual: 2a (strict reader
+on the old shape + `Date.parse` rule) predicted RED on a1, a2, a3, d2, the `acceptsEventDate` overflow case,
+both recurrence-text cases and the dispatcher case; actual the same MINUS the recurrence-text "no
+terminator" case — a MISMATCH: that differential renders both sides through `recurrenceText`, so it is
+blind to a writer mutant and pins only the card's own rule (it was RED against the unfixed card). 2b (adds
+the year bound) predicted and actual RED on a4, the 1899 `acceptsEventDate` case and `plan.test.ts`'s
+pre-1900 case. 2c, 2d, 2e (each load site back on the strict form) predicted and actual RED on the IndexedDB
+case, b6 and b5 respectively, each alone. 2f (load reader blanks) predicted and actual RED on b1, b2, b5, b6
+and the IndexedDB case. 2g (update without carry) predicted and actual RED on d1 plus the dispatcher and
+modal call-site cases. 2h (AI update strict), 2i (modal strict on an update) and 2j (save handler strict on
+an update) each predicted and actual RED on its own call-site case alone.
 
 `isoDateOrUndefined` (`src/app/calendar-event.ts`), also exposed as `acceptsEventDate`, is a regex plus
 `Date.parse`. That rejects a day or month outside its field range (`2026-01-32`, `2026-13-01`) but not a day

@@ -209,8 +209,9 @@ export type AbsenceSummary = {
   note?: string;
 };
 
-/** Loose write-tool inputs for a meeting; `sanitizeCalendarEvent` is the single
- *  validator every one of them lands in.
+/** Loose write-tool inputs for a meeting; every one of them lands in one
+ *  validator body — `sanitizeCalendarEvent` on a create,
+ *  `sanitizeCalendarEventForUpdate` on an update (§542).
  *
  *  ★★ `recurrence` is `unknown` ON PURPOSE. `RecurrenceRule` is a three-shape
  *  union with cross-field constraints (`until` against the series start) that

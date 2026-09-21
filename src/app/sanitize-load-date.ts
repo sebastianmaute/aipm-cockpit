@@ -8,9 +8,10 @@
 // dates through this instead: such a value is KEPT as its raw string (what every
 // backend loaded before §539) and a diagnostic is logged. Optional date fields
 // still blank on load, and since M2 the blank is reported too
-// (`optionalIsoDateOnLoad`); write paths keep refusing.
+// (`optionalIsoDateOnLoad`); write paths keep refusing. Calendar events read
+// every date through their own `calendarEventDateOnLoad` (§542) instead.
 import { logDiag } from "./diagnostics";
-import { sanitizeIsoDate, type RequiredDateReader } from "./sanitize-core";
+import { isRealCalendarDate, sanitizeIsoDate, type RequiredDateReader } from "./sanitize-core";
 
 const ISO_DATE_SHAPE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MIN_YEAR = 1900;
@@ -98,6 +99,23 @@ export function optionalIsoDateOnTemplateLoad(value: unknown, entity: string, id
 function readOptionalDate(source: LoadDateSource, value: unknown, entity: string, id: unknown, field: string): string {
   if (isKeptNonCalendarDate(value)) reportOnce("storage.nonCalendarDateBlanked", source, value, entity, id, field);
   return sanitizeIsoDate(value);
+}
+
+/** §542: calendar events' load reader, for EVERY date field (startDate, recurrence `until`,
+ *  exception `date` / `toDate`). ★★ NOT `requiredIsoDateOnLoad` / `optionalIsoDateOnLoad`, for
+ *  two measured reasons: both judge through `sanitizeIsoDate`, whose 1900–2100 bound calendar
+ *  events never had, so a stored meeting in 2200 would read as "" and be DROPPED; and the
+ *  optional reader BLANKS a non-calendar value, which for recurrence `until` means NO END — a
+ *  bounded series would load as an unbounded one. So this keeps exactly what calendar events
+ *  loaded before §542 (the ISO shape plus `Date.parse`'s field-range check, any year) and
+ *  reports a kept non-calendar value. Returns undefined exactly where the old rule refused. */
+export function calendarEventDateOnLoad(value: unknown, id: unknown, field: string): string | undefined {
+  if (typeof value !== "string" || !ISO_DATE_SHAPE_RE.test(value)) return undefined;
+  if (Number.isNaN(Date.parse(`${value}T00:00:00Z`))) return undefined;
+  if (!isRealCalendarDate(value)) {
+    reportOnce("storage.nonCalendarDateKept", "workspace", value, "calendarEvent", id, field);
+  }
+  return value;
 }
 
 /** ★ The key carries the CODE too, so a kept required value and a blanked

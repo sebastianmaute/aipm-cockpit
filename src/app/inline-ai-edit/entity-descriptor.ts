@@ -216,21 +216,25 @@ export interface EntityDescriptor {
   /** This entity's own acceptance test for a `dateFields` member, when its
    *  writer does NOT use `sanitizeIsoDate`.
    *
-   *  ★★★ ONE ENTITY NEEDS IT AND IT DIVERGED IN BOTH DIRECTIONS. The default
-   *   is `sanitizeIsoDate(v) === v` — regex, a real calendar date (§539) and a
-   *   1900–2100 year bound — which is exactly what `sanitizeAbsence` calls, so
-   *   absence (and every register entity) is already in parity and must keep
-   *   the default. `sanitizeCalendarEvent` instead calls its own
-   *   `isoDateOrUndefined`: regex + `Date.parse`, NO year bound. Measured, both
-   *   ways: `startDate: "2026-01-32"` previewed as an accepted change and then
-   *   made the sanitizer return null, which `updateCalendarEvent` throws on —
-   *   costing the whole patch, every other field in the edit with it; and
-   *   `"1899-12-31"` previewed as REJECTED and landed. ★ §539 closed the
-   *   field-range overflow direction (day > 31 / month > 12, e.g.
-   *   `"2026-01-32"`) — both rules now refuse it. Two directions still differ:
-   *   the year bound, and a month-specific overflow (`"2026-02-30"`) that
-   *   `sanitizeIsoDate` refuses but `isoDateOrUndefined` still accepts and
-   *   rolls over (`Date.parse` succeeds on it).
+   *  ★★★ ONE ENTITY NEEDS IT AND IT ONCE DIVERGED IN BOTH DIRECTIONS. The
+   *   default is `sanitizeIsoDate(v) === v` — regex, a real calendar date
+   *   (§539) and a 1900–2100 year bound — which is exactly what
+   *   `sanitizeAbsence` calls, so absence (and every register entity) is
+   *   already in parity and must keep the default. Calendar events instead
+   *   read a date through one of three readers, one per path (§542): CREATE
+   *   requires a real calendar date with NO year bound, LOAD keeps what loaded
+   *   before §542, and UPDATE carries a date equal to the stored one and judges
+   *   any other as on create. Measured before §542, both ways: `startDate:
+   *   "2026-01-32"` previewed as an accepted change and then made the
+   *   sanitizer return null, which `updateCalendarEvent` throws on — costing
+   *   the whole patch, every other field in the edit with it; and
+   *   `"1899-12-31"` previewed as REJECTED and landed. ★ §539 and §542 closed
+   *   the overflow direction at the source (a field-range overflow like
+   *   `"2026-01-32"`, then a month-specific one like `"2026-02-30"`) — both
+   *   rules now refuse both. ONE direction still differs, the year bound, and
+   *   it is why this override exists. The card asks the CREATE rule, which is
+   *   exact for an update too: the update form differs only by carrying an
+   *   UNCHANGED stored date, and the card never judges an unchanged field.
    *
    *  ★★ THE WRITER'S OWN PREDICATE, IMPORTED, never a re-spelling (§405) — same
    *   contract as `numericFields`' `acceptsEventDuration` beside it, and the
@@ -878,12 +882,10 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     requiredNonEmpty: new Set(["title", "startDate"]),
     requiredNonEmptyGroups: [],
     dateFields: new Set(["startDate"]),
-    // See `acceptsDate`. ★★ THE ONE ENTITY THAT NEEDS IT: this sanitizer calls
-    // `isoDateOrUndefined` (regex + `Date.parse`, no year bound), NOT the
+    // See `acceptsDate`. ★★ THE ONE ENTITY THAT NEEDS IT: this entity's write
+    // rule is a real calendar date with NO year bound (§542), NOT the
     // `sanitizeIsoDate` (regex + calendar check + 1900–2100) the preview
-    // defaults to — and the two still disagree on the year bound, and on a
-    // month-specific overflow ("2026-02-30") this rule refuses but the
-    // writer still accepts.
+    // defaults to — and the two still disagree on the year bound.
     acceptsDate: acceptsEventDate,
     // ★★ AN ACCEPTANCE PREDICATE OVER THE RAW VALUE, and the reason it is not
     //  merely a range: the writer CLAMPS rather than refuses — `intInRange`

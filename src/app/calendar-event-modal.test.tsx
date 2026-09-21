@@ -76,6 +76,20 @@ describe("CalendarEventModal", () => {
     expect(onSave.mock.calls[0][1]).toBe(false);
   });
 
+  // §542: the load funnel KEEPS a stored calendar-invalid date, so an existing
+  //  event can hold one. Before the fix Submit re-judged that UNTOUCHED date
+  //  strictly, the sanitizer returned null and the modal showed the
+  //  title-required error on a title-only edit.
+  it("saves a title-only edit of an existing event whose stored startDate is calendar-invalid", () => {
+    const onSave = vi.fn();
+    setup({ event: { ...base, startDate: "2026-02-30" }, isNew: false, onSave });
+    fireEvent.change(screen.getByLabelText(`${t("en-US", "calendarEventTitle")} *`), { target: { value: "Daily" } });
+    submit();
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toMatchObject({ title: "Daily", startDate: "2026-02-30" });
+    expect(screen.queryByText(t("en-US", "calendarEventErrorTitleRequired"))).toBeNull();
+  });
+
   it("blocks save and shows an error when title is blank", () => {
     const onSave = vi.fn();
     setup({ event: { ...base, title: "" }, isNew: true, onSave });
