@@ -16671,6 +16671,10 @@ the surface is unexercised by the seed even though it is reachable from it.
 **Status:** open — NOT a defect today and NOT a regression. The GitLab project and the GitHub push
 mirror are both private, so nothing here is exposed. It becomes a hard blocker the moment that
 GitHub repo is flipped public, which is the stated intent. Reproduced 2026-08-28 by `grep -rn "Acme" README.md`.
+Scope corrected 2026-09-20: this entry described FOUR classes and missed the two largest, measured by
+`git log --all --format="%ae %ce"` (8,355 commits carrying a work address in both fields, plus 90
+CI-bot identities) and `git log --all --grep="Claude-Session:" --fixed-strings --oneline` (3,048).
+The design that supersedes this entry's scope is `docs/superpowers/specs/2026-09-20-github-migration-phase1-design.md`.
 
 **Work item:** #185
 
@@ -16690,7 +16694,15 @@ git grep -oIE '[A-Za-z0-9._%+-]+@Acme\.[a-z]+' -- . | sort -u
 ★ Both sweeps match THIS ENTRY, because it quotes the identifiers it hunts. That is the grep working,
 not a twelfth leak — `docs/open-followups.md` is never a hit worth acting on here.
 
-**Four classes, four different fixes:**
+★★★ **BOTH SWEEPS ABOVE READ ONE COMMIT'S FILES, AND TWO OF THE SIX CLASSES ARE NOT FILE CONTENT.**
+`git grep` searches the checked-out tree, so classes 5 and 6 below were invisible to this entry's own
+verification method for three weeks — and their absence read as their not existing. A verification
+method has a shape, and a finding outside that shape reads as absence. Metadata needs
+`git log --all --format="%ae %ce" | sort | uniq -c`; messages need `git log --all --grep=...`.
+★★ Class 5 is also the one class that CANNOT be fixed after the visibility flip by any means short of
+a history rewrite, which makes it the most expensive thing this entry used to omit.
+
+**Six classes, six different fixes** (1–4 as originally filed; 5–6 added 2026-09-20):
 
 1. **README badges** point at `gitlab.example.com/example-group/public-collab/...`. Public, they render as
    broken images for every visitor AND disclose the internal group path. Repoint or drop.
@@ -16715,6 +16727,24 @@ not a twelfth leak — `docs/open-followups.md` is never a hit worth acting on h
    `example.atlassian.net`, and one address uses `northwind.example`. So this block is an oversight
    inside otherwise-sanitised fixture data, not a deliberate choice, and must be read as real
    personal data until someone proves it is not.
+
+5. **Commit METADATA — the largest class, and invisible to every sweep above.** All 8,355 commits
+   carry a work address in BOTH the author and the committer field, and 90 further commits carry
+   CI-bot identities embedding the internal host and the numeric project id. This is not file
+   content, so no tree sweep can ever surface it. It is also the only class that a later edit
+   cannot repair: once a public clone exists, the metadata in it is permanent. Fixed only by an
+   identity mapping during a history rewrite.
+
+6. **Commit MESSAGES and session URLs.** 3,048 commits carry a `Claude-Session:` trailer and 217
+   carry an assistant co-author line; separately, 83 tracked plan files contain session URLs in
+   their body. ★★ A blanket filter on the assistant's NAME is wrong: 89 commits mention it
+   legitimately, because "Ask Claude" is a shipped feature and `callClaude` is a real function.
+   Match the trailer LINES, never the word.
+
+★ Two product strings join class 2 and must move together: the release URL is hard-coded in both
+the app (`APP_RELEASES_URL`) and the desktop shell (`RELEASES_URL`), which cannot share a constant
+across the desktop tsconfig's rootDir and are pinned equal only by `menu-model.test.ts` reading the
+app file as TEXT.
 
 ★★★ **FIXING (4) IS A FOUR-STEP PIPELINE AND THREE OF ITS FOUR FILES ARE GENERATED** — hand-editing
 them is the trap. `sample-workspace-small.json` is the hand-curated MASTER; `-big` and `-huge` come

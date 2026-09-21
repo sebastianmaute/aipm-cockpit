@@ -2,7 +2,7 @@
 //
 // Shared, i18n-free absence-type visual mapping used by BOTH the resource
 // Calendar and the resource Planner/workload capacity view so absence colours
-// read identically across surfaces. Pure — returns AIPM palette token class
+// read identically across surfaces. Pure — returns palette token class
 // strings only (no off-palette colours). The strings MUST stay byte-identical
 // to the calendar's original `absenceCellBg`/`absenceGlyph` (a source-scan test
 // pins the mapping).

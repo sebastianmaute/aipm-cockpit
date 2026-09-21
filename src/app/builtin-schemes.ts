@@ -4,7 +4,7 @@
 // supportsDark-driven mechanism (style-ci.effectiveDark + use-theme's
 // apply()) pins light mode whenever it's active. Beacon is the fresh-install
 // default. Pure (no DOM). Built-ins are undeletable + refreshed from code on
-// every load (reconcile). AIPM and Mockup are no longer code built-ins — they
+// every load (reconcile). Petrol and Mockup are no longer code built-ins — they
 // ship as importable theme files the user supplies (Settings → Appearance →
 // Theme gallery).
 import type { ColorScheme, SchemeStore } from "./color-schemes";

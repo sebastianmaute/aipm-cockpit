@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { absenceBg, absenceGlyph, absenceLegendBg } from "./absence-style";
 
 describe("absence-style", () => {
-  it("maps each absence type to its AIPM token background (+hover)", () => {
+  it("maps each absence type to its palette token background (+hover)", () => {
     // These strings are BYTE-IDENTICAL to the resource-calendar originals; the
     // calendar imports them, so the two surfaces can never drift.
     expect(absenceBg("vacation")).toBe(

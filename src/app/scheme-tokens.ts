@@ -1,10 +1,10 @@
 // Editable-token registry for custom color schemes + AA-variant derivation.
 // Pure (no DOM). Code-owned built-in schemes (Harbor/Meridian/Umber) live in
-// builtin-schemes.ts; AIPM/Mockup ship as importable theme files.
+// builtin-schemes.ts; Petrol/Mockup ship as importable theme files.
 import type { SchemeColorMap } from "./scheme-apply";
 
 // Neutral surface fallback for AA-variant derivation when a scheme omits
-// --surface(-muted). (Was ICC_SEED["--surface"].)
+// --surface(-muted).
 const FALLBACK_SURFACE = "#ffffff";
 
 export interface TokenSpec {
@@ -191,6 +191,6 @@ export function deriveAaVariants(colors: SchemeColorMap): SchemeColorMap {
 
 export function resolveSchemeColors(colors: SchemeColorMap): SchemeColorMap {
   // base-wins: derivation FILLS the AA variants a scheme omits; an explicitly
-  // pinned -strong/-text/muted-foreground (built-in AIPM/Mockup) is preserved.
+  // pinned -strong/-text/muted-foreground (built-in Petrol/Mockup) is preserved.
   return { ...deriveAaVariants(colors), ...colors };
 }

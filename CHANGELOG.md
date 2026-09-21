@@ -8,6 +8,42 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.13.1] - 2026-09-22 "Connelly"
+
+A brand-rename patch, the first step of preparing the repository for a public home. The company
+brand trigram is removed from everything the product writes outside itself and from the code,
+comments and help text. The planning documents for the wider move are re-checked against 1.13.0.
+
+### Changed
+
+- **Outlook calendar sync now tags events with the category `AIPM:<project>` (and
+  `AIPM:<project>:<type>`), and the event body reads "Managed by AI PM Cockpit."** Both used to
+  carry the old company prefix. Two-way sync matches events by this category with exact string
+  equality, so an event created by an earlier version would no longer be recognised; the rename
+  ships without a compatibility shim only because no calendar sync has ever been run against a real
+  mailbox. The reader builds its filter from the same function the writer uses, and a test checks
+  the request actually sent.
+- **The importable theme file named after the company brand is now `public/themes/petrol.json`**, named
+  "Petrol". It is not built in, so nothing on a device refers to the old file name.
+- The burndown forecast's help text describes its method neutrally (EN and DE).
+
+### Removed
+
+- **The dead `"AIPM"` value of the appearance style.** The style axis has been `"custom"` for a
+  long time and the load path already rewrites any other stored value to it; a stored legacy value
+  still loads as `"custom"`, and a test now checks the style the app exposes, not only what is
+  written back to storage.
+
+### Internal
+
+- Brand mentions in comments, tests and project instructions are reworded; the ones left are
+  legacy values real devices may still hold, and tests asserting the old spelling is gone.
+- `docs/AGENTS/integrations.md` documents the new Outlook category.
+- The GitHub migration roadmap, its sub-project 1 spec and both plans are re-baselined against
+  1.13.0: four protocol or outbound values the first draft missed (Timelog tenant default, desktop
+  app id, export footer, Outlook event body), a seventh class of residual mentions, and the rule
+  that the tip must carry no identifier before history is rewritten.
+
 ## [1.13.0] - 2026-09-21 "Connelly"
 
 A Dashboard and branding release. Dashboard tiles now size themselves to what they show, the

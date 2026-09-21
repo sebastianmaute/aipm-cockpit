@@ -104,7 +104,7 @@ describe("nextUserId", () => {
   });
 
   it("increments the max numeric suffix among u-<n> ids, ignoring non-user ids", () => {
-    expect(nextUserId([scheme("u-3"), scheme("builtin-AIPM"), scheme("u-7")])).toBe("u-8");
+    expect(nextUserId([scheme("u-3"), scheme("builtin-test"), scheme("u-7")])).toBe("u-8");
   });
 });
 
@@ -137,21 +137,21 @@ describe("color-schemes store", () => {
 
   it("removeScheme on a builtIn scheme is a no-op (undeletable)", () => {
     saveSchemes({
-      schemes: [{ id: "builtin-AIPM", name: "AIPM", builtIn: true, supportsDark: false, light: { "--ui-green": "#111111" }, branding: {} }],
+      schemes: [{ id: "builtin-test", name: "Test Built-in", builtIn: true, supportsDark: false, light: { "--ui-green": "#111111" }, branding: {} }],
       activeId: null,
     });
-    const st = removeScheme("builtin-AIPM");
+    const st = removeScheme("builtin-test");
     expect(st.schemes).toHaveLength(1);
-    expect(st.schemes[0].id).toBe("builtin-AIPM");
+    expect(st.schemes[0].id).toBe("builtin-test");
   });
 
   it("updateScheme on a builtIn is unchanged (code-owned)", () => {
     saveSchemes({
-      schemes: [{ id: "builtin-AIPM", name: "AIPM", builtIn: true, supportsDark: false, light: { "--ui-green": "#111111" }, branding: {} }],
+      schemes: [{ id: "builtin-test", name: "Test Built-in", builtIn: true, supportsDark: false, light: { "--ui-green": "#111111" }, branding: {} }],
       activeId: null,
     });
-    const st = updateScheme("builtin-AIPM", { name: "Hacked", light: { "--ui-green": "#999999" } });
-    expect(st.schemes[0].name).toBe("AIPM");
+    const st = updateScheme("builtin-test", { name: "Hacked", light: { "--ui-green": "#999999" } });
+    expect(st.schemes[0].name).toBe("Test Built-in");
     expect(st.schemes[0].light["--ui-green"]).toBe("#111111");
   });
 

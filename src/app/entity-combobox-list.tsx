@@ -92,7 +92,7 @@ export function EntityComboboxList<T extends EntityComboboxOption>({
           // light schemes leaning on `font-medium` alone. `--foreground` clears
           // 3:1 against that fill in every shipped scheme because it is the text
           // colour FOR that surface — 12-15:1 in the six built-ins, and 4.79:1
-          // in AIPM/Mockup light, whose foreground is a mid grey rather than
+          // in Petrol/Mockup light, whose foreground is a mid grey rather than
           // near-black. State cues here must be scheme-independent; pinned by
           // scheme-contrast-cues.test.ts.
           // ★ Nothing here measured the rest of the palette — read this as those

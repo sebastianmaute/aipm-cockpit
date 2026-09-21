@@ -1,5 +1,5 @@
 // Pure brand-inline HTML + subject for the Graph-sent digest email. Email
-// clients ignore CSS vars → literal AIPM hex. All fact text HTML-escaped; no
+// clients ignore CSS vars → literal brand hex. All fact text HTML-escaped; no
 // user free-text is injected unescaped.
 import { t, type Lang } from "../i18n";
 import type { Health } from "../health";

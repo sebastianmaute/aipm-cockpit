@@ -255,7 +255,7 @@ export function formatHealthTooltip(health: TaskHealth, lang: Lang): string {
 /**
  * Tailwind class for the RAG status dot, indexed by health color.
  * Uses CSS role tokens (--rag-red/amber/green) so the dot color reflows when
- * the CI style switches. AIPM token values equal bg-red-500/bg-amber-500/
+ * the CI style switches. Petrol token values equal bg-red-500/bg-amber-500/
  * bg-emerald-500, so the rendered look is identical for existing users.
  */
 export const healthDot: Record<Health, string> = {
@@ -267,7 +267,7 @@ export const healthDot: Record<Health, string> = {
 /**
  * Tailwind text-colour class for a RAG value. Uses CSS role tokens
  * (--rag-red-text/amber-text/green-text) so text color reflows when the CI
- * style switches. AIPM token values equal text-ui-pink-strong/text-ui-purple/
+ * style switches. Petrol token values equal text-ui-pink-strong/text-ui-purple/
  * text-ui-green-strong, so the rendered look is identical for existing users.
  * Used to tint inline status text, e.g. the dashboard "Overall: Green" label.
  */

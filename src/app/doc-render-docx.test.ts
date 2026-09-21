@@ -910,7 +910,7 @@ describe("renderDocumentDocx — headings and lists inside a paragraph block", (
 // simply WRONG — and every string-comparison assertion elsewhere in this file
 // stays green through all three:
 //   1. A `w:pStyle` naming a style styles.xml does not declare is SILENTLY
-//      IGNORED; the line renders as body text in Word's palette, not AIPM's.
+//      IGNORED; the line renders as body text in Word's palette, not the app's.
 //   2. `<w:pPr>`'s children are an `xsd:sequence` (CT_PPr). Out of sequence the
 //      part is schema-INVALID — rejected by strict validators, and the
 //      properties dropped by less forgiving consumers than Word.

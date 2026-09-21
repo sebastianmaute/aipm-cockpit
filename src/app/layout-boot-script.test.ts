@@ -10,7 +10,7 @@ const src = readFileSync(join(process.cwd(), "src/app/boot-theme-script.ts"), "u
 describe("no-flash boot script — source shape (pinned)", () => {
   it("ALWAYS sets data-style to custom (no legacy style branch)", () => {
     expect(src).toContain('setAttribute("data-style","custom")');
-    // AIPM/Mockup are importable built-in schemes now — no embedded maps or
+    // Petrol/Mockup are importable built-in schemes now — no embedded maps or
     // legacy style-value special-casing remain in the boot string.
     expect(src).not.toContain("legacyIcc");
     expect(src).not.toContain("legacyMockup");

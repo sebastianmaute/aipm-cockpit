@@ -51,14 +51,14 @@ function syncScheme(style: CiStyle): void {
   applySchemeColors(resolved);
   // Structural (non-color) tokens ride the same apply+mirror path. Always pass the
   // resolved map — an empty {} (e.g. Harbor) still clears any prior inline structural,
-  // and AIPM's all-"none" map correctly overwrites Mockup's shadows on a scheme switch.
+  // and Petrol's all-"none" map correctly overwrites Mockup's shadows on a scheme switch.
   const structural = resolveActiveStructural(store);
   writeActiveSchemeStructural(structural);
   applySchemeStructural(structural);
 }
 
 interface CiStyleContextValue { style: CiStyle; setStyle: (s: CiStyle) => void; }
-const CiStyleContext = createContext<CiStyleContextValue>({ style: "AIPM", setStyle: () => {} });
+const CiStyleContext = createContext<CiStyleContextValue>({ style: "custom", setStyle: () => {} });
 
 export function useCiStyle(): CiStyleContextValue { return useContext(CiStyleContext); }
 
@@ -68,7 +68,8 @@ export function CiStyleProvider({ children }: { children: React.ReactNode }) {
     // The style axis is the constant "custom"; the active SCHEME drives the look.
     // Persist "custom" for any non-"custom" (legacy/absent) value so the boot script +
     // selectScheme fallback stay consistent. No legacy AIPM/mockup scheme-activation:
-    // those are now importable theme files, not built-ins.
+    // those are now importable theme files, not built-ins. ("AIPM"/"mockup" are the
+    // retired CiStyle values a real device's stored localStorage may still carry.)
     const stored = localStorage.getItem(STYLE_STORAGE_KEY);
     if (stored !== "custom") {
       try {

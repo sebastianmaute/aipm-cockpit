@@ -166,7 +166,7 @@ Tailwind v4 with `@tailwindcss/postcss`. Do **not** introduce
 reaching for either of those in response to a CSS-HMR problem has already been
 tried here and was a dead end.
 
-Colours, shadows, and gradients are restricted to the sanctioned AIPM brand
+Colours, shadows, and gradients are restricted to the sanctioned brand
 tokens in `globals.css` — no off-palette colours, and no raw `shadow`/gradient
 utilities (use the `--shadow-*` / `--gradient-*` role tokens where one is
 genuinely needed). The `shell-palette-guard` / `palette-chrome-sweep` tests
@@ -363,8 +363,8 @@ at 0.199.0 for eleven. Only `version.ts` and `CHANGELOG.md` have actually held.
 Do not treat any unchecked file as self-maintaining because it happened to be
 correct once.
 
-Two more that no gate checks: `docs/DESIGN-TOKENS.md` (it survived the
-`--AIPM-*` → `--ui-*` rename with a stale prefix in its opening line) and the
+Two more that no gate checks: `docs/DESIGN-TOKENS.md` (it survived the CSS
+variable rename with a stale prefix in its opening line) and the
 generated `sample-workspace-{big,huge}.json` — regenerate those with
 `npx vite-node scripts/generate-sample-workspace.ts` whenever a sanitizer changes
 what a field serializes to, not only when the master changes.

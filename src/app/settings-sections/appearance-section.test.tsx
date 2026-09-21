@@ -11,7 +11,7 @@ import { expectRowUniqueNames } from "../../test/row-unique-names";
 
 function renderSection(
   overrides: Partial<Settings> = {},
-  initialStyle: "AIPM" | "mockup" | "custom" = "AIPM",
+  initialStyle: "mockup" | "custom" = "custom",
 ) {
   // A fresh provider defaults to "custom" (Harbor); set the key explicitly so
   // each case starts from a known style.
@@ -94,19 +94,19 @@ describe("AppearanceSection help reading level", () => {
 });
 
 describe("AppearanceSection scheme control", () => {
-  it("renders the scheme selector with the canonical built-ins (no AIPM/Mockup by default)", () => {
+  it("renders the scheme selector with the canonical built-ins (no Petrol/Mockup by default)", () => {
     renderSection();
     expect(screen.getByLabelText(t("en-US", "schemeAppearanceLabel"))).toBeInTheDocument();
     for (const name of ["Harbor", "Meridian", "Umber"]) {
       expect(screen.getByRole("option", { name })).toBeInTheDocument();
     }
-    // AIPM + Dashboard are shipped importable themes now, not built-in options.
-    expect(screen.queryByRole("option", { name: "AIPM" })).not.toBeInTheDocument();
+    // Petrol + Dashboard are shipped importable themes now, not built-in options.
+    expect(screen.queryByRole("option", { name: "Petrol" })).not.toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Dashboard" })).not.toBeInTheDocument();
   });
 
   it("selecting a built-in scheme switches the style to custom", () => {
-    renderSection(); // starts on AIPM
+    renderSection(); // starts on custom (Harbor)
     fireEvent.change(screen.getByLabelText(t("en-US", "schemeAppearanceLabel")), { target: { value: "harbor" } });
     expect(localStorage.getItem(STYLE_STORAGE_KEY)).toBe("custom");
   });

@@ -16,7 +16,7 @@
 //
 // ★★ A second reason for the sweep: the comment justifying the fix originally
 // claimed `--foreground` was "12-15:1 in every shipped scheme by construction".
-// That is false — AIPM and Mockup light use a mid-grey `#636362` foreground and
+// That is false — Petrol and Mockup light use a mid-grey `#636362` foreground and
 // land at 4.79:1. The conclusion survived, the number did not, and nothing in
 // the suite could tell the difference. It can now.
 import { describe, expect, it } from "vitest";

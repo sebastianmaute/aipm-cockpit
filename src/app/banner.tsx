@@ -7,7 +7,7 @@
 // the error colour. Banner OWNS the semantic tint per `severity`, so the colour
 // finally tracks the meaning.
 //
-// Every tint is a sanctioned AIPM brand / RAG role token, so the primitive is
+// Every tint is a sanctioned brand / RAG role token, so the primitive is
 // palette-safe by construction (no gradients, shadows or off-palette values).
 // ★ warn rides the `--rag-amber` token on the BORDER/BACKGROUND only — never as
 // small text (`--rag-amber-text` fails AA on dark/mockup, see AGENTS.md); the
@@ -19,7 +19,7 @@ import type { HTMLAttributes } from "react";
 export type BannerSeverity = "info" | "warn" | "success" | "error";
 
 // Severity → sanctioned token tint. border/40 + bg/10-15 keep the box subtle;
-// the text colour is AA-safe on the tint (AIPM-*-strong on surface, foreground
+// the text colour is AA-safe on the tint (ui-*-strong on surface, foreground
 // on the neutral/amber tints).
 const SEVERITY_CLASS: Record<BannerSeverity, string> = {
   info: "border-ui-dark-blue/40 bg-ui-dark-blue/10 text-foreground dark:border-ui-dark-blue/60 dark:bg-ui-dark-blue/15",

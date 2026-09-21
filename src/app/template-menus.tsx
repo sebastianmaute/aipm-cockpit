@@ -2,7 +2,7 @@
 
 // Two header dropdowns that wire the project-template library into the per-
 // project actions cluster, mirroring ExportMenu's popover UX (a small icon
-// button toggling a popover; same AIPM palette tokens):
+// button toggling a popover; same brand palette tokens):
 //
 //   • SaveTemplateMenu  — capture the current project as a reusable template
 //                         (name + "include current content as starter").

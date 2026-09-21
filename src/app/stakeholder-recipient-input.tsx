@@ -7,7 +7,7 @@
 // - Enter or comma commits the current text (free text allowed — no suggestion
 //   required).  Backspace on empty input removes the last chip.
 // - Known chips (name matches a suggestions entry, case-insensitive) receive a
-//   small AIPM-green dot affordance + title="known stakeholder".
+//   small brand-green dot affordance + title="known stakeholder".
 // - Controlled: only the in-progress text is local state; the committed list
 //   always reflects props.value.
 

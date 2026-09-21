@@ -47,7 +47,7 @@ describe("TrendArrow", () => {
   });
 
   // Pill chip tests — verify token-driven chip bg and rounded-full pill shape.
-  // Under AIPM the tokens are transparent so the pill is invisible; under mockup
+  // Under the no-structural-override fallback the tokens are transparent so the pill is invisible; under mockup
   // the tokens resolve to tinted bg colours.
 
   test("(a) improved trend renders green chip bg and rounded-full pill", () => {

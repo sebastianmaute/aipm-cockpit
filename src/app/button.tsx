@@ -6,7 +6,7 @@
 // backend-config surfaces. Every variant composes the shared INTERACTIVE atom
 // (canonical 150ms color transition + ui-green focus ring + press feedback) so
 // hover/focus/press read identically app-wide. Palette-safe by construction:
-// only sanctioned AIPM brand tokens (dark-blue fill, pink destructive, line/
+// only sanctioned brand tokens (dark-blue fill, pink destructive, line/
 // surface chrome) — no gradients, shadows, or off-palette colors.
 
 import type { ButtonHTMLAttributes, Ref } from "react";

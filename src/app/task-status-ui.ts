@@ -2,7 +2,7 @@
 import type { TranslationKey } from "./i18n";
 import type { Priority, TaskStatus } from "./types";
 
-// Priority badge tints — sanctioned AIPM palette tokens ONLY (see globals.css).
+// Priority badge tints — sanctioned brand palette tokens ONLY (see globals.css).
 // Shared by the table row (task-row.tsx) and the Kanban card so both surfaces
 // render an identical badge.
 export const priorityStyle: Record<Priority, string> = {
@@ -25,7 +25,7 @@ export function statusLabelKey(s: TaskStatus): TranslationKey {
   return STATUS_LABEL_KEY[s];
 }
 
-// Badge tints for the workflow-status column. Sanctioned AIPM palette tokens
+// Badge tints for the workflow-status column. Sanctioned brand palette tokens
 // ONLY (see globals.css) — mirrors the priority badge style in task-row.tsx.
 // To Do is neutral-muted; In Progress carries the blue working tint; On Hold
 // uses purple; In Review uses pink (kept distinct from In Progress); Cancelled

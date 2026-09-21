@@ -32,7 +32,7 @@ export function TrendArrow({ trend, metricLabel, unit = "", lang }: TrendArrowPr
         ? "text-muted-foreground"
         : "text-[var(--rag-red-text)]";
 
-  // Tinted pill bg via role tokens. AIPM tokens are transparent → visually unchanged;
+  // Tinted pill bg via role tokens. The default-profile tokens are transparent → visually unchanged;
   // mockup overrides render the tinted chip. Flat (unchanged) gets no bg at all.
   const chipClass =
     trend.improved
@@ -41,7 +41,7 @@ export function TrendArrow({ trend, metricLabel, unit = "", lang }: TrendArrowPr
         ? ""
         : "bg-[var(--rag-red-chip)]";
 
-  // Pill padding is token-driven (AIPM `--delta-chip-pad: 0` → byte-identical legacy
+  // Pill padding is token-driven (the no-structural-override fallback's `--delta-chip-pad: 0` → byte-identical legacy
   // look; mockup pads the tinted pill) and applied ONLY when a chip is shown, so a
   // flat/unchanged trend never gets an empty padded bubble under mockup either.
   const chipStyle = chipClass ? { padding: "var(--delta-chip-pad)" } : undefined;

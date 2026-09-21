@@ -506,7 +506,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   Renaming/moving sample data or any asset: grep `e2e/` TOO (not just `src scripts README docs`) —
   `e2e/seed.ts` reads `sample-workspace-small.json` at MODULE TOP-LEVEL, so stale path ENOENTs the
   whole e2e job (fails only in CI; `npx playwright test --list` triggers the read without browsers).
-- **Palette:** only sanctioned AIPM brand tokens (`globals.css`); no off-palette colors,
+- **Palette:** only sanctioned brand tokens (`globals.css`); no off-palette colors,
   gradients, shadows. a11y gate + palette-sweep test enforce contrast/token use.
   Note: palette-sweep scans CSS for `box-shadow` — an off-palette Tailwind class (e.g. `shadow-md`)
   on element PASSES CI but still forbidden; check new components by eye.
@@ -775,7 +775,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `action-reasons.tsx` = shared +N-reasons expander. Escalate/Rebaseline/Reschedule popovers + the assign button take a
   `prominent?` prop (hero = filled+larger via `action-cta-styles.ts` `popoverTriggerClass`; rows pass nothing → unchanged
   ghost). Source icon/pill GONE — source label is a bold prefix in the why-line; numeric score is `expertMode`-only.
-  ★★ `--rag-amber-text` (=ui-purple / a brown) is AA ONLY on LIGHT AIPM — as SMALL text on `bg-surface` it FAILS AA on
+  ★★ `--rag-amber-text` (=ui-purple / a brown) is AA ONLY on LIGHT Petrol — as SMALL text on `bg-surface` it FAILS AA on
   dark+mockup (3.5/4.4:1). Tier colour MUST ride the DOT/STRIPE (non-text, AA-exempt), never tinted small text (bit the
   tier count + hero eyebrow; both now muted). ★ the `actions` (Next actions) view is now in axe `A11Y_VIEWS` (hash-nav in
   `e2e/a11y.spec.ts` — Dashboard sub-child, sidebar entry may be collapsed at scan time).

@@ -88,8 +88,10 @@ async function settleHash(page: Page, hash: string, name: string): Promise<void>
   ).toBe(HASH_STABLE_READS);
 }
 
-// AIPM and Dashboard no longer exist in the app in any form — a theme is a file
-// the user loads. The matrix runs on the four BUILT-IN schemes. Harbor/
+// Petrol and Dashboard are no longer BUILT-IN schemes and ship with nothing
+// selecting them by default — each is only an importable theme file under
+// public/themes/ (petrol.json / mockup.json) that a user loads through the
+// gallery. The matrix runs on the four BUILT-IN schemes. Harbor/
 // Meridian/Umber are dark-capable and ALL THREE run light AND dark. Umber-dark
 // was MISSING from this matrix while `UMBER_DARK` was already imported above,
 // already wired into SCHEME_SEED below, and BUILTIN_SCHEMES already marked

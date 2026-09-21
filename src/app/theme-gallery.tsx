@@ -1,9 +1,10 @@
 "use client";
 
 // Theme library: load a portable theme JSON from disk, then apply, customise or
-// remove it. AIPM and Dashboard no longer ship with the app in any form — a theme
-// is whatever file the user supplies, so this surface is a file picker plus the
-// list of what has been loaded.
+// remove it. Petrol and Dashboard are no longer BUILT-IN schemes — they are
+// available only as importable theme files under public/themes/ (petrol.json /
+// mockup.json), same as any theme a user supplies, so this surface is a file
+// picker plus the list of what has been loaded.
 //
 // Presentational apart from the import itself: the scheme list, the active id
 // and the apply/remove handlers are props, owned by AppearanceSection (which

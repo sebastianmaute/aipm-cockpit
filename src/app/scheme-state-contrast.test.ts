@@ -80,7 +80,7 @@ describe("scheme state contrast", () => {
   // per scheme AND mode once JS runs, so this static block is all a user gets
   // until then.
   // ★★ The three fallbacks are NOT uniform, which is the whole reason a guard
-  //    is wanted: at the AIPM-light base dark-blue and pink already clear 3:1
+  //    is wanted: at the Harbor-light base dark-blue and pink already clear 3:1
   //    against --line, so the derivation returns them UNCHANGED and the CSS
   //    hardcodes the raw bases — but raw --ui-green does NOT clear it, so
   //    nudgeToContrast runs and the CSS must hardcode the NUDGED value. Copying

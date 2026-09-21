@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
-  milestoneToGraphEvent, categoryFor, taskToGraphEvent, raidToGraphEvent, changeToGraphEvent, absenceToGraphEvent, listEntityEvents, updateEvent, deleteEvent, GraphCalendarError,
+  milestoneToGraphEvent, categoryFor, taskToGraphEvent, raidToGraphEvent, changeToGraphEvent, absenceToGraphEvent,
+  committeeMeetingToGraphEvent, committeeInfoToGraphEvent, listEntityEvents, updateEvent, deleteEvent, GraphCalendarError,
+  EVENT_BODY_MANAGED_BY,
 } from "./outlook-calendar-write";
-import type { Milestone, Task, RaidItem, Absence } from "./types";
+import type { Milestone, Task, RaidItem, Absence, ChangeItem, CommitteeMeeting } from "./types";
 
 const EVENT = milestoneToGraphEvent({ id: 1, name: "X", date: "2026-08-01", linkedTaskIds: [] }, "p");
 
@@ -101,6 +103,36 @@ describe("absenceToGraphEvent", () => {
     expect(absenceToGraphEvent({ ...abs, type: "sick" }, "p").showAs).toBe("oof");
     expect(absenceToGraphEvent({ ...abs, type: "other" }, "p").showAs).toBe("oof");
     expect(absenceToGraphEvent({ ...abs, type: "training" }, "p").showAs).toBe("busy");
+  });
+});
+
+describe("event body trigram", () => {
+  const m: Milestone = { id: 1, name: "Go-Live", date: "2026-08-01", linkedTaskIds: [] };
+  const task = { id: 3, taskName: "Ship SP1", dueDate: "2026-07-10", status: "In Progress", assignee: "Alice" } as Task;
+  const raid = { id: 3, category: "R", title: "Vendor risk", status: "Open",
+    raisedDate: "2026-01-01", targetDate: "2026-07-10", owner: "Ana", severity: "High",
+    linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [] } as unknown as RaidItem;
+  const change: ChangeItem = { id: 5, title: "Widen scope", description: "", type: "Scope", status: "Approved",
+    impact: "High", decisionBy: "Elena", decisionDate: "2026-06-09", raisedDate: "2026-05-21",
+    linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [] };
+  const abs: Absence = { id: 1, assignee: "Jane Doe", startDate: "2026-01-05", endDate: "2026-01-09", type: "vacation", note: "Skiing" };
+  const meeting: CommitteeMeeting = { id: 1, date: "2026-05-01", title: "Kickoff", agenda: "Discuss scope", location: "Room 1" };
+  const infoItem = { label: "Pre-read", dueDate: "2026-04-20", meetingTitle: "Kickoff" };
+
+  const bodies: Array<[string, string]> = [
+    ["milestoneToGraphEvent", milestoneToGraphEvent(m, "p1").body.content],
+    ["taskToGraphEvent", taskToGraphEvent(task, "p1").body.content],
+    ["raidToGraphEvent", raidToGraphEvent(raid, "p1").body.content],
+    ["changeToGraphEvent", changeToGraphEvent(change, "p1").body.content],
+    ["absenceToGraphEvent", absenceToGraphEvent(abs, "p1").body.content],
+    ["committeeMeetingToGraphEvent", committeeMeetingToGraphEvent(meeting, "Steering", "p1").body.content],
+    ["committeeInfoToGraphEvent", committeeInfoToGraphEvent(infoItem, "p1").body.content],
+  ];
+
+  it.each(bodies)("%s: body is non-empty, carries no old-brand trigram, and names the managed-by line", (_name, content) => {
+    expect(content.length).toBeGreaterThan(0); // positive control: the body isn't empty
+    expect(content).not.toContain("AIPM");
+    expect(content).toContain(EVENT_BODY_MANAGED_BY);
   });
 });
 

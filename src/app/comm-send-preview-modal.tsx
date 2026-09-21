@@ -34,7 +34,7 @@ export function CommSendPreviewModal(props: CommSendPreviewModalProps) {
   // its way out. Once busy, the modal is locked until the send settles.
   const dismiss = busy ? undefined : onCancel;
 
-  // Shared Modal owns the backdrop (canonical AIPM dark-blue scrim), Escape,
+  // Shared Modal owns the backdrop (canonical dark-blue scrim), Escape,
   // focus-trap + restore, and backdrop-click-to-close — the panel is just content.
   return (
     <Modal

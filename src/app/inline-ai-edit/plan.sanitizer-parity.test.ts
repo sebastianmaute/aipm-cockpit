@@ -228,7 +228,7 @@ const STK_BASE = {
 // one-part base would make every probe on the OTHER part read as a rejection.
 const RES_BASE = {
   id: 1, firstName: "Ada", lastName: "Lovelace", title: "CTO", email: "a@b.co",
-  department: "Delivery", company: "AIPM", location: "Berlin", businessPhone: "+49 30 1",
+  department: "Delivery", company: "Example Co", location: "Berlin", businessPhone: "+49 30 1",
   notes: "n",
 };
 // ★★ A WIDE date pair, for the reason `descriptor-drift.test.ts` gives: the

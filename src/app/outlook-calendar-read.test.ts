@@ -83,4 +83,17 @@ describe("fetchProjectEventDates", () => {
     expect(url).toContain(encodeURIComponent("AIPM:proj-1:task"));
     expect(url).toContain(encodeURIComponent("categories/any(c:c eq 'AIPM:proj-1:task')"));
   });
+
+  it("filters Outlook events by the current category prefix", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (graphGet as any).mockClear();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (graphGet as any).mockResolvedValueOnce({ value: [] });
+    await fetchProjectEventDates("tok", "proj-1", "task");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const url = (graphGet as any).mock.calls[0][1] as string;
+    const decoded = decodeURIComponent(url);
+    expect(decoded).toContain("AIPM:");
+    expect(decoded).not.toContain("AIPM:"); // the half that fails if only a constant changed
+  });
 });

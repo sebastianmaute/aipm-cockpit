@@ -41,7 +41,7 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
   // the look. A dark-capable active scheme honours the theme; mockup + a
   // light-only user scheme pin light (mirrors effectiveDark → !supportsDark).
   const pinsLight = !activeSupportsDark;
-  // Built-in schemes are Harbor/Meridian/Umber/Beacon; AIPM + Dashboard ship as
+  // Built-in schemes are Harbor/Meridian/Umber/Beacon; Petrol + Dashboard ship as
   // importable theme files (Theme gallery below), so they are NOT hardcoded
   // options here.
   const builtinSchemes = store.schemes.filter((s) => s.builtIn);

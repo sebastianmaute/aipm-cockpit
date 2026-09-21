@@ -18,7 +18,7 @@ import { checkSchemePairs } from "./scheme-contrast";
 // The four code-owned built-ins are pure-seed (exactly the 21 editable tokens,
 // designed AA-clean). Beacon is the first LIGHT-ONLY built-in — it carries no
 // `dark` map and the app's generic pin-light mechanism forces light mode
-// whenever it's the active scheme. AIPM/Mockup are no longer code built-ins —
+// whenever it's the active scheme. Petrol/Mockup are no longer code built-ins —
 // they ship as importable theme files.
 const BUILTIN_IDS = ["harbor", "meridian", "umber", "beacon"] as const;
 
@@ -43,7 +43,9 @@ describe("BUILTIN_SCHEMES", () => {
     }
     expect(DEFAULT_SCHEME_ID).toBe("beacon");
     expect([...BUILTIN_SCHEME_IDS].sort()).toEqual(["beacon", "harbor", "meridian", "umber"]);
-    // AIPM / Mockup are no longer code built-ins.
+    // Petrol / Mockup are no longer code built-ins. The literal "AIPM" below is
+    // the retired built-in id a real device's stored activeId may still carry —
+    // it must stay exactly that string for the guard to mean anything.
     expect(BUILTIN_SCHEME_IDS.has("AIPM")).toBe(false);
     expect(BUILTIN_SCHEME_IDS.has("mockup")).toBe(false);
   });
@@ -104,7 +106,9 @@ describe("reconcileBuiltins", () => {
     expect(out.activeId).toBe("umber");
   });
 
-  it("falls back to beacon for an orphaned AIPM activeId", () => {
+  it("falls back to beacon for an orphaned legacy 'AIPM' activeId", () => {
+    // "AIPM" is the retired built-in scheme id — kept literal because a real
+    // device's stored activeId may still carry it.
     const out = reconcileBuiltins({ schemes: [], activeId: "AIPM" });
     expect(out.activeId).toBe("beacon");
   });
