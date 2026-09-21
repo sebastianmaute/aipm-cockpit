@@ -323,6 +323,47 @@ describe("NarrativeSummary inline editing", () => {
     expect(screen.queryByRole("button", { name: EDIT })).toBeNull();
     expect(screen.queryByText("Something")).toBeNull();
   });
+
+  // ★★ Clear on the ADD path: nothing is stored, so Clear writes nothing and
+  //   the nonce is the only thing that empties the surface. Every other Clear
+  //   test starts from a stored narrative, where the status write happens too.
+  it("Clear on the Add path empties the surface and stores nothing", async () => {
+    const user = userEvent.setup();
+    render(<SummaryHost />);
+    await user.click(screen.getByRole("button", { name: ADD }));
+    const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    await user.click(surface);
+    await user.keyboard("Draft only");
+    expect(surface.textContent).toBe("Draft only");
+    expect(screen.getByTestId("stored").textContent).toBe("");
+    await user.click(screen.getByRole("button", { name: /clear/i }));
+    expect(screen.getByRole("textbox", { name: surfaceName() }).textContent).toBe("");
+    expect(screen.getByTestId("stored").textContent).toBe("");
+  });
+
+  // ★★ The editor region is print:hidden, and a print from the browser menu
+  //   leaves the editor open (a window switch does not close it). The stored
+  //   summary must still be in the print markup, in a print-only copy that the
+  //   screen never shows.
+  it("keeps a print-only copy of the stored summary while editing", async () => {
+    const user = userEvent.setup();
+    render(<SummaryHost initial="<p>Printed status</p>" />);
+    await user.click(screen.getByRole("button", { name: EDIT }));
+    await screen.findByRole("textbox", { name: surfaceName() });
+    const copy = screen.getByTestId("narrative-print-copy");
+    expect(copy.textContent).toContain("Printed status");
+    expect(copy.className.split(" ")).toEqual(expect.arrayContaining(["hidden", "print:block"]));
+    expect(copy.className).not.toContain("print:hidden");
+    expect(copy.closest('[class~="print:hidden"]')).toBeNull();
+  });
+
+  it("renders no print-only copy while editing when nothing is stored", async () => {
+    const user = userEvent.setup();
+    render(<SummaryHost />);
+    await user.click(screen.getByRole("button", { name: ADD }));
+    await screen.findByRole("textbox", { name: surfaceName() });
+    expect(screen.queryByTestId("narrative-print-copy")).toBeNull();
+  });
 });
 
 // A host that owns ProjectStatus state so the editor's commit/clear + the

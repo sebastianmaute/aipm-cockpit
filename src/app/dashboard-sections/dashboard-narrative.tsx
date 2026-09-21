@@ -69,20 +69,40 @@ export function NarrativeSummary({ lang, status, setStatus, readOnly }: {
     });
   };
 
+  const storedView = empty ? null : (
+    <>
+      <RichTextView html={rendered} />
+      {status.narrativeUpdatedAt ? (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {t(lang, "dashboardNarrativeUpdated", status.narrativeUpdatedAt.slice(0, 10))}
+        </p>
+      ) : null}
+    </>
+  );
+
   if (editing) {
-    return <NarrativeEditor lang={lang} status={status} setStatus={setStatus} autoFocus onDone={done} />;
+    // ★★ The editor region is print:hidden, and a print from the browser menu
+    //   does NOT close it (leaving the window keeps the editor open, see
+    //   `onRegionBlur`). So the STORED summary is printed from a print-only
+    //   copy. Stored, not the draft: that focusout already ran commit-on-blur,
+    //   so the two agree by the time anything prints.
+    return (
+      <>
+        <NarrativeEditor lang={lang} status={status} setStatus={setStatus} autoFocus onDone={done} />
+        {storedView && (
+          <Card boxed className="hidden p-3 print:block" data-testid="narrative-print-copy">
+            {storedView}
+          </Card>
+        )}
+      </>
+    );
   }
   if (empty && readOnly) return null;
   return (
     // An empty summary holds only the Add button, which is print:hidden, so
     // the card goes with it rather than printing as a blank box.
     <Card boxed className={empty ? "p-3 print:hidden" : "p-3"}>
-      {!empty && <RichTextView html={rendered} />}
-      {!empty && status.narrativeUpdatedAt ? (
-        <p className="mt-1 text-xs text-muted-foreground">
-          {t(lang, "dashboardNarrativeUpdated", status.narrativeUpdatedAt.slice(0, 10))}
-        </p>
-      ) : null}
+      {storedView}
       {!readOnly && (
         <div className={empty ? "flex justify-end print:hidden" : "mt-2 flex justify-end print:hidden"}>
           <Button ref={toggleRef} variant="secondary" size="sm" onClick={() => setEditing(true)}>
