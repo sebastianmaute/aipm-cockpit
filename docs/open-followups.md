@@ -821,6 +821,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§605](#605-an-ai-calendar-event-update-that-re-sends-a-stored-invalid-until-with-a-count-previews-the-count-while-the-write-keeps-the-until--closed-2026-09-21) | An AI calendar-event update that re-sends a stored invalid until with a count previews the count while the write keeps the until — CLOSED 2026-09-21 | found 2026-09-21 reviewing §542 on `fix/backlog-sweep`, filed and closed on the same branch | S — one carry predicate and one carried-date derivation shared by the update writer and the card's recurrence line | closed |
 | [§606](#606-the-diagnostics-catch-all-misses-a-base64-secret-whose-separators-split-it-into-short-runs--closed-2026-09-21) | The diagnostics catch-all misses a base64 secret whose separators split it into short runs — CLOSED 2026-09-21 | found 2026-09-21 reviewing §564 on `fix/backlog-sweep`, filed and closed on the same branch | S — one base64-alphabet rule placed before the §564 catch-all | closed |
 | [§607](#607-the-timelog-and-ecb-proxies-log-a-raw-error-object-on-upstream-failure--closed-2026-09-21) | The Timelog and ECB proxies log a raw error object on upstream failure — CLOSED 2026-09-21 | found 2026-09-21 reviewing §566 on `fix/backlog-sweep`, filed and closed on the same branch | S — one shared helper (`describeUpstreamError`) moved and reused at two more call sites | closed |
+| [§608](#608-the-diagnostics-secret-patterns-take-quadratic-time-on-a-long-run-that-fails-them--open) | The diagnostics secret patterns take quadratic time on a long run that fails them — OPEN | final-review M6 on `fix/backlog-sweep`, measured 2026-09-21 reviewing §606; GitLab #389 | M — bound backtracking or the input length before matching (see §578) | open |
+| [§609](#609-a-late-seal-can-resurrect-a-sealed-secret-the-user-just-cleared--open) | A late seal can resurrect a sealed secret the user just cleared — OPEN | final-review M7 on `fix/backlog-sweep` (Task 5 deferred minor, upgraded), read from code, pre-existing and family-wide; GitLab #390 | S — a per-secret generation guard | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -40596,3 +40598,89 @@ failed: …`) is UNCHANGED, as directed: it deliberately logs only `failureClass
 query-stripped path — never the raw error object — so it was never in scope.
 
 Related: §566.
+
+## 608. The diagnostics secret patterns take quadratic time on a long run that fails them — OPEN
+
+**Status:** OPEN 2026-09-21 — timing measured directly against the bare `SECRET_VALUE_PATTERNS`
+regexes with `node -e` one-liners (below), not through `redactFields` end to end. Ordering confirmed
+by `grep -n "SECRET_VALUE_PATTERNS: RegExp\[\]" -A 35 src/app/diagnostics-redact.ts`, which shows the
+§606 pattern before the §564 catch-all in the array.
+
+**Work item:** #389
+
+`redactFields` (`diagnostics-redact.ts`) calls `scrubSecretValues`, which runs every pattern in
+`SECRET_VALUE_PATTERNS` over the FULL field value in array order — and only afterwards does
+`redactFields` slice the result to `FIELD_MAX` (500 chars). §606's pattern (the base64-shaped run with
+a `+`-or-padding branch) is ordered BEFORE §564's catch-all, so a run that fails BOTH patterns pays
+§606's quadratic cost, on the full untruncated field, before §564 ever gets to match it linearly.
+
+Measured on Node, `.replace` on one run (final-review M6, `af138b491..1d9f83469`):
+
+| Run | §606 | §564 |
+|---|---|---|
+| 16k lowercase-hex | 213 ms | 178 ms |
+| 64k lowercase-hex | 3.4 s | 3.5 s |
+| 64k mixed-case, no `+`, no padding | 12.7 s | 1 ms |
+
+The last row is exactly the shape §564 exists to catch (mixed case, no vendor frame, no `+` or
+padding), and §606 now runs first against it, so a genuinely adversarial run pays the quadratic branch
+that used to belong to the narrower §564 catch-all alone. Reproduced this session, same shape, a
+different machine:
+`node -e "const p=/(?=[A-Za-z0-9+/]*[a-z])(?=[A-Za-z0-9+/]*[A-Z])(?=[A-Za-z0-9+/]*\d)(?:(?=[A-Za-z0-9+/]*\+)[A-Za-z0-9+/]{32,}(?:={1,2}(?![A-Za-z0-9+/=]))?|[A-Za-z0-9+/]{32,}={1,2}(?![A-Za-z0-9+/=]))/g;for(const n of [16000,64000]){let s='';for(let i=0;i<n;i++)s+='aB3zQ9zK7mP2wR8tYuJ5hG0fD1sA6lM4nB2'[i%35];const t=performance.now();s.replace(p,'X');console.log(n,Math.round(performance.now()-t))}"`
+(printed `16000 849` and `64000 14042`; the same generated string against the bare §564 pattern alone
+printed `0` at both sizes).
+
+**Why pre-capping is not free.** Slicing to `FIELD_MAX` before the scrub, to bound what each pattern
+sees, can leave a secret FRAGMENT past the cut — the redaction exists precisely because a field can
+carry a real credential, and a half-redacted credential reads as already scrubbed, which is worse than
+one truncated whole and never scrubbed at all. A fix has to keep the whole value in front of the
+patterns while bounding their cost, which the current `.replace` loop over `SECRET_VALUE_PATTERNS`
+does not do.
+
+Related: [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open),
+the catalogue of backtracking-quadratic regexes elsewhere in `src` — this pattern sits in
+`diagnostics-redact.ts`, outside that sweep's scope, and could be folded into it rather than tracked as
+a fifth site of its own. Found reviewing [§606](#606-the-diagnostics-catch-all-misses-a-base64-secret-whose-separators-split-it-into-short-runs--closed-2026-09-21)
+(final-review M6).
+
+**The fix shape:** bound the input each pattern sees, or bound the patterns' own backtracking, without
+letting a real credential's tail survive the cut unredacted — see §578 for the general shape.
+
+## 609. A late seal can resurrect a sealed secret the user just cleared — OPEN
+
+**Status:** OPEN 2026-09-21 — read from code; call sites confirmed by
+`grep -rn "removeSealed(" src/app/jira-settings.tsx src/app/timelog-settings.tsx src/app/settings-sections/integrations-section.tsx src/app/settings-sections/ai-section.tsx src/app/settings-sections/dictation-section.tsx`.
+Never machine-verified against a live timed race — an in-flight seal outrunning a clear was not
+reproduced end to end.
+
+**Work item:** #390
+
+`saveSecretValue` (`use-secrets.ts`) is async: it `await`s `sealDevice`/`sealPassphrase` (WebCrypto)
+before calling `saveSealed`. Every per-field change handler fires it fire-and-forget
+(`void saveSecretValue(...)`), so a keystroke whose value is later overwritten or cleared can still
+have a seal in flight. If the user then CLEARS the field, the handler calls `removeSealed(id)`
+synchronously — but nothing orders that against the earlier keystroke's still-pending
+`saveSecretValue` promise. If that promise resolves AFTER the clear, its `saveSealed` call lands last
+and writes the ciphertext back: the record the user just cleared reappears at rest, and the next
+load's `hydrateSecretsInto` restores it.
+
+This is the [§565](#565-two-settings-sections-clear-a-token-by-resealing-an-empty-string-instead-of-removing-it--closed-2026-09-21)
+family, at the same four sites §565 fixed — `jira-settings.tsx` `handleApiTokenChange`,
+`timelog-settings.tsx` `handleToken`, and `integrations-section.tsx`'s `commitTurso` and
+`confirmPortfolioModeSwitch`. §565 made the CLEAR itself call `removeSealed` reliably (instead of
+sealing `""`); it never ordered a clear against an in-flight seal from a PRIOR keystroke, because that
+ordering was outside its scope. The exposure predates §565 and is not introduced by it.
+
+**Family-wide, not settings-only.** The same `saveSecretValue`/`removeSealed` pair backs all five
+`SecretId`s, and the race is a property of that pair, not of any one settings section: the AI key
+field (`ai-section.tsx` `handleApiKeyChange`, `void saveSecretValue("anthropicApiKey", …)`) and the
+dictation STT key field (`dictation-section.tsx`) already called `removeSealed` on clear before this
+branch, and both carry the same unguarded ordering.
+
+**The fix shape:** a per-secret generation guard — stamp a monotonic counter (or the value being
+sealed) when `saveSecretValue` starts, and have its `saveSealed` write apply only if no later call for
+that same id (a newer keystroke, or a clear) has started since. `removeSealed` on clear should bump the
+same guard, so a seal already in flight at clear time is discarded instead of racing it.
+
+Related: §565 (final-review M7, the finding that raised this while reviewing the §565 fix; pre-existing
+across the family and not closed by that fix).

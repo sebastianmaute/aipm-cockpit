@@ -223,8 +223,8 @@ export interface EntityDescriptor {
    *   `sanitizeAbsence` calls, so absence (and every register entity) is
    *   already in parity and must keep the default. Calendar events instead
    *   read a date through one of three readers, one per path (§542): CREATE
-   *   requires a real calendar date with NO year bound, LOAD keeps what loaded
-   *   before §542, and UPDATE carries a date equal to the stored one and judges
+   *   requires a real calendar date with NO 1900–2100 bound, LOAD keeps what
+   *   loaded before §542, and UPDATE carries a date equal to the stored one and judges
    *   any other as on create. Measured before §542, both ways: `startDate:
    *   "2026-01-32"` previewed as an accepted change and then made the
    *   sanitizer return null, which `updateCalendarEvent` throws on — costing
@@ -895,7 +895,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     requiredNonEmptyGroups: [],
     dateFields: new Set(["startDate"]),
     // See `acceptsDate`. ★★ THE ONE ENTITY THAT NEEDS IT: this entity's write
-    // rule is a real calendar date with NO year bound (§542), NOT the
+    // rule is a real calendar date with NO 1900–2100 bound (§542), NOT the
     // `sanitizeIsoDate` (regex + calendar check + 1900–2100) the preview
     // defaults to — and the two still disagree on the year bound.
     acceptsDate: acceptsEventDate,
