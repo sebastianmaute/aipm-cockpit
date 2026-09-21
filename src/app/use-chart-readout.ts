@@ -60,13 +60,17 @@ export function useChartReadout({
    *  fits there, and inside the viewport always. ★ The viewport clamp is the
    *  outer floor for the case where the box is WIDER than the chart (the
    *  dashboard tile at `xl`): there the chart-box clamp cannot hold, and
-   *  without a floor the box would run off-screen. Mirrors `InfoTooltip`. */
+   *  without a floor the box would run off-screen. Mirrors `InfoTooltip`.
+   *  ★ §571: at exactly `HALF * 2` (352px) the chart is exactly as wide as the
+   *  box, so the clamp range `[left + HALF, right - HALF]` collapses to the
+   *  single point at the chart's centre — the box still fits there exactly, so
+   *  equality takes the chart-box clamp, not the raw/viewport branch. */
   const anchorFor = useCallback((date: string): ReadoutAnchor | null => {
     const rect = hostRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0) return null;
     const svgX = scaleDate(date, xDomain, x0, x1);
     const raw = rect.left + (svgX / viewBoxWidth) * rect.width;
-    const inChart = rect.width > HALF * 2
+    const inChart = rect.width >= HALF * 2
       ? Math.min(Math.max(raw, rect.left + HALF), rect.right - HALF)
       : raw;
     const left = Math.min(

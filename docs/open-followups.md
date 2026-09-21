@@ -793,7 +793,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§568](#568-the-registers-index-rebuild-recipe-is-not-a-no-op-on-the-committed-table-and-discards-hand-written-state-prose--open) | The register's index-rebuild recipe is not a no-op on the committed table and discards hand-written State prose — OPEN | slice (2026-09) | S–M | open |
 | [§569](#569-screen-readers-may-never-deliver-the-chart-readouts-arrow-keys--open) | Screen readers may never deliver the chart readout's arrow keys — OPEN | found 2026-09-18 reviewing the merged chart hover readout; never run under a real screen reader; GitLab #354 | S — a real NVDA and JAWS pass, then pick `role="application"`, instructions, or the live-region fallback | open |
 | [§570](#570-the-spoken-readout-capitalises-mid-sentence--closed-2026-09-21) | The spoken readout capitalises mid-sentence — CLOSED 2026-09-21 | found 2026-09-18 reading `rowText` against the tip strings in `i18n.ts`/`i18n.de.ts`; GitLab #355 | XS — lower-case the explanation or join with a full stop; German nouns make a blanket lower-case unsafe | closed |
-| [§571](#571-the-chart-box-clamps-boundary-width-has-no-test--open) | The chart-box clamp's boundary width has no test — OPEN | found 2026-09-18 by mutation-testing `anchorFor`, `>` to `>=`, suite stayed green; GitLab #356 | XS — add a case at `rect.width === 352` | open |
+| [§571](#571-the-chart-box-clamps-boundary-width-has-no-test--closed-2026-09-21) | The chart-box clamp's boundary width has no test — CLOSED 2026-09-21 | found 2026-09-18 by mutation-testing `anchorFor`, `>` to `>=`, suite stayed green; GitLab #356 | XS — add a case at `rect.width === 352` | closed |
 | [§572](#572-agentsmds-tsc-guidance-cannot-detect-a-vacuous-run--open) | AGENTS.md's tsc guidance cannot detect a vacuous run — OPEN | measured 2026-09-18 on this branch: a corrupt generated file hides a real `src/` error from `tsc`; GitLab #357 | S — amend the Commands block's `npx tsc --noEmit` guidance | open |
 | [§573](#573-the-open-points-visual-baseline-is-stale--closed-2026-09-19) | The Open Points visual baseline is stale | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | **CLOSED** 2026-09-19 |
 | [§574](#574-load-project-from-file-throws-in-firefoxsafari-and-blames-settings-instead-of-the-browser--open) | "Load project from file" throws in Firefox/Safari and blames Settings instead of the browser — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #359 | S — gate the CTA behind `isFileSystemAccessSupported()`, or have `reportProjectError` emit the specific message | open |
@@ -39512,12 +39512,22 @@ wherever they sit in a sentence, so a blanket "lower-case the first character" r
 first tip string ever written to start with a noun would be mis-capitalised by it. The full-stop join
 sidesteps the question for every language and is the safer fix.
 
-## 571. The chart-box clamp's boundary width has no test — OPEN
+## 571. The chart-box clamp's boundary width has no test — CLOSED 2026-09-21
 
-**Status:** OPEN 2026-09-18 — found by mutation-testing `anchorFor` in `src/app/use-chart-readout.ts`:
-mutating `>` to `>=` and rerunning `npx vitest run src/app/use-chart-readout.test.tsx` left all 19 tests green.
-
-**Work item:** #356
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`: `anchorFor`'s clamp threshold
+(`src/app/use-chart-readout.ts`) changed from `rect.width > HALF * 2` to `rect.width >= HALF * 2`, so at
+exactly 352px — where the clamp range collapses to the single point at the chart's centre and the box fits
+there exactly — the chart-box clamp now fires instead of the raw/viewport branch. Test:
+`use-chart-readout.test.tsx`, two new cases beside the existing narrow-chart ones: "clamps into the chart
+when the chart is exactly as wide as the box" (352px, asserts the clamped centre `58/476`) and "leaves the
+stop raw one pixel below the boundary" (351px, asserts the raw `58/335` — pinned by the raw position rather
+than distance from centre, since the clamped value there, 475.5, rounds to the same 476 and so cannot tell
+the two states apart). Mutant 8b (revert to `>`) — predicted RED on the 352 case alone, actual RED on exactly
+that case (1 failed / 20 passed), no mismatch. `git diff --stat` proved clean before and after the mutant.
+Gates: `npx tsc --noEmit` EXIT=0; `npx eslint --max-warnings=0 src/app/use-chart-readout.ts
+src/app/use-chart-readout.test.tsx` EXIT=0. No departure from the entry's fix-shape line: it asked for a case
+at `rect.width === 352` asserting which clamp it takes, and for the boundary to be pinned, not just each side
+of it — both cases above do that, with the 351 case as the immediate below-boundary control.
 
 `anchorFor` decides which clamp to apply to the readout box's horizontal position with
 `rect.width > HALF * 2` (`HALF = 176`, so the threshold is 352px — the readout box's own `max-w-[22rem]`).
