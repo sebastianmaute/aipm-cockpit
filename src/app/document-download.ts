@@ -291,7 +291,7 @@ export async function downloadDocument(
       ? new Blob([renderDocumentHtml(doc, ws, lang, "standalone", assets, footer)], { type: HTML_MIME })
       : format === "docx"
         ? renderDocumentDocx(doc, ws, lang, assets)
-        : renderDocumentPptx(doc, ws, lang, assets);
+        : renderDocumentPptx(doc, ws, lang, assets, footer);
 
   triggerDownload(documentFilename(doc, format, today), blob);
 }

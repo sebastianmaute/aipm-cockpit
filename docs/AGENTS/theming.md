@@ -417,7 +417,12 @@
   `color-scheme-editor.tsx` either — a scheme cannot carry it into `settings`, so that control would appear
   to work and do nothing.
 - **Export footer (`branding.exportFooter`):** the `<footer>` line of HTML document downloads
-  (`renderDocumentHtml`) and the print/PDF table export (`buildPdfHtml`), resolved by ONE function,
+  (`renderDocumentHtml`) and the print/PDF table export (`buildPdfHtml`), AND of PowerPoint: a 9 pt
+  line on every slide (`pptxFooterShape`, via `wrapPptxSlide`, whose footer argument is REQUIRED so a
+  new slide builder cannot ship without it) plus the theme/colour/font scheme names
+  (`buildPptxTheme`, via `buildPptxPackage`) — both exporters, `buildPptx` and `renderDocumentPptx`.
+  ★ Changing the theme bytes moves `docs/baselines/ooxml-parts.json`; regenerate it only with
+  `npm run ooxml:manifest`. All of it is resolved by ONE function,
   `exportFooterText` (`export-footer.ts`, dependency-free so the renderers stay out of the
   settings-types import cycle; re-exported from `settings-types.ts`). ★★ THREE states, and `""` is
   one of them: `undefined` = never set → `DEFAULT_EXPORT_FOOTER` (the pre-configurable text),

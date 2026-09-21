@@ -29,6 +29,7 @@ import {
   pptxTitleSubtitleShapes,
   wrapPptxSlide,
 } from "./ooxml-pptx-primitives";
+import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
 
 // ============================================================================
 // PPTX
@@ -41,25 +42,31 @@ import {
  *
  * Slide dimensions are 16:9 widescreen (9144000 × 5143500 EMUs = standard).
  */
-export function buildPptx(sections: ExportSection[], lang: Lang): Blob {
+export function buildPptx(
+  sections: ExportSection[],
+  lang: Lang,
+  /** The export footer (`exportFooterText(settings.branding)`): printed on every
+   *  slide and naming the theme. */
+  footer: string = DEFAULT_EXPORT_FOOTER,
+): Blob {
   const slides: PptxSlide[] = [];
   // ★ The three chrome slides hold no CELL, so nothing on them can carry a
   // link: they declare no media and no relationships, exactly as before.
   const chromeSlide = (xml: string): PptxSlide => ({ xml, media: [] });
 
   // Title slide (always first).
-  slides.push(chromeSlide(buildPptxTitleSlide(lang)));
+  slides.push(chromeSlide(buildPptxTitleSlide(lang, footer)));
 
   for (const section of sections) {
     const truncated = section.rows.length > PPTX_MAX_ROWS_PER_SECTION;
     const usedRows = section.rows.slice(0, PPTX_MAX_ROWS_PER_SECTION);
 
     // Section divider slide.
-    slides.push(chromeSlide(buildPptxDividerSlide(section.title, section.rows.length, lang)));
+    slides.push(chromeSlide(buildPptxDividerSlide(section.title, section.rows.length, lang, footer)));
 
     // One item slide per row.
     for (const row of usedRows) {
-      slides.push(buildPptxRowSlide(section.title, section.columns, row, lang));
+      slides.push(buildPptxRowSlide(section.title, section.columns, row, lang, footer));
     }
 
     // Truncation notice when section exceeds the cap.
@@ -70,6 +77,7 @@ export function buildPptx(sections: ExportSection[], lang: Lang): Blob {
             t(lang, "pptxTruncatedNotice", PPTX_MAX_ROWS_PER_SECTION, section.rows.length, section.title),
             t(lang, "pptxTruncatedHint"),
             lang,
+            footer,
           ),
         ),
       );
@@ -79,26 +87,26 @@ export function buildPptx(sections: ExportSection[], lang: Lang): Blob {
   // Task 9 gave every slide its own relationships; this exporter authors no
   // images, so every slide declares an empty media list — a ROW slide may
   // still declare external link relationships of its own.
-  return buildPptxPackage(slides);
+  return buildPptxPackage(slides, footer);
 }
 
 // ---- PPTX sub-builders ----------------------------------------------------
 
-function buildPptxTitleSlide(lang: Lang): string {
+function buildPptxTitleSlide(lang: Lang, footer: string): string {
   const shapes =
     pptxBackgroundRect(COLOR_DARK_BLUE) +
     pptxTitleSubtitleShapes("AI PM Cockpit", `Exported ${todayHuman()}`, lang);
 
-  return wrapPptxSlide(shapes);
+  return wrapPptxSlide(shapes, { text: footer, lang, onDark: true });
 }
 
 /** Section-divider slide: full-bleed Dark Blue with the section title. */
-function buildPptxDividerSlide(title: string, rowCount: number, lang: Lang): string {
+function buildPptxDividerSlide(title: string, rowCount: number, lang: Lang, footer: string): string {
   const shapes =
     pptxBackgroundRect(COLOR_DARK_BLUE) +
     pptxTitleSubtitleShapes(title, `${rowCount} row${rowCount === 1 ? "" : "s"}`, lang);
 
-  return wrapPptxSlide(shapes);
+  return wrapPptxSlide(shapes, { text: footer, lang, onDark: true });
 }
 
 /** The paragraph styling a cell VALUE inherits from its slot on the row slide.
@@ -226,6 +234,7 @@ function buildPptxRowSlide(
   columns: string[],
   row: ExportCell[],
   lang: Lang,
+  footer: string,
 ): PptxSlide {
   // ★★★ ONE SINK PER SLIDE, NEVER ONE PER DECK. A PPTX relationship id is
   // scoped to ONE `ppt/slides/_rels/slideN.xml.rels`, so ids restart at rId2 on
@@ -297,10 +306,10 @@ function buildPptxRowSlide(
   // ★ `rels()` is `[]` for a row with no link, and `buildPptxPackage`'s
   // contract is that an empty (or omitted) list adds no relationship and no
   // part — so a link-free deck is byte-for-byte what it was.
-  return { xml: wrapPptxSlide(shapes), media: [], links: links.rels() };
+  return { xml: wrapPptxSlide(shapes, { text: footer, lang, onDark: false }), media: [], links: links.rels() };
 }
 
-function buildPptxNoticeSlide(line1: string, line2: string, lang: Lang): string {
+function buildPptxNoticeSlide(line1: string, line2: string, lang: Lang, footer: string): string {
   const shapes =
     pptxAccentBar(COLOR_PINK) +
     pptxTextBox({
@@ -338,5 +347,5 @@ function buildPptxNoticeSlide(line1: string, line2: string, lang: Lang): string 
       ],
     });
 
-  return wrapPptxSlide(shapes);
+  return wrapPptxSlide(shapes, { text: footer, lang, onDark: false });
 }

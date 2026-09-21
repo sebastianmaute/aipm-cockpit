@@ -213,7 +213,7 @@ export async function exportWorkspace(
     } else if (format === "xlsx") {
       blob = buildXlsx(sections);
     } else {
-      blob = buildPptx(sections, lang);
+      blob = buildPptx(sections, lang, footer);
     }
   }
   triggerDownload(defaultFilename(format), blob);

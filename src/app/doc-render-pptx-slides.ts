@@ -45,6 +45,7 @@ import type { DocumentAsset } from "./document-asset";
 import type { ExportAssets } from "./document-export-assets";
 import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
+import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
 
 /**
  * One body line on its way to a slide.
@@ -615,6 +616,7 @@ export function buildContentSlide(
       titleShape +
       body +
       pictures,
+    { text: ctx.footer ?? DEFAULT_EXPORT_FOOTER, lang: ctx.lang, onDark: false },
   );
 }
 
@@ -628,6 +630,8 @@ export type RenderCtx = {
   lang: Lang;
   byId: ReadonlyMap<string, DocumentAsset>;
   assets: ExportAssets;
+  /** The export footer every slide carries; omitted means the built-in default. */
+  footer?: string;
 };
 
 /**

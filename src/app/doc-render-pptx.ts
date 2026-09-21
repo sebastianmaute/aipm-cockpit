@@ -95,6 +95,7 @@ import type { ExportCell } from "./export-sections";
 import { cellTextWithLinks } from "./export-sections";
 import type { Workspace } from "./workspace";
 import { t, type Lang } from "./i18n";
+import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
 
 export type DocSlide = { title: string; body: DocBlock[] };
 
@@ -400,12 +401,16 @@ export function renderDocumentPptx(
   ws: Workspace,
   lang: Lang,
   assets: ExportAssets = NO_EXPORT_ASSETS,
+  /** The export footer (`exportFooterText(settings.branding)`): printed on every
+   *  slide and naming the theme. */
+  footer: string = DEFAULT_EXPORT_FOOTER,
 ): Blob {
   const ctx: RenderCtx = {
     ws,
     lang,
     byId: new Map((ws.documentAssets ?? []).map((a) => [a.id, a])),
     assets,
+    footer,
   };
   const slideMedia = createDeckMedia(ctx);
   // ★ The title slide carries no image, so an image-free document still
@@ -414,6 +419,7 @@ export function renderDocumentPptx(
     {
       xml: wrapPptxSlide(
         pptxBackgroundRect(COLOR_DARK_BLUE) + pptxTitleSubtitleShapes(doc.title, "", lang),
+        { text: footer, lang, onDark: true },
       ),
       media: [],
     },
@@ -459,5 +465,5 @@ export function renderDocumentPptx(
     }
   }
 
-  return buildPptxPackage(deck);
+  return buildPptxPackage(deck, footer);
 }

@@ -827,9 +827,10 @@ describe("PPTX export text", () => {
     // ★ The <a:t> count alone does NOT pin this: a split that emitted a
     // trailing EMPTY paragraph leaves the text occurring exactly once while
     // the slide grows a phantom <a:p>. Count the paragraphs themselves —
-    // 1 from the accent bar's placeholder body + RowMeta + RowTitle, with no
-    // RowFields box because there is no third column.
-    expect((xml.match(/<a:p>/g) ?? []).length).toBe(3);
+    // 1 from the accent bar's placeholder body + RowMeta + RowTitle + the
+    // export footer's one line, with no RowFields box because there is no
+    // third column.
+    expect((xml.match(/<a:p>/g) ?? []).length).toBe(4);
     expect((xml.match(/<a:t>Task one<\/a:t>/g) ?? []).length).toBe(1);
   });
 });
@@ -1242,5 +1243,46 @@ describe("buildPptx link relationships", () => {
     expect(xml).not.toContain("javascript:");
     expect(xml).not.toContain("<a:hlinkClick");
     expect(rels).not.toContain('TargetMode="External"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PPTX export footer (branding.exportFooter)
+// ---------------------------------------------------------------------------
+
+describe("PPTX export footer", () => {
+  const SECTIONS: ExportSection[] = [
+    { key: "tasks", title: "Tasks", columns: ["id", "taskName"], rows: [[1, "Task one"]] },
+  ];
+  const slidesOf = (parts: Map<string, string>) =>
+    [...parts.entries()].filter(([p]) => /^ppt\/slides\/slide\d+\.xml$/.test(p)).map(([, x]) => x);
+
+  it("prints the configured footer, escaped, on EVERY slide", async () => {
+    const parts = await unzipBlob(buildPptx(SECTIONS, "en-US", "Acme <GmbH> & Co"));
+    const all = slidesOf(parts);
+    expect(all.length).toBe(3); // title, divider, one row slide
+    for (const xml of all) expect(xml).toContain("<a:t>Acme &lt;GmbH&gt; &amp; Co</a:t>");
+  });
+
+  it("uses the light footer colour on the dark title slide and the muted one on a white row slide", async () => {
+    const parts = await unzipBlob(buildPptx(SECTIONS, "en-US", "Acme"));
+    const footerColour = (xml: string) =>
+      /name="Footer"[\s\S]*?<a:srgbClr val="([0-9A-F]{6})"/.exec(xml)?.[1];
+    expect(footerColour(parts.get("ppt/slides/slide1.xml")!)).toBe("E3E6E6");
+    expect(footerColour(parts.get("ppt/slides/slide3.xml")!)).toBe("939598");
+  });
+
+  it("names the theme and its colour and font schemes after the footer", async () => {
+    const theme = (await unzipBlob(buildPptx(SECTIONS, "en-US", "Acme <GmbH>"))).get("ppt/theme/theme1.xml")!;
+    expect(theme).toContain('<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Acme &lt;GmbH&gt;">');
+    expect(theme).toContain('<a:clrScheme name="Acme &lt;GmbH&gt;">');
+    expect(theme).toContain('<a:fontScheme name="Acme &lt;GmbH&gt;">');
+    expect(theme).not.toContain("Acme");
+  });
+
+  it("keeps today's footer and theme name when none is passed", async () => {
+    const parts = await unzipBlob(buildPptx(SECTIONS, "en-US"));
+    expect(parts.get("ppt/slides/slide1.xml")).toContain("<a:t>Acme — AI PM Cockpit</a:t>");
+    expect(parts.get("ppt/theme/theme1.xml")).toContain('<a:clrScheme name="Acme — AI PM Cockpit">');
   });
 });

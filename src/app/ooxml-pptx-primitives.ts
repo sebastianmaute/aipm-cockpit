@@ -9,6 +9,7 @@ import { type ZipEntry, buildZip } from "./zip";
 // Type-only, so this stays a format module at runtime — no i18n code is pulled
 // into the OOXML graph, only the union of valid BCP-47 tags the app can produce.
 import type { Lang } from "./i18n";
+import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
 import {
   COLOR_DARK_BLUE,
   COLOR_GREEN,
@@ -378,7 +379,37 @@ export function pptxTitleSubtitleShapes(
   );
 }
 
-export function wrapPptxSlide(shapesXml: string): string {
+/** The export footer line every slide carries (`exportFooterText(settings.branding)`).
+ *  `onDark` picks a text colour that reads on the slide's background. */
+export interface PptxFooter {
+  text: string;
+  lang: Lang;
+  onDark: boolean;
+}
+
+/** Shape id of the footer. Far above the 2–3 of a slide's own boxes and the
+ *  handful of pictures a content slide mints, so the ids cannot collide. */
+const FOOTER_SHAPE_ID = 9999;
+// Below every body box (content ends by 4 663 440 EMU) and inside the 5 143 500 slide.
+const FOOTER_BOX = { xEmu: 457200, yEmu: 4754880, cxEmu: 8229600, cyEmu: 274320 };
+
+/** The footer text box, bottom-left, 9 pt, muted. */
+export function pptxFooterShape(footer: PptxFooter): string {
+  return pptxTextBox({
+    id: FOOTER_SHAPE_ID,
+    name: "Footer",
+    lang: footer.lang,
+    ...FOOTER_BOX,
+    paragraphs: [
+      { text: footer.text, sizeHundredths: 900, colorRgb: footer.onDark ? COLOR_LIGHT_GREY : COLOR_MEDIUM_GREY },
+    ],
+  });
+}
+
+/** ★★ `footer` is REQUIRED, not defaulted: every slide must carry the export
+ *  footer, and a new slide builder that forgot it would ship silently. tsc names
+ *  each call site instead. */
+export function wrapPptxSlide(shapesXml: string, footer: PptxFooter): string {
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
        xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -399,6 +430,7 @@ export function wrapPptxSlide(shapesXml: string): string {
         </a:xfrm>
       </p:grpSpPr>
       ${shapesXml}
+      ${pptxFooterShape(footer)}
     </p:spTree>
   </p:cSld>
   <p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>
@@ -476,11 +508,14 @@ export function buildPptxSlideLayout(): string {
 </p:sldLayout>`;
 }
 
-export function buildPptxTheme(): string {
+/** The theme and its colour and font schemes are NAMED after the export footer
+ *  (PowerPoint shows these names in the Design tab). */
+export function buildPptxTheme(name: string = DEFAULT_EXPORT_FOOTER): string {
+  const n = xmlEscape(name);
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Acme">
+<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="${n}">
   <a:themeElements>
-    <a:clrScheme name="Acme">
+    <a:clrScheme name="${n}">
       <a:dk1><a:srgbClr val="${COLOR_TEXT}"/></a:dk1>
       <a:lt1><a:srgbClr val="${COLOR_WHITE}"/></a:lt1>
       <a:dk2><a:srgbClr val="${COLOR_DARK_BLUE}"/></a:dk2>
@@ -494,7 +529,7 @@ export function buildPptxTheme(): string {
       <a:hlink><a:srgbClr val="${COLOR_DARK_BLUE}"/></a:hlink>
       <a:folHlink><a:srgbClr val="AA4899"/></a:folHlink>
     </a:clrScheme>
-    <a:fontScheme name="Acme">
+    <a:fontScheme name="${n}">
       <a:majorFont>
         <a:latin typeface="Titillium Web"/>
         <a:ea typeface=""/>
@@ -591,7 +626,11 @@ export type PptxSlide = {
  *  none of it: it asserts part PRESENCE and slide-XML SUBSTRINGS, never
  *  package bytes. There is still no .pptx byte fixture in this repo — the
  *  manifest replaced that idea on purpose. */
-export function buildPptxPackage(slides: readonly PptxSlide[]): Blob {
+export function buildPptxPackage(
+  slides: readonly PptxSlide[],
+  /** Names the theme and its schemes; the same export footer the slides carry. */
+  themeName: string = DEFAULT_EXPORT_FOOTER,
+): Blob {
   // ★★ Relationship ids are minted by the CALLER, because the slide XML
   // already references them by the time it gets here. rId1 is the slide
   // LAYOUT on every slide; a media part claiming it would replace the layout
@@ -705,7 +744,7 @@ export function buildPptxPackage(slides: readonly PptxSlide[]): Blob {
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>
 </Relationships>`;
 
-  const themeXml = buildPptxTheme();
+  const themeXml = buildPptxTheme(themeName);
 
   // Per-slide _rels: the layout at rId1, then THIS slide's images.
   //
