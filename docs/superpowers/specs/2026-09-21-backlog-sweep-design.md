@@ -17,6 +17,25 @@ knowing the trade. Six of the ten fixes are latent or cosmetic by their own entr
 user-facing correctness. Recon changed two of them: **§565 is user-visible after all** (see Task 5),
 and **§542 is materially larger than its entry says** (see Task 2).
 
+## Corrections made while planning — binding
+
+Writing the plan meant reading every edit site. That turned up five places where this spec was
+wrong or incomplete. The plan (`docs/superpowers/plans/2026-09-21-backlog-sweep.md`) carries the
+full detail; the sections below are corrected to match.
+
+1. **§542: the existing load readers cannot be reused.** Both judge through `sanitizeIsoDate`
+   and its 1900–2100 bound, so a stored meeting dated 2200 would be dropped. The optional reader
+   also blanks a non-calendar value, and a blank recurrence `until` means the series never ends.
+   Calendar events get their own load reader.
+2. **§542: updates are a third path.** A strict sanitizer made every update of an event with an
+   untouched stored invalid date fail. Updates carry an unchanged stored date verbatim, on the
+   milestone `requiredIsoDateOnUpdate` precedent.
+3. **§565: there is no correct Turso clear to mirror.** The site recon named is the wrap-mode
+   toggle, not a clear. `commitTurso`'s passphrase branch also seals `""`.
+4. **§564:** a long camelCase i18n key is added as a real negative case.
+5. **§566 and §570:** the suite currently asserts the defective behaviour. Those assertions change
+   as part of each fix.
+
 ## How the scope was chosen
 
 Out of 118 OPEN entries, about twenty are real defects. The rest are feature requests, owed
@@ -141,13 +160,17 @@ Calendar events get the same shape:
   readers refuse a value that fails `isRealCalendarDate`. **It applies no year bound.** The entry
   asks calendar events to keep that choice, and today they accept any year.
 - **`sanitizeLoadedCalendarEvent`**: new, the **load** form. The invariant it must hold is that
-  **no event that loads today is dropped by this change.** It keeps a calendar-invalid value as
-  stored, and reports it through the load-date diagnostic path. The implementer decides whether
-  the existing load readers fit (`requiredIsoDateOnLoad` and its optional sibling in
-  `sanitize-load-date.ts`) or calendar events need their own. ★ Check whether the existing
-  readers carry `sanitizeIsoDate`'s year bound. If they do, they would start reporting stored
-  events dated before 1900 or after 2100, events that load silently today. That is a behaviour
-  change this task does not want.
+  **every value that loads today loads unchanged.** No event is dropped, and no recurrence `until`
+  is blanked, because a blank `until` makes a bounded series unbounded. It uses a new
+  calendar-specific reader, `calendarEventDateOnLoad` in `sanitize-load-date.ts`. That reader
+  keeps what the old rule accepted (the ISO shape plus `Date.parse`'s field-range check, with no
+  year bound) and reports a kept value that is not a real calendar date. ★ The existing readers
+  `requiredIsoDateOnLoad` and `optionalIsoDateOnLoad` are **not** used: both carry
+  `sanitizeIsoDate`'s year bound, and the optional one blanks.
+- **`sanitizeCalendarEventForUpdate(input, stored)`**: new, the **update** form. A date equal to
+  the stored one for that field is carried verbatim; any other date is judged strictly. Without
+  this, the AI update tool, the calendar save handler and the modal refuse every edit to an event
+  whose stored date is calendar-invalid, even when the edit never touched that date.
 
 **Every call site, enumerated.** This comes from `git grep`, not from the entry, so a missed site
 is visible in review. There are seven code call sites plus one test harness:
@@ -157,10 +180,10 @@ is visible in review. There are seven code call sites plus one test harness:
 | **load** | `browser-backend.ts` (calendar-events load) | IndexedDB |
 | **load** | `workspace.ts` (the JSON load path) | JSON |
 | **load** | `buildCalendarEventFromObj` (`csv-codecs-core.ts`) | CSV, Markdown, **and both Turso layouts**, because it is the `fromObj` of the `calendar_events` entry in `ENTITY_SPECS` |
-| write | `calendar-event-modal.tsx` (form submit) | user input |
-| write | `use-calendar-events.ts` (save handler) | user input |
-| write | `use-register-tools.ts` — AI create | model input |
-| write | `use-register-tools.ts` — AI update | model input |
+| create / update | `calendar-event-modal.tsx` (form submit) | strict when new, update form otherwise |
+| create / update | `use-calendar-events.ts` (save handler) | strict when new, update form otherwise |
+| create | `use-register-tools.ts` — AI create | strict |
+| update | `use-register-tools.ts` — AI update | update form |
 | harness | `src/test/sweep-probes.ts` (create and update probes) | stays strict: it models writes |
 
 The three load sites switch to `sanitizeLoadedCalendarEvent`. Together they reach all six
