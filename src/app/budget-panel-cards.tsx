@@ -53,7 +53,7 @@ export function ManualPercentCell({
   onCommit: (pct: number | undefined) => void;
 }) {
   const derived = bucket.percentComplete === undefined && tasks
-    ? bucketPercentComplete({ taskIds: bucket.taskIds, percentComplete: undefined }, tasks)
+    ? bucketPercentComplete({ taskIds: bucket.taskIds, percentComplete: undefined, status: bucket.status }, tasks)
     : null;
   // Clearing the box must write `undefined`, NOT 0: `bucketPercentComplete`
   // treats a manual 0 as a real override that wins over the task derivation,

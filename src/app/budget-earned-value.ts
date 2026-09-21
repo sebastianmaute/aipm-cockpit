@@ -20,19 +20,28 @@ type LinkableTask = {
  * A manual `percentComplete` (including 0) always wins. Otherwise the value is
  * derived from the share of linked tasks that are finished (Done|Cancelled).
  * Dangling task ids (no longer present in `tasks`) are dropped before the
- * derivation; if none resolve, the result is null (no signal at all).
+ * derivation. With no signal at all — no manual value, no resolvable link — a
+ * CLOSED bucket is 100 (its work is over) and any other bucket is null.
+ *
+ * ★ The closed fallback exists because null is not local: one budgeted bucket
+ * with no percent withholds the WHOLE project's earned value, blanking the
+ * efficiency forecast (`budget-forecast.ts`). It fills only the null case, so a
+ * closed bucket whose linked tasks are unfinished still reports that share.
+ * ★ `status` is optional here so ad-hoc callers need not name it; omitted means
+ * "not known to be closed", i.e. the old behaviour.
  */
 export function bucketPercentComplete(
-  bucket: Pick<BudgetBucket, "taskIds" | "percentComplete">,
+  bucket: Pick<BudgetBucket, "taskIds" | "percentComplete"> & { status?: BudgetBucket["status"] },
   tasks: readonly LinkableTask[],
 ): number | null {
   if (bucket.percentComplete !== undefined) {
     return bucket.percentComplete;
   }
+  const noSignal = bucket.status === "closed" ? 100 : null;
 
   const taskIds = bucket.taskIds ?? [];
   if (taskIds.length === 0) {
-    return null;
+    return noSignal;
   }
 
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
@@ -41,7 +50,7 @@ export function bucketPercentComplete(
     .filter((task): task is LinkableTask => task !== undefined);
 
   if (resolved.length === 0) {
-    return null;
+    return noSignal;
   }
 
   const finished = resolved.filter((task) =>

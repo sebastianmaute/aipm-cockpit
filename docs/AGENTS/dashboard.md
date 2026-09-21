@@ -255,8 +255,9 @@ at `lg`'s 2-column grid and half at `xl`'s 4-column grid (`arrangement-grid.tsx`
 panel's own `2xl:flex-row` breakpoint reads the VIEWPORT, not that box, so on a viewport of 1536px or wider it would have fired
 whatever the tile's own width was. `computeEvHistory` (`budget-ev-history.ts`) marks history
 unavailable only when at least one budgeted bucket exists and none has a known value AT TODAY: a bucket is unknown
-there when it has neither a hand-entered percent nor any resolvable task link (`bucketPercentComplete` returns null —
-no `taskIds` at all, or every linked task deleted). Its snapshot input (`bucketProgressSeries`) is Turso-only, so in a
+there when it has neither a hand-entered percent nor any resolvable task link and is not closed (`bucketPercentComplete`
+returns null — no `taskIds` at all, or every linked task deleted; a CLOSED bucket in that state is 100 instead, and
+joins the history at today, never back-dated). Its snapshot input (`bucketProgressSeries`) is Turso-only, so in a
 file-mode project a hand-entered bucket (it has no recorded progress there) is known-zero before its `startDate`
 (when it has one), partial from then (from the first point, without one) until today, and known at today's point from its current percent
 (`valueFn` in `budget-ev-history.ts`).
