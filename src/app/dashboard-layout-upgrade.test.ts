@@ -158,6 +158,16 @@ describe("progressRemovalStep", () => {
     const l = { ...base, hidden: [], board: [{ id: "kpi", w: 2, h: 3 }] };
     expect(progressRemovalStep(l as never)).toBe(l);
   });
+
+  it("is gated on its own id: already recorded, it comes back by reference even with a progress tile still on the board", () => {
+    const l = {
+      ...base,
+      upgrades: [DASHBOARD_BURN_UPGRADE, DASHBOARD_PROGRESS_REMOVAL_UPGRADE],
+      hidden: [],
+      board: [{ id: "kpi", w: 2, h: 3 }, { id: "progress", w: 2, h: 2 }],
+    };
+    expect(progressRemovalStep(l as never)).toBe(l);
+  });
 });
 
 describe("upgradeDashboardLayout composes both steps", () => {

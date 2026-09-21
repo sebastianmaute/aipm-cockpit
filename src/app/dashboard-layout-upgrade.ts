@@ -21,15 +21,26 @@
  *     `h: 2`): any other stored width or height is the user's choice and stays.
  *   · Every other tile keeps its order, size and hidden state.
  *
- * `progressRemovalStep` (`DASHBOARD_PROGRESS_REMOVAL_UPGRADE`): drops the
- * retired Progress tile from `board` and `hidden`, recording its id only when
+ * `progressRemovalStep` (`DASHBOARD_PROGRESS_REMOVAL_UPGRADE`): gated on its
+ * own id, same as the burn step. When the id is not yet recorded, it drops the
+ * retired Progress tile from `board` and `hidden` and records the id only when
  * it actually removed something — a layout that never held `progress` is
- * returned by reference, unchanged.
+ * returned by reference, unchanged, without recording anything.
  *
+ * ★★★ THE ID GATE IS LOAD-BEARING, NOT JUST "NOTHING TO REMOVE". Until Task 5
+ * drops `"progress"` from `DASHBOARD_TILES`, `reconcile` (which runs AFTER
+ * this composer, on every load) re-inserts any catalogue tile absent from
+ * both `board` and `hidden` — so a step gated only on presence would remove
+ * `progress` on every load, `reconcile` would put it straight back, and the
+ * NEXT load would remove it again: an infinite re-dirty loop, one more
+ * `DASHBOARD_PROGRESS_REMOVAL_UPGRADE` appended to `upgrades` each time.
+ * Checking `layout.upgrades?.includes(DASHBOARD_PROGRESS_REMOVAL_UPGRADE)`
+ * first breaks that loop after the first pass, exactly as the burn step's own
+ * id check does.
  * ★★★ EACH STEP RETURNS ITS INPUT BY REFERENCE WHEN ITS OWN ID IS ALREADY
- * RECORDED (or, for the progress step, when there is nothing to remove). That
- * is the hook's signal that nothing needs writing; a copy would rewrite
- * storage on every load (`use-arrangement.ts`, the `upgrade` option).
+ * RECORDED. That is the hook's signal that nothing needs writing; a copy
+ * would rewrite storage on every load (`use-arrangement.ts`, the `upgrade`
+ * option).
  * ★★ WHY A SEPARATE STEP, not a catalogue edit: `reconcile` never reorders or
  * resizes a tile the stored layout already holds, so moving `burn` first in
  * `DASHBOARD_TILES` changes a FRESH board only.
@@ -91,6 +102,7 @@ export function burnUpgradeStep(layout: DashboardLayout): DashboardLayout {
  *  `DashboardTileId` union, after which comparing a tile's `id` to it stops
  *  typechecking. */
 export function progressRemovalStep(layout: DashboardLayout): DashboardLayout {
+  if (layout.upgrades?.includes(DASHBOARD_PROGRESS_REMOVAL_UPGRADE)) return layout;
   const onBoard = layout.board.some((p) => (p.id as string) === "progress");
   const inHidden = layout.hidden.some((h) => (h as string) === "progress");
   if (!onBoard && !inHidden) return layout;
