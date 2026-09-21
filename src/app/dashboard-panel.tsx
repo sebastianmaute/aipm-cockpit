@@ -614,29 +614,41 @@ export function DashboardPanel(props: DashboardPanelProps) {
           controls={
             // ★ `gap-2` here is MOVED, unchanged, from this same control stack
             // before spec C — not a new literal (D7 binds new spacing to `dc.*`).
-            <div className="flex shrink-0 flex-col gap-2 print:hidden">
-              <PrintButton lang={lang} />
+            // ★ Two columns — Print | Reset layout, then Reset size | badge. Each
+            // control is PINNED to its cell: auto-placement would slide Reset size
+            // up beside Print in a popout, where Reset layout and the badge are
+            // absent. DOM order is unchanged, so Tab order still reads row by row.
+            <div className="grid shrink-0 grid-cols-[auto_auto] gap-2 self-start print:hidden">
+              <div data-stack-cell className="col-start-1 row-start-1">
+                <PrintButton lang={lang} />
+              </div>
               {/* ★★★ The `!arrangement.readOnly` guard is LOAD-BEARING and is not
                   inherited here: the stack itself is gated only on `print:hidden`.
                   Without it a popout — a surface with no grip, no ⋮ menu and no
                   tray by design — gains a working reset. */}
               {!arrangement.readOnly && (
-                <ResetLayoutButton onClick={resetLayout} lang={lang} />
+                <div data-stack-cell className="col-start-2 row-start-1">
+                  <ResetLayoutButton onClick={resetLayout} lang={lang} />
+                </div>
               )}
-              <ResetSizeButton onClick={resetSize} lang={lang} />
-              {/* Spec C decision 2: the hidden-tiles badge, directly under Reset
-                  size; carries its own `readOnly` guard like Reset layout. */}
+              <div data-stack-cell className="col-start-1 row-start-2">
+                <ResetSizeButton onClick={resetSize} lang={lang} />
+              </div>
+              {/* Spec C decision 2: the hidden-tiles badge, under Reset layout;
+                  carries its own `readOnly` guard like Reset layout. */}
               {!arrangement.readOnly && (
-                <DashboardHiddenBadge
-                  lang={lang}
-                  count={shelfHidden.length}
-                  open={trayShown}
-                  onOpenChange={setTrayOpen}
-                  isDragging={reorder.isDragging}
-                  dropProps={shelfDropProps}
-                  trayId={DASHBOARD_SHELF_TRAY_ID}
-                  badgeRef={badgeRef}
-                />
+                <div data-stack-cell className="col-start-2 row-start-2">
+                  <DashboardHiddenBadge
+                    lang={lang}
+                    count={shelfHidden.length}
+                    open={trayShown}
+                    onOpenChange={setTrayOpen}
+                    isDragging={reorder.isDragging}
+                    dropProps={shelfDropProps}
+                    trayId={DASHBOARD_SHELF_TRAY_ID}
+                    badgeRef={badgeRef}
+                  />
+                </div>
               )}
             </div>
           }

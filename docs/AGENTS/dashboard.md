@@ -18,8 +18,9 @@
 renders, top to bottom (spec C; the two rows are presentational in `dashboard-rows.tsx`): ROW 1
 (`DashboardTopRow`) — `DashboardDeltaStrip` in the free width, `DigestCardConnected` beside it at about
 a third (its slot is `empty:hidden`, so a self-hidden digest hands the delta strip the whole row) and
-the right-hand vertical control stack `PrintButton` · `ResetLayoutButton` · `ResetSizeButton` ·
-`DashboardHiddenBadge`; the hidden-tiles TRAY (`DashboardShelf`) directly under row 1, shown only while
+the right-hand control stack, a 2×2 grid — `PrintButton` | `ResetLayoutButton` over `ResetSizeButton` |
+`DashboardHiddenBadge`, each PINNED to its cell (`col-start-*`/`row-start-*`) so a popout, which lacks the
+right-hand pair, keeps Reset size under Print; DOM order is unchanged, so Tab order reads row by row; the hidden-tiles TRAY (`DashboardShelf`) directly under row 1, shown only while
 open; ROW 2 (`DashboardStatusRow`) — the Next-Actions `ActionHeroCard` beside `DashboardHero` (Overall
 status), equal height by stretch, the hero absent when there is no Now/Soon group; then
 `NarrativeSummary` · `DashboardCoachingCard` · `DashboardTipCard` → the arrangeable tile grid

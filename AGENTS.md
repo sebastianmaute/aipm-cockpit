@@ -1096,7 +1096,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `null` there (`isDesktopShellUserAgent`, `src/app/desktop-shell.ts`), so a group one shorter than this
   rule states is not drift. Unit assertions are unaffected (jsdom's UA is not Electron's); the why is
   beside that helper.
-  ★★ THE DASHBOARD'S GROUP IS VERTICAL AND ITS MIDDLE MEMBER IS **reset-LAYOUT**, not reset-columns —
+  ★★ THE DASHBOARD'S GROUP IS A 2×2 GRID (Print | reset-layout over reset-size | badge; DOM order unchanged, so it still reads row by row) AND ITS MIDDLE MEMBER IS **reset-LAYOUT**, not reset-columns —
   `ResetLayoutButton`, restoring the tile arrangement to `DEFAULT_LAYOUT`. That pane has no columns to reset, and
   arrangement is the reset-columns ANALOGUE (it restores CONTENT arrangement, where reset-pane-size restores the
   BOX), so it sorts into the same slot: Print · reset-layout · reset-size. Do NOT "correct" it to the spelling

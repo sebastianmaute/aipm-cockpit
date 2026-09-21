@@ -1148,6 +1148,28 @@ describe("DashboardPanel reset-layout control", () => {
     );
   });
 
+  // ★ Two columns: Print | Reset layout on top, Reset size | badge below. Each
+  // control is PINNED to its cell rather than left to auto-placement, so a
+  // popout (no Reset layout, no badge) keeps Reset size under Print instead of
+  // sliding up beside it. DOM order is unchanged, so the row-major reading and
+  // Tab order still match the test above.
+  it("lays the stack out as two columns: Print | Reset layout over Reset size | badge", async () => {
+    const user = userEvent.setup();
+    render(<DashboardPanel {...fullProps} projectId="p-reset-grid" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: kebab("Upcoming & overdue") }));
+    const menu = screen.getByRole("dialog", { name: kebab("Upcoming & overdue") });
+    await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
+
+    const cellOf = (name: string) => screen.getByRole("button", { name }).closest("[data-stack-cell]");
+    expect(cellOf(t(EN, "printHint"))).toHaveClass("col-start-1", "row-start-1");
+    expect(cellOf(t(EN, "arrangementResetLayout"))).toHaveClass("col-start-2", "row-start-1");
+    expect(cellOf(t(EN, "tableResetSizeHint"))).toHaveClass("col-start-1", "row-start-2");
+    const badge = screen.getAllByRole("button").find((b) => (b.getAttribute("aria-label") ?? b.textContent ?? "").includes(t(EN, "dashboardHiddenTilesBadgeOne")));
+    expect(badge).toBeDefined();   // positive control: the badge is showing
+    expect(badge!.closest("[data-stack-cell]")).toHaveClass("col-start-2", "row-start-2");
+    expect(cellOf(t(EN, "printHint"))!.parentElement).toHaveClass("grid", "grid-cols-[auto_auto]");
+  });
+
   it("restores a hidden tile when the reset button is clicked", async () => {
     const user = userEvent.setup();
     render(<DashboardPanel {...fullProps} projectId="p-reset-click" />, { wrapper });
