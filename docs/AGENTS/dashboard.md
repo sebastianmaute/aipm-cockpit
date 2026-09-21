@@ -501,9 +501,12 @@ The presentational slices:
   `onOpenAction`/`onNavigate` were REMOVED (they moved with the KPI/Top-actions cards).
 - `dashboard-sections/dashboard-kpi-strip.tsx` (`DashboardKpiStrip`) — the "at a glance" KPI tiles
   (complete % with its `dashboardCompletedOf` count · R/A/G · overdue · open RAID, plus Effort SPI · Effort CPI whenever `model.evm.spi`/
-  `model.evm.cpi` is non-null — spec C, independent of the Budget module; overdue and open-RAID
-  always carry a `TrendArrow`, completion
-  carries one only outside the no-active-scope state below); the body of the `kpi` tile. Uses a
+  `model.evm.cpi` is non-null — spec C, independent of the Budget module; when `trends` is passed,
+  overdue and open-RAID carry a `TrendArrow` and completion carries one only outside the
+  no-active-scope state below). The body of the Dashboard's `kpi` tile AND of Reports' `stats`
+  block, which passes no `trends` (the arrows compare against the last DASHBOARD visit) and no
+  `onNavigate`. Its `model` is a `KpiStripModel` from `computeKpiStripModel`, which
+  `computeDashboard` also reads, so the two surfaces cannot disagree. Uses a
   `dc.kpiPad` card wrapper (NOT `<Section boxed>`, which hardcodes `p-4` and ignores compact density).
   ★ `kpiPad`, not `cardPad` (§585): same horizontal padding, but compact drops the vertical padding — with
   it, a wrapped strip overflowed its h:3 tile body by 3px at the 72px row unit.

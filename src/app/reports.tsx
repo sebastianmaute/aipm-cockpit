@@ -419,6 +419,7 @@ export function ReportsPanel({
    * never drawn over nothing.
    */
   const renderBlock = (id: ReportBlockId): React.ReactNode => {
+    // No `onNavigate`: Reports has no view router to hand it, so the cells are static here.
     if (id === "stats") return <DashboardKpiStrip lang={lang} model={kpiModel} dc={KPI_DENSITY} />;
     if (id === "groupHealth") return <GroupHealthBlock lang={lang} rows={groupHealth} driverKey={driverKey} />;
     if (id === "openByStatus") return <OpenByStatusBlock lang={lang} openByStatus={stats.openByStatus} open={stats.open} />;

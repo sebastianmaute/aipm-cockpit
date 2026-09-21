@@ -383,11 +383,11 @@ export function buildLiveDashboardInput(
   );
 }
 
-/** The four figures the "At a glance" strip reads. */
+/** The model fields the "At a glance" strip reads (its cells derive from these four). */
 export type KpiStripModel = Pick<DashboardModel, "progress" | "overdue" | "openRaidCount" | "evm">;
 
 /**
- * The "At a glance" figures on their own, for a surface that shows the strip
+ * The "At a glance" model fields on their own, for a surface that shows the strip
  * without the rest of the Dashboard (Reports). ★ `computeDashboard` takes its
  * copies of these four from here, so the two surfaces cannot disagree.
  * `overdue` does not depend on the due-soon window, so no option is needed.
