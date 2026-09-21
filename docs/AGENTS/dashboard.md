@@ -170,11 +170,16 @@ the two rejected alternatives — read it before moving either value.
 
 ★★★ **TILE HEIGHTS ARE MEASURED, NOT JUST STORED.** `useMeasuredHeights` (`use-measured-heights.ts`)
 measures every UNFLAGGED tile's content once per TRIGGER — mount, a density change, the rendered tile
-SET changing, or any tile's `hSet` flag changing (that last one is what makes Reset re-measure: it
-clears every flag without touching density or the tile set). A width change (the ⋮ menu) or a
-breakpoint change (resizing the window) is deliberately NOT a trigger — content height depends on
-width, so a tile widened or narrowed either way keeps its measured height until the next open, and may
-scroll inside itself until then. `rowsForHeight` (`arrangement-measure.ts`) converts the reading — the
+SET changing (a hide, a restore, a gate opening or closing), any tile's `hSet` flag changing, or a
+Reset layout. ★★ Reset is a trigger in its OWN right, through a `resetNonce` the panel bumps on every
+press: the flag alone does not cover it, because a board that differs from the default only in widths
+or order has no flag to clear, and would otherwise keep every stale reading after Reset. A width change
+(the ⋮ menu) or a breakpoint change (resizing the window) is deliberately NOT a trigger — content height
+depends on width, so a tile widened or narrowed either way keeps its measured height until the NEXT
+TRIGGER of any kind, and may scroll inside itself until then. ★ That next trigger can be unrelated: a
+height picked for another tile, a hide or a restore re-measures EVERY unflagged tile, so a tile widened
+earlier in the session can change height then. That is the width ruling's accepted consequence, not a
+defect. `rowsForHeight` (`arrangement-measure.ts`) converts the reading — the
 vertical extent of the tile body's element children plus the body's padding, never the body's
 `scrollHeight` (which can only grow a tile, never shrink it) — into the smallest row count that holds
 it, clamped to the tile's own `[minH, maxH]`.
@@ -526,7 +531,11 @@ The presentational slices:
   keeps it open. A toolbar-button
   CLICK never blurs the editor, so the Bold test cannot pin that rule — the keyboard Tab/Shift+Tab tests
   in `dashboard-narrative.test.tsx` do. ★ Inline, Save is never disabled: pressing it blurs the editor,
-  the blur commits, and a Save disabled by that commit swallowed the click.
+  the blur commits, and a Save disabled by that commit swallowed the click. ★★ The editor region is
+  `print:hidden` and a print from the BROWSER menu leaves it open (that is leaving the window), so while
+  editing `NarrativeSummary` also renders a `hidden print:block` copy of the STORED summary — without it
+  that printout has no status summary at all. The in-app Print button never reaches this state: pressing
+  it moves focus out of the region, which closes the editor first.
 ★ ALL tier/card spacing uses `dc.*` density classes, never literal `gap-*`/`space-y-*`/`p-*`/`mb-*`.
 `DashboardPanelProps` is unchanged by the reorg (the ~30 test/caller sites were untouched).
 ★★ `DensityClasses` has SIX fields — `{outer, kpiGap, cardPad, kpiPad, sectionGap, tileRow}`; `kpiPad` is the

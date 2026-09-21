@@ -125,9 +125,11 @@ A hook owned by `dashboard-panel.tsx` measures once per trigger.
 - **Triggers:** mount, and a change of density. Nothing else. Density reaches the panel as a prop.
   ★ A width change (the ⋮ menu) or a breakpoint change (resizing the window) is NOT a trigger, by the
   user's choice of mount and density only. Content height depends on width, so a tile widened or
-  narrowed this way keeps its measured height until the next open, and may scroll inside itself
-  until then. (The implementation also re-measures when the set of rendered tiles or a tile's `hSet`
-  flag changes, which is what makes Reset re-measure; neither is a width change.)
+  narrowed this way keeps its measured height until the next trigger of any kind, and may scroll
+  inside itself until then. (The implementation also re-measures when the set of rendered tiles
+  changes — a hide, a restore, a gate opening or closing — when a tile's `hSet` flag changes, and on
+  every Reset layout, through a reset nonce in the measure key; none of these is a width change. So a
+  widened tile is re-measured at the next such trigger even when that trigger concerns another tile.)
 - **What is measured: the height of the body's CONTENT, never the body's `scrollHeight`.** The body is
   `min-h-0 flex-1 overflow-auto`. When content fits, its `scrollHeight` equals the box height, so a
   `scrollHeight` reading can grow a tile but never shrink it below the height it was rendered at. The
@@ -228,8 +230,11 @@ harmless, because those layouts carry no `hSet` and are measured anyway.
 
 ### Reset layout
 
-Reset writes `DEFAULT_LAYOUT` by reference. That layout carries no flags, so Reset already clears every
-choice and every tile is measured again. No change is needed.
+Reset writes `DEFAULT_LAYOUT` by reference. That layout carries no flags, so Reset clears every choice.
+★★ Clearing the flags is NOT enough to re-measure, and this section first said "no change is needed":
+a board that differs from the default only in widths or order has no flag to clear, so nothing the
+measure key reads would change and the stale readings would stay. The panel therefore bumps a reset
+nonce on every Reset layout, and the nonce is part of the measure key, so every tile is measured again.
 
 ## B: Progress merges into At a glance
 
@@ -347,10 +352,12 @@ Clear: `NarrativeEditor` is the only UI writer of `status.narrative`. So:
   close rule reads the event's `relatedTarget`: focus moving to anything inside the editor wrapper
   keeps it open. `commitNarrative` returns early when nothing changed, so "a blur" and "a committed
   blur" are different events, and the close rule keys on focus leaving, not on a commit.
-- **Focus moves into the editor on open, and back to the Edit button on close.** `RichTextEditor` has no
+- **Focus moves into the editor on open, and back to the Edit button on close.** `RichTextEditor` had no
   `autoFocus` prop, its imperative handle exposes only `appendText`, and it is loaded through
-  `next/dynamic` with a skeleton fallback first. So it gains a focus capability (a `focus()` method on
-  the handle), and the open path waits for the editor to mount before calling it.
+  `next/dynamic` with a skeleton fallback first. So it gains a mount-time `autoFocus` prop, honoured by
+  the real editor once its Tiptap instance exists, which spares the caller from waiting out the lazy
+  chunk. (This spec first proposed a `focus()` method on the imperative handle; the handle was left
+  unchanged, and the reasoning sits beside `autoFocus` in `rich-text-editor.tsx`.)
 - `NarrativeEditor` gains an `onDone` callback, which is how it signals "return to read-only".
 - **The bottom `NarrativeEditor` instance is deleted.**
 - **No Edit or Add button in a read-only popout.** The editor is not popout-gated today (only
