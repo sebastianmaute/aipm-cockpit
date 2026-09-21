@@ -1,7 +1,7 @@
 // Per-device CI/style preference, orthogonal to light/dark theme. Its own
 // localStorage key (NOT the workspace Settings) so a no-flash boot script can
 // apply it before first paint. Pure helpers only; DOM wiring in use-style.tsx.
-export type CiStyle = "AIPM" | "mockup" | "custom";
+export type CiStyle = "mockup" | "custom";
 
 export const STYLE_STORAGE_KEY = "aipm-cockpit-style";
 

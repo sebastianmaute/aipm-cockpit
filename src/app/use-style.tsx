@@ -58,7 +58,7 @@ function syncScheme(style: CiStyle): void {
 }
 
 interface CiStyleContextValue { style: CiStyle; setStyle: (s: CiStyle) => void; }
-const CiStyleContext = createContext<CiStyleContextValue>({ style: "AIPM", setStyle: () => {} });
+const CiStyleContext = createContext<CiStyleContextValue>({ style: "custom", setStyle: () => {} });
 
 export function useCiStyle(): CiStyleContextValue { return useContext(CiStyleContext); }
 

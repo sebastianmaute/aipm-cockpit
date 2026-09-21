@@ -11,7 +11,7 @@ import { expectRowUniqueNames } from "../../test/row-unique-names";
 
 function renderSection(
   overrides: Partial<Settings> = {},
-  initialStyle: "AIPM" | "mockup" | "custom" = "AIPM",
+  initialStyle: "mockup" | "custom" = "custom",
 ) {
   // A fresh provider defaults to "custom" (Harbor); set the key explicitly so
   // each case starts from a known style.
@@ -106,7 +106,7 @@ describe("AppearanceSection scheme control", () => {
   });
 
   it("selecting a built-in scheme switches the style to custom", () => {
-    renderSection(); // starts on AIPM
+    renderSection(); // starts on custom (Harbor)
     fireEvent.change(screen.getByLabelText(t("en-US", "schemeAppearanceLabel")), { target: { value: "harbor" } });
     expect(localStorage.getItem(STYLE_STORAGE_KEY)).toBe("custom");
   });
