@@ -5,6 +5,7 @@
 
 import { rateLimit } from "./_rate-limit";
 import { isPrivateHost, isAllowedHostSuffix } from "../_shared/proxy-ssrf";
+import { describeUpstreamError } from "../_shared/upstream-error";
 
 export type Creds = {
   siteUrl: string;
@@ -75,19 +76,6 @@ function normalizeSiteUrl(siteUrl: string): string | null {
 
 function basicAuth(email: string, apiToken: string): string {
   return "Basic " + Buffer.from(`${email}:${apiToken}`).toString("base64");
-}
-
-/** §566: what the proxy logs for an upstream failure — a plain object, never the raw error.
- *  ★★ NOT `err.message` alone: Node's `fetch` ALWAYS rejects with `TypeError("fetch failed",
- *  { cause })`, so the message is the same literal for DNS, refused, TLS and timeout alike, and
- *  the reason lives in `cause`. Never the object itself: nothing in it is a credential today,
- *  but its shape is undici's to change. */
-function describeUpstreamError(err: unknown): { message: string; cause?: string; code?: string } {
-  const message = err instanceof Error ? err.message : String(err);
-  const c = err instanceof Error ? (err as Error & { cause?: unknown }).cause : undefined;
-  if (c === undefined) return { message };
-  const code = typeof (c as { code?: unknown })?.code === "string" ? (c as { code: string }).code : undefined;
-  return { message, cause: c instanceof Error ? c.message : String(c), ...(code ? { code } : {}) };
 }
 
 // Bound every upstream call so a hung Atlassian endpoint cannot hold the

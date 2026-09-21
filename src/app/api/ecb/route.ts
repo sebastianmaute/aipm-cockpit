@@ -1,5 +1,6 @@
 import { parseEcbDailyXml } from "../../ecb";
 import { rateLimit } from "../jira/_rate-limit";
+import { describeUpstreamError } from "../_shared/upstream-error";
 
 const ECB_DAILY_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
 
@@ -37,7 +38,8 @@ export async function GET(request: Request) {
   } catch (err) {
     // Log the detail server-side; return a generic message so internal error
     // text (hostnames, stack frames) never reaches the client.
-    console.error("ECB fetch failed:", err);
+    // §607: a plain object, never the raw error — mirrors the Jira proxy (§566).
+    console.error("ECB fetch failed:", describeUpstreamError(err));
     return Response.json({ error: "ECB fetch failed" }, { status: 502 });
   }
 }

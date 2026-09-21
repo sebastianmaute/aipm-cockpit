@@ -820,6 +820,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§595](#595-the-cold-hash-apply-judges-a-disabled-module-hash-against-default-features-and-never-revisits-the-decision--closed-2026-09-20) | The cold hash apply judges a disabled-module hash against default features and never revisits the decision — CLOSED 2026-09-20 | found and closed 2026-09-20 fixing §535/§536 on `fix/hash-view-cold-apply` | S — the same hydration gate that closed §536 | **CLOSED** 2026-09-20 |
 | [§605](#605-an-ai-calendar-event-update-that-re-sends-a-stored-invalid-until-with-a-count-previews-the-count-while-the-write-keeps-the-until--closed-2026-09-21) | An AI calendar-event update that re-sends a stored invalid until with a count previews the count while the write keeps the until — CLOSED 2026-09-21 | found 2026-09-21 reviewing §542 on `fix/backlog-sweep`, filed and closed on the same branch | S — one carry predicate and one carried-date derivation shared by the update writer and the card's recurrence line | closed |
 | [§606](#606-the-diagnostics-catch-all-misses-a-base64-secret-whose-separators-split-it-into-short-runs--closed-2026-09-21) | The diagnostics catch-all misses a base64 secret whose separators split it into short runs — CLOSED 2026-09-21 | found 2026-09-21 reviewing §564 on `fix/backlog-sweep`, filed and closed on the same branch | S — one base64-alphabet rule placed before the §564 catch-all | closed |
+| [§607](#607-the-timelog-and-ecb-proxies-log-a-raw-error-object-on-upstream-failure--closed-2026-09-21) | The Timelog and ECB proxies log a raw error object on upstream failure — CLOSED 2026-09-21 | found 2026-09-21 reviewing §566 on `fix/backlog-sweep`, filed and closed on the same branch | S — one shared helper (`describeUpstreamError`) moved and reused at two more call sites | closed |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -40550,3 +40551,39 @@ alphanumeric run with no `+` and no `=`; the review measured about 1.4 s for a 1
 under this pattern alone, where §564 is linear on that shape.
 
 Related: §564.
+
+## 607. The Timelog and ECB proxies log a raw error object on upstream failure — CLOSED 2026-09-21
+
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`; found reviewing §566's fix. `describeUpstreamError`
+moved out of `src/app/api/jira/_helpers.ts` into a new shared module, `src/app/api/_shared/
+upstream-error.ts` (function body unchanged; only its docstring's scope widened from the Jira proxy
+alone to all three proxies), and the Timelog redirect body-cancel `.catch` and the ECB route's
+fetch-failure `catch` now call it instead of logging the raw rejection — mirroring the two Jira sites
+§566 already fixed. Jira's import re-points to the shared module; its own call-site tests stayed in
+`jira/_helpers.test.ts` untouched. Pinned by a new `src/app/api/_shared/upstream-error.test.ts` (direct
+unit tests: no-cause, an Error cause with/without `.code`, a non-Error cause coerced with `String()`, a
+non-Error `err` coerced with `String()`), a new §607 test in `timelog/_helpers.test.ts` (the
+undici-shaped fixture from §566, asserting the logged payload is a plain object carrying the cause
+message and code), and two migrated tests in `ecb/route.test.ts` that used to assert `expect.any(Error)`
+/ `expect.any(DOMException)` and now assert the exact plain object. Verified by grep (`console.error` in
+`src/app/api`, excluding tests) that no other raw-object site remained — `confluence` and `stt` carry no
+`console.error` at all.
+
+Mutants (each run alone, `git diff --stat` clean between): (13a) revert the Timelog redirect-cancel site
+to raw `err` — predicted RED on the new §607 Timelog test's `not.toBeInstanceOf(Error)`, actual RED,
+same reason (`expected TypeError: fetch failed to not be an instance of Error`). (13b) revert the ECB
+site to raw `err` — predicted RED on both migrated ECB tests (`not.toBeInstanceOf(Error)` on the
+fetch-failure test, and the exact-object `toHaveBeenCalledWith` on the timeout test), actual RED on
+both, same reasons. Both matched their prediction; no mismatch.
+
+Departures from this entry's own fix-shape line: (1) "move its unit tests with it if they live in
+`jira/_helpers.test.ts`" did not apply — no direct unit test for `describeUpstreamError` existed there,
+only call-site tests exercising it through `callJira`, so the shared module needed its OWN new test file
+rather than an inherited one. (2) The Timelog fetch-failure `catch` (`Timelog upstream fetch failed: …`)
+is UNCHANGED, as directed: it deliberately logs only `failureClass`, elapsed time and the query-stripped
+path — never the raw error object — so it was never in scope. (3) jsdom's `DOMException` is not
+`instanceof Error` (unlike Node's own global one), so the migrated ECB timeout test pins the
+`String(err)` branch's `"TimeoutError: …"`-prefixed message, not `err.message` alone — an environment
+detail the fix-shape line did not anticipate.
+
+Related: §566.

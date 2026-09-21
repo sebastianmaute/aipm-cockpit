@@ -10,9 +10,9 @@ longer carries its own changelog comment.
 
 ## [1.12.7] - 2026-09-21 "Child"
 
-A backlog-sweep patch — eleven register entries closed across settings secrets, calendar/date
-validation, the Jira proxy, chart readouts and the assistant's review card. No user-facing feature
-changes; every fix below closes a register entry found in an earlier review.
+A backlog-sweep patch — fourteen register entries closed across settings secrets, calendar/date
+validation, the Jira, Timelog and ECB proxies, chart readouts and the assistant's review card. No
+user-facing feature changes; every fix below closes a register entry found in an earlier review.
 
 ### Fixed
 
@@ -59,6 +59,8 @@ changes; every fix below closes a register entry found in an earlier review.
   path followed by `=` and more text stays readable. A token split only by `/` with no padding is
   still not caught, and long `+`-joined text that mixes case and carries a digit, such as a search
   query, is now redacted. `§606` is closed.
+- **The Timelog and ECB proxies no longer log a raw error object server-side either.** Both now
+  share the plain `{ message, cause, code }` logger `§566` gave the Jira proxy. `§607` is closed.
 
 ## [1.12.5] - 2026-09-20 "Child"
 
