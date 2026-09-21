@@ -528,7 +528,7 @@ export function Tile({
 
 /** Slim "more=better" completion gauge. Fill width tracks `percent` (0–100);
  *  the fill background is the `--gradient-kpi` role token (solid brand green under
- *  the default profile, red→amber→green gradient under mockup). The gradient token can only be
+ *  the no-structural-override fallback, red→amber→green gradient under mockup). The gradient token can only be
  *  applied via inline style — raw gradient utilities are palette-guard-banned. */
 export function KpiGradientBar({ percent, label }: { percent: number; label: string }) {
   // Guard NaN before clamping: Math.round(NaN) === NaN survives Math.min/max and

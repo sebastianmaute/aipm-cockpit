@@ -32,7 +32,7 @@ describe("DashboardDeltaStrip", () => {
     expect(screen.getByText(/All caught up/i)).toBeInTheDocument();
   });
 
-  test("strip root opts into the shadow-card token (no-op under the default profile)", () => {
+  test("strip root opts into the shadow-card token (no-op under the no-structural-override fallback)", () => {
     const { container } = render(<DashboardDeltaStrip lang="en-US" delta={delta({ total: 0 })} greeting={{ greetingKey: "dashboardGreetingMorning", summary: { needsYou: 0, milestonesSoon: 0 } }} />);
     const root = container.firstChild as HTMLElement;
     expect(root.className.includes("shadow-[var(--shadow-card)]")).toBe(true);

@@ -93,19 +93,19 @@
   --table-head-accent: var(--ui-green);
   --shadow-card: none;
   --shadow-control: none;
-  /* KPI "more=better" fill bar. The default profile is a solid brand green; mockup overrides to the
+  /* KPI "more=better" fill bar. The no-structural-override fallback is a solid brand green; mockup overrides to the
      red→amber→green gradient. Applied ONLY to the completion-% bar (never effort/
      usage bars, which are more=worse). */
   --gradient-kpi: var(--ui-green);
   --shadow-card-hover: none;
-  /* Delta-chip backgrounds for the KPI trend pills. Transparent under the default
-     profile (chip is invisible — plain glyph+text, the legacy look); tinted under mockup. */
+  /* Delta-chip backgrounds for the KPI trend pills. Transparent under the no-structural-override
+     fallback (chip is invisible — plain glyph+text, the legacy look); tinted under mockup. */
   --rag-green-chip: transparent;
   --rag-red-chip: transparent;
-  /* Trend-pill padding. The default profile is 0 (byte-identical legacy glyph+text); mockup pads it
+  /* Trend-pill padding. The no-structural-override fallback is 0 (byte-identical legacy glyph+text); mockup pads it
      into a chip. Applied via inline style, gated on a chip being shown. */
   --delta-chip-pad: 0;
-  /* Segmented-control active/track. The default profile is a legacy dark-blue solid pill on a surface
+  /* Segmented-control active/track. The no-structural-override fallback is a legacy dark-blue solid pill on a surface
      track (no-op); mockup = white pill + green text on a light-grey track. */
   --segment-track-bg: #eef2f6;
   --segment-active-bg: var(--ui-dark-blue);

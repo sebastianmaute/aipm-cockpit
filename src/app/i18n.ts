@@ -838,7 +838,7 @@ const enUS = {
   forecastTipEv:
     "Earned value: the budget value of the work actually finished: {1} complete of the budget = {0}. It can be lower than what was spent (AC) when work costs more than planned.",
   forecastTipPace:
-    "Assumes spending continues at the average of the last {0} working days until the planned end date. It looks at the calendar only: it assumes the work is finished on the planned end, whether or not progress supports that. This is the Project Burndown method.",
+    "Assumes spending continues at the average of the last {0} working days until the planned end date. It looks at the calendar only: it assumes the work is finished on the planned end, whether or not progress supports that. This is a calendar-based burndown method.",
   forecastTipEfficiency:
     "Assumes the remaining work will cost as much per unit as the finished work did. It looks at scope only: what finishing the rest of the work will cost, whatever the calendar says. This is the standard earned value (EVM) method.",
   forecastTipEac:
