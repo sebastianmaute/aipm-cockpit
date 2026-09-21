@@ -766,7 +766,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§541](#541-the-stakeholder-editor-saves-its-text-fields-uncapped-when-submitted-with-enter--open) | The stakeholder editor saves its text fields uncapped when submitted with Enter — OPEN | found 2026-09-14 by the email-guard batch's Task 3 review; user approved filing; GitLab #331 | S — cap each field in `handleSubmit` before `onSave`, or sanitise in `handleSaveStakeholder` | open |
 | [§542](#542-the-calendar-event-writer-accepts-a-day-past-its-months-end-and-rolls-it-over--open) | The calendar event writer accepts a day past its month's end and rolls it over — OPEN | found 2026-09-14 by the whole-branch and cold reviews of `fix/email-and-guard-batch`; user approved filing; GitLab #332 | S — replace the `Date.parse` leg with a calendar round trip (as `sanitizeIsoDate` does since §539) | open |
 | [§543](#543-a-dated-timelog-apply-leaves-a-period-key-of-the-other-granularity-in-place-so-switching-back-counts-those-hours-twice--closed-2026-09-15) | A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — CLOSED 2026-09-15 | found 2026-09-15 by the final whole-branch review of `feat/budget-forecast-union` | S — let a dated Apply also remove other-granularity period keys that overlap its covered days | **CLOSED** 2026-09-15 |
-| [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--open) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — OPEN | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union` | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | open |
+| [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--closed-2026-09-21) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — CLOSED 2026-09-21 | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union` | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | closed |
 | [§545](#545-the-ai-dashboard-snapshot-and-every-export-carry-none-of-the-budget-forecast-figures--open) | The AI dashboard snapshot and every export carry none of the budget forecast figures — OPEN | deferred 2026-09-15 by the budget forecast union spec §9 | M — add the forecast figures to the snapshot and exports once MR 2 ships them | open |
 | [§546](#546-a-dated-timelog-applys-other-granularity-delete-removes-hand-typed-hours-from-days-it-never-routed-and-the-confirm-dialog-never-discloses-it--closed-2026-09-19) | A dated TimeLog Apply's other-granularity delete removes hand-typed hours from days it never routed, and the confirm dialog never discloses it — CLOSED 2026-09-19 | found 2026-09-15 while filing the §543 closure text on `feat/budget-forecast-figures`; user approved filing | S — list the removed other-granularity key in the confirm dialog; re-keying the leftover hours is not sound, since the lump sum has no day-level breakdown | **CLOSED** 2026-09-19 |
 | [§547](#547-the-desktop-sign-in-popups-state-machine-has-no-unit-harness--open) | The desktop sign-in popup's state machine has no unit harness — OPEN | final review of `chore/electron-44` (M-7 + item 2 recommendation), state bugs M-C/m1/m2 found only by review; GitLab #338 | S–M — a pure `auth-flow-tracker.ts` reducer plus tests replaying the M-C/m1/m2 sequences | open |
@@ -38458,12 +38458,23 @@ pin it with a month → week → month test.
 
 Related: §169, §544.
 
-## 544. A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — OPEN
+## 544. A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — CLOSED 2026-09-21
 
-**Status:** OPEN 2026-09-15 — `never machine-verified` in the repo: measured with a scratch `vite-node` probe
-outside the tree against `periodKeyForDate` and `actualHoursIn`; TimeLog is not known to emit such dates.
-
-**Work item:** #334
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep` — `aggregateActuals`'s `dated` check
+(`timelog-actuals.ts`) is now `ISO_DAY_RE.test(it.date) && isRealCalendarDate(it.date)`. Departure from
+the fix-shape line below: the round trip was NOT inlined into `aggregateActuals` as a local check — it
+was extracted as a named, exported helper, `isRealCalendarDate` (`sanitize-core.ts`), because
+`sanitizeIsoDate` needed the identical round trip and a second inline copy would have been the third
+spelling of it in the file (`sanitizeIsoDate` already carried one). `sanitizeIsoDate` is now rewired to
+call it too, with its own 1900..2100 year bound kept local to itself (the helper carries no year bound).
+Tests: `sanitize-core.test.ts` (`isRealCalendarDate` accepts/refuses cases, incl. the no-year-bound
+contrast with `sanitizeIsoDate`) and `timelog-actuals.test.ts` ("routes a calendar-invalid day to undated
+instead of any period"). Mutants: 1a (`isRealCalendarDate` returns `ISO_DATE_RE.test(value)` alone, no
+round trip) — predicted RED on the helper's `2026-02-30`/`2026-04-31`/`2026-02-29` refusal cases, actual
+RED on those plus `2026-13-01`/`2026-00-10` and the TimeLog test (stronger kill than predicted, no
+mismatch in direction). 1b (the `dated` line reverted to `ISO_DAY_RE.test(it.date)` alone) — predicted RED
+on the TimeLog test's `out.undated` assertion, actual RED on exactly that test alone. `buildDailyRoll` was
+deliberately left untouched, per the file's own capitalised warning at its keying site.
 
 `aggregateActuals` (`timelog-actuals.ts`) checks a booking date's SHAPE only, and the `actualHours` codec
 (`encodeActualMap` / `decodeActualMap` in `sanitize-entities.ts`) bounds the day at 31, not by month, so

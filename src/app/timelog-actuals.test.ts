@@ -164,6 +164,22 @@ describe("aggregateActuals", () => {
     expect(out.undated!.hours).toBeLessThan(out.unattributed.hours);
   });
 
+  // §544: shape-valid but not a real day. Before the fix this row counted as DATED, so the month
+  // key filed it under February and the ISO-week key under March.
+  it("routes a calendar-invalid day to undated instead of any period", () => {
+    const out = aggregateActuals(
+      [item(5, 9, "2026-06-10", 4), item(5, 9, "2026-02-30", 3)],
+      links,
+    );
+    expect(out.undated).toEqual({ hours: 3, billableHours: 3 });
+    expect(out.unattributed).toEqual({ hours: 3, billableHours: 3 });
+    // Presence half: the VALID row still reached a period. A predicate that refused every row
+    // would also produce undated = 3 if the valid row were dropped from the fixture.
+    const attributed = Object.values(out.byResource).reduce((s, c) => s + c.hours, 0);
+    expect(attributed).toBe(4);
+    expect(Object.keys(out.byBucketDay ?? {}).join(",")).not.toContain("2026-02-30");
+  });
+
   // Anti-vacuity control for the split: a guard that fired unconditionally, or
   // an `undated` fed from the same predicate as `unattributed`, would satisfy
   // the assertions above. Nothing malformed ⇒ nothing undated AND nothing
