@@ -5135,6 +5135,8 @@ so renaming only the two new strings would make one card disagree with itself. R
 UX call that should not ride in on a defect-closure slice. The Done-with-no-date pair is also not
 producible through the UI — `migrateTask` leaves it alone, so it arrives only via an imported or
 hand-edited blob. **Left as is, deliberately; the naming sweep is the open half.**
+★ 2026-09-21: `reportsCancelledCount` is gone — the Reports Headline block it captioned was
+replaced by the Dashboard's "At a glance" strip — so the sweep is three strings now, not four.
 
 `isTaskDelivered` is `!!task.completedDate`, so a task whose status is `"Done"` but which carries no
 completion date is CLOSED but not DELIVERED, and `TaskStatusGlyph` renders the muted ✕ where it used

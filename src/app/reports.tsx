@@ -21,6 +21,9 @@ import {
   type HealthDriver,
 } from "./health";
 import { computeStats } from "./reports-stats";
+import { computeKpiStripModel } from "./dashboard";
+import { DashboardKpiStrip } from "./dashboard-sections/dashboard-kpi-strip";
+import { densityClasses } from "./dashboard-density";
 import {
   REPORTS_ASSIGNEE_COL_WIDTHS,
   REPORTS_BY_X_COL_WIDTHS,
@@ -47,7 +50,6 @@ import {
   GroupHealthBlock,
   InquiriesBlock,
   OpenByStatusBlock,
-  StatsBlock,
 } from "./reports-blocks";
 import { type Lang, t } from "./i18n";
 import { type Task } from "./types";
@@ -58,7 +60,7 @@ import { StakeholderReportPanel } from "./stakeholder-report-panel";
 import { ADDABLE_REPORTS, type AddableReportId } from "./addable-reports";
 import { ReportsViewsControl } from "./reports-views-control";
 import { type ReportsViewState } from "./reports-views";
-import { visibleReports, type FeatureModuleId, ALL_MODULE_IDS } from "./feature-modules";
+import { visibleReports, isModuleEnabled, type FeatureModuleId, ALL_MODULE_IDS } from "./feature-modules";
 import { ActionChips, chipsForView } from "./action-chips";
 import type { AppView } from "./nav-config";
 import type { SuggestedAction } from "./next-actions/types";
@@ -79,6 +81,8 @@ const EMPTY_EXTRA_REPORTS: AddableReportId[] = [];
 // `[]` default would mint a fresh array every render.
 const EMPTY_SNAPSHOTS: readonly SnapshotRecord[] = [];
 const EMPTY_BUDGET_HISTORY: readonly BudgetHistoryEntry[] = [];
+/** Reports has no density setting; the strip uses the Dashboard's default. */
+const KPI_DENSITY = densityClasses("comfortable");
 
 /** ★ Narrows a block id to one of the four embedded report panels. Those are
  *  the only blocks a feature module can switch off; the nine built-ins read
@@ -163,6 +167,13 @@ export function ReportsPanel({
   const resourcesById = useMemo(
     () => new Map(resources.map((r) => [r.id, r])),
     [resources],
+  );
+  // The "At a glance" block is the Dashboard's strip. RAID counts only while the RAID module is
+  // on, as on the Dashboard. No trend arrows: those compare against the last DASHBOARD visit.
+  const raidOn = isModuleEnabled("raid", features);
+  const kpiModel = useMemo(
+    () => computeKpiStripModel({ tasks, raid: raidOn ? raid : [], roles, today, holidaySet }),
+    [tasks, raid, raidOn, roles, today, holidaySet],
   );
   const stats = useMemo(
     () => computeStats(tasks, today, holidaySet, resourcesById),
@@ -408,18 +419,7 @@ export function ReportsPanel({
    * never drawn over nothing.
    */
   const renderBlock = (id: ReportBlockId): React.ReactNode => {
-    if (id === "stats") {
-      return (
-        <StatsBlock
-          lang={lang}
-          total={stats.total}
-          cancelled={stats.cancelled}
-          open={stats.open}
-          completed={stats.completed}
-          overdue={stats.overdue}
-        />
-      );
-    }
+    if (id === "stats") return <DashboardKpiStrip lang={lang} model={kpiModel} dc={KPI_DENSITY} />;
     if (id === "groupHealth") return <GroupHealthBlock lang={lang} rows={groupHealth} driverKey={driverKey} />;
     if (id === "openByStatus") return <OpenByStatusBlock lang={lang} openByStatus={stats.openByStatus} open={stats.open} />;
     if (id === "completionOutcomes") {

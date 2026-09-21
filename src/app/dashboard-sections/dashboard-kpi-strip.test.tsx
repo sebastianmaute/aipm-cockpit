@@ -388,7 +388,7 @@ describe("DashboardKpiStrip — Effort SPI and CPI (spec C)", () => {
       const { grid } = stripGrid(container);
       expect(grid.children).toHaveLength(6);
       expect(classesOf(grid)).toEqual(expect.arrayContaining(KPI_STRIP_COLS[6].split(" ")));
-      expect(KPI_STRIP_COLS[6]).toBe("@2xs:grid-cols-2 @[25rem]:grid-cols-3 @4xl:grid-cols-6");
+      expect(KPI_STRIP_COLS[6]).toBe("@2xs:grid-cols-2 @[25rem]:grid-cols-3 @[51rem]:grid-cols-6");
     });
 
     it("gives each count its own classes", () => {

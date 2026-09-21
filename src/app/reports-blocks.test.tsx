@@ -6,7 +6,6 @@ import {
   GroupHealthBlock,
   InquiriesBlock,
   OpenByStatusBlock,
-  StatsBlock,
   type GroupHealthRow,
 } from "./reports-blocks";
 import { t } from "./i18n";
@@ -27,17 +26,13 @@ import type { TranslationKey } from "./i18n";
  * datum reaches which tile — which is exactly the class of defect a copy-paste
  * of nine near-identical `<Tile>` blocks invites.
  *
+ * ★ The headline strip that motivated this is gone: the "stats" block now
+ * renders the Dashboard's `DashboardKpiStrip`, pinned in its own tests.
+ *
  * ★ Deliberately NOT re-testing what `reports.test.tsx` already covers: the
  * table bodies, sorting, filtering and column resizing all belong to
  * `reports-tables.tsx` and are exercised through the panel.
  */
-
-const KEYS = {
-  total: t("en-US", "reportsTotal"),
-  open: t("en-US", "reportsOpen"),
-  completed: t("en-US", "reportsCompleted"),
-  overdue: t("en-US", "reportsOverdue"),
-};
 
 /** The tile whose label is `label`, so a value assertion cannot match a
  *  neighbour's number. ★ Each `Tile` renders its label and value in one box;
@@ -46,34 +41,6 @@ function tileFor(label: string): HTMLElement {
   const el = screen.getByText(label);
   return el.closest("div")!.parentElement!;
 }
-
-describe("StatsBlock — which datum reaches which tile", () => {
-  it("renders each of the four figures in its OWN tile", () => {
-    // ★★ The four values are deliberately DISTINCT primes-ish numbers. Equal
-    // values would let a swapped binding pass: with total===open, rendering
-    // `open` under the Total label is indistinguishable from correct.
-    render(<StatsBlock lang="en-US" total={11} cancelled={0} open={7} completed={3} overdue={5} />);
-    expect(within(tileFor(KEYS.total)).getByText("11")).toBeInTheDocument();
-    expect(within(tileFor(KEYS.open)).getByText("7")).toBeInTheDocument();
-    expect(within(tileFor(KEYS.completed)).getByText("3")).toBeInTheDocument();
-    expect(within(tileFor(KEYS.overdue)).getByText("5")).toBeInTheDocument();
-  });
-
-  it("shows the cancelled sub only when there is a cancellation", () => {
-    const { unmount } = render(
-      <StatsBlock lang="en-US" total={11} cancelled={0} open={7} completed={3} overdue={5} />,
-    );
-    expect(screen.queryByText(t("en-US", "reportsCancelledCount", "0"))).toBeNull();
-    unmount();
-
-    render(<StatsBlock lang="en-US" total={11} cancelled={2} open={7} completed={3} overdue={5} />);
-    const sub = screen.getByText(t("en-US", "reportsCancelledCount", "2"));
-    // ★ In the TOTAL tile specifically — `reports.test.tsx` makes the same point
-    // about the panel, and it is the reason the sub exists at all: Total is the
-    // figure that stops reconciling with Open + Completed.
-    expect(sub.parentElement?.textContent).toContain(KEYS.total);
-  });
-});
 
 describe("OpenByStatusBlock and CompletionOutcomesBlock", () => {
   it("maps each open-status count to its own labelled segment", () => {

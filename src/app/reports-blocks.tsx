@@ -1,6 +1,7 @@
 "use client";
 /**
- * The nine built-in Reports block BODIES, presentational.
+ * Eight of the nine built-in Reports block BODIES, presentational. The ninth,
+ * "stats", is the Dashboard's `DashboardKpiStrip`, rendered by `reports.tsx`.
  *
  * ★★ PURE MOVE OUT OF `reports.tsx`. Same JSX, same classes, same accessible
  * names, no behaviour change — the orchestrator keeps every `useState`,
@@ -63,48 +64,6 @@ export interface GroupHealthRow {
   name: string;
   health: GroupHealth;
   isUngrouped: boolean;
-}
-
-/** The headline strip: four flat tiles. */
-export function StatsBlock({
-  lang, total, cancelled, open, completed, overdue,
-}: {
-  lang: Lang;
-  total: number;
-  cancelled: number;
-  open: number;
-  completed: number;
-  overdue: number;
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <Tile
-        label={t(lang, "reportsTotal")}
-        value={total}
-        sub={
-          cancelled > 0
-            ? t(lang, "reportsCancelledCount", String(cancelled))
-            : undefined
-        }
-        size="2xl"
-        flat
-      />
-      <Tile label={t(lang, "reportsOpen")} value={open} size="2xl" flat />
-      <Tile
-        label={t(lang, "reportsCompleted")}
-        value={completed}
-        size="2xl"
-        flat
-      />
-      <Tile
-        label={t(lang, "reportsOverdue")}
-        value={overdue}
-        danger={overdue > 0}
-        size="2xl"
-        flat
-      />
-    </div>
-  );
 }
 
 /** ★ `driverKey` stays in `reports.tsx` and arrives as a prop — it is a

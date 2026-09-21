@@ -100,7 +100,7 @@ const FOCUS_LAYOUT = {
   board: [
     { id: "openByStatus", w: 2, h: 2 },
     { id: "byPriority", w: 2, h: 1 },
-    { id: "stats", w: 4, h: 1 },
+    { id: "stats", w: 4, h: 2 },
   ],
   hidden: [
     "groupHealth",

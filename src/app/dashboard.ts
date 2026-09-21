@@ -383,6 +383,27 @@ export function buildLiveDashboardInput(
   );
 }
 
+/** The four figures the "At a glance" strip reads. */
+export type KpiStripModel = Pick<DashboardModel, "progress" | "overdue" | "openRaidCount" | "evm">;
+
+/**
+ * The "At a glance" figures on their own, for a surface that shows the strip
+ * without the rest of the Dashboard (Reports). ★ `computeDashboard` takes its
+ * copies of these four from here, so the two surfaces cannot disagree.
+ * `overdue` does not depend on the due-soon window, so no option is needed.
+ */
+export function computeKpiStripModel(
+  input: Pick<DashboardInput, "tasks" | "raid" | "roles" | "today" | "holidaySet">,
+): KpiStripModel {
+  const { tasks, today, holidaySet } = input;
+  return {
+    progress: computeDashboardProgress(tasks, today, holidaySet),
+    overdue: partitionUpcoming(tasks, today, holidaySet).overdue,
+    openRaidCount: input.raid.filter((r) => !isTerminalStatus(r.status, r.category)).length,
+    evm: computeEvm(tasks, today, { blendedRate: projectBlendedInternalRate(input.roles) }),
+  };
+}
+
 export interface DashboardOptions {
   dueSoonWorkdays?: number;
   topRaid?: number;
@@ -399,7 +420,8 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
 
   const overallComputed = computeGroupHealth(input.tasks, today, holidaySet).color;
   const tasksById = new Map(input.tasks.map((t) => [t.id, t] as const));
-  const evm = computeEvm(input.tasks, today, { blendedRate: projectBlendedInternalRate(input.roles) });
+  const kpi = computeKpiStripModel(input);
+  const evm = kpi.evm;
 
   const taskSchedule = computeScheduleStatus(input.tasks, today, holidaySet, dueSoonWorkdays);
   const ms = partitionMilestones(input.milestones, tasksById, today, holidaySet, dueSoonWorkdays);
@@ -454,7 +476,8 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
     total: input.changes.length,
   };
 
-  const { overdue, dueSoon } = partitionUpcoming(input.tasks, today, holidaySet, dueSoonWorkdays);
+  const { overdue } = kpi;
+  const { dueSoon } = partitionUpcoming(input.tasks, today, holidaySet, dueSoonWorkdays);
 
   return {
     overall: { computed: overallComputed, effective: status.ragOverride ?? overallComputed, overridden: !!status.ragOverride },
@@ -463,14 +486,14 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
     scope: { computed: scopeComputed, effective: status.scopeOverride ?? scopeComputed, overridden: !!status.scopeOverride },
     changes: changesSummary,
     topChanges: selectTopChanges(input.changes, topRaidN),
-    progress: computeDashboardProgress(input.tasks, today, holidaySet),
+    progress: kpi.progress,
     burndown,
     forecastBundle,
     chartDates: { today, planEnd: input.plan.endDate },
     bucketChain,
     evm,
     topRaid: selectTopRaid(input.raid, topRaidN),
-    openRaidCount: input.raid.filter((r) => !isTerminalStatus(r.status, r.category)).length,
+    openRaidCount: kpi.openRaidCount,
     overdue,
     dueSoon,
     overdueMilestones: ms.overdue,

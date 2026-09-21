@@ -4,15 +4,16 @@ import { KpiGradientBar, Tile } from "../report-table";
 import { RagDot } from "../rag-dot";
 import { type Lang, t } from "../i18n";
 import { TrendArrow } from "../trend-arrow";
-import { hasNoActiveScope, type DashboardModel } from "../dashboard";
+import { hasNoActiveScope, type KpiStripModel } from "../dashboard";
 import type { MetricKey, MetricTrend } from "../dashboard-trends";
 import type { DensityClasses } from "../dashboard-density";
 import type { AppView } from "../nav-config";
 
 interface DashboardKpiStripProps {
   lang: Lang;
-  model: DashboardModel;
-  trends: Record<MetricKey, MetricTrend>;
+  model: KpiStripModel;
+  /** The Dashboard's "since your last visit" arrows. Absent (Reports) → no arrows. */
+  trends?: Record<MetricKey, MetricTrend>;
   onNavigate?: (view: AppView) => void;
   dc: DensityClasses;
 }
@@ -35,14 +36,17 @@ export type KpiCellCount = 4 | 5 | 6;
  * Chromium, 2026-09-19; re-measure if `Tile` or a label changes.
  *   · 2 cells (262px) → `@2xs` (288px) · 3 (397px) → `@[25rem]` (400px) ·
  *     4 (532px) → `@[34rem]` (544px) · 5 (667px) → `@2xl` (672px) ·
- *     6 (6 × 127 + 5 × 8) → `@4xl` (896px), the first named size above it
- *     (`@3xl` is 768px). That one is ARITHMETIC over the same per-cell figure,
+ *     6 (6 × 127 + 5 × 8 = 802px) → `@[51rem]` (816px). It was `@4xl` (896px),
+ *     the first NAMED size above 802, until Reports put this strip in a
+ *     full-width block: at a 1280px viewport that block's body is 916px wide,
+ *     under 896px of strip once padded, so `@4xl` wrapped six cells into two rows and overflowed its 2-row block
+ *     by 31px (measured 2026-09-21). That one is ARITHMETIC over the same per-cell figure,
  *     not a fresh measurement; `e2e/dashboard-grid.spec.ts`'s KPI-strip test
  *     is what checks the six-cell strip fits its tile.
  *   A class depends on the cell COUNT, never on which cells, so the 4- and
  *   5-cell entries kept their classes when R/A/G joined and the three-cell
  *   strip stopped existing.
- *   The two arbitrary sizes exist because the named ones miss real tiles: a
+ *   The arbitrary sizes exist because the named ones miss real tiles: a
  *   half-width xl tile measures 409px of content at a 1280px viewport and
  *   569px at 1600px, just under `@md` (448px) and `@xl` (576px).
  * ★★ Five cells have no even split below one row, so between `@[25rem]` and
@@ -54,7 +58,7 @@ export type KpiCellCount = 4 | 5 | 6;
 export const KPI_STRIP_COLS: Record<KpiCellCount, string> = {
   4: "@2xs:grid-cols-2 @[34rem]:grid-cols-4",
   5: "@[25rem]:grid-cols-6 @[25rem]:*:col-span-2 @[25rem]:*:nth-last-[-n+2]:col-span-3 @2xl:grid-cols-5 @2xl:*:col-span-1 @2xl:*:nth-last-[-n+2]:col-span-1",
-  6: "@2xs:grid-cols-2 @[25rem]:grid-cols-3 @4xl:grid-cols-6",
+  6: "@2xs:grid-cols-2 @[25rem]:grid-cols-3 @[51rem]:grid-cols-6",
 };
 
 /** Standalone "at a glance" KPI card: completion (with count) · R/A/G ·
@@ -95,7 +99,7 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
             : `${model.progress.percent}%`}
           bar={noActiveScope ? undefined : <KpiGradientBar percent={model.progress.percent} label={t(lang, "dashboardKpiComplete")} />}
           sub={noActiveScope ? undefined : t(lang, "dashboardCompletedOf", String(model.progress.completed), String(model.progress.inScope))}
-          trend={noActiveScope ? undefined : <TrendArrow trend={trends.complete} metricLabel={t(lang, "dashboardKpiComplete")} unit="%" lang={lang} />}
+          trend={noActiveScope || !trends ? undefined : <TrendArrow trend={trends.complete} metricLabel={t(lang, "dashboardKpiComplete")} unit="%" lang={lang} />}
           onActivate={openTasks}
           activateLabel={noActiveScope
             ? `${t(lang, "dashboardNoActiveScope")} – ${t(lang, "dashboardOpenTasksView")}`
@@ -129,7 +133,7 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
           label={t(lang, "dashboardKpiOverdue")}
           hint={t(lang, "dashboardKpiOverdueHint")}
           value={String(model.overdue.length)}
-          trend={<TrendArrow trend={trends.overdue} metricLabel={t(lang, "dashboardKpiOverdue")} lang={lang} />}
+          trend={trends && <TrendArrow trend={trends.overdue} metricLabel={t(lang, "dashboardKpiOverdue")} lang={lang} />}
           onActivate={openTasks}
           activateLabel={`${t(lang, "dashboardKpiOverdue")} – ${t(lang, "dashboardOpenTasksView")}`}
         />
@@ -137,7 +141,7 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
           label={t(lang, "dashboardKpiOpenRaid")}
           hint={t(lang, "dashboardKpiOpenRaidHint")}
           value={String(model.openRaidCount)}
-          trend={<TrendArrow trend={trends.openRaid} metricLabel={t(lang, "dashboardKpiOpenRaid")} lang={lang} />}
+          trend={trends && <TrendArrow trend={trends.openRaid} metricLabel={t(lang, "dashboardKpiOpenRaid")} lang={lang} />}
           onActivate={onNavigate ? () => onNavigate("raid") : undefined}
           activateLabel={`${t(lang, "dashboardKpiOpenRaid")} – ${t(lang, "dashboardOpenRaidView")}`}
         />
