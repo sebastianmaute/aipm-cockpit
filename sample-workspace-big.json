@@ -3474,7 +3474,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 3,
@@ -3580,7 +3581,8 @@
       "createdDate": "2026-07-20",
       "fxRateOverride": 1.1,
       "order": 3,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "percentComplete": 30
     },
     {
       "id": 5,
@@ -3684,7 +3686,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 7,
@@ -3858,7 +3861,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 100003,
@@ -3964,7 +3968,8 @@
       "createdDate": "2026-07-20",
       "fxRateOverride": 1.1,
       "order": 3,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "percentComplete": 30
     },
     {
       "id": 100005,
@@ -4068,7 +4073,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 100007,
@@ -4242,7 +4248,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 200003,
@@ -4348,7 +4355,8 @@
       "createdDate": "2026-07-20",
       "fxRateOverride": 1.1,
       "order": 3,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "percentComplete": 30
     },
     {
       "id": 200005,
@@ -4452,7 +4460,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 200007,

@@ -10663,7 +10663,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 3,
@@ -10769,7 +10770,8 @@
       "createdDate": "2026-07-20",
       "fxRateOverride": 1.1,
       "order": 3,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "percentComplete": 30
     },
     {
       "id": 5,
@@ -10873,7 +10875,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 7,
@@ -11047,7 +11050,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 100003,
@@ -11153,7 +11157,8 @@
       "createdDate": "2026-07-20",
       "fxRateOverride": 1.1,
       "order": 3,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "percentComplete": 30
     },
     {
       "id": 100005,
@@ -11257,7 +11262,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 100007,
@@ -11431,7 +11437,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 200003,
@@ -11537,7 +11544,8 @@
       "createdDate": "2026-07-20",
       "fxRateOverride": 1.1,
       "order": 3,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "percentComplete": 30
     },
     {
       "id": 200005,
@@ -11641,7 +11649,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 200007,
@@ -11815,7 +11824,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 300003,
@@ -11921,7 +11931,8 @@
       "createdDate": "2026-07-20",
       "fxRateOverride": 1.1,
       "order": 3,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "percentComplete": 30
     },
     {
       "id": 300005,
@@ -12025,7 +12036,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 300007,
@@ -12199,7 +12211,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 400003,
@@ -12305,7 +12318,8 @@
       "createdDate": "2026-07-20",
       "fxRateOverride": 1.1,
       "order": 3,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "percentComplete": 30
     },
     {
       "id": 400005,
@@ -12409,7 +12423,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 400007,
@@ -12583,7 +12598,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 500003,
@@ -12689,7 +12705,8 @@
       "createdDate": "2026-07-20",
       "fxRateOverride": 1.1,
       "order": 3,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "percentComplete": 30
     },
     {
       "id": 500005,
@@ -12793,7 +12810,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 500007,
@@ -12967,7 +12985,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 600003,
@@ -13073,7 +13092,8 @@
       "createdDate": "2026-07-20",
       "fxRateOverride": 1.1,
       "order": 3,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "percentComplete": 30
     },
     {
       "id": 600005,
@@ -13177,7 +13197,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 600007,
@@ -13351,7 +13372,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 700003,
@@ -13457,7 +13479,8 @@
       "createdDate": "2026-07-20",
       "fxRateOverride": 1.1,
       "order": 3,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "percentComplete": 30
     },
     {
       "id": 700005,
@@ -13561,7 +13584,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 700007,
@@ -13735,7 +13759,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 800003,
@@ -13841,7 +13866,8 @@
       "createdDate": "2026-07-20",
       "fxRateOverride": 1.1,
       "order": 3,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "percentComplete": 30
     },
     {
       "id": 800005,
@@ -13945,7 +13971,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 800007,
@@ -14119,7 +14146,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 900003,
@@ -14225,7 +14253,8 @@
       "createdDate": "2026-07-20",
       "fxRateOverride": 1.1,
       "order": 3,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "percentComplete": 30
     },
     {
       "id": 900005,
@@ -14329,7 +14358,8 @@
           },
           "actualHours": {}
         }
-      ]
+      ],
+      "percentComplete": 0
     },
     {
       "id": 900007,

@@ -1468,6 +1468,7 @@
           "actualHours": {}
         }
       ],
+      "percentComplete": 0,
       "createdDate": "2026-09-07"
     },
     {
@@ -1574,6 +1575,7 @@
       "fxRateOverride": 1.1,
       "order": 3,
       "planningMode": "detailed",
+      "percentComplete": 30,
       "createdDate": "2026-07-20"
     },
     {
@@ -1654,6 +1656,7 @@
       "fixedPriceAmount": 36000,
       "order": 6,
       "planningMode": "blended",
+      "percentComplete": 0,
       "createdDate": "2026-09-14",
       "disciplineAllocations": [
         {
