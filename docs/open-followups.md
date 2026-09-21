@@ -818,7 +818,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§593](#593-html-extracts-8000-ms-dos-budget-test-failed-at-8301-ms-under-a-saturated-full-suite-run--closed-2026-09-19) | html-extract's 8000 ms DoS-budget test failed at 8301 ms under a saturated full-suite run — CLOSED 2026-09-19 | observed 2026-09-08 in a local full-suite run, filed 2026-09-19; GitLab #377 | S — a load-independent assertion, or a ceiling with margin measured under load | **CLOSED** 2026-09-19 |
 | [§594](#594-the-document-asset-patterns-one-huge-tag-scaling-ratio-row-has-no-known-mutant-that-turns-it-red--open) | The document-asset-patterns "one huge tag" scaling-ratio row has no known mutant that turns it red — OPEN | found 2026-09-19 converting the file's timing guards to a scaling ratio (§592, §593 class); GitLab #378 | S — find the regression it guards, or delete/re-scope the row | open |
 | [§595](#595-the-cold-hash-apply-judges-a-disabled-module-hash-against-default-features-and-never-revisits-the-decision--closed-2026-09-20) | The cold hash apply judges a disabled-module hash against default features and never revisits the decision — CLOSED 2026-09-20 | found and closed 2026-09-20 fixing §535/§536 on `fix/hash-view-cold-apply` | S — the same hydration gate that closed §536 | **CLOSED** 2026-09-20 |
-| [§605](#605-an-ai-calendar-event-update-that-re-sends-a-stored-invalid-until-with-a-count-previews-the-count-while-the-write-keeps-the-until--closed-2026-09-21) | An AI calendar-event update that re-sends a stored invalid until with a count previews the count while the write keeps the until — CLOSED 2026-09-21 | found 2026-09-21 reviewing §542 on `fix/backlog-sweep`, filed and closed in the same commit | S — one carry predicate shared by the update writer and the card's recurrence line | closed |
+| [§605](#605-an-ai-calendar-event-update-that-re-sends-a-stored-invalid-until-with-a-count-previews-the-count-while-the-write-keeps-the-until--closed-2026-09-21) | An AI calendar-event update that re-sends a stored invalid until with a count previews the count while the write keeps the until — CLOSED 2026-09-21 | found 2026-09-21 reviewing §542 on `fix/backlog-sweep`, filed and closed on the same branch | S — one carry predicate and one carried-date derivation shared by the update writer and the card's recurrence line | closed |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -40425,35 +40425,51 @@ Related: §536, §540.
 
 ## 605. An AI calendar-event update that re-sends a stored invalid until with a count previews the count while the write keeps the until — CLOSED 2026-09-21
 
-**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`, filed and closed in the same commit; found by
-the review of §542's fix. The update writer's carry rule is now ONE predicate,
-`acceptsCarriedOrRealDate` (`sanitize-core.ts`): the writer's update reader (`carryStoredEventDates`,
-`calendar-event.ts`) and the card's recurrence line (the range terminator in `recurrenceText`,
-`calendar-recurrence-text.ts`) both call it. The carried `until` set is derived by one function,
-`carriedUntilOf` (`calendar-event.ts`), which the writer and
-`INLINE_DESCRIPTORS.calendarEvent.fieldSanitizers.recurrence` both call. A `fieldSanitizers` entry
-now takes the STORED row as an optional third argument, which `describeEntityCalls`' update diff loop
-passes on both the before and the after side; `recurrenceText` takes the carried set as an optional
-third argument and, without it (a create), judges `until` strictly exactly as before. Pinned by "a
-recurrence re-sending a stored invalid until previews what the update writes" (`plan.test.ts`, which
-asserts the card and the real writer together) and "recurrenceText on an update matches
-sanitizeCalendarEventForUpdate (§605)" (`calendar-recurrence-text.test.ts`). Mutants (each run
-alone, the original bytes written back and compared between): (11a) `recurrenceText` ignores the
-carried set — predicted RED on the two carried cases only, actual RED on exactly those two (the card
-printed `Every day` → `Every 2 days, 5 times`). (11b) the preview carries ANY string `until`,
-ignoring the stored value — predicted RED on the three non-carried and create cases plus five
-pre-existing strict-`until` cases, actual RED on exactly those eight. (11c, added) the diff loop stops
-passing the stored row on the after side — predicted RED on the card's carried case alone, actual
-RED on it alone. No mismatch.
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`, filed and closed on the same branch (the fix
+commit and one review-round commit); found by the review of §542's fix. The update writer's carry
+rule is now ONE predicate, `acceptsCarriedOrRealDate` (`sanitize-core.ts`), and the dates it carries
+for a recurrence are derived by ONE function, `carriedRecurrenceDatesOf` (`calendar-event.ts`), which
+returns the carried `startDate` and `recurrence.until` sets. The writer's update reader
+(`carryStoredEventDates`) builds those two fields from it, and the card's recurrence line
+(`recurrenceText`, `calendar-recurrence-text.ts`) judges BOTH its dates with the same predicate
+against the same sets: the `until` terminator (in `rangeSuffix`) and the start that a monthly rule's
+byMonthDay fallback is taken from (in `fallbackDayOfMonth`). `INLINE_DESCRIPTORS.calendarEvent.
+fieldSanitizers.recurrence` passes `carriedRecurrenceDatesOf(stored)`. A `fieldSanitizers` entry now
+takes the STORED row as an optional third argument, which `describeEntityCalls`' update diff loop
+passes on both the before and the after side. `recurrenceText` takes the carried sets as an optional
+third argument; without them (a create) both dates are judged strictly exactly as before.
 
-Limits of the fix: (1) the BEFORE side changes too — a stored invalid `until` now renders as its
-terminator (`Every day until 2026-04-31`) where the card used to omit it, because the before value is
-judged by the same rule against the same stored row; that is what is stored, not a new claim.
-(2) Only `until` is threaded. A carried calendar-invalid `startDate` still makes the card omit a
-monthly rule's byMonthDay fallback (`fallbackDayOfMonth` asks the create rule) while the write derives
-the day from it. That card is incomplete but never wrong, so it is left. (3) The two other normaliser
-calls in `describeEntityCalls` (the resource name-alias projection and the resource group guard) do
-not pass the stored row; they run only for `resource`, whose entries take at most two arguments.
+Tests: "a recurrence re-sending a stored invalid until previews what the update writes" and "a
+monthly rule on a stored invalid start previews the fallback day the update writes" (`plan.test.ts`,
+each asserting the card and the real `sanitizeCalendarEventForUpdate` together), and
+"recurrenceText on an update matches sanitizeCalendarEventForUpdate (§605)"
+(`calendar-recurrence-text.test.ts`). The start half pins the review's probe: a stored `startDate`
+of `"2026-02-30"` with a monthly byMonthDay 30, and a patch re-sending the monthly rule, used to show
+`Every month on day 30` → `Every month` while the write left the rule byte-identical; it now shows
+no row. A separate case pins what the before-side change made visible: a patch that DROPS a stored
+invalid `until` used to show no row (both sides rendered `Every day`) while the write made the
+bounded series unbounded; it now shows `Every day until 2026-04-31` → `Every day`.
+
+Mutants (each run alone, the original bytes written back and compared between; every result
+matched its written prediction). Fix commit: (11a) `recurrenceText` ignores the carried `until` —
+RED on the 2 carried cases; (11b) the preview carries ANY string `until` — RED on the 3 non-carried
+and create cases plus 5 pre-existing strict-`until` cases, 8 in all; (11c, added) the diff loop stops
+passing the stored row on the after side — RED on the card's carried case alone. Review round,
+against the final code: (11a, re-run) RED on 3, the drop-the-`until` case now included; (11b,
+re-run) the same 8; (11d, added) the card's byMonthDay fallback ignores the carried start — RED on
+the 2 start-half `plan.test.ts` cases and the start case in `calendar-recurrence-text.test.ts`, 3 in
+all; (11e, added) the diff loop stops passing the stored row on the BEFORE side — RED on the carried
+case and the drop-the-`until` case, 2 in all.
+
+Limits of the fix: (1) the BEFORE side changes — a stored invalid `until` now renders as its
+terminator where the card used to omit it, because the before value is judged by the same rule
+against the same stored row. That is what is stored, and it is what makes the dropped-`until` write
+visible. (2) Only the two dates a recurrence reads are threaded. Exception dates are not rendered by
+the card (`exceptions` is not a model-writable field). (3) The two other normaliser calls in
+`describeEntityCalls` (the resource name-alias projection and the resource group guard) do not pass
+the stored row; they run only for `resource`, whose entries take at most two arguments. (4) The rest
+of the terminator rule — `until >= startDate`, the count range, and `until` winning over `count` —
+is still mirrored in `recurrenceText` rather than shared, as it was before §605.
 
 The defect, as found: since §542, `sanitizeCalendarEventForUpdate(input, stored)` carries a stored
 date verbatim when the patch leaves it unchanged, even when it is calendar-invalid — for example a
@@ -40465,6 +40481,7 @@ count. Measured before the fix, stored rule `{ freq: "daily", interval: 1, until
 patch `{ freq: "daily", interval: 2, until: "2026-04-31", count: 5 }`: the write stored
 `{"freq":"daily","interval":2,"until":"2026-04-31"}`, and the card showed `Every day` →
 `Every 2 days, 5 times`. `calendar-recurrence-text.ts` recorded the gap in a comment beside
-`isValidIsoDate`, which the fix rewrites.
+a helper named isValidIsoDate; the review round deleted that helper, whose one remaining caller now
+asks the shared predicate, and its comment went with it.
 
 Related: §542.

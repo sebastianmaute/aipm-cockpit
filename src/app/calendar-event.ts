@@ -108,8 +108,7 @@ function readEventDateOnLoad(value: unknown, field: EventDateField, id: number):
  *  edit of a title failed on a stored "2026-02-30" the edit never touched. */
 function carryStoredEventDates(stored: CalendarEvent): EventDateReader {
   const carried: Record<EventDateField, ReadonlySet<string>> = {
-    startDate: new Set([stored.startDate]),
-    "recurrence.until": carriedUntilOf(stored),
+    ...carriedRecurrenceDatesOf(stored),
     "exceptions.date": new Set((stored.exceptions ?? []).map((e) => e.date)),
     "exceptions.toDate": new Set(
       (stored.exceptions ?? []).flatMap((e) => (e.kind === "move" ? [e.toDate] : [])),
@@ -120,14 +119,22 @@ function carryStoredEventDates(stored: CalendarEvent): EventDateReader {
   };
 }
 
-/** The `recurrence.until` an UPDATE of `stored` carries verbatim (§542), as the set
- *  `acceptsCarriedOrRealDate` reads. Exported so the review card derives it from the stored
- *  row the same way the writer does (§605). Takes an untyped row because the card holds one.
+/** The two dates a recurrence rule is judged against that an UPDATE may carry. */
+export type CarriedRecurrenceDates = Readonly<Record<"startDate" | "recurrence.until", ReadonlySet<string>>>;
+
+/** The `startDate` and `recurrence.until` an UPDATE of `stored` carries verbatim (§542), as
+ *  the sets `acceptsCarriedOrRealDate` reads. Exported so the review card's recurrence line
+ *  derives them from the stored row exactly as the writer does (§605): the `until` it keeps
+ *  as the terminator, and the start a monthly rule's byMonthDay fallback is taken from.
+ *  Takes an untyped row because the card holds one.
  *  ★ A hoisted `function` declaration, for the barrel-cycle reason on `acceptsEventDuration`. */
-export function carriedUntilOf(stored: { readonly recurrence?: unknown }): ReadonlySet<string> {
+export function carriedRecurrenceDatesOf(
+  stored: { readonly startDate?: unknown; readonly recurrence?: unknown },
+): CarriedRecurrenceDates {
   const rule = stored.recurrence;
   const until = rule && typeof rule === "object" ? (rule as { until?: unknown }).until : undefined;
-  return new Set(typeof until === "string" && until ? [until] : []);
+  const nonEmpty = (v: unknown): string[] => (typeof v === "string" && v ? [v] : []);
+  return { startDate: new Set(nonEmpty(stored.startDate)), "recurrence.until": new Set(nonEmpty(until)) };
 }
 
 function intInRange(v: unknown, lo: number, hi: number, fallback: number): number {

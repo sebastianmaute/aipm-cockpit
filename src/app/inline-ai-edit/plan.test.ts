@@ -1676,6 +1676,53 @@ describe("a recurrence re-sending a stored invalid until previews what the updat
     expect(written).toEqual({ freq: "daily", interval: 2, count: 5 });
     expect(plan.updates.map((u) => [u.field, u.after])).toEqual([["recurrence", "Every 2 days, 5 times"]]);
   });
+
+  // The BEFORE side is judged against the same stored row, so a patch that DROPS the stored
+  //  invalid until now shows a row. It used to render the stored until as absent too, so
+  //  before === after and the card hid a write that makes a bounded series unbounded.
+  it("shows a row when the patch drops the stored invalid until", () => {
+    const { plan, written } = cardAndWrite({ freq: "daily", interval: 1 });
+    expect(written).toEqual({ freq: "daily", interval: 1 });
+    expect(plan.updates.map((u) => [u.field, u.before, u.after])).toEqual([
+      ["recurrence", "Every day until 2026-04-31", "Every day"],
+    ]);
+  });
+});
+
+// §605, the START half. The update writer also carries a stored calendar-invalid `startDate`, and
+//  derives a monthly rule's byMonthDay fallback from it (`Number(startDate.slice(8, 10))`). The
+//  card judged that start by the create rule, omitted the day, and so showed "on day 30" being
+//  removed from a rule the write leaves byte-identical.
+describe("a monthly rule on a stored invalid start previews the fallback day the update writes", () => {
+  const meeting = {
+    id: 61, title: "Month end", startDate: "2026-02-30", startTime: "09:00", durationMinutes: 30,
+    recurrence: { freq: "monthly", interval: 1, byMonthDay: 30 },
+  } as CalendarEvent;
+  const calWs = wsWith({ calendarEvents: [meeting] as never });
+
+  function cardAndWrite(recurrence: Record<string, unknown>) {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_calendar_event", input: { id: 61, recurrence } }],
+      { descriptor: INLINE_DESCRIPTORS.calendarEvent, item: meeting as never, ws: calWs },
+    );
+    const written = sanitizeCalendarEventForUpdate({ ...meeting, recurrence }, meeting);
+    return { plan, written: written?.recurrence };
+  }
+
+  it("shows no row when the write leaves the rule unchanged", () => {
+    const { plan, written } = cardAndWrite({ freq: "monthly", interval: 1 });
+    expect(written).toEqual(meeting.recurrence);
+    expect(plan.rejected).toEqual([]);
+    expect(plan.updates).toEqual([]);
+  });
+
+  it("keeps the carried start's day in the after text of a real change", () => {
+    const { plan, written } = cardAndWrite({ freq: "monthly", interval: 2 });
+    expect(written).toEqual({ freq: "monthly", interval: 2, byMonthDay: 30 });
+    expect(plan.updates.map((u) => [u.field, u.before, u.after])).toEqual([
+      ["recurrence", "Every month on day 30", "Every 2 months on day 30"],
+    ]);
+  });
 });
 
 // (I2) THE WHOLE-ROW SWAP. `sanitizeAbsence` reorders a reversed date pair

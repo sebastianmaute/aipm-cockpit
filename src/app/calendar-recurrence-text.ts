@@ -27,12 +27,12 @@
 // `forPreview`'s own signature forwards it". `forPreview` was the wrong hook:
 // it runs AFTER the field's normalisation and exists only to project the RICH
 // HTML fields, and it is handed a string. The right one already took a row —
-// `INLINE_DESCRIPTORS.calendarEvent.fieldSanitizers.recurrence`, whose entries
-// are typed `(v, row) => string` and which `describeEntityCalls` calls with the
-// MERGED row (the model may be moving `startDate` in the same call, and
-// `sanitizeRecurrence` reads the NEW start). No signature had to widen for
-// that. §605 later widened it by an optional third argument, the STORED row,
-// for the carried `until` (see `rangeSuffix`).
+// `INLINE_DESCRIPTORS.calendarEvent.fieldSanitizers.recurrence`, which
+// `describeEntityCalls` calls with the MERGED row as its second argument (the
+// model may be moving `startDate` in the same call, and `sanitizeRecurrence`
+// reads the NEW start), and — since §605 — the STORED row as an optional third,
+// for the dates an update carries (see `NOTHING_CARRIED`). The entry's type is
+// `EntityDescriptor["fieldSanitizers"]`; read it there, not here.
 // ★ The degrade still matters: pass the rule alone and the card silently loses
 // the `until >= startDate` resolution and the byMonthDay fallback, with nothing
 // failing — which is why the descriptor entry spells the row read out rather
@@ -51,8 +51,8 @@
 // this projection. That is a design call for wiring time, not for this
 // module; tracked separately.
 
-import { acceptsCarriedOrRealDate, isRealCalendarDate, toNumber } from "./sanitize-core";
-import type { RecurrenceRule } from "./calendar-event";
+import { acceptsCarriedOrRealDate, toNumber } from "./sanitize-core";
+import type { CarriedRecurrenceDates, RecurrenceRule } from "./calendar-event";
 
 // Mirrors WEEKDAYS in calendar-event.ts. Duplicated rather than imported —
 // importing it as a VALUE (unlike the type-only `RecurrenceRule` import
@@ -62,23 +62,21 @@ import type { RecurrenceRule } from "./calendar-event";
 const WEEKDAYS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] as const;
 type Weekday = (typeof WEEKDAYS)[number];
 
-/** A create's carry-set: nothing, so `until` is judged by the strict rule. */
-const NOTHING_CARRIED: ReadonlySet<string> = new Set();
-
-/** The date rule `sanitizeCalendarEvent` WRITES with (§542): a real calendar
- *  date, any year — `isRealCalendarDate`, the same function the writer calls,
- *  imported from the leaf `sanitize-core.ts` (no barrel, so the header rule
- *  holds). Before §542 this mirrored a two-leg rule, regex + `Date.parse`, and
- *  that rule ACCEPTED a day that overflows its month (`"2026-04-31"` parses, to
- *  May 1); the write now refuses it, so a card that still printed it named a
- *  terminator the write discards — the false-claim shape the header forbids.
- *  The differential tests against the REAL `sanitizeCalendarEvent` pin it.
- *  ★ This is the CREATE rule, and since §605 it judges only the start date.
- *   The `until` is judged in `rangeSuffix` by the UPDATE rule when the caller
- *   passes the stored event's carried `until`. */
-function isValidIsoDate(v: string): boolean {
-  return isRealCalendarDate(v);
-}
+/** A create's carry-sets: nothing, so both dates are judged by the strict rule.
+ *
+ *  ★★ HOW THIS MODULE JUDGES A DATE. The writer's date readers are one
+ *   predicate, `acceptsCarriedOrRealDate` (imported from the leaf
+ *   `sanitize-core.ts`, no barrel, so the header rule holds): a real calendar
+ *   date (`isRealCalendarDate`, any year), or one the UPDATE carries because it
+ *   equals the stored one (§542). Both the `until` terminator and the start a
+ *   byMonthDay fallback is taken from go through it, with the carried sets from
+ *   `carriedRecurrenceDatesOf(stored)` — the writer's own derivation (§605).
+ *   Before §542 this module mirrored a two-leg rule, regex + `Date.parse`, that
+ *   ACCEPTED a day overflowing its month (`"2026-04-31"` parses, to May 1). */
+const NOTHING_CARRIED: CarriedRecurrenceDates = {
+  startDate: new Set(),
+  "recurrence.until": new Set(),
+};
 
 const FREQ_UNIT: Readonly<Record<string, [string, string]>> = {
   daily: ["day", "days"],
@@ -139,23 +137,29 @@ function validWeekdays(raw: unknown): Weekday[] {
 // "omit, don't guess" (see header). Without `startDate` there is no way to
 // compute the write's day-of-month fallback, so this returns `undefined`
 // rather than a guess.
-function fallbackDayOfMonth(startDate: string | undefined): number | undefined {
-  // ★ `isValidIsoDate`, not the bare regex: the write derives this fallback from
-  //  a start that has ALREADY been through its date reader, so a regex-shaped
-  //  but invalid start reaches the write as no event at all.
-  //  "Omit, don't guess" is the honest answer here, not a day number.
-  return typeof startDate === "string" && isValidIsoDate(startDate)
-    ? Number(startDate.slice(8, 10))
-    : undefined;
+function fallbackDayOfMonth(startDate: string | undefined, carriedStart: ReadonlySet<string>): number | undefined {
+  // ★ The writer's predicate, not the bare regex: the write derives this
+  //  fallback from a start that has ALREADY been through its date reader. On a
+  //  CREATE a regex-shaped but invalid start ("2026-02-30") reaches the write as
+  //  no event at all, so "omit, don't guess" is the honest answer there.
+  // ★★★ ON AN UPDATE THE READER CARRIES A STORED INVALID START (§542), and the
+  //  write takes the day from it (`Number(startDate.slice(8, 10))`, so 30).
+  //  Omitting it there is NOT safe: the card is a before/after DIFF, the before
+  //  side prints a stored in-range byMonthDay without needing the start, and an
+  //  after side missing the day then shows "on day 30" removed from a rule the
+  //  write leaves byte-identical (§605).
+  return acceptsCarriedOrRealDate(startDate, carriedStart) ? Number(startDate.slice(8, 10)) : undefined;
 }
 
 // Mirrors `intInRange(r.byMonthDay, 1, 31, fallbackDom)`. In range: returned
 // unchanged, no `startDate` needed. Out of range WITH a `startDate`: the same
 // startDate-derived fallback the write applies. Out of range WITHOUT one:
 // `undefined` (the day clause is omitted — see header).
-function clampMonthDay(v: unknown, startDate: string | undefined): number | undefined {
+function clampMonthDay(
+  v: unknown, startDate: string | undefined, carriedStart: ReadonlySet<string>,
+): number | undefined {
   const n = toNumber(v);
-  return Number.isInteger(n) && n >= 1 && n <= 31 ? n : fallbackDayOfMonth(startDate);
+  return Number.isInteger(n) && n >= 1 && n <= 31 ? n : fallbackDayOfMonth(startDate, carriedStart);
 }
 
 function validCount(v: unknown): number | undefined {
@@ -204,10 +208,12 @@ function rangeSuffix(
  *  Pass `startDate` (the entity's own, ISO `YYYY-MM-DD`) to resolve the
  *  byMonthDay fallback and the until/count precedence exactly as the write
  *  path would; omit it and both degrade to "omit, don't guess" (see header).
- *  On an UPDATE, pass `carriedUntil` — `carriedUntilOf(stored)` — so a stored
- *  `until` the patch re-sends is judged as the update writer judges it (§605);
- *  omit it for a create, which carries nothing. */
-export function recurrenceText(rule: unknown, startDate?: string, carriedUntil?: ReadonlySet<string>): string {
+ *  On an UPDATE, pass `carried` — `carriedRecurrenceDatesOf(stored)` — so a
+ *  stored `until` the patch re-sends, and a stored start a byMonthDay fallback
+ *  is taken from, are judged as the update writer judges them (§605); omit it
+ *  for a create, which carries nothing. */
+export function recurrenceText(rule: unknown, startDate?: string, carried?: CarriedRecurrenceDates): string {
+  const carriedDates = carried ?? NOTHING_CARRIED;
   if (!isRule(rule)) return "";
   const r = rule as RecurrenceRule & {
     byDay?: unknown;
@@ -234,10 +240,10 @@ export function recurrenceText(rule: unknown, startDate?: string, carriedUntil?:
       const which = nth.ordinal === -1 ? "last" : `${nth.ordinal}`;
       out += ` on the ${which} ${nth.day}`;
     } else {
-      const day = clampMonthDay(r.byMonthDay, startDate);
+      const day = clampMonthDay(r.byMonthDay, startDate, carriedDates.startDate);
       if (day !== undefined) out += ` on day ${day}`;
     }
   }
 
-  return out + rangeSuffix(r, startDate, carriedUntil ?? NOTHING_CARRIED);
+  return out + rangeSuffix(r, startDate, carriedDates["recurrence.until"]);
 }

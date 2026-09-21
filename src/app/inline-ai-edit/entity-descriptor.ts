@@ -40,7 +40,7 @@ import {
 import {
   acceptsEventDate,
   acceptsEventDuration,
-  carriedUntilOf,
+  carriedRecurrenceDatesOf,
   isSendInvitationsFlag,
   normalizeEventStartTime,
   sanitizeAttendees,
@@ -351,13 +351,16 @@ export interface EntityDescriptor {
    *   primary in the same call, and the writer sanitizes against the row its
    *   dispatcher has already merged.
    *  ★ An entry that does not need the row simply declares one parameter —
-   *   TypeScript accepts a shorter function here, so only `resource.emails`
-   *   spells the second one today.
+   *   TypeScript accepts a shorter function here. The entries that spell the
+   *   row are `resource.emails` and `calendarEvent.recurrence` (the latter also
+   *   the third argument); do not trust that list, reproduce it:
+   *   `grep -nE "^\s+[a-zA-Z]+: \(v, ?row" src/app/inline-ai-edit/entity-descriptor.ts`
    *  ★★ THE STORED ROW IS THE THIRD, OPTIONAL ARGUMENT (§605), for a writer
    *   whose rule depends on the value being REPLACED — `calendarEvent.
-   *   recurrence`, whose update writer carries a stored `until` it would refuse
-   *   on a create. Only `describeEntityCalls`' diff loop passes it; an entry
-   *   must read "absent" as "nothing stored", i.e. the create rule. */
+   *   recurrence`, whose update writer carries a stored `until` and a stored
+   *   `startDate` it would refuse on a create. Only `describeEntityCalls`' diff
+   *   loop passes it; an entry must read "absent" as "nothing stored", i.e. the
+   *   create rule. */
   fieldSanitizers: Record<
     string,
     (v: unknown, row: Record<string, unknown>, stored?: Record<string, unknown>) => string
@@ -936,16 +939,16 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       //  MERGED one, which is what the writer sanitizes against — a model may
       //  be moving `startDate` in the same call, and `sanitizeRecurrence` reads
       //  the NEW start.
-      // ★★ `stored` IS WHAT MAKES A CARRIED `until` EXACT (§605). The update
-      //  writer keeps an `until` equal to the STORED one even when it is
-      //  calendar-invalid, and `row` cannot say which that was — the model's
-      //  `recurrence` replaced the stored one in the merge. `carriedUntilOf` is
-      //  the writer's own derivation of that set.
+      // ★★ `stored` IS WHAT MAKES THE CARRIED DATES EXACT (§605). The update
+      //  writer keeps an `until` and a `startDate` equal to the STORED ones even
+      //  when they are calendar-invalid, and `row` cannot say which those were —
+      //  the model's `recurrence` replaced the stored one in the merge.
+      //  `carriedRecurrenceDatesOf` is the writer's own derivation of both sets.
       recurrence: (v, row, stored) =>
         recurrenceText(
           v,
           typeof row.startDate === "string" ? row.startDate : undefined,
-          stored ? carriedUntilOf(stored) : undefined,
+          stored ? carriedRecurrenceDatesOf(stored) : undefined,
         ),
     },
     linkFields: {
