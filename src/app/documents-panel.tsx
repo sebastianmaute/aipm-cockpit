@@ -186,7 +186,7 @@ export interface DocumentsPanelProps {
    *  action the bypass exists for. Optional: the panel renders in contexts
    *  (tests, popouts) that supply no bypass at all. */
   allowDestructiveSave?: () => void;
-  /** Footer line of the HTML/PDF download (`exportFooterText(settings.branding)`);
+  /** Footer line of the HTML/PDF/PowerPoint download (`exportFooterText(settings.branding)`);
    *  omitted means the built-in default. */
   exportFooter?: string;
 }

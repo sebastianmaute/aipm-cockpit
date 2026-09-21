@@ -64,6 +64,26 @@ describe("resolveAiPolicy", () => {
     expect(resolveAiPolicy({ policyUrl: "javascript:alert(1)" }, NO_ENV).url).toBeNull();
   });
 
+  // ★★ The built-in link is Acme's own page. It must never be offered as
+  //    the policy of an owner that someone else configured.
+  it("a custom owner with no link configured gets NO link, not the built-in one", () => {
+    expect(resolveAiPolicy({ policyOrgName: "Acme GmbH" }, NO_ENV).url).toBeNull();
+    expect(resolveAiPolicy({}, { org: "Acme GmbH", url: undefined }).url).toBeNull();
+    expect(resolveAiPolicy({ policyOrgName: "" }, NO_ENV).url).toBeNull();
+  });
+
+  it("a custom owner WITH its own link keeps that link", () => {
+    expect(resolveAiPolicy({ policyOrgName: "Acme GmbH", policyUrl: "https://acme.example/ai" }, NO_ENV).url)
+      .toBe("https://acme.example/ai");
+  });
+
+  it("reports a deployment link it had to reject, so Settings can say so", () => {
+    const p = resolveAiPolicy({}, { org: undefined, url: "http://intranet/policy" });
+    expect(p.urlEnvRejected).toBe(true);
+    expect(p.urlFromEnv).toBe(false);
+    expect(resolveAiPolicy({}, NO_ENV).urlEnvRejected).toBe(false);
+  });
+
   it("a cleared owner name resolves to null, so callers use their neutral wording", () => {
     expect(resolveAiPolicy({ policyOrgName: "" }, NO_ENV).org).toBeNull();
   });

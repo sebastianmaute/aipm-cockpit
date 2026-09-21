@@ -31,6 +31,9 @@ export interface AiPolicy {
   url: string | null;
   orgFromEnv: boolean;
   urlFromEnv: boolean;
+  /** `NEXT_PUBLIC_AI_POLICY_URL` is set but is not a safe https link, so it was
+   *  ignored — Settings says so rather than letting the fallback look intended. */
+  urlEnvRejected: boolean;
 }
 
 export function isSafePolicyUrl(value: string): boolean {
@@ -63,10 +66,13 @@ export function resolveAiPolicy(settings: AiPolicySettings, env: AiPolicyEnv = a
   else if (settings.policyOrgName === undefined) org = DEFAULT_AI_POLICY_ORG;
   else org = settings.policyOrgName.trim() || null;
 
+  // ★★ The built-in link is Acme's own page, so it applies ONLY while the
+  //    owner is the built-in one too. Otherwise a deployment or user that set just
+  //    an owner would see "the AI usage policy of Acme" pointing at Acme's wiki.
   let url: string | null;
   if (urlFromEnv) url = envUrl;
-  else if (settings.policyUrl === undefined) url = DEFAULT_AI_POLICY_URL;
+  else if (settings.policyUrl === undefined) url = org === DEFAULT_AI_POLICY_ORG ? DEFAULT_AI_POLICY_URL : null;
   else url = isSafePolicyUrl(settings.policyUrl) ? settings.policyUrl.trim() : null;
 
-  return { org, url, orgFromEnv, urlFromEnv };
+  return { org, url, orgFromEnv, urlFromEnv, urlEnvRejected: envUrl !== "" && !urlFromEnv };
 }

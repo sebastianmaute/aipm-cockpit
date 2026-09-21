@@ -205,7 +205,7 @@ function ChatPanelImpl({
    *  exactly as before: one ephemeral in-memory conversation, no sidebar. */
   tursoMode?: boolean;
   tursoConfig?: TursoConfig | null;
-  /** Footer line of a document card's HTML/PDF download (`exportFooterText(settings.branding)`). */
+  /** Footer line of a document card's HTML/PDF/PowerPoint download (`exportFooterText(settings.branding)`). */
   exportFooter?: string;
 } & ChatProposalProps &
   ChatConversationStoreProps &
@@ -358,7 +358,7 @@ function ChatPanelInner({
   onConfigureAi?: () => void;
   tursoMode?: boolean;
   tursoConfig?: TursoConfig | null;
-  /** Footer line of a document card's HTML/PDF download (`exportFooterText(settings.branding)`). */
+  /** Footer line of a document card's HTML/PDF/PowerPoint download (`exportFooterText(settings.branding)`). */
   exportFooter?: string;
 } & ChatProposalProps &
   ChatConversationStoreProps &

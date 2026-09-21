@@ -625,6 +625,19 @@ describe("WorkspaceSection — Turso config wiring into ChatPanel", () => {
     expect(props.tursoConfig).not.toBeNull();
   });
 
+  it("hands ChatPanel the export footer from settings.branding, for its document card", async () => {
+    // ★ Optional all the way down to `downloadDocument`: dropping it here would
+    //   bring the built-in footer back on a chat card's download with every
+    //   leaf test green.
+    vi.mocked(useSettings).mockReturnValue({
+      ...settingsWithoutTurso,
+      settings: { ...settingsWithoutTurso.settings, branding: { exportFooter: "Acme GmbH" } },
+    } as typeof settingsWithoutTurso);
+    render(<WorkspaceSection {...makeProps({ mode: "file" })} />, { wrapper: Wrapper });
+    await screen.findByTestId("chat-panel");
+    expect(chatPanelMock.props.at(-1)!.exportFooter).toBe("Acme GmbH");
+  });
+
   // ★ Pins that with valid Turso credentials but NEITHER OR-operand set to
   // "turso" (mode=file, storageConfig.kind=browser), tursoMode stays false —
   // i.e. `chatTursoConfig !== null` alone can't carry the gate open.

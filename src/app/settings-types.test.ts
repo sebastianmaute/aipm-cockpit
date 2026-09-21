@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { MAX_AI_POLICY_FIELD } from "./ai-policy";
 import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, BRANDING_LOGO_MAX_LEN, BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, NEUTRAL_EXPORT_FOOTER, exportFooterText, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled } from "./settings-types";
 
 describe("sanitizeSelfResourceId", () => {
@@ -282,5 +283,33 @@ describe("exportFooter branding", () => {
     expect(exportFooterText({})).toBe(DEFAULT_EXPORT_FOOTER);
     expect(exportFooterText({ exportFooter: "" })).toBe(NEUTRAL_EXPORT_FOOTER);
     expect(exportFooterText({ exportFooter: "Acme GmbH" })).toBe("Acme GmbH");
+  });
+
+  it("collapses line breaks and control characters to single spaces", () => {
+    // ★ A hand-edited blob can carry them: a newline would split the slide
+    //   footer into paragraphs that overflow its box, and a control character
+    //   is illegal in the PowerPoint XML the footer is written into.
+    expect(exportFooterText({ exportFooter: "Acme\nGmbH\t\u0007 Co" })).toBe("Acme GmbH Co");
+    expect(exportFooterText({ exportFooter: "\n\u0001 \n" })).toBe(NEUTRAL_EXPORT_FOOTER);
+  });
+});
+
+describe("sanitizeAiConfig — AI policy fields", () => {
+  it("keeps a CLEARED value, because empty means 'none', not the default", () => {
+    const c = sanitizeAiConfig({ policyOrgName: "", policyUrl: "" });
+    expect(c.policyOrgName).toBe("");
+    expect(c.policyUrl).toBe("");
+  });
+
+  it("keeps a set value and drops a non-string", () => {
+    const c = sanitizeAiConfig({ policyOrgName: "Acme GmbH", policyUrl: 42 });
+    expect(c.policyOrgName).toBe("Acme GmbH");
+    expect(c.policyUrl).toBeUndefined();
+  });
+
+  it("caps both fields at MAX_AI_POLICY_FIELD", () => {
+    const c = sanitizeAiConfig({ policyOrgName: "x".repeat(5000), policyUrl: "y".repeat(5000) });
+    expect(c.policyOrgName).toHaveLength(MAX_AI_POLICY_FIELD);
+    expect(c.policyUrl).toHaveLength(MAX_AI_POLICY_FIELD);
   });
 });

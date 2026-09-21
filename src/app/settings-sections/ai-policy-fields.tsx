@@ -5,7 +5,7 @@ import type { AiConfig } from "../settings-types";
 import { Input } from "../form-controls";
 import { FieldHint } from "../field-hint";
 import { FieldError } from "../field-feedback";
-import { DEFAULT_AI_POLICY_ORG, DEFAULT_AI_POLICY_URL, isSafePolicyUrl, resolveAiPolicy } from "../ai-policy";
+import { DEFAULT_AI_POLICY_ORG, MAX_AI_POLICY_FIELD, isSafePolicyUrl, resolveAiPolicy } from "../ai-policy";
 
 /**
  * Settings → AI Assistant: who owns the AI-usage policy the consent screen names,
@@ -32,7 +32,9 @@ export function AiPolicyFields({
   const urlErrorId = useId();
   const policy = resolveAiPolicy(ai);
   const orgValue = ai.policyOrgName ?? DEFAULT_AI_POLICY_ORG;
-  const urlValue = ai.policyUrl ?? DEFAULT_AI_POLICY_URL;
+  // ★ A never-set link shows what the consent screen will actually use — the built-in
+  //   link only while the owner is the built-in one, otherwise nothing.
+  const urlValue = ai.policyUrl ?? policy.url ?? "";
   const urlInvalid = urlValue.trim() !== "" && !isSafePolicyUrl(urlValue);
 
   return (
@@ -47,7 +49,7 @@ export function AiPolicyFields({
               id={orgId}
               className="mt-1 w-full"
               value={orgValue}
-              maxLength={200}
+              maxLength={MAX_AI_POLICY_FIELD}
               onChange={(e) => onChange({ policyOrgName: e.target.value })}
               aria-describedby={orgHintId}
             />
@@ -68,12 +70,16 @@ export function AiPolicyFields({
               inputMode="url"
               value={urlValue}
               placeholder="https://"
+              maxLength={MAX_AI_POLICY_FIELD}
               onChange={(e) => onChange({ policyUrl: e.target.value })}
               aria-invalid={urlInvalid || undefined}
               aria-describedby={urlInvalid ? `${urlHintId} ${urlErrorId}` : urlHintId}
             />
             <FieldHint id={urlHintId} className="mt-1">{t(lang, "aiPolicyUrlHint")}</FieldHint>
             {urlInvalid && <FieldError id={urlErrorId}>{t(lang, "aiPolicyUrlInvalid")}</FieldError>}
+            {policy.urlEnvRejected && (
+              <FieldHint className="mt-1">{t(lang, "aiPolicyUrlEnvRejected")}</FieldHint>
+            )}
           </>
         )}
       </div>

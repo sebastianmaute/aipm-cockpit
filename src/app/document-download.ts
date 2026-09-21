@@ -245,7 +245,7 @@ export async function downloadDocument(
    *  means every image is disclosed as missing rather than the export
    *  failing. */
   load?: AssetByteLoader,
-  /** Footer line of the HTML/PDF render (`exportFooterText(settings.branding)`);
+  /** Footer line of the HTML/PDF/PowerPoint render (`exportFooterText(settings.branding)`);
    *  omitted means the built-in default. */
   footer?: string,
 ): Promise<void> {

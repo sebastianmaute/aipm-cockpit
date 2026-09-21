@@ -39,6 +39,20 @@ describe("AiPolicyFields", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("shows an empty link, not the built-in one, once the owner is someone else", () => {
+    // The built-in link is Acme's page; the consent screen offers it only
+    // for the built-in owner, and the field must show what the screen will use.
+    render(<AiPolicyFields lang="en-US" ai={{ ...defaultAiConfig, policyOrgName: "Acme GmbH" }} onChange={vi.fn()} />);
+    expect(urlBox()).toHaveValue("");
+  });
+
+  it("says so when the deployment's link was rejected", () => {
+    vi.stubEnv("NEXT_PUBLIC_AI_POLICY_URL", "http://intranet/policy");
+    render(<AiPolicyFields lang="en-US" ai={defaultAiConfig} onChange={vi.fn()} />);
+    expect(screen.getByText(t("en-US", "aiPolicyUrlEnvRejected"))).toBeInTheDocument();
+    expect(urlBox()).toBeInTheDocument(); // still editable: the rejected value does not win
+  });
+
   it("replaces a field with a note when the deployment sets it", () => {
     vi.stubEnv("NEXT_PUBLIC_AI_POLICY_URL", "https://globex.example/policy");
     render(<AiPolicyFields lang="en-US" ai={defaultAiConfig} onChange={vi.fn()} />);

@@ -525,7 +525,7 @@ export interface BrandingConfig {
    *  scheme JSON carrying one would survive sanitizeBranding and round-trip
    *  through exportScheme, but could still never be applied.) */
   startLogo?: string;
-  /** Footer line of HTML and print/PDF exports (`exportFooterText`). `undefined` =
+  /** Footer line of HTML, print/PDF and PowerPoint exports (`exportFooterText`). `undefined` =
    *  never set → `DEFAULT_EXPORT_FOOTER`; `""` = cleared → `NEUTRAL_EXPORT_FOOTER`.
    *  ★ Like `startLogo`, no scheme owns it: `mergeAppliedBranding` leaves it alone,
    *  so its only editor is the ungated row in Settings → Appearance. */

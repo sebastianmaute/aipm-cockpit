@@ -19,6 +19,9 @@
   `settings.ai.policyOrgName`/`policyUrl` (Settings → AI Assistant, `ai-policy-fields.tsx`), then the
   built-in Acme default. `undefined` = never set (default), `""` = cleared: no owner → neutral
   wording (`aiPolicyOwnerFallback`), no link → the whole block drops out and Accept needs no checkbox.
+  ★★ The built-in LINK applies only while the owner is the built-in one too: a custom owner (Settings
+  or env) with no link of its own gets NO link, never Acme's wiki page presented as that owner's
+  policy. A `NEXT_PUBLIC_AI_POLICY_URL` that is not https is ignored and reported (`urlEnvRejected`).
   ★★ The link becomes an `href`, so only an `https:` URL ever leaves the resolver (`isSafePolicyUrl`);
   the sanitizer only length-caps, so do not judge the URL anywhere else.
 - **Wire layer:** `chat-panel.tsx` is the React surface; the non-React WIRE LAYER (Anthropic protocol types

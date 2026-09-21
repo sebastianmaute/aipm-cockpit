@@ -1235,6 +1235,7 @@ const enUS = {
   aiPolicyUrlHint: "An https:// link the consent screen asks people to read and accept. Leave empty if there is no policy.",
   aiPolicyUrlInvalid: "Enter a full https:// link. Until then the consent screen shows no policy.",
   aiPolicyUrlFromEnv: "Set by NEXT_PUBLIC_AI_POLICY_URL in this deployment, which overrides this setting.",
+  aiPolicyUrlEnvRejected: "NEXT_PUBLIC_AI_POLICY_URL is set in this deployment but is not a full https:// link, so it is ignored and this field is used instead.",
   aiConsentRequired:
     "Consent required. Open the AI Assistant tab to review and enable.",
   aiConsentGranted: "Chat enabled",
@@ -2781,7 +2782,7 @@ const enUS = {
   brandingAppName: "App name",
   brandingFooterSlogan: "Slogan",
   brandingExportFooter: "Export footer",
-  brandingExportFooterHint: "Printed at the foot of HTML and PDF exports. Leave empty to print only “AI PM Cockpit”.",
+  brandingExportFooterHint: "Printed at the foot of HTML, PDF and PowerPoint exports, and names the PowerPoint theme. Leave empty to print only “AI PM Cockpit”.",
   brandingFavicon: "Favicon (browser tab icon)",
   brandingFaviconChoose: "Choose favicon…",
   brandingFaviconHint: "Shown in the browser tab. Square PNG recommended (32×32 or 64×64), up to 512 KB. PNG, JPG, WebP or GIF.",

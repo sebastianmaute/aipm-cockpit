@@ -1134,6 +1134,7 @@ export const de: Record<TranslationKey, string> = {
   aiPolicyUrlHint: "Ein https://-Link, den der Einwilligungsdialog zum Lesen und Akzeptieren anbietet. Leer lassen, wenn es keine Richtlinie gibt.",
   aiPolicyUrlInvalid: "Bitte einen vollständigen https://-Link eingeben. Bis dahin zeigt der Einwilligungsdialog keine Richtlinie.",
   aiPolicyUrlFromEnv: "Wird in dieser Installation über NEXT_PUBLIC_AI_POLICY_URL gesetzt und hat Vorrang vor dieser Einstellung.",
+  aiPolicyUrlEnvRejected: "NEXT_PUBLIC_AI_POLICY_URL ist in dieser Installation gesetzt, aber kein vollständiger https://-Link. Er wird ignoriert und stattdessen dieses Feld verwendet.",
   aiConsentRequired:
     "Einwilligung erforderlich. Öffnen Sie den KI-Assistenten-Tab, um sie zu prüfen und zu aktivieren.",
   aiConsentGranted: "Chat aktiviert",
@@ -1208,7 +1209,7 @@ export const de: Record<TranslationKey, string> = {
     "Öffnet die Druckvorschau; im Dialog 'Als PDF speichern' wählen.",
   exportDocx: "Word (.docx)",
   exportDocxHint:
-    "A4-Querformat mit einer Acme-gestylten Aufgabentabelle.",
+    "A4-Querformat mit einer Aufgabentabelle im Markendesign.",
   exportXlsx: "Excel (.xlsx)",
   exportXlsxHint:
     "Fixierte Kopfzeile, Auto-Filter aktiviert, Markenfarben.",
@@ -2614,7 +2615,7 @@ export const de: Record<TranslationKey, string> = {
   brandingAppName: "App-Name",
   brandingFooterSlogan: "Slogan",
   brandingExportFooter: "Fußzeile in Exporten",
-  brandingExportFooterHint: "Erscheint am Ende von HTML- und PDF-Exporten. Leer lassen, um nur „AI PM Cockpit“ zu drucken.",
+  brandingExportFooterHint: "Erscheint am Ende von HTML-, PDF- und PowerPoint-Exporten und benennt das PowerPoint-Design. Leer lassen, um nur „AI PM Cockpit“ zu drucken.",
   brandingFavicon: "Favicon (Browser-Tab-Symbol)",
   brandingFaviconChoose: "Favicon auswählen…",
   brandingFaviconHint: "Wird im Browser-Tab angezeigt. Quadratisches PNG empfohlen (32×32 oder 64×64), bis 512 KB. PNG, JPG, WebP oder GIF.",

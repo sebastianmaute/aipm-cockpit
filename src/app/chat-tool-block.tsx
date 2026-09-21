@@ -338,7 +338,7 @@ function DocumentCard({
    *  documents-panel.tsx sends from its own gate. */
   tursoConfig?: TursoConfig | null;
   projectId?: string;
-  /** Footer line of the HTML/PDF download; omitted means the built-in default. */
+  /** Footer line of the HTML/PDF/PowerPoint download; omitted means the built-in default. */
   exportFooter?: string;
 }) {
   const ws = useWorkspace();
@@ -461,7 +461,7 @@ export function ToolBlock({
   /** Forwarded verbatim to the document card's download loader. */
   tursoConfig?: TursoConfig | null;
   projectId?: string;
-  /** Footer line of the HTML/PDF download; omitted means the built-in default. */
+  /** Footer line of the HTML/PDF/PowerPoint download; omitted means the built-in default. */
   exportFooter?: string;
 }) {
   const [open, setOpen] = useState(false);
