@@ -51,10 +51,14 @@ changes; every fix below closes a register entry found in an earlier review.
   When a change re-sent a stored end date that is not a real calendar day together with a repeat
   count, the card showed the count while the save kept the end date. The card and the save now
   judge that end date by one shared rule. `§605` is closed.
-- **Diagnostics redaction now catches a base64-shaped secret that a `+` or a trailing `=` splits
-  out of the existing opaque-token pattern.** A run of 32+ base64-alphabet characters mixing
-  lowercase, uppercase and a digit is now redacted whether it contains a `+` or ends in `=`/`==`
-  padding, without touching paths or stack frames, which never carry either. `§606` is closed.
+- **Diagnostics redaction now catches a base64-shaped secret containing a `+`, or a `/`-split one
+  ending in `=` padding.** The existing opaque-token pattern missed both, because a `+` or `/`
+  broke them into runs too short to match, and they were logged in full. A run of 32+
+  base64-alphabet characters mixing lowercase, uppercase and a digit is now redacted when it
+  contains a `+` or ends in `=`/`==` padding. Padding counts only at the end of the token, so a
+  path followed by `=` and more text stays readable. A token split only by `/` with no padding is
+  still not caught, and long `+`-joined text that mixes case and carries a digit, such as a search
+  query, is now redacted. `§606` is closed.
 
 ## [1.12.5] - 2026-09-20 "Child"
 

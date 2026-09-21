@@ -65,6 +65,17 @@ describe("redactFields", () => {
   });
 });
 
+// The §564 negatives, shared with the §606 block below so the two lists cannot drift apart.
+const SHARED_OPAQUE_TOKEN_NEGATIVES: Array<[string, string]> = [
+  ["a lowercase UUID (crypto.randomUUID ids)", "f47ac10b-58cc-4372-a567-0e02b2c3d479"],
+  ["an uppercase GUID (MSAL client / tenant ids)", "F47AC10B-58CC-4372-A567-0E02B2C3D479"],
+  ["a 40-char commit SHA", "0fa7cc72a4b1c8e9d2f3a6b5c4d3e2f1a0b9c8d7"],
+  ["a long camelCase i18n key", "integrationsTursoTokenPlaceholder"],
+  ["a German compound word", "Datenschutzgrundverordnungsbeauftragter"],
+  ["a stack frame", "at jsonToWorkspace (webpack-internal:///./src/app/workspace.ts:787:14)"],
+  ["a 31-char mixed-class run (one under the floor)", "aB3xQ9zK7mP2wR8tL4vN6yH1sJ5dF0g"],
+];
+
 describe("§564: an opaque token with no vendor prefix is redacted, legitimate ids survive", () => {
   const TOKEN = "aB3xQ9zK7mP2wR8tL4vN6yH1sJ5dF0gC"; // 32, lower + upper + digit
   it("redacts a bare mixed-class token inside free text", () => {
@@ -73,15 +84,7 @@ describe("§564: an opaque token with no vendor prefix is redacted, legitimate i
   });
   // ★ Every one of these is a real shape that flows through logDiag in this app. A redaction
   // test with only the positive half proves nothing about what it costs.
-  it.each([
-    ["a lowercase UUID (crypto.randomUUID ids)", "f47ac10b-58cc-4372-a567-0e02b2c3d479"],
-    ["an uppercase GUID (MSAL client / tenant ids)", "F47AC10B-58CC-4372-A567-0E02B2C3D479"],
-    ["a 40-char commit SHA", "0fa7cc72a4b1c8e9d2f3a6b5c4d3e2f1a0b9c8d7"],
-    ["a long camelCase i18n key", "integrationsTursoTokenPlaceholder"],
-    ["a German compound word", "Datenschutzgrundverordnungsbeauftragter"],
-    ["a stack frame", "at jsonToWorkspace (webpack-internal:///./src/app/workspace.ts:787:14)"],
-    ["a 31-char mixed-class run (one under the floor)", "aB3xQ9zK7mP2wR8tL4vN6yH1sJ5dF0g"],
-  ])("leaves %s untouched", (_label, value) => {
+  it.each(SHARED_OPAQUE_TOKEN_NEGATIVES)("leaves %s untouched", (_label, value) => {
     expect(redactFields({ id: value })?.id).toBe(value);
   });
 });
@@ -99,17 +102,38 @@ describe("§606: a base64-shaped secret split by `+` or ending in `=` padding is
     expect(out?.message).toBe("upstream said [redacted] was rejected");
   });
 
-  // ★ Every one of these is a real shape that flows through logDiag in this app, plus the two
-  // shapes this rule's alphabet newly risks: paths/stack frames that use `/`, and a `=` that
-  // sits inside a string but is not trailing padding of the matched run.
+  // ★ The case the `=` branch exists for. `/` splits this token into runs under 32 in §564's
+  // alphabet, so before §606 it was logged in FULL; here it is one run ending in `==`, with no
+  // `+` anywhere. The 44-char `==` positive above cannot stand in for it: §564 already redacts
+  // that one's alphanumeric core and leaves only the padding.
+  it("redacts a 47-char `/`-split run ending in `==` padding, with no `+` anywhere", () => {
+    const TOKEN = "aB3xQ9zK7m/P2wR8tL4vN6/yH1sJ5dF0gC/XyZ1abcDEf=="; // 47, ends '=='
+    const out = redactFields({ message: `upstream said ${TOKEN} was rejected` });
+    expect(out?.message).toBe("upstream said [redacted] was rejected");
+  });
+
+  // ★ Why the rule must run BEFORE §564: §564's alphabet excludes `+`, so run first it redacts
+  // the 34-char head alone and leaves `+4vN6yH1sJ5dF0g`, 15 characters of the secret, in the log.
+  it("redacts a 34-char head, `+`, then a tail as ONE run (no padding)", () => {
+    const TOKEN = "aB3xQ9zK7mP2wR8tL4vN6yH1sJ5dF0gCXy+4vN6yH1sJ5dF0g"; // 49, one '+'
+    const out = redactFields({ message: `upstream said ${TOKEN} was rejected` });
+    expect(out?.message).toBe("upstream said [redacted] was rejected");
+  });
+
+  // ★ A `=` that does not terminate the token is not padding, but it must not un-redact a run the
+  // `+` already qualifies: every piece of this token is under 32, so rejecting the run would log
+  // it in full. Only the `=on` stays visible.
+  it("redacts a `+` run followed by `=` and more text, leaving the `=` text visible", () => {
+    const TOKEN = "aB3xQ9zK7mP2wR8t+4vN6yH1sJ5dF0gCXyZ1abcD"; // 40, one '+'
+    const out = redactFields({ message: `upstream said ${TOKEN}=on was rejected` });
+    expect(out?.message).toBe("upstream said [redacted]=on was rejected");
+  });
+
+  // ★ Every one of these is a real shape that flows through logDiag in this app, plus the
+  // shapes this rule's alphabet newly risks: paths and stack frames that use `/`, and a 32+ run
+  // followed by a `=` that does not end the string.
   it.each([
-    ["a lowercase UUID (crypto.randomUUID ids)", "f47ac10b-58cc-4372-a567-0e02b2c3d479"],
-    ["an uppercase GUID (MSAL client / tenant ids)", "F47AC10B-58CC-4372-A567-0E02B2C3D479"],
-    ["a 40-char commit SHA", "0fa7cc72a4b1c8e9d2f3a6b5c4d3e2f1a0b9c8d7"],
-    ["a long camelCase i18n key", "integrationsTursoTokenPlaceholder"],
-    ["a German compound word", "Datenschutzgrundverordnungsbeauftragter"],
-    ["a stack frame", "at jsonToWorkspace (webpack-internal:///./src/app/workspace.ts:787:14)"],
-    ["a 31-char mixed-class run (one under the floor)", "aB3xQ9zK7mP2wR8tL4vN6yH1sJ5dF0g"],
+    ...SHARED_OPAQUE_TOKEN_NEGATIVES,
     [
       "a long mixed-case path with digits",
       "webpack-internal:///./src/app/Chart2Panel/UseChartReadout3.tsx",
@@ -120,7 +144,11 @@ describe("§606: a base64-shaped secret split by `+` or ending in `=` padding is
       "a key=value-shaped string with no `+` and no trailing `=`",
       "Chart2Panel=UseReadout3AndMoreLettersHereX",
     ],
-  ])("leaves %s untouched", (_label, value) => {
+    [
+      "a 36-char path run followed by `=` and more text (padding must be trailing)",
+      "/api/v1/Tenants/Chart2Panel/Settings=on",
+    ],
+  ] as Array<[string, string]>)("leaves %s untouched", (_label, value) => {
     expect(redactFields({ id: value })?.id).toBe(value);
   });
 });

@@ -40493,34 +40493,60 @@ Related: §542.
 gained an eighth pattern, placed immediately before the §564 catch-all: a run of 32+ from the base64
 alphabet `[A-Za-z0-9+/]`, mixing lowercase, uppercase AND a digit (the same three scoped lookaheads
 as §564, over this rule's own character class), that EITHER contains a `+` OR ends in `=`/`==`
-padding — written as one regex literal with an internal alternation (`(?:…\+…{32,}={0,2}|…{32,}={1,2})`),
-not a replace-callback, since the condition is expressible safely inside one regex. The `=` requirement
-is trailing-only: a `[A-Za-z0-9+/]{32,}` core followed by `={1,2}`, so a `=` elsewhere in the string
-sits outside the matched run and does not count. Placed before the §564 catch-all so the run and its
-padding are consumed in one piece, rather than left with a stray `=` after §564's narrower alphabet
-(which excludes `+`, `/` and `=`) redacts only the alnum core.
+padding. It is one regex literal with an internal alternation, not a replace-callback. Padding counts
+only when it terminates the token: each padding group is followed by `(?![A-Za-z0-9+/=])`, so a 32+ run
+followed by `=` and more text (`/api/v1/Tenants/Chart2Panel/Settings=on`) is not a token. In the `+`
+branch the padding group is optional as a whole, so a `+` run followed by `=on` is still redacted and
+only `=on` stays visible. A boundary after a bare `={0,2}` there would reject the whole run instead, and
+a `+`-split secret whose pieces are all under 32 would then be logged in full (mutant 12f below).
 
-Test: `diagnostics-redact.test.ts`, the §606 describe block — two positives (a 40-char mixed-class run
-with one `+`; a 44-char one ending `==`, padding included in the redaction) and an `it.each` over ten
-negatives: the seven §564 negatives unchanged, plus a long mixed-case path with digits
-(`webpack-internal:///./src/app/Chart2Panel/UseChartReadout3.tsx`, whose `/`-delimited run is
-mixed-class and 32+ chars but carries neither a `+` nor a trailing `=`), a 31-char base64 run with `+`
-(one under the floor), a `+`-containing string with no uppercase, and a `key=value`-shaped string with
-no `+` and no trailing `=` (`Chart2Panel=UseReadout3AndMoreLettersHereX`).
+What the rule newly catches: a secret containing a `+` that splits it into runs under 32 for §564, and a
+`/`-split secret ending in `=` padding. A secret with no `+` and no `/` that ends in `=` was already
+redacted by §564 except for its padding, so for that shape the rule changes only whether `==` stays
+visible. The order matters for a different reason: §564's alphabet excludes `+`, so run first it would
+redact a 32+ head alone and leave `+<tail>` of the secret in the log.
 
-Mutants (each run alone, the original bytes written back and `git diff --stat` proved clean between):
-12a (drop the `+`/`=` requirement, leaving only the mixed-class lookaheads) — predicted RED on the
-path negative, actual RED on exactly that case (1 failed / 29 passed), no mismatch. 12b (drop `+` from
-the character class, so the run splits at the `+`) — predicted RED on the `+` positive, actual RED on
-exactly that case (1 failed / 29 passed), no mismatch. 12c (move the rule after the §564 catch-all,
-predicted NOT equivalent) — predicted RED on the `==`-padded positive, because §564's narrower
-alphabet would already consume the alnum core and leave a stray `==` behind; actual RED on exactly
-that case (1 failed / 29 passed), no mismatch, confirming 12c is not a genuine equivalent mutant.
+Test: `diagnostics-redact.test.ts`, the §606 describe block. Five positives, each asserting the exact
+output: a 40-char run with one `+`; a 44-char run ending `==`; a 47-char `/`-split run ending `==` with
+no `+`, which was logged in full before the fix; a 34-char head, `+`, then a 15-char tail; and a 40-char
+`+` run followed by `=on`, which must come out as `[redacted]=on`. An `it.each` over twelve negatives:
+the seven §564 negatives, shared with the §564 block through one constant
+(`SHARED_OPAQUE_TOKEN_NEGATIVES`) so the two lists cannot drift, plus a long mixed-case path with digits
+(`webpack-internal:///./src/app/Chart2Panel/UseChartReadout3.tsx`), a 31-char base64 run with `+`, a
+`+`-containing string with no uppercase, a `key=value`-shaped string with an 11-char key
+(`Chart2Panel=UseReadout3AndMoreLettersHereX`), and a 36-char path run followed by `=on`
+(`/api/v1/Tenants/Chart2Panel/Settings=on`).
 
-Limits of the fix, both stated in the code comment: a token split ONLY by `/` (no `+`, no `=` padding)
-is still not caught, which is the same alphabet trade §564 already accepts for paths and stack frames.
-This rule and §564 remain two separate patterns over two disjoint alphabets rather than one merged
-rule, so a secret straddling both traits (e.g. a run broken by `-` into pieces AND needing `+`) is
-caught only if either alphabet alone sees a 32+ run.
+Mutants, against the final code. Each was predicted in writing, run alone on
+`diagnostics-redact.test.ts` (34 tests), and reverted by writing the intended bytes back, checked
+with `cmp` against a saved copy:
+- 12a (drop the `+`/`=` requirement: `[A-Za-z0-9+/]{32,}={0,2}` with no boundary) — predicted RED on the
+  webpack path and the `/api/…=on` path; actual RED on both plus the `=on` positive (3 failed), which
+  the prediction missed: without a boundary the mutant consumes the `=`, giving `[redacted]on`.
+- 12b (drop `+` from every class) — predicted RED on the 40-char `+`, head-`+`-tail and `=on` positives;
+  actual RED on exactly those three.
+- 12c (move the rule after the §564 catch-all) — predicted RED on the `==` positive (`[redacted]==`) and
+  the head-`+`-tail positive (`[redacted]+4vN6yH1sJ5dF0g`); actual RED on exactly those two. The second
+  is a real leak of 15 secret characters, so 12c is not an equivalent mutant.
+- 12d (drop `/` from every class) and 12e (drop `/` from the padding branch only) — each predicted RED on
+  the `/`-split positive alone; actual RED on exactly that case, logged in full, for each.
+- 12f (the `+` branch's padding as a bare `={0,2}(?![A-Za-z0-9+/=])`) — predicted RED on the `=on`
+  positive alone; actual RED on exactly that case, logged in full.
+- 12g (drop the padding branch's trailing boundary) — predicted RED on the `/api/…=on` negative alone;
+  actual RED on exactly that case (`[redacted]on`).
+
+Limits of the fix. Stated in the code comment: a token split ONLY by `/` (no `+`, no `=` padding) is
+still not caught, and long `+`-joined text that mixes case and carries a digit is redacted — a URL
+search query (`?q=Project+Status+Report+Q3+Summary`), a `+` chain with no spaces
+(`renderChartReadout+useChartReadout3+formatValue`), and
+`total=TaskHours2025Q3+RaidHours2025Q3+ChangeHours2025Q3`. These false positives are the owner's
+accepted trade. Not in the code comment: this rule and §564 are two patterns over two different
+alphabets, so a secret that needs both (a run broken by `-` into pieces AND split by `+`) is caught only
+where one alphabet alone sees a 32+ run. Also not in the code comment, and not fixed here: the scoped
+lookaheads are quadratic on a long run that lacks one of the required features, and
+`scrubSecretValues` runs over the whole string BEFORE `redactFields` truncates it to `FIELD_MAX`. §564
+already had this cost on single-feature runs. This rule adds a second shape, a long mixed-case
+alphanumeric run with no `+` and no `=`; the review measured about 1.4 s for a 16,000-character run
+under this pattern alone, where §564 is linear on that shape.
 
 Related: §564.
