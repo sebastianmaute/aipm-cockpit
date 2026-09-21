@@ -28,7 +28,7 @@ import { DashboardTipCard } from "./dashboard-tip-card";
 import { DigestCardConnected } from "./digest/digest-card-connected";
 import { densityClasses, type DashboardDensity } from "./dashboard-density";
 import { type AppView } from "./nav-config";
-import { NarrativeSummary, NarrativeEditor } from "./dashboard-sections/dashboard-narrative";
+import { NarrativeSummary } from "./dashboard-sections/dashboard-narrative";
 import { DashboardHero } from "./dashboard-sections/dashboard-hero";
 import type { Insight, InsightEntityRef } from "./insights/insight";
 import { PopoverPanel } from "./popover-panel";
@@ -666,8 +666,10 @@ export function DashboardPanel(props: DashboardPanelProps) {
           }
         />
 
-        {/* Tier 0 — read-only status narrative summary (self-hides when empty) */}
-        <NarrativeSummary lang={lang} status={status} />
+        {/* Tier 0 — the ONE status summary, edited in place (Edit, or Add when
+            empty). It always renders outside a popout: it is the only way to
+            write a narrative. */}
+        <NarrativeSummary lang={lang} status={status} setStatus={setStatus} readOnly={arrangement.readOnly} />
 
         {/* First-open coaching — self-hides once the project has any task */}
         <DashboardCoachingCard lang={lang} ctas={coachingCtas} onNavigate={props.onNavigate ?? (() => {})} />
@@ -765,9 +767,6 @@ export function DashboardPanel(props: DashboardPanelProps) {
             and without an announcement a keyboard user gets no feedback that
             anything moved, resized or was hidden. */}
         <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
-
-        {/* Tier 3 — folded status-summary editor */}
-        <NarrativeEditor lang={lang} status={status} setStatus={setStatus} />
       </div>
     </ReportCard>
   );

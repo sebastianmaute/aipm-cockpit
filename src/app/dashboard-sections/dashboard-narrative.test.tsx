@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { t } from "../i18n";
@@ -21,38 +21,66 @@ beforeAll(() => {
   if (!document.elementFromPoint) document.elementFromPoint = () => null;
 });
 
+// The read-only rendering tests never write, so a no-op setter is enough. The
+// editing tests below use SummaryHost, which owns real ProjectStatus state.
+function Summary({ status, readOnly = false }: { status: ProjectStatus; readOnly?: boolean }) {
+  return <NarrativeSummary lang="en-US" status={status} setStatus={() => {}} readOnly={readOnly} />;
+}
+
+// ★ Hardcoded expected names, not `t(lang, key)`: `t` echoes an unknown key, so a
+//   `t`-based query would still find a button whose string had been deleted.
+const EDIT = "Edit status summary";
+const ADD = "Add status summary";
+
 describe("NarrativeSummary", () => {
   it("renders a legacy plain-text narrative + updated date", () => {
-    render(
-      <NarrativeSummary
-        lang="en-US"
-        status={{ narrative: "All on track", narrativeUpdatedAt: "2026-06-20T10:00:00.000Z" }}
-      />,
-    );
+    render(<Summary status={{ narrative: "All on track", narrativeUpdatedAt: "2026-06-20T10:00:00.000Z" }} />);
     expect(screen.getByText("All on track")).toBeInTheDocument();
     expect(screen.getByText(/Updated/)).toBeInTheDocument();
   });
 
   it("renders stored rich text as markup, not as escaped source", () => {
-    const { container } = render(
-      <NarrativeSummary lang="en-US" status={{ narrative: "<p>Ship <strong>R3</strong></p>" }} />,
-    );
+    const { container } = render(<Summary status={{ narrative: "<p>Ship <strong>R3</strong></p>" }} />);
     expect(container.querySelector("strong")?.textContent).toBe("R3");
   });
 
   it("strips a script tag at the render sink", () => {
-    const { container } = render(
-      <NarrativeSummary lang="en-US" status={{ narrative: "<p>ok</p><script>alert(1)</script>" }} />,
-    );
+    const { container } = render(<Summary status={{ narrative: "<p>ok</p><script>alert(1)</script>" }} />);
     expect(container.querySelector("script")).toBeNull();
     expect(container.textContent).toContain("ok");
   });
 
-  it("renders nothing when the narrative is empty or blank markup", () => {
-    expect(render(<NarrativeSummary lang="en-US" status={{}} />).container.firstChild).toBeNull();
-    expect(
-      render(<NarrativeSummary lang="en-US" status={{ narrative: "<p></p>" }} />).container.firstChild,
-    ).toBeNull();
+  // ★★ INVERTED from "renders nothing when the narrative is empty or blank
+  //   markup". With the bottom editor gone this summary is the only way in, so a
+  //   summary that hid itself when empty left no way to write a first narrative.
+  it.each([
+    ["no narrative", {}],
+    ["blank markup", { narrative: "<p></p>" }],
+  ])("offers Add, and no Edit, when there is %s", (_label, status: ProjectStatus) => {
+    render(<Summary status={status} />);
+    expect(screen.getByRole("button", { name: ADD })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: EDIT })).toBeNull();
+  });
+
+  it("offers Edit, and no Add, beside a stored narrative", () => {
+    render(<Summary status={{ narrative: "<p>All on track</p>" }} />);
+    expect(screen.getByText("All on track")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: EDIT })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: ADD })).toBeNull();
+  });
+
+  it("renders no Edit button in a read-only popout", () => {
+    render(<Summary status={{ narrative: "<p>All on track</p>" }} readOnly />);
+    expect(screen.getByText("All on track")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: EDIT })).toBeNull();
+  });
+
+  // ★ Read-only AND empty is the one case with nothing to show and nothing to
+  //   do, so it renders nothing rather than a blank card — the old behaviour.
+  it("renders nothing, and no Add button, when read-only with no narrative", () => {
+    const { container } = render(<Summary status={{}} readOnly />);
+    expect(container.firstChild).toBeNull();
+    expect(screen.queryByRole("button", { name: ADD })).toBeNull();
   });
 
   // ★★ End-to-end for the vanished-narrative defect, through the REAL pipeline
@@ -73,7 +101,7 @@ describe("NarrativeSummary", () => {
     ["<blockquote>Quoted</blockquote>", ["Quoted"]],
     ["<h3>Deep heading</h3>", ["Deep heading"]],
   ])("keeps the text of a legacy %s narrative visible", (narrative, expected) => {
-    const { container } = render(<NarrativeSummary lang="en-US" status={{ narrative }} />);
+    const { container } = render(<Summary status={{ narrative }} />);
     for (const word of expected) expect(container.textContent).toContain(word);
   });
 
@@ -89,15 +117,164 @@ describe("NarrativeSummary", () => {
   // text of its own is what still empties a wrapper: measured 2026-08-11,
   // sanitizeRichHtml("<p><script>x</script></p>") === "<p></p>", isNarrativeEmpty
   // true. The divergence between stored and sanitised is narrower now, not gone.
-  it("renders nothing when the narrative sanitises away to nothing", () => {
+  // ★★ INVERTED from "renders nothing when …": the property kept is the one that
+  //   mattered — no "Updated <date>" line over an empty narrative — and the card
+  //   now offers Add where it used to vanish.
+  it("offers Add, with no Updated line, when the narrative sanitises away to nothing", () => {
     const { container } = render(
-      <NarrativeSummary
-        lang="en-US"
-        status={{ narrative: "<p><script>x</script></p>", narrativeUpdatedAt: "2026-06-20T10:00:00.000Z" }}
-      />,
+      <Summary status={{ narrative: "<p><script>x</script></p>", narrativeUpdatedAt: "2026-06-20T10:00:00.000Z" }} />,
     );
-    expect(container.firstChild).toBeNull();
+    expect(screen.getByRole("button", { name: ADD })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: EDIT })).toBeNull();
     expect(container.textContent).not.toMatch(/Updated/);
+  });
+});
+
+// A host that owns ProjectStatus state so NarrativeSummary's edit path runs
+// against a real setState, plus a focusable control OUTSIDE the editor region
+// for the close-on-leave tests.
+function SummaryHost({ initial = "" }: { initial?: string }) {
+  const [status, setStatus] = useState<ProjectStatus>({ narrative: initial });
+  return (
+    <>
+      <NarrativeSummary lang="en-US" status={status} setStatus={setStatus} readOnly={false} />
+      <button type="button">outside</button>
+      <span data-testid="stored">{status.narrative ?? ""}</span>
+    </>
+  );
+}
+
+const surfaceName = () => t("en-US", "dashboardNarrativePlaceholder");
+
+describe("NarrativeSummary inline editing", () => {
+  it.each([
+    ["Edit", "<p>All on track</p>", EDIT],
+    ["Add", "", ADD],
+  ])("%s swaps the summary for the editor in place, and focuses it", async (_label, initial, name) => {
+    const user = userEvent.setup();
+    render(<SummaryHost initial={initial} />);
+    await user.click(screen.getByRole("button", { name }));
+    const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    expect(screen.queryByRole("button", { name: EDIT })).toBeNull();
+    expect(screen.queryByRole("button", { name: ADD })).toBeNull();
+    // `autoFocus`: the editor focuses itself once its Tiptap instance exists.
+    await waitFor(() => expect(surface.contains(document.activeElement)).toBe(true));
+  });
+
+  // The editor's own toolbar is INSIDE the region, so focus moving to Bold must
+  // keep the editor open — closing on that blur would unmount it mid-click.
+  it("keeps the editor open when its Bold button is clicked", async () => {
+    const user = userEvent.setup();
+    render(<SummaryHost />);
+    await user.click(screen.getByRole("button", { name: ADD }));
+    const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    await user.click(surface);
+    await user.keyboard("hello world");
+    await user.keyboard("{Control>}a{/Control}");
+    await user.click(screen.getByRole("button", { name: /bold/i }));
+    const after = screen.getByRole("textbox", { name: surfaceName() });
+    expect(after).toBe(surface);
+    expect(after.querySelector("strong")?.textContent).toBe("hello world");
+  });
+
+  // ★★ THESE, not the Bold click, pin the `relatedTarget` rule. A toolbar
+  //   button does not take focus on mousedown, so a Bold CLICK never blurs the
+  //   editor and passes even with a close-on-every-blur rule (measured by
+  //   mutation). Keyboard focus moving to the toolbar or to Save DOES blur it.
+  it("stays open when Shift+Tab moves focus from the text into the toolbar", async () => {
+    const user = userEvent.setup();
+    render(<SummaryHost initial="<p>Old</p>" />);
+    await user.click(screen.getByRole("button", { name: EDIT }));
+    const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    await waitFor(() => expect(surface.contains(document.activeElement)).toBe(true));
+    await user.tab({ shift: true });
+    const toolbar = screen.getByRole("toolbar", { name: surfaceName() });
+    expect(toolbar.contains(document.activeElement)).toBe(true);
+    expect(screen.getByRole("textbox", { name: surfaceName() })).toBe(surface);
+  });
+
+  it("stays open when Tab moves focus from the text to Save", async () => {
+    const user = userEvent.setup();
+    render(<SummaryHost initial="<p>Old</p>" />);
+    await user.click(screen.getByRole("button", { name: EDIT }));
+    const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    await waitFor(() => expect(surface.contains(document.activeElement)).toBe(true));
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: t("en-US", "dashboardStatusSave") }));
+    expect(screen.getByRole("textbox", { name: surfaceName() })).toBe(surface);
+  });
+
+  // ★ A click on non-focusable content INSIDE the region (its heading, its
+  //   padding) must not read as leaving it. The region's `tabIndex={-1}` makes
+  //   it the focus target of such a click; without it focus falls to <body>,
+  //   `relatedTarget` is null, and the editor closes under the user.
+  it("stays open when the region's own heading is clicked", async () => {
+    const user = userEvent.setup();
+    render(<SummaryHost initial="<p>Old</p>" />);
+    await user.click(screen.getByRole("button", { name: EDIT }));
+    const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    await user.click(surface);
+    await user.click(screen.getByText("Status summary"));
+    expect(screen.getByRole("textbox", { name: surfaceName() })).toBe(surface);
+  });
+
+  it("Save returns to the read-only summary showing the saved text, focus on Edit", async () => {
+    const user = userEvent.setup();
+    render(<SummaryHost />);
+    await user.click(screen.getByRole("button", { name: ADD }));
+    const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    await user.click(surface);
+    await user.keyboard("Fresh status");
+    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardStatusSave") }));
+    expect(screen.queryByRole("textbox", { name: surfaceName() })).toBeNull();
+    expect(screen.getByText("Fresh status")).toBeInTheDocument();
+    const edit = screen.getByRole("button", { name: EDIT });
+    await waitFor(() => expect(document.activeElement).toBe(edit));
+  });
+
+  // ★ Focus goes back to the toggle ONLY when the close left it nowhere. A
+  //   user who clicked another control meant to go there.
+  it("closes when focus moves to a control outside the region, and leaves focus there", async () => {
+    const user = userEvent.setup();
+    render(<SummaryHost initial="<p>Old</p>" />);
+    await user.click(screen.getByRole("button", { name: EDIT }));
+    const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    await user.click(surface);
+    await user.keyboard(" and new");
+    const outside = screen.getByRole("button", { name: "outside" });
+    await user.click(outside);
+    expect(screen.queryByRole("textbox", { name: surfaceName() })).toBeNull();
+    expect(screen.getByTestId("stored").textContent).toContain("and new");
+    await new Promise((r) => requestAnimationFrame(r));
+    expect(document.activeElement).toBe(outside);
+  });
+
+  it("closes when Tab walks focus out of the region", async () => {
+    const user = userEvent.setup();
+    render(<SummaryHost initial="<p>Old</p>" />);
+    await user.click(screen.getByRole("button", { name: EDIT }));
+    const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    await waitFor(() => expect(surface.contains(document.activeElement)).toBe(true));
+    const outside = screen.getByRole("button", { name: "outside" });
+    for (let i = 0; i < 40 && document.activeElement !== outside; i++) await user.tab();
+    expect(document.activeElement).toBe(outside);
+    expect(screen.queryByRole("textbox", { name: surfaceName() })).toBeNull();
+  });
+
+  // ★★ Review Focus 4. Clear deletes the stored narrative; once the editor
+  //   closes, the read-only area must offer Add — not a blank card, not nothing.
+  it("after Clear, the read-only area shows the Add button", async () => {
+    const user = userEvent.setup();
+    render(<SummaryHost initial="<p>Something</p>" />);
+    await user.click(screen.getByRole("button", { name: EDIT }));
+    await screen.findByRole("textbox", { name: surfaceName() });
+    await user.click(screen.getByRole("button", { name: /clear/i }));
+    expect(screen.getByTestId("stored").textContent).toBe("");
+    await user.click(screen.getByRole("button", { name: "outside" }));
+    expect(screen.queryByRole("textbox", { name: surfaceName() })).toBeNull();
+    expect(screen.getByRole("button", { name: ADD })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: EDIT })).toBeNull();
+    expect(screen.queryByText("Something")).toBeNull();
   });
 });
 
@@ -125,23 +302,22 @@ function EditorHost({ initial = "", externalNarrative }: { initial?: string; ext
 // names apart when a form mounts several editors (rich-text-toolbar.tsx). A
 // label-text query matches both and throws "Found multiple elements".
 describe("NarrativeEditor", () => {
-  it("renders the editor inside a foldable details with the Status summary label", () => {
-    render(<EditorHost />);
-    expect(screen.getByText("Status summary").closest("details")).not.toBeNull();
+  // The editor is on screen only while editing, so the `<details>` fold it used
+  // to sit in would be a second open/close control for the same state.
+  it("renders the editor in a plain group named Status summary, with no fold", () => {
+    const { container } = render(<EditorHost />);
+    expect(screen.getByRole("group", { name: "Status summary" })).toBeInTheDocument();
+    expect(container.querySelector("details")).toBeNull();
   });
 
   it("mounts the lean rich-text editor with an accessible name", async () => {
-    const user = userEvent.setup();
     render(<EditorHost />);
-    await user.click(screen.getByText("Status summary"));
     expect(await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") })).toBeTruthy();
     expect(screen.getByRole("button", { name: /bold/i })).toBeTruthy();
   });
 
   it("seeds the editor with the stored narrative, upgrading legacy plain text", async () => {
-    const user = userEvent.setup();
     render(<EditorHost initial="Legacy plain note" />);
-    await user.click(screen.getByText("Status summary"));
     const surface = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     expect(surface.textContent).toContain("Legacy plain note");
   });
@@ -159,7 +335,6 @@ describe("NarrativeEditor", () => {
   it("Clear empties the editor surface, not just the stored value", async () => {
     const user = userEvent.setup();
     render(<EditorHost initial="<p>Something</p>" />);
-    await user.click(screen.getByText("Status summary"));
     const before = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     expect(before.textContent).toContain("Something");
     await user.click(screen.getByRole("button", { name: /clear/i }));
@@ -174,7 +349,6 @@ describe("NarrativeEditor", () => {
   it("typing after Clear does not resurrect the cleared narrative", async () => {
     const user = userEvent.setup();
     render(<EditorHost initial="<p>Something</p>" />);
-    await user.click(screen.getByText("Status summary"));
     await user.click(screen.getByRole("button", { name: /clear/i }));
     // ★★ `findByRole`, not `getByRole`: the editor arrives through
     //   `rich-text-editor-lazy.tsx`, so the FIRST test in this file to reach it
@@ -195,7 +369,6 @@ describe("NarrativeEditor", () => {
   it("re-seeds the draft when status.narrative changes externally (workspace reload)", async () => {
     const user = userEvent.setup();
     render(<EditorHost externalNarrative="<p>External status from reload</p>" />);
-    await user.click(screen.getByText("Status summary"));
     await user.click(screen.getByRole("button", { name: /external reload/i }));
     const surface = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     expect(surface.textContent).toContain("External status from reload");
@@ -212,7 +385,6 @@ describe("NarrativeEditor", () => {
   it("stores a narrative typed with a markdown '# ' shortcut", async () => {
     const user = userEvent.setup();
     render(<EditorHost />);
-    await user.click(screen.getByText("Status summary"));
     const surface = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     await user.click(surface);
     await user.keyboard("# Q3 highlights");
@@ -227,7 +399,6 @@ describe("NarrativeEditor", () => {
   it("applies Bold to the selection instead of losing the click to a remount", async () => {
     const user = userEvent.setup();
     render(<EditorHost />);
-    await user.click(screen.getByText("Status summary"));
     const surface = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     await user.click(surface);
     await user.keyboard("hello world");
@@ -241,7 +412,6 @@ describe("NarrativeEditor", () => {
   it("keeps the editor instance when a commit re-seeds it with its own content", async () => {
     const user = userEvent.setup();
     render(<EditorHost />);
-    await user.click(screen.getByText("Status summary"));
     const surface = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     await user.click(surface);
     await user.keyboard("committed text");
@@ -258,9 +428,7 @@ describe("NarrativeEditor", () => {
   // ★★ Hardcoded expected text, not `t(lang, key)` — `t` echoes an unknown key,
   //   so a `t`-based assertion would still pass if the string were deleted.
   it("titles Clear with the fact that it deletes the STORED narrative", async () => {
-    const user = userEvent.setup();
     render(<EditorHost />);
-    await user.click(screen.getByText("Status summary"));
     expect(screen.getByRole("button", { name: t("en-US", "dashboardStatusClear") })).toHaveAttribute(
       "title",
       "Delete the saved status narrative, not just this draft",

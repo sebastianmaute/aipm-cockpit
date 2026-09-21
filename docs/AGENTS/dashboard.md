@@ -23,7 +23,8 @@ the right-hand vertical control stack `PrintButton` · `ResetLayoutButton` · `R
 open; ROW 2 (`DashboardStatusRow`) — the Next-Actions `ActionHeroCard` beside `DashboardHero` (Overall
 status), equal height by stretch, the hero absent when there is no Now/Soon group; then
 `NarrativeSummary` · `DashboardCoachingCard` · `DashboardTipCard` → the arrangeable tile grid
-(`DashboardGrid`) → a full-width FOOTER (`NarrativeEditor`). Both rows stack below `lg`. ★★ `ResetLayoutButton` MOVED INTO that stack (0.277.0+) from a ghost text
+(`DashboardGrid`). There is NO footer any more: the folded `NarrativeEditor` that sat below the grid
+was deleted, and the one status summary above the grid is edited in place. Both rows stack below `lg`. ★★ `ResetLayoutButton` MOVED INTO that stack (0.277.0+) from a ghost text
 button that used to sit between the grid and the shelf; this line named it in the middle zone until
 then. It is the only member of the stack carrying its own `!arrangement.readOnly` guard — the stack is
 gated only on `print:hidden`, and a popout is read-only by design. ★ The footer was described here as `NarrativeEditor` **plus a
@@ -471,9 +472,15 @@ The presentational slices:
 - `dashboard-sections/registers-band.tsx` — split into `RaidRegisterCard` (gated on `showRaid`) +
   `UpcomingCard`, the bodies of the `raid` and `upcoming` tiles; the old combined `RegistersBand` wrapper
   was RETIRED.
-- `dashboard-sections/dashboard-narrative.tsx` — `NarrativeSummary` (headline, read-only saved text,
-  renders null when empty) + `NarrativeEditor` (footer folded `<details>`, owns the draft + autogrow + the
-  render-time reconcile; the textarea carries an `aria-label`, NOT just a placeholder — axe).
+- `dashboard-sections/dashboard-narrative.tsx` — `NarrativeSummary` (the ONE status summary: saved text
+  plus an Edit button, or an Add button when empty, that swaps in `NarrativeEditor` in place; it ALWAYS
+  renders, because it is the only UI writer of `status.narrative`, except read-only AND empty, which
+  renders null; a popout gets no button) + `NarrativeEditor` (owns the draft + the render-time reconcile +
+  the Clear nonce; the rich-text surface is named by its `label`, NOT a placeholder — axe). ★★ The editor
+  closes on Save, or when focus leaves its whole region, decided from `relatedTarget`: a toolbar-button
+  CLICK never blurs the editor, so the Bold test cannot pin that rule — the keyboard Tab/Shift+Tab tests
+  in `dashboard-narrative.test.tsx` do. ★ Inline, Save is never disabled: pressing it blurs the editor,
+  the blur commits, and a Save disabled by that commit swallowed the click.
 ★ ALL tier/card spacing uses `dc.*` density classes, never literal `gap-*`/`space-y-*`/`p-*`/`mb-*`.
 `DashboardPanelProps` is unchanged by the reorg (the ~30 test/caller sites were untouched).
 ★★ `DensityClasses` has SIX fields — `{outer, kpiGap, cardPad, kpiPad, sectionGap, tileRow}`; `kpiPad` is the

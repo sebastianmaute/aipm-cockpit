@@ -2456,6 +2456,8 @@ export const de: Record<TranslationKey, string> = {
   dashboardSubSchedule: "Zeitplan",
   dashboardSubBudget: "Budget",
   dashboardSubScope: "Umfang",
+  dashboardStatusSummaryEdit: "Statuszusammenfassung bearbeiten",
+  dashboardStatusSummaryAdd: "Statuszusammenfassung hinzufügen",
   dashboardStatusSummary: "Statuszusammenfassung",
   dashboardNarrativePlaceholder: "Aktuellen Status, Änderungen und offene Punkte zusammenfassen.",
   dashboardNarrativeUpdated: "Aktualisiert {0}",

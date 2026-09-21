@@ -2613,6 +2613,8 @@ const enUS = {
   dashboardSubBudget: "Budget",
   dashboardSubScope: "Scope",
   dashboardStatusSummary: "Status summary",
+  dashboardStatusSummaryEdit: "Edit status summary",
+  dashboardStatusSummaryAdd: "Add status summary",
   dashboardNarrativePlaceholder: "Summarize the current status, what changed, and what needs attention.",
   dashboardNarrativeUpdated: "Updated {0}",
   dashboardKpiTile: "At a glance",

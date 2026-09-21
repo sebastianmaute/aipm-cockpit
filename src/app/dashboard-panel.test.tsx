@@ -1161,14 +1161,25 @@ describe("DashboardPanel reset-layout control", () => {
   });
 });
 
-describe("DashboardPanel Tier-3 folds", () => {
-  // ★ Task 6 replaces this test; its vehicle moved from the retired Progress
-  // card to Upcoming only so it stays green until then.
-  it("renders the narrative editor (Status summary) AFTER the bento Upcoming card", () => {
-    render(<DashboardPanel {...fullProps} />, { wrapper });
-    const upcoming = screen.getByText("Upcoming & overdue");
-    const editor = screen.getByText("Status summary");
-    expect(upcoming.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+describe("DashboardPanel status summary", () => {
+  // ★ One status summary, ABOVE the tile grid, edited in place. The folded
+  //   editor that used to sit below the grid is gone; with an empty narrative
+  //   the summary's Add button is the only way in.
+  // ★ Hardcoded names, not `t(...)`: `t` echoes an unknown key.
+  it("renders the summary BEFORE the tile grid and no second editor", () => {
+    const { container } = render(<DashboardPanel {...fullProps} />, { wrapper });
+    const add = screen.getByRole("button", { name: "Add status summary" });
+    const grid = container.querySelector('[data-testid="dashboard-grid"]');
+    expect(grid).not.toBeNull();
+    expect(add.compareDocumentPosition(grid!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText("Status summary")).toBeNull();
+    expect(screen.queryByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") })).toBeNull();
+  });
+
+  it("offers no Add or Edit button in a read-only popout", () => {
+    render(<DashboardPanel {...fullProps} projectId="p-summary-popout" isPopout />, { wrapper });
+    expect(screen.queryByRole("button", { name: "Add status summary" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit status summary" })).toBeNull();
   });
 });
 

@@ -113,6 +113,10 @@ export interface RichTextEditorProps {
    *  (the documents block editor at a narrow pane) docks it ABOVE the document,
    *  i.e. the position it already occupies logically. */
   toolbarContainer?: HTMLElement | null;
+  /** Focus the editor (caret at the end) once its Tiptap instance exists.
+   *  Read at MOUNT only: a caller that remounts the editor (a `key` bump) gets
+   *  focus again, a caller that merely re-renders does not. */
+  autoFocus?: boolean;
 }
 
 // ★★ THE MARKDOWN INPUT RULES ARE DELIBERATELY ON. Seven StarterKit extensions
@@ -325,6 +329,18 @@ export function RichTextEditor(props: RichTextEditorProps) {
       everFocused.current = true;
     },
   });
+
+  // ★ `autoFocus` is honoured HERE, by the real editor, rather than by a caller
+  //   reaching in: this module arrives through `next/dynamic`, so a caller would
+  //   have to wait out the lazy chunk AND the `immediatelyRender: false` null
+  //   first render. `editor` goes null -> instance exactly once per mount, and
+  //   EditorContent (a child) has attached the view by the time this parent
+  //   effect runs. The mount-time value is captured in a ref so a later prop
+  //   change cannot steal focus from wherever the user has moved it.
+  const autoFocusRef = useRef(props.autoFocus);
+  useEffect(() => {
+    if (editor && autoFocusRef.current) editor.commands.focus("end");
+  }, [editor]);
 
   // insertContent with a TEXT NODE, not a string: a bare string is parsed as
   // HTML, so dictated text containing "<" or "&" would become markup.
