@@ -39,19 +39,19 @@ could not see.
 
 ## Measured facts that bound the work
 
-Surveyed 2026-09-20. Every number here is reproducible; re-measure rather than trusting this
+Surveyed 2026-09-20; the rows marked (21) re-measured 2026-09-21 against release 1.13.0. Every number here is reproducible; re-measure rather than trusting this
 table, because all of them drift.
 
 | Fact | Value |
 |---|---|
-| Repo size / commits / branches | ~69 MiB packed, 8,422 commits, 34 branches |
+| Repo size / commits / branches (21) | ~72 MiB packed, 8,542 commits on `main`, 2 remote branches, 5 remote tags |
 | Git LFS, submodules | none, none |
 | CI jobs | 26, across install → quality → build → e2e → release |
 | Open register entries carrying a work item | 275 (266 issue-linked, 11 decision-record) |
-| Issue numbers cited | #39 – #378 |
-| Commit SHA citations in docs | ~1,095 backticked, ~511 in the register alone |
-| Commits carrying a session trailer | 3,048 (+217 co-author lines) |
-| Author/committer identities | one employer address on 8,355 commits, plus 90 CI-bot identities |
+| Issue numbers cited (21) | #39 – #390 |
+| Commit SHA citations in docs (21) | 1,114 backticked (1,105 resolve, 9 dangling), 526 in the register |
+| Commits carrying a session trailer (21) | 3,144 (+217 co-author lines) |
+| Author/committer identities (21) | three in all: one employer address on 8,452 commits, two CI-bot identities on 90 commits |
 
 ★★ The small repo size is the single most helpful fact: a full history rewrite is tractable,
 which is what makes "rewrite and remap" a real option rather than a forced squash.
