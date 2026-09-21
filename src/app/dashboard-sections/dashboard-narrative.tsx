@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { Dispatch, FocusEvent, SetStateAction } from "react";
 import { type Lang, t } from "../i18n";
 import { Button } from "../button";
@@ -10,6 +10,7 @@ import { RichTextView } from "../rich-text-view";
 import { sanitizeRichHtml } from "../sanitize-html";
 import { isNarrativeEmpty, narrativeToHtml, normalizeNarrativeHtml } from "../narrative-html";
 import type { ProjectStatus } from "../types";
+import { useClaimsWhenFocusWithin, useDismissable } from "../use-dismissable";
 
 /** The Dashboard's ONE status summary (Tier 0): the saved narrative, read-only,
  *  with an Edit button — or an Add button when there is none — that swaps it for
@@ -52,6 +53,7 @@ export function NarrativeSummary({ lang, status, setStatus, readOnly }: {
 }) {
   const [editing, setEditing] = useState(false);
   const toggleRef = useRef<HTMLButtonElement | null>(null);
+  const focusFrameRef = useRef(0);
   const html = narrativeToHtml(status.narrative);
   const rendered = html ? sanitizeRichHtml(html) : "";
   const empty = !rendered || isNarrativeEmpty(rendered);
@@ -61,13 +63,20 @@ export function NarrativeSummary({ lang, status, setStatus, readOnly }: {
   //   to Edit; a user who clicked or tabbed to another control meant to go
   //   there, and pulling them back would undo their move. rAF because the toggle
   //   does not exist until the read-only branch has committed.
+  // ★★ `preventScroll`: a click on non-focusable tile text far down the page
+  //   also closes with focus on <body>, and a plain focus() scrolled the page
+  //   back up to the summary, away from where the user clicked.
+  // ★ The frame is cancelled on unmount, and a second close cancels the first
+  //   frame rather than stacking another.
   const done = () => {
     setEditing(false);
-    requestAnimationFrame(() => {
+    cancelAnimationFrame(focusFrameRef.current);
+    focusFrameRef.current = requestAnimationFrame(() => {
       const active = document.activeElement;
-      if (!active || active === document.body) toggleRef.current?.focus();
+      if (!active || active === document.body) toggleRef.current?.focus({ preventScroll: true });
     });
   };
+  useEffect(() => () => cancelAnimationFrame(focusFrameRef.current), []);
 
   const storedView = empty ? null : (
     <>
@@ -132,7 +141,8 @@ function isInsideRegion(region: HTMLElement | null, node: Node): boolean {
  *  editing. Owns the draft + the render-time reconcile that re-seeds it when an
  *  external workspace reload changes status.narrative (NOT a useEffect —
  *  set-state-in-effect is banned). `onDone` is how it says "return to read-only":
- *  on Save, and when focus leaves the whole region, and on nothing else. */
+ *  on Save, on Escape, and when focus leaves the whole region, and on nothing
+ *  else. */
 export function NarrativeEditor({
   lang, status, setStatus, onDone, autoFocus,
 }: {
@@ -211,6 +221,22 @@ export function NarrativeEditor({
   //   loses focus; that keeps the editor open. A null `relatedTarget` while the
   //   document still has focus (a click on a dead area of the page) still
   //   closes.
+  // ★★ ESCAPE LEAVES THE EDITOR THE WAY FOCUS LEAVING IT DOES: it commits the
+  //   draft (never discards it) and closes, and `done` returns focus to Edit.
+  //   Through the dismissal stack (docs/AGENTS/ui-shell.md "dismissal"), as a
+  //   non-modal `layer` that claims the key only while focus is inside the
+  //   region (or nowhere, on <body>): the heading menu, opened later, stays above it and takes the
+  //   first Escape, and a surface opened before it is never closed by an
+  //   Escape the editor consumed. Only inline (`onDone`) — without it there is
+  //   nothing to close, and claiming a key it cannot act on would swallow it.
+  const claimsFocusWithin = useClaimsWhenFocusWithin(regionRef);
+  useDismissable({
+    open: onDone !== undefined,
+    kind: "layer",
+    onDismiss: () => { commitNarrative(); onDone?.(); },
+    claims: claimsFocusWithin,
+  });
+
   const onRegionBlur = (e: FocusEvent<HTMLDivElement>) => {
     if (!onDone) return;
     const next = e.relatedTarget as Node | null;

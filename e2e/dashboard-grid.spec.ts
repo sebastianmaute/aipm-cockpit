@@ -651,3 +651,39 @@ test.describe("dashboard grid dense packing", () => {
     expect(raid.x).toBeGreaterThan(upcoming.x + upcoming.width - 1.5);
   });
 });
+
+// ★★ Clear empties the editor by bumping its remount nonce, which REMOVES the
+// focused ProseMirror node. jsdom and Firefox fire no focusout on removal, so
+// only a real Chromium can show whether that removal reads as "focus left the
+// region" and closes the editor under the user. Measured 2026-09-21 with a
+// throwaway probe: Chromium DOES fire that focusout (null relatedTarget, target
+// still connected), and the editor stays open regardless — this test pins the
+// outcome, not the mechanism.
+test.describe("dashboard status summary editor", () => {
+  test.beforeEach(async ({ page }) => {
+    // ★ The auto-launched tour backdrop would intercept the clicks (see the
+    // measured-heights describe above).
+    await page.addInitScript(() => {
+      localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true }));
+    });
+    await page.setViewportSize({ width: XL, height: 1000 });
+    await gotoApp(page);
+    await openView(page, "Dashboard");
+  });
+
+  test("Clear keeps the inline editor open", async ({ page }) => {
+    await page.getByRole("button", { name: "Edit status summary", exact: true }).click();
+    const editor = page.getByRole("group", { name: "Status summary", exact: true });
+    const surface = editor.locator('[contenteditable="true"]');
+    await expect(surface).toBeFocused();
+    await expect(surface).not.toHaveText("");                       // positive control: the seed narrative
+    await editor.getByRole("button", { name: "Clear", exact: true }).click();
+    await expect(surface).toHaveText("");
+    // Two frames: a close would have committed by now, and the empty summary
+    // it left behind would be offering Add.
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    await expect(page.getByRole("button", { name: "Add status summary", exact: true })).toHaveCount(0);
+    await expect(editor).toBeVisible();
+    await expect(editor.getByRole("button", { name: "Save", exact: true })).toBeVisible();
+  });
+});

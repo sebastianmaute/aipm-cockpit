@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { t } from "../i18n";
 import type { ProjectStatus } from "../types";
+import { useDismissable } from "../use-dismissable";
 import { NarrativeSummary, NarrativeEditor } from "./dashboard-narrative";
 
 // ProseMirror (the lean RichTextEditor) touches layout APIs jsdom lacks; stub
@@ -146,6 +147,13 @@ function SummaryHost({ initial = "" }: { initial?: string }) {
 
 const surfaceName = () => t("en-US", "dashboardNarrativePlaceholder");
 
+// A dismissal-stack layer that is open before the editor, standing in for
+// whatever surface the Dashboard sits in.
+function OuterLayer({ onDismiss, children }: { onDismiss: () => void; children: ReactNode }) {
+  useDismissable({ open: true, kind: "layer", onDismiss });
+  return <>{children}</>;
+}
+
 describe("NarrativeSummary inline editing", () => {
   it.each([
     ["Edit", "<p>All on track</p>", EDIT],
@@ -277,6 +285,113 @@ describe("NarrativeSummary inline editing", () => {
     expect(screen.getByText("Fresh status")).toBeInTheDocument();
     const edit = screen.getByRole("button", { name: EDIT });
     await waitFor(() => expect(document.activeElement).toBe(edit));
+  });
+
+  // ★★ A click on non-focusable tile text far down the Dashboard closes the
+  //   editor with focus on <body>, so the toggle is refocused — and a plain
+  //   focus() scrolls the page back up to it, away from where the user clicked.
+  it("returns focus to Edit without scrolling the page", async () => {
+    const user = userEvent.setup();
+    render(<SummaryHost />);
+    await user.click(screen.getByRole("button", { name: ADD }));
+    const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    await user.click(surface);
+    await user.keyboard("Fresh status");
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    try {
+      await user.click(screen.getByRole("button", { name: t("en-US", "dashboardStatusSave") }));
+      const edit = screen.getByRole("button", { name: EDIT });
+      await waitFor(() => expect(document.activeElement).toBe(edit));
+      const onEdit = focus.mock.calls.filter((_args, i) => focus.mock.contexts[i] === edit);
+      expect(onEdit).toEqual([[{ preventScroll: true }]]);
+    } finally {
+      focus.mockRestore();
+    }
+  });
+
+  // ★ The focus return is deferred a frame; a Dashboard that unmounts inside
+  //   that frame must not leave the callback queued against a dead tree.
+  it("cancels the pending focus return when it unmounts before the frame", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<SummaryHost initial="<p>Old</p>" />);
+    await user.click(screen.getByRole("button", { name: EDIT }));
+    await screen.findByRole("textbox", { name: surfaceName() });
+    const issued: number[] = [];
+    let next = 9000;
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => {
+      issued.push(++next);
+      return next;
+    });
+    const cancel = vi.spyOn(window, "cancelAnimationFrame");
+    try {
+      await user.click(screen.getByRole("button", { name: t("en-US", "dashboardStatusSave") }));
+      expect(issued.length).toBeGreaterThan(0);
+      const cancelledBefore = cancel.mock.calls.length;
+      unmount();
+      const cancelledOnUnmount = cancel.mock.calls.slice(cancelledBefore).map(([id]) => id);
+      expect(cancelledOnUnmount).toContain(issued[issued.length - 1]);
+    } finally {
+      raf.mockRestore();
+      cancel.mockRestore();
+    }
+  });
+
+  // ★★ Escape leaves the editor the way focus leaving it does: the draft is
+  //   COMMITTED, never discarded, and focus goes back to Edit. The key is
+  //   marked `defaultPrevented` so an element-scoped handler outside the
+  //   dismissal stack reads it as consumed.
+  it("Escape commits the draft, closes the editor and returns focus to Edit", async () => {
+    const user = userEvent.setup();
+    render(<SummaryHost initial="<p>Old</p>" />);
+    await user.click(screen.getByRole("button", { name: EDIT }));
+    const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    await user.click(surface);
+    await user.keyboard(" and new");
+    let prevented: boolean | null = null;
+    const probe = (e: KeyboardEvent) => { if (e.key === "Escape") prevented = e.defaultPrevented; };
+    window.addEventListener("keydown", probe);
+    try {
+      await user.keyboard("{Escape}");
+    } finally {
+      window.removeEventListener("keydown", probe);
+    }
+    expect(prevented).toBe(true);
+    expect(screen.queryByRole("textbox", { name: surfaceName() })).toBeNull();
+    expect(screen.getByTestId("stored").textContent).toContain("and new");
+    const edit = screen.getByRole("button", { name: EDIT });
+    await waitFor(() => expect(document.activeElement).toBe(edit));
+  });
+
+  // ★★ The editor takes the Escape through the dismissal stack, so a layer
+  //   opened BEFORE it (the surface the Dashboard sits in) is left alone. The
+  //   next Escape, with the editor gone, reaches that layer as normal.
+  it("Escape closes only the editor, not a layer opened beneath it", async () => {
+    const user = userEvent.setup();
+    const outer = vi.fn();
+    render(<OuterLayer onDismiss={outer}><SummaryHost initial="<p>Old</p>" /></OuterLayer>);
+    await user.click(screen.getByRole("button", { name: EDIT }));
+    const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    await waitFor(() => expect(surface.contains(document.activeElement)).toBe(true));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("textbox", { name: surfaceName() })).toBeNull();
+    expect(outer).not.toHaveBeenCalled();
+    await user.keyboard("{Escape}");
+    expect(outer).toHaveBeenCalledTimes(1);
+  });
+
+  // ★ The heading menu opens AFTER the editor, so it sits above it on the
+  //   dismissal stack: the first Escape closes the menu alone.
+  it("Escape with the heading menu open closes the menu, not the editor", async () => {
+    const user = userEvent.setup();
+    render(<SummaryHost initial="<p>Old</p>" />);
+    await user.click(screen.getByRole("button", { name: EDIT }));
+    const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    await user.click(screen.getByRole("button", { name: "Text style" }));
+    const menu = await screen.findByRole("dialog", { name: "Text style" });
+    await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Text style" })).toBeNull();
+    expect(screen.getByRole("textbox", { name: surfaceName() })).toBe(surface);
   });
 
   // ★ Focus goes back to the toggle ONLY when the close left it nowhere. A
