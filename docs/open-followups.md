@@ -819,6 +819,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§594](#594-the-document-asset-patterns-one-huge-tag-scaling-ratio-row-has-no-known-mutant-that-turns-it-red--open) | The document-asset-patterns "one huge tag" scaling-ratio row has no known mutant that turns it red — OPEN | found 2026-09-19 converting the file's timing guards to a scaling ratio (§592, §593 class); GitLab #378 | S — find the regression it guards, or delete/re-scope the row | open |
 | [§595](#595-the-cold-hash-apply-judges-a-disabled-module-hash-against-default-features-and-never-revisits-the-decision--closed-2026-09-20) | The cold hash apply judges a disabled-module hash against default features and never revisits the decision — CLOSED 2026-09-20 | found and closed 2026-09-20 fixing §535/§536 on `fix/hash-view-cold-apply` | S — the same hydration gate that closed §536 | **CLOSED** 2026-09-20 |
 | [§605](#605-an-ai-calendar-event-update-that-re-sends-a-stored-invalid-until-with-a-count-previews-the-count-while-the-write-keeps-the-until--closed-2026-09-21) | An AI calendar-event update that re-sends a stored invalid until with a count previews the count while the write keeps the until — CLOSED 2026-09-21 | found 2026-09-21 reviewing §542 on `fix/backlog-sweep`, filed and closed on the same branch | S — one carry predicate and one carried-date derivation shared by the update writer and the card's recurrence line | closed |
+| [§606](#606-the-diagnostics-catch-all-misses-a-base64-secret-whose-separators-split-it-into-short-runs--closed-2026-09-21) | The diagnostics catch-all misses a base64 secret whose separators split it into short runs — CLOSED 2026-09-21 | found 2026-09-21 reviewing §564 on `fix/backlog-sweep`, filed and closed on the same branch | S — one base64-alphabet rule placed before the §564 catch-all | closed |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -40485,3 +40486,41 @@ a helper named isValidIsoDate; the review round deleted that helper, whose one r
 asks the shared predicate, and its comment went with it.
 
 Related: §542.
+
+## 606. The diagnostics catch-all misses a base64 secret whose separators split it into short runs — CLOSED 2026-09-21
+
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`; found reviewing §564's fix. `SECRET_VALUE_PATTERNS`
+gained an eighth pattern, placed immediately before the §564 catch-all: a run of 32+ from the base64
+alphabet `[A-Za-z0-9+/]`, mixing lowercase, uppercase AND a digit (the same three scoped lookaheads
+as §564, over this rule's own character class), that EITHER contains a `+` OR ends in `=`/`==`
+padding — written as one regex literal with an internal alternation (`(?:…\+…{32,}={0,2}|…{32,}={1,2})`),
+not a replace-callback, since the condition is expressible safely inside one regex. The `=` requirement
+is trailing-only: a `[A-Za-z0-9+/]{32,}` core followed by `={1,2}`, so a `=` elsewhere in the string
+sits outside the matched run and does not count. Placed before the §564 catch-all so the run and its
+padding are consumed in one piece, rather than left with a stray `=` after §564's narrower alphabet
+(which excludes `+`, `/` and `=`) redacts only the alnum core.
+
+Test: `diagnostics-redact.test.ts`, the §606 describe block — two positives (a 40-char mixed-class run
+with one `+`; a 44-char one ending `==`, padding included in the redaction) and an `it.each` over ten
+negatives: the seven §564 negatives unchanged, plus a long mixed-case path with digits
+(`webpack-internal:///./src/app/Chart2Panel/UseChartReadout3.tsx`, whose `/`-delimited run is
+mixed-class and 32+ chars but carries neither a `+` nor a trailing `=`), a 31-char base64 run with `+`
+(one under the floor), a `+`-containing string with no uppercase, and a `key=value`-shaped string with
+no `+` and no trailing `=` (`Chart2Panel=UseReadout3AndMoreLettersHereX`).
+
+Mutants (each run alone, the original bytes written back and `git diff --stat` proved clean between):
+12a (drop the `+`/`=` requirement, leaving only the mixed-class lookaheads) — predicted RED on the
+path negative, actual RED on exactly that case (1 failed / 29 passed), no mismatch. 12b (drop `+` from
+the character class, so the run splits at the `+`) — predicted RED on the `+` positive, actual RED on
+exactly that case (1 failed / 29 passed), no mismatch. 12c (move the rule after the §564 catch-all,
+predicted NOT equivalent) — predicted RED on the `==`-padded positive, because §564's narrower
+alphabet would already consume the alnum core and leave a stray `==` behind; actual RED on exactly
+that case (1 failed / 29 passed), no mismatch, confirming 12c is not a genuine equivalent mutant.
+
+Limits of the fix, both stated in the code comment: a token split ONLY by `/` (no `+`, no `=` padding)
+is still not caught, which is the same alphabet trade §564 already accepts for paths and stack frames.
+This rule and §564 remain two separate patterns over two disjoint alphabets rather than one merged
+rule, so a secret straddling both traits (e.g. a run broken by `-` into pieces AND needing `+`) is
+caught only if either alphabet alone sees a 32+ run.
+
+Related: §564.

@@ -85,3 +85,42 @@ describe("§564: an opaque token with no vendor prefix is redacted, legitimate i
     expect(redactFields({ id: value })?.id).toBe(value);
   });
 });
+
+describe("§606: a base64-shaped secret split by `+` or ending in `=` padding is redacted", () => {
+  it("redacts a 40-char mixed-class run containing a `+`", () => {
+    const TOKEN = "aB3xQ9zK7mP2wR8t+4vN6yH1sJ5dF0gCXyZ1abcD"; // 40, lower+upper+digit, one '+'
+    const out = redactFields({ message: `upstream said ${TOKEN} was rejected` });
+    expect(out?.message).toBe("upstream said [redacted] was rejected");
+  });
+
+  it("redacts a 44-char mixed-class run ending in `==` padding, padding included", () => {
+    const TOKEN = "aB3xQ9zK7mP2wR8tL4vN6yH1sJ5dF0gCXyZ1abcDEf=="; // 44, ends '=='
+    const out = redactFields({ message: `upstream said ${TOKEN} was rejected` });
+    expect(out?.message).toBe("upstream said [redacted] was rejected");
+  });
+
+  // ★ Every one of these is a real shape that flows through logDiag in this app, plus the two
+  // shapes this rule's alphabet newly risks: paths/stack frames that use `/`, and a `=` that
+  // sits inside a string but is not trailing padding of the matched run.
+  it.each([
+    ["a lowercase UUID (crypto.randomUUID ids)", "f47ac10b-58cc-4372-a567-0e02b2c3d479"],
+    ["an uppercase GUID (MSAL client / tenant ids)", "F47AC10B-58CC-4372-A567-0E02B2C3D479"],
+    ["a 40-char commit SHA", "0fa7cc72a4b1c8e9d2f3a6b5c4d3e2f1a0b9c8d7"],
+    ["a long camelCase i18n key", "integrationsTursoTokenPlaceholder"],
+    ["a German compound word", "Datenschutzgrundverordnungsbeauftragter"],
+    ["a stack frame", "at jsonToWorkspace (webpack-internal:///./src/app/workspace.ts:787:14)"],
+    ["a 31-char mixed-class run (one under the floor)", "aB3xQ9zK7mP2wR8tL4vN6yH1sJ5dF0g"],
+    [
+      "a long mixed-case path with digits",
+      "webpack-internal:///./src/app/Chart2Panel/UseChartReadout3.tsx",
+    ],
+    ["a 31-char base64 run with `+` (one under the floor)", "aB3xQ9zK7mP2wR8t+4vN6yH1sJ5dF0g"],
+    ["a `+`-containing string with no uppercase", "ab3xq9zk7mp2wr8t+4vn6yh1sj5df0gcxyz1abcd"],
+    [
+      "a key=value-shaped string with no `+` and no trailing `=`",
+      "Chart2Panel=UseReadout3AndMoreLettersHereX",
+    ],
+  ])("leaves %s untouched", (_label, value) => {
+    expect(redactFields({ id: value })?.id).toBe(value);
+  });
+});

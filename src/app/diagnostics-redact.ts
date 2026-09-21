@@ -16,6 +16,16 @@ const SECRET_VALUE_PATTERNS: RegExp[] = [
   /eyJ[A-Za-z0-9._-]{20,}/g,                // JWTs
   /\bATATT[A-Za-z0-9_=.\-]+/g,              // Atlassian Jira API tokens
   /(?:api[_-]?key|api[_-]?token|auth[_-]?token|token|secret|authorization|password|passphrase)=[^&\s]+/gi, // key=value pairs
+  // §606: a base64-shaped secret that `+` or trailing `=` padding pulls OUT of §564's alphabet
+  // (which excludes both). A run of 32+ from the base64 alphabet [A-Za-z0-9+/], mixing
+  // lowercase, uppercase AND a digit (same lookahead style as §564, scoped to the run's own
+  // character class), that EITHER contains a `+` OR ends in `=`/`==` padding — a `=` elsewhere
+  // in the string does not count, because it is outside the matched run. Paths and stack frames
+  // use `/` too but never `+` or a trailing `=`, so they stay readable. Placed BEFORE the §564
+  // catch-all so the run (including its padding) is consumed in one piece rather than left with
+  // a stray `=` after §564's narrower alphabet redacts only the alnum core.
+  // ★ Known miss: a token split ONLY by `/` (no `+`, no `=` padding) is not caught.
+  /(?=[A-Za-z0-9+/]*[a-z])(?=[A-Za-z0-9+/]*[A-Z])(?=[A-Za-z0-9+/]*\d)(?:(?=[A-Za-z0-9+/]*\+)[A-Za-z0-9+/]{32,}={0,2}|[A-Za-z0-9+/]{32,}={1,2})/g,
   // §564: an opaque token with no vendor prefix and no `key=` frame. A run of 32+ from the
   // token alphabet that mixes lowercase, uppercase AND a digit. The mix is what keeps real ids
   // readable: canonical UUIDs and commit SHAs are single-case hex, MSAL GUIDs are upper-only,
