@@ -39286,8 +39286,17 @@ Mutants (revert each site to its original unconditional seal, one at a time): ji
 actual red (its own §565 test); timelog — predicted red, actual red (its own §565 test);
 `commitTurso` — predicted red, actual red (the off-Turso §565 test only, 1 failed / 25 passed);
 `confirmPortfolioModeSwitch` — predicted red, actual red (the switch §565 test only, 1 failed / 25
-passed). No mismatch. The shipped fix matches the entry's own fix-shape line (`removeSealed` on a
-blank value) at all four sites; no departure.
+passed). No mismatch. The shipped fix departs from the entry's own fix-shape line — "Route both
+through `removeSealed` on an **empty** value" — in three ways: (1) it tests `value.trim() === ""`,
+not `value === ""`, so a whitespace-only token (e.g. `"  "`) now also counts as a clear and is
+removed rather than sealed — before this fix a whitespace-only token was NOT empty, so it sealed
+and hydrated back on reload as a useless but present secret; this is a behaviour change beyond the
+finding's wording, not merely a wording gap. (2) it covers FOUR sites, not the "both" the fix-shape
+line named — the entry's own scope, not just its prose, undercounted the defect (see the mutant
+list above). (3) the two Turso sites also reset `tokenStored`, a UI-state write the fix-shape line
+never mentioned — needed because `commitTurso`'s device branch sets that flag on seal and the
+passphrase-lock UI reads it to decide whether to show the "Remove stored secret" button; without
+resetting it the button would have stayed on after a clear even once the ciphertext was gone.
 
 _Original finding, as filed 2026-09-18. Preserved as the dated record; see Status._
 
