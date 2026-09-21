@@ -16,6 +16,7 @@ import { buildSystemPrompt, systemBlocksText } from "./chat-api";
 import { appliedProposalNotice } from "./chat-proposal-stage";
 import type { ToolDispatcher } from "./chat-tools";
 import { defaultAiConfig as baseAiConfig } from "./settings-types";
+import { DEFAULT_AI_POLICY_URL } from "./ai-policy";
 import type { OperatingGuide } from "./operating-guide";
 import type { FeatureModuleId } from "./feature-modules";
 import { saveSealed } from "./secrets-store";
@@ -165,6 +166,62 @@ describe("Consent screen accept", () => {
     // Consent screen gone → the chat composer is shown.
     expect(screen.queryByRole("button", { name: /I understand/i })).toBeNull();
     expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).toBeInTheDocument();
+  });
+  // The organisation policy block reads `resolveAiPolicy` (ai-policy.ts).
+  function renderConsent(ai: Partial<typeof defaultAiConfig>) {
+    return render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={{ ...defaultAiConfig, consentAccepted: false, ...ai }}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+  }
+
+  it("names the configured policy owner in the bullet, the link and the checkbox, and links the configured URL", () => {
+    renderConsent({ policyOrgName: "Acme GmbH", policyUrl: "https://acme.example/ai-policy" });
+    expect(screen.getByText(t("en-US", "aiConsentBullet6", "Acme GmbH"))).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: new RegExp(t("en-US", "aiConsentPolicyLink", "Acme GmbH")) });
+    expect(link).toHaveAttribute("href", "https://acme.example/ai-policy");
+    expect(screen.getByText(t("en-US", "aiConsentPolicyCheckbox", "Acme GmbH"))).toBeInTheDocument();
+    expect(screen.queryByText(/Acme/)).toBeNull();
+  });
+
+  it("keeps today's owner and link when nothing is configured", () => {
+    renderConsent({});
+    expect(screen.getByRole("link", { name: /Acme/ })).toHaveAttribute("href", DEFAULT_AI_POLICY_URL);
+  });
+
+  it("uses neutral wording when the owner is cleared", () => {
+    renderConsent({ policyOrgName: "", policyUrl: "https://acme.example/ai-policy" });
+    expect(screen.getByText(t("en-US", "aiConsentPolicyCheckbox", t("en-US", "aiPolicyOwnerFallback")))).toBeInTheDocument();
+  });
+
+  it("with no policy link, drops the policy block and enables Accept on its own", () => {
+    renderConsent({ policyUrl: "" });
+    expect(screen.queryByRole("link", { name: new RegExp(t("en-US", "aiConsentPolicyLink", "").trim()) })).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    // Positive control: the rest of the screen still rendered.
+    expect(screen.getByText(t("en-US", "aiConsentBullet1"))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /I understand/i })).not.toBeDisabled();
+  });
+
+  it("never renders an unsafe link as an href", () => {
+    renderConsent({ policyUrl: "javascript:alert(1)" });
+    expect(document.querySelector('a[href^="javascript:"]')).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
+  it("lets a deployment environment value override Settings", () => {
+    vi.stubEnv("NEXT_PUBLIC_AI_POLICY_ORG", "Globex");
+    vi.stubEnv("NEXT_PUBLIC_AI_POLICY_URL", "https://globex.example/policy");
+    try {
+      renderConsent({ policyOrgName: "Acme GmbH", policyUrl: "https://acme.example/ai-policy" });
+      expect(screen.getByRole("link", { name: /Globex/ })).toHaveAttribute("href", "https://globex.example/policy");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 

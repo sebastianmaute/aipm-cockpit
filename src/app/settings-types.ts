@@ -4,6 +4,7 @@ import type { AddableReportId } from "./addable-reports";
 import type { StakeholderQuadrant } from "./stakeholders";
 import type { FeatureModuleId } from "./feature-modules";
 import { ALL_MODULE_IDS } from "./feature-modules";
+import { MAX_AI_POLICY_FIELD } from "./ai-policy";
 import type { Lang } from "./i18n";
 // Type-only: erased at compile time, so this does NOT create a runtime cycle
 // with help-content.ts (which has runtime exports of its own).
@@ -51,6 +52,10 @@ export type AiConfig = {
   activityRecap?: boolean; // The ambient activity recap sentence. Default ON (undefined = on).
   chatSearch?: boolean; // The search_chats tool + the ambient chat pointer. Default ON (undefined = on).
   maxChatTurns?: number; // Max assistant round-trips per user message (integer 1–50). Default 12.
+  // The AI-usage policy the consent screen points to (`ai-policy.ts`). undefined = the built-in
+  // default, "" = deliberately cleared. A NEXT_PUBLIC_AI_POLICY_* build value overrides both.
+  policyOrgName?: string;
+  policyUrl?: string;
 };
 
 /** Is the `search_history` tool live?
@@ -164,6 +169,10 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     actionSuggestions: obj.actionSuggestions === false ? false : undefined,
     chatSearch: obj.chatSearch === false ? false : undefined,
     maxChatTurns: coerceTurns(obj.maxChatTurns),
+    // ★ Kept as typed (length-capped only): `resolveAiPolicy` is the one place that
+    //   judges them, so a stored unsafe link resolves to "no policy", never an href.
+    policyOrgName: typeof obj.policyOrgName === "string" ? obj.policyOrgName.slice(0, MAX_AI_POLICY_FIELD) : undefined,
+    policyUrl: typeof obj.policyUrl === "string" ? obj.policyUrl.slice(0, MAX_AI_POLICY_FIELD) : undefined,
   };
 }
 

@@ -3,7 +3,8 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { PaperClipIcon } from "./icons";
 import { type ToolDispatcher, runTool } from "./chat-tools";
-import { type Lang, type TranslationKey, t } from "./i18n";
+import { type Lang, t } from "./i18n";
+import { resolveAiPolicy, type AiPolicy } from "./ai-policy";
 import { type OperatingGuide } from "./operating-guide";
 import { ChatPromptChips } from "./chat-prompt-chips";
 import { Markdown } from "./markdown";
@@ -207,7 +208,7 @@ function ChatPanelImpl({
   ChatConversationStoreProps &
   ChatScopeProps) {
   if (!ai.consentAccepted) {
-    return <ConsentScreen lang={lang} onAccept={onAcceptConsent} />;
+    return <ConsentScreen lang={lang} policy={resolveAiPolicy(ai)} onAccept={onAcceptConsent} />;
   }
   return (
     <ChatPanelInner
@@ -1589,23 +1590,28 @@ function ChatPanelInner({
   );
 }
 
-const POLICY_URL = "https://wiki.example.com/wiki/x/ewB2bwE";
-
+/** ★ The organisation policy block (bullet 6, the link and the checkbox) comes from
+ *  `resolveAiPolicy`: the owner fills all three strings, and with no link there is no
+ *  policy to read or accept, so the block drops out and Accept is enabled on its own. */
 function ConsentScreen({
   lang,
+  policy,
   onAccept,
 }: {
   lang: Lang;
+  policy: AiPolicy;
   onAccept: () => void;
 }) {
   const [policyAccepted, setPolicyAccepted] = useState(false);
-  const bullets: TranslationKey[] = [
-    "aiConsentBullet1",
-    "aiConsentBullet2",
-    "aiConsentBullet3",
-    "aiConsentBullet4",
-    "aiConsentBullet5",
-    "aiConsentBullet6",
+  const hasPolicy = policy.url !== null;
+  const owner = policy.org ?? t(lang, "aiPolicyOwnerFallback");
+  const bullets: string[] = [
+    t(lang, "aiConsentBullet1"),
+    t(lang, "aiConsentBullet2"),
+    t(lang, "aiConsentBullet3"),
+    t(lang, "aiConsentBullet4"),
+    t(lang, "aiConsentBullet5"),
+    ...(hasPolicy ? [t(lang, "aiConsentBullet6", owner)] : []),
   ];
   return (
     <div className="rounded-lg border border-ui-purple/40 bg-ui-purple/10 p-5 dark:border-ui-purple/50 dark:bg-ui-purple/15">
@@ -1616,23 +1622,25 @@ function ConsentScreen({
         {t(lang, "aiConsentNotAccepted")}
       </p>
       <ul className="mt-3 space-y-2 text-sm text-ui-purple-strong">
-        {bullets.map((k) => (
-          <li key={k} className="flex gap-2">
+        {bullets.map((text) => (
+          <li key={text} className="flex gap-2">
             <span aria-hidden className="mt-0.5">
               •
             </span>
-            <span>{t(lang, k)}</span>
+            <span>{text}</span>
           </li>
         ))}
       </ul>
+      {hasPolicy && (
+      <>
       <p className="mt-3 text-sm">
         <a
-          href={POLICY_URL}
+          href={policy.url!}
           target="_blank"
           rel="noopener noreferrer"
           className="font-medium text-ui-purple-strong underline underline-offset-2 hover:decoration-2"
         >
-          {t(lang, "aiConsentPolicyLink")} ↗
+          {t(lang, "aiConsentPolicyLink", owner)} ↗
         </a>
       </p>
       <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm text-ui-purple-strong">
@@ -1641,13 +1649,15 @@ function ConsentScreen({
           onChange={(e) => setPolicyAccepted(e.target.checked)}
           className="mt-0.5 cursor-pointer"
         />
-        <span>{t(lang, "aiConsentPolicyCheckbox")}</span>
+        <span>{t(lang, "aiConsentPolicyCheckbox", owner)}</span>
       </label>
+      </>
+      )}
       <div className="mt-5 flex justify-end gap-2">
         <button
           type="button"
           onClick={onAccept}
-          disabled={!policyAccepted}
+          disabled={hasPolicy && !policyAccepted}
           className={`rounded-md bg-ui-purple px-4 py-2 text-sm font-medium text-white hover:bg-ui-purple/90 focus:outline-none focus:ring-2 focus:ring-ui-purple focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${TRANSITION} ${PRESS}`}
         >
           {t(lang, "aiConsentAccept")}

@@ -16,6 +16,7 @@ import { FieldNotice } from "../field-feedback";
 import { Banner } from "../banner";
 import { FieldHint } from "../field-hint";
 import { AiUsagePanel } from "./ai-usage-panel";
+import { AiPolicyFields } from "./ai-policy-fields";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
 import { Button } from "../button";
@@ -343,6 +344,11 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           {t(lang, "aiConsentRequired")}
         </p>
       )}
+      <AiPolicyFields
+        lang={lang}
+        ai={settings.ai}
+        onChange={(patch) => onChange({ ...settings, ai: { ...settings.ai, ...patch } })}
+      />
 
       {/* Token cap inputs */}
       <CapInput
