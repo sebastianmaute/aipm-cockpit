@@ -126,9 +126,22 @@ A hook owned by `dashboard-panel.tsx` measures once per trigger.
 - **What is measured: the height of the body's CONTENT, never the body's `scrollHeight`.** The body is
   `min-h-0 flex-1 overflow-auto`. When content fits, its `scrollHeight` equals the box height, so a
   `scrollHeight` reading can grow a tile but never shrink it below the height it was rendered at. The
-  measured value is the content element's `getBoundingClientRect().height` plus the body's computed
-  vertical padding. That reading is independent of the box size, so it can shrink a tile as well as
-  grow it.
+  measured value is the **vertical extent of the body's element children** (the last child's
+  `getBoundingClientRect().bottom` minus the first child's `.top`) plus the body's computed vertical
+  padding. That reading does not depend on the box height, so it can shrink a tile as well as grow it.
+- **★★ No wrapper is added around the body's children to measure them, and adding one would be a
+  regression.** The body renders `{children}` directly. A wrapper of automatic height would make every
+  child styled `h-full` resolve against an auto height and collapse. The charts fill their tile that
+  way. The children-extent reading needs no wrapper, so rendering is unchanged. A child that fills
+  the box measures as the box, so a fill-the-box tile keeps the height it has. That is the honest
+  outcome: a chart has no natural height to adapt to. (Revision 2 as first written said "the content
+  element" and listed a `content` data attribute. No such element exists, and creating one would
+  cause the collapse described here.)
+- **Measurement runs in a `requestAnimationFrame` callback scheduled from an effect**, following
+  `tour-overlay.tsx`. A synchronous `setState` in an effect body trips `react-hooks/set-state-in-effect`,
+  which is fatal in this repo. The rAF callback also lets the freshly rendered board lay out before any
+  rect is read. Content that finishes loading after that frame (a lazily loaded body) is caught on the
+  next open, which decision 4 already accepts.
 - **Nothing is quoted; everything is read.** Row unit and gap exist in the code only as Tailwind class
   strings (`auto-rows-[80px]`, `gap-4`), and `gap-4` is rem-based, so a literal 16 would assume a 16px
   root. Both are read from the grid element's computed style (`gridAutoRows`, `rowGap`). The non-body
@@ -150,7 +163,8 @@ A hook owned by `dashboard-panel.tsx` measures once per trigger.
   The function returns the smallest `n` whose body fits `contentPx`, clamped to `[minH, maxH]`.
 - **Measurement targets are marked with data attributes on the shared tile.** The header and body are
   anonymous `div`s today, and the grid takes no ref. The hook finds them through `data-*` attributes
-  added to `arrangement-tile.tsx` (section, header, body, content) and `arrangement-grid.tsx` (grid).
+  added to `arrangement-tile.tsx` (section and body; the header is not needed, because the non-body
+  height is read as section minus body) and `arrangement-grid.tsx` (grid).
   Those components are shared with Reports, where the attributes are inert.
 - **Applied only to tiles with no `hSet`.**
 - **Never persisted.** A measured height is a render-time override, like gating. If it were stored it
@@ -216,10 +230,19 @@ a glance's existing Complete cell, extended**, not Progress's card with parts mo
   the only place the landing-page completion trend renders), and its no-active-scope behaviour,
   including suppressing its tooltip in that state. The tests pinning each of these keep passing.
 - **Gained from Progress:** the count, the value `dashboardCompletedOf` renders ("18 of 29").
-- **Its tooltip becomes one combined string.** `Tile.hint` takes a single string, so the existing
-  `dashboardKpiCompleteHint` and Progress's `dashboardProgressCaption` cannot both be a hint. A new key,
-  `dashboardCompleteHint`, carries both texts, in `i18n.ts` and `i18n.de.ts`. The combined tooltip is
-  still suppressed in the no-active-scope state.
+- **The Progress caption splits between the two cells it describes.** `dashboardProgressCaption` is
+  two sentences. The first is about COMPLETION ("completed tasks vs tasks in scope, cancelled work out
+  of both"). The second is about the R/A/G SPLIT ("delivered work counts Green, cancelled work is
+  counted separately"). Putting both in the Complete tooltip would describe the wrong cell. So
+  `Tile.hint`, which takes a single string, carries:
+  - on **Complete**, a new key `dashboardCompleteHint`: `dashboardKpiCompleteHint` plus the caption's
+    first sentence. Still suppressed in the no-active-scope state.
+  - on **R / A / G**, a new key `dashboardRagSplitHint`: the caption's second sentence.
+  Both are added to `i18n.ts` and `i18n.de.ts`. The German for both is taken verbatim from the two
+  existing keys, so nothing is newly translated.
+- ★ This also corrects the R/A/G tooltip. Its current `dashboardRagHint` says "health counts across
+  your project areas", but the card counts TASKS by health (`model.progress.counts`). The caption's
+  sentence is the accurate description. `dashboardRagHint` is removed if nothing else references it.
 
 Progress's own completion card is dropped, which removes the duplicate.
 
@@ -228,9 +251,9 @@ Progress's own completion card is dropped, which removes the duplicate.
 At a glance renders, in order:
 
 1. **Complete**, the merged cell above.
-2. **R / A / G**, Progress's card unchanged, **including the ✕ out-of-scope marker** shown only when
-   `outOfScope > 0`, with its `aria-hidden` glyph and `sr-only` companion, and its existing
-   `dashboardRagHint` tooltip.
+2. **R / A / G**, Progress's card, **including the ✕ out-of-scope marker** shown only when
+   `outOfScope > 0`, with its `aria-hidden` glyph and `sr-only` companion. Its tooltip becomes
+   `dashboardRagSplitHint` (above). Everything else on the card is unchanged.
 3. **Overdue**, then 4. **Open RAID**, both unchanged.
 5. **Effort SPI**, then 6. **Effort CPI**, each shown only when its index is non-null, unchanged.
 
