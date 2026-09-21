@@ -661,7 +661,13 @@ IS in axe `A11Y_VIEWS`. Built as slices:
   capped at 5 so can't be the source; REQUIRED field but the only literal `DashboardModel` construction
   (`snapshot.test`) is an `as unknown as` cast. ★ `complete` KPI is a PERCENTAGE → `TrendArrow` takes a
   `unit` prop (`"%"`) so the visible delta (`+5%`) + aria-label aren't ambiguous; counts pass `""`. ★ `Tile`
-  (`report-table.tsx`) gained an optional `trend` slot. Trend templates are i18n EN+DE.
+  (`report-table.tsx`) gained an optional `trend` slot, rendered at the RIGHT END OF THE VALUE ROW (not a
+  line of its own), sharing that end with `rag` — wrapped together only when both are passed, since
+  `justify-between` would centre the middle one. ★ Every KPI cell is as tall as the tallest (Complete, with
+  bar + count): the strip's grid is `auto-rows-fr` (equal rows even when it wraps) and each `Tile` takes
+  `fill` (`h-full`, and `flex flex-col` on the button — a stretched `<button>` otherwise centres its content
+  vertically). jsdom sees only the classes; the heights are measured in `e2e/dashboard-grid.spec.ts`'s
+  KPI-strip fit test. Trend templates are i18n EN+DE.
 - **Completion-trend sparkline ("trajectory"):** compact axis-less line of % complete over time, in a
   self-hiding card below the KPI strip. Pure i18n-free `completion-trend.ts`
   `computeCompletionTrend({snapshots, activity, currentDone, currentTotal, today})` → `CompletionPoint[]`

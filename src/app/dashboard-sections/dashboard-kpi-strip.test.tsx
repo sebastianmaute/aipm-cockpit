@@ -196,6 +196,14 @@ describe("DashboardKpiStrip — merged Progress cells", () => {
     expect(within(cell).getByText(t("en-US", "dashboardCompletedOf", "2", "4"))).toBeInTheDocument();
   });
 
+  it("puts the trend arrow in the value row, after the number", () => {
+    render(<DashboardKpiStrip lang="en-US" model={modelFor(MIXED)} trends={trendsWithPrior} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    const valueRow = screen.getByText("50%").parentElement!;
+    const arrow = within(valueRow).getByLabelText(COMPLETE_TREND_LABEL);   // same row, not a line below
+    expect(valueRow.lastElementChild).toBe(arrow);                          // right end of the row
+    expect(valueRow).toHaveClass("justify-between");
+  });
+
   it("names the Complete tooltip with dashboardCompleteHint", () => {
     render(<DashboardKpiStrip lang="en-US" model={modelFor(MIXED)} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
     expect(screen.getByRole("button", { name: t("en-US", "dashboardCompleteHint") })).toBeInTheDocument();
@@ -270,6 +278,19 @@ describe("DashboardKpiStrip — Effort SPI and CPI (spec C)", () => {
   const CPI_ONLY_TASKS = [
     { ...taskFixture(1, "In Progress"), dueDate: "2026-07-01", originalEstimateMinutes: 4800, timeSpentMinutes: 6000 },
   ];
+
+  it("stretches every cell to the tallest one, so Complete sets the height for all", () => {
+    const { container } = render(<DashboardKpiStrip lang="en-US" model={modelFor(EVM_TASKS)} trends={trendsWithPrior} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    // Equal rows even when the strip wraps (3 + 3, 3 + 2, 2 + 2 …).
+    expect(container.querySelector(".grid")).toHaveClass("auto-rows-fr");
+    const cells = screen.getAllByRole("button", { name: / – / });
+    expect(cells).toHaveLength(6);   // positive control: all six KPI cells, SPI + CPI included
+    for (const cell of cells) {
+      expect(cell).toHaveClass("h-full");
+      // A stretched <button> centres its content vertically unless it is a flex column.
+      expect(cell).toHaveClass("flex", "flex-col");
+    }
+  });
 
   // Each index's own `<Tile>` — a `<button>` here since every render in this
   // describe block passes `onNavigate`. Scoping a value to its own tile (not

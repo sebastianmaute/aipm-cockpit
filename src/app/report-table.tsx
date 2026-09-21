@@ -450,7 +450,7 @@ export function SortResizeTh<K extends string>({
  */
 export function Tile({
   label, value, rag, trend, bar, sub, onActivate, activateLabel, hint,
-  danger = false, size = "xl", flat = false,
+  danger = false, size = "xl", flat = false, fill = false,
 }: {
   label: React.ReactNode;
   value: React.ReactNode;
@@ -473,6 +473,10 @@ export function Tile({
   size?: "xl" | "2xl";
   /** Suppress the elevation shadow (plain report/resource tiles have none). */
   flat?: boolean;
+  /** Stretch to the full height of the grid cell, so every tile in a row is as
+   *  tall as the tallest. The content stays top-aligned: a stretched `<button>`
+   *  centres its content vertically unless it is a flex column. */
+  fill?: boolean;
 }) {
   const valueColor = danger
     ? "text-[var(--rag-red-text)]"
@@ -481,28 +485,32 @@ export function Tile({
   const inner = (
     <>
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+      {/* The trend rides the value row, at its right end — so it costs no line
+          of its own. `rag` and `trend` share that end; wrapped together only when
+          both are present, since `justify-between` would otherwise put the
+          middle one in the centre. */}
       <div className={`mt-1 flex items-center justify-between gap-1.5 ${sizeClass} font-semibold ${valueColor} tabular-nums`}>
         <span>{value}</span>
-        {rag}
+        {rag && trend ? <span className="inline-flex items-center gap-1.5">{rag}{trend}</span> : (rag ?? trend)}
       </div>
       {bar ? <div className="mt-1.5">{bar}</div> : null}
       {sub ? (
         <p data-tile-sub className="mt-1 text-xs text-muted-foreground">{sub}</p>
       ) : null}
-      {trend ? <div className="mt-1">{trend}</div> : null}
     </>
   );
+  const fillClass = fill ? " h-full" : "";
   const tile = onActivate ? (
     <button
       type="button"
       aria-label={activateLabel}
       onClick={onActivate}
-      className={`w-full rounded-lg border border-line bg-surface p-3 text-left${flat ? "" : " shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)]"} hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+      className={`w-full${fill ? " flex h-full flex-col" : ""} rounded-lg border border-line bg-surface p-3 text-left${flat ? "" : " shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)]"} hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
     >
       {inner}
     </button>
   ) : (
-    <Card boxed={!flat} className="p-3">{inner}</Card>
+    <Card boxed={!flat} className={`p-3${fillClass}`}>{inner}</Card>
   );
   if (!hint) return tile;
   return (

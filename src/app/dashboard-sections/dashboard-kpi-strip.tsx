@@ -84,8 +84,8 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
   const cellCount = (4 + (showSpi ? 1 : 0) + (showCpi ? 1 : 0)) as KpiCellCount;
   return (
     <div className={`@container ${dc.kpiPad}`}>
-      <div className={`grid grid-cols-1 ${KPI_STRIP_COLS[cellCount]} ${dc.kpiGap}`}>
-        <Tile
+      <div className={`grid grid-cols-1 auto-rows-fr ${KPI_STRIP_COLS[cellCount]} ${dc.kpiGap}`}>
+        <Tile fill
           label={noActiveScope ? t(lang, "dashboardNoActiveScope") : t(lang, "dashboardKpiComplete")}
           // Dropped with the bar and the trend: the hint explains how a
           // percentage is computed, and in this state the tile shows none.
@@ -101,7 +101,7 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
             ? `${t(lang, "dashboardNoActiveScope")} – ${t(lang, "dashboardOpenTasksView")}`
             : `${t(lang, "dashboardKpiComplete")} – ${t(lang, "dashboardOpenTasksView")}`}
         />
-        <Tile
+        <Tile fill
           label="R / A / G" hint={t(lang, "dashboardRagSplitHint")}
           value={
             <span className="inline-flex items-center gap-2">
@@ -125,7 +125,7 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
           onActivate={openTasks}
           activateLabel={`R / A / G – ${t(lang, "dashboardOpenTasksView")}`}
         />
-        <Tile
+        <Tile fill
           label={t(lang, "dashboardKpiOverdue")}
           hint={t(lang, "dashboardKpiOverdueHint")}
           value={String(model.overdue.length)}
@@ -133,7 +133,7 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
           onActivate={openTasks}
           activateLabel={`${t(lang, "dashboardKpiOverdue")} – ${t(lang, "dashboardOpenTasksView")}`}
         />
-        <Tile
+        <Tile fill
           label={t(lang, "dashboardKpiOpenRaid")}
           hint={t(lang, "dashboardKpiOpenRaidHint")}
           value={String(model.openRaidCount)}
@@ -142,7 +142,7 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
           activateLabel={`${t(lang, "dashboardKpiOpenRaid")} – ${t(lang, "dashboardOpenRaidView")}`}
         />
         {showSpi && (
-          <Tile
+          <Tile fill
             label={t(lang, "evmSpi")} hint={t(lang, "evmSpiHint")}
             value={model.evm.spi!.toFixed(2)}
             onActivate={openBudget}
@@ -150,7 +150,7 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
           />
         )}
         {showCpi && (
-          <Tile
+          <Tile fill
             label={t(lang, "evmCpi")} hint={t(lang, "evmCpiHint")}
             value={model.evm.cpi!.toFixed(2)}
             onActivate={openBudget}

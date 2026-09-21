@@ -554,6 +554,9 @@ for (const density of ["comfortable", "compact"] as const) {
           // The container query reads the wrapper's CONTENT box.
           containerWidth: wrapper.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
           rows: new Set([...strip.children].map((c) => Math.round(c.getBoundingClientRect().top))).size,
+          // The DRAWN card, not its grid cell: each cell is the hint wrapper,
+          // and the bordered button inside it is what the user compares.
+          cardHeights: [...strip.children].map((c) => (c.firstElementChild as HTMLElement).getBoundingClientRect().height),
           lowestCell: Math.max(...cellBottoms),
           bodyBottom: body.getBoundingClientRect().bottom,
           scrollHeight: body.scrollHeight,
@@ -565,6 +568,10 @@ for (const density of ["comfortable", "compact"] as const) {
       expect(fit.rows, `rows at a ${fit.containerWidth}px container`).toBe(rows);
       // The case this exists for: the cells really did wrap.
       expect(rows).toBeGreaterThan(1);
+      // Every card is as tall as the tallest (Complete, with its bar and count)
+      // — across the wrapped rows too, which is what `auto-rows-fr` is for.
+      const tallest = Math.max(...fit.cardHeights);
+      for (const h of fit.cardHeights) expect(Math.abs(h - tallest), `card heights ${fit.cardHeights.join(", ")}`).toBeLessThan(1);
       // Every cell ends inside the body's visible box, and the body has nothing
       // to scroll.
       expect(fit.lowestCell).toBeLessThanOrEqual(fit.bodyBottom + 0.5);
