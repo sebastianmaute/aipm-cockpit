@@ -8,6 +8,44 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.12.8] - 2026-09-21 "Child"
+
+A load-and-save patch for the AI assistant. A turn that was already running when the project
+underneath it changed went on writing into whatever project was in scope by the time each tool
+came up.
+
+### Fixed
+
+- **The assistant no longer finishes a turn into the next project.** A chat turn holds the
+  project it was sent for, but the check that compares them could not see two of the ways that
+  project changes: the load hold swaps the whole main-window tree without changing the project
+  id, and a storage-target change (a Turso URL or token edit, a SharePoint target swap, a
+  same-project reload) keeps the id as well. The turn now carries the scope it was sent in and
+  is re-checked against it before each tool, not only once per round trip, so a turn whose
+  project has moved stops instead of writing into the one that replaced it. `§596` is closed.
+- **A dropped turn no longer leaves the conversation permanently broken.** When a turn stopped
+  before its first tool ran, it recorded an empty result carrier. The repair pass that closes
+  unanswered tool calls did not recognise that carrier as something to absorb, so it was kept
+  alongside the repair — and every later message in that conversation was rejected. The fault
+  did not show on the send that caused it, only on the next one, and it survived a reload,
+  leaving a new conversation as the only way out. Both halves are fixed: the carrier is no
+  longer recorded, and the repair pass now absorbs one already saved.
+- **Leaving the assistant no longer cancels the work you asked for.** Cancelling an in-flight
+  turn when the panel closed was correct while a project swap was the only thing that closed it,
+  but opening Open Points, Settings or Learning Insights closes it too — so asking the assistant
+  to create tasks and then switching to Open Points to watch them appear silently did nothing.
+  Cancelling is now tied to a project swap actually being in progress rather than to the panel
+  going away.
+- **The demo project shows Effort SPI and CPI again.** The sample workspace carried no effort
+  estimates or booked time, so both indices were undefined and the dashboard's At-a-glance tile
+  hid them, showing three figures where it should show five. The sample now carries effort, and
+  a test pins both indices so a re-authored sample cannot silently drop them again.
+
+### Notes
+
+- Eight follow-ups were filed or closed with this work (`§596`–`§603`), including two source
+  scanning gates that had been reading their own documentation and reporting success.
+
 ## [1.12.7] - 2026-09-21 "Child"
 
 A backlog-sweep patch — fourteen register entries closed across settings secrets, calendar/date
