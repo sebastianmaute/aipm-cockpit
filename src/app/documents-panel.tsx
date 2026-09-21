@@ -186,6 +186,9 @@ export interface DocumentsPanelProps {
    *  action the bypass exists for. Optional: the panel renders in contexts
    *  (tests, popouts) that supply no bypass at all. */
   allowDestructiveSave?: () => void;
+  /** Footer line of the HTML/PDF download (`exportFooterText(settings.branding)`);
+   *  omitted means the built-in default. */
+  exportFooter?: string;
 }
 
 export function DocumentsPanel({
@@ -199,6 +202,7 @@ export function DocumentsPanel({
   onResetSize,
   assetPane,
   allowDestructiveSave,
+  exportFooter,
 }: DocumentsPanelProps) {
   // Lazy initialiser: reads storage ONCE at mount, never during a render body
   // (the react-hooks purity rule) and never in an effect (`set-state-in-effect`
@@ -644,7 +648,7 @@ export function DocumentsPanel({
       <DocumentsToolbar
         lang={lang}
         onNew={handleCreate}
-        onDownload={() => { if (selected) void downloadDocument(selected, format, ws, lang, assetPaneLoader(assetPane)).catch((e) => reportDownloadFailure(showToast, lang, e)); }}
+        onDownload={() => { if (selected) void downloadDocument(selected, format, ws, lang, assetPaneLoader(assetPane), exportFooter).catch((e) => reportDownloadFailure(showToast, lang, e)); }}
         canDownload={selected !== null}
         format={format}
         onFormatChange={chooseFormat}
@@ -690,7 +694,7 @@ export function DocumentsPanel({
           onRename={(doc) => setRenaming({ id: doc.id, draft: doc.title })}
           onDuplicate={handleDuplicate}
           onDelete={handleDelete}
-          onDownload={(doc) => void downloadDocument(doc, format, ws, lang, assetPaneLoader(assetPane)).catch((e) => reportDownloadFailure(showToast, lang, e))}
+          onDownload={(doc) => void downloadDocument(doc, format, ws, lang, assetPaneLoader(assetPane), exportFooter).catch((e) => reportDownloadFailure(showToast, lang, e))}
           onOpenHistory={handleOpenHistory}
           isReadOnly={isReadOnly}
           flashId={flashId}

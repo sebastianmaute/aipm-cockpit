@@ -79,3 +79,23 @@ describe("export menu — silent failure guard", () => {
     expect(showToastSpy).toHaveBeenCalledWith("error", expect.any(String));
   });
 });
+
+describe("export menu — footer", () => {
+  beforeEach(() => vi.mocked(exportWorkspace).mockReset().mockResolvedValue(undefined));
+
+  it("hands the configured footer to exportWorkspace", async () => {
+    render(
+      <ToastProvider value={{ showToast: vi.fn(), showToastAction: vi.fn() }}>
+        <ExportMenu
+          lang="en-US" tasks={[]} raid={[]} absences={[]} shifts={[]} resources={[]} roles={[]}
+          disciplines={[]} grades={[]} plan={PLAN} budgets={[]} fxRates={null}
+          exportFooter="Acme GmbH"
+        />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /export/i }));
+    fireEvent.click(screen.getByText("CSV"));
+    await waitFor(() => expect(exportWorkspace).toHaveBeenCalled());
+    expect(vi.mocked(exportWorkspace).mock.calls[0][4]).toBe("Acme GmbH");
+  });
+});

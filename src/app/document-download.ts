@@ -245,6 +245,9 @@ export async function downloadDocument(
    *  means every image is disclosed as missing rather than the export
    *  failing. */
   load?: AssetByteLoader,
+  /** Footer line of the HTML/PDF render (`exportFooterText(settings.branding)`);
+   *  omitted means the built-in default. */
+  footer?: string,
 ): Promise<void> {
   if (typeof window === "undefined") return;
   const today = new Date().toISOString().slice(0, 10);
@@ -265,14 +268,14 @@ export async function downloadDocument(
       // user prints it when they decide to.
       triggerDownload(
         documentFilename(doc, "html", today),
-        new Blob([renderDocumentHtml(doc, ws, lang, "standalone", assets)], { type: HTML_MIME }),
+        new Blob([renderDocumentHtml(doc, ws, lang, "standalone", assets, footer)], { type: HTML_MIME }),
       );
       return;
     }
     tab.document.open();
     tab.document.write(PREPARING_HTML);
     const assets = await assetsFor(doc, ws, format, load);
-    const html = renderDocumentHtml(doc, ws, lang, "standalone", assets);
+    const html = renderDocumentHtml(doc, ws, lang, "standalone", assets, footer);
     // ★★ A SECOND open() RESETS the document. Without it the real document is
     // APPENDED to the placeholder, so the tab prints a file with two <title>
     // elements and a stray doctype in the middle of the body.
@@ -285,7 +288,7 @@ export async function downloadDocument(
   const assets = await assetsFor(doc, ws, format, load);
   const blob =
     format === "html"
-      ? new Blob([renderDocumentHtml(doc, ws, lang, "standalone", assets)], { type: HTML_MIME })
+      ? new Blob([renderDocumentHtml(doc, ws, lang, "standalone", assets, footer)], { type: HTML_MIME })
       : format === "docx"
         ? renderDocumentDocx(doc, ws, lang, assets)
         : renderDocumentPptx(doc, ws, lang, assets);

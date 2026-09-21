@@ -24,6 +24,8 @@ interface ActionMenusProps {
   /** Live export config threaded from TaskManagerInner's settings state.
    *  Falls back to defaultExportConfig when omitted (e.g. in tests). */
   exportConfig?: ExportConfig;
+  /** Footer line of the PDF/print export, from the same settings as `exportConfig`. */
+  exportFooter?: string;
   /** Saved + built-in project templates for the Apply menu. Defaults to []
    *  (e.g. in tests) so the Apply trigger renders with its button disabled. */
   templates?: readonly ProjectTemplate[];
@@ -49,6 +51,7 @@ export function ActionMenus({
   onCommand,
   onVoiceError,
   exportConfig = defaultExportConfig,
+  exportFooter,
   templates = [],
   onApplyTemplate,
   onSaveTemplate,
@@ -58,7 +61,7 @@ export function ActionMenus({
   return (
     <>
       <VoiceCommandButton lang={lang} onCommand={onCommand} onError={onVoiceError} />
-      <ExportMenu lang={lang} tasks={tasks} raid={raid} absences={absences} shifts={shifts} resources={resources} roles={roles} disciplines={disciplines} grades={grades} plan={plan} budgets={budgets} fxRates={fxRates} exportConfig={exportConfig} />
+      <ExportMenu lang={lang} tasks={tasks} raid={raid} absences={absences} shifts={shifts} resources={resources} roles={roles} disciplines={disciplines} grades={grades} plan={plan} budgets={budgets} fxRates={fxRates} exportConfig={exportConfig} exportFooter={exportFooter} />
       {expertMode && (
         <>
           <SaveTemplateMenu lang={lang} onSave={onSaveTemplate ?? (() => {})} />

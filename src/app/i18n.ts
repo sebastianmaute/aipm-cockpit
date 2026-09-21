@@ -2780,6 +2780,8 @@ const enUS = {
   brandingLogoError: "Use a PNG, JPG, WebP or GIF image under 512 KB.",
   brandingAppName: "App name",
   brandingFooterSlogan: "Slogan",
+  brandingExportFooter: "Export footer",
+  brandingExportFooterHint: "Printed at the foot of HTML and PDF exports. Leave empty to print only “AI PM Cockpit”.",
   brandingFavicon: "Favicon (browser tab icon)",
   brandingFaviconChoose: "Choose favicon…",
   brandingFaviconHint: "Shown in the browser tab. Square PNG recommended (32×32 or 64×64), up to 512 KB. PNG, JPG, WebP or GIF.",

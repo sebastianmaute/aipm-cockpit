@@ -323,6 +323,7 @@ function DocumentCard({
   lang,
   tursoConfig,
   projectId,
+  exportFooter,
 }: {
   docId: number;
   title: string;
@@ -337,6 +338,8 @@ function DocumentCard({
    *  documents-panel.tsx sends from its own gate. */
   tursoConfig?: TursoConfig | null;
   projectId?: string;
+  /** Footer line of the HTML/PDF download; omitted means the built-in default. */
+  exportFooter?: string;
 }) {
   const ws = useWorkspace();
   // ★ This card renders inside the chat transcript, which owns no toast of its
@@ -418,7 +421,7 @@ function DocumentCard({
                 // ★★ THE SAME DISCLOSURE THE DOCUMENTS PANE GIVES. Without it a
                 //   rejected export is silent here too — and this button has
                 //   already had to be fixed once for diverging from that pane.
-                if (liveDoc) void downloadDocument(liveDoc, CARD_DOWNLOAD_FORMAT, ws, lang, assetLoader)
+                if (liveDoc) void downloadDocument(liveDoc, CARD_DOWNLOAD_FORMAT, ws, lang, assetLoader, exportFooter)
                   .catch((e) => reportDownloadFailure(showToast, lang, e));
               }}
               aria-label={`${t(lang, "documentsDownload")}${nameQualifier}`}
@@ -448,6 +451,7 @@ export function ToolBlock({
   lang,
   tursoConfig,
   projectId,
+  exportFooter,
 }: {
   name: string;
   input: unknown;
@@ -457,6 +461,8 @@ export function ToolBlock({
   /** Forwarded verbatim to the document card's download loader. */
   tursoConfig?: TursoConfig | null;
   projectId?: string;
+  /** Footer line of the HTML/PDF download; omitted means the built-in default. */
+  exportFooter?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -475,6 +481,7 @@ export function ToolBlock({
         lang={lang}
         tursoConfig={tursoConfig}
         projectId={projectId}
+        exportFooter={exportFooter}
       />
     );
   }

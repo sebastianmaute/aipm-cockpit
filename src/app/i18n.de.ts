@@ -2613,6 +2613,8 @@ export const de: Record<TranslationKey, string> = {
   brandingLogoError: "Bitte ein PNG-, JPG-, WebP- oder GIF-Bild unter 512 KB verwenden.",
   brandingAppName: "App-Name",
   brandingFooterSlogan: "Slogan",
+  brandingExportFooter: "Fußzeile in Exporten",
+  brandingExportFooterHint: "Erscheint am Ende von HTML- und PDF-Exporten. Leer lassen, um nur „AI PM Cockpit“ zu drucken.",
   brandingFavicon: "Favicon (Browser-Tab-Symbol)",
   brandingFaviconChoose: "Favicon auswählen…",
   brandingFaviconHint: "Wird im Browser-Tab angezeigt. Quadratisches PNG empfohlen (32×32 oder 64×64), bis 512 KB. PNG, JPG, WebP oder GIF.",

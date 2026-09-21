@@ -88,7 +88,7 @@ import { loadActualsCache } from "./timelog-actuals-store";
 import { bucketOverlay } from "./timelog-actuals";
 import type { WorkspaceSectionProps } from "./workspace-section-types";
 import { WorkspaceTabStrip } from "./workspace-section-chrome";
-import { isAiEnabled } from "./settings-types";
+import { exportFooterText, isAiEnabled } from "./settings-types";
 // Re-export so existing importers of `WorkspaceSectionProps` from
 // "./workspace-section" keep working (the type now lives in the types module).
 export type { WorkspaceSectionProps } from "./workspace-section-types";
@@ -377,6 +377,7 @@ export function WorkspaceSection({
           <ChatPanel
             lang={lang}
             ai={settings.ai}
+            exportFooter={exportFooterText(settings.branding)}
             dictation={settings.dictation}
             dispatcher={dispatcher}
             onAcceptConsent={handleAcceptAiConsent}

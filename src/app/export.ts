@@ -22,6 +22,7 @@
 import { type Workspace, workspaceToCsv, workspaceToMarkdown } from "./storage";
 import type { ExportConfig } from "./settings-types";
 import { defaultExportConfig } from "./settings-types";
+import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
 import { buildExportSections } from "./export-sections";
 import { triggerDownload, PRINT_STYLES, htmlEscape, exportCellHtml } from "./download";
 import type { ExportSection } from "./export-sections";
@@ -88,7 +89,7 @@ function renderSectionHtml(section: ExportSection): string {
  * Sections are controlled by `cfg` (same ExportConfig used for CSV/DOCX).
  * Each enabled, non-empty section becomes an <h2> + <table> block.
  */
-export function buildPdfHtml(ws: Workspace, cfg: ExportConfig, lang: Lang): string {
+export function buildPdfHtml(ws: Workspace, cfg: ExportConfig, lang: Lang, footer: string = DEFAULT_EXPORT_FOOTER): string {
   const today = new Date().toISOString().slice(0, 10);
   const sections = buildExportSections(ws, cfg, lang);
   const sectionsHtml = sections.length === 0
@@ -115,7 +116,7 @@ export function buildPdfHtml(ws: Workspace, cfg: ExportConfig, lang: Lang): stri
     <div class="subtitle">Exported ${htmlEscape(today)}</div>
   </header>
   ${sectionsHtml}
-  <footer>Acme — AI PM Cockpit</footer>
+  <footer>${htmlEscape(footer)}</footer>
   <script>
     // Wait one paint so the browser has rendered the table before
     // opening the print dialog; otherwise some browsers print blank.
@@ -143,10 +144,10 @@ export function buildPdfHtml(ws: Workspace, cfg: ExportConfig, lang: Lang): stri
  * same-origin frame, and the tab gives the user a fallback (Ctrl+P) if
  * the auto-print didn't fire.
  */
-function exportPdf(ws: Workspace, cfg: ExportConfig, lang: Lang): void {
+function exportPdf(ws: Workspace, cfg: ExportConfig, lang: Lang, footer: string): void {
   if (typeof window === "undefined") return;
 
-  const html = buildPdfHtml(ws, cfg, lang);
+  const html = buildPdfHtml(ws, cfg, lang, footer);
 
   // Open a new tab and write the HTML into it. Pop-up blockers may stop
   // this — in which case we fall back to a Blob download of the HTML so
@@ -185,10 +186,12 @@ export async function exportWorkspace(
   format: ExportFormat,
   exportConfig?: ExportConfig,
   lang: Lang = "en-US",
+  /** Footer line of the PDF/print export (`exportFooterText(settings.branding)`). */
+  footer: string = DEFAULT_EXPORT_FOOTER,
 ): Promise<void> {
   const cfg = exportConfig ?? defaultExportConfig;
   if (format === "pdf") {
-    exportPdf(ws, cfg, lang);
+    exportPdf(ws, cfg, lang, footer);
     return;
   }
 

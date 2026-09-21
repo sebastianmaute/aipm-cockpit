@@ -8,6 +8,7 @@ import { useMemo } from "react";
 import { PanelSkeleton } from "./skeleton";
 import { useWorkspace } from "./workspace-context";
 import { useSettings } from "./use-settings";
+import { exportFooterText } from "./export-footer";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { getTursoConfig } from "./turso-config";
@@ -239,6 +240,7 @@ export function DocumentsTabPanel({
           isReadOnly={isPopout}
           onResetSize={resetPaneSize}
           allowDestructiveSave={allowDestructiveSave}
+          exportFooter={exportFooterText(settings.branding)}
           assetPane={{
             tursoConfig: assetsTursoConfig,
             projectId: assetsProjectId,

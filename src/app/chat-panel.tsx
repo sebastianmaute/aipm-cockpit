@@ -181,6 +181,7 @@ function ChatPanelImpl({
   saveChatConversation,
   tursoMode = false,
   tursoConfig = null,
+  exportFooter,
   workspace,
   runBatched,
   getScopeEpoch,
@@ -204,6 +205,8 @@ function ChatPanelImpl({
    *  exactly as before: one ephemeral in-memory conversation, no sidebar. */
   tursoMode?: boolean;
   tursoConfig?: TursoConfig | null;
+  /** Footer line of a document card's HTML/PDF download (`exportFooterText(settings.branding)`). */
+  exportFooter?: string;
 } & ChatProposalProps &
   ChatConversationStoreProps &
   ChatScopeProps) {
@@ -227,6 +230,7 @@ function ChatPanelImpl({
       saveChatConversation={saveChatConversation}
       tursoMode={tursoMode}
       tursoConfig={tursoConfig}
+      exportFooter={exportFooter}
       workspace={workspace}
       runBatched={runBatched}
       getScopeEpoch={getScopeEpoch}
@@ -334,6 +338,7 @@ function ChatPanelInner({
   saveChatConversation,
   tursoMode = false,
   tursoConfig = null,
+  exportFooter,
   workspace,
   runBatched,
   getScopeEpoch,
@@ -353,6 +358,8 @@ function ChatPanelInner({
   onConfigureAi?: () => void;
   tursoMode?: boolean;
   tursoConfig?: TursoConfig | null;
+  /** Footer line of a document card's HTML/PDF download (`exportFooterText(settings.branding)`). */
+  exportFooter?: string;
 } & ChatProposalProps &
   ChatConversationStoreProps &
   ChatScopeProps) {
@@ -1412,7 +1419,7 @@ function ChatPanelInner({
                     input={item.input}
                     result={item.result}
                     error={item.error}
-                    lang={lang} tursoConfig={tursoConfig} projectId={projectId}
+                    lang={lang} tursoConfig={tursoConfig} projectId={projectId} exportFooter={exportFooter}
                   />
                 )}
                 {/* ★★★ THE ID MATCH IS THE CLEAR. The marker is persisted and

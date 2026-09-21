@@ -115,7 +115,7 @@ import { useInsightRecommendations } from "./use-insight-recommendations";
 import { RecommendationReviewModal } from "./insights/recommendation-review-modal";
 import { executeActionCta } from "./action-cta-exec";
 import { getTursoConfig } from "./turso-config";
-import { aiAssistantOpener, aiKeyIfEnabled, isAiEnabled, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
+import { aiAssistantOpener, aiKeyIfEnabled, isAiEnabled, defaultExportConfig, exportFooterText, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
 import { resolveEffectiveSettings } from "./settings-effective";
 import { TaskDeleteButton, TaskEditorActions, TaskEditorExtras } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
@@ -2155,15 +2155,16 @@ function TaskManagerInner() {
 
   // Export the CURRENT project's workspace. Snapshot is assembled from context
   // (same field set the save effect uses), including `project`.
+  const exportFooter = exportFooterText(settings.branding);
   const handleExportCurrentProject = useCallback(
     (format: string) => {
       const ws = {
         tasks, raid, absences, shifts, resources, roles, disciplines, grades,
         plan, budgets, fxRates, status, project, milestones, changes, stakeholders,
       };
-      void exportWorkspace(ws, format as ExportFormat, settings.export ?? defaultExportConfig, lang).catch((e) => reportSilentFailure(showToast, lang, "export.failed", e, "guardExportFailed"));
+      void exportWorkspace(ws, format as ExportFormat, settings.export ?? defaultExportConfig, lang, exportFooter).catch((e) => reportSilentFailure(showToast, lang, "export.failed", e, "guardExportFailed"));
     },
-    [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders, settings.export, lang, showToast],
+    [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders, settings.export, exportFooter, lang, showToast],
   );
 
   // De-register a project: drop it from the registry (observable copy updated),

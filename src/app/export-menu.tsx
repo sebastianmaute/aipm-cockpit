@@ -46,6 +46,7 @@ export function ExportMenu({
   budgets,
   fxRates,
   exportConfig,
+  exportFooter,
 }: {
   lang: Lang;
   tasks: readonly Task[];
@@ -60,6 +61,8 @@ export function ExportMenu({
   budgets: readonly BudgetBucket[];
   fxRates: FxRates | null;
   exportConfig?: ExportConfig;
+  /** Footer line of the PDF/print export (`exportFooterText(settings.branding)`). */
+  exportFooter?: string;
 }) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -72,7 +75,7 @@ export function ExportMenu({
     // pops the save dialog / new tab. Some browsers focus-steal the dialog
     // and the popover never visually closes otherwise.
     setTimeout(() => {
-      void exportWorkspace({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates }, format, exportConfig, lang)
+      void exportWorkspace({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates }, format, exportConfig, lang, exportFooter)
         .catch((e) => reportSilentFailure(showToast, lang, "export.failed", e, "guardExportFailed"));
     }, 0);
   }

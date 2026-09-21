@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, BRANDING_LOGO_MAX_LEN, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled } from "./settings-types";
+import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, BRANDING_LOGO_MAX_LEN, BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, NEUTRAL_EXPORT_FOOTER, exportFooterText, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled } from "./settings-types";
 
 describe("sanitizeSelfResourceId", () => {
   it("keeps a positive integer id", () => {
@@ -264,5 +264,23 @@ describe("chatSearch", () => {
 
   it("normalises a non-false stored value to undefined", () => {
     expect(sanitizeAiConfig({ ...base, chatSearch: "yes" }).chatSearch).toBeUndefined();
+  });
+});
+
+describe("exportFooter branding", () => {
+  it("keeps an export footer on its own, trimmed and capped", () => {
+    expect(sanitizeBranding({ exportFooter: "  Acme GmbH — AI PM Cockpit  " })).toEqual({ exportFooter: "Acme GmbH — AI PM Cockpit" });
+    expect(sanitizeBranding({ exportFooter: "x".repeat(500) })!.exportFooter).toHaveLength(BRANDING_EXPORT_FOOTER_MAX);
+  });
+
+  it("keeps a CLEARED footer, because empty means the neutral footer, not the default", () => {
+    expect(sanitizeBranding({ exportFooter: "   " })).toEqual({ exportFooter: "" });
+  });
+
+  it("resolves never-set to today's footer, cleared to the neutral one, and anything else as typed", () => {
+    expect(exportFooterText(undefined)).toBe(DEFAULT_EXPORT_FOOTER);
+    expect(exportFooterText({})).toBe(DEFAULT_EXPORT_FOOTER);
+    expect(exportFooterText({ exportFooter: "" })).toBe(NEUTRAL_EXPORT_FOOTER);
+    expect(exportFooterText({ exportFooter: "Acme GmbH" })).toBe("Acme GmbH");
   });
 });

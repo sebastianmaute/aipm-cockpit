@@ -5,6 +5,8 @@ import type { StakeholderQuadrant } from "./stakeholders";
 import type { FeatureModuleId } from "./feature-modules";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import { MAX_AI_POLICY_FIELD } from "./ai-policy";
+import { BRANDING_EXPORT_FOOTER_MAX } from "./export-footer";
+export { DEFAULT_EXPORT_FOOTER, NEUTRAL_EXPORT_FOOTER, BRANDING_EXPORT_FOOTER_MAX, exportFooterText } from "./export-footer";
 import type { Lang } from "./i18n";
 // Type-only: erased at compile time, so this does NOT create a runtime cycle
 // with help-content.ts (which has runtime exports of its own).
@@ -523,6 +525,11 @@ export interface BrandingConfig {
    *  scheme JSON carrying one would survive sanitizeBranding and round-trip
    *  through exportScheme, but could still never be applied.) */
   startLogo?: string;
+  /** Footer line of HTML and print/PDF exports (`exportFooterText`). `undefined` =
+   *  never set → `DEFAULT_EXPORT_FOOTER`; `""` = cleared → `NEUTRAL_EXPORT_FOOTER`.
+   *  ★ Like `startLogo`, no scheme owns it: `mergeAppliedBranding` leaves it alone,
+   *  so its only editor is the ungated row in Settings → Appearance. */
+  exportFooter?: string;
 }
 /** Default bottom footer-bar tagline (used when no custom footerSlogan is set). */
 export const DEFAULT_FOOTER_SLOGAN = "Command your projects - AI-assisted tracking that plugs into M365, Jira and Timelog. Local-first, no backend.";
@@ -558,7 +565,14 @@ export function sanitizeBranding(obj: unknown): BrandingConfig | undefined {
   if (typeof o.startLogo === "string" && BRANDING_LOGO_RE.test(o.startLogo) && o.startLogo.length <= BRANDING_LOGO_MAX_LEN) {
     out.startLogo = o.startLogo;
   }
-  return out.logo || out.slogan || out.footerSlogan || out.favicon || out.startLogo ? out : undefined;
+  // ★ An EMPTY export footer is kept: it means "cleared" (the neutral footer),
+  //   which is not the same as never set (the default), so it counts as present.
+  if (typeof o.exportFooter === "string") {
+    out.exportFooter = o.exportFooter.trim().slice(0, BRANDING_EXPORT_FOOTER_MAX);
+  }
+  return out.logo || out.slogan || out.footerSlogan || out.favicon || out.startLogo || out.exportFooter !== undefined
+    ? out
+    : undefined;
 }
 
 /** Entity types that can be written back to the Outlook calendar. */
