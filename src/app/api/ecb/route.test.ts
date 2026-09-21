@@ -1,3 +1,11 @@
+// @vitest-environment node
+//
+// This route declares `runtime = "nodejs"` and has no DOM dependency. Run it
+// under the real `node` environment (precedent: src/app/api/stt/route.test.ts)
+// rather than the repo-wide jsdom default: jsdom's DOMException is NOT
+// `instanceof Error`, unlike Node's own global one, so a jsdom run of the
+// timeout test below would pin a `String(err)`-fallback message the route
+// never actually logs (see the §607 register entry's departure (3)).
 import { describe, expect, test, vi, beforeEach, afterEach } from "vitest";
 import { MAX_REQUESTS } from "../jira/_rate-limit";
 import { GET } from "./route";
@@ -88,11 +96,11 @@ describe("GET /api/ecb", () => {
     expect(res.status).toBe(502);
     const body = (await res.json()) as { error: string };
     expect(body.error).toBe("ECB fetch failed");
-    // §607: jsdom's DOMException is NOT `instanceof Error` (unlike Node's own global one — see
-    // upstream-error.test.ts), so describeUpstreamError falls to String(err), which carries the
-    // "TimeoutError:" name prefix `.message` alone does not.
+    // §607: under Node (this file's real environment, per the directive above), a DOMException
+    // IS `instanceof Error`, so describeUpstreamError reads its `.message` directly. It carries no
+    // `.cause`, so the logged object has no cause/code — this is what the route actually logs.
     expect(errSpy).toHaveBeenCalledWith("ECB fetch failed:", {
-      message: "TimeoutError: The operation was aborted due to timeout",
+      message: "The operation was aborted due to timeout",
     });
   });
 

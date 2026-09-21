@@ -40555,35 +40555,44 @@ Related: §564.
 ## 607. The Timelog and ECB proxies log a raw error object on upstream failure — CLOSED 2026-09-21
 
 **Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`; found reviewing §566's fix. `describeUpstreamError`
-moved out of `src/app/api/jira/_helpers.ts` into a new shared module, `src/app/api/_shared/
-upstream-error.ts` (function body unchanged; only its docstring's scope widened from the Jira proxy
-alone to all three proxies), and the Timelog redirect body-cancel `.catch` and the ECB route's
-fetch-failure `catch` now call it instead of logging the raw rejection — mirroring the two Jira sites
-§566 already fixed. Jira's import re-points to the shared module; its own call-site tests stayed in
-`jira/_helpers.test.ts` untouched. Pinned by a new `src/app/api/_shared/upstream-error.test.ts` (direct
-unit tests: no-cause, an Error cause with/without `.code`, a non-Error cause coerced with `String()`, a
-non-Error `err` coerced with `String()`), a new §607 test in `timelog/_helpers.test.ts` (the
-undici-shaped fixture from §566, asserting the logged payload is a plain object carrying the cause
-message and code), and two migrated tests in `ecb/route.test.ts` that used to assert `expect.any(Error)`
-/ `expect.any(DOMException)` and now assert the exact plain object. Verified by grep (`console.error` in
-`src/app/api`, excluding tests) that no other raw-object site remained — `confluence` and `stt` carry no
-`console.error` at all.
+moved out of `src/app/api/jira/_helpers.ts` into a new shared module, `src/app/api/_shared/upstream-error.ts`
+(function body unchanged; only its docstring's scope widened from the Jira proxy alone to all three
+proxies), and the Timelog redirect body-cancel `.catch` and the ECB route's fetch-failure `catch` now
+call it instead of logging the raw rejection — mirroring the two Jira sites §566 already fixed. Jira's
+import re-points to the shared module; its own call-site tests stayed in `jira/_helpers.test.ts`
+untouched. Pinned by a new `src/app/api/_shared/upstream-error.test.ts` (direct unit tests: no-cause,
+an Error cause with/without `.code`, a non-Error cause coerced with `String()`, a non-Error `err`
+coerced with `String()` — the two "omits code" tests use `toStrictEqual` plus an explicit `"code" in
+out` check, never `toEqual`, which silently ignores a key whose value is `undefined`), a new §607 test
+in `timelog/_helpers.test.ts` (the undici-shaped fixture from §566, asserting the logged payload is a
+plain object carrying the cause message and code), and two migrated tests in `ecb/route.test.ts` that
+used to assert `expect.any(Error)` / `expect.any(DOMException)` and now assert the exact plain object.
+`ecb/route.test.ts` runs under `// @vitest-environment node` (precedent: `stt/route.test.ts`), matching
+the route's own `runtime = "nodejs"`: under Node a `DOMException` IS `instanceof Error`, so the timeout
+test's expected log is `{ message: "The operation was aborted due to timeout" }`, with no `cause`/`code`
+(a `DOMException` carries neither). Verified by grep (`console.error` in `src/app/api`, excluding
+tests) that no other raw-object site remained — `confluence` and `stt` carry no `console.error` at all.
 
-Mutants (each run alone, `git diff --stat` clean between): (13a) revert the Timelog redirect-cancel site
-to raw `err` — predicted RED on the new §607 Timelog test's `not.toBeInstanceOf(Error)`, actual RED,
-same reason (`expected TypeError: fetch failed to not be an instance of Error`). (13b) revert the ECB
-site to raw `err` — predicted RED on both migrated ECB tests (`not.toBeInstanceOf(Error)` on the
-fetch-failure test, and the exact-object `toHaveBeenCalledWith` on the timeout test), actual RED on
-both, same reasons. Both matched their prediction; no mismatch.
+Mutants, fix commit (each run alone; restored by writing the original bytes back and checking, via
+`git diff`, that the restoration reproduced exactly the pre-mutant fix diff — not a literal empty
+`git diff --stat`, since the fix itself was still uncommitted at mutant time): (13a) revert the Timelog
+redirect-cancel site to raw `err` — predicted RED on the new §607 Timelog test's
+`not.toBeInstanceOf(Error)`, actual RED, same reason (`expected TypeError: fetch failed to not be an
+instance of Error`). (13b) revert the ECB site to raw `err` — predicted RED on both migrated ECB tests
+(`not.toBeInstanceOf(Error)` on the fetch-failure test, and the exact-object `toHaveBeenCalledWith` on
+the timeout test), actual RED on both, same reasons. Both matched their prediction; no mismatch.
 
-Departures from this entry's own fix-shape line: (1) "move its unit tests with it if they live in
-`jira/_helpers.test.ts`" did not apply — no direct unit test for `describeUpstreamError` existed there,
-only call-site tests exercising it through `callJira`, so the shared module needed its OWN new test file
-rather than an inherited one. (2) The Timelog fetch-failure `catch` (`Timelog upstream fetch failed: …`)
-is UNCHANGED, as directed: it deliberately logs only `failureClass`, elapsed time and the query-stripped
-path — never the raw error object — so it was never in scope. (3) jsdom's `DOMException` is not
-`instanceof Error` (unlike Node's own global one), so the migrated ECB timeout test pins the
-`String(err)` branch's `"TimeoutError: …"`-prefixed message, not `err.message` alone — an environment
-detail the fix-shape line did not anticipate.
+Fix round 1 (review finding I1 — the timeout test pinned what jsdom's `DOMException` produces, not
+what the Node route actually logs): `ecb/route.test.ts` moved to `// @vitest-environment node` and the
+timeout assertion corrected to the real Node-logged shape (see Status above). 13b was re-run against
+this final code with the same prediction — actual RED on both ECB tests again, the timeout test's diff
+this time showing a real `TimeoutError` (Node's own `DOMException`, not jsdom's); match, no mismatch.
+
+Departures from this entry's fix task: (1) no unit tests needed to move — at the pre-fix commit,
+`jira/_helpers.test.ts` had no direct test for `describeUpstreamError`, only call-site tests exercising
+it through `callJira`, which correctly stayed in place, so the shared module gained its own new test
+file instead of an inherited one. (2) The Timelog fetch-failure `catch` (`Timelog upstream fetch
+failed: …`) is UNCHANGED, as directed: it deliberately logs only `failureClass`, elapsed time and the
+query-stripped path — never the raw error object — so it was never in scope.
 
 Related: §566.

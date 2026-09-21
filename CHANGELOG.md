@@ -11,7 +11,8 @@ longer carries its own changelog comment.
 ## [1.12.7] - 2026-09-21 "Child"
 
 A backlog-sweep patch — fourteen register entries closed across settings secrets, calendar/date
-validation, the Jira, Timelog and ECB proxies, chart readouts and the assistant's review card. No
+validation, diagnostics redaction, the Jira, Timelog and ECB proxies, an FX rates snapshot, the
+stakeholder editor, a TimeLog cap threshold, chart readouts and the assistant's review card. No
 user-facing feature changes; every fix below closes a register entry found in an earlier review.
 
 ### Fixed
@@ -50,7 +51,7 @@ user-facing feature changes; every fix below closes a register entry found in an
 - **The assistant's review card now shows a recurring meeting's end the way an update saves it.**
   When a change re-sent a stored end date that is not a real calendar day together with a repeat
   count, the card showed the count while the save kept the end date. The card and the save now
-  judge that end date by one shared rule. `§605` is closed.
+  judge whether that stored end date is kept by one shared rule. `§605` is closed.
 - **Diagnostics redaction now catches a base64-shaped secret containing a `+`, or a `/`-split one
   ending in `=` padding.** The existing opaque-token pattern missed both, because a `+` or `/`
   broke them into runs too short to match, and they were logged in full. A run of 32+

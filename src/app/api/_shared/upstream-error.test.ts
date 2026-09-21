@@ -14,10 +14,12 @@ describe("describeUpstreamError", () => {
 
   it("extracts an Error cause's message and omits code when the cause carries none", () => {
     const err = new TypeError("fetch failed", { cause: new Error("connect ECONNREFUSED") });
-    expect(describeUpstreamError(err)).toEqual({
-      message: "fetch failed",
-      cause: "connect ECONNREFUSED",
-    });
+    const out = describeUpstreamError(err);
+    // toStrictEqual (not toEqual): toEqual ignores keys whose value is `undefined`, so it cannot
+    // tell "no `code` key" from "a `code: undefined` key" — a mutant that always spread `{ code }`
+    // instead of the conditional `...(code ? { code } : {})` would pass a toEqual assertion here.
+    expect(out).toStrictEqual({ message: "fetch failed", cause: "connect ECONNREFUSED" });
+    expect("code" in out).toBe(false);
   });
 
   it("extracts an Error cause's message AND a string .code when both are present", () => {
@@ -32,10 +34,10 @@ describe("describeUpstreamError", () => {
 
   it("coerces a non-Error cause with String() and omits code", () => {
     const err = new TypeError("fetch failed", { cause: "socket hang up" });
-    expect(describeUpstreamError(err)).toEqual({
-      message: "fetch failed",
-      cause: "socket hang up",
-    });
+    const out = describeUpstreamError(err);
+    // toStrictEqual, not toEqual — see the comment on the analogous test above.
+    expect(out).toStrictEqual({ message: "fetch failed", cause: "socket hang up" });
+    expect("code" in out).toBe(false);
   });
 
   it("ignores a non-string .code on a non-Error cause", () => {
