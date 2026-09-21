@@ -786,7 +786,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§561](#561-the-electron-fuses-are-confirmed-on-a-local-package-only-not-by-the-ci-desktop-package-job--open) | The Electron fuses are confirmed on a local package only, not by the CI desktop-package job — OPEN | audit (2026-09) | S (verify) | open |
 | [§562](#562-the-shared-proxy-rate-limiter-is-bypassable-by-a-client-supplied-header-and-its-store-is-in-memory--open-decision-owed) | The shared proxy rate limiter is bypassable by a client-supplied header, and its store is in-memory — OPEN (decision owed) | audit (2026-09) | decision | open |
 | [§563](#563-the-desktop-installer-is-unsigned--open-tied-to-the-publishing-decision) | The desktop installer is unsigned — OPEN (tied to the publishing decision) | audit (2026-09) | decision | open |
-| [§564](#564-diagnostics-redactts-has-no-catch-all-for-an-opaque-token-in-free-text--open) | `diagnostics-redact.ts` has no catch-all for an opaque token in free text — OPEN | audit (2026-09) | S | open |
+| [§564](#564-diagnostics-redactts-has-no-catch-all-for-an-opaque-token-in-free-text--closed-2026-09-21) | `diagnostics-redact.ts` has no catch-all for an opaque token in free text — CLOSED 2026-09-21 | audit (2026-09) | S | closed |
 | [§565](#565-two-settings-sections-clear-a-token-by-resealing-an-empty-string-instead-of-removing-it--closed-2026-09-21) | Two settings sections clear a token by resealing an empty string instead of removing it — CLOSED 2026-09-21 | audit (2026-09) | S | closed |
 | [§566](#566-the-jira-proxy-logs-the-raw-fetch-rejection-object-server-side--open) | The Jira proxy logs the raw fetch-rejection object server-side — OPEN | audit (2026-09) | S | open |
 | [§567](#567-issealedsecret-and-readstore-still-hardcode-their-own-secretid-lists-and-a-missed-id-is-silent-data-loss--closed-2026-09-19) | `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — CLOSED 2026-09-19 | slice (2026-09) | M | **CLOSED** 2026-09-19 |
@@ -39242,11 +39242,44 @@ actual risk.
 ★ This is deliberately tied to the open publishing decision rather than filed as work. Do not close
 it by signing; close it by deciding, and sign if the decision is "public".
 
-## 564. `diagnostics-redact.ts` has no catch-all for an opaque token in free text — OPEN
+## 564. `diagnostics-redact.ts` has no catch-all for an opaque token in free text — CLOSED 2026-09-21
 
-**Status:** OPEN 2026-09-18 — established by reading `SECRET_VALUE_PATTERNS` via `grep -n "SECRET_VALUE_PATTERNS" -A 8 src/app/diagnostics-redact.ts`; no live leak found, and the gap is **never machine-verified** because no test feeds it an opaque token. Structurally the same hardcoded-list rot as §560, which is why it is worth a line rather than a shrug.
-
-**Work item:** #349
+**Status:** CLOSED 2026-09-21 by `fix/backlog-sweep`: `SECRET_VALUE_PATTERNS` gained a seventh
+pattern — a mixed-class catch-all, `/(?=[A-Za-z0-9_-]*[a-z])(?=[A-Za-z0-9_-]*[A-Z])(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{32,}/g`
+— that redacts any run of 32+ token-alphabet characters mixing lowercase, uppercase AND a digit,
+with no vendor prefix or `key=` frame required. The three lookaheads are exactly what keeps
+legitimate ids readable: a canonical UUID or a commit SHA is single-case hex (no uppercase), an
+MSAL GUID is upper-only (no lowercase), and an i18n key or a German compound word carries no digit
+— each survives because it fails exactly one of the three checks, not because of a separate
+exclusion. Test: `diagnostics-redact.test.ts`, the §564 describe block (one positive case plus
+`it.each` over the seven negative shapes: lowercase UUID, uppercase GUID, 40-char commit SHA,
+i18n key, German word, stack frame, and a 31-char mixed-class run one under the floor). Mutants,
+each run alone with a written prediction first, `git diff --stat` proved clean before the next:
+6a (drop the `[A-Z]` lookahead) — predicted RED on the lowercase UUID and commit SHA, actual RED on
+exactly those two (2 failed / 15 passed), no mismatch. 6b (drop the `[a-z]` lookahead) — predicted
+RED on the uppercase GUID, actual RED on exactly that one (1 failed / 16 passed), no mismatch. 6c
+(drop the `\d` lookahead) — predicted RED on the i18n key and the German word, actual RED on
+exactly those two (2 failed / 15 passed), no mismatch. 6d (`{32,}` to `{31,}`) — predicted RED on
+the 31-char row, actual RED on exactly that one (1 failed / 16 passed), no mismatch. No UUID-shape
+exclusion was added, per the brief: with the class rule in place, removing one would change no
+output on any canonical UUID, so it would be a guard with no killing mutant. No lookbehind was
+used either, since the tsconfig target rejects it. **Known miss:** a token that is entirely
+single-case hex (e.g. an all-lowercase or all-uppercase opaque secret with no digit, or one that
+happens to mix case but carries no digit) is NOT caught by this pattern — that is the price of
+keeping UUIDs, SHAs and GUIDs unredacted in diagnostics. This is the OPPOSITE trade from the one
+the finding's own text accepted below ("at the cost of some false positives"): the finding's plain
+`{32,}` run would have over-redacted real ids; the shipped, narrower pattern under-redacts
+single-case-hex secrets instead. **Two departures from
+the entry's own fix-shape line below** (both load-bearing, not incidental): (1) the fix-shape line
+proposed a plain unbroken `[A-Za-z0-9_-]{32,}` run with no class requirement — the mutant results
+above show why that would not do: a plain run redacts the lowercase UUID, the uppercase GUID, the
+commit SHA, the i18n key and the German word alike, which the brief's own requirement (legitimate
+ids must survive) rules out. The three mixed-class lookaheads are what makes the difference. (2) the
+fix-shape line called for redacting "with its length preserved"; the shipped pattern instead emits
+the same fixed `[redacted]` string as the other six patterns in this list (`scrubSecretValues`
+applies one `"[redacted]"` replacement per pattern — a length-preserving variant would need a
+per-match replacer, which no other entry in `SECRET_VALUE_PATTERNS` uses), so this fix does not
+special-case its own output shape.
 
 `scrubSecretValues` runs a fixed list of six patterns: `sk-ant-…`, `Bearer …`, `Basic …`, JWTs,
 Atlassian `ATATT…`, and a `key=value` form whose alternation covers the api-key/api-token/

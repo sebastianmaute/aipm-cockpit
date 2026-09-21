@@ -16,6 +16,14 @@ const SECRET_VALUE_PATTERNS: RegExp[] = [
   /eyJ[A-Za-z0-9._-]{20,}/g,                // JWTs
   /\bATATT[A-Za-z0-9_=.\-]+/g,              // Atlassian Jira API tokens
   /(?:api[_-]?key|api[_-]?token|auth[_-]?token|token|secret|authorization|password|passphrase)=[^&\s]+/gi, // key=value pairs
+  // §564: an opaque token with no vendor prefix and no `key=` frame. A run of 32+ from the
+  // token alphabet that mixes lowercase, uppercase AND a digit. The mix is what keeps real ids
+  // readable: canonical UUIDs and commit SHAs are single-case hex, MSAL GUIDs are upper-only,
+  // i18n keys and German words carry no digit, and stack frames break into short runs at
+  // `/ : ( .`. The lookaheads cannot see past the run, because their class excludes every
+  // separator. ★ Known miss: a token that is entirely single-case hex is NOT caught, which is
+  // the price of keeping UUIDs and SHAs in diagnostics.
+  /(?=[A-Za-z0-9_-]*[a-z])(?=[A-Za-z0-9_-]*[A-Z])(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{32,}/g,
 ];
 
 function isSecretKey(key: string): boolean {

@@ -64,3 +64,24 @@ describe("redactFields", () => {
     expect(out.h as string).toContain("[redacted]");
   });
 });
+
+describe("§564: an opaque token with no vendor prefix is redacted, legitimate ids survive", () => {
+  const TOKEN = "aB3xQ9zK7mP2wR8tL4vN6yH1sJ5dF0gC"; // 32, lower + upper + digit
+  it("redacts a bare mixed-class token inside free text", () => {
+    const out = redactFields({ message: `upstream said ${TOKEN} was rejected` });
+    expect(out?.message).toBe("upstream said [redacted] was rejected");
+  });
+  // ★ Every one of these is a real shape that flows through logDiag in this app. A redaction
+  // test with only the positive half proves nothing about what it costs.
+  it.each([
+    ["a lowercase UUID (crypto.randomUUID ids)", "f47ac10b-58cc-4372-a567-0e02b2c3d479"],
+    ["an uppercase GUID (MSAL client / tenant ids)", "F47AC10B-58CC-4372-A567-0E02B2C3D479"],
+    ["a 40-char commit SHA", "0fa7cc72a4b1c8e9d2f3a6b5c4d3e2f1a0b9c8d7"],
+    ["a long camelCase i18n key", "integrationsTursoTokenPlaceholder"],
+    ["a German compound word", "Datenschutzgrundverordnungsbeauftragter"],
+    ["a stack frame", "at jsonToWorkspace (webpack-internal:///./src/app/workspace.ts:787:14)"],
+    ["a 31-char mixed-class run (one under the floor)", "aB3xQ9zK7mP2wR8tL4vN6yH1sJ5dF0g"],
+  ])("leaves %s untouched", (_label, value) => {
+    expect(redactFields({ id: value })?.id).toBe(value);
+  });
+});
