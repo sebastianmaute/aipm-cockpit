@@ -536,7 +536,7 @@ The presentational slices:
   `UpcomingCard`, the bodies of the `raid` and `upcoming` tiles; the old combined `RegistersBand` wrapper
   was RETIRED.
 - `dashboard-sections/dashboard-narrative.tsx` — `NarrativeSummary` (the ONE status summary: saved text
-  plus an Edit button, or an Add button when empty, that swaps in `NarrativeEditor` in place; it ALWAYS
+  plus an Edit button (a pencil `IconButton` in the card's top-right corner, beside the text, its name on `label` + `title`), or a TEXT Add button when empty, that swaps in `NarrativeEditor` in place; it ALWAYS
   renders, because it is the only UI writer of `status.narrative`, except read-only AND empty, which
   renders null; a popout gets no button) + `NarrativeEditor` (owns the draft + the render-time reconcile +
   the Clear nonce; the rich-text surface is named by its `label`, NOT a placeholder — axe). ★★ The editor

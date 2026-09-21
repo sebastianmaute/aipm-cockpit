@@ -5,6 +5,8 @@ import type { Dispatch, FocusEvent, SetStateAction } from "react";
 import { type Lang, t } from "../i18n";
 import { Button } from "../button";
 import { Card } from "../card";
+import { IconButton } from "../icon-button";
+import { PencilIcon } from "../icons";
 import { RichTextEditor } from "../rich-text-editor-lazy";
 import { RichTextView } from "../rich-text-view";
 import { sanitizeRichHtml } from "../sanitize-html";
@@ -107,18 +109,34 @@ export function NarrativeSummary({ lang, status, setStatus, readOnly }: {
     );
   }
   if (empty && readOnly) return null;
-  return (
+  if (empty) {
     // An empty summary holds only the Add button, which is print:hidden, so
-    // the card goes with it rather than printing as a blank box.
-    <Card boxed className={empty ? "p-3 print:hidden" : "p-3"}>
-      {storedView}
-      {!readOnly && (
-        <div className={empty ? "flex justify-end print:hidden" : "mt-2 flex justify-end print:hidden"}>
+    // the card goes with it rather than printing as a blank box. ★ Add stays a
+    // TEXT button: a blank card holding only a pencil would not say what it adds.
+    return (
+      <Card boxed className="p-3 print:hidden">
+        <div className="flex justify-end print:hidden">
           <Button ref={toggleRef} variant="secondary" size="sm" onClick={() => setEditing(true)}>
-            {t(lang, empty ? "dashboardStatusSummaryAdd" : "dashboardStatusSummaryEdit")}
+            {t(lang, "dashboardStatusSummaryAdd")}
           </Button>
         </div>
-      )}
+      </Card>
+    );
+  }
+  const editLabel = t(lang, "dashboardStatusSummaryEdit");
+  return (
+    // ★ Edit is a pencil in the top-right corner, beside the text, so it costs
+    //   no line of its own. Icon-only, so its whole name rides `label` (the
+    //   aria-label) and the `title` tooltip.
+    <Card boxed className="p-3">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">{storedView}</div>
+        {!readOnly && (
+          <IconButton ref={toggleRef} label={editLabel} title={editLabel} variant="bordered" className="shrink-0 print:hidden" onClick={() => setEditing(true)}>
+            <PencilIcon aria-hidden="true" className="h-4 w-4" />
+          </IconButton>
+        )}
+      </div>
     </Card>
   );
 }

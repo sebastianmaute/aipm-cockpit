@@ -70,6 +70,27 @@ describe("NarrativeSummary", () => {
     expect(screen.queryByRole("button", { name: ADD })).toBeNull();
   });
 
+  // ★ Edit is an icon in the card's top-right corner, beside the text — it no
+  //   longer takes a line of its own under it. The name stays the full
+  //   "Edit status summary" (aria-label + tooltip), since nothing visible says it.
+  it("shows Edit as a pencil icon at the top right, beside the text, not on a line below", () => {
+    render(<Summary status={{ narrative: "<p>All on track</p>", narrativeUpdatedAt: "2026-06-20T10:00:00.000Z" }} />);
+    const edit = screen.getByRole("button", { name: EDIT });
+    expect(edit.textContent).toBe("");                               // icon only
+    expect(edit.querySelector("svg")).not.toBeNull();                // positive control: there IS a glyph
+    expect(edit).toHaveAttribute("title", EDIT);
+    const row = edit.parentElement!;
+    expect(row).toHaveClass("flex", "items-start");                  // top-aligned beside the text
+    expect(row.lastElementChild).toBe(edit);                         // right end of the row
+    expect(within(row).getByText("All on track")).toBeInTheDocument(); // same row as the text
+    expect(within(row).getByText(/Updated/)).toBeInTheDocument();
+  });
+
+  it("keeps Add as a text button when there is nothing to edit", () => {
+    render(<Summary status={{}} />);
+    expect(screen.getByRole("button", { name: ADD }).textContent).toBe(ADD);
+  });
+
   it("renders no Edit button in a read-only popout", () => {
     render(<Summary status={{ narrative: "<p>All on track</p>" }} readOnly />);
     expect(screen.getByText("All on track")).toBeInTheDocument();
