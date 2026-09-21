@@ -13,7 +13,7 @@ export const categoryFor = (projectId: string, entityType?: string): string =>
   entityType ? `AIPM:${projectId}:${entityType}` : `AIPM:${projectId}`;
 
 /** Trailing line appended to every event body this module writes. */
-export const EVENT_BODY_MANAGED_BY = "Managed by the AIPM PM Tracker.";
+export const EVENT_BODY_MANAGED_BY = "Managed by AI PM Cockpit.";
 
 export interface GraphEvent {
   subject: string;
