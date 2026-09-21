@@ -510,7 +510,7 @@ describe("EntityLinkPicker", () => {
       // 1.7-2.1:1 on the light ones — under 1.4.11's 3:1 for a non-text state
       // indicator, which would leave light schemes on font-weight alone.
       // --foreground clears 3:1 in every scheme (12-15:1 in the built-ins,
-      // 4.79:1 in AIPM/Mockup light). That ratio is pinned per-scheme by
+      // 4.79:1 in Petrol/Mockup light). That ratio is pinned per-scheme by
       // scheme-contrast-cues.test.ts; this only pins WHICH token is used.
       expect(active.className).toContain("ring-foreground");
       expect(active.className).not.toMatch(/ring-ui-/);

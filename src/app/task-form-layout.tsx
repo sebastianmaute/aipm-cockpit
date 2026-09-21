@@ -11,7 +11,7 @@ import { FieldGroup, HintedLabel } from "./form-controls";
 import { InfoTooltip } from "./info-tooltip";
 
 // One titled, numbered section of the task form. Owns its own two-column grid so
-// fields with `sm:col-span-2` keep spanning. Heading uses the AIPM dark-blue token.
+// fields with `sm:col-span-2` keep spanning. Heading uses the dark-blue token.
 export function TaskFormSection({
   index,
   title,

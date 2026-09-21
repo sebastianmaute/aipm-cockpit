@@ -4,7 +4,7 @@
  * Single source of truth — change the table header look here.
  *
  * Palette note: Dark Blue (#004159) header + White (#FFFFFF) text are both
- * permitted AIPM brand colors; button/sort hovers inside the header use the
+ * permitted brand colors; button/sort hovers inside the header use the
  * Green accent (see the SortResizeTh / per-table header buttons).
  *
  * The `aipm-cockpit-thead` marker drives the rounded-header treatment in globals.css:

@@ -2,7 +2,7 @@
 
 // Branded confirm dialog — the app-wide replacement for native `window.confirm`.
 //
-// Native `window.confirm` is unstyled (breaks the AIPM look), not keyboard/focus
+// Native `window.confirm` is unstyled (breaks the app's look), not keyboard/focus
 // managed the way the rest of the app is, and can't be theme/palette-aware. This
 // provider renders ONE shared `Modal`-based dialog and exposes an imperative
 // `useConfirm()` hook returning a Promise<boolean>, so a call site changes from

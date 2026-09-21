@@ -43,7 +43,7 @@ describe("Badge", () => {
     render(<Badge>Neutral</Badge>);
     const cls = screen.getByText("Neutral").className;
     expect(cls).not.toContain("bg-");
-    expect(cls).not.toContain("text-AIPM");
+    expect(cls).not.toContain("text-ui-");
   });
 
   it("passes through title, role and aria-label", () => {

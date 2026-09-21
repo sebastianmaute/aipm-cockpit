@@ -177,12 +177,14 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
     // or the localStorage write-back — pins the initializer actually normalised the
     // STATE, not merely the persisted value.
     expect(screen.getByTestId("style").textContent).toBe("custom");
-    // Legacy migration dropped — AIPM/Mockup are importable theme files, not built-ins.
+    // Legacy migration dropped — Petrol/Mockup are importable theme files, not built-ins.
     // The scheme store is left untouched (no setActive("mockup")).
     expect(loadSchemes().activeId).toBe("meridian");
   });
 
   it("does NOT activate a scheme for a legacy aipm-cockpit-style='AIPM'; normalises to custom", () => {
+    // "AIPM" is the retired CiStyle value — kept literal because a real device's
+    // stored localStorage may still carry it.
     setActive("meridian"); // pre-existing active scheme
     localStorage.setItem(STYLE_STORAGE_KEY, "AIPM"); // legacy value
     render(tree(<StyleProbe />));

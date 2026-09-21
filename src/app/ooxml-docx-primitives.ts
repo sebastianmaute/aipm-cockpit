@@ -176,14 +176,14 @@ export const DOC_STYLES = `
  *
  *  ★★ HIGHLIGHT — DECISION, NOT OVERSIGHT. `w:highlight` takes Word's fixed
  *  `ST_HighlightColor` enum ("yellow", "cyan", …); it is a CLOSED list of named
- *  values and no AIPM brand colour is expressible in it — an arbitrary hex is not
+ *  values and no brand colour is expressible in it — an arbitrary hex is not
  *  legal here at all. That, alone, is why yellow stands: it is the closest
  *  member of the enum to the UA default every browser paints `<mark>` with, and
  *  `doc-render-html.ts` emits that very `<mark>` unstyled, so .docx and the
  *  printed PDF agree.
  *
  *  ★★ IT DOES NOT AGREE WITH THE .pptx, AND THAT IS DELIBERATE — the sibling
- *  `HIGHLIGHT_RGB` in `doc-render-pptx.ts` is the AIPM green `COLOR_GREEN`,
+ *  `HIGHLIGHT_RGB` in `doc-render-pptx.ts` is the brand green `COLOR_GREEN`,
  *  because DrawingML's `<a:highlight>` takes a REAL colour (so the "not
  *  expressible" argument above simply does not apply there) and because
  *  `doc-render-pptx.test.ts` enforces a palette check over every `<a:srgbClr>`

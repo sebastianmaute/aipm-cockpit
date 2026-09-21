@@ -88,7 +88,7 @@ async function settleHash(page: Page, hash: string, name: string): Promise<void>
   ).toBe(HASH_STABLE_READS);
 }
 
-// AIPM and Dashboard no longer exist in the app in any form — a theme is a file
+// Petrol and Dashboard no longer exist in the app in any form — a theme is a file
 // the user loads. The matrix runs on the four BUILT-IN schemes. Harbor/
 // Meridian/Umber are dark-capable and ALL THREE run light AND dark. Umber-dark
 // was MISSING from this matrix while `UMBER_DARK` was already imported above,

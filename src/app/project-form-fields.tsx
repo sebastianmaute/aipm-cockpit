@@ -8,7 +8,7 @@
 //   2. Customer
 //
 // Inline per-field errors are passed in already-resolved (string | null) so this
-// module needs no validation logic of its own. AIPM palette only — no shadows or
+// module needs no validation logic of its own. Brand palette only — no shadows or
 // gradients.
 
 import { useId, useState } from "react";
@@ -111,7 +111,7 @@ const IDENTITY_COUNT_STEPS = [
 ] as const;
 
 // One titled section. Owns its own two-column grid so wide fields can span. The
-// heading uses the AIPM dark-blue token and a bottom divider (mirrors the task
+// heading uses the dark-blue token and a bottom divider (mirrors the task
 // form's TaskFormSection, minus the leading number).
 export function FormSection({
   title,

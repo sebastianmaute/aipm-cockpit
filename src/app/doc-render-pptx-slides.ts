@@ -232,7 +232,7 @@ const SUBSCRIPT_PCT = -25000;
  *  renderer's. That one keeps Word's "yellow" because `w:highlight` takes the
  *  CLOSED `ST_HighlightColor` enum, in which no brand hex is expressible at
  *  all. `<a:highlight>` takes a REAL colour, so that argument does not carry
- *  over and the choice is genuinely open. It goes to the AIPM accent because
+ *  over and the choice is genuinely open. It goes to the brand accent because
  *  this file's OWN palette test enumerates the sanctioned hexes and asserts
  *  that every `<a:srgbClr>` in a slide part is one of them — unlike the
  *  repo-wide palette sweep, which scans CSS and cannot see OOXML, that test is
@@ -244,7 +244,7 @@ const SUBSCRIPT_PCT = -25000;
  *  revision quoted 7.8, which rounds the wrong way and was never derived.)
  *  ★ ACCEPTED COST: the same document's highlight is yellow in its .docx and
  *  its printed PDF (where `doc-render-html.ts` leaves `<mark>` to the browser
- *  default) and AIPM green in its .pptx. Symmetry across the three renderings
+ *  default) and brand green in its .pptx. Symmetry across the three renderings
  *  was the alternative, and it loses to a gate that is actually enforced. */
 const HIGHLIGHT_RGB = COLOR_GREEN;
 

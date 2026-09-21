@@ -10,7 +10,7 @@ describe("CI-style role tokens", () => {
     "defines %s in :root", (t) => expect(rootBlock).toContain(`${t}:`),
   );
   it("Mockup values live in the scheme data, not a CSS override block", () => {
-    // Phase 2 removed the hardcoded :root[data-style="mockup"] block; AIPM/Mockup
+    // Phase 2 removed the hardcoded :root[data-style="mockup"] block; Petrol/Mockup
     // now ship as importable theme files the user supplies (Settings → Appearance →
     // Theme gallery) — there is no shipped fixture to assert fidelity against here.
     expect(css).not.toContain(':root[data-style="mockup"]');

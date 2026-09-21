@@ -51,7 +51,7 @@ import {
 } from "./dismissal-stack";
 import { FOCUSABLE_SELECTOR } from "./focusables";
 
-/** Canonical modal backdrop tint — the AIPM dark-blue scrim every modal shares.
+/** Canonical modal backdrop tint — the dark-blue scrim every modal shares.
  *  `Modal` defaults to it; hand-rolled overlays (popovers that can't use `Modal`)
  *  import it so the whole app dims consistently. Emphasis tiers (confirm/empty)
  *  intentionally use a stronger variant and are not folded onto this. */
@@ -72,7 +72,7 @@ interface BaseProps {
   open: boolean;
   /** Fired by Escape, backdrop click, and (if the caller wires it) the X button. */
   onClose: () => void;
-  /** Override the backdrop classes. Default is the canonical AIPM dark-blue
+  /** Override the backdrop classes. Default is the canonical dark-blue
    *  tint shared by every modal; callers should almost never override it
    *  (an off-palette override was removed in the DS defect sweep). */
   backdropClassName?: string;

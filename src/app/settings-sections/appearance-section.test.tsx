@@ -94,14 +94,14 @@ describe("AppearanceSection help reading level", () => {
 });
 
 describe("AppearanceSection scheme control", () => {
-  it("renders the scheme selector with the canonical built-ins (no AIPM/Mockup by default)", () => {
+  it("renders the scheme selector with the canonical built-ins (no Petrol/Mockup by default)", () => {
     renderSection();
     expect(screen.getByLabelText(t("en-US", "schemeAppearanceLabel"))).toBeInTheDocument();
     for (const name of ["Harbor", "Meridian", "Umber"]) {
       expect(screen.getByRole("option", { name })).toBeInTheDocument();
     }
-    // AIPM + Dashboard are shipped importable themes now, not built-in options.
-    expect(screen.queryByRole("option", { name: "AIPM" })).not.toBeInTheDocument();
+    // Petrol + Dashboard are shipped importable themes now, not built-in options.
+    expect(screen.queryByRole("option", { name: "Petrol" })).not.toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Dashboard" })).not.toBeInTheDocument();
   });
 

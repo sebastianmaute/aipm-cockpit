@@ -76,7 +76,7 @@ const STK_VALUES: Record<string, unknown> = {
 const RES_BASE = { id: 1, firstName: "A", lastName: "B" };
 const RES_VALUES: Record<string, unknown> = {
   firstName: "New", lastName: "Fam", title: "CTO", email: "a@b.co",
-  department: "Delivery", company: "AIPM", location: "Berlin",
+  department: "Delivery", company: "Example Co", location: "Berlin",
   businessPhone: "+49 30 1234", isExternal: true, notes: "n",
   // ★ TWO distinct addresses, and RES_BASE deliberately carries no primary
   //  `email` — `sanitizeEmailList` drops any extra equal to the primary, so a

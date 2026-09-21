@@ -5,7 +5,7 @@
 // classic app header (5 copies, one of which had drifted to `text-ui-white`
 // where the others used `text-white`). One pill shape, one tint per `variant`.
 //
-// Every tint is a sanctioned AIPM brand token, so the primitive is palette-safe
+// Every tint is a sanctioned brand token, so the primitive is palette-safe
 // by construction. Positional classes (absolute offsets, `ml-auto`) are the
 // caller's — pass them via `className`, appended after the base + variant.
 

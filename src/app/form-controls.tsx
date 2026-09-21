@@ -14,11 +14,11 @@
 //
 // ★ Checkbox accent is `accent-ui-dark-blue` (the CSS `accent-color`
 // mechanism). This project has NO @tailwindcss/forms plugin, so the widespread
-// `text-AIPM-*` checkbox classes were INERT (native checkboxes ignore `color`) —
+// brand-tinted `text-*` checkbox classes were INERT (native checkboxes ignore `color`) —
 // the tick rendered browser-default. `accent-*` is the mechanism that actually
 // paints the brand colour, so it is the canonical one.
 //
-// Palette-safe by construction: only sanctioned AIPM brand / RAG tokens.
+// Palette-safe by construction: only sanctioned brand / RAG tokens.
 
 import { useRef } from "react";
 import type {

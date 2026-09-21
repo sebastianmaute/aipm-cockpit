@@ -786,7 +786,7 @@ export function absenceBandBg(type: AbsenceType): string {
 
 /** Shared visual props for both milestone diamond <rect>s (gutter + timeline).
  *  emerald mirrors healthDot.G (bg-emerald-500 RAG-green in health.ts);
- *  at-risk gets the AIPM pink ring (same token as overdue bars). */
+ *  at-risk gets the brand pink ring (same token as overdue bars). */
 export function milestoneDiamondProps(achieved: boolean, atRisk: boolean) {
   return {
     className: achieved ? "fill-emerald-500/50" : "fill-emerald-500",

@@ -1,6 +1,6 @@
 "use client";
 // src/app/jira-readonly-banner.tsx — shown atop the task editor when the task's
-// Jira project is read-only (watch only). Palette-safe AIPM tokens only.
+// Jira project is read-only (watch only). Palette-safe brand tokens only.
 import { type Lang, t } from "./i18n";
 
 export function JiraReadOnlyBanner({ lang, projectName }: { lang: Lang; projectName: string }) {

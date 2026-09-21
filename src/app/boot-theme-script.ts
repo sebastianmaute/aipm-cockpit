@@ -2,14 +2,14 @@
 // It reads the per-device style/theme/scheme localStorage keys and applies
 // `data-style` + `.dark` + the active scheme's inline COLOR and STRUCTURAL
 // token overrides BEFORE first paint. `data-style` is now ALWAYS "custom"
-// (AIPM/Mockup are built-in schemes; the constant style axis is "custom").
+// (Petrol/Mockup are built-in schemes; the constant style axis is "custom").
 //
 // No-flash guarantee — STRUCTURAL replay: a scheme with shadows/gradient
 // (e.g. Mockup) is painted from `aipm-cockpit-active-scheme-structural` so
 // shadowed chrome doesn't flash unstyled on reload.
 //
 // The BASE fallback (no mirrored boot color key present) is Beacon — the
-// fresh-install default scheme, LIGHT-ONLY. AIPM/Mockup are no longer embedded
+// fresh-install default scheme, LIGHT-ONLY. Petrol/Mockup are no longer embedded
 // here: they are shipped importable theme files (built-in schemes) that
 // use-style resolves at runtime and mirrors into
 // `aipm-cockpit-active-scheme-colors`; a returning user always paints
