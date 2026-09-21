@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   milestoneToGraphEvent, categoryFor, taskToGraphEvent, raidToGraphEvent, changeToGraphEvent, absenceToGraphEvent,
   committeeMeetingToGraphEvent, committeeInfoToGraphEvent, listEntityEvents, updateEvent, deleteEvent, GraphCalendarError,
+  EVENT_BODY_MANAGED_BY,
 } from "./outlook-calendar-write";
 import type { Milestone, Task, RaidItem, Absence, ChangeItem, CommitteeMeeting } from "./types";
 
@@ -128,9 +129,10 @@ describe("event body trigram", () => {
     ["committeeInfoToGraphEvent", committeeInfoToGraphEvent(infoItem, "p1").body.content],
   ];
 
-  it.each(bodies)("%s: body is non-empty and carries no old-brand trigram", (_name, content) => {
+  it.each(bodies)("%s: body is non-empty, carries no old-brand trigram, and names the managed-by line", (_name, content) => {
     expect(content.length).toBeGreaterThan(0); // positive control: the body isn't empty
     expect(content).not.toContain("AIPM");
+    expect(content).toContain(EVENT_BODY_MANAGED_BY);
   });
 });
 
