@@ -1,14 +1,17 @@
 # Dashboard: measured tile heights, one At-a-glance tile, one status summary
 
-**Status:** approved in conversation 2026-09-21 · **Branch:** `feat/dashboard-adaptive-heights`,
-stacked on `fix/load-save-residuals` (see "Branch base" below).
+**Status:** revision 2, 2026-09-21. The first revision was approved, then a read-only reconnaissance of
+the code found 17 places where it did not match the tree. This revision corrects all 17 and adds
+decision 8, so it replaces the approval of revision 1. See "What revision 2 changed" at the end.
+
+**Branch:** `feat/dashboard-adaptive-heights`, stacked on `fix/load-save-residuals` (see "Branch base").
 
 Three changes in one slice, at the user's explicit request:
 
-- **A** — tile heights are measured from their content when the Dashboard opens, instead of being
+- **A**: tile heights are measured from their content when the Dashboard opens, instead of being
   constants tuned against one screen.
-- **B** — the Progress tile merges into "At a glance", which drops its own duplicate completion cell.
-- **C** — the two status-summary surfaces become one, edited inline behind an Edit button.
+- **B**: the Progress tile merges into "At a glance", which ends up with one completion cell, not two.
+- **C**: the two status-summary surfaces become one, edited inline behind an Edit button.
 
 ## Decisions (each made by the user, in this order)
 
@@ -16,8 +19,8 @@ Three changes in one slice, at the user's explicit request:
    not explicitly resized; a height the user chose is kept. (Rejected: first-open-only, and a fully
    viewport-derived board with no manual resize.)
 2. **Provenance is stored, not inferred.** A resize records that the user chose that axis. (Rejected:
-   treating "differs from the catalogue default" as user-set — wrong for a user who resizes *to* the
-   default, and wrong for everyone the moment a default changes.)
+   treating "differs from the catalogue default" as user-set. That is wrong for a user who resizes *to*
+   the default, and wrong for everyone the moment a default changes.)
 3. **Heights are measured from the DOM**, not tabulated per breakpoint and not derived from content
    facts. Its correctness is pinned by e2e only; the unit suite cannot see it.
 4. **Re-measure on mount and on density change only.** Not on viewport resize (reflowing a board while
@@ -26,17 +29,20 @@ Three changes in one slice, at the user's explicit request:
 6. **B, option (i) with a tooltip:** R/A/G moves as one cell carrying its ✕ out-of-scope marker
    unchanged; the Progress caption is dropped as visible text and survives as a tooltip.
 7. **C is inline:** Edit swaps the read-only summary for the editor in place. No modal.
+8. **The two completion cells merge.** The merged cell keeps the count, the gradient bar and the trend
+   arrow. (Rejected: keeping only Progress's card, which would have removed the completion bar and the
+   Dashboard's only completion-trend display.)
 
-## A — measured heights
+## A: measured heights
 
 ### What changes and what does not
 
-**Height adapts; width does not, because width already does.** `w` renders through `W_CLASS` as
-`col-span-1 lg:col-span-2 xl:col-span-4`, so a tile is already full-width on a phone and a quarter on a
-wide screen. The defect the user described — a layout decided at one resolution — is a HEIGHT defect:
-`h` is a row count against a fixed row unit (`auto-rows-[80px]` comfortable, `72px` compact), and every
-default was chosen from a measurement at one viewport. The clearest case is `kpi`, pinned at `h:3`
-because its cells wrap at half width on a 1280px xl viewport, a cost every wider screen pays too.
+**Height adapts. Width does not need to, because it already does.** `w` renders through `W_CLASS` as
+`col-span-1 lg:col-span-2 xl:col-span-4`, so a tile is already full width on a phone and a quarter of
+the board on a wide screen. The defect the user described, a layout decided at one resolution, is a
+height defect. `h` is a row count against a fixed row unit, and every default was chosen from a
+measurement at one viewport. The clearest case is `kpi`, fixed at `h:3` because its cells wrap at half
+width on a 1280px xl viewport. Every wider screen pays that cost too.
 
 ### Provenance on the stored layout
 
@@ -53,171 +59,303 @@ export interface PlacedBlock<Id extends string> {
 }
 ```
 
-- **`resizeBlock` is the only writer.** It stamps the axis it changed and no other.
-- **This is a shared-engine change.** `arrangement-layout.ts` also serves Reports
-  (`report-blocks.ts`, `use-reports-arrangement.ts`). Reports gets the flags and ignores them; it does
-  not get measurement.
+- **`resizeBlock` is the only writer.** It stamps the axis it was asked to set, and no other.
+- **This is a shared-engine change.** `arrangement-layout.ts` also serves Reports (`report-blocks.ts`,
+  `use-reports-arrangement.ts`). Reports gets the flags and ignores them; it does not get measurement.
 - **Absent means default, including on every layout written before this change.** Those boards are
-  therefore measured once on their first open under this build. That is the intended migration, not a
-  side effect: nothing on them was recorded as a user choice.
-- **`isArrangementLayout` must accept the flags and `readArrangement` must sanitise them** — junk is
-  dropped, never a rejection, matching how `upgrades` is handled. A flag of any value other than `true`
-  is dropped rather than rejecting the layout, because rejection resets the board.
-- **`reconcile` carries the flags through.** It already rebuilds `{v, board, hidden}` and carries
-  `upgrades`; a flag it drops would silently turn a user's choice back into a default.
+  measured on their first open under this build. That is the intended migration: nothing on them was
+  recorded as a user choice.
 
-### ★★ The resize menu must show the RENDERED height
+### `reconcile` must be REWRITTEN to carry the flags, and it becomes the sanitiser
 
-The stored `h` of an unflagged tile is its catalogue default; what the user SEES is the measured value.
-If the ⋮ resize menu reports the stored value, a user who opens it on a measured-to-4 tile sees "2" and
-choosing 4 looks like a no-op to them while being a real change to the store. The menu's current value
-is the rendered height. Choosing it stamps `hSet` at that value — selecting a height explicitly is a
-choice even when it matches what is on screen.
+`reconcile` rebuilds every block as a literal `{ id, w, h }`. So today it drops unknown keys, which is
+also the only thing that strips junk from a stored block: `isArrangementLayout` accepts extra keys, and
+`withSanitizedUpgrades` touches only the layout-level `upgrades` list. Carrying the flags means
+rewriting that literal. Rewriting it naively (a spread) would remove the accidental sanitiser.
 
-★ This breaks `resizeBlock`'s same-reference-on-no-op contract for exactly that case, and it must: the
-contract compares against the stored value, and the stored value is not what the user is agreeing to.
-The no-op contract still holds when the requested value equals the stored value AND `hSet` is already
-set.
+So the rewritten literal keeps a flag **only when its value is exactly `true`**:
+
+```ts
+{
+  id, w, h,
+  ...(stored.wSet === true ? { wSet: true } : {}),
+  ...(stored.hSet === true ? { hSet: true } : {}),
+}
+```
+
+A flag survives the per-axis clamp: a user's chosen height that the clamp moves is still a user
+choice, so `hSet` stays. `isArrangementLayout` needs no change, because it already ignores extra keys.
+
+### The no-op contract changes, and two tests invert
+
+The engine header says the four mutators return the same object reference on a no-op. For
+`resizeBlock` that stops being true in one case, and the case is deliberate:
+
+- **Choosing a value on an axis with no flag stamps the flag and returns a new object, even when the
+  value equals the stored one.** Selecting a height is a choice. The resize control (`SegmentedControl`)
+  fires `onChange` on a click of the already-selected option, so that click does reach `resizeBlock`.
+- **Same value, axis already flagged, is still a no-op** that returns the same reference.
+
+Two tests assert the old contract on an unflagged block and invert: `arrangement-layout.test.ts`
+"returns the same object when a resize changes nothing", and `dashboard-layout.test.ts` "returns the
+same object when the value does not change". Each is rewritten to test the no-op on a FLAGGED block,
+and each gains a sibling asserting that the unflagged case stamps and returns a new object.
+`dashboard-layout.test.ts` "sets one axis without touching the other" does an exact
+`toEqual({ id, w, h })` and must include the stamped flag. The engine header's no-op sentence is
+reworded to state the exception.
+
+### ★★ Every reader of the tile's height must read the RENDERED height
+
+The stored `h` of an unflagged tile is its catalogue default. What the user sees is the measured value.
+The panel reads the stored height in three places:
+
+1. the tile's rendered height,
+2. the resize menu's current value,
+3. the resize announcement spoken after a change.
+
+All three must read the rendered (measured, or stored if flagged) height. If the menu reported the
+stored value, a user looking at a tile measured to 4 would see "2", and choosing 4 would look like a
+no-op to them while being a real change to the store. If the announcement read it, a width change on a
+measured tile would announce the wrong height.
 
 ### Measurement
 
-A hook owned by `dashboard-panel.tsx` measures once per trigger:
+A hook owned by `dashboard-panel.tsx` measures once per trigger.
 
-- **Triggers:** mount, and a change of density. Nothing else.
-- **What is read:** each rendered tile body's content height — its `scrollHeight`, not its
-  `clientHeight`. The body is `min-h-0 flex-1 overflow-auto`, so an over-tall tile's `clientHeight` is
-  the box and says nothing about the content.
+- **Triggers:** mount, and a change of density. Nothing else. Density reaches the panel as a prop.
+- **What is measured: the height of the body's CONTENT, never the body's `scrollHeight`.** The body is
+  `min-h-0 flex-1 overflow-auto`. When content fits, its `scrollHeight` equals the box height, so a
+  `scrollHeight` reading can grow a tile but never shrink it below the height it was rendered at. The
+  measured value is the content element's `getBoundingClientRect().height` plus the body's computed
+  vertical padding. That reading is independent of the box size, so it can shrink a tile as well as
+  grow it.
+- **Nothing is quoted; everything is read.** Row unit and gap exist in the code only as Tailwind class
+  strings (`auto-rows-[80px]`, `gap-4`), and `gap-4` is rem-based, so a literal 16 would assume a 16px
+  root. Both are read from the grid element's computed style (`gridAutoRows`, `rowGap`). The non-body
+  height of a tile (header plus section borders) is read as the section's height minus the body's
+  `clientHeight`. The spec's first revision left out the 2px section border; reading the difference
+  makes that class of omission impossible. `dashboard-tiles.ts` records that a hand-quoted chrome
+  figure was once 11px wrong.
 - **Conversion** is pure and unit-tested:
 
   ```ts
   /** Rows a tile needs so its body shows `contentPx` without an inner scroll, clamped to the spec. */
   export function rowsForHeight(
-    contentPx: number, rowUnitPx: number, gapPx: number, chromePx: number,
+    contentPx: number, rowUnitPx: number, gapPx: number, nonBodyPx: number,
     minH: BlockHeight, maxH: BlockHeight,
   ): BlockHeight
   ```
 
-  A tile spanning `n` rows is `n * rowUnitPx + (n - 1) * gapPx` tall, of which `chromePx` is the header.
+  A tile spanning `n` rows is `n * rowUnitPx + (n - 1) * gapPx` tall, of which `nonBodyPx` is not body.
   The function returns the smallest `n` whose body fits `contentPx`, clamped to `[minH, maxH]`.
-  `chromePx` is **measured from the tile header at runtime**, never quoted: `dashboard-tiles.ts` records
-  that the old hand-quoted figure (~26px) was 11px wrong and that a chrome restyle moves it.
+- **Measurement targets are marked with data attributes on the shared tile.** The header and body are
+  anonymous `div`s today, and the grid takes no ref. The hook finds them through `data-*` attributes
+  added to `arrangement-tile.tsx` (section, header, body, content) and `arrangement-grid.tsx` (grid).
+  Those components are shared with Reports, where the attributes are inert.
 - **Applied only to tiles with no `hSet`.**
-- **Never persisted.** A measured height is a render-time override, like gating. Were it stored it would
-  be indistinguishable from a user's choice on the next open and the board would freeze at whatever the
-  first screen happened to be. This follows the Dashboard's standing rule that a gate decides what
-  RENDERS, never what is STORED (`docs/AGENTS/dashboard.md`) — measurement is the same kind of thing.
+- **Never persisted.** A measured height is a render-time override, like gating. If it were stored it
+  would be indistinguishable from a user's choice on the next open, and the board would freeze at
+  whatever the first screen happened to be. This follows the Dashboard's standing rule that a gate
+  decides what RENDERS, never what is STORED (`docs/AGENTS/dashboard.md`).
 - **No `ResizeObserver` on the measured box.** Resizing the thing being observed is how a
-  measure→resize→measure loop starts. One pass per trigger.
+  measure-resize-measure loop starts. One pass per trigger.
 - **★★ Why one pass is enough, and when it would stop being enough.** A tile's content height depends
-  on its WIDTH — text and cells wrap to fit it — and not on its height. Width is set by `W_CLASS` at the
+  on its WIDTH (text and cells wrap to fit it), not on its height. Width is set by `W_CLASS` at the
   current breakpoint and does not change when a height is applied. So applying the measured height
-  cannot change the measurement, and one pass converges. ★ This rests entirely on width being
-  independent of height. Anything that couples them — a tile whose content switches layout on its own
-  HEIGHT — breaks the argument and would need the loop guard this design omits. (`grid-flow-row-dense`
-  does not: it moves a tile's POSITION, never its `col-span`, so a tile's width is the same wherever it
-  lands. The KPI strip's container queries are on WIDTH, so they do not either.)
+  cannot change the measurement, and one pass converges. This rests entirely on width being
+  independent of height. A tile whose content switches layout on its own HEIGHT would break the
+  argument and would need the loop guard this design leaves out. (`grid-flow-row-dense` does not break
+  it: it moves a tile's POSITION, never its `col-span`. The KPI strip's container queries are on WIDTH,
+  so they do not break it either.)
 - **Rendering goes through `H_CLASS`** (`arrangement-grid.tsx`), whose keys cover 1–8. Every tile's
   `[minH, maxH]` sits inside that range, so a clamped measured height always resolves to a literal key.
-  ★★★ Never interpolate a `row-span-${h}` class: Tailwind v4 emits no CSS for it and no rendered
+  ★★★ Never interpolate a `row-span-${h}` class: Tailwind v4 emits no CSS for it, and no rendered
   assertion can see the difference.
-- **jsdom returns 0 for every rect.** The hook must treat an all-zero measurement as "nothing measured"
-  and leave every tile at its stored height, so the unit suite keeps rendering exactly what it renders
-  today.
+- **jsdom returns 0 for every rect.** The hook treats an all-zero reading as "nothing measured" and
+  leaves every tile at its stored height, so the unit suite renders exactly what it renders today.
 
 ### ★★★ The board will get taller, and that is the point
 
-`docs/AGENTS/dashboard.md` records that at the shipped comfortable/80 density, **6 of 9 rendering tiles
-already overflow** into an inner scroll (measured, 1600px, e2e seed: `burn` 507px over, `insights` 239,
-`upcoming` 133), and that inner scrolling is this design's normal mode. Measuring to content removes
-those inner scrolls up to each tile's `maxH`. So a default board will be noticeably taller than today's,
-and tiles already at `maxH` will still scroll. That is the requested behaviour, stated here so it is not
-mistaken for a regression in review.
+`docs/AGENTS/dashboard.md` records that at the shipped comfortable density, 6 of 9 rendering tiles
+overflowed into an inner scroll (1600px, e2e seed: `burn` 507px over, `insights` 239, `upcoming` 133).
+That figure predates this change and the sample master's effort data, so it is an order of magnitude,
+not a prediction. Measuring to content removes those inner scrolls up to each tile's `maxH`, so a
+default board will be noticeably taller than today's, and a tile already at `maxH` will still scroll.
+That is the requested behaviour. It is written down so it is not mistaken for a regression in review.
 
-### Catalogue changes forced by A
+### `kpi`'s height becomes adjustable
 
-- **`kpi`** has `minH: 3, maxH: 3` today — its height is fixed, so measurement could not move it.
-  Widen to `minH: 2, maxH: 4`. ★ These two VALUES are the controller's choice, not a user decision —
-  the user approved widening, not the numbers. `minH: 2` follows the catalogue's own rule that `minH: 1`
-  is almost always wrong (37px of chrome leaves a sparkline); `maxH: 4` is one row of headroom over
-  today's fixed 3 for the six-cell strip. Revisit if e2e measures a six-cell strip needing more. (The fixed height existed to stop the half-width wrap reaching an inner
-  scroll; measurement now does that job, and does it per screen.)
-- **Reset layout** clears every `wSet`/`hSet`, so every tile is measured again on the next render.
+`kpi` has `minH: 3, maxH: 3` today, so its height is fixed and measurement could not move it. It widens
+to `minH: 2, maxH: 4`. ★ These two VALUES are the controller's choice, not a user decision: the user
+approved widening, not the numbers. `minH: 2` follows the catalogue's own rule that `minH: 1` is almost
+always wrong (header and borders leave room for a sparkline and nothing else). `maxH: 4` gives one row
+of headroom over today's fixed 3 for the six-cell strip. Revisit if e2e measures a six-cell strip that
+needs more.
 
-## B — Progress merges into At a glance
+The fixed height is asserted in several places that change with it: the `kpi` paragraph in
+`dashboard-tiles.ts`'s docstring, a matching note in `arrangement-block-menu.tsx`,
+`dashboard-grid.test.tsx` "renders no height chooser for the KPI tile" (which inverts, because a
+chooser now renders), the `kpi` height assertions in `dashboard-layout.test.ts`, and the dense-packing
+comment in `e2e/dashboard-grid.spec.ts`. The §585 upgrade maps a stored `kpi` `h: 2` to 3; that stays
+harmless, because those layouts carry no `hSet` and are measured anyway.
 
-### The duplicate
+### Reset layout
 
-Both tiles show completion: At a glance's first cell is `dashboardKpiComplete` (a percentage only);
-Progress's first card is `dashboardPercentComplete` with `dashboardCompletedOf` beneath it ("18 of 29").
-**At a glance's cell is dropped and Progress's richer card takes its place** — that is the direction the
-user specified, and the count is the information the percentage alone lacks.
+Reset writes `DEFAULT_LAYOUT` by reference. That layout carries no flags, so Reset already clears every
+choice and every tile is measured again. No change is needed.
 
-### The merged tile
+## B: Progress merges into At a glance
+
+### The merged completion cell (decision 8)
+
+At a glance's completion cell and Progress's first card both show completion. The merged cell **is At
+a glance's existing Complete cell, extended**, not Progress's card with parts moved into it:
+
+- **Kept exactly as today:** its label ("Complete"), its activate label ("Complete – Open the tasks
+  list"), the gradient bar (`KpiGradientBar`), the trend arrow (`TrendArrow` for `trends.complete`,
+  the only place the landing-page completion trend renders), and its no-active-scope behaviour,
+  including suppressing its tooltip in that state. The tests pinning each of these keep passing.
+- **Gained from Progress:** the count, the value `dashboardCompletedOf` renders ("18 of 29").
+- **Its tooltip becomes one combined string.** `Tile.hint` takes a single string, so the existing
+  `dashboardKpiCompleteHint` and Progress's `dashboardProgressCaption` cannot both be a hint. A new key,
+  `dashboardCompleteHint`, carries both texts, in `i18n.ts` and `i18n.de.ts`. The combined tooltip is
+  still suppressed in the no-active-scope state.
+
+Progress's own completion card is dropped, which removes the duplicate.
+
+### The merged tile's cells
 
 At a glance renders, in order:
 
-1. **Complete** — Progress's card, unchanged, including the no-active-scope wording from
-   `hasNoActiveScope`, which must be called rather than re-derived.
-2. **R / A / G** — Progress's card, unchanged, **including the ✕ out-of-scope marker** shown only when
-   `outOfScope > 0`, with its `aria-hidden` glyph and `sr-only` companion.
-3. **Overdue**, 4. **Open RAID** — unchanged.
-5. **Effort SPI**, 6. **Effort CPI** — unchanged, each shown only when its index is non-null.
+1. **Complete**, the merged cell above.
+2. **R / A / G**, Progress's card unchanged, **including the ✕ out-of-scope marker** shown only when
+   `outOfScope > 0`, with its `aria-hidden` glyph and `sr-only` companion, and its existing
+   `dashboardRagHint` tooltip.
+3. **Overdue**, then 4. **Open RAID**, both unchanged.
+5. **Effort SPI**, then 6. **Effort CPI**, each shown only when its index is non-null, unchanged.
 
-**The Progress caption becomes a tooltip.** `dashboardProgressCaption` moves from visible text to the
-`hint` of the Complete card, which the `Tile` component already supports and the R/A/G card already uses.
+The no-active-scope wording comes from `hasNoActiveScope(progress)`, which is called, never re-derived.
 
 ### Cell count
 
-`KpiCellCount` widens from `3 | 4 | 5` to `4 | 5 | 6` — the tile now always carries Complete, R/A/G,
-Overdue and Open RAID. `KPI_STRIP_COLS` gets an entry for each, as whole literal class strings.
-★ The 4- and 5-cell entries change meaning (they previously described a board WITHOUT R/A/G), so both
-are re-derived rather than carried over.
+`KpiCellCount` changes from `3 | 4 | 5` to `4 | 5 | 6`, because the tile now always carries Complete,
+R/A/G, Overdue and Open RAID. `KPI_STRIP_COLS` gets an entry for each, as whole literal class strings.
+★ The 4- and 5-cell entries change meaning (they previously described a strip WITHOUT R/A/G), so both
+are re-derived, not carried over.
 
 ### Removing the Progress tile
 
-- `progress` leaves `DASHBOARD_TILES`.
-- **A one-time upgrade id** (same mechanism as `DASHBOARD_BURN_UPGRADE`) removes it from stored layouts'
-  `board` and `hidden` lists. `reconcile` alone would also drop an unknown id, but only silently; the
-  upgrade records that the removal happened.
-- **`DEFAULT_LAYOUT` must carry the new id** alongside `DASHBOARD_BURN_UPGRADE`. A fresh or reset board is
-  persisted from it; without the id, its next load would run the upgrade again.
+`progress` leaves `DASHBOARD_TILES`. Stored layouts that mention it need a one-time removal, and **the
+existing upgrade mechanism cannot take a second step as it stands.** The burn upgrade is one
+hand-written function that returns early when its own id is already recorded, and the hook accepts a
+single `upgrade` function. A progress-removal step placed after that early return would be skipped for
+every user already upgraded, which is exactly the population that needs it.
 
-## C — one status summary
+So the upgrade is restructured into **an ordered list of steps, each gated on its own id and each run
+independently**:
 
-- `NarrativeSummary` (read-only, top of the Dashboard) gains an **Edit** button.
-- Edit swaps the summary for the existing `NarrativeEditor` **in place**. The editor keeps its
-  commit-on-blur, its Save and Clear, and its `seedNonce` behaviour — the nonce is the only thing that
-  empties the editor DOM on Clear, and it has already caused a bug once.
-- Save or a committed blur returns to the read-only view.
+```ts
+interface LayoutUpgradeStep {
+  id: string;
+  /** Returns the SAME object when there is nothing to change. */
+  apply: (layout: DashboardLayout) => DashboardLayout;
+}
+```
+
+- The burn step is the existing function, moved into the list, with behaviour unchanged.
+- The progress step removes `progress` from both `board` and `hidden`.
+- **The progress step records its id only when it removed something.** A layout without `progress`
+  returns the same object, records nothing, and is not written. That keeps the pinned test
+  `use-dashboard-layout.test.tsx` "never runs again: a burn the user moved back keeps its place", which
+  asserts byte-identical storage for a layout with no progress tile. Re-running the step on such a
+  layout is free: it finds nothing and changes nothing.
+- **`DEFAULT_LAYOUT` does NOT need the progress id.** After `progress` leaves the catalogue, a fresh or
+  reset board never contains it, so the step is a no-op on it. (The first revision required the id on
+  `DEFAULT_LAYOUT`; with a record-only-on-removal step, that requirement goes away.)
+
+### The test tile that replaces Progress
+
+About 20 panel and layout tests, `e2e/seed-content.spec.ts`, and the dense-packing test in
+`e2e/dashboard-grid.spec.ts` use Progress as their always-present tile. They move to **`upcoming`**:
+`gate: ALWAYS`, `minH: 2`, `maxH: 4`.
+
+★★ `upcoming` is itself measured under A, so a test that expects it at a fixed height would depend on
+measurement. Each such test **resizes it explicitly first**, which stamps `hSet` and makes its height a
+recorded choice, stable by construction. `e2e/dashboard-grid.spec.ts`'s exact-height check on
+`upcoming` and its KPI-strip loop (which assumes 5 and 4 cells, now 6 and 5) are updated to match.
+
+## C: one status summary
+
+### The summary area always renders
+
+`NarrativeSummary` returns `null` when the narrative is empty, and two tests pin that. With the bottom
+editor deleted, a self-hiding summary would leave no way to write a first narrative, or a new one after
+Clear: `NarrativeEditor` is the only UI writer of `status.narrative`. So:
+
+- **The summary area always renders.** With a narrative it shows the narrative and an **Edit status
+  summary** button. When empty it shows an **Add status summary** button. Two new i18n keys, in
+  `i18n.ts` and `i18n.de.ts`.
+- The two tests pinning `null` when empty invert: they assert the Add button instead.
+
+### Editing
+
+- Edit or Add swaps the summary for the existing `NarrativeEditor` **in place**.
+- **The editor keeps its commit-on-blur, its Save and Clear, and its `seedNonce` behaviour unchanged.**
+  The nonce is the only thing that empties the editor DOM on Clear, and it has caused a bug once.
+- **★★ The editor returns to read-only on Save, or when focus leaves the WHOLE editor region, and on
+  nothing else.** The commit-on-blur wrapper uses React's `onBlur`, which is `focusout` and bubbles, so
+  it also fires when focus moves from the text to the editor's own toolbar. `dashboard-narrative.tsx`
+  records that this once meant a toolbar mousedown committed and replaced the editor before the click,
+  so no format command ever ran, and the test "applies Bold to the selection instead of losing the
+  click to a remount" pins it. Closing on that same blur would reintroduce the defect one level up. The
+  close rule reads the event's `relatedTarget`: focus moving to anything inside the editor wrapper
+  keeps it open. `commitNarrative` returns early when nothing changed, so "a blur" and "a committed
+  blur" are different events, and the close rule keys on focus leaving, not on a commit.
+- **Focus moves into the editor on open, and back to the Edit button on close.** `RichTextEditor` has no
+  `autoFocus` prop, its imperative handle exposes only `appendText`, and it is loaded through
+  `next/dynamic` with a skeleton fallback first. So it gains a focus capability (a `focus()` method on
+  the handle), and the open path waits for the editor to mount before calling it.
+- `NarrativeEditor` gains an `onDone` callback, which is how it signals "return to read-only".
 - **The bottom `NarrativeEditor` instance is deleted.**
-- The Edit button is a real `<button>` with an accessible name that says what it edits, and focus moves
-  into the editor on open and back to the Edit button on close. Read `docs/AGENTS/ui-shell.md`'s
-  dismissal section before wiring Escape.
+- **No Edit or Add button in a read-only popout.** The editor is not popout-gated today (only
+  `print:hidden`). Every arrangement control is guarded by `!arrangement.readOnly`, and a popout is
+  documented as read-only, so the buttons carry the same guard.
+- Read `docs/AGENTS/ui-shell.md`'s dismissal section before wiring Escape.
 
 ## Testing
 
 **Unit (vitest):**
 
-- `rowsForHeight` — exact at the boundaries (content that exactly fills `n` rows), clamping at both ends,
-  and a zero-content input.
-- Provenance — `resizeBlock` stamps only the moved axis; `reconcile` carries both flags;
-  `readArrangement` drops a non-`true` flag without rejecting the layout; Reset clears them.
-- The resize menu reports the rendered height, and choosing it stamps `hSet`.
-- The jsdom no-op — with every rect 0, every tile renders at its stored height.
-- The upgrade — removes `progress` from `board` and from `hidden`, is recorded, runs once, and is carried
-  by `DEFAULT_LAYOUT`.
-- The merged tile — each of 4, 5 and 6 cells renders the right cells in the right order; the ✕ appears
-  only when `outOfScope > 0`; the Complete card carries the caption as its hint.
-- C — Edit opens the editor in place, Save returns to the summary, the bottom instance is gone.
+- `rowsForHeight`: exact at the boundaries (content that exactly fills `n` rows), clamping at both
+  ends, a zero-content input, and a case that SHRINKS a tile below its current height.
+- Provenance: `resizeBlock` stamps only the axis it set; choosing the current value on an unflagged axis
+  stamps and returns a new object; the same value on a flagged axis returns the same reference;
+  `reconcile` carries a `true` flag, drops a non-`true` one, and keeps `hSet` through a clamp; Reset
+  clears them.
+- The three height readers (rendered height, menu value, announcement) all read the rendered height.
+- The jsdom no-op: with every rect 0, every tile renders at its stored height.
+- The upgrade steps: the progress step removes `progress` from `board` and from `hidden` and records
+  its id; on a layout without `progress` it returns the same object and records nothing; an
+  already-burn-upgraded layout still gets the progress removal; the burn step's existing tests are
+  unchanged.
+- The merged tile: 4, 5 and 6 cells each render the right cells in the right order; the Complete cell
+  keeps its bar and trend arrow and gains the count; its combined tooltip is suppressed in the
+  no-active-scope state; the ✕ appears only when `outOfScope > 0`.
+- C: the Add button renders when the narrative is empty; Edit and Add open the editor in place; Save
+  returns to the summary; focus moving to the toolbar keeps the editor open (the Bold test still
+  passes); focus leaving the region closes it; no Edit or Add button when read-only; the bottom
+  instance is gone.
 
 **e2e (Playwright), the only witness for A:**
 
-- A tile with no `hSet` renders at its measured height and its body has no inner scroll unless it is at
+- A tile with no `hSet` renders at its measured height, and its body has no inner scroll unless it is at
   `maxH`.
+- A tile measured SHORTER than its default renders shorter (this catches a `scrollHeight`-style
+  measurement that can only grow).
 - An explicitly resized tile keeps its height across a reload.
 - A density change re-measures.
 - Every assertion that depends on a measured height reads a measured value from the page, never a
-  number written into the spec — the measured-in-Chromium figures in this repo's docstrings have been
+  number written into the spec. The measured-in-Chromium figures in this repo's docstrings have been
   wrong before.
 
 ## Branch base
@@ -232,3 +370,13 @@ and in the e2e seed. If `fix/load-save-residuals` changes before it merges, this
 - Re-measuring on viewport resize or on content change.
 - Measurement on Reports.
 - Changing the row unit or the density model.
+
+## What revision 2 changed
+
+Revision 1 was approved before a read-only reconnaissance compared it with the code. That pass found 17
+mismatches, and they were not small. Revision 1 would have measured with `scrollHeight` (which can
+only grow a tile), left out the section border, assumed numeric row units that do not exist, placed a
+second upgrade after an early return that skips it, deleted the only way to write a first narrative,
+and closed the editor when its own toolbar took focus. Decision 8 was added because revision 1 quietly
+dropped the Dashboard's only completion-trend display. Every decision the user made in revision 1
+stands; what changed is how they are carried out.
