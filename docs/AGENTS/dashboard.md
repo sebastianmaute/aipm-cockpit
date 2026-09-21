@@ -176,10 +176,11 @@ press: the flag alone does not cover it, because a board that differs from the d
 or order has no flag to clear, and would otherwise keep every stale reading after Reset. A width change
 (the ⋮ menu) or a breakpoint change (resizing the window) is deliberately NOT a trigger — content height
 depends on width, so a tile widened or narrowed either way keeps its measured height until the NEXT
-TRIGGER of any kind, and may scroll inside itself until then. ★ That next trigger can be unrelated: a
-height picked for another tile, a hide or a restore re-measures EVERY unflagged tile, so a tile widened
-earlier in the session can change height then. That is the width ruling's accepted consequence, not a
-defect. ★ A trigger that fires while web fonts are still loading gets ONE more pass once
+TRIGGER of any kind, and may scroll inside itself until then. ★ That next trigger can be unrelated:
+another tile's FIRST height pick, a hide or a restore re-measures EVERY unflagged tile, so a tile
+widened earlier in the session can change height then. (A later pick on a tile whose flag is already
+set does not re-trigger — the key holds the flag, not the height, and the flag only flips once.) That
+is the width ruling's accepted consequence, not a defect. ★ A trigger that fires while web fonts are still loading gets ONE more pass once
 `document.fonts.ready` resolves: the landing view is measured on its first frame, which can come before
 the `next/font` swap re-wraps its text. Once the fonts are loaded no extra pass is scheduled, and a
 resolution after unmount or after a newer trigger schedules nothing. `rowsForHeight`

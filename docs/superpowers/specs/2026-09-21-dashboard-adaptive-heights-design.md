@@ -127,9 +127,11 @@ A hook owned by `dashboard-panel.tsx` measures once per trigger.
   user's choice of mount and density only. Content height depends on width, so a tile widened or
   narrowed this way keeps its measured height until the next trigger of any kind, and may scroll
   inside itself until then. (The implementation also re-measures when the set of rendered tiles
-  changes — a hide, a restore, a gate opening or closing — when a tile's `hSet` flag changes, and on
-  every Reset layout, through a reset nonce in the measure key; none of these is a width change. So a
-  widened tile is re-measured at the next such trigger even when that trigger concerns another tile.)
+  changes — a hide, a restore, a gate opening or closing — when a tile's `hSet` flag first flips from
+  absent to `true` (that tile's FIRST height pick; a later pick on an already-flagged tile leaves the
+  flag, and the measure key, unchanged), and on every Reset layout, through a reset nonce in the measure
+  key; none of these is a width change. So a widened tile is re-measured at the next such trigger even
+  when that trigger concerns another tile's first pick.)
 - **What is measured: the height of the body's CONTENT, never the body's `scrollHeight`.** The body is
   `min-h-0 flex-1 overflow-auto`. When content fits, its `scrollHeight` equals the box height, so a
   `scrollHeight` reading can grow a tile but never shrink it below the height it was rendered at. The

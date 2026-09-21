@@ -30,6 +30,36 @@ function Probe({
   );
 }
 
+/**
+ * Like {@link Probe}, but can render a second tile ("b") too. Used only by the font-frame race test
+ * below, which needs a fresh frame's tile set to differ from a stale one's.
+ */
+function TwoTileProbe({
+  onResult, tiles,
+}: {
+  onResult: (m: ReadonlyMap<string, number>) => void;
+  tiles: MeasuredTile[];
+}) {
+  const m = useMeasuredHeights({ density: "comfortable", tiles, resetNonce: 0 });
+  onResult(m);
+  return (
+    <div data-arrangement-grid="" style={{ gridAutoRows: "80px", rowGap: "16px" }}>
+      <section data-arrangement-section="" data-tile-id="a">
+        <div data-arrangement-body="" style={{ paddingTop: "8px", paddingBottom: "8px" }}>
+          <div data-child-a="" />
+        </div>
+      </section>
+      {tiles.some((t) => t.id === "b") && (
+        <section data-arrangement-section="" data-tile-id="b">
+          <div data-arrangement-body="" style={{ paddingTop: "8px", paddingBottom: "8px" }}>
+            <div data-child-b="" />
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
 const flushRaf = () => act(async () => { await new Promise((r) => requestAnimationFrame(() => r(null))); });
 
 /** A DOMRect-shaped reading with only the axes the hook reads. */
@@ -254,5 +284,70 @@ describe("useMeasuredHeights and web fonts", () => {
     const spy = vi.spyOn(window, "requestAnimationFrame");
     await act(async () => { d.resolve(); await d.ready; });
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  // ★ Minor-2 (fixwave-review): `cancelAnimationFrame(fontRaf)` in the cleanup stops an ALREADY-
+  //   SCHEDULED font frame (distinct from the `cancelled` flag, which only stops a resolution that
+  //   has not yet scheduled one). Without it, a font frame scheduled against a stale tile set can
+  //   still fire after a newer trigger's own frame and overwrite the fresh reading. This test drives
+  //   requestAnimationFrame under manual control so it can force exactly that ordering: the stale
+  //   font frame is scheduled first, a newer trigger (a second tile joining the board) supersedes it,
+  //   that newer trigger's OWN frame is run first, and only then is the stale frame attempted.
+  it("cancels a pending font frame that a newer trigger has superseded, so it cannot overwrite the fresh reading with a stale tile set", async () => {
+    const pending = new Map<number, FrameRequestCallback>();
+    let nextId = 0;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb: FrameRequestCallback) => {
+      const id = ++nextId;
+      pending.set(id, cb);
+      return id;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id: number) => { pending.delete(id); });
+    const run = (id: number): boolean => {
+      const cb = pending.get(id);
+      if (!cb) return false;
+      pending.delete(id);
+      act(() => { cb(0); });
+      return true;
+    };
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      if (this.hasAttribute("data-arrangement-section")) return rect(0, 176);
+      if (this.hasAttribute("data-child-a") || this.hasAttribute("data-child-b")) return rect(0, CHILD);
+      return rect(0, 0);
+    });
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute("data-arrangement-body") ? 137 : 0;
+    });
+
+    const d = deferred();
+    setFonts({ status: "loading", ready: d.ready });
+    let last: ReadonlyMap<string, number> = new Map();
+    const onResult = (m: ReadonlyMap<string, number>) => { last = m; };
+    const { rerender } = render(<TwoTileProbe onResult={onResult} tiles={[TILE_A]} />);
+
+    // Mount's own frame (id 1), against the one-tile board.
+    expect(run(1)).toBe(true);
+    expect(last.has("b")).toBe(false);
+
+    // Fonts resolve: schedules a font frame (id 2) closed over the MOUNT tile set. Left un-run.
+    await act(async () => { d.resolve(); await d.ready; });
+
+    // Fonts are now loaded, so the NEWER trigger's own effect will not schedule a second font pass.
+    setFonts({ status: "loaded", ready: Promise.resolve() });
+
+    // The newer trigger: a second tile joins the board. Its cleanup must cancel the pending font
+    // frame (id 2); its own effect schedules a fresh one (id 3).
+    const TILE_B: MeasuredTile = { id: "b", minH: 2, maxH: 4, flagged: false };
+    rerender(<TwoTileProbe onResult={onResult} tiles={[TILE_A, TILE_B]} />);
+
+    // The fresh frame wins the race, as it would in the browser when it runs first.
+    expect(run(3)).toBe(true);
+    expect(last.has("b")).toBe(true);
+
+    // The stale font frame must already be cancelled — not merely late. Attempting to run it must do
+    // nothing: it must not still be pending, and it must not overwrite the fresh two-tile reading
+    // with the mount closure's one-tile reading. Remove `cancelAnimationFrame(fontRaf)` from the
+    // cleanup and `run(2)` succeeds, dropping "b" from `last`.
+    expect(run(2)).toBe(false);
+    expect(last.has("b")).toBe(true);
   });
 });
