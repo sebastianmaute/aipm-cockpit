@@ -9,6 +9,7 @@ import { t } from "./i18n";
 import { selectFieldTier } from "../test/field-tier";
 import { expectNoLabelBoundToButton } from "../test/label-binding";
 import { expectExactLabelNames, expectNoHintInNamingLabel } from "../test/hint-label";
+import { BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import type { Stakeholder, Milestone, Resource } from "./types";
 
 // Mock M365 hooks consumed by KnowledgeLinksFieldGated — default: SharePoint off.
@@ -464,5 +465,43 @@ describe("StakeholderEditModal — field visibility", () => {
         .getAllByRole("combobox")
         .some((el) => el.getAttribute("aria-describedby") === "stakeholder-name-counter"),
     ).toBe(true);
+  });
+});
+
+describe("§541: Enter-submit applies the same normalization as blur", () => {
+  const submit = () => fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+
+  it.each([
+    ["name", BUDGET_NAME_MAX],
+    ["organization", BUDGET_NAME_MAX],
+    ["title", BUDGET_NAME_MAX],
+    ["notes", TEXTAREA_MAX],
+  ] as const)("caps %s on submit without a blur", (field, max) => {
+    const p = setup({ draft: { ...draft, [field]: "x".repeat(max + 50) } });
+    const onSave = p.onSave as ReturnType<typeof vi.fn>;
+    submit();
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0][field]).toHaveLength(max);
+  });
+
+  // Presence half: a value under the cap arrives unchanged, so the normalizer is not simply
+  // blanking fields.
+  it.each(["organization", "title", "notes"] as const)("passes an under-cap %s through", (field) => {
+    const p = setup({ draft: { ...draft, [field]: "Head of PMO" } });
+    const onSave = p.onSave as ReturnType<typeof vi.fn>;
+    submit();
+    expect(onSave.mock.calls[0][0][field]).toBe("Head of PMO");
+  });
+
+  // Blur and submit must agree on TRIMMING too, not only on length: short fields trim, notes
+  // (multiline) do not.
+  it("trims organization and title but not notes, as blur does", () => {
+    const p = setup({ draft: { ...draft, organization: "  Acme  ", title: "  CFO  ", notes: "  line  " } });
+    const onSave = p.onSave as ReturnType<typeof vi.fn>;
+    submit();
+    const saved = onSave.mock.calls[0][0];
+    expect(saved.organization).toBe("Acme");
+    expect(saved.title).toBe("CFO");
+    expect(saved.notes).toBe("  line  ");
   });
 });

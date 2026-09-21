@@ -763,7 +763,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§538](#538-single-db-turso-never-persists-project-meta--open) | Single-DB Turso never persists project meta — OPEN | found 2026-09-14 while filing §537; GitLab #328 | M — a single-tenant project meta row/table (or reuse of the tenant `projects` table), `dirtyWorkspaceTables` taught about project-only edits, and a `turso-migrate.ts` self-heal entry | open |
 | [§539](#539-sanitizeisodate-accepts-dates-that-are-not-real-calendar-dates--closed-2026-09-14) | `sanitizeIsoDate` accepts dates that are not real calendar dates — CLOSED 2026-09-14 | reported 2026-09-14 by a peer session's §273 work; user approved "file and fix" in the email-guard batch; GitLab #329 | S — a month/day calendar check in one function plus test migration across ~30 referencing files | **CLOSED** 2026-09-14 |
 | [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--closed-2026-09-20) | A repeated resource deep link re-runs the open while that resource's editor is open — CLOSED 2026-09-20 | found 2026-09-14 by the fix-round reviews of §362 on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | **CLOSED** 2026-09-20 |
-| [§541](#541-the-stakeholder-editor-saves-its-text-fields-uncapped-when-submitted-with-enter--open) | The stakeholder editor saves its text fields uncapped when submitted with Enter — OPEN | found 2026-09-14 by the email-guard batch's Task 3 review; user approved filing; GitLab #331 | S — cap each field in `handleSubmit` before `onSave`, or sanitise in `handleSaveStakeholder` | open |
+| [§541](#541-the-stakeholder-editor-saves-its-text-fields-uncapped-when-submitted-with-enter--closed-2026-09-21) | The stakeholder editor saves its text fields uncapped when submitted with Enter — CLOSED 2026-09-21 | found 2026-09-14 by the email-guard batch's Task 3 review; user approved filing; GitLab #331 | S — cap each field in `handleSubmit` before `onSave`, or sanitise in `handleSaveStakeholder` | closed |
 | [§542](#542-the-calendar-event-writer-accepts-a-day-past-its-months-end-and-rolls-it-over--closed-2026-09-21) | The calendar event writer accepts a day past its month's end and rolls it over — CLOSED 2026-09-21 | found 2026-09-14 by the whole-branch and cold reviews of `fix/email-and-guard-batch`; user approved filing; GitLab #332 | S — replace the `Date.parse` leg with a calendar round trip (as `sanitizeIsoDate` does since §539) | closed |
 | [§543](#543-a-dated-timelog-apply-leaves-a-period-key-of-the-other-granularity-in-place-so-switching-back-counts-those-hours-twice--closed-2026-09-15) | A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — CLOSED 2026-09-15 | found 2026-09-15 by the final whole-branch review of `feat/budget-forecast-union` | S — let a dated Apply also remove other-granularity period keys that overlap its covered days | **CLOSED** 2026-09-15 |
 | [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--closed-2026-09-21) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — CLOSED 2026-09-21 | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union` | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | closed |
@@ -38374,14 +38374,28 @@ statically mounted directory. The residual test named above must then be inverte
 
 Related: §362.
 
-## 541. The stakeholder editor saves its text fields uncapped when submitted with Enter — OPEN
+## 541. The stakeholder editor saves its text fields uncapped when submitted with Enter — CLOSED 2026-09-21
 
-**Status:** OPEN 2026-09-14, narrowed 2026-09-15 — read from the code, not watched in a browser. Checked with
-`grep -n "adj.track\|onSave(" src/app/stakeholder-edit-modal.tsx` (the caps are tracked, then `onSave(...)` runs
-with only the email replaced by its judged value) and
-`grep -n "sanitizeStakeholder\|describeTextCap" src/app/use-stakeholders.ts` (no hits).
-
-**Work item:** #331
+**Status:** CLOSED 2026-09-21 on `fix/backlog-sweep`. `normalizeStakeholderName` / `normalizeStakeholderShortText` /
+`normalizeStakeholderNotes` (`stakeholder-edit-modal.tsx`) are each called from BOTH the field's `onBlur` and
+`handleSubmit`, so an Enter-submit without a blur now caps and trims exactly as blur did. Pinned by
+`stakeholder-edit-modal.test.tsx`'s "§541: Enter-submit applies the same normalization as blur" — four
+`it.each` cap cases, an under-cap passthrough case, and a trim case (organization/title trim, notes does not).
+Five mutants, each run alone with a written prediction, all matched: (1) raw `draft.name` in `handleSubmit` →
+predicted/actual: only the name cap case red (250≠200); (2) raw `draft.organization` → predicted/actual: the
+organization cap case AND the trim case both red (250≠200, then `"  Acme  "`≠`"Acme"`); (3) raw `draft.title` →
+predicted/actual: the title cap case AND the trim case both red, same shape as (2); (4) raw `draft.notes` →
+predicted/actual: only the notes cap case red (5050≠5000); (5) `normalizeStakeholderShortText` swapped in for
+`normalizeStakeholderNotes` on notes → predicted/actual: the notes cap case red for the WRONG limit (200 instead
+of 5000, since short-text caps at `BUDGET_NAME_MAX`) AND the trim case red (`"line"`≠`"  line  "`, since
+short-text trims and notes must not). `git diff --stat` was confirmed clean after each restore.
+Departure from the entry's fix-shape line: the entry proposed capping directly in `handleSubmit`; the shipped
+fix instead factors each field's cap (and, where applicable, trim) into a single named normalizer shared with
+that field's `onBlur` handler, so the two paths cannot drift apart on trimming as they could if `handleSubmit`
+capped independently. Caveat: `name`'s `<input>`/`ResourcePicker` already carried a native `maxLength={BUDGET_NAME_MAX}`,
+so only `organization`, `title` and `notes` lacked any DOM-level cap before this fix — `name` was already capped
+by the browser on ordinary typing, and this fix closes only the Enter-without-blur gap that a native `maxLength`
+does not cover for any of the four fields (a paste, or a value set programmatically, bypasses `maxLength` too).
 
 `StakeholderEditModal` caps `name`, `organization` and `title` at `BUDGET_NAME_MAX` (200) only in each field's
 `onBlur`. `handleSubmit` runs `describeTextCap` on name, organization, title, email and notes (`TEXTAREA_MAX`),
