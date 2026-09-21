@@ -1,8 +1,9 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, it, test } from "vitest";
 import {
   sanitizeBudgetBucket,
   sanitizeLoadedBudgetBucket,
   sanitizeFxRates,
+  sanitizeLoadedFxRates,
   sanitizePlan,
   encodeAllocations,
   decodeAllocations,
@@ -275,6 +276,24 @@ describe("sanitizeFxRates", () => {
   test("rejects non-EUR base / missing date", () => {
     expect(sanitizeFxRates({ base: "USD", date: "2026-05-26", fetchedAt: "x", rates: {} })).toBeNull();
     expect(sanitizeFxRates({ base: "EUR", date: "", fetchedAt: "x", rates: {} })).toBeNull();
+  });
+});
+
+describe("§576: FX rate key order is stable across decodes", () => {
+  const input = { base: "EUR", date: "2026-09-01", fetchedAt: "2026-09-01T12:00:00Z", rates: { USD: 1.1, GBP: 0.85 } };
+  // ★ toEqual ignores key order, which is how three suites missed this. Compare Object.keys.
+  it.each([["strict", sanitizeFxRates], ["load", sanitizeLoadedFxRates]] as const)(
+    "gives the same key order on a first and a second decode (%s)", (_label, decode) => {
+      const first = decode(input);
+      expect(first).not.toBeNull(); // presence: a null decode would make the comparison vacuous
+      const second = decode(JSON.parse(JSON.stringify(first)));
+      expect(Object.keys(first!.rates)).toEqual(["EUR", "USD", "GBP"]);
+      expect(Object.keys(second!.rates)).toEqual(Object.keys(first!.rates));
+    },
+  );
+  it("still gives a missing currency no key", () => {
+    const out = sanitizeFxRates({ ...input, rates: { USD: 1.1 } });
+    expect(Object.keys(out!.rates)).toEqual(["EUR", "USD"]);
   });
 });
 

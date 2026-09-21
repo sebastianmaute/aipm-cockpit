@@ -798,7 +798,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§573](#573-the-open-points-visual-baseline-is-stale--closed-2026-09-19) | The Open Points visual baseline is stale | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | **CLOSED** 2026-09-19 |
 | [§574](#574-load-project-from-file-throws-in-firefoxsafari-and-blames-settings-instead-of-the-browser--open) | "Load project from file" throws in Firefox/Safari and blames Settings instead of the browser — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #359 | S — gate the CTA behind `isFileSystemAccessSupported()`, or have `reportProjectError` emit the specific message | open |
 | [§575](#575-ai-assistant-chat-history-re-sends-every-earlier-turns-attachments-so-a-long-thread-can-exceed-the-messages-apis-32-mb-request-limit--open) | AI Assistant chat history re-sends every earlier turn's attachments, so a long thread can exceed the Messages API's 32 MB request limit — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #360 | M — drop/summarize older attachment blocks before send, or track running payload bytes | open |
-| [§576](#576-sanitizefxrates-reorders-its-rates-object-on-a-second-decode-so-an-fx-snapshot-is-not-byte-stable-through-a-json-round-trip--open) | sanitizeFxRates reorders its rates object on a second decode, so an FX snapshot is not byte-stable through a JSON round-trip — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), found + verified during Task 9; GitLab #361 | S — iterate `SUPPORTED_CURRENCIES` unconditionally instead of conditionally inserting present keys | open |
+| [§576](#576-sanitizefxrates-reorders-its-rates-object-on-a-second-decode-so-an-fx-snapshot-is-not-byte-stable-through-a-json-round-trip--closed-2026-09-21) | sanitizeFxRates reorders its rates object on a second decode, so an FX snapshot is not byte-stable through a JSON round-trip — CLOSED 2026-09-21 | json-import-multi-attach-demo-refresh (2026-09-18), found + verified during Task 9; GitLab #361 | S — iterate `SUPPORTED_CURRENCIES` unconditionally instead of conditionally inserting present keys | closed |
 | [§577](#577-the-budgetvariance-insight-compares-full-window-budget-against-to-date-actuals-so-open-buckets-with-future-months-are-flagged-and-an-unstarted-bucket-can-read-100-and-win-worst--closed-2026-09-19) | The budgetVariance insight compares full-window budget against to-date actuals, so open buckets with future months are flagged and an unstarted bucket can read 100% and win "worst" | json-import-multi-attach-demo-refresh (2026-09-18), found + verified against sample-workspace-small.json during Task 9; GitLab #362 | M — scope budgetHours to periods to-date, and/or exclude unstarted buckets from "worst" | **CLOSED** 2026-09-19 |
 | [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open) | Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN | audit (2026-09) | M | open |
 | [§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--open) | An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap — OPEN | audit (2026-09) | S | open |
@@ -39679,14 +39679,32 @@ building the outgoing `messages` array (mirroring what `stripAttachmentsForPersi
 storage, but applied to the wire path too), or track running payload bytes across `history` and
 warn/block before a send would exceed budget.
 
-## 576. sanitizeFxRates reorders its rates object on a second decode, so an FX snapshot is not byte-stable through a JSON round-trip — OPEN
+## 576. sanitizeFxRates reorders its rates object on a second decode, so an FX snapshot is not byte-stable through a JSON round-trip — CLOSED 2026-09-21
 
-**Status:** OPEN 2026-09-18 — reproduced with `npx vite-node` against a throwaway script (not
-committed); byte-stability impact confirmed as observed, not merely theoretical, by Task 7 of this same
-plan, whose golden-workspace round-trip fixture broke until the sample master's FX rates listed EUR
-first. Verified by code reading: `grep -n "SUPPORTED_CURRENCIES" src/app/sanitize-entities.ts src/app/types.ts`.
-
-**Work item:** #361
+**Status:** CLOSED 2026-09-21 — branch `fix/backlog-sweep`. Fixed in `fxRatesWithDateReader`
+(`sanitize-entities.ts`, backing both `sanitizeFxRates` and `sanitizeLoadedFxRates`): the loop over
+`SUPPORTED_CURRENCIES` now assigns `rates.EUR = 1` AT EUR's OWN ARRAY POSITION, unconditionally, in
+the same pass as every other currency, instead of patching it in after the loop. Key order is now a
+function of `SUPPORTED_CURRENCIES` alone, never of whether the input happened to already carry an
+`EUR` key. **Correction to this entry's own causal story:** the instability was never about EUR's
+*position* in the loop — it was about EUR's *presence* in the input. The original code already
+placed EUR first whenever the input carried an EUR key (as every re-decode of the sanitizer's own
+output does); the bug only showed on a *first* decode of an EUR-less input, e.g. a raw ECB fetch. No
+sample-data or golden-fixture change was needed: `sample-workspace-small.json`'s FX block already
+carries EUR (a Task 7 workaround, noted in this entry before the fix), so it was never exercising the
+missing-EUR path this fix corrects. §597's regenerate-and-diff ratchet is not blocked by this on
+current data.
+Test: `sanitize-budget.test.ts` — `describe("§576: FX rate key order is stable across decodes")`, new
+(3 tests: strict + load decode-key-order parity, missing-currency-still-no-key). Reproduce:
+```
+npx vitest run src/app/sanitize-budget.test.ts src/app/golden-workspace.test.ts src/app/sanitize-branches.test.ts src/app/sanitize-load-date.test.ts --maxWorkers=1 --reporter=dot
+git diff --stat -- src/app/__fixtures__/ sample-workspace-small.json   # empty
+```
+Mutant 9a (restore the post-loop `rates.EUR = 1` and skip EUR in the loop, i.e. the original code):
+predicted RED on the key-order assertions — actual RED, same 3 failures
+(`['USD','GBP','EUR']` vs `['EUR','USD','GBP']`), match.
+Departure from this entry's own fix-shape line: none — "iterate `SUPPORTED_CURRENCIES`
+unconditionally instead of conditionally inserting present keys" is exactly what shipped.
 
 `sanitize-entities.ts`'s `fxRatesWithDateReader` (backing both `sanitizeFxRates` and
 `sanitizeLoadedFxRates`) builds the `rates` record by iterating `SUPPORTED_CURRENCIES` (declared as
