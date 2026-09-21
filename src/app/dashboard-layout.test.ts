@@ -185,6 +185,10 @@ describe("reconcile", () => {
   });
 
   it("returns the default layout for null", () => {
-    expect(reconcile(null).board.length).toBe(DASHBOARD_TILES.length);
+    // Every tile is on the board or in the tray; a fresh board hides only
+    // Completion trend (DEFAULT_LAYOUT), so the two together cover the catalogue.
+    const l = reconcile(null);
+    expect(l.board.length + l.hidden.length).toBe(DASHBOARD_TILES.length);
+    expect(l.hidden).toEqual(["completionTrend"]);
   });
 });

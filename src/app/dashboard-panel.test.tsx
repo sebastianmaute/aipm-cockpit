@@ -14,6 +14,8 @@ import type { SnapshotRecord } from "./snapshot";
 import type { BudgetHistoryEntry } from "./budget-history";
 import type { BudgetBucket, RaidItem, Milestone, ChangeItem } from "./types";
 import { expectButtonOrder } from "../test/toolbar-order";
+import { saveLayout } from "./dashboard-layout-store";
+import { DEFAULT_LAYOUT } from "./dashboard-layout";
 import { rateMixTileChipText, rateMixWhyName } from "./budget-rate-mix-text";
 import { BUNDLE_HOURS_WORSE, HOURS_FORECAST_HOURS_WORSE, MIX_HOURS_WORSE } from "../test/forecast-fixtures";
 
@@ -743,11 +745,37 @@ describe("DashboardPanel completion-trend card", () => {
     holidaySet: new Set<string>(), workdayHours: 8, today: "2026-06-21",
   };
 
+  // ★ Completion trend is HIDDEN on a fresh board (`DEFAULT_LAYOUT`), so the
+  //   tests below that are about its CONTENT store a board that shows it —
+  //   otherwise the two "hides" tests would pass on a tile that was never going
+  //   to render, whatever its gate did.
+  const withTrendOnBoard = (projectId: string) =>
+    saveLayout(projectId, {
+      ...DEFAULT_LAYOUT,
+      board: [...DEFAULT_LAYOUT.board, { id: "completionTrend", w: 2, h: 2 }],
+      hidden: [],
+    });
+  const TWO_POINTS = [snapRec("2026-06-10T00:00:00.000Z", 20), snapRec("2026-06-14T00:00:00.000Z", 55)];
+
+  it("starts hidden on a fresh board, restorable from the tray, with a tooltip saying what it shows", async () => {
+    const user = userEvent.setup();
+    render(<DashboardPanel {...baseProps} projectId="p-trend-default" snapshots={TWO_POINTS} />, { wrapper });
+    expect(screen.queryByTestId("tile-completionTrend")).toBeNull();
+    // It has data, so it is offered in the tray rather than silently dropped.
+    await user.click(screen.getByRole("button", { name: tPlural(EN, "dashboardHiddenTilesBadge", 1, 1) }));
+    await user.click(screen.getByRole("button", { name: `${t(EN, "arrangementTileRestore")} – Completion trend` }));
+    const tile = screen.getByTestId("tile-completionTrend");
+    // Hardcoded, not t(...): t echoes an unknown key.
+    expect(within(tile).getByRole("button", { name: /^Share of tasks complete on each day/ })).toBeInTheDocument();
+  });
+
   it("shows the trend card when snapshots yield >= 2 points", () => {
+    withTrendOnBoard("p-trend-shows");
     const { container } = render(
       <DashboardPanel
         {...baseProps}
-        snapshots={[snapRec("2026-06-10T00:00:00.000Z", 20), snapRec("2026-06-14T00:00:00.000Z", 55)]}
+        projectId="p-trend-shows"
+        snapshots={TWO_POINTS}
       />,
       { wrapper },
     );
@@ -759,7 +787,8 @@ describe("DashboardPanel completion-trend card", () => {
   });
 
   it("hides the trend card when there is no series", () => {
-    render(<DashboardPanel {...baseProps} snapshots={[]} />, { wrapper });
+    withTrendOnBoard("p-trend-none");
+    render(<DashboardPanel {...baseProps} projectId="p-trend-none" snapshots={[]} />, { wrapper });
     expect(screen.queryByText("Completion trend")).toBeNull();
   });
 
@@ -777,7 +806,8 @@ describe("DashboardPanel completion-trend card", () => {
       priority: "Medium" as const, blockers: "", description: "",
     }));
     const snapshots = [snapRec("2026-06-10T00:00:00.000Z", 20), snapRec("2026-06-14T00:00:00.000Z", 55)];
-    render(<DashboardPanel {...baseProps} tasks={cancelled} snapshots={snapshots} />, { wrapper });
+    withTrendOnBoard("p-trend-cancelled");
+    render(<DashboardPanel {...baseProps} projectId="p-trend-cancelled" tasks={cancelled} snapshots={snapshots} />, { wrapper });
     // One, for the same reason as the paired assertion further down this file:
     // At a glance is the only card that carries the state since Progress merged
     // into it. The positive count also keeps the trend-card absence below from

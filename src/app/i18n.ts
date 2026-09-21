@@ -1146,6 +1146,7 @@ const enUS = {
   dashboardCompletionTrend: "Completion trend",
   dashboardCompletionTrendPoints: "{0} points",
   dashboardCompletionTrendAria: "Completion trend: {0}% now, from {1}% over {2} points",
+  dashboardCompletionTrendHint: "Share of tasks complete on each day that had task activity, over the last 12 such days. Taken from saved snapshots when there are two or more; otherwise rebuilt from the activity log and task completion dates, so older points can read low if tasks were later deleted or reopened. The last point is today's figure.",
   dashboardKpiStrip: "At a glance",
   dashboardKpiComplete: "Complete",
   dashboardKpiOverdue: "Overdue",

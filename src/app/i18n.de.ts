@@ -1048,6 +1048,7 @@ export const de: Record<TranslationKey, string> = {
   dashboardCompletionTrend: "Fertigstellungstrend",
   dashboardCompletionTrendPoints: "{0} Punkte",
   dashboardCompletionTrendAria: "Fertigstellungstrend: {0}% jetzt, von {1}% über {2} Punkte",
+  dashboardCompletionTrendHint: "Anteil der erledigten Aufgaben an jedem Tag mit Aufgabenaktivität, über die letzten 12 solcher Tage. Aus gespeicherten Snapshots, wenn mindestens zwei vorhanden sind; sonst aus dem Aktivitätsprotokoll und den Erledigungsdaten rekonstruiert – ältere Punkte können daher zu niedrig ausfallen, wenn Aufgaben später gelöscht oder wieder geöffnet wurden. Der letzte Punkt ist der heutige Wert.",
   dashboardKpiStrip: "Auf einen Blick",
   dashboardKpiComplete: "Fertig",
   dashboardKpiOverdue: "Überfällig",

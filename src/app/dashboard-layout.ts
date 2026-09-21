@@ -42,8 +42,16 @@ export const DASHBOARD_PROGRESS_REMOVAL_UPGRADE = "dashboard-progress-into-kpi";
 // layout both persist THIS object; without the id they would be upgraded again
 // on the next load, dragging burn back to the front of a board the user has
 // since rearranged. Still ONE module-level instance (see above).
+// ★ Completion trend starts in the hidden tray: its line is reconstructed from
+// the activity log and easy to misread, so it is opt-in (its header tooltip says
+// what it shows). This is the DEFAULT only — a fresh or reset board. A stored
+// layout keeps the tile wherever the user left it; there is no upgrade step.
+const DEFAULT_HIDDEN: readonly DashboardTileId[] = ["completionTrend"];
+const catalogueDefault = defaultLayout(DASHBOARD_TILES);
 export const DEFAULT_LAYOUT: DashboardLayout = {
-  ...defaultLayout(DASHBOARD_TILES),
+  ...catalogueDefault,
+  board: catalogueDefault.board.filter((p) => !DEFAULT_HIDDEN.includes(p.id)),
+  hidden: [...DEFAULT_HIDDEN],
   upgrades: [DASHBOARD_BURN_UPGRADE],
 };
 

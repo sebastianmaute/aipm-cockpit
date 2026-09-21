@@ -80,6 +80,12 @@ already has an earlier id. Two steps today, run in this order:
     for good — measured: skipping the step fails `use-dashboard-layout.test.tsx`'s "drops a stored progress
     tile…" on the STORED board, while removing only the two filter lines leaves it green.
 Nothing else is touched by either step.
+★ `DEFAULT_LAYOUT` HIDES `completionTrend` (it starts in the tray): its line is reconstructed from the activity
+log and easy to misread, so it is opt-in, and its header carries a `hintKey` tooltip (`dashboardCompletionTrendHint`)
+saying what it shows — rendered by `ArrangementTile`'s optional `hint`, in the HEADER because a tile body is often
+one big button and a tooltip trigger nested in it is an axe nested-interactive failure. DEFAULT only: a stored layout
+keeps the tile where the user left it (no upgrade step), and the tray offers it only while it has data (`shelfHidden`
+filters on `isRenderable`), so a project with a series shows "1 hidden tile" on a fresh board.
 ★★★ `DEFAULT_LAYOUT` already carries the burn id and must — a fresh or reset board is persisted from it,
 and without the id its next load would drag burn back to the front. `readArrangement` sanitises the list
 (junk is dropped, never a rejection) and `reconcile` carries it. ★ An older build's `reconcile` drops the

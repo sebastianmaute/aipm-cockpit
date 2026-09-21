@@ -709,6 +709,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 key={p.id}
                 id={p.id}
                 title={t(lang, spec.labelKey)}
+                hint={spec.hintKey ? t(lang, spec.hintKey) : undefined}
                 w={p.w}
                 h={renderedH(p)}
                 lang={lang}

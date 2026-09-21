@@ -25,7 +25,8 @@ describe("useDashboardLayout", () => {
   it("starts from the default layout when nothing is stored", () => {
     render(<Harness />);
     expect(screen.getByTestId("order").textContent).toContain("kpi");
-    expect(screen.getByTestId("hidden").textContent).toBe("");
+    // A fresh board hides only Completion trend (DEFAULT_LAYOUT).
+    expect(screen.getByTestId("hidden").textContent).toBe("completionTrend");
   });
 
   it("reconciles a stored layout on load", () => {
@@ -62,13 +63,14 @@ describe("useDashboardLayout", () => {
     expect(loadLayout("p1")).toBeNull();
   });
 
-  it("reset restores the default and clears hidden", async () => {
+  it("reset restores the default and clears what the user hid", async () => {
     vi.useFakeTimers();
     render(<Harness />);
     act(() => { screen.getByText("hide").click(); });
+    expect(screen.getByTestId("hidden").textContent).toBe("completionTrend,raid");   // positive control
     act(() => { screen.getByText("reset").click(); });
     await act(async () => { vi.advanceTimersByTime(1000); });
-    expect(screen.getByTestId("hidden").textContent).toBe("");
+    expect(screen.getByTestId("hidden").textContent).toBe("completionTrend");
   });
 });
 
@@ -84,7 +86,7 @@ describe("useDashboardLayout across a project switch", () => {
   it("re-reads the layout when projectId changes", async () => {
     saveLayout("p2", { v: 1, board: [{ id: "changes", w: 2, h: 2 }], hidden: ["upcoming"] });
     const { rerender } = render(<Harness projectId="p1" />);
-    expect(screen.getByTestId("hidden").textContent).toBe("");
+    expect(screen.getByTestId("hidden").textContent).toBe("completionTrend");   // p1: nothing stored, the default
 
     rerender(<Harness projectId="p2" />);
     expect(screen.getByTestId("hidden").textContent).toBe("upcoming");

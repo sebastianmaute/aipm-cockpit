@@ -86,6 +86,9 @@ export interface TileSpec {
    * to BOTH dicts first, or `tsc` is telling you the tile has no title.
    */
   labelKey: TranslationKey;
+  /** Optional i18n key for an info tooltip beside the title, saying what the
+   *  tile shows. Same KEY-not-string rule as `labelKey`. */
+  hintKey?: TranslationKey;
   w: TileWidth;
   h: TileHeight;
   minW: TileWidth;
@@ -122,7 +125,7 @@ export const DASHBOARD_TILES: readonly TileSpec[] = [
   { id: "trends",          labelKey: "dashboardTrends",         w: 1, h: 2, minW: 1, maxW: 2, minH: 2, maxH: 3, gate: (g) => g.tursoActive },
   { id: "milestones",      labelKey: "dashboardMilestones",     w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.showMilestones },
   { id: "changes",         labelKey: "dashboardChangesHeading", w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.showChanges },
-  { id: "completionTrend", labelKey: "dashboardCompletionTrend", w: 2, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.hasCompletionTrend },
+  { id: "completionTrend", labelKey: "dashboardCompletionTrend", hintKey: "dashboardCompletionTrendHint", w: 2, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.hasCompletionTrend },
 ];
 
 /** ★ DELEGATES to the engine's `specById` rather than re-implementing the find.
