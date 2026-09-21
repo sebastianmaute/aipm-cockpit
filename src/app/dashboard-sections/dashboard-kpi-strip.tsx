@@ -93,7 +93,9 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
           label={noActiveScope ? t(lang, "dashboardNoActiveScope") : t(lang, "dashboardKpiComplete")}
           // Dropped with the bar and the trend: the hint explains how a
           // percentage is computed, and in this state the tile shows none.
-          hint={noActiveScope ? undefined : t(lang, "dashboardCompleteHint")}
+          // Without trends (Reports) the hint drops its "trending up is good" sentence:
+          // there is no trend on screen for it to describe.
+          hint={noActiveScope ? undefined : t(lang, trends ? "dashboardCompleteHint" : "dashboardCompleteHintNoTrend")}
           value={noActiveScope
             ? t(lang, "dashboardAllCancelled", String(model.progress.total))
             : `${model.progress.percent}%`}

@@ -79,11 +79,9 @@ describe("cancelled bucket", () => {
 
     expect(s.total).toBe(2);
     expect(s.open).toBe(1);
-    expect(s.completed).toBe(0);
-    expect(s.cancelled).toBe(1);
     // Only the To Do task is overdue — a cancelled task is closed, so it is
-    // never chased.
-    expect(s.overdue).toBe(1);
+    // never chased. (Pinned per row: the panel-level totals left with the
+    // Headline block.)
     expect(s.byAssignee[0]).toMatchObject({ open: 1, completed: 0, cancelled: 1, overdue: 1 });
     expect(s.byGroup[0]).toMatchObject({ open: 1, completed: 0, cancelled: 1, overdue: 1 });
   });

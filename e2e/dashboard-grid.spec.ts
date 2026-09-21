@@ -623,6 +623,45 @@ for (const density of ["comfortable", "compact"] as const) {
 }
 
 /**
+ * ★★ The six-cell strip goes to one row from `@[51rem]` (816px) — it was
+ * `@4xl` (896px) until Reports' full-width block needed it. The fit tests above
+ * only reach a HALF-width tile, so nothing else puts a strip into the new
+ * 816–896px band. This does, with a full-width `kpi` at the same viewport, and
+ * guards that it really landed in the band before reading anything.
+ */
+test("a full-width six-cell KPI strip in the 816–896px band sits on one row and fits", async ({ page }) => {
+  await seedEvm(page, true);
+  await seedLayout(page, { v: 1, board: [{ id: "kpi", w: 4, h: 2, wSet: true }], hidden: [], upgrades: [DASHBOARD_BURN_UPGRADE] });
+  await page.setViewportSize({ width: KPI_FIT_VW, height: 1000 });
+  await gotoApp(page);
+  await openView(page, "Dashboard");
+  const tile = page.getByTestId("tile-kpi");
+  await expect(tile.getByText("Effort CPI")).toBeVisible();
+
+  const fit = await tile.evaluate((section) => {
+    const body = section.lastElementChild as HTMLElement;
+    const wrapper = body.querySelector('[class*="@container"]') as HTMLElement;
+    const strip = wrapper.firstElementChild as HTMLElement;
+    const cs = getComputedStyle(wrapper);
+    return {
+      count: strip.children.length,
+      containerWidth: wrapper.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
+      rows: new Set([...strip.children].map((c) => Math.round(c.getBoundingClientRect().top))).size,
+      cellRights: [...strip.children].map((c) => c.getBoundingClientRect().right),
+      stripRight: strip.getBoundingClientRect().right,
+      scrollHeight: body.scrollHeight,
+      clientHeight: body.clientHeight,
+    };
+  });
+  expect(fit.count).toBe(6);
+  expect(fit.containerWidth, "container must sit in the new band").toBeGreaterThanOrEqual(816);
+  expect(fit.containerWidth, "container must sit in the new band").toBeLessThan(896);
+  expect(fit.rows).toBe(1);
+  for (const r of fit.cellRights) expect(r).toBeLessThanOrEqual(fit.stripRight + 0.5);
+  expect(fit.scrollHeight).toBeLessThanOrEqual(fit.clientHeight);
+});
+
+/**
  * Dense packing, measured rather than asserted as a class.
  *
  * ★★ `grid-auto-flow: row dense` is what makes ORDER the entire placement model

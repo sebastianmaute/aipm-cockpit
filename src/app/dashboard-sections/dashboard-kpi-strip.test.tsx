@@ -209,6 +209,13 @@ describe("DashboardKpiStrip — merged Progress cells", () => {
     expect(screen.getByRole("button", { name: t("en-US", "dashboardCompleteHint") })).toBeInTheDocument();
   });
 
+  // Reports renders the strip with no trends, so its tooltip must not describe one.
+  it("drops the trend sentence from the Complete tooltip when no trends are passed", () => {
+    render(<DashboardKpiStrip lang="en-US" model={modelFor(MIXED)} dc={densityClasses("comfortable")} />);
+    expect(screen.getByRole("button", { name: t("en-US", "dashboardCompleteHintNoTrend") })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: t("en-US", "dashboardCompleteHint") })).toBeNull();
+  });
+
   it("drops the Complete tooltip and the count in the no-active-scope state", () => {
     render(<DashboardKpiStrip lang="en-US" model={modelFor([taskFixture(1, "Cancelled")])} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
     expect(screen.getByText(t("en-US", "dashboardNoActiveScope"))).toBeInTheDocument();   // positive control

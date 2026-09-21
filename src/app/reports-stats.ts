@@ -19,9 +19,6 @@ export type GroupOrLabelRow = {
 export type Stats = {
   total: number;
   open: number;
-  completed: number;
-  cancelled: number; // closed without being delivered — neither open nor completed
-  overdue: number; // open and past due
   completedOnTime: number; // completedDate <= dueDate
   completedLate: number; // completedDate > dueDate
   inquiriesTotal: number;
@@ -57,9 +54,6 @@ export function computeStats(
   const stats: Stats = {
     total: tasks.length,
     open: 0,
-    completed: 0,
-    cancelled: 0,
-    overdue: 0,
     completedOnTime: 0,
     completedLate: 0,
     inquiriesTotal: 0,
@@ -125,17 +119,13 @@ export function computeStats(
     const isDelivered = isTaskDelivered(task);
     const isCancelled = isTaskOutOfScope(task);
     if (isDelivered) {
-      stats.completed++;
       if (task.dueDate && task.completedDate) {
         if (task.completedDate <= task.dueDate) stats.completedOnTime++;
         else stats.completedLate++;
       }
-    } else if (isCancelled) {
-      stats.cancelled++;
-    } else {
+    } else if (!isCancelled) {
       stats.open++;
       if (task.dueDate) {
-        if (task.dueDate < today) stats.overdue++;
         if (task.dueDate <= today) {
           stats.openByStatus.red++;
         } else {

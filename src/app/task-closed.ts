@@ -36,8 +36,8 @@ export function isTaskDelivered(task: Pick<Task, "completedDate">): boolean {
  *  ★ Every reader in `src` now calls this: `scopeCounts`, `computeGroupHealth`,
  *  `milestones.ts`, `snapshot.ts`, `reports-stats.ts`. A first draft of this
  *  comment claimed the consolidation while those last three still inlined the
- *  pair — and `reports-stats.ts` is the one that mattered, since `stats.cancelled`
- *  and `GroupHealth.outOfScope` are the same bucket rendered on ONE screen.
+ *  pair — and `reports-stats.ts` is the one that mattered, since its per-row
+ *  `cancelled` counts and `GroupHealth.outOfScope` are the same bucket rendered on ONE screen.
  *  Reproduce before trusting this sentence:
  *  `grep -rn "isTaskClosed(.*) && !isTaskDelivered" src --include="*.ts" --include="*.tsx" | grep -v "task-closed.ts"`
  *  — expect ZERO hits. Without the exclusion it self-matches on this file's own
