@@ -56,7 +56,7 @@
     "build": "Production build — runs TypeScript type-check, then emits `.next/`",
     "start": "Serve the production build (run `npm run build` first)",
     "stop": "Stop the dev server bound to the app port (default 3000; set PORT to override). Port-scoped — does not touch unrelated node processes",
-    "gate:local": "Run CI's blocking gates locally, in order, stopping at the first failure — the merge gate until GitHub Actions exists",
+    "gate:local": "Run CI's blocking npm gates locally (not semgrep, the dependency audit or e2e), in order, stopping at the first failure — the merge gate until GitHub Actions exists",
     "lint": "Run ESLint (`eslint-config-next` preset)",
     "test": "Vitest unit/component tests in watch mode",
     "test:run": "Vitest, single run (CI-friendly)",

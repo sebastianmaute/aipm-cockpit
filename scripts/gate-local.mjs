@@ -4,8 +4,13 @@
 // gates in .gitlab-ci.yml; e2e and axe, semgrep, the dependency audit and prod-smoke are NOT
 // here and run nowhere during the gap.
 //
-// Usage: npm run gate:local
-// Exit: 0 when every step passes, otherwise the failing step's exit code (1 for a signal).
+// Usage: npm run gate:local [-- --allow-dirty]
+// Refuses to start on an uncommitted tracked change (git status --porcelain --untracked-files=no)
+// unless --allow-dirty is passed, and names the commit it gated at the start and in the final line
+// (`gate:local PASS at <sha>` / `gate:local FAIL at: <step> (exit N) — <sha>`), so a passing run says
+// which commit it actually vouches for.
+// Exit: 2 on a dirty tree; otherwise 0 when every step passes, or the failing step's exit code (1 for
+// a signal).
 
 import { spawnSync } from "node:child_process";
 import { availableParallelism } from "node:os";
@@ -47,13 +52,72 @@ export function runGates(steps, run, log = () => {}) {
   return { ok: true, failed: null, code: 0 };
 }
 
+/**
+ * Decide whether a dirty working tree should refuse the run. `porcelainText` is the output of
+ * `git status --porcelain --untracked-files=no`; `cliArgs` is the gate's own argv (`--allow-dirty`
+ * opts out — e.g. a caller who already reviewed the diff and wants the gate to run over it anyway).
+ * Pure: takes text in, returns a decision, does no git call itself.
+ */
+export function checkDirtyTree(porcelainText, cliArgs) {
+  const isDirty = porcelainText.trim().length > 0;
+  const allowDirty = cliArgs.includes("--allow-dirty");
+  if (isDirty && !allowDirty) {
+    return {
+      blocked: true,
+      message: "gate:local refuses to start: the working tree has uncommitted tracked changes "
+        + "(pass --allow-dirty to run anyway).",
+    };
+  }
+  return { blocked: false, message: null };
+}
+
+/** Names the commit the run is about to gate. */
+export function formatStartLine(sha) {
+  return `gate:local — gating commit ${sha}`;
+}
+
+/** The single terminal line: which commit passed, or which step and exit code failed it. */
+export function formatFinalLine(result, sha) {
+  return result.ok
+    ? `gate:local PASS at ${sha}`
+    : `gate:local FAIL at: ${result.failed} (exit ${result.code}) — ${sha}`;
+}
+
+/**
+ * win32's DEP0190: passing BOTH an args array and `shell: true` to spawnSync is deprecated. On
+ * win32 we join the whole step into one command string instead (safe here because no GATE_STEPS
+ * element contains a space or shell metacharacter — pinned by a test). Every other platform keeps
+ * the plain argv array with no shell.
+ */
+export function buildSpawnInvocation(argv, platform) {
+  if (platform === "win32") {
+    return { command: argv.join(" "), args: [], shell: true };
+  }
+  return { command: argv[0], args: argv.slice(1), shell: false };
+}
+
 function main() {
+  const dirty = checkDirtyTree(
+    spawnSync("git", ["status", "--porcelain", "--untracked-files=no"], { encoding: "utf8" }).stdout ?? "",
+    process.argv.slice(2),
+  );
+  if (dirty.blocked) {
+    console.error(dirty.message);
+    process.exit(2);
+  }
+
+  const sha = (spawnSync("git", ["rev-parse", "--short", "HEAD"], { encoding: "utf8" }).stdout ?? "").trim();
+  console.log(formatStartLine(sha));
+
   const result = runGates(
     GATE_STEPS,
-    (argv) => spawnSync(argv[0], argv.slice(1), { stdio: "inherit", shell: process.platform === "win32" }).status,
+    (argv) => {
+      const { command, args, shell } = buildSpawnInvocation(argv, process.platform);
+      return spawnSync(command, args, { stdio: "inherit", shell }).status;
+    },
     (label) => console.log(`\n▶ ${label}`),
   );
-  console.log(result.ok ? "\ngate:local PASS" : `\ngate:local FAIL at: ${result.failed} (exit ${result.code})`);
+  console.log(`\n${formatFinalLine(result, sha)}`);
   process.exit(result.code);
 }
 

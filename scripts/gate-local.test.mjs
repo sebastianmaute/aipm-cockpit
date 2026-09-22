@@ -8,7 +8,10 @@
 // the same reason.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { GATE_STEPS, runGates, VITEST_WORKERS } from "./gate-local.mjs";
+import {
+  GATE_STEPS, runGates, VITEST_WORKERS,
+  checkDirtyTree, formatStartLine, formatFinalLine, buildSpawnInvocation,
+} from "./gate-local.mjs";
 
 const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
@@ -54,5 +57,64 @@ describe("GATE_STEPS", () => {
     expect(vitestSteps).toHaveLength(2);
     for (const s of vitestSteps) expect(s.slice(3)).toEqual(["--", `--maxWorkers=${VITEST_WORKERS}`]);
     expect(Number.isInteger(VITEST_WORKERS) && VITEST_WORKERS >= 1).toBe(true);
+  });
+
+  it("carries no whitespace inside any single argv element", () => {
+    // buildSpawnInvocation joins a whole step into ONE string with argv.join(" ") on win32 — an
+    // element that itself contained a space or shell metacharacter would need quoting the join
+    // does not provide.
+    for (const step of GATE_STEPS) {
+      for (const part of step) expect(part).not.toMatch(/[\s"'`|&;<>]/);
+    }
+  });
+});
+
+describe("checkDirtyTree", () => {
+  it("blocks when the porcelain output is non-empty and --allow-dirty is absent", () => {
+    const r = checkDirtyTree(" M src/app/foo.ts\n", []);
+    expect(r.blocked).toBe(true);
+    expect(r.message).toMatch(/uncommitted/i);
+    expect(r.message).toMatch(/--allow-dirty/);
+  });
+
+  it("does not block an empty porcelain output", () => {
+    expect(checkDirtyTree("", [])).toEqual({ blocked: false, message: null });
+  });
+
+  it("does not block a whitespace-only porcelain output", () => {
+    expect(checkDirtyTree("\n  \n", [])).toEqual({ blocked: false, message: null });
+  });
+
+  it("does not block a dirty tree when --allow-dirty is passed", () => {
+    expect(checkDirtyTree(" M src/app/foo.ts\n", ["--allow-dirty"])).toEqual({ blocked: false, message: null });
+  });
+});
+
+describe("formatStartLine", () => {
+  it("names the commit being gated", () => {
+    expect(formatStartLine("abc1234")).toMatch(/abc1234/);
+  });
+});
+
+describe("formatFinalLine", () => {
+  it("reports PASS with the gated commit sha", () => {
+    expect(formatFinalLine({ ok: true, failed: null, code: 0 }, "abc1234")).toBe("gate:local PASS at abc1234");
+  });
+
+  it("reports FAIL with the failing step, its exit code, and the gated sha", () => {
+    expect(formatFinalLine({ ok: false, failed: "npm run lint", code: 1 }, "abc1234"))
+      .toBe("gate:local FAIL at: npm run lint (exit 1) — abc1234");
+  });
+});
+
+describe("buildSpawnInvocation", () => {
+  it("joins the whole argv into one command string under a shell on win32 (DEP0190)", () => {
+    expect(buildSpawnInvocation(["npm", "run", "lint"], "win32"))
+      .toEqual({ command: "npm run lint", args: [], shell: true });
+  });
+
+  it("keeps the argv array with no shell on non-win32", () => {
+    expect(buildSpawnInvocation(["npm", "run", "lint"], "linux"))
+      .toEqual({ command: "npm", args: ["run", "lint"], shell: false });
   });
 });
