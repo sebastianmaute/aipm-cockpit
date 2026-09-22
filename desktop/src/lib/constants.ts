@@ -15,13 +15,10 @@ export const APP_ORIGIN = `http://${APP_HOST}:${APP_PORT}`;
 // machine-readable update feed.
 //
 // ★★ That distinction is the whole reason the app has no in-app updater. The
-// GitLab project is `internal`: it serves nothing to an unauthenticated
-// caller, so nothing the app could poll on its own would ever get a reply.
-// Giving it one would mean shipping a credential to every laptop, and that
-// credential (or the ACL on whatever share replaced it) would then be the
-// only integrity control over code that executes on all of them -- the
-// installer is unsigned, so there is no second check behind it. A link the
-// user clicks keeps the authentication where it already is: in their browser,
-// as themselves.
+// installer is unsigned, so there is no second integrity check behind
+// whatever a machine-readable feed handed back -- an unattended poller would
+// be exactly the thing that needed one. A link the user clicks keeps the
+// authentication (and the judgment call) where it already is: in their
+// browser, as themselves.
 export const RELEASES_URL =
-  "https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/releases";
+  "https://github.com/sebastianmaute/aipm-cockpit/releases";

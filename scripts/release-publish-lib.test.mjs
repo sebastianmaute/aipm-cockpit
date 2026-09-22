@@ -13,7 +13,7 @@ import {
 } from "./release-publish-lib.mjs";
 
 const ENV = {
-  CI_PROJECT_URL: "https://gitlab.example.com/group/aipm-cockpit",
+  CI_PROJECT_URL: "https://gitlab.acme-corp.example/group/aipm-cockpit",
   CI_COMMIT_TAG: "v0.301.0",
   CI_JOB_TOKEN: "super-secret-token",
 };
@@ -44,7 +44,7 @@ describe("buildAssetUrl", () => {
   // moment the job is re-run; the per-tag form keeps resolving.
   it("builds a per-tag artifact URL naming the producing job", () => {
     expect(buildAssetUrl(ENV, "0.301.0")).toBe(
-      "https://gitlab.example.com/group/aipm-cockpit/-/jobs/artifacts/v0.301.0/raw/desktop/release/aipm-cockpit-0.301.0-setup.exe?job=desktop-package-tag",
+      "https://gitlab.acme-corp.example/group/aipm-cockpit/-/jobs/artifacts/v0.301.0/raw/desktop/release/aipm-cockpit-0.301.0-setup.exe?job=desktop-package-tag",
     );
   });
 
@@ -123,7 +123,7 @@ describe("buildReleasePayload", () => {
   it("links CHANGELOG.md at the tag as a real markdown link, not a code span", () => {
     const p = buildReleasePayload(ENV, "0.301.0", "Arnason");
     expect(p.description).toContain(
-      "[CHANGELOG.md](https://gitlab.example.com/group/aipm-cockpit/-/blob/v0.301.0/CHANGELOG.md)",
+      "[CHANGELOG.md](https://gitlab.acme-corp.example/group/aipm-cockpit/-/blob/v0.301.0/CHANGELOG.md)",
     );
   });
 
@@ -156,7 +156,7 @@ describe("buildReleasePayload", () => {
 const EXPECTED = {
   tagName: "v0.301.0",
   assetUrl:
-    "https://gitlab.example.com/group/aipm-cockpit/-/jobs/artifacts/v0.301.0/raw/desktop/release/aipm-cockpit-0.301.0-setup.exe?job=desktop-package-tag",
+    "https://gitlab.acme-corp.example/group/aipm-cockpit/-/jobs/artifacts/v0.301.0/raw/desktop/release/aipm-cockpit-0.301.0-setup.exe?job=desktop-package-tag",
 };
 const OTHER_URL = "https://example.com/other-file.exe";
 const OUR_LINK = () => ({ url: EXPECTED.assetUrl });

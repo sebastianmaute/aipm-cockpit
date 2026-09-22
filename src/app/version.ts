@@ -444,7 +444,7 @@ export const APP_LICENSE_URL =
  *  cannot import across its tsconfig rootDir, so there is no single shared
  *  constant to import instead). */
 export const APP_RELEASES_URL =
-  "https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/releases";
+  "https://github.com/sebastianmaute/aipm-cockpit/releases";
 
 /** Translation keys for the elevator-pitch highlights in the Version panel: the
  *  features unique to this app, NOT a per-release history (CHANGELOG.md owns that).
