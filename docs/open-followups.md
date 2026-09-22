@@ -16688,7 +16688,7 @@ missed the two largest, measured by
 `git log --all --format="%ae %ce"` (8,355 commits carrying a work address in both fields, plus 90
 CI-bot identities) and `git log --all --grep="Claude-Session:" --fixed-strings --oneline` (3,048).
 The design that supersedes this entry's scope is `docs/superpowers/specs/2026-09-20-github-migration-phase1-design.md`.
-Sub-project 2 (`docs/superpowers/specs/2026-09-22-github-cutover-design.md`) publishes only the rewritten history, to a private GitHub repository recreated empty for it; the entry closes at the visibility flip, not before. Sixteen tracked docs files named the old GitLab project number in prose (a form the leak list does not cover — it covers the URL form); they were swept on 2026-09-22. The two remaining mentions are comments in `.gitlab-ci.yml`, which is retired with GitLab in sub-project 3 and must not reach the visibility flip.
+Sub-project 2 (`docs/superpowers/specs/2026-09-22-github-cutover-design.md`) publishes only the rewritten history, to a private GitHub repository recreated empty for it; the entry closes at the visibility flip, not before. Sixteen tracked docs files named the old GitLab project number in prose (a form the leak list does not cover — it covers the URL form); they were swept on 2026-09-22. The two remaining mentions are comments in `.gitlab-ci.yml`, which stays in the tree for now (sub-project 3 ports the pipeline from it, and `release-publish-lib.test.mjs` reads it); they must be removed or scrubbed before the visibility flip.
 
 **Work item:** #185
 

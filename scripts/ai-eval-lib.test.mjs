@@ -135,7 +135,7 @@ describe("plantedToken", () => {
     //  (pure function, so caching changes nothing observable — proved
     //  byte-identical for every id x salt 1..3000 via a throwaway node
     //  script, not committed) cuts the per-salt cost to 13 calls: same
-    //  commands, same file, now 127ms in plain `node` and 171ms of test time
+    //  method, same file, now 127ms in plain `node` and 171ms of test time
     //  under the vitest+coverage command above. Collect, then assert once is
     //  still worth keeping (a positive observable against a loop that never
     //  ran), it just was never the fix for the real cost.

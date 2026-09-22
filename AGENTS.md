@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Contents
 
-Read [Commands](#commands) and [Hard constraints](#hard-constraints-these-gate-merges)
+Read [Commands](#commands) and [Hard constraints](#hard-constraints)
 before your first edit — the rest is reference, reachable from here.
 
 **In this file** (always loaded):
@@ -19,7 +19,7 @@ before your first edit — the rest is reference, reachable from here.
 |---|---|
 | [The doc set](#the-doc-set--what-lives-where) | which doc owns what — read before restating a fact in a second file |
 | [Commands](#commands) | every script + the CI gotcha that bites for each |
-| [Hard constraints](#hard-constraints-these-gate-merges) | i18n · byte-stable serializers · palette · a11y gate · six write paths · secrets · CSP |
+| [Hard constraints](#hard-constraints) | i18n · byte-stable serializers · palette · a11y gate · six write paths · secrets · CSP |
 | [Architecture pointers](#architecture-pointers) | orientation, module maps, extraction conventions, panel splits, toolbar order |
 | [Subsystem reference](#subsystem-reference--deeper-detail-loaded-on-demand) | every file in `docs/AGENTS/`, and why they are not loaded |
 
@@ -448,7 +448,7 @@ npx eslint --max-warnings=0 src/app; echo "EXIT=$?"        # no pipe at all
 ★★ This matters more here than in most repos: the gates ARE the safety net, and a defeated gate is
 worse than no gate — it reports success. A "green" claim is only worth what the exit code behind it is.
 
-## Hard constraints (these gate merges)
+## Hard constraints
 
 - **i18n:** `i18n.ts` (EN) + `i18n.de.ts` (DE) key sets must be identical (tsc enforces).
   DE must use real German umlauts — `i18n-encoding` test BANS ASCII subs (fuer/druecken).

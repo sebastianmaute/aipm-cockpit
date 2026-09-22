@@ -4,11 +4,10 @@
 // implementation does not resolve/accept a file: URL the way node:fs expects,
 // so `readFileSync(new URL(...))` below throws "The URL must be of scheme
 // file" under the default environment. scripts/check-followup-gitlab.integration.test.mjs
-// and scripts/publish-release.integration.test.mjs carry the same pragma for a
-// different reason: each spawns the real CLI against a fake API served from the
-// test process, which their own headers describe.
+// and scripts/publish-release.integration.test.mjs carry the same pragma; their
+// headers do not record why.
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   GATE_STEPS, runGates, VITEST_WORKERS, resolveWorkers,
   checkDirtyTree, formatStartLine, formatFinalLine, buildSpawnInvocation,
@@ -89,6 +88,18 @@ describe("resolveWorkers", () => {
   it("refuses any other GATE_LOCAL_WORKERS value rather than guessing", () => {
     for (const bad of ["0", "-1", "2.5", "abc", "4x", " 4"]) {
       expect(() => resolveWorkers({ GATE_LOCAL_WORKERS: bad }, 20)).toThrow(/GATE_LOCAL_WORKERS/);
+    }
+  });
+
+  it("is what VITEST_WORKERS was built from, with this process's environment", async () => {
+    vi.stubEnv("GATE_LOCAL_WORKERS", "3");
+    try {
+      vi.resetModules();
+      const fresh = await import("./gate-local.mjs");
+      expect(fresh.VITEST_WORKERS).toBe(3);
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
     }
   });
 });

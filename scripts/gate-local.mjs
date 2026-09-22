@@ -10,7 +10,8 @@
 // (`gate:local PASS at <sha>` / `gate:local FAIL at: <step> (exit N) — <sha>`), so a passing run says
 // which commit it actually vouches for.
 // Exit: 2 on a dirty tree; otherwise 0 when every step passes, or the failing step's exit code (1 for
-// a signal).
+// a signal). A GATE_LOCAL_WORKERS that is set but not a positive integer throws while the module
+// loads, so the run exits 1 with that error before any step and prints no PASS/FAIL line.
 
 import { spawnSync } from "node:child_process";
 import { availableParallelism } from "node:os";
@@ -24,6 +25,8 @@ import { pathToFileURL } from "node:url";
 // Coverage floors and shuffle seed are unchanged, but --maxWorkers changes which files share a
 // worker, so test:shuffle does not reproduce CI's exact worker layout. GATE_LOCAL_WORKERS overrides
 // the formula (a small machine, where half the CPUs may be 1, or a machine that is otherwise idle).
+// The value is read when this module loads, so a bad one in the shell also fails any vitest run that
+// collects gate-local.test.mjs — unset it rather than export it.
 export function resolveWorkers(env, cpus) {
   const raw = env.GATE_LOCAL_WORKERS;
   if (raw === undefined || raw === "") return Math.max(1, Math.floor(cpus / 2));
