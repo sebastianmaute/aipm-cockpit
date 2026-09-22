@@ -144,7 +144,7 @@ Components never reference a scheme's hex values directly — use the role.
 `--rag-red/amber/green` (+ their `-text` AA companions) carry RAG semantics as their own role family, so
 a scheme can move them without moving the brand hues.
 
-★★★ The two named styles this section used to describe — "Petrol" and "Dashboard" — **no longer
+★★★ The two named styles this section used to describe — the brand-named style and "Dashboard" — **no longer
 exist in the app in any form**; a theme is a file the user loads, and the built-ins are the four schemes
 named at the top of this file. `data-style` is the constant `"custom"`. The measured numbers below were
 taken against those retired styles and are kept only because the RULE they support is unchanged; do not

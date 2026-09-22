@@ -4494,7 +4494,7 @@ only, landing them at 3.06-3.81. Green is therefore the one accent whose `global
 its raw base.
 
 ★★★ **ONE STATED LIMITATION OF THE FIX'S OWN COVERAGE, and it corrects a claim the slice plan made.**
-The plan said the test named "globals.css fallbacks match the derivation for the Petrol-light base" (in
+The plan said the test for the globals.css fallbacks matching the derivation at the retired brand theme's light base (in
 `scheme-state-contrast.test.ts`) was "the only thing tying the CSS fallback to the derivation". **That
 is false and must not be repeated.** The test does NOT read `globals.css` — it hardcodes the hex
 literals and asserts an identity property of the derivation at that input — so editing the stylesheet
@@ -37316,7 +37316,7 @@ Size L — engagement type on the project, a weight profile and a weighted healt
 **Status:** OPEN 2026-09-13 — `grep -n "interface SteeringCommittee" src/app/types.ts` → one interface; the workspace holds a single
 steering committee.
 
-Michael Leather said delivery projects must plug into the customer's governance alongside employer's. It was
+Michael Leather said delivery projects must plug into the customer's governance alongside the employer's. It was
 acknowledged on the call, with no commitment.
 
 The workspace carries one steering committee with internal members only. A stakeholder can be categorised as

@@ -16,13 +16,13 @@
   • **Dual-CI / style axis:** ★ Phase 2 SUPERSEDES this axis — `data-style` is now the CONSTANT `"custom"` and
   Petrol/Mockup are read-only BUILT-IN SCHEMES (see the scheme bullet below); the CSS-role-token MECHANISM here
   still stands, only its source moved (scheme maps, not per-`data-style` CSS blocks). `data-style` (formerly
-  `"petrol"|"mockup"|"custom"`) on `<html>` is ORTHOGONAL to `.dark`; set by
+  the retired brand-named value, `"mockup"` or `"custom"`) on `<html>` is ORTHOGONAL to `.dark`; set by
   `use-style.tsx` (`useCiStyle`, `aipm-cockpit-style` localStorage, NOT the settings blob) + the no-flash boot script
   (`boot-theme-script.ts`, reads `aipm-cockpit-style`+`aipm-cockpit-theme`+the scheme boot keys pre-paint). Mockup ("Dashboard" style) is
   LIGHT-ONLY + PINS light: `use-style` fires a `aipm-cockpit-style-change` event; `use-theme` is the SOLE `.dark`
   writer and re-applies on that event (switching back to Petrol restores dark). ALL style difference is CSS
   role tokens in `globals.css`: `--rag-red/amber/green` (+ `-text` AA variants — ★ but `--rag-amber-text` is AA only on
-  LIGHT petrol; as SMALL text on `bg-surface` it FAILS AA on dark/mockup, see the Next-actions surface bullet), `--table-head-bg/-fg`,
+  LIGHT Petrol; as SMALL text on `bg-surface` it FAILS AA on dark/mockup, see the Next-actions surface bullet), `--table-head-bg/-fg`,
   `--table-head-accent` (sort-button active/hover), `--shadow-card/-control/-card-hover`, `--gradient-kpi`,
   `--rag-green-chip`/`--rag-red-chip` + `--delta-chip-pad` (KPI delta pills), `--segment-track-bg/-active-bg/-active-fg`. Petrol values
   reproduce the old look; ★ Phase 2: Petrol-dark + Mockup no longer live in a `.dark` /
@@ -102,16 +102,16 @@
   as the fresh-install default; it is LIGHT-ONLY — no `dark` map — and pins light mode via the same
   supportsDark-driven mechanism a light-only USER scheme already used), and a theme is
   now a FILE THE USER LOADS in the full portable format (light/dark/`structural`/branding/pinned AA tokens).
-  ★★★ CORRECTED 2026-07-30 — earlier revisions of this bullet claimed Petrol and Mockup "ship as
-  `public/themes/petrol.json` + `mockup.json`" and that the gallery "fetches `/themes/*.json`". **There is no
-  `public/themes/` directory, there are no shipped theme files, and nothing in the repo references that
-  path** (verified: `find . -name petrol.json` → nothing; `public/` holds only logos, the manifest and `sw.js`).
+  ★★★ CORRECTED 2026-07-30, RE-CORRECTED 2026-09-22 — earlier revisions of this bullet claimed Petrol and Mockup are
+  bundled and that the gallery "fetches `/themes/*.json`". **Nothing fetches them:** the theme files under
+  `public/themes/` (`petrol.json`, `mockup.json`, `beacon.json`) are tracked, but they are NOT built in and no code
+  loads them — a user imports one from disk (verify: `ls public/themes`; `git grep -n "themes/" -- src` hits only comments).
   The in-app **Theme gallery** (`theme-gallery.tsx`, mounted in `AppearanceSection` beside the scheme editor)
   is a FILE-UPLOAD importer (`accept="application/json,.json"`) → widened `importScheme` → `addScheme` +
   `updateScheme({dark,structural})` → a removable user scheme. Fresh install picker = Harbor/Meridian/Umber/Beacon (Beacon is the DEFAULT selection);
   `e2e/a11y.spec.ts`'s own comment states it plainly: "Petrol and Dashboard no longer exist in the app in any
-  form — a theme is a file the user loads." Do not re-add a claim that any theme is bundled. NO migration (no active users) — an orphaned `activeId "petrol"/"mockup"`
-  falls back to the default scheme (Beacon) via reconcile. `PETROL_SEED`/`MOCKUP_SEED` + their structural maps DELETED from
+  form — a theme is a file the user loads." Do not re-add a claim that any theme is bundled. NO migration (no active users) — an orphaned `activeId` (the retired brand scheme id, or `"mockup"`)
+  falls back to the default scheme (Beacon) via reconcile. the retired brand seed constant and `MOCKUP_SEED` + their structural maps DELETED from
   `scheme-tokens.ts` (AA derivation uses a neutral `FALLBACK_SURFACE`); `globals.css :root` is now the
   **Harbor-resolved-light** no-JS fallback (the var NAMES are now `--ui-*` after Release B; `@theme` map
   structure UNCHANGED). Portable format widened: `exportScheme`/`cleanScheme` carry `structural`
@@ -123,11 +123,11 @@
   "deliberately unscanned to hold the count down"; it was never deliberate, and it is scanned now.
   ★ Beacon genuinely has no dark variant, which is the only real omission. — The Phase-2 text below still describes
   the MECHANISM (data-style/scheme apply/structural), just not the built-in ROSTER.
-  • **Scheme-driven color schemes (Phase 2 — Petrol + Mockup ARE built-in schemes):** the petrol/mockup/custom
+  • **Scheme-driven color schemes (Phase 2 — Petrol + Mockup ARE built-in schemes):** the brand/mockup/custom
   `data-style` AXIS COLLAPSED — `data-style` is now the CONSTANT `"custom"` (`use-style` always writes it;
   `CiStyle.style` is always `"custom"` in normal operation). Petrol + Mockup JOINED Harbor/Meridian/Umber as
   READ-ONLY BUILT-IN schemes → FIVE built-ins in `BUILTIN_SCHEMES` (`builtin-schemes.ts`; ids
-  `"petrol"`/`"mockup"`/`"harbor"`/`"meridian"`/`"umber"`, undeletable via `BUILTIN_SCHEME_IDS`). Harbor was the
+  the retired brand-named id/`"mockup"`/`"harbor"`/`"meridian"`/`"umber"`, undeletable via `BUILTIN_SCHEME_IDS`). Harbor was the
   fresh-install DEFAULT at the time (`DEFAULT_SCHEME_ID`) — no longer true, see the RELEASE A bullet above;
   Beacon is default now. A scheme carries `{ light, dark?, supportsDark, structural?,
   builtIn? }` (user ids `"u-<n>"`); apply is INLINE `documentElement.style.setProperty` (the legal runtime
@@ -208,10 +208,10 @@
   `aipm-cockpit-style-change` — do NOT make `use-theme` listen to `aipm-cockpit-scheme-change` (the fixed race). ★★ Boot script
   (`boot-theme-script.ts`, imported by `layout.tsx`) ALWAYS writes `data-style="custom"`, paints scheme colors
   AND structural, and EMBEDS the resolved Petrol/Mockup/Harbor maps so a legacy-first-boot device migrates without
-  a Harbor flash. `use-style` ONE-TIME-migrates a legacy `aipm-cockpit-style="petrol"/"mockup"` → the scheme activeId (in
+  a Harbor flash. `use-style` ONE-TIME-migrates a legacy `aipm-cockpit-style` value (the retired brand-named value or `"mockup"`) → the scheme activeId (in
   the lazy `useState` initializer) then writes `aipm-cockpit-style="custom"`. `layout-boot-script.test.ts` PINS the EXACT
   boot string + runtime-evals it — edit boot ⇒ update that guard in lockstep. ★★ AppearanceSection: the scheme
-  `<select>` routes ALL ids (incl petrol/mockup) through `selectScheme` (NOT `setStyle`); `pinsLight =
+  `<select>` routes ALL ids (incl. the retired brand id and mockup) through `selectScheme` (NOT `setStyle`); `pinsLight =
   !activeSupportsDark`; the editor is ALWAYS mounted (built-ins read-only via `BUILTIN_SCHEME_IDS` —
   Rename/Delete/Apply disabled, tweak + Save-as-new to customise); global app-name/footer inputs shown when the
   active scheme owns no branding (built-ins), HIDDEN for a branded user scheme. `reconcileBuiltins` remains the
@@ -391,7 +391,7 @@
   was deliberately left on its own default.
   ★★ `startLogo` is a FIFTH, SEPARATE field driving ONLY the start window (`project-empty-state.tsx`, the
   `view === "choices"` branch); unset ⇒ the shipped `/ai-pm-cockpit-banner-beacon-transparent.svg`, NOT `logo` and NOT the
-  Brand mark. It is deliberately not shared with the sidebar `logo` — one wants a small mark, the other a wide
+  retired brand mark. It is deliberately not shared with the sidebar `logo` — one wants a small mark, the other a wide
   banner. ★★★ THE `<img>` NEEDS A **DEFINITE** HEIGHT (`h-12`), NEVER ONLY A CAP. It shipped once as
   `max-h-12 w-auto` — all constraints, nothing definite — and the empty-state HEADER COLLAPSED: the shipped
   banner carries a `viewBox` but NO `width`/`height` attributes, so it has no intrinsic size (`naturalWidth`
