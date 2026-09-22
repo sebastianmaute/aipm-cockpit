@@ -12,11 +12,11 @@ import { availableParallelism } from "node:os";
 import { pathToFileURL } from "node:url";
 
 // Cap vitest workers so timing-sensitive tests survive a busy desktop.
-// Measured: 20-logical-CPU desktop, npm run gate:local went red at npm run test:coverage
-// three runs with DIFFERENT timing failures each (20s/60s timeouts, findByRole miss);
-// label-binding.guard.test.ts took 94.8s under full run vs 11.5s alone. Parallel coverage
-// at --maxWorkers=8 then passed 1180/1180 in 9m42s. Coverage floors and shuffle seed unchanged;
-// result still matches CI's gates.
+// Measured on 20-logical-CPU machine: default worker count → gate:local red x3 (timing-only),
+// --maxWorkers=8 → coverage pass (1180/1180 files, 9m42s), formula value (Math.max(1,
+// Math.floor(availableParallelism() / 2)) = 10 on 20-CPU) → gate:local green on both
+// test:coverage and test:shuffle (1180/1180 files, 19500/19500 tests each, 2026-09-22 18:46).
+// Coverage floors and shuffle seed unchanged; result still matches CI's gates.
 export const VITEST_WORKERS = Math.max(1, Math.floor(availableParallelism() / 2));
 
 export const GATE_STEPS = [
