@@ -462,9 +462,19 @@ gh repo create sebastianmaute/aipm-cockpit --private --disable-wiki
 - [ ] **Step 5: First pull request.**
   1. `git push github chore/rewrite-history` (logged).
   2. Run `gh pr create --base main --head chore/rewrite-history`. Title: `Sanitise tail, cut-over tooling and docs`. Body: the branch's commit list, and no session link.
-  3. Run `npm run gate:local` → EXIT=0.
-  4. **Stop and ask the owner to say "merge".** Then run `gh pr merge --merge` with no `--auto`.
-  5. Re-check: `gh api repos/sebastianmaute/aipm-cockpit/commits/main --jq .sha` equals `git rev-parse github/main` after a fetch.
+  3. `C:\Projects\aipm-rewritten\node_modules` is a junction into the old clone, and Turbopack refuses
+     it (`Symlink [project]/node_modules is invalid, it points out of the filesystem root`), so
+     `build` (gate step 14) fails there. Replace it with a real install: `cmd /c rmdir node_modules`
+     (removes the junction only — never `Remove-Item -Recurse`, which can follow it and empty the old
+     clone's modules); confirm `C:\Projects\aipm-wt-a\node_modules` still has content; `npm install`
+     (never `npm ci`).
+  4. Run `npm run gate:local` → must end `gate:local PASS`.
+  5. **Stop and ask the owner to say "merge".** Then run `gh pr merge --merge` with no `--auto`.
+  6. Re-check: `gh api repos/sebastianmaute/aipm-cockpit/commits/main --jq .sha` equals `git rev-parse github/main` after a fetch.
+- [ ] **Step 6: If the merge settings from Step 2 could not be applied** (squash and/or rebase merging
+      still enabled), correct CONTRIBUTING.md's "squash and rebase merging are disabled" sentence
+      (`Working on GitHub`, step 3) on the PR branch before merging, so the doc matches what GitHub
+      actually allows.
 
 ### Task 8: Load the rewritten history into GitLab (spec step 6)
 
