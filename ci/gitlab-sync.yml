@@ -1,0 +1,30 @@
+# GitLab is a READ-ONLY copy of GitHub (docs/superpowers/specs/2026-09-22-github-cutover-design.md).
+# The GitLab project's CI configuration path points at THIS file, so none of the jobs in
+# .gitlab-ci.yml ever run here. That file stays as the source sub-project 3 ports from.
+#
+# Once a day it mirror-clones GitHub and pushes branches and tags into this project:
+# - branches are force-updated and pruned, so anything pushed here directly is overwritten;
+# - `main` is protected with force push OFF, so a force-push to GitHub's main (which must never
+#   happen) FAILS this job instead of silently rewriting GitLab: the failure mail is the alarm;
+# - tags are pushed unforced, so a moved tag fails the job the same way;
+# - `-o ci.skip` keeps the push from starting a pipeline.
+# Tokens are masked, protected CI variables. The script is GitHub content: whoever can merge to
+# GitHub main controls what runs with GITLAB_SYNC_TOKEN.
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    - when: never
+
+sync-from-github:
+  image:
+    name: alpine/git:v2.49.1
+    entrypoint: [""]   # the image's ENTRYPOINT is `git`, which would swallow the job script
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - test -n "$GITHUB_SYNC_TOKEN" && test -n "$GITLAB_SYNC_TOKEN" || { echo "sync token variable missing" >&2; exit 2; }
+    - git clone --quiet --mirror "https://x-access-token:${GITHUB_SYNC_TOKEN}@github.com/sebastianmaute/aipm-cockpit.git" github.git
+    - cd github.git
+    - git push --quiet --prune -o ci.skip "${CI_SERVER_PROTOCOL}://sync:${GITLAB_SYNC_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/${CI_PROJECT_PATH}.git" '+refs/heads/*:refs/heads/*' 'refs/tags/*:refs/tags/*'
