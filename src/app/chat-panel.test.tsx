@@ -16,7 +16,6 @@ import { buildSystemPrompt, systemBlocksText } from "./chat-api";
 import { appliedProposalNotice } from "./chat-proposal-stage";
 import type { ToolDispatcher } from "./chat-tools";
 import { defaultAiConfig as baseAiConfig } from "./settings-types";
-import { DEFAULT_AI_POLICY_URL } from "./ai-policy";
 import type { OperatingGuide } from "./operating-guide";
 import type { FeatureModuleId } from "./feature-modules";
 import { saveSealed } from "./secrets-store";
@@ -127,12 +126,16 @@ const AI_WITH_KEY = {
 };
 
 describe("Consent screen accept", () => {
+  // A configured owner + link is required for the policy block (and its checkbox)
+  // to render at all — there is no built-in default any more.
+  const CONFIGURED_POLICY = { policyOrgName: "Acme GmbH", policyUrl: "https://acme.example/ai-policy" };
+
   it("clicking I understand after ticking the policy fires onAcceptConsent", () => {
     const onAcceptConsent = vi.fn();
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
-        ai={{ ...defaultAiConfig, consentAccepted: false }}
+        ai={{ ...defaultAiConfig, consentAccepted: false, ...CONFIGURED_POLICY }}
         dispatcher={makeDispatcher()}
         onAcceptConsent={onAcceptConsent}
       />,
@@ -150,7 +153,7 @@ describe("Consent screen accept", () => {
     // the settings instance ChatPanel actually reads. Here onAcceptConsent
     // updates the very `ai` passed to ChatPanel, and the consent screen must go.
     function Harness() {
-      const [ai, setAi] = useState({ ...defaultAiConfig, consentAccepted: false });
+      const [ai, setAi] = useState({ ...defaultAiConfig, consentAccepted: false, ...CONFIGURED_POLICY });
       return (
         <ChatPanel {...SCOPE_PROPS}
           lang="en-US"
@@ -185,12 +188,16 @@ describe("Consent screen accept", () => {
     const link = screen.getByRole("link", { name: new RegExp(t("en-US", "aiConsentPolicyLink", "Acme GmbH")) });
     expect(link).toHaveAttribute("href", "https://acme.example/ai-policy");
     expect(screen.getByText(t("en-US", "aiConsentPolicyCheckbox", "Acme GmbH"))).toBeInTheDocument();
-    expect(screen.queryByText(/Acme/)).toBeNull();
   });
 
-  it("keeps today's owner and link when nothing is configured", () => {
+  it("with default settings and no env, renders no policy link or checkbox, and Accept is enabled", () => {
     renderConsent({});
-    expect(screen.getByRole("link", { name: /Acme/ })).toHaveAttribute("href", DEFAULT_AI_POLICY_URL);
+    // Positive control: the consent screen itself rendered — otherwise the two
+    // absence checks below would also pass on an empty document.
+    expect(screen.getByRole("heading", { name: t("en-US", "aiConsentTitle") })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: new RegExp(t("en-US", "aiConsentPolicyLink", "").trim()) })).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.getByRole("button", { name: /I understand/i })).not.toBeDisabled();
   });
 
   it("uses neutral wording when the owner is cleared", () => {

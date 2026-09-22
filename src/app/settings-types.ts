@@ -54,8 +54,9 @@ export type AiConfig = {
   activityRecap?: boolean; // The ambient activity recap sentence. Default ON (undefined = on).
   chatSearch?: boolean; // The search_chats tool + the ambient chat pointer. Default ON (undefined = on).
   maxChatTurns?: number; // Max assistant round-trips per user message (integer 1–50). Default 12.
-  // The AI-usage policy the consent screen points to (`ai-policy.ts`). undefined = the built-in
-  // default, "" = deliberately cleared. A NEXT_PUBLIC_AI_POLICY_* build value overrides both.
+  // The AI-usage policy the consent screen points to (`ai-policy.ts`). There is no built-in
+  // default: undefined = never set, "" = deliberately cleared — both resolve to no policy.
+  // A NEXT_PUBLIC_AI_POLICY_* build value overrides both.
   policyOrgName?: string;
   policyUrl?: string;
 };

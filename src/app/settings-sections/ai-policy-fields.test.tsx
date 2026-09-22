@@ -2,7 +2,6 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { AiPolicyFields } from "./ai-policy-fields";
 import { defaultAiConfig } from "../settings-types";
-import { DEFAULT_AI_POLICY_ORG, DEFAULT_AI_POLICY_URL } from "../ai-policy";
 import { loadI18n, t } from "../i18n";
 
 const orgBox = () => screen.getByRole("textbox", { name: t("en-US", "aiPolicyOrgLabel") });
@@ -12,15 +11,17 @@ const urlBox = () => screen.getByRole("textbox", { name: t("en-US", "aiPolicyUrl
 describe("AiPolicyFields", () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it("shows the built-in owner and link when nothing is set", () => {
+  it("shows both fields empty when nothing is set — there is no built-in default", () => {
     render(<AiPolicyFields lang="en-US" ai={defaultAiConfig} onChange={vi.fn()} />);
-    expect(orgBox()).toHaveValue(DEFAULT_AI_POLICY_ORG);
-    expect(urlBox()).toHaveValue(DEFAULT_AI_POLICY_URL);
+    expect(orgBox()).toHaveValue("");
+    expect(urlBox()).toHaveValue("");
   });
 
   it("reports each edit as its own field", () => {
     const onChange = vi.fn();
-    render(<AiPolicyFields lang="en-US" ai={defaultAiConfig} onChange={onChange} />);
+    // A non-empty starting link: there is no built-in default, so an empty starting
+    // value would make the "clear" fireEvent below a same-value no-op React ignores.
+    render(<AiPolicyFields lang="en-US" ai={{ ...defaultAiConfig, policyUrl: "https://acme.example/ai" }} onChange={onChange} />);
     fireEvent.change(orgBox(), { target: { value: "Acme GmbH" } });
     expect(onChange).toHaveBeenLastCalledWith({ policyOrgName: "Acme GmbH" });
     fireEvent.change(urlBox(), { target: { value: "" } });
@@ -39,9 +40,9 @@ describe("AiPolicyFields", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("shows an empty link, not the built-in one, once the owner is someone else", () => {
-    // The built-in link is Acme's page; the consent screen offers it only
-    // for the built-in owner, and the field must show what the screen will use.
+  it("shows an empty link when an owner is set but no link is stored", () => {
+    // There is no built-in link for any owner; the field must show what the
+    // consent screen will actually use.
     render(<AiPolicyFields lang="en-US" ai={{ ...defaultAiConfig, policyOrgName: "Acme GmbH" }} onChange={vi.fn()} />);
     expect(urlBox()).toHaveValue("");
   });
@@ -52,21 +53,19 @@ describe("AiPolicyFields", () => {
     expect(urlBox()).toHaveAccessibleDescription(expect.stringContaining(t("en-US", "aiPolicyUrlEnvRejected")));
   });
 
-  // ★★ Renaming or clearing the owner drops the built-in link and, with it, the
-  //    consent screen's accept checkbox. That must be SAID, on the field itself.
+  // ★★ There is no built-in link, so a never-stored link means the consent screen
+  //    shows no policy step. That must be SAID, on the field itself — for any owner.
   it.each([
+    ["nothing set", undefined],
     ["cleared", ""],
-    ["renamed", "Acme GmbH"],
+    ["a custom owner", "Globex GmbH"],
   ])("explains the missing link when the owner is %s", (_label, owner) => {
     render(<AiPolicyFields lang="en-US" ai={{ ...defaultAiConfig, policyOrgName: owner }} onChange={vi.fn()} />);
     expect(urlBox()).toHaveValue("");
     expect(urlBox()).toHaveAccessibleDescription(expect.stringContaining(t("en-US", "aiPolicyUrlNoBuiltin")));
   });
 
-  it("shows no such note for the built-in owner, or once a link is entered", () => {
-    const { unmount } = render(<AiPolicyFields lang="en-US" ai={defaultAiConfig} onChange={vi.fn()} />);
-    expect(screen.queryByText(t("en-US", "aiPolicyUrlNoBuiltin"))).toBeNull();
-    unmount();
+  it("shows no such note once a link is entered", () => {
     render(<AiPolicyFields lang="en-US" ai={{ ...defaultAiConfig, policyOrgName: "Acme", policyUrl: "https://acme.example/p" }} onChange={vi.fn()} />);
     expect(screen.queryByText(t("en-US", "aiPolicyUrlNoBuiltin"))).toBeNull();
   });
@@ -91,7 +90,6 @@ describe("AI policy strings in German", () => {
       const de = t("de", key, "Acme GmbH");
       expect(de, key).toContain("Acme GmbH");
       expect(de, key).not.toBe(t("en-US", key, "Acme GmbH"));
-      expect(de, key).not.toContain("Acme");
     }
   });
 });

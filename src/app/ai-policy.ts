@@ -1,20 +1,20 @@
 // The organisation AI-usage policy the AI Assistant's consent screen points to.
 // Pure and i18n-free: the consent screen and Settings → AI both read `resolveAiPolicy`.
 //
-// ★ Precedence: a build-time `NEXT_PUBLIC_AI_POLICY_*` value, then Settings, then the
-//   built-in default — the same shape as `getMsalConfig` and the Turso URL.
+// ★ Precedence: a build-time `NEXT_PUBLIC_AI_POLICY_*` value, then Settings, then
+//   nothing — there is no built-in default. A deployment that wants a policy step
+//   sets both build variables; a user can also set both fields in Settings.
 // ★★ The link is rendered as an `href`, so only an `https:` URL ever leaves this module.
 //   Anything else (`javascript:`, `data:`, plain http, a typo) resolves to "no policy"
 //   from Settings and is skipped from the environment — never passed through.
-
-export const DEFAULT_AI_POLICY_ORG = "Acme";
-export const DEFAULT_AI_POLICY_URL = "https://wiki.example.com/wiki/x/ewB2bwE";
 
 /** Longest value Settings keeps for either field. */
 export const MAX_AI_POLICY_FIELD = 2048;
 
 export interface AiPolicySettings {
-  /** `undefined` = never set (built-in default); `""` = deliberately cleared. */
+  /** `undefined` = never set; `""` = deliberately cleared. Both currently resolve
+   *  to no policy, but are kept distinct so a caller can tell "never entered" from
+   *  "entered, then removed" if that ever needs different wording. */
   policyOrgName?: string;
   policyUrl?: string;
 }
@@ -61,18 +61,13 @@ export function resolveAiPolicy(settings: AiPolicySettings, env: AiPolicyEnv = a
   const orgFromEnv = envOrg !== "";
   const urlFromEnv = envUrl !== "" && isSafePolicyUrl(envUrl);
 
-  let org: string | null;
-  if (orgFromEnv) org = envOrg;
-  else if (settings.policyOrgName === undefined) org = DEFAULT_AI_POLICY_ORG;
-  else org = settings.policyOrgName.trim() || null;
+  const org: string | null = orgFromEnv ? envOrg : settings.policyOrgName?.trim() || null;
 
-  // ★★ The built-in link is Acme's own page, so it applies ONLY while the
-  //    owner is the built-in one too. Otherwise a deployment or user that set just
-  //    an owner would see "the AI usage policy of Acme" pointing at Acme's wiki.
+  // ★★ There is no built-in link. A link is used only when it was actually
+  //   configured — by the deployment or in Settings — never inferred from the owner.
   let url: string | null;
   if (urlFromEnv) url = envUrl;
-  else if (settings.policyUrl === undefined) url = org === DEFAULT_AI_POLICY_ORG ? DEFAULT_AI_POLICY_URL : null;
-  else url = isSafePolicyUrl(settings.policyUrl) ? settings.policyUrl.trim() : null;
+  else url = settings.policyUrl !== undefined && isSafePolicyUrl(settings.policyUrl) ? settings.policyUrl.trim() : null;
 
   return { org, url, orgFromEnv, urlFromEnv, urlEnvRejected: envUrl !== "" && !urlFromEnv };
 }

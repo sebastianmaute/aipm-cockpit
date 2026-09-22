@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  DEFAULT_AI_POLICY_ORG,
-  DEFAULT_AI_POLICY_URL,
-  isSafePolicyUrl,
-  resolveAiPolicy,
-} from "./ai-policy";
+import { isSafePolicyUrl, resolveAiPolicy } from "./ai-policy";
 
 const NO_ENV = { org: undefined, url: undefined };
 
@@ -26,9 +21,22 @@ describe("isSafePolicyUrl", () => {
 });
 
 describe("resolveAiPolicy", () => {
-  it("falls back to the built-in owner and link when nothing is configured", () => {
-    const p = resolveAiPolicy({}, NO_ENV);
-    expect(p).toMatchObject({ org: DEFAULT_AI_POLICY_ORG, url: DEFAULT_AI_POLICY_URL, orgFromEnv: false, urlFromEnv: false });
+  it("resolves to no policy when neither env nor Settings supplies one", () => {
+    const p = resolveAiPolicy({}, { org: undefined, url: undefined });
+    expect(p).toMatchObject({ org: null, url: null, orgFromEnv: false, urlFromEnv: false });
+  });
+
+  // Stand-in for a stored owner equal to a retired built-in default: no code may
+  // know that name, so a stored owner is kept verbatim and given no link.
+  it("keeps a stored owner verbatim and gives it no link when none is stored", () => {
+    const p = resolveAiPolicy({ policyOrgName: "Globex" }, { org: undefined, url: undefined });
+    expect(p.org).toBe("Globex");
+    expect(p.url).toBeNull();
+  });
+
+  it("still honours both build variables", () => {
+    const p = resolveAiPolicy({}, { org: "Globex", url: "https://globex.example/policy" });
+    expect(p).toMatchObject({ org: "Globex", url: "https://globex.example/policy" });
   });
 
   it("uses the Settings values when no environment value is set", () => {
@@ -64,9 +72,9 @@ describe("resolveAiPolicy", () => {
     expect(resolveAiPolicy({ policyUrl: "javascript:alert(1)" }, NO_ENV).url).toBeNull();
   });
 
-  // ★★ The built-in link is Acme's own page. It must never be offered as
-  //    the policy of an owner that someone else configured.
-  it("a custom owner with no link configured gets NO link, not the built-in one", () => {
+  // ★★ There is no built-in link. A configured owner never gets a link it did not
+  //    itself supply, from Settings or from the environment.
+  it("a custom owner with no link configured gets NO link", () => {
     expect(resolveAiPolicy({ policyOrgName: "Acme GmbH" }, NO_ENV).url).toBeNull();
     expect(resolveAiPolicy({}, { org: "Acme GmbH", url: undefined }).url).toBeNull();
     expect(resolveAiPolicy({ policyOrgName: "" }, NO_ENV).url).toBeNull();
