@@ -1,6 +1,6 @@
 # AI PM Cockpit
 
-[![version](https://img.shields.io/badge/version-v1.13.1_%22Connelly%22-2e7d32)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-v1.13.2_%22Connelly%22-2e7d32)](./CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-EUPL--1.2-blue)](./LICENSE)
 
 > **The AI project-management cockpit that knows *your* project.**

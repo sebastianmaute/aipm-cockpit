@@ -8,6 +8,48 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.13.2] - 2026-09-22 "Connelly"
+
+A sanitising patch that prepares the repository for a public home. The built-in defaults that
+named the former employer are gone, the sample data uses fictional people, and a new check keeps
+internal identifiers out of the tree. Several defaults change behaviour; read "Changed" before
+upgrading.
+
+### Changed
+
+- **The AI assistant's consent screen no longer shows an AI-usage-policy step unless one is
+  configured.** There is no built-in policy owner or link any more. A deployment sets
+  `NEXT_PUBLIC_AI_POLICY_ORG` and `NEXT_PUBLIC_AI_POLICY_URL` at build time, or a user enters the
+  owner and the link in Settings. A stored owner is kept, but the step appears only once a
+  link exists.
+- **Exports default to the footer "AI PM Cockpit".** A deployment can set
+  `NEXT_PUBLIC_EXPORT_FOOTER` at build time (capped at the same length as the Settings field); a
+  footer entered in Settings still applies unless the build variable is set, which
+  then wins. The PowerPoint colour-scheme name follows the footer.
+- **A fresh install has no Timelog tenant.** Enter it in Settings, or a deployment
+  sets `NEXT_PUBLIC_TIMELOG_TENANT` at build time. A tenant already stored on a device is kept
+  and always wins over the build variable. With no tenant, the Timelog panel shows its
+  not-configured state instead of sending a request that would fail.
+- **The desktop app has a new application identity.** On Windows the new installer installs
+  beside the previous version instead of upgrading it: uninstall the previous version first. This
+  build was not verified as a packaged installer before release.
+- **The Releases links (in the app, the desktop Help menu and the README) now point at the GitHub
+  repository.** That repository is private for now and holds no releases until the migration
+  publishes them there.
+- The operating guide's copyright line names the author under EUPL-1.2 and points at the
+  repository instead of a work address.
+
+### Internal
+
+- New `npm run leaks:check` gate: scans every tracked text file for internal identifiers read
+  from an untracked list named by `LEAK_LIST_FILE`; exit 1 on a leak, 2 when it cannot scan. It is
+  not in CI yet — it runs by hand before a release until CI moves.
+- Sample fixtures, tests and docs use fictional names, addresses and companies; the employer name,
+  the old brand abbreviation, internal hosts and assistant session links are gone from the tree.
+- Register entry §200 describes what to search for without spelling any identifier.
+- The migration roadmap, its sub-project 1 spec and the sanitise plan record the owner's decisions
+  of 2026-09-22.
+
 ## [1.13.1] - 2026-09-22 "Connelly"
 
 A brand-rename patch, the first step of preparing the repository for a public home. The company
