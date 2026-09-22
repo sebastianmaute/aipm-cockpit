@@ -531,7 +531,7 @@ git grep -ciP '(?<![a-z0-9])<trigram>(?![a-z0-9])' -- docs CHANGELOG.md | awk -F
   markers (Task 10), and every such line is listed in this task's report. Expected count after
   this task: zero, because every record examined on 2026-09-21 reads correctly with a description.
 
-- [ ] **Step 4: The GitLab project id.** A bare " (GitLab)" in prose (AGENTS.md,
+- [ ] **Step 4: The GitLab project id.** A bare "project <id>" in prose (AGENTS.md,
   `docs/AGENTS/ci.md`, two `.gitlab-ci.yml` comments) discloses nothing without the host and is
   **not** in the identifier set; the set matches project-id URL paths (`projects/` plus the numeric id) only, which live in
   three docs (`docs/open-followups.md` among them). Rewrite those URLs. ★ `.gitlab-ci.yml` carries

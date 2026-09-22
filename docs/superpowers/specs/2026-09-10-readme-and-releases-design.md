@@ -44,7 +44,7 @@ Established by command, not assumption:
 | README has **zero** `path:LINE` citations | grep; so the doc-claims ratchet cannot be tripped by moving this text |
 | `docs:scripts` does **not** generate README | no reference to it in `scripts/sync-script-docs.mjs`; confirmed by a run that regenerated `CONTRIBUTING.md` alone |
 | Six intra-README anchors, all pointing into sections that move | `#security-model` ×4, `#how-sign-in-works`, `#environment-variables--security` |
-| GitLab  (GitLab) is `visibility: internal`, `releases_access_level: enabled`, **`packages_enabled: false`** | `glab api projects/:id` |
+| The GitLab project is `visibility: internal`, `releases_access_level: enabled`, **`packages_enabled: false`** | `glab api projects/:id` |
 | `workflow.rules` already admits tag pipelines (`- if: $CI_COMMIT_TAG`) | `.gitlab-ci.yml` |
 | Repo has not tagged a release since `v0.7.3`; app is at 0.301.0 | `git tag --list` |
 | GitHub mirror is a **private, personal-account** copy of `main`, `only_protected_branches: true`, with **zero tags mirrored** | `glab api projects/:id/remote_mirrors`, `gh api .../tags` |

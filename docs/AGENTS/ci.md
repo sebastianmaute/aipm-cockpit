@@ -16,7 +16,7 @@
 
 [← AGENTS.md](../../AGENTS.md) · [doc set](../../AGENTS.md#the-doc-set--what-lives-where)
 
-Owns the per-job detail of the GitLab pipeline ( (GitLab)): every quality gate and its exit
+Owns the per-job detail of the GitLab pipeline: every quality gate and its exit
 codes, the e2e and prod-smoke jobs, desktop packaging, the release stage, and where the
 `quality-gate-bypass` escape hatch does and does not exist.
 
@@ -25,7 +25,7 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
 
 ## The "CI is GitLab" hard constraint
 
-- **CI is GitLab** (not GitHub),  (GitLab). Pipeline: install → quality (lint · typecheck · **semgrep** SAST
+- **CI is GitLab** (not GitHub). Pipeline: install → quality (lint · typecheck · **semgrep** SAST
   BLOCKING [two-scan: a full-severity `--gitlab-sast` report for the widget + a separate `--severity ERROR
   --error` gate] · **dependency-audit** blocking · **file-size-ratchet** BLOCKING · **duplication-gate**
   BLOCKING [jscpd `--threshold` per package.json `dup:check` — ★★ it compares the TOTAL

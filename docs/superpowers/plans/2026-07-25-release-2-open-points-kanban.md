@@ -6,7 +6,7 @@
 
 **Architecture:** Three independent slices landed in sequence (they share the Open Points toolbar). Slice 1 adds a field across the six persistence paths and rides the existing per-task load migrator for backfill. Slice 2 derives one `visibleTasks` list inside `WorkspaceProvider` that feeds all four filter derivations, so rows and dropdown options can never drift. Slice 3 adds a sibling component to the existing Kanban board rather than branching it, backed by a new pure grouping function.
 
-**Tech Stack:** Next.js 16 (app dir, flat `src/app/`), React 19, TypeScript strict, Tailwind v4 with brand palette tokens, vitest + @testing-library/react (jsdom), Playwright + axe for the a11y gate, GitLab CI ( (GitLab)).
+**Tech Stack:** Next.js 16 (app dir, flat `src/app/`), React 19, TypeScript strict, Tailwind v4 with brand palette tokens, vitest + @testing-library/react (jsdom), Playwright + axe for the a11y gate, GitLab CI.
 
 **Spec:** `docs/superpowers/specs/2026-07-24-r2-open-points-kanban-design.md`
 
