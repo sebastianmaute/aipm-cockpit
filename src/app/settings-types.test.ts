@@ -316,6 +316,21 @@ describe("exportFooter branding", () => {
   it("keeps a non-breaking space inside the footer — it is a deliberate character, not a break", () => {
     expect(exportFooterText({ exportFooter: "Acme GmbH" }, NO_FOOTER_ENV)).toBe("Acme GmbH");
   });
+
+  // register §200 finding 7: the stored footer is capped by `sanitizeBranding`
+  // (see "keeps an export footer on its own, trimmed and capped" above), but
+  // the env value went straight into the footer with no cap at all.
+  it("caps a long build-variable footer at the same length the stored value is capped to", () => {
+    expect(exportFooterText(undefined, { footer: "x".repeat(500) })).toHaveLength(
+      BRANDING_EXPORT_FOOTER_MAX,
+    );
+  });
+
+  it("caps a long build-variable footer even with a shorter stored value present", () => {
+    const capped = exportFooterText({ exportFooter: "Acme GmbH" }, { footer: "y".repeat(500) });
+    expect(capped).toHaveLength(BRANDING_EXPORT_FOOTER_MAX);
+    expect(capped).toBe("y".repeat(BRANDING_EXPORT_FOOTER_MAX));
+  });
 });
 
 describe("sanitizeAiConfig — AI policy fields", () => {

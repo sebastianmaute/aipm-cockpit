@@ -40,12 +40,14 @@ export function exportFooterEnv(): ExportFooterEnv {
  *  injected value in tests) → a stored `branding.exportFooter` → the neutral
  *  built-in. A blank env value is ignored, same as a blank stored one. `undefined`
  *  branding = never set → the built-in; `""` (or blank) = cleared → the built-in
- *  too; anything else as typed, on ONE line (see `oneLineFooter`). */
+ *  too; anything else as typed, on ONE line (see `oneLineFooter`), capped at
+ *  `BRANDING_EXPORT_FOOTER_MAX` the same way `sanitizeBranding` caps a stored
+ *  value — nothing upstream of this function enforces that bound on `env`. */
 export function exportFooterText(
   branding: { exportFooter?: string } | undefined,
   env: ExportFooterEnv = exportFooterEnv(),
 ): string {
-  const envLine = env.footer !== undefined ? oneLineFooter(env.footer) : "";
+  const envLine = env.footer !== undefined ? oneLineFooter(env.footer).slice(0, BRANDING_EXPORT_FOOTER_MAX) : "";
   if (envLine) return envLine;
 
   const v = branding?.exportFooter;
