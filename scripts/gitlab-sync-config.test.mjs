@@ -44,4 +44,45 @@ describe("ci/gitlab-sync.yml", () => {
     expect(echoed.length).toBeGreaterThan(0);
     expect(echoed.filter((a) => /\$\{?\w*TOKEN/.test(a))).toEqual([]);
   });
+
+  it("removes the clone target before cloning, at a fixed known path", () => {
+    // GIT_STRATEGY: none can leave the build dir (and github.git inside it) from a prior run, so
+    // `git clone --mirror` fails "already exists" on the 2nd run unless the target is cleared first.
+    const cloneIdx = lines.findIndex((l) => /git clone --quiet --mirror/.test(l));
+    const rmIdx = lines.findIndex((l) => /^\s*- rm -rf /.test(l));
+    expect(cloneIdx).toBeGreaterThan(-1);
+    expect(rmIdx).toBeGreaterThan(-1);
+    expect(rmIdx).toBeLessThan(cloneIdx);
+    // Fixed and known, not built from a variable `script:` set earlier — after_script cannot see one.
+    expect(lines[rmIdx]).not.toMatch(/\$\(/);
+  });
+
+  it("removes the same fixed path again in after_script, which runs in a separate shell", () => {
+    const afterIdx = lines.findIndex((l) => /^\s*after_script:/.test(l));
+    expect(afterIdx).toBeGreaterThan(-1);
+    const afterBlock = lines.slice(afterIdx).join("\n");
+    const afterRm = afterBlock.match(/^\s*- rm -rf (\S+)/m);
+    expect(afterRm).not.toBeNull();
+    const scriptRm = lines.find((l) => /^\s*- rm -rf /.test(l)).match(/rm -rf (\S+)/)[1];
+    expect(afterRm[1]).toBe(scriptRm);
+  });
+
+  it("strips the token from the cloned repo's stored remote URL right after cloning", () => {
+    const cloneIdx = lines.findIndex((l) => /git clone --quiet --mirror/.test(l));
+    const resetIdx = lines.findIndex((l) => /remote set-url origin/.test(l));
+    expect(resetIdx).toBeGreaterThan(cloneIdx);
+    const resetLine = lines[resetIdx];
+    expect(resetLine).toMatch(/https:\/\/github\.com\/sebastianmaute\/aipm-cockpit\.git/);
+    expect(resetLine).not.toMatch(/TOKEN/);
+  });
+
+  it("runs under a resource group so a manual run cannot overlap the schedule", () => {
+    expect(yml).toMatch(/^\s*resource_group: gitlab-sync\s*$/m);
+  });
+
+  it("documents in the header that --prune deletes GitLab tags/branches removed on GitHub", () => {
+    const header = lines.slice(0, lines.findIndex((l) => /^sync-from-github:/.test(l))).join("\n");
+    expect(header).toMatch(/--prune/);
+    expect(header).toMatch(/delete/i);
+  });
 });

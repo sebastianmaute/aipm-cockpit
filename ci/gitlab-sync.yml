@@ -7,9 +7,21 @@
 # - `main` is protected with force push OFF, so a force-push to GitHub's main (which must never
 #   happen) FAILS this job instead of silently rewriting GitLab: the failure mail is the alarm;
 # - tags are pushed unforced, so a moved tag fails the job the same way;
+# - `--prune` also DELETES a GitLab branch or tag that no longer exists on GitHub — a tag deleted
+#   and recreated (moved) across two syncs is pruned on the first and reappears on the second;
 # - `-o ci.skip` keeps the push from starting a pipeline.
 # Tokens are masked, protected CI variables. The script is GitHub content: whoever can merge to
 # GitHub main controls what runs with GITLAB_SYNC_TOKEN.
+#
+# The clone target ($CI_PROJECT_DIR/github.git, fixed rather than derived from a `script:`-local
+# variable so `after_script` — a SEPARATE shell — can find it too) is `rm -rf`'d before the clone
+# and again in after_script: with `GIT_STRATEGY: none` the runner may keep the build dir between
+# jobs, so a leftover github.git from a prior run makes `git clone --mirror` fail "already exists"
+# on the next one. Right after cloning, the token is stripped from github.git/config's stored
+# remote.origin.url (the push itself never uses `origin` — it names the GitLab URL explicitly) so a
+# runner that keeps the dir despite after_script (a crash, a hard timeout) never leaves the token on
+# disk. `resource_group: gitlab-sync` serialises the schedule against a manual "Run pipeline" click,
+# so the two can never share (and clobber) the same clone target concurrently.
 
 workflow:
   rules:
@@ -23,8 +35,13 @@ sync-from-github:
     entrypoint: [""]   # the image's ENTRYPOINT is `git`, which would swallow the job script
   variables:
     GIT_STRATEGY: none
+  resource_group: gitlab-sync
   script:
     - test -n "$GITHUB_SYNC_TOKEN" && test -n "$GITLAB_SYNC_TOKEN" || { echo "sync token variable missing" >&2; exit 2; }
-    - git clone --quiet --mirror "https://x-access-token:${GITHUB_SYNC_TOKEN}@github.com/sebastianmaute/aipm-cockpit.git" github.git
-    - cd github.git
+    - rm -rf "$CI_PROJECT_DIR/github.git"
+    - git clone --quiet --mirror "https://x-access-token:${GITHUB_SYNC_TOKEN}@github.com/sebastianmaute/aipm-cockpit.git" "$CI_PROJECT_DIR/github.git"
+    - git -C "$CI_PROJECT_DIR/github.git" remote set-url origin https://github.com/sebastianmaute/aipm-cockpit.git
+    - cd "$CI_PROJECT_DIR/github.git"
     - git push --quiet --prune -o ci.skip "${CI_SERVER_PROTOCOL}://sync:${GITLAB_SYNC_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/${CI_PROJECT_PATH}.git" '+refs/heads/*:refs/heads/*' 'refs/tags/*:refs/tags/*'
+  after_script:
+    - rm -rf "$CI_PROJECT_DIR/github.git"
