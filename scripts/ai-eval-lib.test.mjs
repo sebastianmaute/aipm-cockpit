@@ -90,6 +90,24 @@ describe("plantedToken", () => {
     //  while the same sweep passes in a fraction of that locally WITHOUT
     //  coverage — which is why nothing local caught it. The minting is not the
     //  cost; the matcher machinery is. Collect, then assert once.
+    //
+    //  ★★★ THAT DIAGNOSIS WAS RIGHT WHEN `TOKEN_IDS` HAD 7 IDS AND WENT STALE
+    //  ONCE THE HARDENING TOKENS TOOK IT TO 13 — the loop, not the matcher, is
+    //  the dominant cost now. `plantedToken` was unmemoized: resolving id at
+    //  index k recomputed EVERY earlier id's token from scratch via
+    //  `earlierTokens`, so one (id, salt) cost 2**k calls and one salt's
+    //  `TOKEN_IDS.map(plantedToken)` cost 2**13-1 = 8191. Measured (see
+    //  `plantedToken`'s own docstring for the exact commands): this loop alone
+    //  took 16.5s in plain `node`, zero vitest/coverage overhead, and 26.5s
+    //  running `vitest run scripts/ai-eval-lib.test.mjs -t "never collides
+    //  within a run" --coverage` in isolation — already most of a 60000ms
+    //  budget before any full-suite contention, which is what pushed it over
+    //  in `npm run test:coverage`. Memoizing `plantedToken` by `${id}:${salt}`
+    //  (pure function, so caching changes nothing observable — proved
+    //  byte-identical for every id x salt 1..3000 via a throwaway node script,
+    //  not committed) cuts the per-salt cost to 13 calls: same commands, same
+    //  file, now 127ms in plain `node` and 171ms of test time under the
+    //  vitest+coverage command above.
     const collisions = [];
     let checked = 0;
     for (let salt = 1; salt <= 3000; salt += 1) {
