@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { parseTimelogRequest, callTimelog, type TimelogCreds } from "./_helpers";
 import { MAX_REQUESTS } from "../jira/_rate-limit";
 
-const creds: TimelogCreds = { host: "app2.timelog.com", tenant: "Acme", token: "tok" };
+const creds: TimelogCreds = { host: "app2.timelog.com", tenant: "acme", token: "tok" };
 function req(body: unknown): Request {
   return new Request("http://localhost/api/timelog", { method: "POST", body: JSON.stringify(body) });
 }

@@ -205,7 +205,7 @@ export type TimelogScopeMode = "auto" | "self" | "org";
 export type TimelogConfig = {
   enabled: boolean;
   host: string;     // e.g. "app2.timelog.com"
-  tenant: string;   // e.g. "Acme"
+  tenant: string;   // the Timelog tenant slug (a URL path segment); no built-in — see `defaultTimelogTenant` in timelog-sanitize.ts
   email: string;    // identifying, plaintext
   apiToken: string; // sealed secret; blanked on disk by writeSettings
   scopeMode: TimelogScopeMode;
@@ -213,10 +213,13 @@ export type TimelogConfig = {
   tokenInvalidAt?: string;
 };
 
+// ★ No built-in tenant: a never-configured install has `tenant: ""` until
+//   `sanitizeTimelogConfig` (timelog-sanitize.ts) resolves it against the
+//   `NEXT_PUBLIC_TIMELOG_TENANT` build variable via `defaultTimelogTenant()`.
 export const defaultTimelogConfig: TimelogConfig = {
   enabled: false,
   host: "app2.timelog.com",
-  tenant: "Acme",
+  tenant: "",
   email: "",
   apiToken: "",
   scopeMode: "auto",

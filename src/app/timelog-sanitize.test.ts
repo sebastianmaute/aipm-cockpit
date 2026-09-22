@@ -4,8 +4,12 @@ import {
   sanitizeTimelogConfig,
   isBlankTimelogLinks,
   EMPTY_TIMELOG_LINKS,
+  defaultTimelogTenant,
+  type TimelogEnv,
 } from "./timelog-sanitize";
 import { defaultTimelogConfig } from "./timelog-types";
+
+const NO_TENANT_ENV: TimelogEnv = { tenant: undefined };
 
 describe("sanitizeTimelogLinks", () => {
   it("returns undefined for non-objects", () => {
@@ -82,6 +86,49 @@ describe("sanitizeTimelogConfig", () => {
     expect(valid.tokenInvalidAt).toBe("2026-06-23T10:00:00.000Z");
     const invalid = sanitizeTimelogConfig({ tokenInvalidAt: 12345 });
     expect(invalid.tokenInvalidAt).toBeUndefined();
+  });
+
+  // ★ Tenant is a PROTOCOL value (a URL path segment sent to the Timelog API
+  //   and persisted in settings), unlike the AI-policy/export-footer build
+  //   variables — so this is the one place env does NOT always win: a stored
+  //   tenant already means real traffic goes to that path, and a later env
+  //   change must never silently repoint an already-configured device.
+  describe("tenant — build variable, empty built-in", () => {
+    it("falls back to an empty tenant when nothing is configured and no env is set", () => {
+      expect(sanitizeTimelogConfig({}, NO_TENANT_ENV).tenant).toBe("");
+    });
+
+    it("falls back to the injected env tenant when no tenant is stored", () => {
+      expect(sanitizeTimelogConfig({}, { tenant: "acme" }).tenant).toBe("acme");
+    });
+
+    // A raw config that is not even an object (the "never touched settings"
+    // shape) must ALSO honour the env, not just the has-a-tenant-key branch —
+    // a config "built fresh" from nothing is exactly where the build variable
+    // is supposed to take effect.
+    it("honours the env when raw is not an object at all", () => {
+      expect(sanitizeTimelogConfig(null, { tenant: "acme" }).tenant).toBe("acme");
+    });
+
+    it("keeps a stored tenant even when the env sets a different one", () => {
+      expect(sanitizeTimelogConfig({ tenant: "stored-tenant" }, { tenant: "acme" }).tenant).toBe(
+        "stored-tenant",
+      );
+    });
+  });
+});
+
+describe("defaultTimelogTenant", () => {
+  it('returns "" when the env is unset', () => {
+    expect(defaultTimelogTenant(NO_TENANT_ENV)).toBe("");
+  });
+
+  it("trims and returns the injected env tenant", () => {
+    expect(defaultTimelogTenant({ tenant: "  acme  " })).toBe("acme");
+  });
+
+  it('returns "" for a blank env tenant', () => {
+    expect(defaultTimelogTenant({ tenant: "   " })).toBe("");
   });
 });
 

@@ -19,7 +19,7 @@ and cannot run a stdio MCP process, so timelog-mcp is the **API reference**, not
 dependency. The app replicates the relevant REST subset.
 
 Timelog REST API facts (confirmed from the Swagger):
-- Base: `https://{host}/{tenant}/api/v1/...` (default `app2.timelog.com` / `Acme`).
+- Base: `https://{host}/{tenant}/api/v1/...` (default `app2.timelog.com` / the tenant slug).
   The personal-access-token suffix `-N` maps to `appN`.
 - Auth: `Authorization: Bearer <personal-access-token>`.
 - Response envelope (TAF): lists are `{ Entities: [{ Properties: {...} }], Properties: { TotalRecord, TotalPage, PageNumber } }`;
@@ -87,7 +87,7 @@ type TimelogScopeMode = "auto" | "self" | "org";
 type TimelogConfig = {
   enabled: boolean;
   host: string;        // e.g. "app2.timelog.com"
-  tenant: string;      // e.g. "Acme"
+  tenant: string;      // e.g. "the tenant slug"
   email: string;       // identifying, plaintext
   apiToken: string;    // sealed secret (blanked on disk)
   scopeMode: TimelogScopeMode;

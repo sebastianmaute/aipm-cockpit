@@ -24,7 +24,7 @@ import { loadActualsCache } from "./timelog-actuals-store";
 import type { TimelogLinks } from "./timelog-types";
 import { bucketOverlay, type ActualsAggregate } from "./timelog-actuals";
 
-const creds = { host: "app2.timelog.com", tenant: "Acme", token: "tok" };
+const creds = { host: "app2.timelog.com", tenant: "acme", token: "tok" };
 // Persisted links are always MANUAL pins in production (auto-matches are never
 // written back). autoMatch* keeps manual links regardless of directory/refs, so
 // these attribute without needing resources/budgets seeded.

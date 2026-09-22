@@ -288,6 +288,28 @@ function enableTimelogBrokenToken() {
   );
 }
 
+/** Timelog switched ON with a host and token, but no tenant — the
+ *  "never-configured tenant reaches the proxy" state: `parseCreds` in
+ *  `api/timelog/_helpers.ts` already rejects an empty tenant (returns null),
+ *  but until `isMisconfigured` checks it too, the panel thinks it is
+ *  configured and lets an action fire straight into that rejection. */
+function enableTimelogNoTenant() {
+  window.localStorage.setItem(
+    SETTINGS_KEY,
+    JSON.stringify({
+      ...defaultSettings,
+      timelog: {
+        enabled: true,
+        host: "app2.timelog.com",
+        tenant: "",
+        email: "admin@example.com",
+        apiToken: "tok123",
+        scopeMode: "self",
+      },
+    }),
+  );
+}
+
 afterEach(() => {
   window.localStorage.clear();
   vi.clearAllMocks();
@@ -527,6 +549,63 @@ describe("TimelogPanel", () => {
           screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
         ).toBeEnabled(),
       );
+    });
+  });
+
+  // ★★ Measured 2026-09-21 (task-3-brief): an empty tenant was not handled
+  // before this change, because it had never been possible — the built-in
+  // default always supplied one. `isMisconfigured` checked `enabled`, `host`
+  // and `apiToken` only, so a never-configured tenant reached the proxy
+  // instead of showing this panel's existing not-configured state.
+  describe("blank tenant is misconfigured (Task 3)", () => {
+    it("shows the misconfigured state when enabled/host/token are set but the tenant is blank", async () => {
+      enableTimelogNoTenant();
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      // Settle to the STORED config, not the pre-hydration defaults: both
+      // states render disabled (defaults are unconfigured too), so waiting on
+      // the button/hint alone would pass even with the tenant check dropped —
+      // exactly the mutation this test exists to catch. `useTimelogSync` is
+      // mocked and called every render with live `creds`; only the SETTLED
+      // stored config carries this apiToken, so waiting for that call proves
+      // the assertions below are read against it, not the transient defaults.
+      await waitFor(() => {
+        const lastCreds = vi.mocked(useTimelogSync).mock.calls.at(-1)?.[0]?.creds;
+        expect(lastCreds).toMatchObject({ token: "tok123", tenant: "" });
+      });
+
+      expect(screen.getByText(t("en-US", "timelogEnable"))).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
+      ).toBeDisabled();
+    });
+
+    // Positive control: identical config, but WITH a tenant — proves the hint
+    // above is conditioned on the tenant specifically, not shown unconditionally
+    // (or vacuously true because the panel never actually mounted).
+    it("mounts configured (control) once a tenant is also set", async () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
+        ).toBeEnabled(),
+      );
+      expect(screen.queryByText(t("en-US", "timelogEnable"))).toBeNull();
     });
   });
 

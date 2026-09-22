@@ -110,7 +110,7 @@ export type TimelogScopeMode = "auto" | "self" | "org";
 export type TimelogConfig = {
   enabled: boolean;
   host: string;     // e.g. "app2.timelog.com"
-  tenant: string;   // e.g. "Acme"
+  tenant: string;   // e.g. "the tenant slug"
   email: string;    // identifying, plaintext
   apiToken: string; // sealed secret; blanked on disk by writeSettings
   scopeMode: TimelogScopeMode;
@@ -121,7 +121,7 @@ export type TimelogConfig = {
 export const defaultTimelogConfig: TimelogConfig = {
   enabled: false,
   host: "app2.timelog.com",
-  tenant: "Acme",
+  tenant: "the tenant slug",
   email: "",
   apiToken: "",
   scopeMode: "auto",
@@ -496,7 +496,7 @@ git commit -m "feat(timelog): persist Workspace.timelogLinks as a meta-blob acro
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { parseTimelogRequest, callTimelog, type TimelogCreds } from "./_helpers";
 
-const creds: TimelogCreds = { host: "app2.timelog.com", tenant: "Acme", token: "tok" };
+const creds: TimelogCreds = { host: "app2.timelog.com", tenant: "the tenant slug", token: "tok" };
 function req(body: unknown): Request {
   return new Request("http://localhost/api/timelog", { method: "POST", body: JSON.stringify(body) });
 }
@@ -648,7 +648,7 @@ it("forwards an upstream 200 with the GET query string built from query", async 
   const req = new Request("http://localhost/api/timelog", {
     method: "POST",
     body: JSON.stringify({
-      host: "app2.timelog.com", tenant: "Acme", token: "tok",
+      host: "app2.timelog.com", tenant: "the tenant slug", token: "tok",
       path: "/v1/time-tracking-item/get-by-date", query: { startDate: "2026-06-01", endDate: "2026-06-30" },
     }),
   });
@@ -661,7 +661,7 @@ it("forwards an upstream 200 with the GET query string built from query", async 
 it("returns 400 for a bad path", async () => {
   const req = new Request("http://localhost/api/timelog", {
     method: "POST",
-    body: JSON.stringify({ host: "app2.timelog.com", tenant: "Acme", token: "tok", path: "/evil" }),
+    body: JSON.stringify({ host: "app2.timelog.com", tenant: "the tenant slug", token: "tok", path: "/evil" }),
   });
   expect((await POST(req)).status).toBe(400);
 });
@@ -711,7 +711,7 @@ git commit -m "feat(timelog): /api/timelog GET proxy route"
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { unwrapTaf, listUsers, listTimeItemsSelf, type TimelogCreds } from "./timelog-api";
 
-const creds: TimelogCreds = { host: "app2.timelog.com", tenant: "Acme", token: "tok" };
+const creds: TimelogCreds = { host: "app2.timelog.com", tenant: "the tenant slug", token: "tok" };
 afterEach(() => vi.restoreAllMocks());
 
 describe("unwrapTaf", () => {
@@ -737,7 +737,7 @@ describe("listUsers", () => {
     expect(users).toEqual([{ userId: 5, firstName: "Ada", lastName: "L", initials: "AL", email: "a@b.c", isActive: true }]);
     const [, init] = fetchMock.mock.calls[0];
     const body = JSON.parse((init as RequestInit).body as string);
-    expect(body).toMatchObject({ host: "app2.timelog.com", tenant: "Acme", token: "tok", path: "/v1/user" });
+    expect(body).toMatchObject({ host: "app2.timelog.com", tenant: "the tenant slug", token: "tok", path: "/v1/user" });
   });
   it("throws TimelogError carrying only the status digits on a non-200", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 401 }));
@@ -1268,7 +1268,7 @@ import * as api from "./timelog-api";
 import { useTimelogSync } from "./use-timelog-sync";
 import type { TimelogLinks } from "./timelog-types";
 
-const creds = { host: "app2.timelog.com", tenant: "Acme", token: "tok" };
+const creds = { host: "app2.timelog.com", tenant: "the tenant slug", token: "tok" };
 const links: TimelogLinks = { userLinks: [{ timelogUserId: 5, resourceId: 2, manual: false }], projectLinks: [{ timelogProjectId: 9, bucketId: 7, manual: false }] };
 beforeEach(() => { vi.clearAllMocks(); window.localStorage.clear(); });
 

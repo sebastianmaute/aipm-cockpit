@@ -9,7 +9,7 @@ it("forwards an upstream 200 and builds the GET query string from query", async 
   const req = new Request("http://localhost/api/timelog", {
     method: "POST",
     body: JSON.stringify({
-      host: "app2.timelog.com", tenant: "Acme", token: "tok",
+      host: "app2.timelog.com", tenant: "acme", token: "tok",
       path: "/v1/time-tracking-item/get-by-date", query: { startDate: "2026-06-01", endDate: "2026-06-30" },
     }),
   });
@@ -23,7 +23,7 @@ it("returns 400 for a bad path (no upstream call)", async () => {
   const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
   const req = new Request("http://localhost/api/timelog", {
     method: "POST",
-    body: JSON.stringify({ host: "app2.timelog.com", tenant: "Acme", token: "tok", path: "/evil" }),
+    body: JSON.stringify({ host: "app2.timelog.com", tenant: "acme", token: "tok", path: "/evil" }),
   });
   expect((await POST(req)).status).toBe(400);
   expect(fetchMock).not.toHaveBeenCalled();

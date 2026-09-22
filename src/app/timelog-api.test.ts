@@ -3,7 +3,7 @@ import { unwrapTaf, listUsers, listTimeItemsSelf, listEmployeeTimeItems,
   getPrivileges, getMe, listManagedProjects, listProjectsForCustomer, listCustomers,
   listProjectTimeRegistrations, getFinancialDataSelf, type TimelogCreds } from "./timelog-api";
 
-const creds: TimelogCreds = { host: "app2.timelog.com", tenant: "Acme", token: "tok" };
+const creds: TimelogCreds = { host: "app2.timelog.com", tenant: "acme", token: "tok" };
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("unwrapTaf", () => {
@@ -32,7 +32,7 @@ describe("listUsers", () => {
     expect(users).toEqual([{ userId: 5, firstName: "Ada", lastName: "L", initials: "AL", email: "a@b.c", isActive: true }]);
     const [, init] = fetchMock.mock.calls[0];
     const body = JSON.parse((init as RequestInit).body as string);
-    expect(body).toMatchObject({ host: "app2.timelog.com", tenant: "Acme", token: "tok", path: "/v1/user" });
+    expect(body).toMatchObject({ host: "app2.timelog.com", tenant: "acme", token: "tok", path: "/v1/user" });
   });
   it("throws TimelogError carrying only the status on a non-200", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 401 }));

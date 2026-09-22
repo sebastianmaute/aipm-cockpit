@@ -76,7 +76,7 @@ export function TimelogPanel({
   // Declared once, directly below `cfg` and above every reader — the action
   // handlers and the `disabled` expressions evaluate this same const rather
   // than recomputing the condition (open-followups §74).
-  const isMisconfigured = !cfg.enabled || !cfg.host || !cfg.apiToken;
+  const isMisconfigured = !cfg.enabled || !cfg.host || !cfg.tenant || !cfg.apiToken;
 
   // Stable references hoisted out of useMemo deps to avoid obj.member lint errors
   const timelogLinks = ws.timelogLinks;
