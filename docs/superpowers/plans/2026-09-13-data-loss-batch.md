@@ -20,7 +20,7 @@
 - Gates per task: that task's test files (vitest `--maxWorkers=1 --reporter=dot`), `npx tsc --noEmit`, `npx eslint --max-warnings=0 src`, `npm run size:check`. Docs-touching tasks add `npm run docs:claims:check`, `npm run docs:symbols:check`, `npm run followups:index:check`, `npm run followups:workitems:check`. Codec tasks (1–3) add `golden-workspace.test.ts` and `codec-roundtrip.property.test.ts`. No full suite. (Every task here closes a register entry, so every task runs the docs gates.)
 - Register closure per entry, in the same commit as its fix: heading suffix → `— CLOSED 2026-09-13`, index-table row (title, derived anchor, status cell), `**Status:**` witness naming the test that pins the fix, `**Work item:**` line removed, and every body sentence the fix falsifies — found by grepping for the changed symbol and the old behaviour's wording, never by re-reading. Also sweep `src/` docstrings that describe the defect as open or unfixable. GitLab issues are closed only after merge.
 - No citations of the form `path:LINE` in docs (the doc-claims ratchet fails on new ones); cite symbols.
-- Commits: `git commit --only <explicit paths> -F <msgfile>`. Never `git add -A` / `git add .`, never `--amend`, never `npm ci`, no `git stash`, no `git checkout --` / `git restore`. Revert a mutation with an inverse Edit and prove `git diff --stat` unchanged. Every commit message ends with the line `Claude-Session: https://[session link removed]`. Write the message file with the Write tool into your scratchpad.
+- Commits: `git commit --only <explicit paths> -F <msgfile>`. Never `git add -A` / `git add .`, never `--amend`, never `npm ci`, no `git stash`, no `git checkout --` / `git restore`. Revert a mutation with an inverse Edit and prove `git diff --stat` unchanged. Every commit message ends with the line the session trailer. Write the message file with the Write tool into your scratchpad.
 - Never read an exit code through a pipe. Pattern: `<cmd> > "$LOG/x.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " "$LOG/x.log"`, where `$LOG` is your session scratchpad directory. When vitest is given several files, assert the `Test Files N passed (N)` count equals the number of files you passed (a mistyped path is silently dropped at exit 0).
 - `npx tsc --noEmit`: read the error count from the log (`grep -c "error TS"`), not only the exit code.
 
@@ -492,8 +492,6 @@ instead of losing "note about pricing" on all four sinks. The attribute-free
 case ("<mark> means ...") is byte-identical to markup and stays as pinned
 residue. rich-text-projection.test.ts pinned the old "<a href>" loss and is
 flipped. Register §32 closed.
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -765,8 +763,6 @@ fix: collapse a CR run before LF on the first Markdown encode (§106)
 mdEscape's newline rule becomes /\r*\n/, so "a\r\r\r\nb" settles in one
 save/load cycle instead of losing one CR per cycle. The skipped fixed-point
 block in codec-roundtrip.property.test.ts runs live. Register §106 closed.
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -998,8 +994,6 @@ over-cap one through sanitizeRichText, which bounds visible text and degrades
 to plain text rather than slicing raw UTF-16 units. The length gate keeps
 sanitizeRichText's trim/re-classification off stored bodies. Register §108
 closed.
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -1474,8 +1468,6 @@ the incoming array carries such an address (other fields still apply).
 Load/decode paths and sanitizeEmailList are unchanged. The retained probe is
 converted into emails-roundtrip.test.ts. The parity and sweep suites are
 unchanged. Register §422 closed.
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -1765,8 +1757,6 @@ budget, shed its own users + projectRefs whole on a copy, keeping aggregates,
 partial, fetchedAt and the roll. Previously the map was written over budget
 and the whole save was lost to the swallowed quota error. Register §430
 closed.
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -1857,8 +1847,6 @@ A balanced, well-positioned stray quote pair is byte-identical to a legitimate
 quoted cell, the app's encoder cannot produce one, and the malformed subset
 already pauses saving (csv-section-split.test.ts "swallows a section marker").
 No code change. GitLab #160 closes at merge.
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash

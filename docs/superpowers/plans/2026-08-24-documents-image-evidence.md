@@ -1461,7 +1461,7 @@ This is a patch-level change — new tests, one new user-facing string, no emitt
 
 - [ ] **Step 6: Add the CHANGELOG entry**
 
-★ No `[session link removed]...` URL in `CHANGELOG.md` or in any MR description. Commit trailers are fine.
+★ No assistant session URL in `CHANGELOG.md` or in any MR description. Commit trailers are fine.
 
 - [ ] **Step 7: Final verification and commit**
 

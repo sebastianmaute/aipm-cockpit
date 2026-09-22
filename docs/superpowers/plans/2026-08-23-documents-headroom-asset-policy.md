@@ -51,7 +51,6 @@ only permitted edits, and `git diff` on the pair should show a clean move.
 
 8. Every commit message ends with:
    ```
-   Claude-Session: https://[session link removed]
    ```
    Commit via a Bash heredoc (`git commit -F -`), never a PowerShell here-string.
 
@@ -250,8 +249,6 @@ documents-panel.test.tsx mutation-proves that placement.
 Adds the row-unique-name and implausibility-guard tests that axe cannot
 provide -- no axe rule flags two controls sharing an accessible name, in
 any view at any seed size.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -379,8 +376,6 @@ and Button now have zero remaining uses in that file. CI runs bare
 `npm run lint` with no --max-warnings and tsconfig sets no
 noUnusedLocals, so orphaned imports ship green; they were found by
 grepping both sides of the move, not by a gate.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -471,8 +466,6 @@ make the two modules import each other, and this repo already
 hand-works-around one runtime import cycle (open-followups 92).
 
 Also drops ToggleButton and Button, which the move orphaned.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -731,8 +724,6 @@ this lands with a seven-row table -- one per converted site -- plus a
 control-flow assertion for the two intake filters, which gate
 uploadAndInsert and whose preventDefault placement decides whether the
 editor swallows ordinary text pastes.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -877,8 +868,6 @@ no mime to check and keeps today's typeless Blob -- declining it would
 regress a case that renders correctly via <img> sniffing. That miss case
 is open-followups 225, not a silent fix inside a refactor. Both branches
 are mutation-proved.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -950,8 +939,6 @@ document-preview.tsx already shipped once and carries its own account of.
 
 Pinned by node identity, not markup -- a rebuilt subtree is
 byte-identical, which is exactly how the original defect hid.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -1075,8 +1062,6 @@ not be handed a write capability it merely happens not to use.
 Subscribes to the asset-repair generation rather than bumping the assets
 array's identity; the latter re-runs the effect but marks the workspace
 dirty and writes every table, which is why that signal rides its own wire.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -1136,7 +1121,7 @@ git show origin/main:src/app/version.ts | head -5
 
 `APP_MILESTONE` / the codename stays **"Khaw"** — the codename tracks the minor series, and this is a patch.
 
-- [ ] **Step 3: CHANGELOG entry** — user-facing language, no `[session link removed]...` URL. Lead with the six tables' images and the mime hardening; the file split is not a user-facing change and belongs in one closing line at most.
+- [ ] **Step 3: CHANGELOG entry** — user-facing language, no assistant session URL. Lead with the six tables' images and the mime hardening; the file split is not a user-facing change and belongs in one closing line at most.
 
 - [ ] **Step 4: No new `versionHighlight*` key**, so `APP_HIGHLIGHT_KEYS` and `i18n.ts` are untouched. Confirm the branch does not touch `i18n.ts` at all:
 ```bash

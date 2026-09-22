@@ -16,7 +16,7 @@
 - **Never** edit `src/app/i18n.de.ts` with Edit or Write (not needed in this plan).
 - **Gates per task:** the task's own vitest file(s) with `--maxWorkers=1 --reporter=dot`, then `npx tsc --noEmit`, then `npx eslint --max-warnings=0 src`. Never two vitest runs at once. Never read an exit code through a pipe — redirect, `echo "EXIT=$?"`, then grep the file.
 - **No full suite** unless the user explicitly asks, and only at the end.
-- **Commits:** `git commit --only <explicit paths> -F <msgfile>`. Never `git add -A`, never `--amend`, never a bare `git stash`. Refer to register entries as §N in commit messages; `Closes #NN` belongs only in the MR description. End every commit message with `Claude-Session: https://[session link removed]`.
+- **Commits:** `git commit --only <explicit paths> -F <msgfile>`. Never `git add -A`, never `--amend`, never a bare `git stash`. Refer to register entries as §N in commit messages; `Closes #NN` belongs only in the MR description. End every commit message with the session trailer.
 - **Register numbering:** the highest section on `origin/main` is **§557**, so new entries start at **§558**. A number is reserved only once it is on `origin/main` — re-check immediately before pushing, because a peer branch may have taken it.
 - **Register ⇄ GitLab is 1:1:** every new OPEN entry needs an issue (`**Work item:** #NN`, title `§NNN: …`, label `source::register`). Creating issues is outward-facing — ask the user before filing.
 - **No push, no MR, no merge, no tag** without the user's explicit say.

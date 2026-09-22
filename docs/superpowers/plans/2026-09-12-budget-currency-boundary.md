@@ -24,7 +24,7 @@
 - Engines stay i18n-free: no strings in `budget-report.ts`.
 - `react-hooks/exhaustive-deps` is FATAL. A new `useMemo` dependency must be a bare local, never `obj.member`.
 - Scratch files only under `C:/Users/SEBAST~1.MAU/AppData/Local/Temp/claude/C--Projects-aipm-wt-a/42ea2b8b-c65b-4e7e-ad1b-58c814f2bb82/scratchpad`.
-- End every commit message with: `Claude-Session: https://[session link removed]`
+- End every commit message with: the session trailer
 
 ### The vacuity trap that governs every test in this plan
 

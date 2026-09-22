@@ -27,7 +27,7 @@
 - `npx tsc --noEmit` after any `.ts`/`.tsx` change (vitest never typechecks). Pass = exit 0 AND `grep -c "error TS" <log>` prints 0 — zero errors in total, not "zero in src/".
 - Lint with `npx eslint --max-warnings=0 <paths>`; every warning is fatal. `react-hooks/set-state-in-effect` is banned; no `Date.now()`/`new Date()`/`Math.random()` in a render body; an unused import, variable or destructured prop is fatal.
 - Mutation check: every task has one. Apply it with the Edit tool, watch the named test go red, revert with the inverse Edit, watch it go green, then prove `git diff --stat` lists only the task's files. Never leave a mutant in the tree.
-- Commits: conventional prefix, message ends with the trailer line `Claude-Session: https://[session link removed]`, and contains no `#` followed by digits. Stage by explicit path only (`git add <paths>`). Never `git add -A`/`git add .`, never `git commit --amend`, never `git stash`, never `git checkout -- <file>`, `git checkout HEAD -- <file>` or `git restore`. Never open, read or stage `not-in-use.env.local.bak`. Do not push.
+- Commits: conventional prefix, message ends with the trailer line the session trailer, and contains no `#` followed by digits. Stage by explicit path only (`git add <paths>`). Never `git add -A`/`git add .`, never `git commit --amend`, never `git stash`, never `git checkout -- <file>`, `git checkout HEAD -- <file>` or `git restore`. Never open, read or stage `not-in-use.env.local.bak`. Do not push.
 - Size ratchet: `LIMIT` in `scripts/check-file-sizes.mjs` is 1600 (test files are exempt). Largest non-test file touched: `task-manager.tsx` (3315, baselined at 6040), then `workspace-section.tsx` (1039); `dashboard-panel.tsx` (690) stays near 700 because rows 1–2 are extracted to `dashboard-rows.tsx` (AGENTS.md panel-split convention). Task 7 runs `size:check` once.
 - Cite symbols, never `path:line`, in any doc you edit (`docs:claims:check` ratchets new line cites).
 
@@ -626,8 +626,6 @@ height are now BlockWidth and BlockHeight (TileWidth/TileHeight on the
 Dashboard), resizeBlock clamps each axis with its own type, and H_CLASS
 gains literal row-span-5 to row-span-8. Reports keeps a maximum height of 4
 through its own catalogue, now pinned by a test.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -1080,8 +1078,6 @@ the mutators keep it. useArrangement takes an optional pure upgrade that
 runs on a stored read before reconcile; a read it rewrote starts dirty, so
 the upgraded layout is written back once. Reports passes none and is never
 upgraded.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -1470,8 +1466,6 @@ one-time upgrade keyed on "dashboard-burn-2x8": burn to the front at 2x8
 unless hidden, the trend's height clamped, everything else untouched. The
 default layout already carries the id, so a fresh or reset board is never
 re-upgraded.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -2097,8 +2091,6 @@ Portfolio health table). A characterization test pins that the
 Schedule and Budget RAG did not move. The now-orphaned
 `ForecastHeadline` component and its test are deleted, along with
 seven now-unused i18n keys, from both dictionaries.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -2878,8 +2870,6 @@ status card, equal height by stretch, with the same handler bundle the
 Next-actions page passes (none in a popout). The hero's CTA names carry a
 section segment so they never collide with the Top actions tile, which
 keeps listing the same action.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -3861,8 +3851,6 @@ It is absent at 0 except during a drag and never shown in a popout. Focus
 after hide goes to the badge; after a restore to the badge, or to the
 restored tile when none remain. Reports keeps its combined shelf; its tray
 is extracted without markup change.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -4164,8 +4152,6 @@ tile; AGENTS.md records the single grouping, the shared hero rule and the
 badge after the toolbar's trailing group. The grid geometry spec measures
 an 8-row tile at the 80px unit, and the Dashboard visual baseline is
 refreshed after an eye check; the other baselines were re-run unchanged.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 

@@ -1157,7 +1157,7 @@ if (n !== expect) { console.error(`ANCHOR ${f} count=${n} expected=${expect} REF
 
 ★ Never edit `i18n.de.ts` with the Edit tool — it corrupts umlauts and curls double quotes. Patch via a node utf8 write and re-verify.
 
-★ No `[session link removed]...` URL in `CHANGELOG.md`.
+★ No assistant session URL in `CHANGELOG.md`.
 
 - [ ] **Step 3: Run the full gate set**
 

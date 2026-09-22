@@ -38,7 +38,7 @@ Recorded as `Ruling — why — cost if wrong`.
 - EN and DE keys land in the same commit (tsc enforces parity). Placeholders are 0-based `{0}`, `{1}`.
 - `Lang` literals in tests are `"en-US"`, never `"en"`. A test asserting DE output calls `loadI18n("de")` in `beforeAll`.
 - Never `git add -A` or `git add .`. Stage named paths. Never stage `sample-workspace-huge.json` or `not-in-use.env.local.bak`. No `--amend`.
-- Commit messages carry no `#` followed by digits. End every commit message with `Claude-Session: https://[session link removed]`.
+- Commit messages carry no `#` followed by digits. End every commit message with the session trailer.
 - Never read an exit code through a pipe. Run vitest as `npx vitest run <files> > <scratch>/<name>.log 2>&1; echo "EXIT=$?"`, then read the log and check `Test Files` counts the files you named. Never run two vitest processes at once. No full suite (the user runs it at the end on their say).
 - After editing any test file, run `npx tsc --noEmit; echo "EXIT=$?"`.
 - Lint touched files: `npx eslint --max-warnings=0 <files>; echo "EXIT=$?"`. Unused bindings are fatal; `react-hooks/exhaustive-deps` rejects `obj.member` deps; no `Date.now()`/`new Date()` in a render body.
@@ -137,7 +137,7 @@ Run: `npx vitest run src/app/timelog-apply.test.ts > <scratch>/t0.log 2>&1; echo
 npx tsc --noEmit; echo "EXIT=$?"
 npx eslint --max-warnings=0 src/app/timelog-apply.ts src/app/timelog-apply.test.ts; echo "EXIT=$?"
 git add src/app/timelog-apply.ts src/app/timelog-apply.test.ts
-git commit -m "fix(timelog): a dated Apply removes the overlapping period key of the other granularity (§543)" -m "Claude-Session: https://[session link removed]"
+git commit -m "fix(timelog): a dated Apply removes the overlapping period key of the other granularity (§543)"
 ```
 
 ---
@@ -349,7 +349,7 @@ import { periodKeyForDate } from "./resource-capacity";
 npx tsc --noEmit; echo "EXIT=$?"
 npx eslint --max-warnings=0 src/app/working-days.ts src/app/working-days.test.ts; echo "EXIT=$?"
 git add src/app/working-days.ts src/app/working-days.test.ts
-git commit -m "feat(budget): UTC working-day helpers for the forecast window" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(budget): UTC working-day helpers for the forecast window"
 ```
 
 ---
@@ -713,7 +713,7 @@ export function computeForecastFromFacts(f: ForecastFacts): BudgetForecast {
 npx tsc --noEmit; echo "EXIT=$?"
 npx eslint --max-warnings=0 src/app/budget-forecast.ts src/app/budget-forecast.test.ts; echo "EXIT=$?"
 git add src/app/budget-forecast.ts src/app/budget-forecast.test.ts
-git commit -m "feat(budget): forecast core — current pace, current efficiency and the gap" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(budget): forecast core — current pace, current efficiency and the gap"
 ```
 
 ---
@@ -1001,7 +1001,7 @@ export function forecastNotices(f: BudgetForecast): ForecastNotice[] {
 npx tsc --noEmit; echo "EXIT=$?"
 npx eslint --max-warnings=0 src/app/budget-forecast.ts src/app/budget-forecast.test.ts src/app/budget-forecast-notices.ts src/app/budget-forecast-notices.test.ts; echo "EXIT=$?"
 git add src/app/budget-forecast.ts src/app/budget-forecast.test.ts src/app/budget-forecast-notices.ts src/app/budget-forecast-notices.test.ts
-git commit -m "feat(budget): build forecast facts from the report, rate rows and burn-down" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(budget): build forecast facts from the report, rate rows and burn-down"
 ```
 
 ---
@@ -1174,7 +1174,7 @@ Write straight ASCII double quotes around each DE value, like the neighbouring l
 ```bash
 npx eslint --max-warnings=0 src/app/forecast-format.ts src/app/forecast-format.test.ts src/app/i18n.ts; echo "EXIT=$?"
 git add src/app/forecast-format.ts src/app/forecast-format.test.ts src/app/i18n.ts src/app/i18n.de.ts
-git commit -m "feat(budget): forecast formatters and EN/DE forecast strings" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(budget): forecast formatters and EN/DE forecast strings"
 ```
 
 ---
@@ -1229,7 +1229,7 @@ Rendering rules (every figure via `formatCurrency(n, "EUR", localeFor(lang))` fr
 
 ```bash
 git add src/app/budget-forecast-facts.tsx src/app/budget-forecast-facts.test.tsx src/app/budget-forecast-cards.tsx src/app/budget-forecast-cards.test.tsx src/app/budget-forecast-banner.tsx src/app/budget-forecast-banner.test.tsx src/app/budget-report-panel.tsx src/app/budget-report-panel.test.tsx
-git commit -m "feat(budget-report): facts row, forecast cards, transparency banners" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(budget-report): facts row, forecast cards, transparency banners"
 ```
 
 ---
@@ -1305,7 +1305,7 @@ DE edits are ONE Node script with a list of `[oldLine, newLine]` pairs, each mat
 
 ```bash
 git add <each touched path>
-git commit -m "feat(budget): effort CPI/SPI and internal cost index renames on every surface" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(budget): effort CPI/SPI and internal cost index renames on every surface"
 ```
 
 ---
@@ -1353,7 +1353,7 @@ Add `forecast` to `DashboardModel` and the returned object. If `worstHealth` doe
 - [ ] **Step 7: Gates and commit** (tsc, eslint touched files, named `git add`).
 
 ```bash
-git commit -m "feat(dashboard): budget burn tile shows the forecast headline and rates budget by pace VAC" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(dashboard): budget burn tile shows the forecast headline and rates budget by pace VAC"
 ```
 
 ---
@@ -1381,7 +1381,7 @@ git commit -m "feat(dashboard): budget burn tile shows the forecast headline and
 
 ```bash
 git add src/app/budget-forecast-link.tsx src/app/budget-forecast-link.test.tsx src/app/budget-panel.tsx src/app/budget-panel.test.tsx src/app/workspace-section.tsx
-git commit -m "feat(budget): forecast link line above the bucket cards" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(budget): forecast link line above the bucket cards"
 ```
 
 ---
@@ -1405,7 +1405,7 @@ git commit -m "feat(budget): forecast link line above the bucket cards" -m "Clau
 
 ```bash
 git add docs/open-followups.md docs/AGENTS/integrations.md docs/AGENTS/dashboard.md docs/superpowers/specs/2026-09-14-budget-forecast-union-design.md
-git commit -m "docs: close §499 and §543, update §501 and §504, document the forecast" -m "Claude-Session: https://[session link removed]"
+git commit -m "docs: close §499 and §543, update §501 and §504, document the forecast"
 ```
 
 Before any push (user-gated): axe on the changed views, one invocation, serial — `npx playwright test e2e/a11y.spec.ts --project=chromium --workers=1 -g "Budget|Reports|Dashboard"`; check that the "Reports" scan actually lands on the Budget report (read the spec's navigation for that view) and note the answer. The full unit suite runs only on the user's say.

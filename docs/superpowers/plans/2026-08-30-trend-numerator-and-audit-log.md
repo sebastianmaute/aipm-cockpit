@@ -1532,7 +1532,7 @@ git push -u origin fix/trend-numerator-and-audit-log
 
 Then create the MR with a description covering 163, 235 and 283, a scope note, and a test plan that marks the full suite, coverage floors, axe and prod-smoke as **CI's, not claimed locally**.
 
-★★ **No `[session link removed]...` URL in the MR description or in `CHANGELOG.md`.** Commit trailers and MR comments are unaffected.
+★★ **No assistant session URL in the MR description or in `CHANGELOG.md`.** Commit trailers and MR comments are unaffected.
 
 ---
 

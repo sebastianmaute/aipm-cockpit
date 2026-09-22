@@ -27,7 +27,7 @@ Read these once. They are repo constraints, and violating them produces green-lo
 - **Never** `git add -A` or `git add .`. Stage explicit paths. **Never** stage `sample-workspace-huge.json` or `not-in-use.env.local.bak`.
 - `git checkout -- <file>` and `git restore` are deny-blocked. `git stash` must never be run in this worktree. Never `--amend`.
 - Every commit ends with the trailer:
-  `Claude-Session: https://[session link removed]`
+  the session trailer
 - **No version bump, no CHANGELOG entry, no push, no MR.** Those are separate explicit instructions from the user.
 
 ### The four origin rules (spec Section 4) — do not "improve" these
@@ -156,8 +156,6 @@ docs(spike): whether electron-updater reads a UNC/file:// update feed
 
 Records a code-level finding only. Gates the auto-update plan (spec
 Section 7), not the packaging work.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -232,8 +230,6 @@ Records the mechanism (Mark-of-the-Web is applied by the downloading
 application, not automatically) and the measurement procedure, including
 the control step without which a "no prompt" result is vacuous. Not
 resolved by desk research; needs a clean Windows box.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -387,8 +383,6 @@ an empty diff.
 
 desktop/** is pinned to LF in .gitattributes so the new subtree does not
 inherit the CRLF working-tree convention that governs src/**.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -463,8 +457,6 @@ CI's build artifact and prod-smoke's `next start` are untouched.
 Verified that the gated build emits .next/standalone/server.js and that it
 does NOT copy .next/static or public/ — the runtime failure the packaging
 step has to prevent.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -581,8 +573,6 @@ a runtime failure no build step reports.
 The script asserts its own result and names the CSS bundle specifically,
 rather than trusting a non-empty directory. Proved the guard fires by
 hiding the CSS source and observing exit 1.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -638,8 +628,6 @@ test(desktop): let vitest reach desktop/** unit tests
 
 Coverage include stays src/** only, so desktop/ raises no floor. Stated in
 the config comment so a reader does not assume the coverage gate covers it.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -736,8 +724,6 @@ Both values compose the browser origin, and IndexedDB is scoped to
 scheme+host+port -- so changing either strands every existing install's
 workspace, sealed secrets and file handles at once. The test exists to make
 such a change loud rather than silent.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -888,8 +874,6 @@ IndexedDB store.
 The marker is matched as a real attribute rather than a substring, so a page
 merely mentioning the string is not read as our server. Mutation-proved:
 relaxing it to a substring gives 1 failed / 5 passed of 6.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -1038,8 +1022,6 @@ injected so the timeout is testable without real time.
 A refused connection is the normal state while the server boots, so it
 counts as "not yet" rather than fatal -- but it still hits the deadline
 instead of spinning, which is pinned by its own test.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -1141,8 +1123,6 @@ feat(desktop): resolve the launch-log directory
 Never throws and never returns an empty path: losing the log is what turns a
 remote "it doesn't open" into an unsupportable report. An empty-string env
 var counts as absent rather than producing a filesystem-root path.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -1253,8 +1233,6 @@ workspace to the corporate LAN.
 
 The kill is PID-scoped with a tree kill, mirroring scripts/stop-dev.mjs.
 A blanket taskkill /IM node.exe would kill the user's editor.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -1442,8 +1420,6 @@ An orphan holds the pinned port, which makes the NEXT launch refuse to start.
 
 Renderer is treated as remote content: contextIsolation on, nodeIntegration
 off, sandbox on, no Node surface exposed.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -1529,8 +1505,6 @@ CI lints the whole repo at --max-warnings=0, so desktop/** has been in scope
 since it was created. Proved the config actually matches those files by
 introducing an unused variable and observing exit 1 -- a config matching
 nothing also exits 0.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -1646,8 +1620,6 @@ on install.
 
 The Next standalone tree ships as an unpacked extraResource so
 process.resourcesPath/standalone/server.js resolves at runtime.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -1854,8 +1826,6 @@ Uses the wine builder image because the runners are Linux and the target is
 a Windows NSIS installer. Rebuilds with NEXT_STANDALONE=1 rather than
 consuming build's artifact -- build produces a non-standalone .next/, so the
 shapes differ and the artifact cannot be reused as-is.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -1937,8 +1907,6 @@ SmartScreen prompt and the port-17300 message.
 
 Written for a non-technical reader: no jargon, and it says what to send when
 reporting a problem.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```

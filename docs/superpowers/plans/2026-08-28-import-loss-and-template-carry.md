@@ -858,7 +858,7 @@ Add EN+DE pairs for any section in `ImportSectionKey` that has none.
 - [ ] **Step 4** Update `AGENTS.md` where it describes the load-reporting posture.
 - [ ] **Step 5** `CHANGELOG.md` entry under `### Fixed`; bump with `npm run version:sync`. Patch, not
       minor — the codename is per minor series, so 0.263.x stays "Okorafor". **No
-      `[session link removed]...` URL in the changelog or the MR description.**
+      assistant session URL in the changelog or the MR description.**
 - [ ] **Step 6** Full gate chain:
 
 ```bash

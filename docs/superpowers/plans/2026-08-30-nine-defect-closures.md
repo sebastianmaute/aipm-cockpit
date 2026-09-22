@@ -821,7 +821,7 @@ scan.
 - [ ] **Step 3: Add the CHANGELOG entry**
 
 One `### Fixed` block for the nine, written in user-facing terms — what the user saw, not which
-symbol changed. ★ NEVER put a `[session link removed]...` URL in `CHANGELOG.md`.
+symbol changed. ★ NEVER put an assistant session URL in `CHANGELOG.md`.
 
 - [ ] **Step 4: Commit**
 
@@ -874,7 +874,7 @@ Run a command against the REPLACEMENT text, not only against the error you found
 MR or merge. Nothing in tasks 1–12 may push a branch or open an MR.
 
 - [ ] **Step 1:** Push the branch.
-- [ ] **Step 2:** Open the MR. ★ NEVER a `[session link removed]...` URL in the MR description.
+- [ ] **Step 2:** Open the MR. ★ NEVER an assistant session URL in the MR description.
 - [ ] **Step 3:** Poll the pipeline until every job is terminal. Read job states individually — the
   pipeline uses `needs:` DAG ordering, so a later stage starting does NOT mean an earlier one passed.
 - [ ] **Step 4:** Confirm the pipeline SHA equals local HEAD equals remote before merging.

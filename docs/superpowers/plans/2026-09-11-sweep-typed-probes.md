@@ -23,7 +23,7 @@
 - vitest: always `--maxWorkers=1`, never backgrounded, never two vitest processes at once. Never read an exit code through a pipe: redirect to a log, `echo "EXIT=$?"`, then grep the log. Assert the `Test Files` count equals the number of files you passed.
 - `npx tsc --noEmit`: read the count of `src/` error lines, not the exit code.
 - No full suite. `npm run test:shuffle` is owed at the end and runs only on the user's say.
-- Commit message trailer (last line): `Claude-Session: https://[session link removed]`. Never put a `[session link removed]…` URL in an MR description or `CHANGELOG.md`.
+- Commit message trailer (last line): the session trailer. Never put an assistant session URL in an MR description or `CHANGELOG.md`.
 
 ## File Map
 
@@ -129,8 +129,6 @@ at-rest store. CREATE_BASE cannot carry exceptions, which the create
 base's declared-only floor forbids, and does not need to. dead and
 unmeasured are separate outcome kinds because they want different
 repairs.
-
-Claude-Session: https://[session link removed]
 ```
 ```bash
 git add docs/superpowers/specs/2026-09-11-sweep-typed-probes-design.md
@@ -339,8 +337,6 @@ failed before the change. The plan.test.ts case that pinned the old
 preview as correct is rewritten, with its (C3) header.
 
 Closes 460.
-
-Claude-Session: https://[session link removed]
 ```
 ```bash
 git add src/app/inline-ai-edit/plan.ts src/app/inline-ai-edit/plan.test.ts src/app/inline-ai-edit/plan.create-path-guards.test.ts src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts
@@ -786,8 +782,6 @@ unmeasured rather than judged. Unit-tested, including the one weak
 oracle: task has no row sanitizer, so it falls back to the at-rest store.
 
 Not wired into the sweep yet.
-
-Claude-Session: https://[session link removed]
 ```
 ```bash
 git add src/test/sweep-probes.ts src/test/sweep-probes.test.ts
@@ -1085,8 +1079,6 @@ gone, and the mail guard is stated over the one remaining derivation.
 task.assigneeEmail and absence.startDate (459) and calendarEvent.startTime
 (443) now land, and their ledger entries are deleted. [N] new unmeasured
 or dead entries cite 462: [subjects].
-
-Claude-Session: https://[session link removed]
 ```
 ```bash
 git add src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts
@@ -1246,8 +1238,6 @@ now carries two exceptions, so that field can be probed at all.
 [N] entries cite 462. [Either "No undeclared value landed." or "It finds
 [K] live undeclared writes, fixed in the next commit: [subjects]; the
 sweep is red at this commit until then."]
-
-Claude-Session: https://[session link removed]
 ```
 ```bash
 git add src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts src/test/inline-sweep-fixtures.ts
@@ -1294,8 +1284,6 @@ dropUnaccepted[Entity]Fields, which its [sibling arm] already applies, so
 an undeclared [field] the model sent was stored. Found by the offered-
 surface sweep's typed Relation A probes; a new pin fails without the
 guard.
-
-Claude-Session: https://[session link removed]
 ```
 
 ---
@@ -1382,8 +1370,6 @@ cannot measure, which the sweep's ledgers cite.
 
 followups:index:check, followups:status:check, docs:claims:check,
 docs:symbols:check and size:check exit 0.
-
-Claude-Session: https://[session link removed]
 ```
 ```bash
 git add docs/open-followups.md docs/superpowers/specs/2026-09-11-sweep-typed-probes-design.md

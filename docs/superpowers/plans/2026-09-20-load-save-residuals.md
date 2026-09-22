@@ -17,7 +17,7 @@
 - `i18n.ts` (EN) and `i18n.de.ts` (DE) key sets must be identical; tsc enforces. **`i18n.de.ts` may only be edited by a node utf8 write script anchored on `\r\n`** — the Edit tool corrupts umlauts and curls quotes there. DE must use real umlauts, never `ue`/`ae` substitutions.
 - Never `git add -A` or `git add .`; stage explicit paths only. No `--amend`, no `git stash`. `git checkout --` / `git restore` are deny-blocked.
 - Commit messages cite `§N`, never `#N` followed by digits (that auto-closes the wrong GitLab issue). `Closes #NN` belongs in the MR description only, one per line.
-- Every commit ends with the trailer `Claude-Session: https://[session link removed]`.
+- Every commit ends with the session trailer.
 - **Never run two vitest processes at once.** The runner slot is shared with a peer session.
 - Never read a gate's exit code through a pipe — redirect to a file, `echo "EXIT=$?"` unpiped, then grep the file.
 - Lint with `npx eslint --max-warnings=0 src` (bare `eslint` exits 0 over warnings CI rejects).
@@ -129,9 +129,7 @@ git commit -m "feat(storage): §588 — a live backend pointer readable after an
 
 The render-phase assignment is deliberate: React runs every effect cleanup
 before any effect body, so an effect-mirrored ref still holds the previous
-backend at the moment the save effect's cleanup reads it.
-
-Claude-Session: https://[session link removed]"
+backend at the moment the save effect's cleanup reads it."
 ```
 
 ---
@@ -214,9 +212,7 @@ turns on `second`'s gate being OPEN at the moment the stale caller shuts it.
 git add src/app/use-storage-backend.superseded-gate.test.tsx
 git commit -m "test(storage): §588 — probe: a superseded reload shuts the new backend's gate
 
-Red on purpose. The fix follows in the next commit.
-
-Claude-Session: https://[session link removed]"
+Red on purpose. The fix follows in the next commit."
 ```
 
 ---
@@ -306,9 +302,7 @@ Both callers capture the render-scope backend and reach allowSavesTo after an
 await. When a settings-driven rebuild replaced the backend in between, they
 opened the gate for the dead instance and the live one stayed shut with no
 banner and no toast, because loadPause is published only for an instance whose
-load failed or was refused.
-
-Claude-Session: https://[session link removed]"
+load failed or was refused."
 ```
 
 ---
@@ -491,9 +485,7 @@ git commit -m "fix(storage): §589 — an edit inside the debounce survives a ba
 The save effect lists backend as a dependency, so a rebuild ran the previous
 run's cleanup, which cleared the timer without flushing. A switch op's own
 flushCurrent covers the nine op paths; a bare settings rebuild had none, so the
-edit was never written and left memory when the new target's load applied.
-
-Claude-Session: https://[session link removed]"
+edit was never written and left memory when the new target's load applied."
 ```
 
 ---
@@ -783,9 +775,7 @@ into whatever file the user chose — replacing a real project when they picked
 their own. The pick now follows §287's commit-on-accept split: pick, read, and
 bind only if the user goes ahead, offering to load the existing project instead.
 Pick stays ungated, because it is the only way a first-time local-file user can
-create a file at all.
-
-Claude-Session: https://[session link removed]"
+create a file at all."
 ```
 
 ---
@@ -892,9 +882,7 @@ Nothing cancelled an in-flight send on unmount: the file's only effect cleanup
 detaches a keydown listener, and the projectId effect fires only on an actual
 prop change. The §548 load hold swaps the panel for PanelSkeleton without such a
 change, so the dying instance's stale() read not-stale forever while its setters
-stayed live in TaskManager.
-
-Claude-Session: https://[session link removed]"
+stayed live in TaskManager."
 ```
 
 ---
@@ -1069,9 +1057,7 @@ git commit -m "fix(ai): §596 — the AI tool loop drops a write whose project i
 stale() compares a project id, which cannot see a storage-target change that
 keeps it: a Turso URL or token change, a SharePoint target swap, a same-project
 reload. The epoch can, and the per-tool re-check closes a multi-tool turn whose
-swap lands mid-batch. The prop is required at the pane boundary on purpose.
-
-Claude-Session: https://[session link removed]"
+swap lands mid-batch. The prop is required at the pane boundary on purpose."
 ```
 
 ---
@@ -1136,9 +1122,7 @@ git commit -m "docs: §596–§599 — the tool-loop gap, the stale scaled sampl
 
 §596 records what the 1.12.4 MR called an accepted residual in terms that
 understated it: the write is unconditional on unmount, not a race, and the
-existing stale() guard structurally cannot see it. Closed by this branch.
-
-Claude-Session: https://[session link removed]"
+existing stale() guard structurally cannot see it. Closed by this branch."
 ```
 
 ---

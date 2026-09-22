@@ -952,7 +952,7 @@ Set `APP_VERSION = "0.258.0"`, `APP_MILESTONE = "Mandelo"`, and `APP_BUILD_DATE`
 
 Head it `## [0.258.0] - 2026-08-24 "Mandelo"`, above the existing 0.257.1 entry. Cover the four changes in user-facing terms: Jira issues are no longer marked done from a task that is not done; a status change made in Jira is now offered during conflict resolution instead of being dropped; a template applied without reloading now behaves like one applied after a reload; and Settings → Diagnostics reports tasks whose completion data is inconsistent.
 
-★★ **No `[session link removed]...` URL** anywhere in `CHANGELOG.md`.
+★★ **No assistant session URL** anywhere in `CHANGELOG.md`.
 
 - [ ] **Step 4: Update the five ungated version sites**
 

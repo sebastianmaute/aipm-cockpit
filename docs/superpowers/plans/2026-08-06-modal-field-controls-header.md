@@ -334,8 +334,6 @@ Replace the bordered strip with a Button trigger labelled by the active
 tier, and fold the tier switch into its popover using the shared
 SegmentedControl primitive (radiogroup + APG arrow nav) instead of
 hand-rolled aria-pressed buttons. No i18n changes.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -519,8 +517,6 @@ Mount ModalFieldControls through ModalHeader's headerExtra slot at all
 three call sites, giving every edit modal back the row its bordered
 strip used to cost. Tests assert placement inside <header>, not mere
 presence.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 

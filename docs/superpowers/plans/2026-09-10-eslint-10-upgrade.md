@@ -405,8 +405,6 @@ files): exit 0, zero findings, and an enabled rule set byte-identical to eslint
 9 — 86 rules, all 17 react/*, no rule lost, gained or re-severitied. Removing
 the pin reproduces §53's crash trace at exit 2 with no report written, so the
 pin is load-bearing rather than decorative.
-
-Claude-Session: https://[session link removed]
 EOF
 git log --oneline -1
 ```
@@ -637,8 +635,6 @@ tag on error-boundary.tsx turns it red and names the file.
 Carries an anti-vacuity floor because an emptied walk would pass every assertion
 and report success, and builds its needles by concatenation so the file cannot
 match its own docstring.
-
-Claude-Session: https://[session link removed]
 EOF
 git log --oneline -1
 ```
@@ -804,8 +800,6 @@ Closes in the heading, per the register's one status convention, and keeps the
 2026-08-03 crash trace and version matrix as the record of the failed attempt.
 Names the one accepted cost (JSDoc-only component declarations stop being
 detected) and the test that is now its only detector.
-
-Claude-Session: https://[session link removed]
 EOF
 git log --oneline -1
 ```
@@ -890,8 +884,6 @@ Also corrects TD-1, which still sent a Next.js upgrader to "check against the
 ESLint 10 block". It now says the block is closed AND that bumping
 eslint-config-next must keep the pin, since that package re-introduces
 version: 'detect' and removing the pin would restore the crash.
-
-Claude-Session: https://[session link removed]
 EOF
 git log --oneline -1
 ```

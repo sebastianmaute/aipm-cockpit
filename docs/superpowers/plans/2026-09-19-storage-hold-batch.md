@@ -53,8 +53,6 @@ cat > "$MSG" <<'EOF'
 <subject line given in the task>
 
 <body given in the task>
-
-Claude-Session: https://[session link removed]
 EOF
 git add -- <NEW files only, if any>
 git commit -F "$MSG" --only -- <every path the task lists>

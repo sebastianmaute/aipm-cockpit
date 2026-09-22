@@ -1432,7 +1432,7 @@ npm run test:shuffle > "$SCRATCH/shuf.log" 2>&1; echo "SHUFFLE=$?"; grep -E "Tes
 git push -u origin fix/destructive-save-arming
 glab mr create --fill --yes
 ```
-Never put a `[session link removed]...` URL in the MR description.
+Never put an assistant session URL in the MR description.
 
 - [ ] **Step 3: Poll the pipeline to completion**
 

@@ -152,7 +152,7 @@ Each deviation below was found in the code while planning. The plan follows the 
   - NEVER use `git add -A`/`.`, `--amend`, bare `git stash`, or `npm ci`.
   - `git checkout --`/`git restore` are blocked; revert with an inverse Edit.
   - Never touch untracked files the task did not create.
-  - Use conventional commit types. Every message file ends with a blank line and then `Claude-Session: https://[session link removed]`.
+  - Use conventional commit types. Every message file ends with a blank line and then the session trailer.
   - Write message files with the Write tool.
 - **UI**
   - Nothing hand-rolled: `Button` (`variant="secondary" size="xs"`, exactly as Act/Acknowledge use it), `SortResizeTh`, `RaidEditModal`, and `PopoverPanel` through `ActionOverflowMenu`'s existing `item()`.
@@ -465,8 +465,6 @@ refactor: extract the RAID draft builders into raid-draft.ts
 openNew's default draft, applyStatus and applyMatrix move out of
 raid-panel.tsx unchanged, plus buildRaidSeedFromSignal, so the RAID panel
 and the upcoming Log-as-RAID host build the same draft (§515).
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -1252,8 +1250,6 @@ passed through JSON and IndexedDB. The model cannot write it
 out, and handleSaveRaidItem keeps the stored record over a stale editor
 draft. The sample master gains one escalated Issue; goldens and the
 scaled samples are regenerated (§515).
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -1729,8 +1725,6 @@ when the plan says so, appends a RaidEscalation, echoes it into the note
 log and stamps localModifiedAt, then logs raid.escalated with the severity
 step only. The closure read of raid that lost a same-tick concurrent write
 is gone (§515).
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -2701,8 +2695,6 @@ raid.escalated row (actor ai, no address), one functional setRaid with
 undo capture. No email is sent. One call applies; two or more in a turn
 stage. update_raid_item still refuses the raw escalations field; the
 required token refuses a second escalation from the same read (§515).
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -3029,8 +3021,6 @@ feat: show RAID escalations in the table and the edit modal
 A sortable "Last escalated" column (hidden by default; never-escalated
 items sort last) and a read-only Escalations list in the RAID editor,
 rendered only when the item carries a record (§515).
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -3841,8 +3831,6 @@ editor over the current view with a draft seeded from the action; Save
 creates with isNew=true and records learning, Cancel changes nothing.
 "Log as RAID" sits in the row and hero overflow for every non-RAID
 signal and is absent in popouts (§515).
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -4789,8 +4777,6 @@ same first-act-wins baseline as Act — and stores loggedRaidId, the id the
 save committed; Cancel changes nothing. The link is sanitized, carried
 through a reconcile re-fire and counted as a material change, and the row
 then shows "Logged as RAID #N" with Open (§515).
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -4911,8 +4897,6 @@ link, rich-text.md adds Escalate as a write-through RAID writer that the
 save handler's stored-row carry covers, AGENTS.md lists the new overflow
 item, and §515 closes (heading, anchor, index row, Status; Work item line
 removed — #55 closes at merge).
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash

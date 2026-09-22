@@ -1338,7 +1338,7 @@ bullets only — describe what the user sees, not the register numbers:
 - Redoing a deleted register item no longer leaves a duplicate behind when a note was added in between.
 - Undoing a bulk status change now restores the completion date with it.
 
-**No `[session link removed]...` URL in `CHANGELOG.md` or in an MR description.**
+**No assistant session URL in `CHANGELOG.md` or in an MR description.**
 
 - [ ] **Step 5: Run the full gate chain**
 

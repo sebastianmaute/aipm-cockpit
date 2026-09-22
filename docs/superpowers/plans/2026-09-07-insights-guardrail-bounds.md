@@ -289,9 +289,7 @@ SHAPE, never existence: 9999-99-99 is still admitted. The check exists to make
 real-calendar-date rule would be a stricter promise than any consumer needs.
 
 Also corrects a comment in timelog-actuals-store.test.ts that this change
-falsifies, and adds the direct parseDailyKey cover the function never had.
-
-Claude-Session: https://[session link removed]"
+falsifies, and adds the direct parseDailyKey cover the function never had."
 ```
 
 Then verify the commit touched exactly four files:
@@ -562,9 +560,7 @@ cap applied in detect.ts. A capped-out row whose days the roll covers would
 resolve through computeClearedOutcome, which always writes 'improved', into
 shared exported data read on every AI turn.
 
-§363's residue stays open: the plain cap can still evict a frozen row.
-
-Claude-Session: https://[session link removed]"
+§363's residue stays open: the plain cap can still evict a frozen row."
 ```
 
 ---
@@ -892,9 +888,7 @@ strip, never a trim: narrowing another project's dailyWindow during this
 project's save would falsify a coverage claim and fabricate an 'improved'
 outcome into exported data.
 
-The entry being saved is never a shedding candidate at any stage.
-
-Claude-Session: https://[session link removed]"
+The entry being saved is never a shedding candidate at any stage."
 ```
 
 ---
@@ -1057,9 +1051,7 @@ policy path was the reachable half.
 frozen row. Its 'pushes low-severity core insights out of the cap entirely'
 claim is superseded by RESERVED_NON_GUARDRAIL, and the entry gains the
 correction that a cap in detect.ts is unsafe, with the mechanism named, so the
-next reader does not attempt it.
-
-Claude-Session: https://[session link removed]"
+next reader does not attempt it."
 ```
 
 ---

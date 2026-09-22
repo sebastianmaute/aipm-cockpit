@@ -29,7 +29,7 @@ before any task. The plan argues from it; where they disagree, the spec wins and
 - Never read an exit code through a pipe: redirect to a file, then `echo "EXIT=$?"` unpiped, then grep the file.
 - vitest: `--reporter=dot`. Never run two vitest processes at once.
 - Commit with explicit paths. No `git add -A`, no `--amend`, no `git stash`. Never stage `not-in-use.env.local.bak`.
-- End every commit message with `Claude-Session: https://[session link removed]`. No `#` followed by digits in a commit message.
+- End every commit message with the session trailer. No `#` followed by digits in a commit message.
 - Cite symbols, never `path:LINE`, in any doc under `docs/`. `npm run docs:claims:check` is a blocking ratchet on new line citations.
 - ★★ Never write a count into a comment or doc. Write the recipe that produces it. The previous branch in this repo found seven counts that a later commit falsified; none of them needed to be a number.
 
@@ -224,9 +224,7 @@ git commit -m "feat(arrangement): record which axis the user chose
 A placed block gains optional wSet/hSet flags. resizeBlock stamps the axis it
 sets, including when the value is unchanged, because choosing a size is a
 choice. reconcile carries a flag only when it is exactly true, which also
-keeps it the place a stored block's junk keys are dropped.
-
-Claude-Session: https://[session link removed]"
+keeps it the place a stored block's junk keys are dropped."
 ```
 
 ---
@@ -334,9 +332,7 @@ Change `Math.ceil` to `Math.floor`. Expected: the boundary test (`138 → 3`) go
 
 ```bash
 git add src/app/arrangement-measure.ts src/app/arrangement-measure.test.ts
-git commit -m "feat(arrangement): rowsForHeight converts a measured height to rows
-
-Claude-Session: https://[session link removed]"
+git commit -m "feat(arrangement): rowsForHeight converts a measured height to rows"
 ```
 
 ---
@@ -561,9 +557,7 @@ Make `renderedH` ignore `measured` (return `p.h`). Expected: the e2e "renders at
 
 ```bash
 git add src/app/arrangement-tile.tsx src/app/arrangement-grid.tsx src/app/use-measured-heights.ts src/app/use-measured-heights.test.tsx src/app/dashboard-panel.tsx src/app/dashboard-tiles.ts src/app/arrangement-block-menu.tsx src/app/dashboard-grid.test.tsx src/app/dashboard-layout.test.ts e2e/dashboard-grid.spec.ts
-git commit -m "feat(dashboard): measure tile heights on open and on density change
-
-Claude-Session: https://[session link removed]"
+git commit -m "feat(dashboard): measure tile heights on open and on density change"
 ```
 
 ---
@@ -693,9 +687,7 @@ git commit -m "refactor(dashboard): run layout upgrades as independently gated s
 
 The burn upgrade returned early on its own id, so any later step would have
 been skipped for every user who already had it. Adds a step that removes the
-retired Progress tile, recording its id only when it removed something.
-
-Claude-Session: https://[session link removed]"
+retired Progress tile, recording its id only when it removed something."
 ```
 
 ---
@@ -834,9 +826,7 @@ The Complete cell keeps its bar and trend arrow and gains the count. R/A/G
 joins the strip with its out-of-scope marker. The Progress caption splits
 between the two cells it describes, which also corrects the R/A/G tooltip:
 it said project areas, and the card counts tasks. Tests that used Progress
-as their always-present tile now use Upcoming.
-
-Claude-Session: https://[session link removed]"
+as their always-present tile now use Upcoming."
 ```
 
 Add any other file you touched to the `git add` line, and check `git status --porcelain` shows nothing unexpected before committing.
@@ -1012,9 +1002,7 @@ git commit -m "feat(dashboard): one status summary, edited inline
 The summary area always renders, with Edit when there is a narrative and Add
 when there is none, so a first narrative can still be written once the bottom
 editor is gone. The editor closes on Save or when focus leaves it, never when
-its own toolbar takes focus.
-
-Claude-Session: https://[session link removed]"
+its own toolbar takes focus."
 ```
 
 Add `rich-text-editor-lazy.tsx` to the `git add` line if Step 1 required forwarding the prop there.

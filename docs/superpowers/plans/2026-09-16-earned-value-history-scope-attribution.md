@@ -40,7 +40,7 @@
   - conventional type prefix;
   - no `#`+digits in the message;
   - `§NNN` allowed;
-  - trailer `Claude-Session: https://[session link removed]`;
+  - trailer the session trailer;
   - never `--amend`;
   - never `git add -A` / `git add .`: stage explicit paths.
 - Never stage or open `sample-workspace-huge.json` or `not-in-use.env.local.bak`.

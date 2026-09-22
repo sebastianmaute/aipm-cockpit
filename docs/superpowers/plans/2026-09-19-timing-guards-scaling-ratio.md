@@ -34,7 +34,7 @@
 - vitest: `npx vitest run <files> --maxWorkers=1 --reporter=dot`. Never two vitest processes at once. Never read an exit code through a pipe: redirect to a log, `echo "EXIT=$?"`, then read the log. Mutant runs use the 120 s kill wrapper in "Mutant procedure".
 - Keep each existing file's line endings. Check with `git ls-files --eol <file>` before and after editing: a file that is `w/crlf` stays CRLF, a file that is `w/lf` stays LF. The two NEW files in Task 1 come out of the Write tool as LF; leave them so — the committed blob is LF either way and no gate reads the working-tree ending.
 - Git: never `git add -A` or `git add .`; commit with `git commit --only <paths> -F <msgfile>`. Never `--amend`, never a bare `git stash`, never `npm ci`. `git checkout --` and `git restore` are blocked; revert a mutant by writing the original bytes back and proving `git diff --stat` is empty for that file.
-- Commit messages cite §N, never `#NN` or "Closes". End every commit message with the line `Claude-Session: https://[session link removed]`.
+- Commit messages cite §N, never `#NN` or "Closes". End every commit message with the line the session trailer.
 - Never open, print or stage any `.env*` file.
 - Implementers never dispatch subagents.
 
@@ -459,8 +459,6 @@ These six outcomes, and the 13 green tests, were checked while revising this pla
 Message file:
 ```
 test: add expectLinearScaling, a load-independent timing guard (§592, §593)
-
-Claude-Session: https://[session link removed]
 ```
 `git add -- src/test/scaling.ts src/test/scaling.test.ts && git commit --only src/test/scaling.ts src/test/scaling.test.ts -F <msgfile>`
 
@@ -601,8 +599,6 @@ Run the two files under the burn (see "Peer protocol and load check"). Expected:
 
 ```
 test: §592 §593 — tag-pair-walk and html-extract timing guards use a scaling ratio
-
-Claude-Session: https://[session link removed]
 ```
 `git commit --only src/app/tag-pair-walk.test.ts src/app/html-extract.test.ts -F <msgfile>` (after `git add` of those two paths).
 
@@ -686,8 +682,6 @@ Rewrite each measurement comment: ms figures out, green and red ratios in, with 
 
 ```
 test: office extractor timing guards use a scaling ratio (§592, §593 class)
-
-Claude-Session: https://[session link removed]
 ```
 `git commit --only` the four files.
 
@@ -761,8 +755,6 @@ Expected: no hit that compares a duration against a fixed number. This pathspec 
 
 ```
 test: rich-text-plain, document-asset-patterns and raid-escalation timing guards use a scaling ratio (§592, §593 class)
-
-Claude-Session: https://[session link removed]
 ```
 `git commit --only` the three files.
 
@@ -810,8 +802,6 @@ Each redirected to a log, then `echo "EXIT=$?"`, all EXIT=0:
 
 ```
 docs(register): close §592 and §593 — timing guards use a scaling ratio
-
-Claude-Session: https://[session link removed]
 ```
 `git commit --only docs/open-followups.md CONTRIBUTING.md -F <msgfile>`. No "Closes" line and no `#376`/`#377` in the commit message — those go only in the MR description.
 

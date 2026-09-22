@@ -1601,7 +1601,7 @@ Never hand-edit the six places.
 
 - [ ] **Step 3: Write the CHANGELOG entry**
 
-★★★ NEVER put a `[session link removed]...` URL in `CHANGELOG.md` or in an MR description. Commit trailers and MR comments are exempt.
+★★★ NEVER put an assistant session URL in `CHANGELOG.md` or in an MR description. Commit trailers and MR comments are exempt.
 
 Describe what a user can observe: counts now read correctly in both languages, and the register/ledger work as maintenance. Do not describe a comment edit as a behaviour fix.
 

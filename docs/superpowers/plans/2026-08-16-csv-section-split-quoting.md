@@ -951,7 +951,7 @@ DE, via the same node-write pattern as Task 6 step 2 (anchor on the EN-adjacent 
 
 - [ ] **Step 4: Add the CHANGELOG entry**
 
-A `## [<version>] - 2026-08-16 "<Codename>"` section with a **Fixed** entry in user-facing voice. **No `[session link removed]...` URL** — that is banned in `CHANGELOG.md` and MR descriptions.
+A `## [<version>] - 2026-08-16 "<Codename>"` section with a **Fixed** entry in user-facing voice. **No assistant session URL** — that is banned in `CHANGELOG.md` and MR descriptions.
 
 - [ ] **Step 5: Bump the five ungated sites**
 

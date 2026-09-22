@@ -1765,7 +1765,7 @@ Under `## [0.246.0] - 2026-08-18 "<Codename>"`, a `### Fixed` section in the reg
 - Undoing a bulk edit destroyed notes written since applying it, on tasks, RAID items and changes. The note came back only on an immediate redo, which also re-applied the edit being undone.
 - Undoing a bulk edit could make a task or milestone forget the calendar event it had just been synced to, so the next sync created a second event for the same item.
 
-★ No `[session link removed]...` URL anywhere in `CHANGELOG.md` or an MR description.
+★ No assistant session URL anywhere in `CHANGELOG.md` or an MR description.
 
 - [ ] **Step 4: Verify the version is consistent everywhere**
 

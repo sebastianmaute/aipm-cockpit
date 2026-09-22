@@ -72,7 +72,7 @@ It is real logic, not UI glue, so it must NOT be added to `coverage.exclude` —
 - **Never `git add -A` or `git add .`** — `not-in-use.env.local.bak` is untracked, unignored, and
   holds live credentials. `sample-workspace-huge.json` is modified by another writer. Commit with
   `git commit --only <paths>`.
-- Commit messages end with `Claude-Session: https://[session link removed]`.
+- Commit messages end with the session trailer.
 
 ---
 

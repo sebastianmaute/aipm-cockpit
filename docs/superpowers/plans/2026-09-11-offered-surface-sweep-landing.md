@@ -43,7 +43,6 @@ Give every log a basename unique to its task (`t5-baseline.log`, `t7-m1.log` …
 **Commit trailer.** Every commit message ends with:
 
 ```
-Claude-Session: https://[session link removed]
 ```
 
 Commit messages carry backticks and quotes, so write each to `$SCRATCH/tN-msg.txt` with the Write tool and commit with `git commit --only <paths> -F "$SCRATCH/tN-msg.txt"`. A heredoc carrying backticks has already broken the shell once in this session.
@@ -133,8 +132,6 @@ Both were written and executed on feat/offered-surface-sweep, which never
 reached main; 0.297.0 took its fixes and left these behind. Copied byte-exact
 from the branch, then bannered so a reader knows the figures and SHAs inside
 are the branch's, not main's. The bodies are not rewritten.
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -214,8 +211,6 @@ than disappearing into the copy.
 Not yet measured against main. The axis reads TOOL_DEFS at runtime and main
 gained declarations after the branch forked, so the recorded axis sizes may
 have moved; the next commits measure that.
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -405,8 +400,6 @@ The payloads are the same bytes, so the pins exercise what they did. The
 header's createTool sentence is corrected here, as it is in §439: createTool
 is a declared member on all eight descriptors (grep -c prints 8), and only
 sweepPlumbing declines to read it.
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -461,8 +454,6 @@ Cherry-picked from feat/offered-surface-sweep (f99aa51a, then 799ae26c's
 comment trim). Main has not touched this file since the branch forked, so
 both applied cleanly. The ratchet and the offered-surface sweep now read one
 definition of "the persisted columns" instead of two private ones.
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -588,8 +579,6 @@ those entities and nowhere else:
 Each move is attributed to a named commit in the docstring, the way the
 existing `change` paragraph records its own. No relation was touched, no
 field exempted, and the sweep is otherwise unchanged.
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -808,8 +797,6 @@ Seven call-site reverts, one at a time:
   resource, stakeholder   -> <F1> failed / <P1> each
 
 Comment only.
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -1048,8 +1035,6 @@ Filed: 440, 441, 443, 445, 446 open; 442 closed, its fix having shipped in
 0.297.0; 444 open until CI's shuffled suite runs on this branch.
 
 <one line per row whose text changed against main, naming the change>
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -1098,7 +1083,7 @@ git fetch -q origin; git log --oneline HEAD..origin/main | head
 git push -u origin feat/offered-surface-sweep-landing > "$SCRATCH/t11-push.log" 2>&1; echo "EXIT=$?"
 ```
 
-If `origin/main` moved, merge it and re-run Task 10 Step 1 before pushing. Write the MR description to `$SCRATCH/t11-mr.md`. ★★ It must carry NO `[session link removed]` URL — the user's standing rule forbids one in an MR description or `CHANGELOG.md`, and it outranks any generic attribution instruction. Commit trailers and MR comments are exempt, so if attribution is wanted, post the URL as an MR comment after creation. Then:
+If `origin/main` moved, merge it and re-run Task 10 Step 1 before pushing. Write the MR description to `$SCRATCH/t11-mr.md`. ★★ It must carry NO assistant session URL — the user's standing rule forbids one in an MR description or `CHANGELOG.md`, and it outranks any generic attribution instruction. Commit trailers and MR comments are exempt, so if attribution is wanted, post the URL as an MR comment after creation. Then:
 
 ```bash
 glab mr create --source-branch feat/offered-surface-sweep-landing --target-branch main --title "test(ai): land the offered-surface sweep that 0.297.0 left behind" --description "$(cat "$SCRATCH/t11-mr.md")" --auto-merge=false --yes > "$SCRATCH/t11-mr.log" 2>&1; echo "EXIT=$?"; cat "$SCRATCH/t11-mr.log"

@@ -3194,7 +3194,7 @@ Every hit must be updated in this same commit.
 
 - [ ] **Step 3: CHANGELOG entry**
 
-Add a `0.254.0` entry. ★★ **No `[session link removed]...` URL in `CHANGELOG.md`** — commit trailers are fine, this file is not.
+Add a `0.254.0` entry. ★★ **No assistant session URL in `CHANGELOG.md`** — commit trailers are fine, this file is not.
 
 - [ ] **Step 4: Highlight keys**
 

@@ -1202,7 +1202,7 @@ Bump them in the SAME commit or the drift restarts — this has already run six 
 
 - [ ] **Step 2: CHANGELOG entry**
 
-★★ NEVER a `[session link removed]...` URL in `CHANGELOG.md` or an MR description.
+★★ NEVER an assistant session URL in `CHANGELOG.md` or an MR description.
 
 - [ ] **Step 3: Run the full local gate chain, each unpiped**
 

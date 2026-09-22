@@ -312,8 +312,6 @@ the other layout broken.
 The label drops to icon-only below lg. The accessible name still comes from the
 Button's aria-label, so hiding the text costs assistive tech nothing and WCAG
 2.5.3 stops applying once there is no visible label.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -481,8 +479,6 @@ presence, not motion, is the cue, so nothing is lost.
 jsdom has no layout, so these tests pin classes only; the motion itself is an
 eye-verify item. The default is mutation-proved: defaulting the prop to true
 turns the two default-behaviour tests red.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -618,8 +614,6 @@ Each opt-out is mutation-proved on its own. Removing the prop from one Gantt
 call site reddens its file, and so does removing it from the budget row -- a
 loop assertion satisfied by the other seven would otherwise hide a single
 missing prop.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -786,8 +780,6 @@ which is worse to reason about and worse to support.
 
 The cold gate is mutation-proved -- dropping the `cold` term reddens the
 back/forward test.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -920,8 +912,6 @@ The constant and the script live in desktop/src/lib, which is typechecked and
 unit-tested. main.ts holds only the call site, and it is excluded from root tsc
 and compiled only by the manual desktop-package job -- so this call site is
 verified by eye on a packaged build, not by any pipeline.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 

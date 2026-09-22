@@ -927,7 +927,7 @@ npm run version:sync; echo "EXIT=$?"
 npm run version:check; echo "EXIT=$?"   # 1 = drift, 2 = the gate could not scan
 ```
 
-- [ ] **Step 4: Push, open the MR.** ★★ No `[session link removed]...` URL in the MR description or in `CHANGELOG.md`; commit trailers and MR comments are exempt.
+- [ ] **Step 4: Push, open the MR.** ★★ No assistant session URL in the MR description or in `CHANGELOG.md`; commit trailers and MR comments are exempt.
 
 - [ ] **Step 5: Poll the pipeline to a terminal state. Merge ONLY on green:**
 

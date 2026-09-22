@@ -21,7 +21,7 @@
 - **`npx eslint src`**, not `npm run lint` (which exits 1 from unrelated gitignored leftovers). It runs `--max-warnings=0`, so an unused import or param is FATAL, not a warning.
 - **Never run two vitest processes at once.** A failure log containing `Failed to start forks worker` is machine contention, not a red test — re-run that file alone and say so.
 - **Never `git add -A` or `git add .`** — `not-in-use.env.local.bak` is untracked, un-gitignored and contains live Turso credentials; `sample-workspace-huge.json` belongs to a foreign writer. Stage exact paths only.
-- Every commit ends with `Claude-Session: https://[session link removed]`. Use a Bash heredoc, never a PowerShell here-string.
+- Every commit ends with the session trailer. Use a Bash heredoc, never a PowerShell here-string.
 
 ## File structure
 

@@ -957,7 +957,7 @@ Set `APP_VERSION = "0.228.0"`, `APP_BUILD_DATE = "2026-08-09"` with the mileston
 
 User-facing summary: a model-written heading, underline or quoted block at the start of a description or document paragraph is stored as real formatting instead of visible literal markup; the same text no longer leaks into search or exports; an imported plain-text document paragraph keeps its line breaks in Word, PowerPoint, HTML and PDF.
 
-★ No `[session link removed]...` URL in the changelog.
+★ No assistant session URL in the changelog.
 
 - [ ] **Step 4: The five ungated version sites**
 

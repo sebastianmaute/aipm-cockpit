@@ -1260,7 +1260,7 @@ Add a `## [0.265.0] - 2026-08-30 "<codename>"` section above the 0.264.1 one, wi
 - [ ] **Step 4: Confirm no session URL reached the changelog**
 
 ```bash
-grep -c "[session link removed]" CHANGELOG.md; echo "EXIT=$?"
+grep -c "code/session_" CHANGELOG.md; echo "EXIT=$?"
 ```
 
 Expected: `0` printed, grep exit 1. A session URL must never appear in `CHANGELOG.md` or an MR description.
@@ -1293,7 +1293,7 @@ glab mr create --source-branch fix/seed-and-handle-commit --target-branch main \
   --title "<title>" --description "$(cat "$LOG/mr-body.md")" --yes
 ```
 
-The description must contain **no** `[session link removed]` URL.
+The description must contain **no** assistant session URL.
 
 - [ ] **Step 3: Poll the pipeline to a terminal state**
 

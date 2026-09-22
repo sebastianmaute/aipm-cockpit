@@ -865,7 +865,7 @@ Exit 1 is drift (re-run `version:sync`); exit 2 is the gate unable to scan — o
 - [ ] **Step 2: CHANGELOG**
 
 Add `## [0.277.2] - <date> "Ozeki"` with a Fixed bullet per closed entry, phrased as what a user
-sees. **Never a `[session link removed]...` URL in `CHANGELOG.md` or an MR description.** Do not
+sees. **Never an assistant session URL in `CHANGELOG.md` or an MR description.** Do not
 claim §333 was fixed if it was disproved — say the behaviour was verified correct.
 
 - [ ] **Step 3: Cold code review before release**

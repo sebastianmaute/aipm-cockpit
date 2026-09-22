@@ -30,7 +30,7 @@ Read once. These are repo constraints; violating them produces green-looking fai
 - **Do not disturb the dev server on port 3000. Do not clean or rebuild `.next/`.**
 - **No version bump, no CHANGELOG entry, no push, no MR.**
 - Every commit ends with the trailer:
-  `Claude-Session: https://[session link removed]`
+  the session trailer
 
 ### The badge is a blocking gate, not decoration
 
@@ -241,8 +241,6 @@ docs: give storage backends their own file
 
 Moved verbatim from README, which was carrying 35 KB of reference material
 and said so itself. Headings demoted one level; no prose rewritten.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -310,8 +308,6 @@ docs: give integrations their own file
 Moved verbatim from README. The two Security Model links become sibling
 links into security.md; the How-sign-in-works link stays intra-file because
 both ends moved into this file together.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -362,8 +358,6 @@ git commit --only docs/automation.md -F - <<'EOF'
 docs: give automation and notifications their own file
 
 Moved verbatim from README. Headings demoted one level; no prose rewritten.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -414,8 +408,6 @@ git commit --only docs/ai-cost.md -F - <<'EOF'
 docs: give AI cost and prompt caching their own file
 
 Moved verbatim from README. Headings demoted one level; no prose rewritten.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -495,8 +487,6 @@ it outright, which is what lets README link rather than restate.
 The env-vars heading loses its "& Security" suffix -- redundant inside a file
 called Security, and the ampersand was producing a double-hyphen slug. The
 Security model heading is unchanged because four inbound links target it.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -554,8 +544,6 @@ docs: move the sample workspace and deploy notes to their owners
 Sample Workspace documents a generator script and a source-of-truth fixture,
 which is developer-facing, so it belongs beside the project layout rather
 than in a product README. Deploying belongs with the rest of hosting.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -698,8 +686,6 @@ had it verbatim; Deploying moved to RUNBOOK.
 The shields badge is untouched -- it is a version:sync satellite carrying
 version and codename, and version:check was re-run to confirm it still NAMES
 README rather than merely exiting 0.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```
@@ -982,8 +968,6 @@ falsified by that commit -- not an authoring error, ordinary decay.
 
 AGENTS.md never actually claimed README was generated; its one nearby
 sentence is true and is left alone.
-
-Claude-Session: https://[session link removed]
 EOF
 echo "EXIT=$?"
 ```

@@ -148,8 +148,6 @@ torn-down jsdom that is `ReferenceError: window is not defined` out of React's
 resolveUpdatePriority, and vitest exits 1 with every test passing.
 
 Fails on purpose; the guard follows.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -328,8 +326,6 @@ outcome of a merely superseded in-flight save. The load effect keeps `cancelled`
 Near-zero user impact -- task-manager is the root orchestrator and effectively
 never unmounts in production. The value is a CI job that stops exiting 1 with
 8792/8792 green.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -453,8 +449,6 @@ this, re-implementing the guard with the load effect's per-run `cancelled` flag
 looks correct and silently swallows real save failures in production.
 
 Proved non-vacuous against a deliberately wrong implementation.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -543,8 +537,6 @@ docs: correct the save-effect comment that asserted the absent property
 The old text claimed the .catch meant this chain "cannot produce an unhandled
 rejection". The handlers themselves are what throw, after unmount -- which is
 the §72 bug the comment sat directly above.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -643,8 +635,6 @@ and no toast fired" were indistinguishable.
 Also replaces the in-test diagnosis comment: the worker-starvation reading is
 disproved -- the mitigation it justified was applied and the failure recurred at
 15,093 ms. Timeouts unchanged in both directions.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -784,8 +774,6 @@ only -- nothing that awaits or flushes, which would perturb the race.
 
 Eight occurrences of §39 have produced only frequency data. This makes the ninth
 readable.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -855,8 +843,6 @@ added.
 
 §39 and §51 updated with the hunt's findings, negatives included. Both stay open
 unless a root cause was genuinely established.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 

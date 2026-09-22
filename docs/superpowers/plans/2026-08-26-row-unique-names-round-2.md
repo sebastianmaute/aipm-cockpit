@@ -1122,7 +1122,7 @@ Expected `EXIT=0`. **Exit 1 is drift; exit 2 means the gate could not do its job
 opposite responses.
 
 - [ ] **Step 4: Write the `CHANGELOG.md` entry** in user-facing language. ★★ **No
-      `[session link removed]…` URL in `CHANGELOG.md` or the MR description.** Commit trailers are
+      assistant session URL in `CHANGELOG.md` or the MR description.** Commit trailers are
       fine.
 
 - [ ] **Step 5: Run the gates**
