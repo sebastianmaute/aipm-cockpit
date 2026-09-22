@@ -16670,8 +16670,12 @@ the surface is unexercised by the seed even though it is reachable from it.
 
 **Status:** open — NOT a defect today and NOT a regression. The GitLab project and the GitHub push
 mirror are both private, so nothing here is exposed. It becomes a hard blocker the moment that
-GitHub repo is flipped public, which is the stated intent. Reproduced 2026-08-28 by `grep -rn "Acme" README.md`.
-Scope corrected 2026-09-20: this entry described FOUR classes and missed the two largest, measured by
+GitHub repo is flipped public, which is the stated intent. Never machine-verified: this entry used to
+quote the identifiers it hunts inside its own reproduce commands, which a history rewrite would turn
+into instructions to grep for the REPLACEMENT string instead of the record of why the rewrite
+happened — Task 7 (2026-09-22) rewrote it to name the identifier classes in prose, so there is no
+compliant command left that both runs today and avoids quoting one. Scope corrected 2026-09-20: this
+entry described FOUR classes and missed the two largest, measured by
 `git log --all --format="%ae %ce"` (8,355 commits carrying a work address in both fields, plus 90
 CI-bot identities) and `git log --all --grep="Claude-Session:" --fixed-strings --oneline` (3,048).
 The design that supersedes this entry's scope is `docs/superpowers/specs/2026-09-20-github-migration-phase1-design.md`.
@@ -16683,57 +16687,55 @@ sanitising the working tree is necessary but NOT sufficient — a value deleted 
 readable in commit N-1 forever. Settle the history question (rewrite, or a squashed orphan root)
 BEFORE the visibility flip. After is unrecoverable: a public clone can be taken inside the window.
 
-**Reproduce the current surface.** There is NO gate for any of this — `size:check` walks `src`,
-semgrep hunts vulnerability patterns, and neither looks for an employer's name:
+**Reproduce the current surface.** There is still no gate for the tree-content classes below —
+`size:check` walks `src`, semgrep hunts vulnerability patterns, and neither looks for an employer's
+name. The intended reproduce command is `npm run leaks:check` (Task 10, not built yet): it will read
+the concrete identifier list from an untracked file named by an env var, rather than from this entry,
+so a history rewrite that changes the identifiers never has to rewrite the register to match. Until
+then, reproduce by hand: search the tracked tree for the employer name (any spelling) and its email
+domain, the internal GitLab host and group path, the internal wiki host, the brand trigram, and URL
+paths carrying the internal numeric project id. Never quote any of them literally while doing so —
+this entry does not either, on purpose (see below).
 
-```bash
-git grep -lIE 'Acme|iccgroup|example-group/aipm-cockpit|gitlab\.ic' -- .
-git grep -oIE '[A-Za-z0-9._%+-]+@Acme\.[a-z]+' -- . | sort -u
-```
-
-★ Both sweeps match THIS ENTRY, because it quotes the identifiers it hunts. That is the grep working,
-not a twelfth leak — `docs/open-followups.md` is never a hit worth acting on here.
-
-★★★ **BOTH SWEEPS ABOVE READ ONE COMMIT'S FILES, AND TWO OF THE SIX CLASSES ARE NOT FILE CONTENT.**
-`git grep` searches the checked-out tree, so classes 5 and 6 below were invisible to this entry's own
-verification method for three weeks — and their absence read as their not existing. A verification
-method has a shape, and a finding outside that shape reads as absence. Metadata needs
-`git log --all --format="%ae %ce" | sort | uniq -c`; messages need `git log --all --grep=...`.
+★★★ **A TREE-CONTENT SWEEP READS ONE COMMIT'S FILES, AND TWO OF THE SIX CLASSES ARE NOT FILE CONTENT.**
+`git grep` (and the future `leaks:check`) search the checked-out tree, so classes 5 and 6 below were
+invisible to this entry's own verification method for three weeks — and their absence read as their
+not existing. A verification method has a shape, and a finding outside that shape reads as absence.
+Metadata needs `git log --all --format="%ae %ce" | sort | uniq -c`; messages need
+`git log --all --grep=...`.
 ★★ Class 5 is also the one class that CANNOT be fixed after the visibility flip by any means short of
 a history rewrite, which makes it the most expensive thing this entry used to omit.
 
-**Six classes, six different fixes** (1–4 as originally filed; 5–6 added 2026-09-20):
+**Six classes, six different fixes** (1–4 as originally filed, three of them now closed by Tasks 1, 4
+and 5 of the sanitise-and-rewrite-history plan; 5–6 added 2026-09-20 and both still open):
 
-1. **README badges** point at `gitlab.example.com/example-group/public-collab/...`. Public, they render as
-   broken images for every visitor AND disclose the internal group path. Repoint or drop.
+1. **OPEN, pending Task 9.** Two README hyperlinks to the Releases page point at the internal GitLab
+   host and group path, and the identical URL is hard-coded in two product constants (see below). The
+   pipeline/coverage badges that used to render from that host were already dropped 2026-09-14 — what
+   is left is plain-text links and code constants, not images.
 
-2. **A live Confluence deep link in shipped app code.** `POLICY_URL` in `chat-panel.tsx` is an
-   `wiki.example.com` wiki URL carrying a page id. ★★ This is the worst of the four because
-   it is not documentation — it renders in the PRODUCT, so a public build hands every user a link
-   into a tenant they cannot reach. It needs to become configurable or conditional, not merely
-   rewritten to a different string.
+2. **FIXED (Task 1).** The AI-usage policy link the consent screen points to used to be a hard-coded
+   wiki URL in shipped app code, which was the worst of the four because it rendered in the PRODUCT
+   for every user. It now resolves via `resolveAiPolicy`: a build-time env value, then a Settings
+   value, then nothing — there is no built-in URL, so an unconfigured build ships no policy link at
+   all.
 
-3. **A work email in guide content, in two places that must be fixed in the right ORDER.** The
-   address sits in `lib/project-leadership-operating-guide.md` and is embedded verbatim in
-   `BUILTIN_GUIDE_CONTENT` in `operating-guide-builtin.generated.ts`. ★★ Editing the generated file
-   is wrong and will be silently reverted by the next regen — fix the `lib/` markdown and re-run
-   `scripts/gen-operating-guide.mjs`. There is no `package.json` script for it; invoke the file
-   directly.
+3. **FIXED (Task 5).** A work email address used to sit in `lib/project-leadership-operating-guide.md`
+   and, embedded verbatim, in the generated `operating-guide-builtin.generated.ts`. The guide's
+   copyright line now names the repository owner under EUPL-1.2, the work address is replaced by the
+   repository URL, and both generated copies have been regenerated from the fixed source.
 
-4. **Five real-looking identities across the sample workspaces.** `sample-workspace-small.json`
-   carries 42 `@example.com` addresses over FIVE distinct local-parts — every one
-   `firstname.lastname`, none matching a demo/test/sample pattern. ★★ THE REST OF THAT FILE IS
-   ALREADY NEUTRALISED: its SharePoint and Jira URLs use `example.sharepoint.com` and
-   `example.atlassian.net`, and one address uses `northwind.example`. So this block is an oversight
-   inside otherwise-sanitised fixture data, not a deliberate choice, and must be read as real
-   personal data until someone proves it is not.
+4. **FIXED (Task 4).** `sample-workspace-small.json` used to carry real-looking work-email addresses
+   over five distinct people, plus company/organisation values, inside otherwise-sanitised fixture
+   data. 43 addresses (five people) and 8 company/organisation values were replaced with fictional
+   stand-ins, plus one further address in a unit test.
 
-5. **Commit METADATA — the largest class, and invisible to every sweep above.** All 8,355 commits
-   carry a work address in BOTH the author and the committer field, and 90 further commits carry
-   CI-bot identities embedding the internal host and the numeric project id. This is not file
-   content, so no tree sweep can ever surface it. It is also the only class that a later edit
-   cannot repair: once a public clone exists, the metadata in it is permanent. Fixed only by an
-   identity mapping during a history rewrite.
+5. **Commit METADATA — the largest class, and invisible to every tree-content sweep.** All 8,355
+   commits carry a work address in BOTH the author and the committer field, and 90 further commits
+   carry CI-bot identities embedding the internal host and the numeric project id. This is not file
+   content, so no tree sweep can ever surface it. It is also the only class that a later edit cannot
+   repair: once a public clone exists, the metadata in it is permanent. Fixed only by an identity
+   mapping during a history rewrite.
 
 6. **Commit MESSAGES and session URLs.** 3,048 commits carry a `Claude-Session:` trailer and 217
    carry an assistant co-author line; separately, 83 tracked plan files contain session URLs in
@@ -16741,30 +16743,30 @@ a history rewrite, which makes it the most expensive thing this entry used to om
    legitimately, because "Ask Claude" is a shipped feature and `callClaude` is a real function.
    Match the trailer LINES, never the word.
 
-★ Two product strings join class 2 and must move together: the release URL is hard-coded in both
+★ Two product strings join class 1 and must move together: the release URL is hard-coded in both
 the app (`APP_RELEASES_URL`) and the desktop shell (`RELEASES_URL`), which cannot share a constant
 across the desktop tsconfig's rootDir and are pinned equal only by `menu-model.test.ts` reading the
 app file as TEXT.
 
-★★★ **FIXING (4) IS A FOUR-STEP PIPELINE AND THREE OF ITS FOUR FILES ARE GENERATED** — hand-editing
-them is the trap. `sample-workspace-small.json` is the hand-curated MASTER; `-big` and `-huge` come
-from it via `scaleWorkspace`; `golden-workspace.csv` and `golden-workspace.md` come from the master
-via the serializers and are BYTE-PINNED by `golden-workspace.test`. So: edit the master → regenerate
-big/huge with `scripts/generate-sample-workspace.ts` → regenerate the goldens → the byte-pinned test
-goes green on the NEW bytes. ★★ A golden regen has previously written truncated fixtures over full
-ones and reported success, so compare fixture SIZES afterwards, never just the exit code.
+★★★ **FIXING (4) WAS A FOUR-STEP PIPELINE AND THREE OF ITS FOUR FILES ARE GENERATED** — hand-editing
+them would have been the trap. `sample-workspace-small.json` is the hand-curated MASTER; `-big` and
+`-huge` come from it via `scaleWorkspace`; `golden-workspace.csv` and `golden-workspace.md` come from
+the master via the serializers and are BYTE-PINNED by `golden-workspace.test`. So Task 4 edited the
+master, regenerated big/huge with `scripts/generate-sample-workspace.ts`, then regenerated the
+goldens, and the byte-pinned test went green on the NEW bytes. ★★ A golden regen has previously
+written truncated fixtures over full ones and reported success, so compare fixture SIZES afterwards,
+never just the exit code — worth re-checking on any FUTURE edit of the master, not only this one.
 
 ★ **Two things that look like hits and are not.** `APP_REPO_URL` in `version.ts` is the public
 marketing site — no leak, though a public repo probably wants it repointed at GitHub. And
-`theming.md` names `Acme`/`AIPM-consult` while documenting branding TOKEN names, which is
-inherent to the palette belonging to a named company.
+`theming.md` names the employer's brand name and its trigram while documenting branding TOKEN names,
+which is inherent to the palette belonging to a named company.
 
-★★ **A naive `internal\.` sweep produces false positives, and one was acted on.** That pattern
-matches the English word "internal" ending a sentence, which flagged code comments in
-`budget-bucket-people.ts` and `use-ai-orchestration.ts` — neither has anything to do with the
-company. The first cut of this entry named those two files as leaks while missing almost every real
-one; the sweep at the top of this entry returns the actual set. Grep for the ORGANISATION's
-identifiers, never for the word "internal".
+★★ **A naive sweep for the English word "internal" produces false positives, and one was acted on.**
+It matched the word ending a sentence, which flagged code comments in `budget-bucket-people.ts` and
+`use-ai-orchestration.ts` — neither has anything to do with the company. The first cut of this entry
+named those two files as leaks while missing almost every real one; the classes named above are the
+actual set. Grep for the ORGANISATION's identifiers, never for the word "internal".
 
 ## 201. A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce
 
