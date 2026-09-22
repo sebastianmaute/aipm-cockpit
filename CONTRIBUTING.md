@@ -34,6 +34,7 @@ are entered in the in-app Settings panel and stored in the browser.
 | `npm run build` | Production build — runs TypeScript type-check, then emits `.next/` |
 | `npm run start` | Serve the production build (run `npm run build` first) |
 | `npm run stop` | Stop the dev server bound to the app port (default 3000; set PORT to override). Port-scoped — does not touch unrelated node processes |
+| `npm run gate:local` | Run CI's blocking gates locally, in order, stopping at the first failure — the merge gate until GitHub Actions exists |
 | `npm run lint` | Run ESLint (`eslint-config-next` preset) |
 | `npm run test` | Vitest unit/component tests in watch mode |
 | `npm run test:run` | Vitest, single run (CI-friendly) |
