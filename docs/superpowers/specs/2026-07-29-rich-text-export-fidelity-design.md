@@ -210,7 +210,7 @@ cannot pass vacuously on an empty string.
 
 ### C3. §26 — Enter-submit counts a truncation it does not apply
 
-Five plain-text fields kept the pre-`47e139bf` shape: an `onBlur` handler that caps, plus an
+Five plain-text fields kept the pre-`17051bca` shape: an `onBlur` handler that caps, plus an
 `adj.track(describeTextCap(...))` in `handleSubmit` that only counts. Clicking Save is fine —
 mousedown blurs first. **Enter inside a text input submits without firing blur**, so the value is
 uncapped, `adj.track` counts a truncation, the toast announces it, and the uncapped value is saved.
@@ -226,7 +226,7 @@ applied one.
 ★ Bounded severity: `sanitizeText` caps on the next load, so nothing beyond the cap persists
 long-term. This is a correctness/honesty fix, not a data-loss fix.
 
-★ Update the comment `47e139bf` added. It currently blesses the arrangement as safe ("count-only and
+★ Update the comment `17051bca` added. It currently blesses the arrangement as safe ("count-only and
 the value is deliberately discarded") without naming the Enter gap.
 
 ### C4. §19 — descriptor names a dead field

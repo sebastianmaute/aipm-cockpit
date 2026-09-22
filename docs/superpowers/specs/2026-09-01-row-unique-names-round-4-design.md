@@ -1,6 +1,6 @@
 # Row-unique names, round 4 — design
 
-**Branch:** `fix/row-unique-names-round-4`, off `main` at `fb66aeec` (0.273.0 "Goonan").
+**Branch:** `fix/row-unique-names-round-4`, off `main` at `89782ebc` (0.273.0 "Goonan").
 **Roadmap slice:** 6, from `docs/superpowers/specs/2026-08-31-followup-slice-roadmap.md`.
 **Entries:** §309 · §315 · §305 · §324.
 
@@ -32,7 +32,7 @@ an id that cannot repeat. Adjudicating all 56 is §245 / §316 — roadmap slice
 work — and no static report can decide a site; it needs a verdict recorded per site. Pulling it in
 here would replace a four-fix slice with an audit.
 
-★★ **EVERY COUNT IN THIS DOCUMENT WAS MEASURED AT `fb66aeec` AND IS PINNED TO IT, NOT TO ITS DATE.**
+★★ **EVERY COUNT IN THIS DOCUMENT WAS MEASURED AT `89782ebc` AND IS PINNED TO IT, NOT TO ITS DATE.**
 The 56, the 139 and the 327 below are all readings of one tree. Merging `origin/main` will move some
 of them while this document still says 2026-09-01, and a date cannot distinguish two correct
 readings taken hours apart — a peer branch hit exactly this on the same day, where one merge
@@ -43,7 +43,7 @@ both versions.
 ★ **What WAS enumerated, because the roadmap's rule demands it.** The rule is that an entry names
 the INSTANCE its author hit, never the CLASS, and scoping a fix to what an entry names is the
 recurring way a closure ships false. So each entry's own class was enumerated before this design,
-at `fb66aeec`:
+at `89782ebc`:
 
 | § | claimed | enumerated | verdict |
 |---|---|---|---|
@@ -100,7 +100,7 @@ conformant code — this repo's own dependency-type select passes 2.5.3 while fa
 
 ### §309 — `projects-panel.tsx` carries two row-naming conventions
 
-The ARCHIVED list was converted to `buildRowTokens` / `rowLabel` by `3abf5442`. The ACTIVE list still
+The ARCHIVED list was converted to `buildRowTokens` / `rowLabel` by `a8271b2b`. The ACTIVE list still
 builds each name by raw interpolation of the project name. Both halves are visible in one grep over
 that file for `buildRowTokens`, `rowLabel(` and a raw interpolated `aria-label` — which is the point.
 
@@ -292,7 +292,7 @@ Four source files. No persisted-workspace field, so none of the six write paths 
   ★ A register number is reserved only once it is on `origin/main` — two branches have already minted
   the same one. Re-derive the max AFTER merging, never before.
 - **The peer's tooltip inventory is NOT invalidated by §324.** That document is a snapshot pinned to
-  `95afb789`, and adding a `label` prop moves neither the `InfoTooltip` mount count nor the
+  `22ac25f2`, and adding a `label` prop moves neither the `InfoTooltip` mount count nor the
   "without any name prop" tally — both sites were already named via the `text` fallback.
 
 ★★ **Closing an entry is a FOUR-PLACE edit:** heading marker · summary-table STATUS cell ·

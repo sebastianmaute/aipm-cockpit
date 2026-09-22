@@ -50,7 +50,7 @@ array that no longer exists.
 
 ## What B2a's carried-forward notes got right
 
-Re-verified against the tree at `6c9ee098`, all still hold:
+Re-verified against the tree at `501fe5dd`, all still hold:
 
 - `CHAT_THREAD_CAP` is 50 (`chat-threads-schema.ts`).
 - `loadThreads` (`chat-threads-store.ts`) returns full `history` + `display` for every thread

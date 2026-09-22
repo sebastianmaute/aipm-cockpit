@@ -8,8 +8,8 @@
 
 **Tech Stack:** Next.js 16.2.11 (exact-pinned), React, TypeScript, vitest 4.1.8, Playwright + axe-core 4.12.1, GitLab CI.
 
-**Spec:** `docs/superpowers/specs/2026-08-24-followups-register-housekeeping-design.md` (`5e7cef2a`)
-**Base:** `main` @ `ec60348d` (0.258.1 "Mandelo") · **Branch:** `feat/followups-register-housekeeping`
+**Spec:** `docs/superpowers/specs/2026-08-24-followups-register-housekeeping-design.md` (`fb883491`)
+**Base:** `main` @ `d8e5a74c` (0.258.1 "Mandelo") · **Branch:** `feat/followups-register-housekeeping`
 
 ---
 
@@ -646,7 +646,7 @@ the reader stops at the strikethrough.
 - [ ] **Step 5: §209 — stale by two, and the repro returns one line**
 
 The three byte-identical `IMG_TAG_RE` copies were consolidated into one shared declaration in
-`document-export-assets.ts` by `e7b327a0`, AFTER this entry was written. Today it is THREE spellings
+`document-export-assets.ts` by `dd3f9404`, AFTER this entry was written. Today it is THREE spellings
 (shared `IMG_TAG_RE`, `ASSET_ID_RE`, `ASSET_IMG_RE`), not five. Its own grep returns one line because
 the surviving declaration wraps. Fix the count, fix the grep, and re-scope the remaining ask to
 `ASSET_ID_RE` ⟷ `ASSET_IMG_RE` — noting that is also §231's subject.
@@ -695,7 +695,7 @@ reason and finds it wrong may discard the finding with it.
 
 | § | false claim | truth |
 |---|---|---|
-| §6 | "retention is the last ~10 ops (`UNDO_CAP`)" | `UNDO_CAP = 25` — falsified by the SAME commit (`8a6d5093`) the entry cites for "(b) redo shipped". Re-cite the redo runners by symbol. |
+| §6 | "retention is the last ~10 ops (`UNDO_CAP`)" | `UNDO_CAP = 25` — falsified by the SAME commit (`f16b2a57`) the entry cites for "(b) redo shipped". Re-cite the redo runners by symbol. |
 | §7 | "both files still declare `function Field`" | `task-form-fields.tsx` now IMPORTS it; the two survivors have DIVERGED (`hint` vs `tooltip`, one takes `lang`), so the prescribed extract is a MERGE, not a lift. |
 | §16 | "the same helper now serves all six rich register fields" | four call sites; the sibling mics append plain text to `title`/`name`, and the note log goes through the editor handle. |
 | §37 | "the other two are the chat tools" | three other callers — the two chat tools plus `ai-project-proposal.ts`. Its own closing lesson is "trace the call sites". |

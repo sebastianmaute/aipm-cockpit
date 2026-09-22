@@ -1,7 +1,7 @@
 # §285 — the second save-guard invariant: destructive-save arming
 
 **Status of this document:** design, approved 2026-08-29. Branch `fix/destructive-save-arming`,
-off `main` at `3961777b` (0.263.2 "Okorafor").
+off `main` at `871ce327` (0.263.2 "Okorafor").
 
 **Goal:** every removal route for a slice that COUNTS toward the save-time data-loss guards must arm
 the one-shot `allowDestructiveSave` bypass, so a deliberate deletion is not refused by the very guard
@@ -109,7 +109,7 @@ in a commit message. The CHANGELOG entry covers tiers A and B. Tier C is an inte
 rewriting it to match the fixed tree destroys the only thing it is good for, which is showing what
 a by-hand census missed.
 
-Measured 2026-08-29 on `3961777b`, clean tree.
+Measured 2026-08-29 on `871ce327`, clean tree.
 
 | Surface | File | Handlers |
 |---|---|---|
@@ -143,7 +143,7 @@ OPEN, so a moved anchor degrades the count to a guaranteed 0 with no diagnostic 
     sed -n '/deleteAllTasks: () => {/,/^      },/p' src/app/use-chat-dispatcher.ts | grep -c allowDestructiveSave
 
 The first is the control and must be non-zero; the second is 0 before this slice and 1 after.
-`grep -c allowDestructiveSave src/app/use-register-tools.ts` returned 0 at `3961777b`.
+`grep -c allowDestructiveSave src/app/use-register-tools.ts` returned 0 at `871ce327`.
 
 ---
 

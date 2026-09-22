@@ -5,11 +5,11 @@
 > sort-header family is converted (§9, closed 2026-08-23), and heroicons were removed in 0.255.0 —
 > glyph targets now come from `src/app/icons.ts`.
 
-Snapshot taken 2026-08-07, on `63e4d768` (branch `feat/ui-batch-slice-1`, release 0.221.0).
+Snapshot taken 2026-08-07, on `892789f5` (branch `feat/ui-batch-slice-1`, release 0.221.0).
 **Audit only — nothing here is scheduled.** Producing the list and acting on it are separate jobs.
 
 ★★ **Fact-checked 2026-08-07 against a later commit on the same branch.** Every count below was
-re-run and is unchanged between `63e4d768` and that checkout, so the snapshot commit still stands —
+re-run and is unchanged between `892789f5` and that checkout, so the snapshot commit still stands —
 but **15 prose claims did not survive**, including this document's own ★★★ headline about
 `raid-panel-rows.tsx`. Each is corrected in place and the error is left visible rather than
 overwritten; see "Sanity check" at the foot for what the failures had in common.
@@ -23,9 +23,9 @@ the call site before converting anything.
 
 ---
 
-## Re-measured 2026-08-21, on `6c4e4162` (0.253.0)
+## Re-measured 2026-08-21, on `ac6b854c` (0.253.0)
 
-★★ **The snapshot below is NOT rewritten.** It is a dated audit of `63e4d768`; renumbering it to
+★★ **The snapshot below is NOT rewritten.** It is a dated audit of `892789f5`; renumbering it to
 match today's tree destroys the only thing it is good for — the same reason
 `docs/security/findings-2026-07.md` is left alone. This section records what moved, and, more
 importantly, **which of the snapshot's reproduce commands stopped working, and why.**
@@ -51,7 +51,7 @@ not: `[★]` alone — a single BMP glyph — over-matches, so **no** bracket ex
 non-ASCII glyph can be trusted here. Do not conclude "my glyphs are all BMP, so I am safe."
 
 ★★ **It was NOT broken when the snapshot was taken, so this is environment drift, not an error
-that was always there.** At `63e4d768` there were **1397** em-dash lines in non-test `.tsx` —
+that was always there.** At `892789f5` there were **1397** em-dash lines in non-test `.tsx` —
 ``git grep -F -- '—' 63e4d768 -- 'src/app/*.tsx' | grep -v "\.test\.tsx" | wc -l`` — and a
 byte-degraded grep would have returned at least all of those. The snapshot recorded **142**. So
 those figures were measured correctly and the tool changed underneath them. ★ `git grep -E`
@@ -96,7 +96,7 @@ the snapshot already said they were. **The glyph work itself has not grown.**
 
 ### Part 1 headline counts
 
-| measure | snapshot (2026-08-07, `63e4d768`) | today (2026-08-21, `6c4e4162`) |
+| measure | snapshot (2026-08-07, `892789f5`) | today (2026-08-21, `ac6b854c`) |
 |---|---|---|
 | non-test `.tsx` files scanned | 313 | **343** |
 | `<button` occurrences | 341 | **325** |
@@ -161,7 +161,7 @@ governs: **treat every unread row as unverified.**
 
 ---
 
-## Re-measured 2026-09-02, on `ebeb30d3` (0.278.1) — the `role="dialog"` row only
+## Re-measured 2026-09-02, on `469e9bc9` (0.278.1) — the `role="dialog"` row only
 
 ★★ **The snapshot below is still NOT rewritten**, for the reason the 2026-08-21 banner gives. This
 section records what moved under the `role="dialog"` row and, more importantly, **what the row's
@@ -195,7 +195,7 @@ this very section also added a comment in `raci-chip-picker.tsx` explaining why 
 beyond the prop-vs-attribute conflation above — that a bare grep can no longer answer this row's
 question.
 
-| | snapshot (`63e4d768`, 2026-08-07) | today (`ebeb30d3`, 2026-09-02) |
+| | snapshot (`892789f5`, 2026-08-07) | today (`469e9bc9`, 2026-09-02) |
 |---|---|---|
 | total, non-test `src/app/*.tsx` | 26 lines / 22 files | **32 lines / 25 files** |
 | `modal.tsx` | 2 | 2 |
@@ -250,7 +250,7 @@ grep -rho "<button" src/app --include=*.tsx --exclude="*.test.tsx" | wc -l
 grep -rl "<button" src/app --include=*.tsx | grep -v "\.test\.tsx" | wc -l
 ```
 
-| measure | this run (2026-08-07, `63e4d768`) | plan baseline |
+| measure | this run (2026-08-07, `892789f5`) | plan baseline |
 |---|---|---|
 | `<button` occurrences, non-test `.tsx` | **341** | 345 |
 | files containing one | **152** | 152 |
@@ -387,7 +387,7 @@ at all, which is why the total fell by 4 while eleven more sites changed variant
 | File | Line | Element | Current look | Tag | Primitive | Reason |
 |---|---|---|---|---|---|---|
 | `budget-panel.tsx` | 380 | 1 × `<button>` | bordered, `border-ui-dark-blue bg-surface px-2.5 py-1.5` | **converted** | `Button variant="secondary"` | The add-bucket action. Verified against `git show 4dd13660:src/app/budget-panel.tsx` — a real bordered surface button, so `secondary` matches what it already looked like. |
-| `budget-panel.tsx` | 668, 675, 689 | 3 × `<button>` | **`border-transparent`**, border only on hover | **converted** | `Button` — `secondary` ×2, **`destructive`** ×1 | ★★ **Remove bucket takes `destructive`**, not `secondary` like its two neighbours: it is the only irreversible action in the row and previously looked identical to Edit and Close. Its `--ui-pink-strong` text is AA-safe on `--surface` **by construction** — `scheme-tokens.ts:119` derives it through `nudgeToAa(…, surface)`, which iterates until the ratio clears 4.5 in every scheme, so this needs no per-scheme contrast check. ★★ **The other two are the worked example for the variant rule, and they went the other way.** At `4dd13660` all three read `rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted` — a *ghost*-looking control that only grows a border on hover. Converting them to `secondary` gives them a permanent border they did not have, so this is a deliberate look CHANGE, not a like-for-like adoption — requested, so the rule does not govern here, but the rule stands for the other 141 candidates. **Eye-verify.** ★★ If the always-on border proves unwanted, the fix is **another `Button` VARIANT — never a return to hand-rolled markup**. `ghost` is the CLOSEST, not a match: the old markup was `text-muted-foreground` with a dark-blue border on hover, while `ghost` is `bg-transparent text-foreground hover:bg-surface-muted` — no border in any state and full-strength text. If no variant fits, the answer is to extend the primitive, not to reopen a `<button>` here. |
+| `budget-panel.tsx` | 668, 675, 689 | 3 × `<button>` | **`border-transparent`**, border only on hover | **converted** | `Button` — `secondary` ×2, **`destructive`** ×1 | ★★ **Remove bucket takes `destructive`**, not `secondary` like its two neighbours: it is the only irreversible action in the row and previously looked identical to Edit and Close. Its `--ui-pink-strong` text is AA-safe on `--surface` **by construction** — `scheme-tokens.ts:119` derives it through `nudgeToAa(…, surface)`, which iterates until the ratio clears 4.5 in every scheme, so this needs no per-scheme contrast check. ★★ **The other two are the worked example for the variant rule, and they went the other way.** At `996a380f` all three read `rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted` — a *ghost*-looking control that only grows a border on hover. Converting them to `secondary` gives them a permanent border they did not have, so this is a deliberate look CHANGE, not a like-for-like adoption — requested, so the rule does not govern here, but the rule stands for the other 141 candidates. **Eye-verify.** ★★ If the always-on border proves unwanted, the fix is **another `Button` VARIANT — never a return to hand-rolled markup**. `ghost` is the CLOSEST, not a match: the old markup was `text-muted-foreground` with a dark-blue border on hover, while `ghost` is `bg-transparent text-foreground hover:bg-surface-muted` — no border in any state and full-strength text. If no variant fits, the answer is to extend the primitive, not to reopen a `<button>` here. |
 | `insights-panel.tsx` | 225, 237, 247, 257 | 4 × `Button` | ghost → secondary | **converted** | `Button variant="secondary"` | Row actions read as flat text at ghost; secondary gives them the bordered affordance the rest of the app uses. |
 | `insight-recommendation-controls.tsx` | 3 sites | 3 × `Button` | ghost → secondary | **converted** | `Button variant="secondary"` | Same family as above; kept in step so a recommendation's controls match the panel's. |
 | `dashboard-sections/insights-card.tsx` | 4 sites | 4 × `Button` | ghost → secondary | **converted** | `Button variant="secondary"` | Same family, on the dashboard card. |

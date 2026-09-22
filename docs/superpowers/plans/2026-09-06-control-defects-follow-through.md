@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-06-control-defects-follow-through-design.md` — the source of truth, and more precise than this plan's summaries. Read spec §4 before touching §407.
 
-**Branch:** `feat/control-defects-follow-through`, at `ce9463eb` = `origin/main` (`33fa149c`, 0.287.0 "Tiptree") + two spec commits.
+**Branch:** `feat/control-defects-follow-through`, at `c4c8da12` = `origin/main` (`33af599b`, 0.287.0 "Tiptree") + two spec commits.
 
 **NO release and NO version bump in this plan.** The slice ships separately on explicit say.
 

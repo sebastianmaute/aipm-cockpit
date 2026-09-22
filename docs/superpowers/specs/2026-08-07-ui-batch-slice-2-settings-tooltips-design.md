@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-07
 **Status:** approved design, not yet planned
-**Baseline:** `origin/main` @ `f6e85d55`, app 0.221.0 "Kavan"
+**Baseline:** `origin/main` @ `3a29fdaa`, app 0.221.0 "Kavan"
 **Parent spec:** `2026-08-07-ui-batch-undo-budget-people-dependencies-design.md` (§2)
 
 Supersedes §2 of the parent spec. The parent's §2.1 described `settings-view.tsx` as holding
@@ -388,7 +388,7 @@ Explicit user constraint. Every control uses `Button` · `IconButton` · `Toggle
 
 ### 8.3 Branch
 
-Off fetched `origin/main` (`f6e85d55`). ★ Local `main` is stale at `4dd13660` — fetch first.
+Off fetched `origin/main` (`3a29fdaa`). ★ Local `main` is stale at `996a380f` — fetch first.
 
 ★ `git checkout --` and `git restore` are both deny-listed in this environment. To revert a file:
 `git show <sha>:<path>` to a temp copy, then `cp` it back.

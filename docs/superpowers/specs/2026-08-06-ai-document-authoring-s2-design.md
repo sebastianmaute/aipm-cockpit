@@ -2,7 +2,7 @@
 
 Date: 2026-08-06
 Status: design approved, unimplemented
-Baseline: 0.219.0 "Elgin", `main` @ `4e2a18e5`
+Baseline: 0.219.0 "Elgin", `main` @ `0dcb6bc3`
 Parent spec: [`2026-08-06-ai-document-authoring-design.md`](2026-08-06-ai-document-authoring-design.md) (S1 shipped as 0.219.0, MR !354)
 
 ## Problem
@@ -18,7 +18,7 @@ writes acceptable.
 
 ## What already exists
 
-Measured against `4e2a18e5`, not assumed:
+Measured against `0dcb6bc3`, not assumed:
 
 | Thing | Where | Shape |
 |---|---|---|

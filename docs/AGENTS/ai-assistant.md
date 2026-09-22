@@ -548,7 +548,7 @@
   ★★ The coverage caveat therefore came OUT of the tool description in the same release, exactly as the
   ★★ below required. RETENTION (b) is unchanged and stays in.
   ★★ **`ai.inlineEdit` NO LONGER FIRES FROM ANYWHERE, and the kind is deliberately still in the union.**
-  This bullet used to say it "fires from `use-inline-entity-edit.ts`"; `0fc004c3` deleted both writers,
+  This bullet used to say it "fires from `use-inline-entity-edit.ts`"; `892f0d2b` deleted both writers,
   because an inline "Ask Claude" edit was writing TWO entries — the per-`runTool` entity row this branch
   added (`actor: "ai"`) plus an `ai.inlineEdit` summary carrying the same entity id, title and actor, i.e. a
   strict subset. The kind survives in `ActivityKind` and in `activityMessageKey` because logs written before

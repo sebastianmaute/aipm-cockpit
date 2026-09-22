@@ -14,7 +14,7 @@ that has to be dropped costs only itself.
 **Tech stack:** TypeScript, React 19, vitest 4.1.8 (`npm run test:run`), fake timers for the
 transport work. No new dependencies.
 
-**Spec:** `docs/superpowers/specs/2026-08-26-version-asset-residue-design.md` (commit `a5e53771`).
+**Spec:** `docs/superpowers/specs/2026-08-26-version-asset-residue-design.md` (commit `061c61a7`).
 Two decisions were revised after that spec was approved, and this plan is the authority on both:
 §255 uses **literal seeds plus a completeness assertion** rather than a registry-derived fixture
 (the file forbids the cast that derivation needs), and a **fifth task** repairs the broken

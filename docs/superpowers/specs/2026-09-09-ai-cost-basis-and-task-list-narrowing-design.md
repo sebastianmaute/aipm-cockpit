@@ -2,7 +2,7 @@
 
 Date: 2026-09-09
 Status: **Specced, unimplemented.**
-Baseline: 0.296.0 "McHugh", `main` @ `cfb742d3`
+Baseline: 0.296.0 "McHugh", `main` @ `e7d74eb8`
 
 > ★ **Deliberately carries no roadmap letter.** It sits inside **C** in
 > `2026-09-08-ai-cost-roadmap-design.md` but is none of C's three numbered items, and an

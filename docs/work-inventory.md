@@ -5,7 +5,7 @@
 > GitLab. Its ESLint 10 "blocked" row is closed (§53, landed 2026-09-10).
 
 > Compiled 2026-08-21 against `main` at 0.252.0 "Brust"; sections 4, 5 and 7 re-measured later the
-> same day against `6c4e4162` (0.253.0 "Schroeder"). **Every number here rots.** Each claim carries
+> same day against `ac6b854c` (0.253.0 "Schroeder"). **Every number here rots.** Each claim carries
 > the command that reproduces it — run the command, never quote the number.
 >
 > ★★ It rotted inside one day: the register gained §201, `followups:check` moved by one, and a whole
@@ -140,11 +140,11 @@ list, along with sp3 and sp4. A memory note calling it unmerged was stale. Do no
 ## 4. `docs/open-followups.md`
 
 **193 sections, numbered 1–201** at compile time, no duplicates, 8 gaps (17–20, 23, 25–27) left by
-the consolidation slice. ★★★ **On 2026-09-01, on `95afb789` (0.272.1), it is 315
+the consolidation slice. ★★★ **On 2026-09-01, on `22ac25f2` (0.272.1), it is 315
 sections, numbered 1–324, still no duplicates, 9 gaps — the eight above plus 323.** That is
 **+122 sections in eleven days**, and it is the single fastest-rotting figure in this file.
 ★★★ **A DATE DOES NOT PIN THIS NUMBER — ONLY A SHA DOES, and it re-staled within hours of being
-written.** Merging `fb66aeec` (0.273.0 "Goonan") into the branch carrying this paragraph moved it
+written.** Merging `89782ebc` (0.273.0 "Goonan") into the branch carrying this paragraph moved it
 to **319 sections, numbered 1–327, still no duplicates, 8 gaps — 323 filled, the eight above
 left.** Same day, same file, four sections apart. Both readings above are labelled 2026-09-01 and
 they disagree, which is the whole point: quote the sha beside any figure derived from this
@@ -158,8 +158,8 @@ and `grep -cE "^## [0-9]+." docs/open-followups.md` for the count.
 (9→10) and *not closed* (135→136) while *open* stays at 118. It is substantively open, but saying
 that here would mix the two measures this paragraph exists to keep apart. Nothing checked whether
 anything else moved. ★★★ **AND ON 2026-09-01 THAT SPLIT NO LONGER DESCRIBES MOST OF THE REGISTER.**
-It covered 192 of 193 sections when compiled — effectively a census. Against `95afb789`'s 315 it is a
-**minority sample of roughly 61%** (60% against `fb66aeec`'s 319), and
+It covered 192 of 193 sections when compiled — effectively a census. Against `22ac25f2`'s 315 it is a
+**minority sample of roughly 61%** (60% against `89782ebc`'s 319), and
 `npm run followups:status:check` scans **174 open entries** against its 118 — **173** after the
 0.273.0 merge, which closed five and filed four. A stale census reads like a census; re-derive or ignore it, but do not reconcile
 today's numbers against it. ★★ Do not re-derive that split with a heading regex and call it a correction: a crude
@@ -184,7 +184,7 @@ cite still exist. It **exits 0 regardless**, runs in no CI job, and its own outp
 claims out but never in.
 ★★ **No tally is quoted here, deliberately — this paragraph froze one and it was wrong four days
 later.** It said "**CLEAN 125** … **130 open entries** and SYMBOL_MISSING/PATH_MISSING both zero",
-measured 2026-08-21 at `73461ca4`. On 2026-08-25 the same command reported CLEAN 151,
+measured 2026-08-21 at `d0196623`. On 2026-08-25 the same command reported CLEAN 151,
 SYMBOL_MISSING 5 and PATH_MISSING 1, and the register held 232 entries. Run
 `npm run followups:check` and read its own summary line; take the entry/open/closed split from the
 register's header commands.
@@ -212,25 +212,25 @@ this section used to claim.
 
 ★★ **The claim that used to sit here — "its resolver walks `src`/`scripts`/`e2e` ONLY, so every
 `docs/` path it meets is reported PATH_MISSING" — was already false when it was written: `docs/**`
-was indexed by `collectDocs()` at this slice's own branch point, `98ee220a`.** Acting on it would
+was indexed by `collectDocs()` at this slice's own branch point, `ee4d0859`.** Acting on it would
 have rewritten already-correct code and left every real cause standing. The real causes, all fixed
 in this slice:
 1. `SKIP_DIRS` excluded `docs/superpowers` inside `collectDocs()`, so the whole planning corpus read
-   as deleted (§145) — fixed by `d501c200` + `da725bff`, which gave `collectDocs` a skip-list
+   as deleted (§145) — fixed by `741c8e85` + `253a9511`, which gave `collectDocs` a skip-list
    parameter and added `collectResolutionSources()` to separate "does this path exist" from "is this
    a citable code file".
 2. `SOURCE_EXT` carried no `md`, so the one markdown fixture tracked under the code tree
    (`src/app/__fixtures__/golden-workspace.md`) was in no index and read as deleted (§200) — fixed by
-   `da725bff`.
+   `253a9511`.
 3. The sweep's own `SWEEP_SELF_FILES` exclusion produced a `SYMBOL_MISSING` no probe could ever
-   discharge (§138) — fixed by `86cb4116`, adding a distinct `SYMBOL_SELF_EXCLUDED` verdict.
-4. Two prose fragments parsed as citations (§131, §200) — fixed by `96f5b44d`.
+   discharge (§138) — fixed by `516e0aa8`, adding a distinct `SYMBOL_SELF_EXCLUDED` verdict.
+4. Two prose fragments parsed as citations (§131, §200) — fixed by `441dc4ed`.
 
 Two more causes turned up *during* the slice, past what triggered it:
 5. Symbols living in `node_modules` had no classification, so §51 and §53 read `SYMBOL_MISSING`
-   forever despite being correct — fixed by `4afeb4a7`, adding a `SYMBOL_THIRD_PARTY` verdict.
+   forever despite being correct — fixed by `6907bfd7`, adding a `SYMBOL_THIRD_PARTY` verdict.
 6. The symbol sweep never scanned the repo root, so `globalIgnores` in `eslint.config.mjs` (§189)
-   was missing forever — fixed by the same `4afeb4a7`, which widened the walk to cover root-level
+   was missing forever — fixed by the same `6907bfd7`, which widened the walk to cover root-level
    config (deliberately excluding `.json`, so `package-lock.json` cannot inject every dependency name
    as a phantom symbol).
 
@@ -279,7 +279,7 @@ decision that authorised it.
 
 ★ Dependency rows: `eslint` 10 is **BLOCKED** upstream via `eslint-config-next`, confirmed by an
 executed attempt. `@types/node` **landed in this slice** — bumped `^20` → `^24` with zero `tsc`
-errors (`a698eac2` / `da9695d0`); it is no longer deferred or pending.
+errors (`de04175e` / `aed58276`); it is no longer deferred or pending.
 
 ## 6. Code markers
 
@@ -310,7 +310,7 @@ prose registers, never in code comments — so a marker sweep finds nothing and 
    `scripts/followup-claims-lib.mjs`); the patterns are phrase-shaped and simply did not match these
    wordings, so "it has no such notion" would be the wrong lesson. Nothing here is a pickable slice
    any more.
-5. **`@types/node`** — done, `^24` (`a698eac2` / `da9695d0`); no longer a pickable slice.
+5. **`@types/node`** — done, `^24` (`de04175e` / `aed58276`); no longer a pickable slice.
 6. **Icon migration (TD-8 / §145)** — **done**, shipped 0.255.0 "Bisson". No longer a pickable
    slice, and no longer a decision to make.
 

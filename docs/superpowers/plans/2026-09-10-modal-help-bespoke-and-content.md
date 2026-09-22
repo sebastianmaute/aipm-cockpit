@@ -8,8 +8,8 @@
 
 **Tech Stack:** React 19 / Next 16, TypeScript, vitest + Testing Library, Playwright (axe gate only).
 
-**Spec:** `docs/superpowers/specs/2026-09-10-modal-help-bespoke-and-content-design.md` (commit `4eb31114`)
-**Branch:** `feat/modal-help-bespoke`. Cut off `origin/main` = `9adcafde`, REBASED 2026-09-10 onto `6cf9fcf7` (0.300.0) — every SHA cited in this plan and in the register entries it touches was rewritten by that rebase, and the citations were remapped in the same commit. A SHA from an MR description or a commit message written before then will not resolve.
+**Spec:** `docs/superpowers/specs/2026-09-10-modal-help-bespoke-and-content-design.md` (commit `2cb0ac06`)
+**Branch:** `feat/modal-help-bespoke`. Cut off `origin/main` = `2f02022e`, REBASED 2026-09-10 onto `2525350d` (0.300.0) — every SHA cited in this plan and in the register entries it touches was rewritten by that rebase, and the citations were remapped in the same commit. A SHA from an MR description or a commit message written before then will not resolve.
 
 ---
 
@@ -398,7 +398,7 @@ The by-eye pass (66/66 bodies resolved, 3,972 i18n keys indexed) **changed two o
 - No plans to add, move or reflow any `helpSec*` key; its work is under `scripts/` plus docs.
 - We are in **different worktrees**, so neither session can see the other's uncommitted edits to these files at all. What IS shared is the stash stack and the refs — never run bare `git stash` / `git stash pop` here.
 
-★★ **One committed change of the peer's is in this key family and is NOT on `origin/main` yet.** `f37bc539` ("fix(ai): drop the retired counting multiplier from the guide and Help") rewrites the VALUE of `helpSecUsageLimitsBody` in BOTH dictionaries. Verified independently rather than taken on trust — `git log --oneline origin/main..feat/ai-prompt-quality-harness -- src/app/i18n.ts src/app/i18n.de.ts` returns exactly that one commit, carrying 5 `helpSecUsageLimitsBody` hits across the two files. It should merge cleanly (we APPEND six new keys after `helpSecPrint*`; it edits one existing key's value), but it is the same family and possibly a nearby region: **after any rebase onto a main that already carries it, expect it in the neighbourhood and do NOT "tidy" it back.**
+★★ **One committed change of the peer's is in this key family and is NOT on `origin/main` yet.** `e81078bd` ("fix(ai): drop the retired counting multiplier from the guide and Help") rewrites the VALUE of `helpSecUsageLimitsBody` in BOTH dictionaries. Verified independently rather than taken on trust — `git log --oneline origin/main..feat/ai-prompt-quality-harness -- src/app/i18n.ts src/app/i18n.de.ts` returns exactly that one commit, carrying 5 `helpSecUsageLimitsBody` hits across the two files. It should merge cleanly (we APPEND six new keys after `helpSecPrint*`; it edits one existing key's value), but it is the same family and possibly a nearby region: **after any rebase onto a main that already carries it, expect it in the neighbourhood and do NOT "tidy" it back.**
 
 Verified independently before writing anything:
 - All six new keys are absent from both dictionaries today (0/0 each).
@@ -977,11 +977,11 @@ Expected: no `M` on any file this slice did not intend, and **no** `sample-works
 
 ### ★★★ RELEASE-TIME CONSTRAINT — the base is moving under us
 
-Peer session `aipm-wt-a-56` has **MR !465 (0.300.0 "Mohanraj")** in flight, `feat/ai-prompt-quality-harness` → `main`, pipeline #6800, merging on green with auto-merge explicitly off. This branch was cut off `origin/main` = `9adcafde` (0.299.0).
+Peer session `aipm-wt-a-56` has **MR !465 (0.300.0 "Mohanraj")** in flight, `feat/ai-prompt-quality-harness` → `main`, pipeline #6800, merging on green with auto-merge explicitly off. This branch was cut off `origin/main` = `2f02022e` (0.299.0).
 
 - **DO NOT REBASE UNTIL !465 LANDS.** It carries ~60 commits and moves `main` to 0.300.0. Rebasing first means doing the work twice.
 - **Nothing in it renames, moves or deletes an existing i18n key**, so the six appended `helpSec*` keys should apply cleanly.
-- ★★ **If git surfaces `helpSecUsageLimitsBody`, KEEP BOTH SIDES.** `f37bc539` rewrites that one key's VALUE in both dictionaries (dropping a retired counting-multiplier claim); our change appends six new keys after `helpSecPrint*`. The two are independent — resolving either-or silently drops one.
+- ★★ **If git surfaces `helpSecUsageLimitsBody`, KEEP BOTH SIDES.** `e81078bd` rewrites that one key's VALUE in both dictionaries (dropping a retired counting-multiplier claim); our change appends six new keys after `helpSecPrint*`. The two are independent — resolving either-or silently drops one.
 - ★★ **Re-assert the DE anchor's uniqueness after rebasing.** ~60 commits will have moved it; the measured `i18n.de.ts:3546` is a fact about the pre-rebase tree only. Task 5b's script asserts presence and uniqueness in both directions before writing, which is exactly the case this covers — do not weaken it to a bare `indexOf`.
 - ★ **`vitest.config.ts` in !465 widens the scripts glob to `scripts/**/*.{test,spec}.ts`** as well as `.mjs`. A stray probe file left under `scripts/` therefore becomes part of the CI unit run. Verified 2026-09-10 for this slice: every probe was written to the session scratchpad OUTSIDE the repo and `git status --untracked-files=all` shows no stray `.mjs` in the tree. Re-check before pushing.
 - ★ !465 also moves the README feature table to `docs/features.md`. This slice touches no README prose, so it should not matter — but the region will look different.

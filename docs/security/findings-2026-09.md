@@ -3,11 +3,11 @@
 > **This is a DATED SNAPSHOT, not a living document.**
 >
 > - **Audit date:** 2026-09-16.
-> - **Verified against:** `origin/main` at `ed6ed8e4` (the merge of `chore/electron-44`). Every
+> - **Verified against:** `origin/main` at `86a4c998` (the merge of `chore/electron-44`). Every
 >   statement below describes the tree at that commit and nowhere else.
 > - **Follow-up slice:** the `fix/security-audit-followups` branch that carries the remediations
->   branched later, from `5c664157`. Where a finding was fixed in that slice, this file says so
->   inline — but the finding text itself is left describing `ed6ed8e4`, because that is what a
+>   branched later, from `bd33f230`. Where a finding was fixed in that slice, this file says so
+>   inline — but the finding text itself is left describing `86a4c998`, because that is what a
 >   dated record is for.
 > - **Series:** the second file in the same series as `findings-2026-07.md`. It **supersedes that
 >   file's SCOPE** — the 2026-07 pass was ~90 releases old and predated the desktop app, `/api/stt`,
@@ -55,7 +55,7 @@ helper has redirect test coverage today; `stt/route.test.ts` shows the shape.
 
 **Status:** fixed in the follow-up slice (register §559). `callJira` and `callTimelog` now set
 `redirect: "manual"` and reject 3xx, so a sweep of `src/app/api/` for a redirect policy finds all
-three helpers, not just stt. At `ed6ed8e4` only stt set one.
+three helpers, not just stt. At `86a4c998` only stt set one.
 
 **2026-09-18 correction:** Node 24's `fetch` (undici) strips the `Authorization` header on a
 cross-origin redirect per the Fetch spec, so the credential itself was never at risk here. The
@@ -108,7 +108,7 @@ only one of the family using an `indexOf` cursor walk.
 
 2. **`html-extract.ts` does NOT still contain lazy patterns.** An earlier revision listed seven
    sites in that file. All seven are prose inside `*` comment lines describing the pattern class —
-   that file documents the hazard it fixed. Re-checked line by line against `ed6ed8e4`: seven of
+   that file documents the hazard it fixed. Re-checked line by line against `86a4c998`: seven of
    seven are comment text. There was never anything to judge.
 
 3. The `xlsx-extract.ts` line numbers quoted by the area agent were wrong, and the coordinator's
@@ -174,17 +174,17 @@ it.
 
 **Status:** fixed in the follow-up slice (register §560). `redactSettings` now names no field at
 all — it walks `SECRET_IDS` and redacts each id's path from `SECRET_SETTINGS_PATHS`, so the list
-cannot rot out of step with the `SecretId` union again. At `ed6ed8e4` it named three.
+cannot rot out of step with the `SecretId` union again. At `86a4c998` it named three.
 
 ## MEDIUM-3 — no Electron fuses configured
 
-**Where:** `desktop/electron-builder.yml` — no `electronFuses` key at `ed6ed8e4`.
+**Where:** `desktop/electron-builder.yml` — no `electronFuses` key at `86a4c998`.
 
 `RunAsNode` stayed enabled on the packaged binary, so a local actor could run arbitrary Node through
 the shipped exe. Local-only impact, cheap fix.
 
 **Status:** fixed (register §561). `desktop/electron-builder.yml` now carries an `electronFuses`
-block; at `ed6ed8e4` it carried none. Disabling `RunAsNode` also broke the desktop server launch,
+block; at `86a4c998` it carried none. Disabling `RunAsNode` also broke the desktop server launch,
 which relied on `ELECTRON_RUN_AS_NODE`; `desktop/src/server-child.ts` now uses
 `utilityProcess.fork` instead (see §561).
 
@@ -259,5 +259,5 @@ this state machine has no unit harness.
   created this file: the `threat-model.md` sink count, and the `findings-2026-07.md` URL-1 note
   claiming `document-links-field.tsx` was deleted. The third — the `src/proxy.ts` comment
   enumerating six JSX sinks — was a source change, deferred out of that documentation commit and
-  **corrected shortly after in `962d51dc`**; that comment now enumerates all eight JSX sinks, names
+  **corrected shortly after in `ec133d4d`**; that comment now enumerates all eight JSX sinks, names
   the three `document.write` sites, and carries both sweep commands.

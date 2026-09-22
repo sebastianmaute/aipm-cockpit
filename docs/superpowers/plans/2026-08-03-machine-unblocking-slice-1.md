@@ -14,7 +14,7 @@
 
 Four things in [the spec](../specs/2026-08-03-machine-unblocking-design.md) and in `open-followups.md` §2 are **stale or wrong**. The plan below uses the corrected facts; §2 gets corrected in Task 6.
 
-1. **§2's line counts are stale and the situation is worse than recorded.** The entry says "1037 lines, baseline 1038, one line of slack". Actual on `main` `0d770283`: the file is **1043** lines and `docs/baselines/file-sizes.json:6` records **1043**. `npm run size:check` exits 0 today with **zero** slack — 0.212.0 grew the file and re-baselined it. The next line added fails the build immediately, not after one more.
+1. **§2's line counts are stale and the situation is worse than recorded.** The entry says "1037 lines, baseline 1038, one line of slack". Actual on `main` `e614b1a7`: the file is **1043** lines and `docs/baselines/file-sizes.json:6` records **1043**. `npm run size:check` exits 0 today with **zero** slack — 0.212.0 grew the file and re-baselined it. The next line added fails the build immediately, not after one more.
 
 2. **§2's cluster line ranges have drifted** by ~6 lines and must not be pasted verbatim. Re-derive at execution time from the handler names listed in Tasks 3 and 4, which come from the hook's actual return object.
 

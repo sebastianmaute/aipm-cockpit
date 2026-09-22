@@ -381,7 +381,7 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
                             # superpowers plans, which do not participate; `[>]` stops a self-match.)
                             # ★★ It returns CONTRIBUTING.md ALONE today, so this is a TWO-file change
                             # (package.json + CONTRIBUTING.md) — read that off the grep, never off this
-                            # line. ★ README carried the pair from the initial commit until `be21ebf3`
+                            # line. ★ README carried the pair from the initial commit until `7723c3d2`
                             # curated its table down to six hand-picked commands; a standing note calling
                             # it a three-file change was true when written and was falsified by that
                             # commit. Re-adding the markers to README would silently put it back under the

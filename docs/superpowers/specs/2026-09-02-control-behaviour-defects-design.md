@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-02
 **Register entries:** §326, §333, §334, §199
-**Branch:** `fix/control-behaviour-defects`, off `origin/main` at `d65e5342` (0.277.1 "Ozeki")
+**Branch:** `fix/control-behaviour-defects`, off `origin/main` at `6d5ba66e` (0.277.1 "Ozeki")
 
 ## Goal
 
@@ -163,7 +163,7 @@ must become the selection.
 ★★★ **CORRECTED 2026-09-02. The struck justification was FALSE and did NOT ship:** ~~"the pre-fix
 code's index-0-only special case is what made this inconsistent in the first place, and reintroducing
 a positional rule would recreate it."~~ **There was no index-0 special case in
-`selectionAfterInsert`.** The module arrived whole in `af704299`, and before it `insertSeeded` was
+`selectionAfterInsert`.** The module arrived whole in `c0e31d1a`, and before it `insertSeeded` was
 `(at, type) => structural.insert(at, blockSeed(lang, type))` — it never touched the selection at all
 (`git show af704299^:src/app/document-editor.tsx | grep -A1 "insertSeeded ="`). What actually produced
 the index-0 coincidence was `resolvedSelection`'s `firstParagraph` fallback re-resolving a null

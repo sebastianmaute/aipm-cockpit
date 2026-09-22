@@ -224,7 +224,7 @@ exactly that way about the view-scope block and being wrong twice over.
 
 ## File structure
 
-Dictated by the size ratchet, not merely constrained by it. Measured on `main` at `5a87026a`:
+Dictated by the size ratchet, not merely constrained by it. Measured on `main` at `dc6c3161`:
 
 | File | Lines | Status | Touched? |
 |---|---|---|---|

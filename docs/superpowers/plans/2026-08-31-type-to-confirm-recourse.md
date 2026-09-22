@@ -9,7 +9,7 @@
 **Tech Stack:** Next.js 16 / React / TypeScript, vitest + @testing-library/react, EN+DE i18n with tsc-enforced key parity.
 
 **Spec:** `docs/superpowers/specs/2026-08-31-type-to-confirm-recourse-design.md`
-**Branch:** `fix/type-to-confirm-recourse`, currently at `5e88a626`, off `62d84fa3`.
+**Branch:** `fix/type-to-confirm-recourse`, currently at `5fd0d300`, off `c44ad094`.
 
 ---
 
@@ -260,7 +260,7 @@ const MISMATCH_ID = "type-to-confirm-mismatch";
 ```
 
 > ★★★ **SUPERSEDED 2026-09-02 — do NOT copy this shape into a new dialog.** Both ids are now
-> per-instance `useId()` values (`docs/open-followups.md` §326, commit `dced5a68`). The
+> per-instance `useId()` values (`docs/open-followups.md` §326, commit `3ec8243f`). The
 > module-constant form this plan shipped put duplicate ids in the document whenever two
 > `TypeToConfirmDialog`s were mounted, which `tasks-section.tsx` can reach through the voice
 > `clearAll` nonce reconcile — reproduced in Chromium before the fix. This step is left as written

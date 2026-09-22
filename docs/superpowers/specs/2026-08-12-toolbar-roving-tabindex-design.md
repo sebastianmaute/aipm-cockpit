@@ -1,6 +1,6 @@
 # The rich-text toolbar keyboard contract — closing §144(a)
 
-> Written against **0.235.0 "Lackey"** (`1d84bd7e`). Closes `docs/open-followups.md` §144(a),
+> Written against **0.235.0 "Lackey"** (`c6a1abc3`). Closes `docs/open-followups.md` §144(a),
 > which closes §144 entirely — (b) landed 2026-08-12.
 > **User-visible: version bump + CHANGELOG entry.**
 
@@ -48,7 +48,7 @@ design.
 
 ## 2. Measurements this design rests on
 
-All taken 2026-08-12 against `1d84bd7e`.
+All taken 2026-08-12 against `c6a1abc3`.
 
 ### 2a. No existing roving primitive can be reused, and the reason is correctness
 

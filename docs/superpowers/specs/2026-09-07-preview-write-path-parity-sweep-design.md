@@ -1,8 +1,8 @@
 # Preview ⟺ write-path parity, enumerated against the real dispatcher — design
 
 **Date:** 2026-09-07
-**Branch:** `feat/write-path-parity-sweep`, based at `origin/main` = `960b639e` (0.293.0 "Vandermeer").
-**Originally drafted** 2026-09-07 against `08bab65b` (0.291.1 "Hoban") on the now-merged
+**Branch:** `feat/write-path-parity-sweep`, based at `origin/main` = `c1ec5fb5` (0.293.0 "Vandermeer").
+**Originally drafted** 2026-09-07 against `02d67e15` (0.291.1 "Hoban") on the now-merged
 `feat/preview-write-path-parity-sweep`, which ended up carrying the AI-calendar-writes slice
 instead. Re-grounded 2026-09-08 — read the next section before trusting any number below it.
 **Closes:** open-followups §394, §418. **Tail:** §405 (narrowed residue only).
@@ -26,11 +26,11 @@ only so the branch's contents match this document:
 
 0.293.0 "Vandermeer" landed **under** this document between drafting and execution. It added two
 `INLINE_DESCRIPTORS` entities (`absence`, `calendarEvent`), seven tools, two merge-site guards and a
-new descriptor member. Every count below was re-measured on `960b639e`; each correction carries the
+new descriptor member. Every count below was re-measured on `c1ec5fb5`; each correction carries the
 command that produced it, because a correction is a new claim and inherits none of the verification
 of the thing it corrects.
 
-| claim as drafted | measured on `960b639e` | command |
+| claim as drafted | measured on `c1ec5fb5` | command |
 |---|---|---|
 | 6 descriptors | **8** | `grep -cE "^  [a-zA-Z]+: \{" src/app/inline-ai-edit/entity-descriptor.ts` |
 | 6 `update_*` tools | **8** | `grep 'case "update_' src/app/chat-tools.ts \| grep -cv update_settings` |
@@ -160,7 +160,7 @@ total. Both files are jsdom and always have been. The conclusion below survives 
 30 dispatcher mounts cost 134ms of test work; the 38s is the jsdom environment, paid **once per
 file**. Projecting ~120 replays gives ~0.5s of test work — and a new jsdom file would buy that for
 another ~25-30s of environment. The file was 660 lines when this was drafted and is **782** on
-`960b639e`, against a `size:check` LIMIT of 1600 — comfortable, but the sweep is additive to it, so
+`c1ec5fb5`, against a `size:check` LIMIT of 1600 — comfortable, but the sweep is additive to it, so
 re-read the real number before assuming headroom.
 
 ★ Those are this machine's numbers under contention. The *relative* conclusion (reuse the jsdom file)
@@ -186,7 +186,7 @@ Per entity, the union of three sets, every one derived at runtime:
 
 ★★ **THE STATED REASON FOR (2) WAS HALF-FALSE AND IS REWRITTEN HERE; THE CHOICE IS UNCHANGED.** As
 drafted it read: the guard tables are module-private, so the stored row is the only available
-source. There are **six** tables on `960b639e`, and `ABSENCE_FIELD_GUARDS` and
+source. There are **six** tables on `c1ec5fb5`, and `ABSENCE_FIELD_GUARDS` and
 `CALENDAR_EVENT_FIELD_GUARDS` are both `export`ed — so availability no longer discriminates.
 Verify with `grep -nE "^(export )?const [A-Z_]+_FIELD_GUARDS" src/app/sanitize-records.ts`
 (six hits, the last two exported).

@@ -20,7 +20,7 @@ and reports 801 on an unbaselined file as `NEW file over 800`. Headroom is zero
 lines, in both files, with no ratchet grace. Any net line fails
 `file-size-ratchet` outright.
 
-Measured on this branch's base (`2a1cfdef`), not quoted from §220 — the near-cap
+Measured on this branch's base (`65f17aa0`), not quoted from §220 — the near-cap
 set rots on any commit. Reproduce with the gate's own metric, honouring the same
 three exclusions the gate applies (`.test.` / `.property.` / the i18n pair). Put
 this in a file and run it with `node`; do not try to inline it with `node -e`,
@@ -387,7 +387,7 @@ own wire for exactly that reason. Do not substitute one for the other.
 - §208 and §221 unchanged.
 
 ★★ A `docs/open-followups.md` number is reserved only once it is on `origin/main`.
-§225 is the next free number against `2a1cfdef`; re-check the max and renumber on
+§225 is the next free number against `65f17aa0`; re-check the max and renumber on
 rebase if another branch lands first.
 
 ★★ `docs/open-followups.md` IS scanned by `docs:claims:check` (only

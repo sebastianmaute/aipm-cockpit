@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-29-destructive-save-arming-design.md`
 
-**Branch:** `fix/destructive-save-arming`, at `dd4f46f1`, off `main` at `3961777b` (0.263.2 "Okorafor").
+**Branch:** `fix/destructive-save-arming`, at `d42ded98`, off `main` at `871ce327` (0.263.2 "Okorafor").
 
 ---
 

@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-30
 **Branch:** `fix/trend-numerator-and-audit-log`
-**Base:** `main` at `96e21098` (0.266.0 "VanderMeer")
+**Base:** `main` at `e02446d0` (0.266.0 "VanderMeer")
 **Closes:** §235, §163's open `dDone` half, §283
 **Bump:** yes — the completion-trend fix is a user-visible metric correction.
 
@@ -58,7 +58,7 @@ file-mode user sees. This is not an edge case.
 
 ## Measured facts the plan may rely on
 
-Verified 2026-08-30 on `main` at `96e21098`. Re-run anything a task depends on; this file is prose
+Verified 2026-08-30 on `main` at `e02446d0`. Re-run anything a task depends on; this file is prose
 and prose decays.
 
 1. **`applyStatusChange` call sites** — 11 real sites across 6 files, plus the declaration in
@@ -207,7 +207,7 @@ never produce a wrong number — which is the split the two register entries act
 > `task.completed` and `task.reopened` are members of `COUNT_KINDS` in `completion-trend.ts`, which
 > decides which days SEED a point, so a missed writer drops a completion-only day and can take a
 > sparse project under the `days.length < 2` floor, rendering no chart at all. Retracted in the
-> shipped tree by `9fffef94`; the plan carries the same banner. The claim was propagated verbatim
+> shipped tree by `93c05c9e`; the plan carries the same banner. The claim was propagated verbatim
 > from here into the plan and from the plan into three source files.
 
 ---

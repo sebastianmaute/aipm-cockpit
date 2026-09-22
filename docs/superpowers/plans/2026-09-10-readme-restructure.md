@@ -8,7 +8,7 @@
 
 **Tech Stack:** Markdown only. No application code changes.
 
-**Source spec:** `docs/superpowers/specs/2026-09-10-readme-and-releases-design.md` (commit `f02c9013`), sections 5.1–5.4 and the part of section 8 that applies to the docs move.
+**Source spec:** `docs/superpowers/specs/2026-09-10-readme-and-releases-design.md` (commit `bd964895`), sections 5.1–5.4 and the part of section 8 that applies to the docs move.
 
 **Scope:** Part A only. Part B (release publishing, spec section 6) is a separate plan. **Write no task** for the CI job, tagging, the tag/version guard, `artifactName`, or the Releases API.
 
@@ -851,7 +851,7 @@ The helpers live in the scratchpad by design; nothing is staged.
 
 ⚠️ **This task as originally written was wrong twice over, and both errors were in
 the plan rather than in the tree.** It was rewritten after measurement, before any
-of it was executed. The original text is preserved in git at `a5a742cd`.
+of it was executed. The original text is preserved in git at `3de98181`.
 
 **What the original got wrong:**
 
@@ -888,7 +888,7 @@ of it was executed. The original text is preserved in git at `a5a742cd`.
   is a **two**-file change today (`package.json` + `CONTRIBUTING.md`), not three.
 - The memory was **true when written and was falsified by a later commit.**
   `git log --oneline -S"AUTO-GENERATED from package.json scripts" -- README.md`
-  returns `43c0d5f4` (initial commit, markers added) and `be21ebf3`
+  returns `f5a38ee8` (initial commit, markers added) and `7723c3d2`
   ("docs(readme): … curate the scripts table", markers removed). README's table
   is now a hand-curated six-command subset that disclaims itself in its own
   closing paragraph.
@@ -926,7 +926,7 @@ nothing whether README participates or not — it CANNOT answer the question, an
 was read as proof that it does not (2026-09-10). Enumerate the participants with
 `grep -rn "AUTO-GENERATED from package.json scripts" --include=*.md .`, which
 returns CONTRIBUTING.md ALONE today. ★ README carried the pair from the initial
-commit until `be21ebf3` removed it; its table is now a hand-curated subset that
+commit until `7723c3d2` removed it; its table is now a hand-curated subset that
 says so in its own closing paragraph. Read a count off the grep, not off this line.
 ```
 

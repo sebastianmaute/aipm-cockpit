@@ -3,7 +3,7 @@
 > **Status (2026-09-13 audit):** PARTIAL — code shipped (merged twice); the slice's own owed eye-verify checks remain open, tracked in §426. The deferred per-window/per-modal help icon's remainder is tracked in §489 (§424 closed 2026-09-13); the `focusAfterMove`/`triggerRefs` detector gap is tracked in §428 (recorded as a decision, not a defect). Kept as a historical record; do not execute as written.
 
 **Date:** 2026-09-06
-**Base:** `origin/main` at `3aef0e01` (0.288.0 "Duchamp")
+**Base:** `origin/main` at `1048d7b0` (0.288.0 "Duchamp")
 **Branch:** `feat/reports-arrangement-turso-verify`
 
 ---
@@ -18,12 +18,12 @@ Already done, verified by reading the tree and confirming each commit is an ance
 
 | Ask | Where it landed |
 |---|---|
-| Projects: Load-from-Turso disabled when unconfigured | `disabled={!tursoConfigured}`, both surfaces (`78313fb4`, `122d5b1d`) |
+| Projects: Load-from-Turso disabled when unconfigured | `disabled={!tursoConfigured}`, both surfaces (`fc753b99`, `c5505d86`) |
 | Projects: Move-to-Turso disabled when unconfigured | `projects-panel.tsx`, same expression |
-| Documents: image name click opens the preview | `asset-library.tsx`, same `setPreviewIndex` as the button (`57a6d8c7`) |
-| Documents: re-click open document's name collapses the body | `documents-panel.tsx` `handleSelect` (`ede67ddd`, `3f59c5a2`, `16237df9`) |
-| "Referenced by" reads a count, not the R/A/I/D mix | `task-raid-badge.tsx`, mix moved to `title` (`178b2aa9`) |
-| Ask Claude row icon no longer clips over the checkbox | `97ded2c2` — a `w-7` cell carried `px-4` |
+| Documents: image name click opens the preview | `asset-library.tsx`, same `setPreviewIndex` as the button (`47f2bf1b`) |
+| Documents: re-click open document's name collapses the body | `documents-panel.tsx` `handleSelect` (`3b552d3f`, `98d41e30`, `be46c6b5`) |
+| "Referenced by" reads a count, not the R/A/I/D mix | `task-raid-badge.tsx`, mix moved to `title` (`dc40414a`) |
+| Ask Claude row icon no longer clips over the checkbox | `97479935` — a `w-7` cell carried `px-4` |
 | Knowledge "Attach to" is a searchable combobox with `*` | `SingleEntityPicker` + `wildcardMatcher` |
 | Knowledge "Search tasks to link" ditto | `TaskLinkPicker` → `EntityLinkPicker` |
 | Task modal: Status & Notes at position 3 | `task-form-fields.tsx` |

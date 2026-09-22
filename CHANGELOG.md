@@ -1409,7 +1409,7 @@ release as covering it.
   that would disclose either renders only while the rate is not 1, which is
   exactly the condition both describe.
 - **This entry is written after the fact.** The currency work merged as
-  `e15c53f0` without a version bump or a changelog row, and no gate can see that:
+  `e8659db5` without a version bump or a changelog row, and no gate can see that:
   `version-sync-check` compares `version.ts` against its satellites, so with no
   bump there is no drift to report. Nothing checks that a user-visible change
   earns an entry here.
@@ -1507,7 +1507,7 @@ it keeps.
   it by name, and only the manual `desktop-package` job compiles it (its script
   runs `tsc -p desktop/tsconfig.json`, which is the sole thing that does). That
   job was played on the merged branch and passed — job 29818, pipeline 6918, on
-  `63a66068` — so the cross-module move in that branch's last commit is compiled,
+  `217f9658` — so the cross-module move in that branch's last commit is compiled,
   not merely greppable. The pure helpers extracted beside it *are*
   in the unit gate, since `vitest.config.ts` includes `desktop/**`.
 
@@ -2637,7 +2637,7 @@ card was drawn from.
 
 - Folded in the tooltip and work-inventory re-measurement: `tooltip-inventory.md`
   gains its measured baseline, `work-inventory.md` and the tech-debt register are
-  re-measured and dated. TD-7's size figure is pinned to a commit (`fb66aeec`);
+  re-measured and dated. TD-7's size figure is pinned to a commit (`89782ebc`);
   TD-5's is dated only, so the register's own "pin a size figure by a SHA, never
   by a day" rule is not yet satisfied one row above where it is stated. Both
   numbers are true at HEAD.

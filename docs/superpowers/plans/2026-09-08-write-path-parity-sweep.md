@@ -8,9 +8,9 @@
 
 **Tech Stack:** TypeScript, vitest 4.1.8 (jsdom), `@testing-library/react` `renderHook`/`act`, the `chat-dispatcher-fixture` test providers.
 
-**Spec:** `docs/superpowers/specs/2026-09-07-preview-write-path-parity-sweep-design.md` (re-grounded 2026-09-08, commit `0798b9e3`). **Read its "Re-grounding, 2026-09-08" section first** — every count above that section which it corrects is stale.
+**Spec:** `docs/superpowers/specs/2026-09-07-preview-write-path-parity-sweep-design.md` (re-grounded 2026-09-08, commit `2b7b2412`). **Read its "Re-grounding, 2026-09-08" section first** — every count above that section which it corrects is stale.
 
-**Branch:** `feat/write-path-parity-sweep`, based at `origin/main` = `960b639e` (0.293.0 "Vandermeer"). **No release, no version bump in this plan.**
+**Branch:** `feat/write-path-parity-sweep`, based at `origin/main` = `c1ec5fb5` (0.293.0 "Vandermeer"). **No release, no version bump in this plan.**
 
 ---
 

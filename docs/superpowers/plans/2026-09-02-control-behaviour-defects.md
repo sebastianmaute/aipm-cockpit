@@ -682,7 +682,7 @@ Replace `selectionAfterInsert` in `src/app/document-block-selection.ts`:
 
 ★★★ **CORRECTED 2026-09-02 — the last ★ of that drafted docstring is FALSE and was NOT shipped.**
 There was no index-0-only special case in `selectionAfterInsert`: the module arrived whole in
-`af704299`, and before it `insertSeeded` was
+`c0e31d1a`, and before it `insertSeeded` was
 `(at, type) => structural.insert(at, blockSeed(lang, type))`, which never touched the selection
 (`git show af704299^:src/app/document-editor.tsx | grep -A1 "insertSeeded ="`). The index-0
 coincidence lived in `resolvedSelection`'s `firstParagraph` fallback — a different function, untouched

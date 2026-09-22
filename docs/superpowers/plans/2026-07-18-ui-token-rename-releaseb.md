@@ -237,7 +237,7 @@ EOF
 
 ## Task 4: Review + release
 
-- [ ] **Step 1: Superpowers code review** of the full branch diff (base = `main` merge `006c0906`).
+- [ ] **Step 1: Superpowers code review** of the full branch diff (base = `main` merge `6f1e146a`).
   Fix CRITICAL/HIGH/MEDIUM; note minors.
 - [ ] **Step 2: Re-run the full gate set** if review triggered any code change (tsc/lint/vitest/palette/
   size/dup/build/axe).

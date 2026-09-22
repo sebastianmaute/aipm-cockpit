@@ -2,7 +2,7 @@
 
 **What this is.** A triage of all 182 OPEN entries in `docs/open-followups.md`, clustered into slices
 a single branch could close together. Written 2026-08-31, immediately after 0.270.0 "Tchaikovsky"
-merged as `a5f51aa1`.
+merged as `2d07f320`.
 
 **What this is NOT.** It is not a commitment, not an ordering anyone has agreed to, and not a
 replacement for the register. Every § below is described in one line; the entry body is the source of
@@ -260,7 +260,7 @@ light-scheme borders measure 7.71–9.30:1. The DARK maps are the actual failure
 ★ The fix pattern already exists: `ToggleButton`'s `data-pressed-marker` glyph, always rendered and
 merely `invisible` when off so the button keeps one width. Do not hand-roll a thirteenth toggle.
 ★ `segmented-control.tsx` is consumed by `popover-panel.tsx` — that was a blocker while a peer held
-the popover files and is NOT one any more, as of `a5f51aa1`.
+the popover files and is NOT one any more, as of `2d07f320`.
 
 ## Slice 8 — Completion and audit truth
 
@@ -351,7 +351,7 @@ which is a RATCHET: cite SYMBOLS and commands, never `path:LINE`.
 
 **2 control bytes in `docs/open-followups.md`** — U+0008 ×2, from two lost backslashes turning `\b`
 into a literal backspace inside a `grep -rln` reproduce command. The command as written cannot answer
-its own claim. Pre-existing, present at `a5f51aa1`, found by code-point scan:
+its own claim. Pre-existing, present at `2d07f320`, found by code-point scan:
 
 ```bash
 node -e "const s=require('fs').readFileSync('docs/open-followups.md','utf8');const bad=[];for(let i=0;i<s.length;i++){const c=s.codePointAt(i);if(c<9||(c>10&&c<32)||c===127)bad.push(s.slice(0,i).split('\n').length);}console.log(bad);"

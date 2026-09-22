@@ -7,7 +7,7 @@
 
 ## Grounding notes (corrections to the roadmap spec)
 
-The roadmap spec was written from AGENTS.md and drifted from the code in two places. Ground truth as of `664469ad`:
+The roadmap spec was written from AGENTS.md and drifted from the code in two places. Ground truth as of `7d20a6c0`:
 
 - `Task.createdDate` genuinely does not exist. `lastUpdateDate` is required. Roadmap correct.
 - `Resource.isExternal?` exists (`types.ts:537`); `effectiveAssignee` / `effectivePersonName` live in `resource-foundation.ts`. Roadmap correct.

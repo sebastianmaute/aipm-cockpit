@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-01-export-link-fidelity-design.md`
 
-**Branch:** `fix/export-link-fidelity` at `eb89b5e5`, off `main` `4650ed67` (0.275.0 "Nagata").
+**Branch:** `fix/export-link-fidelity` at `2a706db4`, off `main` `00c61f8f` (0.275.0 "Nagata").
 
 **Closes:** `docs/open-followups.md` §119 and §30. Discharges part of §219.
 

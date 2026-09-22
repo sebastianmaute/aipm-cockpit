@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-08-ui-batch-slice-3-history-cancel-people-design.md`
 
-**Baseline:** branch from `main` @ `59cd9489` (0.223.0 "Okorafor").
+**Baseline:** branch from `main` @ `d3187f0f` (0.223.0 "Okorafor").
 
 ---
 

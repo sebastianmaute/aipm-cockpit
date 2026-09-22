@@ -12,7 +12,7 @@
 
 ## Context an engineer needs before starting
 
-**Baseline:** `origin/main` at or after `02c66259` (0.223.0 "Okorafor" plus the §107 correction).
+**Baseline:** `origin/main` at or after `d84a9d1f` (0.223.0 "Okorafor" plus the §107 correction).
 
 **This slice ships no UI.** No component changes, no i18n keys, no a11y surface.
 

@@ -1,7 +1,7 @@
 # Dictation insert position + register hygiene — design
 
 **Date:** 2026-08-20
-**Branch:** `feat/dictation-position-hygiene` off `efad123f` (0.250.0 "McAuley")
+**Branch:** `feat/dictation-position-hygiene` off `2dd65e5c` (0.250.0 "McAuley")
 **Closes:** §170, §175, §176, §192, §193, §194
 
 ## Why
@@ -194,7 +194,7 @@ own file — placed later in this one it passes with the queue deleted.
 ### §193 — nine redundant `{ timeout: 15_000 }`
 
 `vitest.setup.ts` sets `configure({ asyncUtilTimeout: 15000 })` globally. Nine
-`findBy*` calls restate it. Re-derived at `efad123f`:
+`findBy*` calls restate it. Re-derived at `2dd65e5c`:
 
 ```bash
 grep -rn "{ timeout: 15_000 }" src --include=*.tsx --include=*.ts | sed 's/:.*//' | sort | uniq -c

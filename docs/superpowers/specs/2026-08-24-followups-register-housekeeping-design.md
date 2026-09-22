@@ -1,6 +1,6 @@
 # Follow-ups register housekeeping — design
 
-**Date:** 2026-08-24 · **Base:** `main` @ `ec60348d` (0.258.1 "Mandelo") · **Branch:** `feat/followups-register-housekeeping`
+**Date:** 2026-08-24 · **Base:** `main` @ `d8e5a74c` (0.258.1 "Mandelo") · **Branch:** `feat/followups-register-housekeeping`
 
 ## Origin
 
@@ -24,7 +24,7 @@ answer the sentence they are attached to. Three agents independently named the d
 
 ★★★ **A false premise in one entry defers fixes in three others.** §189 measured
 `document-block-editors.tsx` at exactly 800 lines — zero headroom. §188, §190 and §191 each cite
-that as their reason for deferral. It has been **659 since `0387402b`**. Per-entry auditing is
+that as their reason for deferral. It has been **659 since `2086994d`**. Per-entry auditing is
 STRUCTURALLY blind to this: the cluster was caught only because all four happened to land in one
 agent's number range. **Partition future audits by topic cluster, not by number.**
 
@@ -87,7 +87,7 @@ Grouped by what the reader loses today, because that determines the fix.
 
 | § | why |
 |---|---|
-| §9 | all four raw-`<th>` tables folded into `SortResizeTh` (`92b3309c`); its table reads 7/7/5/0, tree reads 0/0/0/1. Close, PRESERVING the VoiceOver known-loss paragraph as the resolution note. |
+| §9 | all four raw-`<th>` tables folded into `SortResizeTh` (`0fc493ba`); its table reads 7/7/5/0, tree reads 0/0/0/1. Close, PRESERVING the VoiceOver known-loss paragraph as the resolution note. |
 | §142 | the exact remedy it lists under "options, none taken" was taken — `labelSuffix` is required, and the source cites §142 as the reason. Close, preserving the mutation-result paragraph. |
 | §87 | already closed and DELIBERATELY kept ("if the tool is ever removed, that is a new entry, not a revival"). Do NOT delete. Its open ★ is now settled: `VIEW_AI_SCOPE.activity` was updated but `ASK_CLAUDE_PROMPTS.activity` is still asserted under the title "has no chips for the views whose read tools are deferred" — activity's read tool is no longer deferred. Split that out as a new entry. |
 | §212 | ★★★ the ONLY heading/status mismatch in 223 entries. Body says `**Status:** CLOSED`; heading carries no marker, so it is invisible to every heading scan and will be re-audited as open forever. Append `— CLOSED <date>` to the HEADING. |
@@ -139,7 +139,7 @@ these commands EXITS 0 and prints something plausible.
   where the sentence says "roughly six". Scoped properly: 23, of which 16 are inside the entry.
   Anyone sizing the closing doc-sweep from it is wrong by two orders of magnitude.
 - **§209** — count stale by two (the three byte-identical `IMG_TAG_RE` copies were consolidated by
-  `e7b327a0`, AFTER the entry was written); its repro returns one line because the surviving
+  `dd3f9404`, AFTER the entry was written); its repro returns one line because the surviving
   declaration wraps.
 - **§104** — the command lacks `-E`, so it matches nothing and exits 1 while the entry prints results
   beneath it. With `-E` it returns two files the entry says do not exist.

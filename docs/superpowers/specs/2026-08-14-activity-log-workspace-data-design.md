@@ -146,7 +146,7 @@ project (see `docs/open-followups.md` §98), and auto-generated rows would infla
 **`SCHEMA_VERSION` needs no bump.** Measured, not assumed: `git log --oneline -S "SCHEMA_VERSION = "
 -- src/app/workspace.ts` returns a single commit — the original extraction from `storage.ts` — so the
 constant has never been bumped since, and the commit that added `documents` to the JSON path
-(`2ef2adf0`) did not touch it. An additive optional field does not move it.
+(`2dfb2df5`) did not touch it. An additive optional field does not move it.
 
 ## Merge
 

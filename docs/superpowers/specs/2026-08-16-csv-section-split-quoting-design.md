@@ -1,7 +1,7 @@
 # CSV section splitting must respect quoted cells — design
 
 **Register entry:** `docs/open-followups.md` §105 (open, silent data loss).
-**Date:** 2026-08-16. **Base:** 0.240.0 "Elliott" (`5a87026a`).
+**Date:** 2026-08-16. **Base:** 0.240.0 "Elliott" (`dc6c3161`).
 
 ---
 

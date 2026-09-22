@@ -3,7 +3,7 @@
 _Plan written 2026-07-27. Source: `docs/superpowers/r5-calendar-followups.md` item 4
 (the batch-2 accessibility review's deferred findings). Target release **0.202.3**._
 
-Branch: `feature/r5-followups-batch-3` off `main` (currently `6db0d9d6`).
+Branch: `feature/r5-followups-batch-3` off `main` (currently `5f75354a`).
 
 ## Scope
 

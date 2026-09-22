@@ -46,7 +46,7 @@ that are NOT these questions; the fifth is the first after the sharp fix (see
 | 6896 (MR !468) | 29451 | Red at the `ls` guard. With no platform flag electron-builder packaged for the HOST, and the runner is Linux: it built `target=snap` and `target=AppImage` under the `-setup.exe` artifactName (134,289,527 B, no `.blockmap`), and logged "Implicit publishing triggered by CI detection". Fixed by `--win --publish never` in `desktop:package` (MR !469). |
 | 6898 (MR !469) | 29489 | **Green.** `target=nsis`, 131 s. |
 | 6904 (tag `v0.303.0`) | 29602 | **Green** as `desktop-package-tag`, 132 s; `publish-release` then created the first Release. |
-| 6908 (MR !471, commit `edca3783`, version 1.0.0) | 29645 | **Green**, 171 s, manual `desktop-package` — the first run with the sharp filter and guard. The guard step ran (the log shows its `nm=desktop/release/win-unpacked/resources/standalone/node_modules` line) and printed no `sharp guard:` line, and the job succeeded, so the packaged tree existed and held no sharp package. |
+| 6908 (MR !471, commit `e497783b`, version 1.0.0) | 29645 | **Green**, 171 s, manual `desktop-package` — the first run with the sharp filter and guard. The guard step ran (the log shows its `nm=desktop/release/win-unpacked/resources/standalone/node_modules` line) and printed no `sharp guard:` line, and the job succeeded, so the packaged tree existed and held no sharp package. |
 
 **Question 1 — the image: YES.** `electronuserland/builder:wine` pulled on the
 first run in 45 s (29413: `Pulling docker image` 14:42:18 → `Using docker image`

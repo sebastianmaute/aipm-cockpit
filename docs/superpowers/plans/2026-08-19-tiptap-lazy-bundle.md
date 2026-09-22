@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-19-tiptap-lazy-bundle-design.md`
 **Follow-up:** `docs/open-followups.md` §129
-**Branch:** `perf/tiptap-lazy-bundle`, already created off `d20ab9c1`.
+**Branch:** `perf/tiptap-lazy-bundle`, already created off `c15a538d`.
 
 ---
 
@@ -20,7 +20,7 @@ You are converting static imports of a browser-only rich-text editor into one la
 **to find out whether it is worth doing.** The measurement is the deliverable; the code change is
 conditional on it.
 
-**Five facts that were measured on `d20ab9c1`, not assumed. Do not re-derive them, but do not trust
+**Five facts that were measured on `c15a538d`, not assumed. Do not re-derive them, but do not trust
 them blindly either — each carries its reproduce command.**
 
 1. **Only four of the eight consumers are reachable from the entry graph.** `change-edit-modal.tsx`
@@ -153,7 +153,7 @@ node docs/superpowers/plans/measure-entry-graph.mjs
 That script is written and verified. It prints every eager chunk with its size, the total, and — by
 grepping each chunk for a `prosemirror-view` marker — whether ProseMirror is in the graph at all.
 
-**Baseline, measured on `d20ab9c1`:**
+**Baseline, measured on `c15a538d`:**
 
 ```
 EAGER_TOTAL_KB=2334.7  chunks=19
@@ -574,7 +574,7 @@ npx vitest run src/app/task-form-fields.test.tsx --reporter=dot --maxWorkers=1
 ```
 
 **So the count is ONE, which is what this plan said before it was "corrected".** The spec said four;
-the plan measured one; Task 3 claimed zero; the real answer is one. Fixed in `9ec49f69`.
+the plan measured one; Task 3 claimed zero; the real answer is one. Fixed in `a237d876`.
 
 **Why the false claim was believable.** The `dynamic()` import DOES resolve in a microtask — that half
 is true. What it misses is that React still needs a RE-RENDER to swap the fallback for the editor, and
@@ -594,13 +594,13 @@ verifying the CLAIM. Those are different things: an untouched test file is equal
 
 ★★ The false claim then propagated into `rich-text-editor-lazy.tsx`'s docstring and into the briefs for
 Tasks 4–6 and 7, which were told **not** to add async assertions to passing tests. The sweep found the
-failure while under instructions that discouraged looking. Corrected in `04836fc1`.
+failure while under instructions that discouraged looking. Corrected in `b8b3ac1d`.
 
 **Still true from the original section, and independently confirmed:**
 - The other three converted suites are genuinely green — they already `await findByRole`, because
   ProseMirror mounts asynchronously regardless.
 - `dashboard-narrative` additionally asserts the toolbar's Bold button, which no fallback can supply.
-- **Task 10 Step 2 now DOES apply** if the null-result path is ever taken: `9ec49f69` must be reverted
+- **Task 10 Step 2 now DOES apply** if the null-result path is ever taken: `a237d876` must be reverted
   along with the four import conversions.
 
 ★★ **CRLF trap, hit by two agents AND by the controller:** `src/app/*.tsx` is CRLF. A multi-line anchor
@@ -1133,7 +1133,7 @@ Confirm rather than assume:
 git diff d20ab9c1..HEAD --name-only -- "*.test.tsx"
 ```
 
-Expected: no output. If it names a file, revert that file's assertion to its `d20ab9c1` form and say so.
+Expected: no output. If it names a file, revert that file's assertion to its `c15a538d` form and say so.
 
 - [ ] **Step 3: Run the full unit suite**
 

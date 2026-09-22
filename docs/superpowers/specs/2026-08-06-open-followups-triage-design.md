@@ -1,6 +1,6 @@
 # Triage of `docs/open-followups.md` — ranked plan across future slices
 
-**Date:** 2026-08-06 · **Against:** `main` `aa681711`, app 0.215.0 "Friedman"
+**Date:** 2026-08-06 · **Against:** `main` `488d3ddc`, app 0.215.0 "Friedman"
 **Register state at triage:** 77 numbered entries — **57 open**, 20 closed.
 
 ## What this document is
@@ -111,7 +111,7 @@ flags that as unverified.
 
 ### T1.4 — Codec load paths never DOMPurify a rich field (§28) · design pass
 
-`9e284c68` closed the two whole-object cast load paths — `jsonToWorkspace` (file JSON, SharePoint,
+`f4251d84` closed the two whole-object cast load paths — `jsonToWorkspace` (file JSON, SharePoint,
 local file) and the IndexedDB read. The **codec** paths were not closed and **cannot be by the same
 mechanism**: CSV, Markdown and Turso decoders run under bare node in the sample generator and fixture
 flow, and DOMPurify binds `window` at module-eval. A new boundary is needed, not a patched one.
@@ -198,7 +198,7 @@ Every rich-text editor in a **production build** renders without ProseMirror's b
 prod CSP refuses the `<style>` element Tiptap injects at runtime. Dev is unaffected, which is why it
 has gone unseen. Pre-existing and user-visible.
 
-★ Measured on `main` (`13b518db`) in an isolated worktree on 2026-08-03. Same dated-measurement rule as
+★ Measured on `main` (`ceee5722`) in an isolated worktree on 2026-08-03. Same dated-measurement rule as
 §53 — **re-measure before acting**. Two fix options are recorded in the entry; neither was chosen.
 
 Top of T3: every user, every rich field, in the shipped artifact only.

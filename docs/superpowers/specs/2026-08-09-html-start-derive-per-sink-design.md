@@ -1,7 +1,7 @@
 # `HTML_START` derive-per-sink — design
 
 **Date:** 2026-08-09
-**Base:** `a20894b1` (branch `chore/codemap-header-stamp`, one docs commit ahead of `origin/main` = `e368c938` = 0.227.0 "Bolander")
+**Base:** `ea9dc915` (branch `chore/codemap-header-stamp`, one docs commit ahead of `origin/main` = `d0a8cf48` = 0.227.0 "Bolander")
 **Closes:** open-followups §107 · §114 · §118
 **Opens:** one new register entry (below), recorded as step 0 of the *unify rich text* program
 **Roadmap position:** the *(before S3b)* row of §113's decomposition table

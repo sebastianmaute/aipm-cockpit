@@ -9,7 +9,7 @@
 **Tech Stack:** Next.js 16 / React / TypeScript / Tailwind v4 / vitest + Testing Library / Playwright.
 
 **Spec:** `docs/superpowers/specs/2026-09-05-edit-task-modal-rework-design.md`
-**Branch:** `feat/edit-task-modal-rework`, at `5de25711` (= `origin/main` `03df1445` + the spec commit).
+**Branch:** `feat/edit-task-modal-rework`, at `f29c6570` (= `origin/main` `25f824f3` + the spec commit).
 **No release, no version bump in this plan.** The slice ships separately on explicit say.
 
 ---

@@ -1,6 +1,6 @@
 # Documents S4 — `linkedEntities`: design
 
-_Written 2026-08-10 against 0.229.0 "Marillier" (`ab085ef2`). Slice **S4** of the documents roadmap
+_Written 2026-08-10 against 0.229.0 "Marillier" (`1221cd69`). Slice **S4** of the documents roadmap
 recorded as [`docs/open-followups.md`](../../open-followups.md) §113._
 
 ★ This tree is **gitignored**, so this file exists only on the machine that wrote it. Every decision

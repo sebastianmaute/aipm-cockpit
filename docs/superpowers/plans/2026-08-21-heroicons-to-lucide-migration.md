@@ -25,7 +25,7 @@ Read these before Task 1. Each has cost this repo real work.
 4. **Never use bare `git stash` / `git stash pop`.** The stash stack is shared with other worktrees. Use a WIP commit instead.
 5. **Never `git commit --amend`.** It rewrites whatever HEAD is, which in a shared worktree has swallowed another session's commit twice. Make a new commit, and scope it with `git commit --only <paths>`.
 6. **`i18n.de.ts` is CRLF and the Edit tool corrupts its umlauts** (and curls double quotes, which bites umlaut-free strings too). Task 11 is the only task that touches it and carries its own procedure.
-7. This branch is `refactor/heroicons-to-lucide`, already created off `origin/main` at `0ff948bb`. Do not push, open an MR, or merge unless the user explicitly says so.
+7. This branch is `refactor/heroicons-to-lucide`, already created off `origin/main` at `f921f8de`. Do not push, open an MR, or merge unless the user explicitly says so.
 
 ---
 

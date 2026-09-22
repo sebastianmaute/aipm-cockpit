@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-08
 **Status:** approved design, not yet planned
-**Baseline:** `main` @ `59cd9489`, app 0.223.0 "Okorafor"
+**Baseline:** `main` @ `d3187f0f`, app 0.223.0 "Okorafor"
 **Parent spec:** `docs/superpowers/specs/2026-08-07-ui-batch-undo-budget-people-dependencies-design.md`
 
 Slice 3 of the twelve-item UI batch. The parent spec cut slice 3 as four features; §3.4

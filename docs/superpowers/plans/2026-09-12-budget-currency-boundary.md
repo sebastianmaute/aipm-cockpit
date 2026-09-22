@@ -498,7 +498,7 @@ falsifies two tasks later by narrowing the field to `BudgetCurrency` — so appl
 the draft here writes a comment this same plan then makes stale. The reason the
 rollup hardcodes EUR survives the narrowing and has to be stated in terms that do:
 the union still admits `USD`/`GBP`, so the field names the plan's BASE currency and
-never the unit of an unconverted engine figure. `f7240d30` corrected five comments
+never the unit of an unconverted engine figure. `f32cfb6c` corrected five comments
 that had gone stale exactly this way; do not re-apply the draft.
 
 ```tsx

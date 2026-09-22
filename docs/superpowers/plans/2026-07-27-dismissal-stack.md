@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-07-27-dismissal-stack-design.md`
 
-**Branch:** `feature/dismissal-stack`, cut from `main` @ `dc77cbb4`.
+**Branch:** `feature/dismissal-stack`, cut from `main` @ `ce7b763b`.
 
 ---
 

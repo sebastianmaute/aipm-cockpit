@@ -1,6 +1,6 @@
 # Data-loss batch — §567 · §548 · §534 · §546
 
-**Date:** 2026-09-19 · **Branch:** `fix/data-loss-batch` (off `origin/main` at 1.10.1 merge `07af82d3`)
+**Date:** 2026-09-19 · **Branch:** `fix/data-loss-batch` (off `origin/main` at 1.10.1 merge `eebc952b`)
 **Target version:** a patch on whatever `main` carries when this ships, settled with the peer session at
 release time. New register entries, if any, need a § agreed with the peer session first.
 

@@ -12,7 +12,7 @@
 
 ## Verification of the findings before planning
 
-Every finding below was re-checked against the tree at `7627329d`. **All fifteen reproduce as described**, with two corrections that change how the work must be done:
+Every finding below was re-checked against the tree at `bfb760b0`. **All fifteen reproduce as described**, with two corrections that change how the work must be done:
 
 | # | Verdict | Note |
 |---|---|---|
@@ -1250,7 +1250,7 @@ git commit -m "fix(documents): refuse to commit a block the loader would discard
 ## Task 8: F4a — make the document-switch tests detect what they are named for
 
 `documents-panel.test.tsx`'s last test asserts `expect(committedIds).not.toContain(docB.id)`, which is **vacuous twice over**:
-- `.not.toContain` passes on an **empty** array, so it stays green with the unmount flush deleted, with `key={index}` restored, and with `use-document-editor.ts:49`'s guard deleted (the `7627329d` commit message records that last one);
+- `.not.toContain` passes on an **empty** array, so it stays green with the unmount flush deleted, with `key={index}` restored, and with `use-document-editor.ts:49`'s guard deleted (the `bfb760b0` commit message records that last one);
 - `userEvent.click` on doc B's button **blurs the input first**, so `commit()` fires while doc A is still selected and the "pending unblurred" premise never holds.
 
 The repair is two tests, because one cannot reach both mutants:

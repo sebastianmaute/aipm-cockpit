@@ -14,7 +14,7 @@
 
 ## Preconditions
 
-Branch `feat/rich-text-export-fidelity-s2` already exists off `origin/main` at `2e2c8c00` (0.242.0 "Ashby") and holds the spec commit `5d0a2c47`. Work continues on it.
+Branch `feat/rich-text-export-fidelity-s2` already exists off `origin/main` at `d7833315` (0.242.0 "Ashby") and holds the spec commit `b660ef03`. Work continues on it.
 
 ## File structure
 

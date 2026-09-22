@@ -305,7 +305,7 @@ linkFields: Record<string, LinkField>;
 
 Above the interface:
 
-★★★ AS BUILT (commit `1759901d`) — `titleOf` takes the WORKSPACE too, and the
+★★★ AS BUILT (commit `04aee902`) — `titleOf` takes the WORKSPACE too, and the
 plan's original single-argument version was a defect, not a simplification.
 `Role` (`types.ts`) has NO `name` field: its label is discipline + grade,
 resolved against two OTHER workspace arrays via `roleLabel`. A single-argument
@@ -1598,7 +1598,7 @@ it — never a number quoted in a plan or a message, including this one and
 including the paragraph directly below.
 
 ★ Context as of 2026-09-05, for orientation ONLY: the concurrent branch merged
-as 0.285.0 "Barnhill" (`origin/main` = `2eeb68f8`), renumbered its entries to
+as 0.285.0 "Barnhill" (`origin/main` = `3eb8bd64`), renumbered its entries to
 386/387/388, and 389 was taken by an unrelated app-wide `ModalHeader`
 close-name collision. So the expected mint is **390** — expected, not assumed.
 An earlier revision of this same paragraph said "386-388" and was stale within
@@ -1734,7 +1734,7 @@ of the original spec. All are measured; cite the measurement in the entry, not
 this plan.
 
 ★★★ **SCOPING A TASK TO THE FILES IT EDITS LET A RED COMMIT LAND.** Task 9
-changed a SHARED rendering path and ran only its own files; `2f95cd2c` was red in
+changed a SHARED rendering path and ran only its own files; `3ec66dfb` was red in
 `chat-panel.test.tsx` from the moment it was committed, and Task 10 found it. The
 new `inlineAiEditRejected` string is "Not applied: {0}", and two staged rows in
 that file's fixture ground to rejections, so a test pinning "exactly ONE row is
