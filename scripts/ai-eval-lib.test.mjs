@@ -84,30 +84,46 @@ describe("plantedToken", () => {
     //  ("viewScope" vs "chatPointer"), none in 1..3000. Coverage of ordinary
     //  usage, not a substitute for the targeted pin below.
     //
-    //  ★★ THE ASSERTION IS HOISTED OUT OF THE LOOP, and that is a CI fix, not a
-    //  style preference. 3000 iterations each calling a matcher ran 25.2s under
-    //  v8 coverage instrumentation in the pipeline and blew the 20s testTimeout,
-    //  while the same sweep passes in a fraction of that locally WITHOUT
-    //  coverage — which is why nothing local caught it. The minting is not the
-    //  cost; the matcher machinery is. Collect, then assert once.
+    //  ★★ THE ASSERTION IS HOISTED OUT OF THE LOOP — commit 2e36326b, which
+    //  attributed the CI timeout (25204ms against a 20000ms testTimeout) to
+    //  "the matcher, not the minting": 3000 `expect()` calls in the loop
+    //  under v8 coverage instrumentation.
     //
-    //  ★★★ THAT DIAGNOSIS WAS RIGHT WHEN `TOKEN_IDS` HAD 7 IDS AND WENT STALE
-    //  ONCE THE HARDENING TOKENS TOOK IT TO 13 — the loop, not the matcher, is
-    //  the dominant cost now. `plantedToken` was unmemoized: resolving id at
-    //  index k recomputed EVERY earlier id's token from scratch via
-    //  `earlierTokens`, so one (id, salt) cost 2**k calls and one salt's
-    //  `TOKEN_IDS.map(plantedToken)` cost 2**13-1 = 8191. Measured (see
-    //  `plantedToken`'s own docstring for the exact commands): this loop alone
-    //  took 16.5s in plain `node`, zero vitest/coverage overhead, and 26.5s
-    //  running `vitest run scripts/ai-eval-lib.test.mjs -t "never collides
-    //  within a run" --coverage` in isolation — already most of a 60000ms
-    //  budget before any full-suite contention, which is what pushed it over
-    //  in `npm run test:coverage`. Memoizing `plantedToken` by `${id}:${salt}`
+    //  ★★★ THAT DIAGNOSIS WAS WRONG FROM THE MOMENT IT WAS WRITTEN, not one
+    //  that later went stale. `TOKEN_IDS` already had all 13 ids (the six
+    //  hardening tokens included) when 2e36326b was made. Proof:
+    //  `git merge-base --is-ancestor 0b563482 2e36326b` exits 0 (the
+    //  hardening-token commit, 2026-09-09, is an ancestor of the hoist
+    //  commit, 2026-09-10), and `git show 2e36326b:scripts/ai-eval-lib.mjs`
+    //  already contains `chatPointerAlt2` — true one commit earlier too, at
+    //  `2e36326b^`. So the matcher was never the dominant cost at any point
+    //  this test has existed in its current 13-id shape; the 25204ms CI
+    //  overrun 2e36326b's own message reports matches this sweep's
+    //  exponential minting cost, not `expect()` overhead — "the minting is
+    //  not the cost; the matcher machinery is" and "the hoist alone is what
+    //  brings this back under the global 20s" were both wrong when written,
+    //  not merely stale. The hoist incidentally removed 3000 real `expect()`
+    //  calls, which is genuine but minor next to the minting cost below, and
+    //  happened to leave enough margin on whatever runner produced 2e36326b's
+    //  own passing verification run.
+    //
+    //  `plantedToken` was unmemoized: resolving id at index k recomputed
+    //  EVERY earlier id's token from scratch via `earlierTokens`, so one
+    //  (id, salt) cost 2**k calls and one salt's `TOKEN_IDS.map(plantedToken)`
+    //  cost 2**13-1 = 8191. Measured (see `plantedToken`'s own docstring for
+    //  the exact commands): this loop alone took 16.5s in plain `node`, zero
+    //  vitest/coverage overhead, and 26.5s running `vitest run
+    //  scripts/ai-eval-lib.test.mjs -t "never collides within a run"
+    //  --coverage` in isolation — already most of a 60000ms budget before any
+    //  full-suite contention, which is what pushed it over in
+    //  `npm run test:coverage`. Memoizing `plantedToken` by `${id}:${salt}`
     //  (pure function, so caching changes nothing observable — proved
-    //  byte-identical for every id x salt 1..3000 via a throwaway node script,
-    //  not committed) cuts the per-salt cost to 13 calls: same commands, same
-    //  file, now 127ms in plain `node` and 171ms of test time under the
-    //  vitest+coverage command above.
+    //  byte-identical for every id x salt 1..3000 via a throwaway node
+    //  script, not committed) cuts the per-salt cost to 13 calls: same
+    //  commands, same file, now 127ms in plain `node` and 171ms of test time
+    //  under the vitest+coverage command above. Collect, then assert once is
+    //  still worth keeping (a positive observable against a loop that never
+    //  ran), it just was never the fix for the real cost.
     const collisions = [];
     let checked = 0;
     for (let salt = 1; salt <= 3000; salt += 1) {
