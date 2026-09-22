@@ -6,7 +6,8 @@ import type { FeatureModuleId } from "./feature-modules";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import { MAX_AI_POLICY_FIELD } from "./ai-policy";
 import { BRANDING_EXPORT_FOOTER_MAX } from "./export-footer";
-export { DEFAULT_EXPORT_FOOTER, NEUTRAL_EXPORT_FOOTER, BRANDING_EXPORT_FOOTER_MAX, exportFooterText } from "./export-footer";
+export { DEFAULT_EXPORT_FOOTER, BRANDING_EXPORT_FOOTER_MAX, exportFooterEnv, exportFooterText } from "./export-footer";
+export type { ExportFooterEnv } from "./export-footer";
 import type { Lang } from "./i18n";
 // Type-only: erased at compile time, so this does NOT create a runtime cycle
 // with help-content.ts (which has runtime exports of its own).
@@ -526,8 +527,10 @@ export interface BrandingConfig {
    *  scheme JSON carrying one would survive sanitizeBranding and round-trip
    *  through exportScheme, but could still never be applied.) */
   startLogo?: string;
-  /** Footer line of HTML, print/PDF and PowerPoint exports (`exportFooterText`). `undefined` =
-   *  never set → `DEFAULT_EXPORT_FOOTER`; `""` = cleared → `NEUTRAL_EXPORT_FOOTER`.
+  /** Footer line of HTML, print/PDF and PowerPoint exports (`exportFooterText`).
+   *  Precedence: the `NEXT_PUBLIC_EXPORT_FOOTER` build variable → this field →
+   *  `DEFAULT_EXPORT_FOOTER`. `undefined` = never set; `""` = cleared — both
+   *  resolve to `DEFAULT_EXPORT_FOOTER` when no build variable applies.
    *  ★ Like `startLogo`, no scheme owns it: `mergeAppliedBranding` leaves it alone,
    *  so its only editor is the ungated row in Settings → Appearance. */
   exportFooter?: string;

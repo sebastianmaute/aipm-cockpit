@@ -6,6 +6,7 @@ import type { DocumentAsset } from "./document-asset";
 import type { ExportAssets } from "./document-export-assets";
 import { PRINT_STYLES } from "./download";
 import { ASSET_MIME_ALLOWED } from "./document-asset-upload";
+import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
 
 // A Workspace has ~30 required slices and this renderer reads only the ones the
 // section builders touch, so one narrow cast beats constructing the whole shape.
@@ -692,10 +693,10 @@ describe("renderDocumentHtml — export footer", () => {
   it("prints the configured footer on a standalone render, HTML-escaped", () => {
     const html = renderDocumentHtml(doc([]), ws, "en-US", "standalone", undefined, "Acme <GmbH>");
     expect(html).toContain("<footer>Acme &lt;GmbH&gt;</footer>");
-    expect(html).not.toContain("Acme");
+    expect(html).not.toContain(DEFAULT_EXPORT_FOOTER);
   });
 
-  it("keeps today's footer when none is passed", () => {
-    expect(renderDocumentHtml(doc([]), ws, "en-US", "standalone")).toContain("<footer>Acme — AI PM Cockpit</footer>");
+  it("keeps the built-in footer when none is passed", () => {
+    expect(renderDocumentHtml(doc([]), ws, "en-US", "standalone")).toContain(`<footer>${DEFAULT_EXPORT_FOOTER}</footer>`);
   });
 });

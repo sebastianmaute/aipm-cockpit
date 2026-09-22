@@ -19,6 +19,7 @@ import { defaultExportConfig } from "./settings-types";
 import type { ExportConfig } from "./settings-types";
 import type { Workspace } from "./storage";
 import type { Task, RaidItem, Milestone } from "./types";
+import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
 
 // ---------------------------------------------------------------------------
 // Minimal ZIP reader (no external dependency — reads the STORE entries we write)
@@ -1277,12 +1278,12 @@ describe("PPTX export footer", () => {
     expect(theme).toContain('<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Acme &lt;GmbH&gt;">');
     expect(theme).toContain('<a:clrScheme name="Acme &lt;GmbH&gt;">');
     expect(theme).toContain('<a:fontScheme name="Acme &lt;GmbH&gt;">');
-    expect(theme).not.toContain("Acme");
+    expect(theme).not.toContain(DEFAULT_EXPORT_FOOTER);
   });
 
-  it("keeps today's footer and theme name when none is passed", async () => {
+  it("keeps the built-in footer and theme name when none is passed", async () => {
     const parts = await unzipBlob(buildPptx(SECTIONS, "en-US"));
-    expect(parts.get("ppt/slides/slide1.xml")).toContain("<a:t>Acme — AI PM Cockpit</a:t>");
-    expect(parts.get("ppt/theme/theme1.xml")).toContain('<a:clrScheme name="Acme — AI PM Cockpit">');
+    expect(parts.get("ppt/slides/slide1.xml")).toContain(`<a:t>${DEFAULT_EXPORT_FOOTER}</a:t>`);
+    expect(parts.get("ppt/theme/theme1.xml")).toContain(`<a:clrScheme name="${DEFAULT_EXPORT_FOOTER}">`);
   });
 });

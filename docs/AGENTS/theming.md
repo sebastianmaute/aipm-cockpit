@@ -424,11 +424,21 @@
   ★ Changing the theme bytes moves `docs/baselines/ooxml-parts.json`; regenerate it only with
   `npm run ooxml:manifest`. All of it is resolved by ONE function,
   `exportFooterText` (`export-footer.ts`, dependency-free so the renderers stay out of the
-  settings-types import cycle; re-exported from `settings-types.ts`). ★★ THREE states, and `""` is
-  one of them: `undefined` = never set → `DEFAULT_EXPORT_FOOTER` (the pre-configurable text),
-  `""` = cleared → `NEUTRAL_EXPORT_FOOTER`. So `sanitizeBranding` KEEPS an empty value and both
-  presence checks test `!== undefined`, never truthiness — a truthy test turns "cleared" back into
-  the default on the next load. ★ Like `startLogo`, no scheme owns it (`mergeAppliedBranding` leaves
+  settings-types import cycle; re-exported from `settings-types.ts`). ★★ Precedence is env
+  (`NEXT_PUBLIC_EXPORT_FOOTER`, read by `exportFooterEnv`) → Settings → the single built-in
+  `DEFAULT_EXPORT_FOOTER` — mirrors `ai-policy.ts`'s env → Settings → built-in order (the AI policy
+  built-in was dropped; this one stays, because every export always carries SOME footer). THREE
+  Settings states, and `""` is one of them: `undefined` = never set → `DEFAULT_EXPORT_FOOTER`,
+  `""` = cleared → `DEFAULT_EXPORT_FOOTER` too (the constant was previously named
+  `NEUTRAL_EXPORT_FOOTER` for the cleared case alone; once the built-in became neutral text the two
+  names held one value and were collapsed into `DEFAULT_EXPORT_FOOTER`). So `sanitizeBranding` KEEPS
+  an empty value and both presence checks test `!== undefined`, never truthiness — a truthy test
+  turns "cleared" back into the default on the next load. ★★ `DEFAULT_EXPORT_FOOTER` is used as a
+  default PARAMETER value in the renderers (`buildPdfHtml`, `exportWorkspace`, `renderDocumentHtml`,
+  `renderDocumentPptx`, `buildPptx`, `buildPptxTheme`/`buildPptxPackage`) — safe as a plain constant
+  because it does not depend on `process.env`; only `exportFooterText`/`exportFooterEnv` read the
+  build variable, and they do it PER CALL (a default parameter, not a module-level constant) so a
+  test's `vi.stubEnv` is visible. ★ Like `startLogo`, no scheme owns it (`mergeAppliedBranding` leaves
   it alone), so its Appearance row is ungated. The renderers take it as a trailing defaulted argument;
   the callers read `settings.branding` (both top bars via `ActionMenus`, the voice export in
   `task-manager.tsx`, the Documents panel via `workspace-panels.tsx`, the chat document card via

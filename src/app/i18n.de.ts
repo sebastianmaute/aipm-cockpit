@@ -2617,6 +2617,7 @@ export const de: Record<TranslationKey, string> = {
   brandingFooterSlogan: "Slogan",
   brandingExportFooter: "Fußzeile in Exporten",
   brandingExportFooterHint: "Erscheint am Ende von HTML-, PDF- und PowerPoint-Exporten und benennt das PowerPoint-Design. Leer lassen, um nur „AI PM Cockpit“ zu drucken.",
+  brandingExportFooterFromEnv: "Wird in dieser Installation über NEXT_PUBLIC_EXPORT_FOOTER gesetzt und hat Vorrang vor dieser Einstellung.",
   brandingFavicon: "Favicon (Browser-Tab-Symbol)",
   brandingFaviconChoose: "Favicon auswählen…",
   brandingFaviconHint: "Wird im Browser-Tab angezeigt. Quadratisches PNG empfohlen (32×32 oder 64×64), bis 512 KB. PNG, JPG, WebP oder GIF.",

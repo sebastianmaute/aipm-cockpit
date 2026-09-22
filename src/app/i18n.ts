@@ -2784,6 +2784,7 @@ const enUS = {
   brandingFooterSlogan: "Slogan",
   brandingExportFooter: "Export footer",
   brandingExportFooterHint: "Printed at the foot of HTML, PDF and PowerPoint exports, and names the PowerPoint theme. Leave empty to print only “AI PM Cockpit”.",
+  brandingExportFooterFromEnv: "Set by NEXT_PUBLIC_EXPORT_FOOTER in this deployment, which overrides this setting.",
   brandingFavicon: "Favicon (browser tab icon)",
   brandingFaviconChoose: "Choose favicon…",
   brandingFaviconHint: "Shown in the browser tab. Square PNG recommended (32×32 or 64×64), up to 512 KB. PNG, JPG, WebP or GIF.",

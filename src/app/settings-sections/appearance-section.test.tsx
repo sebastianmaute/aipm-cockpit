@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { AppearanceSection } from "./appearance-section";
 import { CiStyleProvider } from "../use-style";
@@ -259,6 +259,8 @@ describe("AppearanceSection Phase 3 (DB-stored schemes)", () => {
 describe("AppearanceSection export footer", () => {
   const box = () => screen.getByRole("textbox", { name: t("en-US", "brandingExportFooter") });
 
+  afterEach(() => vi.unstubAllEnvs());
+
   it("shows today's footer when none was ever set", () => {
     renderSection({ branding: undefined }, "custom");
     expect(box()).toHaveValue(DEFAULT_EXPORT_FOOTER);
@@ -280,6 +282,15 @@ describe("AppearanceSection export footer", () => {
     expect(onChange).toHaveBeenLastCalledWith(
       expect.objectContaining({ branding: expect.objectContaining({ exportFooter: "" }) }),
     );
+  });
+
+  // ★ Mirrors AiPolicyFields: a field whose build variable is set shows only a
+  //   note, since the deployment value wins and an input would edit nothing.
+  it("replaces the field with a note when the deployment sets NEXT_PUBLIC_EXPORT_FOOTER", () => {
+    vi.stubEnv("NEXT_PUBLIC_EXPORT_FOOTER", "Globex — Board pack");
+    renderSection({ branding: undefined }, "custom");
+    expect(screen.queryByRole("textbox", { name: t("en-US", "brandingExportFooter") })).toBeNull();
+    expect(screen.getByText(t("en-US", "brandingExportFooterFromEnv"))).toBeInTheDocument();
   });
 
   it("stays reachable under a USER scheme, because no scheme owns it", () => {
