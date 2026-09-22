@@ -172,6 +172,11 @@ with real user data, have users take an export before rolling back.
 
 ## Publishing a desktop release
 
+> ★★★ **Paused.** This section describes the GitLab release pipeline. Since the GitHub cut-over
+> (`docs/superpowers/specs/2026-09-22-github-cutover-design.md`) GitLab runs only its sync job,
+> so pushing a tag publishes nothing. Releasing returns with migration sub-project 5 (GitHub
+> Releases). Until then, make no release tags.
+
 1. Bump `src/app/version.ts` (`APP_VERSION`, `APP_BUILD_DATE`, `APP_MILESTONE`),
    add the `CHANGELOG.md` entry, and propagate with `npm run version:sync`,
    which rewrites every other file that restates the version —

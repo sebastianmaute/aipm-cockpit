@@ -505,10 +505,33 @@ Jira sync, storage backend switching, voice commands, OOXML export.
   module or panel component.
 - No `console.log` in committed code (logging utility TBD).
 
+## Working on GitHub
+
+GitHub (`sebastianmaute/aipm-cockpit`) is the only place changes land. The GitLab project is a
+read-only copy synced from GitHub once a day; never push to it, and do not open merge requests
+there. Its issues stay in use until they migrate to GitHub.
+
+Remotes in a fresh clone:
+
+    git remote -v            # origin = GitHub
+    git remote add gitlab <gitlab-url>           # only for glab (issues)
+    git remote set-url --push gitlab DISABLED    # makes an accidental push fail
+
+A change lands like this:
+
+1. Push the branch to `origin` and open a pull request (`gh pr create`).
+2. Run `npm run gate:local`. There is no CI until the pipeline is ported to GitHub Actions, so
+   this is the gate. It stops at the first failure; do not merge on red.
+3. Merge with a merge commit (`gh pr merge --merge`); squash and rebase merging are disabled so
+   the history keeps the shape the commit citations rely on. Never enable auto-merge.
+
+No releases and no tags are made until releasing moves to GitHub Releases.
+
 ## Pull request checklist
 
 Before opening a PR:
 
+- [ ] `npm run gate:local` passes (the merge gate until CI runs on GitHub).
 - [ ] `npm run build` passes locally.
 - [ ] `npm run lint` is clean (or warnings are explained).
 - [ ] New user-facing strings have both EN and DE translations.

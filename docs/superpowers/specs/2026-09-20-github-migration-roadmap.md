@@ -16,15 +16,15 @@ These were settled in conversation and are not re-opened by the sub-project spec
 
 | Decision | Choice |
 |---|---|
-| Scope | Leave GitLab entirely — not a mirror, not a partial split |
+| Scope | GitHub fully canonical; GitLab kept as a read-only copy synced in from GitHub daily (changed 2026-09-22; was "leave GitLab entirely") |
 | Visibility | Public, but **flipped last** (see ordering) |
 | History | Rewritten, with the commit citations remapped rather than orphaned |
-| Commit identity | A personal address owned by the author |
+| Commit identity | The author's GitHub users.noreply address (changed 2026-09-22 during the rewrite; was "a personal address") |
 | De-branding | Full — including the opaque brand trigram, with a read-compatible settings migration |
 
-★ **The identity choice carries a permanent cost that was stated and accepted:** a working
-mailbox in 8,355 public commit records is harvestable and cannot be recalled after the flip.
-A GitHub `users.noreply` address was offered and declined.
+★ **Identity, as executed:** the rewrite mapped every author and committer to the GitHub
+`users.noreply` address (decided 2026-09-22), so no working mailbox is published. The earlier
+choice of a personal address, and the harvesting cost it accepted, no longer apply.
 
 ## What already exists
 
@@ -169,7 +169,7 @@ These are not Phase 1 specifics; they apply to each spec written from this roadm
 | Question | Needed by | Status |
 |---|---|---|
 | GitHub owner and repository name | 2, and the product URL replacements in 1 | **decided 2026-09-22:** `sebastianmaute/aipm-cockpit` |
-| The personal address for commit identity | 1, at execution time only | open — supplied at execution, never recorded |
+| The personal address for commit identity | 1, at execution time only | **decided 2026-09-22:** GitHub `users.noreply` |
 | Whether a mirrored issue tracker is kept at all | 4 | **decided 2026-09-22:** migrate the issues to GitHub |
 | Whether the auto-update feed becomes GitHub Releases | 5 | **decided 2026-09-22:** yes, planned into sub-project 5 |
 
