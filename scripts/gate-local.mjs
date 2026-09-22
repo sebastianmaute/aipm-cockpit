@@ -8,13 +8,22 @@
 // Exit: 0 when every step passes, otherwise the failing step's exit code (1 for a signal).
 
 import { spawnSync } from "node:child_process";
+import { availableParallelism } from "node:os";
 import { pathToFileURL } from "node:url";
+
+// Cap vitest workers so timing-sensitive tests survive a busy desktop.
+// Measured: 20-logical-CPU desktop, npm run gate:local went red at npm run test:coverage
+// three runs with DIFFERENT timing failures each (20s/60s timeouts, findByRole miss);
+// label-binding.guard.test.ts took 94.8s under full run vs 11.5s alone. Parallel coverage
+// at --maxWorkers=8 then passed 1180/1180 in 9m42s. Coverage floors and shuffle seed unchanged;
+// result still matches CI's gates.
+export const VITEST_WORKERS = Math.max(1, Math.floor(availableParallelism() / 2));
 
 export const GATE_STEPS = [
   ["npm", "run", "lint"],
   ["npx", "tsc", "--noEmit"],
-  ["npm", "run", "test:coverage"],
-  ["npm", "run", "test:shuffle"],
+  ["npm", "run", "test:coverage", "--", `--maxWorkers=${VITEST_WORKERS}`],
+  ["npm", "run", "test:shuffle", "--", `--maxWorkers=${VITEST_WORKERS}`],
   ["npm", "run", "dup:check"],
   ["npm", "run", "size:check"],
   ["npm", "run", "docs:symbols:check"],

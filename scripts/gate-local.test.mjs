@@ -8,7 +8,7 @@
 // the same reason.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { GATE_STEPS, runGates } from "./gate-local.mjs";
+import { GATE_STEPS, runGates, VITEST_WORKERS } from "./gate-local.mjs";
 
 const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
@@ -47,5 +47,12 @@ describe("GATE_STEPS", () => {
   it("is wired as npm run gate:local with a description", () => {
     expect(pkg.scripts["gate:local"]).toBe("node scripts/gate-local.mjs");
     expect(pkg.scriptsDescriptions["gate:local"]).toBeTruthy();
+  });
+
+  it("caps vitest workers on both vitest steps with a positive integer", () => {
+    const vitestSteps = GATE_STEPS.filter((s) => s[2] === "test:coverage" || s[2] === "test:shuffle");
+    expect(vitestSteps).toHaveLength(2);
+    for (const s of vitestSteps) expect(s.slice(3)).toEqual(["--", `--maxWorkers=${VITEST_WORKERS}`]);
+    expect(Number.isInteger(VITEST_WORKERS) && VITEST_WORKERS >= 1).toBe(true);
   });
 });
