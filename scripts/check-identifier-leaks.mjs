@@ -23,6 +23,21 @@
 // entries, an entry is malformed, `git ls-files` failed, or fewer than
 // MIN_FILES text files were read. A scan that reads nothing passes everything,
 // so none of those may exit 0.
+//
+// ★★ TWO KNOWN BLIND SPOTS, both deliberate trade-offs, neither closed here:
+//   1. It scans FILE CONTENT only. A tracked file's PATH is never matched
+//      against a pattern (see `classifyHit`'s doc in the lib) — a file whose
+//      NAME carries the identifier (e.g. a note file named after a customer)
+//      is invisible to this gate.
+//   2. A `word:` entry is bounded by `[A-Za-z0-9_]` on both sides, so it
+//      matches a bare word but MISSES the same text glued into a longer
+//      compound: `acme_corp` and `acmeCorp` both fail the boundary check for
+//      a `word:acme` entry, because `_` counts as a word character and the
+//      adjoining letter is one too. A literal (non-`word:`) entry still
+//      catches those as a plain substring; use one for anything with a known
+//      compound form (the identifier-leak sweep task hit exactly this for the
+//      retired brand trigram, which needed a second, compound-aware regex
+//      pass beyond the word-bounded one).
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";

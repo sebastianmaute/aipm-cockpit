@@ -16670,12 +16670,16 @@ the surface is unexercised by the seed even though it is reachable from it.
 
 **Status:** open — NOT a defect today and NOT a regression. The GitLab project and the GitHub push
 mirror are both private, so nothing here is exposed. It becomes a hard blocker the moment that
-GitHub repo is flipped public, which is the stated intent. Never machine-verified: this entry used to
-quote the identifiers it hunts inside its own reproduce commands, which a history rewrite would turn
-into instructions to grep for the REPLACEMENT string instead of the record of why the rewrite
-happened — Task 7 (2026-09-22) rewrote it to name the identifier classes in prose, so there is no
-compliant command left that both runs today and avoids quoting one. Scope corrected 2026-09-20: this
-entry described FOUR classes and missed the two largest, measured by
+GitHub repo is flipped public, which is the stated intent. This entry used to quote the identifiers
+it hunts inside its own reproduce commands, which a history rewrite would turn into instructions to
+grep for the REPLACEMENT string instead of the record of why the rewrite happened — Task 7
+(2026-09-22) rewrote it to name the identifier classes in prose. Task 10 then built `npm run
+leaks:check` (see Reproduce below), which now reproduces classes 1–4 and class 6's tree-content half
+without quoting an identifier — but it needs `LEAK_LIST_FILE` naming an untracked list, is not yet
+wired into CI, and cannot see class 5 or class 6's commit-message half at all (commit metadata and
+history, not tracked-tree content), so no single command closes this entry; those two stay never
+machine-verified by construction. Scope corrected 2026-09-20: this entry described FOUR classes and
+missed the two largest, measured by
 `git log --all --format="%ae %ce"` (8,355 commits carrying a work address in both fields, plus 90
 CI-bot identities) and `git log --all --grep="Claude-Session:" --fixed-strings --oneline` (3,048).
 The design that supersedes this entry's scope is `docs/superpowers/specs/2026-09-20-github-migration-phase1-design.md`.
@@ -16687,18 +16691,22 @@ sanitising the working tree is necessary but NOT sufficient — a value deleted 
 readable in commit N-1 forever. Settle the history question (rewrite, or a squashed orphan root)
 BEFORE the visibility flip. After is unrecoverable: a public clone can be taken inside the window.
 
-**Reproduce the current surface.** There is still no gate for the tree-content classes below —
-`size:check` walks `src`, semgrep hunts vulnerability patterns, and neither looks for an employer's
-name. The intended reproduce command is `npm run leaks:check` (Task 10, not built yet): it will read
-the concrete identifier list from an untracked file named by an env var, rather than from this entry,
-so a history rewrite that changes the identifiers never has to rewrite the register to match. Until
-then, reproduce by hand: search the tracked tree for the employer name (any spelling) and its email
-domain, the internal GitLab host and group path, the internal wiki host, the brand trigram, and URL
-paths carrying the internal numeric project id. Never quote any of them literally while doing so —
-this entry does not either, on purpose (see below).
+**Reproduce the current surface.** `size:check` walks `src`, semgrep hunts vulnerability patterns,
+and neither looks for an employer's name — the gate for the tree-content classes below is `npm run
+leaks:check` (Task 10, built and committed): it reads the concrete identifier list from an untracked
+file named by `LEAK_LIST_FILE` — kept outside the repo, never committed — rather than from this
+entry, so a history rewrite that changes the identifiers never has to rewrite the register to match.
+Exit 0 is clean; exit 1 names a leak as `path:line class=<class>` (never the matched text); exit 2
+means it could not scan (the variable unset/blank, the list missing/empty/malformed, or fewer than
+50 text files read). It is not yet wired into CI — that needs a masked file-type variable in the
+project settings — so it is a local command today, and only useful to someone holding the list.
+Without the list, reproduce by hand: search the tracked tree for the employer name (any spelling)
+and its email domain, the internal GitLab host and group path, the internal wiki host, the brand
+trigram, and URL paths carrying the internal numeric project id. Never quote any of them literally
+while doing so — this entry does not either, on purpose (see below).
 
 ★★★ **A TREE-CONTENT SWEEP READS ONE COMMIT'S FILES, AND TWO OF THE SIX CLASSES ARE NOT FILE CONTENT.**
-`git grep` (and the future `leaks:check`) search the checked-out tree, so classes 5 and 6 below were
+`git grep` (and `leaks:check`, since Task 10) search the checked-out tree, so classes 5 and 6 below were
 invisible to this entry's own verification method for three weeks — and their absence read as their
 not existing. A verification method has a shape, and a finding outside that shape reads as absence.
 Metadata needs `git log --all --format="%ae %ce" | sort | uniq -c`; messages need
@@ -16706,13 +16714,17 @@ Metadata needs `git log --all --format="%ae %ce" | sort | uniq -c`; messages nee
 ★★ Class 5 is also the one class that CANNOT be fixed after the visibility flip by any means short of
 a history rewrite, which makes it the most expensive thing this entry used to omit.
 
-**Six classes, six different fixes** (1–4 as originally filed, three of them now closed by Tasks 1, 4
-and 5 of the sanitise-and-rewrite-history plan; 5–6 added 2026-09-20 and both still open):
+**Six classes, six different fixes** (1–4 as originally filed, all four now closed — Task 9 (class
+1), Task 1 (class 2), Task 5 (class 3), Task 4 (class 4); 5–6 added 2026-09-20 — class 5 stays fully
+open, pending a history rewrite; class 6's tree-content half is closed (Task 6), its commit-message
+half stays open pending the same rewrite):
 
-1. **OPEN, pending Task 9.** Two README hyperlinks to the Releases page point at the internal GitLab
-   host and group path, and the identical URL is hard-coded in two product constants (see below). The
-   pipeline/coverage badges that used to render from that host were already dropped 2026-09-14 — what
-   is left is plain-text links and code constants, not images.
+1. **FIXED (Task 9).** Two README hyperlinks to the Releases page used to point at the internal
+   GitLab host and group path, and the identical URL was hard-coded in two product constants (see
+   below). The pipeline/coverage badges that used to render from that host were already dropped
+   2026-09-14 — what was left was plain-text links and code constants, not images. Task 9 repointed
+   both README links and both constants (`APP_RELEASES_URL`, `RELEASES_URL`) at the public GitHub
+   repo's Releases page.
 
 2. **FIXED (Task 1).** The AI-usage policy link the consent screen points to used to be a hard-coded
    wiki URL in shipped app code, which was the worst of the four because it rendered in the PRODUCT
@@ -16737,11 +16749,15 @@ and 5 of the sanitise-and-rewrite-history plan; 5–6 added 2026-09-20 and both 
    repair: once a public clone exists, the metadata in it is permanent. Fixed only by an identity
    mapping during a history rewrite.
 
-6. **Commit MESSAGES and session URLs.** 3,048 commits carry a `Claude-Session:` trailer and 217
-   carry an assistant co-author line; separately, 83 tracked plan files contain session URLs in
-   their body. ★★ A blanket filter on the assistant's NAME is wrong: 89 commits mention it
-   legitimately, because "Ask Claude" is a shipped feature and `callClaude` is a real function.
-   Match the trailer LINES, never the word.
+6. **Commit MESSAGES and session URLs — tree-content half FIXED (Task 6), message half still open.**
+   3,048 commits carry a `Claude-Session:` trailer and 217 carry an assistant co-author line; both
+   live only in commit history and are fixed only by a rewrite (Phase B) — deleting a trailer from a
+   new commit does not remove it from history. Separately, 83 tracked plan files used to contain
+   session URLs in their body; Task 6 removed the trailer line (and the blank line before it) from
+   every one it found (86 files measured at its own baseline) — `git grep` for the assistant
+   session-URL prefix now exits 1 across the tree. ★★ A blanket filter on the assistant's NAME is
+   wrong: 89 commits mention it legitimately, because "Ask Claude" is a shipped feature and
+   `callClaude` is a real function. Match the trailer LINES, never the word.
 
 ★ Two product strings join class 1 and must move together: the release URL is hard-coded in both
 the app (`APP_RELEASES_URL`) and the desktop shell (`RELEASES_URL`), which cannot share a constant
@@ -16757,10 +16773,13 @@ goldens, and the byte-pinned test went green on the NEW bytes. ★★ A golden r
 written truncated fixtures over full ones and reported success, so compare fixture SIZES afterwards,
 never just the exit code — worth re-checking on any FUTURE edit of the master, not only this one.
 
-★ **Two things that look like hits and are not.** `APP_REPO_URL` in `version.ts` is the public
-marketing site — no leak, though a public repo probably wants it repointed at GitHub. And
-`theming.md` names the employer's brand name and its trigram while documenting branding TOKEN names,
-which is inherent to the palette belonging to a named company.
+★ **Two things that look like hits and are not.** `APP_REPO_URL` in `version.ts` is not the
+employer's marketing site — it is the project's public GitHub repo URL (has been since before this
+plan; Task 9 never touched it) — no leak. And `theming.md` describes the employer's brand name in
+prose while documenting branding TOKEN names, which is inherent to the palette belonging to a named
+company — it no longer spells the trigram itself (Task 10 removed the last literal occurrence
+tree-wide; a word-bounded, case-insensitive sweep for it now exits with no hits everywhere,
+`theming.md` included).
 
 ★★ **A naive sweep for the English word "internal" produces false positives, and one was acted on.**
 It matched the word ending a sentence, which flagged code comments in `budget-bucket-people.ts` and

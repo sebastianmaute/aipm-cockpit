@@ -512,6 +512,6 @@ knows it's a gap, not an oversight.
 ## Escalation
 
 This is a single-team internal tool with no on-call rotation. Report issues
-via the employer's internal channel. For data-loss reports specifically:
+via the maintainer's issue tracker. For data-loss reports specifically:
 remind the user that data is browser-local and not server-recoverable, then
 walk them through the Export menu so future incidents are recoverable.
