@@ -505,13 +505,28 @@ Run the `glab` commands from the old clone (its `origin` is GitLab). Push from `
   - GitLab project access token: role Maintainer, scope `write_repository`, one year expiry.
   - The owner adds both as project CI variables `GITHUB_SYNC_TOKEN` and `GITLAB_SYNC_TOKEN`: masked, protected, not expanded.
   - Verify by name only: `glab api "projects/:id/variables" --jq '[.[] | {key, masked, protected}]'` shows both with `masked: true, protected: true`.
-- [ ] **Step 2: Schedule:** `glab api -X POST "projects/:id/pipeline_schedules" -f description="daily sync from GitHub" -f ref=main -f cron="0 3 * * *" -f cron_timezone=Europe/Berlin -f active=true` (logged). Record the schedule id.
-- [ ] **Step 3: Proof, positive control first.**
+- [ ] **Step 2: Verify the sync token's push access**, from a clone whose `origin` is GitLab (not
+      `C:\Projects\aipm-rewritten`, whose `origin` is GitHub):
+  1. `glab api "projects/:id/protected_branches/main" > "$SP/cutover/protected-branches.log" 2>&1; echo EXIT=$?`. Read the logged file and require `push_access_levels` to include `access_level: 40`
+     (Maintainer) — the sync token is a Maintainer project token doing a fast-forward push. If it is
+     `[]` ("No one"), the owner adds Maintainer push access to `main`'s protection (force push stays
+     off).
+  2. `glab api "projects/:id/protected_tags" > "$SP/cutover/protected-tags.log" 2>&1; echo EXIT=$?`.
+     Read the logged file and list any protected `v*` pattern — it would reject Task 8's forced tag
+     push and every later sync's `--prune`. Record and resolve with the owner before proceeding.
+- [ ] **Step 3: Schedule:** `glab api -X POST "projects/:id/pipeline_schedules" -f description="daily sync from GitHub" -f ref=main -f cron="0 3 * * *" -f cron_timezone=Europe/Berlin -f active=true` (logged). Record the schedule id.
+- [ ] **Step 4: Proof, positive control first.**
   1. `git push github main:refs/heads/sync-probe` (logged).
   2. Run the schedule now: `glab api -X POST "projects/:id/pipeline_schedules/<id>/play"`. Poll its latest pipeline until `success`, or `failed` (STOP).
   3. `git ls-remote "$GL" refs/heads/sync-probe` must return one line.
   4. `git push github :refs/heads/sync-probe`, play again, and the same ls-remote must return nothing.
   5. Re-run the Task 8 Step 5 hash comparison → `EQUAL`.
+- [ ] **Step 5: Prove the sync advances `main`, not just matches it.** The Task 8 force-push already
+      made GitLab `main` equal GitHub `main`, so Step 4's equality check alone cannot show the sync
+      makes `main` move — only that it does not disagree. After the NEXT real merge to GitHub `main`
+      (Task 7 Step 5, or any later one), run the schedule once via the manual button (Step 3's
+      `.../play`), poll to `success`, then re-run the Task 8 Step 5 hash comparison and confirm
+      `EQUAL` against the NEW GitHub `main` hash.
 
 ### Task 10: Re-clone and retire the old clones (spec step 8)
 
