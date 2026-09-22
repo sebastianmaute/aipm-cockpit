@@ -29,8 +29,9 @@ A GitHub `users.noreply` address was offered and declined.
 ## What already exists
 
 `main` is push-mirrored from GitLab to a **private, personal-account** GitHub repo today —
-`only_protected_branches: true`, **zero tags mirrored**. This is not the target; the target is a
-repo under an organisation, carrying rewritten history, with tags.
+`only_protected_branches: true`, **zero tags mirrored**. That repository's **name** is the target
+(decided 2026-09-22, see "Decisions"), but not its contents: it must end up carrying the rewritten
+history, with tags.
 
 Register entry §200 (work item #185) has tracked "internal identifiers block making the mirror
 public" since 2026-08-28. It names four classes of identifier and the central history trap. It
@@ -71,9 +72,17 @@ the only one already partly explored.
 
 ### 2. Cut over to GitHub
 
-Push the sanitised history to a GitHub **organisation** repo (an organisation, not a personal
-account — releases need it, and the current mirror is on a personal account). Make it canonical,
-retire the push mirror, repoint remotes and developer docs.
+Push the sanitised history to `sebastianmaute/aipm-cockpit` on GitHub — the personal-account repo
+the app already links to. (The first draft required an organisation on the grounds that releases
+need one; GitHub Releases work on personal accounts, so that premise was wrong. A later transfer
+to an organisation stays possible and GitHub redirects the old URL.) Make it canonical, retire the
+push mirror, repoint remotes and developer docs.
+
+★★★ **Reuse the name, not the repository instance.** The existing mirror holds the *un*rewritten
+history. Force-pushing rewritten refs over it leaves the old objects reachable on GitHub's side
+(cached views, any fork, PR refs) until GitHub garbage-collects them, which is outside our control
+and would survive the visibility flip. Delete the mirror repository and create a fresh, empty one
+under the same name before the first push of rewritten history.
 
 Cut over **private**. The visibility flip is deferred to the end of the roadmap.
 
@@ -157,12 +166,29 @@ These are not Phase 1 specifics; they apply to each spec written from this roadm
 
 ## Open questions, carried
 
-| Question | Needed by |
-|---|---|
-| GitHub organisation and repository name | 2, and the product URL replacements in 1 |
-| The personal address for commit identity | 1, at execution time only |
-| Whether a mirrored issue tracker is kept at all | 4 |
-| Whether the auto-update feed becomes GitHub Releases | 5 |
+| Question | Needed by | Status |
+|---|---|---|
+| GitHub owner and repository name | 2, and the product URL replacements in 1 | **decided 2026-09-22:** `sebastianmaute/aipm-cockpit` |
+| The personal address for commit identity | 1, at execution time only | open — supplied at execution, never recorded |
+| Whether a mirrored issue tracker is kept at all | 4 | **decided 2026-09-22:** migrate the issues to GitHub |
+| Whether the auto-update feed becomes GitHub Releases | 5 | **decided 2026-09-22:** yes, planned into sub-project 5 |
+
+## Decisions 2026-09-22
+
+Taken by the repository owner.
+
+- **Home:** `sebastianmaute/aipm-cockpit`, the existing personal-account name. Release page
+  `https://github.com/sebastianmaute/aipm-cockpit/releases`. Desktop `appId`
+  `io.github.sebastianmaute.aipm-cockpit`. Recreate the repository fresh before the first push (see
+  sub-project 2).
+- **Copyright:** "Copyright 2026 Sebastian Maute", licence EUPL-1.2 — the licence the repository
+  already carries (`LICENSE`, README, `APP_LICENSE`). Publication rights confirmed 2026-09-21.
+- **Issues:** migrated to GitHub. Sub-project 4 therefore owns the import, re-pairing the register's
+  work-item citations to the numbers GitHub assigns, and rewriting the warn-only sync job against
+  the GitHub Issues API. The blocking register gate is textual and needs no change beyond accepting
+  the new numbers.
+- **Auto-update:** yes — `electron-updater` against GitHub Releases, in sub-project 5, once the
+  repository is public.
 
 ## Relationship to existing records
 

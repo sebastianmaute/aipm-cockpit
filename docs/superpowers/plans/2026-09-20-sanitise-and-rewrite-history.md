@@ -60,8 +60,10 @@ grow daily.
 - **Phase A may land as several MRs.** Tasks 1–5 are independent of each other. Task 6 follows
   them (it sweeps what they leave) and must not touch register entry 200; Task 7 owns that entry
   and follows Task 6, because it describes the outcome.
-- **Tasks 8 and 9 are BLOCKED on the GitHub organisation name.** They carry a placeholder and
-  cannot be marked done until the organisation exists.
+- **Tasks 8 and 9 are unblocked (2026-09-22):** the home is `sebastianmaute/aipm-cockpit`, the
+  personal-account repository the app already links to — not an organisation. ★ Land Task 9 no
+  earlier than the rest of Phase A: until the cut-over the new release link points at a private
+  repository, which is no worse than today's internal link but no better either.
 - **Task 10 (leak gate) lands LAST in Phase A** — it can only go green once Tasks 1–9 and the
   companion plan are merged.
 - **Task 11 (history rewrite) waits for ALL of Phase A plus the companion plan**, merged on
@@ -437,9 +439,10 @@ git grep -ciE "consult" -- 'sample-workspace-*.json' src/app/__fixtures__ src/ap
 - Test: `src/app/operating-guide-builtin.test.ts`, `scripts/ai-eval.test.ts`
 
 **Interfaces:**
-- Consumes: the new copyright owner and licence wording, **supplied by the repository owner**
-  (publication rights confirmed 2026-09-21). Until supplied the step carries a placeholder and the
-  task cannot be marked done.
+- Consumes: the copyright line `Copyright 2026 Sebastian Maute`, licence EUPL-1.2 (decided
+  2026-09-22; publication rights confirmed 2026-09-21). The work address has no replacement
+  mailbox: point the reader at the repository (`https://github.com/sebastianmaute/aipm-cockpit`)
+  instead.
 - Produces: guide content carrying no work address and no employer copyright line.
 
 ★★★ Both copies embed the guide verbatim. Editing a copy is the trap: the next regeneration
@@ -466,7 +469,8 @@ wc -c lib/project-leadership-operating-guide.md src/app/operating-guide-builtin.
   On 2026-09-21: 4, 1 and 1. All three must reach 0 while every file stays substantial.
 
 - [ ] **Step 3: Edit the markdown source only.** Replace the address with a neutral contact
-  instruction and the copyright line with the owner-supplied wording.
+  instruction (point at the repository URL; no mailbox) and the copyright line with
+  `Copyright 2026 Sebastian Maute` (EUPL-1.2).
 
 - [ ] **Step 4: Regenerate the TS copy.** `node scripts/gen-operating-guide.mjs; echo "EXIT=$?"`
 
@@ -600,7 +604,7 @@ npm run docs:claims:check; echo "EXIT=$?"
 
 ---
 
-### Task 8: Rename the Electron `appId` — BLOCKED on the GitHub organisation name
+### Task 8: Rename the Electron `appId`
 
 **Files:**
 - Modify: `desktop/electron-builder.yml` (`appId`)
@@ -608,9 +612,8 @@ npm run docs:claims:check; echo "EXIT=$?"
   spells the value — a dated record: replace the name only)
 
 **Interfaces:**
-- Consumes: the GitHub organisation name. **Placeholder until it exists; this task cannot be
-  marked done before then.**
-- Produces: a reverse-DNS `appId` under the new organisation.
+- Consumes: the decided value `io.github.sebastianmaute.aipm-cockpit` (2026-09-22).
+- Produces: that `appId`.
 
 PROTOCOL value: electron-builder derives the Windows installer identity and the taskbar
 AppUserModelID from `appId`. Renaming it makes the next installer install a **second copy**
@@ -624,7 +627,7 @@ fact about the installed base; re-establish it before executing.
   `git grep -nE "setAppUserModelId|setAsDefaultProtocolClient|app\.setName|userData|appId" -- desktop`.
   If anything now depends on it, stop and report.
 
-- [ ] **Step 2: Rename** to the organisation's reverse-DNS form.
+- [ ] **Step 2: Rename** to `io.github.sebastianmaute.aipm-cockpit`.
 
 - [ ] **Step 3: Replace the name in the dated bundling plan**, nothing else.
 
@@ -639,7 +642,7 @@ fact about the installed base; re-establish it before executing.
 
 ---
 
-### Task 9: Repoint the release URLs and the README release links — BLOCKED on the GitHub organisation name
+### Task 9: Repoint the release URLs and the README release links
 
 **Files:**
 - Modify: `src/app/version.ts` (`APP_RELEASES_URL`)
@@ -650,7 +653,7 @@ fact about the installed base; re-establish it before executing.
   `scripts/release-publish-lib.test.mjs`, `src/app/version-info.test.tsx`
 
 **Interfaces:**
-- Consumes: the GitHub organisation and repository name. **Placeholder until they exist.**
+- Consumes: `https://github.com/sebastianmaute/aipm-cockpit/releases` (decided 2026-09-22).
 - Produces: release links pointing at the GitHub releases page.
 
 The app and the desktop shell cannot share a constant, so `menu-model.test.ts` reads
