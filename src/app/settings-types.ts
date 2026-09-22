@@ -634,7 +634,11 @@ export type Settings = {
   notifications: NotificationsConfig;
   jira: JiraConfig;
   /** Intentionally optional (mirrors other optional-but-defaulted fields like snapshots?);
-   *  readers use `settings.timelog ?? defaultTimelogConfig`. */
+   *  readers use `settings.timelog ?? defaultTimelogConfig`. Anything that BUILDS a Timelog
+   *  request or judges whether Timelog is configured must go through
+   *  `effectiveTimelogConfig` (timelog-sanitize.ts) on top of that, not read `.tenant`
+   *  directly — it resolves a blank stored tenant against the `NEXT_PUBLIC_TIMELOG_TENANT`
+   *  build variable at read time, without persisting the result. */
   timelog?: TimelogConfig;
   popout: { reuseWindow: boolean };
   resources: { workdayHours: number };

@@ -213,9 +213,11 @@ export type TimelogConfig = {
   tokenInvalidAt?: string;
 };
 
-// ★ No built-in tenant: a never-configured install has `tenant: ""` until
-//   `sanitizeTimelogConfig` (timelog-sanitize.ts) resolves it against the
-//   `NEXT_PUBLIC_TIMELOG_TENANT` build variable via `defaultTimelogTenant()`.
+// ★ No built-in tenant: a never-configured install has `tenant: ""` until a
+//   reader resolves it at READ time via `effectiveTimelogConfig()`
+//   (timelog-sanitize.ts), which falls back to the `NEXT_PUBLIC_TIMELOG_TENANT`
+//   build variable through `defaultTimelogTenant()`. `sanitizeTimelogConfig`
+//   calls `defaultTimelogTenant()` too, but has no production caller today.
 export const defaultTimelogConfig: TimelogConfig = {
   enabled: false,
   host: "app2.timelog.com",
