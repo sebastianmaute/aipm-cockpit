@@ -67,9 +67,10 @@ export function CiStyleProvider({ children }: { children: React.ReactNode }) {
     if (typeof window === "undefined") return "custom";
     // The style axis is the constant "custom"; the active SCHEME drives the look.
     // Persist "custom" for any non-"custom" (legacy/absent) value so the boot script +
-    // selectScheme fallback stay consistent. No legacy AIPM/mockup scheme-activation:
-    // those are now importable theme files, not built-ins. ("AIPM"/"mockup" are the
-    // retired CiStyle values a real device's stored localStorage may still carry.)
+    // selectScheme fallback stay consistent. No legacy scheme-activation for the
+    // retired brand-named value or "mockup": those are now importable theme files, not
+    // built-ins. (Both are retired CiStyle values a real device's stored localStorage
+    // may still carry; any non-"custom" value takes the same path.)
     const stored = localStorage.getItem(STYLE_STORAGE_KEY);
     if (stored !== "custom") {
       try {

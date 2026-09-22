@@ -12,8 +12,9 @@ describe("no-flash boot script — source shape (pinned)", () => {
     expect(src).toContain('setAttribute("data-style","custom")');
     // Petrol/Mockup are importable built-in schemes now — no embedded maps or
     // legacy style-value special-casing remain in the boot string.
-    expect(src).not.toContain("legacyIcc");
-    expect(src).not.toContain("legacyMockup");
+    // Generic: NO `legacy<Name>` identifier at all, which covers both retired
+    // style values' old branch variables without spelling either one.
+    expect(src).not.toMatch(/\blegacy[A-Z]\w*/);
   });
   it("reads + stamps the dark-capable signal", () => {
     expect(src).toContain('localStorage.getItem("aipm-cockpit-scheme-supports-dark")');
