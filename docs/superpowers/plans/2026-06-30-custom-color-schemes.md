@@ -366,7 +366,7 @@ In the Style `SegmentedControl`, add the custom option:
 
 ```tsx
           options={[
-            { value: "petrol", label: t(lang, "styleIcc") },
+            { value: "petrol", label: t(lang, "styleBrand") },
             { value: "mockup", label: t(lang, "styleMockup") },
             { value: "custom", label: t(lang, "styleCustom") },
           ]}
@@ -752,7 +752,7 @@ Add to `src/app/i18n.ts` (group them near `styleCustom`):
   schemeAdvanced: "Advanced colors",
   schemeContrastBelowAa: "below AA",
   schemeNew: "New scheme",
-  schemeNewFromIcc: "New from Petrol",
+  schemeNewFromBrand: "New from Petrol",
   schemeNewFromMockup: "New from Mockup",
   schemeApply: "Apply",
   schemeRename: "Rename",
@@ -770,7 +770,7 @@ Add to `src/app/i18n.ts` (group them near `styleCustom`):
 Create a throwaway node script (umlauts as `\uXXXX` to avoid corruption; file is CRLF). Run from repo root:
 
 ```bash
-node -e "const fs=require('fs');const p='src/app/i18n.de.ts';let s=fs.readFileSync(p,'utf8');const block=[`  schemeTokenPrimary: \"Markenfarbe\",`,`  schemeTokenAccent: \"Akzent\",`,`  schemeTokenBackground: \"Hintergrund\",`,`  schemeTokenSurface: \"Oberfläche\",`,`  schemeTokenText: \"Text\",`,`  schemeTokenRagRed: \"Status rot\",`,`  schemeTokenRagAmber: \"Status gelb\",`,`  schemeTokenRagGreen: \"Status grün\",`,`  schemeTokenPink: \"Pink\",`,`  schemeTokenPurple: \"Violett\",`,`  schemeTokenBlue: \"Blau\",`,`  schemeTokenMediumGrey: \"Mittelgrau\",`,`  schemeTokenLightGrey: \"Hellgrau\",`,`  schemeTokenSurfaceMuted: \"Gedämpfte Oberfläche\",`,`  schemeTokenLine: \"Rahmenlinie\",`,`  schemeTokenTableHeadBg: \"Tabellenkopf-Hintergrund\",`,`  schemeTokenTableHeadFg: \"Tabellenkopf-Text\",`,`  schemeTokenTableHeadAccent: \"Tabellenkopf-Akzent\",`,`  schemeTokenSegmentTrack: \"Segment-Schiene\",`,`  schemeTokenSegmentActiveBg: \"Segment aktiv Hintergrund\",`,`  schemeTokenSegmentActiveFg: \"Segment aktiv Text\",`,`  schemePairTextBg: \"Text auf Hintergrund\",`,`  schemePairAccentSurface: \"Akzent auf Oberfläche\",`,`  schemePairRagRed: \"Status-rot-Text\",`,`  schemePairRagAmber: \"Status-gelb-Text\",`,`  schemePairRagGreen: \"Status-grün-Text\",`,`  schemeAdvanced: \"Erweiterte Farben\",`,`  schemeContrastBelowAa: \"unter AA\",`,`  schemeNew: \"Neues Schema\",`,`  schemeNewFromIcc: \"Neu aus Petrol\",`,`  schemeNewFromMockup: \"Neu aus Mockup\",`,`  schemeApply: \"Anwenden\",`,`  schemeRename: \"Umbenennen\",`,`  schemeDelete: \"Löschen\",`,`  schemeImport: \"Schema importieren\",`,`  schemeExport: \"Schema exportieren\",`,`  schemeNamePlaceholder: \"Schemaname\",`,`  schemeSelectLabel: \"Gespeicherte Schemata\",`,`  schemeNone: \"Noch keine gespeicherten Schemata\",`,`  schemeImportError: \"Diese Datei konnte nicht importiert werden.\",`].join('\r\n');s=s.replace('  styleCustom:', block+'\r\n  styleCustom:');fs.writeFileSync(p,s);"
+node -e "const fs=require('fs');const p='src/app/i18n.de.ts';let s=fs.readFileSync(p,'utf8');const block=[`  schemeTokenPrimary: \"Markenfarbe\",`,`  schemeTokenAccent: \"Akzent\",`,`  schemeTokenBackground: \"Hintergrund\",`,`  schemeTokenSurface: \"Oberfläche\",`,`  schemeTokenText: \"Text\",`,`  schemeTokenRagRed: \"Status rot\",`,`  schemeTokenRagAmber: \"Status gelb\",`,`  schemeTokenRagGreen: \"Status grün\",`,`  schemeTokenPink: \"Pink\",`,`  schemeTokenPurple: \"Violett\",`,`  schemeTokenBlue: \"Blau\",`,`  schemeTokenMediumGrey: \"Mittelgrau\",`,`  schemeTokenLightGrey: \"Hellgrau\",`,`  schemeTokenSurfaceMuted: \"Gedämpfte Oberfläche\",`,`  schemeTokenLine: \"Rahmenlinie\",`,`  schemeTokenTableHeadBg: \"Tabellenkopf-Hintergrund\",`,`  schemeTokenTableHeadFg: \"Tabellenkopf-Text\",`,`  schemeTokenTableHeadAccent: \"Tabellenkopf-Akzent\",`,`  schemeTokenSegmentTrack: \"Segment-Schiene\",`,`  schemeTokenSegmentActiveBg: \"Segment aktiv Hintergrund\",`,`  schemeTokenSegmentActiveFg: \"Segment aktiv Text\",`,`  schemePairTextBg: \"Text auf Hintergrund\",`,`  schemePairAccentSurface: \"Akzent auf Oberfläche\",`,`  schemePairRagRed: \"Status-rot-Text\",`,`  schemePairRagAmber: \"Status-gelb-Text\",`,`  schemePairRagGreen: \"Status-grün-Text\",`,`  schemeAdvanced: \"Erweiterte Farben\",`,`  schemeContrastBelowAa: \"unter AA\",`,`  schemeNew: \"Neues Schema\",`,`  schemeNewFromBrand: \"Neu aus Petrol\",`,`  schemeNewFromMockup: \"Neu aus Mockup\",`,`  schemeApply: \"Anwenden\",`,`  schemeRename: \"Umbenennen\",`,`  schemeDelete: \"Löschen\",`,`  schemeImport: \"Schema importieren\",`,`  schemeExport: \"Schema exportieren\",`,`  schemeNamePlaceholder: \"Schemaname\",`,`  schemeSelectLabel: \"Gespeicherte Schemata\",`,`  schemeNone: \"Noch keine gespeicherten Schemata\",`,`  schemeImportError: \"Diese Datei konnte nicht importiert werden.\",`].join('\r\n');s=s.replace('  styleCustom:', block+'\r\n  styleCustom:');fs.writeFileSync(p,s);"
 ```
 
 (If the DE file has no `styleCustom:` yet — it was added in A5 — confirm A5 ran first. Verify after: `npx tsc --noEmit` must pass, and grep the file to confirm real umlauts, not `ue`/`oe` substitutions.)
@@ -1368,7 +1368,7 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding }: ColorSchem
         <button type="button" className={btn} onClick={saveNew}>{t(lang, "schemeNew")}</button>
         <button type="button" className={btn} onClick={rename} disabled={!active}>{t(lang, "schemeRename")}</button>
         <button type="button" className={btn} onClick={del} disabled={!active}>{t(lang, "schemeDelete")}</button>
-        <button type="button" className={btn} onClick={() => seed(PETROL_SEED)}>{t(lang, "schemeNewFromIcc")}</button>
+        <button type="button" className={btn} onClick={() => seed(PETROL_SEED)}>{t(lang, "schemeNewFromBrand")}</button>
         <button type="button" className={btn} onClick={() => seed(MOCKUP_SEED)}>{t(lang, "schemeNewFromMockup")}</button>
         <button type="button" className={btn} onClick={doExport} disabled={!active}>{t(lang, "schemeExport")}</button>
         <label className={`cursor-pointer ${btn}`}>

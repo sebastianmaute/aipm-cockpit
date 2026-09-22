@@ -295,7 +295,7 @@ Delete the `PETROL_*_COLORS`, `MOCKUP_LIGHT_COLORS`, `PETROL_STRUCTURAL_JSON`, `
 const HARBOR_LIGHT_COLORS = JSON.stringify(resolveSchemeColors(HARBOR_LIGHT));
 const HARBOR_DARK_COLORS = JSON.stringify(resolveSchemeColors(HARBOR_DARK));
 ```
-In `NO_FLASH_THEME_SCRIPT`, delete the `legacyIcc`/`legacyMockup` reads and the two legacy branches. The scheme resolution collapses to the else-branch only:
+In `NO_FLASH_THEME_SCRIPT`, delete the `legacyBrand`/`legacyMockup` reads and the two legacy branches. The scheme resolution collapses to the else-branch only:
 ```js
 // (after the storage-rename block and reading theme/rawC/rawS:)
 var rawSupports=localStorage.getItem("aipm-cockpit-scheme-supports-dark");
@@ -303,11 +303,11 @@ var schemeDark=rawC?(rawSupports==="1"):true;
 var colors=rawC?JSON.parse(rawC):((themeDark&&schemeDark)?${HARBOR_DARK_COLORS}:${HARBOR_LIGHT_COLORS});
 var structural=rawS?JSON.parse(rawS):{};
 ```
-Keep `data-style="custom"`, the dark toggle, the color loop, and the structural loop unchanged. Remove the now-stale legacy-boot doc comment block (lines ~18-21) and the `var st=...;var legacyIcc...` line. Update the header comment: the base fallback is Harbor; Petrol/Mockup are shipped theme files, no longer embedded.
+Keep `data-style="custom"`, the dark toggle, the color loop, and the structural loop unchanged. Remove the now-stale legacy-boot doc comment block (lines ~18-21) and the `var st=...;var legacyBrand...` line. Update the header comment: the base fallback is Harbor; Petrol/Mockup are shipped theme files, no longer embedded.
 
 - [ ] **Step 2: Update the pinned test** `src/app/layout-boot-script.test.ts`
 
-This test pins + `eval`s the exact boot string. Read it, update the pinned expectations: no `legacyIcc`/`legacyMockup`, base paints Harbor. For the eval cases, assert: (a) empty storage → `data-style="custom"`, `.dark` per system, Harbor tokens applied; (b) a seeded `aipm-cockpit-active-scheme-colors` → those applied; (c) a legacy `aipm-cockpit-style="petrol"` → NO Petrol paint (Harbor base, since no color key). Keep the storage-rename assertions.
+This test pins + `eval`s the exact boot string. Read it, update the pinned expectations: no `legacyBrand`/`legacyMockup`, base paints Harbor. For the eval cases, assert: (a) empty storage → `data-style="custom"`, `.dark` per system, Harbor tokens applied; (b) a seeded `aipm-cockpit-active-scheme-colors` → those applied; (c) a legacy `aipm-cockpit-style="petrol"` → NO Petrol paint (Harbor base, since no color key). Keep the storage-rename assertions.
 
 - [ ] **Step 3: Run tests + tsc**
 
@@ -571,8 +571,8 @@ describe("ThemeGallery", () => {
   });
 
   test("import fetches the theme file and calls onImported", async () => {
-    const iccRaw = { name: "Petrol", supportsDark: true, light: { "--ui-dark-blue": "#004159" }, structural: {}, branding: {} };
-    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, text: async () => JSON.stringify(iccRaw) })) as unknown as typeof fetch);
+    const brandRaw = { name: "Petrol", supportsDark: true, light: { "--ui-dark-blue": "#004159" }, structural: {}, branding: {} };
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, text: async () => JSON.stringify(brandRaw) })) as unknown as typeof fetch);
     const onImported = vi.fn();
     render(<ThemeGallery lang="en-US" onImported={onImported} />);
     fireEvent.click(screen.getByRole("button", { name: /import Petrol/i }));
@@ -691,7 +691,7 @@ EOF
 ```tsx
 alt={settings.branding?.logo ? (settings.branding.slogan ?? t(lang, "appTitle")) : t(lang, "appTitle")}
 ```
-(`appTitle` is already "AI PM Cockpit" in EN+DE — no i18n change. Leave all other employer-name strings: AI-policy, export attribution, version-highlight history, `styleIcc` label are legitimate.)
+(`appTitle` is already "AI PM Cockpit" in EN+DE — no i18n change. Leave all other employer-name strings: AI-policy, export attribution, version-highlight history, `styleBrand` label are legitimate.)
 
 - [ ] **Step 2: tsc + the app-header test if any**
 

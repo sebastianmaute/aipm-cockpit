@@ -382,14 +382,14 @@ READ FIRST: `appearance-section.tsx` — how it renders the existing Theme contr
 - [ ] **Step 1: i18n EN** (`i18n.ts`): add
 ```
 styleLabel: "Visual style",
-styleIcc: "Petrol",
+styleBrand: "Petrol",
 styleMockup: "Dashboard",
 styleMockupLightOnly: "Dashboard style is light-only — theme is disabled while it's active.",
 ```
 - [ ] **Step 2: i18n DE** (`i18n.de.ts`, NODE-WRITE, real umlauts — these are umlaut-free):
 ```
 styleLabel: "Visueller Stil",
-styleIcc: "Petrol",
+styleBrand: "Petrol",
 styleMockup: "Dashboard",
 styleMockupLightOnly: "Der Dashboard-Stil ist nur hell - das Thema ist deaktiviert, solange er aktiv ist.",
 ```

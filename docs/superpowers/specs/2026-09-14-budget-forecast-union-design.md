@@ -25,7 +25,7 @@ Today:
 ### Reference: the employer Project Burndown standard
 
 Read from the Confluence article "The Project Burndown Dashboard" and the repository
-`example-group/public-collab/project-burndown-dashboard` (`backend/kpis.py`, `backend/routes/scenarios.py`,
+`project-burndown-dashboard` in the internal GitLab group (`backend/kpis.py`, `backend/routes/scenarios.py`,
 `frontend/js/forecast.js`, `docs/features.md`):
 
 - Budget is the contract value in EUR; actuals are booked TimeLog amounts.

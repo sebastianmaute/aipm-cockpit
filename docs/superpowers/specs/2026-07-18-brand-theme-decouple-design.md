@@ -157,7 +157,7 @@ Validation on import:
   policy), the export attribution (`export.ts` footer, `export-pptx.ts` OOXML theme name —
   company attribution; the user IS the employer, repo on the internal GitLab host), the historical
   `versionHighlightDualCi`/`versionHighlightMockupPolish` copy (accurate history), and the
-  `styleIcc` label. Only the logo alt text is a genuine stale-brand bug.
+  `styleBrand` label. Only the logo alt text is a genuine stale-brand bug.
 
 ## Testing
 
