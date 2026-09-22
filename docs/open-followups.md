@@ -16670,15 +16670,20 @@ the surface is unexercised by the seed even though it is reachable from it.
 
 **Status:** open — NOT a defect today and NOT a regression. The GitLab project and the GitHub push
 mirror are both private, so nothing here is exposed. It becomes a hard blocker the moment that
-GitHub repo is flipped public, which is the stated intent. This entry used to quote the identifiers
-it hunts inside its own reproduce commands, which a history rewrite would turn into instructions to
-grep for the REPLACEMENT string instead of the record of why the rewrite happened — Task 7
-(2026-09-22) rewrote it to name the identifier classes in prose. Task 10 then built `npm run
-leaks:check` (see Reproduce below), which now reproduces classes 1–4 and class 6's tree-content half
-without quoting an identifier — but it needs `LEAK_LIST_FILE` naming an untracked list, is not yet
-wired into CI, and cannot see class 5 or class 6's commit-message half at all (commit metadata and
-history, not tracked-tree content), so no single command closes this entry; those two stay never
-machine-verified by construction. Scope corrected 2026-09-20: this entry described FOUR classes and
+GitHub repo is flipped public, which `docs/superpowers/specs/2026-09-20-github-migration-roadmap.md`
+sequences as its LAST step; the sanitise plan does not make anything public. As of 2026-09-22 all
+seven classes of the design are closed in a REWRITTEN history, but that history exists only in a
+local clone: GitLab and the mirror still carry the original, so classes 5 and 6 (messages) stay open
+until the rewritten history replaces it there. The tree-content classes (1–4, 6's tree half, 7) are
+verified by `LEAK_LIST_FILE=<untracked list> npm run leaks:check` (exit 0). The history classes are
+verified by `node scripts/verify-rewrite.mjs --repo <mirror> --expect clean --allow <file>` against
+the rewritten mirror (0 blob, 0 message and 0 trailer lines; the identity set equals a two-address
+allowlist), which means something only because `--expect dirty` against the original mirror finds
+nonzero counts. Both commands need the untracked list and neither runs in CI yet. This entry used
+to quote the identifiers it hunts inside its own reproduce commands, which a history rewrite would
+turn into instructions to grep for the REPLACEMENT string instead of the record of why the rewrite
+happened — Task 7 (2026-09-22) rewrote it to name the identifier classes in prose. Scope corrected
+2026-09-20: this entry described FOUR classes and
 missed the two largest, measured by
 `git log --all --format="%ae %ce"` (8,355 commits carrying a work address in both fields, plus 90
 CI-bot identities) and `git log --all --grep="Claude-Session:" --fixed-strings --oneline` (3,048).
@@ -16714,10 +16719,11 @@ Metadata needs `git log --all --format="%ae %ce" | sort | uniq -c`; messages nee
 ★★ Class 5 is also the one class that CANNOT be fixed after the visibility flip by any means short of
 a history rewrite, which makes it the most expensive thing this entry used to omit.
 
-**Six classes, six different fixes** (1–4 as originally filed, all four now closed — Task 9 (class
-1), Task 1 (class 2), Task 5 (class 3), Task 4 (class 4); 5–6 added 2026-09-20 — class 5 stays fully
-open, pending a history rewrite; class 6's tree-content half is closed (Task 6), its commit-message
-half stays open pending the same rewrite):
+**Seven classes, seven different fixes** (the design's numbering; 1–4 as originally filed, all
+four closed — Task 9 (class 1), Task 1 (class 2), Task 5 (class 3), Task 4 (class 4); 5–6 added
+2026-09-20 and 7 by the design. Class 6's tree-content half closed in Task 6, class 7 in Task 10;
+class 5 and class 6's message half are closed only in the rewritten history (Tasks 11–13), which is
+not yet published):
 
 1. **FIXED (Task 9).** Two README hyperlinks to the Releases page used to point at the internal
    GitLab host and group path, and the identical URL was hard-coded in two product constants (see
@@ -16747,9 +16753,15 @@ half stays open pending the same rewrite):
    carry CI-bot identities embedding the internal host and the numeric project id. This is not file
    content, so no tree sweep can ever surface it. It is also the only class that a later edit cannot
    repair: once a public clone exists, the metadata in it is permanent. Fixed only by an identity
-   mapping during a history rewrite.
+   mapping during a history rewrite. **Closed in the rewritten history (Task 11), not yet
+   published:** every author, committer and tagger identity maps to the repository owner's GitHub
+   noreply address or one neutral CI identity, and the verifier finds no third.
 
-6. **Commit MESSAGES and session URLs — tree-content half FIXED (Task 6), message half still open.**
+6. **Commit MESSAGES and session URLs — tree-content half FIXED (Task 6); message half closed in the
+   rewritten history (Task 11), not yet published.** The rewrite dropped the trailer lines by key
+   and replaced every identifier in commit and tag messages. Commits cited in the docs were
+   remapped to their rewritten ids (Task 13); citations that were already dangling were left as
+   they were.
    3,048 commits carry a `Claude-Session:` trailer and 217 carry an assistant co-author line; both
    live only in commit history and are fixed only by a rewrite (Phase B) — deleting a trailer from a
    new commit does not remove it from history. Separately, 83 tracked plan files used to contain
@@ -16757,7 +16769,12 @@ half stays open pending the same rewrite):
    every one it found (86 files measured at its own baseline) — `git grep` for the assistant
    session-URL prefix now exits 1 across the tree. ★★ A blanket filter on the assistant's NAME is
    wrong: 89 commits mention it legitimately, because "Ask Claude" is a shipped feature and
-   `callClaude` is a real function. Match the trailer LINES, never the word.
+   `callClaude` is a real function. Match the trailer LINES, never the word. ★ Commits made on the
+   rewritten history carry no session trailer either, or they would reopen this class.
+
+7. **FIXED (Task 10).** Residual mentions of the employer name and brand trigram in test fixtures,
+   i18n prose, comments, docs, CHANGELOG and an importable theme file were swept; `leaks:check`
+   reports none across the tree.
 
 ★ Two product strings join class 1 and must move together: the release URL is hard-coded in both
 the app (`APP_RELEASES_URL`) and the desktop shell (`RELEASES_URL`), which cannot share a constant
