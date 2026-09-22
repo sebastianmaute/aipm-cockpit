@@ -29,7 +29,7 @@ comments and help text. The planning documents for the wider move are re-checked
 
 ### Removed
 
-- **The dead `"AIPM"` value of the appearance style.** The style axis has been `"custom"` for a
+- **The dead brand-named value of the appearance style.** The style axis has been `"custom"` for a
   long time and the load path already rewrites any other stored value to it; a stored legacy value
   still loads as `"custom"`, and a test now checks the style the app exposes, not only what is
   written back to storage.
@@ -75,13 +75,13 @@ overwritten, found during that work, are closed here too.
 - **The AI usage policy on the AI Assistant's consent screen is configurable.** Settings → AI
   Assistant has a policy owner and a policy link; a deployment can set both at build time with
   `NEXT_PUBLIC_AI_POLICY_ORG` and `NEXT_PUBLIC_AI_POLICY_URL`, which then win. With nothing set it
-  is the same Acme owner and link as before; a custom or cleared owner gets only a link
-  configured for it, never Acme's, and Settings says so under the link field. With no link, the policy bullet, link and checkbox disappear and
+  is the same employer owner and link as before; a custom or cleared owner gets only a link
+  configured for it, never the employer's, and Settings says so under the link field. With no link, the policy bullet, link and checkbox disappear and
   Accept works on its own. Only an `https://` link is ever used.
 - **The export footer is configurable.** Settings → Appearance has an "Export footer" field for
   the line at the foot of HTML document downloads, print/PDF exports and PowerPoint exports —
   where it is also printed on every slide and names the deck's theme. With nothing set it is the
-  familiar "Acme — AI PM Cockpit"; clearing it prints just "AI PM Cockpit".
+  familiar "‹employer name› — AI PM Cockpit"; clearing it prints just "AI PM Cockpit".
 
 ### Changed
 
@@ -928,7 +928,7 @@ and Gantt row numbering. Closes follow-ups 42, 47, 79, 362 and 273; opens 540.
 - **The Version panel is a short pitch instead of a release history.** It shows
   one line on what the app is and five highlights of what makes it different, in
   English and German, in place of a list that had grown by one entry per release.
-  The tech-stack line and the Acme footer are gone; the footer now shows the
+  The tech-stack line and the employer footer are gone; the footer now shows the
   EUPL-1.2 licence, "Created by Sebastian Maute · Built with Claude Code", and
   links to the GitHub repository and to LinkedIn. `CHANGELOG.md` stays the
   release history, and a release no longer adds a highlight.
@@ -1079,7 +1079,7 @@ correctly, and a new default logo. Closes follow-ups 466, 471, 472, 474 and
 - **The sidebar and the classic top bar show the AI PM Cockpit banner by
   default.** A custom logo set under Branding still takes precedence, and the
   start window keeps its Harbor banner. The retired default logo files — the
-  old app mark and the Acme logos — were removed.
+  old app mark and the employer logos — were removed.
 - **The README's "See it in a minute" starts from the desktop installer** on
   the Releases page, which "Install the desktop app" now links too.
 
@@ -5799,7 +5799,7 @@ vertically.
   project's name, code, dates and operating timezone, with an Edit button that
   opens the same editor the Projects panel uses. Read-only in pop-out windows.
 - **Themes are files.** The theme gallery is now a library: load any portable
-  theme `.json` from disk, then apply, customise or remove it. The AIPM and
+  theme `.json` from disk, then apply, customise or remove it. The Petrol and
   Dashboard themes no longer ship with the app — load them as files if you want
   them. Importing from the scheme editor no longer drops a theme's dark mode or
   its shadow/gradient settings.
@@ -5812,7 +5812,7 @@ vertically.
 - **Contrast fix in the Meridian dark theme.** The selected option in a
   segmented control (Table/Board, density, and similar) drew its label below the
   AA contrast minimum. Found by the accessibility gate, which now scans Meridian
-  and Umber in place of the removed AIPM and Dashboard themes.
+  and Umber in place of the removed Petrol and Dashboard themes.
 
 ## [0.207.0] - 2026-07-28 "Goss"
 
@@ -6901,7 +6901,7 @@ noted accessibility fixes; internal only.
 
 Design-system **`Modal` adoption** — migrated the last hand-rolled dialog panel, the communication send-preview modal, onto the shared `Modal` primitive. It now inherits the canonical dialog chrome instead of re-implementing a subset:
 
-- **Backdrop unified** to the shared AIPM dark-blue scrim (`bg-ui-dark-blue/40`), matching every other modal in the app (was a bespoke light `bg-surface-muted/70` tint).
+- **Backdrop unified** to the shared Petrol dark-blue scrim (`bg-ui-dark-blue/40`), matching every other modal in the app (was a bespoke light `bg-surface-muted/70` tint).
 - **Gains focus-trap + focus-restore** — Tab/Shift+Tab now cycle within the dialog and focus returns to the trigger on close (previously only a one-shot `.focus()`, no trap, no restore).
 - **Gains backdrop-click-to-close** (previously clicking outside did nothing) and participates in the topmost-only modal stack.
 - Dropped ~30 lines of hand-rolled Escape listener + focus wiring; the panel is now pure content.
@@ -7023,29 +7023,29 @@ Design-system review follow-up — accessibility fixes and primitive-adoption cl
 ## [0.190.23] - 2026-07-18 "Pinsker"
 
 Palette token rename (Release B): the internal palette token names lose the brand
-word now that AIPM is just one pluggable theme.
+word now that Petrol is just one pluggable theme.
 
 ### Changed
-- **Palette tokens renamed `AIPM-*` → `ui-*`** across the whole codebase — Tailwind
-  utility classes (`bg-AIPM-green` → `bg-ui-green`), CSS variables (`--AIPM-green` →
+- **Palette tokens renamed `brand-*` → `ui-*`** across the whole codebase — Tailwind
+  utility classes (`bg-brand-green` → `bg-ui-green`), CSS variables (`--brand-green` →
   `--ui-green`), the Tailwind `@theme` map, the scheme registries, the shipped theme
   JSON keys, and the palette guards. This is a pure rename with **no visual or
-  behavioral change**. The AIPM theme identity (its display name, `themes/AIPM.json`,
+  behavioral change**. The Petrol theme identity (its display name, `themes/petrol.json`,
   and logo) is unchanged; it remains importable from the Theme gallery.
 
 ## [0.190.22] - 2026-07-18 "Pinsker"
 
-Theme decoupling (Release A): AIPM and Dashboard are no longer baked-in built-in
+Theme decoupling (Release A): Petrol and Dashboard are no longer baked-in built-in
 schemes.
 
 ### Changed
-- **AIPM and Dashboard are now optional, importable themes.** They ship as
+- **Petrol and Dashboard are now optional, importable themes.** They ship as
   self-contained files and are imported on demand from a new Theme gallery in
-  Settings → Appearance. A fresh install shows Harbor, Meridian and Umber; AIPM and
+  Settings → Appearance. A fresh install shows Harbor, Meridian and Umber; Petrol and
   Dashboard appear once imported. **Harbor is now the default look** (base palette
   and no-JS fallback).
 - The scheme editor's base + reset now start from Harbor, and its old
-  "New from AIPM / New from Mockup" preset buttons collapse to one "New from current
+  "New from Petrol / New from Mockup" preset buttons collapse to one "New from current
   theme" that seeds from whatever scheme is active.
 - Exported/imported theme files now carry their shadow/gradient (structural) tokens
   and pinned accessibility variants, so a shared theme keeps its exact look.
@@ -7557,11 +7557,11 @@ A large user-experience batch. The application is now named **AI PM Cockpit**.
 
 ### Changed
 - **The look is now fully scheme-driven — nothing is hardcoded into the app.**
-  The **AIPM** brand style and the **Dashboard** (Mockup) style are now read-only
+  The **Petrol** brand style and the **Dashboard** (Mockup) style are now read-only
   **built-in color schemes**, joining Harbor, Meridian, and Umber (five built-ins;
   Harbor stays the fresh-install default). Every style is selected the same way —
   from the unified scheme picker in **Settings → Appearance** — and the old
-  `data-style` axis has collapsed to a single scheme-driven path. AIPM and the
+  `data-style` axis has collapsed to a single scheme-driven path. Petrol and the
   Dashboard style render byte-identical to before.
 - **The scheme model now carries structural (non-color) tokens.** Card shadows,
   the KPI gradient, delta-chip padding, and chip fills travel with a scheme (not
@@ -7569,7 +7569,7 @@ A large user-experience batch. The application is now named **AI PM Cockpit**.
   its palette. Structural values are allowlist-validated before they are applied.
 
 ### Fixed
-- Selecting AIPM or the Dashboard style from the Appearance picker now applies it
+- Selecting Petrol or the Dashboard style from the Appearance picker now applies it
   correctly (previously routed through a legacy path).
 - No first-paint flash for existing devices on upgrade: the pre-paint boot script
   reads the active scheme (and its structural tokens) and paints it before React
@@ -7579,7 +7579,7 @@ A large user-experience batch. The application is now named **AI PM Cockpit**.
   scheme save can no longer silently clear a globally-set app name.
 
 ### Internal
-- `globals.css` drops the hardcoded AIPM-dark and Dashboard token blocks; `:root`
+- `globals.css` drops the hardcoded Petrol-dark and Dashboard token blocks; `:root`
   remains as the no-JS fallback. Removed dead style/token registries. All five
   scheme × theme combinations pass the axe accessibility gate.
 
@@ -7590,7 +7590,7 @@ A large user-experience batch. The application is now named **AI PM Cockpit**.
   scheme-driven: three built-in, dark-capable color schemes ship out of the
   box — **Harbor** (the new default), **Meridian**, and **Umber** — each with
   full light **and** dark maps, all WCAG AA-verified. Pick a scheme from a
-  unified selector in **Settings → Appearance** alongside the AIPM and Dashboard
+  unified selector in **Settings → Appearance** alongside the Petrol and Dashboard
   styles and your own custom schemes. Harbor is the fresh-install default and
   renders with no flash on first load (pre-paint boot script).
 - The theme (light/dark) toggle now works for any dark-capable scheme; it stays
@@ -8140,7 +8140,7 @@ breaking changes.
 ## [0.153.0] - 2026-06-30 "Slatter"
 
 ### Added
-- **Custom color schemes**: Settings → Appearance gained a third "Custom" visual style alongside Acme and Dashboard. A scheme is your own palette (brand primary, accent, background, surface, text and the RAG status colours, plus an Advanced disclosure for the remaining role tokens) bundled with the app name and footer slogan. Build, name, save, rename, delete, and import/export schemes as JSON; the AA-safe text variants are derived automatically and a live WCAG contrast panel warns (non-blocking) about low-contrast pairs. Custom is light-only (it pins light like the Dashboard style) and applies pre-paint with no flash on reload. Schemes are per-device (never exported with project data) and imported colours are validated to hex.
+- **Custom color schemes**: Settings → Appearance gained a third "Custom" visual style alongside Petrol and Dashboard. A scheme is your own palette (brand primary, accent, background, surface, text and the RAG status colours, plus an Advanced disclosure for the remaining role tokens) bundled with the app name and footer slogan. Build, name, save, rename, delete, and import/export schemes as JSON; the AA-safe text variants are derived automatically and a live WCAG contrast panel warns (non-blocking) about low-contrast pairs. Custom is light-only (it pins light like the Dashboard style) and applies pre-paint with no flash on reload. Schemes are per-device (never exported with project data) and imported colours are validated to hex.
 
 ### Fixed
 - **Scheme coherence**: selecting, saving, importing, or deleting a scheme now keeps the active scheme exactly in sync with what is rendered (previously these could diverge — e.g. selecting a saved scheme didn't recolour, or a deleted scheme's colours lingered). Applied edits persist to the active scheme so they survive a reload.
@@ -8201,7 +8201,7 @@ breaking changes.
 - **Analyze with AI — progress modal**: the Action Center "Analyze with AI" button is restyled like Ask Claude and moved beside the heading; while the call runs it shows a blocking progress modal with a Cancel that aborts the request.
 
 ### Changed
-- **Unified Help layout**: the floating Help window and the in-pane Help view now share one grouped two-pane component (Concepts · Workflows · Features · What's automated) — a wider table of contents, clearer hierarchy, a smaller default floating-panel size, and a container-query responsive stack. The Acme AI-usage-policy link was removed from the Help footer.
+- **Unified Help layout**: the floating Help window and the in-pane Help view now share one grouped two-pane component (Concepts · Workflows · Features · What's automated) — a wider table of contents, clearer hierarchy, a smaller default floating-panel size, and a container-query responsive stack. The employer's AI-usage-policy link was removed from the Help footer.
 - **View tips inside the card**: every view's contextual Help tip now renders inside its own rounded card (like Open Points) instead of floating above it; the shared above-card callout was removed.
 
 ## [0.146.0] - 2026-06-29 "Wecker"
@@ -8279,15 +8279,15 @@ breaking changes.
 ## [0.141.0] - 2026-06-26 "Asher"
 
 ### Added
-- **Mockup-style polish**: the "Dashboard" visual style moves closer to its design reference — a completion-% gauge bar under the completion KPI (red→amber→green gradient; the Acme style shows a solid brand-green bar), trend deltas as tinted pill chips, a lighter active look for segmented controls (white pill + green text on a grey track), and a subtle hover-lift on clickable tiles. All differences flow through CSS role tokens, so the Acme style is unchanged. Chip tints are opaque pre-composited colors so the delta text stays WCAG AA even on tile hover.
+- **Mockup-style polish**: the "Dashboard" visual style moves closer to its design reference — a completion-% gauge bar under the completion KPI (red→amber→green gradient; the Petrol style shows a solid brand-green bar), trend deltas as tinted pill chips, a lighter active look for segmented controls (white pill + green text on a grey track), and a subtle hover-lift on clickable tiles. All differences flow through CSS role tokens, so the Petrol style is unchanged. Chip tints are opaque pre-composited colors so the delta text stays WCAG AA even on tile hover.
 
 ## [0.140.0] - 2026-06-26 "MacLeod"
 
 ### Added
-- **Dual-CI visual style switch**: a new "Dashboard" visual style (soft shadows, gradient-ready bars, conventional red/amber/green status, light table header) selectable in Settings - Appearance, alongside the flat Acme style. Orthogonal to light/dark (the Dashboard style is light-only and pins light while active). All styling is CSS-token-driven; the palette-sweep + axe gates now scan every shipped combo (AIPM-light, AIPM-dark, Dashboard-light).
+- **Dual-CI visual style switch**: a new "Dashboard" visual style (soft shadows, gradient-ready bars, conventional red/amber/green status, light table header) selectable in Settings - Appearance, alongside the flat Petrol style. Orthogonal to light/dark (the Dashboard style is light-only and pins light while active). All styling is CSS-token-driven; the palette-sweep + axe gates now scan every shipped combo (Petrol-light, Petrol-dark, Dashboard-light).
 
 ### Fixed
-- Dark-mode contrast (WCAG AA) for Acme-dark-blue text on dark surfaces in the RAID, Gantt, and Budget views (surfaced by the expanded axe matrix).
+- Dark-mode contrast (WCAG AA) for brand dark-blue text on dark surfaces in the RAID, Gantt, and Budget views (surfaced by the expanded axe matrix).
 
 ## [0.139.0] - 2026-06-24 "Bacigalupi"
 
@@ -8704,7 +8704,7 @@ UI/UX consistency batch across many views, plus deeper version-history controls.
 - **Sample-workspace data polish** — populated the previously-empty project `status` (overall RAG +
   PM narrative) so the dashboard status summary demos real content; linked tasks #3/#9/#10 to their
   matching resources (Aria/Sample were half-linked); corrected the Alex Example contact email to her real
-  Acme address (marked synced); and aligned the David Okoro stakeholder organization to the
+  employer address (marked synced); and aligned the David Okoro stakeholder organization to the
   project customer (Northwind Retail Group). Regenerated the `-big`/`-huge` datasets, the Turso SQLite
   exports, and the golden serializer fixtures.
 
@@ -9899,7 +9899,7 @@ _No runtime/behavior changes._
 ## [0.30.0] — 2026-05-29 "Liu"
 
 ### Added
-- **Full-page task editor (modern layout).** Opening a task — or clicking **New task** — now opens a full-viewport edit view instead of the overlay dialog: a Dark-Blue section heading, a two-column field grid in the AIPM palette, and **Save** (green) / **Cancel** in the top bar. The editor reuses the same fields, state, and validation as before, and returns you to the view you came from on save or cancel. **Classic mode** and all pop-out windows keep the dialog. This is Phase 2 of the sidebar-layout redesign (a table restyle follows).
+- **Full-page task editor (modern layout).** Opening a task — or clicking **New task** — now opens a full-viewport edit view instead of the overlay dialog: a Dark-Blue section heading, a two-column field grid in the brand palette, and **Save** (green) / **Cancel** in the top bar. The editor reuses the same fields, state, and validation as before, and returns you to the view you came from on save or cancel. **Classic mode** and all pop-out windows keep the dialog. This is Phase 2 of the sidebar-layout redesign (a table restyle follows).
 
 ## [0.29.0] — 2026-05-29 "Wilhelm"
 
@@ -10030,50 +10030,50 @@ _No runtime/behavior changes._
 ## [0.16.1] — 2026-05-28
 
 ### Changed
-- Resources panel: Directory / Planning / Report tables now share the Workload tab's table chrome — sticky uppercase header, consistent padding and density. Closes sub-project B from the 2026-05-27 batch (the AIPM design system + table consistency are now both complete across the app).
+- Resources panel: Directory / Planning / Report tables now share the Workload tab's table chrome — sticky uppercase header, consistent padding and density. Closes sub-project B from the 2026-05-27 batch (the brand design system + table consistency are now both complete across the app).
 
 ## [0.16.0] — 2026-05-28 "Butler"
 
 ### Changed
-- Completed the AIPM design-system rollout (sub-project E): the final 16 menus + chrome + misc components — settings/jira/storage/export/help/version menus, notifications, chat panel, activity log, workspace section, voice button, read-only-mirror banner, page/error/markdown wrappers, effort-progress-bar — now use the surface-token foundation, the green accent on focus, dark-blue fills, and no shadows or gradients. The AIPM palette now covers the entire app.
+- Completed the brand design-system rollout (sub-project E): the final 16 menus + chrome + misc components — settings/jira/storage/export/help/version menus, notifications, chat panel, activity log, workspace section, voice button, read-only-mirror banner, page/error/markdown wrappers, effort-progress-bar — now use the surface-token foundation, the green accent on focus, dark-blue fills, and no shadows or gradients. The brand palette now covers the entire app.
 
 ### Added
-- New version highlight: "Full AIPM palette rollout" (`versionHighlightPalette`) in both EN and DE.
+- New version highlight: "Full brand palette rollout" (`versionHighlightPalette`) in both EN and DE.
 
 ## [0.15.7] — 2026-05-28
 
 ### Changed
-- Continued the AIPM design-system rollout: the Gantt now uses the AIPM palette and surface tokens — consistent light/dark surfaces, no drop shadows; the High-severity bar icon switched from amber to purple (completing the priority ramp); absence column tints recoloured to the palette (vacation=blue, sick=pink, training=purple); overdue ring and the destructive button now in pink.
+- Continued the brand design-system rollout: the Gantt now uses the brand palette and surface tokens — consistent light/dark surfaces, no drop shadows; the High-severity bar icon switched from amber to purple (completing the priority ramp); absence column tints recoloured to the palette (vacation=blue, sick=pink, training=purple); overdue ring and the destructive button now in pink.
 
 ## [0.15.6] — 2026-05-28
 
 ### Changed
-- Continued the AIPM design-system rollout: the RAID panel now uses the AIPM palette and surface tokens — consistent light/dark surfaces, no drop shadows, R/A/I/D category chips remapped (Risk=pink, Action=blue, Issue=purple, Decision=green), severity ramp recoloured cold-to-hot (Low=green, Medium=blue, High=purple, Critical=pink), RAG health dots in pink/purple/green, stale/aging indicators in purple, error box in pink.
+- Continued the brand design-system rollout: the RAID panel now uses the brand palette and surface tokens — consistent light/dark surfaces, no drop shadows, R/A/I/D category chips remapped (Risk=pink, Action=blue, Issue=purple, Decision=green), severity ramp recoloured cold-to-hot (Low=green, Medium=blue, High=purple, Critical=pink), RAG health dots in pink/purple/green, stale/aging indicators in purple, error box in pink.
 
 ## [0.15.5] — 2026-05-28
 
 ### Changed
-- Continued the AIPM design-system rollout: the tasks table (including the task row, sticky headers and toolbar), the task-form input controls (combo, contact, labels, dependencies), the reports panel and the shared task-manager UI helpers now use the AIPM palette and surface tokens — consistent light/dark surfaces, no drop shadows, task-row priority chips remapped to the palette (Medium=blue, High=purple, Urgent=pink), and the reports RAG chart in pink/purple/green.
+- Continued the brand design-system rollout: the tasks table (including the task row, sticky headers and toolbar), the task-form input controls (combo, contact, labels, dependencies), the reports panel and the shared task-manager UI helpers now use the brand palette and surface tokens — consistent light/dark surfaces, no drop shadows, task-row priority chips remapped to the palette (Medium=blue, High=purple, Urgent=pink), and the reports RAG chart in pink/purple/green.
 
 ## [0.15.4] — 2026-05-28
 
 ### Changed
-- Continued the AIPM design-system rollout: all editor modals (resource, shift, absence, roles, budget bucket, task, Jira conflicts, bulk edit) now use the AIPM palette and surface tokens — consistent light/dark surfaces, no drop shadows, destructive (Delete/Discard) actions in pink, and the task RAG status indicator mapped to pink (Risk) / purple (Amber) / green (Green).
+- Continued the brand design-system rollout: all editor modals (resource, shift, absence, roles, budget bucket, task, Jira conflicts, bulk edit) now use the brand palette and surface tokens — consistent light/dark surfaces, no drop shadows, destructive (Delete/Discard) actions in pink, and the task RAG status indicator mapped to pink (Risk) / purple (Amber) / green (Green).
 
 ## [0.15.3] — 2026-05-27
 
 ### Changed
-- Continued the AIPM design-system rollout: the resource calendar now uses the AIPM palette — absence types in blue (vacation), pink (sick), purple (training) and grey (other), today highlighted in green, holidays in purple, weekends muted. Fixes a long-standing bug where the "today" highlight used an undefined color and rendered invisibly.
+- Continued the brand design-system rollout: the resource calendar now uses the brand palette — absence types in blue (vacation), pink (sick), purple (training) and grey (other), today highlighted in green, holidays in purple, weekends muted. Fixes a long-standing bug where the "today" highlight used an undefined color and rendered invisibly.
 
 ## [0.15.2] — 2026-05-27
 
 ### Changed
-- Continued the AIPM design-system rollout: the Resources tabs (directory, workload, report, planning) and the Budget panel now use the AIPM palette and surface tokens — consistent light/dark surfaces, no drop shadows, and status colors mapped to the palette (overdue → pink, positive margins → green, absence overrides → purple).
+- Continued the brand design-system rollout: the Resources tabs (directory, workload, report, planning) and the Budget panel now use the brand palette and surface tokens — consistent light/dark surfaces, no drop shadows, and status colors mapped to the palette (overdue → pink, positive margins → green, absence overrides → purple).
 
 ## [0.15.1] — 2026-05-27
 
 ### Changed
-- Began the AIPM design-system rollout: introduced semantic surface tokens (light & dark) and migrated the shared controls — segmented controls, modal headers, and the app header — to the AIPM palette (green accent, dark-blue fills, no drop shadows). A new `docs/DESIGN-TOKENS.md` documents the tokens and color rules. The remaining screens follow in later updates.
+- Began the brand design-system rollout: introduced semantic surface tokens (light & dark) and migrated the shared controls — segmented controls, modal headers, and the app header — to the brand palette (green accent, dark-blue fills, no drop shadows). A new `docs/DESIGN-TOKENS.md` documents the tokens and color rules. The remaining screens follow in later updates.
 
 ## [0.15.0] — 2026-05-27
 
