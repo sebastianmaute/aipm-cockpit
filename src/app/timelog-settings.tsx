@@ -1,7 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { t, tPlural, type Lang } from "./i18n";
 import { FieldError, FieldNotice } from "./field-feedback";
+import { FieldHint } from "./field-hint";
 import { Banner } from "./banner";
 import type {
   TimelogConfig,
@@ -16,6 +17,7 @@ import { MAX_HOURS_PER_DAY } from "./types";
 import { saveSecretValue } from "./use-secrets";
 import { removeSealed } from "./secrets-store";
 import { listUsers, getPrivileges } from "./timelog-api";
+import { effectiveTimelogConfig } from "./timelog-sanitize";
 import { FOCUS_RING } from "./interaction-styles";
 import { Button } from "./button";
 import { useIntegrationDisclaimer } from "./integration-disclaimer";
@@ -46,6 +48,12 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
   const [testResult, setTestResult] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
   const set = (patch: Partial<TimelogConfig>) => onChange({ ...config, ...patch });
+  const tenantHintId = useId();
+  // The INPUT keeps showing the raw stored value (blank stays blank — typing
+  // here always wins over the env, so editing must stay live); this only
+  // decides whether to say a blank field currently falls back to the
+  // deployment's build variable.
+  const tenantFromEnv = config.tenant.trim() === "" && effectiveTimelogConfig(config).tenant !== "";
 
   // ★ A LOCAL DRAFT, persisted only once write-safe (spec Part 1, decision 1) —
   //  shared with jira-settings.tsx via `useEmailDraft` (fix round 1).
@@ -68,7 +76,12 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
     setTesting(true);
     setTestResult(null);
     try {
-      const creds = { host: config.host, tenant: config.tenant, token: config.apiToken };
+      // The input keeps showing the STORED (possibly blank) tenant, but the
+      // actual test call must use the same effective value the panel and the
+      // proxy would use — a blank stored tenant falls back to the deployment's
+      // NEXT_PUBLIC_TIMELOG_TENANT, never written back into `config`.
+      const effective = effectiveTimelogConfig(config);
+      const creds = { host: effective.host, tenant: effective.tenant, token: effective.apiToken };
       const [users, priv] = await Promise.all([listUsers(creds), getPrivileges(creds)]);
       const scope =
         config.scopeMode === "auto"
@@ -135,8 +148,14 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
               className="mt-1 w-full"
               value={config.tenant}
               onChange={(e) => set({ tenant: e.target.value })}
+              aria-describedby={tenantFromEnv ? tenantHintId : undefined}
             />
           </label>
+          {tenantFromEnv && (
+            <FieldHint id={tenantHintId} className="-mt-1">
+              {t(lang, "timelogTenantFromEnv")}
+            </FieldHint>
+          )}
           <label className="block text-xs">
             {t(lang, "timelogEmail")}
             <Input

@@ -32,7 +32,10 @@ export interface TimelogActionState {
   syncBusy: boolean;
   /** A destructive confirmation is open. */
   confirming: boolean;
-  /** `!cfg.enabled || !cfg.host || !cfg.apiToken` — no usable TimeLog config. */
+  /** `!cfg.enabled || !cfg.host || !cfg.tenant || !cfg.apiToken` — no usable
+   *  TimeLog config (`cfg` is the EFFECTIVE config — see `effectiveTimelogConfig`
+   *  in timelog-sanitize.ts — so a blank tenant already folds in the
+   *  NEXT_PUBLIC_TIMELOG_TENANT build variable before this is computed). */
   isMisconfigured: boolean;
 }
 

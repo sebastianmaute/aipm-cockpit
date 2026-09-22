@@ -1676,6 +1676,11 @@ export const de: Record<TranslationKey, string> = {
   timelogTokenHelpAfter: "navigieren, um ein persönliches Zugriffstoken zu erzeugen.",
   timelogHost: "Host",
   timelogTenant: "Mandant",
+  // ★ Richtung ist das GEGENTEIL von aiPolicyOrgFromEnv/brandingExportFooterFromEnv:
+  //   ein gespeicherter Mandant gewinnt immer, daher füllt die Umgebungsvariable nur ein
+  //   LEERES Feld, statt ein eingegebenes zu überschreiben — das Feld bleibt bearbeitbar.
+  timelogTenantFromEnv:
+    "Dieses Feld ist leer, daher wird die Build-Variable NEXT_PUBLIC_TIMELOG_TENANT dieser Installation verwendet. Geben Sie hier einen Mandanten ein, um sie zu überschreiben.",
   timelogEmail: "Konto-E-Mail",
   timelogToken: "Persönlicher Zugriffstoken",
   timelogScope: "Datenbereich",

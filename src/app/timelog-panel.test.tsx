@@ -310,9 +310,30 @@ function enableTimelogNoTenant() {
   );
 }
 
+/** Timelog switched ON with a host and token, and the given stored tenant
+ *  (blank or set) — used by the fix-round-1 env-fallback tests below, which
+ *  need to vary the stored tenant against a stubbed `NEXT_PUBLIC_TIMELOG_TENANT`. */
+function enableTimelogWithTenant(tenant: string) {
+  window.localStorage.setItem(
+    SETTINGS_KEY,
+    JSON.stringify({
+      ...defaultSettings,
+      timelog: {
+        enabled: true,
+        host: "app2.timelog.com",
+        tenant,
+        email: "admin@example.com",
+        apiToken: "tok123",
+        scopeMode: "self",
+      },
+    }),
+  );
+}
+
 afterEach(() => {
   window.localStorage.clear();
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
 });
 
 beforeEach(async () => {
@@ -606,6 +627,58 @@ describe("TimelogPanel", () => {
         ).toBeEnabled(),
       );
       expect(screen.queryByText(t("en-US", "timelogEnable"))).toBeNull();
+    });
+  });
+
+  // Fix round 1 (task-3-report.md): the task-3 review found `isMisconfigured`
+  // and the proxy `creds` reading raw `settings.timelog` directly, never the
+  // env-aware `effectiveTimelogConfig` — so `NEXT_PUBLIC_TIMELOG_TENANT` had
+  // NO production effect at all. These pin the READ-time resolution through
+  // the panel, not just the `timelog-sanitize.ts` unit.
+  describe("env-supplied tenant is used at read time, never persisted (fix round 1)", () => {
+    it("uses the build-variable tenant when nothing is stored, and mounts configured", async () => {
+      vi.stubEnv("NEXT_PUBLIC_TIMELOG_TENANT", "acme");
+      enableTimelogWithTenant("");
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      // Settle to the STORED config (see the Task 3 test above for why this
+      // wait is load-bearing rather than a plain button/text assertion).
+      await waitFor(() => {
+        const lastCreds = vi.mocked(useTimelogSync).mock.calls.at(-1)?.[0]?.creds;
+        expect(lastCreds).toMatchObject({ token: "tok123", tenant: "acme" });
+      });
+
+      // Positive control that the panel mounted normally, i.e. NOT gated into
+      // the misconfigured state a blank tenant would otherwise force.
+      expect(screen.queryByText(t("en-US", "timelogEnable"))).toBeNull();
+      expect(
+        screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
+      ).toBeEnabled();
+    });
+
+    it("keeps a stored tenant even when the env supplies a different one", async () => {
+      vi.stubEnv("NEXT_PUBLIC_TIMELOG_TENANT", "acme");
+      enableTimelogWithTenant("globex");
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        const lastCreds = vi.mocked(useTimelogSync).mock.calls.at(-1)?.[0]?.creds;
+        expect(lastCreds).toMatchObject({ token: "tok123", tenant: "globex" });
+      });
     });
   });
 

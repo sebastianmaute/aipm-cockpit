@@ -1773,6 +1773,10 @@ const enUS = {
   timelogTokenHelpAfter: "to generate a personal access token.",
   timelogHost: "Host",
   timelogTenant: "Tenant",
+  // ★ Direction is the OPPOSITE of aiPolicyOrgFromEnv/brandingExportFooterFromEnv:
+  //   for Timelog a STORED tenant always wins, so the env only fills a BLANK
+  //   field rather than overriding a typed one — the input stays live.
+  timelogTenantFromEnv: "This field is blank, so this deployment's NEXT_PUBLIC_TIMELOG_TENANT build variable is used. Enter a tenant here to override it.",
   timelogEmail: "Account email",
   timelogToken: "Personal access token",
   timelogScope: "Data scope",

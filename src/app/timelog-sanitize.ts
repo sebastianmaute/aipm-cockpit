@@ -36,6 +36,25 @@ export function defaultTimelogTenant(env: TimelogEnv = timelogEnv()): string {
   return env.tenant?.trim() || "";
 }
 
+/** The config a runtime reader should actually USE — never what gets
+ *  persisted. Resolves the env at READ time: a stored non-blank `tenant`
+ *  always wins (unchanged from the raw `cfg`); a blank stored tenant falls
+ *  back to `defaultTimelogTenant(env)`.
+ *  ★★★ Callers that BUILD REQUESTS or JUDGE CONFIGURATION (the proxy creds,
+ *  `isMisconfigured`) must read `settings.timelog` through this, not raw —
+ *  `sanitizeTimelogConfig` only resolves the env for a *fresh* config (see
+ *  above); it does not run on every read of already-stored settings, so the
+ *  env would otherwise have no effect on an existing install at all.
+ *  ★★ Deliberately NOT used for whatever gets WRITTEN back to `settings`
+ *  (the settings-load merge, the settings form's `config` prop, or any
+ *  `setSettings` call): writing the resolved value back would make an
+ *  env-supplied tenant masquerade as a stored one, and a later env change
+ *  would then silently stop taking effect for that device. */
+export function effectiveTimelogConfig(cfg: TimelogConfig, env: TimelogEnv = timelogEnv()): TimelogConfig {
+  const tenant = cfg.tenant.trim();
+  return tenant ? cfg : { ...cfg, tenant: defaultTimelogTenant(env) };
+}
+
 /** True when the blob carries nothing worth persisting.
  *  ★★ THE OUTER HALF OF THE BYTE-STABILITY RULE, and it is a genuinely separate
  *  one: `sanitizeTimelogPolicy` below drops an empty `policy` key, but
