@@ -29,15 +29,21 @@
 //      against a pattern (see `classifyHit`'s doc in the lib) — a file whose
 //      NAME carries the identifier (e.g. a note file named after a customer)
 //      is invisible to this gate.
-//   2. A `word:` entry is bounded by `[A-Za-z0-9_]` on both sides, so it
-//      matches a bare word but MISSES the same text glued into a longer
-//      compound: `acme_corp` and `acmeCorp` both fail the boundary check for
-//      a `word:acme` entry, because `_` counts as a word character and the
-//      adjoining letter is one too. A literal (non-`word:`) entry still
-//      catches those as a plain substring; use one for anything with a known
-//      compound form (the identifier-leak sweep task hit exactly this for the
-//      retired brand trigram, which needed a second, compound-aware regex
-//      pass beyond the word-bounded one).
+//   2. A `word:` entry is bounded by Unicode `\p{L}`/`\p{N}`/`_` on both sides
+//      (fixed from an ASCII-only `[A-Za-z0-9_]` class — that version treated
+//      any non-ASCII letter, e.g. a German umlaut, as a non-word separator,
+//      so a short fragment glued directly onto one could match "whole-word"
+//      in the middle of an unrelated longer word; see the display-name
+//      sanitisation task's fix round 1/2), so it matches a bare word but
+//      still MISSES the same text glued into a longer compound: `acme_corp`
+//      and `acmeCorp` both fail the boundary check for a `word:acme` entry,
+//      because `_` counts as a word character and the adjoining letter is
+//      one too (now true of ANY letter, ASCII or not, not just ASCII). A
+//      literal (non-`word:`) entry still catches those as a plain substring;
+//      use one for anything with a known compound form (the identifier-leak
+//      sweep task hit exactly this for the retired brand trigram, which
+//      needed a second, compound-aware regex pass beyond the word-bounded
+//      one).
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";

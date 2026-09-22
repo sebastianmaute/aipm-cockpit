@@ -12,7 +12,10 @@
  *    - `@<class> ` (optional prefix) names the entry's CLASS — the only thing the
  *      CLI ever prints about a hit, so a report never echoes the identifier;
  *    - `word:<text>` matches <text> only as a whole word (so a short token does
- *      not flag every longer word that contains it);
+ *      not flag every longer word that contains it) — the boundary is Unicode-aware
+ *      (`\p{L}`/`\p{N}`/`_` count as word characters, not just ASCII), so a
+ *      fragment glued directly onto a non-ASCII letter (e.g. a German umlaut) is
+ *      correctly seen as part of that longer word, not a separate whole word;
  *    - anything else is a literal, matched as a substring.
  *  All matching is case-insensitive.
  */
@@ -53,8 +56,8 @@ export function buildPatterns(list) {
       throw new Error(`list entry ${i + 1} (class ${cls}) has no text to match`);
     }
     const body = escapeRegExp(text);
-    const source = isWord ? `(?<![A-Za-z0-9_])${body}(?![A-Za-z0-9_])` : body;
-    return { cls, re: new RegExp(source, "i") };
+    const source = isWord ? `(?<![\\p{L}\\p{N}_])${body}(?![\\p{L}\\p{N}_])` : body;
+    return { cls, re: new RegExp(source, "iu") };
   });
 }
 

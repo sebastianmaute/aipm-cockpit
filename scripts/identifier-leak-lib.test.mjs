@@ -23,6 +23,16 @@ describe("classifyHit", () => {
     expect(classifyHit("a.md", "the acm theme", P).kind).toBe("leak");
     expect(classifyHit("a.md", "acme and acmx", P).kind).toBe("clean");
   });
+
+  it("the word boundary is Unicode-aware: an umlaut is a letter, not a separator", () => {
+    // A non-ASCII letter (umlaut) must count as a word character on either side
+    // of a `word:` match, exactly like an ASCII letter does — otherwise a short
+    // fictional fragment glued right after an umlaut, at the end of an unrelated
+    // German-style word, reads as a "whole word" match by mistake (an ASCII-only
+    // boundary treats the umlaut itself as a separator, same as a space would be).
+    expect(classifyHit("a.md", "the acm theme", P).kind).toBe("leak");
+    expect(classifyHit("a.md", "Fläacm ist wichtig", P).kind).toBe("clean");
+  });
 });
 
 // ---- Beyond the brief's four cases: the list format and the helpers the CLI uses.
