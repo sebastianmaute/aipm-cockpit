@@ -9,7 +9,11 @@
 # - tags are pushed unforced, so a moved tag fails the job the same way;
 # - `--prune` also DELETES a GitLab branch or tag that no longer exists on GitHub — a tag deleted
 #   and recreated (moved) across two syncs is pruned on the first and reappears on the second;
-# - `-o ci.skip` keeps the push from starting a pipeline.
+# - `-o ci.skip` keeps the push from starting a pipeline;
+# - the push URL is built from protocol, host and port, so it assumes GitLab is served at the
+#   server root. A relative URL root would need the path from $CI_SERVER_URL too. Change that line
+#   with care: GitLab runs THIS file from its own copy, which only a working sync updates, so a
+#   broken push URL cannot deliver its own fix — repair it in GitLab by hand, then run the job.
 # Tokens are masked, protected CI variables. The script is GitHub content: whoever can merge to
 # GitHub main controls what runs with GITLAB_SYNC_TOKEN.
 #
