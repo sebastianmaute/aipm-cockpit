@@ -23,7 +23,7 @@ Reuse the SP1 calendar engine to push **RAID items** as all-day Outlook events o
 
 ### 1. `raidToGraphEvent(raid, projectId)` — `outlook-calendar-write.ts`
 
-Mirror `taskToGraphEvent`: all-day on `raid.targetDate`, subject = `raid.title`, `categories: [categoryFor(projectId, "raid")]`, body notes owner/severity/status + "Managed by the AIPM PM Tracker." Callers filter to items **with** a `targetDate` before calling (builder assumes a date, like the task builder).
+Mirror `taskToGraphEvent`: all-day on `raid.targetDate`, subject = `raid.title`, `categories: [categoryFor(projectId, "raid")]`, body notes owner/severity/status + "Managed by AI PM Cockpit." Callers filter to items **with** a `targetDate` before calling (builder assumes a date, like the task builder).
 
 ```ts
 export function raidToGraphEvent(raid: RaidItem, projectId: string): GraphEvent {
@@ -37,7 +37,7 @@ export function raidToGraphEvent(raid: RaidItem, projectId: string): GraphEvent 
       raid.owner ? `Owner: ${raid.owner}` : "",
       raid.severity ? `Severity: ${raid.severity}` : "",
       raid.status ? `Status: ${raid.status}` : "",
-      "Managed by the AIPM PM Tracker.",
+      "Managed by AI PM Cockpit.",
     ].filter(Boolean).join("\n") },
   };
 }

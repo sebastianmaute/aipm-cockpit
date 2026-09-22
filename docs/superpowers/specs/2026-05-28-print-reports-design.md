@@ -12,7 +12,7 @@ Give the user a one-click path from any report popout to a steering-committee-re
 1. Click Print → browser print dialog opens with the current report view as preview.
 2. Output fits DIN A4 (size + reasonable margin).
 3. Toolbars, toggles, filter inputs, and the print button itself disappear; the report body (heading + tiles + tables) remains.
-4. Surface-token backgrounds strip to white for ink efficiency; semantic accent colors (AIPM-pink overdue, AIPM-green completed) survive.
+4. Surface-token backgrounds strip to white for ink efficiency; semantic accent colors (ui-pink overdue, ui-green completed) survive.
 
 ## Non-goals
 
@@ -46,7 +46,7 @@ export function PrintButton({ lang, onClick }: { lang: Lang; onClick?: () => voi
       onClick={onClick ?? (() => window.print())}
       aria-label={t(lang, "printHint")}
       title={t(lang, "printHint")}
-      className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted print:hidden"
+      className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted print:hidden"
     >
       <PrinterIcon />
       {t(lang, "print")}
@@ -121,8 +121,8 @@ Elements that should disappear in print:
 - **`window.print()`** opens the browser's native print dialog. The user can choose "Save as PDF" to export, or pick a physical printer. Cross-browser behaviour is uniform for `window.print()`.
 - **`@page` size A4** is a CSS standard supported by Chromium, Firefox, Safari. Browser may ask the user to choose a different paper size; the size in CSS is a default.
 - **Margin 1.5 cm** is a comfortable margin that leaves room for binding without wasting too much space.
-- **Semantic colors preserved.** `text-AIPM-pink` (overdue) and `text-AIPM-green` (completed) carry meaning the steering committee needs to see at a glance on the printed page.
-- **Tile values use `text-AIPM-dark-blue`** — survives the strip (the strip targets surface classes only, not text-AIPM-* accents).
+- **Semantic colors preserved.** `text-ui-pink` (overdue) and `text-ui-green` (completed) carry meaning the steering committee needs to see at a glance on the printed page.
+- **Tile values use `text-ui-dark-blue`** — survives the strip (the strip targets surface classes only, not text-ui-* accents).
 
 ## Edge cases
 

@@ -6,7 +6,7 @@
 
 **Architecture:** All decision logic lands in pure, i18n-free, clock-free modules (`date-range.ts`, `calendar-drag.ts`, `calendar-event.ts`, `recurrence.ts`, `occurrence-lanes.ts`) that are unit-tested directly. `resource-calendar.tsx` splits on the gantt convention into orchestrator + `-rows` + `-band` before it approaches the 800-line ratchet. `CalendarEvent` is a real row entity: one `ENTITY_SPECS` registration buys CSV plus both Turso schemas, with Markdown/JSON/IndexedDB wired by hand.
 
-**Tech Stack:** Next.js 16 + React (client components), TypeScript strict, vitest + @testing-library/react, fast-check for property tests, Tailwind v4 with AIPM brand tokens only.
+**Tech Stack:** Next.js 16 + React (client components), TypeScript strict, vitest + @testing-library/react, fast-check for property tests, Tailwind v4 with brand tokens only.
 
 **Spec:** `docs/superpowers/specs/2026-07-26-r5-calendar-overhaul-design.md` (slices S1–S5; S6–S7 are the separate 0.203.0 plan).
 
@@ -20,7 +20,7 @@ Read these once before Task 1. They are repo-specific and violating them fails C
 - **A react-hooks purity rule bans `Date.now()` / `new Date()` / `Math.random()` in a render body**, including inside `useMemo`. Capture via a lazy `useState(() => …)` or read it inside an effect/callback.
 - **Run `npx tsc --noEmit` after editing ANY test file.** `next build` does not typecheck tests and vitest never typechecks, so a test-only type error passes locally and fails CI.
 - **`i18n.ts` (EN) and `i18n.de.ts` (DE) key sets must be identical** (tsc enforces). `i18n.de.ts` is CRLF and the Edit tool corrupts umlauts and curls double-quotes in it — patch it with a node utf8 write matching `\r\n`, then grep-verify. DE must use real umlauts; ASCII substitutions (`fuer`, `druecken`) are banned by `i18n-encoding.test`.
-- **Palette:** sanctioned AIPM tokens only. No gradients, no shadows, no off-palette colors. The guards scan comments too — do not write the bare word "shadow" in prose.
+- **Palette:** sanctioned brand tokens only. No gradients, no shadows, no off-palette colors. The guards scan comments too — do not write the bare word "shadow" in prose.
 - **Commit after every task** using conventional-commit format (`feat:`, `fix:`, `test:`, `refactor:`).
 - Full-suite command is `npm run test:run`. A run reporting far fewer FILES than ~721 has not passed — it partly did not run (worker crashes). Treat a file-count shortfall as a red flag.
 

@@ -7,13 +7,13 @@
 
 ## Goal
 
-Migrate 5 panel components from `zinc-*`/shadows/off-palette status colors to the semantic surface tokens + AIPM palette defined in `docs/DESIGN-TOKENS.md`, with no behavior/layout/markup changes.
+Migrate 5 panel components from `zinc-*`/shadows/off-palette status colors to the semantic surface tokens + brand palette defined in `docs/DESIGN-TOKENS.md`, with no behavior/layout/markup changes.
 
 ## Scope (5 files)
 
 `resources-panel.tsx`, `resource-directory.tsx`, `resource-workload.tsx`, `resources-report.tsx`, `budget-panel.tsx`.
 
-**Explicitly excluded:** `resource-calendar.tsx` (its 7-state color legend exceeds the 4 palette hues and it uses a pre-existing undefined `AIPM-light-blue` token — it gets its own focused cycle), and all edit modals (`resource-edit-modal`, `shift-edit-modal`, `absence-edit-modal`, `roles-modal`, `budget-bucket-modal` — a later "modals" chunk).
+**Explicitly excluded:** `resource-calendar.tsx` (its 7-state color legend exceeds the 4 palette hues and it uses a pre-existing undefined `brand-light-blue` token — it gets its own focused cycle), and all edit modals (`resource-edit-modal`, `shift-edit-modal`, `absence-edit-modal`, `roles-modal`, `budget-bucket-modal` — a later "modals" chunk).
 
 ## Mapping (per `docs/DESIGN-TOKENS.md` — mechanical)
 
@@ -25,16 +25,16 @@ Migrate 5 panel components from `zinc-*`/shadows/off-palette status colors to th
 | `text-zinc-900` / `text-zinc-800` / `text-zinc-700` / `dark:text-zinc-100|200|300` | `text-foreground` |
 | `text-zinc-500` / `text-zinc-600` / `text-zinc-400` / `dark:text-zinc-400|500` | `text-muted-foreground` |
 | `shadow-sm` / any `shadow-*` | removed (separation via `border-line`) |
-| focus `ring-AIPM-dark-blue` / `ring-zinc-*` | `ring-AIPM-green` |
+| focus `ring-ui-dark-blue` / `ring-zinc-*` | `ring-ui-green` |
 | `bg-gradient`/`from-`/`via-`/`to-` | removed (none expected in these files) |
 
-Solid fills stay `bg-AIPM-dark-blue text-white` (unchanged). `hover:bg-AIPM-light-grey` (already palette) may be folded into `hover:bg-surface-muted` for light/dark consistency where it pairs with a removed `dark:hover:bg-zinc-*`.
+Solid fills stay `bg-ui-dark-blue text-white` (unchanged). `hover:bg-ui-light-grey` (already palette) may be folded into `hover:bg-surface-muted` for light/dark consistency where it pairs with a removed `dark:hover:bg-zinc-*`.
 
 ### Per-file status colors (the only non-chrome edits)
 
-- **resource-workload.tsx**: `text-red-600 dark:text-red-400` (overdue counts) → `text-AIPM-pink`.
-- **budget-panel.tsx**: `text-emerald-600 dark:text-emerald-400` (positive CCI tone) → `text-AIPM-green`; the negative branch already uses `text-AIPM-pink` (leave it).
-- **resources-panel.tsx**: the absence-override input `border-amber-200 text-amber-700 dark:border-amber-900/50 dark:text-amber-400` → `border-AIPM-purple/40 text-AIPM-purple dark:border-AIPM-purple/50 dark:text-AIPM-purple` (amber/warning → purple). Plus the outer `<section>` card (`bg-white p-4 shadow-sm dark:bg-zinc-950 …`) → `bg-surface … border-line` (drop shadow).
+- **resource-workload.tsx**: `text-red-600 dark:text-red-400` (overdue counts) → `text-ui-pink`.
+- **budget-panel.tsx**: `text-emerald-600 dark:text-emerald-400` (positive CCI tone) → `text-ui-green`; the negative branch already uses `text-ui-pink` (leave it).
+- **resources-panel.tsx**: the absence-override input `border-amber-200 text-amber-700 dark:border-amber-900/50 dark:text-amber-400` → `border-ui-purple/40 text-ui-purple dark:border-ui-purple/50 dark:text-ui-purple` (amber/warning → purple). Plus the outer `<section>` card (`bg-white p-4 shadow-sm dark:bg-zinc-950 …`) → `bg-surface … border-line` (drop shadow).
 - **resource-directory.tsx**, **resources-report.tsx**: pure chrome — no status colors (resources-report has no shadows/semantic colors at all; just zinc).
 
 ## Non-goals
@@ -52,7 +52,7 @@ Solid fills stay `bg-AIPM-dark-blue text-white` (unchanged). `hover:bg-AIPM-ligh
 ## Testing
 
 - The existing component tests (`resources-panel.test.tsx`, `resource-directory.test.tsx`, `resource-workload.test.tsx`, `resources-report.test.tsx`, and budget tests) assert behavior/roles/text — not zinc classes — so they must stay green (primary safety net). Do NOT add brittle full-className snapshots.
-- **Per-file verification gate** (not a unit test — source files aren't unit-testable): after migrating each file, grep it and confirm ZERO remaining `zinc-`, `shadow-`, `bg-gradient`/`from-`/`via-`/`to-`, and zero off-palette color utilities (`amber|red|emerald|sky|rose|slate|gray|green-[0-9]|blue-[0-9]` etc.) — i.e. it references only `--AIPM-*` + the semantic tokens.
+- **Per-file verification gate** (not a unit test — source files aren't unit-testable): after migrating each file, grep it and confirm ZERO remaining `zinc-`, `shadow-`, `bg-gradient`/`from-`/`via-`/`to-`, and zero off-palette color utilities (`amber|red|emerald|sky|rose|slate|gray|green-[0-9]|blue-[0-9]` etc.) — i.e. it references only `--ui-*` + the semantic tokens.
 - Gates each task: `npx tsc --noEmit` (0), `npm run lint` (0), relevant `npx vitest run` green.
 
 ## Release

@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-05-29-modern-sidebar-layout-design.md`
 
-**Palette (locked):** only the 9 Acme colors via existing tokens (`AIPM-dark-blue`, `AIPM-green`, `AIPM-white`, `AIPM-light-grey`, `AIPM-medium-grey`, plus `--surface`/`--line`/`--foreground`/`--muted-foreground`). No gradients, no shadows, no off-palette colors.
+**Palette (locked):** only the 9 brand colors via existing tokens (`ui-dark-blue`, `ui-green`, `ui-white`, `ui-light-grey`, `ui-medium-grey`, plus `--surface`/`--line`/`--foreground`/`--muted-foreground`). No gradients, no shadows, no off-palette colors.
 
 ---
 
@@ -623,7 +623,7 @@ export function SidebarNav({ lang, activeView, onNavigate, collapsed = false }: 
       {NAV_GROUPS.map((group) => (
         <div key={group.labelKey}>
           {!collapsed && (
-            <p className="px-4 pb-1 text-[11px] font-semibold uppercase tracking-wider text-AIPM-medium-grey">
+            <p className="px-4 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ui-medium-grey">
               {t(lang, group.labelKey)}
             </p>
           )}
@@ -640,8 +640,8 @@ export function SidebarNav({ lang, activeView, onNavigate, collapsed = false }: 
                     className={
                       "flex w-full items-center gap-2 border-l-2 px-4 py-2 text-left text-sm transition-colors " +
                       (active
-                        ? "border-AIPM-green bg-AIPM-green/15 font-semibold text-AIPM-white"
-                        : "border-transparent text-AIPM-light-grey hover:bg-AIPM-white/10 hover:text-AIPM-white")
+                        ? "border-ui-green bg-ui-green/15 font-semibold text-ui-white"
+                        : "border-transparent text-ui-light-grey hover:bg-ui-white/10 hover:text-ui-white")
                     }
                   >
                     {t(lang, navLabelKey(item.view))}
@@ -659,8 +659,8 @@ export function SidebarNav({ lang, activeView, onNavigate, collapsed = false }: 
                               className={
                                 "flex w-full items-center gap-2 border-l-2 py-1.5 pl-9 pr-4 text-left text-sm transition-colors " +
                                 (childActive
-                                  ? "border-AIPM-green bg-AIPM-green/15 font-semibold text-AIPM-white"
-                                  : "border-transparent text-AIPM-medium-grey hover:bg-AIPM-white/10 hover:text-AIPM-white")
+                                  ? "border-ui-green bg-ui-green/15 font-semibold text-ui-white"
+                                  : "border-transparent text-ui-medium-grey hover:bg-ui-white/10 hover:text-ui-white")
                               }
                             >
                               {t(lang, navLabelKey(child.view))}
@@ -766,16 +766,16 @@ export function Sidebar({
   return (
     <aside
       className={
-        "flex h-full flex-col bg-AIPM-dark-blue text-AIPM-white " +
+        "flex h-full flex-col bg-ui-dark-blue text-ui-white " +
         (collapsed ? "w-16" : "w-64")
       }
     >
-      <div className="flex items-start justify-between gap-2 border-b border-AIPM-white/10 px-4 py-4">
+      <div className="flex items-start justify-between gap-2 border-b border-ui-white/10 px-4 py-4">
         {!collapsed && (
           <div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/AIPM-logo.svg" alt="Acme" className="h-6 w-auto brightness-0 invert" />
-            <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-AIPM-green">
+            <img src="/brand-logo.svg" alt="Company logo" className="h-6 w-auto brightness-0 invert" />
+            <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-ui-green">
               {t(lang, "sidebarBrandSubtitle")}
             </p>
           </div>
@@ -785,7 +785,7 @@ export function Sidebar({
           onClick={onToggleCollapsed}
           aria-label={collapsed ? t(lang, "sidebarExpand") : t(lang, "sidebarCollapse")}
           title={collapsed ? t(lang, "sidebarExpand") : t(lang, "sidebarCollapse")}
-          className="rounded-md p-1.5 text-AIPM-light-grey hover:bg-AIPM-white/10 hover:text-AIPM-white focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+          className="rounded-md p-1.5 text-ui-light-grey hover:bg-ui-white/10 hover:text-ui-white focus:outline-none focus:ring-2 focus:ring-ui-green"
         >
           <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
             <path fillRule="evenodd" d="M12.78 5.22a.75.75 0 010 1.06L9.06 10l3.72 3.72a.75.75 0 11-1.06 1.06l-4.25-4.25a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06 0z" clipRule="evenodd" />
@@ -797,7 +797,7 @@ export function Sidebar({
         <SidebarNav lang={lang} activeView={activeView} onNavigate={onNavigate} collapsed={collapsed} />
       </div>
 
-      <div className="border-t border-AIPM-white/10 px-4 py-3 text-xs text-AIPM-medium-grey">
+      <div className="border-t border-ui-white/10 px-4 py-3 text-xs text-ui-medium-grey">
         {footer}
         {!collapsed && <p className="mt-2">{version}</p>}
       </div>
@@ -806,7 +806,7 @@ export function Sidebar({
 }
 ```
 
-Note: the logo is the existing `/AIPM-logo.svg`; `brightness-0 invert` renders it white on Dark Blue without introducing a new asset or color. If a dedicated white logo asset exists later, swap the `<img src>`.
+Note: the logo is the existing `/brand-logo.svg`; `brightness-0 invert` renders it white on Dark Blue without introducing a new asset or color. If a dedicated white logo asset exists later, swap the `<img src>`.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -893,7 +893,7 @@ interface TopBarProps {
 export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, children }: TopBarProps) {
   return (
     <header className="flex items-center justify-between gap-4 border-b border-line bg-surface px-6 py-3">
-      <h1 className="text-xl font-semibold tracking-tight text-AIPM-dark-blue dark:text-AIPM-light-grey">
+      <h1 className="text-xl font-semibold tracking-tight text-ui-dark-blue dark:text-ui-light-grey">
         {title}
       </h1>
       <div className="flex items-center gap-1">
@@ -902,7 +902,7 @@ export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, chil
           onClick={onNewTask}
           aria-label={t(lang, "addTask")}
           title={t(lang, "addTask")}
-          className="rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-semibold text-AIPM-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+          className="rounded-md bg-ui-green px-3 py-1.5 text-sm font-semibold text-ui-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ui-green"
         >
           {t(lang, "newTask")}
         </button>
@@ -911,13 +911,13 @@ export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, chil
           onClick={onShowAlerts}
           aria-label={t(lang, "showDueAlerts")}
           title={t(lang, "showDueAlerts")}
-          className="relative rounded-md p-2 text-AIPM-dark-grey hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-medium-grey dark:hover:text-AIPM-light-grey"
+          className="relative rounded-md p-2 text-ui-dark-grey hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-ui-medium-grey dark:hover:text-ui-light-grey"
         >
           <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-5 w-5">
             <path d="M10 2a6 6 0 00-6 6v2.586l-.707.707A1 1 0 004 13h12a1 1 0 00.707-1.707L16 10.586V8a6 6 0 00-6-6zM8 15a2 2 0 104 0H8z" />
           </svg>
           {bannerCount > 0 && (
-            <span aria-hidden className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-AIPM-pink px-1 text-[10px] font-semibold leading-none text-AIPM-white">
+            <span aria-hidden className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-ui-pink px-1 text-[10px] font-semibold leading-none text-ui-white">
               {bannerCount}
             </span>
           )}
@@ -1376,7 +1376,7 @@ Expected: FAIL — no "Classic" control.
 In `src/app/settings-menu.tsx`, directly after the Theme `SegmentedControl` block (around line 316), add:
 
 ```tsx
-          <label className="mt-4 flex items-center gap-1 text-sm font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+          <label className="mt-4 flex items-center gap-1 text-sm font-medium text-ui-dark-grey dark:text-ui-light-grey">
             {t(lang, "layout")}
             <InfoTooltip text={t(lang, "layoutTooltip")} />
           </label>

@@ -838,7 +838,7 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   hosted on the hook. Assert `defaultPrevented` (a property of the event) rather than "some other
   listener did not fire" (a property of the topology).
   • **Info-flows diagram** (`settings-sections/information-flows-section.tsx`) has **9 nodes** in two
-  colour-coded zones (AIPM tokens): *Your data* (green) = Local/IndexedDB, **File storage** (JSON/CSV/MD),
+  colour-coded zones (brand tokens): *Your data* (green) = Local/IndexedDB, **File storage** (JSON/CSV/MD),
   Turso; central Browser-app hub; *Connected services* (dark-blue) = Jira, Timelog, **SharePoint**, **Outlook**,
   Anthropic — M365 SPLIT into SharePoint (docs) + Outlook (contacts/calendar). Option-B tight-horizontal SVG
   (`Node`/`Zone` helpers, `role=img`+`aria-label`+`<title>`/`<desc>`; node text hardcoded EN, legend `<dl>` +

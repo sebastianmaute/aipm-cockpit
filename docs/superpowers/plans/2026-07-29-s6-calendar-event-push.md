@@ -817,7 +817,7 @@ export function eventToGraphEvent(
       content: [
         event.location ? `Location: ${event.location}` : "",
         event.notes ?? "",
-        "Managed by the AIPM PM Tracker.",
+        "Managed by AI PM Cockpit.",
       ]
         .filter(Boolean)
         .join("\n\n"),

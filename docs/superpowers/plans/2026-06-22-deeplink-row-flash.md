@@ -4,9 +4,9 @@
 
 **Goal:** When `requestOpen(view,id)` lands, scroll the target row into view and briefly outline it, alongside the existing editor-open — across RAID, milestones, changes, stakeholders, tasks.
 
-**Architecture:** One shared hook `use-deeplink-row-flash.ts` reads `pendingOpen`; on a view+id match it sets `flashId`, scrolls the `[data-deeplink-row="<id>"]` element into view, and clears after 1800ms. Each panel attaches `containerRef` to its scroll container and adds `data-deeplink-row={id}` + an `outline-AIPM-green` class to its rows. Does not clear `pendingOpen` (panels' own effects do).
+**Architecture:** One shared hook `use-deeplink-row-flash.ts` reads `pendingOpen`; on a view+id match it sets `flashId`, scrolls the `[data-deeplink-row="<id>"]` element into view, and clears after 1800ms. Each panel attaches `containerRef` to its scroll container and adds `data-deeplink-row={id}` + an `outline-ui-green` class to its rows. Does not clear `pendingOpen` (panels' own effects do).
 
-**Tech Stack:** Next.js 16 (forked) / React 19 / TypeScript / Tailwind (AIPM brand tokens) / vitest + RTL.
+**Tech Stack:** Next.js 16 (forked) / React 19 / TypeScript / Tailwind (brand tokens) / vitest + RTL.
 
 Full design: `docs/superpowers/specs/2026-06-22-deeplink-row-flash-design.md`.
 
@@ -25,7 +25,7 @@ Create `src/app/use-deeplink-row-flash.test.tsx`. Render a probe component insid
 - `useDeepLinkRowFlash("raid")` probe + `requestOpen("changes",5)` → `flashId` stays `null`, `scrollIntoView` not called.
 - Sentinel: `requestOpen("changes", -1)` → `flashId` stays `null`.
 - With `vi.useFakeTimers()`: advance `DEEPLINK_FLASH_MS` → `flashId` back to `null` (wrap timer advance + assertion in `act`).
-- `flashOutlineClass(true)` contains `outline-AIPM-green`; `flashOutlineClass(false) === ""`.
+- `flashOutlineClass(true)` contains `outline-ui-green`; `flashOutlineClass(false) === ""`.
 
 Use `requestAnimationFrame` stub if needed (jsdom supports rAF; if flaky, `vi.stubGlobal("requestAnimationFrame", (cb) => { cb(0); return 0; })`).
 
@@ -78,7 +78,7 @@ For each panel the wiring is identical in shape; apply per the design's "Per-pan
 
 - [ ] **Step 5: Tasks** — `tasks-section.tsx`: view `"open-points"`; attach `containerRef` to the tasks table's `overflow-auto` container; in `visibleRows.map`, pass `isFlashed={flashId === task.id}` to `<TaskRow ... />`. In `task-row.tsx`: add `isFlashed?: boolean` to the props type; on the `<tr>` (~line 183) add `data-deeplink-row={task.id}` and append `flashOutlineClass(isFlashed)` to the className (keep `bg-*` stateClass). Import `flashOutlineClass`. `TaskRow` stays `memo` (boolean prop compares fine).
 
-- [ ] **Step 6: Panel integration test** — in `change-panel.test.tsx` add a test: render the changes panel (follow the existing render harness in that file — it already mounts inside the workspace-tab context, or add a `WorkspaceTabProvider`). Stub `scrollIntoView`. Trigger `requestOpen("changes", <an existing change id>)`. Assert the matching `<tr>` has attribute `data-deeplink-row="<id>"` and (while flashed) its className contains `outline-AIPM-green`. (If driving `requestOpen` from the test is awkward, assert at minimum that every change row renders `data-deeplink-row`.)
+- [ ] **Step 6: Panel integration test** — in `change-panel.test.tsx` add a test: render the changes panel (follow the existing render harness in that file — it already mounts inside the workspace-tab context, or add a `WorkspaceTabProvider`). Stub `scrollIntoView`. Trigger `requestOpen("changes", <an existing change id>)`. Assert the matching `<tr>` has attribute `data-deeplink-row="<id>"` and (while flashed) its className contains `outline-ui-green`. (If driving `requestOpen` from the test is awkward, assert at minimum that every change row renders `data-deeplink-row`.)
 
 - [ ] **Step 7: Verify**
 
@@ -118,7 +118,7 @@ git commit -m "feat: deep-link scroll + flash target row across the five deep-li
 
 - [ ] **Step 5: README badge + package.json** — bump version badge to 0.125.0 and `package.json` `"version": "0.125.0"`.
 
-- [ ] **Step 6: AGENTS.md** — add the "Deep-link row flash (v0.125.0)" pointer per the design doc's AGENTS.md section (shared hook, per-panel `data-deeplink-row` + `outline-AIPM-green`, fires alongside editor-open, doesn't clear `pendingOpen`, ★ tasks-full-page no-op caveat).
+- [ ] **Step 6: AGENTS.md** — add the "Deep-link row flash (v0.125.0)" pointer per the design doc's AGENTS.md section (shared hook, per-panel `data-deeplink-row` + `outline-ui-green`, fires alongside editor-open, doesn't clear `pendingOpen`, ★ tasks-full-page no-op caveat).
 
 - [ ] **Step 7: Verify**
 

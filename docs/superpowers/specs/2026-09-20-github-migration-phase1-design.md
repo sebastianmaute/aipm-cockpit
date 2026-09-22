@@ -76,7 +76,7 @@ Phase B's blind substitution.
 | Export footer default (`export-footer.ts`, 1.13.0) | OUTBOUND DISCLOSURE — HTML/PDF/PPTX footers and the PPTX colour-scheme name | neutral built-in; add a build variable |
 | Timelog tenant default (`defaultTimelogConfig`) | PROTOCOL — sent to the Timelog API and persisted in settings | move behind a build variable, empty built-in |
 | Electron `appId` (`desktop/electron-builder.yml`) | PROTOCOL — installer identity and taskbar identity | rename to `io.github.sebastianmaute.aipm-cockpit` (2026-09-22); only the repository owner has an install, and removes the old copy by hand |
-| Dead style value `"AIPM"` in the `CiStyle` union | persisted key, but never written any more | delete the member; the load path already forces `"custom"` |
+| Dead style value `"<trigram>"` in the `CiStyle` union | persisted key, but never written any more | delete the member; the load path already forces `"custom"` |
 
 ★★ The installed-base premises above (calendar sync never run; one desktop install) are
 point-in-time facts stated by the repository owner on 2026-09-20/21, not properties of the code.
@@ -108,12 +108,12 @@ Tasks, each its own commit (the plans split them into two files):
 
 1. **Brand rename** (brand-rename plan). ★★ Measured 2026-09-20/21, and it corrected this spec
    three times:
-   - The `--AIPM-*` custom properties **do not exist**. They were renamed to `--ui-*` in an earlier
+   - The `--brand-*` custom properties **do not exist**. They were renamed to `--ui-*` in an earlier
      release; what survives is stale comments and a stale document title.
    - The legacy built-in scheme id is **retired**, surviving only in a hand-built test fixture
      that exercises a generic built-in guard. No live scheme carries it.
    - The style axis is **always `"custom"`**: the load path rewrites any other stored value to
-     `"custom"` and `data-style` is hard-wired. The `"AIPM"` member of `CiStyle` is therefore never
+     `"custom"` and `data-style` is hard-wired. The `"<trigram>"` member of `CiStyle` is therefore never
      produced. The first draft renamed it to a new value; that renames dead code. **Delete the
      member instead.** No migration is needed because the existing load path already is one, and
      a characterisation test pins it.

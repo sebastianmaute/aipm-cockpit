@@ -13,7 +13,7 @@
 ## Critical conventions (read before any task)
 
 - **GIT SAFETY (every task):** ONLY `git add` / `git commit`. NEVER `checkout`, `switch`, `reset`, `stash`, `rebase`, `revert`, `clean`, `restore`, or branch ops. Other git is read-only. Work stays on `feat-baseline-variance-trends`.
-- **AIPM palette HARD constraint:** only the 9 brand tokens already in `globals.css` (`AIPM-green`, `AIPM-dark-blue`, `AIPM-pink`, `AIPM-purple`, surface/line/muted tokens, etc.). No raw hex, no gradients, no shadows.
+- **Brand palette HARD constraint:** only the 9 brand tokens already in `globals.css` (`ui-green`, `ui-dark-blue`, `ui-pink`, `ui-purple`, surface/line/muted tokens, etc.). No raw hex, no gradients, no shadows.
 - **i18n:** every new key MUST be added to BOTH `src/app/i18n.ts` (EN) and `src/app/i18n.de.ts` (DE). `tsc` enforces parity. In `i18n.de.ts` use straight ASCII quotes (`"`), never curly — verify with grep after editing.
 - **Commands:** `npx tsc --noEmit` (typecheck), `npm run lint`, `npm run test:run` (full Vitest), or `npx vitest run <file>` for one file.
 - **Commit messages:** Conventional Commits (`feat:`, `refactor:`, `test:`, `chore:`). Use the Bash tool with `git commit -F - <<'EOF' … EOF`.
@@ -1736,12 +1736,12 @@ export function TrendChart({
         )}
         {segments.map((s, i) => (
           <line key={`s${i}`} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2}
-            className="stroke-AIPM-dark-blue" strokeWidth={2}
+            className="stroke-ui-dark-blue" strokeWidth={2}
             strokeDasharray={s.dashed ? "4 3" : undefined} />
         ))}
         {/* the full polyline for a continuous read (under the per-segment styling is fine) */}
         <polyline points={points.map((p, i) => `${xAt(i, n).toFixed(1)},${yAt(p.value, min, max).toFixed(1)}`).join(" ")}
-          fill="none" className="stroke-AIPM-dark-blue" strokeWidth={0} aria-hidden="true" />
+          fill="none" className="stroke-ui-dark-blue" strokeWidth={0} aria-hidden="true" />
         {points.map((p, i) => (
           <text key={`x${i}`} x={xAt(i, n)} y={baseY + 12}
             textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
@@ -1959,7 +1959,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
           type="button"
           onClick={() => { void captureNow(); }}
           disabled={busy}
-          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {t(lang, "trendsCaptureNow")}
         </button>
@@ -2044,12 +2044,12 @@ export function TrendsPanel(props: TrendsPanelProps) {
                       <span className="inline-flex gap-2">
                         {!s.isBaseline && (
                           <button type="button" disabled={busy} onClick={() => { void setBaseline(s.id); }}
-                            className="text-xs text-AIPM-dark-blue underline hover:opacity-80 disabled:opacity-50">
+                            className="text-xs text-ui-dark-blue underline hover:opacity-80 disabled:opacity-50">
                             {t(lang, "trendsSetBaseline")}
                           </button>
                         )}
                         <button type="button" disabled={busy} onClick={() => { void deleteSnapshot(s.id); }}
-                          className="text-xs text-AIPM-pink underline hover:opacity-80 disabled:opacity-50">
+                          className="text-xs text-ui-pink underline hover:opacity-80 disabled:opacity-50">
                           {t(lang, "trendsDeleteSnapshot")}
                         </button>
                       </span>

@@ -61,7 +61,7 @@ export interface DictationEngine {
 - `supported`: `getCtor() !== null` (from voice.ts).
 
 ### Mic button (in `chat-panel.tsx`)
-- A small icon button beside the send control in the chat input row (near the `<textarea>` at ~line 579). `aria-pressed={listening}`, `aria-label={t(lang, "dictationHold")}` (e.g. "Hold to dictate"), title. Spread `buttonHandlers`. Palette-safe (AIPM tokens; `INTERACTIVE`). Hidden/disabled when `!supported` (or shown disabled with a "not supported in this browser" title).
+- A small icon button beside the send control in the chat input row (near the `<textarea>` at ~line 579). `aria-pressed={listening}`, `aria-label={t(lang, "dictationHold")}` (e.g. "Hold to dictate"), title. Spread `buttonHandlers`. Palette-safe (brand tokens; `INTERACTIVE`). Hidden/disabled when `!supported` (or shown disabled with a "not supported in this browser" title).
 - **Insertion:** `onAppendFinal(text)` → `setInput(prev => prev + (prev && !/\s$/.test(prev) ? " " : "") + text)`. Interim → a small live preview line ("🎙 …interim…") above/below the textarea (NOT written into `input`, so nothing uncommitted lands on send). Cleared on stop.
 - **Errors:** `onError("not-allowed")` → `reportCapabilityGap`-style info toast "Microphone access denied — allow it in your browser to dictate." (`guard-feedback` from sub-project A); `"not-supported"` → the button is simply hidden/disabled (no toast spam). `"disabled"` handled by gating the button on the setting.
 

@@ -73,7 +73,7 @@ Flow:
   and read-only). Reads live scope; applies via the threaded dispatcher.
 - **`inline-ai-edit-popover.tsx`** — presentational only: NL `<input>`/`<textarea>` (with an
   `aria-label`, never placeholder-only), a thinking spinner, the preview diff, and
-  Cancel/Apply. Reuses `usePopoverDismiss` + `INTERACTIVE`/`FOCUS_RING` atoms; AIPM palette
+  Cancel/Apply. Reuses `usePopoverDismiss` + `INTERACTIVE`/`FOCUS_RING` atoms; brand palette
   only.
 
 ## Reuse (no new engine, no new persistence)
@@ -160,7 +160,7 @@ row ✨  →  hook: thinking
 
 - `--max-warnings=0`; react-hooks purity + `set-state-in-effect` bans; no `Date.now()`/
   `new Date()` in render bodies.
-- AIPM palette only; no raw shadow/gradient; new toggle-ish buttons follow the interaction
+- Brand palette only; no raw shadow/gradient; new toggle-ish buttons follow the interaction
   atoms.
 - Coverage: pure `plan.ts` + the call module are gated engine files (keep them well-tested);
   a new render-scope `use*` hook that is pure UI glue may need `vitest.config.ts`

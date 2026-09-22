@@ -32,7 +32,7 @@ Budget A (not null); healthy indices → no RAG change; manual override still wi
 ## 2. Clickable sidebar version → version-history modal
 
 - Extract `VersionMenu`'s panel body (version/build + per-feature highlights +
-  tech stack + AIPM footer) into shared `version-info.tsx` (`VersionInfo`).
+  tech stack + brand footer) into shared `version-info.tsx` (`VersionInfo`).
   `VersionMenu` renders it inside its existing popover (DRY, no behavior change).
 - The inert version line in `sidebar.tsx` becomes a `<button>` calling a new
   `onShowVersion?` prop. `ModernShell` owns the open state and renders a centered

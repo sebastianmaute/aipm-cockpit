@@ -349,7 +349,7 @@ interface ReportsViewsControlProps {
 }
 
 const INPUT_CLASS =
-  "rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:ring-AIPM-green";
+  "rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:ring-ui-green";
 const BTN_CLASS =
   "rounded-md border border-line bg-surface px-2 py-1 text-sm text-muted-foreground hover:bg-surface-muted hover:text-foreground disabled:opacity-50";
 

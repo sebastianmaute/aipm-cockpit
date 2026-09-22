@@ -110,7 +110,7 @@ export function applyQuadrantMove(
   button stays both draggable and clickable.
 - **Quadrant cell:** when `editable`, add `onDragOver` (`e.preventDefault()`,
   `dropEffect="move"`) + an `onDragEnter`/`onDragLeave` counter driving a highlight
-  ring (`ring-2 ring-AIPM-green` over the existing tint — token-only, palette-safe),
+  ring (`ring-2 ring-ui-green` over the existing tint — token-only, palette-safe),
   and `onDrop`:
 
   ```ts
@@ -158,7 +158,7 @@ path (no new codec/backend work).
   status select being the keyboard path). No new keyboard-only control is required.
 - Chips keep their labeled edit `<button>` (`aria-label` `${edit} – ${name}`),
   unchanged.
-- Eye-verify the drop-target highlight uses only brand tokens (`ring-AIPM-green` over
+- Eye-verify the drop-target highlight uses only brand tokens (`ring-ui-green` over
   the existing quadrant tint) — no off-palette colour, no shadow/gradient.
 
 ## Testing

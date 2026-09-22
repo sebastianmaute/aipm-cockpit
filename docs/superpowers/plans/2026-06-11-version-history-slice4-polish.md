@@ -6,7 +6,7 @@
 
 **Architecture:** Add `versionHistoryRetention` to Settings with a clamping sanitizer; surface it as a numeric stepper. Register `history` as a feature-module so the nav gates on it (in addition to the existing Turso gate). Wire the prune to the setting. Refactor the hook's capture into a shared helper so `restore` can capture the restored workspace immediately (timing-safe). Replace the manual-checkpoint `window.prompt` with an inline themed input.
 
-**Tech Stack:** Next.js 16 / React 19 / TypeScript, vitest 4 + RTL, Tailwind (AIPM palette).
+**Tech Stack:** Next.js 16 / React 19 / TypeScript, vitest 4 + RTL, Tailwind (brand palette).
 
 **Spec:** `docs/superpowers/specs/2026-06-11-version-history-design.md`. **Branch:** `feat-version-history-slice4` (already created). Do NOT edit `eslint.config.mjs`.
 
@@ -348,7 +348,7 @@ Run: `npx vitest run src/app/history-panel.test.tsx` → the updated test FAILS 
 
 - [ ] **Step 3: Implement inline naming input**
 
-In `history-panel.tsx`: replace the `window.prompt` in `handleSave` with a `naming` boolean state + a `draftLabel` string state. Clicking "Save version now" sets `naming = true` and reveals an inline input + a confirm button (and a cancel ×). Confirm calls `onCaptureNow(draftLabel.trim())` when non-empty, then resets `naming`/`draftLabel`. Use the existing dark-blue button styling for confirm; AIPM palette. Keep it small (inline, not a full modal). Remove the `window.prompt` call entirely.
+In `history-panel.tsx`: replace the `window.prompt` in `handleSave` with a `naming` boolean state + a `draftLabel` string state. Clicking "Save version now" sets `naming = true` and reveals an inline input + a confirm button (and a cancel ×). Confirm calls `onCaptureNow(draftLabel.trim())` when non-empty, then resets `naming`/`draftLabel`. Use the existing dark-blue button styling for confirm; brand palette. Keep it small (inline, not a full modal). Remove the `window.prompt` call entirely.
 
 - [ ] **Step 4: Run — PASS; tsc; lint; commit**
 

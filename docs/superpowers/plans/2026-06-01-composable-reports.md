@@ -389,13 +389,13 @@ Pass `toolbarExtra={addReportControl}` to the `<ReportCard>` (it currently has n
         return (
           <div key={id}>
             <div className="mb-2 flex items-center justify-between gap-2 border-t border-line pt-4">
-              <h3 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, meta.titleKey)}</h3>
+              <h3 className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, meta.titleKey)}</h3>
               <button
                 type="button"
                 onClick={() => onChangeExtraReports?.(extraReports.filter((x) => x !== id))}
                 aria-label={t(lang, "reportsRemoveReport")}
                 title={t(lang, "reportsRemoveReport")}
-                className="rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted print:hidden"
+                className="rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted print:hidden"
               >
                 ×
               </button>

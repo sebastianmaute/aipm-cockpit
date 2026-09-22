@@ -978,7 +978,7 @@ with, above the `return`:
   const hitRatePct = inputSide === 0 ? 0 : Math.round((sessionUsage.cacheRead / inputSide) * 100);
 ```
 
-Existing palette tokens only — no new colours, no shadows, no gradients (`AIPM-color-palette`).
+Existing palette tokens only — no new colours, no shadows, no gradients (`brand-color-palette`).
 `<dl>`/`<dt>`/`<dd>` carry their own semantics, so no ARIA is added; the figures are static text, not
 controls, so the row-unique-name rule does not apply here.
 

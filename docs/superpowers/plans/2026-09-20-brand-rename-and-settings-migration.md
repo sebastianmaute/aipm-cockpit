@@ -32,17 +32,17 @@ applied once.
 Measure the boundary rather than trusting the count above:
 
 ```bash
-git grep -cIiP '(?<![a-z0-9])AIPM(?![a-z0-9])' -- . ':!docs' ':!CHANGELOG.md'
+git grep -cIiP '(?<![a-z0-9])<trigram>(?![a-z0-9])' -- . ':!docs' ':!CHANGELOG.md'
 ```
 
 ## Why the risk sits where it does
 
-- The `--AIPM-*` custom-property family **does not exist** — renamed to `--ui-*` in an earlier
+- The `--brand-*` custom-property family **does not exist** — renamed to `--ui-*` in an earlier
   release. Only stale comments and a stale document title still claim otherwise.
 - The legacy built-in scheme id is **retired**, surviving only in a hand-built test fixture.
 - The style axis is **always `"custom"`**. `CiStyleProvider`'s initializer rewrites any other
   stored value to `"custom"`, `data-style` is hard-wired to `"custom"`, and the boot script says
-  the same. The `"AIPM"` member of `CiStyle` is never produced — it survives only as the context's
+  the same. The `"<trigram>"` member of `CiStyle` is never produced — it survives only as the context's
   default value and in a test helper's parameter type.
 - The real exposure is `categoryFor`, which writes the trigram as an **Outlook category onto every
   synced calendar event**, read back with OData string equality, plus the event body text that
@@ -102,7 +102,7 @@ premise before reusing this reasoning.
   `categoryFor`, so the prefix has one spelling; the body text is spelled inline seven times.
 
 ```bash
-git grep -n "categoryFor\|AIPM:" -- src
+git grep -n "categoryFor\|<trigram>:" -- src
 git grep -n "PM Tracker" -- src
 ```
 
@@ -120,7 +120,7 @@ it("filters Outlook events by the current category prefix", async () => {
   // Act: call the reader.
   const url = decodeURIComponent(String(fetchMock.mock.calls[0][0]));
   expect(url).toContain("AIPM:");
-  expect(url).not.toContain("AIPM:");   // the half that fails if only a constant changed
+  expect(url).not.toContain("<trigram>:");   // the half that fails if only a constant changed
 });
 ```
 
@@ -160,7 +160,7 @@ between rows. Report predicted vs actual, including any mismatch.
 
 ---
 
-### Task 2: Delete the dead `"AIPM"` style member
+### Task 2: Delete the dead `"<trigram>"` style member
 
 **Files:**
 - Modify: `src/app/style-ci.ts` (the `CiStyle` union)
@@ -170,20 +170,20 @@ between rows. Report predicted vs actual, including any mismatch.
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `CiStyle` without `"AIPM"`. No other task depends on it.
+- Produces: `CiStyle` without `"<trigram>"`. No other task depends on it.
 
-- [ ] **Step 1: Enumerate.** `git grep -n "CiStyle\|\"AIPM\"" -- src`. Classify each hit: the union
+- [ ] **Step 1: Enumerate.** `git grep -n "CiStyle\|\"<trigram>\"" -- src`. Classify each hit: the union
   member, the context default, a test type, the retired scheme-id fixture, or the legacy-value
   characterisation test. ★ The last two stay.
 
 - [ ] **Step 2: Confirm the characterisation test exists.** `use-style.test.tsx` already pins that
-  a stored legacy `"AIPM"` normalises to `"custom"` (search for "legacy"). That test is why
+  a stored legacy `"<trigram>"` normalises to `"custom"` (search for "legacy"). That test is why
   deleting the member needs no migration. Do not weaken or rename it; it must keep storing the
   old literal, because stored values on real devices are the old literal.
 
 - [ ] **Step 3: Delete the member**, set the context default to `"custom"`, and narrow the test
   helper's parameter type. Run `npx tsc --noEmit; echo "EXIT=$?"` — expect 0. ★ tsc is the test
-  here: any remaining producer of `"AIPM"` as a `CiStyle` fails to compile.
+  here: any remaining producer of `"<trigram>"` as a `CiStyle` fails to compile.
 
 - [ ] **Step 4: Run** `npx vitest run src/app/use-style.test.tsx src/app/settings-sections/appearance-section.test.tsx src/app/builtin-schemes.test.ts --maxWorkers=1 --reporter=dot > "$TMP/t.log" 2>&1; echo "EXIT=$?"` — expect PASS.
 
@@ -198,7 +198,7 @@ between rows. Report predicted vs actual, including any mismatch.
 ### Task 3: Sweep the remaining trigram mentions outside `docs/`
 
 **Files:** every file the boundary command in "Scope boundary" lists after Tasks 1–2, including
-`src/app/globals.css`, `src/app/i18n.ts`, `src/app/i18n.de.ts`, `public/themes/AIPM.json`,
+`src/app/globals.css`, `src/app/i18n.ts`, `src/app/i18n.de.ts`, `public/themes/<trigram>.json`,
 `e2e/a11y.spec.ts`, `AGENTS.md` and `CONTRIBUTING.md`.
 
 **Interfaces:** none.
@@ -208,10 +208,10 @@ between rows. Report predicted vs actual, including any mismatch.
 | Kind | Action |
 |---|---|
 | Comment naming the palette or brand as a *fact* | neutral wording ("the brand palette", "the default palette") keeping the reason the comment gives |
-| Comment describing a rename still to come (`--AIPM-*`) | **delete** — that rename shipped as `--ui-*` |
+| Comment describing a rename still to come (`--brand-*`) | **delete** — that rename shipped as `--ui-*` |
 | The retired scheme-id fixture and the legacy-value test | **leave**, add a one-line comment saying why the old spelling stays |
 | i18n prose (EN + DE) | reword; DE via node utf8 write anchored on `\r\n` |
-| `public/themes/AIPM.json` | rename the file and its `"name"` to a neutral one; first `git grep` the filename across the repo, `e2e/` included |
+| `public/themes/<trigram>.json` | rename the file and its `"name"` to a neutral one; first `git grep` the filename across the repo, `e2e/` included |
 | A substring inside an unrelated word | false positive; record it and leave it |
 
 ★ Classify before editing. A table written after the edits documents what was done, not what was
@@ -239,8 +239,8 @@ real ones is dropped silently at exit 0. Assert `Test Files N` in the log matche
   something:
 
 ```bash
-git grep -cIiP '(?<![a-z0-9])AIPM(?![a-z0-9])' -- . ':!docs' ':!CHANGELOG.md'   # expect: only the kept fixture/test lines
-git grep -cIiP '(?<![a-z0-9])AIPM(?![a-z0-9])' -- docs                          # positive control: nonzero
+git grep -cIiP '(?<![a-z0-9])<trigram>(?![a-z0-9])' -- . ':!docs' ':!CHANGELOG.md'   # expect: only the kept fixture/test lines
+git grep -cIiP '(?<![a-z0-9])<trigram>(?![a-z0-9])' -- docs                          # positive control: nonzero
 ```
 
 - [ ] **Step 6: Commit.**

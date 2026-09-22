@@ -14,7 +14,7 @@
 - New per-device flag → `settings-types.ts` (`Settings` + `defaultSettings` + sanitize on load), persisted via `writeSettings` spread (no allowlist edit). OUT of exports/Turso.
 - New entity column → `*_CSV_COLUMNS` (csv-codecs-core) + `*_MD_COLUMNS` (+ MD decode arm) + `sanitizeX` + regen `__fixtures__/golden-*` + sample `.md`/`.csv` + `entity-persistence-registry.test.ts` row.
 - After each task: run the task's tests + `npx tsc --noEmit`, then commit.
-- Palette: AIPM tokens only; RAG via `--rag-*`; no raw shadow/gradient.
+- Palette: brand tokens only; RAG via `--rag-*`; no raw shadow/gradient.
 - Byte-check after multi-Edit sessions: `python -c "print(open(F,'rb').read().count(b'\x00'))"` == 0.
 
 **Execution order:** Slice 4a + 10-noteLog (heavy fields, one golden regen) → 3a (task editor modal) → 10-gantt + 3 modal chrome → 1,2,5,6,7,8,9 + remaining singles → release.
@@ -246,7 +246,7 @@ export function useAutogrow(ref: RefObject<HTMLTextAreaElement | null>, value: s
 
 **Files:** `calendar-sync-controls.tsx`.
 
-- [ ] Change the PUSH button className from `border border-AIPM-dark-blue bg-surface … text-AIPM-dark-blue` to the milestone neutral style `border border-line bg-surface … text-foreground` and add a leading icon (match `milestones-panel` push button). (Pull button already neutral.)
+- [ ] Change the PUSH button className from `border border-ui-dark-blue bg-surface … text-ui-dark-blue` to the milestone neutral style `border border-line bg-surface … text-foreground` and add a leading icon (match `milestones-panel` push button). (Pull button already neutral.)
 - [ ] Test: snapshot/class assertion; **axe** RAID; commit `style(calendar): unify push button with milestone style`.
 
 ---
@@ -438,7 +438,7 @@ export function useAutogrow(ref: RefObject<HTMLTextAreaElement | null>, value: s
 
 - [ ] **Step 1: Failing test** — `absenceBg("sick")` returns the pink token class (shared util); resource-calendar still returns identical classes.
 - [ ] **Step 2:** Run → FAIL.
-- [ ] **Step 3:** Extract `absenceBg`/`absenceGlyph`/legend from `resource-calendar` into `absence-style.ts` (byte-identical maps: vacation AIPM-blue/30, sick AIPM-pink/30, training AIPM-purple/30, other AIPM-medium-grey/45). Use it in the resource-planner/capacity view to color upcoming absence cells/markers by type + a legend.
+- [ ] **Step 3:** Extract `absenceBg`/`absenceGlyph`/legend from `resource-calendar` into `absence-style.ts` (byte-identical maps: vacation ui-blue/30, sick ui-pink/30, training ui-purple/30, other ui-medium-grey/45). Use it in the resource-planner/capacity view to color upcoming absence cells/markers by type + a legend.
 - [ ] **Step 4:** Run → PASS; `npx tsc --noEmit`; commit `feat(planner): color absences by type`.
 
 ### Task 10.8: Gantt milestone placement toggle

@@ -33,14 +33,14 @@ Read `src/app/resource-directory.tsx` around line 250-260 — the `<button>` tha
 
 Expected current `className`:
 ```
-rounded-md border border-transparent px-2 py-0.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted
+rounded-md border border-transparent px-2 py-0.5 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted
 ```
 
 - [ ] **Step 2: Apply the edit**
 
 Edit `src/app/resource-directory.tsx`:
-- Find: `rounded-md border border-transparent px-2 py-0.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted`
-- Replace with: `rounded-md border border-transparent px-2 py-0.5 font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted`
+- Find: `rounded-md border border-transparent px-2 py-0.5 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted`
+- Replace with: `rounded-md border border-transparent px-2 py-0.5 font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted`
 
 (`text-xs ` removed — nothing else changes.)
 
@@ -230,7 +230,7 @@ After Task 2, the strings below should each have exactly ONE remaining match (th
 - Replace: `<th key={rp.key} className="px-3 py-2 text-right font-medium tabular-nums">{rp.key}</th>`
 
 **E) Rollup name `<td>`** (~L462):
-- Find: `<td className="px-2 py-1 font-medium text-foreground dark:text-AIPM-light-grey">{resourceDisplayName(r)}</td>`
+- Find: `<td className="px-2 py-1 font-medium text-foreground dark:text-ui-light-grey">{resourceDisplayName(r)}</td>`
 - Replace: `<td className="px-3 py-2 font-medium text-foreground">{resourceDisplayName(r)}</td>`
 
 **F) Rollup period-value `<td>`** (~L464):
@@ -283,14 +283,14 @@ The report uses a small `<Table>` helper component (~L119–130) and a `<Td>` fi
 - (NOTE: backtick template literals are part of the JSX — preserve them; only `font-medium ` is inserted between `py-2 ` and `${i === 0`.)
 
 **D) `<Td>` helper** (~L133):
-- Find: `<td className="px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">{children}</td>`
+- Find: `<td className="px-3 py-2 font-medium text-ui-dark-blue dark:text-ui-light-grey">{children}</td>`
 - Replace: `<td className="px-3 py-2 font-medium text-foreground">{children}</td>`
 
 - [ ] **Step 2: Verify scoped grep**
 
 Run on `src/app/resources-report.tsx`:
 - `text-left text-xs` → ZERO
-- `text-AIPM-dark-blue dark:text-AIPM-light-grey` count file-wide → expected: exactly 2 (the Tile `<p>` and the Section `<h3>` — both intentional, both out of scope per the spec). If 3+, the Td edit didn't land. If 0–1, you also touched Tile or Section — revert that.
+- `text-ui-dark-blue dark:text-ui-light-grey` count file-wide → expected: exactly 2 (the Tile `<p>` and the Section `<h3>` — both intentional, both out of scope per the spec). If 3+, the Td edit didn't land. If 0–1, you also touched Tile or Section — revert that.
 
 - [ ] **Step 3: Tests**
 
@@ -298,7 +298,7 @@ Run:
 ```bash
 npx vitest run resources-report
 ```
-Expected: PASS. If any assertion checks for `text-AIPM-dark-blue` on a Td cell or `text-xs` on the Table, update it.
+Expected: PASS. If any assertion checks for `text-ui-dark-blue` on a Td cell or `text-xs` on the Table, update it.
 
 - [ ] **Step 4: Gates**
 
@@ -332,7 +332,7 @@ Do NOT add a new highlight key (patch release, consistency polish).
 ## [0.16.1] — 2026-05-28
 
 ### Changed
-- Resources panel: Directory / Planning / Report tables now share the Workload tab's table chrome — sticky uppercase header, consistent padding and density. Closes sub-project B from the 2026-05-27 batch (the AIPM design system + table consistency are now both complete across the app).
+- Resources panel: Directory / Planning / Report tables now share the Workload tab's table chrome — sticky uppercase header, consistent padding and density. Closes sub-project B from the 2026-05-27 batch (the brand design system + table consistency are now both complete across the app).
 ```
 
 - [ ] **Step 3: Verify**
@@ -364,7 +364,7 @@ Dispatch a final reviewer over `git diff main...HEAD`. The reviewer should:
 2. **Scoped grep verification — ZERO matches each:**
    - `src/app/resource-directory.tsx` name button: no `text-xs` on the line containing `resourceDisplayName(r)}</button>`.
    - `src/app/resources-panel.tsx`: file-wide grep `text-left text-xs` → ZERO; `px-2 py-1\.?5?` → ZERO; `px-1 py-1` → ZERO.
-   - `src/app/resources-report.tsx`: `text-left text-xs` inside the Table component → ZERO; file-wide `text-AIPM-dark-blue dark:text-AIPM-light-grey` count = exactly 2 (Tile value + Section h3 only).
+   - `src/app/resources-report.tsx`: `text-left text-xs` inside the Table component → ZERO; file-wide `text-ui-dark-blue dark:text-ui-light-grey` count = exactly 2 (Tile value + Section h3 only).
 3. **Workload recipe confirmed in all three surfaces:** each migrated `<table>` is `text-sm`; each migrated `<thead>` is `sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground`; each migrated `<th>` is `px-3 py-2 font-medium …`; each migrated `<td>` is `px-3 py-2 …`.
 4. **Release metadata:** `APP_VERSION === "0.16.1"`, no new highlight key, `[0.16.1]` CHANGELOG section non-empty.
 5. **Class-strings only:** the diff is entirely className changes; no logic/markup/prop/behavior changes; no new imports.

@@ -534,7 +534,7 @@ idiom rather than inventing one):
 - A row is a `<button>` ONLY when `onOpenInsight` is passed; its accessible name
   must include the insight's own descriptor so N rows are not N identical names.
   Use the `${label} – ${detail}` idiom the panel already uses.
-- Palette: AIPM tokens only. Direction colour rides the badge's DOT — do NOT tint
+- Palette: brand tokens only. Direction colour rides the badge's DOT — do NOT tint
   small text. No `shadow-*`, no gradient, no off-palette class.
 - Compose `INTERACTIVE` from `interaction-styles.ts` on any button; do not
   hand-roll hover/focus.

@@ -6,7 +6,7 @@
 
 **Architecture:** A new pure i18n-free CTA picker (`next-actions/action-cta.ts`) decides each action's primary verb + overflow set and holds the tier→RAG-token map. A new `action-hero-card.tsx` renders the top group prominently; `action-row.tsx` is refactored to consume the picker (drop icon/pill, source→why-prefix, score→expert-only, promote the real verb to a filled primary). `actions-panel.tsx` selects the hero (`groups[0]` when its tier ≠ monitor), de-dupes it from the tiers, and adds tier-colour dots. A shared `action-reasons.tsx` holds the "+N reasons" expander used by both hero and row.
 
-**Tech Stack:** Next.js (forked) + React + TypeScript, Tailwind v4 AIPM tokens, Vitest + Testing Library. Constraints: eslint `--max-warnings=0`; i18n EN/DE parity (tsc-enforced); palette/dual-CI gates (RAG via `--rag-*` tokens only; no gradients; shadows only via `--shadow-*` token; never a `*`/pipe inside a Tailwind arbitrary bracket).
+**Tech Stack:** Next.js (forked) + React + TypeScript, Tailwind v4 brand tokens, Vitest + Testing Library. Constraints: eslint `--max-warnings=0`; i18n EN/DE parity (tsc-enforced); palette/dual-CI gates (RAG via `--rag-*` tokens only; no gradients; shadows only via `--shadow-*` token; never a `*`/pipe inside a Tailwind arbitrary bracket).
 
 **File structure:**
 - Create `src/app/next-actions/action-cta.ts` — pure picker + caps + `TIER_RAG`.
@@ -359,7 +359,7 @@ Expected: FAIL — "Cannot find module './action-hero-card'".
 
 - [ ] **Step 4: Write the hero card**
 
-Create `src/app/action-hero-card.tsx`. It reuses the existing popover components for the popover verbs and shares the CTA picker. The primary direct verbs (clearBlocker/markDone/draft/open) render as a filled `bg-AIPM-dark-blue` button; popover verbs render their existing trigger (already an obvious affordance). Secondary verbs go into a ⋮ menu identical in spirit to the row's.
+Create `src/app/action-hero-card.tsx`. It reuses the existing popover components for the popover verbs and shares the CTA picker. The primary direct verbs (clearBlocker/markDone/draft/open) render as a filled `bg-ui-dark-blue` button; popover verbs render their existing trigger (already an obvious affordance). Secondary verbs go into a ⋮ menu identical in spirit to the row's.
 
 ```tsx
 // src/app/action-hero-card.tsx
@@ -467,9 +467,9 @@ export function useActionCaps(h: ActionHandlers): ActionCaps {
 }
 
 const GHOST =
-  `cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10 dark:text-AIPM-light-grey ${INTERACTIVE}`;
+  `cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-ui-dark-blue hover:border-ui-dark-blue/40 hover:bg-ui-dark-blue/10 dark:text-ui-light-grey ${INTERACTIVE}`;
 const FILLED =
-  `cursor-pointer rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 ${INTERACTIVE}`;
+  `cursor-pointer rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 ${INTERACTIVE}`;
 
 interface CtaProps {
   lang: Lang;
@@ -568,7 +568,7 @@ export function ActionOverflowMenu({ lang, action, caps, handlers }: CtaProps) {
       <button type="button" aria-expanded={menuOpen}
         aria-label={`${t(lang, "actionMoreActions")} – ${title}`}
         onClick={(e) => { stop(e); setMenuOpen((o) => !o); }}
-        className={`cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10 ${FOCUS_RING}`}>
+        className={`cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground hover:border-ui-dark-blue/40 hover:bg-ui-dark-blue/10 ${FOCUS_RING}`}>
         ⋮
       </button>
       {menuOpen && (
@@ -1000,7 +1000,7 @@ NOT leave a dead local import anywhere).
 
 Run: `rg "A11Y_VIEWS" e2e/a11y.spec.ts` and check whether `actions` (Next actions) is in the list.
 - If present: `npx playwright test e2e/a11y.spec.ts --project=chromium -g "actions"` (or the view's
-  display name) — expect green across AIPM-light / AIPM-dark / mockup-light.
+  display name) — expect green across petrol-light / petrol-dark / mockup-light.
 - If absent (it is a Turso-independent sub-menu child; confirm): eye-verify in the running app —
   hero CTAs have text labels, ⋮ has a row-unique `aria-label`, tier dots are `aria-hidden`, the
   source `<b>` prefix is text (not an aria-label), and contrast holds for `--rag-*-text` counts +

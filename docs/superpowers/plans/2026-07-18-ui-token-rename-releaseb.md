@@ -1,9 +1,9 @@
-# Release B — `AIPM-*` → `ui-*` Token Rename Implementation Plan
+# Release B — `brand-*` → `ui-*` Token Rename Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or
 > superpowers:executing-plans. Steps use checkbox (`- [ ]`) syntax.
 
-**Goal:** Rename the 12 base palette tokens `AIPM-<color>` → `ui-<color>` across the whole repo
+**Goal:** Rename the 12 base palette tokens `brand-<color>` → `ui-<color>` across the whole repo
 (Tailwind classes, CSS vars, `@theme` map, scheme registries, shipped theme JSON, palette guards,
 tests, docs). Pure rename, zero visual/behavioral change.
 
@@ -16,7 +16,7 @@ add the release, review, merge.
 
 **Decisions (from spec `docs/superpowers/specs/2026-07-18-ui-token-rename-releaseb-design.md`):**
 prefix `ui-`; exhaustive docs; no key migration; shipped `public/themes/*.json` rewritten to `--ui-*`;
-protected = `AIPM` / `Acme` / `AIPM-consult` / `AIPM.json` / theme id `"AIPM"` / `AIPM-logo` / `AIPM-icon`.
+protected = the brand name (theme display name) / the employer name and its host spelling / the theme file / theme id / the brand logo and icon asset names.
 
 **Branch:** `feat/ui-token-rename-releaseb` (already created).
 
@@ -24,8 +24,8 @@ protected = `AIPM` / `Acme` / `AIPM-consult` / `AIPM.json` / theme id `"AIPM"` /
 
 ## File Structure
 
-- Create: `scripts/rename-AIPM-to-ui.mjs` (codemod; deleted before the release commit — a throwaway tool).
-- Modify: ~235 source/test files, `src/app/globals.css`, `public/themes/AIPM.json`,
+- Create: `scripts/rename-brand-to-ui.mjs` (codemod; deleted before the release commit — a throwaway tool).
+- Modify: ~235 source/test files, `src/app/globals.css`, `public/themes/petrol.json`,
   `public/themes/mockup.json`, `src/app/scheme-tokens.ts`, `src/app/color-schemes.ts`,
   `src/app/scheme-apply.ts`, `src/app/boot-theme-script.ts`, the palette-guard test files, `AGENTS.md`,
   `CHANGELOG.md`, `README*`.
@@ -36,14 +36,14 @@ protected = `AIPM` / `Acme` / `AIPM-consult` / `AIPM.json` / theme id `"AIPM"` /
 ## Task 1: Codemod — atomic rename
 
 **Files:**
-- Create: `scripts/rename-AIPM-to-ui.mjs`
+- Create: `scripts/rename-brand-to-ui.mjs`
 
 - [ ] **Step 1: Write the codemod script**
 
 ```js
-// scripts/rename-AIPM-to-ui.mjs
-// One-shot: AIPM-<color> -> ui-<color>, anchored to the 12 palette suffixes so
-// AIPM / Acme / AIPM-logo / AIPM-icon / AIPM.json can never match.
+// scripts/rename-brand-to-ui.mjs
+// One-shot: brand-<color> -> ui-<color>, anchored to the 12 palette suffixes so
+// the brand name / employer name / logo and icon asset names / theme file can never match.
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 
@@ -53,10 +53,10 @@ const SUFFIXES = [
   "purple-strong", "purple", "blue", "white",
   "dark-grey", "light-grey", "medium-grey",
 ];
-const RE = new RegExp(`AIPM-(${SUFFIXES.join("|")})\\b`, "g");
+const RE = new RegExp(`brand-(${SUFFIXES.join("|")})\\b`, "g");
 
 // Tracked text files only; skip binaries, lockfiles, jscpd baselines, this script.
-const SKIP = /(^|\/)(package-lock\.json|docs\/baselines\/|scripts\/rename-AIPM-to-ui\.mjs$)/;
+const SKIP = /(^|\/)(package-lock\.json|docs\/baselines\/|scripts\/rename-brand-to-ui\.mjs$)/;
 const TEXT = /\.(tsx?|css|json|md|mjs|cjs|js|webmanifest)$/;
 
 const files = execSync("git ls-files", { encoding: "utf8" })
@@ -75,19 +75,19 @@ console.log(`\nFiles changed: ${changed}  Replacements: ${hits}`);
 
 - [ ] **Step 2: Run the codemod**
 
-Run: `node scripts/rename-AIPM-to-ui.mjs`
+Run: `node scripts/rename-brand-to-ui.mjs`
 Expected: several hundred replacements across ~235 files (a summary of `<file>: <n>` lines).
 
-- [ ] **Step 3: Residual grep — confirm only protected `AIPM-` remains**
+- [ ] **Step 3: Residual grep — confirm only protected `brand-` remains**
 
-Run: `grep -rInoE -- "AIPM-[a-z-]+" src public AGENTS.md CHANGELOG.md | grep -vE "AIPM-(logo|icon)" | grep -viE "AIPM\.json|Acme|AIPM-consult"`
+Run: `grep -rInoE -- "<trigram>-[a-z-]+" src public AGENTS.md CHANGELOG.md | grep -vE "<trigram>-(logo|icon)" | grep -viE "<trigram>\.json|<employer name>|<employer host>"` (placeholders stand for the retired brand prefix and the employer's names)
 Expected: NO lines (empty). Any hit is either a missed token (fix the suffix list) or a new
 protected string to add to the grep filter — inspect each.
 
-- [ ] **Step 4: Confirm the AIPM identity strings survived**
+- [ ] **Step 4: Confirm the brand identity strings survived**
 
-Run: `grep -rIn -- '"AIPM"' src/app/theme-gallery.tsx && ls public/themes/AIPM.json && grep -rIn -- "AIPM" src/app/theme-gallery.tsx`
-Expected: theme id `"AIPM"`, the `AIPM.json` file, and display name `"AIPM"` all still present.
+Run: `grep -rIn -- '"petrol"' src/app/theme-gallery.tsx && ls public/themes/petrol.json && grep -rIn -- "Petrol" src/app/theme-gallery.tsx`
+Expected: theme id `"petrol"`, the `petrol.json` file, and display name `"Petrol"` all still present.
 
 - [ ] **Step 5: NUL byte scan**
 
@@ -96,7 +96,7 @@ Expected: no `NUL` lines.
 
 - [ ] **Step 6: Delete the codemod script**
 
-Run: `rm scripts/rename-AIPM-to-ui.mjs`
+Run: `rm scripts/rename-brand-to-ui.mjs`
 (One-shot tool; not shipped. `docs:scripts:check` only guards `package.json` scripts, so an ad-hoc
 `.mjs` needs no descriptor — but remove it to keep the tree clean.)
 
@@ -105,11 +105,11 @@ Run: `rm scripts/rename-AIPM-to-ui.mjs`
 ```bash
 git add -A
 git commit -F - <<'EOF'
-refactor(palette): rename AIPM-* palette tokens to ui-*
+refactor(palette): rename brand-* palette tokens to ui-*
 
 Neutral-prefix swap across Tailwind classes, CSS vars, @theme map, scheme
 registries, shipped theme JSON keys, palette guards, tests. Pure rename,
-no visual change. AIPM/Acme/AIPM.json/AIPM-logo preserved.
+no visual change. the brand name, employer name, theme file and logo asset preserved.
 EOF
 ```
 
@@ -151,7 +151,7 @@ Expected: both pass (rename is length-neutral-ish; no new/grown files).
 - [ ] **Step 6: Production build (globals.css must compile)**
 
 Run: `npm run build`
-Expected: success. A stray undefined `var(--AIPM-*)` yields a broken value, not an error — so also run
+Expected: success. A stray undefined `var(--brand-*)` yields a broken value, not an error — so also run
 the axe gate next.
 
 - [ ] **Step 7: Full axe / a11y gate — the real safety net**
@@ -162,7 +162,7 @@ or blank. (Auto-retry the documented `timelog-panel` partial-toast flake once if
 
 - [ ] **Step 8: Eye-check one screen per scheme (manual backstop)**
 
-Load the dev app, switch Harbor/Meridian/Umber (+ import AIPM + Dashboard from the gallery), glance at the
+Load the dev app, switch Harbor/Meridian/Umber (+ import Petrol + Dashboard from the gallery), glance at the
 Dashboard + Open Points. No blank/wrong colors.
 
 - [ ] **Step 9: Commit any repairs**
@@ -170,7 +170,7 @@ Dashboard + Open Points. No blank/wrong colors.
 ```bash
 git add -A
 git commit -F - <<'EOF'
-fix(palette): patch AIPM->ui rename misses surfaced by gates
+fix(palette): patch brand->ui rename misses surfaced by gates
 EOF
 ```
 (Skip if Task 1 passed every gate with no repair.)
@@ -188,16 +188,16 @@ EOF
 In the Phase-2 scheme bullet (near the "RELEASE A ... SUPERSEDES" note), add one line:
 
 ```
-★★ RELEASE B (0.190.23): the palette token NAMES were renamed AIPM-*→ui-* (bg-AIPM-green→bg-ui-green,
---AIPM-green→--ui-green, @theme --color-AIPM-*→--color-ui-*). AIPM is now ONLY a theme display name /
-importable /themes/AIPM.json — no token carries the brand word. The var NAMES + @theme MECHANISM are
+★★ RELEASE B (0.190.23): the palette token NAMES were renamed brand-*→ui-* (bg-brand-green→bg-ui-green,
+--brand-green→--ui-green, @theme --color-brand-*→--color-ui-*). Petrol is now ONLY a theme display name /
+importable /themes/petrol.json — no token carries the brand word. The var NAMES + @theme MECHANISM are
 unchanged, only the prefix.
 ```
 
 - [ ] **Step 2: Verify AGENTS.md still compiles Tailwind (no bracket damage)**
 
-Run: `grep -nE "\[[^]]*AIPM[^]]*\]" AGENTS.md`
-Expected: no Tailwind arbitrary-value bracket contains a stray `AIPM`/invalid char (the note uses none).
+Run: `grep -nE "\[[^]]*brand[^]]*\]" AGENTS.md`
+Expected: no Tailwind arbitrary-value bracket contains a stray `brand`/invalid char (the note uses none).
 
 - [ ] **Step 3: Bump version**
 
@@ -206,7 +206,7 @@ comment, and append `versionHighlightUiTokenRename` to `APP_HIGHLIGHT_KEYS`.
 
 - [ ] **Step 4: CHANGELOG entry**
 
-Add `## [0.190.23] - "Pinsker"` with a "Palette token rename (`AIPM-*` → `ui-*`, no visual change)" line.
+Add `## [0.190.23] - "Pinsker"` with a "Palette token rename (`brand-*` → `ui-*`, no visual change)" line.
 
 - [ ] **Step 5: i18n highlight key (EN)**
 
@@ -229,7 +229,7 @@ Run the NUL scan (Task 1 Step 5), then:
 ```bash
 git add -A
 git commit -F - <<'EOF'
-chore(release): 0.190.23 "Pinsker" — palette token rename AIPM-*→ui-*
+chore(release): 0.190.23 "Pinsker" — palette token rename brand-*→ui-*
 EOF
 ```
 

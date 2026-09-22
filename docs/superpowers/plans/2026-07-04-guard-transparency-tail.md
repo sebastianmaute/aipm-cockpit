@@ -112,7 +112,7 @@ Context: `onResetNow` (line 13) does `quarantineConfig();` and ignores the resul
 ```
 Render the failure inline (palette-safe) when `failed`:
 ```tsx
-  {failed && <span className="text-xs text-AIPM-pink-strong">{t(lang, "guardRecoveryResetFailed")}</span>}
+  {failed && <span className="text-xs text-ui-pink-strong">{t(lang, "guardRecoveryResetFailed")}</span>}
 ```
 (place it in the banner's control row; import `useState` if not already).
 

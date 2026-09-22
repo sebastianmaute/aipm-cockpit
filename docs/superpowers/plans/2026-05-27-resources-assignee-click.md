@@ -23,7 +23,7 @@
 - Modify: `src/app/resources-panel.tsx` (the planning grid name cell, ~line 371)
 - Test: `src/app/resources-panel.test.tsx`
 
-The planning grid renders one row per `Resource` (`resources.map((r) => ...)`). The name cell is currently plain text: `<td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{resourceDisplayName(r)}</td>`. `onEditResource: (resource: Resource) => void` is already a prop of `ResourcesPanel` (no new prop needed).
+The planning grid renders one row per `Resource` (`resources.map((r) => ...)`). The name cell is currently plain text: `<td className="px-2 py-1 font-medium text-ui-dark-grey dark:text-ui-light-grey">{resourceDisplayName(r)}</td>`. `onEditResource: (resource: Resource) => void` is already a prop of `ResourcesPanel` (no new prop needed).
 
 - [ ] **Step 1: Write the failing test** — append to the `describe("ResourcesPanel", ...)` block in `src/app/resources-panel.test.tsx`:
 
@@ -49,7 +49,7 @@ Rationale: switching to the Planning view unmounts the Directory table, so `getB
 
 Replace:
 ```tsx
-                      <td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{resourceDisplayName(r)}</td>
+                      <td className="px-2 py-1 font-medium text-ui-dark-grey dark:text-ui-light-grey">{resourceDisplayName(r)}</td>
 ```
 With:
 ```tsx
@@ -58,7 +58,7 @@ With:
                           type="button"
                           onClick={() => onEditResource(r)}
                           title={resourceDisplayName(r)}
-                          className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-dark-blue dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+                          className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-ui-dark-grey shadow-sm hover:border-ui-dark-blue hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-dark-blue dark:text-ui-light-grey dark:hover:bg-zinc-800"
                         >
                           {resourceDisplayName(r)}
                         </button>
@@ -188,7 +188,7 @@ Add the three params to the `ResourceCalendarInner({ ... })` destructure (alongs
 Then replace the row-label cell (currently):
 ```tsx
                   <td
-                    className="sticky left-0 z-10 border-b border-r border-zinc-200 bg-white px-3 py-2 font-medium text-AIPM-dark-grey dark:border-zinc-800 dark:bg-zinc-950 dark:text-AIPM-light-grey"
+                    className="sticky left-0 z-10 border-b border-r border-zinc-200 bg-white px-3 py-2 font-medium text-ui-dark-grey dark:border-zinc-800 dark:bg-zinc-950 dark:text-ui-light-grey"
                     style={{
                       minWidth: ASSIGNEE_COL_PX,
                       width: ASSIGNEE_COL_PX,
@@ -217,7 +217,7 @@ With:
                               : onAddResource({ ...splitName(row.display), email: row.email || undefined })
                           }
                           title={row.display}
-                          className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-dark-blue dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+                          className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-ui-dark-grey shadow-sm hover:border-ui-dark-blue hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-dark-blue dark:text-ui-light-grey dark:hover:bg-zinc-800"
                         >
                           {row.display}
                         </button>

@@ -618,10 +618,10 @@ it("selecting Turso sets config kind turso", () => {
   - After the sp hint blocks (after line 255, before the closing `</div>`), add (reuses the existing `ready` + `description` props, which reflect `backend.isReady()` / `describe()`):
 ```tsx
       {isTurso && !tursoEnabled && (
-        <p className="mt-2 text-xs text-AIPM-pink">{t(lang, "storageTursoNeedsToggle")}</p>
+        <p className="mt-2 text-xs text-ui-pink">{t(lang, "storageTursoNeedsToggle")}</p>
       )}
       {isTurso && tursoEnabled && !ready && (
-        <p className="mt-2 text-xs text-AIPM-pink">{t(lang, "storageTursoNeedsConfig")}</p>
+        <p className="mt-2 text-xs text-ui-pink">{t(lang, "storageTursoNeedsConfig")}</p>
       )}
       {isTurso && tursoEnabled && ready && description && (
         <p className="mt-2 text-xs text-muted-foreground">✓ {description}</p>

@@ -200,7 +200,7 @@
   <h3>Forecasts</h3>
   <div class="fc">
     <div class="fcard">
-      <div class="q">At current pace<button type="button" class="tip l" aria-label="How does the current-pace forecast work?" data-tip="Assumes spending continues at the average of the last 4 weeks until the planned end date. It looks at the calendar only: it assumes the work is finished on the planned end, whether or not progress supports that. This is the AIPM Project Burndown method.">i</button><br>spending continues as in the last 4 weeks</div>
+      <div class="q">At current pace<button type="button" class="tip l" aria-label="How does the current-pace forecast work?" data-tip="Assumes spending continues at the average of the last 4 weeks until the planned end date. It looks at the calendar only: it assumes the work is finished on the planned end, whether or not progress supports that. This is the employer Project Burndown method.">i</button><br>spending continues as in the last 4 weeks</div>
       <div class="big">EAC €261,150<button type="button" class="tip l" aria-label="What is EAC at current pace?" data-tip="Estimate at completion: what the project will have cost in total. At current pace = spent so far (€168,000) + estimate to complete (€93,150).">i</button></div>
       <div class="kv">
         <span>VAC at current pace<button type="button" class="tip l" aria-label="What is VAC?" data-tip="Variance at completion = budget − estimate at completion. Negative means the budget will be overrun by this amount: €240,000 − €261,150 = −€21,150.">i</button></span><span style="color:var(--pink)">−€21,150 (−8.8%)</span>
@@ -322,7 +322,7 @@
       <tr><td>Dashboard RAG, insights, AI summary, exports</td><td class="weak">Must still pick one method, or they follow a personal switch and differ per person.</td>
           <td class="mid">Still needs one headline for the RAG (proposal: current pace, which always exists), and exports carry both cards.</td></tr>
       <tr><td>No % complete</td><td class="mid">“Earned value” button disabled with a reason.</td><td class="good">Efficiency card explains what it needs; nothing else changes.</td></tr>
-      <tr><td>AIPM Project Burndown (§504)</td><td class="good">Current-pace view matches it.</td><td class="good">Burn-down orientation matches it; the efficiency line is an extra.</td></tr>
+      <tr><td>employer Project Burndown (§504)</td><td class="good">Current-pace view matches it.</td><td class="good">Burn-down orientation matches it; the efficiency line is an extra.</td></tr>
       <tr><td>EVM vocabulary and S-curve (§501)</td><td class="good">Earned-value view.</td><td class="good">Cumulative orientation is the S-curve; EV, CPI, SPI in the efficiency card.</td></tr>
       <tr><td>CPI confusion (§464)</td><td class="mid">Price CPI appears in the EV view, next to “Cost recovery” elsewhere.</td>
           <td class="mid">Same. Needs one naming decision either way (e.g. rename Budget panel “Cost recovery” and effort CPI).</td></tr>
@@ -334,14 +334,14 @@
 
   <h3 style="margin-top:16px">My take</h3>
   <p style="margin:0">The union is the stronger design. It keeps one set of figures for everyone, shows the useful disagreement between
-  pace and progress, and still gives both looks (AIPM burn-down and EVM S-curve) through the chart switch. A method switch
+  pace and progress, and still gives both looks (Employer burn-down and EVM S-curve) through the chart switch. A method switch
   mainly hides that disagreement and forces a “whose setting wins” rule on the dashboard and exports.</p>
   <p class="note" style="margin-top:8px">Decisions either design still needs:</p>
   <ol class="dec note">
     <li>Which forecast is the dashboard headline and RAG source (proposal: current pace, since it always exists).</li>
     <li>Agreement threshold for the “forecasts disagree” line (e.g. 10% of BAC).</li>
     <li>Names for the three CPIs: price (new), internal cost (“Cost recovery” today), effort (task estimates).</li>
-    <li>Default chart orientation (proposal: burn-down, matching AIPM), remembered per device.</li>
+    <li>Default chart orientation (proposal: burn-down, matching employer), remembered per device.</li>
   </ol>
 </section>
 

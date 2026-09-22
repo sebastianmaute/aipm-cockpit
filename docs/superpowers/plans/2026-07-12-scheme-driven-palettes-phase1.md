@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:subagent-driven-development (or executing-plans). Implement task-by-task; each task its own commit. `npx tsc --noEmit` + `npm run test:run` after each. FEATURE branch off `main` (`feat/scheme-driven-palettes`). NOT a release until the user says "release".
 
-**Goal:** Make the look **scheme-driven** — extend the custom-scheme engine to carry **light+dark** maps, ship 3 **built-in** dark-capable schemes (**Harbor** default, **Meridian**, **Umber**), and apply the default on fresh install. AIPM/Mockup stay as `globals.css` styles this phase.
+**Goal:** Make the look **scheme-driven** — extend the custom-scheme engine to carry **light+dark** maps, ship 3 **built-in** dark-capable schemes (**Harbor** default, **Meridian**, **Umber**), and apply the default on fresh install. Petrol/Mockup stay as `globals.css` styles this phase.
 
 **Spec:** `docs/superpowers/specs/2026-07-12-scheme-driven-palettes-phase1-design.md`.
 
@@ -52,7 +52,7 @@ export interface SchemeStore { schemes: ColorScheme[]; activeId: string | null; 
 
 **Files:** `scheme-tokens.ts`, `scheme-tokens.test.ts`.
 
-- [ ] **Step 1 — failing test:** `resolveSchemeColors(darkMap)` derives `--rag-*-text`/`--AIPM-*-strong` that PASS AA (≥4.5) against the map's OWN `--surface` (a dark surface), not the light `ICC_SEED` surface. Assert a known dark map yields light-enough text tokens (ratio ≥4.5 vs its dark surface).
+- [ ] **Step 1 — failing test:** `resolveSchemeColors(darkMap)` derives `--rag-*-text`/`--ui-*-strong` that PASS AA (≥4.5) against the map's OWN `--surface` (a dark surface), not the light `PETROL_SEED` surface. Assert a known dark map yields light-enough text tokens (ratio ≥4.5 vs its dark surface).
 
 - [ ] **Step 2 — implement:** in `deriveAaVariants`, background = `colors["--surface"]` (already), but choose direction by surface luminance: if the surface is **dark** (`relLuminance(surface) < 0.5`), *lighten* the base toward AA (`×1/0.85` per iteration, clamp to #fff) instead of darkening. Extract a `nudgeToAa(base, bg, {dark})` helper. `resolveSchemeColors` unchanged signature (`{...colors, ...deriveAaVariants(colors)}`) — it now works for both light and dark maps because it reads the map's own surface.
 
@@ -68,18 +68,18 @@ export interface SchemeStore { schemes: ColorScheme[]; activeId: string | null; 
 
 ```ts
 export const HARBOR_LIGHT: SchemeColorMap = {
-  "--AIPM-dark-blue":"#153a5c","--AIPM-green":"#0e8f86","--background":"#f6f8fa","--surface":"#ffffff",
+  "--ui-dark-blue":"#153a5c","--ui-green":"#0e8f86","--background":"#f6f8fa","--surface":"#ffffff",
   "--foreground":"#15212e","--rag-red":"#d24a4a","--rag-amber":"#cf8a1c","--rag-green":"#2f9d70",
-  "--AIPM-pink":"#c24a76","--AIPM-purple":"#5f57a8","--AIPM-blue":"#2f6f9e","--AIPM-medium-grey":"#7d8a97",
-  "--AIPM-light-grey":"#c9d3dc","--surface-muted":"#eef2f6","--line":"#dbe2ea","--table-head-bg":"#153a5c",
+  "--ui-pink":"#c24a76","--ui-purple":"#5f57a8","--ui-blue":"#2f6f9e","--ui-medium-grey":"#7d8a97",
+  "--ui-light-grey":"#c9d3dc","--surface-muted":"#eef2f6","--line":"#dbe2ea","--table-head-bg":"#153a5c",
   "--table-head-fg":"#ffffff","--table-head-accent":"#0e8f86","--segment-track-bg":"#eef2f6",
   "--segment-active-bg":"#153a5c","--segment-active-fg":"#ffffff",
 };
 export const HARBOR_DARK: SchemeColorMap = {
-  "--AIPM-dark-blue":"#2b6493","--AIPM-green":"#22b3a7","--background":"#0e1620","--surface":"#16212e",
+  "--ui-dark-blue":"#2b6493","--ui-green":"#22b3a7","--background":"#0e1620","--surface":"#16212e",
   "--foreground":"#e4edf4","--rag-red":"#ef7676","--rag-amber":"#e8b25a","--rag-green":"#4bc394",
-  "--AIPM-pink":"#e88bb0","--AIPM-purple":"#a596d8","--AIPM-blue":"#5aa6d8","--AIPM-medium-grey":"#8493a1",
-  "--AIPM-light-grey":"#3a4a58","--surface-muted":"#1b2836","--line":"#273746","--table-head-bg":"#1c3550",
+  "--ui-pink":"#e88bb0","--ui-purple":"#a596d8","--ui-blue":"#5aa6d8","--ui-medium-grey":"#8493a1",
+  "--ui-light-grey":"#3a4a58","--surface-muted":"#1b2836","--line":"#273746","--table-head-bg":"#1c3550",
   "--table-head-fg":"#dce8f2","--table-head-accent":"#5fd0c6","--segment-track-bg":"#1b2836",
   "--segment-active-bg":"#2b6493","--segment-active-fg":"#f2f8fc",
 };
@@ -121,7 +121,7 @@ Names are English-only labels (built-in ids stable). Write **all six full maps**
 
 - [ ] **Step 1 — failing tests:** (a) `effectiveDark(true, "custom", /*supportsDark*/ true)` → true; `false` when `supportsDark` false (pin light); (b) toggling theme while a dark-capable scheme is active re-applies the DARK resolved map (spy `applySchemeColors`).
 
-- [ ] **Step 2 — supportsDark signal:** on style/scheme apply, set `document.documentElement.dataset.schemeDark = supportsDark ? "1" : "0"` (a boot-readable `data-scheme-dark` attr) alongside `data-style`. `effectiveDark(dark, style, schemeSupportsDark)` → `style==="AIPM" ? dark : (style==="custom" && schemeSupportsDark ? dark : false)`.
+- [ ] **Step 2 — supportsDark signal:** on style/scheme apply, set `document.documentElement.dataset.schemeDark = supportsDark ? "1" : "0"` (a boot-readable `data-scheme-dark` attr) alongside `data-style`. `effectiveDark(dark, style, schemeSupportsDark)` → `style==="petrol" ? dark : (style==="custom" && schemeSupportsDark ? dark : false)`.
 
 - [ ] **Step 3 — reactivity:** `use-style` resolves the active scheme for the CURRENT theme and applies on both style change AND a new `lop-theme-change` event; `use-theme`'s `apply()` reads `data-scheme-dark` for the pin-light decision and, after toggling `.dark`, dispatches `lop-theme-change` so `use-style` re-applies the correct sub-map. Keep the 3-site sync (helper/attr-read/boot) in lockstep. `writeActiveSchemeColors` stores the RESOLVED (theme-collapsed) map; it's rewritten on each theme/scheme change.
 
@@ -143,9 +143,9 @@ Names are English-only labels (built-in ids stable). Write **all six full maps**
 
 **Files:** `settings-sections/appearance-section.tsx`, `color-scheme-editor.tsx`, `use-color-schemes.ts`, `i18n.ts`/`i18n.de.ts`, tests.
 
-- [ ] **Step 1 — fresh-install seed:** on first mount (no `lop-style` stored), set style `custom` + activeId `harbor` + apply. `readStoredStyle` default stays `"AIPM"` for an EXPLICITLY-invalid value, but the app-level initial state (no stored style at all) seeds Harbor. (Keep AIPM reachable via the switcher.)
-- [ ] **Step 2 — scheme selector:** in Appearance, a selector listing built-ins (Harbor/Meridian/Umber) + AIPM + Mockup + user custom schemes. Selecting a built-in/user scheme → `setActive(id)` + style `custom` + apply (resolve for current theme). AIPM/Mockup set `data-style` as today. Merge `BUILTIN_SCHEMES` into the editor's `store.schemes` list (reconcile).
-- [ ] **Step 3 — theme toggle enable:** `disabled` when the active scheme is light-only (mockup, or a custom scheme with `supportsDark:false`); enabled for AIPM + Harbor/Meridian/Umber. Read active supportsDark from the store/hook.
+- [ ] **Step 1 — fresh-install seed:** on first mount (no `lop-style` stored), set style `custom` + activeId `harbor` + apply. `readStoredStyle` default stays `"petrol"` for an EXPLICITLY-invalid value, but the app-level initial state (no stored style at all) seeds Harbor. (Keep Petrol reachable via the switcher.)
+- [ ] **Step 2 — scheme selector:** in Appearance, a selector listing built-ins (Harbor/Meridian/Umber) + Petrol + Mockup + user custom schemes. Selecting a built-in/user scheme → `setActive(id)` + style `custom` + apply (resolve for current theme). Petrol/Mockup set `data-style` as today. Merge `BUILTIN_SCHEMES` into the editor's `store.schemes` list (reconcile).
+- [ ] **Step 3 — theme toggle enable:** `disabled` when the active scheme is light-only (mockup, or a custom scheme with `supportsDark:false`); enabled for Petrol + Harbor/Meridian/Umber. Read active supportsDark from the store/hook.
 - [ ] **Step 4 — i18n:** built-in scheme display names (or use the code `name`), any new selector labels (EN+DE). Built-in names are proper nouns — keep identical EN/DE.
 - [ ] **Step 5 — tsc/lint/size; Appearance axe (`npx playwright test e2e/a11y.spec.ts -g "Settings"`); commit:** `feat(schemes): Appearance scheme selector + Harbor default + dark toggle gating`
 
@@ -171,4 +171,4 @@ Names are English-only labels (built-in ids stable). Write **all six full maps**
 - **i18n:** EN/DE parity (tsc); DE via node utf8 write.
 
 ## Verification
-`npx tsc --noEmit`; `npm run test:run`; `npm run build`; `npm run size:check`; `npm run dup:check`; `npx playwright test e2e/a11y.spec.ts --project=chromium` (incl. new Harbor combos). Manual: fresh profile → app opens in Harbor; switch Harbor↔Meridian↔Umber↔AIPM↔Mockup; toggle light/dark on each dark-capable scheme; reload → no flash, choice persists; export/import a custom scheme still works.
+`npx tsc --noEmit`; `npm run test:run`; `npm run build`; `npm run size:check`; `npm run dup:check`; `npx playwright test e2e/a11y.spec.ts --project=chromium` (incl. new Harbor combos). Manual: fresh profile → app opens in Harbor; switch Harbor↔Meridian↔Umber↔Petrol↔Mockup; toggle light/dark on each dark-capable scheme; reload → no flash, choice persists; export/import a custom scheme still works.

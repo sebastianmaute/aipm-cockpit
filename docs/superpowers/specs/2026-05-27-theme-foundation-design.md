@@ -3,7 +3,7 @@
 **Date:** 2026-05-27
 **Status:** Approved (design); pending implementation plan
 **Branch:** `feat/0.15.0-theme-foundation`
-**Context:** Sub-project D of the design-system batch. The batch was split into **D = theme foundation** (this spec — the switchable light/dark/system mechanism) and **E = palette sweep** (a later spec — replace `zinc-*`/off-palette colors with the AIPM palette and strip all shadows/gradients across ~44 files). This is D. D deliberately does NOT touch component colors; it only makes the theme switchable. Because Tailwind's `dark` variant becomes class-based here, every existing `dark:` utility immediately responds to the new toggle; E later corrects *which* colors those utilities use.
+**Context:** Sub-project D of the design-system batch. The batch was split into **D = theme foundation** (this spec — the switchable light/dark/system mechanism) and **E = palette sweep** (a later spec — replace `zinc-*`/off-palette colors with the brand palette and strip all shadows/gradients across ~44 files). This is D. D deliberately does NOT touch component colors; it only makes the theme switchable. Because Tailwind's `dark` variant becomes class-based here, every existing `dark:` utility immediately responds to the new toggle; E later corrects *which* colors those utilities use.
 
 ## Goal
 
@@ -11,7 +11,7 @@ Add a user-controlled **Light / Dark / System** theme, replacing today's media-q
 
 ## Current state
 
-- `globals.css` defines the AIPM brand palette as `--AIPM-*` CSS vars and exposes them via `@theme inline`. Dark mode is **media-query only**: `@media (prefers-color-scheme: dark)` flips just `--background` and `--foreground`. There is no class-based dark, no toggle, and no persistence.
+- `globals.css` defines the brand palette as `--ui-*` CSS vars and exposes them via `@theme inline`. Dark mode is **media-query only**: `@media (prefers-color-scheme: dark)` flips just `--background` and `--foreground`. There is no class-based dark, no toggle, and no persistence.
 - Components hardcode `dark:bg-zinc-*` etc. (≈417 `zinc-*` refs across 44 files) — left untouched in D; addressed in E.
 - `SettingsMenu` (`settings-menu.tsx`) hosts device/workspace preferences (language, holiday countries, notifications, …) via a persisted `Settings` object with an `onChange` callback.
 - `layout.tsx` is the App Router root layout. Pop-out windows are same-origin and run the same layout/scripts.
@@ -64,7 +64,7 @@ The root layout also wraps the app in `<ThemeProvider>`. (Per AGENTS.md, confirm
     --foreground: #e3e6e6;
   }
   ```
-- Leave the `--AIPM-*` brand tokens and `@theme inline` block unchanged. No new tokens in D (the semantic surface-token vocabulary is part of E's palette work).
+- Leave the `--ui-*` brand tokens and `@theme inline` block unchanged. No new tokens in D (the semantic surface-token vocabulary is part of E's palette work).
 
 System mode is handled by the no-flash script + provider toggling the class — not by a CSS media query — so an explicit Light choice wins over a dark OS.
 

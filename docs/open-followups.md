@@ -726,14 +726,14 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§501](#501-evm-terminology-is-incomplete-across-the-app-with-no-bac-eac-or-etc-labels-and-no-time-phased-s-curve--closed-2026-09-15) | EVM terminology is incomplete across the app, with no BAC, EAC or ETC labels and no time-phased S-curve — CLOSED 2026-09-15 | AI PM Cockpit demo 2026-09-11 (F-3), GitLab #40; mirrored into the register 2026-09-13 | M — terminology and hints first, the S-curve chart as a second slice | **CLOSED** 2026-09-15 |
 | [§502](#502-there-is-no-probabilistic-monte-carlo-forecast-with-scenarios-and-confidence-levels--open) | There is no probabilistic Monte Carlo forecast with scenarios and confidence levels — OPEN | AI PM Cockpit demo 2026-09-11 (F-4), GitLab #41; mirrored into the register 2026-09-13 | L — a simulation engine, scenario inputs and P50/P80-style output on the forecast surfaces | open |
 | [§503](#503-task-effort-and-over-budget-handling-misbehaved-during-the-demo-and-no-reproduction-was-recorded--open) | Task effort and over-budget handling misbehaved during the demo, and no reproduction was recorded — OPEN | AI PM Cockpit demo 2026-09-11 (F-6), GitLab #43; mirrored into the register 2026-09-13 | unestimated (product backlog) — nothing can be sized until the live misbehaviour is reproduced | open |
-| [§504](#504-the-burn-down-draws-no-forecast-line-and-is-not-aligned-with-the-internal-AIPM-project-burndown-standard--closed-2026-09-15) | The burn-down draws no forecast line and is not aligned with the internal AIPM Project Burndown standard — CLOSED 2026-09-15 | AI PM Cockpit demo 2026-09-11 (F-7), GitLab #44; mirrored into the register 2026-09-13 | M — once the full article has been read | **CLOSED** 2026-09-15 |
+| [§504](#504-the-burn-down-draws-no-forecast-line-and-is-not-aligned-with-the-internal-employer-project-burndown-standard--closed-2026-09-15) | The burn-down draws no forecast line and is not aligned with the internal employer Project Burndown standard — CLOSED 2026-09-15 | AI PM Cockpit demo 2026-09-11 (F-7), GitLab #44; mirrored into the register 2026-09-13 | M — once the full article has been read | **CLOSED** 2026-09-15 |
 | [§505](#505-there-is-no-project-governance-module-that-weights-health-by-engagement-type--open) | There is no project governance module that weights health by engagement type — OPEN | AI PM Cockpit demo 2026-09-11 (G-1), GitLab #45; mirrored into the register 2026-09-13 | L — engagement type on the project, a weight profile and a weighted health engine | open |
-| [§506](#506-a-delivery-project-cannot-represent-the-clients-own-governance-structure-beside-AIPM-governance--open) | A delivery project cannot represent the client's own governance structure beside AIPM governance — OPEN | AI PM Cockpit demo 2026-09-11 (G-2), GitLab #46; mirrored into the register 2026-09-13 | unestimated (product backlog) — likely scoped together with §505 | open |
+| [§506](#506-a-delivery-project-cannot-represent-the-clients-own-governance-structure-beside-employer-governance--open) | A delivery project cannot represent the client's own governance structure beside employer governance — OPEN | AI PM Cockpit demo 2026-09-11 (G-2), GitLab #46; mirrored into the register 2026-09-13 | unestimated (product backlog) — likely scoped together with §505 | open |
 | [§507](#507-multi-tenancy-is-not-built-at-the-app-layer-no-identity-no-hosted-deployment-and-no-pm-dimension-in-the-portfolio-view--open) | Multi-tenancy is not built at the app layer: no identity, no hosted deployment and no PM dimension in the portfolio view — OPEN | AI PM Cockpit demo 2026-09-11 (M-1), GitLab #47; mirrored into the register 2026-09-13 | L — identity and login, ownership, access control, hosting, then the portfolio dimension | open |
 | [§508](#508-no-admin-role-can-lock-a-tenant-level-policy-of-mandatory-and-suppressed-fields--open) | No admin role can lock a tenant-level policy of mandatory and suppressed fields — OPEN | AI PM Cockpit demo 2026-09-11 (M-2), GitLab #48; mirrored into the register 2026-09-13 | L — depends on the identity work in §507 | open |
 | [§509](#509-there-is-no-central-target-for-exporting-project-data-to-consolidate-by-hand-and-export-filenames-carry-no-project-code--open) | There is no central target for exporting project data to consolidate by hand, and export filenames carry no project code — OPEN | AI PM Cockpit demo 2026-09-11 (M-3), GitLab #49; mirrored into the register 2026-09-13 | M — a SharePoint folder upload over the existing Graph code, plus project codes in filenames | open |
 | [§510](#510-the-per-project-activity-log-cannot-be-extracted-centrally-in-the-app-keeps-only-500-entries-and-names-no-pm--open) | The per-project activity log cannot be extracted centrally in the app, keeps only 500 entries and names no PM — OPEN | AI PM Cockpit demo 2026-09-11 (M-4), GitLab #50; mirrored into the register 2026-09-13 | S–M — a decision first; close if raw Turso SQL access is accepted as the answer | open |
-| [§511](#511-documents-cannot-be-generated-through-AIPM-word-or-powerpoint-templates-picked-from-a-drive-folder--open) | Documents cannot be generated through AIPM Word or PowerPoint templates picked from a drive folder — OPEN | AI PM Cockpit demo 2026-09-11 (D-1), GitLab #51; mirrored into the register 2026-09-13 | L — template reading for both renderers, plus a picker over SharePoint, OneDrive or a folder | open |
+| [§511](#511-documents-cannot-be-generated-through-employer-word-or-powerpoint-templates-picked-from-a-drive-folder--open) | Documents cannot be generated through employer Word or PowerPoint templates picked from a drive folder — OPEN | AI PM Cockpit demo 2026-09-11 (D-1), GitLab #51; mirrored into the register 2026-09-13 | L — template reading for both renderers, plus a picker over SharePoint, OneDrive or a folder | open |
 | [§512](#512-the-word-export-is-unpolished-squeezing-every-storage-column-to-equal-width-under-raw-key-headers-with-no-branded-header-or-footer--open) | The Word export is unpolished, squeezing every storage column to equal width under raw key headers with no branded header or footer — OPEN | AI PM Cockpit demo 2026-09-11 (D-2), GitLab #52; mirrored into the register 2026-09-13 | M — curated columns and labels, content-aware widths, a logo header and footer | open |
 | [§513](#513-existing-sharepoint-documents-cannot-be-updated-from-app-data--open) | Existing SharePoint documents cannot be updated from app data — OPEN | AI PM Cockpit demo 2026-09-11 (D-3), GitLab #53; mirrored into the register 2026-09-13 | unestimated (product backlog) — build it, or close it in favour of the Claude Desktop or Word plugin route | open |
 | [§514](#514-there-is-no-confluence-write-back-for-project-or-portfolio-pages--open) | There is no Confluence write-back for project or portfolio pages — OPEN | AI PM Cockpit demo 2026-09-11 (D-4), GitLab #54; mirrored into the register 2026-09-13 | M — a write proxy, a page template or mapping, and a manual or change-triggered push | open |
@@ -4494,7 +4494,7 @@ only, landing them at 3.06-3.81. Green is therefore the one accent whose `global
 its raw base.
 
 ★★★ **ONE STATED LIMITATION OF THE FIX'S OWN COVERAGE, and it corrects a claim the slice plan made.**
-The plan said the test named "globals.css fallbacks match the derivation for the AIPM-light base" (in
+The plan said the test named "globals.css fallbacks match the derivation for the Petrol-light base" (in
 `scheme-state-contrast.test.ts`) was "the only thing tying the CSS fallback to the derivation". **That
 is false and must not be repeated.** The test does NOT read `globals.css` — it hardcodes the hex
 literals and asserts an identity property of the derivation at that input — so editing the stylesheet
@@ -27826,7 +27826,7 @@ so out of an additive-by-contract branch's scope. It does not. The manifest subj
 ★★ **The one thing that DID go red is the constraint that actually mattered**, and it was a design
 question rather than a mechanical one: `renderDocumentDocx — declared styles > colours the declared
 styles from the sanctioned palette only`. Word's conventional link blue is off-palette, and this repo
-admits only the nine AIPM brand colours — so the fix had to pick a sanctioned colour for links.
+admits only the nine brand colours — so the fix had to pick a sanctioned colour for links.
 **Decided: `COLOR_DARK_BLUE` (`004159`), plus the underline** — not either/or. It is already in that
 test's allow-list, and it is the SAME value `buildPptxTheme`'s `<a:hlink>` carries, so the two OOXML
 formats now agree on what a link looks like instead of one being coloured by a theme and the other
@@ -34602,7 +34602,7 @@ and that is a decision, not a probe defect.
 ## 444. `npm run test:shuffle` is owed for `feat/offered-surface-sweep-landing` — CLOSED 2026-09-11
 
 **Status:** CLOSED 2026-09-11 by CI, not locally: the BLOCKING `unit-tests-shuffled` job 29515
-(https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/jobs/29515), in merge-request
+(internal GitLab CI job 29515), in merge-request
 pipeline 6900 for !470, passed on `6b23d75b`, the landing branch after it merged `origin/main` at
 0.303.0. The job ran `vitest run --sequence.shuffle --sequence.seed=1 --reporter=dot`, the same
 command as `npm run test:shuffle`, and its log reports `Test Files  1063 passed (1063)`.
@@ -35379,7 +35379,7 @@ The header comment on `buildMoveOccurrenceHandler` says the meetings band "can't
 
 ## 458. The modal-header help-popover Tab test fails on press 1 alone under CI load, and the autoFocus diagnosis was wrong — OPEN
 
-**Status:** open — found 2026-09-10 from two CI runs on `feat/modal-help-bespoke`; one attempted fix was made, measured wrong and reverted (`518db55a`) the same day. Never reproduced locally: eight shuffled seeds plus an unshuffled control ran 18/18 green on the file alone, so every local run to date says nothing about it. Re-read the evidence with `glab api example-group/aipm-cockpit/jobs/29004/trace` (the original) and `glab api example-group/aipm-cockpit/jobs/29033/trace` (the attempted fix), and re-check the trap with `grep -n "panel.contains(active)" src/app/popover-panel.tsx`.
+**Status:** open — found 2026-09-10 from two CI runs on `feat/modal-help-bespoke`; one attempted fix was made, measured wrong and reverted (`518db55a`) the same day. Never reproduced locally: eight shuffled seeds plus an unshuffled control ran 18/18 green on the file alone, so every local run to date says nothing about it. Re-read the evidence with `glab api projects/:id/jobs/29004/trace` (the original) and `glab api projects/:id/jobs/29033/trace` (the attempted fix), and re-check the trap with `grep -n "panel.contains(active)" src/app/popover-panel.tsx`.
 
 **Work item:** #293
 
@@ -35657,7 +35657,7 @@ and notarization, which are a separate problem from anything above.
 
 **Status:** OPEN 2026-09-11 — found by a read-only code check against `main` @ `1826cf64` (v1.0.0)
 while triaging the demo-backlog issues #38–#74; filed as
-https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/issues/75. Established by reading the
+internal GitLab issue 75. Established by reading the
 two call sites and the builders, never by running an export. Presence witnesses re-run 2026-09-11:
 `grep -n "exportWorkspace({" src/app/export-menu.tsx` (one line, eleven slices),
 `grep -n -A5 "const handleExportCurrentProject" src/app/task-manager.tsx` (sixteen slices),
@@ -35730,7 +35730,7 @@ asymmetry noted below stands. The ★ note below about `computeBudgetReport` bei
 
 **As filed:** OPEN 2026-09-11 — found by a read-only code check against `main` @ `1826cf64` (v1.0.0)
 while triaging the demo-backlog issues #38–#74; filed as
-https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/issues/76. Established by reading the
+internal GitLab issue 76. Established by reading the
 two engines and the three surfaces, not by a run. Presence witnesses re-run 2026-09-11:
 `grep -n "const cpi" src/app/evm.ts` (one line, `ev / ac`),
 `grep -n "const costPerformanceIndex\|const winLossValue" src/app/budget-report.ts` (two lines) and
@@ -35825,7 +35825,7 @@ successor and a project mixing USD fixed, GBP fixed and T&M sums in one unit.
 
 **As filed:** OPEN 2026-09-11 — found by a read-only code check against `main` @ `1826cf64` (v1.0.0)
 while triaging the demo-backlog issues #38–#74; filed as
-https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/issues/77. The worked example below is
+internal GitLab issue 77. The worked example below is
 REASONED from the code, never run — no bucket was created and no figure was read off a screen.
 Presence witnesses re-run 2026-09-11: `grep -n "fixedPriceAmount" src/app/types.ts src/app/budget-report.ts`
 (the field's docstring, and the one engine read),
@@ -37267,16 +37267,16 @@ Size unestimated (product backlog) — nothing can be sized until the live misbe
 
 **Work item:** #43
 
-## 504. The burn-down draws no forecast line and is not aligned with the internal AIPM Project Burndown standard — CLOSED 2026-09-15
+## 504. The burn-down draws no forecast line and is not aligned with the internal employer Project Burndown standard — CLOSED 2026-09-15
 
-**Status:** CLOSED 2026-09-15 — the burn-down chart draws the current-pace forecast (the AIPM Project Burndown
+**Status:** CLOSED 2026-09-15 — the burn-down chart draws the current-pace forecast (the employer Project Burndown
 "Forecast (Simple)" line: remaining budget minus the 20-working-day burn rate) and the current-efficiency
 forecast, with a run-out marker, on the Budget report and the dashboard burn tile (`grep -n
 "stroke-ui-dark-blue\|stroke-ui-purple" src/app/burndown-chart.tsx` prints both forecast lines). Alignment
 with the article: burn rate over the last 20 working days, run-out date, and depletion before or after plan
 end, per `docs/superpowers/specs/2026-09-14-budget-forecast-union-design.md` §1.
 
-Kai Mindermann asked in writing that the forecasting approach align with the Acme Confluence blog
+Kai Mindermann asked in writing that the forecasting approach align with the employer's Confluence blog
 article "The Project Burndown". It was not discussed on the call.
 
 A burn-down exists (`computeBurndownSeries`, drawn in the Budget report and on the dashboard), but it draws
@@ -37311,12 +37311,12 @@ Size L — engagement type on the project, a weight profile and a weighted healt
 
 **Work item:** #45
 
-## 506. A delivery project cannot represent the client's own governance structure beside AIPM governance — OPEN
+## 506. A delivery project cannot represent the client's own governance structure beside employer governance — OPEN
 
 **Status:** OPEN 2026-09-13 — `grep -n "interface SteeringCommittee" src/app/types.ts` → one interface; the workspace holds a single
 steering committee.
 
-Michael Leather said delivery projects must plug into the customer's governance alongside AIPM's. It was
+Michael Leather said delivery projects must plug into the customer's governance alongside employer's. It was
 acknowledged on the call, with no commitment.
 
 The workspace carries one steering committee with internal members only. A stakeholder can be categorised as
@@ -37419,12 +37419,12 @@ Size S–M — a decision first; close if raw Turso SQL access is accepted as th
 
 **Work item:** #50
 
-## 511. Documents cannot be generated through AIPM Word or PowerPoint templates picked from a drive folder — OPEN
+## 511. Documents cannot be generated through employer Word or PowerPoint templates picked from a drive folder — OPEN
 
 **Status:** OPEN 2026-09-13 — `grep -rlnE "\.dotx|\.potx" src/app` → no output.
 
-Michael Leather asked that document generation be forced through AIPM templates from a drive folder. On the
-call it was described as prepared but deprioritised; the AIPM branding skill and templates are already used
+Michael Leather asked that document generation be forced through employer templates from a drive folder. On the
+call it was described as prepared but deprioritised; the employer branding skill and templates are already used
 outside the app.
 
 Both renderers build styles and packages from scratch and never read a template file. "Prepared" means building
@@ -37448,11 +37448,11 @@ fixed page layout. It was acknowledged as not polished.
 
 Per the code check, the tasks table exports every storage column at equal width through `buildDocxTable`,
 headed with raw storage keys. The export configuration switches only whole sections, and document data-section
-blocks reuse the same table. Branding is fixed AIPM colours and a literal app title; the user's logo is used only
+blocks reuse the same table. Branding is fixed brand colours and a literal app title; the user's logo is used only
 inside the app, and there are no header or footer parts.
 
 Related: §304 (untranslated section headers), §155 (an undeclared table style), §219 (fidelity never
-checked), §511 (AIPM templates).
+checked), §511 (Employer templates).
 
 Size M — curated columns and labels, content-aware widths, a logo header and footer.
 

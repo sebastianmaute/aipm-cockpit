@@ -59,7 +59,7 @@ In `outlook-calendar-write.ts`, after `raidToGraphEvent`:
 - `categories: [categoryFor(projectId, "change")]` — TYPE-SCOPED, so its list-based
   reconcile can't touch task/raid/milestone/committee events.
 - body lines (filter Boolean, join "\n"): `Type: <type>`, `Impact: <impact>`,
-  `Status: <status>`, `Decision by: <decisionBy>`, "Managed by the AIPM PM Tracker."
+  `Status: <status>`, `Decision by: <decisionBy>`, "Managed by AI PM Cockpit."
 - subject = `c.title`.
 
 ### 3. Settings — no model change
@@ -101,7 +101,7 @@ as a change block mirroring the RAID block:
 renders the Enable checkbox (row-unique aria-label
 `\`${t(lang,"calendarSyncEnable")} – ${t(lang,"calendarSyncEntityChange")}\``) + Push
 button, inserted after `<PanelViewsControl view="changes" />`, byte-mirroring the RAID
-toolbar block (checkbox className `h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue
+toolbar block (checkbox className `h-3.5 w-3.5 rounded border-line text-ui-dark-blue
 ${FOCUS_RING} ${TRANSITION}`; button uses `${INTERACTIVE}`). `ChangePanel` wrapper
 forwards via `{...props}`.
 

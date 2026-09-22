@@ -37,7 +37,7 @@ resourcesOpenAddressBook: "Open address book" // de: "Adressbuch öffnen"
   <button
     type="button"
     onClick={onOpenAddressBook}
-    className="rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+    className="rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-ui-dark-grey shadow-sm hover:border-ui-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-ui-light-grey dark:hover:bg-zinc-800"
   >
     {t(lang, "resourcesOpenAddressBook")}
   </button>

@@ -98,9 +98,9 @@ following the existing icon function pattern in `task-manager-ui.tsx` (`h-4 w-4`
 
 **B5. ECB refresh button restyle.** In `budget-panel.tsx` (~lines 101–107) replace the
 text-only button classes with the Jira-sync button style from `tasks-section.tsx`
-(~273–298): `inline-flex items-center gap-1.5 rounded-md border border-AIPM-dark-blue
-bg-white px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue shadow-sm
-hover:bg-AIPM-light-grey disabled:opacity-50 dark:bg-zinc-900 dark:hover:bg-zinc-800`,
+(~273–298): `inline-flex items-center gap-1.5 rounded-md border border-ui-dark-blue
+bg-white px-3 py-1.5 text-sm font-medium text-ui-dark-blue shadow-sm
+hover:bg-ui-light-grey disabled:opacity-50 dark:bg-zinc-900 dark:hover:bg-zinc-800`,
 add a circular-refresh SVG with `animate-spin` while `useFxRates().loading`, and disable
 the button while loading.
 
@@ -113,7 +113,7 @@ while refreshing.
 ## Theme C — Hover consistency
 
 Reference effect (Directory assignee, `resource-directory.tsx:252-258`):
-`hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800` on a button with
+`hover:border-ui-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800` on a button with
 `border border-transparent` + `title`.
 
 **C1. Workload assignee** (`resource-workload.tsx:64-76`): replace `hover:underline`-only

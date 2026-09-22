@@ -2860,7 +2860,7 @@ In `src/app/document-preview.tsx`, add a `ref` to the existing `data-document-pr
 
 ★★★ Do **not** add a second sanitize pass, and do **not** touch the `useMemo` above the `!doc` early return — a hook after a conditional return is a rules-of-hooks violation and lint is `--max-warnings=0`.
 
-Style `[data-asset-missing]` in `globals.css` with a visible placeholder: a dashed border and the missing-asset marker glyph. Sanctioned AIPM tokens only — no off-palette colours, gradients or shadows, and no `shadow-*` Tailwind class (the palette sweep scans CSS for `box-shadow` and would not see it).
+Style `[data-asset-missing]` in `globals.css` with a visible placeholder: a dashed border and the missing-asset marker glyph. Sanctioned brand tokens only — no off-palette colours, gradients or shadows, and no `shadow-*` Tailwind class (the palette sweep scans CSS for `box-shadow` and would not see it).
 
 - [ ] **Step 5: Run the tests, typecheck and lint**
 

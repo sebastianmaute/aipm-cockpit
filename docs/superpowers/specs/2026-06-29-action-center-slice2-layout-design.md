@@ -81,7 +81,7 @@ New key `actionMoreActions`, EN + DE:
   - Expandable reasons: with `extraReasons` of length 2, the toggle shows "+2 more reasons"; clicking reveals both `why` texts and flips `aria-expanded`; clicking the toggle does NOT fire row `onOpen` (stopPropagation).
 - **`actions-panel.test.tsx`**: the collapse test now asserts the expanded reasons text is reachable (toggle → extra why visible), and that `extraReasons` is threaded (one row, expand shows the second signal's reason).
 - `npx tsc --noEmit`, `npm run lint`, `npm run test:run`.
-- **Eye-verify** (not axe-gated): the `[⋮]` menu keyboard path + the RAG stripe contrast in AIPM light/dark + Mockup, at the `actions` view.
+- **Eye-verify** (not axe-gated): the `[⋮]` menu keyboard path + the RAG stripe contrast in Petrol light/dark + Mockup, at the `actions` view.
 
 ## Acceptance
 

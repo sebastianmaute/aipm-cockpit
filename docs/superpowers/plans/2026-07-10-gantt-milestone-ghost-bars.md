@@ -6,13 +6,13 @@
 
 **Architecture:** A pure selector picks the `isBaseline` snapshot's per-milestone `target` dates into a `Map<id,ISO>`; task-manager memoizes it (Turso-gated) and threads one prop to GanttPanel, which passes each milestone's baseline date to a ghost-aware `GanttMilestoneRow`. A default-on `showBaseline` gantt-pref toggles it; the toolbar button appears only when baseline data exists.
 
-**Tech Stack:** TypeScript, React 19, Next.js (forked), Vitest, Tailwind v4 (AIPM palette tokens only).
+**Tech Stack:** TypeScript, React 19, Next.js (forked), Vitest, Tailwind v4 (brand palette tokens only).
 
 **Branch:** `feat/gantt-milestone-baseline` off `main` (create it; do NOT reuse the id-mint branch).
 
 **Conventions (CI-enforced — read before coding):**
 - `npx tsc --noEmit`, `npm run lint` (`--max-warnings=0`: unused import/var is FATAL), `npm run test:run` after each task.
-- Palette: only AIPM tokens + role tokens (`--line`, `text-muted-foreground`, `bg-surface`, `bg-surface-muted`, `border-line`, `border-AIPM-dark-blue`, `text-AIPM-dark-blue`, `focus:ring-AIPM-green`). No new colors, no gradients, no `shadow*` (palette guards scan comments too — don't write the bare word in prose).
+- Palette: only brand tokens + role tokens (`--line`, `text-muted-foreground`, `bg-surface`, `bg-surface-muted`, `border-line`, `border-ui-dark-blue`, `text-ui-dark-blue`, `focus:ring-ui-green`). No new colors, no gradients, no `shadow*` (palette guards scan comments too — don't write the bare word in prose).
 - i18n: `i18n.ts` (EN) + `i18n.de.ts` (DE) key sets must be identical (tsc enforces). Edit `i18n.de.ts` via node utf8 write (CRLF `\r\n` anchors) — the Edit tool corrupts that file. `Lang` is `"en-US" | "en-GB" | "de"`.
 - react-hooks purity: no `Date.now()`/`new Date()` in a render body; no set-state-in-effect.
 
@@ -527,8 +527,8 @@ In `src/app/gantt-chrome.tsx` `GanttToolbar`:
           title={t(lang, "ganttBaselineHint")}
           className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 ${
             prefs.showBaseline
-              ? "border-AIPM-dark-blue bg-AIPM-dark-blue/10 text-AIPM-dark-blue hover:bg-AIPM-dark-blue/20 focus:ring-AIPM-dark-blue dark:border-AIPM-dark-blue dark:bg-AIPM-dark-blue/20 dark:text-AIPM-light-grey"
-              : "border-line bg-surface text-foreground hover:bg-surface-muted focus:ring-AIPM-green"
+              ? "border-ui-dark-blue bg-ui-dark-blue/10 text-ui-dark-blue hover:bg-ui-dark-blue/20 focus:ring-ui-dark-blue dark:border-ui-dark-blue dark:bg-ui-dark-blue/20 dark:text-ui-light-grey"
+              : "border-line bg-surface text-foreground hover:bg-surface-muted focus:ring-ui-green"
           }`}
         >
           {/* ghost + solid diamond glyph — baseline vs current */}

@@ -481,7 +481,7 @@ id,firstName,lastName,title,businessPhone,location,department,email,company,birt
 Example first row (keep the existing utilization/role/active values from the current file; quote `notes` if it contains commas):
 
 ```
-1,Sample,Dummy,Lead Architect,+49 30 5550101,Berlin,IAM,Sample.Dummy@example.com,Acme,06-14,"Primary SSO architect; OIDC lead.",1,percent,2026-04=80|2026-05=100|2026-06=60|2026-07=50,2026-06=88,,
+1,Sample,Dummy,Lead Architect,+49 30 5550101,Berlin,IAM,Sample.Dummy@example.com,Globex,06-14,"Primary SSO architect; OIDC lead.",1,percent,2026-04=80|2026-05=100|2026-06=60|2026-07=50,2026-06=88,,
 ```
 
 Do the same for resources 2–5 (Sam Placeholder, Taylor Specimen, Morgan Standin, Jamie Testcase), preserving their existing `roleId`, `utilizationMode`, `utilization`, `absenceOverride`, and `active` values from the current file and adding plausible contact fields + birthdays.

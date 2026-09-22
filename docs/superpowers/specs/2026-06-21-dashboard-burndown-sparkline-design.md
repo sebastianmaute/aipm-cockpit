@@ -59,7 +59,7 @@ export function computeCompletionTrend(input: CompletionTrendInput): CompletionP
 
 ### Presentational — `src/app/sparkline.tsx`
 
-Tiny pure SVG polyline, no axes/ticks/labels. Fixed `viewBox` (e.g. `0 0 240 40`), `stroke-AIPM-dark-blue` `strokeWidth=2`, `fill=none`. Y range fixed to data min/max with a small pad. Renders nothing for `< 2` points. SVG is `aria-hidden="true"`; the meaning rides the wrapper's `aria-label` set by the card (label-bleed landmine: the glyph/line must never become the accessible name).
+Tiny pure SVG polyline, no axes/ticks/labels. Fixed `viewBox` (e.g. `0 0 240 40`), `stroke-ui-dark-blue` `strokeWidth=2`, `fill=none`. Y range fixed to data min/max with a small pad. Renders nothing for `< 2` points. SVG is `aria-hidden="true"`; the meaning rides the wrapper's `aria-label` set by the card (label-bleed landmine: the glyph/line must never become the accessible name).
 
 ```ts
 interface SparklineProps { points: readonly CompletionPoint[]; className?: string; }
@@ -85,7 +85,7 @@ No `tursoConfig` guard in the panel. The engine prefers snapshots when present, 
 
 ## a11y
 
-Dashboard is in the axe `A11Y_VIEWS` 12-view gate. The sparkline introduces **no interactive control** (no axe-critical surface). SVG `aria-hidden`; card wrapper carries the full `aria-label`; visible caption is the readable name. No off-palette colors/shadows (only `stroke-AIPM-dark-blue`, brand tokens).
+Dashboard is in the axe `A11Y_VIEWS` 12-view gate. The sparkline introduces **no interactive control** (no axe-critical surface). SVG `aria-hidden`; card wrapper carries the full `aria-label`; visible caption is the readable name. No off-palette colors/shadows (only `stroke-ui-dark-blue`, brand tokens).
 
 ## Versioning
 

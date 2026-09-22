@@ -780,14 +780,14 @@ export function OutlookImportModal({
     <Modal open={open} onClose={onClose} ariaLabel={t(lang, "outlookImportTitle")} align="center" zIndex={50}>
       <div className="flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-line bg-surface">
         <header className="flex shrink-0 items-center justify-between border-b border-line px-6 py-4">
-          <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+          <h2 className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">
             {t(lang, "outlookImportTitle")}
           </h2>
           <button
             type="button"
             onClick={onClose}
             aria-label={t(lang, "outlookImportCancel")}
-            className="rounded-md p-2 text-AIPM-dark-grey hover:bg-surface-muted hover:text-AIPM-dark-blue"
+            className="rounded-md p-2 text-ui-dark-grey hover:bg-surface-muted hover:text-ui-dark-blue"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
               <path
@@ -805,7 +805,7 @@ export function OutlookImportModal({
               {t(lang, "outlookImportLoading")}
             </p>
           ) : error ? (
-            <p className="py-8 text-center text-sm text-AIPM-pink">{error}</p>
+            <p className="py-8 text-center text-sm text-ui-pink">{error}</p>
           ) : contacts.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
               {t(lang, "outlookImportEmpty")}
@@ -836,7 +836,7 @@ export function OutlookImportModal({
                         <span className="font-medium text-foreground">{label}</span>
                         {c.email && <span className="text-xs text-muted-foreground">{c.email}</span>}
                         {exists && (
-                          <span className="ml-auto text-xs italic text-AIPM-purple">
+                          <span className="ml-auto text-xs italic text-ui-purple">
                             {t(lang, "outlookImportExisting")}
                           </span>
                         )}
@@ -861,7 +861,7 @@ export function OutlookImportModal({
             type="button"
             onClick={confirm}
             disabled={selectedCount === 0 || loading || !!error}
-            className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-ui-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t(lang, "outlookImportConfirm", selectedCount)}
           </button>
@@ -875,7 +875,7 @@ export function OutlookImportModal({
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/app/outlook-import-modal.test.tsx`
-Expected: PASS. (If `text-AIPM-purple` / `text-AIPM-pink` aren't valid tokens, grep `text-AIPM-pink` — it is used elsewhere; substitute the nearest existing semantic class if needed. This is a cosmetic class, not behavior.)
+Expected: PASS. (If `text-ui-purple` / `text-ui-pink` aren't valid tokens, grep `text-ui-pink` — it is used elsewhere; substitute the nearest existing semantic class if needed. This is a cosmetic class, not behavior.)
 
 - [ ] **Step 5: Type-check & lint**
 
@@ -959,7 +959,7 @@ it("renders Import from Outlook only when onImportOutlook is provided", () => {
   <button
     type="button"
     onClick={onImportOutlook}
-    className="shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
+    className="shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted"
   >
     {t(lang, "outlookImportButton")}
   </button>

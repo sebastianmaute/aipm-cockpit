@@ -6,10 +6,10 @@
 
 **Architecture:** One new workspace entity `Stakeholder` (optional `resourceId` link) with RACI embedded as a per-milestone `Record<string, RaciRole>` map — serialized the same way `Resource.utilization` is (`key=value|…`). Three new views (register / RACI matrix / power-grid) live under a new "Stakeholders" register in the Registers nav group, mirroring the Change-log register end-to-end. Deep-linking extends the hash grammar to `#<view>[/<id>]` via pure `parseHash`/`buildHash` helpers and a `pendingOpen` channel on the workspace-tab context that the RAID panel consumes once.
 
-**Tech Stack:** Next.js (app dir), React, TypeScript, Tailwind (AIPM 9-colour brand palette only), Vitest 4 + Testing Library, fake-indexeddb. Commands: `npm run test:run`, `npm run lint`, `npx tsc --noEmit`.
+**Tech Stack:** Next.js (app dir), React, TypeScript, Tailwind (brand 9-colour palette only), Vitest 4 + Testing Library, fake-indexeddb. Commands: `npm run test:run`, `npm run lint`, `npx tsc --noEmit`.
 
 **Conventions (read before starting):**
-- AIPM palette only (tokens already in `globals.css`); no new colours, gradients, or shadows. Chips reuse existing `Health`/RAG classes.
+- Brand palette only (tokens already in `globals.css`); no new colours, gradients, or shadows. Chips reuse existing `Health`/RAG classes.
 - Immutable updates everywhere (spread); stamp `localModifiedAt` on save.
 - `i18n.de.ts` must stay **ASCII-only** — the Edit tool corrupts `"` into curly quotes there. After editing it, grep-verify (`rg '[“”„]' src/app/i18n.de.ts` must return nothing).
 - Commit via the Bash tool heredoc: `git commit -F - <<'EOF' … EOF` (not PowerShell here-strings).

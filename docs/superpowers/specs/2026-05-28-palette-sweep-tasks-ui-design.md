@@ -7,7 +7,7 @@
 
 ## Goal
 
-Migrate 8 component files (~2849 LOC) from `zinc-*`/shadows/off-palette status colors to the AIPM palette + semantic surface tokens, with no behavior/markup change. Status colors all map to already-documented `DESIGN-TOKENS.md` patterns; no new design.
+Migrate 8 component files (~2849 LOC) from `zinc-*`/shadows/off-palette status colors to the brand palette + semantic surface tokens, with no behavior/markup change. Status colors all map to already-documented `DESIGN-TOKENS.md` patterns; no new design.
 
 ## Scope (8 files)
 
@@ -21,19 +21,19 @@ Migrate 8 component files (~2849 LOC) from `zinc-*`/shadows/off-palette status c
 |---|---|
 | `bg-white` | `bg-surface` |
 | `bg-zinc-50/100`, `dark:bg-zinc-900`, `dark:bg-zinc-950` | `bg-surface-muted` |
-| `border-zinc-200/300`, `dark:border-zinc-700/800`, `border-AIPM-light-grey` | `border-line` |
-| `divide-zinc-*`, `divide-AIPM-light-grey` | `divide-line` |
-| `bg-AIPM-light-grey`(`/NN`) (chrome bg) | `bg-surface-muted` |
+| `border-zinc-200/300`, `dark:border-zinc-700/800`, `border-ui-light-grey` | `border-line` |
+| `divide-zinc-*`, `divide-ui-light-grey` | `divide-line` |
+| `bg-ui-light-grey`(`/NN`) (chrome bg) | `bg-surface-muted` |
 | `shadow-*` | remove |
-| `focus:ring-AIPM-dark-blue` / `focus-visible:ring-AIPM-dark-blue` / `ring-zinc-*` | `ring-AIPM-green` |
-| `hover:bg-zinc-*` / `dark:hover:bg-zinc-*` / `hover:bg-AIPM-light-grey` | `hover:bg-surface-muted` |
+| `focus:ring-ui-dark-blue` / `focus-visible:ring-ui-dark-blue` / `ring-zinc-*` | `ring-ui-green` |
+| `hover:bg-zinc-*` / `dark:hover:bg-zinc-*` / `hover:bg-ui-light-grey` | `hover:bg-surface-muted` |
 | `text-zinc-900/800/700` (+ paired dark) | `text-foreground` |
 | `text-zinc-500/600/400` (+ paired dark) | `text-muted-foreground` |
-| `text-AIPM-dark-grey` (+ any paired `dark:text-AIPM-light-grey`) | `text-foreground` |
-| `text-AIPM-medium-grey` (+ any paired dark) | `text-muted-foreground` |
+| `text-ui-dark-grey` (+ any paired `dark:text-ui-light-grey`) | `text-foreground` |
+| `text-ui-medium-grey` (+ any paired dark) | `text-muted-foreground` |
 | `bg-gradient-*`, `from-*`, `via-*`, `to-*` | remove |
 
-**KEEP UNCHANGED:** `bg-AIPM-dark-blue text-white` fills; heading pairs `text-AIPM-dark-blue dark:text-AIPM-light-grey`; all AIPM accent colors (`AIPM-pink`, `AIPM-green`, `AIPM-blue`, `AIPM-purple`); ALL non-class code.
+**KEEP UNCHANGED:** `bg-ui-dark-blue text-white` fills; heading pairs `text-ui-dark-blue dark:text-ui-light-grey`; all petrol accent colors (`ui-pink`, `ui-green`, `ui-blue`, `ui-purple`); ALL non-class code.
 
 **CRITICAL:** REPLACE each utility in place — never ADD a second color utility. After editing, no className may contain two `bg-*`, two `border-<color>`, two `divide-*`, or two `text-<color>` base utilities (variants like `hover:`/`dark:` are fine).
 
@@ -43,24 +43,24 @@ Migrate 8 component files (~2849 LOC) from `zinc-*`/shadows/off-palette status c
 
 | Spot | Before → After |
 |---|---|
-| Priority chip Medium (~line 92) | `bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300` → `bg-AIPM-blue/15 text-AIPM-blue dark:bg-AIPM-blue/20` |
-| Priority chip High (~line 93) | `bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300` → `bg-AIPM-purple/15 text-AIPM-purple dark:bg-AIPM-purple/20` |
-| Priority chip Urgent (~line 94) | `bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300` → `bg-AIPM-pink/15 text-AIPM-pink dark:bg-AIPM-pink/20` |
-| Row editing highlight (~line 159) | `bg-amber-50 dark:bg-amber-950/20` → `bg-AIPM-purple/10 dark:bg-AIPM-purple/15` |
-| Row selected highlight (~line 159) | `bg-AIPM-light-grey dark:bg-zinc-900` → `bg-surface-muted` |
-| Inquiry-sent link (~line 382) | `text-red-600 ... dark:text-red-400` → `text-AIPM-pink` |
-| Stale badge (~line 441) | `bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/60` → `bg-AIPM-purple/15 text-AIPM-purple hover:bg-AIPM-purple/25 dark:bg-AIPM-purple/20 dark:hover:bg-AIPM-purple/30` |
+| Priority chip Medium (~line 92) | `bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300` → `bg-ui-blue/15 text-ui-blue dark:bg-ui-blue/20` |
+| Priority chip High (~line 93) | `bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300` → `bg-ui-purple/15 text-ui-purple dark:bg-ui-purple/20` |
+| Priority chip Urgent (~line 94) | `bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300` → `bg-ui-pink/15 text-ui-pink dark:bg-ui-pink/20` |
+| Row editing highlight (~line 159) | `bg-amber-50 dark:bg-amber-950/20` → `bg-ui-purple/10 dark:bg-ui-purple/15` |
+| Row selected highlight (~line 159) | `bg-ui-light-grey dark:bg-zinc-900` → `bg-surface-muted` |
+| Inquiry-sent link (~line 382) | `text-red-600 ... dark:text-red-400` → `text-ui-pink` |
+| Stale badge (~line 441) | `bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/60` → `bg-ui-purple/15 text-ui-purple hover:bg-ui-purple/25 dark:bg-ui-purple/20 dark:hover:bg-ui-purple/30` |
 
-The Priority ramp **Low (implicit/unchipped) → Medium=AIPM-blue → High=AIPM-purple → Urgent=AIPM-pink** is the documented status mapping (info → warning → alert), 3 distinct hues for the 3 chipped levels.
+The Priority ramp **Low (implicit/unchipped) → Medium=ui-blue → High=ui-purple → Urgent=ui-pink** is the documented status mapping (info → warning → alert), 3 distinct hues for the 3 chipped levels.
 
 **`reports.tsx`** — RAG legend + a chart bar color:
 
 | Spot | Before → After |
 |---|---|
-| RAG record R (~line 262) | `R: "bg-red-500"` → `R: "bg-AIPM-pink"` |
-| RAG record A (~line 263) | `A: "bg-amber-500"` → `A: "bg-AIPM-purple"` |
-| RAG record G (~line 264) | `G: "bg-emerald-500"` → `G: "bg-AIPM-green"` |
-| Other chart color (~line 358) | `color: "bg-amber-500"` → `color: "bg-AIPM-purple"` (amber → purple per the standard mapping) |
+| RAG record R (~line 262) | `R: "bg-red-500"` → `R: "bg-ui-pink"` |
+| RAG record A (~line 263) | `A: "bg-amber-500"` → `A: "bg-ui-purple"` |
+| RAG record G (~line 264) | `G: "bg-emerald-500"` → `G: "bg-ui-green"` |
+| Other chart color (~line 358) | `color: "bg-amber-500"` → `color: "bg-ui-purple"` (amber → purple per the standard mapping) |
 
 **`combo-input`, `contact-input`, `labels-input`, `dependencies-editor`, `task-manager-ui`, `tasks-section`** — pure chrome (form inputs, sections, sticky headers, buttons). No named status edits — apply the chunk mapping only.
 
@@ -81,7 +81,7 @@ The Priority ramp **Low (implicit/unchipped) → Medium=AIPM-blue → High=AIPM-
 - Each file's existing tests (where present) assert behavior/roles/text — not zinc classes — and must stay green.
 - **Per-file verification grep** (on each migrated file) → ZERO matches for:
   - (a) `zinc-|shadow-|bg-gradient|from-\[|(amber|red|emerald|sky|rose|slate|gray|orange|yellow|teal|cyan|indigo|violet|fuchsia|green|blue|purple|pink)-[0-9]`
-  - (b) `border-AIPM-light-grey|divide-AIPM-light-grey|bg-AIPM-light-grey|text-AIPM-dark-grey|text-AIPM-medium-grey`
+  - (b) `border-ui-light-grey|divide-ui-light-grey|bg-ui-light-grey|text-ui-dark-grey|text-ui-medium-grey`
 - **Duplicate-utility scan** per file: no element with two same-property color utilities.
 - Gates each task: `npx tsc --noEmit` (0), `npm run lint` (0), the file's `vitest run` green.
 

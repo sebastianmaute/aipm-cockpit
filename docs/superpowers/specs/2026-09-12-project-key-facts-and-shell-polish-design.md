@@ -1,7 +1,7 @@
 # Project key facts, completeness nudges, and shell polish — design
 
 **Date:** 2026-09-12
-**Source:** GitLab work item [#64](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/work_items/64) (`O-1: Project creation from a name alone`), plus four requirements raised alongside it.
+**Source:** GitLab work item #64 on the internal GitLab (`O-1: Project creation from a name alone`), plus four requirements raised alongside it.
 **Status:** approved in brainstorming (three sections, each approved separately). Not yet planned.
 
 ---

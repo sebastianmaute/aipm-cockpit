@@ -1153,7 +1153,7 @@ Locate the Issue with `Grep` pattern `Rate-limit counter not resetting correctly
   {
     "at": "2026-05-20T09:30:00.000Z",
     "toName": "Sam Placeholder",
-    "toEmail": "Fictional.Jordan@example.com",
+    "toEmail": "Fictional.Jordan@acme-corp.example",
     "toResourceId": 2,
     "fromSeverity": "Medium",
     "toSeverity": "High"

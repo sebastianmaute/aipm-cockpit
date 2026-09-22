@@ -57,7 +57,7 @@ patterns. All pure modules are i18n-free (React surfaces translate).
     swept by `clearAppConfig`'s `lop-app:*` sweep.
 
 - **`digest/digest-email.ts`** (pure, i18n-free HTML builder)
-  - `buildDigestEmailHtml(model: DigestModel, lang: Lang): string` — brand-inline-styled HTML (AIPM tokens
+  - `buildDigestEmailHtml(model: DigestModel, lang: Lang): string` — brand-inline-styled HTML (brand tokens
     as literal hex, since email clients ignore CSS vars), all facts escaped. No user free-text.
   - `buildDigestEmailSubject(model, lang): string`.
 

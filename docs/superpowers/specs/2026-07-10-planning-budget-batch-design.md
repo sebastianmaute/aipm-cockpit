@@ -131,7 +131,7 @@ each shown bucket). New i18n key `budgetBucketFilter` (placeholder) EN+DE. Budge
 
 ## Constraints / gates
 
-- **Palette:** AIPM tokens only; no off-palette color/shadow/gradient. Suffix span uses
+- **Palette:** brand tokens only; no off-palette color/shadow/gradient. Suffix span uses
   `text-muted-foreground`.
 - **a11y:** suffix is `aria-hidden`; two budget filter boxes need distinct labels; read-only
   input keeps its `aria-label`. Verify with

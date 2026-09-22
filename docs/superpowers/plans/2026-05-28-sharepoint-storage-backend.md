@@ -957,7 +957,7 @@ Inside the JSX, after the existing `{isLocal && (...)}` block, add the sp-* bran
 
 ```tsx
 {isSp && !spGateOk && (
-  <p className="mt-2 text-xs text-AIPM-pink">
+  <p className="mt-2 text-xs text-ui-pink">
     {!m365Enabled
       ? t(lang, "spStorageNeedsM365")
       : t(lang, "spStorageNeedsToggle")}
@@ -972,7 +972,7 @@ Inside the JSX, after the existing `{isLocal && (...)}` block, add the sp-* bran
     <button
       type="button"
       onClick={() => { void auth.signIn(); }}
-      className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
+      className="rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90"
     >
       {t(lang, "integrationsM365SignIn")}
     </button>
@@ -994,7 +994,7 @@ Inside the JSX, after the existing `{isLocal && (...)}` block, add the sp-* bran
     </label>
     <p className="text-xs text-muted-foreground">{t(lang, "spStorageHint")}</p>
     {spUrlError && (
-      <p className="text-xs text-AIPM-pink">{spUrlError}</p>
+      <p className="text-xs text-ui-pink">{spUrlError}</p>
     )}
   </div>
 )}

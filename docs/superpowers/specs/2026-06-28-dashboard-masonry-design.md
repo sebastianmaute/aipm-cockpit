@@ -83,7 +83,7 @@ column 1 carries the most important cards): KPI · Top actions · RAID · Upcomi
 
 - Public `DashboardPanelProps` unchanged (~30 caller/test sites untouched).
 - `dc.*` density (incl. new `cardGap`) — no literal spacing on cockpit slices.
-- AIPM palette tokens only; no new gradients/shadows beyond `--shadow-card`.
+- Brand palette tokens only; no new gradients/shadows beyond `--shadow-card`.
 - axe: Dashboard ∈ `A11Y_VIEWS`. All moved controls keep their accessible names
   (KPI tile activate-labels, Top-actions Open buttons, RAID/Change row labels).
   Multicol introduces no new interactive controls.
@@ -104,6 +104,6 @@ column 1 carries the most important cards): KPI · Top actions · RAID · Upcomi
 - `npm run test:run` green incl. new `dashboard-kpi-strip` / `dashboard-top-actions`
   tests, updated `dashboard-hero` test (Overall-band-only), updated
   `registers-band`/panel tests, `dashboard-density` test (new `cardGap`).
-- axe Dashboard gate 3/3 (AIPM light+dark, Mockup light).
+- axe Dashboard gate 3/3 (Petrol light+dark, Mockup light).
 - Eye-check at 1680 / 1280 / 900 / 375 px + compact density: confirm KPI void and
   Progress void are gone; columns balanced; no card split mid-column.

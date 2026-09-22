@@ -259,7 +259,7 @@ export function ColumnResizeHandle({
     <div
       aria-hidden="true"
       onMouseDown={(e) => onMouseDown(col, e)}
-      className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-AIPM-dark-blue/40 dark:hover:bg-AIPM-blue/40"
+      className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-ui-dark-blue/40 dark:hover:bg-ui-blue/40"
     />
   );
 }
@@ -267,7 +267,7 @@ export function ColumnResizeHandle({
 
 - [ ] **Step 2 (optional DRY): Refactor `Th` and `SortableTh` to use `ColumnResizeHandle`**
 
-Replace the inline `<div onMouseDown={onResize} className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-AIPM-dark-blue/40 dark:hover:bg-AIPM-blue/40" />` block in both `<Th>` (~L168–173) and `<SortableTh>` (~L210–215) with:
+Replace the inline `<div onMouseDown={onResize} className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-ui-dark-blue/40 dark:hover:bg-ui-blue/40" />` block in both `<Th>` (~L168–173) and `<SortableTh>` (~L210–215) with:
 
 ```tsx
 {onResize && (

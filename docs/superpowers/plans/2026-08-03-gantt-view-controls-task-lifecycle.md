@@ -6,7 +6,7 @@
 
 **Architecture:** Three independent workstreams. **A** (task lifecycle) touches pure engines and their consumers; **B** (Gantt) adds prefs + two new presentational layers + a popover menu; **C** (Open Points / Settings) is small UI corrections. Every filtering or bucketing decision lands in a pure, i18n-free module with unit tests; React files only consume them.
 
-**Tech Stack:** Next.js 16 / React 19 / TypeScript, vitest + @testing-library/react, Playwright + axe, Tailwind v4 with AIPM palette tokens.
+**Tech Stack:** Next.js 16 / React 19 / TypeScript, vitest + @testing-library/react, Playwright + axe, Tailwind v4 with brand palette tokens.
 
 ---
 

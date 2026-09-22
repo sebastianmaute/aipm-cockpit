@@ -548,7 +548,7 @@ describe("DiagnosticsPanel", () => {
 
 - [ ] **Step 3: Run it — expect FAIL** (`npm run test:run -- diagnostics-panel`)
 
-- [ ] **Step 4: Implement** (presentational; AIPM tokens only; uses `EmptyState`, `INTERACTIVE`, `useToastContext`)
+- [ ] **Step 4: Implement** (presentational; brand tokens only; uses `EmptyState`, `INTERACTIVE`, `useToastContext`)
 
 ```tsx
 // src/app/diagnostics-panel.tsx

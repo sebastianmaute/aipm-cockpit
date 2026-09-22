@@ -16,15 +16,15 @@ table) beneath it. Navigation is a horizontal tab strip.
 We are introducing a new **default** layout: a left **Dark-Blue sidebar** with
 grouped, nested navigation; a **top bar** with the page title and action buttons;
 and a **full-viewport** content area that shows one view at a time — matching the
-Acme design language in `docs/patterns/layout.png`, `table.png`, and
+Brand design language in `docs/patterns/layout.png`, `table.png`, and
 `edit.png`. The existing layout is preserved as a toggleable **"Classic mode."**
 
 ## Hard Constraints
 
-- **Color palette (locked):** only the 9 permitted Acme brand colors, already
-  wired in `src/app/globals.css` as CSS vars + Tailwind tokens (`AIPM-dark-grey`,
-  `AIPM-dark-blue`, `AIPM-green`, `AIPM-white`, `AIPM-light-grey`, `AIPM-medium-grey`,
-  `AIPM-blue`, `AIPM-pink`, `AIPM-purple`; plus semantic `--surface`, `--surface-muted`,
+- **Color palette (locked):** only the 9 permitted brand colors, already
+  wired in `src/app/globals.css` as CSS vars + Tailwind tokens (`ui-dark-grey`,
+  `ui-dark-blue`, `ui-green`, `ui-white`, `ui-light-grey`, `ui-medium-grey`,
+  `ui-blue`, `ui-pink`, `ui-purple`; plus semantic `--surface`, `--surface-muted`,
   `--line`, `--foreground`, `--muted-foreground`). Green (`#84BD00`) is the dominant
   accent; Dark Blue (`#004159`) for backgrounds / headings / table headers.
   **No gradients, no drop shadows, no off-palette colors.** Dark-mode neutral
@@ -108,7 +108,7 @@ SYSTEM
   collapsible) + main column (`TopBar` + scrollable content host). Renders the active
   view full-bleed (bypassing `WorkspaceSection`'s resizable box). Overlay modals and
   banners still mount here.
-- **`Sidebar`** — brand header (white Acme logo + green "LIST OF OPEN POINTS"
+- **`Sidebar`** — brand header (white company logo + green "LIST OF OPEN POINTS"
   subtitle), nested nav groups, footer (storage/account status, theme toggle, version,
   sign-out when M365 signed in). Collapsible to an icon rail; auto-collapses below a
   width breakpoint (top bar then shows a menu button).

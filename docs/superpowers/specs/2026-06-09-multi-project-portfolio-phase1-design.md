@@ -287,7 +287,7 @@ apart from the added section.
 
 ## 9. Constraints (carried from project conventions)
 
-- No zod/yup. 9-color AIPM palette only; no gradients/shadows/off-palette.
+- No zod/yup. 9-color brand palette only; no gradients/shadows/off-palette.
 - `lint --max-warnings=0`; no `console.log` in production; no secrets in logs.
 - `i18n.de.ts` literal UTF-8 (Edit tool can corrupt ASCII quotes → grep after editing).
 - Pure modules inject `now` / avoid `Date.now()`/`Math.random()`; id generation in the

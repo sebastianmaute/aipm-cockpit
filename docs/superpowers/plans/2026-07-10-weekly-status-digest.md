@@ -386,7 +386,7 @@ git commit -m "feat(digest): per-device digest cadence + prior-snapshot store"
 - Create: `src/app/digest/digest-email.ts`
 - Test: `src/app/digest/digest-email.test.ts`
 
-Email clients ignore CSS variables, so inline literal hex (AIPM brand): dark-blue `#003c78`, red `#d0021b`, amber `#f5a623`, green `#417505`. All fact text HTML-escaped.
+Email clients ignore CSS variables, so inline literal hex (Brand): dark-blue `#003c78`, red `#d0021b`, amber `#f5a623`, green `#417505`. All fact text HTML-escaped.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -439,7 +439,7 @@ Expected: FAIL — "Cannot find module './digest-email'".
 ```ts
 // src/app/digest/digest-email.ts
 // Pure brand-inline HTML + subject for the Graph-sent digest email. Email
-// clients ignore CSS vars → literal AIPM hex. All fact text HTML-escaped; no
+// clients ignore CSS vars → literal brand hex. All fact text HTML-escaped; no
 // user free-text is injected unescaped.
 import { t, type Lang } from "../i18n";
 import type { Health } from "../health";
@@ -1124,7 +1124,7 @@ export function DigestCard({ lang, digest, dc, m365Configured, busy, onGenerate,
   return (
     <div className={`rounded-xl border border-line ${dc.cardPad}`}>
       <div className="flex items-center justify-between">
-        <h3 className="font-medium text-AIPM-dark-blue">{t(lang, "digestTitle")}</h3>
+        <h3 className="font-medium text-ui-dark-blue">{t(lang, "digestTitle")}</h3>
         <span className={`inline-block h-3 w-3 rounded-full ${healthDot(digest.rag)}`} role="img" aria-label={t(lang, digest.rag === "R" ? "healthRed" : digest.rag === "A" ? "healthAmber" : "healthGreen")} />
       </div>
       {digest.narrative ? <p className="mt-2 text-sm text-muted-foreground">{digest.narrative}</p> : null}

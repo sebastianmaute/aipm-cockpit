@@ -13,7 +13,7 @@ unmistakably actionable — without changing the underlying scoring engine
 All four user-stated goals in one pass:
 1. **Scannability** — the single most urgent action is visually dominant.
 2. **Density & rhythm** — each row carries less competing chrome.
-3. **Polish** — intentional card/tier treatment within the AIPM palette.
+3. **Polish** — intentional card/tier treatment within the brand palette.
 4. **Actionable** — every row leads with its real next step, not generic "Open".
 
 ## Non-goals
@@ -115,7 +115,7 @@ handlers ActionRow takes }`. Internally calls `pickPrimaryCta` and renders:
 - Eyebrow `⚑ <t(heroEyebrow)>` tinted to the group's tier via `--rag-*` text token.
 - Title (full, may wrap to 2 lines — NOT truncated).
 - Why (full, not truncated).
-- CTA cluster: **primary** (filled `bg-AIPM-dark-blue`, the picked verb's control
+- CTA cluster: **primary** (filled `bg-ui-dark-blue`, the picked verb's control
   — popover variants like Assign/Escalate/Rebaseline/Reschedule reuse the
   EXISTING popover components), then **Open** (ghost) when primary≠open, then
   the overflow CTAs rendered inline as ghost buttons IF ≤2 else a ⋮ menu, then
@@ -220,7 +220,7 @@ booleans are cheap and local.
   when primary≠open; ⋮ contents minus promoted; expertMode score gate.
 - a11y: `npx playwright test e2e/a11y.spec.ts -g "..."` — the `actions` view is
   NOT in `A11Y_VIEWS` (sub-menu child, file-mode reachable? verify), so
-  eye-verify hero/row/tier-dot labels + contrast across AIPM/mockup/custom.
+  eye-verify hero/row/tier-dot labels + contrast across petrol/mockup/custom.
   (Confirm during plan whether `actions` is axe-scanned; if not, eye-verify.)
 - `npx tsc --noEmit` (i18n EN/DE parity) + `npm run lint` (`--max-warnings=0`).
 

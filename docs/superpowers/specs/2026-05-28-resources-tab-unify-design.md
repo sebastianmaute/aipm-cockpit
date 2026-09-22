@@ -19,7 +19,7 @@ Unify three sibling table surfaces in the Resources panel — **Directory**, **P
     <td class="px-3 py-2 [text-foreground | text-muted-foreground] [text-right tabular-nums]">…</td>
 ```
 
-Name buttons: `font-medium text-foreground` at the table's inherited size, with `hover:border-AIPM-dark-blue hover:bg-surface-muted`. Number cells: `text-right tabular-nums`. Empty-field placeholder: `"—"`. Primary cells = `text-foreground`; secondary fields = `text-muted-foreground`.
+Name buttons: `font-medium text-foreground` at the table's inherited size, with `hover:border-ui-dark-blue hover:bg-surface-muted`. Number cells: `text-right tabular-nums`. Empty-field placeholder: `"—"`. Primary cells = `text-foreground`; secondary fields = `text-muted-foreground`.
 
 ## Per-file edits
 
@@ -53,10 +53,10 @@ Everything else already matches Workload.
 | `<thead>` (~L449) | `sticky top-0 bg-surface-muted` | `sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground` |
 | First `<th>` (~L451) | `px-2 py-1.5 text-left` | `px-3 py-2 font-medium` |
 | Period-key `<th>` (~L453) | `px-2 py-1.5 text-right tabular-nums` | `px-3 py-2 text-right font-medium tabular-nums` |
-| Name `<td>` (~L462) | `px-2 py-1 font-medium text-foreground dark:text-AIPM-light-grey` | `px-3 py-2 font-medium text-foreground` |
+| Name `<td>` (~L462) | `px-2 py-1 font-medium text-foreground dark:text-ui-light-grey` | `px-3 py-2 font-medium text-foreground` |
 | Period-value `<td>` (~L464) | `px-2 py-1 text-right tabular-nums text-muted-foreground` | `px-3 py-2 text-right tabular-nums text-muted-foreground` |
 
-(The redundant `dark:text-AIPM-light-grey` on the Rollup name `<td>` is dropped — `text-foreground` already resolves to the right value in both modes. Same canonical rule as the palette sweep.)
+(The redundant `dark:text-ui-light-grey` on the Rollup name `<td>` is dropped — `text-foreground` already resolves to the right value in both modes. Same canonical rule as the palette sweep.)
 
 ### `src/app/resources-report.tsx`
 
@@ -65,14 +65,14 @@ Everything else already matches Workload.
 | `<Table>` `<table>` (~L122) | `min-w-full text-left text-xs` | `min-w-full text-left text-sm` |
 | `<Table>` `<thead>` (~L123) | `bg-surface-muted uppercase tracking-wide text-muted-foreground` | `sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground` |
 | `<Table>` `<th>` (~L124) | `px-3 py-2 ${i === 0 ? "" : "text-right"}` | `px-3 py-2 font-medium ${i === 0 ? "" : "text-right"}` |
-| `<Td>` helper (~L133) | `px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey` | `px-3 py-2 font-medium text-foreground` |
+| `<Td>` helper (~L133) | `px-3 py-2 font-medium text-ui-dark-blue dark:text-ui-light-grey` | `px-3 py-2 font-medium text-foreground` |
 
 `<TdR>` already matches; no change.
 
 ## Non-goals
 
 - The Calendar sub-view is a 30-day grid, not a table — out of scope.
-- The 4 summary `<Tile>` cards at the top of the Resources Report keep their `text-AIPM-dark-blue` value styling — a stat-tile primitive, not a table cell.
+- The 4 summary `<Tile>` cards at the top of the Resources Report keep their `text-ui-dark-blue` value styling — a stat-tile primitive, not a table cell.
 - The Report's `<Section>` `<h3>` titles keep their existing styling — not table parts.
 - No new components, no shared `<ResourceTable>` extraction (YAGNI — the four siblings have real structural differences and the unification is class-strings only).
 - No i18n string changes — the `uppercase tracking-wide` is CSS, the strings stay sentence-case in source.
@@ -81,12 +81,12 @@ Everything else already matches Workload.
 
 - **Planning grid horizontal width.** The Planning table bumps from `text-xs` to `text-sm` and from `px-2 py-1` to `px-3 py-2`. With many period columns (e.g. 52 weeks/year) the table will scroll horizontally inside its `overflow-auto` wrapper — acceptable and intentional; week-view at very small viewports was already near the limit.
 - **Number input cell padding.** The `<td>` wrapping the utilization + absence-override inputs goes from `px-1 py-1` to `px-3 py-2`. The inputs themselves keep their `w-16` width and own padding; only the cell breathing-room expands.
-- **Rollup dark-variant drop.** Removing `dark:text-AIPM-light-grey` from the rollup name `<td>` is safe — `text-foreground` is the semantic token that already resolves correctly in both themes (this matches the canonical rule we hardened during the palette sweep: never pair a `text-AIPM-*` light value with its `dark:` partner when a surface token covers both).
-- **Report Td color change.** `text-AIPM-dark-blue` → `text-foreground` lightens the report's first-column values slightly in light mode. Workload's first-column already reads as `text-foreground`, so this brings the report in line. Section titles (`<h3>`) and Tiles keep `text-AIPM-dark-blue` — the report still has its identifiable accents.
+- **Rollup dark-variant drop.** Removing `dark:text-ui-light-grey` from the rollup name `<td>` is safe — `text-foreground` is the semantic token that already resolves correctly in both themes (this matches the canonical rule we hardened during the palette sweep: never pair a `text-ui-*` light value with its `dark:` partner when a surface token covers both).
+- **Report Td color change.** `text-ui-dark-blue` → `text-foreground` lightens the report's first-column values slightly in light mode. Workload's first-column already reads as `text-foreground`, so this brings the report in line. Section titles (`<h3>`) and Tiles keep `text-ui-dark-blue` — the report still has its identifiable accents.
 
 ## Testing
 
-- Existing tests in `resource-directory.test.tsx`, `resource-workload.test.tsx`, `resources-panel.test.tsx`, and `resources-report.test.tsx` assert behavior, not classes — they should stay green. If any test asserts on `text-xs` (directory name), `px-2 py-1` (planning), or `text-AIPM-dark-blue` (report Td), update those assertions to the new tokens.
+- Existing tests in `resource-directory.test.tsx`, `resource-workload.test.tsx`, `resources-panel.test.tsx`, and `resources-report.test.tsx` assert behavior, not classes — they should stay green. If any test asserts on `text-xs` (directory name), `px-2 py-1` (planning), or `text-ui-dark-blue` (report Td), update those assertions to the new tokens.
 - Per-file scoped grep — ZERO matches each:
   - `resource-directory.tsx` name button line: no `text-xs` on the name button (`<button … >resourceDisplayName(r)</button>`).
   - `resources-panel.tsx` Planning + Rollup tables: no `text-left text-xs` table base; no `px-2 py-1(\.5)?` inside the planning view; thead has the full uppercase recipe.

@@ -236,7 +236,7 @@ const MAX_IMPORT_FILES = 10;
       {(reading || aiBusy) && (
         <Modal open onClose={() => abortRef.current?.abort()} ariaLabel={t(lang, reading ? "wizardImportReadingFiles" : "wizardImportAnalyzing")} align="center" zIndex={70}>
           <div role="status" aria-live="polite" className="flex flex-col items-center gap-4 rounded-lg border border-line bg-surface px-8 py-6 text-foreground">
-            <span aria-hidden="true" className="h-7 w-7 animate-spin rounded-full border-2 border-AIPM-dark-blue border-t-transparent" />
+            <span aria-hidden="true" className="h-7 w-7 animate-spin rounded-full border-2 border-ui-dark-blue border-t-transparent" />
             <span className="text-sm font-medium">{t(lang, reading ? "wizardImportReadingFiles" : "wizardImportAnalyzing")}</span>
             <button type="button" onClick={() => abortRef.current?.abort()} className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground ${INTERACTIVE}`}>
               {t(lang, "cancel")}

@@ -143,7 +143,7 @@ Replace the "Birthday — two selects" block with:
 ```tsx
 {/* Birthday — native date picker with optional year */}
 <div className="flex flex-col gap-1 text-sm sm:col-span-2">
-  <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+  <span className="font-medium text-ui-dark-grey dark:text-ui-light-grey">
     {t(lang, "resourceBirthday")}
   </span>
   <div className="flex flex-wrap items-center gap-3">
@@ -154,7 +154,7 @@ Replace the "Birthday — two selects" block with:
       aria-label={t(lang, "resourceBirthday")}
       className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
     />
-    <label className="flex items-center gap-1.5 text-sm text-AIPM-dark-grey dark:text-AIPM-light-grey">
+    <label className="flex items-center gap-1.5 text-sm text-ui-dark-grey dark:text-ui-light-grey">
       <input
         type="checkbox"
         checked={yearUnknown}
@@ -353,10 +353,10 @@ Run → FAIL.
 
 - [ ] **Step 3: Click-to-edit in `task-row.tsx`.** `onEdit` and `lang` are already in scope from `useTaskRowContext()`.
   - ID cell: replace the bare `#{task.id}` with
-    ``<button type="button" onClick={() => onEdit(task)} title={`#${task.id} — ${t(lang, "clickToEdit")}`} className="cursor-pointer rounded font-mono text-zinc-500 hover:text-AIPM-dark-blue hover:underline">#{task.id}</button>``
+    ``<button type="button" onClick={() => onEdit(task)} title={`#${task.id} — ${t(lang, "clickToEdit")}`} className="cursor-pointer rounded font-mono text-zinc-500 hover:text-ui-dark-blue hover:underline">#{task.id}</button>``
     (keep the Jira link + `RaidBadge` siblings unchanged, outside the button).
   - Name cell: replace `<span>{task.taskName}</span>` with
-    ``<button type="button" onClick={() => onEdit(task)} title={`${task.taskName} — ${t(lang, "clickToEdit")}`} className="cursor-pointer text-left font-medium hover:text-AIPM-dark-blue hover:underline">{task.taskName}</button>``
+    ``<button type="button" onClick={() => onEdit(task)} title={`${task.taskName} — ${t(lang, "clickToEdit")}`} className="cursor-pointer text-left font-medium hover:text-ui-dark-blue hover:underline">{task.taskName}</button>``
     (keep the group/label chips below it unchanged).
 
 - [ ] **Step 4: Per-cell titles (`task-row.tsx`).** Give the `Td` helper an optional `title?: string` prop and forward it to the `<td>`. Add `title={`${t(lang, "<colKey>")}: ${value}`}` to the assignee, startDate, dueDate, and lastUpdateDate cells (colKeys: `assignee`, `startDate`, `dueDate`, `lastUpdateDate`). Leave the status dot (already titled).

@@ -290,7 +290,7 @@ it("manual pick overrides the suggestion and sticks", async () => {
   6. Badge — inside the row's header `<div className="flex items-center justify-between gap-2">` (next to the mode pill, ~line 207), add before/after it:
   ```tsx
   {suggestion?.templateId === tpl.id && (
-    <span className="rounded-full bg-AIPM-dark-blue px-2 py-0.5 text-xs font-semibold text-white">
+    <span className="rounded-full bg-ui-dark-blue px-2 py-0.5 text-xs font-semibold text-white">
       {t(lang, "templateSuggested")}
     </span>
   )}

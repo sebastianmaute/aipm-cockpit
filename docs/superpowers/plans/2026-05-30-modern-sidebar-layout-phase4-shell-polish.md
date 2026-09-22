@@ -13,7 +13,7 @@
 **Scope:** Workstream **A only** (shell a11y + responsive collapse). Deferred to follow-on plans: B (full-page Settings view), C (DRY menu-cluster + banner parity), D (divergent-table sweep).
 
 **Hard constraints (carried):**
-- **Palette locked:** only the 9 Acme colors via existing tokens (`AIPM-dark-grey #636362`, `AIPM-dark-blue #004159`, `AIPM-green #84BD00`, `AIPM-white #FFFFFF`, `AIPM-light-grey #E3E6E6`, `AIPM-medium-grey #939598`, `AIPM-blue #60C0DD`, `AIPM-pink #E5497C`, `AIPM-purple #AA4899`) + semantic `surface`/`surface-muted`/`line`/`foreground`/`muted-foreground`. Opacity modifiers (e.g. `bg-AIPM-white/10`) are allowed. **No gradients, no drop shadows, no off-palette hex.** Dark-mode neutral surfaces (`#121619`/`#1b2024`/`#2b3137`) already exist in `globals.css` `.dark` and are the only exception.
+- **Palette locked:** only the 9 brand colors via existing tokens (`ui-dark-grey #636362`, `ui-dark-blue #004159`, `ui-green #84BD00`, `ui-white #FFFFFF`, `ui-light-grey #E3E6E6`, `ui-medium-grey #939598`, `ui-blue #60C0DD`, `ui-pink #E5497C`, `ui-purple #AA4899`) + semantic `surface`/`surface-muted`/`line`/`foreground`/`muted-foreground`. Opacity modifiers (e.g. `bg-ui-white/10`) are allowed. **No gradients, no drop shadows, no off-palette hex.** Dark-mode neutral surfaces (`#121619`/`#1b2024`/`#2b3137`) already exist in `globals.css` `.dark` and are the only exception.
 - **i18n:** every new label goes through `t(lang, ...)` with keys in BOTH `i18n.ts` and `i18n.de.ts`. `i18n.de.ts` is prone to ASCII `"` → curly-quote corruption when edited — byte-patch carefully and grep-verify after every change.
 - **No new routing framework**; popout (`?popout=`) and Classic mode must stay unaffected.
 
@@ -502,10 +502,10 @@ function navItemClass(active: boolean, indent: "root" | "child", collapsed: bool
     : indent === "root"
       ? "px-4 py-2 "
       : "py-1.5 pl-9 pr-4 ";
-  const inactiveText = indent === "root" ? "text-AIPM-light-grey" : "text-AIPM-medium-grey";
+  const inactiveText = indent === "root" ? "text-ui-light-grey" : "text-ui-medium-grey";
   const state = active
-    ? "border-AIPM-green bg-AIPM-green/15 font-semibold text-AIPM-white"
-    : `border-transparent ${inactiveText} hover:bg-AIPM-white/10 hover:text-AIPM-white`;
+    ? "border-ui-green bg-ui-green/15 font-semibold text-ui-white"
+    : `border-transparent ${inactiveText} hover:bg-ui-white/10 hover:text-ui-white`;
   return base + spacing + state;
 }
 
@@ -515,7 +515,7 @@ export function SidebarNav({ lang, activeView, onNavigate, collapsed = false }: 
       {NAV_GROUPS.map((group) => (
         <div key={group.labelKey}>
           {!collapsed && (
-            <p className="px-4 pb-1 text-[11px] font-semibold uppercase tracking-wider text-AIPM-medium-grey">
+            <p className="px-4 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ui-medium-grey">
               {t(lang, group.labelKey)}
             </p>
           )}
@@ -669,14 +669,14 @@ export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, onTo
             onClick={onToggleSidebar}
             aria-label={t(lang, "sidebarMenuButton")}
             title={t(lang, "sidebarMenuButton")}
-            className="rounded-md p-2 text-AIPM-dark-grey hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-medium-grey dark:hover:text-AIPM-light-grey"
+            className="rounded-md p-2 text-ui-dark-grey hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-ui-medium-grey dark:hover:text-ui-light-grey"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-5 w-5">
               <path fillRule="evenodd" d="M3 5.5A.75.75 0 013.75 4.75h12.5a.75.75 0 010 1.5H3.75A.75.75 0 013 5.5zm0 4.5a.75.75 0 01.75-.75h12.5a.75.75 0 010 1.5H3.75A.75.75 0 013 10zm0 4.5a.75.75 0 01.75-.75h12.5a.75.75 0 010 1.5H3.75A.75.75 0 013 14.5z" clipRule="evenodd" />
             </svg>
           </button>
         )}
-        <h1 className="truncate text-xl font-semibold tracking-tight text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        <h1 className="truncate text-xl font-semibold tracking-tight text-ui-dark-blue dark:text-ui-light-grey">
           {title}
         </h1>
       </div>
@@ -686,7 +686,7 @@ export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, onTo
             type="button"
             onClick={onNewTask}
             title={t(lang, "newTask")}
-            className="rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-semibold text-AIPM-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+            className="rounded-md bg-ui-green px-3 py-1.5 text-sm font-semibold text-ui-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ui-green"
           >
             {t(lang, "newTask")}
           </button>
@@ -696,13 +696,13 @@ export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, onTo
           onClick={onShowAlerts}
           aria-label={t(lang, "showDueAlerts")}
           title={t(lang, "showDueAlerts")}
-          className="relative rounded-md p-2 text-AIPM-dark-grey hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-medium-grey dark:hover:text-AIPM-light-grey"
+          className="relative rounded-md p-2 text-ui-dark-grey hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-ui-medium-grey dark:hover:text-ui-light-grey"
         >
           <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-5 w-5">
             <path d="M10 2a6 6 0 00-6 6v2.586l-.707.707A1 1 0 004 13h12a1 1 0 00.707-1.707L16 10.586V8a6 6 0 00-6-6zM8 15a2 2 0 104 0H8z" />
           </svg>
           {bannerCount > 0 && (
-            <span aria-hidden className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-AIPM-pink px-1 text-[10px] font-semibold leading-none text-AIPM-white">
+            <span aria-hidden className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-ui-pink px-1 text-[10px] font-semibold leading-none text-ui-white">
               {bannerCount}
             </span>
           )}
@@ -721,7 +721,7 @@ export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, onTo
     <div className="flex h-screen w-screen overflow-hidden">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-AIPM-green focus:px-3 focus:py-1.5 focus:text-sm focus:font-semibold focus:text-AIPM-white"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-ui-green focus:px-3 focus:py-1.5 focus:text-sm focus:font-semibold focus:text-ui-white"
       >
         {t(lang, "skipToContent")}
       </a>
@@ -897,26 +897,26 @@ export function SidebarFooter({
   return (
     <div className="flex flex-col gap-3">
       <div>
-        <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-AIPM-medium-grey">
+        <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-ui-medium-grey">
           {t(lang, "theme")}
         </span>
         <ThemeControl lang={lang} />
       </div>
 
       {storageDescription && (
-        <p className={storageReady ? "text-AIPM-light-grey" : "text-AIPM-medium-grey"}>
-          <span aria-hidden className={"mr-1 inline-block h-2 w-2 rounded-full " + (storageReady ? "bg-AIPM-green" : "bg-AIPM-medium-grey")} />
+        <p className={storageReady ? "text-ui-light-grey" : "text-ui-medium-grey"}>
+          <span aria-hidden className={"mr-1 inline-block h-2 w-2 rounded-full " + (storageReady ? "bg-ui-green" : "bg-ui-medium-grey")} />
           {storageDescription}
         </p>
       )}
 
       {isSignedIn && accountName && (
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-AIPM-light-grey">{accountName}</span>
+          <span className="truncate text-ui-light-grey">{accountName}</span>
           <button
             type="button"
             onClick={onSignOut}
-            className="rounded-md px-2 py-1 text-AIPM-medium-grey hover:bg-AIPM-white/10 hover:text-AIPM-white focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+            className="rounded-md px-2 py-1 text-ui-medium-grey hover:bg-ui-white/10 hover:text-ui-white focus:outline-none focus:ring-2 focus:ring-ui-green"
           >
             {t(lang, "sidebarSignOut")}
           </button>
@@ -1025,7 +1025,7 @@ describe("shell palette guard", () => {
 - [ ] **Step 2: Run test**
 
 Run: `npx vitest run src/app/shell-palette-guard.test.ts`
-Expected: PASS if Phase-4 code used tokens. If any file FAILS, fix the offending class (swap raw hex for an `AIPM-*`/semantic token; remove any `shadow-*`/`bg-gradient-*`), then re-run.
+Expected: PASS if Phase-4 code used tokens. If any file FAILS, fix the offending class (swap raw hex for an `ui-*`/semantic token; remove any `shadow-*`/`bg-gradient-*`), then re-run.
 
 - [ ] **Step 3: Manual dark-mode check**
 

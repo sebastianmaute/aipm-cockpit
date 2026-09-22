@@ -1988,7 +1988,7 @@ export function renderDocumentHtml(
 <body>
   <header><h1>${htmlEscape(doc.title)}</h1></header>
   ${body}
-  <footer>Acme — AI PM Cockpit</footer>
+  <footer>‹employer name› — AI PM Cockpit</footer>
 </body>
 </html>`;
 }
@@ -2121,7 +2121,7 @@ Expected: FAIL — module not found.
 
 Create `src/app/doc-render-docx.ts`, using `buildDocxPackage` from Task 10.
 
-★★ **The shipped `styles.xml` declares only `Title` and `TableHeader` — there is no `Heading1/2/3` or `ListParagraph`.** Word resolves those names against its built-in latent styles, so a document referencing them usually renders, but the heading sizes and colours would be Word's defaults rather than the Acme palette, and LibreOffice is less forgiving. Pass the missing styles through `extraStyles`.
+★★ **The shipped `styles.xml` declares only `Title` and `TableHeader` — there is no `Heading1/2/3` or `ListParagraph`.** Word resolves those names against its built-in latent styles, so a document referencing them usually renders, but the heading sizes and colours would be Word's defaults rather than the brand palette, and LibreOffice is less forgiving. Pass the missing styles through `extraStyles`.
 
 ```ts
 // src/app/doc-render-docx.ts — blocks → WordprocessingML.

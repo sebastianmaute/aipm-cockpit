@@ -5,18 +5,18 @@
 
 ## Problem
 
-Settings → Appearance offers two fixed built-in styles (AIPM, Mockup) via the `data-style`
+Settings → Appearance offers two fixed built-in styles (Petrol, Mockup) via the `data-style`
 axis, plus separate branding inputs (logo / app name / footer slogan / favicon) in
 `settings.branding`. Users want to **create, save, load, edit, import and export their own
 color schemes** — bundled with logo + slogans — for white-labeling.
 
 ## Constraints (from the codebase)
 
-- **Style axis:** `data-style="AIPM"|"mockup"` on `<html>`, stored in localStorage `lop-style`
+- **Style axis:** `data-style="petrol"|"mockup"` on `<html>`, stored in localStorage `lop-style`
   (NOT the settings blob), applied pre-paint by the no-flash boot script in `layout.tsx`.
   `use-style.tsx` writes the attribute; `use-theme` owns `.dark`; `style-ci.ts` holds the pure
   helpers. Mockup is light-only and PINS light (`effectiveDark`).
-- **All style difference = CSS role-token VALUES** in `globals.css` (`:root` AIPM defaults,
+- **All style difference = CSS role-token VALUES** in `globals.css` (`:root` Petrol defaults,
   `:root[data-style="mockup"]` overrides, `.dark` overrides). ~6 base semantic tokens
   (`--background`/`--foreground`/`--surface`/`--surface-muted`/`--line`/`--muted-foreground`),
   9 brand colors + 3 AA `-strong` variants, ~15 role tokens (rag-*, table-head-*, segment-*,
@@ -25,7 +25,7 @@ color schemes** — bundled with logo + slogans — for white-labeling.
   hex / `box-shadow` / `bg-gradient-`. It does NOT scan runtime token overrides applied via
   inline style or localStorage — so custom colors are compatible **only if** they flow through
   token-var overrides, never through new Tailwind classes.
-- **axe contrast gate** (`e2e/a11y.spec.ts`) scans only the shipped AIPM-light / AIPM-dark /
+- **axe contrast gate** (`e2e/a11y.spec.ts`) scans only the shipped Petrol-light / Petrol-dark /
   Mockup-light combos. User schemes are their own data and are not gate-scanned — hence the
   in-editor contrast warning.
 - **Branding** (`settings.branding {logo?, slogan?, footerSlogan?, favicon?}`) is per-device,
@@ -34,11 +34,11 @@ color schemes** — bundled with logo + slogans — for white-labeling.
 
 ## Decisions (from brainstorming)
 
-1. **Custom = a 3rd style** beside AIPM/Mockup. AIPM + Mockup stay untouched built-in presets.
+1. **Custom = a 3rd style** beside Petrol/Mockup. Petrol + Mockup stay untouched built-in presets.
    A new scheme can be **seeded** from either.
 2. **Tiered editor:** a curated **core 8** always visible + an **Advanced** disclosure for the
    remaining *color* role tokens. Structural tokens (`--shadow-*`, `--gradient-kpi`,
-   `--delta-chip-pad`) are NOT editable (stay AIPM/none).
+   `--delta-chip-pad`) are NOT editable (stay brand/none).
 3. **Light-only:** a scheme defines one value per token and pins light, exactly like Mockup. The
    theme toggle disables while Custom is active.
 4. **Contrast:** compute WCAG AA for key pairs, show a non-blocking ⚠ + ratio; save/apply still
@@ -51,7 +51,7 @@ color schemes** — bundled with logo + slogans — for white-labeling.
 ### Data model
 
 ```ts
-type SchemeColors = Record<string, string>; // token name (e.g. "--AIPM-dark-blue") -> hex value
+type SchemeColors = Record<string, string>; // token name (e.g. "--ui-dark-blue") -> hex value
 interface ColorScheme {
   id: number;
   name: string;
@@ -60,13 +60,13 @@ interface ColorScheme {
 }
 ```
 
-Tokens absent from `colors` fall back to the `:root` AIPM defaults (Custom is not Mockup), so a
-scheme stores only what it overrides. Seeding from AIPM/Mockup pre-fills the editor from that
+Tokens absent from `colors` fall back to the `:root` Petrol defaults (Custom is not Mockup), so a
+scheme stores only what it overrides. Seeding from Petrol/Mockup pre-fills the editor from that
 preset's token values.
 
 ### Style axis extension
 
-- `CiStyle` → `"AIPM" | "mockup" | "custom"` (`style-ci.ts`).
+- `CiStyle` → `"petrol" | "mockup" | "custom"` (`style-ci.ts`).
 - `readStoredStyle` accepts `"custom"`.
 - `effectiveDark(dark, style)` → Custom pins light (same branch as Mockup).
 - Keep the three sync sites in lockstep (the file documents them): the `style-ci.ts` helper,
@@ -93,8 +93,8 @@ preset's token values.
 
 | Core control   | Primary token        | Auto-derived AA companions                |
 |----------------|----------------------|-------------------------------------------|
-| Brand primary  | `--AIPM-dark-blue`    | (cascades to `--table-head-bg`)           |
-| Accent         | `--AIPM-green`        | `--AIPM-green-strong` (darken-to-AA)       |
+| Brand primary  | `--ui-dark-blue`    | (cascades to `--table-head-bg`)           |
+| Accent         | `--ui-green`        | `--ui-green-strong` (darken-to-AA)       |
 | Background     | `--background`       | —                                         |
 | Surface        | `--surface`          | `--surface-muted` (slight tint)           |
 | Text           | `--foreground`       | `--muted-foreground` (follows)            |
@@ -102,11 +102,11 @@ preset's token values.
 | RAG amber      | `--rag-amber`        | `--rag-amber-text` (darken-to-AA)         |
 | RAG green      | `--rag-green`        | `--rag-green-text` (darken-to-AA)         |
 
-**`scheme-tokens.ts`** (pure): the editable-token registry (core + advanced lists), the AIPM and
+**`scheme-tokens.ts`** (pure): the editable-token registry (core + advanced lists), the Petrol and
 Mockup seed maps (canonical hex per token — single source for seeding + editor defaults), and
 `deriveAaVariants(colors)` (darken a base hex until it clears AA on its background, pure). The
-advanced list = remaining color tokens (`--AIPM-pink`, `--AIPM-purple`, `--AIPM-blue`,
-`--AIPM-medium-grey`, `--AIPM-light-grey`, `--surface-muted`, `--line`, `--table-head-fg`,
+advanced list = remaining color tokens (`--ui-pink`, `--ui-purple`, `--ui-blue`,
+`--ui-medium-grey`, `--ui-light-grey`, `--surface-muted`, `--line`, `--table-head-fg`,
 `--segment-track-bg`, `--segment-active-bg`, `--segment-active-fg`, `--rag-*-chip`). Structural
 tokens are excluded entirely.
 
@@ -136,12 +136,12 @@ nothing is blocked.
 **`color-scheme-editor.tsx`** (new; AppearanceSection is already ~280 lines and stays lean):
 - The Appearance Style `SegmentedControl` gains a `"custom"` option.
 - When Custom is active, the editor renders below: scheme `<select>` (library) +
-  Apply / Rename / Delete / New(seed from AIPM|Mockup) / Import / Export, the core-8 color
+  Apply / Rename / Delete / New(seed from Petrol|Mockup) / Import / Export, the core-8 color
   pickers, an Advanced `<details>` with the remaining pickers, contrast badges, and the existing
   logo / app-name / footer-slogan / favicon inputs (now bound to the active scheme).
 - **a11y:** Settings → Appearance IS axe-scanned. Every `<input type="color">` needs an
   `aria-label`; every icon/button needs an accessible name; color swatches show the user's hex via
-  inline `style` (legal). Editor chrome itself uses only AIPM tokens.
+  inline `style` (legal). Editor chrome itself uses only brand tokens.
 - **i18n:** new EN + DE keys (DE patched via node utf8 write — the Edit tool corrupts umlauts in
   `i18n.de.ts`; file is CRLF).
 
@@ -166,7 +166,7 @@ nothing is blocked.
   Apply writes active id + boot key + merges branding; contrast ⚠ appears for a sub-AA pair.
 - **Eye-verify:** apply a scheme → colors change app-wide with no flash on reload; theme toggle
   disabled; seeding from Mockup reproduces Mockup; advanced tokens take effect.
-- **axe gate:** re-run Settings (Appearance is scanned) for the shipped AIPM/Mockup combos —
+- **axe gate:** re-run Settings (Appearance is scanned) for the shipped Petrol/Mockup combos —
   expect green (the editor adds labeled controls; user schemes aren't gate-scanned).
 
 ## Out of scope (YAGNI)

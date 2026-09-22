@@ -145,7 +145,7 @@ Tasks are sequenced to minimise `task-manager.tsx` collisions (T4/T5/T6 touch it
   `jiraKey`.)
 - [ ] **Step 3: Implement** — `task-jira-badge.tsx` (memo): props `{ jiraKey: string; href?: string;
   issueType?: string; lang: Lang }`. Render the existing chip classes (`inline-block rounded
-  bg-surface px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue dark:text-AIPM-blue`) +
+  bg-surface px-1.5 py-0.5 text-[10px] font-medium text-ui-dark-blue dark:text-ui-blue`) +
   hover:underline when link; leading inline lock `<svg aria-hidden="true" …
   fill="currentColor"/>` (palette via currentColor); `title`/`aria-label` = `t(lang,
   "jiraSyncedReadOnly")` (link keeps issue-type in title too). Use it in `task-kanban-card.tsx`

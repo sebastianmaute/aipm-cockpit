@@ -6,12 +6,12 @@
 
 **Architecture:** Each UI tweak is a focused edit to one existing component. The RAID-review feature follows the established due-date pattern: a pure logic module (`raid-review.ts`), a settings extension, banner + modal components in `notifications.tsx`, and once-per-session firing via `use-due-alerts.ts`, wired in `task-manager.tsx`.
 
-**Tech Stack:** Next.js (app dir), React, TypeScript, Tailwind (AIPM palette tokens only), Vitest 4 + Testing Library, fake-indexeddb (already a devDependency).
+**Tech Stack:** Next.js (app dir), React, TypeScript, Tailwind (brand palette tokens only), Vitest 4 + Testing Library, fake-indexeddb (already a devDependency).
 
 **Conventions:**
 - Run tests with `npm run test:run -- <path>` (single file) and `npm run test:run` (full suite). Typecheck with `npx tsc --noEmit`.
 - DE strings in `i18n.de.ts` MUST be ASCII (the Edit tool corrupts `"` → curly quotes). After any DE edit, verify: `git grep -nP "[^\x00-\x7F]" src/app/i18n.de.ts` should print nothing new.
-- AIPM palette only: pink (`AIPM-pink`), purple (`AIPM-purple`), green (`AIPM-green`), dark-blue, etc. No gradients/shadows/off-palette.
+- Brand palette only: pink (`ui-pink`), purple (`ui-purple`), green (`ui-green`), dark-blue, etc. No gradients/shadows/off-palette.
 - Commit each task separately with `git commit -F - <<'EOF' … EOF` (Bash tool).
 
 ---
@@ -155,7 +155,7 @@ EOF
 test("dashboard colorizes the R / A / G counts", () => {
   renderDashboardWithTasks(/* tasks producing R>0, A>0, G>0 */);
   const r = screen.getByText(String(/* expected R count */));
-  expect(r.className).toContain("text-AIPM-pink");
+  expect(r.className).toContain("text-ui-pink");
 });
 
 // Progress + Budget burn are boxed cards.
@@ -249,7 +249,7 @@ import { ratioHealth } from "./budget-health";
       type="button"
       onClick={commitNarrative}
       disabled={draftNarrative.trim() === (status.narrative ?? "")}
-      className="rounded-md bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 print:hidden"
+      className="rounded-md bg-ui-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 print:hidden"
     >
       {t(lang, "dashboardStatusSave")}
     </button>
@@ -453,14 +453,14 @@ Expected: FAIL.
     onKeyDown={onKeyDown}
     placeholder={t(lang, "chatPlaceholder")}
     disabled={busy || apiKeyMissing}
-    className="min-w-0 flex-1 self-stretch resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50"
+    className="min-w-0 flex-1 self-stretch resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-ui-green disabled:cursor-not-allowed disabled:opacity-50"
   />
   <div className="flex flex-col gap-2">
     <button
       type="button"
       onClick={sendMessage}
       disabled={busy || !input.trim() || apiKeyMissing}
-      className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+      className="rounded-md bg-ui-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
     >
       {t(lang, "chatSend")}
     </button>
@@ -659,7 +659,7 @@ const effectiveIdx = activeInFiltered ? activeIdx : (filtered[0]?.i ?? -1);
     onChange={(e) => setQuery(e.target.value)}
     placeholder={t(lang, "helpSearchPlaceholder")}
     aria-label={t(lang, "helpSearchPlaceholder")}
-    className="w-full rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:border-AIPM-dark-blue focus:outline-none"
+    className="w-full rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:border-ui-dark-blue focus:outline-none"
   />
 </div>
 ```
@@ -683,8 +683,8 @@ const effectiveIdx = activeInFiltered ? activeIdx : (filtered[0]?.i ?? -1);
       onClick={() => setActiveIdx(i)}
       onKeyDown={onTabKeyDown}
       className={isActive
-        ? "block w-full border-l-2 border-AIPM-dark-blue bg-surface-muted px-3 py-1.5 text-left text-xs font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey"
-        : "block w-full border-l-2 border-transparent px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue dark:text-muted-foreground dark:hover:text-AIPM-light-grey"}
+        ? "block w-full border-l-2 border-ui-dark-blue bg-surface-muted px-3 py-1.5 text-left text-xs font-semibold text-ui-dark-blue dark:text-ui-light-grey"
+        : "block w-full border-l-2 border-transparent px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:text-muted-foreground dark:hover:text-ui-light-grey"}
     >
       {t(lang, s.titleKey)}
     </button>
@@ -721,14 +721,14 @@ const onTabKeyDown = useCallback(
   <p className="text-sm text-muted-foreground">{t(lang, "helpSearchNoResults")}</p>
 ) : (
   <>
-    <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+    <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
       {highlightSegments(t(lang, SECTIONS[effectiveIdx].titleKey), query).map((seg, k) =>
-        seg.match ? <mark key={k} className="bg-AIPM-green/30 text-foreground">{seg.text}</mark> : <span key={k}>{seg.text}</span>,
+        seg.match ? <mark key={k} className="bg-ui-green/30 text-foreground">{seg.text}</mark> : <span key={k}>{seg.text}</span>,
       )}
     </p>
     <p className="mt-2 whitespace-pre-line text-xs leading-relaxed text-foreground">
       {highlightSegments(t(lang, SECTIONS[effectiveIdx].bodyKey), query).map((seg, k) =>
-        seg.match ? <mark key={k} className="bg-AIPM-green/30 text-foreground">{seg.text}</mark> : <span key={k}>{seg.text}</span>,
+        seg.match ? <mark key={k} className="bg-ui-green/30 text-foreground">{seg.text}</mark> : <span key={k}>{seg.text}</span>,
       )}
     </p>
   </>
@@ -1059,7 +1059,7 @@ Expected: FAIL.
       type="checkbox"
       checked={settings.notifications.raidReview.enabled}
       onChange={(e) => onChange({ ...settings, notifications: { ...settings.notifications, raidReview: { enabled: e.target.checked } } })}
-      className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+      className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
     />
     {t(lang, "notifRaidReview")}
   </label>
@@ -1170,20 +1170,20 @@ export function RaidReviewBanner({
   if (items.length === 0) return null;
   return (
     <div role="region" aria-label={t(lang, "raidReviewBannerAria")}
-      className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-AIPM-purple/40 bg-AIPM-purple/10 px-4 py-3 dark:border-AIPM-purple/60 dark:bg-AIPM-purple/15">
+      className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-ui-purple/40 bg-ui-purple/10 px-4 py-3 dark:border-ui-purple/60 dark:bg-ui-purple/15">
       <span aria-hidden className="text-lg">&#9888;</span>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "raidReviewBannerTitle", items.length)}</p>
+        <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "raidReviewBannerTitle", items.length)}</p>
         <p className="text-xs text-muted-foreground">{raidReviewSummary(items, lang)}</p>
       </div>
       <div className="flex gap-2">
         <button type="button" onClick={onOpenList}
-          className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">
+          className="rounded-md bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">
           {t(lang, "alertBannerOpen")}
         </button>
         <SnoozeMenu lang={lang} onSnooze={onSnooze} />
         <button type="button" onClick={onDismiss} aria-label={t(lang, "alertBannerDismiss")}
-          className="rounded-md border border-AIPM-medium-grey/40 bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted">
+          className="rounded-md border border-ui-medium-grey/40 bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted">
           {t(lang, "alertBannerDismiss")}
         </button>
       </div>
@@ -1206,11 +1206,11 @@ export function RaidReviewModal({
         className="relative h-[640px] max-h-[95vh] min-h-[300px] w-[640px] min-w-[320px] max-w-[95vw] resize overflow-y-auto rounded-xl border border-line bg-surface">
         <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-6 py-4">
           <div>
-            <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "raidReviewModalTitle")}</h2>
+            <h2 className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "raidReviewModalTitle")}</h2>
             <p className="mt-0.5 text-xs text-muted-foreground">{raidReviewSummary(items, lang)}</p>
           </div>
           <button type="button" onClick={onClose} aria-label={t(lang, "alertModalClose")}
-            className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue">
+            className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue">
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
               <path fillRule="evenodd" d="M4.28 4.28a.75.75 0 011.06 0L10 8.94l4.66-4.66a.75.75 0 111.06 1.06L11.06 10l4.66 4.66a.75.75 0 11-1.06 1.06L10 11.06l-4.66 4.66a.75.75 0 01-1.06-1.06L8.94 10 4.28 5.34a.75.75 0 010-1.06z" clipRule="evenodd" />
             </svg>
@@ -1223,11 +1223,11 @@ export function RaidReviewModal({
             {items.map(({ item, reason, daysSinceReview }) => (
               <li key={item.id} className="px-6 py-3">
                 <div className="flex items-start gap-3">
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${reason === "overdue" ? "bg-AIPM-pink text-white" : "bg-AIPM-purple text-white"}`}>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${reason === "overdue" ? "bg-ui-pink text-white" : "bg-ui-purple text-white"}`}>
                     {t(lang, reason === "overdue" ? "raidReviewReasonOverdue" : "raidReviewReasonStale")}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                    <p className="font-medium text-ui-dark-blue dark:text-ui-light-grey">
                       <span className="font-mono text-xs text-muted-foreground">#{item.id}</span> {item.title}
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -1238,7 +1238,7 @@ export function RaidReviewModal({
                   </div>
                   {onSelectRaid && (
                     <button type="button" onClick={() => onSelectRaid(item.id)}
-                      className="shrink-0 text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue">
+                      className="shrink-0 text-xs font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-blue">
                       {t(lang, "edit")}
                     </button>
                   )}

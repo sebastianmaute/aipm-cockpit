@@ -2161,7 +2161,7 @@ function localeFor(lang: Lang): string {
 
 function Cci({ label, value, currency, locale }: { label: string; value: CciValue; currency: string; locale: string }) {
   const pct = value.percent == null ? "—" : `${value.percent.toFixed(1)}%`;
-  const tone = value.amount >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-AIPM-pink";
+  const tone = value.amount >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-ui-pink";
   return (
     <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
       <div className="text-xs text-zinc-500">{label}</div>
@@ -2186,7 +2186,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
   return (
     <div className="flex flex-col gap-6">
       <section>
-        <h2 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        <h2 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
           {t(lang, "budgetTitle")} — {t(lang, "budgetProjectTotal")}
         </h2>
         <div className="grid grid-cols-3 gap-3">
@@ -2206,7 +2206,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           return (
             <div key={br.bucketId} className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
               <div className="mb-2 flex items-center justify-between">
-                <div className="font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                <div className="font-semibold text-ui-dark-blue dark:text-ui-light-grey">
                   {br.name}{bucket.poNumber ? ` · ${bucket.poNumber}` : ""}
                 </div>
                 <div className="text-xs text-zinc-500">
@@ -2378,14 +2378,14 @@ Add an "Add bucket" / "Refresh ECB rates" bar as the first child of the outer `<
         <button
           type="button"
           onClick={addBucket}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-ui-dark-blue shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-ui-light-grey dark:hover:bg-zinc-800"
         >
           {t(lang, "budgetAddBucket")}
         </button>
         <button
           type="button"
           onClick={props.onRefreshFx}
-          className="rounded-md px-3 py-1.5 text-sm text-zinc-500 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey"
+          className="rounded-md px-3 py-1.5 text-sm text-zinc-500 hover:text-ui-dark-blue dark:hover:text-ui-light-grey"
         >
           {t(lang, "budgetFxRefresh")}
         </button>
@@ -2439,7 +2439,7 @@ Inside the per-bucket `<div>`, after the CCI cards grid, add the editable alloca
                 onClick={() => updateBucket(bucket.id, bucket.status === "open"
                   ? { status: "closed", closedDate: props.today }
                   : { status: "open", closedDate: undefined })}
-                className="mt-2 text-xs text-zinc-500 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey"
+                className="mt-2 text-xs text-zinc-500 hover:text-ui-dark-blue dark:hover:text-ui-light-grey"
               >
                 {t(lang, bucket.status === "open" ? "budgetClose" : "budgetReopen")}
               </button>

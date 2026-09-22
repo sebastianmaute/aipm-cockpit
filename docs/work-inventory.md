@@ -60,7 +60,7 @@ assert not missing
 ★★ **Eight recovered files were sanitized before landing.** They carried an internal GitLab host, a
 group path, a numeric project id, a second internal repository name, and one work email alongside a
 phone number and birthday. Those became `gitlab.example.com`, `<group>/<subgroup>`, `<PROJECT_ID>`
-and `@example.com`. Branding-token mentions (`AIPM`, `Acme`, `AIPM-consult`) were deliberately
+and `@example.com`. Branding-token mentions (the brand name, the employer name and its host spelling) were deliberately
 LEFT — they are token names, the same class already tracked in `docs/AGENTS/theming.md`. This
 matters because the repository is push-mirrored to GitHub; the entry in `docs/open-followups.md`
 about flipping that mirror public owns the wider question.

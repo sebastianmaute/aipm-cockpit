@@ -157,7 +157,7 @@ raidReviewIntervalDays: number;   // default 14
 - **Version bump** (`version.ts`, `package.json`, `CHANGELOG.md`, `README.md`,
   codemaps): `0.51.0` / `"Pratchett"`, build date `2026-06-04`; append a
   `versionHighlight*` key for the RAID-review reminder.
-- **AIPM palette:** only the 9 permitted tokens; pink/purple/green for RAG, no
+- **Brand palette:** only the 9 permitted tokens; pink/purple/green for RAG, no
   gradients/shadows/off-palette.
 
 ## Testing (TDD)

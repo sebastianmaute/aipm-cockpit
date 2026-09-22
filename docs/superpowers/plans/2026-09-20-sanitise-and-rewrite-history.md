@@ -511,7 +511,7 @@ wc -c lib/project-leadership-operating-guide.md src/app/operating-guide-builtin.
 
 ```bash
 git grep -ciE "i ?c[- ]?consult" -- . | awk -F: '{n+=$2; f++} END{print n" lines in "f" files"}'
-git grep -ciP '(?<![a-z0-9])AIPM(?![a-z0-9])' -- docs CHANGELOG.md | awk -F: '{n+=$2; f++} END{print n" lines in "f" files"}'
+git grep -ciP '(?<![a-z0-9])<trigram>(?![a-z0-9])' -- docs CHANGELOG.md | awk -F: '{n+=$2; f++} END{print n" lines in "f" files"}'
 ```
 
   ★ The first regex also matches the employer's domain and the internal hosts; those lines belong
@@ -533,7 +533,7 @@ git grep -ciP '(?<![a-z0-9])AIPM(?![a-z0-9])' -- docs CHANGELOG.md | awk -F: '{n
 
 - [ ] **Step 4: The GitLab project id.** A bare " (GitLab)" in prose (AGENTS.md,
   `docs/AGENTS/ci.md`, two `.gitlab-ci.yml` comments) discloses nothing without the host and is
-  **not** in the identifier set; the set matches `example-group/aipm-cockpit` URL paths only, which live in
+  **not** in the identifier set; the set matches project-id URL paths (`projects/` plus the numeric id) only, which live in
   three docs (`docs/open-followups.md` among them). Rewrite those URLs. ★ `.gitlab-ci.yml` carries
   neither the host nor the employer name on 2026-09-21, and is retired with GitLab in sub-project
   3, so the leak gate gets **no** path exemption for it — if it ever gains an identifier, that is a
@@ -708,7 +708,7 @@ public tree, exactly what the gate exists to keep out of it. The CLI reads the l
 given by an environment variable (locally, a file outside the repo; in CI, a masked file-type
 variable), and exits **2** when the variable is unset or the file is empty — "could not scan",
 never a pass. The list must cover: the employer domain(s), the employer name in both spellings,
-the Timelog tenant slug, the internal GitLab host, the wiki host, `example-group/aipm-cockpit` URL paths, the
+the Timelog tenant slug, the internal GitLab host, the wiki host, project-id URL paths, the
 old `appId` value, the assistant session URL prefix, and the brand trigram (word-bounded).
 Tests use fictional identifiers only.
 

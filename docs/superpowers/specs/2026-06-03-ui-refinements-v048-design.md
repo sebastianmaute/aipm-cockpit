@@ -79,7 +79,7 @@ The legend text (workstream B/#18) must match the existing constants verbatim:
   the `bg-*-500` fill, leaving white text on white). The null "—" `bg-slate-300`
   badge is unaffected on screen and prints a light grey.
 - **#16 "Overall" text.** Add `export const healthText: Record<Health, string>`
-  to `health.ts` — `R: "text-AIPM-pink"`, `A: "text-AIPM-purple"`, `G: "text-AIPM-green"`
+  to `health.ts` — `R: "text-ui-pink"`, `A: "text-ui-purple"`, `G: "text-ui-green"`
   (matches the Reports group-dot palette). In `dashboard-panel.tsx`, wrap the
   trailing `healthColorName(model.overall.effective, lang)` in
   `<span className={model.overall.effective ? healthText[model.overall.effective] : ""}>`.

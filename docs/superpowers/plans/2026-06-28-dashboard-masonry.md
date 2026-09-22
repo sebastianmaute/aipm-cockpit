@@ -15,7 +15,7 @@
 - `npm run lint` is `--max-warnings=0`: an unused import/var is FATAL. After every extract, re-check for orphaned imports.
 - `npx tsc --noEmit` typechecks test files (vitest does not). Run it after editing ANY test.
 - Cockpit spacing uses `dc.*` density classes ONLY — never literal `gap-*`/`space-y-*`/`p-*`/`mb-*`.
-- AIPM palette tokens only; shadows only via `shadow-[var(--shadow-card)]`.
+- Brand palette tokens only; shadows only via `shadow-[var(--shadow-card)]`.
 - Dashboard ∈ axe `A11Y_VIEWS`: keep every accessible name; verify with
   `npx playwright test e2e/a11y.spec.ts --project=chromium -g "Dashboard"`.
 - Public `DashboardPanelProps` MUST stay unchanged.

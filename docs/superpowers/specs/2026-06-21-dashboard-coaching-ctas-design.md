@@ -60,7 +60,7 @@ interface DashboardCoachingCardProps {
 ```
 - Renders nothing when `ctas` is empty.
 - Otherwise a titled card: "Get started" heading + a short subtitle, then each CTA as a `<button>` (text = `t(lang, cta.labelKey)`, row-unique) calling `onNavigate(cta.view)`.
-- AIPM palette tokens only (`border-line`, `bg-surface`, `text-AIPM-dark-blue`, `dark:text-AIPM-light-grey`, `text-muted-foreground`, `hover:bg-surface-muted`, `hover:border-AIPM-dark-blue`); no off-palette colors/shadows.
+- Brand palette tokens only (`border-line`, `bg-surface`, `text-ui-dark-blue`, `dark:text-ui-light-grey`, `text-muted-foreground`, `hover:bg-surface-muted`, `hover:border-ui-dark-blue`); no off-palette colors/shadows.
 
 ### Placement — `dashboard-panel.tsx`
 

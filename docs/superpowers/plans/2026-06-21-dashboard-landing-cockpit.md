@@ -6,7 +6,7 @@
 
 **Architecture:** A pure i18n-free engine (`dashboard-delta.ts`) computes a delta from the activity log (diffed by timestamp) and a per-project RAG snapshot; a per-browser localStorage store (`landing-state.ts`) holds the prior snapshot keyed by project id; a hook (`use-landing-delta.ts`) captures the delta at mount and debounce-advances the snapshot; a presentational component (`dashboard-delta-strip.tsx`) renders greeting + clickable delta chips. `dashboard-panel.tsx` reorders to put the strip + top-actions first and folds the RAG override selects into a `<details>` disclosure. Wiring is contained to `workspace-section.tsx` + `dashboard-panel.tsx`.
 
-**Tech Stack:** TypeScript, React 19, vitest, fast-check, Tailwind (AIPM palette tokens), forked Next.js 16.
+**Tech Stack:** TypeScript, React 19, vitest, fast-check, Tailwind (brand palette tokens), forked Next.js 16.
 
 **Conventions to heed (from AGENTS.md):**
 - `npm run lint` is `--max-warnings=0`: an unused import/var is FATAL. Re-check after every extract.
@@ -785,7 +785,7 @@ git commit -m "i18n(dashboard): landing cockpit strings (EN + DE)"
 - Create: `src/app/dashboard-delta-strip.tsx`
 - Test: `src/app/dashboard-delta-strip.test.tsx`
 
-**Context:** `RagBadge` is imported from `./rag-badge` (`<RagBadge value={Health|null} lang={lang} />`). `t(lang, key, ...args)` from `./i18n`. The component is pure render — it takes the `DeltaResult`, a greeting result, and click handlers. AIPM palette tokens only (`border-line`, `bg-surface`, `text-muted-foreground`, `text-AIPM-dark-blue`, `hover:bg-surface-muted`) — no off-palette colors/shadows.
+**Context:** `RagBadge` is imported from `./rag-badge` (`<RagBadge value={Health|null} lang={lang} />`). `t(lang, key, ...args)` from `./i18n`. The component is pure render — it takes the `DeltaResult`, a greeting result, and click handlers. Brand palette tokens only (`border-line`, `bg-surface`, `text-muted-foreground`, `text-ui-dark-blue`, `hover:bg-surface-muted`) — no off-palette colors/shadows.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -901,7 +901,7 @@ export function DashboardDeltaStrip({ lang, delta, greeting, onOpenTask, onOpenR
   return (
     <div className="rounded-lg border border-line bg-surface p-4">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        <span className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">
           {t(lang, greeting.greetingKey)}
         </span>
         <span className="text-sm text-muted-foreground">
@@ -923,7 +923,7 @@ export function DashboardDeltaStrip({ lang, delta, greeting, onOpenTask, onOpenR
                   key={chip.key}
                   type="button"
                   onClick={chip.onClick}
-                  className="rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-foreground hover:bg-surface-muted hover:border-AIPM-dark-blue"
+                  className="rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-foreground hover:bg-surface-muted hover:border-ui-dark-blue"
                 >
                   {chip.label}
                 </button>
@@ -1075,7 +1075,7 @@ At the very start of the outer `<div className="space-y-4">` (before the "Overal
         {/* Top actions — promoted to the top so the PM sees what needs them first */}
         {topActions && topActions.length > 0 && (
           <section>
-            <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+            <h3 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
               {t(lang, "dashboardTopActions")}
             </h3>
             <div className="flex flex-col gap-2">

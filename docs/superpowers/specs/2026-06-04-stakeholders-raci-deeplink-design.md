@@ -207,7 +207,7 @@ and `versionHighlightStakeholders`.
 
 ### Constraints
 
-- Palette: only the 9 AIPM brand tokens; chips/quadrants reuse existing RAG/`Health` classes. No new
+- Palette: only the 9 brand tokens; chips/quadrants reuse existing RAG/`Health` classes. No new
   colors, no gradients/shadows.
 - Immutability throughout (spread updates; `localModifiedAt` stamped on save).
 - Files focused (<800 lines); panels split where they grow.

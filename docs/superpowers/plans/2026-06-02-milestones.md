@@ -798,7 +798,7 @@ export function MilestoneEditModal({ lang, milestone, isNew, tasks, onSave, onDe
                   <span>#{tk.id} {tk.taskName}</span></label>
               ))}
             </div></fieldset>
-          {error ? <p className="text-sm text-AIPM-pink">{error}</p> : null}
+          {error ? <p className="text-sm text-ui-pink">{error}</p> : null}
           <ModalEditFooter lang={lang} isNew={isNew} onDelete={() => onDelete(draft.id)} onClose={onClose} saveLabel={t(lang, "milestoneSave")} />
         </form>
       </div>
@@ -806,7 +806,7 @@ export function MilestoneEditModal({ lang, milestone, isNew, tasks, onSave, onDe
   );
 }
 ```
-IMPORTANT: the import paths/names for `Modal`, `ModalHeader`, `ModalEditFooter`, `useDraggable` MUST match what `absence-edit-modal.tsx` actually imports — copy them verbatim from that file. If `ModalEditFooter` lives elsewhere or has different props, match the real one. Confirm `text-AIPM-pink` is the error token used elsewhere (absence modal uses an error style — match it).
+IMPORTANT: the import paths/names for `Modal`, `ModalHeader`, `ModalEditFooter`, `useDraggable` MUST match what `absence-edit-modal.tsx` actually imports — copy them verbatim from that file. If `ModalEditFooter` lives elsewhere or has different props, match the real one. Confirm `text-ui-pink` is the error token used elsewhere (absence modal uses an error style — match it).
 
 - [ ] **Step 4: Run — expect PASS + tsc + lint.** `npm run test:run -- milestone-edit-modal` ; `npx tsc --noEmit; echo "tsc exit: $?"` ; `npm run lint`
 - [ ] **Step 5: Commit.**
@@ -881,7 +881,7 @@ export function MilestonesPanel({ lang, today, holidaySet }: { lang: Lang; today
 
   return (
     <ReportCard lang={lang} sizeRef={sizeRef} onResetSize={() => undefined} title={t(lang, "milestonesTitle")}
-      toolbarExtra={<button type="button" onClick={openNew} className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium hover:border-AIPM-dark-blue">+ {t(lang, "milestoneNew")}</button>}>
+      toolbarExtra={<button type="button" onClick={openNew} className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium hover:border-ui-dark-blue">+ {t(lang, "milestoneNew")}</button>}>
       {rows.length === 0 ? <p className="text-sm text-muted-foreground">{t(lang, "milestonesEmpty")}</p> : (
         <table className="w-full text-sm"><thead><tr className="text-left text-xs uppercase text-muted-foreground">
           <th className="py-1">{t(lang, "milestonesColName")}</th><th>{t(lang, "milestonesColDate")}</th><th>{t(lang, "milestonesColStatus")}</th><th></th>
@@ -947,7 +947,7 @@ const mx = diffDays(range.min, parseISO(m.date)!) * DAY_WIDTH_PX;
 <svg className="h-full w-full overflow-visible" viewBox={`0 0 ${totalWidth} ${ROW_HEIGHT_PX}`} preserveAspectRatio="none">
   <rect x={mx - 7} y={(ROW_HEIGHT_PX - 14) / 2} width={14} height={14} transform={`rotate(45 ${mx} ${ROW_HEIGHT_PX / 2})`}
     className={isAchieved(m) ? "fill-emerald-500/50" : "fill-emerald-500"}
-    stroke={status === "at-risk" ? "#ec4899" /* AIPM-pink */ : "none"} strokeWidth={status === "at-risk" ? 2 : 0} />
+    stroke={status === "at-risk" ? "#ec4899" /* ui-pink */ : "none"} strokeWidth={status === "at-risk" ? 2 : 0} />
 </svg>
 ```
 Wrap the diamond row in a clickable element calling `onEditMilestone?.(m)`; add a `title` tooltip `${m.name} · ${m.date}`. Match the existing row markup (gutter width, `ROW_HEIGHT_PX`, role="row") by copying a task row's structure and swapping the bar for the diamond. (Confirm the real total-width var name used by the timeline svg.)

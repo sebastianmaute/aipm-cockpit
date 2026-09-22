@@ -2,22 +2,22 @@
 
 **Status:** Approved (design). **Date:** 2026-07-12.
 
-**Goal:** Make the app's look **scheme-driven**. Ship three dark-capable, built-in color schemes — **Harbor** (the new default), **Meridian**, **Umber** — selectable in Settings → Appearance, applied via the existing inline-token mechanism. This lays the foundation for later phases (de-hardcoding AIPM, database loading, logo-in-scheme).
+**Goal:** Make the app's look **scheme-driven**. Ship three dark-capable, built-in color schemes — **Harbor** (the new default), **Meridian**, **Umber** — selectable in Settings → Appearance, applied via the existing inline-token mechanism. This lays the foundation for later phases (de-hardcoding Petrol, database loading, logo-in-scheme).
 
-**Approach:** Extend the existing custom-scheme engine (`scheme-tokens.ts` / `scheme-apply.ts` / `color-schemes.ts`) to support (a) **light + dark** token sets per scheme, (b) **built-in** (code-defined, undeletable) schemes, and (c) a **default** scheme applied on a fresh install. AIPM and Mockup remain their current `globals.css` `data-style` styles for now (still selectable); AIPM's `:root` stays as the physical fallback. **No de-hardcoding of AIPM in this phase.**
+**Approach:** Extend the existing custom-scheme engine (`scheme-tokens.ts` / `scheme-apply.ts` / `color-schemes.ts`) to support (a) **light + dark** token sets per scheme, (b) **built-in** (code-defined, undeletable) schemes, and (c) a **default** scheme applied on a fresh install. Petrol and Mockup remain their current `globals.css` `data-style` styles for now (still selectable); Petrol's `:root` stays as the physical fallback. **No de-hardcoding of brand in this phase.**
 
 ---
 
 ## Decisions (confirmed with user)
 
-1. **New base default = Harbor.** A fresh install applies Harbor, not AIPM.
+1. **New base default = Harbor.** A fresh install applies Harbor, not Petrol.
 2. **Scheme-driven architecture** (not new `globals.css` `data-style` blocks) — so this phase becomes the de-hardcode foundation rather than throwaway CSS.
 3. **Light + dark** for all three built-in schemes.
 4. **Custom-scheme editor stays light-only this phase** — dark-editing for user/custom schemes is a later phase. Built-in schemes carry both.
 
 ## Non-goals (explicitly later phases)
 
-- **Phase 2:** turn AIPM (and Mockup) into built-in schemes, then thin/remove the hardcoded `globals.css` palette blocks (the actual de-hardcode).
+- **Phase 2:** turn Petrol (and Mockup) into built-in schemes, then thin/remove the hardcoded `globals.css` palette blocks (the actual de-hardcode).
 - **Phase 3:** load schemes from the **database** (Turso, shared/tenant brand) — a global table out of `TABLE_NAMES`, `tursoConfig !== null` gated, with a synchronous localStorage mirror for no-flash.
 - **Phase 4:** **logo/favicon** carried in a scheme (full brand pack) — extend `mergeAppliedBranding` beyond slogan/footer.
 - Dark-editing UI for custom schemes.
@@ -54,7 +54,7 @@ interface ColorScheme {
 
 ### The style axis + default
 
-- `data-style` stays `"AIPM" | "mockup" | "custom"`. A **built-in or user scheme is applied under `data-style="custom"`** (the runtime-injection slot). AIPM/Mockup keep their `globals.css` blocks.
+- `data-style` stays `"petrol" | "mockup" | "custom"`. A **built-in or user scheme is applied under `data-style="custom"`** (the runtime-injection slot). Petrol/Mockup keep their `globals.css` blocks.
 - **Active-scheme state** (per-device): a new `activeSchemeId` (localStorage) selects which scheme is applied. On a fresh install with no stored style/scheme → **default to Harbor** (built-in), `data-style="custom"`, Harbor tokens injected.
 - **`effectiveDark`** (`style-ci.ts`, `use-theme`, boot string — the 3 in-sync sites): the "pin light for custom" rule becomes "pin light unless the ACTIVE scheme `supportsDark`". Harbor/Meridian/Umber support dark → the theme toggle works; a light-only custom scheme still pins light.
 
@@ -67,21 +67,21 @@ interface ColorScheme {
 
 ### Axe gate
 
-`e2e/a11y.spec.ts` scans AIPM-light, AIPM-dark, Mockup-light across `A11Y_VIEWS`. Add **Harbor-light and Harbor-dark** (seed `lop-style="custom"` + `activeSchemeId="harbor"` + the mirror via `addInitScript`) so the **new default** look is contrast-verified in the gate. Meridian/Umber are verified by the pure `scheme-contrast.ts` AA check (unit) — not added to the e2e matrix to keep it fast (documented; matches how custom schemes are unscanned today).
+`e2e/a11y.spec.ts` scans Petrol-light, Petrol-dark, Mockup-light across `A11Y_VIEWS`. Add **Harbor-light and Harbor-dark** (seed `lop-style="custom"` + `activeSchemeId="harbor"` + the mirror via `addInitScript`) so the **new default** look is contrast-verified in the gate. Meridian/Umber are verified by the pure `scheme-contrast.ts` AA check (unit) — not added to the e2e matrix to keep it fast (documented; matches how custom schemes are unscanned today).
 
 ---
 
 ## The three palettes (identity locked; light + dark)
 
-Identity hexes locked from the approved mockup. The **CORE** role tokens (`--AIPM-dark-blue`=primary, `--AIPM-green`=accent, `--background`, `--surface`, `--foreground`, `--rag-red/-amber/-green`) + `--table-head-bg/-fg/-accent` + `--surface-muted` + `--line` are fixed below. The remaining **ADVANCED** tokens (`--AIPM-pink`, `--AIPM-purple`, `--AIPM-blue`, `--AIPM-medium-grey`, `--AIPM-light-grey`, `--segment-track-bg/-active-bg/-active-fg`) are filled per scheme during implementation by the token-fill rules (below) and AA-verified; the `-strong`/`-text` variants are auto-derived by `deriveAaVariants`.
+Identity hexes locked from the approved mockup. The **CORE** role tokens (`--ui-dark-blue`=primary, `--ui-green`=accent, `--background`, `--surface`, `--foreground`, `--rag-red/-amber/-green`) + `--table-head-bg/-fg/-accent` + `--surface-muted` + `--line` are fixed below. The remaining **ADVANCED** tokens (`--ui-pink`, `--ui-purple`, `--ui-blue`, `--ui-medium-grey`, `--ui-light-grey`, `--segment-track-bg/-active-bg/-active-fg`) are filled per scheme during implementation by the token-fill rules (below) and AA-verified; the `-strong`/`-text` variants are auto-derived by `deriveAaVariants`.
 
 ### Harbor (DEFAULT) — cool navy / teal
 
 | token | light | dark |
 |---|---|---|
-| primary (`--AIPM-dark-blue`) | `#153a5c` | `#2b6493` |
+| primary (`--ui-dark-blue`) | `#153a5c` | `#2b6493` |
 | on-primary (`--table-head-fg` / button text) | `#ffffff` | `#f2f8fc` |
-| accent (`--AIPM-green`) | `#0e8f86` | `#22b3a7` |
+| accent (`--ui-green`) | `#0e8f86` | `#22b3a7` |
 | background | `#f6f8fa` | `#0e1620` |
 | surface | `#ffffff` | `#16212e` |
 | surface-muted | `#eef2f6` | `#1b2836` |
@@ -129,9 +129,9 @@ Identity hexes locked from the approved mockup. The **CORE** role tokens (`--AIP
 
 ### Token-fill rules for the remaining ADVANCED tokens
 
-- `--AIPM-blue` = a lighter tint of the primary hue (info/link secondary).
-- `--AIPM-pink`, `--AIPM-purple` = harmonized secondary hues for the palette (used for the destructive/consent semantics + purple diff text); keep AA where used as small text via the `-strong` derivation.
-- `--AIPM-medium-grey`, `--AIPM-light-grey` = neutral scale between `line` and `foreground`, biased slightly toward the primary hue (per artifact-design "neutrals, don't default").
+- `--ui-blue` = a lighter tint of the primary hue (info/link secondary).
+- `--ui-pink`, `--ui-purple` = harmonized secondary hues for the palette (used for the destructive/consent semantics + purple diff text); keep AA where used as small text via the `-strong` derivation.
+- `--ui-medium-grey`, `--ui-light-grey` = neutral scale between `line` and `foreground`, biased slightly toward the primary hue (per artifact-design "neutrals, don't default").
 - `--segment-track-bg` = `surface-muted`; `--segment-active-bg` = `primary`; `--segment-active-fg` = on-primary.
 - All produced values run through `scheme-contrast.ts` (warn) + the Harbor set through the axe gate (fail).
 
@@ -146,8 +146,8 @@ Identity hexes locked from the approved mockup. The **CORE** role tokens (`--AIP
 
 ## UI (Settings → Appearance)
 
-- The style/scheme switcher lists: **Harbor (default) · Meridian · Umber · AIPM · Mockup · [user custom schemes]**. Selecting a built-in scheme sets `activeSchemeId` + applies. AIPM/Mockup select their `data-style`.
-- The theme (light/dark) toggle is **enabled** when the active scheme `supportsDark` (Harbor/Meridian/Umber and AIPM); disabled for light-only schemes/Mockup (unchanged behavior for those).
+- The style/scheme switcher lists: **Harbor (default) · Meridian · Umber · Petrol · Mockup · [user custom schemes]**. Selecting a built-in scheme sets `activeSchemeId` + applies. Petrol/Mockup select their `data-style`.
+- The theme (light/dark) toggle is **enabled** when the active scheme `supportsDark` (Harbor/Meridian/Umber and Petrol); disabled for light-only schemes/Mockup (unchanged behavior for those).
 - The custom-scheme editor is unchanged (light-only) this phase.
 - Appearance is axe-scanned — keep the switcher's control labels/roles intact.
 
@@ -156,7 +156,7 @@ Identity hexes locked from the approved mockup. The **CORE** role tokens (`--AIP
 - **Boot flash on the new default** → boot script injects the resolved default map pre-paint + `layout-boot-script.test.ts` updated in lockstep.
 - **Axe contrast** → Harbor light+dark added to the e2e matrix; all schemes pass the unit `scheme-contrast` AA check.
 - **Palette guards** (`palette-chrome-sweep`/`shell-palette-guard`) → unaffected: color still comes from `globals.css` tokens whose *values* are overridden by inline `setProperty`; no new Tailwind classes, no raw shadows/gradients.
-- **Seed drift** → the built-in scheme maps become a real source (not another duplicate); `ICC_SEED`/`MOCKUP_SEED` stay for the existing custom-editor seeds until Phase 2 collapses them.
+- **Seed drift** → the built-in scheme maps become a real source (not another duplicate); `PETROL_SEED`/`MOCKUP_SEED` stay for the existing custom-editor seeds until Phase 2 collapses them.
 
 ## Testing strategy
 

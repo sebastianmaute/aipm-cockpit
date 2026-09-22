@@ -15,7 +15,7 @@
 - Run a single test file: `npm run test:run -- <substring>` (e.g. `node-graph-layout`).
 - After editing ANY test: `npx tsc --noEmit` (CI typechecks tests; vitest does not).
 - Lint is `--max-warnings=0`: an unused import/var is FATAL. `react-hooks/exhaustive-deps` rejects `obj.member` deps — hoist to a scalar local.
-- Palette-safe: only AIPM tokens via Tailwind `fill-*`/`stroke-*`/`text-*` utilities; NO shadow/gradient. RAG tokens not needed here (structural brand colors only).
+- Palette-safe: only brand tokens via Tailwind `fill-*`/`stroke-*`/`text-*` utilities; NO shadow/gradient. RAG tokens not needed here (structural brand colors only).
 - Commit messages: conventional, NO `Co-Authored-By` trailer (attribution disabled globally for this user).
 
 ## File structure
@@ -239,7 +239,7 @@ const edges: NodeGraphEdge[] = [
   { a: "hub", b: "y" },
 ];
 const zones: NodeGraphZone[] = [
-  { label: "Zone A", color: "var(--AIPM-green)", x: 4, y: 20, w: 70, h: 80 },
+  { label: "Zone A", color: "var(--ui-green)", x: 4, y: 20, w: 70, h: 80 },
 ];
 
 describe("NodeGraph static mode (no onSelectNode)", () => {
@@ -312,10 +312,10 @@ function ArrowDefs() {
   return (
     <defs>
       <marker id="ng-arrow-end" markerWidth={8} markerHeight={8} refX={6} refY={3} orient="auto">
-        <path d="M0,0 L0,6 L8,3 z" className="fill-AIPM-medium-grey" />
+        <path d="M0,0 L0,6 L8,3 z" className="fill-ui-medium-grey" />
       </marker>
       <marker id="ng-arrow-start" markerWidth={8} markerHeight={8} refX={2} refY={3} orient="auto-start-reverse">
-        <path d="M0,0 L0,6 L8,3 z" className="fill-AIPM-medium-grey" />
+        <path d="M0,0 L0,6 L8,3 z" className="fill-ui-medium-grey" />
       </marker>
     </defs>
   );
@@ -331,7 +331,7 @@ function ZoneShape({ zone }: { zone: NodeGraphZone }) {
         height={zone.h}
         rx={10}
         fill="none"
-        className="stroke-AIPM-medium-grey"
+        className="stroke-ui-medium-grey"
         strokeWidth={1}
         strokeDasharray="4 3"
       />
@@ -362,11 +362,11 @@ function NodeShape({
 }) {
   const hub = node.accent === "hub";
   const filled = hub || isActive;
-  const fillClass = filled ? "fill-AIPM-dark-blue" : "fill-surface";
-  const strokeClass = isNeighbour ? "stroke-AIPM-green" : node.accent === "green" ? "stroke-AIPM-green" : "stroke-AIPM-dark-blue";
+  const fillClass = filled ? "fill-ui-dark-blue" : "fill-surface";
+  const strokeClass = isNeighbour ? "stroke-ui-green" : node.accent === "green" ? "stroke-ui-green" : "stroke-ui-dark-blue";
   const titleClass = filled ? "text-white" : "text-foreground";
-  const subClass = filled ? "text-AIPM-green" : "text-muted-foreground";
-  const stripeClass = node.accent === "green" ? "fill-AIPM-green" : "fill-AIPM-dark-blue";
+  const subClass = filled ? "text-ui-green" : "text-muted-foreground";
+  const stripeClass = node.accent === "green" ? "fill-ui-green" : "fill-ui-dark-blue";
   return (
     <g opacity={dim ? 0.4 : 1}>
       <rect
@@ -453,7 +453,7 @@ export function NodeGraph({
             y1={na.y + na.h / 2}
             x2={nb.x + nb.w / 2}
             y2={nb.y + nb.h / 2}
-            className={incident ? "stroke-AIPM-dark-blue" : "stroke-line"}
+            className={incident ? "stroke-ui-dark-blue" : "stroke-line"}
             strokeWidth={incident ? 1.6 : 1.2}
             opacity={active && !incident ? 0.3 : 1}
             markerStart={e.arrow === "both" ? "url(#ng-arrow-start)" : undefined}
@@ -973,11 +973,11 @@ function Legend({ lang }: LegendProps) {
     <>
       <div className="mb-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-AIPM-green" aria-hidden="true" />
+          <span className="h-2.5 w-2.5 rounded-sm bg-ui-green" aria-hidden="true" />
           {t(lang, "infoFlowsZoneDataLabel")}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-AIPM-dark-blue" aria-hidden="true" />
+          <span className="h-2.5 w-2.5 rounded-sm bg-ui-dark-blue" aria-hidden="true" />
           {t(lang, "infoFlowsZoneServicesLabel")}
         </span>
       </div>
@@ -995,8 +995,8 @@ function Legend({ lang }: LegendProps) {
 
 export function InformationFlowsSection({ lang, maxWidth = 480 }: InformationFlowsSectionProps) {
   const zones: readonly NodeGraphZone[] = [
-    { label: t(lang, "infoFlowsZoneDataLabel"), color: "var(--AIPM-green)", x: 8, y: 20, w: 120, h: 200 },
-    { label: t(lang, "infoFlowsZoneServicesLabel"), color: "var(--AIPM-dark-blue)", x: 300, y: 20, w: 172, h: 200 },
+    { label: t(lang, "infoFlowsZoneDataLabel"), color: "var(--ui-green)", x: 8, y: 20, w: 120, h: 200 },
+    { label: t(lang, "infoFlowsZoneServicesLabel"), color: "var(--ui-dark-blue)", x: 300, y: 20, w: 172, h: 200 },
   ];
 
   return (
@@ -1052,7 +1052,7 @@ Run each; all must pass:
 - [ ] **Step 2: Settings axe gate (info-flows migrated → re-verify)**
 
 Run: `npx playwright test e2e/a11y.spec.ts --project=chromium -g "Settings"`
-Expected: PASS (~16s; webServer auto-starts). The static diagram is a labelled `role=img` with no interactive controls, so axe stays green across AIPM-light / AIPM-dark / Mockup-light.
+Expected: PASS (~16s; webServer auto-starts). The static diagram is a labelled `role=img` with no interactive controls, so axe stays green across Petrol-light / Petrol-dark / Mockup-light.
 
 - [ ] **Step 3: Eye-verify (jsdom can't check pixels)**
 
@@ -1094,4 +1094,4 @@ git commit -m "chore(release): 0.150.0 \"Gibson\" — reusable node-graph for He
 ## Risks carried from spec
 
 - Overlay alignment is pixel-exact only in a real browser (jsdom rect=0) → Task 7 Step 3 eye-verify is the real check.
-- If Tailwind hasn't previously generated `fill-surface`/`stroke-AIPM-*`/`text-*` utilities, writing them in tracked source generates them on next build — verified by `npm run build` in Task 7.
+- If Tailwind hasn't previously generated `fill-surface`/`stroke-ui-*`/`text-*` utilities, writing them in tracked source generates them on next build — verified by `npm run build` in Task 7.

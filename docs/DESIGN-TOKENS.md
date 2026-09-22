@@ -1,4 +1,4 @@
-# AIPM Design Tokens & Color Rules
+# Brand Design Tokens & Color Rules
 
 The single source of truth for color *roles* in aipm-cockpit. Every component uses ONLY the
 semantic tokens and `--ui-*` brand utilities below — never raw `zinc-*` or a hex.
@@ -14,14 +14,14 @@ but the `globals.css :root` fallback below is **Harbor light** — so the pre-bo
 default are deliberately different palettes. Do not read a hex in the table below as "what a fresh
 install shows"; it is what shows before `syncScheme` runs, and nothing more.
 
-> The brand tokens were renamed `--AIPM-*` → `--ui-*` in 0.190.23 (Release B). `AIPM` survives as the
-> company/theme *name* and in asset classes (`AIPM-logo`), but no token carries that prefix.
+> The brand tokens lost their brand prefix (written `--brand-*` here) and became `--ui-*` in 0.190.23 (Release B). The brand survives as the
+> company/theme *name* only; no token carries it as a prefix, and the logo/icon assets that did are retired.
 
 > ★★★ **CORRECTED 2026-07-30 — this section described the pre-scheme world.** It previously listed eight
-> tokens under the heading "Brand palette (**fixed** in light & dark)" with the historical AIPM hexes. Two
+> tokens under the heading "Brand palette (**fixed** in light & dark)" with the historical brand hexes. Two
 > things were wrong. **(1) Nothing is fixed.** Since the scheme work (0.182–0.184, then Release A in
 > 0.190.22) the active *scheme* overrides every token at runtime via inline `setProperty`; `globals.css
-> :root` is only the no-JS / pre-boot fallback, and it now holds **Harbor-light** values, not AIPM ones. Of
+> :root` is only the no-JS / pre-boot fallback, and it now holds **Harbor-light** values, not Petrol ones. Of
 > those eight documented hexes, exactly **one** — `#636362` for `ui-dark-grey` — is still a live token
 > value. Three (`#004159`, `#AA4899`, `#60C0DD`) are absent from the file entirely, and four (`#84BD00`,
 > `#E5497C`, `#E3E6E6`, `#939598`) survive only inside explanatory comments *about* why the brand value
@@ -144,7 +144,7 @@ Components never reference a scheme's hex values directly — use the role.
 `--rag-red/amber/green` (+ their `-text` AA companions) carry RAG semantics as their own role family, so
 a scheme can move them without moving the brand hues.
 
-★★★ The two named styles this section used to describe — "Acme" and "Dashboard" — **no longer
+★★★ The two named styles this section used to describe — "Petrol" and "Dashboard" — **no longer
 exist in the app in any form**; a theme is a file the user loads, and the built-ins are the four schemes
 named at the top of this file. `data-style` is the constant `"custom"`. The measured numbers below were
 taken against those retired styles and are kept only because the RULE they support is unchanged; do not
@@ -165,4 +165,4 @@ quote the ratios as current, and re-measure against the scheme you are actually 
 - E-sweep raid-panel (0.15.6): raid-panel.tsx. ✅
 - E-sweep gantt (0.15.7): gantt.tsx. ✅
 - E-sweep menus + chrome + misc (0.16.0 "Butler"): settings-menu, jira-settings, storage-config, export-menu, help-menu, version-menu, notifications, chat-panel, activity-log-panel, effort-progress-bar, error, markdown, page, voice-button, workspace-section, read-only-mirror-banner. ✅
-✅ **Sub-project E complete (0.16.0 "Butler") — the AIPM design system now covers the whole app.**
+✅ **Sub-project E complete (0.16.0 "Butler") — the brand design system now covers the whole app.**

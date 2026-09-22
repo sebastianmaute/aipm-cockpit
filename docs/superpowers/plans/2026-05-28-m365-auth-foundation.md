@@ -827,7 +827,7 @@ In the rendered JSX, after the existing last section in the menu's vertical stac
                 ? t(lang, "integrationsM365NeedsConfig")
                 : undefined
             }
-            className="rounded border border-AIPM-dark-blue bg-AIPM-dark-blue px-2 py-1 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded border border-ui-dark-blue bg-ui-dark-blue px-2 py-1 text-xs font-medium text-white hover:bg-ui-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t(lang, "integrationsM365SignIn")}
           </button>

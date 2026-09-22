@@ -15,7 +15,7 @@ discoverability gap — the browser's native corner grip is faint and easy to mi
 ## Goal
 
 Make the draggable anchor **discoverable at rest** for both table columns and pane corners,
-with clear hover/drag feedback, within the AIPM palette + dual-CI constraints.
+with clear hover/drag feedback, within the brand palette + dual-CI constraints.
 
 ## Decisions (from brainstorming)
 
@@ -86,7 +86,7 @@ clearly visible:
   so no new accessible-name/keyboard obligation. Resize remains a mouse enhancement (columns
   stay usable; `ResetColWidths` exists). Re-run the axe gate on the gated table views
   (tasks/`open-points`, milestones, changes, raid, reports) to confirm no regression.
-- **Dual-CI:** verify rest/hover/active grip color + resizer corner in AIPM-light, AIPM-dark,
+- **Dual-CI:** verify rest/hover/active grip color + resizer corner in Petrol-light, Petrol-dark,
   and Mockup-light.
 
 ## Testing
@@ -95,7 +95,7 @@ clearly visible:
   `aria-hidden`, has `cursor-col-resize`, and invokes `onMouseDown(col, e)` on mousedown.
 - **Eye-verify:** resting dots visible but quiet; hover → accent; drag (button held, pointer
   moved away) → accent persists via `:active`; pane corner clearly visible. All across
-  AIPM-light / AIPM-dark / Mockup-light.
+  Petrol-light / Petrol-dark / Mockup-light.
 - **axe gate:** `npx playwright test e2e/a11y.spec.ts --project=chromium` on the touched table
   views — expect green (decorative grip).
 

@@ -15,8 +15,8 @@ This extends the behavior the **workload** tab already implements to the calenda
 
 ## Current state
 
-- **Directory** (`resource-directory.tsx`): rows are `Resource` objects; the name is a button → `onEditResource(r)`. Hover style: `rounded-md border border-transparent px-2 py-0.5 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:text-AIPM-light-grey dark:hover:bg-zinc-800`.
-- **Workload** (`resource-workload.tsx`): canonical version. Matched name → `onEditResource(row.resource)`; unmatched → `onAddResource({ firstName, lastName, email: email || undefined })`. Button class is the directory style **plus** `focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-dark-blue` and `text-left`.
+- **Directory** (`resource-directory.tsx`): rows are `Resource` objects; the name is a button → `onEditResource(r)`. Hover style: `rounded-md border border-transparent px-2 py-0.5 text-xs font-medium text-ui-dark-grey shadow-sm hover:border-ui-dark-blue hover:bg-zinc-50 dark:text-ui-light-grey dark:hover:bg-zinc-800`.
+- **Workload** (`resource-workload.tsx`): canonical version. Matched name → `onEditResource(row.resource)`; unmatched → `onAddResource({ firstName, lastName, email: email || undefined })`. Button class is the directory style **plus** `focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-dark-blue` and `text-left`.
 - **Planning** (`resources-panel.tsx`, ~line 371): each grid row is already a `Resource` (`r`); the name renders as plain `<td>` text. `onEditResource` is already a panel prop.
 - **Calendar** (`resource-calendar.tsx`, ~line 194): rows are aggregated `CalendarAssignee` (`{ key, display, email }`) keyed by case-folded name, derived from tasks/absences/shifts — NOT from `resources`. The name renders as plain `<td>` text. The component does not currently receive `resources`, `onEditResource`, or `onAddResource`.
 
@@ -27,7 +27,7 @@ This extends the behavior the **workload** tab already implements to the calenda
 Reuse the **workload** button's classes verbatim (the canonical version — the directory style plus a `focus-visible` ring for keyboard accessibility):
 
 ```
-rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-dark-blue dark:text-AIPM-light-grey dark:hover:bg-zinc-800
+rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-ui-dark-grey shadow-sm hover:border-ui-dark-blue hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-dark-blue dark:text-ui-light-grey dark:hover:bg-zinc-800
 ```
 
 Note: this carries `shadow-sm`. It stays for now and is stripped app-wide in the later D+E sub-project — keeping it now makes A consistent with the rest of the current app.

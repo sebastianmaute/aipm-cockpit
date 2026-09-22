@@ -23,7 +23,7 @@ surfaces consume, so future app surfaces can reuse it.
    grid) **and** the Information-flows diagram (static, manual coords, zones).
 5. **Concept edges:** plain undirected lines (no arrowheads). The component still
    supports directed (`arrow:"both"`) edges, which info-flows uses.
-6. **Fills:** theme-aware (`--surface`/`--foreground`, `--AIPM-dark-blue` stroke,
+6. **Fills:** theme-aware (`--surface`/`--foreground`, `--ui-dark-blue` stroke,
    hub stays dark-blue). This also fixes info-flows' latent dark-mode white-box
    issue. Requires a Settings axe re-verify.
 
@@ -74,7 +74,7 @@ button overlay aligns 1:1 with the SVG drawing.
   (`nodeAriaLabel`), `title` (`selectTitle`), `data-active`, `FOCUS_RING`, and
   hover/focus/blur handlers. The SVG draws the visible boxes + labels + edges and
   is `aria-hidden`. Hover/focus on a node highlights its incident edges (→
-  `--AIPM-dark-blue`, thicker) and neighbour nodes, dims the rest.
+  `--ui-dark-blue`, thicker) and neighbour nodes, dims the rest.
 - **Static** (no `onSelectNode`): the SVG itself is `role="img"` + `aria-label`
   + `<title>`/`<desc>`; no buttons, no highlight.
 
@@ -110,10 +110,10 @@ Settings + the in-pane Help flows tab passes 720).
 
 - Interactive nodes are real buttons (axe-clean accessible names + keyboard
   operable via Tab in DOM order). Static diagram is a labelled `role="img"`.
-- Palette-safe: only `var(--AIPM-*)` brand tokens + theme tokens
+- Palette-safe: only `var(--ui-*)` brand tokens + theme tokens
   (`--surface`/`--foreground`/`--line`); no shadow, no gradient. Highlight colors
-  (`--AIPM-dark-blue`/`--AIPM-green`/`stroke-line`) are structural brand, not
-  RAG-semantic, so raw AIPM tokens are fine.
+  (`--ui-dark-blue`/`--ui-green`/`stroke-line`) are structural brand, not
+  RAG-semantic, so raw petrol tokens are fine.
 - Theme-aware fills render correctly in light / dark / Mockup.
 - **Settings is in `A11Y_VIEWS`** → after the info-flows migration, re-run
   `npx playwright test e2e/a11y.spec.ts --project=chromium -g "Settings"`.

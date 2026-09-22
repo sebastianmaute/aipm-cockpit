@@ -311,7 +311,7 @@ Replace everything from the `helpIntro` paragraph through the old footer (the bl
                   onKeyDown={(e) => onTabKeyDown(e, idx)}
                   className={
                     isActive
-                      ? `rounded-md bg-AIPM-dark-blue px-2.5 py-1 text-xs font-semibold text-white ${FOCUS_RING}`
+                      ? `rounded-md bg-ui-dark-blue px-2.5 py-1 text-xs font-semibold text-white ${FOCUS_RING}`
                       : `rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`
                   }
                 >
@@ -365,7 +365,7 @@ Replace everything from the `helpIntro` paragraph through the old footer (the bl
               href={APP_LICENSE_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
+              className="text-xs font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-blue"
             >
               {t(lang, "versionLicense")} ↗
             </a>

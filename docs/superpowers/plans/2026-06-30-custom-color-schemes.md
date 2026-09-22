@@ -22,7 +22,7 @@
 | `src/app/use-style.tsx` (modify) | on style change, apply/clear scheme colors at runtime | A |
 | `src/app/layout.tsx` (modify) | pre-paint boot script: custom ⇒ pin light + apply boot-key colors | A |
 | `src/app/settings-sections/appearance-section.tsx` (modify) | add "Custom" style option; disable theme for custom; mount editor | A/B |
-| `src/app/scheme-tokens.ts` (new) | editable token registry, AIPM/Mockup seed maps, `deriveAaVariants` | B |
+| `src/app/scheme-tokens.ts` (new) | editable token registry, Petrol/Mockup seed maps, `deriveAaVariants` | B |
 | `src/app/scheme-contrast.ts` (new) | pure WCAG contrast ratio + key-pair check | B |
 | `src/app/color-scheme-editor.tsx` (new) | the editor UI (pickers, advanced, contrast, branding, library controls) | B/C |
 | `src/app/color-schemes.ts` (new) | per-device library store + validation + JSON import/export | C |
@@ -48,16 +48,16 @@ import { readStoredStyle, effectiveDark } from "./style-ci";
 describe("style-ci custom", () => {
   it("accepts 'custom' as a valid stored style", () => {
     expect(readStoredStyle("custom")).toBe("custom");
-    expect(readStoredStyle("AIPM")).toBe("AIPM");
+    expect(readStoredStyle("petrol")).toBe("petrol");
     expect(readStoredStyle("mockup")).toBe("mockup");
-    expect(readStoredStyle("bogus")).toBe("AIPM");
+    expect(readStoredStyle("bogus")).toBe("petrol");
   });
 
   it("pins light for custom (like mockup)", () => {
     expect(effectiveDark(true, "custom")).toBe(false);
     expect(effectiveDark(true, "mockup")).toBe(false);
-    expect(effectiveDark(true, "AIPM")).toBe(true);
-    expect(effectiveDark(false, "AIPM")).toBe(false);
+    expect(effectiveDark(true, "petrol")).toBe(true);
+    expect(effectiveDark(false, "petrol")).toBe(false);
   });
 });
 ```
@@ -65,20 +65,20 @@ describe("style-ci custom", () => {
 - [ ] **Step 2: Run, verify fail**
 
 Run: `npx vitest run src/app/style-ci.test.ts`
-Expected: FAIL — `readStoredStyle("custom")` returns `"AIPM"`.
+Expected: FAIL — `readStoredStyle("custom")` returns `"petrol"`.
 
 - [ ] **Step 3: Implement**
 
 In `src/app/style-ci.ts` replace the type + the two helpers:
 
 ```ts
-export type CiStyle = "AIPM" | "mockup" | "custom";
+export type CiStyle = "petrol" | "mockup" | "custom";
 
 export const STYLE_STORAGE_KEY = "lop-style";
 
-/** Validate a raw stored string into a CiStyle, defaulting to "AIPM". */
+/** Validate a raw stored string into a CiStyle, defaulting to "petrol". */
 export function readStoredStyle(raw: string | null): CiStyle {
-  return raw === "AIPM" || raw === "mockup" || raw === "custom" ? raw : "AIPM";
+  return raw === "petrol" || raw === "mockup" || raw === "custom" ? raw : "petrol";
 }
 ```
 
@@ -86,7 +86,7 @@ And change `effectiveDark` so custom pins light too:
 
 ```ts
 export function effectiveDark(resolvedThemeDark: boolean, style: CiStyle): boolean {
-  return style === "AIPM" ? resolvedThemeDark : false;
+  return style === "petrol" ? resolvedThemeDark : false;
 }
 ```
 
@@ -131,19 +131,19 @@ describe("scheme-apply", () => {
   });
 
   it("sets inline CSS vars for each token and clears them with null", () => {
-    applySchemeColors({ "--AIPM-green": "#123456", "--background": "#abcdef" });
-    expect(document.documentElement.style.getPropertyValue("--AIPM-green")).toBe("#123456");
+    applySchemeColors({ "--ui-green": "#123456", "--background": "#abcdef" });
+    expect(document.documentElement.style.getPropertyValue("--ui-green")).toBe("#123456");
     expect(document.documentElement.style.getPropertyValue("--background")).toBe("#abcdef");
 
     applySchemeColors(null);
-    expect(document.documentElement.style.getPropertyValue("--AIPM-green")).toBe("");
+    expect(document.documentElement.style.getPropertyValue("--ui-green")).toBe("");
     expect(document.documentElement.style.getPropertyValue("--background")).toBe("");
   });
 
   it("round-trips the active color map through localStorage", () => {
-    writeActiveSchemeColors({ "--AIPM-green": "#123456" });
-    expect(localStorage.getItem(ACTIVE_SCHEME_COLORS_KEY)).toContain("--AIPM-green");
-    expect(readActiveSchemeColors()).toEqual({ "--AIPM-green": "#123456" });
+    writeActiveSchemeColors({ "--ui-green": "#123456" });
+    expect(localStorage.getItem(ACTIVE_SCHEME_COLORS_KEY)).toContain("--ui-green");
+    expect(readActiveSchemeColors()).toEqual({ "--ui-green": "#123456" });
   });
 
   it("readActiveSchemeColors returns null on missing/garbage", () => {
@@ -153,9 +153,9 @@ describe("scheme-apply", () => {
   });
 
   it("clearing replaces the previous inline override set (no stale tokens)", () => {
-    applySchemeColors({ "--AIPM-green": "#111111", "--line": "#222222" });
-    applySchemeColors({ "--AIPM-green": "#333333" });
-    expect(document.documentElement.style.getPropertyValue("--AIPM-green")).toBe("#333333");
+    applySchemeColors({ "--ui-green": "#111111", "--line": "#222222" });
+    applySchemeColors({ "--ui-green": "#333333" });
+    expect(document.documentElement.style.getPropertyValue("--ui-green")).toBe("#333333");
     expect(document.documentElement.style.getPropertyValue("--line")).toBe("");
   });
 });
@@ -321,14 +321,14 @@ git commit -m "feat(scheme): pin light + apply scheme colors for custom style"
 **Files:**
 - Modify: `src/app/layout.tsx:16` (the `NO_FLASH_THEME_SCRIPT` string)
 
-No unit test (it's a pre-paint inline string executed by the browser; verified by Phase-A eye-verify — a reload on a custom scheme must not flash AIPM first).
+No unit test (it's a pre-paint inline string executed by the browser; verified by Phase-A eye-verify — a reload on a custom scheme must not flash Petrol first).
 
 - [ ] **Step 1: Replace the boot script string**
 
 In `src/app/layout.tsx`, replace the `NO_FLASH_THEME_SCRIPT` constant with the version below. Changes: accept `"custom"`; pin light for mockup OR custom; when custom, parse `lop-active-scheme-colors` and set each inline var before paint.
 
 ```ts
-const NO_FLASH_THEME_SCRIPT = `(function(){try{var s=localStorage.getItem("lop-style")||"AIPM";if(s!=="AIPM"&&s!=="mockup"&&s!=="custom"){s="AIPM";}document.documentElement.setAttribute("data-style",s);var t=localStorage.getItem("lop-theme")||"system";var d=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(s==="mockup"||s==="custom"){d=false;}document.documentElement.classList.toggle("dark",d);if(s==="custom"){var raw=localStorage.getItem("lop-active-scheme-colors");if(raw){var m=JSON.parse(raw);for(var k in m){if(Object.prototype.hasOwnProperty.call(m,k)&&typeof m[k]==="string"){document.documentElement.style.setProperty(k,m[k]);}}}}}catch(e){}})();`;
+const NO_FLASH_THEME_SCRIPT = `(function(){try{var s=localStorage.getItem("lop-style")||"petrol";if(s!=="petrol"&&s!=="mockup"&&s!=="custom"){s="petrol";}document.documentElement.setAttribute("data-style",s);var t=localStorage.getItem("lop-theme")||"system";var d=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(s==="mockup"||s==="custom"){d=false;}document.documentElement.classList.toggle("dark",d);if(s==="custom"){var raw=localStorage.getItem("lop-active-scheme-colors");if(raw){var m=JSON.parse(raw);for(var k in m){if(Object.prototype.hasOwnProperty.call(m,k)&&typeof m[k]==="string"){document.documentElement.style.setProperty(k,m[k]);}}}}}catch(e){}})();`;
 ```
 
 - [ ] **Step 2: Build (boot string is inlined into the served HTML)**
@@ -366,7 +366,7 @@ In the Style `SegmentedControl`, add the custom option:
 
 ```tsx
           options={[
-            { value: "AIPM", label: t(lang, "styleIcc") },
+            { value: "petrol", label: t(lang, "styleIcc") },
             { value: "mockup", label: t(lang, "styleMockup") },
             { value: "custom", label: t(lang, "styleCustom") },
           ]}
@@ -400,11 +400,11 @@ Run: `npm run lint` → 0 warnings.
 Run: `npm run dev`. In Settings → Appearance, pick **Custom**. Nothing visibly changes yet (no active scheme), the Theme control disables, and `data-style="custom"` is on `<html>`. In the browser console seed a scheme manually to prove apply + no-flash:
 
 ```js
-localStorage.setItem("lop-active-scheme-colors", JSON.stringify({ "--AIPM-dark-blue": "#6a1b9a", "--AIPM-green": "#ff6f00" }));
+localStorage.setItem("lop-active-scheme-colors", JSON.stringify({ "--ui-dark-blue": "#6a1b9a", "--ui-green": "#ff6f00" }));
 location.reload();
 ```
 
-Expected after reload: sidebar/header use purple, accents orange, with NO AIPM flash first. Switch back to AIPM → overrides clear.
+Expected after reload: sidebar/header use purple, accents orange, with NO Petrol flash first. Switch back to Petrol → overrides clear.
 
 - [ ] **Step 5: Commit**
 
@@ -432,28 +432,28 @@ import { describe, it, expect } from "vitest";
 import {
   CORE_TOKENS,
   ADVANCED_TOKENS,
-  ICC_SEED,
+  PETROL_SEED,
   deriveAaVariants,
   resolveSchemeColors,
 } from "./scheme-tokens";
 
 describe("scheme-tokens", () => {
-  it("ICC_SEED has a hex value for every core and advanced token", () => {
+  it("PETROL_SEED has a hex value for every core and advanced token", () => {
     for (const t of [...CORE_TOKENS, ...ADVANCED_TOKENS]) {
-      expect(ICC_SEED[t.token], `seed for ${t.token}`).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(PETROL_SEED[t.token], `seed for ${t.token}`).toMatch(/^#[0-9a-f]{6}$/i);
     }
   });
 
   it("deriveAaVariants darkens the accent until it clears AA on white", () => {
-    const derived = deriveAaVariants({ "--AIPM-green": "#84bd00", "--surface": "#ffffff" });
-    // --AIPM-green-strong must be present and AA (>=4.5) on white
-    expect(derived["--AIPM-green-strong"]).toMatch(/^#[0-9a-f]{6}$/i);
+    const derived = deriveAaVariants({ "--ui-green": "#84bd00", "--surface": "#ffffff" });
+    // --ui-green-strong must be present and AA (>=4.5) on white
+    expect(derived["--ui-green-strong"]).toMatch(/^#[0-9a-f]{6}$/i);
   });
 
   it("resolveSchemeColors merges user colors with derived variants", () => {
-    const resolved = resolveSchemeColors({ "--AIPM-green": "#84bd00", "--surface": "#ffffff" });
-    expect(resolved["--AIPM-green"]).toBe("#84bd00");
-    expect(resolved["--AIPM-green-strong"]).toBeDefined();
+    const resolved = resolveSchemeColors({ "--ui-green": "#84bd00", "--surface": "#ffffff" });
+    expect(resolved["--ui-green"]).toBe("#84bd00");
+    expect(resolved["--ui-green-strong"]).toBeDefined();
   });
 });
 ```
@@ -464,22 +464,22 @@ Run: `npx vitest run src/app/scheme-tokens.test.ts` → FAIL (module missing).
 
 - [ ] **Step 3: Implement**
 
-Create `src/app/scheme-tokens.ts`. The AIPM seed values below are copied verbatim from `globals.css` `:root`. **You must also fill `MOCKUP_SEED`** by copying the corresponding values from the `:root[data-style="mockup"]` block in `globals.css` for each token listed (open that file; known examples: `--table-head-fg: #3f4448`, `--table-head-accent: #3d7a00`). For any token the mockup block does not override, reuse the AIPM value.
+Create `src/app/scheme-tokens.ts`. The Petrol seed values below are copied verbatim from `globals.css` `:root`. **You must also fill `MOCKUP_SEED`** by copying the corresponding values from the `:root[data-style="mockup"]` block in `globals.css` for each token listed (open that file; known examples: `--table-head-fg: #3f4448`, `--table-head-accent: #3d7a00`). For any token the mockup block does not override, reuse the Petrol value.
 
 ```ts
 // Editable-token registry for custom color schemes + AA-variant derivation.
-// Pure (no DOM). Hex values mirror globals.css :root (AIPM) and
+// Pure (no DOM). Hex values mirror globals.css :root (Brand) and
 // :root[data-style="mockup"] (Mockup).
 import type { SchemeColorMap } from "./scheme-apply";
 
 export interface TokenSpec {
-  token: string;   // CSS var name, e.g. "--AIPM-dark-blue"
+  token: string;   // CSS var name, e.g. "--ui-dark-blue"
   labelKey: string; // i18n key for the picker label
 }
 
 export const CORE_TOKENS: readonly TokenSpec[] = [
-  { token: "--AIPM-dark-blue", labelKey: "schemeTokenPrimary" },
-  { token: "--AIPM-green", labelKey: "schemeTokenAccent" },
+  { token: "--ui-dark-blue", labelKey: "schemeTokenPrimary" },
+  { token: "--ui-green", labelKey: "schemeTokenAccent" },
   { token: "--background", labelKey: "schemeTokenBackground" },
   { token: "--surface", labelKey: "schemeTokenSurface" },
   { token: "--foreground", labelKey: "schemeTokenText" },
@@ -489,11 +489,11 @@ export const CORE_TOKENS: readonly TokenSpec[] = [
 ] as const;
 
 export const ADVANCED_TOKENS: readonly TokenSpec[] = [
-  { token: "--AIPM-pink", labelKey: "schemeTokenPink" },
-  { token: "--AIPM-purple", labelKey: "schemeTokenPurple" },
-  { token: "--AIPM-blue", labelKey: "schemeTokenBlue" },
-  { token: "--AIPM-medium-grey", labelKey: "schemeTokenMediumGrey" },
-  { token: "--AIPM-light-grey", labelKey: "schemeTokenLightGrey" },
+  { token: "--ui-pink", labelKey: "schemeTokenPink" },
+  { token: "--ui-purple", labelKey: "schemeTokenPurple" },
+  { token: "--ui-blue", labelKey: "schemeTokenBlue" },
+  { token: "--ui-medium-grey", labelKey: "schemeTokenMediumGrey" },
+  { token: "--ui-light-grey", labelKey: "schemeTokenLightGrey" },
   { token: "--surface-muted", labelKey: "schemeTokenSurfaceMuted" },
   { token: "--line", labelKey: "schemeTokenLine" },
   { token: "--table-head-bg", labelKey: "schemeTokenTableHeadBg" },
@@ -504,20 +504,20 @@ export const ADVANCED_TOKENS: readonly TokenSpec[] = [
   { token: "--segment-active-fg", labelKey: "schemeTokenSegmentActiveFg" },
 ] as const;
 
-export const ICC_SEED: SchemeColorMap = {
-  "--AIPM-dark-blue": "#004159",
-  "--AIPM-green": "#84bd00",
+export const PETROL_SEED: SchemeColorMap = {
+  "--ui-dark-blue": "#004159",
+  "--ui-green": "#84bd00",
   "--background": "#ffffff",
   "--surface": "#ffffff",
   "--foreground": "#636362",
   "--rag-red": "#ef4444",
   "--rag-amber": "#f59e0b",
   "--rag-green": "#10b981",
-  "--AIPM-pink": "#e5497c",
-  "--AIPM-purple": "#aa4899",
-  "--AIPM-blue": "#60c0dd",
-  "--AIPM-medium-grey": "#939598",
-  "--AIPM-light-grey": "#e3e6e6",
+  "--ui-pink": "#e5497c",
+  "--ui-purple": "#aa4899",
+  "--ui-blue": "#60c0dd",
+  "--ui-medium-grey": "#939598",
+  "--ui-light-grey": "#e3e6e6",
   "--surface-muted": "#e3e6e6",
   "--line": "#e3e6e6",
   "--table-head-bg": "#004159",
@@ -530,7 +530,7 @@ export const ICC_SEED: SchemeColorMap = {
 
 // Fill from globals.css :root[data-style="mockup"] (see note above).
 export const MOCKUP_SEED: SchemeColorMap = {
-  ...ICC_SEED,
+  ...PETROL_SEED,
   "--table-head-fg": "#3f4448",
   "--table-head-accent": "#3d7a00",
   // ...copy remaining mockup overrides here from globals.css...
@@ -569,11 +569,11 @@ function darkenToAa(base: string, bg: string): string {
 
 /** Compute the AA text/companion variants implied by the user's chosen colors. */
 export function deriveAaVariants(colors: SchemeColorMap): SchemeColorMap {
-  const surface = colors["--surface"] ?? ICC_SEED["--surface"];
+  const surface = colors["--surface"] ?? PETROL_SEED["--surface"];
   const out: SchemeColorMap = {};
-  if (colors["--AIPM-green"]) out["--AIPM-green-strong"] = darkenToAa(colors["--AIPM-green"], surface);
-  if (colors["--AIPM-pink"]) out["--AIPM-pink-strong"] = darkenToAa(colors["--AIPM-pink"], surface);
-  if (colors["--AIPM-purple"]) out["--AIPM-purple-strong"] = darkenToAa(colors["--AIPM-purple"], surface);
+  if (colors["--ui-green"]) out["--ui-green-strong"] = darkenToAa(colors["--ui-green"], surface);
+  if (colors["--ui-pink"]) out["--ui-pink-strong"] = darkenToAa(colors["--ui-pink"], surface);
+  if (colors["--ui-purple"]) out["--ui-purple-strong"] = darkenToAa(colors["--ui-purple"], surface);
   if (colors["--rag-red"]) out["--rag-red-text"] = darkenToAa(colors["--rag-red"], surface);
   if (colors["--rag-amber"]) out["--rag-amber-text"] = darkenToAa(colors["--rag-amber"], surface);
   if (colors["--rag-green"]) out["--rag-green-text"] = darkenToAa(colors["--rag-green"], surface);
@@ -684,7 +684,7 @@ export function checkSchemePairs(colors: SchemeColorMap): ContrastPair[] {
   const surface = c["--surface"] ?? "#ffffff";
   const defs: { id: string; labelKey: string; fg?: string; on: string }[] = [
     { id: "text-bg", labelKey: "schemePairTextBg", fg: c["--foreground"], on: bg },
-    { id: "accent-surface", labelKey: "schemePairAccentSurface", fg: c["--AIPM-green-strong"] ?? c["--AIPM-green"], on: surface },
+    { id: "accent-surface", labelKey: "schemePairAccentSurface", fg: c["--ui-green-strong"] ?? c["--ui-green"], on: surface },
     { id: "rag-red", labelKey: "schemePairRagRed", fg: c["--rag-red-text"], on: surface },
     { id: "rag-amber", labelKey: "schemePairRagAmber", fg: c["--rag-amber-text"], on: surface },
     { id: "rag-green", labelKey: "schemePairRagGreen", fg: c["--rag-green-text"], on: surface },
@@ -752,7 +752,7 @@ Add to `src/app/i18n.ts` (group them near `styleCustom`):
   schemeAdvanced: "Advanced colors",
   schemeContrastBelowAa: "below AA",
   schemeNew: "New scheme",
-  schemeNewFromIcc: "New from AIPM",
+  schemeNewFromIcc: "New from Petrol",
   schemeNewFromMockup: "New from Mockup",
   schemeApply: "Apply",
   schemeRename: "Rename",
@@ -770,7 +770,7 @@ Add to `src/app/i18n.ts` (group them near `styleCustom`):
 Create a throwaway node script (umlauts as `\uXXXX` to avoid corruption; file is CRLF). Run from repo root:
 
 ```bash
-node -e "const fs=require('fs');const p='src/app/i18n.de.ts';let s=fs.readFileSync(p,'utf8');const block=[`  schemeTokenPrimary: \"Markenfarbe\",`,`  schemeTokenAccent: \"Akzent\",`,`  schemeTokenBackground: \"Hintergrund\",`,`  schemeTokenSurface: \"Oberfläche\",`,`  schemeTokenText: \"Text\",`,`  schemeTokenRagRed: \"Status rot\",`,`  schemeTokenRagAmber: \"Status gelb\",`,`  schemeTokenRagGreen: \"Status grün\",`,`  schemeTokenPink: \"Pink\",`,`  schemeTokenPurple: \"Violett\",`,`  schemeTokenBlue: \"Blau\",`,`  schemeTokenMediumGrey: \"Mittelgrau\",`,`  schemeTokenLightGrey: \"Hellgrau\",`,`  schemeTokenSurfaceMuted: \"Gedämpfte Oberfläche\",`,`  schemeTokenLine: \"Rahmenlinie\",`,`  schemeTokenTableHeadBg: \"Tabellenkopf-Hintergrund\",`,`  schemeTokenTableHeadFg: \"Tabellenkopf-Text\",`,`  schemeTokenTableHeadAccent: \"Tabellenkopf-Akzent\",`,`  schemeTokenSegmentTrack: \"Segment-Schiene\",`,`  schemeTokenSegmentActiveBg: \"Segment aktiv Hintergrund\",`,`  schemeTokenSegmentActiveFg: \"Segment aktiv Text\",`,`  schemePairTextBg: \"Text auf Hintergrund\",`,`  schemePairAccentSurface: \"Akzent auf Oberfläche\",`,`  schemePairRagRed: \"Status-rot-Text\",`,`  schemePairRagAmber: \"Status-gelb-Text\",`,`  schemePairRagGreen: \"Status-grün-Text\",`,`  schemeAdvanced: \"Erweiterte Farben\",`,`  schemeContrastBelowAa: \"unter AA\",`,`  schemeNew: \"Neues Schema\",`,`  schemeNewFromIcc: \"Neu aus AIPM\",`,`  schemeNewFromMockup: \"Neu aus Mockup\",`,`  schemeApply: \"Anwenden\",`,`  schemeRename: \"Umbenennen\",`,`  schemeDelete: \"Löschen\",`,`  schemeImport: \"Schema importieren\",`,`  schemeExport: \"Schema exportieren\",`,`  schemeNamePlaceholder: \"Schemaname\",`,`  schemeSelectLabel: \"Gespeicherte Schemata\",`,`  schemeNone: \"Noch keine gespeicherten Schemata\",`,`  schemeImportError: \"Diese Datei konnte nicht importiert werden.\",`].join('\r\n');s=s.replace('  styleCustom:', block+'\r\n  styleCustom:');fs.writeFileSync(p,s);"
+node -e "const fs=require('fs');const p='src/app/i18n.de.ts';let s=fs.readFileSync(p,'utf8');const block=[`  schemeTokenPrimary: \"Markenfarbe\",`,`  schemeTokenAccent: \"Akzent\",`,`  schemeTokenBackground: \"Hintergrund\",`,`  schemeTokenSurface: \"Oberfläche\",`,`  schemeTokenText: \"Text\",`,`  schemeTokenRagRed: \"Status rot\",`,`  schemeTokenRagAmber: \"Status gelb\",`,`  schemeTokenRagGreen: \"Status grün\",`,`  schemeTokenPink: \"Pink\",`,`  schemeTokenPurple: \"Violett\",`,`  schemeTokenBlue: \"Blau\",`,`  schemeTokenMediumGrey: \"Mittelgrau\",`,`  schemeTokenLightGrey: \"Hellgrau\",`,`  schemeTokenSurfaceMuted: \"Gedämpfte Oberfläche\",`,`  schemeTokenLine: \"Rahmenlinie\",`,`  schemeTokenTableHeadBg: \"Tabellenkopf-Hintergrund\",`,`  schemeTokenTableHeadFg: \"Tabellenkopf-Text\",`,`  schemeTokenTableHeadAccent: \"Tabellenkopf-Akzent\",`,`  schemeTokenSegmentTrack: \"Segment-Schiene\",`,`  schemeTokenSegmentActiveBg: \"Segment aktiv Hintergrund\",`,`  schemeTokenSegmentActiveFg: \"Segment aktiv Text\",`,`  schemePairTextBg: \"Text auf Hintergrund\",`,`  schemePairAccentSurface: \"Akzent auf Oberfläche\",`,`  schemePairRagRed: \"Status-rot-Text\",`,`  schemePairRagAmber: \"Status-gelb-Text\",`,`  schemePairRagGreen: \"Status-grün-Text\",`,`  schemeAdvanced: \"Erweiterte Farben\",`,`  schemeContrastBelowAa: \"unter AA\",`,`  schemeNew: \"Neues Schema\",`,`  schemeNewFromIcc: \"Neu aus Petrol\",`,`  schemeNewFromMockup: \"Neu aus Mockup\",`,`  schemeApply: \"Anwenden\",`,`  schemeRename: \"Umbenennen\",`,`  schemeDelete: \"Löschen\",`,`  schemeImport: \"Schema importieren\",`,`  schemeExport: \"Schema exportieren\",`,`  schemeNamePlaceholder: \"Schemaname\",`,`  schemeSelectLabel: \"Gespeicherte Schemata\",`,`  schemeNone: \"Noch keine gespeicherten Schemata\",`,`  schemeImportError: \"Diese Datei konnte nicht importiert werden.\",`].join('\r\n');s=s.replace('  styleCustom:', block+'\r\n  styleCustom:');fs.writeFileSync(p,s);"
 ```
 
 (If the DE file has no `styleCustom:` yet — it was added in A5 — confirm A5 ran first. Verify after: `npx tsc --noEmit` must pass, and grep the file to confirm real umlauts, not `ue`/`oe` substitutions.)
@@ -796,7 +796,7 @@ git commit -m "feat(scheme): i18n keys for the scheme editor (EN+DE)"
 - Modify: `src/app/settings-sections/appearance-section.tsx` (mount it when custom)
 - Test: `src/app/color-scheme-editor.test.tsx`
 
-This task wires the editor against an in-memory draft + an `onApply(colors)` callback. The library store (save/load/import/export) is added in Phase C; here the editor edits a single working draft seeded from AIPM and Applies it live.
+This task wires the editor against an in-memory draft + an `onApply(colors)` callback. The library store (save/load/import/export) is added in Phase C; here the editor edits a single working draft seeded from Petrol and Applies it live.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -822,9 +822,9 @@ describe("ColorSchemeEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: /apply/i }));
     expect(onApply).toHaveBeenCalledTimes(1);
     const arg = onApply.mock.calls[0][0] as Record<string, string>;
-    expect(arg["--AIPM-green"]).toBe("#123456");
+    expect(arg["--ui-green"]).toBe("#123456");
     // derived variant is included
-    expect(arg["--AIPM-green-strong"]).toBeDefined();
+    expect(arg["--ui-green-strong"]).toBeDefined();
   });
 
   it("shows a below-AA warning when text/background contrast is poor", () => {
@@ -849,20 +849,20 @@ Create `src/app/color-scheme-editor.tsx`:
 import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
-import { CORE_TOKENS, ADVANCED_TOKENS, ICC_SEED, resolveSchemeColors } from "./scheme-tokens";
+import { CORE_TOKENS, ADVANCED_TOKENS, PETROL_SEED, resolveSchemeColors } from "./scheme-tokens";
 import { checkSchemePairs } from "./scheme-contrast";
 import type { SchemeColorMap } from "./scheme-apply";
 
 interface ColorSchemeEditorProps {
   lang: Lang;
-  /** Initial working colors (defaults to the AIPM seed). */
+  /** Initial working colors (defaults to the Petrol seed). */
   initialColors?: SchemeColorMap;
   /** Called with the RESOLVED color map (user colors + derived AA variants). */
   onApply: (resolved: SchemeColorMap) => void;
 }
 
 export function ColorSchemeEditor({ lang, initialColors, onApply }: ColorSchemeEditorProps) {
-  const [colors, setColors] = useState<SchemeColorMap>({ ...ICC_SEED, ...initialColors });
+  const [colors, setColors] = useState<SchemeColorMap>({ ...PETROL_SEED, ...initialColors });
   const pairs = checkSchemePairs(colors);
 
   function setToken(token: string, value: string) {
@@ -903,7 +903,7 @@ export function ColorSchemeEditor({ lang, initialColors, onApply }: ColorSchemeE
           {pairs.map((p) => (
             <li key={p.id} className="flex items-center justify-between gap-2">
               <span className="text-muted-foreground">{t(lang, p.labelKey)}</span>
-              <span className={p.passesAa ? "text-AIPM-green-strong" : "text-AIPM-pink-strong"}>
+              <span className={p.passesAa ? "text-ui-green-strong" : "text-ui-pink-strong"}>
                 {p.ratio}:1 {p.passesAa ? "✓" : `⚠ ${t(lang, "schemeContrastBelowAa")}`}
               </span>
             </li>
@@ -915,7 +915,7 @@ export function ColorSchemeEditor({ lang, initialColors, onApply }: ColorSchemeE
         <button
           type="button"
           onClick={() => onApply(resolveSchemeColors(colors))}
-          className={`rounded-md border border-line bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-AIPM-white ${INTERACTIVE}`}
+          className={`rounded-md border border-line bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-ui-white ${INTERACTIVE}`}
         >
           {t(lang, "schemeApply")}
         </button>
@@ -990,15 +990,15 @@ import {
 } from "./color-schemes";
 
 function sample(name = "Acme"): ColorScheme {
-  return { id: 1, name, colors: { "--AIPM-green": "#123456" }, branding: { slogan: "Hi" } };
+  return { id: 1, name, colors: { "--ui-green": "#123456" }, branding: { slogan: "Hi" } };
 }
 
 describe("color-schemes store", () => {
   beforeEach(() => localStorage.clear());
 
   it("adds with id=max+1 and round-trips through localStorage", () => {
-    const a = addScheme("First", { "--AIPM-green": "#111111" }, {});
-    const b = addScheme("Second", { "--AIPM-green": "#222222" }, {});
+    const a = addScheme("First", { "--ui-green": "#111111" }, {});
+    const b = addScheme("Second", { "--ui-green": "#222222" }, {});
     expect(b.activeId).toBe(b.schemes[b.schemes.length - 1].id);
     expect(b.schemes[1].id).toBe(a.schemes[0].id + 1);
     expect(loadSchemes().schemes).toHaveLength(2);
@@ -1016,14 +1016,14 @@ describe("color-schemes store", () => {
     const json = exportScheme(sample());
     const imported = importScheme(json);
     expect(imported?.name).toBe("Acme");
-    expect(imported?.colors["--AIPM-green"]).toBe("#123456");
+    expect(imported?.colors["--ui-green"]).toBe("#123456");
   });
 
   it("import rejects non-hex color values and drops unknown keys", () => {
-    const bad = JSON.stringify({ name: "X", colors: { "--AIPM-green": "red;}html{}", "--bogus": "#fff" }, branding: {} });
+    const bad = JSON.stringify({ name: "X", colors: { "--ui-green": "red;}html{}", "--bogus": "#fff" }, branding: {} });
     const imported = importScheme(bad);
     expect(imported).not.toBeNull();
-    expect(imported!.colors["--AIPM-green"]).toBeUndefined(); // non-hex rejected
+    expect(imported!.colors["--ui-green"]).toBeUndefined(); // non-hex rejected
     expect(imported!.colors["--bogus"]).toBeUndefined();     // unknown token dropped
   });
 
@@ -1237,7 +1237,7 @@ Replace the body of `src/app/color-scheme-editor.tsx` with the version below (ad
 import { useState, type ChangeEvent } from "react";
 import { type Lang, t } from "./i18n";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
-import { CORE_TOKENS, ADVANCED_TOKENS, ICC_SEED, MOCKUP_SEED, resolveSchemeColors } from "./scheme-tokens";
+import { CORE_TOKENS, ADVANCED_TOKENS, PETROL_SEED, MOCKUP_SEED, resolveSchemeColors } from "./scheme-tokens";
 import { checkSchemePairs } from "./scheme-contrast";
 import type { SchemeColorMap } from "./scheme-apply";
 import {
@@ -1257,20 +1257,20 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding }: ColorSchem
   const [store, setStore] = useState<SchemeStore>(() => loadSchemes());
   const active = store.schemes.find((s) => s.id === store.activeId) ?? null;
   const [name, setName] = useState(active?.name ?? "");
-  const [colors, setColors] = useState<SchemeColorMap>({ ...ICC_SEED, ...active?.colors });
+  const [colors, setColors] = useState<SchemeColorMap>({ ...PETROL_SEED, ...active?.colors });
   const [branding, setBranding] = useState<BrandingConfig>(active?.branding ?? {});
   const [importError, setImportError] = useState<string | null>(null);
   const pairs = checkSchemePairs(colors);
 
   function seed(map: SchemeColorMap) {
-    setColors({ ...ICC_SEED, ...map });
+    setColors({ ...PETROL_SEED, ...map });
   }
   function selectScheme(id: number) {
     const next = setActive(id);
     setStore(next);
     const s = next.schemes.find((x) => x.id === id);
     setName(s?.name ?? "");
-    setColors({ ...ICC_SEED, ...s?.colors });
+    setColors({ ...PETROL_SEED, ...s?.colors });
     setBranding(s?.branding ?? {});
   }
   function apply() {
@@ -1292,7 +1292,7 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding }: ColorSchem
     const next = removeScheme(active.id);
     setStore(next);
     setName("");
-    setColors({ ...ICC_SEED });
+    setColors({ ...PETROL_SEED });
     setBranding({});
   }
   function doExport() {
@@ -1317,7 +1317,7 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding }: ColorSchem
       const next = addScheme(parsed.name, parsed.colors, parsed.branding);
       setStore(next);
       const s = next.schemes[next.schemes.length - 1];
-      setName(s.name); setColors({ ...ICC_SEED, ...s.colors }); setBranding(s.branding);
+      setName(s.name); setColors({ ...PETROL_SEED, ...s.colors }); setBranding(s.branding);
     };
     reader.readAsText(file);
   }
@@ -1368,7 +1368,7 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding }: ColorSchem
         <button type="button" className={btn} onClick={saveNew}>{t(lang, "schemeNew")}</button>
         <button type="button" className={btn} onClick={rename} disabled={!active}>{t(lang, "schemeRename")}</button>
         <button type="button" className={btn} onClick={del} disabled={!active}>{t(lang, "schemeDelete")}</button>
-        <button type="button" className={btn} onClick={() => seed(ICC_SEED)}>{t(lang, "schemeNewFromIcc")}</button>
+        <button type="button" className={btn} onClick={() => seed(PETROL_SEED)}>{t(lang, "schemeNewFromIcc")}</button>
         <button type="button" className={btn} onClick={() => seed(MOCKUP_SEED)}>{t(lang, "schemeNewFromMockup")}</button>
         <button type="button" className={btn} onClick={doExport} disabled={!active}>{t(lang, "schemeExport")}</button>
         <label className={`cursor-pointer ${btn}`}>
@@ -1376,7 +1376,7 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding }: ColorSchem
           <input type="file" accept="application/json,.json" className="sr-only" onChange={onImportFile} />
         </label>
       </div>
-      {importError && <p className="mb-2 text-xs text-AIPM-pink-strong">{importError}</p>}
+      {importError && <p className="mb-2 text-xs text-ui-pink-strong">{importError}</p>}
 
       {/* Core pickers */}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -1421,7 +1421,7 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding }: ColorSchem
           {pairs.map((p) => (
             <li key={p.id} className="flex items-center justify-between gap-2">
               <span className="text-muted-foreground">{t(lang, p.labelKey)}</span>
-              <span className={p.passesAa ? "text-AIPM-green-strong" : "text-AIPM-pink-strong"}>
+              <span className={p.passesAa ? "text-ui-green-strong" : "text-ui-pink-strong"}>
                 {p.ratio}:1 {p.passesAa ? "✓" : `⚠ ${t(lang, "schemeContrastBelowAa")}`}
               </span>
             </li>
@@ -1434,7 +1434,7 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding }: ColorSchem
         <button
           type="button"
           onClick={apply}
-          className={`rounded-md border border-line bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-AIPM-white ${INTERACTIVE}`}
+          className={`rounded-md border border-line bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-ui-white ${INTERACTIVE}`}
         >
           {t(lang, "schemeApply")}
         </button>
@@ -1493,9 +1493,9 @@ Run `npm run dev`:
 2. Change Brand primary + Accent → **Apply**. App recolors live.
 3. Name it "Acme" → **New scheme**. It appears in the select.
 4. **Export** → a JSON file downloads. Clear the scheme, **Import** it back → reappears, colors intact.
-5. Reload the page while Custom+Acme active → colors apply with **no AIPM flash**.
+5. Reload the page while Custom+Acme active → colors apply with **no Petrol flash**.
 6. Set Text to a near-white → a **⚠ below AA** badge shows on "Text on background"; Apply still works.
-7. Switch to AIPM → overrides clear, app returns to brand colors. Switch back to Custom → Acme re-applies.
+7. Switch to Petrol → overrides clear, app returns to brand colors. Switch back to Custom → Acme re-applies.
 
 - [ ] **Step 2: Final automated gate**
 
@@ -1506,7 +1506,7 @@ Run: `npx playwright test e2e/a11y.spec.ts --project=chromium` (full gate, all v
 
 ## Notes for the implementer
 
-- **Palette guard:** never introduce a new off-palette Tailwind CLASS. Custom colors flow ONLY through CSS-var overrides (inline style / the boot key). The editor's own chrome uses AIPM tokens; color swatches show user hex via inline `style`/the native `<input type=color>` (legal).
+- **Palette guard:** never introduce a new off-palette Tailwind CLASS. Custom colors flow ONLY through CSS-var overrides (inline style / the boot key). The editor's own chrome uses brand tokens; color swatches show user hex via inline `style`/the native `<input type=color>` (legal).
 - **DE i18n:** patch `i18n.de.ts` via the node utf8 writes shown (never the Edit tool — it corrupts umlauts; the file is CRLF). After each, run `npx tsc --noEmit` (EN/DE parity) and the i18n-encoding test.
 - **MOCKUP_SEED:** finish copying the mockup token values from `globals.css` `:root[data-style="mockup"]` (Task B1) — the New-from-Mockup seed must reproduce Mockup.
 - **No new persisted Workspace field** is introduced — schemes are per-device localStorage (`lop-app:color-schemes` + `lop-active-scheme-colors`), out of exports/Turso, auto-cleared by `clearAppConfig`.

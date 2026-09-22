@@ -6,7 +6,7 @@
 
 **Architecture:** New pure engine `calendar-pull.ts` (`planCalendarPull` → applies/conflicts/deletions) + read helper `outlook-calendar-read.ts` (`fetchProjectEventDates`) over a shared graph leaf `outlook-graph.ts`; per-device baseline store `calendar-sync-baseline.ts`; a summary modal; wiring in task-manager + milestones-panel. Spec: `docs/superpowers/specs/2026-07-01-calendar-twoway-sp1-milestone-pull-design.md`.
 
-**Tech Stack:** Next.js (forked)/React 19/TypeScript, vitest, Microsoft Graph, Tailwind v4 AIPM tokens.
+**Tech Stack:** Next.js (forked)/React 19/TypeScript, vitest, Microsoft Graph, Tailwind v4 brand tokens.
 
 **Baseline-write refinement (vs spec):** the sync baseline is written on PULL only (apply / conflict-resolve / no-op self-heal), NOT on push — same safety, no push-path change.
 

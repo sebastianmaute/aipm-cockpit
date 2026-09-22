@@ -9,7 +9,7 @@
 
 The demo stakeholders asked for explicit executive budget figures (budget, actuals, forecast to complete,
 estimate at completion, variance at completion), for consistent Earned Value Management (EVM) wording including
-charts, and for the forecast to follow the internal AIPM Project Burndown standard.
+charts, and for the forecast to follow the internal employer Project Burndown standard.
 
 Today:
 
@@ -22,7 +22,7 @@ Today:
   impossible on a monthly plan, and a granularity change between fetch and Apply files hours under keys the
   report never reads (§169).
 
-### Reference: the AIPM Project Burndown standard
+### Reference: the employer Project Burndown standard
 
 Read from the Confluence article "The Project Burndown Dashboard" and the repository
 `example-group/public-collab/project-burndown-dashboard` (`backend/kpis.py`, `backend/routes/scenarios.py`,
@@ -37,19 +37,19 @@ Read from the Confluence article "The Project Burndown Dashboard" and the reposi
 - No EV, CPI, EAC, ETC or Monte Carlo.
 
 The register's §504 status claims the article URL was supplied truncated. That is false; the URL opens and the
-short link `https://wiki.example.com/wiki/x/LgBwfAE` resolves to it. §504 is corrected in this slice.
+short link on the employer's wiki host resolves to it. §504 is corrected in this slice.
 
 ## 2. Decision summary
 
 Chosen design: **union**. One set of facts, two named forecasts shown side by side, one chart carrying both
 forecasts, and a switch that changes only the chart orientation. Two mockups were compared first (pace-only vs
 EVM-on-price, then switch-between-methods vs union); the union won because every viewer sees the same figures,
-the disagreement between the two forecasts is visible and meaningful, and both the AIPM burn-down look and the
+the disagreement between the two forecasts is visible and meaningful, and both the employer burn-down look and the
 EVM S-curve are available.
 
 | Decision | Ruling |
 |---|---|
-| Money basis | Contract price (`budgetValue`, `consumedValue`), matching the AIPM standard |
+| Money basis | Contract price (`budgetValue`, `consumedValue`), matching the employer standard |
 | Forecast shown as the headline and used for the budget RAG | Current pace |
 | Gap line turns into a warning at | EAC difference ≥ 10% of BAC |
 | Index names | **CPI** = price basis (new); **Internal cost index** = today's "Cost recovery"; **Effort CPI** / **Effort SPI** = today's task-effort indices |

@@ -224,7 +224,7 @@ function Tile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-line bg-surface p-3">
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey tabular-nums">{value}</p>
+      <p className="mt-1 text-xl font-semibold text-ui-dark-blue dark:text-ui-light-grey tabular-nums">{value}</p>
     </div>
   );
 }
@@ -389,7 +389,7 @@ function BucketDetailTable({
             ) : (
               sorted.map((r) => (
                 <tr key={r.bucketId}>
-                  <td className="px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">{r.name}</td>
+                  <td className="px-3 py-2 font-medium text-ui-dark-blue dark:text-ui-light-grey">{r.name}</td>
                   <td className="px-3 py-2">{r.modeLabel}</td>
                   <td className="px-3 py-2 text-muted-foreground">{r.typeLabel}</td>
                   <td className="px-3 py-2 text-muted-foreground">{r.statusLabel}</td>
@@ -400,7 +400,7 @@ function BucketDetailTable({
                   <td className="px-3 py-2 text-right tabular-nums">{money(r.budgetValue)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{money(r.consumedValue)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.marginPct == null ? "—" : `${r.marginPct.toFixed(1)}%`}</td>
-                  <td className={`px-3 py-2 text-right tabular-nums ${r.winLossValue < 0 ? "text-AIPM-pink font-medium" : ""}`}>{money(r.winLossValue)}</td>
+                  <td className={`px-3 py-2 text-right tabular-nums ${r.winLossValue < 0 ? "text-ui-pink font-medium" : ""}`}>{money(r.winLossValue)}</td>
                 </tr>
               ))
             )}

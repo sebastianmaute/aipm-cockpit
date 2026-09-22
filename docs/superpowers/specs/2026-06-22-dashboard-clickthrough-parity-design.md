@@ -75,8 +75,8 @@ Pass real ids:
 `report-table.tsx` `Tile` — add optional `onActivate?: () => void` +
 `activateLabel?: string`. When `onActivate` present, render the tile as a real
 `<button type="button" aria-label={activateLabel} onClick={onActivate}>` carrying the
-same visual classes plus `w-full text-left hover:border-AIPM-dark-blue
-focus-visible:ring-1 focus-visible:ring-AIPM-green`; absent → current `<div>`
+same visual classes plus `w-full text-left hover:border-ui-dark-blue
+focus-visible:ring-1 focus-visible:ring-ui-green`; absent → current `<div>`
 (back-compat: reports' tiles omit it). Keyboard + accessible name → axe-safe.
 
 `dashboard-panel.tsx` (`onNavigate` already a prop, wired to `setActiveTab`):

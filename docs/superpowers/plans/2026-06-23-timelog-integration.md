@@ -1618,7 +1618,7 @@ export function TimelogSettings({ lang, config, onChange }: Props) {
           <label className="block text-xs">{t(lang, "timelogToken")}
             <input className={field} type="password" value={config.apiToken} aria-label={t(lang, "timelogToken")}
               onChange={(e) => handleToken(e.target.value)} /></label>
-          {config.tokenInvalidAt && <p className="text-xs text-AIPM-pink-strong">{t(lang, "timelogTokenInvalid")}</p>}
+          {config.tokenInvalidAt && <p className="text-xs text-ui-pink-strong">{t(lang, "timelogTokenInvalid")}</p>}
           <label className="block text-xs">{t(lang, "timelogScope")}
             <select className={field} value={config.scopeMode} aria-label={t(lang, "timelogScope")}
               onChange={(e) => set({ scopeMode: e.target.value as TimelogScopeMode })}>
@@ -1627,7 +1627,7 @@ export function TimelogSettings({ lang, config, onChange }: Props) {
               <option value="org">{t(lang, "timelogScopeOrg")}</option>
             </select></label>
           <button type="button" onClick={test}
-            className={`self-start rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey ${INTERACTIVE}`}>
+            className={`self-start rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-ui-dark-blue dark:text-ui-light-grey ${INTERACTIVE}`}>
             {t(lang, "timelogTest")}
           </button>
           {testResult && <p className="text-xs text-muted-foreground">{testResult}</p>}

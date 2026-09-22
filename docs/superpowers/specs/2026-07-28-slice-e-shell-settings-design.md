@@ -38,8 +38,8 @@ Recorded so it is not re-derived during planning.
 |---|---|
 | Project config is missing from Settings | `ProjectMeta` is editable only via Projects panel → Edit → `ProjectForm` hosted in a local `Modal` (`projects-panel.tsx:412-445`). Settings has 17 rail sections; General (100 lines) holds popout-reuse, workday-hours, reset, and folds Storage |
 | Theme gallery has no file picker | A file picker **already exists**, in `color-scheme-editor.tsx:145` (`onImportFile`). It is **lossy**: `addScheme(name, light, branding)` drops `dark`, `supportsDark` and `structural`, so importing a full portable theme from disk silently degrades it to light-only. The gallery's `fetch` path (`theme-gallery.tsx:43-79`) is the complete one — `addScheme` **+** `updateScheme({supportsDark, dark, structural})`, plus name-dedup and `upsertSchemeAsync` |
-| AIPM/Dashboard are hardcoded schemes | The **data** is two portable files in `public/themes/`; only the two-entry `SHIPPED` list in `theme-gallery.tsx:25-26` is hardcoded. They left `BUILTIN_SCHEMES` in release A (0.190.22) — `BUILTIN_SCHEMES` is `[harbor, meridian, umber]` |
-| `public/themes/*.json` is gallery data only | **Four test files read it from the repo** via `readFileSync`: `e2e/a11y.spec.ts:9` (seeds AIPM + Mockup as user schemes → the 5-scheme axe matrix), `scheme-purple-hover.test.ts:137`, `scheme-contrast-cues.test.ts:73`, `shipped-themes.test.ts:5` |
+| Petrol/Dashboard are hardcoded schemes | The **data** is two portable files in `public/themes/`; only the two-entry `SHIPPED` list in `theme-gallery.tsx:25-26` is hardcoded. They left `BUILTIN_SCHEMES` in release A (0.190.22) — `BUILTIN_SCHEMES` is `[harbor, meridian, umber]` |
+| `public/themes/*.json` is gallery data only | **Four test files read it from the repo** via `readFileSync`: `e2e/a11y.spec.ts:9` (seeds Petrol + Mockup as user schemes → the 5-scheme axe matrix), `scheme-purple-hover.test.ts:137`, `scheme-contrast-cues.test.ts:73`, `shipped-themes.test.ts:5` |
 | Only `EditModalShell` lacks a height | `budget-bucket-modal.tsx:250` also violates the contract — `max-h-[95vh]` with no `h`/`min-h`. Every other floating window complies: `notes-window` `h-[560px] min-h-72`, `help-menu` `h-[640px] min-h-72`, `task-form-modal` `h-[900px] max-h-[95vh] min-h-[480px]`, `jira-conflicts-modal` `h-[680px] max-h-[95vh] min-h-[320px]` |
 | `SettingsView` would need a new prop chain for project meta | It would not. `projectStakeholderNames`, `projectAddressBook`, `projectResources` and `onUpdateCurrentProject` are all assembled in `task-manager.tsx:2287-2294`, and `<SettingsView>` renders at `task-manager.tsx:2464` — the same scope |
 
@@ -100,14 +100,14 @@ Turso portfolio) the Projects panel uses. No new persistence path.
 
 ## Item 2 — Theme gallery becomes a file-only theme library
 
-### Nothing about AIPM or Dashboard stays in the app
+### Nothing about Petrol or Dashboard stays in the app
 
-- **Delete** `public/themes/AIPM.json` and `public/themes/mockup.json`.
+- **Delete** `public/themes/petrol.json` and `public/themes/mockup.json`.
 - **Delete** the `SHIPPED` array and `importTheme`'s `fetch` path in `theme-gallery.tsx`.
 - Update the now-stale comments in `builtin-schemes.ts:5`, `style-tokens.test.ts:14` and the
   `theme-gallery.tsx` header that point at `public/themes/*.json`.
 
-The app then ships and serves no AIPM or Dashboard asset. A user who wants either supplies the
+The app then ships and serves no Petrol or Dashboard asset. A user who wants either supplies the
 `.json` themselves.
 
 ### The gallery becomes a library

@@ -32,7 +32,7 @@ already-open item):
 
 All five row lists render `<tr key={item.id}>` inside an `overflow-auto` scroll
 container, with **no virtualization** and **no per-row refs or data-attributes**.
-Sanctioned palette token for the highlight: `outline-AIPM-green` (the focus-ring color;
+Sanctioned palette token for the highlight: `outline-ui-green` (the focus-ring color;
 `globals.css` brand tokens only).
 
 Editor surface differs per panel, which bounds where the highlight is visible:
@@ -57,7 +57,7 @@ import { useWorkspaceTab } from "./workspace-tab-context";
 import type { AppView } from "./nav-config";
 
 export const DEEPLINK_FLASH_MS = 1800;
-const FLASH_CLASS = "outline outline-2 -outline-offset-2 outline-AIPM-green";
+const FLASH_CLASS = "outline outline-2 -outline-offset-2 outline-ui-green";
 
 /** Outline classes for the transiently-flashed row; "" otherwise. */
 export function flashOutlineClass(isFlashed: boolean): string {
@@ -174,7 +174,7 @@ run it anyway before push per the standing rule.
 Add a "Deep-link row flash (v0.125.0)" pointer: shared `use-deeplink-row-flash.ts`
 (`useDeepLinkRowFlash(view)` + `flashOutlineClass`); each deep-linkable panel attaches
 `containerRef` to its scroll container + `data-deeplink-row={id}` + the outline class on
-rows; static `outline-AIPM-green` (no bg, palette-safe; never fights row `bg-*` state
+rows; static `outline-ui-green` (no bg, palette-safe; never fights row `bg-*` state
 classes); fires alongside the editor-open effect, does not clear `pendingOpen`. ★ Caveat:
 tasks **modern full-page edit** unmounts the list → the flash is a graceful no-op there
 (row not in DOM at fire time); visible on inline-draft panels + RAID/tasks-classic modals.

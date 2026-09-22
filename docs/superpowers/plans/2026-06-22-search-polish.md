@@ -78,7 +78,7 @@ git commit -m "feat: per-device search-recents store (load/push/save, capped + v
   - lazy `recents` state from `loadRecents()`; `recentsToShow` memo (filter to live workspace by `type+id`); `showingRecents`; unified `items`; `useCombobox(query, items.length)`; `shouldOpen` extended; `onFocus` opens.
   - document `keydown` effect for ⌘K / Ctrl-K + guarded "/"; cleanup on unmount; Escape in input also blurs.
   - `select` pushes + saves recents.
-  - render: "Recent" header `<div>` when `showingRecents`; map `items`; for query mode wrap title/subtitle via `splitHighlight` → `<mark className="rounded-sm bg-AIPM-green/20">` for match segments (plain text otherwise); no-results only when querying.
+  - render: "Recent" header `<div>` when `showingRecents`; map `items`; for query mode wrap title/subtitle via `splitHighlight` → `<mark className="rounded-sm bg-ui-green/20">` for match segments (plain text otherwise); no-results only when querying.
   - Keep option ids/`aria-activedescendant` over `items`; keep the activedescendant pattern (no nested button).
   - Hard rules: exhaustive-deps satisfied (memo deps are slice refs + `recents` + `query`; the keydown effect deps — `[]` plus refs are stable, but if it reads nothing reactive use `[]`; inputRef is a ref); NO `Date.now()`/`Math.random()`/`new Date()`; no unused vars; `useId` stable.
 
@@ -110,7 +110,7 @@ git commit -m "feat: search focus shortcut, match highlighting, recent items"
 
 - [ ] **Step 3: README badge** → `v0.129.0_%22Slonczewski%22`. **package.json** → `"0.129.0"`.
 
-- [ ] **Step 4: AGENTS.md** — extend the global-search bullet: focus shortcut (⌘K/Ctrl-K always; "/" guarded against editable elements; Escape blurs), `search-highlight.ts` (`splitHighlight`, `indexOf`-based not RegExp, `<mark>` = `bg-AIPM-green/20`), `search-recents.ts` (per-device `lop-app:search-recents`, `MAX_RECENTS=8`, validated load, shown on empty focus filtered to live workspace, OUT of exports/Turso, cleared by `clearAppConfig`).
+- [ ] **Step 4: AGENTS.md** — extend the global-search bullet: focus shortcut (⌘K/Ctrl-K always; "/" guarded against editable elements; Escape blurs), `search-highlight.ts` (`splitHighlight`, `indexOf`-based not RegExp, `<mark>` = `bg-ui-green/20`), `search-recents.ts` (per-device `lop-app:search-recents`, `MAX_RECENTS=8`, validated load, shown on empty focus filtered to live workspace, OUT of exports/Turso, cleared by `clearAppConfig`).
 
 - [ ] **Step 5: Verify** — `npx tsc --noEmit`, `npm run lint`, `npm run test:run`, `npm run build`; restore any CRLF-only diff on `operating-guide-builtin.generated.ts`; confirm tree clean.
 

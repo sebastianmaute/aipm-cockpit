@@ -102,7 +102,7 @@ function TableFilter({
         onChange={(e) => onChange(e.target.value)}
         placeholder={t(lang, placeholderKey)}
         aria-label={t(lang, placeholderKey)}
-        className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-AIPM-dark-blue focus:outline-none"
+        className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-ui-dark-blue focus:outline-none"
       />
       {value && (
         <button
@@ -311,12 +311,12 @@ function AssigneeTable({
             ) : (
               sorted.map((row) => (
                 <tr key={row.name}>
-                  <td className="px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">{row.name}</td>
+                  <td className="px-3 py-2 font-medium text-ui-dark-blue dark:text-ui-light-grey">{row.name}</td>
                   <td className="px-3 py-2 text-right">{row.total}</td>
                   <td className="px-3 py-2 text-right">{row.open}</td>
-                  <td className={`px-3 py-2 text-right ${row.overdue > 0 ? "text-AIPM-pink font-semibold" : ""}`}>{row.overdue}</td>
-                  <td className="px-3 py-2 text-right text-AIPM-green">{row.onTime}</td>
-                  <td className="px-3 py-2 text-right text-AIPM-pink">{row.late}</td>
+                  <td className={`px-3 py-2 text-right ${row.overdue > 0 ? "text-ui-pink font-semibold" : ""}`}>{row.overdue}</td>
+                  <td className="px-3 py-2 text-right text-ui-green">{row.onTime}</td>
+                  <td className="px-3 py-2 text-right text-ui-pink">{row.late}</td>
                   <td className="px-3 py-2 text-right">{row.inquiries}</td>
                 </tr>
               ))
@@ -517,11 +517,11 @@ function GroupOrLabelTable({
             ) : (
               sorted.map((row) => (
                 <tr key={row.name}>
-                  <td className="px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">{row.name}</td>
+                  <td className="px-3 py-2 font-medium text-ui-dark-blue dark:text-ui-light-grey">{row.name}</td>
                   <td className="px-3 py-2 text-right">{row.total}</td>
                   <td className="px-3 py-2 text-right">{row.open}</td>
-                  <td className="px-3 py-2 text-right text-AIPM-green">{row.completed}</td>
-                  <td className={`px-3 py-2 text-right ${row.overdue > 0 ? "text-AIPM-pink font-semibold" : ""}`}>{row.overdue}</td>
+                  <td className="px-3 py-2 text-right text-ui-green">{row.completed}</td>
+                  <td className={`px-3 py-2 text-right ${row.overdue > 0 ? "text-ui-pink font-semibold" : ""}`}>{row.overdue}</td>
                   <td className="px-3 py-2 text-right">{row.inquiries}</td>
                 </tr>
               ))

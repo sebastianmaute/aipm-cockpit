@@ -6,7 +6,7 @@
 
 **Architecture:** A new dependency-light pure module `jira-projects.ts` holds the project-key helpers + the extra-projects sanitizer (so `use-settings`, the badge, and the settings UI can import them without dragging in the lazy-loaded `jira-api.ts`). `buildJql` unions all project keys. The sync loop classifies each linked row via `isReadOnlyIssue` and pulls-only (remote-wins/revert) for read-only projects. UI telegraphs read-only via a distinct badge variant plus an editor banner.
 
-**Tech Stack:** Next.js (forked) / React / TypeScript, Vitest + Testing Library, Tailwind v4 AIPM tokens. i18n EN (`i18n.ts`) + DE (`i18n.de.ts`, patched via node utf8 write — the Edit tool corrupts that file).
+**Tech Stack:** Next.js (forked) / React / TypeScript, Vitest + Testing Library, Tailwind v4 brand tokens. i18n EN (`i18n.ts`) + DE (`i18n.de.ts`, patched via node utf8 write — the Edit tool corrupts that file).
 
 **Spec:** `docs/superpowers/specs/2026-07-01-jira-multi-project-sync-design.md`
 
@@ -999,14 +999,14 @@ Create `src/app/jira-readonly-banner.tsx`:
 ```tsx
 "use client";
 // src/app/jira-readonly-banner.tsx — shown atop the task editor when the task's
-// Jira project is read-only (watch only). Palette-safe AIPM tokens.
+// Jira project is read-only (watch only). Palette-safe brand tokens.
 import { type Lang, t } from "./i18n";
 
 export function JiraReadOnlyBanner({ lang, projectName }: { lang: Lang; projectName: string }) {
   return (
     <div
       role="note"
-      className="rounded-md border border-AIPM-amber/40 bg-AIPM-amber/10 px-3 py-2 text-xs text-foreground"
+      className="rounded-md border border-brand-amber/40 bg-brand-amber/10 px-3 py-2 text-xs text-foreground"
     >
       {t(lang, "jiraReadOnlyBanner", projectName)}
     </div>
@@ -1014,7 +1014,7 @@ export function JiraReadOnlyBanner({ lang, projectName }: { lang: Lang; projectN
 }
 ```
 
-> Palette note: `AIPM-amber` is a sanctioned token. If lint/palette-sweep flags the exact class, fall back to `border-line bg-surface-muted text-muted-foreground` (still clearly a banner). Verify by eye that it reads as a warning.
+> Palette note: `brand-amber` is a sanctioned token. If lint/palette-sweep flags the exact class, fall back to `border-line bg-surface-muted text-muted-foreground` (still clearly a banner). Verify by eye that it reads as a warning.
 
 - [ ] **Step 4: Run it to verify it passes**
 

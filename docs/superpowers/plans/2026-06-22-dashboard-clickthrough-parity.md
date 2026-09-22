@@ -6,7 +6,7 @@
 
 **Architecture:** Pure wiring + making static surfaces interactive. A new pure `activityViewOf` mapper, a clickable `Tile` variant, widened `onOpenMilestone`/`onOpenChange` signatures, and the workspace-section handlers rewired to `requestOpen`. No new deep-link infrastructure.
 
-**Tech Stack:** Next.js 16 (forked) / React 19 / TypeScript, Tailwind (AIPM palette tokens), vitest + Testing Library, Playwright axe gate.
+**Tech Stack:** Next.js 16 (forked) / React 19 / TypeScript, Tailwind (brand palette tokens), vitest + Testing Library, Playwright axe gate.
 
 ---
 
@@ -156,7 +156,7 @@ export function Tile({
   const inner = (
     <>
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <div className="mt-1 flex items-center justify-between gap-1.5 text-xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey tabular-nums">
+      <div className="mt-1 flex items-center justify-between gap-1.5 text-xl font-semibold text-ui-dark-blue dark:text-ui-light-grey tabular-nums">
         <span>{value}</span>
         {rag}
       </div>
@@ -169,7 +169,7 @@ export function Tile({
         type="button"
         aria-label={activateLabel}
         onClick={onActivate}
-        className="w-full rounded-lg border border-line bg-surface p-3 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-AIPM-green"
+        className="w-full rounded-lg border border-line bg-surface p-3 text-left hover:border-ui-dark-blue hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-ui-green"
       >
         {inner}
       </button>
@@ -500,7 +500,7 @@ Wrap the sparkline card's outer `<div className={...rounded border...}>` as a bu
               type="button"
               aria-label={t(lang, props.tursoActive ? "dashboardOpenTrendsView" : "dashboardOpenTasksView")}
               onClick={() => props.onNavigate!(trendView)}
-              className={`block w-full rounded border border-line bg-surface text-left hover:border-AIPM-dark-blue focus-visible:ring-1 focus-visible:ring-AIPM-green ${dc.cardPad}`}
+              className={`block w-full rounded border border-line bg-surface text-left hover:border-ui-dark-blue focus-visible:ring-1 focus-visible:ring-ui-green ${dc.cardPad}`}
             >
               {sparkBody}
             </button>
@@ -530,7 +530,7 @@ In the Changes `<Section>`, replace the `model.topChanges.map(...)` `<li>` body 
                             type="button"
                             aria-label={t(lang, "dashboardOpenChangeItem", c.title)}
                             onClick={() => props.onOpenChange!(c.id)}
-                            className="flex w-full items-center gap-2 rounded-md border border-transparent px-1 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-AIPM-green"
+                            className="flex w-full items-center gap-2 rounded-md border border-transparent px-1 py-0.5 text-left hover:border-ui-dark-blue hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-ui-green"
                           >
                             {content}
                           </button>
@@ -557,7 +557,7 @@ Replace the `model.recentActivity.map(...)` `<li>` body:
                         type="button"
                         aria-label={t(lang, "dashboardActivityOpenView", t(lang, navLabelKey(view)))}
                         onClick={() => props.onNavigate!(view)}
-                        className="w-full rounded-md border border-transparent px-1 py-0.5 text-left text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-AIPM-green"
+                        className="w-full rounded-md border border-transparent px-1 py-0.5 text-left text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-ui-green"
                       >
                         {label}
                       </button>

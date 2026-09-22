@@ -75,7 +75,7 @@ debounced 4s advance writes `metrics: currentMetrics` alongside `lastVisitAt`/
 `<TrendArrow trend metricLabel lang/>`:
 - Renders `null` when `trend.improved === null` (first visit / no prior).
 - Glyph ↑/↓/→ + signed delta (`+3` / `−2`, use real minus `−`).
-- Color: improved → `text-AIPM-green-strong`; worsened → `text-AIPM-pink-strong`;
+- Color: improved → `text-ui-green-strong`; worsened → `text-ui-pink-strong`;
   flat → `text-muted-foreground` (palette tokens only).
 - a11y: wrapper carries full `aria-label` (`dashboardTrendUp`/`Down`/`Flat`
   template, e.g. "Overdue down 2 since last visit"); the bare glyph is

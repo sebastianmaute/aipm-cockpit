@@ -14,7 +14,7 @@ Visual redesign sharing one card-based language across:
 4. **Relations map** (`relations-graph.ts` + `relations-map.tsx`) — radial → **vertical stack** layout (fits the accordion panel + narrow widths).
 5. **Information-flows diagram** (`information-flows-section.tsx`) — grouped + colour-coded, option-B tight-horizontal, **9 nodes**, shown in **both** Help (accordion) and Settings → Integrations.
 
-All AIPM-token / palette-safe. No new persisted state (accordion open-state is ephemeral `useState`). New i18n keys listed per section.
+All brand-token / palette-safe. No new persisted state (accordion open-state is ephemeral `useState`). New i18n keys listed per section.
 
 ---
 
@@ -24,12 +24,12 @@ Presentational refactor of the shared two-pane component. No logic change in `he
 
 ### 1a. TOC (left)
 - Width `@[560px]:w-56` (was `w-52`); group labels `text-xs` (was `text-[10px]`); items `text-sm` (was `text-xs`), `py-1.5`.
-- Active item: `border-l-2 border-AIPM-dark-blue bg-surface-muted` + semibold dark-blue — same tokens, now **scroll-spy-driven**.
+- Active item: `border-l-2 border-ui-dark-blue bg-surface-muted` + semibold dark-blue — same tokens, now **scroll-spy-driven**.
 - `< 560px` container query keeps the horizontal-scroll strip.
 
 ### 1b. Content (right)
 - Scroll container `bg-surface-muted` recess.
-- Each concept = card: `rounded-lg border border-line bg-surface p-4 border-l-[3px] border-l-AIPM-dark-blue`. **No shadow.** Dark-blue stripe on every card.
+- Each concept = card: `rounded-lg border border-line bg-surface p-4 border-l-[3px] border-l-ui-dark-blue`. **No shadow.** Dark-blue stripe on every card.
 - Title `text-sm font-semibold`; body `text-sm leading-relaxed text-muted-foreground max-w-[64ch]`.
 - "Related:" line unchanged (concept buttons via `scrollToSection`, view-nav via `onNavigateView`); `highlightSegments` `<mark>` unchanged.
 - Cards `gap-3`; group blocks `mb-8`; group `<h2>` stays uppercase dark-blue divider.
@@ -55,8 +55,8 @@ Replaces today's two stacked `<details open>` (tours + relations) with one **exc
 ### Component
 - New presentational `help-collapsible-region.tsx`: renders 3 panels in a `flex` row. Open-state is a single `useState<'tours'|'connects'|'flows'>` (default `'tours'`) owned by `help-view.tsx` (or the region component); ephemeral, NOT persisted.
 - Exclusive: opening one sets it active → the other two collapse. (Clicking the already-open panel's header keeps it open; no all-closed state — there is always exactly one open.)
-- **Open panel:** `flex-1`, bordered card (`rounded-lg border border-line border-l-[3px] border-l-AIPM-dark-blue bg-surface p-3`), header `<button aria-expanded="true">` with ▾ + title, body below.
-- **Collapsed panel:** a `w-9` (~38px) vertical bar `<button aria-expanded="false">`, label `writing-mode:vertical-rl` rotated, ▸ chevron, `hover:border-AIPM-dark-blue`. `INTERACTIVE` atom.
+- **Open panel:** `flex-1`, bordered card (`rounded-lg border border-line border-l-[3px] border-l-ui-dark-blue bg-surface p-3`), header `<button aria-expanded="true">` with ▾ + title, body below.
+- **Collapsed panel:** a `w-9` (~38px) vertical bar `<button aria-expanded="false">`, label `writing-mode:vertical-rl` rotated, ▸ chevron, `hover:border-ui-dark-blue`. `INTERACTIVE` atom.
 - Each header/bar is a real keyboard-operable button with `aria-controls` → the panel body id + `aria-expanded`.
 - Panel content is gated like the current sections: tours panel only when `onStartTour` present (modern && !popout); relations + info-flows always (in-pane view). If the tours panel is gated off, default-open falls back to the first available panel.
 - Narrow container (`@container`): collapse to **vertically stacked** full-width panels (the horizontal bars don't work < ~560px) — each panel a normal stacked `<details>`-like block; reuse a container-query breakpoint.
@@ -82,8 +82,8 @@ Replaces today's two stacked `<details open>` (tours + relations) with one **exc
 - In `catalogTours` `useMemo`: `const vis = visibleSteps(t.steps, features)`, filter `vis.length>0`, project `{id, titleKey, descKey, stepCount: vis.length, iconView: t.iconView}`.
 
 ### UI (`tour-catalog.tsx`)
-- Card: `flex gap-3 rounded-md border border-line border-l-[3px] border-l-AIPM-dark-blue bg-surface p-3 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`.
-- Left icon badge `~28-30px rounded-md bg-surface-muted text-AIPM-dark-blue` rendering the nav icon for `tour.iconView` (reuse `nav-icons.tsx`); done tour → green check badge (`bg-AIPM-green/15 text-AIPM-green-strong`). Icon `aria-hidden` (no name bleed).
+- Card: `flex gap-3 rounded-md border border-line border-l-[3px] border-l-ui-dark-blue bg-surface p-3 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`.
+- Left icon badge `~28-30px rounded-md bg-surface-muted text-ui-dark-blue` rendering the nav icon for `tour.iconView` (reuse `nav-icons.tsx`); done tour → green check badge (`bg-ui-green/15 text-ui-green-strong`). Icon `aria-hidden` (no name bleed).
 - Body: title `text-sm font-semibold`; **meta** `text-[10px] uppercase tracking-wide text-muted-foreground` = step count via new key `tourStepCount` ("{0} steps"); desc `text-xs text-muted-foreground`.
 - CTA: not-done `tourStartCta`; done `tourReplayCta` ("Replay tour →"). Top-right done badge `tourDoneBadge` kept.
 - Props-only / standalone-testable; grid `grid-cols-1 sm:grid-cols-2` (3-col when the panel is wide is acceptable — keep `sm:grid-cols-2`, the open accordion panel is wide → bump to `sm:grid-cols-2 lg:grid-cols-3`); palette-safe; tour-unique `aria-label` kept.
@@ -104,9 +104,9 @@ Radial → vertical, grouped by `HELP_GROUP_ORDER`.
 
 ### Render (`relations-map.tsx`)
 - Vertical list of nodes (grouped, small group labels), each a real absolutely-or-flow-positioned `<button>` (keyboard-native, axe-clean) — keep the **overlay technique**: decorative `aria-hidden` `<svg>` draws edge curves down a left gutter; real HTML buttons are the interactive layer (NOT focusable SVG sub-elements).
-- Hover AND focus highlight: active node + incident edges (`stroke-AIPM-dark-blue`/green) + neighbour nodes (green left accent), dim the rest. `local useState(active)` from hover+focus — same behaviour as today.
+- Hover AND focus highlight: active node + incident edges (`stroke-ui-dark-blue`/green) + neighbour nodes (green left accent), dim the rest. `local useState(active)` from hover+focus — same behaviour as today.
 - Click → `onSelectConcept(id)` → HelpView `scrollToSection` (unchanged contract).
-- Node = small pill `border border-line border-l-2 border-l-AIPM-dark-blue rounded-md bg-surface`; active = dark-blue fill/white; neighbour = green left accent + semibold. Edge curves: green to active, grey otherwise. Palette-safe.
+- Node = small pill `border border-line border-l-2 border-l-ui-dark-blue rounded-md bg-surface`; active = dark-blue fill/white; neighbour = green left accent + semibold. Edge curves: green to active, grey otherwise. Palette-safe.
 - jsdom rect=0 → tests assert structure/handlers/`data-active`, not pixels (as today).
 
 ---
@@ -139,7 +139,7 @@ Option-B tight-horizontal, grouped + colour-coded, **9 nodes**. Shown in BOTH He
 
 ## Constraints / landmines
 
-- **Palette:** AIPM tokens only; **no `box-shadow`/gradient** on new cards (palette-sweep scans CSS not Tailwind — eye-check). Stripes as concrete `border-l-AIPM-dark-blue` / `var(--AIPM-green)`; NEVER a wildcard/pipe inside a Tailwind arbitrary-value bracket.
+- **Palette:** brand tokens only; **no `box-shadow`/gradient** on new cards (palette-sweep scans CSS not Tailwind — eye-check). Stripes as concrete `border-l-ui-dark-blue` / `var(--ui-green)`; NEVER a wildcard/pipe inside a Tailwind arbitrary-value bracket.
 - **i18n:** EN/DE parity tsc-enforced; DE written via node utf8 (umlauts: "Schritte", "Verbundene Dienste", "Ihre Daten", "wiederholen") — Edit tool corrupts `i18n.de.ts` (CRLF; match `\r\n`).
 - **react-hooks purity:** scroll-spy + accordion state in effects/handlers, not render. No `set-state-in-effect`. Exhaustive-deps: hoist `obj.member`/array deps to scalars.
 - **a11y:** Help + tour catalog + relations map NOT in axe `A11Y_VIEWS` → **eye-verify** (accordion bars labeled + `aria-expanded`/`aria-controls`; relations buttons keyboard-native; icon/RagBadge `aria-hidden` to avoid name bleed). Settings (info-flows) IS in the axe gate → keep SVG `role=img`+`aria-label`, no unlabeled control.

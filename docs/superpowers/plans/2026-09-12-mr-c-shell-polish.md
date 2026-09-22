@@ -19,7 +19,7 @@
 - **No new i18n strings in this MR.** Every label reused here already exists (`aiAskClaude`). `i18n.de.ts` is not touched — if a task seems to need a new key, stop and re-read the task.
 - **No pushing, no MR, no merge without explicit instruction from the user.** Commit locally only.
 - Do not disturb the dev server on port **3000** or the `.next/` directory. The measurement task uses an isolated server on port 3100 and stops it again.
-- Palette: only sanctioned AIPM tokens. No gradients, no shadows, no off-palette colours. This MR adds no colours at all.
+- Palette: only sanctioned brand tokens. No gradients, no shadows, no off-palette colours. This MR adds no colours at all.
 - `desktop/src/main.ts` is excluded from root `tsc` and is compiled only by the manual `desktop-package` job. Put logic in `desktop/src/lib/*` (typechecked and unit-testable) and keep `main.ts` to the call site.
 
 ---

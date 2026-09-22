@@ -29,8 +29,8 @@ filling left→right. Reads the **live** form values (`originalEstimateMinutes`,
   - **No estimate** (`!hasEstimate`): a greyed, disabled-looking empty track (0% fill) with a
     muted hint `taskEffortNoEstimate`.
   - **Spent ≤ estimate**: fill width `pct×100%` (capped at 100% visually) in the accent
-    colour (`bg-AIPM-dark-blue`); label shows `formatDuration(spent) / formatDuration(estimate) · NN%`.
-  - **Over** (`spent > estimate`): fill 100% in red (`bg-AIPM-pink`); label shows the real
+    colour (`bg-ui-dark-blue`); label shows `formatDuration(spent) / formatDuration(estimate) · NN%`.
+  - **Over** (`spent > estimate`): fill 100% in red (`bg-ui-pink`); label shows the real
     percent (e.g. `120%`).
   - Accessibility: outer element `role="progressbar"`, `aria-valuemin={0}`, `aria-valuemax={100}`,
     `aria-valuenow={min(round(pct×100),100)}`, `aria-label={t(lang,"taskEffortProgressLabel")}`.
@@ -49,12 +49,12 @@ right after them. No field is removed; only order changes.
 ### 3. Task-row hover: move from assignee to id + name (task pane)
 
 The directory-assignee highlight hover is
-`rounded-md border border-transparent px-2 py-0.5 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800`.
+`rounded-md border border-transparent px-2 py-0.5 hover:border-ui-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800`.
 
 - **ID cell button** (`task-row.tsx`, the `#id` edit button): replace its current
-  `hover:text-AIPM-dark-blue hover:underline` with the highlight hover (keep `cursor-pointer`,
+  `hover:text-ui-dark-blue hover:underline` with the highlight hover (keep `cursor-pointer`,
   `font-mono`, `onClick={() => onEdit(task)}`, and the existing title/aria-label).
-- **Task-name cell button**: replace its `hover:text-AIPM-dark-blue hover:underline` with the
+- **Task-name cell button**: replace its `hover:text-ui-dark-blue hover:underline` with the
   highlight hover (keep `cursor-pointer text-left font-medium`, onClick, title).
 - **Assignee cell**: revert to plain text — render `{task.assignee || "—"}` directly inside the
   `<Td>` (keep the `Td` `title`), removing the highlight `<span>` added in 0.13.0.
@@ -63,14 +63,14 @@ The directory-assignee highlight hover is
 
 Restyle the budget Add-bucket button to exactly match the task-pane Add-task button
 (`tasks-section.tsx`):
-`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90`,
+`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-ui-dark-blue/90`,
 rendering `+ {t(lang,"budgetAddBucket")}` (prefix the label with `+ `).
 
 ### 5. Budget close/remove buttons → resource-assignee hover (budget panel)
 
 Both the close/reopen and remove buttons currently use `text-xs text-zinc-500 hover:text-…`.
 Give both the directory/resource-assignee highlight hover:
-`rounded-md border border-transparent px-2 py-0.5 text-xs hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800`,
+`rounded-md border border-transparent px-2 py-0.5 text-xs hover:border-ui-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800`,
 keeping their `text-zinc-500` base text and existing onClick/labels. The remove button keeps
 its `window.confirm` guard.
 

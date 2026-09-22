@@ -3117,7 +3117,7 @@ A register closure takes FOUR edits per entry, and missing one fails a blocking 
 
 - [ ] **Step 2: Close §504** (burn-down forecast line, #44).
   - Heading suffix → `— CLOSED <DATE>`.
-  - Status: `**Status:** CLOSED <DATE> — the burn-down chart draws the current-pace forecast (the AIPM Project Burndown "Forecast (Simple)" line: remaining budget minus the 20-working-day burn rate) and the current-efficiency forecast, with a run-out marker, on the Budget report and the dashboard burn tile (\`grep -n "stroke-ui-dark-blue\|stroke-ui-purple" src/app/burndown-chart.tsx\` prints both forecast lines). Alignment with the article: burn rate over the last 20 working days, run-out date, and depletion before or after plan end, per \`docs/superpowers/specs/2026-09-14-budget-forecast-union-design.md\` §1.`
+  - Status: `**Status:** CLOSED <DATE> — the burn-down chart draws the current-pace forecast (the employer Project Burndown "Forecast (Simple)" line: remaining budget minus the 20-working-day burn rate) and the current-efficiency forecast, with a run-out marker, on the Budget report and the dashboard burn tile (\`grep -n "stroke-ui-dark-blue\|stroke-ui-purple" src/app/burndown-chart.tsx\` prints both forecast lines). Alignment with the article: burn rate over the last 20 working days, run-out date, and depletion before or after plan end, per \`docs/superpowers/specs/2026-09-14-budget-forecast-union-design.md\` §1.`
   - Delete `**Work item:** #44`.
 
 - [ ] **Step 3: Narrow §549** (#339 stays open).

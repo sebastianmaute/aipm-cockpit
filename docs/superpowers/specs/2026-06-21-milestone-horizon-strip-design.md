@@ -61,7 +61,7 @@ interface MilestoneHorizonStripProps {
 - Renders the four buckets in fixed order (Overdue · This week · Next 2 weeks · Later), each as a labeled group with the count in its header; a group with zero entries is omitted.
 - Each entry is a chip: `name · date`, with a `RagBadge` + ⚠ when `status === "overdue"` or `"at-risk"`. When `onOpenMilestone` is provided, the chip is a `<button>` (its text is the accessible name, row-unique via `name · date`); otherwise a non-interactive `<span>`.
 - When all buckets are empty → a single muted "No upcoming milestones" line.
-- AIPM palette tokens only (`border-line`, `bg-surface`, `text-muted-foreground`, `text-AIPM-dark-blue`, `hover:bg-surface-muted`, `hover:border-AIPM-dark-blue`); no off-palette colors/shadows.
+- Brand palette tokens only (`border-line`, `bg-surface`, `text-muted-foreground`, `text-ui-dark-blue`, `hover:bg-surface-muted`, `hover:border-ui-dark-blue`); no off-palette colors/shadows.
 
 ### Placement — `dashboard-panel.tsx`
 

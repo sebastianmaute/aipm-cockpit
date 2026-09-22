@@ -128,7 +128,7 @@ export function changeToGraphEvent(change: ChangeItem, projectId: string): Graph
         change.impact ? `Impact: ${change.impact}` : "",
         change.status ? `Status: ${change.status}` : "",
         change.decisionBy ? `Decision by: ${change.decisionBy}` : "",
-        "Managed by the AIPM PM Tracker.",
+        "Managed by AI PM Cockpit.",
       ]
         .filter(Boolean)
         .join("\n"),
@@ -249,7 +249,7 @@ already imported (they are).
               checked={!!calendarEnabled}
               onChange={(e) => onToggleCalendar(e.target.checked)}
               aria-label={`${t(lang, "calendarSyncEnable")} – ${t(lang, "calendarSyncEntityChange")}`}
-              className={`h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+              className={`h-3.5 w-3.5 rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
             />
             {t(lang, "calendarSyncEnable")}
           </label>
@@ -260,7 +260,7 @@ already imported (they are).
               disabled={calendarPushBusy}
               aria-label={t(lang, "calendarPush")}
               title={t(lang, "calendarPush")}
-              className={`rounded-md border border-AIPM-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+              className={`rounded-md border border-ui-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
             >
               {calendarPushBusy ? t(lang, "calendarPushing") : t(lang, "calendarPush")}
             </button>

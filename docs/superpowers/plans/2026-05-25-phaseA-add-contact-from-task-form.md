@@ -54,13 +54,13 @@ Destructure `onAddAssigneeToAddressBook` in the `TaskFormModal({...})` parameter
       disabled={editingIsJiraLinked}
       aria-label={t(lang, "taskAddAssigneeToAddressBook")}
       title={t(lang, "taskAddAssigneeToAddressBook")}
-      className="shrink-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+      className="shrink-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-ui-dark-grey shadow-sm hover:border-ui-dark-blue hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-ui-light-grey dark:hover:bg-zinc-800"
     >
       +
     </button>
   </div>
   {editingIsJiraLinked && (
-    <p className="mt-1 text-xs italic text-AIPM-medium-grey">🔒 {t(lang, "jiraManagedHint")}</p>
+    <p className="mt-1 text-xs italic text-ui-medium-grey">🔒 {t(lang, "jiraManagedHint")}</p>
   )}
 </Field>
 ```

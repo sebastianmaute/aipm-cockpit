@@ -18,7 +18,7 @@ adds a stakeholder report, replaces the influence/interest dropdowns with a clic
 matrix modelled on the existing RAID risk matrix, and seeds sample data so every
 stakeholder view is demonstrable out of the box.
 
-All work obeys the AIPM 9-colour palette (no gradients/shadows/off-palette), the
+All work obeys the brand 9-colour palette (no gradients/shadows/off-palette), the
 ASCII-only `i18n.de.ts` rule (byte-patch via Node, CRLF-aware — never the Edit tool),
 and the `--max-warnings=0` lint gate.
 
@@ -73,7 +73,7 @@ New file `influence-interest-matrix.tsx` — a clickable grid adapted from
   `"{influenceLabel} {High}, {interestLabel} {Low}"` (localised),
 - cell colour by quadrant using brand tokens (reuse the quadrant tinting idea:
   manage-closely highest, monitor lowest — greens/grey, no off-palette),
-- selected cell gets `ring-2 ring-AIPM-green ring-offset-1`,
+- selected cell gets `ring-2 ring-ui-green ring-offset-1`,
 - axis labels flank the grid like RiskMatrix (rotated influence label on the left,
   interest label underneath),
 - single prop callback `onPick(influence: InfluenceInterest, interest: InfluenceInterest)`.
@@ -96,7 +96,7 @@ caption under the matrix shows the current selection
      `stakeholder-map-panel.tsx` visuals, no edit).
   3. **RACI coverage** — per-milestone table: milestone name, Accountable count
      (`accountableCountByMilestone`), and a missing/multiple warning chip
-     (`raciWarningFor`), reusing the amber `bg-amber-500/20 text-AIPM-purple` chip.
+     (`raciWarningFor`), reusing the amber `bg-amber-500/20 text-ui-purple` chip.
   4. **Register table** — read-only table: name, organization, category, influence,
      interest, linked resource. `TABLE_HEAD_CLASS` headers.
   Empty states: if no stakeholders, show a single muted "no stakeholders" line; the RACI

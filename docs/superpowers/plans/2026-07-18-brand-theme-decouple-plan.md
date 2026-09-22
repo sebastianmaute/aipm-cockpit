@@ -1,14 +1,14 @@
-# AIPM/Mockup Theme Decoupling + Harbor Brand Default — Implementation Plan (Release A)
+# Petrol/Mockup Theme Decoupling + Harbor Brand Default — Implementation Plan (Release A)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** De-privilege AIPM + Mockup: they leave the code `BUILTIN_SCHEMES` and ship as self-contained importable `/public/themes/*.json`. Harbor becomes the base seed, the `globals.css :root` fallback, and the brand default. No back-compat migration. `--AIPM-*` token/class NAMES kept (renamed in Release B).
+**Goal:** De-privilege Petrol + Mockup: they leave the code `BUILTIN_SCHEMES` and ship as self-contained importable `/public/themes/*.json`. Harbor becomes the base seed, the `globals.css :root` fallback, and the brand default. No back-compat migration. `--ui-*` token/class NAMES kept (renamed in Release B).
 
-**Architecture:** The scheme apply mechanism is unchanged (store → resolve → inline `setProperty` + boot-key mirror). AIPM only leaves the 3 privileged spots (`ICC_SEED` base, `:root` values, `BUILTIN_SCHEMES`). Imported themes are ordinary user schemes and already flow through the same apply path (structural included).
+**Architecture:** The scheme apply mechanism is unchanged (store → resolve → inline `setProperty` + boot-key mirror). Petrol only leaves the 3 privileged spots (`PETROL_SEED` base, `:root` values, `BUILTIN_SCHEMES`). Imported themes are ordinary user schemes and already flow through the same apply path (structural included).
 
-**Tech Stack:** Next.js 16 (forked) / React 19 / TS / Tailwind v4 / vitest / playwright+axe. Design spec: `docs/superpowers/specs/2026-07-18-AIPM-theme-decouple-design.md`.
+**Tech Stack:** Next.js 16 (forked) / React 19 / TS / Tailwind v4 / vitest / playwright+axe. Design spec: `docs/superpowers/specs/2026-07-18-brand-theme-decouple-design.md`.
 
-**Task ORDER is compile-safety-critical:** consumers of the AIPM/Mockup code maps (boot script, axe spec) are updated BEFORE the maps are deleted, and the JSON is generated (from live maps) before deletion. Do not reorder Tasks 2/3/5/6.
+**Task ORDER is compile-safety-critical:** consumers of the Petrol/Mockup code maps (boot script, axe spec) are updated BEFORE the maps are deleted, and the JSON is generated (from live maps) before deletion. Do not reorder Tasks 2/3/5/6.
 
 **Global constraints (every task):**
 - Commit via Bash heredoc `git commit -F - <<'EOF'` (NOT PowerShell). No attribution footer.
@@ -16,7 +16,7 @@
 - NEVER edit `i18n.de.ts` with the Edit tool (umlaut/quote corruption; CRLF). Use a node utf8 write. No `\u00XX` escapes (i18n-encoding test bans them). This plan touches DE only in Task 11 (a new highlight string).
 - After editing ANY `*.test.ts(x)`, run `npx tsc --noEmit` (test type errors pass vitest+build but fail CI).
 - Trust `npx tsc --noEmit` (exit 0) over IDE squiggles; ignore phantom 71007 RSC + pre-existing 6385 FormEvent-deprecated warnings.
-- Work on branch `feat/AIPM-theme-decouple` off `main`.
+- Work on branch `feat/brand-theme-decouple` off `main`.
 
 ---
 
@@ -25,7 +25,7 @@
 - [ ] **Step 1: Create the branch**
 
 ```bash
-git checkout main && git checkout -b feat/AIPM-theme-decouple
+git checkout main && git checkout -b feat/brand-theme-decouple
 ```
 
 ---
@@ -62,9 +62,9 @@ describe("portable theme format (structural + pins)", () => {
     name: "Test",
     supportsDark: false,
     light: {
-      "--AIPM-dark-blue": "#004159",
-      "--AIPM-green": "#84bd00",
-      "--AIPM-green-strong": "#4d7000", // pinned derived token — must survive import
+      "--ui-dark-blue": "#004159",
+      "--ui-green": "#84bd00",
+      "--ui-green-strong": "#4d7000", // pinned derived token — must survive import
       "--rag-red-text": "#c41e5a",
     },
     structural: {
@@ -78,7 +78,7 @@ describe("portable theme format (structural + pins)", () => {
   test("import preserves pinned AA tokens + valid structural, drops unknown", () => {
     const s = cleanScheme(JSON.parse(themeJson), "u-1");
     expect(s).not.toBeNull();
-    expect(s!.light["--AIPM-green-strong"]).toBe("#4d7000");
+    expect(s!.light["--ui-green-strong"]).toBe("#4d7000");
     expect(s!.light["--rag-red-text"]).toBe("#c41e5a");
     expect(s!.structural?.["--shadow-card"]).toBe("0 1px 3px rgba(0,65,89,0.12)");
     expect(s!.structural?.["--gradient-kpi"]).toContain("linear-gradient");
@@ -115,10 +115,10 @@ import { type SchemeColorMap, type SchemeStructuralMap, STRUCTURAL_TOKENS, isSaf
 
 Add the widened allowlist + structural cleaner (near `VALID_TOKENS`):
 ```ts
-// Pinned AA/derived tokens a portable theme (AIPM/Mockup) may carry so its exact
+// Pinned AA/derived tokens a portable theme (Petrol/Mockup) may carry so its exact
 // look survives import; the editor still edits only CORE+ADVANCED.
 const DERIVED_TOKENS = [
-  "--AIPM-green-strong", "--AIPM-pink-strong", "--AIPM-purple-strong",
+  "--ui-green-strong", "--ui-pink-strong", "--ui-purple-strong",
   "--rag-red-text", "--rag-amber-text", "--rag-green-text", "--muted-foreground",
 ] as const;
 const VALID_TOKENS = new Set([
@@ -179,7 +179,7 @@ git commit -F - <<'EOF'
 feat(schemes): portable theme format carries structural + pinned AA tokens
 
 Widen import allowlist to the 7 pinned derived tokens and add cleanStructural
-(STRUCTURAL_TOKENS allowlist + isSafeRawCssValue) so AIPM/Mockup can be shipped
+(STRUCTURAL_TOKENS allowlist + isSafeRawCssValue) so Petrol/Mockup can be shipped
 as importable JSON without losing their hand-tuned look. exportScheme now emits
 structural.
 EOF
@@ -187,27 +187,27 @@ EOF
 
 ---
 
-## Task 2: Generate `/public/themes/AIPM.json` + `mockup.json` (from live maps) + guard test
+## Task 2: Generate `/public/themes/petrol.json` + `mockup.json` (from live maps) + guard test
 
 **Files:**
-- Create: `public/themes/AIPM.json`, `public/themes/mockup.json`
+- Create: `public/themes/petrol.json`, `public/themes/mockup.json`
 - Create (throwaway, then delete): `scripts/gen-shipped-themes.ts`
 - Test: `src/app/shipped-themes.test.ts`
 
 - [ ] **Step 1: Write the throwaway generator** `scripts/gen-shipped-themes.ts`
 
 ```ts
-// One-off: dump the current AIPM/Mockup code maps to /public/themes/*.json before
+// One-off: dump the current Petrol/Mockup code maps to /public/themes/*.json before
 // they are deleted from builtin-schemes. Also prints Harbor's resolved light map
 // for the globals.css :root update (Task 7). Run: npx vite-node scripts/gen-shipped-themes.ts
 import { writeFileSync, mkdirSync } from "node:fs";
-import { ICC_LIGHT, ICC_DARK, MOCKUP_LIGHT, HARBOR_LIGHT } from "../src/app/builtin-schemes";
-import { ICC_STRUCTURAL, MOCKUP_STRUCTURAL, resolveSchemeColors } from "../src/app/scheme-tokens";
+import { PETROL_LIGHT, PETROL_DARK, MOCKUP_LIGHT, HARBOR_LIGHT } from "../src/app/builtin-schemes";
+import { PETROL_STRUCTURAL, MOCKUP_STRUCTURAL, resolveSchemeColors } from "../src/app/scheme-tokens";
 
 mkdirSync("public/themes", { recursive: true });
-const AIPM = { name: "AIPM", supportsDark: true, light: ICC_LIGHT, dark: ICC_DARK, structural: ICC_STRUCTURAL, branding: {} };
+const petrol = { name: "Petrol", supportsDark: true, light: PETROL_LIGHT, dark: PETROL_DARK, structural: PETROL_STRUCTURAL, branding: {} };
 const mockup = { name: "Dashboard", supportsDark: false, light: MOCKUP_LIGHT, structural: MOCKUP_STRUCTURAL, branding: {} };
-writeFileSync("public/themes/AIPM.json", JSON.stringify(AIPM, null, 2) + "\n");
+writeFileSync("public/themes/petrol.json", JSON.stringify(petrol, null, 2) + "\n");
 writeFileSync("public/themes/mockup.json", JSON.stringify(mockup, null, 2) + "\n");
 console.log("HARBOR_RESOLVED_LIGHT=" + JSON.stringify(resolveSchemeColors(HARBOR_LIGHT), null, 2));
 ```
@@ -216,7 +216,7 @@ console.log("HARBOR_RESOLVED_LIGHT=" + JSON.stringify(resolveSchemeColors(HARBOR
 
 Run: `npx vite-node scripts/gen-shipped-themes.ts`
 Expected: writes both JSON files; prints `HARBOR_RESOLVED_LIGHT={...}`. **Save that printed map** into the plan-scratch (Task 7 needs it). Verify the files:
-`cat public/themes/AIPM.json | python -c "import json,sys; d=json.load(sys.stdin); print(d['light']['--AIPM-dark-blue'], d['structural']['--shadow-card'])"` → `#004159 none`.
+`cat public/themes/petrol.json | python -c "import json,sys; d=json.load(sys.stdin); print(d['light']['--ui-dark-blue'], d['structural']['--shadow-card'])"` → `#004159 none`.
 
 - [ ] **Step 3: Delete the throwaway script** (it would break once maps are deleted in Task 6)
 
@@ -235,16 +235,16 @@ import { cleanScheme } from "./color-schemes";
 const load = (f: string) => JSON.parse(readFileSync(`public/themes/${f}`, "utf8"));
 
 describe("shipped theme files", () => {
-  test("AIPM.json is importable and byte-faithful", () => {
-    const raw = load("AIPM.json");
-    expect(raw.light["--AIPM-dark-blue"]).toBe("#004159");
-    expect(raw.light["--AIPM-green-strong"]).toBe("#4d7000"); // pin present
+  test("petrol.json is importable and byte-faithful", () => {
+    const raw = load("petrol.json");
+    expect(raw.light["--ui-dark-blue"]).toBe("#004159");
+    expect(raw.light["--ui-green-strong"]).toBe("#4d7000"); // pin present
     expect(raw.structural["--shadow-card"]).toBe("none");
     expect(raw.supportsDark).toBe(true);
     const s = cleanScheme(raw, "u-1");
     expect(s).not.toBeNull();
     expect(s!.dark?.["--background"]).toBe("#0b0f12");
-    expect(s!.structural?.["--gradient-kpi"]).toBe("var(--AIPM-green)");
+    expect(s!.structural?.["--gradient-kpi"]).toBe("var(--ui-green)");
   });
 
   test("mockup.json carries the gradient + shadows, light-only", () => {
@@ -265,9 +265,9 @@ Run: `npx vitest run src/app/shipped-themes.test.ts && npx tsc --noEmit`
 - [ ] **Step 6: Commit**
 
 ```bash
-git add public/themes/AIPM.json public/themes/mockup.json src/app/shipped-themes.test.ts
+git add public/themes/petrol.json public/themes/mockup.json src/app/shipped-themes.test.ts
 git commit -F - <<'EOF'
-feat(schemes): ship AIPM + Dashboard as importable /public/themes/*.json
+feat(schemes): ship Petrol + Dashboard as importable /public/themes/*.json
 
 Self-contained theme files dumped from the (soon-removed) code maps, incl. dark
 maps, pinned AA variants and structural tokens. Guard test asserts fidelity +
@@ -277,7 +277,7 @@ EOF
 
 ---
 
-## Task 3: Boot script — drop AIPM/Mockup embeds + legacy branch; base = Harbor
+## Task 3: Boot script — drop Petrol/Mockup embeds + legacy branch; base = Harbor
 
 **Files:**
 - Modify: `src/app/boot-theme-script.ts`
@@ -290,7 +290,7 @@ Replace the imports (lines 32-33) with:
 import { HARBOR_DARK, HARBOR_LIGHT } from "./builtin-schemes";
 import { resolveSchemeColors } from "./scheme-tokens";
 ```
-Delete the `ICC_*_COLORS`, `MOCKUP_LIGHT_COLORS`, `ICC_STRUCTURAL_JSON`, `MOCKUP_STRUCTURAL_JSON` consts; keep:
+Delete the `PETROL_*_COLORS`, `MOCKUP_LIGHT_COLORS`, `PETROL_STRUCTURAL_JSON`, `MOCKUP_STRUCTURAL_JSON` consts; keep:
 ```ts
 const HARBOR_LIGHT_COLORS = JSON.stringify(resolveSchemeColors(HARBOR_LIGHT));
 const HARBOR_DARK_COLORS = JSON.stringify(resolveSchemeColors(HARBOR_DARK));
@@ -303,11 +303,11 @@ var schemeDark=rawC?(rawSupports==="1"):true;
 var colors=rawC?JSON.parse(rawC):((themeDark&&schemeDark)?${HARBOR_DARK_COLORS}:${HARBOR_LIGHT_COLORS});
 var structural=rawS?JSON.parse(rawS):{};
 ```
-Keep `data-style="custom"`, the dark toggle, the color loop, and the structural loop unchanged. Remove the now-stale legacy-boot doc comment block (lines ~18-21) and the `var st=...;var legacyIcc...` line. Update the header comment: the base fallback is Harbor; AIPM/Mockup are shipped theme files, no longer embedded.
+Keep `data-style="custom"`, the dark toggle, the color loop, and the structural loop unchanged. Remove the now-stale legacy-boot doc comment block (lines ~18-21) and the `var st=...;var legacyIcc...` line. Update the header comment: the base fallback is Harbor; Petrol/Mockup are shipped theme files, no longer embedded.
 
 - [ ] **Step 2: Update the pinned test** `src/app/layout-boot-script.test.ts`
 
-This test pins + `eval`s the exact boot string. Read it, update the pinned expectations: no `legacyIcc`/`legacyMockup`, base paints Harbor. For the eval cases, assert: (a) empty storage → `data-style="custom"`, `.dark` per system, Harbor tokens applied; (b) a seeded `aipm-cockpit-active-scheme-colors` → those applied; (c) a legacy `aipm-cockpit-style="AIPM"` → NO AIPM paint (Harbor base, since no color key). Keep the storage-rename assertions.
+This test pins + `eval`s the exact boot string. Read it, update the pinned expectations: no `legacyIcc`/`legacyMockup`, base paints Harbor. For the eval cases, assert: (a) empty storage → `data-style="custom"`, `.dark` per system, Harbor tokens applied; (b) a seeded `aipm-cockpit-active-scheme-colors` → those applied; (c) a legacy `aipm-cockpit-style="petrol"` → NO Petrol paint (Harbor base, since no color key). Keep the storage-rename assertions.
 
 - [ ] **Step 3: Run tests + tsc**
 
@@ -319,17 +319,17 @@ Expected: PASS.
 ```bash
 git add src/app/boot-theme-script.ts src/app/layout-boot-script.test.ts
 git commit -F - <<'EOF'
-refactor(boot): Harbor base paint; drop AIPM/Mockup embeds + legacy style branch
+refactor(boot): Harbor base paint; drop Petrol/Mockup embeds + legacy style branch
 
-The pre-paint boot script no longer embeds AIPM/Mockup maps or special-cases the
-legacy aipm-cockpit-style="AIPM"/"mockup" value (no active users). Default paint
+The pre-paint boot script no longer embeds Petrol/Mockup maps or special-cases the
+legacy aipm-cockpit-style="petrol"/"mockup" value (no active users). Default paint
 is Harbor; a returning user still paints from the mirrored boot color key.
 EOF
 ```
 
 ---
 
-## Task 4: use-style — drop legacy AIPM/Mockup migration
+## Task 4: use-style — drop legacy Petrol/Mockup migration
 
 **Files:**
 - Modify: `src/app/use-style.tsx`
@@ -343,7 +343,7 @@ const [style, setStyleState] = useState<CiStyle>(() => {
   if (typeof window === "undefined") return "custom";
   // The style axis is the constant "custom"; the active SCHEME drives the look.
   // Persist "custom" for any non-"custom" (legacy/absent) value so the boot
-  // script + selectScheme fallback stay consistent. (No legacy AIPM/mockup
+  // script + selectScheme fallback stay consistent. (No legacy petrol/mockup
   // scheme-activation: those are now importable theme files, not built-ins.)
   const stored = localStorage.getItem(STYLE_STORAGE_KEY);
   if (stored !== "custom") {
@@ -356,7 +356,7 @@ Remove the now-unused `setActive` import if it is no longer referenced elsewhere
 
 - [ ] **Step 2: Update `use-style.test.tsx`**
 
-Remove/adjust any test asserting a legacy `AIPM`/`mockup` style activates that scheme. Assert instead: a legacy `aipm-cockpit-style="AIPM"` leaves `activeId` untouched (Harbor default via reconcile) and rewrites the style key to `"custom"`.
+Remove/adjust any test asserting a legacy `petrol`/`mockup` style activates that scheme. Assert instead: a legacy `aipm-cockpit-style="petrol"` leaves `activeId` untouched (Harbor default via reconcile) and rewrites the style key to `"custom"`.
 
 - [ ] **Step 3: Run tests + lint + tsc**
 
@@ -368,16 +368,16 @@ Expected: PASS, lint 0 (catch the unused `setActive` import here).
 ```bash
 git add src/app/use-style.tsx src/app/use-style.test.tsx
 git commit -F - <<'EOF'
-refactor(style): drop legacy AIPM/Mockup style->scheme migration
+refactor(style): drop legacy Petrol/Mockup style->scheme migration
 
 Any legacy aipm-cockpit-style value now normalises to "custom" and resolves to
-the Harbor default; AIPM/Mockup are importable theme files, not built-ins.
+the Harbor default; Petrol/Mockup are importable theme files, not built-ins.
 EOF
 ```
 
 ---
 
-## Task 5: axe spec — read shipped JSON, seed AIPM/Mockup as user schemes
+## Task 5: axe spec — read shipped JSON, seed Petrol/Mockup as user schemes
 
 **Files:**
 - Modify: `e2e/a11y.spec.ts`
@@ -393,7 +393,7 @@ const loadTheme = (f: string) =>
   JSON.parse(readFileSync(`public/themes/${f}`, "utf8")) as {
     light: SchemeColorMap; dark?: SchemeColorMap; structural: SchemeStructuralMap; supportsDark: boolean;
   };
-const ICC_THEME = loadTheme("AIPM.json");
+const PETROL_THEME = loadTheme("petrol.json");
 const MOCKUP_THEME = loadTheme("mockup.json");
 ```
 (Keep the Harbor maps: `import { HARBOR_DARK, HARBOR_LIGHT } from "../src/app/builtin-schemes";`.)
@@ -403,13 +403,13 @@ const MOCKUP_THEME = loadTheme("mockup.json");
 ```ts
 const SCHEME_SEED: Record<(typeof COMBOS)[number]["scheme"],
   { light: SchemeColorMap; dark?: SchemeColorMap; structural: SchemeStructuralMap; supportsDark: boolean }> = {
-  AIPM:    { light: ICC_THEME.light, dark: ICC_THEME.dark, structural: ICC_THEME.structural, supportsDark: true },
+  petrol:    { light: PETROL_THEME.light, dark: PETROL_THEME.dark, structural: PETROL_THEME.structural, supportsDark: true },
   mockup: { light: MOCKUP_THEME.light, structural: MOCKUP_THEME.structural, supportsDark: false },
   harbor: { light: HARBOR_LIGHT, dark: HARBOR_DARK, structural: {}, supportsDark: true },
 };
 ```
 
-- [ ] **Step 3: Seed AIPM/Mockup as USER schemes in `seedScript`** (they are no longer built-ins → an empty `schemes:[]` + `activeId:"AIPM"` would Harbor-fall-back via reconcileBuiltins)
+- [ ] **Step 3: Seed Petrol/Mockup as USER schemes in `seedScript`** (they are no longer built-ins → an empty `schemes:[]` + `activeId:"petrol"` would Harbor-fall-back via reconcileBuiltins)
 
 ```ts
 function seedScript(combo: (typeof COMBOS)[number]): string {
@@ -417,7 +417,7 @@ function seedScript(combo: (typeof COMBOS)[number]): string {
   const useDark = combo.dark && spec.supportsDark;
   const map = resolveSchemeColors(useDark && spec.dark ? spec.dark : spec.light);
   // Harbor is a built-in (empty schemes[] + activeId selects it via reconcile);
-  // AIPM/Mockup are shipped theme files -> seed them as user schemes so reconcile
+  // Petrol/Mockup are shipped theme files -> seed them as user schemes so reconcile
   // keeps them and syncScheme doesn't snap back to Harbor.
   const store = combo.scheme === "harbor"
     ? { schemes: [], activeId: "harbor" }
@@ -445,27 +445,27 @@ Expected: exit 0. (Full axe run happens in Task 10 after all code lands.)
 ```bash
 git add e2e/a11y.spec.ts
 git commit -F - <<'EOF'
-test(a11y): seed AIPM/Mockup from shipped theme JSON as user schemes
+test(a11y): seed Petrol/Mockup from shipped theme JSON as user schemes
 
-AIPM/Mockup are no longer built-ins; the 5-combo axe matrix now reads
+Petrol/Mockup are no longer built-ins; the 5-combo axe matrix now reads
 public/themes/*.json and seeds them as user schemes so all combos still scan.
 EOF
 ```
 
 ---
 
-## Task 6: Delete AIPM/Mockup code maps; trim BUILTIN_SCHEMES; neutral fallback
+## Task 6: Delete Petrol/Mockup code maps; trim BUILTIN_SCHEMES; neutral fallback
 
 **Files:**
 - Modify: `src/app/builtin-schemes.ts`, `src/app/scheme-tokens.ts`
 - Test: `src/app/builtin-schemes.test.ts`, `src/app/scheme-tokens.test.ts`
 
-- [ ] **Step 1: `scheme-tokens.ts` — remove AIPM/Mockup seeds + structural**
+- [ ] **Step 1: `scheme-tokens.ts` — remove Petrol/Mockup seeds + structural**
 
-Delete `ICC_SEED`, `MOCKUP_SEED`, `ICC_STRUCTURAL`, `MOCKUP_STRUCTURAL`. Add:
+Delete `PETROL_SEED`, `MOCKUP_SEED`, `PETROL_STRUCTURAL`, `MOCKUP_STRUCTURAL`. Add:
 ```ts
 // Neutral surface fallback for AA-variant derivation when a scheme omits
-// --surface(-muted). (Was ICC_SEED["--surface"].)
+// --surface(-muted). (Was PETROL_SEED["--surface"].)
 const FALLBACK_SURFACE = "#ffffff";
 ```
 In `deriveAaVariants`, change:
@@ -474,9 +474,9 @@ const surface = colors["--surface-muted"] ?? colors["--surface"] ?? FALLBACK_SUR
 ```
 Remove the now-unused `SchemeStructuralMap` import if only the deleted structural consts used it (grep; `resolveSchemeColors`/`deriveAaVariants` use `SchemeColorMap`).
 
-- [ ] **Step 2: `builtin-schemes.ts` — drop AIPM/Mockup**
+- [ ] **Step 2: `builtin-schemes.ts` — drop Petrol/Mockup**
 
-Delete `ICC_LIGHT`, `ICC_DARK`, `MOCKUP_LIGHT`, and the `ICC_SEED`/`MOCKUP_SEED`/`ICC_STRUCTURAL`/`MOCKUP_STRUCTURAL` imports. `BUILTIN_SCHEMES`:
+Delete `PETROL_LIGHT`, `PETROL_DARK`, `MOCKUP_LIGHT`, and the `PETROL_SEED`/`MOCKUP_SEED`/`PETROL_STRUCTURAL`/`MOCKUP_STRUCTURAL` imports. `BUILTIN_SCHEMES`:
 ```ts
 export const BUILTIN_SCHEMES: readonly ColorScheme[] = [
   { id: "harbor", name: "Harbor", builtIn: true, supportsDark: true, light: HARBOR_LIGHT, dark: HARBOR_DARK, branding: {} },
@@ -488,7 +488,7 @@ export const BUILTIN_SCHEMES: readonly ColorScheme[] = [
 
 - [ ] **Step 3: Update the two tests**
 
-`builtin-schemes.test.ts`: remove AIPM/Mockup assertions; assert `BUILTIN_SCHEMES` ids === `["harbor","meridian","umber"]`, `BUILTIN_SCHEME_IDS` lacks `"AIPM"`/`"mockup"`, and `reconcileBuiltins({schemes:[], activeId:"AIPM"})` → `activeId === "harbor"`. `scheme-tokens.test.ts`: remove `ICC_SEED`/structural refs; assert `resolveSchemeColors` still derives AA variants (feed a minimal map, expect `--rag-red-text` present).
+`builtin-schemes.test.ts`: remove Petrol/Mockup assertions; assert `BUILTIN_SCHEMES` ids === `["harbor","meridian","umber"]`, `BUILTIN_SCHEME_IDS` lacks `"petrol"`/`"mockup"`, and `reconcileBuiltins({schemes:[], activeId:"petrol"})` → `activeId === "harbor"`. `scheme-tokens.test.ts`: remove `PETROL_SEED`/structural refs; assert `resolveSchemeColors` still derives AA variants (feed a minimal map, expect `--rag-red-text` present).
 
 - [ ] **Step 4: Full typecheck + the scheme suite**
 
@@ -500,10 +500,10 @@ Expected: PASS, tsc exit 0 (all former importers of the deleted maps — boot, a
 ```bash
 git add src/app/builtin-schemes.ts src/app/scheme-tokens.ts src/app/builtin-schemes.test.ts src/app/scheme-tokens.test.ts
 git commit -F - <<'EOF'
-refactor(schemes): remove AIPM/Mockup from code built-ins; neutral seed fallback
+refactor(schemes): remove Petrol/Mockup from code built-ins; neutral seed fallback
 
-BUILTIN_SCHEMES = [harbor, meridian, umber]. ICC_SEED/MOCKUP_SEED + their
-structural maps deleted; AA derivation uses a neutral FALLBACK_SURFACE. AIPM and
+BUILTIN_SCHEMES = [harbor, meridian, umber]. PETROL_SEED/MOCKUP_SEED + their
+structural maps deleted; AA derivation uses a neutral FALLBACK_SURFACE. Petrol and
 Mockup now live only as shipped importable theme files.
 EOF
 ```
@@ -518,14 +518,14 @@ EOF
 
 - [ ] **Step 1: Swap the scheme-owned color values in `:root`** to the Harbor-resolved-light map captured in Task 2 Step 2.
 
-Change ONLY the scheme-owned color tokens to their Harbor values: `--background`, `--foreground`, `--surface`, `--surface-muted`, `--line`, `--muted-foreground`, `--AIPM-dark-blue`, `--AIPM-green`, `--AIPM-blue`, `--AIPM-pink`, `--AIPM-purple`, `--AIPM-medium-grey`, `--AIPM-light-grey`, `--AIPM-green-strong`, `--AIPM-pink-strong`, `--AIPM-purple-strong`, `--rag-red`, `--rag-amber`, `--rag-green`, and the derived `--rag-red-text`/`--rag-amber-text`/`--rag-green-text` (concrete Harbor hex from the dump), plus `--table-head-bg`/`--table-head-accent`/`--segment-track-bg`/`--segment-active-bg` (Harbor values — keep the `var(--…)` form where the Harbor map's value equals another token, else concrete hex).
-KEEP unchanged: `--AIPM-dark-grey`, `--AIPM-white` (fixed neutrals), `--table-head-fg`, `--segment-active-fg`, and ALL structural tokens (`--shadow-*`, `--gradient-kpi`, `--delta-chip-pad`, `--rag-*-chip`) — Harbor carries no structural (`{}`), so the flat AIPM defaults are correct for Harbor. KEEP the `--AIPM-*` variable NAMES and the entire `@theme inline` block (renamed in Release B).
-Update the `/* Acme brand palette */` comment → note these are the Harbor no-JS fallback values.
+Change ONLY the scheme-owned color tokens to their Harbor values: `--background`, `--foreground`, `--surface`, `--surface-muted`, `--line`, `--muted-foreground`, `--ui-dark-blue`, `--ui-green`, `--ui-blue`, `--ui-pink`, `--ui-purple`, `--ui-medium-grey`, `--ui-light-grey`, `--ui-green-strong`, `--ui-pink-strong`, `--ui-purple-strong`, `--rag-red`, `--rag-amber`, `--rag-green`, and the derived `--rag-red-text`/`--rag-amber-text`/`--rag-green-text` (concrete Harbor hex from the dump), plus `--table-head-bg`/`--table-head-accent`/`--segment-track-bg`/`--segment-active-bg` (Harbor values — keep the `var(--…)` form where the Harbor map's value equals another token, else concrete hex).
+KEEP unchanged: `--ui-dark-grey`, `--ui-white` (fixed neutrals), `--table-head-fg`, `--segment-active-fg`, and ALL structural tokens (`--shadow-*`, `--gradient-kpi`, `--delta-chip-pad`, `--rag-*-chip`) — Harbor carries no structural (`{}`), so the flat Petrol defaults are correct for Harbor. KEEP the `--ui-*` variable NAMES and the entire `@theme inline` block (renamed in Release B).
+Update the `/* brand palette */` comment → note these are the Harbor no-JS fallback values.
 
 - [ ] **Step 2: Check the palette/style tests**
 
 Run: `npx vitest run src/app/style-tokens.test.ts src/app/shell-palette-guard.test.ts`
-If either hard-codes the old AIPM hex for `:root`, update it to the Harbor value (or, if it only checks token PRESENCE/structure, no change). Keep the palette guard's off-palette rules intact.
+If either hard-codes the old brand hex for `:root`, update it to the Harbor value (or, if it only checks token PRESENCE/structure, no change). Keep the palette guard's off-palette rules intact.
 
 - [ ] **Step 3: Manual smoke** (dev server optional; NOT the user's live-data tab)
 
@@ -566,16 +566,16 @@ describe("ThemeGallery", () => {
 
   test("renders the two shipped themes with import buttons", () => {
     render(<ThemeGallery lang="en-US" onImported={() => {}} />);
-    expect(screen.getByRole("button", { name: /import AIPM/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /import Petrol/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /import Dashboard/i })).toBeInTheDocument();
   });
 
   test("import fetches the theme file and calls onImported", async () => {
-    const iccRaw = { name: "AIPM", supportsDark: true, light: { "--AIPM-dark-blue": "#004159" }, structural: {}, branding: {} };
+    const iccRaw = { name: "Petrol", supportsDark: true, light: { "--ui-dark-blue": "#004159" }, structural: {}, branding: {} };
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, text: async () => JSON.stringify(iccRaw) })) as unknown as typeof fetch);
     const onImported = vi.fn();
     render(<ThemeGallery lang="en-US" onImported={onImported} />);
-    fireEvent.click(screen.getByRole("button", { name: /import AIPM/i }));
+    fireEvent.click(screen.getByRole("button", { name: /import Petrol/i }));
     await waitFor(() => expect(onImported).toHaveBeenCalledWith(expect.stringMatching(/^u-\d+$/)));
     vi.unstubAllGlobals();
   });
@@ -599,7 +599,7 @@ import { importScheme, addScheme } from "./color-schemes";
 
 interface ShippedTheme { id: string; name: string; file: string; }
 const SHIPPED: readonly ShippedTheme[] = [
-  { id: "AIPM", name: "AIPM", file: "/themes/AIPM.json" },
+  { id: "petrol", name: "Petrol", file: "/themes/petrol.json" },
   { id: "mockup", name: "Dashboard", file: "/themes/mockup.json" },
 ];
 
@@ -648,7 +648,7 @@ export function ThemeGallery({ lang, onImported }: ThemeGalleryProps) {
           </Button>
         ))}
       </div>
-      {error && <p role="alert" className="text-xs text-AIPM-pink-strong">{error}</p>}
+      {error && <p role="alert" className="text-xs text-ui-pink-strong">{error}</p>}
     </div>
   );
 }
@@ -671,11 +671,11 @@ Expected: PASS, 0 warnings.
 ```bash
 git add src/app/theme-gallery.tsx src/app/theme-gallery.test.tsx src/app/settings-sections/appearance-section.tsx src/app/i18n.ts src/app/i18n.de.ts
 git commit -F - <<'EOF'
-feat(schemes): theme gallery to import shipped AIPM/Dashboard themes
+feat(schemes): theme gallery to import shipped Petrol/Dashboard themes
 
 Appearance -> scheme editor gains a gallery that fetches /themes/*.json and
 imports them as removable user schemes. Fresh installs show Harbor/Meridian/
-Umber; AIPM/Dashboard are opt-in imports.
+Umber; Petrol/Dashboard are opt-in imports.
 EOF
 ```
 
@@ -691,7 +691,7 @@ EOF
 ```tsx
 alt={settings.branding?.logo ? (settings.branding.slogan ?? t(lang, "appTitle")) : t(lang, "appTitle")}
 ```
-(`appTitle` is already "AI PM Cockpit" in EN+DE — no i18n change. Leave all other `Acme` strings: AI-policy, export attribution, version-highlight history, `styleIcc` label are legitimate.)
+(`appTitle` is already "AI PM Cockpit" in EN+DE — no i18n change. Leave all other employer-name strings: AI-policy, export attribution, version-highlight history, `styleIcc` label are legitimate.)
 
 - [ ] **Step 2: tsc + the app-header test if any**
 
@@ -702,7 +702,7 @@ Run: `npx tsc --noEmit`
 ```bash
 git add src/app/app-header.tsx
 git commit -F - <<'EOF'
-fix(branding): default logo alt uses the app title, not stale "Acme"
+fix(branding): default logo alt uses the app title, not the stale employer name
 EOF
 ```
 
@@ -721,7 +721,7 @@ npm run dup:check
 npx vitest run palette
 npx playwright test e2e/a11y.spec.ts --project=chromium
 ```
-Expected: tsc 0, lint 0, vitest all pass, size ok, dup exit 0, palette pass, **axe all combos pass** (the 5-combo AIPM/Mockup/Harbor scan now sourced from JSON + user-scheme seed). If the documented `timelog-panel` partial-toast flake hits vitest, re-run that file once.
+Expected: tsc 0, lint 0, vitest all pass, size ok, dup exit 0, palette pass, **axe all combos pass** (the 5-combo Petrol/Mockup/Harbor scan now sourced from JSON + user-scheme seed). If the documented `timelog-panel` partial-toast flake hits vitest, re-run that file once.
 
 - [ ] **Step 2: Fix any failures, re-run until green.** Do NOT proceed with a red gate.
 
@@ -732,13 +732,13 @@ Expected: tsc 0, lint 0, vitest all pass, size ok, dup exit 0, palette pass, **a
 **Files:**
 - Modify: `AGENTS.md`, `CHANGELOG.md`, `src/app/version.ts`, `i18n.ts`, `i18n.de.ts`, `version.ts` `APP_HIGHLIGHT_KEYS`
 
-- [ ] **Step 1: AGENTS.md** — in the scheme-driven-palettes section: AIPM + Mockup are no longer built-in schemes; they ship as importable `/public/themes/*.json` (gallery import). `BUILTIN_SCHEMES` = harbor/meridian/umber. `globals.css :root` is the Harbor no-JS fallback. Update the axe 5-combo landmine (#4) to note AIPM/Mockup are seeded as USER schemes from the JSON. Note the portable format carries structural + pinned tokens.
+- [ ] **Step 1: AGENTS.md** — in the scheme-driven-palettes section: Petrol + Mockup are no longer built-in schemes; they ship as importable `/public/themes/*.json` (gallery import). `BUILTIN_SCHEMES` = harbor/meridian/umber. `globals.css :root` is the Harbor no-JS fallback. Update the axe 5-combo landmine (#4) to note Petrol/Mockup are seeded as USER schemes from the JSON. Note the portable format carries structural + pinned tokens.
 
 - [ ] **Step 2: version.ts** — bump `APP_VERSION` to the next patch (e.g. `0.190.22`), update `APP_BUILD_DATE` comment, append a new highlight key `versionHighlightThemeDecouple` to `APP_HIGHLIGHT_KEYS`.
 
-- [ ] **Step 3: i18n** — add `versionHighlightThemeDecouple` EN (`i18n.ts`) + DE (`i18n.de.ts` via node utf8 write). E.g. EN: "AIPM and Dashboard are now optional importable themes (Settings → Appearance → import); Harbor is the default look."
+- [ ] **Step 3: i18n** — add `versionHighlightThemeDecouple` EN (`i18n.ts`) + DE (`i18n.de.ts` via node utf8 write). E.g. EN: "Petrol and Dashboard are now optional importable themes (Settings → Appearance → import); Harbor is the default look."
 
-- [ ] **Step 4: CHANGELOG.md** — new `## [0.190.22] - <date> "Pinsker"` entry: Changed — AIPM/Mockup decoupled into importable theme files; Harbor is the base/brand default; portable theme format carries structural + AA pins; fixed stale logo alt.
+- [ ] **Step 4: CHANGELOG.md** — new `## [0.190.22] - <date> "Pinsker"` entry: Changed — Petrol/Mockup decoupled into importable theme files; Harbor is the base/brand default; portable theme format carries structural + AA pins; fixed stale logo alt.
 
 - [ ] **Step 5: Re-run gates** (tsc + lint + `npm run build` which prebuild-checks script-docs; vitest for the i18n parity + highlight-key tests).
 
@@ -749,9 +749,9 @@ git add -A
 git commit -F - <<'EOF'
 chore(release): 0.190.22 "Pinsker"
 
-Decouple AIPM/Mockup into importable /public/themes/*.json; Harbor is the base
+Decouple Petrol/Mockup into importable /public/themes/*.json; Harbor is the base
 seed, :root fallback and brand default. Portable theme format carries structural
-+ pinned AA tokens. Theme gallery import. Stale logo alt fixed. AIPM/Mockup token
++ pinned AA tokens. Theme gallery import. Stale logo alt fixed. Petrol/Mockup token
 NAMES unchanged (neutral rename is Release B).
 EOF
 ```
@@ -765,8 +765,8 @@ EOF
 - [ ] **Step 2: Push + MR**
 
 ```bash
-git push https://gitlab.example.com/<group>/<subgroup>/aipm-cockpit.git feat/AIPM-theme-decouple
-glab api projects/<PROJECT_ID>/merge_requests -X POST -f source_branch=feat/AIPM-theme-decouple -f target_branch=main -f title="..." -f description="..." -f remove_source_branch=true
+git push https://gitlab.example.com/<group>/<subgroup>/aipm-cockpit.git feat/brand-theme-decouple
+glab api projects/<PROJECT_ID>/merge_requests -X POST -f source_branch=feat/brand-theme-decouple -f target_branch=main -f title="..." -f description="..." -f remove_source_branch=true
 ```
 (Description ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.)
 

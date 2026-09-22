@@ -28,7 +28,7 @@ effort overrun; when senior roles do, € looks worse than the effort. A € for
 
 ### Why hours had no forecast
 
-A spec ruling, not a technical limit. Parent §2 set the money basis to contract price (the AIPM Burndown standard), so
+A spec ruling, not a technical limit. Parent §2 set the money basis to contract price (the employer Burndown standard), so
 MR 2 built € facts only. `computeForecastFromFacts` reads `bac`, `ac`, `ev`, `pv` and the dated values and nothing
 else, so it forecasts hours unchanged once it is given hours facts.
 

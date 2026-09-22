@@ -100,7 +100,7 @@ Render order inside the existing `print-root` resizable pane:
    - **Filter chips:** "All" + one `<button>` per source kind that has ≥1 doc,
      each showing its count. Single-select. `aria-pressed={active}`; accessible
      name = source label (NOT a flipping label). Active style
-     `bg-AIPM-dark-blue text-white`, inactive `bg-surface-muted`. `INTERACTIVE`
+     `bg-ui-dark-blue text-white`, inactive `bg-surface-muted`. `INTERACTIVE`
      atoms; keyboard-native buttons.
    - **Sort:** `<select>` with `aria-label={documentsSortBy}`, four options.
      `FOCUS_RING` + `TRANSITION`.
@@ -122,7 +122,7 @@ Render order inside the existing `print-root` resizable pane:
 - Source chip: `<button>` → `requestOpen(source.view, source.id)`, accessible
   name `"<sourceLabel>: <sourceName>"` (kept from today).
 - Host badge: derived `hostLabel(url) || t(documentsHostWeb)`,
-  `bg-AIPM-dark-blue text-white` token.
+  `bg-ui-dark-blue text-white` token.
 - Type label + "Added <date>" meta line (date only when `addedAt` present),
   formatted with the existing display-locale helper used elsewhere in the view.
 - Remove `✕` `<button>` — row-unique `aria-label={documentsRemove – name}`
@@ -134,8 +134,8 @@ here).
 
 ## Palette / a11y
 
-- Tokens only — host badge `bg-AIPM-dark-blue text-white`, chips
-  `bg-surface-muted`, active chip `bg-AIPM-dark-blue text-white`, `INTERACTIVE`/
+- Tokens only — host badge `bg-ui-dark-blue text-white`, chips
+  `bg-surface-muted`, active chip `bg-ui-dark-blue text-white`, `INTERACTIVE`/
   `FOCUS_RING`/`TRANSITION` atoms. No shadow/gradient/off-palette.
 - Documents is **not** in `A11Y_VIEWS` → eye-verify: chip labels + `aria-pressed`
   coherence, sort/search `aria-label`s, card link names, row-unique remove +

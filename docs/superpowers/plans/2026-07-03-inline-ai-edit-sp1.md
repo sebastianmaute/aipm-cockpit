@@ -649,7 +649,7 @@ it("shows the diff and an Apply button in preview", () => {
 
 - [ ] **Step 2: Run, expect fail.**
 
-- [ ] **Step 3: Implement** — a `role="dialog"` centered popover with: header (`inlineAiEditTitle` + task name), a `<form>` with a labelled `<input>` + submit; when `phase==="thinking"` a spinner + `inlineAiEditThinking`; `phase==="preview"` the diff list (updates as `before → after`, creates as `inlineAiEditCreate`, deletes as `inlineAiEditDelete`) + Cancel/Apply; `phase==="clarify"` the `clarifyText`; `phase==="error"` `errorText` + retry. Use `INTERACTIVE`/`FOCUS_RING` atoms, `border-line`/`bg-surface`/AIPM tokens only, and the shared `Modal` or a plain absolutely-centered panel with `usePopoverDismiss` on Escape/outside. (Full JSX authored in this step — mirror `reschedule-popover.tsx` structure for the popover shell + `edit-modal-chrome` `ModalFieldError` for the error line.)
+- [ ] **Step 3: Implement** — a `role="dialog"` centered popover with: header (`inlineAiEditTitle` + task name), a `<form>` with a labelled `<input>` + submit; when `phase==="thinking"` a spinner + `inlineAiEditThinking`; `phase==="preview"` the diff list (updates as `before → after`, creates as `inlineAiEditCreate`, deletes as `inlineAiEditDelete`) + Cancel/Apply; `phase==="clarify"` the `clarifyText`; `phase==="error"` `errorText` + retry. Use `INTERACTIVE`/`FOCUS_RING` atoms, `border-line`/`bg-surface`/brand tokens only, and the shared `Modal` or a plain absolutely-centered panel with `usePopoverDismiss` on Escape/outside. (Full JSX authored in this step — mirror `reschedule-popover.tsx` structure for the popover shell + `edit-modal-chrome` `ModalFieldError` for the error line.)
 
 - [ ] **Step 4: Run, expect pass. Commit.**
 
@@ -747,7 +747,7 @@ Expected: tsc 0, lint 0, all unit green, dup exit 0 @2.4 (if task-manager/tasks-
 ```bash
 npx playwright test e2e/a11y.spec.ts --project=chromium -g "Open Points"
 ```
-Expected: 3/3 (AIPM-light/dark + mockup). Eye-verify the Kanban card ✨ (board not axe-scanned).
+Expected: 3/3 (petrol-light/dark + mockup). Eye-verify the Kanban card ✨ (board not axe-scanned).
 
 - [ ] **Step 4:** Release highlight — bump `src/app/version.ts` (APP_VERSION + milestone), add a `CHANGELOG.md` entry, append the new `versionHighlight*` key to `APP_HIGHLIGHT_KEYS` (+ EN/DE). Commit.
 

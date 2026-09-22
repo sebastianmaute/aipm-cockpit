@@ -272,7 +272,7 @@ In `src/app/globals.css`, immediately after the `--ui-purple-strong: #514a8f;` d
   /* SC 1.4.11 state borders — the pre-boot/no-JS FALLBACK only; at runtime
      scheme-apply.ts overrides these inline per active scheme AND mode, so no
      `dark:` variant is needed at the consuming component. These static values
-     are the AIPM-light bases unchanged, because both already clear 3:1 against
+     are the Petrol-light bases unchanged, because both already clear 3:1 against
      the static --line #dbe2ea (dark-blue 8.97:1, pink 3.55:1) — the derivation
      returns the base when the floor is already met. */
   --control-state-border: #153a5c;
@@ -290,7 +290,7 @@ npx vite-node -e "const{HARBOR_LIGHT}=require('./src/app/builtin-schemes');" 2>/
 Instead of the above, add a temporary assertion to the test file and run it:
 
 ```ts
-  test("globals.css fallbacks match the derivation for the AIPM-light base", () => {
+  test("globals.css fallbacks match the derivation for the Petrol-light base", () => {
     const derived = resolveSchemeColors({
       "--ui-dark-blue": "#153a5c", "--ui-pink": "#c24a76", "--line": "#dbe2ea",
       "--surface-muted": "#eef2f6",
@@ -313,7 +313,7 @@ feat(a11y): register the state-border tokens for import and pre-boot paint
 
 Adds both to DERIVED_TOKENS so a portable theme may pin them, and to
 globals.css as the no-JS/pre-boot fallback. The static values are the
-AIPM-light bases unchanged, because both already clear 3:1 against the static
+Petrol-light bases unchanged, because both already clear 3:1 against the static
 --line, and a test pins that equivalence — the CSS fallback and the
 derivation drift silently otherwise.
 MSG

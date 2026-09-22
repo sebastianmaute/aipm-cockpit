@@ -1,7 +1,7 @@
 # Color-Scheme Phase 3 — DB-backed schemes + per-scheme logo/favicon
 
 **Date:** 2026-07-12
-**Builds on:** Phase 1 (0.182.0 "Reynolds", scheme engine + built-in dark-capable Harbor/Meridian/Umber) and Phase 2 (0.183.0 "Palmer", AIPM/Mockup folded in as read-only built-ins, `data-style` collapsed, structural token group).
+**Builds on:** Phase 1 (0.182.0 "Reynolds", scheme engine + built-in dark-capable Harbor/Meridian/Umber) and Phase 2 (0.183.0 "Palmer", Petrol/Mockup folded in as read-only built-ins, `data-style` collapsed, structural token group).
 
 ## Goal
 

@@ -108,9 +108,9 @@ Immediately after the existing `healthDot` export (around line 190):
  * "Overall: Green" label.
  */
 export const healthText: Record<Health, string> = {
-  R: "text-AIPM-pink",
-  A: "text-AIPM-purple",
-  G: "text-AIPM-green",
+  R: "text-ui-pink",
+  A: "text-ui-purple",
+  G: "text-ui-green",
 };
 ```
 
@@ -332,9 +332,9 @@ function Chart({
           </text>
         ))}
         <polyline points={points(planned, max, n)} fill="none" className="stroke-muted-foreground" strokeWidth={2} strokeDasharray="5 4" />
-        <polyline points={points(actual, max, n)} fill="none" className={over ? "stroke-AIPM-pink" : "stroke-AIPM-green"} strokeWidth={2.5} />
+        <polyline points={points(actual, max, n)} fill="none" className={over ? "stroke-ui-pink" : "stroke-ui-green"} strokeWidth={2.5} />
         {todayX !== null && (
-          <line x1={todayX} y1={PAD_T} x2={todayX} y2={baseY} className="stroke-AIPM-dark-blue" strokeWidth={1} strokeDasharray="3 3" />
+          <line x1={todayX} y1={PAD_T} x2={todayX} y2={baseY} className="stroke-ui-dark-blue" strokeWidth={1} strokeDasharray="3 3" />
         )}
       </svg>
     </div>
@@ -364,11 +364,11 @@ export function BurndownCharts({ series, lang, currency }: { series: BurndownSer
           {t(lang, "burndownPlanned")}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <svg width="22" height="6" aria-hidden="true"><line x1="0" y1="3" x2="22" y2="3" className="stroke-AIPM-green" strokeWidth={2.5} /></svg>
+          <svg width="22" height="6" aria-hidden="true"><line x1="0" y1="3" x2="22" y2="3" className="stroke-ui-green" strokeWidth={2.5} /></svg>
           {t(lang, "burndownActual")}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <svg width="6" height="14" aria-hidden="true"><line x1="3" y1="0" x2="3" y2="14" className="stroke-AIPM-dark-blue" strokeWidth={1} strokeDasharray="3 3" /></svg>
+          <svg width="6" height="14" aria-hidden="true"><line x1="3" y1="0" x2="3" y2="14" className="stroke-ui-dark-blue" strokeWidth={1} strokeDasharray="3 3" /></svg>
           {t(lang, "burndownToday")}
         </span>
       </div>
@@ -451,7 +451,7 @@ it("colourises the Overall status text and shows captions + thresholds", () => {
   expect(screen.getByText(/burn-down shows remaining budget/)).toBeInTheDocument();
   // #16 Overall trailing text carries a brand colour class
   const overall = screen.getByText(/^(Green|Amber|Red)$/);
-  expect(overall.className).toMatch(/text-AIPM-(green|purple|pink)/);
+  expect(overall.className).toMatch(/text-petrol-(green|purple|pink)/);
 });
 ```
 
@@ -1228,7 +1228,7 @@ Cancel always shows:
             </button>
             <button
               type="submit"
-              className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2"
+              className="rounded-md bg-ui-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ui-dark-blue focus:ring-offset-2"
             >
               {isEditing ? t(lang, "updateTask") : t(lang, "addTask")}
             </button>
