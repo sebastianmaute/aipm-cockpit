@@ -727,18 +727,18 @@ export function AppHeader({
   return (
     <header className="mb-8 flex items-start justify-between gap-4">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        <h1 className="text-3xl font-semibold tracking-tight text-ui-dark-blue dark:text-ui-light-grey">
           {t(lang, "appTitle")}
         </h1>
-        <p className="mt-1 text-sm text-AIPM-dark-grey dark:text-AIPM-medium-grey">
+        <p className="mt-1 text-sm text-ui-dark-grey dark:text-ui-medium-grey">
           {t(lang, "appSubtitle")}
         </p>
       </div>
       <div className="flex flex-col items-end gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/AIPM-logo.svg"
-          alt="Acme"
+          src="/brand-logo.svg"
+          alt="Company logo"
           className="h-7 w-auto"
         />
         <div className="flex items-center gap-1">
@@ -755,7 +755,7 @@ export function AppHeader({
             }}
             aria-label={t(lang, "addTaskButton")}
             title={t(lang, "addTaskButton")}
-            className="rounded-md p-2 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
+            className="rounded-md p-2 text-ui-dark-grey hover:bg-ui-light-grey hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-dark-blue dark:text-ui-medium-grey dark:hover:bg-zinc-800 dark:hover:text-ui-light-grey"
           >
             <svg
               viewBox="0 0 20 20"
@@ -778,7 +778,7 @@ export function AppHeader({
             }}
             aria-label={t(lang, "showDueAlerts")}
             title={t(lang, "showDueAlerts")}
-            className="relative rounded-md p-2 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
+            className="relative rounded-md p-2 text-ui-dark-grey hover:bg-ui-light-grey hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-dark-blue dark:text-ui-medium-grey dark:hover:bg-zinc-800 dark:hover:text-ui-light-grey"
           >
             <svg
               viewBox="0 0 20 20"
@@ -791,7 +791,7 @@ export function AppHeader({
             {bannerItems.length > 0 && (
               <span
                 aria-hidden
-                className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-AIPM-pink px-1 text-[10px] font-semibold leading-none text-white"
+                className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-ui-pink px-1 text-[10px] font-semibold leading-none text-white"
               >
                 {bannerItems.length}
               </span>
@@ -1154,8 +1154,8 @@ export function WorkspaceSection({
           }
           className={
             workspaceCollapsed
-              ? "ml-auto mb-1 rounded-md p-1.5 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
-              : "mb-1 rounded-md p-1.5 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
+              ? "ml-auto mb-1 rounded-md p-1.5 text-ui-dark-grey hover:bg-ui-light-grey hover:text-ui-dark-blue dark:text-ui-medium-grey dark:hover:bg-zinc-800 dark:hover:text-ui-light-grey"
+              : "mb-1 rounded-md p-1.5 text-ui-dark-grey hover:bg-ui-light-grey hover:text-ui-dark-blue dark:text-ui-medium-grey dark:hover:bg-zinc-800 dark:hover:text-ui-light-grey"
           }
         >
           <svg

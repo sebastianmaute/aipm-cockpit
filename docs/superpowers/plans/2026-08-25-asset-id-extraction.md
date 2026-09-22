@@ -773,7 +773,7 @@ has no UI copy.
 - [ ] **Step 3: Add the CHANGELOG entry**
 
 Add a new entry at the top of `CHANGELOG.md`, matching the surrounding format. Do NOT put a
-`[session link removed]...` URL in it.
+assistant session URL in it.
 
 ```markdown
 ## 0.259.2 "Tsutsui" — 2026-08-25

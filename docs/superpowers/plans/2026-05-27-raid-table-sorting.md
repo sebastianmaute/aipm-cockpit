@@ -141,7 +141,7 @@ Use `ordered` wherever the rendered rows currently come from. Keep the existing 
 - [ ] **Step 3: Clickable headers** — turn the 7 scalar `<th>` (`#`→id, Category, Title, Severity, Status, Owner, Target Date) into sort buttons; leave Linked Tasks + Caused By as plain `<th>`. Pattern per header:
 ```tsx
               <th className="px-3 py-2" aria-sort={sort?.key === "id" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-                <button type="button" onClick={() => toggleSort("id")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey">
+                <button type="button" onClick={() => toggleSort("id")} className="inline-flex items-center gap-1 hover:text-ui-dark-blue dark:hover:text-ui-light-grey">
                   #{sort?.key === "id" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
               </th>

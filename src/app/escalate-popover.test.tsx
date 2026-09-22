@@ -41,7 +41,7 @@ describe("EscalatePopover", () => {
   it("disarms the send target when the recipient picker is cleared", () => {
     const onEscalate = vi.fn();
     const resources = [
-      { id: 1, firstName: "Sample", lastName: "Dummy", email: "Sample@x.com", roleId: null, utilizationMode: "percent" as const, utilization: {} },
+      { id: 1, firstName: "Sofia", lastName: "Ramirez", email: "sofia@x.com", roleId: null, utilizationMode: "percent" as const, utilization: {} },
     ];
     render(
       <EscalatePopover rowToken="Row" lang="en-US" action={action(1)}
@@ -50,10 +50,10 @@ describe("EscalatePopover", () => {
     fireEvent.click(screen.getByRole("button", { name: "Escalate – Row" }));
     const dialog = screen.getByRole("dialog");
 
-    // Adopt Sample's address via the picker.
+    // Adopt Sofia's address via the picker.
     const picker = within(dialog).getByRole("combobox");
     fireEvent.focus(picker);
-    fireEvent.mouseDown(within(dialog).getByText("Alex Example"));
+    fireEvent.mouseDown(within(dialog).getByText("Sofia Ramirez"));
     expect(within(dialog).getByRole("button", { name: "Escalate now" })).toHaveProperty("disabled", false);
 
     // Clearing must disarm it, not fall back to the stale address.

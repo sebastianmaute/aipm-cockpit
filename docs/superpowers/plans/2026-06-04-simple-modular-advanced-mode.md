@@ -8,7 +8,7 @@
 
 **Architecture:** A new `feature-modules.ts` registry holds the 9 toggleable modules and pure helpers (`deriveMode`, `isViewEnabled`, `sanitizeFeatures`, `filterNavGroups` inputs, `visibleReports`). `Settings.features: FeatureModuleId[]` (default all) is the single source of truth. A new Mode settings section edits a local draft and, on explicit Save, writes settings to localStorage and reloads. Navigation, automation hooks, dashboard sections, gantt overlay, cross-links, and the reports picker all read the enabled set and hide disabled modules' surfaces.
 
-**Tech Stack:** Next.js (app dir), React, TypeScript, Tailwind (AIPM palette), Vitest 4 + Testing Library.
+**Tech Stack:** Next.js (app dir), React, TypeScript, Tailwind (brand palette), Vitest 4 + Testing Library.
 
 ---
 
@@ -20,7 +20,7 @@
 - **Types:** `npx tsc --noEmit` (a pre-existing `.next/dev/types/routes.d.ts` error is ignorable)
 - **Commit via the Bash tool** with a heredoc: `git commit -F - <<'EOF' ... EOF` (NOT PowerShell `@'…'@`).
 - **i18n:** add EN keys to `src/app/i18n.ts` (Edit/Write is fine). Add DE keys to `src/app/i18n.de.ts` via a **Node byte-patch script** (CRLF-aware), NEVER the Edit tool (it corrupts ASCII `"` into curly quotes). After patching DE, verify zero curly quotes were introduced: `node -e "const s=require('fs').readFileSync('src/app/i18n.de.ts','utf8');console.log([...s].filter(c=>'“”‘’'.includes(c)).length)"` must print `0`.
-- **Palette:** AIPM tokens only. The only amber allowed is `bg-amber-500/20 text-AIPM-purple`.
+- **Palette:** brand tokens only. The only amber allowed is `bg-amber-500/20 text-ui-purple`.
 - Component tests use `lang="en-US"`.
 
 ---
@@ -660,7 +660,7 @@ export function ModeSection({ lang, settings, onCommitFeatures }: ModeSectionPro
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        <h2 className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">
           {t(lang, "settingsSectionMode")}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">{t(lang, "modeIntro")}</p>
@@ -668,7 +668,7 @@ export function ModeSection({ lang, settings, onCommitFeatures }: ModeSectionPro
 
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium">{t(lang, "modeBadgeLabel")}:</span>
-        <span className="rounded-full bg-AIPM-green/15 px-3 py-1 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        <span className="rounded-full bg-ui-green/15 px-3 py-1 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
           {t(lang, MODE_LABEL_KEY[mode])}
         </span>
       </div>
@@ -700,7 +700,7 @@ export function ModeSection({ lang, settings, onCommitFeatures }: ModeSectionPro
               type="checkbox"
               checked={draft.includes(m.id)}
               onChange={() => toggle(m.id)}
-              className="h-4 w-4 accent-AIPM-green"
+              className="h-4 w-4 accent-ui-green"
             />
             <span>{t(lang, m.labelKey)}</span>
           </label>
@@ -708,7 +708,7 @@ export function ModeSection({ lang, settings, onCommitFeatures }: ModeSectionPro
       </fieldset>
 
       {removesModules && (
-        <p className="rounded-md bg-amber-500/20 px-3 py-2 text-xs text-AIPM-purple">
+        <p className="rounded-md bg-amber-500/20 px-3 py-2 text-xs text-ui-purple">
           {t(lang, "modeRetentionNote")}
         </p>
       )}
@@ -718,7 +718,7 @@ export function ModeSection({ lang, settings, onCommitFeatures }: ModeSectionPro
           type="button"
           disabled={!dirty}
           onClick={() => onCommitFeatures(orderedDraft)}
-          className="rounded-md bg-AIPM-green px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="rounded-md bg-ui-green px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           {t(lang, "modeSave")}
         </button>

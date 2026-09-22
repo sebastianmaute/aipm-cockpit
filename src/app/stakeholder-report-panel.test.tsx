@@ -9,7 +9,7 @@ const milestones: Milestone[] = [
 ];
 const stakeholders: Stakeholder[] = [
   { id: 1, name: "Elena", category: "Sponsor", influence: "High", interest: "High", raci: { "1": "A", "2": "A" } },
-  { id: 2, name: "Fictional", category: "Internal", influence: "High", interest: "Medium", raci: { "1": "A", "2": "A" } },
+  { id: 2, name: "Noah", category: "Internal", influence: "High", interest: "Medium", raci: { "1": "A", "2": "A" } },
   { id: 3, name: "David", category: "Customer", influence: "Medium", interest: "Medium", raci: {} },
 ];
 

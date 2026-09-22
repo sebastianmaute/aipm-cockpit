@@ -126,7 +126,7 @@ describe("export/import round-trip: logo + favicon (Phase 3)", () => {
   it("preserves a raster logo + favicon through export→import", () => {
     const scheme = {
       id: "u-1", name: "Mine", supportsDark: false,
-      light: { "--AIPM-green": "#4d7000" },
+      light: { "--ui-green": "#4d7000" },
       branding: {
         logo: "data:image/png;base64,AAAA",
         favicon: "data:image/png;base64,BBBB",
@@ -179,7 +179,7 @@ import type { ColorScheme } from "./color-schemes";
 
 const CFG = { databaseUrl: "libsql://x", authToken: "t" } as never;
 const scheme = (id: string): ColorScheme => ({
-  id, name: id, supportsDark: false, light: { "--AIPM-green": "#4d7000" }, branding: {},
+  id, name: id, supportsDark: false, light: { "--ui-green": "#4d7000" }, branding: {},
 });
 
 beforeEach(() => {
@@ -550,7 +550,7 @@ export function BrandingImageInput(props: BrandingImageInputProps) {
           </button>
         ) : null}
       </div>
-      {props.error ? <p className="text-sm text-AIPM-pink-strong" role="alert">{props.error}</p> : null}
+      {props.error ? <p className="text-sm text-ui-pink-strong" role="alert">{props.error}</p> : null}
     </div>
   );
 }

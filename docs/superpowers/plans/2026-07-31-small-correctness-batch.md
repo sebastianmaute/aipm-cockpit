@@ -24,11 +24,7 @@ npx vitest run src/app/foo.test.ts > /tmp/t.log 2>&1; echo "EXIT=$?"; grep -E "T
 
 `npx tsc --noEmit` must be run after touching any test — `next build` does not typecheck `*.test.tsx` and vitest never typechecks. The IDE's inline diagnostics are mid-edit snapshots; trust `tsc`, not squiggles.
 
-Every commit message ends with:
-
-```
-Claude-Session: https://[session link removed]
-```
+Every commit message ends with the session trailer.
 
 ---
 
@@ -184,8 +180,6 @@ feat(errors): add a pure isAbortError predicate
 
 Reads `.name` directly instead of gating on `instanceof DOMException`,
 which is not reliable across the jsdom/Node boundary. No call sites yet.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -324,8 +318,6 @@ four abort sites now route through the shared isAbortError predicate; the
 two that also read `signal.aborted` keep that short-circuit.
 
 Closes open-followups §11.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -454,8 +446,6 @@ feat(timelog): actuals cache reads a legacy key and clears both
 Prepares the move to the canonical per-device key. Read-only fallback (the
 call sites are lazy state initializers); clear deletes both keys so a
 cleared cache cannot resurrect through the fallback.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -618,8 +608,6 @@ Both per-device stores now share the canonical key; the old code key is read
 once as a fallback and cleared alongside the new one.
 
 Closes open-followups §14.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -822,8 +810,6 @@ feat(ds): add a FilePickerButton primitive
 
 Button + the sr-only input it owns, with the tab-stop and same-file re-pick
 behaviour settled in one place. No call sites yet.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -961,8 +947,6 @@ could never render (WCAG 2.4.7, invisible to axe). All three sites now use
 the Button+ref shape; branding keeps its own mime/size validation.
 
 Closes open-followups §15.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -1102,8 +1086,6 @@ leaves nothing for a future writer to put back into the payload, which is the
 data-loss bug that commit fixed.
 
 Closes open-followups §29.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -1220,8 +1202,6 @@ docs: close open-followups 11, 14, 15 and 29; open 46 and 47
 Two findings surfaced while grounding 15 and neither was in the entry: a
 label-wrapped file input can never show a focus ring, and chat-panel clicks
 a display:none input, which 15 itself warns against.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -1301,8 +1281,6 @@ chore(release): 0.211.1
 
 Small-correctness batch: abort-check, TimeLog cache key, FilePickerButton,
 dead task-form state. Bumps version.ts plus the five ungated version sites.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 

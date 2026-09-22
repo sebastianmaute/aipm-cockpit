@@ -373,8 +373,8 @@ Trademarks belong to their respective owners and are named here only for referen
 
 ## License
 
-Copyright 2026 Sebastian Maute, Acme GmbH
-Contact: sebastian.maute@example.com
+Copyright 2026 Sebastian Maute
+Repository: https://github.com/sebastianmaute/aipm-cockpit
 
 Licensed under the European Union Public Licence v1.2 (the "Licence");
 you may not use this file except in compliance with the Licence.

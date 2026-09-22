@@ -1157,7 +1157,7 @@ git commit -m "docs(register): close §140/§115/§117b, extend §141b with the 
 
 - [ ] **Step 2: Add the CHANGELOG entry**
 
-★ NEVER put a `[session link removed]...` URL in `CHANGELOG.md` or an MR description.
+★ NEVER put an assistant session URL in `CHANGELOG.md` or an MR description.
 
 - [ ] **Step 3: Bump the five ungated places — no gate checks any of them**
 

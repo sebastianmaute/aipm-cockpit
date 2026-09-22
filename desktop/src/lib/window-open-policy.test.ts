@@ -59,7 +59,7 @@ describe("decideWindowOpen", () => {
   });
 
   it("opens another http(s) origin in the system browser", () => {
-    expect(decideWindowOpen("https://gitlab.example.com/example-group/public-collab", APP_ORIGIN)).toBe(
+    expect(decideWindowOpen("https://acme-corp.example/some-path", APP_ORIGIN)).toBe(
       "open-external",
     );
   });

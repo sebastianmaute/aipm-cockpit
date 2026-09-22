@@ -30,7 +30,7 @@ Each was forced by the code map and is already written into the spec.
 - `src/app/i18n.de.ts` is edited ONLY with a Node UTF-8 write whose anchor uses `\r\n`, with real umlauts. Never the Edit tool.
 - `src/app/__fixtures__/golden-workspace.csv` is `-text` CRLF and `golden-workspace.md` is `-text` LF: write them only with the serializer's own output.
 - Never `git add -A` or `git add .`. Stage named paths. Never stage `sample-workspace-huge.json` or `not-in-use.env.local.bak`. No `--amend`.
-- Commit messages carry no `#` followed by digits. End every commit message with `Claude-Session: https://[session link removed]`.
+- Commit messages carry no `#` followed by digits. End every commit message with the session trailer.
 - Never read an exit code through a pipe. Run vitest as `npx vitest run <files> > <log> 2>&1; echo "EXIT=$?"` and then read the log. Never run two vitest processes at once.
 - After editing any test file, run `npx tsc --noEmit` (vitest does not typecheck).
 - Lint touched files with `npx eslint --max-warnings=0 <files>`. `react-hooks/exhaustive-deps` rejects an `obj.member` dependency: hoist it to a local const.
@@ -323,8 +323,6 @@ feat(budget): pure actual-hours helper for period and day keys
 Answers how many actual hours fall in a period when an allocation's map
 holds hand-typed period keys and TimeLog day keys side by side. The
 period's granularity is read off its key, and totals are cached per map.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -558,8 +556,6 @@ Adds an actual-only key rule and codec variants, used at the six
 actualHours sites. budgetHours, utilization and absence overrides keep the
 period-only rule. A test round-trips day keys through JSON, CSV, Markdown,
 both Turso layouts and IndexedDB.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -680,8 +676,6 @@ feat(budget): count TimeLog day keys in every actual-hours total
 The bucket report, burn-down, panel column totals and panel row totals now
 read actual hours through actualHoursIn, so day keys add into the period
 that contains them. A period-only map totals exactly as before.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -860,8 +854,6 @@ feat(budget): make a period's actual cell read-only when it holds TimeLog day ho
 The cell shows the period total and explains, as title and accessible
 description, that only a re-apply changes it. Cells without day keys stay
 editable exactly as before.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -1147,8 +1139,6 @@ the live granularity through bucketOverlay, so changing the granularity
 after a fetch no longer strands hours under unread keys (§169). A cached
 entry from before this change keeps only the cells that match the live
 granularity.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -1308,8 +1298,6 @@ Apply keeps routing by period, writes each routed booking's days, and
 clears the period key and stale day keys of every period it covers. The
 confirm dialog's current value counts day keys. A cached cell without days
 is still written as a period key.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -1437,8 +1425,6 @@ test(sample): carry June actuals for the first T&M role as TimeLog day keys
 The sample now exercises day keys on every load path. The golden storage
 fixtures are regenerated from the changed input; June still totals 48 h.
 The big and huge samples are not regenerated in this change.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -2271,8 +2257,6 @@ writeDeviceJson now returns whether the write reached storage.
 saveActualsCache sheds the saved entry's own roll when it is still over
 budget (stage 6), and when the browser refuses the write it removes that
 project's stale entry and returns false.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -2510,8 +2494,6 @@ panel shows a warning Banner telling the user the Budget view does not
 see these bookings and that a reload loses them, and to apply them now or
 free storage and fetch again. The next successful save or Clear all
 clears it.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -2607,8 +2589,6 @@ integrations.md replaces the fetch-time granularity rule with the day-key
 rule and documents the packed actuals cache. The people-rows comment names
 the period reader. §169 is closed with its pinning tests; the spec already
 matched the shipped names.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 

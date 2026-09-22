@@ -1487,7 +1487,7 @@ Not by a subagent, not by a task notification, not inferred from "looks done". A
 git push -u origin docs/followups-status-convention
 ```
 
-MR description: what the slice measured and changed. **No `[session link removed]...` URL in the MR description** — commit trailers are fine, the MR body is not.
+MR description: what the slice measured and changed. **No assistant session URL in the MR description** — commit trailers are fine, the MR body is not.
 
 - [ ] **Step 3: Poll the pipeline**
 

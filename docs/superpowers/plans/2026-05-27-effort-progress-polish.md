@@ -135,12 +135,12 @@ export function EffortProgressBar({ lang, estimateMin, spentMin }: EffortProgres
       >
         {hasEstimate && (
           <div
-            className={`h-full rounded-full transition-all ${over ? "bg-AIPM-pink" : "bg-AIPM-dark-blue"}`}
+            className={`h-full rounded-full transition-all ${over ? "bg-ui-pink" : "bg-ui-dark-blue"}`}
             style={{ width: `${fillPct}%` }}
           />
         )}
       </div>
-      <p className={`mt-1 text-xs ${over ? "text-AIPM-pink" : "text-AIPM-medium-grey"}`}>
+      <p className={`mt-1 text-xs ${over ? "text-ui-pink" : "text-ui-medium-grey"}`}>
         {hasEstimate
           ? `${formatDuration(spentMin ?? 0) || "0m"} / ${formatDuration(estimateMin ?? 0)} · ${labelPct}%`
           : t(lang, "taskEffortNoEstimate")}
@@ -225,18 +225,18 @@ git commit -m "feat(tasks): effort progress bar + group/estimate/spent reflow in
 **Files:** Modify `src/app/task-row.tsx`.
 
 The directory-assignee highlight hover string is:
-`rounded-md border border-transparent px-2 py-0.5 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800`.
+`rounded-md border border-transparent px-2 py-0.5 hover:border-ui-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800`.
 
 - [ ] **Step 1: ID button** (the `#id` edit button, ~line 185) — change its className from
-`cursor-pointer rounded font-mono text-zinc-500 hover:text-AIPM-dark-blue hover:underline`
+`cursor-pointer rounded font-mono text-zinc-500 hover:text-ui-dark-blue hover:underline`
 to:
-`cursor-pointer rounded-md border border-transparent px-2 py-0.5 font-mono text-zinc-500 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800`
+`cursor-pointer rounded-md border border-transparent px-2 py-0.5 font-mono text-zinc-500 hover:border-ui-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800`
 (keep `onClick`, `title`, `aria-label`, and the `#{task.id}` content).
 
 - [ ] **Step 2: Task-name button** (~line 218) — change its className from
-`cursor-pointer text-left font-medium hover:text-AIPM-dark-blue hover:underline`
+`cursor-pointer text-left font-medium hover:text-ui-dark-blue hover:underline`
 to:
-`cursor-pointer rounded-md border border-transparent px-2 py-0.5 text-left font-medium hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800`
+`cursor-pointer rounded-md border border-transparent px-2 py-0.5 text-left font-medium hover:border-ui-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800`
 (keep `onClick`, `title`, and `{task.taskName}` content).
 
 - [ ] **Step 3: Revert assignee cell** (~lines 238–246) — replace the conditional highlight `<span>` with plain text:
@@ -270,22 +270,22 @@ git commit -m "feat(ui): task row highlight hover on id+name; plain assignee cel
         <button
           type="button"
           onClick={addBucket}
-          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90"
+          className="rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-ui-dark-blue/90"
         >
           + {t(lang, "budgetAddBucket")}
         </button>
 ```
 
 - [ ] **Step 2: Close/reopen button** (~lines 280–288) — change its className from
-`text-xs text-zinc-500 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey`
+`text-xs text-zinc-500 hover:text-ui-dark-blue dark:hover:text-ui-light-grey`
 to:
-`rounded-md border border-transparent px-2 py-0.5 text-xs text-zinc-500 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800`
+`rounded-md border border-transparent px-2 py-0.5 text-xs text-zinc-500 hover:border-ui-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800`
 (keep `onClick` and the `budgetClose`/`budgetReopen` label).
 
 - [ ] **Step 3: Remove button** (~lines 289–296) — change its className from
-`text-xs text-zinc-500 hover:text-AIPM-pink dark:hover:text-AIPM-pink`
+`text-xs text-zinc-500 hover:text-ui-pink dark:hover:text-ui-pink`
 to:
-`rounded-md border border-transparent px-2 py-0.5 text-xs text-zinc-500 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800`
+`rounded-md border border-transparent px-2 py-0.5 text-xs text-zinc-500 hover:border-ui-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800`
 (keep `onClick={() => removeBucket(bucket.id)}`, the `title`, and the label; the `window.confirm` guard stays in `removeBucket`).
 
 - [ ] **Step 4: Verify** — `npx tsc --noEmit` (0); `npm run lint`; `npx vitest run src/app/budget-panel` (existing tests pass).

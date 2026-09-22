@@ -93,7 +93,13 @@ describe("fetchProjectEventDates", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const url = (graphGet as any).mock.calls[0][1] as string;
     const decoded = decodeURIComponent(url);
-    expect(decoded).toContain("AIPM:");
-    expect(decoded).not.toContain("AIPM:"); // the half that fails if only a constant changed
+    // The WHOLE category literal, so any other prefix (the retired one included)
+    // fails here, not just a missing "AIPM:" substring.
+    expect(decoded).toContain("c eq 'AIPM:proj-1:task'");
+    // Every category the filter names carries the current prefix — the half that
+    // fails if only a constant changed and an older prefix rode along beside it.
+    const prefixes = [...decoded.matchAll(/eq '([^:']+):/g)].map((m) => m[1]);
+    expect(prefixes.length).toBeGreaterThan(0);
+    expect(prefixes.every((p) => p === "AIPM")).toBe(true);
   });
 });

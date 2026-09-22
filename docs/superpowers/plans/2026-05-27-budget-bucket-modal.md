@@ -148,11 +148,11 @@ export function BudgetBucketModal({
   const isFixed = draft.type === "fixed";
 
   return (
-    <Modal open onClose={onClose} ariaLabel={t(lang, "budgetEditBucket")} backdropClassName="bg-AIPM-dark-blue/40 overflow-y-auto">
+    <Modal open onClose={onClose} ariaLabel={t(lang, "budgetEditBucket")} backdropClassName="bg-ui-dark-blue/40 overflow-y-auto">
       <div
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex w-[640px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="relative flex w-[640px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-ui-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
       >
         <ModalHeader lang={lang} title={t(lang, "budgetEditBucket")} onClose={onClose} dragHandleProps={handleProps} />
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2">
@@ -221,7 +221,7 @@ export function BudgetBucketModal({
             <input className={inputClass} type="number" min={0} step="0.0001" value={draft.fxRateOverride ?? ""}
               title={t(lang, "budgetFxOverrideHint")}
               onChange={(e) => setDraft((d) => ({ ...d, fxRateOverride: e.target.value === "" ? undefined : Number(e.target.value) }))} />
-            <span className="text-xs text-AIPM-medium-grey">{t(lang, "budgetFxOverrideHint")}</span>
+            <span className="text-xs text-ui-medium-grey">{t(lang, "budgetFxOverrideHint")}</span>
           </label>
 
           <div className="flex flex-col gap-2 text-sm sm:col-span-2">
@@ -231,13 +231,13 @@ export function BudgetBucketModal({
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{roleLabel(roles.find((r) => r.id === a.roleId), disciplines, grades) || `#${a.roleId}`}</span>
                   <button type="button" onClick={() => removeRole(a.roleId)}
-                    className="rounded-md border border-transparent px-2 py-0.5 text-xs text-zinc-500 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800">
+                    className="rounded-md border border-transparent px-2 py-0.5 text-xs text-zinc-500 hover:border-ui-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800">
                     {t(lang, "budgetRemoveRole")}
                   </button>
                 </div>
                 {resources.length > 0 && (
                   <div className="mt-1">
-                    <div className="text-xs text-AIPM-medium-grey">{t(lang, "budgetResources")}</div>
+                    <div className="text-xs text-ui-medium-grey">{t(lang, "budgetResources")}</div>
                     <div className="flex flex-wrap gap-2">
                       {resources.map((r) => (
                         <label key={r.id} className="flex items-center gap-1 text-xs">
@@ -260,21 +260,21 @@ export function BudgetBucketModal({
                 ))}
               </select>
               <button type="button" onClick={addRole} disabled={roleToAdd === ""}
-                className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90 disabled:opacity-50">
+                className="rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-ui-dark-blue/90 disabled:opacity-50">
                 + {t(lang, "budgetAddRole")}
               </button>
             </div>
           </div>
 
-          {error && <p className="text-sm text-AIPM-pink sm:col-span-2">{error}</p>}
+          {error && <p className="text-sm text-ui-pink sm:col-span-2">{error}</p>}
         </div>
-        <footer className="flex shrink-0 justify-end gap-2 border-t border-AIPM-light-grey px-6 py-4 dark:border-zinc-800">
+        <footer className="flex shrink-0 justify-end gap-2 border-t border-ui-light-grey px-6 py-4 dark:border-zinc-800">
           <button type="button" onClick={onClose}
-            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-AIPM-dark-grey shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800">
+            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-ui-dark-grey shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-ui-light-grey dark:hover:bg-zinc-800">
             {t(lang, "cancel")}
           </button>
           <button type="button" onClick={save}
-            className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90">
+            className="rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-ui-dark-blue/90">
             {t(lang, "save")}
           </button>
         </footer>
@@ -373,7 +373,7 @@ git commit -m "feat(budget): BudgetBucketModal — edit fields + role picker + r
                 <button
                   type="button"
                   onClick={() => setEditingBucketId(bucket.id)}
-                  className="rounded-md border border-transparent px-2 py-0.5 text-xs text-zinc-500 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                  className="rounded-md border border-transparent px-2 py-0.5 text-xs text-zinc-500 hover:border-ui-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800"
                 >
                   {t(lang, "budgetEditBucket")}
                 </button>

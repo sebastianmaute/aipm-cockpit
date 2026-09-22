@@ -23,7 +23,7 @@
 - Never run two vitest processes at once. Each task runs ONE `npx vitest run <files>` over only its own test files. **No `npm run test:run`, `test:shuffle` or `test:coverage` anywhere in this plan** — the user runs the whole suite at the end, on their say.
 - Run `npx tsc --noEmit` after editing ANY test file (vitest never typechecks). Pass = exit 0 with ZERO errors in total, not "zero in src/".
 - Lint with `npx eslint --max-warnings=0 <paths>`; every warning is fatal. `react-hooks/set-state-in-effect` is banned. No `Date.now()`/`new Date()`/`Math.random()` in a render body.
-- Commit messages: conventional prefix, no `#` followed by digits anywhere, and end with the trailer line `Claude-Session: https://[session link removed]`.
+- Commit messages: conventional prefix, no `#` followed by digits anywhere, and end with the session trailer line.
 - Stage by explicit path: `git add <paths>`. Never `git add -A`, never `git add .`, never `git commit --amend`, never `git stash`, never `git checkout --`/`git restore`. Never open, read or stage `not-in-use.env.local.bak`.
 - Size ratchet: `LIMIT` in `scripts/check-file-sizes.mjs` is 1600 and counts `split("\n").length` (one more than `wc -l`). Every file this plan touches is far below it (largest non-exempt touched file: `use-settings.test.ts` at about 790; `i18n*.ts` are exempt), so no split is needed — Task 5 runs `size:check` once to prove it.
 - Mutation checks: every task has one. Revert each mutant with the Edit tool (inverse of the mutation), then prove `git diff --stat` shows only the task's intended files before committing. Never leave a mutant in the tree.
@@ -194,8 +194,6 @@ Which forecast card the Budget report shows, "pace" or "efficiency",
 defaulting to pace. Validated on load beside budgetChartView: anything but
 the exact string "efficiency" reads as pace, so junk in a stored blob can
 never select a card that does not exist.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -1163,8 +1161,6 @@ unavailable). The switch heads the column rather than the card so an arrow
 key never unmounts the radio that holds focus. The options reuse the cards'
 titles, so label-in-name holds by construction; only the group label is new.
 The gap line still compares both forecasts under whichever card shows.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -1503,8 +1499,6 @@ unit from the same device setting. Both go through one changeTableFor rule
 mean no table), so a detached table can never appear where the inline one
 would not. The default is unchanged, so the dashboard tile keeps its
 behaviour.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -1969,8 +1963,6 @@ keeps owning the chart's data wiring and passes it in; the panel's table is
 detached and mounted below the row instead. The Burn-down section and its
 now-unread heading key are gone. The dashboard subsystem doc records the
 switch placement rule and the detached table.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -2060,8 +2052,6 @@ below the whole row, so both Reports captures change; both were checked by
 eye before the refresh, and the dashboard, Gantt and Open Points baselines
 were re-run unchanged. The spec comment no longer says the chart panel
 places the table.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 

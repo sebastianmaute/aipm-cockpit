@@ -73,8 +73,8 @@ interface ModalHeaderProps {
   /** When set, render a "reset dialog layout" button (recenters + restores the
    *  default size) in the header's right cluster before the close button. */
   onResetLayout?: () => void;
-  /** Optional branding rendered top-left, before the title (e.g. the Acme
-   *  logo on the first-run empty-state). */
+  /** Optional branding rendered top-left, before the title (e.g. the app
+   *  banner on the first-run empty-state). */
   logo?: ReactNode;
 }
 

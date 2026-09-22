@@ -6,12 +6,12 @@
 
 **Architecture:** Two new pure modules (`budget-health.ts` thresholds, `budget-burndown.ts` per-period series) feed two new pure-render components (`RagBadge`, `BurndownCharts`). `report-table.tsx` primitives gain a `boxed` Section and a `rag` Tile slot. Wiring threads these through the existing dashboard/budget panels. No new persisted state, nav, or migration.
 
-**Tech Stack:** Next.js 16 / React / TypeScript, Vitest 4 + React Testing Library, Tailwind v4 (AIPM palette). Tests run with `npm run test:run`, types with `npx tsc --noEmit`, lint with `npm run lint`.
+**Tech Stack:** Next.js 16 / React / TypeScript, Vitest 4 + React Testing Library, Tailwind v4 (brand palette). Tests run with `npm run test:run`, types with `npx tsc --noEmit`, lint with `npm run lint`.
 
 **Branch:** `feat-budget-rag-burndown` (already created off `main`).
 
 **Conventions:**
-- AIPM palette only (no off-palette hex). `healthDot` (`bg-red-500`/`bg-amber-500`/`bg-emerald-500`) is already permitted and used.
+- Brand palette only (no off-palette hex). `healthDot` (`bg-red-500`/`bg-amber-500`/`bg-emerald-500`) is already permitted and used.
 - i18n parity: every EN key in `i18n.ts` must have a DE twin in `i18n.de.ts` (tsc enforces). After editing `i18n.de.ts`, verify ASCII straight quotes (the Edit tool can corrupt `"`→`"`).
 - Commit per task with the Bash tool using `git commit -F - <<'EOF' … EOF`.
 
@@ -529,7 +529,7 @@ EOF
 - Create: `src/app/burndown-chart.tsx`
 - Test: `src/app/burndown-chart.test.tsx`
 
-**Context:** Dependency-free inline SVG (no chart library). Renders two side-by-side "remaining" charts (Hours + €). Planned line = muted dashed; actual line = `AIPM-green`, turning `AIPM-pink` when over budget (final actual remaining < 0). Vertical `today` marker. Uses `BurndownSeries` from Task 2 and `formatCurrency` for the € axis caption. Tailwind v4 generates `stroke-AIPM-green`/`stroke-AIPM-pink`/`stroke-muted-foreground` stroke utilities for the registered palette colours.
+**Context:** Dependency-free inline SVG (no chart library). Renders two side-by-side "remaining" charts (Hours + €). Planned line = muted dashed; actual line = `ui-green`, turning `ui-pink` when over budget (final actual remaining < 0). Vertical `today` marker. Uses `BurndownSeries` from Task 2 and `formatCurrency` for the € axis caption. Tailwind v4 generates `stroke-ui-green`/`stroke-ui-pink`/`stroke-muted-foreground` stroke utilities for the registered palette colours.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -638,11 +638,11 @@ function Chart({
         <polyline
           points={points(actual, max, n)}
           fill="none"
-          className={over ? "stroke-AIPM-pink" : "stroke-AIPM-green"}
+          className={over ? "stroke-ui-pink" : "stroke-ui-green"}
           strokeWidth={2.5}
         />
         {todayX !== null && (
-          <line x1={todayX} y1={PAD_T} x2={todayX} y2={baseY} className="stroke-AIPM-dark-blue" strokeWidth={1} strokeDasharray="3 3" />
+          <line x1={todayX} y1={PAD_T} x2={todayX} y2={baseY} className="stroke-ui-dark-blue" strokeWidth={1} strokeDasharray="3 3" />
         )}
       </svg>
     </div>
@@ -754,7 +754,7 @@ export function Tile({ label, value, rag }: { label: string; value: string; rag?
   return (
     <div className="rounded-lg border border-line bg-surface p-3">
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 flex items-center justify-between gap-1.5 text-xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey tabular-nums">
+      <p className="mt-1 flex items-center justify-between gap-1.5 text-xl font-semibold text-ui-dark-blue dark:text-ui-light-grey tabular-nums">
         <span>{value}</span>
         {rag}
       </p>
@@ -775,7 +775,7 @@ export function Section({
 }) {
   const body = (
     <>
-      <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{title}</h3>
+      <h3 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{title}</h3>
       {children}
     </>
   );
@@ -907,7 +907,7 @@ EOF
 - Modify: `src/app/dashboard-sections/registers-band.tsx`
 - Test: `src/app/dashboard-panel.test.tsx` (covers the band via the panel) — add a focused assertion
 
-**Context:** Item 4 (hover) + item 9 (box Top RAID / Upcoming&Overdue / Milestones). The directory hover classes are `rounded-md border border-transparent px-2 py-0.5 hover:border-AIPM-dark-blue hover:bg-surface-muted` (with `font-medium text-foreground` on the directory; keep text style minimal here). Replace the three `className="text-left hover:underline"` buttons and box the three Sections.
+**Context:** Item 4 (hover) + item 9 (box Top RAID / Upcoming&Overdue / Milestones). The directory hover classes are `rounded-md border border-transparent px-2 py-0.5 hover:border-ui-dark-blue hover:bg-surface-muted` (with `font-medium text-foreground` on the directory; keep text style minimal here). Replace the three `className="text-left hover:underline"` buttons and box the three Sections.
 
 - [ ] **Step 1: Write the implementation (UI-only; verify via existing + new render test)**
 
@@ -917,7 +917,7 @@ In `registers-band.tsx`:
 
 ```ts
 const LINK_CLASS =
-  "rounded-md border border-transparent px-2 py-0.5 text-left text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted";
+  "rounded-md border border-transparent px-2 py-0.5 text-left text-foreground hover:border-ui-dark-blue hover:bg-surface-muted";
 ```
 
 2. Replace each of the three `className="text-left hover:underline"` occurrences (the RAID button, the overdue task button, the due-soon task button, and the milestone button) with `className={LINK_CLASS}`.
@@ -1168,7 +1168,7 @@ Extend the `Cci` component (lines ~84-94) to accept and render an optional `rag`
 ```tsx
 function Cci({ label, value, currency, locale, rag }: { label: string; value: CciValue; currency: string; locale: string; rag?: Health | null }) {
   const pct = value.percent == null ? "—" : `${value.percent.toFixed(1)}%`;
-  const tone = value.amount >= 0 ? "text-AIPM-green" : "text-AIPM-pink";
+  const tone = value.amount >= 0 ? "text-ui-green" : "text-ui-pink";
   return (
     <div className="rounded-lg border border-line p-3">
       <div className="flex items-center justify-between text-xs text-muted-foreground">

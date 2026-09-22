@@ -131,7 +131,9 @@ describe("event body trigram", () => {
 
   it.each(bodies)("%s: body is non-empty, carries no old-brand trigram, and names the managed-by line", (_name, content) => {
     expect(content.length).toBeGreaterThan(0); // positive control: the body isn't empty
-    expect(content).not.toContain("AIPM");
+    // The retired brand trigram's shape (one lowercase letter, then two capitals,
+    // as a word), matched generically so the retired literal never has to be spelled.
+    expect(content).not.toMatch(/\b[a-z][A-Z]{2}\b/);
     expect(content).toContain(EVENT_BODY_MANAGED_BY);
   });
 });

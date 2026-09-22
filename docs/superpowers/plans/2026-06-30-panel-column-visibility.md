@@ -6,7 +6,7 @@
 
 **Architecture:** Add `hiddenCols` to the shared `PanelFiltersState` (so panel views already save/restore it), expose a `toggleColumn` setter on `panel-filters-context`, build a reusable `column-config-popover.tsx`, and in each of the four panels add a `CONFIGURABLE_COLS` registry, the popover in the toolbar, and `!hiddenSet.has(key)` guards on each toggleable `<th>`/`<td>` (with `colSpan` derived from the visible count).
 
-**Tech Stack:** Next.js (forked) + React + TypeScript, Tailwind v4 AIPM tokens, Vitest + Testing Library, i18n EN/DE parity (tsc-enforced), Playwright axe gate.
+**Tech Stack:** Next.js (forked) + React + TypeScript, Tailwind v4 brand tokens, Vitest + Testing Library, i18n EN/DE parity (tsc-enforced), Playwright axe gate.
 
 ---
 
@@ -347,7 +347,7 @@ export function ColumnConfigPopover({ lang, cols, hidden, onToggle }: ColumnConf
                     type="checkbox"
                     checked={!hidden.has(key)}
                     onChange={() => onToggle(key)}
-                    className="h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+                    className="h-3.5 w-3.5 rounded border-line text-ui-dark-blue focus:ring-ui-green"
                   />
                   {t(lang, labelKey)}
                 </label>

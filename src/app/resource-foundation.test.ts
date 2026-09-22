@@ -49,14 +49,14 @@ describe("defaultResourcePlan", () => {
 describe("backfillResources", () => {
   test("creates one resource per case-folded assignee and stamps resourceId", () => {
     const { resources, tasks, absences } = backfillResources(
-      [task(1, "Alex Example", "Sample@x.io"), task(2, "Alex Example")],
+      [task(1, "Sofia Ramirez", "sofia@x.io"), task(2, "sofia ramirez")],
       [absence(9, "Bob Lee")],
     );
     expect(resources).toHaveLength(2);
-    const Sample = resources.find((r) => resourceDisplayName(r) === "Alex Example");
-    expect(Sample?.email).toBe("Sample@x.io");
-    expect(tasks[0].resourceId).toBe(Sample?.id);
-    expect(tasks[1].resourceId).toBe(Sample?.id); // case-folded match
+    const sofia = resources.find((r) => resourceDisplayName(r) === "Sofia Ramirez");
+    expect(sofia?.email).toBe("sofia@x.io");
+    expect(tasks[0].resourceId).toBe(sofia?.id);
+    expect(tasks[1].resourceId).toBe(sofia?.id); // case-folded match
     expect(absences[0].resourceId).toBe(resources.find((r) => resourceDisplayName(r) === "Bob Lee")?.id);
   });
 
@@ -98,16 +98,16 @@ describe("roleLabel", () => {
 
 describe("splitName", () => {
   test("splits on the first space", () => {
-    expect(splitName("Alex Example")).toEqual({ firstName: "Sample", lastName: "Dummy" });
+    expect(splitName("Sofia Ramirez")).toEqual({ firstName: "Sofia", lastName: "Ramirez" });
   });
   test("keeps multi-word surnames together", () => {
-    expect(splitName("Sample Anne Dummy")).toEqual({ firstName: "Sample", lastName: "Anne Dummy" });
+    expect(splitName("Sofia Anne Ramirez")).toEqual({ firstName: "Sofia", lastName: "Anne Ramirez" });
   });
   test("handles a single token", () => {
     expect(splitName("Madonna")).toEqual({ firstName: "Madonna", lastName: "" });
   });
   test("collapses and trims whitespace", () => {
-    expect(splitName("  Sample   Dummy  ")).toEqual({ firstName: "Sample", lastName: "Dummy" });
+    expect(splitName("  Sofia   Ramirez  ")).toEqual({ firstName: "Sofia", lastName: "Ramirez" });
   });
   test("returns empty parts for empty input", () => {
     expect(splitName("")).toEqual({ firstName: "", lastName: "" });
@@ -116,7 +116,7 @@ describe("splitName", () => {
 
 describe("resourceDisplayName", () => {
   test("joins first and last", () => {
-    expect(resourceDisplayName({ firstName: "Sample", lastName: "Dummy" })).toBe("Alex Example");
+    expect(resourceDisplayName({ firstName: "Sofia", lastName: "Ramirez" })).toBe("Sofia Ramirez");
   });
   test("omits the trailing space when last name is empty", () => {
     expect(resourceDisplayName({ firstName: "Madonna", lastName: "" })).toBe("Madonna");

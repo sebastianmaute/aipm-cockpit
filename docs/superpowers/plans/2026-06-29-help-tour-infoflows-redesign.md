@@ -4,7 +4,7 @@
 
 **Goal:** Redesign the Help view (card content + scroll-spy TOC + horizontal accordion top region), the guided-tour catalog (icon/step-count/stripe/replay), the relations map (radial → vertical stack), and the Settings information-flows diagram (grouped/colour-coded, 9 nodes), sharing one card visual language; info-flows shown in both Help and Settings.
 
-**Architecture:** Pure layout/data first (`relations-graph.ts`, `app-tour.ts`, `use-tour.ts`), then presentational components (`help-content-pane.tsx`, `tour-catalog.tsx`, `relations-map.tsx`, `information-flows-section.tsx`, new `help-collapsible-region.tsx`), then wiring (`help-view.tsx`, `help-menu.tsx`) and i18n. All AIPM-token / palette-safe. The accordion open-state is ephemeral `useState`; no new persisted fields.
+**Architecture:** Pure layout/data first (`relations-graph.ts`, `app-tour.ts`, `use-tour.ts`), then presentational components (`help-content-pane.tsx`, `tour-catalog.tsx`, `relations-map.tsx`, `information-flows-section.tsx`, new `help-collapsible-region.tsx`), then wiring (`help-view.tsx`, `help-menu.tsx`) and i18n. All brand-token / palette-safe. The accordion open-state is ephemeral `useState`; no new persisted fields.
 
 **Tech Stack:** Next.js 16 (forked) / React 19 / TypeScript / Tailwind v4 (container queries) / Vitest. Spec: `docs/superpowers/specs/2026-06-29-help-tour-infoflows-redesign-design.md`.
 
@@ -279,7 +279,7 @@ Replace the `return (...)` body of `RelationsMap` in `src/app/relations-map.tsx`
               key={`${e.a}|${e.b}`}
               d={`M12,${y1} C${12 - bow},${(y1 + y2) / 2} ${12 - bow},${(y1 + y2) / 2} 12,${y2}`}
               fill="none"
-              className={incident ? "stroke-AIPM-dark-blue" : "stroke-line"}
+              className={incident ? "stroke-ui-dark-blue" : "stroke-line"}
               strokeWidth={incident ? 1.2 : 0.7}
               opacity={active && !incident ? 0.3 : 1}
               vectorEffect="non-scaling-stroke"
@@ -298,7 +298,7 @@ Replace the `return (...)` body of `RelationsMap` in `src/app/relations-map.tsx`
               <span
                 aria-hidden="true"
                 className={`h-2 w-2 shrink-0 rounded-full border-2 ${
-                  isActive ? "border-AIPM-dark-blue bg-AIPM-dark-blue" : isNeighbour ? "border-AIPM-green bg-surface" : "border-AIPM-dark-blue bg-surface"
+                  isActive ? "border-ui-dark-blue bg-ui-dark-blue" : isNeighbour ? "border-ui-green bg-surface" : "border-ui-dark-blue bg-surface"
                 }`}
               />
               <button
@@ -311,7 +311,7 @@ Replace the `return (...)` body of `RelationsMap` in `src/app/relations-map.tsx`
                 onBlur={() => setActive(null)}
                 title={t(lang, "helpRelationsOpenConcept")}
                 className={`flex-1 rounded-md border border-l-2 bg-surface px-2 py-1 text-left text-xs font-medium ${
-                  isActive ? "border-AIPM-dark-blue bg-AIPM-dark-blue text-white" : isNeighbour ? "border-l-AIPM-green border-line text-AIPM-dark-blue dark:text-AIPM-light-grey" : "border-l-AIPM-dark-blue border-line text-foreground"
+                  isActive ? "border-ui-dark-blue bg-ui-dark-blue text-white" : isNeighbour ? "border-l-ui-green border-line text-ui-dark-blue dark:text-ui-light-grey" : "border-l-ui-dark-blue border-line text-foreground"
                 } ${dim ? "opacity-40" : "opacity-100"} ${INTERACTIVE}`}
               >
                 {t(lang, n.titleKey)}
@@ -507,12 +507,12 @@ export function TourCatalog({ lang, tours, completedTours, onStartTour }: TourCa
             type="button"
             onClick={() => onStartTour(tour.id)}
             aria-label={`${t(lang, "tourStartCta")} – ${t(lang, tour.titleKey)}`}
-            className={`flex gap-3 rounded-md border border-line border-l-[3px] border-l-AIPM-dark-blue bg-surface p-3 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+            className={`flex gap-3 rounded-md border border-line border-l-[3px] border-l-ui-dark-blue bg-surface p-3 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
           >
             <span
               aria-hidden="true"
               className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
-                isDone ? "bg-AIPM-green/15 text-AIPM-green-strong" : "bg-surface-muted text-AIPM-dark-blue"
+                isDone ? "bg-ui-green/15 text-ui-green-strong" : "bg-surface-muted text-ui-dark-blue"
               }`}
             >
               {isDone ? "✓" : <NavIcon view={tour.iconView} className="h-4 w-4" />}
@@ -521,7 +521,7 @@ export function TourCatalog({ lang, tours, completedTours, onStartTour }: TourCa
               <span className="flex items-center justify-between gap-2">
                 <span className="text-sm font-semibold text-foreground">{t(lang, tour.titleKey)}</span>
                 {isDone && (
-                  <span className="shrink-0 rounded-full bg-AIPM-green/15 px-2 py-0.5 text-[10px] font-medium text-AIPM-green-strong">
+                  <span className="shrink-0 rounded-full bg-ui-green/15 px-2 py-0.5 text-[10px] font-medium text-ui-green-strong">
                     <span aria-hidden="true">✓ </span>
                     {t(lang, "tourDoneBadge")}
                   </span>
@@ -531,7 +531,7 @@ export function TourCatalog({ lang, tours, completedTours, onStartTour }: TourCa
                 {t(lang, "tourStepCount", String(tour.stepCount))}
               </span>
               <span className="mt-0.5 block text-xs text-muted-foreground">{t(lang, tour.descKey)}</span>
-              <span className="mt-1 block text-xs font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
+              <span className="mt-1 block text-xs font-medium text-ui-dark-blue dark:text-ui-light-grey">
                 {isDone ? t(lang, "tourReplayCta") : t(lang, "tourStartCta")} →
               </span>
             </span>
@@ -586,7 +586,7 @@ describe("HelpContentPane", () => {
     const tocButtons = screen.getAllByRole("button");
     fireEvent.click(tocButtons[0]);
     // the clicked TOC button gets the active styling marker class
-    expect(tocButtons[0].className).toContain("border-AIPM-dark-blue");
+    expect(tocButtons[0].className).toContain("border-ui-dark-blue");
   });
 });
 ```
@@ -644,7 +644,7 @@ In the same file:
 - Group block wrapper: change `mb-6` → `mb-8`.
 - Each `<section>`: wrap its content as a card. Replace the `<section …>` opening + its inner `<h3>`/`<p>`/related block container so the section is a card:
 ```tsx
-                <section key={e.id} id={helpSectionId(e.id)} className="scroll-mt-2 rounded-lg border border-line border-l-[3px] border-l-AIPM-dark-blue bg-surface p-4">
+                <section key={e.id} id={helpSectionId(e.id)} className="scroll-mt-2 rounded-lg border border-line border-l-[3px] border-l-ui-dark-blue bg-surface p-4">
 ```
   and change the cards gap on the inner `<div className="flex flex-col gap-4">` → `gap-3`.
 
@@ -724,10 +724,10 @@ Rewrite `src/app/information-flows-section.tsx`. Keep the `DiagramTitle`/`ArrowD
 Helper for a node:
 ```tsx
 function Node({ x, y, w, title, sub, accent }: { x: number; y: number; w: number; title: string; sub?: string; accent: "green" | "blue" | "hub" }) {
-  const stroke = accent === "green" ? "var(--AIPM-green)" : "var(--AIPM-dark-blue)";
-  const fill = accent === "hub" ? "var(--AIPM-dark-blue)" : "var(--AIPM-white)";
-  const titleFill = accent === "hub" ? "var(--AIPM-white)" : "var(--AIPM-dark-blue)";
-  const subFill = accent === "hub" ? "var(--AIPM-green)" : "var(--AIPM-dark-grey)";
+  const stroke = accent === "green" ? "var(--ui-green)" : "var(--ui-dark-blue)";
+  const fill = accent === "hub" ? "var(--ui-dark-blue)" : "var(--ui-white)";
+  const titleFill = accent === "hub" ? "var(--ui-white)" : "var(--ui-dark-blue)";
+  const subFill = accent === "hub" ? "var(--ui-green)" : "var(--ui-dark-grey)";
   const h = sub ? 44 : 30;
   return (
     <g>
@@ -745,7 +745,7 @@ Zone rects + labels:
 function Zone({ x, y, w, h, label, color }: { x: number; y: number; w: number; h: number; label: string; color: string }) {
   return (
     <g>
-      <rect x={x} y={y} width={w} height={h} rx="10" fill="none" stroke="var(--AIPM-medium-grey)" strokeWidth="1" strokeDasharray="4 3" />
+      <rect x={x} y={y} width={w} height={h} rx="10" fill="none" stroke="var(--ui-medium-grey)" strokeWidth="1" strokeDasharray="4 3" />
       <text x={x + 10} y={y + 12} fill={color} fontSize="9" fontWeight="700" style={{ textTransform: "uppercase", letterSpacing: "0.5px" }}>{label}</text>
     </g>
   );
@@ -755,7 +755,7 @@ Compose in the main `<svg>` (replace the old node components + `Connectors`). Ap
 - Left zone: `x=8 y=20 w=120 h=200`; nodes inside at `x=18 w=100`: Local `y=40`, File `y=96`, Turso `y=152`.
 - Hub: `Node x=190 y=120 w=100 sub` (Browser app / (this PWA), accent "hub").
 - Right zone: `x=300 y=20 w=172 h=200`; service nodes `w=78`: Jira `x=310 y=40`, Timelog `x=394 y=40`, SharePoint `x=310 y=84`, Outlook `x=394 y=84`, Anthropic `x=310 y=140 w=162 sub="AI chat"`.
-- Connectors (`stroke="var(--AIPM-medium-grey)" strokeWidth=1.5 markerEnd/markerStart` as today) from hub edges to each node centre.
+- Connectors (`stroke="var(--ui-medium-grey)" strokeWidth=1.5 markerEnd/markerStart` as today) from hub edges to each node centre.
 Use the EN node strings hardcoded (matches the existing pattern — only the legend `<dl>` is i18n).
 
 - [ ] **Step 4: Update the Legend `<dl>` + add swatches**
@@ -776,8 +776,8 @@ In the `Legend` component, replace the `items` array's M365 entry and add File s
 Above the `<dl>`, add a swatch row:
 ```tsx
       <div className="mb-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-AIPM-green" aria-hidden="true" />{t(lang, "infoFlowsZoneDataLabel")}</span>
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-AIPM-dark-blue" aria-hidden="true" />{t(lang, "infoFlowsZoneServicesLabel")}</span>
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-ui-green" aria-hidden="true" />{t(lang, "infoFlowsZoneDataLabel")}</span>
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-ui-dark-blue" aria-hidden="true" />{t(lang, "infoFlowsZoneServicesLabel")}</span>
       </div>
 ```
 
@@ -880,7 +880,7 @@ export function HelpCollapsibleRegion({ lang, panels }: { lang: Lang; panels: re
           const bodyId = `help-acc-${p.key}`;
           if (isOpen) {
             return (
-              <section key={p.key} className="flex min-h-0 flex-1 flex-col rounded-lg border border-line border-l-[3px] border-l-AIPM-dark-blue bg-surface">
+              <section key={p.key} className="flex min-h-0 flex-1 flex-col rounded-lg border border-line border-l-[3px] border-l-ui-dark-blue bg-surface">
                 <button
                   type="button"
                   aria-expanded="true"
@@ -903,7 +903,7 @@ export function HelpCollapsibleRegion({ lang, panels }: { lang: Lang; panels: re
               aria-expanded="false"
               aria-controls={bodyId}
               onClick={() => setOpenKey(p.key)}
-              className={`flex shrink-0 items-center justify-center rounded-lg border border-line bg-surface py-2 text-AIPM-dark-blue hover:border-AIPM-dark-blue hover:bg-surface-muted @[560px]:w-9 @[560px]:py-0 dark:text-AIPM-light-grey ${INTERACTIVE}`}
+              className={`flex shrink-0 items-center justify-center rounded-lg border border-line bg-surface py-2 text-ui-dark-blue hover:border-ui-dark-blue hover:bg-surface-muted @[560px]:w-9 @[560px]:py-0 dark:text-ui-light-grey ${INTERACTIVE}`}
             >
               <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide @[560px]:[writing-mode:vertical-rl] @[560px]:rotate-180">
                 <span aria-hidden="true">▸</span> {t(lang, p.titleKey)}
@@ -1074,4 +1074,4 @@ Expected: no matches (M365 keys gone, old storage key gone, radial RADIUS const 
 - **Spec coverage:** §1 content pane → Task 6; §1c floating size → Task 10; §2 accordion → Tasks 8–9; §3 tour data+UI → Tasks 4–5; §4 relations vertical → Tasks 2–3; §5 info-flows 9 nodes → Task 7; i18n → Task 1. All covered.
 - **Type consistency:** `TourCatalogEntry` gains `stepCount:number`+`iconView:AppView` (Task 4) and every fixture/consumer updated (Tasks 4,5,9). `HelpPanel` shape defined in Task 8, used in Task 9. `infoFlowsTitle` key existence verified in Tasks 8/9 Step 1 (fallback noted).
 - **Relations graph is concepts-only** — vertical column is a single group (no multi-group), consistent with `buildRelationsGraph` filtering `e.group === "concepts"`.
-- **Palette:** all new colour via `AIPM-*` tokens / `var(--AIPM-*)`; stripes concrete (`border-l-AIPM-dark-blue`), no wildcard/pipe in arbitrary brackets; no shadow.
+- **Palette:** all new colour via `ui-*` tokens / `var(--ui-*)`; stripes concrete (`border-l-ui-dark-blue`), no wildcard/pipe in arbitrary brackets; no shadow.

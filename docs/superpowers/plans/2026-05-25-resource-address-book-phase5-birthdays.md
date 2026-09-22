@@ -162,7 +162,7 @@ birthdayToast: "🎂 {0} upcoming birthday(s)"      // de: "🎂 {0} bevorstehen
 ```
 (Reuse the existing `alertBannerDismiss` key for the dismiss button.) Match the `t(lang, key, ...args)` positional-interpolation style already used by `alertBannerTitle`.
 
-- [ ] **Step 3: `BirthdayBanner` + `birthdayToastText` in `src/app/notifications.tsx`.** Mirror `DueBanner` styling (the `bg-AIPM-pink/10` card) but with a 🎂 glyph and no "open list" button — just a summary + dismiss. Import `resourceDisplayName` from `./resource-foundation` and the `UpcomingBirthday` type from `./birthdays`.
+- [ ] **Step 3: `BirthdayBanner` + `birthdayToastText` in `src/app/notifications.tsx`.** Mirror `DueBanner` styling (the `bg-ui-pink/10` card) but with a 🎂 glyph and no "open list" button — just a summary + dismiss. Import `resourceDisplayName` from `./resource-foundation` and the `UpcomingBirthday` type from `./birthdays`.
 ```tsx
 export function birthdayToastText(items: UpcomingBirthday[], lang: Lang): string {
   return t(lang, "birthdayToast", items.length);
@@ -177,14 +177,14 @@ export function BirthdayBanner({
     .join(", ");
   return (
     <div role="region" aria-label={t(lang, "birthdayBannerAria")}
-      className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-AIPM-pink/40 bg-AIPM-pink/10 px-4 py-3 dark:border-AIPM-pink/60 dark:bg-AIPM-pink/15">
+      className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-ui-pink/40 bg-ui-pink/10 px-4 py-3 dark:border-ui-pink/60 dark:bg-ui-pink/15">
       <span aria-hidden className="text-lg">🎂</span>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "birthdayBannerTitle", items.length)}</p>
-        <p className="text-xs text-AIPM-dark-grey dark:text-AIPM-medium-grey">{summary}</p>
+        <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "birthdayBannerTitle", items.length)}</p>
+        <p className="text-xs text-ui-dark-grey dark:text-ui-medium-grey">{summary}</p>
       </div>
       <button type="button" onClick={onDismiss} aria-label={t(lang, "alertBannerDismiss")}
-        className="rounded-md border border-AIPM-medium-grey/40 bg-white px-3 py-1.5 text-xs font-medium text-AIPM-dark-grey hover:bg-AIPM-light-grey dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-medium-grey">
+        className="rounded-md border border-ui-medium-grey/40 bg-white px-3 py-1.5 text-xs font-medium text-ui-dark-grey hover:bg-ui-light-grey dark:border-zinc-700 dark:bg-zinc-900 dark:text-ui-medium-grey">
         {t(lang, "alertBannerDismiss")}
       </button>
     </div>

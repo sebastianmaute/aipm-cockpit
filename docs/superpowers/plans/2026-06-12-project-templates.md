@@ -713,7 +713,7 @@ describe("TemplatesSection", () => {
 
 - [ ] **Step 3: Run** → FAIL.
 
-- [ ] **Step 4: Implement** `templates-section.tsx` using `useTemplates()`. Props: `{ lang: Lang }` (it reads/writes via the hook, like sections that self-manage). Render an intro, a "Built-in" group (each row: name + summary + a **Duplicate** button) and a "Your templates" group (each row: name + **Rename**/**Delete**; Rename via an inline text input or `window.prompt`-free inline edit — prefer an inline input toggled by a Rename button to stay test-friendly), and a **Save current project as a template…** button that is wired in Task 8 (here it can be a button that calls an optional `onSaveCurrent?` prop; if the section can't reach the workspace, leave the Save button to Task 8 — render it disabled/with a TODO-free note, OR omit it here and add in Task 8). Use AIPM palette tokens (grep an existing settings-section for classNames). Each built-in row shows a short summary: mode (derive from `features.length`: 0→Simple, all→Full, else Modular) + seed counts.
+- [ ] **Step 4: Implement** `templates-section.tsx` using `useTemplates()`. Props: `{ lang: Lang }` (it reads/writes via the hook, like sections that self-manage). Render an intro, a "Built-in" group (each row: name + summary + a **Duplicate** button) and a "Your templates" group (each row: name + **Rename**/**Delete**; Rename via an inline text input or `window.prompt`-free inline edit — prefer an inline input toggled by a Rename button to stay test-friendly), and a **Save current project as a template…** button that is wired in Task 8 (here it can be a button that calls an optional `onSaveCurrent?` prop; if the section can't reach the workspace, leave the Save button to Task 8 — render it disabled/with a TODO-free note, OR omit it here and add in Task 8). Use brand palette tokens (grep an existing settings-section for classNames). Each built-in row shows a short summary: mode (derive from `features.length`: 0→Simple, all→Full, else Modular) + seed counts.
 
 ```tsx
 import type { Lang } from "../i18n";
@@ -740,7 +740,7 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
         {builtIns.map((tpl) => (
           <div key={tpl.id} className="flex items-center justify-between border border-line rounded-md px-3 py-2 mb-1.5">
             <span className="text-sm"><strong>{tpl.name}</strong> <span className="text-muted">· {modeLabel(lang, tpl.features)}</span></span>
-            <button type="button" className="text-xs text-AIPM-green" onClick={() => duplicateTemplate(tpl.id)}>{t(lang, "templatesDuplicate")}</button>
+            <button type="button" className="text-xs text-ui-green" onClick={() => duplicateTemplate(tpl.id)}>{t(lang, "templatesDuplicate")}</button>
           </div>
         ))}
       </div>
@@ -751,7 +751,7 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
           <div key={tpl.id} className="flex items-center justify-between border border-line rounded-md px-3 py-2 mb-1.5">
             <input className="text-sm bg-transparent" defaultValue={tpl.name} aria-label={tpl.name}
               onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== tpl.name) updateTemplate(tpl.id, { name: v }); }} />
-            <button type="button" className="text-xs text-AIPM-dark-blue" onClick={() => removeTemplate(tpl.id)}>{t(lang, "templatesDelete")}</button>
+            <button type="button" className="text-xs text-ui-dark-blue" onClick={() => removeTemplate(tpl.id)}>{t(lang, "templatesDelete")}</button>
           </div>
         ))}
       </div>

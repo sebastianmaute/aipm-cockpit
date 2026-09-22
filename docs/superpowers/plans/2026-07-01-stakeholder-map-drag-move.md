@@ -6,7 +6,7 @@
 
 **Architecture:** A pure `applyQuadrantMove(s, quadrant)` engine (preserve-Medium rule) in `stakeholders.ts`; native HTML5 DnD in `stakeholder-map-panel.tsx` gated on a new optional `onSaveStakeholder` prop; one-line wiring in `workspace-section.tsx` reusing the existing `handleSaveStakeholder` (functional updater + `localModifiedAt` stamp + `stakeholder.updated` activity log). No new persisted field.
 
-**Tech Stack:** Next.js (forked) + React + TypeScript, Tailwind v4 AIPM tokens, Vitest + Testing Library.
+**Tech Stack:** Next.js (forked) + React + TypeScript, Tailwind v4 brand tokens, Vitest + Testing Library.
 
 **Reference:** `docs/superpowers/specs/2026-07-01-stakeholder-map-drag-move-design.md`
 
@@ -270,7 +270,7 @@ Cell `<div>`:
   onDragLeave={editable ? (e) => { if (e.currentTarget === e.target) setDragOverQ(null); } : undefined}
   onDrop={editable ? (e) => { onDropInto(q.id, e); setDragOverQ(null); } : undefined}
   className={`flex flex-col gap-1.5 overflow-auto rounded-lg border border-line p-3 ${q.tintClass} ${
-    dragOverQ === q.id ? "ring-2 ring-AIPM-green" : ""
+    dragOverQ === q.id ? "ring-2 ring-ui-green" : ""
   }`}
 >
 ```

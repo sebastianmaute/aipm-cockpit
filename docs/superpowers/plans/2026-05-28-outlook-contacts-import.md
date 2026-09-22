@@ -99,10 +99,10 @@ describe("mapGraphContact", () => {
   it("maps a full record", () => {
     const raw: GraphContact = {
       id: "abc",
-      displayName: "Alex Example",
-      givenName: "Sample",
-      surname: "Dummy",
-      emailAddresses: [{ address: "Sample.Dummy@example.com" }],
+      displayName: "Sofia Ramirez",
+      givenName: "Sofia",
+      surname: "Ramirez",
+      emailAddresses: [{ address: "Sofia.Ramirez@example.com" }],
       jobTitle: "Architect",
       department: "Engineering",
       companyName: "Contoso",
@@ -113,10 +113,10 @@ describe("mapGraphContact", () => {
     };
     expect(mapGraphContact(raw, 0)).toEqual<OutlookContact>({
       sourceId: "abc",
-      firstName: "Sample",
-      lastName: "Dummy",
-      displayName: "Alex Example",
-      email: "Sample.Dummy@example.com",
+      firstName: "Sofia",
+      lastName: "Ramirez",
+      displayName: "Sofia Ramirez",
+      email: "sofia.ramirez@example.com",
       title: "Architect",
       department: "Engineering",
       company: "Contoso",
@@ -155,10 +155,10 @@ describe("mapGraphContact", () => {
 describe("mergeImportedResources", () => {
   const contact: OutlookContact = {
     sourceId: "x",
-    firstName: "Sample",
-    lastName: "Dummy",
-    displayName: "Alex Example",
-    email: "Sample@example.com",
+    firstName: "Sofia",
+    lastName: "Ramirez",
+    displayName: "Sofia Ramirez",
+    email: "sofia@example.com",
     title: "Architect",
   };
 
@@ -166,7 +166,7 @@ describe("mergeImportedResources", () => {
     const out = mergeImportedResources([res({ id: 5 })], [contact]);
     expect(out).toHaveLength(2);
     expect(out[1].id).toBe(6);
-    expect(out[1].email).toBe("Sample@example.com");
+    expect(out[1].email).toBe("sofia@example.com");
     expect(out[1].roleId).toBeNull();
     expect(out[1].utilizationMode).toBe("percent");
   });
@@ -176,7 +176,7 @@ describe("mergeImportedResources", () => {
       id: 9,
       firstName: "S",
       lastName: "C",
-      email: "Sample@Example.com",
+      email: "Sofia@Example.com",
       roleId: 3,
       utilization: { "2026-02": 100 },
       title: "Old",
@@ -187,7 +187,7 @@ describe("mergeImportedResources", () => {
     expect(out[0].roleId).toBe(3);
     expect(out[0].utilization).toEqual({ "2026-02": 100 });
     expect(out[0].title).toBe("Architect");
-    expect(out[0].firstName).toBe("Sample");
+    expect(out[0].firstName).toBe("Sofia");
   });
 
   it("assigns distinct ids across a multi-add batch", () => {
@@ -202,7 +202,7 @@ describe("mergeImportedResources", () => {
   });
 
   it("clears a field on update when the contact leaves it blank", () => {
-    const existing = res({ id: 1, email: "Sample@example.com", title: "Old" });
+    const existing = res({ id: 1, email: "sofia@example.com", title: "Old" });
     const out = mergeImportedResources([existing], [{ ...contact, title: undefined }]);
     expect(out[0].title).toBeUndefined();
   });
@@ -780,14 +780,14 @@ export function OutlookImportModal({
     <Modal open={open} onClose={onClose} ariaLabel={t(lang, "outlookImportTitle")} align="center" zIndex={50}>
       <div className="flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-line bg-surface">
         <header className="flex shrink-0 items-center justify-between border-b border-line px-6 py-4">
-          <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+          <h2 className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">
             {t(lang, "outlookImportTitle")}
           </h2>
           <button
             type="button"
             onClick={onClose}
             aria-label={t(lang, "outlookImportCancel")}
-            className="rounded-md p-2 text-AIPM-dark-grey hover:bg-surface-muted hover:text-AIPM-dark-blue"
+            className="rounded-md p-2 text-ui-dark-grey hover:bg-surface-muted hover:text-ui-dark-blue"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
               <path
@@ -805,7 +805,7 @@ export function OutlookImportModal({
               {t(lang, "outlookImportLoading")}
             </p>
           ) : error ? (
-            <p className="py-8 text-center text-sm text-AIPM-pink">{error}</p>
+            <p className="py-8 text-center text-sm text-ui-pink">{error}</p>
           ) : contacts.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
               {t(lang, "outlookImportEmpty")}
@@ -836,7 +836,7 @@ export function OutlookImportModal({
                         <span className="font-medium text-foreground">{label}</span>
                         {c.email && <span className="text-xs text-muted-foreground">{c.email}</span>}
                         {exists && (
-                          <span className="ml-auto text-xs italic text-AIPM-purple">
+                          <span className="ml-auto text-xs italic text-ui-purple">
                             {t(lang, "outlookImportExisting")}
                           </span>
                         )}
@@ -861,7 +861,7 @@ export function OutlookImportModal({
             type="button"
             onClick={confirm}
             disabled={selectedCount === 0 || loading || !!error}
-            className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-ui-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t(lang, "outlookImportConfirm", selectedCount)}
           </button>
@@ -875,7 +875,7 @@ export function OutlookImportModal({
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/app/outlook-import-modal.test.tsx`
-Expected: PASS. (If `text-AIPM-purple` / `text-AIPM-pink` aren't valid tokens, grep `text-AIPM-pink` — it is used elsewhere; substitute the nearest existing semantic class if needed. This is a cosmetic class, not behavior.)
+Expected: PASS. (If `text-ui-purple` / `text-ui-pink` aren't valid tokens, grep `text-ui-pink` — it is used elsewhere; substitute the nearest existing semantic class if needed. This is a cosmetic class, not behavior.)
 
 - [ ] **Step 5: Type-check & lint**
 
@@ -959,7 +959,7 @@ it("renders Import from Outlook only when onImportOutlook is provided", () => {
   <button
     type="button"
     onClick={onImportOutlook}
-    className="shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
+    className="shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted"
   >
     {t(lang, "outlookImportButton")}
   </button>

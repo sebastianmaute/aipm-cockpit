@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Migrate 8 component files (~2849 LOC) from `zinc-*`/shadows/off-palette status colors to the AIPM palette + semantic surface tokens, with no behavior/markup change.
+**Goal:** Migrate 8 component files (~2849 LOC) from `zinc-*`/shadows/off-palette status colors to the brand palette + semantic surface tokens, with no behavior/markup change.
 
 **Architecture:** Mechanical per-file class-string migration applying the shared mapping table below + per-file named status-color edits (priority ramp in `task-row`, RAG triple in `reports`). *Transform → grep-verify-clean → existing tests stay green → commit* per file. Files ordered easiest → most-involved.
 
@@ -18,19 +18,19 @@
 |---|---|
 | `bg-white` | `bg-surface` |
 | `bg-zinc-50/100`, `dark:bg-zinc-900`, `dark:bg-zinc-950` | `bg-surface-muted` |
-| `border-zinc-200/300`, `dark:border-zinc-700/800`, `border-AIPM-light-grey` | `border-line` |
-| `divide-zinc-*`, `divide-AIPM-light-grey` | `divide-line` |
-| `bg-AIPM-light-grey`, `bg-AIPM-light-grey/NN` (chrome bg) | `bg-surface-muted` |
+| `border-zinc-200/300`, `dark:border-zinc-700/800`, `border-ui-light-grey` | `border-line` |
+| `divide-zinc-*`, `divide-ui-light-grey` | `divide-line` |
+| `bg-ui-light-grey`, `bg-ui-light-grey/NN` (chrome bg) | `bg-surface-muted` |
 | `shadow-*` | remove |
-| `focus:ring-AIPM-dark-blue` / `focus-visible:ring-AIPM-dark-blue` / `ring-zinc-*` | `ring-AIPM-green` / `focus-visible:ring-AIPM-green` |
-| `hover:bg-zinc-*`, `dark:hover:bg-zinc-*`, `hover:bg-AIPM-light-grey` | `hover:bg-surface-muted` |
+| `focus:ring-ui-dark-blue` / `focus-visible:ring-ui-dark-blue` / `ring-zinc-*` | `ring-ui-green` / `focus-visible:ring-ui-green` |
+| `hover:bg-zinc-*`, `dark:hover:bg-zinc-*`, `hover:bg-ui-light-grey` | `hover:bg-surface-muted` |
 | `text-zinc-900/800/700` (+ paired dark) | `text-foreground` |
 | `text-zinc-500/600/400` (+ paired dark) | `text-muted-foreground` |
-| `text-AIPM-dark-grey` (+ any paired `dark:text-AIPM-light-grey`) | `text-foreground` |
-| `text-AIPM-medium-grey` (+ any paired dark) | `text-muted-foreground` |
+| `text-ui-dark-grey` (+ any paired `dark:text-ui-light-grey`) | `text-foreground` |
+| `text-ui-medium-grey` (+ any paired dark) | `text-muted-foreground` |
 | `bg-gradient-*`, `from-*`, `via-*`, `to-*` | remove |
 
-**KEEP UNCHANGED:** `bg-AIPM-dark-blue text-white` fills; heading pairs `text-AIPM-dark-blue dark:text-AIPM-light-grey` (`dark:text-AIPM-light-grey` heading-text variant must remain); all AIPM accent colors (`AIPM-pink`, `AIPM-green`, `AIPM-blue`, `AIPM-purple`); ALL non-class code.
+**KEEP UNCHANGED:** `bg-ui-dark-blue text-white` fills; heading pairs `text-ui-dark-blue dark:text-ui-light-grey` (`dark:text-ui-light-grey` heading-text variant must remain); all petrol accent colors (`ui-pink`, `ui-green`, `ui-blue`, `ui-purple`); ALL non-class code.
 
 **CRITICAL:** REPLACE each utility in place — never ADD a second color utility. After editing, no className may contain two `bg-*`, two `border-<color>`, two `divide-*`, or two `text-<color>` base utilities. `border` width + `border-line` color is fine; `bg-X hover:bg-Y` state variants are fine; `text-X dark:text-Y` is fine.
 
@@ -38,9 +38,9 @@
 
 Use the Grep tool on the single migrated file with BOTH regexes; expect **zero matches** for each:
 1. `zinc-|shadow-|bg-gradient|from-\[|(amber|red|emerald|sky|rose|slate|gray|orange|yellow|teal|cyan|indigo|violet|fuchsia|green|blue|purple|pink)-[0-9]`
-2. `border-AIPM-light-grey|divide-AIPM-light-grey|bg-AIPM-light-grey|text-AIPM-dark-grey|text-AIPM-medium-grey`
+2. `border-ui-light-grey|divide-ui-light-grey|bg-ui-light-grey|text-ui-dark-grey|text-ui-medium-grey`
 
-`AIPM-*` alpha utilities (`bg-AIPM-pink/15`, `text-AIPM-purple`, `border-AIPM-green`, etc.) do NOT match either pattern. `dark:text-AIPM-light-grey` heading-text variant does NOT match.
+`ui-*` alpha utilities (`bg-ui-pink/15`, `text-ui-purple`, `border-ui-green`, etc.) do NOT match either pattern. `dark:text-ui-light-grey` heading-text variant does NOT match.
 
 > **Heads-up for every implementer subagent:**
 > 1. Fact-forcing gate. Before FIRST shell command print 2 facts (task + what the command does). Before EVERY Edit, in the SAME message print 4 facts — (a) importers (Grep `<ComponentName>` in same turn), (b) symbols affected (none — class strings only), (c) data fields (none — styling), (d) instruction verbatim: "adjust the design to follow the following table:". Then retry the Edit.
@@ -146,10 +146,10 @@ git commit -m "style(palette): tasks-section to surface tokens (no zinc/shadow)"
 
 - [ ] **Step 1: Migrate** — READ the file. Apply the shared mapping table to the chrome (charts, legends, sections, headers).
 - [ ] **Step 2: Named status edits** (exact before→after):
-  - RAG record R (~line 262): `R: "bg-red-500"` → `R: "bg-AIPM-pink"`
-  - RAG record A (~line 263): `A: "bg-amber-500"` → `A: "bg-AIPM-purple"`
-  - RAG record G (~line 264): `G: "bg-emerald-500"` → `G: "bg-AIPM-green"`
-  - Other chart color (~line 358): `color: "bg-amber-500"` → `color: "bg-AIPM-purple"`
+  - RAG record R (~line 262): `R: "bg-red-500"` → `R: "bg-ui-pink"`
+  - RAG record A (~line 263): `A: "bg-amber-500"` → `A: "bg-ui-purple"`
+  - RAG record G (~line 264): `G: "bg-emerald-500"` → `G: "bg-ui-green"`
+  - Other chart color (~line 358): `color: "bg-amber-500"` → `color: "bg-ui-purple"`
 - [ ] **Step 3: Grep-verify** — both regexes return ZERO; duplicate-utility scan clean.
 - [ ] **Step 4: Gates** — `npx vitest run reports`; `npx tsc --noEmit` (0); `npm run lint` (0).
 - [ ] **Step 5: Commit**
@@ -166,13 +166,13 @@ git commit -m "style(palette): reports to surface tokens; RAG (R->pink, A->purpl
 
 - [ ] **Step 1: Migrate** — READ the file. Apply the shared mapping table to all chrome (cells, hover states, action buttons, etc.).
 - [ ] **Step 2: Named status edits** (exact before→after):
-  - Priority chip Medium (~line 92): `bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300` → `bg-AIPM-blue/15 text-AIPM-blue dark:bg-AIPM-blue/20`
-  - Priority chip High (~line 93): `bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300` → `bg-AIPM-purple/15 text-AIPM-purple dark:bg-AIPM-purple/20`
-  - Priority chip Urgent (~line 94): `bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300` → `bg-AIPM-pink/15 text-AIPM-pink dark:bg-AIPM-pink/20`
-  - Row editing highlight (~line 159): `bg-amber-50 dark:bg-amber-950/20` → `bg-AIPM-purple/10 dark:bg-AIPM-purple/15`
-  - Row selected highlight (~line 159): `bg-AIPM-light-grey dark:bg-zinc-900` → `bg-surface-muted`
-  - Inquiry-sent link (~line 382): the className `text-xs font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-400` → `text-xs font-medium text-AIPM-pink underline-offset-2 hover:underline`
-  - Stale badge (~line 441): `bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/60` → `bg-AIPM-purple/15 text-AIPM-purple hover:bg-AIPM-purple/25 dark:bg-AIPM-purple/20 dark:hover:bg-AIPM-purple/30`
+  - Priority chip Medium (~line 92): `bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300` → `bg-ui-blue/15 text-ui-blue dark:bg-ui-blue/20`
+  - Priority chip High (~line 93): `bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300` → `bg-ui-purple/15 text-ui-purple dark:bg-ui-purple/20`
+  - Priority chip Urgent (~line 94): `bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300` → `bg-ui-pink/15 text-ui-pink dark:bg-ui-pink/20`
+  - Row editing highlight (~line 159): `bg-amber-50 dark:bg-amber-950/20` → `bg-ui-purple/10 dark:bg-ui-purple/15`
+  - Row selected highlight (~line 159): `bg-ui-light-grey dark:bg-zinc-900` → `bg-surface-muted`
+  - Inquiry-sent link (~line 382): the className `text-xs font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-400` → `text-xs font-medium text-ui-pink underline-offset-2 hover:underline`
+  - Stale badge (~line 441): `bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/60` → `bg-ui-purple/15 text-ui-purple hover:bg-ui-purple/25 dark:bg-ui-purple/20 dark:hover:bg-ui-purple/30`
 - [ ] **Step 3: Grep-verify** — both regexes return ZERO; duplicate-utility scan clean.
 - [ ] **Step 4: Gates** — `npx vitest run task-row`; `npx tsc --noEmit` (0); `npm run lint` (0).
 - [ ] **Step 5: Commit**
@@ -189,7 +189,7 @@ git commit -m "style(palette): task-row to surface tokens; priority chips (blue/
 
 - [ ] **Step 1: version.ts** — READ. Set `export const APP_VERSION = "0.15.5";`. Keep `APP_BUILD_DATE = "2026-05-28"; // Le Guin milestone`. Do NOT add a highlight key. Add a top comment above the existing `// 0.15.4 …` block:
 ```ts
-// 0.15.5 sweeps the tasks UI + form inputs + reports onto the AIPM palette —
+// 0.15.5 sweeps the tasks UI + form inputs + reports onto the brand palette —
 // surface tokens, no shadows, task-row priority chips remapped (Medium=blue,
 // High=purple, Urgent=pink), reports RAG legend in pink/purple/green.
 ```
@@ -199,7 +199,7 @@ git commit -m "style(palette): task-row to surface tokens; priority chips (blue/
 ## [0.15.5] — 2026-05-28
 
 ### Changed
-- Continued the AIPM design-system rollout: the tasks table (including the task row, sticky headers and toolbar), the task-form input controls (combo, contact, labels, dependencies), the reports panel and the shared task-manager UI helpers now use the AIPM palette and surface tokens — consistent light/dark surfaces, no drop shadows, task-row priority chips remapped to the palette (Medium=blue, High=purple, Urgent=pink), and the reports RAG chart in pink/purple/green.
+- Continued the brand design-system rollout: the tasks table (including the task row, sticky headers and toolbar), the task-form input controls (combo, contact, labels, dependencies), the reports panel and the shared task-manager UI helpers now use the brand palette and surface tokens — consistent light/dark surfaces, no drop shadows, task-row priority chips remapped to the palette (Medium=blue, High=purple, Urgent=pink), and the reports RAG chart in pink/purple/green.
 ```
 (Match whatever format `[0.15.4]` actually uses if it differs.)
 
@@ -231,4 +231,4 @@ Dispatch a final reviewer over `git diff main...HEAD`. Read `version.ts`/`CHANGE
 
 **Placeholder scan:** No TBD/TODO; named edits are exact before→after strings. The "match `[0.15.4]` style" CHANGELOG note is a source-confirmation, not a placeholder.
 
-**Type consistency:** Only Tailwind utility names; targets (`bg-surface`, `bg-surface-muted`, `border-line`, `text-foreground`, `text-muted-foreground`, `ring-AIPM-green`, plus `bg-AIPM-blue/15`, `bg-AIPM-purple/15`, `bg-AIPM-pink/15`, `bg-AIPM-green`, `bg-AIPM-purple`, `bg-AIPM-pink`, `text-AIPM-blue`, `text-AIPM-purple`, `text-AIPM-pink`) all resolve (palette + E0 surface tokens). The verification grep deliberately excludes `AIPM-*` utilities (no digit after the color word).
+**Type consistency:** Only Tailwind utility names; targets (`bg-surface`, `bg-surface-muted`, `border-line`, `text-foreground`, `text-muted-foreground`, `ring-ui-green`, plus `bg-ui-blue/15`, `bg-ui-purple/15`, `bg-ui-pink/15`, `bg-ui-green`, `bg-ui-purple`, `bg-ui-pink`, `text-ui-blue`, `text-ui-purple`, `text-ui-pink`) all resolve (palette + E0 surface tokens). The verification grep deliberately excludes `ui-*` utilities (no digit after the color word).

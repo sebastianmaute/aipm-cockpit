@@ -1572,7 +1572,7 @@ file names):
 - The RAID table typed its sort direction as a free-form string, accepting values that are not directions.
 ```
 
-★ Do **not** put a `[session link removed]...` URL in `CHANGELOG.md`.
+★ Do **not** put an assistant session URL in `CHANGELOG.md`.
 
 - [ ] **Step 4: Verify nothing else pins the old version**
 

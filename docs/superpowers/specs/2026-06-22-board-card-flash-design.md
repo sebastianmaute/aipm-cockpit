@@ -7,7 +7,7 @@
 ## Goal
 
 When the tasks pane is in **board** mode, a deep-link (`requestOpen("open-points", id)`)
-scrolls the target card into view and briefly outlines it (`outline-AIPM-green`, 1800ms),
+scrolls the target card into view and briefly outlines it (`outline-ui-green`, 1800ms),
 matching the table-row behaviour shipped in #10. The editor already opens in both modes;
 this adds the card scroll + flash.
 
@@ -54,7 +54,7 @@ ancestors (per-column vertical + outer horizontal) into view on both axes.
 ## Testing
 
 `task-kanban-board.test.tsx`: every rendered card carries `data-deeplink-row` equal to its
-task id; a card rendered with `flashId === <id>` has `outline-AIPM-green` in its className
+task id; a card rendered with `flashId === <id>` has `outline-ui-green` in its className
 while other cards do not; omitting `flashId` renders no outline on any card. Stub
 `Element.prototype.scrollIntoView` if the test triggers the hook (board test renders
 `TaskKanban` directly with explicit `flashId`, so no hook/scroll involved — just class +

@@ -6,7 +6,7 @@
 
 **Architecture:** Pure `computeCoaching` (gap detection → CTA list, gated on `taskCount===0`); presentational `dashboard-coaching-card.tsx`; rendered in `dashboard-panel.tsx` after the delta strip; navigation via a single new `onNavigate=setActiveTab` prop, AI-config detection via a new `aiConfigured` prop.
 
-**Tech Stack:** TypeScript, React 19, vitest, Tailwind (AIPM tokens), forked Next.js 16.
+**Tech Stack:** TypeScript, React 19, vitest, Tailwind (brand tokens), forked Next.js 16.
 
 **Conventions (AGENTS.md):**
 - `npm run lint` is `--max-warnings=0` (unused import/var FATAL).
@@ -205,7 +205,7 @@ git commit -m "i18n(dashboard): coaching CTA strings (EN + DE)"
 - Create: `src/app/dashboard-coaching-card.tsx`
 - Test: `src/app/dashboard-coaching-card.test.tsx`
 
-**Context:** `t`/`Lang` from `./i18n`; `CoachingCta` from `./dashboard-coaching`; `AppView` from `./nav-config`. i18n keys (Task 2) exist. AIPM tokens only.
+**Context:** `t`/`Lang` from `./i18n`; `CoachingCta` from `./dashboard-coaching`; `AppView` from `./nav-config`. i18n keys (Task 2) exist. Brand tokens only.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -268,7 +268,7 @@ export function DashboardCoachingCard({ lang, ctas, onNavigate }: DashboardCoach
   if (ctas.length === 0) return null;
   return (
     <div className="rounded-lg border border-line bg-surface p-4">
-      <h3 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "coachingTitle")}</h3>
+      <h3 className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "coachingTitle")}</h3>
       <p className="mt-0.5 text-xs text-muted-foreground">{t(lang, "coachingSubtitle")}</p>
       <div className="mt-2 flex flex-wrap gap-2">
         {ctas.map((cta) => (
@@ -276,7 +276,7 @@ export function DashboardCoachingCard({ lang, ctas, onNavigate }: DashboardCoach
             key={cta.key}
             type="button"
             onClick={() => onNavigate(cta.view)}
-            className="rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted hover:border-AIPM-dark-blue"
+            className="rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted hover:border-ui-dark-blue"
           >
             {t(lang, cta.labelKey)}
           </button>

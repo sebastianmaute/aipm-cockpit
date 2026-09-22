@@ -82,8 +82,6 @@ git commit --only <paths> -F - <<'MSGEOF'
 <subject>
 
 <body>
-
-Claude-Session: https://[session link removed]
 MSGEOF
 ```
 
@@ -213,8 +211,6 @@ was pushed left over the checkbox beside it.
 
 jsdom has no layout, so the new test asserts the class rather than the
 geometry; the visual result is owed to the eye-verify.
-
-Claude-Session: https://[session link removed]
 MSGEOF
 git log -1 --format='%s'
 ```
@@ -343,8 +339,6 @@ two, inflating every affected row.
 
 RaidBadge and DocumentBadge also render on the Kanban card; that suite is
 green.
-
-Claude-Session: https://[session link removed]
 MSGEOF
 git log -1 --format='%s'
 ```
@@ -579,8 +573,6 @@ after an explicit selection passes either way.
 The title button gains `aria-expanded` for the open row only; the comment
 claiming the row is "not a toggle" described the old behaviour and is
 rewritten rather than left contradicting the code.
-
-Claude-Session: https://[session link removed]
 MSGEOF
 git log -1 --format='%s'
 ```
@@ -698,8 +690,6 @@ byte-identical to the Preview button one cell over and would be a real WCAG
 2.4.6 collision. The token contains the visible name, so 2.5.3 containment
 holds as well. Mutation-proved against a bare `asset.name`, using the
 suite's existing two-rows-share-a-name fixture.
-
-Claude-Session: https://[session link removed]
 MSGEOF
 git log -1 --format='%s'
 ```
@@ -1100,8 +1090,6 @@ preventDefault-based Escape all mirror EntityLinkPicker deliberately, so
 this control behaves like every other picker in the app.
 
 i18n-free: every string arrives translated as a prop.
-
-Claude-Session: https://[session link removed]
 MSGEOF
 git log -1 --format='%s'
 ```
@@ -1239,8 +1227,6 @@ DE was patched by an anchored UTF-8 write with CRLF anchors and real
 umlauts; the Edit tool corrupts umlauts and curls quotes in that file.
 Codepoints verified rather than read off the console, whose codepage renders
 a correct umlaut as a question mark.
-
-Claude-Session: https://[session link removed]
 MSGEOF
 git log -1 --format='%s'
 ```
@@ -1392,8 +1378,6 @@ against task-raid-badge.test.tsx, the only detector that can exist.
 
 Four comments in the badge describing the previous arrangement are rewritten
 in this commit rather than left reading as current.
-
-Claude-Session: https://[session link removed]
 MSGEOF
 git log -1 --format='%s'
 ```
@@ -1550,8 +1534,6 @@ would start a migration the user was just told was unavailable.
 
 currentProject stays a render gate on Move-to-Turso — with no project there
 is nothing to move, and a permanently disabled control there is noise.
-
-Claude-Session: https://[session link removed]
 MSGEOF
 git log -1 --format='%s'
 ```
@@ -1722,8 +1704,6 @@ Filtering routes through the shared filterPickerOptions engine, so the *
 wildcard and #id matching come free rather than being reimplemented. The
 value format is unchanged — the same composite "<kind>:<id>" string or the
 STANDALONE_KEY sentinel — so nothing downstream of targetKey changes.
-
-Claude-Session: https://[session link removed]
 MSGEOF
 git log -1 --format='%s'
 ```
@@ -1792,8 +1772,6 @@ have one — so Move-to-Turso can only be gated on configuration being
 present, never on it being confirmed working.
 
 Numbers minted above the peer session's unlanded block.
-
-Claude-Session: https://[session link removed]
 MSGEOF
 git log -1 --format='%s'
 ```

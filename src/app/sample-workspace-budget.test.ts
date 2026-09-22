@@ -24,7 +24,7 @@ describe("sample-workspace budgets", () => {
     // runs 2026-07-01..2026-09-30 (June is the Discovery bucket 5's) and is the
     // CURRENT bucket on DEMO_AS_OF (2026-09-18): July-August are hand-entered
     // month totals, September is TimeLog-applied day keys up to the as-of date.
-    // The stored budget equals Alex Example's planned capacity (the plan's budget
+    // The stored budget equals Sofia Ramirez's planned capacity (the plan's budget
     // follows planning), so August is the thin month: half of it is vacation.
     expect(b.startDate).toBe("2026-07-01");
     expect(b.endDate).toBe("2026-09-30");
@@ -43,8 +43,8 @@ describe("sample-workspace budgets", () => {
     expect(b.planningMode).toBe("blended");
     expect(b.disciplineAllocations).toHaveLength(2);
     // Bucket 2 is the tail of the chain and still in the FUTURE on DEMO_AS_OF,
-    // spanning 2026-10-01..2026-12-18 so its 264 consultant hours (David
-    // Avery's 50 % capacity) land across three months instead of all in one.
+    // spanning 2026-10-01..2026-12-18 so its 264 consultant hours (Liam
+    // Foster's 50 % capacity) land across three months instead of all in one.
     expect(b.startDate).toBe("2026-10-01");
     expect(b.endDate).toBe("2026-12-18");
     const d3 = b.disciplineAllocations!.find((a) => a.disciplineId === 3)!;
@@ -70,7 +70,7 @@ describe("sample-workspace budgets", () => {
   });
   test("no resource is budgeted past a working month in any period", () => {
     // Guards the demo's credibility: a month is 21-23 workdays, and absences cut
-    // it further (Alex Example loses 10 workdays to August vacation, Sam Placeholder 5
+    // it further (Sofia Ramirez loses 10 workdays to August vacation, Noah Bennett 5
     // to November and 1 to a September sick day). Capacity here is the physical ceiling — workdays minus absence
     // days at 8h — not the utilization-scaled figure the planner shows.
     const holidays = new Set<string>();

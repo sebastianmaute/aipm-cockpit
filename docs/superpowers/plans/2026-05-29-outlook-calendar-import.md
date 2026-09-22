@@ -757,14 +757,14 @@ export function OutlookCalendarImportModal({
     <Modal open={open} onClose={onClose} ariaLabel={t(lang, "outlookCalImportTitle")} align="center" zIndex={50}>
       <div className="flex max-h-[80vh] w-full max-w-xl flex-col overflow-hidden rounded-xl border border-line bg-surface">
         <header className="flex shrink-0 items-center justify-between border-b border-line px-6 py-4">
-          <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+          <h2 className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">
             {t(lang, "outlookCalImportTitle")}
           </h2>
           <button
             type="button"
             onClick={onClose}
             aria-label={t(lang, "outlookCalImportCancel")}
-            className="rounded-md p-2 text-AIPM-dark-grey hover:bg-surface-muted hover:text-AIPM-dark-blue"
+            className="rounded-md p-2 text-ui-dark-grey hover:bg-surface-muted hover:text-ui-dark-blue"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
               <path fillRule="evenodd" d="M4.28 4.28a.75.75 0 011.06 0L10 8.94l4.66-4.66a.75.75 0 111.06 1.06L11.06 10l4.66 4.66a.75.75 0 11-1.06 1.06L10 11.06l-4.66 4.66a.75.75 0 01-1.06-1.06L8.94 10 4.28 5.34a.75.75 0 010-1.06z" clipRule="evenodd" />
@@ -776,7 +776,7 @@ export function OutlookCalendarImportModal({
           {loading ? (
             <p className="py-8 text-center text-sm text-muted-foreground">{t(lang, "outlookCalImportLoading")}</p>
           ) : error ? (
-            <p className="py-8 text-center text-sm text-AIPM-pink">{error}</p>
+            <p className="py-8 text-center text-sm text-ui-pink">{error}</p>
           ) : events.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">{t(lang, "outlookCalImportEmpty")}</p>
           ) : (
@@ -814,7 +814,7 @@ export function OutlookCalendarImportModal({
                         ))}
                       </select>
                       {exists && (
-                        <span className="shrink-0 text-xs italic text-AIPM-purple">{t(lang, "outlookCalImportExisting")}</span>
+                        <span className="shrink-0 text-xs italic text-ui-purple">{t(lang, "outlookCalImportExisting")}</span>
                       )}
                     </li>
                   );
@@ -832,7 +832,7 @@ export function OutlookCalendarImportModal({
             type="button"
             onClick={confirm}
             disabled={selectedCount === 0 || loading || !!error}
-            className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-ui-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t(lang, "outlookCalImportConfirm", selectedCount)}
           </button>
@@ -843,7 +843,7 @@ export function OutlookCalendarImportModal({
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes** — `npx vitest run src/app/outlook-calendar-import-modal.test.tsx` → PASS. (If `absenceType*` label keys differ, fix `TYPE_LABEL_KEY` to the real keys from `absence-edit-modal.tsx`. If `text-AIPM-pink`/`text-AIPM-purple` aren't valid, they are used elsewhere — keep.)
+- [ ] **Step 4: Run test to verify it passes** — `npx vitest run src/app/outlook-calendar-import-modal.test.tsx` → PASS. (If `absenceType*` label keys differ, fix `TYPE_LABEL_KEY` to the real keys from `absence-edit-modal.tsx`. If `text-ui-pink`/`text-ui-purple` aren't valid, they are used elsewhere — keep.)
 
 - [ ] **Step 5: Type-check & lint** — `npx tsc --noEmit && npm run lint` → 0 errors.
 
@@ -891,7 +891,7 @@ const handleImportAbsences = useCallback(
   <button
     type="button"
     onClick={onImportOutlookCalendar}
-    className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+    className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted dark:text-ui-light-grey"
   >
     {t(lang, "outlookCalImportButton")}
   </button>

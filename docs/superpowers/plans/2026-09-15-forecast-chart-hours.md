@@ -47,7 +47,7 @@ Recorded as `Ruling — why — cost if wrong`.
 - EN and DE keys land in the same commit (tsc enforces parity). Placeholders are 0-based `{0}`, `{1}`.
 - `Lang` literals in tests are `"en-US"`, never `"en"`. A test asserting DE output calls `loadI18n("de")` in `beforeAll`.
 - Never `git add -A` or `git add .`. Stage named paths. Never stage `sample-workspace-huge.json` or `not-in-use.env.local.bak`. No `--amend`.
-- Commit messages carry no `#` followed by digits. End every commit message with `Claude-Session: https://[session link removed]`.
+- Commit messages carry no `#` followed by digits. End every commit message with the session trailer.
 - Never read an exit code through a pipe. Run vitest as `npx vitest run <files> > <scratch>/<name>.log 2>&1; echo "EXIT=$?"`, then read the log and check `Test Files` counts exactly the files you named. Never run two vitest processes at once. No full suite (the user runs it at the end on their say).
 - After editing any test file, run `npx tsc --noEmit > <scratch>/tsc.log 2>&1; echo "EXIT=$?"` and read the `src/` error count.
 - Lint touched files: `npx eslint --max-warnings=0 <files>; echo "EXIT=$?"`. Unused bindings are fatal; `react-hooks/exhaustive-deps` rejects `obj.member` deps; no `Date.now()`/`new Date()` in a render body; `react-hooks/set-state-in-effect` is fatal.
@@ -293,7 +293,7 @@ Expected: EXIT=0, `Test Files 1 passed`, every pre-existing test still green (th
 npx tsc --noEmit > <scratch>/tsc.log 2>&1; echo "EXIT=$?"
 npx eslint --max-warnings=0 src/app/budget-forecast.ts src/app/budget-forecast.test.ts; echo "EXIT=$?"
 git add src/app/budget-forecast.ts src/app/budget-forecast.test.ts
-git commit -m "feat(forecast): hours facts from the single facts walk" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(forecast): hours facts from the single facts walk"
 ```
 
 ---
@@ -391,7 +391,7 @@ Expected: EXIT=0, `Test Files 4 passed`.
 ```bash
 npx eslint --max-warnings=0 src/app/budget-burndown.ts src/app/budget-burndown.test.ts src/app/burndown-chart.test.tsx src/app/snapshot.test.ts src/app/use-snapshots.test.tsx; echo "EXIT=$?"
 git add src/app/budget-burndown.ts src/app/budget-burndown.test.ts src/app/burndown-chart.test.tsx src/app/snapshot.test.ts src/app/use-snapshots.test.tsx
-git commit -m "feat(burndown): period dates and actual point dates on the series" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(burndown): period dates and actual point dates on the series"
 ```
 
 (Stage only the files you actually changed.)
@@ -596,7 +596,7 @@ Expected: EXIT=0, `Test Files 1 passed`, 5 tests.
 npx tsc --noEmit > <scratch>/tsc.log 2>&1; echo "EXIT=$?"
 npx eslint --max-warnings=0 src/app/budget-ev-history.ts src/app/budget-ev-history.test.ts; echo "EXIT=$?"
 git add src/app/budget-ev-history.ts src/app/budget-ev-history.test.ts
-git commit -m "feat(forecast): derived earned-value history from task completion dates" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(forecast): derived earned-value history from task completion dates"
 ```
 
 ### Task 4: Rate-mix engine
@@ -936,7 +936,7 @@ Run: `npx vitest run <those files> > <scratch>/t4b.log 2>&1; echo "EXIT=$?"` —
 npx tsc --noEmit > <scratch>/tsc.log 2>&1; echo "EXIT=$?"
 npx eslint --max-warnings=0 src/app/budget-rate-mix.ts src/app/budget-rate-mix.test.ts src/app/budget-report.ts; echo "EXIT=$?"
 git add src/app/budget-rate-mix.ts src/app/budget-rate-mix.test.ts src/app/budget-report.ts
-git commit -m "feat(forecast): rate-mix engine — drift, role mix, driver and trigger" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(forecast): rate-mix engine — drift, role mix, driver and trigger"
 ```
 
 (Add any migrated test files to the `git add`.)
@@ -1138,7 +1138,7 @@ Expected: EXIT=0, `Test Files 4 passed` (plus any file you edited in Step 8, nam
 ```bash
 npx eslint --max-warnings=0 src/app/budget-forecasts.ts src/app/budget-forecasts.test.ts src/app/dashboard.ts src/app/dashboard-panel.tsx src/app/budget-report-panel.tsx src/app/workspace-section.tsx src/app/reports.tsx src/app/dashboard.test.ts; echo "EXIT=$?"
 git add src/app/budget-forecasts.ts src/app/budget-forecasts.test.ts src/app/dashboard.ts src/app/dashboard-panel.tsx src/app/budget-report-panel.tsx src/app/workspace-section.tsx src/app/reports.tsx src/app/dashboard.test.ts
-git commit -m "feat(forecast): forecast bundle on the dashboard model and the Budget report" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(forecast): forecast bundle on the dashboard model and the Budget report"
 ```
 
 ---
@@ -1240,7 +1240,7 @@ Keep the body unchanged except the trigger `<span>`: set `className={children ==
 npx tsc --noEmit > <scratch>/tsc.log 2>&1; echo "EXIT=$?"
 npx eslint --max-warnings=0 src/app/info-tooltip.tsx src/app/info-tooltip.test.tsx; echo "EXIT=$?"
 git add src/app/info-tooltip.tsx src/app/info-tooltip.test.tsx
-git commit -m "feat(ui): InfoTooltip accepts a custom trigger" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(ui): InfoTooltip accepts a custom trigger"
 ```
 
 Mutation-check the type pin: delete `label: string;` from the second union member, rerun tsc, confirm an "Unused '@ts-expect-error' directive" error, revert.
@@ -1651,7 +1651,7 @@ Expected: EXIT=0, `Test Files 4 passed`.
 npx tsc --noEmit > <scratch>/tsc.log 2>&1; echo "EXIT=$?"
 npx eslint --max-warnings=0 src/app/forecast-format.ts src/app/forecast-format.test.ts src/app/budget-rate-mix-text.ts src/app/budget-rate-mix-text.test.ts src/test/forecast-fixtures.ts; echo "EXIT=$?"
 git add src/app/i18n.ts src/app/i18n.de.ts src/app/forecast-format.ts src/app/forecast-format.test.ts src/app/budget-rate-mix-text.ts src/app/budget-rate-mix-text.test.ts src/test/forecast-fixtures.ts
-git commit -m "feat(forecast): rate-mix and chart strings, hour and share formatters" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(forecast): rate-mix and chart strings, hour and share formatters"
 ```
 
 ---
@@ -1841,7 +1841,7 @@ function mixChip(lang: Lang, mix: RateMix | null, eur: BudgetForecast, hours: Bu
 npx tsc --noEmit > <scratch>/tsc.log 2>&1; echo "EXIT=$?"
 npx eslint --max-warnings=0 src/app/budget-rate-mix-chip.tsx src/app/budget-forecast-cards.tsx src/app/budget-forecast-cards.test.tsx; echo "EXIT=$?"
 git add src/app/budget-rate-mix-chip.tsx src/app/budget-forecast-cards.tsx src/app/budget-forecast-cards.test.tsx
-git commit -m "feat(forecast): hours lines and rate-mix chips on the forecast cards" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(forecast): hours lines and rate-mix chips on the forecast cards"
 ```
 
 ---
@@ -2153,7 +2153,7 @@ If "539 h of 600 h (90%)" differs only in `Intl` spacing, assert what `formatHou
 npx tsc --noEmit > <scratch>/tsc.log 2>&1; echo "EXIT=$?"
 npx eslint --max-warnings=0 src/app/budget-forecast-banner.tsx src/app/budget-forecast-banner.test.tsx src/app/budget-rate-mix-details.tsx src/app/budget-rate-mix-details.test.tsx src/app/budget-forecast-section.tsx src/app/budget-forecast-section.test.tsx src/app/budget-report-panel.tsx; echo "EXIT=$?"
 git add src/app/budget-forecast-banner.tsx src/app/budget-forecast-banner.test.tsx src/app/budget-rate-mix-details.tsx src/app/budget-rate-mix-details.test.tsx src/app/budget-forecast-section.tsx src/app/budget-forecast-section.test.tsx src/app/budget-report-panel.tsx
-git commit -m "feat(forecast): rate-mix banner and the where-the-hours-went disclosure" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(forecast): rate-mix banner and the where-the-hours-went disclosure"
 ```
 
 ---
@@ -2309,7 +2309,7 @@ Expected: EXIT=0, `Test Files 4 passed`.
 npx tsc --noEmit > <scratch>/tsc.log 2>&1; echo "EXIT=$?"
 npx eslint --max-warnings=0 src/app/budget-forecast-facts.tsx src/app/budget-forecast-facts.test.tsx src/app/budget-forecast-headline.tsx src/app/budget-forecast-headline.test.tsx src/app/dashboard-tile-bodies.tsx src/app/budget-report-panel.tsx; echo "EXIT=$?"
 git add src/app/budget-forecast-facts.tsx src/app/budget-forecast-facts.test.tsx src/app/budget-forecast-headline.tsx src/app/budget-forecast-headline.test.tsx src/app/dashboard-tile-bodies.tsx src/app/budget-report-panel.tsx
-git commit -m "feat(forecast): booked-rate fact and the dashboard hours chip" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(forecast): booked-rate fact and the dashboard hours chip"
 ```
 
 ---
@@ -2614,7 +2614,7 @@ export function buildChartModel(input: ChartInput): ChartModel {
 npx tsc --noEmit > <scratch>/tsc.log 2>&1; echo "EXIT=$?"
 npx eslint --max-warnings=0 src/app/burndown-geometry.ts src/app/burndown-geometry.test.ts; echo "EXIT=$?"
 git add src/app/burndown-geometry.ts src/app/burndown-geometry.test.ts
-git commit -m "feat(burndown): date-accurate chart geometry with forecasts and earned value" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(burndown): date-accurate chart geometry with forecasts and earned value"
 ```
 
 ---
@@ -3036,7 +3036,7 @@ Do NOT commit a red typecheck. Continue straight into Task 13 Steps 1–2, then 
 
 ```bash
 git add src/app/settings-types.ts src/app/use-settings.ts src/app/use-settings.test.ts src/app/burndown-chart.tsx src/app/burndown-chart.test.tsx src/app/burndown-chart-panel.tsx src/app/burndown-chart-panel.test.tsx
-git commit -m "feat(burndown): one chart with orientation and unit switches" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(burndown): one chart with orientation and unit switches"
 ```
 
 ---
@@ -3094,7 +3094,7 @@ Expected: no output, EXIT=1.
 npx tsc --noEmit > <scratch>/tsc.log 2>&1; echo "EXIT=$?"
 npx eslint --max-warnings=0 src/app/budget-report-panel.tsx src/app/dashboard-tile-bodies.tsx src/app/budget-report-panel.test.tsx src/app/dashboard-panel.test.tsx; echo "EXIT=$?"
 git add src/app/budget-report-panel.tsx src/app/dashboard-tile-bodies.tsx src/app/budget-report-panel.test.tsx src/app/dashboard-panel.test.tsx
-git commit -m "feat(burndown): mount the switchable chart on the Budget report and the burn tile" -m "Claude-Session: https://[session link removed]"
+git commit -m "feat(burndown): mount the switchable chart on the Budget report and the burn tile"
 ```
 
 - [ ] **Step 7: Eye-verify note for the final report** — record for the user (do not run a dev server unless asked): the burn tile at `h: 3` now holds headline, chip, tiles, two switches and the chart and will scroll inside the tile (Ruling 15); the Budget report is not reached by the CI axe gate, so a local axe scan of Dashboard and Budget report is offered on the user's say (Ruling 17).
@@ -3117,7 +3117,7 @@ A register closure takes FOUR edits per entry, and missing one fails a blocking 
 
 - [ ] **Step 2: Close §504** (burn-down forecast line, #44).
   - Heading suffix → `— CLOSED <DATE>`.
-  - Status: `**Status:** CLOSED <DATE> — the burn-down chart draws the current-pace forecast (the AIPM Project Burndown "Forecast (Simple)" line: remaining budget minus the 20-working-day burn rate) and the current-efficiency forecast, with a run-out marker, on the Budget report and the dashboard burn tile (\`grep -n "stroke-ui-dark-blue\|stroke-ui-purple" src/app/burndown-chart.tsx\` prints both forecast lines). Alignment with the article: burn rate over the last 20 working days, run-out date, and depletion before or after plan end, per \`docs/superpowers/specs/2026-09-14-budget-forecast-union-design.md\` §1.`
+  - Status: `**Status:** CLOSED <DATE> — the burn-down chart draws the current-pace forecast (the employer Project Burndown "Forecast (Simple)" line: remaining budget minus the 20-working-day burn rate) and the current-efficiency forecast, with a run-out marker, on the Budget report and the dashboard burn tile (\`grep -n "stroke-ui-dark-blue\|stroke-ui-purple" src/app/burndown-chart.tsx\` prints both forecast lines). Alignment with the article: burn rate over the last 20 working days, run-out date, and depletion before or after plan end, per \`docs/superpowers/specs/2026-09-14-budget-forecast-union-design.md\` §1.`
   - Delete `**Work item:** #44`.
 
 - [ ] **Step 3: Narrow §549** (#339 stays open).
@@ -3154,7 +3154,7 @@ Expected: all EXIT=0. `docs:symbols:check` gates `docs/AGENTS/dashboard.md`: eve
 
 ```bash
 git add docs/open-followups.md docs/AGENTS/dashboard.md
-git commit -m "docs(followups): close 501 and 504, narrow 549; dashboard burn tile chart" -m "Claude-Session: https://[session link removed]"
+git commit -m "docs(followups): close 501 and 504, narrow 549; dashboard burn tile chart"
 ```
 
 (Commit messages carry § numbers only as bare numbers — no `#` followed by digits.)

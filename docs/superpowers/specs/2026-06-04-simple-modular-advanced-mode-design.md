@@ -30,8 +30,8 @@ exists: due/RAID-review alerts (`use-due-alerts`), dashboard RAG/EVM aggregation
 snapshot/trends capture (`use-snapshots`), RAID→mitigation-task creation, RACI↔milestones,
 and the addable-reports registry.
 
-All work obeys the AIPM 9-colour palette (no gradients/shadows/off-palette; the one allowed
-amber is `bg-amber-500/20 text-AIPM-purple`), the ASCII-only `i18n.de.ts` rule (byte-patch
+All work obeys the brand 9-colour palette (no gradients/shadows/off-palette; the one allowed
+amber is `bg-amber-500/20 text-ui-purple`), the ASCII-only `i18n.de.ts` rule (byte-patch
 via Node, CRLF-aware — never the Edit tool), and the `--max-warnings=0` lint gate.
 
 ## Decisions (locked during brainstorming)

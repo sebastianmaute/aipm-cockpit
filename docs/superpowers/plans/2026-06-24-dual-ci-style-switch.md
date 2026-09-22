@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship a second "Mockup" visual style (shadows, gradients, red/amber RAG on values/bars/text, light table header) coexisting with the flat AIPM CI, user-switchable in Settings, with palette + axe gates extended to cover both.
+**Goal:** Ship a second "Mockup" visual style (shadows, gradients, red/amber RAG on values/bars/text, light table header) coexisting with the flat brand CI, user-switchable in Settings, with palette + axe gates extended to cover both.
 
-**Architecture:** A `data-style="AIPM"|"mockup"` attribute on `<html>`, orthogonal to the existing `.dark` class, applied pre-paint by the extended no-flash boot script + a `use-style` hook over `localStorage["lop-style"]` (mirrors `use-theme`/`lop-theme`). All visual difference is CSS role tokens (`--rag-*`, `--table-head-*`, `--shadow-*`, `--gradient-kpi`) defined per-style, so one attribute switch reflows every view. Mockup is light-only (pins light). No workspace/serialization change.
+**Architecture:** A `data-style="petrol"|"mockup"` attribute on `<html>`, orthogonal to the existing `.dark` class, applied pre-paint by the extended no-flash boot script + a `use-style` hook over `localStorage["lop-style"]` (mirrors `use-theme`/`lop-theme`). All visual difference is CSS role tokens (`--rag-*`, `--table-head-*`, `--shadow-*`, `--gradient-kpi`) defined per-style, so one attribute switch reflows every view. Mockup is light-only (pins light). No workspace/serialization change.
 
 **Tech Stack:** Forked Next.js 16 / React 19 / TS / Tailwind v4 (CSS `@theme`); Vitest; Playwright (axe).
 
@@ -16,7 +16,7 @@
 - Lint `--max-warnings=0`; `npx tsc --noEmit` after editing ANY test (enforces EN/DE i18n parity); `Lang` is `"en-US"|"en-GB"|"de"`.
 - `i18n.de.ts` is CRLF + Edit tool corrupts umlauts → edit via node utf8 write; `i18n-encoding` test bans ASCII subs.
 - Commit conventional, NO attribution trailers, EXPLICIT paths (never `git add -A` — leave untracked `.agents/`, `skills-lock.json`).
-- Tailwind v4: tokens are exposed via the `@theme inline` block in `globals.css` (`--color-*: var(--*)`). Arbitrary utilities like `bg-[var(--rag-red)]`, `text-[var(--rag-amber-text)]`, `shadow-[var(--shadow-card)]` resolve without a `@theme` entry; named tokens (`bg-AIPM-green`) need the `--color-*` map.
+- Tailwind v4: tokens are exposed via the `@theme inline` block in `globals.css` (`--color-*: var(--*)`). Arbitrary utilities like `bg-[var(--rag-red)]`, `text-[var(--rag-amber-text)]`, `shadow-[var(--shadow-card)]` resolve without a `@theme` entry; named tokens (`bg-ui-green`) need the `--color-*` map.
 - Run `npm run test:run -- <pat>`, `npx tsc --noEmit`, `npm run lint` green before each commit.
 
 ## File structure
@@ -24,13 +24,13 @@
 |---|---|
 | `src/app/style-ci.ts` | Pure: `CiStyle` type, `STYLE_STORAGE_KEY`, `readStoredStyle`, `effectiveDark(theme,style,systemPrefersDark)` |
 | `src/app/use-style.tsx` | `CiStyleProvider` + `useCiStyle()` — `data-style` attr + `lop-style` persist (mirror use-theme) |
-| `src/app/globals.css` | role tokens (`:root` AIPM, `.dark`, `:root[data-style="mockup"]`) + `@theme` map + `.lop-thead` token fill |
+| `src/app/globals.css` | role tokens (`:root` Petrol, `.dark`, `:root[data-style="mockup"]`) + `@theme` map + `.lop-thead` token fill |
 | `src/app/health.ts` | `healthDot`/`healthText` → role tokens |
 | `src/app/table-styles.ts` | `TABLE_HEAD_CLASS` text → token |
 | `src/app/layout.tsx` | extend `NO_FLASH_THEME_SCRIPT` to also apply `data-style` + pin-light |
 | `src/app/shell-palette-guard.test.ts` | allow `shadow-[var(--…)]`, keep banning raw shadow/gradient/hex |
 | `src/app/settings-sections/appearance-section.tsx` | Style `SegmentedControl` + theme-control disable under mockup |
-| `e2e/a11y.spec.ts` | scan matrix AIPM-light / AIPM-dark / Mockup-light |
+| `e2e/a11y.spec.ts` | scan matrix Petrol-light / Petrol-dark / Mockup-light |
 
 ---
 
@@ -46,17 +46,17 @@
 // Per-device CI/style preference, orthogonal to light/dark theme. Its own
 // localStorage key (NOT the workspace Settings) so a no-flash boot script can
 // apply it before first paint. Pure helpers only; DOM wiring in use-style.tsx.
-export type CiStyle = "AIPM" | "mockup";
+export type CiStyle = "petrol" | "mockup";
 
 export const STYLE_STORAGE_KEY = "lop-style";
 
-/** Validate a raw stored string into a CiStyle, defaulting to "AIPM". */
+/** Validate a raw stored string into a CiStyle, defaulting to "petrol". */
 export function readStoredStyle(raw: string | null): CiStyle {
-  return raw === "AIPM" || raw === "mockup" ? raw : "AIPM";
+  return raw === "petrol" || raw === "mockup" ? raw : "petrol";
 }
 
 /** Mockup ships light-only → it PINS light regardless of the theme choice.
- *  AIPM honours the resolved theme. */
+ *  Petrol honours the resolved theme. */
 export function effectiveDark(resolvedThemeDark: boolean, style: CiStyle): boolean {
   return style === "mockup" ? false : resolvedThemeDark;
 }
@@ -69,13 +69,13 @@ import { describe, it, expect } from "vitest";
 import { readStoredStyle, effectiveDark } from "./style-ci";
 
 describe("readStoredStyle", () => {
-  it("defaults unknown/null to AIPM", () => {
-    expect(readStoredStyle(null)).toBe("AIPM");
-    expect(readStoredStyle("bogus")).toBe("AIPM");
+  it("defaults unknown/null to petrol", () => {
+    expect(readStoredStyle(null)).toBe("petrol");
+    expect(readStoredStyle("bogus")).toBe("petrol");
   });
   it("passes through valid values", () => {
     expect(readStoredStyle("mockup")).toBe("mockup");
-    expect(readStoredStyle("AIPM")).toBe("AIPM");
+    expect(readStoredStyle("petrol")).toBe("petrol");
   });
 });
 
@@ -83,9 +83,9 @@ describe("effectiveDark — mockup pins light", () => {
   it("mockup is never dark even when the theme resolved dark", () => {
     expect(effectiveDark(true, "mockup")).toBe(false);
   });
-  it("AIPM honours the resolved theme", () => {
-    expect(effectiveDark(true, "AIPM")).toBe(true);
-    expect(effectiveDark(false, "AIPM")).toBe(false);
+  it("petrol honours the resolved theme", () => {
+    expect(effectiveDark(true, "petrol")).toBe(true);
+    expect(effectiveDark(false, "petrol")).toBe(false);
   });
 });
 ```
@@ -100,13 +100,13 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { type CiStyle, STYLE_STORAGE_KEY, readStoredStyle } from "./style-ci";
 
 interface CiStyleContextValue { style: CiStyle; setStyle: (s: CiStyle) => void; }
-const CiStyleContext = createContext<CiStyleContextValue>({ style: "AIPM", setStyle: () => {} });
+const CiStyleContext = createContext<CiStyleContextValue>({ style: "petrol", setStyle: () => {} });
 
 export function useCiStyle(): CiStyleContextValue { return useContext(CiStyleContext); }
 
 export function CiStyleProvider({ children }: { children: React.ReactNode }) {
   const [style, setStyleState] = useState<CiStyle>(() =>
-    typeof window === "undefined" ? "AIPM" : readStoredStyle(localStorage.getItem(STYLE_STORAGE_KEY)),
+    typeof window === "undefined" ? "petrol" : readStoredStyle(localStorage.getItem(STYLE_STORAGE_KEY)),
   );
 
   useEffect(() => {
@@ -133,7 +133,7 @@ const apply = () => {
   document.documentElement.classList.toggle("dark", dark);
 };
 ```
-(This keeps a single writer of `.dark`. `use-style`'s effect also drops `.dark` on switch-to-mockup; when switching back to AIPM, this `apply` re-runs via the provider re-render and restores dark per the stored theme — verify the theme provider re-renders; if not, it's still correct on next theme change. Acceptable: switching AIPM→mockup→AIPM with a dark theme re-darkens on the next render tick.)
+(This keeps a single writer of `.dark`. `use-style`'s effect also drops `.dark` on switch-to-mockup; when switching back to Petrol, this `apply` re-runs via the provider re-render and restores dark per the stored theme — verify the theme provider re-renders; if not, it's still correct on next theme change. Acceptable: switching Petrol→mockup→Petrol with a dark theme re-darkens on the next render tick.)
 
 - [ ] **Step 6: Mount `CiStyleProvider`.** Find where `ThemeProvider` wraps the app (grep `ThemeProvider` — likely `layout.tsx` or a providers component) and wrap `CiStyleProvider` AROUND or INSIDE it (inside ThemeProvider so the theme apply effect can read `data-style`; CiStyleProvider's effect sets the attr on mount). Place `<ThemeProvider><CiStyleProvider>{children}</CiStyleProvider></ThemeProvider>`.
 
@@ -184,7 +184,7 @@ describe("no-flash boot script", () => {
 - [ ] **Step 3: Replace `NO_FLASH_THEME_SCRIPT`** with a version that applies both:
 
 ```ts
-const NO_FLASH_THEME_SCRIPT = `(function(){try{var s=localStorage.getItem("lop-style")||"AIPM";if(s!=="AIPM"&&s!=="mockup"){s="AIPM";}document.documentElement.setAttribute("data-style",s);var t=localStorage.getItem("lop-theme")||"system";var d=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(s==="mockup"){d=false;}document.documentElement.classList.toggle("dark",d);}catch(e){}})();`;
+const NO_FLASH_THEME_SCRIPT = `(function(){try{var s=localStorage.getItem("lop-style")||"petrol";if(s!=="petrol"&&s!=="mockup"){s="petrol";}document.documentElement.setAttribute("data-style",s);var t=localStorage.getItem("lop-theme")||"system";var d=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(s==="mockup"){d=false;}document.documentElement.classList.toggle("dark",d);}catch(e){}})();`;
 ```
 
 - [ ] **Step 4: Run — expect PASS.** `npm run test:run -- layout-boot-script`. Then `npx tsc --noEmit`.
@@ -199,29 +199,29 @@ git commit -m "feat(style): no-flash boot applies data-style + pins light for mo
 
 ## PHASE 2 — Token layer + style-aware gate
 
-### Task 3: role tokens in globals.css (AIPM = no-op, mockup overrides)
+### Task 3: role tokens in globals.css (Petrol = no-op, mockup overrides)
 
 **Files:** Modify `src/app/globals.css`, `src/app/table-styles.ts`; Test `src/app/style-tokens.test.ts` (new)
 
-- [ ] **Step 1: Add role tokens to `:root`** (after `--AIPM-pink-strong`, before the closing `}` at line 37). AIPM values reproduce TODAY exactly:
+- [ ] **Step 1: Add role tokens to `:root`** (after `--ui-pink-strong`, before the closing `}` at line 37). Petrol values reproduce TODAY exactly:
 
 ```css
-  /* ---- CI-style role tokens (see dual-ci spec). AIPM values reproduce the
+  /* ---- CI-style role tokens (see dual-ci spec). Petrol values reproduce the
      current look; the [data-style="mockup"] block below overrides them. ---- */
   --rag-red: #ef4444;      /* == bg-red-500 (current healthDot) */
   --rag-amber: #f59e0b;    /* == bg-amber-500 */
   --rag-green: #10b981;    /* == bg-emerald-500 */
-  --rag-red-text: var(--AIPM-pink-strong);
-  --rag-amber-text: var(--AIPM-purple);
-  --rag-green-text: var(--AIPM-green-strong);
-  --table-head-bg: var(--AIPM-dark-blue);
+  --rag-red-text: var(--ui-pink-strong);
+  --rag-amber-text: var(--ui-purple);
+  --rag-green-text: var(--ui-green-strong);
+  --table-head-bg: var(--ui-dark-blue);
   --table-head-fg: #ffffff;
   --shadow-card: none;
   --shadow-control: none;
   --gradient-kpi: none;
 ```
 
-- [ ] **Step 2: Add the `@theme inline` entries** (after `--color-AIPM-pink-strong` at line 58) so named utilities resolve where needed:
+- [ ] **Step 2: Add the `@theme inline` entries** (after `--color-ui-pink-strong` at line 58) so named utilities resolve where needed:
 
 ```css
   --color-rag-red: var(--rag-red);
@@ -253,9 +253,9 @@ git commit -m "feat(style): no-flash boot applies data-style + pins light for mo
 }
 ```
 
-- [ ] **Step 4: Make the table header fill token-driven.** Change `globals.css` line 94 `.lop-thead > tr > th { background-color: var(--AIPM-dark-blue); }` → `background-color: var(--table-head-bg); color: var(--table-head-fg);`. In `src/app/table-styles.ts`, change `TABLE_HEAD_CLASS`'s `text-white` → `text-[var(--table-head-fg)]` (so mockup's dark-on-light header text applies; AIPM fg is `#ffffff` → unchanged).
+- [ ] **Step 4: Make the table header fill token-driven.** Change `globals.css` line 94 `.lop-thead > tr > th { background-color: var(--ui-dark-blue); }` → `background-color: var(--table-head-bg); color: var(--table-head-fg);`. In `src/app/table-styles.ts`, change `TABLE_HEAD_CLASS`'s `text-white` → `text-[var(--table-head-fg)]` (so mockup's dark-on-light header text applies; Petrol fg is `#ffffff` → unchanged).
 
-- [ ] **Step 5: Write `src/app/style-tokens.test.ts`** (assert tokens defined + AIPM no-op):
+- [ ] **Step 5: Write `src/app/style-tokens.test.ts`** (assert tokens defined + Petrol no-op):
 
 ```ts
 import { describe, it, expect } from "vitest";
@@ -270,8 +270,8 @@ describe("CI-style role tokens", () => {
   it("defines a mockup override block", () => {
     expect(css).toContain(':root[data-style="mockup"]');
   });
-  it("AIPM table header stays dark-blue (no-op for existing users)", () => {
-    expect(css).toMatch(/--table-head-bg:\s*var\(--AIPM-dark-blue\)/);
+  it("Petrol table header stays dark-blue (no-op for existing users)", () => {
+    expect(css).toMatch(/--table-head-bg:\s*var\(--ui-dark-blue\)/);
     expect(css).toMatch(/--shadow-card:\s*none/);
   });
 });
@@ -326,9 +326,9 @@ git commit -m "test(style): shell-palette-guard allows token-driven shadows, ban
 
 **Files:** Modify `src/app/health.ts`, `src/app/rag-badge.tsx`; update `src/app/rag-badge.test.tsx` / `health.test.ts` if they assert the old classes
 
-- [ ] **Step 1: Check existing assertions.** `git grep -n "bg-red-500\|bg-amber-500\|bg-emerald-500\|text-AIPM-purple\|bg-slate-300" src/app/*.test.*` — note any test asserting these literals (they'll need updating to the token classes).
+- [ ] **Step 1: Check existing assertions.** `git grep -n "bg-red-500\|bg-amber-500\|bg-emerald-500\|text-ui-purple\|bg-slate-300" src/app/*.test.*` — note any test asserting these literals (they'll need updating to the token classes).
 
-- [ ] **Step 2: Edit `health.ts`** — point the maps at tokens (visual no-op for AIPM since the tokens equal the old hexes):
+- [ ] **Step 2: Edit `health.ts`** — point the maps at tokens (visual no-op for brand since the tokens equal the old hexes):
 
 ```ts
 export const healthDot: Record<Health, string> = {
@@ -357,16 +357,16 @@ git commit -m "feat(style): RAG colors via role tokens (reflows on style switch)
 
 **Files:** Modify the shared card/tile + bar primitives. READ FIRST: `src/app/report-table.tsx` (`Tile`), the dashboard KPI tiles, `reports-tables.tsx` `StackedBar`, and any shared card wrapper (grep `rounded-md border border-line bg-surface` for the card idiom).
 
-- [ ] **Step 1: Add the card shadow.** On the shared surface/card primitives (the `Tile` in `report-table.tsx` and the dashboard cockpit card wrappers), append `shadow-[var(--shadow-card)]` to the className (no-op under AIPM where the token is `none`). Do the same `shadow-[var(--shadow-control)]` on the primary button atom in `interaction-styles.ts` ONLY if it reads well — optional; keep to cards if unsure.
+- [ ] **Step 1: Add the card shadow.** On the shared surface/card primitives (the `Tile` in `report-table.tsx` and the dashboard cockpit card wrappers), append `shadow-[var(--shadow-card)]` to the className (no-op under Petrol where the token is `none`). Do the same `shadow-[var(--shadow-control)]` on the primary button atom in `interaction-styles.ts` ONLY if it reads well — optional; keep to cards if unsure.
 
-- [ ] **Step 2: KPI bar gradient.** In `reports-tables.tsx` `StackedBar` (and any dashboard progress/KPI bar), where the bar fill currently uses a flat token, add a mockup-only gradient layer: set the fill element's `style={{ backgroundImage: "var(--gradient-kpi)" }}` (AIPM token is `none` → flat fill via the existing class shows; mockup paints the gradient over it). Keep the existing flat `bg-*` class as the AIPM fallback beneath.
+- [ ] **Step 2: KPI bar gradient.** In `reports-tables.tsx` `StackedBar` (and any dashboard progress/KPI bar), where the bar fill currently uses a flat token, add a mockup-only gradient layer: set the fill element's `style={{ backgroundImage: "var(--gradient-kpi)" }}` (brand token is `none` → flat fill via the existing class shows; mockup paints the gradient over it). Keep the existing flat `bg-*` class as the Petrol fallback beneath.
 
 - [ ] **Step 3: Tests.** Add/extend the relevant component test to assert the card carries `shadow-[var(--shadow-card)]` (string match) — proves the opt-in is wired; the token value (none vs shadow) is style-driven at runtime.
 
 - [ ] **Step 4: Run + tsc + lint + commit.** `npm run test:run -- report-table reports-tables dashboard` green.
 ```bash
 git add <touched files + tests>
-git commit -m "feat(style): cards + KPI bars opt into shadow/gradient tokens (no-op under AIPM)"
+git commit -m "feat(style): cards + KPI bars opt into shadow/gradient tokens (no-op under Petrol)"
 ```
 
 ---
@@ -382,20 +382,20 @@ READ FIRST: `appearance-section.tsx` — how it renders the existing Theme contr
 - [ ] **Step 1: i18n EN** (`i18n.ts`): add
 ```
 styleLabel: "Visual style",
-styleIcc: "Acme",
+styleBrand: "Petrol",
 styleMockup: "Dashboard",
 styleMockupLightOnly: "Dashboard style is light-only — theme is disabled while it's active.",
 ```
 - [ ] **Step 2: i18n DE** (`i18n.de.ts`, NODE-WRITE, real umlauts — these are umlaut-free):
 ```
 styleLabel: "Visueller Stil",
-styleIcc: "Acme",
+styleBrand: "Petrol",
 styleMockup: "Dashboard",
 styleMockupLightOnly: "Der Dashboard-Stil ist nur hell - das Thema ist deaktiviert, solange er aktiv ist.",
 ```
 (`-` not an em-dash to stay ASCII-clean; or use a real "–" copied from EN. Either; just no umlaut subs.)
 
-- [ ] **Step 3: Wire the control.** In `appearance-section.tsx`: import `useCiStyle`; render a `SegmentedControl<CiStyle>` (value `style`, onChange `setStyle`, options AIPM/Dashboard, `ariaLabel={t(lang,"styleLabel")}`) next to the Theme control. When `style === "mockup"`: disable the Theme `SegmentedControl` (`disabled` prop if it supports it, else render it visually-disabled) and show `t(lang,"styleMockupLightOnly")` as a note. Settings → General is axe-scanned → the Style control needs an accessible name (the `ariaLabel`).
+- [ ] **Step 3: Wire the control.** In `appearance-section.tsx`: import `useCiStyle`; render a `SegmentedControl<CiStyle>` (value `style`, onChange `setStyle`, options Petrol/Dashboard, `ariaLabel={t(lang,"styleLabel")}`) next to the Theme control. When `style === "mockup"`: disable the Theme `SegmentedControl` (`disabled` prop if it supports it, else render it visually-disabled) and show `t(lang,"styleMockupLightOnly")` as a note. Settings → General is axe-scanned → the Style control needs an accessible name (the `ariaLabel`).
 
 - [ ] **Step 4: Test `appearance-section.test.tsx`** — render, assert the Style control renders with both options; selecting "Dashboard" calls `setStyle("mockup")` (mock `useCiStyle`); when style is mockup the theme control is disabled + the light-only note shows. `npx tsc --noEmit` after.
 
@@ -405,13 +405,13 @@ git add src/app/settings-sections/appearance-section.tsx src/app/i18n.ts src/app
 git commit -m "feat(style): Appearance style switch + light-only theme lock + i18n"
 ```
 
-### Task 8: axe scan matrix (AIPM-light / AIPM-dark / Mockup-light)
+### Task 8: axe scan matrix (Petrol-light / Petrol-dark / Mockup-light)
 
 **Files:** Modify `e2e/a11y.spec.ts`
 
 READ FIRST: the current spec (`gotoApp`/`openView` setup, the `A11Y_VIEWS` loop, the critical/serious filter).
 
-- [ ] **Step 1: Parametrize over combos.** Define `const COMBOS = [{style:"AIPM",dark:false},{style:"AIPM",dark:true},{style:"mockup",dark:false}] as const;`. Before scanning, set both keys in localStorage and reload so the no-flash script applies them:
+- [ ] **Step 1: Parametrize over combos.** Define `const COMBOS = [{style:"petrol",dark:false},{style:"petrol",dark:true},{style:"mockup",dark:false}] as const;`. Before scanning, set both keys in localStorage and reload so the no-flash script applies them:
 ```ts
 await page.addInitScript(([style, theme]) => {
   localStorage.setItem("lop-style", style);
@@ -427,7 +427,7 @@ Wrap the existing per-view loop in a `for (const combo of COMBOS)` and name test
 - [ ] **Step 4: Commit**
 ```bash
 git add e2e/a11y.spec.ts
-git commit -m "test(style): axe scans AIPM-light, AIPM-dark, Mockup-light combos"
+git commit -m "test(style): axe scans Petrol-light, Petrol-dark, Mockup-light combos"
 ```
 
 ---
@@ -439,10 +439,10 @@ git commit -m "test(style): axe scans AIPM-light, AIPM-dark, Mockup-light combos
 **Files:** `src/app/version.ts`, `i18n.ts`, `i18n.de.ts`, `CHANGELOG.md`, `package.json`, `README.md`, `AGENTS.md`
 
 - [ ] **Step 1:** version `0.139.0`→`0.140.0`; pick an unused sci-fi author milestone (grep CHANGELOG; e.g. "Egan"/"Herbert" if unused); update `APP_BUILD_DATE` comment; append `"versionHighlightDualCi"` to `APP_HIGHLIGHT_KEYS`.
-- [ ] **Step 2:** highlight EN (`i18n.ts`): `versionHighlightDualCi: "Switch between the Acme look and a richer dashboard style (shadows, gradients, red/amber status) in Settings → Appearance",` + DE (node-write): `versionHighlightDualCi: "Wechsle in Einstellungen → Darstellung zwischen dem Acme-Look und einem reichhaltigeren Dashboard-Stil (Schatten, Verlaeufe, Rot/Gelb-Status)",` → replace `Verlaeufe` with real `Verläufe` (umlaut ä).
+- [ ] **Step 2:** highlight EN (`i18n.ts`): `versionHighlightDualCi: "Switch between the Petrol look and a richer dashboard style (shadows, gradients, red/amber status) in Settings → Appearance",` + DE (node-write): `versionHighlightDualCi: "Wechsle in Einstellungen → Darstellung zwischen dem Petrol-Look und einem reichhaltigeren Dashboard-Stil (Schatten, Verlaeufe, Rot/Gelb-Status)",` → replace `Verlaeufe` with real `Verläufe` (umlaut ä).
 - [ ] **Step 3:** CHANGELOG `## [0.140.0] - <date> "<Milestone>"` ### Added — dual-CI style switch.
 - [ ] **Step 4:** package.json version + README badge.
-- [ ] **Step 5: AGENTS.md** add a "Dual-CI / style axis" bullet under Architecture pointers: `data-style="AIPM"|"mockup"` on `<html>` is ORTHOGONAL to `.dark` (set by `use-style` + the extended no-flash boot script over `lop-style`, NOT the settings blob); Mockup is light-only + PINS light (boot script + use-theme drop `.dark`); ALL style difference is CSS role tokens (`--rag-*`/`--rag-*-text`/`--table-head-bg|fg`/`--shadow-*`/`--gradient-kpi`) — AIPM values reproduce the old look (no-op), mockup overrides in `:root[data-style="mockup"]`; shadows/gradients legal ONLY via `shadow-[var(--shadow-*)]`/`var(--gradient-*)` (shell-palette-guard bans raw forms); RAG color flows through `health.ts` tokens; axe scans AIPM-light/AIPM-dark/Mockup-light.
+- [ ] **Step 5: AGENTS.md** add a "Dual-CI / style axis" bullet under Architecture pointers: `data-style="petrol"|"mockup"` on `<html>` is ORTHOGONAL to `.dark` (set by `use-style` + the extended no-flash boot script over `lop-style`, NOT the settings blob); Mockup is light-only + PINS light (boot script + use-theme drop `.dark`); ALL style difference is CSS role tokens (`--rag-*`/`--rag-*-text`/`--table-head-bg|fg`/`--shadow-*`/`--gradient-kpi`) — Petrol values reproduce the old look (no-op), mockup overrides in `:root[data-style="mockup"]`; shadows/gradients legal ONLY via `shadow-[var(--shadow-*)]`/`var(--gradient-*)` (shell-palette-guard bans raw forms); RAG color flows through `health.ts` tokens; axe scans Petrol-light/Petrol-dark/Mockup-light.
 - [ ] **Step 6: Gates + commit.** `npx tsc --noEmit` (parity incl. highlight key) + `npm run test:run -- i18n-encoding version`.
 ```bash
 git add src/app/version.ts src/app/i18n.ts src/app/i18n.de.ts CHANGELOG.md package.json README.md AGENTS.md
@@ -459,5 +459,5 @@ git commit -m "chore(release): v0.140.0 dual-CI style switch"
 ## Self-review (vs spec)
 - §Architecture (data-style + no-flash + pin-light) → Tasks 1–2. §Token layer → Task 3. §RAG refactor → Task 5. §Table header/cards → Tasks 3–6. §Gates (palette-sweep style-aware + axe matrix) → Tasks 4, 8. §Settings switch → Task 7. §Release/AGENTS → Task 9. §Testing → every task TDD + Task 10 full gates.
 - Decisions honoured: orthogonal axis (Task 1 `data-style`), shadows+gradients+richer-RAG+light-header (Tasks 3,5,6), mockup light-only/pins-light (Tasks 1,2), scan every shipped combo (Task 8: 3 combos), no-flash `lop-style` store (Tasks 1,2), one MR.
-- Type consistency: `CiStyle` ("AIPM"|"mockup") defined Task 1, used 1/2/7; role token names defined Task 3, consumed 3/5/6/8; `readStoredStyle`/`effectiveDark` Task 1.
+- Type consistency: `CiStyle` ("petrol"|"mockup") defined Task 1, used 1/2/7; role token names defined Task 3, consumed 3/5/6/8; `readStoredStyle`/`effectiveDark` Task 1.
 - No placeholders: pure modules + tokens + boot script + gate regex have full code; UI-wiring tasks (6,7) carry exact class/token names + "read first" pointers (the established pattern).

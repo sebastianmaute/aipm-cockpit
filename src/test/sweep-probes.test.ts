@@ -24,7 +24,7 @@ describe("changedInKind", () => {
     ["14:00", "15:00"],
     ["23:30", "00:30"],
     ["2026-07-08T10:00:00.000Z", "2026-07-09T10:00:00.000Z"],
-    ["m.Jordan@example.com", "m.Jordan+probed@example.com"],
+    ["m.bennett@example.com", "m.bennett+probed@example.com"],
     ["Room 1", "Room 1 probed"],
     [[1, 2, 3], [2, 3]],
     [[1], []],
@@ -252,9 +252,9 @@ describe("probeFor", () => {
   it("sends the seeded value as is when the reference carries none", () => {
     const outcome = probeFor({
       entity: "task", arm: "create", field: "assigneeEmail", declared: true,
-      reference: { id: 1, taskName: "A task" }, seedRow: { assigneeEmail: "m.Jordan@example.com" }, compare: sameAt,
+      reference: { id: 1, taskName: "A task" }, seedRow: { assigneeEmail: "m.bennett@example.com" }, compare: sameAt,
     });
-    expect(outcome).toEqual({ kind: "probe", value: "m.Jordan@example.com" });
+    expect(outcome).toEqual({ kind: "probe", value: "m.bennett@example.com" });
   });
 
   // `raci` is undeclared on both stakeholder tools (AGENTS.md's own §438 list),

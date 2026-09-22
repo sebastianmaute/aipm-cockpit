@@ -29,7 +29,7 @@
 - ★ **The three dirty files named in earlier briefs (`sample-workspace-huge.json`, `package-lock.json`, `not-in-use.env.local.bak`) are NOT in this worktree** — they belong to the main checkout at `C:/Projects/aipm-cockpit`, where the session's opening `gitStatus` snapshot was taken. `.worktrees/rebase` is clean. Do not read an empty `git status` here as a missing file. The never-stage rule still stands wherever they do appear.
 - Never stage `sample-workspace-huge.json` or `not-in-use.env.local.bak`. Never `git add -A` / `git add .` — name paths.
 - `git checkout -- <file>` and `git restore` are deny-blocked. `git stash` must **never** be run in this worktree. Never `--amend`.
-- Every commit ends with `Claude-Session: https://[session link removed]`.
+- Every commit ends with the session trailer.
 - Budget file size with `node -e "console.log(require('fs').readFileSync('<f>','utf8').split('\n').length)"` — the ratchet counts `wc -l` **plus one**. LIMIT 1600. Today: `modal-header.tsx` 265, `popover-panel.tsx` 540, `help-content.ts` 307, `notes-window.tsx` 137, `help-body-text.tsx` 70.
 
 ---
@@ -234,8 +234,6 @@ decoration: PopoverPanel pushes kind:"modal", modal.tsx stands its own Tab
 trap down for the topmost such entry, and PopoverPanel's cycle declines to
 trap when the panel holds no focusables, so a text-only panel stands both
 traps down.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -295,8 +293,6 @@ with conceptId directly. The scan matched only the first, so a bespoke site
 would have been reported as an unwired MODAL_HELP key -- a red naming the
 wrong files. Inert today (no bespoke site exists yet) and becomes live with
 the first one.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -534,8 +530,6 @@ carry icons today pointing at entries with no content about what they do.
 
 Every sentence is backed by an evidence row naming the file and symbol it
 came from; nothing here was written from the dialog's name.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -625,8 +619,6 @@ task's own estimate. Both now point at entries written for them.
 
 The comments recording each absence as deliberate are deleted in this commit
 rather than left contradicting the code.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -748,8 +740,6 @@ information-pack lead days -- not the per-meeting status report editor the
 dialog actually is. automated-insights describes detection and triage and
 never mentions recommendations, previews or applying, which is the only
 question its dialog poses. A wrong entry is worse than no icon.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 

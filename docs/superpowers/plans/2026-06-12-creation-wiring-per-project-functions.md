@@ -462,7 +462,7 @@ git commit -m "feat: apply template + per-project features at project creation"
   - **Step 1:** reuse the existing `ProjectForm`/`CreateProjectForm` field group; on its submit, capture meta+format and advance to Step 2 (don't create yet). (Extract the field group from `create-project-form.tsx` if needed so Step 1 doesn't show a premature "Create" button — or repurpose its submit as "Next".)
   - **Step 2:** list `useTemplates().templates` + a Blank row. Selecting a template sets `selectedTemplate` and initializes `features` from `template.features` (Blank → `[...ALL_MODULE_IDS]`).
   - **Step 3:** the mode presets + per-module checkboxes (reuse the shape from `mode-section.tsx`: Simple→[], Advanced→all, `FEATURE_MODULES.map` checkboxes toggling `features`); an "Include starter content" checkbox shown only when `selectedTemplate?.seed` is non-empty. Create button → `onCreate(meta, format, { template: selectedTemplate ?? undefined, features, includeSeed })`.
-  - Back/Next nav between steps. AIPM palette tokens (grep mode-section / create-project-form).
+  - Back/Next nav between steps. Brand palette tokens (grep mode-section / create-project-form).
 
 - [ ] **Step 5: Wire entry points** — in `project-empty-state.tsx` (~:117) and `projects-panel.tsx` (~:396), replace `<CreateProjectForm .../>` with `<CreateProjectWizard .../>`, passing an `onCreate` that routes to the create flow with the new `opts` (thread `opts` to `handleCreateProjectByMode`/`createTursoProject`). Keep `onCancel`.
 

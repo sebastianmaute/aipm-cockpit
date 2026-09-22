@@ -67,7 +67,7 @@ In `settings-menu.tsx`, in the Turso integrations block next to `integrationsTur
   href="https://turso.tech/"
   target="_blank"
   rel="noopener noreferrer"
-  className="text-AIPM-dark-blue underline hover:opacity-80"
+  className="text-ui-dark-blue underline hover:opacity-80"
 >
   {t(lang, "integrationsTursoLearnMore")}
 </a>

@@ -48,7 +48,7 @@ function StyleProbe() {
 }
 
 describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
-  it("always writes data-style=custom, never AIPM/mockup", () => {
+  it("always writes data-style=custom, never a retired style value", () => {
     render(tree());
     expect(document.documentElement.getAttribute("data-style")).toBe("custom");
 
@@ -182,11 +182,12 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
     expect(loadSchemes().activeId).toBe("meridian");
   });
 
-  it("does NOT activate a scheme for a legacy aipm-cockpit-style='AIPM'; normalises to custom", () => {
-    // "AIPM" is the retired CiStyle value — kept literal because a real device's
-    // stored localStorage may still carry it.
+  it("does NOT activate a scheme for a retired aipm-cockpit-style value; normalises to custom", () => {
+    // A fictional stand-in for the retired brand-named CiStyle value a real device's
+    // stored localStorage may still carry. The initializer's only test is
+    // `stored !== "custom"`, so every non-"custom" value takes this same path.
     setActive("meridian"); // pre-existing active scheme
-    localStorage.setItem(STYLE_STORAGE_KEY, "AIPM"); // legacy value
+    localStorage.setItem(STYLE_STORAGE_KEY, "retired-brand"); // legacy value
     render(tree(<StyleProbe />));
     expect(document.documentElement.getAttribute("data-style")).toBe("custom");
     expect(localStorage.getItem(STYLE_STORAGE_KEY)).toBe("custom");
@@ -194,7 +195,7 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
     // or the localStorage write-back — pins the initializer actually normalised the
     // STATE, not merely the persisted value.
     expect(screen.getByTestId("style").textContent).toBe("custom");
-    // Legacy migration dropped — the scheme store is left untouched (no setActive("AIPM")).
+    // Legacy migration dropped — the scheme store is left untouched (no scheme activated for it).
     expect(loadSchemes().activeId).toBe("meridian");
   });
 

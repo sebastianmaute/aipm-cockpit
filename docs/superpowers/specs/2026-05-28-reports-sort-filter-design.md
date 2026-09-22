@@ -87,7 +87,7 @@ function TableFilter({
         onChange={(e) => onChange(e.target.value)}
         placeholder={t(lang, placeholderKey)}
         aria-label={t(lang, placeholderKey)}
-        className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-AIPM-dark-blue focus:outline-none"
+        className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-ui-dark-blue focus:outline-none"
       />
       {value && (
         <button

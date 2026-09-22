@@ -152,7 +152,7 @@ Each deviation below was found in the code while planning. The plan follows the 
   - NEVER use `git add -A`/`.`, `--amend`, bare `git stash`, or `npm ci`.
   - `git checkout --`/`git restore` are blocked; revert with an inverse Edit.
   - Never touch untracked files the task did not create.
-  - Use conventional commit types. Every message file ends with a blank line and then `Claude-Session: https://[session link removed]`.
+  - Use conventional commit types. Every message file ends with a blank line and then the session trailer.
   - Write message files with the Write tool.
 - **UI**
   - Nothing hand-rolled: `Button` (`variant="secondary" size="xs"`, exactly as Act/Acknowledge use it), `SortResizeTh`, `RaidEditModal`, and `PopoverPanel` through `ActionOverflowMenu`'s existing `item()`.
@@ -465,8 +465,6 @@ refactor: extract the RAID draft builders into raid-draft.ts
 openNew's default draft, applyStatus and applyMatrix move out of
 raid-panel.tsx unchanged, plus buildRaidSeedFromSignal, so the RAID panel
 and the upcoming Log-as-RAID host build the same draft (§515).
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -570,7 +568,7 @@ import {
 import type { RaidEscalation } from "./types";
 
 const RAISED: RaidEscalation = {
-  at: "2026-05-20T09:30:00.000Z", toName: "Sam Placeholder", toEmail: "Fictional.Jordan@example.com",
+  at: "2026-05-20T09:30:00.000Z", toName: "Noah Bennett", toEmail: "noah.bennett@example.com",
   toResourceId: 2, fromSeverity: "Medium", toSeverity: "High",
 };
 const NOTIFY: RaidEscalation = { at: "2026-05-22T14:00:00.000Z", toEmail: "ops@example.com" };
@@ -587,7 +585,7 @@ describe("sanitizeRaidEscalations", () => {
   });
   it("drops an unknown severity together with its other half", () => {
     expect(sanitizeRaidEscalations([{ ...RAISED, toSeverity: "Apocalyptic" }])).toEqual([
-      { at: RAISED.at, toName: "Sam Placeholder", toEmail: "Fictional.Jordan@example.com", toResourceId: 2 },
+      { at: RAISED.at, toName: "Noah Bennett", toEmail: "noah.bennett@example.com", toResourceId: 2 },
     ]);
   });
   it("drops a non-positive or fractional resource id", () => {
@@ -667,7 +665,7 @@ describe("entity persistence registry — RaidItem.escalations", () => {
 
 ```ts
 describe("sanitizeRaidItem — escalations", () => {
-  const ESC = { at: "2026-05-20T09:30:00.000Z", toName: "Sam Placeholder", toEmail: "Fictional.Jordan@example.com", fromSeverity: "Medium", toSeverity: "High" };
+  const ESC = { at: "2026-05-20T09:30:00.000Z", toName: "Noah Bennett", toEmail: "noah.bennett@example.com", fromSeverity: "Medium", toSeverity: "High" };
   it("keeps a valid escalation record", () => {
     expect(sanitizeRaidItem({ ...baseRaid, escalations: [ESC] })?.escalations).toEqual([ESC]);
   });
@@ -1116,7 +1114,7 @@ with
 ```ts
     inquiriesSent: 2,
     escalations: [
-      { at: "2026-06-11T07:45:00.000Z", toName: "M. Jordan", toEmail: "m.Jordan@example.com", toResourceId: 2, fromSeverity: "Medium", toSeverity: "High" },
+      { at: "2026-06-11T07:45:00.000Z", toName: "M. Bennett", toEmail: "m.bennett@example.com", toResourceId: 2, fromSeverity: "Medium", toSeverity: "High" },
       { at: "2026-06-12T07:00:00.000Z", toEmail: "ops@example.com" },
     ],
     localModifiedAt: "2026-06-12T08:15:00.000Z",
@@ -1154,8 +1152,8 @@ Locate the Issue with `Grep` pattern `Rate-limit counter not resetting correctly
 "escalations": [
   {
     "at": "2026-05-20T09:30:00.000Z",
-    "toName": "Sam Placeholder",
-    "toEmail": "Fictional.Jordan@example.com",
+    "toName": "Noah Bennett",
+    "toEmail": "noah.bennett@acme-corp.example",
     "toResourceId": 2,
     "fromSeverity": "Medium",
     "toSeverity": "High"
@@ -1252,8 +1250,6 @@ passed through JSON and IndexedDB. The model cannot write it
 out, and handleSaveRaidItem keeps the stored record over a stale editor
 draft. The sample master gains one escalated Issue; goldens and the
 scaled samples are regenerated (§515).
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -1729,8 +1725,6 @@ when the plan says so, appends a RaidEscalation, echoes it into the note
 log and stamps localModifiedAt, then logs raid.escalated with the severity
 step only. The closure read of raid that lost a same-tick concurrent write
 is gone (§515).
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -2701,8 +2695,6 @@ raid.escalated row (actor ai, no address), one functional setRaid with
 undo capture. No email is sent. One call applies; two or more in a turn
 stage. update_raid_item still refuses the raw escalations field; the
 required token refuses a second escalation from the same read (§515).
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -2812,7 +2804,7 @@ If `compareRaid` is not already imported in `raid.test.ts` (`grep -n "compareRai
 describe("RaidPanel — Last escalated column (§515)", () => {
   const escalated = makeRaidItem({
     id: 9, title: "Rate limit", severity: "High",
-    escalations: [{ at: "2026-05-20T09:30:00.000Z", toName: "Sam Placeholder", toEmail: "Fictional.Jordan@example.com", fromSeverity: "Medium", toSeverity: "High" }],
+    escalations: [{ at: "2026-05-20T09:30:00.000Z", toName: "Noah Bennett", toEmail: "noah.bennett@example.com", fromSeverity: "Medium", toSeverity: "High" }],
   });
 
   it("is hidden by default and can be switched on from the column config", () => {
@@ -2820,7 +2812,7 @@ describe("RaidPanel — Last escalated column (§515)", () => {
     // Positive control: the table header row is rendered.
     expect(screen.getByRole("button", { name: /^Severity( [▲▼])?$/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^Last escalated( [▲▼])?$/ })).toBeNull();
-    expect(screen.queryByText("2026-05-20 · Sam Placeholder")).toBeNull();
+    expect(screen.queryByText("2026-05-20 · Noah Bennett")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "colConfigTitle") }));
     const toggle = screen.getByRole("checkbox", {
@@ -2830,7 +2822,7 @@ describe("RaidPanel — Last escalated column (§515)", () => {
     fireEvent.click(toggle);
 
     expect(screen.getByRole("button", { name: /^Last escalated( [▲▼])?$/ })).toBeTruthy();
-    expect(screen.getByText("2026-05-20 · Sam Placeholder")).toBeTruthy();
+    expect(screen.getByText("2026-05-20 · Noah Bennett")).toBeTruthy();
   });
 });
 ```
@@ -2844,7 +2836,7 @@ describe("RaidEditModal — Escalations list (§515)", () => {
       modalEl({
         category: "I",
         escalations: [
-          { at: "2026-05-20T09:30:00.000Z", toName: "Sam Placeholder", toEmail: "Fictional.Jordan@example.com", fromSeverity: "Medium", toSeverity: "High" },
+          { at: "2026-05-20T09:30:00.000Z", toName: "Noah Bennett", toEmail: "noah.bennett@example.com", fromSeverity: "Medium", toSeverity: "High" },
           { at: "2026-05-22T14:00:00.000Z", toEmail: "ops@example.com" },
         ],
       }),
@@ -2854,7 +2846,7 @@ describe("RaidEditModal — Escalations list (§515)", () => {
     const items = screen.getAllByRole("listitem").map((li) => li.textContent ?? "");
     const mine = items.filter((s) => s.startsWith("2026-05-2"));
     expect(mine).toEqual([
-      `2026-05-20 · ${t("en-US", "raidEscalationNoteRaised", "Sam Placeholder <Fictional.Jordan@example.com>", "Medium", "High")}`,
+      `2026-05-20 · ${t("en-US", "raidEscalationNoteRaised", "Noah Bennett <noah.bennett@example.com>", "Medium", "High")}`,
       "2026-05-22 · Escalated to ops@example.com (notify only)",
     ]);
   });
@@ -3029,8 +3021,6 @@ feat: show RAID escalations in the table and the edit modal
 A sortable "Last escalated" column (hidden by default; never-escalated
 items sort last) and a read-only Escalations list in the RAID editor,
 rendered only when the item carries a record (§515).
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -3841,8 +3831,6 @@ editor over the current view with a draft seeded from the action; Save
 creates with isNew=true and records learning, Cancel changes nothing.
 "Log as RAID" sits in the row and hero overflow for every non-RAID
 signal and is absent in popouts (§515).
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -4789,8 +4777,6 @@ same first-act-wins baseline as Act — and stores loggedRaidId, the id the
 save committed; Cancel changes nothing. The link is sanitized, carried
 through a reconcile re-fire and counted as a material change, and the row
 then shows "Logged as RAID #N" with Open (§515).
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash
@@ -4911,8 +4897,6 @@ link, rich-text.md adds Escalate as a write-through RAID writer that the
 save handler's stored-row carry covers, AGENTS.md lists the new overflow
 item, and §515 closes (heading, anchor, index row, Status; Work item line
 removed — #55 closes at merge).
-
-Claude-Session: https://[session link removed]
 ```
 
 ```bash

@@ -1925,7 +1925,7 @@ Expected: VERSION=0. ★★ Exit **1** is DRIFT (re-run `version:sync`); exit **
 
 - [ ] **Step 4: CHANGELOG**
 
-Add a `0.263.1` entry above `0.263.0` describing the three links in user terms. ★ No `[session link removed]...` URL in `CHANGELOG.md` — commit trailers are fine, this file is not.
+Add a `0.263.1` entry above `0.263.0` describing the three links in user terms. ★ No assistant session URL in `CHANGELOG.md` — commit trailers are fine, this file is not.
 
 - [ ] **Step 5: Re-run the version and docs gates**
 
@@ -2001,7 +2001,7 @@ cd /c/Projects/aipm-cockpit
 git push -u origin fix/meta-decode-loss-chain
 ```
 
-Then open the MR with `glab`. ★★ The description must contain **no** `[session link removed]...` URL. State the non-goals from the top of this plan in it, and state the OWED end-to-end verification explicitly.
+Then open the MR with `glab`. ★★ The description must contain **no** assistant session URL. State the non-goals from the top of this plan in it, and state the OWED end-to-end verification explicitly.
 
 - [ ] **Step 4: Poll to a terminal state**
 

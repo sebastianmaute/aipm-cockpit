@@ -29,8 +29,8 @@ view — show meaningful data.
 - **Disciplines:** 1 Developer, 2 Business Analyst, 3 Consultant, 4 Project Manager.
 - **Roles:** 1 (Dev/Senior 95/145), 2 (Dev/Lead 110/165), 3 (BA/Consultant 80/120),
   4 (PM/Senior 100/150), 5 (Dev/Consultant 75/110), 6 (Consultant/Lead 115/170).
-- **Resources:** 1 Sample→role 1, 2 Fictional→role 2, 3 Aria→role 3, 4 Invented→role 4,
-  5 David→role 5.
+- **Resources:** 1 Sofia→role 1, 2 Noah→role 2, 3 Ava→role 3, 4 Maya→role 4,
+  5 Liam→role 5.
 
 ## The five buckets (replace the current `budgets` array)
 

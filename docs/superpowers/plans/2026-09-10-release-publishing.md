@@ -26,7 +26,7 @@ These are not suggestions. Each one has cost someone a debugging session in this
 - **Never echo, log or commit `CI_JOB_TOKEN`**, any Turso URL, or any auth token. The publish script must not print its own headers.
 - **No version bump, no CHANGELOG entry, no push, no tag, no MR** during Tasks 1–9. Task 10 is local gates. Task 11 requires the user's explicit say-so and is the only task that touches the remote.
 - Commit trailer on every commit:
-  `Claude-Session: https://[session link removed]`
+  the session trailer
 
 ### What is already done — do NOT re-implement
 
@@ -166,8 +166,6 @@ has spent a day on it.
 
 Records that 92.8 MB sits against a documented 100 MB default that nobody here
 can read, and that a size rejection arrives AFTER a green build.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -549,8 +547,6 @@ would send the reader to version.ts to fix a file that is correct.
 
 Compares the whole remainder rather than a prefix -- v0.301.01 and v0.301.0-rc1
 both start with the version and are both wrong. Pinned by tests.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -732,8 +728,6 @@ passes everything, so those cannot share a code.
 Proved non-vacuous rather than asserted: v9.9.9 exits 1, a v-less 0.301.0 exits
 1, an empty tag exits 2, and the matching tag exits 0 while NAMING both values
 -- a bare 0 cannot be told from a gate that stopped reading the file.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -994,8 +988,6 @@ false, and that is exactly what a tag build wants.
 tag-version-check runs with needs: [] so it reports back immediately; a
 drifted tag skips the wine build outright, because the build job needs the
 guard.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -1380,8 +1372,6 @@ header, and the body is rendered publicly on the Releases page.
 
 description links CHANGELOG.md rather than quoting it. Parsing a release section
 out has a silent failure mode -- a heading rename empties the notes.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -2777,8 +2767,6 @@ reads "HTTP 201 is not 201 Created", and 0/NaN/600 read "unexpected status"
 rather than "could not be reached".
 
 Mutation-tested one mutant at a time: 65 mutants, 62 killed, 3 equivalent.
-
-Claude-Session: https://[session link removed]
 EOF
 git add scripts/publish-release.mjs
 git commit -F - -- scripts/publish-release.mjs package.json CONTRIBUTING.md docs/superpowers/plans/2026-09-10-release-publishing.md <<'EOF'
@@ -2815,8 +2803,6 @@ their trailing commas, and the generate run's expected output says "updated".
 Task 10 now expects 113 tests (16 + 97), derived with vitest list because
 grep -c cannot count it.each rows, and its dry run passes the API variables
 it now needs.
-
-Claude-Session: https://[session link removed]
 EOF
 git add scripts/publish-release.integration.test.mjs
 git commit -F - -- scripts/publish-release.mjs scripts/publish-release.integration.test.mjs scripts/release-publish-lib.mjs scripts/release-publish-lib.test.mjs package.json CONTRIBUTING.md .gitlab-ci.yml docs/superpowers/plans/2026-09-10-release-publishing.md <<'EOF'
@@ -2849,8 +2835,6 @@ are labelled MiB where du produced them (97,353,634 bytes is 97.4 MB /
 Task 8 text drops the size and says a download needs project membership, not
 merely a signed-in account, which the lib's own docstring already claimed
 desktop-rollout.md said. Task 10 now runs three files: 128 tests (16 + 98 + 14).
-
-Claude-Session: https://[session link removed]
 EOF
 git commit -F - -- scripts/publish-release.mjs scripts/publish-release.integration.test.mjs scripts/release-publish-lib.mjs docs/superpowers/specs/_probes/2026-09-10-wine-runner-and-artifact-size.md docs/superpowers/plans/2026-09-10-release-publishing.md <<'EOF'
 fix(ci): the plan's probe, Task 11 and Task 8 say only what was measured
@@ -2883,8 +2867,6 @@ alone excludes npm's echoed command line (98), and only dropping both prints
 99. The plan also records that vitest list exits 0 when its worker fails to
 start and lists nothing, so the derivations now run it with --maxWorkers=1
 and check for "Failed to start".
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -3040,8 +3022,6 @@ to the job (modulo CRLF), Step 2 describes the verifier that was actually run
 -- key set, effective values after default:, stage order, the dast-zap
 precondition and ARTIFACT_JOB, driven red by six mutants (6 of 6 exit 1) --
 and this commit block replaces the one it prescribed.
-
-Claude-Session: https://[session link removed]
 ```
 
 ---
@@ -3249,8 +3229,6 @@ Claims the plan's blocks carried that did not survive checking:
 The plan's Task 8 is synced: both blocks are byte-identical to the two docs,
 Step 3 carries the gate's real output and a falsifier that proves the RUNBOOK
 is in the gate's scope, and this block replaces the commit it prescribed.
-
-Claude-Session: https://[session link removed]
 ```
 
 - [ ] **Step 5: The recovery round**
@@ -3291,8 +3269,6 @@ Plan, Task 8: the access note called the user text NEUTRAL about access, but
 that text still claims "access to the project's pipelines". The note now
 says what the text claims and what it leaves open. The RUNBOOK block is
 byte-identical to the doc again, and this message is recorded as Step 5.
-
-Claude-Session: https://[session link removed]
 ```
 
 - [ ] **Step 6: The hedge round**
@@ -3440,8 +3416,6 @@ sentence, and tag-version-check to the quality-stage jobs with no bypass label.
 
 The plan's draft said a rename 404s every PAST Release; that half is not
 established and was dropped, and the plan now says why.
-
-Claude-Session: https://[session link removed]
 ```
 
 - [ ] **Step 4: Name every file `version:sync` writes, where the version is documented — a SEPARATE commit**
@@ -3521,8 +3495,6 @@ as the tiebreak.
 Also .gitlab-ci.yml, comments only: README does not name the download location,
 it links docs/desktop-rollout.md, which does. The parsed YAML is identical
 before and after, and the plan's Task 4 and Task 7 blocks change with it.
-
-Claude-Session: https://[session link removed]
 ```
 
 ---
@@ -3630,8 +3602,6 @@ docs(spike): resolve the wine runner and artifact size questions
 
 Fills in the measured section from the first manual run: image pull, build
 outcome, and the artifact's stored size and contents as GitLab reports them.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 

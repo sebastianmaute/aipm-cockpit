@@ -1689,7 +1689,7 @@ Every file must report at least 1; `package-lock.json` at least 2.
 - [ ] **Step 4: No session URLs**
 
 ```bash
-grep -n "[session link removed]" CHANGELOG.md; echo "EXIT=$?"
+grep -n "code/session_" CHANGELOG.md; echo "EXIT=$?"
 ```
 Expected: EXIT=1, no output. A session URL must never appear in `CHANGELOG.md` or an MR description. Commit trailers are exempt.
 

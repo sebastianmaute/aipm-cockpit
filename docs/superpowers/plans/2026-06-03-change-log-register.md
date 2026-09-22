@@ -6,14 +6,14 @@
 
 **Architecture:** New `ChangeItem` entity mirroring the RAID log's file structure and the Milestones (0.44.0) new-entity precedent. Pure logic in `change-log.ts`; storage via the column-driven registry (schema v6→v7 additive migration); `change-panel.tsx` + `change-edit-modal.tsx` + `change-report-panel.tsx`; a `use-change-log.ts` CRUD hook; dashboard Scope signal; nav wiring through `AppView`/`TopTab`.
 
-**Tech Stack:** Next.js 16 / React / TypeScript, Vitest 4 + React Testing Library, Tailwind v4, AIPM palette tokens only.
+**Tech Stack:** Next.js 16 / React / TypeScript, Vitest 4 + React Testing Library, Tailwind v4, brand palette tokens only.
 
 ---
 
 ## Critical conventions (read before any task)
 
 - **GIT SAFETY (every task):** ONLY `git add` / `git commit`. NEVER `checkout`, `switch`, `reset`, `stash`, `rebase`, `revert`, `clean`, `restore`, branch, merge, push. Read-only git otherwise. Stay on `feat-change-log`.
-- **AIPM palette HARD constraint:** only the 9 brand tokens in `globals.css` (`AIPM-green`, `AIPM-dark-blue`, `AIPM-pink`, `AIPM-purple`, surface/line/muted). No raw hex, gradients, or shadows.
+- **Brand palette HARD constraint:** only the 9 brand tokens in `globals.css` (`ui-green`, `ui-dark-blue`, `ui-pink`, `ui-purple`, surface/line/muted). No raw hex, gradients, or shadows.
 - **i18n parity:** every new key in BOTH `i18n.ts` (EN) and `i18n.de.ts` (DE); `tsc` enforces it. In `i18n.de.ts` use STRAIGHT ASCII quotes and ASCII transliterations (ae/oe/ue) — never curly quotes/umlauts. Grep the new lines after editing.
 - **Commands:** `npx tsc --noEmit`; `npm run lint`; `npx vitest run <file>`; `npm run test:run` (full).
 - **Commits:** Conventional Commits via the Bash tool: `git commit -F - <<'EOF' … EOF`.
@@ -1282,7 +1282,7 @@ EOF
 - [ ] **Step 3: Implement:**
   - `task-manager.tsx`: `const changeByTask = useMemo(() => buildChangeByTaskIndex(changes), [changes]);` and pass it to `TasksSection` (mirror `raidByTask`).
   - `tasks-section.tsx`: accept `changeByTask: Map<number, ChangeItem[]>`; per row, pass `changeRefs={changeByTask.get(task.id)}`.
-  - `task-row.tsx`: add `changeRefs?: ChangeItem[]` to props; render a read-only badge `{changeRefs?.length ? <span...>{t(lang,"taskRowChangesBadge", changeRefs.length)}</span> : null}` next to the RAID badge. Display-only (no click). Palette tokens (`AIPM-purple`/muted as the RAID badge uses).
+  - `task-row.tsx`: add `changeRefs?: ChangeItem[]` to props; render a read-only badge `{changeRefs?.length ? <span...>{t(lang,"taskRowChangesBadge", changeRefs.length)}</span> : null}` next to the RAID badge. Display-only (no click). Palette tokens (`ui-purple`/muted as the RAID badge uses).
 
 - [ ] **Step 4: Run** `npx vitest run src/app/task-row.test.tsx` → PASS. tsc + lint clean.
 

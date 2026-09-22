@@ -221,7 +221,7 @@ add:
                 href="https://turso.tech/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-AIPM-dark-blue underline hover:opacity-80"
+                className="text-ui-dark-blue underline hover:opacity-80"
               >
                 {t(lang, "integrationsTursoLearnMore")}
               </a>
@@ -303,7 +303,7 @@ export function InfoTooltip({ text, label }: InfoTooltipProps) {
         type="button"
         aria-label={label ?? text}
         title={text}
-        className="flex h-4 w-4 items-center justify-center rounded-full border border-line text-[10px] font-semibold leading-none text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+        className="flex h-4 w-4 items-center justify-center rounded-full border border-line text-[10px] font-semibold leading-none text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ui-green"
       >
         i
       </button>

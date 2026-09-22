@@ -36,7 +36,7 @@ export function buildRelationsGraph(entries: readonly HelpEntry[]): RelationsGra
 
 `RelationsMap({ graph, lang, onSelectConcept })`. **Overlay technique** for robust a11y (avoids fragile focusable-SVG sub-elements):
 
-- A decorative `<svg aria-hidden="true" className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">` draws the **edges** as `<line>` (coords `= x·100, y·100`) plus a small node `<circle>` dot per node. Edge stroke uses palette tokens; when an `active` node is set, edges incident to it render accented (`stroke-AIPM-dark-blue`, thicker) and the rest dim (lower opacity).
+- A decorative `<svg aria-hidden="true" className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">` draws the **edges** as `<line>` (coords `= x·100, y·100`) plus a small node `<circle>` dot per node. Edge stroke uses palette tokens; when an `active` node is set, edges incident to it render accented (`stroke-ui-dark-blue`, thicker) and the rest dim (lower opacity).
 - A real HTML **`<button>` per node**, absolutely positioned (`style={{ left: \`${x*100}%\`, top: \`${y*100}%\` }}`, `-translate-x-1/2 -translate-y-1/2`), carrying the concept title text + `INTERACTIVE` atoms. This is the keyboard-native, axe-clean interactive element.
   - `onClick={() => onSelectConcept(node.id)}`.
   - `onMouseEnter`/`onFocus` → `setActive(id)`; `onMouseLeave`/`onBlur` → `setActive(null)`. So mouse hover **and** keyboard focus both drive the highlight.

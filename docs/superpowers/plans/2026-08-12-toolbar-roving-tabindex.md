@@ -997,7 +997,7 @@ Under a new `## [0.236.0] - <date> "<codename>"` heading, in `### Changed`, desc
 
 > **The formatting toolbar is now a single tab stop.** Reaching the text in a description used to mean pressing Tab past fifteen formatting buttons, and a change record with three rich-text fields put forty-five of them between you and the Save button. The toolbar is now one stop: Tab moves past the whole row, and Left/Right arrows (plus Home and End) move between the buttons once you are inside it. Focusing a button no longer applies it — you still press Enter or Space.
 
-★★ No `[session link removed]...` URL in `CHANGELOG.md` or an MR description.
+★★ No assistant session URL in `CHANGELOG.md` or an MR description.
 
 - [ ] **Step 5: Commit**
 

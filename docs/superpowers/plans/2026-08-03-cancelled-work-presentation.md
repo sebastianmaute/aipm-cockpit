@@ -6,7 +6,7 @@
 
 **Architecture:** Three narrow presentation changes plus one additive optional prop on the shared `Tile` primitive. No engine changes: `computeStats` already returns `cancelled` and `computeDashboardProgress` already returns `inScope`; both were added in 0.213.0. Nothing here alters stored or aggregated data.
 
-**Tech Stack:** Next.js 16 / React 19 / TypeScript, vitest + @testing-library/react, Playwright + axe, Tailwind v4 with AIPM palette tokens.
+**Tech Stack:** Next.js 16 / React 19 / TypeScript, vitest + @testing-library/react, Playwright + axe, Tailwind v4 with brand palette tokens.
 
 ---
 

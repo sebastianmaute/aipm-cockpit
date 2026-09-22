@@ -593,7 +593,7 @@ function Tile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-line bg-surface p-3">
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey tabular-nums">{value}</p>
+      <p className="mt-1 text-xl font-semibold text-ui-dark-blue dark:text-ui-light-grey tabular-nums">{value}</p>
     </div>
   );
 }
@@ -601,7 +601,7 @@ function Tile({ label, value }: { label: string; value: string }) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{title}</h3>
+      <h3 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{title}</h3>
       {children}
     </div>
   );
@@ -810,7 +810,7 @@ git commit -m "feat(raid-report): By Owner table"
             </td>
             <td className="px-3 py-2 text-muted-foreground">{row.severity ?? ""}</td>
             <td className="px-3 py-2">{ownerCell(lang, row.owner)}</td>
-            <td className={`px-3 py-2 text-right tabular-nums ${row.overdue ? "text-AIPM-pink font-medium" : "text-muted-foreground"}`}>
+            <td className={`px-3 py-2 text-right tabular-nums ${row.overdue ? "text-ui-pink font-medium" : "text-muted-foreground"}`}>
               {row.ageDays}d
             </td>
           </tr>
@@ -856,7 +856,7 @@ git commit -m "feat(raid-report): Top 10 Open mini-table"
             <td className="px-3 py-2 font-medium text-foreground">{row.category}</td>
             <td className="px-3 py-2 text-right tabular-nums">{row.open}</td>
             <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{row.closed}</td>
-            <td className={`px-3 py-2 text-right tabular-nums ${row.overdue > 0 ? "text-AIPM-pink font-medium" : "text-muted-foreground"}`}>{row.overdue}</td>
+            <td className={`px-3 py-2 text-right tabular-nums ${row.overdue > 0 ? "text-ui-pink font-medium" : "text-muted-foreground"}`}>{row.overdue}</td>
           </tr>
         ))}
       </tbody>
@@ -999,7 +999,7 @@ function FullDetail({ lang, rows }: { lang: Lang; rows: RaidReport["fullDetail"]
               <td className="px-3 py-2 text-muted-foreground">{r.status}</td>
               <td className="px-3 py-2">{ownerCell(lang, r.owner)}</td>
               <td className="px-3 py-2 text-muted-foreground tabular-nums">{r.raisedDate}</td>
-              <td className={`px-3 py-2 tabular-nums ${r.overdue ? "text-AIPM-pink font-medium" : "text-muted-foreground"}`}>
+              <td className={`px-3 py-2 tabular-nums ${r.overdue ? "text-ui-pink font-medium" : "text-muted-foreground"}`}>
                 {r.targetDate ?? "—"}
               </td>
               <td className="px-3 py-2 text-right tabular-nums">{r.ageDays}</td>
@@ -1105,7 +1105,7 @@ Add `onOpenReport` to the destructure of `Props`. In the toolbar JSX, immediatel
     onClick={onOpenReport}
     aria-label={t(lang, "raidReportOpenReportHint")}
     title={t(lang, "raidReportOpenReportHint")}
-    className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+    className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted dark:text-ui-light-grey"
   >
     {t(lang, "raidReportOpenReport")}
   </button>

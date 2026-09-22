@@ -604,7 +604,7 @@ describe("change amount precision follows each field's own form control", () => 
 });
 
 describe("sanitizeRaidItem — escalations", () => {
-  const ESC = { at: "2026-05-20T09:30:00.000Z", toName: "Sam Placeholder", toEmail: "Fictional.Jordan@example.com", fromSeverity: "Medium", toSeverity: "High" };
+  const ESC = { at: "2026-05-20T09:30:00.000Z", toName: "Noah Bennett", toEmail: "noah.bennett@example.com", fromSeverity: "Medium", toSeverity: "High" };
   it("keeps a valid escalation record", () => {
     expect(sanitizeRaidItem({ ...baseRaid, escalations: [ESC] })?.escalations).toEqual([ESC]);
   });

@@ -7,7 +7,7 @@ import type { Resource } from "./types";
 import type { CalendarEvent } from "./calendar-event";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 
-const Sample: Resource = { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} };
+const sofia: Resource = { id: 1, firstName: "Sofia", lastName: "Ramirez", roleId: null, utilizationMode: "percent", utilization: {} };
 
 const baseProps = {
   lang: "en-US" as const,
@@ -28,31 +28,31 @@ describe("ResourceCalendar assignee click", () => {
     render(
       <ResourceCalendar
         {...baseProps}
-        rows={[{ key: "Alex Example", display: "Alex Example", email: "" }]}
-        resources={[Sample]}
+        rows={[{ key: "sofia ramirez", display: "Sofia Ramirez", email: "" }]}
+        resources={[sofia]}
         onEditResource={onEditResource}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
-    expect(onEditResource).toHaveBeenCalledWith(Sample);
+    fireEvent.click(screen.getByRole("button", { name: "Sofia Ramirez" }));
+    expect(onEditResource).toHaveBeenCalledWith(sofia);
   });
 
   test("includeExternals=false hides external-backed rows but keeps unlinked + internal rows", () => {
     const ext: Resource = { id: 2, firstName: "Tom", lastName: "Ext", roleId: null, utilizationMode: "percent", utilization: {}, isExternal: true };
     const rows = [
-      { key: "Alex Example", display: "Alex Example", email: "" },
+      { key: "sofia ramirez", display: "Sofia Ramirez", email: "" },
       { key: "tom ext", display: "Tom Ext", email: "" },
       { key: "typed contractor", display: "Typed Contractor", email: "" },
     ];
     const { rerender } = render(
-      <ResourceCalendar {...baseProps} rows={rows} resources={[Sample, ext]} includeExternals />,
+      <ResourceCalendar {...baseProps} rows={rows} resources={[sofia, ext]} includeExternals />,
     );
     expect(screen.getByRole("button", { name: "Tom Ext" })).toBeTruthy();
     // Excluding externals drops Tom (backed by an external resource) but keeps
-    // the internal Sample and the never-linked typed contractor.
-    rerender(<ResourceCalendar {...baseProps} rows={rows} resources={[Sample, ext]} includeExternals={false} />);
+    // the internal Sofia and the never-linked typed contractor.
+    rerender(<ResourceCalendar {...baseProps} rows={rows} resources={[sofia, ext]} includeExternals={false} />);
     expect(screen.queryByRole("button", { name: "Tom Ext" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Alex Example" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sofia Ramirez" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Typed Contractor" })).toBeTruthy();
   });
 
@@ -75,7 +75,7 @@ it("renders past and future day columns for the given window", () => {
   render(
     <ResourceCalendar
       lang="en-US"
-      rows={[{ key: "a", display: "Aria", email: "" }]}
+      rows={[{ key: "a", display: "Ava", email: "" }]}
       absences={[]}
       today="2026-06-15"
       holidaySet={new Set()}
@@ -98,7 +98,7 @@ it("supports 2-D roving keyboard navigation over day cells (#27)", () => {
     <ResourceCalendar
       {...baseProps}
       rows={[
-        { key: "a", display: "Aria", email: "" },
+        { key: "a", display: "Ava", email: "" },
         { key: "b", display: "Ben", email: "" },
       ]}
       resources={[]}
@@ -140,7 +140,7 @@ it("keeps exactly one day-cell tab stop after the window shrinks (#27 clamp)", (
   const props = {
     ...baseProps,
     rows: [
-      { key: "a", display: "Aria", email: "" },
+      { key: "a", display: "Ava", email: "" },
       { key: "b", display: "Ben", email: "" },
     ],
     resources: [],
@@ -270,14 +270,14 @@ it("does not hijack arrow keys from the assignee row-header button (#27)", () =>
   const { container } = render(
     <ResourceCalendar
       {...baseProps}
-      rows={[{ key: "a", display: "Aria", email: "" }]}
+      rows={[{ key: "a", display: "Ava", email: "" }]}
       resources={[]}
       startDate="2026-06-10"
       endDate="2026-06-12"
     />,
   );
   const grid = container.querySelector('[role="grid"]') as HTMLElement;
-  const assignee = screen.getByRole("button", { name: "Aria" });
+  const assignee = screen.getByRole("button", { name: "Ava" });
   assignee.focus();
   fireEvent.keyDown(grid, { key: "ArrowRight" });
   // Focus stays on the row-header button (not yanked into the day grid).
@@ -1462,7 +1462,7 @@ it("scroll-centers today when the window includes it", () => {
   const { container } = render(
     <ResourceCalendar
       lang="en-US"
-      rows={[{ key: "a", display: "Aria", email: "" }]}
+      rows={[{ key: "a", display: "Ava", email: "" }]}
       absences={[]}
       today="2026-06-15"
       holidaySet={new Set()}

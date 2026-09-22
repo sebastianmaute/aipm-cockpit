@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make project config reachable from Settings → General, turn the theme gallery into a file-only theme library (deleting the shipped AIPM/Dashboard assets), and give every resizable modal a working height axis.
+**Goal:** Make project config reachable from Settings → General, turn the theme gallery into a file-only theme library (deleting the shipped Petrol/Dashboard assets), and give every resizable modal a working height axis.
 
 **Architecture:** Three independent items sharing no code. Item 3 is a defaulted prop on `EditModalShell` plus className fixes at 7 consumer call sites. Item 2 extracts one shared `importSchemeText` routine, rewrites `theme-gallery.tsx` as a file-picker + user-scheme list, deletes `public/themes/`, and rebuilds the axe matrix on built-in schemes. Item 1 extracts the project-edit modal host from `projects-panel.tsx` into a shared module and mounts it from a new block in `general-section.tsx`.
 
@@ -48,7 +48,7 @@
 
 **Deleted**
 
-`public/themes/AIPM.json` · `public/themes/mockup.json` · `src/app/shipped-themes.test.ts`
+`public/themes/petrol.json` · `public/themes/mockup.json` · `src/app/shipped-themes.test.ts`
 
 ---
 
@@ -825,7 +825,7 @@ Replace the contents of `src/app/theme-gallery.tsx`:
 "use client";
 
 // Theme library: load a portable theme JSON from disk, then apply, customise or
-// remove it. AIPM and Dashboard no longer ship with the app in any form — a theme
+// remove it. Petrol and Dashboard no longer ship with the app in any form — a theme
 // is whatever file the user supplies, so this surface is a file picker plus the
 // list of what has been loaded.
 //
@@ -995,7 +995,7 @@ with:
 - [ ] **Step 6: Run the appearance suite**
 
 Run: `npx vitest run src/app/settings-sections/appearance-section.test.tsx`
-Expected: PASS. If a test asserted an "Import AIPM"/"Import Dashboard" button, replace that assertion with the "Load theme file…" button — those buttons are gone by design.
+Expected: PASS. If a test asserted an "Import Petrol"/"Import Dashboard" button, replace that assertion with the "Load theme file…" button — those buttons are gone by design.
 
 - [ ] **Step 7: Typecheck, lint, commit**
 
@@ -1011,19 +1011,19 @@ git commit -m "feat(themes): the gallery becomes a file-loaded theme library"
 
 ## Task 7: Delete the shipped theme files and rebuild the axe matrix
 
-Nothing about AIPM or Dashboard stays in the app. Four places read `public/themes/*.json` from the repo and all four change here.
+Nothing about Petrol or Dashboard stays in the app. Four places read `public/themes/*.json` from the repo and all four change here.
 
 ★ The rebuilt matrix keeps the **same 85 checks** (5 schemes × 16 views + 5 Kanban variants) and scans three distinct palettes where the old one scanned two.
 
 **Files:**
-- Delete: `public/themes/AIPM.json`, `public/themes/mockup.json`, `src/app/shipped-themes.test.ts`
+- Delete: `public/themes/petrol.json`, `public/themes/mockup.json`, `src/app/shipped-themes.test.ts`
 - Modify: `src/app/scheme-contrast-cues.test.ts:69-80`, `src/app/scheme-purple-hover.test.ts:132-145`
 - Modify: `e2e/a11y.spec.ts:1-104`
 - Modify: `src/app/builtin-schemes.ts:5`, `src/app/style-tokens.test.ts:14` (stale comments)
 
 - [ ] **Step 1: Rebuild the axe matrix**
 
-In `e2e/a11y.spec.ts`, delete the `readFileSync` import, the `SchemeStructuralMap`/`SchemeColorMap` type import if it becomes unused, the `loadTheme` helper and the `ICC_THEME`/`MOCKUP_THEME` consts (lines 3-16), and replace the header block with:
+In `e2e/a11y.spec.ts`, delete the `readFileSync` import, the `SchemeStructuralMap`/`SchemeColorMap` type import if it becomes unused, the `loadTheme` helper and the `PETROL_THEME`/`MOCKUP_THEME` consts (lines 3-16), and replace the header block with:
 
 ```ts
 import AxeBuilder from "@axe-core/playwright";
@@ -1040,7 +1040,7 @@ import type { SchemeColorMap } from "../src/app/scheme-apply";
 Replace the `COMBOS` const and its comment with:
 
 ```ts
-// AIPM and Dashboard no longer exist in the app in any form — a theme is a file
+// Petrol and Dashboard no longer exist in the app in any form — a theme is a file
 // the user loads. The matrix therefore runs on the three BUILT-IN schemes, which
 // keeps the check count identical (5 × 16 views + 5 Kanban = 85) while scanning
 // three distinct palettes instead of two. All three are dark-capable; Umber runs
@@ -1099,7 +1099,7 @@ Expected: **80** listed tests (5 combos × 16 views). This also proves the file'
 
 - [ ] **Step 3: Strip the shipped-theme arm from `scheme-contrast-cues.test.ts`**
 
-Delete lines 67-80 — the comment block plus the whole `for (const file of ["AIPM", "mockup"]) { … }` loop.
+Delete lines 67-80 — the comment block plus the whole `for (const file of ["petrol", "mockup"]) { … }` loop.
 
 Then delete line 22, `import { readFileSync } from "node:fs";` — it has no remaining use in this file and `--max-warnings=0` makes an unused import FATAL.
 
@@ -1108,7 +1108,7 @@ Expected: no output.
 
 - [ ] **Step 4: Strip the shipped-theme arm from `scheme-purple-hover.test.ts`**
 
-Delete lines 131-145 — the comment block plus the `for (const file of ["AIPM", "mockup"]) { … }` loop.
+Delete lines 131-145 — the comment block plus the `for (const file of ["petrol", "mockup"]) { … }` loop.
 
 ★ **Keep** the `readFileSync` import here — line 116 still reads `src/app/globals.css`.
 
@@ -1118,7 +1118,7 @@ Expected: two hits (the import and the `globals.css` read).
 - [ ] **Step 5: Delete the files**
 
 ```bash
-git rm public/themes/AIPM.json public/themes/mockup.json src/app/shipped-themes.test.ts
+git rm public/themes/petrol.json public/themes/mockup.json src/app/shipped-themes.test.ts
 ```
 
 - [ ] **Step 6: Fix the stale comments**
@@ -1150,7 +1150,7 @@ Expected: exit 0.
 
 ```bash
 git add -A public/themes src/app e2e
-git commit -m "refactor(themes): remove the shipped AIPM/Dashboard theme files"
+git commit -m "refactor(themes): remove the shipped Petrol/Dashboard theme files"
 ```
 
 ---
@@ -1760,7 +1760,7 @@ vertically.
   project's name, code, dates and operating timezone, with an Edit button that
   opens the same editor the Projects panel uses. Read-only in pop-out windows.
 - **Themes are files.** The theme gallery is now a library: load any portable
-  theme `.json` from disk, then apply, customise or remove it. The AIPM and
+  theme `.json` from disk, then apply, customise or remove it. The Petrol and
   Dashboard themes no longer ship with the app — load them as files if you want
   them. Importing from the scheme editor no longer drops a theme's dark mode or
   its shadow/gradient settings.

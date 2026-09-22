@@ -13,7 +13,7 @@
 //                   control row above the table.
 //
 // The "workload" view aggregates per assignee: trim + lowercase the assignee
-// name so "Alex Example" and "Alex Example" land in the same row; display uses the
+// name so "Sofia Ramirez" and "sofia ramirez" land in the same row; display uses the
 // first observed original casing.
 
 import { memo, useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react";

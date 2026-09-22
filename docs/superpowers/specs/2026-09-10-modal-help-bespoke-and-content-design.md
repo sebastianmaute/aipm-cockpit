@@ -316,5 +316,3 @@ it did. It means "nothing regressed", never "the new control was scanned".
   or `git add .`.
 - The slice ENDS at a green local gate chain plus the §424 / §453 Status updates. No version
   bump, no `CHANGELOG` entry, no push, no MR — release is a separate explicit instruction.
-
-Claude-Session: https://[session link removed]

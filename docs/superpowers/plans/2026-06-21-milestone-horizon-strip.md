@@ -6,7 +6,7 @@
 
 **Architecture:** Extend the pure `milestones.ts` engine with `bucketMilestonesByHorizon`; render via a new presentational `milestone-horizon-strip.tsx`; swap it into the existing `showMilestones`-gated Milestones `Section` in `dashboard-panel.tsx`. No new prop threading.
 
-**Tech Stack:** TypeScript, React 19, vitest, fast-check, Tailwind (AIPM tokens), forked Next.js 16.
+**Tech Stack:** TypeScript, React 19, vitest, fast-check, Tailwind (brand tokens), forked Next.js 16.
 
 **Conventions (AGENTS.md):**
 - `npm run lint` is `--max-warnings=0` (unused import/var FATAL).
@@ -423,7 +423,7 @@ export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone }: Milest
                     <button
                       type="button"
                       onClick={() => onOpenMilestone()}
-                      className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-foreground hover:bg-surface-muted hover:border-AIPM-dark-blue"
+                      className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-foreground hover:bg-surface-muted hover:border-ui-dark-blue"
                     >
                       {alert && <RagBadge value={e.status === "overdue" ? "R" : "A"} lang={lang} />}
                       {label}

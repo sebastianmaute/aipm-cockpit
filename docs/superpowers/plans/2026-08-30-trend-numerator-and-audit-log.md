@@ -977,7 +977,7 @@ describe("useTaskRowHandlers — status transitions reach the activity log", () 
     act(() =>
       result.current.onSwimlaneDrop(
         1,
-        { key: "res:7", label: "Anna Jordan", resourceId: 7 },
+        { key: "res:7", label: "Anna Bennett", resourceId: 7 },
         "Done",
       ),
     );
@@ -986,7 +986,7 @@ describe("useTaskRowHandlers — status transitions reach the activity log", () 
 });
 ```
 
-The lane literal `{ key: "res:7", label: "Anna Jordan", resourceId: 7 }` is the shape the file's existing `onSwimlaneDrop` describe already uses.
+The lane literal `{ key: "res:7", label: "Anna Bennett", resourceId: 7 }` is the shape the file's existing `onSwimlaneDrop` describe already uses.
 
 ---
 
@@ -1532,7 +1532,7 @@ git push -u origin fix/trend-numerator-and-audit-log
 
 Then create the MR with a description covering 163, 235 and 283, a scope note, and a test plan that marks the full suite, coverage floors, axe and prod-smoke as **CI's, not claimed locally**.
 
-★★ **No `[session link removed]...` URL in the MR description or in `CHANGELOG.md`.** Commit trailers and MR comments are unaffected.
+★★ **No assistant session URL in the MR description or in `CHANGELOG.md`.** Commit trailers and MR comments are unaffected.
 
 ---
 

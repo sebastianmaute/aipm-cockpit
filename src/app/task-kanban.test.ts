@@ -27,7 +27,7 @@ const task = (over: Partial<Task>): Task => ({
 });
 
 const resources = new Map<number, Resource>([
-  [1, { id: 1, firstName: "Anna", lastName: "Jordan" } as Resource],
+  [1, { id: 1, firstName: "Anna", lastName: "Bennett" } as Resource],
   [2, { id: 2, firstName: "Bo", lastName: "Klein" } as Resource],
 ]);
 
@@ -38,13 +38,13 @@ describe("groupByStatusAndPerson", () => {
       resources,
       [],
     );
-    expect(out.lanes.map((l) => l.label)).toEqual(["Anna Jordan", "Bo Klein", ""]);
+    expect(out.lanes.map((l) => l.label)).toEqual(["Anna Bennett", "Bo Klein", ""]);
     expect(out.lanes.at(-1)!.key).toBe(UNASSIGNED_LANE);
   });
 
   it("a linked lane uses the resource's LIVE name, not the cached assignee string", () => {
     const out = groupByStatusAndPerson([task({ resourceId: 1, assignee: "Old Name" })], resources, []);
-    expect(out.lanes[0].label).toBe("Anna Jordan");
+    expect(out.lanes[0].label).toBe("Anna Bennett");
   });
 
   it("a free-string assignee gets its own lane keyed by the string", () => {
@@ -55,7 +55,7 @@ describe("groupByStatusAndPerson", () => {
 
   it("extra lane ids appear even with no tasks", () => {
     const out = groupByStatusAndPerson([task({ resourceId: 1 })], resources, [2]);
-    expect(out.lanes.map((l) => l.label)).toEqual(["Anna Jordan", "Bo Klein", ""]);
+    expect(out.lanes.map((l) => l.label)).toEqual(["Anna Bennett", "Bo Klein", ""]);
     expect(out.cells["res:2"]["To Do"]).toEqual([]);
   });
 
@@ -113,7 +113,7 @@ describe("laneResourceIds", () => {
   // for someone who already has one — the exact duplication the caller relies
   // on this function to prevent.
   it("includes a resource named only by a task's free-string assignee", () => {
-    expect(laneResourceIds([task({ assignee: "Anna Jordan" })], resources, [])).toEqual([1]);
+    expect(laneResourceIds([task({ assignee: "Anna Bennett" })], resources, [])).toEqual([1]);
   });
 
   // ★ Name deliberately NOT contractor-ish: `resources` here holds no external
@@ -141,19 +141,19 @@ describe("laneResourceIds", () => {
 describe("groupByStatusAndPerson — name/FK lane unification", () => {
   it("attributes a free-string assignee to the lane of the resource it names", () => {
     const out = groupByStatusAndPerson(
-      [task({ id: 1, resourceId: 1 }), task({ id: 2, assignee: "Anna Jordan" })],
+      [task({ id: 1, resourceId: 1 }), task({ id: 2, assignee: "Anna Bennett" })],
       resources,
       [],
     );
-    const named = out.lanes.filter((l) => l.label === "Anna Jordan");
+    const named = out.lanes.filter((l) => l.label === "Anna Bennett");
     expect(named).toHaveLength(1);
     expect(named[0].key).toBe("res:1");
     expect(out.cells["res:1"]["To Do"].map((x) => x.id)).toEqual([1, 2]);
   });
 
   it("matches case-insensitively and ignores surrounding whitespace", () => {
-    const out = groupByStatusAndPerson([task({ id: 1, assignee: "  anna   Jordan " })], resources, []);
-    expect(out.lanes.filter((l) => l.label === "Anna Jordan")).toHaveLength(1);
+    const out = groupByStatusAndPerson([task({ id: 1, assignee: "  anna   bennett " })], resources, []);
+    expect(out.lanes.filter((l) => l.label === "Anna Bennett")).toHaveLength(1);
     expect(out.cells["res:1"]["To Do"].map((x) => x.id)).toEqual([1]);
   });
 
@@ -167,11 +167,11 @@ describe("groupByStatusAndPerson — name/FK lane unification", () => {
     // Two people share a display name: picking either one would silently
     // attribute work to the wrong person, so the string keeps its own lane.
     const twins = new Map<number, Resource>([
-      [1, { id: 1, firstName: "Anna", lastName: "Jordan" } as Resource],
-      [2, { id: 2, firstName: "Anna", lastName: "Jordan" } as Resource],
+      [1, { id: 1, firstName: "Anna", lastName: "Bennett" } as Resource],
+      [2, { id: 2, firstName: "Anna", lastName: "Bennett" } as Resource],
     ]);
-    const out = groupByStatusAndPerson([task({ id: 1, assignee: "Anna Jordan" })], twins, []);
-    expect(out.lanes.map((l) => l.key)).toContain("name:anna Jordan");
+    const out = groupByStatusAndPerson([task({ id: 1, assignee: "Anna Bennett" })], twins, []);
+    expect(out.lanes.map((l) => l.key)).toContain("name:anna bennett");
   });
 
   it("a dangling FK falls back to its assignee string and still unifies", () => {
@@ -212,7 +212,7 @@ describe("tasks with no assignee field", () => {
 // extraLaneIds for this; task-derived lanes are only guarded here.
 describe("externals are never name-matched into a linked lane", () => {
   const withExternal = new Map<number, Resource>([
-    [1, { id: 1, firstName: "Anna", lastName: "Jordan" } as Resource],
+    [1, { id: 1, firstName: "Anna", lastName: "Bennett" } as Resource],
     [5, { id: 5, firstName: "Ext", lastName: "Contractor", isExternal: true } as Resource],
   ]);
 
@@ -228,8 +228,8 @@ describe("externals are never name-matched into a linked lane", () => {
   it("still name-matches a non-external with the same shape of data", () => {
     // Control: proves the test above fails because of isExternal, not because
     // name matching stopped working altogether.
-    const out = groupByStatusAndPerson([task({ id: 1, assignee: "Anna Jordan" })], withExternal, []);
-    expect(out.lanes.find((l) => l.label === "Anna Jordan")?.key).toBe("res:1");
+    const out = groupByStatusAndPerson([task({ id: 1, assignee: "Anna Bennett" })], withExternal, []);
+    expect(out.lanes.find((l) => l.label === "Anna Bennett")?.key).toBe("res:1");
   });
 
   it("does not offer a name-matched external to the add-lane picker", () => {
@@ -243,7 +243,7 @@ describe("externals are never name-matched into a linked lane", () => {
   // on screen that stamps the external FK onto whatever is dropped there.
   describe("…and never email-matched either", () => {
     const withEmails = new Map<number, Resource>([
-      [1, { id: 1, firstName: "Anna", lastName: "Jordan", email: "anna@example.com" } as Resource],
+      [1, { id: 1, firstName: "Anna", lastName: "Bennett", email: "anna@example.com" } as Resource],
       [5, { id: 5, firstName: "Ext", lastName: "Contractor", email: "ext@vendor.example", isExternal: true } as Resource],
     ]);
 
@@ -297,11 +297,11 @@ describe("unknown-person lanes are keyed on the normalised name", () => {
 describe("laneKeyOf", () => {
   it("resolves an UNLINKED but uniquely-named task to the linked lane key", () => {
     // The row the regression was about: renders under `res:1`, stores no FK.
-    expect(laneKeyOf({ ...t(1, "To Do"), assignee: "Anna Jordan" }, resources)).toBe("res:1");
+    expect(laneKeyOf({ ...t(1, "To Do"), assignee: "Anna Bennett" }, resources)).toBe("res:1");
   });
 
   it("agrees with the key groupByStatusAndPerson actually rendered", () => {
-    const row = { ...t(1, "To Do"), assignee: "  anna   Jordan " };
+    const row = { ...t(1, "To Do"), assignee: "  anna   bennett " };
     const out = groupByStatusAndPerson([row], resources, []);
     const rendered = out.lanes.find((l) => out.cells[l.key]["To Do"].some((x) => x.id === 1));
     expect(laneKeyOf(row, resources)).toBe(rendered!.key);
@@ -325,7 +325,7 @@ describe("laneKeyOf", () => {
 // backfill so the two agree.
 describe("groupByStatusAndPerson — assigneeEmail lane resolution (§79)", () => {
   const withEmails = new Map<number, Resource>([
-    [1, { id: 1, firstName: "Anna", lastName: "Jordan", email: "anna@example.com" } as Resource],
+    [1, { id: 1, firstName: "Anna", lastName: "Bennett", email: "anna@example.com" } as Resource],
     [2, { id: 2, firstName: "Bo", lastName: "Klein", email: "bo@example.com" } as Resource],
   ]);
 
@@ -335,7 +335,7 @@ describe("groupByStatusAndPerson — assigneeEmail lane resolution (§79)", () =
       withEmails,
       [],
     );
-    expect(out.lanes.find((l) => l.label === "Anna Jordan")?.key).toBe("res:1");
+    expect(out.lanes.find((l) => l.label === "Anna Bennett")?.key).toBe("res:1");
     expect(out.cells["res:1"]["To Do"].map((x) => x.id)).toEqual([1]);
   });
 
@@ -368,10 +368,10 @@ describe("groupByStatusAndPerson — assigneeEmail lane resolution (§79)", () =
     const dupes = new Map<number, Resource>([
       [1, { id: 1, firstName: "Ambiguous", lastName: "One", email: "shared@example.com" } as Resource],
       [2, { id: 2, firstName: "Ambiguous", lastName: "Two", email: "Shared@Example.com" } as Resource],
-      [3, { id: 3, firstName: "Anna", lastName: "Jordan", email: "unique3@example.com" } as Resource],
+      [3, { id: 3, firstName: "Anna", lastName: "Bennett", email: "unique3@example.com" } as Resource],
     ]);
     const out = groupByStatusAndPerson(
-      [task({ id: 1, assignee: "Anna Jordan", assigneeEmail: "shared@example.com" })],
+      [task({ id: 1, assignee: "Anna Bennett", assigneeEmail: "shared@example.com" })],
       dupes,
       [],
     );
@@ -386,7 +386,7 @@ describe("groupByStatusAndPerson — assigneeEmail lane resolution (§79)", () =
     // index-building side of `buildResourceLookupIndexes` rather than the
     // query side `resolvePersonResourceId` already covers.
     const padded = new Map<number, Resource>([
-      [1, { id: 1, firstName: "Anna", lastName: "Jordan", email: "  Anna@Example.com  " } as Resource],
+      [1, { id: 1, firstName: "Anna", lastName: "Bennett", email: "  Anna@Example.com  " } as Resource],
     ]);
     const out = groupByStatusAndPerson(
       [task({ id: 1, assignee: "", assigneeEmail: "anna@example.com" })],
@@ -398,7 +398,7 @@ describe("groupByStatusAndPerson — assigneeEmail lane resolution (§79)", () =
 
   it("an FK still wins over both a matching email and a differently-named resource", () => {
     const out = groupByStatusAndPerson(
-      [task({ id: 1, resourceId: 2, assignee: "Anna Jordan", assigneeEmail: "anna@example.com" })],
+      [task({ id: 1, resourceId: 2, assignee: "Anna Bennett", assigneeEmail: "anna@example.com" })],
       withEmails,
       [],
     );

@@ -18,7 +18,7 @@ Projects view, a current-project indicator in the top bar/header, a shared two-g
 empty-state modal. Turso multi-tenancy is **Phase 2** (out of scope).
 
 **Tech Stack:** Next.js 16 / React 19 / TypeScript / Vitest 4. No zod (hand-rolled sanitizers).
-9-color AIPM palette. `lint --max-warnings=0`, `tsc` clean. Pure modules avoid
+9-color brand palette. `lint --max-warnings=0`, `tsc` clean. Pure modules avoid
 `Date.now()`/`Math.random()`; ids generated in the UI layer via `crypto.randomUUID()`. No side
 effects in `setState` updaters. Immutable updates.
 
@@ -596,7 +596,7 @@ interface StakeholderRecipientInputProps {
   value (dedupe, case-insensitive); a filtered suggestion list (substring, case-insensitive,
   excluding already-chosen) shown while typing; chips have a remove ×. Render matched chips with a
   subtle "known" affordance (a small dot/title), unmatched as plain — matching computed against
-  `suggestions` at render time. AIPM palette only. **Step 3: Run** → PASS. **Commit**
+  `suggestions` at render time. Brand palette only. **Step 3: Run** → PASS. **Commit**
   `feat: StakeholderRecipientInput (free-text + register match)`.
 
 ---
@@ -614,7 +614,7 @@ interface StakeholderRecipientInputProps {
 - [ ] **Step 2: Implement**
   - `project-form-fields.tsx`: presentational two-group layout. Group 1 (Identity + internal
     People) and a **visually separated** Group 2 ("Customer" block — distinct heading + divider,
-    AIPM palette). Reuse the shared `TaskFormSection` style if it fits, else a local `FormSection`.
+    Brand palette). Reuse the shared `TaskFormSection` style if it fits, else a local `FormSection`.
     Each field uses the existing `FieldError` (`role="alert"`) for inline errors revealed on
     blur/submit (mirror `task-form-fields.tsx`). The two key-stakeholder fields use
     `StakeholderRecipientInput` (suggestions = `props.stakeholderNames`). Contact persons: a list +
@@ -641,7 +641,7 @@ interface StakeholderRecipientInputProps {
   reusing `exportWorkspace(currentWs, fmt, settings.export ?? defaultExportConfig, lang)`),
   **Delete** (confirm dialog using `projectsDeleteConfirm` — states the file is NOT removed).
   Prominent **"+ New project"** opens `ProjectForm` in create mode (calls `createProject`). Use the
-  shared `report-table.tsx`/card styles where they fit; AIPM palette.
+  shared `report-table.tsx`/card styles where they fit; brand palette.
 - [ ] **Step 2:** `tsc`/lint clean. **Commit** `feat: projects management view`.
 
 ---
@@ -667,7 +667,7 @@ prominently near the title).
   Clicking opens a switcher popover/modal listing registry projects (name + code, current marked),
   with **Load from file** and **+ New project** actions, wired to `switchToProject` /
   `loadProjectFromFile` / create. Render in BOTH layouts (prop-drill the needed callbacks +
-  current name; mirror how `ActionMenus` is shared). AIPM palette; prominent but not garish.
+  current name; mirror how `ActionMenus` is shared). Brand palette; prominent but not garish.
 - [ ] **Step 2:** lint/tsc clean. **Commit** `feat: current-project indicator + switcher (modern + classic)`.
 
 ---

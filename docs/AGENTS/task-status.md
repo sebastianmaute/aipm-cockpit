@@ -152,7 +152,7 @@ prints each importer WITH the names it takes, which is the part a bare file list
 ★ Completion-% counts Done only in the NUMERATOR, but since 0.213.0 cancelled work is dropped from
 the DENOMINATOR (`dashboard.ts` `computeDashboardProgress`), so a project with cancelled scope can
 reach 100%. Reports carry a third `cancelled` bucket — a cancelled task is neither open nor
-completed there, and never overdue. UI labels via `task-status-ui.ts` (AIPM palette tokens only).
+completed there, and never overdue. UI labels via `task-status-ui.ts` (brand palette tokens only).
 
 ★ The table status column key is **`taskStatus`** — the pre-existing `"status"` col key is the
 RAG/health DOT (header "Health"/DE "Ampel").

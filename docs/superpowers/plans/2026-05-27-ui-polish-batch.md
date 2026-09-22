@@ -263,11 +263,11 @@ export function ModalHeader({
   return (
     <header
       {...dragHandleProps}
-      className={`sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-AIPM-light-grey bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950 ${
+      className={`sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-ui-light-grey bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950 ${
         dragHandleProps ? "cursor-move touch-none select-none" : ""
       }`}
     >
-      <h2 id={titleId} className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+      <h2 id={titleId} className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">
         {title}
       </h2>
       <div className="flex items-center gap-1" onPointerDown={stopDrag}>
@@ -283,7 +283,7 @@ export function ModalHeader({
           onClick={onClose}
           aria-label={t(lang, "alertModalClose")}
           title={t(lang, "alertModalClose")}
-          className="rounded-md p-2 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
+          className="rounded-md p-2 text-ui-dark-grey hover:bg-ui-light-grey hover:text-ui-dark-blue dark:text-ui-medium-grey dark:hover:bg-zinc-800 dark:hover:text-ui-light-grey"
         >
           <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
             <path
@@ -414,7 +414,7 @@ Then add `inline-flex items-center gap-1.5` to each button's className (if not p
   type="button"
   onClick={props.onRefreshFx}
   disabled={props.fxLoading}
-  className="inline-flex items-center gap-1.5 rounded-md border border-AIPM-dark-blue bg-white px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue shadow-sm hover:bg-AIPM-light-grey disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+  className="inline-flex items-center gap-1.5 rounded-md border border-ui-dark-blue bg-white px-3 py-1.5 text-sm font-medium text-ui-dark-blue shadow-sm hover:bg-ui-light-grey disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-900 dark:hover:bg-zinc-800"
 >
   <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className={`h-4 w-4 ${props.fxLoading ? "animate-spin" : ""}`}>
     <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clipRule="evenodd" />
@@ -439,12 +439,12 @@ git commit -m "feat(ui): tab reorder, dash placeholders, roles divider, menu ico
 
 **Files:** `resource-workload.tsx:64-76`, `task-row.tsx:237`.
 
-Reference effect (`resource-directory.tsx:252-258`): button with `border border-transparent … hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800` + `title`.
+Reference effect (`resource-directory.tsx:252-258`): button with `border border-transparent … hover:border-ui-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800` + `title`.
 
-- [ ] **Step 1: Workload assignee** — In `resource-workload.tsx`, replace the button className `rounded px-1 py-0.5 text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-dark-blue` with:
+- [ ] **Step 1: Workload assignee** — In `resource-workload.tsx`, replace the button className `rounded px-1 py-0.5 text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-dark-blue` with:
 
 ```tsx
-className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-dark-blue dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-ui-dark-grey shadow-sm hover:border-ui-dark-blue hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-dark-blue dark:text-ui-light-grey dark:hover:bg-zinc-800"
 ```
 Add `title={row.display}` if no title is present.
 
@@ -454,7 +454,7 @@ Add `title={row.display}` if no title is present.
 {!hiddenCols.has("assignee") && (
   <Td title={`${t(lang, "assignee")}: ${task.assignee || "—"}`}>
     {task.assignee && (
-      <span className="rounded-md border border-transparent px-2 py-0.5 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800">
+      <span className="rounded-md border border-transparent px-2 py-0.5 hover:border-ui-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800">
         {task.assignee}
       </span>
     )}
@@ -617,7 +617,7 @@ const sortedRoles = useMemo(() => {
 - [ ] **Step 3: Clickable headers** — Turn the four `<th>` cells into buttons that call `toggleSort("…")` and render a ▲/▼ indicator when active:
 ```tsx
 <th className="px-2 py-1.5">
-  <button type="button" onClick={() => toggleSort("discipline")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue">
+  <button type="button" onClick={() => toggleSort("discipline")} className="inline-flex items-center gap-1 hover:text-ui-dark-blue">
     {t(lang, "rolesDiscipline")}{sort?.key === "discipline" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
   </button>
 </th>

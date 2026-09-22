@@ -766,7 +766,7 @@ describe("RaidEditModal — Escalations list (§515)", () => {
       modalEl({
         category: "I",
         escalations: [
-          { at: "2026-05-20T09:30:00.000Z", toName: "Sam Placeholder", toEmail: "Fictional.Jordan@example.com", fromSeverity: "Medium", toSeverity: "High" },
+          { at: "2026-05-20T09:30:00.000Z", toName: "Noah Bennett", toEmail: "noah.bennett@example.com", fromSeverity: "Medium", toSeverity: "High" },
           { at: "2026-05-22T14:00:00.000Z", toEmail: "ops@example.com" },
         ],
       }),
@@ -776,7 +776,7 @@ describe("RaidEditModal — Escalations list (§515)", () => {
     const items = screen.getAllByRole("listitem").map((li) => li.textContent ?? "");
     const mine = items.filter((s) => s.startsWith("2026-05-2"));
     expect(mine).toEqual([
-      `2026-05-20 · ${t("en-US", "raidEscalationNoteRaised", "Sam Placeholder", "Medium", "High")}`,
+      `2026-05-20 · ${t("en-US", "raidEscalationNoteRaised", "Noah Bennett", "Medium", "High")}`,
       "2026-05-22 · Escalated to ops@example.com (notify only)",
     ]);
   });

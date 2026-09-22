@@ -1,6 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { MAX_AI_POLICY_FIELD } from "./ai-policy";
-import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, BRANDING_LOGO_MAX_LEN, BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, NEUTRAL_EXPORT_FOOTER, exportFooterText, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled } from "./settings-types";
+import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, BRANDING_LOGO_MAX_LEN, BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, exportFooterText, type ExportFooterEnv, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled } from "./settings-types";
+
+const NO_FOOTER_ENV: ExportFooterEnv = { footer: undefined };
 
 describe("sanitizeSelfResourceId", () => {
   it("keeps a positive integer id", () => {
@@ -269,32 +271,65 @@ describe("chatSearch", () => {
 });
 
 describe("exportFooter branding", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
   it("keeps an export footer on its own, trimmed and capped", () => {
     expect(sanitizeBranding({ exportFooter: "  Acme GmbH — AI PM Cockpit  " })).toEqual({ exportFooter: "Acme GmbH — AI PM Cockpit" });
     expect(sanitizeBranding({ exportFooter: "x".repeat(500) })!.exportFooter).toHaveLength(BRANDING_EXPORT_FOOTER_MAX);
   });
 
-  it("keeps a CLEARED footer, because empty means the neutral footer, not the default", () => {
+  it("keeps a CLEARED footer, because empty means the built-in footer, not a stored value", () => {
     expect(sanitizeBranding({ exportFooter: "   " })).toEqual({ exportFooter: "" });
   });
 
-  it("resolves never-set to today's footer, cleared to the neutral one, and anything else as typed", () => {
-    expect(exportFooterText(undefined)).toBe(DEFAULT_EXPORT_FOOTER);
-    expect(exportFooterText({})).toBe(DEFAULT_EXPORT_FOOTER);
-    expect(exportFooterText({ exportFooter: "" })).toBe(NEUTRAL_EXPORT_FOOTER);
+  it("resolves never-set to the built-in footer, cleared to the same built-in, and anything else as typed — no env", () => {
+    expect(exportFooterText(undefined, NO_FOOTER_ENV)).toBe(DEFAULT_EXPORT_FOOTER);
+    expect(exportFooterText({}, NO_FOOTER_ENV)).toBe(DEFAULT_EXPORT_FOOTER);
+    expect(exportFooterText({ exportFooter: "" }, NO_FOOTER_ENV)).toBe(DEFAULT_EXPORT_FOOTER);
+    expect(exportFooterText({ exportFooter: "Acme GmbH" }, NO_FOOTER_ENV)).toBe("Acme GmbH");
+  });
+
+  it("never-set with a stored footer uses that stored text", () => {
+    expect(exportFooterText({ exportFooter: "Globex — Board pack" }, NO_FOOTER_ENV)).toBe("Globex — Board pack");
+  });
+
+  // ★ Env wins over a stored value, as in ai-policy.ts's resolveAiPolicy.
+  it("prefers the build variable over a stored footer", () => {
+    vi.stubEnv("NEXT_PUBLIC_EXPORT_FOOTER", "Globex — Board pack");
+    expect(exportFooterText({ exportFooter: "Acme GmbH" })).toBe("Globex — Board pack");
+  });
+
+  it("ignores a blank build variable and falls back to the stored value, or the built-in", () => {
+    vi.stubEnv("NEXT_PUBLIC_EXPORT_FOOTER", "   ");
     expect(exportFooterText({ exportFooter: "Acme GmbH" })).toBe("Acme GmbH");
+    expect(exportFooterText(undefined)).toBe(DEFAULT_EXPORT_FOOTER);
   });
 
   it("collapses line breaks and control characters to single spaces", () => {
     // ★ A hand-edited blob can carry them: a newline would split the slide
     //   footer into paragraphs that overflow its box, and a control character
     //   is illegal in the PowerPoint XML the footer is written into.
-    expect(exportFooterText({ exportFooter: "Acme\nGmbH\t\u0007 Co" })).toBe("Acme GmbH Co");
-    expect(exportFooterText({ exportFooter: "\n\u0001 \n" })).toBe(NEUTRAL_EXPORT_FOOTER);
+    expect(exportFooterText({ exportFooter: "Acme\nGmbH\t\u0007 Co" }, NO_FOOTER_ENV)).toBe("Acme GmbH Co");
+    expect(exportFooterText({ exportFooter: "\n\u0001 \n" }, NO_FOOTER_ENV)).toBe(DEFAULT_EXPORT_FOOTER);
   });
 
   it("keeps a non-breaking space inside the footer — it is a deliberate character, not a break", () => {
-    expect(exportFooterText({ exportFooter: "Acme GmbH" })).toBe("Acme GmbH");
+    expect(exportFooterText({ exportFooter: "Acme GmbH" }, NO_FOOTER_ENV)).toBe("Acme GmbH");
+  });
+
+  // register §200 finding 7: the stored footer is capped by `sanitizeBranding`
+  // (see "keeps an export footer on its own, trimmed and capped" above), but
+  // the env value went straight into the footer with no cap at all.
+  it("caps a long build-variable footer at the same length the stored value is capped to", () => {
+    expect(exportFooterText(undefined, { footer: "x".repeat(500) })).toHaveLength(
+      BRANDING_EXPORT_FOOTER_MAX,
+    );
+  });
+
+  it("caps a long build-variable footer even with a shorter stored value present", () => {
+    const capped = exportFooterText({ exportFooter: "Acme GmbH" }, { footer: "y".repeat(500) });
+    expect(capped).toHaveLength(BRANDING_EXPORT_FOOTER_MAX);
+    expect(capped).toBe("y".repeat(BRANDING_EXPORT_FOOTER_MAX));
   });
 });
 

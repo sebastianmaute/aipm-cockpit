@@ -1392,7 +1392,7 @@ Insert at the top of the entry list in `CHANGELOG.md`, matching the format of th
 - **The `status` / `completedDate` pair can no longer be split by template import or by resolving a Jira conflict.** The app asks two different questions about a finished task — `isTaskClosed` reads `status`, `isTaskDelivered` reads `completedDate` — so a row where the two disagree was counted complete on one tile and overdue on another, in the same render. Resolving a Jira conflict hit this on the default path: accepting "remote" for a completion date wrote the date and left the status local, either producing a `Done` row with no date (dropped from both terms of the completion percentage, and reported as cancelled scope, which raised the reported percentage for every other row) or a completion date on a row the task table still listed as open. Importing a template could store the same shape. Both paths now write the two fields together.
 ```
 
-★ **No `[session link removed]...` URL may appear in `CHANGELOG.md`.**
+★ **No assistant session URL may appear in `CHANGELOG.md`.**
 
 - [ ] **Step 4: Bump the four ungated version strings**
 

@@ -43,10 +43,9 @@ describe("BUILTIN_SCHEMES", () => {
     }
     expect(DEFAULT_SCHEME_ID).toBe("beacon");
     expect([...BUILTIN_SCHEME_IDS].sort()).toEqual(["beacon", "harbor", "meridian", "umber"]);
-    // Petrol / Mockup are no longer code built-ins. The literal "AIPM" below is
-    // the retired built-in id a real device's stored activeId may still carry —
-    // it must stay exactly that string for the guard to mean anything.
-    expect(BUILTIN_SCHEME_IDS.has("AIPM")).toBe(false);
+    // Petrol / Mockup are no longer code built-ins. The exact-set pin above is
+    // what excludes the retired brand-named id (it lists every member), so no
+    // spot-check is needed for it; "mockup" stays as a readable spot-check.
     expect(BUILTIN_SCHEME_IDS.has("mockup")).toBe(false);
   });
 
@@ -106,10 +105,12 @@ describe("reconcileBuiltins", () => {
     expect(out.activeId).toBe("umber");
   });
 
-  it("falls back to beacon for an orphaned legacy 'AIPM' activeId", () => {
-    // "AIPM" is the retired built-in scheme id — kept literal because a real
-    // device's stored activeId may still carry it.
-    const out = reconcileBuiltins({ schemes: [], activeId: "AIPM" });
+  it("falls back to beacon for an orphaned retired built-in activeId", () => {
+    // A fictional stand-in for the retired brand-named built-in id a real device's
+    // stored activeId may still carry. reconcileBuiltins treats ANY id that no
+    // scheme carries the same way (a `schemes.some` membership test), so the
+    // stand-in exercises exactly the path the real retired id takes.
+    const out = reconcileBuiltins({ schemes: [], activeId: "retired-brand" });
     expect(out.activeId).toBe("beacon");
   });
 

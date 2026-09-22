@@ -71,9 +71,9 @@ co-located with `health.ts` rendering). Lettered dot: white R/A/G glyph on the
 
 **`BurndownCharts`** — `src/app/burndown-chart.tsx`. Dependency-free inline SVG
 (no chart library — KISS, no new dependency). Renders the two side-by-side
-"remaining" charts (Hours + €). AIPM palette: actual line = `AIPM-green` solid,
+"remaining" charts (Hours + €). Brand palette: actual line = `ui-green` solid,
 planned line = muted/dark-blue dashed, vertical `today` marker, over-budget area
-tinted with `AIPM-pink`. No-budget / empty series → muted hint text. Props =
+tinted with `ui-pink`. No-budget / empty series → muted hint text. Props =
 `{ series: BurndownSeries; lang: Lang }`.
 
 ### Modified files

@@ -6,7 +6,7 @@
 
 **Architecture:** Pure reuse of the SP1 engine (`planEntityReconcile`, `useEntityCalendarPush`, `use-calendar-auto-sync`, type-scoped `AIPM:<pid>:raid` category — `CalendarEntityType` already includes `"raid"`). `RaidPanel` is a thin callback-prop pane, so ALL calendar logic lives in `task-manager.tsx`; the pane receives 5 computed props (`m365Configured`, `calendarRaidEnabled`, `onToggleCalendarRaid`, `pushRaidToOutlook`, `calendarRaidPushBusy`), threaded through `workspace-section-types.ts` → `workspace-section.tsx`.
 
-**Tech Stack:** forked Next.js/React/TS, vitest, Tailwind v4 AIPM tokens. CI: eslint `--max-warnings=0`, `tsc --noEmit` (EN/DE i18n parity), golden byte-stability, axe gate (RAID is scanned).
+**Tech Stack:** forked Next.js/React/TS, vitest, Tailwind v4 brand tokens. CI: eslint `--max-warnings=0`, `tsc --noEmit` (EN/DE i18n parity), golden byte-stability, axe gate (RAID is scanned).
 
 **Reference (SP1 siblings to mirror — read before mirroring):**
 - `Task.outlookEventId` (types.ts:216-area for Milestone; Task equivalent) — the persistence pattern.
@@ -170,7 +170,7 @@ export function raidToGraphEvent(raid: RaidItem, projectId: string): GraphEvent 
         raid.owner ? `Owner: ${raid.owner}` : "",
         raid.severity ? `Severity: ${raid.severity}` : "",
         raid.status ? `Status: ${raid.status}` : "",
-        "Managed by the AIPM PM Tracker.",
+        "Managed by AI PM Cockpit.",
       ].filter(Boolean).join("\n"),
     },
   };
@@ -256,7 +256,7 @@ function CalendarSyncEntityRow({
             aria-label={`${t(lang, "calendarSyncEnable")} – ${label}`}
             checked={sync.enabled}
             onChange={(e) => write(e.target.checked, e.target.checked ? sync.auto : false)}
-            className="h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green" />
+            className="h-3.5 w-3.5 rounded border-line text-ui-dark-blue focus:ring-ui-green" />
           <span>{t(lang, "calendarSyncEnable")}</span>
         </label>
         <label className="flex items-center gap-2 text-sm text-foreground">
@@ -265,7 +265,7 @@ function CalendarSyncEntityRow({
             disabled={!sync.enabled}
             checked={sync.auto}
             onChange={(e) => write(sync.enabled, e.target.checked)}
-            className="h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green disabled:opacity-50" />
+            className="h-3.5 w-3.5 rounded border-line text-ui-dark-blue focus:ring-ui-green disabled:opacity-50" />
           <span>{t(lang, "calendarSyncAuto")}</span>
         </label>
       </div>
@@ -406,13 +406,13 @@ In the RAID toolbar (near the `ResetSizeButton`/`PrintButton` cluster, ~line 508
       <input type="checkbox" checked={!!calendarEnabled}
         onChange={(e) => onToggleCalendar(e.target.checked)}
         aria-label={`${t(lang, "calendarSyncEnable")} – ${t(lang, "calendarSyncEntityRaid")}`}
-        className="h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green" />
+        className="h-3.5 w-3.5 rounded border-line text-ui-dark-blue focus:ring-ui-green" />
       {t(lang, "calendarSyncEnable")}
     </label>
     {calendarEnabled && onPushCalendar && (
       <button type="button" onClick={onPushCalendar} disabled={calendarPushBusy}
         aria-label={t(lang, "calendarPush")} title={t(lang, "calendarPush")}
-        className={`rounded-md border border-AIPM-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}>
+        className={`rounded-md border border-ui-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}>
         {calendarPushBusy ? t(lang, "calendarPushing") : t(lang, "calendarPush")}
       </button>
     )}

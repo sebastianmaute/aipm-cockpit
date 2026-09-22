@@ -46,8 +46,8 @@ The milestone diamond `<rect>` (`gantt-rows.tsx:522-529`) lacks a date in its `t
 
 `TaskStatusSelect` `<select>` (`:27`) has `${FOCUS_RING} ${TRANSITION}` but no `hover:`.
 
-- [ ] Append palette-safe `hover:border-AIPM-dark-blue` to the className at `:27` (TRANSITION already smooths it). Do NOT add shadow/off-palette.
-- [ ] Test: assert the select's className contains `hover:border-AIPM-dark-blue`.
+- [ ] Append palette-safe `hover:border-ui-dark-blue` to the className at `:27` (TRANSITION already smooths it). Do NOT add shadow/off-palette.
+- [ ] Test: assert the select's className contains `hover:border-ui-dark-blue`.
 - [ ] Commit `feat(tasks): hover affordance on status dropdown`.
 
 ## T11 — npm run stop (port-scoped)
@@ -211,5 +211,5 @@ In the `compareFrom !== null` compare-output header (`:290-303`), beside "Restor
 - DE i18n via node utf8 write, CRLF anchors, real umlauts (i18n-encoding test).
 - `writeSettings` sole writer of `lop-app:settings`; new AiConfig fields ride the spread + sanitizer.
 - New Role columns → 6 write paths + golden regen; verify `turso-migrate` covers roles.
-- Palette-safe: only AIPM tokens, no gradients/shadows; hover uses `hover:border-AIPM-dark-blue`.
+- Palette-safe: only brand tokens, no gradients/shadows; hover uses `hover:border-ui-dark-blue`.
 - Confirm-before-window-changes already granted for the ⚠ items in this batch.

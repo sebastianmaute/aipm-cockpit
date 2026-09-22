@@ -51,7 +51,7 @@ re-baseline.
 
 | # | Class | Substrate | Fix shape |
 |---|---|---|---|
-| 1 | Internal hosts in URLs: the two product release URLs (app + desktop shell), the README "Releases page" links | tree | repoint, blocked on the GitHub org name |
+| 1 | Internal hosts in URLs: the two product release URLs (app + desktop shell), the README "Releases page" links | tree | repoint to `sebastianmaute/aipm-cockpit` (decided 2026-09-22) |
 | 2 | **Employer values the product ships as defaults or writes outside itself** — see the table below | tree | behaviour/config change with tests, one per item |
 | 3 | A work address and an employer copyright line in guide content, **its generated copy, and an eval baseline copy** | tree | edit source, re-run both generators |
 | 4 | Real-looking addresses **and employer company/organization fields** across the sample workspaces, plus one address in a unit test | tree | generated pipeline |
@@ -75,8 +75,8 @@ Phase B's blind substitution.
 | AI-usage policy defaults (`DEFAULT_AI_POLICY_ORG` / `DEFAULT_AI_POLICY_URL`, 1.13.0) | renders in the product; a stored org name is compared against the default | no built-in default; build variables only |
 | Export footer default (`export-footer.ts`, 1.13.0) | OUTBOUND DISCLOSURE — HTML/PDF/PPTX footers and the PPTX colour-scheme name | neutral built-in; add a build variable |
 | Timelog tenant default (`defaultTimelogConfig`) | PROTOCOL — sent to the Timelog API and persisted in settings | move behind a build variable, empty built-in |
-| Electron `appId` (`desktop/electron-builder.yml`) | PROTOCOL — installer identity and taskbar identity | rename; only the repository owner has an install, and removes the old copy by hand |
-| Dead style value `"AIPM"` in the `CiStyle` union | persisted key, but never written any more | delete the member; the load path already forces `"custom"` |
+| Electron `appId` (`desktop/electron-builder.yml`) | PROTOCOL — installer identity and taskbar identity | rename to `io.github.sebastianmaute.aipm-cockpit` (2026-09-22); only the repository owner has an install, and removes the old copy by hand |
+| Dead style value `"<trigram>"` in the `CiStyle` union | persisted key, but never written any more | delete the member; the load path already forces `"custom"` |
 
 ★★ The installed-base premises above (calendar sync never run; one desktop install) are
 point-in-time facts stated by the repository owner on 2026-09-20/21, not properties of the code.
@@ -108,12 +108,12 @@ Tasks, each its own commit (the plans split them into two files):
 
 1. **Brand rename** (brand-rename plan). ★★ Measured 2026-09-20/21, and it corrected this spec
    three times:
-   - The `--AIPM-*` custom properties **do not exist**. They were renamed to `--ui-*` in an earlier
+   - The `--brand-*` custom properties **do not exist**. They were renamed to `--ui-*` in an earlier
      release; what survives is stale comments and a stale document title.
    - The legacy built-in scheme id is **retired**, surviving only in a hand-built test fixture
      that exercises a generic built-in guard. No live scheme carries it.
    - The style axis is **always `"custom"`**: the load path rewrites any other stored value to
-     `"custom"` and `data-style` is hard-wired. The `"AIPM"` member of `CiStyle` is therefore never
+     `"custom"` and `data-style` is hard-wired. The `"<trigram>"` member of `CiStyle` is therefore never
      produced. The first draft renamed it to a new value; that renames dead code. **Delete the
      member instead.** No migration is needed because the existing load path already is one, and
      a characterisation test pins it.
@@ -137,16 +137,17 @@ Tasks, each its own commit (the plans split them into two files):
    Timelog tenant (empty built-in plus a build variable). Each is a behaviour change with a test.
    ★ The first draft's task here — "make the wiki link configurable" — was half-shipped by 1.13.0,
    which made it configurable but kept the employer values as the built-in defaults.
-3. **Rename the Electron `appId`.** Blocked on the GitHub organisation name, like task 4.
+3. **Rename the Electron `appId`** to `io.github.sebastianmaute.aipm-cockpit` (decided 2026-09-22).
 4. **Repoint the product release URLs and the README release links**, keeping the text-comparison
-   test that binds the two product copies. Blocked on the GitHub organisation name.
+   test that binds the two product copies. Target `https://github.com/sebastianmaute/aipm-cockpit/releases`
+   (decided 2026-09-22).
 5. **Regenerate the sample fixtures.** Edit the hand-curated master (addresses **and** the
    company/organization fields), regenerate the scaled variants, regenerate the goldens with
    `scripts/regen-golden-fixtures.ts`. ★★ A golden regen has previously written truncated
    fixtures over full ones and reported success — compare fixture **sizes** afterwards, never
    just the exit code.
 6. **Fix the guide at source and re-run its generators.** The address, and the copyright line
-   (new owner and licence wording to be supplied by the repository owner). Two generated copies:
+   ("Copyright 2026 Sebastian Maute", EUPL-1.2 — decided 2026-09-22). Two generated copies:
    the operating guide (regenerated by `prebuild` too) and the ai-eval rolling-prompt baseline.
    Editing a generated file is the trap; the next regen reverts it silently.
 7. **Sweep class 7.** Employer name and trigram in test fixtures, i18n prose (DE through a node
@@ -264,10 +265,9 @@ sub-project does not perform.
 
 - The personal address for the commit identity is supplied at execution time and is deliberately
   not recorded here.
-- The copyright owner and licence wording for the guide (class 3) are supplied by the repository
-  owner; publication rights were confirmed 2026-09-21.
-- The GitHub organisation and repository name are needed for the product URL replacements; until
-  they exist, those tasks carry a placeholder and cannot be marked done.
+- ~~Copyright wording~~ — decided 2026-09-22: "Copyright 2026 Sebastian Maute", EUPL-1.2.
+- ~~GitHub owner and repository~~ — decided 2026-09-22: `sebastianmaute/aipm-cockpit` (see the
+  roadmap's "Decisions 2026-09-22").
 
 ## Re-baseline 2026-09-21
 

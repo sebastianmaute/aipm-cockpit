@@ -43,7 +43,7 @@ function seedTask(id: number, taskName: string): Task {
   return {
     id,
     taskName,
-    assignee: "M. Jordan",
+    assignee: "M. Bennett",
     assigneeEmail: "",
     dueDate: "2026-09-30",
     lastUpdateDate: "2026-05-19",
@@ -78,7 +78,7 @@ describe("AI writes capture undo", () => {
     act(() => {
       created = result.current.createTask({
         taskName: "Third",
-        assignee: "M. Jordan",
+        assignee: "M. Bennett",
         dueDate: "2026-09-30",
       });
     });
@@ -187,7 +187,7 @@ function seedStakeholder(id: number, name: string): Stakeholder {
 }
 function seedResource(id: number, firstName: string): Resource {
   return {
-    id, firstName, lastName: "Jordan",
+    id, firstName, lastName: "Bennett",
     roleId: null, utilizationMode: "percent", utilization: {},
   };
 }
@@ -316,7 +316,7 @@ const SITES: SiteRow[] = [
       expect(ids(d.listTasks())).toEqual([1, 2, 3]);
       // …and the row that came back carries its own data, not a husk.
       expect(d.getTask(2)?.taskName).toBe("Before");
-      expect(d.getTask(2)?.assignee).toBe("M. Jordan");
+      expect(d.getTask(2)?.assignee).toBe("M. Bennett");
       // ★★★ THE CASCADE IS REVERSED TOO, AND BY VALUE. `deleteTask` captures
       //   the dependents as `edited` in the SAME part as the `removed` row;
       //   `edited: dependents` → `edited: []` (or dropping the line) leaves
@@ -823,7 +823,7 @@ describe("AI writes round-trip through the real undo stack", () => {
     expect(result.current.dispatcher.listTasks().map((row) => row.id)).toEqual([1, 2, 3]);
     // …and the row that came back carries its own data, not a husk.
     expect(result.current.dispatcher.getTask(2)?.taskName).toBe("Before");
-    expect(result.current.dispatcher.getTask(2)?.assignee).toBe("M. Jordan");
+    expect(result.current.dispatcher.getTask(2)?.assignee).toBe("M. Bennett");
     expect(result.current.undo.stack).toHaveLength(0);
 
     // ★★ THE REDO DIRECTION, which no AI-capture round trip exercised. A redo of
@@ -975,7 +975,7 @@ describe("capturing a create would duplicate the row", () => {
     act(() => {
       created = result.current.dispatcher.createTask({
         taskName: "Third",
-        assignee: "M. Jordan",
+        assignee: "M. Bennett",
         dueDate: "2026-09-30",
       });
     });

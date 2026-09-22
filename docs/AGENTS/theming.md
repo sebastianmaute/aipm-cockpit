@@ -14,22 +14,22 @@
 ### UI shell — theming & color schemes
 
   • **Dual-CI / style axis:** ★ Phase 2 SUPERSEDES this axis — `data-style` is now the CONSTANT `"custom"` and
-  AIPM/Mockup are read-only BUILT-IN SCHEMES (see the scheme bullet below); the CSS-role-token MECHANISM here
+  Petrol/Mockup are read-only BUILT-IN SCHEMES (see the scheme bullet below); the CSS-role-token MECHANISM here
   still stands, only its source moved (scheme maps, not per-`data-style` CSS blocks). `data-style` (formerly
-  `"AIPM"|"mockup"|"custom"`) on `<html>` is ORTHOGONAL to `.dark`; set by
+  the retired brand-named value, `"mockup"` or `"custom"`) on `<html>` is ORTHOGONAL to `.dark`; set by
   `use-style.tsx` (`useCiStyle`, `aipm-cockpit-style` localStorage, NOT the settings blob) + the no-flash boot script
   (`boot-theme-script.ts`, reads `aipm-cockpit-style`+`aipm-cockpit-theme`+the scheme boot keys pre-paint). Mockup ("Dashboard" style) is
   LIGHT-ONLY + PINS light: `use-style` fires a `aipm-cockpit-style-change` event; `use-theme` is the SOLE `.dark`
-  writer and re-applies on that event (switching back to AIPM restores dark). ALL style difference is CSS
+  writer and re-applies on that event (switching back to Petrol restores dark). ALL style difference is CSS
   role tokens in `globals.css`: `--rag-red/amber/green` (+ `-text` AA variants — ★ but `--rag-amber-text` is AA only on
-  LIGHT AIPM; as SMALL text on `bg-surface` it FAILS AA on dark/mockup, see the Next-actions surface bullet), `--table-head-bg/-fg`,
+  LIGHT Petrol; as SMALL text on `bg-surface` it FAILS AA on dark/mockup, see the Next-actions surface bullet), `--table-head-bg/-fg`,
   `--table-head-accent` (sort-button active/hover), `--shadow-card/-control/-card-hover`, `--gradient-kpi`,
-  `--rag-green-chip`/`--rag-red-chip` + `--delta-chip-pad` (KPI delta pills), `--segment-track-bg/-active-bg/-active-fg`. AIPM values
-  reproduce the old look; ★ Phase 2: AIPM-dark + Mockup no longer live in a `.dark` /
+  `--rag-green-chip`/`--rag-red-chip` + `--delta-chip-pad` (KPI delta pills), `--segment-track-bg/-active-bg/-active-fg`. Petrol values
+  reproduce the old look; ★ Phase 2: Petrol-dark + Mockup no longer live in a `.dark` /
   `:root[data-style=mockup]` CSS block (both REMOVED) — they now ride their SCHEME maps, and `globals.css`
-  `:root` is the static AIPM-LIGHT no-JS fallback only. RAG flows through `health.ts` (`healthDot`/`healthText` →
+  `:root` is the static Petrol-LIGHT no-JS fallback only. RAG flows through `health.ts` (`healthDot`/`healthText` →
   `--rag-*` / `--rag-*-text` token families (e.g. `bg-[var(--rag-red)]`, `text-[var(--rag-green-text)]`)). `--gradient-kpi` is APPLIED to the completion-% gauge
-  (`KpiGradientBar` in `report-table.tsx`, the Tile `bar` slot) — AIPM `var(--ui-green)` solid, Mockup the
+  (`KpiGradientBar` in `report-table.tsx`, the Tile `bar` slot) — Petrol `var(--ui-green)` solid, Mockup the
   red→amber→green gradient (inline `style`, the ONLY legal gradient path). It is the SOLE "more=better"
   visual; NEVER apply to effort/usage bars (more=worse — gradient inverts the signal). Shadows/gradients
   legal ONLY via tokens (e.g. `shadow-[var(--shadow-card)]` — use the `--shadow-*` token family); `shell-palette-guard` bans raw
@@ -82,52 +82,52 @@
   ★★ A `-strong` text token tuned AA on `bg-surface` can still FAIL on the lighter `bg-surface-muted` —
   dark `--ui-pink-strong` was bumped `#e5497c`→`#e96089` so overdue pink text clears AA on a Kanban
   card (`bg-surface-muted`), not just on `bg-surface`. Brightening a dark text token only RAISES contrast.
-  ★★ A STRUCTURAL style diff that must stay an AIPM no-op (padding/size, not color) can't ride a Tailwind
+  ★★ A STRUCTURAL style diff that must stay a Petrol no-op (padding/size, not color) can't ride a Tailwind
   class (a class isn't token-toggleable). Put it in a token applied via INLINE STYLE, gated on presence:
-  e.g. `--delta-chip-pad` (AIPM `0` ⇒ byte-identical; Mockup pads the pill), `style={chip ? {padding:
-  "var(--delta-chip-pad)"} : undefined}` — so AIPM is untouched AND a chip-less (flat) trend gets no empty bubble.
-  • **★★ RELEASE B (token rename, 0.190.23):** the palette token NAMES were renamed `AIPM-*`→`ui-*`
-  everywhere — Tailwind classes (`bg-AIPM-green`→`bg-ui-green`), CSS var names (`--AIPM-green`→`--ui-green`),
-  the `@theme` map (`--color-AIPM-*`→`--color-ui-*`), scheme registries (`CORE_TOKENS`/`VALID_TOKENS`/
+  e.g. `--delta-chip-pad` (Petrol `0` ⇒ byte-identical; Mockup pads the pill), `style={chip ? {padding:
+  "var(--delta-chip-pad)"} : undefined}` — so Petrol is untouched AND a chip-less (flat) trend gets no empty bubble.
+  • **★★ RELEASE B (token rename, 0.190.23):** the palette token NAMES lost their brand prefix and became `ui-*`
+  everywhere — Tailwind classes (`bg-brand-green`→`bg-ui-green`, `brand-` standing for the retired prefix), CSS var names (`--brand-green`→`--ui-green`),
+  the `@theme` map (`--color-brand-*`→`--color-ui-*`), scheme registries (`CORE_TOKENS`/`VALID_TOKENS`/
   `DERIVED_TOKENS`), any exported theme FILE's color KEYS, and the palette guards. The 12 base
   tokens are `ui-{dark-blue,green,green-strong,pink,pink-strong,purple,purple-strong,blue,white,dark-grey,
   light-grey,medium-grey}`. The var NAMES + `@theme` MECHANISM are otherwise unchanged (only the prefix);
-  Phase-2 text below that says `--AIPM-*` now means `--ui-*`. PRESERVED (NOT renamed): `AIPM` (company /
-  theme display name), `Acme`/`AIPM-consult` (host/email), `AIPM-logo`/`AIPM-icon` (asset classes — since retired: the `public/AIPM-logo.svg` and `public/AIPM-icon.svg` assets were deleted),
-  and the legacy `CiStyle` union members `"AIPM"`/`"mockup"` (`style-ci.ts` — vestigial: `data-style` is
-  the constant `"custom"` now, and NO live scheme carries either id). NO key migration — a stored/
-  exported scheme with legacy `--AIPM-*` color keys drops to the default-scheme fallback (Beacon) (no active users).
-  • **★★ RELEASE A (theme decouple, 0.190.22) SUPERSEDES the "FIVE built-ins" claim below:** AIPM + Mockup
+  the Phase-2 text below uses the current `--ui-*` names throughout. PRESERVED (NOT renamed): the brand name (company /
+  theme display name), the employer name and its host/email spellings, and the logo/icon asset classes (since retired: both assets were deleted).
+  The legacy `CiStyle` union keeps only `"mockup"` beside `"custom"` (`style-ci.ts` — vestigial: `data-style` is
+  the constant `"custom"` now, and NO live scheme carries that id; the retired brand member was deleted in 1.13.1). NO key migration — a stored/
+  exported scheme with legacy brand-prefixed color keys drops to the default-scheme fallback (Beacon) (no active users).
+  • **★★ RELEASE A (theme decouple, 0.190.22) SUPERSEDES the "FIVE built-ins" claim below:** Petrol + Mockup
   LEFT the code built-ins entirely. `BUILTIN_SCHEMES` = **[harbor, meridian, umber, beacon]** (Beacon added
   as the fresh-install default; it is LIGHT-ONLY — no `dark` map — and pins light mode via the same
   supportsDark-driven mechanism a light-only USER scheme already used), and a theme is
   now a FILE THE USER LOADS in the full portable format (light/dark/`structural`/branding/pinned AA tokens).
-  ★★★ CORRECTED 2026-07-30 — earlier revisions of this bullet claimed AIPM and Mockup "ship as
-  `public/themes/AIPM.json` + `mockup.json`" and that the gallery "fetches `/themes/*.json`". **There is no
-  `public/themes/` directory, there are no shipped theme files, and nothing in the repo references that
-  path** (verified: `find . -name AIPM.json` → nothing; `public/` holds only logos, the manifest and `sw.js`).
+  ★★★ CORRECTED 2026-07-30, RE-CORRECTED 2026-09-22 — earlier revisions of this bullet claimed Petrol and Mockup are
+  bundled and that the gallery "fetches `/themes/*.json`". **Nothing fetches them:** the theme files under
+  `public/themes/` (`petrol.json`, `mockup.json`, `beacon.json`) are tracked, but they are NOT built in and no code
+  loads them — a user imports one from disk (verify: `ls public/themes`; `git grep -n "themes/" -- src` hits only comments).
   The in-app **Theme gallery** (`theme-gallery.tsx`, mounted in `AppearanceSection` beside the scheme editor)
   is a FILE-UPLOAD importer (`accept="application/json,.json"`) → widened `importScheme` → `addScheme` +
   `updateScheme({dark,structural})` → a removable user scheme. Fresh install picker = Harbor/Meridian/Umber/Beacon (Beacon is the DEFAULT selection);
-  `e2e/a11y.spec.ts`'s own comment states it plainly: "AIPM and Dashboard no longer exist in the app in any
-  form — a theme is a file the user loads." Do not re-add a claim that any theme is bundled. NO migration (no active users) — an orphaned `activeId "AIPM"/"mockup"`
-  falls back to the default scheme (Beacon) via reconcile. `ICC_SEED`/`MOCKUP_SEED` + their structural maps DELETED from
+  `e2e/a11y.spec.ts`'s own comment states it plainly: "Petrol and Dashboard no longer exist in the app in any
+  form — a theme is a file the user loads." Do not re-add a claim that any theme is bundled. NO migration (no active users) — an orphaned `activeId` (the retired brand scheme id, or `"mockup"`)
+  falls back to the default scheme (Beacon) via reconcile. the retired brand seed constant and `MOCKUP_SEED` + their structural maps DELETED from
   `scheme-tokens.ts` (AA derivation uses a neutral `FALLBACK_SURFACE`); `globals.css :root` is now the
   **Harbor-resolved-light** no-JS fallback (the var NAMES are now `--ui-*` after Release B; `@theme` map
   structure UNCHANGED). Portable format widened: `exportScheme`/`cleanScheme` carry `structural`
   (via `cleanStructural` + `STRUCTURAL_TOKENS`, `isSafeRawCssValue`-gated) + the 7 pinned derived tokens;
   `updateScheme` accepts a `structural` patch. Scheme editor base/reset = `HARBOR_LIGHT`; its old
-  "New from AIPM/Mockup" buttons → one "New from current theme". ★★ e2e axe `a11y.spec.ts` runs a
+  "New from Petrol/Mockup" buttons → one "New from current theme". ★★ e2e axe `a11y.spec.ts` runs a
   **7-combo** matrix on the FOUR BUILT-INS — harbor light+dark, meridian light+dark, umber light+dark,
   beacon light — resolving each map node-side at seed time. ★★ This said SIX and called umber-dark
   "deliberately unscanned to hold the count down"; it was never deliberate, and it is scanned now.
   ★ Beacon genuinely has no dark variant, which is the only real omission. — The Phase-2 text below still describes
   the MECHANISM (data-style/scheme apply/structural), just not the built-in ROSTER.
-  • **Scheme-driven color schemes (Phase 2 — AIPM + Mockup ARE built-in schemes):** the AIPM/mockup/custom
+  • **Scheme-driven color schemes (Phase 2 — Petrol + Mockup ARE built-in schemes):** the brand/mockup/custom
   `data-style` AXIS COLLAPSED — `data-style` is now the CONSTANT `"custom"` (`use-style` always writes it;
-  `CiStyle.style` is always `"custom"` in normal operation). AIPM + Mockup JOINED Harbor/Meridian/Umber as
+  `CiStyle.style` is always `"custom"` in normal operation). Petrol + Mockup JOINED Harbor/Meridian/Umber as
   READ-ONLY BUILT-IN schemes → FIVE built-ins in `BUILTIN_SCHEMES` (`builtin-schemes.ts`; ids
-  `"AIPM"`/`"mockup"`/`"harbor"`/`"meridian"`/`"umber"`, undeletable via `BUILTIN_SCHEME_IDS`). Harbor was the
+  the retired brand-named id/`"mockup"`/`"harbor"`/`"meridian"`/`"umber"`, undeletable via `BUILTIN_SCHEME_IDS`). Harbor was the
   fresh-install DEFAULT at the time (`DEFAULT_SCHEME_ID`) — no longer true, see the RELEASE A bullet above;
   Beacon is default now. A scheme carries `{ light, dark?, supportsDark, structural?,
   builtIn? }` (user ids `"u-<n>"`); apply is INLINE `documentElement.style.setProperty` (the legal runtime
@@ -138,8 +138,8 @@
   blocking `url(` / `expression` / `image-set` / `;` / braces / `@` / angle brackets / backtick. Mirrored to
   boot key `aipm-cockpit-active-scheme-structural` (NOT `aipm-cockpit:`-prefixed → boot reads it pre-paint like
   `aipm-cockpit-active-scheme-colors`; consequently NOT swept by `clearAppConfig` — intentional, mirrors the colors
-  key). ★★ `globals.css`: `:root` is KEPT as the STATIC no-JS / pre-boot AIPM-LIGHT fallback (colors +
-  structural); the old `.dark` TOKEN block AND the `:root[data-style="mockup"]` block were REMOVED — AIPM-dark +
+  key). ★★ `globals.css`: `:root` is KEPT as the STATIC no-JS / pre-boot Petrol-LIGHT fallback (colors +
+  structural); the old `.dark` TOKEN block AND the `:root[data-style="mockup"]` block were REMOVED — Petrol-dark +
   Mockup now ride their SCHEME maps. `.dark` REMAINS a class toggle (Tailwind `dark:` utilities). ★★
   ★★ **`deriveAaVariants` targets `--surface-muted` for every AA variant EXCEPT `--ui-purple-strong`**, which
   is derived against the purple tint COMPOSITED over that surface (`PURPLE_TINT_ALPHA_LIGHT` 0.20 /
@@ -195,10 +195,10 @@
   tokens, so a pinned AA variant is a test failure by construction. ★ Do NOT
   add "and `cleanColors` would drop the pin on save-as-new" to that argument — it is FALSE and was
   briefly written here: `--ui-purple-strong` is in `DERIVED_TOKENS`, which `VALID_TOKENS` includes, so
-  `cleanColors` KEEPS it (that is exactly how an imported AIPM/Mockup scheme survives a save).
+  `cleanColors` KEEPS it (that is exactly how an imported Petrol/Mockup scheme survives a save).
   `resolveSchemeColors` is now BASE-WINS (`{...deriveAaVariants(colors), ...colors}`): derivation only FILLS
   missing AA variants; an explicitly PINNED `-strong`/`-text`/`muted-foreground`/state-border SURVIVES — that is why
-  AIPM/Mockup reproduce the shipping look exactly (landmine 1). ★★ `effectiveDark(themeDark, schemeSupportsDark)`
+  Petrol/Mockup reproduce the shipping look exactly (landmine 1). ★★ `effectiveDark(themeDark, schemeSupportsDark)`
   DROPPED the `style` arg; pin-light = `!activeScheme.supportsDark` (Mockup `supportsDark:false`, honours theme
   for a dark-capable scheme). `use-theme` (sole `.dark` writer) reads `data-scheme-dark` ONLY — the mockup
   `data-style` branch is GONE. `use-style.syncScheme` stays the SOLE apply path (resolves for the CURRENT theme,
@@ -207,11 +207,11 @@
   `use-style` re-resolves; a SCHEME switch (`aipm-cockpit-scheme-change`) runs `syncScheme` FIRST then re-dispatches
   `aipm-cockpit-style-change` — do NOT make `use-theme` listen to `aipm-cockpit-scheme-change` (the fixed race). ★★ Boot script
   (`boot-theme-script.ts`, imported by `layout.tsx`) ALWAYS writes `data-style="custom"`, paints scheme colors
-  AND structural, and EMBEDS the resolved AIPM/Mockup/Harbor maps so a legacy-first-boot device migrates without
-  a Harbor flash. `use-style` ONE-TIME-migrates a legacy `aipm-cockpit-style="AIPM"/"mockup"` → the scheme activeId (in
+  AND structural, and EMBEDS the resolved Petrol/Mockup/Harbor maps so a legacy-first-boot device migrates without
+  a Harbor flash. `use-style` ONE-TIME-migrates a legacy `aipm-cockpit-style` value (the retired brand-named value or `"mockup"`) → the scheme activeId (in
   the lazy `useState` initializer) then writes `aipm-cockpit-style="custom"`. `layout-boot-script.test.ts` PINS the EXACT
   boot string + runtime-evals it — edit boot ⇒ update that guard in lockstep. ★★ AppearanceSection: the scheme
-  `<select>` routes ALL ids (incl AIPM/mockup) through `selectScheme` (NOT `setStyle`); `pinsLight =
+  `<select>` routes ALL ids (incl. the retired brand id and mockup) through `selectScheme` (NOT `setStyle`); `pinsLight =
   !activeSupportsDark`; the editor is ALWAYS mounted (built-ins read-only via `BUILTIN_SCHEME_IDS` —
   Rename/Delete/Apply disabled, tweak + Save-as-new to customise); global app-name/footer inputs shown when the
   active scheme owns no branding (built-ins), HIDDEN for a branded user scheme. `reconcileBuiltins` remains the
@@ -232,7 +232,7 @@
   its light/dark map; derivation only fills gaps. Flipping back to derived-wins silently OVERWRITES a built-in's
   pinned `-strong`/`-text`/`muted-foreground`.
   (2) A built-in whose `-strong` values were hand-tuned must PIN them in its map, else `nudgeToAa` re-derives
-  different values (the AIPM/Mockup schemes this was learned on are deleted).
+  different values (the Petrol/Mockup schemes this was learned on are deleted).
   (3) A built-in map holds FLAT hex values for tokens that are `var(--surface)` in globals (e.g.
   `--segment-track-bg`), so a DARK map must override each such chrome token with a dark value — every dark
   map in `builtin-schemes.ts` does — or the control renders light-on-light in dark (axe AA fail).
@@ -382,7 +382,7 @@
   classic `AppHeader` + `app-modals` footer read branding via `useSettings()`. CSP already allows `data:` in
   `img-src`. ★ Sidebar and classic `AppHeader` share the SAME default asset, `/ai-pm-cockpit-banner.svg` —
   a full-colour banner with its own dark ground, so NEITHER default branch carries `brightness-0 invert` any
-  more (that filter used to whiten the retired mono AIPM mark). A custom `branding.logo` renders through the
+  more (that filter used to whiten the retired mono brand mark). A custom `branding.logo` renders through the
   identical sizing classes as the default, so the default and custom branches collapse to one className
   each: classic `AppHeader` a definite 300×70 box (`h-[70px] w-[300px]`), the expanded sidebar the same
   300:70 aspect at its full width (`w-full aspect-[300/70]`, ~256×60), placed OUTSIDE the padded header
@@ -391,7 +391,7 @@
   was deliberately left on its own default.
   ★★ `startLogo` is a FIFTH, SEPARATE field driving ONLY the start window (`project-empty-state.tsx`, the
   `view === "choices"` branch); unset ⇒ the shipped `/ai-pm-cockpit-banner-beacon-transparent.svg`, NOT `logo` and NOT the
-  AIPM mark. It is deliberately not shared with the sidebar `logo` — one wants a small mark, the other a wide
+  retired brand mark. It is deliberately not shared with the sidebar `logo` — one wants a small mark, the other a wide
   banner. ★★★ THE `<img>` NEEDS A **DEFINITE** HEIGHT (`h-12`), NEVER ONLY A CAP. It shipped once as
   `max-h-12 w-auto` — all constraints, nothing definite — and the empty-state HEADER COLLAPSED: the shipped
   banner carries a `viewBox` but NO `width`/`height` attributes, so it has no intrinsic size (`naturalWidth`
@@ -424,11 +424,21 @@
   ★ Changing the theme bytes moves `docs/baselines/ooxml-parts.json`; regenerate it only with
   `npm run ooxml:manifest`. All of it is resolved by ONE function,
   `exportFooterText` (`export-footer.ts`, dependency-free so the renderers stay out of the
-  settings-types import cycle; re-exported from `settings-types.ts`). ★★ THREE states, and `""` is
-  one of them: `undefined` = never set → `DEFAULT_EXPORT_FOOTER` (the pre-configurable text),
-  `""` = cleared → `NEUTRAL_EXPORT_FOOTER`. So `sanitizeBranding` KEEPS an empty value and both
-  presence checks test `!== undefined`, never truthiness — a truthy test turns "cleared" back into
-  the default on the next load. ★ Like `startLogo`, no scheme owns it (`mergeAppliedBranding` leaves
+  settings-types import cycle; re-exported from `settings-types.ts`). ★★ Precedence is env
+  (`NEXT_PUBLIC_EXPORT_FOOTER`, read by `exportFooterEnv`) → Settings → the single built-in
+  `DEFAULT_EXPORT_FOOTER` — mirrors `ai-policy.ts`'s env → Settings → built-in order (the AI policy
+  built-in was dropped; this one stays, because every export always carries SOME footer). THREE
+  Settings states, and `""` is one of them: `undefined` = never set → `DEFAULT_EXPORT_FOOTER`,
+  `""` = cleared → `DEFAULT_EXPORT_FOOTER` too (the constant was previously named
+  `NEUTRAL_EXPORT_FOOTER` for the cleared case alone; once the built-in became neutral text the two
+  names held one value and were collapsed into `DEFAULT_EXPORT_FOOTER`). So `sanitizeBranding` KEEPS
+  an empty value and both presence checks test `!== undefined`, never truthiness — a truthy test
+  turns "cleared" back into the default on the next load. ★★ `DEFAULT_EXPORT_FOOTER` is used as a
+  default PARAMETER value in the renderers (`buildPdfHtml`, `exportWorkspace`, `renderDocumentHtml`,
+  `renderDocumentPptx`, `buildPptx`, `buildPptxTheme`/`buildPptxPackage`) — safe as a plain constant
+  because it does not depend on `process.env`; only `exportFooterText`/`exportFooterEnv` read the
+  build variable, and they do it PER CALL (a default parameter, not a module-level constant) so a
+  test's `vi.stubEnv` is visible. ★ Like `startLogo`, no scheme owns it (`mergeAppliedBranding` leaves
   it alone), so its Appearance row is ungated. The renderers take it as a trailing defaulted argument;
   the callers read `settings.branding` (both top bars via `ActionMenus`, the voice export in
   `task-manager.tsx`, the Documents panel via `workspace-panels.tsx`, the chat document card via
@@ -554,7 +564,7 @@
   (Same fix applied to the read-only "caused this" children chips in `raid-edit-fields.tsx`, which had the
   identical bleed plus `text-ui-purple` → now `text-ui-purple-strong`.)
   ★★ That `-strong` swap was NOT a uniform win when it landed, and the caveat still applies to any OTHER
-  `-strong` token: it repaired a real AA failure in the DARK schemes and in AIPM light/dark (the PINNED value)
+  `-strong` token: it repaired a real AA failure in the DARK schemes and in Petrol light/dark (the PINNED value)
   but was a literal NO-OP in Harbor/Meridian/Umber LIGHT, where `nudgeToAa` exited at zero iterations because
   the base already cleared 4.5 against `--surface-muted`. Don't assume `-strong` changes anything in a light
   scheme with no pinned value. (For PURPLE specifically this was then fixed at the source — see the

@@ -1054,7 +1054,7 @@ describe("start-window logo", () => {
 ```bash
 npx vitest run src/app/project-empty-state.test.tsx > /tmp/t5b.log 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " /tmp/t5b.log
 ```
-Expected: FAIL — the img still points at `/AIPM-logo.svg`.
+Expected: FAIL — the img still points at `/brand-logo.svg`.
 
 - [ ] **Step 7: Change the empty state**
 
@@ -1168,7 +1168,7 @@ feat(branding): the start-window logo is configurable and defaults to the harbor
 New per-device branding.startLogo, edited in Settings → Appearance beside the
 sidebar logo and favicon, and validated by the same raster-only rule (SVG
 uploads stay rejected). Unset, the start window shows the shipped
-ai-pm-cockpit-banner-harbor.svg instead of the AIPM mark, sized for a wide banner.
+ai-pm-cockpit-banner-harbor.svg instead of the brand mark, sized for a wide banner.
 
 Schemes do not own the field: mergeAppliedBranding overwrites only the other
 four, so a scheme apply leaves it intact and it stays out of the scheme format.

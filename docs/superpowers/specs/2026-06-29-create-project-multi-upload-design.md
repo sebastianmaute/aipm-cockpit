@@ -39,7 +39,7 @@ The create-project wizard's Step-0 file import accepts ONE file and gives only a
 - Rendered as a non-blocking info line (not `role=alert`; muted) listing names + a per-reason summary, e.g. `wizardImportSkippedFiles` with count + joined names. Cleared on a new selection / method change.
 
 ### Loading modal (mirrors Timelog)
-- Shown while `reading || aiBusy`. Inlined in step0 (mirror `timelog-panel.tsx` lines 718–741): `<Modal open onClose={cancel} ariaLabel={…} align="center" zIndex={70}>` → a `role="status" aria-live="polite"` box with the spinner (`h-7 w-7 animate-spin rounded-full border-2 border-AIPM-dark-blue border-t-transparent`), a label, and a Cancel button (`INTERACTIVE` atom).
+- Shown while `reading || aiBusy`. Inlined in step0 (mirror `timelog-panel.tsx` lines 718–741): `<Modal open onClose={cancel} ariaLabel={…} align="center" zIndex={70}>` → a `role="status" aria-live="polite"` box with the spinner (`h-7 w-7 animate-spin rounded-full border-2 border-ui-dark-blue border-t-transparent`), a label, and a Cancel button (`INTERACTIVE` atom).
 - Label is phase-aware: `reading` → `wizardImportReadingFiles`; else (`aiBusy`) → `wizardImportAnalyzing`.
 - `Modal` already exists (`./modal`) and stacks correctly (topmost-only Escape) — the wizard is itself a modal, so this nested loading modal must be topmost while open (Modal's stack handles it).
 

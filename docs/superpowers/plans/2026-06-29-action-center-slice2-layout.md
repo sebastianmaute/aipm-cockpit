@@ -278,7 +278,7 @@ with the expandable toggle + list:
               aria-expanded={menuOpen}
               aria-label={`${t(lang, "actionMoreActions")} – ${title}`}
               onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
-              className="cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10"
+              className="cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-ui-dark-blue/40 hover:bg-ui-dark-blue/10"
             >
               ⋮
             </button>
@@ -371,5 +371,5 @@ Expected only: `i18n.ts`, `i18n.de.ts`, `action-row.tsx`, `action-row.test.tsx`,
 ## Out of scope / notes
 - Contextual popovers (Escalate/Assign/Re-baseline) NOT folded — left inline (≤1 per row).
 - No per-reason CTA (slice 4). No density toggle. No engine change.
-- Eye-verify the `[⋮]` keyboard path + RAG stripe contrast (AIPM light/dark + Mockup) — `actions` view is not axe-gated.
+- Eye-verify the `[⋮]` keyboard path + RAG stripe contrast (Petrol light/dark + Mockup) — `actions` view is not axe-gated.
 - No release/push/MR — only on the explicit "release" trigger.

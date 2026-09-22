@@ -20,7 +20,7 @@
 - Never read a gate's exit code through a pipe. Pattern: `<cmd> > "$LOG/x.log" 2>&1; echo "EXIT=$?"`, then grep the log. `$LOG` = your session scratchpad directory.
 - One vitest run at a time: `npx vitest run <files> --maxWorkers=1 --reporter=dot > "$LOG/t.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " "$LOG/t.log"`. Never the full suite. Assert `Test Files N passed (N)` equals the number of files passed (a mistyped path is dropped at exit 0).
 - `npm run size:check` per task that grows a source file.
-- Commits: write the message with the Write tool to `$LOG/msg-tN.txt`, then `git add <paths> && git commit --only <paths> -F "$LOG/msg-tN.txt"`. Never `git add -A` / `git add .`, never `--amend`, no `git stash`, no `git checkout --`. Every message ends with the line `Claude-Session: https://[session link removed]`.
+- Commits: write the message with the Write tool to `$LOG/msg-tN.txt`, then `git add <paths> && git commit --only <paths> -F "$LOG/msg-tN.txt"`. Never `git add -A` / `git add .`, never `--amend`, no `git stash`, no `git checkout --`. Every message ends with the session trailer line.
 - Commit messages name register entries as `§N` only. Never write `#N` after close/closes/fix/fixes/resolve/implements. Write "§323", never "#323" (#323 is §533's issue; §323's issue is #238).
 - Register ⇄ GitLab is 1:1: a closed entry carries NO `**Work item:**` line. Register index rows are hand-edited, never rebuilt by a recipe. `docs/open-followups.md` has one writer at a time (only Task 11 touches it).
 - Six write paths (JSON, CSV, Markdown, Turso single, Turso tenant, IndexedDB): no new persisted field in this batch; normalised and propagated values ride existing columns.
@@ -1264,7 +1264,7 @@ Add to `src/app/resource-edit-modal.test.tsx` (uses its `setupFull`, `base`):
     const onSave = vi.fn();
     setupFull({ resource: { ...base, email: "a,b@x.com" }, onSave });
     expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorEmailDelimiter"));
-    fireEvent.change(screen.getByDisplayValue("Sample"), { target: { value: "Ada" } });
+    fireEvent.change(screen.getByDisplayValue("Sofia"), { target: { value: "Ada" } });
     fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
     expect(onSave).toHaveBeenCalledTimes(1);
   });

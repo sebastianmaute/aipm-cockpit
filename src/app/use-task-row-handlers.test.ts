@@ -209,13 +209,13 @@ describe("useTaskRowHandlers — onSwimlaneDrop", () => {
     act(() =>
       result.current.onSwimlaneDrop(
         1,
-        { key: "res:7", label: "Anna Jordan", resourceId: 7 },
+        { key: "res:7", label: "Anna Bennett", resourceId: 7 },
         "In Progress",
       ),
     );
     expect(setTasks).toHaveBeenCalledTimes(1);
     const next = applyUpdater(setTasks, tasks);
-    expect(next[0]).toMatchObject({ resourceId: 7, assignee: "Anna Jordan", status: "In Progress" });
+    expect(next[0]).toMatchObject({ resourceId: 7, assignee: "Anna Bennett", status: "In Progress" });
     // One undo entry captures all four changed fields.
     expect(captureFieldEdit).toHaveBeenCalledTimes(1);
     const opts = captureFieldEdit.mock.calls[0][0] as {
@@ -223,12 +223,12 @@ describe("useTaskRowHandlers — onSwimlaneDrop", () => {
       after: Partial<Task>;
     };
     expect(opts.before).toMatchObject({ assignee: "", resourceId: undefined, status: "To Do" });
-    expect(opts.after).toMatchObject({ assignee: "Anna Jordan", resourceId: 7, status: "In Progress" });
+    expect(opts.after).toMatchObject({ assignee: "Anna Bennett", resourceId: 7, status: "In Progress" });
   });
 
   it("dropping into Unassigned clears both the link and the name", () => {
     const setTasks = vi.fn();
-    const tasks = [makeTask({ id: 1, status: "To Do", assignee: "Anna Jordan", resourceId: 7 })];
+    const tasks = [makeTask({ id: 1, status: "To Do", assignee: "Anna Bennett", resourceId: 7 })];
     const tasksRef = { current: tasks };
     const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ tasksRef, setTasks })));
     act(() =>
@@ -923,7 +923,7 @@ describe("useTaskRowHandlers — status transitions reach the activity log", () 
     act(() =>
       result.current.onSwimlaneDrop(
         1,
-        { key: "res:7", label: "Anna Jordan", resourceId: 7 },
+        { key: "res:7", label: "Anna Bennett", resourceId: 7 },
         "Done",
       ),
     );

@@ -12,6 +12,49 @@ import { MAX_HOURS_PER_DAY } from "./types";
  *  no blob yet, rather than minting a fresh object every render. */
 export const EMPTY_TIMELOG_LINKS: TimelogLinks = { userLinks: [], projectLinks: [] };
 
+export interface TimelogEnv {
+  tenant: string | undefined;
+}
+
+/** The deployment's build-time tenant. Next.js inlines `NEXT_PUBLIC_*` at
+ *  build, so the member access stays literal (mirrors `aiPolicyEnv` /
+ *  `exportFooterEnv`). */
+export function timelogEnv(): TimelogEnv {
+  return { tenant: process.env.NEXT_PUBLIC_TIMELOG_TENANT };
+}
+
+/** The tenant a NEVER-configured install starts with: the build variable,
+ *  trimmed, else `""` — there is no built-in slug any more (the built-in
+ *  used to name the employer's real Timelog tenant).
+ *  ★★ PROTOCOL VALUE, and that is why `sanitizeTimelogConfig` below only
+ *  reaches for this on a MISSING tenant, unlike `resolveAiPolicy` /
+ *  `exportFooterText`'s env-always-wins precedence: the tenant is a URL path
+ *  segment already sent to the Timelog API and persisted in
+ *  `settings.timelog`, so a stored tenant is real traffic-affecting state a
+ *  later env change must never silently repoint. */
+export function defaultTimelogTenant(env: TimelogEnv = timelogEnv()): string {
+  return env.tenant?.trim() || "";
+}
+
+/** The config a runtime reader should actually USE — never what gets
+ *  persisted. Resolves the env at READ time: a stored non-blank `tenant`
+ *  always wins (unchanged from the raw `cfg`); a blank stored tenant falls
+ *  back to `defaultTimelogTenant(env)`.
+ *  ★★★ Callers that BUILD REQUESTS or JUDGE CONFIGURATION (the proxy creds,
+ *  `isMisconfigured`) must read `settings.timelog` through this, not raw —
+ *  `sanitizeTimelogConfig` only resolves the env for a *fresh* config (see
+ *  above); it does not run on every read of already-stored settings, so the
+ *  env would otherwise have no effect on an existing install at all.
+ *  ★★ Deliberately NOT used for whatever gets WRITTEN back to `settings`
+ *  (the settings-load merge, the settings form's `config` prop, or any
+ *  `setSettings` call): writing the resolved value back would make an
+ *  env-supplied tenant masquerade as a stored one, and a later env change
+ *  would then silently stop taking effect for that device. */
+export function effectiveTimelogConfig(cfg: TimelogConfig, env: TimelogEnv = timelogEnv()): TimelogConfig {
+  const tenant = cfg.tenant.trim();
+  return tenant ? cfg : { ...cfg, tenant: defaultTimelogTenant(env) };
+}
+
 /** True when the blob carries nothing worth persisting.
  *  ★★ THE OUTER HALF OF THE BYTE-STABILITY RULE, and it is a genuinely separate
  *  one: `sanitizeTimelogPolicy` below drops an empty `policy` key, but
@@ -119,8 +162,11 @@ export function sanitizeTimelogLinks(raw: unknown): TimelogLinks | undefined {
 }
 
 const SCOPES: readonly TimelogScopeMode[] = ["auto", "self", "org"];
-export function sanitizeTimelogConfig(raw: unknown): TimelogConfig {
-  if (!raw || typeof raw !== "object") return { ...defaultTimelogConfig };
+export function sanitizeTimelogConfig(raw: unknown, env: TimelogEnv = timelogEnv()): TimelogConfig {
+  // A raw config that is not even an object is a "never touched settings"
+  // config built fresh — it must ALSO honour the env, not just the
+  // has-a-tenant-key branch below.
+  if (!raw || typeof raw !== "object") return { ...defaultTimelogConfig, tenant: defaultTimelogTenant(env) };
   const o = raw as Record<string, unknown>;
   const scopeMode = SCOPES.includes(o.scopeMode as TimelogScopeMode)
     ? (o.scopeMode as TimelogScopeMode)
@@ -128,7 +174,7 @@ export function sanitizeTimelogConfig(raw: unknown): TimelogConfig {
   return {
     enabled: o.enabled === true,
     host: str(o.host) || defaultTimelogConfig.host,
-    tenant: str(o.tenant) || defaultTimelogConfig.tenant,
+    tenant: str(o.tenant) || defaultTimelogTenant(env),
     email: str(o.email),
     apiToken: typeof o.apiToken === "string" ? o.apiToken : "",
     scopeMode,

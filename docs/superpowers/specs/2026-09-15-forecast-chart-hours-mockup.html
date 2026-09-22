@@ -77,7 +77,7 @@ extended with an hours side: budget 2,000 h at a planned average of €120/h.</p
 <div class="card">
   <h3>Why the hours chart has no forecast today</h3>
   <ul>
-    <li><b>Spec ruling, not a technical limit.</b> §2 set the money basis to contract price (AIPM Burndown standard), so MR 2 built € facts only.</li>
+    <li><b>Spec ruling, not a technical limit.</b> §2 set the money basis to contract price (Employer Burndown standard), so MR 2 built € facts only.</li>
     <li><b>The engine does not care about units.</b> <code>computeForecastFromFacts</code> reads <code>bac · ac · ev · pv · dated[].value</code> and nothing else. Feed it hours and it returns burn rate h/day, ETC/EAC/VAC in hours, a run-out date, CPI/SPI in hours.</li>
     <li><b>All inputs exist.</b> Dated actual hours are already walked in <code>forecastFacts</code>; BAC/AC hours sit on <code>report.project</code>; EV hours = Σ bucket budget hours × % complete; PV hours = the chart's own hours series.</li>
     <li><b>Hours are simpler.</b> No rates, no FX, and no fixed-price uncapping (§5.4) — hours are the internal-effort truth.</li>

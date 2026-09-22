@@ -38,7 +38,7 @@ export function seedTask(id: number, taskName: string): Task {
   return {
     id,
     taskName,
-    assignee: "M. Jordan",
+    assignee: "M. Bennett",
     assigneeEmail: "",
     dueDate: "2026-09-30",
     lastUpdateDate: "2026-05-19",
@@ -139,8 +139,8 @@ export function seedGuardedTask(over: Partial<Task> = {}): Task {
   return {
     id: 1,
     taskName: "Guarded task",
-    assignee: "M. Jordan",
-    assigneeEmail: "m.Jordan@example.com",
+    assignee: "M. Bennett",
+    assigneeEmail: "m.bennett@example.com",
     startDate: "2026-04-06",
     dueDate: "2026-09-30",
     lastUpdateDate: "2026-05-19",
@@ -246,7 +246,7 @@ export function seedGuardedRaid(): RaidItem {
     ownerEmail: "k.fischer@example.com",
     inquiriesSent: 2,
     escalations: [
-      { at: "2026-06-11T07:45:00.000Z", toName: "M. Jordan", toEmail: "m.Jordan@example.com", toResourceId: 2, fromSeverity: "Medium", toSeverity: "High" },
+      { at: "2026-06-11T07:45:00.000Z", toName: "M. Bennett", toEmail: "m.bennett@example.com", toResourceId: 2, fromSeverity: "Medium", toSeverity: "High" },
       { at: "2026-06-12T07:00:00.000Z", toEmail: "ops@example.com" },
     ],
     localModifiedAt: "2026-06-12T08:15:00.000Z",
@@ -385,16 +385,16 @@ export function seedGuardedStakeholder(over: Partial<Stakeholder> = {}): Stakeho
  *  ★ `assigneeEmail` is populated for the SWEEP's sake — `sanitizeAbsence`
  *  resolves it to `undefined` for anything non-string, so an absent seed makes
  *  a refusal on it indistinguishable from a stored one. It repeats the task
- *  seed's address deliberately: both rows name the same person, M. Jordan. */
+ *  seed's address deliberately: both rows name the same person, M. Bennett. */
 export function seedGuardedAbsence(over: Partial<Absence> = {}): Absence {
   return {
     id: 50,
-    assignee: "M. Jordan",
+    assignee: "M. Bennett",
     startDate: "2026-07-06",
     endDate: "2026-07-17",
     type: "vacation",
     note: "Booked with the team",
-    assigneeEmail: "m.Jordan@example.com",
+    assigneeEmail: "m.bennett@example.com",
     // ★★ THE FIELD `rawTypeGuards` ADDED TO THE AXIS. `resourceId` is an FK, so
     //  it is a `linkFields` member and absent from `diffFields` — and it is also
     //  in `ABSENCE_FIELD_GUARDS`, which on this entity IS the accepted surface.

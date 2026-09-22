@@ -33,25 +33,25 @@ const task = (id: number, assignee: string, over: Partial<Task> = {}): Task =>
 
 describe("buildResourceWorkload", () => {
   it("joins tasks to a managed resource by resourceId", () => {
-    const r = res(1, "Sample", "Dummy");
+    const r = res(1, "Sofia", "Ramirez");
     const { managed, unlinked } = buildResourceWorkload([r], [task(10, "whatever", { resourceId: 1 })], [], [], "2026-06-01");
     expect(unlinked).toHaveLength(0);
     expect(managed).toHaveLength(1);
     expect(managed[0].openCount).toBe(1);
   });
   it("falls back to case-folded name when a task has no resourceId", () => {
-    const r = res(1, "Sample", "Dummy");
-    const { managed } = buildResourceWorkload([r], [task(10, "Alex Example")], [], [], "2026-06-01");
+    const r = res(1, "Sofia", "Ramirez");
+    const { managed } = buildResourceWorkload([r], [task(10, "sofia ramirez")], [], [], "2026-06-01");
     expect(managed[0].openCount).toBe(1);
   });
   it("counts overdue open tasks", () => {
-    const r = res(1, "Sample", "Dummy");
-    const { managed } = buildResourceWorkload([r], [task(10, "Alex Example", { resourceId: 1, dueDate: "2026-01-01" })], [], [], "2026-06-01");
+    const r = res(1, "Sofia", "Ramirez");
+    const { managed } = buildResourceWorkload([r], [task(10, "Sofia Ramirez", { resourceId: 1, dueDate: "2026-01-01" })], [], [], "2026-06-01");
     expect(managed[0].overdueCount).toBe(1);
   });
   it("ignores completed tasks for open/overdue counts", () => {
-    const r = res(1, "Sample", "Dummy");
-    const { managed } = buildResourceWorkload([r], [task(10, "Alex Example", { resourceId: 1, dueDate: "2026-01-01", completedDate: "2026-02-01" })], [], [], "2026-06-01");
+    const r = res(1, "Sofia", "Ramirez");
+    const { managed } = buildResourceWorkload([r], [task(10, "Sofia Ramirez", { resourceId: 1, dueDate: "2026-01-01", completedDate: "2026-02-01" })], [], [], "2026-06-01");
     expect(managed[0].openCount).toBe(0);
     expect(managed[0].overdueCount).toBe(0);
   });
@@ -62,30 +62,30 @@ describe("buildResourceWorkload", () => {
     expect(unlinked[0]).toMatchObject({ firstName: "Bob", lastName: "Lee", email: "bob@x.com", openCount: 1 });
   });
   it("treats a dangling resourceId (no matching resource) + unknown name as unlinked", () => {
-    const { managed, unlinked } = buildResourceWorkload([res(1, "Sample", "Dummy")], [task(10, "Ghost", { resourceId: 999 })], [], [], "2026-06-01");
+    const { managed, unlinked } = buildResourceWorkload([res(1, "Sofia", "Ramirez")], [task(10, "Ghost", { resourceId: 999 })], [], [], "2026-06-01");
     expect(managed[0].openCount).toBe(0);
     expect(unlinked).toHaveLength(1);
     expect(unlinked[0].display).toBe("Ghost");
   });
   it("includes a managed resource with no tasks (zero counts, default weekly hours)", () => {
-    const { managed } = buildResourceWorkload([res(1, "Sample", "Dummy")], [], [], [], "2026-06-01");
+    const { managed } = buildResourceWorkload([res(1, "Sofia", "Ramirez")], [], [], [], "2026-06-01");
     expect(managed).toHaveLength(1);
     expect(managed[0].openCount).toBe(0);
     expect(managed[0].weeklyHours).toBeGreaterThan(0);
     expect(managed[0].shift).toBeNull();
   });
   it("attaches a shift's weekly hours by name match", () => {
-    const r = res(1, "Sample", "Dummy");
-    const shift: Shift = { id: 1, assignee: "Alex Example", hoursPerWeekday: [0, 10, 10, 10, 10, 0, 0] };
+    const r = res(1, "Sofia", "Ramirez");
+    const shift: Shift = { id: 1, assignee: "Sofia Ramirez", hoursPerWeekday: [0, 10, 10, 10, 10, 0, 0] };
     const { managed } = buildResourceWorkload([r], [], [], [shift], "2026-06-01");
     expect(managed[0].weeklyHours).toBe(40);
     expect(managed[0].shift).not.toBeNull();
   });
   it("collects only upcoming absences within the 60-day horizon", () => {
-    const r = res(1, "Sample", "Dummy");
-    const past: Absence = { id: 1, assignee: "Alex Example", startDate: "2026-01-01", endDate: "2026-01-05", type: "vacation", resourceId: 1 };
-    const soon: Absence = { id: 2, assignee: "Alex Example", startDate: "2026-06-10", endDate: "2026-06-12", type: "vacation", resourceId: 1 };
-    const far: Absence = { id: 3, assignee: "Alex Example", startDate: "2026-12-01", endDate: "2026-12-05", type: "vacation", resourceId: 1 };
+    const r = res(1, "Sofia", "Ramirez");
+    const past: Absence = { id: 1, assignee: "Sofia Ramirez", startDate: "2026-01-01", endDate: "2026-01-05", type: "vacation", resourceId: 1 };
+    const soon: Absence = { id: 2, assignee: "Sofia Ramirez", startDate: "2026-06-10", endDate: "2026-06-12", type: "vacation", resourceId: 1 };
+    const far: Absence = { id: 3, assignee: "Sofia Ramirez", startDate: "2026-12-01", endDate: "2026-12-05", type: "vacation", resourceId: 1 };
     const { managed } = buildResourceWorkload([r], [], [past, soon, far], [], "2026-06-01");
     expect(managed[0].upcoming.map((a) => a.id)).toEqual([2]);
   });
@@ -238,7 +238,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { ResourceWorkload } from "./resource-workload";
 import type { Resource, Task } from "./types";
-const r: Resource = { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} };
+const r: Resource = { id: 1, firstName: "Sofia", lastName: "Ramirez", roleId: null, utilizationMode: "percent", utilization: {} };
 const baseProps = {
   lang: "en-US" as const, resources: [r], absences: [], shifts: [], today: "2026-06-01",
   onEditResource: vi.fn(), onAddResource: vi.fn(), onEditAbsence: vi.fn(), onEditShift: vi.fn(),
@@ -247,7 +247,7 @@ describe("ResourceWorkload", () => {
   it("clicking a managed resource's name opens the editor", () => {
     const onEditResource = vi.fn();
     render(<ResourceWorkload {...baseProps} tasks={[]} onEditResource={onEditResource} />);
-    fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sofia Ramirez" }));
     expect(onEditResource).toHaveBeenCalledWith(r);
   });
   it("offers Add as resource for an unlinked assignee and seeds the name", () => {

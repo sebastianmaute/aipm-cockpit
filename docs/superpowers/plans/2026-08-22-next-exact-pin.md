@@ -575,7 +575,7 @@ Expected: **12 hits**. Two of them are not carriers:
 
 ★ Use a **hyphen** in the heading, matching the recent entries. Older entries use an em dash; new ones must not.
 
-★★ No `[session link removed]...` URL in `CHANGELOG.md`. Commit trailers are fine.
+★★ No assistant session URL in `CHANGELOG.md`. Commit trailers are fine.
 
 - [ ] **Step 5: `package.json`, `package-lock.json`, `README.md`, and the five codemap headers**
 
@@ -720,7 +720,7 @@ Push, MR and merge happen **only** on an explicit instruction from the user, and
 
 Report: the branch name, the commit list, the gate results with their exit codes, and the two carried commits that will reach `origin` with this MR (§215 and the gitignore chore).
 
-★ No `[session link removed]...` URL in the MR description. Commit trailers and MR comments are unaffected.
+★ No assistant session URL in the MR description. Commit trailers and MR comments are unaffected.
 
 ---
 

@@ -42,11 +42,11 @@ that are NOT these questions; the fifth is the first after the sharp fix (see
 
 | Pipeline | Job | Outcome |
 |---|---|---|
-| 6894 (MR !468) | [29413](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/jobs/29413) | Red at the root typecheck — `desktop/src/main.ts` imports `electron`, which only `desktop/node_modules` has. Fixed by excluding that file in the root `tsconfig.json`. |
-| 6896 (MR !468) | [29451](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/jobs/29451) | Red at the `ls` guard. With no platform flag electron-builder packaged for the HOST, and the runner is Linux: it built `target=snap` and `target=AppImage` under the `-setup.exe` artifactName (134,289,527 B, no `.blockmap`), and logged "Implicit publishing triggered by CI detection". Fixed by `--win --publish never` in `desktop:package` (MR !469). |
-| 6898 (MR !469) | [29489](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/jobs/29489) | **Green.** `target=nsis`, 131 s. |
-| 6904 (tag `v0.303.0`) | [29602](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/jobs/29602) | **Green** as `desktop-package-tag`, 132 s; `publish-release` then created the first Release. |
-| 6908 (MR !471, commit `edca3783`, version 1.0.0) | [29645](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/jobs/29645) | **Green**, 171 s, manual `desktop-package` — the first run with the sharp filter and guard. The guard step ran (the log shows its `nm=desktop/release/win-unpacked/resources/standalone/node_modules` line) and printed no `sharp guard:` line, and the job succeeded, so the packaged tree existed and held no sharp package. |
+| 6894 (MR !468) | 29413 | Red at the root typecheck — `desktop/src/main.ts` imports `electron`, which only `desktop/node_modules` has. Fixed by excluding that file in the root `tsconfig.json`. |
+| 6896 (MR !468) | 29451 | Red at the `ls` guard. With no platform flag electron-builder packaged for the HOST, and the runner is Linux: it built `target=snap` and `target=AppImage` under the `-setup.exe` artifactName (134,289,527 B, no `.blockmap`), and logged "Implicit publishing triggered by CI detection". Fixed by `--win --publish never` in `desktop:package` (MR !469). |
+| 6898 (MR !469) | 29489 | **Green.** `target=nsis`, 131 s. |
+| 6904 (tag `v0.303.0`) | 29602 | **Green** as `desktop-package-tag`, 132 s; `publish-release` then created the first Release. |
+| 6908 (MR !471, commit `edca3783`, version 1.0.0) | 29645 | **Green**, 171 s, manual `desktop-package` — the first run with the sharp filter and guard. The guard step ran (the log shows its `nm=desktop/release/win-unpacked/resources/standalone/node_modules` line) and printed no `sharp guard:` line, and the job succeeded, so the packaged tree existed and held no sharp package. |
 
 **Question 1 — the image: YES.** `electronuserland/builder:wine` pulled on the
 first run in 45 s (29413: `Pulling docker image` 14:42:18 → `Using docker image`
@@ -88,7 +88,7 @@ cannot be in it. The tag job's artifacts report no expiry (`expire_in: never`).
 **Who can download (plan Task 11 Step 6): any signed-in user.** A signed-in
 colleague who is NOT a project member opened the v0.303.0 Release's asset link
 and the installer downloaded (reported by the user, 2026-09-11). The settings
-that make it so, read from `GET /example-group/aipm-cockpit`: `visibility: internal` (so an
+that make it so, read from `GET /projects/:id`: `visibility: internal` (so an
 anonymous visitor gets nothing) and `public_jobs: true` (Settings → CI/CD →
 General pipelines → "Project-based pipeline visibility"). GitLab's permissions
 docs tie a non-member's artifact access to that setting; turning it off was NOT
@@ -97,7 +97,7 @@ measured either: a GitLab EXTERNAL user, whom `internal` projects exclude.
 
 **The size gap: the installer carried Linux sharp.** Measured 2026-09-11 by
 downloading tag job 29602's artifact (103,549,382 B) with
-`glab api --hostname gitlab.example.com example-group/aipm-cockpit/jobs/29602/artifacts`
+`glab api --hostname <internal GitLab host> projects/:id/jobs/29602/artifacts`
 and unpacking it with 7-Zip in three layers: the artifact zip, the NSIS
 installer inside it, then `$PLUGINSDIR/app-64.7z` inside that. Under
 `resources/standalone/node_modules/@img/` sat the following — sizes from

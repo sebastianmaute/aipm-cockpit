@@ -6,7 +6,7 @@
 
 **Architecture:** Each slice is isolated to 1–2 files with no cross-dependencies, so tasks can be executed and committed in any order. Grounding revealed the code is ahead of the original spec — logo is already per-scheme, the timelog picker already re-seeds from persisted links, and the composer is already below the output — so several slices are narrower than the spec's headline suggested. Scopes below reflect the code as it actually is (verified 2026-07-24).
 
-**Tech Stack:** Next.js 16 / React 19, TypeScript, Vitest + Testing Library, Tailwind v4 (AIPM `ui-*` palette tokens only), i18n EN/DE parity.
+**Tech Stack:** Next.js 16 / React 19, TypeScript, Vitest + Testing Library, Tailwind v4 (brand `ui-*` palette tokens only), i18n EN/DE parity.
 
 **Commands used throughout:**
 - Single test file: `npx vitest run src/app/<file>.test.tsx`
@@ -322,7 +322,7 @@ git commit -m "feat(knowledge): default new links to the project library (standa
 
 ## Task 4: Landing-page logo from active theme branding (req 1.5)
 
-**Context:** Logo is already per-scheme (`ColorScheme.branding`, applied to `settings.branding` via `mergeAppliedBranding`). The only place that ignores it is `project-empty-state.tsx:138–142`, which hardcodes `<img src="/AIPM-logo.svg">` on the no-project landing. Goal: source that logo from `settings.branding?.logo` (falling back to `/AIPM-logo.svg`), mirroring `app-header.tsx:97–101`, so the landing logo follows the active theme and any configured custom logo.
+**Context:** Logo is already per-scheme (`ColorScheme.branding`, applied to `settings.branding` via `mergeAppliedBranding`). The only place that ignores it is `project-empty-state.tsx:138–142`, which hardcodes `<img src="/brand-logo.svg">` on the no-project landing. Goal: source that logo from `settings.branding?.logo` (falling back to `/brand-logo.svg`), mirroring `app-header.tsx:97–101`, so the landing logo follows the active theme and any configured custom logo.
 
 **Files:**
 - Modify: `src/app/project-empty-state.tsx`
@@ -352,7 +352,7 @@ Note: implement `renderEmptyStateWithBrandingLogo` using the SAME settings mecha
 - [ ] **Step 3: Run the test to verify it fails**
 
 Run: `npx vitest run src/app/project-empty-state.test.tsx -t "active branding logo"`
-Expected: FAIL — `src` is `/AIPM-logo.svg`, not the data URL.
+Expected: FAIL — `src` is `/brand-logo.svg`, not the data URL.
 
 - [ ] **Step 4: Read branding in `project-empty-state.tsx`**
 
@@ -366,8 +366,8 @@ In `src/app/project-empty-state.tsx`:
             view === "choices" ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={brandLogo || "/AIPM-logo.svg"}
-                alt="Acme"
+                src={brandLogo || "/brand-logo.svg"}
+                alt="Company logo"
                 className={brandLogo ? "max-h-10 w-auto object-contain" : "h-7 w-auto"}
               />
             ) : undefined
@@ -377,7 +377,7 @@ In `src/app/project-empty-state.tsx`:
 - [ ] **Step 5: Run the test to verify it passes**
 
 Run: `npx vitest run src/app/project-empty-state.test.tsx`
-Expected: PASS (new test + all existing empty-state tests — the fallback branch keeps `/AIPM-logo.svg` when no branding logo is set).
+Expected: PASS (new test + all existing empty-state tests — the fallback branch keeps `/brand-logo.svg` when no branding logo is set).
 
 - [ ] **Step 6: Typecheck + lint**
 

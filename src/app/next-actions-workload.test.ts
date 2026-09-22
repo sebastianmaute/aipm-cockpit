@@ -18,7 +18,7 @@ function res(id: number, firstName: string, extra: Partial<Resource> = {}): Reso
 
 describe("buildWorkloadAlerts", () => {
   const base = {
-    resources: [res(1, "Aria")],
+    resources: [res(1, "Ava")],
     tasks: [],
     absences: [],
     shifts: [],
@@ -34,7 +34,7 @@ describe("buildWorkloadAlerts", () => {
       id: i + 1,
       taskName: "t",
       dueDate: "2026-06-01",
-      assignee: "Aria",
+      assignee: "Ava",
       assigneeEmail: "",
       resourceId: 1,
       lastUpdateDate: "2026-05-01",
@@ -56,7 +56,7 @@ describe("buildWorkloadAlerts", () => {
       granularity: "month",
       currency: "EUR",
     };
-    const resources = [res(1, "Aria", { utilizationMode: "percent", utilization: { "2026-06": 135 } })];
+    const resources = [res(1, "Ava", { utilizationMode: "percent", utilization: { "2026-06": 135 } })];
     const alerts = buildWorkloadAlerts({ ...base, resources, plan });
     expect(alerts.some((a) => a.reason === "over-allocated" && a.resourceId === 1 && a.value === 135)).toBe(true);
   });
@@ -65,7 +65,7 @@ describe("buildWorkloadAlerts", () => {
     const plan: ResourcePlan = {
       startDate: "2026-06-01", endDate: "2026-08-31", granularity: "month", currency: "EUR",
     };
-    const resources = [res(1, "Aria", { utilizationMode: "percent", utilization: { "2026-06": 105 } })];
+    const resources = [res(1, "Ava", { utilizationMode: "percent", utilization: { "2026-06": 105 } })];
     // 105% does not exceed the default 100? it does (>100) → fires by default. Raise the
     // threshold to 110 so 105% no longer fires.
     expect(buildWorkloadAlerts({ ...base, resources, plan }).some((a) => a.reason === "over-allocated")).toBe(true);

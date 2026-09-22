@@ -23,33 +23,33 @@
 - Modify: `src/app/resources-panel.tsx` (the planning grid name cell, ~line 371)
 - Test: `src/app/resources-panel.test.tsx`
 
-The planning grid renders one row per `Resource` (`resources.map((r) => ...)`). The name cell is currently plain text: `<td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{resourceDisplayName(r)}</td>`. `onEditResource: (resource: Resource) => void` is already a prop of `ResourcesPanel` (no new prop needed).
+The planning grid renders one row per `Resource` (`resources.map((r) => ...)`). The name cell is currently plain text: `<td className="px-2 py-1 font-medium text-ui-dark-grey dark:text-ui-light-grey">{resourceDisplayName(r)}</td>`. `onEditResource: (resource: Resource) => void` is already a prop of `ResourcesPanel` (no new prop needed).
 
 - [ ] **Step 1: Write the failing test** — append to the `describe("ResourcesPanel", ...)` block in `src/app/resources-panel.test.tsx`:
 
 ```tsx
   test("planning view: clicking a resource name calls onEditResource", () => {
     const onEditResource = vi.fn();
-    const resources = [{ id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const resources = [{ id: 1, firstName: "Sofia", lastName: "Ramirez", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
     render(<ResourcesPanel {...baseProps} resources={resources} plan={plan} workdayHours={8}
       onEditResource={onEditResource} onSetUtilization={() => {}}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
     fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
-    fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sofia Ramirez" }));
     expect(onEditResource).toHaveBeenCalledWith(resources[0]);
   });
 ```
 
-Rationale: switching to the Planning view unmounts the Directory table, so `getByRole("button", { name: "Alex Example" })` resolves uniquely to the planning name button. The per-period utilization inputs have aria-labels like `"Utilization for Alex Example in 2026-02"`, which do not match the exact accessible name `"Alex Example"`.
+Rationale: switching to the Planning view unmounts the Directory table, so `getByRole("button", { name: "Sofia Ramirez" })` resolves uniquely to the planning name button. The per-period utilization inputs have aria-labels like `"Utilization for Sofia Ramirez in 2026-02"`, which do not match the exact accessible name `"Sofia Ramirez"`.
 
-- [ ] **Step 2: Run test to verify it fails** — `npx vitest run src/app/resources-panel.test.tsx -t "clicking a resource name"`. Expected: FAIL — `getByRole("button", { name: "Alex Example" })` finds nothing (the name is plain text, not a button) in the planning view.
+- [ ] **Step 2: Run test to verify it fails** — `npx vitest run src/app/resources-panel.test.tsx -t "clicking a resource name"`. Expected: FAIL — `getByRole("button", { name: "Sofia Ramirez" })` finds nothing (the name is plain text, not a button) in the planning view.
 
 - [ ] **Step 3: Implement** — in `src/app/resources-panel.tsx`, find the planning grid's per-resource name cell (inside `const rowsJsx = resources.map((r) => { ... return ( <tr key={r.id}> ...`):
 
 Replace:
 ```tsx
-                      <td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{resourceDisplayName(r)}</td>
+                      <td className="px-2 py-1 font-medium text-ui-dark-grey dark:text-ui-light-grey">{resourceDisplayName(r)}</td>
 ```
 With:
 ```tsx
@@ -58,7 +58,7 @@ With:
                           type="button"
                           onClick={() => onEditResource(r)}
                           title={resourceDisplayName(r)}
-                          className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-dark-blue dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+                          className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-ui-dark-grey shadow-sm hover:border-ui-dark-blue hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-dark-blue dark:text-ui-light-grey dark:hover:bg-zinc-800"
                         >
                           {resourceDisplayName(r)}
                         </button>
@@ -96,7 +96,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { ResourceCalendar } from "./resource-calendar";
 import type { Resource } from "./types";
 
-const Sample: Resource = { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} };
+const sofia: Resource = { id: 1, firstName: "Sofia", lastName: "Ramirez", roleId: null, utilizationMode: "percent", utilization: {} };
 
 const baseProps = {
   lang: "en-US" as const,
@@ -115,13 +115,13 @@ describe("ResourceCalendar assignee click", () => {
     render(
       <ResourceCalendar
         {...baseProps}
-        rows={[{ key: "Alex Example", display: "Alex Example", email: "" }]}
-        resources={[Sample]}
+        rows={[{ key: "sofia ramirez", display: "Sofia Ramirez", email: "" }]}
+        resources={[sofia]}
         onEditResource={onEditResource}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
-    expect(onEditResource).toHaveBeenCalledWith(Sample);
+    fireEvent.click(screen.getByRole("button", { name: "Sofia Ramirez" }));
+    expect(onEditResource).toHaveBeenCalledWith(sofia);
   });
 
   test("unmatched name opens Add Resource prefilled from the display name", () => {
@@ -140,7 +140,7 @@ describe("ResourceCalendar assignee click", () => {
 });
 ```
 
-Rationale: the name button's accessible name is exactly the display string (`"Alex Example"`). The per-day cell buttons have accessible names like `"Alex Example — 2026-05-27"` (the tooltip text), which do NOT match the exact name `"Alex Example"`, so the query resolves uniquely to the name button.
+Rationale: the name button's accessible name is exactly the display string (`"Sofia Ramirez"`). The per-day cell buttons have accessible names like `"Sofia Ramirez — 2026-05-27"` (the tooltip text), which do NOT match the exact name `"Sofia Ramirez"`, so the query resolves uniquely to the name button.
 
 - [ ] **Step 2: Run test to verify it fails** — `npx vitest run src/app/resource-calendar.test.tsx`. Expected: FAIL — TypeScript/runtime error or no matching button, because `resources`/`onEditResource`/`onAddResource` are not yet props and the name is plain text.
 
@@ -188,7 +188,7 @@ Add the three params to the `ResourceCalendarInner({ ... })` destructure (alongs
 Then replace the row-label cell (currently):
 ```tsx
                   <td
-                    className="sticky left-0 z-10 border-b border-r border-zinc-200 bg-white px-3 py-2 font-medium text-AIPM-dark-grey dark:border-zinc-800 dark:bg-zinc-950 dark:text-AIPM-light-grey"
+                    className="sticky left-0 z-10 border-b border-r border-zinc-200 bg-white px-3 py-2 font-medium text-ui-dark-grey dark:border-zinc-800 dark:bg-zinc-950 dark:text-ui-light-grey"
                     style={{
                       minWidth: ASSIGNEE_COL_PX,
                       width: ASSIGNEE_COL_PX,
@@ -217,7 +217,7 @@ With:
                               : onAddResource({ ...splitName(row.display), email: row.email || undefined })
                           }
                           title={row.display}
-                          className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-dark-blue dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+                          className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-ui-dark-grey shadow-sm hover:border-ui-dark-blue hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-dark-blue dark:text-ui-light-grey dark:hover:bg-zinc-800"
                         >
                           {row.display}
                         </button>

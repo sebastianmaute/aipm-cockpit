@@ -123,9 +123,7 @@ git commit --only src/app/help-content.ts -m "docs: correct the inline-entity co
 
 InlineEntity gained \`resource\`, so there are six. The comment's claim
 about which views the help entry relates to was and stays true; only its
-count was stale. Closes 374.
-
-Claude-Session: https://[session link removed]"
+count was stale. Closes 374."
 ```
 
 ---
@@ -238,9 +236,7 @@ git commit --only src/app/chat-proposal-stage.ts src/app/chat-proposal-stage.tes
 The three *_document tools have no descriptor, so liveRowTitle missed
 them and the card rendered a bare tool name for the one row class that
 takes no undo capture at all. Resolves the title from ws.documents by
-input.id. Closes 376.
-
-Claude-Session: https://[session link removed]"
+input.id. Closes 376."
 ```
 
 ---
@@ -496,9 +492,7 @@ dispatcher's refs update synchronously, the effect-updated ref is still
 pre-create inside the apply loop.
 
 The refusal is retained for the case it is now honest about — a create
-that landed whose row cannot be read back. Closes 380.
-
-Claude-Session: https://[session link removed]"
+that landed whose row cannot be read back. Closes 380."
 ```
 
 ---
@@ -754,9 +748,7 @@ where nothing had changed and inviting the one recovery that cannot work.
 
 failed still covers every not-ok row; it now carries WHICH kind, keyed
 off the exported constants rather than by matching prose. Adds three
-EN/DE strings. Closes 381.
-
-Claude-Session: https://[session link removed]"
+EN/DE strings. Closes 381."
 ```
 
 ---
@@ -950,9 +942,7 @@ omits the key, which on a spread update clears an email the row had.
 Adds textCaps to EntityDescriptor, populated from the sanitizers' own
 exported constants so the two cannot drift. Applies to every diffField,
 not just the four email-shaped ones the entry named — trim and
-non-string divergence affect all text fields. Closes 373.
-
-Claude-Session: https://[session link removed]"
+non-string divergence affect all text fields. Closes 373."
 ```
 
 ---
@@ -1071,9 +1061,7 @@ git commit --only src/app/inline-ai-edit/plan.ts src/app/inline-ai-edit/plan.tes
 update_resource({id, name}) previewed an empty plan and then renamed the
 person. The preview now projects the alias onto firstName/lastName using
 the dispatcher's own splitName and its exact predicate, so the two cannot
-diverge. Closes 372.
-
-Claude-Session: https://[session link removed]"
+diverge. Closes 372."
 ```
 
 ---
@@ -1121,9 +1109,7 @@ Expected: `EXIT=0` from both. This test is expected to pass on first run — it 
 git commit --only src/app/use-chat-dispatcher.undo.test.tsx -m "test: exercise the redo direction on an AI-captured delete
 
 Every Phase 1 round trip stopped after undo(), so the redo direction was
-covered at none of the 14 capture sites. Closes 370.
-
-Claude-Session: https://[session link removed]"
+covered at none of the 14 capture sites. Closes 370."
 ```
 
 ---
@@ -1184,9 +1170,7 @@ Corrects two body claims the slice falsified rather than leaving them
 standing under CLOSED headings: 380's 'needs a per-entity full-row
 resolver' (six already existed on the dispatcher) and 381's 'the fix is a
 second card string' (it took three — an ordinary dispatcher throw was
-mislabelled by the same bug). 375 stays open; it is owed.
-
-Claude-Session: https://[session link removed]"
+mislabelled by the same bug). 375 stays open; it is owed."
 ```
 
 ---

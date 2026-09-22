@@ -726,14 +726,14 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§501](#501-evm-terminology-is-incomplete-across-the-app-with-no-bac-eac-or-etc-labels-and-no-time-phased-s-curve--closed-2026-09-15) | EVM terminology is incomplete across the app, with no BAC, EAC or ETC labels and no time-phased S-curve — CLOSED 2026-09-15 | AI PM Cockpit demo 2026-09-11 (F-3), GitLab #40; mirrored into the register 2026-09-13 | M — terminology and hints first, the S-curve chart as a second slice | **CLOSED** 2026-09-15 |
 | [§502](#502-there-is-no-probabilistic-monte-carlo-forecast-with-scenarios-and-confidence-levels--open) | There is no probabilistic Monte Carlo forecast with scenarios and confidence levels — OPEN | AI PM Cockpit demo 2026-09-11 (F-4), GitLab #41; mirrored into the register 2026-09-13 | L — a simulation engine, scenario inputs and P50/P80-style output on the forecast surfaces | open |
 | [§503](#503-task-effort-and-over-budget-handling-misbehaved-during-the-demo-and-no-reproduction-was-recorded--open) | Task effort and over-budget handling misbehaved during the demo, and no reproduction was recorded — OPEN | AI PM Cockpit demo 2026-09-11 (F-6), GitLab #43; mirrored into the register 2026-09-13 | unestimated (product backlog) — nothing can be sized until the live misbehaviour is reproduced | open |
-| [§504](#504-the-burn-down-draws-no-forecast-line-and-is-not-aligned-with-the-internal-AIPM-project-burndown-standard--closed-2026-09-15) | The burn-down draws no forecast line and is not aligned with the internal AIPM Project Burndown standard — CLOSED 2026-09-15 | AI PM Cockpit demo 2026-09-11 (F-7), GitLab #44; mirrored into the register 2026-09-13 | M — once the full article has been read | **CLOSED** 2026-09-15 |
+| [§504](#504-the-burn-down-draws-no-forecast-line-and-is-not-aligned-with-the-internal-employer-project-burndown-standard--closed-2026-09-15) | The burn-down draws no forecast line and is not aligned with the internal employer Project Burndown standard — CLOSED 2026-09-15 | AI PM Cockpit demo 2026-09-11 (F-7), GitLab #44; mirrored into the register 2026-09-13 | M — once the full article has been read | **CLOSED** 2026-09-15 |
 | [§505](#505-there-is-no-project-governance-module-that-weights-health-by-engagement-type--open) | There is no project governance module that weights health by engagement type — OPEN | AI PM Cockpit demo 2026-09-11 (G-1), GitLab #45; mirrored into the register 2026-09-13 | L — engagement type on the project, a weight profile and a weighted health engine | open |
-| [§506](#506-a-delivery-project-cannot-represent-the-clients-own-governance-structure-beside-AIPM-governance--open) | A delivery project cannot represent the client's own governance structure beside AIPM governance — OPEN | AI PM Cockpit demo 2026-09-11 (G-2), GitLab #46; mirrored into the register 2026-09-13 | unestimated (product backlog) — likely scoped together with §505 | open |
+| [§506](#506-a-delivery-project-cannot-represent-the-clients-own-governance-structure-beside-employer-governance--open) | A delivery project cannot represent the client's own governance structure beside employer governance — OPEN | AI PM Cockpit demo 2026-09-11 (G-2), GitLab #46; mirrored into the register 2026-09-13 | unestimated (product backlog) — likely scoped together with §505 | open |
 | [§507](#507-multi-tenancy-is-not-built-at-the-app-layer-no-identity-no-hosted-deployment-and-no-pm-dimension-in-the-portfolio-view--open) | Multi-tenancy is not built at the app layer: no identity, no hosted deployment and no PM dimension in the portfolio view — OPEN | AI PM Cockpit demo 2026-09-11 (M-1), GitLab #47; mirrored into the register 2026-09-13 | L — identity and login, ownership, access control, hosting, then the portfolio dimension | open |
 | [§508](#508-no-admin-role-can-lock-a-tenant-level-policy-of-mandatory-and-suppressed-fields--open) | No admin role can lock a tenant-level policy of mandatory and suppressed fields — OPEN | AI PM Cockpit demo 2026-09-11 (M-2), GitLab #48; mirrored into the register 2026-09-13 | L — depends on the identity work in §507 | open |
 | [§509](#509-there-is-no-central-target-for-exporting-project-data-to-consolidate-by-hand-and-export-filenames-carry-no-project-code--open) | There is no central target for exporting project data to consolidate by hand, and export filenames carry no project code — OPEN | AI PM Cockpit demo 2026-09-11 (M-3), GitLab #49; mirrored into the register 2026-09-13 | M — a SharePoint folder upload over the existing Graph code, plus project codes in filenames | open |
 | [§510](#510-the-per-project-activity-log-cannot-be-extracted-centrally-in-the-app-keeps-only-500-entries-and-names-no-pm--open) | The per-project activity log cannot be extracted centrally in the app, keeps only 500 entries and names no PM — OPEN | AI PM Cockpit demo 2026-09-11 (M-4), GitLab #50; mirrored into the register 2026-09-13 | S–M — a decision first; close if raw Turso SQL access is accepted as the answer | open |
-| [§511](#511-documents-cannot-be-generated-through-AIPM-word-or-powerpoint-templates-picked-from-a-drive-folder--open) | Documents cannot be generated through AIPM Word or PowerPoint templates picked from a drive folder — OPEN | AI PM Cockpit demo 2026-09-11 (D-1), GitLab #51; mirrored into the register 2026-09-13 | L — template reading for both renderers, plus a picker over SharePoint, OneDrive or a folder | open |
+| [§511](#511-documents-cannot-be-generated-through-employer-word-or-powerpoint-templates-picked-from-a-drive-folder--open) | Documents cannot be generated through employer Word or PowerPoint templates picked from a drive folder — OPEN | AI PM Cockpit demo 2026-09-11 (D-1), GitLab #51; mirrored into the register 2026-09-13 | L — template reading for both renderers, plus a picker over SharePoint, OneDrive or a folder | open |
 | [§512](#512-the-word-export-is-unpolished-squeezing-every-storage-column-to-equal-width-under-raw-key-headers-with-no-branded-header-or-footer--open) | The Word export is unpolished, squeezing every storage column to equal width under raw key headers with no branded header or footer — OPEN | AI PM Cockpit demo 2026-09-11 (D-2), GitLab #52; mirrored into the register 2026-09-13 | M — curated columns and labels, content-aware widths, a logo header and footer | open |
 | [§513](#513-existing-sharepoint-documents-cannot-be-updated-from-app-data--open) | Existing SharePoint documents cannot be updated from app data — OPEN | AI PM Cockpit demo 2026-09-11 (D-3), GitLab #53; mirrored into the register 2026-09-13 | unestimated (product backlog) — build it, or close it in favour of the Claude Desktop or Word plugin route | open |
 | [§514](#514-there-is-no-confluence-write-back-for-project-or-portfolio-pages--open) | There is no Confluence write-back for project or portfolio pages — OPEN | AI PM Cockpit demo 2026-09-11 (D-4), GitLab #54; mirrored into the register 2026-09-13 | M — a write proxy, a page template or mapping, and a manual or change-triggered push | open |
@@ -4494,7 +4494,7 @@ only, landing them at 3.06-3.81. Green is therefore the one accent whose `global
 its raw base.
 
 ★★★ **ONE STATED LIMITATION OF THE FIX'S OWN COVERAGE, and it corrects a claim the slice plan made.**
-The plan said the test named "globals.css fallbacks match the derivation for the AIPM-light base" (in
+The plan said the test for the globals.css fallbacks matching the derivation at the retired brand theme's light base (in
 `scheme-state-contrast.test.ts`) was "the only thing tying the CSS fallback to the derivation". **That
 is false and must not be repeated.** The test does NOT read `globals.css` — it hardcodes the hex
 literals and asserts an identity property of the derivation at that input — so editing the stylesheet
@@ -16670,8 +16670,16 @@ the surface is unexercised by the seed even though it is reachable from it.
 
 **Status:** open — NOT a defect today and NOT a regression. The GitLab project and the GitHub push
 mirror are both private, so nothing here is exposed. It becomes a hard blocker the moment that
-GitHub repo is flipped public, which is the stated intent. Reproduced 2026-08-28 by `grep -rn "Acme" README.md`.
-Scope corrected 2026-09-20: this entry described FOUR classes and missed the two largest, measured by
+GitHub repo is flipped public, which is the stated intent. This entry used to quote the identifiers
+it hunts inside its own reproduce commands, which a history rewrite would turn into instructions to
+grep for the REPLACEMENT string instead of the record of why the rewrite happened — Task 7
+(2026-09-22) rewrote it to name the identifier classes in prose. Task 10 then built `npm run
+leaks:check` (see Reproduce below), which now reproduces classes 1–4 and class 6's tree-content half
+without quoting an identifier — but it needs `LEAK_LIST_FILE` naming an untracked list, is not yet
+wired into CI, and cannot see class 5 or class 6's commit-message half at all (commit metadata and
+history, not tracked-tree content), so no single command closes this entry; those two stay never
+machine-verified by construction. Scope corrected 2026-09-20: this entry described FOUR classes and
+missed the two largest, measured by
 `git log --all --format="%ae %ce"` (8,355 commits carrying a work address in both fields, plus 90
 CI-bot identities) and `git log --all --grep="Claude-Session:" --fixed-strings --oneline` (3,048).
 The design that supersedes this entry's scope is `docs/superpowers/specs/2026-09-20-github-migration-phase1-design.md`.
@@ -16683,88 +16691,101 @@ sanitising the working tree is necessary but NOT sufficient — a value deleted 
 readable in commit N-1 forever. Settle the history question (rewrite, or a squashed orphan root)
 BEFORE the visibility flip. After is unrecoverable: a public clone can be taken inside the window.
 
-**Reproduce the current surface.** There is NO gate for any of this — `size:check` walks `src`,
-semgrep hunts vulnerability patterns, and neither looks for an employer's name:
+**Reproduce the current surface.** `size:check` walks `src`, semgrep hunts vulnerability patterns,
+and neither looks for an employer's name — the gate for the tree-content classes below is `npm run
+leaks:check` (Task 10, built and committed): it reads the concrete identifier list from an untracked
+file named by `LEAK_LIST_FILE` — kept outside the repo, never committed — rather than from this
+entry, so a history rewrite that changes the identifiers never has to rewrite the register to match.
+Exit 0 is clean; exit 1 names a leak as `path:line class=<class>` (never the matched text); exit 2
+means it could not scan (the variable unset/blank, the list missing/empty/malformed, or fewer than
+50 text files read). It is not yet wired into CI — that needs a masked file-type variable in the
+project settings — so it is a local command today, and only useful to someone holding the list.
+Without the list, reproduce by hand: search the tracked tree for the employer name (any spelling)
+and its email domain, the internal GitLab host and group path, the internal wiki host, the brand
+trigram, and URL paths carrying the internal numeric project id. Never quote any of them literally
+while doing so — this entry does not either, on purpose (see below).
 
-```bash
-git grep -lIE 'Acme|iccgroup|example-group/aipm-cockpit|gitlab\.ic' -- .
-git grep -oIE '[A-Za-z0-9._%+-]+@Acme\.[a-z]+' -- . | sort -u
-```
-
-★ Both sweeps match THIS ENTRY, because it quotes the identifiers it hunts. That is the grep working,
-not a twelfth leak — `docs/open-followups.md` is never a hit worth acting on here.
-
-★★★ **BOTH SWEEPS ABOVE READ ONE COMMIT'S FILES, AND TWO OF THE SIX CLASSES ARE NOT FILE CONTENT.**
-`git grep` searches the checked-out tree, so classes 5 and 6 below were invisible to this entry's own
-verification method for three weeks — and their absence read as their not existing. A verification
-method has a shape, and a finding outside that shape reads as absence. Metadata needs
-`git log --all --format="%ae %ce" | sort | uniq -c`; messages need `git log --all --grep=...`.
+★★★ **A TREE-CONTENT SWEEP READS ONE COMMIT'S FILES, AND TWO OF THE SIX CLASSES ARE NOT FILE CONTENT.**
+`git grep` (and `leaks:check`, since Task 10) search the checked-out tree, so classes 5 and 6 below were
+invisible to this entry's own verification method for three weeks — and their absence read as their
+not existing. A verification method has a shape, and a finding outside that shape reads as absence.
+Metadata needs `git log --all --format="%ae %ce" | sort | uniq -c`; messages need
+`git log --all --grep=...`.
 ★★ Class 5 is also the one class that CANNOT be fixed after the visibility flip by any means short of
 a history rewrite, which makes it the most expensive thing this entry used to omit.
 
-**Six classes, six different fixes** (1–4 as originally filed; 5–6 added 2026-09-20):
+**Six classes, six different fixes** (1–4 as originally filed, all four now closed — Task 9 (class
+1), Task 1 (class 2), Task 5 (class 3), Task 4 (class 4); 5–6 added 2026-09-20 — class 5 stays fully
+open, pending a history rewrite; class 6's tree-content half is closed (Task 6), its commit-message
+half stays open pending the same rewrite):
 
-1. **README badges** point at `gitlab.example.com/example-group/public-collab/...`. Public, they render as
-   broken images for every visitor AND disclose the internal group path. Repoint or drop.
+1. **FIXED (Task 9).** Two README hyperlinks to the Releases page used to point at the internal
+   GitLab host and group path, and the identical URL was hard-coded in two product constants (see
+   below). The pipeline/coverage badges that used to render from that host were already dropped
+   2026-09-14 — what was left was plain-text links and code constants, not images. Task 9 repointed
+   both README links and both constants (`APP_RELEASES_URL`, `RELEASES_URL`) at the public GitHub
+   repo's Releases page.
 
-2. **A live Confluence deep link in shipped app code.** `POLICY_URL` in `chat-panel.tsx` is an
-   `wiki.example.com` wiki URL carrying a page id. ★★ This is the worst of the four because
-   it is not documentation — it renders in the PRODUCT, so a public build hands every user a link
-   into a tenant they cannot reach. It needs to become configurable or conditional, not merely
-   rewritten to a different string.
+2. **FIXED (Task 1).** The AI-usage policy link the consent screen points to used to be a hard-coded
+   wiki URL in shipped app code, which was the worst of the four because it rendered in the PRODUCT
+   for every user. It now resolves via `resolveAiPolicy`: a build-time env value, then a Settings
+   value, then nothing — there is no built-in URL, so an unconfigured build ships no policy link at
+   all.
 
-3. **A work email in guide content, in two places that must be fixed in the right ORDER.** The
-   address sits in `lib/project-leadership-operating-guide.md` and is embedded verbatim in
-   `BUILTIN_GUIDE_CONTENT` in `operating-guide-builtin.generated.ts`. ★★ Editing the generated file
-   is wrong and will be silently reverted by the next regen — fix the `lib/` markdown and re-run
-   `scripts/gen-operating-guide.mjs`. There is no `package.json` script for it; invoke the file
-   directly.
+3. **FIXED (Task 5).** A work email address used to sit in `lib/project-leadership-operating-guide.md`
+   and, embedded verbatim, in the generated `operating-guide-builtin.generated.ts`. The guide's
+   copyright line now names the repository owner under EUPL-1.2, the work address is replaced by the
+   repository URL, and both generated copies have been regenerated from the fixed source.
 
-4. **Five real-looking identities across the sample workspaces.** `sample-workspace-small.json`
-   carries 42 `@example.com` addresses over FIVE distinct local-parts — every one
-   `firstname.lastname`, none matching a demo/test/sample pattern. ★★ THE REST OF THAT FILE IS
-   ALREADY NEUTRALISED: its SharePoint and Jira URLs use `example.sharepoint.com` and
-   `example.atlassian.net`, and one address uses `northwind.example`. So this block is an oversight
-   inside otherwise-sanitised fixture data, not a deliberate choice, and must be read as real
-   personal data until someone proves it is not.
+4. **FIXED (Task 4).** `sample-workspace-small.json` used to carry real-looking work-email addresses
+   over five distinct people, plus company/organisation values, inside otherwise-sanitised fixture
+   data. 43 addresses (five people) and 8 company/organisation values were replaced with fictional
+   stand-ins, plus one further address in a unit test.
 
-5. **Commit METADATA — the largest class, and invisible to every sweep above.** All 8,355 commits
-   carry a work address in BOTH the author and the committer field, and 90 further commits carry
-   CI-bot identities embedding the internal host and the numeric project id. This is not file
-   content, so no tree sweep can ever surface it. It is also the only class that a later edit
-   cannot repair: once a public clone exists, the metadata in it is permanent. Fixed only by an
-   identity mapping during a history rewrite.
+5. **Commit METADATA — the largest class, and invisible to every tree-content sweep.** All 8,355
+   commits carry a work address in BOTH the author and the committer field, and 90 further commits
+   carry CI-bot identities embedding the internal host and the numeric project id. This is not file
+   content, so no tree sweep can ever surface it. It is also the only class that a later edit cannot
+   repair: once a public clone exists, the metadata in it is permanent. Fixed only by an identity
+   mapping during a history rewrite.
 
-6. **Commit MESSAGES and session URLs.** 3,048 commits carry a `Claude-Session:` trailer and 217
-   carry an assistant co-author line; separately, 83 tracked plan files contain session URLs in
-   their body. ★★ A blanket filter on the assistant's NAME is wrong: 89 commits mention it
-   legitimately, because "Ask Claude" is a shipped feature and `callClaude` is a real function.
-   Match the trailer LINES, never the word.
+6. **Commit MESSAGES and session URLs — tree-content half FIXED (Task 6), message half still open.**
+   3,048 commits carry a `Claude-Session:` trailer and 217 carry an assistant co-author line; both
+   live only in commit history and are fixed only by a rewrite (Phase B) — deleting a trailer from a
+   new commit does not remove it from history. Separately, 83 tracked plan files used to contain
+   session URLs in their body; Task 6 removed the trailer line (and the blank line before it) from
+   every one it found (86 files measured at its own baseline) — `git grep` for the assistant
+   session-URL prefix now exits 1 across the tree. ★★ A blanket filter on the assistant's NAME is
+   wrong: 89 commits mention it legitimately, because "Ask Claude" is a shipped feature and
+   `callClaude` is a real function. Match the trailer LINES, never the word.
 
-★ Two product strings join class 2 and must move together: the release URL is hard-coded in both
+★ Two product strings join class 1 and must move together: the release URL is hard-coded in both
 the app (`APP_RELEASES_URL`) and the desktop shell (`RELEASES_URL`), which cannot share a constant
 across the desktop tsconfig's rootDir and are pinned equal only by `menu-model.test.ts` reading the
 app file as TEXT.
 
-★★★ **FIXING (4) IS A FOUR-STEP PIPELINE AND THREE OF ITS FOUR FILES ARE GENERATED** — hand-editing
-them is the trap. `sample-workspace-small.json` is the hand-curated MASTER; `-big` and `-huge` come
-from it via `scaleWorkspace`; `golden-workspace.csv` and `golden-workspace.md` come from the master
-via the serializers and are BYTE-PINNED by `golden-workspace.test`. So: edit the master → regenerate
-big/huge with `scripts/generate-sample-workspace.ts` → regenerate the goldens → the byte-pinned test
-goes green on the NEW bytes. ★★ A golden regen has previously written truncated fixtures over full
-ones and reported success, so compare fixture SIZES afterwards, never just the exit code.
+★★★ **FIXING (4) WAS A FOUR-STEP PIPELINE AND THREE OF ITS FOUR FILES ARE GENERATED** — hand-editing
+them would have been the trap. `sample-workspace-small.json` is the hand-curated MASTER; `-big` and
+`-huge` come from it via `scaleWorkspace`; `golden-workspace.csv` and `golden-workspace.md` come from
+the master via the serializers and are BYTE-PINNED by `golden-workspace.test`. So Task 4 edited the
+master, regenerated big/huge with `scripts/generate-sample-workspace.ts`, then regenerated the
+goldens, and the byte-pinned test went green on the NEW bytes. ★★ A golden regen has previously
+written truncated fixtures over full ones and reported success, so compare fixture SIZES afterwards,
+never just the exit code — worth re-checking on any FUTURE edit of the master, not only this one.
 
-★ **Two things that look like hits and are not.** `APP_REPO_URL` in `version.ts` is the public
-marketing site — no leak, though a public repo probably wants it repointed at GitHub. And
-`theming.md` names `Acme`/`AIPM-consult` while documenting branding TOKEN names, which is
-inherent to the palette belonging to a named company.
+★ **Two things that look like hits and are not.** `APP_REPO_URL` in `version.ts` is not the
+employer's marketing site — it is the project's public GitHub repo URL (has been since before this
+plan; Task 9 never touched it) — no leak. And `theming.md` describes the employer's brand name in
+prose while documenting branding TOKEN names, which is inherent to the palette belonging to a named
+company — it no longer spells the trigram itself (Task 10 removed the last literal occurrence
+tree-wide; a word-bounded, case-insensitive sweep for it now exits with no hits everywhere,
+`theming.md` included).
 
-★★ **A naive `internal\.` sweep produces false positives, and one was acted on.** That pattern
-matches the English word "internal" ending a sentence, which flagged code comments in
-`budget-bucket-people.ts` and `use-ai-orchestration.ts` — neither has anything to do with the
-company. The first cut of this entry named those two files as leaks while missing almost every real
-one; the sweep at the top of this entry returns the actual set. Grep for the ORGANISATION's
-identifiers, never for the word "internal".
+★★ **A naive sweep for the English word "internal" produces false positives, and one was acted on.**
+It matched the word ending a sentence, which flagged code comments in `budget-bucket-people.ts` and
+`use-ai-orchestration.ts` — neither has anything to do with the company. The first cut of this entry
+named those two files as leaks while missing almost every real one; the classes named above are the
+actual set. Grep for the ORGANISATION's identifiers, never for the word "internal".
 
 ## 201. A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce
 
@@ -27826,7 +27847,7 @@ so out of an additive-by-contract branch's scope. It does not. The manifest subj
 ★★ **The one thing that DID go red is the constraint that actually mattered**, and it was a design
 question rather than a mechanical one: `renderDocumentDocx — declared styles > colours the declared
 styles from the sanctioned palette only`. Word's conventional link blue is off-palette, and this repo
-admits only the nine AIPM brand colours — so the fix had to pick a sanctioned colour for links.
+admits only the nine brand colours — so the fix had to pick a sanctioned colour for links.
 **Decided: `COLOR_DARK_BLUE` (`004159`), plus the underline** — not either/or. It is already in that
 test's allow-list, and it is the SAME value `buildPptxTheme`'s `<a:hlink>` carries, so the two OOXML
 formats now agree on what a link looks like instead of one being coloured by a theme and the other
@@ -34602,7 +34623,7 @@ and that is a decision, not a probe defect.
 ## 444. `npm run test:shuffle` is owed for `feat/offered-surface-sweep-landing` — CLOSED 2026-09-11
 
 **Status:** CLOSED 2026-09-11 by CI, not locally: the BLOCKING `unit-tests-shuffled` job 29515
-(https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/jobs/29515), in merge-request
+(internal GitLab CI job 29515), in merge-request
 pipeline 6900 for !470, passed on `6b23d75b`, the landing branch after it merged `origin/main` at
 0.303.0. The job ran `vitest run --sequence.shuffle --sequence.seed=1 --reporter=dot`, the same
 command as `npm run test:shuffle`, and its log reports `Test Files  1063 passed (1063)`.
@@ -35379,7 +35400,7 @@ The header comment on `buildMoveOccurrenceHandler` says the meetings band "can't
 
 ## 458. The modal-header help-popover Tab test fails on press 1 alone under CI load, and the autoFocus diagnosis was wrong — OPEN
 
-**Status:** open — found 2026-09-10 from two CI runs on `feat/modal-help-bespoke`; one attempted fix was made, measured wrong and reverted (`518db55a`) the same day. Never reproduced locally: eight shuffled seeds plus an unshuffled control ran 18/18 green on the file alone, so every local run to date says nothing about it. Re-read the evidence with `glab api example-group/aipm-cockpit/jobs/29004/trace` (the original) and `glab api example-group/aipm-cockpit/jobs/29033/trace` (the attempted fix), and re-check the trap with `grep -n "panel.contains(active)" src/app/popover-panel.tsx`.
+**Status:** open — found 2026-09-10 from two CI runs on `feat/modal-help-bespoke`; one attempted fix was made, measured wrong and reverted (`518db55a`) the same day. Never reproduced locally: eight shuffled seeds plus an unshuffled control ran 18/18 green on the file alone, so every local run to date says nothing about it. Re-read the evidence with `glab api projects/:id/jobs/29004/trace` (the original) and `glab api projects/:id/jobs/29033/trace` (the attempted fix), and re-check the trap with `grep -n "panel.contains(active)" src/app/popover-panel.tsx`.
 
 **Work item:** #293
 
@@ -35418,8 +35439,8 @@ Relation B asks whether a field the model WAS offered actually works, so it need
 +1 day, a non-empty string suffixed ` probed` — and the create arm sends it inside a `CREATE_BASE`
 payload, which is a different row. Two fields break, for two different reasons:
 
-- **`task.assigneeEmail`.** The seed holds `m.Jordan@example.com`, so the probe is
-  `"m.Jordan@example.com probed"`. That is not an email in ANY payload: the suffix keeps a string a
+- **`task.assigneeEmail`.** The seed holds `m.bennett@example.com`, so the probe is
+  `"m.bennett@example.com probed"`. That is not an email in ANY payload: the suffix keeps a string a
   string but not an address, so the premise in `validProbeFor`'s docstring — "a valid date mutated
   by a day is still valid" — does not carry over to this field. `createTask`
   (`use-chat-dispatcher.ts`) refuses it loudly with `assigneeEmail is invalid`, so the field is
@@ -35533,7 +35554,7 @@ model-write-only, but a failing guard DROPS the key, which would turn the loud r
 no-op. `sanitizeAbsence` is unchanged too, because it is also the load path and must not drop stored
 data. `raid.ownerEmail` keeps the old unchecked shape (`sanitizeRaidItem` → `sanitizeEmail`, no format
 guard, empty `emailFormatFields`); it is not part of this closure. The offered-surface sweep needed
-no migration: since §459 its email probe is `m.Jordan+probed@example.com`, a valid address. Pinned by
+no migration: since §459 its email probe is `m.bennett+probed@example.com`, a valid address. Pinned by
 `npx vitest run src/app/use-chat-dispatcher.test.tsx -t "invalid assignee email"`,
 `npx vitest run src/app/inline-ai-edit/plan.test.ts -t "malformed absence assignee email"` and
 `npx vitest run src/app/absence-edit-modal.test.tsx -t "assignee email"`.
@@ -35549,7 +35570,7 @@ both on the task path).
 
 `ABSENCE_FIELD_GUARDS.assigneeEmail` admits any string, and `sanitizeAbsence` stores it through
 `sanitizeEmail`, which is `sanitizeText` at the email length cap — nothing on the path checks the
-format. So `create_absence` / `update_absence` given `assigneeEmail: "m.Jordan@example.com probed"`
+format. So `create_absence` / `update_absence` given `assigneeEmail: "m.bennett@example.com probed"`
 store exactly that, and the offered-surface sweep's Relation B counts it LANDED on both arms: its
 probe is the seeded address suffixed ` probed` (`validProbeFor`), and the absence descriptor's
 `emailFormatFields` is empty, so the card previews the value as an ordinary change.
@@ -35657,7 +35678,7 @@ and notarization, which are a separate problem from anything above.
 
 **Status:** OPEN 2026-09-11 — found by a read-only code check against `main` @ `1826cf64` (v1.0.0)
 while triaging the demo-backlog issues #38–#74; filed as
-https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/issues/75. Established by reading the
+internal GitLab issue 75. Established by reading the
 two call sites and the builders, never by running an export. Presence witnesses re-run 2026-09-11:
 `grep -n "exportWorkspace({" src/app/export-menu.tsx` (one line, eleven slices),
 `grep -n -A5 "const handleExportCurrentProject" src/app/task-manager.tsx` (sixteen slices),
@@ -35730,7 +35751,7 @@ asymmetry noted below stands. The ★ note below about `computeBudgetReport` bei
 
 **As filed:** OPEN 2026-09-11 — found by a read-only code check against `main` @ `1826cf64` (v1.0.0)
 while triaging the demo-backlog issues #38–#74; filed as
-https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/issues/76. Established by reading the
+internal GitLab issue 76. Established by reading the
 two engines and the three surfaces, not by a run. Presence witnesses re-run 2026-09-11:
 `grep -n "const cpi" src/app/evm.ts` (one line, `ev / ac`),
 `grep -n "const costPerformanceIndex\|const winLossValue" src/app/budget-report.ts` (two lines) and
@@ -35825,7 +35846,7 @@ successor and a project mixing USD fixed, GBP fixed and T&M sums in one unit.
 
 **As filed:** OPEN 2026-09-11 — found by a read-only code check against `main` @ `1826cf64` (v1.0.0)
 while triaging the demo-backlog issues #38–#74; filed as
-https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/issues/77. The worked example below is
+internal GitLab issue 77. The worked example below is
 REASONED from the code, never run — no bucket was created and no figure was read off a screen.
 Presence witnesses re-run 2026-09-11: `grep -n "fixedPriceAmount" src/app/types.ts src/app/budget-report.ts`
 (the field's docstring, and the one engine read),
@@ -37267,16 +37288,16 @@ Size unestimated (product backlog) — nothing can be sized until the live misbe
 
 **Work item:** #43
 
-## 504. The burn-down draws no forecast line and is not aligned with the internal AIPM Project Burndown standard — CLOSED 2026-09-15
+## 504. The burn-down draws no forecast line and is not aligned with the internal employer Project Burndown standard — CLOSED 2026-09-15
 
-**Status:** CLOSED 2026-09-15 — the burn-down chart draws the current-pace forecast (the AIPM Project Burndown
+**Status:** CLOSED 2026-09-15 — the burn-down chart draws the current-pace forecast (the employer Project Burndown
 "Forecast (Simple)" line: remaining budget minus the 20-working-day burn rate) and the current-efficiency
 forecast, with a run-out marker, on the Budget report and the dashboard burn tile (`grep -n
 "stroke-ui-dark-blue\|stroke-ui-purple" src/app/burndown-chart.tsx` prints both forecast lines). Alignment
 with the article: burn rate over the last 20 working days, run-out date, and depletion before or after plan
 end, per `docs/superpowers/specs/2026-09-14-budget-forecast-union-design.md` §1.
 
-Kai Mindermann asked in writing that the forecasting approach align with the Acme Confluence blog
+Kai Mindermann asked in writing that the forecasting approach align with the employer's Confluence blog
 article "The Project Burndown". It was not discussed on the call.
 
 A burn-down exists (`computeBurndownSeries`, drawn in the Budget report and on the dashboard), but it draws
@@ -37311,12 +37332,12 @@ Size L — engagement type on the project, a weight profile and a weighted healt
 
 **Work item:** #45
 
-## 506. A delivery project cannot represent the client's own governance structure beside AIPM governance — OPEN
+## 506. A delivery project cannot represent the client's own governance structure beside employer governance — OPEN
 
 **Status:** OPEN 2026-09-13 — `grep -n "interface SteeringCommittee" src/app/types.ts` → one interface; the workspace holds a single
 steering committee.
 
-Michael Leather said delivery projects must plug into the customer's governance alongside AIPM's. It was
+Michael Leather said delivery projects must plug into the customer's governance alongside the employer's. It was
 acknowledged on the call, with no commitment.
 
 The workspace carries one steering committee with internal members only. A stakeholder can be categorised as
@@ -37419,12 +37440,12 @@ Size S–M — a decision first; close if raw Turso SQL access is accepted as th
 
 **Work item:** #50
 
-## 511. Documents cannot be generated through AIPM Word or PowerPoint templates picked from a drive folder — OPEN
+## 511. Documents cannot be generated through employer Word or PowerPoint templates picked from a drive folder — OPEN
 
 **Status:** OPEN 2026-09-13 — `grep -rlnE "\.dotx|\.potx" src/app` → no output.
 
-Michael Leather asked that document generation be forced through AIPM templates from a drive folder. On the
-call it was described as prepared but deprioritised; the AIPM branding skill and templates are already used
+Michael Leather asked that document generation be forced through employer templates from a drive folder. On the
+call it was described as prepared but deprioritised; the employer branding skill and templates are already used
 outside the app.
 
 Both renderers build styles and packages from scratch and never read a template file. "Prepared" means building
@@ -37448,11 +37469,11 @@ fixed page layout. It was acknowledged as not polished.
 
 Per the code check, the tasks table exports every storage column at equal width through `buildDocxTable`,
 headed with raw storage keys. The export configuration switches only whole sections, and document data-section
-blocks reuse the same table. Branding is fixed AIPM colours and a literal app title; the user's logo is used only
+blocks reuse the same table. Branding is fixed brand colours and a literal app title; the user's logo is used only
 inside the app, and there are no header or footer parts.
 
 Related: §304 (untranslated section headers), §155 (an undeclared table style), §219 (fidelity never
-checked), §511 (AIPM templates).
+checked), §511 (Employer templates).
 
 Size M — curated columns and labels, content-aware widths, a logo header and footer.
 

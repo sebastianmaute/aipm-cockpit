@@ -6,7 +6,8 @@ import type { FeatureModuleId } from "./feature-modules";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import { MAX_AI_POLICY_FIELD } from "./ai-policy";
 import { BRANDING_EXPORT_FOOTER_MAX } from "./export-footer";
-export { DEFAULT_EXPORT_FOOTER, NEUTRAL_EXPORT_FOOTER, BRANDING_EXPORT_FOOTER_MAX, exportFooterText } from "./export-footer";
+export { DEFAULT_EXPORT_FOOTER, BRANDING_EXPORT_FOOTER_MAX, exportFooterEnv, exportFooterText } from "./export-footer";
+export type { ExportFooterEnv } from "./export-footer";
 import type { Lang } from "./i18n";
 // Type-only: erased at compile time, so this does NOT create a runtime cycle
 // with help-content.ts (which has runtime exports of its own).
@@ -54,8 +55,9 @@ export type AiConfig = {
   activityRecap?: boolean; // The ambient activity recap sentence. Default ON (undefined = on).
   chatSearch?: boolean; // The search_chats tool + the ambient chat pointer. Default ON (undefined = on).
   maxChatTurns?: number; // Max assistant round-trips per user message (integer 1–50). Default 12.
-  // The AI-usage policy the consent screen points to (`ai-policy.ts`). undefined = the built-in
-  // default, "" = deliberately cleared. A NEXT_PUBLIC_AI_POLICY_* build value overrides both.
+  // The AI-usage policy the consent screen points to (`ai-policy.ts`). There is no built-in
+  // default: undefined = never set, "" = deliberately cleared — both resolve to no policy.
+  // A NEXT_PUBLIC_AI_POLICY_* build value overrides both.
   policyOrgName?: string;
   policyUrl?: string;
 };
@@ -525,8 +527,10 @@ export interface BrandingConfig {
    *  scheme JSON carrying one would survive sanitizeBranding and round-trip
    *  through exportScheme, but could still never be applied.) */
   startLogo?: string;
-  /** Footer line of HTML, print/PDF and PowerPoint exports (`exportFooterText`). `undefined` =
-   *  never set → `DEFAULT_EXPORT_FOOTER`; `""` = cleared → `NEUTRAL_EXPORT_FOOTER`.
+  /** Footer line of HTML, print/PDF and PowerPoint exports (`exportFooterText`).
+   *  Precedence: the `NEXT_PUBLIC_EXPORT_FOOTER` build variable → this field →
+   *  `DEFAULT_EXPORT_FOOTER`. `undefined` = never set; `""` = cleared — both
+   *  resolve to `DEFAULT_EXPORT_FOOTER` when no build variable applies.
    *  ★ Like `startLogo`, no scheme owns it: `mergeAppliedBranding` leaves it alone,
    *  so its only editor is the ungated row in Settings → Appearance. */
   exportFooter?: string;
@@ -630,7 +634,11 @@ export type Settings = {
   notifications: NotificationsConfig;
   jira: JiraConfig;
   /** Intentionally optional (mirrors other optional-but-defaulted fields like snapshots?);
-   *  readers use `settings.timelog ?? defaultTimelogConfig`. */
+   *  readers use `settings.timelog ?? defaultTimelogConfig`. Anything that BUILDS a Timelog
+   *  request or judges whether Timelog is configured must go through
+   *  `effectiveTimelogConfig` (timelog-sanitize.ts) on top of that, not read `.tenant`
+   *  directly — it resolves a blank stored tenant against the `NEXT_PUBLIC_TIMELOG_TENANT`
+   *  build variable at read time, without persisting the result. */
   timelog?: TimelogConfig;
   popout: { reuseWindow: boolean };
   resources: { workdayHours: number };
@@ -698,7 +706,8 @@ export type Settings = {
    *  Default ON (read as `!== false`). */
   showSavedViews?: boolean;
   /** Per-device sidebar branding: a custom logo (data:image URL) and/or slogan
-   *  overriding the default Acme logo + subtitle. */
+   *  overriding the default banner logo
+   *  (`/ai-pm-cockpit-banner.svg`) and the `sidebarBrandSubtitle` subtitle. */
   branding?: BrandingConfig;
   /** Per-device: the guided tour has been seen/skipped (suppresses auto-launch). */
   tourSeen?: boolean;

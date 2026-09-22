@@ -1099,7 +1099,7 @@ export function ModalFieldControls({ modalId, lang }: ModalFieldControlsProps) {
   );
 }
 ```
-> Match the project's actual Tailwind tokens (`bg-accent`, `border-line`, `bg-surface`) — grep an existing control (e.g. `SegmentedControl`) and reuse its classes so styling stays on-palette (AIPM brand: green accent, dark-blue headers, no gradients/shadows beyond existing usage). If shadows are off-palette here, drop `shadow-lg`.
+> Match the project's actual Tailwind tokens (`bg-accent`, `border-line`, `bg-surface`) — grep an existing control (e.g. `SegmentedControl`) and reuse its classes so styling stays on-palette (Brand: green accent, dark-blue headers, no gradients/shadows beyond existing usage). If shadows are off-palette here, drop `shadow-lg`.
 
 - [ ] **Step 5: Run test to verify it passes**
 

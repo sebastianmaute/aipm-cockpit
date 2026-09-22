@@ -1242,7 +1242,7 @@ npm run version:check; echo "EXIT=$?"
 Expected: EXIT=0. Exit **1** is drift (re-run `version:sync`); exit **2** means the gate could not do
 its job (a missing file or a moved regex) — investigate, do not re-baseline.
 
-★ `CHANGELOG.md` must carry **no** `[session link removed]...` URL.
+★ `CHANGELOG.md` must carry **no** assistant session URL.
 
 - [ ] **Step 7: Run every local gate**
 

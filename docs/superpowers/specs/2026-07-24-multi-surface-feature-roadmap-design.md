@@ -160,4 +160,4 @@
 - Any AI tool ⇒ plan-then-apply, forced-tool via `runForcedToolCall`, re-ground ids, functional setters, popout read-only, never log key/body.
 - axe-scanned surfaces (Open Points, Dashboard, Resources, Settings) ⇒ row-unique accessible names, non-color RAG cues, run the axe gate before push.
 - i18n EN + DE parity for all new strings; DE umlauts via node utf8 write.
-- Palette: sanctioned AIPM/`ui-*` tokens only; card outlines via `border-line`, no off-palette fill/shadow/gradient.
+- Palette: sanctioned brand/`ui-*` tokens only; card outlines via `border-line`, no off-palette fill/shadow/gradient.

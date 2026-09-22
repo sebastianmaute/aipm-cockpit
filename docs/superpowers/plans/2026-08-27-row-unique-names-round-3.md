@@ -1082,7 +1082,7 @@ npx playwright test e2e/a11y.spec.ts --project=chromium -g "Gantt|RAID|Changes|S
 
 - [ ] **Step 1: Bump the version** — `src/app/version.ts`, all three constants together (`APP_VERSION` → `0.263.0`, `APP_BUILD_DATE`, `APP_MILESTONE` → `"Okorafor"`). ★ Use the Edit tool to preserve CRLF. ★ Bumping `APP_VERSION` while leaving `APP_MILESTONE` at the prior name is a shipped defect this repo has already made.
 
-- [ ] **Step 2: Add the `CHANGELOG.md` entry** (LF file). ★ Never put a `[session link removed]...` URL in `CHANGELOG.md` or an MR description.
+- [ ] **Step 2: Add the `CHANGELOG.md` entry** (LF file). ★ Never put an assistant session URL in `CHANGELOG.md` or an MR description.
 
 - [ ] **Step 3: Propagate the six satellites**
 

@@ -19,7 +19,7 @@
 - **Never Edit or Write `src/app/i18n.de.ts`.** Patch it with a node script doing a utf8 read/replace/write whose anchors use `\r\n`; re-read the changed lines afterwards and confirm real umlauts (ä ö ü ß) and straight ASCII double quotes survived.
 - i18n: EN (`i18n.ts`) and DE key sets must stay identical (tsc enforces). Placeholders are 0-based `{0}`/`{1}`; call as `t(lang, key, a, b)`. Tests use `lang="en-US"`.
 - `jsonToWorkspace` needs a DOM; vitest's environment is already `jsdom`.
-- Commits: explicit paths only, `git commit --only <paths> -F <msgfile>`; never `git add -A`/`.`; never `--amend`; never `npm ci`. Conventional-commit subject. Body ends with `Claude-Session: https://[session link removed]`. Register entries are cited as §N; never write `Closes #NN` in a commit.
+- Commits: explicit paths only, `git commit --only <paths> -F <msgfile>`; never `git add -A`/`.`; never `--amend`; never `npm ci`. Conventional-commit subject. Body ends with the session trailer. Register entries are cited as §N; never write `Closes #NN` in a commit.
 - Size ratchet LIMIT 1600 (`scripts/check-file-sizes.mjs`); the gate counts `wc -l`+1. `chat-panel.tsx` is 1399, `create-project-wizard.tsx` 473, `step0-import-panel.tsx` 459 — keep new logic in the pure modules.
 - Every new guard is mutation-proved before its task is reported done: break the guard, watch the named test go red, restore, confirm `git diff --stat` shows only intended files. Report each mutant by name.
 - Constants (verbatim): `MAX_CHAT_ATTACHMENTS = 10`; `MAX_STAGED_PAYLOAD_BYTES = 30 * 1024 * 1024`; `DEMO_AS_OF = "2026-09-18"`.

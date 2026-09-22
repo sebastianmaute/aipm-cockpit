@@ -36,11 +36,7 @@ npx vitest run <path> > "$SCRATCH/run.log" 2>&1; echo "EXIT=$?"; grep -E "Test F
 
 **`npx tsc --noEmit` exits 2 on diagnostics**, not 1. Run it after editing any test file — vitest never typechecks and `next build` skips `*.test.tsx`.
 
-**Commit messages** end with the trailer:
-
-```
-Claude-Session: https://[session link removed]
-```
+**Commit messages** end with the session trailer.
 
 Write the message with a `git commit -F -` heredoc, never a PowerShell here-string.
 
@@ -186,8 +182,6 @@ plan.ts imports entity-descriptor.ts, so importing the helper back would
 close a cycle. A leaf module both import breaks the tie.
 
 Closes open-followups 400.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -300,8 +294,6 @@ Behaviour-neutral by construction; sanitize-raid-patch.test.ts is the
 control and is unedited.
 
 Part of open-followups 405.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -417,8 +409,6 @@ round 2), which one shared predicate cannot express.
 Behaviour-neutral; both predicates are today's rule verbatim.
 
 Part of open-followups 405.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -504,8 +494,6 @@ property and says so in both docstrings, so the next reader does not
 card promise a clear the write declines.
 
 Part of open-followups 405.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -602,8 +590,6 @@ delegation still passes, because it equals the fallback. That is the shape
 that hid the defect from four earlier tasks.
 
 Part of open-followups 405.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -791,8 +777,6 @@ already turned true into "1", so no rule expressed there could ever have
 seen a boolean.
 
 Closes open-followups 395.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -956,8 +940,6 @@ clamps at one, so a model could store a cost a thousand times larger than a
 person can type. Not in 399 as filed; same predicate, same edit, same field.
 
 Closes open-followups 399.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -1070,8 +1052,6 @@ which is the same defect pointing the other way. The preview now refuses a
 non-string rich field rather than projecting one.
 
 Closes open-followups 398.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -1173,8 +1153,6 @@ and keeps the stored one, a valid date is stored. dueDate's throw-on-blank
 is a different rule and is untouched.
 
 Closes open-followups 396.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -1346,8 +1324,6 @@ A seventh phase rather than a reuse of preview: apply() also rejects an
 empty plan, so a preview route would give a live Apply button that no-ops.
 
 Closes open-followups 392.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -1430,8 +1406,6 @@ dropped `rejected`. A proposal whose links were all refused therefore
 rendered an empty card with no reason, which is 392's shape on this surface.
 
 Closes open-followups 404.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -1523,8 +1497,6 @@ The projection is EXTRACTED and shared with the update branch rather than
 copied — a second spelling here is the defect class layer 1 just removed.
 
 Closes open-followups 390.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -1620,8 +1592,6 @@ no lang; passing one in would put t() into a module whose purity is
 deliberate.
 
 Closes open-followups 406.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -1711,8 +1681,6 @@ updateResource has no merge-site guard yet. Composed now, so adding one
 cannot reopen the hole raid already demonstrated.
 
 Closes the remaining half of open-followups 394.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -1822,8 +1790,6 @@ may be changing the primary in the same call. The KNOWN DIVERGENCE test is
 flipped to the agreeing expectation it named.
 
 Closes open-followups 397.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -1910,8 +1876,6 @@ allowlist entry outlives its call site. Proved non-vacuous by emptying the
 allowlist and confirming it names `notes`.
 
 Closes open-followups 401.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -1974,8 +1938,6 @@ resolve at read time. The risk is a model choosing roleId to achieve
 something it cannot achieve.
 
 Closes open-followups 402.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -2056,8 +2018,6 @@ write. That is the intent of the decision and the reason the entry asked to
 be argued before being changed.
 
 Closes open-followups 403.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -2158,8 +2118,6 @@ loosened to objectContaining, which would have unpinned the field values
 they exist for.
 
 Closes open-followups 393.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 
@@ -2216,7 +2174,7 @@ Expected: EXIT=0, and the entry count equals the TOC row count. `docs/open-follo
 
 `CHANGELOG.md` is LF-only. Write the section with a `.mjs` script in `$SCRATCH` that aborts on any CR byte and asserts the anchor it inserts above is unique, following the pattern from the previous release. ★★ The anchor is **whatever the CURRENT top section is**, read at release time — `grep -n "^## \[0\." CHANGELOG.md | head -1`. This step named `## [0.286.0]`, which stopped being the top section two releases ago; hardcoding a stale one makes the uniqueness assertion pass against the wrong row.
 
-★★ **No `[session link removed]...` URL in `CHANGELOG.md`.** Commit trailers are exempt; this file is not.
+★★ **No assistant session URL in `CHANGELOG.md`.** Commit trailers are exempt; this file is not.
 
 Write it for a user, not a maintainer: the risk score that was fabricated from a boolean, the milestone description that was cleared, the refusals that were computed and never shown, the German label.
 
@@ -2255,8 +2213,6 @@ chore(release): <VERSION>
 
 Closes open-followups 390, 392, 393, 395, 396, 397, 398, 399, 400, 401,
 402, 403, 404, 406. 391, 394 and 405 stay open.
-
-Claude-Session: https://[session link removed]
 MSG
 ```
 

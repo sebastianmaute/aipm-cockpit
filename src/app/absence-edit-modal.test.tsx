@@ -34,8 +34,8 @@ function Seed({ tier }: { tier: "full" }) {
 
 const base: Absence = {
   id: 1,
-  assignee: "Alex Example",
-  assigneeEmail: "Sample@example.com",
+  assignee: "Sofia Ramirez",
+  assigneeEmail: "sofia@example.com",
   startDate: "2026-06-01",
   endDate: "2026-06-05",
   type: "vacation",
@@ -111,7 +111,7 @@ describe("AbsenceEditModal", () => {
     );
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSave.mock.calls[0][0]).toMatchObject({
-      assignee: "Alex Example",
+      assignee: "Sofia Ramirez",
       startDate: "2026-06-01",
       endDate: "2026-06-05",
     });
@@ -135,7 +135,7 @@ describe("AbsenceEditModal", () => {
       screen.getByRole("button", { name: /save/i }).closest("form")!,
     );
     expect(onSave.mock.calls[0][0]).toMatchObject({
-      assigneeEmail: "Sample@example.com",
+      assigneeEmail: "sofia@example.com",
       note: "Annual leave",
     });
   });
@@ -214,7 +214,7 @@ describe("AbsenceEditModal", () => {
     const onSave = vi.fn();
     setupFull({ onSave });
     fireEvent.change(screen.getByLabelText(t("en-US", "absenceAssigneeEmail")), {
-      target: { value: "m.Jordan@example.com probed" },
+      target: { value: "m.bennett@example.com probed" },
     });
     fireEvent.submit(
       screen.getByRole("button", { name: /save/i }).closest("form")!,
@@ -247,9 +247,9 @@ describe("AbsenceEditModal", () => {
   it("M-C4: a shape-only assignee email edit saves the unchanged address", () => {
     const onSave = vi.fn();
     setupFull({ onSave });
-    fireEvent.change(screen.getByLabelText(t("en-US", "absenceAssigneeEmail")), { target: { value: "Sample<Sample@example.com>" } });
+    fireEvent.change(screen.getByLabelText(t("en-US", "absenceAssigneeEmail")), { target: { value: "Sofia<sofia@example.com>" } });
     fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
-    expect(onSave.mock.calls[0][0].assigneeEmail).toBe("Sample@example.com");
+    expect(onSave.mock.calls[0][0].assigneeEmail).toBe("sofia@example.com");
   });
 
   // Fix round 1, IMPORTANT 1 — an UNRELATED banner error (end before start)
@@ -288,7 +288,7 @@ describe("AbsenceEditModal", () => {
   //  default, where the Full-only Email field is hidden and cannot be fixed.
   it("saves a stored malformed assignee email unchanged when only another field changes, with Email hidden", () => {
     const onSave = vi.fn();
-    setup({ absence: { ...base, assigneeEmail: "m.Jordan@example.com probed" }, onSave });
+    setup({ absence: { ...base, assigneeEmail: "m.bennett@example.com probed" }, onSave });
     expect(screen.queryByText(t("en-US", "absenceAssigneeEmail"))).toBeNull();
     fireEvent.change(screen.getByLabelText(/end/i), { target: { value: "2026-06-09" } });
     fireEvent.submit(
@@ -298,7 +298,7 @@ describe("AbsenceEditModal", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSave.mock.calls[0][0]).toMatchObject({
       endDate: "2026-06-09",
-      assigneeEmail: "m.Jordan@example.com probed",
+      assigneeEmail: "m.bennett@example.com probed",
     });
   });
 

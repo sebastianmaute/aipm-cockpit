@@ -70,7 +70,7 @@ export function redactFields(fields?: Record<string, unknown>): Record<string, s
 - Reads `readDiagLog()` on mount + a manual **Refresh**.
 - Table: time · level (colour dot via RAG-neutral tokens) · code · fields (compact JSON).
 - Buttons: **Copy bundle** (clipboard), **Download bundle** (`.json` via a blob), **Clear**.
-- i18n EN+DE for all labels. Palette-safe (AIPM tokens only). Empty state via `EmptyState`.
+- i18n EN+DE for all labels. Palette-safe (brand tokens only). Empty state via `EmptyState`.
 - Mounted as a **Settings → General/System "Diagnostics" section** (`settings-sections/diagnostics-section.tsx`); a link/section also surfaced on `/recovery`.
 
 ## Emit sites wired in B

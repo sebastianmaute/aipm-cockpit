@@ -140,11 +140,11 @@ describe("period map codec", () => {
 describe("sanitizeResource", () => {
   test("accepts an object map and clamps percent to 0..100", () => {
     const r = sanitizeResource({
-      id: 3, name: "  Sample  ", roleId: 2, utilizationMode: "percent",
+      id: 3, name: "  Sofia  ", roleId: 2, utilizationMode: "percent",
       utilization: { "2026-01": 150, "2026-02": -5 },
     });
     expect(r).not.toBeNull();
-    expect(r!.firstName).toBe("Sample");
+    expect(r!.firstName).toBe("Sofia");
     expect(r!.utilization).toEqual({ "2026-01": 100, "2026-02": 0 });
   });
 
@@ -235,20 +235,20 @@ describe("sanitizeRole / sanitizeDiscipline / sanitizeGrade", () => {
 describe("sanitizeResource — address-book fields", () => {
   test("reads firstName/lastName and all contact fields", () => {
     const r = sanitizeResource({
-      id: 1, firstName: "Sample", lastName: "Dummy", email: "Sample@x.com",
+      id: 1, firstName: "Sofia", lastName: "Ramirez", email: "sofia@x.com",
       title: "Architect", businessPhone: "+49 30 1", location: "Berlin",
       department: "IAM", company: "iC", birthday: "06-14",
       notes: "VIP, line two", roleId: 2, utilizationMode: "percent", utilization: {},
     });
     expect(r).toMatchObject({
-      id: 1, firstName: "Sample", lastName: "Dummy", email: "Sample@x.com",
+      id: 1, firstName: "Sofia", lastName: "Ramirez", email: "sofia@x.com",
       title: "Architect", businessPhone: "+49 30 1", location: "Berlin",
       department: "IAM", company: "iC", birthday: "06-14", notes: "VIP, line two",
     });
   });
   test("falls back to splitting a legacy name field", () => {
-    const r = sanitizeResource({ id: 2, name: "Sam Placeholder", utilizationMode: "percent", utilization: {} });
-    expect(r).toMatchObject({ firstName: "Fictional", lastName: "Jordan" });
+    const r = sanitizeResource({ id: 2, name: "Noah Bennett", utilizationMode: "percent", utilization: {} });
+    expect(r).toMatchObject({ firstName: "Noah", lastName: "Bennett" });
   });
   test("drops a record with no usable name", () => {
     expect(sanitizeResource({ id: 3, utilizationMode: "percent", utilization: {} })).toBeNull();

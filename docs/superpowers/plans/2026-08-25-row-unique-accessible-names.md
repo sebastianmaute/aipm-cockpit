@@ -1214,7 +1214,7 @@ grep -rn 'Generated:' docs/CODEMAPS/*.md          # five headers
 
 - [ ] **Step 3: Add the CHANGELOG entry**
 
-Say what a user gets: per-row controls on Documents, Insights (panel and dashboard card), History and Budget now announce distinctly, so screen-reader and speech-input users can tell rows apart. **No `[session link removed]...` URL in `CHANGELOG.md`.**
+Say what a user gets: per-row controls on Documents, Insights (panel and dashboard card), History and Budget now announce distinctly, so screen-reader and speech-input users can tell rows apart. **No assistant session URL in `CHANGELOG.md`.**
 
 - [ ] **Step 4: Run the full gate chain, unpiped**
 

@@ -30,7 +30,7 @@ These are not suggestions. Each one has cost real work in this repo.
 5. **Never run two vitest processes at once.** `Failed to start forks worker` is machine contention, not evidence of a broken suite.
 6. **Never `git add -A` or `git add .`.** `sample-workspace-huge.json` (modified, foreign) and `not-in-use.env.local.bak` (untracked, holds live credentials) must never be staged, opened, or printed. Stage explicit paths only, and commit with `git commit --only <paths>`.
 7. **Never `git commit --amend`** (shared worktree) and **never `git stash`**. `git checkout -- <file>` is deny-blocked; revert an edit with an anchored inverse write.
-8. **Every commit message ends with** `Claude-Session: https://[session link removed]`. Write commit messages to a scratchpad file and use `git commit -F`, because backticks in a Bash heredoc can break the outer shell.
+8. **Every commit message ends with** the session trailer. Write commit messages to a scratchpad file and use `git commit -F`, because backticks in a Bash heredoc can break the outer shell.
 9. **`npx tsc --noEmit` exits 2 on diagnostics, not 1.** Neither `next build` nor vitest typechecks test files, so run it after every test edit.
 
 ---
@@ -231,8 +231,6 @@ entity reds this table instead of being silently uncovered.
 
 Widens WsKey with "tasks"; the union had no task member because no
 hand-written case needed one.
-
-Claude-Session: https://[session link removed]
 ```
 
 ---
@@ -351,8 +349,6 @@ whenever a descriptor or a seed row gains a field, and a pinned total gets
 axis, which passes everything.
 
 Measured axis widths: (fill in the eight from Step 3)
-
-Claude-Session: https://[session link removed]
 ```
 
 ---
@@ -583,8 +579,6 @@ Deliberately narrower than plan.sanitizer-parity.test.ts's ten probes: each
 one here is a renderHook mount rather than a function call, and the breadth
 over text shapes is that file's job at the sanitizer layer. This sweep is
 about the LAYER, not the value space.
-
-Claude-Session: https://[session link removed]
 ```
 
 ---
@@ -768,8 +762,6 @@ entity where nothing moved is a hard failure rather than a pass.
 
 This commit may be RED. The detector lands before the fixes deliberately,
 so the fixes have something to be measured against.
-
-Claude-Session: https://[session link removed]
 ```
 
 ---
@@ -938,8 +930,6 @@ A detector that does not state its blind spots gets read as covering them.
 Two of these are new since the spec was drafted: the guard layer of absence
 and calendarEvent is shared with the preview through rawTypeGuards and so
 agrees by construction, and the token is injected rather than obtained.
-
-Claude-Session: https://[session link removed]
 ```
 
 ---
@@ -1255,8 +1245,6 @@ behaviour change, not a dedup. §405 therefore stays OPEN with that residue.
 
 Behaviour-preserving: test counts unchanged across sanitize-records,
 plan.write-path and plan.sanitizer-parity.
-
-Claude-Session: https://[session link removed]
 ```
 
 ---

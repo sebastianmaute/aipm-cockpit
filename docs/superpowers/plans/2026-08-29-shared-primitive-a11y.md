@@ -1116,7 +1116,7 @@ anywhere; cite symbols and commands.
 
 Set `APP_VERSION`, `APP_BUILD_DATE` and `APP_MILESTONE` in `src/app/version.ts` — a
 MINOR bump takes a NEW codename, a patch keeps the current one. Add the `CHANGELOG.md`
-entry. ★ Never put a `[session link removed]...` URL in `CHANGELOG.md`.
+entry. ★ Never put an assistant session URL in `CHANGELOG.md`.
 
 Then propagate rather than hand-editing the eight satellite files:
 

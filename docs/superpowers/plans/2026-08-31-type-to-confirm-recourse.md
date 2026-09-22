@@ -927,7 +927,7 @@ npm run version:check > "$SCRATCH/r-ver.log" 2>&1; echo "VER=$?"
 - [ ] **Step 2: CHANGELOG entry**
 
 Add a `## [0.273.0] - <date> "<codename>"` block above the 0.272.0 entry, with user-facing
-"Fixed" bullets. ★ NEVER put a `[session link removed]...` URL in `CHANGELOG.md`.
+"Fixed" bullets. ★ NEVER put an assistant session URL in `CHANGELOG.md`.
 
 - [ ] **Step 3: Commit, push, MR**
 

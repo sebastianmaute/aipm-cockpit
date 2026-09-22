@@ -173,7 +173,7 @@ import { describe, it, expect, vi } from "vitest";
 import { ResourceEditModal } from "./resource-edit-modal";
 import type { Resource } from "./types";
 
-const base: Resource = { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} };
+const base: Resource = { id: 1, firstName: "Sofia", lastName: "Ramirez", roleId: null, utilizationMode: "percent", utilization: {} };
 
 describe("ResourceEditModal", () => {
   it("renders nothing when resource is null", () => {
@@ -188,7 +188,7 @@ describe("ResourceEditModal", () => {
       onSave={onSave} onDelete={vi.fn()} onClose={vi.fn()} />);
     fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
     expect(onSave).toHaveBeenCalledTimes(1);
-    expect(onSave.mock.calls[0][0]).toMatchObject({ firstName: "Sample", lastName: "Dummy" });
+    expect(onSave.mock.calls[0][0]).toMatchObject({ firstName: "Sofia", lastName: "Ramirez" });
   });
   it("blocks save when both names are empty", () => {
     const onSave = vi.fn();
@@ -308,13 +308,13 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { ResourceDirectory } from "./resource-directory";
 import type { Resource } from "./types";
-const rs: Resource[] = [{ id: 1, firstName: "Sample", lastName: "Dummy", title: "Architect", roleId: null, utilizationMode: "percent", utilization: {} }];
+const rs: Resource[] = [{ id: 1, firstName: "Sofia", lastName: "Ramirez", title: "Architect", roleId: null, utilizationMode: "percent", utilization: {} }];
 describe("ResourceDirectory", () => {
   it("fires onEditResource when the name is clicked", () => {
     const onEdit = vi.fn();
     render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]}
       onAssignRole={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sofia Ramirez" }));
     expect(onEdit).toHaveBeenCalledWith(rs[0]);
   });
   it("fires onAddResource from the add button", () => {

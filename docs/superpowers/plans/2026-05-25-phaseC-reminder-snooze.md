@@ -203,16 +203,16 @@ reminderSnooze1d: "In 1 day"        // de: "In 1 Tag"
 function SnoozeMenu({ lang, onSnooze }: { lang: Lang; onSnooze: (ms: number) => void }) {
   return (
     <details className="relative">
-      <summary className="cursor-pointer list-none rounded-md border border-AIPM-medium-grey/40 bg-white px-3 py-1.5 text-xs font-medium text-AIPM-dark-grey hover:bg-AIPM-light-grey dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-medium-grey">
+      <summary className="cursor-pointer list-none rounded-md border border-ui-medium-grey/40 bg-white px-3 py-1.5 text-xs font-medium text-ui-dark-grey hover:bg-ui-light-grey dark:border-zinc-700 dark:bg-zinc-900 dark:text-ui-medium-grey">
         {t(lang, "reminderSnooze")} ▾
       </summary>
       <div className="absolute right-0 z-10 mt-1 flex flex-col rounded-md border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
         <button type="button" onClick={() => onSnooze(SNOOZE_1H)}
-          className="whitespace-nowrap px-3 py-1.5 text-left text-xs text-AIPM-dark-grey hover:bg-AIPM-light-grey dark:text-AIPM-light-grey dark:hover:bg-zinc-800">
+          className="whitespace-nowrap px-3 py-1.5 text-left text-xs text-ui-dark-grey hover:bg-ui-light-grey dark:text-ui-light-grey dark:hover:bg-zinc-800">
           {t(lang, "reminderSnooze1h")}
         </button>
         <button type="button" onClick={() => onSnooze(SNOOZE_1D)}
-          className="whitespace-nowrap px-3 py-1.5 text-left text-xs text-AIPM-dark-grey hover:bg-AIPM-light-grey dark:text-AIPM-light-grey dark:hover:bg-zinc-800">
+          className="whitespace-nowrap px-3 py-1.5 text-left text-xs text-ui-dark-grey hover:bg-ui-light-grey dark:text-ui-light-grey dark:hover:bg-zinc-800">
           {t(lang, "reminderSnooze1d")}
         </button>
       </div>

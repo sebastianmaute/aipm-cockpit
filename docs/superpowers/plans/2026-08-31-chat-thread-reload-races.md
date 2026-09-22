@@ -945,7 +945,7 @@ All `EXIT=0`. ★ For the status gate, **1 is drift** (write the Status line) an
 
 - [ ] **Step 5: CHANGELOG and version**
 
-Add a `## [0.272.0] - 2026-08-31 "<codename>"` block at the top of `CHANGELOG.md`, above the peer's entry. ★ No `[session link removed]...` URL in `CHANGELOG.md` or in any MR description.
+Add a `## [0.272.0] - 2026-08-31 "<codename>"` block at the top of `CHANGELOG.md`, above the peer's entry. ★ No assistant session URL in `CHANGELOG.md` or in any MR description.
 
 Then edit `src/app/version.ts`: **both** `APP_VERSION` and `APP_MILESTONE`, plus `APP_BUILD_DATE`. ★★ `version:sync` reads the codename from `APP_MILESTONE` via regex, NOT from the docstring above it — editing only the docstring propagates the OLD codename to all eight satellites and the gate stays green. Then:
 

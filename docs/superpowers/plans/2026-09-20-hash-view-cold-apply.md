@@ -48,7 +48,7 @@ Do not delete it.
 - Never `git add -A` or `git add .`. Commit with `git commit --only <paths> -F <msgfile>`, msgfile in the
   scratchpad. Never `--amend`, never a bare `git stash`, never `npm ci`.
 - Commit messages cite **§N only** — no `#NN` anywhere in a commit message, and no `Closes`. Every commit
-  message ends with `Claude-Session: https://[session link removed]`.
+  message ends with the session trailer.
 - Never read a gate's exit code through a pipe. Run `cmd > <log> 2>&1; echo EXIT=$?`, then read the log.
 - vitest: `--maxWorkers=1 --reporter=dot`. **Never two vitest processes at once** — another session
   shares this machine. Announce "starting vitest" / "vitest done" to the controller, which relays.

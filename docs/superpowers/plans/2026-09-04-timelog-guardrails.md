@@ -25,7 +25,7 @@ These apply to every task below. They are repeated here rather than in each task
 6. **`git checkout -- <file>` is deny-blocked.** Revert a mutation with an inverse anchored Edit, assert the anchor is unique in both directions, and finish on an empty `git diff --stat`.
 7. **Mutation-proving means reading which cases fail**, not just that the exit code is non-zero. Record `N failed / M passed` and check the sum equals the file's runtime test count.
 8. Commit after every task. Every commit message ends with:
-   `Claude-Session: https://[session link removed]`
+   the session trailer
 9. **No release, no version bump.** This plan ends on a green branch. Pushing, the MR and the merge happen separately, on explicit say.
 
 ---
@@ -163,8 +163,6 @@ feat(timelog): add guardrail policy and daily-roll types
 
 The rule ids are deliberately identical to the four guardrail InsightType
 members that follow, so no rule-to-type lookup table exists to drift.
-
-Claude-Session: https://[session link removed]
 EOF
 )"
 ```
@@ -637,8 +635,6 @@ The evaluated set is the load-bearing return value. A rule reports itself
 evaluated only when it could have produced a true answer — in particular
 timelogWorkingHours requires at least one user link, because with none it can
 produce nothing and reconcile would read that silence as "resolved".
-
-Claude-Session: https://[session link removed]
 EOF
 )"
 ```
@@ -831,8 +827,6 @@ the six write paths — only the sanitizer. It drops the policy key when nothing
 is configured, the same treatment customerId and projectIds already get, so an
 unconfigured workspace serialises byte-identically. The only detectors are in
 timelog-sanitize.test.ts; golden-workspace.test never reaches this function.
-
-Claude-Session: https://[session link removed]
 EOF
 )"
 ```
@@ -1051,8 +1045,6 @@ aggregateActuals collapses the date to a period key, sums per-entry hours away
 and folds unlinked items into `unattributed`, so nothing persisted could answer
 any guardrail rule. The roll keeps the calendar date, the largest single entry
 and non-project time.
-
-Claude-Session: https://[session link removed]
 EOF
 )"
 ```
@@ -1166,8 +1158,6 @@ saveActualsCache has four call sites and an entry is rewritten whole, so a save
 that omits a field clears it — the hazard the file already documents for
 `partial`. Two of the three are directory reloads with no items in hand, so they
 carry the roll through from state.
-
-Claude-Session: https://[session link removed]
 EOF
 )"
 ```
@@ -1359,8 +1349,6 @@ than an assumption.
 
 Both caveats reach the rendered strings: the daily cap counts only fetched
 projects, and people with no TimeLog link are not checked for working hours.
-
-Claude-Session: https://[session link removed]
 EOF
 )"
 ```
@@ -1580,8 +1568,6 @@ win in an exported artifact that then rides every AI turn.
 The evaluated-scope argument is required rather than defaulted so a future
 detector that forgets to declare itself is a typecheck error, not a silent
 prune. Pinned with @ts-expect-error, which only tsc can check.
-
-Claude-Session: https://[session link removed]
 EOF
 )"
 ```
@@ -1755,8 +1741,6 @@ entityRef is attached only when a user link resolves to a real resource, because
 InsightEntityRef requires a workspace id that the recommendation-replay path
 resolves as a real row. No AI recommendation: the booking lives in TimeLog and
 no tool in the allow-set can change it.
-
-Claude-Session: https://[session link removed]
 EOF
 )"
 ```
@@ -2028,8 +2012,6 @@ Toggles use the ToggleButton primitive for its non-colour pressed marker, and
 each threshold carries a real aria-label — a placeholder is not an accessible
 name, and Settings is axe-scanned. Row-unique names are pinned by a unit test
 because the axe gate cannot see two controls sharing an accessible name.
-
-Claude-Session: https://[session link removed]
 EOF
 )"
 ```
@@ -2154,8 +2136,6 @@ Write what was verified, against which tenant and on which date, into `docs/open
 git add docs/open-followups.md
 git commit --only docs/open-followups.md -m "$(cat <<'EOF'
 docs(followups): record the §347 eye-verify against a live TimeLog tenant
-
-Claude-Session: https://[session link removed]
 EOF
 )"
 ```

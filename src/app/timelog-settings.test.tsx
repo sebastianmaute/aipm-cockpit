@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { useState } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 vi.mock("./use-secrets", () => ({ saveSecretValue: vi.fn().mockResolvedValue(undefined) }));
@@ -101,6 +101,69 @@ describe("TimelogSettings", () => {
     const cfg = { ...defaultTimelogConfig, enabled: true, tokenInvalidAt: "2024-01-01T00:00:00Z" };
     render(<TimelogSettings lang="en-US" config={cfg} onChange={() => {}} />);
     expect(screen.getByText(t("en-US", "timelogTokenInvalid"))).toBeTruthy();
+  });
+});
+
+// register §200 finding 6: the env-tenant hint and the "Test connection" call
+// were both untested. Both routes already go through `effectiveTimelogConfig`
+// (Task 3, fix round 1) — these pin that routing rather than fix a defect.
+describe("TimelogSettings — env-supplied tenant (fix round 1)", () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("shows the env-tenant hint only while the stored tenant is blank and the env supplies one", () => {
+    vi.stubEnv("NEXT_PUBLIC_TIMELOG_TENANT", "acme");
+    const cfg = { ...defaultTimelogConfig, enabled: true, tenant: "" };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={() => {}} />);
+    expect(screen.getByText(t("en-US", "timelogTenantFromEnv"))).toBeInTheDocument();
+  });
+
+  it("hides the hint when a stored tenant already wins over the env", () => {
+    vi.stubEnv("NEXT_PUBLIC_TIMELOG_TENANT", "acme");
+    const cfg = { ...defaultTimelogConfig, enabled: true, tenant: "globex" };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={() => {}} />);
+    expect(screen.queryByText(t("en-US", "timelogTenantFromEnv"))).toBeNull();
+  });
+
+  it("hides the hint when the tenant is blank and no env is set either", () => {
+    const cfg = { ...defaultTimelogConfig, enabled: true, tenant: "" };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={() => {}} />);
+    expect(screen.queryByText(t("en-US", "timelogTenantFromEnv"))).toBeNull();
+  });
+
+  it("'Test connection' calls Timelog with the env-supplied tenant when the stored tenant is blank", async () => {
+    vi.stubEnv("NEXT_PUBLIC_TIMELOG_TENANT", "acme");
+    vi.mocked(timelogApi.listUsers).mockResolvedValue([
+      { userId: 1, firstName: "Ada", lastName: "Lovelace", initials: "AL", email: "ada@example.com", isActive: true },
+    ]);
+    vi.mocked(timelogApi.getPrivileges).mockResolvedValue({ registrationAllTasks: false });
+
+    const cfg = { ...defaultTimelogConfig, enabled: true, host: "h", tenant: "", apiToken: "tok" };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogTestLabel") }));
+
+    await screen.findByText(/Connected — 1 user,/);
+    expect(timelogApi.listUsers).toHaveBeenCalledWith(
+      expect.objectContaining({ tenant: "acme" }),
+    );
+    expect(timelogApi.getPrivileges).toHaveBeenCalledWith(
+      expect.objectContaining({ tenant: "acme" }),
+    );
+  });
+
+  it("'Test connection' keeps a stored tenant even when the env supplies a different one", async () => {
+    vi.stubEnv("NEXT_PUBLIC_TIMELOG_TENANT", "acme");
+    vi.mocked(timelogApi.listUsers).mockResolvedValue([]);
+    vi.mocked(timelogApi.getPrivileges).mockResolvedValue({ registrationAllTasks: false });
+
+    const cfg = { ...defaultTimelogConfig, enabled: true, host: "h", tenant: "globex", apiToken: "tok" };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogTestLabel") }));
+
+    await screen.findByText(/Connected — 0 users,/);
+    expect(timelogApi.listUsers).toHaveBeenCalledWith(
+      expect.objectContaining({ tenant: "globex" }),
+    );
   });
 });
 

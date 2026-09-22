@@ -223,9 +223,9 @@ actually sits on (a seam here is the likely defect).
 ## 5. Start-window logo configurable
 
 **Today:** `project-empty-state.tsx` renders, on the choices screen only,
-`<img src={settings.branding?.logo || "/AIPM-logo.svg"} className={brandLogo ? "max-h-10 max-w-[200px] w-auto object-contain" : "h-7 w-auto"}>`.
+`<img src={settings.branding?.logo || "/brand-logo.svg"} className={brandLogo ? "max-h-10 max-w-[200px] w-auto object-contain" : "h-7 w-auto"}>`.
 So the start window shares the *sidebar's* branding logo and otherwise falls back to the
-AIPM mark. `public/ai-pm-cockpit-banner-harbor.svg` exists but is referenced nowhere.
+Brand mark. `public/ai-pm-cockpit-banner-harbor.svg` exists but is referenced nowhere.
 
 **Change — a dedicated field:**
 
@@ -240,7 +240,7 @@ AIPM mark. `public/ai-pm-cockpit-banner-harbor.svg` exists but is referenced now
   `alt` = the branding slogan when set, else the app title. Sizing widened to
   `max-h-12 max-w-[280px] w-auto object-contain` for **both** branches — the default is
   now a wide banner, and the current `max-w-[200px]` would squeeze it to near-illegible.
-  The old `/AIPM-logo.svg` fallback and its `h-7 w-auto` branch are gone from this surface.
+  The old `/brand-logo.svg` fallback and its `h-7 w-auto` branch are gone from this surface.
   The sidebar's `/app-logo.svg` default is untouched.
 - Settings → Appearance: a third `BrandingImageInput` row beside logo and favicon, wired
   through the same `setSettings` → `writeSettings` spread (branding already rides the

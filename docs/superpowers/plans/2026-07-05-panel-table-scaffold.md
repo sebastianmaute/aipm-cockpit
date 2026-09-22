@@ -30,7 +30,7 @@ Library, Playwright + axe. Spec: `docs/superpowers/specs/2026-07-05-panel-table-
 - Shell class strings (must stay literal in the scaffold, verbatim):
   - pane: `` `print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}` ``
   - container (non-empty): `"min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2"`; (empty): `undefined`.
-  - dashed button: `` `flex w-full flex-col items-center gap-2 rounded-md border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}` ``
+  - dashed button: `` `flex w-full flex-col items-center gap-2 rounded-md border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-ui-dark-blue hover:text-ui-dark-blue dark:hover:text-ui-light-grey ${INTERACTIVE}` ``
 - **RAID divergences absorbed as props:** RAID's empty `<button>` carries `aria-label={t(lang,"raidAddItem")}` (change/stakeholders have none → prop optional, omitted → attribute absent); RAID's bulk block is **not** wrapped in `<div className="print:hidden">` (change/stakeholders are) → prop `bulkPrintHidden?: boolean`, default wrapped, RAID passes `false`.
 
 ---
@@ -263,7 +263,7 @@ export function PanelTableScaffold({
             type="button"
             onClick={empty.onAdd}
             aria-label={empty.ariaLabel}
-            className={`flex w-full flex-col items-center gap-2 rounded-md border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
+            className={`flex w-full flex-col items-center gap-2 rounded-md border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-ui-dark-blue hover:text-ui-dark-blue dark:hover:text-ui-light-grey ${INTERACTIVE}`}
           >
             <span>{empty.text}</span>
             <span className="font-medium">{empty.addLabel}</span>
@@ -662,7 +662,7 @@ pins the panel contract; green proves the shell change is behavior-neutral.
 - [ ] **Step 5: RAID axe check (RAID is in A11Y_VIEWS)**
 
 Run: `npx playwright test e2e/a11y.spec.ts --project=chromium -g "RAID"`
-Expected: PASS (3 combos: AIPM-light / AIPM-dark / mockup). The empty-state `aria-label`
+Expected: PASS (3 combos: petrol-light / petrol-dark / mockup). The empty-state `aria-label`
 and the shell DOM are preserved; this confirms no axe regression.
 
 - [ ] **Step 6: Commit**

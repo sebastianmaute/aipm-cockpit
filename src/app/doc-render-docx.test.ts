@@ -262,7 +262,7 @@ describe("renderDocumentDocx — declared styles", () => {
     );
     expect(used.length).toBeGreaterThan(0);
     // The whole point of DOC_STYLES: no pStyle may fall through to a Word
-    // latent built-in, which would render in Word's palette, not Acme's.
+    // latent built-in, which would render in Word's palette, not the app's own.
     for (const id of used) expect(declared).toContain(id);
   });
 

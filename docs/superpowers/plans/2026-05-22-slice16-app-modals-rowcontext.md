@@ -397,9 +397,9 @@ export function AppModals({
       )}
 
       {!isPopout && (
-        <footer className="mt-12 flex items-center justify-between gap-4 border-t border-AIPM-light-grey pt-6 text-xs text-AIPM-medium-grey dark:border-zinc-800">
+        <footer className="mt-12 flex items-center justify-between gap-4 border-t border-ui-light-grey pt-6 text-xs text-ui-medium-grey dark:border-zinc-800">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/AIPM-logo.svg" alt="Acme" className="h-6 w-auto" />
+          <img src="/brand-logo.svg" alt="Company logo" className="h-6 w-auto" />
           <span className="text-right italic">
             Identity Excellence Delivered. Globally.
           </span>
@@ -412,8 +412,8 @@ export function AppModals({
           aria-live="polite"
           className={`fixed bottom-4 right-4 z-30 max-w-md rounded-md px-4 py-2.5 text-sm shadow-lg ${
             toast.kind === "error"
-              ? "bg-AIPM-pink text-white"
-              : "bg-AIPM-dark-blue text-white"
+              ? "bg-ui-pink text-white"
+              : "bg-ui-dark-blue text-white"
           }`}
         >
           {toast.text}

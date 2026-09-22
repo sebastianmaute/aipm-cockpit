@@ -166,7 +166,7 @@ export interface ResourceLookupIndexes {
  * shared `emailToResourceId` helper, which is FIRST-WINS. That helper backs
  * the v9 absence/raid/shift backfill and changing it would silently alter
  * behaviour well outside this fix — but inheriting first-wins here would have
- * this function refuse to guess between two people called "Anna Jordan" while
+ * this function refuse to guess between two people called "Anna Bennett" while
  * happily guessing between two rows sharing an address, which is the exact
  * outcome the paragraph above calls unacceptable. A duplicated email is
  * usually one person entered twice, so either id is "probably" right —
@@ -337,7 +337,7 @@ export function roleLabel(
   return `${d} ${g}`;
 }
 
-/** Split a display name on the FIRST space: "Sample Anne Dummy" → first "Sample", last "Anne Dummy". */
+/** Split a display name on the FIRST space: "Sofia Anne Ramirez" → first "Sofia", last "Anne Ramirez". */
 export function splitName(name: string): { firstName: string; lastName: string } {
   const trimmed = (name ?? "").trim().replace(/\s+/g, " ");
   if (!trimmed) return { firstName: "", lastName: "" };

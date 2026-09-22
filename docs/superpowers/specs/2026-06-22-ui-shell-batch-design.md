@@ -108,7 +108,7 @@ Both surfaces already show a `task.jiraKey` chip. Make the chip clearly signal r
 - Board card (`task-kanban-card.tsx:119-122`) and table row (`task-row.tsx:219-234`) render the
   new badge instead of the inline chip. Behavior/drag/disabled logic UNCHANGED (this is signage).
 - New i18n key `jiraSyncedReadOnly` EN+DE. Lock SVG uses `currentColor` (inherits the chip's
-  `text-AIPM-dark-blue`/`dark:text-AIPM-blue` — no off-palette color).
+  `text-ui-dark-blue`/`dark:text-ui-blue` — no off-palette color).
 
 ## Cross-cutting / gates
 

@@ -6,14 +6,14 @@
 
 **Architecture:** Mostly small, localized UI edits. Two new files (`influence-interest-matrix.tsx`, `stakeholder-report-panel.tsx`). One read-only report wired through the existing `ADDABLE_REPORTS` registry. Sample data seeded into both sample-workspace files and guarded by a round-trip parse test. No storage schema change (stays v8).
 
-**Tech Stack:** Next.js (app dir), React, TypeScript, Tailwind (AIPM 9-colour palette), Vitest 4 + Testing Library, fake-indexeddb.
+**Tech Stack:** Next.js (app dir), React, TypeScript, Tailwind (brand 9-colour palette), Vitest 4 + Testing Library, fake-indexeddb.
 
 **Branch:** `feat-stakeholder-ui-batch` (already created off `main`; truncated `sample-workspace.md` already restored from HEAD).
 
 **Project-specific constraints (read before any task):**
 - Commands: `npm run test:run` (all tests), `npx vitest run src/app/<file>` (one file), `npm run lint` (**`--max-warnings=0`** — any unused import/var FAILS), `npx tsc --noEmit`.
 - `Lang` type is `"en-US" | "en-GB" | "de"`. Use `"en-US"` in component tests, never `"en"`.
-- Palette: only AIPM tokens (`AIPM-green`, `AIPM-dark-blue`, `AIPM-purple` #aa4899, `AIPM-pink`, `AIPM-light-grey`, `AIPM-blue`, surface/line/foreground/muted-foreground). Amber RAG = dot `bg-amber-500`, text `text-AIPM-purple`. No gradients/shadows/off-palette (`text-amber-700` etc. are forbidden).
+- Palette: only brand tokens (`ui-green`, `ui-dark-blue`, `ui-purple` #aa4899, `ui-pink`, `ui-light-grey`, `ui-blue`, surface/line/foreground/muted-foreground). Amber RAG = dot `bg-amber-500`, text `text-ui-purple`. No gradients/shadows/off-palette (`text-amber-700` etc. are forbidden).
 - **`i18n.ts`** is ASCII — edit with the Edit tool freely.
 - **`i18n.de.ts` MUST stay ASCII-only and CRLF.** Do NOT use the Edit tool on it (it corrupts `"` into curly quotes). Patch it via a Node one-liner with a CRLF-aware anchor (match the line WITHOUT its trailing newline). Verify after with `npx tsc --noEmit` (a missing DE key fails typecheck) and a grep for non-ASCII.
 - Commit via the Bash tool heredoc: `git commit -F - <<'EOF' … EOF`. Conventional-commit subjects. No attribution footer (disabled globally).
@@ -54,7 +54,7 @@ In `change-panel.tsx`, the toolbar button currently renders `{t(lang, "changesAd
       <button
         type="button"
         onClick={openNew}
-        className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
+        className="rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90"
       >
         + {t(lang, "changesAdd")}
       </button>
@@ -96,7 +96,7 @@ In `stakeholders-panel.tsx`, replace the toolbar add button (keep the `aria-labe
         onClick={openNew}
         aria-label={t(lang, "stakeholdersAdd")}
         title={t(lang, "stakeholdersAdd")}
-        className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
+        className="rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90"
       >
         + {t(lang, "stakeholdersAdd")}
       </button>
@@ -205,7 +205,7 @@ In the Status-Summary footer (~line 198-205), wrap Save + Clear so Clear sits to
                 type="button"
                 onClick={commitNarrative}
                 disabled={draftNarrative.trim() === (status.narrative ?? "")}
-                className="rounded-md bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 print:hidden"
+                className="rounded-md bg-ui-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 print:hidden"
               >
                 {t(lang, "dashboardStatusSave")}
               </button>
@@ -329,7 +329,7 @@ Change the root wrapper from `${VIEW_PANE_CLASS} flex flex-col gap-4 p-6` to the
   return (
     <div ref={paneRef} className={`${VIEW_PANE_RESIZABLE_CLASS} gap-4`}>
       <div className="flex shrink-0 items-center gap-2">
-        <h2 className="text-sm font-semibold text-AIPM-dark-blue">
+        <h2 className="text-sm font-semibold text-ui-dark-blue">
           {t(lang, "stakeholderMapTitle")}
         </h2>
         <span className="ml-auto" />
@@ -432,11 +432,11 @@ const LEVEL_LABEL_KEYS: Record<InfluenceInterest, TranslationKey> = {
 // Score 2..6 (influenceIdx + interestIdx, 1-based) → quadrant-ish tint using
 // brand tokens only. High/High is the strongest; Low/Low the faintest.
 function cellTint(score: number): string {
-  if (score >= 6) return "bg-AIPM-green/30 hover:bg-AIPM-green/40";
-  if (score >= 5) return "bg-AIPM-green/20 hover:bg-AIPM-green/30";
-  if (score >= 4) return "bg-AIPM-purple/15 hover:bg-AIPM-purple/25";
-  if (score >= 3) return "bg-AIPM-light-grey/30 hover:bg-AIPM-light-grey/40";
-  return "bg-surface-muted hover:bg-AIPM-light-grey/30";
+  if (score >= 6) return "bg-ui-green/30 hover:bg-ui-green/40";
+  if (score >= 5) return "bg-ui-green/20 hover:bg-ui-green/30";
+  if (score >= 4) return "bg-ui-purple/15 hover:bg-ui-purple/25";
+  if (score >= 3) return "bg-ui-light-grey/30 hover:bg-ui-light-grey/40";
+  return "bg-surface-muted hover:bg-ui-light-grey/30";
 }
 
 export interface InfluenceInterestMatrixProps {
@@ -479,7 +479,7 @@ export function InfluenceInterestMatrix({ lang, influence, interest, onPick }: I
                   aria-pressed={isSelected}
                   aria-label={`${influenceLabel} ${t(lang, LEVEL_LABEL_KEYS[inf])}, ${interestLabel} ${t(lang, LEVEL_LABEL_KEYS[intr])}`}
                   onClick={() => onPick(inf, intr)}
-                  className={`h-12 w-14 rounded text-[10px] font-medium text-foreground ${cellTint(score)} ${isSelected ? "ring-2 ring-AIPM-green ring-offset-1" : ""}`}
+                  className={`h-12 w-14 rounded text-[10px] font-medium text-foreground ${cellTint(score)} ${isSelected ? "ring-2 ring-ui-green ring-offset-1" : ""}`}
                 />
               );
             })}
@@ -609,7 +609,7 @@ const milestones: Milestone[] = [
 ];
 const stakeholders: Stakeholder[] = [
   { id: 1, name: "Elena", category: "Sponsor", influence: "High", interest: "High", raci: { "1": "A" } },
-  { id: 2, name: "Fictional", category: "Internal", influence: "High", interest: "Medium", raci: { "1": "A", "2": "A" } },
+  { id: 2, name: "Noah", category: "Internal", influence: "High", interest: "Medium", raci: { "1": "A", "2": "A" } },
   { id: 3, name: "David", category: "Customer", influence: "Medium", interest: "Medium", raci: {} },
 ];
 
@@ -677,7 +677,7 @@ const QUADRANTS: { id: StakeholderQuadrant; labelKey: TranslationKey }[] = [
   { id: "monitor", labelKey: "quadrantMonitor" },
   { id: "keep-informed", labelKey: "quadrantKeepInformed" },
 ];
-const AMBER_CHIP = "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-amber-500/20 text-AIPM-purple";
+const AMBER_CHIP = "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-amber-500/20 text-ui-purple";
 
 export interface StakeholderReportPanelProps {
   lang: Lang;
@@ -703,23 +703,23 @@ export function StakeholderReportPanel({ lang, stakeholders, milestones, embedde
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-lg border border-line bg-surface p-3">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">{t(lang, "navStakeholders")}</p>
-          <p className="mt-1 text-2xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{stakeholders.length}</p>
+          <p className="mt-1 text-2xl font-semibold text-ui-dark-blue dark:text-ui-light-grey">{stakeholders.length}</p>
         </div>
         {byCategory.filter((c) => c.count > 0).map((c) => (
           <div key={c.category} className="rounded-lg border border-line bg-surface p-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">{t(lang, CATEGORY_KEY[c.category])}</p>
-            <p className="mt-1 text-2xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{c.count}</p>
+            <p className="mt-1 text-2xl font-semibold text-ui-dark-blue dark:text-ui-light-grey">{c.count}</p>
           </div>
         ))}
       </div>
 
       {/* Influence / Interest 2x2 */}
       <div>
-        <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "stakeholderMapTitle")}</h3>
+        <h3 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "stakeholderMapTitle")}</h3>
         <div className="grid grid-cols-2 gap-2">
           {QUADRANTS.map((q) => (
             <div key={q.id} className="rounded-lg border border-line p-3">
-              <p className="text-xs font-semibold text-AIPM-dark-blue">{t(lang, q.labelKey)}</p>
+              <p className="text-xs font-semibold text-ui-dark-blue">{t(lang, q.labelKey)}</p>
               <div className="mt-1 flex flex-wrap gap-1">
                 {byQuadrant[q.id].map((s) => (
                   <span key={s.id} className="inline-block rounded px-1.5 py-0.5 text-xs font-medium bg-surface-muted text-foreground">{s.name}</span>
@@ -732,7 +732,7 @@ export function StakeholderReportPanel({ lang, stakeholders, milestones, embedde
 
       {/* RACI coverage */}
       <div>
-        <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "stakeholderRaciTitle")}</h3>
+        <h3 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "stakeholderRaciTitle")}</h3>
         {milestones.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t(lang, "raciNoMilestones")}</p>
         ) : (
@@ -768,7 +768,7 @@ export function StakeholderReportPanel({ lang, stakeholders, milestones, embedde
 
       {/* Register table */}
       <div>
-        <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "navStakeholders")}</h3>
+        <h3 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "navStakeholders")}</h3>
         <div className="overflow-x-auto rounded-md border border-line">
           <table className="min-w-full text-left text-sm">
             <thead className={TABLE_HEAD_CLASS}>
@@ -883,16 +883,16 @@ Milestones:
 Stakeholders (covers all 6 categories + all 4 quadrants; M1=1 Accountable, M2=2 Accountable→multiple, M3=0 Accountable→missing):
 | id | name | organization | category | influence | interest | resourceId | raci |
 |----|------|------|------|------|------|------|------|
-| 1 | Elena Fischer | Acme | Sponsor | High | High | (none) | 1=A\|2=A\|3=C |
-| 2 | Sam Placeholder | Acme | Internal | High | Medium | 2 | 1=R\|2=A\|3=R |
-| 3 | Taylor Specimen | Acme | Internal | Medium | High | 3 | 1=C\|2=R\|3=I |
+| 1 | Elena Fischer | Globex | Sponsor | High | High | (none) | 1=A\|2=A\|3=C |
+| 2 | Noah Bennett | Globex | Internal | High | Medium | 2 | 1=R\|2=A\|3=R |
+| 3 | Ava Thompson | Globex | Internal | Medium | High | 3 | 1=C\|2=R\|3=I |
 | 4 | David Okoro | Acme Corp | Customer | Medium | Medium | (none) | 1=I\|2=C\|3=C |
-| 5 | Morgan Standin | InfoSec Authority | Regulator | High | Low | 4 | 1=I\|2=I\|3=C |
+| 5 | Maya Patel | InfoSec Authority | Regulator | High | Low | 4 | 1=I\|2=I\|3=C |
 | 6 | Lena Vogt | CloudVendor GmbH | Vendor | Low | Low | (none) | (empty) |
 | 7 | Sam Rivera | Community Forum | Other | Low | High | (none) | 1=I\|2=I\|3=R |
 
-Quadrant check (`quadrantFor`, only High counts as high): manage-closely = {Elena}; keep-satisfied = {Fictional(H/M), Invented(H/L)}; keep-informed = {Aria(M/H), Sam(L/H)}; monitor = {David(M/M), Lena(L/L)} — all four non-empty. ✓
-Accountable per milestone: M1 → Elena only = 1 (no warning); M2 → Elena+Fictional = 2 (multiple); M3 → none = 0 (missing). ✓
+Quadrant check (`quadrantFor`, only High counts as high): manage-closely = {Elena}; keep-satisfied = {Noah(H/M), Maya(H/L)}; keep-informed = {Ava(M/H), Sam(L/H)}; monitor = {Liam(M/M), Lena(L/L)} — all four non-empty. ✓
+Accountable per milestone: M1 → Elena only = 1 (no warning); M2 → Elena+Noah = 2 (multiple); M3 → none = 0 (missing). ✓
 
 - [ ] **Step 1: Write the failing round-trip test**
 
@@ -952,11 +952,11 @@ const milestones = [
   { id: 3, name: "Hypercare Exit", date: "2026-12-15", linkedTaskIds: [] },
 ];
 const stakeholders = [
-  { id: 1, name: "Elena Fischer", organization: "Acme", category: "Sponsor", influence: "High", interest: "High", raci: { "1": "A", "2": "A", "3": "C" } },
-  { id: 2, name: "Sam Placeholder", organization: "Acme", category: "Internal", influence: "High", interest: "Medium", resourceId: 2, raci: { "1": "R", "2": "A", "3": "R" } },
-  { id: 3, name: "Taylor Specimen", organization: "Acme", category: "Internal", influence: "Medium", interest: "High", resourceId: 3, raci: { "1": "C", "2": "R", "3": "I" } },
+  { id: 1, name: "Elena Fischer", organization: "Globex", category: "Sponsor", influence: "High", interest: "High", raci: { "1": "A", "2": "A", "3": "C" } },
+  { id: 2, name: "Noah Bennett", organization: "Globex", category: "Internal", influence: "High", interest: "Medium", resourceId: 2, raci: { "1": "R", "2": "A", "3": "R" } },
+  { id: 3, name: "Ava Thompson", organization: "Globex", category: "Internal", influence: "Medium", interest: "High", resourceId: 3, raci: { "1": "C", "2": "R", "3": "I" } },
   { id: 4, name: "David Okoro", organization: "Acme Corp", category: "Customer", influence: "Medium", interest: "Medium", raci: { "1": "I", "2": "C", "3": "C" } },
-  { id: 5, name: "Morgan Standin", organization: "InfoSec Authority", category: "Regulator", influence: "High", interest: "Low", resourceId: 4, raci: { "1": "I", "2": "I", "3": "C" } },
+  { id: 5, name: "Maya Patel", organization: "InfoSec Authority", category: "Regulator", influence: "High", interest: "Low", resourceId: 4, raci: { "1": "I", "2": "I", "3": "C" } },
   { id: 6, name: "Lena Vogt", organization: "CloudVendor GmbH", category: "Vendor", influence: "Low", interest: "Low", raci: {} },
   { id: 7, name: "Sam Rivera", organization: "Community Forum", category: "Other", influence: "Low", interest: "High", raci: { "1": "I", "2": "I", "3": "R" } },
 ];

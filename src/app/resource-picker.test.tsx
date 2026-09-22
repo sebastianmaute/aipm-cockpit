@@ -8,7 +8,7 @@ import type { Contact } from "./contacts";
 const res = (id: number, firstName: string, lastName: string, email?: string): Resource =>
   ({ id, firstName, lastName, email, roleId: null, utilizationMode: "percent", utilization: {} });
 
-const resources: Resource[] = [res(1, "Sample", "Dummy", "Sample@x.com"), res(2, "Bob", "Lee", "bob@x.com")];
+const resources: Resource[] = [res(1, "Sofia", "Ramirez", "sofia@x.com"), res(2, "Bob", "Lee", "bob@x.com")];
 const contacts: Contact[] = [{ name: "Old Contact", email: "old@x.com" }];
 
 function setup(value: ResourcePickerValue, over: Partial<Parameters<typeof ResourcePicker>[0]> = {}) {
@@ -33,7 +33,7 @@ describe("ResourcePicker", () => {
     setup({ name: "", email: "", resourceId: null });
     fireEvent.focus(screen.getByRole("combobox"));
     const options = screen.getAllByRole("option").map((o) => o.textContent ?? "");
-    const sarahIdx = options.findIndex((t) => t.includes("Alex Example"));
+    const sarahIdx = options.findIndex((t) => t.includes("Sofia Ramirez"));
     const contactIdx = options.findIndex((t) => t.includes("Old Contact"));
     expect(sarahIdx).toBeGreaterThanOrEqual(0);
     expect(contactIdx).toBeGreaterThan(sarahIdx);
@@ -42,8 +42,8 @@ describe("ResourcePicker", () => {
   it("picking a resource emits the FK and the resource name/email", () => {
     const { onChange } = setup({ name: "", email: "", resourceId: null });
     fireEvent.focus(screen.getByRole("combobox"));
-    fireEvent.mouseDown(screen.getByText("Alex Example"));
-    expect(onChange).toHaveBeenCalledWith({ name: "Alex Example", email: "Sample@x.com", resourceId: 1 });
+    fireEvent.mouseDown(screen.getByText("Sofia Ramirez"));
+    expect(onChange).toHaveBeenCalledWith({ name: "Sofia Ramirez", email: "sofia@x.com", resourceId: 1 });
   });
 
   it("picking a contact emits resourceId null", () => {
@@ -59,7 +59,7 @@ describe("ResourcePicker", () => {
     // string is the same either way, the only visible effect was the button
     // itself vanishing — so the control read as dead. An ✕ inside a text input
     // means clear.
-    const { onChange } = setup({ name: "Alex Example", email: "Sample@x.com", resourceId: 1 });
+    const { onChange } = setup({ name: "Sofia Ramirez", email: "sofia@x.com", resourceId: 1 });
     fireEvent.click(screen.getByRole("button", { name: /^clear$/i })); // popover closed
     expect(onChange).toHaveBeenCalledWith({ name: "", email: "", resourceId: null });
   });
@@ -70,7 +70,7 @@ describe("ResourcePicker", () => {
   // editor, so if mousedown blurs the input first the clear lands on an already
   // closed editor and is swallowed — the bug ebcd0788 fixed.
   it("does not let mousedown blur the input, or commit-on-blur editors swallow the clear", () => {
-    setup({ name: "Alex Example", email: "Sample@x.com", resourceId: 1 });
+    setup({ name: "Sofia Ramirez", email: "sofia@x.com", resourceId: 1 });
     const clearBtn = screen.getByRole("button", { name: /^clear$/i });
     // fireEvent returns dispatchEvent's result: false ⇔ preventDefault was called.
     expect(fireEvent.mouseDown(clearBtn)).toBe(false);
@@ -82,7 +82,7 @@ describe("ResourcePicker", () => {
   // description, or a screen-reader user is never told the assignment is dangling
   // and has no reason to re-pick it.
   it("announces a healthy link in the clear button's description", () => {
-    setup({ name: "Alex Example", email: "Sample@x.com", resourceId: 1 });
+    setup({ name: "Sofia Ramirez", email: "sofia@x.com", resourceId: 1 });
     const btn = screen.getByRole("button", { name: /^clear$/i });
     expect(btn).toHaveAttribute("title", t("en-US", "resourcePickerLinked"));
   });
@@ -105,7 +105,7 @@ describe("ResourcePicker", () => {
   });
 
   it("shows no dangling marker for a healthy link", () => {
-    const { container } = setup({ name: "Alex Example", email: "Sample@x.com", resourceId: 1 });
+    const { container } = setup({ name: "Sofia Ramirez", email: "sofia@x.com", resourceId: 1 });
     expect(container.querySelector("[data-dangling-marker]")).toBeNull();
   });
 
@@ -138,14 +138,14 @@ describe("ResourcePicker", () => {
   });
 
   it("does not offer + Add when the typed name exactly matches a resource", () => {
-    setup({ name: "Alex Example", email: "Sample@x.com", resourceId: null });
+    setup({ name: "Sofia Ramirez", email: "sofia@x.com", resourceId: null });
     fireEvent.focus(screen.getByRole("combobox"));
     expect(screen.queryByText(/Add .* as resource/i)).toBeNull();
   });
 
   it("display authority: a linked value shows the resource's CURRENT name, not the stale stored string", () => {
     setup({ name: "stale string", email: "stale@x.com", resourceId: 1 });
-    expect(screen.getByRole("combobox")).toHaveValue("Alex Example");
+    expect(screen.getByRole("combobox")).toHaveValue("Sofia Ramirez");
   });
 
   // A dangling FK (the resource was deleted) still renders the cached name and a

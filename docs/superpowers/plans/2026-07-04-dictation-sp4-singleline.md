@@ -64,7 +64,6 @@ git commit -F - <<'EOF'
 feat(dictation): task title uses the shared engine-aware mic (drop legacy InlineMicButton)
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -120,7 +119,6 @@ git commit -F - <<'EOF'
 feat(dictation): mic on RAID + change title inputs
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -175,7 +173,6 @@ git commit -F - <<'EOF'
 feat(dictation): mic on milestone name + stakeholder name/org/title inputs
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
-Claude-Session: https://[session link removed]
 EOF
 ```
 

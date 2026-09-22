@@ -1266,7 +1266,7 @@ Expected: every count `0`. ★ `package-lock.json` carries **two** occurrences (
 
 - [ ] **Step 7: `CHANGELOG.md`**
 
-Add above the `## [0.253.0]` entry. ★ No `[session link removed]...` URL may appear here.
+Add above the `## [0.253.0]` entry. ★ No assistant session URL may appear here.
 
 ```markdown
 ## [0.254.0] - <today> "Bisson"

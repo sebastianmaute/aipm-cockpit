@@ -604,7 +604,7 @@ Add the toggle near the Type control (inside the `grid` of fields), as its own l
               title={t(lang, "budgetDetailedPlanningHint")}
               className={`w-fit rounded-md border px-3 py-1.5 text-xs font-medium ${
                 !isBlended
-                  ? "border-AIPM-dark-blue bg-AIPM-dark-blue text-white"
+                  ? "border-ui-dark-blue bg-ui-dark-blue text-white"
                   : "border-line bg-surface text-foreground hover:bg-surface-muted"
               }`}
             >
@@ -669,7 +669,7 @@ Add the **discipline allocations** block (blended mode), modelled on the role bl
                     <button
                       type="button"
                       onClick={() => removeDiscipline(a.disciplineId)}
-                      className="rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
+                      className="rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted"
                     >
                       {t(lang, "budgetRemoveDiscipline")}
                     </button>
@@ -724,7 +724,7 @@ Add the **discipline allocations** block (blended mode), modelled on the role bl
                   type="button"
                   onClick={addDiscipline}
                   disabled={disciplineToAdd === ""}
-                  className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:opacity-50"
+                  className="rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 disabled:opacity-50"
                 >
                   + {t(lang, "budgetAddDiscipline")}
                 </button>
@@ -1103,7 +1103,7 @@ Render the section as the LAST child inside the `<ReportCard>` (after "By Label"
                     <tr><td colSpan={6} className="px-3 py-3 text-center text-muted-foreground">{t(lang, "reportsNoMatches")}</td></tr>
                   ) : filtered.map((r) => (
                     <tr key={r.bucketId}>
-                      <td className="px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">{r.name}</td>
+                      <td className="px-3 py-2 font-medium text-ui-dark-blue dark:text-ui-light-grey">{r.name}</td>
                       <td className="px-3 py-2 text-right">{r.budgetHours.toFixed(0)}</td>
                       <td className="px-3 py-2 text-right">{formatCurrency(r.budgetValue, "EUR", lang === "de" ? "de-DE" : "en-US")}</td>
                       <td className="px-3 py-2 text-right">{r.actualHours.toFixed(0)}</td>

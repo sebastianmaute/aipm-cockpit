@@ -7,7 +7,7 @@ import type { DashboardDensity } from "../dashboard-density";
 import type { HelpReadingLevel } from "../help-content";
 import {
   type BrandingConfig, type Settings, DEFAULT_FOOTER_SLOGAN,
-  BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, NEUTRAL_EXPORT_FOOTER,
+  BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, exportFooterEnv,
 } from "../settings-types";
 import type { Theme } from "../theme";
 import { useTheme } from "../use-theme";
@@ -56,6 +56,10 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
   const activeIsBuiltin = !!store.schemes.find((s) => s.id === store.activeId)?.builtIn;
 
   const branding = settings.branding;
+  // ★ Mirrors AiPolicyFields' orgFromEnv: a field whose build variable is set
+  //   shows only a note, since the deployment value wins and an input would
+  //   edit nothing.
+  const footerFromEnv = (exportFooterEnv().footer?.trim() ?? "") !== "";
   const [logoError, setLogoError] = useState<string | null>(null);
   const [faviconError, setFaviconError] = useState<string | null>(null);
   const [startLogoError, setStartLogoError] = useState<string | null>(null);
@@ -371,21 +375,31 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
 
         {/* Export footer — like startLogo, no scheme owns it, so it is NOT gated. */}
         <div className="mt-3">
-          <label htmlFor="branding-export-footer" className="mb-1 block text-xs font-medium text-muted-foreground">
-            {t(lang, "brandingExportFooter")}
-          </label>
-          <Input
-            size="xs"
-            id="branding-export-footer"
-            type="text"
-            maxLength={BRANDING_EXPORT_FOOTER_MAX}
-            value={branding?.exportFooter ?? DEFAULT_EXPORT_FOOTER}
-            placeholder={NEUTRAL_EXPORT_FOOTER}
-            onChange={(e) => setBranding({ ...branding, exportFooter: e.target.value })}
-            aria-describedby="branding-export-footer-hint"
-            className="w-full"
-          />
-          <FieldHint id="branding-export-footer-hint" className="mt-1">{t(lang, "brandingExportFooterHint")}</FieldHint>
+          {footerFromEnv ? (
+            <p className="mb-1 block text-xs font-medium text-muted-foreground">{t(lang, "brandingExportFooter")}</p>
+          ) : (
+            <label htmlFor="branding-export-footer" className="mb-1 block text-xs font-medium text-muted-foreground">
+              {t(lang, "brandingExportFooter")}
+            </label>
+          )}
+          {footerFromEnv ? (
+            <FieldHint className="mt-1">{t(lang, "brandingExportFooterFromEnv")}</FieldHint>
+          ) : (
+            <>
+              <Input
+                size="xs"
+                id="branding-export-footer"
+                type="text"
+                maxLength={BRANDING_EXPORT_FOOTER_MAX}
+                value={branding?.exportFooter ?? DEFAULT_EXPORT_FOOTER}
+                placeholder={DEFAULT_EXPORT_FOOTER}
+                onChange={(e) => setBranding({ ...branding, exportFooter: e.target.value })}
+                aria-describedby="branding-export-footer-hint"
+                className="w-full"
+              />
+              <FieldHint id="branding-export-footer-hint" className="mt-1">{t(lang, "brandingExportFooterHint")}</FieldHint>
+            </>
+          )}
         </div>
       </div>
     </>

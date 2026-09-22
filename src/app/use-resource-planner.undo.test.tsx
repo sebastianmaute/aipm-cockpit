@@ -252,7 +252,7 @@ describe("useResourcePlanner — per-field edit undo", () => {
     const resource: Resource = {
       id: 2,
       firstName: "Marc",
-      lastName: "Jordan",
+      lastName: "Bennett",
       roleId: null,
       utilizationMode: "percent",
       utilization: {},

@@ -1128,13 +1128,13 @@ export const de: Record<TranslationKey, string> = {
   aiConsentAccept: "Verstanden – Chat aktivieren",
   aiPolicyOwnerFallback: "Ihrer Organisation",
   aiPolicyOrgLabel: "Herausgeber der KI-Nutzungsrichtlinie",
-  aiPolicyOrgHint: "Wird im Einwilligungsdialog des KI-Assistenten genannt. Leer lassen für eine neutrale Formulierung. Der eingebaute Richtlinien-Link gehört zu Acme; wird der Herausgeber geändert oder geleert, entfällt er, sofern unten kein eigener Link eingetragen ist.",
+  aiPolicyOrgHint: "Wird im Einwilligungsdialog des KI-Assistenten genannt. Leer lassen für eine neutrale Formulierung. Es gibt weder einen eingebauten Herausgeber noch einen eingebauten Link — tragen Sie beides hier ein, oder setzen Sie die entsprechenden Build-Variablen, damit der Einwilligungsdialog einen Richtlinienschritt zeigt.",
   aiPolicyOrgFromEnv: "Wird in dieser Installation über NEXT_PUBLIC_AI_POLICY_ORG gesetzt und hat Vorrang vor dieser Einstellung.",
   aiPolicyUrlLabel: "Link zur KI-Nutzungsrichtlinie",
   aiPolicyUrlHint: "Ein https://-Link, den der Einwilligungsdialog zum Lesen und Akzeptieren anbietet. Leer lassen, wenn es keine Richtlinie gibt.",
   aiPolicyUrlInvalid: "Bitte einen vollständigen https://-Link eingeben. Bis dahin zeigt der Einwilligungsdialog keine Richtlinie.",
   aiPolicyUrlFromEnv: "Wird in dieser Installation über NEXT_PUBLIC_AI_POLICY_URL gesetzt und hat Vorrang vor dieser Einstellung.",
-  aiPolicyUrlNoBuiltin: "Der eingebaute Link ist eine Seite von Acme und wird für einen anderen Herausgeber nicht verwendet. Tragen Sie den Link Ihrer Organisation ein; bleibt das Feld leer, zeigt der Einwilligungsdialog keine Richtlinie zum Lesen und Akzeptieren.",
+  aiPolicyUrlNoBuiltin: "Es gibt keinen eingebauten Link — es ist weder ein Link gespeichert noch einer über die Build-Umgebung gesetzt. Tragen Sie den Link Ihrer Organisation ein; bleibt das Feld leer, zeigt der Einwilligungsdialog keine Richtlinie zum Lesen und Akzeptieren.",
   aiPolicyUrlEnvRejected: "NEXT_PUBLIC_AI_POLICY_URL ist in dieser Installation gesetzt, aber kein vollständiger https://-Link. Er wird ignoriert und stattdessen dieses Feld verwendet.",
   aiConsentRequired:
     "Einwilligung erforderlich. Öffnen Sie den KI-Assistenten-Tab, um sie zu prüfen und zu aktivieren.",
@@ -1676,6 +1676,11 @@ export const de: Record<TranslationKey, string> = {
   timelogTokenHelpAfter: "navigieren, um ein persönliches Zugriffstoken zu erzeugen.",
   timelogHost: "Host",
   timelogTenant: "Mandant",
+  // ★ Richtung ist das GEGENTEIL von aiPolicyOrgFromEnv/brandingExportFooterFromEnv:
+  //   ein gespeicherter Mandant gewinnt immer, daher füllt die Umgebungsvariable nur ein
+  //   LEERES Feld, statt ein eingegebenes zu überschreiben — das Feld bleibt bearbeitbar.
+  timelogTenantFromEnv:
+    "Dieses Feld ist leer, daher wird die Build-Variable NEXT_PUBLIC_TIMELOG_TENANT dieser Installation verwendet. Geben Sie hier einen Mandanten ein, um sie zu überschreiben.",
   timelogEmail: "Konto-E-Mail",
   timelogToken: "Persönlicher Zugriffstoken",
   timelogScope: "Datenbereich",
@@ -2617,6 +2622,7 @@ export const de: Record<TranslationKey, string> = {
   brandingFooterSlogan: "Slogan",
   brandingExportFooter: "Fußzeile in Exporten",
   brandingExportFooterHint: "Erscheint am Ende von HTML-, PDF- und PowerPoint-Exporten und benennt das PowerPoint-Design. Leer lassen, um nur „AI PM Cockpit“ zu drucken.",
+  brandingExportFooterFromEnv: "Wird in dieser Installation über NEXT_PUBLIC_EXPORT_FOOTER gesetzt und hat Vorrang vor dieser Einstellung.",
   brandingFavicon: "Favicon (Browser-Tab-Symbol)",
   brandingFaviconChoose: "Favicon auswählen…",
   brandingFaviconHint: "Wird im Browser-Tab angezeigt. Quadratisches PNG empfohlen (32×32 oder 64×64), bis 512 KB. PNG, JPG, WebP oder GIF.",

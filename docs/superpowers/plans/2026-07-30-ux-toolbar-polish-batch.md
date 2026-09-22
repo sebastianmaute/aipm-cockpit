@@ -20,7 +20,7 @@
 - `i18n.ts` and `i18n.de.ts` key sets must be identical (tsc enforces).
 - **`i18n.de.ts` is CRLF and the Edit tool corrupts umlauts in it.** Patch it with a node utf8 write (shown in Task 1), then grep-verify.
 - `react-hooks/set-state-in-effect` is banned and fatal.
-- Only sanctioned AIPM palette tokens. No gradients, no raw shadows.
+- Only sanctioned brand palette tokens. No gradients, no raw shadows.
 - **No hand-rolled controls.** Where this plan shows a raw `<button …className="…">`, it is
   wrong — use the design-system primitive and treat the classes shown as a description of the
   intended look, not as markup to paste:

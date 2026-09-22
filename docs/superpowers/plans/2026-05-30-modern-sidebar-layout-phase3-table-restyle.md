@@ -10,7 +10,7 @@
 
 **Tech Stack:** Next.js 16 (App Router), React, TypeScript, Tailwind v4 (CSS-var tokens), Vitest + React Testing Library.
 
-**Hard color constraint (locked):** Only the 9 Acme brand colors already wired in `globals.css` (`AIPM-dark-grey`, `AIPM-dark-blue`, `AIPM-green`, `AIPM-white`, `AIPM-light-grey`, `AIPM-medium-grey`, `AIPM-blue`, `AIPM-pink`, `AIPM-purple`) plus the semantic tokens (`surface`, `surface-muted`, `line`, `foreground`, `muted-foreground`) and Tailwind `white`. Green is the dominant accent; Dark Blue for headers. **No gradients, no drop shadows, no off-palette colors.** Opacity modifiers on permitted colors (e.g. `bg-white/30`, `bg-surface-muted/40`) are allowed.
+**Hard color constraint (locked):** Only the 9 brand colors already wired in `globals.css` (`ui-dark-grey`, `ui-dark-blue`, `ui-green`, `ui-white`, `ui-light-grey`, `ui-medium-grey`, `ui-blue`, `ui-pink`, `ui-purple`) plus the semantic tokens (`surface`, `surface-muted`, `line`, `foreground`, `muted-foreground`) and Tailwind `white`. Green is the dominant accent; Dark Blue for headers. **No gradients, no drop shadows, no off-palette colors.** Opacity modifiers on permitted colors (e.g. `bg-white/30`, `bg-surface-muted/40`) are allowed.
 
 **Scope (decided with the user):**
 - **Shared sweep** — the LOP table plus the 9 other tables that use the *identical* legacy header string. The 5 divergent tables (`reports.tsx` ×3, `budget-panel.tsx`, `jira-conflicts-modal.tsx`, `roles-modal.tsx`, `resource-calendar.tsx`) are **out of scope** (Phase 4 polish).
@@ -57,8 +57,8 @@ import { describe, it, expect } from "vitest";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 
 describe("TABLE_HEAD_CLASS", () => {
-  it("is a Dark-Blue, white-text, sticky header on the AIPM palette", () => {
-    expect(TABLE_HEAD_CLASS).toContain("bg-AIPM-dark-blue");
+  it("is a Dark-Blue, white-text, sticky header on the brand palette", () => {
+    expect(TABLE_HEAD_CLASS).toContain("bg-ui-dark-blue");
     expect(TABLE_HEAD_CLASS).toContain("text-white");
     expect(TABLE_HEAD_CLASS).toContain("sticky");
     expect(TABLE_HEAD_CLASS).toContain("top-0");
@@ -88,11 +88,11 @@ Create `src/app/table-styles.ts`:
  * labels. Single source of truth — change the table header look here.
  *
  * Palette note: Dark Blue (#004159) header + White (#FFFFFF) text are both
- * permitted AIPM brand colors; button/sort hovers inside the header use the
+ * permitted brand colors; button/sort hovers inside the header use the
  * Green accent (see SortableTh / per-table header buttons).
  */
 export const TABLE_HEAD_CLASS =
-  "sticky top-0 z-10 bg-AIPM-dark-blue text-xs uppercase tracking-wide text-white";
+  "sticky top-0 z-10 bg-ui-dark-blue text-xs uppercase tracking-wide text-white";
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -111,7 +111,7 @@ git commit -m "feat: add shared TABLE_HEAD_CLASS (Dark-Blue table header)"
 
 ## Task 2: LOP header primitives — white text, green hover
 
-The LOP table's `SortableTh` and the shared `ColumnResizeHandle` live in `task-manager-ui.tsx`. Their current hover/active colors (`text-foreground`, `hover:bg-AIPM-dark-blue/40`) disappear on a Dark-Blue header. Recolor to white-inherited text with a Green hover, and a white resize-hover. `ColumnResizeHandle` is imported by **every** swept table, so this one edit fixes the resize affordance everywhere.
+The LOP table's `SortableTh` and the shared `ColumnResizeHandle` live in `task-manager-ui.tsx`. Their current hover/active colors (`text-foreground`, `hover:bg-ui-dark-blue/40`) disappear on a Dark-Blue header. Recolor to white-inherited text with a Green hover, and a white resize-hover. `ColumnResizeHandle` is imported by **every** swept table, so this one edit fixes the resize affordance everywhere.
 
 **Files:**
 - Modify: `src/app/task-manager-ui.tsx` (`ColumnResizeHandle` ~line 186-192; `SortableTh` button ~line 233-243)
@@ -128,7 +128,7 @@ In `src/app/task-manager-ui.test.tsx`, change the assertion on line 15 from:
 to:
 
 ```ts
-    expect(btn.className).toContain("hover:text-AIPM-green");
+    expect(btn.className).toContain("hover:text-ui-green");
     expect(btn.className).not.toContain("text-foreground");
 ```
 
@@ -137,14 +137,14 @@ Also update the test title on line 7 from `"...the resources-matching hover clas
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/app/task-manager-ui.test.ts`
-Expected: FAIL — current button className still contains `hover:text-foreground` and not `hover:text-AIPM-green`.
+Expected: FAIL — current button className still contains `hover:text-foreground` and not `hover:text-ui-green`.
 
 - [ ] **Step 3: Implement the recolor**
 
 In `src/app/task-manager-ui.tsx`, update `ColumnResizeHandle`'s `className` (the `<div>` inside it) from:
 
 ```tsx
-      className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-AIPM-dark-blue/40 dark:hover:bg-AIPM-blue/40 print:hidden"
+      className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-ui-dark-blue/40 dark:hover:bg-ui-blue/40 print:hidden"
 ```
 
 to:
@@ -162,7 +162,7 @@ Then update the `SortableTh` button `className` from:
 to:
 
 ```tsx
-        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-AIPM-green ${isActive ? "text-AIPM-green" : ""}`}
+        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-ui-green ${isActive ? "text-ui-green" : ""}`}
 ```
 
 (Leave `Th`, `TabButton`, the icon components, `ResetColWidthsButton`, and `PrintButton` unchanged — `Th`'s plain children inherit the header's white text automatically.)
@@ -200,7 +200,7 @@ In `src/app/tasks-section.test.tsx`, add this test inside the `describe("TasksSe
     stubWorkspace([task], [task]);
     const { container } = render(<TasksSection {...makeProps()} />);
     const thead = container.querySelector("thead");
-    expect(thead?.className).toContain("bg-AIPM-dark-blue");
+    expect(thead?.className).toContain("bg-ui-dark-blue");
     expect(thead?.className).not.toContain("bg-surface-muted");
   });
 ```
@@ -370,7 +370,7 @@ Replace the `<tr>` opening tag (~line 158-160) — currently:
 
 ```tsx
     <tr
-      className={`align-top ${isEditing ? "bg-AIPM-purple/10 dark:bg-AIPM-purple/15" : isSelected ? "bg-surface-muted" : isComplete ? "opacity-60" : ""}`}
+      className={`align-top ${isEditing ? "bg-ui-purple/10 dark:bg-ui-purple/15" : isSelected ? "bg-surface-muted" : isComplete ? "opacity-60" : ""}`}
     >
 ```
 
@@ -378,7 +378,7 @@ with (compute the class above the `return` for readability — place it right af
 
 ```tsx
   const stateClass = isEditing
-    ? "bg-AIPM-purple/10 dark:bg-AIPM-purple/15"
+    ? "bg-ui-purple/10 dark:bg-ui-purple/15"
     : isSelected
       ? "bg-surface-muted"
       : isComplete
@@ -451,7 +451,7 @@ git commit -m "feat: Light-Grey zebra striping on the LOP table"
 
 ## Task 5: Sweep the RAID tables
 
-Swap the RAID `<thead>` blocks to `TABLE_HEAD_CLASS` and recolor their header sort-buttons from the now-invisible `hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey` (and `hover:text-foreground`) to a Green hover.
+Swap the RAID `<thead>` blocks to `TABLE_HEAD_CLASS` and recolor their header sort-buttons from the now-invisible `hover:text-ui-dark-blue dark:hover:text-ui-light-grey` (and `hover:text-foreground`) to a Green hover.
 
 **Files:**
 - Modify: `src/app/raid-panel.tsx` (`<thead>` line 454; 7 header buttons lines 457-493)
@@ -491,9 +491,9 @@ to:
           <thead className={TABLE_HEAD_CLASS}>
 ```
 
-Then replace **all 7** occurrences of the exact substring `hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey` (lines 457, 463, 469, 475, 481, 487, 493 — all are header sort buttons) with `hover:text-AIPM-green`. Use a replace-all on that exact string.
+Then replace **all 7** occurrences of the exact substring `hover:text-ui-dark-blue dark:hover:text-ui-light-grey` (lines 457, 463, 469, 475, 481, 487, 493 — all are header sort buttons) with `hover:text-ui-green`. Use a replace-all on that exact string.
 
-Verify none remain: `npx eslint src/app/raid-panel.tsx` and a grep — `Select-String -Path src/app/raid-panel.tsx -Pattern "AIPM-dark-blue dark:hover"` should return nothing.
+Verify none remain: `npx eslint src/app/raid-panel.tsx` and a grep — `Select-String -Path src/app/raid-panel.tsx -Pattern "ui-dark-blue dark:hover"` should return nothing.
 
 - [ ] **Step 4: Sweep `raid-report-panel.tsx`**
 
@@ -524,7 +524,7 @@ Then in the `SortTh` helper (line 344), change the button `className` from:
 to:
 
 ```tsx
-        className={`inline-flex items-center gap-1 ${active ? "text-AIPM-green" : ""} hover:text-AIPM-green`}
+        className={`inline-flex items-center gap-1 ${active ? "text-ui-green" : ""} hover:text-ui-green`}
 ```
 
 - [ ] **Step 5: Run the guard + type-check**
@@ -584,11 +584,11 @@ Expected: FAIL — the 5 newly-listed files still carry the legacy header.
 
 - [ ] **Step 3: Sweep `activity-log-panel.tsx`**
 
-Add `import { TABLE_HEAD_CLASS } from "./table-styles";`. Change the `<thead>` (line 246) to `<thead className={TABLE_HEAD_CLASS}>`. Replace **all 3** occurrences of `hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey` (lines 256, 271, 286) with `hover:text-AIPM-green`.
+Add `import { TABLE_HEAD_CLASS } from "./table-styles";`. Change the `<thead>` (line 246) to `<thead className={TABLE_HEAD_CLASS}>`. Replace **all 3** occurrences of `hover:text-ui-dark-blue dark:hover:text-ui-light-grey` (lines 256, 271, 286) with `hover:text-ui-green`.
 
 - [ ] **Step 4: Sweep `resource-directory.tsx`**
 
-Add `import { TABLE_HEAD_CLASS } from "./table-styles";`. Change the `<thead>` (line 233) to `<thead className={TABLE_HEAD_CLASS}>`. Replace **all 8** occurrences of the button class `hover:text-foreground` (lines 236, 242, 248, 254, 260, 266, 272, 278 — all header sort buttons) with `hover:text-AIPM-green`. (Confirm with `Select-String -Path src/app/resource-directory.tsx -Pattern "hover:text-foreground"` returning nothing afterward.)
+Add `import { TABLE_HEAD_CLASS } from "./table-styles";`. Change the `<thead>` (line 233) to `<thead className={TABLE_HEAD_CLASS}>`. Replace **all 8** occurrences of the button class `hover:text-foreground` (lines 236, 242, 248, 254, 260, 266, 272, 278 — all header sort buttons) with `hover:text-ui-green`. (Confirm with `Select-String -Path src/app/resource-directory.tsx -Pattern "hover:text-foreground"` returning nothing afterward.)
 
 - [ ] **Step 5: Sweep `resource-workload.tsx`**
 
@@ -630,13 +630,13 @@ Confirm status badges are already palette-compliant (no code change expected), t
 
 - [ ] **Step 1: Audit status/priority badges (verification, no edit)**
 
-Run these greps and confirm every badge color is an AIPM token (allowed) — expect **no** off-palette colors (no raw `red-`, `amber-`, `yellow-`, `slate-`, `gray-`, `indigo-`, hex codes, gradients, or shadows in badge spans):
+Run these greps and confirm every badge color is a brand token (allowed) — expect **no** off-palette colors (no raw `red-`, `amber-`, `yellow-`, `slate-`, `gray-`, `indigo-`, hex codes, gradients, or shadows in badge spans):
 
 ```
 Select-String -Path src/app/task-row.tsx,src/app/raid-panel.tsx -Pattern "bg-(red|amber|yellow|slate|gray|indigo|emerald|sky)-|drop-shadow|shadow-|gradient"
 ```
 
-Expected: no matches. The priority pills (`priorityStyle`: Low=muted, Medium=AIPM-blue, High=AIPM-purple, Urgent=AIPM-pink), health dots, RAID category chips, and dependency chips are already on the palette — **make no changes.** This satisfies the spec's "palette-only status badges (only adds treatment where missing)."
+Expected: no matches. The priority pills (`priorityStyle`: Low=muted, Medium=ui-blue, High=ui-purple, Urgent=ui-pink), health dots, RAID category chips, and dependency chips are already on the palette — **make no changes.** This satisfies the spec's "palette-only status badges (only adds treatment where missing)."
 
 - [ ] **Step 2: Add the highlight i18n key (EN)**
 
@@ -675,7 +675,7 @@ In `src/app/version.ts`:
 // Directory/Workload/Planning/Rollup, Resources Report) now has a Dark-Blue
 // header row with white labels, sourced from one shared TABLE_HEAD_CLASS; the
 // LOP list also gains Light-Grey zebra striping. Status badges were already on
-// the AIPM palette and are unchanged. Header sort-buttons hover green.
+// the brand palette and are unchanged. Header sort-buttons hover green.
 ```
 
 - Change `APP_VERSION` to `"0.31.0"`.

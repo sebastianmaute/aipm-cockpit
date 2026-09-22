@@ -24,7 +24,7 @@ import { loadActualsCache } from "./timelog-actuals-store";
 import type { TimelogLinks } from "./timelog-types";
 import { bucketOverlay, type ActualsAggregate } from "./timelog-actuals";
 
-const creds = { host: "app2.timelog.com", tenant: "Acme", token: "tok" };
+const creds = { host: "app2.timelog.com", tenant: "acme", token: "tok" };
 // Persisted links are always MANUAL pins in production (auto-matches are never
 // written back). autoMatch* keeps manual links regardless of directory/refs, so
 // these attribute without needing resources/budgets seeded.
@@ -471,10 +471,10 @@ it("loadManagedProjects with a customerId loads that customer's projects (not PM
 });
 
 it("loadCustomers populates the customer picker", async () => {
-  (api.listCustomers as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 667, name: "Acme" }]);
+  (api.listCustomers as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 667, name: "Initech" }]);
   const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
   await act(async () => { await result.current.loadCustomers(); });
-  expect(result.current.customers).toEqual([{ id: 667, name: "Acme" }]);
+  expect(result.current.customers).toEqual([{ id: 667, name: "Initech" }]);
 });
 
 it("a cancelled fetch (AbortError) surfaces no error and clears busy", async () => {

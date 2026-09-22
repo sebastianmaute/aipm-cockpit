@@ -752,19 +752,19 @@ export function TourCatalog({ lang, tours, completedTours, onStartTour }: TourCa
             type="button"
             onClick={() => onStartTour(tour.id)}
             aria-label={`${t(lang, "tourStartCta")} – ${t(lang, tour.titleKey)}`}
-            className={`flex flex-col gap-1 rounded-md border border-line bg-surface p-3 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+            className={`flex flex-col gap-1 rounded-md border border-line bg-surface p-3 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
           >
             <span className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-foreground">{t(lang, tour.titleKey)}</span>
               {isDone && (
-                <span className="shrink-0 rounded-full bg-AIPM-green/15 px-2 py-0.5 text-[10px] font-medium text-AIPM-green-text">
+                <span className="shrink-0 rounded-full bg-ui-green/15 px-2 py-0.5 text-[10px] font-medium text-brand-green-text">
                   <span aria-hidden="true">✓ </span>
                   {t(lang, "tourDoneBadge")}
                 </span>
               )}
             </span>
             <span className="text-xs text-muted-foreground">{t(lang, tour.descKey)}</span>
-            <span className="mt-1 text-xs font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
+            <span className="mt-1 text-xs font-medium text-ui-dark-blue dark:text-ui-light-grey">
               {t(lang, "tourStartCta")} →
             </span>
           </button>
@@ -775,7 +775,7 @@ export function TourCatalog({ lang, tours, completedTours, onStartTour }: TourCa
 }
 ```
 
-> Palette note: `text-AIPM-green-text` is the AA RAG token (verify it exists in `globals.css`/the token set; if the project uses `text-AIPM-green-strong` for AA green text instead, use that). The `→` and `✓` glyphs are decorative — `✓` is `aria-hidden`; the `→` rides inside the button whose `aria-label` already names the action.
+> Palette note: `text-brand-green-text` is the AA RAG token (verify it exists in `globals.css`/the token set; if the project uses `text-ui-green-strong` for AA green text instead, use that). The `→` and `✓` glyphs are decorative — `✓` is `aria-hidden`; the `→` rides inside the button whose `aria-label` already names the action.
 
 - [ ] **Step 4: Run to verify it passes**
 

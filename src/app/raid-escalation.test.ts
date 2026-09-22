@@ -15,7 +15,7 @@ import type { RaidEscalation } from "./types";
 import { expectLinearScaling } from "../test/scaling";
 
 const RAISED: RaidEscalation = {
-  at: "2026-05-20T09:30:00.000Z", toName: "Sam Placeholder", toEmail: "Fictional.Jordan@example.com",
+  at: "2026-05-20T09:30:00.000Z", toName: "Noah Bennett", toEmail: "noah.bennett@example.com",
   toResourceId: 2, fromSeverity: "Medium", toSeverity: "High",
 };
 const NOTIFY: RaidEscalation = { at: "2026-05-22T14:00:00.000Z", toEmail: "ops@example.com" };
@@ -32,7 +32,7 @@ describe("sanitizeRaidEscalations", () => {
   });
   it("drops an unknown severity together with its other half", () => {
     expect(sanitizeRaidEscalations([{ ...RAISED, toSeverity: "Apocalyptic" }])).toEqual([
-      { at: RAISED.at, toName: "Sam Placeholder", toEmail: "Fictional.Jordan@example.com", toResourceId: 2 },
+      { at: RAISED.at, toName: "Noah Bennett", toEmail: "noah.bennett@example.com", toResourceId: 2 },
     ]);
   });
   it("drops a non-positive or fractional resource id", () => {

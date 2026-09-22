@@ -72,10 +72,10 @@ describe("workdaysInRange", () => {
 
 describe("absencesForResource", () => {
   test("matches by resourceId, falls back to case-folded name", () => {
-    const r: Resource = { id: 7, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} };
+    const r: Resource = { id: 7, firstName: "Sofia", lastName: "Ramirez", roleId: null, utilizationMode: "percent", utilization: {} };
     const abs: Absence[] = [
-      { id: 1, assignee: "Alex Example", startDate: "2026-02-02", endDate: "2026-02-02", type: "vacation", resourceId: 7 },
-      { id: 2, assignee: "Alex Example", startDate: "2026-02-03", endDate: "2026-02-03", type: "sick" },
+      { id: 1, assignee: "Sofia Ramirez", startDate: "2026-02-02", endDate: "2026-02-02", type: "vacation", resourceId: 7 },
+      { id: 2, assignee: "sofia ramirez", startDate: "2026-02-03", endDate: "2026-02-03", type: "sick" },
       { id: 3, assignee: "Bob", startDate: "2026-02-04", endDate: "2026-02-04", type: "vacation", resourceId: 9 },
     ];
     expect(absencesForResource(abs, r).map((a) => a.id).sort()).toEqual([1, 2]);

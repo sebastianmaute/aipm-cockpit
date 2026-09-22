@@ -288,9 +288,52 @@ function enableTimelogBrokenToken() {
   );
 }
 
+/** Timelog switched ON with a host and token, but no tenant — the
+ *  "never-configured tenant reaches the proxy" state: `parseCreds` in
+ *  `api/timelog/_helpers.ts` already rejects an empty tenant (returns null),
+ *  but until `isMisconfigured` checks it too, the panel thinks it is
+ *  configured and lets an action fire straight into that rejection. */
+function enableTimelogNoTenant() {
+  window.localStorage.setItem(
+    SETTINGS_KEY,
+    JSON.stringify({
+      ...defaultSettings,
+      timelog: {
+        enabled: true,
+        host: "app2.timelog.com",
+        tenant: "",
+        email: "admin@example.com",
+        apiToken: "tok123",
+        scopeMode: "self",
+      },
+    }),
+  );
+}
+
+/** Timelog switched ON with a host and token, and the given stored tenant
+ *  (blank or set) — used by the fix-round-1 env-fallback tests below, which
+ *  need to vary the stored tenant against a stubbed `NEXT_PUBLIC_TIMELOG_TENANT`. */
+function enableTimelogWithTenant(tenant: string) {
+  window.localStorage.setItem(
+    SETTINGS_KEY,
+    JSON.stringify({
+      ...defaultSettings,
+      timelog: {
+        enabled: true,
+        host: "app2.timelog.com",
+        tenant,
+        email: "admin@example.com",
+        apiToken: "tok123",
+        scopeMode: "self",
+      },
+    }),
+  );
+}
+
 afterEach(() => {
   window.localStorage.clear();
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
 });
 
 beforeEach(async () => {
@@ -527,6 +570,115 @@ describe("TimelogPanel", () => {
           screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
         ).toBeEnabled(),
       );
+    });
+  });
+
+  // ★★ Measured 2026-09-21 (task-3-brief): an empty tenant was not handled
+  // before this change, because it had never been possible — the built-in
+  // default always supplied one. `isMisconfigured` checked `enabled`, `host`
+  // and `apiToken` only, so a never-configured tenant reached the proxy
+  // instead of showing this panel's existing not-configured state.
+  describe("blank tenant is misconfigured (Task 3)", () => {
+    it("shows the misconfigured state when enabled/host/token are set but the tenant is blank", async () => {
+      enableTimelogNoTenant();
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      // Settle to the STORED config, not the pre-hydration defaults: both
+      // states render disabled (defaults are unconfigured too), so waiting on
+      // the button/hint alone would pass even with the tenant check dropped —
+      // exactly the mutation this test exists to catch. `useTimelogSync` is
+      // mocked and called every render with live `creds`; only the SETTLED
+      // stored config carries this apiToken, so waiting for that call proves
+      // the assertions below are read against it, not the transient defaults.
+      await waitFor(() => {
+        const lastCreds = vi.mocked(useTimelogSync).mock.calls.at(-1)?.[0]?.creds;
+        expect(lastCreds).toMatchObject({ token: "tok123", tenant: "" });
+      });
+
+      expect(screen.getByText(t("en-US", "timelogEnable"))).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
+      ).toBeDisabled();
+    });
+
+    // Positive control: identical config, but WITH a tenant — proves the hint
+    // above is conditioned on the tenant specifically, not shown unconditionally
+    // (or vacuously true because the panel never actually mounted).
+    it("mounts configured (control) once a tenant is also set", async () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
+        ).toBeEnabled(),
+      );
+      expect(screen.queryByText(t("en-US", "timelogEnable"))).toBeNull();
+    });
+  });
+
+  // Fix round 1 (task-3-report.md): the task-3 review found `isMisconfigured`
+  // and the proxy `creds` reading raw `settings.timelog` directly, never the
+  // env-aware `effectiveTimelogConfig` — so `NEXT_PUBLIC_TIMELOG_TENANT` had
+  // NO production effect at all. These pin the READ-time resolution through
+  // the panel, not just the `timelog-sanitize.ts` unit.
+  describe("env-supplied tenant is used at read time, never persisted (fix round 1)", () => {
+    it("uses the build-variable tenant when nothing is stored, and mounts configured", async () => {
+      vi.stubEnv("NEXT_PUBLIC_TIMELOG_TENANT", "acme");
+      enableTimelogWithTenant("");
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      // Settle to the STORED config (see the Task 3 test above for why this
+      // wait is load-bearing rather than a plain button/text assertion).
+      await waitFor(() => {
+        const lastCreds = vi.mocked(useTimelogSync).mock.calls.at(-1)?.[0]?.creds;
+        expect(lastCreds).toMatchObject({ token: "tok123", tenant: "acme" });
+      });
+
+      // Positive control that the panel mounted normally, i.e. NOT gated into
+      // the misconfigured state a blank tenant would otherwise force.
+      expect(screen.queryByText(t("en-US", "timelogEnable"))).toBeNull();
+      expect(
+        screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
+      ).toBeEnabled();
+    });
+
+    it("keeps a stored tenant even when the env supplies a different one", async () => {
+      vi.stubEnv("NEXT_PUBLIC_TIMELOG_TENANT", "acme");
+      enableTimelogWithTenant("globex");
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        const lastCreds = vi.mocked(useTimelogSync).mock.calls.at(-1)?.[0]?.creds;
+        expect(lastCreds).toMatchObject({ token: "tok123", tenant: "globex" });
+      });
     });
   });
 
@@ -1380,7 +1532,7 @@ describe("TimelogPanel", () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       const loadManagedProjects = vi.fn().mockResolvedValue(undefined);
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }], loadManagedProjects } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }], loadManagedProjects } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1464,7 +1616,7 @@ describe("TimelogPanel", () => {
     it("seeds the customer picker from the persisted scope (customerId on links)", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }] } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }] } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1478,13 +1630,13 @@ describe("TimelogPanel", () => {
       // Reconcile fires once links arrive (SeedWorkspace effect) → picker = 667.
       await waitFor(() => expect(select.value).toBe("667"));
       // The scope note is shown.
-      expect(screen.getByText(t("en-US", "timelogFetchScopedNote", "Acme"))).toBeInTheDocument();
+      expect(screen.getByText(t("en-US", "timelogFetchScopedNote", "Initech"))).toBeInTheDocument();
     });
 
     it("a manual pick wins over a persisted scope that hydrates AFTER the pick", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }, { id: 999, name: "Other" }] } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }, { id: 999, name: "Other" }] } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1507,7 +1659,7 @@ describe("TimelogPanel", () => {
     it("resets the picker when the project changes in place (no remount)", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }] } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }] } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1534,7 +1686,7 @@ describe("TimelogPanel", () => {
     it("§532: resets the picker on an in-place switch between two code-less projects", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }] } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }] } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1561,7 +1713,7 @@ describe("TimelogPanel", () => {
     it("late-hydrating links override an earlier customer-name auto-resolve", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }, { id: 999, name: "Other" }] } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }, { id: 999, name: "Other" }] } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1569,7 +1721,7 @@ describe("TimelogPanel", () => {
           {/* No customerId on links yet — only the project's free-text customer
               name, which resolves against the directory. */}
           <SeedWorkspace links={INITIAL_LINKS} />
-          <SeedProjectCustomer customer="Acme" />
+          <SeedProjectCustomer customer="Initech" />
           <Controls />
           <TimelogPanel lang="en-US" />
         </>,
@@ -1587,7 +1739,7 @@ describe("TimelogPanel", () => {
     it("restores a per-device picker scope in preference to the last-fetched scope", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }, { id: 999, name: "Other" }] } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }, { id: 999, name: "Other" }] } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       // Simulates a prior session in which the user SELECTED 999 and never
@@ -1609,7 +1761,7 @@ describe("TimelogPanel", () => {
       // The picker now disagrees with the customer the loaded bookings came
       // from, so it must say so rather than misrepresent what is on screen.
       expect(
-        screen.getByText(t("en-US", "timelogScopeMismatchNote", "Acme", "Other")),
+        screen.getByText(t("en-US", "timelogScopeMismatchNote", "Initech", "Other")),
       ).toBeInTheDocument();
     });
 
@@ -1621,7 +1773,7 @@ describe("TimelogPanel", () => {
     it("persists a ticked project to the device store", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }] } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }] } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1651,12 +1803,12 @@ describe("TimelogPanel", () => {
     it("a ticked project survives links hydrating afterwards", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }, { id: 999, name: "Other" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }] } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }, { id: 999, name: "Other" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }] } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
         <>
-          <SeedProjectCustomer customer="Acme" />
+          <SeedProjectCustomer customer="Initech" />
           <SeedWorkspace links={INITIAL_LINKS} />
           <Controls />
           <TimelogPanel lang="en-US" projectKey="proj-key" />
@@ -1687,7 +1839,7 @@ describe("TimelogPanel", () => {
     it("shows no scope-mismatch note when the picker and the last fetch agree", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }] } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }] } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1700,7 +1852,7 @@ describe("TimelogPanel", () => {
       const select = screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }) as HTMLSelectElement;
       await waitFor(() => expect(select.value).toBe("667"));
       expect(
-        screen.queryByText(t("en-US", "timelogScopeMismatchNote", "Acme", "Acme")),
+        screen.queryByText(t("en-US", "timelogScopeMismatchNote", "Initech", "Initech")),
       ).toBeNull();
     });
 
@@ -1708,7 +1860,7 @@ describe("TimelogPanel", () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       const fetchBookingsForProjects = vi.fn().mockResolvedValue({ failedProjects: 0, projectCount: 1 });
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }], fetchBookingsForProjects } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }], fetchBookingsForProjects } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1746,7 +1898,7 @@ describe("TimelogPanel", () => {
         new Promise((res) => { resolveFetch = res; }),
       );
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }], fetchBookingsForProjects } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }], fetchBookingsForProjects } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1781,7 +1933,7 @@ describe("TimelogPanel", () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       const fetchBookingsForProjects = vi.fn().mockResolvedValue({ failedProjects: 3, projectCount: 5 });
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }], fetchBookingsForProjects } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }], fetchBookingsForProjects } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(

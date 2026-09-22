@@ -6,7 +6,7 @@
 
 **Architecture:** A pure i18n-free engine (`completion-trend.ts`) turns snapshots + activity log + live counts into a chronological `CompletionPoint[]`; a minimal pure-SVG `Sparkline` renders it; `DashboardPanel` computes the series in a `useMemo` and renders a self-hiding card directly below the existing KPI strip. New data is read-only — no new persistence path.
 
-**Tech Stack:** Next.js 16 (forked) / React 19 / TypeScript, Vitest + fast-check, Tailwind (AIPM brand tokens only), EN/DE i18n parity (tsc-enforced).
+**Tech Stack:** Next.js 16 (forked) / React 19 / TypeScript, Vitest + fast-check, Tailwind (brand tokens only), EN/DE i18n parity (tsc-enforced).
 
 ---
 
@@ -24,7 +24,7 @@
 - **Modify** `src/app/workspace-section.tsx` — thread `snapshots={trends.snapshots}`.
 - **Modify** `src/app/version.ts`, `CHANGELOG.md`, `README.md`, `package.json`, `AGENTS.md` — release 0.122.0 "Herbert".
 
-Conventions to honor (CI-enforced): `npm run lint` is `--max-warnings=0` (an unused import is FATAL). `npx tsc --noEmit` enforces EN/DE key parity and typechecks test files (vitest does not). No `new Date()`/`Date.now()`/`Math.random()` in a render body or in the pure engine. AIPM brand tokens only (`stroke-AIPM-dark-blue`, `text-muted-foreground`).
+Conventions to honor (CI-enforced): `npm run lint` is `--max-warnings=0` (an unused import is FATAL). `npx tsc --noEmit` enforces EN/DE key parity and typechecks test files (vitest does not). No `new Date()`/`Date.now()`/`Math.random()` in a render body or in the pure engine. Brand tokens only (`stroke-ui-dark-blue`, `text-muted-foreground`).
 
 ---
 
@@ -486,7 +486,7 @@ export function Sparkline({ points, className }: SparklineProps) {
   const coords = points.map((p, i) => `${xAt(i).toFixed(1)},${yAt(p.percent).toFixed(1)}`).join(" ");
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className={`w-full ${className ?? ""}`} aria-hidden="true" preserveAspectRatio="none">
-      <polyline points={coords} fill="none" className="stroke-AIPM-dark-blue" strokeWidth={2}
+      <polyline points={coords} fill="none" className="stroke-ui-dark-blue" strokeWidth={2}
         strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );

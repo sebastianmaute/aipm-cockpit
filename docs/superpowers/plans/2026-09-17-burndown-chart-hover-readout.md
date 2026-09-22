@@ -24,7 +24,7 @@
 - Never run two vitest processes at once. Pass `--maxWorkers=1` when the machine is busy.
 - Run `npx tsc --noEmit` after editing ANY test file (vitest never typechecks).
 - Lint with `npx eslint --max-warnings=0 <paths>`; every warning is fatal. `react-hooks/set-state-in-effect` is banned — no `useEffect` that calls a setter. A render body may not call `Date.now()`, `new Date()` or `Math.random()`.
-- Commit messages: conventional prefix, no `#` followed by digits anywhere, and end with the trailer `Claude-Session: https://[session link removed]`.
+- Commit messages: conventional prefix, no `#` followed by digits anywhere, and end with the session trailer.
 - Stage by explicit path. Never `git add -A`, never `git add .`, never `git commit --amend`, never `git stash`. Never stage `not-in-use.env.local.bak` or `sample-workspace-huge.json`.
 - Visual baselines must NOT change in this plan: the readout is hidden until hover/focus. A changed baseline means the idle chart moved — that is a defect in the change, not a baseline to refresh.
 
@@ -422,8 +422,6 @@ points, today, plan end, change markers, run-out), the nearest-stop search
 in SVG coordinates, and every drawn series' value at one stop. Forecast
 lines read along their own straight segment; the earned-value flag prefers a
 complete span on a boundary point, matching how the line is drawn.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -558,8 +556,6 @@ one. Markup, styling and positioning behaviour are unchanged: info-tooltip's
 own test file passes unedited, and the new tooltip-surface tests pin the
 class string, the portal attribute and the centring transform, none of which
 the old suite ever asserted.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -924,8 +920,6 @@ Owns the active snap stop and the box's clamped screen anchor: pointer move
 maps client x into the SVG's space and snaps to the nearest stop; the arrow
 keys step, Home and End jump, Escape and blur close, and a click toggles for
 touch. Every rect is read inside a handler, so no effect syncs state.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -1284,8 +1278,6 @@ one-line explanation, inside the shared tooltip surface. A change row keeps
 the marker's signed amount and bucket names, a partial earned-value point
 names the partial line, and readoutSentence builds the text the chart
 announces politely. EN and DE keys added in step.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -1478,8 +1470,6 @@ every series' value with a one-line explanation. Arrow keys step the same
 stops, Home and End jump, Escape closes, and a polite live region announces
 the same text. The image keeps its full description, and the idle chart is
 unchanged, so no visual baseline moves.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -1605,8 +1595,6 @@ An e2e spec drives the readout by mouse and by keyboard on the Reports
 budget chart, one more axe scan covers Reports with the box open, and the
 dashboard subsystem doc records the stop rule, the shared tooltip surface and
 the zero-width-rect test trap.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 

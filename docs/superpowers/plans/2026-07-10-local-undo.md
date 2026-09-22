@@ -821,7 +821,7 @@ export function UndoControl({ lang, depth, onUndo }: UndoControlProps) {
       onClick={onUndo}
       aria-label={t(lang, "undoTooltip")}
       title={t(lang, "undoTooltip")}
-      className={`inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-sm text-muted-foreground hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
+      className={`inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-sm text-muted-foreground hover:text-ui-dark-blue dark:hover:text-ui-light-grey ${INTERACTIVE}`}
     >
       {/* Undo arrow (decorative — aria-label carries the name) */}
       <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
@@ -829,13 +829,13 @@ export function UndoControl({ lang, depth, onUndo }: UndoControlProps) {
         <path d="M4 9h11a5 5 0 0 1 0 10h-1" />
       </svg>
       <span>{t(lang, "undo")}</span>
-      <span className="rounded-full bg-AIPM-medium-grey px-1.5 text-xs text-white">{depth}</span>
+      <span className="rounded-full bg-ui-medium-grey px-1.5 text-xs text-white">{depth}</span>
     </button>
   );
 }
 ```
 
-(Verify `border-line`, `text-muted-foreground`, `bg-AIPM-medium-grey` are sanctioned tokens — they are used elsewhere per AGENTS.md. No shadow/gradient.)
+(Verify `border-line`, `text-muted-foreground`, `bg-ui-medium-grey` are sanctioned tokens — they are used elsewhere per AGENTS.md. No shadow/gradient.)
 
 - [ ] **Step 4: Run to verify it passes**
 

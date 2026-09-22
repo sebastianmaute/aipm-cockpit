@@ -1230,7 +1230,7 @@ five `docs/CODEMAPS/*.md`. **No gate checks five of these.**
 Cover: documents-only and knowledge-only projects now capture versions; knowledge, insights and
 calendar events are comparable and restorable; documents appear in the compare view but remain
 managed per document; and the string-id restore correctness fix. ★ Never put a
-`[session link removed]...` URL in `CHANGELOG.md` or an MR description.
+assistant session URL in `CHANGELOG.md` or an MR description.
 
 - [ ] **Step 4: Re-run the gate sweep from Task 14 on the release commit**
 

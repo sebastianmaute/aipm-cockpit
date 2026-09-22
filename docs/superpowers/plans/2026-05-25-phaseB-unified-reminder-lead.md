@@ -42,9 +42,9 @@ describe("shiftToWorkingDay", () => {
 
 describe("absenceDayMap", () => {
   it("expands an absence range to per-day entries keyed by case-folded name", () => {
-    const abs: Absence[] = [{ id: 1, assignee: "Alex Example", startDate: "2026-06-10", endDate: "2026-06-12", type: "vacation" }];
+    const abs: Absence[] = [{ id: 1, assignee: "Sofia Ramirez", startDate: "2026-06-10", endDate: "2026-06-12", type: "vacation" }];
     const map = absenceDayMap(abs);
-    expect([...(map.get("Alex Example") ?? [])].sort()).toEqual(["2026-06-10", "2026-06-11", "2026-06-12"]);
+    expect([...(map.get("sofia ramirez") ?? [])].sort()).toEqual(["2026-06-10", "2026-06-11", "2026-06-12"]);
   });
 });
 ```

@@ -824,7 +824,7 @@ Add a `## 0.251.0 "Larson"` entry at the top, matching the file's existing forma
 - StrictMode coverage of the lazy editor's append queue
 - test and comment hygiene: §170, §175, §176, §193
 
-★★★ **NO `[session link removed]...` URL in `CHANGELOG.md`.**
+★★★ **NO assistant session URL in `CHANGELOG.md`.**
 
 - [ ] **Step 4: The four unchecked places**
 

@@ -46,7 +46,7 @@ spec's stated intent that a typo be catchable.
 - **Never** `--amend`, `git stash`, `git checkout -- <file>` or `git restore` (the last two are
   deny-blocked).
 - Every commit ends with the trailer:
-  `Claude-Session: https://[session link removed]`
+  the session trailer
 - `size:check` LIMIT is 1600 counting `split("\n").length` = `wc -l` **plus one**. Measure with
   `node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"`. Starting
   counts: `modal-header.tsx` 130, `edit-modal-chrome.tsx` 276, `help-content.ts` 215,
@@ -213,8 +213,6 @@ CONSUMED (no TS2578), which is only possible if the union rejects it.
 
 The union catches a MISTYPED id, never a well-spelled WRONG one -- the mapping
 table is reviewed as content, and a green typecheck says nothing about it.
-
-Claude-Session: https://[session link removed]
 EOF
 git status --porcelain
 ```
@@ -337,8 +335,6 @@ Central map rather than 20 scattered call-site literals, because a scattered
 id cannot be enumerated and the "every declared id resolves" floor would be
 unwritable. The row count is asserted alongside the resolution check: without
 it an emptied map would satisfy the filter trivially.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -537,8 +533,6 @@ labelClass is a prop because the two sites genuinely differ -- the primer uses
 font-medium, the body font-medium text-foreground -- and the weight is the whole
 visual effect, since --muted-foreground is derived FROM --foreground and the two
 are the same colour in every built-in scheme.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -650,8 +644,6 @@ qualifies the name, so two stacked modals cannot collide unless their titles do
 
 DE written by node utf8 write with \r\n anchors, since the Edit tool corrupts
 umlauts and curls quotes in that file.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -914,8 +906,6 @@ The accessible name interpolates the modal's own title, so two stacked headers
 cannot collide -- the same reason closeLabel and hideVoiceCommand exist. axe has
 no rule that flags two controls sharing a name, so the stacked-header unit test
 is the only detector that can exist.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -1002,8 +992,6 @@ Six of the shell's seven consumers render neither <Modal nor <ModalHeader
 directly, so they are unreachable except through here -- and their headerExtra
 is occupied by ModalFieldControls, so per-site composition is not an option.
 helpTitle is taken from the shell's own title so no consumer can forget it.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -1091,8 +1079,6 @@ A modal absent from MODAL_HELP renders no icon, so confirmations and gates
 (confirm-dialog, type-to-confirm-dialog, secret-unlock-gate,
 project-empty-state) stay clean without an exclusion list.
 sharepoint-picker-modal declares nothing because no entry describes it.
-
-Claude-Session: https://[session link removed]
 EOF
 ```
 
@@ -1295,8 +1281,6 @@ line, in the form "mutant N: X failed / Y passed (file total Z)", followed by
 the Task 8 verdict in the form "all 20 pairings reviewed, N changed" or the
 specific rows changed and why. These are measurements taken during execution,
 not text to invent -- if a mutant was not run, say so rather than omitting it.
-
-Claude-Session: https://[session link removed]
 EOF
 git status --porcelain
 ```

@@ -775,7 +775,7 @@ Append to `src/app/next-actions/providers/workload.test.ts`, inside the existing
   });
 
   it("leaves an over-allocated alert on the workload view", () => {
-    const a = workloadProvider.provide(input([{ resourceId: 1, resourceName: "Aria", reason: "over-allocated", value: 135 }]));
+    const a = workloadProvider.provide(input([{ resourceId: 1, resourceName: "Ava", reason: "over-allocated", value: 135 }]));
     expect(a[0].cta).toEqual({ kind: "open", view: "workload", id: 1 });
   });
 ```

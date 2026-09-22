@@ -68,7 +68,7 @@ export function PrintButton({
       onClick={onClick ?? (() => window.print())}
       aria-label={t(lang, "printHint")}
       title={t(lang, "printHint")}
-      className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted print:hidden"
+      className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted print:hidden"
     >
       <PrinterIcon />
       {t(lang, "print")}
@@ -164,12 +164,12 @@ git commit -m "feat(print): @media print stylesheet — A4, surface strip, page-
 
 READ `src/app/task-manager-ui.tsx` around L158–175. The existing className is:
 ```
-absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-AIPM-dark-blue/40 dark:hover:bg-AIPM-blue/40
+absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-ui-dark-blue/40 dark:hover:bg-ui-blue/40
 ```
 
 Edit to append `print:hidden`:
-- Find: `absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-AIPM-dark-blue/40 dark:hover:bg-AIPM-blue/40`
-- Replace: `absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-AIPM-dark-blue/40 dark:hover:bg-AIPM-blue/40 print:hidden`
+- Find: `absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-ui-dark-blue/40 dark:hover:bg-ui-blue/40`
+- Replace: `absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-ui-dark-blue/40 dark:hover:bg-ui-blue/40 print:hidden`
 
 - [ ] **Step 2: Gates**
 

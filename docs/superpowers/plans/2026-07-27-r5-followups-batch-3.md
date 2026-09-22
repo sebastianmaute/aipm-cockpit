@@ -42,12 +42,12 @@ tint, computed with the repo's own `relLuminance`/`ratio`/`nudgeToAa` from
 | meridian dark | 5.20 | 4.60 | passes |
 | umber light | 5.04 | **4.35** | **FAIL** |
 | umber dark | 5.12 | 4.56 | passes |
-| AIPM / Mockup light | — | 6.49 | passes (purple-strong is PINNED there) |
-| AIPM dark | — | 5.82 | passes (pinned) |
+| Petrol / Mockup light | — | 6.49 | passes (purple-strong is PINNED there) |
+| Petrol dark | — | 5.82 | passes (pinned) |
 
 The pattern is exactly the one AGENTS.md documents: `deriveAaVariants` targets
 `--surface-muted`, which is *not* the hardest background this text actually sits
-on once a translucent tint re-composites on hover. AIPM and Mockup escape it only
+on once a translucent tint re-composites on hover. Petrol and Mockup escape it only
 because they pin the token by hand.
 
 ---
@@ -399,7 +399,7 @@ gaps in the round-2 fixes themselves.
     the dark row fills but **1.7–2.1:1** on the light ones, under 1.4.11's 3:1. A brand accent is
     tuned for one mode and cannot carry a cue that must work in both. Now `ring-foreground`.
 12. **And the comment justifying THAT was wrong too** — it claimed `--foreground` is "12–15:1 in every
-    shipped scheme by construction". AIPM and Mockup light use a mid-grey `#636362` foreground:
+    shipped scheme by construction". Petrol and Mockup light use a mid-grey `#636362` foreground:
     **4.79:1**. The conclusion held, the number did not, and no test could tell the difference.
     `scheme-contrast-cues.test.ts` now pins the ratio per scheme, and also records the rejected
     accent as an executable comparison so the reasoning cannot rot.

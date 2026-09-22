@@ -1612,7 +1612,7 @@ npm run version:check > /tmp/ver.log 2>&1; echo "EXIT=$?"; tail -3 /tmp/ver.log
 
 Expected EXIT=0. Exit **1 is drift** (re-run `version:sync`); exit **2 means the gate could not do its job**.
 
-Add a `CHANGELOG.md` entry. **No `[session link removed]...` URL in the changelog.**
+Add a `CHANGELOG.md` entry. **No assistant session URL in the changelog.**
 
 - [ ] **Step 4: Full local gate run**
 

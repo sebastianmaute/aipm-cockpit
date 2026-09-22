@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the column-resize anchor discoverable at rest (always-visible ⋮ grip with hover/drag accent) and strengthen the pane/window resize-corner grip — within the AIPM palette + dual-CI constraints.
+**Goal:** Make the column-resize anchor discoverable at rest (always-visible ⋮ grip with hover/drag accent) and strengthen the pane/window resize-corner grip — within the brand palette + dual-CI constraints.
 
 **Architecture:** Two files, no call-site changes. (1) Rewrite the single shared `ColumnResizeHandle` (`src/app/task-manager-ui.tsx`) to render an always-visible 3-dot grip that brightens to the table-head accent on hover and during drag — drag-time accent comes free from CSS `:active`, which holds from mousedown to mouseup even after the pointer leaves the element, so no React drag state and no change to `useColumnResize`. (2) Add a `::-webkit-resizer` rule to `globals.css` so every native `resize` corner (panes + resize-textareas) gets an accent-tinted, clearly visible grip.
 
-**Tech Stack:** React + TypeScript, Tailwind v4 (AIPM role tokens in `globals.css`), Vitest + Testing Library, Playwright axe gate. CI: GitLab (lint `--max-warnings=0`, tsc, unit, build, e2e).
+**Tech Stack:** React + TypeScript, Tailwind v4 (brand role tokens in `globals.css`), Vitest + Testing Library, Playwright axe gate. CI: GitLab (lint `--max-warnings=0`, tsc, unit, build, e2e).
 
 **Spec:** `docs/superpowers/specs/2026-06-30-column-resize-anchor-indicator-design.md`
 
@@ -37,7 +37,7 @@ export function ColumnResizeHandle({
 
 Tokens available as Tailwind utilities (registered in `globals.css` `@theme inline`):
 `text-table-head-fg`, `text-table-head-accent`, `bg-table-head-accent` — each dual-CI
-(AIPM + Mockup) and dark-mode aware. The opacity modifier (`/40`, `/10`) is valid on these
+(Petrol + Mockup) and dark-mode aware. The opacity modifier (`/40`, `/10`) is valid on these
 theme colors. **Do not** use `var(--table-head-*)` arbitrary form with a slash modifier — use
 the theme utilities so the alpha is generated correctly.
 
@@ -208,7 +208,7 @@ clean build confirms `globals.css` still compiles).
 
 Run: `npm run dev`, open a resizable pane view (e.g. Steering Committee, Portfolio Health, or
 any `useResizable` pane) and grab the bottom-right corner.
-Expected: the corner grip is clearly accent-tinted and easy to spot in AIPM-light, AIPM-dark, and
+Expected: the corner grip is clearly accent-tinted and easy to spot in Petrol-light, Petrol-dark, and
 Mockup-light. If the green reads poorly on a light pane surface in any style, introduce a
 dedicated `--resizer` token (define in `:root`, `:root[data-style="mockup"]`, and `.dark`,
 mirroring the existing role-token pattern) and point the rule at `var(--resizer)` instead.
@@ -233,7 +233,7 @@ Check:
 - Resting: faint ⋮ dots visible on the right edge of each resizable header cell (not invisible, not loud).
 - Hover: dots turn accent green + faint accent wash.
 - Drag (press a grip, move the pointer away, keep button held): dots stay accent for the whole drag (CSS `:active`), and the column resizes live.
-- Repeat in AIPM-light, AIPM-dark (`.dark`), and Mockup-light (Settings → Appearance → Style).
+- Repeat in Petrol-light, Petrol-dark (`.dark`), and Mockup-light (Settings → Appearance → Style).
 
 If the `:active` accent does NOT persist for the whole drag in any browser, apply the spec's
 fallback: expose `activeCol` state from `useColumnResize` (`src/app/use-column-resize.ts` — set

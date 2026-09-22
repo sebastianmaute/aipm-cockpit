@@ -1429,7 +1429,7 @@ strikethrough, underline, inline code, highlight, superscript, subscript; markdo
 (`# `, `> `, ` ``` `, `~~x~~`) now work in every rich field; and the data fix — headings and
 underlined text in register descriptions are no longer lost on load.
 
-★★ Never put a `[session link removed]…` URL in `CHANGELOG.md` or an MR description.
+★★ Never put an assistant session URL in `CHANGELOG.md` or an MR description.
 
 - [ ] **Step 4: Bump the five ungated places**
 

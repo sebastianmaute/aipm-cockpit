@@ -6,7 +6,7 @@
 
 **Architecture:** Type-scoped Graph categories (`AIPM:${projectId}:${type}`) so new entities never cross-delete milestone events. Generic `planEntityReconcile<T>` / `listEntityEvents` / `useEntityCalendarPush` clone the proven milestone path. `Task.outlookEventId` persists across all 6 backends. Per-device `settings.outlookCalendar` toggle surfaced in the tasks pane AND central Settings. Auto = a debounced, popout/M365-gated runner.
 
-**Tech Stack:** Next.js (forked) + React + TS, MS Graph, Tailwind AIPM tokens, Vitest.
+**Tech Stack:** Next.js (forked) + React + TS, MS Graph, Tailwind brand tokens, Vitest.
 
 **Spec:** `docs/superpowers/specs/2026-07-01-calendar-writeback-sp1-tasks-design.md`
 
@@ -67,7 +67,7 @@ export function taskToGraphEvent(task: Task, projectId: string): GraphEvent {
     body: { contentType: "Text", content: [
       task.assignee ? `Owner: ${task.assignee}` : "",
       task.status ? `Status: ${task.status}` : "",
-      "Managed by the AIPM PM Tracker.",
+      "Managed by AI PM Cockpit.",
     ].filter(Boolean).join("\n") },
   };
 }

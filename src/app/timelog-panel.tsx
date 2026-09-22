@@ -23,7 +23,7 @@ import { buildApplyPlan, applyActualsToBuckets, bucketsMissingAllocations, descr
 import { pickMatchableResources } from "./timelog-matchable";
 import { TimelogApplyConfirm } from "./timelog-apply-confirm";
 import { TimelogPeopleTable } from "./timelog-people-table";
-import { sanitizeTimelogLinks } from "./timelog-sanitize";
+import { sanitizeTimelogLinks, effectiveTimelogConfig } from "./timelog-sanitize";
 import { defaultTimelogConfig, type TimelogLinks } from "./timelog-types";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
@@ -72,11 +72,21 @@ export function TimelogPanel({
   const showToast = useToastContext();
   const confirm = useConfirm();
   const cfg = settings.timelog ?? defaultTimelogConfig;
+  // The config actually USED to build requests / judge configuration — a
+  // blank stored tenant falls back to the NEXT_PUBLIC_TIMELOG_TENANT build
+  // variable at READ time, never written back to `settings` (fix round 1,
+  // task-3-report.md: the raw `cfg` above never reached the env at all, so
+  // the build variable had no production effect). Writers below (
+  // `onTokenInvalid`/`onTokenValid`) intentionally keep reading/writing the
+  // RAW `s.timelog`/`cfg`, not this — persisting the resolved value would
+  // make an env-supplied tenant masquerade as a stored one.
+  const effectiveCfg = effectiveTimelogConfig(cfg);
 
   // Declared once, directly below `cfg` and above every reader — the action
   // handlers and the `disabled` expressions evaluate this same const rather
   // than recomputing the condition (open-followups §74).
-  const isMisconfigured = !cfg.enabled || !cfg.host || !cfg.apiToken;
+  const isMisconfigured =
+    !effectiveCfg.enabled || !effectiveCfg.host || !effectiveCfg.tenant || !effectiveCfg.apiToken;
 
   // Stable references hoisted out of useMemo deps to avoid obj.member lint errors
   const timelogLinks = ws.timelogLinks;
@@ -98,8 +108,8 @@ export function TimelogPanel({
     [timelogLinks],
   );
   const creds = useMemo(
-    () => ({ host: cfg.host, tenant: cfg.tenant, token: cfg.apiToken }),
-    [cfg.host, cfg.tenant, cfg.apiToken],
+    () => ({ host: effectiveCfg.host, tenant: effectiveCfg.tenant, token: effectiveCfg.apiToken }),
+    [effectiveCfg.host, effectiveCfg.tenant, effectiveCfg.apiToken],
   );
 
   const sync = useTimelogSync({

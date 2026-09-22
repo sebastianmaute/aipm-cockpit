@@ -513,7 +513,7 @@ matching closing `)}` (the current lines rendering the empty state + the
                   <button
                     type="button"
                     onClick={() => setExpanded((e) => ({ ...e, [tier]: !open }))}
-                    className="mt-2 text-xs font-medium text-AIPM-dark-blue hover:underline dark:text-AIPM-light-grey"
+                    className="mt-2 text-xs font-medium text-ui-dark-blue hover:underline dark:text-ui-light-grey"
                   >
                     {open ? t(lang, "actionShowLess") : t(lang, "actionShowMore", hiddenCount)}
                   </button>

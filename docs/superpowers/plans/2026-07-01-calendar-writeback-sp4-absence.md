@@ -6,7 +6,7 @@
 
 **Architecture:** `Absence.outlookEventId?` persists across 6 write paths (mirror `RaidItem.outlookEventId`, commit `79f8d74e`). New `absenceToGraphEvent` emits a multi-day span. Thin-pane rule: all calendar logic in `task-manager.tsx` (mirror the SP3 Change block at ~line 1841); 4 props threaded to the resources panel toolbar. Settings row + i18n. Release v0.159.0.
 
-**Tech Stack:** Next.js (forked) / React 19 / TypeScript, vitest, Microsoft Graph, Tailwind v4 AIPM tokens.
+**Tech Stack:** Next.js (forked) / React 19 / TypeScript, vitest, Microsoft Graph, Tailwind v4 brand tokens.
 
 **Reference template:** `git show 79f8d74e` (RAID column) and the Change SP3 block (`task-manager.tsx:1841-1875`, `change-panel.tsx:389-413`, `integrations-section.tsx:384-390`). NOTE: RAID sanitizer lives in `sanitize-records.ts`; the ABSENCE sanitizer lives in `sanitize-entities.ts` and is tested in `sanitize.test.ts`.
 
@@ -228,7 +228,7 @@ export function absenceToGraphEvent(absence: Absence, projectId: string): GraphE
         `Type: ${absence.type}`,
         `Assignee: ${absence.assignee}`,
         absence.note ? absence.note : "",
-        "Managed by the AIPM PM Tracker.",
+        "Managed by AI PM Cockpit.",
       ]
         .filter(Boolean)
         .join("\n"),
@@ -446,7 +446,7 @@ Confirm `Absence` and `useMemo`/`useCallback` are already imported (they are —
               checked={!!calendarEnabled}
               onChange={(e) => onToggleCalendar(e.target.checked)}
               aria-label={`${t(lang, "calendarSyncEnable")} – ${t(lang, "calendarSyncEntityAbsence")}`}
-              className="h-4 w-4 accent-AIPM-green"
+              className="h-4 w-4 accent-ui-green"
             />
             {t(lang, "calendarSyncEnable")}
           </label>

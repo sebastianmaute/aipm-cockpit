@@ -8,10 +8,10 @@
 
 **Architecture:** Extract the modal's field grid into a shared `TaskFormFields` (a fragment of `<Field>` rows reading `useTaskForm()`). The modal keeps its chrome + Save/Cancel buttons; a new `TaskEditView` renders the same fields full-page inside a Dark-Blue-headed card, with Save (green) / Cancel migrated to the top bar via HTML `form=` association. The existing `taskModalOpen` flag stays the single "editor is open" signal: a layout-aware effect in `TaskManager` translates it into navigation to/from the reserved `edit` view (remembering the origin view to return to), while the modal is suppressed in the modern main window. No change to `use-task-submit`, the task-form context, or any data/validation logic.
 
-**Tech Stack:** Next.js 16 (App Router) · React · TypeScript · Tailwind v4 (AIPM palette tokens) · Vitest + React Testing Library.
+**Tech Stack:** Next.js 16 (App Router) · React · TypeScript · Tailwind v4 (brand palette tokens) · Vitest + React Testing Library.
 
 **Hard constraints (carried from the spec):**
-- AIPM palette only (`AIPM-*` + semantic `surface`/`line`/`foreground`/`muted-foreground` tokens). Green dominant accent, Dark-Blue headings. **No gradients, no drop shadows, no off-palette colors.**
+- Brand palette only (`ui-*` + semantic `surface`/`line`/`foreground`/`muted-foreground` tokens). Green dominant accent, Dark-Blue headings. **No gradients, no drop shadows, no off-palette colors.**
 - All new copy goes through `t(lang, …)` with keys in **both** `i18n.ts` and `i18n.de.ts`. `i18n.de.ts` is prone to ASCII→curly-quote corruption — after editing it, **grep-verify** the new line and that the file still compiles (`npx tsc --noEmit`).
 - Classic mode + every popout must stay behaviorally identical (the modal is the editor there).
 - Spec reference: `docs/superpowers/specs/2026-05-29-modern-sidebar-layout-design.md` (§ "Full-page edit view (Phase 2)").
@@ -197,7 +197,7 @@ const InlineMicButton = dynamic(
 
 // Same compact input class the rest of the form uses.
 export const inputClass =
-  "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green dark:border-line dark:bg-surface dark:text-foreground";
+  "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-ui-green dark:border-line dark:bg-surface dark:text-foreground";
 
 export interface TaskFormFieldsProps {
   lang: Lang;
@@ -269,7 +269,7 @@ export function Field({
     <label className={`block ${className ?? ""}`}>
       <span className="mb-1 block text-sm font-medium text-foreground">
         {label}
-        {required && <span className="ml-0.5 text-AIPM-pink">*</span>}
+        {required && <span className="ml-0.5 text-ui-pink">*</span>}
       </span>
       {children}
     </label>
@@ -316,7 +316,7 @@ function EffortField({
         className={inputClass}
       />
       {invalid && (
-        <p className="mt-1 text-xs text-AIPM-pink">
+        <p className="mt-1 text-xs text-ui-pink">
           {t(lang, "taskEffortInvalid")}
         </p>
       )}
@@ -371,7 +371,7 @@ In `task-form-modal.tsx`:
             )}
             <button
               type="submit"
-              className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2"
+              className="rounded-md bg-ui-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ui-dark-blue focus:ring-offset-2"
             >
               {isEditing ? t(lang, "updateTask") : t(lang, "addTask")}
             </button>
@@ -453,7 +453,7 @@ interface TopBarProps {
 export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, primaryAction, children }: TopBarProps) {
   return (
     <header className="flex items-center justify-between gap-4 border-b border-line bg-surface px-6 py-3">
-      <h1 className="text-xl font-semibold tracking-tight text-AIPM-dark-blue dark:text-AIPM-light-grey">
+      <h1 className="text-xl font-semibold tracking-tight text-ui-dark-blue dark:text-ui-light-grey">
         {title}
       </h1>
       <div className="flex items-center gap-1">
@@ -462,7 +462,7 @@ export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, prim
             type="button"
             onClick={onNewTask}
             title={t(lang, "newTask")}
-            className="rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-semibold text-AIPM-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+            className="rounded-md bg-ui-green px-3 py-1.5 text-sm font-semibold text-ui-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ui-green"
           >
             {t(lang, "newTask")}
           </button>
@@ -665,7 +665,7 @@ export function TaskEditView({ onSubmit, ...fieldProps }: TaskEditViewProps) {
   return (
     <div className="mx-auto w-full max-w-5xl">
       <section className="rounded-lg border border-line bg-surface">
-        <h2 className="border-b border-line px-6 py-4 text-base font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        <h2 className="border-b border-line px-6 py-4 text-base font-semibold text-ui-dark-blue dark:text-ui-light-grey">
           1. {t(lang, "taskEditDetailsHeading")}
         </h2>
         <form
@@ -932,7 +932,7 @@ Near where `tasksSectionEl` / `workspaceFullBleedEl` are defined (around line 65
       <button
         type="submit"
         form={TASK_EDIT_FORM_ID}
-        className="rounded-md bg-AIPM-green px-4 py-1.5 text-sm font-semibold text-AIPM-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+        className="rounded-md bg-ui-green px-4 py-1.5 text-sm font-semibold text-ui-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ui-green"
       >
         {editingId !== null ? t(lang, "updateTask") : t(lang, "addTask")}
       </button>
@@ -1070,7 +1070,7 @@ In `src/app/version.ts`:
 ```ts
 // 0.30.0 "Liu" adds Phase 2 of the modern layout: a full-page task editor.
 // In the modern layout, opening a task (or clicking "New task") now opens a
-// full-viewport edit view styled in the AIPM palette (Dark-Blue section heading,
+// full-viewport edit view styled in the brand palette (Dark-Blue section heading,
 // two-column field grid) with Save (green) / Cancel in the top bar, instead of
 // the overlay dialog. The editor reuses the exact same fields, state, and
 // validation as before; Classic mode and all popouts keep the dialog.
@@ -1099,7 +1099,7 @@ Insert at the top of `CHANGELOG.md` (above `## [0.29.0]`):
 ## [0.30.0] — 2026-05-29 "Liu"
 
 ### Added
-- **Full-page task editor (modern layout).** Opening a task — or clicking **New task** — now opens a full-viewport edit view instead of the overlay dialog: a Dark-Blue section heading, a two-column field grid in the AIPM palette, and **Save** (green) / **Cancel** in the top bar. The editor reuses the same fields, state, and validation as before, and returns you to the view you came from on save or cancel. **Classic mode** and all pop-out windows keep the dialog. This is Phase 2 of the sidebar-layout redesign (a table restyle follows).
+- **Full-page task editor (modern layout).** Opening a task — or clicking **New task** — now opens a full-viewport edit view instead of the overlay dialog: a Dark-Blue section heading, a two-column field grid in the brand palette, and **Save** (green) / **Cancel** in the top bar. The editor reuses the same fields, state, and validation as before, and returns you to the view you came from on save or cancel. **Classic mode** and all pop-out windows keep the dialog. This is Phase 2 of the sidebar-layout redesign (a table restyle follows).
 ```
 
 - [ ] **Step 6: Verify the build is green**

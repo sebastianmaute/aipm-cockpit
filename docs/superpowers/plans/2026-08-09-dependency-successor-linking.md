@@ -1702,7 +1702,7 @@ Update the milestone codename const in the same file.
 
 Cover: the modal's predecessor/successor split, the searchable picker, successor links applied on Save with per-target undo, and the inline relations cell becoming read-only (a removal — say so plainly).
 
-★ No `[session link removed]...` URL in `CHANGELOG.md` or any MR description.
+★ No assistant session URL in `CHANGELOG.md` or any MR description.
 
 - [ ] **Step 4: Add the highlight key**
 

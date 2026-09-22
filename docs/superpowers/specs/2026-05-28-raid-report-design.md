@@ -150,7 +150,7 @@ Layout (Summary view):
 
 1. Page heading `<h2>` + the Summary | Full Detail `SegmentedControl` in a flex row.
 2. **Tiles row** — 4 `<Tile>` cards in a `grid-cols-2 sm:grid-cols-4` (matches Resources Report shape). Each: small uppercase label + large foreground value.
-3. **By Severity** — 4 or 5 rows × 5 numeric columns (Risks | Assumptions | Issues | Dependencies | Total). Severity column gets the AIPM severity ramp chip (green/blue/purple/pink); the optional Unrated row uses `text-muted-foreground`. Numeric cells `tabular-nums`. Uses the Workload table chrome (sticky thead, surface-muted, uppercase tracking-wide, `px-3 py-2 font-medium`).
+3. **By Severity** — 4 or 5 rows × 5 numeric columns (Risks | Assumptions | Issues | Dependencies | Total). Severity column gets the petrol severity ramp chip (green/blue/purple/pink); the optional Unrated row uses `text-muted-foreground`. Numeric cells `tabular-nums`. Uses the Workload table chrome (sticky thead, surface-muted, uppercase tracking-wide, `px-3 py-2 font-medium`).
 4. **By Status** — single row per non-zero status, sorted by count desc. Status column shows status text only (no chip — status is per-category and visual encoding would be busy).
 5. **By Owner** — owner + per-category open counts + total, sorted by total desc. The `UNASSIGNED_OWNER` sentinel is mapped to `t(lang, "raidReportUnassigned")` and rendered in italic.
 6. **Top 10 Open** — mini per-item table (id, category chip, title, severity chip, owner, age + overdue marker if applicable).
@@ -159,7 +159,7 @@ Layout (Summary view):
 
 Layout (Full Detail view):
 
-A single read-only table with the columns: ID, Category, Title, Severity, Status, Owner, Raised, Target, Age, Linked Tasks. Sortable headers (local sort state — read-only context, simpler than reusing the main panel's sort plumbing). Overdue rows get a `text-AIPM-pink` on the target-date cell only (soft, scannable, avoids heavy visual noise on long lists).
+A single read-only table with the columns: ID, Category, Title, Severity, Status, Owner, Raised, Target, Age, Linked Tasks. Sortable headers (local sort state — read-only context, simpler than reusing the main panel's sort plumbing). Overdue rows get a `text-ui-pink` on the target-date cell only (soft, scannable, avoids heavy visual noise on long lists).
 
 Both views share:
 - Surface tokens: `bg-surface`, `border-line`, `text-foreground`, `text-muted-foreground`.

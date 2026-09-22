@@ -15,7 +15,7 @@ main as a detector with known blind spots, recorded rather than fixed:
   whether the guard runs or not, and the relation passes green either way. The sweep's own docstring
   names nine such fields; acceptance mutants 2 and 3 survive it on main.
 - **Relation B sends two create probes the create cannot accept** (§459): `task.assigneeEmail` gets
-  `"m.Jordan@example.com probed"`, and `absence.startDate` gets a date later than
+  `"m.bennett@example.com probed"`, and `absence.startDate` gets a date later than
   `CREATE_BASE.absence.endDate`, which the sanitizer swaps.
 - **`calendarEvent.startTime`'s create probe equals what `CREATE_BASE` already sends** (§443), so it
   can never show a landing.

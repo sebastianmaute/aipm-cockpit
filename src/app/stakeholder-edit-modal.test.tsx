@@ -324,7 +324,7 @@ describe("stakeholder email follows the changed-only write rule", () => {
 
 describe("StakeholderEditModal — name picker (link-only)", () => {
   const resources: Resource[] = [
-    { id: 1, firstName: "Sample", lastName: "Dummy", email: "Sample@x.com", roleId: null, utilizationMode: "percent", utilization: {} },
+    { id: 1, firstName: "Sofia", lastName: "Ramirez", email: "sofia@x.com", roleId: null, utilizationMode: "percent", utilization: {} },
   ];
 
   // The name picker is the combobox wired to the name counter; the Category
@@ -341,14 +341,14 @@ describe("StakeholderEditModal — name picker (link-only)", () => {
   it("picking a resource adopts their email too", () => {
     const p = setup({ draft: { ...draft, name: "", email: "stale@old.com" }, resources });
     fireEvent.focus(namePicker());
-    fireEvent.mouseDown(screen.getByText("Alex Example"));
+    fireEvent.mouseDown(screen.getByText("Sofia Ramirez"));
     expect(p.onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Alex Example", email: "Sample@x.com", resourceId: 1 }),
+      expect.objectContaining({ name: "Sofia Ramirez", email: "sofia@x.com", resourceId: 1 }),
     );
   });
 
   it("clearing the picker clears the adopted email with it", () => {
-    const p = setup({ draft: { ...draft, name: "Alex Example", email: "Sample@x.com", resourceId: 1 }, resources });
+    const p = setup({ draft: { ...draft, name: "Sofia Ramirez", email: "sofia@x.com", resourceId: 1 }, resources });
     fireEvent.click(screen.getByRole("button", { name: /^clear$/i }));
     expect(p.onChange).toHaveBeenCalledWith(
       expect.objectContaining({ name: "", email: "", resourceId: null }),
@@ -358,9 +358,9 @@ describe("StakeholderEditModal — name picker (link-only)", () => {
   it("picking a resource sets both name and resourceId", () => {
     const p = setup({ draft: { ...draft, name: "" }, resources });
     fireEvent.focus(namePicker());
-    fireEvent.mouseDown(screen.getByText("Alex Example"));
+    fireEvent.mouseDown(screen.getByText("Sofia Ramirez"));
     expect(p.onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Alex Example", resourceId: 1 }),
+      expect.objectContaining({ name: "Sofia Ramirez", resourceId: 1 }),
     );
   });
 

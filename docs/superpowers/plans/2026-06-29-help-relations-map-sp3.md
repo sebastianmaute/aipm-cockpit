@@ -250,7 +250,7 @@ export function RelationsMap({ graph, lang, onSelectConcept }: RelationsMapProps
               y1={na.y * 100}
               x2={nb.x * 100}
               y2={nb.y * 100}
-              className={incident ? "stroke-AIPM-dark-blue" : "stroke-line"}
+              className={incident ? "stroke-ui-dark-blue" : "stroke-line"}
               strokeWidth={incident ? 0.8 : 0.4}
               opacity={active && !incident ? 0.3 : 1}
               vectorEffect="non-scaling-stroke"
@@ -258,7 +258,7 @@ export function RelationsMap({ graph, lang, onSelectConcept }: RelationsMapProps
           );
         })}
         {graph.nodes.map((n) => (
-          <circle key={n.id} cx={n.x * 100} cy={n.y * 100} r={0.8} className="fill-AIPM-dark-blue" />
+          <circle key={n.id} cx={n.x * 100} cy={n.y * 100} r={0.8} className="fill-ui-dark-blue" />
         ))}
       </svg>
 
@@ -279,7 +279,7 @@ export function RelationsMap({ graph, lang, onSelectConcept }: RelationsMapProps
             title={t(lang, "helpRelationsOpenConcept")}
             style={{ left: `${n.x * 100}%`, top: `${n.y * 100}%` }}
             className={`absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-md border bg-surface px-2 py-1 text-xs font-medium text-foreground ${
-              isActive || isNeighbour ? "border-AIPM-dark-blue" : "border-line"
+              isActive || isNeighbour ? "border-ui-dark-blue" : "border-line"
             } ${dim ? "opacity-40" : "opacity-100"} ${INTERACTIVE}`}
           >
             {t(lang, n.titleKey)}
@@ -428,7 +428,7 @@ import { HELP_ENTRIES, HELP_GROUP_ORDER, HELP_GROUP_LABEL } from "./help-content
                                   type="button"
                                   onClick={() => onNavigateView(v)}
                                   aria-label={t(lang, "helpRelationsGoToView", t(lang, navLabelKey(v)))}
-                                  className={`ml-2 italic text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-light-grey ${INTERACTIVE}`}
+                                  className={`ml-2 italic text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-light-grey ${INTERACTIVE}`}
                                 >
                                   {t(lang, navLabelKey(v))}
                                 </button>

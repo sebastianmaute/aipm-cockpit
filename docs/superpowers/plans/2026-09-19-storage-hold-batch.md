@@ -53,8 +53,6 @@ cat > "$MSG" <<'EOF'
 <subject line given in the task>
 
 <body given in the task>
-
-Claude-Session: https://[session link removed]
 EOF
 git add -- <NEW files only, if any>
 git commit -F "$MSG" --only -- <every path the task lists>
@@ -1871,7 +1869,7 @@ import TaskManager from "./task-manager";
 
 function task(id: number, taskName: string): Task {
   return {
-    id, taskName, assignee: "M. Jordan", assigneeEmail: "", dueDate: "2026-09-30",
+    id, taskName, assignee: "M. Bennett", assigneeEmail: "", dueDate: "2026-09-30",
     lastUpdateDate: "2026-05-19", priority: "Medium", status: DEFAULT_TASK_STATUS,
     blockers: "", description: "",
   };

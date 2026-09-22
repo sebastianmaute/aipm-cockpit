@@ -63,7 +63,7 @@ All three panels render this identical structure inside their `*PanelBody`. Ever
       <button
         type="button"
         onClick={onAdd}
-        className={`flex w-full flex-col items-center gap-2 rounded-md border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
+        className={`flex w-full flex-col items-center gap-2 rounded-md border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-ui-dark-blue hover:text-ui-dark-blue dark:hover:text-ui-light-grey ${INTERACTIVE}`}
       >
         <span>{EMPTY_TEXT}</span>
         <span className="font-medium">{ADD_LABEL}</span>
@@ -192,7 +192,7 @@ component differ; ~6L each, minimal). Only the render shell moves.
 1. Existing panel tests (`change-panel`, `stakeholders-panel`, `raid-panel*`) + `raid-panel.characterization.test.tsx` must stay green **without edits** — proves behavior preserved.
 2. New `panel-table-scaffold.test.tsx`: (a) `count===0` renders the dashed `<button>`, click fires `onAdd`; (b) `ariaLabel` applied when passed, absent otherwise; (c) `count>0` renders `children`, no empty button; (d) bulk bar toggle → `onToggleOpen`; (e) callout absent when `onLearnMore` undefined.
 3. `npx tsc --noEmit` (0 errors), `npx eslint <touched> --max-warnings=0`.
-4. `npx playwright test e2e/a11y.spec.ts --project=chromium -g "RAID"` and `-g "Stakeholder"` (both axe-scanned) — 3/3 green each (AIPM-light / AIPM-dark / mockup).
+4. `npx playwright test e2e/a11y.spec.ts --project=chromium -g "RAID"` and `-g "Stakeholder"` (both axe-scanned) — 3/3 green each (petrol-light / petrol-dark / mockup).
 5. `npm run dup:check` — measure new tsx%; ratchet the gate down to match (update `package.json dup:check` + `.gitlab-ci.yml` comment + TD-6 register row).
 6. `npm run size:check` — no file crosses 800; the 3 panels shrink.
 

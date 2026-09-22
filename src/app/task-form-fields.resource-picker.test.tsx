@@ -12,11 +12,11 @@ function DraftProbe() {
   return <output data-testid="resourceId">{String(form.resourceId)}</output>;
 }
 
-const Sample: Resource = {
+const SOFIA: Resource = {
   id: 1,
-  firstName: "Sample",
-  lastName: "Dummy",
-  email: "Sample@x.com",
+  firstName: "Sofia",
+  lastName: "Ramirez",
+  email: "sofia@x.com",
   roleId: null,
   utilizationMode: "percent",
   utilization: {},
@@ -61,7 +61,7 @@ function Harness({
 
 describe("TaskFormFields — assignee ResourcePicker integration", () => {
   it("links the draft to a resource when one is picked", () => {
-    render(<Harness resources={[Sample]} />, { wrapper: TestProviders });
+    render(<Harness resources={[SOFIA]} />, { wrapper: TestProviders });
 
     // Open the assignee combobox (placeholder is the localized "Assignee").
     const combobox = screen.getByPlaceholderText("Assignee");
@@ -70,7 +70,7 @@ describe("TaskFormFields — assignee ResourcePicker integration", () => {
     // Pick the suggested resource row. Scope out the note-log author <option>
     // (which now also lists the resource by name) so the query stays unambiguous.
     // mouseDown (not click): ResourcePicker selects on mousedown to beat the input's blur-close.
-    fireEvent.mouseDown(screen.getByText("Alex Example", { selector: ":not(option)" }));
+    fireEvent.mouseDown(screen.getByText("Sofia Ramirez", { selector: ":not(option)" }));
 
     expect(screen.getByTestId("resourceId").textContent).toBe("1");
   });
@@ -94,7 +94,7 @@ describe("TaskFormFields — assignee ResourcePicker integration", () => {
   });
 
   it("locks the assignee picker when the task is Jira-linked", () => {
-    render(<Harness resources={[Sample]} editingIsJiraLinked />, {
+    render(<Harness resources={[SOFIA]} editingIsJiraLinked />, {
       wrapper: TestProviders,
     });
 

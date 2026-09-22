@@ -22,7 +22,7 @@
 - **Golden fixtures must not move.** `src/app/__fixtures__/golden-workspace.*` pin a full-valued sample. If one diffs, stop: that is a real format change, never something to regenerate.
 - **No new i18n keys in this MR.** Thirteen are deleted; none are added. The `—` in Task 4 is a literal, as it already is in the NACE and deployment `<option value="">`.
 - **No pushing, no MR, no merge, no version bump** without explicit instruction from the user. Commit locally, path-limited: `git commit -F <msgfile> -- <paths>`. Never `git add -A` / `git add .`, never `--amend`, never bare `git stash`.
-- Commits end with the trailer `Claude-Session: https://[session link removed]`. The MR description and CHANGELOG must NOT carry it.
+- Commits end with the session trailer. The MR description and CHANGELOG must NOT carry it.
 - Do not disturb the dev server on port **3000** or `.next/`.
 - The author is "Sebastian Maute".
 

@@ -42,7 +42,7 @@ export function splitHighlight(text: string, query: string): HighlightSegment[];
 Pure: no regex-injection risk (use `indexOf` scanning on lowercased copies, NOT a RegExp built from
 user input — avoids needing to escape metachars and avoids the `/s` flag tsc trap). Returns
 contiguous segments preserving original casing. The box renders `match` segments in a palette-safe
-span: `className="rounded-sm bg-AIPM-green/20"` (brand token, no off-palette, no shadow). Applied to
+span: `className="rounded-sm bg-ui-green/20"` (brand token, no off-palette, no shadow). Applied to
 the result `title` and `subtitle` ONLY when querying (recents are not highlighted).
 
 ### 3. Recent items — new pure store `src/app/search-recents.ts`
@@ -110,7 +110,7 @@ export function saveRecents(list: readonly SearchResult[]): void;  // localStora
 - i18n EN+DE: `searchRecent` ("Recent" / "Zuletzt"). DE via node utf8 write.
 - `CHANGELOG.md`; README badge; `package.json`.
 - AGENTS.md: extend the global-search pointer — focus shortcut (⌘K / guarded "/"), `search-highlight.ts`
-  (`splitHighlight`, palette `bg-AIPM-green/20`), `search-recents.ts` (per-device `lop-app:search-recents`,
+  (`splitHighlight`, palette `bg-ui-green/20`), `search-recents.ts` (per-device `lop-app:search-recents`,
   cap 8, live-filtered display, out of exports/Turso, cleared by `clearAppConfig`).
 
 ## Out of scope

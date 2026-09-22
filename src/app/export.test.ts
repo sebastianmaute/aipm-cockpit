@@ -16,6 +16,7 @@ import { defaultExportConfig } from "./settings-types";
 import type { ExportConfig } from "./settings-types";
 import type { Workspace } from "./storage";
 import type { Task, RaidItem, Milestone } from "./types";
+import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
 
 // ---------------------------------------------------------------------------
 // Minimal fixture helpers (shared with export-sections.test.ts style)
@@ -453,13 +454,16 @@ describe("buildPdfHtml — rich cells (§141(b))", () => {
 });
 
 describe("buildPdfHtml — export footer", () => {
-  it("keeps today's footer when none is passed", () => {
-    expect(buildPdfHtml(makeBaseWorkspace(), defaultExportConfig, "en-US")).toContain("<footer>Acme — AI PM Cockpit</footer>");
+  it("keeps the built-in footer when none is passed", () => {
+    expect(buildPdfHtml(makeBaseWorkspace(), defaultExportConfig, "en-US")).toContain(`<footer>${DEFAULT_EXPORT_FOOTER}</footer>`);
   });
 
   it("prints the configured footer, HTML-escaped", () => {
     const html = buildPdfHtml(makeBaseWorkspace(), defaultExportConfig, "en-US", "Acme <GmbH> & Co");
     expect(html).toContain("<footer>Acme &lt;GmbH&gt; &amp; Co</footer>");
-    expect(html).not.toContain("Acme");
+    // ★ Substring-only would false-fail: the page <title> also carries the app's
+    //   own name, which is now the same text as the built-in footer. Check the
+    //   footer element specifically.
+    expect(html).not.toContain(`<footer>${DEFAULT_EXPORT_FOOTER}</footer>`);
   });
 });

@@ -20,7 +20,7 @@
 - **Modify** `src/app/help-menu.tsx` — replace tablist/tabpanel + keyboard nav with search input + `<HelpContentPane>`; shrink default size + bump resize storage key.
 - **Modify** `src/app/help-menu.test.tsx` — rewrite the two `role="tab"` tests for the new scroll model.
 
-Verify against AGENTS.md: Help is NOT in `A11Y_VIEWS` (eye-verify only); `useResizable` inline-size beats class width (bump storage key); palette = AIPM tokens only; new file is `.tsx` (no `help-content-pane.ts` collision — only `help-content.ts` exists).
+Verify against AGENTS.md: Help is NOT in `A11Y_VIEWS` (eye-verify only); `useResizable` inline-size beats class width (bump storage key); palette = brand tokens only; new file is `.tsx` (no `help-content-pane.ts` collision — only `help-content.ts` exists).
 
 ---
 
@@ -114,7 +114,7 @@ function Highlighted({ text, query }: { text: string; query: string }) {
     <>
       {highlightSegments(text, query).map((seg, k) =>
         seg.match ? (
-          <mark key={k} className="bg-AIPM-green/20 text-inherit">
+          <mark key={k} className="bg-ui-green/20 text-inherit">
             {seg.text}
           </mark>
         ) : (
@@ -175,7 +175,7 @@ export function HelpContentPane({
                     onClick={() => scrollToSection(e.id)}
                     className={
                       activeId === e.id
-                        ? `block w-full whitespace-nowrap rounded border-l-2 border-AIPM-dark-blue bg-surface-muted px-2 py-1 text-left text-xs font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey ${INTERACTIVE}`
+                        ? `block w-full whitespace-nowrap rounded border-l-2 border-ui-dark-blue bg-surface-muted px-2 py-1 text-left text-xs font-semibold text-ui-dark-blue dark:text-ui-light-grey ${INTERACTIVE}`
                         : `block w-full whitespace-nowrap rounded border-l-2 border-transparent px-2 py-1 text-left text-xs text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`
                     }
                   >
@@ -192,7 +192,7 @@ export function HelpContentPane({
       <div className="min-h-0 flex-1 overflow-auto p-3 pr-2 print:max-h-none print:overflow-visible">
         {groups.map(({ group, entries }) => (
           <div key={group} className="mb-6">
-            <h2 className="mb-2 border-b border-line pb-1 text-xs font-semibold uppercase tracking-wide text-AIPM-dark-blue dark:text-AIPM-light-grey">
+            <h2 className="mb-2 border-b border-line pb-1 text-xs font-semibold uppercase tracking-wide text-ui-dark-blue dark:text-ui-light-grey">
               {t(lang, HELP_GROUP_LABEL[group])}
             </h2>
             <div className="flex flex-col gap-4">
@@ -216,7 +216,7 @@ export function HelpContentPane({
                             <button
                               type="button"
                               onClick={() => scrollToSection(rid)}
-                              className={`text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-light-grey ${INTERACTIVE}`}
+                              className={`text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-light-grey ${INTERACTIVE}`}
                             >
                               {t(lang, target.titleKey)}
                             </button>
@@ -230,7 +230,7 @@ export function HelpContentPane({
                             type="button"
                             onClick={() => onNavigateView(v)}
                             aria-label={t(lang, "helpRelationsGoToView", t(lang, navLabelKey(v)))}
-                            className={`ml-2 italic text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-light-grey ${INTERACTIVE}`}
+                            className={`ml-2 italic text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-light-grey ${INTERACTIVE}`}
                           >
                             {t(lang, navLabelKey(v))}
                           </button>
@@ -458,7 +458,7 @@ Replace the whole `<div className="flex min-h-0 flex-1">...</div>` block (the le
     onChange={(e) => setQuery(e.target.value)}
     placeholder={t(lang, "helpSearchPlaceholder")}
     aria-label={t(lang, "helpSearchPlaceholder")}
-    className="w-full rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+    className="w-full rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
   />
 </div>
 

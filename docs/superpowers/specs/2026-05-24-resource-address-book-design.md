@@ -76,9 +76,9 @@ All current `r.name` reads (resources-panel, resources-report, resource-calendar
 **Name split helper** (for migration):
 
 ```ts
-// "Alex Example"  -> { firstName: "Sample", lastName: "Dummy" }
+// "Sofia Ramirez"  -> { firstName: "Sofia", lastName: "Ramirez" }
 // "Madonna"     -> { firstName: "Madonna", lastName: "" }
-// "Sample Anne Dummy" -> { firstName: "Sample", lastName: "Anne Dummy" }
+// "Sofia Anne Ramirez" -> { firstName: "Sofia", lastName: "Anne Ramirez" }
 export function splitName(name: string): { firstName: string; lastName: string };
 ```
 

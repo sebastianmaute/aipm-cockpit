@@ -179,7 +179,7 @@ current project only.
   - **Delete permanently** → new **`TypeToConfirmDialog`**: shows the project
     name, a text input, and a submit button disabled until the typed value
     exactly equals the project name; on submit → `hardDeleteProject`.
-    Irreversible, styled destructive within the 9-color AIPM palette (no new
+    Irreversible, styled destructive within the 9-color brand palette (no new
     colors).
 - **Export.** Per-project export (Phase 1) works as-is: the current project's
   loaded workspace feeds `buildExportSections`. No change.

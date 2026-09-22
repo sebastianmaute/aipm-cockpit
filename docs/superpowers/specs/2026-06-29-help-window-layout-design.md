@@ -26,11 +26,11 @@ Presentational, pure. No tours / relations / search input / footer (parents own 
 - `onNavigateView?: (view: AppView) => void` — Related→view links (optional; absent → render the view name as plain text, mirroring `help-view`'s current behavior).
 
 **Renders:**
-- Grouped **TOC** (`<nav aria-label={t(lang,"helpContents")}>`, `w-52`): per group (`HELP_GROUP_ORDER`) a label header (`HELP_GROUP_LABEL[group]`) + an entry jump-button per matching entry. Active entry gets `border-l-2 border-AIPM-dark-blue bg-surface-muted`.
+- Grouped **TOC** (`<nav aria-label={t(lang,"helpContents")}>`, `w-52`): per group (`HELP_GROUP_ORDER`) a label header (`HELP_GROUP_LABEL[group]`) + an entry jump-button per matching entry. Active entry gets `border-l-2 border-ui-dark-blue bg-surface-muted`.
 - Grouped **content**: all matching entries; per group a divider header, then per entry an `<h3>` title + body paragraph. Related concept links (scroll within pane) + Related view links (`onNavigateView`).
 - Owns its content scroll container ref + `scrollToSection(id)`.
 - Filters `HELP_ENTRIES` via existing `matchesQuery(title, body, query)`; groups via `HELP_GROUP_ORDER`. Empty result → `helpNoResults`.
-- Search-match highlight via existing `highlightSegments` → `<mark className="bg-AIPM-green/20 text-inherit">`.
+- Search-match highlight via existing `highlightSegments` → `<mark className="bg-ui-green/20 text-inherit">`.
 
 ### Modified: `src/app/help-view.tsx`
 
@@ -45,7 +45,7 @@ Keep the draggable/resizable frame, title bar (HELP + ✕), intro line, and foot
 
 ## Layout / hierarchy (applies to both via the shared component)
 
-- Group divider header: `text-xs font-semibold uppercase tracking-wide text-AIPM-dark-blue dark:text-AIPM-light-grey border-b border-line pb-1`.
+- Group divider header: `text-xs font-semibold uppercase tracking-wide text-ui-dark-blue dark:text-ui-light-grey border-b border-line pb-1`.
 - Entry title: `text-sm font-semibold text-foreground`.
 - Entry body: `text-sm text-muted-foreground leading-relaxed max-w-[64ch] whitespace-pre-line`.
 - Group gap `mb-6`; entry gap `gap-4`. TOC items `text-xs`. TOC width `w-52` (replaces cramped `w-40` / `w-56`).
@@ -80,7 +80,7 @@ No new keys. Reuse `HELP_GROUP_LABEL`, `helpContents`, `helpSearchPlaceholder`, 
 
 - `useResizable` inline-size beats class width → bump floating-panel storage key (`lop-app:help-size-v2`) + update default-pos fallback.
 - New file is `.tsx`; no `help-content-pane.ts` collision (only `help-content.ts` exists).
-- Palette: only AIPM tokens (border-line, bg-surface-muted, text-AIPM-*); no shadow/gradient.
+- Palette: only brand tokens (border-line, bg-surface-muted, text-ui-*); no shadow/gradient.
 - Help NOT in `A11Y_VIEWS` → eye-verify both surfaces.
 - Tailwind v4 container-query classes only; no `|`/`*` inside arbitrary brackets.
 

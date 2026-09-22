@@ -47,7 +47,7 @@
 - **Never run two vitest processes at once.**
 - **Never stage `sample-workspace-huge.json`** (foreign, already modified) or **`not-in-use.env.local.bak`** (untracked; holds live Turso credentials — never open, read, print or stage it). **Never `git add -A` or `git add .`.** Every commit below names its files explicitly and uses `git commit --only <paths>`.
 - **`git checkout -- <file>` is deny-blocked** in this worktree, **`git stash` must never be run in it**, and **never `--amend`** (shared worktree).
-- Every commit ends with the trailer `Claude-Session: https://[session link removed]`.
+- Every commit ends with the session trailer.
 - **`npx tsc --noEmit` exits 2 on diagnostics**, not 1. `next build` does not typecheck test files and vitest never typechecks, so run tsc after every task that touches a `.ts` file.
 - **`npm run lint` is `--max-warnings=0`** — an unused import is fatal. Use `npx eslint src` (a bare `npm run lint` picks up gitignored `.worktrees/` leftovers and exits 1 for unrelated reasons).
 - **`size:check` LIMIT is 1600 and the ratchet counts `split("\n").length`, i.e. `wc -l` PLUS ONE.** Budget every file from:
@@ -351,8 +351,6 @@ it pass. Floor 3 asserts declared and undeclared are jointly exhaustive over the
 persisted columns -- the only one of the three that can see a field fall out of
 BOTH sets, which floor 1 cannot, since a compensating change moves neither
 count.
-
-Claude-Session: https://[session link removed]
 EOF
 )"
 ```
@@ -540,8 +538,6 @@ Also corrects that file's header: it said there is no create relation to read,
 which is the same false claim 439 carries. createTool is declared on the
 descriptor and all eight entities carry one; sweepPlumbing simply hardcodes
 updateTool.
-
-Claude-Session: https://[session link removed]
 EOF
 )"
 ```
@@ -852,8 +848,6 @@ A loud refusal counts as agreement -- the field did not land and the writer said
 so. Only silent acceptance is a finding.
 
 This test may be RED at baseline. That is the slice working, not failing.
-
-Claude-Session: https://[session link removed]
 EOF
 )"
 ```
@@ -1079,8 +1073,6 @@ declared and boolean, a strict true trips shouldStage and mails the attendees in
 production, and whether a unit-test replay can send that mail is UNKNOWN rather
 than known-safe. The safety was contingent on a seed value in another file and
 is now asserted.
-
-Claude-Session: https://[session link removed]
 EOF
 )"
 ```
@@ -1191,8 +1183,6 @@ violation on every correct write of a normalised field; on the update sweep's
 first cut that shape was 6 of 35 findings, all harness rather than product.
 
 That a create card cannot disclose a refusal at all is filed separately.
-
-Claude-Session: https://[session link removed]
 EOF
 )"
 ```
@@ -1263,8 +1253,6 @@ writes a probe for it; the offered-surface sweep is behavioural and costs a
 dispatcher mount per field. Its axis is deliberately NOT re-based on the schema
 -- UNSWEPT_BY_DESIGN.task is long because update_task uses a genuine whitelist,
 reasoning the schema axis does not reproduce.
-
-Claude-Session: https://[session link removed]
 EOF
 )"
 ```
@@ -1555,8 +1543,6 @@ same commit that closes the entry.
 and links only and has no channel to disclose a refusal, so Relation B's create
 arm asserts landing only. Closing that with an exemption list is the shape that
 hid 438 inside 437's ratchet, so it wants a product decision instead.
-
-Claude-Session: https://[session link removed]
 EOF
 )"
 ```

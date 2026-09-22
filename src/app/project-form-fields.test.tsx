@@ -221,8 +221,8 @@ describe("contact persons", () => {
     render(
       <IdentityPeopleFields
         {...withContactPeople(
-          { name: "David Okoro", email: "david.okoro@northwind.example" },
-          { name: "Alex Example", email: "Sample.Dummy@example.com" },
+          { name: "David Okoro", email: "liam.okoro@northwind.example" },
+          { name: "Sofia Ramirez", email: "sofia.ramirez@example.com" },
         )}
       />,
     );
@@ -238,7 +238,7 @@ describe("contact persons", () => {
       expect(n).not.toMatch(/\(\d+\)$/);
     }
     expect(names[0]).toContain("David Okoro");
-    expect(names[1]).toContain("Alex Example");
+    expect(names[1]).toContain("Sofia Ramirez");
   });
 
   // ★★★ `expectRowUniqueNames` CANNOT SEE THIS CASE, and that is a property of

@@ -20,7 +20,7 @@ The engine keys 1:1 on a single `outlookEventId` per entity, so an absence maps 
 - `end   = { dateTime: `${nextDay(endDate)}T00:00:00`, timeZone: "UTC" }` — Graph all-day `end` is **exclusive**, so a Mon–Fri absence (start=Mon, end=Fri) is Mon 00:00 → Sat 00:00 (5 all-day cells). Reusing `nextDay(endDate)` (not `startDate`) is the only structural difference from `changeToGraphEvent`.
 - `categories: [categoryFor(projectId, "absence")]` → `AIPM:<projectId>:absence` (type-scoped; list-based reconcile never cross-deletes another entity's events).
 - `subject: `${assignee} – ${type}`` (en-dash U+2013; e.g. "Jane Doe – vacation").
-- `body` (Text): `Type: <type>`, `Assignee: <assignee>`, `<note>`, `Managed by the AIPM PM Tracker.` — empty lines `.filter(Boolean)`-dropped, `\n`-joined (mirrors `changeToGraphEvent`).
+- `body` (Text): `Type: <type>`, `Assignee: <assignee>`, `<note>`, `Managed by AI PM Cockpit.` — empty lines `.filter(Boolean)`-dropped, `\n`-joined (mirrors `changeToGraphEvent`).
 
 The per-day alternative (N single-day events) is infeasible — only one `outlookEventId` field exists per absence. Rejected.
 

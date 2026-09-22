@@ -68,7 +68,7 @@ is the one below.
   `git commit --only <paths> -F <msgfile>`, writing the message file to the session scratchpad.
   **Never `--amend`.** `git checkout --` and `git restore` are deny-blocked: revert by writing the
   original bytes back, then prove `git diff --stat` is empty. End every commit message with
-  `Claude-Session: https://[session link removed]`.
+  the session trailer.
   Commit messages cite `§N`, never `#N` and never "closes".
 - **Mutants:** predict each one's result **in writing, before running it**. Run each one **on
   its own**. Restore by writing the original bytes back, and prove `git diff --stat` is clean

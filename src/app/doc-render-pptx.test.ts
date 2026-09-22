@@ -40,6 +40,7 @@ import { t, loadI18n, type Lang } from "./i18n";
 import { unzipBytes, partText } from "../test/unzip-bytes";
 import { base64ToBytes } from "./document-asset-upload";
 import type { ExportAssets } from "./document-export-assets";
+import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
 
 const ws = { tasks: [], raid: [] } as unknown as Workspace;
 
@@ -1055,7 +1056,7 @@ describe("renderDocumentPptx — dataSection", () => {
 // ---------------------------------------------------------------------------
 
 describe("renderDocumentPptx — palette", () => {
-  it("uses only sanctioned Acme colours in the slide parts", async () => {
+  it("uses only sanctioned brand colours in the slide parts", async () => {
     const sanctioned = [
       COLOR_DARK_BLUE,
       COLOR_GREEN,
@@ -1770,8 +1771,8 @@ describe("renderDocumentPptx — export footer", () => {
     expect((await partsWith("Acme GmbH")).get("ppt/theme/theme1.xml")).toContain('<a:clrScheme name="Acme GmbH">');
   });
 
-  it("keeps today's footer when none is passed", async () => {
+  it("keeps the built-in footer when none is passed", async () => {
     const parts = await partsWith();
-    expect(parts.get("ppt/slides/slide1.xml")).toContain("<a:t>Acme — AI PM Cockpit</a:t>");
+    expect(parts.get("ppt/slides/slide1.xml")).toContain(`<a:t>${DEFAULT_EXPORT_FOOTER}</a:t>`);
   });
 });

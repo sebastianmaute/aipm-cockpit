@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Migrate `src/app/gantt.tsx` (1726 LOC — the largest file in the app) to the AIPM palette + surface tokens; chrome + 6 named status-color edits, with no behavior/markup change.
+**Goal:** Migrate `src/app/gantt.tsx` (1726 LOC — the largest file in the app) to the brand palette + surface tokens; chrome + 6 named status-color edits, with no behavior/markup change.
 
 **Architecture:** Single-file class-string migration applying the shared chunk mapping + 4 named edit blocks (decided in the spec). Verified by both grep regexes + duplicate-utility scan + existing behavioral tests staying green.
 
@@ -32,42 +32,42 @@ READ the file. Apply the chunk mapping + the EXACT named edits below. **CRITICAL
 |---|---|
 | `bg-white` | `bg-surface` |
 | `bg-zinc-50/100`, `dark:bg-zinc-900/950` | `bg-surface-muted` |
-| `border-zinc-200/300`, `dark:border-zinc-700/800`, `border-AIPM-light-grey` | `border-line` |
-| `divide-zinc-*`, `divide-AIPM-light-grey` | `divide-line` |
-| `bg-AIPM-light-grey`(`/NN`) | `bg-surface-muted` |
+| `border-zinc-200/300`, `dark:border-zinc-700/800`, `border-ui-light-grey` | `border-line` |
+| `divide-zinc-*`, `divide-ui-light-grey` | `divide-line` |
+| `bg-ui-light-grey`(`/NN`) | `bg-surface-muted` |
 | `shadow-*` | remove |
-| `focus:ring-AIPM-dark-blue` / `focus-visible:ring-AIPM-dark-blue` / `ring-zinc-*` | `ring-AIPM-green` |
-| `hover:bg-zinc-*` / `dark:hover:bg-zinc-*` / `hover:bg-AIPM-light-grey` | `hover:bg-surface-muted` |
+| `focus:ring-ui-dark-blue` / `focus-visible:ring-ui-dark-blue` / `ring-zinc-*` | `ring-ui-green` |
+| `hover:bg-zinc-*` / `dark:hover:bg-zinc-*` / `hover:bg-ui-light-grey` | `hover:bg-surface-muted` |
 | `text-zinc-9/8/700` (+dark) | `text-foreground` |
 | `text-zinc-5/6/400` (+dark) | `text-muted-foreground` |
-| `text-AIPM-dark-grey` (+ any `dark:text-AIPM-light-grey`) | `text-foreground` |
-| `text-AIPM-medium-grey` (+ any dark) | `text-muted-foreground` |
+| `text-ui-dark-grey` (+ any `dark:text-ui-light-grey`) | `text-foreground` |
+| `text-ui-medium-grey` (+ any dark) | `text-muted-foreground` |
 | `bg-gradient-*`, `from-*`, `via-*`, `to-*` | remove |
 
-**KEEP UNCHANGED:** `bg-AIPM-dark-blue text-white` fills; heading pairs `text-AIPM-dark-blue dark:text-AIPM-light-grey`; ALL non-class code.
+**KEEP UNCHANGED:** `bg-ui-dark-blue text-white` fills; heading pairs `text-ui-dark-blue dark:text-ui-light-grey`; ALL non-class code.
 
 ### Named edits (EXACT before→after)
 
 **A) Severity icon fill — `High` entry of the severity-fill record (~line 144):**
-- `High: "fill-amber-500"` → `High: "fill-AIPM-purple"`
-- (Leave `Low: "fill-AIPM-medium-grey"`, `Medium: "fill-AIPM-blue"`, `Urgent: "fill-AIPM-pink"` UNCHANGED — they are already palette.)
+- `High: "fill-amber-500"` → `High: "fill-ui-purple"`
+- (Leave `Low: "fill-ui-medium-grey"`, `Medium: "fill-ui-blue"`, `Urgent: "fill-ui-pink"` UNCHANGED — they are already palette.)
 
 **B) Absence-state column tints (~lines 506–510):**
-- `bg-blue-200/40 dark:bg-blue-900/30` → `bg-AIPM-blue/20 dark:bg-AIPM-blue/25`
-- `bg-red-200/40 dark:bg-red-900/30` → `bg-AIPM-pink/20 dark:bg-AIPM-pink/25`
-- `bg-amber-200/40 dark:bg-amber-900/30` → `bg-AIPM-purple/20 dark:bg-AIPM-purple/25`
+- `bg-blue-200/40 dark:bg-blue-900/30` → `bg-ui-blue/20 dark:bg-ui-blue/25`
+- `bg-red-200/40 dark:bg-red-900/30` → `bg-ui-pink/20 dark:bg-ui-pink/25`
+- `bg-amber-200/40 dark:bg-amber-900/30` → `bg-ui-purple/20 dark:bg-ui-purple/25`
 
 **C) Destructive button (~line 1108):**
-- `border-red-500 bg-red-50 text-red-700 hover:bg-red-100 focus:ring-red-500 dark:border-red-500 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/60` → `border-AIPM-pink bg-AIPM-pink/10 text-AIPM-pink hover:bg-AIPM-pink/20 focus:ring-AIPM-pink dark:border-AIPM-pink dark:bg-AIPM-pink/15`
+- `border-red-500 bg-red-50 text-red-700 hover:bg-red-100 focus:ring-red-500 dark:border-red-500 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/60` → `border-ui-pink bg-ui-pink/10 text-ui-pink hover:bg-ui-pink/20 focus:ring-ui-pink dark:border-ui-pink dark:bg-ui-pink/15`
 
 **D) Overdue ring (~line 1594):**
-- `ring-2 ring-red-500` → `ring-2 ring-AIPM-pink`
+- `ring-2 ring-red-500` → `ring-2 ring-ui-pink`
 
 ### Verify (REQUIRED — all must pass)
 - [ ] **Step 1: Migrate** — READ `src/app/gantt.tsx`; apply the chrome mapping table to all chrome; then apply the 4 named edit blocks A–D above with exact before→after strings.
 - [ ] **Step 2: Grep-verify** — run BOTH regexes on `src/app/gantt.tsx`:
   - (a) `zinc-|shadow-|bg-gradient|from-\[|(amber|red|emerald|sky|rose|slate|gray|orange|yellow|teal|cyan|indigo|violet|fuchsia|green|blue|purple|pink)-[0-9]` → ZERO matches
-  - (b) `border-AIPM-light-grey|divide-AIPM-light-grey|bg-AIPM-light-grey|text-AIPM-dark-grey|text-AIPM-medium-grey` → ZERO matches
+  - (b) `border-ui-light-grey|divide-ui-light-grey|bg-ui-light-grey|text-ui-dark-grey|text-ui-medium-grey` → ZERO matches
 - [ ] **Step 3: Duplicate-utility scan** — read each changed className → confirm NO element has two `bg-*`, two `border-<color>`, or two `text-<color>` base utilities (variants are fine).
 - [ ] **Step 4: Gates** — `npx vitest run gantt` (existing tests must stay green); `npx tsc --noEmit` (0); `npm run lint` (0). Restore `sample-workspace.md` if dirty. If any test file (`gantt.test.tsx` or `gantt-utils.test.ts` etc.) asserts on the OLD palette classes (zinc/amber/red shades), update those assertions to the NEW tokens to match the migration.
 - [ ] **Step 5: Commit**
@@ -75,7 +75,7 @@ READ the file. Apply the chunk mapping + the EXACT named edits below. **CRITICAL
 git add src/app/gantt.tsx
 # also stage gantt.test.tsx if you updated assertions there:
 git add src/app/gantt.test.tsx 2>/dev/null || true
-git commit -m "style(palette): gantt to AIPM palette (High severity -> purple; absence column tints; overdue ring & destructive -> pink)"
+git commit -m "style(palette): gantt to brand palette (High severity -> purple; absence column tints; overdue ring & destructive -> pink)"
 ```
 
 ---
@@ -86,7 +86,7 @@ git commit -m "style(palette): gantt to AIPM palette (High severity -> purple; a
 
 - [ ] **Step 1: version.ts** — READ. Set `export const APP_VERSION = "0.15.7";` (currently "0.15.6"). Keep `APP_BUILD_DATE = "2026-05-28"; // Le Guin milestone`. Do NOT add a highlight key. Add a top comment above the existing `// 0.15.6 …` block:
 ```ts
-// 0.15.7 sweeps the Gantt onto the AIPM palette — surface tokens, no shadows;
+// 0.15.7 sweeps the Gantt onto the brand palette — surface tokens, no shadows;
 // High-severity icon fills purple to complete the priority ramp; absence
 // column tints (vacation=blue, sick=pink, training=purple) at /20 alpha;
 // overdue ring + destructive button in pink.
@@ -97,7 +97,7 @@ git commit -m "style(palette): gantt to AIPM palette (High severity -> purple; a
 ## [0.15.7] — 2026-05-28
 
 ### Changed
-- Continued the AIPM design-system rollout: the Gantt now uses the AIPM palette and surface tokens — consistent light/dark surfaces, no drop shadows; the High-severity bar icon switched from amber to purple (completing the priority ramp); absence column tints recoloured to the palette (vacation=blue, sick=pink, training=purple); overdue ring and the destructive button now in pink.
+- Continued the brand design-system rollout: the Gantt now uses the brand palette and surface tokens — consistent light/dark surfaces, no drop shadows; the High-severity bar icon switched from amber to purple (completing the priority ramp); absence column tints recoloured to the palette (vacation=blue, sick=pink, training=purple); overdue ring and the destructive button now in pink.
 ```
 (Match `[0.15.6]` style if it differs.)
 
@@ -119,14 +119,14 @@ git commit -m "docs(release): 0.15.7 — palette sweep of the Gantt"
 
 ## Final review
 
-Dispatch a final reviewer over `git diff main...HEAD`. Read `version.ts`/`CHANGELOG.md` directly. Confirm: `APP_VERSION === "0.15.7"`, no new highlight key, real `[0.15.7]` entry, DESIGN-TOKENS migration-status updated (gantt ✅; "Remaining" only mentions menus+chrome+misc). Run BOTH verification regexes on `gantt.tsx` → ZERO matches each. Confirm the named edits landed: severity High = `fill-AIPM-purple` (others unchanged); column tints blue/pink/purple at `/20`/`/25`; destructive button uses the gantt-variant recipe (`bg-AIPM-pink/10 ... hover:bg-AIPM-pink/20 dark:bg-AIPM-pink/15`); overdue ring = `ring-AIPM-pink`. Confirm class-strings only (no logic/markup/behavior change). Confirm scope = `gantt.tsx` (+ possibly `gantt.test.tsx`) + `version.ts` + `CHANGELOG.md` + `docs/DESIGN-TOKENS.md`. Full suite green. Then use `superpowers:finishing-a-development-branch`.
+Dispatch a final reviewer over `git diff main...HEAD`. Read `version.ts`/`CHANGELOG.md` directly. Confirm: `APP_VERSION === "0.15.7"`, no new highlight key, real `[0.15.7]` entry, DESIGN-TOKENS migration-status updated (gantt ✅; "Remaining" only mentions menus+chrome+misc). Run BOTH verification regexes on `gantt.tsx` → ZERO matches each. Confirm the named edits landed: severity High = `fill-ui-purple` (others unchanged); column tints blue/pink/purple at `/20`/`/25`; destructive button uses the gantt-variant recipe (`bg-ui-pink/10 ... hover:bg-ui-pink/20 dark:bg-ui-pink/15`); overdue ring = `ring-ui-pink`. Confirm class-strings only (no logic/markup/behavior change). Confirm scope = `gantt.tsx` (+ possibly `gantt.test.tsx`) + `version.ts` + `CHANGELOG.md` + `docs/DESIGN-TOKENS.md`. Full suite green. Then use `superpowers:finishing-a-development-branch`.
 
 ---
 
 ## Self-Review (author)
 
-**Spec coverage:** Severity icon High → `fill-AIPM-purple` → block A. Absence column tints (vacation/sick/training) → block B. Destructive button (gantt-variant) → block C. Overdue ring → block D. Chrome → the chunk mapping. Release 0.15.7 + DESIGN-TOKENS migration-status → Task 2. All spec items mapped.
+**Spec coverage:** Severity icon High → `fill-ui-purple` → block A. Absence column tints (vacation/sick/training) → block B. Destructive button (gantt-variant) → block C. Overdue ring → block D. Chrome → the chunk mapping. Release 0.15.7 + DESIGN-TOKENS migration-status → Task 2. All spec items mapped.
 
 **Placeholder scan:** No TBD/TODO; every replacement is an exact before→after string. The CHANGELOG "match style" note is a real source-confirmation.
 
-**Type consistency:** Only Tailwind utility names; targets (`fill-AIPM-purple`, `bg-AIPM-blue/20`, `bg-AIPM-pink/20`, `bg-AIPM-purple/20`, `bg-AIPM-pink/10`, `text-AIPM-pink`, `border-AIPM-pink`, `hover:bg-AIPM-pink/20`, `ring-AIPM-pink`, `dark:bg-AIPM-*/25` and `dark:bg-AIPM-pink/15`, plus the standard surface tokens) all resolve (palette `--AIPM-*` supports arbitrary alpha + `fill-` utilities; surface tokens defined in E0). The verification regex excludes `AIPM-*` alpha utilities (no digit follows the color word).
+**Type consistency:** Only Tailwind utility names; targets (`fill-ui-purple`, `bg-ui-blue/20`, `bg-ui-pink/20`, `bg-ui-purple/20`, `bg-ui-pink/10`, `text-ui-pink`, `border-ui-pink`, `hover:bg-ui-pink/20`, `ring-ui-pink`, `dark:bg-ui-*/25` and `dark:bg-ui-pink/15`, plus the standard surface tokens) all resolve (palette `--ui-*` supports arbitrary alpha + `fill-` utilities; surface tokens defined in E0). The verification regex excludes `ui-*` alpha utilities (no digit follows the color word).

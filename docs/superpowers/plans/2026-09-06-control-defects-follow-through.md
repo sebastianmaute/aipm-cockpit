@@ -220,8 +220,6 @@ pluralize() cannot express the German singulars.
 integrationsTursoUrlEnvUnusable discloses an env var that is set but not a
 usable Turso URL (§337). The three integrationsTursoTest* keys carry the
 connection probe's button and its two outcomes (§408).
-
-Claude-Session: https://[session link removed]
 MSGEOF
 ```
 
@@ -427,8 +425,6 @@ to null. Belongs in the CHANGELOG as a behaviour change, not a bug fix.
 
 The file header claimed env vars "win when set at build time"; corrected in
 this commit rather than left to read as current.
-
-Claude-Session: https://[session link removed]
 MSGEOF
 ```
 
@@ -653,8 +649,6 @@ discloses why instead of leaving a dead "comes from the environment" hint.
 The TOKEN deliberately keeps its presence check: any non-empty string is a
 plausible token, so there is nothing to test locally. The Test-connection
 button added next is what tells a user an env token is wrong.
-
-Claude-Session: https://[session link removed]
 MSGEOF
 ```
 
@@ -926,8 +920,6 @@ The probe sits in turso-pipeline.ts rather than a new module because a new
 What this does NOT close: canMoveToTurso and the two panels' tursoConfigured
 still gate on the shape check, so a present-but-wrong credential pair still
 yields an enabled control. §408 stays open for that half.
-
-Claude-Session: https://[session link removed]
 MSGEOF
 ```
 
@@ -1085,8 +1077,6 @@ This was never data loss — the edit was written, not discarded — so it is a
 product correction, not a loss fix. The new test is mutation-proved against
 the conditional-render form; without the "not called" assertion it passes
 under both shapes.
-
-Claude-Session: https://[session link removed]
 MSGEOF
 ```
 
@@ -1263,8 +1253,6 @@ and WCAG 2.5.3 needs the accessible name to contain the visible text — one
 shared string guarantees that by construction.
 
 §407 stays OPEN for the remaining 45 keys in the class, filed separately.
-
-Claude-Session: https://[session link removed]
 MSGEOF
 ```
 
@@ -1450,8 +1438,6 @@ than papered over with a test that cannot reach them.
 
 Every assertion carries a non-vacuity guard — a zero-element run fails rather
 than passing silently.
-
-Claude-Session: https://[session link removed]
 MSGEOF
 ```
 
@@ -1564,8 +1550,6 @@ helper, because a two-fragment API cannot express the German singulars.
 user-visible claim still holds, so only the body is corrected and the entry
 stays OPEN. §284 was titled FIXED with no CLOSED marker, so every parser
 counted it open; closed as bookkeeping.
-
-Claude-Session: https://[session link removed]
 MSGEOF
 ```
 

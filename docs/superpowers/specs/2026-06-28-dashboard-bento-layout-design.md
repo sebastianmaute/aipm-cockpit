@@ -142,7 +142,7 @@ so the ~30 existing test render sites + callers need zero edits.
 - KPI/card buttons, ActionRow, hero overrides keep existing labels. Bento = layout only, no new
   controls.
 - Run `npx playwright test e2e/a11y.spec.ts --project=chromium -g "Dashboard"` before push (covers
-  AIPM-light/dark + Mockup-light). Unit suite never runs playwright.
+  Petrol-light/dark + Mockup-light). Unit suite never runs playwright.
 
 **Density:** every tier wrapper + bento grid + cards use `dc.outer/sectionGap/kpiGap/cardPad` — no
 literal `gap-*`/`space-y-*`/`p-*`. Compact compresses tiers + bento. The compact test asserts

@@ -742,7 +742,7 @@ Nine sites carry the version; `version:sync` propagates them. ★★ `version:ch
 
 Add a `## [<version>] - <date> "<Codename>"` entry with user-facing `### Fixed` bullets — what a user notices, not what the code does.
 
-★★★ **NEVER put a `[session link removed]...` URL in `CHANGELOG.md` or in the MR description.** Commit trailers and MR comments are explicitly exempt. Verify with a grep returning 0 before committing.
+★★★ **NEVER put an assistant session URL in `CHANGELOG.md` or in the MR description.** Commit trailers and MR comments are explicitly exempt. Verify with a grep returning 0 before committing.
 
 - [ ] **Step 5: Commit, push, open the MR**
 
