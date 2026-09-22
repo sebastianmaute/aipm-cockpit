@@ -1237,7 +1237,7 @@ git commit -m "release: 0.118.0 \"Atwood\" — Dashboard landing cockpit"
 
 ## After all tasks
 
-Dispatch a final code review over the whole branch, then use `superpowers:finishing-a-development-branch`. Per the user's established loop: push, open a GitLab MR (host gitlab.example.com,  (GitLab)), poll the pipeline, merge on green, sync `main`, delete the branch. Pipeline order: install → lint → typecheck → unit → build → e2e (the e2e job runs the full axe gate including Dashboard).
+Dispatch a final code review over the whole branch, then use `superpowers:finishing-a-development-branch`. Per the user's established loop: push, open a GitLab MR (host gitlab.example.com), poll the pipeline, merge on green, sync `main`, delete the branch. Pipeline order: install → lint → typecheck → unit → build → e2e (the e2e job runs the full axe gate including Dashboard).
 
 ## Self-review notes (plan vs spec)
 

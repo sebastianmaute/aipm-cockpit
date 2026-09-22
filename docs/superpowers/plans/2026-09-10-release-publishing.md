@@ -6,7 +6,7 @@
 
 **Architecture:** Three small CI jobs and two pure script libraries. A tag guard fails when the tag disagrees with `src/app/version.ts`, without stopping the rest of the pipeline — every other quality and build job still runs; only the tag build's own `needs:` waits on that guard, so a drifted tag skips the publish job downstream of it; the existing manual `desktop-package` job splits into a hidden base plus a branch job and a tag job so artifact scope and retention can differ; a `release` stage job carries no `needs:` at all and relies on stage order (`dependencies: []` plus the default `when: on_success`) so it only runs once every earlier-stage job has succeeded, then calls the Releases API through `node:fetch` and attaches a per-tag artifact URL. All comparison and payload logic lives in pure, unit-tested `scripts/*-lib.mjs` modules — the CI YAML holds no logic.
 
-**Tech Stack:** GitLab CI (self-managed,  (GitLab)), `electronuserland/builder:wine`, Node 24 (`node:24-bookworm-slim`, global `fetch`), vitest over `scripts/**/*.test.mjs`, electron-builder NSIS.
+**Tech Stack:** GitLab CI (self-managed), `electronuserland/builder:wine`, Node 24 (`node:24-bookworm-slim`, global `fetch`), vitest over `scripts/**/*.test.mjs`, electron-builder NSIS.
 
 ---
 
@@ -54,7 +54,7 @@ Reproduce: `du -sm desktop/release/*` and `ls -l desktop/release/*.exe desktop/r
 
 ★★ **A local `desktop/release/` can hold TWO installers and that is not a bug.** electron-builder does not clean the directory, so a build predating the `artifactName` change leaves `aipm-cockpit Setup 0.301.0.exe` beside the new name — which is how a local `du` reports 500 MiB rather than 408. CI always starts clean. The globs chosen in Task 4 are self-protecting against this anyway: `*-setup.exe` does not match `aipm-cockpit Setup 0.301.0.exe` (capital S, spaces).
 
-★★★ **THE ARTIFACT IS 92.9 MiB (97.5 MB — the installer plus its blockmap) AND GITLAB'S DEFAULT `max_artifacts_size` IS 100 MB PER JOB.** That is ~7.1% headroom if GitLab's "MB" there means MiB, and only ~2.5% if it is decimal — which unit it applies is NOT established here, so plan for the smaller figure. The spec records that the settings endpoint is admin-only and unreadable from here — so **this instance's real limit is unknown**, and 100 MB is the documented default, not a measured fact about  (GitLab). One electron bump or a few more bundled assets crosses it, and the failure lands as an upload error *after* a successful build. Spike 1 measures it; Task 11 is where it is first observed.
+★★★ **THE ARTIFACT IS 92.9 MiB (97.5 MB — the installer plus its blockmap) AND GITLAB'S DEFAULT `max_artifacts_size` IS 100 MB PER JOB.** That is ~7.1% headroom if GitLab's "MB" there means MiB, and only ~2.5% if it is decimal — which unit it applies is NOT established here, so plan for the smaller figure. The spec records that the settings endpoint is admin-only and unreadable from here — so **this instance's real limit is unknown**, and 100 MB is the documented default, not a measured fact about this project. One electron bump or a few more bundled assets crosses it, and the failure lands as an upload error *after* a successful build. Spike 1 measures it; Task 11 is where it is first observed.
 
 ## File structure
 

@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Contents
 
-Read [Commands](#commands) and [Hard constraints](#hard-constraints-ci-enforced--these-gate-merges)
+Read [Commands](#commands) and [Hard constraints](#hard-constraints)
 before your first edit — the rest is reference, reachable from here.
 
 **In this file** (always loaded):
@@ -19,7 +19,7 @@ before your first edit — the rest is reference, reachable from here.
 |---|---|
 | [The doc set](#the-doc-set--what-lives-where) | which doc owns what — read before restating a fact in a second file |
 | [Commands](#commands) | every script + the CI gotcha that bites for each |
-| [Hard constraints](#hard-constraints-ci-enforced--these-gate-merges) | i18n · byte-stable serializers · palette · a11y gate · six write paths · secrets · CSP |
+| [Hard constraints](#hard-constraints) | i18n · byte-stable serializers · palette · a11y gate · six write paths · secrets · CSP |
 | [Architecture pointers](#architecture-pointers) | orientation, module maps, extraction conventions, panel splits, toolbar order |
 | [Subsystem reference](#subsystem-reference--deeper-detail-loaded-on-demand) | every file in `docs/AGENTS/`, and why they are not loaded |
 
@@ -448,7 +448,7 @@ npx eslint --max-warnings=0 src/app; echo "EXIT=$?"        # no pipe at all
 ★★ This matters more here than in most repos: the gates ARE the safety net, and a defeated gate is
 worse than no gate — it reports success. A "green" claim is only worth what the exit code behind it is.
 
-## Hard constraints (CI-enforced — these gate merges)
+## Hard constraints
 
 - **i18n:** `i18n.ts` (EN) + `i18n.de.ts` (DE) key sets must be identical (tsc enforces).
   DE must use real German umlauts — `i18n-encoding` test BANS ASCII subs (fuer/druecken).
@@ -1266,7 +1266,7 @@ proves only that a backticked NAME is real, never that a CLAIM about it is true.
 |---|---|
 | [dashboard.md](docs/AGENTS/dashboard.md) | the landing cockpit — the arrangeable tile grid · delta strip · KPI trends · sparkline · coaching · density · digest |
 | [accessibility.md](docs/AGENTS/accessibility.md) | the a11y hard constraint — accessible names · row-unique per-row names (`buildRowTokens`) · WCAG 2.5.3 label-in-name · `ToggleButton` state + the pressed marker · what the axe gate scans and is silent on |
-| [ci.md](docs/AGENTS/ci.md) | the GitLab pipeline ( (GitLab)) — every quality gate and its exit codes · e2e + prod-smoke · desktop packaging · the release stage · where `quality-gate-bypass` exists |
+| [ci.md](docs/AGENTS/ci.md) | the GitLab pipeline — every quality gate and its exit codes · e2e + prod-smoke · desktop packaging · the release stage · where `quality-gate-bypass` exists |
 | [ui-shell.md](docs/AGENTS/ui-shell.md) | Help system · navigation & landing · focus/keyboard · surfaces & controls · tables (`SortResizeTh` · `TableFilter`) · ★ **dismissal (the Escape/Tab protocol — read before touching any modal, popover or panel)** |
 | [theming.md](docs/AGENTS/theming.md) | colour schemes · the `--ui-*` token families · AA derivation · the dark-mode hover trap · branding · print · design-system primitives |
 | [insights.md](docs/AGENTS/insights.md) | detect → reconcile → recommend → outcome → digest |

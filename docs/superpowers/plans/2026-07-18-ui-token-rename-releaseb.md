@@ -12,7 +12,7 @@ code-without-tests fails vitest, guards-without-code fail palette). Then drive a
 add the release, review, merge.
 
 **Tech Stack:** Next.js 16 (forked) / React 19 / Tailwind v4 / TypeScript. Node codemod over
-`git ls-files`. GitLab CI  (GitLab).
+`git ls-files`. GitLab CI.
 
 **Decisions (from spec `docs/superpowers/specs/2026-07-18-ui-token-rename-releaseb-design.md`):**
 prefix `ui-`; exhaustive docs; no key migration; shipped `public/themes/*.json` rewritten to `--ui-*`;

@@ -523,6 +523,8 @@ A change lands like this:
 2. Run `npm run gate:local`. There is no CI until the pipeline is ported to GitHub Actions, so
    this is the gate. It stops at the first failure; do not merge on red. It refuses to start over
    uncommitted tracked changes (pass `--allow-dirty` to override), and prints the commit it gated.
+   Its two vitest steps use half the logical CPUs; set `GATE_LOCAL_WORKERS=<n>` to choose another
+   count.
 3. Merge with a merge commit (`gh pr merge --merge`); squash and rebase merging are disabled so
    the history keeps the shape the commit citations rely on. Never enable auto-merge.
 
@@ -532,9 +534,8 @@ No releases and no tags are made until releasing moves to GitHub Releases.
 
 Before opening a PR:
 
-- [ ] `npm run gate:local` passes (the merge gate until CI runs on GitHub).
-- [ ] `npm run build` passes locally.
-- [ ] `npm run lint` is clean (or warnings are explained).
+- [ ] `npm run gate:local` passes (the merge gate until CI runs on GitHub; it includes lint and the
+      build).
 - [ ] New user-facing strings have both EN and DE translations.
 - [ ] If you added a tab / popover / panel, the Help menu (`help-menu.tsx`)
       and Version highlights (`version.ts`) reference it where appropriate.

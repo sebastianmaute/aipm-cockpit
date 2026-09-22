@@ -65,7 +65,7 @@ Three shells from one tree: **modern** (default — sidebar + off-canvas drawer)
 strip), **popout** (read-only mirror, no header). A new top-bar control must be wired into *both*
 `AppHeader` and the `ModernShell` `topBarMenus` slot or it is invisible in one layout.
 
-## CI gates (GitLab,  (GitLab))
+## CI gates (GitLab)
 
 `install → quality → build → e2e → release` (the release stage runs on tag pipelines only). Quality is
 blocking; the jobs are listed in `docs/AGENTS/ci.md` and enumerated from the source with

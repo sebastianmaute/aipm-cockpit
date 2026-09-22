@@ -11,7 +11,7 @@ editor option, so the injected `<style>` carries the nonce the existing policy a
 accepts. `src/proxy.ts` is not modified; the CSP is not weakened.
 
 **Tech stack:** Next.js `^16.2.11` · React `19.2.4` · `@tiptap/react` +
-`@tiptap/starter-kit` `^3.27.1` · Playwright · vitest 4.1.8 · GitLab CI ( (GitLab)).
+`@tiptap/starter-kit` `^3.27.1` · Playwright · vitest 4.1.8 · GitLab CI.
 
 ★ `@tiptap/core` is a TRANSITIVE dependency, not a direct one — the `injectNonce` option
 is surfaced through `useEditor`'s options type, which `@tiptap/react` re-exports from

@@ -6,7 +6,7 @@
 
 **Architecture:** Pass the per-request CSP nonce into Tiptap's supported `injectNonce` editor option at the app's single `useEditor` call, so the injected `<style>` carries a nonce the existing policy already accepts. `src/proxy.ts` and the CSP are NOT modified. A new prod-smoke script plus CI job closes the structural blind spot that let this ship unseen — `npm run e2e:smoke` starts no server, so it is only ever pointed at a dev server, and the dev CSP is the permissive branch.
 
-**Tech Stack:** Next.js `^16.2.11` · React `19.2.4` · `@tiptap/react` + `@tiptap/starter-kit` `^3.27.1` (`@tiptap/core` is transitive) · vitest 4.1.8 · Playwright · GitLab CI ( (GitLab)).
+**Tech Stack:** Next.js `^16.2.11` · React `19.2.4` · `@tiptap/react` + `@tiptap/starter-kit` `^3.27.1` (`@tiptap/core` is transitive) · vitest 4.1.8 · Playwright · GitLab CI.
 
 **Spec:** `docs/superpowers/specs/2026-08-09-tiptap-csp-nonce-design.md` (approved; gitignored, so it is not in the repo — this plan restates everything needed).
 
