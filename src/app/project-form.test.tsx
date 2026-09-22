@@ -32,8 +32,8 @@ const ADDRESS_BOOK: Contact[] = [
 const RESOURCES: Resource[] = [
   {
     id: 1,
-    firstName: "Sample",
-    lastName: "Dummy",
+    firstName: "Sofia",
+    lastName: "Ramirez",
     email: "s@x.com",
     roleId: null,
     utilizationMode: "percent",
@@ -176,15 +176,15 @@ describe("ProjectForm", () => {
 
     const picker = contactPicker();
     fireEvent.focus(picker);
-    fireEvent.change(picker, { target: { value: "Sample" } });
-    fireEvent.mouseDown(screen.getByText("Alex Example"));
+    fireEvent.change(picker, { target: { value: "Sofia" } });
+    fireEvent.mouseDown(screen.getByText("Sofia Ramirez"));
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
 
     fireEvent.click(saveButton());
     const meta = onSubmit.mock.calls[0][0];
-    const Sample = meta.contactPersons.find((c) => c.name === "Alex Example");
-    expect(Sample).toEqual({
-      name: "Alex Example",
+    const sofia = meta.contactPersons.find((c) => c.name === "Sofia Ramirez");
+    expect(sofia).toEqual({
+      name: "Sofia Ramirez",
       email: "s@x.com",
       synced: true,
       resourceId: 1,

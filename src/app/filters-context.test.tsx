@@ -39,8 +39,8 @@ describe("FiltersProvider", () => {
     act(() => result.current.setPriorityFilter("High"));
     expect(result.current.priorityFilter).toBe("High");
 
-    act(() => result.current.setAssigneeFilter("Alex Example"));
-    expect(result.current.assigneeFilter).toBe("Alex Example");
+    act(() => result.current.setAssigneeFilter("Sofia Ramirez"));
+    expect(result.current.assigneeFilter).toBe("Sofia Ramirez");
 
     act(() => result.current.setGroupFilter("Auth Migration"));
     expect(result.current.groupFilter).toBe("Auth Migration");
@@ -67,7 +67,7 @@ describe("FiltersProvider", () => {
     act(() => {
       result.current.setSearch("hello");
       result.current.setPriorityFilter("High");
-      result.current.setAssigneeFilter("Alex Example");
+      result.current.setAssigneeFilter("Sofia Ramirez");
       result.current.setGroupFilter("Auth Migration");
       result.current.setLabelFilter("backend");
       result.current.setSortKey("dueDate");
@@ -96,7 +96,7 @@ describe("FiltersProvider", () => {
     act(() => {
       result.current.setSearch("hello");
       result.current.setPriorityFilter("High");
-      result.current.setAssigneeFilter("Alex Example");
+      result.current.setAssigneeFilter("Sofia Ramirez");
       result.current.setGroupFilter("Auth Migration");
       result.current.setLabelFilter("backend");
       result.current.setHealthFilter("red");

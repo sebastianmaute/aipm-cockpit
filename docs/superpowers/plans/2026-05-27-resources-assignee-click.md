@@ -30,20 +30,20 @@ The planning grid renders one row per `Resource` (`resources.map((r) => ...)`). 
 ```tsx
   test("planning view: clicking a resource name calls onEditResource", () => {
     const onEditResource = vi.fn();
-    const resources = [{ id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const resources = [{ id: 1, firstName: "Sofia", lastName: "Ramirez", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
     render(<ResourcesPanel {...baseProps} resources={resources} plan={plan} workdayHours={8}
       onEditResource={onEditResource} onSetUtilization={() => {}}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
     fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
-    fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sofia Ramirez" }));
     expect(onEditResource).toHaveBeenCalledWith(resources[0]);
   });
 ```
 
-Rationale: switching to the Planning view unmounts the Directory table, so `getByRole("button", { name: "Alex Example" })` resolves uniquely to the planning name button. The per-period utilization inputs have aria-labels like `"Utilization for Alex Example in 2026-02"`, which do not match the exact accessible name `"Alex Example"`.
+Rationale: switching to the Planning view unmounts the Directory table, so `getByRole("button", { name: "Sofia Ramirez" })` resolves uniquely to the planning name button. The per-period utilization inputs have aria-labels like `"Utilization for Sofia Ramirez in 2026-02"`, which do not match the exact accessible name `"Sofia Ramirez"`.
 
-- [ ] **Step 2: Run test to verify it fails** — `npx vitest run src/app/resources-panel.test.tsx -t "clicking a resource name"`. Expected: FAIL — `getByRole("button", { name: "Alex Example" })` finds nothing (the name is plain text, not a button) in the planning view.
+- [ ] **Step 2: Run test to verify it fails** — `npx vitest run src/app/resources-panel.test.tsx -t "clicking a resource name"`. Expected: FAIL — `getByRole("button", { name: "Sofia Ramirez" })` finds nothing (the name is plain text, not a button) in the planning view.
 
 - [ ] **Step 3: Implement** — in `src/app/resources-panel.tsx`, find the planning grid's per-resource name cell (inside `const rowsJsx = resources.map((r) => { ... return ( <tr key={r.id}> ...`):
 
@@ -96,7 +96,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { ResourceCalendar } from "./resource-calendar";
 import type { Resource } from "./types";
 
-const Sample: Resource = { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} };
+const sofia: Resource = { id: 1, firstName: "Sofia", lastName: "Ramirez", roleId: null, utilizationMode: "percent", utilization: {} };
 
 const baseProps = {
   lang: "en-US" as const,
@@ -115,13 +115,13 @@ describe("ResourceCalendar assignee click", () => {
     render(
       <ResourceCalendar
         {...baseProps}
-        rows={[{ key: "Alex Example", display: "Alex Example", email: "" }]}
-        resources={[Sample]}
+        rows={[{ key: "sofia ramirez", display: "Sofia Ramirez", email: "" }]}
+        resources={[sofia]}
         onEditResource={onEditResource}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
-    expect(onEditResource).toHaveBeenCalledWith(Sample);
+    fireEvent.click(screen.getByRole("button", { name: "Sofia Ramirez" }));
+    expect(onEditResource).toHaveBeenCalledWith(sofia);
   });
 
   test("unmatched name opens Add Resource prefilled from the display name", () => {
@@ -140,7 +140,7 @@ describe("ResourceCalendar assignee click", () => {
 });
 ```
 
-Rationale: the name button's accessible name is exactly the display string (`"Alex Example"`). The per-day cell buttons have accessible names like `"Alex Example — 2026-05-27"` (the tooltip text), which do NOT match the exact name `"Alex Example"`, so the query resolves uniquely to the name button.
+Rationale: the name button's accessible name is exactly the display string (`"Sofia Ramirez"`). The per-day cell buttons have accessible names like `"Sofia Ramirez — 2026-05-27"` (the tooltip text), which do NOT match the exact name `"Sofia Ramirez"`, so the query resolves uniquely to the name button.
 
 - [ ] **Step 2: Run test to verify it fails** — `npx vitest run src/app/resource-calendar.test.tsx`. Expected: FAIL — TypeScript/runtime error or no matching button, because `resources`/`onEditResource`/`onAddResource` are not yet props and the name is plain text.
 

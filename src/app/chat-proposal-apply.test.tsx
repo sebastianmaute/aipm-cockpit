@@ -31,7 +31,7 @@ function seedTask(id: number, taskName: string, assigneeEmail = ""): Task {
   return {
     id,
     taskName,
-    assignee: "M. Jordan",
+    assignee: "M. Bennett",
     assigneeEmail,
     dueDate: "2026-09-30",
     lastUpdateDate: "2026-05-19",
@@ -216,7 +216,7 @@ describe("applyProposal", () => {
     expect(result.current.undo.stack).toHaveLength(0);
 
     const outcome = await applyAll(result, [
-      { name: "create_task", input: { taskName: "Minted", assignee: "M. Jordan", dueDate: "2026-10-01" } },
+      { name: "create_task", input: { taskName: "Minted", assignee: "M. Bennett", dueDate: "2026-10-01" } },
       { name: "update_task", input: { id: 2, taskName: "After" } },
       { name: "delete_task", input: { id: 3 } },
     ]);
@@ -254,8 +254,8 @@ describe("applyProposal", () => {
     const { result } = renderApply();
 
     const outcome = await applyAll(result, [
-      { name: "create_task", input: { taskName: "A", assignee: "M. Jordan", dueDate: "2026-10-01" } },
-      { name: "create_task", input: { taskName: "B", assignee: "M. Jordan", dueDate: "2026-10-02" } },
+      { name: "create_task", input: { taskName: "A", assignee: "M. Bennett", dueDate: "2026-10-01" } },
+      { name: "create_task", input: { taskName: "B", assignee: "M. Bennett", dueDate: "2026-10-02" } },
     ]);
 
     // Positive observable: both creates landed, so the absence below is an
@@ -395,8 +395,8 @@ describe("applyProposal remaps provisional ids to the real ones", () => {
     const outcome = await applyPlan(
       result,
       [
-        { name: "create_task", input: { taskName: "First minted", assignee: "M. Jordan", dueDate: "2026-10-01" } },
-        { name: "create_task", input: { taskName: "Second minted", assignee: "M. Jordan", dueDate: "2026-10-02" } },
+        { name: "create_task", input: { taskName: "First minted", assignee: "M. Bennett", dueDate: "2026-10-01" } },
+        { name: "create_task", input: { taskName: "Second minted", assignee: "M. Bennett", dueDate: "2026-10-02" } },
         { name: "delete_task", input: { id: 101 } },
       ],
       [101, 102],
@@ -422,7 +422,7 @@ describe("applyProposal remaps provisional ids to the real ones", () => {
     const outcome = await applyPlan(
       result,
       [
-        { name: "create_task", input: { taskName: "Minted", assignee: "M. Jordan", dueDate: "2026-10-01" } },
+        { name: "create_task", input: { taskName: "Minted", assignee: "M. Bennett", dueDate: "2026-10-01" } },
         { name: "set_task_dependencies", input: { id: 2, dependencies: [{ taskId: 101, type: "FS" }] } },
       ],
       [101],
@@ -442,7 +442,7 @@ describe("applyProposal remaps provisional ids to the real ones", () => {
     const outcome = await applyPlan(
       result,
       [
-        { name: "create_task", input: { taskName: "Minted", assignee: "M. Jordan", dueDate: "2026-10-01" } },
+        { name: "create_task", input: { taskName: "Minted", assignee: "M. Bennett", dueDate: "2026-10-01" } },
         { name: "create_milestone", input: { name: "Depends on it", date: "2026-11-01", linkedTaskIds: [101] } },
       ],
       [101, 102],
@@ -475,7 +475,7 @@ describe("applyProposal remaps provisional ids to the real ones", () => {
       result,
       [
         { name: "create_milestone", input: { name: "Minted milestone", date: "2026-11-01" } },
-        { name: "create_task", input: { taskName: "Minted task", assignee: "M. Jordan", dueDate: "2026-10-01" } },
+        { name: "create_task", input: { taskName: "Minted task", assignee: "M. Bennett", dueDate: "2026-10-01" } },
         { name: "delete_milestone", input: { id: 101 } },
       ],
       [101, 101],
@@ -534,7 +534,7 @@ describe("applyProposal remaps provisional ids to the real ones", () => {
     const outcome = await applyPlan(
       result,
       [
-        { name: "create_task", input: { taskName: "Fine", assignee: "M. Jordan", dueDate: "2026-10-01" } },
+        { name: "create_task", input: { taskName: "Fine", assignee: "M. Bennett", dueDate: "2026-10-01" } },
         { name: "delete_task", input: { id: 2 } },
       ],
       [2],
@@ -554,7 +554,7 @@ describe("applyProposal remaps provisional ids to the real ones", () => {
     const { result } = renderApply();
 
     const outcome = await applyAll(result, [
-      { name: "create_task", input: { taskName: "Minted", assignee: "M. Jordan", dueDate: "2026-10-01" } },
+      { name: "create_task", input: { taskName: "Minted", assignee: "M. Bennett", dueDate: "2026-10-01" } },
       { name: "delete_task", input: { id: 2 } },
     ]);
 
@@ -584,7 +584,7 @@ describe("a row targeting a row created in the same plan now applies (§380)", (
     const outcome = await applyPlan(
       result,
       [
-        { name: "create_task", input: { taskName: "Minted", assignee: "M. Jordan", dueDate: "2026-10-01" } },
+        { name: "create_task", input: { taskName: "Minted", assignee: "M. Bennett", dueDate: "2026-10-01" } },
         { name: "update_task", input: { id: 101, taskName: "Renamed" } },
         { name: "create_milestone", input: { name: "Minted milestone", date: "2026-11-01" } },
         { name: "update_milestone", input: { id: 202, name: "Renamed milestone" } },
@@ -614,7 +614,7 @@ describe("a row targeting a row created in the same plan now applies (§380)", (
     const outcome = await applyPlan(
       result,
       [
-        { name: "create_task", input: { taskName: "Minted", assignee: "M. Jordan", dueDate: "2026-10-01" } },
+        { name: "create_task", input: { taskName: "Minted", assignee: "M. Bennett", dueDate: "2026-10-01" } },
         { name: "update_task", input: { id: 101, taskName: "Renamed", expectedToken: "not-a-real-token" } },
       ],
       [101],
@@ -644,7 +644,7 @@ describe("applying a staged update whose target this same plan created", () => {
       [
         {
           name: "create_task",
-          input: { taskName: "Drafted", assignee: "M. Jordan", dueDate: "2026-10-01" },
+          input: { taskName: "Drafted", assignee: "M. Bennett", dueDate: "2026-10-01" },
         },
         { name: "update_task", input: { id: 101, status: "Done" } },
       ],
@@ -670,7 +670,7 @@ describe("applying a staged update whose target this same plan created", () => {
     const calls: ProposedCall[] = [
       {
         name: "create_task",
-        input: { taskName: "Drafted", assignee: "M. Jordan", dueDate: "2026-10-01" },
+        input: { taskName: "Drafted", assignee: "M. Bennett", dueDate: "2026-10-01" },
       },
       { name: "update_task", input: { id: 101, status: "Done" } },
     ];
@@ -715,7 +715,7 @@ describe("applying a staged update whose target this same plan created", () => {
     const calls: ProposedCall[] = [
       {
         name: "create_task",
-        input: { taskName: "Drafted", assignee: "M. Jordan", dueDate: "2026-10-01" },
+        input: { taskName: "Drafted", assignee: "M. Bennett", dueDate: "2026-10-01" },
       },
       { name: "update_task", input: { id: 101, status: "Done" } },
       { name: "update_task", input: { id: 2, taskName: "Later" } },

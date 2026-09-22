@@ -384,25 +384,25 @@ describe("RaidPanel — owner ResourcePicker", () => {
     const onSave = vi.fn();
     const raid: RaidItem[] = [makeRaidItem({ id: 1, title: "Risk one", severity: "High" })];
     const resources: Resource[] = [
-      res({ id: 1, firstName: "Sample", lastName: "Dummy", email: "Sample@x.com" }),
+      res({ id: 1, firstName: "Sofia", lastName: "Ramirez", email: "sofia@x.com" }),
     ];
     renderPanel(makeProps({ raid, onSave, resources }));
     fireEvent.click(screen.getByText("Risk one"));
 
     // The owner field is now a ResourcePicker combobox. Focus + type to surface
-    // the "Alex Example" registry suggestion, then pick it.
+    // the "Sofia Ramirez" registry suggestion, then pick it.
     // ★ Named, not "the only combobox in the dialog": the linked-tasks link
     // picker is a combobox too now, so an unnamed query is ambiguous.
     const owner = within(
       screen.getByRole("dialog", { name: t("en-US", "raidEditItem", 1) }),
     ).getByRole("combobox", { name: new RegExp(t("en-US", "raidOwner"), "i") });
     fireEvent.focus(owner);
-    fireEvent.change(owner, { target: { value: "Sample" } });
-    fireEvent.mouseDown(screen.getByText("Alex Example"));
+    fireEvent.change(owner, { target: { value: "Sofia" } });
+    fireEvent.mouseDown(screen.getByText("Sofia Ramirez"));
 
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "raidSave") }));
     expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({ ownerResourceId: 1, owner: "Alex Example" }),
+      expect.objectContaining({ ownerResourceId: 1, owner: "Sofia Ramirez" }),
       false,
     );
   });
@@ -1313,7 +1313,7 @@ describe("RaidPanel — toolbar filters vs. column headers (§261)", () => {
 describe("RaidPanel — Last escalated column (§515)", () => {
   const escalated = makeRaidItem({
     id: 9, title: "Rate limit", severity: "High",
-    escalations: [{ at: "2026-05-20T09:30:00.000Z", toName: "Sam Placeholder", toEmail: "Fictional.Jordan@example.com", fromSeverity: "Medium", toSeverity: "High" }],
+    escalations: [{ at: "2026-05-20T09:30:00.000Z", toName: "Noah Bennett", toEmail: "noah.bennett@example.com", fromSeverity: "Medium", toSeverity: "High" }],
   });
 
   it("is hidden by default and can be switched on from the column config", () => {
@@ -1321,7 +1321,7 @@ describe("RaidPanel — Last escalated column (§515)", () => {
     // Positive control: the table header row is rendered.
     expect(screen.getByRole("button", { name: /^Severity( [▲▼])?$/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^Last escalated( [▲▼])?$/ })).toBeNull();
-    expect(screen.queryByText("2026-05-20 · Sam Placeholder")).toBeNull();
+    expect(screen.queryByText("2026-05-20 · Noah Bennett")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "colConfigTitle") }));
     const toggle = screen.getByRole("checkbox", {
@@ -1331,6 +1331,6 @@ describe("RaidPanel — Last escalated column (§515)", () => {
     fireEvent.click(toggle);
 
     expect(screen.getByRole("button", { name: /^Last escalated( [▲▼])?$/ })).toBeTruthy();
-    expect(screen.getByText("2026-05-20 · Sam Placeholder")).toBeTruthy();
+    expect(screen.getByText("2026-05-20 · Noah Bennett")).toBeTruthy();
   });
 });

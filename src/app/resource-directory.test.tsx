@@ -39,7 +39,7 @@ function DeepLinkTrigger({ id }: { id: number }) {
   );
 }
 
-const rs: Resource[] = [{ id: 1, firstName: "Sample", lastName: "Dummy", title: "Architect", roleId: null, utilizationMode: "percent", utilization: {} }];
+const rs: Resource[] = [{ id: 1, firstName: "Sofia", lastName: "Ramirez", title: "Architect", roleId: null, utilizationMode: "percent", utilization: {} }];
 
 const twoResources: Resource[] = [
   { id: 1, firstName: "Zoe", lastName: "Adams", title: "PM", roleId: null, utilizationMode: "percent", utilization: {} },
@@ -63,7 +63,7 @@ describe("ResourceDirectory", () => {
   it("fires onEditResource when the name is clicked", () => {
     const onEdit = vi.fn();
     render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRoleById={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sofia Ramirez" }));
     expect(onEdit).toHaveBeenCalledWith(rs[0]);
   });
   it("fires onAddResource from the add button", () => {
@@ -111,7 +111,7 @@ describe("ResourceDirectory", () => {
   it("clicking a directory row opens the editor (RAID-style row click)", () => {
     const onEdit = vi.fn();
     render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRoleById={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />);
-    const row = screen.getByRole("button", { name: "Alex Example" }).closest("tr")!;
+    const row = screen.getByRole("button", { name: "Sofia Ramirez" }).closest("tr")!;
     expect(row.className).toContain("cursor-pointer");
     expect(row.className).toContain("hover:bg-surface-muted");
     fireEvent.click(row);
@@ -122,7 +122,7 @@ describe("ResourceDirectory", () => {
   it("clicking the name button fires onEditResource exactly once (stopPropagation prevents double-fire)", () => {
     const onEdit = vi.fn();
     render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRoleById={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sofia Ramirez" }));
     expect(onEdit).toHaveBeenCalledTimes(1);
   });
 
@@ -142,7 +142,7 @@ describe("ResourceDirectory", () => {
         onAddAbsence={vi.fn()}
       />,
     );
-    const select = screen.getByRole("combobox", { name: "Role for Alex Example" });
+    const select = screen.getByRole("combobox", { name: "Role for Sofia Ramirez" });
     fireEvent.click(select);
     fireEvent.change(select, { target: { value: "5" } });
     expect(onAssign).toHaveBeenCalledWith(1, 5);
@@ -391,7 +391,7 @@ describe("ResourceDirectory", () => {
   it("translates the role select's accessible name", async () => {
     await loadI18n("de");
     const rDe: Resource[] = [
-      { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} },
+      { id: 1, firstName: "Sofia", lastName: "Ramirez", roleId: null, utilizationMode: "percent", utilization: {} },
     ];
     render(
       <ResourceDirectory

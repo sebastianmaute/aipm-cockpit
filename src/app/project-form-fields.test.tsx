@@ -221,8 +221,8 @@ describe("contact persons", () => {
     render(
       <IdentityPeopleFields
         {...withContactPeople(
-          { name: "David Okoro", email: "david.okoro@northwind.example" },
-          { name: "Alex Example", email: "Sample.Dummy@example.com" },
+          { name: "Liam Okoro", email: "liam.okoro@northwind.example" },
+          { name: "Sofia Ramirez", email: "sofia.ramirez@example.com" },
         )}
       />,
     );
@@ -231,14 +231,14 @@ describe("contact persons", () => {
       .map((b) => b.getAttribute("aria-label") ?? "");
     expect(names).toHaveLength(2);
     // ★ The cost this asserts the ABSENCE of is what the first cut charged every
-    // AT user on every row: "Remove – David Okoro" is 20 characters, and with the
+    // AT user on every row: "Remove – Liam Okoro" is 20 characters, and with the
     // address unconditionally appended it was 52.
     for (const n of names) {
       expect(n).not.toContain("@");
       expect(n).not.toMatch(/\(\d+\)$/);
     }
-    expect(names[0]).toContain("David Okoro");
-    expect(names[1]).toContain("Alex Example");
+    expect(names[0]).toContain("Liam Okoro");
+    expect(names[1]).toContain("Sofia Ramirez");
   });
 
   // ★★★ `expectRowUniqueNames` CANNOT SEE THIS CASE, and that is a property of

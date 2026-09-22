@@ -36,8 +36,8 @@ function Seed({ tier }: { tier: "full" }) {
 
 const base: Resource = {
   id: 1,
-  firstName: "Sample",
-  lastName: "Dummy",
+  firstName: "Sofia",
+  lastName: "Ramirez",
   roleId: null,
   utilizationMode: "percent",
   utilization: {},
@@ -116,8 +116,8 @@ describe("ResourceEditModal", () => {
     );
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSave.mock.calls[0][0]).toMatchObject({
-      firstName: "Sample",
-      lastName: "Dummy",
+      firstName: "Sofia",
+      lastName: "Ramirez",
     });
   });
 
@@ -226,7 +226,7 @@ describe("ResourceEditModal", () => {
     const onSave = vi.fn();
     setupFull({ resource: { ...base, email: "a,b@x.com" }, onSave });
     expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorEmailDelimiter"));
-    fireEvent.change(screen.getByDisplayValue("Sample"), { target: { value: "Ada" } });
+    fireEvent.change(screen.getByDisplayValue("Sofia"), { target: { value: "Ada" } });
     fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
     expect(onSave).toHaveBeenCalledTimes(1);
   });
@@ -283,7 +283,7 @@ describe("ResourceEditModal", () => {
     const onSave = vi.fn();
     const stored: Resource = { ...base, emails: ["a,b@x.com"] };
     setupFull({ resource: stored, onSave });
-    fireEvent.change(screen.getByDisplayValue("Sample"), { target: { value: "Ada" } });
+    fireEvent.change(screen.getByDisplayValue("Sofia"), { target: { value: "Ada" } });
     fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSave.mock.calls[0][0]).toMatchObject({ firstName: "Ada", emails: ["a,b@x.com"] });

@@ -1264,7 +1264,7 @@ Add to `src/app/resource-edit-modal.test.tsx` (uses its `setupFull`, `base`):
     const onSave = vi.fn();
     setupFull({ resource: { ...base, email: "a,b@x.com" }, onSave });
     expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorEmailDelimiter"));
-    fireEvent.change(screen.getByDisplayValue("Sample"), { target: { value: "Ada" } });
+    fireEvent.change(screen.getByDisplayValue("Sofia"), { target: { value: "Ada" } });
     fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
     expect(onSave).toHaveBeenCalledTimes(1);
   });

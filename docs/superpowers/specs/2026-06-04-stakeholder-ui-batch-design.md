@@ -116,7 +116,7 @@ so seed BOTH:
   "Hypercare Exit") with dates inside the existing 2026 plan window.
 - **~6 stakeholders** spanning ALL categories and varied influence/interest so **every
   quadrant of the map is populated** (at least one each in manage-closely, keep-satisfied,
-  keep-informed, monitor). A couple link to existing sample resources (e.g. Taylor Specimen,
+  keep-informed, monitor). A couple link to existing sample resources (e.g. Ava Thompson,
   resourceId 3). RACI roles assigned across the seeded milestones, deliberately including:
   - one milestone with **no Accountable** (drives the "missing" warning), and
   - one milestone with **multiple Accountables** (drives the "multiple" warning),

@@ -7,7 +7,7 @@ import type { Resource } from "./types";
 const res = (id: number, firstName: string, lastName: string): Resource =>
   ({ id, firstName, lastName, roleId: null, utilizationMode: "percent", utilization: {} });
 
-const resources: Resource[] = [res(1, "Anna", "Jordan"), res(2, "Sam", "Rivera")];
+const resources: Resource[] = [res(1, "Anna", "Bennett"), res(2, "Sam", "Rivera")];
 
 describe("TaskSwimlaneToolbar", () => {
   it("offers only resources that are not already lanes, and adds one", async () => {
@@ -16,7 +16,7 @@ describe("TaskSwimlaneToolbar", () => {
       <TaskSwimlaneToolbar lang="en-US" resources={resources} laneResourceIds={[1]} onAddLane={onAddLane} />,
     );
     const select = screen.getByRole("combobox", { name: "Add person lane" });
-    expect(screen.queryByRole("option", { name: "Anna Jordan" })).toBeNull();
+    expect(screen.queryByRole("option", { name: "Anna Bennett" })).toBeNull();
     await userEvent.selectOptions(select, "2");
     expect(onAddLane).toHaveBeenCalledWith(2);
   });

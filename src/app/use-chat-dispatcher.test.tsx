@@ -1519,7 +1519,7 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     const { result } = renderDispatcher();
     expect(() => result.current.createAbsence({
       assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05",
-      assigneeEmail: "m.Jordan@example.com probed",
+      assigneeEmail: "m.bennett@example.com probed",
     })).toThrow("assigneeEmail is invalid");
     expect(result.current.listAbsences()).toHaveLength(0);
 
@@ -1537,7 +1537,7 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
       assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05", assigneeEmail: "alice@example.com",
     });
     expect(() => result.current.updateAbsence(created.id, {
-      assigneeEmail: "m.Jordan@example.com probed", note: "Approved",
+      assigneeEmail: "m.bennett@example.com probed", note: "Approved",
     })).toThrow("assigneeEmail is invalid");
     const kept = result.current.getAbsenceRow(created.id);
     expect(kept?.assigneeEmail).toBe("alice@example.com");

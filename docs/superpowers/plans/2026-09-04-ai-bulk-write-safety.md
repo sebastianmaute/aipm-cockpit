@@ -202,7 +202,7 @@ describe("AI writes capture undo", () => {
     act(() => {
       result.current.createTask({
         taskName: "Ingest review",
-        assignee: "M. Jordan",
+        assignee: "M. Bennett",
         dueDate: "2026-09-30",
       });
     });
@@ -377,7 +377,7 @@ Expected: PASS, 1 test.
     act(() => {
       result.current.createTask({
         taskName: "Third",
-        assignee: "M. Jordan",
+        assignee: "M. Bennett",
         dueDate: "2026-09-30",
       });
     });
@@ -917,7 +917,7 @@ enum-ish fields). Copy its SHAPE; do not copy its field lists without checking `
 ```ts
 test("describes a resource create", () => {
   const plan = describeEntityCalls(
-    [{ type: "tool_use", name: "create_resource", input: { name: "M. Jordan" } }],
+    [{ type: "tool_use", name: "create_resource", input: { name: "M. Bennett" } }],
     { descriptor: INLINE_DESCRIPTORS.resource, item: someResource, ws },
   );
   expect(plan.creates).toHaveLength(1);

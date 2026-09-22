@@ -568,7 +568,7 @@ import {
 import type { RaidEscalation } from "./types";
 
 const RAISED: RaidEscalation = {
-  at: "2026-05-20T09:30:00.000Z", toName: "Sam Placeholder", toEmail: "Fictional.Jordan@example.com",
+  at: "2026-05-20T09:30:00.000Z", toName: "Noah Bennett", toEmail: "noah.bennett@example.com",
   toResourceId: 2, fromSeverity: "Medium", toSeverity: "High",
 };
 const NOTIFY: RaidEscalation = { at: "2026-05-22T14:00:00.000Z", toEmail: "ops@example.com" };
@@ -585,7 +585,7 @@ describe("sanitizeRaidEscalations", () => {
   });
   it("drops an unknown severity together with its other half", () => {
     expect(sanitizeRaidEscalations([{ ...RAISED, toSeverity: "Apocalyptic" }])).toEqual([
-      { at: RAISED.at, toName: "Sam Placeholder", toEmail: "Fictional.Jordan@example.com", toResourceId: 2 },
+      { at: RAISED.at, toName: "Noah Bennett", toEmail: "noah.bennett@example.com", toResourceId: 2 },
     ]);
   });
   it("drops a non-positive or fractional resource id", () => {
@@ -665,7 +665,7 @@ describe("entity persistence registry — RaidItem.escalations", () => {
 
 ```ts
 describe("sanitizeRaidItem — escalations", () => {
-  const ESC = { at: "2026-05-20T09:30:00.000Z", toName: "Sam Placeholder", toEmail: "Fictional.Jordan@example.com", fromSeverity: "Medium", toSeverity: "High" };
+  const ESC = { at: "2026-05-20T09:30:00.000Z", toName: "Noah Bennett", toEmail: "noah.bennett@example.com", fromSeverity: "Medium", toSeverity: "High" };
   it("keeps a valid escalation record", () => {
     expect(sanitizeRaidItem({ ...baseRaid, escalations: [ESC] })?.escalations).toEqual([ESC]);
   });
@@ -1114,7 +1114,7 @@ with
 ```ts
     inquiriesSent: 2,
     escalations: [
-      { at: "2026-06-11T07:45:00.000Z", toName: "M. Jordan", toEmail: "m.Jordan@example.com", toResourceId: 2, fromSeverity: "Medium", toSeverity: "High" },
+      { at: "2026-06-11T07:45:00.000Z", toName: "M. Bennett", toEmail: "m.bennett@example.com", toResourceId: 2, fromSeverity: "Medium", toSeverity: "High" },
       { at: "2026-06-12T07:00:00.000Z", toEmail: "ops@example.com" },
     ],
     localModifiedAt: "2026-06-12T08:15:00.000Z",
@@ -1152,8 +1152,8 @@ Locate the Issue with `Grep` pattern `Rate-limit counter not resetting correctly
 "escalations": [
   {
     "at": "2026-05-20T09:30:00.000Z",
-    "toName": "Sam Placeholder",
-    "toEmail": "Fictional.Jordan@acme-corp.example",
+    "toName": "Noah Bennett",
+    "toEmail": "noah.bennett@acme-corp.example",
     "toResourceId": 2,
     "fromSeverity": "Medium",
     "toSeverity": "High"
@@ -2804,7 +2804,7 @@ If `compareRaid` is not already imported in `raid.test.ts` (`grep -n "compareRai
 describe("RaidPanel — Last escalated column (§515)", () => {
   const escalated = makeRaidItem({
     id: 9, title: "Rate limit", severity: "High",
-    escalations: [{ at: "2026-05-20T09:30:00.000Z", toName: "Sam Placeholder", toEmail: "Fictional.Jordan@example.com", fromSeverity: "Medium", toSeverity: "High" }],
+    escalations: [{ at: "2026-05-20T09:30:00.000Z", toName: "Noah Bennett", toEmail: "noah.bennett@example.com", fromSeverity: "Medium", toSeverity: "High" }],
   });
 
   it("is hidden by default and can be switched on from the column config", () => {
@@ -2812,7 +2812,7 @@ describe("RaidPanel — Last escalated column (§515)", () => {
     // Positive control: the table header row is rendered.
     expect(screen.getByRole("button", { name: /^Severity( [▲▼])?$/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^Last escalated( [▲▼])?$/ })).toBeNull();
-    expect(screen.queryByText("2026-05-20 · Sam Placeholder")).toBeNull();
+    expect(screen.queryByText("2026-05-20 · Noah Bennett")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "colConfigTitle") }));
     const toggle = screen.getByRole("checkbox", {
@@ -2822,7 +2822,7 @@ describe("RaidPanel — Last escalated column (§515)", () => {
     fireEvent.click(toggle);
 
     expect(screen.getByRole("button", { name: /^Last escalated( [▲▼])?$/ })).toBeTruthy();
-    expect(screen.getByText("2026-05-20 · Sam Placeholder")).toBeTruthy();
+    expect(screen.getByText("2026-05-20 · Noah Bennett")).toBeTruthy();
   });
 });
 ```
@@ -2836,7 +2836,7 @@ describe("RaidEditModal — Escalations list (§515)", () => {
       modalEl({
         category: "I",
         escalations: [
-          { at: "2026-05-20T09:30:00.000Z", toName: "Sam Placeholder", toEmail: "Fictional.Jordan@example.com", fromSeverity: "Medium", toSeverity: "High" },
+          { at: "2026-05-20T09:30:00.000Z", toName: "Noah Bennett", toEmail: "noah.bennett@example.com", fromSeverity: "Medium", toSeverity: "High" },
           { at: "2026-05-22T14:00:00.000Z", toEmail: "ops@example.com" },
         ],
       }),
@@ -2846,7 +2846,7 @@ describe("RaidEditModal — Escalations list (§515)", () => {
     const items = screen.getAllByRole("listitem").map((li) => li.textContent ?? "");
     const mine = items.filter((s) => s.startsWith("2026-05-2"));
     expect(mine).toEqual([
-      `2026-05-20 · ${t("en-US", "raidEscalationNoteRaised", "Sam Placeholder <Fictional.Jordan@example.com>", "Medium", "High")}`,
+      `2026-05-20 · ${t("en-US", "raidEscalationNoteRaised", "Noah Bennett <noah.bennett@example.com>", "Medium", "High")}`,
       "2026-05-22 · Escalated to ops@example.com (notify only)",
     ]);
   });

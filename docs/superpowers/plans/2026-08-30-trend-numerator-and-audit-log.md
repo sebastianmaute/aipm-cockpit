@@ -977,7 +977,7 @@ describe("useTaskRowHandlers — status transitions reach the activity log", () 
     act(() =>
       result.current.onSwimlaneDrop(
         1,
-        { key: "res:7", label: "Anna Jordan", resourceId: 7 },
+        { key: "res:7", label: "Anna Bennett", resourceId: 7 },
         "Done",
       ),
     );
@@ -986,7 +986,7 @@ describe("useTaskRowHandlers — status transitions reach the activity log", () 
 });
 ```
 
-The lane literal `{ key: "res:7", label: "Anna Jordan", resourceId: 7 }` is the shape the file's existing `onSwimlaneDrop` describe already uses.
+The lane literal `{ key: "res:7", label: "Anna Bennett", resourceId: 7 }` is the shape the file's existing `onSwimlaneDrop` describe already uses.
 
 ---
 

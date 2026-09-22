@@ -27,16 +27,16 @@ import { splitName, resourceDisplayName } from "./resource-foundation";
 
 describe("splitName", () => {
   it("splits on the first space", () => {
-    expect(splitName("Alex Example")).toEqual({ firstName: "Sample", lastName: "Dummy" });
+    expect(splitName("Sofia Ramirez")).toEqual({ firstName: "Sofia", lastName: "Ramirez" });
   });
   it("keeps multi-word surnames together", () => {
-    expect(splitName("Sample Anne Dummy")).toEqual({ firstName: "Sample", lastName: "Anne Dummy" });
+    expect(splitName("Sofia Anne Ramirez")).toEqual({ firstName: "Sofia", lastName: "Anne Ramirez" });
   });
   it("handles a single token", () => {
     expect(splitName("Madonna")).toEqual({ firstName: "Madonna", lastName: "" });
   });
   it("collapses and trims whitespace", () => {
-    expect(splitName("  Sample   Dummy  ")).toEqual({ firstName: "Sample", lastName: "Dummy" });
+    expect(splitName("  Sofia   Ramirez  ")).toEqual({ firstName: "Sofia", lastName: "Ramirez" });
   });
   it("returns empty parts for empty input", () => {
     expect(splitName("")).toEqual({ firstName: "", lastName: "" });
@@ -45,7 +45,7 @@ describe("splitName", () => {
 
 describe("resourceDisplayName", () => {
   it("joins first and last", () => {
-    expect(resourceDisplayName({ firstName: "Sample", lastName: "Dummy" })).toBe("Alex Example");
+    expect(resourceDisplayName({ firstName: "Sofia", lastName: "Ramirez" })).toBe("Sofia Ramirez");
   });
   it("omits the trailing space when last name is empty", () => {
     expect(resourceDisplayName({ firstName: "Madonna", lastName: "" })).toBe("Madonna");
@@ -63,7 +63,7 @@ Expected: FAIL — `splitName`/`resourceDisplayName` are not exported.
 Add to `src/app/resource-foundation.ts` (the file already imports `type Resource` from `./types`):
 
 ```ts
-/** Split a display name on the FIRST space: "Sample Anne Dummy" → first "Sample", last "Anne Dummy". */
+/** Split a display name on the FIRST space: "Sofia Anne Ramirez" → first "Sofia", last "Anne Ramirez". */
 export function splitName(name: string): { firstName: string; lastName: string } {
   const trimmed = (name ?? "").trim().replace(/\s+/g, " ");
   if (!trimmed) return { firstName: "", lastName: "" };
@@ -118,20 +118,20 @@ import { sanitizeResource, sanitizeBirthday } from "./sanitize";
 describe("sanitizeResource — address-book fields", () => {
   it("reads firstName/lastName and all contact fields", () => {
     const r = sanitizeResource({
-      id: 1, firstName: "Sample", lastName: "Dummy", email: "Sample@x.com",
+      id: 1, firstName: "Sofia", lastName: "Ramirez", email: "sofia@x.com",
       title: "Architect", businessPhone: "+49 30 1", location: "Berlin",
       department: "IAM", company: "iC", birthday: "06-14",
       notes: "VIP, line two", roleId: 2, utilizationMode: "percent", utilization: {},
     });
     expect(r).toMatchObject({
-      id: 1, firstName: "Sample", lastName: "Dummy", email: "Sample@x.com",
+      id: 1, firstName: "Sofia", lastName: "Ramirez", email: "sofia@x.com",
       title: "Architect", businessPhone: "+49 30 1", location: "Berlin",
       department: "IAM", company: "iC", birthday: "06-14", notes: "VIP, line two",
     });
   });
   it("falls back to splitting a legacy name field", () => {
-    const r = sanitizeResource({ id: 2, name: "Sam Placeholder", utilizationMode: "percent", utilization: {} });
-    expect(r).toMatchObject({ firstName: "Fictional", lastName: "Jordan" });
+    const r = sanitizeResource({ id: 2, name: "Noah Bennett", utilizationMode: "percent", utilization: {} });
+    expect(r).toMatchObject({ firstName: "Noah", lastName: "Bennett" });
   });
   it("drops a record with no usable name", () => {
     expect(sanitizeResource({ id: 3, utilizationMode: "percent", utilization: {} })).toBeNull();
@@ -160,7 +160,7 @@ describe("resource address-book round-trip", () => {
     tasks: [], raid: [], absences: [], shifts: [], roles: [], disciplines: [], grades: [],
     plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" },
     resources: [{
-      id: 1, firstName: "Sample", lastName: "Dummy", email: "Sample@x.com",
+      id: 1, firstName: "Sofia", lastName: "Ramirez", email: "sofia@x.com",
       title: "Architect", businessPhone: "+49 30 1", location: "Berlin",
       department: "IAM", company: "iC", birthday: "06-14",
       notes: "Note with, comma | pipe\nand newline", roleId: null,
@@ -170,19 +170,19 @@ describe("resource address-book round-trip", () => {
   it("CSV preserves all address-book fields incl. tricky notes", () => {
     const back = csvToWorkspace(workspaceToCsv(ws as any)).resources[0];
     expect(back).toMatchObject({
-      firstName: "Sample", lastName: "Dummy", title: "Architect", department: "IAM",
+      firstName: "Sofia", lastName: "Ramirez", title: "Architect", department: "IAM",
       company: "iC", birthday: "06-14", businessPhone: "+49 30 1", location: "Berlin",
       notes: "Note with, comma | pipe\nand newline",
     });
   });
   it("Markdown preserves all address-book fields", () => {
     const back = markdownToWorkspace(workspaceToMarkdown(ws as any)).resources[0];
-    expect(back).toMatchObject({ firstName: "Sample", lastName: "Dummy", birthday: "06-14" });
+    expect(back).toMatchObject({ firstName: "Sofia", lastName: "Ramirez", birthday: "06-14" });
   });
   it("loads a legacy single-name CSV resource by splitting", () => {
-    const legacy = "# RESOURCES\nid,name,email,roleId,utilizationMode,utilization,absenceOverride,active,localModifiedAt\n1,Sam Placeholder,m@x.com,,percent,,,,\n";
+    const legacy = "# RESOURCES\nid,name,email,roleId,utilizationMode,utilization,absenceOverride,active,localModifiedAt\n1,Noah Bennett,m@x.com,,percent,,,,\n";
     const back = csvToWorkspace(legacy).resources.find((r) => r.id === 1);
-    expect(back).toMatchObject({ firstName: "Fictional", lastName: "Jordan" });
+    expect(back).toMatchObject({ firstName: "Noah", lastName: "Bennett" });
   });
 });
 ```
@@ -442,9 +442,9 @@ In `src/app/resources-report.tsx:75`, add the import and change `<Td>{r.name}</T
 
 - [ ] **Step 9: Fix the two existing tests that read `r.name`**
 
-`src/app/resource-foundation.test.ts:50,54` — import `resourceDisplayName`; replace `r.name === "Alex Example"` with `resourceDisplayName(r) === "Alex Example"` and `r.name === "Bob Lee"` with `resourceDisplayName(r) === "Bob Lee"`.
+`src/app/resource-foundation.test.ts:50,54` — import `resourceDisplayName`; replace `r.name === "Sofia Ramirez"` with `resourceDisplayName(r) === "Sofia Ramirez"` and `r.name === "Bob Lee"` with `resourceDisplayName(r) === "Bob Lee"`.
 
-`src/app/storage-serialization.test.ts:23` — import `resourceDisplayName`; replace `r.name === "Alex Example"` with `resourceDisplayName(r) === "Alex Example"`.
+`src/app/storage-serialization.test.ts:23` — import `resourceDisplayName`; replace `r.name === "Sofia Ramirez"` with `resourceDisplayName(r) === "Sofia Ramirez"`.
 
 - [ ] **Step 10: Typecheck + run the full suite**
 
@@ -481,10 +481,10 @@ id,firstName,lastName,title,businessPhone,location,department,email,company,birt
 Example first row (keep the existing utilization/role/active values from the current file; quote `notes` if it contains commas):
 
 ```
-1,Sample,Dummy,Lead Architect,+49 30 5550101,Berlin,IAM,Sample.Dummy@example.com,Globex,06-14,"Primary SSO architect; OIDC lead.",1,percent,2026-04=80|2026-05=100|2026-06=60|2026-07=50,2026-06=88,,
+1,Sofia,Ramirez,Lead Architect,+49 30 5550101,Berlin,IAM,sofia.ramirez@example.com,Globex,06-14,"Primary SSO architect; OIDC lead.",1,percent,2026-04=80|2026-05=100|2026-06=60|2026-07=50,2026-06=88,,
 ```
 
-Do the same for resources 2–5 (Sam Placeholder, Taylor Specimen, Morgan Standin, Jamie Testcase), preserving their existing `roleId`, `utilizationMode`, `utilization`, `absenceOverride`, and `active` values from the current file and adding plausible contact fields + birthdays.
+Do the same for resources 2–5 (Noah Bennett, Ava Thompson, Maya Patel, Liam Foster), preserving their existing `roleId`, `utilizationMode`, `utilization`, `absenceOverride`, and `active` values from the current file and adding plausible contact fields + birthdays.
 
 - [ ] **Step 2: Create the throwaway regenerator**
 
@@ -502,7 +502,7 @@ it("regenerates sample-workspace.md from sample-workspace.csv", () => {
   const ws = csvToWorkspace(csv);
   writeFileSync(resolve(root, "sample-workspace.md"), workspaceToMarkdown(ws), "utf8");
   expect(ws.resources).toHaveLength(5);
-  expect(ws.resources[0]).toMatchObject({ firstName: "Sample", lastName: "Dummy", birthday: "06-14" });
+  expect(ws.resources[0]).toMatchObject({ firstName: "Sofia", lastName: "Ramirez", birthday: "06-14" });
 });
 ```
 

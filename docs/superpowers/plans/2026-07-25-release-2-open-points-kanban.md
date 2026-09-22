@@ -1321,7 +1321,7 @@ const task = (over: Partial<Task>): Task => ({
 });
 
 const resources = new Map<number, Resource>([
-  [1, { id: 1, firstName: "Anna", lastName: "Jordan" } as Resource],
+  [1, { id: 1, firstName: "Anna", lastName: "Bennett" } as Resource],
   [2, { id: 2, firstName: "Bo", lastName: "Klein" } as Resource],
 ]);
 
@@ -1332,13 +1332,13 @@ describe("groupByStatusAndPerson", () => {
       resources,
       [],
     );
-    expect(out.lanes.map((l) => l.label)).toEqual(["Anna Jordan", "Bo Klein", ""]);
+    expect(out.lanes.map((l) => l.label)).toEqual(["Anna Bennett", "Bo Klein", ""]);
     expect(out.lanes.at(-1)!.key).toBe(UNASSIGNED_LANE);
   });
 
   test("a linked lane uses the resource's LIVE name, not the cached assignee string", () => {
     const out = groupByStatusAndPerson([task({ resourceId: 1, assignee: "Old Name" })], resources, []);
-    expect(out.lanes[0].label).toBe("Anna Jordan");
+    expect(out.lanes[0].label).toBe("Anna Bennett");
   });
 
   test("a free-string assignee gets its own lane keyed by the string", () => {
@@ -1349,7 +1349,7 @@ describe("groupByStatusAndPerson", () => {
 
   test("extra lane ids appear even with no tasks", () => {
     const out = groupByStatusAndPerson([task({ resourceId: 1 })], resources, [2]);
-    expect(out.lanes.map((l) => l.label)).toEqual(["Anna Jordan", "Bo Klein", ""]);
+    expect(out.lanes.map((l) => l.label)).toEqual(["Anna Bennett", "Bo Klein", ""]);
     expect(out.cells["res:2"]["To Do"]).toEqual([]);
   });
 
@@ -1503,10 +1503,10 @@ One write, one undo entry: a drop can change person and status together, so two 
 ```ts
 test("a swimlane drop writes assignment and status in one update", () => {
   // arrange the hook with one task { id: 1, status: "To Do", resourceId: undefined }
-  act(() => result.current.onSwimlaneDrop(1, { key: "res:7", label: "Anna Jordan", resourceId: 7 }, "In Progress"));
+  act(() => result.current.onSwimlaneDrop(1, { key: "res:7", label: "Anna Bennett", resourceId: 7 }, "In Progress"));
   expect(setTasks).toHaveBeenCalledTimes(1);
   const next = applyUpdater(setTasks, tasks); // the file's existing updater helper
-  expect(next[0]).toMatchObject({ resourceId: 7, assignee: "Anna Jordan", status: "In Progress" });
+  expect(next[0]).toMatchObject({ resourceId: 7, assignee: "Anna Bennett", status: "In Progress" });
 });
 
 test("dropping into Unassigned clears both the link and the name", () => {
@@ -1676,7 +1676,7 @@ const task = (over: Partial<Task>): Task => ({
 });
 
 const resources = new Map<number, Resource>([
-  [1, { id: 1, firstName: "Anna", lastName: "Jordan" } as Resource],
+  [1, { id: 1, firstName: "Anna", lastName: "Bennett" } as Resource],
 ]);
 
 describe("TaskKanbanSwimlanes", () => {
@@ -1693,13 +1693,13 @@ describe("TaskKanbanSwimlanes", () => {
 
   test("renders a lane per person plus Unassigned", () => {
     render(<TaskKanbanSwimlanes {...base} />);
-    expect(screen.getByRole("region", { name: "Anna Jordan" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Anna Bennett" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Unassigned" })).toBeInTheDocument();
   });
 
   test("each cell carries a person-and-status accessible name", () => {
     render(<TaskKanbanSwimlanes {...base} />);
-    expect(screen.getByLabelText("Anna Jordan – To Do")).toBeInTheDocument();
+    expect(screen.getByLabelText("Anna Bennett – To Do")).toBeInTheDocument();
   });
 
   test("dropping a card calls onSwimlaneDrop with the lane and status", async () => {
@@ -1927,7 +1927,7 @@ import { TaskSwimlaneToolbar } from "./task-swimlane-toolbar";
 import type { Resource } from "./types";
 
 const resources = [
-  { id: 1, firstName: "Anna", lastName: "Jordan" },
+  { id: 1, firstName: "Anna", lastName: "Bennett" },
   { id: 2, firstName: "Bo", lastName: "Klein" },
 ] as Resource[];
 
@@ -1937,7 +1937,7 @@ test("offers only resources that are not already lanes, and adds one", async () 
     <TaskSwimlaneToolbar lang="en-US" resources={resources} laneResourceIds={[1]} onAddLane={onAddLane} />,
   );
   const select = screen.getByRole("combobox", { name: "Add person lane" });
-  expect(screen.queryByRole("option", { name: "Anna Jordan" })).toBeNull();
+  expect(screen.queryByRole("option", { name: "Anna Bennett" })).toBeNull();
   await userEvent.selectOptions(select, "2");
   expect(onAddLane).toHaveBeenCalledWith(2);
 });

@@ -370,13 +370,13 @@ describe("useResourcePlanner", () => {
       const logActivity = vi.fn();
       const { result } = renderPlanner({ logActivity });
       const resource: Resource = {
-        id: 2, firstName: "Marc", lastName: "Jordan",
+        id: 2, firstName: "Marc", lastName: "Bennett",
         roleId: null, utilizationMode: "percent", utilization: {},
       };
       act(() => { result.current.workspace.setResources([resource]); });
       act(() => { result.current.planner.handleSaveResource({ ...resource, title: "Lead" }); });
       expect(logActivity).toHaveBeenCalledOnce();
-      expect(logActivity).toHaveBeenCalledWith("resource.updated", 2, "Marc Jordan");
+      expect(logActivity).toHaveBeenCalledWith("resource.updated", 2, "Marc Bennett");
     });
 
     it("surfaces a toast and drops the edit when the resource was concurrently deleted", () => {
@@ -577,7 +577,7 @@ describe("useResourcePlanner", () => {
     it("handleEditResource opens with isNew=false and the same resource", () => {
       const { result } = renderPlanner();
       const resource: Resource = {
-        id: 3, firstName: "Sample", lastName: "Dummy",
+        id: 3, firstName: "Sofia", lastName: "Ramirez",
         roleId: null, utilizationMode: "percent", utilization: {},
       };
       act(() => { result.current.planner.handleEditResource(resource); });
@@ -639,7 +639,7 @@ describe("useResourcePlanner", () => {
     it("handleSaveResource updates an existing resource in place", () => {
       const { result } = renderPlanner();
       const resource: Resource = {
-        id: 2, firstName: "Marc", lastName: "Jordan",
+        id: 2, firstName: "Marc", lastName: "Bennett",
         roleId: null, utilizationMode: "percent", utilization: {},
       };
       act(() => { result.current.workspace.setResources([resource]); });
@@ -1036,7 +1036,7 @@ describe("useResourcePlanner", () => {
       const { result } = renderPlanner();
       const resource: Resource = {
         id: 1,
-        firstName: "Sample",
+        firstName: "Sofia",
         lastName: "",
         roleId: null,
         utilizationMode: "percent",
@@ -1051,7 +1051,7 @@ describe("useResourcePlanner", () => {
       const { result } = renderPlanner();
       const resource: Resource = {
         id: 1,
-        firstName: "Sample",
+        firstName: "Sofia",
         lastName: "",
         roleId: null,
         utilizationMode: "percent",
@@ -1109,7 +1109,7 @@ describe("useResourcePlanner", () => {
       const { result } = renderPlanner();
       const resource: Resource = {
         id: 1,
-        firstName: "Sample",
+        firstName: "Sofia",
         lastName: "",
         roleId: 5,
         utilizationMode: "percent",
@@ -1131,7 +1131,7 @@ describe("useResourcePlanner", () => {
       };
       const resource: Resource = {
         id: 1,
-        firstName: "Sample",
+        firstName: "Sofia",
         lastName: "",
         roleId: 5,
         utilizationMode: "percent",

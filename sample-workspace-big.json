@@ -4,7 +4,7 @@
     {
       "id": 1,
       "taskName": "Design SSO architecture",
-      "assignee": "Alex Example",
+      "assignee": "Sofia Ramirez",
       "assigneeEmail": "sofia.ramirez@example.com",
       "createdDate": "2026-06-01",
       "startDate": "2026-06-01",
@@ -48,14 +48,14 @@
           "html": "<p>Partner confirmed the OIDC discovery endpoint is stable; no SAML fallback needed.</p>",
           "text": "Partner confirmed the OIDC discovery endpoint is stable; no SAML fallback needed.",
           "authorResourceId": 1,
-          "authorName": "Alex Example"
+          "authorName": "Sofia Ramirez"
         }
       ]
     },
     {
       "id": 2,
       "taskName": "POC OIDC integration",
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "createdDate": "2026-06-29",
       "startDate": "2026-06-29",
@@ -96,7 +96,7 @@
     {
       "id": 3,
       "taskName": "Stakeholder workshop",
-      "assignee": "Taylor Specimen",
+      "assignee": "Ava Thompson",
       "assigneeEmail": "ava.thompson@example.com",
       "createdDate": "2026-08-04",
       "dueDate": "2026-08-04",
@@ -134,7 +134,7 @@
     {
       "id": 4,
       "taskName": "Backend API skeleton",
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "createdDate": "2026-08-03",
       "startDate": "2026-08-03",
@@ -176,14 +176,14 @@
           "html": "<p>Redis sliding-window middleware drafted; awaiting DBA schema review before wiring rate limits.</p>",
           "text": "Redis sliding-window middleware drafted; awaiting DBA schema review before wiring rate limits.",
           "authorResourceId": 2,
-          "authorName": "Sam Placeholder"
+          "authorName": "Noah Bennett"
         }
       ]
     },
     {
       "id": 5,
       "taskName": "Frontend login flow",
-      "assignee": "Alex Example",
+      "assignee": "Sofia Ramirez",
       "assigneeEmail": "sofia.ramirez@example.com",
       "createdDate": "2026-08-21",
       "startDate": "2026-08-24",
@@ -221,7 +221,7 @@
     {
       "id": 6,
       "taskName": "Migration script for legacy users",
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "createdDate": "2026-08-17",
       "startDate": "2026-08-17",
@@ -259,7 +259,7 @@
     {
       "id": 7,
       "taskName": "Security review",
-      "assignee": "Morgan Standin",
+      "assignee": "Maya Patel",
       "assigneeEmail": "maya.patel@example.com",
       "createdDate": "2026-08-24",
       "startDate": "2026-09-01",
@@ -296,7 +296,7 @@
     {
       "id": 8,
       "taskName": "Load testing",
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "createdDate": "2026-08-24",
       "startDate": "2026-09-25",
@@ -337,7 +337,7 @@
     {
       "id": 9,
       "taskName": "Documentation",
-      "assignee": "Taylor Specimen",
+      "assignee": "Ava Thompson",
       "assigneeEmail": "ava.thompson@example.com",
       "createdDate": "2026-08-13",
       "dueDate": "2026-10-13",
@@ -379,7 +379,7 @@
     {
       "id": 10,
       "taskName": "Production cutover",
-      "assignee": "Alex Example",
+      "assignee": "Sofia Ramirez",
       "assigneeEmail": "sofia.ramirez@example.com",
       "createdDate": "2026-08-24",
       "dueDate": "2026-10-20",
@@ -419,7 +419,7 @@
     {
       "id": 11,
       "taskName": "Quarterly OKR review",
-      "assignee": "Morgan Standin",
+      "assignee": "Maya Patel",
       "assigneeEmail": "maya.patel@example.com",
       "createdDate": "2026-08-10",
       "dueDate": "2026-09-21",
@@ -450,7 +450,7 @@
     {
       "id": 12,
       "taskName": "Vendor renewal: monitoring platform",
-      "assignee": "Taylor Specimen",
+      "assignee": "Ava Thompson",
       "assigneeEmail": "ava.thompson@example.com",
       "createdDate": "2026-08-24",
       "dueDate": "2026-11-05",
@@ -486,7 +486,7 @@
     {
       "id": 13,
       "taskName": "Dev environment setup",
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "createdDate": "2026-05-28",
       "startDate": "2026-05-28",
@@ -523,7 +523,7 @@
     {
       "id": 14,
       "taskName": "Risk & compliance kick-off",
-      "assignee": "Morgan Standin",
+      "assignee": "Maya Patel",
       "assigneeEmail": "maya.patel@example.com",
       "createdDate": "2026-06-15",
       "startDate": "2026-06-15",
@@ -562,7 +562,7 @@
     {
       "id": 100001,
       "taskName": "Design SSO architecture — Payments",
-      "assignee": "Alex Example",
+      "assignee": "Sofia Ramirez",
       "assigneeEmail": "sofia.ramirez@example.com",
       "createdDate": "2026-06-01",
       "startDate": "2026-06-01",
@@ -606,14 +606,14 @@
           "html": "<p>Partner confirmed the OIDC discovery endpoint is stable; no SAML fallback needed.</p>",
           "text": "Partner confirmed the OIDC discovery endpoint is stable; no SAML fallback needed.",
           "authorResourceId": 1,
-          "authorName": "Alex Example"
+          "authorName": "Sofia Ramirez"
         }
       ]
     },
     {
       "id": 100002,
       "taskName": "POC OIDC integration — Payments",
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "createdDate": "2026-06-29",
       "startDate": "2026-06-29",
@@ -654,7 +654,7 @@
     {
       "id": 100003,
       "taskName": "Stakeholder workshop — Payments",
-      "assignee": "Taylor Specimen",
+      "assignee": "Ava Thompson",
       "assigneeEmail": "ava.thompson@example.com",
       "createdDate": "2026-08-04",
       "dueDate": "2026-08-04",
@@ -692,7 +692,7 @@
     {
       "id": 100004,
       "taskName": "Backend API skeleton — Payments",
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "createdDate": "2026-08-03",
       "startDate": "2026-08-03",
@@ -734,14 +734,14 @@
           "html": "<p>Redis sliding-window middleware drafted; awaiting DBA schema review before wiring rate limits.</p>",
           "text": "Redis sliding-window middleware drafted; awaiting DBA schema review before wiring rate limits.",
           "authorResourceId": 2,
-          "authorName": "Sam Placeholder"
+          "authorName": "Noah Bennett"
         }
       ]
     },
     {
       "id": 100005,
       "taskName": "Frontend login flow — Payments",
-      "assignee": "Alex Example",
+      "assignee": "Sofia Ramirez",
       "assigneeEmail": "sofia.ramirez@example.com",
       "createdDate": "2026-08-21",
       "startDate": "2026-08-24",
@@ -779,7 +779,7 @@
     {
       "id": 100006,
       "taskName": "Migration script for legacy users — Payments",
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "createdDate": "2026-08-17",
       "startDate": "2026-08-17",
@@ -817,7 +817,7 @@
     {
       "id": 100007,
       "taskName": "Security review — Payments",
-      "assignee": "Morgan Standin",
+      "assignee": "Maya Patel",
       "assigneeEmail": "maya.patel@example.com",
       "createdDate": "2026-08-24",
       "startDate": "2026-09-01",
@@ -854,7 +854,7 @@
     {
       "id": 100008,
       "taskName": "Load testing — Payments",
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "createdDate": "2026-08-24",
       "startDate": "2026-09-25",
@@ -895,7 +895,7 @@
     {
       "id": 100009,
       "taskName": "Documentation — Payments",
-      "assignee": "Taylor Specimen",
+      "assignee": "Ava Thompson",
       "assigneeEmail": "ava.thompson@example.com",
       "createdDate": "2026-08-13",
       "dueDate": "2026-10-13",
@@ -937,7 +937,7 @@
     {
       "id": 100010,
       "taskName": "Production cutover — Payments",
-      "assignee": "Alex Example",
+      "assignee": "Sofia Ramirez",
       "assigneeEmail": "sofia.ramirez@example.com",
       "createdDate": "2026-08-24",
       "dueDate": "2026-10-20",
@@ -977,7 +977,7 @@
     {
       "id": 100011,
       "taskName": "Quarterly OKR review — Payments",
-      "assignee": "Morgan Standin",
+      "assignee": "Maya Patel",
       "assigneeEmail": "maya.patel@example.com",
       "createdDate": "2026-08-10",
       "dueDate": "2026-09-21",
@@ -1008,7 +1008,7 @@
     {
       "id": 100012,
       "taskName": "Vendor renewal: monitoring platform — Payments",
-      "assignee": "Taylor Specimen",
+      "assignee": "Ava Thompson",
       "assigneeEmail": "ava.thompson@example.com",
       "createdDate": "2026-08-24",
       "dueDate": "2026-11-05",
@@ -1044,7 +1044,7 @@
     {
       "id": 100013,
       "taskName": "Dev environment setup — Payments",
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "createdDate": "2026-05-28",
       "startDate": "2026-05-28",
@@ -1081,7 +1081,7 @@
     {
       "id": 100014,
       "taskName": "Risk & compliance kick-off — Payments",
-      "assignee": "Morgan Standin",
+      "assignee": "Maya Patel",
       "assigneeEmail": "maya.patel@example.com",
       "createdDate": "2026-06-15",
       "startDate": "2026-06-15",
@@ -1120,7 +1120,7 @@
     {
       "id": 200001,
       "taskName": "Design SSO architecture — Mobile App",
-      "assignee": "Alex Example",
+      "assignee": "Sofia Ramirez",
       "assigneeEmail": "sofia.ramirez@example.com",
       "createdDate": "2026-06-01",
       "startDate": "2026-06-01",
@@ -1164,14 +1164,14 @@
           "html": "<p>Partner confirmed the OIDC discovery endpoint is stable; no SAML fallback needed.</p>",
           "text": "Partner confirmed the OIDC discovery endpoint is stable; no SAML fallback needed.",
           "authorResourceId": 1,
-          "authorName": "Alex Example"
+          "authorName": "Sofia Ramirez"
         }
       ]
     },
     {
       "id": 200002,
       "taskName": "POC OIDC integration — Mobile App",
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "createdDate": "2026-06-29",
       "startDate": "2026-06-29",
@@ -1212,7 +1212,7 @@
     {
       "id": 200003,
       "taskName": "Stakeholder workshop — Mobile App",
-      "assignee": "Taylor Specimen",
+      "assignee": "Ava Thompson",
       "assigneeEmail": "ava.thompson@example.com",
       "createdDate": "2026-08-04",
       "dueDate": "2026-08-04",
@@ -1250,7 +1250,7 @@
     {
       "id": 200004,
       "taskName": "Backend API skeleton — Mobile App",
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "createdDate": "2026-08-03",
       "startDate": "2026-08-03",
@@ -1292,14 +1292,14 @@
           "html": "<p>Redis sliding-window middleware drafted; awaiting DBA schema review before wiring rate limits.</p>",
           "text": "Redis sliding-window middleware drafted; awaiting DBA schema review before wiring rate limits.",
           "authorResourceId": 2,
-          "authorName": "Sam Placeholder"
+          "authorName": "Noah Bennett"
         }
       ]
     },
     {
       "id": 200005,
       "taskName": "Frontend login flow — Mobile App",
-      "assignee": "Alex Example",
+      "assignee": "Sofia Ramirez",
       "assigneeEmail": "sofia.ramirez@example.com",
       "createdDate": "2026-08-21",
       "startDate": "2026-08-24",
@@ -1337,7 +1337,7 @@
     {
       "id": 200006,
       "taskName": "Migration script for legacy users — Mobile App",
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "createdDate": "2026-08-17",
       "startDate": "2026-08-17",
@@ -1375,7 +1375,7 @@
     {
       "id": 200007,
       "taskName": "Security review — Mobile App",
-      "assignee": "Morgan Standin",
+      "assignee": "Maya Patel",
       "assigneeEmail": "maya.patel@example.com",
       "createdDate": "2026-08-24",
       "startDate": "2026-09-01",
@@ -1412,7 +1412,7 @@
     {
       "id": 200008,
       "taskName": "Load testing — Mobile App",
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "createdDate": "2026-08-24",
       "startDate": "2026-09-25",
@@ -1453,7 +1453,7 @@
     {
       "id": 200009,
       "taskName": "Documentation — Mobile App",
-      "assignee": "Taylor Specimen",
+      "assignee": "Ava Thompson",
       "assigneeEmail": "ava.thompson@example.com",
       "createdDate": "2026-08-13",
       "dueDate": "2026-10-13",
@@ -1495,7 +1495,7 @@
     {
       "id": 200010,
       "taskName": "Production cutover — Mobile App",
-      "assignee": "Alex Example",
+      "assignee": "Sofia Ramirez",
       "assigneeEmail": "sofia.ramirez@example.com",
       "createdDate": "2026-08-24",
       "dueDate": "2026-10-20",
@@ -1535,7 +1535,7 @@
     {
       "id": 200011,
       "taskName": "Quarterly OKR review — Mobile App",
-      "assignee": "Morgan Standin",
+      "assignee": "Maya Patel",
       "assigneeEmail": "maya.patel@example.com",
       "createdDate": "2026-08-10",
       "dueDate": "2026-09-21",
@@ -1566,7 +1566,7 @@
     {
       "id": 200012,
       "taskName": "Vendor renewal: monitoring platform — Mobile App",
-      "assignee": "Taylor Specimen",
+      "assignee": "Ava Thompson",
       "assigneeEmail": "ava.thompson@example.com",
       "createdDate": "2026-08-24",
       "dueDate": "2026-11-05",
@@ -1602,7 +1602,7 @@
     {
       "id": 200013,
       "taskName": "Dev environment setup — Mobile App",
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "createdDate": "2026-05-28",
       "startDate": "2026-05-28",
@@ -1639,7 +1639,7 @@
     {
       "id": 200014,
       "taskName": "Risk & compliance kick-off — Mobile App",
-      "assignee": "Morgan Standin",
+      "assignee": "Maya Patel",
       "assigneeEmail": "maya.patel@example.com",
       "createdDate": "2026-06-15",
       "startDate": "2026-06-15",
@@ -1686,7 +1686,7 @@
       "probability": 3,
       "impact": 5,
       "status": "Mitigated",
-      "owner": "Sam Placeholder",
+      "owner": "Noah Bennett",
       "ownerEmail": "noah.bennett@example.com",
       "ownerResourceId": 2,
       "mitigation": "<p>Pre-migration backup + 5k-batch dry-runs with rollback markers. Weekly integrity checks during cutover week.</p>",
@@ -1712,7 +1712,7 @@
           "html": "<p>Dry-runs of batches 1–3 came back clean and the integrity checks are green; marking this <strong>mitigated</strong>.</p>",
           "text": "Dry-runs of batches 1–3 came back clean and the integrity checks are green; marking this mitigated.",
           "authorResourceId": 2,
-          "authorName": "Sam Placeholder"
+          "authorName": "Noah Bennett"
         }
       ]
     },
@@ -1725,7 +1725,7 @@
       "probability": 2,
       "impact": 4,
       "status": "Open",
-      "owner": "Morgan Standin",
+      "owner": "Maya Patel",
       "ownerEmail": "maya.patel@example.com",
       "ownerResourceId": 4,
       "mitigation": "<p>Provider SLA: 99.95%. Fallback: temporary local-account bypass for ops accounts (documented, time-boxed).</p>",
@@ -1744,7 +1744,7 @@
           "html": "<p>Vendor SLA call scheduled; requesting a 99.95% uptime commitment for peak windows.</p>",
           "text": "Vendor SLA call scheduled; requesting a 99.95% uptime commitment for peak windows.",
           "authorResourceId": 4,
-          "authorName": "Morgan Standin"
+          "authorName": "Maya Patel"
         }
       ]
     },
@@ -1757,7 +1757,7 @@
       "probability": 4,
       "impact": 3,
       "status": "Realized",
-      "owner": "Sam Placeholder",
+      "owner": "Noah Bennett",
       "ownerEmail": "noah.bennett@example.com",
       "ownerResourceId": 2,
       "mitigation": "<p>Token verification cached; index added on session lookup. Still monitoring.</p>",
@@ -1775,7 +1775,7 @@
           "html": "<p>p95 is back under 120 ms after the session-index fix. Keeping it open until the load test confirms.</p>",
           "text": "p95 is back under 120 ms after the session-index fix. Keeping it open until the load test confirms.",
           "authorResourceId": 2,
-          "authorName": "Sam Placeholder"
+          "authorName": "Noah Bennett"
         }
       ]
     },
@@ -1788,7 +1788,7 @@
       "probability": 3,
       "impact": 3,
       "status": "Open",
-      "owner": "Alex Example",
+      "owner": "Sofia Ramirez",
       "ownerEmail": "sofia.ramirez@example.com",
       "ownerResourceId": 1,
       "mitigation": "<p>Pinned to patched fork until upstream releases v1.8.0. Upgrade scheduled for the next maintenance release.</p>",
@@ -1808,7 +1808,7 @@
       "description": "<p>Comms team confirmed via survey: 92% acceptance for off-hours maintenance.</p>",
       "severity": "Medium",
       "status": "Validated",
-      "owner": "Taylor Specimen",
+      "owner": "Ava Thompson",
       "ownerEmail": "ava.thompson@example.com",
       "ownerResourceId": 3,
       "linkedTaskIds": [],
@@ -1823,7 +1823,7 @@
       "title": "All team members briefed on new auth flow",
       "description": "<p>Assumed frontend devs know the new cookie/token contract.</p>",
       "status": "Invalidated",
-      "owner": "Alex Example",
+      "owner": "Sofia Ramirez",
       "ownerEmail": "sofia.ramirez@example.com",
       "ownerResourceId": 1,
       "mitigation": "<p>Assumption was wrong — ran a knowledge check; 2 of 4 devs unaware. Remediated with a doc session the same week.</p>",
@@ -1842,7 +1842,7 @@
       "title": "Staging environment mirrors production load",
       "description": "<p>Capacity planning assumes staging handles realistic load. If wrong load tests will be misleading.</p>",
       "status": "Open",
-      "owner": "Sam Placeholder",
+      "owner": "Noah Bennett",
       "ownerEmail": "noah.bennett@example.com",
       "ownerResourceId": 2,
       "linkedTaskIds": [
@@ -1861,7 +1861,7 @@
       "description": "<p>SameSite=Strict cookie + cross-origin redirect chain triggers Safari ITP loop — surfaced in testing.</p>",
       "severity": "High",
       "status": "In Progress",
-      "owner": "Sam Placeholder",
+      "owner": "Noah Bennett",
       "ownerEmail": "noah.bennett@example.com",
       "ownerResourceId": 2,
       "mitigation": "<p>Workaround in dev: SameSite=Lax. Need security review before prod.</p>",
@@ -1883,7 +1883,7 @@
           "html": "<p>Security review accepts <em>SameSite=Lax</em> for the redirect cookie; the prod change is queued behind the pen test.</p>",
           "text": "Security review accepts SameSite=Lax for the redirect cookie; the prod change is queued behind the pen test.",
           "authorResourceId": 4,
-          "authorName": "Morgan Standin"
+          "authorName": "Maya Patel"
         }
       ]
     },
@@ -1894,7 +1894,7 @@
       "description": "<p>Sliding-window counter in Redis does not reset on TTL expiry under high concurrency; causes spurious 429s.</p>",
       "severity": "High",
       "status": "Open",
-      "owner": "Sam Placeholder",
+      "owner": "Noah Bennett",
       "ownerEmail": "noah.bennett@example.com",
       "ownerResourceId": 2,
       "mitigation": "<p>Being investigated. Temporary mitigation: raised threshold to 500 req/min.</p>",
@@ -1909,7 +1909,7 @@
       "escalations": [
         {
           "at": "2026-09-01T09:30:00.000Z",
-          "toName": "Sam Placeholder",
+          "toName": "Noah Bennett",
           "toEmail": "noah.bennett@example.com",
           "toResourceId": 2,
           "fromSeverity": "Medium",
@@ -1923,7 +1923,7 @@
           "html": "<p>Escalated to <strong>High</strong> after a second burst of spurious 429s in staging.</p>",
           "text": "Escalated to High after a second burst of spurious 429s in staging.",
           "authorResourceId": 4,
-          "authorName": "Morgan Standin"
+          "authorName": "Maya Patel"
         }
       ]
     },
@@ -1934,7 +1934,7 @@
       "description": "<p>Missing ARIA labels on password toggle button; flagged by axe-core in CI.</p>",
       "severity": "Low",
       "status": "Resolved",
-      "owner": "Alex Example",
+      "owner": "Sofia Ramirez",
       "ownerEmail": "sofia.ramirez@example.com",
       "ownerResourceId": 1,
       "mitigation": "<p>Fixed in PR #87; merged the same day.</p>",
@@ -1954,7 +1954,7 @@
       "description": "<p>InfoSec must approve SOC2 evidence package before cutover.</p>",
       "severity": "Medium",
       "status": "Open",
-      "owner": "Morgan Standin",
+      "owner": "Maya Patel",
       "ownerEmail": "maya.patel@example.com",
       "ownerResourceId": 4,
       "linkedTaskIds": [
@@ -1975,7 +1975,7 @@
           "html": "<p>Compliance pre-review complete; formal sign-off pending the final pen-test report.</p>",
           "text": "Compliance pre-review complete; formal sign-off pending the final pen-test report.",
           "authorResourceId": 4,
-          "authorName": "Morgan Standin"
+          "authorName": "Maya Patel"
         }
       ]
     },
@@ -1986,7 +1986,7 @@
       "description": "<p>Egress rules to api.sso-provider.com on 443.</p>",
       "severity": "Medium",
       "status": "Delivered",
-      "owner": "Taylor Specimen",
+      "owner": "Ava Thompson",
       "ownerEmail": "ava.thompson@example.com",
       "ownerResourceId": 3,
       "mitigation": "<p>Confirmed by ticket NET-2342, closed on the target date.</p>",
@@ -2007,7 +2007,7 @@
       "description": "<p>DBA must approve 3 new tables + 2 indexes before migration script can run in prod.</p>",
       "severity": "High",
       "status": "Open",
-      "owner": "Morgan Standin",
+      "owner": "Maya Patel",
       "ownerEmail": "maya.patel@example.com",
       "ownerResourceId": 4,
       "linkedTaskIds": [
@@ -2029,7 +2029,7 @@
           "html": "<p>DBA review slipped a second time; chasing the DBA lead for a slot this week.</p>",
           "text": "DBA review slipped a second time; chasing the DBA lead for a slot this week.",
           "authorResourceId": 4,
-          "authorName": "Morgan Standin"
+          "authorName": "Maya Patel"
         }
       ]
     },
@@ -2042,7 +2042,7 @@
       "probability": 3,
       "impact": 5,
       "status": "Mitigated",
-      "owner": "Sam Placeholder",
+      "owner": "Noah Bennett",
       "ownerEmail": "noah.bennett@example.com",
       "ownerResourceId": 2,
       "mitigation": "<p>Pre-migration backup + 5k-batch dry-runs with rollback markers. Weekly integrity checks during cutover week.</p>",
@@ -2068,7 +2068,7 @@
           "html": "<p>Dry-runs of batches 1–3 came back clean and the integrity checks are green; marking this <strong>mitigated</strong>.</p>",
           "text": "Dry-runs of batches 1–3 came back clean and the integrity checks are green; marking this mitigated.",
           "authorResourceId": 2,
-          "authorName": "Sam Placeholder"
+          "authorName": "Noah Bennett"
         }
       ]
     },
@@ -2081,7 +2081,7 @@
       "probability": 2,
       "impact": 4,
       "status": "Open",
-      "owner": "Morgan Standin",
+      "owner": "Maya Patel",
       "ownerEmail": "maya.patel@example.com",
       "ownerResourceId": 4,
       "mitigation": "<p>Provider SLA: 99.95%. Fallback: temporary local-account bypass for ops accounts (documented, time-boxed).</p>",
@@ -2100,7 +2100,7 @@
           "html": "<p>Vendor SLA call scheduled; requesting a 99.95% uptime commitment for peak windows.</p>",
           "text": "Vendor SLA call scheduled; requesting a 99.95% uptime commitment for peak windows.",
           "authorResourceId": 4,
-          "authorName": "Morgan Standin"
+          "authorName": "Maya Patel"
         }
       ]
     },
@@ -2113,7 +2113,7 @@
       "probability": 4,
       "impact": 3,
       "status": "Realized",
-      "owner": "Sam Placeholder",
+      "owner": "Noah Bennett",
       "ownerEmail": "noah.bennett@example.com",
       "ownerResourceId": 2,
       "mitigation": "<p>Token verification cached; index added on session lookup. Still monitoring.</p>",
@@ -2131,7 +2131,7 @@
           "html": "<p>p95 is back under 120 ms after the session-index fix. Keeping it open until the load test confirms.</p>",
           "text": "p95 is back under 120 ms after the session-index fix. Keeping it open until the load test confirms.",
           "authorResourceId": 2,
-          "authorName": "Sam Placeholder"
+          "authorName": "Noah Bennett"
         }
       ]
     },
@@ -2144,7 +2144,7 @@
       "probability": 3,
       "impact": 3,
       "status": "Open",
-      "owner": "Alex Example",
+      "owner": "Sofia Ramirez",
       "ownerEmail": "sofia.ramirez@example.com",
       "ownerResourceId": 1,
       "mitigation": "<p>Pinned to patched fork until upstream releases v1.8.0. Upgrade scheduled for the next maintenance release.</p>",
@@ -2164,7 +2164,7 @@
       "description": "<p>Comms team confirmed via survey: 92% acceptance for off-hours maintenance.</p>",
       "severity": "Medium",
       "status": "Validated",
-      "owner": "Taylor Specimen",
+      "owner": "Ava Thompson",
       "ownerEmail": "ava.thompson@example.com",
       "ownerResourceId": 3,
       "linkedTaskIds": [],
@@ -2179,7 +2179,7 @@
       "title": "All team members briefed on new auth flow — Payments",
       "description": "<p>Assumed frontend devs know the new cookie/token contract.</p>",
       "status": "Invalidated",
-      "owner": "Alex Example",
+      "owner": "Sofia Ramirez",
       "ownerEmail": "sofia.ramirez@example.com",
       "ownerResourceId": 1,
       "mitigation": "<p>Assumption was wrong — ran a knowledge check; 2 of 4 devs unaware. Remediated with a doc session the same week.</p>",
@@ -2198,7 +2198,7 @@
       "title": "Staging environment mirrors production load — Payments",
       "description": "<p>Capacity planning assumes staging handles realistic load. If wrong load tests will be misleading.</p>",
       "status": "Open",
-      "owner": "Sam Placeholder",
+      "owner": "Noah Bennett",
       "ownerEmail": "noah.bennett@example.com",
       "ownerResourceId": 2,
       "linkedTaskIds": [
@@ -2217,7 +2217,7 @@
       "description": "<p>SameSite=Strict cookie + cross-origin redirect chain triggers Safari ITP loop — surfaced in testing.</p>",
       "severity": "High",
       "status": "In Progress",
-      "owner": "Sam Placeholder",
+      "owner": "Noah Bennett",
       "ownerEmail": "noah.bennett@example.com",
       "ownerResourceId": 2,
       "mitigation": "<p>Workaround in dev: SameSite=Lax. Need security review before prod.</p>",
@@ -2239,7 +2239,7 @@
           "html": "<p>Security review accepts <em>SameSite=Lax</em> for the redirect cookie; the prod change is queued behind the pen test.</p>",
           "text": "Security review accepts SameSite=Lax for the redirect cookie; the prod change is queued behind the pen test.",
           "authorResourceId": 4,
-          "authorName": "Morgan Standin"
+          "authorName": "Maya Patel"
         }
       ]
     },
@@ -2250,7 +2250,7 @@
       "description": "<p>Sliding-window counter in Redis does not reset on TTL expiry under high concurrency; causes spurious 429s.</p>",
       "severity": "High",
       "status": "Open",
-      "owner": "Sam Placeholder",
+      "owner": "Noah Bennett",
       "ownerEmail": "noah.bennett@example.com",
       "ownerResourceId": 2,
       "mitigation": "<p>Being investigated. Temporary mitigation: raised threshold to 500 req/min.</p>",
@@ -2265,7 +2265,7 @@
       "escalations": [
         {
           "at": "2026-09-01T09:30:00.000Z",
-          "toName": "Sam Placeholder",
+          "toName": "Noah Bennett",
           "toEmail": "noah.bennett@example.com",
           "toResourceId": 2,
           "fromSeverity": "Medium",
@@ -2279,7 +2279,7 @@
           "html": "<p>Escalated to <strong>High</strong> after a second burst of spurious 429s in staging.</p>",
           "text": "Escalated to High after a second burst of spurious 429s in staging.",
           "authorResourceId": 4,
-          "authorName": "Morgan Standin"
+          "authorName": "Maya Patel"
         }
       ]
     },
@@ -2290,7 +2290,7 @@
       "description": "<p>Missing ARIA labels on password toggle button; flagged by axe-core in CI.</p>",
       "severity": "Low",
       "status": "Resolved",
-      "owner": "Alex Example",
+      "owner": "Sofia Ramirez",
       "ownerEmail": "sofia.ramirez@example.com",
       "ownerResourceId": 1,
       "mitigation": "<p>Fixed in PR #87; merged the same day.</p>",
@@ -2310,7 +2310,7 @@
       "description": "<p>InfoSec must approve SOC2 evidence package before cutover.</p>",
       "severity": "Medium",
       "status": "Open",
-      "owner": "Morgan Standin",
+      "owner": "Maya Patel",
       "ownerEmail": "maya.patel@example.com",
       "ownerResourceId": 4,
       "linkedTaskIds": [
@@ -2331,7 +2331,7 @@
           "html": "<p>Compliance pre-review complete; formal sign-off pending the final pen-test report.</p>",
           "text": "Compliance pre-review complete; formal sign-off pending the final pen-test report.",
           "authorResourceId": 4,
-          "authorName": "Morgan Standin"
+          "authorName": "Maya Patel"
         }
       ]
     },
@@ -2342,7 +2342,7 @@
       "description": "<p>Egress rules to api.sso-provider.com on 443.</p>",
       "severity": "Medium",
       "status": "Delivered",
-      "owner": "Taylor Specimen",
+      "owner": "Ava Thompson",
       "ownerEmail": "ava.thompson@example.com",
       "ownerResourceId": 3,
       "mitigation": "<p>Confirmed by ticket NET-2342, closed on the target date.</p>",
@@ -2363,7 +2363,7 @@
       "description": "<p>DBA must approve 3 new tables + 2 indexes before migration script can run in prod.</p>",
       "severity": "High",
       "status": "Open",
-      "owner": "Morgan Standin",
+      "owner": "Maya Patel",
       "ownerEmail": "maya.patel@example.com",
       "ownerResourceId": 4,
       "linkedTaskIds": [
@@ -2385,7 +2385,7 @@
           "html": "<p>DBA review slipped a second time; chasing the DBA lead for a slot this week.</p>",
           "text": "DBA review slipped a second time; chasing the DBA lead for a slot this week.",
           "authorResourceId": 4,
-          "authorName": "Morgan Standin"
+          "authorName": "Maya Patel"
         }
       ]
     },
@@ -2398,7 +2398,7 @@
       "probability": 3,
       "impact": 5,
       "status": "Mitigated",
-      "owner": "Sam Placeholder",
+      "owner": "Noah Bennett",
       "ownerEmail": "noah.bennett@example.com",
       "ownerResourceId": 2,
       "mitigation": "<p>Pre-migration backup + 5k-batch dry-runs with rollback markers. Weekly integrity checks during cutover week.</p>",
@@ -2424,7 +2424,7 @@
           "html": "<p>Dry-runs of batches 1–3 came back clean and the integrity checks are green; marking this <strong>mitigated</strong>.</p>",
           "text": "Dry-runs of batches 1–3 came back clean and the integrity checks are green; marking this mitigated.",
           "authorResourceId": 2,
-          "authorName": "Sam Placeholder"
+          "authorName": "Noah Bennett"
         }
       ]
     },
@@ -2437,7 +2437,7 @@
       "probability": 2,
       "impact": 4,
       "status": "Open",
-      "owner": "Morgan Standin",
+      "owner": "Maya Patel",
       "ownerEmail": "maya.patel@example.com",
       "ownerResourceId": 4,
       "mitigation": "<p>Provider SLA: 99.95%. Fallback: temporary local-account bypass for ops accounts (documented, time-boxed).</p>",
@@ -2456,7 +2456,7 @@
           "html": "<p>Vendor SLA call scheduled; requesting a 99.95% uptime commitment for peak windows.</p>",
           "text": "Vendor SLA call scheduled; requesting a 99.95% uptime commitment for peak windows.",
           "authorResourceId": 4,
-          "authorName": "Morgan Standin"
+          "authorName": "Maya Patel"
         }
       ]
     },
@@ -2469,7 +2469,7 @@
       "probability": 4,
       "impact": 3,
       "status": "Realized",
-      "owner": "Sam Placeholder",
+      "owner": "Noah Bennett",
       "ownerEmail": "noah.bennett@example.com",
       "ownerResourceId": 2,
       "mitigation": "<p>Token verification cached; index added on session lookup. Still monitoring.</p>",
@@ -2487,7 +2487,7 @@
           "html": "<p>p95 is back under 120 ms after the session-index fix. Keeping it open until the load test confirms.</p>",
           "text": "p95 is back under 120 ms after the session-index fix. Keeping it open until the load test confirms.",
           "authorResourceId": 2,
-          "authorName": "Sam Placeholder"
+          "authorName": "Noah Bennett"
         }
       ]
     },
@@ -2500,7 +2500,7 @@
       "probability": 3,
       "impact": 3,
       "status": "Open",
-      "owner": "Alex Example",
+      "owner": "Sofia Ramirez",
       "ownerEmail": "sofia.ramirez@example.com",
       "ownerResourceId": 1,
       "mitigation": "<p>Pinned to patched fork until upstream releases v1.8.0. Upgrade scheduled for the next maintenance release.</p>",
@@ -2520,7 +2520,7 @@
       "description": "<p>Comms team confirmed via survey: 92% acceptance for off-hours maintenance.</p>",
       "severity": "Medium",
       "status": "Validated",
-      "owner": "Taylor Specimen",
+      "owner": "Ava Thompson",
       "ownerEmail": "ava.thompson@example.com",
       "ownerResourceId": 3,
       "linkedTaskIds": [],
@@ -2535,7 +2535,7 @@
       "title": "All team members briefed on new auth flow — Mobile App",
       "description": "<p>Assumed frontend devs know the new cookie/token contract.</p>",
       "status": "Invalidated",
-      "owner": "Alex Example",
+      "owner": "Sofia Ramirez",
       "ownerEmail": "sofia.ramirez@example.com",
       "ownerResourceId": 1,
       "mitigation": "<p>Assumption was wrong — ran a knowledge check; 2 of 4 devs unaware. Remediated with a doc session the same week.</p>",
@@ -2554,7 +2554,7 @@
       "title": "Staging environment mirrors production load — Mobile App",
       "description": "<p>Capacity planning assumes staging handles realistic load. If wrong load tests will be misleading.</p>",
       "status": "Open",
-      "owner": "Sam Placeholder",
+      "owner": "Noah Bennett",
       "ownerEmail": "noah.bennett@example.com",
       "ownerResourceId": 2,
       "linkedTaskIds": [
@@ -2573,7 +2573,7 @@
       "description": "<p>SameSite=Strict cookie + cross-origin redirect chain triggers Safari ITP loop — surfaced in testing.</p>",
       "severity": "High",
       "status": "In Progress",
-      "owner": "Sam Placeholder",
+      "owner": "Noah Bennett",
       "ownerEmail": "noah.bennett@example.com",
       "ownerResourceId": 2,
       "mitigation": "<p>Workaround in dev: SameSite=Lax. Need security review before prod.</p>",
@@ -2595,7 +2595,7 @@
           "html": "<p>Security review accepts <em>SameSite=Lax</em> for the redirect cookie; the prod change is queued behind the pen test.</p>",
           "text": "Security review accepts SameSite=Lax for the redirect cookie; the prod change is queued behind the pen test.",
           "authorResourceId": 4,
-          "authorName": "Morgan Standin"
+          "authorName": "Maya Patel"
         }
       ]
     },
@@ -2606,7 +2606,7 @@
       "description": "<p>Sliding-window counter in Redis does not reset on TTL expiry under high concurrency; causes spurious 429s.</p>",
       "severity": "High",
       "status": "Open",
-      "owner": "Sam Placeholder",
+      "owner": "Noah Bennett",
       "ownerEmail": "noah.bennett@example.com",
       "ownerResourceId": 2,
       "mitigation": "<p>Being investigated. Temporary mitigation: raised threshold to 500 req/min.</p>",
@@ -2621,7 +2621,7 @@
       "escalations": [
         {
           "at": "2026-09-01T09:30:00.000Z",
-          "toName": "Sam Placeholder",
+          "toName": "Noah Bennett",
           "toEmail": "noah.bennett@example.com",
           "toResourceId": 2,
           "fromSeverity": "Medium",
@@ -2635,7 +2635,7 @@
           "html": "<p>Escalated to <strong>High</strong> after a second burst of spurious 429s in staging.</p>",
           "text": "Escalated to High after a second burst of spurious 429s in staging.",
           "authorResourceId": 4,
-          "authorName": "Morgan Standin"
+          "authorName": "Maya Patel"
         }
       ]
     },
@@ -2646,7 +2646,7 @@
       "description": "<p>Missing ARIA labels on password toggle button; flagged by axe-core in CI.</p>",
       "severity": "Low",
       "status": "Resolved",
-      "owner": "Alex Example",
+      "owner": "Sofia Ramirez",
       "ownerEmail": "sofia.ramirez@example.com",
       "ownerResourceId": 1,
       "mitigation": "<p>Fixed in PR #87; merged the same day.</p>",
@@ -2666,7 +2666,7 @@
       "description": "<p>InfoSec must approve SOC2 evidence package before cutover.</p>",
       "severity": "Medium",
       "status": "Open",
-      "owner": "Morgan Standin",
+      "owner": "Maya Patel",
       "ownerEmail": "maya.patel@example.com",
       "ownerResourceId": 4,
       "linkedTaskIds": [
@@ -2687,7 +2687,7 @@
           "html": "<p>Compliance pre-review complete; formal sign-off pending the final pen-test report.</p>",
           "text": "Compliance pre-review complete; formal sign-off pending the final pen-test report.",
           "authorResourceId": 4,
-          "authorName": "Morgan Standin"
+          "authorName": "Maya Patel"
         }
       ]
     },
@@ -2698,7 +2698,7 @@
       "description": "<p>Egress rules to api.sso-provider.com on 443.</p>",
       "severity": "Medium",
       "status": "Delivered",
-      "owner": "Taylor Specimen",
+      "owner": "Ava Thompson",
       "ownerEmail": "ava.thompson@example.com",
       "ownerResourceId": 3,
       "mitigation": "<p>Confirmed by ticket NET-2342, closed on the target date.</p>",
@@ -2719,7 +2719,7 @@
       "description": "<p>DBA must approve 3 new tables + 2 indexes before migration script can run in prod.</p>",
       "severity": "High",
       "status": "Open",
-      "owner": "Morgan Standin",
+      "owner": "Maya Patel",
       "ownerEmail": "maya.patel@example.com",
       "ownerResourceId": 4,
       "linkedTaskIds": [
@@ -2741,7 +2741,7 @@
           "html": "<p>DBA review slipped a second time; chasing the DBA lead for a slot this week.</p>",
           "text": "DBA review slipped a second time; chasing the DBA lead for a slot this week.",
           "authorResourceId": 4,
-          "authorName": "Morgan Standin"
+          "authorName": "Maya Patel"
         }
       ]
     }
@@ -2749,7 +2749,7 @@
   "absences": [
     {
       "id": 1,
-      "assignee": "Alex Example",
+      "assignee": "Sofia Ramirez",
       "assigneeEmail": "sofia.ramirez@example.com",
       "startDate": "2026-08-10",
       "endDate": "2026-08-21",
@@ -2759,7 +2759,7 @@
     },
     {
       "id": 2,
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "startDate": "2026-09-15",
       "endDate": "2026-09-15",
@@ -2768,7 +2768,7 @@
     },
     {
       "id": 3,
-      "assignee": "Taylor Specimen",
+      "assignee": "Ava Thompson",
       "assigneeEmail": "ava.thompson@example.com",
       "startDate": "2026-09-28",
       "endDate": "2026-09-30",
@@ -2778,7 +2778,7 @@
     },
     {
       "id": 4,
-      "assignee": "Morgan Standin",
+      "assignee": "Maya Patel",
       "assigneeEmail": "maya.patel@example.com",
       "startDate": "2026-09-21",
       "endDate": "2026-09-22",
@@ -2788,7 +2788,7 @@
     },
     {
       "id": 5,
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "startDate": "2026-11-09",
       "endDate": "2026-11-13",
@@ -2798,7 +2798,7 @@
     },
     {
       "id": 100001,
-      "assignee": "Alex Example",
+      "assignee": "Sofia Ramirez",
       "assigneeEmail": "sofia.ramirez@example.com",
       "startDate": "2026-08-10",
       "endDate": "2026-08-21",
@@ -2808,7 +2808,7 @@
     },
     {
       "id": 100002,
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "startDate": "2026-09-15",
       "endDate": "2026-09-15",
@@ -2817,7 +2817,7 @@
     },
     {
       "id": 100003,
-      "assignee": "Taylor Specimen",
+      "assignee": "Ava Thompson",
       "assigneeEmail": "ava.thompson@example.com",
       "startDate": "2026-09-28",
       "endDate": "2026-09-30",
@@ -2827,7 +2827,7 @@
     },
     {
       "id": 100004,
-      "assignee": "Morgan Standin",
+      "assignee": "Maya Patel",
       "assigneeEmail": "maya.patel@example.com",
       "startDate": "2026-09-21",
       "endDate": "2026-09-22",
@@ -2837,7 +2837,7 @@
     },
     {
       "id": 100005,
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "startDate": "2026-11-09",
       "endDate": "2026-11-13",
@@ -2847,7 +2847,7 @@
     },
     {
       "id": 200001,
-      "assignee": "Alex Example",
+      "assignee": "Sofia Ramirez",
       "assigneeEmail": "sofia.ramirez@example.com",
       "startDate": "2026-08-10",
       "endDate": "2026-08-21",
@@ -2857,7 +2857,7 @@
     },
     {
       "id": 200002,
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "startDate": "2026-09-15",
       "endDate": "2026-09-15",
@@ -2866,7 +2866,7 @@
     },
     {
       "id": 200003,
-      "assignee": "Taylor Specimen",
+      "assignee": "Ava Thompson",
       "assigneeEmail": "ava.thompson@example.com",
       "startDate": "2026-09-28",
       "endDate": "2026-09-30",
@@ -2876,7 +2876,7 @@
     },
     {
       "id": 200004,
-      "assignee": "Morgan Standin",
+      "assignee": "Maya Patel",
       "assigneeEmail": "maya.patel@example.com",
       "startDate": "2026-09-21",
       "endDate": "2026-09-22",
@@ -2886,7 +2886,7 @@
     },
     {
       "id": 200005,
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "startDate": "2026-11-09",
       "endDate": "2026-11-13",
@@ -2898,7 +2898,7 @@
   "shifts": [
     {
       "id": 1,
-      "assignee": "Alex Example",
+      "assignee": "Sofia Ramirez",
       "assigneeEmail": "sofia.ramirez@example.com",
       "hoursPerWeekday": [
         0,
@@ -2914,7 +2914,7 @@
     },
     {
       "id": 2,
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "hoursPerWeekday": [
         0,
@@ -2930,7 +2930,7 @@
     },
     {
       "id": 3,
-      "assignee": "Taylor Specimen",
+      "assignee": "Ava Thompson",
       "assigneeEmail": "ava.thompson@example.com",
       "hoursPerWeekday": [
         0,
@@ -2946,7 +2946,7 @@
     },
     {
       "id": 4,
-      "assignee": "Morgan Standin",
+      "assignee": "Maya Patel",
       "assigneeEmail": "maya.patel@example.com",
       "hoursPerWeekday": [
         0,
@@ -2962,7 +2962,7 @@
     },
     {
       "id": 100001,
-      "assignee": "Alex Example",
+      "assignee": "Sofia Ramirez",
       "assigneeEmail": "sofia.ramirez@example.com",
       "hoursPerWeekday": [
         0,
@@ -2978,7 +2978,7 @@
     },
     {
       "id": 100002,
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "hoursPerWeekday": [
         0,
@@ -2994,7 +2994,7 @@
     },
     {
       "id": 100003,
-      "assignee": "Taylor Specimen",
+      "assignee": "Ava Thompson",
       "assigneeEmail": "ava.thompson@example.com",
       "hoursPerWeekday": [
         0,
@@ -3010,7 +3010,7 @@
     },
     {
       "id": 100004,
-      "assignee": "Morgan Standin",
+      "assignee": "Maya Patel",
       "assigneeEmail": "maya.patel@example.com",
       "hoursPerWeekday": [
         0,
@@ -3026,7 +3026,7 @@
     },
     {
       "id": 200001,
-      "assignee": "Alex Example",
+      "assignee": "Sofia Ramirez",
       "assigneeEmail": "sofia.ramirez@example.com",
       "hoursPerWeekday": [
         0,
@@ -3042,7 +3042,7 @@
     },
     {
       "id": 200002,
-      "assignee": "Sam Placeholder",
+      "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "hoursPerWeekday": [
         0,
@@ -3058,7 +3058,7 @@
     },
     {
       "id": 200003,
-      "assignee": "Taylor Specimen",
+      "assignee": "Ava Thompson",
       "assigneeEmail": "ava.thompson@example.com",
       "hoursPerWeekday": [
         0,
@@ -3074,7 +3074,7 @@
     },
     {
       "id": 200004,
-      "assignee": "Morgan Standin",
+      "assignee": "Maya Patel",
       "assigneeEmail": "maya.patel@example.com",
       "hoursPerWeekday": [
         0,
@@ -3092,8 +3092,8 @@
   "resources": [
     {
       "id": 1,
-      "firstName": "Sample",
-      "lastName": "Dummy",
+      "firstName": "Sofia",
+      "lastName": "Ramirez",
       "roleId": 1,
       "utilizationMode": "percent",
       "utilization": {
@@ -3119,8 +3119,8 @@
     },
     {
       "id": 2,
-      "firstName": "Fictional",
-      "lastName": "Jordan",
+      "firstName": "Noah",
+      "lastName": "Bennett",
       "roleId": 2,
       "utilizationMode": "percent",
       "utilization": {
@@ -3143,8 +3143,8 @@
     },
     {
       "id": 3,
-      "firstName": "Aria",
-      "lastName": "Patel",
+      "firstName": "Ava",
+      "lastName": "Thompson",
       "roleId": 3,
       "utilizationMode": "hours",
       "utilization": {
@@ -3167,8 +3167,8 @@
     },
     {
       "id": 4,
-      "firstName": "Invented",
-      "lastName": "Riley",
+      "firstName": "Maya",
+      "lastName": "Patel",
       "roleId": 4,
       "utilizationMode": "percent",
       "utilization": {
@@ -3191,8 +3191,8 @@
     },
     {
       "id": 5,
-      "firstName": "David",
-      "lastName": "Avery",
+      "firstName": "Liam",
+      "lastName": "Foster",
       "roleId": 5,
       "utilizationMode": "percent",
       "utilization": {
@@ -4616,7 +4616,7 @@
       "impactDescription": "<p>Adds roughly <strong>three weeks</strong> of backend and frontend work, and pulls in a second security review cycle.</p><ol><li>Backend: TOTP enrolment + verification endpoints</li><li>Frontend: enrolment flow and recovery-code screen</li><li>Re-scope the load-test scenarios to include the MFA step</li></ol>",
       "scheduleImpactDays": 21,
       "costImpact": 18000,
-      "requestedBy": "Morgan Standin",
+      "requestedBy": "Maya Patel",
       "decisionBy": "Elena Fischer",
       "localModifiedAt": "2026-09-03T09:00:00.000Z",
       "noteLog": [
@@ -4626,7 +4626,7 @@
           "html": "<p>CAB slot booked for the next change board; InfoSec will present the revised policy alongside this request.</p>",
           "text": "CAB slot booked for the next change board; InfoSec will present the revised policy alongside this request.",
           "authorResourceId": 4,
-          "authorName": "Morgan Standin"
+          "authorName": "Maya Patel"
         },
         {
           "id": 2,
@@ -4634,7 +4634,7 @@
           "html": "<p>Backend estimate confirmed at <strong>13 days</strong>; the recovery-code screen is the open question.</p>",
           "text": "Backend estimate confirmed at 13 days; the recovery-code screen is the open question.",
           "authorResourceId": 2,
-          "authorName": "Sam Placeholder"
+          "authorName": "Noah Bennett"
         }
       ]
     },
@@ -4657,7 +4657,7 @@
       "impactDescription": "<p>Pushes hypercare exit past the year-end change freeze. Minor cost impact (two additional sprint weeks). Customer comms required; maintenance-window notice must be re-issued.</p>",
       "scheduleImpactDays": 14,
       "costImpact": 6000,
-      "requestedBy": "Alex Example",
+      "requestedBy": "Sofia Ramirez",
       "decisionBy": "Elena Fischer",
       "localModifiedAt": "2026-09-16T14:30:00.000Z",
       "noteLog": [
@@ -4667,7 +4667,7 @@
           "html": "<p>Customer comms draft circulated; the maintenance-window notice needs re-issuing once the date is agreed.</p>",
           "text": "Customer comms draft circulated; the maintenance-window notice needs re-issuing once the date is agreed.",
           "authorResourceId": 1,
-          "authorName": "Alex Example"
+          "authorName": "Sofia Ramirez"
         }
       ]
     },
@@ -4692,7 +4692,7 @@
       "impactDescription": "<p>Adds roughly <strong>three weeks</strong> of backend and frontend work, and pulls in a second security review cycle.</p><ol><li>Backend: TOTP enrolment + verification endpoints</li><li>Frontend: enrolment flow and recovery-code screen</li><li>Re-scope the load-test scenarios to include the MFA step</li></ol>",
       "scheduleImpactDays": 21,
       "costImpact": 18000,
-      "requestedBy": "Morgan Standin",
+      "requestedBy": "Maya Patel",
       "decisionBy": "Elena Fischer",
       "localModifiedAt": "2026-09-03T09:00:00.000Z",
       "noteLog": [
@@ -4702,7 +4702,7 @@
           "html": "<p>CAB slot booked for the next change board; InfoSec will present the revised policy alongside this request.</p>",
           "text": "CAB slot booked for the next change board; InfoSec will present the revised policy alongside this request.",
           "authorResourceId": 4,
-          "authorName": "Morgan Standin"
+          "authorName": "Maya Patel"
         },
         {
           "id": 2,
@@ -4710,7 +4710,7 @@
           "html": "<p>Backend estimate confirmed at <strong>13 days</strong>; the recovery-code screen is the open question.</p>",
           "text": "Backend estimate confirmed at 13 days; the recovery-code screen is the open question.",
           "authorResourceId": 2,
-          "authorName": "Sam Placeholder"
+          "authorName": "Noah Bennett"
         }
       ]
     },
@@ -4733,7 +4733,7 @@
       "impactDescription": "<p>Pushes hypercare exit past the year-end change freeze. Minor cost impact (two additional sprint weeks). Customer comms required; maintenance-window notice must be re-issued.</p>",
       "scheduleImpactDays": 14,
       "costImpact": 6000,
-      "requestedBy": "Alex Example",
+      "requestedBy": "Sofia Ramirez",
       "decisionBy": "Elena Fischer",
       "localModifiedAt": "2026-09-16T14:30:00.000Z",
       "noteLog": [
@@ -4743,7 +4743,7 @@
           "html": "<p>Customer comms draft circulated; the maintenance-window notice needs re-issuing once the date is agreed.</p>",
           "text": "Customer comms draft circulated; the maintenance-window notice needs re-issuing once the date is agreed.",
           "authorResourceId": 1,
-          "authorName": "Alex Example"
+          "authorName": "Sofia Ramirez"
         }
       ]
     },
@@ -4768,7 +4768,7 @@
       "impactDescription": "<p>Adds roughly <strong>three weeks</strong> of backend and frontend work, and pulls in a second security review cycle.</p><ol><li>Backend: TOTP enrolment + verification endpoints</li><li>Frontend: enrolment flow and recovery-code screen</li><li>Re-scope the load-test scenarios to include the MFA step</li></ol>",
       "scheduleImpactDays": 21,
       "costImpact": 18000,
-      "requestedBy": "Morgan Standin",
+      "requestedBy": "Maya Patel",
       "decisionBy": "Elena Fischer",
       "localModifiedAt": "2026-09-03T09:00:00.000Z",
       "noteLog": [
@@ -4778,7 +4778,7 @@
           "html": "<p>CAB slot booked for the next change board; InfoSec will present the revised policy alongside this request.</p>",
           "text": "CAB slot booked for the next change board; InfoSec will present the revised policy alongside this request.",
           "authorResourceId": 4,
-          "authorName": "Morgan Standin"
+          "authorName": "Maya Patel"
         },
         {
           "id": 2,
@@ -4786,7 +4786,7 @@
           "html": "<p>Backend estimate confirmed at <strong>13 days</strong>; the recovery-code screen is the open question.</p>",
           "text": "Backend estimate confirmed at 13 days; the recovery-code screen is the open question.",
           "authorResourceId": 2,
-          "authorName": "Sam Placeholder"
+          "authorName": "Noah Bennett"
         }
       ]
     },
@@ -4809,7 +4809,7 @@
       "impactDescription": "<p>Pushes hypercare exit past the year-end change freeze. Minor cost impact (two additional sprint weeks). Customer comms required; maintenance-window notice must be re-issued.</p>",
       "scheduleImpactDays": 14,
       "costImpact": 6000,
-      "requestedBy": "Alex Example",
+      "requestedBy": "Sofia Ramirez",
       "decisionBy": "Elena Fischer",
       "localModifiedAt": "2026-09-16T14:30:00.000Z",
       "noteLog": [
@@ -4819,7 +4819,7 @@
           "html": "<p>Customer comms draft circulated; the maintenance-window notice needs re-issuing once the date is agreed.</p>",
           "text": "Customer comms draft circulated; the maintenance-window notice needs re-issuing once the date is agreed.",
           "authorResourceId": 1,
-          "authorName": "Alex Example"
+          "authorName": "Sofia Ramirez"
         }
       ]
     }
@@ -4848,7 +4848,7 @@
     },
     {
       "id": 2,
-      "name": "Sam Placeholder",
+      "name": "Noah Bennett",
       "category": "Internal",
       "influence": "High",
       "interest": "Medium",
@@ -4862,7 +4862,7 @@
     },
     {
       "id": 3,
-      "name": "Taylor Specimen",
+      "name": "Ava Thompson",
       "category": "Internal",
       "influence": "Medium",
       "interest": "High",
@@ -4876,7 +4876,7 @@
     },
     {
       "id": 4,
-      "name": "David Okoro",
+      "name": "Liam Okoro",
       "category": "Customer",
       "influence": "Medium",
       "interest": "Medium",
@@ -4889,7 +4889,7 @@
     },
     {
       "id": 5,
-      "name": "Morgan Standin",
+      "name": "Maya Patel",
       "category": "Regulator",
       "influence": "High",
       "interest": "Low",
@@ -5117,15 +5117,15 @@
   "project": {
     "name": "Customer Identity Platform",
     "code": "CIP-2026",
-    "projectManager": "Alex Example",
+    "projectManager": "Sofia Ramirez",
     "keyStakeholdersInternal": [
       "Elena Fischer",
-      "Sam Placeholder",
-      "Taylor Specimen"
+      "Noah Bennett",
+      "Ava Thompson"
     ],
     "keyStakeholdersExternal": [
-      "David Okoro",
-      "Morgan Standin"
+      "Liam Okoro",
+      "Maya Patel"
     ],
     "customer": "Northwind Retail Group",
     "naceSection": "G",
@@ -5140,12 +5140,12 @@
     "profitCenter": "PC-4711",
     "contactPersons": [
       {
-        "name": "David Okoro",
-        "email": "david.okoro@northwind.example",
+        "name": "Liam Okoro",
+        "email": "liam.okoro@northwind.example",
         "synced": false
       },
       {
-        "name": "Alex Example",
+        "name": "Sofia Ramirez",
         "email": "sofia.ramirez@example.com",
         "synced": true
       }

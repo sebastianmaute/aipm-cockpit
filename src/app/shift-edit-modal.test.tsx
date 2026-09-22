@@ -13,9 +13,9 @@ const SHIFT: Shift = {
 const RESOURCES: Resource[] = [
   {
     id: 1,
-    firstName: "Sample",
-    lastName: "Dummy",
-    email: "Sample@x.com",
+    firstName: "Sofia",
+    lastName: "Ramirez",
+    email: "sofia@x.com",
     roleId: null,
     utilizationMode: "percent",
     utilization: {},
@@ -47,17 +47,17 @@ describe("ShiftEditModal — assignee ResourcePicker", () => {
     const { onSave } = setup();
 
     // The assignee field is now a ResourcePicker combobox. Focus + type to
-    // surface the "Alex Example" registry suggestion, then pick it.
+    // surface the "Sofia Ramirez" registry suggestion, then pick it.
     const picker = within(
       screen.getByRole("dialog", { name: t("en-US", "shiftEditItem", 7) }),
     ).getByRole("combobox");
     fireEvent.focus(picker);
-    fireEvent.change(picker, { target: { value: "Sample" } });
-    fireEvent.mouseDown(screen.getByText("Alex Example"));
+    fireEvent.change(picker, { target: { value: "Sofia" } });
+    fireEvent.mouseDown(screen.getByText("Sofia Ramirez"));
 
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "shiftSave") }));
     expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({ resourceId: 1, assignee: "Alex Example" }),
+      expect.objectContaining({ resourceId: 1, assignee: "Sofia Ramirez" }),
     );
   });
 });

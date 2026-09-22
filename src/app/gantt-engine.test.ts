@@ -38,24 +38,24 @@ describe("loadPrefs multi-select filters", () => {
       JSON.stringify({
         statuses: ["open", "bogus", "overdue", "open"],
         priorities: ["High", "NotAPriority", "Low"],
-        assignees: ["Sample", "", "Sample", "Bob"],
+        assignees: ["Sofia", "", "Sofia", "Bob"],
       }),
     );
     const p = loadPrefs();
     expect(p.statuses).toEqual(["open", "overdue"]);
     expect(p.priorities).toEqual(["High", "Low"]);
-    expect(p.assignees).toEqual(["Sample", "Bob"]);
+    expect(p.assignees).toEqual(["Sofia", "Bob"]);
   });
 
   it("migrates legacy scalar filter keys to single-element arrays", () => {
     window.localStorage.setItem(
       PREFS_KEY,
-      JSON.stringify({ status: "overdue", priority: "High", assignee: "Sample" }),
+      JSON.stringify({ status: "overdue", priority: "High", assignee: "Sofia" }),
     );
     const p = loadPrefs();
     expect(p.statuses).toEqual(["overdue"]);
     expect(p.priorities).toEqual(["High"]);
-    expect(p.assignees).toEqual(["Sample"]);
+    expect(p.assignees).toEqual(["Sofia"]);
   });
 
   it("treats the legacy 'all'/'All' sentinels as no filter", () => {

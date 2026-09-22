@@ -529,29 +529,29 @@ describe("describeEntityCalls — resource", () => {
   // carries one so a create card or a delete label that reaches for `title`
   // (as the generic `str(input.title ?? …)` chain does for every other entity)
   // renders "Engineer" where the person's name belongs.
-  const resource = { id: 5, firstName: "M.", lastName: "Jordan", title: "Engineer", department: "Delivery" };
+  const resource = { id: 5, firstName: "M.", lastName: "Bennett", title: "Engineer", department: "Delivery" };
   const other = { id: 6, firstName: "R.", lastName: "Frank", title: "Analyst" };
   const resWs = wsWith({ resources: [resource, other] as never });
   const d = INLINE_DESCRIPTORS.resource;
 
   it("describes a resource create under the person's name, not their job title", () => {
     const plan = describeEntityCalls(
-      [{ type: "tool_use", name: "create_resource", input: { firstName: "M.", lastName: "Jordan", title: "Engineer" } }],
+      [{ type: "tool_use", name: "create_resource", input: { firstName: "M.", lastName: "Bennett", title: "Engineer" } }],
       { descriptor: d, item: resource, ws: resWs },
     );
     expect(plan.creates).toHaveLength(1);
     expect(plan.creates[0].entity).toBe("resource");
-    expect(plan.creates[0].title).toBe("M. Jordan");
+    expect(plan.creates[0].title).toBe("M. Bennett");
   });
 
   it("falls back to the full-name alias when the parts are not given", () => {
     // `create_resource` accepts EITHER firstName/lastName OR a single `name`
     // (chat-tool-defs.ts `resourceFields`), so the card must name both shapes.
     const plan = describeEntityCalls(
-      [{ type: "tool_use", name: "create_resource", input: { name: "M. Jordan" } }],
+      [{ type: "tool_use", name: "create_resource", input: { name: "M. Bennett" } }],
       { descriptor: d, item: resource, ws: resWs },
     );
-    expect(plan.creates[0]).toMatchObject({ entity: "resource", title: "M. Jordan", toolName: "create_resource" });
+    expect(plan.creates[0]).toMatchObject({ entity: "resource", title: "M. Bennett", toolName: "create_resource" });
   });
 
   it("describes a resource delete against a live row", () => {
@@ -561,7 +561,7 @@ describe("describeEntityCalls — resource", () => {
     );
     expect(plan.deletes).toHaveLength(1);
     // The person, not "Engineer".
-    expect(plan.deletes[0]).toEqual({ entity: "resource", label: "M. Jordan", toolName: "delete_resource", id: 5 });
+    expect(plan.deletes[0]).toEqual({ entity: "resource", label: "M. Bennett", toolName: "delete_resource", id: 5 });
     expect(plan.rejected).toEqual([]);
   });
 
@@ -665,7 +665,7 @@ describe("resource extra emails (383)", () => {
   const d = INLINE_DESCRIPTORS.resource;
   // ★ A stored row's extras are ALREADY sanitized, so the descriptor entry is
   //  idempotent on `before` and the whole diff below comes from `after`.
-  const item = { id: 5, firstName: "M.", lastName: "Jordan", email: "m@x.com", emails: ["b@x.com"] };
+  const item = { id: 5, firstName: "M.", lastName: "Bennett", email: "m@x.com", emails: ["b@x.com"] };
   const emailWs = wsWith({ resources: [item] as never });
 
   it("previews the writer's own dedupe of the extra address list", () => {
@@ -676,7 +676,7 @@ describe("resource extra emails (383)", () => {
     //  only the dedupe fires: `["b@x.com","b@x.com","a@x.com"]` sanitizes to
     //  `["b@x.com","a@x.com"]` against a stored `["b@x.com"]`. That is a real
     //  change and the preview must show it. Reproduce:
-    //  `sanitizeResource({id:5,firstName:"M.",lastName:"Jordan",email:"m@x.com",
+    //  `sanitizeResource({id:5,firstName:"M.",lastName:"Bennett",email:"m@x.com",
     //   emails:["b@x.com","b@x.com","a@x.com"]}).emails` -> ["b@x.com","a@x.com"].
     const plan = describeEntityCalls(
       [{ type: "tool_use", name: "update_resource", input: { id: 5, emails: ["b@x.com", "b@x.com", "a@x.com"] } }],
@@ -977,7 +977,7 @@ describe("preview matches what Apply stores", () => {
     const item = { id: 1, assignee: "Ada", startDate: "2026-06-01", endDate: "2026-06-05", assigneeEmail: "old@x.com" };
     const ctx = { descriptor: INLINE_DESCRIPTORS.absence, item, ws: wsWith({ absences: [item] as never }) };
     const bad = describeEntityCalls(
-      [{ type: "tool_use", name: "update_absence", input: { id: 1, assigneeEmail: "m.Jordan@example.com probed" } }],
+      [{ type: "tool_use", name: "update_absence", input: { id: 1, assigneeEmail: "m.bennett@example.com probed" } }],
       ctx,
     );
     expect(bad.updates).toEqual([]);

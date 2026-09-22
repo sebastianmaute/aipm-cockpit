@@ -16,17 +16,17 @@ describe("migrateWorkspaceV5", () => {
   test("seeds disciplines/grades/plan and backfills resources from assignees", () => {
     const ws = migrateWorkspaceV5({
       ...emptyWorkspace(),
-      tasks: [task(1, "Alex Example"), task(2, "Bob Lee")],
+      tasks: [task(1, "Sofia Ramirez"), task(2, "Bob Lee")],
     });
     expect(ws.disciplines.map((d) => d.name)).toContain("Developer");
     expect(ws.grades.map((g) => g.name)).toContain("Principal");
     expect(ws.plan.granularity).toBe("month");
     expect(ws.resources).toHaveLength(2);
-    expect(ws.tasks[0].resourceId).toBe(ws.resources.find((r) => resourceDisplayName(r) === "Alex Example")?.id);
+    expect(ws.tasks[0].resourceId).toBe(ws.resources.find((r) => resourceDisplayName(r) === "Sofia Ramirez")?.id);
   });
 
   test("is idempotent: existing resources are not rebuilt", () => {
-    const seeded = migrateWorkspaceV5({ ...emptyWorkspace(), tasks: [task(1, "Alex Example")] });
+    const seeded = migrateWorkspaceV5({ ...emptyWorkspace(), tasks: [task(1, "Sofia Ramirez")] });
     const again = migrateWorkspaceV5(seeded);
     expect(again.resources).toEqual(seeded.resources);
     expect(again.tasks[0].resourceId).toBe(seeded.tasks[0].resourceId);
@@ -38,7 +38,7 @@ function sampleWorkspace() {
   const grades: Grade[] = [{ id: 1, name: "Senior" }];
   const roles: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 90, externalRate: 180 }];
   const resources: Resource[] = [
-    { id: 1, firstName: "Sample", lastName: "Dummy", email: "Sample@x.io", roleId: 1, utilizationMode: "percent",
+    { id: 1, firstName: "Sofia", lastName: "Ramirez", email: "sofia@x.io", roleId: 1, utilizationMode: "percent",
       utilization: { "2026-01": 80, "2026-02": 100 }, absenceOverride: { "2026-01": 8 } },
   ];
   return {
@@ -74,7 +74,7 @@ describe("resource address-book round-trip", () => {
     tasks: [], raid: [], absences: [], shifts: [], roles: [], disciplines: [], grades: [],
     plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" as const },
     resources: [{
-      id: 1, firstName: "Sample", lastName: "Dummy", email: "Sample@x.com",
+      id: 1, firstName: "Sofia", lastName: "Ramirez", email: "sofia@x.com",
       title: "Architect", businessPhone: "+49 30 1", location: "Berlin",
       department: "IAM", company: "iC", birthday: "06-14",
       notes: "Note with, comma | pipe\nand newline", roleId: null,
@@ -84,26 +84,26 @@ describe("resource address-book round-trip", () => {
   test("CSV preserves all address-book fields incl. tricky notes", () => {
     const back = csvToWorkspace(workspaceToCsv(ws as unknown as Workspace)).resources[0];
     expect(back).toMatchObject({
-      firstName: "Sample", lastName: "Dummy", title: "Architect", department: "IAM",
+      firstName: "Sofia", lastName: "Ramirez", title: "Architect", department: "IAM",
       company: "iC", birthday: "06-14", businessPhone: "+49 30 1", location: "Berlin",
       notes: "Note with, comma | pipe\nand newline",
     });
   });
   test("Markdown preserves all address-book fields", () => {
     const back = markdownToWorkspace(workspaceToMarkdown(ws as unknown as Workspace)).resources[0];
-    expect(back).toMatchObject({ firstName: "Sample", lastName: "Dummy", birthday: "06-14" });
+    expect(back).toMatchObject({ firstName: "Sofia", lastName: "Ramirez", birthday: "06-14" });
   });
   test("loads a legacy single-name CSV resource by splitting", () => {
-    const legacy = "# RESOURCES\nid,name,email,roleId,utilizationMode,utilization,absenceOverride,active,localModifiedAt\n1,Sam Placeholder,m@x.com,,percent,,,,\n";
+    const legacy = "# RESOURCES\nid,name,email,roleId,utilizationMode,utilization,absenceOverride,active,localModifiedAt\n1,Noah Bennett,m@x.com,,percent,,,,\n";
     const back = csvToWorkspace(legacy).resources.find((r) => r.id === 1);
-    expect(back).toMatchObject({ firstName: "Fictional", lastName: "Jordan" });
+    expect(back).toMatchObject({ firstName: "Noah", lastName: "Bennett" });
   });
 });
 
 describe("task effort fields round-trip (estimate/time-spent)", () => {
   function effortWorkspace(): Workspace {
     const t: Task = {
-      ...task(1, "Alex Example"),
+      ...task(1, "Sofia Ramirez"),
       originalEstimateMinutes: 2400, // 1w
       timeSpentMinutes: 480, // 1d
     };
@@ -129,7 +129,7 @@ describe("task effort fields round-trip (estimate/time-spent)", () => {
   });
 
   test("absent effort fields stay undefined (empty cell !== 0)", () => {
-    const ws = { ...emptyWorkspace(), tasks: [task(1, "Alex Example")] };
+    const ws = { ...emptyWorkspace(), tasks: [task(1, "Sofia Ramirez")] };
     const back = csvToWorkspace(workspaceToCsv(ws)).tasks[0];
     expect(back.originalEstimateMinutes).toBeUndefined();
     expect(back.timeSpentMinutes).toBeUndefined();
@@ -137,7 +137,7 @@ describe("task effort fields round-trip (estimate/time-spent)", () => {
 
   function pinnedRemainingWorkspace(): Workspace {
     const t: Task = {
-      ...task(1, "Alex Example"),
+      ...task(1, "Sofia Ramirez"),
       originalEstimateMinutes: 480,
       timeSpentMinutes: 120,
       remainingEstimateMinutes: 240,
@@ -160,7 +160,7 @@ describe("task effort fields round-trip (estimate/time-spent)", () => {
   // zero is the real claim "no work left", which is a different thing from
   // "not overridden".
   test("a task with no remaining value decodes to undefined, not zero", () => {
-    const ws = { ...emptyWorkspace(), tasks: [task(1, "Alex Example")] };
+    const ws = { ...emptyWorkspace(), tasks: [task(1, "Sofia Ramirez")] };
     const back = csvToWorkspace(workspaceToCsv(ws)).tasks[0];
     expect(back.remainingEstimateMinutes).toBeUndefined();
   });

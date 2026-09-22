@@ -83,7 +83,7 @@ onClick={() =>
 
 ## Edge cases
 
-- **Unmatched calendar name:** opens Add Resource prefilled (chosen behavior). `splitName` splits on the first space ("Sample Anne Dummy" → first "Sample", last "Anne Dummy").
+- **Unmatched calendar name:** opens Add Resource prefilled (chosen behavior). `splitName` splits on the first space ("Sofia Anne Ramirez" → first "Sofia", last "Anne Ramirez").
 - **Empty email:** seed passes `email: undefined` (never `""`), matching workload.
 - **Name collision** (two resources, same display name): last one wins in the lookup map. Pre-existing ambiguity; acceptable.
 - **Calendar with zero resources:** the lookup map is empty, so every name is treated as unmatched → Add Resource prefilled. Correct (nothing to edit yet).

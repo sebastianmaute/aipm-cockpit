@@ -12,7 +12,7 @@ const taskFix = (over: Partial<Task> = {}): Task =>
      status: "To Do", ...over }) as Task;
 
 const resources = new Map<number, Resource>([
-  [1, { id: 1, firstName: "Anna", lastName: "Jordan", roleId: null, utilizationMode: "percent", utilization: {} } as Resource],
+  [1, { id: 1, firstName: "Anna", lastName: "Bennett", roleId: null, utilizationMode: "percent", utilization: {} } as Resource],
 ]);
 
 // tokens is required on TaskKanbanSwimlanes (row-unique accessible names,
@@ -34,7 +34,7 @@ describe("TaskKanbanSwimlanes", () => {
         onRemoveLane={vi.fn()}
       />,
     );
-    expect(screen.getByRole("region", { name: "Anna Jordan" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Anna Bennett" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Unassigned" })).toBeInTheDocument();
   });
 
@@ -52,7 +52,7 @@ describe("TaskKanbanSwimlanes", () => {
         onRemoveLane={vi.fn()}
       />,
     );
-    expect(screen.getByLabelText("Anna Jordan – To Do")).toBeInTheDocument();
+    expect(screen.getByLabelText("Anna Bennett – To Do")).toBeInTheDocument();
   });
 
   it("dropping a card calls onSwimlaneDrop with the lane and status", () => {
@@ -117,8 +117,8 @@ describe("TaskKanbanSwimlanes", () => {
         onRemoveLane={onRemoveLane}
       />,
     );
-    // Anna Jordan's lane has a task in it -> no remove control.
-    expect(screen.queryByRole("button", { name: /remove lane.*anna Jordan/i })).not.toBeInTheDocument();
+    // Anna Bennett's lane has a task in it -> no remove control.
+    expect(screen.queryByRole("button", { name: /remove lane.*anna bennett/i })).not.toBeInTheDocument();
     // Unassigned is never linked (resourceId === null) -> no remove control either.
     expect(screen.queryByRole("button", { name: /remove lane/i })).not.toBeInTheDocument();
   });
@@ -138,7 +138,7 @@ describe("TaskKanbanSwimlanes", () => {
         onRemoveLane={onRemoveLane}
       />,
     );
-    const removeBtn = screen.getByRole("button", { name: "Remove lane – Anna Jordan" });
+    const removeBtn = screen.getByRole("button", { name: "Remove lane – Anna Bennett" });
     fireEvent.click(removeBtn);
     expect(onRemoveLane).toHaveBeenCalledWith(1);
   });

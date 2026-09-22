@@ -35439,8 +35439,8 @@ Relation B asks whether a field the model WAS offered actually works, so it need
 +1 day, a non-empty string suffixed ` probed` — and the create arm sends it inside a `CREATE_BASE`
 payload, which is a different row. Two fields break, for two different reasons:
 
-- **`task.assigneeEmail`.** The seed holds `m.Jordan@example.com`, so the probe is
-  `"m.Jordan@example.com probed"`. That is not an email in ANY payload: the suffix keeps a string a
+- **`task.assigneeEmail`.** The seed holds `m.bennett@example.com`, so the probe is
+  `"m.bennett@example.com probed"`. That is not an email in ANY payload: the suffix keeps a string a
   string but not an address, so the premise in `validProbeFor`'s docstring — "a valid date mutated
   by a day is still valid" — does not carry over to this field. `createTask`
   (`use-chat-dispatcher.ts`) refuses it loudly with `assigneeEmail is invalid`, so the field is
@@ -35554,7 +35554,7 @@ model-write-only, but a failing guard DROPS the key, which would turn the loud r
 no-op. `sanitizeAbsence` is unchanged too, because it is also the load path and must not drop stored
 data. `raid.ownerEmail` keeps the old unchecked shape (`sanitizeRaidItem` → `sanitizeEmail`, no format
 guard, empty `emailFormatFields`); it is not part of this closure. The offered-surface sweep needed
-no migration: since §459 its email probe is `m.Jordan+probed@example.com`, a valid address. Pinned by
+no migration: since §459 its email probe is `m.bennett+probed@example.com`, a valid address. Pinned by
 `npx vitest run src/app/use-chat-dispatcher.test.tsx -t "invalid assignee email"`,
 `npx vitest run src/app/inline-ai-edit/plan.test.ts -t "malformed absence assignee email"` and
 `npx vitest run src/app/absence-edit-modal.test.tsx -t "assignee email"`.
@@ -35570,7 +35570,7 @@ both on the task path).
 
 `ABSENCE_FIELD_GUARDS.assigneeEmail` admits any string, and `sanitizeAbsence` stores it through
 `sanitizeEmail`, which is `sanitizeText` at the email length cap — nothing on the path checks the
-format. So `create_absence` / `update_absence` given `assigneeEmail: "m.Jordan@example.com probed"`
+format. So `create_absence` / `update_absence` given `assigneeEmail: "m.bennett@example.com probed"`
 store exactly that, and the offered-surface sweep's Relation B counts it LANDED on both arms: its
 probe is the seeded address suffixed ` probed` (`validProbeFor`), and the absence descriptor's
 `emailFormatFields` is empty, so the card previews the value as an ordinary change.

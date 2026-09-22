@@ -284,7 +284,7 @@ it("renders past and future day columns for the given window", () => {
   render(
     <ResourceCalendar
       lang="en-US"
-      rows={[{ key: "a", display: "Aria", email: "" }]}
+      rows={[{ key: "a", display: "Ava", email: "" }]}
       absences={[]}
       today="2026-06-15"
       holidaySet={new Set()}
@@ -393,7 +393,7 @@ it("scroll-centers today when the window includes it", () => {
   const { container } = render(
     <ResourceCalendar
       lang="en-US"
-      rows={[{ key: "a", display: "Aria", email: "" }]}
+      rows={[{ key: "a", display: "Ava", email: "" }]}
       absences={[]}
       today="2026-06-15"
       holidaySet={new Set()}

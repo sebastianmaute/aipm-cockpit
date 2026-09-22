@@ -61,10 +61,10 @@ describe("mapGraphContact", () => {
   it("maps a full record", () => {
     const raw: GraphContact = {
       id: "abc",
-      displayName: "Alex Example",
-      givenName: "Sample",
-      surname: "Dummy",
-      emailAddresses: [{ address: "Sample.Dummy@example.com" }],
+      displayName: "Sofia Ramirez",
+      givenName: "Sofia",
+      surname: "Ramirez",
+      emailAddresses: [{ address: "Sofia.Ramirez@example.com" }],
       jobTitle: "Architect",
       department: "Engineering",
       companyName: "Contoso",
@@ -75,10 +75,10 @@ describe("mapGraphContact", () => {
     };
     expect(mapGraphContact(raw, 0)).toEqual<OutlookContact>({
       sourceId: "abc",
-      firstName: "Sample",
-      lastName: "Dummy",
-      displayName: "Alex Example",
-      email: "Sample.Dummy@example.com",
+      firstName: "Sofia",
+      lastName: "Ramirez",
+      displayName: "Sofia Ramirez",
+      email: "sofia.ramirez@example.com",
       title: "Architect",
       department: "Engineering",
       company: "Contoso",
@@ -117,10 +117,10 @@ describe("mapGraphContact", () => {
 describe("mergeImportedResources", () => {
   const contact: OutlookContact = {
     sourceId: "x",
-    firstName: "Sample",
-    lastName: "Dummy",
-    displayName: "Alex Example",
-    email: "Sample@example.com",
+    firstName: "Sofia",
+    lastName: "Ramirez",
+    displayName: "Sofia Ramirez",
+    email: "sofia@example.com",
     title: "Architect",
   };
 
@@ -128,7 +128,7 @@ describe("mergeImportedResources", () => {
     const out = mergeImportedResources([res({ id: 5 })], [contact]);
     expect(out).toHaveLength(2);
     expect(out[1].id).toBe(6);
-    expect(out[1].email).toBe("Sample@example.com");
+    expect(out[1].email).toBe("sofia@example.com");
     expect(out[1].roleId).toBeNull();
     expect(out[1].utilizationMode).toBe("percent");
   });
@@ -138,7 +138,7 @@ describe("mergeImportedResources", () => {
       id: 9,
       firstName: "S",
       lastName: "C",
-      email: "Sample@Example.com",
+      email: "Sofia@Example.com",
       roleId: 3,
       utilization: { "2026-02": 100 },
       title: "Old",
@@ -149,7 +149,7 @@ describe("mergeImportedResources", () => {
     expect(out[0].roleId).toBe(3);
     expect(out[0].utilization).toEqual({ "2026-02": 100 });
     expect(out[0].title).toBe("Architect");
-    expect(out[0].firstName).toBe("Sample");
+    expect(out[0].firstName).toBe("Sofia");
   });
 
   it("assigns distinct ids across a multi-add batch", () => {
@@ -173,7 +173,7 @@ describe("mergeImportedResources", () => {
   });
 
   it("clears a field on update when the contact leaves it blank", () => {
-    const existing = res({ id: 1, email: "Sample@example.com", title: "Old" });
+    const existing = res({ id: 1, email: "sofia@example.com", title: "Old" });
     const out = mergeImportedResources([existing], [{ ...contact, title: undefined }]);
     expect(out[0].title).toBeUndefined();
   });

@@ -6,7 +6,7 @@ import { t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { Resource, Task } from "./types";
 
-const r: Resource = { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} };
+const r: Resource = { id: 1, firstName: "Sofia", lastName: "Ramirez", roleId: null, utilizationMode: "percent", utilization: {} };
 const colResize = {
   colWidths: { ...WORKLOAD_COL_WIDTHS },
   startColResize: () => {},
@@ -24,14 +24,14 @@ describe("ResourceWorkload", () => {
   it("clicking a managed resource's name opens the editor", () => {
     const onEditResource = vi.fn();
     render(<ResourceWorkload {...baseProps} tasks={[]} onEditResource={onEditResource} />);
-    fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sofia Ramirez" }));
     expect(onEditResource).toHaveBeenCalledWith(r);
   });
 
   it("clicking a managed row fires onEditResource (RAID-style row click)", () => {
     const onEditResource = vi.fn();
     render(<ResourceWorkload {...baseProps} tasks={[]} onEditResource={onEditResource} />);
-    const row = screen.getByRole("button", { name: "Alex Example" }).closest("tr")!;
+    const row = screen.getByRole("button", { name: "Sofia Ramirez" }).closest("tr")!;
     expect(row.className).toContain("cursor-pointer");
     expect(row.className).toContain("hover:bg-surface-muted");
     fireEvent.click(row);
@@ -42,7 +42,7 @@ describe("ResourceWorkload", () => {
   it("clicking the name button fires onEditResource exactly once (stopPropagation prevents double-fire)", () => {
     const onEditResource = vi.fn();
     render(<ResourceWorkload {...baseProps} tasks={[]} onEditResource={onEditResource} />);
-    fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sofia Ramirez" }));
     expect(onEditResource).toHaveBeenCalledTimes(1);
   });
 
@@ -123,7 +123,7 @@ describe("ResourceWorkload", () => {
         onSetUtilization={onSetUtilization}
       />,
     );
-    const input = screen.getByLabelText(/Near-term utilization for Alex Example/i) as HTMLInputElement;
+    const input = screen.getByLabelText(/Near-term utilization for Sofia Ramirez/i) as HTMLInputElement;
     // Over-allocated (>100%) → pink highlight.
     expect(input.className).toContain("text-ui-pink-strong");
     fireEvent.change(input, { target: { value: "50" } });
@@ -134,7 +134,7 @@ describe("ResourceWorkload", () => {
     const onReassignTask = vi.fn();
     const onRescheduleTask = vi.fn();
     const r2: Resource = { id: 2, firstName: "Ben", lastName: "Ng", roleId: null, utilizationMode: "percent", utilization: {} };
-    const overdue = { id: 10, taskName: "Fix bug", assignee: "Alex Example", dueDate: "2026-01-01", resourceId: 1 } as unknown as Task;
+    const overdue = { id: 10, taskName: "Fix bug", assignee: "Sofia Ramirez", dueDate: "2026-01-01", resourceId: 1 } as unknown as Task;
     render(
       <ResourceWorkload
         {...baseProps}
@@ -145,7 +145,7 @@ describe("ResourceWorkload", () => {
       />,
     );
     // Overdue count is a triage trigger.
-    fireEvent.click(screen.getByRole("button", { name: /Triage overdue tasks – Alex Example/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Triage overdue tasks – Sofia Ramirez/i }));
     // Reassign via the resource select.
     fireEvent.change(screen.getByLabelText(/Owner – Fix bug/i), { target: { value: "2" } });
     expect(onReassignTask).toHaveBeenCalledWith(10, r2);
@@ -155,9 +155,9 @@ describe("ResourceWorkload", () => {
   });
 
   it("disables triage controls for a Jira-synced overdue task (#24)", () => {
-    const overdue = { id: 10, taskName: "Fix bug", assignee: "Alex Example", dueDate: "2026-01-01", resourceId: 1, jiraKey: "PROJ-1" } as unknown as Task;
+    const overdue = { id: 10, taskName: "Fix bug", assignee: "Sofia Ramirez", dueDate: "2026-01-01", resourceId: 1, jiraKey: "PROJ-1" } as unknown as Task;
     render(<ResourceWorkload {...baseProps} tasks={[overdue]} />);
-    fireEvent.click(screen.getByRole("button", { name: /Triage overdue tasks – Alex Example/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Triage overdue tasks – Sofia Ramirez/i }));
     // Jira owns synced tasks — local reassign/reschedule would be reverted, so both are disabled.
     expect(screen.getByLabelText(/Owner – Fix bug/i)).toBeDisabled();
     expect(screen.getByLabelText(/Due – Fix bug/i)).toBeDisabled();
@@ -218,8 +218,8 @@ describe("ResourceWorkload", () => {
   // WCAG 2.4.6 — `buildResourceWorkload` keys `managed` on the RESOURCE ID
   // (only its `nameToId` join map de-duplicates by name), so two resources may
   // carry one display name. The row's name button has no aria-label, so its
-  // accessible name is its CONTENT — both rows announced "Alex Example".
-  const twin: Resource = { id: 2, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} };
+  // accessible name is its CONTENT — both rows announced "Sofia Ramirez".
+  const twin: Resource = { id: 2, firstName: "Sofia", lastName: "Ramirez", roleId: null, utilizationMode: "percent", utilization: {} };
 
   it("gives every managed row control a row-unique name when two resources share a display name", () => {
     render(
@@ -227,7 +227,7 @@ describe("ResourceWorkload", () => {
         {...baseProps}
         resources={[r, twin]}
         tasks={[]}
-        shifts={[shiftFor(1, 1, "Alex Example", 5), shiftFor(2, 2, "Alex Example", 4)]}
+        shifts={[shiftFor(1, 1, "Sofia Ramirez", 5), shiftFor(2, 2, "Sofia Ramirez", 4)]}
       />,
     );
     // 4 = measured: a name button and an hours button per managed row.
@@ -257,8 +257,8 @@ describe("ResourceWorkload", () => {
         {...baseProps}
         resources={[r, ben]}
         tasks={[]}
-        absences={[sameWindow(11, 1, "Alex Example"), sameWindow(12, 2, "Ben Ng")]}
-        shifts={[shiftFor(1, 1, "Alex Example", 5), shiftFor(2, 2, "Ben Ng", 4)]}
+        absences={[sameWindow(11, 1, "Sofia Ramirez"), sameWindow(12, 2, "Ben Ng")]}
+        shifts={[shiftFor(1, 1, "Sofia Ramirez", 5), shiftFor(2, 2, "Ben Ng", 4)]}
       />,
     );
     // 6 = measured: a name button, an hours button and one absence chip per row.
@@ -274,9 +274,9 @@ describe("ResourceWorkload", () => {
 
   it("names a managed absence chip after the row it belongs to", () => {
     render(
-      <ResourceWorkload {...baseProps} resources={[r]} tasks={[]} absences={[sameWindow(11, 1, "Alex Example")]} />,
+      <ResourceWorkload {...baseProps} resources={[r]} tasks={[]} absences={[sameWindow(11, 1, "Sofia Ramirez")]} />,
     );
-    expect(absenceChip().getAttribute("aria-label")).toContain("Alex Example");
+    expect(absenceChip().getAttribute("aria-label")).toContain("Sofia Ramirez");
   });
 
   it("keeps an absence chip's visible text inside its accessible name (WCAG 2.5.3)", () => {
@@ -285,7 +285,7 @@ describe("ResourceWorkload", () => {
         {...baseProps}
         resources={[r]}
         tasks={[]}
-        absences={[sameWindow(11, 1, "Alex Example")]}
+        absences={[sameWindow(11, 1, "Sofia Ramirez")]}
       />,
     );
     const chip = absenceChip();
@@ -457,10 +457,10 @@ describe("ResourceWorkload", () => {
       .map((b) => b.getAttribute("aria-label") ?? "");
     expect(chips).toHaveLength(3);
     expect(new Set(chips).size).toBe(3);
-    // Sample #1 holds both identical absences, so her two chips carry HER token
-    // and are numbered against each other; Sample #2's single chip carries hers.
-    expect(chips.filter((n) => n.includes("Alex Example (1)"))).toHaveLength(2);
-    expect(chips.filter((n) => n.includes("Alex Example (2)"))).toHaveLength(1);
+    // Sofia #1 holds both identical absences, so her two chips carry HER token
+    // and are numbered against each other; Sofia #2's single chip carries hers.
+    expect(chips.filter((n) => n.includes("Sofia Ramirez (1)"))).toHaveLength(2);
+    expect(chips.filter((n) => n.includes("Sofia Ramirez (2)"))).toHaveLength(1);
   });
 
   it("keeps a managed row and an unlinked row distinct when their names differ only by whitespace (§315)", () => {
