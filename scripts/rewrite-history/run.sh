@@ -10,6 +10,13 @@
 #   <replacements>  git-filter-repo `--replace-text` file, `regex:PATTERN==>REPLACEMENT` per
 #                   line, bytes regexes. NEVER TRACKED — it names every identifier. Build it
 #                   from the leak gate's untracked list (LEAK_LIST_FILE), longest entry first.
+#                   ★★ Word-bounded entries need a BYTES boundary: filter-repo matches bytes,
+#                   so `\b` is ASCII-only and cuts German words containing a name. Use
+#                   `(?<![A-Za-z0-9_])(?<![\xc3-\xc5][\x80-\xbf])` before and
+#                   `(?![A-Za-z0-9_\xc3-\xc5])` after (UTF-8 Latin letters count as letters).
+#                   Treating EVERY non-ASCII byte as a letter is too wide: on 2026-09-22 it
+#                   left 6 hits standing beside arrows (lead byte E2), which verify-rewrite
+#                   caught.
 #   <mailmap>       git mailmap mapping every historical author/committer/tagger identity to
 #                   its replacement. NEVER TRACKED.
 #
