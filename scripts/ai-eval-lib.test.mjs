@@ -138,8 +138,10 @@ describe("plantedToken", () => {
     //  pin on the range. The range's justification is the measurement above.
     expect(checked).toBe(3000);
     expect(collisions).toEqual([]);
-    // The explicit timeout is belt-and-braces for a loaded runner; the hoist
-    // alone is what brings this back under the global 20s.
+    // The explicit timeout is belt-and-braces for a loaded runner. What
+    // actually keeps this sweep inside it is the memoized `plantedToken`
+    // (see the ★★★ block above this loop) — not the hoisted assertion, which
+    // was never the dominant cost; see that block for the measurements.
   }, 60000);
 
   it("resolves the salt where a first-candidate-only draw naturally collides", () => {
