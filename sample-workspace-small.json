@@ -1890,7 +1890,7 @@
     },
     {
       "id": 4,
-      "name": "Liam Okoro",
+      "name": "David Okoro",
       "category": "Customer",
       "influence": "Medium",
       "interest": "Medium",
@@ -1948,7 +1948,7 @@
       "Ava Thompson"
     ],
     "keyStakeholdersExternal": [
-      "Liam Okoro",
+      "David Okoro",
       "Maya Patel"
     ],
     "customer": "Northwind Retail Group",
@@ -1964,7 +1964,7 @@
     "profitCenter": "PC-4711",
     "contactPersons": [
       {
-        "name": "Liam Okoro",
+        "name": "David Okoro",
         "email": "liam.okoro@northwind.example",
         "synced": false
       },

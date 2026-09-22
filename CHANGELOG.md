@@ -8704,7 +8704,7 @@ UI/UX consistency batch across many views, plus deeper version-history controls.
 - **Sample-workspace data polish** — populated the previously-empty project `status` (overall RAG +
   PM narrative) so the dashboard status summary demos real content; linked tasks #3/#9/#10 to their
   matching resources (Ava/Sofia were half-linked); corrected the Sofia Ramirez contact email to her real
-  employer address (marked synced); and aligned the Liam Okoro stakeholder organization to the
+  employer address (marked synced); and aligned the David Okoro stakeholder organization to the
   project customer (Northwind Retail Group). Regenerated the `-big`/`-huge` datasets, the Turso SQLite
   exports, and the golden serializer fixtures.
 

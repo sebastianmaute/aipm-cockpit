@@ -610,7 +610,7 @@ const milestones: Milestone[] = [
 const stakeholders: Stakeholder[] = [
   { id: 1, name: "Elena", category: "Sponsor", influence: "High", interest: "High", raci: { "1": "A" } },
   { id: 2, name: "Noah", category: "Internal", influence: "High", interest: "Medium", raci: { "1": "A", "2": "A" } },
-  { id: 3, name: "Liam", category: "Customer", influence: "Medium", interest: "Medium", raci: {} },
+  { id: 3, name: "David", category: "Customer", influence: "Medium", interest: "Medium", raci: {} },
 ];
 
 describe("StakeholderReportPanel", () => {
@@ -886,7 +886,7 @@ Stakeholders (covers all 6 categories + all 4 quadrants; M1=1 Accountable, M2=2 
 | 1 | Elena Fischer | Globex | Sponsor | High | High | (none) | 1=A\|2=A\|3=C |
 | 2 | Noah Bennett | Globex | Internal | High | Medium | 2 | 1=R\|2=A\|3=R |
 | 3 | Ava Thompson | Globex | Internal | Medium | High | 3 | 1=C\|2=R\|3=I |
-| 4 | Liam Okoro | Acme Corp | Customer | Medium | Medium | (none) | 1=I\|2=C\|3=C |
+| 4 | David Okoro | Acme Corp | Customer | Medium | Medium | (none) | 1=I\|2=C\|3=C |
 | 5 | Maya Patel | InfoSec Authority | Regulator | High | Low | 4 | 1=I\|2=I\|3=C |
 | 6 | Lena Vogt | CloudVendor GmbH | Vendor | Low | Low | (none) | (empty) |
 | 7 | Sam Rivera | Community Forum | Other | Low | High | (none) | 1=I\|2=I\|3=R |
@@ -955,7 +955,7 @@ const stakeholders = [
   { id: 1, name: "Elena Fischer", organization: "Globex", category: "Sponsor", influence: "High", interest: "High", raci: { "1": "A", "2": "A", "3": "C" } },
   { id: 2, name: "Noah Bennett", organization: "Globex", category: "Internal", influence: "High", interest: "Medium", resourceId: 2, raci: { "1": "R", "2": "A", "3": "R" } },
   { id: 3, name: "Ava Thompson", organization: "Globex", category: "Internal", influence: "Medium", interest: "High", resourceId: 3, raci: { "1": "C", "2": "R", "3": "I" } },
-  { id: 4, name: "Liam Okoro", organization: "Acme Corp", category: "Customer", influence: "Medium", interest: "Medium", raci: { "1": "I", "2": "C", "3": "C" } },
+  { id: 4, name: "David Okoro", organization: "Acme Corp", category: "Customer", influence: "Medium", interest: "Medium", raci: { "1": "I", "2": "C", "3": "C" } },
   { id: 5, name: "Maya Patel", organization: "InfoSec Authority", category: "Regulator", influence: "High", interest: "Low", resourceId: 4, raci: { "1": "I", "2": "I", "3": "C" } },
   { id: 6, name: "Lena Vogt", organization: "CloudVendor GmbH", category: "Vendor", influence: "Low", interest: "Low", raci: {} },
   { id: 7, name: "Sam Rivera", organization: "Community Forum", category: "Other", influence: "Low", interest: "High", raci: { "1": "I", "2": "I", "3": "R" } },

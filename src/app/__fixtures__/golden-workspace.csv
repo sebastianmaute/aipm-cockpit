@@ -122,7 +122,7 @@ id,name,organization,title,email,category,influence,interest,notes,resourceId,ra
 1,Elena Fischer,Brightwell Partners,,,Sponsor,High,High,,,1=A|2=A|3=C,,"[{""id"":""dl-5"",""name"":""Steering Committee Deck Q2.pptx"",""url"":""https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Steering-Deck-Q2.pptx"",""kind"":""file""}]"
 2,Noah Bennett,Brightwell Partners,,,Internal,High,Medium,,2,1=R|2=A|3=R,,
 3,Ava Thompson,Brightwell Partners,,,Internal,Medium,High,,3,1=C|2=R|3=I,,
-4,Liam Okoro,Northwind Retail Group,,,Customer,Medium,Medium,,,1=I|2=C|3=C,,
+4,David Okoro,Northwind Retail Group,,,Customer,Medium,Medium,,,1=I|2=C|3=C,,
 5,Maya Patel,InfoSec Authority,,,Regulator,High,Low,,4,1=I|2=I|3=C,,
 6,Lena Vogt,CloudVendor GmbH,,,Vendor,Low,Low,,,,,
 7,Sam Rivera,Community Forum,,,Other,Low,High,,,1=I|2=I|3=R,,
@@ -138,7 +138,7 @@ description,Demo project: customer SSO / identity platform rollout with MFA and 
 sponsor,Elena Fischer
 projectManager,Sofia Ramirez
 keyStakeholdersInternal,Elena Fischer|Noah Bennett|Ava Thompson
-keyStakeholdersExternal,Liam Okoro|Maya Patel
+keyStakeholdersExternal,David Okoro|Maya Patel
 customer,Northwind Retail Group
 naceSection,G
 identityTypes,B2C|B2B
@@ -156,7 +156,7 @@ sharepointUrl,https://example.sharepoint.com/sites/cip-2026
 confluenceUrl,https://example.atlassian.net/wiki/spaces/CIP
 jiraUrl,https://example.atlassian.net/browse/CIP
 operatingTimezone,Europe/Berlin
-contactPersons,Liam Okoro;liam.okoro@northwind.example;0|Sofia Ramirez;sofia.ramirez@example.com;1
+contactPersons,David Okoro;liam.okoro@northwind.example;0|Sofia Ramirez;sofia.ramirez@example.com;1
 docRepoLocation,https://example.sharepoint.com/sites/cip-2026/Shared Documents
 regulatory,GDPR / data protection regulation|NIS2
 notes,Generated sample project for the multi-tenant Turso demo database.
