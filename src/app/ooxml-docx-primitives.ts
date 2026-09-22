@@ -51,7 +51,7 @@ export function docxCellRuns(value: string | number): string {
 
 /** ★★ The shipped styles.xml declares ONLY `Title` and `TableHeader`. Word
  *  resolves an undeclared `Heading2` against its LATENT built-ins, so the file
- *  opens — but in Word's own sizes and colours rather than the Acme
+ *  opens — but in Word's own sizes and colours rather than the brand
  *  palette, and LibreOffice is less forgiving still. Declaring them here is
  *  what keeps a generated document on-brand. Sizes are HALF-POINTS: 36 = 18pt.
  *  Every colour must come from the sanctioned palette constants; a test pins

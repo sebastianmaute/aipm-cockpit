@@ -702,7 +702,8 @@ export type Settings = {
    *  Default ON (read as `!== false`). */
   showSavedViews?: boolean;
   /** Per-device sidebar branding: a custom logo (data:image URL) and/or slogan
-   *  overriding the default Acme logo + subtitle. */
+   *  overriding the default banner logo
+   *  (`/ai-pm-cockpit-banner.svg`) and the `sidebarBrandSubtitle` subtitle. */
   branding?: BrandingConfig;
   /** Per-device: the guided tour has been seen/skipped (suppresses auto-launch). */
   tourSeen?: boolean;

@@ -10,7 +10,7 @@
 //            "Save as PDF" from the browser's print dialog. We don't
 //            generate a binary PDF — no Adobe / pdf-lib dependency.
 //   • docx — Office Open XML word-processing document; tasks rendered as a
-//            single big table with the Acme palette applied.
+//            single big table with the brand palette applied.
 //   • xlsx — Office Open XML spreadsheet; tasks as a frozen-header,
 //            auto-filtered, alternating-row table.
 //   • pptx — Office Open XML presentation; one title slide + one slide per
@@ -135,7 +135,7 @@ export function buildPdfHtml(ws: Workspace, cfg: ExportConfig, lang: Lang, foote
 
 /**
  * Build a print-friendly HTML document and open it in a new tab, then
- * trigger window.print() once it's loaded. We use the Acme palette
+ * trigger window.print() once it's loaded. We use the brand palette
  * so the resulting PDF is on-brand even if the user saves at default
  * print settings.
  *
