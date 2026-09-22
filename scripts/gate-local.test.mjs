@@ -4,12 +4,13 @@
 // implementation does not resolve/accept a file: URL the way node:fs expects,
 // so `readFileSync(new URL(...))` below throws "The URL must be of scheme
 // file" under the default environment. scripts/check-followup-gitlab.integration.test.mjs
-// and scripts/publish-release.integration.test.mjs carry the same pragma for
-// the same reason.
+// and scripts/publish-release.integration.test.mjs carry the same pragma for a
+// different reason: each spawns the real CLI against a fake API served from the
+// test process, which their own headers describe.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
-  GATE_STEPS, runGates, VITEST_WORKERS,
+  GATE_STEPS, runGates, VITEST_WORKERS, resolveWorkers,
   checkDirtyTree, formatStartLine, formatFinalLine, buildSpawnInvocation,
 } from "./gate-local.mjs";
 
@@ -65,6 +66,29 @@ describe("GATE_STEPS", () => {
     // does not provide.
     for (const step of GATE_STEPS) {
       for (const part of step) expect(part).not.toMatch(/[\s"'`|&;<>]/);
+    }
+  });
+});
+
+describe("resolveWorkers", () => {
+  it("defaults to half the logical CPUs, never below 1", () => {
+    expect(resolveWorkers({}, 20)).toBe(10);
+    expect(resolveWorkers({}, 7)).toBe(3);
+    expect(resolveWorkers({}, 1)).toBe(1);
+  });
+
+  it("takes GATE_LOCAL_WORKERS when it is a positive integer", () => {
+    expect(resolveWorkers({ GATE_LOCAL_WORKERS: "2" }, 20)).toBe(2);
+    expect(resolveWorkers({ GATE_LOCAL_WORKERS: "16" }, 2)).toBe(16);
+  });
+
+  it("ignores a blank GATE_LOCAL_WORKERS", () => {
+    expect(resolveWorkers({ GATE_LOCAL_WORKERS: "" }, 20)).toBe(10);
+  });
+
+  it("refuses any other GATE_LOCAL_WORKERS value rather than guessing", () => {
+    for (const bad of ["0", "-1", "2.5", "abc", "4x", " 4"]) {
+      expect(() => resolveWorkers({ GATE_LOCAL_WORKERS: bad }, 20)).toThrow(/GATE_LOCAL_WORKERS/);
     }
   });
 });

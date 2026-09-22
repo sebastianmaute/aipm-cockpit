@@ -21,8 +21,19 @@ import { pathToFileURL } from "node:url";
 // --maxWorkers=8 → coverage pass (1180/1180 files, 9m42s), formula value (Math.max(1,
 // Math.floor(availableParallelism() / 2)) = 10 on 20-CPU) → gate:local green on both
 // test:coverage and test:shuffle (1180/1180 files, 19500/19500 tests each, 2026-09-22 18:46).
-// Coverage floors and shuffle seed unchanged; result still matches CI's gates.
-export const VITEST_WORKERS = Math.max(1, Math.floor(availableParallelism() / 2));
+// Coverage floors and shuffle seed are unchanged, but --maxWorkers changes which files share a
+// worker, so test:shuffle does not reproduce CI's exact worker layout. GATE_LOCAL_WORKERS overrides
+// the formula (a small machine, where half the CPUs may be 1, or a machine that is otherwise idle).
+export function resolveWorkers(env, cpus) {
+  const raw = env.GATE_LOCAL_WORKERS;
+  if (raw === undefined || raw === "") return Math.max(1, Math.floor(cpus / 2));
+  if (!/^[1-9]\d*$/.test(raw)) {
+    throw new Error(`GATE_LOCAL_WORKERS must be a positive integer, got ${JSON.stringify(raw)}`);
+  }
+  return Number(raw);
+}
+
+export const VITEST_WORKERS = resolveWorkers(process.env, availableParallelism());
 
 export const GATE_STEPS = [
   ["npm", "run", "lint"],

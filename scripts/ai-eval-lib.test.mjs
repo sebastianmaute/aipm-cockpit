@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { EXIT, mulberry32 } from "./ai-eval-lib.mjs";
 
 describe("EXIT", () => {
@@ -49,8 +49,15 @@ describe("mulberry32", () => {
 import { PROBES, TOKEN_IDS, plantedToken, probeById } from "./ai-eval-lib.mjs";
 
 describe("plantedToken", () => {
-  it("is stable for a given block and salt", () => {
-    expect(plantedToken("date", 7)).toBe(plantedToken("date", 7));
+  it("is stable for a given block and salt, across a fresh module", async () => {
+    // `plantedToken` is memoized, so calling it twice in one module only
+    // proves the cache returns what it stored. A fresh module instance starts
+    // with an empty cache and has to mint the token again.
+    const first = plantedToken("date", 7);
+    vi.resetModules();
+    const fresh = await import("./ai-eval-lib.mjs");
+    expect(fresh.plantedToken).not.toBe(plantedToken);
+    expect(fresh.plantedToken("date", 7)).toBe(first);
   });
 
   it("differs between blocks at the same salt", () => {
@@ -119,7 +126,7 @@ describe("plantedToken", () => {
     //  EVERY earlier id's token from scratch via `earlierTokens`, so one
     //  (id, salt) cost 2**k calls and one salt's `TOKEN_IDS.map(plantedToken)`
     //  cost 2**13-1 = 8191. Measured (see `plantedToken`'s own docstring for
-    //  the exact commands): this loop alone took 16.5s in plain `node`, zero
+    //  the method): this loop alone took 16.5s in plain `node`, zero
     //  vitest/coverage overhead, and 26.5s running `vitest run
     //  scripts/ai-eval-lib.test.mjs -t "never collides within a run"
     //  --coverage` in isolation — already most of a 60000ms budget before any

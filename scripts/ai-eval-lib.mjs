@@ -88,10 +88,11 @@ export const TOKEN_IDS = Object.freeze([
  *  earlier ids from scratch — the call count for one (id, salt) is 2**k, and
  *  summed over all 13 `TOKEN_IDS` (added to by the hardening-token append)
  *  that is 2**13 - 1 = 8191 calls per salt. Measured, not assumed:
- *  `node -e` timing the collision sweep's own loop (3000 salts x
- *  `TOKEN_IDS.map(plantedToken)`) against the pre-memoization code took
- *  16.5s in PLAIN node with zero vitest/coverage overhead, and 26.5s under
- *  `vitest run scripts/ai-eval-lib.test.mjs -t "never collides" --coverage`
+ *  a throwaway `node -e` script (not committed) timing the collision sweep's
+ *  own loop (3000 salts x `TOKEN_IDS.map(plantedToken)`) against the
+ *  pre-memoization code took 16.5s in PLAIN node with zero vitest/coverage
+ *  overhead, and 26.5s under `vitest run scripts/ai-eval-lib.test.mjs
+ *  -t "never collides within a run" --coverage`
  *  run ALONE — already most of the way to the explicit 60000ms timeout
  *  before any full-suite contention. The cache turns the per-salt cost from
  *  2**13-1 recursive calls into 13 (one per id, each a cache hit for its
