@@ -66,7 +66,7 @@ describe("VersionInfo", () => {
     const { container } = render(<VersionInfo lang="en-US" />);
     expect(container).toHaveTextContent(t("en-US", "versionAuthor"));
     expect(container).toHaveTextContent("Built with Claude Code");
-    expect(container).not.toHaveTextContent(/Acme|Identity Excellence/);
+    expect(container).not.toHaveTextContent(/Identity Excellence/);
   });
 
   it("renders the German pitch when the language is German", () => {

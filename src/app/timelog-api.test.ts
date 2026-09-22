@@ -97,11 +97,11 @@ describe("listCustomers", () => {
   it("maps customer id + name", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
       Entities: [
-        { Properties: { CustomerID: 667, Name: "Acme", No: "00" } },
+        { Properties: { CustomerID: 667, Name: "Initech", No: "00" } },
         { Properties: { CustomerID: 0, Name: "" } },
       ],
     }), { status: 200 }));
-    expect(await listCustomers(creds)).toEqual([{ id: 667, name: "Acme" }]);
+    expect(await listCustomers(creds)).toEqual([{ id: 667, name: "Initech" }]);
   });
 });
 

@@ -53,9 +53,9 @@ describe("displayableUsers / isDisplayableUser", () => {
 });
 
 describe("resolveCustomerByName", () => {
-  const cs = [{ id: 1, name: "Acme" }, { id: 2, name: "Acme GmbH" }, { id: 3, name: "acme gmbh" }];
+  const cs = [{ id: 1, name: "Initech" }, { id: 2, name: "Acme GmbH" }, { id: 3, name: "acme gmbh" }];
   it("returns the unique case-insensitive name hit", () => {
-    expect(resolveCustomerByName([{ id: 1, name: "Acme" }, { id: 2, name: "Acme" }], "  acme ")).toEqual({ id: 2, name: "Acme" });
+    expect(resolveCustomerByName([{ id: 1, name: "Initech" }, { id: 2, name: "Acme" }], "  acme ")).toEqual({ id: 2, name: "Acme" });
   });
   it("returns null for a blank/undefined name", () => {
     expect(resolveCustomerByName(cs, "")).toBeNull();

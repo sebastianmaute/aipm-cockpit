@@ -1532,7 +1532,7 @@ describe("TimelogPanel", () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       const loadManagedProjects = vi.fn().mockResolvedValue(undefined);
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }], loadManagedProjects } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }], loadManagedProjects } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1616,7 +1616,7 @@ describe("TimelogPanel", () => {
     it("seeds the customer picker from the persisted scope (customerId on links)", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }] } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }] } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1630,13 +1630,13 @@ describe("TimelogPanel", () => {
       // Reconcile fires once links arrive (SeedWorkspace effect) → picker = 667.
       await waitFor(() => expect(select.value).toBe("667"));
       // The scope note is shown.
-      expect(screen.getByText(t("en-US", "timelogFetchScopedNote", "Acme"))).toBeInTheDocument();
+      expect(screen.getByText(t("en-US", "timelogFetchScopedNote", "Initech"))).toBeInTheDocument();
     });
 
     it("a manual pick wins over a persisted scope that hydrates AFTER the pick", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }, { id: 999, name: "Other" }] } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }, { id: 999, name: "Other" }] } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1659,7 +1659,7 @@ describe("TimelogPanel", () => {
     it("resets the picker when the project changes in place (no remount)", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }] } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }] } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1686,7 +1686,7 @@ describe("TimelogPanel", () => {
     it("§532: resets the picker on an in-place switch between two code-less projects", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }] } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }] } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1713,7 +1713,7 @@ describe("TimelogPanel", () => {
     it("late-hydrating links override an earlier customer-name auto-resolve", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }, { id: 999, name: "Other" }] } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }, { id: 999, name: "Other" }] } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1721,7 +1721,7 @@ describe("TimelogPanel", () => {
           {/* No customerId on links yet — only the project's free-text customer
               name, which resolves against the directory. */}
           <SeedWorkspace links={INITIAL_LINKS} />
-          <SeedProjectCustomer customer="Acme" />
+          <SeedProjectCustomer customer="Initech" />
           <Controls />
           <TimelogPanel lang="en-US" />
         </>,
@@ -1739,7 +1739,7 @@ describe("TimelogPanel", () => {
     it("restores a per-device picker scope in preference to the last-fetched scope", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }, { id: 999, name: "Other" }] } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }, { id: 999, name: "Other" }] } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       // Simulates a prior session in which the user SELECTED 999 and never
@@ -1761,7 +1761,7 @@ describe("TimelogPanel", () => {
       // The picker now disagrees with the customer the loaded bookings came
       // from, so it must say so rather than misrepresent what is on screen.
       expect(
-        screen.getByText(t("en-US", "timelogScopeMismatchNote", "Acme", "Other")),
+        screen.getByText(t("en-US", "timelogScopeMismatchNote", "Initech", "Other")),
       ).toBeInTheDocument();
     });
 
@@ -1773,7 +1773,7 @@ describe("TimelogPanel", () => {
     it("persists a ticked project to the device store", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }] } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }] } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1803,12 +1803,12 @@ describe("TimelogPanel", () => {
     it("a ticked project survives links hydrating afterwards", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }, { id: 999, name: "Other" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }] } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }, { id: 999, name: "Other" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }] } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
         <>
-          <SeedProjectCustomer customer="Acme" />
+          <SeedProjectCustomer customer="Initech" />
           <SeedWorkspace links={INITIAL_LINKS} />
           <Controls />
           <TimelogPanel lang="en-US" projectKey="proj-key" />
@@ -1839,7 +1839,7 @@ describe("TimelogPanel", () => {
     it("shows no scope-mismatch note when the picker and the last fetch agree", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }] } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }] } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1852,7 +1852,7 @@ describe("TimelogPanel", () => {
       const select = screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }) as HTMLSelectElement;
       await waitFor(() => expect(select.value).toBe("667"));
       expect(
-        screen.queryByText(t("en-US", "timelogScopeMismatchNote", "Acme", "Acme")),
+        screen.queryByText(t("en-US", "timelogScopeMismatchNote", "Initech", "Initech")),
       ).toBeNull();
     });
 
@@ -1860,7 +1860,7 @@ describe("TimelogPanel", () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       const fetchBookingsForProjects = vi.fn().mockResolvedValue({ failedProjects: 0, projectCount: 1 });
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }], fetchBookingsForProjects } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }], fetchBookingsForProjects } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1898,7 +1898,7 @@ describe("TimelogPanel", () => {
         new Promise((res) => { resolveFetch = res; }),
       );
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }], fetchBookingsForProjects } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }], fetchBookingsForProjects } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
@@ -1933,7 +1933,7 @@ describe("TimelogPanel", () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       const fetchBookingsForProjects = vi.fn().mockResolvedValue({ failedProjects: 3, projectCount: 5 });
       vi.mocked(useTimelogSync).mockReturnValue(
-        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }], fetchBookingsForProjects } as unknown as ReturnType<typeof useTimelogSync>,
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Initech" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }], fetchBookingsForProjects } as unknown as ReturnType<typeof useTimelogSync>,
       );
       enableTimelog();
       render(
