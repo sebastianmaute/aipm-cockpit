@@ -14,9 +14,9 @@
 
 **Tech Stack:** TypeScript, React 19, Next.js 16.2.11, vitest 4.1.8, fast-check, React Testing Library.
 
-**Spec:** `docs/superpowers/specs/2026-08-23-task-status-pair-invariant-design.md` (committed `ac3c9845`)
+**Spec:** `docs/superpowers/specs/2026-08-23-task-status-pair-invariant-design.md` (committed `09abe583`)
 
-**Branch:** `fix/task-status-pair-invariant`, off `origin/main` at `2a1cfdef`
+**Branch:** `fix/task-status-pair-invariant`, off `origin/main` at `65f17aa0`
 
 ---
 
@@ -1527,7 +1527,7 @@ metadata:
   type: project
 ---
 
-Branch `fix/task-status-pair-invariant` off `origin/main` at `2a1cfdef`.
+Branch `fix/task-status-pair-invariant` off `origin/main` at `65f17aa0`.
 Closes `docs/open-followups.md` §182 (template import) and §183 (Jira conflict
 merge); opens §226 (a remote status change with no date change is still ignored
 on the conflict path).

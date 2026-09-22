@@ -12,7 +12,7 @@
 
 ---
 
-## Ground truth measured 2026-08-05 on `main` @ `4224b5c3`
+## Ground truth measured 2026-08-05 on `main` @ `59233c93`
 
 - File: **4490 lines**, **81 `## ` sections** — 78 numbered items + 3 meta.
 - **20 CLOSED-titled sections = 1744 lines**, plus `§48-was` (35 lines, titled as if open) = **21 entries this pass touches, 1779 lines**.
@@ -20,7 +20,7 @@
 - Open bodies cite **107 bare paths, 63 `file:line`, 371 backticked symbols**. A baseline snapshot taken 2026-08-05 reports **50 unresolved cites** across the whole file.
 - `scripts/check-agents-symbols.mjs` globs `AGENTS.md` + `docs/AGENTS/*.md` only. **This file is ungated.** The diff is the review.
 
-### The 21 closed sections, with line spans as of `4224b5c3`
+### The 21 closed sections, with line spans as of `59233c93`
 
 | § | lines | span | group |
 |---|---|---|---|
@@ -140,7 +140,7 @@ browser, which is why both sites use `sr-only`.
 
 **Dropped from §15, and why:** the `branding-image-input.test.tsx` query-move paragraph (measurement of a finished change); the two-shape table, the two "neither should be converted" bullets and the scope-check grep — the fix shipped and the shapes they describe no longer exist.
 
-★★★ **CORRECTED 2026-08-05 — an earlier revision of this worked example told the executor to drop the whole "The original write-up follows." block, and that instruction destroyed a lesson.** Buried in it were two things that had to survive: that the gallery's sibling input was a second tab stop announcing the same accessible name until `df507f95`, **and that the axe gate cannot see a duplicate accessible name — it reports missing names only**; plus the ★ recording that `theme-gallery.test.tsx`'s tab-order walk is that defect's regression guard and was deliberately left untouched. `AGENTS.md` states a narrower fact (duplicate row labels pass because the live seed renders one row) and nowhere says axe reports missing names only, so this is not a Rule-3 restatement. Without the ★, the surviving test reads as redundant and invites deletion. **A "delete this whole block" instruction is exactly as dangerous as a rewording — read what is in the block before trusting the label on it.**
+★★★ **CORRECTED 2026-08-05 — an earlier revision of this worked example told the executor to drop the whole "The original write-up follows." block, and that instruction destroyed a lesson.** Buried in it were two things that had to survive: that the gallery's sibling input was a second tab stop announcing the same accessible name until `308560b4`, **and that the axe gate cannot see a duplicate accessible name — it reports missing names only**; plus the ★ recording that `theme-gallery.test.tsx`'s tab-order walk is that defect's regression guard and was deliberately left untouched. `AGENTS.md` states a narrower fact (duplicate row labels pass because the live seed renders one row) and nowhere says axe reports missing names only, so this is not a Rule-3 restatement. Without the ★, the surviving test reads as redundant and invites deletion. **A "delete this whole block" instruction is exactly as dangerous as a rewording — read what is in the block before trusting the label on it.**
 
 **Kept that a careless pass would drop:** the ★ THREE-call-sites lesson (the entry was wrong about its own scope, which is this register's most-repeated failure), the cosmetic-consequence decision (it stops someone "fixing" the Import button), and the `display:none` prohibition (a standing rule, and §47 is open against exactly that shape).
 
@@ -395,7 +395,7 @@ node "<scratchpad>/followup-audit.mjs" snapshot "<scratchpad>/baseline.json" > "
 
 - [ ] **Step 4: Record the baseline numbers in this plan's execution notes**
 
-Write down `totalLines`, `unresolved-cites`, and the closed-lines total. Every later task compares against them. If `sections` is not 81 or `lines` is not 4490, the working tree is not `4224b5c3` — stop and reconcile before editing.
+Write down `totalLines`, `unresolved-cites`, and the closed-lines total. Every later task compares against them. If `sections` is not 81 or `lines` is not 4490, the working tree is not `59233c93` — stop and reconcile before editing.
 
 - [ ] **Step 5: No commit.** The instrument lives in the scratchpad and is never added to git. Confirm:
 
@@ -909,9 +909,9 @@ grep -n "^| [0-9]" docs/open-followups.md | wc -l   # index rows; expect unchang
 git diff --stat main...HEAD
 ```
 
-Expected: **two** files — `docs/open-followups.md`, plus a one-word comment fix in `src/app/abort-error.ts` (commit `4eb96936`). No `version.ts`, no `CHANGELOG.md` — still **no version bump** and no changelog entry.
+Expected: **two** files — `docs/open-followups.md`, plus a one-word comment fix in `src/app/abort-error.ts` (commit `2d78bc6e`). No `version.ts`, no `CHANGELOG.md` — still **no version bump** and no changelog entry.
 
-★ **Why the src file is in scope, against this plan's original doc-only rule.** `abort-error.ts:14` said "one shape for **five** call sites" while line 13 of the same comment said "did match, at **all four** call sites" — self-contradicting two lines apart. `git log -S"five call sites"` shows `860ce6e1` wrote the identical sentence into the code and into §11, and `d88223c4` corrected it to "four" in the register and the CHANGELOG **without touching the code** (`git show --stat d88223c4` lists three files, none of them `abort-error.ts`). Four production call sites confirmed, with alias/re-export/barrel vectors ruled out. Honouring a self-imposed file boundary at the cost of leaving a self-contradicting comment in shipped code is the worse trade — but it IS a scope widening, so it is its own commit and it is called out in the final report.
+★ **Why the src file is in scope, against this plan's original doc-only rule.** `abort-error.ts:14` said "one shape for **five** call sites" while line 13 of the same comment said "did match, at **all four** call sites" — self-contradicting two lines apart. `git log -S"five call sites"` shows `baa0689b` wrote the identical sentence into the code and into §11, and `7c7dc946` corrected it to "four" in the register and the CHANGELOG **without touching the code** (`git show --stat d88223c4` lists three files, none of them `abort-error.ts`). Four production call sites confirmed, with alias/re-export/barrel vectors ruled out. Honouring a self-imposed file boundary at the cost of leaving a self-contradicting comment in shipped code is the worse trade — but it IS a scope widening, so it is its own commit and it is called out in the final report.
 
 - [ ] **Step 5: Report to the user**
 

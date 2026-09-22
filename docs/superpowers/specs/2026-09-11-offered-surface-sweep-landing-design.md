@@ -42,10 +42,10 @@ are NOT ported; their code on main wins.
 
 | Branch commit | Main twin | How matched |
 |---|---|---|
-| `57da39f6` strip token-excluded fields from every pass-through create | `29744af1` | identical subject |
-| `4c28d3fd` correct the prose and types that outlived the decisionDate withdrawal | `8162aa91` | identical subject |
-| `6db1ea93` stop offering change.decisionDate, and make it unwritable | `eca6312d` withdraw change.decisionDate from every model-writable surface | same change folded into one commit — **verify by diff before relying on it** |
-| `7e91855d` withdraw change.decisionDate from the inline-edit descriptor | `eca6312d` (as above) | as above |
+| `57da39f6` strip token-excluded fields from every pass-through create | `3eb601c6` | identical subject |
+| `4c28d3fd` correct the prose and types that outlived the decisionDate withdrawal | `9b1fc346` | identical subject |
+| `6db1ea93` stop offering change.decisionDate, and make it unwritable | `836577a1` withdraw change.decisionDate from every model-writable surface | same change folded into one commit — **verify by diff before relying on it** |
+| `7e91855d` withdraw change.decisionDate from the inline-edit descriptor | `836577a1` (as above) | as above |
 | `040c24f6` record which two create-strip sites a mutant cannot kill | **none** | deliberately absent — it cites the sweep test, which main lacks. See "The one comment". |
 
 The other fifteen commits touch only the four missing files, `docs/open-followups.md`, and two
@@ -62,7 +62,7 @@ FINAL version of the axis carries them. Dropping the fix commits must not drop t
    0.297.0, detector landed here. The body is a dated record and is not rewritten.
 2. **The axis and the sweep** come across as the branch's final files.
 3. **`plan.create-path-guards.test.ts`** — `5f0de0de` lifted its create base payloads into the axis
-   (`CREATE_BASE`). Main has since changed this file twice (`3ca1a9d9`, `ee6a7ef7`), so the lift is
+   (`CREATE_BASE`). Main has since changed this file twice (`33b58880`, `f00127d7`), so the lift is
    re-done by hand against MAIN's version, never by taking the branch's copy.
 4. **`plan.model-writable-surface.test.ts`** — `f99aa51a` + `799ae26c` repoint the §437 ratchet at
    the shared `PERSISTED_COLUMNS`. Main has not touched this file since the fork, so these should
@@ -71,9 +71,9 @@ FINAL version of the axis carries them. Dropping the fix commits must not drop t
 
 ## The measurement gate — the real work
 
-The axis reads `TOOL_DEFS` at runtime, and main gained declarations after the fork (`599a87bf`
-`raid.ownerEmail`, `43ae5cab` `stakeholders.email`, `6a068ebb` RAID owner on the seed schema,
-`2645debb` the proposal seed-schema strip). So the sweep's case set and every figure it recorded may
+The axis reads `TOOL_DEFS` at runtime, and main gained declarations after the fork (`8362037d`
+`raid.ownerEmail`, `2ca53f38` `stakeholders.email`, `089a9933` RAID owner on the seed schema,
+`c5d528e5` the proposal seed-schema strip). So the sweep's case set and every figure it recorded may
 have moved. Nothing measured on the branch transfers.
 
 1. **Run the sweep and its neighbours against main**, serially, exit code read unpiped.
@@ -94,7 +94,7 @@ have moved. Nothing measured on the branch transfers.
 `040c24f6` added a ★★ note to `src/app/chat-tools-updates.ts`: two of the seven create-strip call
 sites are defence in depth, measured because reverting the strip at `create_absence` or
 `create_calendar_event` leaves the sweep unchanged. It was correct to leave it out while the sweep was
-absent. Once the sweep lands it is re-applied **only if re-measured against main** — main's `ee6a7ef7`
+absent. Once the sweep lands it is re-applied **only if re-measured against main** — main's `f00127d7`
 ("enumerate every create tool") may have changed the call-site count, so "two of the seven" is a
 claim to re-derive, not to copy. If the measurement disagrees, the comment carries main's numbers.
 
@@ -109,7 +109,7 @@ copied, and corrected in the same commit where main disagrees.
 | 440 · 441 · 443 · 446 | MINT, OPEN, text verified against main |
 | 442 | MINT as CLOSED by 0.297.0 (the fix is on main; the register never recorded the finding) |
 | 444 | `test:shuffle` owed — MINT, and close it on the MR's green `unit-tests-shuffled` job, citing the pipeline |
-| 445 | `propose_project` unreachable by both relations — re-check against `2645debb` first; mint OPEN only if still true |
+| 445 | `propose_project` unreachable by both relations — re-check against `c5d528e5` first; mint OPEN only if still true |
 
 ★ Numbers are reserved only once they are on `origin/main`. §440–446 are free on main and on every
 other branch today (`git show <ref>:docs/open-followups.md | grep -oE '^## 44[0-9]\.'` over each);
@@ -138,9 +138,9 @@ green — each only on the user's say-so.
 
 ## As executed (2026-09-11)
 
-Added after execution; everything above is the spec as committed in `07805104` "docs(spec): land the
+Added after execution; everything above is the spec as committed in `8a75c987` "docs(spec): land the
 offered-surface sweep's detector, which 0.297.0 left behind" and is not rewritten. This section covers
-only the departures that change a decision this spec made, up to `32769326` "docs(followups): close
+only the departures that change a decision this spec made, up to `09f1246e` "docs(followups): close
 436 and 439, file 440-446 and 459-461, and correct the create-path gate comment". Every other
 departure (the commit map, corrected counts, mutant outcomes, the create-strip note's shape, the
 Task 9 split) is recorded in the plan,
@@ -151,24 +151,24 @@ Task 9 split) is recorded in the plan,
   73 tests with 5 failing cases and 6 finding lines, all in Relation B and none a write-path defect.
   The go/cut decision taken at that stop was to hold those findings in `EXPECTED_FINDINGS`, checked in
   both directions: a new finding turns its case red, and so does a ledgered finding that stops firing
-  (`eef92310` "test(ai): hold the sweep's six known findings in a ledger checked both ways"). No field
+  (`26308794` "test(ai): hold the sweep's six known findings in a ledger checked both ways"). No field
   was exempted, no probe narrowed and no floor weakened. The sweep landed at 74 tests, 0 failing.
 - **The ledger compares field and kind, not text.** In the first fix round the entries were re-keyed
   from exact finding strings to `{ subject, kind }` over one `FINDING_KINDS` array, compared as sorted
   `subject:kind` tokens in both directions, so rewording a production error message no longer turns
-  the sweep red (`70615677` "test(ai): key the sweep's findings ledger by field and kind, and correct
+  the sweep red (`78f4582f` "test(ai): key the sweep's findings ledger by field and kind, and correct
   the comments a review disproved").
 - **Register ("Register" table).** Its rows landed as decided: §436 and §439 CLOSED 2026-09-11;
   §440, §441, §443, §446 OPEN; §442 CLOSED 2026-09-09; §444 OPEN until the merge request's
   `unit-tests-shuffled` job; §445 OPEN, because its reachability claim still holds although
-  `2645debb` fixed the write defect. Three entries the table does not list were also filed OPEN in
-  `32769326`: §459 (two create-arm probes invalid by construction, `task.assigneeEmail` and
+  `c5d528e5` fixed the write defect. Three entries the table does not list were also filed OPEN in
+  `09f1246e`: §459 (two create-arm probes invalid by construction, `task.assigneeEmail` and
   `absence.startDate`, first seen on the local-only original branch), §460 (a create card can preview meeting attendees the
   create then stores none of; suspected, not runtime-verified) and §461 (an absence stores an assignee
   email that is not an address, where a task refuses it).
 - **"The one `src/app/*.ts` edit allowed is a comment" ("Non-goals").** Two such files carry comment
-  edits, not one: `src/app/chat-tools-updates.ts` ("The one comment", `78569052`, adjusted by
-  `70615677`) and `src/app/inline-ai-edit/plan.ts` (`32769326`, a comment false since `68486cd4`,
+  edits, not one: `src/app/chat-tools-updates.ts` ("The one comment", `d2620dd5`, adjusted by
+  `78f4582f`) and `src/app/inline-ai-edit/plan.ts` (`09f1246e`, a comment false since `8ffcb6ed`,
   released in 0.294.0). Neither changes behaviour, and this command lists exactly those two files:
   `git diff --stat fe82d1db 32769326 -- 'src/app/*.ts' ':(exclude)*.test.ts'`
 - **Probe fixes deferred.** The sweep's probe blind spots found during execution (Relation A's trespass

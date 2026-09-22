@@ -1,6 +1,6 @@
 # Tiptap CSP nonce — design
 
-**Status:** approved 2026-08-09. Baseline: `main` `66e44712`, 0.226.0 "Emshwiller".
+**Status:** approved 2026-08-09. Baseline: `main` `21db5c41`, 0.226.0 "Emshwiller".
 
 **Goal:** close `docs/open-followups.md` §54 — in a production build every rich-text
 editor renders without ProseMirror's base stylesheet, because the prod CSP refuses the
@@ -39,7 +39,7 @@ document lists. See §7 below.
 
 ## 2. What was measured
 
-Everything in this section was established by running a command on `main` `66e44712` on
+Everything in this section was established by running a command on `main` `21db5c41` on
 2026-08-09. It is recorded here because it **corrects** §54's own mechanism section.
 
 ### 2.1 The injector is Tiptap, not the bundler
@@ -288,7 +288,7 @@ which is not `node_modules`, and this job installs fresh anyway.
 
 `e2e-smoke.mjs` exits non-zero on **any** console error or warning, not only a CSP
 violation. §54 measured the CSP violation as the *only* issue — on 2026-08-03, on
-`13b518db` — and that entry's own rule is to re-measure rather than treat a dated
+`ceee5722` — and that entry's own rule is to re-measure rather than treat a dated
 measurement as a property.
 
 If a clean prod run on current `main` surfaces unrelated prod-only console noise, the job

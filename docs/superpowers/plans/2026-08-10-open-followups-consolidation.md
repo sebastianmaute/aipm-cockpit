@@ -22,9 +22,9 @@ P0 also contains a deliberate **go/no-go gate** (Task 9). If the harness turns o
 
 ## Baseline
 
-Branch off `origin/main` @ `fba42c18` (0.229.0 "Marillier"). The previous branch `feat/dependency-successor-linking` is already merged with zero local-only commits.
+Branch off `origin/main` @ `2005938d` (0.229.0 "Marillier"). The previous branch `feat/dependency-successor-linking` is already merged with zero local-only commits.
 
-Figures this plan assumes, all measured at `fba42c18`:
+Figures this plan assumes, all measured at `2005938d`:
 
 | | |
 |---|---|
@@ -87,7 +87,7 @@ node scripts/check-agents-symbols.mjs > /tmp/symbols-before.txt 2>&1; echo "EXIT
 cat /tmp/symbols-before.txt
 ```
 
-Expected, measured on a clean tree at `fba42c18` on 2026-08-10:
+Expected, measured on a clean tree at `2005938d` on 2026-08-10:
 
 ```
 10 doc(s): 1135 named symbols all resolve (against 37095 identifiers in src/scripts/e2e)
@@ -96,7 +96,7 @@ EXIT=0
 
 Both numbers are the anchor for Task 3 Step 4. If they differ, `origin/main` moved — stop and re-baseline rather than proceeding against a stale anchor.
 
-★★ The identifier count in an earlier draft of this plan was **37040**, and it was wrong: it was measured while the checkout still sat at `e9211280`, 24 commits behind `origin/main`. The symbol count (`1135`) was identical on both trees, which is exactly why the drift went unnoticed — one of the two anchor numbers is invariant across the gap and the other is not. Re-capture the anchor on the branch you are about to refactor on; never carry one across a checkout.
+★★ The identifier count in an earlier draft of this plan was **37040**, and it was wrong: it was measured while the checkout still sat at `5f26c00e`, 24 commits behind `origin/main`. The symbol count (`1135`) was identical on both trees, which is exactly why the drift went unnoticed — one of the two anchor numbers is invariant across the gap and the other is not. Re-capture the anchor on the branch you are about to refactor on; never carry one across a checkout.
 
 - [ ] **Step 3: Confirm the sentinel is absent from scanned code**
 
@@ -108,7 +108,7 @@ grep -rn --include='*.ts' --include='*.tsx' --include='*.mjs' --include='*.js' -
 
 Expected: exactly one hit — `scripts/check-agents-symbols.mjs:123`, the `ALLOWLIST` entry itself. `EXIT=0`.
 
-Measured at `fba42c18`, **six** names have this property and all six live only in that one file: `compareX`, `migrateTaskStatus`, `pendingFlash`, `onTakeTour`, `onToggleComplete`, `requestFlash`. That is the size of what the self-exclusion protects — the gate's comments and allowlist are a small museum of exactly the stale claims it exists to catch, and scanning them would resurrect all six as "real code" at once.
+Measured at `2005938d`, **six** names have this property and all six live only in that one file: `compareX`, `migrateTaskStatus`, `pendingFlash`, `onTakeTour`, `onToggleComplete`, `requestFlash`. That is the size of what the self-exclusion protects — the gate's comments and allowlist are a small museum of exactly the stale claims it exists to catch, and scanning them would resurrect all six as "real code" at once.
 
 If `compareX` appears anywhere else, pick another from that list and use it throughout Tasks 2–3 instead.
 
@@ -1112,7 +1112,7 @@ If it advanced, rebase and re-run Step 1 before opening anything.
 
 ---
 
-## P1 RESULT — measured 2026-08-10 at `bc3ae74e`, branched off `origin/main` @ `fba42c18`
+## P1 RESULT — measured 2026-08-10 at `f89a34fa`, branched off `origin/main` @ `2005938d`
 
 `npm run followups:check` over all 92 open entries:
 

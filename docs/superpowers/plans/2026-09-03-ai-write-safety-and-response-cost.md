@@ -256,7 +256,7 @@ export function entityToken(kind: TokenEntity, entity: object): string {
 
 > **Superseded during implementation (2026-09-03).** The shipped separator is
 > length-prefixed — `column + ":" + value.length + ":" + value` — not the
-> control-character scheme above. Commit `6851e3ba` made the projection
+> control-character scheme above. Commit `2721459f` made the projection
 > injective, which a separator scheme only achieves while the separator cannot
 > occur in a value. Read this block as what was planned, not as what ships.
 

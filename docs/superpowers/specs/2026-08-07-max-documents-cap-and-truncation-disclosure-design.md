@@ -21,7 +21,7 @@ after re-save: 200 docs / 205 versions
 documents PERMANENTLY LOST by load->save: 5
 ```
 
-This shipped in 0.219.0 "Elgin" (`90199c26`) and is live today. It is **not** an S2 regression;
+This shipped in 0.219.0 "Elgin" (`df734cf2`) and is live today. It is **not** an S2 regression;
 S2 introduced only the phantom-deleted-documents consequence, which was closed separately.
 
 The engine-side cap added in S2 (`document-mutations.ts` refuses creates past the cap) stops the

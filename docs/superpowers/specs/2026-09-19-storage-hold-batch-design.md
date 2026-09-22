@@ -1,6 +1,6 @@
 # Storage-hold batch — §548 · §591 · §577 · §573
 
-**Date:** 2026-09-19 · **Branch:** `fix/storage-hold-batch` (off `origin/main` at 1.12.1 merge `7f5c1ef3`)
+**Date:** 2026-09-19 · **Branch:** `fix/storage-hold-batch` (off `origin/main` at 1.12.1 merge `9d7a6b5c`)
 **Target version:** the next patch after whatever `main` carries when this ships. The peer session's
 `fix/data-loss-batch` (§567 · §534 · §546) is in flight and ships separately; release order is settled with
 the peer at release time. **No new register numbers are reserved.** Any entry this batch has to file gets

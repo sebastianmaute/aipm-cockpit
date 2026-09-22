@@ -1,6 +1,6 @@
 # Row-unique accessible names, round 2 — the Tasks surface and the stragglers
 
-_Opened 2026-08-26 against 0.261.0 "Leckie" (main `5a864d3e`). Closes `docs/open-followups.md`
+_Opened 2026-08-26 against 0.261.0 "Leckie" (main `ff9b4853`). Closes `docs/open-followups.md`
 **§247** and **§248**, and translates the hardcoded English accessible names that grounding turned up
 (§5). Opens one new entry for what that sweep deliberately excludes. Target release
 **0.262.0 "Swainston"** (spare codename: Marske — both verified absent from `CHANGELOG.md`)._
@@ -14,7 +14,7 @@ takes §247 and §248. **§246 is deliberately NOT in scope** — see §8.
 ## 0. Grounding against 0.261.0
 
 Verified by command on 2026-08-26, not assumed. Every row below was re-checked against the tree at
-`5a864d3e`; the register entries were filed one day earlier and all their surfaces are intact.
+`ff9b4853`; the register entries were filed one day earlier and all their surfaces are intact.
 
 | Fact | State | How |
 |---|---|---|

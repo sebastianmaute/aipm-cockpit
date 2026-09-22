@@ -5,7 +5,7 @@ Closes `docs/open-followups.md` **§8** and **§318**. Roadmap slice 9
 §124, which landed in 0.270.0 and left these two deliberately open so they could be closed on top of a
 merged `kind: "modal"`.
 
-Every claim below was read out of the source on 2026-09-01 against `fb66aeec` (0.273.0 "Goonan").
+Every claim below was read out of the source on 2026-09-01 against `89782ebc` (0.273.0 "Goonan").
 
 > ★★ **WHY THIS ONE IS AMENDED IN PLACE while the two 0.270.0 records beside it are BANNERED
 > instead.** Those describe a slice that had already shipped, so editing them to match a later tree

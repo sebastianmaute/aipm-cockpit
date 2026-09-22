@@ -153,7 +153,7 @@ it has no table of its own, NOT because it sits outside the workspace.
   still dropping it.
   ★★★ **AN ABSENT SLICE KEY IS NOT AN EMPTY ONE, AND THE PAYLOAD NOW SAYS WHICH.** `workspaceToJson`
   omits an additive slice's key whenever the live array is empty, and `getVersionPayload` could not
-  emit these six AT ALL before `db217e08` (2026-08-25) — so `{"tasks":[…]}` is byte-identical whether
+  emit these six AT ALL before `0fa7f76e` (2026-08-25) — so `{"tasks":[…]}` is byte-identical whether
   the user genuinely had zero knowledge items or the format simply could not carry them. Read as
   "empty", every live record diffs as `"added"` and the restore DELETES the lot; read as "cannot
   speak", nothing is deleted but a restore can never again REMOVE a record added since the capture,
@@ -162,7 +162,7 @@ it has no table of its own, NOT because it sits outside the workspace.
   `stampCaptureFormat` marks every capture at `capturePayload` — the single point `writeVersion` and
   `restore` both funnel through — and `diffWorkspaces`/`applyRestore` each take a
   `…SpeaksForEmptySlices` flag that DEFAULTS TO FALSE, the safe reading.
-  ★★ `PRE_FORMAT_2_BLIND_SLICES` is scoped to exactly `db217e08`'s six and BOTH ends are load-bearing:
+  ★★ `PRE_FORMAT_2_BLIND_SLICES` is scoped to exactly `0fa7f76e`'s six and BOTH ends are load-bearing:
   wider (adding `project`/`steeringCommittee`/`timelogLinks`, additive and omitted-when-unset too but
   emitted all along) silently turns every revert-to-unset into a no-op; narrower — dropping the
   SINGLETON `settingsOverrides` because its five siblings are arrays — lets a restore blank a
@@ -284,7 +284,7 @@ it has no table of its own, NOT because it sits outside the workspace.
   where `deliveredBy` correctly reports 0 delivered. The new value is the CORRECT one — this is an
   accuracy improvement, not a regression — but it is a user-visible change on the default file-mode path.
   Pinned by the "a completion-only day" pair in `completion-trend.test.ts`.
-  ★★ `status-activity-census.test.ts` shipped in `9bf06d3b` and its own header states the
+  ★★ `status-activity-census.test.ts` shipped in `861ee68d` and its own header states the
   two reasons it is a convenience: it is file-granular, and it matches on spelling. A file with several
   write sites passes on any one of them. Per-site coverage is per-site
   tests, and nothing else.

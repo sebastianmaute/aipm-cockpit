@@ -1,7 +1,7 @@
 # Shared-primitive adoption — design
 
 **Date:** 2026-08-23
-**Branch:** `refactor/shared-primitive-adoption`, cut from `origin/main` at `0993d04e` (0.255.1 "Bisson")
+**Branch:** `refactor/shared-primitive-adoption`, cut from `origin/main` at `f5e4f204` (0.255.1 "Bisson")
 **Status:** design approved, unimplemented
 
 ## Goal
@@ -36,7 +36,7 @@ may not catch); spread `{...th}` FIRST, then the per-column props in the order a
 call sites already use — `label`, `sortCol`, `resizeCol`, `width`, `align`, `hint`. The bag's
 four field names collide with none of those, so nothing relies on prop-clobber order.
 
-★★ **Every number below was measured on 2026-08-23 against `0993d04e` and rots.** Each carries the
+★★ **Every number below was measured on 2026-08-23 against `f5e4f204` and rots.** Each carries the
 command that reproduces it. Run the command; never quote the number.
 
 ## Why these three

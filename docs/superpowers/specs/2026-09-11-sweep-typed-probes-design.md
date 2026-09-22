@@ -1,7 +1,7 @@
 # Typed probes for the offered-surface sweep
 
 _Opened 2026-09-11 against 0.303.0 "Christie", on `feat/sweep-typed-probes` off `origin/main`
-`1e437e7e` (main pipeline 6902 green). This is the follow-up slice that
+`0525cea8` (main pipeline 6902 green). This is the follow-up slice that
 `docs/superpowers/specs/2026-09-11-offered-surface-sweep-landing-design.md` names under "Probe fixes
 deferred"._
 
@@ -187,7 +187,7 @@ objects, so the object branch reaches them.
 - **Citation.** Every new `unmeasured` or `dead` entry cites §467, the register entry Task 8 files for
   "fields the typed probes cannot measure". ★ THAT IS THE SECOND NUMBER IT HAS HAD, and 462+1 is 463,
   not 467: Task 8 RESERVED 463 (`origin/main` had already taken §462 for an unrelated entry — "There
-  is no Linux installer…" — by the time it ran its register-max check), and `250e48ae` renumbered the
+  is no Linux installer…" — by the time it ran its register-max check), and `fac76634` renumbered the
   entry to 467 once `origin/main` independently filed its own §463. Reserve the number by re-running
   the register-max command against `origin/main` before writing any citation — and re-run it after a
   fetch, which is what this entry's own renumber cost.
@@ -214,7 +214,7 @@ Test first:
    pushing a `rejected` row. Disclosing the refusal stays §440's.
 3. Rewrite the `plan.test.ts` case "does NOT apply the guard to a create, whose write never sees it",
    its comment, and the `(C3)` header over its `describe`. All three describe the create path as it
-   was before `68486cd4`.
+   was before `8ffcb6ed`.
 
 ## Register (`docs/open-followups.md`, LF)
 
@@ -347,16 +347,16 @@ fix; the register (§467) and the mutant table above are the record that the che
    to still be 461 by the time Task 8 ran. It had already advanced to 462 (an unrelated entry, "There
    is no Linux installer…"), so this task's new entry took 463 (max+1), and all 14 `§462` citations in
    the sweep test file's two ledgers, plus the one in this spec, were repointed to `§463` in the same
-   commit (`69569d05`), per the plan's own fallback instruction.
+   commit (`042217a9`), per the plan's own fallback instruction.
    ★ **AND THE NUMBER MOVED ONCE MORE AFTERWARDS**, which is why nothing in the tree says 463 today:
    `origin/main` had independently filed its own unrelated §463 ("Export silently drops enabled
-   sections…") by the time this branch re-fetched, so `250e48ae` repointed the same 14 citations plus
+   sections…") by the time this branch re-fetched, so `fac76634` repointed the same 14 citations plus
    this spec from `§463` to `§467`. Read the 463 above as the historical step it was. A blind
    §463→§467 replace over this paragraph is what put `§467` into a sentence about max+1 in the first
    place — a past-tense narration keeps its own number.
 2. **§460's plan-supplied CLOSED reproduce witness would have been stale on arrival.** The entry as
    filed cited `grep -n 'target === "row" ? d.rawTypeGuards' src/app/inline-ai-edit/plan.ts` as its
-   OPEN-state witness; by the time this task closed it, `140514bd` had already lifted that exact
+   OPEN-state witness; by the time this task closed it, `dfcd96b5` had already lifted that exact
    condition, so the string no longer exists in `plan.ts` at all. Closed with
    `grep -n 'const guard = d.rawTypeGuards' src/app/inline-ai-edit/plan.ts` instead, and the stale
    witness was kept, explicitly marked stale, under "As filed" rather than deleted — deleting it would
@@ -379,7 +379,7 @@ fix; the register (§467) and the mutant table above are the record that the che
 ## Addendum (2026-09-12) — measurements this closing note was missing
 
 The 2026-09-11 closing note above stopped at Task 8. A further cold-review round (commit
-`0e9dd9ca`) added test-only fixes and measurements this note never recorded. None of it touched
+`674360e8`) added test-only fixes and measurements this note never recorded. None of it touched
 product code except the two mutants below, both applied and reverted, never committed.
 
 **Acceptance criterion 4 — measured for the first time (M1).** The Acceptance section's item 4 (the
@@ -410,7 +410,7 @@ undeclared value 2`, `raid.localModifiedAt: create stored the model's undeclared
 is the entity worth measuring on: the strip is its ONLY protection for those three columns, since
 `dropUnacceptedRaidFields` is a deny-list and `RAID_FIELD_GUARDS` names none of them.
 
-**Relation B's update arm now asks arrival, not movement (commit `0e9dd9ca`).** It used to score a
+**Relation B's update arm now asks arrival, not movement (commit `674360e8`).** It used to score a
 declared field as landed whenever the stored value differed from the value before the write; it now
 compares what the card would show against what was actually stored, exactly like the create arm
 already did — a field that MOVED to some value the model never sent is now `dropped`, not silently

@@ -386,7 +386,7 @@ Message: `chore(desktop): §561 — disable RunAsNode and the Node env fuses in 
 
 - [ ] **Step 1: Copy the audit summary into the repo**
 
-Copy `scratchpad/scan/audit-2026-09-summary.md` to `docs/security/findings-2026-09.md`. Add a banner at the top: the date, the tree it was verified against (`ed6ed8e4`), that it is a dated snapshot in the same series as the 2026-07 file, and that it supersedes that file's *scope* without replacing the record. Strip anything that names the session scratchpad path.
+Copy `scratchpad/scan/audit-2026-09-summary.md` to `docs/security/findings-2026-09.md`. Add a banner at the top: the date, the tree it was verified against (`86a4c998`), that it is a dated snapshot in the same series as the 2026-07 file, and that it supersedes that file's *scope* without replacing the record. Strip anything that names the session scratchpad path.
 
 - [ ] **Step 2: Add the correction note to the 2026-07 file**
 
@@ -527,5 +527,5 @@ A § is reserved only once it is on `origin/main`. Re-run the max-section check 
 ## Notes for the executor
 
 - **The OOXML task is the only user-reachable finding.** If the slice has to be cut short, Tasks 1-3 are the part that matters.
-- **Do not trust this plan's line numbers.** They were correct on `ed6ed8e4`; every edit shifts them. Grep for the symbol.
+- **Do not trust this plan's line numbers.** They were correct on `86a4c998`; every edit shifts them. Grep for the symbol.
 - **Two claims in the source audit reports are wrong** and were corrected after checking: `office-xml.ts` has no lazy pair regex (the `extractRuns` claim), and the `xlsx-extract.ts` lines are 12, 95, 108, 112, not 65. If you find a third, fix the report in the same commit as the code.

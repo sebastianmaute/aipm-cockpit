@@ -2,7 +2,7 @@
 
 **Slice:** `fix/jira-status-tail` → **0.258.0 "Mandelo"**
 **Date:** 2026-08-24
-**Branch point:** `main` at `08a3b26e` (0.257.1 "Shepard")
+**Branch point:** `main` at `ea9dfe94` (0.257.1 "Shepard")
 **Closes:** `docs/open-followups.md` §226, §228. **Narrows:** §227.
 
 ---

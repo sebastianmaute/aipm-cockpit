@@ -100,7 +100,7 @@ The spec says "Operating guides block (from ~line 601)". Reading it, that block 
 
 - [ ] **Step 1: Fetch and verify the baseline**
 
-★ Local `main` is stale at `4dd13660`; slice 1 merged as `f6e85d55` on `origin/main`.
+★ Local `main` is stale at `996a380f`; slice 1 merged as `3a29fdaa` on `origin/main`.
 
 ```bash
 git fetch origin
@@ -116,7 +116,7 @@ git checkout -b feat/ui-batch-slice-2 origin/main
 git log --oneline -1
 ```
 
-Expected: the same `f6e85d55` commit.
+Expected: the same `3a29fdaa` commit.
 
 ---
 

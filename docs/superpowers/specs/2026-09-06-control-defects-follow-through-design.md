@@ -1,8 +1,8 @@
 # Control-defects follow-through — design
 
 **Date:** 2026-09-06
-**Branch:** `feat/control-defects-follow-through` (to be created from `origin/main` at `33fa149c`)
-**Predecessor:** the control-defects batch, shipped as 0.287.0 "Tiptree" (`33fa149c`)
+**Branch:** `feat/control-defects-follow-through` (to be created from `origin/main` at `33af599b`)
+**Predecessor:** the control-defects batch, shipped as 0.287.0 "Tiptree" (`33af599b`)
 
 ## Goal
 
@@ -172,7 +172,7 @@ are mounted unconditionally and merely `hidden`-toggled.
 ★★ **That precedent carries its own hazard and the fix must respect it.** AGENTS.md records that
 for an always-mounted panel the danger inverts: a fresh mount can no longer be relied on to clear
 anything, so state only valid under some condition must be reset explicitly. Here the relevant
-state is `bodyCollapsed` itself, which `3f59c5a2` already resets on every selection change. Verify
+state is `bodyCollapsed` itself, which `98d41e30` already resets on every selection change. Verify
 that reset still fires once the subtree stops unmounting.
 
 ### Testing

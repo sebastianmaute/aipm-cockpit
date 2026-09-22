@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-20-dictation-position-hygiene-design.md`
 
-**Branch:** `feat/dictation-position-hygiene`, already created off `origin/main` (`efad123f`).
+**Branch:** `feat/dictation-position-hygiene`, already created off `origin/main` (`2dd65e5c`).
 
 ---
 

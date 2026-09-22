@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node 24 ESM (`.mjs`), vitest 4.1.8 (already covers `scripts/**/*.{test,spec}.mjs`), GitLab CI, `git blame`/`git log -S` for vintage recovery.
 
-**Branch:** `docs/followups-status-convention`, currently at `28e2385d` (the spec commit), branched off `main` at `30b0a841` (0.263.0 "Okorafor").
+**Branch:** `docs/followups-status-convention`, currently at `4f7638b9` (the spec commit), branched off `main` at `12752988` (0.263.0 "Okorafor").
 
 **No version bump.** Nothing in `src/` changes behaviour. `src/app/version.ts`, `CHANGELOG.md` and the five satellites are NOT touched.
 
@@ -1465,7 +1465,7 @@ node scripts/check-followup-claims.mjs > /dev/null 2>&1; echo "EXIT=$?"
 grep -E "^## [0-9]+." docs/open-followups.md | grep -vE "— CLOSED" | grep -E "FIXED|CLOSED"
 ```
 
-Expected: the three counts agree with each other, the numbered total is unchanged from `30b0a841`, and the last command lists only the 11 known partials.
+Expected: the three counts agree with each other, the numbered total is unchanged from `12752988`, and the last command lists only the 11 known partials.
 
 - [ ] **Step 6: Commit nothing — this task is verification only**
 

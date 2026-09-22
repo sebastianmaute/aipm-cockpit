@@ -7,6 +7,11 @@
      Every claim here was true when written and some have outlived their code —
      grep before relying on one, and correct what you disprove in the same commit. -->
 
+> ★★★ **This pipeline no longer runs.** Since the GitHub cut-over the GitLab project reads its CI
+> configuration from `ci/gitlab-sync.yml` and runs only the daily sync. Everything below describes
+> `.gitlab-ci.yml` as the source that migration sub-project 3 ports to GitHub Actions. Until that
+> lands, `npm run gate:local` is the merge gate.
+
 # CI — the GitLab pipeline, job by job
 
 [← AGENTS.md](../../AGENTS.md) · [doc set](../../AGENTS.md#the-doc-set--what-lives-where)

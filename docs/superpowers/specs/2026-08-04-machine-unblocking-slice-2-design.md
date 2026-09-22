@@ -1,7 +1,7 @@
 # Machine unblocking — slice 2: the CI flake hunt, plus the one flake that has a mechanism
 
 _Design, 2026-08-04. Successor to `2026-08-03-machine-unblocking-design.md` (slice 1, `!342`)._
-_Base: `main` at `234f708b`, app version 0.214.0 "Lostetter"._
+_Base: `main` at `3a0c4c75`, app version 0.214.0 "Lostetter"._
 
 ★ This document lives under `docs/superpowers/`, which is **gitignored**. It exists only on this
 machine. Everything another contributor needs must land in `docs/open-followups.md`, not here — that
@@ -12,7 +12,7 @@ is the same failure mode `open-followups.md` §44 records for the S6 calendar pl
 Slice 1 scoped its own successor: "§39/§51 root cause is **Slice 2** (3-step stop rule; **no timeout
 raises** — 5s→15s already bought nothing)."
 
-Since that scoping, a **third** flake signature was captured from pipeline **5446** (main `6dcee7eb`,
+Since that scoping, a **third** flake signature was captured from pipeline **5446** (main `a9161960`,
 2026-08-04) — and unlike §39 and §51, it comes with a mechanism and a known fix shape. It is not yet
 in the register. This slice ships that fix and then runs the hunt, in that order, so the slice cannot
 finish empty-handed.
@@ -227,7 +227,7 @@ the failure instead of explaining it.
 - **No `retry`** in `vitest.config.ts`. It is currently unset. Setting it hides the signal this slice
   exists to capture.
 - **Operational answer meanwhile stays: retry the job.** Confirmed flaky by retry, not by argument —
-  job 20222 was a plain retry of `unit-tests` on the same commit `351eb05f` with no code change, and
+  job 20222 was a plain retry of `unit-tests` on the same commit `8648da98` with no code change, and
   it passed.
 
 ---

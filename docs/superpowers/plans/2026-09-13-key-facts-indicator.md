@@ -8,11 +8,11 @@
 
 **Tech Stack:** Next 16 / React 19 client components, TypeScript, Vitest + Testing Library, Tailwind v4 tokens.
 
-**Spec:** `docs/superpowers/specs/2026-09-12-project-key-facts-and-shell-polish-design.md` §5 (read §3, §5, §7 and §8). MR A (§4) is merged as `72d9c045`; this plan presumes it.
+**Spec:** `docs/superpowers/specs/2026-09-12-project-key-facts-and-shell-polish-design.md` §5 (read §3, §5, §7 and §8). MR A (§4) is merged as `c59098b8`; this plan presumes it.
 
 ## Global Constraints
 
-- Branch `feat/key-facts-indicator`, worktree `.worktrees/key-facts`, cut from `origin/main` `72d9c045`. Its first commit is the cherry-picked `.mimir` marker (`3020bdac`) — leave it; the MR description mentions it.
+- Branch `feat/key-facts-indicator`, worktree `.worktrees/key-facts`, cut from `origin/main` `c59098b8`. Its first commit is the cherry-picked `.mimir` marker (`2a88bdb7`) — leave it; the MR description mentions it.
 - Commit author "Sebastian Maute". Commit path-limited (`git add <paths>` then `git commit -m`); never `git add -A`/`.`, never `--amend`, no bare `git stash`, no `git checkout --`/`git restore`. No push, no MR.
 - Gates run in CI. Locally run ONLY the single test file(s) a step names, one vitest at a time, redirected and exit-checked unpiped: `npx vitest run <file> > "$LOG" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " "$LOG"`. No full suite, no whole-repo `tsc`/`eslint`, no docs gates. `$LOG` lives in the session scratchpad, never shared `/tmp`.
 - `src/app/*.ts(x)` are CRLF in the working tree (`git ls-files --eol` shows `i/lf w/crlf`). Edit them with the Edit tool only; never `sed -i`.

@@ -1,7 +1,7 @@
 # Nine defect closures — design
 
 **Date:** 2026-08-30
-**Branch:** `fix/nine-defect-closures`, cut from `main` at `0fd21fb1` (0.267.0 "Nagamatsu").
+**Branch:** `fix/nine-defect-closures`, cut from `main` at `9ec24ff8` (0.267.0 "Nagamatsu").
 **Register entries closed:** §36(b) · §88 · §109 (sub-item) · §120 · §128 · §148 · §271 · §276 · §296.
 **This slice BUMPS** — every unit is a user-visible defect.
 

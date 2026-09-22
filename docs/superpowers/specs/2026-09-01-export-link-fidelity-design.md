@@ -6,7 +6,7 @@ one; where it cannot, carry the address inline as visible text. No format loses 
 **Closes.** `docs/open-followups.md` §119 (`<a href>` dropped by both OOXML renderers) and §30 (a
 link in a task description loses its address in document exports).
 
-**Branch.** `fix/export-link-fidelity`, off `main` at `4650ed67` (0.275.0 "Nagata").
+**Branch.** `fix/export-link-fidelity`, off `main` at `00c61f8f` (0.275.0 "Nagata").
 
 **Scope note.** This is HALF of the roadmap's slice 4. That slice bundled §119 · §30 · §93 · §304;
 §304 alone is ~110 i18n keys (twelve `*_CSV_COLUMNS` constants, 110 distinct column strings, plus

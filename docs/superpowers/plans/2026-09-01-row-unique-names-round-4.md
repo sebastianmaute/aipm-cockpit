@@ -27,7 +27,7 @@
 **Tech Stack:** React 19 + Next 16, TypeScript, vitest + @testing-library/react, the shared assertion helper `src/test/row-unique-names.ts`.
 
 **Spec:** `docs/superpowers/specs/2026-09-01-row-unique-names-round-4-design.md`
-**Branch:** `fix/row-unique-names-round-4`, at `63881809`, off `main` at `fb66aeec` (0.273.0 "Goonan").
+**Branch:** `fix/row-unique-names-round-4`, at `47490f2d`, off `main` at `89782ebc` (0.273.0 "Goonan").
 
 ---
 
@@ -724,7 +724,7 @@ grep -oE "^## [0-9]+\." docs/open-followups.md | grep -oE "[0-9]+" | sort -n | t
 npm run followups:status:check > "$SCRATCH/post-merge-status.log" 2>&1; echo "EXIT=$?"
 ```
 
-★★ A register number is reserved only once it is on `origin/main`; two branches have already minted the same one here. The spec's counts are pinned to `fb66aeec` — re-measure and re-pin, or cut the number.
+★★ A register number is reserved only once it is on `origin/main`; two branches have already minted the same one here. The spec's counts are pinned to `89782ebc` — re-measure and re-pin, or cut the number.
 
 - [ ] **Step 3: Pick the codename and bump**
 

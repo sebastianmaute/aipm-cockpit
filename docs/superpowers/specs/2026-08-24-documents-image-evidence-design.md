@@ -1,7 +1,7 @@
 # Documents images — package evidence and the asset-reference divergence (§216 · §218)
 
 Date: 2026-08-24
-Baseline: 0.257.1 "Shepard", `main` @ `08a3b26e`
+Baseline: 0.257.1 "Shepard", `main` @ `ea9dfe94`
 Closes: `docs/open-followups.md` §216, §218
 Deliberately does NOT touch: §217, §219, §221, §222 — see "What this slice refuses".
 
@@ -30,7 +30,7 @@ why the cap filled.
 
 ## What already exists
 
-Measured against `08a3b26e`. Reproduce commands given where a number is load-bearing.
+Measured against `ea9dfe94`. Reproduce commands given where a number is load-bearing.
 
 | Thing | Where | Shape |
 |---|---|---|

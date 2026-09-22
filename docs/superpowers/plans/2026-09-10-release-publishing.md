@@ -764,7 +764,7 @@ stages:
 
 - [ ] **Step 2: Replace the `desktop-package` job with a base plus two jobs**
 
-`5fa964cf` already rewrote the comment block above the job — the header used to call the job MANUAL without distinguishing branch from tag, which stopped being true once this split exists, so it now names `desktop-package-tag` and says the tag path is automatic and BLOCKING. The rewritten header is reproduced below, verbatim, **extended** with the `★★`/`★★★` `allow_failure` notes. Replace from `desktop-package:` to the end of its `artifacts:` block with:
+`c70cbbbb` already rewrote the comment block above the job — the header used to call the job MANUAL without distinguishing branch from tag, which stopped being true once this split exists, so it now names `desktop-package-tag` and says the tag path is automatic and BLOCKING. The rewritten header is reproduced below, verbatim, **extended** with the `★★`/`★★★` `allow_failure` notes. Replace from `desktop-package:` to the end of its `artifacts:` block with:
 
 ```yaml
 # Windows desktop installer. On a BRANCH this stays MANUAL: the build is slow
@@ -3159,7 +3159,7 @@ Two things were ADDED, both checked against the code: step 3's access requiremen
 - Exit 2 covers a timeout, a 5xx, a 408/429 and a 2xx that does not confirm — a 201 included — and ALSO a redirect and a missing variable, which is why the block says those will not clear on a retry: the CLI's header calls every exit 2 "safe to retry", which is not the same as "fixed by a retry".
 - A retry after a landed create gets a 409 that `classifyExistingRelease` resolves to 0 only when the existing Release carries the link, and to 1 when it does not.
 - The two exit-1 messages are quoted verbatim from `classifyCreateResponse` (the 403 suffix) and `classifyExistingRelease` (the WITHOUT message), with `<tag>` and `<link>` standing for the interpolated values.
-- The two GitLab claims — a retried job makes GitLab run the skipped `publish-release`, and a per-tag artifact URL resolves only through a successful pipeline — are GitLab's documented behaviour as read, not measured on this project, and the block says so. The plan's original block had no recovery path, and `d65a70c8`'s covered only `publish-release`'s own exits; a cold review of Task 7 asked for the rest, because no `needs:` means ANY red gate on the tag pipeline holds the Release back.
+- The two GitLab claims — a retried job makes GitLab run the skipped `publish-release`, and a per-tag artifact URL resolves only through a successful pipeline — are GitLab's documented behaviour as read, not measured on this project, and the block says so. The plan's original block had no recovery path, and `fbb9ba19`'s covered only `publish-release`'s own exits; a cold review of Task 7 asked for the rest, because no `needs:` means ANY red gate on the tag pipeline holds the Release back.
 
 - [ ] **Step 3: Check the docs gates**
 

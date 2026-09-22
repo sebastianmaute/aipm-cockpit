@@ -1,14 +1,14 @@
 # Control-defects batch — design
 
 **Date:** 2026-09-05
-**Base:** `origin/main` @ `2eeb68f8` (0.285.0 "Barnhill")
+**Base:** `origin/main` @ `3eb8bd64` (0.285.0 "Barnhill")
 **Status:** approved, not yet planned
 
 Six independent, user-visible control defects, batched into one slice. No new persisted
 `Workspace` field, no backend write paths, no version bump in this spec — the slice ships
 separately on explicit say.
 
-Every fact below was measured against the tree at `2eeb68f8`. Line numbers rot on the first
+Every fact below was measured against the tree at `3eb8bd64`. Line numbers rot on the first
 insertion: re-grep the symbol before relying on one.
 
 ## Scope

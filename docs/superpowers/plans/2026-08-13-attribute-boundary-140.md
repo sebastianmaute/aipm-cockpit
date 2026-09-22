@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-13-attribute-boundary-140-design.md` (gitignored — decisions are reproduced into `docs/open-followups.md` §140 in Task 10)
 
-**Branch:** `feat/attribute-boundary-140`, cut from `main` at `2263a19b`
+**Branch:** `feat/attribute-boundary-140`, cut from `main` at `215005eb`
 
 ---
 

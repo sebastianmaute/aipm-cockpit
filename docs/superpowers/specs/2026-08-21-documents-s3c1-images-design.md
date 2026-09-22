@@ -1,6 +1,6 @@
 # S3c-1 — Document images, end to end (Turso-gated)
 
-_Opened 2026-08-21 against 0.253.0 "Schroeder" (`6c4e4162`). Supersedes the `S3c — images`
+_Opened 2026-08-21 against 0.253.0 "Schroeder" (`ac6b854c`). Supersedes the `S3c — images`
 section of `2026-08-08-documents-roadmap-s3-s4-design.md` where the two disagree; every
 disagreement is marked **[supersedes]** and says why._
 

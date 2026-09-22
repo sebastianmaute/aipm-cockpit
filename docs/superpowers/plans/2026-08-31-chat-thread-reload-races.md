@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, React 19 hooks, vitest + @testing-library/react `renderHook`, Turso (mocked at `./chat-threads-store`).
 
-**Branch:** `fix/chat-thread-reload-races`, currently at `e90bbea3`, off `a5f51aa1` (0.270.0 "Tchaikovsky").
+**Branch:** `fix/chat-thread-reload-races`, currently at `e90bbea3`, off `2d07f320` (0.270.0 "Tchaikovsky").
 
 **Spec:** `docs/superpowers/specs/2026-08-31-chat-thread-reload-races-design.md`
 

@@ -10,7 +10,7 @@
 
 **Tech Stack:** Electron, electron-builder (NSIS), Next 16 `output: "standalone"`, vitest (existing), Playwright `_electron` (existing Playwright install).
 
-**Source spec:** `docs/superpowers/specs/2026-09-10-electron-app-bundling-design.md` (commit `8c140928`).
+**Source spec:** `docs/superpowers/specs/2026-09-10-electron-app-bundling-design.md` (commit `1d74ba60`).
 
 **Scope:** spec Sections 1–6 and 8. **Section 7 (auto-update) is deliberately NOT in this plan** — spike 1 below decides its shape, and it gets its own plan afterwards. Do not add updater wiring here.
 
@@ -1628,7 +1628,7 @@ echo "EXIT=$?"
 
 ## Task 15: Packaged-app smoke test
 
-**Status: DONE 2026-09-10** — `e2e/desktop-smoke.spec.ts`, commit `902066af`. The text below is
+**Status: DONE 2026-09-10** — `e2e/desktop-smoke.spec.ts`, commit `2309b068`. The text below is
 the CORRECTED task; the version originally planned here carried six defects, four of which made it
 unrunnable and two of which made it **vacuous while green**. They are recorded at the end because
 every one of them is the class of mistake this task exists to catch.

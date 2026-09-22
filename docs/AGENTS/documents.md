@@ -948,7 +948,7 @@ do not control it. ★ Every verdict above is a `.test()` or a `.replace()` run 
 declarations, not a reading of them —
 `grep -n -A 1 "const ASSET_IMG_TEST_RE" src/app/document-asset-patterns.ts` and
 `grep -n "^const TAG = " src/app/rich-text-plain.ts`.
-**They are no longer "the same shape", and this line used to say they were:** `e5597c78` deliberately diverged
+**They are no longer "the same shape", and this line used to say they were:** `22110894` deliberately diverged
 them, widening only this one to match its own threat model (it runs BEFORE any allow-list pass on
 the load path, so it must survive hand-edited and imported html). §209 tracked the spellings of this
 attribute contract and is **CLOSED 2026-08-25**: all three now live in `document-asset-patterns.ts`,
@@ -969,7 +969,7 @@ and more thoroughly, by `document-model.test.ts` (image-only paragraph on the lo
 `normalizeBlockForStorage` commit path, twice in one document to catch a `/g` `lastIndex` carry, and
 across every attribute spelling the widened pattern admits). ★★ **Do not quote a number for that
 last set** — an earlier draft of this sentence said "all three quoting styles" and was already
-stale: `e5597c78` widened this predicate — then `ASSET_IMG_RE`, module-private in
+stale: `22110894` widened this predicate — then `ASSET_IMG_RE`, module-private in
 `document-model.ts` — to a THREE-branch value alternation (double-quoted, single-quoted, unquoted)
 over `\s*=\s*`, with `/i` admitting an upper-cased tag AND attribute name on top of that. ★★ Only
 the quoting styles are alternation BRANCHES; the case-insensitivity and the whitespace around the

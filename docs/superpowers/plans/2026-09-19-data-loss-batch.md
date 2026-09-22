@@ -1406,7 +1406,7 @@ D3. **§548: a project switch opens the same window, and is included.** (a) A ba
 
 ### Writer inventory and signal analysis
 
-#### Writer inventory (read-only survey, done while planning, at `0efaf771`)
+#### Writer inventory (read-only survey, done while planning, at `b8a15fcc`)
 
 **Survey commands.** Run these from `C:/Projects/aipm-wt-a` to reproduce the table:
 

@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-05-control-defects-batch-design.md`
 
-**Branch:** `feat/control-defects-batch`, based at `497cea6e` = `origin/main` (`2eeb68f8`, 0.285.0 "Barnhill") + the spec commit.
+**Branch:** `feat/control-defects-batch`, based at `844ffaf7` = `origin/main` (`3eb8bd64`, 0.285.0 "Barnhill") + the spec commit.
 
 **NO release and NO version bump in this plan.** The slice ships separately, on explicit say.
 
@@ -63,7 +63,7 @@ Several tasks below say "mutation-prove". That means:
 
 `git checkout -- <file>` is **deny-blocked** here. Do not plan around it.
 
-Runtime test counts as of `2eeb68f8` (measured; `it.each` blocks expanded):
+Runtime test counts as of `3eb8bd64` (measured; `it.each` blocks expanded):
 
 | file | wc -l | runtime tests |
 |---|---|---|

@@ -1,7 +1,7 @@
 # Preview/apply parity, round 2 — design
 
 **Date:** 2026-09-06
-**Branch:** `feat/preview-apply-parity-round-2`, off `origin/main` at `9699f0a5`
+**Branch:** `feat/preview-apply-parity-round-2`, off `origin/main` at `2b068599`
 **Scope at filing:** `docs/open-followups.md` §390-406 (seventeen entries)
 **Closed:** FOURTEEN — §390, §392, §393, §395, §396, §397, §398, §399, §400, §401, §402, §403, §404,
 §406. ★★ THIS LINE READ "Closes … (seventeen entries)" AND THAT WAS NEVER TRUE OF WHAT SHIPPED.
@@ -10,7 +10,7 @@ Three stayed OPEN, each for a different reason, and all three are recorded as su
 as a documented decision; the register keeps it open so the per-site reasoning stays live, and its
 own Status says "OPEN as a RECORD, not as a defect to fix").
 **§394** — its own prescription was REFUTED by measurement on this branch, so the composition it
-asked for was not made; see the Out-of-scope bullet below and commit `f739bd75`.
+asked for was not made; see the Out-of-scope bullet below and commit `15f9dc09`.
 **§405** — NARROWED, not closed: the dependency inversion landed for every numeric, date and
 stakeholder-enum predicate, leaving three RAID enum fields.
 **Target release:** not yet assigned. ★★ THIS LINE READ "0.287.0", WHICH IS UNREACHABLE — 0.287.0
@@ -283,7 +283,7 @@ with the sum equal to the file's runtime test count.
   the blindness: the sweep still cannot EVALUATE such a guard, it can only no longer fail to hear
   about one. §394's own Status records the measurement that refuted the composition prescription
   (moving every BASE fixture off its fallback AND deleting the stakeholder merge-site guard both
-  left the sweep green at `Tests 8 passed (8)`); commit `f739bd75` carries it.
+  left the sweep green at `Tests 8 passed (8)`); commit `15f9dc09` carries it.
 - Any change to `dueDate`'s throw-on-blank rule (§396 covers `lastUpdateDate` alone).
 
 ## Risks

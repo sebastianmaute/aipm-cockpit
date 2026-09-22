@@ -34,6 +34,7 @@ are entered in the in-app Settings panel and stored in the browser.
 | `npm run build` | Production build — runs TypeScript type-check, then emits `.next/` |
 | `npm run start` | Serve the production build (run `npm run build` first) |
 | `npm run stop` | Stop the dev server bound to the app port (default 3000; set PORT to override). Port-scoped — does not touch unrelated node processes |
+| `npm run gate:local` | Run CI's blocking npm gates locally (not semgrep, the dependency audit or e2e), in order, stopping at the first failure — the merge gate until GitHub Actions exists |
 | `npm run lint` | Run ESLint (`eslint-config-next` preset) |
 | `npm run test` | Vitest unit/component tests in watch mode |
 | `npm run test:run` | Vitest, single run (CI-friendly) |
@@ -170,7 +171,7 @@ tried here and was a dead end.
 Colours, shadows, and gradients are restricted to the sanctioned brand
 tokens in `globals.css` — no off-palette colours, and no raw `shadow`/gradient
 utilities (use the `--shadow-*` / `--gradient-*` role tokens where one is
-genuinely needed). The `shell-palette-guard` / `palette-chrome-sweep` tests
+needed). The `shell-palette-guard` / `palette-chrome-sweep` tests
 enforce this and scan the **whole source, including comments**, so a stray raw
 `shadow` (even `--shadow-card` written in a code comment) fails CI.
 `ui-light-grey` is **not** a chrome token — `bg-` / `border-` /
@@ -226,7 +227,7 @@ Five rules, each of which has already cost a bug:
    eval, so with no DOM the call throws and `jsonToWorkspace`'s catch-all turns
    it into an **empty** workspace that then "successfully" writes near-empty
    sample files. Importing from it is fine — a source-scanning test in
-   `rich-text-plain.test.ts` enforces the no-call rule. Anything that genuinely
+   `rich-text-plain.test.ts` enforces the no-call rule. Anything that
    needs a DOM lives in `rich-text-projection.ts` or `ai-rich-text.ts`.
 2. **Migration is read-time, not write-time.** Decoders hand-build entities and
    do not normalise, so storage holds both plain-text and HTML shapes at once.
@@ -306,7 +307,7 @@ delta shapes.
 
 **Framework-coupled packages are pinned exactly, with no range:** `next`,
 `react`, `react-dom`, `eslint-config-next`. Every other dependency carries a
-caret so upstream fixes flow without a slice each. ★ Read that cost honestly: a caret admits
+caret so upstream fixes flow without a slice each. ★ The cost: a caret admits
 MINOR releases, not just patches — this section exists because `^16.2.11` ADMITS `16.3.2`. ★ It never resolved to it — no 16.3 tarball has
 ever entered the lock (`git log --all -S'next/-/next-16.3' -- package-lock.json` is empty). The
 risk was the specifier, not an install that happened.
@@ -504,10 +505,34 @@ Jira sync, storage backend switching, voice commands, OOXML export.
   module or panel component.
 - No `console.log` in committed code (logging utility TBD).
 
+## Working on GitHub
+
+GitHub (`sebastianmaute/aipm-cockpit`) is the only place changes land. The GitLab project is a
+read-only copy synced from GitHub once a day; never push to it, and do not open merge requests
+there. Its issues stay in use until they migrate to GitHub.
+
+Remotes in a fresh clone:
+
+    git remote -v            # origin = GitHub
+    git remote add gitlab <gitlab-url>           # only for glab (issues)
+    git remote set-url --push gitlab DISABLED    # makes an accidental push fail
+
+A change lands like this:
+
+1. Push the branch to `origin` and open a pull request (`gh pr create`).
+2. Run `npm run gate:local`. There is no CI until the pipeline is ported to GitHub Actions, so
+   this is the gate. It stops at the first failure; do not merge on red. It refuses to start over
+   uncommitted tracked changes (pass `--allow-dirty` to override), and prints the commit it gated.
+3. Merge with a merge commit (`gh pr merge --merge`); squash and rebase merging are disabled so
+   the history keeps the shape the commit citations rely on. Never enable auto-merge.
+
+No releases and no tags are made until releasing moves to GitHub Releases.
+
 ## Pull request checklist
 
 Before opening a PR:
 
+- [ ] `npm run gate:local` passes (the merge gate until CI runs on GitHub).
 - [ ] `npm run build` passes locally.
 - [ ] `npm run lint` is clean (or warnings are explained).
 - [ ] New user-facing strings have both EN and DE translations.

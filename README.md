@@ -19,14 +19,14 @@
 
 ## Why AI PM Cockpit
 
-**A copilot that knows *this* project — not a chatbot bolted on.**
+**A copilot that knows *this* project.**
 The Claude assistant is grounded in your operating guides, so its advice fits this project rather than reading like a generic chatbot. Per-view **"Ask Claude"** prompts and one-tap starters (a risk review, a weekly status update, a stakeholder update, "prioritize all tasks") mean the tool tells you the next step — and can take it, creating and updating tasks, RAID, changes, milestones, and stakeholders in natural language.
 
 **It tells you what it cannot see.**
 The assistant knows which view you are on and — on Open Points, Workload, Gantt and Budget — what your current filters are actually showing. Where no tool can answer it says so, by name: time bookings, the activity log, cross-project portfolio data, RACI assignments, calendar absences.
 
-**Plugs into your stack, not another silo.**
-Pull people in from Outlook, attach documents straight from SharePoint, push milestones to your calendar, sync a two-way Jira project (plus optional read-only monitor projects), and fold actual Timelog bookings into your budget — so you accelerate your existing workflow instead of re-keying the same data into yet another tool.
+**Plugs into the stack you already use.**
+Pull people in from Outlook, attach documents straight from SharePoint, push milestones to your calendar, sync a two-way Jira project (plus optional read-only monitor projects), and fold actual Timelog bookings into your budget, without re-keying the same data.
 
 **Own your data.**
 It runs in your browser with no backend account. Bring your own API keys — they're encrypted at rest (AES-256-GCM, device-sealed).
@@ -39,7 +39,7 @@ No two project leads track the same things, so the cockpit bends to fit: see wor
 
 ### Built to be trusted
 
-Not a prototype, and not shelfware: the cockpit is **already in active friendly-user testing**, exercised against real projects by real project leads rather than sitting behind a demo. It is backed by a unit and component suite under coverage floors that are enforced rather than merely reported (lines, statements, functions and branches, plus tighter per-engine floors), a WCAG accessibility gate (axe across 17 views × 7 theme/scheme combinations), semgrep SAST, and duplication and file-size ratchets — all blocking in CI. Local-first and bring-your-own-key by design: no server stores your data or credentials (the handful of API routes are stateless proxies to services you configure), so the browser profile is the security boundary (see [Security Model](docs/security.md#security-model)).
+The cockpit is in active friendly-user testing, used by project leads on real projects. It is backed by a unit and component suite under coverage floors that are enforced rather than merely reported (lines, statements, functions and branches, plus tighter per-engine floors), a WCAG accessibility gate (axe across 17 views × 7 theme/scheme combinations), semgrep SAST, and duplication and file-size ratchets — all blocking in CI. Local-first and bring-your-own-key by design: no server stores your data or credentials (the handful of API routes are stateless proxies to services you configure), so the browser profile is the security boundary (see [Security Model](docs/security.md#security-model)).
 
 ### See it in a minute
 
@@ -88,7 +88,7 @@ for the optional build-time overrides.
 For a production build, and for prerequisites and the full script table, see
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
-### Development Scripts
+### Development scripts
 
 The handful you need to work on the app:
 
@@ -107,7 +107,7 @@ gate, checker and test runner in the repo, each with the caveat that bites when
 you run it. It is the one authoritative copy; this list is a starting point, not
 a second inventory to keep in sync.
 
-## Tech Stack
+## Tech stack
 
 - **Framework**: Next.js 16 (App Router, Turbopack)
 - **UI**: React 19, Tailwind CSS 4

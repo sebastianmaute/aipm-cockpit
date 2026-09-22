@@ -1,7 +1,7 @@
 # Backlog sweep — close ten cheap defects and one stale record
 
 **Date:** 2026-09-21
-**Branch:** `fix/backlog-sweep` (from `origin/main` at `af138b491`)
+**Branch:** `fix/backlog-sweep` (from `origin/main` at `cf21eb91a`)
 **Version:** 1.12.7, milestone line unchanged ("Child")
 **Closes:** §365 · §541 · §542 · §544 · §564 · §565 · §566 · §570 · §571 · §576, and §391 as a record
 

@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-28-meta-decode-loss-chain-design.md`
 
-**Branch:** `fix/meta-decode-loss-chain`, at `f4f865e2` (the spec commit), branched off `main` at `24581bc6`.
+**Branch:** `fix/meta-decode-loss-chain`, at `df0f5ecb` (the spec commit), branched off `main` at `010e5305`.
 
 ---
 

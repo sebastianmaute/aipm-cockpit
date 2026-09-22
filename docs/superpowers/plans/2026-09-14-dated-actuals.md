@@ -1996,7 +1996,7 @@ export function writeDeviceJson(key: string, value: unknown): boolean {
 - [ ] **Step 8: Pack in the store, add stage 6, report the write**
 
 All edits in `src/app/timelog-actuals-store.ts` use the Edit tool. Every anchor below was verified to match exactly
-once (the signature anchor exactly four times) against HEAD `0d856c17`.
+once (the signature anchor exactly four times) against HEAD `ae6f5bd5`.
 
 8.1 Below `import type { ActualsAggregate } from "./timelog-actuals";` add:
 

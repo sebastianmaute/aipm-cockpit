@@ -9,7 +9,7 @@
 **Date:** 2026-08-23
 **Closes:** `docs/open-followups.md` §182, §183
 **Opens:** §226
-**Branch:** `fix/task-status-pair-invariant` (off `origin/main` at `2a1cfdef`)
+**Branch:** `fix/task-status-pair-invariant` (off `origin/main` at `65f17aa0`)
 **Target release:** 0.257.0 "Shepard"
 
 ---

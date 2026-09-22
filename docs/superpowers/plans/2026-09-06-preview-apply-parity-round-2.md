@@ -795,12 +795,12 @@ MSG
 > `describeClamp` ran only in `onBlur`, Enter submits without firing blur, and
 > `handleSubmit` re-capped the three text fields while both number fields came
 > off the `...draft` spread unclamped. The form was minting fractional days and
-> over-cap costs until commit `555ee966` fixed it. Two consequences: the "opposite
+> over-cap costs until commit `12ce795a` fixed it. Two consequences: the "opposite
 > directions" framing is true only against §399 **as filed** — against the code
 > this task actually edits, cost tightens exactly as days do — and because the
 > at-risk population of stored values was real rather than empty, the loader now
 > REPAIRS an out-of-precision or over-cap amount instead of dropping it
-> (`867fbe13`). Acceptance and repair are deliberately different questions.
+> (`21e9b04f`). Acceptance and repair are deliberately different questions.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1629,7 +1629,7 @@ Every red is a QUESTION, not a bug to paper over. For each: does the guard keep 
 
 - [ ] **Step 3: Compose the `resource` reader** — ★★★ SUPERSEDED 2026-09-06, NOT EXECUTED
 
-**Do not execute Step 3 or Step 4 as written.** Commit `f739bd75` ("docs(followups): 394's own prescription is refuted by measurement") superseded them, and §394 stays OPEN.
+**Do not execute Step 3 or Step 4 as written.** Commit `15f9dc09` ("docs(followups): 394's own prescription is refuted by measurement") superseded them, and §394 stays OPEN.
 
 The refutation, kept because it is the valuable part: this task's premise was that moving the fixtures off their fallbacks would produce reds to triage and that composing `resourceReader` would let the sweep see a merge-site guard. Both halves were probed. All four BASE fixtures were moved off their defaults together (`task.status`→"In Progress", `priority`→"High", `raid.category`→"A", `change.type`→"Scope", `status`→"Approved", `stakeholder.category`→"Sponsor", `influence`→"High", `interest`→"Low") and the sweep stayed GREEN — `Tests 8 passed (8)`, EXIT=0. Then, with those same non-default fixtures in place, the stakeholder merge-site guard was DELETED at its call site in `use-chat-dispatcher.ts` — the exact silent-reset §394 exists to catch, on a row stored as "Sponsor" — and the sweep was STILL GREEN, `Tests 8 passed (8)`. Both probes reverted; `git diff --stat` empty. So the "resulting reds" Step 2 tells you to triage do not exist, and composing the reader closes nothing on its own.
 

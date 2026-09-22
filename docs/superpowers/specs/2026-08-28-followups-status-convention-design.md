@@ -1,6 +1,6 @@
 # Open-follow-ups cross-check and mandatory `**Status:**` convention — design
 
-**Date:** 2026-08-28 · **Branch base:** `main` at `30b0a841` (0.263.0 "Okorafor")
+**Date:** 2026-08-28 · **Branch base:** `main` at `12752988` (0.263.0 "Okorafor")
 
 ## Goal
 
@@ -13,7 +13,7 @@ No `src/` behaviour changes. This slice touches the register, `scripts/`, `.gitl
 
 ## Measurements
 
-★★ Every number below was measured on 2026-08-28 at `30b0a841` against a clean tree. **Numbers in
+★★ Every number below was measured on 2026-08-28 at `12752988` against a clean tree. **Numbers in
 this register rot** — each is paired with the command that reproduces it. Re-run before relying on
 one; do not carry these figures into the register itself.
 
@@ -46,7 +46,7 @@ Closed entries are unaffected by the new rule; 43 of the 100 already carry a Sta
 
 ### `--run-repro` covers 29% and does not say so
 
-Run at `30b0a841`, tree clean before and after (`git rev-parse --short HEAD` and
+Run at `12752988`, tree clean before and after (`git rev-parse --short HEAD` and
 `git status --porcelain` captured on both sides — the overlapping-writer guard):
 
 ```bash

@@ -14,7 +14,7 @@ dismissal stack, so Escape closes the popover and leaves the modal open.
 **Tech Stack:** Next 16 / React / TypeScript, vitest + React Testing Library, Tailwind v4.
 
 **Spec:** `docs/superpowers/specs/2026-09-09-modal-context-help-design.md` (committed `b299c3cc`).
-**Branch:** `feat/modal-context-help`, cut off `origin/main` = `6ad4d18b`.
+**Branch:** `feat/modal-context-help`, cut off `origin/main` = `d1bd2034`.
 
 ---
 

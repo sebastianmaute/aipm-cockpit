@@ -2,11 +2,11 @@
 
 **Roadmap row:** slice 3 of `docs/superpowers/specs/2026-08-31-followup-slice-roadmap.md`.
 **Entries:** §300 · §301 · §302 · §303 · §307.
-**Branch:** `fix/type-to-confirm-recourse`, off `62d84fa3` (0.272.0 "Zoline").
+**Branch:** `fix/type-to-confirm-recourse`, off `c44ad094` (0.272.0 "Zoline").
 
 ## Provenance — what is measured and what is not
 
-Every entry in this slice was REPRODUCED against the tree at `62d84fa3` by a read-only probe
+Every entry in this slice was REPRODUCED against the tree at `c44ad094` by a read-only probe
 before this design was written. Four of the five carried a `never machine-verified` Status line;
 all four now have one. That is the only claim being made — reproducing a defect says nothing
 about whether the fix below is right.

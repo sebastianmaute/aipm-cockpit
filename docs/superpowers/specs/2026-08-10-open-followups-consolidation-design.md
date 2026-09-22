@@ -1,7 +1,7 @@
 # Open-followups consolidation — design
 
 **Date:** 2026-08-10
-**Baseline:** `origin/main` @ `fba42c18` (0.229.0 "Marillier")
+**Baseline:** `origin/main` @ `2005938d` (0.229.0 "Marillier")
 **Status:** approved, not started
 
 ---
@@ -25,7 +25,7 @@ Two things this is explicitly **not**:
 
 ## 2. Measured starting state
 
-All figures measured against `origin/main` @ `fba42c18`, not against a working
+All figures measured against `origin/main` @ `2005938d`, not against a working
 tree. Reproduce commands are given per figure; do not trust the numbers, re-run
 them.
 
@@ -86,13 +86,13 @@ src/app/task-manager.popout-guard.test.tsx:51  "Not fixed here; a gate on the
 ```
 
 A sixth (`ai-rich-text.ts` — "Deliberately NOT fixed here … Deferred to its own
-slice") existed at `e9211280` and **is gone on `origin/main`**, closed by
+slice") existed at `5f26c00e` and **is gone on `origin/main`**, closed by
 Marillier. This is why the baseline is pinned to a commit.
 
 > ★★ **A seventh has gone the same way, and it is the FALSE POSITIVE at the top of that block.** The
 > "floating surface left open" comment in `raci-chip-picker.tsx` was **deleted on 2026-09-02** when the
 > picker adopted `PopoverPanel` (`docs/open-followups.md` §334) — `git log -S "floating surface" --
-> src/app/raci-chip-picker.tsx` names `3fe6b4f6` as the remover. The `:43` above had ALSO drifted off
+> src/app/raci-chip-picker.tsx` names `a5d9f2b5` as the remover. The `:43` above had ALSO drifted off
 > that comment well before then and now lands on unrelated ring prose; both are left unrenumbered on
 > purpose, exactly as the paragraph above argues. The citation sits inside a fence, so
 > `docs:claims:check` never scanned it and the rot was silent in both directions. **The census is
@@ -118,7 +118,7 @@ the text is "editor **still open**s", matched by a pattern with no word boundary
 It is not an orphan and is not in scope.
 
 Line numbers here are a grep starting point, not an address. Two of them already
-drifted between `e9211280` and `fba42c18` (1077→1104, 1206→1233) purely because
+drifted between `5f26c00e` and `2005938d` (1077→1104, 1206→1233) purely because
 Marillier inserted 30 lines above them — the exact failure mode §8.3 exists to
 prevent. Re-locate by string.
 

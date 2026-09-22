@@ -3,7 +3,7 @@
 Date: 2026-09-08
 Status: **Specced, unimplemented. Sequenced as G in `2026-09-08-ai-cost-roadmap-design.md`;
 its successor G2 is outlined at the end of this file and is eval-gated.**
-Baseline: 0.295.0 "Borges", branch `feat/ai-prompt-cache-layout` @ `65e4cfc0`
+Baseline: 0.295.0 "Borges", branch `feat/ai-prompt-cache-layout` @ `ddeabe47`
 
 > Follows slice B (`2026-09-08-ai-prompt-cache-layout-design.md`), which made the message
 > transcript cacheable. This slice makes the SYSTEM half survive a view switch. It is the

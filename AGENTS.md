@@ -381,7 +381,7 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
                             # superpowers plans, which do not participate; `[>]` stops a self-match.)
                             # ★★ It returns CONTRIBUTING.md ALONE today, so this is a TWO-file change
                             # (package.json + CONTRIBUTING.md) — read that off the grep, never off this
-                            # line. ★ README carried the pair from the initial commit until `be21ebf3`
+                            # line. ★ README carried the pair from the initial commit until `7723c3d2`
                             # curated its table down to six hand-picked commands; a standing note calling
                             # it a three-file change was true when written and was falsified by that
                             # commit. Re-adding the markers to README would silently put it back under the
@@ -526,7 +526,14 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   Before pushing an IA/UI/contrast change, run `npx playwright test e2e/a11y.spec.ts --project=chromium -g "<View>"`: the unit suite never runs axe, so otherwise it fails only in CI.
   Add `--workers=1` when `-g` matches more than one view: CI runs axe serially, and local contention fails tests as timeouts, not violations.
   After a `globals.css` `@theme` edit, run axe on a FRESH isolated dev server (`PORT=3100 npm run dev`), never a reused one.
-- **CI is GitLab** (not GitHub),  (GitLab) → [`docs/AGENTS/ci.md`](docs/AGENTS/ci.md). Pipeline:
+- **GitHub is canonical; CI is between homes.** Since the cut-over
+  (`docs/superpowers/specs/2026-09-22-github-cutover-design.md`), branches, pull requests and
+  merges live on GitHub. The GitLab project is a READ-ONLY copy that a daily scheduled job syncs in
+  (`ci/gitlab-sync.yml`), and it runs no other job. ★★★ Until migration sub-project 3 ports the
+  pipeline to GitHub Actions, NO CI runs anywhere: `npm run gate:local` is the merge gate, and e2e
+  with the axe gate, semgrep, the dependency audit and prod-smoke do not run at all. No releases
+  and no tags until sub-project 5. The pipeline described next is the one being ported →
+  [`docs/AGENTS/ci.md`](docs/AGENTS/ci.md). Pipeline:
   install → quality → build → e2e → release. ★★★ The quality gates are BLOCKING (lint · typecheck ·
   semgrep · dependency-audit · file-size-ratchet · duplication-gate · the docs/version/followups/tag
   checks · unit + coverage floors · unit-tests-shuffled), and **prod-smoke** is the ONLY gate that sees

@@ -2,7 +2,7 @@
 
 Date: 2026-09-08
 Status: **B SHIPPED (0.295.0 "Borges"). G specced. G2 specced but eval-gated. C and H outlined only.**
-Baseline at writing: 0.293.1 "Vandermeer", `main` @ `3a690305`
+Baseline at writing: 0.293.1 "Vandermeer", `main` @ `c9ba250c`
 
 > B's full design is `2026-09-08-ai-prompt-cache-layout-design.md`; G and G2 are in
 > `2026-09-08-ai-guide-block-cache-split-design.md`. This file owns the ORDER, the

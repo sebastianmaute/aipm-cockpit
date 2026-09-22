@@ -1,7 +1,7 @@
 # Edit-task modal rework — design
 
 **Date:** 2026-09-05
-**Branch:** to be cut from `origin/main` (`03df1445`, 0.282.0 "Zamyatin")
+**Branch:** to be cut from `origin/main` (`25f824f3`, 0.282.0 "Zamyatin")
 **Register range:** mint from **§383**. §368–369 are mine and unused; §370–382 were a peer's and unlanded when this was written; they have since MERGED and are now on `origin/main` (0.283.0 "Lessing"), so they are properly reserved and the gap is no longer merely a courtesy. Renumbering into a reused number would mean sweeping every citation, so the gap stands.
 
 ## Goal
@@ -267,7 +267,7 @@ Escape-ordering behaviour in real Chromium and real Firefox.
   wrong it has to be removed and the fixtures regenerated again — from the CSV and Markdown codecs,
   NOT from six paths, for the reason recorded under "Round-trip" above.
 - **The peer's branch HAS NOW MERGED — it is no longer unlanded, and this bullet said it was.**
-  `origin/main` carries `0.283.0 "Lessing"` (merge commit `2f59561c`) and its `docs/open-followups.md`
+  `origin/main` carries `0.283.0 "Lessing"` (merge commit `69dcc829`) and its `docs/open-followups.md`
   ends at §382, against §367 on this branch. The risk is therefore not hypothetical any more: it is
   pending on this branch's eventual rebase onto main, and it is now certain rather than possible.
   ★★★ The substantive warning is unchanged and is the whole point. **That merge is adjudicated PER

@@ -1015,7 +1015,7 @@ At line 597, delete the assertion that pins the seeding:
     expect(draft.noteLog).toHaveLength(opened.noteLog?.length ?? 0);
 ```
 
-★ **Do NOT delete the surrounding `describe` block or its two `it`s** (`:616-630`). They assert that Save does not write a stale log over the live row — the data-loss guard `fe779f32` added, and the reason this entry exists at all. Only the seeding assertion goes.
+★ **Do NOT delete the surrounding `describe` block or its two `it`s** (`:616-630`). They assert that Save does not write a stale log over the live row — the data-loss guard `6c47daff` added, and the reason this entry exists at all. Only the seeding assertion goes.
 
 Rewrite the block comment at `:568-572` so it stops describing the deleted behaviour:
 

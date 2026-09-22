@@ -8,9 +8,9 @@
 
 **Tech Stack:** TypeScript, vitest 4, `node:crypto`, `vite-node` for the regeneration script. No new dependency.
 
-**Spec:** `docs/superpowers/specs/2026-08-24-documents-image-evidence-design.md` (commit `7037cf71`)
+**Spec:** `docs/superpowers/specs/2026-08-24-documents-image-evidence-design.md` (commit `9c3e3685`)
 
-**Branch:** `feat/documents-image-evidence`, off `origin/main` at `08a3b26e` (0.257.1 "Shepard")
+**Branch:** `feat/documents-image-evidence`, off `origin/main` at `ea9dfe94` (0.257.1 "Shepard")
 
 ---
 
@@ -694,7 +694,7 @@ Expected: `EXIT=0`, `Tests  3 passed` — it must pass immediately, since Task 3
 npx tsc --noEmit; echo "EXIT=$?"
 ```
 
-Expected: `EXIT=0`. `tsconfig.json` already sets `"resolveJsonModule": true` (verified against `08a3b26e`), so the import typechecks with real member types. If it ever reports otherwise, do NOT silence it with `any` — a baseline that only typechecks as `any` would let a malformed one through.
+Expected: `EXIT=0`. `tsconfig.json` already sets `"resolveJsonModule": true` (verified against `ea9dfe94`), so the import typechecks with real member types. If it ever reports otherwise, do NOT silence it with `any` — a baseline that only typechecks as `any` would let a malformed one through.
 
 - [ ] **Step 4: Commit**
 

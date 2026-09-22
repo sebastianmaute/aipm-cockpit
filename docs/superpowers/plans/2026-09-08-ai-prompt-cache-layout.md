@@ -15,7 +15,7 @@ weekly caps.
 
 **Spec:** `docs/superpowers/specs/2026-09-08-ai-prompt-cache-layout-design.md`
 **Roadmap:** `docs/superpowers/specs/2026-09-08-ai-cost-roadmap-design.md` (this is slice B)
-**Baseline:** 0.293.1 "Vandermeer", branch `feat/ai-prompt-cache-layout` off `main` @ `3a690305`
+**Baseline:** 0.293.1 "Vandermeer", branch `feat/ai-prompt-cache-layout` off `main` @ `c9ba250c`
 
 **Tech stack:** TypeScript, React 19, Next 16, vitest, Anthropic Messages API (`2023-06-01`).
 

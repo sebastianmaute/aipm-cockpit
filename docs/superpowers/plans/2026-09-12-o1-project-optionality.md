@@ -8,11 +8,11 @@
 
 **Tech Stack:** Next.js 16.2.11 (exact-pinned), React, TypeScript, vitest + @testing-library/react.
 
-**Spec:** `docs/superpowers/specs/2026-09-12-project-key-facts-and-shell-polish-design.md` — section 4 (as corrected in `bb8fa552`, rebased from `14ff588f`), plus §8's cross-cutting constraints. Read it alongside this plan; the plan argues from it.
+**Spec:** `docs/superpowers/specs/2026-09-12-project-key-facts-and-shell-polish-design.md` — section 4 (as corrected in `8929ebc5`, rebased from `14ff588f`), plus §8's cross-cutting constraints. Read it alongside this plan; the plan argues from it.
 
 ## Global Constraints
 
-- **Gates are CI-only. The push is the first check.** Do NOT run `npm run lint`, `npx tsc --noEmit`, `npm run test:run`, `npm run test:coverage`, or any `docs:*` / `followups:*` gate. The targeted single-file `npx vitest run <file> --maxWorkers=1` calls below are the TDD loop, not a gate. **One exception, by the user's instruction (2026-09-13):** Tasks 5 and 6 each run `npm run followups:workitems:check` and `npm run followups:index:check` once, after their register edit — both are single node scripts over one file, and `followups-workitems-check` is BLOCKING on every pipeline since `origin/main` `c731d36b`.
+- **Gates are CI-only. The push is the first check.** Do NOT run `npm run lint`, `npx tsc --noEmit`, `npm run test:run`, `npm run test:coverage`, or any `docs:*` / `followups:*` gate. The targeted single-file `npx vitest run <file> --maxWorkers=1` calls below are the TDD loop, not a gate. **One exception, by the user's instruction (2026-09-13):** Tasks 5 and 6 each run `npm run followups:workitems:check` and `npm run followups:index:check` once, after their register edit — both are single node scripts over one file, and `followups-workitems-check` is BLOCKING on every pipeline since `origin/main` `aaae8b80`.
 - **Creating or closing a GitLab issue is user-gated and is never done by an implementer.** Task 5 stops and asks the controller for the issue number; closing GitLab #64 happens when the MR carrying Task 6 merges, not before.
 - **Never run two vitest processes at once.** Finish one targeted run before starting another.
 - **Never read an exit code through a pipe.** Redirect to a log in your scratchpad, `echo "EXIT=$?"` unpiped, then read the log. A run printing `Test Files no tests` is worker contention, not a result — re-run it alone.
@@ -906,7 +906,7 @@ Two code-less projects now produce the same `projectId` signal for `useTimelogPi
 - [ ] **Step 1: Take the next free number from `origin/main`, not from this plan**
 
 Run: `git fetch origin main && git show origin/main:docs/open-followups.md | grep -oE "^## [0-9]+\." | grep -oE "[0-9]+" | sort -n | tail -1`
-The entry's number is that value plus one. Call it `N` below. (It was 531 on 2026-09-13, after `c731d36b`; do not assume it still is — "whoever merges second rebases".) Also check the local branch does not already use `N`: `grep -n "^## N\." docs/open-followups.md` must print nothing.
+The entry's number is that value plus one. Call it `N` below. (It was 531 on 2026-09-13, after `aaae8b80`; do not assume it still is — "whoever merges second rebases".) Also check the local branch does not already use `N`: `grep -n "^## N\." docs/open-followups.md` must print nothing.
 
 - [ ] **Step 2: Derive the anchor**
 
@@ -920,7 +920,7 @@ node -e 'const h=process.argv[1];console.log("#"+h.toLowerCase().replace(/[^\p{L
 
 - [ ] **Step 3: STOP — get the GitLab issue number from the controller**
 
-Since `origin/main` `c731d36b`, a new OPEN entry needs its GitLab issue in the same change: `followups-workitems-check` (BLOCKING, every pipeline) fails an open entry without exactly one `**Work item:** #NN` line, and the warn-only `followups-gitlab-sync` on main flags an issue whose title or label does not match. Creating an issue is outward-facing and user-gated, so **you do not create it.** Report `NEEDS_CONTEXT` with exactly:
+Since `origin/main` `aaae8b80`, a new OPEN entry needs its GitLab issue in the same change: `followups-workitems-check` (BLOCKING, every pipeline) fails an open entry without exactly one `**Work item:** #NN` line, and the warn-only `followups-gitlab-sync` on main flags an issue whose title or label does not match. Creating an issue is outward-facing and user-gated, so **you do not create it.** Report `NEEDS_CONTEXT` with exactly:
 
 - Title: `§N: Two projects without a code look like the same project to the TimeLog picker` (the heading minus ` — OPEN`; `issueSection` in `scripts/followup-workitem-lib.mjs` reads the `§N:` prefix)
 - Label: `source::register` (required — `REGISTER_LABEL` in the same file)
@@ -972,7 +972,7 @@ The `**Work item:**` line sits directly after the Status block, as on every othe
 Inside the index table between the whole-line `<!-- INDEX:BEGIN -->` and `<!-- INDEX:END -->` markers (the real ones, not the copies inside the fenced sample near the top), directly after the row for the previous highest number, add:
 
 ```markdown
-| [§N](<anchor from Step 2>) | Two projects without a code look like the same project to the TimeLog picker — OPEN | found 2026-09-13 while correcting the O-1 spec's TimeLog claim against `origin/main` `c3598637` | S — pass a per-project id as the switch signal, and pin a switch between two code-less projects | open |
+| [§N](<anchor from Step 2>) | Two projects without a code look like the same project to the TimeLog picker — OPEN | found 2026-09-13 while correcting the O-1 spec's TimeLog claim against `origin/main` `bf186a81` | S — pass a per-project id as the switch signal, and pin a switch between two code-less projects | open |
 ```
 
 - [ ] **Step 6: Check the entry the way the gates will read it**

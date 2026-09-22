@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-05-strictmode-guard-tests-design.md`
 
-**Branch:** create `test/strictmode-guard-tests` off `main` (`aefddc88`). No version bump — test/docs class.
+**Branch:** create `test/strictmode-guard-tests` off `main` (`6889ce2a`). No version bump — test/docs class.
 
 ---
 

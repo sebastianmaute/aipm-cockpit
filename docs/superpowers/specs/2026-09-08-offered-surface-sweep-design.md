@@ -9,16 +9,16 @@
 > **Ledger note, 2026-09-12 — every `UNSWEPT_BY_DESIGN` passage below is now stale.** As of this date
 > `UNSWEPT_BY_DESIGN.task` is `["jiraKey"]` and `UNSWEPT_BY_DESIGN.calendarEvent` is `[]`. The twelve
 > names this document describes as unswept by design became genuinely SWEPT on branch
-> `feat/sweep-typed-probes`: `34488c85` re-measured the recorded axis (`AXIS_FIELDS`,
+> `feat/sweep-typed-probes`: `8b5c89d6` re-measured the recorded axis (`AXIS_FIELDS`,
 > `src/test/inline-sweep-fixtures.ts`) against the seeds that branch widened, which put eleven `task`
-> columns and `calendarEvent.exceptions` on it, and `dbd90a43` then removed those twelve from the
+> columns and `calendarEvent.exceptions` on it, and `c3dc60ba` then removed those twelve from the
 > ledger, whose strict `toEqual` had gone red over the record that had stopped being true. So the
 > `calendarEvent.exceptions` exemption discussed below is GONE rather than narrowed, and the field is
 > now probed by both sweeps instead of exempted. Read a removal from that list as a coverage GAIN,
 > not a write-off. The body below is preserved as written on 2026-09-08 and is not rewritten.
 
 **Date:** 2026-09-08
-**Branch:** `feat/offered-surface-sweep`, based on `origin/main` = `754e8129` (0.294.0 "Jimenez")
+**Branch:** `feat/offered-surface-sweep`, based on `origin/main` = `6179c9e3` (0.294.0 "Jimenez")
 **Closes:** `docs/open-followups.md` §439 (the sweep has no create-path relation) and §436 (the sweep
 cannot see a guard table narrowed, because the preview reads the same table)
 **Follow-up numbers available to this slice:** 440–449 only. Register max on `origin/main` is 451;
@@ -93,7 +93,7 @@ while((m=re.exec(s))) console.log(m[1].padEnd(6), m[2].padEnd(16), m[3].trim());
 `resource.active`, `calendarEvent.exceptions`. That is the validation for choosing this axis, and it
 is worth more than the argument for it.
 
-Measured 2026-09-08 against `origin/main` = `754e8129`, persisted columns from `csv-codecs-core.ts`:
+Measured 2026-09-08 against `origin/main` = `6179c9e3`, persisted columns from `csv-codecs-core.ts`:
 
 | entity | columns | declared | undeclared |
 |---|---|---|---|

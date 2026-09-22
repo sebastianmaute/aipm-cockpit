@@ -1,6 +1,6 @@
 # Chat-thread reload races — design
 
-**Slice:** §311 · §313 · §317 · §312. Branch `fix/chat-thread-reload-races` off `a5f51aa1`
+**Slice:** §311 · §313 · §317 · §312. Branch `fix/chat-thread-reload-races` off `2d07f320`
 (0.270.0 "Tchaikovsky").
 
 **Goal.** Close the three remaining live races around `retryLoad` in `use-chat-threads.ts`, and pin

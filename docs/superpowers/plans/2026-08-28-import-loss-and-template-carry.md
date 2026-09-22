@@ -59,7 +59,7 @@ Measured landmines, not folklore. Each will bite this slice specifically.
 
 **Phase 1 is executable immediately. Phase 2 is NOT.**
 
-`fix/meta-decode-loss-chain` is cut from the same base (`24581bc6`) and lands first. It renames three
+`fix/meta-decode-loss-chain` is cut from the same base (`010e5305`) and lands first. It renames three
 guard symbols, rewrites the `reportFor` census, and adds to `use-storage-backend.ts` — all of which
 Phase 2 builds on. Starting Phase 2 early means redoing it against a moved guard.
 

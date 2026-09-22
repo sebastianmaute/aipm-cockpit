@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-31
 **Register entries:** §213 (fix) · §230 (fix) · §225 (text only) · §205 (verify only)
-**Branch:** `fix/document-image-disclosure` off `a5f51aa1`
+**Branch:** `fix/document-image-disclosure` off `2d07f320`
 **Version:** 0.271.0 (peer session holds 0.272.0 until this lands)
 
 ## Goal

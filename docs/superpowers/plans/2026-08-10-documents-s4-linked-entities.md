@@ -1818,7 +1818,7 @@ Cite **symbols**, never `file:LINE` — `docs:claims:check` is a ratchet that fa
 
 - [ ] **Step 2: Open the follow-up for door B**
 
-Append a new numbered entry to `docs/open-followups.md` — take the next free number (the register's max is **§138** as of `ab085ef2`; re-check `grep -n "^## 1[0-9][0-9]\." docs/open-followups.md | tail -3` before writing, since another branch may have taken it). Record: entity-side attach was designed and deliberately deferred; the model is already shaped for it (`document-ref.ts` is a leaf, so the four editors can import it without a cycle); the reason one door shipped rather than two.
+Append a new numbered entry to `docs/open-followups.md` — take the next free number (the register's max is **§138** as of `1221cd69`; re-check `grep -n "^## 1[0-9][0-9]\." docs/open-followups.md | tail -3` before writing, since another branch may have taken it). Record: entity-side attach was designed and deliberately deferred; the model is already shaped for it (`document-ref.ts` is a leaf, so the four editors can import it without a cycle); the reason one door shipped rather than two.
 
 Add the matching row to the index table at the top of the file.
 

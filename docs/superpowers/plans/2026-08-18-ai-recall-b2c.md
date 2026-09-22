@@ -14,7 +14,7 @@
 
 ## Prerequisites
 
-Branch `feat/ai-recall-b2c` exists off `origin/main` (`6c9ee098`) carrying the spec commit. Work in a worktree:
+Branch `feat/ai-recall-b2c` exists off `origin/main` (`501fe5dd`) carrying the spec commit. Work in a worktree:
 
 ```bash
 git worktree add .worktrees/feat-ai-recall-b2c feat/ai-recall-b2c

@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, React 19, Next 16, vitest. No new dependencies.
 
-**Branch:** `feat/preview-write-path-parity-sweep`, at `826b8206`, based on `origin/main` = `08bab65b` (0.291.1 "Hoban").
+**Branch:** `feat/preview-write-path-parity-sweep`, at `826b8206`, based on `origin/main` = `02d67e15` (0.291.1 "Hoban").
 
 **NO release and NO version bump in this plan.** Do not touch `src/app/version.ts`, `CHANGELOG.md`, `package.json` or any version satellite.
 

@@ -1,7 +1,7 @@
 # Pluralisation, picker consolidation and register hygiene — design
 
 **Date:** 2026-09-07
-**Branch:** `feat/plural-pickers-register-hygiene` (off `origin/main` at `9219cbda`)
+**Branch:** `feat/plural-pickers-register-hygiene` (off `origin/main` at `2e70d35b`)
 **Register entries addressed:** §415 (narrowed), §407 (stale heading closed — the code is already fixed), §422 (probe-then-decide),
 §410, §411, §412, §421, §423
 
@@ -18,7 +18,7 @@ They share no files. A single branch, one version bump and one pipeline is the c
 work that parallelises cleanly; the accepted cost is that a red gate anywhere blocks all four. The one
 shared resource is vitest, which is never run by two processes at once.
 
-`origin/main` is at `9219cbda` (`0.289.0 "Mirrlees"`). The register's highest number is **423** — mint
+`origin/main` is at `2e70d35b` (`0.289.0 "Mirrlees"`). The register's highest number is **423** — mint
 new numbers from a HEADING scan against both trees, never from the index table, which is the artifact
 §421 is about.
 

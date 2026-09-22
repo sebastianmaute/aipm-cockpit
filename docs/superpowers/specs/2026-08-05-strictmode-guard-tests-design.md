@@ -3,7 +3,7 @@
 **Date:** 2026-08-05
 **Register items:** §85 (retract), §72 (close), §76 (close)
 **Class:** tests + docs. **No version bump** (same class as MR !348).
-**Base:** `main` @ `aefddc88`, 0.215.0 "Friedman".
+**Base:** `main` @ `6889ce2a`, 0.215.0 "Friedman".
 
 ## Problem
 

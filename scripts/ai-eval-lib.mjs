@@ -78,15 +78,39 @@ export const TOKEN_IDS = Object.freeze([
  *  a candidate is regenerated, folding in an attempt counter, until it differs
  *  from the token of every id that sorts EARLIER in `TOKEN_IDS` at the same
  *  salt. The first id in the list never retries. An id outside `TOKEN_IDS` has
- *  no such guarantee, so it throws rather than silently risk a collision. */
+ *  no such guarantee, so it throws rather than silently risk a collision.
+ *
+ *  ★★★ MEMOIZED, and that is a PERFORMANCE fix, not a behavior change — read
+ *  it before "simplifying" it away. `plantedToken` is a pure function of
+ *  (id, salt) alone (TOKEN_IDS is frozen), so caching its result changes
+ *  nothing observable. Without the cache, resolving id at index `k` recurses
+ *  into `earlierTokens`, each of which independently re-resolves ITS OWN
+ *  earlier ids from scratch — the call count for one (id, salt) is 2**k, and
+ *  summed over all 13 `TOKEN_IDS` (added to by the hardening-token append)
+ *  that is 2**13 - 1 = 8191 calls per salt. Measured, not assumed:
+ *  `node -e` timing the collision sweep's own loop (3000 salts x
+ *  `TOKEN_IDS.map(plantedToken)`) against the pre-memoization code took
+ *  16.5s in PLAIN node with zero vitest/coverage overhead, and 26.5s under
+ *  `vitest run scripts/ai-eval-lib.test.mjs -t "never collides" --coverage`
+ *  run ALONE — already most of the way to the explicit 60000ms timeout
+ *  before any full-suite contention. The cache turns the per-salt cost from
+ *  2**13-1 recursive calls into 13 (one per id, each a cache hit for its
+ *  `earlierTokens`), which is why the fix lives here and not in a shorter
+ *  salt range or a raised timeout. */
+const memoizedTokens = new Map();
+
 export function plantedToken(id, salt) {
   const index = TOKEN_IDS.indexOf(id);
   if (index === -1) throw new Error(`unknown token id: ${id}`);
+  const cacheKey = `${id}:${salt}`;
+  const cached = memoizedTokens.get(cacheKey);
+  if (cached !== undefined) return cached;
   // The comparison set is the ACTUAL resolved tokens of every earlier id, not
   // their attempt-0 candidates — an earlier id may itself have needed a retry
   // against ids before IT, and comparing against its raw candidate would miss
   // that. Each earlier id has strictly smaller index, so this recursion always
-  // terminates at index 0.
+  // terminates at index 0. (Cache hits make every one of these calls O(1)
+  // once the same salt's earlier ids have been resolved once.)
   const earlierTokens = TOKEN_IDS.slice(0, index).map((other) =>
     plantedToken(other, salt),
   );
@@ -96,6 +120,7 @@ export function plantedToken(id, salt) {
     attempt += 1;
     candidate = generateToken(id, salt, attempt);
   }
+  memoizedTokens.set(cacheKey, candidate);
   return candidate;
 }
 
