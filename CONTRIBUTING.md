@@ -170,7 +170,7 @@ tried here and was a dead end.
 Colours, shadows, and gradients are restricted to the sanctioned brand
 tokens in `globals.css` — no off-palette colours, and no raw `shadow`/gradient
 utilities (use the `--shadow-*` / `--gradient-*` role tokens where one is
-genuinely needed). The `shell-palette-guard` / `palette-chrome-sweep` tests
+needed). The `shell-palette-guard` / `palette-chrome-sweep` tests
 enforce this and scan the **whole source, including comments**, so a stray raw
 `shadow` (even `--shadow-card` written in a code comment) fails CI.
 `ui-light-grey` is **not** a chrome token — `bg-` / `border-` /
@@ -226,7 +226,7 @@ Five rules, each of which has already cost a bug:
    eval, so with no DOM the call throws and `jsonToWorkspace`'s catch-all turns
    it into an **empty** workspace that then "successfully" writes near-empty
    sample files. Importing from it is fine — a source-scanning test in
-   `rich-text-plain.test.ts` enforces the no-call rule. Anything that genuinely
+   `rich-text-plain.test.ts` enforces the no-call rule. Anything that
    needs a DOM lives in `rich-text-projection.ts` or `ai-rich-text.ts`.
 2. **Migration is read-time, not write-time.** Decoders hand-build entities and
    do not normalise, so storage holds both plain-text and HTML shapes at once.
@@ -306,7 +306,7 @@ delta shapes.
 
 **Framework-coupled packages are pinned exactly, with no range:** `next`,
 `react`, `react-dom`, `eslint-config-next`. Every other dependency carries a
-caret so upstream fixes flow without a slice each. ★ Read that cost honestly: a caret admits
+caret so upstream fixes flow without a slice each. ★ The cost: a caret admits
 MINOR releases, not just patches — this section exists because `^16.2.11` ADMITS `16.3.2`. ★ It never resolved to it — no 16.3 tarball has
 ever entered the lock (`git log --all -S'next/-/next-16.3' -- package-lock.json` is empty). The
 risk was the specifier, not an install that happened.
