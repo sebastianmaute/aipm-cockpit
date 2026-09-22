@@ -24,10 +24,7 @@ npx vitest run src/app/foo.test.ts > /tmp/t.log 2>&1; echo "EXIT=$?"; grep -E "T
 
 `npx tsc --noEmit` must be run after touching any test — `next build` does not typecheck `*.test.tsx` and vitest never typechecks. The IDE's inline diagnostics are mid-edit snapshots; trust `tsc`, not squiggles.
 
-Every commit message ends with:
-
-```
-```
+Every commit message ends with the session trailer.
 
 ---
 

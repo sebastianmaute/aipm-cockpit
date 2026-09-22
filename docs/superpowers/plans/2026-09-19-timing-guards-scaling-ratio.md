@@ -34,7 +34,7 @@
 - vitest: `npx vitest run <files> --maxWorkers=1 --reporter=dot`. Never two vitest processes at once. Never read an exit code through a pipe: redirect to a log, `echo "EXIT=$?"`, then read the log. Mutant runs use the 120 s kill wrapper in "Mutant procedure".
 - Keep each existing file's line endings. Check with `git ls-files --eol <file>` before and after editing: a file that is `w/crlf` stays CRLF, a file that is `w/lf` stays LF. The two NEW files in Task 1 come out of the Write tool as LF; leave them so — the committed blob is LF either way and no gate reads the working-tree ending.
 - Git: never `git add -A` or `git add .`; commit with `git commit --only <paths> -F <msgfile>`. Never `--amend`, never a bare `git stash`, never `npm ci`. `git checkout --` and `git restore` are blocked; revert a mutant by writing the original bytes back and proving `git diff --stat` is empty for that file.
-- Commit messages cite §N, never `#NN` or "Closes". End every commit message with the line the session trailer.
+- Commit messages cite §N, never `#NN` or "Closes". End every commit message with the session trailer line.
 - Never open, print or stage any `.env*` file.
 - Implementers never dispatch subagents.
 

@@ -36,10 +36,7 @@ npx vitest run <path> > "$SCRATCH/run.log" 2>&1; echo "EXIT=$?"; grep -E "Test F
 
 **`npx tsc --noEmit` exits 2 on diagnostics**, not 1. Run it after editing any test file — vitest never typechecks and `next build` skips `*.test.tsx`.
 
-**Commit messages** end with the trailer:
-
-```
-```
+**Commit messages** end with the session trailer.
 
 Write the message with a `git commit -F -` heredoc, never a PowerShell here-string.
 

@@ -40,10 +40,7 @@ Give every log a basename unique to its task (`t5-baseline.log`, `t7-m1.log` …
 
 **A red sweep case is a FINDING, not a failure of this plan.** If a Relation A or Relation B case fails on main, STOP and report to the controller, who takes it to the user as a go/cut decision. Never make the sweep green by exempting a field, narrowing a probe, weakening a floor, adding a skip, or editing `SYNTHETIC_INPUTS`. The axis docstrings carry the precedents; read them before touching the axis.
 
-**Commit trailer.** Every commit message ends with:
-
-```
-```
+**Commit trailer.** Every commit message ends with the session trailer.
 
 Commit messages carry backticks and quotes, so write each to `$SCRATCH/tN-msg.txt` with the Write tool and commit with `git commit --only <paths> -F "$SCRATCH/tN-msg.txt"`. A heredoc carrying backticks has already broken the shell once in this session.
 

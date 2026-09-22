@@ -23,7 +23,7 @@
 - Never run two vitest processes at once. Each task runs ONE `npx vitest run <files>` over only its own test files. **No `npm run test:run`, `test:shuffle` or `test:coverage` anywhere in this plan** — the user runs the whole suite at the end, on their say.
 - Run `npx tsc --noEmit` after editing ANY test file (vitest never typechecks). Pass = exit 0 with ZERO errors in total, not "zero in src/".
 - Lint with `npx eslint --max-warnings=0 <paths>`; every warning is fatal. `react-hooks/set-state-in-effect` is banned. No `Date.now()`/`new Date()`/`Math.random()` in a render body.
-- Commit messages: conventional prefix, no `#` followed by digits anywhere, and end with the trailer line the session trailer.
+- Commit messages: conventional prefix, no `#` followed by digits anywhere, and end with the session trailer line.
 - Stage by explicit path: `git add <paths>`. Never `git add -A`, never `git add .`, never `git commit --amend`, never `git stash`, never `git checkout --`/`git restore`. Never open, read or stage `not-in-use.env.local.bak`.
 - Size ratchet: `LIMIT` in `scripts/check-file-sizes.mjs` is 1600 and counts `split("\n").length` (one more than `wc -l`). Every file this plan touches is far below it (largest non-exempt touched file: `use-settings.test.ts` at about 790; `i18n*.ts` are exempt), so no split is needed — Task 5 runs `size:check` once to prove it.
 - Mutation checks: every task has one. Revert each mutant with the Edit tool (inverse of the mutation), then prove `git diff --stat` shows only the task's intended files before committing. Never leave a mutant in the tree.

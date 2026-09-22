@@ -49,9 +49,7 @@ only permitted edits, and `git diff` on the pair should show a clean move.
 
 7. **Never run two vitest processes at once** — machine saturation is the load-sensitive-flake condition behind this repo's rare timeouts.
 
-8. Every commit message ends with:
-   ```
-   ```
+8. Every commit message ends with the session trailer.
    Commit via a Bash heredoc (`git commit -F -`), never a PowerShell here-string.
 
 ---
