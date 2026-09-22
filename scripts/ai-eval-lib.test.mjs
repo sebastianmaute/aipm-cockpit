@@ -75,14 +75,22 @@ describe("plantedToken", () => {
     //     target equal to its own decoy, which the scorer can only ever call
     //     ambiguous, silently, forever.
     //
-    //  ★★★ THIS RANGE ALONE CANNOT KILL A "remove the retry" MUTANT, and it
-    //  is not vacuity to say so — it is the mutation-test result. Folding the
-    //  attempt counter into the hash key gives each (id, salt, 0) candidate an
-    //  effectively fresh 32-bit draw, so a natural collision among ~14000
-    //  attempt-0 draws only becomes likely near the birthday bound
-    //  (sqrt(2**32) ≈ 65536) — measured first collision at salt 66350
-    //  ("viewScope" vs "chatPointer"), none in 1..3000. Coverage of ordinary
-    //  usage, not a substitute for the targeted pin below.
+    //  ★★★ MEASURED AGAINST THE MUTANT ITSELF, not merely assumed. Disabling the
+    //  retry (plantedToken always calling generateToken(id, salt, 0)) on a
+    //  throwaway copy of this module and scanning salts 1..3000 over all 13
+    //  TOKEN_IDS finds exactly ONE attempt-0 collision in that range — salt
+    //  1284 ("anchor" vs "insightsPrev") — so this sweep DOES kill a "remove
+    //  the retry" mutant, by the luck of one hit landing inside 3000 salts,
+    //  not by design. An earlier revision of this comment said the opposite
+    //  ("none in 1..3000", first collision at salt 66350): those numbers were
+    //  measured against the original 7 TOKEN_IDS, before the six hardening
+    //  tokens were appended, and went stale the moment TOKEN_IDS grew to 13
+    //  without the count being re-run. Over the full scan to salt 200000
+    //  there are 13 such collisions, not 4, the first at salt 1284, not
+    //  66350 — 66350 ("viewScope" vs "chatPointer") is the 5th. Coverage of
+    //  ordinary usage, not a substitute for the targeted pin below, whose
+    //  value is exactly that it does not depend on where in the sweep a
+    //  collision happens to land.
     //
     //  ★★ THE ASSERTION IS HOISTED OUT OF THE LOOP — commit 2e36326b, which
     //  attributed the CI timeout (25204ms against a 20000ms testTimeout) to
@@ -145,11 +153,19 @@ describe("plantedToken", () => {
   }, 60000);
 
   it("resolves the salt where a first-candidate-only draw naturally collides", () => {
-    // ★★★ THE MUTATION-KILLING PIN. At salt 66350, generateToken(id, 66350, 0)
-    //     alone gives "viewScope" and "chatPointer" the same string — measured
-    //     by disabling the retry loop and scanning up to salt 200000, where it
-    //     was the first of only four such coincidences. Removing the retry
-    //     loop turns this assertion red; the 1..3000 sweep above does not.
+    // ★★★ THE MUTATION-KILLING PIN, kept even though the sweep above now also
+    //     kills the "remove the retry" mutant (by luck, at salt 1284): this
+    //     one is a DELIBERATE, named regression that does not depend on which
+    //     salt in a range happens to collide. At salt 66350,
+    //     generateToken(id, 66350, 0) alone gives "viewScope" and
+    //     "chatPointer" the same string — measured by disabling the retry
+    //     loop on a throwaway copy of this module and scanning up to salt
+    //     200000 over all 13 TOKEN_IDS, where it is the 5th of 13 such
+    //     coincidences (the 1st is the salt-1284 hit above; an earlier
+    //     revision of this comment said "first of only four", measured
+    //     against the original 7 TOKEN_IDS before the six hardening tokens
+    //     were appended). Removing the retry loop turns this assertion red
+    //     regardless.
     expect(plantedToken("viewScope", 66350)).not.toBe(
       plantedToken("chatPointer", 66350),
     );
