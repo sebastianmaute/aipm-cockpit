@@ -142,9 +142,11 @@ describe("ci.yml", () => {
     expect(b).toMatch(/!\.next\/cache/);
   });
 
-  it("cancels superseded runs on pull requests only", () => {
+  // Push runs are keyed by commit: a shared group keeps only one pending run, so a queued main run
+  // would be replaced by the next merge even with cancel-in-progress off.
+  it("cancels superseded runs on pull requests only, and never replaces a queued main run", () => {
     expect(topLevelBlock(CI, "concurrency")).toEqual([
-      "group: ci-${{ github.ref }}",
+      "group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}",
       "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
     ]);
   });

@@ -13,8 +13,11 @@ on:
 permissions:
   contents: read
 
+# A pull request's runs share one group per ref, so a new push cancels the stale run. A push to main
+# is grouped by its own commit: GitHub keeps one PENDING run per group and a newer one replaces it,
+# so a shared main group would drop the middle of three quick merges without running it.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
