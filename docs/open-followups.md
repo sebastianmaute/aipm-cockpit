@@ -835,6 +835,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§610](#610-fork-prs-cannot-run-the-leak-gate--decide-the-rule-at-the-visibility-flip--open) | Fork PRs cannot run the leak gate — decide the rule at the visibility flip — open | deferred by the sub-project 3 spec (`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`); GitLab #392 | S — decide the rule at the flip; prove it with a fork PR | open |
 | [§611](#611-the-weekly-zap-jobs-docker-run-images-float-unpinned--pin-them-by-digest--open) | The weekly ZAP job's docker run images float unpinned — pin them by digest — open | final review of sub-project 3 on `ci/sp3-actions-workflows` (the plan's unrecorded "follow-up"); GitLab #393 | S — pin both images by `@sha256:` digest and record how to re-resolve them | open |
 | [§612](#612-a-scaling-guard-went-red-in-ci-on-correct-code--shrink-the-memory-bound-fixtures--open) | A scaling guard went red in CI on correct code — shrink the memory-bound fixtures — open | GitHub Actions run 35844783726, job `unit-shuffled`, on `main`; GitLab #394 | S — hedged on `fix/scaling-flake-ci` (smaller n, `repeats: 5`: no shown effect on the failure; readable CI log); close after green `unit-shuffled` runs on `main` | open |
+| [§613](#613-semgreps-blocking-gate-misses-code-injection-in-typescript--widen-the-rule-set-or-block-on-warning--open) | Semgrep's blocking gate misses code injection in TypeScript — widen the rule set or block on WARNING — open | sub-project 3 control plant, GitHub Actions run 35868367110 (job `semgrep` stayed green); GitLab #395 | decide the rule source or severity, then re-run the three-sink plant until the job goes red | open |
+| [§614](#614-use-weight-suggestionstesttsx-is-order-dependent--its-shared-mock-is-never-reset--open) | use-weight-suggestions.test.tsx is order-dependent — its shared mock is never reset — open | scheduled run 35875601416, job `unit-shuffled-random` (seed 35875601416); GitLab #396 | S — clear the mock before each test; reproduces in isolation | open |
+| [§615](#615-tiptaps-deferred-editor-destroy-throws-window-is-not-defined-after-a-test-environment-is-torn-down--open) | TipTap's deferred editor destroy throws window is not defined after a test environment is torn down — open | scheduled run 35875601416, job `unit-shuffled-random` (unhandled error); GitLab #397 | find the leaking test file first; fix not chosen | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -41129,3 +41132,104 @@ test (`grep -rl expectLinearScaling src` also lists the helper and `version.ts`)
 whose green call is one scan over a fixture of a few hundred KB or more is exposed the same way.
 If it recurs, record the runner's CPU (`lscpu`) in the job before choosing a remedy. Close after a
 run of green `unit-shuffled` jobs on `main` with no scaling failure.
+
+## 613. Semgrep's blocking gate misses code injection in TypeScript — widen the rule set or block on WARNING — open
+
+**Status:** open 2026-09-23 — never machine-verified locally (there is no semgrep install on the
+Windows workstation); measured on GitHub Actions only, in runs 35868367110 and 35873608519.
+
+**Work item:** #395
+
+**What was measured.** The `semgrep` job's blocking step is carried over unchanged from GitLab:
+`semgrep scan --config p/typescript --config p/react --config p/owasp-top-ten --severity ERROR
+--error .` (`.github/workflows/ci.yml`). The sub-project 3 control PR #6 planted a `.ts` file with
+three request-controlled sinks: `exec(req.query.cmd)` from `node:child_process`,
+`eval(req.query.cmd)` and `new Function(req.query.cmd)()`. In run 35868367110 the blocking step
+reported "Rules run: 35" and "Findings: 0" (its start banner reads "with 171 Code rules"). The job
+stayed GREEN. The full-severity report in the same run ("Rules run: 110"; banner "with 563 Code
+rules") did not flag the plant at any level either. Its SARIF held only 3 findings, all in files that existed before the plant:
+`dependabot-missing-cooldown` on `.github/dependabot.yml`, and `react-dangerouslysetinnerhtml` in
+`comm-send-preview-modal.tsx` and `meeting-report-panel.tsx`.
+
+**The one rule proven to fire.** A second plant, `void fetch("http://example.com/...")` in a `.tsx`
+file, turned the job red in run 35873608519 through
+`typescript.react.security.react-insecure-request.react-insecure-request` (1 blocking finding, 35
+rules run). So the gate is live, but for this code base it covers a narrow set of patterns, and
+code injection in plain TypeScript is not among them.
+
+**Options, undecided:**
+1. add a rule source that covers Node sinks: `p/javascript` or `p/nodejs`, or a local rule file
+   kept in the repository;
+2. block on WARNING as well as ERROR. This changes nothing for the plant above, which no rule
+   flagged at ANY severity, and it would turn the three pre-existing findings red first.
+
+Whichever is chosen, re-run the same three-sink plant and require the job to go red before closing
+this entry. Checking only that the config changed is not enough.
+
+## 614. use-weight-suggestions.test.tsx is order-dependent — its shared mock is never reset — open
+
+**Status:** open 2026-09-23 — reproduced locally, in isolation, with
+`npx vitest run src/app/use-weight-suggestions.test.tsx --sequence.shuffle --sequence.seed=35875601416 --reporter=dot`
+(EXIT=1; 1 failed, 2 passed).
+
+**Work item:** #396
+
+**What failed.** The scheduled workflow's `unit-shuffled-random` job, run 35875601416 (seed =
+the run id), failed 1 of 19,569 tests: `src/app/use-weight-suggestions.test.tsx` › useWeightSuggestions
+› "sets error 'no-key' and does not call when key blank" — `expected "vi.fn()" to not be called at
+all, but actually been called 2 times`. The reproduce command the job echoes is
+`npx vitest run --sequence.shuffle --sequence.seed=35875601416`.
+
+**The leak is inside the file.** The single-file run above reproduces the same failure, so no other
+test file is involved. The file mocks `./weight-suggestion-call` with one module-level `vi.fn()`
+and never clears it: there is no `beforeEach`, and nothing resets it between tests. The two other
+tests in the file call it with `apiKey: "k"`. The recorded calls carry exactly that key, so when
+the shuffle runs both of them first, the "no-key" test sees their 2 calls. Fix shape: clear the
+mock before each test (`vi.clearAllMocks()` in a `beforeEach`, or `mockClear()` on the one mock),
+then re-run the seeded command above until it is green.
+
+★ The failure could not be read from `gh run view --log`: that command returned the job log without
+vitest's summary, as §612 found for `unit-shuffled`. The raw job log
+(`gh api repos/<owner>/<repo>/actions/jobs/<job-id>/logs --allow-escape-sequences`) holds it. The
+scheduled job still runs `--reporter=dot`; §612's `--reporter=default` fix reached only the
+`unit-shuffled` job in `ci.yml`.
+
+## 615. TipTap's deferred editor destroy throws window is not defined after a test environment is torn down — open
+
+**Status:** open 2026-09-23 — never machine-verified; seen once, in scheduled run 35875601416,
+and not reproduced.
+
+**Work item:** #397
+
+**What was reported.** The run that found §614 also ended with "Vitest caught 1 unhandled error
+during the test run" (`Errors  1 error`). The stack, from the raw job log:
+
+```
+ReferenceError: window is not defined
+ ❯ Object.destroy node_modules/@tiptap/core/dist/index.js:5110:6
+ ❯ EditorView.destroyPluginViews node_modules/prosemirror-view/dist/index.js:5646:22
+ ❯ EditorView.destroy node_modules/prosemirror-view/dist/index.js:5870:14
+ ❯ Editor.unmount node_modules/@tiptap/core/dist/index.js:6249:20
+ ❯ Editor.destroy node_modules/@tiptap/core/dist/index.js:6619:8
+ ❯ Timeout._onTimeout node_modules/@tiptap/react/dist/index.js:441:19
+```
+
+`@tiptap/react` destroys an editor in a `setTimeout`. The timer fired after the jsdom environment
+that owned `window` had been torn down, so `Editor.destroy` threw from a timer with no test left to
+catch it. Vitest's own note on it reads: "This error originated in "src/app/rich-text-editor.test.tsx"
+test file. It doesn't mean the error was thrown inside the file itself, but while it was running."
+That names the file that was running when the timer fired. It does not establish which test
+mounted the editor that leaked.
+
+**Which tests mount a TipTap editor.** Only `src/app/rich-text-editor.tsx` calls `useEditor`
+(`git grep -n "useEditor(" -- src/app/rich-text-editor.tsx`). Ten non-test modules import it or its
+lazy wrapper (`git grep -l -E "from \"\.\.?/rich-text-editor(-lazy)?\"" -- "src/**/*.tsx" "src/**/*.ts"`,
+excluding tests). The test files that name the editor module or `@tiptap/react` directly are the
+first candidates: `git grep -l -E "rich-text-editor|@tiptap/react" -- "src/**/*.test.tsx" "src/**/*.test.ts"`
+lists 18, and 5 of them `vi.mock` an editor module. More tests reach the editor transitively, for
+example through `task-form-fields.tsx` or `change-edit-modal.tsx`, and they are not enumerated here.
+
+The job was already red on §614's test, so this run cannot show whether the error alone would have
+failed it. Next step: find which file leaks, for example by running the candidate files one at a
+time under the same seed and watching for the unhandled error. Only then choose a fix, such as
+letting the editor's deferred destroy run before that file's environment is torn down.
