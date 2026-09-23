@@ -144,9 +144,10 @@ on it and none of its jobs is a required check: a red run is the signal.
 - **`unit-shuffled-random`** (45 min). Echoes the seed (`github.run_id`) with its reproduce command
   (`npx vitest run --sequence.shuffle --sequence.seed=<id>`) BEFORE the run, then
   `npm run test:run -- --sequence.shuffle --sequence.seed=<id> --reporter=default`, so a red result can be
-  replayed. 2026-09-23: was `--reporter=dot`, which drops its single very-long summary line from
-  `gh run view --log` (§612/§614) — fixed to `--reporter=default`, a straight swap here (unlike
-  `ci.yml`'s `unit-shuffled`, `test:run` has no reporter baked in to sit alongside).
+  replayed. 2026-09-23: was `--reporter=dot`, whose one very-long dot line `gh run view --log`
+  silently drops along with everything after it in the step, summary and failure included (§612/§614)
+  — fixed to `--reporter=default`, a straight swap here (unlike `ci.yml`'s `unit-shuffled`, `test:run`
+  has no reporter baked in to sit alongside).
 - **`dast-zap`** (30 min). Hosted runners have Docker, so no Docker-in-Docker service: builds
   `Dockerfile.dast`, starts the app on a user-defined network, polls it for up to 60 × 3 s, runs the
   ZAP baseline with `-I` (ZAP's findings do not fail the job; an infrastructure failure still does),

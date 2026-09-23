@@ -837,7 +837,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§612](#612-a-scaling-guard-went-red-in-ci-on-correct-code--shrink-the-memory-bound-fixtures--open) | A scaling guard went red in CI on correct code — shrink the memory-bound fixtures — open | GitHub Actions run 35844783726, job `unit-shuffled`, on `main`; GitLab #394 | S — hedged on `fix/scaling-flake-ci` (smaller n, `repeats: 5`: no shown effect on the failure; readable CI log); close after green `unit-shuffled` runs on `main` | open |
 | [§613](#613-semgreps-blocking-gate-misses-code-injection-in-typescript--widen-the-rule-set-or-block-on-warning--closed-2026-09-23) | Semgrep's blocking gate misses code injection in TypeScript — widen the rule set or block on WARNING — CLOSED 2026-09-23 | sub-project 3 control plant, GitHub Actions run 35868367110 (job `semgrep` stayed green); GitLab #395 | S — a local rule file (`.semgrep/injection.yml`) added to both semgrep steps; plant red (3 findings), tracked tree 0 findings | closed |
 | [§614](#614-use-weight-suggestionstesttsx-is-order-dependent--its-shared-mock-is-never-reset--closed-2026-09-23) | use-weight-suggestions.test.tsx is order-dependent — its shared mock is never reset — CLOSED 2026-09-23 | scheduled run 35875601416, job `unit-shuffled-random` (seed 35875601416); GitLab #396 | S — clear the mock before each test; reproduces in isolation | closed |
-| [§615](#615-tiptaps-deferred-editor-destroy-throws-window-is-not-defined-after-a-test-environment-is-torn-down--open) | TipTap's deferred editor destroy throws window is not defined after a test environment is torn down — open | scheduled run 35875601416, job `unit-shuffled-random` (unhandled error); GitLab #397 | find the leaking test file first; fix not chosen | open |
+| [§615](#615-tiptaps-deferred-editor-destroy-throws-window-is-not-defined-after-a-test-environment-is-torn-down--open) | TipTap's deferred editor destroy throws window is not defined after a test environment is torn down — open | scheduled run 35875601416, job `unit-shuffled-random` (unhandled error); GitLab #397 | S — hedged with a global 10 ms `afterAll` flush in `vitest.setup.ts`, unverified against the actual race; close after 4 consecutive clean weekly `unit-shuffled-random` runs | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -41249,11 +41249,16 @@ too (`ci/followups-611-613-615`) — a straight swap, not additive, since `test:
 **Status:** open 2026-09-23 — a hedge landed on `ci/followups-611-613-615`: `vitest.setup.ts` gained
 one global `afterAll(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); })`,
 naming `@tiptap/react`'s real `setTimeout(…, 1)` editor-destroy and this entry in a comment. This
-hedge is **never machine-verified against the actual race** — the failure was never reproduced, both
-before and after the change: `npx vitest run --sequence.shuffle --sequence.seed=35875601416
---reporter=default` (full suite) and the same seed against the 18 TipTap-mounting files both stayed
-`EXIT=0` with no `unhandled`/`window is not defined` in the log, so there is no red state to turn
-green, only the mechanism read from `@tiptap/react`'s source. Close after **4** consecutive weekly
+hedge is **never machine-verified against the actual race**, and there is no seeded before/after
+pair proving it: the seeded reproduce command, `npx vitest run --sequence.shuffle
+--sequence.seed=35875601416 --reporter=default` (full suite, and the same seed against the 18
+TipTap-mounting files), ran only BEFORE the hedge, during the investigation, with no fix applied —
+both `EXIT=0`, no `unhandled`/`window is not defined` in the log. AFTER the hedge landed, only an
+unseeded 4-file TipTap subset ran (`rich-text-editor.test.tsx`, `task-form-fields.test.tsx`,
+`milestone-edit-modal.test.tsx`, `document-editor.test.tsx`), green, no unhandled error. So there is
+no red state this branch turned green, only the mechanism read from `@tiptap/react`'s source.
+Commit `d83b680b`'s message says "two clean runs at the recorded seed ... both before and after this
+change" — that overstates it; this line is the correction. Close after **4** consecutive weekly
 `unit-shuffled-random` runs with no unhandled error.
 
 **Work item:** #397
