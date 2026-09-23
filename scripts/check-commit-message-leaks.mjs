@@ -27,8 +27,9 @@ import { parseList, buildPatterns, scanMessage } from "./identifier-leak-lib.mjs
 
 const ENV_VAR = "LEAK_LIST_FILE";
 const SHORT = 12;
-const RECORD_END = "\x01";
-const FIELD_SEP = "\0";
+const RECORD_END = "\0";
+/** A full object id: SHA-1 (40 hex) or SHA-256 (64 hex). */
+const OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
 function cannotScan(msg) {
   console.error(`CANNOT SCAN: ${msg}`);
@@ -74,28 +75,45 @@ function git(args, what) {
   }
 }
 
-/** Split `%x00`-separated, `%x01`-terminated records; git puts a newline after each record. */
+/** Split NUL-terminated records into `[header, body]` at the first newline. ★★ Records are split
+ *  on NUL because git refuses a NUL in a commit or tag message: a message may carry any OTHER
+ *  control byte, and an earlier `%x01` separator let a message holding one split into a phantom
+ *  record whose tail was never scanned. for-each-ref puts a newline after each record's NUL. */
 function records(out) {
   return out
     .split(RECORD_END)
     .map((r) => r.replace(/^\n/, ""))
-    .filter((r) => r !== "" && r !== "\n")
-    .map((r) => r.split(FIELD_SEP));
+    .filter((r) => r !== "")
+    .map((r) => {
+      const nl = r.indexOf("\n");
+      return nl === -1 ? [r, ""] : [r.slice(0, nl), r.slice(nl + 1)];
+    });
+}
+
+/** Belt and braces over the NUL split: a record whose header is not what the format asked for
+ *  means the output was not parsed as intended, and a mis-parse must never read as clean. */
+function assertHeaders(recs, isValid, what) {
+  const bad = recs.filter(([header]) => !isValid(header)).length;
+  if (bad > 0) cannotScan(`${bad} record(s) from ${what} did not parse (unexpected header).`);
+  return recs;
 }
 
 function commitMessages(range) {
-  const out = git(["log", "--format=%H%x00%B%x01", "--end-of-options", range, "--"], `git log ${range}`);
-  return records(out).map(([sha, body]) => ({ kind: "commit", sha, body: body ?? "" }));
+  const what = `git log ${range}`;
+  const out = git(["log", "-z", "--format=%H%n%B", "--end-of-options", range, "--"], what);
+  return assertHeaders(records(out), (h) => OBJECT_ID.test(h), what)
+    .map(([sha, body]) => ({ kind: "commit", sha, body }));
 }
 
 function tagMessages(commitShas) {
-  const out = git(
-    ["for-each-ref", "refs/tags", "--format=%(objecttype)%00%(*objectname)%00%(contents)%01"],
-    "git for-each-ref refs/tags",
-  );
-  return records(out)
-    .filter(([type, target]) => type === "tag" && commitShas.has(target))
-    .map(([, sha, body]) => ({ kind: "tag", sha, body: body ?? "" }));
+  const what = "git for-each-ref refs/tags";
+  const out = git(["for-each-ref", "refs/tags", "--format=%(objecttype) %(*objectname)%0a%(contents)%00"], what);
+  // Header: `<type> <peeled id>`; the peeled id is empty unless the ref is an annotated tag.
+  const valid = (h) => /^(commit|tree|blob) $/.test(h) || (h.startsWith("tag ") && OBJECT_ID.test(h.slice(4)));
+  return assertHeaders(records(out), valid, what)
+    .map(([header, body]) => ({ header: header.split(" "), body }))
+    .filter(({ header: [type, target] }) => type === "tag" && commitShas.has(target))
+    .map(({ header: [, sha], body }) => ({ kind: "tag", sha, body }));
 }
 
 const range = parseRange(process.argv.slice(2));

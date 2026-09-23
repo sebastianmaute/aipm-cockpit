@@ -102,6 +102,12 @@ beforeAll(() => {
   writeFileSync(tagMsg, `release notes naming ${TOKEN}\n`);
   git("tag", "-a", "t1", "-F", tagMsg);
   commit("f", "docs: clean after the tag\n");
+  // git refuses only NUL in a message; any other control byte must not split a record.
+  commit("g", `fix: before a control byte\x01 and after it ${TOKEN}\n`);
+  commit("h", "docs: clean, tagged with a control byte\n");
+  const tagCtl = path.join(base, "tag-ctl.msg");
+  writeFileSync(tagCtl, `notes\x01 then ${TOKEN}\n`);
+  git("tag", "-a", "t2", "-F", tagCtl);
 }, 60_000);
 
 afterAll(() => {
@@ -147,6 +153,21 @@ describe("check-commit-message-leaks CLI", () => {
     expect(r.out).toMatch(/^$/);
     expect(r.err).toMatch(/\b6 commits scanned, 1 tag message/);
     expect(r.all.toLowerCase()).not.toContain(TOKEN);
+  });
+
+  it("scans the whole message past a control byte: no phantom record, no unscanned tail", () => {
+    const r = run(`${shas.g}^!`);
+    expect(r.code, r.all).toBe(1);
+    expect(r.err).toContain(`LEAK commit ${shas.g.slice(0, 12)}  class=${CLASS}`);
+    expect(r.err).toMatch(/\b1 commits scanned/);
+    expect(r.all.toLowerCase()).not.toContain(TOKEN);
+  });
+
+  it("scans the whole tag message past a control byte", () => {
+    const r = run(`${shas.h}^!`);
+    expect(r.code, r.all).toBe(1);
+    expect(r.err).toContain(`LEAK tag ${shas.h.slice(0, 12)}  class=${CLASS}`);
+    expect(r.err).toMatch(/\b1 commits scanned, 1 tag message/);
   });
 
   it("scans one commit with the <sha>^! form", () => {

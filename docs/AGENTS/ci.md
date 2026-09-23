@@ -66,9 +66,15 @@ re-resolved by hand.
   (`TRAILER_RE` in `scripts/identifier-leak-lib.mjs`, shared with `verify-rewrite.mjs`). It prints only
   short SHAs, classes and counts. Exit 0 = clean (an empty range included, so a no-op push passes),
   1 = a list hit or a trailer, 2 = could not scan (list unset, missing or empty; no range or one git
-  cannot resolve; a failing git call). The range is `base.sha..head.sha` on a pull request and
-  `before..sha` on a push; a push whose `before` is all zeros, and a `workflow_dispatch` run, scan
-  `sha^!` (the head commit alone). The event values reach the script through `env:`, never inline in
+  cannot resolve; a failing git call). On a pull request the range is `<merge-base>..head.sha`, where
+  the merge-base is `git merge-base "$PR_HEAD" "refs/remotes/origin/$GITHUB_BASE_REF"`, not the
+  payload's `base.sha`: that can be stale, and a branch that merged a newer `main` would then drag
+  `main`'s commits in, including the seven §200 trailer commits (a false red). The step exits 2 when
+  the merge-base fails. The `fetch-depth: 0` checkout fetches every branch into `refs/remotes/origin/`
+  (the all-history refspec in actions/checkout's ref-helper), so no extra fetch is needed, and none
+  could run: `persist-credentials: false` leaves git no token. On a push the range is `before..sha`;
+  a push whose `before` is all zeros, and a `workflow_dispatch` run, scan `sha^!` (the head commit
+  alone). The event values reach the script through `env:`, never inline in
   `run:`. That is why the checkout here, and only here, sets `fetch-depth: 0`. ★ It is NOT in
   `gate-local.mjs`'s `GATE_STEPS`, so `gate:local` does not reproduce it: it needs a commit range a
   local run does not have. Reproduce it with the RUNBOOK's "A required check is red" line.
