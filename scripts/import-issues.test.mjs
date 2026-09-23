@@ -165,6 +165,60 @@ describe("import-issues --plan", () => {
     expect(r.err).toMatch(/CANNOT RUN/);
   });
 
+});
+
+describe("import-issues --apply guards (no network — pass GH_TOKEN=dummy so gh is never called)", () => {
+  const validPlanBase = {
+    version: 1,
+    createdAt: "2026-09-23",
+    maxNumber: 1,
+    pointerStyle: "anchor",
+    repoUrl: "https://github.com/o/r",
+    counts: { open: 0, stub: 0, placeholder: 1 },
+    actions: [{ n: 1, kind: "placeholder", title: "placeholder (deleted after import)", body: "", labels: [] }],
+  };
+
+  it("refuses (exit 1) a plan that leaks an identifier, before any client is built or glab/gh is called", () => {
+    seedRepo(REG_BASE);
+    const planPath = writeJson("plan.json", {
+      ...validPlanBase,
+      registerSha: "0".repeat(40), // deliberately wrong too — the leak check must still win, since it runs first
+      leak: { hitLines: 1, classes: { [CLASS]: 1 }, actionsHit: [1] },
+    });
+
+    const r = run(["--apply", "--plan", planPath, "--repo", "o/r"], { GH_TOKEN: "dummy" });
+
+    expect(r.code, r.all).toBe(1);
+    expect(r.err.toLowerCase()).toContain("leak");
+  });
+
+  it("refuses (exit 1) a plan whose registerSha no longer matches the register, before any client is built", () => {
+    seedRepo(REG_BASE);
+    const planPath = writeJson("plan.json", {
+      ...validPlanBase,
+      registerSha: "0".repeat(40),
+      leak: { hitLines: 0, classes: {}, actionsHit: [] },
+    });
+
+    const r = run(["--apply", "--plan", planPath, "--repo", "o/r"], { GH_TOKEN: "dummy" });
+
+    expect(r.code, r.all).toBe(1);
+    expect(r.err.toLowerCase()).toContain("register");
+  });
+
+  it("exits 2 when --resume is given without --apply", () => {
+    seedRepo(REG_BASE);
+    const planPath = writeJson("plan.json", { ...validPlanBase, registerSha: "0".repeat(40), leak: { hitLines: 0, classes: {}, actionsHit: [] } });
+
+    const r = run(["--close-gitlab", "--plan", planPath, "--repo", "o/r", "--resume"], { GH_TOKEN: "dummy" });
+
+    expect(r.code, r.all).toBe(2);
+    expect(r.err).toMatch(/CANNOT RUN/);
+    expect(r.err).toMatch(/--resume/);
+  });
+});
+
+describe("import-issues --plan (more)", () => {
   it("exits 2 when an open GitLab issue names a register entry that is not OPEN, with the planner's message", () => {
     seedRepo(REG_BASE);
     const gitlabJson = writeJson("gitlab.json", [{ iid: 4, state: "opened", title: "§4: x", labels: [] }]);
