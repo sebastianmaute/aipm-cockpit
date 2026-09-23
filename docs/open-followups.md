@@ -835,7 +835,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§610](#610-fork-prs-cannot-run-the-leak-gate--decide-the-rule-at-the-visibility-flip--open) | Fork PRs cannot run the leak gate — decide the rule at the visibility flip — open | deferred by the sub-project 3 spec (`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`); GitLab #392 | S — decide the rule at the flip; prove it with a fork PR | open |
 | [§611](#611-the-weekly-zap-jobs-docker-run-images-float-unpinned--pin-them-by-digest--closed-2026-09-23) | The weekly ZAP job's docker run images float unpinned — pin them by digest — CLOSED 2026-09-23 | final review of sub-project 3 on `ci/sp3-actions-workflows` (the plan's unrecorded "follow-up"); GitLab #393 | S — pin both images by `@sha256:` digest and record how to re-resolve them | closed |
 | [§612](#612-a-scaling-guard-went-red-in-ci-on-correct-code--shrink-the-memory-bound-fixtures--open) | A scaling guard went red in CI on correct code — shrink the memory-bound fixtures — open | GitHub Actions run 35844783726, job `unit-shuffled`, on `main`; GitLab #394 | S — hedged on `fix/scaling-flake-ci` (smaller n, `repeats: 5`: no shown effect on the failure; readable CI log); close after green `unit-shuffled` runs on `main` | open |
-| [§613](#613-semgreps-blocking-gate-misses-code-injection-in-typescript--widen-the-rule-set-or-block-on-warning--open) | Semgrep's blocking gate misses code injection in TypeScript — widen the rule set or block on WARNING — open | sub-project 3 control plant, GitHub Actions run 35868367110 (job `semgrep` stayed green); GitLab #395 | decide the rule source or severity, then re-run the three-sink plant until the job goes red | open |
+| [§613](#613-semgreps-blocking-gate-misses-code-injection-in-typescript--widen-the-rule-set-or-block-on-warning--closed-2026-09-23) | Semgrep's blocking gate misses code injection in TypeScript — widen the rule set or block on WARNING — CLOSED 2026-09-23 | sub-project 3 control plant, GitHub Actions run 35868367110 (job `semgrep` stayed green); GitLab #395 | S — a local rule file (`.semgrep/injection.yml`) added to both semgrep steps; plant red (3 findings), tracked tree 0 findings | closed |
 | [§614](#614-use-weight-suggestionstesttsx-is-order-dependent--its-shared-mock-is-never-reset--closed-2026-09-23) | use-weight-suggestions.test.tsx is order-dependent — its shared mock is never reset — CLOSED 2026-09-23 | scheduled run 35875601416, job `unit-shuffled-random` (seed 35875601416); GitLab #396 | S — clear the mock before each test; reproduces in isolation | closed |
 | [§615](#615-tiptaps-deferred-editor-destroy-throws-window-is-not-defined-after-a-test-environment-is-torn-down--open) | TipTap's deferred editor destroy throws window is not defined after a test environment is torn down — open | scheduled run 35875601416, job `unit-shuffled-random` (unhandled error); GitLab #397 | find the leaking test file first; fix not chosen | open |
 <!-- INDEX:END -->
@@ -41155,14 +41155,28 @@ whose green call is one scan over a fixture of a few hundred KB or more is expos
 If it recurs, record the runner's CPU (`lscpu`) in the job before choosing a remedy. Close after a
 run of green `unit-shuffled` jobs on `main` with no scaling failure.
 
-## 613. Semgrep's blocking gate misses code injection in TypeScript — widen the rule set or block on WARNING — open
+## 613. Semgrep's blocking gate misses code injection in TypeScript — widen the rule set or block on WARNING — CLOSED 2026-09-23
 
-**Status:** open 2026-09-23 — never machine-verified locally (there is no semgrep install on the
-Windows workstation); measured on GitHub Actions only, in runs 35868367110 and 35873608519.
+**Status:** CLOSED 2026-09-23 by `ci/followups-611-613-615`. Added a local rule file,
+`.semgrep/injection.yml` (`local-no-dynamic-code-exec`, severity ERROR, `pattern-either` over
+`eval(...)`, `new Function(...)`, `child_process.exec(...)` and bare `exec(...)`), passed as an extra
+`--config .semgrep/injection.yml` on BOTH semgrep steps in `.github/workflows/ci.yml` (the full-report
+scan and the blocking `--severity ERROR --error` gate), alongside the existing `p/typescript`,
+`p/react` and `p/owasp-top-ten` configs. Verified locally with a throwaway venv
+(`pip install semgrep`, 1.177.0): against the scratch-dir plant
+(`exec(req.query.cmd); eval(req.query.cmd); return new Function(req.query.cmd);`),
+`semgrep scan --config .semgrep/injection.yml --severity ERROR --json` reports **3 findings** and
+`--severity ERROR --error` exits 1; against the tracked tree
+(`semgrep scan --config .semgrep/injection.yml --severity ERROR --error src scripts e2e desktop/src`),
+**0 findings**, exit 0 — so the new rule adds no pre-existing debt to triage.
+`scripts/ci-workflow.test.mjs` gained an assertion that both semgrep steps pass
+`--config .semgrep/injection.yml`; `docs/AGENTS/ci.md`'s `semgrep` bullet now names the local
+config and why it exists. **The CI red proof is pending** — re-running the three-sink plant inside a
+real PR and requiring the `semgrep` job to go red is for the controller to do once this branch is up,
+since semgrep's registry-config resolution inside the pinned `semgrep/semgrep` container was not
+independently checked against this pip install.
 
-**Work item:** #395
-
-**What was measured.** The `semgrep` job's blocking step is carried over unchanged from GitLab:
+**What was measured (original investigation).** The `semgrep` job's blocking step is carried over unchanged from GitLab:
 `semgrep scan --config p/typescript --config p/react --config p/owasp-top-ten --severity ERROR
 --error .` (`.github/workflows/ci.yml`). The sub-project 3 control PR #6 planted a `.ts` file with
 three request-controlled sinks: `exec(req.query.cmd)` from `node:child_process`,
@@ -41179,14 +41193,14 @@ file, turned the job red in run 35873608519 through
 rules run). So the gate is live, but for this code base it covers a narrow set of patterns, and
 code injection in plain TypeScript is not among them.
 
-**Options, undecided:**
-1. add a rule source that covers Node sinks: `p/javascript` or `p/nodejs`, or a local rule file
-   kept in the repository;
-2. block on WARNING as well as ERROR. This changes nothing for the plant above, which no rule
-   flagged at ANY severity, and it would turn the three pre-existing findings red first.
-
-Whichever is chosen, re-run the same three-sink plant and require the job to go red before closing
-this entry. Checking only that the config changed is not enough.
+**Options considered.** Widening to `p/security-audit` (the only registry config that fired on the
+plant at all) catches only the `exec` sink and immediately produces 2 pre-existing findings
+(`grep -n "exec(" scripts/check-followup-claims.mjs scripts/gate-local.mjs` — legitimate
+`child_process` use in build tooling) needing triage before the gate could go green. Blocking on WARNING as well as
+ERROR was ruled out as before: it flags none of the plant's three sinks at any severity and would
+turn the three pre-existing SARIF findings red first. The local rule file above was the smallest
+change that makes the plant red with zero real-tree findings, and is the fix landed on
+`ci/followups-611-613-615`.
 
 ## 614. use-weight-suggestions.test.tsx is order-dependent — its shared mock is never reset — CLOSED 2026-09-23
 

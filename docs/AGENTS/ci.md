@@ -119,10 +119,13 @@ re-resolved by hand.
   instead of rebuilding, then `npm run e2e:smoke:prod`. ★★ The ONLY required check that sees the
   nonce-only prod CSP (`src/proxy.ts`); the legacy section below carries the per-suite reasoning.
 - **`semgrep`** (15 min). Runs in the `semgrep/semgrep` container, pinned by digest, not `:latest`.
-  No `npm ci`. Scan 1 writes the full report (`p/typescript`, `p/react`, `p/owasp-top-ten`) as
-  `semgrep.sarif` and does not fail on findings; scan 2 runs the same configs with
-  `--severity ERROR --error`, which is the gate. The SARIF is uploaded as `semgrep-sarif` (7 days,
-  always). A last step, `github/codeql-action/upload-sarif` (v4.38.1), runs only
+  No `npm ci`. Scan 1 writes the full report (`p/typescript`, `p/react`, `p/owasp-top-ten`,
+  `.semgrep/injection.yml`) as `semgrep.sarif` and does not fail on findings; scan 2 runs the same
+  configs with `--severity ERROR --error`, which is the gate. `.semgrep/injection.yml` is a local
+  rule file (§613) closing a gap the three registry configs leave open: none of them flags
+  request-controlled `eval`/`new Function`/`exec` in this codebase's non-Express-shaped handlers.
+  The SARIF is uploaded as `semgrep-sarif` (7 days, always). A last step,
+  `github/codeql-action/upload-sarif` (v4.38.1), runs only
   `if: always() && !github.event.repository.private`: code scanning refuses SARIF from a private
   repository without Advanced Security, so the step switches itself on at the visibility flip.
 - **`audit`** (10 min). `npm audit --omit=dev --audit-level=high`. It reads `package-lock.json` only,

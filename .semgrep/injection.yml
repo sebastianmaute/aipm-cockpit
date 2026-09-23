@@ -1,0 +1,14 @@
+rules:
+  - id: local-no-dynamic-code-exec
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      Dynamic code execution (eval/Function) or a child_process call is not allowed
+      to receive unreviewed input. If this is intentional and the input is not
+      attacker-controlled, add a nosemgrep comment explaining why.
+    patterns:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: new Function(...)
+          - pattern: child_process.exec(...)
+          - pattern: exec(...)
