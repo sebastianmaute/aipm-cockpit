@@ -88,6 +88,9 @@ Two files:
 
 - `runs-on: ubuntu-latest`.
 - `actions/setup-node` with `node-version-file: package.json` (follows `engines`), npm cache on.
+  *(Corrected 2026-09-23: `ci.yml` and `scheduled.yml` use `node-version: "24"` instead, a
+  deviation the plan records. setup-node resolves the `engines` range `>=24` to the newest major,
+  so a new Node major would reach CI unreviewed.)*
   Each job that needs `node_modules` runs `npm ci`.
 - `e2e` and `prod-smoke` run in the container `mcr.microsoft.com/playwright:v1.61.1-jammy`, the tag
   the GitLab jobs pin. Keep it in lockstep with `@playwright/test`, as before.
@@ -138,8 +141,9 @@ run measures it. If `unit` exceeds ~25 min, split it with vitest `--shard` acros
 costs the same minutes but finishes sooner, and the coverage floors then need merged reports, which
 is why it is not done up front. *(2026-09-23: `unit` took 27.3 min on the first run and tripped this
 stop. The owner chose `--maxWorkers=2` on both vitest jobs instead of `--shard`, and `unit` then
-took 17.4 min. So the `unit` and `unit-shuffled` commands in the table above now also carry
-`--maxWorkers=2`, and `unit-shuffled` carries `--reporter=default` since §612. See
+took 17.4 min. So the `unit` and `unit-shuffled` commands in `ci.yml` carry `--maxWorkers=2`
+beyond what the table above shows, and `unit-shuffled` also carries `--reporter=default` since
+§612. See
 [Executed 2026-09-23](#executed-2026-09-23).)*
 
 ### `scheduled.yml`
@@ -291,10 +295,14 @@ against a state it must reject.
    `audit` red. `unit-shuffled` has no cheap plant; its only proof is that it runs the same
    `npm run test:shuffle` the local reproduction runs, and this spec claims no more than that.
 4. **Ruleset** — created once every check name has reported. Proof that it bites: `gh pr merge` on
-   the still-red control PR must be **refused**. Then close the control PRs.
+   the still-red control PR must be **refused**. Then close the control PRs. *(2026-09-23: no
+   `gh pr merge` was run. Refusal is evidenced by `mergeStateStatus: BLOCKED` and eight
+   `isRequired=true` checks instead; see the note under "Protection".)*
 5. **`scheduled.yml`** — dispatched by hand once. `audit-full` and `unit-shuffled-random` complete;
    `dast-zap` gets its first-ever validation, and its reports are downloaded and read.
 6. **§200 closure** — the two scrubs, the history proof, the closure note, GitLab #185 closed.
+   *(2026-09-23: the scrubs were done, but the history proof failed. No closure note was written,
+   and #185 stays open along with §200. See [Executed 2026-09-23](#executed-2026-09-23).)*
 7. **Minutes check**, one week after step 4: actual usage against the 60–65-pipelines-a-month
    estimate, recorded in this spec.
 

@@ -166,7 +166,8 @@ than while it is half-built.
 CREATED repository.** Seven assistant session-trailer lines reached `main` through PRs #4 and #5,
 and GitHub keeps them reachable through `refs/pull/*`, which the owner cannot delete. Rewriting
 `main` in place therefore cannot remove them, for the same reason sub-project 2 recreated the
-mirror rather than force-pushing over it. So before the flip, push history rewritten to drop those
+mirror rather than force-pushing over it. A fresh repository is the only way within the owner's
+control to shed them; GitHub Support can purge pull-request refs on request. So before the flip, push history rewritten to drop those
 lines to a new, empty repository, and re-run
 `node scripts/verify-rewrite.mjs --repo <mirror of it> --allow <allowlist> --expect clean` against
 it. §200 closes only when that run passes.

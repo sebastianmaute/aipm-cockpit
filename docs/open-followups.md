@@ -426,7 +426,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§197](#197-appendtexts-return-value-is-over-claimed-by-one-word--focus-can-also-return-false) | `appendText`'s return value is over-claimed by one word — `focus` can also return false | — | — | open |
 | [§198](#198-a-block-delete-reads-its-baseline-at-click-time-not-at-menu-open-time) | A block delete reads its baseline at CLICK time, not at menu-open time | — | — | open |
 | [§199](#199-adding-a-block-at-a-narrow-pane-leaves-the-new-block-collapsed-read-only--closed-2026-09-02) | ~~Adding a block at a narrow pane leaves the NEW block collapsed read-only~~ | — | — | **CLOSED** 2026-09-02 (the fork decided (a): a paragraph insert carries the selection; every other kind unchanged) |
-| [§200](#200-internal-identifiers-ship-in-the-tracked-tree--blocks-flipping-the-github-mirror-public) | Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public | — ; sub-project 3 rollout 2026-09-23: leak gate in CI, history proof FAILS on 7 session-trailer lines; GitLab #185 | before the flip, push history rewritten without the 7 trailer lines to a freshly created repository, then re-run `--expect clean` against it | open |
+| [§200](#200-internal-identifiers-ship-in-the-tracked-tree--blocks-flipping-the-github-mirror-public) | Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public | sub-project 3 rollout 2026-09-23: leak gate in CI, history proof FAILS on 7 session-trailer lines; GitLab #185 | before the flip, push history rewritten without the 7 trailer lines to a freshly created repository, then re-run `--expect clean` against it | open |
 | [§201](#201-a-raw-control-byte-sits-in-jira-apits--the-nul-guard-cannot-see-it-but-the-binary-to-grep-headline-does-not-reproduce) | A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce | — | — | open |
 | [§202](#202-ooxml-media-machinery-for-document-images--s3c-2--closed-2026-08-22) | OOXML media machinery for document images — S3c-2 | — | — | **CLOSED** 2026-08-22 |
 | [§203](#203-the-asset-library-is-outside-axe-coverage-and-this-is-unfixable-at-the-gate) | The asset library is outside axe coverage, and this is unfixable at the gate | — | — | open |
@@ -16839,8 +16839,8 @@ Now true:
 - The last two mentions of the GitLab project number in `.gitlab-ci.yml` (both comments) are
   scrubbed. The SP3 plan's scrub step spelled the number out in its own grep pattern, and that was
   scrubbed too. `git grep -n -E "[Pp]roject [0-9]{3}\b" -- .gitlab-ci.yml
-docs/superpowers/plans/2026-09-23-github-actions-ci.md` now exits 1; it matched both comments
-before the scrub.
+docs/superpowers/plans/2026-09-23-github-actions-ci.md` now exits 1. At the commit before the
+scrub it matched 4 lines: the two comments, and two lines in the plan's scrub step.
 - `noreply@github.com`, the committer GitHub recorded on every merge commit it made for a pull
   request (`git log origin/main --merges --format="%h %ce"`), was added to the cut-over identity allowlist. That allowlist lives outside the
   repository, like the leak list.
@@ -16869,7 +16869,8 @@ The history proof, against a `git clone --mirror` of the GitHub repository:
 
 **Owner decision 2026-09-23.** Before the visibility flip, push history rewritten to drop those 7
 trailer lines to a FRESHLY CREATED repository. A new repository has no `refs/pull/*`, and that is
-the only way to shed them. Then re-run `--expect clean` against that repository. This entry closes
+the only way within the owner's control to shed them. GitHub Support can purge pull-request refs
+on request, but the owner cannot. Then re-run `--expect clean` against that repository. This entry closes
 only after that run passes. The roadmap
 (`docs/superpowers/specs/2026-09-20-github-migration-roadmap.md`) carries the same step at the
 flip.
@@ -41221,8 +41222,9 @@ test file. It doesn't mean the error was thrown inside the file itself, but whil
 That names the file that was running when the timer fired. It does not establish which test
 mounted the editor that leaked.
 
-**Which tests mount a TipTap editor.** Only `src/app/rich-text-editor.tsx` calls `useEditor`
-(`git grep -n "useEditor(" -- src/app/rich-text-editor.tsx`). Ten non-test modules import it or its
+**Which tests mount a TipTap editor.** Only `src/app/rich-text-editor.tsx` calls `useEditor`.
+`git grep -n "useEditor(" -- src` has three hits, and the other two, in `csp-nonce.ts` and
+`document-block-editors.tsx`, are comments. Ten non-test modules import it or its
 lazy wrapper (`git grep -l -E "from \"\.\.?/rich-text-editor(-lazy)?\"" -- "src/**/*.tsx" "src/**/*.ts"`,
 excluding tests). The test files that name the editor module or `@tiptap/react` directly are the
 first candidates: `git grep -l -E "rich-text-editor|@tiptap/react" -- "src/**/*.test.tsx" "src/**/*.test.ts"`
