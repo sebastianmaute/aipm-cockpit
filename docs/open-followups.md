@@ -232,6 +232,19 @@ REBUILD
 sitting inside the recipe above cannot be mistaken for the marker itself — the self-matching trap
 this file records elsewhere. The check below anchors its greps at `^` for the same reason.
 
+**Filing an entry.** A new entry takes the next free `§N` — one more than the highest existing
+`## N.` heading — its own index row (rebuild per the recipe above) and exactly one
+`**Work item:** #NN` body line; an entry with no separate tracker issue instead carries the literal
+`**Work item:** none — decision record` (`scripts/followup-workitem-lib.mjs`'s `DECISION_RE` requires
+that exact spelling, em dash included — a hyphen or any other wording is malformed, same as a
+duplicate or missing line). The issue itself is filed with the title `§N: <heading>` (no leading
+zero — `SECTION_TITLE_RE` in the same file requires `^§[1-9]\d*:`) and the label
+`source::register` (`REGISTER_LABEL`). Until the flip, file it with `glab issue create`; after the
+flip, with `gh issue create` — the switch is the repository variable `REGISTER_TRACKER=github`, set
+at [the flip checklist's step 7](superpowers/specs/2026-09-23-flip-checklist.md). Closing an entry
+removes its `**Work item:**` line entirely (a closed entry carrying one is the workitems gate's
+`ON_CLOSED` finding) and closes the corresponding issue.
+
 <!-- INDEX:BEGIN -->
 | # | Item | Origin | Size | State |
 |---|---|---|---|---|
