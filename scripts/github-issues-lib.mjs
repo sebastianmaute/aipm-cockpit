@@ -64,6 +64,22 @@ export function retryAfterMs(status, headers, now = Date.now()) {
   return retryAfterFromHeaders(headers, now);
 }
 
+const SECONDARY_RATE_LIMIT_DEFAULT_MS = 60_000;
+const SECONDARY_RATE_LIMIT_RE = /secondary rate limit/i;
+
+/** `retryAfterMs`, plus the one shape it cannot see from headers alone: a 403 whose body
+ *  names GitHub's SECONDARY rate limit but carries neither `retry-after` nor
+ *  `x-ratelimit-remaining: 0`. GitHub's docs say to wait at least one minute then, so this
+ *  answers 60 s instead of null (which would stop the run with exit 2). A bare 403 with
+ *  neither a header nor that text is still NOT a rate limit — it is a permission error,
+ *  and retrying it would only burn the budget. `bodyText` is the raw response body. */
+export function rateLimitRetryMs(status, headers, bodyText, now = Date.now()) {
+  const fromHeaders = retryAfterMs(status, headers, now);
+  if (fromHeaders !== null) return fromHeaders;
+  if (status === 403 && SECONDARY_RATE_LIMIT_RE.test(bodyText ?? "")) return SECONDARY_RATE_LIMIT_DEFAULT_MS;
+  return null;
+}
+
 const GRAPHQL_RATE_LIMIT_DEFAULT_MS = 60_000;
 
 /** Whether a GraphQL response's `errors` array reports a rate limit, and how long to

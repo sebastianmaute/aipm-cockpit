@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { graphQLRateLimitMs, parseNextLink, redactAndCap, retryAfterMs, toTrackerIssue } from "./github-issues-lib.mjs";
+import {
+  graphQLRateLimitMs,
+  parseNextLink,
+  rateLimitRetryMs,
+  redactAndCap,
+  retryAfterMs,
+  toTrackerIssue,
+} from "./github-issues-lib.mjs";
 
 describe("parseNextLink", () => {
   it("returns the page-2 URL from a Link header naming next and last", () => {
@@ -47,6 +54,29 @@ describe("retryAfterMs", () => {
   });
   it("returns null for a plain 403 with no rate-limit headers", () => {
     expect(retryAfterMs(403, new Headers())).toBeNull();
+  });
+});
+
+describe("rateLimitRetryMs", () => {
+  const SECONDARY_BODY = JSON.stringify({
+    message: "You have exceeded a secondary rate limit. Please wait a few minutes before you try again.",
+  });
+  it("waits 60 s on a 403 whose body names the secondary rate limit and carries no header", () => {
+    expect(rateLimitRetryMs(403, new Headers(), SECONDARY_BODY)).toBe(60_000);
+  });
+  it("prefers retry-after when the secondary-limit 403 carries one", () => {
+    expect(rateLimitRetryMs(403, new Headers({ "retry-after": "7" }), SECONDARY_BODY)).toBe(7000);
+  });
+  it("does NOT retry a bare 403 with neither a header nor the secondary-limit text", () => {
+    expect(rateLimitRetryMs(403, new Headers(), JSON.stringify({ message: "Resource not accessible by integration" }))).toBeNull();
+    expect(rateLimitRetryMs(403, new Headers(), "")).toBeNull();
+    expect(rateLimitRetryMs(403, new Headers(), undefined)).toBeNull();
+  });
+  it("does not read the secondary-limit text on a status that is not 403", () => {
+    expect(rateLimitRetryMs(500, new Headers(), SECONDARY_BODY)).toBeNull();
+  });
+  it("keeps retryAfterMs's header behaviour", () => {
+    expect(rateLimitRetryMs(429, new Headers({ "retry-after": "3" }), "")).toBe(3000);
   });
 });
 

@@ -53,7 +53,7 @@
 //      by `--plan` are imported dynamically inside the try below
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
-import { graphQLRateLimitMs, parseNextLink, redactAndCap, retryAfterMs, toTrackerIssue } from "./github-issues-lib.mjs";
+import { graphQLRateLimitMs, parseNextLink, rateLimitRetryMs, redactAndCap, toTrackerIssue } from "./github-issues-lib.mjs";
 import { applyPlan, closeOnGitLab, RateLimited, Refused } from "./issue-import-apply.mjs";
 
 const REGISTER = "docs/open-followups.md";
@@ -377,15 +377,18 @@ async function githubRequest(url, token, { method = "GET", body } = {}) {
     redirect: "manual",
   });
   if (!res.ok) {
-    const retry = retryAfterMs(res.status, res.headers);
-    let bodyText = "";
+    let rawBody = "";
     try {
-      // Redact THEN cap — capping first can leave a token's tail exposed when it straddles
-      // the 500-character cut (see github-issues-lib.mjs's redactAndCap docstring).
-      bodyText = redactAndCap(await res.text(), token);
+      rawBody = await res.text();
     } catch {
-      // leave bodyText empty — nothing more to report
+      // leave rawBody empty — nothing more to report
     }
+    // The raw body, not the capped one: a secondary-limit 403 with no header is told apart
+    // from a permission 403 only by its message (see rateLimitRetryMs).
+    const retry = rateLimitRetryMs(res.status, res.headers, rawBody);
+    // Redact THEN cap — capping first can leave a token's tail exposed when it straddles
+    // the 500-character cut (see github-issues-lib.mjs's redactAndCap docstring).
+    const bodyText = redactAndCap(rawBody, token);
     if (retry !== null) throw new RateLimited(`GitHub ${method} ${url} -> ${res.status}: ${bodyText}`, retry);
     throw new Error(`GitHub ${method} ${url} -> ${res.status}: ${bodyText}`);
   }
@@ -451,8 +454,9 @@ function makeGitHubClient(repo, token) {
     // Both `createIssue` and `closeIssue` pace themselves at 1100ms — GitHub's secondary
     // rate limit on content-generating requests. A full run of the spec's own counts is
     // roughly 397 creates + 92 closes + 37 deletes + ~23 labels — about 530 writes, above
-    // the documented 500-per-hour secondary limit, so expect at least one 403/429 with a
-    // `retry-after`; `withRetry` (issue-import-apply.mjs) waits it out, and `--resume`
+    // the documented 500-per-hour secondary limit, so expect at least one 403/429 — with a
+    // `retry-after`, or a 403 naming the secondary limit with none, which waits 60 s
+    // (`rateLimitRetryMs`); `withRetry` (issue-import-apply.mjs) waits it out, and `--resume`
     // covers a hard stop if the process dies instead.
     async createIssue({ title, body, labels }) {
       const res = await githubRequest(`${GITHUB_API}/repos/${repo}/issues`, token, {
