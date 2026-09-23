@@ -146,9 +146,8 @@ on it and none of its jobs is a required check: a red run is the signal.
   `Dockerfile.dast`, starts the app on a user-defined network, polls it for up to 60 × 3 s, runs the
   ZAP baseline with `-I` (ZAP's findings do not fail the job; an infrastructure failure still does),
   and uploads `zap-out/` — `zap-report.html` and `zap-report.json` — as `zap-report` (7 days, always).
-  ★ The two `docker run` images, `ghcr.io/zaproxy/zaproxy:stable` and `curlimages/curl`, float
-  UNPINNED, as they did on GitLab: the pinning rule covers `uses:` only, and Dependabot does not
-  watch a `docker run` argument. Pinning them by digest is open as `docs/open-followups.md` §611.
+  `curlimages/curl` and `ghcr.io/zaproxy/zaproxy:stable` are pinned by `@sha256:` digest (§611);
+  Dependabot does not track a `docker run` image argument, so re-resolve both quarterly by hand.
   ★★ Never validated on any CI
   before this workflow; its first manual dispatch is a rollout step, not an assumption.
 

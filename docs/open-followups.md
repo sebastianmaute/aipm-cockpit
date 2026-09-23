@@ -833,7 +833,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§608](#608-the-diagnostics-secret-patterns-take-quadratic-time-on-a-long-run-that-fails-them--open) | The diagnostics secret patterns take quadratic time on a long run that fails them — OPEN | final-review M6 on `fix/backlog-sweep`, measured 2026-09-21 reviewing §606; GitLab #389 | M — bound backtracking or the input length before matching (see §578) | open |
 | [§609](#609-a-late-seal-can-resurrect-a-sealed-secret-the-user-just-cleared--open) | A late seal can resurrect a sealed secret the user just cleared — OPEN | final-review M7 on `fix/backlog-sweep` (Task 5 deferred minor, upgraded), read from code, pre-existing and family-wide; GitLab #390 | S — a per-secret generation guard | open |
 | [§610](#610-fork-prs-cannot-run-the-leak-gate--decide-the-rule-at-the-visibility-flip--open) | Fork PRs cannot run the leak gate — decide the rule at the visibility flip — open | deferred by the sub-project 3 spec (`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`); GitLab #392 | S — decide the rule at the flip; prove it with a fork PR | open |
-| [§611](#611-the-weekly-zap-jobs-docker-run-images-float-unpinned--pin-them-by-digest--open) | The weekly ZAP job's docker run images float unpinned — pin them by digest — open | final review of sub-project 3 on `ci/sp3-actions-workflows` (the plan's unrecorded "follow-up"); GitLab #393 | S — pin both images by `@sha256:` digest and record how to re-resolve them | open |
+| [§611](#611-the-weekly-zap-jobs-docker-run-images-float-unpinned--pin-them-by-digest--closed-2026-09-23) | The weekly ZAP job's docker run images float unpinned — pin them by digest — CLOSED 2026-09-23 | final review of sub-project 3 on `ci/sp3-actions-workflows` (the plan's unrecorded "follow-up"); GitLab #393 | S — pin both images by `@sha256:` digest and record how to re-resolve them | closed |
 | [§612](#612-a-scaling-guard-went-red-in-ci-on-correct-code--shrink-the-memory-bound-fixtures--open) | A scaling guard went red in CI on correct code — shrink the memory-bound fixtures — open | GitHub Actions run 35844783726, job `unit-shuffled`, on `main`; GitLab #394 | S — hedged on `fix/scaling-flake-ci` (smaller n, `repeats: 5`: no shown effect on the failure; readable CI log); close after green `unit-shuffled` runs on `main` | open |
 | [§613](#613-semgreps-blocking-gate-misses-code-injection-in-typescript--widen-the-rule-set-or-block-on-warning--open) | Semgrep's blocking gate misses code injection in TypeScript — widen the rule set or block on WARNING — open | sub-project 3 control plant, GitHub Actions run 35868367110 (job `semgrep` stayed green); GitLab #395 | decide the rule source or severity, then re-run the three-sink plant until the job goes red | open |
 | [§614](#614-use-weight-suggestionstesttsx-is-order-dependent--its-shared-mock-is-never-reset--closed-2026-09-23) | use-weight-suggestions.test.tsx is order-dependent — its shared mock is never reset — CLOSED 2026-09-23 | scheduled run 35875601416, job `unit-shuffled-random` (seed 35875601416); GitLab #396 | S — clear the mock before each test; reproduces in isolation | closed |
@@ -41061,27 +41061,29 @@ Options, undecided:
 
 Decide at the flip, and prove the chosen rule with a fork PR before closing this entry.
 
-## 611. The weekly ZAP job's docker run images float unpinned — pin them by digest — open
+## 611. The weekly ZAP job's docker run images float unpinned — pin them by digest — CLOSED 2026-09-23
 
-**Status:** open 2026-09-23 — never machine-verified; found reading `.github/workflows/scheduled.yml`.
+**Status:** CLOSED 2026-09-23 by `ci/followups-611-613-615`. Both `docker run` images in
+`.github/workflows/scheduled.yml`'s `dast-zap` job are now pinned by `@sha256:` digest, tag kept in a
+comment: `curlimages/curl@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bbe3f92dec39ec7785166777`
+(`# curlimages/curl:latest`) and `ghcr.io/zaproxy/zaproxy@sha256:781a2bdaea47324e7bab583e2263f21d257b0aee61ed51521a5be45f5f5081ef`
+(comment above the step). Both digests were re-resolved the same day via each registry's
+anonymous-token HTTP API and matched the values first measured — no drift to record.
+`grep -n "curlimages/curl\|zaproxy/zaproxy" .github/workflows/scheduled.yml` shows `@sha256:` on both.
 
-**Work item:** #393
+**Dependabot cannot update either reference, and this is permanent, not a gap to close later.** Its
+`github-actions` ecosystem watches `uses:` steps, not a `docker run` command argument, and this repo
+configures no `docker` ecosystem; GitHub's own docs describe that ecosystem as scanning a
+`Dockerfile`/`docker-compose.yml`'s `FROM`/`image:` lines, never a workflow's `run:` steps
+(`dependabot/dependabot-core` issues #5819 and #6892 are still-open feature requests for exactly this
+capability). The digests must be bumped by hand, quarterly: re-resolve with
+`docker buildx imagetools inspect ghcr.io/zaproxy/zaproxy:stable` (and the equivalent for
+`curlimages/curl:latest`), or via the anonymous-token HTTP calls this entry's investigation used when
+Docker is unavailable, and land the new digest as a reviewed one-line diff.
 
-The `dast-zap` job in `.github/workflows/scheduled.yml` runs two images through `docker run`, not
-`uses:`: `ghcr.io/zaproxy/zaproxy:stable` (the baseline scan) and `curlimages/curl` (the readiness
-poll, implicitly `:latest`). Both float, exactly as they did in the GitLab job. The workflow rule
-that pins every `uses:` to a commit SHA does not reach a `docker run` argument, and Dependabot's
-`github-actions` ecosystem does not watch one either, so an upstream push changes what the weekly
-ZAP run executes with no diff anywhere to review.
-
-The blast radius is small, which is why this is a follow-up rather than a blocker: the job runs on
-the weekly schedule or a manual dispatch, never on a pull request or a push, so it is not a
-required check; ZAP runs with `-I`, so its findings cannot fail it; and it receives no secrets.
-
-Fix shape: pin both references by `@sha256:` digest (keeping the tag in a trailing comment, as the
-`uses:` pins keep the version), and record beside them how to re-resolve a digest — e.g.
-`docker buildx imagetools inspect ghcr.io/zaproxy/zaproxy:stable` — so a deliberate bump stays a
-reviewed one-line diff.
+The `dast-zap` job has not been dispatched since this change landed, so end-to-end behavior (the
+pinned digest still resolves and the job completes) is unverified beyond both digests being
+well-formed and matching a real manifest; treat the next dispatch as the real verification.
 
 ## 612. A scaling guard went red in CI on correct code — shrink the memory-bound fixtures — open
 
