@@ -119,9 +119,12 @@ number returns 404. That is correct for a number that never had an issue.
     `retry-after` waits and retries the same N.
 - **`--resume`:** reads the highest existing issue number and continues from the next one. It first
   checks that every existing number matches the plan.
-- **`--close-gitlab --plan <file> --repo <owner/name>`:** runs after `--apply` is verified. For each
-  imported issue, it posts "Moved to GitHub #N: <url>" on GitLab and closes the issue. It is idempotent:
-  an issue already closed with that comment is skipped.
+- **`--close-gitlab --plan <file> --repo <owner/name>`:** runs after `--apply` is verified, and checks
+  that itself: before its first GitLab write it lists the GitHub issues and refuses unless every
+  imported #N exists there, open, with its planned title. For each imported issue, it posts "Moved to
+  GitHub #N: <url>" on GitLab and closes the issue. It is idempotent: an issue already closed with
+  that comment is skipped.
+- `--apply` and `--close-gitlab` refuse a plan whose `version` is not 1.
 
 ### Guards (all tested)
 
@@ -185,10 +188,14 @@ the issue steps must sit in order among the rest. The order matters:
    - both `LEAK_LIST` secrets (Actions and Dependabot);
    - the ruleset (deletion, non_fast_forward, pull_request, the eight required checks);
    - Pro-dependent settings;
-   - the $0 Actions budget;
-   - Dependabot.
+   - the $0 Actions budget.
+
+   Dependabot is not enabled here (see 6b), and CI is checked with `gh workflow run`, never with a
+   pull request: any PR before step 6 takes an issue number and burns the repository for the import.
 6. **Import the issues** (`--plan`, then `--apply`), before any PR is opened. Then run
    `followups:github:check`, which must report 0 drift.
+
+   6b. Enable Dependabot, only once the import is verified.
 7. Set `REGISTER_TRACKER=github` and delete the GitLab check (one PR, the first in the new repository).
 8. `--close-gitlab`.
 9. Point `ci/gitlab-sync.yml` at the new repository if its URL changed, and run it once.
