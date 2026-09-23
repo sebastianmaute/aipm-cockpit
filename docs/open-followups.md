@@ -833,6 +833,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§608](#608-the-diagnostics-secret-patterns-take-quadratic-time-on-a-long-run-that-fails-them--open) | The diagnostics secret patterns take quadratic time on a long run that fails them — OPEN | final-review M6 on `fix/backlog-sweep`, measured 2026-09-21 reviewing §606; GitLab #389 | M — bound backtracking or the input length before matching (see §578) | open |
 | [§609](#609-a-late-seal-can-resurrect-a-sealed-secret-the-user-just-cleared--open) | A late seal can resurrect a sealed secret the user just cleared — OPEN | final-review M7 on `fix/backlog-sweep` (Task 5 deferred minor, upgraded), read from code, pre-existing and family-wide; GitLab #390 | S — a per-secret generation guard | open |
 | [§610](#610-fork-prs-cannot-run-the-leak-gate--decide-the-rule-at-the-visibility-flip--open) | Fork PRs cannot run the leak gate — decide the rule at the visibility flip — open | deferred by the sub-project 3 spec (`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`); GitLab #392 | S — decide the rule at the flip; prove it with a fork PR | open |
+| [§611](#611-the-weekly-zap-jobs-docker-run-images-float-unpinned--pin-them-by-digest--open) | The weekly ZAP job's docker run images float unpinned — pin them by digest — open | final review of sub-project 3 on `ci/sp3-actions-workflows` (the plan's unrecorded "follow-up"); GitLab #393 | S — pin both images by `@sha256:` digest and record how to re-resolve them | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -40964,3 +40965,25 @@ Options, undecided:
 2. keep fork PRs red until a maintainer re-runs the change from a branch in this repository.
 
 Decide at the flip, and prove the chosen rule with a fork PR before closing this entry.
+
+## 611. The weekly ZAP job's docker run images float unpinned — pin them by digest — open
+
+**Status:** open 2026-09-23 — never machine-verified; found reading `.github/workflows/scheduled.yml`.
+
+**Work item:** #393
+
+The `dast-zap` job in `.github/workflows/scheduled.yml` runs two images through `docker run`, not
+`uses:`: `ghcr.io/zaproxy/zaproxy:stable` (the baseline scan) and `curlimages/curl` (the readiness
+poll, implicitly `:latest`). Both float, exactly as they did in the GitLab job. The workflow rule
+that pins every `uses:` to a commit SHA does not reach a `docker run` argument, and Dependabot's
+`github-actions` ecosystem does not watch one either, so an upstream push changes what the weekly
+ZAP run executes with no diff anywhere to review.
+
+The blast radius is small, which is why this is a follow-up rather than a blocker: the job runs on
+the weekly schedule or a manual dispatch, never on a pull request or a push, so it is not a
+required check; ZAP runs with `-I`, so its findings cannot fail it; and it receives no secrets.
+
+Fix shape: pin both references by `@sha256:` digest (keeping the tag in a trailing comment, as the
+`uses:` pins keep the version), and record beside them how to re-resolve a digest — e.g.
+`docker buildx imagetools inspect ghcr.io/zaproxy/zaproxy:stable` — so a deliberate bump stays a
+reviewed one-line diff.

@@ -194,6 +194,17 @@ describe("formatSummaryTable", () => {
       "| `npm run leaks:check` | SKIPPED (LEAK_LIST_FILE unset) |",
     ]);
   });
+
+  it("carries a failing step's note, so an unset env under CI reads apart from the gate's own exit 2", () => {
+    const table = formatSummaryTable([
+      { label: "npm run leaks:check", status: "fail", code: 2, note: "LEAK_LIST_FILE unset under CI" },
+      { label: "npm run followups:index:check", status: "fail", code: 2, note: null },
+    ]);
+    expect(table.split("\n").slice(2)).toEqual([
+      "| `npm run leaks:check` | FAIL (exit 2; LEAK_LIST_FILE unset under CI) |",
+      "| `npm run followups:index:check` | FAIL (exit 2) |",
+    ]);
+  });
 });
 
 describe("resolveWorkers", () => {

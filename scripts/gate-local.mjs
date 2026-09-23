@@ -129,7 +129,7 @@ export function runGates(steps, run, { keepGoing = false, env = {}, log = () => 
 export function formatSummaryTable(results) {
   const cell = (r) => (r.status === "pass" ? "PASS"
     : r.status === "skipped" ? `SKIPPED (${r.note})`
-    : `FAIL (exit ${r.code})`);
+    : `FAIL (exit ${r.code}${r.note ? `; ${r.note}` : ""})`);
   return ["| Step | Result |", "|---|---|", ...results.map((r) => `| \`${r.label}\` | ${cell(r)} |`)].join("\n");
 }
 

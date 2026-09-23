@@ -7,23 +7,144 @@
      Every claim here was true when written and some have outlived their code —
      grep before relying on one, and correct what you disprove in the same commit. -->
 
-> ★★★ **This pipeline no longer runs.** Since the GitHub cut-over the GitLab project reads its CI
-> configuration from `ci/gitlab-sync.yml` and runs only the daily sync. Everything below describes
-> `.gitlab-ci.yml` as the source that migration sub-project 3 ports to GitHub Actions. Until that
-> lands, `npm run gate:local` is the merge gate.
-
-# CI — the GitLab pipeline, job by job
+# CI — GitHub Actions, job by job
 
 [← AGENTS.md](../../AGENTS.md) · [doc set](../../AGENTS.md#the-doc-set--what-lives-where)
 
-Owns the per-job detail of the GitLab pipeline: every quality gate and its exit
-codes, the e2e and prod-smoke jobs, desktop packaging, the release stage, and where the
-`quality-gate-bypass` escape hatch does and does not exist.
+## Required checks
+
+The ruleset on `main` requires exactly these, and `scripts/ci-workflow.test.mjs` fails if this list
+and the job ids in `.github/workflows/ci.yml` differ.
+
+<!-- required-checks:begin -->
+- `static` — every `static` step of `scripts/gate-local.mjs` (`--keep-going`), then actionlint
+- `unit` — `npm run test:coverage`; the coverage floors are vitest's
+- `unit-shuffled` — `npm run test:shuffle`, after `unit`
+- `build` — `npm run build`; publishes `.next/` for prod-smoke
+- `e2e` — `npm run e2e`, including the axe gate
+- `prod-smoke` — `npm run e2e:smoke:prod` over the built `.next/`
+- `semgrep` — ERROR-severity gate; full report as SARIF
+- `audit` — `npm audit --omit=dev --audit-level=high`
+<!-- required-checks:end -->
+
+## Jobs
+
+Two workflows: `.github/workflows/ci.yml` (the required checks) and
+`.github/workflows/scheduled.yml` (weekly, see below). The design and its reasoning are in
+`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`. Read the YAML before relying on
+anything here — every job name, `needs:`, timeout and command below was checked against it when
+written, and nothing re-checks the prose.
+
+`ci.yml` runs on `pull_request` targeting `main` (GitHub checks out the PR's merge ref against current
+`main`), on every push to `main`, and on `workflow_dispatch`. ★★ Concurrency: a pull request's runs
+share one group per ref and a newer push cancels the stale run; a push to `main` is grouped by its own
+commit (`github.sha`) and is never cancelled, because GitHub keeps one PENDING run per group and a
+shared `main` group would silently replace the middle of three quick merges. Workflow-level
+`permissions: contents: read`; only `semgrep` adds `security-events: write`. Every `uses:` is pinned to
+a 40-hex commit SHA (a `docker://` image by digest) with the version in a trailing comment, every
+`actions/checkout` sets `persist-credentials: false`, every job carries `timeout-minutes` and runs on
+`ubuntu-latest`, and every job but `semgrep` installs Node `"24"` with `actions/setup-node` (the
+workflow test pins it to the `engines` floor). `.github/dependabot.yml` keeps
+the action SHAs current weekly; ★ it does NOT cover container digests (semgrep, actionlint), which are
+re-resolved by hand.
+
+- **`static`** (15 min). `npm ci`, then writes the `LEAK_LIST` secret to
+  `$RUNNER_TEMP/leak-list.txt` and exports `LEAK_LIST_FILE` through `$GITHUB_ENV`. An empty or missing
+  secret writes an empty list, and `leaks:check` exits 2 on it — red, never a silent pass. Dependabot
+  PRs read `LEAK_LIST` from Dependabot's own secret store. Then
+  `node scripts/gate-local.mjs --group static --keep-going`: every `static` step of the shared gate
+  list, each one run even after an earlier one fails, with a pass/fail table appended to the step
+  summary and exit 1 if any step failed. ★★ Under CI (env `CI` set) an unset `LEAK_LIST_FILE` FAILS
+  the leak step with code 2; only a local run skips it. A failing row carries its reason when the
+  gate list supplied one, so that case reads `FAIL (exit 2; LEAK_LIST_FILE unset under CI)` while
+  `leaks:check`'s own exit 2 reads `FAIL (exit 2)`. Count the steps rather than trusting a number:
+  `grep -c 's("static"' scripts/gate-local.mjs`. Last, **actionlint** from its container image, pinned
+  by digest, with `if: !cancelled()` so it still runs when the gate step is red. actionlint has no
+  local install; CI is where it is enforced.
+- **`unit`** (45 min). `npm run test:coverage -- --maxWorkers=2 --reporter=default --reporter=junit
+  --outputFile=junit.xml`, piped through `tee unit.log` in a `shell: bash` step — GitHub's default
+  shell has no `pipefail`, and `bash` gives `-eo pipefail`, so a red vitest turns the step red.
+  `scripts/ci-workflow.test.mjs` fails on any piped `run:` step without `shell: bash`. The coverage
+  floors in `vitest.config.ts` are enforced by vitest itself. An always-run summary step appends the
+  "All files" coverage line and up to 50 failing-test lines to the step summary; the artifact
+  `unit-results` (`junit.xml`, `coverage/`) is kept 7 days and uploaded even on failure. No
+  third-party test-reporter action. ★ Both vitest jobs pass `--maxWorkers=2`, one per vCPU of the
+  hosted runner. The first run passed none and took 27 min for `unit` and 30 for `unit-shuffled`: the
+  reported test, setup, import and environment time summed to about the wall time, i.e. one worker.
+  `gate:local` derives its own count from the local CPUs, so the two still do not share a worker
+  layout.
+- **`unit-shuffled`** (45 min, `needs: unit`). `npm run test:shuffle -- --maxWorkers=2` — the same
+  pinned seed as the local command. It waits for `unit` for the reason the GitLab job did: two full vitest runs must never
+  contend for one runner's CPU. On Actions they would sit on different runners, but the dependency
+  still stops a red `unit` from spending another full run nobody can read.
+- **`build`** (15 min). `npm run build`, then uploads `.next/` minus `.next/cache` as the artifact
+  `next-build` (1 day). ★★ `include-hidden-files: true` is load-bearing: `.next` is a hidden directory,
+  `upload-artifact` excludes those by default, and without it `prod-smoke` would fail with "No .next/
+  directory found" for the wrong reason. The workflow test pins the key.
+- **`e2e`** (45 min, `needs: build`). Runs in the container `mcr.microsoft.com/playwright:v1.61.1-jammy`
+  — keep the tag equal to `@playwright/test` in `package-lock.json`; the workflow test checks it.
+  `npx playwright install chromium`, then `npm run e2e`, including the axe gate. It does NOT consume
+  `build`'s artifact: `playwright.config.ts` starts its own `npm run dev` server, so it meets the
+  permissive DEV CSP. `playwright-report/` is uploaded on failure only (7 days).
+- **`prod-smoke`** (15 min, `needs: build`). Same container. Downloads `next-build` into `.next`
+  instead of rebuilding, then `npm run e2e:smoke:prod`. ★★ The ONLY required check that sees the
+  nonce-only prod CSP (`src/proxy.ts`); the legacy section below carries the per-suite reasoning.
+- **`semgrep`** (15 min). Runs in the `semgrep/semgrep` container, pinned by digest, not `:latest`.
+  No `npm ci`. Scan 1 writes the full report (`p/typescript`, `p/react`, `p/owasp-top-ten`) as
+  `semgrep.sarif` and does not fail on findings; scan 2 runs the same configs with
+  `--severity ERROR --error`, which is the gate. The SARIF is uploaded as `semgrep-sarif` (7 days,
+  always). A last step, `github/codeql-action/upload-sarif` (v4.38.1), runs only
+  `if: always() && !github.event.repository.private`: code scanning refuses SARIF from a private
+  repository without Advanced Security, so the step switches itself on at the visibility flip.
+- **`audit`** (10 min). `npm audit --omit=dev --audit-level=high`. It reads `package-lock.json` only,
+  so it runs no `npm ci` and uses no npm cache.
+
+★ The risk the design names is the 2-vCPU private runner: if `unit` runs past ~25 min, split it with
+vitest `--shard` across two jobs. That needs merged coverage reports for the floors, which is why it
+was not done up front.
+
+## Weekly
+
+`scheduled.yml` runs on cron `0 3 * * 1` (Monday 03:00 UTC) and on `workflow_dispatch`. Nothing waits
+on it and none of its jobs is a required check: a red run is the signal.
+
+- **`audit-full`** (10 min). `npm audit --audit-level=low`, dev dependencies included.
+- **`unit-shuffled-random`** (45 min). Echoes the seed (`github.run_id`) with its reproduce command
+  (`npx vitest run --sequence.shuffle --sequence.seed=<id>`) BEFORE the run, then
+  `npm run test:run -- --sequence.shuffle --sequence.seed=<id> --reporter=dot`, so a red result can be
+  replayed.
+- **`dast-zap`** (30 min). Hosted runners have Docker, so no Docker-in-Docker service: builds
+  `Dockerfile.dast`, starts the app on a user-defined network, polls it for up to 60 × 3 s, runs the
+  ZAP baseline with `-I` (ZAP's findings do not fail the job; an infrastructure failure still does),
+  and uploads `zap-out/` — `zap-report.html` and `zap-report.json` — as `zap-report` (7 days, always).
+  ★ The two `docker run` images, `ghcr.io/zaproxy/zaproxy:stable` and `curlimages/curl`, float
+  UNPINNED, as they did on GitLab: the pinning rule covers `uses:` only, and Dependabot does not
+  watch a `docker run` argument. Pinning them by digest is open as `docs/open-followups.md` §611.
+  ★★ Never validated on any CI
+  before this workflow; its first manual dispatch is a rollout step, not an assumption.
+
+## Operating it
+
+- **Merging:** push → `gh pr create` → wait for the eight checks → `gh pr merge --merge
+  --match-head-commit <sha>`. Never `--auto`. `npm run gate:local` stays useful as the pre-push check,
+  and is no longer the merge gate.
+- **A red check:** read the job's step summary first. `static` lists every failing step, and for the
+  register gates exit 1 means drift and exit 2 means the gate could not scan, as before.
+- **Minutes exhausted:** checks cannot complete, so merging is blocked. Fallback: run
+  `npm run gate:local` (with `LEAK_LIST_FILE` set), merge with the admin bypass, and note the bypass
+  and the gate line (`gate:local PASS at <sha>`) in the PR. The next month's first push to `main`
+  re-runs everything.
+
+## Legacy — the GitLab pipeline (no longer runs)
+
+Kept for its per-gate reasoning, most of which still applies because the gates themselves did not
+change. GitLab reads only `ci/gitlab-sync.yml`; `.gitlab-ci.yml` remains in the tree because
+`release-publish-lib.test.mjs` reads it, until migration sub-project 5.
 
 ★ Moved VERBATIM out of `AGENTS.md`'s "Hard constraints" section on 2026-09-13 — only link targets changed, plus one line citation converted to a symbol and a grep. Positional words inside the moved text ("this file", "above", "below", "in Commands") still
 describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short pointer bullet.
 
-## The "CI is GitLab" hard constraint
+### The "CI is GitLab" hard constraint
 
 - **CI is GitLab** (not GitHub). Pipeline: install → quality (lint · typecheck · **semgrep** SAST
   BLOCKING [two-scan: a full-severity `--gitlab-sast` report for the widget + a separate `--severity ERROR

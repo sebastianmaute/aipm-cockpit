@@ -1,0 +1,8 @@
+# Keeps the SHA-pinned actions current. Container digests (semgrep, actionlint) are not covered by
+# this ecosystem; re-resolve them by hand (see the plan's Task 3 Step 1 command).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
