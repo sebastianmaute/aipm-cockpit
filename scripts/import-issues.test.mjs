@@ -79,6 +79,22 @@ function writeLeakList(text) {
   return p;
 }
 
+// A stand-in `glab` a test can point the CLI at via IMPORT_ISSUES_TEST_FAKE_GLAB, so a guard
+// test cannot silently pass by falling through to a real `glab`/network call — see
+// import-issues.mjs's own comment on that env var for why a PATH-shadowed `.cmd`/`.bat`
+// binary isn't used instead (it can't be exec'd without a shell on Windows).
+const FAKE_GLAB_MARKER = "FAKE-GLAB-CALLED";
+
+function writeFakeGlab() {
+  const p = path.join(dir, "fake-glab.mjs");
+  writeFileSync(p, `console.error(${JSON.stringify(FAKE_GLAB_MARKER)});\nprocess.exit(2);\n`);
+  return p;
+}
+
+function currentRegisterSha() {
+  return execFileSync("git", ["hash-object", "docs/open-followups.md"], { cwd: dir, encoding: "utf8" }).trim();
+}
+
 afterEach(() => {
   if (dir) rmSync(dir, { recursive: true, force: true });
   dir = undefined;
@@ -194,16 +210,46 @@ describe("import-issues --apply guards (no network — pass GH_TOKEN=dummy so gh
 
   it("refuses (exit 1) a plan whose registerSha no longer matches the register, before any client is built", () => {
     seedRepo(REG_BASE);
+    const fakeGlab = writeFakeGlab();
     const planPath = writeJson("plan.json", {
       ...validPlanBase,
       registerSha: "0".repeat(40),
       leak: { hitLines: 0, classes: {}, actionsHit: [] },
     });
 
-    const r = run(["--apply", "--plan", planPath, "--repo", "o/r"], { GH_TOKEN: "dummy" });
+    const r = run(["--apply", "--plan", planPath, "--repo", "o/r"], {
+      GH_TOKEN: "dummy",
+      IMPORT_ISSUES_TEST_FAKE_GLAB: fakeGlab,
+    });
 
     expect(r.code, r.all).toBe(1);
     expect(r.err.toLowerCase()).toContain("register");
+    // Hardens the test against a mutation that deletes the registerSha guard: this
+    // fixture's repoUrl matches --repo, so execution would otherwise fall through to the
+    // maxNumber-vs-GitLab glab call. The fake glab's marker being absent proves that never
+    // happened — under the real (unmutated) code the sha guard fires first.
+    expect(r.all).not.toContain(FAKE_GLAB_MARKER);
+  });
+
+  it("refuses (exit 1) a plan whose repoUrl does not match --repo, before any client is built", () => {
+    seedRepo(REG_BASE);
+    const fakeGlab = writeFakeGlab();
+    const planPath = writeJson("plan.json", {
+      ...validPlanBase,
+      registerSha: currentRegisterSha(),
+      repoUrl: "https://github.com/o/other",
+      leak: { hitLines: 0, classes: {}, actionsHit: [] },
+    });
+
+    const r = run(["--apply", "--plan", planPath, "--repo", "o/r"], {
+      GH_TOKEN: "dummy",
+      IMPORT_ISSUES_TEST_FAKE_GLAB: fakeGlab,
+    });
+
+    expect(r.code, r.all).toBe(1);
+    expect(r.err).toContain("o/r");
+    expect(r.err).toContain("o/other");
+    expect(r.all).not.toContain(FAKE_GLAB_MARKER);
   });
 
   it("exits 2 when --resume is given without --apply", () => {
@@ -215,6 +261,80 @@ describe("import-issues --apply guards (no network — pass GH_TOKEN=dummy so gh
     expect(r.code, r.all).toBe(2);
     expect(r.err).toMatch(/CANNOT RUN/);
     expect(r.err).toMatch(/--resume/);
+  });
+});
+
+describe("import-issues --apply re-scans the plan's own actions for a leak", () => {
+  const validPlanBase = {
+    version: 1,
+    createdAt: "2026-09-23",
+    maxNumber: 1,
+    pointerStyle: "anchor",
+    repoUrl: "https://github.com/o/r",
+    counts: { open: 0, stub: 0, placeholder: 1 },
+    actions: [{ n: 1, kind: "placeholder", title: "placeholder (deleted after import)", body: "", labels: [] }],
+  };
+
+  it("exits 2 when LEAK_LIST_FILE is unset, after the recorded-leak/sha/repo guards pass", () => {
+    seedRepo(REG_BASE);
+    const planPath = writeJson("plan.json", {
+      ...validPlanBase,
+      registerSha: currentRegisterSha(),
+      leak: { hitLines: 0, classes: {}, actionsHit: [] },
+    });
+
+    const r = run(["--apply", "--plan", planPath, "--repo", "o/r"], { GH_TOKEN: "dummy" });
+
+    expect(r.code, r.all).toBe(2);
+    expect(r.err).toMatch(/CANNOT RUN/);
+    expect(r.err).toMatch(/LEAK_LIST_FILE/);
+  });
+
+  it("refuses (exit 1) when a live re-scan finds a leak the plan's recorded leak.hitLines missed", () => {
+    seedRepo(REG_BASE);
+    const leakList = writeLeakList(`# fictional\n@${CLASS} ${SECRET}\n`);
+    const planPath = writeJson("plan.json", {
+      ...validPlanBase,
+      registerSha: currentRegisterSha(),
+      leak: { hitLines: 0, classes: {}, actionsHit: [] }, // stale: recorded as clean
+      actions: [{ n: 1, kind: "open", title: `§3: ${SECRET} leaked`, body: "clean body", labels: [] }],
+    });
+
+    const r = run(["--apply", "--plan", planPath, "--repo", "o/r"], { GH_TOKEN: "dummy", LEAK_LIST_FILE: leakList });
+
+    expect(r.code, r.all).toBe(1);
+    expect(r.err).toContain("#1");
+    expect(r.all.toLowerCase()).not.toContain(SECRET.toLowerCase());
+  });
+});
+
+describe("import-issues --close-gitlab guards (no network — pass GH_TOKEN=dummy so gh is never called)", () => {
+  it("refuses (exit 1) a plan whose repoUrl does not match --repo, before any glab call", () => {
+    seedRepo(REG_BASE);
+    const fakeGlab = writeFakeGlab();
+    const planPath = writeJson("plan.json", {
+      version: 1,
+      createdAt: "2026-09-23",
+      registerSha: "0".repeat(40),
+      maxNumber: 2,
+      pointerStyle: "anchor",
+      repoUrl: "https://github.com/o/other",
+      counts: { open: 1, stub: 0, placeholder: 0 },
+      leak: { hitLines: 0, classes: {}, actionsHit: [] },
+      // An "open" action so a guard-deletion mutation would actually reach `gitlab.get()`
+      // (closeOnGitLab skips every non-"open" action), making the fake-glab check meaningful.
+      actions: [{ n: 2, kind: "open", title: "§3: three", body: "b", labels: [] }],
+    });
+
+    const r = run(["--close-gitlab", "--plan", planPath, "--repo", "o/r"], {
+      GH_TOKEN: "dummy",
+      IMPORT_ISSUES_TEST_FAKE_GLAB: fakeGlab,
+    });
+
+    expect(r.code, r.all).toBe(1);
+    expect(r.err).toContain("o/r");
+    expect(r.err).toContain("o/other");
+    expect(r.all).not.toContain(FAKE_GLAB_MARKER);
   });
 });
 

@@ -24,16 +24,23 @@
 // `resume: true` so a crashed run can be replayed onto the issues it already created.
 //
 // `--apply`'s guards run in this order, all before any client is built or any network call:
-// the plan's own leak scan, its registerSha against the live register, and its repoUrl
-// against `--repo` — all local; only then the one `glab` call comparing the plan's maxNumber
-// against GitLab's live highest issue number (still before any GitHub call). Any of these
-// failing is a refusal (exit 1), not a crash.
+// the plan's own recorded leak scan, its registerSha against the live register, its repoUrl
+// against `--repo`, and a fresh re-scan of the plan's actions for a leak (defence against a
+// plan hand-edited after `--plan` wrote it) — all local; only then a paged `glab` listing
+// (the same one `--plan` uses) to find GitLab's live highest issue number and compare it
+// against the plan's maxNumber (still before any GitHub call). `--close-gitlab` runs the
+// same repoUrl-vs-`--repo` check, before its own first `glab` call — it is not idempotent to
+// recover from a wrong repo, since it comments on and closes the GitLab originals. Any of
+// these failing is a refusal (exit 1), not a crash.
 //
 // GH_TOKEN, if set, is used as the GitHub token; otherwise `gh auth token` supplies it. The
-// token is never logged, and any GitHub API error body echoed here has it redacted first.
+// token is never logged, and any GitHub API error body echoed here has it redacted first
+// (before being capped to 500 characters, so a token straddling the cut can't leak a tail).
 //
-// LEAK_LIST_FILE must name the identifier list (kept outside the repo) or the command exits 2
-// (checked by `--plan` only; `--apply`/`--close-gitlab` don't leak-scan — the plan already did).
+// LEAK_LIST_FILE must name the identifier list (kept outside the repo) or the command exits
+// 2. Checked by `--plan` (the planned actions) and again by `--apply` (a live re-scan of the
+// plan file's actions, in case it was edited after `--plan` wrote it); `--close-gitlab`
+// doesn't leak-scan — it posts no new text, only a fixed "moved to GitHub #N" comment.
 //
 // EXIT CODES:
 //   0  the plan was written / applied / the GitLab originals were closed
@@ -46,7 +53,7 @@
 //      by `--plan` are imported dynamically inside the try below
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
-import { parseNextLink, retryAfterMs, toTrackerIssue } from "./github-issues-lib.mjs";
+import { graphQLRateLimitMs, parseNextLink, redactAndCap, retryAfterMs, toTrackerIssue } from "./github-issues-lib.mjs";
 import { applyPlan, closeOnGitLab, RateLimited, Refused } from "./issue-import-apply.mjs";
 
 const REGISTER = "docs/open-followups.md";
@@ -58,6 +65,20 @@ const VALUE_FLAGS = { "--out": "out", "--repo": "repo", "--pointer": "pointer", 
 const REPO_RE = /^[^\s/]+\/[^\s/]+$/;
 
 class CannotRun extends Error {}
+
+// Test-only hook: when set, every `glab` call below runs `node <this path> <args>` instead
+// of the real `glab` binary. This exists so a test can prove a guard fires before any real
+// `glab`/network call, WITHOUT depending on whether the test machine happens to have `glab`
+// on PATH (it may well be installed and authenticated in a dev/CI environment) and without
+// needing a shell (a `.cmd`/`.bat` shim for a fake `glab` cannot be exec'd directly on
+// Windows without one, and these calls deliberately use no shell). Never set this outside a
+// test.
+const FAKE_GLAB = process.env.IMPORT_ISSUES_TEST_FAKE_GLAB;
+
+function runGlab(args) {
+  if (FAKE_GLAB) return execFileSync(process.execPath, [FAKE_GLAB, ...args], { encoding: "utf8" });
+  return execFileSync("glab", args, { encoding: "utf8" });
+}
 
 function parseArgs(argv) {
   const modes = [];
@@ -144,9 +165,7 @@ function fetchGitlabIssuesFromApi() {
   for (;;) {
     let out;
     try {
-      out = execFileSync("glab", ["api", `projects/:id/issues?state=all&per_page=${PER_PAGE}&page=${page}`], {
-        encoding: "utf8",
-      });
+      out = runGlab(["api", `projects/:id/issues?state=all&per_page=${PER_PAGE}&page=${page}`]);
     } catch (err) {
       throw new CannotRun(`glab api page ${page} failed (${err.message.split("\n")[0]}).`);
     }
@@ -298,28 +317,22 @@ function repoFromUrl(repoUrl) {
 // issue number must not have grown past the plan's maxNumber since the plan was written,
 // or a placeholder/open/stub number the plan assigned could collide with a real GitLab
 // issue nobody has imported yet.
+//
+// This does NOT sort server-side by iid: GitLab's List project issues endpoint does not
+// accept `order_by=iid` (confirmed against a real GitLab instance — Grape rejects it with
+// a 400; its documented `order_by` values are created_at/due_date/label_priority/
+// milestone_due/popularity/priority/relative_position/title/updated_at/weight). Instead
+// this reuses the same paged, capped `state=all` listing `--plan` already implements
+// (`fetchGitlabIssuesFromApi`) and takes the max iid client-side, which is correct
+// regardless of server-side ordering.
 function fetchGitlabHighestIssueNumber() {
-  let out;
-  try {
-    out = execFileSync("glab", ["api", "projects/:id/issues?state=all&order_by=iid&sort=desc&per_page=1"], {
-      encoding: "utf8",
-    });
-  } catch (err) {
-    throw new CannotRun(`glab api (highest issue number) failed (${err.message.split("\n")[0]}).`);
+  let highest = 0;
+  for (const raw of fetchGitlabIssuesFromApi()) {
+    const iid = raw?.iid;
+    if (!Number.isInteger(iid)) throw new CannotRun("a GitLab issue in the listing lacks an integer iid.");
+    if (iid > highest) highest = iid;
   }
-  let batch;
-  try {
-    batch = JSON.parse(out);
-  } catch {
-    throw new CannotRun("glab api (highest issue number) did not return JSON.");
-  }
-  if (!Array.isArray(batch)) throw new CannotRun("glab api (highest issue number) did not return a JSON array.");
-  if (batch.length === 0) return 0;
-  const iid = batch[0]?.iid;
-  if (!Number.isInteger(iid)) {
-    throw new CannotRun("glab api (highest issue number) returned an issue without an integer iid.");
-  }
-  return iid;
+  return highest;
 }
 
 function realSleep(ms) {
@@ -333,10 +346,6 @@ function getGithubToken() {
   } catch (err) {
     throw new CannotRun(`gh auth token failed (${err.message.split("\n")[0]}).`);
   }
-}
-
-function redactToken(text, token) {
-  return token ? text.split(token).join("[REDACTED]") : text;
 }
 
 async function githubRequest(url, token, { method = "GET", body } = {}) {
@@ -356,7 +365,9 @@ async function githubRequest(url, token, { method = "GET", body } = {}) {
     const retry = retryAfterMs(res.status, res.headers);
     let bodyText = "";
     try {
-      bodyText = redactToken((await res.text()).slice(0, 500), token);
+      // Redact THEN cap — capping first can leave a token's tail exposed when it straddles
+      // the 500-character cut (see github-issues-lib.mjs's redactAndCap docstring).
+      bodyText = redactAndCap(await res.text(), token);
     } catch {
       // leave bodyText empty — nothing more to report
     }
@@ -370,7 +381,10 @@ async function githubGraphQL(token, query, variables) {
   const res = await githubRequest(`${GITHUB_API}/graphql`, token, { method: "POST", body: { query, variables } });
   const json = await res.json();
   if (Array.isArray(json.errors) && json.errors.length > 0) {
-    throw new Error(`GitHub GraphQL error: ${redactToken(JSON.stringify(json.errors).slice(0, 500), token)}`);
+    const rateLimitMs = graphQLRateLimitMs(json.errors, res.headers);
+    const errorText = redactAndCap(JSON.stringify(json.errors), token);
+    if (rateLimitMs !== null) throw new RateLimited(`GitHub GraphQL rate limited: ${errorText}`, rateLimitMs);
+    throw new Error(`GitHub GraphQL error: ${errorText}`);
   }
   return json.data;
 }
@@ -419,13 +433,20 @@ function makeGitHubClient(repo, token) {
         await githubRequest(`${GITHUB_API}/repos/${repo}/labels`, token, { method: "POST", body: { name: labelName } });
       }
     },
+    // Both `createIssue` and `closeIssue` pace themselves at 1100ms — GitHub's secondary
+    // rate limit on content-generating requests. A full run of the spec's own counts is
+    // roughly 397 creates + 92 closes + 37 deletes + ~23 labels — about 530 writes, above
+    // the documented 500-per-hour secondary limit, so expect at least one 403/429 with a
+    // `retry-after`; `withRetry` (issue-import-apply.mjs) waits it out, and `--resume`
+    // covers a hard stop if the process dies instead.
     async createIssue({ title, body, labels }) {
       const res = await githubRequest(`${GITHUB_API}/repos/${repo}/issues`, token, {
         method: "POST",
         body: { title, body, labels },
       });
       const data = await res.json();
-      // GitHub's secondary rate limit on content creation — pace every create, success or not.
+      // Only a SUCCESSFUL create paces itself — a failed create throws out of `githubRequest`
+      // before this line, and its own retry (via `withRetry`) already carries a wait.
       await realSleep(1100);
       return { number: data.number, nodeId: data.node_id };
     },
@@ -434,6 +455,7 @@ function makeGitHubClient(repo, token) {
         method: "PATCH",
         body: { state: "closed", state_reason: "not_planned" },
       });
+      await realSleep(1100);
     },
     async deleteIssue(nodeId) {
       await githubGraphQL(token, "mutation($id:ID!){deleteIssue(input:{issueId:$id}){clientMutationId}}", { id: nodeId });
@@ -443,7 +465,7 @@ function makeGitHubClient(repo, token) {
 
 function glabApiCall(iid, args) {
   try {
-    return execFileSync("glab", args, { encoding: "utf8" });
+    return runGlab(args);
   } catch {
     // Nothing of the response is printed here except the iid — the underlying `glab`
     // error can carry response bodies we don't want to echo.
@@ -475,14 +497,33 @@ function makeGitLabClient() {
   };
 }
 
+// Re-scans the plan's OWN actions with the live identifier-leak list, independent of the
+// plan file's self-reported `leak` field (defence in depth: a plan edited by hand after
+// `--plan` wrote it — to fix a title, say — carries whatever `leak.hitLines` the planner
+// last computed, not a re-check of the edit). Same exit codes as `--plan`'s own leak check:
+// CannotRun (exit 2) if LEAK_LIST_FILE is unset/unreadable/malformed, Refused (exit 1) on
+// any hit.
+async function rescanPlanLeak(plan) {
+  const { leakCheckPlan } = await import("./issue-import-lib.mjs");
+  const patterns = await loadPatterns();
+  const leak = leakCheckPlan(plan.actions, patterns);
+  if (leak.hitLines > 0) {
+    throw new Refused(
+      `re-scanning the plan's actions found ${leak.hitLines} leak hit line(s) across ` +
+        `#${leak.actionsHit.join(", #")} — the plan file may have been edited after \`--plan\` wrote it; ` +
+        "regenerate it.",
+    );
+  }
+}
+
 async function applyMode(opts) {
   if (!opts.planFile) throw new CannotRun("--plan is required.");
   if (!opts.repo || !REPO_RE.test(opts.repo)) throw new CannotRun("--repo must be owner/name.");
 
   const plan = readPlanFile(opts.planFile);
 
-  // These three guards need no network at all — they run first, and in any order among
-  // themselves, but always before the one glab call below and before any GitHub call.
+  // These local guards need no network at all — they run first, in this order, always
+  // before the paged `glab` listing below and before any GitHub call.
   if (plan.leak.hitLines !== 0) {
     throw new Refused(
       `the plan has ${plan.leak.hitLines} leak hit line(s) across #${plan.leak.actionsHit?.join(", #")} — ` +
@@ -500,8 +541,10 @@ async function applyMode(opts) {
   if (opts.repo !== planRepo) {
     throw new Refused(`--repo ${opts.repo} does not match the plan's repo ${planRepo}.`);
   }
+  await rescanPlanLeak(plan);
 
-  // Needs `glab`, so it runs after the three checks above, but still before any GitHub call.
+  // Needs `glab` (a paged listing, not a single call — see fetchGitlabHighestIssueNumber's
+  // own comment), so it runs after every local check above, but still before any GitHub call.
   const gitlabHighest = fetchGitlabHighestIssueNumber();
   if (plan.maxNumber < gitlabHighest) {
     throw new Refused(
@@ -521,6 +564,14 @@ async function closeGitlabMode(opts) {
   if (!opts.repo || !REPO_RE.test(opts.repo)) throw new CannotRun("--repo must be owner/name.");
 
   const plan = readPlanFile(opts.planFile);
+  // Same repo-match guard `--apply` runs, before any glab call: this step comments on and
+  // closes GitLab issues with a link to `--repo`'s GitHub URL, and is not idempotent to
+  // recover from — a typo'd `--repo` would post and close against the wrong repository.
+  const planRepo = repoFromUrl(plan.repoUrl);
+  if (opts.repo !== planRepo) {
+    throw new Refused(`--repo ${opts.repo} does not match the plan's repo ${planRepo}.`);
+  }
+
   const githubUrl = `https://github.com/${opts.repo}`;
   const gitlab = makeGitLabClient();
   const result = await closeOnGitLab(plan.actions, gitlab, { githubUrl, log: console.log });

@@ -34,13 +34,12 @@ export function toTrackerIssue(raw) {
   return { iid, title: raw.title, labels };
 }
 
-/** How long to wait before retrying a rate-limited GitHub response, or null when the
- *  response isn't a rate limit at all (only 403/429 ever are). Covers both shapes
- *  GitHub uses: a `retry-after` header in seconds, or the primary limit's
- *  `x-ratelimit-remaining: 0` + `x-ratelimit-reset` (a Unix seconds timestamp) — the
- *  clock is an explicit parameter so the test is not time-dependent. */
-export function retryAfterMs(status, headers, now = Date.now()) {
-  if (status !== 403 && status !== 429) return null;
+/** The shared header-reading half of a rate-limit wait: a `retry-after` header in
+ *  seconds, or the primary limit's `x-ratelimit-remaining: 0` + `x-ratelimit-reset` (a
+ *  Unix seconds timestamp). Returns null when neither header says anything. Not
+ *  exported — `retryAfterMs` gates it on the response status; `graphQLRateLimitMs` below
+ *  needs it un-gated, since GitHub answers a rate-limited GraphQL call with HTTP 200. */
+function retryAfterFromHeaders(headers, now) {
   const retryAfter = headers.get("retry-after");
   if (retryAfter !== null) {
     const secs = Number(retryAfter);
@@ -53,4 +52,35 @@ export function retryAfterMs(status, headers, now = Date.now()) {
     if (Number.isFinite(resetMs)) return Math.max(0, resetMs - now);
   }
   return null;
+}
+
+/** How long to wait before retrying a rate-limited GitHub response, or null when the
+ *  response isn't a rate limit at all (only 403/429 ever are). Covers both shapes
+ *  GitHub uses: a `retry-after` header in seconds, or the primary limit's
+ *  `x-ratelimit-remaining: 0` + `x-ratelimit-reset` (a Unix seconds timestamp) — the
+ *  clock is an explicit parameter so the test is not time-dependent. */
+export function retryAfterMs(status, headers, now = Date.now()) {
+  if (status !== 403 && status !== 429) return null;
+  return retryAfterFromHeaders(headers, now);
+}
+
+const GRAPHQL_RATE_LIMIT_DEFAULT_MS = 60_000;
+
+/** Whether a GraphQL response's `errors` array reports a rate limit, and how long to
+ *  wait: GitHub answers a rate-limited GraphQL request with HTTP 200 and an
+ *  `errors[].type === "RATE_LIMITED"` entry, never 403/429, so `retryAfterMs`'s status
+ *  gate never fires for it. Uses the response's own retry-after-style headers when
+ *  present, else a 60 s default (GitHub does not document a header for this case).
+ *  Returns null when `errors` isn't a rate limit at all. */
+export function graphQLRateLimitMs(errors, headers, now = Date.now()) {
+  if (!Array.isArray(errors) || !errors.some((e) => e && e.type === "RATE_LIMITED")) return null;
+  return retryAfterFromHeaders(headers, now) ?? GRAPHQL_RATE_LIMIT_DEFAULT_MS;
+}
+
+/** Redact a GitHub token out of response-body text, THEN cap it to `capLength`
+ *  characters — in that order. Capping first and redacting second (the bug this fixes)
+ *  can leave a token's tail exposed when it straddles the cut point. */
+export function redactAndCap(text, token, capLength = 500) {
+  const redacted = token ? text.split(token).join("[REDACTED]") : text;
+  return redacted.slice(0, capLength);
 }

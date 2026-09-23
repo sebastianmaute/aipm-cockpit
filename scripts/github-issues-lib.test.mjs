@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseNextLink, retryAfterMs, toTrackerIssue } from "./github-issues-lib.mjs";
+import { graphQLRateLimitMs, parseNextLink, redactAndCap, retryAfterMs, toTrackerIssue } from "./github-issues-lib.mjs";
 
 describe("parseNextLink", () => {
   it("returns the page-2 URL from a Link header naming next and last", () => {
@@ -47,5 +47,41 @@ describe("retryAfterMs", () => {
   });
   it("returns null for a plain 403 with no rate-limit headers", () => {
     expect(retryAfterMs(403, new Headers())).toBeNull();
+  });
+});
+
+describe("redactAndCap", () => {
+  it("redacts the token before capping, so a token straddling the cut never leaks", () => {
+    const token = "ghp_SECRETTOKEN1234567890";
+    // The cut lands mid-token if the naive slice-then-redact order is used: 490 filler
+    // characters, then the 26-character token, is 516 characters — past the 500 cap.
+    const text = "x".repeat(490) + token + "y".repeat(50);
+    const capped = redactAndCap(text, token, 500);
+    expect(capped).not.toContain(token);
+    expect(capped.length).toBeLessThanOrEqual(500);
+    expect(capped).toContain("[REDACTED]");
+  });
+  it("caps at 500 characters by default when there is no token to redact", () => {
+    const text = "z".repeat(600);
+    expect(redactAndCap(text, null)).toHaveLength(500);
+  });
+  it("leaves text under the cap untouched apart from redaction", () => {
+    expect(redactAndCap("short body", "unused-token")).toBe("short body");
+  });
+});
+
+describe("graphQLRateLimitMs", () => {
+  it("returns null when no error is RATE_LIMITED", () => {
+    expect(graphQLRateLimitMs([{ type: "NOT_FOUND" }], new Headers())).toBeNull();
+  });
+  it("returns null for a non-array errors value", () => {
+    expect(graphQLRateLimitMs(undefined, new Headers())).toBeNull();
+  });
+  it("defaults to 60 s when RATE_LIMITED and no retry-after-style header is present", () => {
+    expect(graphQLRateLimitMs([{ type: "RATE_LIMITED", message: "slow down" }], new Headers())).toBe(60_000);
+  });
+  it("uses a retry-after header when present, even though the response is a 200", () => {
+    const headers = new Headers({ "retry-after": "5" });
+    expect(graphQLRateLimitMs([{ type: "RATE_LIMITED" }], headers)).toBe(5000);
   });
 });
