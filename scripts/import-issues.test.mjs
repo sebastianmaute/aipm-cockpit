@@ -103,6 +103,10 @@ afterEach(() => {
 function run(args, env = {}) {
   const childEnv = { ...process.env, ...env };
   if (!("LEAK_LIST_FILE" in env)) delete childEnv.LEAK_LIST_FILE;
+  // `VITEST` is inherited from this worker process by default (vitest sets it to "true"),
+  // which is what lets IMPORT_ISSUES_TEST_FAKE_GLAB work in the guard tests above. A test
+  // that needs to simulate running OUTSIDE vitest passes `VITEST: null` to strip it.
+  if (env.VITEST === null) delete childEnv.VITEST;
   const r = spawnSync(process.execPath, [CLI, ...args], { cwd: dir, env: childEnv, encoding: "utf8" });
   return { code: r.status, out: r.stdout, err: r.stderr, all: r.stdout + r.stderr };
 }
@@ -334,6 +338,22 @@ describe("import-issues --close-gitlab guards (no network — pass GH_TOKEN=dumm
     expect(r.code, r.all).toBe(1);
     expect(r.err).toContain("o/r");
     expect(r.err).toContain("o/other");
+    expect(r.all).not.toContain(FAKE_GLAB_MARKER);
+  });
+});
+
+describe("import-issues IMPORT_ISSUES_TEST_FAKE_GLAB is refused outside vitest", () => {
+  it("exits 2 with the exact refusal message when the hook is set and VITEST is not, before any argument parsing or glab call", () => {
+    seedRepo(REG_BASE);
+    const fakeGlab = writeFakeGlab();
+
+    const r = run([], { GH_TOKEN: "dummy", IMPORT_ISSUES_TEST_FAKE_GLAB: fakeGlab, VITEST: null });
+
+    expect(r.code, r.all).toBe(2);
+    expect(r.err).toContain("IMPORT_ISSUES_TEST_FAKE_GLAB is a test-only hook and is refused outside vitest");
+    // The fake glab must never even run — this check precedes argument parsing entirely, so
+    // it fires regardless of mode, and its absence here proves no fallback to a real `glab`
+    // (which isn't on this test machine's PATH either — see the module header) was attempted.
     expect(r.all).not.toContain(FAKE_GLAB_MARKER);
   });
 });

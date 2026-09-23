@@ -73,10 +73,25 @@ class CannotRun extends Error {}
 // needing a shell (a `.cmd`/`.bat` shim for a fake `glab` cannot be exec'd directly on
 // Windows without one, and these calls deliberately use no shell). Never set this outside a
 // test.
+//
+// GATED on `VITEST` (vitest sets this in its own process, and a CLI spawned from a test
+// inherits it): the bare env-var check alone would otherwise substitute for `glab` in a REAL
+// `--apply`/`--close-gitlab` run too, if the variable were ever set outside a test (a
+// forgotten export from a local session, a copied `.env`, an inherited CI variable) — silently
+// defeating both the maxNumber-vs-GitLab guard (an empty fake listing reads as "0 issues",
+// which passes for any maxNumber) and every GitLab write `--close-gitlab` makes (comments and
+// closes would be silently redirected while the tool reports success). `assertFakeGlabHookAllowed`
+// below refuses loudly instead of falling back silently when the hook is set without `VITEST`.
 const FAKE_GLAB = process.env.IMPORT_ISSUES_TEST_FAKE_GLAB;
 
+function assertFakeGlabHookAllowed() {
+  if (FAKE_GLAB && !process.env.VITEST) {
+    throw new CannotRun("IMPORT_ISSUES_TEST_FAKE_GLAB is a test-only hook and is refused outside vitest");
+  }
+}
+
 function runGlab(args) {
-  if (FAKE_GLAB) return execFileSync(process.execPath, [FAKE_GLAB, ...args], { encoding: "utf8" });
+  if (FAKE_GLAB && process.env.VITEST) return execFileSync(process.execPath, [FAKE_GLAB, ...args], { encoding: "utf8" });
   return execFileSync("glab", args, { encoding: "utf8" });
 }
 
@@ -580,6 +595,9 @@ async function closeGitlabMode(opts) {
 }
 
 async function main() {
+  // Checked before anything else, including argument parsing: a misconfigured test-only
+  // hook must never silently fall through to a real `glab` call in any mode.
+  assertFakeGlabHookAllowed();
   const opts = parseArgs(process.argv.slice(2));
   if (opts.mode === "plan") return planMode(opts);
   if (opts.mode === "apply") return applyMode(opts);
