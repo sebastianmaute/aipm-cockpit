@@ -89,6 +89,10 @@ Cut over **private**. The visibility flip is deferred to the end of the roadmap.
 ### 3. CI → GitHub Actions
 
 **Status 2026-09-23:** designed (2026-09-23-github-actions-ci-design.md); in rollout.
+**Status 2026-09-23 (later):** rolled out. Every blocking gate runs on GitHub Actions, and the
+eight jobs are required checks on `main`. What was done, with run ids:
+[Executed 2026-09-23](2026-09-23-github-actions-ci-design.md#executed-2026-09-23). Register §200
+did NOT close in this sub-project; it now waits on the flip (see "Ordering, and the one-way door").
 
 26 jobs to re-express. Most are a syntax port; five are not, and they are the cost:
 
@@ -125,7 +129,8 @@ register is the real record.
 ★★★ **Requirement from sub-project 3 (§200 closed there):** GitLab issue titles, bodies and comments
 very likely carry internal hosts, the employer's name and work addresses, and imported issues become
 public at the flip. The import must run the leak scan over the issue text and clean it BEFORE
-import. Nothing else tracks this once §200 is closed.
+import. Nothing else tracks this once §200 is closed. *(2026-09-23: §200 did not close in
+sub-project 3. It stays open and records this requirement too.)*
 
 ### 5. Releases, tags, and the update feed
 
@@ -156,6 +161,15 @@ undone: a clone taken inside the window keeps whatever was exposed, forever. Seq
 costs nothing — CI, issues and releases can all be built and proven against a private GitHub
 repo — and it means the irreversible action happens when the system is finished and quiet rather
 than while it is half-built.
+
+★★★ **Requirement for the flip, added 2026-09-23 (§200): the rewritten history goes to a FRESHLY
+CREATED repository.** Seven assistant session-trailer lines reached `main` through PRs #4 and #5,
+and GitHub keeps them reachable through `refs/pull/*`, which the owner cannot delete. Rewriting
+`main` in place therefore cannot remove them, for the same reason sub-project 2 recreated the
+mirror rather than force-pushing over it. So before the flip, push history rewritten to drop those
+lines to a new, empty repository, and re-run
+`node scripts/verify-rewrite.mjs --repo <mirror of it> --allow <allowlist> --expect clean` against
+it. §200 closes only when that run passes.
 
 ## Verification principles carried by every sub-project
 
