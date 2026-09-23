@@ -5,7 +5,7 @@
 // EXIT CODES:
 //   0  REGISTER_SYNC_TOKEN is unset or empty (a clean skip, checked FIRST so a
 //      local run without a token never fails), or the register and GitLab agree
-//   1  DRIFT: at least one problem from compareWithGitLab — fix the Work item
+//   1  DRIFT: at least one problem from compareWithTracker — fix the Work item
 //      line or the issue
 //   2  COULD NOT COMPARE: a token containing whitespace or a control character,
 //      an unknown argument, missing CI_API_V4_URL or CI_PROJECT_ID, an invalid
@@ -25,7 +25,7 @@
 // ★★ The blocking followups-workitems-check reads the register ONLY. This is the
 //   half it cannot do: an issue closed in the GitLab UI, an issue with the wrong
 //   title, an issue with no entry. Every decision is made by the pure
-//   compareWithGitLab in followup-workitem-lib.mjs; this file fetches, redacts,
+//   compareWithTracker in followup-workitem-lib.mjs; this file fetches, redacts,
 //   prints, and maps a verdict to an exit code.
 // ★★★ 50 REGISTER ISSUES, NOT 50 open issues and NOT 0 — the floor counts open
 //   issues carrying a `§NNN:` title or the source::register label. A fetch that
@@ -187,7 +187,7 @@ async function main() {
   if (args.length > 0) throw new CannotCompare(`unknown argument(s) ${args.join(" ")} — this command takes none`);
 
   const { parseEntries, isClosed } = await import("./followup-claims-lib.mjs");
-  const { compareWithGitLab, GITLAB_PROBLEM_HELP } = await import("./followup-workitem-lib.mjs");
+  const { compareWithTracker, TRACKER_PROBLEM_HELP } = await import("./followup-workitem-lib.mjs");
 
   const api = apiBase();
   const projectId = process.env.CI_PROJECT_ID;
@@ -200,7 +200,7 @@ async function main() {
   const endpoint = new URL(`${api}/projects/${encodeURIComponent(projectId)}/issues`).href;
   const issues = await fetchOpenIssues(endpoint, timeout);
 
-  const { problems, counts } = compareWithGitLab(entries, issues);
+  const { problems, counts } = compareWithTracker(entries, issues);
   if (counts.registerIssues < MIN_REGISTER_ISSUES) {
     throw new CannotCompare(
       `fetched only ${counts.registerIssues} register issues among ${counts.openIssues} open issues ` +
@@ -216,7 +216,7 @@ async function main() {
     say("Register and GitLab agree.");
     return 0;
   }
-  for (const p of problems) say(`  ${p.code}: ${p.detail}\n      ${GITLAB_PROBLEM_HELP[p.code]}`);
+  for (const p of problems) say(`  ${p.code}: ${p.detail}\n      ${TRACKER_PROBLEM_HELP[p.code]}`);
   say(`\n${problems.length} problem(s) between the register and GitLab.`);
   return 1;
 }

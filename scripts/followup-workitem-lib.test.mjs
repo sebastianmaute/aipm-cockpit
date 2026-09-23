@@ -10,8 +10,8 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 import {
-  compareWithGitLab,
-  GITLAB_PROBLEM_HELP,
+  compareWithTracker,
+  TRACKER_PROBLEM_HELP,
   issueSection,
   parseWorkItem,
   workItemLines,
@@ -153,18 +153,18 @@ describe("workItemViolations", () => {
   });
 });
 
-describe("compareWithGitLab", () => {
+describe("compareWithTracker", () => {
   const linked = (n, iid) => open(n, "", `**Work item:** #${iid}`, "");
   const decision = (n) => open(n, "", "**Work item:** none — decision record", "");
   const issue = (iid, n, labels = ["source::register"]) => ({ iid, title: `§${n}: entry ${n}`, labels });
-  const found = (entries, issues) => compareWithGitLab(entries, issues).problems.map((p) => p.code);
+  const found = (entries, issues) => compareWithTracker(entries, issues).problems.map((p) => p.code);
 
   it("reports nothing when every link and every issue agree", () => {
     expect(found([linked(1, 10), linked(2, 20)], [issue(10, 1), issue(20, 2)])).toEqual([]);
   });
 
   it("ISSUE_NOT_OPEN when the linked issue is not among the open issues", () => {
-    const { problems } = compareWithGitLab([linked(1, 10)], []);
+    const { problems } = compareWithTracker([linked(1, 10)], []);
     expect(problems).toEqual([{ code: "ISSUE_NOT_OPEN", detail: "§1 → #10, which is not an open issue" }]);
   });
 
@@ -212,7 +212,7 @@ describe("compareWithGitLab", () => {
   });
 
   it("counts open entries, links, decision records and issues", () => {
-    const { counts } = compareWithGitLab(
+    const { counts } = compareWithTracker(
       [linked(1, 10), decision(2), entry(3, "x CLOSED", "")],
       [issue(10, 1), { iid: 99, title: "unrelated", labels: [] }],
     );
@@ -220,7 +220,7 @@ describe("compareWithGitLab", () => {
   });
 
   it("counts an issue as register work by its §NNN: title OR its label", () => {
-    const { counts } = compareWithGitLab(
+    const { counts } = compareWithTracker(
       [],
       [
         { iid: 1, title: "§1: titled only", labels: [] },
@@ -233,7 +233,7 @@ describe("compareWithGitLab", () => {
   });
 
   it("has help for every code it can emit", () => {
-    expect(Object.keys(GITLAB_PROBLEM_HELP).sort()).toEqual(
+    expect(Object.keys(TRACKER_PROBLEM_HELP).sort()).toEqual(
       [
         "ISSUE_NOT_OPEN",
         "ISSUE_SECTION_MISMATCH",
@@ -244,6 +244,11 @@ describe("compareWithGitLab", () => {
         "SECTION_ON_TWO_ISSUES",
       ].sort(),
     );
+  });
+
+  it("words its help for either tracker", () => {
+    for (const text of Object.values(TRACKER_PROBLEM_HELP)) expect(text).not.toMatch(/GitLab/);
+    for (const text of Object.values(VIOLATION_HELP)) expect(text).not.toMatch(/GitLab/);
   });
 });
 

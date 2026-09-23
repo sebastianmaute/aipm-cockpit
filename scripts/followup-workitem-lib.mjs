@@ -153,9 +153,10 @@ function sectionCollisions(registerIssues, add) {
   }
 }
 
-/** Compare the register's Work item lines with the OPEN GitLab issues, in both
- *  directions. `entries` is `parseEntries` output (closed ones are filtered
- *  here); `issues` is `[{iid, title, labels}]`, every open issue fetched.
+/** Compare the register's Work item lines with the OPEN tracker issues (GitLab
+ *  or GitHub), in both directions. `entries` is `parseEntries` output (closed
+ *  ones are filtered here); `issues` is `[{iid, title, labels}]`, every open
+ *  issue fetched.
  *
  *  ★ An open issue with NEITHER a `§NNN:` title NOR the register label is not
  *  register work and is ignored. Either one alone makes it register work.
@@ -166,7 +167,7 @@ function sectionCollisions(registerIssues, add) {
  *  wrong §), and the mismatch detail already names the § the title claims, so the
  *  reader sees both sides from one line. Reporting it twice made one wrong link
  *  read as two defects. */
-export function compareWithGitLab(entries, issues) {
+export function compareWithTracker(entries, issues) {
   const problems = [];
   const add = (code, detail) => problems.push({ code, detail });
   const links = linkedEntries(entries);
@@ -217,9 +218,9 @@ export function compareWithGitLab(entries, issues) {
   return { problems, counts };
 }
 
-export const GITLAB_PROBLEM_HELP = {
+export const TRACKER_PROBLEM_HELP = {
   ISSUE_NOT_OPEN:
-    "the issue was closed in GitLab or the number is wrong: reopen it, or close the entry, or fix the number",
+    "the issue was closed or the number is wrong: reopen it, or close the entry, or fix the number",
   ISSUE_SECTION_MISMATCH: "the Work item line points at another entry's issue: fix the number or the issue title",
   ISSUE_WITHOUT_ENTRY: "the entry is closed or does not exist: close the issue, or fix its §number",
   ISSUE_UNLINKED: "the entry's Work item line names something else: link this issue, or close the duplicate",
@@ -230,11 +231,11 @@ export const GITLAB_PROBLEM_HELP = {
 
 export const VIOLATION_HELP = {
   MISSING:
-    "add `**Work item:** #NN` after the Status block, creating the GitLab issue in the same change, or `**Work item:** none — decision record`",
+    "add `**Work item:** #NN` after the Status block, creating the tracker issue in the same change, or `**Work item:** none — decision record`",
   DUPLICATE_LINE: "keep exactly one `**Work item:**` line at the start of a line; delete the rest",
   MALFORMED:
     "the remainder must be exactly `#NN` or `none — decision record` (em dash), with nothing after it",
-  ON_CLOSED: "a closed entry carries no `**Work item:**` line; delete it and close the GitLab issue",
+  ON_CLOSED: "a closed entry carries no `**Work item:**` line; delete it and close the tracker issue",
   ISSUE_REUSED:
-    "one GitLab issue per open entry; create a separate issue for one of them, or merge the entries",
+    "one tracker issue per open entry; create a separate issue for one of them, or merge the entries",
 };

@@ -238,7 +238,7 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   real work — create the issue] ·
   **followups-gitlab-sync** WARN-ONLY [`npm run followups:gitlab:check` — compares every open entry's
   Work item line with the OPEN GitLab issues both ways (`scripts/check-followup-gitlab.mjs` over
-  `compareWithGitLab` in `scripts/followup-workitem-lib.mjs`): an issue closed in GitLab, one titled for
+  `compareWithTracker` in `scripts/followup-workitem-lib.mjs`): an issue closed in GitLab, one titled for
   another entry, one with no open entry, a `§NNN:` issue without `source::register` or the reverse.
   ★★ Skips with exit 0 until a masked, protected `REGISTER_SYNC_TOKEN` (a project access token
   with the read-API scope) exists. ★★ A protected variable only reaches pipelines on protected refs, so
