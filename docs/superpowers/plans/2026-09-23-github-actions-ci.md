@@ -1482,9 +1482,9 @@ Expected: exactly the eight names.
 - [ ] **Step 1: Scrub the two project-number mentions.**
 
 ```bash
-git grep -n -E " (GitLab)| (GitLab)" -- .gitlab-ci.yml
+git grep -n -E "[Pp]roject [0-9]{3}\b" -- .gitlab-ci.yml
 ```
-Expected before: two hits. In the first, `the OPEN issues in  (GitLab)` → `the OPEN issues in the GitLab project`; in the second, ` (GitLab)'s` → `The project's`. Re-run: expected no output (exit 1). Then `npx vitest run scripts/release-publish-lib.test.mjs --reporter=dot` → green (it reads this file).
+Expected before: two hits. In the first, `the OPEN issues in project <number>` → `the OPEN issues in the GitLab project`; in the second, `Project <number>'s` → `The project's`. (Edited 2026-09-23, §200: this step used to spell the project number out in its own pattern and replacements — the one prose mention left in the tree once the two comments were scrubbed. The pattern above matches both hits at the commit before the scrub, and nothing after it.) Re-run: expected no output (exit 1). Then `npx vitest run scripts/release-publish-lib.test.mjs --reporter=dot` → green (it reads this file).
 
 - [ ] **Step 2: History proof against what GitHub serves.**
 
