@@ -24,8 +24,24 @@ export function parseIndexAnchors(registerText) {
   return out;
 }
 
+/** An imported issue's title: `§N: <heading>`, minus the heading's trailing open marker.
+ *  The title must survive a round trip through GitHub unchanged, because `--resume`
+ *  compares the planned title with the listed one EXACTLY. So it drops Markdown bold
+ *  markers (`**`, which a GitHub title shows literally), collapses every run of whitespace
+ *  to one space and trims both ends — including after the cap, so a cut never ends in a
+ *  space. Backticks stay: GitHub renders them in a title, and a `**` INSIDE a code span is
+ *  literal text there (§429's heading quotes `**Status:**`), so only bold outside a code
+ *  span is dropped. */
+function stripBold(text) {
+  return text
+    .split(/(`[^`]*`)/)
+    .map((part, i) => (i % 2 === 1 ? part : part.replaceAll("**", "")))
+    .join("");
+}
+
 export function entryTitle(entry) {
-  return `§${entry.n}: ${entry.title.replace(OPEN_SUFFIX_RE, "")}`.slice(0, TITLE_CAP);
+  const heading = stripBold(entry.title).replace(OPEN_SUFFIX_RE, "").replace(/\s+/g, " ").trim();
+  return `§${entry.n}: ${heading}`.slice(0, TITLE_CAP).trimEnd();
 }
 
 function paragraphs(lines) {

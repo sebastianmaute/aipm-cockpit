@@ -56,6 +56,26 @@ describe("entryTitle", () => {
   it("caps at TITLE_CAP characters", () => {
     expect(entryTitle({ n: 3, title: "x".repeat(400) + " — open" }).length).toBe(TITLE_CAP);
   });
+  it("strips Markdown bold markers, which GitHub shows literally in a title", () => {
+    expect(entryTitle({ n: 5, title: "The **bold** claim — open" })).toBe("§5: The bold claim");
+  });
+  it("keeps backticks, which GitHub renders in a title", () => {
+    expect(entryTitle({ n: 6, title: "`fooBar` drops a row — open" })).toBe("§6: `fooBar` drops a row");
+  });
+  it("keeps a ** inside a code span, where it is literal text", () => {
+    expect(entryTitle({ n: 9, title: "A **loud** `**Status:**` line — open" })).toBe("§9: A loud `**Status:**` line");
+  });
+  it("collapses whitespace runs to one space and trims both ends", () => {
+    expect(entryTitle({ n: 7, title: "  a \t b  c   — open" })).toBe("§7: a b c");
+  });
+  it("still recognises the open marker when bold wraps the heading", () => {
+    expect(entryTitle({ n: 8, title: "**Loud** — open" })).toBe("§8: Loud");
+  });
+  it("never ends in a space when the cap cuts at one", () => {
+    const title = entryTitle({ n: 3, title: `${"x".repeat(TITLE_CAP - 5)} tail — open` });
+    expect(title).toBe(`§3: ${"x".repeat(TITLE_CAP - 5)}`);
+    expect(title.length).toBeLessThanOrEqual(TITLE_CAP);
+  });
 });
 
 describe("issueBody", () => {
