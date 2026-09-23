@@ -4,11 +4,12 @@ import { PLACEHOLDER_TITLE } from "./issue-import-lib.mjs";
 
 /** In-memory GitHub: numbers are assigned in sequence and shared with PRs; deleted
  *  numbers stay used. */
-function fakeGitHub({ pulls = 0, preIssues = 0, rateLimitOnce = new Set(), foreignCreateAt = null } = {}) {
+function fakeGitHub({ pulls = 0, preIssues = 0, rateLimitOnce = new Set(), foreignCreateAt = null, crashBeforeClose = null } = {}) {
   let next = 1 + pulls;
   const issues = new Map();
   const labels = new Set();
   const calls = [];
+  let closeCrashed = false;
   const add = (title, state = "open") => {
     const number = next++;
     issues.set(number, { number, title, state, nodeId: `N${number}`, deleted: false });
@@ -40,6 +41,10 @@ function fakeGitHub({ pulls = 0, preIssues = 0, rateLimitOnce = new Set(), forei
       return { number, nodeId: `N${number}` };
     },
     async closeIssue(number) {
+      if (crashBeforeClose === number && !closeCrashed) {
+        closeCrashed = true;
+        throw new Error("simulated crash before close");
+      }
       issues.get(number).state = "closed";
       calls.push(["close", number]);
     },
@@ -96,15 +101,35 @@ describe("applyPlan", () => {
   it("resumes from the highest existing number after checking every existing one", async () => {
     const gh = fakeGitHub();
     await applyPlan(plan.slice(0, 2), gh, { sleep: noSleep, log: quiet }).catch(() => {});
-    // the first run created #1-#2 and deleted #1; simulate the crash before the delete:
+    // the first run completed cleanly — it created #1-#2 and deleted #1. Undo that delete
+    // here to model a delete that reported success but did not actually take effect on
+    // GitHub, so the resume must find #1 still live and delete it again.
     gh.issues.get(1).deleted = false;
     const r = await applyPlan(plan, gh, { resume: true, sleep: noSleep, log: quiet });
     expect(r.created).toBe(2);
     expect([...gh.issues.values()].filter((i) => !i.deleted).map((i) => i.number)).toEqual([2, 3, 4]);
   });
+  it("resumes and closes a stub left open by a crash between its create and its close", async () => {
+    const gh = fakeGitHub({ crashBeforeClose: 3 });
+    await expect(applyPlan(plan, gh, { sleep: noSleep, log: quiet })).rejects.toThrow("simulated crash before close");
+    expect(gh.issues.get(3).state).toBe("open");
+    expect(gh.issues.has(4)).toBe(false);
+    const r = await applyPlan(plan, gh, { resume: true, sleep: noSleep, log: quiet });
+    expect(gh.issues.get(3).state).toBe("closed");
+    expect(r.closed).toBe(1);
+    const creates = gh.calls.filter((c) => c[0] === "create").map((c) => c[1]);
+    expect(creates).toEqual([1, 2, 3, 4]); // every number created exactly once, across both runs
+  });
   it("refuses to resume when an existing number disagrees with the plan", async () => {
     const gh = fakeGitHub({ preIssues: 1 });
     await expect(applyPlan(plan, gh, { resume: true, sleep: noSleep, log: quiet })).rejects.toThrow(/#1/);
+  });
+  it("refuses to resume when an existing non-placeholder number is missing from the listing", async () => {
+    const gh = fakeGitHub();
+    await applyPlan(plan.slice(0, 3), gh, { sleep: noSleep, log: quiet });
+    // simulate a listing that silently drops #2 (e.g. a missed API page), though the issue still exists
+    gh.issues.delete(2);
+    await expect(applyPlan(plan, gh, { resume: true, sleep: noSleep, log: quiet })).rejects.toThrow(/#2/);
   });
   it("refuses a plan that holds no actions", async () => {
     await expect(applyPlan([], fakeGitHub(), { sleep: noSleep, log: quiet })).rejects.toThrow(Refused);

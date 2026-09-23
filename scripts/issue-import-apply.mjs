@@ -34,6 +34,19 @@ function checkExisting(actions, existing) {
   }
 }
 
+// Every non-placeholder action at or below the highest existing number must actually be
+// listed. A missing one (a real API dropping a page, say) would otherwise be silently
+// skipped by the "already created" check below, breaking the one-to-one number mapping.
+function checkResumeComplete(actions, existing, highest) {
+  const listed = new Set(existing.map((i) => i.number));
+  for (const a of actions) {
+    if (a.n > highest || a.kind === "placeholder") continue;
+    if (!listed.has(a.n)) {
+      throw new Refused(`existing #${a.n} is missing from the listing — cannot resume`);
+    }
+  }
+}
+
 export async function applyPlan(actions, client, { resume = false, sleep, log }) {
   if (actions.length === 0) throw new Refused("the plan holds no actions");
   const { issues, pulls } = await client.counts();
@@ -43,6 +56,7 @@ export async function applyPlan(actions, client, { resume = false, sleep, log })
   const existing = resume ? await client.listIssues() : [];
   checkExisting(actions, existing);
   const highest = Math.max(0, ...existing.map((i) => i.number));
+  checkResumeComplete(actions, existing, highest);
 
   await client.ensureLabels([...new Set(actions.flatMap((a) => a.labels))]);
 
@@ -51,7 +65,12 @@ export async function applyPlan(actions, client, { resume = false, sleep, log })
   for (const a of actions) {
     if (a.n <= highest) continue;
     const { number } = await withRetry(() => client.createIssue(a), sleep, log);
-    if (number !== a.n) throw new Refused(`expected #${a.n}, got #${number}; stopped`);
+    if (number !== a.n) {
+      throw new Refused(
+        `expected #${a.n}, got #${number}; stopped — numbers can no longer be preserved on this target; ` +
+          "start over with a fresh repository (--resume cannot recover this)",
+      );
+    }
     created += 1;
     if (a.kind === "stub") {
       await withRetry(() => client.closeIssue(number), sleep, log);
