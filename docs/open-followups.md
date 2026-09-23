@@ -832,6 +832,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§607](#607-the-timelog-and-ecb-proxies-log-a-raw-error-object-on-upstream-failure--closed-2026-09-21) | The Timelog and ECB proxies log a raw error object on upstream failure — CLOSED 2026-09-21 | found 2026-09-21 reviewing §566 on `fix/backlog-sweep`, filed and closed on the same branch | S — one shared helper (`describeUpstreamError`) moved and reused at two more call sites | closed |
 | [§608](#608-the-diagnostics-secret-patterns-take-quadratic-time-on-a-long-run-that-fails-them--open) | The diagnostics secret patterns take quadratic time on a long run that fails them — OPEN | final-review M6 on `fix/backlog-sweep`, measured 2026-09-21 reviewing §606; GitLab #389 | M — bound backtracking or the input length before matching (see §578) | open |
 | [§609](#609-a-late-seal-can-resurrect-a-sealed-secret-the-user-just-cleared--open) | A late seal can resurrect a sealed secret the user just cleared — OPEN | final-review M7 on `fix/backlog-sweep` (Task 5 deferred minor, upgraded), read from code, pre-existing and family-wide; GitLab #390 | S — a per-secret generation guard | open |
+| [§610](#610-fork-prs-cannot-run-the-leak-gate--decide-the-rule-at-the-visibility-flip--open) | Fork PRs cannot run the leak gate — decide the rule at the visibility flip — open | deferred by the sub-project 3 spec (`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`); GitLab #392 | S — decide the rule at the flip; prove it with a fork PR | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -40944,3 +40945,22 @@ same guard, so a seal already in flight at clear time is discarded instead of ra
 
 Related: §565 (final-review M7, the finding that raised this while reviewing the §565 fix; pre-existing
 across the family and not closed by that fix).
+
+## 610. Fork PRs cannot run the leak gate — decide the rule at the visibility flip — open
+
+**Status:** open 2026-09-23 — never machine-verified; undecidable until the repository is public,
+because a private repository cannot receive fork PRs.
+
+**Work item:** #392
+
+GitHub gives a pull request from a fork no secrets, so the `static` job's `LEAK_LIST_FILE` is
+unset there and `gate:local` (under `CI`) fails `leaks:check` with code 2 — every outside
+contribution would be red. Deferred by the sub-project 3 spec
+(`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`, "Leak gate on fork PRs").
+
+Options, undecided:
+1. skip `leaks:check` on fork PRs and rely on the push-to-`main` run — a fork's leak is caught only
+   after the merge, when a public repository has already published it;
+2. keep fork PRs red until a maintainer re-runs the change from a branch in this repository.
+
+Decide at the flip, and prove the chosen rule with a fork PR before closing this entry.

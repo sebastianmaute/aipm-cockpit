@@ -34,7 +34,7 @@ are entered in the in-app Settings panel and stored in the browser.
 | `npm run build` | Production build — runs TypeScript type-check, then emits `.next/` |
 | `npm run start` | Serve the production build (run `npm run build` first) |
 | `npm run stop` | Stop the dev server bound to the app port (default 3000; set PORT to override). Port-scoped — does not touch unrelated node processes |
-| `npm run gate:local` | Run CI's blocking npm gates locally (not semgrep, the dependency audit or e2e), in order, stopping at the first failure — the merge gate until GitHub Actions exists |
+| `npm run gate:local` | Run the repository's blocking npm gates (the list CI's static, unit, unit-shuffled and build jobs use), in order, stopping at the first failure. --group <name> runs one group; --keep-going runs every step and reports each failure. Not semgrep, the dependency audit or e2e. leaks:check is skipped when LEAK_LIST_FILE is unset |
 | `npm run lint` | Run ESLint (`eslint-config-next` preset) |
 | `npm run test` | Vitest unit/component tests in watch mode |
 | `npm run test:run` | Vitest, single run (CI-friendly) |

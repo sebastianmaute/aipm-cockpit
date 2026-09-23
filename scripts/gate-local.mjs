@@ -1,10 +1,10 @@
-// Run CI's blocking npm gates locally, in order, stopping at the first failure.
-// GitHub has no CI until migration sub-project 3, so this IS the merge gate until then
-// (docs/superpowers/specs/2026-09-22-github-cutover-design.md). It mirrors the blocking npm
-// gates in .gitlab-ci.yml; e2e and axe, semgrep, the dependency audit and prod-smoke are NOT
-// here and run nowhere during the gap.
+// Run the repository's blocking npm gates, in order. This file is the ONE list of gates: CI's
+// `static` job runs `--group static --keep-going` from it, and the `unit`, `unit-shuffled` and
+// `build` jobs run their group's npm script (scripts/ci-workflow.test.mjs pins that). With no flags
+// it is the local pre-push check: every group, stopping at the first failure.
+// (docs/superpowers/specs/2026-09-23-github-actions-ci-design.md)
 //
-// Usage: npm run gate:local [-- --allow-dirty]
+// Usage: npm run gate:local [-- --allow-dirty] [--group <static|unit|unit-shuffled|build>] [--keep-going]
 // Refuses to start on an uncommitted tracked change (git status --porcelain --untracked-files=no)
 // unless --allow-dirty is passed, and names the commit it gated at the start and in the final line
 // (`gate:local PASS at <sha>` / `gate:local FAIL at: <step> (exit N) — <sha>`), so a passing run says
@@ -12,7 +12,9 @@
 // Exit: 2 on a dirty tree; otherwise 0 when every step passes, or the failing step's exit code (1 for
 // a signal). A GATE_LOCAL_WORKERS that is set but not a positive integer throws while the module
 // loads, so the run exits 1 with that error before any step and prints no PASS/FAIL line.
+// --keep-going exits 1 if any step failed; an unknown argument or group exits 2.
 
+import { appendFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { availableParallelism } from "node:os";
 import { pathToFileURL } from "node:url";
@@ -38,32 +40,97 @@ export function resolveWorkers(env, cpus) {
 
 export const VITEST_WORKERS = resolveWorkers(process.env, availableParallelism());
 
+export const GATE_GROUPS = Object.freeze(["static", "unit", "unit-shuffled", "build"]);
+
+const s = (group, argv, extra = {}) => ({ group, argv, ...extra });
+
 export const GATE_STEPS = [
-  ["npm", "run", "lint"],
-  ["npx", "tsc", "--noEmit"],
-  ["npm", "run", "test:coverage", "--", `--maxWorkers=${VITEST_WORKERS}`],
-  ["npm", "run", "test:shuffle", "--", `--maxWorkers=${VITEST_WORKERS}`],
-  ["npm", "run", "dup:check"],
-  ["npm", "run", "size:check"],
-  ["npm", "run", "docs:symbols:check"],
-  ["npm", "run", "docs:claims:check"],
-  ["npm", "run", "docs:scripts:check"],
-  ["npm", "run", "followups:status:check"],
-  ["npm", "run", "followups:index:check"],
-  ["npm", "run", "followups:workitems:check"],
-  ["npm", "run", "version:check"],
-  ["npm", "run", "build"],
+  s("static", ["npm", "run", "lint"]),
+  s("static", ["npx", "tsc", "--noEmit"]),
+  s("unit", ["npm", "run", "test:coverage", "--", `--maxWorkers=${VITEST_WORKERS}`]),
+  s("unit-shuffled", ["npm", "run", "test:shuffle", "--", `--maxWorkers=${VITEST_WORKERS}`]),
+  s("static", ["npm", "run", "dup:check"]),
+  s("static", ["npm", "run", "size:check"]),
+  s("static", ["npm", "run", "docs:symbols:check"]),
+  s("static", ["npm", "run", "docs:claims:check"]),
+  s("static", ["npm", "run", "docs:scripts:check"]),
+  s("static", ["npm", "run", "followups:status:check"]),
+  s("static", ["npm", "run", "followups:index:check"]),
+  s("static", ["npm", "run", "followups:workitems:check"]),
+  s("static", ["npm", "run", "version:check"]),
+  // The list lives outside the repository, so most contributors cannot run this step. Locally an
+  // unset LEAK_LIST_FILE SKIPS it, visibly; under CI (env CI set) the same state FAILS with code 2,
+  // so a workflow that forgot to export it cannot pass by skipping.
+  s("static", ["npm", "run", "leaks:check"], { requiresEnv: "LEAK_LIST_FILE" }),
+  s("build", ["npm", "run", "build"]),
 ];
 
-/** Run `steps` in order through `run(argv) → exit status`; stop at the first nonzero. */
-export function runGates(steps, run, log = () => {}) {
-  for (const argv of steps) {
-    const label = argv.join(" ");
-    log(label);
-    const code = run(argv);
-    if (code !== 0) return { ok: false, failed: label, code: code || 1 };
+/** Parse the gate's own argv. Unknown input is an error, never ignored. */
+export function parseCliArgs(args) {
+  const out = { group: null, keepGoing: false, allowDirty: false, error: null };
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === "--keep-going") out.keepGoing = true;
+    else if (a === "--allow-dirty") out.allowDirty = true;
+    else if (a === "--group") {
+      const v = args[++i];
+      if (v === undefined) return { ...out, error: "--group needs a value" };
+      if (!GATE_GROUPS.includes(v)) return { ...out, error: `unknown group "${v}" (known: ${GATE_GROUPS.join(", ")})` };
+      out.group = v;
+    } else return { ...out, error: `unknown argument "${a}"` };
   }
-  return { ok: true, failed: null, code: 0 };
+  return out;
+}
+
+/** The steps of one group, in list order; every step for a null group. */
+export function selectSteps(steps, group) {
+  return group === null ? steps : steps.filter((st) => st.group === group);
+}
+
+function isUnset(value) {
+  return value === undefined || String(value).trim() === "";
+}
+
+/**
+ * Run `steps` through `run(argv) → exit status`. Stops at the first failure unless `keepGoing`,
+ * which runs everything and reports code 1 when anything failed. A step whose `requiresEnv` is
+ * unset is SKIPPED locally and FAILS with code 2 when `env.CI` is set.
+ */
+export function runGates(steps, run, { keepGoing = false, env = {}, log = () => {} } = {}) {
+  const results = [];
+  for (const st of steps) {
+    const label = st.argv.join(" ");
+    if (st.requiresEnv && isUnset(env[st.requiresEnv])) {
+      if (isUnset(env.CI)) {
+        const note = `${st.requiresEnv} unset`;
+        log(`SKIPPED ${label} (${note})`);
+        results.push({ label, status: "skipped", code: 0, note });
+        continue;
+      }
+      results.push({ label, status: "fail", code: 2, note: `${st.requiresEnv} unset under CI` });
+      if (!keepGoing) break;
+      continue;
+    }
+    log(label);
+    const status = run(st.argv);
+    if (status === 0) {
+      results.push({ label, status: "pass", code: 0, note: null });
+      continue;
+    }
+    results.push({ label, status: "fail", code: status || 1, note: null });
+    if (!keepGoing) break;
+  }
+  const firstFail = results.find((r) => r.status === "fail");
+  if (!firstFail) return { ok: true, failed: null, code: 0, results };
+  return { ok: false, failed: firstFail.label, code: keepGoing ? 1 : firstFail.code, results };
+}
+
+/** One Markdown row per step — printed at the end of every run and appended to the CI step summary. */
+export function formatSummaryTable(results) {
+  const cell = (r) => (r.status === "pass" ? "PASS"
+    : r.status === "skipped" ? `SKIPPED (${r.note})`
+    : `FAIL (exit ${r.code})`);
+  return ["| Step | Result |", "|---|---|", ...results.map((r) => `| \`${r.label}\` | ${cell(r)} |`)].join("\n");
 }
 
 /**
@@ -111,9 +178,14 @@ export function buildSpawnInvocation(argv, platform) {
 }
 
 function main() {
+  const cli = parseCliArgs(process.argv.slice(2));
+  if (cli.error) {
+    console.error(`gate:local: ${cli.error}`);
+    process.exit(2);
+  }
   const dirty = checkDirtyTree(
     spawnSync("git", ["status", "--porcelain", "--untracked-files=no"], { encoding: "utf8" }).stdout ?? "",
-    process.argv.slice(2),
+    cli.allowDirty ? ["--allow-dirty"] : [],
   );
   if (dirty.blocked) {
     console.error(dirty.message);
@@ -124,13 +196,18 @@ function main() {
   console.log(formatStartLine(sha));
 
   const result = runGates(
-    GATE_STEPS,
+    selectSteps(GATE_STEPS, cli.group),
     (argv) => {
       const { command, args, shell } = buildSpawnInvocation(argv, process.platform);
       return spawnSync(command, args, { stdio: "inherit", shell }).status;
     },
-    (label) => console.log(`\n▶ ${label}`),
+    { keepGoing: cli.keepGoing, env: process.env, log: (label) => console.log(`\n▶ ${label}`) },
   );
+  const table = formatSummaryTable(result.results);
+  console.log(`\n${table}`);
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### gate:local${cli.group ? ` — ${cli.group}` : ""}\n\n${table}\n`);
+  }
   console.log(`\n${formatFinalLine(result, sha)}`);
   process.exit(result.code);
 }
