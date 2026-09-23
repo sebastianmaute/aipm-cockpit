@@ -52,7 +52,7 @@ jobs:
       - run: docker run -d --name app --network dastnet aipm-cockpit-dast
       - name: Wait for the app
         run: |
-          for i in $(seq 1 60); do
+          for _ in $(seq 1 60); do
             if docker run --rm --network dastnet curlimages/curl -sf http://app:3000 >/dev/null 2>&1; then
               echo "app is up"; exit 0
             fi

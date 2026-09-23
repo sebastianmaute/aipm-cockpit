@@ -71,8 +71,11 @@ jobs:
         if: ${{ always() }}
         shell: bash
         run: |
+          grep -E "^ *(FAIL|×) " unit.log > "$RUNNER_TEMP/failing.txt" || true
           { echo "### unit"; echo '```'; grep -E "All files" unit.log || echo "no coverage line (the run did not finish)"; echo '```'
-            echo "Failing:"; echo '```'; grep -E "^ *(FAIL|×) " unit.log | head -50 || echo "none"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            echo "Failing:"; echo '```'
+            if [ -s "$RUNNER_TEMP/failing.txt" ]; then head -50 "$RUNNER_TEMP/failing.txt"; else echo "none"; fi
+            echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() }}
         with:
