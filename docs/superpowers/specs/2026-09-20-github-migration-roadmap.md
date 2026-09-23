@@ -172,6 +172,20 @@ lines to a new, empty repository, and re-run
 `node scripts/verify-rewrite.mjs --repo <mirror of it> --allow <allowlist> --expect clean` against
 it. §200 closes only when that run passes.
 
+★★ **The same rewrite also scrubs the GitLab project number (owner decision, 2026-09-23).**
+- **Scope.** The rewrite removes it wherever it is spelled in prose:
+  - every historical version of `.gitlab-ci.yml`;
+  - every historical version of the sub-project 3 plan;
+  - any other blob or commit message.
+- **The leak list covers only its URL form**, so `--expect clean` cannot see the prose form today.
+  The clean run against GitHub reported blobHitLines=0 while history still held it.
+- **The flip step therefore:**
+  1. adds a pattern for the prose form to the leak list, or to a supplementary list used only at
+     the flip;
+  2. shows that pattern red first, as nonzero hits against a mirror of today's repository;
+  3. only then runs `--expect clean` with it against the fresh repository.
+- Never write the number here or in any pattern example. See §200.
+
 ## Verification principles carried by every sub-project
 
 These are not Phase 1 specifics; they apply to each spec written from this roadmap.

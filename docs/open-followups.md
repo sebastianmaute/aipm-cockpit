@@ -16875,6 +16875,25 @@ only after that run passes. The roadmap
 (`docs/superpowers/specs/2026-09-20-github-migration-roadmap.md`) carries the same step at the
 flip.
 
+**Owner decision 2026-09-23, second part: the same rewrite also scrubs the GitLab project number.**
+- **Scope.** The tree no longer spells the number in prose (see "Now true"), but history still
+  does. The rewrite must remove it from:
+  - every historical version of `.gitlab-ci.yml`;
+  - every historical version of `docs/superpowers/plans/2026-09-23-github-actions-ci.md`;
+  - any other blob or commit message that spells it in prose.
+- **Why the current check cannot see it.** The leak list covers only the number's URL form. The
+  clean run above reported blobHitLines=0 against a mirror whose history still held the prose
+  mentions.
+- **How the flip step verifies it:**
+  1. Add a pattern for the prose form, either to the leak list or to a supplementary list used
+     only at the flip.
+  2. Prove the pattern live: run `verify-rewrite` with it against a mirror of TODAY's repository,
+     which still carries the prose mentions, and require nonzero hits there (red).
+  3. Run `--expect clean` with the same list against the fresh repository. Only that run counts.
+- **Never write the number** in this register, the roadmap or any pattern example. Refer to it
+  only as "the GitLab project number". The pattern itself lives outside the repository, with the
+  leak list.
+
 Also recorded here, because this entry is where they are tracked:
 - ★★ **The gate's known blind spot:** `leaks:check` scans file CONTENT, never file NAMES or
   paths. A listed identifier in a file name passes it.
