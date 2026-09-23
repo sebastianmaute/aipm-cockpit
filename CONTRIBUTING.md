@@ -534,9 +534,7 @@ A change lands like this:
    `gh pr merge --merge --match-head-commit <sha>`. Squash and rebase merging are disabled so the
    history keeps the shape the commit citations rely on. Never enable auto-merge (`--auto`).
 
-If the month's Actions minutes run out, checks cannot complete: run `npm run gate:local` with
-`LEAK_LIST_FILE` set, merge with the admin bypass, and note the bypass and the
-`gate:local PASS at <sha>` line in the PR (`docs/RUNBOOK.md`, "Actions minutes exhausted").
+If the month's Actions minutes run out, follow [`docs/RUNBOOK.md`, "Actions minutes exhausted"](docs/RUNBOOK.md#actions-minutes-exhausted).
 
 No releases and no tags are made until releasing moves to GitHub Releases.
 

@@ -320,7 +320,14 @@ For the register and scan gates, **exit 1 = drift** (fix the content the gate na
 could not scan** (the gate read nothing it could trust — a missing file, an empty list, a moved
 shape): the two demand opposite responses. `leaks:check` at exit 2 in CI usually means the
 `LEAK_LIST` secret is missing or empty — for a Dependabot PR, in Dependabot's own secret store.
-Reproduce a `static` failure locally with `node scripts/gate-local.mjs --group static --keep-going`.
+A leak row reading `FAIL (exit 2; LEAK_LIST_FILE unset under CI)` means the job never exported the
+list; `FAIL (exit 2)` alone means `leaks:check` itself could not scan it.
+Reproduce a `static` failure locally with the leak list set first — without `LEAK_LIST_FILE` a local
+run SKIPS `leaks:check` and can still end `gate:local PASS`:
+`LEAK_LIST_FILE=<path to your local leak list> node scripts/gate-local.mjs --group static --keep-going`.
+Add `--allow-dirty` only when you have uncommitted tracked changes (it refuses to start over them,
+exit 2, otherwise). Read the table it prints: a `SKIPPED` row means that step was NOT reproduced,
+whatever the final line says.
 
 ### "Actions minutes exhausted"
 While the repository is private, Actions runs on GitHub Pro's included minutes with a $0 budget, so

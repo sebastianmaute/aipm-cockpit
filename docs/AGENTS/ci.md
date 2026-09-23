@@ -55,7 +55,9 @@ re-resolved by hand.
   `node scripts/gate-local.mjs --group static --keep-going`: every `static` step of the shared gate
   list, each one run even after an earlier one fails, with a pass/fail table appended to the step
   summary and exit 1 if any step failed. ★★ Under CI (env `CI` set) an unset `LEAK_LIST_FILE` FAILS
-  the leak step with code 2; only a local run skips it. Count the steps rather than trusting a number:
+  the leak step with code 2; only a local run skips it. A failing row carries its reason when the
+  gate list supplied one, so that case reads `FAIL (exit 2; LEAK_LIST_FILE unset under CI)` while
+  `leaks:check`'s own exit 2 reads `FAIL (exit 2)`. Count the steps rather than trusting a number:
   `grep -c 's("static"' scripts/gate-local.mjs`. Last, **actionlint** from its container image, pinned
   by digest, with `if: !cancelled()` so it still runs when the gate step is red. actionlint has no
   local install; CI is where it is enforced.
@@ -113,7 +115,9 @@ on it and none of its jobs is a required check: a red run is the signal.
   ZAP baseline with `-I` (ZAP's findings do not fail the job; an infrastructure failure still does),
   and uploads `zap-out/` — `zap-report.html` and `zap-report.json` — as `zap-report` (7 days, always).
   ★ The two `docker run` images, `ghcr.io/zaproxy/zaproxy:stable` and `curlimages/curl`, float
-  UNPINNED, as they did on GitLab: the pinning rule covers `uses:` only. ★★ Never validated on any CI
+  UNPINNED, as they did on GitLab: the pinning rule covers `uses:` only, and Dependabot does not
+  watch a `docker run` argument. Pinning them by digest is open as `docs/open-followups.md` §611.
+  ★★ Never validated on any CI
   before this workflow; its first manual dispatch is a rollout step, not an assumption.
 
 ## Operating it
