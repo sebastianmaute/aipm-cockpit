@@ -16903,6 +16903,12 @@ Also recorded here, because this entry is where they are tracked:
   at the flip. The issue import must run the leak scan over the issue text and clean it BEFORE
   import.
 
+**2026-09-24: the flip checklist now carries this entry's close condition.**
+`docs/superpowers/specs/2026-09-23-flip-checklist.md` (sub-project 4) sequences the whole flip in
+order; this entry's close condition — the `verify-rewrite --expect clean` run against the fresh
+repository — is its step 4, ahead of the issue import (step 6) and the visibility flip itself
+(step 10). This entry still closes only when that run passes; nothing else here changes.
+
 ## 201. A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce
 
 **Status:** open — nothing was fixed. Two corrections below downgrade the original claim; neither

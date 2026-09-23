@@ -156,8 +156,9 @@ on it and none of its jobs is a required check: a red run is the signal.
   Dependabot does not track a `docker run` image argument, so re-resolve both quarterly by hand.
   ★★ Never validated on any CI
   before this workflow; its first manual dispatch is a rollout step, not an assumption.
-- **`register-sync`** (10 min, `continue-on-error: true`). `npm run followups:github:check`
-  (`scripts/check-followup-github.mjs`): compares `docs/open-followups.md`'s Work item lines with the
+- **`register-sync`** (10 min, `continue-on-error: true`). The workflow step runs `node
+  scripts/check-followup-github.mjs` directly (the `followups:github:check` npm script wraps the
+  same file, for a local reproduce): compares `docs/open-followups.md`'s Work item lines with the
   open GitHub issues, in both directions, the same comparison `followups-gitlab-sync` ran on GitLab.
   Dormant until the flip: it exits 0 with a skip line unless the repository variable
   `REGISTER_TRACKER` is set to `github`. Once flipped, exit 1 means drift (fix the Work item line or
