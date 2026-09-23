@@ -233,7 +233,12 @@ sitting inside the recipe above cannot be mistaken for the marker itself — the
 this file records elsewhere. The check below anchors its greps at `^` for the same reason.
 
 **Filing an entry.** A new entry takes the next free `§N` — one more than the highest existing
-`## N.` heading — its own index row (rebuild per the recipe above) and exactly one
+`## N.` heading ON `origin/main`, read after a `git fetch` (`git show origin/main:docs/open-followups.md`),
+never on the working branch alone: a number already used on an unmerged branch collides. That is
+the lesson of the §610 collision — an unmerged branch took §610 for its own entry and filed GitLab
+#391 under it, while `main`'s §610 is #392 — so check the tracker for a `§N:` title already filed
+too. The entry gets its own index row (rebuild per the
+recipe above) and exactly one
 `**Work item:** #NN` body line; an entry with no separate tracker issue instead carries the literal
 `**Work item:** none — decision record` (`scripts/followup-workitem-lib.mjs`'s `DECISION_RE` requires
 that exact spelling, em dash included — a hyphen or any other wording is malformed, same as a
