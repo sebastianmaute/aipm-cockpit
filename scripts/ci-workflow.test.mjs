@@ -221,9 +221,17 @@ describe("scheduled.yml", () => {
     expect(SCHED).not.toMatch(/^ {2}(push|pull_request):/m);
   });
 
-  it("has the three weekly jobs, none of them a required check", () => {
-    expect(jobIds(SCHED)).toEqual(["audit-full", "unit-shuffled-random", "dast-zap"]);
+  it("has the four weekly jobs, none of them a required check", () => {
+    expect(jobIds(SCHED)).toEqual(["audit-full", "unit-shuffled-random", "dast-zap", "register-sync"]);
     for (const id of jobIds(SCHED)) expect(REQUIRED).not.toContain(id);
+  });
+
+  it("register-sync tolerates its own failure and is dormant until the flip", () => {
+    const b = jobBlock(SCHED, "register-sync");
+    expect(b).toMatch(/^ {4}continue-on-error: true$/m);
+    expect(b).toMatch(/REGISTER_TRACKER: \$\{\{ vars\.REGISTER_TRACKER \}\}/);
+    expect(b).toMatch(/GITHUB_TOKEN: \$\{\{ secrets\.GITHUB_TOKEN \}\}/);
+    expect(b).toMatch(/run: node scripts\/check-followup-github\.mjs/);
   });
 
   it("echoes the random seed with its reproduce command before running", () => {

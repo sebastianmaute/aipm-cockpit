@@ -156,6 +156,15 @@ on it and none of its jobs is a required check: a red run is the signal.
   Dependabot does not track a `docker run` image argument, so re-resolve both quarterly by hand.
   ★★ Never validated on any CI
   before this workflow; its first manual dispatch is a rollout step, not an assumption.
+- **`register-sync`** (10 min, `continue-on-error: true`). `npm run followups:github:check`
+  (`scripts/check-followup-github.mjs`): compares `docs/open-followups.md`'s Work item lines with the
+  open GitHub issues, in both directions, the same comparison `followups-gitlab-sync` ran on GitLab.
+  Dormant until the flip: it exits 0 with a skip line unless the repository variable
+  `REGISTER_TRACKER` is set to `github`. Once flipped, exit 1 means drift (fix the Work item line or
+  the issue) and exit 2 means it could not compare (a missing/malformed `GITHUB_TOKEN`, a fetch
+  failure, or fewer than 50 register issues seen). Replaces `followups-gitlab-sync` at the flip
+  (`docs/superpowers/specs/2026-09-23-issues-migration-design.md`); until then both jobs are inert —
+  GitLab's on its own read-only mirror, this one behind the unset repository variable.
 
 ## Operating it
 
