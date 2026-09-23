@@ -41075,8 +41075,10 @@ anonymous-token HTTP API and matched the values first measured — no drift to r
 `github-actions` ecosystem watches `uses:` steps, not a `docker run` command argument, and this repo
 configures no `docker` ecosystem; GitHub's own docs describe that ecosystem as scanning a
 `Dockerfile`/`docker-compose.yml`'s `FROM`/`image:` lines, never a workflow's `run:` steps
-(`dependabot/dependabot-core` issues #5819 and #6892 are still-open feature requests for exactly this
-capability). The digests must be bumped by hand, quarterly: re-resolve with
+(`dependabot/dependabot-core` issues #5819, "Update `container` image references in GitHub Action
+workflows", and #6892, "[Docker] Update docker images declared in `action.yaml` files", are still-open
+adjacent requests — neither is about a `docker run` command argument, so closing either would not
+close this gap). The digests must be bumped by hand, quarterly: re-resolve with
 `docker buildx imagetools inspect ghcr.io/zaproxy/zaproxy:stable` (and the equivalent for
 `curlimages/curl:latest`), or via the anonymous-token HTTP calls this entry's investigation used when
 Docker is unavailable, and land the new digest as a reviewed one-line diff.
