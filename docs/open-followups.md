@@ -41233,10 +41233,21 @@ vitest's summary, as §612 found for `unit-shuffled`. The raw job log
 scheduled job still runs `--reporter=dot`; §612's `--reporter=default` fix reached only the
 `unit-shuffled` job in `ci.yml`.
 
+★ **2026-09-23, fixed:** `scheduled.yml`'s `unit-shuffled-random` job now runs `--reporter=default`
+too (`ci/followups-611-613-615`) — a straight swap, not additive, since `test:run` (unlike
+`test:shuffle`) has no reporter baked in for a second `--reporter` flag to sit alongside.
+
 ## 615. TipTap's deferred editor destroy throws window is not defined after a test environment is torn down — open
 
-**Status:** open 2026-09-23 — never machine-verified; seen once, in scheduled run 35875601416,
-and not reproduced.
+**Status:** open 2026-09-23 — a hedge landed on `ci/followups-611-613-615`: `vitest.setup.ts` gained
+one global `afterAll(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); })`,
+naming `@tiptap/react`'s real `setTimeout(…, 1)` editor-destroy and this entry in a comment. This
+hedge is **never machine-verified against the actual race** — the failure was never reproduced, both
+before and after the change: `npx vitest run --sequence.shuffle --sequence.seed=35875601416
+--reporter=default` (full suite) and the same seed against the 18 TipTap-mounting files both stayed
+`EXIT=0` with no `unhandled`/`window is not defined` in the log, so there is no red state to turn
+green, only the mechanism read from `@tiptap/react`'s source. Close after **4** consecutive weekly
+`unit-shuffled-random` runs with no unhandled error.
 
 **Work item:** #397
 

@@ -36,7 +36,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: 'echo "shuffle seed=${{ github.run_id }}  (reproduce: npx vitest run --sequence.shuffle --sequence.seed=${{ github.run_id }})"'
-      - run: npm run test:run -- --sequence.shuffle --sequence.seed=${{ github.run_id }} --reporter=dot
+      - run: npm run test:run -- --sequence.shuffle --sequence.seed=${{ github.run_id }} --reporter=default
 
   # OWASP ZAP baseline against the running app. Hosted runners have Docker, so no dind service.
   # ★★ Never validated on any CI before this: its first manual dispatch is rollout Task 8.

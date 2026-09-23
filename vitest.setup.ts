@@ -85,3 +85,13 @@ afterEach(() => {
 });
 
 afterAll(() => server.close());
+
+// §615 hedge: `@tiptap/react` destroys the editor in a real `setTimeout(…, 1)` on
+// unmount, and jsdom is torn down per file. If that timer is still pending when
+// this file's `window` goes away, the deferred `Editor.destroy()` throws
+// "window is not defined" as an unhandled error blamed on whatever file happens
+// to be running when the timer fires. Flush it here, once per file, before
+// vitest's own environment teardown.
+afterAll(async () => {
+  await new Promise((resolve) => setTimeout(resolve, 10));
+});
