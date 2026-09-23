@@ -1,0 +1,74 @@
+# Weekly, non-blocking: nothing waits on these and none is a required check. A red run is the signal.
+# Design: docs/superpowers/specs/2026-09-23-github-actions-ci-design.md
+name: scheduled
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-full:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - run: npm audit --audit-level=low
+
+  unit-shuffled-random:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: 'echo "shuffle seed=${{ github.run_id }}  (reproduce: npx vitest run --sequence.shuffle --sequence.seed=${{ github.run_id }})"'
+      - run: npm run test:run -- --sequence.shuffle --sequence.seed=${{ github.run_id }} --reporter=dot
+
+  # OWASP ZAP baseline against the running app. Hosted runners have Docker, so no dind service.
+  # ★★ Never validated on any CI before this: its first manual dispatch is rollout Task 8.
+  dast-zap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: docker build -t aipm-cockpit-dast -f Dockerfile.dast .
+      - run: docker network create dastnet
+      - run: docker run -d --name app --network dastnet aipm-cockpit-dast
+      - name: Wait for the app
+        run: |
+          for i in $(seq 1 60); do
+            if docker run --rm --network dastnet curlimages/curl -sf http://app:3000 >/dev/null 2>&1; then
+              echo "app is up"; exit 0
+            fi
+            sleep 3
+          done
+          echo "app never answered on :3000"; exit 1
+      # ZAP runs as its own non-root user; the report directory must be writable by it.
+      # -I keeps ZAP's findings from failing the job; an infrastructure failure still does.
+      - name: ZAP baseline
+        run: |
+          mkdir zap-out && chmod 777 zap-out
+          docker run --rm --network dastnet -v "$PWD/zap-out:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t http://app:3000 -I -r zap-report.html -J zap-report.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() }}
+        with:
+          name: zap-report
+          path: zap-out/
+          retention-days: 7

@@ -75,6 +75,8 @@ describe("ci-workflow-lib", () => {
   });
 });
 
+const SCHEDULED_PATH = ".github/workflows/scheduled.yml";
+
 const CI = read(".github/workflows/ci.yml");
 const REQUIRED = requiredChecksFromDoc(read("docs/AGENTS/ci.md"));
 const lock = JSON.parse(read("package-lock.json"));
@@ -159,5 +161,28 @@ describe("ci.yml", () => {
 
   it("uploads SARIF to code scanning only on a public repository", () => {
     expect(jobBlock(CI, "semgrep")).toMatch(/if: \$\{\{ always\(\) && !github\.event\.repository\.private \}\}/);
+  });
+});
+
+describe("scheduled.yml", () => {
+  const SCHED = read(SCHEDULED_PATH);
+  workflowRules("scheduled.yml", SCHED);
+
+  it("runs weekly and on demand, never on push or pull_request", () => {
+    expect(SCHED).toMatch(/cron: "0 3 \* \* 1"/);
+    expect(SCHED).toMatch(/^ {2}workflow_dispatch:/m);
+    expect(SCHED).not.toMatch(/^ {2}(push|pull_request):/m);
+  });
+
+  it("has the three weekly jobs, none of them a required check", () => {
+    expect(jobIds(SCHED)).toEqual(["audit-full", "unit-shuffled-random", "dast-zap"]);
+    for (const id of jobIds(SCHED)) expect(REQUIRED).not.toContain(id);
+  });
+
+  it("echoes the random seed with its reproduce command before running", () => {
+    const b = jobBlock(SCHED, "unit-shuffled-random");
+    expect(b.indexOf("reproduce:")).toBeGreaterThan(-1);
+    expect(b.indexOf("reproduce:")).toBeLessThan(b.indexOf("npm run test:run"));
+    expect(b).toMatch(/--sequence\.seed=\$\{\{ github\.run_id \}\}/);
   });
 });
