@@ -12,6 +12,22 @@
 > `.gitlab-ci.yml` as the source that migration sub-project 3 ports to GitHub Actions. Until that
 > lands, `npm run gate:local` is the merge gate.
 
+## Required checks
+
+The ruleset on `main` requires exactly these, and `scripts/ci-workflow.test.mjs` fails if this list
+and the job ids in `.github/workflows/ci.yml` differ.
+
+<!-- required-checks:begin -->
+- `static` — every `static` step of `scripts/gate-local.mjs` (`--keep-going`), then actionlint
+- `unit` — `npm run test:coverage`; the coverage floors are vitest's
+- `unit-shuffled` — `npm run test:shuffle`, after `unit`
+- `build` — `npm run build`; publishes `.next/` for prod-smoke
+- `e2e` — `npm run e2e`, including the axe gate
+- `prod-smoke` — `npm run e2e:smoke:prod` over the built `.next/`
+- `semgrep` — ERROR-severity gate; full report as SARIF
+- `audit` — `npm audit --omit=dev --audit-level=high`
+<!-- required-checks:end -->
+
 # CI — the GitLab pipeline, job by job
 
 [← AGENTS.md](../../AGENTS.md) · [doc set](../../AGENTS.md#the-doc-set--what-lives-where)

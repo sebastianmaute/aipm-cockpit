@@ -1,0 +1,207 @@
+# Required checks on every pull request and every push to main. The job ids ARE the required
+# check names: docs/AGENTS/ci.md lists them and scripts/ci-workflow.test.mjs keeps the two equal.
+# Design: docs/superpowers/specs/2026-09-23-github-actions-ci-design.md
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      # An empty or missing secret writes an empty list, and leaks:check exits 2 on it: red, never
+      # a silent pass. Dependabot PRs read LEAK_LIST from Dependabot's own secret store.
+      - name: Write the leak list
+        env:
+          LEAK_LIST: ${{ secrets.LEAK_LIST }}
+        run: |
+          printf '%s\n' "$LEAK_LIST" > "$RUNNER_TEMP/leak-list.txt"
+          echo "LEAK_LIST_FILE=$RUNNER_TEMP/leak-list.txt" >> "$GITHUB_ENV"
+      - name: Static gates (every step runs; each failure is listed in the summary)
+        run: node scripts/gate-local.mjs --group static --keep-going
+      - name: actionlint
+        if: ${{ !cancelled() }}
+        uses: docker://rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 # 1.7.12
+        with:
+          args: -color
+
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Unit tests with coverage floors
+        shell: bash
+        run: npm run test:coverage -- --reporter=default --reporter=junit --outputFile=junit.xml 2>&1 | tee unit.log
+      - name: Summary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          { echo "### unit"; echo '```'; grep -E "All files" unit.log || echo "no coverage line (the run did not finish)"; echo '```'
+            echo "Failing:"; echo '```'; grep -E "^ *(FAIL|×) " unit.log | head -50 || echo "none"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() }}
+        with:
+          name: unit-results
+          path: |
+            junit.xml
+            coverage/
+          retention-days: 7
+
+  unit-shuffled:
+    needs: unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm run test:shuffle
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # .next is a hidden directory: without include-hidden-files the artifact is silently empty.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: next-build
+          path: |
+            .next/
+            !.next/cache
+          include-hidden-files: true
+          retention-days: 1
+
+  e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # Keep this tag equal to @playwright/test in package-lock.json (ci-workflow.test.mjs checks).
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.1-jammy
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install chromium
+      - run: npm run e2e
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ failure() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  prod-smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.1-jammy
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: next-build
+          path: .next
+      - run: npx playwright install chromium
+      - run: npm run e2e:smoke:prod
+
+  semgrep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    container:
+      image: semgrep/semgrep@sha256:34ab619bf1391a24bfda3f05debd0d8a6ce3093c2d5f9d39cfc00f83c1397823
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Full report, every severity (never fails the job)
+        run: semgrep scan --config p/typescript --config p/react --config p/owasp-top-ten --sarif --output semgrep.sarif .
+      - name: Gate — ERROR severity only
+        run: semgrep scan --config p/typescript --config p/react --config p/owasp-top-ten --severity ERROR --error .
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() }}
+        with:
+          name: semgrep-sarif
+          path: semgrep.sarif
+          retention-days: 7
+      # Code scanning refuses SARIF on a private repository without Advanced Security; this switches
+      # itself on at the visibility flip.
+      - uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+        if: ${{ always() && !github.event.repository.private }}
+        with:
+          sarif_file: semgrep.sarif
+
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      # Reads package-lock.json only; no install needed.
+      - run: npm audit --omit=dev --audit-level=high
