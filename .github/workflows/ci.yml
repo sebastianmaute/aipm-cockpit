@@ -98,7 +98,7 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci
-      - run: npm run test:shuffle -- --maxWorkers=2
+      - run: npm run test:shuffle -- --maxWorkers=2 --reporter=default
 
   build:
     runs-on: ubuntu-latest

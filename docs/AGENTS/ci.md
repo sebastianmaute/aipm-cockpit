@@ -73,8 +73,17 @@ re-resolved by hand.
   reported test, setup, import and environment time summed to about the wall time, i.e. one worker.
   `gate:local` derives its own count from the local CPUs, so the two still do not share a worker
   layout.
-- **`unit-shuffled`** (45 min, `needs: unit`). `npm run test:shuffle -- --maxWorkers=2` — the same
-  pinned seed as the local command. It waits for `unit` for the reason the GitLab job did: two full vitest runs must never
+- **`unit-shuffled`** (45 min, `needs: unit`). `npm run test:shuffle -- --maxWorkers=2
+  --reporter=default` — the same pinned seed as the local command. ★★ The extra reporter is there
+  so a red run can be read (§612). The script's own `--reporter=dot` writes every dot on ONE line
+  that ends only when the run does — about 430 KB with its colour codes over ~19,600 tests — and
+  `gh run view --log` silently drops that line and everything after it in the step, summary and
+  failure included, so a red run looked empty. The full text was there all along in the raw log
+  (`gh api repos/<owner>/<repo>/actions/jobs/<job-id>/logs --allow-escape-sequences`). A CLI
+  `--reporter` is ADDED to the script's, not swapped for it, so both run: the default reporter's
+  per-file lines break the dot line up and name a failing file as it finishes, and the failure
+  block is printed twice. The alternative, moving `--reporter=dot` out of `test:shuffle`, was
+  rejected because it would change the local command, which exists to reproduce this job. It waits for `unit` for the reason the GitLab job did: two full vitest runs must never
   contend for one runner's CPU. On Actions they would sit on different runners, but the dependency
   still stops a red `unit` from spending another full run nobody can read.
 - **`build`** (15 min). `npm run build`, then uploads `.next/` minus `.next/cache` as the artifact

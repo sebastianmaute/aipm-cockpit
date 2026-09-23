@@ -834,6 +834,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§609](#609-a-late-seal-can-resurrect-a-sealed-secret-the-user-just-cleared--open) | A late seal can resurrect a sealed secret the user just cleared — OPEN | final-review M7 on `fix/backlog-sweep` (Task 5 deferred minor, upgraded), read from code, pre-existing and family-wide; GitLab #390 | S — a per-secret generation guard | open |
 | [§610](#610-fork-prs-cannot-run-the-leak-gate--decide-the-rule-at-the-visibility-flip--open) | Fork PRs cannot run the leak gate — decide the rule at the visibility flip — open | deferred by the sub-project 3 spec (`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`); GitLab #392 | S — decide the rule at the flip; prove it with a fork PR | open |
 | [§611](#611-the-weekly-zap-jobs-docker-run-images-float-unpinned--pin-them-by-digest--open) | The weekly ZAP job's docker run images float unpinned — pin them by digest — open | final review of sub-project 3 on `ci/sp3-actions-workflows` (the plan's unrecorded "follow-up"); GitLab #393 | S — pin both images by `@sha256:` digest and record how to re-resolve them | open |
+| [§612](#612-a-scaling-guard-went-red-in-ci-on-correct-code--shrink-the-memory-bound-fixtures--open) | A scaling guard went red in CI on correct code — shrink the memory-bound fixtures — open | GitHub Actions run 35844783726, job `unit-shuffled`, on `main`; GitLab #394 | S — hedged on `fix/scaling-flake-ci` (smaller n, `repeats: 5`: no shown effect on the failure; readable CI log); close after green `unit-shuffled` runs on `main` | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -40987,3 +40988,73 @@ Fix shape: pin both references by `@sha256:` digest (keeping the tag in a traili
 `uses:` pins keep the version), and record beside them how to re-resolve a digest — e.g.
 `docker buildx imagetools inspect ghcr.io/zaproxy/zaproxy:stable` — so a deliberate bump stays a
 reviewed one-line diff.
+
+## 612. A scaling guard went red in CI on correct code — shrink the memory-bound fixtures — open
+
+**Status:** open 2026-09-23 — mitigated on `fix/scaling-flake-ci` and re-proved locally with
+`npx vitest run src/app/tag-pair-walk.test.ts` (five green runs; three mutants red, ONE run per
+site, so each mutant figure below is a single measurement, not a range); not yet re-proved on a CI
+runner, the cause was not reproduced locally, and the change is a hedge with no shown effect.
+
+**Work item:** #394
+
+**What failed.** GitHub Actions run 35844783726, job `unit-shuffled` (`npm run test:shuffle --
+--maxWorkers=2`, a 2-vCPU `ubuntu-latest` runner), failed 1 of 19,569 tests on correct code:
+`src/app/tag-pair-walk.test.ts` › forEachOpenTag › "stays linear on opens with no '>' anywhere at
+all" — `small n=100000 35.5ms, large n=400000 354.2ms, ratio 9.43 (max 8), pair ratios [9.43, 9.36,
+11.55], loops 4096`. The same test passed in five other full-suite CI runs. The implementation is
+correct: this entry's branch re-proved the site's mutant red.
+
+**The figures first reached the controller through a Copilot log analysis**, because `gh run view
+--log` showed no vitest output at all. That was NOT the dot reporter printing nothing. The raw log
+(`gh api repos/<owner>/<repo>/actions/jobs/107137300632/logs --allow-escape-sequences`) and the
+run's log zip both hold the failure and the summary: the dot reporter wrote all 19,568 dots and
+the one `x` on a single line, 430,546 characters with its colour codes and timestamp, and `gh run
+view --log` returned 363 of the job's 387 lines — dropping exactly that line through the step's
+`##[error]` line. The check run carried no vitest annotation either. Fix: the job now adds
+`--reporter=default` (`docs/AGENTS/ci.md`, the `unit-shuffled` bullet).
+
+**Hypothesis, and what was measured.** Each green call of the three sites below is one scan of
+the whole fixture (`indexOf` over `"<sheet ".repeat(n)`: ~0.7 MB small, ~2.8 MB large at n
+100,000). All three CI pairs were high, and the large/small per-size minima give 9.98, so the
+slowdown was sustained and size-dependent — what a small fixture that fits a cache the large one
+does not would produce, e.g. with the other vitest worker on the sibling vCPU. It was NOT a single
+preemption, which spoils one pair and is outvoted by the median. Also measured: CI calibrated
+4,096 loops where this machine (i7-13700H, Windows) calibrates 1,024 at the same n — 35.5 ms per
+4,096 small calls there against 26.3 ms per 1,024 here, so CI runs this scan about 3x faster. Locally, on 2026-09-23:
+- idle, n 100,000: ratios 3.8–4.3; 6 unpinned memory-sweeping processes: medians 3.5–5.1;
+- one sweeping process pinned to the SMT sibling of a pinned vitest: medians 4.3–5.2 at both
+  n 100,000 and n 40,000 — the cache effect did NOT reproduce here (this CPU's P-core L2 is 2 MB);
+- one sweeping process time-sharing vitest's logical CPU: single pairs up to 12, medians up to
+  7.3 over 16 rounds at `repeats` 3 and up to 6.2 over 18 rounds at `repeats` 5, never ≥ 8;
+- 22 processes on 20 logical CPUs: medians up to 37 at either n — calibration itself is spoiled
+  (loops fell as low as 4), which no choice of n or `repeats` fixes.
+So the CI failure's cause is inferred, not reproduced, and the CI runner's CPU is unknown.
+
+**The change — a cheap hedge, not a demonstrated fix.** In `src/app/tag-pair-walk.test.ts`, the three whole-fixture-scan sites —
+"no '>' anywhere (forEachTagPair)" (n 80,000 → 40,000), "no '>' anywhere (forEachOpenTag)"
+(100,000 → 40,000) and "one '>' at the end (forEachOpenTag)" (80,000 → 40,000) — take `repeats: 5`.
+n cannot go lower: calibration is 2,048–4,096 loops here at 40,000, the ≤ 4,096 ceiling
+`src/test/scaling.ts` sets for fast-CI headroom (at ~3x this machine's speed, CI should land
+near 8,192–16,384 of the 65,536 cap). Five runs of the file: 3.9–4.3, 3.8–4.6 and 3.7–4.2 green; mutants 16.6 (`return` →
+`continue` in `forEachTagPair`), 16.4 (the same in `forEachOpenTag`) and 17.4 (resume dropped,
+`check` relaxed). "retired-name lookups" is NOT changed: its fixture is 120 KB / 480 KB and one
+call is 20,000 regex matches plus map lookups, calibrating 4–16 loops — CPU-bound, not a scan, so
+the cache argument does not apply.
+
+★★ Nothing here shows an effect on the observed failure mode, for three reasons:
+- the factor stays 4, so the fixtures only move from 0.7 / 2.8 MB to 0.28 / 1.12 MB. The small
+  one still fits a 512 KB–1.25 MB L2 and the large one still does not; at 1.12 MB it sits at the
+  edge of a 1.25 MB L2 at best, so the cache split the hypothesis blames survives;
+- calibration keeps the timed small side near 20–40 ms whatever n is, so a smaller n does not
+  shorten the timed runs, and does nothing against interference that long runs absorb;
+- `repeats: 5` outvotes at most two spoiled pairs of five, and the CI failure had all three pairs
+  high ([9.43, 9.36, 11.55]); a sustained slowdown like that spoils all five just the same.
+Green `unit-shuffled` runs on CI are the actual test of the hedge, and the conditions below decide it.
+
+**What would reopen or close it.** Another CI failure of any `expectLinearScaling` site with every
+pair high reopens the question for the whole class: 9 test files call the helper besides its own
+test (`grep -rl expectLinearScaling src` also lists the helper and `version.ts`), and any site
+whose green call is one scan over a fixture of a few hundred KB or more is exposed the same way.
+If it recurs, record the runner's CPU (`lscpu`) in the job before choosing a remedy. Close after a
+run of green `unit-shuffled` jobs on `main` with no scaling failure.
