@@ -41261,6 +41261,17 @@ Commit `d83b680b`'s message says "two clean runs at the recorded seed ... both b
 change" — that overstates it; this line is the correction. Close after **4** consecutive weekly
 `unit-shuffled-random` runs with no unhandled error.
 
+★ **2026-09-23, second fix:** the first hedge's real `setTimeout` hung the hook for 20s in every test
+file that leaves `vi.useFakeTimers()` active into its own teardown — CI run 35914406183, PR #10,
+`unit` job: `src/app/use-arrangement.test.tsx` and `src/app/use-dashboard-layout.test.tsx` both
+restore real timers only inside their own `beforeEach`, which runs BEFORE each test, never after the
+last one, so the last test's fake timers were still active when `vitest.setup.ts`'s `afterAll` ran.
+Fixed by returning at once when `vi.isFakeTimers()` is true: under fake timers, TipTap's own
+`setTimeout(…, 1)` is fake too and never fires after teardown on its own, so there is no race to wait
+out in that case. `grep -rl "useFakeTimers" src --include=*.test.ts --include=*.test.tsx` plus a
+by-hand check of each hit's `useRealTimers` placement found exactly these two files unsafe; all 38
+fake-timer-using files pass together in one `npx vitest run` invocation with the fix in place.
+
 **Work item:** #397
 
 **What was reported.** The run that found §614 also ended with "Vitest caught 1 unhandled error
