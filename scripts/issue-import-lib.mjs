@@ -1,0 +1,120 @@
+/** Pure planner for importing the register's open GitLab issues into a fresh GitHub
+ *  repository with their numbers preserved (sub-project 4 spec,
+ *  docs/superpowers/specs/2026-09-23-issues-migration-design.md). No network, no
+ *  filesystem, no shebang — the CLI (import-issues.mjs) owns I/O. */
+import { isClosed, parseEntries } from "./followup-claims-lib.mjs";
+import { issueSection } from "./followup-workitem-lib.mjs";
+import { scanMessage } from "./identifier-leak-lib.mjs";
+
+export const BODY_CAP = 20000;
+export const TITLE_CAP = 256;
+export const PLACEHOLDER_TITLE = "placeholder (deleted after import)";
+export const STUB_TITLE_RE = /^GitLab #(\d+), closed before the migration$/;
+const CUT_MARK = "\n\n… (cut — read the full entry in the register)";
+const INDEX_ROW_RE = /^\| \[§(\d+)\]\(#([^)\s]+)\)/;
+const OPEN_SUFFIX_RE = /\s+—\s+open\s*$/i;
+const REGISTER_PATH = "docs/open-followups.md";
+
+export function parseIndexAnchors(registerText) {
+  const out = new Map();
+  for (const line of registerText.split(/\r?\n/)) {
+    const m = INDEX_ROW_RE.exec(line);
+    if (m) out.set(Number(m[1]), m[2]);
+  }
+  return out;
+}
+
+export function entryTitle(entry) {
+  return `§${entry.n}: ${entry.title.replace(OPEN_SUFFIX_RE, "")}`.slice(0, TITLE_CAP);
+}
+
+function paragraphs(lines) {
+  return lines
+    .join("\n")
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter((p) => p !== "");
+}
+
+function pointer({ n, repoUrl, pointerStyle, anchor }) {
+  const file = `${repoUrl}/blob/main/${REGISTER_PATH}`;
+  return pointerStyle === "anchor"
+    ? `Register entry [§${n}](${file}#${anchor}).`
+    : `Register entry §${n} in [${REGISTER_PATH}](${file}) — search for \`## ${n}.\``;
+}
+
+export function issueBody(entry, { n, repoUrl, pointerStyle, anchor, date }) {
+  const paras = paragraphs(entry.body);
+  const status = paras.find((p) => p.startsWith("**Status:**"));
+  const first = paras.find((p) => !p.startsWith("**Status:**") && !p.startsWith("**Work item:**"));
+  const footer =
+    `\n\n---\n_Imported from GitLab #${n} on ${date}. The register entry is the source of truth; ` +
+    `update it, not this issue._`;
+  let main = [pointer({ n, repoUrl, pointerStyle, anchor }), status, first].filter(Boolean).join("\n\n");
+  const room = BODY_CAP - footer.length;
+  if (main.length > room) main = main.slice(0, room - CUT_MARK.length) + CUT_MARK;
+  return main + footer;
+}
+
+export function stubIssue(gitlabIssue) {
+  const section = issueSection(gitlabIssue.title);
+  const body =
+    section === null
+      ? "This number belonged to a GitLab issue closed before the migration. It is kept so old citations resolve."
+      : `This number belonged to the GitLab issue for register entry §${section}, closed before the migration. ` +
+        "The closed entry in docs/open-followups.md is the record.";
+  return { title: `GitLab #${gitlabIssue.iid}, closed before the migration`, body };
+}
+
+export function planImport(gitlabIssues, registerText, { repoUrl, pointerStyle, date }) {
+  const byIid = new Map();
+  for (const gi of gitlabIssues) {
+    if (byIid.has(gi.iid)) throw new Error(`GitLab #${gi.iid} appears twice in the issue list`);
+    byIid.set(gi.iid, gi);
+  }
+  const openEntries = new Map(
+    parseEntries(registerText)
+      .filter((e) => !isClosed(e.title))
+      .map((e) => [e.n, e]),
+  );
+  const anchors = parseIndexAnchors(registerText);
+  const max = Math.max(0, ...byIid.keys());
+  const actions = [];
+  for (let n = 1; n <= max; n += 1) {
+    const gi = byIid.get(n);
+    if (!gi) {
+      actions.push({ n, kind: "placeholder", title: PLACEHOLDER_TITLE, body: "", labels: [] });
+      continue;
+    }
+    if (gi.state !== "opened") {
+      actions.push({ n, kind: "stub", ...stubIssue(gi), labels: [] });
+      continue;
+    }
+    const section = issueSection(gi.title);
+    if (section === null) throw new Error(`open GitLab #${n} has no §NNN: title`);
+    const entry = openEntries.get(section);
+    if (!entry) throw new Error(`open GitLab #${n} names §${section}, which is not an OPEN register entry`);
+    actions.push({
+      n,
+      kind: "open",
+      title: entryTitle(entry),
+      body: issueBody(entry, { n, repoUrl, pointerStyle, anchor: anchors.get(section) ?? "", date }),
+      labels: [...gi.labels],
+    });
+  }
+  return actions;
+}
+
+export function leakCheckPlan(actions, patterns) {
+  let hitLines = 0;
+  const classes = {};
+  const actionsHit = [];
+  for (const a of actions) {
+    const r = scanMessage(`${a.title}\n${a.body}`, patterns);
+    if (r.hitLines === 0) continue;
+    hitLines += r.hitLines;
+    actionsHit.push(a.n);
+    for (const [k, v] of Object.entries(r.classes)) classes[k] = (classes[k] ?? 0) + v;
+  }
+  return { hitLines, classes, actionsHit };
+}
