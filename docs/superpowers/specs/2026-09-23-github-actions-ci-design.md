@@ -1,7 +1,9 @@
 # CI on GitHub Actions — design (roadmap sub-project 3)
 
 **Date:** 2026-09-23
-**Status:** design approved in conversation 2026-09-23; awaiting written-spec review.
+**Status:** design approved in conversation 2026-09-23; awaiting written-spec review. Rolled out
+2026-09-23: see [Executed 2026-09-23](#executed-2026-09-23). Where the rollout proved a sentence
+below false, a dated note beside it says so; the original sentence is kept as the record.
 **Roadmap:** `2026-09-20-github-migration-roadmap.md` (sub-project 3 of five)
 **Depends on:** sub-project 2 (`2026-09-22-github-cutover-design.md`), done: GitHub is canonical,
 GitLab is a read-only copy synced daily by `ci/gitlab-sync.yml`, and `npm run gate:local` is the
@@ -13,7 +15,9 @@ Every blocking gate the GitLab pipeline ran becomes a GitHub Actions check that 
 request and every push to `main`, and a pull request **cannot be merged** while one is red. This
 closes the gap sub-project 2 opened: e2e with the axe gate, semgrep, the dependency audit and
 prod-smoke run again. The repository stays **private**; the visibility flip remains the roadmap's
-last step. Register §200 closes in this sub-project.
+last step. Register §200 closes in this sub-project. *(2026-09-23: it did not. The history proof
+failed, and §200 stays open until rewritten history is pushed to a freshly created repository. See
+[Executed 2026-09-23](#executed-2026-09-23).)*
 
 ## Decisions taken 2026-09-23 (by the repository owner)
 
@@ -25,7 +29,7 @@ last step. Register §200 closes in this sub-project.
 | SAST reporting | Semgrep keeps its blocking ERROR gate; the full report is a SARIF artifact; the code-scanning upload step is present but runs only once the repository is public |
 | Leak gate on fork PRs | **Deferred to the flip.** A private repository cannot receive fork PRs, so any rule written now is untestable. Recorded as a new register entry (see "Register") |
 | Job layout | **Grouped jobs over one shared gate list** (approach B below) |
-| §200 | Closed in this sub-project, with a requirement handed to sub-project 4 |
+| §200 | Closed in this sub-project, with a requirement handed to sub-project 4. *Superseded 2026-09-23 by a later owner decision: §200 stays open until rewritten history lands in a freshly created repository (see [Executed 2026-09-23](#executed-2026-09-23))* |
 
 ## Measured facts that bound the design
 
@@ -76,12 +80,17 @@ Two files:
 - `workflow_dispatch`.
 - `concurrency: group: ci-${{ github.ref }}`, with `cancel-in-progress` true **only** for
   `pull_request` events. A newer push to a PR cancels its stale run; a run on `main` is never
-  cancelled.
+  cancelled. *(Corrected 2026-09-23: with one group per ref, a queued push-to-`main` run could still
+  be replaced by the next push. `ci.yml` therefore keys a pull request's group on `github.ref` and a
+  push's group on `github.sha`.)*
 
 ### Runtime conventions (both files)
 
 - `runs-on: ubuntu-latest`.
 - `actions/setup-node` with `node-version-file: package.json` (follows `engines`), npm cache on.
+  *(Corrected 2026-09-23: `ci.yml` and `scheduled.yml` use `node-version: "24"` instead, a
+  deviation the plan records. setup-node resolves the `engines` range `>=24` to the newest major,
+  so a new Node major would reach CI unreviewed.)*
   Each job that needs `node_modules` runs `npm ci`.
 - `e2e` and `prod-smoke` run in the container `mcr.microsoft.com/playwright:v1.61.1-jammy`, the tag
   the GitLab jobs pin. Keep it in lockstep with `@playwright/test`, as before.
@@ -130,7 +139,12 @@ Notes, per job:
 ★ **Risk: the 2-vCPU runner.** `unit` took ~12 min on GitLab and may take twice that here. The first
 run measures it. If `unit` exceeds ~25 min, split it with vitest `--shard` across two jobs. That
 costs the same minutes but finishes sooner, and the coverage floors then need merged reports, which
-is why it is not done up front.
+is why it is not done up front. *(2026-09-23: `unit` took 27.3 min on the first run and tripped this
+stop. The owner chose `--maxWorkers=2` on both vitest jobs instead of `--shard`, and `unit` then
+took 17.4 min. So the `unit` and `unit-shuffled` commands in `ci.yml` carry `--maxWorkers=2`
+beyond what the table above shows, and `unit-shuffled` also carries `--reporter=default` since
+§612. See
+[Executed 2026-09-23](#executed-2026-09-23).)*
 
 ### `scheduled.yml`
 
@@ -145,7 +159,8 @@ no PR waits on it, and none is a required check.
   `Dockerfile.dast`, start the app on a user-defined network, wait for it, run the ZAP baseline scan
   (`-I`), and upload `zap-report.html` and `zap-report.json` (7 days). ★★ **Never validated anywhere**
   — the GitLab job's own comment says so. Its first manual dispatch is a rollout step, not an
-  assumption.
+  assumption. *(2026-09-23: validated. Its first dispatch, run 35875601416, was green and produced
+  a report on `http://app:3000`.)*
 
 ### Not ported, deliberately
 
@@ -203,6 +218,14 @@ has reported, it adds **required status checks**: `static`, `unit`, `unit-shuffl
 - A ruleset can only require a check that has reported at least once, so the ruleset is created
   after the first full run (rollout step 4).
 
+*Note 2026-09-23, on proving refusal:* rollout step 4 planned to prove the ruleset bites with a
+real `gh pr merge` on the red control PR. That was **not** done. The repository's only account is
+itself a bypass actor (the admin role, bypass mode "always"), so an API merge might have gone
+through on the bypass and landed the plants on `main`. The owner accepted two pieces of evidence
+instead: GitHub reported `mergeStateStatus: BLOCKED` on the red control PR, and all eight checks
+carried `isRequired=true`. Refusal is therefore evidenced by GitHub's own state. No merge was
+actually attempted and refused.
+
 ## Operating it
 
 - **Merging:** push → `gh pr create` → wait for green → `gh pr merge --merge`. Never `--auto`.
@@ -216,7 +239,10 @@ has reported, it adds **required status checks**: `static`, `unit`, `unit-shuffl
 
 ## Register
 
-- **§200 closes.** What keeps it open today is SP3-sized:
+- **§200 closes.** *(2026-09-23: it stays open. Items 1 and 2 below were delivered. Item 3 FAILED
+  on 7 session-trailer lines, so item 4 was not done: the `**Work item:**` line stays and #185 stays
+  open. The fork-PR entry became §610. See [Executed 2026-09-23](#executed-2026-09-23).)* What
+  keeps it open today is SP3-sized:
   1. the leak gate running in CI — delivered by the `static` job and proven by the control PR;
   2. the last two mentions of the internal GitLab project number, comments at `.gitlab-ci.yml` lines
      346 and 625 — scrubbed;
@@ -232,7 +258,7 @@ has reported, it adds **required status checks**: `static`, `unit`, `unit-shuffl
   very likely carry internal hosts, the employer's name and work addresses, and imported issues
   become public at the flip. The SP4 import must run the leak scan over the issue text and clean it
   **before** import. With §200 closed, nothing else tracks this, so the roadmap's SP4 section is
-  amended in the same change.
+  amended in the same change. *(2026-09-23: §200 stays open and records this requirement too.)*
 - **New entry: the fork-PR rule for the leak gate**, due at the flip. Fork PRs receive no secrets, so
   `leaks:check` would exit 2 on every outside contribution. The options (skip on forks and rely on
   the push-to-`main` run; keep forks red until a maintainer re-runs from an in-repo branch) are
@@ -269,12 +295,88 @@ against a state it must reject.
    `audit` red. `unit-shuffled` has no cheap plant; its only proof is that it runs the same
    `npm run test:shuffle` the local reproduction runs, and this spec claims no more than that.
 4. **Ruleset** — created once every check name has reported. Proof that it bites: `gh pr merge` on
-   the still-red control PR must be **refused**. Then close the control PRs.
+   the still-red control PR must be **refused**. Then close the control PRs. *(2026-09-23: no
+   `gh pr merge` was run. Refusal is evidenced by `mergeStateStatus: BLOCKED` and eight
+   `isRequired=true` checks instead; see the note under "Protection".)*
 5. **`scheduled.yml`** — dispatched by hand once. `audit-full` and `unit-shuffled-random` complete;
    `dast-zap` gets its first-ever validation, and its reports are downloaded and read.
 6. **§200 closure** — the two scrubs, the history proof, the closure note, GitLab #185 closed.
+   *(2026-09-23: the scrubs were done, but the history proof failed. No closure note was written,
+   and #185 stays open along with §200. See [Executed 2026-09-23](#executed-2026-09-23).)*
 7. **Minutes check**, one week after step 4: actual usage against the 60–65-pipelines-a-month
    estimate, recorded in this spec.
+
+### Executed 2026-09-23
+
+What the rollout did, step by step, with the run that evidences each step. Per-job timings are in
+[Measured facts](#measured-facts-that-bound-the-design) and are not repeated here.
+
+**Step 0, owner setup.**
+- The account is on GitHub Pro. The Actions budget is $0; the owner confirmed this, and it cannot
+  be read back through the API.
+- `LEAK_LIST` is set both as an Actions secret and as a Dependabot secret.
+- Ruleset 23864935 is active on `main` with the `deletion`, `non_fast_forward` and `pull_request`
+  rules. Its bypass actor is the admin repository role, in bypass mode "always".
+
+**Steps 1–2, the two pull requests.**
+- PR A (#3) was merged on `gate:local PASS at 8c10e125`.
+- PR B (#4): its first run, 35829822931, was green on all eight jobs, but `unit` took 27.3 min and
+  tripped the ~25-min stop under "Jobs". The owner chose `--maxWorkers=2` on both vitest jobs.
+  Run 35836632381 then took 17.4 min for `unit`, 14.6 for `unit-shuffled` and 23.6 for `e2e`,
+  about 68 billed minutes per run.
+- **Owner decision on minutes:** keep the pipeline shape and rely on the admin-bypass fallback
+  under "Operating it". That holds even though the measured ~44 runs a month (~22 merges) is below
+  the historical merge rate.
+- PR B merged on green run 35839881266. The push-to-`main` run after it, 35844783726, went red in
+  `unit-shuffled` on a scaling guard over correct code. PR #5 (§612, a hedge rather than a
+  demonstrated fix) merged on green run 35855339667, and push-to-`main` run 35861905800 was green
+  on all eight jobs.
+
+**Step 3, the control plants.** Control PR #6, run 35868367110:
+- `static` was red with **both** a lint failure and `leaks:check` exit 1, and both appeared in its
+  step table. That proves `--keep-going`.
+- `unit` was red on `ci-control.test.ts`.
+- `e2e` was red on an axe `label` violation in Open Points.
+- `prod-smoke` was red on a CSP `style-src-elem` violation.
+- `build` and `audit` stayed green, and `unit-shuffled` was skipped (it needs `unit`).
+- `semgrep` stayed **GREEN**. Its plant, `exec`, `eval` and `new Function` on request input in a
+  `.ts` file, hit no rule in `p/typescript`, `p/react` or `p/owasp-top-ten` at any severity. This
+  is §613.
+- A second plant, a React `fetch("http://…")`, turned `semgrep` red on run 35873608519 through
+  `typescript.react.security.react-insecure-request`. That run was then cancelled, with `static`,
+  `semgrep` and `prod-smoke` red.
+- Audit control PR #7, run 35868461153: `audit` was red on lodash <=4.17.23 (high).
+- `unit-shuffled` has no plant. Its only evidence is that it runs `npm run test:shuffle`, as step 3
+  said it would be.
+- The canary planted for `leaks:check` never appeared in any job log.
+
+**Step 4, the ruleset's required checks.**
+- The eight required checks were added to ruleset 23864935 (integration 15368, "up to date" off).
+- Merge refusal is evidenced by `mergeStateStatus: BLOCKED` and `isRequired=true` on all eight
+  checks. No real merge was attempted; the note under "Protection" gives the reason.
+- #6 and #7 were closed unmerged, and their branches deleted.
+
+**Step 5, `scheduled.yml`, dispatched once as run 35875601416.**
+- `dast-zap` was green, its first working run anywhere. It produced a report on
+  `http://app:3000` with 7 alerts: 3 low and 4 informational.
+- `audit-full` was green.
+- `unit-shuffled-random` was red under seed 35875601416. It found an order-dependent test (§614)
+  and an unhandled `@tiptap/react` timer error (§615).
+
+**Step 6, §200.** The scrubs are done, and §200 stays **open**.
+- The two `.gitlab-ci.yml` comments are scrubbed.
+- The history proof FAILS against a mirror of GitHub on 7 assistant session-trailer lines. They
+  reached `main` through PRs #4 and #5 and stay reachable through `refs/pull/*`.
+- The positive control against `cutover/original.bundle` passes.
+- Owner decision: push rewritten history to a freshly created repository before the flip, then
+  re-run the clean proof there.
+- `leaks:check` reads files only, so a commit-message leak scan
+  (`scripts/check-commit-message-leaks.mjs`) was added to the `static` job on
+  `ci/sp3-rollout-and-200`; it has not yet run on a runner.
+- Figures and commit ids are in §200's "Sub-project 3 rollout, 2026-09-23" section in
+  `docs/open-followups.md`.
+
+**Step 7, the minutes check,** is not yet done; it falls due one week after step 4.
 
 ## Tests and guards
 

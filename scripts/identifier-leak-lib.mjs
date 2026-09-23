@@ -81,6 +81,29 @@ export function isBinary(buf) {
   return false;
 }
 
+/** Lines of the assistant trailers a commit or tag message must not carry, matched by KEY at line
+ *  start, case-insensitively. The one definition: `verify-rewrite.mjs` (history rewrite check) and
+ *  `check-commit-message-leaks.mjs` (CI's message scan) both import it. */
+export const TRAILER_RE = /^\s*(claude-session:|co-authored-by:\s*claude\b)/i;
+
+/** Scan one commit or tag message. Returns the number of lines any pattern hit, those lines per
+ *  class (a line hit by two classes counts once in `hitLines` and once under each class), and the
+ *  number of trailer lines. ★ No absence-marker suppression, unlike `classifyHit`: a message is
+ *  permanent history, and `verify-rewrite.mjs --expect clean` counts it the same way. */
+export function scanMessage(text, patterns) {
+  let hitLines = 0;
+  let trailerLines = 0;
+  const classes = {};
+  for (const line of text.split(/\r?\n/)) {
+    if (TRAILER_RE.test(line)) trailerLines += 1;
+    const hit = patterns.filter((p) => p.re.test(line)).map((p) => p.cls);
+    if (hit.length === 0) continue;
+    hitLines += 1;
+    for (const cls of hit) classes[cls] = (classes[cls] ?? 0) + 1;
+  }
+  return { hitLines, trailerLines, classes };
+}
+
 /** Every non-clean line of one file's text, with 1-based line numbers. */
 export function scanText(path, text, patterns) {
   const out = [];

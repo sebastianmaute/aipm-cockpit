@@ -17,7 +17,7 @@ The ruleset on `main` requires exactly these, and `scripts/ci-workflow.test.mjs`
 and the job ids in `.github/workflows/ci.yml` differ.
 
 <!-- required-checks:begin -->
-- `static` — every `static` step of `scripts/gate-local.mjs` (`--keep-going`), then actionlint
+- `static` — every `static` step of `scripts/gate-local.mjs` (`--keep-going`), the commit-message leak scan, then actionlint
 - `unit` — `npm run test:coverage`; the coverage floors are vitest's
 - `unit-shuffled` — `npm run test:shuffle`, after `unit`
 - `build` — `npm run build`; publishes `.next/` for prod-smoke
@@ -58,7 +58,27 @@ re-resolved by hand.
   the leak step with code 2; only a local run skips it. A failing row carries its reason when the
   gate list supplied one, so that case reads `FAIL (exit 2; LEAK_LIST_FILE unset under CI)` while
   `leaks:check`'s own exit 2 reads `FAIL (exit 2)`. Count the steps rather than trusting a number:
-  `grep -c 's("static"' scripts/gate-local.mjs`. Last, **actionlint** from its container image, pinned
+  `grep -c 's("static"' scripts/gate-local.mjs`. Then, with `if: !cancelled()`, the **commit-message
+  leak scan**, `node scripts/check-commit-message-leaks.mjs "$RANGE"` (`npm run leaks:messages:check`):
+  `leaks:check` reads tracked FILES only, and seven commits reached `main` with a session trailer that
+  nothing saw (§200). It reads every commit message in the range, plus the message of each annotated
+  tag on a commit in it, against the same list, and also fails on any assistant trailer line
+  (`TRAILER_RE` in `scripts/identifier-leak-lib.mjs`, shared with `verify-rewrite.mjs`). It prints only
+  short SHAs, classes and counts. Exit 0 = clean (an empty range included, so a no-op push passes),
+  1 = a list hit or a trailer, 2 = could not scan (list unset, missing or empty; no range or one git
+  cannot resolve; a failing git call). On a pull request the range is `<merge-base>..head.sha`, where
+  the merge-base is `git merge-base "$PR_HEAD" "refs/remotes/origin/$GITHUB_BASE_REF"`, not the
+  payload's `base.sha`: that can be stale, and a branch that merged a newer `main` would then drag
+  `main`'s commits in, including the seven §200 trailer commits (a false red). The step exits 2 when
+  the merge-base fails. The `fetch-depth: 0` checkout fetches every branch into `refs/remotes/origin/`
+  (the all-history refspec in actions/checkout's ref-helper), so no extra fetch is needed, and none
+  could run: `persist-credentials: false` leaves git no token. On a push the range is `before..sha`;
+  a push whose `before` is all zeros, and a `workflow_dispatch` run, scan `sha^!` (the head commit
+  alone). The event values reach the script through `env:`, never inline in
+  `run:`. That is why the checkout here, and only here, sets `fetch-depth: 0`. ★ It is NOT in
+  `gate-local.mjs`'s `GATE_STEPS`, so `gate:local` does not reproduce it: it needs a commit range a
+  local run does not have. Reproduce it with the RUNBOOK's "A required check is red" line.
+  Last, **actionlint** from its container image, pinned
   by digest, with `if: !cancelled()` so it still runs when the gate step is red. actionlint has no
   local install; CI is where it is enforced.
 - **`unit`** (45 min). `npm run test:coverage -- --maxWorkers=2 --reporter=default --reporter=junit

@@ -22,10 +22,9 @@
 import { readFileSync } from "node:fs";
 import { execFileSync, spawn } from "node:child_process";
 import { pathToFileURL } from "node:url";
-import { parseList, buildPatterns, isBinary } from "./identifier-leak-lib.mjs";
-
-/** Lines of the assistant trailers the rewrite must drop: matched by KEY at line start. */
-export const TRAILER_RE = /^\s*(claude-session:|co-authored-by:\s*claude\b)/i;
+// TRAILER_RE (the assistant trailers the rewrite must drop) lives in the lib, shared with
+// check-commit-message-leaks.mjs.
+import { parseList, buildPatterns, isBinary, TRAILER_RE } from "./identifier-leak-lib.mjs";
 
 /** Number of LINES in `text` that match any pattern. */
 export function countHitLines(text, patterns) {

@@ -138,6 +138,32 @@ describe("ci.yml", () => {
     expect(b.indexOf("LEAK_LIST_FILE=")).toBeLessThan(b.indexOf("--group static"));
   });
 
+  it("scans the event's commit messages in static, over a full-history checkout, after the gates", () => {
+    const b = jobBlock(CI, "static");
+    expect(b).toMatch(/^ {6}- uses: actions\/checkout@\S+.*\n {8}with:\n {10}fetch-depth: 0$/m);
+    const scan = b.indexOf("node scripts/check-commit-message-leaks.mjs");
+    expect(scan).toBeGreaterThan(b.indexOf("--group static"));
+    const stepStart = b.lastIndexOf("- name: Commit-message leak scan", scan);
+    expect(stepStart).toBeGreaterThan(-1);
+    const step = b.slice(stepStart, scan);
+    // It still runs when the gate step is red.
+    expect(step).toMatch(/^ {8}if: \$\{\{ !cancelled\(\) \}\}$/m);
+    // Event values reach the script through env:, never a ${{ }} inside run:.
+    expect(step).toMatch(/PR_HEAD: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/);
+    expect(step).toMatch(/PUSH_BEFORE: \$\{\{ github\.event\.before \}\}/);
+    const run = b.lastIndexOf("run: |", scan);
+    expect(run).toBeGreaterThan(stepStart);
+    expect(b.slice(run, scan)).not.toMatch(/\$\{\{/);
+    // A pull request starts at the merge-base with the fetched base branch, not the payload's
+    // (possibly stale) base.sha, and a failed merge-base is exit 2, never a silent skip.
+    expect(step).toMatch(/git merge-base "\$PR_HEAD" "refs\/remotes\/origin\/\$GITHUB_BASE_REF"\) \|\| \{/);
+    expect(step).toMatch(/exit 2; \}/);
+    expect(step).not.toMatch(/base\.sha/);
+    // An all-zeros `before` (a new branch) falls through to the head commit alone.
+    expect(step).toMatch(/\[ -n "\$\{PUSH_BEFORE\/\/0\/\}" \]/);
+    expect(step).toMatch(/RANGE="\$HEAD_SHA\^!"/);
+  });
+
   it("uploads .next with hidden files included and the cache excluded", () => {
     const b = jobBlock(CI, "build");
     expect(b).toMatch(/include-hidden-files: true/);

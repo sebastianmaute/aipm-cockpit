@@ -328,6 +328,10 @@ run SKIPS `leaks:check` and can still end `gate:local PASS`:
 Add `--allow-dirty` only when you have uncommitted tracked changes (it refuses to start over them,
 exit 2, otherwise). Read the table it prints: a `SKIPPED` row means that step was NOT reproduced,
 whatever the final line says.
+The `static` job's "Commit-message leak scan" step is not part of `gate:local`; reproduce it over your
+branch's commits with
+`LEAK_LIST_FILE=<path to your local leak list> node scripts/check-commit-message-leaks.mjs origin/main..HEAD`
+(exit 1 names each offending short SHA and class, e.g. `class=trailer`; reword those commits).
 
 ### "Actions minutes exhausted"
 While the repository is private, Actions runs on GitHub Pro's included minutes with a $0 budget, so

@@ -426,7 +426,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§197](#197-appendtexts-return-value-is-over-claimed-by-one-word--focus-can-also-return-false) | `appendText`'s return value is over-claimed by one word — `focus` can also return false | — | — | open |
 | [§198](#198-a-block-delete-reads-its-baseline-at-click-time-not-at-menu-open-time) | A block delete reads its baseline at CLICK time, not at menu-open time | — | — | open |
 | [§199](#199-adding-a-block-at-a-narrow-pane-leaves-the-new-block-collapsed-read-only--closed-2026-09-02) | ~~Adding a block at a narrow pane leaves the NEW block collapsed read-only~~ | — | — | **CLOSED** 2026-09-02 (the fork decided (a): a paragraph insert carries the selection; every other kind unchanged) |
-| [§200](#200-internal-identifiers-ship-in-the-tracked-tree--blocks-flipping-the-github-mirror-public) | Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public | — | — | open |
+| [§200](#200-internal-identifiers-ship-in-the-tracked-tree--blocks-flipping-the-github-mirror-public) | Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public | sub-project 3 rollout 2026-09-23: leak gate in CI, history proof FAILS on 7 session-trailer lines; GitLab #185 | before the flip, push history rewritten without the 7 trailer lines to a freshly created repository, then re-run `--expect clean` against it | open |
 | [§201](#201-a-raw-control-byte-sits-in-jira-apits--the-nul-guard-cannot-see-it-but-the-binary-to-grep-headline-does-not-reproduce) | A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce | — | — | open |
 | [§202](#202-ooxml-media-machinery-for-document-images--s3c-2--closed-2026-08-22) | OOXML media machinery for document images — S3c-2 | — | — | **CLOSED** 2026-08-22 |
 | [§203](#203-the-asset-library-is-outside-axe-coverage-and-this-is-unfixable-at-the-gate) | The asset library is outside axe coverage, and this is unfixable at the gate | — | — | open |
@@ -835,6 +835,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§610](#610-fork-prs-cannot-run-the-leak-gate--decide-the-rule-at-the-visibility-flip--open) | Fork PRs cannot run the leak gate — decide the rule at the visibility flip — open | deferred by the sub-project 3 spec (`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`); GitLab #392 | S — decide the rule at the flip; prove it with a fork PR | open |
 | [§611](#611-the-weekly-zap-jobs-docker-run-images-float-unpinned--pin-them-by-digest--open) | The weekly ZAP job's docker run images float unpinned — pin them by digest — open | final review of sub-project 3 on `ci/sp3-actions-workflows` (the plan's unrecorded "follow-up"); GitLab #393 | S — pin both images by `@sha256:` digest and record how to re-resolve them | open |
 | [§612](#612-a-scaling-guard-went-red-in-ci-on-correct-code--shrink-the-memory-bound-fixtures--open) | A scaling guard went red in CI on correct code — shrink the memory-bound fixtures — open | GitHub Actions run 35844783726, job `unit-shuffled`, on `main`; GitLab #394 | S — hedged on `fix/scaling-flake-ci` (smaller n, `repeats: 5`: no shown effect on the failure; readable CI log); close after green `unit-shuffled` runs on `main` | open |
+| [§613](#613-semgreps-blocking-gate-misses-code-injection-in-typescript--widen-the-rule-set-or-block-on-warning--open) | Semgrep's blocking gate misses code injection in TypeScript — widen the rule set or block on WARNING — open | sub-project 3 control plant, GitHub Actions run 35868367110 (job `semgrep` stayed green); GitLab #395 | decide the rule source or severity, then re-run the three-sink plant until the job goes red | open |
+| [§614](#614-use-weight-suggestionstesttsx-is-order-dependent--its-shared-mock-is-never-reset--open) | use-weight-suggestions.test.tsx is order-dependent — its shared mock is never reset — open | scheduled run 35875601416, job `unit-shuffled-random` (seed 35875601416); GitLab #396 | S — clear the mock before each test; reproduces in isolation | open |
+| [§615](#615-tiptaps-deferred-editor-destroy-throws-window-is-not-defined-after-a-test-environment-is-torn-down--open) | TipTap's deferred editor destroy throws window is not defined after a test environment is torn down — open | scheduled run 35875601416, job `unit-shuffled-random` (unhandled error); GitLab #397 | find the leaking test file first; fix not chosen | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -16671,7 +16674,16 @@ the surface is unexercised by the seed even though it is reachable from it.
 
 ## 200. Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public
 
-**Status:** open — NOT a defect today and NOT a regression. The GitLab project and the GitHub push
+**Status:** open 2026-09-23 — the leak gate now runs in CI and has been proven red, but the history
+GitHub serves still carries 7 assistant session-trailer lines (last verified 2026-09-23 with
+`node scripts/verify-rewrite.mjs --repo <mirror of GitHub> --allow <allowlist> --expect clean`, which FAILS), merged to `main` through PRs #4 and
+#5 and kept in `refs/pull/*`, which the owner cannot delete. Owner decision 2026-09-23: before the
+visibility flip, push history rewritten to drop those 7 lines to a FRESHLY CREATED repository, then
+re-run `--expect clean` against it; this entry closes only after that. Evidence and figures: "Sub-project 3
+rollout, 2026-09-23" at the end of this entry. The paragraph below is the status as it stood on
+2026-09-22 and is kept as the record.
+
+Status 2026-09-22: open — NOT a defect today and NOT a regression. The GitLab project and the GitHub push
 mirror are both private, so nothing here is exposed. It becomes a hard blocker the moment that
 GitHub repo is flipped public, which `docs/superpowers/specs/2026-09-20-github-migration-roadmap.md`
 sequences as its LAST step; the sanitise plan does not make anything public. As of 2026-09-22 all
@@ -16709,6 +16721,8 @@ Exit 0 is clean; exit 1 names a leak as `path:line class=<class>` (never the mat
 means it could not scan (the variable unset/blank, the list missing/empty/malformed, or fewer than
 50 text files read). It is not yet wired into CI — that needs a masked file-type variable in the
 project settings — so it is a local command today, and only useful to someone holding the list.
+(Superseded 2026-09-23: it runs in the GitHub Actions `static` job, fed by the `LEAK_LIST` secret;
+see the rollout section at the end of this entry.)
 Without the list, reproduce by hand: search the tracked tree for the employer name (any spelling)
 and its email domain, the internal GitLab host and group path, the internal wiki host, the brand
 trigram, and URL paths carrying the internal numeric project id. Never quote any of them literally
@@ -16807,6 +16821,86 @@ It matched the word ending a sentence, which flagged code comments in `budget-bu
 `use-ai-orchestration.ts` — neither has anything to do with the company. The first cut of this entry
 named those two files as leaks while missing almost every real one; the classes named above are the
 actual set. Grep for the ORGANISATION's identifiers, never for the word "internal".
+
+**Sub-project 3 rollout, 2026-09-23 — the entry stays OPEN.** The CI spec
+(`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`, "Register") planned to close this
+entry in sub-project 3. The history proof below failed, so it does not close.
+
+Now true:
+- `leaks:check` runs in CI, in the GitHub Actions `static` job, on every pull request and every
+  push to `main`. A control plant proved it red with exit 1 (a leak found), not exit 2 (could not
+  scan): run 35868367110 on the throwaway control PR #6, closed unmerged.
+- `leaks:check` reads tracked FILES only, so a commit message was a blind spot; the seven commits
+  below reached `main` through it. `scripts/check-commit-message-leaks.mjs` now scans the commit
+  and annotated-tag messages a pull request or push introduces, in the same `static` job. It
+  exits 1 on a listed identifier or ANY assistant trailer line, and prints only the short SHA, the
+  classes and the counts. It was added on `ci/sp3-rollout-and-200` and has not yet run on a CI
+  runner; its first run is that branch's pull request.
+- The last two mentions of the GitLab project number in `.gitlab-ci.yml` (both comments) are
+  scrubbed. The SP3 plan's scrub step spelled the number out in its own grep pattern, and that was
+  scrubbed too. `git grep -n -E "[Pp]roject [0-9]{3}\b" -- .gitlab-ci.yml
+docs/superpowers/plans/2026-09-23-github-actions-ci.md` now exits 1. At the commit before the
+scrub it matched 4 lines: the two comments, and two lines in the plan's scrub step.
+- `noreply@github.com`, the committer GitHub recorded on every merge commit it made for a pull
+  request (`git log origin/main --merges --format="%h %ce"`), was added to the cut-over identity allowlist. That allowlist lives outside the
+  repository, like the leak list.
+
+The history proof, against a `git clone --mirror` of the GitHub repository:
+- `node scripts/verify-rewrite.mjs --repo <mirror> --allow <allowlist> --expect clean` **FAILS**.
+  With the control plant's canary line excluded from the list it reports blobHitLines=0,
+  messageHitLines=7, trailerLines=7, and an identity set equal to the allowlist (unexpected=0,
+  missing=0).
+- The 7 are assistant `Claude-Session:` trailer lines, leak-list class `session-url`, on commits
+  3e2c163b 3de78c55 3d0b3f01 022142ef d911fd04 753befa9 2bc6b65a. The first four reached `main`
+  through PR #4 and the last three through PR #5. A wrong controller ruling during the rollout let
+  them through: it treated a session trailer as allowed, when the leak list classes it as an
+  identifier. Reproduce the list without printing a trailer:
+  `git log origin/main --grep="Claude-Session:" --fixed-strings --format=%h --since=2026-09-22`.
+- Rewriting `main` cannot shed them. GitHub keeps a `refs/pull/<n>/head` ref for every pull
+  request, and the owner cannot delete one. In the mirror, `git for-each-ref --contains <sha>
+  refs/pull` puts all seven in `refs/pull/5`, `refs/pull/6` and `refs/pull/7`, and the first four
+  in `refs/pull/4` too. Any later pull request branched from today's `main` adds another such ref.
+- Positive control: `--expect dirty` against `cutover/original.bundle` PASSES with
+  blobHitLines=131660, messageHitLines=3988 and trailerLines=3406, so the clean run's zeros are
+  not a scan that read nothing.
+- The first clean run, with the canary still in the list, reported blobHitLines=1. The hit came
+  from `refs/pull/6`, the control PR that planted it, which proves the scan reads pull-request
+  refs.
+
+**Owner decision 2026-09-23.** Before the visibility flip, push history rewritten to drop those 7
+trailer lines to a FRESHLY CREATED repository. A new repository has no `refs/pull/*`, and that is
+the only way within the owner's control to shed them. GitHub Support can purge pull-request refs
+on request, but the owner cannot. Then re-run `--expect clean` against that repository. This entry closes
+only after that run passes. The roadmap
+(`docs/superpowers/specs/2026-09-20-github-migration-roadmap.md`) carries the same step at the
+flip.
+
+**Owner decision 2026-09-23, second part: the same rewrite also scrubs the GitLab project number.**
+- **Scope.** The tree no longer spells the number in prose (see "Now true"), but history still
+  does. The rewrite must remove it from:
+  - every historical version of `.gitlab-ci.yml`;
+  - every historical version of `docs/superpowers/plans/2026-09-23-github-actions-ci.md`;
+  - any other blob or commit message that spells it in prose.
+- **Why the current check cannot see it.** The leak list covers only the number's URL form. The
+  clean run above reported blobHitLines=0 against a mirror whose history still held the prose
+  mentions.
+- **How the flip step verifies it:**
+  1. Add a pattern for the prose form, either to the leak list or to a supplementary list used
+     only at the flip.
+  2. Prove the pattern live: run `verify-rewrite` with it against a mirror of TODAY's repository,
+     which still carries the prose mentions, and require nonzero hits there (red).
+  3. Run `--expect clean` with the same list against the fresh repository. Only that run counts.
+- **Never write the number** in this register, the roadmap or any pattern example. Refer to it
+  only as "the GitLab project number". The pattern itself lives outside the repository, with the
+  leak list.
+
+Also recorded here, because this entry is where they are tracked:
+- ★★ **The gate's known blind spot:** `leaks:check` scans file CONTENT, never file NAMES or
+  paths. A listed identifier in a file name passes it.
+- ★★★ **A requirement for sub-project 4:** GitLab issue titles, bodies and comments very likely
+  carry internal hosts, the employer's name and work addresses, and imported issues become public
+  at the flip. The issue import must run the leak scan over the issue text and clean it BEFORE
+  import.
 
 ## 201. A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce
 
@@ -41058,3 +41152,105 @@ test (`grep -rl expectLinearScaling src` also lists the helper and `version.ts`)
 whose green call is one scan over a fixture of a few hundred KB or more is exposed the same way.
 If it recurs, record the runner's CPU (`lscpu`) in the job before choosing a remedy. Close after a
 run of green `unit-shuffled` jobs on `main` with no scaling failure.
+
+## 613. Semgrep's blocking gate misses code injection in TypeScript — widen the rule set or block on WARNING — open
+
+**Status:** open 2026-09-23 — never machine-verified locally (there is no semgrep install on the
+Windows workstation); measured on GitHub Actions only, in runs 35868367110 and 35873608519.
+
+**Work item:** #395
+
+**What was measured.** The `semgrep` job's blocking step is carried over unchanged from GitLab:
+`semgrep scan --config p/typescript --config p/react --config p/owasp-top-ten --severity ERROR
+--error .` (`.github/workflows/ci.yml`). The sub-project 3 control PR #6 planted a `.ts` file with
+three request-controlled sinks: `exec(req.query.cmd)` from `node:child_process`,
+`eval(req.query.cmd)` and `new Function(req.query.cmd)()`. In run 35868367110 the blocking step
+reported "Rules run: 35" and "Findings: 0" (its start banner reads "with 171 Code rules"). The job
+stayed GREEN. The full-severity report in the same run ("Rules run: 110"; banner "with 563 Code
+rules") did not flag the plant at any level either. Its SARIF held only 3 findings, all in files that existed before the plant:
+`dependabot-missing-cooldown` on `.github/dependabot.yml`, and `react-dangerouslysetinnerhtml` in
+`comm-send-preview-modal.tsx` and `meeting-report-panel.tsx`.
+
+**The one rule proven to fire.** A second plant, `void fetch("http://example.com/...")` in a `.tsx`
+file, turned the job red in run 35873608519 through
+`typescript.react.security.react-insecure-request.react-insecure-request` (1 blocking finding, 35
+rules run). So the gate is live, but for this code base it covers a narrow set of patterns, and
+code injection in plain TypeScript is not among them.
+
+**Options, undecided:**
+1. add a rule source that covers Node sinks: `p/javascript` or `p/nodejs`, or a local rule file
+   kept in the repository;
+2. block on WARNING as well as ERROR. This changes nothing for the plant above, which no rule
+   flagged at ANY severity, and it would turn the three pre-existing findings red first.
+
+Whichever is chosen, re-run the same three-sink plant and require the job to go red before closing
+this entry. Checking only that the config changed is not enough.
+
+## 614. use-weight-suggestions.test.tsx is order-dependent — its shared mock is never reset — open
+
+**Status:** open 2026-09-23 — reproduced locally, in isolation, with
+`npx vitest run src/app/use-weight-suggestions.test.tsx --sequence.shuffle --sequence.seed=35875601416 --reporter=dot`
+(EXIT=1; 1 failed, 2 passed).
+
+**Work item:** #396
+
+**What failed.** The scheduled workflow's `unit-shuffled-random` job, run 35875601416 (seed =
+the run id), failed 1 of 19,569 tests: `src/app/use-weight-suggestions.test.tsx` › useWeightSuggestions
+› "sets error 'no-key' and does not call when key blank" — `expected "vi.fn()" to not be called at
+all, but actually been called 2 times`. The reproduce command the job echoes is
+`npx vitest run --sequence.shuffle --sequence.seed=35875601416`.
+
+**The leak is inside the file.** The single-file run above reproduces the same failure, so no other
+test file is involved. The file mocks `./weight-suggestion-call` with one module-level `vi.fn()`
+and never clears it: there is no `beforeEach`, and nothing resets it between tests. The two other
+tests in the file call it with `apiKey: "k"`. The recorded calls carry exactly that key, so when
+the shuffle runs both of them first, the "no-key" test sees their 2 calls. Fix shape: clear the
+mock before each test (`vi.clearAllMocks()` in a `beforeEach`, or `mockClear()` on the one mock),
+then re-run the seeded command above until it is green.
+
+★ The failure could not be read from `gh run view --log`: that command returned the job log without
+vitest's summary, as §612 found for `unit-shuffled`. The raw job log
+(`gh api repos/<owner>/<repo>/actions/jobs/<job-id>/logs --allow-escape-sequences`) holds it. The
+scheduled job still runs `--reporter=dot`; §612's `--reporter=default` fix reached only the
+`unit-shuffled` job in `ci.yml`.
+
+## 615. TipTap's deferred editor destroy throws window is not defined after a test environment is torn down — open
+
+**Status:** open 2026-09-23 — never machine-verified; seen once, in scheduled run 35875601416,
+and not reproduced.
+
+**Work item:** #397
+
+**What was reported.** The run that found §614 also ended with "Vitest caught 1 unhandled error
+during the test run" (`Errors  1 error`). The stack, from the raw job log:
+
+```
+ReferenceError: window is not defined
+ ❯ Object.destroy node_modules/@tiptap/core/dist/index.js:5110:6
+ ❯ EditorView.destroyPluginViews node_modules/prosemirror-view/dist/index.js:5646:22
+ ❯ EditorView.destroy node_modules/prosemirror-view/dist/index.js:5870:14
+ ❯ Editor.unmount node_modules/@tiptap/core/dist/index.js:6249:20
+ ❯ Editor.destroy node_modules/@tiptap/core/dist/index.js:6619:8
+ ❯ Timeout._onTimeout node_modules/@tiptap/react/dist/index.js:441:19
+```
+
+`@tiptap/react` destroys an editor in a `setTimeout`. The timer fired after the jsdom environment
+that owned `window` had been torn down, so `Editor.destroy` threw from a timer with no test left to
+catch it. Vitest's own note on it reads: "This error originated in "src/app/rich-text-editor.test.tsx"
+test file. It doesn't mean the error was thrown inside the file itself, but while it was running."
+That names the file that was running when the timer fired. It does not establish which test
+mounted the editor that leaked.
+
+**Which tests mount a TipTap editor.** Only `src/app/rich-text-editor.tsx` calls `useEditor`.
+`git grep -n "useEditor(" -- src` has three hits, and the other two, in `csp-nonce.ts` and
+`document-block-editors.tsx`, are comments. Ten non-test modules import it or its
+lazy wrapper (`git grep -l -E "from \"\.\.?/rich-text-editor(-lazy)?\"" -- "src/**/*.tsx" "src/**/*.ts"`,
+excluding tests). The test files that name the editor module or `@tiptap/react` directly are the
+first candidates: `git grep -l -E "rich-text-editor|@tiptap/react" -- "src/**/*.test.tsx" "src/**/*.test.ts"`
+lists 18, and 5 of them `vi.mock` an editor module. More tests reach the editor transitively, for
+example through `task-form-fields.tsx` or `change-edit-modal.tsx`, and they are not enumerated here.
+
+The job was already red on §614's test, so this run cannot show whether the error alone would have
+failed it. Next step: find which file leaks, for example by running the candidate files one at a
+time under the same seed and watching for the unhandled error. Only then choose a fix, such as
+letting the editor's deferred destroy run before that file's environment is torn down.
