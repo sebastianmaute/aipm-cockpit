@@ -426,7 +426,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§197](#197-appendtexts-return-value-is-over-claimed-by-one-word--focus-can-also-return-false) | `appendText`'s return value is over-claimed by one word — `focus` can also return false | — | — | open |
 | [§198](#198-a-block-delete-reads-its-baseline-at-click-time-not-at-menu-open-time) | A block delete reads its baseline at CLICK time, not at menu-open time | — | — | open |
 | [§199](#199-adding-a-block-at-a-narrow-pane-leaves-the-new-block-collapsed-read-only--closed-2026-09-02) | ~~Adding a block at a narrow pane leaves the NEW block collapsed read-only~~ | — | — | **CLOSED** 2026-09-02 (the fork decided (a): a paragraph insert carries the selection; every other kind unchanged) |
-| [§200](#200-internal-identifiers-ship-in-the-tracked-tree--blocks-flipping-the-github-mirror-public) | Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public | — | — | open |
+| [§200](#200-internal-identifiers-ship-in-the-tracked-tree--blocks-flipping-the-github-mirror-public) | Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public | — ; sub-project 3 rollout 2026-09-23: leak gate in CI, history proof FAILS on 7 session-trailer lines; GitLab #185 | before the flip, push history rewritten without the 7 trailer lines to a freshly created repository, then re-run `--expect clean` against it | open |
 | [§201](#201-a-raw-control-byte-sits-in-jira-apits--the-nul-guard-cannot-see-it-but-the-binary-to-grep-headline-does-not-reproduce) | A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce | — | — | open |
 | [§202](#202-ooxml-media-machinery-for-document-images--s3c-2--closed-2026-08-22) | OOXML media machinery for document images — S3c-2 | — | — | **CLOSED** 2026-08-22 |
 | [§203](#203-the-asset-library-is-outside-axe-coverage-and-this-is-unfixable-at-the-gate) | The asset library is outside axe coverage, and this is unfixable at the gate | — | — | open |
@@ -16671,7 +16671,16 @@ the surface is unexercised by the seed even though it is reachable from it.
 
 ## 200. Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public
 
-**Status:** open — NOT a defect today and NOT a regression. The GitLab project and the GitHub push
+**Status:** open 2026-09-23 — the leak gate now runs in CI and has been proven red, but the history
+GitHub serves still carries 7 assistant session-trailer lines (last verified 2026-09-23 with
+`node scripts/verify-rewrite.mjs --repo <mirror of GitHub> --allow <allowlist> --expect clean`, which FAILS), merged to `main` through PRs #4 and
+#5 and kept in `refs/pull/*`, which the owner cannot delete. Owner decision 2026-09-23: before the
+visibility flip, push history rewritten to drop those 7 lines to a FRESHLY CREATED repository, then
+re-run `--expect clean` against it; this entry closes only after that. Evidence and figures: "Sub-project 3
+rollout, 2026-09-23" at the end of this entry. The paragraph below is the status as it stood on
+2026-09-22 and is kept as the record.
+
+Status 2026-09-22: open — NOT a defect today and NOT a regression. The GitLab project and the GitHub push
 mirror are both private, so nothing here is exposed. It becomes a hard blocker the moment that
 GitHub repo is flipped public, which `docs/superpowers/specs/2026-09-20-github-migration-roadmap.md`
 sequences as its LAST step; the sanitise plan does not make anything public. As of 2026-09-22 all
@@ -16709,6 +16718,8 @@ Exit 0 is clean; exit 1 names a leak as `path:line class=<class>` (never the mat
 means it could not scan (the variable unset/blank, the list missing/empty/malformed, or fewer than
 50 text files read). It is not yet wired into CI — that needs a masked file-type variable in the
 project settings — so it is a local command today, and only useful to someone holding the list.
+(Superseded 2026-09-23: it runs in the GitHub Actions `static` job, fed by the `LEAK_LIST` secret;
+see the rollout section at the end of this entry.)
 Without the list, reproduce by hand: search the tracked tree for the employer name (any spelling)
 and its email domain, the internal GitLab host and group path, the internal wiki host, the brand
 trigram, and URL paths carrying the internal numeric project id. Never quote any of them literally
@@ -16807,6 +16818,66 @@ It matched the word ending a sentence, which flagged code comments in `budget-bu
 `use-ai-orchestration.ts` — neither has anything to do with the company. The first cut of this entry
 named those two files as leaks while missing almost every real one; the classes named above are the
 actual set. Grep for the ORGANISATION's identifiers, never for the word "internal".
+
+**Sub-project 3 rollout, 2026-09-23 — the entry stays OPEN.** The CI spec
+(`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`, "Register") planned to close this
+entry in sub-project 3. The history proof below failed, so it does not close.
+
+Now true:
+- `leaks:check` runs in CI, in the GitHub Actions `static` job, on every pull request and every
+  push to `main`. A control plant proved it red with exit 1 (a leak found), not exit 2 (could not
+  scan): run 35868367110 on the throwaway control PR #6, closed unmerged.
+- `leaks:check` reads tracked FILES only, so a commit message was a blind spot; the seven commits
+  below reached `main` through it. `scripts/check-commit-message-leaks.mjs` now scans the commit
+  and annotated-tag messages a pull request or push introduces, in the same `static` job. It
+  exits 1 on a listed identifier or ANY assistant trailer line, and prints only the short SHA, the
+  classes and the counts. It was added on `ci/sp3-rollout-and-200` and has not yet run on a CI
+  runner; its first run is that branch's pull request.
+- The last two mentions of the GitLab project number in `.gitlab-ci.yml` (both comments) are
+  scrubbed. The SP3 plan's scrub step spelled the number out in its own grep pattern, and that was
+  scrubbed too. `git grep -n -E "[Pp]roject [0-9]{3}\b" -- .gitlab-ci.yml
+docs/superpowers/plans/2026-09-23-github-actions-ci.md` now exits 1; it matched both comments
+before the scrub.
+- `noreply@github.com`, the committer GitHub recorded on every merge commit it made for a pull
+  request (`git log origin/main --merges --format="%h %ce"`), was added to the cut-over identity allowlist. That allowlist lives outside the
+  repository, like the leak list.
+
+The history proof, against a `git clone --mirror` of the GitHub repository:
+- `node scripts/verify-rewrite.mjs --repo <mirror> --allow <allowlist> --expect clean` **FAILS**.
+  With the control plant's canary line excluded from the list it reports blobHitLines=0,
+  messageHitLines=7, trailerLines=7, and an identity set equal to the allowlist (unexpected=0,
+  missing=0).
+- The 7 are assistant `Claude-Session:` trailer lines, leak-list class `session-url`, on commits
+  3e2c163b 3de78c55 3d0b3f01 022142ef d911fd04 753befa9 2bc6b65a. The first four reached `main`
+  through PR #4 and the last three through PR #5. A wrong controller ruling during the rollout let
+  them through: it treated a session trailer as allowed, when the leak list classes it as an
+  identifier. Reproduce the list without printing a trailer:
+  `git log origin/main --grep="Claude-Session:" --fixed-strings --format=%h --since=2026-09-22`.
+- Rewriting `main` cannot shed them. GitHub keeps a `refs/pull/<n>/head` ref for every pull
+  request, and the owner cannot delete one. In the mirror, `git for-each-ref --contains <sha>
+  refs/pull` puts all seven in `refs/pull/5`, `refs/pull/6` and `refs/pull/7`, and the first four
+  in `refs/pull/4` too. Any later pull request branched from today's `main` adds another such ref.
+- Positive control: `--expect dirty` against `cutover/original.bundle` PASSES with
+  blobHitLines=131660, messageHitLines=3988 and trailerLines=3406, so the clean run's zeros are
+  not a scan that read nothing.
+- The first clean run, with the canary still in the list, reported blobHitLines=1. The hit came
+  from `refs/pull/6`, the control PR that planted it, which proves the scan reads pull-request
+  refs.
+
+**Owner decision 2026-09-23.** Before the visibility flip, push history rewritten to drop those 7
+trailer lines to a FRESHLY CREATED repository. A new repository has no `refs/pull/*`, and that is
+the only way to shed them. Then re-run `--expect clean` against that repository. This entry closes
+only after that run passes. The roadmap
+(`docs/superpowers/specs/2026-09-20-github-migration-roadmap.md`) carries the same step at the
+flip.
+
+Also recorded here, because this entry is where they are tracked:
+- ★★ **The gate's known blind spot:** `leaks:check` scans file CONTENT, never file NAMES or
+  paths. A listed identifier in a file name passes it.
+- ★★★ **A requirement for sub-project 4:** GitLab issue titles, bodies and comments very likely
+  carry internal hosts, the employer's name and work addresses, and imported issues become public
+  at the flip. The issue import must run the leak scan over the issue text and clean it BEFORE
+  import.
 
 ## 201. A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce
 
