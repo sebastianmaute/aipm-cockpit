@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyPlan, closeOnGitLab, RateLimited, Refused } from "./issue-import-apply.mjs";
+import { applyPlan, closeOnGitLab, RateLimited, Refused, verifyImported } from "./issue-import-apply.mjs";
 import { PLACEHOLDER_TITLE } from "./issue-import-lib.mjs";
 
 /** In-memory GitHub: numbers are assigned in sequence and shared with PRs; deleted
@@ -154,5 +154,41 @@ describe("closeOnGitLab", () => {
       ["comment", 2, "Moved to GitHub #2: https://github.com/o/r/issues/2"],
       ["close", 2],
     ]);
+  });
+});
+
+describe("verifyImported", () => {
+  const imported = (overrides = {}) => [
+    { number: 2, title: "§2: two", state: "open", nodeId: "N2" },
+    { number: 3, title: "GitLab #3, closed before the migration", state: "closed", nodeId: "N3" },
+    { number: 4, title: "§4: four", state: "open", nodeId: "N4" },
+  ].map((i) => ({ ...i, ...(overrides[i.number] ?? {}) }));
+
+  it("returns how many open actions it verified when every one is on GitHub, open, with its title", () => {
+    expect(verifyImported(plan, imported())).toBe(2);
+  });
+  it("ignores stubs and placeholders: a missing placeholder and a missing stub are fine", () => {
+    const listed = imported().filter((i) => i.number !== 3);
+    expect(verifyImported(plan, listed)).toBe(2);
+  });
+  it("refuses when an open action's number is missing on GitHub, naming it", () => {
+    const listed = imported().filter((i) => i.number !== 4);
+    expect(() => verifyImported(plan, listed)).toThrow(Refused);
+    expect(() => verifyImported(plan, listed)).toThrow(/#4 does not exist/);
+  });
+  it("refuses when an imported issue is closed on GitHub", () => {
+    expect(() => verifyImported(plan, imported({ 2: { state: "closed" } }))).toThrow(/#2 is closed, not open/);
+  });
+  it("refuses when an imported issue carries a different title", () => {
+    expect(() => verifyImported(plan, imported({ 4: { title: "§4: four (edited)" } }))).toThrow(
+      /#4 is titled "§4: four \(edited\)", not the planned "§4: four"/,
+    );
+  });
+  it("names the FIRST mismatch in plan order", () => {
+    const listed = imported({ 2: { title: "wrong" }, 4: { state: "closed" } });
+    expect(() => verifyImported(plan, listed)).toThrow(/#2 is titled/);
+  });
+  it("refuses an empty GitHub listing (a repository that was never imported)", () => {
+    expect(() => verifyImported(plan, [])).toThrow(/#2 does not exist/);
   });
 });

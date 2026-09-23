@@ -29,9 +29,11 @@
 // plan hand-edited after `--plan` wrote it) — all local; only then a paged `glab` listing
 // (the same one `--plan` uses) to find GitLab's live highest issue number and compare it
 // against the plan's maxNumber (still before any GitHub call). `--close-gitlab` runs the
-// same repoUrl-vs-`--repo` check, before its own first `glab` call — it is not idempotent to
-// recover from a wrong repo, since it comments on and closes the GitLab originals. Any of
-// these failing is a refusal (exit 1), not a crash.
+// same repoUrl-vs-`--repo` check, then lists the GitHub issues and refuses unless every
+// planned `open` #N exists there, open, with its planned title (`verifyImported`) — both
+// before its own first `glab` call, since it is not idempotent to recover from: it comments
+// on and closes the GitLab originals. Both modes also refuse a plan whose `version` is not
+// 1. Any of these failing is a refusal (exit 1), not a crash.
 //
 // GH_TOKEN, if set, is used as the GitHub token; otherwise `gh auth token` supplies it. The
 // token is never logged, and any GitHub API error body echoed here has it redacted first
@@ -54,12 +56,16 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { graphQLRateLimitMs, parseNextLink, rateLimitRetryMs, redactAndCap, toTrackerIssue } from "./github-issues-lib.mjs";
-import { applyPlan, closeOnGitLab, RateLimited, Refused } from "./issue-import-apply.mjs";
+import { applyPlan, closeOnGitLab, RateLimited, Refused, verifyImported } from "./issue-import-apply.mjs";
 
 const REGISTER = "docs/open-followups.md";
 const PER_PAGE = 100;
 const MAX_PAGES = 50;
-const GITHUB_API = "https://api.github.com";
+const PLAN_VERSION = 1;
+const GITHUB_API =
+  process.env.IMPORT_ISSUES_TEST_GITHUB_API && process.env.VITEST
+    ? process.env.IMPORT_ISSUES_TEST_GITHUB_API
+    : "https://api.github.com";
 const MODE_FLAGS = ["plan", "apply", "close-gitlab"];
 const VALUE_FLAGS = { "--out": "out", "--repo": "repo", "--pointer": "pointer", "--gitlab-json": "gitlabJson" };
 const REPO_RE = /^[^\s/]+\/[^\s/]+$/;
@@ -80,13 +86,22 @@ class CannotRun extends Error {}
 // forgotten export from a local session, a copied `.env`, an inherited CI variable) — silently
 // defeating both the maxNumber-vs-GitLab guard (an empty fake listing reads as "0 issues",
 // which passes for any maxNumber) and every GitLab write `--close-gitlab` makes (comments and
-// closes would be silently redirected while the tool reports success). `assertFakeGlabHookAllowed`
+// closes would be silently redirected while the tool reports success). `assertTestHooksAllowed`
 // below refuses loudly instead of falling back silently when the hook is set without `VITEST`.
 const FAKE_GLAB = process.env.IMPORT_ISSUES_TEST_FAKE_GLAB;
 
-function assertFakeGlabHookAllowed() {
+// Second test-only hook, same gate: points the GitHub client at a local fake server instead
+// of api.github.com, so a test can drive `--close-gitlab`'s GitHub-side check without the
+// network. Outside vitest it would send the token to an arbitrary URL, so it is refused
+// there as loudly as the glab hook.
+const FAKE_GITHUB_API = process.env.IMPORT_ISSUES_TEST_GITHUB_API;
+
+function assertTestHooksAllowed() {
   if (FAKE_GLAB && !process.env.VITEST) {
     throw new CannotRun("IMPORT_ISSUES_TEST_FAKE_GLAB is a test-only hook and is refused outside vitest");
+  }
+  if (FAKE_GITHUB_API && !process.env.VITEST) {
+    throw new CannotRun("IMPORT_ISSUES_TEST_GITHUB_API is a test-only hook and is refused outside vitest");
   }
 }
 
@@ -275,7 +290,7 @@ async function planMode(opts) {
   const counts = tally(actions);
   const maxNumber = Math.max(0, ...actions.map((a) => a.n));
   const plan = {
-    version: 1,
+    version: PLAN_VERSION,
     createdAt: date,
     registerSha: sha,
     maxNumber,
@@ -316,6 +331,11 @@ function readPlanFile(planFile) {
     throw new CannotRun(
       "--plan file is missing or misshapes a required field (leak.hitLines, registerSha, repoUrl, maxNumber, actions).",
     );
+  }
+  // Only format 1 exists. A plan written by some later format would otherwise be replayed
+  // under this version's reading of its fields — refused, not guessed at.
+  if (plan.version !== PLAN_VERSION) {
+    throw new Refused(`the plan's version is ${JSON.stringify(plan.version)}; this tool reads version ${PLAN_VERSION} only.`);
   }
   return plan;
 }
@@ -407,9 +427,10 @@ async function githubGraphQL(token, query, variables) {
   return json.data;
 }
 
-/** The real GitHub client `applyPlan`/`closeOnGitLab` drive for `--apply`. Every guard that
- *  can run without it (leak/registerSha/repo-match/maxNumber-vs-GitLab) has already run by
- *  the time this is built. */
+/** The real GitHub client `applyPlan` drives for `--apply`, and whose `listIssues` feeds
+ *  `--close-gitlab`'s `verifyImported`. Every guard that can run without it
+ *  (leak/registerSha/repo-match/maxNumber-vs-GitLab for `--apply`, repo-match for
+ *  `--close-gitlab`) has already run by the time this is built. */
 function makeGitHubClient(repo, token) {
   const [owner, name] = repo.split("/");
   return {
@@ -495,17 +516,28 @@ function glabApiCall(iid, args) {
 /** The real GitLab client `closeOnGitLab` drives for `--close-gitlab`. */
 function makeGitLabClient() {
   return {
+    // Pages through ALL of an issue's notes: `closeOnGitLab` decides whether the pointer
+    // comment is already there, and reading only the first page would post it a second time
+    // on an issue with more than PER_PAGE notes. A page shorter than PER_PAGE is the last.
     async get(iid) {
       let issue;
-      let notes;
+      const notes = [];
       try {
         issue = JSON.parse(glabApiCall(iid, ["api", `projects/:id/issues/${iid}`]));
-        notes = JSON.parse(glabApiCall(iid, ["api", `projects/:id/issues/${iid}/notes?per_page=${PER_PAGE}`]));
+        for (let page = 1; ; page += 1) {
+          if (page > MAX_PAGES) throw new CannotRun(`GitLab #${iid}'s notes exceeded ${MAX_PAGES} pages.`);
+          const batch = JSON.parse(
+            glabApiCall(iid, ["api", `projects/:id/issues/${iid}/notes?per_page=${PER_PAGE}&page=${page}`]),
+          );
+          if (!Array.isArray(batch)) throw new CannotRun(`glab api returned a non-array notes page for GitLab #${iid}.`);
+          notes.push(...batch.map((n) => n.body));
+          if (batch.length < PER_PAGE) break;
+        }
       } catch (err) {
         if (err instanceof CannotRun) throw err;
         throw new CannotRun(`glab api returned unparsable JSON for GitLab #${iid}.`);
       }
-      return { state: issue.state, notes: notes.map((n) => n.body) };
+      return { state: issue.state, notes };
     },
     async comment(iid, body) {
       glabApiCall(iid, ["api", "-X", "POST", `projects/:id/issues/${iid}/notes`, "-f", `body=${body}`]);
@@ -591,6 +623,15 @@ async function closeGitlabMode(opts) {
     throw new Refused(`--repo ${opts.repo} does not match the plan's repo ${planRepo}.`);
   }
 
+  // The GitHub side must already be what the plan says, before the first GitLab write: every
+  // planned `open` #N exists, is open and carries its planned title (verifyImported). Run
+  // after a partial or failed `--apply`, or against a repository not yet imported, this
+  // step would otherwise post ~270 pointers to missing or wrong issues and close the
+  // originals — undone only by hand, one issue at a time.
+  const github = makeGitHubClient(opts.repo, getGithubToken());
+  const verified = verifyImported(plan.actions, await github.listIssues());
+  console.log(`verified ${verified} imported issue(s) on GitHub`);
+
   const githubUrl = `https://github.com/${opts.repo}`;
   const gitlab = makeGitLabClient();
   const result = await closeOnGitLab(plan.actions, gitlab, { githubUrl, log: console.log });
@@ -601,7 +642,7 @@ async function closeGitlabMode(opts) {
 async function main() {
   // Checked before anything else, including argument parsing: a misconfigured test-only
   // hook must never silently fall through to a real `glab` call in any mode.
-  assertFakeGlabHookAllowed();
+  assertTestHooksAllowed();
   const opts = parseArgs(process.argv.slice(2));
   if (opts.mode === "plan") return planMode(opts);
   if (opts.mode === "apply") return applyMode(opts);

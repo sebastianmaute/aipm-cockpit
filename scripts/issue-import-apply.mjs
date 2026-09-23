@@ -97,6 +97,33 @@ export async function applyPlan(actions, client, { resume = false, sleep, log })
   return { created, closed, deleted };
 }
 
+/** The guard `--close-gitlab` runs before its first GitLab write: every planned `open`
+ *  action's #N must already exist on GitHub (`listed`, from the client's `listIssues`), be
+ *  OPEN, and carry the planned title. Otherwise the GitLab originals would be commented on
+ *  and closed with a pointer to an issue that is missing or is a different one — about 270
+ *  writes, each undone only by hand. Refuses on the FIRST mismatch in plan order, naming
+ *  it; returns how many were verified. Stubs and placeholders are not checked: nothing is
+ *  written to GitLab for them. */
+export function verifyImported(actions, listed) {
+  const byNumber = new Map(listed.map((i) => [i.number, i]));
+  let verified = 0;
+  for (const a of actions) {
+    if (a.kind !== "open") continue;
+    const issue = byNumber.get(a.n);
+    if (!issue) {
+      throw new Refused(`GitHub #${a.n} does not exist — finish --apply (with --resume) before --close-gitlab`);
+    }
+    if (issue.state !== "open") {
+      throw new Refused(`GitHub #${a.n} is ${issue.state}, not open — the import is not the one the plan describes`);
+    }
+    if (issue.title !== a.title) {
+      throw new Refused(`GitHub #${a.n} is titled "${issue.title}", not the planned "${a.title}"`);
+    }
+    verified += 1;
+  }
+  return verified;
+}
+
 export async function closeOnGitLab(actions, gitlab, { githubUrl, log }) {
   let closedCount = 0;
   let skipped = 0;

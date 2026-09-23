@@ -6,8 +6,9 @@
 // the register text mirrors issue-import-lib.test.mjs's REG, and the leak word/class are
 // fictional stand-ins. Never the real leak list, never `glab`, never the network: every case
 // passes --gitlab-json.
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -100,6 +101,8 @@ afterEach(() => {
   dir = undefined;
 });
 
+const DEAD_GITHUB_API = "http://127.0.0.1:9";
+
 function run(args, env = {}) {
   const childEnv = { ...process.env, ...env };
   if (!("LEAK_LIST_FILE" in env)) delete childEnv.LEAK_LIST_FILE;
@@ -107,6 +110,9 @@ function run(args, env = {}) {
   // which is what lets IMPORT_ISSUES_TEST_FAKE_GLAB work in the guard tests above. A test
   // that needs to simulate running OUTSIDE vitest passes `VITEST: null` to strip it.
   if (env.VITEST === null) delete childEnv.VITEST;
+  // Every GitHub call a spawned CLI makes goes to a dead local port unless the test names a
+  // fake server: a guard deleted by a mutant must fail here, never reach api.github.com.
+  else if (!("IMPORT_ISSUES_TEST_GITHUB_API" in env)) childEnv.IMPORT_ISSUES_TEST_GITHUB_API = DEAD_GITHUB_API;
   const r = spawnSync(process.execPath, [CLI, ...args], { cwd: dir, env: childEnv, encoding: "utf8" });
   return { code: r.status, out: r.stdout, err: r.stderr, all: r.stdout + r.stderr };
 }
@@ -339,6 +345,200 @@ describe("import-issues --close-gitlab guards (no network — pass GH_TOKEN=dumm
     expect(r.err).toContain("o/r");
     expect(r.err).toContain("o/other");
     expect(r.all).not.toContain(FAKE_GLAB_MARKER);
+  });
+});
+
+describe("import-issues refuses a plan whose version is not 1 (exit 1, before any glab call)", () => {
+  const plan2 = () => ({
+    version: 2,
+    createdAt: "2026-09-24",
+    registerSha: currentRegisterSha(),
+    maxNumber: 2,
+    pointerStyle: "anchor",
+    repoUrl: "https://github.com/o/r",
+    counts: { open: 1, stub: 0, placeholder: 1 },
+    leak: { hitLines: 0, classes: {}, actionsHit: [] },
+    actions: [
+      { n: 1, kind: "placeholder", title: "placeholder (deleted after import)", body: "", labels: [] },
+      { n: 2, kind: "open", title: "§3: three", body: "b", labels: [] },
+    ],
+  });
+
+  it("--apply", () => {
+    seedRepo(REG_BASE);
+    const fakeGlab = writeFakeGlab();
+    const leakList = writeLeakList(`# fictional\n@${CLASS} ${SECRET}\n`);
+    const planPath = writeJson("plan.json", plan2());
+
+    const r = run(["--apply", "--plan", planPath, "--repo", "o/r"], {
+      GH_TOKEN: "dummy",
+      LEAK_LIST_FILE: leakList,
+      IMPORT_ISSUES_TEST_FAKE_GLAB: fakeGlab,
+    });
+
+    expect(r.code, r.all).toBe(1);
+    expect(r.err).toMatch(/REFUSED: the plan's version is 2; this tool reads version 1 only/);
+    expect(r.all).not.toContain(FAKE_GLAB_MARKER);
+  });
+
+  it("--close-gitlab", () => {
+    seedRepo(REG_BASE);
+    const fakeGlab = writeFakeGlab();
+    const planPath = writeJson("plan.json", plan2());
+
+    const r = run(["--close-gitlab", "--plan", planPath, "--repo", "o/r"], {
+      GH_TOKEN: "dummy",
+      IMPORT_ISSUES_TEST_FAKE_GLAB: fakeGlab,
+    });
+
+    expect(r.code, r.all).toBe(1);
+    expect(r.err).toMatch(/REFUSED: the plan's version is 2/);
+    expect(r.all).not.toContain(FAKE_GLAB_MARKER);
+  });
+});
+
+// `--close-gitlab` against a local fake GitHub (IMPORT_ISSUES_TEST_GITHUB_API) and a scripted
+// fake glab. The CLI must be spawned ASYNCHRONOUSLY here: spawnSync would block this worker's
+// event loop, and the fake server lives in it.
+function runAsync(args, env) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [CLI, ...args], { cwd: dir, env: { ...process.env, ...env } });
+    let out = "";
+    let err = "";
+    child.stdout.on("data", (d) => (out += d));
+    child.stderr.on("data", (d) => (err += d));
+    child.on("close", (code) => resolve({ code, out, err, all: out + err }));
+  });
+}
+
+async function startFakeGitHub(issues) {
+  const requests = [];
+  const server = createServer((req, res) => {
+    requests.push(`${req.method} ${req.url}`);
+    if (req.method === "GET" && req.url.startsWith("/repos/o/r/issues?")) {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(issues));
+      return;
+    }
+    res.writeHead(404);
+    res.end("{}");
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address();
+  return { url: `http://127.0.0.1:${port}`, requests, close: () => new Promise((resolve) => server.close(resolve)) };
+}
+
+// A scripted glab: answers the issue GET with `state`, the notes GETs from `notesPages`
+// (page N -> notesPages[N-1], [] past the end), and records every call in calls.log. Any
+// write (`-X POST`/`-X PUT`) is recorded as WRITE.
+function writeScriptedGlab({ state, notesPages }) {
+  const p = path.join(dir, "scripted-glab.mjs");
+  const logPath = path.join(dir, "calls.log");
+  writeFileSync(
+    p,
+    [
+      'import { appendFileSync } from "node:fs";',
+      "const args = process.argv.slice(2);",
+      `const notesPages = ${JSON.stringify(notesPages)};`,
+      `appendFileSync(${JSON.stringify(logPath)}, (args.includes("-X") ? "WRITE " : "") + args.join(" ") + "\\n");`,
+      'if (args.includes("-X")) { process.stdout.write("{}"); process.exit(0); }',
+      "const url = args[1];",
+      "const m = /notes\\?.*page=(\\d+)/.exec(url);",
+      "if (m) { process.stdout.write(JSON.stringify(notesPages[Number(m[1]) - 1] ?? [])); process.exit(0); }",
+      `process.stdout.write(JSON.stringify({ state: ${JSON.stringify(state)} }));`,
+    ].join("\n"),
+  );
+  return { path: p, calls: () => (existsSync(logPath) ? readFileSync(logPath, "utf8") : "") };
+}
+
+describe("import-issues --close-gitlab checks the GitHub side before any GitLab write", () => {
+  const closePlan = () => ({
+    version: 1,
+    createdAt: "2026-09-24",
+    registerSha: "0".repeat(40),
+    maxNumber: 2,
+    pointerStyle: "anchor",
+    repoUrl: "https://github.com/o/r",
+    counts: { open: 1, stub: 0, placeholder: 1 },
+    leak: { hitLines: 0, classes: {}, actionsHit: [] },
+    actions: [
+      { n: 1, kind: "placeholder", title: "placeholder (deleted after import)", body: "", labels: [] },
+      { n: 2, kind: "open", title: "§3: three", body: "b", labels: [] },
+    ],
+  });
+  const POINTER = "Moved to GitHub #2: https://github.com/o/r/issues/2";
+  let gh;
+
+  afterEach(async () => {
+    if (gh) await gh.close();
+    gh = undefined;
+  });
+
+  it("refuses (exit 1) when an imported issue is missing on GitHub, and never runs glab", async () => {
+    seedRepo(REG_BASE);
+    gh = await startFakeGitHub([]);
+    const glab = writeScriptedGlab({ state: "opened", notesPages: [] });
+    const planPath = writeJson("plan.json", closePlan());
+
+    const r = await runAsync(["--close-gitlab", "--plan", planPath, "--repo", "o/r"], {
+      GH_TOKEN: "dummy",
+      IMPORT_ISSUES_TEST_GITHUB_API: gh.url,
+      IMPORT_ISSUES_TEST_FAKE_GLAB: glab.path,
+    });
+
+    expect(r.code, r.all).toBe(1);
+    expect(r.err).toContain("REFUSED: GitHub #2 does not exist");
+    expect(gh.requests.some((q) => q.startsWith("GET /repos/o/r/issues?"))).toBe(true);
+    expect(glab.calls()).toBe("");
+  });
+
+  it("refuses (exit 1) when the imported issue on GitHub carries another title", async () => {
+    seedRepo(REG_BASE);
+    gh = await startFakeGitHub([{ number: 2, title: "§3: someone else's", state: "open", node_id: "N2", labels: [] }]);
+    const glab = writeScriptedGlab({ state: "opened", notesPages: [] });
+    const planPath = writeJson("plan.json", closePlan());
+
+    const r = await runAsync(["--close-gitlab", "--plan", planPath, "--repo", "o/r"], {
+      GH_TOKEN: "dummy",
+      IMPORT_ISSUES_TEST_GITHUB_API: gh.url,
+      IMPORT_ISSUES_TEST_FAKE_GLAB: glab.path,
+    });
+
+    expect(r.code, r.all).toBe(1);
+    expect(r.err).toContain("GitHub #2 is titled");
+    expect(glab.calls()).toBe("");
+  });
+
+  it("pages past the first 100 notes: a pointer on page 2 is seen, so nothing is written twice", async () => {
+    seedRepo(REG_BASE);
+    gh = await startFakeGitHub([{ number: 2, title: "§3: three", state: "open", node_id: "N2", labels: [] }]);
+    const page1 = Array.from({ length: 100 }, (_, i) => ({ body: `note ${i}` }));
+    const glab = writeScriptedGlab({ state: "closed", notesPages: [page1, [{ body: POINTER }]] });
+    const planPath = writeJson("plan.json", closePlan());
+
+    const r = await runAsync(["--close-gitlab", "--plan", planPath, "--repo", "o/r"], {
+      GH_TOKEN: "dummy",
+      IMPORT_ISSUES_TEST_GITHUB_API: gh.url,
+      IMPORT_ISSUES_TEST_FAKE_GLAB: glab.path,
+    });
+
+    expect(r.code, r.all).toBe(0);
+    expect(r.out).toContain("verified 1 imported issue(s) on GitHub");
+    expect(r.out).toContain("closed 0 · skipped 1");
+    const calls = glab.calls();
+    expect(calls).toContain("notes?per_page=100&page=2");
+    expect(calls).not.toContain("WRITE");
+  });
+});
+
+describe("import-issues IMPORT_ISSUES_TEST_GITHUB_API is refused outside vitest", () => {
+  it("exits 2 with the exact refusal message when the hook is set and VITEST is not", () => {
+    seedRepo(REG_BASE);
+
+    const r = run([], { GH_TOKEN: "dummy", IMPORT_ISSUES_TEST_GITHUB_API: DEAD_GITHUB_API, VITEST: null });
+
+    expect(r.code, r.all).toBe(2);
+    expect(r.err).toContain("IMPORT_ISSUES_TEST_GITHUB_API is a test-only hook and is refused outside vitest");
   });
 });
 
