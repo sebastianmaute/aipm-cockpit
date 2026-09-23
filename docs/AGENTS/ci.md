@@ -82,7 +82,8 @@ re-resolved by hand.
   (`gh api repos/<owner>/<repo>/actions/jobs/<job-id>/logs --allow-escape-sequences`). A CLI
   `--reporter` is ADDED to the script's, not swapped for it, so both run: the default reporter's
   per-file lines break the dot line up and name a failing file as it finishes, and the failure
-  block is printed twice. It waits for `unit` for the reason the GitLab job did: two full vitest runs must never
+  block is printed twice. The alternative, moving `--reporter=dot` out of `test:shuffle`, was
+  rejected because it would change the local command, which exists to reproduce this job. It waits for `unit` for the reason the GitLab job did: two full vitest runs must never
   contend for one runner's CPU. On Actions they would sit on different runners, but the dependency
   still stops a red `unit` from spending another full run nobody can read.
 - **`build`** (15 min). `npm run build`, then uploads `.next/` minus `.next/cache` as the artifact

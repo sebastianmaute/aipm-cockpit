@@ -54,8 +54,13 @@ describe("forEachTagPair", () => {
     // the whole fixture, and a CI run with two workers on two vCPUs failed the
     // sibling forEachOpenTag site on the correct code with every pair high,
     // which reads as the large fixture falling out of a cache the small one
-    // fits in. A smaller fixture and a median over five pairs are the
-    // mitigation; the cause was not reproduced locally (see §612). Measured
+    // fits in. The smaller n and five pairs are a cheap hedge, NOT a fix with
+    // any shown effect on that failure: the factor is still 4, so 280 KB /
+    // 1.12 MB still straddles a 512 KB–1.25 MB L2; calibration keeps each
+    // timed small side near 20–40 ms whatever n is; and a median of five
+    // outvotes at most two spoiled pairs, where CI had all three high. The
+    // cause was not reproduced locally; green CI runs are the real test, and
+    // §612's reopen/close conditions decide it. Measured
     // 2026-09-23: 3.9–4.3 green over five runs of this file at 2,048–4,096
     // loops, 16.6 with that mutant.
     expectLinearScaling({

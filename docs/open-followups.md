@@ -834,7 +834,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§609](#609-a-late-seal-can-resurrect-a-sealed-secret-the-user-just-cleared--open) | A late seal can resurrect a sealed secret the user just cleared — OPEN | final-review M7 on `fix/backlog-sweep` (Task 5 deferred minor, upgraded), read from code, pre-existing and family-wide; GitLab #390 | S — a per-secret generation guard | open |
 | [§610](#610-fork-prs-cannot-run-the-leak-gate--decide-the-rule-at-the-visibility-flip--open) | Fork PRs cannot run the leak gate — decide the rule at the visibility flip — open | deferred by the sub-project 3 spec (`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`); GitLab #392 | S — decide the rule at the flip; prove it with a fork PR | open |
 | [§611](#611-the-weekly-zap-jobs-docker-run-images-float-unpinned--pin-them-by-digest--open) | The weekly ZAP job's docker run images float unpinned — pin them by digest — open | final review of sub-project 3 on `ci/sp3-actions-workflows` (the plan's unrecorded "follow-up"); GitLab #393 | S — pin both images by `@sha256:` digest and record how to re-resolve them | open |
-| [§612](#612-a-scaling-guard-went-red-in-ci-on-correct-code--shrink-the-memory-bound-fixtures--open) | A scaling guard went red in CI on correct code — shrink the memory-bound fixtures — open | GitHub Actions run 35844783726, job `unit-shuffled`, on `main`; GitLab #394 | S — mitigated on `fix/scaling-flake-ci` (smaller n, `repeats: 5`, readable CI log); close after green `unit-shuffled` runs on `main` | open |
+| [§612](#612-a-scaling-guard-went-red-in-ci-on-correct-code--shrink-the-memory-bound-fixtures--open) | A scaling guard went red in CI on correct code — shrink the memory-bound fixtures — open | GitHub Actions run 35844783726, job `unit-shuffled`, on `main`; GitLab #394 | S — hedged on `fix/scaling-flake-ci` (smaller n, `repeats: 5`: no shown effect on the failure; readable CI log); close after green `unit-shuffled` runs on `main` | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -40992,8 +40992,9 @@ reviewed one-line diff.
 ## 612. A scaling guard went red in CI on correct code — shrink the memory-bound fixtures — open
 
 **Status:** open 2026-09-23 — mitigated on `fix/scaling-flake-ci` and re-proved locally with
-`npx vitest run src/app/tag-pair-walk.test.ts` (five green runs, three mutants red); not yet
-re-proved on a CI runner, and the cause was not reproduced locally.
+`npx vitest run src/app/tag-pair-walk.test.ts` (five green runs; three mutants red, ONE run per
+site, so each mutant figure below is a single measurement, not a range); not yet re-proved on a CI
+runner, the cause was not reproduced locally, and the change is a hedge with no shown effect.
 
 **Work item:** #394
 
@@ -41030,7 +41031,7 @@ preemption, which spoils one pair and is outvoted by the median. Also measured: 
   (loops fell as low as 4), which no choice of n or `repeats` fixes.
 So the CI failure's cause is inferred, not reproduced, and the CI runner's CPU is unknown.
 
-**The fix (mitigation).** In `src/app/tag-pair-walk.test.ts`, the three whole-fixture-scan sites —
+**The change — a cheap hedge, not a demonstrated fix.** In `src/app/tag-pair-walk.test.ts`, the three whole-fixture-scan sites —
 "no '>' anywhere (forEachTagPair)" (n 80,000 → 40,000), "no '>' anywhere (forEachOpenTag)"
 (100,000 → 40,000) and "one '>' at the end (forEachOpenTag)" (80,000 → 40,000) — take `repeats: 5`.
 n cannot go lower: calibration is 2,048–4,096 loops here at 40,000, the ≤ 4,096 ceiling
@@ -41040,6 +41041,16 @@ near 8,192–16,384 of the 65,536 cap). Five runs of the file: 3.9–4.3, 3.8–
 `check` relaxed). "retired-name lookups" is NOT changed: its fixture is 120 KB / 480 KB and one
 call is 20,000 regex matches plus map lookups, calibrating 4–16 loops — CPU-bound, not a scan, so
 the cache argument does not apply.
+
+★★ Nothing here shows an effect on the observed failure mode, for three reasons:
+- the factor stays 4, so the fixtures only move from 0.7 / 2.8 MB to 0.28 / 1.12 MB. The small
+  one still fits a 512 KB–1.25 MB L2 and the large one still does not; at 1.12 MB it sits at the
+  edge of a 1.25 MB L2 at best, so the cache split the hypothesis blames survives;
+- calibration keeps the timed small side near 20–40 ms whatever n is, so a smaller n does not
+  shorten the timed runs, and does nothing against interference that long runs absorb;
+- `repeats: 5` outvotes at most two spoiled pairs of five, and the CI failure had all three pairs
+  high ([9.43, 9.36, 11.55]); a sustained slowdown like that spoils all five just the same.
+Green `unit-shuffled` runs on CI are the actual test of the hedge, and the conditions below decide it.
 
 **What would reopen or close it.** Another CI failure of any `expectLinearScaling` site with every
 pair high reopens the question for the whole class: 9 test files call the helper besides its own
