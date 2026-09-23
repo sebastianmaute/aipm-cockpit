@@ -88,6 +88,8 @@ Cut over **private**. The visibility flip is deferred to the end of the roadmap.
 
 ### 3. CI → GitHub Actions
 
+**Status 2026-09-23:** designed (2026-09-23-github-actions-ci-design.md); in rollout.
+
 26 jobs to re-express. Most are a syntax port; five are not, and they are the cost:
 
 - **SAST** currently emits a GitLab-native SAST report for the Security widget. GitHub wants
@@ -119,6 +121,11 @@ The register pairs each open entry to an issue by number. Two gates touch this, 
 blocking gate. The expensive part is re-pairing 266 citations to whatever numbers GitHub assigns
 on import, and deciding whether a mirrored issue tracker is worth keeping at all now that the
 register is the real record.
+
+★★★ **Requirement from sub-project 3 (§200 closed there):** GitLab issue titles, bodies and comments
+very likely carry internal hosts, the employer's name and work addresses, and imported issues become
+public at the flip. The import must run the leak scan over the issue text and clean it BEFORE
+import. Nothing else tracks this once §200 is closed.
 
 ### 5. Releases, tags, and the update feed
 

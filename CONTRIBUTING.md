@@ -6,8 +6,8 @@ parts a contributor needs day-to-day.
 
 ## Prerequisites
 
-- **Node.js ≥ 24** (`engines.node` in `package.json`; the CI image is
-  `node:24-bookworm-slim` — `grep -n "image: node" .gitlab-ci.yml`).
+- **Node.js ≥ 24** (`engines.node` in `package.json`; CI installs Node 24 —
+  `grep -n "node-version" .github/workflows/*.yml`).
 - **npm** (lockfile is `package-lock.json` — yarn / pnpm are not used here).
 - A Chromium-based browser (Chrome / Edge / Opera) for local testing. Several
   features (File System Access API for local file storage, `SpeechRecognition`
@@ -34,12 +34,12 @@ are entered in the in-app Settings panel and stored in the browser.
 | `npm run build` | Production build — runs TypeScript type-check, then emits `.next/` |
 | `npm run start` | Serve the production build (run `npm run build` first) |
 | `npm run stop` | Stop the dev server bound to the app port (default 3000; set PORT to override). Port-scoped — does not touch unrelated node processes |
-| `npm run gate:local` | Run the repository's blocking npm gates (the list CI's static, unit, unit-shuffled and build jobs use), in order, stopping at the first failure. --group <name> runs one group; --keep-going runs every step and reports each failure. Not semgrep, the dependency audit or e2e. leaks:check is skipped when LEAK_LIST_FILE is unset |
+| `npm run gate:local` | Run the repository's blocking npm gates (the list CI's static, unit, unit-shuffled and build jobs use), in order, stopping at the first failure. --group <name> runs one group; --keep-going runs every step and reports each failure. Not semgrep, the dependency audit or e2e. leaks:check is skipped locally when LEAK_LIST_FILE is unset, and fails as a code-2 step under CI |
 | `npm run lint` | Run ESLint (`eslint-config-next` preset) |
 | `npm run test` | Vitest unit/component tests in watch mode |
 | `npm run test:run` | Vitest, single run (CI-friendly) |
 | `npm run test:coverage` | Vitest + v8 coverage report (BLOCKING floors: lines 92 / statements 89 / functions 91 / branches 80, plus per-engine globs in vitest.config.ts) |
-| `npm run test:shuffle` | Vitest at the SAME pinned seed as CI unit-tests-shuffled (BLOCKING) — reproduces an order-dependence failure locally |
+| `npm run test:shuffle` | Vitest at the pinned seed; CI's unit-shuffled job runs this same script (BLOCKING) — reproduces an order-dependence failure locally |
 | `npm run e2e` | Playwright functional E2E (smoke + app nav + a11y), headless — the CI suite |
 | `npm run e2e:ui` | Playwright interactive UI mode |
 | `npm run e2e:smoke` | Standalone smoke driver (scripts/e2e-smoke.mjs): seeds a project, walks every view, fails on any console/page error. Needs a running server |
@@ -59,9 +59,9 @@ are entered in the in-app Settings panel and stored in the browser.
 | `npm run followups:status:check` | Fail if an OPEN docs/open-followups.md entry has no conforming `**Status:**` line (BLOCKING; exit 1 = drift, exit 2 = the gate could not scan at all) |
 | `npm run followups:index:check` | Fail if docs/open-followups.md's index table disagrees with its `## <n>.` headings — a heading with no row, a row with no heading, or a §number used twice on either axis (BLOCKING; exit 1 = drift, exit 2 = the gate could not scan at all) |
 | `npm run followups:workitems:check` | Fail if an OPEN docs/open-followups.md entry lacks exactly one conforming `**Work item:**` line, a closed entry carries one, or one GitLab issue is claimed by two open entries (BLOCKING; exit 1 = drift, exit 2 = the gate could not scan at all) |
-| `npm run followups:gitlab:check` | Compare docs/open-followups.md's Work item lines with the open GitLab issues in both directions — WARN-ONLY in CI, runs on main and scheduled pipelines; skips with exit 0 when REGISTER_SYNC_TOKEN is unset (exit 1 = drift, exit 2 = could not compare) |
+| `npm run followups:gitlab:check` | Compare docs/open-followups.md's Work item lines with the open GitLab issues in both directions — runs in NO CI job since the GitHub cut-over (migration sub-project 4 rewrites it); skips with exit 0 when REGISTER_SYNC_TOKEN is unset (exit 1 = drift, exit 2 = could not compare) |
 | `npm run rownames:check` | Enumerate where a per-row control's accessible name is composed and which surfaces a unit test asserts are distinct (WCAG 2.4.6) — REPORTING ONLY, never blocking, and a COVERED line is not evidence the test is non-vacuous |
-| `npm run leaks:check` | Fail if a tracked text file carries an internal identifier from the list named by LEAK_LIST_FILE (kept OUTSIDE the repo, never committed; a hit reports only path:line and the entry's class). Exit 1 = leak, exit 2 = could not scan (variable unset, list missing or empty, or fewer than 50 text files read). NOT YET IN CI — wiring is pending a masked file-type variable in the project settings, so run it locally |
+| `npm run leaks:check` | Fail if a tracked text file carries an internal identifier from the list named by LEAK_LIST_FILE (kept OUTSIDE the repo, never committed; a hit reports only path:line and the entry's class). Exit 1 = leak, exit 2 = could not scan (variable unset, list missing or empty, or fewer than 50 text files read). Runs in CI's static job from the LEAK_LIST secret; locally set LEAK_LIST_FILE |
 | `npm run ooxml:manifest` | Regenerate the ordered OOXML part-manifest baseline (docs/baselines/ooxml-parts.json) — deliberate act only, never run to make a red pipeline pass |
 | `npm run version:check` | Fail if a version restatement (every file in SATELLITES, scripts/version-sync-lib.mjs) has drifted from src/app/version.ts |
 | `npm run version:sync` | Propagate src/app/version.ts's version and codename to every restatement |
@@ -312,7 +312,8 @@ MINOR releases, not just patches — this section exists because `^16.2.11` ADMI
 ever entered the lock (`git log --all -S'next/-/next-16.3' -- package-lock.json` is empty). The
 risk was the specifier, not an install that happened.
 
-`npm ci` — which is what all four CI install sites use — already installs
+`npm ci` — which is what every CI install site uses
+(`grep -n "npm ci" .github/workflows/*.yml`) — already installs
 strictly from `package-lock.json`, so an exact pin is *not* what makes an
 install reproducible. It protects the **specifier**, which is what a lockfile
 merge conflict resolves against: a conflict resolved the wrong way is
@@ -340,7 +341,7 @@ On a noteworthy change, update `src/app/version.ts`:
 Then propagate the version everywhere else it is written down — run
 `npm run version:sync`, which rewrites every place in the table below from
 `version.ts`. **`npm run version:check` compares all of them to `APP_VERSION`,
-and the `version-sync-check` job is BLOCKING**, so drift now fails the pipeline
+and it runs BLOCKING in CI's `static` job**, so drift now fails CI
 instead of accumulating silently. Hand-edit only if the gate reports a shape it
 cannot anchor on — and fix the pattern in that case, never the file. The table
 mirrors `SATELLITES` in `scripts/version-sync-lib.mjs`; where the two disagree the
@@ -493,10 +494,11 @@ Jira sync, storage backend switching, voice commands, OOXML export.
 ## Code style
 
 - ESLint via `eslint-config-next` (typescript + core-web-vitals presets).
-  Run `npm run lint` before opening a PR. ★ CI DOES enforce it — the `lint` job
-  carries no `allow_failure`, so it blocks. (This line previously said CI did not;
-  corrected 2026-08-09 against `.gitlab-ci.yml`.) ★★ And `npm run lint` is
-  `eslint --max-warnings=0`, so a WARNING fails the job exactly as an error
+  Run `npm run lint` before opening a PR. ★ CI DOES enforce it — it is the first
+  step of the required `static` check. (This line once said CI did not; corrected
+  2026-08-09 against the GitLab pipeline, and re-pointed at GitHub Actions on
+  2026-09-23.) ★★ And `npm run lint` is
+  `eslint --max-warnings=0`, so a WARNING fails the check exactly as an error
   does — all 25 severity-1 rules included, among them
   `react-hooks/exhaustive-deps` and six `jsx-a11y` rules.
 - Prefer immutable updates (`...spread`) over mutation.
@@ -519,14 +521,22 @@ Remotes in a fresh clone:
 
 A change lands like this:
 
-1. Push the branch to `origin` and open a pull request (`gh pr create`).
-2. Run `npm run gate:local`. There is no CI until the pipeline is ported to GitHub Actions, so
-   this is the gate. It stops at the first failure; do not merge on red. It refuses to start over
-   uncommitted tracked changes (pass `--allow-dirty` to override), and prints the commit it gated.
-   Its two vitest steps use half the logical CPUs; set `GATE_LOCAL_WORKERS=<n>` to choose another
-   count.
-3. Merge with a merge commit (`gh pr merge --merge`); squash and rebase merging are disabled so
-   the history keeps the shape the commit citations rely on. Never enable auto-merge.
+1. Before pushing, `npm run gate:local` is recommended: it runs the same gate list as CI's
+   `static`, `unit`, `unit-shuffled` and `build` jobs, locally, and stops at the first failure. It
+   refuses to start over uncommitted tracked changes (pass `--allow-dirty` to override), and prints
+   the commit it gated. Its two vitest steps use half the logical CPUs; set `GATE_LOCAL_WORKERS=<n>`
+   to choose another count. It is REQUIRED only for the minutes-exhausted fallback below.
+2. Push the branch to `origin` and open a pull request (`gh pr create`).
+3. Wait for the eight required checks of `.github/workflows/ci.yml` (`static` · `unit` ·
+   `unit-shuffled` · `build` · `e2e` · `prod-smoke` · `semgrep` · `audit`) to go green. A red check:
+   open that job's step summary first — `static` lists every failing step.
+4. Merge with a merge commit, naming the head you saw green:
+   `gh pr merge --merge --match-head-commit <sha>`. Squash and rebase merging are disabled so the
+   history keeps the shape the commit citations rely on. Never enable auto-merge (`--auto`).
+
+If the month's Actions minutes run out, checks cannot complete: run `npm run gate:local` with
+`LEAK_LIST_FILE` set, merge with the admin bypass, and note the bypass and the
+`gate:local PASS at <sha>` line in the PR (`docs/RUNBOOK.md`, "Actions minutes exhausted").
 
 No releases and no tags are made until releasing moves to GitHub Releases.
 
@@ -534,8 +544,8 @@ No releases and no tags are made until releasing moves to GitHub Releases.
 
 Before opening a PR:
 
-- [ ] `npm run gate:local` passes (the merge gate until CI runs on GitHub; it includes lint and the
-      build).
+- [ ] `npm run gate:local` passes (recommended pre-push check; CI runs the same list, and it includes
+      lint and the build).
 - [ ] New user-facing strings have both EN and DE translations.
 - [ ] If you added a tab / popover / panel, the Help menu (`help-menu.tsx`)
       and Version highlights (`version.ts`) reference it where appropriate.

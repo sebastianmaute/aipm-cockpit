@@ -9,10 +9,9 @@
 //
 // ★★★ THE LIST IS NEVER TRACKED. It lives in a file named by the environment
 // variable `LEAK_LIST_FILE`: locally a file outside the repository, in CI a
-// masked file-type variable. Its format is documented in the lib's header.
-// ★★ CI WIRING IS PENDING: no pipeline job runs this yet, because a blocking job
-// needs the masked file-type variable to exist in the project settings first,
-// and a job without it exits 2 on every pipeline. Run it locally until then.
+// temp file. Its format is documented in the lib's header.
+// ★★ In CI the `static` job writes the LEAK_LIST secret to a temp file and exports LEAK_LIST_FILE;
+// gate-local.mjs FAILS this step (code 2) under CI when the variable is unset, and skips it locally.
 //
 // ★★ A report NEVER echoes an identifier — only `path:line` and the entry's
 // class — so its output is safe to paste into a public log.

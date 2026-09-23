@@ -311,6 +311,24 @@ To enable Turso as a storage backend:
 
 ## Common issues
 
+### "A required check is red"
+CI is `.github/workflows/ci.yml`; its eight jobs are the required checks, detailed in
+[`docs/AGENTS/ci.md`](AGENTS/ci.md). Open the red job's **step summary** first. `static` runs every
+static gate even after one fails (`--keep-going`) and lists every failing step with its exit code,
+so one run shows them all; `unit` puts the "All files" coverage line and the failing tests there.
+For the register and scan gates, **exit 1 = drift** (fix the content the gate names) and **exit 2 =
+could not scan** (the gate read nothing it could trust — a missing file, an empty list, a moved
+shape): the two demand opposite responses. `leaks:check` at exit 2 in CI usually means the
+`LEAK_LIST` secret is missing or empty — for a Dependabot PR, in Dependabot's own secret store.
+Reproduce a `static` failure locally with `node scripts/gate-local.mjs --group static --keep-going`.
+
+### "Actions minutes exhausted"
+While the repository is private, Actions runs on GitHub Pro's included minutes with a $0 budget, so
+exhaustion stops jobs rather than billing. Checks cannot complete, so merging is blocked.
+Fallback: run `npm run gate:local` (with `LEAK_LIST_FILE` set), merge with the admin bypass, and note
+the bypass and the gate line (`gate:local PASS at <sha>`) in the PR. The next month's first push to
+`main` re-runs everything.
+
 ### "Jira sync fails with 401"
 Cause: stale or revoked Atlassian API token, or the user changed Atlassian
 password. Atlassian Cloud API tokens are not affected by password rotation,
