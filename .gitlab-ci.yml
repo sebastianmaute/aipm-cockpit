@@ -343,7 +343,7 @@ followups-workitems-check:
     - npm run followups:workitems:check
 
 # Register vs GitLab — WARN-ONLY. Compares every open entry's Work item line with
-# the OPEN issues in  (GitLab), both ways: an issue closed in the GitLab UI, an
+# the OPEN issues in the GitLab project, both ways: an issue closed in the GitLab UI, an
 # issue titled for another entry, an issue with no open entry, a `source::register`
 # issue with no `§NNN:` title. This is what followups-workitems-check cannot see.
 # 1 is DRIFT; 2 means it could not compare (network, token, redirect, or fewer
@@ -622,7 +622,7 @@ dast-zap:
     # 33.4.11 (local installer 137,285,908 B + blockmap 145,253 B; NSIS
     # `compression: maximum` gained nothing here, +103 B). 2026-09-15, MR !492
     # pipeline 7013, manual job desktop-package 30942: SUCCESS, uploaded
-    # installer+blockmap archive 137,319,211 B (~130.96 MiB).  (GitLab)'s
+    # installer+blockmap archive 137,319,211 B (~130.96 MiB). The project's
     # max_artifacts_size (projects API) is null, so the GitLab INSTANCE setting
     # governs -- and since that upload succeeded, the instance limit is now
     # known to be ABOVE 100 MiB (at least 137,319,211 B). Its exact value is
