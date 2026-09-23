@@ -50,6 +50,14 @@ describe("forEachTagPair", () => {
     // 16,384–32,768 loops against its 65,536 cap, so a CI machine 2–4x faster
     // would throw below the timer floor. At 80,000 it calibrates 2,048 loops
     // (fast-CI headroom, plan Review Focus 1).
+    // ★ §612: now n 40,000 and repeats 5. One green call is a single scan of
+    // the whole fixture, and a CI run with two workers on two vCPUs failed the
+    // sibling forEachOpenTag site on the correct code with every pair high,
+    // which reads as the large fixture falling out of a cache the small one
+    // fits in. A smaller fixture and a median over five pairs are the
+    // mitigation; the cause was not reproduced locally (see §612). Measured
+    // 2026-09-23: 3.9–4.3 green over five runs of this file at 2,048–4,096
+    // loops, 16.6 with that mutant.
     expectLinearScaling({
       label: "no '>' anywhere (forEachTagPair)",
       build: (n) => "<w:tbl ".repeat(n),
@@ -67,7 +75,8 @@ describe("forEachTagPair", () => {
       // input, which is the one thing this fixture exists to withhold. The
       // mutant is caught on its ratio alone.
       check: (seen) => expect(seen).toEqual([]),
-      n: 80_000,
+      n: 40_000,
+      repeats: 5,
     });
   });
 
@@ -201,6 +210,11 @@ describe("forEachOpenTag", () => {
     // n is 100,000, not the former fixed 200,000 / 4: at 50,000 the helper calibrated
     // 2,048–4,096 loops; at 100,000 it calibrates 2,048, leaving headroom
     // under its 65,536 cap on a faster CI machine (plan Review Focus 1).
+    // ★ §612: this site failed in CI (GitHub Actions run 35844783726, two
+    // workers on two vCPUs) on the correct code: pair ratios 9.43, 9.36 and
+    // 11.55 at 4,096 loops, n 100,000. Now n 40,000 and repeats 5. Measured
+    // 2026-09-23: 3.8–4.6 green over five runs of this file at 2,048 loops,
+    // 16.4 with the same mutant.
     expectLinearScaling({
       label: "no '>' anywhere (forEachOpenTag)",
       build: (n) => "<sheet ".repeat(n),
@@ -209,7 +223,8 @@ describe("forEachOpenTag", () => {
       // first open, so `check` cannot catch an early bail, and a sentinel tag
       // would add the ">" the fixture withholds. The ratio catches the mutant.
       check: (tags) => expect(tags).toEqual([]),
-      n: 100_000,
+      n: 40_000,
+      repeats: 5,
     });
   });
 
@@ -224,6 +239,9 @@ describe("forEachOpenTag", () => {
     // 20,000 the helper calibrated 4,096–8,192 loops; at 80,000 it
     // calibrates 2,048, leaving headroom under its 65,536 cap on a faster CI
     // machine (plan Review Focus 1).
+    // ★ §612: now n 40,000 and repeats 5, as the site above. Measured
+    // 2026-09-23: 3.7–4.2 green over five runs of this file at 2,048 loops,
+    // 17.4 with the resume dropped and `check` relaxed.
     expectLinearScaling({
       label: "one '>' at the end (forEachOpenTag)",
       build: (n) => "<sheet ".repeat(n) + ">",
@@ -236,7 +254,8 @@ describe("forEachOpenTag", () => {
         expect(tags.length).toBe(1);
         expect(tags[0].length).toBe("<sheet ".length * n + 1);
       },
-      n: 80_000,
+      n: 40_000,
+      repeats: 5,
     });
   });
 });
