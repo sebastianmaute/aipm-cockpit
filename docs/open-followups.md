@@ -836,7 +836,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§611](#611-the-weekly-zap-jobs-docker-run-images-float-unpinned--pin-them-by-digest--open) | The weekly ZAP job's docker run images float unpinned — pin them by digest — open | final review of sub-project 3 on `ci/sp3-actions-workflows` (the plan's unrecorded "follow-up"); GitLab #393 | S — pin both images by `@sha256:` digest and record how to re-resolve them | open |
 | [§612](#612-a-scaling-guard-went-red-in-ci-on-correct-code--shrink-the-memory-bound-fixtures--open) | A scaling guard went red in CI on correct code — shrink the memory-bound fixtures — open | GitHub Actions run 35844783726, job `unit-shuffled`, on `main`; GitLab #394 | S — hedged on `fix/scaling-flake-ci` (smaller n, `repeats: 5`: no shown effect on the failure; readable CI log); close after green `unit-shuffled` runs on `main` | open |
 | [§613](#613-semgreps-blocking-gate-misses-code-injection-in-typescript--widen-the-rule-set-or-block-on-warning--open) | Semgrep's blocking gate misses code injection in TypeScript — widen the rule set or block on WARNING — open | sub-project 3 control plant, GitHub Actions run 35868367110 (job `semgrep` stayed green); GitLab #395 | decide the rule source or severity, then re-run the three-sink plant until the job goes red | open |
-| [§614](#614-use-weight-suggestionstesttsx-is-order-dependent--its-shared-mock-is-never-reset--open) | use-weight-suggestions.test.tsx is order-dependent — its shared mock is never reset — open | scheduled run 35875601416, job `unit-shuffled-random` (seed 35875601416); GitLab #396 | S — clear the mock before each test; reproduces in isolation | open |
+| [§614](#614-use-weight-suggestionstesttsx-is-order-dependent--its-shared-mock-is-never-reset--closed-2026-09-23) | use-weight-suggestions.test.tsx is order-dependent — its shared mock is never reset — CLOSED 2026-09-23 | scheduled run 35875601416, job `unit-shuffled-random` (seed 35875601416); GitLab #396 | S — clear the mock before each test; reproduces in isolation | closed |
 | [§615](#615-tiptaps-deferred-editor-destroy-throws-window-is-not-defined-after-a-test-environment-is-torn-down--open) | TipTap's deferred editor destroy throws window is not defined after a test environment is torn down — open | scheduled run 35875601416, job `unit-shuffled-random` (unhandled error); GitLab #397 | find the leaking test file first; fix not chosen | open |
 <!-- INDEX:END -->
 
@@ -41186,13 +41186,16 @@ code injection in plain TypeScript is not among them.
 Whichever is chosen, re-run the same three-sink plant and require the job to go red before closing
 this entry. Checking only that the config changed is not enough.
 
-## 614. use-weight-suggestions.test.tsx is order-dependent — its shared mock is never reset — open
+## 614. use-weight-suggestions.test.tsx is order-dependent — its shared mock is never reset — CLOSED 2026-09-23
 
-**Status:** open 2026-09-23 — reproduced locally, in isolation, with
+**Status:** CLOSED 2026-09-23 by `fix/614-weight-suggestions-order`. A `beforeEach` now calls
+`mockReset()` on the one module-level mock, clearing both its recorded calls and the
+`mockResolvedValue` the success test leaves behind. The seeded single-file command below is green
+(3 passed) and went red again with the reset removed (1 failed, the same "called 2 times"
+message), so the reset is what fixes it. Eight more seeds (1–8) are green. Before the fix the same
+command reproduced the failure in isolation:
 `npx vitest run src/app/use-weight-suggestions.test.tsx --sequence.shuffle --sequence.seed=35875601416 --reporter=dot`
 (EXIT=1; 1 failed, 2 passed).
-
-**Work item:** #396
 
 **What failed.** The scheduled workflow's `unit-shuffled-random` job, run 35875601416 (seed =
 the run id), failed 1 of 19,569 tests: `src/app/use-weight-suggestions.test.tsx` › useWeightSuggestions
