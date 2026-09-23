@@ -66,7 +66,7 @@ jobs:
       - run: npm ci
       - name: Unit tests with coverage floors
         shell: bash
-        run: npm run test:coverage -- --reporter=default --reporter=junit --outputFile=junit.xml 2>&1 | tee unit.log
+        run: npm run test:coverage -- --maxWorkers=2 --reporter=default --reporter=junit --outputFile=junit.xml 2>&1 | tee unit.log
       - name: Summary
         if: ${{ always() }}
         shell: bash
@@ -98,7 +98,7 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci
-      - run: npm run test:shuffle
+      - run: npm run test:shuffle -- --maxWorkers=2
 
   build:
     runs-on: ubuntu-latest

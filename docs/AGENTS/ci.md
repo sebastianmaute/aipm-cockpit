@@ -61,17 +61,20 @@ re-resolved by hand.
   `grep -c 's("static"' scripts/gate-local.mjs`. Last, **actionlint** from its container image, pinned
   by digest, with `if: !cancelled()` so it still runs when the gate step is red. actionlint has no
   local install; CI is where it is enforced.
-- **`unit`** (45 min). `npm run test:coverage -- --reporter=default --reporter=junit
+- **`unit`** (45 min). `npm run test:coverage -- --maxWorkers=2 --reporter=default --reporter=junit
   --outputFile=junit.xml`, piped through `tee unit.log` in a `shell: bash` step — GitHub's default
   shell has no `pipefail`, and `bash` gives `-eo pipefail`, so a red vitest turns the step red.
   `scripts/ci-workflow.test.mjs` fails on any piped `run:` step without `shell: bash`. The coverage
   floors in `vitest.config.ts` are enforced by vitest itself. An always-run summary step appends the
   "All files" coverage line and up to 50 failing-test lines to the step summary; the artifact
   `unit-results` (`junit.xml`, `coverage/`) is kept 7 days and uploaded even on failure. No
-  third-party test-reporter action. ★ CI passes no `--maxWorkers`, while `gate:local`'s `unit` step
-  does, so the two do not share a worker layout.
-- **`unit-shuffled`** (45 min, `needs: unit`). `npm run test:shuffle` — the same pinned seed as the
-  local command. It waits for `unit` for the reason the GitLab job did: two full vitest runs must never
+  third-party test-reporter action. ★ Both vitest jobs pass `--maxWorkers=2`, one per vCPU of the
+  hosted runner. The first run passed none and took 27 min for `unit` and 30 for `unit-shuffled`: the
+  reported test, setup, import and environment time summed to about the wall time, i.e. one worker.
+  `gate:local` derives its own count from the local CPUs, so the two still do not share a worker
+  layout.
+- **`unit-shuffled`** (45 min, `needs: unit`). `npm run test:shuffle -- --maxWorkers=2` — the same
+  pinned seed as the local command. It waits for `unit` for the reason the GitLab job did: two full vitest runs must never
   contend for one runner's CPU. On Actions they would sit on different runners, but the dependency
   still stops a red `unit` from spending another full run nobody can read.
 - **`build`** (15 min). `npm run build`, then uploads `.next/` minus `.next/cache` as the artifact
