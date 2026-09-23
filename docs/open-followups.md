@@ -41170,7 +41170,11 @@ scan and the blocking `--severity ERROR --error` gate), alongside the existing `
 `semgrep scan --config .semgrep/injection.yml --severity ERROR --json` reports **3 findings** and
 `--severity ERROR --error` exits 1; against the tracked tree
 (`semgrep scan --config .semgrep/injection.yml --severity ERROR --error src scripts e2e desktop/src`),
-**0 findings**, exit 0 — so the new rule adds no pre-existing debt to triage.
+**0 findings**, exit 0 — so the new rule adds no pre-existing debt to triage. The rule's coverage is
+narrower than its message implies: probed against an 8-sink scratch file with the same venv, it does
+NOT match `Function(x)` without `new`, `execSync(x)`, a shell `spawn(x, {shell:true})`, or
+`globalThis.eval(x)`, and it flags a literal `eval("…")` exactly like a tainted one, having no
+non-literal constraint.
 `scripts/ci-workflow.test.mjs` gained an assertion that both semgrep steps pass
 `--config .semgrep/injection.yml`; `docs/AGENTS/ci.md`'s `semgrep` bullet now names the local
 config and why it exists. **The CI red proof is pending** — re-running the three-sink plant inside a
@@ -41197,8 +41201,9 @@ code injection in plain TypeScript is not among them.
 
 **Options considered.** Widening to `p/security-audit` (the only registry config that fired on the
 plant at all) catches only the `exec` sink and immediately produces 2 pre-existing findings
-(`grep -n "exec(" scripts/check-followup-claims.mjs scripts/gate-local.mjs` — legitimate
-`child_process` use in build tooling) needing triage before the gate could go green. Blocking on WARNING as well as
+(`grep -n "spawnSync(" scripts/check-followup-claims.mjs scripts/gate-local.mjs` shows both call
+sites among its hits — legitimate `child_process` use in build tooling) needing triage before the
+gate could go green. Blocking on WARNING as well as
 ERROR was ruled out as before: it flags none of the plant's three sinks at any severity and would
 turn the three pre-existing SARIF findings red first. The local rule file above was the smallest
 change that makes the plant red with zero real-tree findings, and is the fix landed on

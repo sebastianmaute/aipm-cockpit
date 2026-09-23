@@ -198,6 +198,17 @@ describe("ci.yml", () => {
     expect(runs.length).toBe(2);
     for (const run of runs) expect(run).toMatch(/--config \.semgrep\/injection\.yml/);
   });
+
+  // §613: passing --config on both steps is not enough on its own — a rule downgraded to WARNING
+  // would still ride both scans and never trip `--severity ERROR --error`. Pin the severity itself,
+  // not just that the file is wired in. Mutation-checked: flipping `severity: ERROR` to `WARNING`
+  // in .semgrep/injection.yml turns this RED (reverted after the check).
+  it("every rule in the local injection config is severity ERROR", () => {
+    const rule = read(".semgrep/injection.yml");
+    const severities = [...rule.matchAll(/^\s*severity:\s*(\S+)/gm)].map((m) => m[1]);
+    expect(severities.length).toBeGreaterThan(0);
+    for (const s of severities) expect(s).toBe("ERROR");
+  });
 });
 
 describe("scheduled.yml", () => {
