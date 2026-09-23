@@ -28,8 +28,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # Full history: the commit-message scan below needs the whole range the event introduces.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -46,6 +48,27 @@ jobs:
           echo "LEAK_LIST_FILE=$RUNNER_TEMP/leak-list.txt" >> "$GITHUB_ENV"
       - name: Static gates (every step runs; each failure is listed in the summary)
         run: node scripts/gate-local.mjs --group static --keep-going
+      # leaks:check reads tracked files only; this reads the commit messages the event introduces
+      # (§200). A push that opens a branch, or a manual run, has no `before` to diff against, so it
+      # scans the head commit alone. Event values go through env:, never inline into run:.
+      - name: Commit-message leak scan
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            RANGE="$PR_BASE..$PR_HEAD"
+          elif [ "$EVENT" = push ] && [ -n "$PUSH_BEFORE" ] && [ -n "${PUSH_BEFORE//0/}" ]; then
+            RANGE="$PUSH_BEFORE..$HEAD_SHA"
+          else
+            RANGE="$HEAD_SHA^!"
+          fi
+          node scripts/check-commit-message-leaks.mjs "$RANGE"
       - name: actionlint
         if: ${{ !cancelled() }}
         uses: docker://rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 # 1.7.12

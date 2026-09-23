@@ -138,6 +138,17 @@ describe("ci.yml", () => {
     expect(b.indexOf("LEAK_LIST_FILE=")).toBeLessThan(b.indexOf("--group static"));
   });
 
+  it("scans the event's commit messages in static, over a full-history checkout, after the gates", () => {
+    const b = jobBlock(CI, "static");
+    expect(b).toMatch(/^ {6}- uses: actions\/checkout@\S+.*\n {8}with:\n {10}fetch-depth: 0$/m);
+    const scan = b.indexOf("node scripts/check-commit-message-leaks.mjs");
+    expect(scan).toBeGreaterThan(b.indexOf("--group static"));
+    // Event values reach the script through env:, never a ${{ }} inside run:.
+    expect(b).toMatch(/PR_BASE: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/);
+    expect(b).toMatch(/PUSH_BEFORE: \$\{\{ github\.event\.before \}\}/);
+    expect(b.slice(b.lastIndexOf("run: |"), scan)).not.toMatch(/\$\{\{/);
+  });
+
   it("uploads .next with hidden files included and the cache excluded", () => {
     const b = jobBlock(CI, "build");
     expect(b).toMatch(/include-hidden-files: true/);
