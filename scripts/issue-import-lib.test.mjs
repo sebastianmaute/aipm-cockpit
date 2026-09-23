@@ -64,25 +64,31 @@ describe("issueBody", () => {
     title: "Three — open",
     body: ["", "**Status:** open 2026-09-20 — measured once.", "", "**Work item:** #3", "", "First paragraph of three.", "", "Second paragraph."],
   };
-  it("carries the pointer, the status, the first paragraph and the footer — and not the second paragraph", () => {
-    const b = issueBody(entry, { ...OPTS, n: 3, anchor: "3-three--open" });
-    expect(b).toContain("https://github.com/o/r/blob/main/docs/open-followups.md#3-three--open");
+  it("carries the pointer to the register entry §N (not the GitLab number), the status, the first paragraph and the footer — and not the second paragraph", () => {
+    const b = issueBody(entry, { ...OPTS, n: 7, anchor: "3-three--open" });
+    expect(b).toContain("[§3](https://github.com/o/r/blob/main/docs/open-followups.md#3-three--open)");
     expect(b).toContain("**Status:** open 2026-09-20 — measured once.");
     expect(b).toContain("First paragraph of three.");
     expect(b).not.toContain("Second paragraph.");
     expect(b).not.toContain("**Work item:**");
-    expect(b).toContain("Imported from GitLab #3 on 2026-09-30.");
+    expect(b).toContain("Imported from GitLab #7 on 2026-09-30.");
   });
-  it("uses the search pointer when the register cannot be linked by anchor", () => {
-    const b = issueBody(entry, { ...OPTS, pointerStyle: "search", n: 3, anchor: "3-three--open" });
+  it("uses the search pointer naming §N (not the GitLab number) when the register cannot be linked by anchor", () => {
+    const b = issueBody(entry, { ...OPTS, pointerStyle: "search", n: 7, anchor: "3-three--open" });
     expect(b).not.toContain("#3-three--open");
     expect(b).toContain("search for `## 3.`");
+    expect(b).not.toContain("search for `## 7.`");
+    expect(b).toContain("Imported from GitLab #7 on 2026-09-30.");
   });
   it("caps the body and marks the cut", () => {
     const long = { ...entry, body: ["**Status:** " + "y".repeat(BODY_CAP * 2)] };
-    const b = issueBody(long, { ...OPTS, n: 3, anchor: "a" });
+    const b = issueBody(long, { ...OPTS, n: 7, anchor: "a" });
     expect(b.length).toBeLessThanOrEqual(BODY_CAP);
     expect(b).toContain("(cut — read the full entry in the register)");
+  });
+  it("requires an index anchor in anchor mode but not in search mode", () => {
+    expect(() => issueBody(entry, { ...OPTS, pointerStyle: "anchor", n: 7, anchor: undefined })).toThrow(/§3/);
+    expect(() => issueBody(entry, { ...OPTS, pointerStyle: "search", n: 7, anchor: undefined })).not.toThrow();
   });
 });
 
@@ -100,16 +106,22 @@ describe("stubIssue", () => {
 });
 
 describe("planImport", () => {
-  it("emits one action per number 1..max: placeholder, open, stub", () => {
-    const acts = planImport([gl(3, "opened", "§3: old gitlab title"), gl(4, "closed", "§4: x")], REG, OPTS);
+  it("emits one action per number 1..max: placeholder, open, stub, and the open action's pointer names the register entry §, not the GitLab number", () => {
+    const acts = planImport([gl(7, "opened", "§3: old gitlab title"), gl(4, "closed", "§4: x")], REG, OPTS);
     expect(acts.map((a) => [a.n, a.kind])).toEqual([
       [1, "placeholder"],
       [2, "placeholder"],
-      [3, "open"],
+      [3, "placeholder"],
       [4, "stub"],
+      [5, "placeholder"],
+      [6, "placeholder"],
+      [7, "open"],
     ]);
-    expect(acts[2].title).toBe("§3: Three");
-    expect(acts[2].labels).toEqual(["source::register"]);
+    const openAction = acts[6];
+    expect(openAction.title).toBe("§3: Three");
+    expect(openAction.labels).toEqual(["source::register"]);
+    expect(openAction.body).toContain("[§3](https://github.com/o/r/blob/main/docs/open-followups.md#3-three--open)");
+    expect(openAction.body).toContain("Imported from GitLab #7 on 2026-09-30.");
     expect(acts[3].labels).toEqual([]);
     expect(acts[0].title).toBe(PLACEHOLDER_TITLE);
   });
@@ -121,6 +133,29 @@ describe("planImport", () => {
   });
   it("throws on a duplicate GitLab number", () => {
     expect(() => planImport([gl(3, "opened", "§3: a"), gl(3, "opened", "§3: a")], REG, OPTS)).toThrow(/twice/);
+  });
+  it("throws when two open GitLab issues name the same §, naming both numbers and the §", () => {
+    let err;
+    try {
+      planImport([gl(3, "opened", "§3: a"), gl(7, "opened", "§3: b")], REG, OPTS);
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(Error);
+    expect(err.message).toContain("#3");
+    expect(err.message).toContain("#7");
+    expect(err.message).toContain("§3");
+  });
+  it("throws when a GitLab issue has a state other than opened or closed, naming the number and the state", () => {
+    let err;
+    try {
+      planImport([gl(3, "merged", "§3: a")], REG, OPTS);
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(Error);
+    expect(err.message).toContain("#3");
+    expect(err.message).toContain("merged");
   });
 });
 

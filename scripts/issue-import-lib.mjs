@@ -36,11 +36,13 @@ function paragraphs(lines) {
     .filter((p) => p !== "");
 }
 
-function pointer({ n, repoUrl, pointerStyle, anchor }) {
+function pointer({ section, repoUrl, pointerStyle, anchor }) {
   const file = `${repoUrl}/blob/main/${REGISTER_PATH}`;
-  return pointerStyle === "anchor"
-    ? `Register entry [§${n}](${file}#${anchor}).`
-    : `Register entry §${n} in [${REGISTER_PATH}](${file}) — search for \`## ${n}.\``;
+  if (pointerStyle === "anchor") {
+    if (!anchor) throw new Error(`§${section} has no index anchor to link to`);
+    return `Register entry [§${section}](${file}#${anchor}).`;
+  }
+  return `Register entry §${section} in [${REGISTER_PATH}](${file}) — search for \`## ${section}.\``;
 }
 
 export function issueBody(entry, { n, repoUrl, pointerStyle, anchor, date }) {
@@ -50,7 +52,7 @@ export function issueBody(entry, { n, repoUrl, pointerStyle, anchor, date }) {
   const footer =
     `\n\n---\n_Imported from GitLab #${n} on ${date}. The register entry is the source of truth; ` +
     `update it, not this issue._`;
-  let main = [pointer({ n, repoUrl, pointerStyle, anchor }), status, first].filter(Boolean).join("\n\n");
+  let main = [pointer({ section: entry.n, repoUrl, pointerStyle, anchor }), status, first].filter(Boolean).join("\n\n");
   const room = BODY_CAP - footer.length;
   if (main.length > room) main = main.slice(0, room - CUT_MARK.length) + CUT_MARK;
   return main + footer;
@@ -78,6 +80,7 @@ export function planImport(gitlabIssues, registerText, { repoUrl, pointerStyle, 
       .map((e) => [e.n, e]),
   );
   const anchors = parseIndexAnchors(registerText);
+  const usedSections = new Map();
   const max = Math.max(0, ...byIid.keys());
   const actions = [];
   for (let n = 1; n <= max; n += 1) {
@@ -86,19 +89,27 @@ export function planImport(gitlabIssues, registerText, { repoUrl, pointerStyle, 
       actions.push({ n, kind: "placeholder", title: PLACEHOLDER_TITLE, body: "", labels: [] });
       continue;
     }
-    if (gi.state !== "opened") {
+    if (gi.state === "closed") {
       actions.push({ n, kind: "stub", ...stubIssue(gi), labels: [] });
       continue;
     }
+    if (gi.state !== "opened") {
+      throw new Error(`GitLab #${n} has an unexpected state "${gi.state}"`);
+    }
     const section = issueSection(gi.title);
     if (section === null) throw new Error(`open GitLab #${n} has no §NNN: title`);
+    const claimedBy = usedSections.get(section);
+    if (claimedBy !== undefined) {
+      throw new Error(`GitLab #${claimedBy} and #${n} both name §${section} — one tracker issue per open entry`);
+    }
     const entry = openEntries.get(section);
     if (!entry) throw new Error(`open GitLab #${n} names §${section}, which is not an OPEN register entry`);
+    usedSections.set(section, n);
     actions.push({
       n,
       kind: "open",
       title: entryTitle(entry),
-      body: issueBody(entry, { n, repoUrl, pointerStyle, anchor: anchors.get(section) ?? "", date }),
+      body: issueBody(entry, { n, repoUrl, pointerStyle, anchor: anchors.get(section), date }),
       labels: [...gi.labels],
     });
   }
