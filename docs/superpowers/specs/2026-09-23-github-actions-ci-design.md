@@ -33,9 +33,10 @@ Re-measure rather than trust; every number here drifts.
 
 | Fact | Value | Reproduce |
 |---|---|---|
-| Runner time of one full GitLab MR pipeline | ~45 min (pipeline 7327: e2e 953 s, unit-tests 730 s, unit-tests-shuffled 590 s, lint 104 s, build 68 s, semgrep 65 s, ten small gates ~5 s each) | `glab api "projects/:id/pipelines/<id>/jobs"` |
+| Runner time of one full `ci` run on Actions (measured 2026-09-23) | **68 billed min**, 32 min wall (run 35836632381, `--maxWorkers=2`: e2e 23.6 · unit 17.4 · unit-shuffled 14.6 · static 2.9 · semgrep 2.1 · prod-smoke 1.4 · build 1.3 · audit 0.1 min, each rounded up to a whole minute when billed). The first run, with vitest on one worker, was 85 billed min: unit 27.3 · unit-shuffled 29.7 · e2e 15.7 (run 35829822931). e2e varied 15.7 → 23.6 min between the two runs with no change to it | `gh api "repos/sebastianmaute/aipm-cockpit/actions/runs/<id>/jobs" --jq '.jobs[] \| "\(.name) \(((.completed_at\|fromdate)-(.started_at\|fromdate))/60)"'` |
+| Runner time of one full GitLab MR pipeline (for comparison) | ~45 min (pipeline 7327: e2e 953 s, unit-tests 730 s, unit-tests-shuffled 590 s, lint 104 s, build 68 s, semgrep 65 s, ten small gates ~5 s each) | `glab api "projects/:id/pipelines/<id>/jobs"` |
 | Merges to `main` per month | 158 (Jun) · 179 (Jul) · 87 (Aug) · 81 (Sep to the 23rd) | `git log --merges --first-parent main --since=… --until=… --oneline \| wc -l` |
-| Pipelines 3,000 minutes buys | ~60–65 full pipelines a month — counting **every** PR push and every push to `main`, not merges | 3000 / 45, before per-job rounding |
+| Pipelines 3,000 minutes buys | **~44 full runs a month** (3000 / 68) — counting **every** PR push and every push to `main`, not merges. A merged PR costs at least two runs (its PR run and the push-to-`main` run), so ~22 merges a month at most, against the 81–179 merges a month above. The design-time estimate was ~60–65 (3000 / 45, before per-job rounding) | 3000 / billed minutes per run |
 | Hosted runner, private repo | 2 vCPU Linux (public: 4 vCPU); billing rounds each job **up** to a whole minute | GitHub billing docs |
 | After the flip | Standard hosted runners are free and unmetered; rulesets and SARIF upload are free | GitHub billing docs |
 
