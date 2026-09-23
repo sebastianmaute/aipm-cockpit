@@ -144,6 +144,11 @@ until sub-project 4.
 shape the citations rely on. `main` protected: no force push, no deletion, changes via pull request;
 no required reviews (single contributor); no required status checks until sub-project 3.
 
+> ★★ **Correction 2026-09-23:** "`main` protected" was never in force. On the Free plan a private
+> repository can hold neither branch protection nor rulesets — both APIs answer 403 "Upgrade to
+> GitHub Pro or make this repository public". Only the merge settings took effect. Sub-project 3
+> (`2026-09-23-github-actions-ci-design.md`, "Protection") adds the ruleset after the Pro upgrade.
+
 **"Release" in the gap** = push the branch → `gh pr create` → `npm run gate:local` → `gh pr merge
 --merge`. Never auto-merge. This replaces "no local gates": with no CI, skipping the local gate
 means no gate at all.
