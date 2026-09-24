@@ -3269,8 +3269,8 @@ premise ruled it out:
 between it being written (2026-07-31) and being corrected (2026-08-02) — a 1.x backport landed. Treat
 every number here as a measurement with a date, not a property.
 
-- ★★ **The blocking gate is unaffected and green.** `.gitlab-ci.yml:99` is `npm audit --omit=dev
-  --audit-level=high` — dev deps excluded. `dependency-audit` passed in all three pipelines on
+- ★★ **The blocking gate is unaffected and green.** The former GitLab `dependency-audit` job ran
+  `npm audit --omit=dev --audit-level=high` — dev deps excluded. It passed in all three pipelines on
   2026-07-31. Nothing is red.
 - ★★ eslint 10 is a major landing. ★★★ THIS BULLET USED TO SAY "against a `--max-warnings=0` gate, so
   any rule added, renamed or changed-by-default becomes an instant fatal build" — there is NO such gate

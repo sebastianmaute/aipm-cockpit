@@ -10,6 +10,7 @@ import { GATE_GROUPS, GATE_STEPS } from "./gate-local.mjs";
 import {
   jobIds, jobBlock, unpinnedUses, topLevelBlock, requiredChecksFromDoc, pipedRunsWithoutBash,
 } from "./ci-workflow-lib.mjs";
+import { INSTALLER_DIR, installerName, expectedAssets } from "./release-publish-lib.mjs";
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
 const SHA = "a".repeat(40);
@@ -78,6 +79,7 @@ describe("ci-workflow-lib", () => {
 const SCHEDULED_PATH = ".github/workflows/scheduled.yml";
 
 const CI = read(".github/workflows/ci.yml");
+const RELEASE = read(".github/workflows/release.yml");
 const REQUIRED = requiredChecksFromDoc(read("docs/AGENTS/ci.md"));
 const lock = JSON.parse(read("package-lock.json"));
 const pkg = JSON.parse(read("package.json"));
@@ -239,5 +241,83 @@ describe("scheduled.yml", () => {
     expect(b.indexOf("reproduce:")).toBeGreaterThan(-1);
     expect(b.indexOf("reproduce:")).toBeLessThan(b.indexOf("npm run test:run"));
     expect(b).toMatch(/--sequence\.seed=\$\{\{ github\.run_id \}\}/);
+  });
+});
+
+describe("release.yml", () => {
+  workflowRules("release.yml", RELEASE);
+
+  it("runs on v* tags only", () => {
+    // topLevelBlock returns the block's lines trimmed, blanks dropped.
+    expect(topLevelBlock(RELEASE, "on")).toEqual(["push:", "tags:", '- "v*"']);
+  });
+
+  it("has guard, build, publish, chained in that order", () => {
+    expect(jobIds(RELEASE)).toEqual(["guard", "build", "publish"]);
+    expect(jobBlock(RELEASE, "build")).toMatch(/^\s+needs: guard$/m);
+    expect(jobBlock(RELEASE, "publish")).toMatch(/^\s+needs: \[guard, build\]$/m);
+  });
+
+  it("reads by default, and only publish can write", () => {
+    expect(topLevelBlock(RELEASE, "permissions")).toEqual(["contents: read"]);
+    for (const id of ["guard", "build"]) expect(jobBlock(RELEASE, id)).not.toMatch(/permissions:|: write/);
+    const pub = jobBlock(RELEASE, "publish");
+    expect(pub).toMatch(/permissions:\n\s+contents: write\n\s+id-token: write\n\s+attestations: write/);
+  });
+
+  it("publish runs in the release environment and installs no packages", () => {
+    const pub = jobBlock(RELEASE, "publish");
+    expect(pub).toMatch(/^\s+environment: release$/m);
+    expect(pub).not.toMatch(/npm (ci|install|i )|npx /);
+    expect(pub).toMatch(/npm run release:verify -- /);
+    expect(pub).toMatch(/npm run release:publish -- /);
+  });
+
+  it("attests only on a public repository", () => {
+    expect(jobBlock(RELEASE, "publish")).toMatch(/if: \$\{\{ !github\.event\.repository\.private \}\}\n\s+uses: actions\/attest-build-provenance@/);
+  });
+
+  it("guards the tag against APP_VERSION and main before building", () => {
+    const g = jobBlock(RELEASE, "guard");
+    expect(g).toMatch(/node scripts\/check-tag-version\.mjs "\$TAG"/);
+    expect(g).toMatch(/git merge-base --is-ancestor "\$GITHUB_SHA" origin\/main/);
+  });
+
+  it("every job has a timeout", () => {
+    for (const id of jobIds(RELEASE)) expect(jobBlock(RELEASE, id)).toMatch(/^\s+timeout-minutes: \d+$/m);
+  });
+
+  it("builds on windows and uploads exactly the files the builder writes and publish expects", () => {
+    const b = jobBlock(RELEASE, "build");
+    expect(b).toMatch(/^\s+runs-on: windows-latest$/m);
+    const V = "${{ needs.guard.outputs.version }}";
+    // R3: the upload `path:` lines are the only ones that are *only* whitespace followed by a
+    // `desktop/release/...` path — the `ls -l`/`find` lines in the same job embed the same prefix
+    // mid-line (after `ls -l "` or `if find `), so a plain `^\s+desktop/release/\S+$` never matches
+    // them: `^` only anchors right after the line's leading whitespace, and there `l`/`i` sits where
+    // this pattern expects `d`. The `\S+` in the brief's original regex COULD still match those paths
+    // if it anchored differently, but more importantly it can never match a paths: line here at all,
+    // because the version placeholder ${{ needs.guard.outputs.version }} contains spaces, so `\S+`
+    // stops at the first `${{` and never reaches the trailing `-setup.exe` etc — the match dies before
+    // `$` is satisfied and the whole line is skipped. `.+?` (any char, non-greedy, forced by `\s*$` to
+    // extend to the true end of line) matches the full path including the embedded spaces instead.
+    const paths = [...b.matchAll(/^\s+(desktop\/release\/.+?)\s*$/gm)].map((m) => m[1].replaceAll(V, "9.9.9"));
+    expect(paths).toEqual(expectedAssets("9.9.9").map((f) => `${INSTALLER_DIR}/${f}`));
+  });
+});
+
+describe("electron-builder.yml agrees with the release library", () => {
+  const eb = read("desktop/electron-builder.yml");
+  it("writes installerName() into INSTALLER_DIR, with no nested artifactName", () => {
+    const name = /^artifactName:\s*["']?([^"'\s]+)/m.exec(eb)?.[1];
+    expect(name?.replace(/\$\{version\}/g, "9.9.9")).toBe(installerName("9.9.9"));
+    expect(/^\s+artifactName:/m.test(eb)).toBe(false);
+    const pkg = JSON.parse(read("package.json"));
+    const project = /--project\s+(\S+)/.exec(pkg.scripts["desktop:package"])?.[1];
+    const output = /^directories:\n\s+output:\s*(\S+)/m.exec(eb)?.[1];
+    expect(`${project}/${output}`).toBe(INSTALLER_DIR);
+  });
+  it("publishes to this repository on GitHub", () => {
+    expect(eb).toMatch(/^publish:\n\s+provider: github\n\s+owner: sebastianmaute\n\s+repo: aipm-cockpit$/m);
   });
 });

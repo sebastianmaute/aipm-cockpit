@@ -5,6 +5,13 @@ productName: AI PM Cockpit
 artifactName: aipm-cockpit-${version}-setup.exe
 directories:
   output: release
+# The update feed electron-updater reads: electron-builder writes latest.yml beside the installer
+# and embeds this as resources/app-update.yml. `desktop:package` keeps `--publish never`; the release
+# workflow's publish job uploads the files (spec 2026-09-24-releases-and-updates-design.md).
+publish:
+  provider: github
+  owner: sebastianmaute
+  repo: aipm-cockpit
 files:
   - dist/**
   - splash.html
