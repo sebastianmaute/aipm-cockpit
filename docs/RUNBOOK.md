@@ -197,7 +197,12 @@ with real user data, have users take an export before rolling back.
    must equal `APP_VERSION` and name a commit reachable from `main` (step 2's
    `guard` check), and once published a release is immutable. The reviewer is
    added at flip step 10a; from then on, approve the run the same way (Actions
-   → the run → "Review deployments" → approve `release`).
+   → the run → "Review deployments" → approve `release`). **Push one release
+   tag at a time.** Every run shares one fixed concurrency group, and GitHub
+   keeps only one PENDING run per group: pushing a third tag while one run is
+   in progress and a second is queued silently cancels the queued one (and,
+   from flip step 10a on, a run paused waiting for approval occupies that same
+   slot). A cancelled run just needs a re-run of its tag's workflow.
 4. `publish` verifies the built files (`release:verify`), attests build
    provenance (skipped while the repository is private), drafts the GitHub
    Release, uploads the three files, then publishes. Check the release page:

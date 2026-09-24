@@ -58,8 +58,11 @@ before auto-update.
 ## 1. The release workflow — `.github/workflows/release.yml`
 
 Trigger: `push` of tags matching `v*`. Workflow-level `permissions: contents: read`;
-`concurrency: release-${{ github.ref }}` with `cancel-in-progress: false`. Every job has
-`timeout-minutes`. Every action is pinned by commit SHA.
+`concurrency: group: release` (one FIXED group shared by every tag, not per-ref) with
+`cancel-in-progress: false`. GitHub keeps only one PENDING run per group, so pushing a third release
+tag while one run is in progress and a second is queued silently cancels the queued one — push one
+release tag at a time and wait for it to finish (or be cancelled and re-run) before pushing the next.
+Every job has `timeout-minutes`. Every action is pinned by commit SHA.
 
 ### Job `guard` (ubuntu, read-only)
 
@@ -243,8 +246,22 @@ decision.
 2. **Rehearsal:** on a branch, `APP_VERSION` `1.14.0-rc.1`; merge; tag `v1.14.0-rc.1`. Expect: `guard`,
    `build`, `publish` — **ungated**, since the environment's required-reviewer rule cannot be set while
    private (see "To verify"); an immutable prerelease with exactly three files; `latest.yml`'s sha512
-   equals the installer's. Install it on Windows and start it. Then delete the prerelease and its tag
-   (admin bypass on the tag ruleset).
+   equals the installer's. Also explicitly check:
+   - GitHub has populated `digest` on the uploaded DRAFT assets by the time `verifyDraft` runs (same
+     `publish` job, right after upload) — if it has not, `verifyDraft` reports a mismatch and
+     `release:publish` exits 2 (safe to retry, but every release would be blocked on the first attempt
+     until this is known).
+   - The release is published with `prerelease=true` and is NOT marked "Set as the latest release".
+   - The `build` job's sharp guard and electron-updater guard both pass on `windows-latest` (not just
+     that the installer exists).
+   - Install the `rc` on Windows and start it: `launch.log` shows a clean updater initialisation
+     (`electron-updater`'s own `info`-level lines), with neither `"failed to load"` nor `"failed to
+     wire"` (the two messages `updater.ts` logs on a fallback to the no-op updater).
+   - The release notes carry the fixed `gh attestation verify` line, but a private-repository release
+     has NO attestation (`publish`'s attest step is `if: !github.event.repository.private`) — that
+     command will NOT work against the `rc`; this is expected, not a rehearsal failure.
+
+   Then delete the prerelease and its tag (admin bypass on the tag ruleset).
 3. **Flip:** checklist step 10, then 10a.
 4. **First release** `v1.14.0`: publish; `gh attestation verify` on the downloaded installer passes;
    install it by hand once.

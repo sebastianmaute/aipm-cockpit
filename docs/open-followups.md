@@ -37123,6 +37123,21 @@ files cannot be swapped in place), build-provenance attestations once the reposi
 sha512 in `latest.yml` (transfer corruption only — not a substitution control). This entry stays open
 as the signing follow-up; do not close it by shipping auto-update, only by signing.
 
+**2026-09-24 (gap found while verifying the above):** `e2e/desktop-smoke.spec.ts` always launches the
+packaged app with `AIPM_DISABLE_UPDATE_CHECK=1` (`grep -n AIPM_DISABLE_UPDATE_CHECK
+e2e/desktop-smoke.spec.ts`), and `createUpdater` (`desktop/src/updater.ts`) checks that flag BEFORE
+its dynamic `import("electron-updater")`, returning a no-op immediately when it is set — so the smoke
+test never reaches the load/wire code path at all. No automated check proves the PACKAGED app
+successfully loads `electron-updater` and wires `pickAutoUpdater`'s real singleton; only a one-off
+manual launch did, on 2026-09-24. A release that silently regressed to the `unavailableUpdater`
+fallback (a broken or missing `electron-updater` inside `app.asar`) would strand every installed copy
+on it — automatic checks go silent, and `allowDowngrade: false` means there is no downgrade path back
+to a working version, only a fresh manual install. Proposed fix: a mode that loads and wires the real
+updater but skips the network call (`autoUpdater.checkForUpdates()`/`downloadUpdate()`), plus a smoke
+assertion that `launch.log` carries neither `"failed to load"` nor `"failed to wire"` (the two log
+lines `updater.ts` emits on that fallback). Not filed as its own work item — no GitHub issue exists for
+it yet; recorded here pending one.
+
 **Source:** `desktop/electron-builder.yml`, `docs/desktop-rollout.md`; audit candidate 10
 
 ## 488. The 390 h booked vs 104 h planned gap seen in the demo is unexplained, and a fixed-price contract converted to end-to-end responsibility has no model — OPEN

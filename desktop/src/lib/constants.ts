@@ -21,11 +21,17 @@ export const APP_ORIGIN = `http://${APP_HOST}:${APP_PORT}`;
 // ★★ The installer is unsigned, so there is no code-signing check behind what
 // the feed hands back. Shipping the updater anyway (rather than requiring this
 // manual page forever) is a deliberate call, not an oversight: integrity comes
-// from HTTPS, GitHub's immutable releases, the owner-approval gate on
-// publishing a release in the first place, and the sha512 in `latest.yml` --
+// from HTTPS, GitHub's immutable releases, and the sha512 in `latest.yml` --
 // which is computed from the very release it accompanies, so it guards
 // against TRANSFER corruption only (a bad download), not against a malicious
-// build; nothing here substitutes for code signing (fix round 1, review R11
-// Minor 4). See the spec's auto-update section and register §487/§563.
+// build. The `release` environment's owner-approval gate is CONFIGURED AT
+// FLIP STEP 10A, not before -- GitHub rejects the required-reviewer rule on
+// this private repository's plan (measured 2026-09-24) -- so until then what
+// stands in front of publishing a release is the tag ruleset (only the
+// owner/admin role can create, move or delete a `refs/tags/v*`), the
+// `release.yml` `guard` job (tag must equal APP_VERSION, commit reachable
+// from `main`) and immutable releases. Nothing here substitutes for code
+// signing (fix round 1, review R11 Minor 4). See the spec's auto-update
+// section and register §487/§563.
 export const RELEASES_URL =
   "https://github.com/sebastianmaute/aipm-cockpit/releases";
