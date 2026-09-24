@@ -9,6 +9,39 @@ step; register entry §200 (`docs/open-followups.md`) closes after step 4.
 
 The order matters — do not reorder these steps.
 
+- [ ] **0. Rewrite the history** (§200). Nothing here touches GitHub; everything runs in scratch
+  directories outside any working tree.
+  - **Freeze first.** From the mirror clone below until step 3's push, nothing merges to `main` and
+    no branch that is to be carried is pushed. Anything that lands in that window exists only in the
+    old repository; redo this step if it happens.
+  - **Carry or leave each branch.** List every remote branch with commits `main` lacks:
+    `git for-each-ref --format='%(refname:short)' refs/remotes/origin | while read r; do echo "$r
+    $(git rev-list --count origin/main..$r)"; done`. On 2026-09-24 the only one was
+    `feat/timelog-booking-review-tl1` (3 ahead). Decide for each one: CARRY it (step 3 pushes its
+    rewritten form) or LEAVE it (it survives only in the archive). A branch that exists only in a
+    local clone, never pushed, is NOT in the mirror: push it first if it is to be carried, or it is
+    lost with its old SHAs. (Transplanting it later means mapping its base through the rewrite's
+    `filter-repo/commit-map`.)
+  - **Build the two private inputs** from the untracked leak list, both NEVER tracked:
+    - the `--replace-text` file for `scripts/rewrite-history/run.sh`. It must include a rule for the
+      GitLab project number's PROSE form, not just its URL form (§200, "second part"). Its header
+      comment describes the byte-boundary rules;
+    - the mailmap mapping every historical identity to the owner's noreply address or the one
+      neutral CI identity.
+  - **Two mirrors:** `git clone --no-local --mirror` of the GitHub repository, twice, into scratch.
+    One is rewritten; the other stays untouched as the original.
+  - **Red first:** `LEAK_LIST_FILE=<list plus the prose-form pattern> node scripts/verify-rewrite.mjs
+    --repo <original mirror> --expect dirty` must find nonzero hits. A pattern that finds nothing here proves
+    nothing later.
+  - **Rewrite:** `scripts/rewrite-history/run.sh <rewrite-mirror> <replacements> <mailmap>`.
+  - Verify:
+    - `git rev-list --all --count` is equal in the two mirrors (the script prunes nothing);
+    - `verify-rewrite --expect clean` with the same list against the REWRITTEN mirror reports 0
+      blob, 0 message and 0 trailer lines, and an identity set equal to the allowlist. This is the
+      local dry run; step 4 repeats it against the pushed repository, and only that run closes §200;
+    - the rewritten mirror still carries `refs/pull/*` from GitHub. Step 3 pushes named branches
+      only and never those refs.
+
 - [ ] **1. Rename today's repository** (for example `aipm-cockpit-archive`), keeping it **private**, to
   free the name. Whether it is later deleted is an owner decision.
   - While it exists, its `refs/pull/*` stay private.
@@ -60,8 +93,15 @@ The order matters — do not reorder these steps.
       one exits 0, and a two-entry file with one entry unheld exits 1.
     - The limit stops VERSION updates only. Security-update PRs are separate and ignore it, which is
       why alerts and security updates stay off (step 2) until step 6b.
+  - Push from the rewritten mirror by name: `main` (with the hold commit), then each branch step 0
+    chose to CARRY. Never `git push --mirror`, which would also push `refs/pull/*` and every
+    branch step 0 chose to leave.
   - Verify: the push succeeds, the default branch tip is the hold commit, and its parent is the
-    rewritten `main`'s tip sha.
+    rewritten `main`'s tip sha. `git ls-remote` on the new repository lists exactly `main` and the
+    carried branches.
+  - After this step, every existing clone is on the OLD history. Re-clone from the new repository
+    (or `git fetch` and `git reset --hard origin/main` on a clean tree) before working on it again.
+    Keep one old checkout, with its `gitlab` remote, for steps 6 and 8.
 
 - [ ] **4. Run `verify-rewrite --expect clean`** against a mirror of it, with the prose-form pattern
   first proven red on today's repository (§200).
@@ -144,6 +184,12 @@ The order matters — do not reorder these steps.
     writes/hour budget. The tool waits it out on its own: it honours `retry-after` or the primary
     limit's reset time, and waits 60 s on a 403 that names the secondary limit without either.
     `--resume` is what covers a hard stop instead.
+  - Old PR numbers do not survive. The history's merge commits say "Merge pull request #1" to
+    "#12", and some messages cite those PRs. In the new repository those numbers belong to the
+    imported GitLab issues, stubs or deleted placeholders, so such a link lands on the wrong item.
+    The rewrite leaves the messages as they are. The PRs themselves stay readable only in the
+    archive from step 1, which is one reason to keep it. New pull requests start after the highest
+    imported number.
   - A wrong-number stop (the target already carries issues at the wrong numbers, or a PR landed
     before the import and took a number) makes the target repository unusable for this import.
     Recovery is a new fresh repository, not a retry against this one — this is why the checklist
