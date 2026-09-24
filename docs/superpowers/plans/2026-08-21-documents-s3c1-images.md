@@ -10,13 +10,13 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-21-documents-s3c1-images-design.md`
 
-**Branch:** `feat/documents-s3c1-images`, already created off `origin/main`; the spec is committed as `688a2cb8`.
+**Branch:** `feat/documents-s3c1-images`, already created off `origin/main`; the spec is committed as `d53dc206`.
 
 ---
 
 ## Read this before Task 1
 
-Facts verified against the working tree at `688a2cb8`. Do not re-derive them; do not assume the opposite.
+Facts verified against the working tree at `d53dc206`. Do not re-derive them; do not assume the opposite.
 
 - **`<img data-asset-id>` is ALREADY allowed.** `sanitize-html.ts` has
   `DOCUMENT_ALLOWED_TAGS = [...RICH_ALLOWED_TAGS, "img"]` and

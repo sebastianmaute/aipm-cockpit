@@ -49,7 +49,7 @@ The mechanism filed is **refuted**. §536 argues the first classic→modern swit
 enabled window (`false → true`). Per the enabling fact above, the true sequence is `true → false`: the
 cold apply fires immediately against `defaultSettings`, and only then does hydration flip the layout to
 classic. The `enabled: false` initial-props scenario that two hook tests pin cannot occur on any real
-mount. Commit `356a483aa` already described that case as "a defensive addition", not a traced bug.
+mount. Commit `0666ed320` already described that case as "a defensive addition", not a traced bug.
 
 **§595 (new) — the cold rule is judged against default `features`.** `features` is read only inside the
 apply effect, for two decisions: the blank-hash target (`dashboard`, or `open-points` when the dashboard
@@ -151,7 +151,7 @@ Existing tests, labelled:
 - **DELETE** — `is cold on the first enabled window even when the page loaded disabled and the cold
   target is not the default tab`. Pins a mount sequence that cannot occur.
 - **MIGRATE** — `applies the cold rule on the first EXECUTED run, not the first render`. Its motivating
-  case (feature-identity churn on an already-enabled modern window, per `356a483aa`) is still real;
+  case (feature-identity churn on an already-enabled modern window, per `0666ed320`) is still real;
   rephrase to "first executed run after hydration".
 - **KEEP UNCHANGED** — the §478 set: both re-entry tests, back/forward-after-re-entry, the StrictMode
   re-entry test, `does not reopen an item-bearing hash left by requestOpen during classic`, the MSAL

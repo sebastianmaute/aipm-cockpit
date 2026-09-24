@@ -1,6 +1,6 @@
 # Bounding the DOM-free rich-text boundary — design
 
-**Date:** 2026-08-27 · **Branch:** `fix/rich-text-boundary-bounds` · **Base:** 0.262.1 "Swainston" (`adacc564`)
+**Date:** 2026-08-27 · **Branch:** `fix/rich-text-boundary-bounds` · **Base:** 0.262.1 "Swainston" (`4a4a03e2`)
 
 **Closes:** `docs/open-followups.md` §251 · §253 · §31 · §208.
 **Deliberately does NOT close:** §252 (the unquoted-`/` divergence) or §250 (already closed) — see

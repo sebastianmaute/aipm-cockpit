@@ -1,6 +1,6 @@
 # Follow-up triage, resolver widening, and two ownership decisions
 
-_Opened 2026-08-21 against `origin/main` at `98ee220a`. Branch
+_Opened 2026-08-21 against `origin/main` at `ee4d0859`. Branch
 `chore/followups-triage-and-gate-resolution`. **No version bump** — no user-facing behaviour
 changes, and the one gate this touches runs in no CI job._
 
@@ -10,7 +10,7 @@ Picked from `docs/work-inventory.md` §7 items 4, 5 and 6 — the "cheapest clos
 
 ## 0. Grounding
 
-Every figure below was produced by the command beside it, run in this worktree at `98ee220a`.
+Every figure below was produced by the command beside it, run in this worktree at `ee4d0859`.
 Re-run before trusting any of them.
 
 | Fact | Command | Value |

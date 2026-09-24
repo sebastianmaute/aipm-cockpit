@@ -142,7 +142,7 @@ unpiped, then read the file.
 
 **`npx tsc --noEmit` exits 2 on diagnostics**, not 1.
 
-**Branch:** `feat/ai-bulk-write-safety`, already created off `origin/main` at `7f90fd81`. Three docs
+**Branch:** `feat/ai-bulk-write-safety`, already created off `origin/main` at `508a9923`. Three docs
 commits are on it. Do not push, open an MR, or merge — those need the user's explicit say.
 
 ---

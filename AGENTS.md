@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Contents
 
-Read [Commands](#commands) and [Hard constraints](#hard-constraints-ci-enforced--these-gate-merges)
+Read [Commands](#commands) and [Hard constraints](#hard-constraints)
 before your first edit — the rest is reference, reachable from here.
 
 **In this file** (always loaded):
@@ -19,7 +19,7 @@ before your first edit — the rest is reference, reachable from here.
 |---|---|
 | [The doc set](#the-doc-set--what-lives-where) | which doc owns what — read before restating a fact in a second file |
 | [Commands](#commands) | every script + the CI gotcha that bites for each |
-| [Hard constraints](#hard-constraints-ci-enforced--these-gate-merges) | i18n · byte-stable serializers · palette · a11y gate · six write paths · secrets · CSP |
+| [Hard constraints](#hard-constraints) | i18n · byte-stable serializers · palette · a11y gate · six write paths · secrets · CSP |
 | [Architecture pointers](#architecture-pointers) | orientation, module maps, extraction conventions, panel splits, toolbar order |
 | [Subsystem reference](#subsystem-reference--deeper-detail-loaded-on-demand) | every file in `docs/AGENTS/`, and why they are not loaded |
 
@@ -29,7 +29,7 @@ before your first edit — the rest is reference, reachable from here.
 |---|---|
 | [dashboard](docs/AGENTS/dashboard.md) | delta strip · KPI trends · arrangeable tile grid · coaching · density · digest |
 | [accessibility](docs/AGENTS/accessibility.md) | the axe gate · accessible + row-unique names · label-in-name · toggle state · what axe cannot see |
-| [ci](docs/AGENTS/ci.md) | the GitLab pipeline job by job · exit-code splits · `quality-gate-bypass` · release stage |
+| [ci](docs/AGENTS/ci.md) | the GitHub Actions jobs and required checks · the weekly workflow · a red check, minutes exhausted · the legacy GitLab pipeline's per-gate detail and exit-code splits |
 | [ui-shell](docs/AGENTS/ui-shell.md) | Help · nav · focus/keyboard · surfaces · tables (`SortResizeTh` · `TableFilter`) · ★ **dismissal owns the Escape/Tab protocol — read it before touching any modal, popover or panel** |
 | [theming](docs/AGENTS/theming.md) | colour schemes · `--ui-*` tokens · AA derivation · branding · print · DS primitives |
 | [insights](docs/AGENTS/insights.md) | detect · reconcile · recommend · outcome · digest |
@@ -207,7 +207,7 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # `src/app/strictmode.meta.test.tsx` states the rule in full and pins every edge
                             # but one, which it flags as stated-not-pinned. Read it before writing a
                             # StrictMode test, and mutation-test the guard.
-npm run test:shuffle        # vitest at the SAME pinned seed CI's unit-tests-shuffled uses (BLOCKING).
+npm run test:shuffle        # the SAME command CI's `unit-shuffled` job runs, pinned seed (BLOCKING).
                             # ★ Run this before pushing anything that adds or reorders tests — it is
                             # the ONLY local reproduction of that gate. `--sequence.shuffle` as a bare
                             # boolean shuffles BOTH file order and test order WITHIN a file, so it
@@ -381,7 +381,7 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
                             # superpowers plans, which do not participate; `[>]` stops a self-match.)
                             # ★★ It returns CONTRIBUTING.md ALONE today, so this is a TWO-file change
                             # (package.json + CONTRIBUTING.md) — read that off the grep, never off this
-                            # line. ★ README carried the pair from the initial commit until `be21ebf3`
+                            # line. ★ README carried the pair from the initial commit until `7723c3d2`
                             # curated its table down to six hand-picked commands; a standing note calling
                             # it a three-file change was true when written and was falsified by that
                             # commit. Re-adding the markers to README would silently put it back under the
@@ -448,7 +448,7 @@ npx eslint --max-warnings=0 src/app; echo "EXIT=$?"        # no pipe at all
 ★★ This matters more here than in most repos: the gates ARE the safety net, and a defeated gate is
 worse than no gate — it reports success. A "green" claim is only worth what the exit code behind it is.
 
-## Hard constraints (CI-enforced — these gate merges)
+## Hard constraints
 
 - **i18n:** `i18n.ts` (EN) + `i18n.de.ts` (DE) key sets must be identical (tsc enforces).
   DE must use real German umlauts — `i18n-encoding` test BANS ASCII subs (fuer/druecken).
@@ -526,13 +526,20 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   Before pushing an IA/UI/contrast change, run `npx playwright test e2e/a11y.spec.ts --project=chromium -g "<View>"`: the unit suite never runs axe, so otherwise it fails only in CI.
   Add `--workers=1` when `-g` matches more than one view: CI runs axe serially, and local contention fails tests as timeouts, not violations.
   After a `globals.css` `@theme` edit, run axe on a FRESH isolated dev server (`PORT=3100 npm run dev`), never a reused one.
-- **CI is GitLab** (not GitHub),  (GitLab) → [`docs/AGENTS/ci.md`](docs/AGENTS/ci.md). Pipeline:
-  install → quality → build → e2e → release. ★★★ The quality gates are BLOCKING (lint · typecheck ·
-  semgrep · dependency-audit · file-size-ratchet · duplication-gate · the docs/version/followups/tag
-  checks · unit + coverage floors · unit-tests-shuffled), and **prod-smoke** is the ONLY gate that sees
-  the prod CSP. ★★ Several gates split exit **1 = DRIFT** from exit **2 = could not scan**, and the two
-  demand opposite responses. The per-job detail, the uneven `quality-gate-bypass` hatch and the release
-  stage live in that file. New CI gate → also update it.
+- **CI is GitHub Actions → [`docs/AGENTS/ci.md`](docs/AGENTS/ci.md).** `.github/workflows/ci.yml`
+  runs on every pull request and every push to `main`; its eight job ids ARE the required checks on
+  the `main` ruleset (`static` · `unit` · `unit-shuffled` · `build` · `e2e` · `prod-smoke` · `semgrep`
+  · `audit`), and `scripts/ci-workflow.test.mjs` fails when the workflow, the gate list in
+  `scripts/gate-local.mjs` and the list in `docs/AGENTS/ci.md` disagree. ★★ `gate-local.mjs` is the
+  ONE gate list: a new blocking npm gate goes there with a group, never straight into the YAML.
+  `npm run gate:local` is the pre-push check, no longer the merge gate. ★★ While the repository is
+  private, Actions minutes come from GitHub Pro's allowance with a $0 budget; when they run out,
+  checks cannot complete and merging needs the admin bypass on a `gate:local` PASS — see
+  `docs/RUNBOOK.md`. Several gates split exit **1 = DRIFT** from exit **2 = could not scan**, and the
+  two demand opposite responses. The GitLab project is a READ-ONLY copy synced daily by
+  `ci/gitlab-sync.yml`; `.gitlab-ci.yml` stays in the tree only because a test reads it (until
+  releases move, migration sub-project 5). No releases or tags until then. New CI gate → also update
+  `docs/AGENTS/ci.md`.
 - **Releasing:** bump `src/app/version.ts` (APP_VERSION + APP_BUILD_DATE + milestone), add
   `CHANGELOG.md` entry. ★ Do NOT add a `versionHighlight*` key: `APP_HIGHLIGHT_KEYS` is now a fixed
   elevator pitch of what is unique to the app, not a per-release history, and `CHANGELOG.md` owns
@@ -545,7 +552,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   at 0.199.0 for eleven, and the README badge + codemap headers at 0.203.0 — while `version.ts` and
   `CHANGELOG.md` were correct.
   Propagate them with `npm run version:sync` rather than editing each by hand — the
-  `version-sync-check` CI job is BLOCKING, so drift now fails the pipeline instead of accumulating.
+  `version:check` step of CI's `static` job is BLOCKING, so drift now fails CI instead of accumulating.
 - **New persisted `Workspace` field → SIX write paths** (JSON/CSV/MD/Turso-single/Turso-tenant/
   IndexedDB). Miss one and data silently drops on that backend. `calendarEvents`
   ("Resource calendar meetings" below) is a worked example — one `ENTITY_SPECS` row buys three of the six.
@@ -1259,7 +1266,7 @@ proves only that a backticked NAME is real, never that a CLAIM about it is true.
 |---|---|
 | [dashboard.md](docs/AGENTS/dashboard.md) | the landing cockpit — the arrangeable tile grid · delta strip · KPI trends · sparkline · coaching · density · digest |
 | [accessibility.md](docs/AGENTS/accessibility.md) | the a11y hard constraint — accessible names · row-unique per-row names (`buildRowTokens`) · WCAG 2.5.3 label-in-name · `ToggleButton` state + the pressed marker · what the axe gate scans and is silent on |
-| [ci.md](docs/AGENTS/ci.md) | the GitLab pipeline ( (GitLab)) — every quality gate and its exit codes · e2e + prod-smoke · desktop packaging · the release stage · where `quality-gate-bypass` exists |
+| [ci.md](docs/AGENTS/ci.md) | CI on GitHub Actions — the eight required checks job by job · `scheduled.yml` · operating it · and, as legacy, the GitLab pipeline: every quality gate and its exit codes · desktop packaging · the release stage · where `quality-gate-bypass` existed |
 | [ui-shell.md](docs/AGENTS/ui-shell.md) | Help system · navigation & landing · focus/keyboard · surfaces & controls · tables (`SortResizeTh` · `TableFilter`) · ★ **dismissal (the Escape/Tab protocol — read before touching any modal, popover or panel)** |
 | [theming.md](docs/AGENTS/theming.md) | colour schemes · the `--ui-*` token families · AA derivation · the dark-mode hover trap · branding · print · design-system primitives |
 | [insights.md](docs/AGENTS/insights.md) | detect → reconcile → recommend → outcome → digest |

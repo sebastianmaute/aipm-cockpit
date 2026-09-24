@@ -535,7 +535,7 @@ Each edit is mechanical — add the sink as the last argument.
 | `"template"` | `src/app/ai-rich-text.ts` | `:59 :65` (inside `sanitizeAiRichText`) |
 | `"document"` | `src/app/ai-rich-text.ts` | `:137 :140` (inside `sanitizeAiDocumentRichText`) |
 
-★★ Line numbers are as of `a20894b1` and **shift as you edit**. Use them to identify the site, then re-locate by symbol — do not trust the number after your first edit in a file.
+★★ Line numbers are as of `ea9dc915` and **shift as you edit**. Use them to identify the site, then re-locate by symbol — do not trust the number after your first edit in a file.
 
 ★ Both `sanitizeRichText` calls inside each `ai-rich-text` function (the layer-1 upgrade and the trailing re-run) take the **same** sink.
 

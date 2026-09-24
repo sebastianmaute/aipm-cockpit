@@ -13,7 +13,7 @@
 > take a sparse project back under the `days.length < 2` floor, where it renders no chart at all.
 > Only the NUMERATOR half was ever true.
 >
-> Retracted in the shipped tree by **`9fffef94`** ("fix: retract 'a missed writer can never move a
+> Retracted in the shipped tree by **`93c05c9e`** ("fix: retract 'a missed writer can never move a
 > metric' and cover each site"), which corrected it in `docs/AGENTS/activity-log.md`,
 > `task-status.ts`, `status-activity-census.test.ts` and `completion-trend.test.ts`.
 >
@@ -25,12 +25,12 @@
 
 **Goal:** Make the dashboard completion sparkline's numerator move (it is currently constant on every reconstructed day), give the inline status controls an audit-log entry, and stop the exporter emitting `Bob Jones <>` for a contact with no email.
 
-**Architecture:** The trend numerator is derived from **task data** (`completedDate`), not from a new event producer — that avoids the undo, Jira-blindness and no-backfill hazards recorded in the spec. Status-transition events are added anyway, and a writer that forgets to log costs an audit entry and a plotted DAY: the numerator is safe, but both kinds sit in `COUNT_KINDS`, which decides which days seed a point. *(Corrected — this read "for the **audit log only**, so a writer that forgets to log costs an audit entry and can never produce a wrong metric"; see the retraction banner above and `9fffef94`.)* A file-granular census test makes a forgotten writer fail CI.
+**Architecture:** The trend numerator is derived from **task data** (`completedDate`), not from a new event producer — that avoids the undo, Jira-blindness and no-backfill hazards recorded in the spec. Status-transition events are added anyway, and a writer that forgets to log costs an audit entry and a plotted DAY: the numerator is safe, but both kinds sit in `COUNT_KINDS`, which decides which days seed a point. *(Corrected — this read "for the **audit log only**, so a writer that forgets to log costs an audit entry and can never produce a wrong metric"; see the retraction banner above and `93c05c9e`.)* A file-granular census test makes a forgotten writer fail CI.
 
 **Tech Stack:** TypeScript, React 19, Next 16, vitest 4.1.8. No new dependencies.
 
 **Spec:** `docs/superpowers/specs/2026-08-30-trend-numerator-and-audit-log-design.md`
-**Branch:** `fix/trend-numerator-and-audit-log`, currently at `826b6adb` (the spec commit), one ahead of `main` at `96e21098`.
+**Branch:** `fix/trend-numerator-and-audit-log`, currently at `00971e84` (the spec commit), one ahead of `main` at `e02446d0`.
 **Closes:** open-followups 283 (Task 1), 163's open `dDone` half (Task 2), 235 (Tasks 3–5).
 
 ---
@@ -843,7 +843,7 @@ export function statusActivityKind(
 this decides. The numerator is read from `completedDate` …, so a writer that forgets to log costs an
 AUDIT ENTRY and can never move a metric. That split is deliberate: it is what makes the census in
 `status-activity-census.test.ts` a convenience rather than a load-bearing correctness gate." The second
-sentence is false and was retracted by `9fffef94`; the wording above is what the shipped
+sentence is false and was retracted by `93c05c9e`; the wording above is what the shipped
 `task-status.ts` carries. See the banner at the top of this plan.*
 
 Check for an import cycle: `task-closed.ts` imports `isTaskFinished` from `task-status.ts`, so this adds a cycle between the two modules. Both are pure and side-effect-free, and the functions are called at runtime rather than at module-evaluation time, so it resolves. Confirm with the typecheck and test run in the next step; if `isTaskDelivered` reads as `undefined` at call time, inline the one-line predicate (`!!task.completedDate`) here instead and say so in a comment.
@@ -1514,7 +1514,7 @@ git status --short
 grep -E "APP_VERSION|APP_MILESTONE" src/app/version.ts
 ```
 
-If `origin/main` has moved past `96e21098`, merge it in and re-run the Task 6 Step 6 sweep before going further — a version collision on a long-lived branch has bitten this repo before, when main released a number the branch had already taken.
+If `origin/main` has moved past `e02446d0`, merge it in and re-run the Task 6 Step 6 sweep before going further — a version collision on a long-lived branch has bitten this repo before, when main released a number the branch had already taken.
 
 ---
 

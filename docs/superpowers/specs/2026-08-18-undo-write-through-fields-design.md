@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-18
 **Closes:** `docs/open-followups.md` §50 (open, pre-existing, DATA LOSS)
-**Base:** 0.245.0 "Buckell" (`49ed5b56`)
+**Base:** 0.245.0 "Buckell" (`bc60774e`)
 
 ---
 

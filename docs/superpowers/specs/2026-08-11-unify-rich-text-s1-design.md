@@ -1,6 +1,6 @@
 # Unify rich text — slice 1: one list, one editor, one sanitizer
 
-_Designed 2026-08-11 against 0.231.0 "Sargent" (`33ab5ec3`). Closes `docs/open-followups.md` §137._
+_Designed 2026-08-11 against 0.231.0 "Sargent" (`e0c99f55`). Closes `docs/open-followups.md` §137._
 
 ★★★ **This file lives in `docs/superpowers/`, which is gitignored.** On any other machine it does not
 exist. That is the failure mode §44 and §113 were opened to record. Every decision below that outlives

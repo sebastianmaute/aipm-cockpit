@@ -24,7 +24,7 @@
 
 **`--reporter=basic` does not exist in vitest 4.1.8.** It fails to load a reporter module and errors at startup, which reads like a broken test run. Use `--reporter=dot` or `--reporter=verbose`.
 
-**Both §75 leaks are already diagnosed and proven** (measured 2026-08-04 at `fb33f755`, `--sequence.seed=1`, each file run alone). You are implementing a known fix, not investigating. Do not "simplify" either fix into something that pins test order — a shuffled-suite gate passing over order-pinned tests is a defeated gate, and this plan adds exactly that gate.
+**Both §75 leaks are already diagnosed and proven** (measured 2026-08-04 at `b201b036`, `--sequence.seed=1`, each file run alone). You are implementing a known fix, not investigating. Do not "simplify" either fix into something that pins test order — a shuffled-suite gate passing over order-pinned tests is a defeated gate, and this plan adds exactly that gate.
 
 ---
 
@@ -243,7 +243,7 @@ Expected: all four `EXIT=0`, `64 passed (64)` each.
 
 **It is deliberately NOT fixed in this slice**, for two reasons that must both hold: the blocking CI job pins seed 1, which is green, so no gate ships red; and §75's scope is the seed-1 reproduction it documents, while this is a different mechanism and therefore a different entry. Task 8 files it as a new numbered entry. Do not close §75 in a way that implies this file is now order-independent — it is not.
 
-★★★ **EVERYTHING IN THE PARAGRAPH ABOVE WAS WRONG, AND THE WAY IT WAS WRONG IS THE LESSON.** Measured afterwards, three ways: seed 7 FAILS at `2d7db4e3` (no drain), FAILS at `55143042` (`beforeEach` drain only, 2/2), and PASSES at `e0064815` and later (both drains, 3/3 plus a reviewer's 4/4). The seed-7 failure was never a separate defect — it was §75's own once-queue leak **escaping the describe boundary**, and the `afterEach` drain fixed it. ★★ Both observers who called it "pre-existing" were careful and both verified it against a baseline; they were still wrong, because the baseline they checked had NO fix while the failure was being kept alive by an INCOMPLETE one. **Re-measure against the CURRENT head before filing a new entry, not only against the baseline.** ★ It was caught only because the Task 8 agent tried to reproduce a claim it was about to write into the tracked register — against an instruction of mine telling it not to run tests. That instruction was wrong. ★ Also note the direction of discovery: the cross-describe leak was predicted by code review from reading the code alone, before anyone connected it to a failing seed.
+★★★ **EVERYTHING IN THE PARAGRAPH ABOVE WAS WRONG, AND THE WAY IT WAS WRONG IS THE LESSON.** Measured afterwards, three ways: seed 7 FAILS at `dd4263a1` (no drain), FAILS at `5a927231` (`beforeEach` drain only, 2/2), and PASSES at `fab33995` and later (both drains, 3/3 plus a reviewer's 4/4). The seed-7 failure was never a separate defect — it was §75's own once-queue leak **escaping the describe boundary**, and the `afterEach` drain fixed it. ★★ Both observers who called it "pre-existing" were careful and both verified it against a baseline; they were still wrong, because the baseline they checked had NO fix while the failure was being kept alive by an INCOMPLETE one. **Re-measure against the CURRENT head before filing a new entry, not only against the baseline.** ★ It was caught only because the Task 8 agent tried to reproduce a claim it was about to write into the tracked register — against an instruction of mine telling it not to run tests. That instruction was wrong. ★ Also note the direction of discovery: the cross-describe leak was predicted by code review from reading the code alone, before anyone connected it to a failing seed.
 
 - [ ] **Step 5: Commit**
 
@@ -288,7 +288,7 @@ EOF
 npx vitest run --sequence.shuffle --sequence.seed=1 --reporter=dot > /tmp/full-seed1.log 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " /tmp/full-seed1.log
 ```
 
-Expected: `EXIT=0`, `Test Files  784 passed (784)`, `Tests  8959 passed (8959)` (counts as of `fb33f755`; they rise if you added tests).
+Expected: `EXIT=0`, `Test Files  784 passed (784)`, `Tests  8959 passed (8959)` (counts as of `b201b036`; they rise if you added tests).
 
 - [ ] **Step 2: Check the file count actually executed**
 

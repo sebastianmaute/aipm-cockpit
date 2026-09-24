@@ -10,7 +10,7 @@
 > set. `resource.isExternal` is a boolean; it previewed as `""`, and since `FieldDiff.raw` feeds the
 > real write patch, the flag was DROPPED ON APPLY.
 >
-> **What shipped instead** (`44c84bfc`): `fieldSanitizers`, a field → the exact apply-path sanitizer,
+> **What shipped instead** (`876fefee`): `fieldSanitizers`, a field → the exact apply-path sanitizer,
 > with an ABSENT field previewed VERBATIM. The default is inverted, so a non-text field cannot be
 > text-mangled by construction. See `docs/open-followups.md` §373 and
 > `src/app/inline-ai-edit/plan.sanitizer-parity.test.ts`.
@@ -20,7 +20,7 @@ path, plus the verification debt filed alongside them. The through-line for four
 sentence: **the card must not misrepresent the write it is about to make.** The fifth (§380) is a
 capability gap, and the sixth (§374) is comment rot.
 
-**Branch.** `feat/staged-write-follow-through`, off `origin/main` at `2f59561c`.
+**Branch.** `feat/staged-write-follow-through`, off `origin/main` at `69dcc829`.
 
 **Closes.** §380 · §381 · §376 · §373 · §372 · §374 (code) · §375 (owed eye-verify, performed by the
 user) · §370 (test-only).

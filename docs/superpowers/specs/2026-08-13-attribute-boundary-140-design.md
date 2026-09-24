@@ -1,6 +1,6 @@
 # The attribute boundary — §140 · design
 
-Branch `feat/attribute-boundary-140`, cut from `main` at `2263a19b` (0.236.0 "Sheldon").
+Branch `feat/attribute-boundary-140`, cut from `main` at `215005eb` (0.236.0 "Sheldon").
 Designed 2026-08-13.
 
 ★★★ **This file is gitignored** (`.gitignore:76`, `/docs/superpowers/`). On any other machine it

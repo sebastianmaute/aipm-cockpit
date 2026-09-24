@@ -478,7 +478,7 @@ In `jsonToWorkspace`, mirroring the insights sanitize:
     if (log.length) ws.activityLog = log;
 ```
 
-★ **Do NOT bump `SCHEMA_VERSION`.** Measured: `git log --oneline -S "SCHEMA_VERSION = " -- src/app/workspace.ts` returns a single commit (the original extraction from `storage.ts`), and `2ef2adf0` — which added `documents` to this same JSON path — did not touch it. An additive optional field does not move it.
+★ **Do NOT bump `SCHEMA_VERSION`.** Measured: `git log --oneline -S "SCHEMA_VERSION = " -- src/app/workspace.ts` returns a single commit (the original extraction from `storage.ts`), and `2dfb2df5` — which added `documents` to this same JSON path — did not touch it. An additive optional field does not move it.
 
 - [ ] **Step 4: Run the test and verify it passes**
 

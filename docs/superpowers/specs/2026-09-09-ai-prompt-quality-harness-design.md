@@ -1,7 +1,7 @@
 # AI prompt-quality harness (slice H) — design
 
 Date: 2026-09-09
-Status: **Specced.** Baseline: 0.298.0 "Malzberg", `main` @ `e7f9b3aa`
+Status: **Specced.** Baseline: 0.298.0 "Malzberg", `main` @ `d409a109`
 
 > Sequenced by `2026-09-08-ai-cost-roadmap-design.md`, which owns the order and the
 > dependencies between slices. This file owns H alone and does not restate the roadmap.

@@ -6,7 +6,7 @@
 
 **Architecture:** No product-code behavior changes. This phase adds CI jobs (`.gitlab-ci.yml`), guard scripts (`scripts/`), documentation (`docs/security/`, `docs/baselines/`), guard tests, and deletes unambiguous dead code. Everything is additive or subtractive-with-CI-proof.
 
-**Tech Stack:** GitLab CI ( (GitLab), stages install→quality→build→e2e), Semgrep, npm audit, jscpd, knip, ts-prune, OWASP ZAP baseline, vitest.
+**Tech Stack:** GitLab CI (stages install→quality→build→e2e), Semgrep, npm audit, jscpd, knip, ts-prune, OWASP ZAP baseline, vitest.
 
 **Ground rules (from AGENTS.md — apply to every task):**
 - CI lint is `--max-warnings=0`: any unused import/var is FATAL.

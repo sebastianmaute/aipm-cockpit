@@ -2,7 +2,7 @@
 
 Date: 2026-08-06
 Status: design approved, unimplemented
-Baseline: 0.217.0 "Piercy", `main` @ `485bf67b`
+Baseline: 0.217.0 "Piercy", `main` @ `9b4df5cc`
 
 ## Problem
 
@@ -19,7 +19,7 @@ and those files are stored and downloadable.
 
 ## What already exists
 
-Measured against the tree at `485bf67b`, not assumed:
+Measured against the tree at `9b4df5cc`, not assumed:
 
 | Capability | Where | Shape |
 |---|---|---|

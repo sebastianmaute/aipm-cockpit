@@ -475,8 +475,8 @@ it("does not route from the hash until settings have hydrated", async () => {
 - [ ] **Step 5: Rewrite the justification on the kept test**
 
 `is cold on the first enabled window even when the page loaded disabled and the cold target is not the
-default tab` was introduced by `9f9bdfa71` as a defensive case with no traced real scenario, and
-`356a483aa` called the `enabled: false` initial-props shape "a defensive addition". Under this task's
+default tab` was introduced by `43145c686` as a defensive case with no traced real scenario, and
+`0666ed320` called the `enabled: false` initial-props shape "a defensive addition". Under this task's
 gate it becomes the **real and only** startup sequence. Do not change the test body; replace its comment
 with why it now matters:
 

@@ -2,7 +2,7 @@
 
 **Status:** Approved for planning
 **Date:** 2026-08-18
-**Base:** `main` at 0.246.0 "Bodard" (merge `90cff77b`)
+**Base:** `main` at 0.246.0 "Bodard" (merge `bb140b11`)
 
 Fourth slice of the documents arc. S1 (0.219.0 "Elgin") shipped the model, storage across
 the six write paths, the Documents view and three renderers. S2 (0.222.0 "Charnas") shipped

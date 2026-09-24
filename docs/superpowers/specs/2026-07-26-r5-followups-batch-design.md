@@ -1,6 +1,6 @@
 # R5 follow-ups batch — design (0.202.1)
 
-_Written 2026-07-26, on `main` at 0.202.0 "Beukes" (merge `4a93088f`)._
+_Written 2026-07-26, on `main` at 0.202.0 "Beukes" (merge `f04b65be`)._
 
 Scope: items **1, 3, 7, 9, 10** of `docs/superpowers/r5-calendar-followups.md`. Items 2 (lane
 cross-window stickiness), 4 (`use-resource-planner.ts` split vs exemption), 5 (band-chip roving),

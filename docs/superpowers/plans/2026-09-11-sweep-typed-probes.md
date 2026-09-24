@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Branch `feat/sweep-typed-probes`, off `origin/main` `1e437e7e`. Never push, open an MR or merge without the user's explicit say.
+- Branch `feat/sweep-typed-probes`, off `origin/main` `0525cea8`. Never push, open an MR or merge without the user's explicit say.
 - `src/app/*.ts(x)` and `src/test/*.ts` are CRLF in the working tree: edit existing ones with the **Edit tool only**. A NEW file is created with Write and then normalised to CRLF (command in Task 3).
 - Docs (`docs/**/*.md`) are LF.
 - Never touch `src/app/i18n.de.ts` with Edit or Write.
@@ -162,7 +162,7 @@ Then the describe:
 // ★★★ §460 — THE CARD AND THE WRITE, DRIVEN BY ONE INPUT. `pushLinkDiffs`
 //  once applied the link guard on the ROW path only, which was right while both
 //  allow-list creates handed `input` straight to their sanitizer. Since
-//  `68486cd4` `createCalendarEvent` runs `dropUnacceptedCalendarEventFields`
+//  `8ffcb6ed` `createCalendarEvent` runs `dropUnacceptedCalendarEventFields`
 //  first, and `CALENDAR_EVENT_FIELD_GUARDS.attendeeResourceIds` refuses the
 //  WHOLE array when any member is not a number — so `[4, "4"]` stored no
 //  attendee while the card, coercing each element with `toNumber`, previewed
@@ -220,10 +220,10 @@ Expected: `EXIT=1`, exactly 1 failed test — the `[4, "4"]` case, on `expect(ca
 
 ```ts
     //  ★★★ THE GUARD RUNS ON A CREATE TOO, BECAUSE THE CREATE WRITE RUNS IT.
-    //   `93c9efe8` (2026-09-07) gated this on `target === "row"`: both
+    //   `13173c45` (2026-09-07) gated this on `target === "row"`: both
     //   allow-list creates then handed `input` straight to their sanitizer, so
     //   this module's `link.sanitize` was exactly what a create stored. Since
-    //   `68486cd4` (2026-09-08) `create_absence` / `create_calendar_event` run
+    //   `8ffcb6ed` (2026-09-08) `create_absence` / `create_calendar_event` run
     //   `dropUnacceptedAbsenceFields` / `dropUnacceptedCalendarEventFields`
     //   first (`use-register-tools.ts`), and the gate let a create card preview
     //   `[4, "4"]` as attendee 4 while the write dropped the whole array — §460,
@@ -249,7 +249,7 @@ Then, in the `toolName` parameter's docstring above (it currently ends "…so a 
 //  `attendeeResourceIds` and `absence.resourceId` bypassed it entirely.
 //
 //  ★★ THE CREATE PATH WAS ONCE THE EXCEPTION, AND THIS HEADER SAID SO. Until
-//   `68486cd4` both allow-list CREATES handed `input` straight to their
+//   `8ffcb6ed` both allow-list CREATES handed `input` straight to their
 //   sanitizer, so the guard ran on the row path only and a create previewed
 //   `sanitizeAttendees` verbatim. Since then `createAbsence` /
 //   `createCalendarEvent` (`use-register-tools.ts`) run `dropUnaccepted*Fields`

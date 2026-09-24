@@ -1,6 +1,6 @@
 # Pin `next` exactly, and write down the rule that already governs three packages
 
-_Opened 2026-08-22 against `main` at 0.255.0 "Bisson" (merge `2296bc7f`). Closes the drift
+_Opened 2026-08-22 against `main` at 0.255.0 "Bisson" (merge `cdc6117a`). Closes the drift
 half of `docs/tech-debt-register.md` **TD-1**; re-scopes the row to the 16.3 bump alone._
 
 Branch base is **`docs/ci-live-turso`**, not `main` — see §6.
@@ -204,9 +204,9 @@ Three items ride along, agreed at design time.
 
 That branch holds two commits absent from `origin/main`:
 
-- `0baf5a79` — opens §215 (CI has no live Turso database, so twelve document-image tests skip
+- `efa38913` — opens §215 (CI has no live Turso database, so twelve document-image tests skip
   in every pipeline).
-- `c6323c74` — ignores `/.demo-tmp/` and the `_archive-slice-docs-*.zip` bundles.
+- `413775b4` — ignores `/.demo-tmp/` and the `_archive-slice-docs-*.zip` bundles.
 
 §215 exists **nowhere else and is unpushed**. Cutting from `main` would silently drop it —
 the same one-deletion-from-gone failure mode `docs/work-inventory.md` §1 documents for the

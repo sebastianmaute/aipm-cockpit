@@ -9,9 +9,9 @@
 > **Ledger note, 2026-09-12 — every `UNSWEPT_BY_DESIGN` passage below is now stale.** As of this date
 > `UNSWEPT_BY_DESIGN.task` is `["jiraKey"]` and `UNSWEPT_BY_DESIGN.calendarEvent` is `[]`. The twelve
 > names this document describes as unswept by design became genuinely SWEPT on branch
-> `feat/sweep-typed-probes`: `34488c85` re-measured the recorded axis (`AXIS_FIELDS`,
+> `feat/sweep-typed-probes`: `8b5c89d6` re-measured the recorded axis (`AXIS_FIELDS`,
 > `src/test/inline-sweep-fixtures.ts`) against the seeds that branch widened, which put eleven `task`
-> columns and `calendarEvent.exceptions` on it, and `dbd90a43` then removed those twelve from the
+> columns and `calendarEvent.exceptions` on it, and `c3dc60ba` then removed those twelve from the
 > ledger, whose strict `toEqual` had gone red over the record that had stopped being true. Read a
 > removal from that list as a coverage GAIN, not a write-off. The body below is preserved as written
 > on 2026-09-08 and is not rewritten.
@@ -30,7 +30,7 @@
 
 **The spec** is `docs/superpowers/specs/2026-09-08-offered-surface-sweep-design.md` (commit `dbc74e01`). Read it in full. It carries the measured axis table, the reason the axis is `TOOL_DEFS` and not the descriptor, and the resolution of an ambiguity in Relation B's create arm that changes the assertion shape.
 
-**Branch:** `feat/offered-surface-sweep`, at `dbc74e01`, cut off `origin/main` = `754e8129`. No release, no version bump anywhere in this plan.
+**Branch:** `feat/offered-surface-sweep`, at `dbc74e01`, cut off `origin/main` = `6179c9e3`. No release, no version bump anywhere in this plan.
 
 **This branch is expected to end RED, and that is the point.** The detector's finding count is unknown until it runs. Tasks 1–6 build it, Task 7 runs it, Task 8 mutation-proves it, Task 9 updates the register, Task 10 reports and **stops**. Do not fix a single finding. Do not push. Do not open an MR.
 

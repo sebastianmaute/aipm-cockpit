@@ -192,7 +192,7 @@ Rules for every site:
 Special cases:
 
 - **`raid-escalation`** — the default limit (`factor ** 1.5`, 8). Green is linear (ratio ≈ 4, see the
-  inventory). The mutant is the exact pre-fix code from `ee584d716`: strip the full value, THEN
+  inventory). The mutant is the exact pre-fix code from `fe253f4fa`: strip the full value, THEN
   slice — `stripBreakTags(raw).slice(0, max)`. The slice matters. Without it the output keeps ~80,000
   characters and fails `check` on the untimed warm-up, so no ratio is ever measured. With it, `check`
   passes and only the ratio can fail. `BREAK_TAG`'s nested runs make the mutant quadratic ("~4x per

@@ -102,7 +102,7 @@ pushed).
 adds `""` to the record's KEY set and the three-key literal stops satisfying it — a `tsc` error,
 not a runtime one. Give the literal a `"": 0` member; that keeps the key type derived from
 `ProjectMeta` rather than hard-coding `Deployment` a second time. (Corrected 2026-09-13 against
-`origin/main` `c3598637`.)
+`origin/main` `bf186a81`.)
 
 ### 4.3 Sanitizer
 
@@ -136,7 +136,7 @@ one. No gate reads e2e comments.
 
 Widening to `""` is only safe if every fallback is audited, because `??` does not catch the
 empty string. ★★ **The two sites this section first named were BOTH mis-described** (corrected
-2026-09-13 against `origin/main` `c3598637`, by reading the call sites rather than the fallback):
+2026-09-13 against `origin/main` `bf186a81`, by reading the call sites rather than the fallback):
 
 - `timelog-panel.tsx` — `ws.project?.code ?? "default"` does **not** reach TimeLog. The value is
   passed as `projectId` to `useTimelogPickerScope`, which only compares it against the last value
@@ -231,7 +231,7 @@ them: every existing case in `project-validation.test.ts` and the sanitize proje
 *subject* is "rejects when `<field>` is missing" must be labelled **DELETE** or **MIGRATE**
 explicitly, per task, found by repo-wide grep rather than by running the suite.
 
-Enumerated 2026-09-13 against `origin/main` `c3598637` — the files this section named are not the
+Enumerated 2026-09-13 against `origin/main` `bf186a81` — the files this section named are not the
 only ones, and two of the invalidated cases live elsewhere:
 
 | File | Test | Label |
@@ -532,7 +532,7 @@ Nothing in CI can reach these. They are owed, not done, and must not be reported
 ## 9. Sequencing
 
 C → A → B, as §2 states. ★ This section said A → B → C while §2 said C → A → B; §2 was the
-decision and C has shipped (merged 2026-09-13 as 1.0.3, `c3598637`), so the contradiction is
+decision and C has shipped (merged 2026-09-13 as 1.0.3, `bf186a81`), so the contradiction is
 resolved in §2's favour. B must not start before A is merged: its model, its provider and its
 indicator all assume a project can legitimately be incomplete, and against pre-A code every
 fixture would have to fake that state.

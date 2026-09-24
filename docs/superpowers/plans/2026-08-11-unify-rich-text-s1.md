@@ -1090,7 +1090,7 @@ describe("the unified editor", () => {
 });
 ```
 
-Keep every existing test in this file. In particular the `underline` test from `dfeceabf` now asserts
+Keep every existing test in this file. In particular the `underline` test from `939cbe83` now asserts
 the OPPOSITE behaviour — underline must SURVIVE a commit. Update it rather than deleting it, and say
 so in the commit message.
 

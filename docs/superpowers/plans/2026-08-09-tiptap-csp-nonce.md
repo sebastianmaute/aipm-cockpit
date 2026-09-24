@@ -6,11 +6,11 @@
 
 **Architecture:** Pass the per-request CSP nonce into Tiptap's supported `injectNonce` editor option at the app's single `useEditor` call, so the injected `<style>` carries a nonce the existing policy already accepts. `src/proxy.ts` and the CSP are NOT modified. A new prod-smoke script plus CI job closes the structural blind spot that let this ship unseen — `npm run e2e:smoke` starts no server, so it is only ever pointed at a dev server, and the dev CSP is the permissive branch.
 
-**Tech Stack:** Next.js `^16.2.11` · React `19.2.4` · `@tiptap/react` + `@tiptap/starter-kit` `^3.27.1` (`@tiptap/core` is transitive) · vitest 4.1.8 · Playwright · GitLab CI ( (GitLab)).
+**Tech Stack:** Next.js `^16.2.11` · React `19.2.4` · `@tiptap/react` + `@tiptap/starter-kit` `^3.27.1` (`@tiptap/core` is transitive) · vitest 4.1.8 · Playwright · GitLab CI.
 
 **Spec:** `docs/superpowers/specs/2026-08-09-tiptap-csp-nonce-design.md` (approved; gitignored, so it is not in the repo — this plan restates everything needed).
 
-**Baseline:** `main` `66e44712`, 0.226.0 "Emshwiller", tree clean.
+**Baseline:** `main` `21db5c41`, 0.226.0 "Emshwiller", tree clean.
 
 ---
 
@@ -104,7 +104,7 @@ git status --short --branch
 git log --oneline -1 origin/main
 ```
 
-Expected: clean tree, `## main...origin/main`, and `origin/main` at `66e44712`. If `origin/main` has moved, STOP and re-read `docs/open-followups.md` §54 and §113 on the new tip before continuing — this plan cites section numbers that a merge can renumber.
+Expected: clean tree, `## main...origin/main`, and `origin/main` at `21db5c41`. If `origin/main` has moved, STOP and re-read `docs/open-followups.md` §54 and §113 on the new tip before continuing — this plan cites section numbers that a merge can renumber.
 
 - [ ] **Step 2: Create the branch**
 
@@ -116,7 +116,7 @@ git checkout -b fix/tiptap-csp-nonce
 
 ### Task 1: Baseline prod-smoke measurement — NO code changes
 
-This task runs FIRST and changes nothing. It re-establishes §54's measurement (dated 2026-08-03, on `13b518db`) against the current baseline, and its issue list decides whether Task 6's CI job lands blocking or `allow_failure`. Running this check first is the step whose absence created this bug.
+This task runs FIRST and changes nothing. It re-establishes §54's measurement (dated 2026-08-03, on `ceee5722`) against the current baseline, and its issue list decides whether Task 6's CI job lands blocking or `allow_failure`. Running this check first is the step whose absence created this bug.
 
 **Files:** none modified. Output is recorded in the commit message of Task 7.
 

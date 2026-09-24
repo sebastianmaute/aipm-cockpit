@@ -16,15 +16,15 @@ These were settled in conversation and are not re-opened by the sub-project spec
 
 | Decision | Choice |
 |---|---|
-| Scope | Leave GitLab entirely — not a mirror, not a partial split |
+| Scope | GitHub fully canonical; GitLab kept as a read-only copy synced in from GitHub daily (changed 2026-09-22; was "leave GitLab entirely") |
 | Visibility | Public, but **flipped last** (see ordering) |
 | History | Rewritten, with the commit citations remapped rather than orphaned |
-| Commit identity | A personal address owned by the author |
+| Commit identity | The author's GitHub users.noreply address (changed 2026-09-22 during the rewrite; was "a personal address") |
 | De-branding | Full — including the opaque brand trigram, with a read-compatible settings migration |
 
-★ **The identity choice carries a permanent cost that was stated and accepted:** a working
-mailbox in 8,355 public commit records is harvestable and cannot be recalled after the flip.
-A GitHub `users.noreply` address was offered and declined.
+★ **Identity, as executed:** the rewrite mapped every author and committer to the GitHub
+`users.noreply` address (decided 2026-09-22), so no working mailbox is published. The earlier
+choice of a personal address, and the harvesting cost it accepted, no longer apply.
 
 ## What already exists
 
@@ -88,6 +88,12 @@ Cut over **private**. The visibility flip is deferred to the end of the roadmap.
 
 ### 3. CI → GitHub Actions
 
+**Status 2026-09-23:** designed (2026-09-23-github-actions-ci-design.md); in rollout.
+**Status 2026-09-23 (later):** rolled out. Every blocking gate runs on GitHub Actions, and the
+eight jobs are required checks on `main`. What was done, with run ids:
+[Executed 2026-09-23](2026-09-23-github-actions-ci-design.md#executed-2026-09-23). Register §200
+did NOT close in this sub-project; it now waits on the flip (see "Ordering, and the one-way door").
+
 26 jobs to re-express. Most are a syntax port; five are not, and they are the cost:
 
 - **SAST** currently emits a GitLab-native SAST report for the Security widget. GitHub wants
@@ -120,6 +126,12 @@ blocking gate. The expensive part is re-pairing 266 citations to whatever number
 on import, and deciding whether a mirrored issue tracker is worth keeping at all now that the
 register is the real record.
 
+★★★ **Requirement from sub-project 3 (§200 closed there):** GitLab issue titles, bodies and comments
+very likely carry internal hosts, the employer's name and work addresses, and imported issues become
+public at the flip. The import must run the leak scan over the issue text and clean it BEFORE
+import. Nothing else tracks this once §200 is closed. *(2026-09-23: §200 did not close in
+sub-project 3. It stays open and records this requirement too.)*
+
 ### 5. Releases, tags, and the update feed
 
 Currently: a tag drives a release job that builds the desktop installer and publishes through
@@ -150,6 +162,30 @@ costs nothing — CI, issues and releases can all be built and proven against a 
 repo — and it means the irreversible action happens when the system is finished and quiet rather
 than while it is half-built.
 
+★★★ **Requirement for the flip, added 2026-09-23 (§200): the rewritten history goes to a FRESHLY
+CREATED repository.** Seven assistant session-trailer lines reached `main` through PRs #4 and #5,
+and GitHub keeps them reachable through `refs/pull/*`, which the owner cannot delete. Rewriting
+`main` in place therefore cannot remove them, for the same reason sub-project 2 recreated the
+mirror rather than force-pushing over it. A fresh repository is the only way within the owner's
+control to shed them; GitHub Support can purge pull-request refs on request. So before the flip, push history rewritten to drop those
+lines to a new, empty repository, and re-run
+`node scripts/verify-rewrite.mjs --repo <mirror of it> --allow <allowlist> --expect clean` against
+it. §200 closes only when that run passes.
+
+★★ **The same rewrite also scrubs the GitLab project number (owner decision, 2026-09-23).**
+- **Scope.** The rewrite removes it wherever it is spelled in prose:
+  - every historical version of `.gitlab-ci.yml`;
+  - every historical version of the sub-project 3 plan;
+  - any other blob or commit message.
+- **The leak list covers only its URL form**, so `--expect clean` cannot see the prose form today.
+  The clean run against GitHub reported blobHitLines=0 while history still held it.
+- **The flip step therefore:**
+  1. adds a pattern for the prose form to the leak list, or to a supplementary list used only at
+     the flip;
+  2. shows that pattern red first, as nonzero hits against a mirror of today's repository;
+  3. only then runs `--expect clean` with it against the fresh repository.
+- Never write the number here or in any pattern example. See §200.
+
 ## Verification principles carried by every sub-project
 
 These are not Phase 1 specifics; they apply to each spec written from this roadmap.
@@ -169,7 +205,7 @@ These are not Phase 1 specifics; they apply to each spec written from this roadm
 | Question | Needed by | Status |
 |---|---|---|
 | GitHub owner and repository name | 2, and the product URL replacements in 1 | **decided 2026-09-22:** `sebastianmaute/aipm-cockpit` |
-| The personal address for commit identity | 1, at execution time only | open — supplied at execution, never recorded |
+| The personal address for commit identity | 1, at execution time only | **decided 2026-09-22:** GitHub `users.noreply` |
 | Whether a mirrored issue tracker is kept at all | 4 | **decided 2026-09-22:** migrate the issues to GitHub |
 | Whether the auto-update feed becomes GitHub Releases | 5 | **decided 2026-09-22:** yes, planned into sub-project 5 |
 

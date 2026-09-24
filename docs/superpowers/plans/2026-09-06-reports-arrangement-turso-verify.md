@@ -12,7 +12,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-06-reports-arrangement-turso-verify-design.md` — the source of truth. Read it before Task 1.
 
-**Branch:** `feat/reports-arrangement-turso-verify`, at `5c40f16a` = `origin/main` (`3aef0e01`, 0.288.0 "Duchamp") + one spec/register commit.
+**Branch:** `feat/reports-arrangement-turso-verify`, at `7174ebdd` = `origin/main` (`1048d7b0`, 0.288.0 "Duchamp") + one spec/register commit.
 
 ---
 
@@ -1693,7 +1693,7 @@ git commit --only docs/open-followups.md -m "docs(followups): file the Reports a
   carried `git diff origin/main --stat -- 'src/app/dashboard-*.test.*'
   'src/app/use-dashboard-layout.test.tsx'`, and the revision that replaced it called that form
   **VACUOUS** and said it "could never have caught anything". **That was false, and the commit message
-  of `a37b429b` repeats it — the record there is wrong and cannot be amended, so this is the
+  of `9cc361c2` repeats it — the record there is wrong and cannot be amended, so this is the
   correction.** Measured: that exact glob diff reports `src/app/dashboard-grid.test.tsx | 71 ++++-----`,
   4994 bytes, 19 insertions / 52 deletions. **It catches the very exception it was accused of being
   blind to.**

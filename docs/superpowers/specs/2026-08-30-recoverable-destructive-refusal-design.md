@@ -51,7 +51,7 @@ which filed §293 found them by **reading**, not by any list being short a row.
 
 ### What is worth attacking instead
 
-Not the enumeration — the **consequence**. Measured against the tree at `96e21098`:
+Not the enumeration — the **consequence**. Measured against the tree at `e02446d0`:
 
 ```
 save-guard.ts            refuse = (fullWipe || massDelete) && !allowDestructive
@@ -270,7 +270,7 @@ at a time without duplicate ids. `Modal` stacks, so this is reachable.
 
 > ★★★ **SUPERSEDED 2026-09-02 — this landmine no longer exists, and it is left in place only as the
 > record of what was known on 2026-08-30. Do NOT carry it into new work.** Both ids are per-instance
-> via `useId()` (`docs/open-followups.md` §326, commit `dced5a68`), so two mounted
+> via `useId()` (`docs/open-followups.md` §326, commit `3ec8243f`), so two mounted
 > `TypeToConfirmDialog`s no longer collide and the "only one may be open at a time" constraint is
 > retired. The surviving reason the recourse lives on the banner and not also on the toast is
 > different and unrelated: a toast auto-dismisses and is single-slot, a bad host for an irreversible

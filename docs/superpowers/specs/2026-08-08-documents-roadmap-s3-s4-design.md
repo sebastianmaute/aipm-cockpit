@@ -6,7 +6,7 @@ Only S3c-2 (OOXML media parts) remains "design approved, unimplemented" — see 
 section below. Updated 2026-08-21; this line was stale for three releases (S3a/S4/S3b
 shipped without anyone flipping it) — re-derive from `CHANGELOG.md`, don't trust a
 status line, this one included.
-Baseline: 0.222.0 "Charnas", `main` @ `e2316f4f`
+Baseline: 0.222.0 "Charnas", `main` @ `7df06fd6`
 
 > Supersedes the S3 and S4 outlines in `2026-08-06-ai-document-authoring-design.md:414-432`.
 > Those were ~18 lines between them; this document replaces both and reorders them.
@@ -27,7 +27,7 @@ task, milestone, RAID item or change it is about.
 
 ## What already exists
 
-Measured against `e2316f4f`, not assumed. Reproduce commands given where a number is
+Measured against `7df06fd6`, not assumed. Reproduce commands given where a number is
 load-bearing.
 
 | Capability | Where | Shape |

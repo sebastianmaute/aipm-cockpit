@@ -15,8 +15,8 @@ new is invented — `src/app/row-tokens.ts` and `src/test/row-unique-names.ts` a
 **Tech Stack:** Next.js 16.2.11 · React 19.2 · TypeScript · vitest + @testing-library/react ·
 Playwright (not used here — axe cannot see this defect class).
 
-**Spec:** `docs/superpowers/specs/2026-08-26-row-unique-names-round-2-design.md` (commit `e7cc82ef`).
-**Branch:** `feat/row-unique-names-round-2`, off `main` at `5a864d3e` (0.261.0 "Leckie").
+**Spec:** `docs/superpowers/specs/2026-08-26-row-unique-names-round-2-design.md` (commit `f44f408c`).
+**Branch:** `feat/row-unique-names-round-2`, off `main` at `ff9b4853` (0.261.0 "Leckie").
 **Target release:** 0.262.0 "Swainston" (spare codename: Marske).
 
 ---
@@ -216,8 +216,8 @@ LESSON.** The snippet this step used to prescribe called `buildRowTokens` direct
 objects. It never rendered `TasksSection`, so it pinned nothing about the wiring — while the
 annotation above it claimed exactly that — and it duplicated coverage `row-tokens.test.ts`
 already carries in "numbers EVERY colliding row, the first included". It was implemented
-faithfully, shipped in `df9b5ff8`, and caught in spec review; the replacement landed in
-`7c405fc6`. A test whose comment overclaims its coverage is the precise failure this whole
+faithfully, shipped in `1cc2c9d2`, and caught in spec review; the replacement landed in
+`49cb123f`. A test whose comment overclaims its coverage is the precise failure this whole
 slice exists to remove, so writing one INTO the plan for it is worth recording.
 
 The original text, for the record:

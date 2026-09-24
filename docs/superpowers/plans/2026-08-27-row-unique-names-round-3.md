@@ -9,11 +9,11 @@
 **Tech Stack:** Next.js 16 / React / TypeScript, vitest + @testing-library/react, Playwright + axe, GitLab CI.
 
 **Spec:** `docs/superpowers/specs/2026-08-27-row-unique-names-round-3-design.md`
-**Branch:** `feat/row-unique-names-round-3`, already checked out at `186885b4`, branched off `main` at `adacc564` (0.262.1 "Swainston").
+**Branch:** `feat/row-unique-names-round-3`, already checked out at `c764e18a`, branched off `main` at `4a4a03e2` (0.262.1 "Swainston").
 **Target release:** 0.263.0 "Okorafor" (spare codename: "Robson").
 
 > ★★★ **THIS IS A DATED PRE-IMPLEMENTATION RECORD, NOT A LIVE DOCUMENT. Its `path:LINE` citations
-> described the tree at the branch point (`adacc564`) and are deliberately NOT renumbered.**
+> described the tree at the branch point (`4a4a03e2`) and are deliberately NOT renumbered.**
 > The plan's own tasks moved the lines it cites, so most of them now point somewhere else. A cite that
 > still lands on the intended control is not reassurance either — it may be reading the POST-fix code,
 > so it reads as if the plan had proposed what it in fact changed. Re-verify any line here against HEAD

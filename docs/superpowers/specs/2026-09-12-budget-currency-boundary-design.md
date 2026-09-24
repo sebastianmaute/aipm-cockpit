@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-12
 **Closes:** `docs/open-followups.md` §465, §464
-**Branch:** `feat/budget-currency-boundary`, cut from `origin/main` @ `065a9d02`
+**Branch:** `feat/budget-currency-boundary`, cut from `origin/main` @ `d4287d39`
 
 ## The problem
 
@@ -212,7 +212,7 @@ EUR. Pinned on both sides, each half mutation-proved against being swapped for t
 
 `budgetSpilloverInHint` said "Hours carried in from another bucket" over a row that renders hours
 AND their converted money value; it now names both. ★ ADDED 2026-09-12 — this string was fixed in
-`f7240d30`, two lines from the one §464 fixed and for the same reason, but appeared nowhere in this
+`f32cfb6c`, two lines from the one §464 fixed and for the same reason, but appeared nowhere in this
 spec or in the plan. Recorded here so the section describes what shipped rather than what was
 foreseen.
 

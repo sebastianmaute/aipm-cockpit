@@ -1,6 +1,6 @@
 # heroicons → `lucide-react` — the app-wide icon migration
 
-_Opened 2026-08-21 against `main` at `0ff948bb` (0.253.0 "Schroeder"). Closes the work decided in
+_Opened 2026-08-21 against `main` at `f921f8de` (0.253.0 "Schroeder"). Closes the work decided in
 `docs/open-followups.md` §145 and tracked as `docs/tech-debt-register.md` **TD-8**; carried as a
 backlog row in `docs/work-inventory.md` §3._
 
@@ -15,7 +15,7 @@ screen in the app, which is exactly what a version label is for — do not reaso
 
 ## 0. Grounding — measured 2026-08-21, not assumed
 
-Every row was reproduced against the tree at `0ff948bb`. Re-run before trusting any of them.
+Every row was reproduced against the tree at `f921f8de`. Re-run before trusting any of them.
 
 | Fact | Value | Reproduce |
 |---|---|---|

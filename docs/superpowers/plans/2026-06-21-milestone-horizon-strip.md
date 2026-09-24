@@ -612,7 +612,7 @@ git commit -m "release: 0.119.0 \"Gibson\" — milestone horizon strip"
 
 ## After all tasks
 
-Final branch code review, then push → GitLab MR ( (GitLab)) → poll pipeline → merge on green → sync main → delete branch (per the established loop).
+Final branch code review, then push → GitLab MR → poll pipeline → merge on green → sync main → delete branch (per the established loop).
 
 ## Self-review notes (plan vs spec)
 

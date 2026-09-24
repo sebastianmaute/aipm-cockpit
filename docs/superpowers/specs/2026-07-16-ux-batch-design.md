@@ -4,7 +4,7 @@
 
 **Architecture:** Additive changes over the existing `src/app` flat feature codebase. Follow established patterns (deps-object hooks, per-entity CRUD hooks, `writeSettings` spread for per-device flags, `sanitizeX` validators, PopoverPanel portal, EditModalShell/useDraggable/useResizable modal chrome). Two changes touch the persisted data model (RAID `inquiriesSent`, Task `noteLog`) and carry the full 6-write-path + CSV/MD column + golden-fixture cost. One change is structural (modern task editor becomes a floating modal).
 
-**Tech Stack:** Forked Next.js 16.2 / React 19.2 / TypeScript. GitLab CI  (GitLab) (lint `--max-warnings=0`, tsc EN/DE i18n parity, vitest coverage floors, size ratchet 800-line, jscpd dup gate, i18n-encoding literal-UTF-8, axe e2e gate). Release = bump `version.ts` + CHANGELOG + `APP_HIGHLIGHT_KEYS` EN/DE.
+**Tech Stack:** Forked Next.js 16.2 / React 19.2 / TypeScript. GitLab CI (lint `--max-warnings=0`, tsc EN/DE i18n parity, vitest coverage floors, size ratchet 800-line, jscpd dup gate, i18n-encoding literal-UTF-8, axe e2e gate). Release = bump `version.ts` + CHANGELOG + `APP_HIGHLIGHT_KEYS` EN/DE.
 
 ---
 

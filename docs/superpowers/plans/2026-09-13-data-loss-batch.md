@@ -1721,7 +1721,7 @@ paragraphs above discuss were rewritten in the same commit.
 8. Rebuild the index (Task 1 Step 6 recipe), then hand-edit that row's `Size` cell. Expected final row:
 
 ```
-| [§430](#430-a-single-cache-entry-over-the-map-budget-is-still-written-over-it-because-every-shedding-stage-skips-the-entry-being-saved--closed-2026-09-13) | A single cache entry over the map budget is still written over it, because every shedding stage skips the entry being saved | found 2026-09-07 in review of `ebca2553`, documented rather than fixed | S-M — shed the saved entry's `users`/`projectRefs` whole (stage 5), never its aggregates | **CLOSED** 2026-09-13 |
+| [§430](#430-a-single-cache-entry-over-the-map-budget-is-still-written-over-it-because-every-shedding-stage-skips-the-entry-being-saved--closed-2026-09-13) | A single cache entry over the map budget is still written over it, because every shedding stage skips the entry being saved | found 2026-09-07 in review of `3fdd3f40`, documented rather than fixed | S-M — shed the saved entry's `users`/`projectRefs` whole (stage 5), never its aggregates | **CLOSED** 2026-09-13 |
 ```
 
 Re-run the rebuild once more afterwards and confirm it reports no further diff (idempotent; it harvests the edited `Size` cell).

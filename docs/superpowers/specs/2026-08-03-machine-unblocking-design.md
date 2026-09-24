@@ -1,6 +1,6 @@
 # Machine-unblocking slices — design
 
-_Written 2026-08-03, against `main` `0d770283` (0.212.0 "Nayler"). Triage pass over
+_Written 2026-08-03, against `main` `e614b1a7` (0.212.0 "Nayler"). Triage pass over
 [`open-followups.md`](open-followups.md): 58 numbered items, ~35 open._
 
 ★ **This file is gitignored** (`docs/superpowers/` — `.gitignore:76`), so it exists only on this
@@ -137,7 +137,7 @@ guess.
   failures then ate the 15 s budget to within 24 ms. 30 s costs another 15 s of CI wall-clock per
   failure and buys the same.
 - **No editing on a red-CI reflex.** §51 is confirmed flaky *by retry, not by argument* — job
-  20222, same commit `351eb05f`, no code change, passed in 389 s and #5418 went green. Both tests
+  20222, same commit `8648da98`, no code change, passed in 389 s and #5418 went green. Both tests
   passed on that retry. Environmental, proven.
 
 ### Stop rule

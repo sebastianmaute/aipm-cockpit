@@ -2,7 +2,7 @@
 
 > **Status (2026-09-13 audit):** SHIPPED, but this file's own opening claim is false — it says it is gitignored by a `docs/superpowers/` rule and exists only on this machine. No such rule exists: the only `docs/superpowers` pattern is the archive-zip glob (`grep -n "docs/superpowers" .gitignore`), the `/docs/patterns/` rule the cited line pointed at is unrelated (`grep -n "docs/patterns" .gitignore`), and this file is tracked on `origin/main`. Kept as a historical record; do not execute as written.
 
-_Written 2026-08-04, against `fix/mountedref-strictmode-siblings` `fb33f755` (main `4a81420a` +
+_Written 2026-08-04, against `fix/mountedref-strictmode-siblings` `b201b036` (main `6f0b9dd8` +
 the §76 fix). Continues [`2026-08-03-machine-unblocking-design.md`](2026-08-03-machine-unblocking-design.md)._
 
 ★ **This file is gitignored** (`docs/superpowers/` — `.gitignore:76`), so it exists only on this
@@ -48,7 +48,7 @@ under them. Then §74, then §73, then the register.
 
 ## §75 — fix the leaks, not the order
 
-### Established, re-measured 2026-08-04 on `fb33f755`
+### Established, re-measured 2026-08-04 on `b201b036`
 
 ```bash
 npx vitest run src/app/use-storage-backend.test.tsx --sequence.shuffle --sequence.seed=1 --reporter=dot

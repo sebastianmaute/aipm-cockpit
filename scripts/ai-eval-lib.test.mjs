@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { EXIT, mulberry32 } from "./ai-eval-lib.mjs";
 
 describe("EXIT", () => {
@@ -49,8 +49,15 @@ describe("mulberry32", () => {
 import { PROBES, TOKEN_IDS, plantedToken, probeById } from "./ai-eval-lib.mjs";
 
 describe("plantedToken", () => {
-  it("is stable for a given block and salt", () => {
-    expect(plantedToken("date", 7)).toBe(plantedToken("date", 7));
+  it("is stable for a given block and salt, across a fresh module", async () => {
+    // `plantedToken` is memoized, so calling it twice in one module only
+    // proves the cache returns what it stored. A fresh module instance starts
+    // with an empty cache and has to mint the token again.
+    const first = plantedToken("date", 7);
+    vi.resetModules();
+    const fresh = await import("./ai-eval-lib.mjs");
+    expect(fresh.plantedToken).not.toBe(plantedToken);
+    expect(fresh.plantedToken("date", 7)).toBe(first);
   });
 
   it("differs between blocks at the same salt", () => {
@@ -75,21 +82,63 @@ describe("plantedToken", () => {
     //     target equal to its own decoy, which the scorer can only ever call
     //     ambiguous, silently, forever.
     //
-    //  ★★★ THIS RANGE ALONE CANNOT KILL A "remove the retry" MUTANT, and it
-    //  is not vacuity to say so — it is the mutation-test result. Folding the
-    //  attempt counter into the hash key gives each (id, salt, 0) candidate an
-    //  effectively fresh 32-bit draw, so a natural collision among ~14000
-    //  attempt-0 draws only becomes likely near the birthday bound
-    //  (sqrt(2**32) ≈ 65536) — measured first collision at salt 66350
-    //  ("viewScope" vs "chatPointer"), none in 1..3000. Coverage of ordinary
-    //  usage, not a substitute for the targeted pin below.
+    //  ★★★ MEASURED AGAINST THE MUTANT ITSELF, not merely assumed. Disabling the
+    //  retry (plantedToken always calling generateToken(id, salt, 0)) on a
+    //  throwaway copy of this module and scanning salts 1..3000 over all 13
+    //  TOKEN_IDS finds exactly ONE attempt-0 collision in that range — salt
+    //  1284 ("anchor" vs "insightsPrev") — so this sweep DOES kill a "remove
+    //  the retry" mutant, by the luck of one hit landing inside 3000 salts,
+    //  not by design. An earlier revision of this comment said the opposite
+    //  ("none in 1..3000", first collision at salt 66350): those numbers were
+    //  measured against the original 7 TOKEN_IDS, before the six hardening
+    //  tokens were appended, and went stale the moment TOKEN_IDS grew to 13
+    //  without the count being re-run. Over the full scan to salt 200000
+    //  there are 13 such collisions, not 4, the first at salt 1284, not
+    //  66350 — 66350 ("viewScope" vs "chatPointer") is the 5th. Coverage of
+    //  ordinary usage, not a substitute for the targeted pin below, whose
+    //  value is exactly that it does not depend on where in the sweep a
+    //  collision happens to land.
     //
-    //  ★★ THE ASSERTION IS HOISTED OUT OF THE LOOP, and that is a CI fix, not a
-    //  style preference. 3000 iterations each calling a matcher ran 25.2s under
-    //  v8 coverage instrumentation in the pipeline and blew the 20s testTimeout,
-    //  while the same sweep passes in a fraction of that locally WITHOUT
-    //  coverage — which is why nothing local caught it. The minting is not the
-    //  cost; the matcher machinery is. Collect, then assert once.
+    //  ★★ THE ASSERTION IS HOISTED OUT OF THE LOOP — commit 2e36326b, which
+    //  attributed the CI timeout (25204ms against a 20000ms testTimeout) to
+    //  "the matcher, not the minting": 3000 `expect()` calls in the loop
+    //  under v8 coverage instrumentation.
+    //
+    //  ★★★ THAT DIAGNOSIS WAS WRONG FROM THE MOMENT IT WAS WRITTEN, not one
+    //  that later went stale. `TOKEN_IDS` already had all 13 ids (the six
+    //  hardening tokens included) when 2e36326b was made. Proof:
+    //  `git merge-base --is-ancestor 0b563482 2e36326b` exits 0 (the
+    //  hardening-token commit, 2026-09-09, is an ancestor of the hoist
+    //  commit, 2026-09-10), and `git show 2e36326b:scripts/ai-eval-lib.mjs`
+    //  already contains `chatPointerAlt2` — true one commit earlier too, at
+    //  `2e36326b^`. So the matcher was never the dominant cost at any point
+    //  this test has existed in its current 13-id shape; the 25204ms CI
+    //  overrun 2e36326b's own message reports matches this sweep's
+    //  exponential minting cost, not `expect()` overhead — "the minting is
+    //  not the cost; the matcher machinery is" and "the hoist alone is what
+    //  brings this back under the global 20s" were both wrong when written,
+    //  not merely stale. The hoist incidentally removed 3000 real `expect()`
+    //  calls, which is genuine but minor next to the minting cost below, and
+    //  happened to leave enough margin on whatever runner produced 2e36326b's
+    //  own passing verification run.
+    //
+    //  `plantedToken` was unmemoized: resolving id at index k recomputed
+    //  EVERY earlier id's token from scratch via `earlierTokens`, so one
+    //  (id, salt) cost 2**k calls and one salt's `TOKEN_IDS.map(plantedToken)`
+    //  cost 2**13-1 = 8191. Measured (see `plantedToken`'s own docstring for
+    //  the method): this loop alone took 16.5s in plain `node`, zero
+    //  vitest/coverage overhead, and 26.5s running `vitest run
+    //  scripts/ai-eval-lib.test.mjs -t "never collides within a run"
+    //  --coverage` in isolation — already most of a 60000ms budget before any
+    //  full-suite contention, which is what pushed it over in
+    //  `npm run test:coverage`. Memoizing `plantedToken` by `${id}:${salt}`
+    //  (pure function, so caching changes nothing observable — proved
+    //  byte-identical for every id x salt 1..3000 via a throwaway node
+    //  script, not committed) cuts the per-salt cost to 13 calls: same
+    //  method, same file, now 127ms in plain `node` and 171ms of test time
+    //  under the vitest+coverage command above. Collect, then assert once is
+    //  still worth keeping (a positive observable against a loop that never
+    //  ran), it just was never the fix for the real cost.
     const collisions = [];
     let checked = 0;
     for (let salt = 1; salt <= 3000; salt += 1) {
@@ -104,16 +153,26 @@ describe("plantedToken", () => {
     //  pin on the range. The range's justification is the measurement above.
     expect(checked).toBe(3000);
     expect(collisions).toEqual([]);
-    // The explicit timeout is belt-and-braces for a loaded runner; the hoist
-    // alone is what brings this back under the global 20s.
+    // The explicit timeout is belt-and-braces for a loaded runner. What
+    // actually keeps this sweep inside it is the memoized `plantedToken`
+    // (see the ★★★ block above this loop) — not the hoisted assertion, which
+    // was never the dominant cost; see that block for the measurements.
   }, 60000);
 
   it("resolves the salt where a first-candidate-only draw naturally collides", () => {
-    // ★★★ THE MUTATION-KILLING PIN. At salt 66350, generateToken(id, 66350, 0)
-    //     alone gives "viewScope" and "chatPointer" the same string — measured
-    //     by disabling the retry loop and scanning up to salt 200000, where it
-    //     was the first of only four such coincidences. Removing the retry
-    //     loop turns this assertion red; the 1..3000 sweep above does not.
+    // ★★★ THE MUTATION-KILLING PIN, kept even though the sweep above now also
+    //     kills the "remove the retry" mutant (by luck, at salt 1284): this
+    //     one is a DELIBERATE, named regression that does not depend on which
+    //     salt in a range happens to collide. At salt 66350,
+    //     generateToken(id, 66350, 0) alone gives "viewScope" and
+    //     "chatPointer" the same string — measured by disabling the retry
+    //     loop on a throwaway copy of this module and scanning up to salt
+    //     200000 over all 13 TOKEN_IDS, where it is the 5th of 13 such
+    //     coincidences (the 1st is the salt-1284 hit above; an earlier
+    //     revision of this comment said "first of only four", measured
+    //     against the original 7 TOKEN_IDS before the six hardening tokens
+    //     were appended). Removing the retry loop turns this assertion red
+    //     regardless.
     expect(plantedToken("viewScope", 66350)).not.toBe(
       plantedToken("chatPointer", 66350),
     );

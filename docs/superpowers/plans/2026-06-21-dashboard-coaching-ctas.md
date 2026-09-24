@@ -488,7 +488,7 @@ git commit -m "release: 0.120.0 \"Chiang\" — dashboard coaching CTAs"
 
 ## After all tasks
 
-Final branch code review, then push → GitLab MR ( (GitLab)) → poll pipeline → merge on green → sync main → delete branch.
+Final branch code review, then push → GitLab MR → poll pipeline → merge on green → sync main → delete branch.
 
 ## Self-review notes (plan vs spec)
 

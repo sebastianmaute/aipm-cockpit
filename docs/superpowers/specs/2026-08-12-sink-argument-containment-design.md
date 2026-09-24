@@ -4,7 +4,7 @@
 >
 > §143 was HALF CLOSED on `origin/main` (0.235.0 "Lackey") by a different, weaker
 > mechanism — four branded `as const` constants applied at 8 of 33 call sites — while this
-> was being written. Every measurement below was taken against `99ea20e4`, which was 21
+> was being written. Every measurement below was taken against `fbd42182`, which was 21
 > commits stale at the time.
 >
 > **What survives and has been re-verified against 0.235.0:** §2a's detectability matrix and
@@ -69,7 +69,7 @@ still carries the projection sink's cost (§32).
 
 ## 2. Measurements this design rests on
 
-All run 2026-08-12 against the tree at `99ea20e4` (0.234.0 "Anders").
+All run 2026-08-12 against the tree at `fbd42182` (0.234.0 "Anders").
 
 ### 2a. The detectability matrix
 
@@ -123,7 +123,7 @@ by function:
 `isHtmlStart` caller is the duplicate of §2d and folds into `richDescriptionHtml`, so it adds no
 sixth combination.
 
-Reproduce (run it, do not trust this table — it was correct at `99ea20e4` and nothing gates it):
+Reproduce (run it, do not trust this table — it was correct at `fbd42182` and nothing gates it):
 
 ```bash
 grep -rn 'descriptionHtml(\|sanitizeRichText(\|isHtmlStart(' src/app --include=*.ts --include=*.tsx \

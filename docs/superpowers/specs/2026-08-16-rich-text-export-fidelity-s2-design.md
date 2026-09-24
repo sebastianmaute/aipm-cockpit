@@ -2,7 +2,7 @@
 
 **Status:** Approved for planning
 **Date:** 2026-08-16
-**Base:** `main` at 0.242.0 "Ashby" (`2e2c8c00`)
+**Base:** `main` at 0.242.0 "Ashby" (`d7833315`)
 
 **Slice 2 of the rich-text program.** S1 (0.232.0 "Merril") unified the allow-list, the sanitizer,
 the editor and the toolbar. §140 (0.236.0) added task lists and text alignment — the attribute

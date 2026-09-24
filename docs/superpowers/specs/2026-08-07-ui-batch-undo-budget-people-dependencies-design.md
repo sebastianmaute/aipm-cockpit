@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-07
 **Status:** approved design, not yet planned
-**Baseline:** `main` @ `4dd13660`, app 0.220.0 "Kuttner"
+**Baseline:** `main` @ `996a380f`, app 0.220.0 "Kuttner"
 
 Twelve requested UI changes, cut into three slices. Each slice is its own branch and its
 own release. Slice 1 runs first because it establishes the button-conversion pattern and

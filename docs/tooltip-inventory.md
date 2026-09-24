@@ -4,19 +4,19 @@
 > work lives in docs/open-followups.md (§109) and GitLab. The name defect it lists as open was fixed
 > on 2026-08-31 (§109).
 
-Snapshot taken 2026-08-07, on `176b823a` (branch `feat/ui-batch-slice-2`, Tasks 1–12 committed).
+Snapshot taken 2026-08-07, on `baa3eace` (branch `feat/ui-batch-slice-2`, Tasks 1–12 committed).
 
 ★★ An earlier revision cited `2d31abe5` here. **That object is NOT in the branch** — `git merge-base
---is-ancestor 2d31abe5 HEAD` exits 1. It is a dangling pre-amend duplicate of `176b823a` (identical
+--is-ancestor 2d31abe5 HEAD` exits 1. It is a dangling pre-amend duplicate of `baa3eace` (identical
 tree `908e56cf3d2a…`, identical parent) left behind when that commit's message was rewritten; it
 resolves in the authoring clone until gc and nowhere else. Amending a commit invalidates every sha
 already written into prose — check the citations after any amend.
 
-## Re-measured 2026-09-01, on `95afb789` (0.272.1)
+## Re-measured 2026-09-01, on `22ac25f2` (0.272.1)
 
 ★★ **The 2026-08-21 column below reproduces EXACTLY, and that is the first thing this section
 checked.** The script under "Reproduce" was extracted from this file verbatim, `src/app` at
-`6c4e4162` was materialised with `git archive 6c4e4162 src/app | tar -x -C <dir>`, and the script
+`ac6b854c` was materialised with `git archive 6c4e4162 src/app | tar -x -C <dir>`, and the script
 was run there: **621 / 178 / 100 / 70 / 30 / 20**, all six on the nose. The parser is
 deterministic and the dated columns can be trusted as measurements of the trees they name. Do that
 check before adding a column — a number that no longer reproduces at its own sha is a script
@@ -54,7 +54,7 @@ into a component. Measure it before writing it down.
 
 Diffing the untitled site lists between the two runs, the only movement in real code is an
 **extraction, not a fix**: `document-block-editors.tsx` ×3 became `bullets-block-editor.tsx` ×2,
-when `0387402b` extracted `BulletsBlockEditor` into its own module. The three genuinely new hits —
+when `2086994d` extracted `BulletsBlockEditor` into its own module. The three genuinely new hits —
 `popover-panel.tsx` ×2 and `roles-editor.tsx` ×1 — are all `<button` written inside `//` comments,
 the bucket this document already carries, and each was opened and read.
 
@@ -75,13 +75,13 @@ task and is found on opening the file, while a dropped row simply never gets loo
 
 - **The blocked-on-i18n row is DONE.** `stakeholder-recipient-input.tsx`'s remove-recipient button
   now reads ``aria-label={rowLabel(t(lang, "remove"), name)}`` — translated AND row-token'd, so it
-  cleared both the i18n block and the row-unique-names bar in one move (`32433366`). **So exactly
+  cleared both the i18n block and the row-unique-names bar in one move (`602a00e4`). **So exactly
   ONE survivor of the original 23 remains: B1.**
 - **The 15 hardcoded-English accessible names are down to 4**, and the four left are precisely the
   ones this document already argued were not straightforward i18n defects: `task-editor-raid-mini.tsx`
   ×2 (the half-translated ``RAID ${…}`` prefix, "arguably fine") and `budget-panel-totals.tsx` ×2
   (the ``budget-${ariaPrefix}`` machine hooks — "different problem, worse", and still true).
-  Eleven were fixed by `32433366` and `82d9bb0c`. Re-run the section's own two greps to confirm; the
+  Eleven were fixed by `602a00e4` and `396f9de7`. Re-run the section's own two greps to confirm; the
   `aria-label="…"` one now returns a single hit, and that hit is prose inside a comment in
   `dependencies-editor.tsx`, not a site.
   ★ Those two `budget-panel-totals.tsx` rows are cited BY LINE in the section above and both line
@@ -93,9 +93,9 @@ task and is found on opening the file, while a dropped row simply never gets loo
 remains the single `hasTitle=true, named=false` element, and B1 is still held for the reason the
 snapshot gives.
 
-## Re-measured 2026-08-21, on `6c4e4162` (0.253.0)
+## Re-measured 2026-08-21, on `ac6b854c` (0.253.0)
 
-★★ **The snapshot below is NOT rewritten.** It is a dated audit of `176b823a`, including its
+★★ **The snapshot below is NOT rewritten.** It is a dated audit of `baa3eace`, including its
 retractions, and renumbering it to today's tree destroys the record of how it failed. This section
 records what the same scan finds now. **The Class A/B batch shipped and it holds** — nothing that
 was fixed has regressed — but the open surface has been refilled by work that landed since.
@@ -218,8 +218,8 @@ about any name in it.
 
 | Bucket | State |
 |---|---|
-| **Class A** — 19 rows | ✅ **ALL 19 IMPLEMENTED** (`1414b1c0`). 3 of 19 pinned by a test; the other 16 carry no assertion. |
-| **Class B** — 14 rows | ✅ **13 IMPLEMENTED** (`4ea09b7c`), user-approved at row level. ⏸ **B1 HELD** — see below. |
+| **Class A** — 19 rows | ✅ **ALL 19 IMPLEMENTED** (`90ec64d1`). 3 of 19 pinned by a test; the other 16 carry no assertion. |
+| **Class B** — 14 rows | ✅ **13 IMPLEMENTED** (`6ad4ec5f`), user-approved at row level. ⏸ **B1 HELD** — see below. |
 | **keep** | unchanged, by design |
 | **name defect** — 1 row | ❌ **OPEN** — `workspace-section-chrome.tsx`, needs `aria-label`, not a `title`. |
 | **blocked on i18n** — 1 row | ❌ **OPEN** — `stakeholder-recipient-input.tsx`; translate first. |
@@ -238,7 +238,7 @@ behaviour, but five more controls joined it.
 
 ★★★ **RETRACTED — an earlier revision of this line was false, and it invented a defect.** It claimed
 "twelve of the nineteen Class A lines were low by 2–6" and that `removable-chip-row`'s "pointed at the
-component signature rather than the `aria-label`". Measured against `176b823a`: **all nineteen Class A
+component signature rather than the `aria-label`". Measured against `baa3eace`: **all nineteen Class A
 line numbers point exactly at their control's opening tag, and none drifted.** `removable-chip-row.tsx`
 `:21` is the signature, `:25` is the `<button`, `:28` is the `aria-label` — the cited `:25` is correct
 and ordinary. The "low by 2–6" figure was measuring the distance from the opening tag *down to the name
@@ -263,7 +263,7 @@ exactly. Recorded here because a commit message cannot be edited once it is an a
 two of the four sit inside the RETRACTION above: **a correction is not self-verifying, and this branch
 has now produced a wrong replacement figure twice.**
 
-★★ **`6265b549` — FALSE.** It says `p-1` "is present pre-change as a substring of `px-2`/`py-0.5`".
+★★ **`a872d000` — FALSE.** It says `p-1` "is present pre-change as a substring of `px-2`/`py-0.5`".
 Neither string contains `p-1`; the whole pre-change file contains no `p-1` at all (`gap-1` at `:75` is
 the only near hit, and it does not contain it either). The *decision* it justifies is right for a
 reason that is actually true: `p-1` is a substring of **`p-1.5`**, so an unbounded `p-1` assertion
@@ -272,14 +272,14 @@ load-bearing half is TRUE and was verified: `cursor-pointer` discriminates becau
 genuinely does not contain it. The surviving code comment (`dashboard-tip-card.test.tsx`) says only
 "size-coupled" and does NOT repeat the false claim.
 
-★★ **`36811ceb` — wrong under BOTH conventions.** "783 → 452" mixes two measures. The gate's own
+★★ **`49a8a61b` — wrong under BOTH conventions.** "783 → 452" mixes two measures. The gate's own
 metric (`readFileSync(f,"utf8").split("\n").length`, `scripts/check-file-sizes.mjs:21`) is
 **783 → 453**; `wc -l` is 782 → 452. The stated pair is the one combination that is wrong either way.
 "17 lines of headroom" is correct under the gate metric (800 − 783). ★ Do NOT phrase this as what the
 gate *prints*: `size:check` emits a line only for a file OVER 800, so it prints nothing for this file
 at any of these sizes. Cite the metric, not the command.
 
-★★ **`c4dc67a4` — two problems inside the retraction itself.** "376 raw occurrences" mislabels the
+★★ **`6bafc9ab` — two problems inside the retraction itself.** "376 raw occurrences" mislabels the
 measure: 376 is the WORD-BOUNDED count (`\bSie\b`); genuinely raw (`grep -o "Sie"`) is **379**. And
 "not reproducible under any measure" is stronger than the evidence — **217** lines contain `\bSie\b`
 at that revision, within 2 of the retracted 215 and the most likely origin of it. The correct claim is
@@ -288,13 +288,13 @@ measure tried (the `Sie|Ihr|Ihre|Ihren|Ihrem|Ihrer|Ihres` family gives 209 key-p
 lines, 504 occurrences); whatever produced 193 is unrecorded. ★ Its "165 standalone" figure DOES
 reproduce exactly, as does every other claim in that commit.
 
-★★ **`dfdd0ea4` — FALSE, and it contradicts an earlier commit on this same branch.** It calls
+★★ **`e9b6d885` — FALSE, and it contradicts an earlier commit on this same branch.** It calls
 `timelog-people-table` "the one conversion in the batch with no variant assertion". It is one of
-**three**: `saved-views-menu` and `version-info` have no test file at all. `176b823a` stated this
-correctly ("three of the 23 ship without a test"); `dfdd0ea4` narrowed it to one while adding the test
+**three**: `saved-views-menu` and `version-info` have no test file at all. `baa3eace` stated this
+correctly ("three of the 23 ship without a test"); `e9b6d885` narrowed it to one while adding the test
 that closes exactly one of the three. **Two remain unpinned.** ★ Same commit, attribution slip: "the
 commit that introduced it REPLACED the comment documenting the pairing requirement" names the wrong
-commit — `176b823a` introduced the 4px split AND wrote the pairing comment; `6265b549` is the commit
+commit — `baa3eace` introduced the 4px split AND wrote the pairing comment; `a872d000` is the commit
 that deleted it. The substance (the comment was removed while the pairing was broken) is TRUE.
 
 ★ **The merge commit is deliberately NOT listed here.** A fact-check of it found the same defect twice
@@ -327,7 +327,7 @@ grep -rho "<InfoTooltip" src/app --include=*.tsx --exclude="*.test.tsx" | wc -l 
 grep -rl "aria-label" src/app --include=*.tsx | grep -v "\.test\.tsx" | wc -l      # 190
 ```
 
-| measure | this run (2026-08-07, `176b823a`) |
+| measure | this run (2026-08-07, `baa3eace`) |
 |---|---|
 | `title=` occurrences, non-test `.tsx` | **388** |
 | `<InfoTooltip` mounts, non-test `.tsx` | **147** |

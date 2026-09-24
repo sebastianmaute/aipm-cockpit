@@ -111,7 +111,7 @@ single token.
 
 Injectivity is the other half. `ai-entity-token.ts` length-prefixes every field
 (`column + ":" + value.length + ":" + value`) precisely to make its projection injective — commit
-`6851e3ba`. A block union with free-text fields, string arrays and a nested `rows: string[][]` has the
+`2721459f`. A block union with free-text fields, string arrays and a nested `rows: string[][]` has the
 same collision surface, so the projection is type-tagged, length-prefixed per field, count-prefixed
 per array, and recursive for table rows.
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** React 19, Next 16, TypeScript, Tailwind v4, vitest + @testing-library/react.
 
-**Branch:** `fix/turso-env-disclosure` at `15cf0149`, off `main` `2805ba57`. Fold into this branch — do NOT create a new one. No release, no version bump.
+**Branch:** `fix/turso-env-disclosure` at `524155a7`, off `main` `e7242cca`. Fold into this branch — do NOT create a new one. No release, no version bump.
 
 ---
 

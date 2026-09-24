@@ -8,9 +8,9 @@
 
 **Tech Stack:** TypeScript, React 19, Next 16, vitest, Playwright, Turso (libSQL).
 
-**Spec:** `docs/superpowers/specs/2026-08-26-version-history-completeness-design.md` (committed `ed6cfbd0`)
+**Spec:** `docs/superpowers/specs/2026-08-26-version-history-completeness-design.md` (committed `9b48b1d3`)
 
-**Branch:** `feat/version-history-completeness`, off `main` at `964c20d1` (0.260.1 "Cho")
+**Branch:** `feat/version-history-completeness`, off `main` at `4651826e` (0.260.1 "Cho")
 
 ---
 

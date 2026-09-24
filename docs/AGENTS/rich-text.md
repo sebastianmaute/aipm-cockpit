@@ -272,7 +272,7 @@ register's fix to another is how two of them broke. Read the note that names you
   `<select>` it replaced: opening a `PopoverPanel` is a normal click, not a native form-control picker,
   so there is no analogous "preventing default breaks the picker" failure mode to guard against. Neither
   the trigger nor the menu items call `.chain().focus()` — `setLevel` dropped that call in an earlier,
-  unrelated commit (`2d99c125`) — since ProseMirror keeps its selection in editor state across a blur
+  unrelated commit (`5f8ea8a0`) — since ProseMirror keeps its selection in editor state across a blur
   regardless of where DOM focus sits.
   THREE `rich-text-*` modules, split by ONE axis — whether the code may touch a DOM.
   (★ `ai-rich-text.ts` is a FOURTH rich-text module obeying the same axis, which is why
@@ -553,7 +553,7 @@ register's fix to another is how two of them broke. Read the note that names you
   since it enumerated its own counter-examples in the next clause: cutting a cap is not a widening in any
   reading, and neither is dropping a tag. ★ The "nothing else" claim lived in exactly TWO
   places — this line and the `ai-rich-text.ts` row of [`docs/CODEMAPS/data.md`](../CODEMAPS/data.md) —
-  and `811c952c` rewrote both in one change set. Reproduce:
+  and `e4650733` rewrote both in one change set. Reproduce:
   `git show f83f860f:docs/CODEMAPS/data.md | grep -c "drops IMAGES and nothing else"` → **1**, and the
   same grep over `git show f83f860f:AGENTS.md` → **1**.
   ★ `RICH_ALLOWED_TAGS` still guards the SEVEN rich entity fields (`Task.description` plus the six in
@@ -602,7 +602,7 @@ register's fix to another is how two of them broke. Read the note that names you
   both sides), not this sentence — see §137. ★★ That shared constant did NOT serve
   EVERY sink, and an earlier revision here said it did: the render boundary had **no classifier at
   all** before the §107 branch, because the three document renderers did not call `descriptionHtml` —
-  that composition was ADDED by `94b7fd21`, which is §118, and the sink it passes was narrowed to
+  that composition was ADDED by `24a7d2b3`, which is §118, and the sink it passes was narrowed to
   `render` afterwards. So the render sink is not a constant that drifted, it is a boundary that was
   missing. Reproduce against the PRE-§107 tree, where the now-RETIRED shared constant
   still existed — `git grep -n "HTML_START\." 528dd5fe -- src` returns exactly two

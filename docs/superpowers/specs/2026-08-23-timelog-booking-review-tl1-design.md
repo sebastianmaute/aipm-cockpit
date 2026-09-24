@@ -3,7 +3,7 @@
 **Date:** 2026-08-23
 **Status:** design approved, unstarted
 **Closes:** `docs/open-followups.md` §224
-**Opens:** the TL1–TL4 arc below; §610 (probe for an undocumented TimeLog approval write)
+**Opens:** the TL1–TL4 arc below; §616 (probe for an undocumented TimeLog approval write)
 
 ---
 
@@ -59,7 +59,7 @@ undocumented endpoint almost certainly exists. This repository already depends o
 undocumented endpoint (`/v2/projects/{id}/time-registrations`), but that is a READ. Hanging
 writes into a system that drives invoicing and payroll on a reverse-engineered endpoint is a
 different risk class: it can change without notice, and a wrong write is not fixed by a redeploy.
-Recorded as §610; a decision to write back is a separate slice with its own security review.
+Recorded as §616; a decision to write back is a separate slice with its own security review.
 
 **The consolation is the point:** rejections and their comments are readable. A manager's
 verdict, with its reason, is a real corpus of human accept/reject decisions — which is what TL4

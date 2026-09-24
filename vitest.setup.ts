@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { afterAll, afterEach, beforeAll } from "vitest";
+import { afterAll, afterEach, beforeAll, vi } from "vitest";
 import { cleanup, configure } from "@testing-library/react";
 import { server } from "./src/test/msw-server";
 
@@ -85,3 +85,24 @@ afterEach(() => {
 });
 
 afterAll(() => server.close());
+
+// §615 hedge: `@tiptap/react` destroys the editor in a real `setTimeout(…, 1)` on
+// unmount, and jsdom is torn down per file. If that timer is still pending when
+// this file's `window` goes away, the deferred `Editor.destroy()` throws
+// "window is not defined" as an unhandled error blamed on whatever file happens
+// to be running when the timer fires. Flush it here, once per file, before
+// vitest's own environment teardown.
+//
+// ★ Bail out under fake timers. A file that leaves `vi.useFakeTimers()` active
+// into its own teardown (e.g. never calls `vi.useRealTimers()` in an
+// `afterEach`/`afterAll`) makes TipTap's `setTimeout(…, 1)` fake too, so it
+// never fires on its own — a real `setTimeout` here would hang the hook for
+// its full timeout. There is no race to wait out in that case: a fake timer
+// cannot fire after this file's real jsdom `window` is torn down either, since
+// nothing ever advances it past that point. (Hit in CI run 35914406183 —
+// `src/app/use-arrangement.test.tsx` and `src/app/use-dashboard-layout.test.tsx`
+// both end with fake timers still active.)
+afterAll(async () => {
+  if (vi.isFakeTimers()) return;
+  await new Promise((resolve) => setTimeout(resolve, 10));
+});

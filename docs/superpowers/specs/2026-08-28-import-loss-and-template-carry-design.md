@@ -124,7 +124,7 @@ held, on the same sticky mechanism §103 already uses, because the damage in §1
 the mislabelled workspace back over its source.
 
 **★★★ THIS SLICE SEQUENCES BEHIND `fix/meta-decode-loss-chain` AND ADOPTS ITS VOCABULARY.** That
-branch, cut from the same base (`24581bc6`), generalises this guard first: truncation stops being the
+branch, cut from the same base (`010e5305`), generalises this guard first: truncation stops being the
 only reason a load is incomplete, because a malformed meta blob leaves a slice undefined and must
 pause saving for the same reason. It renames the three cause-agnostic names ahead of its behavioural
 change:

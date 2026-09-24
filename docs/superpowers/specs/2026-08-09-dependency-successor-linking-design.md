@@ -2,7 +2,7 @@
 
 Date: 2026-08-09
 Supersedes: §3.4 of `docs/superpowers/specs/2026-08-07-ui-batch-undo-budget-people-dependencies-design.md`
-Baseline: `main` @ `5cf49651` (0.226.0 "Emshwiller"). Target release: 0.227.0.
+Baseline: `main` @ `7d9b556b` (0.226.0 "Emshwiller"). Target release: 0.227.0.
 
 ## Why this document exists
 

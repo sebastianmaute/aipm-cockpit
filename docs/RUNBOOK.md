@@ -172,6 +172,11 @@ with real user data, have users take an export before rolling back.
 
 ## Publishing a desktop release
 
+> ★★★ **Paused.** This section describes the GitLab release pipeline. Since the GitHub cut-over
+> (`docs/superpowers/specs/2026-09-22-github-cutover-design.md`) GitLab runs only its sync job,
+> so pushing a tag publishes nothing. Releasing returns with migration sub-project 5 (GitHub
+> Releases). Until then, make no release tags.
+
 1. Bump `src/app/version.ts` (`APP_VERSION`, `APP_BUILD_DATE`, `APP_MILESTONE`),
    add the `CHANGELOG.md` entry, and propagate with `npm run version:sync`,
    which rewrites every other file that restates the version —
@@ -305,6 +310,35 @@ To enable Turso as a storage backend:
 4. The app calls Turso's HTTP `/v2/pipeline` API directly from the browser.
 
 ## Common issues
+
+### "A required check is red"
+CI is `.github/workflows/ci.yml`; its eight jobs are the required checks, detailed in
+[`docs/AGENTS/ci.md`](AGENTS/ci.md). Open the red job's **step summary** first. `static` runs every
+static gate even after one fails (`--keep-going`) and lists every failing step with its exit code,
+so one run shows them all; `unit` puts the "All files" coverage line and the failing tests there.
+For the register and scan gates, **exit 1 = drift** (fix the content the gate names) and **exit 2 =
+could not scan** (the gate read nothing it could trust — a missing file, an empty list, a moved
+shape): the two demand opposite responses. `leaks:check` at exit 2 in CI usually means the
+`LEAK_LIST` secret is missing or empty — for a Dependabot PR, in Dependabot's own secret store.
+A leak row reading `FAIL (exit 2; LEAK_LIST_FILE unset under CI)` means the job never exported the
+list; `FAIL (exit 2)` alone means `leaks:check` itself could not scan it.
+Reproduce a `static` failure locally with the leak list set first — without `LEAK_LIST_FILE` a local
+run SKIPS `leaks:check` and can still end `gate:local PASS`:
+`LEAK_LIST_FILE=<path to your local leak list> node scripts/gate-local.mjs --group static --keep-going`.
+Add `--allow-dirty` only when you have uncommitted tracked changes (it refuses to start over them,
+exit 2, otherwise). Read the table it prints: a `SKIPPED` row means that step was NOT reproduced,
+whatever the final line says.
+The `static` job's "Commit-message leak scan" step is not part of `gate:local`; reproduce it over your
+branch's commits with
+`LEAK_LIST_FILE=<path to your local leak list> node scripts/check-commit-message-leaks.mjs origin/main..HEAD`
+(exit 1 names each offending short SHA and class, e.g. `class=trailer`; reword those commits).
+
+### "Actions minutes exhausted"
+While the repository is private, Actions runs on GitHub Pro's included minutes with a $0 budget, so
+exhaustion stops jobs rather than billing. Checks cannot complete, so merging is blocked.
+Fallback: run `npm run gate:local` (with `LEAK_LIST_FILE` set), merge with the admin bypass, and note
+the bypass and the gate line (`gate:local PASS at <sha>`) in the PR. The next month's first push to
+`main` re-runs everything.
 
 ### "Jira sync fails with 401"
 Cause: stale or revoked Atlassian API token, or the user changed Atlassian

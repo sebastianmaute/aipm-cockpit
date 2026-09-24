@@ -1,7 +1,7 @@
 # Row-unique accessible names, round 3 — design
 
 **Date:** 2026-08-27
-**Branch base:** `main` at `adacc564` (0.262.1 "Swainston")
+**Branch base:** `main` at `4a4a03e2` (0.262.1 "Swainston")
 **Target release:** 0.263.0 "Okorafor" (spare codename: "Robson")
 
 **Goal.** Buy file-size headroom by extraction, then close the remaining
@@ -15,7 +15,7 @@ three rounds necessary.
 **Also fixes:** the §250 index/heading status desync in the register
 
 > ★★★ **THIS IS A DATED PRE-IMPLEMENTATION DESIGN RECORD, NOT A LIVE DOCUMENT.** Every measurement
-> below was taken on `adacc564`, BEFORE any of the work it describes; the slice then changed the code
+> below was taken on `4a4a03e2`, BEFORE any of the work it describes; the slice then changed the code
 > those measurements describe, so a number here that disagrees with today's tree is the record working,
 > not a defect in it. **Do not update it to match HEAD** — same treatment as
 > `docs/security/findings-2026-07.md`. What a design record is good for is saying what was believed and
@@ -23,7 +23,7 @@ three rounds necessary.
 > spec silently rewritten to agree with the implementation can never disagree with it.
 >
 > ★★ Two things in particular have moved and are worth naming because a reader will hit them first.
-> (1) The scanner this spec designs shipped and was then CORRECTED — `5aa07575` fixed three defects in
+> (1) The scanner this spec designs shipped and was then CORRECTED — `50876f2a` fixed three defects in
 > it (a destructured-map blind spot, self-closing controls inside a `<label>`, and `scanOpenTag`
 > mis-reading an apostrophe in a comment as a string opener), so every figure the scan produced before
 > that commit is superseded. (2) Register entries this spec lists under **Closes** are closed, so their
@@ -37,7 +37,7 @@ three rounds necessary.
 
 ## 0. Provenance of every number in this spec
 
-Every measurement below was produced by a read-only investigation on `adacc564`
+Every measurement below was produced by a read-only investigation on `4a4a03e2`
 and is re-runnable. Three register entries were found WRONG by re-running their
 own reproduce commands; those corrections are called out inline and must be
 written back into the register as part of this slice.

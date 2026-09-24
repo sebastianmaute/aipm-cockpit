@@ -14,7 +14,7 @@
 
 ## Read this before Task 1
 
-Facts verified in this worktree at `98ee220a`. Do not re-derive them; do not assume the opposite.
+Facts verified in this worktree at `ee4d0859`. Do not re-derive them; do not assume the opposite.
 
 - **`SKIP_DIRS` has two consumers.** `scripts/doc-claims-lib.mjs` line 112 defines it; `check-doc-claims.mjs` (CI job `doc-claims-check`, `.gitlab-ci.yml:265`) needs it, `check-followup-claims.mjs` must bypass it. **Never delete or empty the constant.**
 - **`followups:check` gates nothing.** It exits 0 with findings, by design, and runs in no CI job. Do not promote it to blocking in this slice.
@@ -43,7 +43,7 @@ slice has no check — `docs:claims:check` exits 0 whether or not the widening l
 node scripts/check-followup-claims.mjs | tail -4
 ```
 
-At `98ee220a`:
+At `ee4d0859`:
 
 ```
 CLEAN=113  NO_MACHINE_CLAIM=1  SYMBOL_MISSING=13  PATH_THIRD_PARTY=1  PATH_MISSING=3
@@ -689,7 +689,7 @@ git diff --stat docs/baselines/followup-claims.json
 git diff docs/baselines/followup-claims.json | grep -E '^[-+].*"verdict"' | sort | uniq -c
 ```
 
-★★★ **THE DIFF IS MUCH LARGER THAN THIS SLICE AND THAT IS NOT A FINDING.** An earlier revision here expected "verdict changes confined to §131, §138, §145 and §200, plus the `generated` date and `commit` fields", which was wrong about the baseline rather than about the slice: the committed snapshot was generated **2026-08-10** at `9c0c9658` and holds **93** entries against today's 131. Measured — 44 entries added and 6 closed in between, which is nearly all of the ~870-line diff.
+★★★ **THE DIFF IS MUCH LARGER THAN THIS SLICE AND THAT IS NOT A FINDING.** An earlier revision here expected "verdict changes confined to §131, §138, §145 and §200, plus the `generated` date and `commit` fields", which was wrong about the baseline rather than about the slice: the committed snapshot was generated **2026-08-10** at `514710f0` and holds **93** entries against today's 131. Measured — 44 entries added and 6 closed in between, which is nearly all of the ~870-line diff.
 
 ★★ A line-level `grep` over `"verdict"` cannot separate the two, because an ADDED entry contributes a `+` verdict line indistinguishable from a CHANGED one — and §145 and §200 both postdate the old snapshot, so the two entries this slice most obviously moved do not appear as changes at all. Compare the entry sets semantically instead (the array key is `results`, not `entries`):
 
@@ -707,14 +707,14 @@ console.log('removed:', [...om.keys()].filter(k=>!nm.has(k)).join(','));
 
 ★ On Windows, `node -e` cannot read a Git-Bash `/tmp` path — write the temp file somewhere node can resolve.
 
-★★ **The check that actually works is against the branch-point capture, not against the snapshot.** `/tmp/followups-before.txt` holds the gate's own output at `98ee220a`; the flagged-entry count there must exceed today's by exactly the entries this slice cleared:
+★★ **The check that actually works is against the branch-point capture, not against the snapshot.** `/tmp/followups-before.txt` holds the gate's own output at `ee4d0859`; the flagged-entry count there must exceed today's by exactly the entries this slice cleared:
 
 ```bash
 grep -cE "^  §" /tmp/followups-before.txt      # 17 at 98ee220a
 node scripts/check-followup-claims.mjs | grep -cE "^  §"   # 14
 ```
 
-★★ Verified 2026-08-21 that this separation is load-bearing: the semantic compare surfaced §113 `SYMBOL_MISSING → CLEAN`, which is **not** this slice — it was already `CLEAN` at the branch point, so it is drift from between 2026-08-10 and `98ee220a`. Attributing it here would have been a false finding in the other direction.
+★★ Verified 2026-08-21 that this separation is load-bearing: the semantic compare surfaced §113 `SYMBOL_MISSING → CLEAN`, which is **not** this slice — it was already `CLEAN` at the branch point, so it is drift from between 2026-08-10 and `ee4d0859`. Attributing it here would have been a false finding in the other direction.
 
 - [ ] **Step 3: Commit**
 
@@ -1135,7 +1135,7 @@ node -e "console.log(require('./node_modules/@types/node/package.json').version)
 grep -n "image: node:" .gitlab-ci.yml
 ```
 
-At `98ee220a`: declared `^20`, resolved `20.19.43`, `engines.node` `>=24`, CI on `node:24-bookworm-slim`. The tech-debt register's stated precondition — the runtime off node 20 — is met.
+At `ee4d0859`: declared `^20`, resolved `20.19.43`, `engines.node` `>=24`, CI on `node:24-bookworm-slim`. The tech-debt register's stated precondition — the runtime off node 20 — is met.
 
 - [ ] **Step 1: Capture a clean baseline first**
 
@@ -1276,7 +1276,7 @@ git commit -m "docs: schedule the heroicons to lucide migration and flip the def
 
 `docs/work-inventory.md` §4 says the resolver *"walks `src`/`scripts`/`e2e` ONLY, so every `docs/` path it meets is reported PATH_MISSING whether or not the file exists"*, and §7 item 4 repeats it as *"three of the PATH_MISSING flags are the resolver's `docs/` blind spot"*.
 
-That was already false at `98ee220a` — `check-followup-claims.mjs` built a `docs/**` index. Acting on the inventory's version would have rewritten correct code and left all four real causes standing.
+That was already false at `ee4d0859` — `check-followup-claims.mjs` built a `docs/**` index. Acting on the inventory's version would have rewritten correct code and left all four real causes standing.
 
 - [ ] **Step 1: Rewrite §4's resolver paragraph**
 

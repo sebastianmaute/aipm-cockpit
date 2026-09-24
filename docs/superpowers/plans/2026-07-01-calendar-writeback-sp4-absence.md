@@ -4,7 +4,7 @@
 
 **Goal:** Push current+future non-sick resource absences to the PM's Outlook calendar as multi-day all-day events, reusing the generic write-back engine — the final entity of the roadmap.
 
-**Architecture:** `Absence.outlookEventId?` persists across 6 write paths (mirror `RaidItem.outlookEventId`, commit `79f8d74e`). New `absenceToGraphEvent` emits a multi-day span. Thin-pane rule: all calendar logic in `task-manager.tsx` (mirror the SP3 Change block at ~line 1841); 4 props threaded to the resources panel toolbar. Settings row + i18n. Release v0.159.0.
+**Architecture:** `Absence.outlookEventId?` persists across 6 write paths (mirror `RaidItem.outlookEventId`, commit `4c188f92`). New `absenceToGraphEvent` emits a multi-day span. Thin-pane rule: all calendar logic in `task-manager.tsx` (mirror the SP3 Change block at ~line 1841); 4 props threaded to the resources panel toolbar. Settings row + i18n. Release v0.159.0.
 
 **Tech Stack:** Next.js (forked) / React 19 / TypeScript, vitest, Microsoft Graph, Tailwind v4 brand tokens.
 

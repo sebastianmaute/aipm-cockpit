@@ -1623,7 +1623,7 @@ Add a Timelog section to `docs/AGENTS/integrations.md` covering: the interval ca
 
 - [ ] **Step 2: Close 224**
 
-Mark §224 CLOSED with the shipping version, and leave §610 open.
+Mark §224 CLOSED with the shipping version, and leave §616 open.
 
 - [ ] **Step 3: Bump every version carrier**
 

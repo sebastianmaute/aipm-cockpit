@@ -34,7 +34,7 @@ modal, because `VIEW_CALLOUTS` is keyed by `AppView`, which cannot name one.
 
 §424 instructs the reader to re-measure its own numbers with a multiline scan rather than trust
 them, because several call sites break the `<Modal` tag across lines. Re-measured 2026-09-09 against
-`origin/main` at `6ad4d18b`; **all four numbers reproduce exactly**:
+`origin/main` at `d1bd2034`; **all four numbers reproduce exactly**:
 
 ```bash
 node -e '

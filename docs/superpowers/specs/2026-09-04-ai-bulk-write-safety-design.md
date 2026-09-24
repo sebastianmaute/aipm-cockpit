@@ -8,8 +8,8 @@ corrections win, because they were measured during execution and this was writte
 ★ Phase 1 (dispatcher undo capture) is wired in production; the Phase 2 staging gate, review card
 and apply path exist but have NO production caller — see `docs/open-followups.md` §377.
 **Track:** B of a four-track decomposition (A authoring completeness · **B bulk-write safety** ·
-C planning/calendar writers · D ingest breadth). D shipped as 0.281.0 "Womack" (`7f90fd81`).
-**Base:** `origin/main` at `7f90fd81`, `APP_VERSION = "0.281.0"`.
+C planning/calendar writers · D ingest breadth). D shipped as 0.281.0 "Womack" (`508a9923`).
+**Base:** `origin/main` at `508a9923`, `APP_VERSION = "0.281.0"`.
 
 ## Goal
 
@@ -362,4 +362,4 @@ do not intersect this slice's set, with two exceptions to watch:
   resolving the hunk, and `i18n.de.ts` is patched by node utf8 write with `\r\n` anchors, never the
   Edit tool.
 
-Register numbers §352-§359 are on `origin/main` as of `7f90fd81`; new filings start at §360.
+Register numbers §352-§359 are on `origin/main` as of `508a9923`; new filings start at §360.

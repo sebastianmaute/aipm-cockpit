@@ -831,7 +831,7 @@ Report the actual numbers — tests passed, coverage percentages, the final line
 ## Corrections discovered during implementation
 
 The tasks above are left as written — this plan is a record of what was PLANNED, not of what shipped.
-These are the claims implementation disproved. Each was re-verified against the tree at `7f13bf77`
+These are the claims implementation disproved. Each was re-verified against the tree at `068f41c4`
 before being listed here; where a claim admits a command, the command is given. Every line below is a
 NEW claim and inherits none of the verification of the thing it corrects — re-run the command rather
 than trusting the sentence.

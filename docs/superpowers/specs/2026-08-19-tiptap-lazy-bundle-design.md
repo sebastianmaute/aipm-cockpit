@@ -5,7 +5,7 @@ statically, so Tiptap SSRs and ships in the initial bundle".
 
 **Status:** design approved 2026-08-19. Not yet planned or implemented.
 
-**Branch:** `perf/tiptap-lazy-bundle`, off `d20ab9c1` (main at 0.248.0 "Bujold").
+**Branch:** `perf/tiptap-lazy-bundle`, off `c15a538d` (main at 0.248.0 "Bujold").
 
 ---
 
@@ -24,7 +24,7 @@ converting six files on the strength of "Tiptap is large".
 ## What §129's own table does not say
 
 §129 classifies the eight consumers by **import style**. Import style is not what puts bytes in the
-entry chunk — **reachability from the entry** is. Traced on `d20ab9c1`:
+entry chunk — **reachability from the entry** is. Traced on `c15a538d`:
 
 | Consumer | Chain to the entry | In the initial graph? |
 |---|---|---|
@@ -148,7 +148,7 @@ the direction of consistency.
 `next build` prints a route table with **Size** and **First Load JS** per route, plus a shared-chunk
 summary. Three pages exist — `/`, `/recovery`, `/msal-redirect` — and `/` is the application.
 
-1. Build `d20ab9c1` clean, record `/`'s First Load JS and every shared-chunk line.
+1. Build `c15a538d` clean, record `/`'s First Load JS and every shared-chunk line.
 2. Apply the conversion, build clean again, record the same figures.
 3. Report the delta on **both** `/` and the shared lines. A fall in one matched by a rise in the other
    is a null result (see the shared-chunk star above), not a win.

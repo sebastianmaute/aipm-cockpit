@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 vi.mock("./weight-suggestion-call", () => ({ runWeightSuggestion: vi.fn() }));
 import { runWeightSuggestion } from "./weight-suggestion-call";
@@ -6,6 +6,9 @@ import { useWeightSuggestions } from "./use-weight-suggestions";
 import { defaultNextActionsConfig } from "./settings-types";
 
 describe("useWeightSuggestions", () => {
+  // One module-level mock serves every test, so reset its calls and its resolved value before each:
+  // without this the "no-key" test sees the other tests' calls whenever a shuffle runs it last (§614).
+  beforeEach(() => { vi.mocked(runWeightSuggestion).mockReset(); });
   it("sets error 'no-key' and does not call when key blank", async () => {
     const { result } = renderHook(() => useWeightSuggestions({ apiKey: "  ", model: "claude-x" }));
     await act(async () => { await result.current.run("ctx", defaultNextActionsConfig, "weights"); });

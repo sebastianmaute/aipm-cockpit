@@ -6,7 +6,7 @@
 
 **Architecture:** Three small CI jobs and two pure script libraries. A tag guard fails when the tag disagrees with `src/app/version.ts`, without stopping the rest of the pipeline — every other quality and build job still runs; only the tag build's own `needs:` waits on that guard, so a drifted tag skips the publish job downstream of it; the existing manual `desktop-package` job splits into a hidden base plus a branch job and a tag job so artifact scope and retention can differ; a `release` stage job carries no `needs:` at all and relies on stage order (`dependencies: []` plus the default `when: on_success`) so it only runs once every earlier-stage job has succeeded, then calls the Releases API through `node:fetch` and attaches a per-tag artifact URL. All comparison and payload logic lives in pure, unit-tested `scripts/*-lib.mjs` modules — the CI YAML holds no logic.
 
-**Tech Stack:** GitLab CI (self-managed,  (GitLab)), `electronuserland/builder:wine`, Node 24 (`node:24-bookworm-slim`, global `fetch`), vitest over `scripts/**/*.test.mjs`, electron-builder NSIS.
+**Tech Stack:** GitLab CI (self-managed), `electronuserland/builder:wine`, Node 24 (`node:24-bookworm-slim`, global `fetch`), vitest over `scripts/**/*.test.mjs`, electron-builder NSIS.
 
 ---
 
@@ -54,7 +54,7 @@ Reproduce: `du -sm desktop/release/*` and `ls -l desktop/release/*.exe desktop/r
 
 ★★ **A local `desktop/release/` can hold TWO installers and that is not a bug.** electron-builder does not clean the directory, so a build predating the `artifactName` change leaves `aipm-cockpit Setup 0.301.0.exe` beside the new name — which is how a local `du` reports 500 MiB rather than 408. CI always starts clean. The globs chosen in Task 4 are self-protecting against this anyway: `*-setup.exe` does not match `aipm-cockpit Setup 0.301.0.exe` (capital S, spaces).
 
-★★★ **THE ARTIFACT IS 92.9 MiB (97.5 MB — the installer plus its blockmap) AND GITLAB'S DEFAULT `max_artifacts_size` IS 100 MB PER JOB.** That is ~7.1% headroom if GitLab's "MB" there means MiB, and only ~2.5% if it is decimal — which unit it applies is NOT established here, so plan for the smaller figure. The spec records that the settings endpoint is admin-only and unreadable from here — so **this instance's real limit is unknown**, and 100 MB is the documented default, not a measured fact about  (GitLab). One electron bump or a few more bundled assets crosses it, and the failure lands as an upload error *after* a successful build. Spike 1 measures it; Task 11 is where it is first observed.
+★★★ **THE ARTIFACT IS 92.9 MiB (97.5 MB — the installer plus its blockmap) AND GITLAB'S DEFAULT `max_artifacts_size` IS 100 MB PER JOB.** That is ~7.1% headroom if GitLab's "MB" there means MiB, and only ~2.5% if it is decimal — which unit it applies is NOT established here, so plan for the smaller figure. The spec records that the settings endpoint is admin-only and unreadable from here — so **this instance's real limit is unknown**, and 100 MB is the documented default, not a measured fact about this project. One electron bump or a few more bundled assets crosses it, and the failure lands as an upload error *after* a successful build. Spike 1 measures it; Task 11 is where it is first observed.
 
 ## File structure
 
@@ -764,7 +764,7 @@ stages:
 
 - [ ] **Step 2: Replace the `desktop-package` job with a base plus two jobs**
 
-`5fa964cf` already rewrote the comment block above the job — the header used to call the job MANUAL without distinguishing branch from tag, which stopped being true once this split exists, so it now names `desktop-package-tag` and says the tag path is automatic and BLOCKING. The rewritten header is reproduced below, verbatim, **extended** with the `★★`/`★★★` `allow_failure` notes. Replace from `desktop-package:` to the end of its `artifacts:` block with:
+`c70cbbbb` already rewrote the comment block above the job — the header used to call the job MANUAL without distinguishing branch from tag, which stopped being true once this split exists, so it now names `desktop-package-tag` and says the tag path is automatic and BLOCKING. The rewritten header is reproduced below, verbatim, **extended** with the `★★`/`★★★` `allow_failure` notes. Replace from `desktop-package:` to the end of its `artifacts:` block with:
 
 ```yaml
 # Windows desktop installer. On a BRANCH this stays MANUAL: the build is slow
@@ -3159,7 +3159,7 @@ Two things were ADDED, both checked against the code: step 3's access requiremen
 - Exit 2 covers a timeout, a 5xx, a 408/429 and a 2xx that does not confirm — a 201 included — and ALSO a redirect and a missing variable, which is why the block says those will not clear on a retry: the CLI's header calls every exit 2 "safe to retry", which is not the same as "fixed by a retry".
 - A retry after a landed create gets a 409 that `classifyExistingRelease` resolves to 0 only when the existing Release carries the link, and to 1 when it does not.
 - The two exit-1 messages are quoted verbatim from `classifyCreateResponse` (the 403 suffix) and `classifyExistingRelease` (the WITHOUT message), with `<tag>` and `<link>` standing for the interpolated values.
-- The two GitLab claims — a retried job makes GitLab run the skipped `publish-release`, and a per-tag artifact URL resolves only through a successful pipeline — are GitLab's documented behaviour as read, not measured on this project, and the block says so. The plan's original block had no recovery path, and `d65a70c8`'s covered only `publish-release`'s own exits; a cold review of Task 7 asked for the rest, because no `needs:` means ANY red gate on the tag pipeline holds the Release back.
+- The two GitLab claims — a retried job makes GitLab run the skipped `publish-release`, and a per-tag artifact URL resolves only through a successful pipeline — are GitLab's documented behaviour as read, not measured on this project, and the block says so. The plan's original block had no recovery path, and `fbb9ba19`'s covered only `publish-release`'s own exits; a cold review of Task 7 asked for the rest, because no `needs:` means ANY red gate on the tag pipeline holds the Release back.
 
 - [ ] **Step 3: Check the docs gates**
 

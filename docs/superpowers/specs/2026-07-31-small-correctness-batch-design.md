@@ -1,6 +1,6 @@
 # Small-correctness batch — §11 · §14 · §15 · §29
 
-_Design, 2026-07-31. Against HEAD `04a2ac32` (0.211.0 "Samatar" merged; branch `docs/eslint-major-deferred`
+_Design, 2026-07-31. Against HEAD `17ef2d3e` (0.211.0 "Samatar" merged; branch `docs/eslint-major-deferred`
 is one docs-only commit ahead of `main`)._
 
 Four entries from [`docs/open-followups.md`](../../open-followups.md), chosen as one themed batch: each
@@ -213,7 +213,7 @@ be re-selected.
    second file — hand-rolled button styling where a DS `Button` exists, and a fresh `dup:check` clone
    against a **BLOCKING** gate.
 3. `tabIndex={-1}` + `aria-hidden` on the owned input settles the duplicate-accessible-name failure
-   (fixed in `df507f95`) in ONE place, so neither site can regress into it. axe reports missing names,
+   (fixed in `308560b4`) in ONE place, so neither site can regress into it. axe reports missing names,
    never duplicated ones — nothing else would catch a regression.
 
 **Call sites (three).**
@@ -240,12 +240,12 @@ unchanged — it is the regression guard for reason 3.
 
 ## §29 — retire `form.noteLog`
 
-**Defect.** `fe779f32` removed `noteLog` from the submit payload — the log is write-through and owns
+**Defect.** `6c47daff` removed `noteLog` from the submit payload — the log is write-through and owns
 itself, so spreading a modal-open snapshot over the live row destroys any note added while the editor
 was open. But the field is still **seeded** into form state (`use-task-submit.ts:341`), where its only
 remaining reader is the disabled fallback button's count (`task-form-fields.tsx:632`) — permanently
 `0`, since nothing can write a note in create mode. Dead state that invites a future writer to put it
-back into `payload`, which is the data-loss bug `fe779f32` fixed.
+back into `payload`, which is the data-loss bug `6c47daff` fixed.
 
 **Design.**
 1. `task-form-fields.tsx:632` — the fallback count becomes a literal `0`. (`:615` keeps reading
