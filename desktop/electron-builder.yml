@@ -151,7 +151,8 @@ win:
   # See the electron-app-bundling design's Section 7 security note
   # (docs/superpowers/specs/2026-09-10-electron-app-bundling-design.md) --
   # unsigned means SmartScreen prompts on install. Updates come from GitHub
-  # Releases behind the approval-gated `release.yml` publish job, the tag
+  # Releases behind the `release.yml` publish job (its owner-approval pause
+  # is wired in but not yet configured -- see flip step 10a), the tag
   # ruleset, immutable releases, build-provenance attestations (once public)
   # and the sha512 in latest.yml (transfer corruption only, not a
   # substitution control) -- see

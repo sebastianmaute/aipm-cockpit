@@ -546,8 +546,9 @@ If the month's Actions minutes run out, follow [`docs/RUNBOOK.md`, "Actions minu
 Bump `src/app/version.ts`, run `npm run version:sync`, add the `CHANGELOG.md` section, merge to
 `main`, then tag the merge commit (`v<version>`, owner-only). A push of a `v*` tag runs
 `.github/workflows/release.yml`: `guard` checks the tag, `build` packages the Windows installer,
-`publish` waits for approval and then publishes the GitHub Release. Full steps, exit codes and
-withdrawing a bad release: [`docs/RUNBOOK.md`, "Publishing a desktop release (GitHub)"](docs/RUNBOOK.md#publishing-a-desktop-release-github).
+`publish` publishes the GitHub Release (an approval pause is wired in but not yet configured — see the
+RUNBOOK). Full steps, exit codes and withdrawing a bad release:
+[`docs/RUNBOOK.md`, "Publishing a desktop release (GitHub)"](docs/RUNBOOK.md#publishing-a-desktop-release-github).
 
 ## Pull request checklist
 

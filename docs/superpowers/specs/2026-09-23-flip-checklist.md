@@ -237,10 +237,12 @@ The order matters — do not reorder these steps.
     `gh api -X PATCH repos/sebastianmaute/aipm-cockpit/code-scanning/default-setup -f state=configured`.
   - Private vulnerability reporting (which `SECURITY.md` points to):
     `gh api -X PUT repos/sebastianmaute/aipm-cockpit/private-vulnerability-reporting`.
-  - If Task 8's environment step could not set the `release` environment's required reviewer while
-    the repository was private (a plan-tier limit), set it now — both calls, the reviewer AND the
-    branch policy (a custom deployment-branch policy with no entry would block `publish` from ever
-    deploying):
+  - The `release` environment's required reviewer could **not** be set while the repository is
+    private — measured 2026-09-24: `gh api -X PUT .../environments/release` with a `reviewers` array
+    returns HTTP 422 on this repository's plan. Its `v*`-tag deployment-branch policy DID apply from
+    that same call (`gh api repos/sebastianmaute/aipm-cockpit/environments/release --jq
+    '{rules:[.protection_rules[].type]}'` shows `branch_policy` today, not `required_reviewers`), so
+    `publish` currently runs with no approval pause (see `docs/RUNBOOK.md`). Set the reviewer now:
     ```bash
     gh api -X PUT repos/sebastianmaute/aipm-cockpit/environments/release --input - <<'EOF'
     {"reviewers":[{"type":"User","id":65776548}],"prevent_self_review":false,
@@ -248,11 +250,14 @@ The order matters — do not reorder these steps.
     EOF
     gh api -X POST repos/sebastianmaute/aipm-cockpit/environments/release/deployment-branch-policies -f name='v*' -f type=tag
     ```
+    The branch-policy `v*` entry likely already exists from the earlier attempt, so that `POST` may
+    answer "already exists" — harmless; only the `reviewers` field is new here.
   - Verify each: `gh api repos/sebastianmaute/aipm-cockpit --jq .security_and_analysis`,
     `gh api repos/sebastianmaute/aipm-cockpit/code-scanning/default-setup --jq .state`,
-    `gh api repos/sebastianmaute/aipm-cockpit/private-vulnerability-reporting --jq .enabled`, and (if
-    the environment step above ran) `gh api repos/sebastianmaute/aipm-cockpit/environments/release
-    --jq '{rules:[.protection_rules[].type]}'` expecting `required_reviewers` and `branch_policy`.
+    `gh api repos/sebastianmaute/aipm-cockpit/private-vulnerability-reporting --jq .enabled`, and
+    `gh api repos/sebastianmaute/aipm-cockpit/environments/release --jq
+    '{rules:[.protection_rules[].type]}'` expecting **both** `required_reviewers` and `branch_policy`
+    now (only `branch_policy` before this step).
   - Then the first real release (`docs/RUNBOOK.md`, "Publishing a desktop release (GitHub)") and the
     updater proof: the release after it is offered to, and updates, the installed copy through the
     dialog flow (design §4, rollout steps 4–5). Sub-project 5 closes only once that passes.

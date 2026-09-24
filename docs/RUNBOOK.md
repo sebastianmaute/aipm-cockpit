@@ -186,13 +186,18 @@ with real user data, have users take an export before rolling back.
    refuses it.
 3. The `release` workflow (`.github/workflows/release.yml`) runs `guard` →
    `build` (Windows, ~20-30 min — installs dependencies, builds the app and the
-   installer, uploads it as a workflow artifact) → waits for approval: Actions
-   → the run → "Review deployments" → approve `release`. Nothing is published
-   before that approval.
-4. Once approved, `publish` verifies the built files (`release:verify`), attests
-   build provenance (skipped while the repository is private), drafts the
-   GitHub Release, uploads the three files, then publishes. Check the release
-   page: exactly three assets, the CHANGELOG notes, not a draft.
+   installer, uploads it as a workflow artifact) → `publish`. `publish` runs in
+   the `release` environment, which is wired to pause for approval ("Review
+   deployments" on the run's Actions page) once a required reviewer is
+   configured on it. **As of 2026-09-24 no reviewer is configured** — GitHub
+   returns HTTP 422 for that rule on this private repository's plan — so
+   `publish` starts immediately once `build` finishes, with no pause to watch
+   for. The reviewer is added at flip step 10a; from then on, approve the run
+   the same way (Actions → the run → "Review deployments" → approve `release`).
+4. `publish` verifies the built files (`release:verify`), attests build
+   provenance (skipped while the repository is private), drafts the GitHub
+   Release, uploads the three files, then publishes. Check the release page:
+   exactly three assets, the CHANGELOG notes, not a draft.
 5. Exit codes: `release:verify` — 0 the files are exactly right, 1 named
    problems (fix the build, delete the tag, re-tag after a new commit), 2 could
    not check. `release:publish` — 0 published (or an identical release already

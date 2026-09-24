@@ -18,7 +18,7 @@ the best-practice settings a public project should have.
 
 | Question | Decision |
 |---|---|
-| Code signing | **Ship auto-update unsigned now.** No certificate exists (§487, §563). Integrity comes from HTTPS, the sha512 in `latest.yml`, immutable releases, provenance attestations and the approval gate on publishing. Signing stays an open follow-up. |
+| Code signing | **Ship auto-update unsigned now.** No certificate exists (§487, §563). Integrity comes from HTTPS, the sha512 in `latest.yml`, immutable releases, provenance attestations and the tag ruleset — plus the approval gate on publishing once its required reviewer is configured (flip step 10a; GitHub rejects the rule on this private repository's plan today). Signing stays an open follow-up. |
 | Update behaviour | **Ask, then install.** Nothing downloads or installs without a click. |
 | First release | **Rehearse privately, release after the flip.** A throwaway `-rc` prerelease proves the pipeline on the private repository; the first real release follows flip step 10. |
 | Pipeline shape | **Build and publish are separate jobs** (approach B). Only the publish job can write, and it installs no packages. |
@@ -160,12 +160,18 @@ Trigger: `push` of tags matching `v*`. Workflow-level `permissions: contents: re
 Now, while private:
 
 - **Tag ruleset** on `refs/tags/v*`: restrict creation, update and deletion; bypass for the admin role
-  only. Actions and non-admin tokens cannot create, move or delete a release tag.
-- **Immutable releases** enabled for the repository.
-- **Environment `release`:** required reviewer = the owner, self-review allowed, deployment limited to
-  tags matching `v*`.
-- **Actions policy:** require SHA pinning; allowed actions = GitHub-owned plus an explicit list of the
-  third-party actions the workflows use.
+  only. Actions and non-admin tokens cannot create, move or delete a release tag. **Active** (ruleset
+  "release tags", measured 2026-09-24).
+- **Immutable releases** enabled for the repository. **Active** (measured 2026-09-24).
+- **Environment `release`:** deployment limited to tags matching `v*` — **active**. Required reviewer =
+  the owner, self-review allowed — **NOT active**: GitHub returns HTTP 422 for the reviewers field on
+  this private repository's plan (measured 2026-09-24), so it is set at flip step 10a instead, and
+  until then `publish` runs with no approval pause.
+- **Actions policy:** require SHA pinning — **active**. Allowed actions: the plan was GitHub-owned plus
+  an explicit third-party allowlist, but `allowed_actions=selected` (even with a `patterns_allowed[]=
+  rhysd/actionlint@*` entry) made `ci.yml` fail at startup (runs 36051255568, 36051362469) — **reverted
+  to `allowed_actions=all`** with `sha_pinning_required=true` kept on (measured 2026-09-24). The
+  narrower allowlist was not achievable without breaking the workflow.
 - **`SECURITY.md`:** supported = latest release only; report through GitHub private vulnerability
   reporting; installers are unsigned; how to verify a download with `gh attestation verify`.
 - **Dependabot:** `github-actions`, root `npm`, `desktop/` `npm`, weekly each. npm: one group for minor
@@ -215,19 +221,22 @@ decision.
 - **Verified:** `electron-updater` is inside `app.asar` (`node_modules/electron-updater/out/main.js`
   and its `builder-util-runtime` dependency) — the `build` job's electron-updater guard in
   `release.yml` checks this on every run, not just once.
-- The `release` environment's required-reviewer rule is available on a private repository under
-  GitHub Pro. If not, the rehearsal runs ungated and the rule is set at step 10a, before the first real
-  release.
-- The API or settings path for immutable releases.
-- Required SHA pinning accepts the digest-pinned `docker://` actionlint step.
+- **Measured 2026-09-24: NOT available.** The `release` environment's required-reviewer rule is
+  rejected (HTTP 422) on this private repository's plan. The rehearsal runs ungated; the rule is set at
+  step 10a, before the first real release.
+- **Measured 2026-09-24:** immutable releases are enabled for the repository (Task 8 Step 3).
+- **Measured 2026-09-24:** yes, under `allowed_actions=all` with `sha_pinning_required=true` — but NOT
+  under `allowed_actions=selected` (see the Actions policy bullet in section 3), which is why the
+  policy was reverted to `all`.
 
 ### Rollout order
 
 1. Implement and merge everything while private.
 2. **Rehearsal:** on a branch, `APP_VERSION` `1.14.0-rc.1`; merge; tag `v1.14.0-rc.1`. Expect: `guard`,
-   `build`, approval, `publish`; an immutable prerelease with exactly three files; `latest.yml`'s
-   sha512 equals the installer's. Install it on Windows and start it. Then delete the prerelease and
-   its tag (admin bypass on the tag ruleset).
+   `build`, `publish` — **ungated**, since the environment's required-reviewer rule cannot be set while
+   private (see "To verify"); an immutable prerelease with exactly three files; `latest.yml`'s sha512
+   equals the installer's. Install it on Windows and start it. Then delete the prerelease and its tag
+   (admin bypass on the tag ruleset).
 3. **Flip:** checklist step 10, then 10a.
 4. **First release** `v1.14.0`: publish; `gh attestation verify` on the downloaded installer passes;
    install it by hand once.
@@ -236,9 +245,9 @@ decision.
 
 ### Docs
 
-- `docs/RUNBOOK.md`: releasing on GitHub (tag, approve, verify), rollback, and withdrawing a bad
-  release — an immutable release cannot be edited, so publish a fixed version quickly and mark the bad
-  one as not latest.
+- `docs/RUNBOOK.md`: releasing on GitHub (tag, [approve once flip step 10a configures the reviewer],
+  verify), rollback, and withdrawing a bad release — an immutable release cannot be edited, so publish
+  a fixed version quickly and mark the bad one as not latest.
 - `CONTRIBUTING.md`: a release checklist replacing "no releases and no tags".
 - `AGENTS.md`: the CI and Releasing bullets.
 - `docs/AGENTS/ci.md`: `release.yml`; the legacy GitLab section is removed.
