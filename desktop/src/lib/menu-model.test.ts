@@ -22,8 +22,8 @@ describe("HELP_MENU_ITEMS", () => {
     // ORDER IS THE ASSERTION, not just membership. buildMenu maps this array
     // straight into the submenu, so the array IS the rendered order -- and
     // "Check for updates" sits last on purpose: it is the only entry that
-    // leaves the app for an external browser, and putting it there leaves the
-    // two entries that already shipped exactly where users found them.
+    // talks to the network, and putting it there leaves the two entries that
+    // already shipped exactly where users found them.
     expect(HELP_MENU_ITEMS.map((i) => i.id)).toEqual(["help", "version", "updates"]);
   });
 
@@ -53,7 +53,7 @@ describe("helpAction", () => {
   const TABLE: ReadonlyArray<readonly [HelpMenuItemId, HelpMenuAction]> = [
     ["help", "open-help"],
     ["version", "show-version"],
-    ["updates", "open-releases"],
+    ["updates", "check-for-updates"],
   ];
 
   it("maps each id to the action main.ts switches on", () => {
@@ -62,7 +62,7 @@ describe("helpAction", () => {
     // every other test here still passes -- the ids are unchanged, the labels
     // are unchanged, the menu still has three entries, and main.ts still has
     // a case for both actions. It just opens the Version panel when you ask
-    // for updates and opens a browser when you ask for the version. tsc
+    // for updates and checks for updates when you ask for the version. tsc
     // cannot see it either: both values inhabit the same union.
     for (const [id, action] of TABLE) {
       expect(helpAction(id)).toBe(action);

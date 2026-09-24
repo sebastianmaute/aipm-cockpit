@@ -309,8 +309,9 @@ delta shapes.
 
 ### Dependencies
 
-**Framework-coupled packages are pinned exactly, with no range:** `next`,
-`react`, `react-dom`, `eslint-config-next`. Every other dependency carries a
+**Framework-coupled packages are pinned exactly, with no range:** at the root,
+`next`, `react`, `react-dom`, `eslint-config-next`; in `desktop/`, `electron`,
+`electron-builder`, `electron-updater`. Every other dependency carries a
 caret so upstream fixes flow without a slice each. ★ The cost: a caret admits
 MINOR releases, not just patches — this section exists because `^16.2.11` ADMITS `16.3.2`. ★ It never resolved to it — no 16.3 tarball has
 ever entered the lock (`git log --all -S'next/-/next-16.3' -- package-lock.json` is empty). The

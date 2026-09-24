@@ -13,10 +13,10 @@ export interface HelpMenuItem {
 // submenu, so an edit here moves the menu under the user's cursor.
 //
 // ★ "Check for updates…" goes LAST, deliberately: it is the only entry that
-// leaves the app for an external browser, and appending it leaves the two
-// entries that already shipped exactly where anyone who has used the app
-// found them. The trailing "…" (U+2026, not three periods) is the Windows
-// convention for "this opens something" rather than acting immediately.
+// talks to the network, and appending it leaves the two entries that already
+// shipped exactly where anyone who has used the app found them. The trailing
+// "…" (U+2026, not three periods) is the Windows convention for "this opens
+// something" rather than acting immediately.
 export const HELP_MENU_ITEMS: readonly HelpMenuItem[] = [
   { id: "help", label: "Help" },
   { id: "version", label: "Version" },
@@ -29,7 +29,7 @@ export const HELP_MENU_ITEMS: readonly HelpMenuItem[] = [
 // job. Root tsconfig.json excludes `desktop/src/main.ts` and nothing else
 // here, so a mapping written in main.ts is typechecked only by the desktop
 // build, which is `allow_failure: true` on a merge request.
-export type HelpMenuAction = "open-help" | "show-version" | "open-releases";
+export type HelpMenuAction = "open-help" | "show-version" | "check-for-updates";
 
 // ★★★ A `Record` KEYED BY THE UNION, deliberately NOT a switch with a
 // `never` default. Both make a new HelpMenuItemId a compile error, but a
@@ -56,7 +56,7 @@ export type HelpMenuAction = "open-help" | "show-version" | "open-releases";
 const HELP_ACTIONS: Record<HelpMenuItemId, HelpMenuAction> = {
   help: "open-help",
   version: "show-version",
-  updates: "open-releases",
+  updates: "check-for-updates",
 };
 
 // ★ Returns `undefined` at runtime for an id outside the union -- which the
