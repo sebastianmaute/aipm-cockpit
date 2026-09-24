@@ -99,25 +99,48 @@ export function checkLatestYml(text, version, installer) {
   return problems;
 }
 
-/** `releases`: GitHub's `GET /repos/{r}/releases` items. `expected.assets[].sha256`: lowercase hex. */
+/** Compares one release's prerelease flag and assets against `expected`. Returns null when they
+ *  match, else a detail string naming the first mismatch. Shared by `classifyRelease` (a
+ *  published release) and `verifyDraft` (a still-draft one, checked before it is safe to
+ *  publish) so the two can never describe the same kind of mismatch differently.
+ *  `expected.assets[].sha256`: lowercase hex. */
+function releaseMismatch(release, expected) {
+  if (Boolean(release.prerelease) !== Boolean(expected.prerelease)) {
+    return `prerelease=${Boolean(release.prerelease)}, expected ${Boolean(expected.prerelease)}`;
+  }
+  const have = new Map((release.assets ?? []).map((a) => [a.name, a]));
+  for (const want of expected.assets) {
+    const a = have.get(want.name);
+    if (!a) return `lacks ${want.name}`;
+    if (a.size !== want.size || a.digest !== `sha256:${want.sha256}`) {
+      return `${want.name} differs (size or sha256)`;
+    }
+    have.delete(want.name);
+  }
+  if (have.size > 0) return `unexpected file ${[...have.keys()].join(", ")}`;
+  return null;
+}
+
+/** `releases`: GitHub's `GET /repos/{r}/releases` items. */
 export function classifyRelease(releases, expected) {
   const mine = releases.filter((r) => r && r.tag_name === expected.tag);
   if (mine.length === 0) return { state: "absent" };
   if (mine.length > 1) return { state: "conflict", detail: `${mine.length} releases carry ${expected.tag}` };
   const r = mine[0];
   if (r.draft) return { state: "draft", id: r.id };
-  if (Boolean(r.prerelease) !== Boolean(expected.prerelease)) {
-    return { state: "conflict", detail: `published with prerelease=${Boolean(r.prerelease)}, expected ${Boolean(expected.prerelease)}` };
-  }
-  const have = new Map((r.assets ?? []).map((a) => [a.name, a]));
-  for (const want of expected.assets) {
-    const a = have.get(want.name);
-    if (!a) return { state: "conflict", detail: `published release lacks ${want.name}` };
-    if (a.size !== want.size || a.digest !== `sha256:${want.sha256}`) {
-      return { state: "conflict", detail: `published ${want.name} differs (size or sha256)` };
-    }
-    have.delete(want.name);
-  }
-  if (have.size > 0) return { state: "conflict", detail: `unexpected file ${[...have.keys()].join(", ")}` };
+  const mismatch = releaseMismatch(r, expected);
+  if (mismatch) return { state: "conflict", detail: `published ${mismatch}` };
   return { state: "identical" };
+}
+
+/** After `gh release create`, checks the still-draft release for `expected.tag` carries exactly
+ *  the right prerelease flag and assets — BEFORE `gh release edit --draft=false` makes it
+ *  immutable. A mismatch caught here is still cheap to fix (delete the draft, retry); the same
+ *  mismatch found after publishing would need a human to inspect an already-live release. */
+export function verifyDraft(releases, expected) {
+  const mine = releases.filter((r) => r && r.tag_name === expected.tag);
+  if (mine.length === 0) return { ok: false, detail: `no release found for ${expected.tag} right after create` };
+  if (mine.length > 1) return { ok: false, detail: `${mine.length} releases carry ${expected.tag} right after create` };
+  const mismatch = releaseMismatch(mine[0], expected);
+  return mismatch ? { ok: false, detail: mismatch } : { ok: true };
 }

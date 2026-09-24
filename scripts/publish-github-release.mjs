@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 // Creates and publishes the GitHub Release for a tag from a verified release directory.
 // Usage: node scripts/publish-github-release.mjs <dir> <tag>   (env GITHUB_REPOSITORY, GH_TOKEN)
-// Exit: 0 published, or an identical release already was; 1 REFUSED — a published
-// release for the tag differs (immutable releases cannot be fixed in place: publish
-// a new version); 2 could not run or could not confirm — safe to re-run.
-// ★ Draft first, files, then publish: with immutable releases the files lock at publish.
+// Exit: 0 published, or an identical release already was.
+// 1 REFUSED — a human must act: a published release for the tag differs (immutable releases
+//   cannot be fixed in place: publish a new version instead), or the release could not be
+//   confirmed right after publishing (it is already live — inspect it by hand, do not re-run).
+// 2 could not run, or the still-unpublished draft this run just created does not match what
+//   was expected — safe to delete-and-retry, since nothing has gone live yet.
+// ★ Draft first, files, then publish: with immutable releases the files lock at publish, so the
+// draft is checked against `expected` one more time right before that happens.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -28,6 +32,9 @@ const gh = (args) =>
   execFileSync(ghBin, process.env.PUBLISH_RELEASE_TEST_GH ? [process.env.PUBLISH_RELEASE_TEST_GH, ...args] : args, {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
+    // ★ The default 1 MiB maxBuffer truncates `gh api .../releases` once the project has ~90-100
+    // releases (full notes bodies, assets, uploaders) — ENOBUFS, forever, on every future publish.
+    maxBuffer: 256 * 1024 * 1024,
   });
 
 try {
@@ -36,17 +43,22 @@ try {
   const { readSourceFrom, SOURCE_FILE } = await import("./version-sync-lib.mjs");
   const version = tag.slice(1);
   const { milestone } = readSourceFrom(readFileSync(SOURCE_FILE, "utf8"));
-  const files = lib.expectedAssets(version).map((n) => join(dir, n));
+  const assetNames = lib.expectedAssets(version);
+  const files = assetNames.map((n) => join(dir, n));
   const expected = {
     tag,
     prerelease: version.includes("-"),
     assets: files.map((f, i) => ({
-      name: lib.expectedAssets(version)[i],
+      name: assetNames[i],
       size: statSync(f).size,
       sha256: createHash("sha256").update(readFileSync(f)).digest("hex"),
     })),
   };
-  const list = () => JSON.parse(gh(["api", `repos/${repo}/releases`, "--paginate"]) || "[]");
+  // ★ --slurp + .flat(): `--paginate` alone concatenates pages into one array only on newer gh
+  // versions; wrapping each page and flattening here doesn't depend on which is installed.
+  // per_page=100 keeps a realistic release count to one page.
+  const list = () =>
+    JSON.parse(gh(["api", `repos/${repo}/releases?per_page=100`, "--paginate", "--slurp"]) || "[]").flat();
 
   let verdict = lib.classifyRelease(list(), expected);
   if (verdict.state === "identical") {
@@ -66,10 +78,25 @@ try {
     "--title", lib.releaseTitle(version, milestone), "--notes-file", notesFile,
     ...(expected.prerelease ? ["--prerelease"] : []),
   ]);
+
+  // ★ Check the still-draft release before flipping it live: a mismatch here (gh dropped an
+  // asset, a digest didn't come back, ...) is still cheap to fix — delete the draft and retry —
+  // where the same mismatch found AFTER --draft=false would mean an already-published, immutable
+  // release that only a human can act on.
+  const draftCheck = lib.verifyDraft(list(), expected);
+  if (!draftCheck.ok) {
+    fail(2, `created the draft for ${tag}, but it does not match — leaving it unpublished: ${draftCheck.detail}`);
+  }
+
   gh(["release", "edit", tag, "--repo", repo, "--draft=false"]);
 
   verdict = lib.classifyRelease(list(), expected);
-  if (verdict.state !== "identical") fail(2, `published, but could not confirm it (${verdict.state}${verdict.detail ? ": " + verdict.detail : ""})`);
+  if (verdict.state !== "identical") {
+    fail(
+      1,
+      `PUBLISHED ${tag}, but could not confirm it matches (${verdict.state}${verdict.detail ? ": " + verdict.detail : ""}) — the release is already live; inspect it by hand, do not just re-run.`,
+    );
+  }
   say(`ok — published ${tag} with ${expected.assets.map((a) => a.name).join(", ")}`);
   process.exit(0);
 } catch (err) {

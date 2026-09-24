@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   INSTALLER_DIR, LATEST_YML, installerName, expectedAssets, releaseTitle, changelogSection,
-  releaseNotes, parseLatestYml, checkLatestYml, classifyRelease,
+  releaseNotes, parseLatestYml, checkLatestYml, classifyRelease, verifyDraft,
 } from "./release-publish-lib.mjs";
 
 const SHA512 = "A".repeat(86) + "==";
@@ -124,5 +124,28 @@ describe("classifyRelease", () => {
   });
   it("refuses two releases for one tag", () => {
     expect(classifyRelease([rel(), rel({ id: 8 })], EXPECTED)).toMatchObject({ state: "conflict", detail: expect.stringMatching(/2 releases/) });
+  });
+});
+
+describe("verifyDraft", () => {
+  it("ok when the still-draft release already carries exactly the expected files and flag", () => {
+    expect(verifyDraft([rel({ draft: true })], EXPECTED)).toEqual({ ok: true });
+  });
+  it("flags the same mismatches classifyRelease would, while the release is still a draft", () => {
+    expect(verifyDraft([rel({ draft: true, assets: [rel().assets[0]] })], EXPECTED)).toMatchObject({
+      ok: false, detail: expect.stringMatching(/latest\.yml/),
+    });
+    expect(verifyDraft([rel({ draft: true, prerelease: true })], EXPECTED)).toMatchObject({
+      ok: false, detail: expect.stringMatching(/prerelease/),
+    });
+  });
+  it("treats a missing digest as a mismatch, never as a match", () => {
+    expect(verifyDraft([rel({ draft: true, assets: [{ name: "a.exe", size: 3 }, rel().assets[1]] })], EXPECTED).ok).toBe(false);
+  });
+  it("refuses when the tag is missing or ambiguous right after create", () => {
+    expect(verifyDraft([], EXPECTED)).toMatchObject({ ok: false, detail: expect.stringMatching(/no release/) });
+    expect(verifyDraft([rel({ draft: true }), rel({ draft: true, id: 8 })], EXPECTED)).toMatchObject({
+      ok: false, detail: expect.stringMatching(/2 releases/),
+    });
   });
 });
