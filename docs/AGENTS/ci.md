@@ -29,11 +29,14 @@ and the job ids in `.github/workflows/ci.yml` differ.
 
 ## Jobs
 
-Two workflows: `.github/workflows/ci.yml` (the required checks) and
-`.github/workflows/scheduled.yml` (weekly, see below). The design and its reasoning are in
-`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`. Read the YAML before relying on
-anything here — every job name, `needs:`, timeout and command below was checked against it when
-written, and nothing re-checks the prose.
+Three workflows: `.github/workflows/ci.yml` (the required checks), `.github/workflows/release.yml`
+(tag-triggered, see below) and `.github/workflows/scheduled.yml` (weekly, see below). `ci/gitlab-sync.yml`
+is NOT one of them — it is a GitLab-side CI config, run by GitLab's own CI configuration path, that
+only pushes GitHub's history into the read-only mirror. The design and its reasoning are in
+`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md` for `ci.yml`/`scheduled.yml` and
+`docs/superpowers/specs/2026-09-24-releases-and-updates-design.md` for `release.yml`. Read the YAML
+before relying on anything here — every job name, `needs:`, timeout and command below was checked
+against it when written, and nothing re-checks the prose.
 
 `ci.yml` runs on `pull_request` targeting `main` (GitHub checks out the PR's merge ref against current
 `main`), on every push to `main`, and on `workflow_dispatch`. ★★ Concurrency: a pull request's runs
@@ -124,7 +127,11 @@ re-resolved by hand.
   permissive DEV CSP. `playwright-report/` is uploaded on failure only (7 days).
 - **`prod-smoke`** (15 min, `needs: build`). Same container. Downloads `next-build` into `.next`
   instead of rebuilding, then `npm run e2e:smoke:prod`. ★★ The ONLY required check that sees the
-  nonce-only prod CSP (`src/proxy.ts`); the legacy section below carries the per-suite reasoning.
+  nonce-only prod CSP (`src/proxy.ts`): dev grants `'unsafe-inline'` on `style-src-elem` while prod is
+  nonce-only, so anything meeting the dev policy is blind to this class. `e2e` (above) starts its own
+  `npm run dev` server, so it meets the permissive policy too. The weekly, non-required `dast-zap`
+  (below) is the one other suite that serves a real prod build (`Dockerfile.dast` runs `npm run
+  start`), but it does not gate a pull request or a push to `main`.
 - **`semgrep`** (15 min). Runs in the `semgrep/semgrep` container, pinned by digest, not `:latest`.
   No `npm ci`. Scan 1 writes the full report (`p/typescript`, `p/react`, `p/owasp-top-ten`,
   `.semgrep/injection.yml`) as `semgrep.sarif` and does not fail on findings; scan 2 runs the same
@@ -191,9 +198,9 @@ on it and none of its jobs is a required check: a red run is the signal.
 Trigger: `push` of tags matching `v*`. Design: `docs/superpowers/specs/2026-09-24-releases-and-updates-design.md`. Workflow-level `permissions: contents: read`; `concurrency: group: release, cancel-in-progress: false` (a second tag never races or cancels the first). Every job has `timeout-minutes`, every `uses:` is SHA-pinned, every `actions/checkout` sets `persist-credentials: false`. ★ Only `publish` can write, and it installs no packages (no `npm ci`/`npm install`) — the installer is unsigned, so this gate is what stands in front of every installed copy's auto-update.
 
 - **`guard`** (ubuntu, 5 min). `node scripts/check-tag-version.mjs "$TAG"` (`npm run tag:check`) asserts the tag is `v` + `APP_VERSION` (a `-rc.<n>` suffix must match the same suffix in `version.ts`). `git merge-base --is-ancestor "$GITHUB_SHA" origin/main` refuses a tag on an unmerged commit. Outputs `version` (the tag with its leading `v` stripped) for the later jobs.
-- **`build`** (windows-latest, `needs: guard`, 45 min). `npm ci`, `NEXT_STANDALONE=1 npm run build`, `npm run desktop:copy-static`, `npm --prefix desktop ci`, `npm --prefix desktop run build`, `npm run desktop:package`. Two guards before upload: the **sharp guard** (same as `desktop-package`'s local build — the packaged tree must not carry `sharp`/`@img/sharp-*`) and the **electron-updater guard** — `asar list` on the packaged `app.asar` must show `node_modules/electron-updater/out/main.js` and `node_modules/builder-util-runtime` (the bracket class in the grep matches both `/` and `\`, since `asar list` reports the runner's native separator). Uploads one artifact holding exactly `aipm-cockpit-<version>-setup.exe`, its `.blockmap` and `latest.yml` (7-day retention; `if-no-files-found: error`).
+- **`build`** (windows-latest, `needs: guard`, 45 min). `npm ci`, `NEXT_STANDALONE=1 npm run build`, `npm run desktop:copy-static`, `npm --prefix desktop ci`, `npm --prefix desktop run build`, `npm run desktop:package`. Two guards before upload: the **sharp guard** — ported from the retired GitLab packaging job (the `.desktop-package` base job in the deleted `.gitlab-ci.yml`, shared by the blocking `desktop-package-tag`), with its positive control (`next/package.json` must exist, so a moved or missing tree fails loudly rather than passing a walk over nothing) — fails if `sharp`/`@img/sharp-*` is found nested at ANY depth under the packaged tree's `node_modules`, not just at the top level `desktop/electron-builder.yml`'s own filter can see; and the **electron-updater guard** — `asar list` on the packaged `app.asar` must show `node_modules/electron-updater/out/main.js` and `node_modules/builder-util-runtime` (the bracket class in the grep matches both `/` and `\`, since `asar list` reports the runner's native separator). Uploads one artifact holding exactly `aipm-cockpit-<version>-setup.exe`, its `.blockmap` and `latest.yml` (7-day retention; `if-no-files-found: error`). Both guards are pinned by `scripts/ci-workflow.test.mjs`'s `describe("release.yml", ...)`, not by a script-level test.
 - **`publish`** (ubuntu, `needs: [guard, build]`, `environment: release`, 15 min). The only job with write permission: `contents: write`, `id-token: write`, `attestations: write`. The `release` environment requires the owner's approval (Actions → the run → "Review deployments") before this job starts — nothing built earlier needed it. Steps: download the artifact; `npm run release:verify` (`scripts/verify-release-assets.mjs`, dependency-free); `actions/attest-build-provenance` **only when `!github.event.repository.private`** (while private the step is skipped with a logged line — attestations need GitHub Enterprise on a private repository); `npm run release:publish` (`scripts/publish-github-release.mjs` over `scripts/release-publish-lib.mjs`) — drafts the release (`gh release create --draft --verify-tag`, `--prerelease` for a suffixed tag), checks the still-draft release against the expected files, then `gh release edit --draft=false`. Immutable releases lock the files and the tag at that publish, which is why the draft is checked one more time right before it.
 - **Exit codes.** `release:verify` — 0 the three files are exactly right; 1 named problems (wrong or missing asset, `latest.yml`'s version/sha512/size/path mismatched against the installer's bytes); 2 could not check. `release:publish` — 0 published, or an identical release already exists; 1 a human must act (a published release for the tag differs — immutable releases cannot be fixed in place, publish a new version instead — or anything failed at or after the `--draft=false` edit, so the release may already be live and needs inspecting by hand); 2 could not run, or the still-unpublished draft this run just created did not match what was expected — safe to delete and retry, nothing has gone live yet.
-- **`release-publish-lib.mjs`** — pure, unit-tested (`release-publish-lib.test.mjs`): `installerName`/`releaseTitle`/`releaseNotes` (the CHANGELOG section for the version, plus a fixed unsigned-installer notice; throws if the section is missing) / `expectedAssets` / `checkLatestYml`. Its structural half cross-checks `release.yml` and `desktop/electron-builder.yml` — the upload paths equal `directories.output` joined with `installerName`, the blockmap and `latest.yml`.
+- **`release-publish-lib.mjs`** — pure decisions only, unit-tested by `release-publish-lib.test.mjs`: `installerName`/`releaseTitle`/`releaseNotes` (the CHANGELOG section for the version, plus a fixed unsigned-installer notice; throws if the section is missing) / `expectedAssets` / `checkLatestYml`. It does NOT cross-check `release.yml` or `desktop/electron-builder.yml` against itself — that structural half lives in `scripts/ci-workflow.test.mjs`'s `describe("release.yml", ...)` (the upload paths equal `expectedAssets` under `INSTALLER_DIR`) and `describe("electron-builder.yml agrees with the release library", ...)` (electron-builder's `artifactName`/`directories.output` match `installerName`/`INSTALLER_DIR`).
 
-The GitLab release pipeline was removed at sub-project 5; the GitLab project only mirrors GitHub through `ci/gitlab-sync.yml`.
+The whole `.gitlab-ci.yml` was removed at sub-project 5; the GitLab project only mirrors GitHub through `ci/gitlab-sync.yml`.

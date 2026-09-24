@@ -39489,13 +39489,17 @@ actual risk.
 ★ This is deliberately tied to the open publishing decision rather than filed as work. Do not close
 it by signing; close it by deciding, and sign if the decision is "public".
 
-**2026-09-24 (owner decision):** the publishing decision above is now "public, with GitHub Releases
-and auto-update, unsigned." Distribution moved from an internal share to `sebastianmaute/aipm-cockpit`'s
-public Releases page, exactly the case this entry names as the real risk. The gap is accepted for now,
-guarded by the approval-gated `publish` job, the tag ruleset, immutable releases, provenance
-attestations and `latest.yml`'s sha512 (see §487's 2026-09-24 paragraph for the same list in full) —
-none of which is a substitute for a signature, only a narrower set of ways a bad binary could reach a
-downloader. This entry stays open as the signing follow-up.
+**2026-09-24 (owner decision):** the open publishing decision this entry is tied to is now decided —
+"public, with GitHub Releases and auto-update, unsigned." That answers the ★ rule above ("close it by
+deciding") in one sense: the decision has been made. It does NOT close the entry, because the decision
+made is the one this entry flags as turning the gap real: distribution moves from an internal share to
+`sebastianmaute/aipm-cockpit`'s public Releases page once the repository is public, exactly the
+substituted-installer risk this entry names. So the ★ rule's other half still applies — sign if the
+decision is "public" — and that has not happened yet. The gap is accepted for now, guarded by the
+approval-gated `publish` job, the tag ruleset, immutable releases, provenance attestations and
+`latest.yml`'s sha512 (see §487's 2026-09-24 paragraph for the same list in full) — none of which is a
+substitute for a signature, only a narrower set of ways a bad binary could reach a downloader. This
+entry stays open as the signing follow-up.
 
 ## 564. `diagnostics-redact.ts` has no catch-all for an opaque token in free text — CLOSED 2026-09-21
 

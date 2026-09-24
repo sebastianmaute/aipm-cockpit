@@ -43,11 +43,14 @@ extraResources:
     # ★★ NO sharp. Next's standalone trace copies sharp -- the image optimizer
     # behind /_next/image -- into this node_modules as `sharp`,
     # `@img/sharp-<platform>` and `@img/sharp-libvips-<platform>`, plus its
-    # pure-JS dependency `@img/colour`. In CI the root `npm ci` that installs
-    # sharp runs in the `install` job, on Linux, and .desktop-package inherits
-    # that node_modules through `needs: [install]` -- so the trace shipped the
-    # LINUX binaries, which a Windows install can never load. A local Windows
-    # build is no better: its `@img/sharp-win32-x64` held the .node file
+    # pure-JS dependency `@img/colour`. Historically (the retired `.gitlab-ci.yml`)
+    # the root `npm ci` that installs sharp ran in a separate Linux `install`
+    # job, and the packaging job inherited that node_modules through
+    # `needs: [install]` -- so the trace shipped the LINUX binaries, which a
+    # Windows install can never load. The release workflow's `build` job
+    # (.github/workflows/release.yml) runs entirely on `windows-latest` and
+    # does its own `npm ci`, so it is in the SAME situation a local Windows
+    # build always was: its `@img/sharp-win32-x64` holds the .node file
     # without the libvips DLLs it links against. No installer has ever carried
     # a loadable sharp, and nothing needs one -- the app imports no next/image,
     # next.config sets no `images`, and it generates no metadata images (its
@@ -145,12 +148,14 @@ win:
   # package.json". A plain-string author is enough, because the package reader
   # parses it into `{ name }` (normalizePackageData.js `parsePerson`).
   #
-  # See the spec's Section 3 security note -- unsigned means SmartScreen
-  # prompts on install. Updates come from GitHub Releases behind the
-  # approval-gated `release.yml` publish job, the tag ruleset, immutable
-  # releases, build-provenance attestations (once public) and the sha512 in
-  # latest.yml (transfer corruption only, not a substitution control) --
-  # see docs/superpowers/specs/2026-09-24-releases-and-updates-design.md.
+  # See the electron-app-bundling design's Section 7 security note
+  # (docs/superpowers/specs/2026-09-10-electron-app-bundling-design.md) --
+  # unsigned means SmartScreen prompts on install. Updates come from GitHub
+  # Releases behind the approval-gated `release.yml` publish job, the tag
+  # ruleset, immutable releases, build-provenance attestations (once public)
+  # and the sha512 in latest.yml (transfer corruption only, not a
+  # substitution control) -- see
+  # docs/superpowers/specs/2026-09-24-releases-and-updates-design.md.
   signExecutable: false
 nsis:
   # Per-user install: corporate laptops routinely deny admin rights, and a

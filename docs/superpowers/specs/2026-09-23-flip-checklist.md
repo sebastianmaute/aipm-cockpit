@@ -238,16 +238,21 @@ The order matters — do not reorder these steps.
   - Private vulnerability reporting (which `SECURITY.md` points to):
     `gh api -X PUT repos/sebastianmaute/aipm-cockpit/private-vulnerability-reporting`.
   - If Task 8's environment step could not set the `release` environment's required reviewer while
-    the repository was private (a plan-tier limit), set it now:
+    the repository was private (a plan-tier limit), set it now — both calls, the reviewer AND the
+    branch policy (a custom deployment-branch policy with no entry would block `publish` from ever
+    deploying):
     ```bash
     gh api -X PUT repos/sebastianmaute/aipm-cockpit/environments/release --input - <<'EOF'
     {"reviewers":[{"type":"User","id":65776548}],"prevent_self_review":false,
      "deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}
     EOF
+    gh api -X POST repos/sebastianmaute/aipm-cockpit/environments/release/deployment-branch-policies -f name='v*' -f type=tag
     ```
   - Verify each: `gh api repos/sebastianmaute/aipm-cockpit --jq .security_and_analysis`,
     `gh api repos/sebastianmaute/aipm-cockpit/code-scanning/default-setup --jq .state`,
-    `gh api repos/sebastianmaute/aipm-cockpit/private-vulnerability-reporting --jq .enabled`.
+    `gh api repos/sebastianmaute/aipm-cockpit/private-vulnerability-reporting --jq .enabled`, and (if
+    the environment step above ran) `gh api repos/sebastianmaute/aipm-cockpit/environments/release
+    --jq '{rules:[.protection_rules[].type]}'` expecting `required_reviewers` and `branch_policy`.
   - Then the first real release (`docs/RUNBOOK.md`, "Publishing a desktop release (GitHub)") and the
     updater proof: the release after it is offered to, and updates, the installed copy through the
     dialog flow (design §4, rollout steps 4–5). Sub-project 5 closes only once that passes.

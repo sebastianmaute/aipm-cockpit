@@ -29,7 +29,7 @@ before your first edit — the rest is reference, reachable from here.
 |---|---|
 | [dashboard](docs/AGENTS/dashboard.md) | delta strip · KPI trends · arrangeable tile grid · coaching · density · digest |
 | [accessibility](docs/AGENTS/accessibility.md) | the axe gate · accessible + row-unique names · label-in-name · toggle state · what axe cannot see |
-| [ci](docs/AGENTS/ci.md) | the GitHub Actions jobs and required checks · the weekly workflow · a red check, minutes exhausted · the legacy GitLab pipeline's per-gate detail and exit-code splits |
+| [ci](docs/AGENTS/ci.md) | the GitHub Actions jobs and required checks · `release.yml` (tag-triggered releases) · the weekly workflow · a red check, minutes exhausted |
 | [ui-shell](docs/AGENTS/ui-shell.md) | Help · nav · focus/keyboard · surfaces · tables (`SortResizeTh` · `TableFilter`) · ★ **dismissal owns the Escape/Tab protocol — read it before touching any modal, popover or panel** |
 | [theming](docs/AGENTS/theming.md) | colour schemes · `--ui-*` tokens · AA derivation · branding · print · DS primitives |
 | [insights](docs/AGENTS/insights.md) | detect · reconcile · recommend · outcome · digest |
@@ -1269,7 +1269,7 @@ proves only that a backticked NAME is real, never that a CLAIM about it is true.
 |---|---|
 | [dashboard.md](docs/AGENTS/dashboard.md) | the landing cockpit — the arrangeable tile grid · delta strip · KPI trends · sparkline · coaching · density · digest |
 | [accessibility.md](docs/AGENTS/accessibility.md) | the a11y hard constraint — accessible names · row-unique per-row names (`buildRowTokens`) · WCAG 2.5.3 label-in-name · `ToggleButton` state + the pressed marker · what the axe gate scans and is silent on |
-| [ci.md](docs/AGENTS/ci.md) | CI on GitHub Actions — the eight required checks job by job · `scheduled.yml` · operating it · and, as legacy, the GitLab pipeline: every quality gate and its exit codes · desktop packaging · the release stage · where `quality-gate-bypass` existed |
+| [ci.md](docs/AGENTS/ci.md) | CI on GitHub Actions — the eight required checks job by job · `release.yml` (tag guard → Windows build → approval-gated publish, the sharp and electron-updater guards, exit codes) · `scheduled.yml` · operating it |
 | [ui-shell.md](docs/AGENTS/ui-shell.md) | Help system · navigation & landing · focus/keyboard · surfaces & controls · tables (`SortResizeTh` · `TableFilter`) · ★ **dismissal (the Escape/Tab protocol — read before touching any modal, popover or panel)** |
 | [theming.md](docs/AGENTS/theming.md) | colour schemes · the `--ui-*` token families · AA derivation · the dark-mode hover trap · branding · print · design-system primitives |
 | [insights.md](docs/AGENTS/insights.md) | detect → reconcile → recommend → outcome → digest |

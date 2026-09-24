@@ -140,7 +140,7 @@ fresh repository — and issue numbers are preserved across the move.
 
 ### 5. Releases, tags, and the update feed
 
-**Status 2026-09-24:** implemented and merged (design
+**Status 2026-09-24:** implemented on branch `docs/sp5-releases-design` (PR pending) (design
 [2026-09-24-releases-and-updates-design.md](2026-09-24-releases-and-updates-design.md), plan
 `docs/superpowers/plans/2026-09-24-releases-and-updates.md`). Rehearsal and the first real release
 are flip steps 10 and 10a — see

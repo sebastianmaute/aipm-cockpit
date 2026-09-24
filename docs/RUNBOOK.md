@@ -179,13 +179,16 @@ with real user data, have users take an export before rolling back.
    it), then merge to `main`.
 2. Tag the merge commit: `git tag v<version> <sha> && git push origin v<version>`.
    The tag ruleset restricts creation of `refs/tags/v*` to the owner. The tag
-   **must** match `APP_VERSION` (`tag:check`'s `guard` job runs it as soon as
-   the workflow starts; exit 1 is drift, exit 2 means it could not scan), and
-   the tagged commit must be an ancestor of `origin/main` or `guard` refuses it.
+   **must** match `APP_VERSION` (the `guard` job runs
+   `node scripts/check-tag-version.mjs "$TAG"` — `npm run tag:check` — as soon
+   as the workflow starts; exit 1 is drift, exit 2 means it could not scan),
+   and the tagged commit must be an ancestor of `origin/main` or `guard`
+   refuses it.
 3. The `release` workflow (`.github/workflows/release.yml`) runs `guard` →
-   `build` (Windows, ~20-30 min) → waits for approval: Actions → the run →
-   "Review deployments" → approve `release`. Nothing downloads or writes
-   anything before that approval.
+   `build` (Windows, ~20-30 min — installs dependencies, builds the app and the
+   installer, uploads it as a workflow artifact) → waits for approval: Actions
+   → the run → "Review deployments" → approve `release`. Nothing is published
+   before that approval.
 4. Once approved, `publish` verifies the built files (`release:verify`), attests
    build provenance (skipped while the repository is private), drafts the
    GitHub Release, uploads the three files, then publishes. Check the release

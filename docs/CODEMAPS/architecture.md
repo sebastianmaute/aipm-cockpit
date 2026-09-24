@@ -67,9 +67,11 @@ strip), **popout** (read-only mirror, no header). A new top-bar control must be 
 
 ## CI gates (GitHub Actions)
 
-`static → unit → unit-shuffled → build → e2e → prod-smoke → semgrep → audit`, all required checks on
-every pull request and push to `main`; a separate tag-triggered `release.yml` builds and publishes
-the desktop installer. Job detail is in `docs/AGENTS/ci.md`; enumerate the ids from the source with
+`static · unit · unit-shuffled · build · e2e · prod-smoke · semgrep · audit`, all required checks on
+every pull request and push to `main` (not a chain — the only `needs:` edges are `unit-shuffled` on
+`unit`, and `e2e`/`prod-smoke` both on `build`; the rest run independently); a separate tag-triggered
+`release.yml` builds and publishes the desktop installer. Job detail is in `docs/AGENTS/ci.md`;
+enumerate the ids from the source with
 `awk '/^jobs:/{f=1;next} f && /^  [a-z][a-zA-Z0-9_-]*:/{print}' .github/workflows/ci.yml` (lint fails
 on any warning, `--max-warnings=0`).
 E2E includes an axe pass over the 17 `A11Y_VIEWS` × 7 scheme combos plus a Kanban scan per combo, one
