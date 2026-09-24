@@ -291,18 +291,21 @@ describe("release.yml", () => {
     const b = jobBlock(RELEASE, "build");
     expect(b).toMatch(/^\s+runs-on: windows-latest$/m);
     const V = "${{ needs.guard.outputs.version }}";
-    // R3: the upload `path:` lines are the only ones that are *only* whitespace followed by a
-    // `desktop/release/...` path — the `ls -l`/`find` lines in the same job embed the same prefix
-    // mid-line (after `ls -l "` or `if find `), so a plain `^\s+desktop/release/\S+$` never matches
-    // them: `^` only anchors right after the line's leading whitespace, and there `l`/`i` sits where
-    // this pattern expects `d`. The `\S+` in the brief's original regex COULD still match those paths
-    // if it anchored differently, but more importantly it can never match a paths: line here at all,
-    // because the version placeholder ${{ needs.guard.outputs.version }} contains spaces, so `\S+`
-    // stops at the first `${{` and never reaches the trailing `-setup.exe` etc — the match dies before
-    // `$` is satisfied and the whole line is skipped. `.+?` (any char, non-greedy, forced by `\s*$` to
-    // extend to the true end of line) matches the full path including the embedded spaces instead.
+    // R3: the version expression contains spaces, so a `\S+` path regex would stop at its first
+    // `${{` and never match a `paths:` line at all; `\s*$` forces the non-greedy `.+?` to take the
+    // whole line instead. The `ls -l`/`find` lines in the same job never match either way: `^`
+    // anchors right after the leading whitespace, which is `l`/`i` there, not `d`.
     const paths = [...b.matchAll(/^\s+(desktop\/release\/.+?)\s*$/gm)].map((m) => m[1].replaceAll(V, "9.9.9"));
     expect(paths).toEqual(expectedAssets("9.9.9").map((f) => `${INSTALLER_DIR}/${f}`));
+  });
+
+  // R4 (MINOR 4): pin the ported sharp guard itself, not just its presence as prose. The positive
+  // control (`next/package.json`) proves the walk isn't vacuous against a moved/missing tree; the
+  // `@img/sharp-*` arm is the nested-package case the electron-builder.yml filter cannot see.
+  it("guards against a moved packaged tree and a nested sharp copy", () => {
+    const b = jobBlock(RELEASE, "build");
+    expect(b).toMatch(/test -f "\$nm\/next\/package\.json"/);
+    expect(b).toMatch(/@img\/sharp-\*/);
   });
 });
 

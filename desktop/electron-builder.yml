@@ -79,8 +79,8 @@ extraResources:
 # electron-builder flips these into the packaged Electron binary's fuse wire
 # (app-builder-lib's `FuseOptionsV1`, backed by @electron/fuses) after
 # packaging -- they only take effect in a PACKAGED build, never in `npm run
-# dev`/`electron .`, so nothing local exercises them; the manual
-# `desktop-package` CI job is the only thing that runs this step.
+# dev`/`electron .`, so nothing local exercises them; the release workflow's
+# `build` job (.github/workflows/release.yml) is what runs this step in CI.
 electronFuses:
   # Stops `ELECTRON_RUN_AS_NODE=1` turning the shipped exe into a
   # general-purpose Node interpreter. The app's own Next server does NOT
