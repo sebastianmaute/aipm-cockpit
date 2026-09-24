@@ -48,12 +48,17 @@ workflow test pins it to the `engines` floor). `.github/dependabot.yml` keeps
 the action SHAs current weekly; ★ it does NOT cover container digests (semgrep, actionlint), which are
 re-resolved by hand.
 
-- **`static`** (15 min). `npm ci`, then writes the `LEAK_LIST` secret to
+- **`static`** (15 min). `npm ci`, then `npm --prefix desktop ci --ignore-scripts` (electron's and
+  electron-updater's TYPES only — the desktop shell is never built or run here; that install is what
+  lets `desktop:typecheck` run instead of skipping), then writes the `LEAK_LIST` secret to
   `$RUNNER_TEMP/leak-list.txt` and exports `LEAK_LIST_FILE` through `$GITHUB_ENV`. An empty or missing
   secret writes an empty list, and `leaks:check` exits 2 on it — red, never a silent pass. Dependabot
   PRs read `LEAK_LIST` from Dependabot's own secret store. Then
   `node scripts/gate-local.mjs --group static --keep-going`: every `static` step of the shared gate
-  list, each one run even after an earlier one fails, with a pass/fail table appended to the step
+  list — including `desktop:typecheck` (`tsc -p desktop/tsconfig.json --noEmit`, covering
+  `desktop/src/main.ts` and its siblings, which the root `tsc --noEmit` excludes; without the
+  desktop install above it would exit 2 rather than silently pass) — each one run even after an
+  earlier one fails, with a pass/fail table appended to the step
   summary and exit 1 if any step failed. ★★ Under CI (env `CI` set) an unset `LEAK_LIST_FILE` FAILS
   the leak step with code 2; only a local run skips it. A failing row carries its reason when the
   gate list supplied one, so that case reads `FAIL (exit 2; LEAK_LIST_FILE unset under CI)` while

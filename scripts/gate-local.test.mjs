@@ -99,7 +99,7 @@ describe("GATE_STEPS", () => {
 
   it("keeps the pre-existing steps in their pre-existing order", () => {
     expect(GATE_STEPS.filter((s) => !s.requiresEnv).map((s) => s.argv.slice(0, 3).join(" "))).toEqual([
-      "npm run lint", "npx tsc --noEmit", "npm run test:coverage", "npm run test:shuffle", "npm run dup:check",
+      "npm run lint", "npx tsc --noEmit", "npm run desktop:typecheck", "npm run test:coverage", "npm run test:shuffle", "npm run dup:check",
       "npm run size:check", "npm run docs:symbols:check", "npm run docs:claims:check", "npm run docs:scripts:check",
       "npm run followups:status:check", "npm run followups:index:check", "npm run followups:workitems:check",
       "npm run version:check", "npm run build",

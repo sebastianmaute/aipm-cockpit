@@ -47,6 +47,7 @@ const s = (group, argv, extra = {}) => ({ group, argv, ...extra });
 export const GATE_STEPS = [
   s("static", ["npm", "run", "lint"]),
   s("static", ["npx", "tsc", "--noEmit"]),
+  s("static", ["npm", "run", "desktop:typecheck"]),
   s("unit", ["npm", "run", "test:coverage", "--", `--maxWorkers=${VITEST_WORKERS}`]),
   s("unit-shuffled", ["npm", "run", "test:shuffle", "--", `--maxWorkers=${VITEST_WORKERS}`]),
   s("static", ["npm", "run", "dup:check"]),

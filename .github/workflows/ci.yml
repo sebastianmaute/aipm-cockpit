@@ -38,6 +38,8 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci
+      # desktop:typecheck needs electron's types; the binary itself is not needed.
+      - run: npm --prefix desktop ci --ignore-scripts
       # An empty or missing secret writes an empty list, and leaks:check exits 2 on it: red, never
       # a silent pass. Dependabot PRs read LEAK_LIST from Dependabot's own secret store.
       - name: Write the leak list
