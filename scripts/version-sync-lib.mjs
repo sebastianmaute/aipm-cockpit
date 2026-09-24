@@ -58,6 +58,18 @@ export function decodeBadgeText(text) {
   return text.replace(/_/g, " ");
 }
 
+/** shields.io splits a badge path on single `-`, so a prerelease version
+ *  (`1.14.0-rc.1`) must travel as `1.14.0--rc.1`. Without this the badge's
+ *  message ends at `v1.14.0` and the rest is read as a colour — silently. */
+export function encodeBadgeVersion(value) {
+  return value.replace(/-/g, "--");
+}
+
+/** Inverse of `encodeBadgeVersion`. */
+export function decodeBadgeVersion(text) {
+  return text.replace(/--/g, "-");
+}
+
 // Each descriptor carries one or two patterns. `kind` says which source value a
 // pattern is compared against: "version" or "milestone". A pattern MAY carry
 // `encode`/`decode` when the file's own syntax cannot hold the raw value — see
@@ -105,7 +117,13 @@ export const SATELLITES = [
     file: "README.md",
     label: "README shields badge",
     patterns: [
-      { key: "version", kind: "version", re: /(badge\/version-v)([^_]+)(_%22)/ },
+      {
+        key: "version",
+        kind: "version",
+        re: /(badge\/version-v)([^_]+)(_%22)/,
+        encode: encodeBadgeVersion,
+        decode: decodeBadgeVersion,
+      },
       {
         key: "milestone",
         kind: "milestone",

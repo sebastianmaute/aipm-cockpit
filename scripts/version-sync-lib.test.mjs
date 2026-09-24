@@ -19,7 +19,9 @@ import { describe, expect, it } from "vitest";
 import {
   SATELLITES,
   applyValue,
+  decodeBadgeVersion,
   diffSatellite,
+  encodeBadgeVersion,
   readSourceFrom,
   readValue,
 } from "./version-sync-lib.mjs";
@@ -257,5 +259,22 @@ describe("desktop/package-lock.json satellite", () => {
       }
       expect(m[2]).toMatch(/^\d+\.\d+\.\d+$/);
     }
+  });
+});
+
+describe("README badge carries a prerelease version", () => {
+  const readme = SATELLITES.find((s) => s.file === "README.md");
+  const TEXT = "[![version](https://img.shields.io/badge/version-v1.13.2_%22Connelly%22-2e7d32)](./CHANGELOG.md)\n";
+
+  it("doubles every dash, because shields.io splits badge fields on a single dash", () => {
+    expect(encodeBadgeVersion("1.14.0-rc.1")).toBe("1.14.0--rc.1");
+    expect(encodeBadgeVersion("1.14.0")).toBe("1.14.0");
+    expect(decodeBadgeVersion("1.14.0--rc.1")).toBe("1.14.0-rc.1");
+  });
+
+  it("round-trips a prerelease version through applyValue and readValue", () => {
+    const out = applyValue(readme, TEXT, "1.14.0-rc.1", "Connelly");
+    expect(out).toContain("badge/version-v1.14.0--rc.1_%22Connelly%22-2e7d32");
+    expect(readValue(readme, out)).toEqual({ version: "1.14.0-rc.1", milestone: "Connelly" });
   });
 });
