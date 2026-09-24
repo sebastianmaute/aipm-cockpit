@@ -5,14 +5,39 @@ const NOTES_MAX = 1500;
 const ERROR_MAX = 300;
 
 export type UpdateTrigger = "startup" | "manual";
+// The updater has exactly two long-running operations that can fail: asking the feed whether an
+// update exists, and pulling the installer bytes down. Fix round 1 (review R11): a download failure
+// was reported using whatever `trigger` the CHECK started with, so a startup-triggered download (the
+// user clicked "Download and install" after a silent startup prompt) failed in total silence. The
+// phase, not the trigger, decides whether a download error is shown -- see decideOnError.
+export type UpdatePhase = "checking" | "downloading";
 export type UpdateDecision =
   | { kind: "silent" }
   | { kind: "prompt"; version: string; notes: string }
   | { kind: "up-to-date" }
-  | { kind: "error"; message: string };
+  | { kind: "error"; phase: UpdatePhase; message: string };
 
-export function shouldStartCheck(inFlight: boolean): boolean {
-  return !inFlight;
+// What a new check request should do given what the updater is already doing. Replaces the old
+// `shouldStartCheck(inFlight: boolean): boolean`, which only ever dropped a redundant request with a
+// log line -- silently, even for a MANUAL request, which is the request a user is actively waiting on
+// (fix round 1, review R11 Important 3 and Minor 1).
+export interface UpdaterActivity {
+  checking: boolean;
+  downloading: boolean;
+  // Whether one of the updater's OWN dialogs (available/ready/error/up-to-date/busy) is on screen
+  // right now. Deliberately not scoped to just the "Update available" prompt Minor 1 named -- any of
+  // updater.ts's dialogs being open makes a second one redundant for the same reason.
+  prompting: boolean;
+}
+export type CheckRequestDecision = "start" | "promote" | "downloading" | "prompting";
+
+export function decideCheckRequest(activity: UpdaterActivity): CheckRequestDecision {
+  // Order matters: a dialog on screen already reflects the most recent outcome (including a
+  // "downloading" one), so it wins over the "downloading" state below.
+  if (activity.prompting) return "prompting";
+  if (activity.downloading) return "downloading";
+  if (activity.checking) return "promote";
+  return "start";
 }
 
 export function decideOnAvailable(
@@ -28,13 +53,32 @@ export function decideOnNotAvailable(trigger: UpdateTrigger): UpdateDecision {
   return trigger === "manual" ? { kind: "up-to-date" } : { kind: "silent" };
 }
 
-export function decideOnError(trigger: UpdateTrigger, err: unknown): UpdateDecision {
-  if (trigger !== "manual") return { kind: "silent" };
-  return { kind: "error", message: clip(err instanceof Error ? err.message : String(err), ERROR_MAX) };
+// A CHECKING-phase error stays silent for a startup trigger, same as before. A DOWNLOADING-phase
+// error is shown regardless of trigger: the user already clicked "Download and install" to get here,
+// so silence is never correct once bytes were meant to move -- see the UpdatePhase doc comment above.
+export function decideOnError(trigger: UpdateTrigger, phase: UpdatePhase, err: unknown): UpdateDecision {
+  if (phase === "checking" && trigger !== "manual") return { kind: "silent" };
+  return { kind: "error", phase, message: clip(err instanceof Error ? err.message : String(err), ERROR_MAX) };
+}
+
+function isHighSurrogate(code: number): boolean {
+  return code >= 0xd800 && code <= 0xdbff;
 }
 
 function clip(s: string, max: number): string {
-  return s.length <= max ? s : `${s.slice(0, max - 1)}…`;
+  if (s.length <= max) return s;
+  let end = max - 1; // room for the trailing ellipsis
+  // Don't cut a surrogate pair in half: back off one more code unit when the character just before
+  // the cut is a high surrogate, or the pair's low half would be dropped and a lone high surrogate
+  // would be left dangling at the end of the clipped string (fix round 1, review R11 Minor 3).
+  if (end > 0 && isHighSurrogate(s.charCodeAt(end - 1))) end -= 1;
+  return `${s.slice(0, end)}…`;
+}
+
+function decodeNumericEntities(s: string): string {
+  return s
+    .replace(/&#x([0-9a-f]+);/gi, (_m, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_m, dec: string) => String.fromCodePoint(Number(dec)));
 }
 
 export function notesToPlainText(notes: unknown, max = NOTES_MAX): string {
@@ -43,10 +87,25 @@ export function notesToPlainText(notes: unknown, max = NOTES_MAX): string {
     : typeof notes === "string"
       ? notes
       : "";
-  const text = raw
-    .replace(/<\/(p|li|h[1-6]|div)>|<br\s*\/?>/gi, "\n")
-    .replace(/<[^>]*>/g, "")
-    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+  const text = decodeNumericEntities(
+    raw
+      // Drop <script>/<style> blocks WITH their contents -- the generic tag-strip below only removes
+      // the TAGS, which would otherwise leave a script body's text (e.g. `alert(1)`) sitting in the
+      // "plain text" output (fix round 1, review R11 Minor 3).
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<\/(p|li|h[1-6]|div)>|<br\s*\/?>/gi, "\n")
+      .replace(/<[^>]*>/g, "")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"'),
+  )
+    // &amp; decodes LAST, after every other named/numeric entity: a source string genuinely meaning
+    // the literal text "&lt;" is escaped upstream as "&amp;lt;", and decoding &amp; first would turn
+    // that into "&lt;" in time to be caught by the &lt; replace above and double-decoded into "<"
+    // (fix round 1, review R11 Minor 3).
+    .replace(/&amp;/g, "&")
     .split("\n").map((l) => l.trim()).join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();

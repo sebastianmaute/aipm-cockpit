@@ -500,7 +500,7 @@ function buildMenu(): void {
 }
 
 async function start(): Promise<void> {
-  updater = createUpdater({ log, window: () => (win && !win.isDestroyed() ? win : null) });
+  updater = await createUpdater({ log, window: () => (win && !win.isDestroyed() ? win : null) });
   buildMenu();
   win = new BrowserWindow({
     width: 1400,

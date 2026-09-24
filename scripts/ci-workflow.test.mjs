@@ -307,6 +307,23 @@ describe("release.yml", () => {
     expect(b).toMatch(/test -f "\$nm\/next\/package\.json"/);
     expect(b).toMatch(/@img\/sharp-\*/);
   });
+
+  // Fix round 1 (review R11 Important 1b): a static import of ./updater in main.ts means a missing
+  // electron-updater in the packaged app.asar breaks every installed copy at startup, not just the
+  // updater feature -- so this is a POSITIVE control (asar list's real output, grepped), not a prose
+  // claim about desktop/electron-builder.yml's `files:`.
+  it("guards that the packaged app actually contains electron-updater", () => {
+    const b = jobBlock(RELEASE, "build");
+    expect(b).toMatch(/asar=desktop\/node_modules\/\.bin\/asar/);
+    expect(b).toMatch(/app=desktop\/release\/win-unpacked\/resources\/app\.asar/);
+    expect(b).toMatch(/"\$asar" list "\$app"/);
+    // The runner is windows-latest, and asar list reports path.join()-native ("\") separators there
+    // (measured locally against a real package) -- pinned as a plain substring (not a regex) so this
+    // assertion needs no double-escaping of its own for the bracket class the guard's grep uses to
+    // accept either separator.
+    expect(b).toContain("node_modules[/\\\\]electron-updater[/\\\\]out[/\\\\]main\\.js");
+    expect(b).toContain("node_modules[/\\\\]builder-util-runtime");
+  });
 });
 
 describe("electron-builder.yml agrees with the release library", () => {

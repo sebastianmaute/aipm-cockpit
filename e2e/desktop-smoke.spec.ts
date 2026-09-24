@@ -248,6 +248,11 @@ async function launchPackagedApp(extraArgs: readonly string[] = []): Promise<Lau
   const profile = mkdtempSync(join(tmpdir(), "aipm-desktop-smoke-"));
   const child = spawn(PACKAGED_EXE, [`--user-data-dir=${profile}`, ...extraArgs], {
     stdio: "ignore",
+    // AIPM_DISABLE_UPDATE_CHECK=1 (fix round 1, review R11 Minor 5): this exe is a real packaged
+    // build, so main.ts's startup check would otherwise fire ~10s in and can pop a native "Update
+    // available"/"up to date" dialog no assertion here expects -- a MODAL dialog on a real OS window,
+    // which nothing in this spec closes, so a slow CI runner could hang a later test on it forever.
+    env: { ...process.env, AIPM_DISABLE_UPDATE_CHECK: "1" },
   });
   let spawnError: Error | undefined;
   child.once("error", (error) => {

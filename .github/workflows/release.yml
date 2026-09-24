@@ -79,6 +79,18 @@ jobs:
           test -f "$nm/next/package.json" || { echo "sharp guard: $nm/next/package.json is missing -- the packaged tree moved, or its node_modules did not ship"; exit 1; }
           hits=$(find "$nm" \( -path '*/node_modules/sharp' -o -path '*/node_modules/@img/sharp-*' \) -prune -print) || { echo "sharp guard: find failed under $nm"; exit 1; }
           if [ -n "$hits" ]; then echo "sharp guard: sharp is in the packaged app -- see the sharp filter in desktop/electron-builder.yml:"; echo "$hits"; exit 1; fi
+      - name: The packaged app actually contains electron-updater
+        shell: bash
+        run: |
+          asar=desktop/node_modules/.bin/asar
+          app=desktop/release/win-unpacked/resources/app.asar
+          test -f "$app" || { echo "electron-updater guard: $app is missing -- the packaged tree moved"; exit 1; }
+          listing=$("$asar" list "$app") || { echo "electron-updater guard: asar list failed on $app"; exit 1; }
+          # asar list reports path.join()-native separators -- on this windows-latest runner that is
+          # "\", verified locally where the same call prints "\node_modules\electron-updater\out\
+          # main.js" -- so the bracket class matches either separator rather than assuming one.
+          echo "$listing" | grep -qE 'node_modules[/\\]electron-updater[/\\]out[/\\]main\.js' || { echo "electron-updater guard: node_modules/electron-updater/out/main.js is not in the packaged app -- check desktop/package.json dependencies"; exit 1; }
+          echo "$listing" | grep -qE 'node_modules[/\\]builder-util-runtime([/\\]|$)' || { echo "electron-updater guard: node_modules/builder-util-runtime (electron-updater's own runtime dependency) is not in the packaged app"; exit 1; }
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-files

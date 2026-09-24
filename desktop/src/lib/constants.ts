@@ -21,8 +21,11 @@ export const APP_ORIGIN = `http://${APP_HOST}:${APP_PORT}`;
 // ★★ The installer is unsigned, so there is no code-signing check behind what
 // the feed hands back. Shipping the updater anyway (rather than requiring this
 // manual page forever) is a deliberate call, not an oversight: integrity comes
-// from HTTPS, the sha512 in `latest.yml`, GitHub's immutable releases and the
-// owner-approval gate on publishing a release in the first place -- see the
-// spec's auto-update section and register §487/§563.
+// from HTTPS, GitHub's immutable releases, the owner-approval gate on
+// publishing a release in the first place, and the sha512 in `latest.yml` --
+// which is computed from the very release it accompanies, so it guards
+// against TRANSFER corruption only (a bad download), not against a malicious
+// build; nothing here substitutes for code signing (fix round 1, review R11
+// Minor 4). See the spec's auto-update section and register §487/§563.
 export const RELEASES_URL =
   "https://github.com/sebastianmaute/aipm-cockpit/releases";
