@@ -444,7 +444,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§197](#197-appendtexts-return-value-is-over-claimed-by-one-word--focus-can-also-return-false) | `appendText`'s return value is over-claimed by one word — `focus` can also return false | — | — | open |
 | [§198](#198-a-block-delete-reads-its-baseline-at-click-time-not-at-menu-open-time) | A block delete reads its baseline at CLICK time, not at menu-open time | — | — | open |
 | [§199](#199-adding-a-block-at-a-narrow-pane-leaves-the-new-block-collapsed-read-only--closed-2026-09-02) | ~~Adding a block at a narrow pane leaves the NEW block collapsed read-only~~ | — | — | **CLOSED** 2026-09-02 (the fork decided (a): a paragraph insert carries the selection; every other kind unchanged) |
-| [§200](#200-internal-identifiers-ship-in-the-tracked-tree--blocks-flipping-the-github-mirror-public) | Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public | sub-project 3 rollout 2026-09-23: leak gate in CI, history proof FAILS on 7 session-trailer lines; GitLab #185 | before the flip, push history rewritten without the 7 trailer lines to a freshly created repository, then re-run `--expect clean` against it | open |
+| [§200](#200-internal-identifiers-ship-in-the-tracked-tree--blocks-flipping-the-github-mirror-public--closed-2026-09-24) | Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public — CLOSED 2026-09-24 | sub-project 3 rollout 2026-09-23: leak gate in CI, history proof FAILS on 7 session-trailer lines; GitLab #185 | closed at flip step 4: rewritten history on a fresh repository, `--expect clean` passes | closed |
 | [§201](#201-a-raw-control-byte-sits-in-jira-apits--the-nul-guard-cannot-see-it-but-the-binary-to-grep-headline-does-not-reproduce) | A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce | — | — | open |
 | [§202](#202-ooxml-media-machinery-for-document-images--s3c-2--closed-2026-08-22) | OOXML media machinery for document images — S3c-2 | — | — | **CLOSED** 2026-08-22 |
 | [§203](#203-the-asset-library-is-outside-axe-coverage-and-this-is-unfixable-at-the-gate) | The asset library is outside axe coverage, and this is unfixable at the gate | — | — | open |
@@ -16691,9 +16691,24 @@ block the assertion is about), **not** because the seeded ones are incapable. Th
 real is narrower than the old sentence claimed: no e2e spec drives the narrow-pane block editor, so
 the surface is unexercised by the seed even though it is reachable from it.
 
-## 200. Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public
+## 200. Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public — CLOSED 2026-09-24
 
-**Status:** open 2026-09-23 — the leak gate now runs in CI and has been proven red, but the history
+**Status:** CLOSED 2026-09-24 at step 4 of the flip checklist
+(`docs/superpowers/specs/2026-09-23-flip-checklist.md`). The history was rewritten once more
+(`scripts/rewrite-history/run.sh`), dropping the 7 session-trailer lines and every prose mention of
+the GitLab project number, and pushed to a freshly created `sebastianmaute/aipm-cockpit` (`main`,
+one carried branch and the 5 tags; no `refs/pull/*`). The old repository is `aipm-cockpit-archive`,
+private.
+- Red first: with a prose-form pattern added to a flip-only copy of the untracked list, `node
+  scripts/verify-rewrite.mjs --repo <mirror of the old repository> --expect dirty` found
+  blobHitLines=909 and messageHitLines=4 for that pattern alone.
+- Rewrite: 8,696 commits before and after; the tree of `main` is byte-identical.
+- Close condition: `node scripts/verify-rewrite.mjs --repo <mirror of the new repository> --allow
+  <allowlist> --expect clean` with the same list reported blobHitLines=0, messageHitLines=0,
+  trailerLines=0, unexpected=0, missing=0. The whole rewritten mirror, tags included, gave the same
+  zeros before anything was pushed.
+
+Status 2026-09-23 (kept as the record): open — the leak gate now runs in CI and has been proven red, but the history
 GitHub serves still carries 7 assistant session-trailer lines (last verified 2026-09-23 with
 `node scripts/verify-rewrite.mjs --repo <mirror of GitHub> --allow <allowlist> --expect clean`, which FAILS), merged to `main` through PRs #4 and
 #5 and kept in `refs/pull/*`, which the owner cannot delete. Owner decision 2026-09-23: before the
@@ -16723,8 +16738,6 @@ missed the two largest, measured by
 CI-bot identities) and `git log --all --grep="Claude-Session:" --fixed-strings --oneline` (3,048).
 The design that supersedes this entry's scope is `docs/superpowers/specs/2026-09-20-github-migration-phase1-design.md`.
 Sub-project 2 (`docs/superpowers/specs/2026-09-22-github-cutover-design.md`) publishes only the rewritten history, to a private GitHub repository recreated empty for it; the entry closes at the visibility flip, not before. Sixteen tracked docs files named the old GitLab project number in prose (a form the leak list does not cover — it covers the URL form); they were swept on 2026-09-22. The two remaining mentions are comments in `.gitlab-ci.yml`, which stays in the tree for now (sub-project 3 ports the pipeline from it, and `release-publish-lib.test.mjs` reads it); they must be removed or scrubbed before the visibility flip.
-
-**Work item:** #185
 
 `main` is push-mirrored from GitLab to a private GitHub repo. The mirror carries FULL HISTORY, so
 sanitising the working tree is necessary but NOT sufficient — a value deleted in commit N stays
