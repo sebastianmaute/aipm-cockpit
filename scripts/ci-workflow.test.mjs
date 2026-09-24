@@ -188,6 +188,27 @@ describe("ci.yml", () => {
   it("uploads SARIF to code scanning only on a public repository", () => {
     expect(jobBlock(CI, "semgrep")).toMatch(/if: \$\{\{ always\(\) && !github\.event\.repository\.private \}\}/);
   });
+
+  // §613: the registry configs (p/typescript, p/react, p/owasp-top-ten) miss request-controlled
+  // eval/Function/exec sinks. The local rule file closes that gap and must ride BOTH semgrep
+  // steps — the full-report scan and the blocking ERROR-severity gate — or it silently stops
+  // covering the report/gate one of them produces.
+  it("passes the local injection rule file to both semgrep scans", () => {
+    const runs = [...jobBlock(CI, "semgrep").matchAll(/run: semgrep scan[^\n]*/g)].map((m) => m[0]);
+    expect(runs.length).toBe(2);
+    for (const run of runs) expect(run).toMatch(/--config \.semgrep\/injection\.yml/);
+  });
+
+  // §613: passing --config on both steps is not enough on its own — a rule downgraded to WARNING
+  // would still ride both scans and never trip `--severity ERROR --error`. Pin the severity itself,
+  // not just that the file is wired in. Mutation-checked: flipping `severity: ERROR` to `WARNING`
+  // in .semgrep/injection.yml turns this RED (reverted after the check).
+  it("every rule in the local injection config is severity ERROR", () => {
+    const rule = read(".semgrep/injection.yml");
+    const severities = [...rule.matchAll(/^\s*severity:\s*(\S+)/gm)].map((m) => m[1]);
+    expect(severities.length).toBeGreaterThan(0);
+    for (const s of severities) expect(s).toBe("ERROR");
+  });
 });
 
 describe("scheduled.yml", () => {

@@ -119,10 +119,13 @@ re-resolved by hand.
   instead of rebuilding, then `npm run e2e:smoke:prod`. ★★ The ONLY required check that sees the
   nonce-only prod CSP (`src/proxy.ts`); the legacy section below carries the per-suite reasoning.
 - **`semgrep`** (15 min). Runs in the `semgrep/semgrep` container, pinned by digest, not `:latest`.
-  No `npm ci`. Scan 1 writes the full report (`p/typescript`, `p/react`, `p/owasp-top-ten`) as
-  `semgrep.sarif` and does not fail on findings; scan 2 runs the same configs with
-  `--severity ERROR --error`, which is the gate. The SARIF is uploaded as `semgrep-sarif` (7 days,
-  always). A last step, `github/codeql-action/upload-sarif` (v4.38.1), runs only
+  No `npm ci`. Scan 1 writes the full report (`p/typescript`, `p/react`, `p/owasp-top-ten`,
+  `.semgrep/injection.yml`) as `semgrep.sarif` and does not fail on findings; scan 2 runs the same
+  configs with `--severity ERROR --error`, which is the gate. `.semgrep/injection.yml` is a local
+  rule file (§613) closing a gap the three registry configs leave open: none of them flags
+  request-controlled `eval`/`new Function`/`exec` in this codebase's non-Express-shaped handlers.
+  The SARIF is uploaded as `semgrep-sarif` (7 days, always). A last step,
+  `github/codeql-action/upload-sarif` (v4.38.1), runs only
   `if: always() && !github.event.repository.private`: code scanning refuses SARIF from a private
   repository without Advanced Security, so the step switches itself on at the visibility flip.
 - **`audit`** (10 min). `npm audit --omit=dev --audit-level=high`. It reads `package-lock.json` only,
@@ -140,15 +143,17 @@ on it and none of its jobs is a required check: a red run is the signal.
 - **`audit-full`** (10 min). `npm audit --audit-level=low`, dev dependencies included.
 - **`unit-shuffled-random`** (45 min). Echoes the seed (`github.run_id`) with its reproduce command
   (`npx vitest run --sequence.shuffle --sequence.seed=<id>`) BEFORE the run, then
-  `npm run test:run -- --sequence.shuffle --sequence.seed=<id> --reporter=dot`, so a red result can be
-  replayed.
+  `npm run test:run -- --sequence.shuffle --sequence.seed=<id> --reporter=default`, so a red result can be
+  replayed. 2026-09-23: was `--reporter=dot`, whose one very-long dot line `gh run view --log`
+  silently drops along with everything after it in the step, summary and failure included (§612/§614)
+  — fixed to `--reporter=default`, a straight swap here (unlike `ci.yml`'s `unit-shuffled`, `test:run`
+  has no reporter baked in to sit alongside).
 - **`dast-zap`** (30 min). Hosted runners have Docker, so no Docker-in-Docker service: builds
   `Dockerfile.dast`, starts the app on a user-defined network, polls it for up to 60 × 3 s, runs the
   ZAP baseline with `-I` (ZAP's findings do not fail the job; an infrastructure failure still does),
   and uploads `zap-out/` — `zap-report.html` and `zap-report.json` — as `zap-report` (7 days, always).
-  ★ The two `docker run` images, `ghcr.io/zaproxy/zaproxy:stable` and `curlimages/curl`, float
-  UNPINNED, as they did on GitLab: the pinning rule covers `uses:` only, and Dependabot does not
-  watch a `docker run` argument. Pinning them by digest is open as `docs/open-followups.md` §611.
+  `curlimages/curl` and `ghcr.io/zaproxy/zaproxy:stable` are pinned by `@sha256:` digest (§611);
+  Dependabot does not track a `docker run` image argument, so re-resolve both quarterly by hand.
   ★★ Never validated on any CI
   before this workflow; its first manual dispatch is a rollout step, not an assumption.
 

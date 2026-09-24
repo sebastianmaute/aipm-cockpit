@@ -36,7 +36,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: 'echo "shuffle seed=${{ github.run_id }}  (reproduce: npx vitest run --sequence.shuffle --sequence.seed=${{ github.run_id }})"'
-      - run: npm run test:run -- --sequence.shuffle --sequence.seed=${{ github.run_id }} --reporter=dot
+      - run: npm run test:run -- --sequence.shuffle --sequence.seed=${{ github.run_id }} --reporter=default
 
   # OWASP ZAP baseline against the running app. Hosted runners have Docker, so no dind service.
   # ★★ Never validated on any CI before this: its first manual dispatch is rollout Task 8.
@@ -53,7 +53,7 @@ jobs:
       - name: Wait for the app
         run: |
           for _ in $(seq 1 60); do
-            if docker run --rm --network dastnet curlimages/curl -sf http://app:3000 >/dev/null 2>&1; then
+            if docker run --rm --network dastnet curlimages/curl@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bbe3f92dec39ec7785166777 -sf http://app:3000 >/dev/null 2>&1; then # curlimages/curl:latest
               echo "app is up"; exit 0
             fi
             sleep 3
@@ -61,10 +61,13 @@ jobs:
           echo "app never answered on :3000"; exit 1
       # ZAP runs as its own non-root user; the report directory must be writable by it.
       # -I keeps ZAP's findings from failing the job; an infrastructure failure still does.
+      # Image pinned as ghcr.io/zaproxy/zaproxy:stable; re-resolve with:
+      #   docker buildx imagetools inspect ghcr.io/zaproxy/zaproxy:stable
       - name: ZAP baseline
         run: |
           mkdir zap-out && chmod 777 zap-out
-          docker run --rm --network dastnet -v "$PWD/zap-out:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
+          docker run --rm --network dastnet -v "$PWD/zap-out:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy@sha256:781a2bdaea47324e7bab583e2263f21d257b0aee61ed51521a5be45f5f5081ef \
             zap-baseline.py -t http://app:3000 -I -r zap-report.html -J zap-report.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() }}

@@ -209,9 +209,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Full report, every severity (never fails the job)
-        run: semgrep scan --config p/typescript --config p/react --config p/owasp-top-ten --sarif --output semgrep.sarif .
+        run: semgrep scan --config p/typescript --config p/react --config p/owasp-top-ten --config .semgrep/injection.yml --sarif --output semgrep.sarif .
       - name: Gate — ERROR severity only
-        run: semgrep scan --config p/typescript --config p/react --config p/owasp-top-ten --severity ERROR --error .
+        run: semgrep scan --config p/typescript --config p/react --config p/owasp-top-ten --config .semgrep/injection.yml --severity ERROR --error .
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() }}
         with:
