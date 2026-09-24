@@ -4,7 +4,7 @@
 // implementation does not resolve/accept a file: URL the way node:fs expects,
 // so `readFileSync(new URL(...))` below throws "The URL must be of scheme
 // file" under the default environment. scripts/check-followup-github.integration.test.mjs
-// and scripts/publish-release.integration.test.mjs carry the same pragma; their
+// and scripts/publish-github-release.integration.test.mjs carry the same pragma; their
 // headers do not record why.
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";

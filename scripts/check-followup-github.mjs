@@ -98,8 +98,9 @@ class CannotCompare extends Error {
 }
 
 function apiBase() {
-  // ★ A backward scan, not `/\/+$/` — see publish-release.mjs for the measured
-  // quadratic backtrack.
+  // ★ A backward scan, not `/\/+$/` — that regex backtracks quadratically on a
+  // long run of slashes not at the end (measured: 100k slashes then one other
+  // character took ~12 s); this scan is linear.
   const raw = process.env.GITHUB_API_URL ?? "https://api.github.com";
   let end = raw.length;
   while (end > 0 && raw[end - 1] === "/") end--;
