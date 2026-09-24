@@ -3,7 +3,7 @@
 // The suite's global environment is jsdom (vitest.config.ts); jsdom's URL
 // implementation does not resolve/accept a file: URL the way node:fs expects,
 // so `readFileSync(new URL(...))` below throws "The URL must be of scheme
-// file" under the default environment. scripts/check-followup-gitlab.integration.test.mjs
+// file" under the default environment. scripts/check-followup-github.integration.test.mjs
 // and scripts/publish-release.integration.test.mjs carry the same pragma; their
 // headers do not record why.
 import { readFileSync } from "node:fs";
