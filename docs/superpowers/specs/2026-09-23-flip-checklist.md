@@ -225,5 +225,29 @@ The order matters — do not reorder these steps.
 
 - [ ] **10. Flip the new repository to public.** This is the only step that cannot be undone.
   - Verify: `gh repo view sebastianmaute/aipm-cockpit` reports `visibility: PUBLIC`.
+  - Sub-project 5 (releases, tags, auto-update) must be merged and rehearsed on the private
+    repository (Task 10 of `docs/superpowers/plans/2026-09-24-releases-and-updates.md`) before this
+    step runs — the rehearsal proves the `release.yml` pipeline while a bad run is still invisible to
+    the outside world.
 
-The sub-project 5 steps (releases, tags) slot in before step 10 when that sub-project is written.
+- [ ] **10a. Repository hardening that only makes sense once public**, and the first real release:
+  - Secret scanning with push protection:
+    `gh api -X PATCH repos/sebastianmaute/aipm-cockpit -f 'security_and_analysis[secret_scanning][status]=enabled' -f 'security_and_analysis[secret_scanning_push_protection][status]=enabled'`.
+  - CodeQL default setup:
+    `gh api -X PATCH repos/sebastianmaute/aipm-cockpit/code-scanning/default-setup -f state=configured`.
+  - Private vulnerability reporting (which `SECURITY.md` points to):
+    `gh api -X PUT repos/sebastianmaute/aipm-cockpit/private-vulnerability-reporting`.
+  - If Task 8's environment step could not set the `release` environment's required reviewer while
+    the repository was private (a plan-tier limit), set it now:
+    ```bash
+    gh api -X PUT repos/sebastianmaute/aipm-cockpit/environments/release --input - <<'EOF'
+    {"reviewers":[{"type":"User","id":65776548}],"prevent_self_review":false,
+     "deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}
+    EOF
+    ```
+  - Verify each: `gh api repos/sebastianmaute/aipm-cockpit --jq .security_and_analysis`,
+    `gh api repos/sebastianmaute/aipm-cockpit/code-scanning/default-setup --jq .state`,
+    `gh api repos/sebastianmaute/aipm-cockpit/private-vulnerability-reporting --jq .enabled`.
+  - Then the first real release (`docs/RUNBOOK.md`, "Publishing a desktop release (GitHub)") and the
+    updater proof: the release after it is offered to, and updates, the installed copy through the
+    dialog flow (design §4, rollout steps 4–5). Sub-project 5 closes only once that passes.

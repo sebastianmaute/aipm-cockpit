@@ -145,9 +145,12 @@ win:
   # package.json". A plain-string author is enough, because the package reader
   # parses it into `{ name }` (normalizePackageData.js `parsePerson`).
   #
-  # See the spec's Section 7 security note -- unsigned means SmartScreen
-  # prompts on install, and (once the updater lands) the share ACL is the
-  # only integrity control on updates.
+  # See the spec's Section 3 security note -- unsigned means SmartScreen
+  # prompts on install. Updates come from GitHub Releases behind the
+  # approval-gated `release.yml` publish job, the tag ruleset, immutable
+  # releases, build-provenance attestations (once public) and the sha512 in
+  # latest.yml (transfer corruption only, not a substitution control) --
+  # see docs/superpowers/specs/2026-09-24-releases-and-updates-design.md.
   signExecutable: false
 nsis:
   # Per-user install: corporate laptops routinely deny admin rights, and a

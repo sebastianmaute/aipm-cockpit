@@ -120,21 +120,35 @@ Trigger: `push` of tags matching `v*`. Workflow-level `permissions: contents: re
   - **startup:** one check about 10 s after the main window is ready; every failure (offline, a 404
     from a private repository, a malformed feed) goes to the diagnostics log only;
   - **manual:** Help → "Check for updates…" now runs a check (menu action `check-for-updates`,
-    replacing `open-releases`); "up to date" and errors show a dialog with a link to `RELEASES_URL`.
+    replacing `open-releases`). "Up to date" shows a plain OK dialog; only the two error dialogs
+    (check failed, download failed) also offer a button to open `RELEASES_URL`. A manual check made
+    while one is already running promotes it to manual (so it reports when it finishes); one made
+    while a download is in progress shows "An update is already downloading." instead of starting a
+    second one. `AIPM_DISABLE_UPDATE_CHECK=1` disables checking entirely (used by `e2e:desktop`, so a
+    smoke run never meets a modal update dialog).
 - Flow:
   1. **Available:** native dialog — version, release notes as plain text, "Download and install",
      "Later", "Skip this version". A skipped version is stored in `userData` and suppresses the startup
      prompt for that version only; a manual check ignores it.
-  2. **Downloading:** taskbar progress; differential download through the blockmap.
-  3. **Downloaded:** "Restart now" (the app's normal quit path, so unsaved-work protection runs first)
-     or "On next quit" (install silently when the app next closes).
+  2. **Downloading:** taskbar progress; differential download through the blockmap. A download failure
+     always shows "The update could not be downloaded." (regardless of whether the check that led to
+     it was a startup or a manual one — the user already clicked "Download and install" to get here).
+  3. **Downloaded:** "Restart now" or "On next quit" (install silently when the app next closes).
+     `quitAndInstall` spawns the NSIS installer SYNCHRONOUSLY, before scheduling `app.quit()` — so the
+     installer is already running by the time the app's normal quit path (and any unsaved-work flush
+     on it) gets a chance to run, not after. "Restart now" does **not** guarantee the flush completes
+     first.
 - Settings: `autoDownload: false`; `autoInstallOnAppQuit` only after the user chose to download;
   `allowPrerelease: false`; `allowDowngrade: false`. The per-user NSIS install needs no admin rights.
 - Modules:
   - `desktop/src/lib/update-policy.ts` — pure: given current version, available version, stored skip
     and whether the check was manual, returns the action (stay silent, prompt, report up to date,
     report error); converts release notes to plain text. Unit-tested.
-  - `desktop/src/lib/updater.ts` — thin wiring of `electron-updater` events to the policy and dialogs.
+  - `desktop/src/lib/electron-updater-loader.ts` — pure, unit-tested: resolves `electron-updater`'s
+    `autoUpdater` singleton out of whatever shape a dynamic `import()` hands back (it is not a named
+    export there, only `.default.autoUpdater`).
+  - `desktop/src/updater.ts` — the wiring: `electron-updater` events to the policy and the native
+    dialogs. NOT under `lib/` — only the two pure modules above are.
   - `main.ts` calls it; the stale "internal GitLab" comment and the `RELEASES_URL` comment saying
     there is deliberately no updater are rewritten.
 - `RELEASES_URL` stays as the fallback link, still pinned equal to `APP_RELEASES_URL`.
@@ -196,7 +210,11 @@ decision.
 
 ### To verify during planning (facts not yet measured)
 
-- electron-builder writes `latest.yml` under `--publish never` once a `publish:` block exists.
+- **Verified 2026-09-24, locally:** electron-builder writes `latest.yml` under `--publish never` once
+  a `publish:` block exists.
+- **Verified:** `electron-updater` is inside `app.asar` (`node_modules/electron-updater/out/main.js`
+  and its `builder-util-runtime` dependency) — the `build` job's electron-updater guard in
+  `release.yml` checks this on every run, not just once.
 - The `release` environment's required-reviewer rule is available on a private repository under
   GitHub Pro. If not, the rehearsal runs ungated and the rule is set at step 10a, before the first real
   release.

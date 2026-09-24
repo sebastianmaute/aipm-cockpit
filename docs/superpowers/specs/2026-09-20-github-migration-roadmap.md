@@ -140,6 +140,13 @@ fresh repository — and issue numbers are preserved across the move.
 
 ### 5. Releases, tags, and the update feed
 
+**Status 2026-09-24:** implemented and merged (design
+[2026-09-24-releases-and-updates-design.md](2026-09-24-releases-and-updates-design.md), plan
+`docs/superpowers/plans/2026-09-24-releases-and-updates.md`). Rehearsal and the first real release
+are flip steps 10 and 10a — see
+[2026-09-23-flip-checklist.md](2026-09-23-flip-checklist.md). This sub-project closes only once the
+updater proof (design §4, rollout step 5) passes.
+
 Currently: a tag drives a release job that builds the desktop installer and publishes through
 the GitLab Releases API, including a per-tag **artifact-browsing URL** that is a GitLab concept
 with no GitHub equivalent — GitHub Releases carries uploaded asset **bytes** instead. The

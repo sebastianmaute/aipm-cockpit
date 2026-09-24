@@ -37111,6 +37111,16 @@ reintroducing that key.
 ★ This also affects §480. Until builds are signed, an updater has no integrity control except the
 share's ACL.
 
+**2026-09-24 (owner decision):** auto-update ships unsigned. `electron-updater` now checks
+`sebastianmaute/aipm-cockpit`'s GitHub Releases and installs only after the user agrees (never
+silently) — see `docs/superpowers/specs/2026-09-24-releases-and-updates-design.md`. The guards
+standing in for a signing certificate: the `release` environment's approval-gated `publish` job (only
+it can write a release, and it runs no installs), the tag ruleset (only the owner can create/move/
+delete a `v*` tag), immutable releases (a published release's files cannot be swapped in place),
+build-provenance attestations once the repository is public, and the sha512 in `latest.yml` (transfer
+corruption only — not a substitution control). This entry stays open as the signing follow-up; do not
+close it by shipping auto-update, only by signing.
+
 **Source:** `desktop/electron-builder.yml`, `docs/desktop-rollout.md`; audit candidate 10
 
 ## 488. The 390 h booked vs 104 h planned gap seen in the demo is unexplained, and a fixed-price contract converted to end-to-end responsibility has no model — OPEN
@@ -39478,6 +39488,14 @@ actual risk.
 
 ★ This is deliberately tied to the open publishing decision rather than filed as work. Do not close
 it by signing; close it by deciding, and sign if the decision is "public".
+
+**2026-09-24 (owner decision):** the publishing decision above is now "public, with GitHub Releases
+and auto-update, unsigned." Distribution moved from an internal share to `sebastianmaute/aipm-cockpit`'s
+public Releases page, exactly the case this entry names as the real risk. The gap is accepted for now,
+guarded by the approval-gated `publish` job, the tag ruleset, immutable releases, provenance
+attestations and `latest.yml`'s sha512 (see §487's 2026-09-24 paragraph for the same list in full) —
+none of which is a substitute for a signature, only a narrower set of ways a bad binary could reach a
+downloader. This entry stays open as the signing follow-up.
 
 ## 564. `diagnostics-redact.ts` has no catch-all for an opaque token in free text — CLOSED 2026-09-21
 

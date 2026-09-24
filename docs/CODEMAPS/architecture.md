@@ -65,11 +65,13 @@ Three shells from one tree: **modern** (default — sidebar + off-canvas drawer)
 strip), **popout** (read-only mirror, no header). A new top-bar control must be wired into *both*
 `AppHeader` and the `ModernShell` `topBarMenus` slot or it is invisible in one layout.
 
-## CI gates (GitLab)
+## CI gates (GitHub Actions)
 
-`install → quality → build → e2e → release` (the release stage runs on tag pipelines only). Quality is
-blocking; the jobs are listed in `docs/AGENTS/ci.md` and enumerated from the source with
-`grep -nE "^[a-z][a-zA-Z0-9_-]*:" .gitlab-ci.yml` (lint fails on any warning, `--max-warnings=0`).
+`static → unit → unit-shuffled → build → e2e → prod-smoke → semgrep → audit`, all required checks on
+every pull request and push to `main`; a separate tag-triggered `release.yml` builds and publishes
+the desktop installer. Job detail is in `docs/AGENTS/ci.md`; enumerate the ids from the source with
+`awk '/^jobs:/{f=1;next} f && /^  [a-z][a-zA-Z0-9_-]*:/{print}' .github/workflows/ci.yml` (lint fails
+on any warning, `--max-warnings=0`).
 E2E includes an axe pass over the 17 `A11Y_VIEWS` × 7 scheme combos plus a Kanban scan per combo, one
 notes-window toolbar scan and one Documents block-editor scan, and the print spec. ★ That last kind
 was missing from this sentence. ★ MEASURE the scan count, do not derive it — the spec

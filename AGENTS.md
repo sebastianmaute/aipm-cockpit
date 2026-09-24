@@ -536,14 +536,17 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   private, Actions minutes come from GitHub Pro's allowance with a $0 budget; when they run out,
   checks cannot complete and merging needs the admin bypass on a `gate:local` PASS — see
   `docs/RUNBOOK.md`. Several gates split exit **1 = DRIFT** from exit **2 = could not scan**, and the
-  two demand opposite responses. The GitLab project is a READ-ONLY copy synced daily by
-  `ci/gitlab-sync.yml`; `.gitlab-ci.yml` stays in the tree only because a test reads it (until
-  releases move, migration sub-project 5). No releases or tags until then. New CI gate → also update
-  `docs/AGENTS/ci.md`.
+  two demand opposite responses. Releases run from `.github/workflows/release.yml` on a push of a
+  `v*` tag (`guard` → `build` → an approval-gated `publish`) — see the "Releasing" bullet below and
+  [`docs/AGENTS/ci.md`](docs/AGENTS/ci.md)'s `release.yml` section. The GitLab pipeline file
+  (`.gitlab-ci.yml`) is gone; the GitLab project is a READ-ONLY mirror synced daily by
+  `ci/gitlab-sync.yml`. New CI gate → also update `docs/AGENTS/ci.md`.
 - **Releasing:** bump `src/app/version.ts` (APP_VERSION + APP_BUILD_DATE + milestone), add
-  `CHANGELOG.md` entry. ★ Do NOT add a `versionHighlight*` key: `APP_HIGHLIGHT_KEYS` is now a fixed
-  elevator pitch of what is unique to the app, not a per-release history, and `CHANGELOG.md` owns
-  history. ★★ EVERY OTHER COPY OF THE VERSION IS GATED BY `npm run version:check`, and the list is
+  `CHANGELOG.md` entry (a section for the version — `release:publish` refuses to build notes
+  without it), merge to `main`, and tag only from `main`. ★ Do NOT add a `versionHighlight*` key:
+  `APP_HIGHLIGHT_KEYS` is now a fixed elevator pitch of what is unique to the app, not a per-release
+  history, and `CHANGELOG.md` owns history. ★★ EVERY OTHER COPY OF THE VERSION IS GATED BY
+  `npm run version:check`, and the list is
   `SATELLITES` in `scripts/version-sync-lib.mjs` — not this line, which said "FIVE MORE PLACES" and
   missed `desktop/package.json` + `desktop/package-lock.json`. Read it with
   `grep -n 'file: "' scripts/version-sync-lib.mjs` (one line per file or glob; each lockfile carries
