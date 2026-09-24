@@ -180,8 +180,14 @@ the issue steps must sit in order among the rest. The order matters:
 1. Rename today's repository (for example `aipm-cockpit-archive`), keeping it **private**, to free the
    name. Whether it is later deleted is an owner decision.
    - While it exists, its `refs/pull/*` stay private.
-2. Create the fresh **private** repository `sebastianmaute/aipm-cockpit`.
-3. Push the rewritten history, which drops the 7 trailer lines and the GitLab project number (§200).
+2. Create the fresh **private** repository `sebastianmaute/aipm-cockpit`, first checking that the
+   owner account's "automatically enable for new repositories" default leaves Dependabot alerts and
+   security updates off.
+3. Push the rewritten history, which drops the 7 trailer lines and the GitLab project number (§200),
+   with one hold commit on top setting `open-pull-requests-limit: 0` on every `updates:` entry in
+   `.github/dependabot.yml`: version updates start from that file alone, and one Dependabot PR
+   before step 6 burns the repository. The limit does not stop security-update PRs, hence step 2's
+   check.
 4. Run `verify-rewrite --expect clean` against a mirror of it, with the prose-form pattern first proven
    red on today's repository (§200).
 5. Set up the repository:
@@ -190,13 +196,17 @@ the issue steps must sit in order among the rest. The order matters:
    - Pro-dependent settings;
    - the $0 Actions budget.
 
-   Dependabot is not enabled here (see 6b), and CI is checked with `gh workflow run`, never with a
-   pull request: any PR before step 6 takes an issue number and burns the repository for the import.
-6. **Import the issues** (`--plan`, then `--apply`), before any PR is opened. Then run
-   `followups:github:check`, which must report 0 drift.
+   Dependabot alerts and security updates are not enabled here (see 6b), and CI is checked with
+   `gh workflow run`, never with a pull request: any PR before step 6 takes an issue number and
+   burns the repository for the import.
+6. **Import the issues** (`--plan`, then `--apply`), before any PR is opened, behind a zero-PR guard.
+   Then run `followups:github:check`, which must report 0 drift. The import is not moved before
+   step 3's push, because that history carries closing keywords ("Closes #N") that could auto-close
+   the imported issues.
 
-   6b. Enable Dependabot, only once the import is verified.
-7. Set `REGISTER_TRACKER=github` and delete the GitLab check (one PR, the first in the new repository).
+   6b. Enable Dependabot alerts and security updates, only once the import is verified.
+7. Set `REGISTER_TRACKER=github`, delete the GitLab check, and revert step 3's hold commit (one PR,
+   the first opened by hand in the new repository).
 8. `--close-gitlab`.
 9. Point `ci/gitlab-sync.yml` at the new repository if its URL changed, and run it once.
 10. Flip the new repository to **public**. This is the only step that cannot be undone.

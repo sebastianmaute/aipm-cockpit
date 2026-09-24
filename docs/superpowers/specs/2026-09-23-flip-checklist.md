@@ -16,12 +16,52 @@ The order matters — do not reorder these steps.
     against the renamed repo returns the new name, not the old one).
 
 - [ ] **2. Create the fresh private repository** `sebastianmaute/aipm-cockpit`.
+  - Before creating it: check that the owner account's default for new repositories leaves
+    Dependabot alerts and Dependabot security updates OFF. The setting is on github.com under the
+    account's Settings → Code security, as an "Automatically enable for new repositories" option
+    beside each feature. Security-update PRs ignore step 3's zero limit (see there), so if this
+    default is on, a security-update PR can burn the repository before the import. The UI moves,
+    so verify the exact location and wording on the day rather than trusting this line.
   - Verify: `gh repo view sebastianmaute/aipm-cockpit` reports `visibility: PRIVATE` and 0 issues, 0
     pull requests.
+  - Verify both Dependabot features are off on the new repository:
+    `gh api repos/sebastianmaute/aipm-cockpit/vulnerability-alerts` must fail with HTTP 404 (alerts
+    disabled; 204 means enabled), and
+    `gh api repos/sebastianmaute/aipm-cockpit/automated-security-fixes` must print
+    `"enabled":false`.
 
 - [ ] **3. Push the rewritten history**, which drops the 7 trailer lines and the GitLab project number
-  (§200).
-  - Verify: the push succeeds and the default branch matches the rewritten `main`'s tip sha.
+  (§200), with ONE hold commit on top.
+  - `.github/dependabot.yml` is in that history, and Dependabot version updates start from that file
+    alone, with nothing enabled in the settings. One Dependabot PR before step 6 takes an issue
+    number and burns the repository. So immediately before the push, add one commit on top of the
+    rewritten `main` that sets `open-pull-requests-limit: 0` on EVERY entry under `updates:`.
+    - Today the file has one entry, `package-ecosystem: github-actions`. Re-read the file before
+      editing, in case an ecosystem has been added since. The edit adds one line per entry at the
+      entry's key indentation:
+      ```yaml
+      updates:
+        - package-ecosystem: github-actions
+          directory: /
+          open-pull-requests-limit: 0
+          schedule:
+            interval: weekly
+      ```
+    - Commit it with the owner's identity (which is on the step 4 allowlist) and no trailers, for
+      example `chore: hold Dependabot at zero PRs until the issue import is verified`. Record its
+      sha: step 7 reverts it.
+    - Check that every entry carries the limit in the COMMITTED file. It prints
+      `entries N, held N` and exits 0, or exits 1 if any entry lacks the limit. `node` is last in
+      the pipe, so the exit code is its own:
+      ```bash
+      git show HEAD:.github/dependabot.yml | node -e 'const y=require("fs").readFileSync(0,"utf8");const e=y.split(/^\s*- package-ecosystem:/m).slice(1);const bad=e.filter(c=>!/^\s+open-pull-requests-limit: 0\s*$/m.test(c));console.log("entries "+e.length+", held "+(e.length-bad.length));process.exit(e.length>0&&bad.length===0?0:1)'; echo "EXIT=$?"
+      ```
+      Proven both ways on 2026-09-24: the unedited file exits 1 (`entries 1, held 0`), the edited
+      one exits 0, and a two-entry file with one entry unheld exits 1.
+    - The limit stops VERSION updates only. Security-update PRs are separate and ignore it, which is
+      why alerts and security updates stay off (step 2) until step 6b.
+  - Verify: the push succeeds, the default branch tip is the hold commit, and its parent is the
+    rewritten `main`'s tip sha.
 
 - [ ] **4. Run `verify-rewrite --expect clean`** against a mirror of it, with the prose-form pattern
   first proven red on today's repository (§200).
@@ -39,7 +79,8 @@ The order matters — do not reorder these steps.
   - the ruleset (deletion, non_fast_forward, pull_request, the eight required checks);
   - Pro-dependent settings;
   - the $0 Actions budget.
-  - Dependabot is NOT enabled here. It moved to step 6b, after the import is verified.
+  - Dependabot alerts and security updates are NOT enabled here. They move to step 6b, after the
+    import is verified.
   - Verify: the ruleset lists all eight required check names, and a manually dispatched CI run
     shows all eight jobs. `ci.yml` carries `workflow_dispatch`, and a dispatch takes no issue number:
     - `gh workflow run ci.yml --repo sebastianmaute/aipm-cockpit --ref main`
@@ -52,10 +93,12 @@ The order matters — do not reorder these steps.
     to a throwaway branch does not test CI either: `ci.yml` runs on pushes to `main` only.
 
 - [ ] **6. Import the issues** (`--plan`, then `--apply`), before any PR is opened.
-  - Do it promptly after step 3. The `.github/dependabot.yml` pushed there may start Dependabot's
-    version updates on its own, before anyone enables anything, and a Dependabot PR burns the
-    repository exactly as a hand-opened one does. Whether it does so in this window is unverified;
-    the guard line below is what decides.
+  - Do it promptly after step 3. Step 3's hold commit keeps Dependabot's version updates at zero
+    PRs, and steps 2 and 5 keep security updates off, so no Dependabot PR should exist here. The
+    guard line below still decides: a Dependabot PR burns the repository exactly as a hand-opened
+    one does.
+  - Why the import is not moved before step 3's push: the pushed history carries closing keywords
+    ("Closes #N"), which could auto-close the imported issues.
   - Prerequisites:
     - Run every `issues:import` command from today's checkout, which has the `gitlab` remote and the
       `glab` configuration the repository uses today. `--plan`, `--apply` and `--close-gitlab` all
@@ -101,17 +144,20 @@ The order matters — do not reorder these steps.
     Recovery is a new fresh repository, not a retry against this one — this is why the checklist
     orders the import before any PR is opened.
 
-- [ ] **6b. Enable Dependabot** (version updates and security updates), only now that step 6's import
-  is verified. Its pull requests take issue numbers too, so enabling it earlier risks the same burn
-  as step 5's warning.
-  - Verify: the repository's Dependabot settings show both enabled.
+- [ ] **6b. Enable Dependabot alerts and security updates**, only now that step 6's import is
+  verified. Their pull requests take issue numbers too, so enabling them earlier risks the same burn
+  as step 5's warning. Version updates stay held at zero until step 7's PR reverts the hold commit.
+  - Verify: `gh api repos/sebastianmaute/aipm-cockpit/vulnerability-alerts` succeeds (HTTP 204), and
+    `gh api repos/sebastianmaute/aipm-cockpit/automated-security-fixes` prints `"enabled":true`.
 
-- [ ] **7. Set `REGISTER_TRACKER=github`** and delete the GitLab check (one PR, the first in the new
-  repository).
-  - Command: `gh variable set REGISTER_TRACKER --body github`
+- [ ] **7. Set `REGISTER_TRACKER=github`**, delete the GitLab check, and revert step 3's hold commit
+  (one PR, the first opened by hand in the new repository).
+  - Command: `gh variable set REGISTER_TRACKER --body github`; in the PR, `git revert <hold commit
+    sha>` alongside the GitLab-check removal.
   - Verify: `gh variable list` shows `REGISTER_TRACKER=github`; the PR removing the GitLab check job
-    passes all required checks and merges; `register-sync` (`scheduled.yml`) stops printing the skip
-    line on its next scheduled run.
+    passes all required checks and merges; after the merge, step 3's check, run in a checkout of the
+    merged `main`, exits 1 (`held 0`), so version updates resume; `register-sync` (`scheduled.yml`) stops
+    printing the skip line on its next scheduled run.
 
 - [ ] **8. `--close-gitlab`.**
   - Command: `npm run issues:import -- --close-gitlab --plan <file> --repo sebastianmaute/aipm-cockpit`
