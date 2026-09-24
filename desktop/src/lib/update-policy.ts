@@ -58,7 +58,28 @@ export function decideOnNotAvailable(trigger: UpdateTrigger): UpdateDecision {
 // so silence is never correct once bytes were meant to move -- see the UpdatePhase doc comment above.
 export function decideOnError(trigger: UpdateTrigger, phase: UpdatePhase, err: unknown): UpdateDecision {
   if (phase === "checking" && trigger !== "manual") return { kind: "silent" };
-  return { kind: "error", phase, message: clip(err instanceof Error ? err.message : String(err), ERROR_MAX) };
+  return { kind: "error", phase, message: summarizeError(err) };
+}
+
+// One readable line, bounded, from whatever an error-ish value actually is -- never the raw thing.
+// Fix round 3: electron-updater's own `HttpError` (builder-util-runtime's httpExecutor.js
+// `createHttpError`) builds its `.message` as `"{status} {statusText}\n{description}\nHeaders:
+// {...}"`, and that headers dump includes response `set-cookie` values verbatim (measured against a
+// real 404 from a private GitHub repo's releases feed -- see task-6-report.md's fix-round-2 evidence,
+// which is exactly the multi-line dump this function now trims away). The FIRST LINE is always the
+// short, human status summary; everything after it is diagnostic detail nobody asked to see in a
+// dialog or a log line, and in electron-updater's own case sometimes third-party response headers.
+// Used both for `decideOnError`'s dialog-facing message and by updater.ts's raw logger.warn/error
+// wrappers, so the same trimming applies wherever an error-ish value might otherwise print its own
+// headers/stack into launch.log.
+export function summarizeError(err: unknown, max = ERROR_MAX): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  return clip(firstLine(raw), max);
+}
+
+function firstLine(s: string): string {
+  const nl = s.indexOf("\n");
+  return (nl === -1 ? s : s.slice(0, nl)).trim();
 }
 
 function isHighSurrogate(code: number): boolean {

@@ -8,7 +8,7 @@ import { RELEASES_URL } from "./lib/constants";
 import { pickAutoUpdater } from "./lib/electron-updater-loader";
 import {
   decideCheckRequest, decideOnAvailable, decideOnError, decideOnNotAvailable, parseSkipped,
-  serializeSkipped, type UpdateDecision, type UpdatePhase, type UpdateTrigger,
+  serializeSkipped, summarizeError, type UpdateDecision, type UpdatePhase, type UpdateTrigger,
 } from "./lib/update-policy";
 
 export interface Updater {
@@ -84,9 +84,17 @@ function wireUpdater(
   autoUpdater.allowPrerelease = false;
   autoUpdater.allowDowngrade = false;
   autoUpdater.logger = {
+    // `info` calls are electron-updater's own short, single-line status messages ("Checking for
+    // update", a staging-user-id line) -- left as `String(m)` rather than `summarizeError`, since
+    // there is nothing to trim and no error-shaped payload to worry about here.
     info: (m: unknown) => deps.log(`updater: ${String(m)}`),
-    warn: (m: unknown) => deps.log(`updater warn: ${String(m)}`),
-    error: (m: unknown) => deps.log(`updater error: ${String(m)}`),
+    // `warn`/`error` CAN carry an Error whose `.message` embeds a multi-line diagnostic dump --
+    // electron-updater's own `HttpError` bakes response headers (including `set-cookie`) directly
+    // into `.message` (see summarizeError's doc comment in update-policy.ts, and task-6-report.md's
+    // fix-round-2 evidence, which is a real capture of exactly this). `summarizeError` keeps only the
+    // first line, bounded, so launch.log never gets a raw header/cookie dump this way (fix round 3).
+    warn: (m: unknown) => deps.log(`updater warn: ${summarizeError(m)}`),
+    error: (m: unknown) => deps.log(`updater error: ${summarizeError(m)}`),
     debug: () => {},
   };
 

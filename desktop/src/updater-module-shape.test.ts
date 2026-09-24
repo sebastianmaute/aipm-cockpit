@@ -1,5 +1,10 @@
 // @vitest-environment node
+import { spawnSync } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+
+const desktopDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 // Partial regression guard for fix round 2, Critical 1. See electron-updater-loader.ts's doc comment
 // for the full story: a dynamic `import("electron-updater")` exposes `autoUpdater` on `.default`, not
@@ -40,5 +45,28 @@ describe("electron-updater's export shape under a dynamic import", () => {
     expect(def !== null && typeof def === "object").toBe(true);
     expect(Object.getOwnPropertyDescriptor(def as object, "autoUpdater")).toBeDefined();
     expect("autoUpdater" in (def as object)).toBe(true);
+  });
+
+  // Fix round 3, C1(d).2: the assertion above runs INSIDE vitest's own module loader, which the test
+  // above it already found disagrees with plain Node/Electron on the "named export" half. This pins
+  // the FULL claim -- both halves -- in a genuinely separate, freshly-spawned `node` process that
+  // never goes through Vite/vitest's module graph at all, so it is the one test in this repo that can
+  // catch electron-updater ever promoting `autoUpdater` to a real named export (at which point
+  // `pickAutoUpdater` would still work via its named-first branch, but this test would fail and say
+  // so, which is the point -- a silent shape change should not go unnoticed just because the fallback
+  // happens to cover it).
+  it("pins the shape in a plain, freshly-spawned Node process -- no vitest loader involved", () => {
+    // `in`, never a value read: reading `autoUpdater` invokes electron-updater's own lazy
+    // doLoadAutoUpdater() getter (see the doc comment above), which this bare `node` process -- not
+    // Electron -- cannot satisfy.
+    const script =
+      "const m = await import('electron-updater');" +
+      "console.log(JSON.stringify(['autoUpdater' in m, 'autoUpdater' in (m.default ?? {})]));";
+    const result = spawnSync(process.execPath, ["--input-type=module", "-e", script], {
+      cwd: desktopDir,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout.trim())).toEqual([false, true]);
   });
 });

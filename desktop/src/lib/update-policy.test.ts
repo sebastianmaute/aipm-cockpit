@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   STARTUP_CHECK_DELAY_MS, decideCheckRequest, decideOnAvailable, decideOnError, decideOnNotAvailable,
-  notesToPlainText, parseSkipped, serializeSkipped,
+  notesToPlainText, parseSkipped, serializeSkipped, summarizeError,
 } from "./update-policy";
 
 describe("update policy", () => {
@@ -60,6 +60,30 @@ describe("update policy", () => {
     expect(decideOnError("manual", "downloading", new Error("ENOSPC"))).toEqual({
       kind: "error", phase: "downloading", message: "ENOSPC",
     });
+  });
+
+  it("shows only the first line of an error, never headers or a stack trailing after it", () => {
+    // Fix round 3: electron-updater's own HttpError builds `.message` as
+    // "{status} {statusText}\n{description}\nHeaders: {...}" -- and a REAL 404 from a private GitHub
+    // repo's releases feed put response set-cookie values in that Headers block (task-6-report.md's
+    // fix-round-2 evidence). Neither a log line nor a dialog should ever show that.
+    const httpLike = new Error(
+      '404 Not Found\n"method: GET url: https://example.invalid/releases.atom"\n' +
+        'Headers: {"set-cookie":["_gh_sess=verysecret; path=/; HttpOnly"]}',
+    );
+    const decision = decideOnError("manual", "checking", httpLike);
+    expect(decision).toEqual({ kind: "error", phase: "checking", message: "404 Not Found" });
+    expect((decision as { message: string }).message).not.toContain("set-cookie");
+    expect((decision as { message: string }).message).not.toContain("_gh_sess");
+  });
+
+  it("summarizeError trims to one bounded line for any error-ish value, not just decideOnError's callers", () => {
+    // Reused by updater.ts's raw logger.warn/error wrappers too (fix round 3), so an internal
+    // electron-updater log call with a multi-line payload gets the same treatment as a dialog error.
+    expect(summarizeError(new Error("one\ntwo\nthree"))).toBe("one");
+    expect(summarizeError("plain string\nwith a second line")).toBe("plain string");
+    expect(summarizeError(new Error("  padded line  \nrest"))).toBe("padded line");
+    expect(summarizeError(new Error("y".repeat(5000)))).toMatch(/…$/);
   });
 
   it("turns any notes shape into bounded plain text", () => {
