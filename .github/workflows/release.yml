@@ -1,8 +1,13 @@
 # Builds and publishes a desktop release when a v* tag is pushed.
 # Design: docs/superpowers/specs/2026-09-24-releases-and-updates-design.md
-# ★ Only `publish` can write, it installs no packages, and it waits for the owner's approval
-#   (environment `release`). The installer is unsigned, so this gate is what stands in front of
-#   every installed copy's auto-update.
+# ★ Only `publish` can write and it installs no packages. It runs in the `release` environment,
+#   which is DESIGNED to pause for the owner's approval once a required-reviewer rule is
+#   configured on it -- that pause becomes active at flip step 10a (GitHub rejects the rule on
+#   this private repository's plan today). Until then, what stands in front of `publish` -- and so
+#   in front of every installed copy's auto-update, since the installer is unsigned -- is the tag
+#   ruleset (only the owner/admin role can create, move or delete a `refs/tags/v*`), the `guard`
+#   job (the tag must equal APP_VERSION and name a commit reachable from `main`), and immutable
+#   releases.
 name: release
 
 on:

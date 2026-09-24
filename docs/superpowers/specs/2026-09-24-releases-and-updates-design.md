@@ -1,6 +1,7 @@
 # Sub-project 5 — releases, tags and auto-update on GitHub
 
-**Status:** design approved by the owner 2026-09-24, section by section. Not started.
+**Status:** design approved by the owner 2026-09-24, section by section. Implemented on branch
+`docs/sp5-releases-design` (PR pending).
 **Roadmap:** [2026-09-20-github-migration-roadmap.md](2026-09-20-github-migration-roadmap.md), sub-project 5.
 **Flip checklist:** [2026-09-23-flip-checklist.md](2026-09-23-flip-checklist.md) — this sub-project slots in
 before step 10 and adds step 10a.
@@ -10,9 +11,13 @@ before step 10 and adds step 10a.
 
 Pushing a `v*` tag builds the Windows installer on GitHub Actions and, after the owner approves,
 publishes it as an immutable GitHub Release together with the update metadata `electron-updater`
-reads. Once the repository is public, installed copies of the desktop app find new releases and
-update themselves after the user agrees. The GitLab release pipeline is deleted. The repository gets
-the best-practice settings a public project should have.
+reads. That approval step is the intended shape and becomes active once flip step 10a configures the
+`release` environment's required reviewer — GitHub rejects the rule on this private repository's plan
+today, so until then `publish` runs unapproved, standing behind the tag ruleset, `guard`'s
+version/branch checks and immutable releases instead (see section 3 and `docs/AGENTS/ci.md`). Once the
+repository is public, installed copies of the desktop app find new releases and update themselves
+after the user agrees. The GitLab release pipeline is deleted. The repository gets the best-practice
+settings a public project should have.
 
 ## Decisions taken by the owner (2026-09-24)
 
@@ -203,14 +208,17 @@ decision.
 
 - `release-publish-lib.test.mjs`: every export, including `checkLatestYml`'s refusal cases (version
   mismatch, sha512 mismatch, size mismatch, wrong `path`, missing field) and `releaseNotes` refusing a
-  missing section. Its structural half now cross-checks `release.yml` and `electron-builder.yml`
-  instead of `.gitlab-ci.yml`: the upload paths equal `directories.output` joined with
-  `installerName`, the blockmap and `latest.yml`.
+  missing section. Pure decisions only — it does NOT cross-check `release.yml` or
+  `electron-builder.yml` against itself.
 - `tag-version-lib.test.mjs`: prerelease suffixes match only with the same suffix in `APP_VERSION`.
 - `update-policy.test.ts`: every branch of the decision, the skip rule, manual versus startup.
-- A `release.yml` structure test in the style of `ci-workflow.test.mjs`: only `publish` has write
-  permissions; `publish` runs no `npm ci`/`npm install`; `publish` uses environment `release`; every
-  `uses:` is SHA-pinned; every job has `timeout-minutes`.
+- A `release.yml` structure test in `ci-workflow.test.mjs` (the file that already carries `ci.yml`'s
+  own structure tests): only `publish` has write permissions; `publish` runs no `npm ci`/`npm install`;
+  `publish` uses environment `release`; every `uses:` is SHA-pinned; every job has `timeout-minutes`.
+  Its `describe("release.yml", ...)` and `describe("electron-builder.yml agrees with the release
+  library", ...)` are what actually cross-check `release.yml` and `electron-builder.yml` — the upload
+  paths equal `directories.output` joined with `installerName`, the blockmap and `latest.yml` — the
+  cross-check this section used to attribute to `release-publish-lib.test.mjs` above.
 - A Dependabot config test: no framework package inside a group.
 - `menu-model.test.ts`: the Help item's new action.
 

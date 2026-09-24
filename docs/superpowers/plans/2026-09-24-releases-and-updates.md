@@ -10,6 +10,12 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-24-releases-and-updates-design.md`
 
+**Executed 2026-09-24.** Where the tree or later measurements differ from this plan, the tree and
+`docs/AGENTS/ci.md` win, not this file: the repository's Actions policy ended up
+`allowed_actions=all` + `sha_pinning_required=true` (`selected` broke `ci.yml` at startup), the
+`release` environment has no required reviewer until flip step 10a (GitHub rejects that rule on this
+private repository's plan), and `publish`'s exit codes are 0/1/2 as documented in `docs/AGENTS/ci.md`.
+
 ## Global Constraints
 
 - Work in a clone of `https://github.com/sebastianmaute/aipm-cockpit` (the post-flip history). Never in an old-history checkout.
@@ -1475,6 +1481,12 @@ gh api repos/sebastianmaute/aipm-cockpit/environments/release --jq '{rules:[.pro
 Expected rules include `required_reviewers` and `branch_policy`. If the reviewer rule is rejected or absent (private-repo plan limit), record it: the rehearsal runs ungated and the reviewer is added at flip step 10a (Task 9 writes that into the checklist).
 
 - [ ] **Step 5: Actions policy.**
+
+**SUPERSEDED (measured 2026-09-24):** the `allowed_actions=selected` recipe below made `ci.yml` fail
+at startup (runs 36051255568, 36051362469) even with the `patterns_allowed[]=rhysd/actionlint@*` entry
+this same step calls for — the exact fallback this step already names. The policy was reverted to
+`allowed_actions=all` with `sha_pinning_required=true` kept on. See `docs/AGENTS/ci.md`'s
+`release.yml` section for the outcome as documented for readers.
 
 ```bash
 gh api -X PUT repos/sebastianmaute/aipm-cockpit/actions/permissions -F enabled=true -f allowed_actions=selected -F sha_pinning_required=true
