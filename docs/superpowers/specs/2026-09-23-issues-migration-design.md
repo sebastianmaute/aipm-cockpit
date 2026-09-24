@@ -172,6 +172,34 @@ number returns 404. That is correct for a number that never had an issue.
    - against the rehearsal repository with one issue closed by hand: exit 1, with ISSUE_NOT_OPEN;
    - with `REGISTER_TRACKER` unset: exit 0, with the skip line.
 
+### Rehearsed 2026-09-24
+
+Run against a throwaway private repository, `sebastianmaute/aipm-issue-rehearsal`, created empty and
+deleted afterwards. `--close-gitlab` was not run.
+
+- **Plan** from a live GitLab snapshot, with GitLab #391 treated as closed because the §610/§616
+  collision fix had not yet reached this branch: open 264 · stub 96 · placeholder 37 · total 397.
+  `leak.hitLines` was 0 against the real list.
+- **Proof 2 on real data:** a copy of the list plus one line matching a real title made `--plan` exit
+  1, naming the action and printing no matched text. No plan was written.
+- **Apply:** exit 0, `created 397 · closed 96 · deleted 37`, in 14 min 35 s, with no rate-limit wait.
+  It ran into an EMPTY repository (nothing pushed), which the client supports.
+- **Numbers:** `gh issue list --state all` listed 360 issues.
+  - #1–#397 matched the plan one to one: 264 open, 96 closed stubs, 37 placeholders absent.
+  - 0 differences in title, state or labels.
+  - A deleted placeholder answers HTTP 410.
+- **Sync check:** exit 0, "Register and GitHub agree" (264 linked entries, 264 open issues).
+- **Controls:**
+  - a second `--apply`: exit 1 ("already has 360 issue(s)");
+  - `--resume`: `created 0 · closed 0 · deleted 0`;
+  - a wrong `--repo`: exit 1;
+  - `REGISTER_TRACKER` unset: exit 0 with the skip line;
+  - #39 closed by hand: exit 1 with `ISSUE_NOT_OPEN: §500 → #39`.
+- ★ The first attempt at the last control read exit 0. GitHub's issue listing had not yet caught up with
+  the close. It showed exit 1 once the listing dropped #39, about 5 s later. The flip checklist now
+  says to re-run a disagreeing check once.
+- On a new repository, Dependabot alerts answered 404, so the account default does not enable them.
+
 ## Flip checklist
 
 This goes to `docs/superpowers/specs/2026-09-23-flip-checklist.md`, written by this sub-project, because

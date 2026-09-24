@@ -128,6 +128,11 @@ The order matters — do not reorder these steps.
     - `--apply` exits 0 with no `Refused`.
     - `followups:github:check` exits 0, and its summary line reports that the register's open
       entries and the open GitHub issues agree.
+    - ★ GitHub's issue LISTING lags a state change by a few seconds (measured in the 2026-09-24
+      rehearsal: a check run straight after a close still counted the issue as open). Run the
+      check after the apply has finished, and if it disagrees, re-run it once before acting.
+    - Expected duration: the 2026-09-24 rehearsal took 14 min 35 s for 397 numbers and never hit
+      a rate limit.
     - For scale only, these drift: the 2026-09-23 snapshot in the design's "Proof, before the flip"
       was 268 open + 92 stubs + 37 placeholders = 397; the live run on 2026-09-24 gave 266 + 94 + 37
       = 397 (266 of the register's 275 open entries carry `#NN`; the other 9 are decision records).
