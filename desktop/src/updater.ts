@@ -5,6 +5,7 @@ import { app, dialog, shell, type BrowserWindow, type MessageBoxOptions } from "
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { RELEASES_URL } from "./lib/constants";
+import { pickAutoUpdater } from "./lib/electron-updater-loader";
 import {
   decideCheckRequest, decideOnAvailable, decideOnError, decideOnNotAvailable, parseSkipped,
   serializeSkipped, type UpdateDecision, type UpdatePhase, type UpdateTrigger,
@@ -220,14 +221,30 @@ export async function createUpdater(deps: { log(line: string): void; window(): B
   // Loaded lazily (a dynamic import, not a static top-level one) so a load failure -- a missing or
   // corrupted node_modules/electron-updater in a bad package -- degrades to a logged no-op updater
   // instead of throwing while main.ts's module graph is still loading, which would take the whole app
-  // down before a single window opens (fix round 1, review R11 Important 1c). main.ts's own import of
+  // down before a single window opens (fix round 1 review, Important 1c). main.ts's own import of
   // THIS module (`./updater`) stays a normal static import; only the electron-updater dependency
   // inside it is deferred, and main.ts now awaits this function's result.
+  //
+  // ★★★ TWO SEPARATE try/catch BLOCKS, DELIBERATELY (fix round 2 review, Critical 1). The first
+  // covers only the LOAD -- the dynamic import plus resolving the real `autoUpdater` singleton out of
+  // whatever shape it comes back as (see pickAutoUpdater's doc comment: it is NOT a named export
+  // under a dynamic import, only `.default.autoUpdater`, and reading `mod.autoUpdater` directly used
+  // to throw a TypeError here that this SAME catch then mislabelled "failed to load" -- true of the
+  // symptom, wrong about the cause, and it silently degraded every installed copy to the no-op
+  // updater). The second covers only wireUpdater's synchronous setup, so a genuine WIRING defect logs
+  // under its own distinct message rather than being folded into "failed to load" too.
+  let autoUpdater: ElectronUpdaterModule["autoUpdater"];
   try {
     const mod: ElectronUpdaterModule = await import("electron-updater");
-    return wireUpdater(mod.autoUpdater, deps);
+    autoUpdater = pickAutoUpdater(mod) as ElectronUpdaterModule["autoUpdater"];
   } catch (e: unknown) {
     deps.log(`updater: electron-updater failed to load: ${String(e)}`);
+    return unavailableUpdater(deps, LOAD_FAILED_MESSAGE);
+  }
+  try {
+    return wireUpdater(autoUpdater, deps);
+  } catch (e: unknown) {
+    deps.log(`updater: failed to wire up electron-updater: ${String(e)}`);
     return unavailableUpdater(deps, LOAD_FAILED_MESSAGE);
   }
 }
