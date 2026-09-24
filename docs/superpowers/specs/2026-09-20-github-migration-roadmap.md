@@ -132,6 +132,12 @@ public at the flip. The import must run the leak scan over the issue text and cl
 import. Nothing else tracks this once §200 is closed. *(2026-09-23: §200 did not close in
 sub-project 3. It stays open and records this requirement too.)*
 
+**Status 2026-09-23:** design approved,
+[2026-09-23-issues-migration-design.md](2026-09-23-issues-migration-design.md). The import runs at
+the flip, not before — it is step 6 of
+[2026-09-23-flip-checklist.md](2026-09-23-flip-checklist.md), ahead of any PR being opened in the
+fresh repository — and issue numbers are preserved across the move.
+
 ### 5. Releases, tags, and the update feed
 
 Currently: a tag drives a release job that builds the desktop installer and publishes through
@@ -155,6 +161,10 @@ text-comparison test. Both must move together.
 
 1 must precede 2. Everything else could in principle happen in any order, but the flip is
 deliberately **last**, not second.
+
+★ **The ordered flip checklist** lives in
+[2026-09-23-flip-checklist.md](2026-09-23-flip-checklist.md) — it carries the issue import (step 6)
+and §200's close condition (step 4) in their place among the rest of the flip.
 
 ★★★ **Why the flip is last.** Making the repository public is the only step that cannot be
 undone: a clone taken inside the window keeps whatever was exposed, forever. Sequencing it last

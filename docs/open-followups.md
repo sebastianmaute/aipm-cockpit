@@ -232,6 +232,24 @@ REBUILD
 sitting inside the recipe above cannot be mistaken for the marker itself — the self-matching trap
 this file records elsewhere. The check below anchors its greps at `^` for the same reason.
 
+**Filing an entry.** A new entry takes the next free `§N` — one more than the highest existing
+`## N.` heading ON `origin/main`, read after a `git fetch` (`git show origin/main:docs/open-followups.md`),
+never on the working branch alone: a number already used on an unmerged branch collides. That is
+the lesson of the §610 collision — an unmerged branch took §610 for its own entry and filed GitLab
+#391 under it, while `main`'s §610 is #392 — so check the tracker for a `§N:` title already filed
+too. The entry gets its own index row (rebuild per the
+recipe above) and exactly one
+`**Work item:** #NN` body line; an entry with no separate tracker issue instead carries the literal
+`**Work item:** none — decision record` (`scripts/followup-workitem-lib.mjs`'s `DECISION_RE` requires
+that exact spelling, em dash included — a hyphen or any other wording is malformed, same as a
+duplicate or missing line). The issue itself is filed with the title `§N: <heading>` (no leading
+zero — `SECTION_TITLE_RE` in the same file requires `^§[1-9]\d*:`) and the label
+`source::register` (`REGISTER_LABEL`). Until the flip, file it with `glab issue create`; after the
+flip, with `gh issue create` — the switch is the repository variable `REGISTER_TRACKER=github`, set
+at [the flip checklist's step 7](superpowers/specs/2026-09-23-flip-checklist.md). Closing an entry
+removes its `**Work item:**` line entirely (a closed entry carrying one is the workitems gate's
+`ON_CLOSED` finding) and closes the corresponding issue.
+
 <!-- INDEX:BEGIN -->
 | # | Item | Origin | Size | State |
 |---|---|---|---|---|
@@ -16902,6 +16920,12 @@ Also recorded here, because this entry is where they are tracked:
   carry internal hosts, the employer's name and work addresses, and imported issues become public
   at the flip. The issue import must run the leak scan over the issue text and clean it BEFORE
   import.
+
+**2026-09-24: the flip checklist now carries this entry's close condition.**
+`docs/superpowers/specs/2026-09-23-flip-checklist.md` (sub-project 4) sequences the whole flip in
+order; this entry's close condition — the `verify-rewrite --expect clean` run against the fresh
+repository — is its step 4, ahead of the issue import (step 6) and the visibility flip itself
+(step 10). This entry still closes only when that run passes; nothing else here changes.
 
 ## 201. A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce
 

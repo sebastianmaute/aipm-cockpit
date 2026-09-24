@@ -156,6 +156,16 @@ on it and none of its jobs is a required check: a red run is the signal.
   Dependabot does not track a `docker run` image argument, so re-resolve both quarterly by hand.
   ★★ Never validated on any CI
   before this workflow; its first manual dispatch is a rollout step, not an assumption.
+- **`register-sync`** (10 min, `continue-on-error: true`). The workflow step runs `node
+  scripts/check-followup-github.mjs` directly (the `followups:github:check` npm script wraps the
+  same file, for a local reproduce): compares `docs/open-followups.md`'s Work item lines with the
+  open GitHub issues, in both directions, the same comparison `followups-gitlab-sync` ran on GitLab.
+  Dormant until the flip: it exits 0 with a skip line unless the repository variable
+  `REGISTER_TRACKER` is set to `github`. Once flipped, exit 1 means drift (fix the Work item line or
+  the issue) and exit 2 means it could not compare (a missing/malformed `GITHUB_TOKEN`, a fetch
+  failure, or fewer than 50 register issues seen). Replaces `followups-gitlab-sync` at the flip
+  (`docs/superpowers/specs/2026-09-23-issues-migration-design.md`); until then both jobs are inert —
+  GitLab's on its own read-only mirror, this one behind the unset repository variable.
 
 ## Operating it
 
@@ -238,7 +248,7 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   real work — create the issue] ·
   **followups-gitlab-sync** WARN-ONLY [`npm run followups:gitlab:check` — compares every open entry's
   Work item line with the OPEN GitLab issues both ways (`scripts/check-followup-gitlab.mjs` over
-  `compareWithGitLab` in `scripts/followup-workitem-lib.mjs`): an issue closed in GitLab, one titled for
+  `compareWithTracker` in `scripts/followup-workitem-lib.mjs`): an issue closed in GitLab, one titled for
   another entry, one with no open entry, a `§NNN:` issue without `source::register` or the reverse.
   ★★ Skips with exit 0 until a masked, protected `REGISTER_SYNC_TOKEN` (a project access token
   with the read-API scope) exists. ★★ A protected variable only reaches pipelines on protected refs, so
