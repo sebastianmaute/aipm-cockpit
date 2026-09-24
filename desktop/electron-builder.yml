@@ -68,9 +68,10 @@ extraResources:
     # ★★ The patterns are relative to THIS entry's `from`, i.e. to node_modules
     # itself, so they drop only the TOP-LEVEL packages; a sharp nested inside
     # another package's node_modules passes this filter (none exists today).
-    # The .desktop-package job in .gitlab-ci.yml walks the packaged tree and
+    # The release workflow's `build` job (.github/workflows/release.yml) walks the packaged tree and
     # fails the build on a sharp package at ANY depth, nested or top-level, so
-    # neither kind can ship silently.
+    # neither kind can ship silently. (Formerly the .desktop-package job in the
+    # retired .gitlab-ci.yml -- same guard, ported when GitLab CI was retired.)
     filter:
       - "**/*"
       - "!@img/**"
