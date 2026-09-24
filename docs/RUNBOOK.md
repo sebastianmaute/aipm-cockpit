@@ -192,8 +192,12 @@ with real user data, have users take an export before rolling back.
    configured on it. **As of 2026-09-24 no reviewer is configured** — GitHub
    returns HTTP 422 for that rule on this private repository's plan — so
    `publish` starts immediately once `build` finishes, with no pause to watch
-   for. The reviewer is added at flip step 10a; from then on, approve the run
-   the same way (Actions → the run → "Review deployments" → approve `release`).
+   for. What stands in front of it instead, until then: only the owner/admin
+   role can create, move or delete a `refs/tags/v*` (the tag ruleset), the tag
+   must equal `APP_VERSION` and name a commit reachable from `main` (step 2's
+   `guard` check), and once published a release is immutable. The reviewer is
+   added at flip step 10a; from then on, approve the run the same way (Actions
+   → the run → "Review deployments" → approve `release`).
 4. `publish` verifies the built files (`release:verify`), attests build
    provenance (skipped while the repository is private), drafts the GitHub
    Release, uploads the three files, then publishes. Check the release page:
