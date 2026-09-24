@@ -23,6 +23,9 @@ const sha = (f) => require("crypto").createHash("sha256").update(fs.readFileSync
 if (state.failOn && a.join(" ").includes(state.failOn)) { save(); process.stderr.write("boom"); process.exit(1); }
 if (a[0] === "api" && a[1] === "-X" && a[2] === "DELETE") { state.releases = state.releases.filter((r) => !a[3].endsWith("/" + r.id)); save(); process.exit(0); }
 if (a[0] === "api") {
+  // Simulates the CONFIRMING re-list (after "release edit" flipped draft:false) throwing — gh or
+  // network failure, ENOBUFS, bad JSON — distinct from a pre-publish list failing.
+  if (state.failAfterEdit && state.editDone) { save(); process.stderr.write("boom-post-edit"); process.exit(1); }
   save();
   // --slurp: gh wraps each page's own response in an outer array; there's only ever one page here.
   const body = a.includes("--slurp") ? [state.releases] : state.releases;
@@ -38,6 +41,7 @@ if (a[0] === "release" && a[1] === "create") {
 if (a[0] === "release" && a[1] === "edit") {
   const rel = state.releases.find((r) => r.tag_name === a[2]);
   rel.draft = false;
+  state.editDone = true;
   // Simulates a still-published release drifting from what was just verified as a draft.
   if (state.corruptAfterEdit && rel.assets.length > 0) rel.assets[0].digest = "sha256:corrupted-after-publish";
   save(); process.exit(0);
@@ -174,6 +178,25 @@ describe("publish-github-release.mjs against a fake gh", () => {
     // Caught AFTER publish: `release edit` did run and the release is live, mismatched.
     expect(s.calls.some((c) => c.startsWith("release edit"))).toBe(true);
     expect(s.releases[0].draft).toBe(false);
+  });
+
+  it("exits 1 when `gh release edit` itself fails — it was attempted, so it may already be live", () => {
+    const t = setup({ failOn: "release edit" });
+    const r = t.run();
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/may already be live/);
+    expect(r.stderr).toMatch(/do not just re-run/);
+    expect(t.read().calls.some((c) => c.startsWith("release edit"))).toBe(true);
+  });
+
+  it("exits 1 when the confirming re-list after publish throws — the edit itself DID go through", () => {
+    const t = setup({ failAfterEdit: true });
+    const r = t.run();
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/may already be live/);
+    const s = t.read();
+    expect(s.calls.some((c) => c.startsWith("release edit"))).toBe(true);
+    expect(s.releases[0].draft).toBe(false); // the edit succeeded; only the confirming list blew up
   });
 
   it("refuses the fake-gh hook outside vitest (exit 2), calling gh not at all", () => {

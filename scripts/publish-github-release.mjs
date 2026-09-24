@@ -3,12 +3,20 @@
 // Usage: node scripts/publish-github-release.mjs <dir> <tag>   (env GITHUB_REPOSITORY, GH_TOKEN)
 // Exit: 0 published, or an identical release already was.
 // 1 REFUSED — a human must act: a published release for the tag differs (immutable releases
-//   cannot be fixed in place: publish a new version instead), or the release could not be
-//   confirmed right after publishing (it is already live — inspect it by hand, do not re-run).
+//   cannot be fixed in place: publish a new version instead), or ANYTHING goes wrong at or after
+//   `gh release edit --draft=false` — a failed confirmation, or `release edit` itself throwing, or
+//   the confirming re-list throwing (gh/network failure, ENOBUFS, bad JSON). Once that edit call
+//   has been made, GitHub may already have applied it even if this process never sees a clean
+//   response, so every such failure is treated as "may already be live" and routed here rather
+//   than to exit 2 — a `publishAttempted` flag set immediately before the call decides this,
+//   including from inside the top-level catch.
 // 2 could not run, or the still-unpublished draft this run just created does not match what
 //   was expected — safe to delete-and-retry, since nothing has gone live yet.
 // ★ Draft first, files, then publish: with immutable releases the files lock at publish, so the
 // draft is checked against `expected` one more time right before that happens.
+// ★ `--slurp` (the release-list call below) needs gh >= 2.48.0 (released 2024-04-17, per
+// `gh api repos/cli/cli/releases/tags/v2.48.0`'s own "Added support for `--slurp`ing JSON
+// responses in `gh api`"); verified present against gh 2.101.0 here.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -37,6 +45,11 @@ const gh = (args) =>
     maxBuffer: 256 * 1024 * 1024,
   });
 
+// ★ Declared OUTSIDE the try so the catch below can read it: a `let` inside a try block is not
+// visible in that try's own catch (block scope). Set true immediately before the one call that
+// makes the release live — everything after that point, including a throw, is "may already be
+// live" (exit 1), never "nothing happened" (exit 2).
+let publishAttempted = false;
 try {
   if (!dir || !tag || !tag.startsWith("v") || !repo) throw new Error("usage: publish-github-release.mjs <dir> <tag v…> with GITHUB_REPOSITORY set");
   const lib = await import("./release-publish-lib.mjs");
@@ -88,6 +101,7 @@ try {
     fail(2, `created the draft for ${tag}, but it does not match — leaving it unpublished: ${draftCheck.detail}`);
   }
 
+  publishAttempted = true;
   gh(["release", "edit", tag, "--repo", repo, "--draft=false"]);
 
   verdict = lib.classifyRelease(list(), expected);
@@ -101,5 +115,9 @@ try {
   process.exit(0);
 } catch (err) {
   const detail = err && typeof err === "object" && "stderr" in err ? String(err.stderr).trim() : "";
-  fail(2, `CANNOT PUBLISH: ${err instanceof Error ? err.message : String(err)}${detail ? ` — ${detail}` : ""}`);
+  const msg = `${err instanceof Error ? err.message : String(err)}${detail ? ` — ${detail}` : ""}`;
+  if (publishAttempted) {
+    fail(1, `CANNOT CONFIRM ${tag}: ${msg} — the release may already be live (the publish step was attempted); inspect it by hand, do not just re-run.`);
+  }
+  fail(2, `CANNOT PUBLISH: ${msg}`);
 }
