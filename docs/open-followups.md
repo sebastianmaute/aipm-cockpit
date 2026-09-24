@@ -838,6 +838,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§613](#613-semgreps-blocking-gate-misses-code-injection-in-typescript--widen-the-rule-set-or-block-on-warning--closed-2026-09-23) | Semgrep's blocking gate misses code injection in TypeScript — widen the rule set or block on WARNING — CLOSED 2026-09-23 | sub-project 3 control plant, GitHub Actions run 35868367110 (job `semgrep` stayed green); GitLab #395 | S — a local rule file (`.semgrep/injection.yml`) added to both semgrep steps; plant red (3 findings), tracked tree 0 findings | closed |
 | [§614](#614-use-weight-suggestionstesttsx-is-order-dependent--its-shared-mock-is-never-reset--closed-2026-09-23) | use-weight-suggestions.test.tsx is order-dependent — its shared mock is never reset — CLOSED 2026-09-23 | scheduled run 35875601416, job `unit-shuffled-random` (seed 35875601416); GitLab #396 | S — clear the mock before each test; reproduces in isolation | closed |
 | [§615](#615-tiptaps-deferred-editor-destroy-throws-window-is-not-defined-after-a-test-environment-is-torn-down--open) | TipTap's deferred editor destroy throws window is not defined after a test environment is torn down — open | scheduled run 35875601416, job `unit-shuffled-random` (unhandled error); GitLab #397 | S — hedged with a global 10 ms `afterAll` flush in `vitest.setup.ts`, unverified against the actual race; close after 4 consecutive clean weekly `unit-shuffled-random` runs | open |
+| [§616](#616-timelog-exposes-no-approvereject-write-so-the-review-front-end-is-read-only-until-someone-probes-for-the-undocumented-one--open) | TimeLog exposes no approve/reject WRITE, so the review front-end is read-only until someone probes for the undocumented one — open | TL1 spec (2026-08-23), a sweep of TimeLog's 63 documented services; GitLab #391 | S — a devtools probe at a workstation | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -41307,3 +41308,50 @@ The job was already red on §614's test, so this run cannot show whether the err
 failed it. Next step: find which file leaks, for example by running the candidate files one at a
 time under the same seed and watching for the unhandled error. Only then choose a fix, such as
 letting the editor's deferred destroy run before that file's environment is torn down.
+
+## 616. TimeLog exposes no approve/reject WRITE, so the review front-end is read-only until someone probes for the undocumented one — open
+
+**Status:** open 2026-08-23 — an investigation, not a defect. Nothing misbehaves today. The service
+sweep below was a hand-run `curl`; the missing write is otherwise never machine-verified. First filed as 225 on a branch
+cut 2026-08-23, renumbered to 610 at the GitHub cut-over because main had since given 225 to another entry,
+and renumbered again to 616 on 2026-09-24 because main gave 610 to the fork-PR entry "Fork PRs cannot run
+the leak gate" (GitLab #392) while this one lived on the unmerged branch `feat/timelog-booking-review-tl1`.
+
+**Work item:** #391
+
+**What was measured.** 2026-08-23, against the public REST documentation: all **63 documented
+services** were swept for a method named `approve|reject|decline|deny`. Three names match, and
+none of them is the manager action — `approvaltimesheet_getstatusbyperiodwithrejectedtimetrackingitems`
+and `timeregistration_deleteapprovedabsence` are readers, and `approvaltimesheet_resubmitrejectedtimeregistrations`
+is the EMPLOYEE resubmitting their own rejected time. Every other `approval/timesheets/*` method is
+employee-side too: submit-time-registrations, submit-dates, submit-period, and the get-status-by-*
+readers.
+
+**Why this is not simply "the feature is impossible".** TimeLog's own UI plainly rejects time —
+its read models carry `RejectedRegistrations`, `LastRejectedComment` and `RecentRejectedComment`,
+which could not exist if nothing wrote them. So an undocumented endpoint almost certainly exists,
+and this repository already depends on one undocumented endpoint for the per-project booking fetch.
+
+**★★★ But that precedent does NOT transfer, and the reason is the whole entry.** The endpoint we
+already rely on is a READ. A write here lands in a system that drives invoicing and payroll. An
+undocumented write can change shape or vanish without notice, and a wrong one is not corrected by a
+redeploy — it has already moved somebody's billable hours. Treat discovering the endpoint and
+DECIDING to call it as two separate questions.
+
+**The probe, when someone is at a workstation with a TimeLog login:** open devtools, reject one time
+registration in TimeLog's own UI, and record the request — method, path, payload shape, and whether
+it authenticates with the same API token or only with a session cookie. ★ If it is cookie-only the
+question is settled against us: the app authenticates with an API token and has no session to
+borrow.
+
+**What ships regardless.** The read side is the valuable half and carries no write risk: a manager's
+verdict and its stated reason are readable, which is exactly the corpus of human accept/reject
+decisions the AI review slice needs. Design: `docs/superpowers/specs/2026-08-23-timelog-booking-review-tl1-design.md`
+(on branch `feat/timelog-booking-review-tl1`), "Cross-cutting decisions" §1.
+
+**Reproduce the sweep:**
+
+```
+# lists every documented service; none carries a manager approve/reject method
+curl -s https://api.timelog.com/rest/services | grep -oE "/rest/service/[a-z]+" | sort -u
+```
