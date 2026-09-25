@@ -608,7 +608,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§361](#361-the-daily-roll-budget-is-per-entry-so-nothing-bounds-total-device-storage--closed-2026-09-07) | The daily-roll budget is per-entry, so nothing bounds total device storage | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-07 |
 | [§362](#362-a-guardrail-insights-deep-link-arms-pendingopen-with-no-consumer--closed-2026-09-14) | A guardrail insight's deep link arms `pendingOpen` with no consumer — CLOSED 2026-09-14 | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-14 |
 | [§363](#363-the-reconcile-freeze-guarantee-is-not-absolute--max_insights-can-drop-a-frozen-row--open) | The reconcile freeze guarantee is not absolute — `MAX_INSIGHTS` can drop a frozen row | found 2026-09-04 in the §347 guardrails review | S | open |
-| [§364](#364-an-older-build-prunes-the-four-guardrail-insight-types-on-load-and-can-write-the-pruned-list-back--open) | An older build prunes the four guardrail insight types on load, and can write the pruned list back | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§364](#364-an-older-build-prunes-the-four-guardrail-insight-types-on-load-and-can-write-the-pruned-list-back--closed-2026-09-25) | An older build prunes the four guardrail insight types on load, and can write the pruned list back | found 2026-09-04 in the §347 guardrails review | S | closed |
 | [§365](#365-the-threshold-fields-min1-understates-the-window-the-writer-engine-and-sanitiser-share--closed-2026-09-21) | The threshold field's `min={1}` understates the window the writer, engine and sanitiser share — CLOSED 2026-09-21 | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-21 |
 | [§366](#366-project-scope-timelog-fetches-can-never-certify-a-guardrail-clean-so-those-insights-freeze-until-another-scope-runs--open) | Project-scope TimeLog fetches can never certify a guardrail clean, so those insights freeze until another scope runs | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§367](#367-parsedailykey-never-validates-the-date-so-a-malformed-one-reaches-the-rules-and-a-single-oversized-cell-is-constructible--closed-2026-09-07) | `parseDailyKey` never validates the date, so a malformed one reaches the rules and a single oversized cell is constructible | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-07 |
@@ -651,7 +651,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§406](#406-the-set_task_dependencies-card-label-is-hardcoded-english--closed-2026-09-06) | The `set_task_dependencies` card label is hardcoded English | found 2026-09-06 in cold review of the preview/apply-parity branch | S | CLOSED 2026-09-06 |
 | [§407](#407-task-row-changes-badge-renders-1-changes-for-a-single-linked-change--closed-2026-09-07) | Task-row changes badge renders "1 changes" for a single linked change | found 2026-09-05 by the control-defects batch | S–M — needs a per-language plural rule, not a string edit | **CLOSED** 2026-09-07 |
 | [§408](#408-no-turso-connection-test-exists-anywhere-in-the-repo--open) | No Turso connection test exists anywhere in the repo | found 2026-09-05 by the control-defects batch | M — a transient in-session result is cheap; a persisted "confirmed" flag would be the six-write-paths case | open |
-| [§409](#409-collapsing-an-open-documents-body-can-commit-a-pending-unblurred-edit-and-mint-a-version--open) | Collapsing an open document's body can commit a pending unblurred edit and mint a version | found 2026-09-05 by the control-defects batch; browser-measured 2026-09-06, which refuted the attempted fix | S — priority low; no ordinary gesture reaches the state | open |
+| [§409](#409-collapsing-an-open-documents-body-can-commit-a-pending-unblurred-edit-and-mint-a-version--closed-2026-09-25) | Collapsing an open document's body can commit a pending unblurred edit and mint a version | found 2026-09-05 by the control-defects batch; browser-measured 2026-09-06, which refuted the attempted fix | S — priority low; no ordinary gesture reaches the state | closed |
 | [§410](#410-singleentitypicker-duplicates-entitylinkpickers-combobox-mechanics-almost-line-for-line--open) | `SingleEntityPicker` duplicates `EntityLinkPicker`'s combobox mechanics almost line-for-line | found 2026-09-06 by the control-defects batch | M — extract a third shared hook; would collapse §411 with it | open |
 | [§411](#411-three-singleentitypicker-mechanisms-carry-a-stated-design-rationale-and-no-test--closed-2026-09-07) | Three `SingleEntityPicker` mechanisms carry a stated design rationale and no test | found 2026-09-06 by the control-defects batch | S | **CLOSED** 2026-09-07 |
 | [§412](#412-tasklinkpicker-has-no-direct-test-suite--coverage-is-real-but-indirect--closed-2026-09-07) | `TaskLinkPicker` has no direct test suite — coverage is real but indirect | found 2026-09-06 by the control-defects batch, when a batch vitest run named ten paths and ran nine | S | **CLOSED** 2026-09-07 |
@@ -29332,9 +29332,17 @@ survives IFF the number of OTHER non-guardrail rows is fewer than `RESERVED_NON_
 RAID items plus a large guardrail fetch still loses it. 60 is a judgement call about typical project
 size, not a guarantee. Below the guardrail budget the reservation does nothing at all.
 
-## 364. An older build prunes the four guardrail insight types on load, and can write the pruned list back — OPEN
+## 364. An older build prunes the four guardrail insight types on load, and can write the pruned list back — CLOSED 2026-09-25
 
-**Status:** OPEN. Filed 2026-09-04 from the §347 review round. Verified by reading, 2026-09-04:
+**Status:** CLOSED 2026-09-25 as ACCEPTED, by owner decision. No code in this repo can change a build that has
+already shipped, so the pre-§347 pruning cannot be fixed, only recorded. The accepted rule: `sanitizeInsights`
+admits only the types in the running build's `INSIGHT_TYPES`, so any build older than the one that adds an
+insight type drops that type on load and can write the pruned list back. The same will happen to every type
+added in future. The alternative, carrying unknown types through the validator and making every consumer skip
+them, was weighed and not taken: the validator's job is bounding what it admits. Recorded in
+`docs/AGENTS/insights.md`.
+
+Original status: OPEN. Filed 2026-09-04 from the §347 review round. Verified by reading, 2026-09-04:
 `grep -n "INSIGHT_TYPES.includes" src/app/insights/sanitize-insights.ts`.
 
 **Work item:** #260
@@ -31425,9 +31433,15 @@ resets on reload, the way Jira's and Timelog's test results already behave) woul
 difference — not the absence of a Turso client call — is the whole reason this was deferred
 rather than added inline to this batch.
 
-## 409. Collapsing an open document's body can commit a pending unblurred edit and mint a version — OPEN
+## 409. Collapsing an open document's body can commit a pending unblurred edit and mint a version — CLOSED 2026-09-25
 
-**Status:** OPEN. 2026-09-06. The re-runnable half is
+**Status:** CLOSED 2026-09-25 as ACCEPTED, by owner decision: collapsing the open document's body may write.
+The measured findings below stand — no ordinary mouse or keyboard gesture reaches the state, because the
+ordinary blur commit runs before the collapse; and where a write does happen it is the SAFE direction (the edit
+is written, never discarded). No visibility guard is added to `commit()`. Recorded in
+`docs/AGENTS/documents.md`.
+
+Original status: OPEN. 2026-09-06. The re-runnable half is
 `npx vitest run --maxWorkers=1 src/app/documents-panel.test.tsx` (108 passed), which pins the MOUNT
 SHAPE only — it goes red on a revert to the conditional render and is structurally incapable of
 seeing the browser behaviour below, because jsdom implements neither layout nor the focus-fixup

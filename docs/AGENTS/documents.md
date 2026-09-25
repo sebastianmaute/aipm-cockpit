@@ -1624,6 +1624,10 @@ canonical section. The canonical copies are this file's version-model, "Asset im
   moved since the draft's baseline froze (a restore, an AI write, a second tab), and adopt an external write
   while the draft is undirty — is the FIRST of two layers (the ★★★ below is the second).
   Read the hook's own docstring before touching it, not this summary.
+  ★ Collapsing the open document's body (re-clicking its name) MAY write: hiding an ancestor of a focused
+  input fires `focusout`, and `commit()` carries no visibility guard. Accepted 2026-09-25 (`docs/open-followups.md`
+  §409): no ordinary gesture reaches it, and the write is the safe direction. Do not add a guard without
+  reopening that decision.
   ★★★ **THE BLOCK SET IS HAND-EDITABLE TOO, not only each block's CONTENT** — everything above is about
   the per-row DRAFTS. Each gutter carries a `DragHandle` grip plus an actions menu that inserts
   above/below and deletes, all routed through ONE REQUIRED `BlockStructuralOps` bag; deleting anything
