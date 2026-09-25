@@ -481,7 +481,7 @@ describe("ReportsPanel — group cards rank by in-scope size, not raw size", () 
 });
 
 describe("ReportsPanel — a group card does not count cancelled work Green", () => {
-  it("names the cancelled count and leaves Green at zero (open-followups §66)", () => {
+  it("names the out-of-scope count and leaves Green at zero (open-followups §66)", () => {
     renderReports([
       makeTask({ id: 1, assignee: "Alex", group: "Alpha", status: "To Do" }),
       makeTask({ id: 2, assignee: "Bea", group: "Alpha", status: "Cancelled" }),
@@ -489,7 +489,9 @@ describe("ReportsPanel — a group card does not count cancelled work Green", ()
     // ONE, and it is the group card's. It used to be TWO: the old Headline block's
     // Total tile also said "1 cancelled", and that block is now the At a glance
     // strip, which has no such line — so a match here can only be the card.
-    expect(screen.getAllByText(/1 cancelled/)).toHaveLength(1);
+    // The clause reads "out of scope" since §65 (it also counts Done rows with
+    // no completedDate, which were never cancelled).
+    expect(screen.getAllByText(/1 out of scope/)).toHaveLength(1);
     // The point of §66: before this, the cancelled row was tallied Green, so
     // the same fixture read "… · 1 green". Asserting the absence is what fails
     // on the unfixed code — the presence assertion above would pass either way

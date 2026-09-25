@@ -190,4 +190,19 @@ describe("GroupHealthBlock", () => {
     );
     expect(document.body.textContent).toContain(outOfScope("3"));
   });
+
+  // §65: the out-of-scope bucket is cancelled PLUS Done-with-no-date, so the
+  // clause must not call it "cancelled". A LITERAL match on purpose: the test
+  // above goes through t(key) and would stay green whatever the wording says.
+  it("names the out-of-scope clause without calling it cancelled", () => {
+    render(
+      <GroupHealthBlock
+        lang="en-US"
+        rows={[row({ health: { color: "G", counts: { R: 0, A: 0, G: 2 }, outOfScope: 3, drivers: [] } })]}
+        driverKey={driverKey}
+      />,
+    );
+    expect(document.body.textContent).toContain("3 out of scope");
+    expect(document.body.textContent).not.toMatch(/cancel/i);
+  });
 });
