@@ -11,7 +11,7 @@ import {
 } from "electron";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { APP_ORIGIN, APP_PORT, RELEASES_URL } from "./lib/constants";
+import { APP_ORIGIN, APP_PORT } from "./lib/constants";
 import { classifyPortOwner, type PortProbe } from "./lib/port-owner";
 import { shouldReportServerExit } from "./lib/exit-reporting";
 import {
@@ -36,12 +36,15 @@ import {
 } from "./lib/menu-model";
 import { resolveLogDir } from "./lib/log-paths";
 import { isPrintCancellation, pickPrintTarget } from "./lib/print-target";
+import { STARTUP_CHECK_DELAY_MS } from "./lib/update-policy";
 import { liveWindow } from "./lib/window-liveness";
 import { waitForReady } from "./lib/readiness";
 import { killServer, spawnServer } from "./server-child";
+import { createUpdater, type Updater } from "./updater";
 
 let serverChild: UtilityProcess | null = null;
 let win: BrowserWindow | null = null;
+let updater: Updater | null = null;
 // Set the moment WE decide to stop. killServer goes through `taskkill /F` on
 // Windows, so a deliberate shutdown exits the child with code 1 -- exactly
 // what a crash looks like. Without this flag every normal close ended with an
@@ -267,28 +270,6 @@ function fileMenuClick(id: FileMenuItemId): () => void {
   }
 }
 
-// ★★ ONE OF FOUR shell.openExternal CALL SITES (M-1, final-review-report.md
-// -- this comment used to say "the only" one, which stopped being true once
-// the navigation guards below could reach it too): this function (the Help
-// menu's "Check for updates…" item), the `setWindowOpenHandler`'s
-// `open-external` case, and `will-navigate`/`will-redirect`'s own
-// `open-external` branches, all further down this file. This stayed a
-// function of its own rather than an inline call because it used to have a
-// second caller -- the removed native Version dialog's second button; the
-// Version panel's own Releases link (src/app/version-info.tsx) is now an
-// ordinary in-page <a target="_blank">, which IS routed through this
-// process: the `open` goes through `setWindowOpenHandler` -> `decideWindowOpen`
-// -> `shell.openExternal`, one of the other three sites above, not this one.
-//
-// ★ Hand the page to the user's OWN browser, where they are already signed in
-// to an `internal` GitLab. There is no updater and no feed to poll -- see
-// RELEASES_URL for why the app must not hold a credential of its own.
-function openReleasesPage(): void {
-  void shell.openExternal(RELEASES_URL).catch((e: unknown) => {
-    log(`open releases page: ${String(e)}`);
-  });
-}
-
 // Runs `script` (a versionRequestScript() build) in `target` and reports
 // whether a listener handled it. NEVER throws or rejects -- a destroyed-
 // window race, a script error, and "nothing was listening" all fold into
@@ -444,8 +425,8 @@ function helpMenuClick(id: HelpMenuItemId): () => void {
           });
         });
       };
-    case "open-releases":
-      return openReleasesPage;
+    case "check-for-updates":
+      return () => updater?.check("manual");
     default: {
       // ★★★ LOG AND DEGRADE, NEVER THROW -- see the note above this function.
       // The `never` assignment is the compile-time half: a new HelpMenuAction
@@ -519,6 +500,7 @@ function buildMenu(): void {
 }
 
 async function start(): Promise<void> {
+  updater = await createUpdater({ log, window: () => (win && !win.isDestroyed() ? win : null) });
   buildMenu();
   win = new BrowserWindow({
     width: 1400,
@@ -589,6 +571,7 @@ async function start(): Promise<void> {
   }
 
   await win.loadURL(APP_ORIGIN);
+  setTimeout(() => updater?.check("startup"), STARTUP_CHECK_DELAY_MS);
 }
 
 // One instance. A second launch focuses the window that already exists.
@@ -729,6 +712,17 @@ if (!app.requestSingleInstanceLock()) {
         switch (decision) {
           case "allow-in-app":
             return { action: "allow" };
+          // ★★ ONE OF FOUR shell.openExternal CALL SITES (M-1, final-review-report.md
+          // -- this comment used to say "the only" one, which stopped being true once
+          // the navigation guards below could reach it too): this case, the
+          // `will-navigate`/`will-redirect` `open-external` branches further down this
+          // file, and the updater's "Open releases page" button on its error dialog
+          // (updater.ts, shown only when a manual "Check for updates…" check fails). The
+          // Help menu's "Check for updates…" item itself no longer opens a browser --
+          // `helpMenuClick` routes it to `updater?.check("manual")` -- so it is not a
+          // fifth site, and neither is the Version panel's own Releases link
+          // (src/app/version-info.tsx), an ordinary in-page <a target="_blank"> whose
+          // `open` is routed through THIS case via `decideWindowOpen`.
           case "open-external":
             void shell.openExternal(new URL(details.url).href).catch((e: unknown) => {
               log(`window-open: ${String(e)}`);

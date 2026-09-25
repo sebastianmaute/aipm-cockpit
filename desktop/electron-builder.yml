@@ -5,6 +5,13 @@ productName: AI PM Cockpit
 artifactName: aipm-cockpit-${version}-setup.exe
 directories:
   output: release
+# The update feed electron-updater reads: electron-builder writes latest.yml beside the installer
+# and embeds this as resources/app-update.yml. `desktop:package` keeps `--publish never`; the release
+# workflow's publish job uploads the files (spec 2026-09-24-releases-and-updates-design.md).
+publish:
+  provider: github
+  owner: sebastianmaute
+  repo: aipm-cockpit
 files:
   - dist/**
   - splash.html
@@ -36,11 +43,14 @@ extraResources:
     # ★★ NO sharp. Next's standalone trace copies sharp -- the image optimizer
     # behind /_next/image -- into this node_modules as `sharp`,
     # `@img/sharp-<platform>` and `@img/sharp-libvips-<platform>`, plus its
-    # pure-JS dependency `@img/colour`. In CI the root `npm ci` that installs
-    # sharp runs in the `install` job, on Linux, and .desktop-package inherits
-    # that node_modules through `needs: [install]` -- so the trace shipped the
-    # LINUX binaries, which a Windows install can never load. A local Windows
-    # build is no better: its `@img/sharp-win32-x64` held the .node file
+    # pure-JS dependency `@img/colour`. Historically (the retired `.gitlab-ci.yml`)
+    # the root `npm ci` that installs sharp ran in a separate Linux `install`
+    # job, and the packaging job inherited that node_modules through
+    # `needs: [install]` -- so the trace shipped the LINUX binaries, which a
+    # Windows install can never load. The release workflow's `build` job
+    # (.github/workflows/release.yml) runs entirely on `windows-latest` and
+    # does its own `npm ci`, so it is in the SAME situation a local Windows
+    # build always was: its `@img/sharp-win32-x64` holds the .node file
     # without the libvips DLLs it links against. No installer has ever carried
     # a loadable sharp, and nothing needs one -- the app imports no next/image,
     # next.config sets no `images`, and it generates no metadata images (its
@@ -61,9 +71,10 @@ extraResources:
     # ★★ The patterns are relative to THIS entry's `from`, i.e. to node_modules
     # itself, so they drop only the TOP-LEVEL packages; a sharp nested inside
     # another package's node_modules passes this filter (none exists today).
-    # The .desktop-package job in .gitlab-ci.yml walks the packaged tree and
+    # The release workflow's `build` job (.github/workflows/release.yml) walks the packaged tree and
     # fails the build on a sharp package at ANY depth, nested or top-level, so
-    # neither kind can ship silently.
+    # neither kind can ship silently. (Formerly the .desktop-package job in the
+    # retired .gitlab-ci.yml -- same guard, ported when GitLab CI was retired.)
     filter:
       - "**/*"
       - "!@img/**"
@@ -71,8 +82,8 @@ extraResources:
 # electron-builder flips these into the packaged Electron binary's fuse wire
 # (app-builder-lib's `FuseOptionsV1`, backed by @electron/fuses) after
 # packaging -- they only take effect in a PACKAGED build, never in `npm run
-# dev`/`electron .`, so nothing local exercises them; the manual
-# `desktop-package` CI job is the only thing that runs this step.
+# dev`/`electron .`, so nothing local exercises them; the release workflow's
+# `build` job (.github/workflows/release.yml) is what runs this step in CI.
 electronFuses:
   # Stops `ELECTRON_RUN_AS_NODE=1` turning the shipped exe into a
   # general-purpose Node interpreter. The app's own Next server does NOT
@@ -137,9 +148,15 @@ win:
   # package.json". A plain-string author is enough, because the package reader
   # parses it into `{ name }` (normalizePackageData.js `parsePerson`).
   #
-  # See the spec's Section 7 security note -- unsigned means SmartScreen
-  # prompts on install, and (once the updater lands) the share ACL is the
-  # only integrity control on updates.
+  # See the electron-app-bundling design's Section 7 security note
+  # (docs/superpowers/specs/2026-09-10-electron-app-bundling-design.md) --
+  # unsigned means SmartScreen prompts on install. Updates come from GitHub
+  # Releases behind the `release.yml` publish job (its owner-approval pause
+  # is wired in but not yet configured -- see flip step 10a), the tag
+  # ruleset, immutable releases, build-provenance attestations (once public)
+  # and the sha512 in latest.yml (transfer corruption only, not a
+  # substitution control) -- see
+  # docs/superpowers/specs/2026-09-24-releases-and-updates-design.md.
   signExecutable: false
 nsis:
   # Per-user install: corporate laptops routinely deny admin rights, and a

@@ -1,8 +1,29 @@
-# Keeps the SHA-pinned actions current. Container digests (semgrep, actionlint) are not covered by
-# this ecosystem; re-resolve them by hand (see the plan's Task 3 Step 1 command).
+# Weekly updates. Minor and patch versions arrive as one grouped PR per npm directory; majors and
+# every exactly pinned framework package (CONTRIBUTING "Dependencies") arrive one PR each, for a
+# human decision. scripts/dependabot-config.test.mjs derives the pinned set from each package.json.
+# Container digests (semgrep, actionlint) are not covered; re-resolve them by hand.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+        exclude-patterns: [eslint-config-next, next, react, react-dom]
+  - package-ecosystem: npm
+    directory: /desktop
+    schedule:
+      interval: weekly
+    groups:
+      desktop-minor-patch:
+        update-types: [minor, patch]
+        exclude-patterns: [electron, electron-builder, electron-updater]

@@ -5,7 +5,7 @@
 // not SCAN at all — a bad `--json` argument, or zero sources found, the latter
 // being a vacuity guard rather than a finding (a scan that reads nothing passes
 // everything). It is
-// deliberately absent from `.gitlab-ci.yml`, and adding it there would be a
+// deliberately not wired into CI, and adding it there would be a
 // mistake: a real gate would have to RENDER each panel against a collision
 // fixture and read the accessible names off the tree, which nothing static can
 // do — whether two names collide depends on the DATA, and the data is not in

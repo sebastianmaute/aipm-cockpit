@@ -1,0 +1,147 @@
+# Builds and publishes a desktop release when a v* tag is pushed.
+# Design: docs/superpowers/specs/2026-09-24-releases-and-updates-design.md
+# ★ Only `publish` can write and it installs no packages. It runs in the `release` environment,
+#   which is DESIGNED to pause for the owner's approval once a required-reviewer rule is
+#   configured on it -- that pause becomes active at flip step 10a (GitHub rejects the rule on
+#   this private repository's plan today). Until then, what stands in front of `publish` -- and so
+#   in front of every installed copy's auto-update, since the installer is unsigned -- is the tag
+#   ruleset (only the owner/admin role can create, move or delete a `refs/tags/v*`), the `guard`
+#   job (the tag must equal APP_VERSION and name a commit reachable from `main`), and immutable
+#   releases.
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - name: The tag names APP_VERSION
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node scripts/check-tag-version.mjs "$TAG"
+      - name: The tagged commit is on main
+        shell: bash
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - id: v
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          v="${TAG#v}"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: guard
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - run: npm ci
+      - name: Standalone app build
+        env:
+          NEXT_STANDALONE: "1"
+        run: npm run build
+      - run: npm run desktop:copy-static
+      - run: npm --prefix desktop ci
+      - run: npm --prefix desktop run build
+      - run: npm run desktop:package
+      - name: The package holds the three files and no sharp
+        shell: bash
+        env:
+          VERSION: ${{ needs.guard.outputs.version }}
+        run: |
+          ls -l "desktop/release/aipm-cockpit-$VERSION-setup.exe" "desktop/release/aipm-cockpit-$VERSION-setup.exe.blockmap" desktop/release/latest.yml
+          nm=desktop/release/win-unpacked/resources/standalone/node_modules
+          test -f "$nm/next/package.json" || { echo "sharp guard: $nm/next/package.json is missing -- the packaged tree moved, or its node_modules did not ship"; exit 1; }
+          hits=$(find "$nm" \( -path '*/node_modules/sharp' -o -path '*/node_modules/@img/sharp-*' \) -prune -print) || { echo "sharp guard: find failed under $nm"; exit 1; }
+          if [ -n "$hits" ]; then echo "sharp guard: sharp is in the packaged app -- see the sharp filter in desktop/electron-builder.yml:"; echo "$hits"; exit 1; fi
+      - name: The packaged app actually contains electron-updater
+        shell: bash
+        run: |
+          asar=desktop/node_modules/.bin/asar
+          app=desktop/release/win-unpacked/resources/app.asar
+          test -f "$app" || { echo "electron-updater guard: $app is missing -- the packaged tree moved"; exit 1; }
+          listing=$("$asar" list "$app") || { echo "electron-updater guard: asar list failed on $app"; exit 1; }
+          # asar list reports path.join()-native separators -- on this windows-latest runner that is
+          # "\", verified locally where the same call prints "\node_modules\electron-updater\out\
+          # main.js" -- so the bracket class matches either separator rather than assuming one.
+          grep -qE 'node_modules[/\\]electron-updater[/\\]out[/\\]main\.js' <<<"$listing" || { echo "electron-updater guard: node_modules/electron-updater/out/main.js is not in the packaged app -- check desktop/package.json dependencies"; exit 1; }
+          grep -qE 'node_modules[/\\]builder-util-runtime([/\\]|$)' <<<"$listing" || { echo "electron-updater guard: node_modules/builder-util-runtime (electron-updater's own runtime dependency) is not in the packaged app"; exit 1; }
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-files
+          path: |
+            desktop/release/aipm-cockpit-${{ needs.guard.outputs.version }}-setup.exe
+            desktop/release/aipm-cockpit-${{ needs.guard.outputs.version }}-setup.exe.blockmap
+            desktop/release/latest.yml
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: [guard, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-files
+          path: ${{ runner.temp }}/release
+      - name: Verify the files
+        env:
+          TAG: ${{ github.ref_name }}
+          DIR: ${{ runner.temp }}/release
+        run: npm run release:verify -- "$DIR" "$TAG"
+      - name: Attest build provenance
+        if: ${{ !github.event.repository.private }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/release/*
+      - name: Attestation skipped (private repository)
+        if: ${{ github.event.repository.private }}
+        run: echo "Provenance attestation skipped - attestations on a private repository need GitHub Enterprise."
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          DIR: ${{ runner.temp }}/release
+        run: npm run release:publish -- "$DIR" "$TAG"

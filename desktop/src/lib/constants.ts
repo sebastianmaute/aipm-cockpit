@@ -10,15 +10,28 @@ export const APP_HOST = "127.0.0.1";
 export const APP_PORT = 17300;
 export const APP_ORIGIN = `http://${APP_HOST}:${APP_PORT}`;
 
-// Where a person goes to get a newer build. This is a PAGE for a human to
-// open in their own browser -- where they are already signed in -- and NOT a
-// machine-readable update feed.
+// Where a person goes to get a newer build by hand. The in-app updater
+// (updater.ts) reads a SEPARATE, machine-readable feed -- the public GitHub
+// Releases `latest.yml`, configured via `publish:` in electron-builder.yml and
+// embedded in the packaged app as `resources/app-update.yml` -- and this URL
+// is not that feed. It is the page the updater's own error dialog offers (the
+// "Open releases page" button, shown when a manual check fails) and the page
+// the Version panel links to, for a person to open in their own browser.
 //
-// ★★ That distinction is the whole reason the app has no in-app updater. The
-// installer is unsigned, so there is no second integrity check behind
-// whatever a machine-readable feed handed back -- an unattended poller would
-// be exactly the thing that needed one. A link the user clicks keeps the
-// authentication (and the judgment call) where it already is: in their
-// browser, as themselves.
+// ★★ The installer is unsigned, so there is no code-signing check behind what
+// the feed hands back. Shipping the updater anyway (rather than requiring this
+// manual page forever) is a deliberate call, not an oversight: integrity comes
+// from HTTPS, GitHub's immutable releases, and the sha512 in `latest.yml` --
+// which is computed from the very release it accompanies, so it guards
+// against TRANSFER corruption only (a bad download), not against a malicious
+// build. The `release` environment's owner-approval gate is CONFIGURED AT
+// FLIP STEP 10A, not before -- GitHub rejects the required-reviewer rule on
+// this private repository's plan (measured 2026-09-24) -- so until then what
+// stands in front of publishing a release is the tag ruleset (only the
+// owner/admin role can create, move or delete a `refs/tags/v*`), the
+// `release.yml` `guard` job (tag must equal APP_VERSION, commit reachable
+// from `main`) and immutable releases. Nothing here substitutes for code
+// signing (fix round 1, review R11 Minor 4). See the spec's auto-update
+// section and register §487/§563.
 export const RELEASES_URL =
   "https://github.com/sebastianmaute/aipm-cockpit/releases";

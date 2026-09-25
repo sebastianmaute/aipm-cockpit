@@ -71,8 +71,10 @@ are entered in the in-app Settings panel and stored in the browser.
 | `npm run desktop:copy-static` | Copy .next/static and public/ into .next/standalone (next build --output standalone does not copy either) and verify a CSS bundle is present — omitting this ships an Electron package that boots and renders completely unstyled with no build-time error. Requires a prior `NEXT_STANDALONE=1 npm run build`. |
 | `npm run desktop:build` | Build the Electron desktop shell: a standalone Next build (NEXT_STANDALONE=1), then desktop:copy-static, then compile desktop/ TypeScript to desktop/dist/. Run before desktop:package. |
 | `npm run desktop:package` | Package the built Electron shell into a Windows NSIS installer via electron-builder, reading desktop/electron-builder.yml. Run desktop:build first. |
-| `npm run tag:check` | Assert the current tag names exactly src/app/version.ts's APP_VERSION. Reads CI_COMMIT_TAG (or argv[2] locally). Exit 1 is DRIFT — the tag and version.ts disagree, so an installer would misreport its own version; exit 2 means the gate could not scan at all (no tag, or version.ts's shape moved), which demands the opposite response. BLOCKING on tag pipelines. |
-| `npm run release:publish` | Create the GitLab Release for the current tag and attach an asset link to the installer built by desktop-package-tag. Needs CI_API_V4_URL, CI_PROJECT_ID, CI_PROJECT_URL, CI_COMMIT_TAG and CI_JOB_TOKEN. Outside --dry-run, exit 0 means a confirmed Release and nothing else: a 201 echoing this tag and link, or a 409 whose existing Release already carries the link. Exit 1 is a 4xx refusal (a human must act), or a 409 whose Release lacks the link. Exit 2 is everything else, all safe to retry: missing env, an unknown argument, network, the 30 s timeout, 408/429, 5xx, a redirect, an unconfirmable 2xx. `--dry-run` validates the same env except the token, prints the payload and whether a token is present, and sends nothing. Uses node's fetch deliberately: no release-cli image, no curl. |
+| `npm run desktop:typecheck` | Typecheck the Electron shell (desktop/tsconfig.json), which the root tsc excludes, PLUS desktop/tsconfig.test.json (updater.test.ts and updater-module-shape.test.ts — the two desktop tests that import electron/electron-updater, so the root tsc excludes them too). Needs desktop/node_modules: locally it SKIPS visibly without them, under CI it exits 2. Exit 1 = type errors. |
+| `npm run tag:check` | Assert a tag names exactly src/app/version.ts's APP_VERSION (a prerelease tag like v1.14.0-rc.1 needs the same suffix there). Reads argv[2] — the release workflow's guard job passes the tag — or CI_COMMIT_TAG. Exit 1 is DRIFT — the tag and version.ts disagree, so an installer would misreport its own version; exit 2 means the gate could not scan at all (no tag, or version.ts's shape moved), which demands the opposite response. |
+| `npm run release:publish` | Create and publish the GitHub Release for a tag from a verified release directory (the release workflow's publish job; needs gh, GITHUB_REPOSITORY and GH_TOKEN). Usage: npm run release:publish -- <dir> <tag>. Drafts, uploads the installer, blockmap and latest.yml, checks the still-draft release matches before publishing, then publishes; a leftover draft is deleted and recreated. Exit 0 = published or already identical; 1 = REFUSED, a human must act: a published release for the tag differs (publish a new version), or the release could not be confirmed right after publishing (already live — inspect it by hand); 2 = could not run, or the still-unpublished draft this run just created doesn't match — safe to delete and retry, nothing has gone live yet. |
+| `npm run release:verify` | Check a downloaded release directory before publishing: exactly the installer, its blockmap and latest.yml for the tag, with latest.yml's version, path, sha512 and size matching the installer's bytes. Usage: npm run release:verify -- <dir> <tag>. Exit 1 names each problem; exit 2 means it could not check. |
 | `npm run e2e:desktop` | Smoke the PACKAGED desktop app (e2e/desktop-smoke.spec.ts): launches desktop/release/win-unpacked/, asserts the window is styled (a missing .next/static ships an app that boots and serves completely unstyled) and reports this checkout's version, and asserts the server answers on loopback while REFUSING on the machine's LAN address. Needs a prior `npm run desktop:package`; skips with a named message otherwise. Runs in NO CI job, and PLAYWRIGHT_NO_WEBSERVER=1 keeps it from booting a Next dev server it never uses |
 <!-- END AUTO-GENERATED -->
 
@@ -307,8 +309,9 @@ delta shapes.
 
 ### Dependencies
 
-**Framework-coupled packages are pinned exactly, with no range:** `next`,
-`react`, `react-dom`, `eslint-config-next`. Every other dependency carries a
+**Framework-coupled packages are pinned exactly, with no range:** at the root,
+`next`, `react`, `react-dom`, `eslint-config-next`; in `desktop/`, `electron`,
+`electron-builder`, `electron-updater`. Every other dependency carries a
 caret so upstream fixes flow without a slice each. ★ The cost: a caret admits
 MINOR releases, not just patches — this section exists because `^16.2.11` ADMITS `16.3.2`. ★ It never resolved to it — no 16.3 tarball has
 ever entered the lock (`git log --all -S'next/-/next-16.3' -- package-lock.json` is empty). The
@@ -538,7 +541,14 @@ A change lands like this:
 
 If the month's Actions minutes run out, follow [`docs/RUNBOOK.md`, "Actions minutes exhausted"](docs/RUNBOOK.md#actions-minutes-exhausted).
 
-No releases and no tags are made until releasing moves to GitHub Releases.
+## Releasing
+
+Bump `src/app/version.ts`, run `npm run version:sync`, add the `CHANGELOG.md` section, merge to
+`main`, then tag the merge commit (`v<version>`, owner-only). A push of a `v*` tag runs
+`.github/workflows/release.yml`: `guard` checks the tag, `build` packages the Windows installer,
+`publish` publishes the GitHub Release (an approval pause is wired in but not yet configured — see the
+RUNBOOK). Full steps, exit codes and withdrawing a bad release:
+[`docs/RUNBOOK.md`, "Publishing a desktop release (GitHub)"](docs/RUNBOOK.md#publishing-a-desktop-release-github).
 
 ## Pull request checklist
 

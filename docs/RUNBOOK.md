@@ -170,84 +170,61 @@ risk is forward compatibility: data saved by a newer build can carry
 fields or a schema version the older build does not know. In environments
 with real user data, have users take an export before rolling back.
 
-## Publishing a desktop release
+## Publishing a desktop release (GitHub)
 
-> ★★★ **Paused.** This section describes the GitLab release pipeline. Since the GitHub cut-over
-> (`docs/superpowers/specs/2026-09-22-github-cutover-design.md`) GitLab runs only its sync job,
-> so pushing a tag publishes nothing. Releasing returns with migration sub-project 5 (GitHub
-> Releases). Until then, make no release tags.
+1. Bump `src/app/version.ts` (`APP_VERSION`, `APP_BUILD_DATE`, milestone), run
+   `npm run version:sync` (rewrites every satellite file — `version:check` is
+   blocking in CI's `static` job), add the `## [<v>] - <date> "<milestone>"`
+   section to `CHANGELOG.md` (`release:publish` refuses to build notes without
+   it), then merge to `main`.
+2. Tag the merge commit: `git tag v<version> <sha> && git push origin v<version>`.
+   The tag ruleset restricts creation of `refs/tags/v*` to the owner. The tag
+   **must** match `APP_VERSION` (the `guard` job runs
+   `node scripts/check-tag-version.mjs "$TAG"` — `npm run tag:check` — as soon
+   as the workflow starts; exit 1 is drift, exit 2 means it could not scan),
+   and the tagged commit must be an ancestor of `origin/main` or `guard`
+   refuses it.
+3. The `release` workflow (`.github/workflows/release.yml`) runs `guard` →
+   `build` (Windows, ~20-30 min — installs dependencies, builds the app and the
+   installer, uploads it as a workflow artifact) → `publish`. `publish` runs in
+   the `release` environment, which is wired to pause for approval ("Review
+   deployments" on the run's Actions page) once a required reviewer is
+   configured on it. **As of 2026-09-24 no reviewer is configured** — GitHub
+   returns HTTP 422 for that rule on this private repository's plan — so
+   `publish` starts immediately once `build` finishes, with no pause to watch
+   for. What stands in front of it instead, until then: only the owner/admin
+   role can create, move or delete a `refs/tags/v*` (the tag ruleset), the tag
+   must equal `APP_VERSION` and name a commit reachable from `main` (step 2's
+   `guard` check), and once published a release is immutable. The reviewer is
+   added at flip step 10a; from then on, approve the run the same way (Actions
+   → the run → "Review deployments" → approve `release`). **Push one release
+   tag at a time.** Every run shares one fixed concurrency group, and GitHub
+   keeps only one PENDING run per group: pushing a third tag while one run is
+   in progress and a second is queued silently cancels the queued one (and,
+   from flip step 10a on, a run paused waiting for approval occupies that same
+   slot). A cancelled run just needs a re-run of its tag's workflow.
+4. `publish` verifies the built files (`release:verify`), attests build
+   provenance (skipped while the repository is private), drafts the GitHub
+   Release, uploads the three files, then publishes. Check the release page:
+   exactly three assets, the CHANGELOG notes, not a draft.
+5. Exit codes: `release:verify` — 0 the files are exactly right, 1 named
+   problems (fix the build, delete the tag, re-tag after a new commit), 2 could
+   not check. `release:publish` — 0 published (or an identical release already
+   exists), 1 a human must act (a published release for the tag differs —
+   immutable releases cannot be fixed in place, publish a new version instead —
+   or anything failed after the publish edit was attempted, so the release may
+   already be live: inspect it by hand, don't just re-run), 2 safe to retry
+   (nothing has gone live yet, including a still-unpublished draft this run
+   just created that didn't match).
 
-1. Bump `src/app/version.ts` (`APP_VERSION`, `APP_BUILD_DATE`, `APP_MILESTONE`),
-   add the `CHANGELOG.md` entry, and propagate with `npm run version:sync`,
-   which rewrites every other file that restates the version —
-   `version-sync-check` is blocking.
-2. Merge to the default branch.
-3. Tag the merged commit: `git tag v<version> && git push origin v<version>`.
-   The tag **must** match `APP_VERSION`; `tag-version-check` runs as soon as the
-   tag pipeline starts and fails otherwise (exit 1 is drift, exit 2 means it
-   could not scan at all). A failure holds back `publish-release`, which runs
-   only once every earlier stage has passed.
-   Whoever pushes the tag needs
-   Developer+ and the right to create protected tags, because the pipeline's job
-   token acts with the pusher's access — GitLab behaviour as documented,
-   unverified here.
-4. The tag pipeline runs `desktop-package-tag` (blocking; a full wine build, so
-   slow) and then, only once every earlier stage has passed, `publish-release`,
-   which creates the Release and attaches the installer link.
-5. Check the Releases page: the asset link should download
-   `aipm-cockpit-<version>-setup.exe`.
+**Withdrawing a bad release.** Releases are immutable — nothing can be edited
+in place. Publish a fixed patch version at once. On the bad one, untick "Set as
+the latest release" (`gh release edit v<bad> --latest=false`, once a newer
+release exists). Installed copies only ever move forward — `allowDowngrade` is
+off — so a bad release stops mattering to them the moment a newer one ships.
 
-**If the tag pipeline is red.** `publish-release` has no `needs:` and runs only
-once every earlier stage has passed.
-
-- **Another job failed.** If the failure was flaky and `install` finished less
-  than an hour ago, retry that job, and GitLab then runs the skipped
-  `publish-release`. Later than that, run a new pipeline for the tag instead
-  (Build → Pipelines → Run pipeline, choose the tag): every `needs: [install]`
-  job downloads `install`'s `node_modules/` artifact, which has `expire_in: 1h`,
-  so a late retry likely fails without it. The `workflow:` rule
-  `if: $CI_COMMIT_TAG` admits that pipeline, and its `publish-release` creates
-  the Release — or answers 409 and confirms, if an earlier run already created
-  it with this link. A deterministic failure — tag drift, a real lint or test
-  error — fails the same way every time: it needs a fix and a new tag, because
-  a tag's pipeline only ever builds the commit the tag names. Until the
-  pipeline is green the asset link may 404, because GitLab resolves a per-tag
-  artifact URL only through a successful pipeline. The retry running
-  `publish-release`, a late retry failing, the Run pipeline form taking a tag,
-  and the 404 are GitLab behaviour, unverified here.
-- **`publish-release` exited 2** (a timeout, a 5xx, a 408/429, a 2xx it could not
-  confirm): retry it. A create that did land answers 409 the second time, and the
-  job exits 0 only if that existing Release carries the link. A redirect or a
-  missing variable also exits 2 and will not clear on a retry, so read the message.
-- **`publish-release` exited 1**: a human must act. Either the API refused with
-  a 4xx other than 408, 409 or 429 (for a 403 it prints
-  `API refused: HTTP 403 (the tag pusher needs Developer+, and the right to create protected tags)`,
-  which is step 3's access), or it answered 409 and the Release that already
-  exists for the tag lacks the link
-  (`a Release for <tag> exists WITHOUT <link> — add the link (Release links API) or delete that Release, then retry`).
-
-★ Tag-build artifacts never expire, deliberately — a published download must not
-vanish. The manual `desktop-package` build on other pipelines still expires
-after a week.
-
-★★ If `desktop-package-tag` cannot run on the wine image, the fallback is a
-local Windows build (`npm ci` and `npm --prefix desktop ci`, then
-`npm run desktop:build && npm run desktop:package`; the installer lands in
-`desktop/release/`), attached by hand to a Release you create yourself — a
-failed `desktop-package-tag` stops the pipeline before `publish-release` runs.
-If the image is unreachable for good and the `desktop-package` jobs are deleted,
-remove `publish-release` in the same change: it has no `needs:`, so
-on its own it would go on running on every tag and publish a Release whose link
-names a job that no longer exists — a green pipeline over a download that 404s.
-See `docs/superpowers/specs/_probes/2026-09-10-wine-runner-and-artifact-size.md`
-for why that is the sanctioned fallback rather than a thing to debug in CI.
-
-★★ The installer is unsigned. A copy downloaded through a browser carries the
-Mark-of-the-Web stream the browser writes on download, which is what SmartScreen
-checks, so colleagues should expect the prompt. A locally built copy was
-measured to carry no such stream (`Get-Item -Stream *` lists `:$DATA` alone), so
-"no prompt appeared" from a local build is not evidence the prompt is gone for
-colleagues.
+**Rollback of a deployment** stays as it is (see "Rollback" above); it is
+unrelated to the desktop release pipeline.
 
 ## Secrets
 

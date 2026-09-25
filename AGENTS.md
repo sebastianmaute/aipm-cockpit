@@ -29,7 +29,7 @@ before your first edit — the rest is reference, reachable from here.
 |---|---|
 | [dashboard](docs/AGENTS/dashboard.md) | delta strip · KPI trends · arrangeable tile grid · coaching · density · digest |
 | [accessibility](docs/AGENTS/accessibility.md) | the axe gate · accessible + row-unique names · label-in-name · toggle state · what axe cannot see |
-| [ci](docs/AGENTS/ci.md) | the GitHub Actions jobs and required checks · the weekly workflow · a red check, minutes exhausted · the legacy GitLab pipeline's per-gate detail and exit-code splits |
+| [ci](docs/AGENTS/ci.md) | the GitHub Actions jobs and required checks · `release.yml` (tag-triggered releases) · the weekly workflow · a red check, minutes exhausted |
 | [ui-shell](docs/AGENTS/ui-shell.md) | Help · nav · focus/keyboard · surfaces · tables (`SortResizeTh` · `TableFilter`) · ★ **dismissal owns the Escape/Tab protocol — read it before touching any modal, popover or panel** |
 | [theming](docs/AGENTS/theming.md) | colour schemes · `--ui-*` tokens · AA derivation · branding · print · DS primitives |
 | [insights](docs/AGENTS/insights.md) | detect · reconcile · recommend · outcome · digest |
@@ -536,14 +536,19 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   private, Actions minutes come from GitHub Pro's allowance with a $0 budget; when they run out,
   checks cannot complete and merging needs the admin bypass on a `gate:local` PASS — see
   `docs/RUNBOOK.md`. Several gates split exit **1 = DRIFT** from exit **2 = could not scan**, and the
-  two demand opposite responses. The GitLab project is a READ-ONLY copy synced daily by
-  `ci/gitlab-sync.yml`; `.gitlab-ci.yml` stays in the tree only because a test reads it (until
-  releases move, migration sub-project 5). No releases or tags until then. New CI gate → also update
-  `docs/AGENTS/ci.md`.
+  two demand opposite responses. Releases run from `.github/workflows/release.yml` on a push of a
+  `v*` tag (`guard` → `build` → `publish`, wired for an approval gate whose required reviewer is not
+  yet configured — GitHub rejects it while private, added at flip step 10a) — see the "Releasing"
+  bullet below and
+  [`docs/AGENTS/ci.md`](docs/AGENTS/ci.md)'s `release.yml` section. The GitLab pipeline file
+  (`.gitlab-ci.yml`) is gone; the GitLab project is a READ-ONLY mirror synced daily by
+  `ci/gitlab-sync.yml`. New CI gate → also update `docs/AGENTS/ci.md`.
 - **Releasing:** bump `src/app/version.ts` (APP_VERSION + APP_BUILD_DATE + milestone), add
-  `CHANGELOG.md` entry. ★ Do NOT add a `versionHighlight*` key: `APP_HIGHLIGHT_KEYS` is now a fixed
-  elevator pitch of what is unique to the app, not a per-release history, and `CHANGELOG.md` owns
-  history. ★★ EVERY OTHER COPY OF THE VERSION IS GATED BY `npm run version:check`, and the list is
+  `CHANGELOG.md` entry (a section for the version — `release:publish` refuses to build notes
+  without it), merge to `main`, and tag only from `main`. ★ Do NOT add a `versionHighlight*` key:
+  `APP_HIGHLIGHT_KEYS` is now a fixed elevator pitch of what is unique to the app, not a per-release
+  history, and `CHANGELOG.md` owns history. ★★ EVERY OTHER COPY OF THE VERSION IS GATED BY
+  `npm run version:check`, and the list is
   `SATELLITES` in `scripts/version-sync-lib.mjs` — not this line, which said "FIVE MORE PLACES" and
   missed `desktop/package.json` + `desktop/package-lock.json`. Read it with
   `grep -n 'file: "' scripts/version-sync-lib.mjs` (one line per file or glob; each lockfile carries
@@ -1266,7 +1271,7 @@ proves only that a backticked NAME is real, never that a CLAIM about it is true.
 |---|---|
 | [dashboard.md](docs/AGENTS/dashboard.md) | the landing cockpit — the arrangeable tile grid · delta strip · KPI trends · sparkline · coaching · density · digest |
 | [accessibility.md](docs/AGENTS/accessibility.md) | the a11y hard constraint — accessible names · row-unique per-row names (`buildRowTokens`) · WCAG 2.5.3 label-in-name · `ToggleButton` state + the pressed marker · what the axe gate scans and is silent on |
-| [ci.md](docs/AGENTS/ci.md) | CI on GitHub Actions — the eight required checks job by job · `scheduled.yml` · operating it · and, as legacy, the GitLab pipeline: every quality gate and its exit codes · desktop packaging · the release stage · where `quality-gate-bypass` existed |
+| [ci.md](docs/AGENTS/ci.md) | CI on GitHub Actions — the eight required checks job by job · `release.yml` (tag guard → Windows build → publish, its approval gate not yet configured, the sharp and electron-updater guards, exit codes) · `scheduled.yml` · operating it |
 | [ui-shell.md](docs/AGENTS/ui-shell.md) | Help system · navigation & landing · focus/keyboard · surfaces & controls · tables (`SortResizeTh` · `TableFilter`) · ★ **dismissal (the Escape/Tab protocol — read before touching any modal, popover or panel)** |
 | [theming.md](docs/AGENTS/theming.md) | colour schemes · the `--ui-*` token families · AA derivation · the dark-mode hover trap · branding · print · design-system primitives |
 | [insights.md](docs/AGENTS/insights.md) | detect → reconcile → recommend → outcome → digest |

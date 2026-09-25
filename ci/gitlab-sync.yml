@@ -1,6 +1,6 @@
 # GitLab is a READ-ONLY copy of GitHub (docs/superpowers/specs/2026-09-22-github-cutover-design.md).
-# The GitLab project's CI configuration path points at THIS file, so none of the jobs in
-# .gitlab-ci.yml ever run here. That file stays as the source sub-project 3 ports from.
+# The GitLab project's CI configuration path points at THIS file alone -- .gitlab-ci.yml is REMOVED,
+# and GitHub Actions (.github/workflows/) is what actually runs. This is the only job GitLab has.
 #
 # Once a day it mirror-clones GitHub and pushes branches and tags into this project:
 # - branches are force-updated and pruned, so anything pushed here directly is overwritten;

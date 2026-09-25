@@ -3269,8 +3269,8 @@ premise ruled it out:
 between it being written (2026-07-31) and being corrected (2026-08-02) — a 1.x backport landed. Treat
 every number here as a measurement with a date, not a property.
 
-- ★★ **The blocking gate is unaffected and green.** `.gitlab-ci.yml:99` is `npm audit --omit=dev
-  --audit-level=high` — dev deps excluded. `dependency-audit` passed in all three pipelines on
+- ★★ **The blocking gate is unaffected and green.** The former GitLab `dependency-audit` job ran
+  `npm audit --omit=dev --audit-level=high` — dev deps excluded. It passed in all three pipelines on
   2026-07-31. Nothing is red.
 - ★★ eslint 10 is a major landing. ★★★ THIS BULLET USED TO SAY "against a `--max-warnings=0` gate, so
   any rule added, renamed or changed-by-default becomes an instant fatal build" — there is NO such gate
@@ -37111,6 +37111,33 @@ reintroducing that key.
 ★ This also affects §480. Until builds are signed, an updater has no integrity control except the
 share's ACL.
 
+**2026-09-24 (owner decision):** auto-update ships unsigned. `electron-updater` now checks
+`sebastianmaute/aipm-cockpit`'s GitHub Releases and installs only after the user agrees (never
+silently) — see `docs/superpowers/specs/2026-09-24-releases-and-updates-design.md`. The guards
+standing in for a signing certificate: the `release` environment's `publish` job (only it can write a
+release, and it runs no installs — wired for an owner-approval pause once the environment's
+required-reviewer rule is configured; GitHub rejects that rule on this private repository's plan today,
+measured 2026-09-24, so it is added at flip step 10a and `publish` runs unapproved until then), the tag
+ruleset (only the owner can create/move/delete a `v*` tag), immutable releases (a published release's
+files cannot be swapped in place), build-provenance attestations once the repository is public, and the
+sha512 in `latest.yml` (transfer corruption only — not a substitution control). This entry stays open
+as the signing follow-up; do not close it by shipping auto-update, only by signing.
+
+**2026-09-24 (gap found while verifying the above):** `e2e/desktop-smoke.spec.ts` always launches the
+packaged app with `AIPM_DISABLE_UPDATE_CHECK=1` (`grep -n AIPM_DISABLE_UPDATE_CHECK
+e2e/desktop-smoke.spec.ts`), and `createUpdater` (`desktop/src/updater.ts`) checks that flag BEFORE
+its dynamic `import("electron-updater")`, returning a no-op immediately when it is set — so the smoke
+test never reaches the load/wire code path at all. No automated check proves the PACKAGED app
+successfully loads `electron-updater` and wires `pickAutoUpdater`'s real singleton; only a one-off
+manual launch did, on 2026-09-24. A release that silently regressed to the `unavailableUpdater`
+fallback (a broken or missing `electron-updater` inside `app.asar`) would strand every installed copy
+on it — automatic checks go silent, and `allowDowngrade: false` means there is no downgrade path back
+to a working version, only a fresh manual install. Proposed fix: a mode that loads and wires the real
+updater but skips the network call (`autoUpdater.checkForUpdates()`/`downloadUpdate()`), plus a smoke
+assertion that `launch.log` carries neither `"failed to load"` nor `"failed to wire"` (the two log
+lines `updater.ts` emits on that fallback). Not filed as its own work item — no GitHub issue exists for
+it yet; recorded here pending one.
+
 **Source:** `desktop/electron-builder.yml`, `docs/desktop-rollout.md`; audit candidate 10
 
 ## 488. The 390 h booked vs 104 h planned gap seen in the demo is unexplained, and a fixed-price contract converted to end-to-end responsibility has no model — OPEN
@@ -39478,6 +39505,18 @@ actual risk.
 
 ★ This is deliberately tied to the open publishing decision rather than filed as work. Do not close
 it by signing; close it by deciding, and sign if the decision is "public".
+
+**2026-09-24 (owner decision):** the open publishing decision this entry is tied to is now decided —
+"public, with GitHub Releases and auto-update, unsigned." That answers the ★ rule above ("close it by
+deciding") in one sense: the decision has been made. It does NOT close the entry, because the decision
+made is the one this entry flags as turning the gap real: distribution moves from an internal share to
+`sebastianmaute/aipm-cockpit`'s public Releases page once the repository is public, exactly the
+substituted-installer risk this entry names. So the ★ rule's other half still applies — sign if the
+decision is "public" — and that has not happened yet. The gap is accepted for now, guarded by the
+`publish` job (its approval pause not yet configured — see §487's 2026-09-24 paragraph), the tag
+ruleset, immutable releases, provenance attestations and `latest.yml`'s sha512 — none of which is a
+substitute for a signature, only a narrower set of ways a bad binary could reach a downloader. This
+entry stays open as the signing follow-up.
 
 ## 564. `diagnostics-redact.ts` has no catch-all for an opaque token in free text — CLOSED 2026-09-21
 

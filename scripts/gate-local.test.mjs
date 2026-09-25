@@ -4,7 +4,7 @@
 // implementation does not resolve/accept a file: URL the way node:fs expects,
 // so `readFileSync(new URL(...))` below throws "The URL must be of scheme
 // file" under the default environment. scripts/check-followup-github.integration.test.mjs
-// and scripts/publish-release.integration.test.mjs carry the same pragma; their
+// and scripts/publish-github-release.integration.test.mjs carry the same pragma; their
 // headers do not record why.
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
@@ -99,7 +99,7 @@ describe("GATE_STEPS", () => {
 
   it("keeps the pre-existing steps in their pre-existing order", () => {
     expect(GATE_STEPS.filter((s) => !s.requiresEnv).map((s) => s.argv.slice(0, 3).join(" "))).toEqual([
-      "npm run lint", "npx tsc --noEmit", "npm run test:coverage", "npm run test:shuffle", "npm run dup:check",
+      "npm run lint", "npx tsc --noEmit", "npm run desktop:typecheck", "npm run test:coverage", "npm run test:shuffle", "npm run dup:check",
       "npm run size:check", "npm run docs:symbols:check", "npm run docs:claims:check", "npm run docs:scripts:check",
       "npm run followups:status:check", "npm run followups:index:check", "npm run followups:workitems:check",
       "npm run version:check", "npm run build",

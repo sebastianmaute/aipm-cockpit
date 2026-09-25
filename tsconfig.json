@@ -30,5 +30,13 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "scripts", "desktop/src/main.ts", "desktop/src/server-child.ts"]
+  "exclude": [
+    "node_modules",
+    "scripts",
+    "desktop/src/main.ts",
+    "desktop/src/server-child.ts",
+    "desktop/src/updater.ts",
+    "desktop/src/updater.test.ts",
+    "desktop/src/updater-module-shape.test.ts"
+  ]
 }

@@ -2,15 +2,20 @@
 
 ## Installing
 
-1. Download the installer from the project's **Releases** page — pick the newest
-   release and click its asset link, `aipm-cockpit-<version>-setup.exe (Windows installer)`.
-   Sign in to GitLab first. You should not need to be a member of the project:
-   a signed-in colleague outside it has downloaded the installer this way. If
-   the link answers with a 404 or a permission error, check that you are signed
-   in; if you are, ask a project maintainer.
+1. Download the installer from the project's [**Releases**](https://github.com/sebastianmaute/aipm-cockpit/releases)
+   page — pick the newest release and click its asset link,
+   `aipm-cockpit-<version>-setup.exe (Windows installer)`. No sign-in is needed once the repository
+   is public.
 2. Run it.
 3. Windows will show a blue **"Windows protected your PC"** box. This is expected: the app is not code-signed. Click **More info**, then **Run anyway**.
 4. The app installs for your user only — you do **not** need admin rights.
+5. Optional: verify the download carries this repository's build provenance —
+   `gh attestation verify aipm-cockpit-<version>-setup.exe --repo sebastianmaute/aipm-cockpit`.
+
+If you installed a 1.13.x release, it has no updater: install the first release that has one (the
+release notes say so) by hand, once, the same way as above. From then on the app checks for updates
+itself — a short delay after it starts, or any time from **Help → Check for updates…** — and asks
+before downloading or installing anything; it never updates silently.
 
 ## The first time you open it
 

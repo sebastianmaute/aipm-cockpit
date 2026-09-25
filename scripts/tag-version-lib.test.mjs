@@ -172,3 +172,12 @@ describe("describeVerdict", () => {
     expect(message).toContain(result.detail);
   });
 });
+
+describe("prerelease tags", () => {
+  it("match only when APP_VERSION carries the same suffix", () => {
+    expect(classifyTag("v1.14.0-rc.1", "1.14.0-rc.1").verdict).toBe("match");
+    expect(classifyTag("v1.14.0-rc.1", "1.14.0").verdict).toBe("drift");
+    expect(classifyTag("v1.14.0", "1.14.0-rc.1").verdict).toBe("drift");
+    expect(classifyTag("v1.14.0-rc.2", "1.14.0-rc.1").verdict).toBe("drift");
+  });
+});

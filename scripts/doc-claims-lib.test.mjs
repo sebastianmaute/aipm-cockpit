@@ -475,12 +475,11 @@ describe("collectSources / collectDocs", () => {
   // These run against the real tree, which is the point: they pin the WALK, and
   // the walk is where the one shipped defect in this file lived.
   it("regression: indexes root-level config files", () => {
-    // ★★ Omitting these made every `vitest.config.ts:24` / `.gitlab-ci.yml:99`
-    // citation look DELETED on the gate's first run. The comment recorded that
-    // defect; nothing tested it until now.
+    // ★★ Omitting this made every `vitest.config.ts:24` citation look DELETED
+    // on the gate's first run. The comment recorded that defect; nothing
+    // tested it until now.
     const sources = collectSources();
     expect(sources).toContain("vitest.config.ts");
-    expect(sources).toContain(".gitlab-ci.yml");
   });
 
   it("indexes nested sources under src/", () => {
