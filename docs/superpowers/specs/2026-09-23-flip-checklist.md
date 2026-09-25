@@ -252,10 +252,9 @@ The order matters — do not reorder these steps.
     ```
     The branch-policy `v*` entry likely already exists from the earlier attempt, so that `POST` may
     answer "already exists" — harmless; only the `reviewers` field is new here.
-  - Dependabot, held while private (each PR spends Actions minutes): delete the three
-    `open-pull-requests-limit: 0` lines and the "HELD" comment from `.github/dependabot.yml`, and
-    the matching ★★ sentence in `docs/AGENTS/ci.md`, in a PR; then turn security updates back on:
-    `gh api -X PUT repos/sebastianmaute/aipm-cockpit/automated-security-fixes`.
+  - Dependabot version updates, held while private (each PR spends Actions minutes): delete the
+    three `open-pull-requests-limit: 0` lines and the "HELD" comment from `.github/dependabot.yml`,
+    and the matching ★★ sentence in `docs/AGENTS/ci.md`, in a PR. Security-fix PRs were never held.
   - Sponsor button: tick **Sponsorships** under Settings → General → Features (no API for it). It
     reads `.github/FUNDING.yml` and only shows on a public repository. Check that the button appears
     on the repository page and that the Version panel's "Sponsor on GitHub" link opens

@@ -51,8 +51,8 @@ workflow test pins it to the `engines` floor). `.github/dependabot.yml` runs wee
 `github-actions`, root `npm` and `desktop/` `npm`: minor/patch updates land as one grouped PR per
 npm directory, majors and every exactly-pinned framework package (CONTRIBUTING's "Dependencies"
 rule) arrive one PR each. ★★ HELD WHILE THE REPOSITORY IS PRIVATE: every entry carries
-`open-pull-requests-limit: 0`, and Dependabot security updates are off, because each PR spends
-Actions minutes; flip step 10a lifts both. ★ It does NOT cover container digests (semgrep,
+`open-pull-requests-limit: 0`, because each PR spends Actions minutes; flip step 10a lifts it.
+Security-fix PRs ignore that limit and stay on (owner decision, 2026-09-25). ★ It does NOT cover container digests (semgrep,
 actionlint), which are re-resolved by hand.
 
 - **`static`** (15 min). `npm ci`, then `npm --prefix desktop ci --ignore-scripts` (electron's and
