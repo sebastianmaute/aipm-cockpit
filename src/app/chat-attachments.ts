@@ -246,7 +246,7 @@ export const MAX_CHAT_ATTACHMENTS = 10;
  *  (base64 data or extracted text), not raw file bytes — an office/mail file
  *  arrives as extracted text. The Messages API rejects a body over 32 MB (413);
  *  30 MB leaves room for the prompt, system and history. Earlier turns'
- *  attachments re-sent in history are NOT counted here. */
+ *  attachments are budgeted at send time by `fitHistoryToBudget` (chat-threads.ts). */
 export const MAX_STAGED_PAYLOAD_BYTES = 30 * 1024 * 1024;
 
 export function blocksPayloadBytes(blocks: readonly AttachmentBlock[]): number {

@@ -815,7 +815,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§572](#572-agentsmds-tsc-guidance-cannot-detect-a-vacuous-run--open) | AGENTS.md's tsc guidance cannot detect a vacuous run — OPEN | measured 2026-09-18 on this branch: a corrupt generated file hides a real `src/` error from `tsc`; GitLab #357 | S — amend the Commands block's `npx tsc --noEmit` guidance | open |
 | [§573](#573-the-open-points-visual-baseline-is-stale--closed-2026-09-19) | The Open Points visual baseline is stale | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | **CLOSED** 2026-09-19 |
 | [§574](#574-load-project-from-file-throws-in-firefoxsafari-and-blames-settings-instead-of-the-browser--closed-2026-09-25) | "Load project from file" throws in Firefox/Safari and blames Settings instead of the browser — CLOSED 2026-09-25 | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #359; closed 2026-09-25 on `fix/defect-batch-6` | S — `projectErrorKey` extracted from `reportProjectError`; a new `useFsaSupported()` hook disables the three Load-from-file controls and names the reason | closed |
-| [§575](#575-ai-assistant-chat-history-re-sends-every-earlier-turns-attachments-so-a-long-thread-can-exceed-the-messages-apis-32-mb-request-limit--open) | AI Assistant chat history re-sends every earlier turn's attachments, so a long thread can exceed the Messages API's 32 MB request limit — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #360 | M — drop/summarize older attachment blocks before send, or track running payload bytes | open |
+| [§575](#575-ai-assistant-chat-history-re-sends-every-earlier-turns-attachments-so-a-long-thread-can-exceed-the-messages-apis-32-mb-request-limit--closed-2026-09-25) | AI Assistant chat history re-sends every earlier turn's attachments, so a long thread can exceed the Messages API's 32 MB request limit — CLOSED 2026-09-25 | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #360; closed 2026-09-25 on `fix/defect-batch-6` | S — `fitHistoryToBudget` (chat-threads.ts) placeholders the oldest earlier-turn attachments at send time until the request fits | closed |
 | [§576](#576-sanitizefxrates-reorders-its-rates-object-on-a-second-decode-so-an-fx-snapshot-is-not-byte-stable-through-a-json-round-trip--closed-2026-09-21) | sanitizeFxRates reorders its rates object on a second decode, so an FX snapshot is not byte-stable through a JSON round-trip — CLOSED 2026-09-21 | json-import-multi-attach-demo-refresh (2026-09-18), found + verified during Task 9; GitLab #361 | S — iterate `SUPPORTED_CURRENCIES` unconditionally instead of conditionally inserting present keys | closed |
 | [§577](#577-the-budgetvariance-insight-compares-full-window-budget-against-to-date-actuals-so-open-buckets-with-future-months-are-flagged-and-an-unstarted-bucket-can-read-100-and-win-worst--closed-2026-09-19) | The budgetVariance insight compares full-window budget against to-date actuals, so open buckets with future months are flagged and an unstarted bucket can read 100% and win "worst" | json-import-multi-attach-demo-refresh (2026-09-18), found + verified against sample-workspace-small.json during Task 9; GitLab #362 | M — scope budgetHours to periods to-date, and/or exclude unstarted buckets from "worst" | **CLOSED** 2026-09-19 |
 | [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open) | Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN | audit (2026-09) | M | open |
@@ -39976,12 +39976,27 @@ disable it, matching Settings' treatment), or have `reportProjectError` recogniz
 `file-system-access-unsupported` hint specifically and emit the same `storageFsaUnsupported` message
 Settings already has, instead of falling through to the generic `storageNotReady` text.
 
-## 575. AI Assistant chat history re-sends every earlier turn's attachments, so a long thread can exceed the Messages API's 32 MB request limit — OPEN
+## 575. AI Assistant chat history re-sends every earlier turn's attachments, so a long thread can exceed the Messages API's 32 MB request limit — CLOSED 2026-09-25
 
-**Status:** OPEN 2026-09-18 — established by reading `chat-panel.tsx`'s `submitPrompt` and
-`chat-attachments.ts`; never machine-verified end-to-end (would need a live multi-turn send against the
-real Anthropic API with several large attachments to observe the 413 — not attempted). Verified by code
-reading: `grep -n "MAX_STAGED_PAYLOAD_BYTES" src/app/chat-attachments.ts src/app/chat-panel.tsx`.
+**Status:** CLOSED 2026-09-25 by `fix/defect-batch-6`. `chat-threads.ts` now exports a pure
+`fitHistoryToBudget(history, maxBytes)`: it sums attachment bytes across the whole history, and — only
+when that total exceeds `maxBytes` — replaces the OLDEST earlier-turn attachment blocks with the same
+`[attachment: image]`/`[attachment: document]` text placeholders `stripAttachmentsForPersistence` already
+uses, stopping as soon as the running total fits. The LAST message (the current turn) is never touched,
+and an under-budget history is returned as its own unchanged messages (byte-identical, so the prompt
+cache prefix survives) and its input is never mutated. `chat-panel.tsx`'s `submitPrompt` now builds the
+wire-only `messages` via `fitHistoryToBudget(newHistory, MAX_STAGED_PAYLOAD_BYTES)` instead of
+`newHistory.slice()` — the persisted `history` state (and Turso-stored thread) is untouched, only the
+outgoing copy is budgeted. Pinned by four new tests in `chat-threads.test.ts` (unchanged-under-budget,
+oldest-first-and-stops, never-strips-current-turn, does-not-mutate-input) and a wiring test in
+`chat-panel.test.tsx` that seeds two 20 MB earlier-turn attachments via `getChatConversation`, sends a
+third turn, and asserts the request body's oldest attachment is placeholdered while the more recent one
+and the current turn are untouched, and that the seeded (stored) history object itself is never mutated.
+Two mutants confirmed the tests are not vacuous, both restored after: reversing `fitHistoryToBudget`'s
+strip loop to run newest-first — predicted and actual RED on `chat-threads.test.ts`'s "strips the
+OLDEST…" test; and reverting the `chat-panel.tsx` call site back to `newHistory.slice()` — predicted and
+actual RED on the new `chat-panel.test.tsx` wiring test. `npx tsc --noEmit` and
+`npx eslint --max-warnings=0 src` both exit 0.
 
 **Work item:** #360
 

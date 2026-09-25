@@ -60,6 +60,7 @@ import { ToolBlock } from "./chat-tool-block";
 import type { TursoConfig } from "./turso-config";
 import { dropStaleScopeWrite, isScopeStale, type ScopeEpochReader } from "./scope-epoch";
 import { useChatThreads } from "./use-chat-threads";
+import { fitHistoryToBudget } from "./chat-threads";
 import { ChatThreadSidebar } from "./chat-thread-sidebar";
 import {
   buildPlanRows,
@@ -673,7 +674,8 @@ function ChatPanelInner({
     //     injected into the outgoing copy alone. Persisting it would leave stale
     //     "Today is ..." down the transcript AND rewrite history's tail on every
     //     send, which destroys the byte-identical prefix the cache depends on.
-    const messages = newHistory.slice();
+    // §575: earlier turns' attachments are budgeted here too — the stored history keeps them.
+    const messages = fitHistoryToBudget(newHistory, MAX_STAGED_PAYLOAD_BYTES);
 
     try {
       // Accumulate token usage across all turns for this send.

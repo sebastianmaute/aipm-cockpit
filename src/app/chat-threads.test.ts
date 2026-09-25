@@ -1,6 +1,6 @@
 // src/app/chat-threads.test.ts
 import { describe, it, expect, vi } from "vitest";
-import { deriveThreadName, stripAttachmentsForPersistence, newThreadId, THREAD_NAME_MAX } from "./chat-threads";
+import { deriveThreadName, stripAttachmentsForPersistence, newThreadId, THREAD_NAME_MAX, fitHistoryToBudget } from "./chat-threads";
 import type { ApiMessage, DisplayItem } from "./chat-api";
 
 describe("deriveThreadName", () => {
@@ -85,6 +85,38 @@ describe("stripAttachmentsForPersistence", () => {
       },
     ];
     expect(stripAttachmentsForPersistence(history)).toEqual(history);
+  });
+});
+
+const doc = (n: number) => ({ type: "document", source: { type: "base64", media_type: "application/pdf", data: "x".repeat(n) } }) as const;
+const user = (...content: unknown[]): ApiMessage => ({ role: "user", content: content as never });
+const asst = (text: string): ApiMessage => ({ role: "assistant", content: [{ type: "text", text }] });
+
+describe("fitHistoryToBudget (§575)", () => {
+  it("returns the history unchanged, block for block, when under budget", () => {
+    const h = [user(doc(10)), asst("ok"), user({ type: "text", text: "q" }, doc(10))];
+    const out = fitHistoryToBudget(h, 100);
+    expect(out).toEqual(h);
+    out.forEach((m, i) => expect(m).toBe(h[i]));
+  });
+  it("strips the OLDEST earlier-turn attachment first and stops once it fits", () => {
+    const h = [user(doc(40)), asst("a"), user(doc(40)), asst("b"), user(doc(30))];
+    const out = fitHistoryToBudget(h, 80);
+    expect(out[0].content).toEqual([{ type: "text", text: "[attachment: document]" }]);
+    expect(out[2]).toBe(h[2]);
+    expect(out[4]).toBe(h[4]);
+  });
+  it("never strips the current (last) turn, even when it alone is over budget", () => {
+    const h = [user(doc(10)), asst("a"), user(doc(200))];
+    const out = fitHistoryToBudget(h, 50);
+    expect(out[2]).toBe(h[2]);
+    expect(out[0].content).toEqual([{ type: "text", text: "[attachment: document]" }]);
+  });
+  it("does not mutate its input", () => {
+    const h = [user(doc(60)), asst("a"), user(doc(60))];
+    const snapshot = JSON.stringify(h);
+    fitHistoryToBudget(h, 80);
+    expect(JSON.stringify(h)).toBe(snapshot);
   });
 });
 

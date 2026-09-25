@@ -1421,6 +1421,81 @@ describe("document attachments", () => {
 });
 
 // ---------------------------------------------------------------------------
+// History budget wiring (§575): earlier turns' attachments must not blow the
+// Messages API's request-size limit. `fitHistoryToBudget` itself is pinned in
+// chat-threads.test.ts — this only checks chat-panel actually calls it on the
+// outgoing request, and that the STORED (persisted) copy is left untouched.
+// ---------------------------------------------------------------------------
+describe("history budget wiring (§575)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("placeholders the oldest earlier-turn attachment in the request, never in stored history", async () => {
+    const bigDoc = {
+      type: "document",
+      source: { type: "base64", media_type: "application/pdf", data: "x".repeat(20 * 1024 * 1024) },
+    } as const;
+    const stored: ChatConversation = {
+      history: [
+        { role: "user", content: [bigDoc] },
+        { role: "assistant", content: [{ type: "text", text: "ok" }] },
+        { role: "user", content: [bigDoc] },
+        { role: "assistant", content: [{ type: "text", text: "ok" }] },
+      ],
+      display: [
+        { kind: "user", text: "first" },
+        { kind: "assistant", text: "ok" },
+        { kind: "user", text: "second" },
+        { kind: "assistant", text: "ok" },
+      ],
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () =>
+          Promise.resolve({
+            content: [{ type: "text", text: "done" }],
+            stop_reason: "end_turn",
+            usage: { input_tokens: 1, output_tokens: 1 },
+          }),
+      } as unknown as Response),
+    );
+
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+        projectId="p1"
+        getChatConversation={() => stored}
+      />,
+    );
+
+    const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(textarea, { target: { value: "third question" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+
+    const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string) as {
+      messages: { role: string; content: unknown }[];
+    };
+    // The 40 MB of earlier-turn attachments busts the 30 MB budget, so the
+    // OLDEST one (index 0) is placeholdered — stopping there already fits.
+    expect(body.messages[0].content).toEqual([{ type: "text", text: "[attachment: document]" }]);
+    // The more recent earlier-turn attachment (index 2) survives untouched.
+    expect(body.messages[2].content).toEqual(stored.history[2].content);
+    // The current turn is never touched.
+    expect(JSON.stringify(body.messages[body.messages.length - 1])).toContain("third question");
+
+    // The stored/persisted history (what use-chat-threads/component state was
+    // seeded from) still holds the ORIGINAL block, byte for byte — budgeting
+    // ran on the outgoing copy only, never mutated the source array/objects.
+    expect(stored.history[0].content).toEqual([bigDoc]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Attach / dictate button sizing (UX toolbar polish batch, Task 20)
 // ---------------------------------------------------------------------------
 describe("attach and dictate button sizing", () => {
