@@ -187,22 +187,17 @@ with real user data, have users take an export before rolling back.
 3. The `release` workflow (`.github/workflows/release.yml`) runs `guard` →
    `build` (Windows, ~20-30 min — installs dependencies, builds the app and the
    installer, uploads it as a workflow artifact) → `publish`. `publish` runs in
-   the `release` environment, which is wired to pause for approval ("Review
-   deployments" on the run's Actions page) once a required reviewer is
-   configured on it. **As of 2026-09-24 no reviewer is configured** — GitHub
-   returns HTTP 422 for that rule on this private repository's plan — so
-   `publish` starts immediately once `build` finishes, with no pause to watch
-   for. What stands in front of it instead, until then: only the owner/admin
-   role can create, move or delete a `refs/tags/v*` (the tag ruleset), the tag
-   must equal `APP_VERSION` and name a commit reachable from `main` (step 2's
-   `guard` check), and once published a release is immutable. The reviewer is
-   added at flip step 10a; from then on, approve the run the same way (Actions
-   → the run → "Review deployments" → approve `release`). **Push one release
+   the `release` environment, which pauses for the owner's approval: when
+   `build` finishes, open the run's Actions page → "Review deployments" →
+   approve `release`. The required reviewer was added at flip step 10a
+   (2026-09-25). Also standing in front of it: only the owner/admin role can
+   create, move or delete a `refs/tags/v*` (the tag ruleset), the tag must
+   equal `APP_VERSION` and name a commit reachable from `main` (step 2's
+   `guard` check), and once published a release is immutable. **Push one release
    tag at a time.** Every run shares one fixed concurrency group, and GitHub
    keeps only one PENDING run per group: pushing a third tag while one run is
-   in progress and a second is queued silently cancels the queued one (and,
-   from flip step 10a on, a run paused waiting for approval occupies that same
-   slot). A cancelled run just needs a re-run of its tag's workflow.
+   in progress and a second is queued silently cancels the queued one (and a
+   run paused waiting for approval occupies that same slot). A cancelled run just needs a re-run of its tag's workflow.
 4. `publish` verifies the built files (`release:verify`), attests build
    provenance (skipped while the repository is private), drafts the GitHub
    Release, uploads the three files, then publishes. Check the release page:

@@ -537,8 +537,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   checks cannot complete and merging needs the admin bypass on a `gate:local` PASS — see
   `docs/RUNBOOK.md`. Several gates split exit **1 = DRIFT** from exit **2 = could not scan**, and the
   two demand opposite responses. Releases run from `.github/workflows/release.yml` on a push of a
-  `v*` tag (`guard` → `build` → `publish`, wired for an approval gate whose required reviewer is not
-  yet configured — GitHub rejects it while private, added at flip step 10a) — see the "Releasing"
+  `v*` tag (`guard` → `build` → `publish`; `publish` pauses for the owner's approval, a
+  required-reviewer rule on the `release` environment since flip step 10a) — see the "Releasing"
   bullet below and
   [`docs/AGENTS/ci.md`](docs/AGENTS/ci.md)'s `release.yml` section. The GitLab pipeline file
   (`.gitlab-ci.yml`) is gone; the GitLab project is a READ-ONLY mirror synced daily by
@@ -1271,7 +1271,7 @@ proves only that a backticked NAME is real, never that a CLAIM about it is true.
 |---|---|
 | [dashboard.md](docs/AGENTS/dashboard.md) | the landing cockpit — the arrangeable tile grid · delta strip · KPI trends · sparkline · coaching · density · digest |
 | [accessibility.md](docs/AGENTS/accessibility.md) | the a11y hard constraint — accessible names · row-unique per-row names (`buildRowTokens`) · WCAG 2.5.3 label-in-name · `ToggleButton` state + the pressed marker · what the axe gate scans and is silent on |
-| [ci.md](docs/AGENTS/ci.md) | CI on GitHub Actions — the eight required checks job by job · `release.yml` (tag guard → Windows build → publish, its approval gate not yet configured, the sharp and electron-updater guards, exit codes) · `scheduled.yml` · operating it |
+| [ci.md](docs/AGENTS/ci.md) | CI on GitHub Actions — the eight required checks job by job · `release.yml` (tag guard → Windows build → publish behind the owner's approval, the sharp and electron-updater guards, exit codes) · `scheduled.yml` · operating it |
 | [ui-shell.md](docs/AGENTS/ui-shell.md) | Help system · navigation & landing · focus/keyboard · surfaces & controls · tables (`SortResizeTh` · `TableFilter`) · ★ **dismissal (the Escape/Tab protocol — read before touching any modal, popover or panel)** |
 | [theming.md](docs/AGENTS/theming.md) | colour schemes · the `--ui-*` token families · AA derivation · the dark-mode hover trap · branding · print · design-system primitives |
 | [insights.md](docs/AGENTS/insights.md) | detect → reconcile → recommend → outcome → digest |
