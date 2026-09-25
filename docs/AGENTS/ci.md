@@ -60,9 +60,14 @@ re-resolved by hand.
   secret writes an empty list, and `leaks:check` exits 2 on it — red, never a silent pass. Dependabot
   PRs read `LEAK_LIST` from Dependabot's own secret store. Then
   `node scripts/gate-local.mjs --group static --keep-going`: every `static` step of the shared gate
-  list — including `desktop:typecheck` (`tsc -p desktop/tsconfig.json --noEmit`, covering
-  `desktop/src/main.ts` and its siblings, which the root `tsc --noEmit` excludes; without the
-  desktop install above it would exit 2 rather than silently pass) — each one run even after an
+  list — including `desktop:typecheck` (`scripts/check-desktop-types.mjs` runs TWO `tsc -p` passes,
+  `desktop/tsconfig.json` then `desktop/tsconfig.test.json`, exiting with the worse of the two —
+  covering `desktop/src/main.ts` and its siblings, which the root `tsc --noEmit` excludes, PLUS
+  `updater.test.ts`/`updater-module-shape.test.ts`, excluded from the root program for the same
+  reason (they import `electron`/`electron-updater` via `./updater`) but ALSO excluded from
+  `desktop/tsconfig.json` (it drops every `src/**/*.test.ts`), so the second pass is what still
+  typechecks them; without the desktop install above either pass would exit 2 rather than silently
+  pass) — each one run even after an
   earlier one fails, with a pass/fail table appended to the step
   summary and exit 1 if any step failed. ★★ Under CI (env `CI` set) an unset `LEAK_LIST_FILE` FAILS
   the leak step with code 2; only a local run skips it. A failing row carries its reason when the
