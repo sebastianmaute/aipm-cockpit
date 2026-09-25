@@ -316,3 +316,7 @@ What needed the owner:
   spending limit needs to be increased"). The owner set an Actions budget; the re-run passed. A
   release run needs minutes too, and its Windows job bills at twice the Linux rate.
 - **Tag push** (ruleset: admin only), **both merges**, and the install test.
+
+The rc release is **kept**, by the owner's decision: it is a prerelease, never "latest", and
+`allowPrerelease: false` means no installed app is offered it. Deleting it was not attempted. The
+next real release sets `APP_VERSION` to a plain `1.14.0`.
