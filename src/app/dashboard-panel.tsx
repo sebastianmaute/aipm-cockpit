@@ -214,6 +214,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
     today,
     isPopout: props.isPopout ?? false,
     activity,
+    noActiveScope,
   });
   // Hour captured once (lazy) to keep `new Date()` out of the render body.
   const [greetHour] = useState(() => new Date().getHours());
