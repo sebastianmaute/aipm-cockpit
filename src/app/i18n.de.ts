@@ -1725,6 +1725,7 @@ export const de: Record<TranslationKey, string> = {
   timelogCustomerFilter: "Kunden filtern (* Platzhalter)",
   timelogFetchScopedNote: "Buchungen werden nur für {0} abgerufen (Projekte dieses Kunden).",
   timelogScopeMismatchNote: "Es werden Buchungen für {0} angezeigt. Abrufen, um {1} zu laden.",
+  timelogProjectScopeGuardrailNote: "Diese Buchungen wurden pro Projekt abgerufen und zeigen nicht den ganzen Tag einer Person. Deshalb lässt sich für TimeLog-Leitplanken-Hinweise nicht bestätigen, dass sie erledigt sind. Dazu ist ein Abruf nach Person oder Organisation nötig.",
   timelogNoCustomerProjects: "Keine Projekte für diesen Kunden gefunden — nichts abzurufen (bisherige Daten bleiben erhalten).",
   timelogProjectScopeLabel: "Projekte",
   timelogProjectSelectAll: "Alle auswählen",

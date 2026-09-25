@@ -571,6 +571,17 @@ export function TimelogPanel({
         </p>
       )}
 
+      {/* §366: a project-scope fetch persists an EMPTY covered-people list on
+          purpose (use-timelog-sync.ts: passing the bookers would claim days the
+          fetch never saw), so every TimeLog guardrail finding stays frozen after
+          it. Say so, rather than leave the findings looking silently stuck.
+          `[]` is the project-scope marker; `undefined` means no roll at all. */}
+      {sync.fetchedAt && sync.dailyUsers?.length === 0 && (
+        <p className="mb-2 text-xs text-muted-foreground print:hidden">
+          {t(lang, "timelogProjectScopeGuardrailNote")}
+        </p>
+      )}
+
       {/* The picker can legitimately show a different customer than the loaded
           bookings came from (the device picker outranks the last-fetched scope
           when seeding), so say so rather than letting the picker misrepresent

@@ -406,6 +406,45 @@ describe("TimelogPanel", () => {
     });
   });
 
+  // §366. A project-scope fetch persists an EMPTY covered-people list on
+  // purpose, which freezes every TimeLog guardrail finding; the panel must say
+  // so. A person/org fetch persists the people it covered, and says nothing.
+  describe("project-scope guardrail note (§366)", () => {
+    async function renderWithDailyUsers(dailyUsers: readonly number[] | undefined) {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue({
+        ...defaultSyncReturn(),
+        dailyUsers,
+      } as unknown as ReturnType<typeof useTimelogSync>);
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+    }
+
+    it("shows the note after a project-scope fetch (covered people = [])", async () => {
+      await renderWithDailyUsers([]);
+      expect(screen.getByText(t("en-US", "timelogProjectScopeGuardrailNote"))).toBeInTheDocument();
+    });
+
+    it("shows no note after a person/org fetch that covered people", async () => {
+      await renderWithDailyUsers([42]);
+      // Positive observable first: the fetched state really rendered.
+      expect(screen.getByText("8 h")).toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "timelogProjectScopeGuardrailNote"))).toBeNull();
+    });
+
+    it("shows no note when there is no daily roll at all", async () => {
+      await renderWithDailyUsers(undefined);
+      expect(screen.getByText("8 h")).toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "timelogProjectScopeGuardrailNote"))).toBeNull();
+    });
+  });
+
   // §432. The attribution hint explains LINK state, and for an undated row the
   // links are healthy — so on its own it offers a remedy (fix the link, fetch
   // again) that cannot work. `undated` is a subset of `unattributed`, so the

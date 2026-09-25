@@ -1827,6 +1827,7 @@ const enUS = {
   timelogCustomerFilter: "Filter customers (* wildcard)",
   timelogFetchScopedNote: "Fetching bookings for {0} only (this customer's projects).",
   timelogScopeMismatchNote: "Showing bookings for {0}. Fetch to load {1}.",
+  timelogProjectScopeGuardrailNote: "These bookings were fetched by project, which cannot show a person's whole day, so TimeLog guardrail findings can't be confirmed resolved from them. Clearing them needs a fetch by person or organisation.",
   timelogNoCustomerProjects: "No projects found for this customer — nothing to fetch (previous data kept).",
   timelogProjectScopeLabel: "Projects",
   timelogProjectSelectAll: "Select all",
