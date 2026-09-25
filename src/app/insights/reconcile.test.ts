@@ -871,3 +871,19 @@ describe("loggedRaidId (§515)", () => {
     expect(insightsMateriallyEqual([a], [{ ...a, loggedRaidId: undefined }])).toBe(false);
   });
 });
+
+describe("recommendation.refusedCalls (§351)", () => {
+  it("counts a changed refused-call count as a material change", () => {
+    const a = stored("a", {
+      status: "acted", actedAt: "2026-01-10",
+      recommendation: {
+        summary: "s", proposedCalls: [], generatedAt: "2026-01-09",
+        status: "applied", appliedAt: "2026-01-10", appliedSummary: "s", refusedCalls: 1,
+      },
+    });
+    // Positive control: an identical copy (new object) is materially equal.
+    expect(insightsMateriallyEqual([a], [{ ...a, recommendation: { ...a.recommendation! } }])).toBe(true);
+    expect(insightsMateriallyEqual([a], [{ ...a, recommendation: { ...a.recommendation!, refusedCalls: 2 } }])).toBe(false);
+    expect(insightsMateriallyEqual([a], [{ ...a, recommendation: { ...a.recommendation!, refusedCalls: undefined } }])).toBe(false);
+  });
+});

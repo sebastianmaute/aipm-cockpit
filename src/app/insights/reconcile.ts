@@ -327,6 +327,9 @@ function recommendationEqual(
     a.generatedAt === b.generatedAt &&
     a.appliedAt === b.appliedAt &&
     a.appliedSummary === b.appliedSummary &&
+    // §351: persisted, so a change to it alone must count as material — as
+    // §515 did for `loggedRaidId` in the record comparator.
+    a.refusedCalls === b.refusedCalls &&
     toolCallsEqual(a.proposedCalls, b.proposedCalls)
   );
 }
