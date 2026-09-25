@@ -9,10 +9,11 @@ vi.mock("./task-form-modal", () => ({
   // Surfaces the budgetLink it receives: the prop is OPTIONAL at every hop of
   // the task-manager -> AppModals -> TaskFormModal -> TaskFormFields chain, so a
   // dropped prop degrades silently into "budget module off" instead of throwing.
-  TaskFormModal: (props: { budgetLink?: { bucketId: number | null } }) => (
+  TaskFormModal: (props: { budgetLink?: { bucketId: number | null }; calendarSyncEnabled?: boolean }) => (
     <div
       data-testid="task-form-modal"
       data-budget-bucket={props.budgetLink ? String(props.budgetLink.bucketId) : "absent"}
+      data-calendar-sync={String(!!props.calendarSyncEnabled)}
     />
   ),
 }));
@@ -21,7 +22,9 @@ vi.mock("./jira-conflicts-modal", () => ({
   JiraConflictsModal: () => <div data-testid="jira-conflicts-modal" />,
 }));
 vi.mock("./absence-edit-modal", () => ({
-  AbsenceEditModal: () => <div data-testid="absence-edit-modal" />,
+  AbsenceEditModal: (props: { calendarSyncEnabled?: boolean }) => (
+    <div data-testid="absence-edit-modal" data-calendar-sync={String(!!props.calendarSyncEnabled)} />
+  ),
 }));
 vi.mock("./calendar-event-modal", () => ({
   CalendarEventModal: () => <div data-testid="calendar-event-modal" />,
@@ -164,6 +167,22 @@ describe("AppModals", () => {
     stubTaskForm();
     render(<AppModals {...makeProps()} budgetLink={{ buckets: [], bucketId: 7, onChange: vi.fn() }} />);
     expect(screen.getByTestId("task-form-modal")).toHaveAttribute("data-budget-bucket", "7");
+  });
+
+  // §486 — each flag is optional at every hop, so a dropped one silently hides
+  // the editor's "Sync to Outlook" checkbox instead of failing.
+  it("forwards the task and absence calendar-sync flags to their editors", () => {
+    stubTaskForm();
+    render(
+      <AppModals
+        {...makeProps()}
+        taskCalendarSyncEnabled
+        absenceCalendarSyncEnabled
+        editingAbsence={{ absence: {} as unknown as Absence, isNew: false }}
+      />,
+    );
+    expect(screen.getByTestId("task-form-modal")).toHaveAttribute("data-calendar-sync", "true");
+    expect(screen.getByTestId("absence-edit-modal")).toHaveAttribute("data-calendar-sync", "true");
   });
 
   it("passes no budgetLink through when it has none", () => {

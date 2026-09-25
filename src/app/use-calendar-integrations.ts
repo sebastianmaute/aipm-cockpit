@@ -161,6 +161,9 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   // (no consent popup, no error toast on a missing session). Fail-once-per-change.
   const taskSync = calendarSyncFor(settings, "task");
   const taskAutoSyncActive = taskSync.auto && m365Enabled && !isPopout && !loadPending;
+  // §486 — gates the task editor's "Sync to Outlook" checkbox (same shape as
+  // the RAID / change / absence flags below).
+  const calendarTaskEnabled = taskSync.enabled && m365Enabled && !isPopout;
   const pushableTasks = useMemo(
     () => tasks.filter((x) => !isTaskFinished(x) && !!x.dueDate),
     [tasks],
@@ -404,6 +407,8 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     pushableRaid,
     pushableChanges,
     pushableAbsences,
+    // task (the push/pull instances live in tasks-section)
+    calendarTaskEnabled,
     // raid
     calendarRaidEnabled,
     onToggleCalendarRaid,

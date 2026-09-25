@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { ChangeEditModal } from "./change-edit-modal";
@@ -708,5 +708,34 @@ describe("change-edit-modal panel size", () => {
     expect(panel?.className).toContain("min-h-[420px]");
     expect(panel?.className).toContain("max-w-[95vw]");
     expect(panel?.className).toContain("max-h-[95vh]");
+  });
+});
+
+// §486 — the per-item Outlook opt-out. Controlled modal, so a stateful host.
+describe("ChangeEditModal — Sync to Outlook (§486)", () => {
+  function Host({ initial, onSave, calendarSyncEnabled }: { initial: ChangeItem; onSave: (c: ChangeItem) => void; calendarSyncEnabled?: boolean }) {
+    const [d, setD] = useState(initial);
+    return <ChangeEditModal {...base} draft={d} onChange={setD} onSave={onSave} calendarSyncEnabled={calendarSyncEnabled} />;
+  }
+  const clickSave = () => fireEvent.click(screen.getByRole("button", { name: /save/i }));
+  it("unticking and saving hands onSave calendarOptOut: true", () => {
+    const onSave = vi.fn();
+    render(<Host initial={change()} onSave={onSave} calendarSyncEnabled />, { wrapper });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Sync to Outlook – Widen scope" }));
+    clickSave();
+    expect(onSave.mock.calls[0][0].calendarOptOut).toBe(true);
+  });
+  it("re-ticking an opted-out change clears the flag", () => {
+    const onSave = vi.fn();
+    render(<Host initial={change({ calendarOptOut: true })} onSave={onSave} calendarSyncEnabled />, { wrapper });
+    const box = screen.getByRole("checkbox", { name: "Sync to Outlook – Widen scope" });
+    expect(box).not.toBeChecked();
+    fireEvent.click(box);
+    clickSave();
+    expect(onSave.mock.calls[0][0].calendarOptOut).toBeUndefined();
+  });
+  it("is absent while Outlook sync is not configured", () => {
+    renderModal();
+    expect(screen.queryByRole("checkbox", { name: /Sync to Outlook/ })).toBeNull();
   });
 });

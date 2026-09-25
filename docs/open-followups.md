@@ -726,7 +726,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§483](#483-moving-the-view-scoped-ai-guide-block-onto-the-turn-tail-slice-g2-is-specced-but-tracked-nowhere-so-the-cost-harness-still-has-no-real-candidate-layout--open) | Moving the view-scoped AI guide block onto the turn tail (slice G2) is specced but tracked nowhere, so the cost harness still has no real candidate layout — OPEN | found 2026-09-13 by the housekeeping audit; `docs/AGENTS/ai-assistant.md` hands a decision to G2, and G2 had no entry or issue | M — the G2 layout as the harness's first real candidate arm, plus the usage-meter measurement it depends on | open |
 | [§484](#484-four-landmine-heavy-subsystems-have-no-docsagents-reference-and-insightsmd-omits-the-timelog-guardrail-detector--open) | Four landmine-heavy subsystems have no docs/AGENTS reference, and insights.md omits the Timelog guardrail detector — OPEN | found 2026-09-13 by the housekeeping audit's docs/AGENTS coverage pass | M — four new subsystem files plus the insights.md correction, each citing symbols rather than line numbers | open |
 | [§485](#485-nothing-keeps-docsfeaturesmd-in-sync-with-libapp-feature-guidemd-and-the-human-facing-copy-has-already-drifted--open) | Nothing keeps docs/features.md in sync with lib/app-feature-guide.md, and the human-facing copy has already drifted — OPEN | found 2026-09-13 by the housekeeping audit's general-docs pass, which counted five false claims in docs/features.md | S — generate features.md from the guide, or add a section-parity check | open |
-| [§486](#486-auto-pull-re-creates-an-outlook-event-the-user-pruned-because-an-item-cannot-opt-out-of-calendar-sync--open) | Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync — OPEN | documented as a known limit by calendar two-way SP5 (0.164) and carried only as tech-debt-register TD-3 until 2026-09-13 | M — a per-item opt-out, which is a new persisted field (all six write paths), plus the reconcile change | open |
+| [§486](#486-auto-pull-re-creates-an-outlook-event-the-user-pruned-because-an-item-cannot-opt-out-of-calendar-sync--closed-2026-09-26) | ~~Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync~~ | documented as a known limit by calendar two-way SP5 (0.164) and carried only as tech-debt-register TD-3 until 2026-09-13; fixed on `fix/defect-batch-6` | M — a per-item `calendarOptOut` across all six write paths, the reconcile change, and an editor checkbox | **CLOSED** 2026-09-26 |
 | [§487](#487-the-windows-installer-is-unsigned-because-no-code-signing-certificate-exists-so-every-install-shows-an-unknown-publisher-warning--open) | The Windows installer is unsigned because no code-signing certificate exists, so every install shows an unknown-publisher warning — OPEN | found 2026-09-13 by the housekeeping audit; recorded as a constraint in `desktop/electron-builder.yml` and as a user instruction in `docs/desktop-rollout.md` | S once a certificate exists — procuring one is an organisational step and the long pole; the CI change is signing settings plus a protected variable | open |
 | [§488](#488-the-390-h-booked-vs-104-h-planned-gap-seen-in-the-demo-is-unexplained-and-a-fixed-price-contract-converted-to-end-to-end-responsibility-has-no-model--open) | The 390 h booked vs 104 h planned gap seen in the demo is unexplained, and a fixed-price contract converted to end-to-end responsibility has no model — OPEN | GitLab #42 (F-5, demo 2026-09-11); its currency lead became #77 / §465 (closed 2026-09-12), and its external-resources lead was refuted in the issue's own comments | M — reproduce the gap on the demo data first; modelling an end-to-end contract type is the open design question | open |
 | [§489](#489-the-floating-helpmenu-has-no-deep-link-input-and-nothing-calls-for-one-yet--open) | The floating HelpMenu has no deep-link input, and nothing calls for one yet — OPEN | split 2026-09-13 from §424 (gap 4), whose modal half shipped as a popover and so never needed this route | S–M once a caller exists — a request prop following the remount-swallow rule | open |
@@ -37132,24 +37132,53 @@ Size S.
 
 **Source:** `docs/features.md`, `lib/app-feature-guide.md`; audit candidate 8
 
-## 486. Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync — OPEN
+## 486. ~~Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync~~ — CLOSED 2026-09-26
 
-**Status:** OPEN 2026-09-13 — never machine-verified in a browser. The limit is on record:
-`grep -n "pruned event" docs/superpowers/plans/2026-07-02-calendar-twoway-sp5-autopull.md` → 1 hit, SP5's
-"Known limitation (document, don't fix)". `grep -n "^| TD-3" docs/tech-debt-register.md` → the only other
-record. Before this entry, `grep -c "pruned event" docs/open-followups.md` → 0.
+**Status:** CLOSED 2026-09-26 — shipped in two commits on `fix/defect-batch-6`: `affd7bb3e` (the
+data model, the planners, the prune and all six write paths) and the commit that closes this entry
+(the "Sync to Outlook" checkbox in the five editors). Re-check with
+`grep -n "calendarOptOut" src/app/calendar-reconcile.ts src/app/use-entity-calendar-pull.ts src/app/use-milestone-calendar-pull.ts`.
+Unit-verified and mutation-proved; still NOT machine-verified against a live Outlook calendar.
 
-**Work item:** #308
+With auto-push on (it shares the `.auto` flag with auto-pull), deleting the Outlook event for an
+entity that was still pushable did not stick: the pull's prune cleared only `outlookEventId`, so
+the next reconcile saw an unlinked pushable item and re-created the event.
 
-With auto-push on (it shares the `.auto` flag with auto-pull), deleting the Outlook event for an entity
-that is still pushable does not stick: the next cycle re-creates it. SP5 documented this as a limit and
-left the fix, a permanent per-item opt-out, as future work. It lived only in the tech-debt register,
-which has no owner, even though it is a user-visible defect.
+★ **The fix.** `Task`, `RaidItem`, `ChangeItem`, `Absence` and `Milestone` carry an optional
+`calendarOptOut`. `CommitteeMeeting` does not — it has no prune path. Both pull hooks' prune now
+sets it beside clearing the link. The push hooks' 404 self-heal is deliberately unchanged: a 404
+during a PATCH is not a user prune, and its re-create is documented behaviour.
 
-★ An opt-out is a new persisted `Workspace` field, so AGENTS.md's six-write-path rule applies. The
-reconcile engine must also treat an opted-out item as neither pushable nor pull-creatable.
+★★ **The planners skip an opted-out item on BOTH halves.** `planEntityReconcile` and
+`planCalendarReconcile` never create or update it, AND keep a still-linked event id in the kept
+set, so the app never DELETES an event the user chose to leave in Outlook. Dropping only the
+create half would have turned "untick Sync" into "delete my event". Each half is pinned by its own
+test and killed its own mutant, in both planners.
 
-Size M. This entry replaces tech-debt-register TD-3.
+★ **Persistence.** One CSV/Turso column right after `outlookEventId` in the five column lists (not
+`EVENTS_CSV_COLUMNS` — pulled meetings are never pushed), encoded `"true"` / `""`. The Markdown
+columns and header aliases include the hand-rolled task decoder in `markdown-codecs-decode.ts`.
+The sanitizers keep only a literal `true`, so anything else syncs the item as before. Absences
+decode the text cell through `buildAbsenceFromObj` before `sanitizeLoadedAbsence`, because the
+CSV, Markdown and Turso loaders share that sanitizer with JSON. Existing Turso databases self-heal
+through `turso-migrate.ts`, which diffs against `ENTITY_SPECS`. The six round trips are counted in
+`entity-persistence-registry.test.ts` ("calendarOptOut (§486)").
+
+★ **The model cannot write it.** It is in `TOKEN_EXCLUDED` for all five entities, so both strip
+helpers drop it from every model create and update. The offered-surface sweep's Relation A
+measures the create arm with a seeded `true`; the update arm is ledgered `unmeasured` — the only
+differing probe is `false`, which no sanitizer stores (`resource.active`'s shape).
+
+★ **The editor checkbox** (`calendar-opt-out-checkbox.tsx`) is named "Sync to Outlook – ‹title›",
+which is row-unique and contains the visible caption. It renders only while that entity's Outlook
+sync is configured. Unticking sets the flag; re-ticking clears it, and the auto-sync content keys
+include the flag so the re-create is pushed at once. ★★ The axe gate never renders it: the e2e seed
+configures no M365, so the component and modal unit tests are its only coverage.
+
+**Known gap (not filed):** an opted-out, still-linked item that later drops out of the PUSHABLE
+set (a task finished, a RAID item closed, an absence in the past) is no longer in the planner's
+input, so its event is deleted as before. That is the existing pushable-set behaviour, which this
+fix does not change.
 
 **Source:** `docs/superpowers/plans/2026-07-02-calendar-twoway-sp5-autopull.md`, `docs/tech-debt-register.md` (TD-3); audit candidate 9
 

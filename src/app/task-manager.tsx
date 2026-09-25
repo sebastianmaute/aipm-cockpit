@@ -2352,6 +2352,7 @@ function TaskManagerInner() {
     pushableRaid,
     pushableChanges,
     pushableAbsences,
+    calendarTaskEnabled,
     calendarRaidEnabled,
     onToggleCalendarRaid,
     pushRaidToOutlook,
@@ -3060,6 +3061,8 @@ function TaskManagerInner() {
         taskOnOpenNotes={editingId !== null ? () => openTaskNotes(editingId) : undefined /* existing task only; a new draft has no id to target */}
         taskNotePanel={editingId !== null ? notePanelPropsFor("task", editingId) : undefined /* existing task only; a new draft has no id to write to */}
         budgetLink={budgetLink}
+        taskCalendarSyncEnabled={calendarTaskEnabled}
+        absenceCalendarSyncEnabled={calendarAbsenceEnabled}
         jiraConflicts={jiraConflicts}
         handleResolveConflicts={handleResolveConflicts}
         clearConflicts={clearConflicts}

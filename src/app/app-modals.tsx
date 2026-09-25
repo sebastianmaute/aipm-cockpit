@@ -95,6 +95,10 @@ export interface AppModalsProps {
   taskNotePanel?: NoteLogPanelProps;
   /** Budget-bucket link controls; absent when the budget module is off. */
   budgetLink?: TaskBudgetLink;
+  /** §486 — Outlook sync is configured for tasks / absences; each gates that
+   *  editor's per-item "Sync to Outlook" checkbox. */
+  taskCalendarSyncEnabled?: boolean;
+  absenceCalendarSyncEnabled?: boolean;
 
   // Resource edit modal
   editingResource: { resource: Resource; isNew: boolean } | null;
@@ -160,6 +164,8 @@ export function AppModals({
   taskOnOpenNotes,
   taskNotePanel,
   budgetLink,
+  taskCalendarSyncEnabled,
+  absenceCalendarSyncEnabled,
   editingResource,
   onSaveResource,
   onDeleteResource,
@@ -204,6 +210,7 @@ export function AppModals({
           onOpenNotes={taskOnOpenNotes}
           taskNotePanel={taskNotePanel}
           budgetLink={budgetLink}
+          calendarSyncEnabled={taskCalendarSyncEnabled}
         />
       )}
 
@@ -225,6 +232,7 @@ export function AppModals({
           onSave={handleSaveAbsence}
           onDelete={handleDeleteAbsence}
           onClose={handleCloseAbsenceModal}
+          calendarSyncEnabled={absenceCalendarSyncEnabled}
         />
       )}
 

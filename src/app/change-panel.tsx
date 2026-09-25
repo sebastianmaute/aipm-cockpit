@@ -511,6 +511,7 @@ function ChangePanelBody({
             onCancel={closeModal}
             onDelete={commitDelete}
             onOpenNotes={onOpenNotes}
+            calendarSyncEnabled={calendarEnabled}
           />
         )
       }

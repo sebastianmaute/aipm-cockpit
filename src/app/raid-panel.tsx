@@ -503,6 +503,7 @@ function RaidPanelBody({
             onApplyMatrix={(p, i) => setDraft((d) => (d ? applyMatrix(d, p, i) : d))}
             onSave={commitDraft}
             onCancel={closeModal}
+            calendarSyncEnabled={calendarEnabled}
             onDelete={commitDelete}
             onCreateMitigationTask={commitCreateMitigationTask}
             onJumpToRaid={(id) => {

@@ -788,3 +788,39 @@ describe("RaidEditModal — Escalations list (§515)", () => {
     expect(screen.queryByText(t("en-US", "raidEscalationsTitle"))).toBeNull();
   });
 });
+
+// §486 — the per-item Outlook opt-out. Controlled modal, so a stateful host.
+describe("RaidEditModal — Sync to Outlook (§486)", () => {
+  function Host({ initial, onSave, calendarSyncEnabled }: { initial: RaidItem; onSave: (i: RaidItem) => void; calendarSyncEnabled?: boolean }) {
+    const [d, setD] = useState(initial);
+    return (
+      <RaidEditModal
+        lang="en-US" tasks={[]} raid={[]} stakeholdersEnabled stakeholders={[]} resources={[]} contacts={[]}
+        onCreateResource={vi.fn(() => 1)} draft={d} isNew={false} onChange={setD}
+        onApplyStatus={vi.fn()} onApplyMatrix={vi.fn()} onSave={onSave} onCancel={vi.fn()} onDelete={vi.fn()}
+        onCreateMitigationTask={vi.fn()} onJumpToRaid={vi.fn()} calendarSyncEnabled={calendarSyncEnabled}
+      />
+    );
+  }
+  const submit = () => fireEvent.submit(screen.getByRole("checkbox", { name: /Sync to Outlook/ }).closest("form")!);
+  it("unticking and saving hands onSave calendarOptOut: true", () => {
+    const onSave = vi.fn();
+    render(<Host initial={makeDraft()} onSave={onSave} calendarSyncEnabled />, { wrapper });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Sync to Outlook – Server outage risk" }));
+    submit();
+    expect(onSave.mock.calls[0][0].calendarOptOut).toBe(true);
+  });
+  it("re-ticking an opted-out item clears the flag", () => {
+    const onSave = vi.fn();
+    render(<Host initial={makeDraft({ calendarOptOut: true })} onSave={onSave} calendarSyncEnabled />, { wrapper });
+    const box = screen.getByRole("checkbox", { name: "Sync to Outlook – Server outage risk" });
+    expect(box).not.toBeChecked();
+    fireEvent.click(box);
+    submit();
+    expect(onSave.mock.calls[0][0].calendarOptOut).toBeUndefined();
+  });
+  it("is absent while Outlook sync is not configured", () => {
+    render(<Host initial={makeDraft()} onSave={vi.fn()} />, { wrapper });
+    expect(screen.queryByRole("checkbox", { name: /Sync to Outlook/ })).toBeNull();
+  });
+});

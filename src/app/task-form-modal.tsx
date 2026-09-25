@@ -17,6 +17,7 @@ import { TaskFormFields } from "./task-form-fields";
 import { type TaskFieldErrors } from "./task-validation";
 import type { TaskBudgetLink } from "./use-task-budget-link";
 import type { NoteLogPanelProps } from "./note-log-panel";
+import { CalendarOptOutCheckbox } from "./calendar-opt-out-checkbox";
 
 export interface TaskFormModalProps {
   lang: Lang;
@@ -61,6 +62,9 @@ export interface TaskFormModalProps {
   taskNotePanel?: NoteLogPanelProps;
   /** Budget-bucket link controls; absent when the budget module is off. */
   budgetLink?: TaskBudgetLink;
+  /** §486 — Outlook sync is configured for tasks; shows the per-item
+   *  "Sync to Outlook" checkbox. Absent/false hides it. */
+  calendarSyncEnabled?: boolean;
 }
 
 export function TaskFormModal({
@@ -94,8 +98,9 @@ export function TaskFormModal({
   onOpenNotes,
   taskNotePanel,
   budgetLink,
+  calendarSyncEnabled,
 }: TaskFormModalProps) {
-  const { editingId, taskModalOpen } = useTaskForm();
+  const { editingId, taskModalOpen, form, setForm } = useTaskForm();
   const isEditing = editingId !== null;
   const { offset, reset: dragReset, handleProps } = useDraggable(
     taskModalOpen,
@@ -185,6 +190,14 @@ export function TaskFormModal({
             taskNotePanel={taskNotePanel}
             budgetLink={budgetLink}
           />
+          {calendarSyncEnabled && (
+            <CalendarOptOutCheckbox
+              lang={lang}
+              checked={!form.calendarOptOut}
+              itemTitle={form.taskName}
+              onChange={(syncs) => setForm((prev) => ({ ...prev, calendarOptOut: !syncs }))}
+            />
+          )}
           {editorExtras && (
             <div className="space-y-3 border-t border-line pt-4">{editorExtras}</div>
           )}

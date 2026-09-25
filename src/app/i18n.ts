@@ -3250,6 +3250,10 @@ const enUS = {
   calendarPushResult: "Outlook calendar updated: {0} created, {1} updated, {2} removed.",
   calendarPushPartial: "{0} event(s) could not be synced.",
   calendarPushNoAccess: "Outlook calendar access was not granted.",
+  // §486 — the per-item Outlook opt-out checkbox in the five edit modals.
+  calendarOptOutCaption: "Sync to Outlook",
+  calendarOptOutLabel: "Sync to Outlook – {0}",
+  calendarOptOutHint: "Unticked items are never created or updated in Outlook. An existing event is left as it is.",
   calendarPull: "Pull from Outlook",
   calendarPulling: "Pulling…",
   calendarPullSummaryTitle: "Outlook calendar changes",

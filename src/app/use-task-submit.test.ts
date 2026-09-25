@@ -56,6 +56,7 @@ function validForm(): TaskFormDraft {
     healthOverride: "",
     knowledgeLinks: [],
     resourceId: undefined,
+    calendarOptOut: false,
   };
 }
 
@@ -296,6 +297,38 @@ describe("useTaskSubmit — M-C4: the form stores the Name <addr>-unwrapped emai
     act(() => result.current.handleSubmit(fakeSubmitEvent()));
     const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
     expect(updater([existing])[0].assigneeEmail).toBe("ada@x.com");
+  });
+});
+
+// §486 — the task payload is an explicit field list spread OVER the row, so
+// the opt-out must be named in it both ways: set, and cleared on re-tick.
+describe("useTaskSubmit — calendarOptOut (§486)", () => {
+  function editWith(stored: Partial<Task>, formOptOut: boolean): Task {
+    const setTasks = vi.fn();
+    const existing = makeTask({ id: 1, ...stored });
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, editingId: 1, tasks: [existing], tasksRef: { current: [existing] },
+        form: { ...validForm(), calendarOptOut: formOptOut },
+      })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
+    return updater([existing])[0];
+  }
+  it("an unticked editor saves calendarOptOut: true", () => {
+    expect(editWith({}, true).calendarOptOut).toBe(true);
+  });
+  it("re-ticking clears a stored opt-out", () => {
+    expect(editWith({ calendarOptOut: true }, false).calendarOptOut).toBeUndefined();
+  });
+  it("openEditModal hydrates the form from the stored flag", () => {
+    const setForm = vi.fn();
+    const { result } = renderHook(() => useTaskSubmit(makeArgs({ setForm })));
+    act(() => result.current.openEditModal(makeTask({ calendarOptOut: true })));
+    expect(setForm.mock.calls.at(-1)![0]).toMatchObject({ calendarOptOut: true });
+    act(() => result.current.openEditModal(makeTask()));
+    expect(setForm.mock.calls.at(-1)![0]).toMatchObject({ calendarOptOut: false });
   });
 });
 

@@ -632,6 +632,9 @@ function MilestonesPanelBody({
           onSave={(m) => save(m, isNew)}
           onDelete={del}
           onClose={() => setEditing(null)}
+          // §486 — the push handler is passed only while milestone push is
+          // configured (and never in a popout), so it doubles as the gate.
+          calendarSyncEnabled={!!onPushToOutlook}
         />
       ) : null}
     </div>

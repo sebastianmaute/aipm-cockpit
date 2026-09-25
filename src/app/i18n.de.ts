@@ -3106,6 +3106,10 @@ export const de: Record<TranslationKey, string> = {
     "Outlook-Kalender aktualisiert: {0} erstellt, {1} aktualisiert, {2} entfernt.",
   calendarPushPartial: "{0} Termin(e) konnten nicht synchronisiert werden.",
   calendarPushNoAccess: "Zugriff auf den Outlook-Kalender wurde nicht erteilt.",
+  // §486 — the per-item Outlook opt-out checkbox in the five edit modals.
+  calendarOptOutCaption: "Mit Outlook synchronisieren",
+  calendarOptOutLabel: "Mit Outlook synchronisieren – {0}",
+  calendarOptOutHint: "Nicht angehakte Einträge werden in Outlook weder angelegt noch aktualisiert. Ein bestehender Termin bleibt unverändert.",
   calendarPull: "Aus Outlook abrufen",
   calendarPulling: "Wird abgerufen…",
   calendarPullSummaryTitle: "Outlook-Kalenderänderungen",
