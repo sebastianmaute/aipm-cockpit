@@ -19,6 +19,7 @@ import { MODAL_HELP } from "./help-content";
 import { Button } from "./button";
 import { EmptyState } from "./empty-state";
 import { getTursoConfig } from "./turso-config";
+import { tursoErrorMessageKey } from "./storage-error";
 import { listProjects } from "./turso-portfolio";
 import { commitTursoPortfolioSwitch } from "./portfolio-mode";
 import { type Settings } from "./settings-types";
@@ -37,7 +38,15 @@ type FetchState =
 
 const TITLE_ID = "turso-project-picker-title";
 
-function errorText(err: unknown): string {
+// ★★★ Branch review I2 (§337) — classify FIRST. The raw hint an env/Settings
+// token rejection now throws ("turso-token-rejected") is an internal code
+// with no remedy; before the §337 hint rename this read the full sentence
+// "Turso auth token rejected. Check the token in Settings." A recognized
+// Turso connectivity failure gets its translated banner sentence instead;
+// anything else keeps the raw message as before.
+function errorText(err: unknown, lang: Lang): string {
+  const key = tursoErrorMessageKey(err);
+  if (key) return t(lang, key);
   return err instanceof Error ? err.message : String(err);
 }
 
@@ -59,7 +68,7 @@ export function TursoProjectPicker({ lang, settings, onClose }: TursoProjectPick
     listProjects(cfg)
       .then((projects) => setState({ kind: "ready", projects }))
       .catch((err: unknown) =>
-        setState({ kind: "error", message: `${t(lang, "tursoPickerError")} ${errorText(err)}` }),
+        setState({ kind: "error", message: `${t(lang, "tursoPickerError")} ${errorText(err, lang)}` }),
       );
   }
 

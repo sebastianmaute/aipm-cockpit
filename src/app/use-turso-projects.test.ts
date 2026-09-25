@@ -8,6 +8,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useTursoProjects, type UseTursoProjectsArgs } from "./use-turso-projects";
 import type { ProjectListEntry } from "./turso-tenant-schema";
 import type { ProjectMeta } from "./types";
+import { StorageNotReadyError } from "./storage";
+import { t } from "./i18n";
 
 vi.mock("./turso-portfolio", () => ({
   listProjects: vi.fn(),
@@ -87,6 +89,26 @@ describe("useTursoProjects — create", () => {
       expect(args.showToast).toHaveBeenCalledWith("error", "Couldn't create the project: boom"),
     );
     expect(args.refreshTursoProjects).not.toHaveBeenCalled();
+  });
+
+  // ★★★ Branch review I2 (§337) — before this fix, a rejected token showed
+  // "Couldn't create the project: turso-token-rejected" — the internal hint
+  // verbatim, with no remedy. One of six toast sites sharing `errorText`;
+  // representative of the shape (a plain toast, `lang` already in closure).
+  it("turso mode: a rejected token shows the translated banner sentence, not the raw hint", async () => {
+    const args = makeArgs({
+      createTursoProject: vi.fn(async () => {
+        throw new StorageNotReadyError("turso-token-rejected");
+      }),
+    });
+    const { result } = renderHook(() => useTursoProjects(args));
+    result.current.handleCreateProjectByMode(META, "json");
+    await waitFor(() =>
+      expect(args.showToast).toHaveBeenCalledWith(
+        "error",
+        t("en-US", "projectCreateFailed", t("en-US", "storageAuthBanner")),
+      ),
+    );
   });
 
   it("file mode: routes to the file callback", () => {

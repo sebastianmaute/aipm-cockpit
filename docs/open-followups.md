@@ -38542,11 +38542,37 @@ all, not even in memory.
 Related: §537 (contact persons have no ids — now that single-DB Turso persists `ws.project`, an
 id-ful `contactPersons` array will actually survive a reload there too, once §537 is fixed).
 
+★ **KNOWN MIXED-VERSION LIMIT (branch review M3).** `workspaceToStatements` (`turso-schema.ts`)
+writes a dirty table by issuing a blanket `DELETE FROM meta` and then re-inserting only the KEYS ITS
+OWN CODE KNOWS ABOUT. An OLDER client sharing this single-DB database — a
+desktop build on a prior release, say, alongside this repo's web app — still issues that same
+blanket delete on any meta-dirtying save, but its INSERT set predates `project_meta` and never
+re-adds it. So a mixed-version fleet against one database sees `project_meta` disappear on the
+older client's next unrelated meta edit. No worse than before this fix (which had no `project_meta`
+row to lose at all), but the "single-DB Turso now persists project meta" claim above holds only
+while every writer to that database is on this release or later. Carry this into the eventual
+CHANGELOG entry.
+
+★ **A `project_meta` ROW THAT PARSES BUT FAILS SANITIZING IS DROPPED WITH NO DIAGNOSTIC (T3, parked
+Minor 4).** `rowsToWorkspace`'s read is `if (pm) ws.project = pm;` (`turso-schema.ts`) — `catch` only
+fires on a THROW (bad JSON, a sanitizer that throws), and `sanitizeLoadedProjectMeta` returning a
+falsy value without throwing takes neither branch: no `reportUnreadableSlice` call, no
+`decodeFailedSlices` entry, nothing in the Saving-paused / Save-anyway plumbing. `ws.project` simply
+stays unset, silently, same as every sibling meta slice's identical `if (x) ws.something = x` shape
+(`project_status`, `field_visibility`, `features`, …) — this is not project-meta-specific. The
+consequence IS specific here, though: because the write side only emits `project_meta` when
+`ws.project` is set, and the read never set it, the very NEXT meta-dirtying save's blanket
+`DELETE FROM meta` removes the corrupted row and nothing rewrites it — a silent DROP becomes a
+silent, PERMANENT loss on the first save that follows. Filed as a known gap, not fixed: closing it
+would mean auditing every meta slice's falsy-return path for whether it should also report, which is
+wider than this entry's scope.
+
 **Reproduce / verify:**
 ```bash
-npx vitest run src/app/turso-schema.execute.test.ts -t "§538"   # real-engine round trip + missing-row case
-npx vitest run src/app/turso-schema.test.ts -t "§538"           # dirty-tracking + unreadable-row case
-npx vitest run src/app/use-turso-projects.test.ts -t "§538"     # no-tursoProjectId / no-config paths
+npx vitest run src/app/turso-schema.execute.test.ts -t "§538"     # real-engine round trip + missing-row case
+npx vitest run src/app/turso-schema.test.ts -t "§538"             # dirty-tracking case only
+npx vitest run src/app/turso-schema.documents.test.ts -t "§538"   # unreadable project_meta row case
+npx vitest run src/app/use-turso-projects.test.ts -t "§538"       # no-tursoProjectId / no-config paths
 ```
 
 ## 539. sanitizeIsoDate accepts dates that are not real calendar dates — CLOSED 2026-09-14

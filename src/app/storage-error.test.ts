@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { StorageNotReadyError } from "./storage";
-import { classifyStorageError, isTursoLockTimeout, tursoErrorKind } from "./storage-error";
+import {
+  classifyStorageError,
+  isTursoErrorMessageKey,
+  isTursoLockTimeout,
+  tursoErrorKind,
+  tursoErrorMessageKey,
+} from "./storage-error";
 import { clearEnvTokenRejected, markEnvTokenRejected } from "./turso-config";
 
 afterEach(() => {
@@ -64,6 +70,38 @@ describe("classifyStorageError", () => {
     expect(classifyStorageError(new Error("disk full"))).toBe("generic");
     expect(classifyStorageError(new StorageNotReadyError("local-file-permission-needed"))).toBe("generic");
     expect(classifyStorageError(null)).toBe("generic");
+  });
+});
+
+describe("tursoErrorMessageKey (branch review I2)", () => {
+  it("returns the translated banner key for each recognized Turso kind", () => {
+    expect(tursoErrorMessageKey(new StorageNotReadyError("turso-token-rejected"))).toBe("storageAuthBanner");
+    expect(tursoErrorMessageKey(new StorageNotReadyError("turso-env-token-rejected"))).toBe(
+      "storageAuthEnvBanner",
+    );
+    expect(tursoErrorMessageKey(new StorageNotReadyError("storage-unreachable"))).toBe(
+      "storageUnreachableBanner",
+    );
+  });
+
+  it("returns null for an unrecognized failure, so the caller's raw-message fallback still applies", () => {
+    expect(tursoErrorMessageKey(new Error("Turso error: boom"))).toBeNull();
+    expect(tursoErrorMessageKey(new StorageNotReadyError("local-file-permission-needed"))).toBeNull();
+    expect(tursoErrorMessageKey(new Error("boom"))).toBeNull();
+  });
+});
+
+describe("isTursoErrorMessageKey", () => {
+  it("accepts exactly the three keys tursoErrorMessageKey can return", () => {
+    expect(isTursoErrorMessageKey("storageAuthBanner")).toBe(true);
+    expect(isTursoErrorMessageKey("storageAuthEnvBanner")).toBe(true);
+    expect(isTursoErrorMessageKey("storageUnreachableBanner")).toBe(true);
+  });
+
+  it("rejects a sentinel or an unrelated string", () => {
+    expect(isTursoErrorMessageKey("portfolio-load-failed")).toBe(false);
+    expect(isTursoErrorMessageKey("boom")).toBe(false);
+    expect(isTursoErrorMessageKey("")).toBe(false);
   });
 });
 

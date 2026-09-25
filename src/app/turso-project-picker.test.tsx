@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { TursoProjectPicker } from "./turso-project-picker";
 import { defaultSettings } from "./settings-types";
+import { StorageNotReadyError } from "./storage";
 
 vi.mock("./turso-portfolio", () => ({
   listProjects: vi.fn(),
@@ -71,6 +72,20 @@ describe("TursoProjectPicker", () => {
     await screen.findByText("No projects found in this Turso database.");
     fireEvent.click(screen.getByRole("button", { name: /close/i }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // ★★★ Branch review I2 (§337) — before this fix, a rejected env token
+  // showed the raw internal hint verbatim ("Storage not ready:
+  // turso-env-token-rejected"), which is exactly what a user with a bad
+  // deployment token sees FIRST when they open this picker.
+  it("shows the translated auth-env banner text, not the raw hint, when the env token is rejected", async () => {
+    vi.mocked(listProjects).mockRejectedValueOnce(new StorageNotReadyError("turso-env-token-rejected"));
+    setup();
+    // The translated sentence names the env var — a stable, distinctive
+    // substring of `storageAuthEnvBanner` regardless of surrounding wording.
+    expect(await screen.findByText(/NEXT_PUBLIC_TURSO_AUTH_TOKEN/)).toBeInTheDocument();
+    expect(screen.queryByText(/turso-env-token-rejected/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Storage not ready/)).not.toBeInTheDocument();
   });
 
   it("renders a blank project code as —", async () => {

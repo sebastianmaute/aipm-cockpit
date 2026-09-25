@@ -112,4 +112,23 @@ describe("PortfolioHealthPanel", () => {
     const { container } = render(<PortfolioHealthPanel {...baseProps} settings={tursoSettings} />);
     expect(container.querySelector(".animate-pulse")).toBeTruthy();
   });
+
+  // ★★★ Branch review I2 (§337) — a third shape from the picker/toast sites:
+  // `use-portfolio-health.ts` stays i18n-free and stores the i18n KEY itself
+  // in `error` (mirroring its own pre-existing `PORTFOLIO_LOAD_FAILED`
+  // sentinel), so THIS panel is where the translation actually happens. A
+  // raw hint here would have read as the untranslated key name itself
+  // ("storageAuthEnvBanner"), not even the internal code — arguably worse.
+  it("translates a TursoErrorMessageKey from the hook instead of showing the key name", () => {
+    mockTursoConfig.mockReturnValue({ httpUrl: "https://demo.turso.io", authToken: "tok" });
+    mockHook.mockReturnValue({
+      rows: [],
+      aggregate: { projectCount: 0, overallR: 0, overallA: 0, overallG: 0, totalOpenRaid: 0, avgCompletionPercent: 0 },
+      loading: false,
+      error: "storageAuthEnvBanner",
+    });
+    render(<PortfolioHealthPanel {...baseProps} settings={tursoSettings} />);
+    expect(screen.getByText(/NEXT_PUBLIC_TURSO_AUTH_TOKEN/)).toBeInTheDocument();
+    expect(screen.queryByText("storageAuthEnvBanner")).not.toBeInTheDocument();
+  });
 });
