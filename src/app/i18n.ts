@@ -3127,14 +3127,16 @@ const enUS = {
   documentsTruncatedBanner: "Some of this project's document data could not be opened. Saving is paused to protect your saved project - it still holds everything.",
   documentsTruncatedSaveAnyway: "Save anyway",
   documentsTruncatedBannerAria: "Document data could not be opened",
-  // ★★★ THE DECODE CAUSE COVERS TWELVE META SLICES, NOT DOCUMENTS. The two keys
-  // above are the TRUNCATION headline and are accurate for it (the cap really
-  // does cut document entries and blocks). `reportUnreadableSlice` reaches
-  // project_status, project_meta, field_visibility, features, steering_committee,
-  // timelog_links, knowledge_items, insights, activityLog, documents,
-  // documentVersions and settings_overrides — so a corrupt steering-committee
-  // blob in a project with NO documents used to be announced as document data,
-  // and the user made a PERMANENT discard decision on a screen that misnamed
+  // ★★★ THE DECODE CAUSE COVERS EVERY `reportUnreadableSlice` SLICE, NOT JUST
+  // DOCUMENTS. The two keys above are the TRUNCATION headline and are accurate
+  // for it (the cap really does cut document entries and blocks). Re-derive the
+  // list rather than trusting this one — it has rotted before:
+  //   grep -o 'reportUnreadableSlice("[a-zA-Z_]*"' src/app/turso-schema.ts
+  // Today that is: project_status, project_meta, field_visibility, features,
+  // steering_committee, timelog_links, knowledge_items, insights, activityLog,
+  // budgetHistory, documents, documentVersions, settings_overrides — so a
+  // corrupt steering-committee blob in a project with NO documents used to be
+  // announced as document data, and the user made a PERMANENT discard decision on a screen that misnamed
   // what was being discarded. These two are the cause-aware alternative, and
   // they are deliberately the wider wording so they also cover the case where
   // BOTH causes hold. Vocabulary matches `documentsUnreadableWarning` /
