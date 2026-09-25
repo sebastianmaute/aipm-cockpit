@@ -3,23 +3,7 @@ import { SCHEMA_DDL, TABLE_NAMES, ENTITY_SPECS, selectStatements, workspaceToSta
 import { emptyWorkspace } from "./storage";
 import type { ActivityEntry } from "./activity-log";
 import { recordBudgetChange, type BudgetHistoryEntry } from "./budget-history";
-import type { DocTruncationDiag } from "./document-model";
 import type { ProjectMeta } from "./types";
-
-/** A `meta`-only result set (every other table empty) — mirrors
- *  `turso-schema.documents.test.ts`'s `metaOnlyResults`, which is the file
- *  that actually carries the unreadable-slice pattern for a meta-blob key. */
-function metaOnlyResults(pairs: readonly (readonly [string, string])[]): PipelineResultLike[] {
-  return TABLE_NAMES.map((t) => ({
-    type: "ok",
-    response: {
-      type: "execute",
-      result: t === "meta"
-        ? { cols: [{ name: "key" }, { name: "value" }], rows: pairs.map(([k, v]) => [{ value: k }, { value: v }]) }
-        : { cols: [], rows: [] },
-    },
-  }));
-}
 
 function resultsFromStatements(stmts: { sql: string; args?: { value?: string }[] }[]): PipelineResultLike[] {
   const byTable: Record<string, { cols: string[]; rows: { value: string }[][] }> = {};
@@ -218,13 +202,9 @@ describe("turso project meta (§538)", () => {
     const next = { ...prev, project: { ...(prev.project ?? {}), name: "Renamed" } as ProjectMeta };
     expect(dirtyWorkspaceTables(prev, next).has("meta")).toBe(true);
   });
-
-  test("reports an unreadable project_meta row and still loads (§538)", () => {
-    const diag: DocTruncationDiag = {};
-    const ws = rowsToWorkspace(metaOnlyResults([["project_meta", "{not json"]]), diag);
-    expect(diag.decodeFailedSlices).toEqual(["project_meta"]);
-    expect(ws.project).toBeUndefined();
-  });
+  // The "reports an unreadable project_meta row" test lives in
+  // turso-schema.documents.test.ts, next to the metaOnlyResults helper it
+  // reuses — see that file's "turso single-DB — project meta (§538)" describe.
 });
 
 describe("changes turso table", () => {

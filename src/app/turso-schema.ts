@@ -27,7 +27,7 @@ import { sanitizeFeatures } from "./feature-modules";
 import {
   sanitizeResource, sanitizeRole, sanitizeLoadedBudgetBucket, sanitizeDiscipline,
   sanitizeGrade, sanitizeLoadedAbsence, sanitizeShift, sanitizeLoadedFxRates, sanitizePlan,
-  sanitizeSteeringCommittee, sanitizeProjectMeta,
+  sanitizeSteeringCommittee, sanitizeLoadedProjectMeta,
 } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems } from "./document-link";
@@ -221,7 +221,7 @@ export function rowsToWorkspace(
   const pmRow = rowObjects(byTable.get("meta")).find((r) => r.key === "project_meta");
   if (pmRow?.value) {
     try {
-      const pm = sanitizeProjectMeta(JSON.parse(pmRow.value));
+      const pm = sanitizeLoadedProjectMeta(JSON.parse(pmRow.value));
       if (pm) ws.project = pm;
     } catch (err) {
       reportUnreadableSlice("project_meta", err);

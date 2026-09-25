@@ -163,7 +163,7 @@ describe("useTursoProjects — update current meta", () => {
     result.current.handleUpdateCurrentProjectByMode(META);
     expect(args.showToast).toHaveBeenCalledWith(
       "error",
-      "Couldn't save the project details: Storage isn't configured yet — pick a file in Settings.",
+      "Couldn't save the project details: Enter the Turso URL and token in Settings.",
     );
     expect(vi.mocked(updateProjectMeta)).not.toHaveBeenCalled();
     expect(args.updateCurrentFileProject).not.toHaveBeenCalled();

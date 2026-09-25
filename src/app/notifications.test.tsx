@@ -293,9 +293,9 @@ describe("SavingPausedBanner", () => {
     expect(screen.queryByRole("alert", { name: "Document data could not be opened" })).toBeNull();
   });
 
-  // ★★★ THE HEADLINE MUST NOT NAME DOCUMENTS FOR A CAUSE THAT COVERS ELEVEN
-  // SLICES. `reportUnreadableSlice` reaches project_status, field_visibility,
-  // features, steering_committee, timelog_links, knowledge_items, insights,
+  // ★★★ THE HEADLINE MUST NOT NAME DOCUMENTS FOR A CAUSE THAT COVERS TWELVE
+  // SLICES. `reportUnreadableSlice` reaches project_status, project_meta,
+  // field_visibility, features, steering_committee, timelog_links, knowledge_items, insights,
   // activityLog, documents, documentVersions and settings_overrides. A corrupt
   // steering-committee blob in a project with NO documents announced itself as
   // "document data", the user concluded it did not apply, and clicked the

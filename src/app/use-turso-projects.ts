@@ -133,7 +133,7 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
           return;
         }
         if (!cfg) {
-          showToast("error", t(lang, "projectUpdateFailed", t(lang, "storageNotReady")));
+          showToast("error", t(lang, "projectUpdateFailed", t(lang, "storageTursoNeedsConfig")));
           return;
         }
         void (async () => {

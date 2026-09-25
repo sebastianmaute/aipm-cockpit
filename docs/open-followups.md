@@ -38447,22 +38447,31 @@ tenant path is unchanged: `tenantWorkspaceToStatements` never writes `project_me
 still overwrites `ws.project` from the `projects` table afterwards. The secondary no-config bug is
 also fixed: `handleUpdateCurrentProjectByMode` now routes a missing `tursoProjectId` to
 `updateCurrentFileProject` (the single-DB backend's save is now the whole write) instead of no-op'ing,
-and a present `tursoProjectId` with no ready config toasts `projectUpdateFailed`/`storageNotReady`
-instead of doing nothing.
+and a present `tursoProjectId` with no ready config toasts `projectUpdateFailed`/`storageTursoNeedsConfig`
+instead of doing nothing. The load path uses `sanitizeLoadedProjectMeta` (the load-funnel form, which
+reports a blanked start/end date via the M2 diagnostic), matching every other `ws.project` load path
+in the repo (JSON, CSV/Markdown, IndexedDB, tenant Turso).
 
 **Work item:** #328
 
 **Verified by:** `turso-schema.execute.test.ts` (a real `node:sqlite` engine round trip — save via
 `workspaceToStatements`, read back via a real SELECT + `rowsToWorkspace` — restores `ws.project`; an
-older DB with no `project_meta` row loads with `ws.project` undefined and no diag entry), plus a
-mutation check (deleting the read block turned both new tests red with the expected "expected X to
-equal undefined"-shaped failures; restored). `turso-schema.test.ts` pins `dirtyWorkspaceTables`
-flagging `meta` on a project-only edit and an unreadable `project_meta` row being reported via
-`turso.metaSliceUnreadable`/`diag.decodeFailedSlices` while the load still succeeds.
-`use-turso-projects.test.ts` pins the no-`tursoProjectId` case routing to the file callback and the
-present-id/no-config case toasting instead of no-op'ing. Tenant-mode coverage
+older DB with no `project_meta` row loads with `ws.project` undefined and no diag entry; a
+`project_meta` row with an invalid start date is blanked and reported via the M2
+`storage.nonCalendarDateBlanked` diagnostic). `turso-schema.documents.test.ts` pins an unreadable
+`project_meta` row being reported via `turso.metaSliceUnreadable`/`diag.decodeFailedSlices` while the
+load still succeeds. `turso-schema.test.ts` pins `dirtyWorkspaceTables` flagging `meta` on a
+project-only edit. `use-turso-projects.test.ts` pins the no-`tursoProjectId` case routing to the file
+callback and the present-id/no-config case toasting instead of no-op'ing. Tenant-mode coverage
 (`turso-schema.execute.test.ts`'s multi-tenant suite, `turso-backend.tenant.test.ts`) is unchanged and
 still green — confirming the tenant builder still never writes `project_meta`.
+
+Mutation check (deleting `rowsToWorkspace`'s `project_meta` read block, then restoring it): the round
+trip and M2 tests in `turso-schema.execute.test.ts` and the unreadable-row test in
+`turso-schema.documents.test.ts` all went red — none of them pass against the unfixed code. The
+round-trip failure: `AssertionError: expected undefined to deeply equal { name: 'Apollo', code: '',
+…(14) }`. The unreadable-row failure: `AssertionError: expected undefined to deeply equal [
+'project_meta' ]`.
 
 **What was true before this fix (kept for context — the docstring quoted below no longer matches the
 code).** `workspaceToStatements` never referenced `ws.project`, and `dirtyWorkspaceTables`'s own

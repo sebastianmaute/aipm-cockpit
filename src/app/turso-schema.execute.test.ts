@@ -25,7 +25,7 @@
 // protocol violation the real server rejects. `expectWireConformantArgs` is the
 // only detector for that half.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeEach } from "vitest";
 import { DatabaseSync } from "node:sqlite";
 import {
   ENTITY_SPECS, SCHEMA_DDL, selectStatements, workspaceToStatements, rowsToWorkspace,
@@ -33,9 +33,11 @@ import {
 } from "./turso-schema";
 import { tenantSchemaDdl, tenantWorkspaceToStatements } from "./turso-tenant-schema";
 import { emptyWorkspace, type Workspace } from "./workspace";
-import { sanitizeProjectMeta } from "./sanitize";
+import { sanitizeProjectMeta, sanitizeLoadedProjectMeta } from "./sanitize";
 import type { DocTruncationDiag } from "./document-model";
 import type { ProjectMeta } from "./types";
+import { clearDiagLog, readDiagLog } from "./diagnostics";
+import { __resetNonCalendarDateReportsForTests } from "./sanitize-load-date";
 
 const PROJECT_ID = "proj-exec-1";
 
@@ -333,10 +335,17 @@ describe("turso schema id kinds", () => {
 });
 
 describe("turso schema §538 project meta (single-tenant)", () => {
+  beforeEach(() => {
+    clearDiagLog();
+    __resetNonCalendarDateReportsForTests();
+  });
+
   it("round-trips ws.project through the single-tenant meta table (§538)", () => {
     const ws = { ...emptyWorkspace(), project: sanitizeProjectMeta({ name: "Apollo", description: "d" }) as ProjectMeta };
     const back = roundTrip(ws);
-    expect(back.project).toEqual(sanitizeProjectMeta(ws.project));
+    // The LOAD reader (`sanitizeLoadedProjectMeta`), not the write-path one — this
+    // is a load funnel, matching every other ws.project load path in the repo.
+    expect(back.project).toEqual(sanitizeLoadedProjectMeta(ws.project));
   });
 
   it("loads an older DB with no project_meta row as project undefined, with no diag entry (§538)", () => {
@@ -344,5 +353,19 @@ describe("turso schema §538 project meta (single-tenant)", () => {
     const back = roundTrip({ ...emptyWorkspace(), project: undefined }, diag);
     expect(back.project).toBeUndefined();
     expect(diag.decodeFailedSlices ?? []).not.toContain("project_meta");
+  });
+
+  it("reports a project_meta start date it blanks (M2), and still loads (§538)", () => {
+    const BAD = "2026-02-30"; // shape-valid, not a real calendar date
+    const ws = {
+      ...emptyWorkspace(),
+      project: { ...sanitizeProjectMeta({ name: "Apollo" }), startDate: BAD } as ProjectMeta,
+    };
+    const back = roundTrip(ws);
+    expect(back.project?.startDate).toBe("");
+    const blanked = readDiagLog().filter((e) => e.code === "storage.nonCalendarDateBlanked");
+    expect(blanked).toEqual(expect.arrayContaining([
+      expect.objectContaining({ fields: expect.objectContaining({ source: "workspace", entity: "project", field: "startDate" }) as unknown }),
+    ]));
   });
 });

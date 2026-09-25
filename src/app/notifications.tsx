@@ -201,7 +201,7 @@ function truncationCopy(lang: Lang, c: Extract<SavingPausedCause, { kind: "trunc
   const countText = countParts.length > 0 ? countParts.join(" ") : null;
   // ★★★ THE HEADLINE FOLLOWS THE CAUSE, because "document data" was true of only
   // one of the two. Truncation IS about documents — the cap cuts document
-  // entries and blocks — but the decode cause reaches ELEVEN meta slices
+  // entries and blocks — but the decode cause reaches TWELVE meta slices
   // (`reportUnreadableSlice`), so a corrupt `steering_committee` blob in a
   // project with NO documents announced itself as document data, the user read
   // a headline that plainly did not apply to them, and clicked "Save anyway".
