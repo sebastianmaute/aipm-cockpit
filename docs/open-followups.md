@@ -41138,6 +41138,13 @@ Options, undecided:
 
 Decide at the flip, and prove the chosen rule with a fork PR before closing this entry.
 
+Decided 2026-09-25 by the owner, at the flip: option 2. A fork PR stays red on `leaks:check` (exit 2,
+no secrets) and is never merged as is; a maintainer re-runs the change from a branch in this
+repository, where the leak gate has its secret and catches a leak before the merge: `gh pr checkout
+<N>`, `git push origin HEAD:contrib/pr-<N>`, open a PR from that branch, merge it once green, then
+close the fork PR. No code change: this is today's behaviour. Still open until a real fork PR
+shows the red `static` check.
+
 ## 611. The weekly ZAP job's docker run images float unpinned — pin them by digest — CLOSED 2026-09-23
 
 **Status:** CLOSED 2026-09-23 by `ci/followups-611-613-615`. Both `docker run` images in

@@ -50,10 +50,8 @@ a 40-hex commit SHA (a `docker://` image by digest) with the version in a traili
 workflow test pins it to the `engines` floor). `.github/dependabot.yml` runs weekly for
 `github-actions`, root `npm` and `desktop/` `npm`: minor/patch updates land as one grouped PR per
 npm directory, majors and every exactly-pinned framework package (CONTRIBUTING's "Dependencies"
-rule) arrive one PR each. ★★ HELD WHILE THE REPOSITORY IS PRIVATE: every entry carries
-`open-pull-requests-limit: 0`, because each PR spends Actions minutes; flip step 10a lifts it.
-Security-fix PRs ignore that limit and stay on (owner decision, 2026-09-25). ★ It does NOT cover container digests (semgrep,
-actionlint), which are re-resolved by hand.
+rule) arrive one PR each. ★ It does NOT cover container digests (semgrep, actionlint), which are
+re-resolved by hand.
 
 - **`static`** (15 min). `npm ci`, then `npm --prefix desktop ci --ignore-scripts` (electron's and
   electron-updater's TYPES only — the desktop shell is never built or run here; that install is what
