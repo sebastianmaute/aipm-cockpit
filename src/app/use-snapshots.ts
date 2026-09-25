@@ -182,18 +182,38 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
           // bucket, not the missed one). Create a project on Monday and
           // populate it Tuesday and that first period simply has no auto row.
           // That is a deliberate trade, and strictly better than the bug: the
-          // bucket is NOT claimed, so nothing is poisoned and the first REAL
-          // capture correctly becomes the baseline. Adding `tasks.length` as a
+          // bucket is NOT claimed, so nothing is poisoned and the first
+          // COMPLETE capture becomes the baseline (see below). Adding `tasks.length` as a
           // dep would close the gap but re-runs this effect on every task edit.
           if (!hasCapturableContent(ctx)) {
             setSnapshots(history);
             return;
           }
-          const isFirstEver = history.length === 0;
-          const rec = makeRecord("auto", isFirstEver, currentBucket, ctx);
+          // ★★ §78, the partial-KPI half: an auto row becomes the baseline ONLY
+          // when it is complete — `model.burndown !== null`, the one input both
+          // `remainingHours` and `remainingCost` derive from (`spi`/`cpi` come
+          // from task effort, not budget, so they are not part of the test). A
+          // project with scope but no budget used to baseline its first row with
+          // those two KPIs null, and every later variance row compared against
+          // nulls. The first COMPLETE auto row now takes the flag, but only while
+          // no baseline exists: an existing one (user-set, or an older build's)
+          // is never moved from here.
+          // ★ Appended unflagged, then flagged through the same persisted store
+          // op `setBaseline` uses. If that second write fails the row stays
+          // unflagged and the next bucket's capture tries again.
+          // ★ Until then nothing is flagged: `pickBaseline` falls back to the
+          // earliest row for variance, and the Gantt's baseline overlay
+          // (`baselineMilestoneTargets`, which does NOT fall back) shows none.
+          const promote = ctx.model.burndown !== null && !history.some((s) => s.isBaseline);
+          const rec = makeRecord("auto", false, currentBucket, ctx);
           await storeAppend(cfgRef.current, rec, pidRef.current);
           if (stale()) return;
           setSnapshots([...history, rec]);
+          if (promote) {
+            await storeSetBaseline(cfgRef.current, rec.id, pidRef.current);
+            if (stale()) return;
+            setSnapshots((prev) => prev.map((s) => ({ ...s, isBaseline: s.id === rec.id })));
+          }
         } else {
           setSnapshots(history);
         }
