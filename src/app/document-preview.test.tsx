@@ -17,6 +17,7 @@ import { renderDocumentHtml } from "./doc-render-html";
 import { hashBytes } from "./document-asset-upload";
 import { useDocumentAssets } from "./use-document-assets";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { FOCUS_RING } from "./interaction-styles";
 
 vi.mock("./document-assets-store", () => ({
   loadAssetData: vi.fn(), saveAssetData: vi.fn(), deleteAssetData: vi.fn(), loadAssetDataIds: vi.fn(),
@@ -261,7 +262,8 @@ describe("DocumentPreview — rendered alt follows the live asset name (§339)",
     );
     const img = document.querySelector("img[data-asset-id='a1']")!;
     expect(img.getAttribute("alt")).toBe("diagram.png");
-    expect(img.getAttribute("aria-label")).toContain("diagram.png");
+    // §342: the name lives on the wrapping button, not on the image.
+    expect(img.closest("button")?.getAttribute("aria-label")).toContain("diagram.png");
   });
 
   it("rewrites a stale alt even when asset storage is off (null config)", () => {
@@ -439,5 +441,53 @@ describe("DocumentPreview — opening the lightbox from an inserted image", () =
     expect(screen.queryAllByRole("button")).toHaveLength(0);
     const img = document.querySelector("img[data-asset-id='a1']")!;
     expect(img.hasAttribute("tabindex")).toBe(false);
+    // §342: the bare image, unwrapped, still an image.
+    expect(img.parentElement?.tagName).toBe("P");
+    expect(screen.getByRole("img", { name: "chart.png" })).toBe(img);
+  });
+
+  // §342. The image used to BE the button (`role="button"` stamped onto the
+  // `<img>`), which replaced its implicit `img` role. It is now wrapped in a
+  // real `<button>` that carries the action and the name, and the image keeps
+  // its role and `alt`.
+  it("keeps the inserted asset exposed as an image inside its preview button", () => {
+    renderPreview([asset("a1", "chart.png"), asset("a2", "table.png")]);
+
+    const btn = screen.getByRole("button", { name: "Preview image – chart.png" });
+    expect(btn.tagName).toBe("BUTTON");
+    expect(btn).toHaveAttribute("type", "button");
+    expect(within(btn).getByRole("img", { name: "chart.png" })).toBeInTheDocument();
+    expect(screen.getAllByRole("img")).toHaveLength(2);
+    // No image is stamped with a role of its own any more.
+    const imgs = document.querySelectorAll("img[data-asset-id]");
+    expect(imgs).toHaveLength(2);
+    for (const img of imgs) expect(img.hasAttribute("role")).toBe(false);
+    expect(document.querySelectorAll("img[role='button']")).toHaveLength(0);
+  });
+
+  it("resets the wrapper's box so the image keeps its layout, and uses the focus ring", () => {
+    renderPreview([asset("a1", "chart.png")]);
+    const btn = screen.getByRole("button", { name: "Preview image – chart.png" });
+    expect(btn.style.padding).toBe("0px");
+    expect(btn.style.margin).toBe("0px");
+    expect(btn.style.display).toBe("block");
+    expect(btn.className).toBe(FOCUS_RING);
+  });
+
+  it("unwraps the image again when asset storage is switched off", () => {
+    const { rerender } = renderPreview([asset("a1", "chart.png")]);
+    const img = document.querySelector("img[data-asset-id='a1']")!;
+    expect(img.parentElement?.tagName).toBe("BUTTON"); // positive control
+
+    rerender(
+      <DocumentPreview
+        lang="en-US" doc={D} ws={{ ...emptyWorkspace(), documentAssets: [asset("a1", "chart.png")] }}
+        tursoConfig={null} projectId="p1"
+      />,
+    );
+
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
+    expect(img.isConnected).toBe(true);
+    expect(img.parentElement?.tagName).toBe("P");
   });
 });
