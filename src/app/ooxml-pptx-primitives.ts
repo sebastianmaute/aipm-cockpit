@@ -183,7 +183,18 @@ export function pptxTextBox(opts: {
   cxEmu: number;
   cyEmu: number;
   paragraphs: readonly PptxParagraph[];
+  /** Opt-in `<a:normAutofit/>` ("shrink text on overflow"). OMITTED means the
+   *  bodyPr stays byte-identical to what every existing caller has always
+   *  emitted. ★ Renderer-dependent: LibreOffice and Keynote apply it on render,
+   *  while PowerPoint generally does not recompute the font scale until the
+   *  text is edited — so it complements a hard content bound, never replaces
+   *  one (§33). */
+  autofit?: "shrink";
 }): string {
+  const bodyPr =
+    opts.autofit === "shrink"
+      ? `<a:bodyPr wrap="square" rtlCol="0" anchor="t"><a:normAutofit/></a:bodyPr>`
+      : `<a:bodyPr wrap="square" rtlCol="0" anchor="t"/>`;
   const runs = opts.paragraphs
     .flatMap((p) => {
       if ("runs" in p) {
@@ -235,7 +246,7 @@ export function pptxTextBox(opts: {
     <a:noFill/>
   </p:spPr>
   <p:txBody>
-    <a:bodyPr wrap="square" rtlCol="0" anchor="t"/>
+    ${bodyPr}
     <a:lstStyle/>
     ${runs}
   </p:txBody>

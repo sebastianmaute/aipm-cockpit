@@ -131,6 +131,60 @@ const TITLE_SLOT: SlotStyle = {
 };
 const FIELD_SLOT: SlotStyle = { sizeHundredths: 1600 };
 
+/** Most `<a:p>` the RowFields box may carry, the "…" line included (§33).
+ *  The box is 2,800,000 EMU tall and a 16pt line at ~1.2 spacing is ~243,840
+ *  EMU, so about 11 unwrapped lines fit; 10 leaves one line of room for
+ *  wrapping. Counted in EMITTED paragraphs, not `PptxParagraph`s: a flat
+ *  `{text}` paragraph becomes one `<a:p>` per "\n" in `pptxTextBox`, so one
+ *  multi-paragraph description is many lines. The full text still reaches
+ *  every other export format. */
+export const MAX_FIELD_PARAGRAPHS = 10;
+const FIELD_ELLIPSIS: PptxParagraph = { text: "…", ...FIELD_SLOT };
+
+/** How many `<a:p>` `pptxTextBox` emits for one paragraph. */
+function emittedLineCount(p: PptxParagraph): number {
+  return "runs" in p ? 1 : p.text.split("\n").length;
+}
+
+/**
+ * Bounds the RowFields paragraphs at {@link MAX_FIELD_PARAGRAPHS}: the first
+ * `MAX - 1` lines, then one "…" line.
+ *
+ * ★ Under the bound it returns the input UNCHANGED, so every row that fitted
+ * before is byte-identical. Over it, a flat `{text}` paragraph is split into
+ * one paragraph per line before cutting — which emits exactly the `<a:p>` the
+ * unsplit paragraph would have, since `pptxTextBox` splits on "\n" the same way.
+ */
+function capFieldParagraphs(paragraphs: readonly PptxParagraph[]): {
+  paragraphs: readonly PptxParagraph[];
+  truncated: boolean;
+} {
+  const total = paragraphs.reduce((n, p) => n + emittedLineCount(p), 0);
+  if (total <= MAX_FIELD_PARAGRAPHS) return { paragraphs, truncated: false };
+  const budget = MAX_FIELD_PARAGRAPHS - 1;
+  const kept: PptxParagraph[] = [];
+  for (const p of paragraphs) {
+    const room = budget - kept.length;
+    if (room <= 0) break;
+    if ("runs" in p) {
+      kept.push(p);
+      continue;
+    }
+    for (const line of p.text.split("\n").slice(0, room)) kept.push({ ...p, text: line });
+  }
+  return { paragraphs: [...kept, FIELD_ELLIPSIS], truncated: true };
+}
+
+/** Relationship ids the given paragraphs actually reference. */
+function referencedRelIds(paragraphs: readonly PptxParagraph[]): Set<string> {
+  const ids = new Set<string>();
+  for (const p of paragraphs) {
+    if (!("runs" in p)) continue;
+    for (const r of p.runs) if (r.hyperlinkRelId !== undefined) ids.add(r.hyperlinkRelId);
+  }
+  return ids;
+}
+
 /** ★ The `?? ""` stays OUTSIDE `cellText`: its parameter excludes `undefined`
  *  while a SHORT row hands it one at runtime, and the value must still
  *  normalise to "". */
@@ -259,14 +313,28 @@ function buildPptxRowSlide(
   // table — but the alternative is ids that ascend backwards for no reason.
   const metaParagraphs = slotParagraphs(`${sectionTitle} · `, row[0], META_SLOT, links);
   const titleParagraphs = slotParagraphs("", titleCell, TITLE_SLOT, links);
-  // Remaining fields shown as "Label: value" lines, capped at 6 so text fits.
-  const metaLines = columns
-    .slice(2, 8)
-    .flatMap((col, i) =>
-      slotText(row[i + 2])
-        ? slotParagraphs(`${col}: `, row[i + 2], FIELD_SLOT, links)
-        : [],
-    );
+  // Remaining fields shown as "Label: value" lines. `slice(2, 8)` caps the
+  // number of FIELDS at 6; it bounds nothing about LINES, since one
+  // multi-paragraph description is many lines on its own. The line bound is
+  // `capFieldParagraphs` (§33).
+  const fieldLines = capFieldParagraphs(
+    columns
+      .slice(2, 8)
+      .flatMap((col, i) =>
+        slotText(row[i + 2])
+          ? slotParagraphs(`${col}: `, row[i + 2], FIELD_SLOT, links)
+          : [],
+      ),
+  );
+  const metaLines = fieldLines.paragraphs;
+  // ★ The sink minted ids for links in lines the cap then dropped. Keep only
+  // the relationships the slide still references, so a truncated slide carries
+  // no orphan rels. Gaps in the rId sequence are legal; a rels part is a lookup
+  // table. Untruncated slides keep the sink's list untouched.
+  const used = fieldLines.truncated
+    ? referencedRelIds([...metaParagraphs, ...titleParagraphs, ...metaLines])
+    : null;
+  const rels = used === null ? links.rels() : links.rels().filter((r) => used.has(r.relId));
 
   const shapes =
     pptxAccentBar(COLOR_GREEN) +
@@ -300,13 +368,16 @@ function buildPptxRowSlide(
           cxEmu: 8229600,
           cyEmu: 2800000,
           paragraphs: metaLines,
+          // Shrink-on-overflow for long WRAPPED lines, which the paragraph
+          // cap cannot see. Renderer-dependent, hence the cap as well.
+          autofit: "shrink",
         })
       : "");
 
   // ★ `rels()` is `[]` for a row with no link, and `buildPptxPackage`'s
   // contract is that an empty (or omitted) list adds no relationship and no
   // part — so a link-free deck is byte-for-byte what it was.
-  return { xml: wrapPptxSlide(shapes, { text: footer, lang, onDark: false }), media: [], links: links.rels() };
+  return { xml: wrapPptxSlide(shapes, { text: footer, lang, onDark: false }), media: [], links: rels };
 }
 
 function buildPptxNoticeSlide(line1: string, line2: string, lang: Lang, footer: string): string {

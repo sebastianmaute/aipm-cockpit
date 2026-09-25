@@ -359,3 +359,32 @@ describe("buildPptxPackage links", () => {
     expect(rels).not.toContain("hyperlink");
   });
 });
+
+// §33: the RowFields box opts into shrink-on-overflow. Every OTHER caller must
+// stay byte-identical, so the default is pinned as hard as the opt-in.
+describe("pptxTextBox autofit", () => {
+  const box = (autofit?: "shrink"): string =>
+    pptxTextBox({
+      id: 4,
+      name: "Body",
+      lang: "en-US",
+      xEmu: 457200,
+      yEmu: 1850000,
+      cxEmu: 8229600,
+      cyEmu: 2800000,
+      paragraphs: [{ text: "x" }],
+      ...(autofit ? { autofit } : {}),
+    });
+
+  it("emits the unchanged self-closing bodyPr when autofit is omitted", () => {
+    const xml = box();
+    expect(xml).toContain('<a:bodyPr wrap="square" rtlCol="0" anchor="t"/>');
+    expect(xml).not.toContain("normAutofit");
+  });
+
+  it("emits a:normAutofit inside bodyPr when autofit is shrink", () => {
+    expect(box("shrink")).toContain(
+      '<a:bodyPr wrap="square" rtlCol="0" anchor="t"><a:normAutofit/></a:bodyPr>',
+    );
+  });
+});

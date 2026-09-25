@@ -9,6 +9,7 @@
 
 import { describe, it, expect } from "vitest";
 import { buildDocx, buildXlsx, buildPptx } from "./export-ooxml";
+import { MAX_FIELD_PARAGRAPHS } from "./export-pptx";
 import { buildPdfHtml } from "./export";
 import { loadI18n } from "./i18n";
 import { buildExportSections, cellTextWithLinks } from "./export-sections";
@@ -834,6 +835,53 @@ describe("PPTX export text", () => {
     expect((xml.match(/<a:p>/g) ?? []).length).toBe(4);
     expect((xml.match(/<a:t>Task one<\/a:t>/g) ?? []).length).toBe(1);
   });
+
+  /** One named shape, from its cNvPr to its closing p:sp. */
+  function shapeNamed(xml: string, name: string): string {
+    const m = xml.match(new RegExp(`<p:cNvPr id="\\d+" name="${name}"/>[\\s\\S]*?</p:sp>`));
+    if (!m) throw new Error(`no shape named ${name}`);
+    return m[0];
+  }
+
+  async function rowSlideWithDescription(description: string): Promise<string> {
+    const blob = buildPptx([
+      { key: "tasks", title: "Tasks", columns: ["id", "taskName", "description"], rows: [[1, "Task one", description]] },
+    ], "en-US");
+    return (await unzipBlob(blob)).get("ppt/slides/slide3.xml")!;
+  }
+
+  // §33: "capped at 6 so text fits" capped FIELDS, not lines. A single
+  // multi-paragraph description overflowed the fixed-height RowFields box.
+  it("caps a 14-paragraph description in RowFields and ends it with an ellipsis line", async () => {
+    const description = Array.from({ length: 14 }, (_, i) => `para ${i + 1}`).join("\n");
+    const fields = shapeNamed(await rowSlideWithDescription(description), "RowFields");
+    const paras = [...fields.matchAll(/<a:p>[\s\S]*?<\/a:p>/g)].map((m) => m[0]);
+    expect(paras.length).toBeLessThanOrEqual(MAX_FIELD_PARAGRAPHS + 1);
+    expect(paras).toHaveLength(MAX_FIELD_PARAGRAPHS);
+    expect(paras[paras.length - 1]).toContain("<a:t>…</a:t>");
+    // The kept lines are the FIRST ones, the first still carrying its label.
+    expect(fields).toContain("<a:t>description: para 1</a:t>");
+    expect(fields).toContain(`<a:t>para ${MAX_FIELD_PARAGRAPHS - 1}</a:t>`);
+    expect(fields).not.toContain(`<a:t>para ${MAX_FIELD_PARAGRAPHS}</a:t>`);
+    expect(fields).toContain("<a:normAutofit/>");
+  });
+
+  it("leaves a description that fits untouched: no ellipsis, every line kept", async () => {
+    const description = Array.from({ length: MAX_FIELD_PARAGRAPHS }, (_, i) => `para ${i + 1}`).join("\n");
+    const fields = shapeNamed(await rowSlideWithDescription(description), "RowFields");
+    expect((fields.match(/<a:p>/g) ?? []).length).toBe(MAX_FIELD_PARAGRAPHS);
+    expect(fields).toContain(`<a:t>para ${MAX_FIELD_PARAGRAPHS}</a:t>`);
+    expect(fields).not.toContain("<a:t>…</a:t>");
+  });
+
+  it("opts ONLY the RowFields box into normAutofit", async () => {
+    const xml = await rowSlideWithDescription("one");
+    expect(shapeNamed(xml, "RowFields")).toContain("<a:normAutofit/>");
+    expect(shapeNamed(xml, "RowMeta")).not.toContain("normAutofit");
+    expect(shapeNamed(xml, "RowTitle")).not.toContain("normAutofit");
+    // Exactly one on the whole slide: the footer and accent bar stay unchanged.
+    expect((xml.match(/normAutofit/g) ?? []).length).toBe(1);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1070,6 +1118,20 @@ describe("buildPptx link relationships", () => {
       `<Relationship Id="${ids[0]}" Type="${HYPERLINK_REL}" Target="${LINK}" TargetMode="External"/>`,
     );
     expect(xml).toContain("<a:t>the spec</a:t>");
+  });
+
+  // §33: the RowFields cap drops lines AFTER the sink minted their ids, so a
+  // link that only appears in a dropped line must not survive as an orphan
+  // relationship. The kept link still resolves.
+  it("drops the relationship of a link that only sits in a capped-off line", async () => {
+    const LATE = "https://late/link";
+    const filler = Array.from({ length: 12 }, (_, i) => `<p>filler ${i + 1}</p>`).join("");
+    const html = `${LINKED}${filler}<p><a href="${LATE}">late</a></p>`;
+    const { xml, rels } = await slide(buildPptx([sectionWith(1, "Task one", rich(html))], "en-US"), 3);
+    expect(xml).toContain("<a:t>…</a:t>");            // positive control: the cap fired
+    expect(xml).not.toContain("<a:t>late</a:t>");
+    expect(rels).toContain(`Target="${LINK}"`);
+    expect(rels).not.toContain(LATE);
   });
 
   it("drops the inline (url) suffix once the link is live", async () => {
