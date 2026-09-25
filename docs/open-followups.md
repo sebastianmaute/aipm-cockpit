@@ -733,11 +733,11 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§490](#490-six-write-path-persistence-is-mitigated-per-slice-only-and-the-unified-codec-and-schema-rewrite-stays-deferred--open) | Six-write-path persistence is mitigated per slice only, and the unified codec and schema rewrite stays deferred — OPEN | tech-debt-register TD-2 (Phase 3 T10), moved into the register 2026-09-13 | L if ever built — a unified codec/schema layer across JSON, CSV, Markdown, both Turso layouts and IndexedDB; the near-term work is the decision | open |
 | [§491](#491-task-managertsx-is-3162-lines-over-the-1600-size-limit-and-its-6040-line-ratchet-baseline-constrains-nothing--open) | task-manager.tsx is 3162 lines, over the 1600 size LIMIT, and its 6040-line ratchet baseline constrains nothing — OPEN | tech-debt-register TD-5 (Phase 3 T5), moved into the register 2026-09-13 | M — consolidate the top-level hooks and effects, not a render-tree slice; re-baseline only after a real reduction | open |
 | [§492](#492-tasks-sectiontsx-is-still-one-fat-pane-owning-the-tasks-filters-table-board-and-calendar-glue-and-its-split-stays-deferred--open) | tasks-section.tsx is still one fat pane owning the tasks filters, table, board and calendar glue, and its split stays deferred — OPEN | tech-debt-register TD-7 (inline-ai-edit SP1, 2026-07-03), moved into the register 2026-09-13 | M — a table / board / toolbar split on the gantt and reports precedent | open |
-| [§493](#493-eslint-config-next-is-exact-pinned-at-1626-while-next-is-at-1634-and-both-have-since-published-1635--open) | eslint-config-next is exact-pinned at 16.2.6 while next is at 16.3.4, and both have since published 16.3.5 — OPEN | tech-debt-register TD-1 notes and its exact-pinned list, moved into the register 2026-09-13 | S — a bump that keeps the `settings.react.version` pin, run through the browser gates | open |
+| [§493](#493-eslint-config-next-is-exact-pinned-at-1626-while-next-is-at-1634-and-both-have-since-published-1635--closed-2026-09-25) | eslint-config-next is exact-pinned at 16.2.6 while next is at 16.3.4, and both have since published 16.3.5 — CLOSED 2026-09-25 | tech-debt-register TD-1 notes and its exact-pinned list, moved into the register 2026-09-13 | S — a bump that keeps the `settings.react.version` pin, run through the browser gates | closed |
 | [§494](#494-typescript-7-has-been-published-and-nothing-has-been-run-against-it--open) | TypeScript 7 has been published and nothing has been run against it — OPEN | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S to assess (a `npx tsc --noEmit` run on a branch); unknown to land until that run exists | open |
 | [§495](#495-jsdom-30-has-been-published-and-the-layout-stub-suites-have-not-been-checked-against-it--open) | jsdom 30 has been published and the layout-stub suites have not been checked against it — OPEN | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S–M — a bump plus re-verifying the jsdom-has-no-layout suites by name | open |
-| [§496](#496-testing-libraryjest-dom-7-has-been-published-and-is-unassessed--open) | @testing-library/jest-dom 7 has been published and is unassessed — OPEN | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S — test-only, the cheapest of the deferred majors to attempt | open |
-| [§497](#497-playwright-and-axe-core-have-moved-past-the-pinned-ci-image-and-they-must-be-bumped-together-with-it--open) | Playwright and axe-core have moved past the pinned CI image, and they must be bumped together with it — OPEN | tech-debt-register deferred dependency table (lockstep row) and its Resolved lockstep rule, moved into the register 2026-09-13 | S–M — client, e2e image and axe in one MR, then re-measure the axe claims AGENTS.md quotes against 4.12.1 | open |
+| [§496](#496-testing-libraryjest-dom-7-has-been-published-and-is-unassessed--closed-2026-09-25) | @testing-library/jest-dom 7 has been published and is unassessed — CLOSED 2026-09-25 | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S — test-only, the cheapest of the deferred majors to attempt | closed |
+| [§497](#497-playwright-and-axe-core-have-moved-past-the-pinned-ci-image-and-they-must-be-bumped-together-with-it--closed-2026-09-25) | Playwright and axe-core have moved past the pinned CI image, and they must be bumped together with it — CLOSED 2026-09-25 | tech-debt-register deferred dependency table (lockstep row) and its Resolved lockstep rule, moved into the register 2026-09-13 | S–M — client, e2e image and axe in one MR, then re-measure the axe claims AGENTS.md quotes against 4.12.1 | closed |
 | [§498](#498-the-msal-sign-in-flow-has-never-been-smoke-tested-against-a-real-microsoft-365-tenant--open) | The MSAL sign-in flow has never been smoke-tested against a real Microsoft 365 tenant — OPEN | tech-debt-register dependency table (`@azure/msal-browser` caveat), moved into the register 2026-09-13 | S–M — a documented manual smoke per MSAL bump, or a gated e2e with tenant secrets if a CI tenant is ever provisioned | open |
 | [§499](#499-the-four-executive-budget-figures-are-not-all-surfaced-because-etc-eac-and-vac-are-computed-nowhere--closed-2026-09-15) | The four executive budget figures are not all surfaced, because ETC, EAC and VAC are computed nowhere — CLOSED 2026-09-15 | AI PM Cockpit demo 2026-09-11 (F-1), GitLab #38; mirrored into the register 2026-09-13 | M — one agreed formula, then the Budget panel, Budget report and Dashboard | **CLOSED** 2026-09-15 |
 | [§500](#500-budget-forecast-hours-cannot-be-imported-from-a-spreadsheet-and-must-be-re-entered-by-hand--open) | Budget forecast hours cannot be imported from a spreadsheet and must be re-entered by hand — OPEN | AI PM Cockpit demo 2026-09-11 (F-2), GitLab #39; mirrored into the register 2026-09-13 | M — an importer for resource × month × hours × rate that writes bucket allocations | open |
@@ -37250,9 +37250,16 @@ Size M.
 
 **Source:** `docs/tech-debt-register.md` (TD-7)
 
-## 493. eslint-config-next is exact-pinned at 16.2.6 while next is at 16.3.4, and both have since published 16.3.5 — OPEN
+## 493. eslint-config-next is exact-pinned at 16.2.6 while next is at 16.3.4, and both have since published 16.3.5 — CLOSED 2026-09-25
 
-**Status:** OPEN 2026-09-13 — `grep -n '"next"\|"eslint-config-next"' package.json` → `16.3.4` and `16.2.6`;
+**Status:** CLOSED 2026-09-25 by `fix/update-dialog-text` (Dependabot PR #414 folded in). `eslint-config-next` is now exact
+`16.3.4`, equal to `next`, and the `settings.react.version` pin in `eslint.config.mjs` stays. 16.3.4 adds the rule
+`@next/next/no-location-assign-relative-destination`, which flagged three deliberate full reloads
+(`error-boundary.tsx`, `recovery-banner.tsx`, `recovery-panel.tsx`); each now carries a disable with its reason.
+Moving `next` itself to 16.3.5 is a framework change and arrives as its own Dependabot PR, since `next` is
+excluded from the grouped updates.
+
+Original status: OPEN 2026-09-13 — `grep -n '"next"\|"eslint-config-next"' package.json` → `16.3.4` and `16.2.6`;
 `npm view next version` and `npm view eslint-config-next version` → both `16.3.5` on 2026-09-13; and
 `grep -n "reactVersion" eslint.config.mjs` → the derived React-version pin is in place.
 
@@ -37274,7 +37281,14 @@ Size S.
 
 ## 494. TypeScript 7 has been published and nothing has been run against it — OPEN
 
-**Status:** OPEN 2026-09-13 — `grep -n '"typescript"' package.json` → `^6.0.3`, and
+**Status:** OPEN — assessed 2026-09-25 on Dependabot PR #413, closed unmerged. TS 7 is the native compiler, and
+its npm package no longer ships the JavaScript compiler API that `src/test/strip-comments.ts`,
+`scripts/src-symbols-lib.mjs`, `src/app/sanitize-point-free.guard.test.ts` and
+`src/app/document-asset-patterns.test.ts` import to parse source; `next build` failed on it too. Dependabot now
+ignores TypeScript majors (`grep -n -A2 "dependency-name: typescript" .github/dependabot.yml`). Lift that ignore,
+and close this entry, once both the parsers and `next` support 7.
+
+Original status: OPEN 2026-09-13 — `grep -n '"typescript"' package.json` → `^6.0.3`, and
 `npm view typescript version` → `7.0.2`. Never machine-verified: no typecheck has been run against 7.
 
 **Work item:** #315
@@ -37307,9 +37321,14 @@ Size S–M.
 
 **Source:** `docs/tech-debt-register.md` ("Deferred major dependency upgrades", `jsdom` row)
 
-## 496. @testing-library/jest-dom 7 has been published and is unassessed — OPEN
+## 496. @testing-library/jest-dom 7 has been published and is unassessed — CLOSED 2026-09-25
 
-**Status:** OPEN 2026-09-13 — `grep -n '"@testing-library/jest-dom"' package.json` → `^6.6.3` (6.9.1
+**Status:** CLOSED 2026-09-25 by `fix/update-dialog-text` (Dependabot PR #416 folded in): `^7.0.1`. `gate:local` passed on the
+branch, including the full suite, `test:shuffle` and `npx tsc --noEmit`. Checked beyond a green suite: none of
+the deprecated matchers is used —
+`git grep -nE "\.(toBeEmpty|toHaveDescription|toHaveErrorMessage|toBeInTheDOM)\(" -- src e2e scripts` → 0 hits.
+
+Original status: OPEN 2026-09-13 — `grep -n '"@testing-library/jest-dom"' package.json` → `^6.6.3` (6.9.1
 installed), and `npm view @testing-library/jest-dom version` → `7.0.1`. Never machine-verified against 7.
 
 **Work item:** #317
@@ -37322,9 +37341,17 @@ Size S.
 
 **Source:** `docs/tech-debt-register.md` ("Deferred major dependency upgrades", `@testing-library/jest-dom` row)
 
-## 497. Playwright and axe-core have moved past the pinned CI image, and they must be bumped together with it — OPEN
+## 497. Playwright and axe-core have moved past the pinned CI image, and they must be bumped together with it — CLOSED 2026-09-25
 
-**Status:** OPEN 2026-09-13 — `grep -n "playwright:v" .gitlab-ci.yml` → two sites on `v1.61.1-jammy`;
+**Status:** CLOSED 2026-09-25 by `fix/update-dialog-text` (Dependabot PR #412 folded in): `@playwright/test` `^1.63.0`,
+`@axe-core/playwright` `^4.13.0`, and the e2e image moved with them — `grep -n "playwright:v"
+.github/workflows/ci.yml` → two sites on `v1.63.0-jammy`. The axe measurements were re-run against the installed
+axe-core 4.13.0 (`npm ls axe-core` → one copy, deduped) and all still hold: 105 rules, 69 under the four requested
+tags, `link-in-text-block` the only `wcag141` rule, `label-content-name-mismatch` still `experimental`, and the
+same ten duplicate/unique rules, none of which compares two controls' names. So the dated "measured against 4.12.1"
+quotes stay true as written and were left alone.
+
+Original status: OPEN 2026-09-13 — `grep -n "playwright:v" .gitlab-ci.yml` → two sites on `v1.61.1-jammy`;
 `grep -n '"@playwright/test"\|"@axe-core/playwright"' package.json` → `^1.61.1` and `^4.12.1`. `npm view` on
 2026-09-13 → `1.63.0` and `4.13.0`.
 
