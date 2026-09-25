@@ -74,6 +74,20 @@ describe("MeetingReportPanel", () => {
     expect(onGenerate).toHaveBeenCalled();
   });
 
+  // §125: the AI draft is a billed Anthropic call — while it runs, the trigger
+  // is an ENABLED Stop that cancels, and the progress text sits beside it.
+  it("while generating, the trigger reads Stop and cancels instead of generating", () => {
+    const onGenerate = vi.fn();
+    const onCancelGenerate = vi.fn();
+    renderPanel({ aiConfigured: true, onGenerate, onCancelGenerate, generateBusy: true });
+    const stop = screen.getByRole("button", { name: "Stop" });
+    expect(stop).toBeEnabled();
+    fireEvent.click(stop);
+    expect(onCancelGenerate).toHaveBeenCalledTimes(1);
+    expect(onGenerate).not.toHaveBeenCalled();
+    expect(screen.getByRole("status")).toHaveTextContent("Drafting…");
+  });
+
   it("popout is read-only: no Save/Send, renders the body", () => {
     renderPanel({ isPopout: true });
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();

@@ -14,6 +14,7 @@ const reportBag: MeetingReportBag = {
   onSendReport: () => {},
   sendBusyMeetingId: null,
   onGenerateReport: () => {},
+  onCancelGenerateReport: () => {},
   generateBusyMeetingId: null,
   loadVersions: async () => [],
   onRestore: () => {},

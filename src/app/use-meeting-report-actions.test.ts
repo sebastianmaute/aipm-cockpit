@@ -123,6 +123,47 @@ describe("useMeetingReportActions", () => {
     expect(updater(committee()).meetings[0].report?.html).toBe("<p>ai draft</p>");
   });
 
+  // §125: the AI draft is a billed Anthropic call and must be stoppable.
+  it("cancelGenerateReport aborts the in-flight draft and shows no failure toast", async () => {
+    let seen: AbortSignal | undefined;
+    runMeetingReport.mockImplementationOnce(
+      (...args: unknown[]) =>
+        new Promise<string>((_resolve, reject) => {
+          seen = args[3] as AbortSignal | undefined;
+          seen?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        }),
+    );
+    const showToast = vi.fn();
+    const setSteeringCommittee = vi.fn();
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ showToast, setSteeringCommittee })));
+    act(() => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBe(10));
+    expect(seen).toBeInstanceOf(AbortSignal);
+    expect(seen!.aborted).toBe(false);
+
+    act(() => { result.current!.onCancelGenerateReport(); });
+
+    expect(seen!.aborted).toBe(true);
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBeNull());
+    expect(showToast).not.toHaveBeenCalled();
+    expect(setSteeringCommittee).not.toHaveBeenCalled();
+  });
+
+  it("does not save a draft that resolves after the user stopped it", async () => {
+    let release: ((v: string) => void) | undefined;
+    runMeetingReport.mockImplementationOnce(
+      () => new Promise<string>((resolve) => { release = resolve; }), // ignores the signal
+    );
+    const setSteeringCommittee = vi.fn();
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ setSteeringCommittee })));
+    act(() => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBe(10));
+    act(() => { result.current!.onCancelGenerateReport(); });
+    await act(async () => { release!("<p>late</p>"); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBeNull());
+    expect(setSteeringCommittee).not.toHaveBeenCalled();
+  });
+
   it("generate is a no-op with no AI key", async () => {
     const { result } = renderHook(() => useMeetingReportActions(makeDeps({ aiKey: "" })));
     await act(async () => { result.current!.onGenerateReport(10); });

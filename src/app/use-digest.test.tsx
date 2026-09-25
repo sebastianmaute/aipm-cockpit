@@ -339,6 +339,59 @@ describe("useDigest", () => {
     expect(result.current.busy).toBe(false);
   });
 
+  // §125: the narrative is a billed Anthropic call and must be stoppable.
+  it("cancel aborts the in-flight narrative, clears generating, and shows no error", async () => {
+    let seen: AbortSignal | undefined;
+    const runNarrative = vi.fn(
+      (_d: unknown, _o: unknown, signal: AbortSignal) =>
+        new Promise<string>((_resolve, reject) => {
+          seen = signal;
+          signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        }),
+    );
+    const showToast = vi.fn();
+    const { result } = renderHook(() =>
+      useDigest(deps({ aiKey: "sk-ant-test", runNarrative: runNarrative as UseDigestDeps["runNarrative"], showToast })),
+    );
+    let pending: Promise<void> | undefined;
+    act(() => { pending = result.current.generateNow(); });
+    // The narrative is in flight: the Stop state is up, the busy flag too.
+    expect(result.current.generating).toBe(true);
+    expect(seen?.aborted).toBe(false);
+
+    await act(async () => {
+      result.current.cancel();
+      await pending;
+    });
+
+    expect(seen?.aborted).toBe(true);
+    expect(result.current.generating).toBe(false);
+    expect(result.current.busy).toBe(false);
+    // Fail-soft: the deterministic digest stands, and a user stop is not an error.
+    expect(result.current.digest?.rag).toBe("A");
+    expect(result.current.digest?.narrative).toBeUndefined();
+    expect(showToast).not.toHaveBeenCalled();
+  });
+
+  it("drops a narrative that resolves after the user stopped it", async () => {
+    let release: ((v: string) => void) | undefined;
+    const runNarrative = vi.fn(
+      () => new Promise<string>((resolve) => { release = resolve; }), // ignores the signal
+    );
+    const { result } = renderHook(() =>
+      useDigest(deps({ aiKey: "sk-ant-test", runNarrative: runNarrative as UseDigestDeps["runNarrative"] })),
+    );
+    let pending: Promise<void> | undefined;
+    act(() => { pending = result.current.generateNow(); });
+    await act(async () => {
+      result.current.cancel();
+      release!("Too late.");
+      await pending;
+    });
+    expect(result.current.digest?.narrative).toBeUndefined();
+    expect(result.current.generating).toBe(false);
+  });
+
   it("AI-off → no narrative on the digest", async () => {
     const runNarrative = vi.fn();
     const { result } = renderHook(() => useDigest(deps({ aiKey: null, runNarrative })));

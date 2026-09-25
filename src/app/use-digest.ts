@@ -39,12 +39,23 @@ export interface UseDigestApi {
   digest: DigestModel | null;
   generateNow: () => Promise<void>;
   emailDigest: () => Promise<void>;
+  /** True for the whole generate/send flow — the Email button's gate. */
   busy: boolean;
+  /** True ONLY while the billed AI narrative call is in flight — the one step
+   *  a Stop can actually abort. Separate from `busy`, which also covers the
+   *  Graph email send, where a "Stop" would abort nothing (§125). */
+  generating: boolean;
+  /** Abort the in-flight narrative. Fail-soft: the deterministic digest stands
+   *  and no error is shown. Stops the WAIT, not the bill. */
+  cancel: () => void;
 }
 
 export function useDigest(deps: UseDigestDeps): UseDigestApi {
   const [digest, setDigest] = useState<DigestModel | null>(null);
   const [busy, setBusy] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  /** The in-flight narrative's controller — a ref so `cancel` can reach it. */
+  const narrativeCtrlRef = useRef<AbortController | null>(null);
   /** In-flight email send. A ref, not `busy` — see emailDigest: the busy flag
    *  goes false mid-flow, so it cannot guard against a second click. */
   const sendingRef = useRef(false);
@@ -84,19 +95,28 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
         // is a BILLED call — never let it ride along with something else).
         if (opts.narrative && deps.aiKey) {
           const ctrl = new AbortController();
+          narrativeCtrlRef.current = ctrl;
+          setGenerating(true);
           const timer = setTimeout(() => ctrl.abort(), AI_TIMEOUT_MS);
           try {
             const runner = deps.runNarrative ?? runDigestNarrative;
             // runDigestNarrative already sanitizes + caps its return value.
             const narrative = await runner(d, { apiKey: deps.aiKey, model: deps.aiModel, lang: deps.lang }, ctrl.signal);
-            if (narrative) {
+            // A Stop (or the timeout) that lost the race to the response still
+            // means "don't use it".
+            if (narrative && !ctrl.signal.aborted) {
               d = { ...d, narrative };
               setDigest(d);
             }
           } catch {
-            /* AI fail-soft: deterministic digest stands */
+            /* AI fail-soft: deterministic digest stands — a user Stop lands
+               here too and, like a timeout, shows no error (§125). */
           } finally {
             clearTimeout(timer);
+            if (narrativeCtrlRef.current === ctrl) {
+              narrativeCtrlRef.current = null;
+              setGenerating(false);
+            }
           }
         }
         return d;
@@ -184,5 +204,9 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
     }
   }, [deps, digest, generate]);
 
-  return { digest, generateNow, emailDigest, busy };
+  const cancel = useCallback(() => {
+    narrativeCtrlRef.current?.abort();
+  }, []);
+
+  return { digest, generateNow, emailDigest, busy, generating, cancel };
 }

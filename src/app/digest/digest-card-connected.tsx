@@ -74,7 +74,9 @@ export function DigestCardConnected({
       dc={dc}
       m365Configured={m365Enabled}
       busy={api.busy}
+      generating={api.generating}
       onGenerate={() => void api.generateNow()}
+      onCancel={api.cancel}
       onEmail={() => void api.emailDigest()}
     />
   );
