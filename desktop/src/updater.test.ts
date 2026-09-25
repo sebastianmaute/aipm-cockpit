@@ -94,6 +94,9 @@ describe("createUpdater", () => {
     expect(opts.message).toBe("AI PM Cockpit 9.9.9 is ready to install.");
     expect(opts.detail).toMatch(/few minutes/);
     expect(opts.detail).toMatch(/frozen/);
+    // Only "Restart now" relaunches; "On next quit" leaves the app closed (install(true, false)).
+    expect(opts.detail).toMatch(/After Restart now, it opens again by itself/);
+    expect(opts.detail).toMatch(/After On next quit, .*start it again yourself/);
   });
 
   it("a manual check calls the real autoUpdater's checkForUpdates", async () => {

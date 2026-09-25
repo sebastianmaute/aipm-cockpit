@@ -82,6 +82,27 @@ describe("release notes", () => {
       "Last.",
     ].join("\n"));
   });
+  it("never joins onto a closing fence, a hard break, raw HTML, or a rule or setext underline", () => {
+    const wrapped = [
+      "```", "code", "```", "Text after", "the fence.", "",
+      "Hard break  ", "next line.", "",
+      "Setext title", "===", "Body", "text.", "",
+      "<details>", "Inside", "html.", "",
+      "___", "After rule", "text.",
+    ].join("\n");
+    expect(unwrapMarkdown(wrapped)).toBe([
+      "```", "code", "```", "Text after the fence.", "",
+      "Hard break  ", "next line.", "",
+      "Setext title", "===", "Body text.", "",
+      "<details>", "Inside html.", "",
+      "___", "After rule text.",
+    ].join("\n"));
+  });
+  it("accepts CRLF input, empty input and blockquotes", () => {
+    expect(unwrapMarkdown("")).toBe("");
+    expect(unwrapMarkdown("One\r\ntwo.\r\n\r\nThree.")).toBe("One two.\n\nThree.");
+    expect(unwrapMarkdown("> quoted\n> again")).toBe("> quoted\n> again");
+  });
   it("publishes notes with no line that continues the one before it", () => {
     const cl = ['## [2.0.0] - 2026-10-01 "X"', "", "First line of a", "wrapped paragraph.", "", "- An item", "  wrapped.", ""].join("\n");
     const notes = releaseNotes(cl, "2.0.0");

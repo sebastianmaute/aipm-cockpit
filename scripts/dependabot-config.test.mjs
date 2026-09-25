@@ -25,8 +25,22 @@ describe("dependabot.yml", () => {
     expect(entry("/desktop")).toBeTruthy();
     expect(YML.match(/interval: weekly/g)).toHaveLength(3);
   });
-  it("groups minor and patch only", () => {
+  it("has a minor-and-patch group in each npm directory", () => {
     for (const d of ["/", "/desktop"]) expect(entry(d)).toMatch(/update-types: \[minor, patch\]/);
+  });
+  // Each @vitest/* package peers on the exact vitest version, so the family must arrive as one PR
+  // (Dependabot PR #415). Dependabot takes the FIRST group that matches, so the vitest group must
+  // precede npm-minor-patch or vitest minors would land in that group without their plugins.
+  it("moves the vitest family as one group, ahead of the minor-and-patch group", () => {
+    const root = entry("/");
+    expect(root).toMatch(/\n      vitest:\n        patterns: \[vitest, "@vitest\/\*"\]\n/);
+    expect(root.indexOf("\n      vitest:")).toBeLessThan(root.indexOf("\n      npm-minor-patch:"));
+  });
+  // TypeScript 7 drops the compiler API the repo's parsers use (PR #413).
+  it("ignores TypeScript majors in the root directory", () => {
+    expect(entry("/")).toMatch(
+      /\n    ignore:\n(?:\s*#.*\n)*      - dependency-name: typescript\n        update-types: \["version-update:semver-major"\](?:\n|$)/,
+    );
   });
   it("excludes every exactly pinned package from the group", () => {
     expect(excluded(entry("/"))).toEqual(expect.arrayContaining(pinned("package.json")));

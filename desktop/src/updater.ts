@@ -20,8 +20,12 @@ type ElectronUpdaterModule = typeof import("electron-updater");
 const NOT_PACKAGED_MESSAGE = "Updates are checked only in the installed app.";
 // The installer runs silently after "Restart now" (quitAndInstall with isSilent), so nothing is
 // visible for a few minutes and the app can look frozen -- seen on the first real update, 1.14.0.
+// Only "Restart now" relaunches (quitAndInstall(true, true)); "On next quit" installs on the
+// app's own quit with install(true, false) (electron-updater BaseUpdater.js), so the app stays
+// closed and the user starts it again. The hint names both, or it promises a relaunch that
+// "On next quit" never delivers.
 const INSTALL_HINT =
-  "Installing takes a few minutes. Meanwhile the app may look frozen or close without a message. It opens again by itself once the new version is installed, so please do not start it again in the meantime.";
+  "Installing takes a few minutes, and nothing is visible meanwhile: the app may look frozen or close without a message. After Restart now, it opens again by itself once the new version is installed, so please do not start it again in the meantime. After On next quit, the update installs when you close the app; start it again yourself a few minutes later.";
 const LOAD_FAILED_MESSAGE = "The updater could not be loaded.";
 
 // Every check request the app is skipping because an operator asked it to, in one place -- e2e:desktop

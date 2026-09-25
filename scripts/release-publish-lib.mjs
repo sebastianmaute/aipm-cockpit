@@ -54,8 +54,12 @@ export const UNSIGNED_NOTICE = [
   "Verify a download with `gh attestation verify <file> --repo sebastianmaute/aipm-cockpit`.",
 ].join("\n");
 
-// A line that starts a markdown block of its own: a list item, heading, quote, fence, table row or rule.
-const BLOCK_START_RE = /^\s*(?:[-*+]\s|\d+[.)]\s|#{1,6}\s|>|```|~~~|\||(?:-{3,}|\*{3,})\s*$)/;
+// A line that starts a markdown block of its own: a list item, heading, quote, fence, table row,
+// raw HTML, a rule or a setext underline.
+const BLOCK_START_RE = /^\s*(?:[-*+]\s|\d+[.)]\s|#{1,6}\s|>|```|~~~|\||<|(?:-{3,}|\*{3,}|_{3,}|={3,})\s*$)/;
+// A line the next one must never be joined onto: a heading, fence, table row, raw HTML, rule, or
+// one ending in a two-space hard break. Joining onto a closing fence would reopen the code block.
+const NO_JOIN_AFTER_RE = /^\s*(?:#{1,6}\s|```|~~~|\||<|(?:-{3,}|\*{3,}|_{3,}|={3,})\s*$)| {2,}$/;
 
 /** Joins hard-wrapped lines into one line per paragraph or list item. GitHub renders every newline
  *  in a release body as <br>, and electron-updater hands that HTML to the update dialog, so a
@@ -64,7 +68,7 @@ const BLOCK_START_RE = /^\s*(?:[-*+]\s|\d+[.)]\s|#{1,6}\s|>|```|~~~|\||(?:-{3,}|
 export function unwrapMarkdown(text) {
   const out = [];
   let inFence = false;
-  for (const line of text.split("\n")) {
+  for (const line of text.split(/\r?\n/)) {
     const isFence = /^\s*(```|~~~)/.test(line);
     if (inFence || isFence) {
       out.push(line);
@@ -73,7 +77,7 @@ export function unwrapMarkdown(text) {
     }
     const prev = out.length > 0 ? out[out.length - 1] : "";
     const joinable = line.trim() !== "" && !BLOCK_START_RE.test(line) && prev.trim() !== ""
-      && !/^\s*(?:#{1,6}\s|\||(?:-{3,}|\*{3,})\s*$)/.test(prev);
+      && !NO_JOIN_AFTER_RE.test(prev);
     if (joinable) out[out.length - 1] = `${prev} ${line.trim()}`;
     else out.push(line);
   }
