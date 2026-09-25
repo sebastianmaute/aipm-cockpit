@@ -4109,7 +4109,7 @@ export const de: Record<TranslationKey, string> = {
   // UX batch "Aldiss" (0.177.0)
   dashboardCompleteHint: "Anteil der Aufgaben mit Abschlussdatum an allen Aufgaben, die noch zum Umfang zählen — abgebrochene Arbeit bleibt in beiden außen vor. Steigend ist gut; eine flache Linie deutet auf stockende Lieferung hin.",
   dashboardCompleteHintNoTrend: "Anteil der Aufgaben mit Abschlussdatum an allen Aufgaben, die noch zum Umfang zählen — abgebrochene Arbeit bleibt in beiden außen vor.",
-  dashboardRagSplitHint: "Die Rot/Gelb/Grün-Aufteilung umfasst Aufgaben im Umfang; gelieferte Arbeit zählt als Grün, abgebrochene wird separat gezählt, sofern die Ampel nicht manuell gesetzt wurde.",
+  dashboardRagSplitHint: "Die Rot/Gelb/Grün-Aufteilung umfasst Aufgaben im Umfang; gelieferte Arbeit zählt als Grün, Arbeit außerhalb des Umfangs wird separat gezählt, sofern die Ampel nicht manuell gesetzt wurde.",
   dashboardKpiOverdueHint: "Aufgaben, die überfällig und noch nicht erledigt sind. Möglichst auf null senken.",
   dashboardKpiOpenRaidHint: "Offene Risiken, Annahmen, Probleme und Abhängigkeiten, die noch Aufmerksamkeit brauchen.",
   dashboardBudgetHint: "Ist-Kosten gegenüber geplantem Budget. Über 100% bedeutet, der Plan wurde überschritten.",

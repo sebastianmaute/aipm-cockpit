@@ -4365,7 +4365,7 @@ const enUS = {
   // UX batch "Aldiss" (0.177.0)
   dashboardCompleteHint: "Share of tasks with a completion date, out of every task still counted as scope — cancelled work is out of both. Trending up is good; a flat line signals stalled delivery.",
   dashboardCompleteHintNoTrend: "Share of tasks with a completion date, out of every task still counted as scope — cancelled work is out of both.",
-  dashboardRagSplitHint: "The Red / Amber / Green split covers work still in scope; delivered work counts Green and cancelled work is counted separately, unless its health was set by hand.",
+  dashboardRagSplitHint: "The Red / Amber / Green split covers work still in scope; delivered work counts Green and out-of-scope work is counted separately, unless its health was set by hand.",
   dashboardKpiOverdueHint: "Tasks past their due date and not yet done. Drive this toward zero.",
   dashboardKpiOpenRaidHint: "Open risks, assumptions, issues and dependencies that still need attention.",
   dashboardBudgetHint: "Actual spend against planned budget. Above 100% means you have exceeded the plan.",
