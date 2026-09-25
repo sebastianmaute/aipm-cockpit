@@ -15,7 +15,7 @@ import type { DigestConfig } from "./digest/digest-config";
 
 /** Bound the optional AI narrative call so a hung request can't leave the card's
  *  `busy` flag stuck (the deterministic digest already rendered by then). */
-const AI_TIMEOUT_MS = 20_000;
+export const AI_TIMEOUT_MS = 20_000;
 
 export interface UseDigestDeps {
   projectId: string;

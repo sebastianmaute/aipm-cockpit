@@ -156,8 +156,8 @@ export interface ResourceLookupIndexes {
  * resource. Shared by `backfillTaskResourceFks` (which WRITES the resolved id
  * to storage) and `task-kanban.ts`'s lane engine (which only DISPLAYS it) so
  * the two agree on what "the same person" means — see `laneResourceIdOf`'s
- * docstring in `task-kanban.ts` for the one place they deliberately diverge
- * (a dangling FK).
+ * docstring in `task-kanban.ts` for the two places they deliberately diverge
+ * (a dangling FK, and an email and a name that name different people, §83).
  *
  * Keys owned by MORE THAN ONE resource are poisoned to `null` rather than
  * dropped, so a third resource sharing the key cannot un-poison the clash.
@@ -291,7 +291,11 @@ function resolvePersonResourceIdForWrite(
  * task UNLINKED (§83). The kanban lane engine, which only displays, still lets
  * the email win; the task therefore stays a `name:`-keyed row in storage while
  * the board shows it in the email owner's lane — the same accepted
- * write-vs-display divergence as the dangling FK below.
+ * write-vs-display divergence as the dangling FK below. ★ A THIRD reader
+ * disagrees with the board here: Workload (`resource-workload-rows.ts`
+ * `resolve()`) falls back by name only, so it counts such a task under the NAME
+ * owner. Nothing is lost and "Clear unlinked" is not reached; the two views
+ * simply attribute it differently until someone fixes the email or the name.
  *
  * ★ A DANGLING FK (an id absent from the directory) is deliberately NOT
  * re-resolved: it is a real pointer to something this workspace cannot see —

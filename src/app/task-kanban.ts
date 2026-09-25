@@ -54,9 +54,10 @@ const nameKey = personNameKey;
 /**
  * The resource a task belongs to for LANE purposes: its FK when that resolves,
  * otherwise the resource its `assigneeEmail`/`assignee` uniquely names — email
- * first, name as a fallback, exactly the precedence `backfillTaskResourceFks`
- * (`resource-foundation.ts`) writes with. `null` when the task names nobody
- * the directory knows.
+ * first, name as a fallback. `backfillTaskResourceFks` (`resource-foundation.ts`)
+ * writes with the same precedence EXCEPT when email and name name two different
+ * resources: it then leaves the task unlinked (§83), while this display still
+ * lets the email win. `null` when the task names nobody the directory knows.
  *
  * ★★★ THE NAME/EMAIL FALLBACK IS THE WHOLE POINT. Keying a linked task
  * `res:<id>` and an unlinked one `name:<string>` rendered the SAME person as

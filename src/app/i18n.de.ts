@@ -2428,8 +2428,8 @@ export const de: Record<TranslationKey, string> = {
     "{0} vorgeschlagene Zuordnungen wurden abgelehnt, da der Rollenbuchstabe nicht R, A, C oder I war.",
   raciSuggestSkippedInvalidRoleOne: "1 vorgeschlagene Zuordnung wurde abgelehnt, da der Rollenbuchstabe nicht R, A, C oder I war.",
   raciSuggestSkippedHandover:
-    "{0} vorgeschlagene Zuordnungen wurden abgelehnt, da jede eine Übergabe der Rechenschaftspflicht ist. Ändern Sie den Rechenschaftspflichtigen manuell.",
-  raciSuggestSkippedHandoverOne: "1 vorgeschlagene Zuordnung wurde abgelehnt, da sie eine Übergabe der Rechenschaftspflicht ist. Ändern Sie den Rechenschaftspflichtigen manuell.",
+    "{0} vorgeschlagene Zuordnungen wurden abgelehnt, da es sich jeweils um eine Übergabe der Rechenschaftspflicht handelt. Ändern Sie den Rechenschaftspflichtigen manuell.",
+  raciSuggestSkippedHandoverOne: "1 vorgeschlagene Zuordnung wurde abgelehnt, da es sich um eine Übergabe der Rechenschaftspflicht handelt. Ändern Sie den Rechenschaftspflichtigen manuell.",
   raciSuggestNoOpCount: "Bereits vorhanden: {0}",
   activityAiRaciSuggest: "{0} von der KI vorgeschlagene RACI-Zuordnungen übernommen",
   activityAiRaciSuggestOne: "1 von der KI vorgeschlagene RACI-Zuordnung übernommen",

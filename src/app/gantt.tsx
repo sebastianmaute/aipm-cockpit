@@ -170,8 +170,9 @@ export function GanttPanel({
     toggleGrid,
   } = useGanttPrefs();
 
-  // The Gantt shows the milestone baseline overlay only when the pinned snapshot
-  // carries baseline dates (Turso). Off Turso this is undefined/empty → no toggle.
+  // The Gantt shows the milestone baseline overlay whenever a snapshot carries
+  // baseline dates (Turso): the pinned one, else the earliest row (§78). Off
+  // Turso this is undefined/empty → no toggle.
   const hasBaseline = (baselineMilestoneDates?.size ?? 0) > 0;
   // Hoisted for the range dep array (exhaustive-deps bans `prefs.showBaseline`).
   const showBaselinePref = prefs.showBaseline;

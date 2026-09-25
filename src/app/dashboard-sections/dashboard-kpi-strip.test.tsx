@@ -256,6 +256,18 @@ describe("DashboardKpiStrip — merged Progress cells", () => {
     expect(screen.getByRole("button", { name: t("en-US", "dashboardRagSplitHint") })).toBeInTheDocument();
   });
 
+  // §65: the tooltip's wording lives only in the button's aria-label, which the
+  // textContent checks elsewhere cannot read, and the t(key) lookup above passes
+  // whatever the text says. LITERAL on purpose.
+  it("names the R/A/G tooltip's set-aside work out of scope, not cancelled", () => {
+    const m = modelFor(MIXED);
+    render(<DashboardKpiStrip lang="en-US" model={m} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    const hint = screen.getByRole("button", { name: t("en-US", "dashboardRagSplitHint") });
+    expect(hint.getAttribute("aria-label")).toMatch(/out-of-scope work is counted separately/);
+    // Scoped to this tooltip: dashboardCompleteHint still says "cancelled" (§65 leaves it).
+    expect(hint.getAttribute("aria-label")).not.toMatch(/cancel/i);
+  });
+
   it("omits the ✕ marker when nothing is out of scope", () => {
     const m = modelFor(MIXED.slice(0, 4));
     expect(m.progress.outOfScope).toBe(0);

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useDigest, type UseDigestDeps } from "./use-digest";
+import { AI_TIMEOUT_MS, useDigest, type UseDigestDeps } from "./use-digest";
 import { t } from "./i18n";
 import { advanceDigestState } from "./digest/digest-state";
 import type { DashboardModel } from "./dashboard";
@@ -439,7 +439,7 @@ describe("useDigest", () => {
       act(() => { pending = result.current.emailDigest(); });
       expect(result.current.generating).toBe(true);
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(20_000);
+        await vi.advanceTimersByTimeAsync(AI_TIMEOUT_MS + 1);
         await pending;
       });
       expect(runNarrative).toHaveBeenCalledTimes(1);
