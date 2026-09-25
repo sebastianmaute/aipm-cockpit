@@ -28041,8 +28041,6 @@ src/app --include=*.ts` enumerates both; a `§333` surviving there is a defect, 
 **Status:** CLOSED 2026-09-25 — shipped in two commits, one per half. Re-check with
 `grep -n "isUsableTursoUrl\|isEnvTokenRejected" src/app/turso-config.ts`.
 
-**Work item:** #243
-
 ★ **URL half — shipped in `28b517b77`** ("an unusable env URL no longer outranks the Settings
 value"). `isUsableTursoUrl` (`turso-config.ts`) is exported so `integrations-section.tsx` asks the
 SAME question `getTursoConfig` answers, instead of a second presence-only predicate three lines
@@ -28051,23 +28049,49 @@ through to the Settings value, and the URL field stays editable (with a disclosu
 `integrationsTursoUrlEnvUnusable`) whenever the env value does not resolve. That closed the FIRST
 arm of the original report — a typo'd env var locking Turso out of UI configuration entirely.
 
-★★ **Token half — shipped in this commit** ("fix: report a rejected deployment Turso token and let
-Settings override it"). This was the SECOND, quieter arm: a present env token won unconditionally
-with no usability test of its own, so a stale/revoked token was undetectable except by a live 401
-from Turso, and even a detected rejection (via "Test connection") gave no way to FIX it — the field
-stayed hidden. `turso-pipeline.ts` now classifies a 401 OR 403 as a rejection and, only when the
-rejected token was the deployment's own env token, records a per-device flag
-(`markEnvTokenRejected` / `isEnvTokenRejected` / `clearEnvTokenRejected`, `turso-config.ts`, under
-the `aipm-cockpit:` prefix — not a secret, not workspace data, already wiped by `clearAppConfig`
-since it shares that prefix). While the flag is set, `getTursoConfig` lets a non-empty Settings
-token outrank the env token, and `integrations-section.tsx` re-shows the token field with a notice
-(`integrationsTursoTokenEnvRejected`) AND the Apply button — the button's own visibility guard
-originally rode env-token PRESENCE rather than this same rejection state and would have stayed
-hidden in exactly this case (caught during implementation review; the guard now reads
-`!(envTursoUrlUsable && hideTokenField)`). A subsequent SUCCESSFUL pipeline call using the env token
-clears the flag, so a fixed deployment wins again without a stale Settings token lingering.
-`storage-error.ts` gained an `"auth-env"` `StorageErrorKind` so the storage banner can point at the
-deployment env var rather than Settings while the flag is set.
+★★ **Token half — shipped in `3b531f22e`** on `fix/defect-batch-6` ("fix: report a rejected
+deployment Turso token and let Settings override it"). This was the SECOND, quieter arm: a present
+env token won unconditionally with no usability test of its own, so a stale/revoked token was
+undetectable except by a live 401 from Turso, and even a detected rejection (via "Test connection")
+gave no way to FIX it — the field stayed hidden. `turso-pipeline.ts` now classifies a 401 OR 403 as
+a rejection and, only when the rejected token was the deployment's own env token, records a
+per-device flag (`markEnvTokenRejected` / `isEnvTokenRejected` / `clearEnvTokenRejected`,
+`turso-config.ts`, under the `aipm-cockpit:` prefix — not a secret, not workspace data, already
+wiped by `clearAppConfig` since it shares that prefix). While the flag is set, `getTursoConfig` lets
+a non-empty Settings token outrank the env token, and `integrations-section.tsx` re-shows the token
+field with a notice (`integrationsTursoTokenEnvRejected`) AND the Apply button — the button's own
+visibility guard originally rode env-token PRESENCE rather than this same rejection state and would
+have stayed hidden in exactly this case (the guard now reads
+`!(envTursoUrlUsable && hideTokenField)`).
+
+★ **THE CLEAR SIDE IS NOT SYMMETRIC WITH THE MARK SIDE, AND THE FIRST CUT OF THIS ENTRY OVERCLAIMED
+IT WAS.** While a non-empty Settings token exists and the flag is set, `preferSettings` sends the
+SETTINGS token on every pipeline call, never the env one — so a stale, still-populated Settings
+token does not merely "linger" after the flag clears, it PREVENTS the flag from ever clearing on its
+own: no call can use the env token while a Settings token is in the way. The flag only clears once
+the Settings token is emptied (or the field is otherwise driven back to the env token) AND that
+env-token call succeeds. This is NOT "a fixed deployment wins again automatically" — it is "a fixed
+deployment wins again once nothing in Settings is still overriding it".
+
+★★★ **FIX ROUND 1 (same day), three review findings against the commit above, all closed in a
+second commit:**
+- **I1 — the field never reappeared without a Settings reopen.** `envTokenRejected` was a plain
+  `useState` read once at mount; the flag is written from INSIDE this same component's own
+  "Test connection" handler (`runTursoTest` → `testTursoConnection` → `runTursoPipeline` →
+  `markEnvTokenRejected`), which never remounts anything — so a user who clicked Test, got the
+  rejection, and looked at the still-mounted screen saw no field until closing and reopening
+  Settings. This was the exact discovery flow the whole task exists to fix, and it did not work.
+  Now a state setter (`setEnvTokenRejected`), re-synced from `isEnvTokenRejected()` in `runTursoTest`'s
+  catch block on every probe.
+- **I2 — attribution rode a global flag, not the actual rejection.** `storage-error.ts` classified
+  `"auth-env"` by reading `isEnvTokenRejected()` at classify time, so a Settings-typed token rejected
+  WHILE the flag happened to still be set (from an earlier, unrelated incident) was mislabelled as an
+  env-token problem. `turso-pipeline.ts` now throws a DISTINCT hint (`"turso-env-token-rejected"` vs
+  the plain `"turso-token-rejected"`) so the classifier attributes by what THIS call actually
+  rejected, never by a flag some other call may have left set.
+- **I3 — untested asymmetry on the clear path.** Nothing pinned that a success using a NON-env
+  (Settings) token must leave the flag alone; the mark and clear paths share the same
+  env-token-equality conjunct, but only the mark side had a negative test. Added.
 
 Both arms of the original report are closed. Nothing here needed `.env.local` in CI to verify —
 `turso-config.test.ts`, `turso-pipeline.test.ts`, `storage-error.test.ts` and
@@ -38445,8 +38469,6 @@ instead of doing nothing. The load path uses `sanitizeLoadedProjectMeta` (the lo
 reports a blanked start/end date via the M2 diagnostic), matching every other `ws.project` load path
 in the repo (JSON, CSV/Markdown, IndexedDB, tenant Turso).
 
-**Work item:** #328
-
 **Verified by:** `turso-schema.execute.test.ts` (a real `node:sqlite` engine round trip — save via
 `workspaceToStatements`, read back via a real SELECT + `rowsToWorkspace` — restores `ws.project`; an
 older DB with no `project_meta` row loads with `ws.project` undefined and no diag entry; a
@@ -39904,8 +39926,6 @@ predicted RED on that file's new §574 test, actual RED in all three
 (`project-empty-state.test.tsx`, `project-switcher.test.tsx`, `projects-panel.test.tsx`), each restored
 and reconfirmed green. `npx tsc --noEmit` and `npx eslint --max-warnings=0 src` both exit 0.
 
-**Work item:** #359
-
 `fs-access.ts`'s `pickOpenFileAny` (used by the "Load project from file" empty-state / header CTA, via
 `use-storage-file-ops.ts`'s `loadProjectFromFile`) throws `StorageNotReadyError` with hint
 `file-system-access-unsupported` whenever `showOpenFilePicker` is not on `window` — i.e. on Firefox and
@@ -39949,8 +39969,6 @@ strip loop to run newest-first — predicted and actual RED on `chat-threads.tes
 OLDEST…" test; and reverting the `chat-panel.tsx` call site back to `newHistory.slice()` — predicted and
 actual RED on the new `chat-panel.test.tsx` wiring test. `npx tsc --noEmit` and
 `npx eslint --max-warnings=0 src` both exit 0.
-
-**Work item:** #360
 
 `chat-attachments.ts`'s `MAX_STAGED_PAYLOAD_BYTES` (30 MB) caps a single outgoing message's staged
 attachment payload via `planStaging`, leaving headroom under the Messages API's real 32 MB body limit —

@@ -12,15 +12,25 @@ describe("tursoErrorKind", () => {
     expect(tursoErrorKind(new StorageNotReadyError("storage-unreachable"))).toBe("unreachable");
   });
 
-  it("maps the rejected-token hint to auth when the env token is not flagged", () => {
+  it("maps the plain rejected-token hint to auth", () => {
     expect(tursoErrorKind(new StorageNotReadyError("turso-token-rejected"))).toBe("auth");
   });
 
-  it("classifies turso-token-rejected as auth-env when the env token is flagged, else auth", () => {
+  it("maps the env-token-rejected hint to auth-env", () => {
+    expect(tursoErrorKind(new StorageNotReadyError("turso-env-token-rejected"))).toBe("auth-env");
+  });
+
+  // I2 (fix round 1, controller ruling) — attribution rides the HINT alone,
+  // never the global `isEnvTokenRejected()` flag. A flag left set by an
+  // earlier, unrelated incident must not relabel THIS rejection as "auth-env"
+  // just because it happens to still be up.
+  it("classifies by the hint alone, regardless of the isEnvTokenRejected() flag", () => {
     markEnvTokenRejected();
-    expect(tursoErrorKind(new StorageNotReadyError("turso-token-rejected"))).toBe("auth-env");
+    expect(tursoErrorKind(new StorageNotReadyError("turso-token-rejected"))).toBe("auth");
+    expect(tursoErrorKind(new StorageNotReadyError("turso-env-token-rejected"))).toBe("auth-env");
     clearEnvTokenRejected();
     expect(tursoErrorKind(new StorageNotReadyError("turso-token-rejected"))).toBe("auth");
+    expect(tursoErrorKind(new StorageNotReadyError("turso-env-token-rejected"))).toBe("auth-env");
   });
 
   it("maps a non-OK Turso HTTP response to unreachable", () => {
@@ -47,6 +57,7 @@ describe("classifyStorageError", () => {
   it("keeps recognized Turso kinds", () => {
     expect(classifyStorageError(new StorageNotReadyError("storage-unreachable"))).toBe("unreachable");
     expect(classifyStorageError(new StorageNotReadyError("turso-token-rejected"))).toBe("auth");
+    expect(classifyStorageError(new StorageNotReadyError("turso-env-token-rejected"))).toBe("auth-env");
   });
 
   it("classifies any other failure as generic (so local-backend failures still banner)", () => {

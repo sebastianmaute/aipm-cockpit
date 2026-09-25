@@ -276,18 +276,18 @@ describe("§337 — env token rejection flag", () => {
   afterEach(() => { vi.unstubAllEnvs(); localStorage.clear(); });
 
   it.each([401, 403])(
-    "a %i marks the env token rejected when the env token was used, and throws turso-token-rejected",
+    "a %i marks the env token rejected when the env token was used, and throws turso-env-token-rejected",
     async (status) => {
       vi.stubEnv("NEXT_PUBLIC_TURSO_AUTH_TOKEN", "ENV");
       stubFetch(() => new Response("no", { status }));
       await expect(
         runTursoPipeline({ httpUrl: "https://x", authToken: "ENV" }, [{ sql: "SELECT 1" }]),
-      ).rejects.toMatchObject({ hint: "turso-token-rejected" });
+      ).rejects.toMatchObject({ hint: "turso-env-token-rejected" });
       expect(isEnvTokenRejected()).toBe(true);
     },
   );
 
-  it("a rejection of a NON-env token does not set the flag", async () => {
+  it("a rejection of a NON-env token does not set the flag, and throws the plain hint", async () => {
     vi.stubEnv("NEXT_PUBLIC_TURSO_AUTH_TOKEN", "ENV");
     stubFetch(() => new Response("no", { status: 401 }));
     await expect(
@@ -302,5 +302,17 @@ describe("§337 — env token rejection flag", () => {
     stubFetch(() => jsonRes({ results: [{ type: "ok" }] }));
     await runTursoPipeline({ httpUrl: "https://x", authToken: "ENV" }, [{ sql: "SELECT 1" }]);
     expect(isEnvTokenRejected()).toBe(false);
+  });
+
+  // I3 — the clear path must check the SAME env-token equality the mark path
+  // does. Dropping that conjunct would let ANY success (including one using a
+  // Settings-typed token) clear a flag it had no business touching, silently
+  // reverting the precedence back to the env token behind the user's back.
+  it("a success with the Settings token does NOT clear the flag", async () => {
+    vi.stubEnv("NEXT_PUBLIC_TURSO_AUTH_TOKEN", "ENV");
+    markEnvTokenRejected();
+    stubFetch(() => jsonRes({ results: [{ type: "ok" }] }));
+    await runTursoPipeline({ httpUrl: "https://x", authToken: "SET" }, [{ sql: "SELECT 1" }]);
+    expect(isEnvTokenRejected()).toBe(true);
   });
 });

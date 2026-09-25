@@ -18,7 +18,7 @@ import {
 import { defaultTimelogConfig } from "../timelog-types";
 import { readDeviceSecret, isPassphraseLocked } from "../secrets-store";
 import { testTursoConnection } from "../turso-pipeline";
-import { clearEnvTokenRejected, markEnvTokenRejected } from "../turso-config";
+import { clearEnvTokenRejected, isEnvTokenRejected, markEnvTokenRejected } from "../turso-config";
 import { expectRowUniqueNames } from "../../test/row-unique-names";
 import { expectExactLabelNames, expectNoHintInNamingLabel } from "../../test/hint-label";
 
@@ -463,6 +463,47 @@ describe("§337 — Apply is available whenever the rejected-env-token field is"
     expect(
       screen.queryByRole("button", { name: t("en-US", "integrationsTursoApplyLabel") }),
     ).not.toBeInTheDocument();
+  });
+});
+
+// ★★★ FIX ROUND 1 (I1) — the two describes above both SEED the flag before the
+// FIRST render, which cannot catch a component that reads the flag once at
+// mount and never again: mounting fresh already sees the post-rejection
+// state. This describe seeds NOTHING — it renders with the flag clear, clicks
+// "Test connection", and lets a mocked `testTursoConnection` mark the flag as
+// its OWN side effect (mirroring what `runTursoPipeline` really does), on the
+// SAME mounted instance. That is the shape of the real bug: a live rejection
+// during the session, with no remount in between.
+describe("§337 — FIX ROUND 1 (I1): the field reappears live, without a remount", () => {
+  function tursoLiveSettings(authToken: string) {
+    return { ...tursoSettings(authToken), storageConfig: { kind: "turso" as const } };
+  }
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    clearEnvTokenRejected();
+  });
+
+  it("shows the token field and Apply as soon as Test connection reports the env token rejected", async () => {
+    const user = userEvent.setup();
+    vi.stubEnv("NEXT_PUBLIC_TURSO_DATABASE_URL", "libsql://env-db.turso.io");
+    vi.stubEnv("NEXT_PUBLIC_TURSO_AUTH_TOKEN", "env-tok");
+    vi.mocked(testTursoConnection).mockImplementationOnce(async () => {
+      markEnvTokenRejected();
+      throw new StorageNotReadyError("turso-env-token-rejected");
+    });
+    render(<IntegrationsSection lang="en-US" settings={tursoLiveSettings("")} onChange={() => {}} />);
+    // Sanity: the flag is genuinely unset at mount, so a pass here cannot be
+    // explained by the old "seed before render" shape.
+    expect(isEnvTokenRejected()).toBe(false);
+    expect(screen.queryByLabelText(t("en-US", "integrationsTursoToken"))).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+
+    expect(await screen.findByLabelText(t("en-US", "integrationsTursoToken"))).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: t("en-US", "integrationsTursoApplyLabel") }),
+    ).toBeInTheDocument();
   });
 });
 

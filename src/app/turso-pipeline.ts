@@ -78,11 +78,17 @@ export async function runTursoPipeline(
     throw new StorageNotReadyError("storage-unreachable");
   }
   if (res.status === 401 || res.status === 403) {
-    // §337 — flag it ONLY when the rejected token is the deployment's env
-    // token, so a wrong Settings-typed token (which the user can just retype)
-    // never trips the flag that makes Settings win over the env.
-    if (config.authToken !== "" && config.authToken === process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN) {
+    // §337 — a DISTINCT hint, not just the flag, so the classifier attributes
+    // THIS rejection by what was actually rejected, never by a flag some
+    // earlier, unrelated call may have left set. Controller ruling: blaming
+    // the env token via the global flag alone mislabelled a rejected
+    // Settings-typed token as "auth-env" whenever the flag happened to
+    // already be set. The flag is still recorded here (so the field/Apply
+    // reappear), but it is no longer what `storage-error.ts` reads.
+    const isEnvToken = config.authToken !== "" && config.authToken === process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN;
+    if (isEnvToken) {
       markEnvTokenRejected();
+      throw new StorageNotReadyError("turso-env-token-rejected");
     }
     throw new StorageNotReadyError("turso-token-rejected");
   }
@@ -111,6 +117,17 @@ export async function runTursoPipeline(
   // §337 — a success using the env token proves the deployment is fixed, so a
   // stale rejection flag (and the Settings-wins-over-env precedence it grants)
   // does not outlive the incident that set it.
+  // ★ Minor 5 (controller ruling): this ONLY fires when `config.authToken` IS
+  // the env token — and while the flag is set AND a non-empty Settings token
+  // exists, `getTursoConfig`'s `preferSettings` sends the SETTINGS token on
+  // every call, never the env one. So a stale, still-populated Settings token
+  // does not merely "linger" after the flag clears — it PREVENTS the flag from
+  // ever clearing on its own, because no call can use the env token while it
+  // is in the way. The flag only clears once the Settings token is emptied (or
+  // the field is otherwise driven back to using the env token) AND that
+  // env-token call succeeds. Do not read this as "clears automatically once
+  // the deployment is fixed" — it clears once the deployment is fixed AND
+  // nothing in Settings is still overriding it.
   if (config.authToken !== "" && config.authToken === process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN) {
     clearEnvTokenRejected();
   }

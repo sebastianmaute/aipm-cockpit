@@ -261,15 +261,30 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // now records a per-device flag (`markEnvTokenRejected`, set by
   // `turso-pipeline.ts` on a 401/403 against the env token) — while it is set,
   // a non-empty Settings token outranks the env token, and this field must
-  // reappear so there is somewhere to type one. `envTokenRejected` below reads
-  // that flag once at mount (a fresh mount is guaranteed on any state change
-  // that would flip it — see the load-hold note in AGENTS.md); `hideTokenField`
-  // is the field's real visibility predicate everywhere below, PRESENCE
+  // reappear so there is somewhere to type one. `hideTokenField` is the
+  // field's real visibility predicate everywhere below, PRESENCE
   // (`envTursoTokenSet`) alone is no longer it.
   const envTursoTokenSet = !!process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN;
-  // §337 — lazy initial read, not a render-body side effect; the flag only
-  // changes on a pipeline response, and the section remounts on reopen.
-  const [envTokenRejected] = useState(() => isEnvTokenRejected());
+  // §337 — lazy INITIAL read (not a render-body side effect), kept in STATE
+  // rather than a plain const.
+  // ★★★ FIX ROUND 1 (I1): a plain `const [envTokenRejected] = useState(...)`
+  // read the flag once at mount and never again — and this component does
+  // NOT remount when the flag flips. The flag is written from INSIDE
+  // `runTursoTest` below (via `testTursoConnection` → `runTursoPipeline` →
+  // `markEnvTokenRejected`), on the very same mounted instance that already
+  // rendered with the field hidden — no `loadPending` swap, no Settings
+  // reopen, nothing unmounts this component between the click and the flag
+  // being set. So a user who clicks "Test connection", gets the rejection,
+  // and looks at the screen saw the SAME hidden field forever, until they
+  // closed and reopened Settings — exactly the discovery flow this whole task
+  // exists to fix. (An earlier revision of this comment claimed "a fresh
+  // mount is guaranteed on any state change that would flip it" — that is
+  // true of the flag's OTHER writer, a real save via `use-storage-backend.ts`
+  // on Turso storage, which DOES sit behind the load hold; it was false of
+  // this component's OWN "Test connection" button, which writes the same
+  // flag without remounting anything.) `runTursoTest`'s catch now re-reads
+  // `isEnvTokenRejected()` into this state after every probe.
+  const [envTokenRejected, setEnvTokenRejected] = useState(() => isEnvTokenRejected());
   const hideTokenField = envTursoTokenSet && !envTokenRejected;
 
   // ★★★ §548 — `updateTurso` BUILDS FROM THE LATEST SETTINGS, NOT THE ONES ITS CALLER CLOSED OVER.
@@ -582,6 +597,15 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       await testTursoConnection(getTursoConfig(tursoUrl, tursoToken));
       setTursoTest({ kind: "ok", url: tursoUrl, token: tursoToken });
     } catch (e) {
+      // ★★★ FIX ROUND 1 (I1) — re-sync the rejection flag from THIS probe.
+      // `testTursoConnection` may have just called `markEnvTokenRejected()`
+      // (inside `runTursoPipeline`, on a 401/403 against the env token)
+      // without this component remounting — see the state's own comment
+      // above. Without this line the token field/Apply stayed hidden until
+      // Settings was closed and reopened, which is the exact discovery gap
+      // this task exists to close. Safe from an event handler (this whole
+      // function runs from the button's `onClick`), not a render body.
+      setEnvTokenRejected(isEnvTokenRejected());
       // ★ A kind, never the config and never a raw message — nothing thrown
       // here may carry the URL or token into the DOM.
       const kind = tursoErrorKind(e);

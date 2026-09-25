@@ -8,7 +8,6 @@
 
 import { StorageNotReadyError } from "./storage";
 import { TursoLockTimeoutError } from "./turso-backend";
-import { isEnvTokenRejected } from "./turso-config";
 
 export type StorageErrorKind = "unreachable" | "auth" | "auth-env" | "generic";
 
@@ -24,12 +23,15 @@ export function isTursoLockTimeout(err: unknown): boolean {
 export function tursoErrorKind(err: unknown): StorageErrorKind | null {
   if (err instanceof StorageNotReadyError) {
     if (err.hint === "storage-unreachable") return "unreachable";
-    // turso-pipeline throws this exact hint on a 401/403 from the DB. §337 —
-    // when the REJECTED token was the deployment's env token, the flag it set
-    // gets its own kind so the banner can say "check the deployment", not
-    // "check Settings" — the field that fixes an env-token rejection lives in
-    // Settings only while the flag is set, which "auth-env" is naming.
-    if (err.hint === "turso-token-rejected") return isEnvTokenRejected() ? "auth-env" : "auth";
+    // §337 — turso-pipeline throws ONE of two hints on a 401/403, and the
+    // hint alone decides the kind. Controller ruling (I2): attribute by what
+    // THIS call rejected, never by the `isEnvTokenRejected()` global flag —
+    // that flag can still be set from an earlier, unrelated incident (or
+    // because a Settings-typed token also failed while the flag was already
+    // up), and reading it here would blame the deployment for a rejection
+    // that was actually a bad Settings token.
+    if (err.hint === "turso-env-token-rejected") return "auth-env";
+    if (err.hint === "turso-token-rejected") return "auth";
     return null;
   }
   // Plain Error from a non-OK Turso HTTP response (e.g. a 5xx).
