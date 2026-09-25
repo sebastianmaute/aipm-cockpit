@@ -8,6 +8,28 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.14.0] - 2026-09-25 "Deaver"
+
+The first release built and published on GitHub, and the first the desktop app can update to by
+itself. It carries everything in 1.14.0-rc.1, which was a rehearsal and not for use.
+
+### Added
+
+- **Desktop releases are built and published by GitHub Actions.** A `v*` tag on a commit in
+  `main` runs `.github/workflows/release.yml`, which checks the tag against the app version,
+  builds the Windows installer on `windows-latest`, verifies it and, after a maintainer approves
+  it, publishes a GitHub Release.
+- **The desktop app can update itself.** It checks GitHub Releases 10 seconds after start and from
+  Help → "Check for updates…", asks before downloading and asks again before restarting. Skipping
+  a version, prereleases and downgrades are off. An installed 1.13.x does not have the updater:
+  install this release by hand once, and later releases arrive by themselves.
+- **A "Sponsor on GitHub" link** in the Version panel, and a Sponsor button on the repository.
+- **`SECURITY.md`** says how to report a vulnerability.
+
+### Removed
+
+- The GitLab release pipeline (`.gitlab-ci.yml`) and its publisher script.
+
 ## [1.14.0-rc.1] - 2026-09-25 "Deaver"
 
 A release pipeline rehearsal. Not for use: this prerelease exists to prove the new GitHub release
