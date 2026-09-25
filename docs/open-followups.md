@@ -277,7 +277,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§30](#30-a-link-in-a-task-description-loses-its-address-in-document-exports--closed-2026-09-01) | ~~A link in a task description loses its address in document exports~~ | 0.210.0 (Larbalestier) | M | **CLOSED** 2026-09-01 (the decision: real links where the sink allows one, `text (url)` where it does not — non-goals at §329 · §330) |
 | [§31](#31-sanitizerichtext-caps-visible-text-so-markup-bytes-are-unbounded--affects-all-four-rich-entities--closed-2026-08-28) | `sanitizeRichText` caps VISIBLE TEXT, so markup bytes are unbounded — affects all four rich entities | 0.210.0, pre-existing for 3 of 4 | M | **CLOSED** 2026-08-28 |
 | [§32](#32-html_start-misclassifies-eight-plain-text-prefixes-and-the-text-is-then-deleted--closed-2026-09-13) | `HTML_START` misclassifies eight plain-text prefixes, and the text is then DELETED | pre-existing, reach widened 0.210.0 | S | **CLOSED** 2026-09-13 |
-| [§33](#33-a-multi-paragraph-description-can-overflow-its-pptx-box--open-cosmetic) | A multi-paragraph description can overflow its PPTX box — open, cosmetic | 0.210.0 (Larbalestier) | S | open |
+| [§33](#33-a-multi-paragraph-description-can-overflow-its-pptx-box--closed-2026-09-25) | A multi-paragraph description can overflow its PPTX box — CLOSED 2026-09-25 | 0.210.0 (Larbalestier) | S | closed |
 | [§34](#34-the-dom-free-guards-filter-is-a-name-list-where-the-real-set-is-an-import-graph--closed-in-02100) | ~~The DOM-free guard's filter is a NAME LIST where the real set is an import GRAPH~~ | 0.210.0 (Larbalestier) | S | **CLOSED** in 0.210.0 |
 | [§35](#35-sanitizeairichtexts-double-pass-can-double-escape-one-exotic-shape--open-suspicion) | `sanitizeAiRichText`'s double pass can double-escape one exotic shape — open, suspicion | 0.210.0 (Larbalestier) | S | open |
 | [§36](#36-two-rich-field-writeexport-postures-that-were-claimed-as-recorded-but-were-not--a-fixed-2026-08-28-b-fixed-2026-08-31--closed-2026-08-31) | Two rich-field write/export postures that were CLAIMED as recorded but were not — (a) FIXED 2026-08-28, (b) FIXED 2026-08-31 | 0.210.0 (Larbalestier) | S | **CLOSED** 2026-08-31 |
@@ -287,7 +287,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§40](#40-text-ui-dark-blue-without-a-mode-appropriate-companion--open-needs-its-own-slice) | `text-ui-dark-blue` without a mode-appropriate companion — open, needs its own slice | pre-existing, counted 0.211.0 | M–L | open |
 | [§41](#41-eye-verification-owed-on-02110-on-surfaces-no-gate-reaches--open) | Eye verification owed on 0.211.0, on surfaces no gate reaches — open | 0.211.0 (Samatar) | S | open |
 | [§42](#42-calendarsynccontrols-pushpull-buttons-carry-unqualified-accessible-names--closed-2026-09-14) | `CalendarSyncControls` push/pull buttons carry unqualified accessible names — CLOSED 2026-09-14 | pre-existing, found 0.211.0 | S | **CLOSED** 2026-09-14 |
-| [§43](#43-two-suggest-raci-reporting-gaps--open-both-incomplete-rather-than-wrong) | Two "Suggest RACI" reporting gaps — open, both incomplete rather than wrong | 0.211.0 (Samatar) | S | open |
+| [§43](#43-two-suggest-raci-reporting-gaps--closed-2026-09-25) | Two "Suggest RACI" reporting gaps — CLOSED 2026-09-25 | 0.211.0 (Samatar) | S | closed |
 | [§44](#44-the-last-two-ux-roadmap-slices--s6-designed-and-planned-but-unexecuted-s7-undesigned) | The last two UX-roadmap slices — S6 designed and planned but UNEXECUTED, S7 undesigned | roadmap (gitignored, local-only) | L | open |
 | [§45](#45-brace-expansion-advisory-in-the-eslint-dev-chain--closed-in-02111) | ~~`brace-expansion` advisory in the eslint dev chain~~ | 0.211.0 | S | **CLOSED** in 0.211.1 |
 | [§46](#46-a-label-wrapped-file-input-can-never-show-a-focus-ring--pattern-open) | A `<label>`-wrapped file input can never show a focus ring — pattern open | 0.211.1 | S | open |
@@ -309,7 +309,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§62](#62-two-reference-data-handlers-have-no-production-consumer--open-pre-existing) | Two reference-data handlers have no production consumer — open, pre-existing | pre-existing, found post-0.212.0 | S | open |
 | [§63](#63-gantttsx-crossed-800-and-was-baselined-rather-than-split--closed-in-02130-split-after-all) | ~~`gantt.tsx` crossed 800 and was baselined rather than split~~ | post-0.212.0 | M | **CLOSED** in 0.213.0, split after all |
 | [§64](#64-other-surfaces-still-read-0-complete-for-an-all-cancelled-project--half-fixed-post-02160) | Other surfaces still read "0% complete" for an all-cancelled project — HALF FIXED post-0.216.0 | cancelled-work presentation | S | open |
-| [§65](#65-a-done-task-with-no-completeddate-shows-the-cross-while-its-tooltip-says-completed--half-fixed-post-02160) | A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" — HALF FIXED post-0.216.0 | cancelled-work presentation | S | open |
+| [§65](#65-a-done-task-with-no-completeddate-shows-the-cross-while-its-tooltip-says-completed--closed-2026-09-25) | A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" — CLOSED 2026-09-25 | cancelled-work presentation | S | closed |
 | [§66](#66-the-rag-tile-counts-a-cancelled-task-green-one-tile-from-the-fix--closed-post-02160) | ~~The R/A/G tile counts a cancelled task GREEN, one tile from the fix~~ | cancelled-work presentation | M | **CLOSED** post-0.216.0 |
 | [§67](#67-a-committed-nul-byte-makes-use-portfolio-healthts-invisible-to-content-greps--closed-post-02160) | ~~A committed NUL byte makes `use-portfolio-health.ts` invisible to content greps~~ | pre-existing (`155a3458`) | XS | **CLOSED** post-0.216.0 |
 | [§68](#68-the-budget-allocation-rows-border-t-sits-on-the-tr-where-it-has-never-painted--closed-2026-08-31) | The budget allocation rows' `border-t` sits on the `<tr>`, where it has never painted — CLOSED 2026-08-31 | 0.214.0 (Lostetter) | S–M | **CLOSED** 2026-08-31 |
@@ -327,7 +327,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§80](#80-both-hide-external-toggles-trust-whatever-readdevicejson-returns--closed) | ~~Both hide-external toggles trust whatever `readDeviceJson` returns~~ | pre-existing, found post-0.214.0 | XS | **CLOSED** |
 | [§81](#81-the-swimlane-no-op-drop-guard-no-longer-holds-for-a-name-resolved-task--closed) | ~~The swimlane no-op drop guard no longer holds for a name-resolved task~~ | 0.214.0 (Lostetter) | S | **CLOSED** |
 | [§82](#82-the-task-fk-backfill-lives-in-a-react-hook-outside-the-numbered-migration-chain--open) | The task-FK backfill lives in a React hook, outside the numbered migration chain — open | found post-0.214.0 | M | open |
-| [§83](#83-emailname-disagreement-in-the-fk-backfill-resolves-silently-to-email--open) | Email/name disagreement in the FK backfill resolves silently to email — open | found post-0.214.0 | XS | open |
+| [§83](#83-emailname-disagreement-in-the-fk-backfill-resolves-silently-to-email--closed-2026-09-25) | Email/name disagreement in the FK backfill resolves silently to email — CLOSED 2026-09-25 | found post-0.214.0 | XS | closed |
 | [§84](#84-a-third-order-dependent-test-in-use-storage-backendtesttsx--different-mechanism-from-75--closed-false-same-mechanism-measured-on-a-partially-fixed-tree) | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED**, FALSE: same mechanism, measured on a partially-fixed tree |
 | [§85](#85-strictmode-does-not-double-invoke-effects-under-vitest--cause-unknown-so-every-strictmode-dependent-test-may-be-vacuous--closed-false-premise-it-does-double-invoke-here-whether-it-does-on-a-given-mount-depends-on-the-wrapper-shape-and-the-rule-is-pinned-by-a-meta-test) | ~~StrictMode does NOT double-invoke effects under vitest — cause unknown, so every StrictMode-dependent test may be vacuous~~ | pre-existing, found in the slice-3 review | M | **CLOSED**, FALSE PREMISE: it does double-invoke here; whether it does on a given mount depends on the wrapper shape, and the rule is pinned by a meta-test |
 | [§86](#86-ai-cannot-read-timelog-entries--deliberate-no-tool-exposes-them) | AI cannot read timelog entries — deliberate, no tool exposes them | view-scoped AI prompts, unreleased | — | open |
@@ -348,7 +348,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§101](#101-segmentedcontrols-selected-segment-is-colour-only-in-the-three-dark-schemes-and-in-beacon-light--closed-2026-09-01) | ~~`SegmentedControl`'s selected segment is colour-only in the three DARK schemes AND in beacon-light~~ | field controls → modal header, unreleased | S | **CLOSED** 2026-09-01 (title AMENDED — beacon-light measures 1.13:1 and the entry omitted it) |
 | [§102](#102-hand-rolled-ui-that-should-be-a-shared-primitive-and-glyphs-that-should-be-heroicons--open-ratchet) | Hand-rolled UI that should be a shared primitive, and glyphs that should be heroicons — open, ratchet | — | — | open |
 | [§103](#103-an-over-cap-load-silently-and-permanently-destroyed-the-excess-documents--closed) | An over-cap load silently and permanently destroyed the excess documents | **shipped in 0.219.0 "Elgin"** (`df734cf2`), found in S2 | M | **CLOSED** |
-| [§104](#104-the-aidocumentwrite-deep-link-is-still-dead--activityviewof-has-no-production-caller--open) | The `ai.documentWrite` deep-link is still dead — `activityViewOf` has no production caller — open | AI document authoring S2 (`560cbe1f`) | S to wire, but the placement is a decision | open |
+| [§104](#104-the-aidocumentwrite-deep-link-is-still-dead--activityviewof-has-no-production-caller--closed-2026-09-25) | The `ai.documentWrite` deep-link is still dead — `activityViewOf` has no production caller — CLOSED 2026-09-25 | AI document authoring S2 (`560cbe1f`) | S to wire, but the placement is a decision | closed |
 | [§105](#105-csv-section-markers-are-matched-on-raw-lines-so-a-newline-inside-a-quoted-cell-can-switch-the-parsers-section-mid-row--closed-2026-08-16) | CSV section markers are matched on RAW LINES, so a newline inside a quoted cell can switch the parser's section mid-row | property-based coverage (`!360`, no bump), found by `codec-roundtrip.property.test.ts` | M — silent data loss | **CLOSED** 2026-08-16 |
 | [§106](#106-the-markdown-codec-is-not-a-fixed-point-when-bare-crs-precede-a-newline--closed-2026-09-13) | The Markdown codec is not a fixed point when bare CRs precede a newline | property-based coverage (`!360`, no bump) | XS | **CLOSED** 2026-09-13 |
 | [§107](#107-html_start-and-sanitizetemplatehtml-disagree-about-u--h1--h2-so-a-model-description-leading-with-a-heading-is-stored-as-escaped-literal-markup--closed-2026-08-10) | `HTML_START` and `sanitizeTemplateHtml` disagree about `u` / `h1` / `h2`, so a model description LEADING with a heading is stored as escaped literal markup | property-based coverage (`!360`, no bump) | M | **CLOSED** 2026-08-10 |
@@ -2352,11 +2352,11 @@ before closing it.
 
 ---
 
-## 33. A multi-paragraph description can overflow its PPTX box — open, cosmetic
+## 33. A multi-paragraph description can overflow its PPTX box — CLOSED 2026-09-25
 
-**Status:** open — a PPTX text box with no shrink-to-fit and a fixed height. Reproduced 2026-08-28 by `grep -n "a:bodyPr" src/app/ooxml-pptx-primitives.ts`.
+**Status:** CLOSED 2026-09-25 by `fix/update-dialog-text`. The RowFields box caps its paragraphs at `MAX_FIELD_PARAGRAPHS` (`export-pptx.ts`), the last kept line reading "…" when anything was cut, and drops the hyperlink relationships of links that sat only in cut lines, so a truncated slide has no orphan rels. That box, and only that box, now carries `<a:normAutofit/>` through the new opt-in `autofit` on `pptxTextBox`. Pinned in `export-ooxml.test.ts` and `ooxml-pptx-primitives.test.ts` (mutation-checked). Not verified: how PowerPoint and LibreOffice actually render the autofit box. PowerPoint often applies shrink-on-overflow only after the text is edited, so the paragraph cap is the part that holds everywhere. Eye-check one real deck.
 
-**Work item:** #98
+Original status: open — a PPTX text box with no shrink-to-fit and a fixed height. Reproduced 2026-08-28 by `grep -n "a:bodyPr" src/app/ooxml-pptx-primitives.ts`.
 
 0.210.0 made a block boundary cost a whole `<a:p>` in PPTX instead of collapsing to whitespace.
 `pptxTextBox`'s `cyEmu` is FIXED (`2800000` on the row-fields box, sized for ~6 wrapped lines) and
@@ -3110,11 +3110,11 @@ without knowing the plan existed, because that plan is gitignored — the same i
 
 ---
 
-## 43. Two "Suggest RACI" reporting gaps — open, both incomplete rather than wrong
+## 43. Two "Suggest RACI" reporting gaps — CLOSED 2026-09-25
 
-**Status:** open — a stream judgement that refuses a handover inside one proposal. Reproduced 2026-08-28 by `grep -n "groundRaciCells" src/app/raci-suggest/raci-suggest.ts`.
+**Status:** CLOSED 2026-09-25 by `fix/update-dialog-text`, both halves. (b) The preview now shows how many proposed assignments are already in place (`raciSuggestNoOpCount`). (a) A proposal that demotes the stored Accountable and promotes another on the same milestone is still refused, but is now reported as an Accountable handover (`raciSuggestSkippedHandover`), not a duplicate, and the demotion is still offered. Allowing the handover was weighed and not taken: the confirm step applies whichever cells are ticked, so unticking the demotion would write two Accountables. Pinned in `raci-suggest.test.ts`, `raci-suggest-modal.test.tsx` and `use-raci-suggest.test.tsx` (mutation-checked).
 
-**Work item:** #106
+Original status: open — a stream judgement that refuses a handover inside one proposal. Reproduced 2026-08-28 by `grep -n "groundRaciCells" src/app/raci-suggest/raci-suggest.ts`.
 
 **(a) An Accountable HANDOVER inside one proposal is silently refused.** If the model demotes the
 current A to R and promotes someone else on the same milestone, `groundRaciCells`
@@ -4947,7 +4947,9 @@ currently over the limit.
 
 ## 64. Other surfaces still read "0% complete" for an all-cancelled project — HALF FIXED post-0.216.0
 
-**Status:** open — PARTLY FIXED, the two persisted completion figures are still ungated. Reproduced 2026-08-28 by `grep -n "pctComplete" src/app/snapshot.ts`. Re-verified 2026-09-13 on `00f2a273`: `grep -n "pctComplete: model.progress.percent" src/app/snapshot.ts` → 1 hit, still a non-nullable persisted figure.
+**Status:** OPEN — the snapshot half only. Re-verified 2026-09-25: `grep -n "pctComplete" src/app/snapshot.ts` shows the field typed `number` and captured as `model.progress.percent`, so a no-scope capture still stores 0. The landing half was fixed 2026-09-25 on `fix/update-dialog-text`: `useLandingDelta` no longer saves the `complete` metric while nothing is in scope, so the first visit after scope returns shows no false "+N%" arrow (pinned in `use-landing-delta.test.tsx`, mutation-checked). Still open, by owner decision deferred to its own slice: a snapshot captured while nothing is in scope stores `pctComplete` 0, which skews the sparkline and any later baseline. The chosen fix is to store it as null for new captures only, with `completion-trend` and `variance-format` handling null.
+
+Previous status: open — PARTLY FIXED, the two persisted completion figures are still ungated. Reproduced 2026-08-28 by `grep -n "pctComplete" src/app/snapshot.ts`. Re-verified 2026-09-13 on `00f2a273`: `grep -n "pctComplete: model.progress.percent" src/app/snapshot.ts` → 1 hit, still a non-nullable persisted figure.
 
 **Work item:** #117
 
@@ -5106,11 +5108,11 @@ this warning exists to record — and reported the entry's correct cite as a def
 
 ---
 
-## 65. A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" — HALF FIXED post-0.216.0
+## 65. A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" — CLOSED 2026-09-25
 
-**Status:** open — PARTLY FIXED, the naming half is still open. Reproduced 2026-08-28 by `grep -n "dashboardAllCancelled" src/app/i18n.ts`. Re-verified 2026-09-13 on `00f2a273`: `grep -n "dashboardAllCancelled:" src/app/i18n.ts` → 1 hit, still "All cancelled ({0})".
+**Status:** CLOSED 2026-09-25 by `fix/update-dialog-text` — the wording half. The strings that named every out-of-scope row "cancelled" now say "out of scope" in EN and DE: `dashboardAllCancelled`, `dashboardOutOfScopeCount` and `reportsGroupOutOfScope`, plus the R/A/G tooltip `dashboardRagSplitHint`, which carried the same word. A `Done` task with no `completedDate` is out of scope but was never cancelled. Pinned in `dashboard-kpi-strip.test.tsx` and `reports.test.tsx` (mutation-checked).
 
-**Work item:** #118
+Original status: open — PARTLY FIXED, the naming half is still open. Reproduced 2026-08-28 by `grep -n "dashboardAllCancelled" src/app/i18n.ts`. Re-verified 2026-09-13 on `00f2a273`: `grep -n "dashboardAllCancelled:" src/app/i18n.ts` → 1 hit, still "All cancelled ({0})".
 
 ★ **HALF CLOSED post-0.216.0.** `computeTaskHealth`'s finished-task driver is now three-way —
 `cancelled` (by status) / `completed` (by `isTaskDelivered`) / `closed` (neither) — so this pair
@@ -6404,7 +6406,7 @@ reachable on inspection.
 
 ## 78. A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE — CLOSED 2026-09-25
 
-**Status:** CLOSED 2026-09-25 by `fix/update-dialog-text` — the partial-KPI half. An auto capture is flagged as the baseline only when it is KPI-complete (`isKpiCompleteSnapshot` in `snapshot.ts`: `remainingHours !== null`), no baseline exists, and no complete row exists in history yet. So the first complete row becomes the baseline, and a baseline the user deleted is not silently replaced by the next weekly capture. "Complete" is `remainingHours`, not `model.burndown`: a budgeted project with no actuals has a burndown but no remaining hours, and baselining that row would repeat the defect. Pinned in `use-snapshots.test.tsx`; each conjunct was mutation-checked (removing either turns a test red). Left as they are, by design: a partial baseline flagged by an older build is never moved (rebaseline by hand in Trends); until a complete row exists nothing is flagged, so the Gantt milestone-baseline overlay shows nothing and variance falls back to the earliest row; and if the `setBaseline` write fails it is reported, not retried. Not fixed: the "no baseline exists" check reads the history loaded at mount, so a baseline set from another tab within one Turso round trip can be cleared.
+**Status:** CLOSED 2026-09-25 by `fix/update-dialog-text` — the partial-KPI half. An auto capture is flagged as the baseline only when it is KPI-complete (`isKpiCompleteSnapshot` in `snapshot.ts`: `remainingHours !== null`), no baseline exists, and no complete row exists in history yet. So the first complete row becomes the baseline, and a baseline the user deleted is not silently replaced by the next weekly capture. "Complete" is `remainingHours`, not `model.burndown`: a budgeted project with no actuals has a burndown but no remaining hours, and baselining that row would repeat the defect. Pinned in `use-snapshots.test.tsx`; each conjunct was mutation-checked (removing either turns a test red). Left as they are, by design: a partial baseline flagged by an older build is never moved (rebaseline by hand in Trends); until a complete row exists nothing is flagged, and a project with no budget never has one, so both readers fall back to the earliest row (`pickBaseline` for variance, `baselineMilestoneTargets` for the Gantt milestone overlay) and only the Trends ★ is missing; and if the `setBaseline` write fails it is reported, not retried. Not fixed: the "no baseline exists" check reads the history loaded at mount, so a baseline set from another tab within one Turso round trip can be cleared.
 
 Original status: open — PARTLY FIXED, the partial-KPI half is still open. Reproduced 2026-08-28 by `grep -n "hasCapturableContent" src/app/snapshot.ts`. Re-verified 2026-09-13 on `00f2a273`: `grep -n -A 8 "export function hasCapturableContent" src/app/snapshot.ts` → still the tasks/milestones/burndown disjunction, so the partial-KPI decision is still unmade.
 
@@ -6451,7 +6453,7 @@ all four to the missing budget bucket; that is true of two.
 entry is about the automatic one. They make the identical bucket claim, so an empty manual capture is
 reachable and allowed by design.
 
-★★★ **STILL OPEN, and this entry named it first: a project with one task and no budget still
+(Superseded by the 2026-09-25 closure above; kept as the record of what was open.) ★★★ **STILL OPEN, and this entry named it first: a project with one task and no budget still
 auto-captures a partial-KPI row, and that row still becomes the baseline.** The deleted text warned
 that *"a naive `tasks.length > 0` test would still baseline a snapshot with no SPI/CPI"* —
 `hasCapturableContent` IS that naive test. What closed is the ALL-null empty-project case (the
@@ -6642,11 +6644,11 @@ either way.
 
 ---
 
-## 83. Email/name disagreement in the FK backfill resolves silently to email — open
+## 83. Email/name disagreement in the FK backfill resolves silently to email — CLOSED 2026-09-25
 
-**Status:** open — an email-versus-name disagreement resolved silently. Reproduced 2026-08-28 by `grep -n "viaEmail" src/app/resource-foundation.ts`.
+**Status:** CLOSED 2026-09-25 by `fix/update-dialog-text`. `backfillTaskResourceFks` (`resource-foundation.ts`) now leaves a task UNLINKED when its email and its name resolve to two different resources, instead of silently linking by email. An unlinked task can be repaired; one linked to the wrong person cannot. The kanban display resolver keeps email precedence, deliberately; `task-kanban.ts` records the difference. Pinned in `resource-fk-backfill.test.ts` (mutation-checked).
 
-**Work item:** #123
+Original status: open — an email-versus-name disagreement resolved silently. Reproduced 2026-08-28 by `grep -n "viaEmail" src/app/resource-foundation.ts`.
 
 `backfillTaskResourceFks` poisons an *ambiguous* key (one owned by two resources) to `null` in both
 its email and name indexes, so it refuses to guess between namesakes. It does not treat a
@@ -8405,11 +8407,11 @@ the cap never refused.
 
 ---
 
-## 104. The `ai.documentWrite` deep-link is still dead — `activityViewOf` has no production caller — open
+## 104. The `ai.documentWrite` deep-link is still dead — `activityViewOf` has no production caller — CLOSED 2026-09-25
 
-**Status:** open — a dead deep-link — `activityViewOf` has no production caller. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-09-25 by `fix/update-dialog-text`, by deletion. The activity-to-view mapping had had no production caller since 0.151.0 (`5eef594cd`), which removed the dashboard's Recent-activity list, so the dead deep link was every activity kind's, not only `ai.documentWrite`'s. The module and its test are deleted, and `docs/AGENTS/dashboard.md` no longer describes a click-through. Wiring click-through into the Activity panel was weighed and not taken: it is a feature (a navigation prop threaded into a memoised panel, row-unique names, an axe check) and needs its own spec.
 
-**Work item:** #138
+Original status: open — a dead deep-link — `activityViewOf` has no production caller. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 `560cbe1f` wired the emitter: `use-document-tools.ts` now writes an `ai.documentWrite` row on every
 AI create / update / delete that actually CHANGED something. Before it, the kind was registered in
@@ -28598,7 +28600,7 @@ have written nothing.
 
 ## 351. A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade — CLOSED 2026-09-25
 
-**Status:** CLOSED 2026-09-25 by `fix/update-dialog-text`. `confirmInsightRecommendation` records `refusedCalls` (stale + refused: calls that wrote nothing) on the applied recommendation, and the controls show "Partly applied" with the Generate CTA when it is above zero. The early return is unchanged, which would otherwise duplicate creates. `sanitizeInsights` admits the count only as an integer from 0 to `INSIGHT_REC_MAX_CALLS`, and `recommendationEqual` compares it. `insights-persistence.test.ts` pins that the field survives the JSON, CSV and Markdown round trips; whether the CSV and Markdown load paths also sanitise it was not checked. Wider than the entry said: the same partial apply happens to any recommendation whose update token goes stale before confirm, not only pre-slice ones, and this covers both. A call that fails outright (it may have written something) is not counted, so that record still reads "Recommendation applied" after an error toast.
+**Status:** CLOSED 2026-09-25 by `fix/update-dialog-text`. `confirmInsightRecommendation` records `refusedCalls` (stale + refused: calls that wrote nothing) on the applied recommendation, and the controls show "Partly applied" with the Generate CTA when it is above zero. The early return is unchanged, which would otherwise duplicate creates. `sanitizeInsights` admits the count only as an integer from 0 to `INSIGHT_REC_MAX_CALLS`, and `recommendationEqual` compares it. Every load path runs `sanitizeInsights` over the blob (CSV `csv-codecs-config.ts`, Markdown `markdown-codecs-core.ts`, IndexedDB `browser-backend.ts`, Turso `turso-schema.ts`), and `insights-persistence.test.ts` pins the JSON, CSV and Markdown round trips. Wider than the entry said: the same partial apply happens to any recommendation whose update token goes stale before confirm, not only pre-slice ones, and this covers both. A call that fails outright (it may have written something) is not counted, so that record still reads "Recommendation applied" after an error toast.
 
 Original status: OPEN. Filed 2026-09-03 in the AI write-concurrency slice, from a review finding against
 the slice's own early-return. **Never machine-verified:** no test drives a mixed create+update plan
@@ -29386,7 +29388,7 @@ attribute says one thing and every enforcement point says another.
 
 ## 366. Project-scope TimeLog fetches can never certify a guardrail clean, so those insights freeze until another scope runs — CLOSED 2026-09-25
 
-**Status:** CLOSED 2026-09-25 by `fix/update-dialog-text`. The covered-people list stays empty after a project-scope fetch, deliberately. The TimeLog panel now shows a persistent note whenever the saved roll covers no one (`timelogGuardrailCoverageNote`): the guardrail findings can't be confirmed resolved from that fetch and stay open until dismissed in Insights. The panel offers only project-scope fetches, so the note does not tell the user to run a person or organisation fetch. The sync state records no scope, so the note is worded by coverage, not by "project". Pinned in `timelog-panel.test.tsx` (mutation-checked). Not pinned: no `use-timelog-sync` test asserts that a project-scope fetch saves `[]`, which is the signal the note reads.
+**Status:** CLOSED 2026-09-25 by `fix/update-dialog-text`. The covered-people list stays empty after a project-scope fetch, deliberately. The TimeLog panel now shows a persistent note whenever the saved roll covers no one AND a TimeLog guardrail insight is open (`timelogGuardrailCoverageNote`): the guardrail findings can't be confirmed resolved from that fetch and stay open until dismissed in Insights. The panel offers only project-scope fetches, so the note does not tell the user to run a person or organisation fetch. The sync state records no scope, so the note is worded by coverage, not by "project". Pinned in `timelog-panel.test.tsx` (mutation-checked). Not pinned: no `use-timelog-sync` test asserts that a project-scope fetch saves `[]`, which is the signal the note reads.
 
 Original status: OPEN. Filed 2026-09-04 while fixing the scope half of the coverage claim. Verified
 2026-09-04: `grep -n "from: startDate, to: endDate }, \[\])" src/app/use-timelog-sync.ts` returns the
