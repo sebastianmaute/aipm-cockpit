@@ -5,7 +5,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+// A Windows checkout (core.autocrlf=true) has CRLF endings; the patterns below match "\n".
+const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 const pinned = (pkgPath) => {
   const p = JSON.parse(read(pkgPath));
   return Object.entries({ ...p.dependencies, ...p.devDependencies }).filter(([, v]) => /^\d/.test(v)).map(([k]) => k).sort();
