@@ -252,6 +252,10 @@ The order matters — do not reorder these steps.
     ```
     The branch-policy `v*` entry likely already exists from the earlier attempt, so that `POST` may
     answer "already exists" — harmless; only the `reviewers` field is new here.
+  - Sponsor button: tick **Sponsorships** under Settings → General → Features (no API for it). It
+    reads `.github/FUNDING.yml` and only shows on a public repository. Check that the button appears
+    on the repository page and that the Version panel's "Sponsor on GitHub" link opens
+    https://github.com/sponsors/sebastianmaute rather than a 404.
   - Verify each: `gh api repos/sebastianmaute/aipm-cockpit --jq .security_and_analysis`,
     `gh api repos/sebastianmaute/aipm-cockpit/code-scanning/default-setup --jq .state`,
     `gh api repos/sebastianmaute/aipm-cockpit/private-vulnerability-reporting --jq .enabled`, and

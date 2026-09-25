@@ -8,6 +8,7 @@ import {
   APP_LICENSE_URL,
   APP_RELEASES_URL,
   APP_REPO_URL,
+  APP_SPONSOR_URL,
 } from "./version";
 
 const ELECTRON_UA =
@@ -45,12 +46,13 @@ describe("VersionInfo", () => {
     });
   });
 
-  it("links the licence, the source repository and the author's profile in new tabs", () => {
+  it("links the licence, the source repository, the author's profile and the sponsor page in new tabs", () => {
     render(<VersionInfo lang="en-US" />);
     const cases: [string, string][] = [
       [t("en-US", "versionLicenseName"), APP_LICENSE_URL],
       [t("en-US", "versionGithubLink"), APP_REPO_URL],
       [t("en-US", "versionLinkedInLink"), APP_AUTHOR_URL],
+      [t("en-US", "versionSponsorLink"), APP_SPONSOR_URL],
     ];
     for (const [name, href] of cases) {
       const link = screen.getByRole("link", { name });
@@ -60,6 +62,7 @@ describe("VersionInfo", () => {
     }
     expect(APP_REPO_URL).toBe("https://github.com/sebastianmaute/aipm-cockpit");
     expect(APP_AUTHOR_URL).toBe("https://www.linkedin.com/in/sebastian-maute/");
+    expect(APP_SPONSOR_URL).toBe("https://github.com/sponsors/sebastianmaute");
   });
 
   it("carries the author and Claude Code note, and no consultancy footer", () => {

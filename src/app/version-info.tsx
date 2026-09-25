@@ -18,6 +18,7 @@ import {
   APP_LICENSE_URL,
   APP_RELEASES_URL,
   APP_REPO_URL,
+  APP_SPONSOR_URL,
   APP_VERSION_LABEL,
 } from "./version";
 
@@ -116,6 +117,7 @@ export function VersionInfo({ lang, logPath }: { lang: Lang; logPath?: string })
         <p className="flex flex-wrap gap-x-3">
           <ExternalLink href={APP_REPO_URL}>{t(lang, "versionGithubLink")}</ExternalLink>
           <ExternalLink href={APP_AUTHOR_URL}>{t(lang, "versionLinkedInLink")}</ExternalLink>
+          <ExternalLink href={APP_SPONSOR_URL}>{t(lang, "versionSponsorLink")}</ExternalLink>
         </p>
       </div>
 
