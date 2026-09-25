@@ -6,7 +6,7 @@
 
 import { StorageNotReadyError } from "./workspace";
 import type { PipelineResultLike, SqlStmt } from "./turso-schema";
-import type { TursoConfig } from "./turso-config";
+import { clearEnvTokenRejected, markEnvTokenRejected, type TursoConfig } from "./turso-config";
 import { fetchTextWithTimeout } from "./fetch-with-timeout";
 
 // A hung endpoint must not leave the debounced autosave pending forever: abort
@@ -77,8 +77,14 @@ export async function runTursoPipeline(
     // either way the host is unreachable.
     throw new StorageNotReadyError("storage-unreachable");
   }
-  if (res.status === 401) {
-    throw new StorageNotReadyError("Turso auth token rejected. Check the token in Settings.");
+  if (res.status === 401 || res.status === 403) {
+    // §337 — flag it ONLY when the rejected token is the deployment's env
+    // token, so a wrong Settings-typed token (which the user can just retype)
+    // never trips the flag that makes Settings win over the env.
+    if (config.authToken !== "" && config.authToken === process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN) {
+      markEnvTokenRejected();
+    }
+    throw new StorageNotReadyError("turso-token-rejected");
   }
   if (!res.ok) {
     throw new Error(`Turso returned ${res.status}. Try again later.`);
@@ -101,6 +107,12 @@ export async function runTursoPipeline(
       if (isTransactional(stmts)) await rollbackBestEffort(config);
       throw new Error(`Turso error: ${r.error?.message ?? "unknown"}`);
     }
+  }
+  // §337 — a success using the env token proves the deployment is fixed, so a
+  // stale rejection flag (and the Settings-wins-over-env precedence it grants)
+  // does not outlive the incident that set it.
+  if (config.authToken !== "" && config.authToken === process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN) {
+    clearEnvTokenRejected();
   }
   return results;
 }

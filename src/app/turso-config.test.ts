@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { getTursoConfig, isUsableTursoUrl } from "./turso-config";
+import {
+  getTursoConfig,
+  isUsableTursoUrl,
+  markEnvTokenRejected,
+  clearEnvTokenRejected,
+} from "./turso-config";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -121,5 +126,37 @@ describe("§337 — env precedence is conditional on usability", () => {
     expect(isUsableTursoUrl("postgres://nope")).toBe(false);
     expect(isUsableTursoUrl("http://example.com")).toBe(false);
     expect(isUsableTursoUrl("")).toBe(false);
+  });
+});
+
+describe("env token rejection (§337)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.stubEnv("NEXT_PUBLIC_TURSO_DATABASE_URL", "libsql://db-org.turso.io");
+    vi.stubEnv("NEXT_PUBLIC_TURSO_AUTH_TOKEN", "ENV");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    localStorage.clear();
+  });
+
+  it("env token wins while not rejected", () => {
+    expect(getTursoConfig(undefined, "SET")?.authToken).toBe("ENV");
+  });
+
+  it("a non-empty Settings token wins once the env token was rejected", () => {
+    markEnvTokenRejected();
+    expect(getTursoConfig(undefined, "SET")?.authToken).toBe("SET");
+  });
+
+  it("the env token is still used after rejection when Settings has none", () => {
+    markEnvTokenRejected();
+    expect(getTursoConfig(undefined, "")?.authToken).toBe("ENV");
+  });
+
+  it("clearEnvTokenRejected restores env precedence", () => {
+    markEnvTokenRejected();
+    clearEnvTokenRejected();
+    expect(getTursoConfig(undefined, "SET")?.authToken).toBe("ENV");
   });
 });

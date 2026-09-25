@@ -466,6 +466,8 @@ const enUS = {
     "Can't reach your Turso database — changes aren't being saved. Check the database URL in Settings; the database may have been renamed or removed.",
   storageAuthBanner:
     "Your Turso auth token was rejected — changes aren't being saved. Update the token in Settings.",
+  storageAuthEnvBanner:
+    "The deployment's Turso token was rejected — check NEXT_PUBLIC_TURSO_AUTH_TOKEN, or enter a token in Settings.",
   storageSaveFailedBanner:
     "Your changes couldn't be saved to the current storage. Fix the issue (e.g. re-grant file access or free up space) and saving will be retried.",
   storageSwitchFlushFailed:
@@ -2367,6 +2369,8 @@ const enUS = {
   integrationsTursoTokenPlaceholder: "Turso database token",
   integrationsTursoTokenFromEnv:
     "Set by NEXT_PUBLIC_TURSO_AUTH_TOKEN in this deployment. An environment value overrides this setting, so the field is hidden.",
+  integrationsTursoTokenEnvRejected:
+    "The deployment token was rejected. A token entered here is used instead.",
   integrationsTursoLearnMore: "Learn more about Turso ↗",
   integrationsComingSoon: "Available in 0.22.0+",
 

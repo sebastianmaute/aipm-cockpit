@@ -8,8 +8,9 @@
 
 import { StorageNotReadyError } from "./storage";
 import { TursoLockTimeoutError } from "./turso-backend";
+import { isEnvTokenRejected } from "./turso-config";
 
-export type StorageErrorKind = "unreachable" | "auth" | "generic";
+export type StorageErrorKind = "unreachable" | "auth" | "auth-env" | "generic";
 
 /** True when a save failed because the cross-tab Web Locks wait timed out
  *  (another tab is writing). Deliberately NOT a StorageErrorKind — it's
@@ -23,8 +24,12 @@ export function isTursoLockTimeout(err: unknown): boolean {
 export function tursoErrorKind(err: unknown): StorageErrorKind | null {
   if (err instanceof StorageNotReadyError) {
     if (err.hint === "storage-unreachable") return "unreachable";
-    // turso-pipeline throws this exact message on a 401 from the DB.
-    if (/auth token rejected/i.test(err.hint)) return "auth";
+    // turso-pipeline throws this exact hint on a 401/403 from the DB. §337 —
+    // when the REJECTED token was the deployment's env token, the flag it set
+    // gets its own kind so the banner can say "check the deployment", not
+    // "check Settings" — the field that fixes an env-token rejection lives in
+    // Settings only while the flag is set, which "auth-env" is naming.
+    if (err.hint === "turso-token-rejected") return isEnvTokenRejected() ? "auth-env" : "auth";
     return null;
   }
   // Plain Error from a non-OK Turso HTTP response (e.g. a 5xx).

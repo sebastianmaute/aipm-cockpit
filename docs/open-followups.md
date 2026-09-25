@@ -581,7 +581,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§334](#334-racichippickers-popover-is-positioned-with-no-right-edge-clamp--closed-2026-09-02) | ~~`RaciChipPicker`'s popover is positioned with no right-edge clamp~~ | found 2026-09-01, fixing §55's RACI half; PRE-EXISTING | S | **CLOSED** 2026-09-02 (adopted `PopoverPanel`; closed WIDER than its title — the chips were unreachable by Tab, and the panel's `ariaLabel` was inert without a `role`. One stated constraint, chip-anchored positioning, was DECLINED) |
 | [§335](#335-the-rag-health-chips-override-togglebuttons-derived-state-border-so-amber-and-green-stay-under-31-in-the-four-light-schemes) | The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes | found 2026-09-01 in the §55 fix round, from a cold docs review | S | open |
 | [§336](#336-a-docx-hyperlink-is-followable-but-invisible--no-hyperlink-character-style-while-pptx-colours-its-links-from-the-theme--closed-2026-09-01) | ~~A `.docx` hyperlink is followable but INVISIBLE — no `Hyperlink` character style, while PPTX colours its links from the theme~~ | found 2026-09-01 in the §119/§30 cold review; MINTED AS §333 and renumbered on the 2026-09-02 merge, which is why source comments say both | S | **CLOSED** 2026-09-01 (the palette decision: `COLOR_DARK_BLUE` + underline, matching the PPTX theme; closed WIDER than its title — the workspace exporter carried it too) |
-| [§337](#337-a-non-empty-but-unusable-next_public_turso_-both-hides-the-settings-field-and-outranks-it-so-turso-cannot-be-configured-from-the-ui-at-all--open) | A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all — open | found 2026-09-02 debugging "enabling Turso shows no configuration fields"; the DISCLOSURE half of that report is fixed, this is the residue | S | open |
+| [§337](#337-a-non-empty-but-unusable-next_public_turso_-both-hides-the-settings-field-and-outranks-it-so-turso-cannot-be-configured-from-the-ui-at-all--closed-2026-09-25) | ~~A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all~~ | found 2026-09-02 debugging "enabling Turso shows no configuration fields"; URL half shipped `28b517b77`, token half this commit | S | **CLOSED** 2026-09-25 |
 | [§338](#338-useresizable-is-a-no-op-in-every-modal-that-stays-mounted-while-closed--open) | `useResizable` is a no-op in every modal that stays mounted while closed | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | M (repo-wide) | open |
 | [§339](#339-a-rename-can-strand-a-stale-alt-and-the-broken-image-state-then-paints-it--wcag-253--closed-2026-09-14) | A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 — CLOSED 2026-09-14 | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-14 |
 | [§340](#340-two-tests-in-the-asset-preview-slice-pass-for-the-wrong-reason--open) | Two tests in the asset-preview slice pass for the wrong reason | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
@@ -28036,49 +28036,42 @@ entry: not a dangling reference a reader notices, a confidently wrong one they d
 comments across five files were rewritten to `§336` in the merge commit. `grep -rn "§333\|§336"
 src/app --include=*.ts` enumerates both; a `§333` surviving there is a defect, not a leftover.
 
-## 337. A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all — open
+## 337. ~~A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all~~ — CLOSED 2026-09-25
 
-**Status:** open — **never machine-verified** (2026-09-02). Found by reading, not by a failing run:
-the two predicates below are three lines apart in different files. Re-check with
-`grep -n "envTursoUrlSet|envTursoTokenSet" src/app/settings-sections/integrations-section.tsx`
-against `sed -n '/^export function getTursoConfig/,/^}/p' src/app/turso-config.ts`.
+**Status:** CLOSED 2026-09-25 — shipped in two commits, one per half. Re-check with
+`grep -n "isUsableTursoUrl\|isEnvTokenRejected" src/app/turso-config.ts`.
 
 **Work item:** #243
 
-★★★ **TWO PREDICATES THAT MUST AGREE AND DO NOT, AND EACH IS CORRECT ON ITS OWN.**
-`integrations-section.tsx` hides the Turso URL and token fields on **presence** —
-`!!process.env.NEXT_PUBLIC_TURSO_DATABASE_URL`, any non-empty string. `getTursoConfig` resolves on
-**usability** — a non-empty env value WINS over the settings value, then must parse to an https (or
-loopback http) origin and, for https, carry a token. So a env var that is set but unusable
-— a typo, a `postgres://` paste, a stray quote, a value from a different deployment — puts the app
-in a state with no way out **from the UI**: the field is hidden because the var is present, and the
-settings value it would write is ignored because the var is present. The Storage section then shows
-`storageTursoNeedsConfig` — *"Enter the Turso URL and token in Settings."* — pointing at a screen
-that deliberately renders no such fields.
+★ **URL half — shipped in `28b517b77`** ("an unusable env URL no longer outranks the Settings
+value"). `isUsableTursoUrl` (`turso-config.ts`) is exported so `integrations-section.tsx` asks the
+SAME question `getTursoConfig` answers, instead of a second presence-only predicate three lines
+apart: the env URL now wins only when it resolves to a usable pipeline base, an unusable one falls
+through to the Settings value, and the URL field stays editable (with a disclosure naming the var,
+`integrationsTursoUrlEnvUnusable`) whenever the env value does not resolve. That closed the FIRST
+arm of the original report — a typo'd env var locking Turso out of UI configuration entirely.
 
-★★ **A SECOND, QUIETER ARM: a valid URL with a STALE token.** Both fields hide, `getTursoConfig`
-returns non-null, and `TursoBackend.isReady()` is `config !== null` — so the UI reports READY with a
-✓ line while every pipeline call 401s. Worse than the first arm, because nothing on screen is
-even wrong-looking.
+★★ **Token half — shipped in this commit** ("fix: report a rejected deployment Turso token and let
+Settings override it"). This was the SECOND, quieter arm: a present env token won unconditionally
+with no usability test of its own, so a stale/revoked token was undetectable except by a live 401
+from Turso, and even a detected rejection (via "Test connection") gave no way to FIX it — the field
+stayed hidden. `turso-pipeline.ts` now classifies a 401 OR 403 as a rejection and, only when the
+rejected token was the deployment's own env token, records a per-device flag
+(`markEnvTokenRejected` / `isEnvTokenRejected` / `clearEnvTokenRejected`, `turso-config.ts`, under
+the `aipm-cockpit:` prefix — not a secret, not workspace data, already wiped by `clearAppConfig`
+since it shares that prefix). While the flag is set, `getTursoConfig` lets a non-empty Settings
+token outrank the env token, and `integrations-section.tsx` re-shows the token field with a notice
+(`integrationsTursoTokenEnvRejected`) AND the Apply button — the button's own visibility guard
+originally rode env-token PRESENCE rather than this same rejection state and would have stayed
+hidden in exactly this case (caught during implementation review; the guard now reads
+`!(envTursoUrlUsable && hideTokenField)`). A subsequent SUCCESSFUL pipeline call using the env token
+clears the flag, so a fixed deployment wins again without a stale Settings token lingering.
+`storage-error.ts` gained an `"auth-env"` `StorageErrorKind` so the storage banner can point at the
+deployment env var rather than Settings while the flag is set.
 
-★ **WHAT WAS ALREADY FIXED, AND WHY THIS IS THE REMAINDER.** The reported symptom — enabling Turso
-showed no configuration fields and nothing said why — was a SILENT HIDE, and that is closed: each
-hidden field now renders its label plus a hint naming the env var that supplies it
-(`integrationsTursoUrlFromEnv` / `integrationsTursoTokenFromEnv`, pinned by three tests in
-`integrations-section.test.tsx`, each mutation-proved at 1 failed / 19 passed of 20). That
-disclosure also makes the first arm SURVIVABLE — a reader now learns which lever to pull — but it
-does not make the app configurable from the UI, and it does not touch the second arm at all.
-
-★★ **DO NOT "FIX" THIS BY UN-HIDING THE FIELD.** An editable field whose value `getTursoConfig`
-will discard is worse than an absent one: it invites the user to type a correct URL and watch
-nothing happen. The choices are (a) let a settings value override an UNUSABLE env value — which
-changes the documented env-wins precedence and needs its own decision, or (b) keep env winning and
-say so precisely: when the env var is present but does not resolve, the notice should say the
-DEPLOYMENT is misconfigured and that this screen cannot repair it. (b) is the smaller change and
-the honest one; (a) is a policy change, not a bug fix.
-
-★ Nothing here is reachable on a checkout with no `.env.local`, which is every CI run — so no gate
-will ever see either arm.
+Both arms of the original report are closed. Nothing here needed `.env.local` in CI to verify —
+`turso-config.test.ts`, `turso-pipeline.test.ts`, `storage-error.test.ts` and
+`integrations-section.test.tsx` cover both halves without a real deployment.
 
 ## 338. `useResizable` is a no-op in every modal that stays mounted while closed — open
 

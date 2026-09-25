@@ -442,6 +442,8 @@ export const de: Record<TranslationKey, string> = {
     "Turso-Datenbank nicht erreichbar — Änderungen werden nicht gespeichert. Prüfen Sie die Datenbank-URL in den Einstellungen; die Datenbank wurde evtl. umbenannt oder gelöscht.",
   storageAuthBanner:
     "Turso-Authentifizierungstoken abgelehnt — Änderungen werden nicht gespeichert. Aktualisieren Sie das Token in den Einstellungen.",
+  storageAuthEnvBanner:
+    "Das Turso-Token der Bereitstellung wurde abgelehnt – prüfen Sie NEXT_PUBLIC_TURSO_AUTH_TOKEN oder geben Sie in den Einstellungen ein Token ein.",
   storageSaveFailedBanner:
     "Änderungen konnten nicht im aktuellen Speicher gespeichert werden. Beheben Sie das Problem (z. B. Dateizugriff neu erteilen oder Speicherplatz freigeben), dann wird das Speichern erneut versucht.",
   storageSwitchFlushFailed:
@@ -2224,6 +2226,8 @@ export const de: Record<TranslationKey, string> = {
   integrationsTursoTokenPlaceholder: "Turso-Datenbank-Token",
   integrationsTursoTokenFromEnv:
     "Wird in dieser Installation über NEXT_PUBLIC_TURSO_AUTH_TOKEN gesetzt. Ein Wert aus der Umgebung hat Vorrang vor dieser Einstellung, daher ist das Feld ausgeblendet.",
+  integrationsTursoTokenEnvRejected:
+    "Das Token der Bereitstellung wurde abgelehnt. Ein hier eingegebenes Token wird stattdessen verwendet.",
   integrationsTursoLearnMore: "Mehr über Turso erfahren ↗",
   integrationsComingSoon: "Verfügbar ab 0.22.0",
 

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_PIPELINE_TIMEOUT_MS,
   TEST_CONNECTION_TIMEOUT_MS,
@@ -7,6 +7,7 @@ import {
 } from "./turso-pipeline";
 import { StorageNotReadyError } from "./storage";
 import type { TursoConfig } from "./turso-config";
+import { isEnvTokenRejected, markEnvTokenRejected } from "./turso-config";
 
 const cfg: TursoConfig = { httpUrl: "https://db.example.com", authToken: "tok" };
 
@@ -267,5 +268,39 @@ describe("testTursoConnection", () => {
     await vi.advanceTimersByTimeAsync(1);
     expect((fetchMock.mock.calls[0][1] as RequestInit).signal?.aborted).toBe(true);
     await expectation;
+  });
+});
+
+describe("§337 — env token rejection flag", () => {
+  beforeEach(() => { localStorage.clear(); });
+  afterEach(() => { vi.unstubAllEnvs(); localStorage.clear(); });
+
+  it.each([401, 403])(
+    "a %i marks the env token rejected when the env token was used, and throws turso-token-rejected",
+    async (status) => {
+      vi.stubEnv("NEXT_PUBLIC_TURSO_AUTH_TOKEN", "ENV");
+      stubFetch(() => new Response("no", { status }));
+      await expect(
+        runTursoPipeline({ httpUrl: "https://x", authToken: "ENV" }, [{ sql: "SELECT 1" }]),
+      ).rejects.toMatchObject({ hint: "turso-token-rejected" });
+      expect(isEnvTokenRejected()).toBe(true);
+    },
+  );
+
+  it("a rejection of a NON-env token does not set the flag", async () => {
+    vi.stubEnv("NEXT_PUBLIC_TURSO_AUTH_TOKEN", "ENV");
+    stubFetch(() => new Response("no", { status: 401 }));
+    await expect(
+      runTursoPipeline({ httpUrl: "https://x", authToken: "SET" }, [{ sql: "SELECT 1" }]),
+    ).rejects.toMatchObject({ hint: "turso-token-rejected" });
+    expect(isEnvTokenRejected()).toBe(false);
+  });
+
+  it("a success using the env token clears the flag", async () => {
+    vi.stubEnv("NEXT_PUBLIC_TURSO_AUTH_TOKEN", "ENV");
+    markEnvTokenRejected();
+    stubFetch(() => jsonRes({ results: [{ type: "ok" }] }));
+    await runTursoPipeline({ httpUrl: "https://x", authToken: "ENV" }, [{ sql: "SELECT 1" }]);
+    expect(isEnvTokenRejected()).toBe(false);
   });
 });

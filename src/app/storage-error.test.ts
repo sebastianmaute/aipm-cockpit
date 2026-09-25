@@ -1,16 +1,26 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { StorageNotReadyError } from "./storage";
 import { classifyStorageError, isTursoLockTimeout, tursoErrorKind } from "./storage-error";
+import { clearEnvTokenRejected, markEnvTokenRejected } from "./turso-config";
+
+afterEach(() => {
+  clearEnvTokenRejected();
+});
 
 describe("tursoErrorKind", () => {
   it("maps the unreachable hint", () => {
     expect(tursoErrorKind(new StorageNotReadyError("storage-unreachable"))).toBe("unreachable");
   });
 
-  it("maps the rejected-auth-token message", () => {
-    expect(
-      tursoErrorKind(new StorageNotReadyError("Turso auth token rejected. Check the token in Settings.")),
-    ).toBe("auth");
+  it("maps the rejected-token hint to auth when the env token is not flagged", () => {
+    expect(tursoErrorKind(new StorageNotReadyError("turso-token-rejected"))).toBe("auth");
+  });
+
+  it("classifies turso-token-rejected as auth-env when the env token is flagged, else auth", () => {
+    markEnvTokenRejected();
+    expect(tursoErrorKind(new StorageNotReadyError("turso-token-rejected"))).toBe("auth-env");
+    clearEnvTokenRejected();
+    expect(tursoErrorKind(new StorageNotReadyError("turso-token-rejected"))).toBe("auth");
   });
 
   it("maps a non-OK Turso HTTP response to unreachable", () => {
@@ -36,9 +46,7 @@ describe("tursoErrorKind", () => {
 describe("classifyStorageError", () => {
   it("keeps recognized Turso kinds", () => {
     expect(classifyStorageError(new StorageNotReadyError("storage-unreachable"))).toBe("unreachable");
-    expect(
-      classifyStorageError(new StorageNotReadyError("Turso auth token rejected. Check the token in Settings.")),
-    ).toBe("auth");
+    expect(classifyStorageError(new StorageNotReadyError("turso-token-rejected"))).toBe("auth");
   });
 
   it("classifies any other failure as generic (so local-backend failures still banner)", () => {

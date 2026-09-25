@@ -101,9 +101,11 @@ export function StorageBanner({
   const msg =
     kind === "auth"
       ? t(lang, "storageAuthBanner")
-      : kind === "generic"
-        ? t(lang, "storageSaveFailedBanner")
-        : t(lang, "storageUnreachableBanner");
+      : kind === "auth-env"
+        ? t(lang, "storageAuthEnvBanner")
+        : kind === "generic"
+          ? t(lang, "storageSaveFailedBanner")
+          : t(lang, "storageUnreachableBanner");
   return (
     <AlertBanner severity="error" ariaLabel={t(lang, "storageBannerAria")} icon="⚠"
       actions={<>
