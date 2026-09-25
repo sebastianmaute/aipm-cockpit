@@ -133,6 +133,22 @@ describe("ci.yml", () => {
     expect(jobBlock(CI, "prod-smoke")).toMatch(/^ {4}needs: build$/m);
   });
 
+  // desktop/**/*.test.ts (vitest's own include — see vitest.config.ts) imports
+  // electron/electron-updater, and static's desktop:typecheck needs their types too; none of the
+  // three jobs installs desktop/node_modules on its own (npm ci at the root does not reach it).
+  // Missing this step is exactly PR #400's build-job failure, one layer down: it passed there only
+  // because next build's tsc program excludes the two updater test files, but vitest's include does
+  // not and cannot — mocking `electron`/`electron-updater` doesn't help, since Vite resolves the
+  // import specifier before a mock ever applies.
+  it("installs desktop deps (--ignore-scripts, no binary needed) before every job touching desktop/", () => {
+    const DESKTOP_INSTALL = /^ {6}- run: npm --prefix desktop ci --ignore-scripts$/m;
+    for (const g of ["static", "unit", "unit-shuffled"]) {
+      const b = jobBlock(CI, g);
+      expect(b, g).toMatch(DESKTOP_INSTALL);
+      expect(b.search(DESKTOP_INSTALL), g).toBeGreaterThan(b.indexOf("- run: npm ci"));
+    }
+  });
+
   it("exports LEAK_LIST_FILE from the secret before the static gates", () => {
     const b = jobBlock(CI, "static");
     expect(b).toMatch(/LEAK_LIST: \$\{\{ secrets\.LEAK_LIST \}\}/);
@@ -241,6 +257,15 @@ describe("scheduled.yml", () => {
     expect(b.indexOf("reproduce:")).toBeGreaterThan(-1);
     expect(b.indexOf("reproduce:")).toBeLessThan(b.indexOf("npm run test:run"));
     expect(b).toMatch(/--sequence\.seed=\$\{\{ github\.run_id \}\}/);
+  });
+
+  // Same gap as ci.yml's unit/unit-shuffled: test:run's include covers desktop/**/*.test.ts, which
+  // imports electron/electron-updater, so this job needs the desktop packages too.
+  it("installs desktop deps before running test:run", () => {
+    const b = jobBlock(SCHED, "unit-shuffled-random");
+    expect(b).toMatch(/^ {6}- run: npm --prefix desktop ci --ignore-scripts$/m);
+    expect(b.indexOf("- run: npm --prefix desktop ci")).toBeGreaterThan(b.indexOf("- run: npm ci"));
+    expect(b.indexOf("- run: npm --prefix desktop ci")).toBeLessThan(b.indexOf("npm run test:run"));
   });
 });
 

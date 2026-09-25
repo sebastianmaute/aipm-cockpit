@@ -35,6 +35,9 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci
+      # desktop/**/*.test.ts (part of test:run's include) imports electron/electron-updater;
+      # the binary itself is not needed — only the packages' JS/types.
+      - run: npm --prefix desktop ci --ignore-scripts
       - run: 'echo "shuffle seed=${{ github.run_id }}  (reproduce: npx vitest run --sequence.shuffle --sequence.seed=${{ github.run_id }})"'
       - run: npm run test:run -- --sequence.shuffle --sequence.seed=${{ github.run_id }} --reporter=default
 

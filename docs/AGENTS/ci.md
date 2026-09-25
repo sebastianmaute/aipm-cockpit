@@ -96,7 +96,11 @@ re-resolved by hand.
   Last, **actionlint** from its container image, pinned
   by digest, with `if: !cancelled()` so it still runs when the gate step is red. actionlint has no
   local install; CI is where it is enforced.
-- **`unit`** (45 min). `npm run test:coverage -- --maxWorkers=2 --reporter=default --reporter=junit
+- **`unit`** (45 min). `npm ci` then `npm --prefix desktop ci --ignore-scripts` (types only, no
+  electron binary) — `vitest.config.ts`'s `include` covers `desktop/**/*.test.ts`, and
+  `updater.test.ts`/`updater-module-shape.test.ts` import `electron`/`electron-updater` directly;
+  mocking those specifiers doesn't help since Vite resolves the import before a mock applies.
+  `npm run test:coverage -- --maxWorkers=2 --reporter=default --reporter=junit
   --outputFile=junit.xml`, piped through `tee unit.log` in a `shell: bash` step — GitHub's default
   shell has no `pipefail`, and `bash` gives `-eo pipefail`, so a red vitest turns the step red.
   `scripts/ci-workflow.test.mjs` fails on any piped `run:` step without `shell: bash`. The coverage
@@ -108,7 +112,8 @@ re-resolved by hand.
   reported test, setup, import and environment time summed to about the wall time, i.e. one worker.
   `gate:local` derives its own count from the local CPUs, so the two still do not share a worker
   layout.
-- **`unit-shuffled`** (45 min, `needs: unit`). `npm run test:shuffle -- --maxWorkers=2
+- **`unit-shuffled`** (45 min, `needs: unit`). Installs desktop deps the same way `unit` does, for
+  the same reason. `npm run test:shuffle -- --maxWorkers=2
   --reporter=default` — the same pinned seed as the local command. ★★ The extra reporter is there
   so a red run can be read (§612). The script's own `--reporter=dot` writes every dot on ONE line
   that ends only when the run does — about 430 KB with its colour codes over ~19,600 tests — and
@@ -160,7 +165,8 @@ was not done up front.
 on it and none of its jobs is a required check: a red run is the signal.
 
 - **`audit-full`** (10 min). `npm audit --audit-level=low`, dev dependencies included.
-- **`unit-shuffled-random`** (45 min). Echoes the seed (`github.run_id`) with its reproduce command
+- **`unit-shuffled-random`** (45 min). Installs desktop deps like `ci.yml`'s `unit`/`unit-shuffled`
+  do — `test:run` covers `desktop/**/*.test.ts` too. Echoes the seed (`github.run_id`) with its reproduce command
   (`npx vitest run --sequence.shuffle --sequence.seed=<id>`) BEFORE the run, then
   `npm run test:run -- --sequence.shuffle --sequence.seed=<id> --reporter=default`, so a red result can be
   replayed. 2026-09-23: was `--reporter=dot`, whose one very-long dot line `gh run view --log`
