@@ -266,7 +266,7 @@ export function buildSnapshot(input: BuildSnapshotInput): SnapshotRecord {
  *  ★★ This admits a project with one task and no budget, and that is right: it
  *  is worth recording. What it no longer does is become the BASELINE with
  *  partial KPIs (§78) — that is decided separately in `use-snapshots.ts`'s
- *  auto-capture, which flags a row only when `model.burndown !== null`. Do not
+ *  auto-capture, which flags only the FIRST `isKpiCompleteSnapshot` row. Do not
  *  read this predicate as the baseline rule; it answers only "capture at all".
  */
 export function hasCapturableContent(
@@ -277,6 +277,20 @@ export function hasCapturableContent(
     input.milestones.length > 0 ||
     input.model.burndown !== null
   );
+}
+
+/** §78 — is this snapshot KPI-complete, i.e. may it serve as a baseline?
+ *  Complete means `remainingHours` is known. It is null when there was no
+ *  burndown (no budget: `model.burndown === null`) AND when the burndown had no
+ *  actuals yet (`lastNonNull` over an all-null series, e.g. a budgeted project
+ *  that has not started) — both leave every later remaining-hours variance
+ *  comparing against null, which is the defect. `remainingCost` is derived the
+ *  same way from the same burndown, so one field answers for both.
+ *  ★ Read from the RECORD, not the capture context, so the SAME test answers
+ *  for a row being built and for one loaded from history (the field
+ *  round-trips through the `snapshot` table's `remaining_hours` column). */
+export function isKpiCompleteSnapshot(rec: Pick<SnapshotRecord, "remainingHours">): boolean {
+  return rec.remainingHours !== null;
 }
 
 export type VarianceKey =

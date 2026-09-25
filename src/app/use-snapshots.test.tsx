@@ -178,6 +178,46 @@ describe("useSnapshots", () => {
     expect(result.current.snapshots.find((s) => s.id === partial.id)?.isBaseline).toBe(false);
   });
 
+  // §78 fix round: the rule is "the FIRST complete row", not "any complete row
+  // while nothing is flagged". A user who deleted the baseline in Trends leaves
+  // complete, unflagged rows; the next auto capture must not flag itself.
+  it("does not flag a later complete capture when a complete row already exists unflagged", async () => {
+    const earlierComplete = { ...rec("2026-06-01T00:00:00.000Z", "2026-W23"), remainingHours: 12, remainingCost: 1200 };
+    vi.spyOn(store, "loadSnapshots").mockResolvedValue([earlierComplete]);
+    const append = vi.spyOn(store, "appendSnapshot").mockResolvedValue();
+    const setBase = vi.spyOn(store, "setBaseline").mockResolvedValue();
+    const { result } = renderHook(() => useSnapshots(completeContextArgs));
+    await waitFor(() => expect(append).toHaveBeenCalledTimes(1));
+    expect(append.mock.calls[0][1].remainingHours).toBe(8); // positive control: the new row IS complete
+    await waitFor(() => expect(result.current.snapshots).toHaveLength(2));
+    expect(setBase).not.toHaveBeenCalled();
+    // The earliest row stays the effective baseline, as it was before.
+    expect(result.current.baseline?.id).toBe(earlierComplete.id);
+  });
+
+  it("does not baseline a budgeted first capture whose burndown has no actuals yet", async () => {
+    vi.spyOn(store, "loadSnapshots").mockResolvedValue([]);
+    const append = vi.spyOn(store, "appendSnapshot").mockResolvedValue();
+    const setBase = vi.spyOn(store, "setBaseline").mockResolvedValue();
+    const { result } = renderHook(() =>
+      useSnapshots({
+        ...completeContextArgs,
+        buildContext: () => ({
+          ...completeContextArgs.buildContext(),
+          model: {
+            ...completeContextArgs.buildContext().model,
+            burndown: { periods: ["2026-06"], plannedRemainingHours: [10], actualRemainingHours: [null],
+              plannedRemainingValue: [1000], actualRemainingValue: [null] },
+          },
+        }) as unknown as ReturnType<NonNullable<Parameters<typeof useSnapshots>[0]["buildContext"]>>,
+      }),
+    );
+    await waitFor(() => expect(append).toHaveBeenCalledTimes(1));
+    expect(append.mock.calls[0][1].remainingHours).toBeNull();
+    await waitFor(() => expect(result.current.snapshots).toHaveLength(1));
+    expect(setBase).not.toHaveBeenCalled();
+  });
+
   it("never moves an existing baseline from the auto capture", async () => {
     const flagged = rec("2026-06-01T00:00:00.000Z", "2026-W23", true);
     vi.spyOn(store, "loadSnapshots").mockResolvedValue([flagged]);

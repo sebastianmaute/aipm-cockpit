@@ -6,7 +6,10 @@ import {
   deleteSnapshots as storeDeleteMany,
   loadSnapshots, setBaseline as storeSetBaseline,
 } from "./snapshot-store";
-import { bucketKey, buildSnapshot, computeVariance, detectGaps, hasCapturableContent, withoutCompletionVariance } from "./snapshot";
+import {
+  bucketKey, buildSnapshot, computeVariance, detectGaps, hasCapturableContent, isKpiCompleteSnapshot,
+  withoutCompletionVariance,
+} from "./snapshot";
 import type { SnapshotCadence, SnapshotRecord, SnapshotTrigger, VarianceRow } from "./snapshot";
 import type { BuildSnapshotInput } from "./snapshot";
 import type { TursoConfig } from "./turso-config";
@@ -189,23 +192,35 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
             setSnapshots(history);
             return;
           }
-          // ★★ §78, the partial-KPI half: an auto row becomes the baseline ONLY
-          // when it is complete — `model.burndown !== null`, the one input both
-          // `remainingHours` and `remainingCost` derive from (`spi`/`cpi` come
-          // from task effort, not budget, so they are not part of the test). A
-          // project with scope but no budget used to baseline its first row with
-          // those two KPIs null, and every later variance row compared against
-          // nulls. The first COMPLETE auto row now takes the flag, but only while
-          // no baseline exists: an existing one (user-set, or an older build's)
-          // is never moved from here.
+          // ★★ §78, the partial-KPI half. THE RULE: an auto row becomes the
+          // baseline only if it is the FIRST complete row — it is complete, NO
+          // row in history is complete, and NO row is flagged. "Complete" is
+          // `isKpiCompleteSnapshot` (`snapshot.ts`): `remainingHours` is known,
+          // which needs a burndown (`model.burndown !== null`) with actuals —
+          // the input `remainingHours` and `remainingCost` derive from (`spi`/
+          // `cpi` come from task effort, not budget, so they are not part of
+          // it). A project with scope but no budget used to baseline its first
+          // row with those two KPIs null, and every later variance row compared
+          // against nulls.
+          // ★★ "No complete row in history" is load-bearing, not redundant with
+          // "none flagged": a user who DELETES the baseline in Trends leaves
+          // complete rows and no flag, and `pickBaseline` then falls back to the
+          // earliest one. Without this conjunct the next bucket's capture would
+          // silently flag itself and reset every variance row to ~zero.
+          // ★ An existing flag (user-set, or an older build's partial one) is
+          // never moved from here.
           // ★ Appended unflagged, then flagged through the same persisted store
-          // op `setBaseline` uses. If that second write fails the row stays
-          // unflagged and the next bucket's capture tries again.
-          // ★ Until then nothing is flagged: `pickBaseline` falls back to the
-          // earliest row for variance, and the Gantt's baseline overlay
-          // (`baselineMilestoneTargets`, which does NOT fall back) shows none.
-          const promote = ctx.model.burndown !== null && !history.some((s) => s.isBaseline);
+          // op `setBaseline` uses. If that second write fails, the error is
+          // reported and NOT retried — the row is complete now, so the next
+          // capture no longer qualifies; the user sets the baseline in Trends.
+          // ★ Until a complete row exists nothing is flagged: `pickBaseline`
+          // falls back to the earliest row for variance, and the Gantt's
+          // baseline overlay (`baselineMilestoneTargets`, which does NOT fall
+          // back) shows none.
           const rec = makeRecord("auto", false, currentBucket, ctx);
+          const promote =
+            isKpiCompleteSnapshot(rec) &&
+            !history.some((s) => s.isBaseline || isKpiCompleteSnapshot(s));
           await storeAppend(cfgRef.current, rec, pidRef.current);
           if (stale()) return;
           setSnapshots([...history, rec]);
