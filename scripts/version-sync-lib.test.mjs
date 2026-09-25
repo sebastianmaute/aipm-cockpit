@@ -228,7 +228,7 @@ describe("desktop/package.json satellite", () => {
     const s = sat("desktop/package.json");
     const m = text.match(s.patterns[0].re);
     if (!m) throw new Error("pattern did not match desktop/package.json — the file's key order or indent moved");
-    expect(m[2]).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(m[2]).toMatch(/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/);
   });
 });
 
@@ -257,7 +257,7 @@ describe("desktop/package-lock.json satellite", () => {
           `pattern ${p.key} did not match desktop/package-lock.json — the file's key order or indent moved`,
         );
       }
-      expect(m[2]).toMatch(/^\d+\.\d+\.\d+$/);
+      expect(m[2]).toMatch(/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/);
     }
   });
 });

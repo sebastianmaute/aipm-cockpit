@@ -36,7 +36,8 @@ describe("APP_HIGHLIGHT_KEYS", () => {
   });
 
   it("names a released version and milestone", () => {
-    expect(APP_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
+    // A prerelease suffix (1.14.0-rc.1) is a released version too.
+    expect(APP_VERSION).toMatch(/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/);
     expect(APP_MILESTONE.length).toBeGreaterThan(0);
   });
 });
