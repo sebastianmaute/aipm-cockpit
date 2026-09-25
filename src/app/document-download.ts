@@ -26,7 +26,7 @@ import { triggerDownload } from "./download";
 import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
 import { reportSilentFailure } from "./guard-feedback";
-import { pdfReadyScript, pdfWindowName } from "./pdf-export-protocol";
+import { pdfReadyTitleMarkup, pdfWindowName, replaceHtmlTitle } from "./pdf-export-protocol";
 
 export type DocFormat = "html" | "docx" | "pptx" | "pdf";
 
@@ -116,11 +116,12 @@ const BODY_CLOSE = "</body>";
  *  like a browser quirk ("sometimes the print dialog doesn't open"), which is
  *  the most expensive kind of bug to chase.
  *
- *  ★ §468 — extracted from the old `withAutoPrint(html)` so the desktop shell
- *  can inject `pdfReadyScript(...)` instead of the auto-print harness (a
- *  renderer-initiated `window.print()` is refused there). `withAutoPrint`
- *  below is now a thin wrapper so its own tests, and every existing caller,
- *  stay unchanged. */
+ *  ★ §468 — extracted from the old `withAutoPrint(html)` so a caller could
+ *  swap in a different script for the desktop shell. That shell no longer
+ *  uses this path at all (its readiness signal is a static `<title>` element,
+ *  via `replaceHtmlTitle`/`pdfReadyTitleMarkup` — see the pdf branch of
+ *  `downloadDocument` below), but the split stays: `withAutoPrint` is a thin
+ *  wrapper so its own tests, and every existing caller, stay unchanged. */
 export function withClosingScript(html: string, script: string): string {
   return html.includes(BODY_CLOSE)
     ? // Function replacement, not a string: `$&` and `` $` `` are special in a
@@ -267,13 +268,17 @@ export async function downloadDocument(
   if (format === "pdf") {
     // ★ §468 — in the desktop shell, Electron refuses the tab's own
     // `window.print()`. There the tab opens under a NAMED frame and carries
-    // no auto-print script, only `pdfReadyScript`'s readiness signal — main.ts
+    // NO script at all — an inline one would be blocked by the packaged app's
+    // nonce-only CSP anyway — and instead its own `<title>` element IS the
+    // readiness signal (`replaceHtmlTitle`/`pdfReadyTitleMarkup`, replacing
+    // the document's normal title rather than appending after it). main.ts
     // watches the named frame's title, prints it to a real PDF and shows a
     // save dialog (see pdf-export-protocol.ts / desktop/src/lib/pdf-export.ts).
     // In a browser, `name` is `_blank` and the script is the unchanged
     // auto-print harness.
     const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
     const name = pdfWindowName(ua);
+    const isDesktop = name !== "_blank";
 
     // ★★★ OPEN FIRST, BEFORE ANY `await`. `window.open` is only permitted
     // inside the user gesture, and awaiting the bytes SPENDS that gesture — so
@@ -301,10 +306,11 @@ export async function downloadDocument(
     // ★★ A SECOND open() RESETS the document. Without it the real document is
     // APPENDED to the placeholder, so the tab prints a file with two <title>
     // elements and a stray doctype in the middle of the body.
-    const script =
-      name === "_blank" ? AUTO_PRINT_SCRIPT : pdfReadyScript(documentFilename(doc, "pdf", today));
+    const finalHtml = isDesktop
+      ? replaceHtmlTitle(html, pdfReadyTitleMarkup(documentFilename(doc, "pdf", today)))
+      : withClosingScript(html, AUTO_PRINT_SCRIPT);
     tab.document.open();
-    tab.document.write(withClosingScript(html, script));
+    tab.document.write(finalHtml);
     tab.document.close();
     return;
   }

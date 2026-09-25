@@ -27,7 +27,7 @@ import { buildExportSections } from "./export-sections";
 import { triggerDownload, PRINT_STYLES, htmlEscape, exportCellHtml } from "./download";
 import type { ExportSection } from "./export-sections";
 import type { Lang } from "./i18n";
-import { pdfReadyScript, pdfWindowName } from "./pdf-export-protocol";
+import { pdfReadyTitleMarkup, pdfWindowName } from "./pdf-export-protocol";
 
 export type ExportFormat = "csv" | "md" | "pdf" | "docx" | "xlsx" | "pptx";
 
@@ -54,8 +54,8 @@ function defaultFilename(format: ExportFormat): string {
 }
 
 /** The browser-tab auto-print harness, byte-identical to what `buildPdfHtml`
- *  used to inline directly. Extracted so `exportPdf` can swap it out for
- *  `pdfReadyScript` in the desktop shell (§468), where a renderer-initiated
+ *  used to inline directly. Extracted so `exportPdf` can swap it out for no
+ *  script at all in the desktop shell (§468), where a renderer-initiated
  *  `window.print()` is refused — see `pdf-export-protocol.ts`. */
 const EXPORT_AUTO_PRINT_SCRIPT = `  <script>
     // Wait one paint so the browser has rendered the table before
@@ -113,16 +113,26 @@ export function buildPdfHtml(
   lang: Lang,
   footer: string = DEFAULT_EXPORT_FOOTER,
   /** The `<script>` block preceding `</body>` — the auto-print harness in a
-   *  browser, or `pdfReadyScript`'s readiness signal in the desktop shell.
-   *  Defaults to the auto-print harness so every pre-existing caller (tests
-   *  included) keeps today's byte-identical output without being touched. */
+   *  browser, or empty in the desktop shell (§468 review round 2: the
+   *  readiness signal there is `titleTag`, a static `<title>`, not a script —
+   *  see `pdf-export-protocol.ts`'s `pdfReadyTitleMarkup`). Defaults to the
+   *  auto-print harness so every pre-existing caller (tests included) keeps
+   *  today's byte-identical output without being touched. */
   closingScript: string = EXPORT_AUTO_PRINT_SCRIPT,
+  /** Overrides the whole `<title>` element. `document.title` resolves to the
+   *  FIRST `<title>` in tree order, so the desktop shell's readiness signal
+   *  must REPLACE this rather than appending a second one after it — see
+   *  `pdfReadyTitleMarkup`'s doc comment. Undefined (every pre-existing
+   *  caller) keeps the normal computed title, byte-identical to before this
+   *  parameter existed. */
+  titleTag?: string,
 ): string {
   const today = new Date().toISOString().slice(0, 10);
   const sections = buildExportSections(ws, cfg, lang);
   const sectionsHtml = sections.length === 0
     ? `<p style="color:#939598;font-style:italic">No sections to export.</p>`
     : sections.map(renderSectionHtml).join("\n");
+  const title = titleTag ?? `<title>AI PM Cockpit — ${htmlEscape(today)}</title>`;
 
   // ★★ lang comes from the ARGUMENT, never a hardcoded "en". Every member of
   // Lang ("en-US" | "en-GB" | "de") is already a valid BCP-47 tag. A German
@@ -134,7 +144,7 @@ export function buildPdfHtml(
 <html lang="${htmlEscape(lang)}">
 <head>
   <meta charset="utf-8"/>
-  <title>AI PM Cockpit — ${htmlEscape(today)}</title>
+  ${title}
   <style>${PRINT_STYLES}
   </style>
 </head>
@@ -166,15 +176,20 @@ function exportPdf(ws: Workspace, cfg: ExportConfig, lang: Lang, footer: string)
 
   // ★ §468 — in the desktop shell, Electron refuses the renderer's own
   // `window.print()` (see pdf-export-protocol.ts and desktop/src/lib/
-  // pdf-export.ts). There the tab opens under a NAMED frame, carries no
-  // auto-print script, and instead signals "rendered" via its `document.
-  // title` — main.ts watches the named frame, prints it to a real PDF and
-  // shows a save dialog. In a browser, name is `_blank` and the script is
-  // the unchanged auto-print harness — byte-identical to before this fix.
+  // pdf-export.ts). There the tab opens under a NAMED frame, carries NO
+  // script at all — an inline one would be blocked by the packaged app's
+  // nonce-only CSP anyway — and instead signals "rendered" via a static
+  // `<title>` element (`pdfReadyTitleMarkup`, replacing rather than
+  // appending after the normal title). main.ts watches the named frame,
+  // prints it to a real PDF and shows a save dialog. In a browser, name is
+  // `_blank` and the script is the unchanged auto-print harness — byte-
+  // identical to before this fix.
   const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
   const name = pdfWindowName(ua);
-  const script = name === "_blank" ? EXPORT_AUTO_PRINT_SCRIPT : pdfReadyScript(defaultFilename("pdf"));
-  const html = buildPdfHtml(ws, cfg, lang, footer, script);
+  const isDesktop = name !== "_blank";
+  const script = isDesktop ? "" : EXPORT_AUTO_PRINT_SCRIPT;
+  const titleTag = isDesktop ? pdfReadyTitleMarkup(defaultFilename("pdf")) : undefined;
+  const html = buildPdfHtml(ws, cfg, lang, footer, script, titleTag);
 
   // Open a new tab and write the HTML into it. Pop-up blockers may stop
   // this — in which case we fall back to a Blob download of the HTML so

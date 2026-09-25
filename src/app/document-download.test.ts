@@ -222,6 +222,24 @@ describe("withAutoPrint", () => {
   it("appends the script when there is no </body> to inject before", () => {
     expect(withAutoPrint("<p>fragment</p>")).toContain("window.print");
   });
+
+  // ★★★ §468 review I2 — pins the EXACT browser auto-print block byte for
+  // byte, not merely a `window.print()` substring. Copied by hand from the
+  // module's own `AUTO_PRINT_SCRIPT` const as it stood before the §468
+  // refactor into `withClosingScript`; a change to that literal, or to which
+  // script `withAutoPrint` now delegates to, must fail this test.
+  it("injects the exact pre-§468 auto-print script", () => {
+    const EXPECTED_AUTO_PRINT_SCRIPT = `<script>
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      try { window.focus(); window.print(); } catch (e) {}
+    }, 80);
+  });
+</script>`;
+    const out = withAutoPrint("<html><body><p>x</p></body></html>");
+    expect(out).toContain(EXPECTED_AUTO_PRINT_SCRIPT);
+    expect(out.indexOf(EXPECTED_AUTO_PRINT_SCRIPT)).toBeLessThan(out.lastIndexOf("</body>"));
+  });
 });
 
 describe("downloadDocument", () => {
@@ -289,8 +307,14 @@ describe("downloadDocument", () => {
       await downloadDocument(doc, "pdf", ws, "en-US");
 
       expect(open).toHaveBeenCalledWith("", PDF_EXPORT_FRAME_NAME);
-      expect(tab.html).toContain(PDF_READY_TITLE_PREFIX);
+      // §468 review round 2 — the signal is a static <title>, not a script:
+      // an inline <script> here would be blocked by the packaged app's
+      // nonce-only production CSP.
+      expect(tab.html).toContain(`<title>${PDF_READY_TITLE_PREFIX}`);
+      expect(tab.html).not.toContain("<script");
       expect(tab.html).not.toContain("window.print");
+      // Exactly one <title> — replaced, not appended after the document's own.
+      expect(tab.html.match(/<title>/g)).toHaveLength(1);
       expect(downloads()).toHaveLength(0);
     } finally {
       ua.mockRestore();

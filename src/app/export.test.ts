@@ -469,6 +469,33 @@ describe("buildPdfHtml — export footer", () => {
   });
 });
 
+// ★★★ §468 review I2 — the DEFAULT `closingScript` (what every pre-existing
+// caller gets, unchanged) must reproduce the browser auto-print block
+// EXACTLY, not merely "somewhere a substring `window.print()` shows up". This
+// literal is copied by hand from the script `buildPdfHtml` inlined directly
+// before the §468 branch existed — a change to either copy, or to which one
+// `buildPdfHtml` emits by default, must fail this test.
+const EXPECTED_BROWSER_AUTO_PRINT_SCRIPT = `  <script>
+    // Wait one paint so the browser has rendered the table before
+    // opening the print dialog; otherwise some browsers print blank.
+    window.addEventListener("load", () => {
+      setTimeout(() => {
+        // Best-effort: focus + print can throw if the popup was blocked or
+        // closed before this fires. Nothing to recover — the user can print
+        // manually — so the failure is intentionally swallowed.
+        try { window.focus(); window.print(); } catch (e) {}
+      }, 80);
+    });
+  </script>`;
+
+describe("buildPdfHtml — browser closing script is byte-identical (§468 review I2)", () => {
+  it("emits the exact pre-§468 auto-print block, placed before </body>, when no closingScript is passed", () => {
+    const html = buildPdfHtml(makeBaseWorkspace(), defaultExportConfig, "en-US");
+    expect(html).toContain(EXPECTED_BROWSER_AUTO_PRINT_SCRIPT);
+    expect(html.indexOf(EXPECTED_BROWSER_AUTO_PRINT_SCRIPT)).toBeLessThan(html.lastIndexOf("</body>"));
+  });
+});
+
 // ★★★ §468 — in the desktop shell, `window.print()` is refused, so the PDF
 // export tab must open under the named frame and carry the READY signal
 // (never the auto-print script) there; in a browser it must stay exactly as
@@ -524,7 +551,13 @@ describe("exportWorkspace — pdf window target (§468)", () => {
     await exportWorkspace(makeBaseWorkspace(), "pdf", defaultExportConfig, "en-US");
 
     expect(open).toHaveBeenCalledWith("", PDF_EXPORT_FRAME_NAME);
-    expect(tab.html).toContain(PDF_READY_TITLE_PREFIX);
+    // §468 review round 2 — the signal is a static <title>, not a script: an
+    // inline <script> here would be blocked by the packaged app's nonce-only
+    // production CSP.
+    expect(tab.html).toContain(`<title>${PDF_READY_TITLE_PREFIX}`);
+    expect(tab.html).not.toContain("<script");
     expect(tab.html).not.toContain("window.print");
+    // Exactly one <title> — replaced, not appended after the normal one.
+    expect(tab.html.match(/<title>/g)).toHaveLength(1);
   });
 });

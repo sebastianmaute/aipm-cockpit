@@ -36223,30 +36223,47 @@ admit-nothing) were KILLED; see the spec's closing note for the full table. Ever
 probe-shape or product-decision question that this harness's typed probes cannot resolve by
 themselves, never a green result to cite as coverage.
 
-## 468. PDF export opens a window that never prints in the desktop app — CLOSED 2026-09-25
+## 468. PDF export opens a window that never prints in the desktop app — OPEN
 
-**Status:** CLOSED 2026-09-25 on `fix/defect-batch-6`. Both PDF-export renderer paths now route through a
-main-process save dialog instead of a renderer `window.print()`. `pdfWindowName` (new
-`src/app/pdf-export-protocol.ts`) tells `export.ts`'s `exportPdf` and `document-download.ts`'s
-`downloadDocument` whether they are running in the desktop shell; there, the print tab opens under the
-named frame `PDF_EXPORT_FRAME_NAME` and carries no auto-print script at all — only `pdfReadyScript`'s
-readiness signal, set via `document.title` once the page has laid out. `desktop/src/main.ts` renders that
-named frame hidden (`overrideBrowserWindowOptions: { show: false }`, gated on `isPdfExportFrame` so no
-other `about:blank`/same-origin open is affected), watches for the ready title on `page-title-updated`
-(`pdfFilenameFromTitle`, both in the new `desktop/src/lib/pdf-export.ts`), calls `webContents.printToPDF`,
-offers the result through `dialog.showSaveDialog` with the sanitized suggested filename, writes the bytes
-on confirm, and always closes the hidden window afterward. In a browser, `pdfWindowName` still returns
-`_blank` and the original auto-print script (`EXPORT_AUTO_PRINT_SCRIPT` / `AUTO_PRINT_SCRIPT`) is
-unchanged and still runs, unpinned by this fix; the pre-existing `export.test.ts` / `export-ooxml.test.ts`
-suites pass with no edits, which is the byte-for-byte proof. Pinned by `desktop/src/lib/pdf-export.test.ts`,
-`src/app/pdf-export-protocol.test.ts`, and new desktop-UA cases in `src/app/export.test.ts` and
-`src/app/document-download.test.ts` asserting the named frame, the ready-title signal, and the absence of
-`window.print`. `main.ts`'s own wiring sits outside the blocking root typecheck and outside vitest
-coverage (only the pure `pdf-export.ts` lib is tested) — **OWED: a manual packaged-desktop PDF export
-check** (project export and document export, expect a save dialog with the suggested name and a valid
-PDF on disk; Cancel writes nothing), not run this round because `desktop/node_modules` is not installed in
-this worktree. The OPEN-era witnesses below are kept as the record of what was found; this Status
-supersedes any of them the branch made false.
+**Status:** FIX LANDED 2026-09-25 on `fix/defect-batch-6`, UNVERIFIED in the packaged app — OWED: manual
+desktop PDF check (project export plus document export; save dialog shows the suggested name; saved file
+opens as a PDF; Cancel writes nothing; main.ts has not been compiled against Electron types or run). Both
+PDF-export renderer paths now route through a main-process save dialog instead of a renderer
+`window.print()`. `pdfWindowName` (new `src/app/pdf-export-protocol.ts`) tells `export.ts`'s `exportPdf`
+and `document-download.ts`'s `downloadDocument` whether they are running in the desktop shell; there, the
+print tab opens under the named frame `PDF_EXPORT_FRAME_NAME` and carries no script at all. ★ The readiness
+signal is a STATIC `<title>` element (`pdfReadyTitleMarkup`, replacing the page's own title rather than
+appending after it), not a script, because the tab is `document.write`n into an `about:blank` child that
+inherits the packaged app's nonce-only production CSP (`src/proxy.ts`) — an inline `<script>` there has no
+nonce and would be blocked outright, so a script-based signal (this fix's first draft) would very likely
+never have fired; a `<title>` element needs no script permission and reaches main purely from parsing.
+`desktop/src/main.ts` renders that named frame hidden (`overrideBrowserWindowOptions: { show: false }`,
+gated on `isPdfExportFrame` so no other `about:blank`/same-origin open is affected), watches for the ready
+title on `page-title-updated` (`pdfFilenameFromTitle`, both in the new `desktop/src/lib/pdf-export.ts`),
+then polls `document.readyState` via `executeJavaScript` (a privileged call, also unaffected by the page's
+CSP) until `isDocumentReadyState` reports "complete" — the title sits early in `<head>` and can arrive well
+before the rest of the page has rendered — bounded by the same `PDF_EXPORT_TIMEOUT_MS` (60s) that also
+force-closes the window and shows a `dialog.showErrorBox` if the ready title never arrives at all. Once
+ready, it sets a clean PDF-metadata title, calls `webContents.printToPDF`, offers the result through
+`dialog.showSaveDialog` with the sanitized suggested filename (path separators, Windows-reserved
+punctuation and device names, trailing dots/spaces stripped; length-capped), writes the bytes on confirm —
+showing an error box rather than failing silently if printToPDF/the dialog/the write throws — and always
+closes the hidden window afterward. In a browser, `pdfWindowName` still returns `_blank` and the original
+auto-print script (`EXPORT_AUTO_PRINT_SCRIPT` / `AUTO_PRINT_SCRIPT`) runs exactly as before — pinned
+byte-for-byte by `toBe`/`toContain`-on-the-full-block assertions in `export.test.ts` and
+`document-download.test.ts` (mutation-checked: a one-character change to either script fails the pin), not
+merely by the pre-existing suites continuing to pass. Pinned by `desktop/src/lib/pdf-export.test.ts`,
+`src/app/pdf-export-protocol.test.ts`, and desktop-UA cases in `src/app/export.test.ts` and
+`src/app/document-download.test.ts` asserting the named frame, the `<title>`-only ready signal (never a
+`<script>`), and the absence of `window.print`. `main.ts`'s own wiring sits outside the blocking root
+typecheck and outside vitest coverage (only the pure `pdf-export.ts` lib is tested), and
+`desktop/node_modules` is not installed in this worktree, so none of that has been compiled or run against
+real Electron types. This entry stays OPEN, and its Work item stays attached, until the manual check below
+records a real result — closing on landed-but-unrun code would detach the GitHub issue while the owed
+check is still outstanding. The OPEN-era witnesses below are kept as the record of what was found before
+this fix; read them as history, not as current status.
+
+**Work item:** #297
 
 ★ §467 is absent from this register on purpose — it was minted on a peer session's branch (MR !473), not
 lost here.
@@ -36277,9 +36294,10 @@ NOT OBSERVED, like everything else under this Status line: it needs the export t
 BrowserWindow that receives the application menu's accelerator, which the code supports and no run has
 confirmed. Do not restate it as fact — an earlier revision of this paragraph did.
 
-Fixed as described in the Status line above: a main-process route via `webContents.printToPDF` plus a
+Fix landed as described in the Status line above: a main-process route via `webContents.printToPDF` plus a
 save dialog, keeping the on-screen-tab shape for both surfaces (the tab is simply hidden in the desktop
-shell rather than removed) rather than replacing it with something else. Size M.
+shell rather than removed) rather than replacing it with something else. Still OPEN pending the manual
+packaged-app run. Size M.
 
 ## 469. `SnapshotRecord.currency` is written on every capture and read by nothing — CLOSED 2026-09-16
 
