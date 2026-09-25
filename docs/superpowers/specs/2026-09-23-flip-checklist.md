@@ -252,6 +252,10 @@ The order matters — do not reorder these steps.
     ```
     The branch-policy `v*` entry likely already exists from the earlier attempt, so that `POST` may
     answer "already exists" — harmless; only the `reviewers` field is new here.
+  - Dependabot, held while private (each PR spends Actions minutes): delete the three
+    `open-pull-requests-limit: 0` lines and the "HELD" comment from `.github/dependabot.yml`, and
+    the matching ★★ sentence in `docs/AGENTS/ci.md`, in a PR; then turn security updates back on:
+    `gh api -X PUT repos/sebastianmaute/aipm-cockpit/automated-security-fixes`.
   - Verify each: `gh api repos/sebastianmaute/aipm-cockpit --jq .security_and_analysis`,
     `gh api repos/sebastianmaute/aipm-cockpit/code-scanning/default-setup --jq .state`,
     `gh api repos/sebastianmaute/aipm-cockpit/private-vulnerability-reporting --jq .enabled`, and
