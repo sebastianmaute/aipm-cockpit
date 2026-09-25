@@ -8,6 +8,25 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.14.0-rc.1] - 2026-09-25 "Deaver"
+
+A release pipeline rehearsal. Not for use: this prerelease exists to prove the new GitHub release
+workflow end to end, and the desktop auto-updater never offers a prerelease.
+
+### Added
+
+- **Desktop releases are built and published by GitHub Actions.** A `v*` tag on a commit in
+  `main` runs `.github/workflows/release.yml`, which checks the tag against the app version,
+  builds the Windows installer on `windows-latest`, verifies it and publishes a GitHub Release.
+- **The desktop app can update itself.** It checks GitHub Releases 10 seconds after start and from
+  Help → "Check for updates…", asks before downloading and asks again before restarting. Skipping
+  a version, prereleases and downgrades are off.
+- **`SECURITY.md`** says how to report a vulnerability.
+
+### Removed
+
+- The GitLab release pipeline (`.gitlab-ci.yml`) and its publisher script.
+
 ## [1.13.2] - 2026-09-22 "Connelly"
 
 A sanitising patch that prepares the repository for a public home. The built-in defaults that

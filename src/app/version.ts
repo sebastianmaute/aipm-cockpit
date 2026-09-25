@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "1.13.2";
-export const APP_BUILD_DATE = "2026-09-22"; // 1.13.2: a sanitising patch — no built-in AI-usage policy (build variables or Settings), a neutral export footer with a build-variable override, an empty Timelog tenant a build variable can fill, a new desktop app identity, Releases links on GitHub, fictional sample data, and a leak check that keeps internal identifiers out of the tree (Connelly)
+export const APP_VERSION = "1.14.0-rc.1";
+export const APP_BUILD_DATE = "2026-09-25"; // 1.14.0-rc.1: a release pipeline rehearsal, not for use — the first build published by the GitHub Actions release workflow, as a prerelease that the desktop auto-updater ignores; it also ships ask-then-install auto-update from GitHub Releases (Deaver)
+// 1.13.2: a sanitising patch — no built-in AI-usage policy (build variables or Settings), a neutral export footer with a build-variable override, an empty Timelog tenant a build variable can fill, a new desktop app identity, Releases links on GitHub, fictional sample data, and a leak check that keeps internal identifiers out of the tree (Connelly)
 // 1.12.7: a backlog-sweep patch — the TimeLog cap threshold field accepts a fractional value (§365); Enter-submitting the stakeholder editor caps and trims its text fields the same way blur does (§541); a calendar event's date fields no longer accept a day past its month's end and roll it over (§542) — new and edited dates are refused, while a stored one is kept, reported and still renders rolled over; a calendar-invalid TimeLog day such as 2026-02-30 no longer lands in a real month by one reading and a different real ISO week by another (§544); diagnostics redaction now catches an opaque token that mixes case and a digit with no vendor prefix (§564); clearing a stored secret now removes it instead of resealing an empty string, at four sites across three files — jira-settings.tsx, timelog-settings.tsx and two Turso paths in integrations-section.tsx (§565); the Jira proxy no longer logs the raw fetch-rejection object server-side (§566); the chart readout's spoken tip no longer reads as a capitalised word mid-sentence (§570); the chart-box clamp now fires at exactly its boundary width (§571); an FX rates snapshot now round-trips through JSON byte-stable (§576); §391 is closed as a record, correcting a stale review-card comment about which staged tools the descriptor engine cannot diff; the assistant's review card shows a recurring meeting's end the way an update saves it when a stored end date that is not a real calendar day is re-sent with a repeat count (§605); diagnostics redaction catches a base64-shaped secret containing a `+`, or a `/`-split one ending in `=` padding (§606); and the Timelog and ECB proxies no longer log a raw error object server-side either (§607) (Child)
 // 1.12.5: a deep-link patch — a link to a specific item now opens that item's view and keeps its id in the address bar, where a fresh page load could land on the Dashboard and drop the id (§535); a repeated link to the person whose editor is already open no longer resets what you have typed into it (§540); and a leftover view-only address is no longer judged against the default set of modules before your settings have loaded, so a link to a module you have switched off is decided once, against the modules you actually have (§595) — switching from the classic layout to modern mid-session still applies the stale-address rule to an address left over from classic, filed open as follow-up 536 (Child)
 // 1.12.4: an edit made while a project is still loading, or while it is being swapped, can no longer be lost — the main window shows a loading screen for the whole load, every load now ends (a hung settings load, a SharePoint file that stops responding, and a database upgrade blocked by an older tab all fail instead of hanging), and calendar sync, insight recommendations and undo stay off until the project is in place (§548); changing the Turso URL or token, or the SharePoint file, now replaces the activity log and budget history of the project you left instead of merging them into the new target (§591); on Turso storage the URL and token are applied with an explicit Apply button — in passphrase mode Apply and "Save & switch" first check the passphrase you type against the stored one — and the SharePoint file URL is applied the same way instead of on leaving the field; a calendar or AI request still in flight when you switch project no longer writes its result into the project you switched to; the budget variance insight compares hours booked up to today against the budget up to today (§577); and the screenshot comparison tests no longer drift with the calendar (§573) (Child)
@@ -57,7 +58,14 @@ export const APP_BUILD_DATE = "2026-09-22"; // 1.13.2: a sanitising patch — no
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
 /** Minor-series milestone codename (an author's surname). The
- *  1.13.x line is "Connelly" (Michael Connelly, American crime novelist, author
+ *  1.14.x line is "Deaver" (Jeffery Deaver, American crime novelist, author
+ *  of "The Bone Collector", 1997), taken by the SELECTION procedure below as
+ *  the first name in the candidate list. Swept BEFORE the 1.14.0-rc.1 header
+ *  was written, in one run with its controls: `grep -ciw deaver CHANGELOG.md`
+ *  0, `grep -ci '"deaver"' CHANGELOG.md` 0, `git log --all --format=%s | grep
+ *  -ciw deaver` 0 and 0 files in `src`; positive control `connelly` 3/3/3,
+ *  negative control `zzznotaname` 0 in CHANGELOG.md and commit subjects.
+ *  The 1.13.x line was "Connelly" (Michael Connelly, American crime novelist, author
  *  of "The Black Echo", 1992, and "The Lincoln Lawyer", 2005), taken by the
  *  SELECTION procedure below as the first name in the candidate list. Swept
  *  BEFORE the 1.13.0 header was written, in one run with its controls:
@@ -420,7 +428,7 @@ export const APP_BUILD_DATE = "2026-09-22"; // 1.13.2: a sanitising patch — no
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Connelly";
+export const APP_MILESTONE = "Deaver";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 /** The app's public source repository, linked from the Version panel. */
