@@ -778,7 +778,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§535](#535-a-cold-item-deep-link-to-a-non-default-view-ends-on-the-dashboard-under-strictmode-and-loses-its-item-id-outside-it--closed-2026-09-20) | A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — CLOSED 2026-09-20 | found 2026-09-14 while fixing §478 on `fix/ui-a11y-batch` | S — let the cold apply's view commit before the view→hash write, and pin `#raid/123` with and without StrictMode | **CLOSED** 2026-09-20 |
 | [§536](#536-a-mid-session-switch-from-classic-to-modern-layout-still-applies-the-cold-hash-rule-to-a-hash-left-stale-during-classic--open) | A mid-session switch from classic to modern layout still applies the cold hash rule to a hash left stale during classic — OPEN | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478); page-load half fixed and mechanism refuted 2026-09-20, mid-session-switch half reopened same day | S–M — give the hook a signal that distinguishes a mid-session enable following a classic stretch from a genuine cold start | open |
 | [§537](#537-project-contact-persons-have-no-ids--open) | Project contact persons have no ids — OPEN | filed 2026-09-14 while specifying the email-guard batch (spec Part 7); user decision: stay id-less for that batch, follow up later; GitLab #327 | M — a storage-format change to the `contactPersons` cell across CSV/Markdown/Turso-tenant, decoder back-compat, and 13 non-test call sites | open |
-| [§538](#538-single-db-turso-never-persists-project-meta--open) | Single-DB Turso never persists project meta — OPEN | found 2026-09-14 while filing §537; GitLab #328 | M — a single-tenant project meta row/table (or reuse of the tenant `projects` table), `dirtyWorkspaceTables` taught about project-only edits, and a `turso-migrate.ts` self-heal entry | open |
+| [§538](#538-single-db-turso-never-persists-project-meta--closed-2026-09-25) | Single-DB Turso never persists project meta — CLOSED 2026-09-25 | found 2026-09-14 while filing §537; GitLab #328 | M — a single-tenant `project_meta` meta row, `dirtyWorkspaceTables` taught about project-only edits, and `handleUpdateCurrentProjectByMode`'s no-config no-op fixed | **CLOSED** 2026-09-25 |
 | [§539](#539-sanitizeisodate-accepts-dates-that-are-not-real-calendar-dates--closed-2026-09-14) | `sanitizeIsoDate` accepts dates that are not real calendar dates — CLOSED 2026-09-14 | reported 2026-09-14 by a peer session's §273 work; user approved "file and fix" in the email-guard batch; GitLab #329 | S — a month/day calendar check in one function plus test migration across ~30 referencing files | **CLOSED** 2026-09-14 |
 | [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--closed-2026-09-20) | A repeated resource deep link re-runs the open while that resource's editor is open — CLOSED 2026-09-20 | found 2026-09-14 by the fix-round reviews of §362 on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | **CLOSED** 2026-09-20 |
 | [§541](#541-the-stakeholder-editor-saves-its-text-fields-uncapped-when-submitted-with-enter--closed-2026-09-21) | The stakeholder editor saves its text fields uncapped when submitted with Enter — CLOSED 2026-09-21 | found 2026-09-14 by the email-guard batch's Task 3 review; user approved filing; GitLab #331 | S — cap each field in `handleSubmit` before `onSave`, or sanitise in `handleSaveStakeholder` | closed |
@@ -38437,103 +38437,53 @@ grep -rln "contactPersons\|ContactPerson" src --include=*.ts --include=*.tsx | w
 Related: §533 (delimiter-unsafe splitting on the sibling id-less-cell class, `resource.emails`); the
 email-guard batch spec's Part 7 ("Records reached — settled matrix").
 
-## 538. Single-DB Turso never persists project meta — OPEN
+## 538. Single-DB Turso never persists project meta — CLOSED 2026-09-25
 
-**Status:** open 2026-09-14 — found while filing §537 (user chose "file now, fix later"). Verified
-2026-09-14 by reading `dirtyWorkspaceTables`/`workspaceToStatements` (`src/app/turso-schema.ts`),
-`TursoBackend.loadSingleTenant`/`loadTenant` (`src/app/turso-backend.ts`), `createBackend`
-(`src/app/storage.ts`), `handleUpdateCurrentProjectByMode` (`src/app/use-turso-projects.ts`) and the
-`useVersionHistory` comment (`src/app/task-manager.tsx`), and by grepping every consumer listed below
-for a field it reads off `ws.project`. Never machine-verified against a live Turso database — read,
-not reproduced; whether the edit path is even reachable via the Projects panel in single-DB Turso
-storage is unconfirmed.
+**Status:** CLOSED 2026-09-25 by `fix/defect-batch-6` (task 3 of a six-defect batch). Implements fix
+option (a) below: single-tenant `workspaceToStatements` now writes `ws.project` as a `project_meta`
+JSON row in `meta` (right after `project_status`, only when `ws.project` is set), `rowsToWorkspace`
+reads it back on load, and `dirtyWorkspaceTables` marks `meta` dirty on a project-only edit. The
+tenant path is unchanged: `tenantWorkspaceToStatements` never writes `project_meta`, and `loadTenant`
+still overwrites `ws.project` from the `projects` table afterwards. The secondary no-config bug is
+also fixed: `handleUpdateCurrentProjectByMode` now routes a missing `tursoProjectId` to
+`updateCurrentFileProject` (the single-DB backend's save is now the whole write) instead of no-op'ing,
+and a present `tursoProjectId` with no ready config toasts `projectUpdateFailed`/`storageNotReady`
+instead of doing nothing.
 
 **Work item:** #328
 
-**The problem.** `workspaceToStatements` (`src/app/turso-schema.ts`) never references `ws.project`,
-and `dirtyWorkspaceTables`'s own docstring says so explicitly: `ws.project` is "DELIBERATELY excluded:
-save() never persists it in either mode — the tenant projects row is written only via
-turso-portfolio.ts's upsert path." That upsert path (`upsertProjectStatement`,
-`src/app/turso-tenant-schema.ts`, called from `turso-portfolio.ts`) is reachable only through the
-multi-project Turso picker. `TursoBackend.loadSingleTenant` (`src/app/turso-backend.ts`) returns a
-`Workspace` built with no `project` field at all — contrast `loadTenant`, which reads the tenant's
-`projects` row via `selectProjectStatement`/`rowsToProjectList` and folds its `meta` in. Single-DB
-Turso storage — `TursoBackend` opened with no `tursoProjectId`, which `createBackend`
-(`src/app/storage.ts`) falls back to whenever `tursoProjectId` is null or empty — is a configuration
-the app deliberately supports: a `task-manager.tsx` comment near `useVersionHistory` calls it out by
-name and notes that `trendsActive` and `workspace-section.tsx`'s `chatTursoMode` both already OR two
-signals to handle it. Nothing in that configuration writes `ws.project` anywhere.
+**Verified by:** `turso-schema.execute.test.ts` (a real `node:sqlite` engine round trip — save via
+`workspaceToStatements`, read back via a real SELECT + `rowsToWorkspace` — restores `ws.project`; an
+older DB with no `project_meta` row loads with `ws.project` undefined and no diag entry), plus a
+mutation check (deleting the read block turned both new tests red with the expected "expected X to
+equal undefined"-shaped failures; restored). `turso-schema.test.ts` pins `dirtyWorkspaceTables`
+flagging `meta` on a project-only edit and an unreadable `project_meta` row being reported via
+`turso.metaSliceUnreadable`/`diag.decodeFailedSlices` while the load still succeeds.
+`use-turso-projects.test.ts` pins the no-`tursoProjectId` case routing to the file callback and the
+present-id/no-config case toasting instead of no-op'ing. Tenant-mode coverage
+(`turso-schema.execute.test.ts`'s multi-tenant suite, `turso-backend.tenant.test.ts`) is unchanged and
+still green — confirming the tenant builder still never writes `project_meta`.
 
-**Use-case consequences (reload, single-DB Turso storage) — verified each consumer actually reads the
-named field off `ws.project`:**
-- Project name is lost: `use-action-center-handlers.ts`, `use-ai-orchestration.ts`,
-  `use-insight-recommendations.ts` and `use-project-switch.ts` all read `project?.name`.
-- `project.code` is lost: `use-timelog-picker-scope.ts`'s `projectCustomerName`/`projectKey` derivation
-  and `use-calendar-integrations.ts`'s `calendarProjectId` fallback both read `project?.code`;
-  `timelog-panel.tsx` passes `ws.project?.code` into the picker.
-- `customer` and `startDate` are lost: `timelog-panel.tsx` reads `ws.project?.customer` and
-  `ws.project?.startDate` to seed the Time-bookings picker.
-- `operatingTimezone` is lost: `use-bulk-operations.ts`, `workspace-section.tsx` and
-  `task-manager.tsx` all resolve the effective timezone via `resolveTimezone(settings.timezone,
-  project?.operatingTimezone)`.
-- `contactPersons` is lost (compounds §537 — even once contact persons gain ids, single-DB Turso
-  still would not persist them).
-- Project `knowledgeLinks` are lost: `knowledge-panel.tsx`'s `setDocsForSource` writes them via
-  `ws.setProject((p) => ...)`, the same never-persisted field.
-- The next-actions `project-meta` provider (`src/app/next-actions/providers/project-meta.ts`) silently
-  has nothing to work with — it takes `projectMeta` as an input and returns `[]` when absent, so a
-  reload in single-DB Turso storage quietly turns off every action it would otherwise raise, with no
-  distinct symptom of its own.
+**What was true before this fix (kept for context — the docstring quoted below no longer matches the
+code).** `workspaceToStatements` never referenced `ws.project`, and `dirtyWorkspaceTables`'s own
+docstring said so explicitly: `ws.project` was "DELIBERATELY excluded: save() never persists it in
+either mode — the tenant projects row is written only via turso-portfolio.ts's upsert path."
+`TursoBackend.loadSingleTenant` returned a `Workspace` built with no `project` field at all, so every
+reload of single-DB Turso storage lost the project's name, code, customer, dates, timezone, contact
+persons and knowledge links, and the next-actions `project-meta` provider silently produced no
+actions (it takes `projectMeta` as an input and returns `[]` when absent). Separately,
+`handleUpdateCurrentProjectByMode`'s `if (cfg && tursoProjectId)` guard being false skipped the whole
+`if` body — including the in-memory `setProject(meta)` — so the no-config edit path did nothing at
+all, not even in memory.
 
-**Why it is silent.** `handleUpdateCurrentProjectByMode` (`src/app/use-turso-projects.ts`) only
-reports failure from inside its `tursoUpdateMeta` `catch` block (an error toast). When
-`portfolioMode === "turso"` and `cfg && tursoProjectId`, it awaits `tursoUpdateMeta`, calls
-`setProject(meta)`, and refreshes the list — success or a caught failure, either way something is
-shown. In FILE portfolio mode the same handler calls `updateCurrentFileProject`, which is
-`handleUpdateCurrentProject` in `task-manager.tsx` — a bare `setProject(meta)` whose own comment
-assumes "the existing save effect persists the workspace (which carries `project`)". For single-DB
-Turso storage that assumption is false: `setProject` updates in-memory state, the save effect runs,
-and `workspaceToStatements` silently drops the field on the way to the database. Nothing distinguishes
-this from a successful save — no toast, no diagnostic entry, no guard-transparency signal.
-
-**Secondary: the no-config edit path.** In `portfolioMode === "turso"` with `cfg` present but
-`tursoProjectId` falsy, `handleUpdateCurrentProjectByMode`'s `if (cfg && tursoProjectId)` guard is
-false and the whole `if` body — including `setProject(meta)` — is skipped: the edit does nothing at
-all, not even in memory. Read, not reproduced; whether a user can reach the project-edit UI in that
-state via the Projects panel is unconfirmed.
-
-**Fix options, deliberately left open:**
-- (a) A single-tenant `project` meta row/table in the single-DB schema, written by `save()` like any
-  other table. Needs `dirtyWorkspaceTables` to learn about project-only edits (today it is keyed off
-  entity tables; a project-only edit currently touches nothing `dirtyWorkspaceTables` tracks, so it
-  would need its own dirty signal or the existing "always include on any save" fallback), a
-  `turso-migrate.ts` self-heal entry for existing single-DB databases (same PRAGMA-diff/`ALTER ADD
-  COLUMN`-or-`CREATE TABLE` pattern used for column additions), and — per the "new persisted
-  `Workspace` field" hard constraint in `AGENTS.md` — a check of all six write paths even though this
-  is an existing field gaining a new backend, not a new field.
-- (b) Reuse the tenant `projects` table under a fixed synthetic id for single-DB mode, so
-  `loadSingleTenant`/save share code with `loadTenant`/`upsertProjectStatement` instead of duplicating
-  schema. Cheaper on schema, but couples the single-DB path to multi-tenant plumbing it currently has
-  no dependency on.
-- (c) Accept and document: state in `AGENTS.md`'s single-DB Turso bullet that project meta (name,
-  code, customer, dates, timezone, contact persons, knowledge links) does not survive a reload in that
-  configuration, and point users at multi-project Turso storage or file/CSV/Markdown storage instead.
-
-Related: §537 (contact persons have no ids — this entry is why even an id-ful `contactPersons` would
-still not persist in single-DB Turso storage).
+Related: §537 (contact persons have no ids — now that single-DB Turso persists `ws.project`, an
+id-ful `contactPersons` array will actually survive a reload there too, once §537 is fixed).
 
 **Reproduce / verify:**
 ```bash
-grep -n "DELIBERATELY excluded" src/app/turso-schema.ts                       # dirtyWorkspaceTables docstring
-grep -n "function workspaceToStatements" -A 3 src/app/turso-schema.ts         # never touches ws.project
-grep -n "loadSingleTenant\|loadTenant" src/app/turso-backend.ts               # single-DB path builds no project field
-grep -n "tursoProjectId" src/app/storage.ts                                   # createBackend's fallback to single-DB
-grep -n "portfolioMode === \"turso\"" -A 15 src/app/use-turso-projects.ts     # handleUpdateCurrentProjectByMode
-grep -n "deliberately supports" src/app/task-manager.tsx                      # useVersionHistory comment
-grep -rn "project?\.name\|project?\.code\|project?\.customer\|project?\.startDate\|project?\.operatingTimezone" \
-  src/app/use-action-center-handlers.ts src/app/use-ai-orchestration.ts src/app/use-insight-recommendations.ts \
-  src/app/use-project-switch.ts src/app/use-timelog-picker-scope.ts src/app/use-calendar-integrations.ts \
-  src/app/timelog-panel.tsx src/app/use-bulk-operations.ts src/app/workspace-section.tsx src/app/task-manager.tsx
+npx vitest run src/app/turso-schema.execute.test.ts -t "§538"   # real-engine round trip + missing-row case
+npx vitest run src/app/turso-schema.test.ts -t "§538"           # dirty-tracking + unreadable-row case
+npx vitest run src/app/use-turso-projects.test.ts -t "§538"     # no-tursoProjectId / no-config paths
 ```
 
 ## 539. sanitizeIsoDate accepts dates that are not real calendar dates — CLOSED 2026-09-14

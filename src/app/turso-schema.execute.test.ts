@@ -28,11 +28,14 @@
 import { describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
 import {
-  ENTITY_SPECS, SCHEMA_DDL, workspaceToStatements,
-  type EntitySpec, type SqlStmt,
+  ENTITY_SPECS, SCHEMA_DDL, selectStatements, workspaceToStatements, rowsToWorkspace,
+  type EntitySpec, type SqlStmt, type PipelineResultLike,
 } from "./turso-schema";
 import { tenantSchemaDdl, tenantWorkspaceToStatements } from "./turso-tenant-schema";
 import { emptyWorkspace, type Workspace } from "./workspace";
+import { sanitizeProjectMeta } from "./sanitize";
+import type { DocTruncationDiag } from "./document-model";
+import type { ProjectMeta } from "./types";
 
 const PROJECT_ID = "proj-exec-1";
 
@@ -136,6 +139,34 @@ function runStatements(db: DatabaseSync, statements: readonly SqlStmt[]): void {
       continue;
     }
     db.prepare(s.sql).run(...s.args.map(bindArg));
+  }
+}
+
+/** The real engine's SELECT result, in the `PipelineResultLike` shape
+ *  `rowsToWorkspace` expects — `.all()` already returns row objects, so this
+ *  is a straight column-name pivot, not a re-decode. */
+function selectAllResults(db: DatabaseSync): PipelineResultLike[] {
+  return selectStatements().map((s) => {
+    const rows = db.prepare(s.sql).all() as Record<string, unknown>[];
+    const cols = rows.length ? Object.keys(rows[0]).map((name) => ({ name })) : [];
+    return {
+      type: "ok",
+      response: { type: "execute", result: { cols, rows: rows.map((r) => cols.map((c) => ({ value: r[c.name] }))) } },
+    };
+  });
+}
+
+/** §538 — a full save→load cycle through the REAL engine: `workspaceToStatements`
+ *  writes into a real single-tenant DB, then a real SELECT per `TABLE_NAMES`
+ *  feeds `rowsToWorkspace` — no string-matching on the generated SQL. */
+function roundTrip(ws: Workspace, diag?: DocTruncationDiag): Workspace {
+  const db = new DatabaseSync(":memory:");
+  try {
+    for (const ddl of SCHEMA_DDL) db.exec(ddl);
+    runStatements(db, workspaceToStatements(ws));
+    return rowsToWorkspace(selectAllResults(db), diag);
+  } finally {
+    db.close();
   }
 }
 
@@ -298,5 +329,20 @@ describe("turso schema id kinds", () => {
     } finally {
       db.close();
     }
+  });
+});
+
+describe("turso schema §538 project meta (single-tenant)", () => {
+  it("round-trips ws.project through the single-tenant meta table (§538)", () => {
+    const ws = { ...emptyWorkspace(), project: sanitizeProjectMeta({ name: "Apollo", description: "d" }) as ProjectMeta };
+    const back = roundTrip(ws);
+    expect(back.project).toEqual(sanitizeProjectMeta(ws.project));
+  });
+
+  it("loads an older DB with no project_meta row as project undefined, with no diag entry (§538)", () => {
+    const diag: DocTruncationDiag = {};
+    const back = roundTrip({ ...emptyWorkspace(), project: undefined }, diag);
+    expect(back.project).toBeUndefined();
+    expect(diag.decodeFailedSlices ?? []).not.toContain("project_meta");
   });
 });

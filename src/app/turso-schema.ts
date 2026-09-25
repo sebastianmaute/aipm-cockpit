@@ -27,7 +27,7 @@ import { sanitizeFeatures } from "./feature-modules";
 import {
   sanitizeResource, sanitizeRole, sanitizeLoadedBudgetBucket, sanitizeDiscipline,
   sanitizeGrade, sanitizeLoadedAbsence, sanitizeShift, sanitizeLoadedFxRates, sanitizePlan,
-  sanitizeSteeringCommittee,
+  sanitizeSteeringCommittee, sanitizeProjectMeta,
 } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems } from "./document-link";
@@ -212,6 +212,21 @@ export function rowsToWorkspace(
       reportUnreadableSlice("project_status", err);
     }
   }
+  // §538 — single-tenant is the ONLY Turso layout with no projects row, so
+  // project meta rides the meta table here; `rowsToWorkspace` reads
+  // `project_meta` for single-tenant DBs only (see the NOTE above
+  // `loadTenant` in turso-backend.ts — the tenant path overwrites `ws.project`
+  // from the projects row afterwards, and the tenant builder never writes
+  // `project_meta`, so tenant behaviour is unchanged).
+  const pmRow = rowObjects(byTable.get("meta")).find((r) => r.key === "project_meta");
+  if (pmRow?.value) {
+    try {
+      const pm = sanitizeProjectMeta(JSON.parse(pmRow.value));
+      if (pm) ws.project = pm;
+    } catch (err) {
+      reportUnreadableSlice("project_meta", err);
+    }
+  }
   const fvRow = rowObjects(byTable.get("meta")).find((r) => r.key === "field_visibility");
   if (fvRow?.value) {
     try {
@@ -357,10 +372,10 @@ function insertStmt(table: string, columns: readonly string[], values: string[],
  * to its Turso table name (singletons: plan → plan, fxRates → fx_rates,
  * status → meta).
  *
- * `ws.project` is DELIBERATELY excluded: save() never persists it in either
- * mode — the tenant projects row is written only via turso-portfolio.ts's
- * upsert path. If project persistence is ever added to a builder, this diff
- * must learn about it or project-only edits would be silently skipped.
+ * `ws.project` dirties `meta`: single-tenant saves it as the `project_meta`
+ * row (§538). The tenant builder ignores it (the projects row is written via
+ * turso-portfolio.ts), so there the flag costs one meta rewrite and nothing
+ * else.
  */
 export function dirtyWorkspaceTables(prev: Workspace, next: Workspace): Set<string> {
   const dirty = new Set<string>();
@@ -370,6 +385,7 @@ export function dirtyWorkspaceTables(prev: Workspace, next: Workspace): Set<stri
   if (prev.plan !== next.plan) dirty.add("plan");
   if (prev.fxRates !== next.fxRates) dirty.add("fx_rates");
   if (prev.status !== next.status) dirty.add("meta");
+  if (prev.project !== next.project) dirty.add("meta");
   if (prev.fieldVisibility !== next.fieldVisibility) dirty.add("meta");
   if (prev.features !== next.features) dirty.add("meta");
   if (prev.steeringCommittee !== next.steeringCommittee) dirty.add("meta");
@@ -424,6 +440,19 @@ export function workspaceToStatements(ws: Workspace, dirtyTables?: ReadonlySet<s
         { type: "text", value: JSON.stringify(ws.status ?? {}) },
       ],
     });
+    // §538 — single-tenant is the ONLY Turso layout with no projects row, so
+    // project meta rides the meta table here. This builder is single-tenant-only
+    // (TursoBackend.save calls tenantWorkspaceToStatements whenever a projectId
+    // is set), so no mode flag is needed.
+    if (ws.project) {
+      out.push({
+        sql: `INSERT INTO meta (key, value) VALUES (?, ?)`,
+        args: [
+          { type: "text", value: "project_meta" },
+          { type: "text", value: JSON.stringify(ws.project) },
+        ],
+      });
+    }
     if (ws.fieldVisibility && Object.keys(ws.fieldVisibility).length > 0) {
       out.push({
         sql: `INSERT INTO meta (key, value) VALUES (?, ?)`,

@@ -287,9 +287,10 @@ export class TursoBackend implements StorageBackend {
     return rowsToWorkspace(relational, diag);
   }
 
-  // NOTE: rowsToWorkspace does not populate ws.project (ProjectMeta is not in the
-  // workspace tables under Turso), so tenant load() additionally fetches the
-  // projects-table row for this id and sets ws.project from it.
+  // NOTE: rowsToWorkspace reads `project_meta` for single-tenant DBs only
+  // (§538) — the tenant builder never writes that meta row — so tenant load()
+  // additionally fetches the projects-table row for this id and overwrites
+  // ws.project from it below.
   private async loadTenant(projectId: string, diag: DocTruncationDiag): Promise<Workspace> {
     const { TABLE_NAMES, rowsToWorkspace } = await import("./turso-schema");
     const { tenantSchemaDdl, tenantSelectStatements, selectProjectStatement, rowsToProjectList } =

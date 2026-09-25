@@ -126,17 +126,25 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
     (meta: ProjectMeta) => {
       if (portfolioMode === "turso") {
         const cfg = getTursoConfig(tursoDatabaseUrl, tursoAuthToken);
-        if (cfg && tursoProjectId) {
-          void (async () => {
-            try {
-              await tursoUpdateMeta(cfg, meta, tursoProjectId);
-              setProject(meta);
-              await refreshTursoProjects();
-            } catch (err) {
-              showToast("error", t(lang, "projectUpdateFailed", errorText(err)));
-            }
-          })();
+        if (!tursoProjectId) {
+          // §538 — no tenant id means the single-DB backend, whose save now
+          // persists ws.project; the in-memory update is the whole write.
+          updateCurrentFileProject(meta);
+          return;
         }
+        if (!cfg) {
+          showToast("error", t(lang, "projectUpdateFailed", t(lang, "storageNotReady")));
+          return;
+        }
+        void (async () => {
+          try {
+            await tursoUpdateMeta(cfg, meta, tursoProjectId);
+            setProject(meta);
+            await refreshTursoProjects();
+          } catch (err) {
+            showToast("error", t(lang, "projectUpdateFailed", errorText(err)));
+          }
+        })();
       } else {
         updateCurrentFileProject(meta);
       }

@@ -146,6 +146,28 @@ describe("useTursoProjects — update current meta", () => {
     expect(args.updateCurrentFileProject).toHaveBeenCalledWith(META);
     expect(vi.mocked(updateProjectMeta)).not.toHaveBeenCalled();
   });
+
+  it("turso mode, no tursoProjectId (single-DB backend): routes to the file callback instead of no-op'ing (§538)", () => {
+    const args = makeArgs({ tursoProjectId: null });
+    const { result } = renderHook(() => useTursoProjects(args));
+    result.current.handleUpdateCurrentProjectByMode(META);
+    expect(args.updateCurrentFileProject).toHaveBeenCalledWith(META);
+    expect(vi.mocked(updateProjectMeta)).not.toHaveBeenCalled();
+    expect(args.showToast).not.toHaveBeenCalled();
+  });
+
+  it("turso mode, tursoProjectId set but config unready: toasts instead of silently no-op'ing (§538)", async () => {
+    vi.mocked(getTursoConfig).mockReturnValueOnce(null);
+    const args = makeArgs();
+    const { result } = renderHook(() => useTursoProjects(args));
+    result.current.handleUpdateCurrentProjectByMode(META);
+    expect(args.showToast).toHaveBeenCalledWith(
+      "error",
+      "Couldn't save the project details: Storage isn't configured yet — pick a file in Settings.",
+    );
+    expect(vi.mocked(updateProjectMeta)).not.toHaveBeenCalled();
+    expect(args.updateCurrentFileProject).not.toHaveBeenCalled();
+  });
 });
 
 describe("useTursoProjects — archive / restore / hard-delete", () => {
