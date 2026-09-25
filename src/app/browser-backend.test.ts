@@ -12,6 +12,11 @@ import type { ChangeItem, Milestone, RaidItem, Task } from "./types";
 import type { ActivityEntry } from "./activity-log";
 import { recordBudgetChange, type BudgetHistoryEntry } from "./budget-history";
 import type { DocumentAsset } from "./document-asset";
+import {
+  calendarOptOutWorkspace,
+  EXPECTED_CALENDAR_OPT_OUTS,
+  readCalendarOptOuts,
+} from "../test/calendar-opt-out-fixture";
 
 const ctl = vi.hoisted(() => ({
   failStore: null as string | null,
@@ -395,6 +400,16 @@ describe("BrowserBackend parallel IDB save/load", () => {
       expect(call.putIds).toEqual([]);
       expect(call.deleteIds).toEqual([]);
     }
+  });
+
+  // §486 — write path 6 of 6 for calendarOptOut (the other five are listed in
+  // entity-persistence-registry.test.ts, "calendarOptOut (§486)").
+  describe("calendarOptOut over IndexedDB (§486)", () => {
+    it("round-trips calendarOptOut on all five calendar-pushed entities", async () => {
+      const backend = new BrowserBackend();
+      await backend.save(calendarOptOutWorkspace());
+      expect(readCalendarOptOuts(await backend.load())).toEqual(EXPECTED_CALENDAR_OPT_OUTS);
+    });
   });
 
   // Nested so it inherits the outer beforeEach's fresh-IDB-per-test reset.

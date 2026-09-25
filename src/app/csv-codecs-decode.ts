@@ -15,7 +15,6 @@ import { defaultResourcePlan } from "./resource-foundation";
 import {
   dropDanglingDependencies,
   parseDependenciesString,
-  sanitizeLoadedAbsence,
   sanitizeLoadedBudgetBucket,
   sanitizeDiscipline,
   sanitizeLoadedFxRates,
@@ -85,6 +84,8 @@ import {
   buildMilestoneFromObj,
   buildRaidItemFromObj,
   buildStakeholderFromObj,
+  buildAbsenceFromObj,
+  decodeCalendarOptOut,
   parseCsv,
   parseHealthOverride,
 } from "./csv-codecs-core";
@@ -586,7 +587,7 @@ function decodeCsvSection<T>(
 }
 
 function csvToAbsences(csv: string, diag?: ImportDiag): Absence[] {
-  return decodeCsvSection(csv, sanitizeLoadedAbsence, "absences", diag);
+  return decodeCsvSection(csv, buildAbsenceFromObj, "absences", diag);
 }
 
 /** Decodes a `# CALENDAR EVENTS` section into CalendarEvent[]. Mirrors
@@ -738,6 +739,7 @@ export function buildTaskFromObj(obj: Record<string, string>): Task | null {
     lastSyncedAt: obj.lastSyncedAt || undefined,
     localModifiedAt: obj.localModifiedAt || undefined,
     outlookEventId: obj.outlookEventId || undefined,
+    calendarOptOut: decodeCalendarOptOut(obj.calendarOptOut),
     healthOverride: parseHealthOverride(obj.healthOverride),
     resourceId: fkIdOrUndefined(obj.resourceId),
     originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),

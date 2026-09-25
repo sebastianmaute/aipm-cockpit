@@ -138,6 +138,8 @@ function absenceWithDateReader(input: unknown, readDate: RequiredDateReader): Ab
     localModifiedAt: sanitizeText(raw.localModifiedAt, 1024) || undefined,
     resourceId: fkIdOrUndefined(raw.resourceId),
     outlookEventId: sanitizeText(raw.outlookEventId, 1024) || undefined,
+    // §486 — only a literal `true` opts the absence out of Outlook sync.
+    ...(raw.calendarOptOut === true ? { calendarOptOut: true } : {}),
   };
 }
 

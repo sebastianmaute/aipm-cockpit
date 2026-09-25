@@ -38,6 +38,7 @@ import { t } from "./i18n";
 interface FakeItem {
   id: number;
   outlookEventId?: string;
+  calendarOptOut?: boolean;
   d?: string;
   jiraKey?: string;
 }
@@ -165,6 +166,9 @@ describe("useEntityCalendarPull background auto-pull mode", () => {
     const updater = setItems.mock.calls.at(-1)![0] as (prev: FakeItem[]) => FakeItem[];
     const next = updater([{ id: 1, outlookEventId: "gone", d: "2026-07-01" }]);
     expect(next[0].outlookEventId).toBeUndefined();
+    // §486 — a prune is the user's choice, so the item opts out and the next
+    // auto-push does not re-create the event.
+    expect(next[0].calendarOptOut).toBe(true);
     // background never opens the modal
     expect(result.current.result).toBeNull();
   });
@@ -279,6 +283,9 @@ describe("useEntityCalendarPull manual deletion prune + modal", () => {
     const updater = setItems.mock.calls.at(-1)![0] as (prev: FakeItem[]) => FakeItem[];
     const next = updater([{ id: 1, outlookEventId: "gone", d: "2026-07-01" }]);
     expect(next[0].outlookEventId).toBeUndefined();
+    // §486 — a prune is the user's choice, so the item opts out and the next
+    // auto-push does not re-create the event.
+    expect(next[0].calendarOptOut).toBe(true);
   });
 
   it("(d) manual with rows opens the modal (result set)", async () => {

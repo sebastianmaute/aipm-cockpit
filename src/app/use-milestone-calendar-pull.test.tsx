@@ -94,6 +94,8 @@ describe("useMilestoneCalendarPull pull (prune stale link on deletion)", () => {
     const updater = setMilestones.mock.calls.at(-1)![0] as (prev: Milestone[]) => Milestone[];
     const next = updater([ms(1, { outlookEventId: "evt", date: "2026-07-01" })]);
     expect(next[0].outlookEventId).toBeUndefined();
+    // §486 — the pruned milestone opts out so the next push does not re-create it.
+    expect(next[0].calendarOptOut).toBe(true);
     // The modal still opens (plan.deletions is non-empty).
     expect(result.current.result).not.toBeNull();
     expect(result.current.result!.plan.deletions).toHaveLength(1);

@@ -11,7 +11,7 @@ import {
   MILESTONES_CSV_COLUMNS, CHANGES_CSV_COLUMNS, STAKEHOLDERS_CSV_COLUMNS, EVENTS_CSV_COLUMNS,
   fieldToString, raidFieldToString, absenceFieldToString, shiftFieldToString,
   resourceFieldToString, budgetFieldToString, milestoneFieldToString, buildTaskFromObj, buildRaidItemFromObj,
-  buildMilestoneFromObj, changeFieldToString, buildChangeFromObj,
+  buildMilestoneFromObj, changeFieldToString, buildChangeFromObj, buildAbsenceFromObj,
   stakeholderFieldToString, buildStakeholderFromObj,
   calendarEventFieldToString, buildCalendarEventFromObj,
   decodeRatesMap,
@@ -26,7 +26,7 @@ import { sanitizeFieldVisibility } from "./field-visibility";
 import { sanitizeFeatures } from "./feature-modules";
 import {
   sanitizeResource, sanitizeRole, sanitizeLoadedBudgetBucket, sanitizeDiscipline,
-  sanitizeGrade, sanitizeLoadedAbsence, sanitizeShift, sanitizeLoadedFxRates, sanitizePlan,
+  sanitizeGrade, sanitizeShift, sanitizeLoadedFxRates, sanitizePlan,
   sanitizeSteeringCommittee, sanitizeLoadedProjectMeta,
 } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
@@ -98,7 +98,7 @@ const anyToRow = (r: unknown, c: string) =>
 export const ENTITY_SPECS: EntitySpec<unknown>[] = [
   spec<Task>({ table: "tasks", wsKey: "tasks", columns: CSV_COLUMNS, get: (w) => w.tasks, toRow: fieldToString as unknown as (e: Task, col: string) => string, fromObj: buildTaskFromObj }),
   spec<RaidItem>({ table: "raid", wsKey: "raid", columns: RAID_CSV_COLUMNS, get: (w) => w.raid, toRow: raidFieldToString as unknown as (e: RaidItem, col: string) => string, fromObj: buildRaidItemFromObj }),
-  spec<Absence>({ table: "absences", wsKey: "absences", columns: ABSENCES_CSV_COLUMNS, get: (w) => w.absences, toRow: absenceFieldToString as unknown as (e: Absence, col: string) => string, fromObj: sanitizeLoadedAbsence }),
+  spec<Absence>({ table: "absences", wsKey: "absences", columns: ABSENCES_CSV_COLUMNS, get: (w) => w.absences, toRow: absenceFieldToString as unknown as (e: Absence, col: string) => string, fromObj: buildAbsenceFromObj }),
   spec<Shift>({ table: "shifts", wsKey: "shifts", columns: SHIFTS_CSV_COLUMNS, get: (w) => w.shifts, toRow: shiftFieldToString as unknown as (e: Shift, col: string) => string, fromObj: sanitizeShift }),
   spec<Resource>({ table: "resources", wsKey: "resources", columns: RESOURCES_CSV_COLUMNS, get: (w) => w.resources, toRow: resourceFieldToString, fromObj: sanitizeResource }),
   spec<Role>({ table: "roles", wsKey: "roles", columns: ROLES_CSV_COLUMNS, get: (w) => w.roles, toRow: anyToRow as (e: Role, col: string) => string, fromObj: sanitizeRole }),

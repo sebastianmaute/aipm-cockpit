@@ -33,7 +33,8 @@ describe("absence outlookEventId round-trip", () => {
     expect(back.absences?.[0]?.outlookEventId).toBe("evt-abc");
   });
 
-  it("ABSENCES_CSV_COLUMNS ends with outlookEventId", () => {
-    expect(ABSENCES_CSV_COLUMNS[ABSENCES_CSV_COLUMNS.length - 1]).toBe("outlookEventId");
+  // §486 — `calendarOptOut` follows `outlookEventId`, so the link is second-to-last.
+  it("ABSENCES_CSV_COLUMNS ends with outlookEventId, calendarOptOut", () => {
+    expect(ABSENCES_CSV_COLUMNS.slice(-2)).toEqual(["outlookEventId", "calendarOptOut"]);
   });
 });

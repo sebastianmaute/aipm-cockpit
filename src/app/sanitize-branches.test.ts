@@ -341,6 +341,15 @@ describe("sanitizeMilestone / sanitizeChangeItem / sanitizeRaidItem — arms", (
     expect(m?.outlookEventId).toBe("EV");
     expect(sanitizeMilestone({ id: 1, name: "M", date: "2026-01-01", outlookEventId: 5 })?.outlookEventId).toBeUndefined();
   });
+  // §486 — only a literal `true` survives; "yes", 1 and "true" are dropped, key and all.
+  it("keeps calendarOptOut only when it is the literal true (§486)", () => {
+    expect(sanitizeMilestone({ id: 1, name: "M", date: "2026-01-01", calendarOptOut: true })?.calendarOptOut).toBe(true);
+    for (const bad of ["yes", 1, "true", false]) {
+      const out = sanitizeMilestone({ id: 1, name: "M", date: "2026-01-01", calendarOptOut: bad });
+      expect(out).not.toBeNull();
+      expect(out).not.toHaveProperty("calendarOptOut");
+    }
+  });
   it("changeItem rejects non-objects and defaults unknown type/status", () => {
     expect(sanitizeChangeItem(null)).toBeNull();
     const c = sanitizeChangeItem({ id: 1, title: "T", type: "??", status: "??" });

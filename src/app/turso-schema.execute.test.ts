@@ -31,7 +31,12 @@ import {
   ENTITY_SPECS, SCHEMA_DDL, selectStatements, workspaceToStatements, rowsToWorkspace,
   type EntitySpec, type SqlStmt, type PipelineResultLike,
 } from "./turso-schema";
-import { tenantSchemaDdl, tenantWorkspaceToStatements } from "./turso-tenant-schema";
+import { tenantSchemaDdl, tenantSelectStatements, tenantWorkspaceToStatements } from "./turso-tenant-schema";
+import {
+  calendarOptOutWorkspace,
+  EXPECTED_CALENDAR_OPT_OUTS,
+  readCalendarOptOuts,
+} from "../test/calendar-opt-out-fixture";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import { sanitizeProjectMeta, sanitizeLoadedProjectMeta } from "./sanitize";
 import type { DocTruncationDiag } from "./document-model";
@@ -367,5 +372,33 @@ describe("turso schema §538 project meta (single-tenant)", () => {
     expect(blanked).toEqual(expect.arrayContaining([
       expect.objectContaining({ fields: expect.objectContaining({ source: "workspace", entity: "project", field: "startDate" }) as unknown }),
     ]));
+  });
+});
+
+// §486 — write paths 4 and 5 of 6 for calendarOptOut, through the REAL engine:
+// save with the real statement builders, load with a real SELECT into the
+// real `rowsToWorkspace` (the tenant half mirrors `TursoBackend.loadTenant`).
+describe("calendarOptOut (§486)", () => {
+  it("4: round-trips on all five entities through the single-tenant DB", () => {
+    expect(readCalendarOptOuts(roundTrip(calendarOptOutWorkspace()))).toEqual(EXPECTED_CALENDAR_OPT_OUTS);
+  });
+
+  it("5: round-trips on all five entities through the multi-tenant DB", () => {
+    const db = new DatabaseSync(":memory:");
+    try {
+      for (const ddl of tenantSchemaDdl()) db.exec(ddl);
+      runStatements(db, tenantWorkspaceToStatements(calendarOptOutWorkspace(), PROJECT_ID));
+      const results: PipelineResultLike[] = tenantSelectStatements(PROJECT_ID).map((s) => {
+        const rows = db.prepare(s.sql).all(PROJECT_ID) as Record<string, unknown>[];
+        const cols = rows.length ? Object.keys(rows[0]).map((name) => ({ name })) : [];
+        return {
+          type: "ok",
+          response: { type: "execute", result: { cols, rows: rows.map((r) => cols.map((c) => ({ value: r[c.name] }))) } },
+        };
+      });
+      expect(readCalendarOptOuts(rowsToWorkspace(results))).toEqual(EXPECTED_CALENDAR_OPT_OUTS);
+    } finally {
+      db.close();
+    }
   });
 });

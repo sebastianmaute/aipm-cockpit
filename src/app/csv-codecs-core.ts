@@ -36,6 +36,7 @@ import {
   encodeAllocations,
   encodeDisciplineAllocations,
   encodePeriodMap,
+  sanitizeLoadedAbsence,
   sanitizeLoadedChangeItem,
   sanitizeStakeholder,
   encodeRaciMap,
@@ -92,6 +93,7 @@ export const CSV_COLUMNS = [
   "remainingEstimateMinutes",
   "knowledgeLinks",
   "outlookEventId",
+  "calendarOptOut",
   "noteLog",
 ] as const satisfies readonly (keyof Task)[];
 
@@ -107,6 +109,16 @@ export function parseHealthOverride(s: string | undefined): "R" | "A" | "G" | un
 // Columns persisted for RAID items in CSV and Markdown. Order matches the
 // header row emitted by the encoder; the decoder reads by column name so
 // reordering files by hand still works.
+// §486 — the per-item Outlook opt-out, as a text cell: "true" when set, "" when
+// not (the `budgetFollowsPlan` precedent in turso-schema.ts). Anything but the
+// exact "true" decodes to unset, so a mangled cell syncs the item as before.
+export function encodeCalendarOptOut(v: boolean | undefined): string {
+  return v === true ? "true" : "";
+}
+export function decodeCalendarOptOut(s: string | undefined): true | undefined {
+  return s === "true" ? true : undefined;
+}
+
 export const RAID_CSV_COLUMNS = [
   "id",
   "category",
@@ -129,6 +141,7 @@ export const RAID_CSV_COLUMNS = [
   "stakeholderIds",
   "knowledgeLinks",
   "outlookEventId",
+  "calendarOptOut",
   "inquiriesSent",
   "noteLog",
   "escalations",
@@ -148,6 +161,7 @@ export const ABSENCES_CSV_COLUMNS = [
   "localModifiedAt",
   "resourceId",
   "outlookEventId",
+  "calendarOptOut",
 ] as const satisfies readonly (keyof Absence)[];
 
 // Columns persisted for CalendarEvent items in CSV and Turso (single + tenant).
@@ -207,7 +221,7 @@ export const ROLES_CSV_COLUMNS = ["id", "disciplineId", "gradeId", "internalRate
 export const REF_CSV_COLUMNS = ["id", "name", "localModifiedAt"] as const;
 
 export const MILESTONES_CSV_COLUMNS = [
-  "id", "name", "date", "description", "achievedDate", "linkedTaskIds", "localModifiedAt", "knowledgeLinks", "outlookEventId",
+  "id", "name", "date", "description", "achievedDate", "linkedTaskIds", "localModifiedAt", "knowledgeLinks", "outlookEventId", "calendarOptOut",
 ] as const satisfies readonly (keyof Milestone)[];
 
 export const BUDGETS_CSV_COLUMNS = [
@@ -304,6 +318,7 @@ export function raidFieldToString(r: RaidItem, c: keyof RaidItem): string {
   if (c === "knowledgeLinks") return encodeKnowledgeLinks(r.knowledgeLinks);
   if (c === "noteLog") return encodeNoteLog(r.noteLog);
   if (c === "escalations") return encodeRaidEscalations(r.escalations);
+  if (c === "calendarOptOut") return encodeCalendarOptOut(r.calendarOptOut);
   return String(r[c] ?? "");
 }
 
@@ -378,6 +393,7 @@ export function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | nu
     stakeholderIds: parseLinkedTaskIds(obj.stakeholderIds),
     knowledgeLinks: decodeKnowledgeLinks(obj.knowledgeLinks ?? obj.documentLinks),
     outlookEventId: obj.outlookEventId || undefined,
+    calendarOptOut: decodeCalendarOptOut(obj.calendarOptOut),
     // Sparse: absent/0/negative -> undefined so legacy rows stay byte-identical.
     inquiriesSent: (() => {
       const n = Number(obj.inquiriesSent);
@@ -397,6 +413,7 @@ export function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | nu
 export function milestoneFieldToString(m: Milestone, c: keyof Milestone): string {
   if (c === "linkedTaskIds") return Array.isArray(m.linkedTaskIds) ? m.linkedTaskIds.join("|") : "";
   if (c === "knowledgeLinks") return encodeKnowledgeLinks(m.knowledgeLinks);
+  if (c === "calendarOptOut") return encodeCalendarOptOut(m.calendarOptOut);
   return String(m[c] ?? "");
 }
 
@@ -413,13 +430,14 @@ export function buildMilestoneFromObj(obj: Record<string, string>): Milestone | 
   if (obj.localModifiedAt) m.localModifiedAt = obj.localModifiedAt;
   const dl = decodeKnowledgeLinks(obj.knowledgeLinks ?? obj.documentLinks); if (dl.length) m.knowledgeLinks = dl;
   if (obj.outlookEventId) m.outlookEventId = obj.outlookEventId;
+  if (decodeCalendarOptOut(obj.calendarOptOut)) m.calendarOptOut = true;
   return m;
 }
 
 export const CHANGES_CSV_COLUMNS = [
   "id", "title", "description", "type", "status", "impact", "impactDescription", "scheduleImpactDays",
   "costImpact", "requestedBy", "raisedDate", "decisionBy", "decisionDate", "resolutionNotes",
-  "linkedTaskIds", "linkedRaidIds", "stakeholderIds", "localModifiedAt", "knowledgeLinks", "outlookEventId",
+  "linkedTaskIds", "linkedRaidIds", "stakeholderIds", "localModifiedAt", "knowledgeLinks", "outlookEventId", "calendarOptOut",
   "noteLog",
 ] as const satisfies readonly (keyof ChangeItem)[];
 
@@ -429,6 +447,7 @@ export function changeFieldToString(c: ChangeItem, col: keyof ChangeItem): strin
   if (col === "stakeholderIds") return Array.isArray(c.stakeholderIds) ? c.stakeholderIds.join("|") : "";
   if (col === "knowledgeLinks") return encodeKnowledgeLinks(c.knowledgeLinks);
   if (col === "noteLog") return encodeNoteLog(c.noteLog);
+  if (col === "calendarOptOut") return encodeCalendarOptOut(c.calendarOptOut);
   const v = c[col];
   return v === undefined || v === null ? "" : String(v);
 }
@@ -443,6 +462,8 @@ export function buildChangeFromObj(obj: Record<string, string>): ChangeItem | nu
     linkedRaidIds: parseLinkedTaskIds(obj.linkedRaidIds),
     stakeholderIds: parseLinkedTaskIds(obj.stakeholderIds),
     knowledgeLinks: decodeKnowledgeLinks(obj.knowledgeLinks ?? obj.documentLinks),
+    // The sanitizer keeps only a literal `true`, so the text cell is decoded first.
+    calendarOptOut: decodeCalendarOptOut(obj.calendarOptOut),
   });
   // sanitizeChangeItem drops noteLog (it is DOM-free and cannot run
   // sanitizeNoteLog), so re-attach it here. decodeNoteLog has ALREADY
@@ -508,6 +529,7 @@ export function fieldToString(t: Task, c: keyof Task): string {
   if (c === "dependencies") return serializeDependencies(t.dependencies);
   if (c === "knowledgeLinks") return encodeKnowledgeLinks(t.knowledgeLinks);
   if (c === "noteLog") return encodeNoteLog(t.noteLog);
+  if (c === "calendarOptOut") return encodeCalendarOptOut(t.calendarOptOut);
   return String(t[c] ?? "");
 }
 
@@ -561,7 +583,15 @@ export function stakeholdersToCsv(stakeholders: readonly Stakeholder[], neutrali
 }
 
 export function absenceFieldToString(a: Absence, c: keyof Absence): string {
+  if (c === "calendarOptOut") return encodeCalendarOptOut(a.calendarOptOut);
   return String(a[c] ?? "");
+}
+
+/** The CSV / Markdown / Turso row builder for an absence. `sanitizeLoadedAbsence`
+ *  keeps only a literal `true` for `calendarOptOut` (§486), so the text cell is
+ *  decoded here first; every other field goes through the sanitizer unchanged. */
+export function buildAbsenceFromObj(obj: Record<string, string>): Absence | null {
+  return sanitizeLoadedAbsence({ ...obj, calendarOptOut: decodeCalendarOptOut(obj.calendarOptOut) });
 }
 
 export function absencesToCsv(absences: readonly Absence[], neutralize = false): string {

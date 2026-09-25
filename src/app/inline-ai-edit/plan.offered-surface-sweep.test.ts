@@ -762,6 +762,11 @@ const EXPECTED_UNDECLARED_FINDINGS: Ledger = {
   "raid:update": [
     // §467 — not seeded, for the create arm's reason above.
     { subject: "raid.noteLog", kind: "dead" },
+    // §486 — a probe SHAPE, not a seed: the seeded `calendarOptOut` is `true`,
+    // the only value the sanitizer stores (an absent key IS "syncs"), so the one
+    // differing probe is `false`, which it never stores — `resource.active`'s
+    // shape. The create arm DOES measure it (a `true` probe, stripped).
+    { subject: "raid.calendarOptOut", kind: "unmeasured" },
   ],
   "change:create": [
     // §467 — not seeded, for raid's reason: `sanitizeChangeItem` stores no
@@ -772,6 +777,25 @@ const EXPECTED_UNDECLARED_FINDINGS: Ledger = {
   "change:update": [
     // §467 — not seeded, for the create arm's reason above.
     { subject: "change.noteLog", kind: "dead" },
+    // §486 — a probe SHAPE, not a seed: the seeded `calendarOptOut` is `true`,
+    // the only value the sanitizer stores (an absent key IS "syncs"), so the one
+    // differing probe is `false`, which it never stores — `resource.active`'s
+    // shape. The create arm DOES measure it (a `true` probe, stripped).
+    { subject: "change.calendarOptOut", kind: "unmeasured" },
+  ],
+  "milestone:update": [
+    // §486 — a probe SHAPE, not a seed: the seeded `calendarOptOut` is `true`,
+    // the only value the sanitizer stores (an absent key IS "syncs"), so the one
+    // differing probe is `false`, which it never stores — `resource.active`'s
+    // shape. The create arm DOES measure it (a `true` probe, stripped).
+    { subject: "milestone.calendarOptOut", kind: "unmeasured" },
+  ],
+  "absence:update": [
+    // §486 — a probe SHAPE, not a seed: the seeded `calendarOptOut` is `true`,
+    // the only value the sanitizer stores (an absent key IS "syncs"), so the one
+    // differing probe is `false`, which it never stores — `resource.active`'s
+    // shape. The create arm DOES measure it (a `true` probe, stripped).
+    { subject: "absence.calendarOptOut", kind: "unmeasured" },
   ],
   "stakeholder:update": [
     // §467 — a probe SHAPE, not a seed: the derived probe changes the seeded

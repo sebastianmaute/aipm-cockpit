@@ -167,10 +167,12 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   );
   // NOTE: deliberately EXCLUDES outlookEventId — that is an OUTPUT the push
   // writes back, not an input. Including it would re-fire the debounce one extra
-  // time after every create (a redundant no-op reconcile round).
+  // time after every create (a redundant no-op reconcile round). It DOES include
+  // `calendarOptOut` (§486), an input: re-ticking "Sync to Outlook" must trigger
+  // the push that re-creates the event, not wait for an unrelated edit.
   const taskAutoSyncKey = useMemo(
     () => pushableTasks
-      .map((t) => `${t.id}|${t.dueDate}|${t.taskName}|${t.status}`)
+      .map((t) => `${t.id}|${t.dueDate}|${t.taskName}|${t.status}|${t.calendarOptOut ? 1 : 0}`)
       .join(";"),
     [pushableTasks],
   );
@@ -203,7 +205,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   );
   // EXCLUDES outlookEventId — an OUTPUT the push writes back (see task block).
   const raidAutoSyncKey = useMemo(
-    () => pushableRaid.map((r) => `${r.id}|${r.targetDate}|${r.title}|${r.status}`).join(";"),
+    () => pushableRaid.map((r) => `${r.id}|${r.targetDate}|${r.title}|${r.status}|${r.calendarOptOut ? 1 : 0}`).join(";"),
     [pushableRaid],
   );
   const setRaidForCalendar = useCallback(
@@ -253,7 +255,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   const pushableChanges = useMemo(() => changes.filter((c) => !!c.decisionDate), [changes]);
   // EXCLUDES outlookEventId — an OUTPUT the push writes back.
   const changeAutoSyncKey = useMemo(
-    () => pushableChanges.map((c) => `${c.id}|${c.decisionDate}|${c.title}|${c.status}`).join(";"),
+    () => pushableChanges.map((c) => `${c.id}|${c.decisionDate}|${c.title}|${c.status}|${c.calendarOptOut ? 1 : 0}`).join(";"),
     [pushableChanges],
   );
   const setChangeForCalendar = useCallback(
@@ -307,7 +309,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   // EXCLUDES outlookEventId — an OUTPUT the push writes back. Includes `note`
   // so a note-only edit re-pushes the event body (it appears in the Graph body).
   const absenceAutoSyncKey = useMemo(
-    () => pushableAbsences.map((a) => `${a.id}|${a.startDate}|${a.endDate}|${a.type}|${a.assignee}|${a.note ?? ""}`).join(";"),
+    () => pushableAbsences.map((a) => `${a.id}|${a.startDate}|${a.endDate}|${a.type}|${a.assignee}|${a.note ?? ""}|${a.calendarOptOut ? 1 : 0}`).join(";"),
     [pushableAbsences],
   );
   const setAbsenceForCalendar = useCallback(

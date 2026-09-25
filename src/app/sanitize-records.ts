@@ -300,6 +300,9 @@ function milestoneWithDateReader(input: unknown, readDate: RequiredDateReader, r
   // them and yields a 404 on PATCH/DELETE. Cap at 1024 to be safe.
   const outlookEventId = typeof o.outlookEventId === "string" ? o.outlookEventId.slice(0, 1024) : "";
   if (outlookEventId) m.outlookEventId = outlookEventId;
+  // §486 — only a literal `true` opts the item out of Outlook sync; anything
+  // else is dropped, so a mangled value syncs the item as before (the safe side).
+  if (o.calendarOptOut === true) m.calendarOptOut = true;
   return m;
 }
 
@@ -380,6 +383,9 @@ function changeWithDateReader(input: unknown, readOptional: RequiredDateReader):
   const dl = sanitizeKnowledgeLinks((input as Record<string, unknown>).knowledgeLinks ?? (input as Record<string, unknown>).documentLinks);
   if (dl.length) item.knowledgeLinks = dl;
   const oeid = sanitizeText(o.outlookEventId, 1024); if (oeid) item.outlookEventId = oeid;
+  // §486 — only a literal `true` opts the item out of Outlook sync; anything
+  // else is dropped, so a mangled value syncs the item as before (the safe side).
+  if (o.calendarOptOut === true) item.calendarOptOut = true;
   return item;
 }
 
@@ -816,6 +822,9 @@ function raidWithDateReader(input: unknown, readOptional: RequiredDateReader): R
 
   const outlookEventId = typeof o.outlookEventId === "string" ? o.outlookEventId.slice(0, 1024) : "";
   if (outlookEventId) item.outlookEventId = outlookEventId;
+  // §486 — only a literal `true` opts the item out of Outlook sync; anything
+  // else is dropped, so a mangled value syncs the item as before (the safe side).
+  if (o.calendarOptOut === true) item.calendarOptOut = true;
 
   // Sparse: only a positive integer count is kept (mirrors Task.inquiriesSent);
   // zero/negative/absent -> undefined so legacy items stay byte-identical.

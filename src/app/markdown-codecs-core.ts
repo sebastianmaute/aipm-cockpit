@@ -563,6 +563,7 @@ const MILESTONE_ALIASES: Record<string, string> = {
   linkedtasks: "linkedTaskIds", linkedtaskids: "linkedTaskIds",
   localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
   documentlinks: "knowledgeLinks", knowledgelinks: "knowledgeLinks", outlookeventid: "outlookEventId",
+  calendaroptout: "calendarOptOut",
 };
 
 export function markdownToMilestones(md: string, diag?: ImportDiag): Milestone[] {
@@ -593,6 +594,7 @@ const CHANGE_ALIASES: Record<string, string> = {
   stakeholderids: "stakeholderIds", stakeholders: "stakeholderIds",
   localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
   documentlinks: "knowledgeLinks", knowledgelinks: "knowledgeLinks", outlookeventid: "outlookEventId",
+  calendaroptout: "calendarOptOut",
   notelog: "noteLog",
 };
 

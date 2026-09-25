@@ -66,3 +66,30 @@ describe("planEntityReconcile", () => {
     expect(plan.update).toHaveLength(2);
   });
 });
+
+describe("calendarOptOut (§486)", () => {
+  const ev = (id: string): ExistingEvent => ({ id });
+  it("planEntityReconcile never creates an opted-out unlinked item", () => {
+    const p = planEntityReconcile([{ id: 1, calendarOptOut: true }, { id: 2 }], []);
+    expect(p.create.map((i) => i.id)).toEqual([2]);
+  });
+  it("planEntityReconcile neither updates nor deletes an opted-out LINKED item's event", () => {
+    const p = planEntityReconcile([{ id: 1, outlookEventId: "E1", calendarOptOut: true }], [ev("E1"), ev("E9")]);
+    expect(p.update).toEqual([]);
+    // E9 is an orphan nobody references, so it still goes — only the opted-out item's own event is kept.
+    expect(p.delete).toEqual(["E9"]);
+  });
+  it("planCalendarReconcile applies the same rules to milestones", () => {
+    const p = planCalendarReconcile(
+      [ms(1, { calendarOptOut: true }), ms(2, { outlookEventId: "E2", calendarOptOut: true })],
+      [ev("E2"), ev("E9")],
+    );
+    expect(p.create).toEqual([]);
+    expect(p.update).toEqual([]);
+    expect(p.delete).toEqual(["E9"]);
+  });
+  it("an item that opts back in is created again", () => {
+    expect(planEntityReconcile([{ id: 1, calendarOptOut: false }], []).create).toHaveLength(1);
+    expect(planCalendarReconcile([ms(1, { calendarOptOut: false })], []).create).toHaveLength(1);
+  });
+});

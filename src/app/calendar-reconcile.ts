@@ -17,6 +17,14 @@ export function planCalendarReconcile(
   const create: Milestone[] = [];
   const update: { milestone: Milestone; eventId: string }[] = [];
   for (const m of milestones) {
+    // §486 — the user opted this item out (by pruning its event, or by
+    // unticking "Sync to Outlook"). Never create or update it; a still-linked
+    // event is KEPT (not deleted) — the app never deletes an event the user
+    // chose to leave in Outlook.
+    if (m.calendarOptOut) {
+      if (m.outlookEventId) keptIds.add(m.outlookEventId);
+      continue;
+    }
     // A stored event id is dup-proof to PATCH by id, so ALWAYS update when present.
     // (Updating an id absent from `existing` is safe; re-creating it would duplicate
     // the Outlook event if listProjectEvents transiently returns [] due to indexing lag.)
@@ -31,7 +39,7 @@ export function planCalendarReconcile(
   return { create, update, delete: del };
 }
 
-export interface HasEventLink { id: number; outlookEventId?: string; }
+export interface HasEventLink { id: number; outlookEventId?: string; calendarOptOut?: boolean; }
 
 export interface GenericReconcilePlan<T> {
   create: T[];
@@ -42,6 +50,7 @@ export interface GenericReconcilePlan<T> {
 // Generic form of planCalendarReconcile: reconciles ANY entity carrying an
 // outlookEventId (tasks, RAID, changes, absences) with the SAME logic — present
 // id → update + keep, absent → create, any unkept existing id → delete.
+// An opted-out item (§486) is skipped, but its linked id is still kept.
 export function planEntityReconcile<T extends HasEventLink>(
   items: readonly T[],
   existing: readonly ExistingEvent[],
@@ -50,6 +59,14 @@ export function planEntityReconcile<T extends HasEventLink>(
   const create: T[] = [];
   const update: { item: T; eventId: string }[] = [];
   for (const it of items) {
+    // §486 — the user opted this item out (by pruning its event, or by
+    // unticking "Sync to Outlook"). Never create or update it; a still-linked
+    // event is KEPT (not deleted) — the app never deletes an event the user
+    // chose to leave in Outlook.
+    if (it.calendarOptOut) {
+      if (it.outlookEventId) keptIds.add(it.outlookEventId);
+      continue;
+    }
     if (it.outlookEventId) {
       update.push({ item: it, eventId: it.outlookEventId });
       keptIds.add(it.outlookEventId);

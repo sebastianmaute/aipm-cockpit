@@ -9,7 +9,7 @@ import { planCalendarPull, type PullPlan } from "./calendar-pull";
 import { loadBaseline, writeBaselineDate, removeBaselineEntry } from "./calendar-sync-baseline";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 
-interface Args<T extends { id: number; outlookEventId?: string }> {
+interface Args<T extends { id: number; outlookEventId?: string; calendarOptOut?: boolean }> {
   items: readonly T[];
   entityType: string;
   projectId: string;
@@ -46,7 +46,7 @@ const inFlightPull = new Set<string>();
  * semantics. `isPullable` filters out entities the app must not follow (e.g.
  * Jira-synced tasks whose dates Jira owns). Popouts are read-only.
  */
-export function useEntityCalendarPull<T extends { id: number; outlookEventId?: string }>(
+export function useEntityCalendarPull<T extends { id: number; outlookEventId?: string; calendarOptOut?: boolean }>(
   { items, entityType, projectId, getDate, getEndDate, withDate, toGraphEvent, setItems, isPullable, isPopout, lang, enabled, background, onBackgroundApply, getScopeEpoch }: Args<T>,
 ) {
   const { acquireToken } = useMsAuth(enabled);
@@ -68,8 +68,10 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
 
   // A definitively-gone event (missing/cancelled): clear the entity's stored link
   // and drop its baseline so the item stops re-appearing on every subsequent pull.
+  // §486 — the user deleted it in Outlook, so the item also opts out: without the
+  // flag the next auto-push would re-create the event they just removed.
   const prune = useCallback((id: number, eventId: string) => {
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, outlookEventId: undefined } : i)));
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, outlookEventId: undefined, calendarOptOut: true } : i)));
     removeBaselineEntry(projectId, entityType, eventId);
   }, [setItems, projectId, entityType]);
 

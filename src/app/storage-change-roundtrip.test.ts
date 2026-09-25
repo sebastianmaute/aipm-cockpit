@@ -39,7 +39,7 @@ describe("change CSV column encode/decode", () => {
       "id","title","description","type","status","impact","impactDescription","scheduleImpactDays",
       "costImpact","requestedBy","raisedDate","decisionBy","decisionDate","resolutionNotes",
       "linkedTaskIds","linkedRaidIds","stakeholderIds","localModifiedAt","knowledgeLinks","outlookEventId",
-      "noteLog",
+      "calendarOptOut","noteLog",
     ]);
   });
   it("round-trips a change noteLog through CSV", () => {

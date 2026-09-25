@@ -99,6 +99,9 @@ export type Task = {
   localModifiedAt?: string;
   /** Outlook calendar event id for this task (calendar write-back link). */
   outlookEventId?: string;
+  /** §486 — the user opted this item out of Outlook sync (pruned its event, or
+   *  unticked "Sync to Outlook"): never created or updated there. */
+  calendarOptOut?: boolean;
   /** Resource Planner v2: stable link to a Resource. Additive — the
    *  free-text `assignee` remains the display value and the fallback join. */
   resourceId?: number;
@@ -248,6 +251,9 @@ export type RaidItem = {
   /** Outlook calendar event id for this item's review date (calendar write-back
    *  link, keyed on targetDate). App-managed; users never enter it. */
   outlookEventId?: string;
+  /** §486 — the user opted this item out of Outlook sync (pruned its event, or
+   *  unticked "Sync to Outlook"): never created or updated there. */
+  calendarOptOut?: boolean;
   /** Total number of status-inquiry emails sent for this item (mirrors
    *  Task.inquiriesSent). Optional + sparse; absent/0 on legacy data. */
   inquiriesSent?: number;
@@ -272,6 +278,9 @@ export type Milestone = {
   localModifiedAt?: string;
   /** Outlook calendar event id for this milestone (calendar write-back link). */
   outlookEventId?: string;
+  /** §486 — the user opted this item out of Outlook sync (pruned its event, or
+   *  unticked "Sync to Outlook"): never created or updated there. */
+  calendarOptOut?: boolean;
   /** SharePoint files/folders linked to this record. Always optional; absent
    *  on legacy data, defaults to [] at the editor boundary. */
   knowledgeLinks?: KnowledgeLink[];
@@ -359,6 +368,9 @@ export type ChangeItem = {
   /** Outlook calendar event id for this change's decision-date write-back
    *  (SP3). Set by the push; absent until first synced. */
   outlookEventId?: string;
+  /** §486 — the user opted this item out of Outlook sync (pruned its event, or
+   *  unticked "Sync to Outlook"): never created or updated there. */
+  calendarOptOut?: boolean;
   /** Running note log — dated rich notes, the shared model Task/RaidItem use.
    *  Optional + sparse; absent on legacy data. Persisted as a JSON-in-cell
    *  array across the text backends. */
@@ -451,6 +463,9 @@ export type Absence = {
   resourceId?: number;
   /** Outlook calendar event id for the pushed absence event (SP4 write-back). */
   outlookEventId?: string;
+  /** §486 — the user opted this item out of Outlook sync (pruned its event, or
+   *  unticked "Sync to Outlook"): never created or updated there. */
+  calendarOptOut?: boolean;
 };
 
 // ----------------------------------------------------------------------------

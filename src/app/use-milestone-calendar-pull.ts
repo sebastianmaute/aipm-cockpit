@@ -93,8 +93,9 @@ export function useMilestoneCalendarPull({ milestones, projectId, setMilestones,
       // Prune the stale link for events that are definitively gone in Outlook, so
       // they stop re-appearing in the "removed" list every pull (deletions are
       // definitive — missing/cancelled — since the engine skips transient reads).
+      // §486 — and opt the milestone out, so the next push does not re-create it.
       for (const d of plan.deletions) {
-        setMilestones((prev) => prev.map((m) => (m.id === d.id ? { ...m, outlookEventId: undefined } : m)));
+        setMilestones((prev) => prev.map((m) => (m.id === d.id ? { ...m, outlookEventId: undefined, calendarOptOut: true } : m)));
         removeBaselineEntry(projectId, "milestone", d.eventId);
       }
       const hasRows = plan.applies.length + plan.conflicts.length + plan.deletions.length > 0;
