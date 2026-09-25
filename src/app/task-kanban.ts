@@ -107,6 +107,10 @@ const nameKey = personNameKey;
  * `backfillTaskResourceFks`, which still links by an external's email at load.
  * After a reload the task therefore carries the FK and takes the FK branch
  * above (and "Hide externals" hides it); only an FK-less task is affected.
+ *
+ * ★ It also diverges on an email and a name naming two DIFFERENT managed
+ * resources: this display path lets the email win, while the backfill leaves
+ * such a task unlinked (§83), since a wrong stored FK is not reversible.
  */
 function laneResourceIdOf(
   task: Task,

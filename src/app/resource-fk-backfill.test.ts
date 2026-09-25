@@ -294,17 +294,30 @@ describe("backfillTaskResourceFks — ambiguity and precedence", () => {
     expect(out[0].resourceId).toBe(10);
   });
 
-  it("prefers the email match when email and name name DIFFERENT people", () => {
+  it("leaves the task unlinked when email and name name DIFFERENT people", () => {
     const dir: Resource[] = [
       { id: 10, firstName: "Ada", lastName: "Lovelace", email: "ada@example.com",
         roleId: null, utilizationMode: "percent", utilization: {} },
       { id: 20, firstName: "Alan", lastName: "Turing", email: "alan@example.com",
         roleId: null, utilizationMode: "percent", utilization: {} },
     ];
-    // The email is the stronger identifier: a name cache goes stale after a
-    // rename, an address does not.
+    // §83: the two identifiers contradict each other. The display path still
+    // lets the email win (task-kanban.test.ts), but this WRITES an FK to
+    // storage, and a task left unlinked is repairable while one linked to the
+    // wrong person is not — so it declines to guess.
+    const tasks = [task({ assignee: "Alan Turing", assigneeEmail: "ada@example.com" })];
+    const out = backfillTaskResourceFks(dir, tasks);
+    expect(out[0].resourceId ?? null).toBeNull();
+    expect(out).toBe(tasks);   // nothing linked → the same array back
+  });
+
+  it("still links when email and name name the SAME person", () => {
+    const dir: Resource[] = [
+      { id: 10, firstName: "Ada", lastName: "Lovelace", email: "ada@example.com",
+        roleId: null, utilizationMode: "percent", utilization: {} },
+    ];
     const out = backfillTaskResourceFks(dir, [
-      task({ assignee: "Alan Turing", assigneeEmail: "ada@example.com" }),
+      task({ assignee: "Ada Lovelace", assigneeEmail: "ada@example.com" }),
     ]);
     expect(out[0].resourceId).toBe(10);
   });

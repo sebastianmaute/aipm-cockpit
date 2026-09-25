@@ -339,7 +339,9 @@ describe("groupByStatusAndPerson — assigneeEmail lane resolution (§79)", () =
     expect(out.cells["res:1"]["To Do"].map((x) => x.id)).toEqual([1]);
   });
 
-  it("prefers the email match over a differently-named resource, mirroring the backfill's precedence", () => {
+  // ★ The DISPLAY path keeps email precedence. The backfill no longer mirrors it
+  // on a disagreement — it leaves such a task unlinked (§83, resource-fk-backfill.test.ts).
+  it("prefers the email match over a differently-named resource (display only; the backfill declines)", () => {
     const out = groupByStatusAndPerson(
       [task({ id: 1, assignee: "Bo Klein", assigneeEmail: "anna@example.com" })],
       withEmails,

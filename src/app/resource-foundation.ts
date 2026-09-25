@@ -228,10 +228,39 @@ export function resolvePersonResourceId(
   ref: { assignee?: string | null; assigneeEmail?: string | null },
   indexes: ResourceLookupIndexes,
 ): number | null {
+  const { viaEmail, viaName } = lookupPersonPasses(ref, indexes);
+  return viaEmail ?? viaName ?? null;
+}
+
+/** Both lookup passes, unresolved: `undefined` = no key or no match, `null` =
+ *  a POISONED (ambiguous) key, a number = exactly one resource. */
+function lookupPersonPasses(
+  ref: { assignee?: string | null; assigneeEmail?: string | null },
+  indexes: ResourceLookupIndexes,
+): { viaEmail: number | null | undefined; viaName: number | null | undefined } {
   const email = (ref.assigneeEmail ?? "").trim().toLowerCase();
-  const viaEmail = email ? indexes.byEmail.get(email) : undefined;
   const nameKey = personNameKey(ref.assignee);
-  const viaName = nameKey ? indexes.byName.get(nameKey) : undefined;
+  return {
+    viaEmail: email ? indexes.byEmail.get(email) : undefined,
+    viaName: nameKey ? indexes.byName.get(nameKey) : undefined,
+  };
+}
+
+/**
+ * {@link resolvePersonResourceId} for the WRITE path: identical, except that an
+ * email and a name resolving to two DIFFERENT resources resolve to NEITHER.
+ * The display path keeps email precedence (reversible, costs a card in the
+ * wrong lane); a stored FK is not reversible, and a task left unlinked is
+ * trivially repairable while a task linked to the wrong id is not (§83).
+ * A POISONED pass is not a disagreement: it still falls through, exactly as in
+ * the shared resolver.
+ */
+function resolvePersonResourceIdForWrite(
+  ref: { assignee?: string | null; assigneeEmail?: string | null },
+  indexes: ResourceLookupIndexes,
+): number | null {
+  const { viaEmail, viaName } = lookupPersonPasses(ref, indexes);
+  if (typeof viaEmail === "number" && typeof viaName === "number" && viaEmail !== viaName) return null;
   return viaEmail ?? viaName ?? null;
 }
 
@@ -257,6 +286,12 @@ export function resolvePersonResourceId(
  * `assigneeEmail` caches untouched — `effectiveAssignee` already prefers the
  * live resource name over the cache, so rewriting them here would only destroy
  * the historical record of what was typed.
+ *
+ * ★★ An email and a name that resolve to two DIFFERENT resources leave the
+ * task UNLINKED (§83). The kanban lane engine, which only displays, still lets
+ * the email win; the task therefore stays a `name:`-keyed row in storage while
+ * the board shows it in the email owner's lane — the same accepted
+ * write-vs-display divergence as the dangling FK below.
  *
  * ★ A DANGLING FK (an id absent from the directory) is deliberately NOT
  * re-resolved: it is a real pointer to something this workspace cannot see —
@@ -289,7 +324,7 @@ export function backfillTaskResourceFks(
   let changed = false;
   const out = tasks.map((task) => {
     if (task.resourceId != null) return task;
-    const id = resolvePersonResourceId(task, indexes);
+    const id = resolvePersonResourceIdForWrite(task, indexes);
     if (id === null) return task;
     changed = true;
     return { ...task, resourceId: id };
