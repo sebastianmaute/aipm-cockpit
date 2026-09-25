@@ -822,14 +822,23 @@ if (!app.requestSingleInstanceLock()) {
     // export, nothing else may act on this window again.
     //
     // ★ §468 review Minor B / round 2 -- `timeout` bounds how long main
-    // waits for the WHOLE sequence (ready title, then readyState "complete")
-    // before printing. A crashed renderer or a hung render would otherwise
-    // leave this hidden window open forever, and because it still owns the
-    // named `window.open` target, a LATER export reuses the same browsing
-    // context and never fires a fresh `did-create-window` -- silently
-    // swallowed behind the stuck first one. Left running (not cleared) while
-    // `waitForReady` polls, so it can still cut that poll short; cleared only
-    // once printing has actually started, in the async body's `finally`.
+    // waits for the SEQUENCE UP TO "ready to print" (ready title, then
+    // readyState "complete"). A crashed renderer or a hung render would
+    // otherwise leave this hidden window open forever, and because it still
+    // owns the named `window.open` target, a LATER export reuses the same
+    // browsing context and never fires a fresh `did-create-window` --
+    // silently swallowed behind the stuck first one. Left running (not
+    // cleared) while `waitForReady` polls, so it can still cut that poll
+    // short.
+    //
+    // ★★★ §468 re-review N1 -- it is cleared the MOMENT the page is known
+    // ready, BEFORE `printToPDF`/the save dialog run, not in the async
+    // body's `finally` (an earlier revision of this fix cleared it only in
+    // `finally` and was wrong: printToPDF and a native save dialog can both
+    // legitimately run past this budget, and the old placement left the
+    // timeout armed through both -- see the fix's own comment at the clear
+    // site for the two ways that broke). The `finally` clear stays as a
+    // defensive no-op for any path that throws before reaching that line.
     try {
       contents.on("did-create-window", (childWindow, details) => {
         if (!isPdfExportFrame(details.frameName)) return;
@@ -867,6 +876,25 @@ if (!app.requestSingleInstanceLock()) {
               // window) while this was polling -- nothing left to do.
               if (done) return;
               if (!ready.ready) throw new Error("document did not finish rendering before the export timed out");
+
+              // ★ §468 re-review N1 -- the page is now known ready, so the
+              // "ready signal never arrived" backstop no longer applies, and
+              // it must stop being ABLE to fire from here on: printToPDF and
+              // the save dialog can legitimately take longer than
+              // `PDF_EXPORT_TIMEOUT_MS` (a user can sit in a native file
+              // picker as long as they like), and the timeout previously
+              // stayed armed through both -- so a slow save showed "took too
+              // long and was cancelled" and closed the window WHILE
+              // `writeFileSync` was about to succeed (the file lands on disk
+              // right after the user is told the export failed), or firing
+              // mid-`printToPDF` made it reject into the catch below for a
+              // SECOND error box on top of the timeout's own one. Clearing
+              // here, before either call, is what makes the doc comment
+              // above ("cleared only once printing has actually started")
+              // true; the `finally` block below also clears it, defensively,
+              // for any path that throws before reaching this line.
+              done = true;
+              clearTimeout(timeout);
 
               // A clean metadata title for the PDF itself, not the
               // ready-signal text -- `executeJavaScript` again runs

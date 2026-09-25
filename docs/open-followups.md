@@ -36227,36 +36227,49 @@ themselves, never a green result to cite as coverage.
 
 **Status:** FIX LANDED 2026-09-25 on `fix/defect-batch-6`, UNVERIFIED in the packaged app — OWED: manual
 desktop PDF check (project export plus document export; save dialog shows the suggested name; saved file
-opens as a PDF; Cancel writes nothing; main.ts has not been compiled against Electron types or run). Both
-PDF-export renderer paths now route through a main-process save dialog instead of a renderer
-`window.print()`. `pdfWindowName` (new `src/app/pdf-export-protocol.ts`) tells `export.ts`'s `exportPdf`
-and `document-download.ts`'s `downloadDocument` whether they are running in the desktop shell; there, the
-print tab opens under the named frame `PDF_EXPORT_FRAME_NAME` and carries no script at all. ★ The readiness
+opens as a PDF **and is styled, not a bare unstyled table/document** — the export tab's `<style>` block(s)
+face the same nonce-only `style-src-elem` in production (`src/proxy.ts`) that motivated the `<script>` fix
+below, and NOTHING in this fix addresses that separately, in the desktop tab OR the plain browser print
+tab; Cancel writes nothing; main.ts has not been compiled against Electron types or run). Both PDF-export
+renderer paths now route through a main-process save dialog instead of a renderer `window.print()`.
+`pdfWindowName` (new `src/app/pdf-export-protocol.ts`) tells `export.ts`'s `exportPdf` and
+`document-download.ts`'s `downloadDocument` whether they are running in the desktop shell; there, the print
+tab opens under the named frame `PDF_EXPORT_FRAME_NAME` and carries no script at all. ★ The readiness
 signal is a STATIC `<title>` element (`pdfReadyTitleMarkup`, replacing the page's own title rather than
-appending after it), not a script, because the tab is `document.write`n into an `about:blank` child that
-inherits the packaged app's nonce-only production CSP (`src/proxy.ts`) — an inline `<script>` there has no
-nonce and would be blocked outright, so a script-based signal (this fix's first draft) would very likely
-never have fired; a `<title>` element needs no script permission and reaches main purely from parsing.
-`desktop/src/main.ts` renders that named frame hidden (`overrideBrowserWindowOptions: { show: false }`,
-gated on `isPdfExportFrame` so no other `about:blank`/same-origin open is affected), watches for the ready
-title on `page-title-updated` (`pdfFilenameFromTitle`, both in the new `desktop/src/lib/pdf-export.ts`),
-then polls `document.readyState` via `executeJavaScript` (a privileged call, also unaffected by the page's
-CSP) until `isDocumentReadyState` reports "complete" — the title sits early in `<head>` and can arrive well
-before the rest of the page has rendered — bounded by the same `PDF_EXPORT_TIMEOUT_MS` (60s) that also
-force-closes the window and shows a `dialog.showErrorBox` if the ready title never arrives at all. Once
-ready, it sets a clean PDF-metadata title, calls `webContents.printToPDF`, offers the result through
-`dialog.showSaveDialog` with the sanitized suggested filename (path separators, Windows-reserved
-punctuation and device names, trailing dots/spaces stripped; length-capped), writes the bytes on confirm —
-showing an error box rather than failing silently if printToPDF/the dialog/the write throws — and always
-closes the hidden window afterward. In a browser, `pdfWindowName` still returns `_blank` and the original
-auto-print script (`EXPORT_AUTO_PRINT_SCRIPT` / `AUTO_PRINT_SCRIPT`) runs exactly as before — pinned
-byte-for-byte by `toBe`/`toContain`-on-the-full-block assertions in `export.test.ts` and
-`document-download.test.ts` (mutation-checked: a one-character change to either script fails the pin), not
-merely by the pre-existing suites continuing to pass. Pinned by `desktop/src/lib/pdf-export.test.ts`,
-`src/app/pdf-export-protocol.test.ts`, and desktop-UA cases in `src/app/export.test.ts` and
-`src/app/document-download.test.ts` asserting the named frame, the `<title>`-only ready signal (never a
-`<script>`), and the absence of `window.print`. `main.ts`'s own wiring sits outside the blocking root
-typecheck and outside vitest coverage (only the pure `pdf-export.ts` lib is tested), and
+appending after it, via `replaceHtmlTitle` — a FUNCTION replacement, never a string one, since a document
+title containing `$&`/`$'`/`$$` would otherwise corrupt the emitted markup), not a script, because the tab
+is `document.write`n into an `about:blank` child that inherits the packaged app's nonce-only production CSP
+— an inline `<script>` there has no nonce and would be blocked outright, so a script-based signal (this
+fix's first draft) would very likely never have fired; a `<title>` element needs no script permission and
+reaches main purely from parsing. `desktop/src/main.ts` renders that named frame hidden
+(`overrideBrowserWindowOptions: { show: false }`, gated on `isPdfExportFrame` so no other
+`about:blank`/same-origin open is affected), watches for the ready title on `page-title-updated`
+(`pdfFilenameFromTitle`, both in the new `desktop/src/lib/pdf-export.ts`), then polls
+`document.readyState` via `executeJavaScript` (a privileged call, also unaffected by the page's CSP) until
+`isDocumentReadyState` reports "complete" — the title sits early in `<head>` and can arrive well before the
+rest of the page has rendered — bounded by the same `PDF_EXPORT_TIMEOUT_MS` (60s) that also force-closes
+the window and shows a `dialog.showErrorBox` if the ready title never arrives at all. That bound is CLEARED
+the moment readiness is confirmed, before `printToPDF`/the save dialog run (an earlier revision of this fix
+cleared it only in a trailing `finally`, which left it armed through both — a slow save could show "took
+too long and was cancelled" and close the window while the file was in fact about to be written, or firing
+mid-`printToPDF` produced a second, contradicting error box). Once ready, it sets a clean PDF-metadata
+title, calls `webContents.printToPDF`, offers the result through `dialog.showSaveDialog` with the sanitized
+suggested filename (path separators, Windows-reserved punctuation and device names, trailing dots/spaces
+stripped; length-capped), writes the bytes on confirm — showing an error box rather than failing silently
+if printToPDF/the dialog/the write throws — and always closes the hidden window afterward. ★ KNOWN LIMIT:
+a second export started while a hidden export window still owns the named `window.open` target reuses that
+SAME browsing context, so no fresh `did-create-window` fires for it — the second export is silently lost
+until the first one's `PDF_EXPORT_TIMEOUT_MS` backstop closes the stuck window (or the first export
+completes normally). In a browser, `pdfWindowName` still returns `_blank` and the original auto-print
+script (`EXPORT_AUTO_PRINT_SCRIPT` / `AUTO_PRINT_SCRIPT`) runs exactly as before — pinned byte-for-byte by
+`toContain`-on-the-full-block assertions in `export.test.ts` and `document-download.test.ts`
+(mutation-checked: a one-character change to either script fails the pin), not merely by the pre-existing
+suites continuing to pass. Pinned by `desktop/src/lib/pdf-export.test.ts`,
+`src/app/pdf-export-protocol.test.ts` (including a `$&`/`$'`/`$$` title case for `replaceHtmlTitle`), and
+desktop-UA cases in `src/app/export.test.ts` and `src/app/document-download.test.ts` asserting the named
+frame, the `<title>`-only ready signal (never a `<script>`), and the absence of `window.print`. `main.ts`'s
+own wiring — including the timeout-clearing ORDER and the second-export limit above — sits outside the
+blocking root typecheck and outside vitest coverage (only the pure `pdf-export.ts` lib is tested), and
 `desktop/node_modules` is not installed in this worktree, so none of that has been compiled or run against
 real Electron types. This entry stays OPEN, and its Work item stays attached, until the manual check below
 records a real result — closing on landed-but-unrun code would detach the GitHub issue while the owed

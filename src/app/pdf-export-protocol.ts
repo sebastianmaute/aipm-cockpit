@@ -40,7 +40,21 @@ export function pdfReadyTitleMarkup(filename: string): string {
  *  `pdfReadyTitleMarkup`'s doc comment for why replacing (not appending) is
  *  required. Used by `document-download.ts`'s pdf branch to swap in the
  *  desktop shell's readiness signal without perturbing `renderDocumentHtml`
- *  itself, which every other format (html/docx/pptx) also calls unmodified. */
+ *  itself, which every other format (html/docx/pptx) also calls unmodified.
+ *
+ *  ★★★ §468 re-review N2 — Function replacement, NEVER a string one. A
+ *  string second argument to `String.replace` treats `$&`/`` $` ``/`$'`/`$$`
+ *  as special substitution patterns; `titleTag` carries the DOCUMENT'S OWN
+ *  title (`pdfReadyTitleMarkup(documentFilename(doc, ...))`), and neither
+ *  `slugifyTitle` (document-download.ts) nor `htmlEscape` remove `$` —
+ *  `htmlEscape` in fact produces `&amp;`/`&#39;`-shaped text that starts
+ *  with `&`, so a document titled "Q & A" reliably survives to a title
+ *  string containing `$&` once escaped. A user-chosen document title landing
+ *  in a REPLACEMENT PATTERN corrupted the emitted `<title>` and spilled
+ *  stray text into the body, which would then print at the top of the PDF —
+ *  reproduced with a plain `"Q $& A"` title before this fix. Same trap
+ *  `document-download.ts`'s `withClosingScript` already carries a comment
+ *  about, one function away. */
 export function replaceHtmlTitle(html: string, titleTag: string): string {
-  return html.replace(/<title>[\s\S]*?<\/title>/, titleTag);
+  return html.replace(/<title>[\s\S]*?<\/title>/, () => titleTag);
 }
