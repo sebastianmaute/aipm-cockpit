@@ -130,7 +130,7 @@ re-resolved by hand.
   `next-build` (1 day). ★★ `include-hidden-files: true` is load-bearing: `.next` is a hidden directory,
   `upload-artifact` excludes those by default, and without it `prod-smoke` would fail with "No .next/
   directory found" for the wrong reason. The workflow test pins the key.
-- **`e2e`** (45 min, `needs: build`). Runs in the container `mcr.microsoft.com/playwright:v1.61.1-jammy`
+- **`e2e`** (45 min, `needs: build`). Runs in the container `mcr.microsoft.com/playwright:v1.63.0-jammy`
   — keep the tag equal to `@playwright/test` in `package-lock.json`; the workflow test checks it.
   `npx playwright install chromium`, then `npm run e2e`, including the axe gate. It does NOT consume
   `build`'s artifact: `playwright.config.ts` starts its own `npm run dev` server, so it meets the
