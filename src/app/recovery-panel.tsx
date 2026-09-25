@@ -78,6 +78,8 @@ export function RecoveryPanel() {
 
   const reopen = () => {
     try {
+      // A full reload, not a router push: the app must boot again from the restored config.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.assign("/");
     } catch {
       /* noop */

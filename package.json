@@ -138,7 +138,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "@vitest/coverage-v8": "^4.1.11",
     "eslint": "^10.11.0",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "16.3.4",
     "fake-indexeddb": "^6.2.5",
     "fast-check": "^4.10.2",
     "jiti": "^2.7.0",
