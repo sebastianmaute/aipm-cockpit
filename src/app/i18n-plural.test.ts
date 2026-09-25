@@ -168,6 +168,7 @@ describe("plural key pairing", () => {
       "raciSuggestSkipped@src/app/raci-suggest-modal.tsx": "SkipMessageKey union + SKIP_REASON_KEY map",
       "raciSuggestSkippedAccountable@src/app/raci-suggest-modal.tsx": "SkipMessageKey union + map",
       "raciSuggestSkippedInvalidRole@src/app/raci-suggest-modal.tsx": "SkipMessageKey union + map",
+      "raciSuggestSkippedHandover@src/app/raci-suggest-modal.tsx": "SkipMessageKey union + map",
       // `confirmKey` ternary picks the base; tPlural renders it on the next line.
       "storageConvertConfirm@src/app/use-storage-file-ops.ts": "confirmKey ternary",
       "storageTursoLeaveWarn@src/app/use-storage-file-ops.ts": "confirmKey ternary",
