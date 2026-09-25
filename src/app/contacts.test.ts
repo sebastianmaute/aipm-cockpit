@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   greetingName,
   loadContacts,
@@ -111,7 +111,8 @@ describe("loadContacts", () => {
   beforeEach(() => {
     // Mock localStorage
     const store: Record<string, string> = {};
-    global.localStorage = {
+    // stubGlobal, not assignment: under vitest 5 jsdom's localStorage is getter-only.
+    vi.stubGlobal("localStorage", {
       getItem: (key: string) => store[key] || null,
       setItem: (key: string, value: string) => {
         store[key] = value;
@@ -124,7 +125,10 @@ describe("loadContacts", () => {
       },
       length: 0,
       key: () => null,
-    };
+    });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("returns empty object when window is undefined", () => {
@@ -262,7 +266,8 @@ describe("loadContacts", () => {
 describe("saveContacts", () => {
   beforeEach(() => {
     const store: Record<string, string> = {};
-    global.localStorage = {
+    // stubGlobal, not assignment: under vitest 5 jsdom's localStorage is getter-only.
+    vi.stubGlobal("localStorage", {
       getItem: (key: string) => store[key] || null,
       setItem: (key: string, value: string) => {
         store[key] = value;
@@ -275,7 +280,10 @@ describe("saveContacts", () => {
       },
       length: 0,
       key: () => null,
-    };
+    });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("saves contacts to localStorage as JSON", () => {
