@@ -298,6 +298,22 @@ describe("ProjectsPanel file mode", () => {
     ).toBeInTheDocument();
   });
 
+  it("disables Load from file and explains why when the browser lacks file access (§574)", () => {
+    const had = "showOpenFilePicker" in window;
+    const saved = (window as unknown as Record<string, unknown>).showOpenFilePicker;
+    delete (window as unknown as Record<string, unknown>).showOpenFilePicker;
+    try {
+      setup({ mode: "file" });
+      const btn = screen.getByRole("button", { name: /load from file/i });
+      expect(btn).toBeDisabled();
+      expect(btn).toHaveAccessibleDescription(
+        "This browser doesn't support direct file access. Use Chrome, Edge, or Opera.",
+      );
+    } finally {
+      if (had) (window as unknown as Record<string, unknown>).showOpenFilePicker = saved;
+    }
+  });
+
   // §309, the OTHER branch. `projects-panel.tsx` renders Archive OR Delete —
   // `{isTurso ? <Archive/> : <Delete/>}` — so the turso test above can never
   // reach the `projectsDelete` label and nothing pinned its name. File mode is

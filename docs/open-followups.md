@@ -814,7 +814,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§571](#571-the-chart-box-clamps-boundary-width-has-no-test--closed-2026-09-21) | The chart-box clamp's boundary width has no test — CLOSED 2026-09-21 | found 2026-09-18 by mutation-testing `anchorFor`, `>` to `>=`, suite stayed green; GitLab #356 | XS — add a case at `rect.width === 352` | closed |
 | [§572](#572-agentsmds-tsc-guidance-cannot-detect-a-vacuous-run--open) | AGENTS.md's tsc guidance cannot detect a vacuous run — OPEN | measured 2026-09-18 on this branch: a corrupt generated file hides a real `src/` error from `tsc`; GitLab #357 | S — amend the Commands block's `npx tsc --noEmit` guidance | open |
 | [§573](#573-the-open-points-visual-baseline-is-stale--closed-2026-09-19) | The Open Points visual baseline is stale | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | **CLOSED** 2026-09-19 |
-| [§574](#574-load-project-from-file-throws-in-firefoxsafari-and-blames-settings-instead-of-the-browser--open) | "Load project from file" throws in Firefox/Safari and blames Settings instead of the browser — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #359 | S — gate the CTA behind `isFileSystemAccessSupported()`, or have `reportProjectError` emit the specific message | open |
+| [§574](#574-load-project-from-file-throws-in-firefoxsafari-and-blames-settings-instead-of-the-browser--closed-2026-09-25) | "Load project from file" throws in Firefox/Safari and blames Settings instead of the browser — CLOSED 2026-09-25 | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #359; closed 2026-09-25 on `fix/defect-batch-6` | S — `projectErrorKey` extracted from `reportProjectError`; a new `useFsaSupported()` hook disables the three Load-from-file controls and names the reason | closed |
 | [§575](#575-ai-assistant-chat-history-re-sends-every-earlier-turns-attachments-so-a-long-thread-can-exceed-the-messages-apis-32-mb-request-limit--open) | AI Assistant chat history re-sends every earlier turn's attachments, so a long thread can exceed the Messages API's 32 MB request limit — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #360 | M — drop/summarize older attachment blocks before send, or track running payload bytes | open |
 | [§576](#576-sanitizefxrates-reorders-its-rates-object-on-a-second-decode-so-an-fx-snapshot-is-not-byte-stable-through-a-json-round-trip--closed-2026-09-21) | sanitizeFxRates reorders its rates object on a second decode, so an FX snapshot is not byte-stable through a JSON round-trip — CLOSED 2026-09-21 | json-import-multi-attach-demo-refresh (2026-09-18), found + verified during Task 9; GitLab #361 | S — iterate `SUPPORTED_CURRENCIES` unconditionally instead of conditionally inserting present keys | closed |
 | [§577](#577-the-budgetvariance-insight-compares-full-window-budget-against-to-date-actuals-so-open-buckets-with-future-months-are-flagged-and-an-unstarted-bucket-can-read-100-and-win-worst--closed-2026-09-19) | The budgetVariance insight compares full-window budget against to-date actuals, so open buckets with future months are flagged and an unstarted bucket can read 100% and win "worst" | json-import-multi-attach-demo-refresh (2026-09-18), found + verified against sample-workspace-small.json during Task 9; GitLab #362 | M — scope budgetHours to periods to-date, and/or exclude unstarted buckets from "worst" | **CLOSED** 2026-09-19 |
@@ -39924,12 +39924,33 @@ proved clean) reproduced a real, non-zero pixel diff on Dashboard and Gantt at `
 (`visual: Open Points` still matched exactly at that tolerance for a one-day shift), confirming the pin is
 load-bearing.
 
-## 574. "Load project from file" throws in Firefox/Safari and blames Settings instead of the browser — OPEN
+## 574. "Load project from file" throws in Firefox/Safari and blames Settings instead of the browser — CLOSED 2026-09-25
 
-**Status:** OPEN 2026-09-18 — established by reading `fs-access.ts`, `use-storage-file-ops.ts` and
-`i18n.ts`; never machine-verified (no headless Firefox/Safari run in this session — the bundled
-Playwright browsers here are Chromium-family only). Verified by code reading:
-`grep -n "pickOpenFileAny\|isFileSystemAccessSupported" src/app/fs-access.ts src/app/use-storage-file-ops.ts src/app/storage-config.tsx`.
+**Status:** CLOSED 2026-09-25 by `fix/defect-batch-6`. `use-storage-backend.ts` now exports a pure
+`projectErrorKey(err)`, extracted from `reportProjectError`'s `StorageNotReadyError` branch, which maps
+the `file-system-access-unsupported` hint to `storageFsaUnsupported` (the same browser-naming text
+Settings already shows) instead of falling through to the generic `storageNotReady` ("pick a file in
+Settings") text. Pinned by four unit tests in the new `use-storage-backend.report-error.test.ts`. Mutant:
+reverting the `file-system-access-unsupported` branch to a string that can never match — predicted RED
+on the first test ("names the browser, not Settings…"), actual RED
+(`expected 'storageNotReady' to be 'storageFsaUnsupported'`); restored, green again.
+
+On the UI side, a new hydration-safe `useFsaSupported()` hook (`use-fsa-supported.ts`,
+`useSyncExternalStore` over `"showOpenFilePicker" in window`, server snapshot `true` so SSR renders the
+controls enabled with no hydration flash) now disables every "Load from file" control in a browser
+lacking the File System Access open picker, and names the reason via `aria-describedby` pointing at the
+`storageFsaUnsupported` text — matching the empty-load Settings treatment mentioned in the original
+report. Wired into all three surfaces: `project-empty-state.tsx`'s primary Load button (visible hint
+span beside it), `project-switcher.tsx`'s dropdown "Load from file" menuitem (native `disabled` +
+`aria-disabled` so the roving keyboard nav skips it, hint `<p>` under the item), and
+`projects-panel.tsx`'s toolbar Load button (same title+`sr-only` wrapper contract as its neighbouring
+Load-from-Turso/Move-to-Turso buttons). Each component's existing "clicks the Load button" test — jsdom
+has no File System Access API by default, which would otherwise silently disable the control — now
+arms `window.showOpenFilePicker` first; a new test per file pins the disabled+described state with it
+absent. Mutants (each `disabled={!fsaSupported}` → `disabled={false}`, run and reverted individually):
+predicted RED on that file's new §574 test, actual RED in all three
+(`project-empty-state.test.tsx`, `project-switcher.test.tsx`, `projects-panel.test.tsx`), each restored
+and reconfirmed green. `npx tsc --noEmit` and `npx eslint --max-warnings=0 src` both exit 0.
 
 **Work item:** #359
 

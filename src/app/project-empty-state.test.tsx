@@ -163,9 +163,35 @@ describe("ProjectEmptyState", () => {
   });
 
   it("calls onLoadFromFile when the Load button is clicked", () => {
-    const { onLoadFromFile } = setup();
-    fireEvent.click(screen.getByRole("button", { name: /load from an existing file/i }));
-    expect(onLoadFromFile).toHaveBeenCalledTimes(1);
+    // jsdom has no File System Access API by default, which would otherwise
+    // disable this button (§574) — simulate a supporting browser.
+    const had = "showOpenFilePicker" in window;
+    const saved = (window as unknown as Record<string, unknown>).showOpenFilePicker;
+    (window as unknown as Record<string, unknown>).showOpenFilePicker = () => {};
+    try {
+      const { onLoadFromFile } = setup();
+      fireEvent.click(screen.getByRole("button", { name: /load from an existing file/i }));
+      expect(onLoadFromFile).toHaveBeenCalledTimes(1);
+    } finally {
+      if (had) (window as unknown as Record<string, unknown>).showOpenFilePicker = saved;
+      else delete (window as unknown as Record<string, unknown>).showOpenFilePicker;
+    }
+  });
+
+  it("disables Load from file and explains why when the browser lacks file access (§574)", () => {
+    const had = "showOpenFilePicker" in window;
+    const saved = (window as unknown as Record<string, unknown>).showOpenFilePicker;
+    delete (window as unknown as Record<string, unknown>).showOpenFilePicker;
+    try {
+      setup();
+      const btn = screen.getByRole("button", { name: /load from an existing file/i });
+      expect(btn).toBeDisabled();
+      expect(btn).toHaveAccessibleDescription(
+        "This browser doesn't support direct file access. Use Chrome, Edge, or Opera.",
+      );
+    } finally {
+      if (had) (window as unknown as Record<string, unknown>).showOpenFilePicker = saved;
+    }
   });
 
   it("clicking Create reveals the wizard; completing all three steps calls onCreate with meta + format + opts", () => {

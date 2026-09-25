@@ -41,6 +41,7 @@ import { TursoProjectPicker } from "./turso-project-picker";
 import { ResetSizeButton } from "./task-manager-ui";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { useConfirm } from "./confirm-dialog";
+import { useFsaSupported } from "./use-fsa-supported";
 import { usePopoverDismiss } from "./use-popover-dismiss";
 import { useResizable } from "./use-resizable";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
@@ -227,6 +228,11 @@ export function ProjectsPanel({
   const migrateToTursoHint = tursoConfigured
     ? t(lang, "projectMigrateToTursoHint")
     : t(lang, "projectTursoNotConfigured");
+  // §574 — Firefox/Safari have no File System Access open picker. Disable
+  // "Load from file" there and name the BROWSER limitation, same wrapper
+  // contract as the two Turso buttons above.
+  const fsaSupported = useFsaSupported();
+  const fsaHintId = useId();
   // Archived-row control names (Restore / Delete permanently) collide
   // unconditionally otherwise — every archived row emits the identical bare
   // verb (§276). ProjectRegistryEntry.id is a string, so `useRowTokens`
@@ -297,9 +303,29 @@ export function ProjectsPanel({
             </ToggleButton>
           )}
           {!isTurso && (
-            <Button variant="secondary" size="sm" onClick={onLoadFromFile}>
-              {t(lang, "projectSwitcherLoadFile")}
-            </Button>
+            // Same wrapper contract as Load-from-Turso below — read the block
+            // comment there for why the hint, the cursor and the pointer-events
+            // opt-out all sit at the call site rather than on `button.tsx`.
+            <span
+              className={`inline-flex${fsaSupported ? "" : " cursor-not-allowed"}`}
+              title={fsaSupported ? undefined : t(lang, "storageFsaUnsupported")}
+            >
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!fsaSupported}
+                onClick={onLoadFromFile}
+                aria-describedby={fsaSupported ? undefined : fsaHintId}
+                className="disabled:pointer-events-none"
+              >
+                {t(lang, "projectSwitcherLoadFile")}
+              </Button>
+              {!fsaSupported && (
+                <span id={fsaHintId} className="sr-only">
+                  {t(lang, "storageFsaUnsupported")}
+                </span>
+              )}
+            </span>
           )}
           {!isTurso && (
             // ★★ The hint rides this WRAPPER, not the Button. A `disabled`
