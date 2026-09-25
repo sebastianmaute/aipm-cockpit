@@ -4200,6 +4200,7 @@ export const de: Record<TranslationKey, string> = {
   insightRecommendationEmptyPlan: "Diese Empfehlung enthält keine anwendbaren Änderungen mehr.",
   insightRecommendationError: "Es konnte gerade keine Empfehlung generiert werden.",
   insightRecommendationApplied: "Empfehlung angewendet.",
+  insightRecommendationAppliedPartial: "Teilweise angewendet — einige Änderungen wurden nicht vorgenommen. Erstellen Sie für den Rest eine neue Empfehlung.",
   insightRecommendationApplyFailed: "Einige Änderungen dieser Empfehlung konnten nicht angewendet werden.",
   insightRecommendationAllRejected: "Nicht übernommen — jede Änderung in dieser Empfehlung wurde abgelehnt.",
   insightRecommendationStale: "Diese Empfehlung wurde nicht angewendet — die Projektdaten haben sich seit der Erstellung geändert. Erstellen Sie eine neue Empfehlung.",

@@ -119,6 +119,8 @@ describe("a stale recommendation is refused visibly, not swallowed", () => {
     expect(d.read().status).toBe("In Progress");
     expect(store.read()[0].status).toBe("acted");
     expect(store.read()[0].recommendation?.status).toBe("applied");
+    // §351: a full apply records no refused calls — the key is absent.
+    expect(store.read()[0].recommendation).not.toHaveProperty("refusedCalls");
     expect(deps.showToast).toHaveBeenCalledWith("info", t("en-US", "insightRecommendationApplied"));
   });
 
@@ -168,6 +170,11 @@ describe("a stale recommendation is refused visibly, not swallowed", () => {
     await act(async () => { await result.current.confirmInsightRecommendation(); });
     expect(store.read()[0].status).toBe("acted");
     expect(deps.showToast).toHaveBeenCalledWith("error", t("en-US", "insightRecommendationStalePartial"));
+    // §351: the partial outcome is RECORDED, not only toasted — the stored
+    // recommendation stays `applied` (so its create is never re-offered) and
+    // counts the one update that wrote nothing.
+    expect(store.read()[0].recommendation?.status).toBe("applied");
+    expect(store.read()[0].recommendation?.refusedCalls).toBe(1);
   });
 });
 
@@ -232,6 +239,8 @@ describe("§534 — confirm sends only what the review modal showed", () => {
     expect(store.read()[0].recommendation?.status).toBe("applied");
     expect(deps.showToast).toHaveBeenCalledWith("error", t("en-US", "insightRecommendationApplyFailed"));
     expect(deps.showToast).not.toHaveBeenCalledWith("info", t("en-US", "insightRecommendationApplied"));
+    // §351: a call refused whole in review wrote nothing either — recorded.
+    expect(store.read()[0].recommendation?.refusedCalls).toBe(1);
   });
 });
 

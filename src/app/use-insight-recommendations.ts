@@ -390,7 +390,18 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
               actedAt: today,
               // SP3: same shared baseline capture as the manual Act path.
               ...metricAtActionPatch(i),
-              recommendation: { ...rec, status: "applied" as const, appliedAt: today, appliedSummary: rec.summary },
+              // §351: record the calls that wrote nothing, so a partly-landed
+              // plan stays distinguishable from a full one after the toast is
+              // gone. The early return above is deliberately NOT widened — the
+              // creates committed, so returning to `proposed` would let a
+              // re-confirm create them twice.
+              recommendation: {
+                ...rec,
+                status: "applied" as const,
+                appliedAt: today,
+                appliedSummary: rec.summary,
+                ...(stale + refused > 0 ? { refusedCalls: stale + refused } : {}),
+              },
             }
           : i,
       ),

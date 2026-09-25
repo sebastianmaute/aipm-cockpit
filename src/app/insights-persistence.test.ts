@@ -58,6 +58,40 @@ describe("JSON codec — insights", () => {
   });
 });
 
+// §351: a partly-applied recommendation's refused-call count rides the insights
+// blob on every text codec, so "Partly applied" survives a save and reload.
+describe("insights — recommendation.refusedCalls survives the codecs (§351)", () => {
+  const PARTLY_APPLIED: Insight[] = [
+    {
+      ...SAMPLE_INSIGHTS[0],
+      status: "acted",
+      actedAt: "2026-07-11T00:00:00.000Z",
+      recommendation: {
+        summary: "Create a follow-up task and move the milestone",
+        proposedCalls: [
+          { name: "create_task", input: { taskName: "Follow-up" } },
+          { name: "update_milestone", input: { id: 5, date: "2026-08-01" } },
+        ],
+        generatedAt: "2026-07-10T00:00:00.000Z",
+        status: "applied",
+        appliedSummary: "Create a follow-up task and move the milestone",
+        appliedAt: "2026-07-11",
+        refusedCalls: 1,
+      },
+    },
+  ];
+  const ws = () => ({ ...emptyWorkspace(), insights: PARTLY_APPLIED });
+  it("JSON", () => {
+    expect(jsonToWorkspace(workspaceToJson(ws())).insights?.[0].recommendation?.refusedCalls).toBe(1);
+  });
+  it("CSV (storage path)", () => {
+    expect(csvToWorkspace(workspaceToCsv(ws())).insights?.[0].recommendation?.refusedCalls).toBe(1);
+  });
+  it("Markdown (storage path)", () => {
+    expect(markdownToWorkspace(workspaceToMarkdown(ws())).insights?.[0].recommendation?.refusedCalls).toBe(1);
+  });
+});
+
 // --- CSV round-trip -----------------------------------------------------------
 
 describe("CSV codec — insights", () => {

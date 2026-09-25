@@ -69,6 +69,15 @@ function sanitizeRecommendation(v: unknown): InsightRecommendation | undefined {
     : "proposed";
   const appliedSummary = str(o.appliedSummary, INSIGHT_REC_SUMMARY_MAX);
   const appliedAt = str(o.appliedAt, 40);
+  // §351: a count of refused calls — admitted only as a non-negative integer no
+  // larger than a recommendation can hold; anything else is dropped.
+  const refusedCalls =
+    typeof o.refusedCalls === "number" &&
+    Number.isInteger(o.refusedCalls) &&
+    o.refusedCalls >= 0 &&
+    o.refusedCalls <= INSIGHT_REC_MAX_CALLS
+      ? o.refusedCalls
+      : undefined;
   return {
     summary,
     proposedCalls: calls,
@@ -76,6 +85,7 @@ function sanitizeRecommendation(v: unknown): InsightRecommendation | undefined {
     status,
     ...(appliedSummary ? { appliedSummary } : {}),
     ...(appliedAt ? { appliedAt } : {}),
+    ...(refusedCalls !== undefined ? { refusedCalls } : {}),
   };
 }
 /** Numeric coercion for persisted metric values. An EMPTY/whitespace string must

@@ -4458,6 +4458,7 @@ const enUS = {
   insightRecommendationEmptyPlan: "This recommendation has no remaining changes to apply.",
   insightRecommendationError: "Couldn't generate a recommendation right now.",
   insightRecommendationApplied: "Recommendation applied.",
+  insightRecommendationAppliedPartial: "Partly applied — some changes weren't made. Generate a new recommendation for the rest.",
   insightRecommendationApplyFailed: "Some changes in this recommendation couldn't be applied.",
   insightRecommendationAllRejected: "Not applied — every change in this recommendation was rejected.",
   insightRecommendationStale: "This recommendation wasn't applied — the project data changed since it was generated. Generate a new one.",
