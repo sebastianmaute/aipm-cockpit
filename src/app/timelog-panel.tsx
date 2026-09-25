@@ -571,14 +571,18 @@ export function TimelogPanel({
         </p>
       )}
 
-      {/* §366: a project-scope fetch persists an EMPTY covered-people list on
-          purpose (use-timelog-sync.ts: passing the bookers would claim days the
-          fetch never saw), so every TimeLog guardrail finding stays frozen after
-          it. Say so, rather than leave the findings looking silently stuck.
-          `[]` is the project-scope marker; `undefined` means no roll at all. */}
+      {/* §366: a fetch that covered NO person's whole day persists an EMPTY
+          covered-people list, and every TimeLog guardrail finding stays frozen
+          after it. Say so, rather than leave the findings looking silently
+          stuck. A project-scope fetch always does this, on purpose
+          (use-timelog-sync.ts: passing the bookers would claim days the fetch
+          never saw), but so does a self fetch with no bookings or an org fetch
+          over nobody — the sync state does not record WHICH scope ran, so the
+          note names the cause (no one covered), never "by project".
+          `undefined` means no roll at all, and shows nothing. */}
       {sync.fetchedAt && sync.dailyUsers?.length === 0 && (
         <p className="mb-2 text-xs text-muted-foreground print:hidden">
-          {t(lang, "timelogProjectScopeGuardrailNote")}
+          {t(lang, "timelogGuardrailCoverageNote")}
         </p>
       )}
 

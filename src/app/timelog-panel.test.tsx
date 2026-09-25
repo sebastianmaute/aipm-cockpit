@@ -8,7 +8,7 @@ import { WorkspaceTabProvider } from "./workspace-tab-context";
 import { TimelogPanel } from "./timelog-panel";
 import { SETTINGS_KEY } from "./use-settings";
 import { defaultSettings } from "./settings-types";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import { expectButtonOrder } from "../test/toolbar-order";
 import type { Resource, BudgetBucket } from "./types";
 import type { TimelogLinks } from "./timelog-types";
@@ -406,10 +406,11 @@ describe("TimelogPanel", () => {
     });
   });
 
-  // §366. A project-scope fetch persists an EMPTY covered-people list on
-  // purpose, which freezes every TimeLog guardrail finding; the panel must say
-  // so. A person/org fetch persists the people it covered, and says nothing.
-  describe("project-scope guardrail note (§366)", () => {
+  // §366. A fetch that covered no person's whole day (always the case for a
+  // project-scope fetch) persists an EMPTY covered-people list, which freezes
+  // every TimeLog guardrail finding; the panel must say so. A fetch that
+  // covered people persists them, and says nothing.
+  describe("guardrail coverage note (§366)", () => {
     async function renderWithDailyUsers(dailyUsers: readonly number[] | undefined) {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue({
@@ -426,22 +427,34 @@ describe("TimelogPanel", () => {
       );
     }
 
-    it("shows the note after a project-scope fetch (covered people = [])", async () => {
+    it("shows the note after a fetch that covered no one (covered people = [])", async () => {
       await renderWithDailyUsers([]);
-      expect(screen.getByText(t("en-US", "timelogProjectScopeGuardrailNote"))).toBeInTheDocument();
+      const note = screen.getByText(t("en-US", "timelogGuardrailCoverageNote"));
+      // M3: the sync state does not record which scope ran, and a self or org
+      // fetch can also cover nobody — so the text must not claim "by project".
+      expect(note.textContent).not.toMatch(/by project/i);
+      expect(note.textContent).toContain("dismiss them in Insights");
     });
 
-    it("shows no note after a person/org fetch that covered people", async () => {
+    it("the German text does not claim a project fetch either", async () => {
+      await loadI18n("de");
+      const de = t("de", "timelogGuardrailCoverageNote");
+      expect(de).not.toBe(t("en-US", "timelogGuardrailCoverageNote")); // really the DE string
+      expect(de).not.toMatch(/pro Projekt/i);
+      expect(de).toContain("Erkenntnisse");
+    });
+
+    it("shows no note after a fetch that covered people", async () => {
       await renderWithDailyUsers([42]);
       // Positive observable first: the fetched state really rendered.
       expect(screen.getByText("8 h")).toBeInTheDocument();
-      expect(screen.queryByText(t("en-US", "timelogProjectScopeGuardrailNote"))).toBeNull();
+      expect(screen.queryByText(t("en-US", "timelogGuardrailCoverageNote"))).toBeNull();
     });
 
     it("shows no note when there is no daily roll at all", async () => {
       await renderWithDailyUsers(undefined);
       expect(screen.getByText("8 h")).toBeInTheDocument();
-      expect(screen.queryByText(t("en-US", "timelogProjectScopeGuardrailNote"))).toBeNull();
+      expect(screen.queryByText(t("en-US", "timelogGuardrailCoverageNote"))).toBeNull();
     });
   });
 
