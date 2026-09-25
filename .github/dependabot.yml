@@ -2,12 +2,16 @@
 # every exactly pinned framework package (CONTRIBUTING "Dependencies") arrive one PR each, for a
 # human decision. scripts/dependabot-config.test.mjs derives the pinned set from each package.json.
 # Container digests (semgrep, actionlint) are not covered; re-resolve them by hand.
+# HELD while the repository is private: open-pull-requests-limit: 0 stops version-update PRs, which
+# spend Actions minutes. Security-fix PRs are not affected by this limit and stay on. Flip step 10a
+# deletes the three limit lines once the repository is public.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
     groups:
       actions:
         patterns: ["*"]
@@ -15,6 +19,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
     groups:
       npm-minor-patch:
         update-types: [minor, patch]
@@ -23,6 +28,7 @@ updates:
     directory: /desktop
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
     groups:
       desktop-minor-patch:
         update-types: [minor, patch]
