@@ -2584,6 +2584,11 @@ const enUS = {
     "{0} proposed assignments were refused because the role letter was not one of R, A, C or I.",
   raciSuggestSkippedInvalidRoleOne:
     "1 proposed assignment was refused because the role letter was not one of R, A, C or I.",
+  raciSuggestSkippedHandover:
+    "{0} proposed assignments were refused because each is an Accountable handover. Change the Accountable by hand.",
+  raciSuggestSkippedHandoverOne:
+    "1 proposed assignment was refused because it is an Accountable handover. Change the Accountable by hand.",
+  raciSuggestNoOpCount: "Already in place: {0}",
   activityAiRaciSuggest: "Applied {0} AI-proposed RACI assignments",
   activityAiRaciSuggestOne: "Applied 1 AI-proposed RACI assignment",
   integrationsTursoTooltip: "Store your workspace in a Turso (libSQL) database.",

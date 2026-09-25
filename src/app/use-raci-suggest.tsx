@@ -112,6 +112,10 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
   const [phase, setPhase] = useState<Phase>("idle");
   const [cells, setCells] = useState<readonly GroundedRaciCell[]>([]);
   const [skipped, setSkipped] = useState<readonly SkippedRaciCell[]>([]);
+  // Cells dropped as no-ops (the role proposed is already stored). Kept so the
+  // preview can say so: before, only the empty-and-no-skips toast read it, and
+  // a preview whose cells were all no-op or refused said nothing about them (§43).
+  const [noOp, setNoOp] = useState(0);
   const [truncated, setTruncated] = useState(false);
   // Tracked SEPARATELY from `truncated`. That flag means the response was cut;
   // this one means the INPUT was — the model never saw some stakeholders or
@@ -136,6 +140,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     setPhase("idle");
     setCells([]);
     setSkipped([]);
+    setNoOp(0);
     setTruncated(false);
     setContextTruncated(false);
     setSelected(new Set());
@@ -160,6 +165,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
       // milestones before anything can be shown or applied.
       const grounded = groundRaciCells(parsed.cells, stakeholders, milestones);
       setSkipped(grounded.skipped);
+      setNoOp(grounded.noOp);
       // parsed.truncated is where an over-large proposal ACTUALLY gets cut
       // (parseRaciProposal caps at the same MAX_RACI_CELLS grounding does, so
       // grounded.truncated alone can never fire on this real path — it stays
@@ -295,6 +301,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
       open
       cells={cells}
       skipped={skipped}
+      noOp={noOp}
       truncated={truncated}
       contextTruncated={contextTruncated}
       stakeholders={stakeholders}
