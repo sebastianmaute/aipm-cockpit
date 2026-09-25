@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   INSTALLER_DIR, LATEST_YML, installerName, expectedAssets, releaseTitle, changelogSection,
-  releaseNotes, parseLatestYml, checkLatestYml, classifyRelease, verifyDraft,
+  releaseNotes, unwrapMarkdown, parseLatestYml, checkLatestYml, classifyRelease, verifyDraft,
 } from "./release-publish-lib.mjs";
 
 const SHA512 = "A".repeat(86) + "==";
@@ -59,6 +59,34 @@ describe("release notes", () => {
     expect(notes).toMatch(/not code-signed/);
     expect(notes).toMatch(/SmartScreen/);
     expect(() => releaseNotes(CHANGELOG, "9.9.9")).toThrow(/CHANGELOG\.md has no section/);
+  });
+  // GitHub renders every newline in a release body as <br>, so a CHANGELOG hard-wrapped at ~100
+  // columns showed as broken lines on the release page and in the desktop update dialog (1.14.0).
+  it("unwraps hard-wrapped paragraphs and list items, keeping block structure", () => {
+    const wrapped = [
+      "A paragraph that", "wraps twice", "here.", "",
+      "### Added", "",
+      "- **Item one** that", "  wraps.", "- Item two.", "  1. nested", "     wrap", "",
+      "```", "code line", "second code line", "```", "",
+      "| a | b |", "| - | - |", "",
+      "---", "",
+      "Last.",
+    ].join("\n");
+    expect(unwrapMarkdown(wrapped)).toBe([
+      "A paragraph that wraps twice here.", "",
+      "### Added", "",
+      "- **Item one** that wraps.", "- Item two.", "  1. nested wrap", "",
+      "```", "code line", "second code line", "```", "",
+      "| a | b |", "| - | - |", "",
+      "---", "",
+      "Last.",
+    ].join("\n"));
+  });
+  it("publishes notes with no line that continues the one before it", () => {
+    const cl = ['## [2.0.0] - 2026-10-01 "X"', "", "First line of a", "wrapped paragraph.", "", "- An item", "  wrapped.", ""].join("\n");
+    const notes = releaseNotes(cl, "2.0.0");
+    expect(notes).toMatch(/^First line of a wrapped paragraph\.\n\n- An item wrapped\.\n/);
+    expect(notes).toMatch(/on first run: \*\*More info → Run anyway\*\*\. It installs/);
   });
 });
 

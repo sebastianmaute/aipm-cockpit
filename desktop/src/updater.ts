@@ -18,6 +18,10 @@ export interface Updater {
 type ElectronUpdaterModule = typeof import("electron-updater");
 
 const NOT_PACKAGED_MESSAGE = "Updates are checked only in the installed app.";
+// The installer runs silently after "Restart now" (quitAndInstall with isSilent), so nothing is
+// visible for a few minutes and the app can look frozen -- seen on the first real update, 1.14.0.
+const INSTALL_HINT =
+  "Installing takes a few minutes. Meanwhile the app may look frozen or close without a message. It opens again by itself once the new version is installed, so please do not start it again in the meantime.";
 const LOAD_FAILED_MESSAGE = "The updater could not be loaded.";
 
 // Every check request the app is skipping because an operator asked it to, in one place -- e2e:desktop
@@ -166,7 +170,7 @@ function wireUpdater(
     deps.window()?.setProgressBar(-1);
     void (async () => {
       const r = await box({
-        type: "info", title: "Update ready", message: `AI PM Cockpit ${info.version} is ready to install.`,
+        type: "info", title: "Update ready", message: `AI PM Cockpit ${info.version} is ready to install.`, detail: INSTALL_HINT,
         buttons: ["Restart now", "On next quit"], defaultId: 0, cancelId: 1,
       });
       // ★ quitAndInstall calls this.install() SYNCHRONOUSLY first (BaseUpdater.js), which spawns the

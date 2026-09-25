@@ -82,6 +82,20 @@ describe("createUpdater", () => {
     }
   });
 
+  // The installer runs silently after "Restart now", so for a few minutes nothing is visible and the
+  // app can look frozen (seen on the first real update, 1.14.0-rc.1 → 1.14.0).
+  it("the Update ready dialog warns that installing takes a few minutes and may look frozen", async () => {
+    showMessageBox.mockResolvedValueOnce({ response: 1 }); // "On next quit": no quitAndInstall
+    await createUpdater({ log: vi.fn(), window: () => null });
+    const onDownloaded = fakeAutoUpdater.on.mock.calls.find((c) => c[0] === "update-downloaded")?.[1] as (info: { version: string }) => void;
+    onDownloaded({ version: "9.9.9" });
+    await vi.waitFor(() => expect(showMessageBox).toHaveBeenCalledTimes(1));
+    const opts = (showMessageBox.mock.calls[0] as unknown[]).at(-1) as { message: string; detail?: string };
+    expect(opts.message).toBe("AI PM Cockpit 9.9.9 is ready to install.");
+    expect(opts.detail).toMatch(/few minutes/);
+    expect(opts.detail).toMatch(/frozen/);
+  });
+
   it("a manual check calls the real autoUpdater's checkForUpdates", async () => {
     const updater = await createUpdater({ log: vi.fn(), window: () => null });
     updater.check("manual");
