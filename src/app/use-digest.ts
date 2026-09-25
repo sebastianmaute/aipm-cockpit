@@ -56,6 +56,10 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
   const [generating, setGenerating] = useState(false);
   /** The in-flight narrative's controller — a ref so `cancel` can reach it. */
   const narrativeCtrlRef = useRef<AbortController | null>(null);
+  /** Set by `cancel` (a USER stop), never by the timeout, and cleared at the
+   *  start of every generate. `emailDigest` reads it: a Stop pressed while the
+   *  email's own narrative runs means "stop the email", not "send it thinner". */
+  const userStoppedRef = useRef(false);
   /** In-flight email send. A ref, not `busy` — see emailDigest: the busy flag
    *  goes false mid-flow, so it cannot guard against a second click. */
   const sendingRef = useRef(false);
@@ -68,6 +72,7 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
   const generate = useCallback(
     async (opts: { notify: boolean; advance: boolean; narrative: boolean }): Promise<DigestModel | null> => {
       if (deps.isPopout) return null;
+      userStoppedRef.current = false;
       setBusy(true);
       try {
         const prior = loadDigestState(deps.projectId);
@@ -162,10 +167,17 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
       // `deps.aiKey`: with AI off a narrative can never appear, so reusing is
       // correct and re-running would bill nothing but waste a round trip.
       const needsNarrative = !!deps.aiKey && !digest?.narrative;
-      const d =
-        digest && !needsNarrative
-          ? digest
-          : await generate({ notify: false, advance: false, narrative: true });
+      let d: DigestModel | null;
+      if (digest && !needsNarrative) {
+        d = digest;
+      } else {
+        d = await generate({ notify: false, advance: false, narrative: true });
+        // §125: the Generate button reads "Stop" while this narrative runs, and
+        // a user who presses it right after Email means "stop the email". Sending
+        // mail is irreversible, so bail BEFORE the token and the send. A timeout
+        // does not set this flag, so it still sends the deterministic digest.
+        if (userStoppedRef.current) return;
+      }
       if (!d) return;
       // Held across the Graph roundtrip (bounded at 30s) so the card's buttons
       // also DISABLE — the ref stops the duplicate send, this is what shows the
@@ -205,7 +217,10 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
   }, [deps, digest, generate]);
 
   const cancel = useCallback(() => {
-    narrativeCtrlRef.current?.abort();
+    const ctrl = narrativeCtrlRef.current;
+    if (!ctrl) return;
+    userStoppedRef.current = true;
+    ctrl.abort();
   }, []);
 
   return { digest, generateNow, emailDigest, busy, generating, cancel };

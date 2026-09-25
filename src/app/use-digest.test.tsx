@@ -373,6 +373,71 @@ describe("useDigest", () => {
     expect(showToast).not.toHaveBeenCalled();
   });
 
+  // §125 fix round: emailing regenerates for the narrative, so the Generate
+  // button reads "Stop" right after Email is clicked. Pressing it must stop the
+  // (irreversible) send, not mail a narrative-less digest.
+  it("a Stop during the email's narrative stops the email too", async () => {
+    let seen: AbortSignal | undefined;
+    const runNarrative = vi.fn(
+      (_d: unknown, _o: unknown, signal: AbortSignal) =>
+        new Promise<string>((_resolve, reject) => {
+          seen = signal;
+          signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        }),
+    );
+    const send = vi.fn().mockResolvedValue(undefined);
+    const acquireToken = vi.fn().mockResolvedValue("tok");
+    const showToast = vi.fn();
+    const { result } = renderHook(() =>
+      useDigest(deps({
+        aiKey: "sk-ant-test",
+        m365Configured: true,
+        runNarrative: runNarrative as UseDigestDeps["runNarrative"],
+        sendDigestMail: send,
+        acquireToken,
+        showToast,
+      })),
+    );
+    let pending: Promise<void> | undefined;
+    act(() => { pending = result.current.emailDigest(); });
+    expect(result.current.generating).toBe(true); // the Stop is up
+    await act(async () => {
+      result.current.cancel();
+      await pending;
+    });
+    expect(seen?.aborted).toBe(true);
+    expect(acquireToken).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+    expect(showToast).not.toHaveBeenCalled();
+    expect(result.current.busy).toBe(false);
+  });
+
+  it("a Stop pressed during an earlier Generate does not block a later email", async () => {
+    const runNarrative = vi.fn(
+      (_d: unknown, _o: unknown, signal: AbortSignal) =>
+        new Promise<string>((resolve, reject) => {
+          signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+          if (runNarrative.mock.calls.length > 1) resolve("Narrative line.");
+        }),
+    );
+    const send = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useDigest(deps({
+        aiKey: "sk-ant-test",
+        m365Configured: true,
+        runNarrative: runNarrative as UseDigestDeps["runNarrative"],
+        sendDigestMail: send,
+        acquireToken: vi.fn().mockResolvedValue("tok"),
+      })),
+    );
+    let pending: Promise<void> | undefined;
+    act(() => { pending = result.current.generateNow(); });
+    await act(async () => { result.current.cancel(); await pending; });
+    // The cached digest has no narrative, so emailing regenerates — and sends.
+    await act(async () => { await result.current.emailDigest(); });
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
   it("drops a narrative that resolves after the user stopped it", async () => {
     let release: ((v: string) => void) | undefined;
     const runNarrative = vi.fn(
