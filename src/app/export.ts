@@ -27,6 +27,7 @@ import { buildExportSections } from "./export-sections";
 import { triggerDownload, PRINT_STYLES, htmlEscape, exportCellHtml } from "./download";
 import type { ExportSection } from "./export-sections";
 import type { Lang } from "./i18n";
+import { pdfReadyScript, pdfWindowName } from "./pdf-export-protocol";
 
 export type ExportFormat = "csv" | "md" | "pdf" | "docx" | "xlsx" | "pptx";
 
@@ -51,6 +52,23 @@ function defaultFilename(format: ExportFormat): string {
   const today = new Date().toISOString().slice(0, 10);
   return `aipm-cockpit-tasks-${today}.${EXT[format]}`;
 }
+
+/** The browser-tab auto-print harness, byte-identical to what `buildPdfHtml`
+ *  used to inline directly. Extracted so `exportPdf` can swap it out for
+ *  `pdfReadyScript` in the desktop shell (§468), where a renderer-initiated
+ *  `window.print()` is refused — see `pdf-export-protocol.ts`. */
+const EXPORT_AUTO_PRINT_SCRIPT = `  <script>
+    // Wait one paint so the browser has rendered the table before
+    // opening the print dialog; otherwise some browsers print blank.
+    window.addEventListener("load", () => {
+      setTimeout(() => {
+        // Best-effort: focus + print can throw if the popup was blocked or
+        // closed before this fires. Nothing to recover — the user can print
+        // manually — so the failure is intentionally swallowed.
+        try { window.focus(); window.print(); } catch (e) {}
+      }, 80);
+    });
+  </script>`;
 
 // --- PDF via browser print -----------------------------------------------
 
@@ -89,7 +107,17 @@ function renderSectionHtml(section: ExportSection): string {
  * Sections are controlled by `cfg` (same ExportConfig used for CSV/DOCX).
  * Each enabled, non-empty section becomes an <h2> + <table> block.
  */
-export function buildPdfHtml(ws: Workspace, cfg: ExportConfig, lang: Lang, footer: string = DEFAULT_EXPORT_FOOTER): string {
+export function buildPdfHtml(
+  ws: Workspace,
+  cfg: ExportConfig,
+  lang: Lang,
+  footer: string = DEFAULT_EXPORT_FOOTER,
+  /** The `<script>` block preceding `</body>` — the auto-print harness in a
+   *  browser, or `pdfReadyScript`'s readiness signal in the desktop shell.
+   *  Defaults to the auto-print harness so every pre-existing caller (tests
+   *  included) keeps today's byte-identical output without being touched. */
+  closingScript: string = EXPORT_AUTO_PRINT_SCRIPT,
+): string {
   const today = new Date().toISOString().slice(0, 10);
   const sections = buildExportSections(ws, cfg, lang);
   const sectionsHtml = sections.length === 0
@@ -117,18 +145,7 @@ export function buildPdfHtml(ws: Workspace, cfg: ExportConfig, lang: Lang, foote
   </header>
   ${sectionsHtml}
   <footer>${htmlEscape(footer)}</footer>
-  <script>
-    // Wait one paint so the browser has rendered the table before
-    // opening the print dialog; otherwise some browsers print blank.
-    window.addEventListener("load", () => {
-      setTimeout(() => {
-        // Best-effort: focus + print can throw if the popup was blocked or
-        // closed before this fires. Nothing to recover — the user can print
-        // manually — so the failure is intentionally swallowed.
-        try { window.focus(); window.print(); } catch (e) {}
-      }, 80);
-    });
-  </script>
+${closingScript}
 </body>
 </html>`;
 }
@@ -147,12 +164,22 @@ export function buildPdfHtml(ws: Workspace, cfg: ExportConfig, lang: Lang, foote
 function exportPdf(ws: Workspace, cfg: ExportConfig, lang: Lang, footer: string): void {
   if (typeof window === "undefined") return;
 
-  const html = buildPdfHtml(ws, cfg, lang, footer);
+  // ★ §468 — in the desktop shell, Electron refuses the renderer's own
+  // `window.print()` (see pdf-export-protocol.ts and desktop/src/lib/
+  // pdf-export.ts). There the tab opens under a NAMED frame, carries no
+  // auto-print script, and instead signals "rendered" via its `document.
+  // title` — main.ts watches the named frame, prints it to a real PDF and
+  // shows a save dialog. In a browser, name is `_blank` and the script is
+  // the unchanged auto-print harness — byte-identical to before this fix.
+  const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
+  const name = pdfWindowName(ua);
+  const script = name === "_blank" ? EXPORT_AUTO_PRINT_SCRIPT : pdfReadyScript(defaultFilename("pdf"));
+  const html = buildPdfHtml(ws, cfg, lang, footer, script);
 
   // Open a new tab and write the HTML into it. Pop-up blockers may stop
   // this — in which case we fall back to a Blob download of the HTML so
   // the user can at least open it manually and print from there.
-  const w = window.open("", "_blank");
+  const w = window.open("", name);
   if (!w) {
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     triggerDownload(defaultFilename("pdf").replace(/\.pdf$/, ".html"), blob);

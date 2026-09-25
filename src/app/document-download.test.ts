@@ -24,6 +24,7 @@ import { unzipBytes } from "../test/unzip-bytes";
 import { defaultResourcePlan } from "./resource-foundation";
 import type { ProjectDocument } from "./document-model";
 import type { Workspace } from "./workspace";
+import { PDF_EXPORT_FRAME_NAME, PDF_READY_TITLE_PREFIX } from "./pdf-export-protocol";
 
 vi.mock("./download", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./download")>();
@@ -277,6 +278,23 @@ describe("downloadDocument", () => {
     // ★ There is no PDF writer and no PDF dependency — "PDF" is print-to-PDF.
     // Nothing may be downloaded here, least of all a .pdf blob.
     expect(downloads()).toHaveLength(0);
+  });
+
+  it("opens the named frame with the ready signal, and never window.print, in the desktop shell (§468)", async () => {
+    const tab = fakeTab();
+    const open = vi.fn(() => tab.win);
+    vi.stubGlobal("open", open);
+    const ua = vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 Electron/44.0.0");
+    try {
+      await downloadDocument(doc, "pdf", ws, "en-US");
+
+      expect(open).toHaveBeenCalledWith("", PDF_EXPORT_FRAME_NAME);
+      expect(tab.html).toContain(PDF_READY_TITLE_PREFIX);
+      expect(tab.html).not.toContain("window.print");
+      expect(downloads()).toHaveLength(0);
+    } finally {
+      ua.mockRestore();
+    }
   });
 
   it("falls back to a plain .html download when the popup is blocked", async () => {

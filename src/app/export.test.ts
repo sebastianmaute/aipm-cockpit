@@ -10,13 +10,14 @@
 // tests below were added, which would have been a confusing thing to read
 // while debugging a DOMPurify failure.
 
-import { describe, it, expect } from "vitest";
-import { buildPdfHtml } from "./export";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { buildPdfHtml, exportWorkspace } from "./export";
 import { defaultExportConfig } from "./settings-types";
 import type { ExportConfig } from "./settings-types";
 import type { Workspace } from "./storage";
 import type { Task, RaidItem, Milestone } from "./types";
 import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
+import { PDF_EXPORT_FRAME_NAME, PDF_READY_TITLE_PREFIX } from "./pdf-export-protocol";
 
 // ---------------------------------------------------------------------------
 // Minimal fixture helpers (shared with export-sections.test.ts style)
@@ -465,5 +466,65 @@ describe("buildPdfHtml — export footer", () => {
     //   own name, which is now the same text as the built-in footer. Check the
     //   footer element specifically.
     expect(html).not.toContain(`<footer>${DEFAULT_EXPORT_FOOTER}</footer>`);
+  });
+});
+
+// ★★★ §468 — in the desktop shell, `window.print()` is refused, so the PDF
+// export tab must open under the named frame and carry the READY signal
+// (never the auto-print script) there; in a browser it must stay exactly as
+// before — `_blank` and the auto-print script. `fakeTab` mirrors document-
+// download.test.ts's helper: a stand-in `Window` whose `document.write` is
+// observable without a real browser.
+function fakeTab() {
+  const state = { html: "" };
+  const win = {
+    document: {
+      open: () => {
+        state.html = "";
+      },
+      write: (chunk: string) => {
+        state.html += chunk;
+      },
+      close: () => {},
+    },
+  } as unknown as Window;
+  return {
+    win,
+    get html() {
+      return state.html;
+    },
+  };
+}
+
+describe("exportWorkspace — pdf window target (§468)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("opens _blank with the auto-print script in a browser", async () => {
+    const tab = fakeTab();
+    const open = vi.fn(() => tab.win);
+    vi.stubGlobal("open", open);
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 Chrome/140");
+
+    await exportWorkspace(makeBaseWorkspace(), "pdf", defaultExportConfig, "en-US");
+
+    expect(open).toHaveBeenCalledWith("", "_blank");
+    expect(tab.html).toContain("window.print");
+    expect(tab.html).not.toContain(PDF_READY_TITLE_PREFIX);
+  });
+
+  it("opens the named frame with the ready signal, and never window.print, in the desktop shell", async () => {
+    const tab = fakeTab();
+    const open = vi.fn(() => tab.win);
+    vi.stubGlobal("open", open);
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 Electron/44.0.0");
+
+    await exportWorkspace(makeBaseWorkspace(), "pdf", defaultExportConfig, "en-US");
+
+    expect(open).toHaveBeenCalledWith("", PDF_EXPORT_FRAME_NAME);
+    expect(tab.html).toContain(PDF_READY_TITLE_PREFIX);
+    expect(tab.html).not.toContain("window.print");
   });
 });

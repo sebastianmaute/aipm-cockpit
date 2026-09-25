@@ -9,7 +9,7 @@ import {
   type WebContents,
   type WebFrameMain,
 } from "electron";
-import { appendFileSync, mkdirSync } from "node:fs";
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { APP_ORIGIN, APP_PORT } from "./lib/constants";
 import { classifyPortOwner, type PortProbe } from "./lib/port-owner";
@@ -23,6 +23,7 @@ import {
   type LatchedOpenerFrame,
   type NavigationContext,
 } from "./lib/window-open-policy";
+import { isPdfExportFrame, pdfFilenameFromTitle } from "./lib/pdf-export";
 import {
   DASHBOARD_VIEW_HASH,
   FILE_MENU_ITEMS,
@@ -711,7 +712,16 @@ if (!app.requestSingleInstanceLock()) {
         const decision = decideWindowOpen(details.url, APP_ORIGIN);
         switch (decision) {
           case "allow-in-app":
-            return { action: "allow" };
+            // ★ §468 — the PDF export tab is a genuine `about:blank` open
+            // (`decideWindowOpen` already allowed it here on that basis
+            // alone), so this widens nothing: only a window opened under the
+            // exact frame name the renderer uses for PDF export starts
+            // hidden, print-target-shaped rather than a visible tab. Every
+            // other `about:blank`/same-origin open (popouts, the plain
+            // HTML/document print tabs) is unaffected.
+            return isPdfExportFrame(details.frameName)
+              ? { action: "allow", overrideBrowserWindowOptions: { show: false } }
+              : { action: "allow" };
           // ★★ ONE OF FOUR shell.openExternal CALL SITES (M-1, final-review-report.md
           // -- this comment used to say "the only" one, which stopped being true once
           // the navigation guards below could reach it too): this case, the
@@ -772,6 +782,54 @@ if (!app.requestSingleInstanceLock()) {
       });
     } catch (e: unknown) {
       log(`did-create-window handler install: ${String(e)}`);
+    }
+
+    // ★ §468 -- the PDF export route. The window-open handler above already
+    // rendered this child HIDDEN (`show: false`) because its frame name is
+    // `PDF_EXPORT_FRAME_NAME`; this is where main actually prints it. The
+    // renderer signals "laid out and ready" by setting its OWN document
+    // title (`pdfReadyScript`, src/app/pdf-export-protocol.ts) rather than
+    // calling `window.print()` -- Electron refuses a renderer-initiated
+    // print, but nothing stops the page from renaming itself, and main can
+    // watch that for free via `page-title-updated`.
+    //
+    // ★ `done` guards against a SECOND `page-title-updated` firing before the
+    // window has closed (the title is stable once set, but nothing prevents
+    // a future renderer change from touching it twice) -- without it a
+    // second event would open a second save dialog against an already-
+    // printed/closing window.
+    try {
+      contents.on("did-create-window", (childWindow, details) => {
+        if (!isPdfExportFrame(details.frameName)) return;
+        let done = false;
+        childWindow.webContents.on("page-title-updated", (_e, title) => {
+          const filename = pdfFilenameFromTitle(title);
+          if (!filename || done) return;
+          done = true;
+          void (async () => {
+            try {
+              const data = await childWindow.webContents.printToPDF({ printBackground: true });
+              const parent = BrowserWindow.fromWebContents(contents);
+              const { canceled, filePath } = parent
+                ? await dialog.showSaveDialog(parent, {
+                    defaultPath: filename,
+                    filters: [{ name: "PDF", extensions: ["pdf"] }],
+                  })
+                : await dialog.showSaveDialog({
+                    defaultPath: filename,
+                    filters: [{ name: "PDF", extensions: ["pdf"] }],
+                  });
+              if (!canceled && filePath) writeFileSync(filePath, data);
+            } catch (e: unknown) {
+              log(`pdf export: ${String(e)}`);
+            } finally {
+              if (!childWindow.isDestroyed()) childWindow.close();
+            }
+          })();
+        });
+      });
+    } catch (e: unknown) {
+      log(`pdf export handler install: ${String(e)}`);
     }
 
     // ★★★ AUTH-FLOW CONTEXT FOR THIS WEBCONTENTS, shared by `will-navigate`
