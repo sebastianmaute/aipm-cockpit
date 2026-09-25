@@ -427,6 +427,8 @@ export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://github.com/sebastianmaute/aipm-cockpit";
 /** The author's public profile, linked from the Version panel's author line. */
 export const APP_AUTHOR_URL = "https://www.linkedin.com/in/sebastian-maute/";
+/** The author's GitHub Sponsors page, linked from the Version panel. */
+export const APP_SPONSOR_URL = "https://github.com/sponsors/sebastianmaute";
 
 /** Open-source license (SPDX id) and its canonical reference URL, shown in the
  *  Settings footer and the Help panel. Mirrors package.json `license`. */

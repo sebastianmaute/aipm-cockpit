@@ -135,6 +135,11 @@ rather than restating this one.
 | [docs/CODEMAPS/](docs/CODEMAPS/) | Five layered overviews of the codebase — architecture, frontend, backend, data, dependencies. |
 | [AGENTS.md](AGENTS.md) | The always-loaded engineering reference: hard CI-enforced constraints and the landmines that have already cost someone a debugging session. |
 
+## Support
+
+If AI PM Cockpit saves you time, you can support its development through
+[GitHub Sponsors](https://github.com/sponsors/sebastianmaute).
+
 ## License
 
 European Union Public Licence v1.2 (EUPL-1.2) — see the [LICENSE](./LICENSE) file for the
