@@ -322,7 +322,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§75](#75-two-test-files-contain-order-dependent-tests--and-there-is-a-reproducing-seed--closed) | ~~Two test files contain ORDER-DEPENDENT tests — and there is a REPRODUCING SEED~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** |
 | [§76](#76-two-hooks-have-a-cleanup-only-mountedref--dev-only-total-suppression--closed-post-346) | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 |
 | [§77](#77-the-snapshot-capture-gate-is-a-one-way-latch-so-a-mid-session-storage-switch-can-still-capture-the-wrong-project--closed-post-02260) | ~~The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project~~ | found post-0.214.0 | M | **CLOSED** post-0.226.0 |
-| [§78](#78-a-brand-new-turso-project-auto-captures-an-empty-snapshot-and-that-row-becomes-the-baseline--half-fixed-post-02260-partial-kpi-half-open) | A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE — HALF FIXED post-0.226.0, partial-KPI half OPEN | pre-existing, found post-0.214.0 | S | open |
+| [§78](#78-a-brand-new-turso-project-auto-captures-an-empty-snapshot-and-that-row-becomes-the-baseline--closed-2026-09-25) | A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE — CLOSED 2026-09-25 | pre-existing, found post-0.214.0 | S | closed |
 | [§79](#79-the-lane-engine-resolves-a-person-by-name-but-ignores-assigneeemail-the-backfill-prefers-email--closed-2026-09-14) | The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email — CLOSED 2026-09-14 | found post-0.214.0 | S | **CLOSED** 2026-09-14 |
 | [§80](#80-both-hide-external-toggles-trust-whatever-readdevicejson-returns--closed) | ~~Both hide-external toggles trust whatever `readDeviceJson` returns~~ | pre-existing, found post-0.214.0 | XS | **CLOSED** |
 | [§81](#81-the-swimlane-no-op-drop-guard-no-longer-holds-for-a-name-resolved-task--closed) | ~~The swimlane no-op drop guard no longer holds for a name-resolved task~~ | 0.214.0 (Lostetter) | S | **CLOSED** |
@@ -369,7 +369,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§122](#122-the-budget-people-rows-and-the-role-row-above-them-read-booked-from-two-different-sources--closed-2026-08-31) | The budget people rows and the role row above them read BOOKED from two different sources — CLOSED 2026-08-31 | UI batch slice 3 — 0.224.0 "Emshwiller" | M — it is a design question, not a wiring bug | **CLOSED** 2026-08-31 |
 | [§123](#123-the-budget-people-row-disclosure-clips-its-own-label-mid-glyph-with-no-ellipsis--closed-2026-08-08) | The budget people-row disclosure clips its own label mid-glyph, with no ellipsis | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED** 2026-08-08 |
 | [§124](#124-a-popover-opened-by-a-click-that-also-scrolls-its-ancestor-never-mounts--closed-2026-08-31) | ~~A popover opened by a click that also scrolls its ancestor never mounts~~ | found in the slice-3 eye-verify | UNKNOWN | **CLOSED** 2026-08-31 |
-| [§125](#125-two-more-controls-start-a-billed-anthropic-call-with-no-way-to-stop-it--open-billed) | Two more controls start a billed Anthropic call with no way to stop it — open, billed | found in the slice-3 review prose check | S each | open |
+| [§125](#125-two-more-controls-start-a-billed-anthropic-call-with-no-way-to-stop-it--closed-2026-09-25) | Two more controls start a billed Anthropic call with no way to stop it — CLOSED 2026-09-25 | found in the slice-3 review prose check | S each | closed |
 | [§126](#126-two-same-type-insight-rows-produce-identically-named-per-row-controls-and-no-gate-can-see-it--closed-2026-08-25) | Two same-type Insight rows produce identically-named per-row controls, and no gate can see it | found in the slice-3 review, exposed by the new e2e seed | S | **CLOSED** 2026-08-25 |
 | [§127](#127-two-of-the-six-ai-trigger-hooks-never-abort-on-unmount--closed-2026-08-08) | Two of the six AI trigger hooks never abort on unmount | split out of §121 on 2026-08-08 | S each | **CLOSED** 2026-08-08 |
 | [§128](#128-use-timelog-syncts-clears-busy-from-a-superseded-run--closed-2026-08-31) | `use-timelog-sync.ts` clears `busy` from a superseded run | split out of §127 on 2026-08-09 | S | **CLOSED** 2026-08-31 |
@@ -586,7 +586,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§339](#339-a-rename-can-strand-a-stale-alt-and-the-broken-image-state-then-paints-it--wcag-253--closed-2026-09-14) | A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 — CLOSED 2026-09-14 | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-14 |
 | [§340](#340-two-tests-in-the-asset-preview-slice-pass-for-the-wrong-reason--open) | Two tests in the asset-preview slice pass for the wrong reason | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
 | [§341](#341-neither-asset-preview-entry-point-has-ever-been-exercised-against-a-real-turso-project--closed-2026-09-02) | ~~Neither asset-preview entry point has ever been exercised against a real Turso project~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-02 (eye-verified against a live Turso project; the entry records what that pass did NOT cover, which is narrower than the title) |
-| [§342](#342-rolebutton-on-an-img-removes-its-image-semantics--open) | `role="button"` on an `<img>` removes its image semantics | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
+| [§342](#342-rolebutton-on-an-img-removes-its-image-semantics--closed-2026-09-25) | `role="button"` on an `<img>` removes its image semantics | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | closed |
 | [§343](#343-the-asset-lightboxs-reopen-frame-is-fixed-but-unpinned--no-test-can-see-it--closed-2026-09-03) | ~~The asset lightbox's reopen frame is fixed but UNPINNED — no test can see it~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") deletion-only review round | S | **CLOSED** 2026-09-03 (eye-verified via a DevTools Performance screenshot capture; the entry records that the deletion control was not captured, so read it at that strength) |
 | [§344](#344-hardcoded-literal-dom-ids-rest-on-an-unstated-single-mount-assumption--and-the-popout-is-not-the-reason-it-holds) | Hardcoded literal DOM ids rest on an unstated single-mount assumption — and the popout is NOT the reason it holds | found 2026-09-02 closing §326 | S | open |
 | [§345](#345-document-block-selectionts-promises-a-dom-free-i18n-free-module-and-nothing-enforces-it) | `document-block-selection.ts` promises a DOM-free, i18n-free module and nothing enforces it | found 2026-09-02 in the §199 cold review | S | open |
@@ -595,7 +595,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§348](#348-a-meetings-activity-is-invisible-from-the-work-it-concerns--roadmap-after-347--open) | A meeting's activity is invisible from the work it concerns | found 2026-09-03 benchmarking OpenProject 17.8 | M | open |
 | [§349](#349-update_document-has-no-staleness-guard-and-docopexpect-is-not-advertised-to-the-model--closed-2026-09-03) | ~~`update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model~~ | found 2026-09-03 in the AI write-concurrency slice | S–M | **CLOSED** 2026-09-03 (per-block `expectHash` on the three guarded engine arms, required at the tool boundary, tokens handed out by `get_document`; the concurrent-edit RACE itself is still not reproduced end to end) |
 | [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--open) | The insight recommendation token does not cover the model round-trip | found 2026-09-03 in the AI write-concurrency slice | M | open |
-| [§351](#351-a-pre-slice-recommendation-with-a-mixed-createupdate-plan-loses-its-update-half-unretryably-at-upgrade--open) | A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade | found 2026-09-03 in the AI write-concurrency slice | S | open |
+| [§351](#351-a-pre-slice-recommendation-with-a-mixed-createupdate-plan-loses-its-update-half-unretryably-at-upgrade--closed-2026-09-25) | A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade | found 2026-09-03 in the AI write-concurrency slice | S | closed |
 | [§352](#352-the-encrypted-attachment-error-variant-has-no-producer--closed-2026-09-04) | The `"encrypted"` attachment error variant has no producer, so both its i18n strings are unreachable | found 2026-09-03 in the ingest-breadth review | S | closed 2026-09-04 |
 | [§353](#353-rfc-2231-encoded-attachment-filenames-are-not-decoded-so-those-attachments-vanish--closed-2026-09-04) | ~~RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish from the tree~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (both forms decoded, capped and routed through the existing filename sanitizer) |
 | [§354](#354-negative-rtf-un-values-are-dropped-losing-every-code-point-above-u7fff--closed-2026-09-04) | ~~Negative RTF `\uN` values are dropped, losing every code point above U+7FFF~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (a lone unpaired surrogate is CARRIED, not repaired — the entry records what that costs downstream) |
@@ -610,7 +610,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§363](#363-the-reconcile-freeze-guarantee-is-not-absolute--max_insights-can-drop-a-frozen-row--open) | The reconcile freeze guarantee is not absolute — `MAX_INSIGHTS` can drop a frozen row | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§364](#364-an-older-build-prunes-the-four-guardrail-insight-types-on-load-and-can-write-the-pruned-list-back--closed-2026-09-25) | An older build prunes the four guardrail insight types on load, and can write the pruned list back | found 2026-09-04 in the §347 guardrails review | S | closed |
 | [§365](#365-the-threshold-fields-min1-understates-the-window-the-writer-engine-and-sanitiser-share--closed-2026-09-21) | The threshold field's `min={1}` understates the window the writer, engine and sanitiser share — CLOSED 2026-09-21 | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-21 |
-| [§366](#366-project-scope-timelog-fetches-can-never-certify-a-guardrail-clean-so-those-insights-freeze-until-another-scope-runs--open) | Project-scope TimeLog fetches can never certify a guardrail clean, so those insights freeze until another scope runs | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§366](#366-project-scope-timelog-fetches-can-never-certify-a-guardrail-clean-so-those-insights-freeze-until-another-scope-runs--closed-2026-09-25) | Project-scope TimeLog fetches can never certify a guardrail clean, so those insights freeze until another scope runs | found 2026-09-04 in the §347 guardrails review | S | closed |
 | [§367](#367-parsedailykey-never-validates-the-date-so-a-malformed-one-reaches-the-rules-and-a-single-oversized-cell-is-constructible--closed-2026-09-07) | `parseDailyKey` never validates the date, so a malformed one reaches the rules and a single oversized cell is constructible | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-07 |
 | [§370](#370-redo-of-an-ai-captured-delete-is-unproved--closed-2026-09-05) | ~~Redo of an AI-captured delete is unproved~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 (a redo leg added to the existing AI `deleteTask` round trip in `use-chat-dispatcher.undo.test.tsx`, asserting the row is gone again after `redo()`) |
 | [§371](#371-a-stakeholder-deletion-offers-to-delete-their-job-title-not-the-person--closed-2026-09-04) | ~~A stakeholder deletion offers to delete their job title, not the person~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-04 (one shared `PERSON_ENTITIES` set now names both person entities by `personName`, at the create label AND the delete label; mutation-proved by reverting the set to `["resource"]` alone) |
@@ -6402,11 +6402,11 @@ reachable on inspection.
 
 ---
 
-## 78. A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE — HALF FIXED post-0.226.0, partial-KPI half OPEN
+## 78. A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE — CLOSED 2026-09-25
 
-**Status:** open — PARTLY FIXED, the partial-KPI half is still open. Reproduced 2026-08-28 by `grep -n "hasCapturableContent" src/app/snapshot.ts`. Re-verified 2026-09-13 on `00f2a273`: `grep -n -A 8 "export function hasCapturableContent" src/app/snapshot.ts` → still the tasks/milestones/burndown disjunction, so the partial-KPI decision is still unmade.
+**Status:** CLOSED 2026-09-25 by `fix/update-dialog-text` — the partial-KPI half. An auto capture is flagged as the baseline only when it is KPI-complete (`isKpiCompleteSnapshot` in `snapshot.ts`: `remainingHours !== null`), no baseline exists, and no complete row exists in history yet. So the first complete row becomes the baseline, and a baseline the user deleted is not silently replaced by the next weekly capture. "Complete" is `remainingHours`, not `model.burndown`: a budgeted project with no actuals has a burndown but no remaining hours, and baselining that row would repeat the defect. Pinned in `use-snapshots.test.tsx`; each conjunct was mutation-checked (removing either turns a test red). Left as they are, by design: a partial baseline flagged by an older build is never moved (rebaseline by hand in Trends); until a complete row exists nothing is flagged, so the Gantt milestone-baseline overlay shows nothing and variance falls back to the earliest row; and if the `setBaseline` write fails it is reported, not retried. Not fixed: the "no baseline exists" check reads the history loaded at mount, so a baseline set from another tab within one Turso round trip can be cleared.
 
-**Work item:** #120
+Original status: open — PARTLY FIXED, the partial-KPI half is still open. Reproduced 2026-08-28 by `grep -n "hasCapturableContent" src/app/snapshot.ts`. Re-verified 2026-09-13 on `00f2a273`: `grep -n -A 8 "export function hasCapturableContent" src/app/snapshot.ts` → still the tasks/milestones/burndown disjunction, so the partial-KPI decision is still unmade.
 
 `use-storage-turso-ops.ts` `createTursoProject` calls `applyWorkspace(ws)` with a fresh empty
 workspace and `setTursoProjectId(id)` in the same batch. `workspaceReady` (§77) is legitimately
@@ -10471,11 +10471,11 @@ Reproduce:
 grep -n "close-on-scroll\|addEventListener(\"scroll\"" src/app/popover-panel.tsx
 ```
 
-## 125. Two more controls start a billed Anthropic call with no way to stop it — open, billed
+## 125. Two more controls start a billed Anthropic call with no way to stop it — CLOSED 2026-09-25
 
-**Status:** open — billed calls with no reachable cancel. Reproduced 2026-08-28 by `grep -n "AbortController" src/app/use-meeting-report-actions.ts`.
+**Status:** CLOSED 2026-09-25 by `fix/update-dialog-text`. Both controls are stoppable through `AiTriggerButton`: the digest narrative (`useDigest`: `cancel()`, a `generating` flag separate from `busy`) and the meeting-report draft (`useMeetingReportActions` passes the signal `runMeetingReport` already took). A user stop shows no error toast, and a response that lands after the stop is discarded. A Stop during the narrative an Email starts also stops that email before `sendDigestMail`; the timeout does not. Mutation-checked in `use-digest.test.tsx` and `use-meeting-report-actions.test.ts`. Stopping ends the wait, not the charge. Not fixed, and older than this change: neither hook aborts an earlier call when a new one starts, the project changes or the component unmounts, and the meeting-report cleanup can reset a second meeting's busy flag.
 
-**Work item:** #146
+Original status: open — billed calls with no reachable cancel. Reproduced 2026-08-28 by `grep -n "AbortController" src/app/use-meeting-report-actions.ts`.
 
 Filed 2026-08-08 while fact-checking the 0.224.0 "Emshwiller" CHANGELOG. Slice 3 gave six trigger
 sites a Stop affordance (`AiTriggerButton`) and the entry read "a Stop affordance on all six AI
@@ -28211,12 +28211,12 @@ signal no other prop carries; the drag/resize/reset-layout persistence behind
 Escape/Tab dismissal through the shared `Modal`; and the DE locale. Each is a separate eye-verify,
 owed but not filed — file one before relying on it.
 
-## 342. `role="button"` on an `<img>` removes its image semantics — open
+## 342. `role="button"` on an `<img>` removes its image semantics — CLOSED 2026-09-25
 
-**Status:** open — **never machine-verified** (2026-09-02). Reasoned from the ARIA role
+**Status:** CLOSED 2026-09-25 by `fix/update-dialog-text`. The asset `<img>` no longer carries `role="button"`: it sits inside a real `<button type="button">` that carries the row-unique `assetPreviewOpen` name and `FOCUS_RING`, and the image is unwrapped again when asset storage is off. Keyboard activation is the native button's; the delegated `onKeyDown` was removed so nothing opens twice. Pinned in `document-preview.test.tsx` (mutation-checked). Still NOT measured with a real screen reader, as this entry asked: ARIA makes a button's children presentational, so the inner image may not be announced separately, and the button's name carries the meaning. The layout reset (block display, `fit-content`) was checked only in jsdom; eye-check a wide and a narrow image in the preview.
+
+Original status: open — **never machine-verified** (2026-09-02). Reasoned from the ARIA role
 model, not measured with a screen reader; measuring it is the work this entry asks for.
-
-**Work item:** #247
 
 `document-preview.tsx` stamps `role="button"` onto each inserted `<img>` so it can be activated.
 An explicit role REPLACES the implicit one, so the element is no longer exposed as an image: a
@@ -28596,15 +28596,15 @@ direction**. `use-insight-recommendations` depends on that distinction — its r
 an insight to `applied` for a failure that MAY have committed, and must not for one that is known to
 have written nothing.
 
-## 351. A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade — OPEN
+## 351. A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade — CLOSED 2026-09-25
 
-**Status:** OPEN. Filed 2026-09-03 in the AI write-concurrency slice, from a review finding against
+**Status:** CLOSED 2026-09-25 by `fix/update-dialog-text`. `confirmInsightRecommendation` records `refusedCalls` (stale + refused: calls that wrote nothing) on the applied recommendation, and the controls show "Partly applied" with the Generate CTA when it is above zero. The early return is unchanged, which would otherwise duplicate creates. `sanitizeInsights` admits the count only as an integer from 0 to `INSIGHT_REC_MAX_CALLS`, and `recommendationEqual` compares it. `insights-persistence.test.ts` pins that the field survives the JSON, CSV and Markdown round trips; whether the CSV and Markdown load paths also sanitise it was not checked. Wider than the entry said: the same partial apply happens to any recommendation whose update token goes stale before confirm, not only pre-slice ones, and this covers both. A call that fails outright (it may have written something) is not counted, so that record still reads "Recommendation applied" after an error toast.
+
+Original status: OPEN. Filed 2026-09-03 in the AI write-concurrency slice, from a review finding against
 the slice's own early-return. **Never machine-verified:** no test drives a mixed create+update plan
 through `confirmInsightRecommendation` on a pre-slice recommendation, and the effect has not been
 reproduced against a real stored insight. The code path it describes is verified to EXIST by reading
 it; what is unverified is the user-visible outcome. Reproduce the shape (not the effect):
-
-**Work item:** #254
 
 ```
 grep -n "committed === 0 && failed === 0 && stale > 0" src/app/use-insight-recommendations.ts
@@ -29345,8 +29345,6 @@ them, was weighed and not taken: the validator's job is bounding what it admits.
 Original status: OPEN. Filed 2026-09-04 from the §347 review round. Verified by reading, 2026-09-04:
 `grep -n "INSIGHT_TYPES.includes" src/app/insights/sanitize-insights.ts`.
 
-**Work item:** #260
-
 `sanitizeInsights` drops any insight whose type is not in that build's `INSIGHT_TYPES`. Insights are
 shared workspace data and exported, so a device on a pre-§347 build that loads this workspace prunes
 every guardrail insight and can persist the pruned list — silent cross-version data loss in a slice
@@ -29386,15 +29384,15 @@ together is a coherent three-site change if a sub-hour cap is judged meaningless
 attribute alone is the other coherent answer. What is not coherent is the current split, where the
 attribute says one thing and every enforcement point says another.
 
-## 366. Project-scope TimeLog fetches can never certify a guardrail clean, so those insights freeze until another scope runs — OPEN
+## 366. Project-scope TimeLog fetches can never certify a guardrail clean, so those insights freeze until another scope runs — CLOSED 2026-09-25
 
-**Status:** OPEN. Filed 2026-09-04 while fixing the scope half of the coverage claim. Verified
+**Status:** CLOSED 2026-09-25 by `fix/update-dialog-text`. The covered-people list stays empty after a project-scope fetch, deliberately. The TimeLog panel now shows a persistent note whenever the saved roll covers no one (`timelogGuardrailCoverageNote`): the guardrail findings can't be confirmed resolved from that fetch and stay open until dismissed in Insights. The panel offers only project-scope fetches, so the note does not tell the user to run a person or organisation fetch. The sync state records no scope, so the note is worded by coverage, not by "project". Pinned in `timelog-panel.test.tsx` (mutation-checked). Not pinned: no `use-timelog-sync` test asserts that a project-scope fetch saves `[]`, which is the signal the note reads.
+
+Original status: OPEN. Filed 2026-09-04 while fixing the scope half of the coverage claim. Verified
 2026-09-04: `grep -n "from: startDate, to: endDate }, \[\])" src/app/use-timelog-sync.ts` returns the
 single `finish(...)` call in `fetchBookingsForProjects`, whose covered-people argument is the empty
 array; and `grep -n "rollUsers.includes(who)" src/app/task-manager.tsx` returns the membership check
 that therefore fails for every person under that scope.
-
-**Work item:** #262
 
 `fetchBookingsForProjects` fetches the selected PROJECTS, not whole days. A person's remaining hours
 can sit on a project nobody ticked, so their day total, their worst single entry and their holiday
@@ -31453,8 +31451,6 @@ it, so treat every number below as a dated observation, not as something a comma
 Re-measuring needs a new probe. The measurement CONTRADICTED the fix attempted for this entry — read
 "What the browser actually showed" before acting on any part of it. The original text is kept as
 written, because it is the claim that was falsified.
-
-**Work item:** #272
 
 ★★★ **WHAT THE BROWSER ACTUALLY SHOWED (2026-09-06), AND IT REFUTES TWO CLAIMS MADE WHILE
 "FIXING" THIS.** A change on `feat/control-defects-follow-through` replaced the conditional render
@@ -37277,8 +37273,6 @@ Original status: OPEN 2026-09-13 — `grep -n '"next"\|"eslint-config-next"' pac
 `npm view next version` and `npm view eslint-config-next version` → both `16.3.5` on 2026-09-13; and
 `grep -n "reactVersion" eslint.config.mjs` → the derived React-version pin is in place.
 
-**Work item:** #314
-
 Lockstep between the two was never required. TD-1 records it was at 16.2.6 against 16.2.11 before the
 16.3 upgrade. But the gap now spans a minor version, and both packages have moved again.
 
@@ -37345,8 +37339,6 @@ the deprecated matchers is used —
 Original status: OPEN 2026-09-13 — `grep -n '"@testing-library/jest-dom"' package.json` → `^6.6.3` (6.9.1
 installed), and `npm view @testing-library/jest-dom version` → `7.0.1`. Never machine-verified against 7.
 
-**Work item:** #317
-
 This is a test-only dependency and the cheapest of the deferred majors to try. A matcher that changed
 meaning can leave a suite green for the wrong reason. Run the full suite and `npx tsc --noEmit`, since
 the matcher types are only checked by tsc, never by vitest.
@@ -37368,8 +37360,6 @@ quotes stay true as written and were left alone.
 Original status: OPEN 2026-09-13 — `grep -n "playwright:v" .gitlab-ci.yml` → two sites on `v1.61.1-jammy`;
 `grep -n '"@playwright/test"\|"@axe-core/playwright"' package.json` → `^1.61.1` and `^4.12.1`. `npm view` on
 2026-09-13 → `1.63.0` and `4.13.0`.
-
-**Work item:** #318
 
 The client and the e2e image must move in one MR, or the e2e job runs a mismatched browser set. The
 tech-debt register's Resolved table records that rule from the last bump. `@axe-core/playwright` goes in
