@@ -213,10 +213,10 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
           // op `setBaseline` uses. If that second write fails, the error is
           // reported and NOT retried — the row is complete now, so the next
           // capture no longer qualifies; the user sets the baseline in Trends.
-          // ★ Until a complete row exists nothing is flagged: `pickBaseline`
-          // falls back to the earliest row for variance, and the Gantt's
-          // baseline overlay (`baselineMilestoneTargets`, which does NOT fall
-          // back) shows none.
+          // ★ Until a complete row exists nothing is flagged, and a project with
+          // no budget never has one. Both readers fall back to the earliest row
+          // then: `pickBaseline` for variance, `baselineMilestoneTargets` for
+          // the Gantt's milestone overlay. Only the Trends ★ needs the flag.
           const rec = makeRecord("auto", false, currentBucket, ctx);
           const promote =
             isKpiCompleteSnapshot(rec) &&

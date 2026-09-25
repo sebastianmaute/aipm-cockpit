@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { ChevronDownIcon } from "./icons";
 import { t, type Lang } from "./i18n";
 import { useWorkspace } from "./workspace-context";
+import { GUARDRAIL_INSIGHT_TYPES } from "./insights/insight";
 import { useSettings } from "./use-settings";
 import { useToastContext } from "./toast-context";
 import { Banner } from "./banner";
@@ -90,6 +91,10 @@ export function TimelogPanel({
 
   // Stable references hoisted out of useMemo deps to avoid obj.member lint errors
   const timelogLinks = ws.timelogLinks;
+  // §366: the coverage note below explains only an open guardrail finding.
+  const hasOpenGuardrail = (ws.insights ?? []).some(
+    (i) => GUARDRAIL_INSIGHT_TYPES.has(i.type) && i.status !== "dismissed" && i.status !== "resolved",
+  );
   const budgets = ws.budgets;
   const resources = ws.resources;
   // Needed to attribute booked hours to the right role/discipline line.
@@ -579,8 +584,10 @@ export function TimelogPanel({
           never saw), but so does a self fetch with no bookings or an org fetch
           over nobody — the sync state does not record WHICH scope ran, so the
           note names the cause (no one covered), never "by project".
-          `undefined` means no roll at all, and shows nothing. */}
-      {sync.fetchedAt && sync.dailyUsers?.length === 0 && (
+          `undefined` means no roll at all, and shows nothing. The panel only
+          fetches by project, so this would show after every fetch; it is also
+          gated on an OPEN guardrail insight, the only thing it explains. */}
+      {sync.fetchedAt && sync.dailyUsers?.length === 0 && hasOpenGuardrail && (
         <p className="mb-2 text-xs text-muted-foreground print:hidden">
           {t(lang, "timelogGuardrailCoverageNote")}
         </p>

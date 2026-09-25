@@ -378,12 +378,18 @@ export function computeVariance(
 }
 
 /** Per-milestone committed baseline (`target`) dates from the pinned baseline
- *  snapshot, keyed by milestone id. Empty when no snapshot is flagged
- *  `isBaseline`. Pure — the Gantt overlays these behind the live diamonds. */
+ *  snapshot, keyed by milestone id; with none flagged, from the EARLIEST row,
+ *  the same fallback `use-snapshots.ts`'s variance baseline uses. Milestone
+ *  targets need no budget, and a project without one never gets an auto
+ *  baseline flag (§78: only a KPI-complete row is flagged), so without the
+ *  fallback its overlay would stay empty forever. Empty only when there are no
+ *  snapshots. Pure — the Gantt overlays these behind the live diamonds. */
 export function baselineMilestoneTargets(
   snapshots: readonly SnapshotRecord[],
 ): Map<number, string> {
-  const base = snapshots.find((s) => s.isBaseline);
+  const base =
+    snapshots.find((s) => s.isBaseline) ??
+    [...snapshots].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt))[0];
   const map = new Map<number, string>();
   if (!base) return map;
   for (const m of base.milestones) map.set(m.id, m.target);

@@ -412,6 +412,44 @@ describe("useDigest", () => {
     expect(result.current.busy).toBe(false);
   });
 
+  // The timeout aborts the narrative directly, never through cancel(): a timed-out
+  // narrative must still send the plain digest. Routing the timeout through cancel()
+  // would silently stop every slow email.
+  it("a narrative that times out still sends the email", async () => {
+    vi.useFakeTimers();
+    try {
+      const runNarrative = vi.fn(
+        (_d: unknown, _o: unknown, signal: AbortSignal) =>
+          new Promise<string>((_resolve, reject) => {
+            signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+          }),
+      );
+      const send = vi.fn().mockResolvedValue(undefined);
+      const acquireToken = vi.fn().mockResolvedValue("tok");
+      const { result } = renderHook(() =>
+        useDigest(deps({
+          aiKey: "sk-ant-test",
+          m365Configured: true,
+          runNarrative: runNarrative as UseDigestDeps["runNarrative"],
+          sendDigestMail: send,
+          acquireToken,
+        })),
+      );
+      let pending: Promise<void> | undefined;
+      act(() => { pending = result.current.emailDigest(); });
+      expect(result.current.generating).toBe(true);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20_000);
+        await pending;
+      });
+      expect(runNarrative).toHaveBeenCalledTimes(1);
+      expect(acquireToken).toHaveBeenCalledTimes(1);
+      expect(send).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("a Stop pressed during an earlier Generate does not block a later email", async () => {
     const runNarrative = vi.fn(
       (_d: unknown, _o: unknown, signal: AbortSignal) =>
