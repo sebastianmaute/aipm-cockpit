@@ -280,3 +280,43 @@ decision.
 - The roadmap (sub-project 5 links here) and the flip checklist (step 10a, ordering).
 - Register §487 and §563: record the decision to ship unsigned auto-update and the guards that stand
   in for signing; both stay open.
+
+## Rehearsed 2026-09-25 (`v1.14.0-rc.1`, private repository)
+
+Plan Task 10, run end to end after PR #400 merged. Every check the rollout order asked for passed.
+
+- **Version PR #407** set `1.14.0-rc.1` "Deaver". Three tests asserted a plain `x.y.z` version and
+  failed on the prerelease; they now accept a suffix, with the same pattern as `SEMVER_RE` in
+  `scripts/release-publish-lib.mjs`. The plan had not listed them.
+- **Tag.** The owner pushed `v1.14.0-rc.1` on the merge commit `9f44ab1b`. The push reported
+  "Bypassed rule violations … creations being restricted", which is the "release tags" ruleset
+  admitting the admin role, as designed.
+- **Run `36111759038`**, 6 min 20 s from start to published:
+  - `guard`: 27 s.
+  - `build` (windows-latest): 5 min 19 s. The sharp guard and the electron-updater guard both passed.
+  - `publish`: 27 s. `release:verify` ok; "Provenance attestation skipped - attestations on a private
+    repository need GitHub Enterprise."; then "published v1.14.0-rc.1 with" the three files.
+- **Files:** installer 140,947,073 B, blockmap 148,385 B, `latest.yml` 371 B. Each carries a
+  `sha256:` digest on the release.
+- **Release state:** `isDraft: false`, `isPrerelease: true`, `isImmutable: true`; there is no
+  "latest" release (`GET /releases/latest` answers 404), so the rc was never made latest.
+- **Local check:** `gh release download` of the three files, then `release:verify` exits 0.
+- **Idempotence:** re-running the `publish` job printed "v1.14.0-rc.1 is already published with
+  exactly these files" and succeeded without changing anything.
+- **Install:** the owner installed the rc on Windows. The app started; Help → "Check for updates…"
+  showed the "Could not check" dialog with the releases-page button, as expected while the feed is
+  private. `launch.log` shows `updater: Checking for update`, then `updater error: Error: HttpError:
+  404` as one line (no stack, no cookies), then `updater: startup check ignored, a dialog is already
+  open` — no load or wiring error.
+
+What needed the owner:
+
+- **Actions budget.** The private repository's included minutes ran out with a $0 spending limit:
+  `unit-shuffled` on PR #407 failed without starting ("recent account payments have failed or your
+  spending limit needs to be increased"). The owner set an Actions budget; the re-run passed. A
+  release run needs minutes too, and its Windows job bills at twice the Linux rate.
+- **Tag push** (ruleset: admin only), **both merges**, and the install test.
+
+The rc release is **kept**, by the owner's decision: it is a prerelease, never "latest", and
+`allowPrerelease: false` means no installed app is offered it. Deleting it was not attempted. The
+next real release sets `APP_VERSION` to a plain `1.14.0`.
