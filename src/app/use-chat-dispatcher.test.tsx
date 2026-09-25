@@ -3081,8 +3081,8 @@ describe("useChatDispatcher — the register delete tools arm the destructive-sa
 });
 
 // ★★ The `ai.documentWrite` activity row. The kind was registered everywhere
-// (the ActivityKind union, ACTIVITY_KIND_TO_KEY, dashboard-activity-nav's
-// documents deep-link, EN/DE strings) and emitted NOWHERE, so no AI document
+// (the ActivityKind union, ACTIVITY_KIND_TO_KEY, a documents deep-link in a
+// kind→view mapper since deleted as dead code (§104), EN/DE strings) and emitted NOWHERE, so no AI document
 // write ever appeared in the Activity panel.
 //
 // ★★★ EVERY "no row" TEST HERE CARRIES ITS OWN POSITIVE CONTROL IN THE SAME

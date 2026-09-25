@@ -720,10 +720,11 @@ IS in axe `A11Y_VIEWS`. Built as slices:
   green. ★ Compact-test asserts `.space-y-2` PRESENCE only (container-only; a global-absence check is
   brittle). i18n EN+DE.
 - **Click-through:** `Tile` (`report-table.tsx`) gained an optional `onActivate`/`activateLabel` clickable
-  variant (renders a real `<button>` — axe-safe name via `activateLabel`); pure i18n-free `activityViewOf`
-  (`dashboard-activity-nav.ts`) maps an activity `kind`→`AppView`; KPI/progress/burn tiles + the completion
-  sparkline launch their view via `onNavigate`, Top Changes rows + RAID register rows + horizon chips
-  deep-link the item.
+  variant (renders a real `<button>` — axe-safe name via `activateLabel`); KPI/progress/burn tiles + the
+  completion sparkline launch their view via `onNavigate`, Top Changes rows + RAID register rows + horizon
+  chips deep-link the item. ★ Activity-log rows have NO click-through: the kind→view mapper that once served
+  them lost its only caller when the folded Recent-activity disclosure was removed (0.151.0), and was then
+  deleted as dead code (§104). Wiring row navigation again is a feature, not a revert.
 - **`Tile` `hint` tooltip (★★):** `Tile` (`report-table.tsx`) has an optional `hint?: string` that renders an
   `InfoTooltip` as a DOM **SIBLING** of the tile (`<div className="relative h-full w-full">{tile}<span absolute>
   InfoTooltip</span></div>`), NOT inside the `label`. Embedding an `InfoTooltip` (role=button) inside a CLICKABLE
