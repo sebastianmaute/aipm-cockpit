@@ -298,46 +298,36 @@ describe("rebuildIndex", () => {
     expect(() => rebuildIndex(doc(["## 1. X", "## 1. Y"], []))).toThrow(/two headings/);
   });
 
-  /** ★★★ THE REAL REGISTER. Every row a rebuild changes today must change ONLY
-   *  its Item cell, and only for one of two named reasons: a status suffix that
-   *  leaked into the cell (the hand-filed rows carry ` — open`/` — CLOSED …`),
-   *  or a heading retitled after its row was written. The retitled set is
-   *  NAMED so a new one is a decision, not a silent rewrite; once the table
-   *  has been rebuilt it simply stops appearing, and this stays green.
-   *  Measured 2026-09-26 on `main`: 216 rows change — 200 suffix leaks and the
-   *  16 retitles below — and no anchor, Origin, Size, State or strike moves. */
-  const RETITLED = [307, 347, 348, 352, 353, 425, 428, 429, 434, 435, 447, 450, 451, 454, 455, 458];
-  const SUFFIX = / — (?:CLOSED\b.*|OPEN|open|ACCEPTED COST)$/;
-  const cellsOf = (src) =>
-    new Map(
-      rowsOf(src).map((l) => {
-        const m = /^\| \[§(\d+)\]\((#[^)]*)\) \| (.*) \|$/.exec(l);
-        return [Number(m[1]), [m[2], ...m[3].split(" | ")]];
-      }),
-    );
-  const unstrike = (s) => s.replace(/^~~|~~$/g, "");
-
-  it("★★★ on the real register, changes only Item cells, and only for a named reason", () => {
+  /** ★★★ THE REAL REGISTER IS A FIXED POINT OF ITS OWN REBUILD, AND THIS IS
+   *  BLOCKING (it runs in the `unit` job). The index table is GENERATED:
+   *  `rebuildIndex(real)` must return the file byte for byte. `rebuildIndex`
+   *  leaves every byte outside the two markers untouched, so whole-file
+   *  equality IS table-region equality. A heading added, closed, reopened or
+   *  retitled without a rebuild turns this red, and the message names the
+   *  command and the §numbers whose rows differ.
+   *  ★ No allowlist and no tolerance: an earlier cut accepted named retitles
+   *  and leaked status suffixes, which is exactly the drift this pins out. */
+  it("★★★ the real register's index table is exactly what a rebuild produces", () => {
     const src = readFileSync(REGISTER, "utf8");
     const out = rebuildIndex(src);
-    expect(rebuildIndex(out)).toBe(out);
 
-    const before = cellsOf(src);
-    const after = cellsOf(out);
-    expect([...after.keys()]).toEqual([...before.keys()]);
-    const unexplained = [];
-    for (const [n, [anchor, item, origin, size, state]] of before) {
-      const [a2, i2, o2, s2, st2] = after.get(n);
-      if (anchor !== a2 || origin !== o2 || size !== s2 || state !== st2) {
-        unexplained.push(`§${n}: a cell other than Item changed`);
-      } else if (item !== i2) {
-        const leaked = unstrike(item).replace(SUFFIX, "") === unstrike(i2);
-        if (!leaked && !RETITLED.includes(n)) unexplained.push(`§${n}: ${item} => ${i2}`);
-      }
-    }
-    expect(unexplained).toEqual([]);
-    // Anti-vacuity: the table is large, so a parser that matched nothing would
-    // pass the loop above trivially.
+    const byNumber = (text) =>
+      new Map(rowsOf(text).map((l) => [Number(/^\| \[§(\d+)\]/.exec(l)[1]), l]));
+    const before = byNumber(src);
+    const after = byNumber(out);
+    const differing = [...new Set([...before.keys(), ...after.keys()])]
+      .filter((n) => before.get(n) !== after.get(n))
+      .sort((a, b) => a - b);
+    const message =
+      `docs/open-followups.md's index table is not what the rebuild produces` +
+      ` (${differing.length} row(s) differ: ${differing.map((n) => `§${n}`).join(" ")}).` +
+      " Run `node scripts/rebuild-followup-index.mjs` and commit the result.";
+
+    expect(differing, message).toEqual([]);
+    // Byte equality catches what a per-row compare cannot: row ORDER, the
+    // header lines, and a line-ending change inside the table.
+    expect(out === src, message).toBe(true);
+    // Anti-vacuity: a parser that matched no rows would compare empty to empty.
     expect(before.size).toBeGreaterThan(400);
   });
 });
