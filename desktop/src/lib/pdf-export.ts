@@ -134,29 +134,53 @@ export function pdfFilenameFromTitle(title: string): string | null {
 // (identical rules, identical cascade position relative to each other). One
 // source of truth either way: no copy of the stylesheet lives on this side of
 // the desktop/src-app boundary.
+//
+// ★ ONLY the head stylesheet -- the first `<style>` in `<head>`, the same
+// element `withStyleNonce` (pdf-export-protocol.ts) grants the nonce to, and
+// for the same reason: every producer emits its stylesheet there, before any
+// content, so a later `<style>` could only have come from content. insertCSS
+// bypasses the page's CSP, so re-applying EVERY `<style>` would grant content
+// what the renderer deliberately withholds.
 export const PDF_COLLECT_STYLES_SCRIPT =
-  'Array.from(document.querySelectorAll("style"), (s) => s.textContent || "").join("\\n")';
+  '(() => { const s = document.querySelector("head > style"); return s ? s.textContent || "" : ""; })()';
 
-// The readable floor for fit-to-width. PRINT_STYLES sets table text at 9pt, so
-// 0.6 prints it at 5.4pt -- about the smallest size still legible on paper
-// (small-print territory); below that, shrinking stops trading width for
-// readability and just produces an unreadable page. Tables wider than the
-// floor can fit are wrapped instead (see PDF_WRAP_CSS), never clipped.
+// The readable floor for shrinking a wide table. PRINT_STYLES sets table text
+// at 9pt, so 0.6 prints it at 5.4pt -- about the smallest size still legible
+// on paper (small-print territory); below that, shrinking stops trading width
+// for readability and just produces an unreadable table. A table wider than
+// the floor can fit is wrapped instead (see PDF_WRAP_CSS), never clipped.
 export const PDF_MIN_SCALE = 0.6;
 
 // Marks a table that is still wider than the page at PDF_MIN_SCALE.
 export const PDF_WRAP_ATTR = "data-pdf-wrap";
 
+// Marks a cell of a wrapped table whose value is atomic -- a date, a number,
+// a short id -- and must stay on one line (see isAtomicCellValue).
+export const PDF_NOWRAP_ATTR = "data-pdf-nowrap";
+
+// What counts as an atomic cell value: at most 12 characters, and a date
+// (2026-06-01), a number (42, -3.5, 1,200, 80%), a #-id (#12) or a key-style id
+// (LOP-101). Deliberately VALUE SHAPES, not "any short token": nowrap raises a
+// column's minimum width, and a blanket short-token rule across 30 columns
+// could push the table back over the page. The page-side script builds its
+// RegExp from this same source string, so the two cannot disagree.
+export const PDF_ATOMIC_VALUE_SOURCE =
+  "^(?=.{1,12}$)(?:\\d{4}-\\d{2}-\\d{2}|[-+]?\\d[\\d.,]*%?|#\\d+|[A-Z][A-Z0-9]*-\\d+)$";
+
+/** True when a cell's trimmed text is a date, number or id shape that must not
+ *  break across lines. */
+export function isAtomicCellValue(text: string): boolean {
+  return new RegExp(PDF_ATOMIC_VALUE_SOURCE).test(text.trim());
+}
+
 // Lets a marked table's cells break inside a word, so the table's minimum
-// width drops to what the page can hold. ONLY marked tables: `anywhere` also
-// changes how auto table layout shares width out, so applying it to a table
-// that already fits would needlessly squeeze its short columns.
-// ★ Only TABLES are wrapped. Non-table content wider than the page at the
-// floor (a long unbroken URL in a paragraph, a wide `<pre>`) still scales to
-// the floor and can still clip; both producers put every wide value in a
-// table, so this is not reached today -- `preparePdfPrint` reports it via
-// `unwrappedOverflow` so main can log it rather than let it pass silently.
-export const PDF_WRAP_CSS = `table[${PDF_WRAP_ATTR}] th, table[${PDF_WRAP_ATTR}] td { overflow-wrap: anywhere; }`;
+// width drops to what the page can hold -- except atomic values, which keep
+// their line. ONLY marked tables: `anywhere` also changes how auto table layout
+// shares width out, so applying it to a table that already fits would
+// needlessly squeeze its short columns.
+export const PDF_WRAP_CSS =
+  `table[${PDF_WRAP_ATTR}] th, table[${PDF_WRAP_ATTR}] td { overflow-wrap: anywhere; }\n` +
+  `table[${PDF_WRAP_ATTR}] td[${PDF_NOWRAP_ATTR}] { overflow-wrap: normal; white-space: nowrap; }`;
 
 const PX_PER_IN = 96;
 const IN_PER_UNIT: Readonly<Record<string, number>> = {
@@ -272,58 +296,90 @@ export function pdfPageFromCss(css: string): PdfPage {
   };
 }
 
-/** Lays the body out at `layoutWidthPx` (the page's printable width), reads
- *  the widest thing on it -- the body's own overflow or any table -- and puts
- *  the body back. Run through `executeJavaScript`, which the page's CSP does
- *  not govern. The hidden export window's own viewport width is irrelevant:
- *  the body is pinned to the page width for the measurement.
- *  ★ Pinning `body`'s width is exact only while the body has no horizontal
- *  margin -- PRINT_STYLES sets `body { margin: 0 }`. A future body margin
- *  would make the fit optimistic by that margin. */
-export function pdfMeasureScript(layoutWidthPx: number): string {
+// ★ The measurements below run in SCREEN media, while the page prints in PRINT
+// media. That is exact only while no `@media print` rule changes a width:
+// PRINT_STYLES' print block holds only `thead { display: table-header-group }`
+// and `tr { page-break-inside: avoid }`, neither of which moves a column.
+//
+// ★ Pinning `body`'s width to the printable width is exact only while the body
+// has no horizontal margin -- PRINT_STYLES sets `body { margin: 0 }`. A future
+// body margin would make every fit optimistic by that margin.
+
+/** Lays the body out at the page's printable width and returns every table's
+ *  rendered width, in document order, putting the body back afterwards. Run
+ *  through `executeJavaScript`, which the page's CSP does not govern; the
+ *  hidden window's own viewport width is irrelevant. */
+export function pdfTableWidthsScript(printableWidthPx: number): string {
+  return `(() => {
+  const b = document.body;
+  if (!b) return [];
+  const prev = b.style.width;
+  b.style.width = "${printableWidthPx}px";
+  const widths = Array.from(document.querySelectorAll("table"), (t) => t.getBoundingClientRect().width);
+  b.style.width = prev;
+  return widths;
+})()`;
+}
+
+export interface PdfTableFit {
+  /** CSS `zoom` for the table: 1 when it fits, down to PDF_MIN_SCALE. */
+  zoom: number;
+  /** Still too wide at PDF_MIN_SCALE: let its cells break (PDF_WRAP_CSS). */
+  wrap: boolean;
+}
+
+/** How one table of `widthPx` fits a page `printableWidthPx` wide.
+ *
+ *  ★ PER TABLE, never per page: printing the whole page smaller would shrink a
+ *  document's prose along with its one wide register table. The zoom is the
+ *  fit rounded DOWN to a hundredth (so it never overshoots), clamped to
+ *  PDF_MIN_SCALE; a table the floor cannot fit is wrapped at the floor. */
+export function pdfTableFit(widthPx: number, printableWidthPx: number): PdfTableFit {
+  if (!(widthPx > printableWidthPx)) return { zoom: 1, wrap: false };
+  const fit = Math.floor((printableWidthPx / widthPx) * 100) / 100;
+  return {
+    zoom: Math.max(PDF_MIN_SCALE, fit),
+    wrap: widthPx > printableWidthPx / PDF_MIN_SCALE,
+  };
+}
+
+/** Applies `fits` to the document's tables by index: sets each one's CSS
+ *  `zoom` (a CSSOM write, which `style-src` does not govern), marks the ones
+ *  to wrap, and marks their atomic cells to keep their line. Returns how many
+ *  tables it changed. */
+export function pdfApplyTableFitsScript(fits: readonly PdfTableFit[]): string {
+  return `((fits, atomic) => {
+  const re = new RegExp(atomic);
+  const tables = Array.from(document.querySelectorAll("table"));
+  let changed = 0;
+  fits.forEach((fit, i) => {
+    const t = tables[i];
+    if (!t || (fit.zoom === 1 && !fit.wrap)) return;
+    changed++;
+    if (fit.zoom !== 1) t.style.zoom = String(fit.zoom);
+    if (!fit.wrap) return;
+    t.setAttribute("${PDF_WRAP_ATTR}", "");
+    for (const c of t.querySelectorAll("td")) {
+      if (re.test((c.textContent || "").trim())) c.setAttribute("${PDF_NOWRAP_ATTR}", "");
+    }
+  });
+  return changed;
+})(${JSON.stringify(fits)}, ${JSON.stringify(PDF_ATOMIC_VALUE_SOURCE)})`;
+}
+
+/** The widest thing on the page -- the body's own overflow or any table, at
+ *  its rendered (zoomed) width -- with the body laid out at the printable
+ *  width. Used AFTER fitting, to detect anything the fit could not bring in. */
+export function pdfWidestScript(printableWidthPx: number): string {
   return `(() => {
   const b = document.body;
   if (!b) return 0;
   const prev = b.style.width;
-  b.style.width = "${layoutWidthPx}px";
+  b.style.width = "${printableWidthPx}px";
   const widest = Math.max(b.scrollWidth, ...Array.from(document.querySelectorAll("table"), (t) => t.getBoundingClientRect().width));
   b.style.width = prev;
   return widest;
 })()`;
-}
-
-/** Marks (PDF_WRAP_ATTR) every table wider than `layoutWidthPx` when the body
- *  is laid out at that width, and returns how many it marked. */
-export function pdfMarkWideTablesScript(layoutWidthPx: number): string {
-  return `(() => {
-  const b = document.body;
-  if (!b) return 0;
-  const prev = b.style.width;
-  b.style.width = "${layoutWidthPx}px";
-  const wide = Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > ${layoutWidthPx});
-  for (const t of wide) t.setAttribute("${PDF_WRAP_ATTR}", "");
-  b.style.width = prev;
-  return wide.length;
-})()`;
-}
-
-export interface PdfFit {
-  contentWidthPx: number;
-  printableWidthPx: number;
-}
-
-/** True when even PDF_MIN_SCALE cannot fit the content, so the widest tables
- *  have to wrap. */
-export function pdfNeedsWrap({ contentWidthPx, printableWidthPx }: PdfFit): boolean {
-  return contentWidthPx > printableWidthPx / PDF_MIN_SCALE;
-}
-
-/** The fit-to-width scale: 1 when the content fits, otherwise the scale that
- *  fits it -- rounded DOWN to a hundredth so it never overshoots -- clamped to
- *  PDF_MIN_SCALE. */
-export function pdfFitScale({ contentWidthPx, printableWidthPx }: PdfFit): number {
-  const fit = contentWidthPx > printableWidthPx ? Math.floor((printableWidthPx / contentWidthPx) * 100) / 100 : 1;
-  return Math.min(1, Math.max(PDF_MIN_SCALE, fit));
 }
 
 export interface PdfPrintOptions {
@@ -331,17 +387,16 @@ export interface PdfPrintOptions {
   pageSize: PdfPageSize;
   landscape: boolean;
   margins: PdfMarginsIn;
-  scale: number;
 }
 
-/** printToPDF options for `page` at the scale that fits `contentWidthPx`. */
-export function pdfPrintOptions(page: PdfPage, contentWidthPx: number): PdfPrintOptions {
+/** printToPDF options for `page`, always at 100% -- fitting is per table (see
+ *  pdfTableFit), so prose never shrinks. */
+export function pdfPrintOptions(page: PdfPage): PdfPrintOptions {
   return {
     printBackground: true,
     pageSize: page.pageSize,
     landscape: page.landscape,
     margins: { ...page.margins },
-    scale: pdfFitScale({ contentWidthPx, printableWidthPx: page.printableWidthPx }),
   };
 }
 
@@ -354,18 +409,21 @@ export interface PdfPrintTarget {
 
 export interface PdfPrintPlan {
   options: PdfPrintOptions;
-  /** True when the content needed wrapping but no TABLE was wide enough to
-   *  mark -- i.e. something that is not a table overflows. See PDF_WRAP_CSS. */
-  unwrappedOverflow: boolean;
+  /** True when something is still wider than the page after every table was
+   *  fitted -- non-table content, or a table not even wrapping could bring in. */
+  stillOverflows: boolean;
 }
 
-/** Re-applies the page's own stylesheet, measures the content against the
- *  page that stylesheet asks for, wraps any table the scale floor cannot fit,
- *  and returns the printToPDF options.
+// Sub-pixel rounding in getBoundingClientRect: a table exactly the printable
+// width can measure a fraction over it.
+const OVERFLOW_TOLERANCE_PX = 1;
+
+/** Re-applies the page's head stylesheet, reads the page it asks for, fits
+ *  each wide table (zoom, then wrap), and returns the printToPDF options.
  *
- *  ★★ ORDER IS LOAD-BEARING: insertCSS BEFORE measuring. Measured unstyled,
- *  the tasks table in the repro measured about 3300px wide instead of 3129px, so the scale
- *  is computed for the wrong layout. An unreadable measurement counts as
+ *  ★★ ORDER IS LOAD-BEARING: insertCSS BEFORE measuring (measured unstyled,
+ *  the tasks table in the repro was about 3300px instead of 3129px), and the
+ *  wrap CSS BEFORE the final overflow check. Unreadable widths count as
  *  "fits": the page then prints exactly as its stylesheet lays it out. */
 export async function preparePdfPrint(target: PdfPrintTarget): Promise<PdfPrintPlan> {
   const collected = await target.executeJavaScript(PDF_COLLECT_STYLES_SCRIPT);
@@ -373,17 +431,17 @@ export async function preparePdfPrint(target: PdfPrintTarget): Promise<PdfPrintP
   if (css.trim() !== "") await target.insertCSS(css);
 
   const page = pdfPageFromCss(css);
-  const measured = await target.executeJavaScript(pdfMeasureScript(page.printableWidthPx));
-  const contentWidthPx =
-    typeof measured === "number" && Number.isFinite(measured) ? measured : page.printableWidthPx;
+  const measured = await target.executeJavaScript(pdfTableWidthsScript(page.printableWidthPx));
+  const widths = Array.isArray(measured) ? measured : [];
+  const fits = widths.map((w) =>
+    typeof w === "number" && Number.isFinite(w) ? pdfTableFit(w, page.printableWidthPx) : { zoom: 1, wrap: false },
+  );
 
-  let unwrappedOverflow = false;
-  if (pdfNeedsWrap({ contentWidthPx, printableWidthPx: page.printableWidthPx })) {
-    const marked = await target.executeJavaScript(
-      pdfMarkWideTablesScript(Math.floor(page.printableWidthPx / PDF_MIN_SCALE)),
-    );
-    await target.insertCSS(PDF_WRAP_CSS);
-    unwrappedOverflow = marked === 0;
+  if (fits.some((f) => f.zoom !== 1 || f.wrap)) {
+    await target.executeJavaScript(pdfApplyTableFitsScript(fits));
+    if (fits.some((f) => f.wrap)) await target.insertCSS(PDF_WRAP_CSS);
   }
-  return { options: pdfPrintOptions(page, contentWidthPx), unwrappedOverflow };
+  const widest = await target.executeJavaScript(pdfWidestScript(page.printableWidthPx));
+  const stillOverflows = typeof widest === "number" && widest > page.printableWidthPx + OVERFLOW_TOLERANCE_PX;
+  return { options: pdfPrintOptions(page), stillOverflows };
 }

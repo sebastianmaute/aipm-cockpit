@@ -925,10 +925,11 @@ if (!app.requestSingleInstanceLock()) {
               // apply in the packaged app (nonce-only style-src-elem), so it
               // printed unstyled, portrait and clipped. `preparePdfPrint`
               // (lib/pdf-export.ts) re-applies it via insertCSS as a guarantee
-              // and returns an explicit page size + a fit-to-width scale; see
-              // its comment block.
+              // and returns an explicit page size; each wide table is fitted
+              // on its own (zoom, then wrap), so prose prints at 100%. See its
+              // comment block.
               const plan = await preparePdfPrint(childWindow.webContents);
-              if (plan.unwrappedOverflow) log("pdf export: non-table content is wider than the page at the minimum scale");
+              if (plan.stillOverflows) log("pdf export: content is still wider than the page after fitting its tables");
               const data = await childWindow.webContents.printToPDF(plan.options);
               const parent = BrowserWindow.fromWebContents(contents);
               const { canceled, filePath } = parent

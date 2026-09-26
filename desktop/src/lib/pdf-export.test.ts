@@ -14,15 +14,17 @@ import {
   pdfMetadataTitleFromFilename,
   PDF_COLLECT_STYLES_SCRIPT,
   PDF_MIN_SCALE,
+  PDF_NOWRAP_ATTR,
   PDF_WRAP_ATTR,
   PDF_WRAP_CSS,
   type PdfPrintTarget,
-  pdfFitScale,
-  pdfMarkWideTablesScript,
-  pdfMeasureScript,
-  pdfNeedsWrap,
+  isAtomicCellValue,
+  pdfApplyTableFitsScript,
   pdfPageFromCss,
   pdfPrintOptions,
+  pdfTableFit,
+  pdfTableWidthsScript,
+  pdfWidestScript,
   preparePdfPrint,
 } from "./pdf-export";
 
@@ -119,7 +121,8 @@ describe("pdf-export protocol (§468)", () => {
 // `style-src-elem`, so in the packaged app its own `<style>` block did not
 // apply: the PDF printed unstyled (serif, no table width, Letter portrait,
 // clipped columns). Main re-applies that CSS through `insertCSS`, prints the
-// page the CSS asks for EXPLICITLY, and fits the widest table to its width.
+// page the CSS asks for EXPLICITLY at 100%, and fits each wide table on its
+// own (zoom down to a floor, then wrap), so prose never shrinks.
 describe("pdf print preparation (§468 packaged-app check)", () => {
   const LANDSCAPE_CSS = "@page { size: A4 landscape; margin: 10mm 8mm; }\n table { width: 100%; }";
   const MM = 1 / 25.4;
@@ -175,55 +178,68 @@ describe("pdf print preparation (§468 packaged-app check)", () => {
     expect(docPage.printableWidthPx).toBeCloseTo((178 / 25.4) * 96, 5);
   });
 
-  it("prints at 100% when the content already fits", () => {
-    expect(pdfFitScale({ contentWidthPx: 900, printableWidthPx: 1000 })).toBe(1);
-    expect(pdfFitScale({ contentWidthPx: 1000, printableWidthPx: 1000 })).toBe(1);
+  it("leaves a table that fits alone", () => {
+    expect(pdfTableFit(900, 1000)).toEqual({ zoom: 1, wrap: false });
+    expect(pdfTableFit(1000, 1000)).toEqual({ zoom: 1, wrap: false });
   });
 
-  it("scales a too-wide page down to fit, rounding DOWN so it never overshoots", () => {
+  it("zooms a too-wide table down to fit, rounding DOWN so it never overshoots", () => {
     // 1000/1500 = 0.6666... -> 0.66, not 0.67 (0.67 * 1500 = 1005 > 1000).
-    expect(pdfFitScale({ contentWidthPx: 1500, printableWidthPx: 1000 })).toBe(0.66);
-    expect(pdfFitScale({ contentWidthPx: 1250, printableWidthPx: 1000 })).toBe(0.8);
+    expect(pdfTableFit(1500, 1000)).toEqual({ zoom: 0.66, wrap: false });
+    expect(pdfTableFit(1250, 1000)).toEqual({ zoom: 0.8, wrap: false });
   });
 
-  it("never scales below the readable floor", () => {
+  it("never zooms below the readable floor, and wraps only what the floor cannot fit", () => {
     expect(PDF_MIN_SCALE).toBe(0.6);
-    expect(pdfFitScale({ contentWidthPx: 3129, printableWidthPx: 1062 })).toBe(PDF_MIN_SCALE);
+    expect(pdfTableFit(1000 / PDF_MIN_SCALE, 1000)).toEqual({ zoom: PDF_MIN_SCALE, wrap: false });
+    expect(pdfTableFit(1000 / PDF_MIN_SCALE + 1, 1000)).toEqual({ zoom: PDF_MIN_SCALE, wrap: true });
+    expect(pdfTableFit(3129, 1062)).toEqual({ zoom: PDF_MIN_SCALE, wrap: true });
   });
 
-  it("passes the page EXPLICITLY, from the same parse the scale used", () => {
+  it("prints the page EXPLICITLY, from the same parse, always at 100%", () => {
     const page = pdfPageFromCss(LANDSCAPE_CSS);
-    expect(pdfPrintOptions(page, 1500)).toEqual({
-      printBackground: true,
-      pageSize: "A4",
-      landscape: true,
-      margins: page.margins,
-      scale: Math.floor((LANDSCAPE_PRINTABLE / 1500) * 100) / 100,
-    });
+    const options = pdfPrintOptions(page);
+    expect(options).toEqual({ printBackground: true, pageSize: "A4", landscape: true, margins: page.margins });
+    // No page-wide scale: prose must never shrink with a wide table.
+    expect(options).not.toHaveProperty("scale");
   });
 
-  it("wraps tables only when the floor alone cannot fit them", () => {
-    expect(pdfNeedsWrap({ contentWidthPx: 1500, printableWidthPx: 1000 })).toBe(false);
-    expect(pdfNeedsWrap({ contentWidthPx: 1000 / PDF_MIN_SCALE, printableWidthPx: 1000 })).toBe(false);
-    expect(pdfNeedsWrap({ contentWidthPx: 1000 / PDF_MIN_SCALE + 1, printableWidthPx: 1000 })).toBe(true);
+  it("treats only date, number and id shapes as atomic cell values", () => {
+    for (const v of ["2026-06-01", "42", "-3.5", "1,200", "80%", "#12", "LOP-101", " 7 "]) {
+      expect(isAtomicCellValue(v), v).toBe(true);
+    }
+    for (const v of ["", "High", "Waiting on data", "2026-06-01T10:20:00Z", "sofia@example.com", "1234567890123", "a-1"]) {
+      expect(isAtomicCellValue(v), v).toBe(false);
+    }
+  });
+
+  it("the wrap CSS only reaches marked tables, and keeps their atomic cells on one line", () => {
+    const rules = PDF_WRAP_CSS.split("\n");
+    expect(rules).toHaveLength(2);
+    for (const rule of rules) {
+      const selectors = rule.slice(0, rule.indexOf("{")).split(",").map((x) => x.trim());
+      for (const selector of selectors) expect(selector.startsWith(`table[${PDF_WRAP_ATTR}]`)).toBe(true);
+    }
+    expect(rules[1]).toContain(`td[${PDF_NOWRAP_ATTR}]`);
+    expect(rules[1]).toContain("white-space: nowrap");
+  });
+
+  it("collects only the head stylesheet, the element the renderer nonces", () => {
+    expect(PDF_COLLECT_STYLES_SCRIPT).toContain('querySelector("head > style")');
+    expect(PDF_COLLECT_STYLES_SCRIPT).not.toContain("querySelectorAll");
   });
 
   // ONE ordered log of every call, so a mutant that measures before
-  // re-applying the CSS (or marks after inserting the wrap CSS) is visible.
-  function fakeTarget(opts: { css: unknown; width: unknown; marked?: unknown }) {
+  // re-applying the CSS, or checks overflow before the wrap CSS, is visible.
+  function fakeTarget(opts: { css: unknown; widths: unknown; widest?: unknown }) {
     const calls: string[] = [];
     const target: PdfPrintTarget = {
       executeJavaScript: async (code: string) => {
-        if (code === PDF_COLLECT_STYLES_SCRIPT) {
-          calls.push("js:collect");
-          return opts.css;
-        }
-        if (code.includes(PDF_WRAP_ATTR)) {
-          calls.push(`js:${code}`);
-          return opts.marked ?? 1;
-        }
-        calls.push(`js:${code}`);
-        return opts.width;
+        calls.push(code === PDF_COLLECT_STYLES_SCRIPT ? "js:collect" : `js:${code}`);
+        if (code === PDF_COLLECT_STYLES_SCRIPT) return opts.css;
+        if (code.includes("getBoundingClientRect().width);")) return opts.widths;
+        if (code.includes("scrollWidth")) return opts.widest ?? 0;
+        return 1;
       },
       insertCSS: async (css: string) => {
         calls.push(`css:${css}`);
@@ -232,57 +248,59 @@ describe("pdf print preparation (§468 packaged-app check)", () => {
     };
     return { target, calls };
   }
+  const PRINTABLE = pdfPageFromCss(LANDSCAPE_CSS).printableWidthPx;
 
-  it("re-applies the page's own stylesheet BEFORE measuring it", async () => {
-    const { target, calls } = fakeTarget({ css: LANDSCAPE_CSS, width: 900 });
+  it("re-applies the head stylesheet BEFORE measuring, and changes nothing when every table fits", async () => {
+    const { target, calls } = fakeTarget({ css: LANDSCAPE_CSS, widths: [700, 900] });
     const plan = await preparePdfPrint(target);
     expect(calls).toEqual([
       "js:collect",
       `css:${LANDSCAPE_CSS}`,
-      `js:${pdfMeasureScript(pdfPageFromCss(LANDSCAPE_CSS).printableWidthPx)}`,
+      `js:${pdfTableWidthsScript(PRINTABLE)}`,
+      `js:${pdfWidestScript(PRINTABLE)}`,
     ]);
-    expect(plan.options.scale).toBe(1);
     expect(plan.options).toMatchObject({ pageSize: "A4", landscape: true });
-    expect(plan.unwrappedOverflow).toBe(false);
+    expect(plan.stillOverflows).toBe(false);
   });
 
-  it("scales a moderately wide export without touching its tables", async () => {
-    const { target, calls } = fakeTarget({ css: LANDSCAPE_CSS, width: 1500 });
-    const plan = await preparePdfPrint(target);
-    expect(calls).toHaveLength(3);
-    expect(plan.options.scale).toBe(Math.floor((LANDSCAPE_PRINTABLE / 1500) * 100) / 100);
+  it("zooms only the wide table, without wrapping it", async () => {
+    const { target, calls } = fakeTarget({ css: LANDSCAPE_CSS, widths: [700, 1500] });
+    await preparePdfPrint(target);
+    const fits = [{ zoom: 1, wrap: false }, pdfTableFit(1500, PRINTABLE)];
+    expect(fits[1].wrap).toBe(false);
+    expect(calls).toEqual([
+      "js:collect",
+      `css:${LANDSCAPE_CSS}`,
+      `js:${pdfTableWidthsScript(PRINTABLE)}`,
+      `js:${pdfApplyTableFitsScript(fits)}`,
+      `js:${pdfWidestScript(PRINTABLE)}`,
+    ]);
   });
 
-  it("marks the tables still too wide at the floor, THEN inserts the wrap CSS", async () => {
-    const { target, calls } = fakeTarget({ css: LANDSCAPE_CSS, width: 3129 });
+  it("applies the fits, THEN the wrap CSS, THEN checks what still overflows", async () => {
+    const { target, calls } = fakeTarget({ css: LANDSCAPE_CSS, widths: [3129], widest: PRINTABLE });
     const plan = await preparePdfPrint(target);
     expect(calls).toEqual([
       "js:collect",
       `css:${LANDSCAPE_CSS}`,
-      `js:${pdfMeasureScript(pdfPageFromCss(LANDSCAPE_CSS).printableWidthPx)}`,
-      `js:${pdfMarkWideTablesScript(Math.floor(pdfPageFromCss(LANDSCAPE_CSS).printableWidthPx / PDF_MIN_SCALE))}`,
+      `js:${pdfTableWidthsScript(PRINTABLE)}`,
+      `js:${pdfApplyTableFitsScript([{ zoom: PDF_MIN_SCALE, wrap: true }])}`,
       `css:${PDF_WRAP_CSS}`,
+      `js:${pdfWidestScript(PRINTABLE)}`,
     ]);
-    expect(plan.options.scale).toBe(PDF_MIN_SCALE);
-    expect(plan.unwrappedOverflow).toBe(false);
+    expect(plan.stillOverflows).toBe(false);
   });
 
-  it("reports overflow no table accounts for", async () => {
-    const { target } = fakeTarget({ css: LANDSCAPE_CSS, width: 3129, marked: 0 });
-    expect((await preparePdfPrint(target)).unwrappedOverflow).toBe(true);
+  it("reports content still wider than the page after fitting", async () => {
+    const { target } = fakeTarget({ css: LANDSCAPE_CSS, widths: [700], widest: PRINTABLE + 50 });
+    expect((await preparePdfPrint(target)).stillOverflows).toBe(true);
   });
 
-  it("inserts nothing for a page with no stylesheet, and treats an unreadable width as fitting", async () => {
-    const { target, calls } = fakeTarget({ css: "", width: undefined });
+  it("inserts nothing for a page with no stylesheet, and treats unreadable widths as fitting", async () => {
+    const { target, calls } = fakeTarget({ css: "", widths: undefined });
     const plan = await preparePdfPrint(target);
     expect(calls.filter((c) => c.startsWith("css:"))).toEqual([]);
-    expect(plan.options.scale).toBe(1);
+    expect(calls.some((c) => c.includes("zoom"))).toBe(false);
     expect(plan.options.pageSize).toBe("Letter");
-  });
-
-  it("the wrap CSS only reaches tables main has marked", () => {
-    const selectors = PDF_WRAP_CSS.slice(0, PDF_WRAP_CSS.indexOf("{")).split(",").map((x) => x.trim());
-    expect(selectors.length).toBeGreaterThan(1);
-    for (const selector of selectors) expect(selector.startsWith(`table[${PDF_WRAP_ATTR}]`)).toBe(true);
   });
 });
