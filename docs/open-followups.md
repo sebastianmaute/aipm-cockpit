@@ -183,17 +183,21 @@ and a later count re-verification, and it went on telling readers the files were
 after they had stopped being so. `head -1 docs/CODEMAPS/*.md` prints the real provenance; regenerate
 with `/ecc:update-codemaps` when it trails `APP_VERSION` in `src/app/version.ts`.
 
-★★★ **THE TABLE BELOW IS GENERATED FROM THE HEADINGS — do not hand-edit its `#`, `Item` or `State`
-cells.** One row per numbered `##` heading, in heading order, so it doubles as the table of contents
-this file had never had. `Item` and `State` are FUNCTIONS of the heading, which is what retires the
-failure this table shipped for months: when it was replaced it carried 124 rows against 232 entries,
-and six of the rows it DID carry said "open" beside a heading that said `— CLOSED` (§9, §22, §50,
-§54, §112, §115). A row can no longer disagree with the entry it points at, because a row is no
-longer written by hand.
+★★★ **THE TABLE BELOW IS GENERATED — rebuild it with `node scripts/rebuild-followup-index.mjs`, and
+CI enforces that you did.** One row per numbered `##` heading, sorted by §number (not by heading
+order, which is not strictly ascending), so it doubles as the table of contents this file had never
+had. The `#` anchor and the `Item` text are derived from the heading. `State` is HARVESTED from the
+existing row, closure reason and all; the heading decides only whether the entry is open or closed,
+and `State` is regenerated from the heading only when the two disagree. That retires the failure this
+table shipped for months: when it was replaced it carried 124 rows against 232 entries, and six of
+the rows it DID carry said "open" beside a heading that said `— CLOSED` (§9, §22, §50, §54, §112,
+§115). A test in the `unit` job (`followup-index-lib.test.mjs`) fails whenever the committed table
+differs from what a rebuild produces, and names the §numbers that differ.
 
 ★★ `Origin` and `Size` have NO machine source — they are hand triage data, so a rebuild HARVESTS them
 from the table it replaces and starts a new entry's pair at `—` for someone to fill in. Fill those
-two in the table; everything else you would want to say belongs in the entry.
+two in the table, and hand-edit a `State` cell's wording if you must; everything else you would want
+to say belongs in the entry.
 
 ★★ **The pre-rebuild table also carried a paragraph-length `State` cell on each of its 124 rows, and
 those are gone.** A 232-row table with a paragraph in every row is the register again, not an index,
@@ -30265,7 +30269,7 @@ and FAILS on a mismatch, which is the form that cannot rot; read it there rather
 §379 covered the separate, pre-existing ordering red, and is CLOSED.
 
 ★ Until it is fixed: hand-edit a closed row to match the shape §371 uses, and do NOT run the
-rebuild. Reproduce the loss with the fenced recipe above, run against a copy:
+rebuild. Reproduce the loss with the fenced recipe that stood above until `scripts/rebuild-followup-index.mjs` replaced it (`git show b4d38c42b:docs/open-followups.md`), run against a copy:
 `cp docs/open-followups.md /tmp-copy/ && cd /tmp-copy && <recipe> && diff` — count the changed
 rows, do not read the exit code, which is 0 either way.
 
@@ -39843,7 +39847,7 @@ Related: §560, §564, §13.
 
 ## 568. The register's index-rebuild recipe is not a no-op on the committed table and discards hand-written State prose — OPEN
 
-**Status:** OPEN 2026-09-18 — measured, not reasoned: the `REBUILD` recipe above was extracted, pointed at a copy of this file with `node`, and the region between the two `INDEX:` markers diffed against the committed one (157 rows changed, nothing outside the markers); a second run on the rebuilt copy was byte-identical; and `npm run followups:index:check` exited 0 on the same committed table throughout. Found during the 2026-09 security audit follow-up slice, which spliced its new rows in by hand to avoid it.
+**Status:** OPEN 2026-09-18 — measured, not reasoned: the `REBUILD` recipe then above (since replaced by `scripts/rebuild-followup-index.mjs`; `git show b4d38c42b:docs/open-followups.md`) was extracted, pointed at a copy of this file with `node`, and the region between the two `INDEX:` markers diffed against the committed one (157 rows changed, nothing outside the markers); a second run on the rebuilt copy was byte-identical; and `npm run followups:index:check` exited 0 on the same committed table throughout. Found during the 2026-09 security audit follow-up slice, which spliced its new rows in by hand to avoid it.
 
 **Work item:** #353
 
