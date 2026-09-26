@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { diffHeadingsAgainstIndex } from "./followup-index-lib.mjs";
+import { diffHeadingsAgainstIndex, rebuildIndex } from "./followup-index-lib.mjs";
 
 // ★ `import.meta.url` is NOT a file: URL under vitest — `readFileSync` on one
 // throws "The URL must be of scheme file". The sibling script tests all resolve
@@ -147,5 +147,197 @@ describe("diffHeadingsAgainstIndex", () => {
     const out = diffHeadingsAgainstIndex(readFileSync(REGISTER, "utf8"));
     expect(out.headingCount).toBeGreaterThan(400);
     expect(out.rowCount).toBeGreaterThan(400);
+  });
+});
+
+// ── rebuildIndex (§319, §382) ───────────────────────────────────────────────
+
+const HEAD = "| # | Item | Origin | Size | State |\n|---|---|---|---|---|";
+
+/** A register with the given `## ` heading lines and index row lines. */
+function doc(headings, rows) {
+  return [
+    "# Open follow-ups",
+    "",
+    "<!-- INDEX:BEGIN -->",
+    HEAD,
+    ...rows,
+    "<!-- INDEX:END -->",
+    "",
+    ...headings.flatMap((h) => [h, "", "Body.", ""]),
+  ].join("\n");
+}
+
+/** The index row lines of a register, in order. */
+const rowsOf = (src) => src.split("\n").filter((l) => l.startsWith("| [§"));
+
+describe("rebuildIndex", () => {
+  // Mutation: regenerate State from the heading on every row (drop the
+  // `flipped ? … : old.state` harvest) → the "(reason)" is lost; drop the
+  // `strike` re-wrap → the `~~` is lost. Either turns this red.
+  it("★★★ keeps a closed row's strike and closure reason byte-identical", () => {
+    const row = "| [§1](#1-x--closed-2026-01-01) | ~~X~~ | o | S | **CLOSED** 2026-01-01 (reason) |";
+    const src = doc(["## 1. X — CLOSED 2026-01-01"], [row]);
+    expect(rowsOf(rebuildIndex(src))).toEqual([row]);
+  });
+
+  // Mutation: same State-harvest mutant → "open".
+  it("★★★ keeps an open row's hand-written qualifier", () => {
+    const row = "| [§2](#2-y) | Y | o | M | open (narrowed 2026-08-30 — only the modal half) |";
+    expect(rowsOf(rebuildIndex(doc(["## 2. Y"], [row])))).toEqual([row]);
+  });
+
+  it("keeps Origin and Size verbatim, and bold / code-span decoration while the text matches", () => {
+    // Mutation: build Item from the heading unconditionally (`item = fresh`) →
+    // the backticks and bold the heading does not carry are lost.
+    const row = "| [§3](#3-the-foo-helper--fork-open) | The `foo` helper — **fork open** | R5 (0.202.0) | S–M | open |";
+    expect(rowsOf(rebuildIndex(doc(["## 3. The foo helper — fork open"], [row])))).toEqual([row]);
+  });
+
+  // Mutation: delete the `OPEN|open` alternatives from STATUS_SUFFIX_RE → the
+  // new rows read "Y — OPEN" / "Z — open"; delete `ACCEPTED COST` → "W — ACCEPTED COST".
+  it("strips a status suffix from a NEW row's Item", () => {
+    const out = rowsOf(
+      rebuildIndex(doc(["## 1. Y — OPEN", "## 2. Z — open", "## 3. W — ACCEPTED COST"], [])),
+    );
+    expect(out).toEqual([
+      "| [§1](#1-y--open) | Y | — | — | open |",
+      "| [§2](#2-z--open) | Z | — | — | open |",
+      "| [§3](#3-w--accepted-cost) | W | — | — | open |",
+    ]);
+  });
+
+  // Mutation: drop the `.replace(STATUS_SUFFIX_RE, "")` on the EXISTING cell →
+  // its text no longer matches, so Item is rebuilt from the bare heading and
+  // the row's backticks are lost ("Y", not "`Y`").
+  it("cuts a status suffix that leaked into an existing Item cell, keeping its decoration", () => {
+    const src = doc(
+      ["## 1. Y — OPEN", "## 2. X — CLOSED 2026-01-01"],
+      [
+        "| [§1](#1-y--open) | `Y` — OPEN | o | S | open |",
+        "| [§2](#2-x--closed-2026-01-01) | `X` — CLOSED 2026-01-01 | o | S | closed |",
+      ],
+    );
+    expect(rowsOf(rebuildIndex(src))).toEqual([
+      "| [§1](#1-y--open) | `Y` | o | S | open |",
+      "| [§2](#2-x--closed-2026-01-01) | `X` | o | S | closed |",
+    ]);
+  });
+
+  // Mutation: keep `old.state` on a flip (drop `flipped ?`) → the stale
+  // "open (narrowed …)" survives beside a CLOSED heading.
+  it("★★ regenerates State from the heading when an open row's entry is closed", () => {
+    const src = doc(
+      ["## 1. Y — CLOSED 2026-02-02"],
+      ["| [§1](#1-y) | Y | o | S | open (narrowed 2026-01-05) |"],
+    );
+    expect(rowsOf(rebuildIndex(src))).toEqual([
+      "| [§1](#1-y--closed-2026-02-02) | Y | o | S | **CLOSED** 2026-02-02 |",
+    ]);
+  });
+
+  // Mutation: `const strike = struck` (ignore the flip) → "~~X~~" stays on a
+  // reopened entry; the State-flip mutant above → the closure reason stays.
+  it("★★ removes the strike and the closure reason when a closed entry is reopened", () => {
+    const src = doc(
+      ["## 1. X"],
+      ["| [§1](#1-x--closed-2026-01-01) | ~~X~~ | o | S | **CLOSED** 2026-01-01 (reason) |"],
+    );
+    expect(rowsOf(rebuildIndex(src))).toEqual(["| [§1](#1-x) | X | o | S | open |"]);
+  });
+
+  // Mutation: `item = inner` unconditionally → the stale title survives.
+  it("rewrites an Item cell whose heading was retitled", () => {
+    const src = doc(["## 1. New title"], ["| [§1](#1-old-title) | Old title | o | S | open |"]);
+    expect(rowsOf(rebuildIndex(src))).toEqual(["| [§1](#1-new-title) | New title | o | S | open |"]);
+  });
+
+  // Mutation: drop the `.sort` → §10 lands before §2 (heading order).
+  it("adds a row for a new heading, drops one whose heading is gone, and sorts by §number", () => {
+    const src = doc(
+      ["## 10. Ten", "## 2. Two"],
+      ["| [§2](#2-two) | Two | o | S | open |", "| [§5](#5-five) | Five | o | S | open |"],
+    );
+    expect(rowsOf(rebuildIndex(src))).toEqual([
+      "| [§2](#2-two) | Two | o | S | open |",
+      "| [§10](#10-ten) | Ten | — | — | open |",
+    ]);
+  });
+
+  it("★★ is a fixed point: a second rebuild changes nothing", () => {
+    const src = doc(
+      ["## 1. Y — CLOSED 2026-02-02", "## 2. X", "## 3. Z — OPEN", "## 4. New title", "## 7. Fresh — open"],
+      [
+        "| [§1](#1-y) | Y — open | o | S | open (narrowed) |",
+        "| [§2](#2-x--closed-2026-01-01) | ~~X~~ | o | S | **CLOSED** 2026-01-01 (r) |",
+        "| [§3](#3-z--open) | `Z` — OPEN | o | S | **OPEN** |",
+        "| [§4](#4-old) | Old | o | S | open |",
+        "| [§6](#6-gone) | Gone | o | S | open |",
+      ],
+    );
+    const once = rebuildIndex(src);
+    expect(once).not.toBe(src);
+    expect(rebuildIndex(once)).toBe(once);
+  });
+
+  it("returns every byte outside the table unchanged, and ignores markers in a code sample", () => {
+    const sample = ["```js", 'L.findIndex(l => l.trim() === "<!-- INDEX:BEGIN -->");', "```"];
+    const src = [...sample, doc(["## 1. X"], ["| [§1](#1-x) | Old | o | S | open |"])].join("\n");
+    const out = rebuildIndex(src);
+    const strip = (s) => s.split("\n").filter((l) => !l.startsWith("| [§")).join("\n");
+    expect(strip(out)).toBe(strip(src));
+    expect(rowsOf(out)).toEqual(["| [§1](#1-x) | X | o | S | open |"]);
+  });
+
+  it("throws rather than guessing on a row that is not four cells", () => {
+    const src = doc(["## 1. X"], ["| [§1](#1-x) | X | o | S | open | extra |"]);
+    expect(() => rebuildIndex(src)).toThrow(/not four cells/);
+  });
+
+  it("throws on a §number with two headings", () => {
+    expect(() => rebuildIndex(doc(["## 1. X", "## 1. Y"], []))).toThrow(/two headings/);
+  });
+
+  /** ★★★ THE REAL REGISTER. Every row a rebuild changes today must change ONLY
+   *  its Item cell, and only for one of two named reasons: a status suffix that
+   *  leaked into the cell (the hand-filed rows carry ` — open`/` — CLOSED …`),
+   *  or a heading retitled after its row was written. The retitled set is
+   *  NAMED so a new one is a decision, not a silent rewrite; once the table
+   *  has been rebuilt it simply stops appearing, and this stays green.
+   *  Measured 2026-09-26 on `main`: 216 rows change — 200 suffix leaks and the
+   *  16 retitles below — and no anchor, Origin, Size, State or strike moves. */
+  const RETITLED = [307, 347, 348, 352, 353, 425, 428, 429, 434, 435, 447, 450, 451, 454, 455, 458];
+  const SUFFIX = / — (?:CLOSED\b.*|OPEN|open|ACCEPTED COST)$/;
+  const cellsOf = (src) =>
+    new Map(
+      rowsOf(src).map((l) => {
+        const m = /^\| \[§(\d+)\]\((#[^)]*)\) \| (.*) \|$/.exec(l);
+        return [Number(m[1]), [m[2], ...m[3].split(" | ")]];
+      }),
+    );
+  const unstrike = (s) => s.replace(/^~~|~~$/g, "");
+
+  it("★★★ on the real register, changes only Item cells, and only for a named reason", () => {
+    const src = readFileSync(REGISTER, "utf8");
+    const out = rebuildIndex(src);
+    expect(rebuildIndex(out)).toBe(out);
+
+    const before = cellsOf(src);
+    const after = cellsOf(out);
+    expect([...after.keys()]).toEqual([...before.keys()]);
+    const unexplained = [];
+    for (const [n, [anchor, item, origin, size, state]] of before) {
+      const [a2, i2, o2, s2, st2] = after.get(n);
+      if (anchor !== a2 || origin !== o2 || size !== s2 || state !== st2) {
+        unexplained.push(`§${n}: a cell other than Item changed`);
+      } else if (item !== i2) {
+        const leaked = unstrike(item).replace(SUFFIX, "") === unstrike(i2);
+        if (!leaked && !RETITLED.includes(n)) unexplained.push(`§${n}: ${item} => ${i2}`);
+      }
+    }
+    expect(unexplained).toEqual([]);
+    // Anti-vacuity: the table is large, so a parser that matched nothing would
+    // pass the loop above trivially.
+    expect(before.size).toBeGreaterThan(400);
   });
 });

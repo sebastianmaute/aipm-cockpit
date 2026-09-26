@@ -95,7 +95,8 @@ if (orphanRows.length > 0) {
 
 console.log(
   "\nWrite the missing rows into the index table between the markers, and delete\n" +
-    "any row whose entry no longer exists. Do NOT satisfy this by renumbering an\n" +
+    "any row whose entry no longer exists — `node scripts/rebuild-followup-index.mjs`\n" +
+    "does both and keeps every hand-written cell. Do NOT satisfy this by renumbering an\n" +
     "entry — a follow-up number is a permanent handle that other docs cite.",
 );
 process.exit(1);

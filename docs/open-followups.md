@@ -201,44 +201,27 @@ and each entry's own section is the authoritative version of what its cell said.
 in full — `git show 3be1d7bc:docs/open-followups.md` is the last commit that carried them.
 
 ★ Rebuild after adding, closing, retitling or renumbering an entry, and after nothing else. It
-rewrites only what lies between the two `INDEX:` markers, and is idempotent — a rebuild that changes
-nothing is the proof that the table already matches the headings:
+rewrites only what lies between the two `INDEX:` markers, and a second run changes nothing:
 
 ```bash
-node - <<'REBUILD'
-const fs = require("fs"), P = "docs/open-followups.md";
-const L = fs.readFileSync(P, "utf8").split("\n");
-const B = L.findIndex(l => l.trim() === "<!-- INDEX:BEGIN -->");
-const E = L.findIndex(l => l.trim() === "<!-- INDEX:END -->");
-const keep = new Map();
-L.slice(B, E).forEach(l => { const m = /^\| \[§(\d+)\]\([^)]*\) \|(.*)$/.exec(l);
-  if (m) { const c = m[2].split(" | "); keep.set(+m[1], [c[1], c[2]]); } });
-const rows = [];
-L.forEach(l => { const m = /^## (\d+)\.\s*(.*)$/.exec(l); if (!m) return;
-  const n = +m[1], t = m[2], i = t.indexOf(" — CLOSED");
-  const item = i < 0 ? t : t.slice(0, i);
-  const state = i < 0 ? "open" : "**CLOSED**" + t.slice(i + 9);
-  const slug = (n + ". " + t).replace(/`|~~|\*\*/g, "").toLowerCase()
-    .replace(/[^a-z0-9 _-]/g, "").replace(/ /g, "-");
-  const [o, s] = keep.get(n) || ["—", "—"];
-  rows.push("| [§" + n + "](#" + slug + ") | " + item + " | " + o + " | " + s + " | " + state + " |"); });
-const head = ["| # | Item | Origin | Size | State |", "|---|---|---|---|---|"];
-fs.writeFileSync(P, L.slice(0, B + 1).concat(head, rows, L.slice(E)).join("\n"));
-console.log("rebuilt " + rows.length + " rows");
-REBUILD
+node scripts/rebuild-followup-index.mjs --dry-run   # list the rows it would change
+node scripts/rebuild-followup-index.mjs             # rewrite the table
 ```
 
-★★ It finds the markers by EXACT line match, never by substring, so the copy of the BEGIN marker
-sitting inside the recipe above cannot be mistaken for the marker itself — the self-matching trap
-this file records elsewhere. The check below anchors its greps at `^` for the same reason.
+★★ The rules live on `rebuildIndex` in `scripts/followup-index-lib.mjs`, unit-tested beside it
+(§319, §382): Origin, Size, State and a row's `~~` are harvested from the existing row; the heading
+decides only whether the entry is open or closed, and State is regenerated only when the two
+disagree. It finds the markers by EXACT line match, never by substring, so a marker quoted inside
+a code sample can never be mistaken for the real one. The check below anchors its greps at `^` for
+the same reason.
 
 **Filing an entry.** A new entry takes the next free `§N` — one more than the highest existing
 `## N.` heading ON `origin/main`, read after a `git fetch` (`git show origin/main:docs/open-followups.md`),
 never on the working branch alone: a number already used on an unmerged branch collides. That is
 the lesson of the §610 collision — an unmerged branch took §610 for its own entry and filed GitLab
 #391 under it, while `main`'s §610 is #392 — so check the tracker for a `§N:` title already filed
-too. The entry gets its own index row (rebuild per the
-recipe above) and exactly one
+too. The entry gets its own index row (rebuild with the
+command above) and exactly one
 `**Work item:** #NN` body line; an entry with no separate tracker issue instead carries the literal
 `**Work item:** none — decision record` (`scripts/followup-workitem-lib.mjs`'s `DECISION_RE` requires
 that exact spelling, em dash included — a hyphen or any other wording is malformed, same as a

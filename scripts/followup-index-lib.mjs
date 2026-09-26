@@ -14,7 +14,7 @@
  *  `followup-claims-lib.mjs` — a second, differently-spelled heading parser is a
  *  second thing to drift out of agreement with the first, and this gate's whole
  *  job is to notice disagreement. */
-import { ENTRY_RE } from "./followup-claims-lib.mjs";
+import { ENTRY_RE, isClosed } from "./followup-claims-lib.mjs";
 
 export const INDEX_BEGIN = "<!-- INDEX:BEGIN -->";
 export const INDEX_END = "<!-- INDEX:END -->";
@@ -35,6 +35,10 @@ export const INDEX_ROW_RE = /^\|\s*\[§(\d+)\]\(#/;
  *  purpose — the live figure moves on every entry filed or closed, so a bare
  *  present-tense number here would be wrong by the next commit. Read today's
  *  off the gate's own summary line.
+ *  ★ The fenced rebuild recipe that carried the in-file copies was replaced by
+ *  `rebuildIndex` (§319, §382), so the register may no longer quote a marker
+ *  at all — the guard stays, because the next code sample can reintroduce one.
+ *  Count today's with `grep -c "<!-- INDEX:BEGIN -->" docs/open-followups.md`.
  *
  *  ★★ Several whole-line matches is a SCAN FAILURE, never a pick-the-first: a
  *  second pair of real markers means the file's shape is not what this parser
@@ -147,4 +151,163 @@ export function diffHeadingsAgainstIndex(src) {
     headingCount: headings.length,
     rowCount: rows.length,
   };
+}
+
+/** The two header lines every rebuilt table starts with. */
+export const INDEX_HEAD = ["| # | Item | Origin | Size | State |", "|---|---|---|---|---|"];
+
+/** A heading's trailing STATUS suffix — ` — CLOSED <date/reason>`, ` — OPEN`,
+ *  ` — open`, ` — ACCEPTED COST`. It belongs in the State column, never in the
+ *  Item cell. ★ `CLOSED` swallows the rest of the heading because that rest
+ *  (a date, "in 0.211.1", ", not a defect") is exactly what State carries.
+ *  ★ `**fork open**` (§1) and `— HALF FIXED …` (§64) are NOT matched: they are
+ *  part of what the entry is called, and a closed-set list is the only way to
+ *  keep a status word from eating a title. */
+const STATUS_SUFFIX_RE = / — (?:CLOSED\b.*|OPEN|open|ACCEPTED COST)$/;
+
+const CLOSED_MARK = " — CLOSED";
+
+/** The anchor GitHub renders for `## <n>. <title>`: lowercase, every character
+ *  outside `[a-z0-9 _-]` dropped, spaces to hyphens. ★ An em dash between two
+ *  spaces therefore becomes TWO hyphens, which is correct, not a bug. */
+export function headingSlug(n, title) {
+  return `${n}. ${title}`
+    .replace(/`|~~|\*\*/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9 _-]/g, "")
+    .replace(/ /g, "-");
+}
+
+/** Item text for a heading: the status suffix and any `~~` removed. Whether the
+ *  ROW is struck through is the row's own decoration, decided in
+ *  `rebuildIndex`, not something the heading dictates. */
+export function headingItem(title) {
+  return title.replace(STATUS_SUFFIX_RE, "").replace(/~~/g, "").trim();
+}
+
+/** The State cell a heading implies on its own — used only for a NEW row, or
+ *  when the heading's open/closed status no longer agrees with the row's. */
+export function headingState(title) {
+  if (!isClosed(title)) return "open";
+  const at = title.indexOf(CLOSED_MARK);
+  return at < 0 ? "**CLOSED**" : `**CLOSED**${title.slice(at + CLOSED_MARK.length)}`;
+}
+
+/** Whether a State CELL reads as closed. Case-insensitive on the bare word:
+ *  the table spells it `**CLOSED**`, `CLOSED` and `closed`. */
+export function stateIsClosed(state) {
+  return /\bclosed\b/i.test(state);
+}
+
+const FULL_ROW_RE = /^\|\s*\[§(\d+)\]\(#[^)]*\)\s*\|(.*)\|\s*$/;
+
+/** Text compared when deciding whether a row's Item still says what its
+ *  heading says. Strike, bold and code-span markers are decoration, not text:
+ *  a row that backticks a name its heading leaves bare (§539) still says the
+ *  same thing, and keeps its formatting. */
+export const itemText = (s) => s.replace(/~~|\*\*|`/g, "").trim();
+
+/** Harvest the existing table: §n → { item, origin, size, state }.
+ *  ★★ A row that does not split into exactly four cells THROWS. Guessing which
+ *  cell is the State of a five-cell row is how a rebuild would silently move a
+ *  closure reason into the Size column. */
+function harvestRows(tableLines) {
+  const rows = new Map();
+  for (const line of tableLines) {
+    if (!INDEX_ROW_RE.test(line)) continue;
+    const m = FULL_ROW_RE.exec(line);
+    const cells = m ? m[2].trim().split(" | ") : [];
+    if (cells.length !== 4) {
+      throw new Error(`CANNOT REBUILD: index row is not four cells: ${line.slice(0, 80)}`);
+    }
+    const n = Number(m[1]);
+    if (rows.has(n)) throw new Error(`CANNOT REBUILD: §${n} has two index rows.`);
+    const [item, origin, size, state] = cells;
+    rows.set(n, { item, origin, size, state });
+  }
+  return rows;
+}
+
+/** One rebuilt row. See `rebuildIndex` for which cell comes from where. */
+function rebuildRow(n, title, old) {
+  const closed = isClosed(title);
+  const fresh = headingItem(title);
+  if (!old) {
+    return `| [§${n}](#${headingSlug(n, title)}) | ${fresh} | — | — | ${headingState(title)} |`;
+  }
+  const flipped = stateIsClosed(old.state) !== closed;
+  const struck = old.item.startsWith("~~");
+  // A row keeps its hand decoration while its TEXT still matches the heading;
+  // a status suffix that leaked into the cell is dropped, decoration kept.
+  const inner = (struck ? old.item.replace(/^~~|~~$/g, "") : old.item).replace(
+    STATUS_SUFFIX_RE,
+    "",
+  );
+  let item = itemText(inner) === itemText(fresh) ? inner : fresh;
+  // ★ On a flip TO open the strike comes off; on a flip to closed none is
+  // added — see `rebuildIndex` for the measured convention.
+  const strike = struck && !(flipped && !closed);
+  if (strike) item = `~~${item}~~`;
+  const state = flipped ? headingState(title) : old.state;
+  return `| [§${n}](#${headingSlug(n, title)}) | ${item} | ${old.origin} | ${old.size} | ${state} |`;
+}
+
+/**
+ * Rebuild the index table from the register's `## <n>.` headings (§319, §382).
+ *
+ * @param {string} src Raw register text.
+ * @returns {string} The register with ONLY the lines between the two `INDEX:`
+ *   markers replaced; every other byte is returned unchanged.
+ * @throws when the table cannot be scanned (see `indexTableBounds`), a row is
+ *   not four cells, or a §number is used twice on either axis.
+ *
+ * Per heading, one row, in ascending §order:
+ * - **anchor** — derived from the heading (`headingSlug`).
+ * - **Item** — the heading with its status suffix stripped (`headingItem`).
+ *   ★ The EXISTING cell is kept verbatim, bold, code spans and strike
+ *   included, whenever its text (`itemText`) still equals that. A status
+ *   suffix that leaked into the cell is cut off and the rest kept. The cell is
+ *   replaced from the heading only when its text has drifted — a retitle.
+ * - **Origin, Size** — harvested verbatim. They are hand triage data with no
+ *   machine source; a new entry starts at `—`.
+ * - **State** — harvested verbatim, closure reason and all, while the row's
+ *   open/closed status agrees with the heading's (`isClosed`, the same test the
+ *   workitems gate uses). ★★ The HEADING decides closure: when the two
+ *   disagree, State is regenerated from the heading (`headingState`), which
+ *   drops the stale reason on purpose.
+ * - **`~~`** — kept as the row has it. A flip to OPEN removes it. A flip to
+ *   CLOSED does NOT add it: the table's own convention since §400 is an
+ *   unstruck closed row (1 struck of the 150 closed rows from §400 on,
+ *   measured 2026-09-26), and older struck rows keep theirs.
+ *
+ * Rows whose heading is gone are dropped. The result is a fixed point:
+ * `rebuildIndex(rebuildIndex(x)) === rebuildIndex(x)`.
+ *
+ * ★★★ THIS REPLACES A FENCED `node -` RECIPE THAT HARVESTED ONLY Origin AND
+ * Size, rebuilt Item and State from the heading, and called itself idempotent.
+ * It stripped every hand-written closure reason and `~~` on each run, and a
+ * second run agreeing with the first was the only sense in which it was
+ * idempotent — after the damage.
+ */
+export function rebuildIndex(src) {
+  const eol = src.includes("\r\n") ? "\r\n" : "\n";
+  const lines = src.split(/\r?\n/);
+  const { begin, end } = indexTableBounds(lines);
+
+  const headings = new Map();
+  for (const line of lines) {
+    const m = ENTRY_RE.exec(line);
+    if (!m) continue;
+    const n = Number(m[1]);
+    if (headings.has(n)) throw new Error(`CANNOT REBUILD: §${n} has two headings.`);
+    headings.set(n, m[2].trim());
+  }
+  if (headings.size === 0) throw new Error("CANNOT REBUILD: no `## <n>.` headings found.");
+
+  const old = harvestRows(lines.slice(begin + 1, end));
+  const rows = [...headings.keys()]
+    .sort((a, b) => a - b)
+    .map((n) => rebuildRow(n, headings.get(n), old.get(n)));
+
+  return [...lines.slice(0, begin + 1), ...INDEX_HEAD, ...rows, ...lines.slice(end)].join(eol);
 }
