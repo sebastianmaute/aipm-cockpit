@@ -92,4 +92,22 @@ describe("Markdown", () => {
     expect(container.querySelector("a")).toBeNull();
     expect(container.textContent).toContain("[x](//evil.com)");
   });
+
+  it("drops a backslash protocol-relative link (/\\host) to plain text — no external href", () => {
+    const { container } = render(<Markdown text={"[x](/\\evil.com)"} />);
+    expect(container.querySelector("a")).toBeNull();
+    expect(container.textContent).toContain("[x](/\\evil.com)");
+  });
+
+  it("drops a tab-split protocol-relative link (/<TAB>/host) to plain text — no external href", () => {
+    const { container } = render(<Markdown text={"[x](/\t/evil.com)"} />);
+    expect(container.querySelector("a")).toBeNull();
+    expect(container.textContent).toContain("evil.com");
+  });
+
+  it("still renders a root-relative link and an https link", () => {
+    const { container } = render(<Markdown text="[a](/path/to) and [b](https://example.com/x)" />);
+    const hrefs = Array.from(container.querySelectorAll("a")).map((a) => a.getAttribute("href"));
+    expect(hrefs).toEqual(["/path/to", "https://example.com/x"]);
+  });
 });

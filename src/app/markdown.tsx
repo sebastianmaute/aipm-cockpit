@@ -272,12 +272,21 @@ function parseInline(input: string): ReactNode[] {
         const closeParen = input.indexOf(")", closeBracket + 2);
         if (closeParen > closeBracket) {
           const label = input.slice(i + 1, closeBracket);
-          const url = input.slice(closeBracket + 2, closeParen).trim();
+          // The URL parser deletes ASCII tab/CR/LF anywhere in a URL, so strip
+          // them BEFORE judging it — `/<TAB>/evil.com` is `//evil.com` to the
+          // browser.
+          const url = input
+            .slice(closeBracket + 2, closeParen)
+            .replace(/[\t\r\n]/g, "")
+            .trim();
           // Only allow safe URL schemes; everything else falls through as text.
           // Root-relative is allowed, but NOT protocol-relative `//host` — that
           // resolves to an external origin (a `target="_blank"` link to
-          // //evil.com). Untrusted model text (incl. table cells) flows here.
-          if (/^(https?:|mailto:)/i.test(url) || (url.startsWith("/") && !url.startsWith("//"))) {
+          // //evil.com). Browsers read a backslash as a slash in an http(s)
+          // URL, so `/\host` and `\\host` are protocol-relative too.
+          // Untrusted model text (incl. table cells) flows here.
+          const isRootRelative = url.startsWith("/") && !/^[/\\]{2}/.test(url);
+          if (/^(https?:|mailto:)/i.test(url) || isRootRelative) {
             flushBuffer();
             out.push(
               <a
