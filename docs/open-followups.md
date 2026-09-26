@@ -4956,18 +4956,22 @@ Previous status: OPEN — the snapshot half only. Re-verified 2026-09-25: `grep 
 
 Earlier status: open — PARTLY FIXED, the two persisted completion figures are still ungated. Reproduced 2026-08-28 by `grep -n "pctComplete" src/app/snapshot.ts`. Re-verified 2026-09-13 on `00f2a273`: `grep -n "pctComplete: model.progress.percent" src/app/snapshot.ts` → 1 hit, still a non-nullable persisted figure.
 
-★ **HALF CLOSED post-0.216.0.** Every surface that reads the figure DIRECTLY is done; both PERSISTED
-figures are deliberately untouched.
+★ (Historical, before 2026-09-25: **HALF CLOSED post-0.216.0.** Every surface that reads the figure
+DIRECTLY is done; both PERSISTED figures were at that point deliberately untouched. Both are now
+CLOSED — see the Status line above.)
 
-★★★ **DO NOT STATE THAT AS "everything a user READS is done" — a draft did, and it is FALSE.** The
-landing-state `complete:` is persisted AND user-read: `dashboard-panel.tsx` writes
-`complete: model.progress.percent` into the per-device snapshot, `use-landing-delta.ts` feeds it to
-`computeMetricTrends`, and `dashboard-kpi-strip.tsx` renders `trends.complete` as a `TrendArrow`. The
-arrow is suppressed WHILE the project is no-scope, so the poisoned 0 surfaces on the visit AFTER
-scope returns — reachable, rendered, still open. This entry's own body says exactly that ("the NEXT
-visit's trend arrow is baselined off a number the UI has just decided not to show"), so the draft
-contradicted the entry it was closing. **A clean two-way split (read vs persisted) is exactly the
-shape that hides an item belonging to both.**
+★★★ (Historical, before 2026-09-25: **DO NOT STATE THAT AS "everything a user READS is done" — a
+draft did, and it is FALSE.** The landing-state `complete:` was persisted AND user-read:
+`dashboard-panel.tsx` wrote `complete: model.progress.percent` into the per-device snapshot,
+`use-landing-delta.ts` fed it to `computeMetricTrends`, and `dashboard-kpi-strip.tsx` rendered
+`trends.complete` as a `TrendArrow`. The arrow was suppressed WHILE the project was no-scope, so the
+poisoned 0 surfaced on the visit AFTER scope returned — reachable, rendered, open at the time. This
+entry's own body said exactly that ("the NEXT visit's trend arrow is baselined off a number the UI has
+just decided not to show"), so a draft that stated "everything a user reads is done" contradicted the
+entry it was closing. **A clean two-way split (read vs persisted) is exactly the shape that hides an
+item belonging to both.** Fixed 2026-09-25 on `fix/update-dialog-text`: `useLandingDelta` no longer
+saves the `complete` metric while nothing is in scope, so the poisoned figure is never persisted to
+begin with — see the Status line above.)
 
 | surface | state |
 |---|---|
@@ -4976,7 +4980,7 @@ shape that hides an item belonging to both.**
 | `committee-report/report-draft.ts` | CLOSED — emits "no active scope" instead of "0% complete" |
 | `ai-dashboard-snapshot.ts` | CLOSED — the payload carries an explicit `noActiveScope` |
 | `snapshot.ts` `pctComplete` | CLOSED 2026-09-26 — nullable now; a no-scope capture stores `null`, not 0 (this row is stale otherwise; see the Status line above) |
-| `dashboard-panel.tsx` landing-state `complete:` | **OPEN, deliberately** — persisted **and user-read**: it feeds `trends.complete` → the KPI strip's `TrendArrow` on a later visit |
+| `dashboard-panel.tsx` landing-state `complete:` | CLOSED 2026-09-25 — persisted **and user-read**: it fed `trends.complete` → the KPI strip's `TrendArrow` on a later visit; `useLandingDelta` no longer saves it while `noActiveScope` (this row is stale otherwise; see the Status line above) |
 
 ★★ **THE SURFACE LIST WAS INCOMPLETE, in exactly the way this entry warns about.** It names the
 portfolio ROW and the CELL but not `aggregatePortfolio`, which summed those zeroes and divided by
@@ -5070,17 +5074,21 @@ while the commit message recorded the real one — so the doc and its own commit
 other. The appositive that followed it ("the sole feeder of both surfaces") was true OF
 workspace-section, which is exactly what let a wrong location survive a skim.
 
-★★ **THIS PARAGRAPH IS NOW HISTORICAL — the persisted `snapshot.ts` half CLOSED 2026-09-26.** It
-argued for deferring the data-shape change; the deferral held for a separate slice, then the decision
-was made and `pctComplete` is `number | null` (see the Status line above). It is reproduced here
-because the split it argues for is still the right shape for the other persisted figure below.
-Originally: **THE PERSISTED HALF IS STILL OPEN**, and the split is why it survived the fix above. Giving the
-stored `pctComplete` a null state is a data-shape change that Trends charts over time and version
+★★ **THIS PARAGRAPH IS NOW HISTORICAL, on both counts.** It argued THE PERSISTED HALF IS STILL OPEN,
+naming two figures — both are now CLOSED: `dashboard-panel.tsx`'s landing-state `complete:` (bullet
+below) 2026-09-25, `snapshot.ts`'s `pctComplete` (this entry's Status line) 2026-09-26. The reasoning
+it gave for deferring the data-shape change (a stored figure's null state has migration consequences
+for every stored snapshot, worth its own decision rather than a pattern-match onto the presentation
+fix) held for a separate slice; the decision has since been made and `pctComplete` is `number | null`.
+Kept for the reasoning, not as a live instruction.
+Originally: THE PERSISTED HALF IS STILL OPEN, and the split is why it survived the fix above. Giving
+the stored `pctComplete` a null state is a data-shape change that Trends charts over time and version
 history diffs — migration consequences for every stored snapshot. Do not do the second because the
 first was done; the fix above deliberately touches no record.
-- `dashboard-panel.tsx:175` writes `complete: model.progress.percent` into the per-device
-  landing-state snapshot, so the NEXT visit's trend arrow is baselined off a number the UI has just
-  decided not to show.
+- `dashboard-panel.tsx:175` wrote `complete: model.progress.percent` into the per-device
+  landing-state snapshot, so the NEXT visit's trend arrow was baselined off a number the UI had just
+  decided not to show. Fixed 2026-09-25 (see the Status line above): `useLandingDelta` no longer saves
+  `complete` while `noActiveScope`.
 
 ★★ (Historical, before 2026-09-26: at this point THESE WERE NOT one class of change, and the split was
 the point. Portfolio health was PRESENTATION — the same shape as the fixes already made then.
@@ -5098,11 +5106,13 @@ fourth one it did not know about. **A count in this register lives in as many pl
 chose to write one.** Do not enumerate the places; the durable fix is to stop writing counts that a
 later edit can invalidate — say "the fixes already made", not "the three already done".
 
-★★ The honest framing meanwhile — and the previous two attempts at this sentence were both WRONG in
-the same direction, each declaring a screen finished that was not. **Portfolio health** — the
-cross-project table, a different screen — is the user-read surface that remains. The Trends card and
-Trends view, named here in the previous revision, were fixed rather than deferred. Named, not
-numbered: every ordinal that has lived in this sentence went stale within days.
+★★ (Historical, before the portfolio-health fix recorded in the table above: the honest framing
+meanwhile — and the previous two attempts at this sentence were both WRONG in the same direction, each
+declaring a screen finished that was not. **Portfolio health** — the cross-project table, a different
+screen — was at that point the user-read surface that remained. The Trends card and Trends view, named
+here in the previous revision, were fixed rather than deferred. Named, not numbered: every ordinal
+that has lived in this sentence went stale within days. Portfolio health is itself CLOSED now — see
+the table row above.)
 
 ★★★ THE LESSON THAT KEEPS COSTING: a claim of the form "every X on screen Y is now fixed" is a claim
 about EVERY CONSUMER of a value, and it cannot be made from a diff. It was written twice from the
