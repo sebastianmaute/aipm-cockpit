@@ -708,7 +708,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§465](#465-non-eur-fixed-price-buckets-every-money-figure-is-inflated-by-the-fx-rate-and-the-margin-is-wrong--closed-2026-09-12) | Non-EUR fixed-price buckets: every money figure is inflated by the FX rate, and the margin is wrong | found 2026-09-11 by the same read-only code check (issue #77, beside issue #42) | M — closed by the `feat/budget-currency-boundary` slice, which put the boundary at the ENGINE (`419937ca` converts at `computeBucketReport`'s single read; four surfaces relabelled EUR; `ResourcePlan.currency` narrowed to a union) | **CLOSED** 2026-09-12 |
 | [§466](#466-help-promises-a-burn-down-forecast-that-the-chart-does-not-draw--closed-2026-09-13) | Help promises a burn-down forecast that the chart does not draw — CLOSED 2026-09-13 | found 2026-09-11 by the same read-only code check (issue #78) | S — two strings, EN and DE together | **CLOSED** 2026-09-13 |
 | [§467](#467-fields-the-offered-surface-sweeps-typed-probes-cannot-measure--open) | Fields the offered-surface sweep's typed probes cannot measure — OPEN | found 2026-09-11 by the typed-probe slice's first measured run | S per field — a probe shape or a column decision each | open |
-| [§468](#468-pdf-export-opens-a-window-that-never-prints-in-the-desktop-app--open) | PDF export opens a window that never prints in the desktop app — OPEN | found 2026-09-12 by cold review of the desktop print-route commit `b616f021`, which fixed the in-pane Print button and overstated its scope | M — a main-process print route (`webContents.printToPDF` or a print handler on the opened window), then a decision about whether the three PDF surfaces still open a tab at all | open |
+| [§468](#468-pdf-export-opens-a-window-that-never-prints-in-the-desktop-app--closed-2026-09-26) | PDF export opens a window that never prints in the desktop app — CLOSED 2026-09-26 | found 2026-09-12 by cold review of the desktop print-route commit `b616f021`, which fixed the in-pane Print button and overstated its scope | M — a main-process print route (`webContents.printToPDF` or a print handler on the opened window), then a decision about whether the three PDF surfaces still open a tab at all | **CLOSED** 2026-09-26 |
 | [§469](#469-snapshotrecordcurrency-is-written-on-every-capture-and-read-by-nothing--closed-2026-09-16) | `SnapshotRecord.currency` is written on every capture and read by nothing — CLOSED 2026-09-16 | feat/ev-history-scope-attribution | S-M — deleted the field, its writer, column list entry, encode and decode; the DDL column stays until §551 | closed |
 | [§470](#470-the-indexeddb-load-path-sanitizes-the-plans-currency-and-nothing-else--open) | The IndexedDB load path sanitizes the plan's currency and nothing else — OPEN | found 2026-09-12 while closing §465, from `7b0c00e3`'s deliberately narrow currency-only coercion | M — not the edit but a per-field decision about whether an IndexedDB load should repair a malformed stored plan, plus tests for whichever of the four behaviours change | open |
 | [§471](#471-the-fx-override-fields-advertised-minimum-rounds-to-zero-and-is-then-refused--closed-2026-09-13) | The FX-override field's advertised minimum rounds to zero and is then refused — CLOSED 2026-09-13 | found 2026-09-12 by a reviewer reading the bucket modal during the currency-boundary slice; pre-existing | XS-S — align the input's `min`/`step` with the blur handler's `round`; deciding which precision an FX override carries is the only real question | **CLOSED** 2026-09-13 |
@@ -36241,23 +36241,19 @@ admit-nothing) were KILLED; see the spec's closing note for the full table. Ever
 probe-shape or product-decision question that this harness's typed probes cannot resolve by
 themselves, never a green result to cite as coverage.
 
-## 468. PDF export opens a window that never prints in the desktop app — OPEN
+## 468. PDF export opens a window that never prints in the desktop app — CLOSED 2026-09-26
 
-**Status:** FIX LANDED 2026-09-25 and REWORKED 2026-09-26 on `fix/defect-batch-6` — never machine-verified
-in the packaged app. OWED, one manual run of the rebuilt installer: (1) Export project → PDF opens a Save As
-dialog suggesting `aipm-cockpit-project-<project-slug>-<date>.pdf`, Cancel writes nothing; (2) the saved
-file is A4 LANDSCAPE, sans-serif, with dark-blue table headers; (3) no column of any section is clipped at
-the right edge (Tasks, Stakeholders, Changes, Budgets, Resources were); (4) no task row is many lines taller
-than its content and no page ends in a large blank area; (5) dates, numbers and ids in the wide tables
-stay on one line; (6) a document → PDF is A4 PORTRAIT with its prose at full size even when it embeds a
-wide register table; and, on a production BROWSER deployment, (7) Export → PDF opens the print dialog by
-itself with a styled preview. What the branch verified instead, all recorded in the task-8 report: an
-Electron 44 reproduction of the unstyled output under the production CSP shape, Electron renders of the
-fixed pipeline (A4 landscape export and A4 portrait document page sizes, every section's last column
-present, prose at 12pt beside a table zoomed to 0.6), a production build measured in Chromium before
-(two CSP violations, Times New Roman, `window.print` never called) and after (no violations, the sans stack,
-`window.print` called once), and `npm run desktop:typecheck` compiling `desktop/src/main.ts` against real
-Electron types.
+**Status:** CLOSED 2026-09-26 by `fix/defect-batch-6`, VERIFIED BY THE OWNER in the packaged desktop app built
+from commit `984056292` on 2026-09-26. Every check passed: Export project → PDF opens a Save As dialog
+suggesting `aipm-cockpit-project-<name>-<date>.pdf`; the saved project PDF is styled, A4 landscape, with no
+clipped column, no row gaps, and dates on one line; a single-document PDF is A4 portrait with its prose at
+full size; Cancel writes nothing and shows no error; a slow save (more than 60 s in the dialog) shows no
+error. The same run confirmed the two UI fixes the first packaged check had also found (the header stays
+readable in a non-maximised window, the Projects card uses the width, and the Export project menu is not
+clipped). The production BROWSER path was not part of the owner's run; its evidence is the branch's
+measurement of a production build in Chromium, recorded in the task-8 report: before the fix, two CSP
+violations, Times New Roman and `window.print` never called; after it, no violations, the sans stack, and
+`window.print` called once.
 
 ★ WHAT WAS WRONG, IN TWO LAYERS. First (2026-09-25): Electron refuses a renderer-initiated
 `window.print()`, so both PDF-export renderer paths now route through a main-process save dialog.
@@ -36287,8 +36283,7 @@ table still too wide, with date/number/id cells kept on one line (`isAtomicCellV
 export is now named `aipm-cockpit-project-<slug>-<date>` (`exportFilename`, slugged by `filenameStem`).
 ★ KNOWN LIMIT: a second export started while a hidden export window still owns the named `window.open`
 target reuses that browsing context, so no fresh `did-create-window` fires and the second export is lost
-until the first completes or its 60s backstop closes it. This entry stays OPEN, and its Work item stays
-attached, until the manual run above records a real result. The paragraphs below are the OPEN-era record
+until the first completes or its 60s backstop closes it. The paragraphs below are the OPEN-era record
 of what was found; read them as history, not as current status.
 
 ★ THE SAME PACKAGED-APP CHECK FOUND TWO UI DEFECTS, fixed alongside on 2026-09-26 and given no number of
@@ -36303,8 +36298,6 @@ project list's scroll container, so Excel and PowerPoint were clipped at the car
 through `PopoverPanel` (portaled, `fixed`, flipping above the trigger when there is no room below). Both were
 measured in Chromium before and after; the class and portal contracts are pinned in `top-bar.test.tsx` and
 `projects-panel.test.tsx`.
-
-**Work item:** #297
 
 ★ §467 is absent from this register on purpose — it was minted on a peer session's branch (MR !473), not
 lost here.
@@ -36335,7 +36328,7 @@ NOT OBSERVED, like everything the Status block still owes: it needs the export t
 BrowserWindow that receives the application menu's accelerator, which the code supports and no run has
 confirmed. Do not restate it as fact — an earlier revision of this paragraph did.
 
-The fix is described in the Status block above. Still OPEN pending the manual packaged-app run. Size M.
+The fix is described in the Status block above; verified in the packaged app 2026-09-26. Size M.
 
 ## 469. `SnapshotRecord.currency` is written on every capture and read by nothing — CLOSED 2026-09-16
 
