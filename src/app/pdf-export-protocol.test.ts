@@ -5,6 +5,9 @@ import {
   pdfReadyTitleMarkup,
   pdfWindowName,
   replaceHtmlTitle,
+  nonceOpenTag,
+  withScriptNonce,
+  withStyleNonce,
 } from "./pdf-export-protocol";
 
 describe("pdf export protocol, renderer side (§468)", () => {
@@ -57,5 +60,34 @@ describe("pdf export protocol, renderer side (§468)", () => {
     expect(out).toBe(`<html><head>${titleTag}</head><body><p>body</p></body></html>`);
     expect(out.match(/<title>/g)).toHaveLength(1);
     expect(out).toContain("<p>body</p>");
+  });
+});
+
+// §468 packaged-app check — the print tab is `document.write`n into an
+// `about:blank` child that inherits the app's nonce-only production CSP, so its
+// own `<style>` and auto-print `<script>` apply only when they carry the page's
+// nonce.
+describe("CSP nonce on the print tab's own elements (§468)", () => {
+  it("nonceOpenTag adds an escaped nonce, or nothing without one", () => {
+    expect(nonceOpenTag("style", "abc")).toBe('<style nonce="abc">');
+    expect(nonceOpenTag("script", 'a"b')).toBe('<script nonce="a&quot;b">');
+    expect(nonceOpenTag("style", undefined)).toBe("<style>");
+    expect(nonceOpenTag("script", "")).toBe("<script>");
+  });
+
+  it("withStyleNonce nonces ONLY the first <style>, the renderer's own head stylesheet", () => {
+    const html = "<head><style>a{}</style></head><body><style>b{}</style></body>";
+    expect(withStyleNonce(html, "N")).toBe('<head><style nonce="N">a{}</style></head><body><style>b{}</style></body>');
+    expect(withStyleNonce(html, undefined)).toBe(html);
+  });
+
+  it("withScriptNonce nonces the harness's opening tag and nothing else", () => {
+    const script = "  <script>\n    window.print();\n  </script>";
+    expect(withScriptNonce(script, "N")).toBe('  <script nonce="N">\n    window.print();\n  </script>');
+    expect(withScriptNonce(script, undefined)).toBe(script);
+  });
+
+  it("treats a nonce containing replacement patterns literally", () => {
+    expect(withStyleNonce("<style>x</style>", "$&$'")).toBe(`<style nonce="$&amp;$'">x</style>`);
   });
 });

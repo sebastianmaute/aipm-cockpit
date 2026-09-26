@@ -11,11 +11,11 @@
 // while debugging a DOMPurify failure.
 
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { buildPdfHtml, exportWorkspace } from "./export";
+import { buildPdfHtml, exportFilename, exportWorkspace } from "./export";
 import { defaultExportConfig } from "./settings-types";
 import type { ExportConfig } from "./settings-types";
 import type { Workspace } from "./storage";
-import type { Task, RaidItem, Milestone } from "./types";
+import type { Task, RaidItem, Milestone, ProjectMeta } from "./types";
 import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
 import { PDF_EXPORT_FRAME_NAME, PDF_READY_TITLE_PREFIX } from "./pdf-export-protocol";
 
@@ -559,5 +559,130 @@ describe("exportWorkspace — pdf window target (§468)", () => {
     expect(tab.html).not.toContain("window.print");
     // Exactly one <title> — replaced, not appended after the normal one.
     expect(tab.html.match(/<title>/g)).toHaveLength(1);
+  });
+});
+
+// §468 packaged-app check — a whole-project export was named
+// `aipm-cockpit-tasks-<date>` whatever it held. With project details in the
+// workspace it now names the project, slugged by the same rule a document's
+// filename uses (`filenameStem`); without them it keeps the old name.
+describe("exportFilename", () => {
+  it("names a whole-project export after the project", () => {
+    expect(exportFilename("pdf", "2026-09-26", "AZiD SOD Rollout")).toBe(
+      "aipm-cockpit-project-azid-sod-rollout-2026-09-26.pdf",
+    );
+    expect(exportFilename("docx", "2026-09-26", "Änderung: Q1/Q2")).toBe(
+      "aipm-cockpit-project-änderung-q1-q2-2026-09-26.docx",
+    );
+  });
+
+  it("keeps the tasks name when there is no project name", () => {
+    expect(exportFilename("pdf", "2026-09-26")).toBe("aipm-cockpit-tasks-2026-09-26.pdf");
+    expect(exportFilename("csv", "2026-09-26", "   ")).toBe("aipm-cockpit-tasks-2026-09-26.csv");
+    // A name that slugs to nothing never yields "project-project" or "--".
+    expect(exportFilename("pdf", "2026-09-26", "???")).toBe("aipm-cockpit-tasks-2026-09-26.pdf");
+  });
+
+  // The Open Points export menu (export-menu.tsx) builds its workspace with NO
+  // `project` key; its file must keep the tasks name.
+  it("keeps the tasks name through exportWorkspace when the workspace has no project", async () => {
+    const tab = fakeTab();
+    vi.stubGlobal("open", vi.fn(() => tab.win));
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 Electron/44.0.0");
+
+    await exportWorkspace(makeBaseWorkspace(), "pdf", defaultExportConfig, "en-US");
+
+    expect(tab.html).toMatch(new RegExp(`<title>${PDF_READY_TITLE_PREFIX}aipm-cockpit-tasks-\\d{4}-\\d{2}-\\d{2}\\.pdf</title>`));
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("puts the project name in the desktop PDF's suggested save name", async () => {
+    const tab = fakeTab();
+    vi.stubGlobal("open", vi.fn(() => tab.win));
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 Electron/44.0.0");
+    const ws = { ...makeBaseWorkspace(), project: { name: "Apollo Rollout" } as ProjectMeta };
+
+    await exportWorkspace(ws, "pdf", defaultExportConfig, "en-US");
+
+    expect(tab.html).toMatch(
+      new RegExp(`<title>${PDF_READY_TITLE_PREFIX}aipm-cockpit-project-apollo-rollout-\\d{4}-\\d{2}-\\d{2}\\.pdf</title>`),
+    );
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+});
+
+// §468 packaged-app check — in a PRODUCTION build the browser print tab
+// inherits the app's nonce-only CSP, so its `<style>` and auto-print `<script>`
+// must carry the page's nonce (read by `readCspNonce`) or neither applies. The
+// auto-print block's bytes are otherwise unchanged: the pinned pre-§468 block
+// with ONLY the nonce attribute added to its opening tag.
+describe("exportWorkspace — browser print tab carries the CSP nonce (§468)", () => {
+  const NONCE = "nOnCe+/=42";
+  let nonced: HTMLScriptElement | null = null;
+  afterEach(() => {
+    nonced?.remove();
+    nonced = null;
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+  function addNoncedScript(nonce: string) {
+    nonced = document.createElement("script");
+    nonced.setAttribute("nonce", nonce);
+    nonced.nonce = nonce;
+    document.head.appendChild(nonced);
+  }
+
+  it("nonces the stylesheet and the exact auto-print block in a browser", async () => {
+    addNoncedScript(NONCE);
+    const tab = fakeTab();
+    vi.stubGlobal("open", vi.fn(() => tab.win));
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 Chrome/140");
+
+    await exportWorkspace(makeBaseWorkspace(), "pdf", defaultExportConfig, "en-US");
+
+    expect(tab.html).toContain(`<style nonce="${NONCE}">`);
+    const expected = EXPECTED_BROWSER_AUTO_PRINT_SCRIPT.replace("<script>", `<script nonce="${NONCE}">`);
+    expect(tab.html).toContain(expected);
+    expect(tab.html.indexOf(expected)).toBeLessThan(tab.html.lastIndexOf("</body>"));
+  });
+
+  it("nonces the stylesheet in the desktop shell too, and still carries no script", async () => {
+    addNoncedScript(NONCE);
+    const tab = fakeTab();
+    vi.stubGlobal("open", vi.fn(() => tab.win));
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 Electron/44.0.0");
+
+    await exportWorkspace(makeBaseWorkspace(), "pdf", defaultExportConfig, "en-US");
+
+    expect(tab.html).toContain(`<style nonce="${NONCE}">`);
+    expect(tab.html).not.toContain("<script");
+  });
+
+  it("never writes the live page's nonce into the popup-blocked fallback file", async () => {
+    addNoncedScript(NONCE);
+    vi.stubGlobal("open", vi.fn(() => null));
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 Chrome/140");
+    const blobs: Blob[] = [];
+    vi.stubGlobal("URL", { ...URL, createObjectURL: vi.fn((b: Blob) => { blobs.push(b); return "blob:x"; }), revokeObjectURL: vi.fn() });
+
+    await exportWorkspace(makeBaseWorkspace(), "pdf", defaultExportConfig, "en-US");
+
+    expect(blobs).toHaveLength(1);
+    const text = await blobs[0].text();
+    expect(text).toContain("<style>");
+    expect(text).not.toContain("nonce=");
+  });
+
+  it("emits the unchanged bare tags when the page has no nonce (a dev server)", async () => {
+    const tab = fakeTab();
+    vi.stubGlobal("open", vi.fn(() => tab.win));
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 Chrome/140");
+
+    await exportWorkspace(makeBaseWorkspace(), "pdf", defaultExportConfig, "en-US");
+
+    expect(tab.html).toContain("<style>");
+    expect(tab.html).toContain(EXPECTED_BROWSER_AUTO_PRINT_SCRIPT);
   });
 });

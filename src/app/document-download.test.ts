@@ -629,3 +629,65 @@ describe("downloadDocument asset policy per format", () => {
     expect(zip.get(media[0])!.length).toBe(Math.floor((huge.length * 3) / 4));
   });
 });
+
+// §468 packaged-app check — the document print tab inherits the app's
+// nonce-only production CSP too, so its `<style>` and auto-print `<script>`
+// must carry the page's nonce. The script is the pinned pre-§468 block with
+// ONLY the nonce attribute added.
+describe("downloadDocument — browser print tab carries the CSP nonce (§468)", () => {
+  const NONCE = "nOnCe+/=42";
+  const EXPECTED_AUTO_PRINT_SCRIPT = `<script>
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      try { window.focus(); window.print(); } catch (e) {}
+    }, 80);
+  });
+</script>`;
+  let nonced: HTMLScriptElement | null = null;
+  beforeEach(() => {
+    vi.mocked(triggerDownload).mockClear();
+    nonced = document.createElement("script");
+    nonced.setAttribute("nonce", NONCE);
+    nonced.nonce = NONCE;
+    document.head.appendChild(nonced);
+  });
+  afterEach(() => {
+    nonced?.remove();
+    nonced = null;
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("nonces the document's stylesheet and the exact auto-print block", async () => {
+    const tab = fakeTab();
+    vi.stubGlobal("open", vi.fn(() => tab.win));
+
+    await downloadDocument(doc, "pdf", ws, "en-US");
+
+    expect(tab.html).toContain(`<style nonce="${NONCE}">`);
+    const expected = EXPECTED_AUTO_PRINT_SCRIPT.replace("<script>", `<script nonce="${NONCE}">`);
+    expect(tab.html).toContain(expected);
+    expect(tab.html.indexOf(expected)).toBeLessThan(tab.html.lastIndexOf("</body>"));
+    // The nonced <style> is the renderer's own HEAD stylesheet — the only
+    // element `withStyleNonce` may touch — and it is the only nonced one.
+    expect(tab.html.indexOf(`<style nonce="${NONCE}">`)).toBeLessThan(tab.html.indexOf("</head>"));
+    expect(tab.html.match(/<style nonce=/g)).toHaveLength(1);
+  });
+
+  it("never writes the live page's nonce into a downloaded .html file", async () => {
+    await downloadDocument(doc, "html", ws, "en-US");
+    const [, blob] = vi.mocked(triggerDownload).mock.calls[0];
+    expect(await blob.text()).not.toContain("nonce=");
+  });
+
+  it("nonces the stylesheet in the desktop shell too, and still carries no script", async () => {
+    const tab = fakeTab();
+    vi.stubGlobal("open", vi.fn(() => tab.win));
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 Electron/44.0.0");
+
+    await downloadDocument(doc, "pdf", ws, "en-US");
+
+    expect(tab.html).toContain(`<style nonce="${NONCE}">`);
+    expect(tab.html).not.toContain("<script");
+  });
+});

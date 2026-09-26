@@ -23,60 +23,27 @@ import type { DocumentAsset } from "./document-asset";
 import { isAllowedAssetMime } from "./document-asset-upload";
 import type { AssetByteLoader } from "./document-asset-images";
 import { triggerDownload } from "./download";
+import { filenameStem, MAX_FILENAME_STEM } from "./filename-stem";
 import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
 import { reportSilentFailure } from "./guard-feedback";
-import { pdfReadyTitleMarkup, pdfWindowName, replaceHtmlTitle } from "./pdf-export-protocol";
+import {
+  pdfReadyTitleMarkup,
+  pdfWindowName,
+  replaceHtmlTitle,
+  withScriptNonce,
+  withStyleNonce,
+} from "./pdf-export-protocol";
+import { readCspNonce } from "./csp-nonce";
 
 export type DocFormat = "html" | "docx" | "pptx" | "pdf";
 
 const HTML_MIME = "text/html;charset=utf-8";
 
-/** Longest slug we put in front of the `-YYYY-MM-DD.ext` suffix.
- *
- *  ★ MAX_TITLE_CHARS is 200, so an uncapped stem produces a ~211-character
- *  name. File systems generally cap a path COMPONENT at 255 BYTES — and a
- *  non-ASCII title costs two bytes per character there — while browsers append
- *  " (1)", " (2)" on a name collision. Capping is cheaper than discovering the
- *  limit at write time. */
-export const MAX_FILENAME_STEM = 80;
-
-/** C0 controls, DEL and C1 — expressed as the complement of the printable
- *  ranges. Every bound is an ESCAPE, not the character itself: a literal one
- *  would trip eslint's no-control-regex, and an invisible byte in source is
- *  exactly what a stray editor pass silently mangles. */
-const NON_PRINTABLE = /[^\u0020-\u007E\u00A0-\uFFFF]/g;
-
-/** Path separators, the characters Windows reserves, and any whitespace run.
- *  Collapsing these is what stops a title from introducing a directory
- *  component or a name Explorer refuses to create. */
-const FS_UNSAFE = /[<>:"/\\|?*\s]+/g;
-
-/** Title → filename stem.
- *
- *  ★★ Non-ASCII LETTERS ARE KEPT ON PURPOSE. The obvious slug — lowercase then
- *  `[^a-z0-9]+` → "-" — silently ASCII-mangles German: "Änderung" becomes
- *  "nderung", "Übersicht" becomes "bersicht". German is a first-class language
- *  in this app and the i18n-encoding test already bans ASCII substitutions in
- *  German strings; a filename is no place to reintroduce them. Only characters
- *  a FILE SYSTEM objects to are removed. */
-function slugifyTitle(title: string): string {
-  const slug = title
-    .toLowerCase()
-    // ★★ ORDER IS LOAD-BEARING. Tab, newline and CR are BOTH control
-    // characters and whitespace. Dropping non-printables first fuses the words
-    // either side of a pasted line break ("Q1\tStatus" → "q1status"); mapping
-    // whitespace to a separator first keeps them apart, and only the truly
-    // invisible controls are then dropped. Caught by test, not by review.
-    .replace(FS_UNSAFE, "-")
-    .replace(NON_PRINTABLE, "")
-    .replace(/-{2,}/g, "-")
-    // Leading dots would make a dotfile; leading/trailing dashes are noise.
-    .replace(/^[-.]+/, "")
-    .replace(/[-.]+$/, "");
-  // Trim again after the cut: slicing mid-word can leave a dangling separator.
-  return slug.slice(0, MAX_FILENAME_STEM).replace(/-+$/, "") || "document";
-}
+// The title → stem rule (and its length cap) moved to filename-stem.ts so
+// export.ts can name a whole-project export by the same rule; re-exported
+// here for the callers that already import it from this module.
+export { MAX_FILENAME_STEM };
 
 /** `<slug>-<today>.<ext>`. `today` is passed in rather than read from a clock,
  *  so the function is pure and its tests cannot drift with the date. */
@@ -85,7 +52,7 @@ export function documentFilename(
   format: DocFormat,
   today: string,
 ): string {
-  return `${slugifyTitle(doc.title)}-${today}.${format}`;
+  return `${filenameStem(doc.title, "document")}-${today}.${format}`;
 }
 
 /** The auto-print harness, injected only into the tab we open ourselves.
@@ -274,8 +241,8 @@ export async function downloadDocument(
     // the document's normal title rather than appending after it). main.ts
     // watches the named frame's title, prints it to a real PDF and shows a
     // save dialog (see pdf-export-protocol.ts / desktop/src/lib/pdf-export.ts).
-    // In a browser, `name` is `_blank` and the script is the unchanged
-    // auto-print harness.
+    // In a browser, `name` is `_blank` and the script is the auto-print
+    // harness, carrying the page's CSP nonce (see below).
     const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
     const name = pdfWindowName(ua);
     const isDesktop = name !== "_blank";
@@ -305,9 +272,17 @@ export async function downloadDocument(
     try {
       const assets = await assetsFor(doc, ws, format, load);
       const html = renderDocumentHtml(doc, ws, lang, "standalone", assets, footer);
-      finalHtml = isDesktop
-        ? replaceHtmlTitle(html, pdfReadyTitleMarkup(documentFilename(doc, "pdf", today)))
-        : withClosingScript(html, AUTO_PRINT_SCRIPT);
+      // ★★★ §468 packaged-app check — the tab inherits this page's nonce-only
+      // production CSP, so the document's own <style> and the auto-print
+      // <script> carry the page's nonce or neither applies. Only the tab gets
+      // it; the popup-blocked fallback above is a plain file without one.
+      const nonce = readCspNonce();
+      finalHtml = withStyleNonce(
+        isDesktop
+          ? replaceHtmlTitle(html, pdfReadyTitleMarkup(documentFilename(doc, "pdf", today)))
+          : withClosingScript(html, withScriptNonce(AUTO_PRINT_SCRIPT, nonce)),
+        nonce,
+      );
     } catch (err) {
       // ★ Close the tab we opened before rethrowing. On desktop this window
       // never wrote the ready `<title>`, so main.ts's `did-create-window`

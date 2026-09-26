@@ -27,7 +27,9 @@ import { buildExportSections } from "./export-sections";
 import { triggerDownload, PRINT_STYLES, htmlEscape, exportCellHtml } from "./download";
 import type { ExportSection } from "./export-sections";
 import type { Lang } from "./i18n";
-import { pdfReadyTitleMarkup, pdfWindowName } from "./pdf-export-protocol";
+import { nonceOpenTag, pdfReadyTitleMarkup, pdfWindowName, withScriptNonce } from "./pdf-export-protocol";
+import { readCspNonce } from "./csp-nonce";
+import { filenameStem } from "./filename-stem";
 
 export type ExportFormat = "csv" | "md" | "pdf" | "docx" | "xlsx" | "pptx";
 
@@ -48,9 +50,26 @@ const MIME: Record<Exclude<ExportFormat, "pdf">, string> = {
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 };
 
-function defaultFilename(format: ExportFormat): string {
-  const today = new Date().toISOString().slice(0, 10);
-  return `aipm-cockpit-tasks-${today}.${EXT[format]}`;
+/** The downloaded file's name. `today` is passed in so the function is pure.
+ *
+ *  ★ §468 packaged-app check — a whole-project export (the File/top-bar export,
+ *  whose workspace carries `project`) is named after the project, slugged by
+ *  the same `filenameStem` rule a document's filename uses: the old fixed
+ *  `aipm-cockpit-tasks-<date>` named a whole-project PDF after just one of its
+ *  sections. An export without a project name (the Open Points export
+ *  menu passes no `project`) keeps that old name unchanged. All six formats
+ *  share this, so one export's PDF and DOCX never disagree about their name. */
+export function exportFilename(format: ExportFormat, today: string, projectName?: string): string {
+  // A name that slugs to nothing ("???") keeps the tasks name rather than
+  // producing "aipm-cockpit-project--<date>" or "…-project-project-…".
+  const stem = filenameStem(projectName ?? "", "");
+  return stem === ""
+    ? `aipm-cockpit-tasks-${today}.${EXT[format]}`
+    : `aipm-cockpit-project-${stem}-${today}.${EXT[format]}`;
+}
+
+function defaultFilename(format: ExportFormat, ws: Workspace): string {
+  return exportFilename(format, new Date().toISOString().slice(0, 10), ws.project?.name);
 }
 
 /** The browser-tab auto-print harness, byte-identical to what `buildPdfHtml`
@@ -126,6 +145,10 @@ export function buildPdfHtml(
    *  caller) keeps the normal computed title, byte-identical to before this
    *  parameter existed. */
   titleTag?: string,
+  /** The page's CSP nonce, put on the `<style>` element here at the source
+   *  (§468 packaged-app check — see `nonceOpenTag`). Undefined (every
+   *  pre-existing caller) keeps the bare `<style>`, byte-identical. */
+  styleNonce?: string,
 ): string {
   const today = new Date().toISOString().slice(0, 10);
   const sections = buildExportSections(ws, cfg, lang);
@@ -145,7 +168,7 @@ export function buildPdfHtml(
 <head>
   <meta charset="utf-8"/>
   ${title}
-  <style>${PRINT_STYLES}
+  ${nonceOpenTag("style", styleNonce)}${PRINT_STYLES}
   </style>
 </head>
 <body>
@@ -182,22 +205,29 @@ function exportPdf(ws: Workspace, cfg: ExportConfig, lang: Lang, footer: string)
   // `<title>` element (`pdfReadyTitleMarkup`, replacing rather than
   // appending after the normal title). main.ts watches the named frame,
   // prints it to a real PDF and shows a save dialog. In a browser, name is
-  // `_blank` and the script is the unchanged auto-print harness — byte-
-  // identical to before this fix.
+  // `_blank` and the script is the auto-print harness, identical to before
+  // this fix except for the page's CSP nonce on its opening tag (below).
   const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
   const name = pdfWindowName(ua);
   const isDesktop = name !== "_blank";
   const script = isDesktop ? "" : EXPORT_AUTO_PRINT_SCRIPT;
-  const titleTag = isDesktop ? pdfReadyTitleMarkup(defaultFilename("pdf")) : undefined;
-  const html = buildPdfHtml(ws, cfg, lang, footer, script, titleTag);
+  const titleTag = isDesktop ? pdfReadyTitleMarkup(defaultFilename("pdf", ws)) : undefined;
+  // ★★★ §468 packaged-app check — the tab inherits this page's nonce-only
+  // production CSP, so its <style> and auto-print <script> carry the page's
+  // nonce or neither applies (see `nonceOpenTag`). Only the tab gets it: the
+  // popup-blocked fallback below is a FILE, and the live nonce has no business
+  // on disk, so that one is built without it (byte-identical to before).
+  const nonce = readCspNonce();
+  const html = buildPdfHtml(ws, cfg, lang, footer, withScriptNonce(script, nonce), titleTag, nonce);
 
   // Open a new tab and write the HTML into it. Pop-up blockers may stop
   // this — in which case we fall back to a Blob download of the HTML so
   // the user can at least open it manually and print from there.
   const w = window.open("", name);
   if (!w) {
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-    triggerDownload(defaultFilename("pdf").replace(/\.pdf$/, ".html"), blob);
+    const fallbackHtml = buildPdfHtml(ws, cfg, lang, footer, script, titleTag);
+    const blob = new Blob([fallbackHtml], { type: "text/html;charset=utf-8" });
+    triggerDownload(defaultFilename("pdf", ws).replace(/\.pdf$/, ".html"), blob);
     return;
   }
   w.document.open();
@@ -258,5 +288,5 @@ export async function exportWorkspace(
       blob = buildPptx(sections, lang, footer);
     }
   }
-  triggerDownload(defaultFilename(format), blob);
+  triggerDownload(defaultFilename(format, ws), blob);
 }

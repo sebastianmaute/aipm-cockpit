@@ -46,7 +46,7 @@ export function pdfReadyTitleMarkup(filename: string): string {
  *  string second argument to `String.replace` treats `$&`/`` $` ``/`$'`/`$$`
  *  as special substitution patterns; `titleTag` carries the DOCUMENT'S OWN
  *  title (`pdfReadyTitleMarkup(documentFilename(doc, ...))`), and neither
- *  `slugifyTitle` (document-download.ts) nor `htmlEscape` remove `$` —
+ *  `filenameStem` (filename-stem.ts) nor `htmlEscape` remove `$` —
  *  `htmlEscape` in fact produces `&amp;`/`&#39;`-shaped text that starts
  *  with `&`, so a document titled "Q & A" reliably survives to a title
  *  string containing `$&` once escaped. A user-chosen document title landing
@@ -57,4 +57,32 @@ export function pdfReadyTitleMarkup(filename: string): string {
  *  about, one function away. */
 export function replaceHtmlTitle(html: string, titleTag: string): string {
   return html.replace(/<title>[\s\S]*?<\/title>/, () => titleTag);
+}
+
+/** `<tag nonce="…">` when there is a nonce, else the bare `<tag>`.
+ *
+ *  ★★★ §468 packaged-app check — the print tab is `document.write`n into an
+ *  `about:blank` child, which INHERITS the opener's production CSP: nonce-only
+ *  `style-src-elem` AND `script-src` (src/proxy.ts). A `<style>` or
+ *  `<script>` written there without the page's nonce is refused, so in a
+ *  production build the tab printed unstyled and its auto-print never ran.
+ *  The nonce is the opener's own (`readCspNonce`), which the inherited policy
+ *  carries verbatim. With no nonce (a dev server, whose CSP allows inline
+ *  styles) the bare tag is returned, byte-identical to before. */
+export function nonceOpenTag(tag: "script" | "style", nonce: string | undefined): string {
+  return nonce ? `<${tag} nonce="${htmlEscape(nonce)}">` : `<${tag}>`;
+}
+
+/** Nonce the FIRST `<style>` of a rendered document — its own HEAD
+ *  stylesheet. Only the first: every renderer emits its stylesheet in
+ *  `<head>`, before any content, so a later `<style>` could only have come
+ *  from content, which must never be granted the nonce. Function replacement,
+ *  never a string one (see `replaceHtmlTitle`). */
+export function withStyleNonce(html: string, nonce: string | undefined): string {
+  return nonce ? html.replace("<style>", () => nonceOpenTag("style", nonce)) : html;
+}
+
+/** Nonce the opening tag of an auto-print harness `<script>` block. */
+export function withScriptNonce(script: string, nonce: string | undefined): string {
+  return nonce ? script.replace("<script>", () => nonceOpenTag("script", nonce)) : script;
 }
