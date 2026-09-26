@@ -224,6 +224,26 @@ describe("rebuildIndex", () => {
     ]);
   });
 
+  // Review M3. Mutation: the substring test `/\bclosed\b/i` → the qualifier
+  // reads as closed, counts as a flip, and State is reset to "open".
+  it("an open State that merely mentions 'closed' stays open and keeps its qualifier", () => {
+    const row = "| [§1](#1-x) | X | o | S | open (half closed by §9) |";
+    expect(rowsOf(rebuildIndex(doc(["## 1. X"], [row])))).toEqual([row]);
+  });
+
+  // Positive control for the anchor: the three closed spellings the table uses.
+  // Mutation: drop the optional `(\*\*)?` → "**CLOSED** …" reads open, flips,
+  // and its reason is regenerated away.
+  it("reads **CLOSED**, CLOSED and closed as closed", () => {
+    const rows = [
+      "| [§1](#1-a--closed-2026-01-01) | A | o | S | **CLOSED** 2026-01-01 (why) |",
+      "| [§2](#2-b--closed-2026-01-01) | B | o | S | CLOSED 2026-01-01 (why) |",
+      "| [§3](#3-c--closed-2026-01-01) | C | o | S | closed (why) |",
+    ];
+    const heads = ["## 1. A — CLOSED 2026-01-01", "## 2. B — CLOSED 2026-01-01", "## 3. C — CLOSED 2026-01-01"];
+    expect(rowsOf(rebuildIndex(doc(heads, rows)))).toEqual(rows);
+  });
+
   // Review I1. Mutation: unwrap the strike BEFORE cutting the suffix (the
   // first cut's order) → "~~X~~~~", a malformed cell that is its own fixed point.
   it("★★ a struck Item with a leaked CLOSED suffix rebuilds to a clean strike, twice", () => {

@@ -193,10 +193,21 @@ export function headingState(title) {
   return at < 0 ? "**CLOSED**" : `**CLOSED**${title.slice(at + CLOSED_MARK.length)}`;
 }
 
-/** Whether a State CELL reads as closed. Case-insensitive on the bare word:
- *  the table spells it `**CLOSED**`, `CLOSED` and `closed`. */
+/** Whether a State CELL reads as closed, judged on its LEADING token only.
+ *  ★★ Not a substring test: an open row whose qualifier mentions the word —
+ *  `open (half closed by §9)` — would read as closed, count as a status flip,
+ *  and have its qualifier silently reset to `open` (review M3).
+ *  ★ The anchor is chosen from the data, not from a list of synonyms. Every
+ *  State cell in the table (measured 2026-09-26, 604 rows) starts with one of
+ *  `open`, `**OPEN**`, `**CLOSED**`, `CLOSED` or `closed`, so `closed` after
+ *  an optional `**` is the whole closed vocabulary. `fixed`/`resolved`/
+ *  `accepted` are deliberately NOT closed words: none occurs, and `accepted`
+ *  would call §413's ACCEPTED COST entry closed while `isClosed` calls its
+ *  heading open — a permanent false flip. Reproduce the leading-token tally
+ *  (the `State` line it also prints is the header row):
+ *  `sed -n '/<!-- INDEX:BEGIN -->/,/<!-- INDEX:END -->/p' docs/open-followups.md | grep -oE '\| (\*\*)?[A-Za-z]+[^|]* \|$' | grep -oE '^\| (\*\*)?[A-Za-z]+' | sort | uniq -c` */
 export function stateIsClosed(state) {
-  return /\bclosed\b/i.test(state);
+  return /^\s*(\*\*)?closed\b/i.test(state);
 }
 
 const FULL_ROW_RE = /^\|\s*\[§(\d+)\]\(#[^)]*\)\s*\|(.*)\|\s*$/;
