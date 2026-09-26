@@ -24,21 +24,18 @@ export const INDEX_END = "<!-- INDEX:END -->";
 export const INDEX_ROW_RE = /^\|\s*\[§(\d+)\]\(#/;
 
 /** ★★★ WHOLE-LINE MATCHING IS LOAD-BEARING AND `indexOf` IS SILENTLY
- *  CATASTROPHIC HERE. The marker strings occur FOUR times in the real register:
- *  twice inside fenced code samples that show a reader how to slice the table
- *  (`l.trim() === "<!-- INDEX:BEGIN -->"`), and twice as the actual markers
- *  several hundred lines below. A `src.indexOf(INDEX_BEGIN)` therefore slices
- *  the two-line code sample, which holds ZERO rows — and the gate then reports
- *  every heading in the file as missing an index row. Measured against the real
- *  register, not reasoned: the sample span contains 0 rows, against 405 in the
- *  real span at merge-base 9219cbda. ★ The 405 is anchored to that sha on
- *  purpose — the live figure moves on every entry filed or closed, so a bare
- *  present-tense number here would be wrong by the next commit. Read today's
- *  off the gate's own summary line.
- *  ★ The fenced rebuild recipe that carried the in-file copies was replaced by
- *  `rebuildIndex` (§319, §382), so the register may no longer quote a marker
- *  at all — the guard stays, because the next code sample can reintroduce one.
- *  Count today's with `grep -c "<!-- INDEX:BEGIN -->" docs/open-followups.md`.
+ *  CATASTROPHIC HERE. At merge-base 9219cbda the marker strings occurred FOUR
+ *  times in the real register: twice inside fenced code samples that showed a
+ *  reader how to slice the table (`l.trim() === "<!-- INDEX:BEGIN -->"`), and
+ *  twice as the actual markers several hundred lines below. A
+ *  `src.indexOf(INDEX_BEGIN)` therefore sliced the two-line code sample, which
+ *  held ZERO rows — and the gate then reported every heading in the file as
+ *  missing an index row. Measured then, not reasoned: 0 rows in the sample
+ *  span against 405 in the real one.
+ *  ★ The fenced rebuild recipe that carried those copies was replaced by
+ *  `rebuildIndex` (§319, §382). The guard stays, because the next code sample
+ *  can reintroduce one. Count today's copies rather than trusting a number:
+ *  `grep -c "<!-- INDEX:BEGIN -->" docs/open-followups.md`.
  *
  *  ★★ Several whole-line matches is a SCAN FAILURE, never a pick-the-first: a
  *  second pair of real markers means the file's shape is not what this parser
