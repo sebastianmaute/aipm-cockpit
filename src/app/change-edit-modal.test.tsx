@@ -160,7 +160,7 @@ describe("ChangeEditModal", () => {
   // ★ The seed is still collision-BEARING for the defect under test: before the
   // fix both chips are named exactly "Unlink RAID item", which is what makes
   // this fail red. Distinct ids are the point, not a weakness of the fixture.
-  it("gives every linked-RAID unlink chip a row-unique accessible name (§276)", () => {
+  it("gives every linked-RAID unlink chip a row-unique accessible name (§276)", async () => {
     renderModalFull({
       draft: change({ linkedRaidIds: [5, 9] }),
       // ★ The two items share a TITLE on purpose: the title is free text and can
@@ -170,7 +170,26 @@ describe("ChangeEditModal", () => {
         { id: 9, category: "R", title: "Vendor delay", status: "Open", linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-05-02" },
       ],
     });
-    expectRowUniqueNames({ minControls: 23 });
+    // ★★ AWAIT THE THREE EDITORS FIRST, so this test sees the same DOM whatever
+    // runs before it. `RichTextEditor` here is the `dynamic()` wrapper from
+    // `rich-text-editor-lazy`: on a cold module the toolbars are not mounted when a
+    // synchronous assertion runs, and once an earlier test has warmed it they mount
+    // in the same commit. The whole-document version of this check was green in
+    // file order and red under `--sequence.shuffle --sequence.seed=20260926` for
+    // exactly that reason — in file order it had never seen the toolbars at all.
+    expect(await screen.findAllByRole("toolbar")).toHaveLength(3);
+    // ★★ SCOPED TO THE LINKED-RAID FIELD, and the collision it steps around is a
+    // confirmed, deliberate one (the helper's SCOPE CHOICE rule asks for it to be
+    // named): the three rich-text toolbars repeat their twenty control names
+    // ("Bold" x3, "Text style" x3, …) BY DESIGN — each sits in a `role="toolbar"`
+    // named by its own field label, which is what tells the repeats apart
+    // (docs/AGENTS/rich-text.md, "THE TOOLBAR IS A NAMED role=toolbar"). The
+    // section renders the hint tooltip plus one unlink chip per linked id, so 3 is
+    // the EXACT count: a chip that stops rendering fails the floor, and without the
+    // `#id` qualifier the two chips share one name.
+    const section = screen.getByText(t("en-US", "changeFieldLinkedRaid")).parentElement;
+    if (!section) throw new Error("linked-RAID field section not found");
+    expectRowUniqueNames({ scope: section, minControls: 3 });
   });
 });
 
