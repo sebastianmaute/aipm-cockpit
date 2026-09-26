@@ -241,6 +241,9 @@ describe("NarrativeSummary inline editing", () => {
     render(<SummaryHost />);
     await user.click(screen.getByRole("button", { name: ADD }));
     const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    // §619: let the editor's rAF-deferred autofocus land first, or it can
+    //   fire after the menu has focused and pull focus back out of it.
+    await waitFor(() => expect(surface.contains(document.activeElement)).toBe(true));
     await user.click(surface);
     await user.keyboard("Title");
     await user.click(screen.getByRole("button", { name: "Text style" }));
@@ -407,12 +410,74 @@ describe("NarrativeSummary inline editing", () => {
     render(<SummaryHost initial="<p>Old</p>" />);
     await user.click(screen.getByRole("button", { name: EDIT }));
     const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    // §619: without this wait the editor's rAF-deferred autofocus can fire
+    //   AFTER the menu takes focus and pull it back into the text for good.
+    await waitFor(() => expect(surface.contains(document.activeElement)).toBe(true));
     await user.click(screen.getByRole("button", { name: "Text style" }));
     const menu = await screen.findByRole("dialog", { name: "Text style" });
     await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog", { name: "Text style" })).toBeNull();
     expect(screen.getByRole("textbox", { name: surfaceName() })).toBe(surface);
+  });
+
+  // ★★ §619, made deterministic. Tiptap's focus command calls view.focus()
+  //   inside requestAnimationFrame, while the heading menu focuses its first
+  //   item in an effect. Frames are QUEUED here and drained by hand, so the
+  //   order is fixed rather than left to the jsdom interval.
+  //   The editor's autofocus frame is drained BEFORE the menu opens (the
+  //   PRE-MENU WAIT), exactly as the tests above wait for it. What this test
+  //   then guards is the menu itself: opening it must queue NO frame, so
+  //   nothing can pull focus back into the editor afterwards.
+  //   ★ Nothing in-test simulates the regression. Two mutations turn it red,
+  //   both on the queue-size assertion:
+  //   - PRODUCT: any change that queues a refocus when the menu opens, e.g. a
+  //     `requestAnimationFrame(() => editor.view.focus())` in the menu's
+  //     open path. The size is then 1, not 0, and the flush after it moves
+  //     focus into the text.
+  //   - TEST: delete the PRE-MENU WAIT. The editor's own frame is then still
+  //     queued when the menu opens. That is the §619 race this file hit.
+  it("opening the heading menu queues no frame that pulls focus back into the editor", async () => {
+    const user = userEvent.setup();
+    const queued = new Map<number, FrameRequestCallback>();
+    let nextId = 0;
+    const flushFrames = () => {
+      for (let round = 0; round < 10 && queued.size > 0; round++) {
+        const batch = [...queued.values()];
+        queued.clear();
+        for (const cb of batch) cb(0);
+      }
+    };
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+      nextId += 1;
+      queued.set(nextId, cb);
+      return nextId;
+    });
+    const cancel = vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => {
+      queued.delete(id);
+    });
+    try {
+      render(<SummaryHost initial="<p>Old</p>" />);
+      await user.click(screen.getByRole("button", { name: EDIT }));
+      const surface = await screen.findByRole("textbox", { name: surfaceName() });
+      // PRE-MENU WAIT: drain the editor's autofocus frame INSIDE the
+      //   predicate, so a frame queued late is still run on a later retry
+      //   rather than leaving the wait to time out.
+      await waitFor(() => {
+        act(() => flushFrames());
+        expect(surface.contains(document.activeElement)).toBe(true);
+      });
+      await user.click(screen.getByRole("button", { name: "Text style" }));
+      const menu = await screen.findByRole("dialog", { name: "Text style" });
+      await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+      expect(queued.size).toBe(0);
+      act(() => flushFrames());
+      expect(menu.contains(document.activeElement)).toBe(true);
+      expect(screen.getByRole("textbox", { name: surfaceName() })).toBe(surface);
+    } finally {
+      raf.mockRestore();
+      cancel.mockRestore();
+    }
   });
 
   // ★ Focus goes back to the toggle ONLY when the close left it nowhere. A

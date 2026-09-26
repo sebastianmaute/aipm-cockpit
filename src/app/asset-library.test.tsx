@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AssetLibrary } from "./asset-library";
 import { ConfirmProvider } from "./confirm-dialog";
@@ -515,17 +515,21 @@ describe("AssetLibrary — image preview", () => {
     },
   );
 
-  // ★ This is expected to pass with NO implementation change here: the shared
-  // `Modal` (`modal.tsx`) already captures the previously-focused element on
-  // open and restores it on close — `AssetLibrary` does not need to do
-  // anything of its own. Pinning it at THIS call site is still worth doing —
-  // it is the behaviour a real user depends on, and nothing else in this
-  // file exercises the open→close focus round-trip.
+  // ★ The focus restore belongs to the shared `Modal` (`modal.tsx`), which
+  // captures the previously-focused element on open and restores it on
+  // close; `AssetLibrary` does nothing of its own. Pinned at THIS call site
+  // because it is the behaviour a real user depends on here.
+  // ★★ §340(a): `Modal` moves focus INTO the dialog inside a
+  // requestAnimationFrame. Pressing Escape before that frame leaves focus on
+  // the opener all along, so the final assertion passed with the restore
+  // deleted. The wait below makes focus actually leave the opener first.
   it("returns focus to the row control that opened the preview", async () => {
     render(<AssetLibrary {...base} loadImage={vi.fn(async () => TINY_GIF)} />);
     const opener = screen.getAllByRole("button", { name: /^Preview – / })[0];
     await userEvent.click(opener);
-    await screen.findByRole("dialog");
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+    expect(opener).not.toHaveFocus();
     await userEvent.keyboard("{Escape}");
     expect(opener).toHaveFocus();
   });

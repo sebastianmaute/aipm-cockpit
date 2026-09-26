@@ -509,7 +509,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary) | `use-insight-recommendations.ts` was coverage-excluded under a glue rationale, and one of its callbacks is a security boundary | found 2026-08-28 | S | open |
 | [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives--the-one-real-defect-it-named-fixed-2026-08-31--closed-2026-08-31) | The row-name surface scan: the GAP files with no asserting test, and the sites where nothing per-row survives — the one REAL defect it named FIXED 2026-08-31 | scan 2026-08-28 | L | **CLOSED** 2026-08-31 |
 | [§277](#277-bulk-edit-field-labels-reuse-the-column-header-keys-in-four-panels--the-261-shape-on-a-different-pair) | Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair | found 2026-08-28 | M | open |
-| [§278](#278-two-of-the-five-column-toggle-consumers-got-the-fix-with-no-panel-level-regression-pin) | Two of the five column-toggle consumers got the fix with no panel-level regression pin | found 2026-08-28 | S | open |
+| [§278](#278-two-of-the-five-column-toggle-consumers-got-the-fix-with-no-panel-level-regression-pin--closed-2026-09-26) | Two of the five column-toggle consumers got the fix with no panel-level regression pin | found 2026-08-28 | S | **CLOSED** 2026-09-26 |
 | [§279](#279-controlnames-reads-aria-label--textcontent-not-the-accessible-name--an-input-reports-the-empty-string) | `controlNames` reads `aria-label || textContent`, not the accessible name — an `<input>` reports the empty string | found 2026-08-28 | M | open |
 | [§280](#280-matchdelimiters-counts-brackets-without-skipping-strings-or-comments--the-class-that-just-bit-scanopentag--closed-2026-09-26) | `matchDelimiters` counts brackets without skipping strings or comments — the class that just bit `scanOpenTag` | found 2026-08-28 | S | **CLOSED** 2026-09-26 |
 | [§281](#281-modulekey-is-basename-only-so-directory-distinct-modules-collapse-into-one-coverage-key--closed-2026-09-26) | `moduleKey` is basename-only, so directory-distinct modules collapse into one coverage key | found 2026-08-28 | S | **CLOSED** 2026-09-26 |
@@ -571,7 +571,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§337](#337-a-non-empty-but-unusable-next_public_turso_-both-hides-the-settings-field-and-outranks-it-so-turso-cannot-be-configured-from-the-ui-at-all--closed-2026-09-25) | ~~A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all~~ | found 2026-09-02 debugging "enabling Turso shows no configuration fields"; URL half shipped `28b517b77`, token half this commit | S | **CLOSED** 2026-09-25 |
 | [§338](#338-useresizable-is-a-no-op-in-every-modal-that-stays-mounted-while-closed--open) | `useResizable` is a no-op in every modal that stays mounted while closed | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | M (repo-wide) | open |
 | [§339](#339-a-rename-can-strand-a-stale-alt-and-the-broken-image-state-then-paints-it--wcag-253--closed-2026-09-14) | A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-14 |
-| [§340](#340-two-tests-in-the-asset-preview-slice-pass-for-the-wrong-reason--open) | Two tests in the asset-preview slice pass for the wrong reason | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
+| [§340](#340-two-tests-in-the-asset-preview-slice-pass-for-the-wrong-reason--closed-2026-09-26) | Two tests in the asset-preview slice pass for the wrong reason | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-26 |
 | [§341](#341-neither-asset-preview-entry-point-has-ever-been-exercised-against-a-real-turso-project--closed-2026-09-02) | ~~Neither asset-preview entry point has ever been exercised against a real Turso project~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-02 (eye-verified against a live Turso project; the entry records what that pass did NOT cover, which is narrower than the title) |
 | [§342](#342-rolebutton-on-an-img-removes-its-image-semantics--closed-2026-09-25) | `role="button"` on an `<img>` removes its image semantics | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | closed |
 | [§343](#343-the-asset-lightboxs-reopen-frame-is-fixed-but-unpinned--no-test-can-see-it--closed-2026-09-03) | ~~The asset lightbox's reopen frame is fixed but UNPINNED — no test can see it~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") deletion-only review round | S | **CLOSED** 2026-09-03 (eye-verified via a DevTools Performance screenshot capture; the entry records that the deletion control was not captured, so read it at that strength) |
@@ -617,7 +617,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§385](#385-srcsymbolscheck-prints-a-remedy-it-does-not-implement--closed-2026-09-26) | `src:symbols:check` prints a remedy it does not implement | found 2026-09-05 while acting on that report's own advice | S | **CLOSED** 2026-09-26 |
 | [§386](#386-fields-hint-pollutes-its-controls-accessible-name--closed-2026-09-14) | `Field`'s `hint` pollutes its control's accessible name | found 2026-09-05 in the edit-task modal rework | S | **CLOSED** 2026-09-14 (both `Field` implementations and 41 hand-rolled labels in 11 files render the tooltip outside a `display: contents` label via shared `HintedLabel`; enumerated by a TS-AST scan, 41 polluting of 58 before, 0 of 17 after; the hint reaches a screen reader via the adjacent tooltip button, not `aria-describedby`; eye-verify in Firefox/Safari + a real screen reader still owed) |
 | [§387](#387-the-relationships-empty-section-guard-is-unpinned--open) | The Relationships empty-section guard is unpinned | found 2026-09-05 in the edit-task modal rework | S | open |
-| [§388](#388-the-task-name-mic-is-now-invisible-to-the-label-binding-source-scan--open) | The task-name mic is now invisible to the label-binding source scan | found 2026-09-05 in the edit-task modal rework | S | open |
+| [§388](#388-the-task-name-mic-is-now-invisible-to-the-label-binding-source-scan--closed-2026-09-26) | The task-name mic is now invisible to the label-binding source scan | found 2026-09-05 in the edit-task modal rework | S | **CLOSED** 2026-09-26 |
 | [§389](#389-modalheader-names-every-modals--identically-so-any-two-stacked-modals-collide--closed-2026-09-14) | `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide | found 2026-09-05 in the edit-task modal rework | M | **CLOSED** 2026-09-14 |
 | [§390](#390-the-inline-create-path-writes-link-fields-with-no-preview-at-all--closed-2026-09-06) | The inline CREATE path writes link fields with no preview at all | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
 | [§391](#391-chat-proposal-describetss-emptyplan-is-safe-at-two-of-its-three-call-sites-and-the-reason-is-per-site--closed-2026-09-21) | `chat-proposal-describe.ts`'s `emptyPlan()` is safe at two of its three call sites, and the reason is per-site | found 2026-09-06 by the preview/apply-parity slice | S | closed |
@@ -846,7 +846,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§616](#616-timelog-exposes-no-approvereject-write-so-the-review-front-end-is-read-only-until-someone-probes-for-the-undocumented-one--open) | TimeLog exposes no approve/reject WRITE, so the review front-end is read-only until someone probes for the undocumented one | TL1 spec (2026-08-23), a sweep of TimeLog's 63 documented services; GitLab #391 | S — a devtools probe at a workstation | open |
 | [§617](#617-a-meta-slice-whose-sanitizer-returns-nothing-is-dropped-silently-and-the-next-save-deletes-its-row--open) | A meta slice whose sanitizer returns nothing is dropped silently, and the next save deletes its row | split out of §538 on 2026-09-26 (the PR #425 review) | S–M — audit each meta slice's falsy-return path and report it like a throw | open |
 | [§618](#618-the-classic-header-overflows-between-lg-and-1390px-so-the-page-scrolls-sideways--open) | The classic header overflows between lg and ~1390px, so the page scrolls sideways | split out of §468 on 2026-09-26 (#425 window-layout probe) | S — let the classic search shrink from lg up with a min width; measure 1024/1100/1390/1600 | open |
-| [§619](#619-dashboard-narratives-heading-menu-escape-test-failed-once-in-unit-shuffled--focus-never-reached-the-menu--open) | dashboard-narrative's heading-menu Escape test failed once in unit-shuffled — focus never reached the menu | — | — | open |
+| [§619](#619-dashboard-narratives-heading-menu-escape-test-failed-once-in-unit-shuffled--focus-never-reached-the-menu--closed-2026-09-26) | dashboard-narrative's heading-menu Escape test failed once in unit-shuffled — focus never reached the menu | — | — | **CLOSED** 2026-09-26 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -23722,12 +23722,12 @@ new i18n key per field or a structural change to how `bulk-edit-panel.tsx` deriv
 one label. The second is the better shape: one qualifier applied inside the shared primitive, exactly
 how `colConfigToggleColumn` closed §261's third leg in five consumers at once.
 
-## 278. Two of the five column-toggle consumers got the fix with no panel-level regression pin
+## 278. Two of the five column-toggle consumers got the fix with no panel-level regression pin — CLOSED 2026-09-26
 
-**Status:** open — a TEST-COVERAGE gap, not a defect. Nothing is broken. Filed 2026-08-28 at the
+**Status:** CLOSED 2026-09-26 on `fix/test-gaps`. `milestones-panel.test.tsx` gains a panel-level pin. It opens the column-config popover, which is portaled under `document.body` where the existing container-scoped check could not see it, checks with a name-collision seed that every control's accessible name is unique across the page, and finds the "Show column – Milestone" toggle by its exact name. That exact lookup is what pins a toggle regressing to a bare label-named input, which reads as an empty name to the uniqueness scan. Mutation-checked: giving every toggle the same label in `column-config-popover.tsx` turns it red. The tasks pane was already pinned to the shared popover by an earlier routing test.
+
+Original status: open — a TEST-COVERAGE gap, not a defect. Nothing is broken. Filed 2026-08-28 at the
 close of [§261](#261-toolbar-filter-vs-sortable-header-name-collisions-systemic-7-pairs-across-3-panels--closed-2026-08-28). Never machine-verified by a committed probe.
-
-**Work item:** #218
 
 `ea2ba828` closed §261's third leg inside `ColumnConfigPopover` itself, so all five consumers were
 fixed by one edit. Three of them — the panels that round's tasks touched — gained a panel-level
@@ -28188,13 +28188,13 @@ production.
 ★★ No gate can see it — axe's `label-content-name-mismatch` is tagged `experimental` and axe's
 default tagExclude drops it, and this surface is Turso-gated so the a11y gate never renders it.
 
-## 340. Two tests in the asset-preview slice pass for the wrong reason — open
+## 340. Two tests in the asset-preview slice pass for the wrong reason — CLOSED 2026-09-26
 
-**Status:** open — **never machine-verified** (2026-09-02). Both were reported by a cold
+**Status:** CLOSED 2026-09-26 on `fix/test-gaps`. Half (b) was already fixed on main by §342's work, judged by reading rather than by the entry's mutation (the image is wrapped first and then unwrapped when storage turns off, so the removal branch runs against real wrapped images). Half (a): `asset-library.test.tsx`'s Escape test now waits until focus is inside the dialog, and checks the opener lost it, before pressing Escape. So it can only pass if the modal restores focus. Mutation-checked: deleting `previouslyFocused.focus()` in `modal.tsx` turns it red.
+
+Original status: open — **never machine-verified** (2026-09-02). Both were reported by a cold
 test-validity reviewer WITH a named minimal mutation; neither mutation has been RUN. Run them
 before acting: each is one token, and a surviving mutant is a question, not a verdict.
-
-**Work item:** #246
 
 (a) `asset-library.test.tsx` "returns focus to the row control that opened the preview" cannot
 distinguish a restore from focus never having left. `Modal` moves focus into the dialog inside a
@@ -30600,14 +30600,14 @@ all `advanced`, so any tier switch shows or hides the three together and can nev
 state. It has to drive the per-field checklist — `grep -n "toggleField" src/app/modal-field-controls.tsx`
 — which is what makes the offending configuration reachable by a user in the first place.
 
-## 388. The task-name mic is now invisible to the label-binding source scan — OPEN
+## 388. The task-name mic is now invisible to the label-binding source scan — CLOSED 2026-09-26
 
-**Status:** OPEN. Filed 2026-09-05 from the edit-task modal rework. Verified 2026-09-05 by reading
+**Status:** CLOSED 2026-09-26 as ACCEPTED, by owner decision. The scan's coverage did get narrower, but it leaves no hole. `Field` forces group mode whenever `captionAction` is passed (`task-form-layout.tsx`), `task-form-layout.test.tsx` pins that, and `task-form-fields.tsx` is the only caller. A scan rule that flags `captionAction=` on any tag other than `Field` was weighed and not added.
+
+Original status: OPEN. Filed 2026-09-05 from the edit-task modal rework. Verified 2026-09-05 by reading
 the scan's own predicate: `grep -n "standsFirst(b.body, re) && !hasGroupProp(b.attrs)" src/app/label-binding.guard.test.ts`
 returns the `<Field>` check, and `grep -n "captionAction={titleMic}" src/app/task-form-fields.tsx`
 returns the mic's new position.
-
-**Work item:** #268
 
 `label-binding.guard.test.ts` scans SOURCE rather than a rendered tree because the dictation mic
 renders `null` under jsdom — `getCtor()` reads `window.SpeechRecognition`, which does not exist
@@ -41700,9 +41700,11 @@ Size S.
 **Source:** #425's window-layout task (§468's packaged-app check), classic-layout probe. Raw log and
 screenshots were kept outside the repo.
 
-## 619. dashboard-narrative's heading-menu Escape test failed once in unit-shuffled — focus never reached the menu — open
+## 619. dashboard-narrative's heading-menu Escape test failed once in unit-shuffled — focus never reached the menu — CLOSED 2026-09-26
 
-**Status:** open 2026-09-26 — observed once in CI and not reproduced locally, so it is never machine-verified
+**Status:** CLOSED 2026-09-26 on `fix/test-gaps`. The cause is a race in the TEST, not the product. The editor's autofocus (`editor.commands.focus("end")`) lands one animation frame late. The test clicked "Text style" before that frame ran, so the menu focused its first item, and then the late editor frame pulled focus back into the text surface. Nothing moves it back, so the `waitFor` ran out: `vitest.setup.ts` sets the Testing Library wait budget (`asyncUtilTimeout`) to 15000 ms, and the run took 15,075 ms. Leftover state from another test (the §614 shape) and a too-short timeout were ruled out by reading. Both heading-menu tests now wait for editor focus before opening the menu. A new test holds `requestAnimationFrame` callbacks, flushes the editor's autofocus frame BEFORE the menu opens, and then pins that opening the menu queues no further frame that could pull focus back into the editor. Removing the pre-menu wait turns it red (mutation-checked). The file passes under `--sequence.shuffle --sequence.seed=1`, the seed that failed in CI.
+
+Original status: open 2026-09-26 — observed once in CI and not reproduced locally, so it is never machine-verified
 beyond that run. CI's `unit-shuffled` job on PR #429 (seed 1, `--maxWorkers=2`) failed in
 `src/app/dashboard-sections/dashboard-narrative.test.tsx` › "Escape with the heading menu open closes the menu,
 not the editor" with `AssertionError: expected false to be true`, after 15,075 ms. #429 changed only this
@@ -41710,11 +41712,9 @@ register, and a re-run of the failed job passed. `grep -n "menu.contains(documen
 finds the only `toBe(true)` in the test: focus never moved into the "Text style" popover within `waitFor`'s
 window.
 
-**Work item:** #430
-
 It is not known whether this is load (two workers on a CI runner) or order dependence (focus or DOM state left
-behind by an earlier test under the shuffle). ★ It was first described as a TIMEOUT when it happened. It was an
-assertion failure: the 15 s is how long the test ran, not the limit (testTimeout is 20 s).
+behind by an earlier test under the shuffle). ★ Corrected 2026-09-26: an earlier revision of this entry said "the 15 s is how long the test ran, not the
+limit". It IS the limit: the failing line is a `waitFor`, and `vitest.setup.ts` sets `asyncUtilTimeout` to 15000 ms.
 
 Next step: run the file alone under the same seed, then the full shuffle under load a few times. If it is
 order-dependent, find the test that leaves focus or DOM state behind, the same shape as §614.
