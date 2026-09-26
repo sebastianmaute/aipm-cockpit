@@ -1,11 +1,12 @@
 // src/app/document-export-assets.ts — the ONE place an export resolves a
 // document's image bytes.
 //
-// ★★★ THE SPLIT INTO THREE BUCKETS IS THE POINT. "omitted" (we chose not to
+// ★★★ THE SPLIT INTO FOUR BUCKETS IS THE POINT. "omitted" (we chose not to
 // include it, budget) and "missing" (there is no byte row) mean different
 // things to whoever opens the exported file. Collapsing omitted into missing
 // tells a user their image is lost when it is not; collapsing it into inlined
 // blows the budget the bucket exists to enforce.
+// "blocked" (the bytes exist, the type is refused — §320).
 
 import type { ProjectDocument } from "./document-model";
 import type { AssetByteLoader } from "./document-asset-images";
@@ -87,6 +88,10 @@ export type ExportAssets = {
   omitted: ReadonlySet<string>;
   /** No byte row, or the load failed. A DATA problem — the dangling case. */
   missing: ReadonlySet<string>;
+  /** Bytes exist and are intact, but the stored type is outside the upload
+   *  allowlist (`isBlockedAssetMime`). A POLICY refusal (§320): never charged
+   *  against the budget, and never reported as missing. */
+  blocked: ReadonlySet<string>;
 };
 
 /** What every renderer gets when there are no images, or no Turso config.
@@ -97,7 +102,7 @@ export type ExportAssets = {
  *  ★★ THE GUARANTEE IS THE READONLY TYPES, NOT `Object.freeze`, and crediting
  *  the wrong mechanism is how the real protection gets deleted as redundant.
  *  Freeze is SHALLOW and a `Set`'s contents are not properties, so it does not
- *  protect the two `Set`s at all. What stops every mutation is `ReadonlySet` /
+ *  protect the three `Set`s at all. What stops every mutation is `ReadonlySet` /
  *  `Readonly<Record<…>>` on `ExportAssets`, and that is COMPILE-TIME ONLY.
  *  Measured, not reasoned — of the three writes a caller could attempt here,
  *  the freezes stop exactly two: `NO_EXPORT_ASSETS.omitted.add("x")` SUCCEEDS
@@ -112,6 +117,7 @@ export const NO_EXPORT_ASSETS: ExportAssets = Object.freeze({
   inlined: Object.freeze({}),
   omitted: new Set<string>(),
   missing: new Set<string>(),
+  blocked: new Set<string>(),
 });
 
 /** Base64 length → an UPPER BOUND on the byte count it decodes to, without
@@ -143,15 +149,20 @@ export async function loadExportAssets(
   load: AssetByteLoader,
   budgetBytes: number = EXPORT_INLINE_BUDGET_BYTES,
   /** ★★★ Asked BEFORE the budget is charged. A renderer declines an id for
-   *  reasons this module cannot see — no metadata row, a mime outside the
-   *  allowlist, no stored dimensions to build an extent from. Charging those
-   *  bytes anyway lets a few unusable assets spend the whole budget and push a
-   *  later, perfectly good image into `omitted`: deterministic, wrong, and
-   *  invisible to any single layer's tests, because each layer is correct on
-   *  its own. Routing them to `missing` first also keeps the three buckets the
-   *  WHOLE truth — without it there is a fourth state, inlined-but-unusable,
+   *  reasons this module cannot see — no metadata row, no stored dimensions to
+   *  build an extent from. (A mime outside the allowlist is `isBlocked`'s
+   *  question, asked first, so it never reaches this one — §320.) Charging
+   *  those bytes anyway lets a few unusable assets spend the whole budget and
+   *  push a later, perfectly good image into `omitted`: deterministic, wrong,
+   *  and invisible to any single layer's tests, because each layer is correct
+   *  on its own. Routing them to `missing` first also keeps the buckets the
+   *  WHOLE truth — without it there is another state, inlined-but-unusable,
    *  that no bucket describes and the user is told nothing about. */
   isRenderable?: (id: string) => boolean,
+  /** §320 — asked AFTER the null-row check and BEFORE `isRenderable` and the
+   *  budget: an id refused by TYPE lands in `blocked`, never `missing`, and is
+   *  never charged. */
+  isBlocked?: (id: string) => boolean,
 ): Promise<ExportAssets> {
   const ids = documentAssetIds(doc);
   if (ids.length === 0) return NO_EXPORT_ASSETS;
@@ -169,6 +180,7 @@ export async function loadExportAssets(
   const inlined: Record<string, string> = {};
   const omitted = new Set<string>();
   const missing = new Set<string>();
+  const blocked = new Set<string>();
   let spent = 0;
 
   for (const { id, b64 } of fetched) {
@@ -178,6 +190,10 @@ export async function loadExportAssets(
     // in the missing presentation without this function having to guess.
     if (b64 === null) {
       missing.add(id);
+      continue;
+    }
+    if (isBlocked && isBlocked(id)) {
+      blocked.add(id);
       continue;
     }
     // ★ ORDER IS LOAD-BEARING: after the null check (a null row is `missing`
@@ -196,5 +212,5 @@ export async function loadExportAssets(
     inlined[id] = b64;
   }
 
-  return { inlined, omitted, missing };
+  return { inlined, omitted, missing, blocked };
 }

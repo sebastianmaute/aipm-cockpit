@@ -4598,6 +4598,7 @@ const enUS = {
   // matches itself. Do not restore the old claim without first making some
   // caller actually pass `assets`.
   assetExportPlaceholder: "[Image: {0}]",
+  assetExportBlocked: "[Image not shown — file type not allowed: {0}]",
   chatProposalTitle: "Proposed changes",
   chatProposalCount: "{0} writes",
   chatProposalApply: "Apply",

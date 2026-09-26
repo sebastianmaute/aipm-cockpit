@@ -676,15 +676,16 @@ export function pptxEmbedFor(
  *  `ws.documentAssets`. A call site that re-implements these conditions instead
  *  of calling this drifts from the placed picture silently.
  *
- *  ★★★ WHAT IT BUYS HERE IS THE THREE-BUCKET CONTRACT, NOT BUDGET HEADROOM —
+ *  ★★★ WHAT IT BUYS HERE IS THE BUCKET CONTRACT, NOT BUDGET HEADROOM —
  *  and this comment asserted the opposite for a release in which NOTHING passed
  *  the predicate at all. `loadExportAssets` asks it before charging the budget
  *  so an undrawable asset cannot push a good one into `omitted`; but the PPTX
  *  sink runs UNBUDGETED (`Number.POSITIVE_INFINITY`), so nothing is ever
  *  omitted there and there is no headroom to protect. What the predicate does
  *  do is route an undrawable id to `missing` rather than leaving it
- *  `inlined`-but-undrawable — the fourth state no bucket describes — and keep
- *  its base64 out of memory.
+ *  `inlined`-but-undrawable — the state no bucket describes — and keep
+ *  its base64 out of memory. (A mime the upload policy refuses never reaches
+ *  it: `isBlocked` is asked first and routes that id to `blocked` — §320.)
  *
  *  ★★ SO NO OUTPUT TEST CAN SEE THIS. Measured, not reasoned: rendering an
  *  undrawable asset with the bytes inlined and with the id in `missing` yields

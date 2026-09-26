@@ -551,7 +551,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§317](#317-an-unsettled-chat-persist-is-invisible-to-retryloads-gate-so-a-reload-in-that-window-drops-the-reply-from-screen--closed-2026-08-31-02720) | An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen | — | — | **CLOSED** 2026-08-31 |
 | [§318](#318-use-focus-trap-runs-a-tab-trap-that-never-joins-the-dismissal-stack--closed-2026-09-01) | `use-focus-trap` runs a Tab trap that never joins the dismissal stack | found 2026-08-31 while closing §100 | S | **CLOSED** 2026-09-01 |
 | [§319](#319-this-registers-own-index-rebuild-recipe-silently-strips-hand-written-state-cells-and-claims-to-be-idempotent--closed-2026-09-26) | This register's own index-rebuild recipe silently strips hand-written `State` cells, and claims to be idempotent | found 2026-08-31 while filing §318 | S | **CLOSED** 2026-09-26 |
-| [§320](#320-the-html-and-pdf-exports-tell-the-reader-a-policy-refused-images-data-is-gone) | The HTML and PDF exports tell the reader a policy-refused image's data is gone | found 2026-08-31 in the §230 fix round | M | open |
+| [§320](#320-the-html-and-pdf-exports-tell-the-reader-a-policy-refused-images-data-is-gone--closed-2026-09-26) | The HTML and PDF exports tell the reader a policy-refused image's data is gone | found 2026-08-31 in the §230 fix round | M | **CLOSED** 2026-09-26 |
 | [§321](#321-submitprompt-is-still-only-effectively-single-flight-and-the-identity-clear-does-not-make-it-structural) | `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural | split out of §312 on closing it | S | open |
 | [§322](#322-the-asset-library-offers-insert-on-a-refused-format-row-which-can-only-ever-render-as-blocked--closed-2026-09-14) | The asset library offers Insert on a refused-format row, which can only ever render as blocked | found 2026-08-31 in the §230 cold review | S | **CLOSED** 2026-09-14 |
 | [§323](#323-the-single-task-delete-is-the-one-entity-delete-that-never-arms-the-destructive-save-bypass--closed-2026-09-14) | The single-task delete is the one entity delete that never arms the destructive-save bypass | found 2026-08-31, closing §303 | S | **CLOSED** 2026-09-14 |
@@ -26865,14 +26865,24 @@ inverts the current design, in which the heading is the single source of truth f
 and would let a stale table row disagree with a heading forever. Whoever takes this should decide
 which of those two properties is worth more before writing code.
 
-## 320. The HTML and PDF exports tell the reader a policy-refused image's data is gone
+## 320. The HTML and PDF exports tell the reader a policy-refused image's data is gone — CLOSED 2026-09-26
 
-**Status:** OPEN. Filed 2026-08-31 from the §230 fix round — the disclosure §230 closed for the
-PREVIEW is still wrong in HTML and PDF, by two independent routes. Disclosure only: no data is lost,
-and nothing renders that the upload policy forbids. Reproduced 2026-08-31 by
-`grep -nE "^\s+(omitted|missing)\.add" src/app/document-export-assets.ts`.
-
-**Work item:** #235
+**Status:** CLOSED 2026-09-26 on `fix/defect-batch-7` — both HTML/PDF sites, plus the OOXML half.
+`ExportAssets` gained a fourth bucket, `blocked` (bytes present, stored mime refused by
+`isBlockedAssetMime`; an EMPTY mime is still not refused, §225). `loadExportAssets` takes an
+`isBlocked` predicate asked AFTER the null-row check and BEFORE `isRenderable` and the budget, so a
+refusal is never charged and never lands in `missing`; `assetPolicy` (`document-download.ts`) passes
+the same predicate to all four formats. Site two: `inlineDocumentImages` (`doc-render-html.ts`) now
+checks the bucket OR the stored mime FIRST and renders `<span data-asset-blocked>` with the escaped
+`assetExportBlocked` text ("[Image not shown — file type not allowed: name]"), so `assetSrcAttr` no
+longer sees a disallowed truthy mime and cannot fall through to `data-asset-missing` for it; the
+standalone stylesheet gained its own palette-safe `span[data-asset-blocked]` rule. The OOXML half the
+cold review split off below (a refused image read like a budget omission) is fixed in the same
+change: DOCX and PPTX `withImagePlaceholders` choose the text through one helper,
+`assetExportPlaceholder` (`asset-export-placeholder.ts`), from metadata. The body below is the
+dated record as filed. Reproduce the routing now with
+`grep -nE "^\s+(omitted|missing|blocked)\.add" src/app/document-export-assets.ts` — one
+`blocked.add` beside the one `omitted.add` and two `missing.add`.
 
 ★★★ **THIS ENTRY WAS FILED AS "EVERY EXPORT SINK" AND THAT WAS WRONG — corrected 2026-08-31 by cold
 review, in the same round that filed it.** DOCX and PPTX do NOT say the data is gone:

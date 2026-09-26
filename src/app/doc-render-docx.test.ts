@@ -1249,6 +1249,14 @@ describe("renderDocumentDocx — S3c-1 image placeholders", () => {
     expect(text).toContain(t("en-US", "assetExportPlaceholder", "sunset.png"));
   });
 
+  it("says the file type was refused, not the generic placeholder, for a blocked mime (§320)", async () => {
+    const wsWithAsset = { ...ws, documentAssets: [{ ...assetMeta("a1", "diagram.svg"), mime: "image/svg+xml" }] } as Workspace;
+    const [d, w] = docWithImage('<p><img data-asset-id="a1"></p>', wsWithAsset);
+    const text = await textOf(d, w);
+    expect(text).toContain(t("en-US", "assetExportBlocked", "diagram.svg"));
+    expect(text).not.toContain(t("en-US", "assetExportPlaceholder", "diagram.svg"));
+  });
+
   it("does not drop the paragraph the image sat in — surrounding text survives in the SAME paragraph", async () => {
     const wsWithAsset = { ...ws, documentAssets: [assetMeta("a1", "sunset.png")] } as Workspace;
     const [d, w] = docWithImage('<p>Before <img data-asset-id="a1"> After</p>', wsWithAsset);
@@ -1315,7 +1323,7 @@ describe("renderDocumentDocx — S3c-2 embedded images", () => {
   const inlinedAssets = (map: Record<string, string>): ExportAssets => ({
     inlined: map,
     omitted: new Set(),
-    missing: new Set(),
+    missing: new Set(), blocked: new Set(),
   });
 
   const mediaPaths = (zip: Map<string, Uint8Array>): string[] =>
@@ -1357,7 +1365,7 @@ describe("renderDocumentDocx — S3c-2 embedded images", () => {
   it("keeps the placeholder when the asset was OMITTED by the budget", async () => {
     const zip = await unzipBytes(renderDocumentDocx(
       imageDoc(`<p><img data-asset-id="a1"></p>`), wsWith(), "en-US",
-      { inlined: {}, omitted: new Set(["a1"]), missing: new Set() },
+      { inlined: {}, omitted: new Set(["a1"]), missing: new Set(), blocked: new Set() },
     ));
     expect(mediaPaths(zip)).toHaveLength(0);
     expect(partText(zip, "word/document.xml")).toContain("chart.png");
