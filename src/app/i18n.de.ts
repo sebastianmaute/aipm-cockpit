@@ -478,6 +478,8 @@ export const de: Record<TranslationKey, string> = {
   bulkEditCount: "Sammelbearbeitung ({0})",
   bulkApplyCount: "Auf {0} anwenden",
   bulkEditNoFields: "Mindestens ein Feld zum Aktualisieren auswählen.",
+  bulkEditChangeField: "{0} ändern",
+  bulkEditNewValue: "Neuer Wert für {0}",
   bulkEditDoneOne: "1 Aufgabe aktualisiert.",
   bulkEditDone: "{0} Aufgaben aktualisiert.",
   bulkEditNoChanges:

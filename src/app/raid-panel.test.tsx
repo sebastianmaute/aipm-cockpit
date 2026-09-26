@@ -522,15 +522,10 @@ describe("RAID bulk edit", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", "Vendor risk") }));
     // open the bulk panel
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
-    // enable Severity + set it to High. The id lookup is belt-and-braces since
-    // §261: the toolbar filter used to share this select's accessible name and
-    // no longer does ("raidFilterSeverity"), so the query resolves uniquely
-    // today — but the bulk select still shares it with the sortable-header
-    // BUTTON, so keep the id in case a future control lands in this role.
-    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "raidSeverity") }));
-    const bulkSeverity = screen
-      .getAllByRole("combobox", { name: t("en-US", "raidSeverity") })
-      .find((el) => el.id === "bulk-severity")!;
+    // enable Severity + set it to High (§277: the bulk select has its own name).
+    const severity = t("en-US", "raidSeverity");
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "bulkEditChangeField", severity) }));
+    const bulkSeverity = screen.getByRole("combobox", { name: t("en-US", "bulkEditNewValue", severity) });
     fireEvent.change(bulkSeverity, { target: { value: "High" } });
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkApplyCount", "1") }));
 
@@ -593,10 +588,10 @@ describe("RAID bulk edit", () => {
       fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", title) }));
     }
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
-    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "raidOwner") }));
-    const bulkOwner = screen
-      .getAllByRole("combobox", { name: t("en-US", "raidOwner") })
-      .find((el) => el.id === "bulk-owner")!;
+    // §277: the bulk select has its own name.
+    const owner = t("en-US", "raidOwner");
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "bulkEditChangeField", owner) }));
+    const bulkOwner = screen.getByRole("combobox", { name: t("en-US", "bulkEditNewValue", owner) });
     fireEvent.change(bulkOwner, { target: { value: "7" } });
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkApplyCount", "3") }));
 
@@ -773,10 +768,10 @@ describe("RAID bulk edit undo — real useResourcePlanner + real useUndoStack", 
       fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", title) }));
     }
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
-    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "raidSeverity") }));
-    const bulkSeverity = screen
-      .getAllByRole("combobox", { name: t("en-US", "raidSeverity") })
-      .find((el) => el.id === "bulk-severity")!;
+    // §277: the bulk select has its own name.
+    const severity = t("en-US", "raidSeverity");
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "bulkEditChangeField", severity) }));
+    const bulkSeverity = screen.getByRole("combobox", { name: t("en-US", "bulkEditNewValue", severity) });
     fireEvent.change(bulkSeverity, { target: { value: "High" } });
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkApplyCount", "3") }));
 

@@ -502,6 +502,8 @@ const enUS = {
   bulkEditCount: "Bulk edit ({0})",
   bulkApplyCount: "Apply to {0}",
   bulkEditNoFields: "Tick at least one field to update.",
+  bulkEditChangeField: "Change {0}",
+  bulkEditNewValue: "New {0}",
   bulkEditDoneOne: "Updated 1 task.",
   bulkEditDone: "Updated {0} tasks.",
   // The apply wrote nothing because there was nothing to write. Same reasoning

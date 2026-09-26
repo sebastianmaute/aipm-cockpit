@@ -508,7 +508,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§274](#274-budget-paneltsxs-bucket-card-map-is-the-block-the-panel-split-convention-prescribes-extracting) | `budget-panel.tsx`'s bucket-card map is the block the panel-split convention prescribes extracting | found 2026-08-28 | M | open |
 | [§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary) | `use-insight-recommendations.ts` was coverage-excluded under a glue rationale, and one of its callbacks is a security boundary | found 2026-08-28 | S | open |
 | [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives--the-one-real-defect-it-named-fixed-2026-08-31--closed-2026-08-31) | The row-name surface scan: the GAP files with no asserting test, and the sites where nothing per-row survives — the one REAL defect it named FIXED 2026-08-31 | scan 2026-08-28 | L | **CLOSED** 2026-08-31 |
-| [§277](#277-bulk-edit-field-labels-reuse-the-column-header-keys-in-four-panels--the-261-shape-on-a-different-pair) | Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair | found 2026-08-28 | M | open |
+| [§277](#277-bulk-edit-field-labels-reuse-the-column-header-keys-in-four-panels--the-261-shape-on-a-different-pair--closed-2026-09-26) | Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair | found 2026-08-28 | M | **CLOSED** 2026-09-26 |
 | [§278](#278-two-of-the-five-column-toggle-consumers-got-the-fix-with-no-panel-level-regression-pin--closed-2026-09-26) | Two of the five column-toggle consumers got the fix with no panel-level regression pin | found 2026-08-28 | S | **CLOSED** 2026-09-26 |
 | [§279](#279-controlnames-reads-aria-label--textcontent-not-the-accessible-name--an-input-reports-the-empty-string) | `controlNames` reads `aria-label || textContent`, not the accessible name — an `<input>` reports the empty string | found 2026-08-28 | M | open |
 | [§280](#280-matchdelimiters-counts-brackets-without-skipping-strings-or-comments--the-class-that-just-bit-scanopentag--closed-2026-09-26) | `matchDelimiters` counts brackets without skipping strings or comments — the class that just bit `scanOpenTag` | found 2026-08-28 | S | **CLOSED** 2026-09-26 |
@@ -22409,7 +22409,7 @@ grep -rln "ColumnConfigPopover" src/app --include=*.tsx | grep -v test | grep -v
 
 ★★ **RESIDUAL, disclosed and given its own number rather than left here:** the BULK-EDIT field
 labels reuse the same column-header keys in four panels, which is this entry's shape on a different
-control pair, and nothing in this slice touched it. See [§277](#277-bulk-edit-field-labels-reuse-the-column-header-keys-in-four-panels--the-261-shape-on-a-different-pair).
+control pair, and nothing in this slice touched it. See [§277](#277-bulk-edit-field-labels-reuse-the-column-header-keys-in-four-panels--the-261-shape-on-a-different-pair--closed-2026-09-26).
 
 ★ **`milestones-panel.tsx` and `tasks-section.tsx` received the third leg without a panel-level
 regression pin** — the shared `column-config-popover.test.tsx` covers the mechanism, and only the
@@ -23661,14 +23661,27 @@ someone reached for the shared helper, never that they fed it a fixture capable 
 zero-row fixture, and `requireCollisionSeed` is the opt-in guard that closes exactly this gap. A
 strong-marker `COVERED` on a collision-free fixture certifies nothing.
 
-## 277. Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair
+## 277. Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair — CLOSED 2026-09-26
 
-**Status:** open. Found 2026-08-28 while closing
-[§261](#261-toolbar-filter-vs-sortable-header-name-collisions-systemic-7-pairs-across-3-panels--closed-2026-08-28), by
-asking whether that entry's filter/header pairing was the only pair sharing a key in the panels it
-touched. It is not, and this half was never in anyone's brief. Never machine-verified by a committed probe.
-
-**Work item:** #217
+**Status:** CLOSED 2026-09-26 on `fix/defect-batch-7` — one qualifier pair (`bulkEditChangeField` /
+`bulkEditNewValue`) added inside the shared `bulk-edit-panel.tsx` (the shape this entry recommended),
+so every `bulkFields` consumer is fixed at once. The enable checkbox is now named `t(lang,
+"bulkEditChangeField", f.label)` and the value control `t(lang, "bulkEditNewValue", f.label)`, both
+distinct from the bare column-header label. The DOM-id disambiguation workaround
+(`.find((el) => el.id === "bulk-…")`) is removed from all four affected test files
+(`stakeholders-panel.test.tsx`, `change-panel.test.tsx`, `raid-panel.test.tsx`,
+`milestones-panel.test.tsx`) now that the queries resolve uniquely by name. Pinned by
+`bulk-edit.test.tsx`'s "names the enable checkbox 'Change …' and the value control 'New …' (§277)"
+and `stakeholders-panel.test.tsx`'s "keeps the bulk controls' names apart from the column headers
+they share a label with (§277)", mutation-checked: M1 (drop the checkbox `aria-label`) died on
+`TestingLibraryElementError: Unable to find an accessible element with the role "checkbox" and name
+"Change Status"` (the checkbox falls back to its bare `<label>` name); M2 (`ariaLabel: f.label` in
+`BulkEditPanel`) died on `queryAllByRole("combobox", { name: "Status" })` returning length 1 instead
+of 0; M3 (`aria-label={label}` in `selectField` only) died the same way as M1 but for the value
+control (`Unable to find … role "combobox" and name "New Status"`). The row-unique-name helper
+(`expectRowUniqueNames`) runs over `BulkEditPanel` alone; the header collision this entry named is
+pinned separately, by the stakeholders test's `within(panel)` name queries against the column-header
+labels.
 
 Each panel's `bulkFields` list labels its fields with the SAME i18n keys its `SortResizeTh` columns
 use. `bulk-edit-panel.tsx` then spends each label TWICE — on the field's enable checkbox (via a
