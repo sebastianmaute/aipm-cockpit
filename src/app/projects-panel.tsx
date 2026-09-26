@@ -26,7 +26,7 @@
 // local state is which modal is open and (in create mode) the chosen file
 // format for the new project.
 
-import { useId, useMemo, useRef, useState } from "react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { type Contact } from "./contacts";
 import { CreateProjectWizard } from "./create-project-wizard";
 import { type ExportFormat } from "./export";
@@ -42,9 +42,9 @@ import { ResetSizeButton } from "./task-manager-ui";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { useConfirm } from "./confirm-dialog";
 import { useFsaSupported } from "./use-fsa-supported";
-import { usePopoverDismiss } from "./use-popover-dismiss";
 import { useResizable } from "./use-resizable";
-import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
+import { CENTERED_WIDE_PANE_CLASS } from "./view-styles";
+import { PopoverPanel } from "./popover-panel";
 import { EmptyState } from "./empty-state";
 import { Button } from "./button";
 import { ToggleButton } from "./toggle-button";
@@ -206,8 +206,11 @@ export function ProjectsPanel({
   );
   const { ref: paneSizeRef, reset: resetPaneSize } = useResizable("aipm-cockpit:projects-pane-size");
   const [exportMenuId, setExportMenuId] = useState<string | null>(null);
-  const exportMenuRef = useRef<HTMLDivElement>(null);
-  usePopoverDismiss(exportMenuId !== null, exportMenuRef, () => setExportMenuId(null));
+  // Portaled + `fixed` (PopoverPanel) so the project list's `overflow-auto`
+  // scroller cannot clip the lower formats, and it flips above the trigger when
+  // there is no room below. `onClose` must be stable for PopoverPanel.
+  const exportTriggerRef = useRef<HTMLButtonElement>(null);
+  const closeExportMenu = useCallback(() => setExportMenuId(null), []);
   const [showArchived, setShowArchived] = useState(false);
   const [hardDeleteTarget, setHardDeleteTarget] =
     useState<ProjectRegistryEntry | null>(null);
@@ -287,7 +290,7 @@ export function ProjectsPanel({
   };
 
   return (
-    <div ref={paneSizeRef} className={`${CENTERED_HALF_PANE_CLASS} text-foreground`}>
+    <div ref={paneSizeRef} className={`${CENTERED_WIDE_PANE_CLASS} text-foreground`}>
       {/* Header --------------------------------------------------------- */}
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
         <h2 className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">
@@ -471,39 +474,39 @@ export function ProjectsPanel({
                             {t(lang, "projectsEdit")}
                           </Button>
 
-                          <div className="relative" ref={exportMenuRef}>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() =>
-                                setExportMenuId((cur) => (cur === p.id ? null : p.id))
-                              }
-                              aria-haspopup="menu"
-                              aria-expanded={exportMenuId === p.id}
-                            >
-                              {t(lang, "projectsExport")}
-                            </Button>
-                            {exportMenuId === p.id && (
-                              <ul
-                                role="menu"
-                                className="absolute right-0 z-20 mt-1 w-40 overflow-hidden rounded-md border border-line bg-surface shadow-[var(--shadow-control)]"
+                          <Button
+                            ref={exportTriggerRef}
+                            variant="secondary"
+                            size="sm"
+                            onClick={() =>
+                              setExportMenuId((cur) => (cur === p.id ? null : p.id))
+                            }
+                            aria-haspopup="menu"
+                            aria-expanded={exportMenuId === p.id}
+                          >
+                            {t(lang, "projectsExport")}
+                          </Button>
+                          <PopoverPanel
+                            open={exportMenuId === p.id}
+                            anchorRef={exportTriggerRef}
+                            onClose={closeExportMenu}
+                            role="menu"
+                            ariaLabel={t(lang, "projectsExport")}
+                            className="flex w-40 flex-col overflow-hidden py-1 shadow-[var(--shadow-control)]"
+                          >
+                            {EXPORT_FORMATS.map((fmt) => (
+                              <Button
+                                key={fmt}
+                                variant="ghost"
+                                size="sm"
+                                role="menuitem"
+                                onClick={() => handleExport(fmt)}
+                                className="block w-full text-left"
                               >
-                                {EXPORT_FORMATS.map((fmt) => (
-                                  <li key={fmt} role="none">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      role="menuitem"
-                                      onClick={() => handleExport(fmt)}
-                                      className="block w-full text-left"
-                                    >
-                                      {EXPORT_FORMAT_LABEL[fmt]}
-                                    </Button>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
+                                {EXPORT_FORMAT_LABEL[fmt]}
+                              </Button>
+                            ))}
+                          </PopoverPanel>
 
                         </>
                       ) : (

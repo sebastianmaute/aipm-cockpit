@@ -26,6 +26,16 @@ export const VIEW_PANE_RESIZABLE_CLASS =
 export const CENTERED_HALF_PANE_CLASS =
   "relative mx-auto flex h-[50%] max-h-full min-h-[360px] w-[50%] min-w-[420px] flex-col overflow-hidden rounded-xl border border-line bg-surface p-6 resize";
 
+/** `CENTERED_HALF_PANE_CLASS` with the width taken from the available space
+ *  instead of half of it: full width up to a readable cap of 64rem. Used by
+ *  Projects, whose card row carries a name, code, badge and actions that were
+ *  wrapping inside a half-width column while the rest of the page sat empty.
+ *  A size the user DRAGGED still wins — `useResizable` writes it inline —
+ *  and the cap lives in the `width` value rather than a `max-width` for exactly
+ *  that reason: a `max-w-*` would clamp an inline drag wider than the cap. */
+export const CENTERED_WIDE_PANE_CLASS =
+  "relative mx-auto flex h-[50%] max-h-full min-h-[360px] w-[min(100%,64rem)] min-w-[420px] flex-col overflow-hidden rounded-xl border border-line bg-surface p-6 resize";
+
 /** Centered, half-width pane that grows with its content but never exceeds the
  *  viewport (then its body scrolls), AND is user-resizable: the default height
  *  tracks the content, but the bottom-right corner drags to a custom size (the
