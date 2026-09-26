@@ -84,7 +84,9 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
     // becomes GENUINELY true. Just refreshing the baseline would make the next pull
     // see baseline===date and silently auto-apply the Outlook date the user rejected.
     const item = items.find((x) => x.id === c.id);
-    if (!item) return;
+    // §486 — never PATCH the event of an item the user opted out: it is left in
+    // Outlook exactly as it is (a stale summary row could still offer it).
+    if (!item || item.calendarOptOut === true) return;
     const token = await acquireToken(CALENDAR_READWRITE_SCOPE, { interactive: true }).catch(() => null);
     if (!token) { showToast("error", t(lang, "calendarPushNoAccess")); return; }
     try {
@@ -123,7 +125,9 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
       // `onBackgroundApply` and the manual summary modal.
       if (dropStaleScopeWrite(getScopeEpoch, startEpoch, "useEntityCalendarPull", { entityType, background: !!background })) return;
       const baseline = loadBaseline(projectId, entityType);
-      const pullable = isPullable ? items.filter(isPullable) : items;
+      // §486 — an opted-out item keeps its event but the app never follows it:
+      // no auto-apply, no conflict row, no prune, no baseline self-heal.
+      const pullable = items.filter((i) => i.calendarOptOut !== true && (!isPullable || isPullable(i)));
       const entities = pullable
         .map((i) => ({ id: i.id, date: getDate(i) ?? "", endDate: getEndDate?.(i), outlookEventId: i.outlookEventId }))
         .filter((e) => e.date);

@@ -446,3 +446,43 @@ describe("useEntityCalendarPull — the scope epoch (§548)", () => {
     expect(onBackgroundApply).toHaveBeenCalledWith(1);
   });
 });
+
+// §486 fix round 1 (I1) — an opted-out item keeps its Outlook event but the
+// app must never follow it (pull) nor converge it (Keep app date → PATCH).
+describe("useEntityCalendarPull — an opted-out item is never pulled or PATCHed (§486)", () => {
+  const moved = () => { mockEvents([{ id: "evt", date: "2026-07-10" }]); };
+  it("CONTROL: the same moved event IS applied for an opted-in item", async () => {
+    moved();
+    loadBaseline.mockReturnValue({ evt: "2026-07-01" });
+    const { result } = renderPullOpts([{ id: 1, outlookEventId: "evt", d: "2026-07-01" }], { background: true });
+    await act(async () => { await result.current.pull(); });
+    expect(setItems).toHaveBeenCalledTimes(1);
+  });
+  it("background: no auto-apply, no baseline write, no conflict toast", async () => {
+    moved();
+    loadBaseline.mockReturnValue({ evt: "2026-07-01" });
+    const onBackgroundApply = vi.fn();
+    const { result } = renderPullOpts(
+      [{ id: 1, outlookEventId: "evt", d: "2026-07-01", calendarOptOut: true }],
+      { background: true, onBackgroundApply },
+    );
+    await act(async () => { await result.current.pull(); });
+    expect(setItems).not.toHaveBeenCalled();
+    expect(writeBaselineDate).not.toHaveBeenCalled();
+    expect(onBackgroundApply).not.toHaveBeenCalled();
+    expect(showToast).not.toHaveBeenCalled();
+  });
+  it("manual: a conflicting move is not offered (no summary rows)", async () => {
+    moved();
+    loadBaseline.mockReturnValue({ evt: "2026-07-03" }); // both sides moved → a conflict when opted in
+    const { result } = renderPull([{ id: 1, outlookEventId: "evt", d: "2026-07-01", calendarOptOut: true }]);
+    await act(async () => { await result.current.pull(); });
+    expect(result.current.result).toBeNull();
+  });
+  it("keepApp never PATCHes an opted-out item's event", async () => {
+    const { result } = renderPull([{ id: 1, outlookEventId: "evt", d: "2026-07-05", calendarOptOut: true }]);
+    await act(async () => { await result.current.keepApp({ id: 1, eventId: "evt", appDate: "2026-07-05" }); });
+    expect(updateEvent).not.toHaveBeenCalled();
+    expect(writeBaselineDate).not.toHaveBeenCalled();
+  });
+});

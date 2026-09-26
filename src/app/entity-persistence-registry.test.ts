@@ -769,3 +769,27 @@ describe("entity persistence registry — calendarOptOut (§486)", () => {
     });
   });
 });
+
+// §486 fix round 1 (minor a) — only a literal `true` opts an item out, on EVERY
+// load path. Task and RAID rows skip a record sanitizer on JSON load, so a
+// hand-edited "false" string used to survive as a truthy opt-out.
+describe("entity persistence registry — a non-literal calendarOptOut loads as unset (§486)", () => {
+  const bogus = (): Workspace => {
+    const ws = calendarOptOutWorkspace();
+    const b = (x: unknown) => ({ ...(x as object), calendarOptOut: "false" }) as never;
+    return {
+      ...ws,
+      tasks: ws.tasks.map(b), raid: ws.raid.map(b), milestones: (ws.milestones ?? []).map(b),
+      changes: (ws.changes ?? []).map(b), absences: ws.absences.map(b),
+    };
+  };
+  const UNSET = { task: [undefined, undefined], raid: [undefined, undefined], milestone: [undefined, undefined], change: [undefined, undefined], absence: [undefined, undefined] };
+  it("JSON drops a \"false\" string on all five entities", () => {
+    expect(readCalendarOptOuts(jsonToWorkspace(JSON.stringify(bogus())))).toEqual(UNSET);
+  });
+  it("CSV writes an explicit false as an empty cell, not \"false\"", () => {
+    const ws = calendarOptOutWorkspace();
+    const withFalse: Workspace = { ...ws, tasks: [...ws.tasks, { ...ws.tasks[1], id: 3, calendarOptOut: false }] };
+    expect(workspaceToCsv(withFalse)).not.toMatch(/,false(,|\r?\n)/);
+  });
+});

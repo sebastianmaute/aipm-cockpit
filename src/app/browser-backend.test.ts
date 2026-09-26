@@ -410,6 +410,22 @@ describe("BrowserBackend parallel IDB save/load", () => {
       await backend.save(calendarOptOutWorkspace());
       expect(readCalendarOptOuts(await backend.load())).toEqual(EXPECTED_CALENDAR_OPT_OUTS);
     });
+
+    // Fix round 1 (minor a) — every register is cast verbatim here, so the
+    // load must drop a non-literal flag itself.
+    it("drops a non-literal calendarOptOut on load, on all five entities", async () => {
+      const ws = calendarOptOutWorkspace();
+      const b = (x: unknown) => ({ ...(x as object), calendarOptOut: "false" }) as never;
+      await new BrowserBackend().save({
+        ...ws, tasks: ws.tasks.map(b), raid: ws.raid.map(b), milestones: (ws.milestones ?? []).map(b),
+        changes: (ws.changes ?? []).map(b), absences: ws.absences.map(b),
+      });
+      const back = readCalendarOptOuts(await new BrowserBackend().load());
+      expect(back).toEqual({
+        task: [undefined, undefined], raid: [undefined, undefined], milestone: [undefined, undefined],
+        change: [undefined, undefined], absence: [undefined, undefined],
+      });
+    });
   });
 
   // Nested so it inherits the outer beforeEach's fresh-IDB-per-test reset.

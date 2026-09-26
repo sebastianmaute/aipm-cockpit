@@ -141,3 +141,27 @@ describe("useMilestoneCalendarPull — the scope epoch (§548)", () => {
     expect(removeBaselineEntry).toHaveBeenCalledWith("p", "milestone", "evt");
   });
 });
+
+// §486 fix round 1 (I1) — an opted-out milestone keeps its Outlook event but is
+// never pulled, never offered, and never PATCHed by "Keep app date".
+describe("useMilestoneCalendarPull — an opted-out milestone is never pulled or PATCHed (§486)", () => {
+  it("CONTROL: a moved event is offered for an opted-in milestone", async () => {
+    mockEvents([{ id: "evt", date: "2026-07-10" }]);
+    const { result } = renderPull([ms(1, { outlookEventId: "evt", date: "2026-07-01" })]);
+    await act(async () => { await result.current.pull(); });
+    expect(result.current.result).not.toBeNull();
+  });
+  it("a moved event on an opted-out milestone yields no apply and no summary rows", async () => {
+    mockEvents([{ id: "evt", date: "2026-07-10" }]);
+    const { result } = renderPull([ms(1, { outlookEventId: "evt", date: "2026-07-01", calendarOptOut: true })]);
+    await act(async () => { await result.current.pull(); });
+    expect(setMilestones).not.toHaveBeenCalled();
+    expect(writeBaselineDate).not.toHaveBeenCalled();
+    expect(result.current.result).toBeNull();
+  });
+  it("keepApp never PATCHes an opted-out milestone's event", async () => {
+    const { result } = renderPull([ms(1, { outlookEventId: "evt", date: "2026-07-05", calendarOptOut: true })]);
+    await act(async () => { await result.current.keepApp({ id: 1, eventId: "evt", appDate: "2026-07-05" }); });
+    expect(updateEvent).not.toHaveBeenCalled();
+  });
+});

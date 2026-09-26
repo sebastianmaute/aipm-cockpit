@@ -5,7 +5,7 @@
 // storage.ts (which re-exports everything).
 
 import { defaultResourcePlan } from "./resource-foundation";
-import { sanitizeLoadedProjectMeta, sanitizeSteeringCommittee, withNormalizedEmailField, withNormalizedResourceEmails } from "./sanitize";
+import { sanitizeLoadedProjectMeta, sanitizeSteeringCommittee, withNormalizedEmailField, withNormalizedResourceEmails, withLiteralCalendarOptOut } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
@@ -393,6 +393,12 @@ export class BrowserBackend implements StorageBackend {
     raid = raid.map((r) => withNormalizedEmailField(r, "ownerEmail"));
     stakeholders = stakeholders.map((s) => withNormalizedEmailField(s, "email"));
     resources = resources.map((r) => withNormalizedResourceEmails(r));
+    // §486 — only a literal `true` opts out; every one of these five is cast verbatim here.
+    tasks = tasks.map(withLiteralCalendarOptOut);
+    raid = raid.map(withLiteralCalendarOptOut);
+    absences = absences.map(withLiteralCalendarOptOut);
+    milestones = milestones.map(withLiteralCalendarOptOut);
+    changes = changes.map(withLiteralCalendarOptOut);
     const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders };
     if (project) raw.project = project;
     if (fieldVisibility) raw.fieldVisibility = fieldVisibility;

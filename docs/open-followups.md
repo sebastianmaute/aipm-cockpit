@@ -37134,9 +37134,10 @@ Size S.
 
 ## 486. ~~Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync~~ — CLOSED 2026-09-26
 
-**Status:** CLOSED 2026-09-26 — shipped in two commits on `fix/defect-batch-6`: `affd7bb3e` (the
-data model, the planners, the prune and all six write paths) and the commit that closes this entry
-(the "Sync to Outlook" checkbox in the five editors). Re-check with
+**Status:** CLOSED 2026-09-26 — shipped in three commits on `fix/defect-batch-6`: `affd7bb3e` (the
+data model, the planners, the prune and all six write paths), `c674fc18e` (the "Sync to Outlook"
+checkbox in the five editors) and a review fix round (the pulls, the push inputs, undo, and the
+literal-`true` load rule — the ★★★ paragraph below). Re-check with
 `grep -n "calendarOptOut" src/app/calendar-reconcile.ts src/app/use-entity-calendar-pull.ts src/app/use-milestone-calendar-pull.ts`.
 Unit-verified and mutation-proved; still NOT machine-verified against a live Outlook calendar.
 
@@ -37175,10 +37176,30 @@ sync is configured. Unticking sets the flag; re-ticking clears it, and the auto-
 include the flag so the re-create is pushed at once. ★★ The axe gate never renders it: the e2e seed
 configures no M365, so the component and modal unit tests are its only coverage.
 
-**Known gap (not filed):** an opted-out, still-linked item that later drops out of the PUSHABLE
-set (a task finished, a RAID item closed, an absence in the past) is no longer in the planner's
-input, so its event is deleted as before. That is the existing pushable-set behaviour, which this
-fix does not change.
+★★★ **"Opted out but still linked" is a NEW state, and the review round closed the three paths it
+leaked through.** Before this fix a prune cleared the link, so no opted-out item held one; unticking
+the checkbox now creates exactly that item.
+- **The pulls.** `useEntityCalendarPull` and `useMilestoneCalendarPull` drop opted-out items from
+  the pull input (no auto-apply, no conflict row, no prune, no baseline write), and `keepApp` refuses
+  one, so "Keep app date" can never PATCH the event the user chose to leave alone.
+- **The push inputs.** A push DELETES every listed event the planner does not keep, so an opted-out
+  item that LEAVES the synced set (task done, RAID closed, change undated, absence past) used to lose
+  its event. `calendar-pushable.ts` now keeps an opted-out item with a link in all four inputs
+  (`use-calendar-integrations.ts` and `tasks-section.tsx`), where the planner keeps its id. Milestones
+  were never affected: their push passes every milestone.
+- **Undo.** `calendarOptOut` is in `WRITE_THROUGH_FIELDS`, because the prune writes it on a row nobody
+  is editing. A whole-row undo captured before a prune therefore keeps the live flag beside the live
+  cleared link, instead of restoring an unlinked, opted-in item that the next auto-push re-creates.
+  ★ The cost that file already documents applies: a whole-row undo of an editor save that toggled
+  the checkbox leaves the toggle applied. The task editor's field-diff capture is not affected.
+
+★ **Only a literal `true` opts out, on every path.** The planners test `=== true`, and the load
+paths that cast rows instead of sanitizing them (JSON tasks and RAID, every IndexedDB register) run
+`withLiteralCalendarOptOut` (`sanitize-core.ts`), so a hand-edited `"false"` syncs the item as before.
+
+**Pre-existing race, not fixed:** a background prune that lands while that item's editor is open is
+overwritten by the save's draft, which restores the stale link and an unset flag. This is the same
+class as `outlookEventId`'s write-through race and is not specific to this fix.
 
 **Source:** `docs/superpowers/plans/2026-07-02-calendar-twoway-sp5-autopull.md`, `docs/tech-debt-register.md` (TD-3); audit candidate 9
 

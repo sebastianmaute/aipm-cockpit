@@ -88,6 +88,11 @@ describe("calendarOptOut (§486)", () => {
     expect(p.update).toEqual([]);
     expect(p.delete).toEqual(["E9"]);
   });
+  it("only a literal true opts out — a truthy string does not (§486 fix round 1)", () => {
+    const bogus = { id: 1, calendarOptOut: "false" as unknown as boolean };
+    expect(planEntityReconcile([bogus], []).create).toHaveLength(1);
+    expect(planCalendarReconcile([ms(1, { calendarOptOut: "false" as unknown as boolean })], []).create).toHaveLength(1);
+  });
   it("an item that opts back in is created again", () => {
     expect(planEntityReconcile([{ id: 1, calendarOptOut: false }], []).create).toHaveLength(1);
     expect(planCalendarReconcile([ms(1, { calendarOptOut: false })], []).create).toHaveLength(1);

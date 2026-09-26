@@ -751,6 +751,8 @@ const EXPECTED_UNDECLARED_FINDINGS: Ledger = {
     { subject: "task.jiraKey", kind: "dead" },
     // §467 — the create arm's oracle-envelope restamp (sent 5, held 1).
     { subject: "task.resourceId", kind: "unmeasured" },
+    // §486 — see the raid:update entry; measured by "calendarOptOut survives every update_*".
+    { subject: "task.calendarOptOut", kind: "unmeasured" },
   ],
   "raid:create": [
     // §467 — not seeded, because no value is one the column can hold through
@@ -762,10 +764,16 @@ const EXPECTED_UNDECLARED_FINDINGS: Ledger = {
   "raid:update": [
     // §467 — not seeded, for the create arm's reason above.
     { subject: "raid.noteLog", kind: "dead" },
-    // §486 — a probe SHAPE, not a seed: the seeded `calendarOptOut` is `true`,
-    // the only value the sanitizer stores (an absent key IS "syncs"), so the one
-    // differing probe is `false`, which it never stores — `resource.active`'s
-    // shape. The create arm DOES measure it (a `true` probe, stripped).
+    // §486 — `unmeasured` is the HARNESS's choice, not something the column
+    // forces. The seed is `true`, so the only differing probe is `false`, and
+    // `admitProbe` refuses a probe the writer's own sanitizer reshapes (it
+    // stores nothing but a literal `true`). That refusal hides a REAL
+    // difference: were the `patchWithoutId` strip missing, a `false` probe
+    // would CLEAR the seeded `true` — the model silently re-enabling sync. So
+    // the update arm is measured directly instead, by "calendarOptOut survives
+    // every update_* (§486)" at the end of this file. The create arm is
+    // measured here (a `true` probe, stripped). Same for all five entries — task's
+    // oracle reshapes `false` too, since its JSON load keeps only a literal `true`.
     { subject: "raid.calendarOptOut", kind: "unmeasured" },
   ],
   "change:create": [
@@ -777,24 +785,15 @@ const EXPECTED_UNDECLARED_FINDINGS: Ledger = {
   "change:update": [
     // §467 — not seeded, for the create arm's reason above.
     { subject: "change.noteLog", kind: "dead" },
-    // §486 — a probe SHAPE, not a seed: the seeded `calendarOptOut` is `true`,
-    // the only value the sanitizer stores (an absent key IS "syncs"), so the one
-    // differing probe is `false`, which it never stores — `resource.active`'s
-    // shape. The create arm DOES measure it (a `true` probe, stripped).
+    // §486 — see the raid:update entry; measured by "calendarOptOut survives every update_*".
     { subject: "change.calendarOptOut", kind: "unmeasured" },
   ],
   "milestone:update": [
-    // §486 — a probe SHAPE, not a seed: the seeded `calendarOptOut` is `true`,
-    // the only value the sanitizer stores (an absent key IS "syncs"), so the one
-    // differing probe is `false`, which it never stores — `resource.active`'s
-    // shape. The create arm DOES measure it (a `true` probe, stripped).
+    // §486 — see the raid:update entry; measured by "calendarOptOut survives every update_*".
     { subject: "milestone.calendarOptOut", kind: "unmeasured" },
   ],
   "absence:update": [
-    // §486 — a probe SHAPE, not a seed: the seeded `calendarOptOut` is `true`,
-    // the only value the sanitizer stores (an absent key IS "syncs"), so the one
-    // differing probe is `false`, which it never stores — `resource.active`'s
-    // shape. The create arm DOES measure it (a `true` probe, stripped).
+    // §486 — see the raid:update entry; measured by "calendarOptOut survives every update_*".
     { subject: "absence.calendarOptOut", kind: "unmeasured" },
   ],
   "stakeholder:update": [
@@ -1128,5 +1127,34 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
     // offered-surface axis" above, already rules out for a different reason.
     expect(landed, `${entity}: no declared field landed on a created row`).toBeGreaterThan(0);
     expectLedgerAgrees("B", entity, "create", findings);
+  });
+});
+
+// §486 fix round 1 — the update arm Relation A cannot probe (see the raid:update
+// ledger entry), measured directly on the real dispatch path. Two halves:
+//   (1) the model sends `calendarOptOut: false` → the seeded `true` survives
+//       (the strip holds; without it the flag would be CLEARED);
+//   (2) a legitimate update of another field keeps the stored `true` (the
+//       writer's merge + sanitizer carry it).
+describe("calendarOptOut survives every update_* (§486)", () => {
+  const OTHER: ReadonlyArray<[InlineEntity, string, string]> = [
+    ["task", "taskName", "Renamed by the model"],
+    ["raid", "title", "Renamed by the model"],
+    ["change", "title", "Renamed by the model"],
+    ["milestone", "name", "Renamed by the model"],
+    ["absence", "note", "Renamed by the model"],
+  ];
+  it.each(OTHER)("%s: a model-sent false does not clear the stored opt-out", async (entity) => {
+    const { before, stored, threw } = await updateWith(entity, "calendarOptOut", false);
+    expect(threw).toBeUndefined();
+    expect(before.calendarOptOut, "the seed must be opted out, or this proves nothing").toBe(true);
+    expect(stored.calendarOptOut).toBe(true);
+  });
+  it.each(OTHER)("%s: updating %s keeps the stored opt-out", async (entity, field, value) => {
+    const { before, stored, threw } = await updateWith(entity, field, value);
+    expect(threw).toBeUndefined();
+    expect(before.calendarOptOut).toBe(true);
+    expect(stored[field], "the update must land, or this proves nothing").toBe(value);
+    expect(stored.calendarOptOut).toBe(true);
   });
 });

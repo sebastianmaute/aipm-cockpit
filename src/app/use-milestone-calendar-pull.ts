@@ -44,7 +44,8 @@ export function useMilestoneCalendarPull({ milestones, projectId, setMilestones,
     // becomes GENUINELY true. Just refreshing the baseline would make the next pull
     // see baseline===date and silently auto-apply the Outlook date the user rejected.
     const m = milestones.find((x) => x.id === c.id);
-    if (!m) return;
+    // §486 — never PATCH an opted-out milestone's event (a stale summary row could offer it).
+    if (!m || m.calendarOptOut === true) return;
     const token = await acquireToken(CALENDAR_READWRITE_SCOPE, { interactive: true }).catch(() => null);
     if (!token) { showToast("error", t(lang, "calendarPushNoAccess")); return; }
     try {
@@ -73,8 +74,10 @@ export function useMilestoneCalendarPull({ milestones, projectId, setMilestones,
       // A swap started while Graph was answering; every write this pull makes is below this line.
       if (dropStaleScopeWrite(getScopeEpoch, startEpoch, "useMilestoneCalendarPull")) return;
       const baseline = loadBaseline(projectId, "milestone");
+      // §486 — an opted-out milestone keeps its event but is never followed.
+      const pullable = milestones.filter((m) => m.calendarOptOut !== true);
       const plan = planCalendarPull({
-        entities: milestones.map((m) => ({ id: m.id, date: m.date, outlookEventId: m.outlookEventId })),
+        entities: pullable.map((m) => ({ id: m.id, date: m.date, outlookEventId: m.outlookEventId })),
         events,
         baseline,
         eventsComplete: !truncated,
@@ -82,7 +85,7 @@ export function useMilestoneCalendarPull({ milestones, projectId, setMilestones,
       // auto-apply non-conflicting moves
       for (const a of plan.applies) applyMove(a.id, a.eventId, a.newDate);
       // self-heal baseline for events already in sync but missing a baseline
-      for (const m of milestones) {
+      for (const m of pullable) {
         if (m.outlookEventId) {
           const ev = events.find((e) => e.id === m.outlookEventId);
           if (ev && ev.date === m.date && baseline[m.outlookEventId] !== m.date) {

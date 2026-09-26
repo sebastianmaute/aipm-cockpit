@@ -11,8 +11,9 @@
 // ★★ MEMBERSHIP RULE, not a list of "important" fields: a field belongs here iff
 // some writer OTHER than an entity's own save handler can change it on a row that
 // is not being edited. Today that is the notes window (`noteLog`, on Task, RaidItem
-// and ChangeItem) and the background calendar push/pull (`outlookEventId`, on every
-// calendar-capable entity).
+// and ChangeItem), the background calendar push/pull (`outlookEventId`, on every
+// calendar-capable entity) and the pull's prune (`calendarOptOut`, §486 — written in
+// the same statement as `outlookEventId`, on the five calendar-pushed entities).
 //
 // ★★ THIS LIST IS THE BACKSTOP, NOT THE PRIMARY FIX. The bulk-edit sites capture
 // FIELD PATCHES and are immune by construction; what this protects is the paths
@@ -34,9 +35,10 @@
 // length forces that rather than letting it ride on an unrelated slot's type.
 import type { Absence, ChangeItem, CommitteeMeeting, Milestone, RaidItem, Task } from "../types";
 
-export const WRITE_THROUGH_FIELDS = ["noteLog", "outlookEventId"] as const satisfies readonly [
+export const WRITE_THROUGH_FIELDS = ["noteLog", "outlookEventId", "calendarOptOut"] as const satisfies readonly [
   keyof (Task | RaidItem | ChangeItem),
   keyof (Task | RaidItem | Milestone | ChangeItem | CommitteeMeeting | Absence),
+  keyof (Task | RaidItem | Milestone | ChangeItem | Absence),
 ];
 
 /** The same list as a lookup. DERIVED — never restate the members here.

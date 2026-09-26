@@ -164,6 +164,17 @@ export function withNormalizedEmailField<T extends object>(row: T, field: keyof 
   return next === value ? row : { ...row, [field]: next };
 }
 
+/** §486 — only a literal `true` opts an item out of Outlook sync. For the
+ *  load paths that cast rows instead of sanitizing them (JSON tasks and RAID,
+ *  every IndexedDB register): any other value is dropped, key and all, so the
+ *  item syncs as before. Same reference when nothing changes. */
+export function withLiteralCalendarOptOut<T extends { calendarOptOut?: boolean }>(row: T): T {
+  if (!("calendarOptOut" in row) || row.calendarOptOut === true) return row;
+  const out = { ...row };
+  delete out.calendarOptOut;
+  return out;
+}
+
 /** A loaded scalar email: unwrap `Name <addr>` FIRST, then trim + cap. The
  *  order is load-bearing — capping first can cut the closing `>` off a long
  *  `Name <addr>`, which would then be stored torn instead of unwrapped.

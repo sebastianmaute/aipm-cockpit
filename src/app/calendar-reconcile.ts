@@ -21,7 +21,7 @@ export function planCalendarReconcile(
     // unticking "Sync to Outlook"). Never create or update it; a still-linked
     // event is KEPT (not deleted) — the app never deletes an event the user
     // chose to leave in Outlook.
-    if (m.calendarOptOut) {
+    if (m.calendarOptOut === true) {
       if (m.outlookEventId) keptIds.add(m.outlookEventId);
       continue;
     }
@@ -63,7 +63,7 @@ export function planEntityReconcile<T extends HasEventLink>(
     // unticking "Sync to Outlook"). Never create or update it; a still-linked
     // event is KEPT (not deleted) — the app never deletes an event the user
     // chose to leave in Outlook.
-    if (it.calendarOptOut) {
+    if (it.calendarOptOut === true) {
       if (it.outlookEventId) keptIds.add(it.outlookEventId);
       continue;
     }

@@ -1335,3 +1335,28 @@ describe("useUndoStack — read-only (open-followups §91)", () => {
     expect(result.current.redoStack).toHaveLength(1);
   });
 });
+
+// §486 fix round 1 (I3) — the background prune writes `calendarOptOut` in the
+// same statement as `outlookEventId`, so a whole-row undo captured BEFORE a
+// prune must keep both live values. Restoring the captured `calendarOptOut:
+// undefined` beside the live cleared link would leave an unlinked, opted-in
+// item — and the next auto-push re-creates the event the user deleted.
+describe("whole-row undo keeps a concurrent prune (§486)", () => {
+  type CalRow = { id: number; name: string; outlookEventId?: string; calendarOptOut?: boolean };
+  it("keeps the live calendarOptOut and cleared outlookEventId while restoring the edited field", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    let arr: readonly CalRow[] = [{ id: 1, name: "before", outlookEventId: "E1" }];
+    const setter = (u: SetStateAction<readonly CalRow[]>) => { arr = typeof u === "function" ? u(arr) : u; };
+    act(() => {
+      result.current.capture({ setter, kind: "bulk.edit", entityKey: "task", edited: [arr[0]], fromArray: arr });
+    });
+    arr = [{ id: 1, name: "after", outlookEventId: "E1" }];
+    // The background pull prunes the definitively-gone event (§486).
+    arr = arr.map((r) => ({ ...r, outlookEventId: undefined, calendarOptOut: true }));
+    act(() => result.current.undo());
+    expect(arr[0].name).toBe("before");
+    expect(arr[0].outlookEventId).toBeUndefined();
+    expect(arr[0].calendarOptOut).toBe(true);
+  });
+});
