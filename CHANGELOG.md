@@ -8,6 +8,85 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.14.1] - 2026-09-26 "Deaver"
+
+A maintenance release: defect fixes across the AI Assistant, storage, calendar sync, dashboard and
+exports, updated dependencies, and clearer update dialogs from the next release on.
+
+### Fixed
+
+- **Updates.** Release notes flow as paragraphs instead of breaking at every line. The "Update
+  ready" dialog says that installing takes a few minutes and the app may look frozen, and that
+  "On next quit" leaves the app closed. Both take effect from the update after this one: the
+  dialog comes from the installed version, so the update to 1.14.1 still looks as before.
+- **AI Assistant.**
+  - Long chats with several attachments no longer fail by exceeding the request size limit. Once a
+    thread gets too large, the oldest earlier attachments are sent as a short placeholder; the saved
+    chat keeps them.
+  - The dashboard digest and the meeting-report AI draft can now be stopped. A Stop while an
+    emailed digest is being written also stops the email.
+  - A recommendation that could only be partly applied now says so and offers to generate the
+    rest.
+  - Suggest RACI shows how many proposed assignments are already in place. It names a change of
+    Accountable as a handover to make by hand, rather than calling it a duplicate.
+- **Storage.**
+  - Single-database Turso storage now saves the project details (name, dates and so on); before,
+    those edits were lost on reload.
+  - A deployment Turso token that is rejected is reported plainly, and the Settings token field
+    appears so a working token can be used instead.
+  - "Load project from file" in Firefox and Safari explains that the browser cannot open files
+    directly, instead of pointing at Settings.
+- **Outlook calendar sync.** Every task, RAID item, change, absence and milestone has a "Sync to
+  Outlook" checkbox. Unticking it, or pruning an item whose Outlook event was deleted, stops the app
+  from re-creating, updating, pulling or deleting that event.
+- **Dashboard and reports.**
+  - Work that is out of scope is called "out of scope", not "cancelled".
+  - The first visit after scope returns no longer shows a false "+N%" completion arrow.
+- **Trends and Gantt.** Only the first complete automatic snapshot becomes the baseline, and a
+  baseline you delete is not silently replaced. A project without a budget keeps its Gantt milestone
+  baseline overlay.
+- **TimeLog.** The panel explains why guardrail findings stay open after a fetch that covered no one.
+- **Resources.** A task whose email and name point at two different people is left unlinked instead
+  of being linked to the email's owner.
+- **Exports.**
+  - A long description no longer overflows its PowerPoint text box.
+  - Desktop app: PDF export opens a "Save as" dialog and writes the file; before, nothing happened.
+    The PDF is styled and fits the page: project exports are A4 landscape, wide tables shrink (to
+    no less than 60%) and wrap instead of being cut off, and dates stay on one line.
+  - In the browser, PDF export now opens the print dialog and prints styled. The app's security
+    policy had been blocking the print page's styles and its print script.
+  - A whole-project export is named after the project instead of "aipm-cockpit-tasks-…".
+- **Window layout.** In a smaller window the header no longer truncates the page title and project
+  name, the Projects page uses the available width, and the project's Export menu is no longer cut
+  off.
+- **Accessibility.** Document preview images open through a real button.
+- **Recovery page.** "Turso configured" now reads Yes when a Turso token is stored; before, it
+  always read No, because it looked for the token in the saved settings, where tokens are always
+  blanked.
+
+### Security
+
+- **Links in AI Assistant answers.** A markdown link such as `/\example.com` or `/./\example.com`
+  could leave the app while looking like an in-app link. Links must now start with a single `/`
+  and stay on the app's own origin; `https:` and `mailto:` links work as before.
+- **Boot theme script.** The inline script's embedded data is escaped for a script context. Its
+  only value is a fixed colour map, so nothing changes today.
+- **Dependabot.** Version updates now wait until a release has been public for 7 days (14 for a
+  major version). Security updates are not delayed.
+- The code-scanning alerts that were not real risks were reviewed one by one and dismissed with
+  their reasons.
+
+### Changed
+
+- **Data.**
+  - The five calendar-syncing record types gain a `calendarOptOut` field in every storage format;
+    existing Turso databases get the column on the next save.
+  - Single-database Turso saves a `project_meta` row. An older app version saving to the same
+    database drops that row again.
+- **Dependencies.** Vitest 5, Testing Library jest-dom 7, Playwright 1.63 with its CI image,
+  eslint-config-next 16.3.4 (equal to Next), and the grouped minor and patch updates. TypeScript 7 is
+  deferred.
+
 ## [1.14.0] - 2026-09-25 "Deaver"
 
 The first release built and published on GitHub, and the first the desktop app can update to by
