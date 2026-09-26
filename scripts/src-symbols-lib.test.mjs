@@ -12,6 +12,7 @@ import path from "node:path";
 
 import {
   citationsInDiff,
+  citationsInFiles,
   citedNamesOnLine,
   collectCodeIdentifiersFromFile,
   CONTROL_ABSENT,
@@ -19,6 +20,7 @@ import {
   isCommentLine,
   REPORT_SELF_FILES,
 } from "./src-symbols-lib.mjs";
+import { PROXIMITY } from "./agents-symbols-lib.mjs";
 
 function withTempFile(contents, ext, run) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "src-symbols-"));
@@ -139,6 +141,51 @@ describe("citationsInDiff", () => {
   it("does not treat the +++ header as an added line", () => {
     const diff = ["+++ b/src/app/`weirdName`.ts", "+// nothing cited"].join("\n");
     expect(citationsInDiff(diff)).toEqual([]);
+  });
+});
+
+// §385. The suppression was always in this lib — the entry grepped the CLI —
+// but nothing tested it: deleting either `if (markedNear(...)) continue;` line
+// left the suite green. These are PINS, green on arrival; each pair carries its
+// own positive control so a suppression that swallowed everything also fails.
+describe("absence-marker suppression (markedNear)", () => {
+  // Far enough apart that the marker's PROXIMITY window cannot reach the
+  // unmarked name: the filler is a CODE line, so it is never harvested itself.
+  // ★ Derived from PROXIMITY (review M11): a hard-coded length would turn the
+  // positive control red, for a reason it does not name, the day the window
+  // is widened past it.
+  const filler = `const pad = "${"x".repeat(PROXIMITY + 50)}";`;
+
+  // Mutation: delete the `markedNear` `continue` in `citationsInFiles` →
+  // `goneHelper` is reported too. Mutation: make it `continue` unconditionally
+  // → `inventedName` is lost.
+  it("citationsInFiles suppresses a name beside an absence marker and reports an unmarked one", () => {
+    const src = ["// `goneHelper` was DELETED in abc123", filler, "// `inventedName` here", ""].join(
+      "\n",
+    );
+    const names = withTempFile(src, ".ts", (file) => citationsInFiles([file]).map((c) => c.name));
+    expect(names).toEqual(["inventedName"]);
+  });
+
+  // Mutation: delete the `markedNear` `continue` in `citationsInDiff` →
+  // `goneHelper` is reported too; make it unconditional → `inventedName` is lost.
+  it("citationsInDiff suppresses a name beside an absence marker and reports an unmarked one", () => {
+    const diff = [
+      "+++ b/src/app/thing.ts",
+      "+// `goneHelper` was DELETED in abc123",
+      "+// `inventedName` here",
+    ].join("\n");
+    expect(citationsInDiff(diff).map((c) => c.name)).toEqual(["inventedName"]);
+  });
+
+  // The documented difference between the two modes: a diff line has no
+  // surrounding document, so a marker on the NEXT added line does not reach.
+  // Mutation: pass the whole diff to `markedNear` instead of `body` → suppressed.
+  it("citationsInDiff's window is one line: a marker on the next line does not suppress", () => {
+    const diff = ["+++ b/src/app/thing.ts", "+// `nextLineName` here", "+// the above was REMOVED"].join(
+      "\n",
+    );
+    expect(citationsInDiff(diff).map((c) => c.name)).toEqual(["nextLineName"]);
   });
 });
 

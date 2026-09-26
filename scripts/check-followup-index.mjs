@@ -3,8 +3,12 @@
 // index table, and every index row must point at an entry that exists. Nothing
 // compared the two sets before this file; on the day it was written the register
 // carried 413 headings against 405 rows.
+//
+// Since §319/§382 it also fails when the table is not exactly what
+// `rebuild-followup-index.mjs` would write (`rebuildDrift`), so a missed
+// rebuild goes red here, in the fast `static` job, not only in `unit`.
 import { readFileSync } from "node:fs";
-import { diffHeadingsAgainstIndex } from "./followup-index-lib.mjs";
+import { diffHeadingsAgainstIndex, REBUILD_COMMAND, rebuildDrift } from "./followup-index-lib.mjs";
 
 const REGISTER = "docs/open-followups.md";
 
@@ -83,7 +87,7 @@ if (duplicateHeadings.length > 0 || duplicateRows.length > 0) {
 
 if (missingRows.length === 0 && orphanRows.length === 0) {
   console.log("Every entry has an index row, and every index row has an entry.");
-  process.exit(0);
+  checkRebuildIsNoOp();
 }
 
 if (missingRows.length > 0) {
@@ -95,7 +99,28 @@ if (orphanRows.length > 0) {
 
 console.log(
   "\nWrite the missing rows into the index table between the markers, and delete\n" +
-    "any row whose entry no longer exists. Do NOT satisfy this by renumbering an\n" +
-    "entry — a follow-up number is a permanent handle that other docs cite.",
+    `any row whose entry no longer exists — \`${REBUILD_COMMAND}\` does both. It keeps\n` +
+    "Origin and Size, and keeps State while the row's open/closed status agrees with\n" +
+    "the heading's; it regenerates State on a status flip and Item on a retitle.\n" +
+    "Do NOT satisfy this by renumbering an entry — a follow-up number is a permanent\n" +
+    "handle that other docs cite.",
 );
 process.exit(1);
+
+/** ★★ The SAME drift check `rebuild-followup-index.mjs --check` and the unit
+ *  test run (`rebuildDrift`), reached only once both sets already agree, so a
+ *  missing row is reported by the clearer message above. Exit 1 = drift; a
+ *  table the rebuild cannot parse (a row that is not four cells) is exit 2,
+ *  like every other could-not-scan path in this file. */
+function checkRebuildIsNoOp() {
+  let drift;
+  try {
+    drift = rebuildDrift(src);
+  } catch (err) {
+    console.error(`CANNOT SCAN: ${err.message}`);
+    console.error("The index table cannot be rebuilt; fix the row it names first.");
+    process.exit(2);
+  }
+  console.log(drift.drifted ? `\n${drift.message}` : drift.message);
+  process.exit(drift.drifted ? 1 : 0);
+}

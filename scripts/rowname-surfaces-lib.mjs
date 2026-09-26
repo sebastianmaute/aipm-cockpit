@@ -89,13 +89,60 @@ export const STRONG_MARKER = "expectRowUniqueNames";
 
 const PAIRS = { "(": ")", "{": "}", "[": "]" };
 
+/** The characters after which a `//` is read as a comment; see below. */
+const COMMENT_LEAD = /[\s{}()[\],;]/;
+
 /** Index of the delimiter closing the one at `open`, or -1 when unbalanced.
  *  ★ -1 rather than end-of-file: a truncated scope that silently ran to EOF
- *  would drag every later control in the file into one "repeat". */
+ *  would drag every later control in the file into one "repeat".
+ *
+ *  ★★ `//` and `/* … *\/` COMMENTS ARE SKIPPED (§280). A `.map(` body in this
+ *  repo routinely carries a comment quoting a grep command, and one bracket in
+ *  it — `seen.add(primary` in `resource-directory.tsx` — made the whole scope
+ *  unbalanced, so every control inside fell out of the report without a word.
+ *  A block comment that never closes returns -1, like any other unbalance.
+ *  ★★ A `//` STARTS A COMMENT ONLY AFTER WHITESPACE, `{ } ( ) [ ] , ;` OR THE
+ *  START OF THE TEXT (`COMMENT_LEAD`). Chosen over a quote-aware skip, which
+ *  would bring back the apostrophe problem below. Real comments in this repo
+ *  follow whitespace or one of those; a `//` inside a string does not: a URL
+ *  scheme (`"https://…"`, after `:`), a protocol-relative URL or
+ *  `startsWith("//")` (after a quote), and an escaped slash in a regex
+ *  literal (`/\/\//`, after a backslash). Treating any of those as a comment
+ *  would skip the rest of the line's brackets (review M9). Its known misreads:
+ *  - a comment glued to other code (`x=1//(`) is NOT skipped;
+ *  - a `//` inside a string right after a space or bracket (`" //("`) IS;
+ *  - template interpolation `${a}//${b}` IS, because `}` leads a comment —
+ *    `src/app/api/jira/_helpers.ts` builds a URL exactly this way today
+ *    (`grep -rn '}//\${' src`), outside any `.map(` scope. `}` stays in
+ *    COMMENT_LEAD because `}// note` is a real comment shape;
+ *  - JSX text `<p> //host</p>` IS, after its space.
+ *  A comment running to the end of the text returns -1, which is correct: no
+ *  bracket can close inside it.
+ *
+ *  ★★★ STRING LITERALS ARE NOT SKIPPED, AND THAT IS A DOCUMENTED HOLE, NOT AN
+ *  OVERSIGHT. `scanOpenTag` skips quotes because it only ever walks an
+ *  attribute list; this function also walks `.map(` bodies, which hold JSX
+ *  TEXT, where the apostrophe in `<li>Don't …</li>` is not a delimiter. Copying
+ *  the quote skip here would open a "string" at that apostrophe and never close
+ *  it — measured on the tree, a quote skip alone broke 32 scopes. So an
+ *  unbalanced bracket inside a string literal still corrupts the match; the
+ *  honest full fix is a real tokenizer (`ts.createScanner`, JSX variant). */
 export function matchDelimiters(text, open) {
   const stack = [];
   for (let i = open; i < text.length; i++) {
     const ch = text[i];
+    if (ch === "/" && text[i + 1] === "/" && (i === 0 || COMMENT_LEAD.test(text[i - 1]))) {
+      const nl = text.indexOf("\n", i);
+      if (nl < 0) return -1;
+      i = nl;
+      continue;
+    }
+    if (ch === "/" && text[i + 1] === "*") {
+      const end = text.indexOf("*/", i + 2);
+      if (end < 0) return -1;
+      i = end + 1;
+      continue;
+    }
     if (PAIRS[ch]) stack.push(PAIRS[ch]);
     else if (ch === ")" || ch === "}" || ch === "]") {
       if (stack.pop() !== ch) return -1;
@@ -490,20 +537,42 @@ export function coverageMarkersIn(text) {
 
 const IMPORT_RE = /(?:from|import|mock|requireActual)\s*\(?\s*["'](\.[^"']*)["']/g;
 
-/** Module keys a file pulls in by RELATIVE specifier. Bare package specifiers
- *  are not repo modules and are dropped. */
-export function relativeImportsIn(text) {
+/** Module keys a file pulls in by RELATIVE specifier, each resolved against
+ *  the directory of `fromFile` (the importing file's repo-relative path). Bare
+ *  package specifiers are not repo modules and are dropped.
+ *  ★★ `fromFile` is REQUIRED and its absence throws. Without it the only key a
+ *  specifier can produce is its basename, which is the §281 collision this
+ *  signature exists to remove — a silent fallback would bring it back. */
+export function relativeImportsIn(text, fromFile) {
+  if (typeof fromFile !== "string") {
+    throw new TypeError("relativeImportsIn: fromFile (the importer's path) is required");
+  }
+  const dir = path.posix.dirname(toPosix(fromFile));
   const out = [];
   IMPORT_RE.lastIndex = 0;
   let m;
-  while ((m = IMPORT_RE.exec(text))) out.push(moduleKey(m[1]));
+  while ((m = IMPORT_RE.exec(text))) out.push(moduleKey(path.posix.join(dir, m[1])));
   return out;
 }
 
-/** A file path reduced to the key an import specifier resolves to. */
+function toPosix(file) {
+  return file.split(/[\\/]/).join("/");
+}
+
+/** A repo-relative file path reduced to the key an import specifier resolves
+ *  to: forward slashes, normalised, a trailing slash dropped (`./foo/` names
+ *  the same module as `./foo`), extension stripped, and a trailing `/index`
+ *  folded onto its directory (`./foo` can mean `foo/index.tsx`).
+ *  ★★★ THE DIRECTORY IS PART OF THE KEY (§281). It used to be the basename
+ *  alone, so `src/app/a/row.tsx` and `src/app/b/row.tsx` shared the key `row`
+ *  and a test importing one credited the other — a false COVERED on a surface
+ *  no test reaches. */
 export function moduleKey(file) {
-  const base = file.split(/[\\/]/).pop();
-  return base.replace(/\.(tsx|ts|jsx|js|mjs)$/, "");
+  return path.posix
+    .normalize(toPosix(file))
+    .replace(/\/+$/, "")
+    .replace(/\.(tsx|ts|jsx|js|mjs)$/, "")
+    .replace(/\/index$/, "");
 }
 
 function walk(dir, out) {
@@ -580,7 +649,7 @@ export function buildReport({ sources, tests }) {
       // file that actually calls the shared assertion helper, and the reported
       // marker list is the only thing a reader has to discount a COVERED with.
       strength: COVERAGE_MARKERS.findIndex((m) => m.name === markers[0]),
-      imports: new Set(relativeImportsIn(text)),
+      imports: new Set(relativeImportsIn(text, file)),
     });
   }
   asserting.sort((a, b) => a.strength - b.strength);
@@ -590,7 +659,7 @@ export function buildReport({ sources, tests }) {
   const importers = new Map();
   for (const [file, text] of sources) {
     const from = moduleKey(file);
-    for (const target of relativeImportsIn(text)) {
+    for (const target of relativeImportsIn(text, file)) {
       if (!importers.has(target)) importers.set(target, new Set());
       importers.get(target).add(from);
     }
