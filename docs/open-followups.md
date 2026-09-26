@@ -37139,7 +37139,11 @@ data model, the planners, the prune and all six write paths), `c674fc18e` (the "
 checkbox in the five editors) and a review fix round (the pulls, the push inputs, undo, and the
 literal-`true` load rule — the ★★★ paragraph below). Re-check with
 `grep -n "calendarOptOut" src/app/calendar-reconcile.ts src/app/use-entity-calendar-pull.ts src/app/use-milestone-calendar-pull.ts`.
-Unit-verified and mutation-proved; still NOT machine-verified against a live Outlook calendar.
+Unit-verified, and every behavioural line named below is mutation-proved, including each of the five
+push-input call sites (four in `use-calendar-integrations.ts`, one in `tasks-section.tsx`), each
+killed by reverting it to its old inline filter. The auto-sync content keys are the one unpinned
+piece: they are coverage-excluded glue, and no test watches the push they trigger. Still NOT
+machine-verified against a live Outlook calendar.
 
 With auto-push on (it shares the `.auto` flag with auto-pull), deleting the Outlook event for an
 entity that was still pushable did not stick: the pull's prune cleared only `outlookEventId`, so
@@ -37167,8 +37171,13 @@ through `turso-migrate.ts`, which diffs against `ENTITY_SPECS`. The six round tr
 
 ★ **The model cannot write it.** It is in `TOKEN_EXCLUDED` for all five entities, so both strip
 helpers drop it from every model create and update. The offered-surface sweep's Relation A
-measures the create arm with a seeded `true`; the update arm is ledgered `unmeasured` — the only
-differing probe is `false`, which no sanitizer stores (`resource.active`'s shape).
+measures the create arm with a seeded `true`. On the update arm the sweep's own probe is ledgered
+`unmeasured`, and that is the HARNESS's choice, not something the column forces: `admitProbe`
+refuses the only differing probe, `false`, because the writer's sanitizer reshapes it. That refusal
+hides a real difference: if the strip were missing, a model-sent `false` would CLEAR the stored
+`true`. So the update arm is measured directly by "calendarOptOut survives every update_* (§486)"
+in `plan.offered-surface-sweep.test.ts`. On all five entities, a model-sent `false` leaves the
+stored `true` in place, and an update to another field keeps it.
 
 ★ **The editor checkbox** (`calendar-opt-out-checkbox.tsx`) is named "Sync to Outlook – ‹title›",
 which is row-unique and contains the visible caption. It renders only while that entity's Outlook
@@ -37181,11 +37190,17 @@ leaked through.** Before this fix a prune cleared the link, so no opted-out item
 the checkbox now creates exactly that item.
 - **The pulls.** `useEntityCalendarPull` and `useMilestoneCalendarPull` drop opted-out items from
   the pull input (no auto-apply, no conflict row, no prune, no baseline write), and `keepApp` refuses
-  one, so "Keep app date" can never PATCH the event the user chose to leave alone.
+  one, so "Keep app date" can never PATCH the event the user chose to leave alone. ★ A side effect:
+  an Outlook-side deletion of an opted-out item's kept event is no longer PRUNED. The dead link
+  stays on the item, which is harmless: while the item is opted out, the push planner only puts that id in its kept set, and a gone event cannot be deleted. If the user
+  ticks Sync again, the next push PATCHes it, gets a 404 and takes the push hooks' documented
+  `staleIds` path, which clears the link and re-creates the event.
 - **The push inputs.** A push DELETES every listed event the planner does not keep, so an opted-out
   item that LEAVES the synced set (task done, RAID closed, change undated, absence past) used to lose
   its event. `calendar-pushable.ts` now keeps an opted-out item with a link in all four inputs
-  (`use-calendar-integrations.ts` and `tasks-section.tsx`), where the planner keeps its id. Milestones
+  (`use-calendar-integrations.ts` and `tasks-section.tsx`), where the planner keeps its id. The
+  call sites are pinned through the two existing harnesses: `use-calendar-integrations.pushable.test.ts`
+  covers all four entities, and `tasks-section.test.tsx` covers the pane's own manual push. Milestones
   were never affected: their push passes every milestone.
 - **Undo.** `calendarOptOut` is in `WRITE_THROUGH_FIELDS`, because the prune writes it on a row nobody
   is editing. A whole-row undo captured before a prune therefore keeps the live flag beside the live
