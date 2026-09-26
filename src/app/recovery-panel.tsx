@@ -14,6 +14,7 @@ import {
   restoreConfig,
 } from "./recovery-config";
 import { SETTINGS_KEY } from "./use-settings";
+import { loadSealed } from "./secrets-store";
 import { MODE_KEY } from "./portfolio-mode";
 import { DiagnosticsPanel } from "./diagnostics-panel";
 import { logDiag } from "./diagnostics";
@@ -36,7 +37,14 @@ function readSummary(): ConfigSummary {
         integrations?: { turso?: { databaseUrl?: string; authToken?: string } };
       };
       backendKind = s.storageConfig?.kind ?? "browser";
-      tursoConfigured = !!(s.integrations?.turso?.databaseUrl && s.integrations.turso.authToken);
+      // writeSettings always blanks authToken in this key; the token lives
+      // sealed in the secrets store. Check that a sealed record EXISTS, never
+      // decrypt it: this page must work when the app itself cannot. A legacy
+      // unmigrated plaintext token still counts.
+      tursoConfigured = !!(
+        s.integrations?.turso?.databaseUrl &&
+        (s.integrations.turso.authToken || loadSealed("tursoAuthToken") !== null)
+      );
     }
     portfolioMode = window.localStorage.getItem(MODE_KEY) === "turso" ? "turso" : "file";
   } catch {
