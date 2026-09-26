@@ -854,6 +854,24 @@ if (!app.requestSingleInstanceLock()) {
           );
           if (!childWindow.isDestroyed()) childWindow.close();
         }, PDF_EXPORT_TIMEOUT_MS);
+        // ★ §468 final re-review M6 -- if the RENDERER closes this window
+        // itself (document-download.ts's pdf branch calls `tab.close()` and
+        // rethrows when preparing the document fails, before it ever writes
+        // the ready `<title>`), no `page-title-updated` with the ready
+        // prefix ever arrives, so neither `done` nor `timeout` is otherwise
+        // touched. Without this listener the armed `timeout` fires 60s later
+        // against an already-closed window and shows "took too long and was
+        // cancelled" -- a second, MISLEADING error on top of the real one the
+        // renderer's own caller already surfaced. `once`, not `on`: this
+        // window can only close once, and every OTHER close in this handler
+        // (timeout, success, cancel, error) already sets `done`/clears
+        // `timeout` itself before calling `.close()`, so by the time this
+        // fires here it is a harmless no-op for those paths -- it never
+        // shows a dialog of its own, so it cannot double-report anything.
+        childWindow.once("closed", () => {
+          done = true;
+          clearTimeout(timeout);
+        });
         childWindow.webContents.on("page-title-updated", (_e, title) => {
           if (titleHandled || done) return;
           const filename = pdfFilenameFromTitle(title);

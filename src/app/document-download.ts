@@ -309,10 +309,17 @@ export async function downloadDocument(
         ? replaceHtmlTitle(html, pdfReadyTitleMarkup(documentFilename(doc, "pdf", today)))
         : withClosingScript(html, AUTO_PRINT_SCRIPT);
     } catch (err) {
-      // ★ Close the tab we opened before rethrowing. On desktop the hidden
-      // named frame would otherwise hold the next export for up to 60 s and
-      // then report a timeout that is not what happened; in a browser it would
-      // sit on the "Preparing…" placeholder. The caller shows the real error.
+      // ★ Close the tab we opened before rethrowing. On desktop this window
+      // never wrote the ready `<title>`, so main.ts's `did-create-window`
+      // handler never saw a ready signal for it -- closing here fires that
+      // handler's `closed` listener (§468 final re-review M6), which
+      // disarms the 60s ready-signal timer, so it does NOT fire a second,
+      // MISLEADING "took too long and was cancelled" error on top of the
+      // real one the caller is about to show. It also frees the named
+      // `window.open` target immediately rather than leaving a later export
+      // silently lost against the same browsing context until that timer
+      // would otherwise have closed this window on its own. In a browser it
+      // would otherwise sit on the "Preparing…" placeholder.
       tab.close();
       throw err;
     }
