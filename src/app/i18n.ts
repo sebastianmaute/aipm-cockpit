@@ -3099,6 +3099,9 @@ const enUS = {
     "Empty content is not saved — this block keeps the text it had.",
   documentsBlockConflictNotSaved:
     "Not saved — this block was changed elsewhere, and the newer version is shown.",
+  documentsBlockTooLongNotSaved:
+    "Not saved — this paragraph exceeds the {1}-character limit by {0}. Shorten it to save it; the text and its formatting stay here until you do.",
+  documentsParagraphCharCount: "{0} / {1} characters",
   documentsNewTitle: "Untitled document",
   documentsHistory: "History",
   documentsHistoryFor: "History – {0}",

@@ -37,7 +37,9 @@ import { RichTextEditor } from "./rich-text-editor-lazy";
 import { paragraphHasImage, blockChanged, normalizeBlockForStorage, exceedsStorageCaps } from "./document-editor-commit";
 import { t, type Lang } from "./i18n";
 import type { DocBlock } from "./document-model";
-import { BlockReadOnlyNotice, BlockRefusalNotice, type BlockRefusal } from "./document-block-notices";
+import { MAX_HTML_TEXT_CHARS } from "./document-model";
+import { htmlTextLength } from "./rich-text-plain";
+import { BlockReadOnlyNotice, BlockRefusalNotice, ParagraphCharCount, type BlockRefusal } from "./document-block-notices";
 import { Input, Select } from "./form-controls";
 import { EXPORT_SECTION_KEYS, type ExportSectionKey } from "./settings-types";
 import { EXPORT_SECTION_LABEL_KEYS } from "./export-section-labels";
@@ -55,6 +57,12 @@ export type BlockEditorProps<B extends DocBlock = DocBlock> = {
    *  no 20-control toolbar, so they have nothing to dock and read it never. */
   toolbarContainer?: HTMLElement | null;
 };
+
+/** §185 — a paragraph whose VISIBLE text is over the cap. Refused on the
+ *  interactive commit path instead of being flattened by `capHtmlText`. */
+function paragraphOverCap(block: DocBlock): block is Extract<DocBlock, { type: "paragraph" }> {
+  return block.type === "paragraph" && exceedsStorageCaps(block);
+}
 
 /**
  * Shared draft/dirty-check/commit wiring for a block editor whose full
@@ -222,6 +230,8 @@ export function useBlockDraft<T, B extends DocBlock>(
   //   this hook's last commit would then equal `preCommitStoredRef` and read
   //   as unmoved — a clobber. Pinned by "treats a restore to the version
   //   before its own last commit as an external write".
+  //   ★ The §185 over-cap refusal in `commit` DOES stay dirty, and does not
+  //    break this: it returns before `onCommit`, so no window is opened.
   const preCommitStoredRef = useRef<DocBlock>(storedBlock);
 
   // ★★★ RENDER-TIME RECONCILE, NOT AN EFFECT. `react-hooks/set-state-in-effect`
@@ -332,7 +342,9 @@ export function useBlockDraft<T, B extends DocBlock>(
    *  survives a load's STRUCTURAL pass, not its allow-list pass. Committing the raw
    *  draft instead let the two disagree, silently, in three measured ways: a
    *  paragraph over MAX_HTML_TEXT_CHARS came back with every mark flattened to
-   *  plain text, a heading kept trailing whitespace the loader trims, and a
+   *  plain text (the interactive path now refuses that instead, §185; the
+   *  unmount flush keeps the flattening as its last resort), a heading kept
+   *  trailing whitespace the loader trims, and a
    *  freshly ADDED empty bullet item counted as a change — minting a document
    *  version for content the next load drops. Per-editor caps would have been
    *  one copy of each rule per editor, free to drift from the loader's.
@@ -346,6 +358,15 @@ export function useBlockDraft<T, B extends DocBlock>(
    *  concurrent-write guard below: a block this hook itself cannot commit is
    *  refused regardless of what any other writer did. */
   const tryCommit = (raw: DocBlock): boolean => {
+    // ★★★ §185 — REFUSE, NEVER FLATTEN, an over-cap paragraph here. The
+    //  normaliser would cap it through `capHtmlText`, whose overflow branch drops
+    //  every mark; refusing keeps the text AND its formatting on screen, and the
+    //  notice says how much to cut. Only the interactive path can refuse: the
+    //  unmount flush below cannot render a notice, so it keeps today's fallback.
+    if (paragraphOverCap(raw)) {
+      setRefusal({ kind: "tooLong", excess: htmlTextLength(raw.html) - MAX_HTML_TEXT_CHARS });
+      return false;
+    }
     const next = normalizeBlockForStorage(raw);
     if (!next) { setRefusal("empty"); return false; }
     if (!blockChanged(baselineRef.current, next)) { setRefusal(null); return false; }
@@ -376,7 +397,13 @@ export function useBlockDraft<T, B extends DocBlock>(
     //  full toBlock/blockChanged pair against a baseline that may have moved,
     //  which is how the clean-draft ordering of F1 wrote a stale value.
     if (!dirtyRef.current) return;
-    tryCommit(toBlock(liveValueRef.current));
+    const raw = toBlock(liveValueRef.current);
+    tryCommit(raw);
+    // ★★ §185 — a refused over-cap paragraph STAYS DIRTY: the edit is not
+    //  saved yet, and a pane that unmounts it without a blur must still reach
+    //  the unmount flush, which saves the flattened form rather than dropping
+    //  the edit. Every other outcome clears the flag exactly as before.
+    if (paragraphOverCap(raw)) return;
     markDirty(false);
   };
 
@@ -569,6 +596,7 @@ function ParagraphEditorBody({
         lang={lang}
         toolbarContainer={toolbarContainer}
       />
+      <ParagraphCharCount lang={lang} visible={htmlTextLength(html)} />
       {refusal && <BlockRefusalNotice lang={lang} refusal={refusal} />}
     </div>
   );

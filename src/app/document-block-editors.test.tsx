@@ -13,10 +13,12 @@ import { BulletsBlockEditor } from "./bullets-block-editor";
 import { DocumentEditor } from "./document-editor";
 import { replaceBlockOp } from "./document-editor-commit";
 import { applyDocMutation, type DocOp, type DocState } from "./document-mutations";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import type { DocBlock, ProjectDocument } from "./document-model";
-import { MAX_TABLE_COLUMNS } from "./document-model";
+import { MAX_TABLE_COLUMNS, MAX_HTML_TEXT_CHARS } from "./document-model";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
+import { PARAGRAPH_COUNT_FROM } from "./document-block-notices";
+import { htmlTextLength } from "./rich-text-plain";
 
 /** `structural` is REQUIRED on `DocumentEditorProps`. The three fixtures in
  *  this file exercise the CONTENT commit path only and never touch the block
@@ -333,6 +335,82 @@ describe("ParagraphBlockEditor", () => {
     unmount();
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit.mock.calls[0][1].html).toContain("y");
+  });
+});
+
+describe("ParagraphBlockEditor — the visible-character cap (§185)", () => {
+  const fmt = (n: number) => new Intl.NumberFormat("en-US").format(n);
+  const bold = (n: number) => `<p><strong>${"a".repeat(n)}</strong></p>`;
+  const countText = (n: number) => t(LANG, "documentsParagraphCharCount", fmt(n), fmt(MAX_HTML_TEXT_CHARS));
+
+  // REGRESSION PIN, not the red test: green on the unfixed code too (there was
+  //  no counter at all). It keeps the 90% threshold from sliding downwards.
+  it("shows no counter below 90% of the cap", async () => {
+    render(<ParagraphBlockEditor lang={LANG} index={20} block={{ type: "paragraph", html: bold(PARAGRAPH_COUNT_FROM - 1) }} onCommit={vi.fn()} />);
+    await findParagraphEditable(20);
+    expect(screen.queryByText(countText(PARAGRAPH_COUNT_FROM - 1))).toBeNull();
+  });
+
+  it("shows the running count from exactly 90% of the cap", async () => {
+    render(<ParagraphBlockEditor lang={LANG} index={21} block={{ type: "paragraph", html: bold(PARAGRAPH_COUNT_FROM) }} onCommit={vi.fn()} />);
+    await findParagraphEditable(21);
+    expect(screen.getByText(countText(PARAGRAPH_COUNT_FROM))).toBeInTheDocument();
+  });
+
+  // Literal, not built through `t()`: pins the German copy AND the locale's
+  //  digit grouping, which an expectation formatted the same way could not.
+  it("formats the count for the German locale", async () => {
+    await loadI18n("de");
+    render(<ParagraphBlockEditor lang="de" index={25} block={{ type: "paragraph", html: bold(PARAGRAPH_COUNT_FROM) }} onCommit={vi.fn()} />);
+    await screen.findByRole("textbox", { name: t("de", "documentsParagraphLabel", "26") });
+    expect(screen.getByText("18.000 / 20.000 Zeichen")).toBeInTheDocument();
+  });
+
+  it("refuses an over-cap commit with the notice, keeping the text and its formatting", async () => {
+    const onCommit = vi.fn();
+    render(<ParagraphBlockEditor lang={LANG} index={22} block={{ type: "paragraph", html: bold(MAX_HTML_TEXT_CHARS - 1) }} onCommit={onCommit} />);
+    const editable = await findParagraphEditable(22);
+    editable.focus();
+    await userEvent.type(editable, "bc");
+    editable.blur();
+    expect(onCommit).not.toHaveBeenCalled();
+    const notice = await screen.findByText(t(LANG, "documentsBlockTooLongNotSaved", "1", fmt(MAX_HTML_TEXT_CHARS)));
+    // ★ `t()` fills each `{n}` ONCE (a string `replace`), so a placeholder
+    //  repeated in the copy would reach the user raw — and an expectation built
+    //  through the same `t()` could never see it.
+    expect(notice.textContent).not.toMatch(/\{\d\}/);
+    expect(notice).toHaveAttribute("role", "status");
+    expect(editable.querySelector("strong")).not.toBeNull();
+    expect(editable.textContent).toHaveLength(MAX_HTML_TEXT_CHARS + 1);
+  });
+
+  it("commits a paragraph that lands exactly on the cap, formatting intact", async () => {
+    const onCommit = vi.fn();
+    render(<ParagraphBlockEditor lang={LANG} index={23} block={{ type: "paragraph", html: bold(MAX_HTML_TEXT_CHARS - 1) }} onCommit={onCommit} />);
+    const editable = await findParagraphEditable(23);
+    editable.focus();
+    await userEvent.type(editable, "b");
+    editable.blur();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit.mock.calls[0][1].html).toContain("<strong>");
+  });
+
+  // Review Focus 4 — narrowing the pane unmounts a non-selected row with no
+  //  blur. The refused edit must not be LOST: the unmount flush still saves
+  //  it, in today's flattened form (the one path with no UI to refuse on).
+  it("still saves a refused over-cap edit, flattened, if the editor unmounts", async () => {
+    const onCommit = vi.fn();
+    const { unmount } = render(<ParagraphBlockEditor lang={LANG} index={24} block={{ type: "paragraph", html: bold(MAX_HTML_TEXT_CHARS - 1) }} onCommit={onCommit} />);
+    const editable = await findParagraphEditable(24);
+    editable.focus();
+    await userEvent.type(editable, "bc");
+    editable.blur();
+    expect(onCommit).not.toHaveBeenCalled();
+    unmount();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    const html = onCommit.mock.calls[0][1].html as string;
+    expect(html).not.toContain("<strong>");
+    expect(htmlTextLength(html)).toBe(MAX_HTML_TEXT_CHARS);
   });
 });
 

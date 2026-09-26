@@ -331,13 +331,16 @@ on returning a non-null block. Reading it as covering both passes is how that wo
 branch returns `plainToHtml(slice)`); a heading kept the trailing whitespace the loader trims; and
 "Add item" appended an empty bullet item that counted as a change, minting a document version for
 content the next load drops — one of `MAX_VERSIONS_PER_DOC` (20) slots spent, and the row the user
-just added gone on reload.
+just added gone on reload. The block editor now shows a visible-character counter from 90% of the
+cap and REFUSES an over-cap commit with a notice (§185); only the unmount flush, which has no UI,
+still saves the flattened form. AI-written and imported text keep the old fallback.
 
 ★★ **Per-editor `maxLength` caps are the WRONG fix** and were rejected for the reason the defect
 existed in the first place: one copy of each loader rule per editor, free to drift from the loader's.
 
 ★ `null` means the loader would DISCARD the block. That refusal is shown (`BlockRefusalNotice`), and
-so is the concurrent-write ABANDON — one nullable `"empty" | "conflict"` state, because the abandon
+so is the concurrent-write ABANDON — one nullable `BlockRefusal` state (`"empty"`, `"conflict"`, or
+§185's `tooLong` with its excess), because the abandon
 used to be silent and a user watched their typing be replaced on screen with no explanation. ★ The
 UNMOUNT flush abandons silently and must: the component is going away, so there is nothing to render
 into.

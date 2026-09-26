@@ -416,7 +416,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§182](#182-template-import-can-store-an-inconsistent-statuscompleteddate-pair-and-nothing-repairs-it--closed-2026-08-23) | Template import can store an inconsistent `status`/`completedDate` pair, and nothing repairs it | — | — | **CLOSED** 2026-08-23 |
 | [§183](#183-the-jira-conflict-merge-writes-completeddate-without-status-so-accepting-the-modals-default-splits-the-pair-from-well-formed-data--closed-2026-08-23) | The Jira conflict merge writes `completedDate` without `status`, so accepting the modal's default splits the pair from well-formed data | — | — | **CLOSED** 2026-08-23 |
 | [§184](#184-the-documents-block-editor-is-in-a11y_views-but-is-never-scanned--closed-2026-08-20) | The Documents block editor is in A11Y_VIEWS but is never scanned | — | — | **CLOSED** 2026-08-20 |
-| [§185](#185-an-over-long-document-paragraph-is-flattened-to-plain-text-at-commit) | An over-long document paragraph is flattened to plain text at commit | — | — | open |
+| [§185](#185-an-over-long-document-paragraph-is-flattened-to-plain-text-at-commit--closed-2026-09-26) | An over-long document paragraph is flattened to plain text at commit | — | — | **CLOSED** 2026-09-26 |
 | [§186](#186-the-block-editor-conflict-reason-reaches-users-untranslated) | The block-editor conflict reason reaches users untranslated | — | — | open |
 | [§187](#187-usedocumenttools-has-no-test-file-and-one-guard-there-is-unpinned) | `useDocumentTools` has no test file, and one guard there is unpinned | — | — | open |
 | [§188](#188-a-block-refusal-notice-outlives-the-attempt-it-describes) | A block refusal notice outlives the attempt it describes | — | — | open |
@@ -15755,13 +15755,40 @@ naming is covered by `document-block-gutter.test.tsx` alongside the multi-block 
 `document-block-editors.test.tsx` and `document-editor.test.tsx`. A green
 scan here says nothing about that class, and no configuration of this gate ever will.
 
-## 185. An over-long document paragraph is flattened to plain text at commit
+## 185. An over-long document paragraph is flattened to plain text at commit — CLOSED 2026-09-26
 
-**Status:** open. **Severity:** low (bounded, visible, and only past 20 000
+**Status:** CLOSED 2026-09-26 on `fix/defect-batch-7` with option (a) below, on
+the INTERACTIVE path only. `ParagraphEditorBody` renders `ParagraphCharCount`,
+a visible-character count against `MAX_HTML_TEXT_CHARS` (the same
+`htmlTextLength` measure the cap uses, never `html.length`), from
+`PARAGRAPH_COUNT_FROM` (90% of the cap) upwards, formatted for the locale. It is
+plain text, not a live region, so it is not announced per keystroke. A blur over
+the cap is REFUSED instead of flattened: `useBlockDraft`'s `tryCommit` sets the
+`tooLong` refusal (carrying the excess), and `BlockRefusalNotice` (`role="status"`)
+says how many characters to remove. Text and marks stay in the editor.
+
+★★ This entry's own objection, "the user's text would then be unsaveable", is
+met by keeping the draft on screen and editable: shortening it and blurring
+commits normally. ★★★ The refused draft STAYS DIRTY (`commit` skips
+`markDirty(false)` for an over-cap paragraph), so a row that unmounts with no
+blur, such as a non-selected row when the pane is narrowed, still reaches the
+unmount flush, which saves today's flattened form rather than dropping the edit.
+That fallback is an OWNER DECISION (2026-09-26), not an oversight; the unmount
+path has no UI to refuse on. AI-written and imported text still go through
+`capHtmlText`'s fallback: option (b), a mark-preserving truncation, stays
+unbuilt.
+
+Pinned by the `ParagraphBlockEditor — the visible-character cap (§185)` describe
+in `document-block-editors.test.tsx`: counter from exactly 90% (with a
+below-90% regression pin), the German format, the refusal keeping `<strong>`
+and the full length, a commit landing exactly on the cap, and the flattened
+unmount save. Mutants, each killed: deleting the `tryCommit` refusal; deleting
+the stay-dirty return in `commit`; `<` to `<=` in `ParagraphCharCount`;
+`excess: 0`; a hard-coded `"en-US"` in `formatCount`.
+
+**Severity (as found):** low (bounded, visible, and only past 20 000
 visible characters). **Introduced:** pre-existing in `capHtmlText`; made VISIBLE
 rather than silent by the S3b normalise-at-commit change. Reproduced 2026-08-28 by `grep -n "capHtmlText" src/app/document-model.ts`.
-
-**Work item:** #174
 
 `document-model.ts` caps a paragraph at `MAX_HTML_TEXT_CHARS` (20 000 visible
 characters) via `capHtmlText`, whose truncation branch returns
@@ -15804,6 +15831,10 @@ then be unsaveable, which is worse. Nor by a per-editor `maxLength`: the cap is
 measured on VISIBLE text, and a `maxLength` counts markup too, so the two
 disagree on any formatted paragraph — that mismatch is exactly what the
 normalise-at-commit change removed.
+
+★ **Superseded 2026-09-26 (the refusal half only):** the fix above does refuse
+the commit, and keeps the text editable so it is not unsaveable; see the Status
+line. The `maxLength` reasoning stands, and the counter measures visible text.
 
 **To close:** either (a) count visible characters live in `RichTextEditor` and
 warn as the cap approaches, so overflow is a choice rather than a surprise, or

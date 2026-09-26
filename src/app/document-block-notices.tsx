@@ -1,11 +1,13 @@
 "use client";
 
-// The block editors' two inline notices, split out of document-block-editors.tsx
-// to keep that file under the 800-line ratchet. Presentational leaves: no state,
-// no draft logic, no knowledge of why they are being rendered.
+// The block editors' two inline notices and the paragraph character counter,
+// split out of document-block-editors.tsx to keep that file under the 800-line
+// ratchet. Presentational leaves: no state, no draft logic, no knowledge of why
+// they are being rendered.
 
 import { sanitizeDocumentHtml } from "./sanitize-html";
-import { t, type Lang } from "./i18n";
+import { MAX_HTML_TEXT_CHARS } from "./document-model";
+import { t, localeFor, type Lang } from "./i18n";
 
 /**
  * Read-only notice for a block this editor cannot safely edit in place (used
@@ -35,10 +37,14 @@ export function BlockReadOnlyNotice({ html, reason }: { html: string; reason: st
 
 /** Why `useBlockDraft` refused the last commit. `null` = it did not.
  *
- * ★★ TWO REASONS, ONE STATE. They are mutually exclusive by construction —
- *  `tryCommit` returns on the first one that fires — so a single nullable field
- *  cannot report a contradiction the way two independent booleans could. */
-export type BlockRefusal = "empty" | "conflict";
+ * ★★ THREE REASONS, ONE STATE, mutually exclusive by construction — `tryCommit`
+ *  returns on the first that fires, so a single nullable field cannot report a
+ *  contradiction the way independent booleans could. `tooLong` (§185) carries
+ *  how many visible characters are over the cap, because "shorten it" with no
+ *  number is not actionable at 20 000 characters. */
+export type BlockRefusal = "empty" | "conflict" | { readonly kind: "tooLong"; readonly excess: number };
+
+const formatCount = (n: number, lang: Lang): string => new Intl.NumberFormat(localeFor(lang)).format(n);
 
 /**
  * Shown when a commit was REFUSED, with the reason.
@@ -73,10 +79,29 @@ export type BlockRefusal = "empty" | "conflict";
  *   `documents-panel.tsx`'s rejection banner.
  */
 export function BlockRefusalNotice({ lang, refusal }: { lang: Lang; refusal: BlockRefusal }) {
-  const key = refusal === "empty" ? "documentsBlockEmptyNotSaved" : "documentsBlockConflictNotSaved";
+  const text = typeof refusal === "object"
+    ? t(lang, "documentsBlockTooLongNotSaved", formatCount(refusal.excess, lang), formatCount(MAX_HTML_TEXT_CHARS, lang))
+    : t(lang, refusal === "empty" ? "documentsBlockEmptyNotSaved" : "documentsBlockConflictNotSaved");
   return (
     <p role="status" className="text-xs text-ui-pink-strong">
-      {t(lang, key)}
+      {text}
+    </p>
+  );
+}
+
+/** §185 — the counter appears from 90% of the paragraph cap. */
+export const PARAGRAPH_COUNT_FROM = Math.floor(MAX_HTML_TEXT_CHARS * 0.9);
+
+/** §185 — a paragraph's VISIBLE-character count against the cap (the same
+ *  measure `capHtmlText` uses, never html.length), shown from 90% so going over
+ *  is a choice rather than a surprise. Plain text, not a live region: announcing
+ *  every keystroke would drown the editor; the refusal notice is the live one. */
+export function ParagraphCharCount({ lang, visible }: { lang: Lang; visible: number }) {
+  if (visible < PARAGRAPH_COUNT_FROM) return null;
+  const over = visible > MAX_HTML_TEXT_CHARS;
+  return (
+    <p className={`text-xs tabular-nums ${over ? "text-ui-pink-strong" : "text-muted-foreground"}`}>
+      {t(lang, "documentsParagraphCharCount", formatCount(visible, lang), formatCount(MAX_HTML_TEXT_CHARS, lang))}
     </p>
   );
 }

@@ -2892,6 +2892,9 @@ export const de: Record<TranslationKey, string> = {
     "Leerer Inhalt wird nicht gespeichert – dieser Block behält seinen bisherigen Text.",
   documentsBlockConflictNotSaved:
     "Nicht gespeichert – dieser Block wurde an anderer Stelle geändert; die neuere Fassung wird angezeigt.",
+  documentsBlockTooLongNotSaved:
+    "Nicht gespeichert – dieser Absatz überschreitet das Limit von {1} Zeichen um {0}. Zum Speichern kürzen; Text und Formatierung bleiben bis dahin hier erhalten.",
+  documentsParagraphCharCount: "{0} / {1} Zeichen",
   documentsBlockNoEditor: "Dieser Block hat keinen bearbeitbaren Inhalt.",
   documentsNoBlocks: "Dieses Dokument hat noch keine Blöcke.",
   documentsAddBlock: "Block hinzufügen",
