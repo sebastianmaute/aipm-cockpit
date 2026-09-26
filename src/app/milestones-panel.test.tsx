@@ -1053,7 +1053,7 @@ describe("MilestonesPanel — delete arms the destructive-save bypass", () => {
 // ★★ §278. The panel must route its column checklist through the shared
 //   `ColumnConfigPopover`, whose toggles are named "Show column – ‹column›"
 //   (§261). A hand-rolled checklist named by its wrapping <label> alone reads
-//   "Name", the same as the column's own header. The "row-unique names" test
+//   "Milestone" (`milestonesColName`), the same as the column's own header. The "row-unique names" test
 //   above cannot see this: the popover is closed there, and it PORTALS to
 //   <body>, outside its `scope: container`. So this one opens the popover and
 //   scans the WHOLE document.
@@ -1091,15 +1091,21 @@ describe("MilestonesPanel column-config popover names", () => {
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "colConfigTitle") }));
     const popover = await screen.findByRole("dialog", { name: t("en-US", "colConfigTitle") });
     // Positive observables: the popover really opened, with one toggle per
-    // configurable column, and the Name toggle carries its qualified name.
+    // configurable column, and the name-column toggle carries its qualified name.
     expect(within(popover).getAllByRole("checkbox")).toHaveLength(4);
-    expect(
-      screen.getByRole("checkbox", {
-        name: t("en-US", "colConfigToggleColumn", t("en-US", "milestonesColName")),
-      }),
-    ).toBeTruthy();
+    // ★★ THIS LOOKUP IS THE LOAD-BEARING PIN; do not drop it as redundant with
+    //   the scan below. `controlNames` reads `aria-label || textContent`, so a
+    //   toggle regressed to a bare label-named <input> scans as "" rather than
+    //   as its real accessible name. The page-wide scan therefore cannot see
+    //   the header collision. Only this exact-name `getByRole` (which computes
+    //   the real accessible name) catches it.
+    screen.getByRole("checkbox", {
+      name: t("en-US", "colConfigToggleColumn", t("en-US", "milestonesColName")),
+    });
     // Whole-document scope on purpose: the popover is portaled to <body>.
-    // 24 = the 20 controls the in-panel scan above counts, plus the 4 toggles.
+    // `minControls` is a FLOOR, not a count. It is derived as the in-panel
+    // scan's floor of 20 above plus the 4 portaled toggles, and was not
+    // measured here.
     expectRowUniqueNames({
       minControls: 24,
       roles: ["button", "checkbox"],
