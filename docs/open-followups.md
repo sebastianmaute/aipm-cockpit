@@ -36225,8 +36225,9 @@ themselves, never a green result to cite as coverage.
 
 ## 468. PDF export opens a window that never prints in the desktop app — OPEN
 
-**Status:** FIX LANDED 2026-09-25 on `fix/defect-batch-6`, UNVERIFIED in the packaged app — OWED: manual
-desktop PDF check (project export plus document export; save dialog shows the suggested name; saved file
+**Status:** FIX LANDED 2026-09-25 on `fix/defect-batch-6` — never machine-verified in the packaged app —
+OWED: manual desktop PDF check (project export plus document export; save dialog shows the suggested
+name; saved file
 opens as a PDF **and is styled, not a bare unstyled table/document** — the export tab's `<style>` block(s)
 face the same nonce-only `style-src-elem` in production (`src/proxy.ts`) that motivated the `<script>` fix
 below, and NOTHING in this fix addresses that separately, in the desktop tab OR the plain browser print
