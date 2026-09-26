@@ -224,6 +224,22 @@ describe("rebuildIndex", () => {
     ]);
   });
 
+  // Review M4. Mutation: drop `escapeCell` from `headingItem` → a five-cell
+  // row, and the second rebuild throws "not four cells".
+  it("escapes a pipe in a new row's heading text, and the result rebuilds again", () => {
+    const once = rebuildIndex(doc(["## 1. Split a | b apart"], []));
+    expect(rowsOf(once)).toEqual(["| [§1](#1-split-a--b-apart) | Split a \\| b apart | — | — | open |"]);
+    expect(rebuildIndex(once)).toBe(once);
+  });
+
+  // Mutation: drop the escaped-pipe fold in `itemText` → the row's unescaped
+  // code-span `||` no longer matches the escaped heading text, and the cell is
+  // rewritten (the §279 shape).
+  it("keeps an existing cell whose code span carries an unescaped ||", () => {
+    const row = "| [§1](#1-the-a--b-case) | The `a || b` case | o | S | open |";
+    expect(rowsOf(rebuildIndex(doc(["## 1. The `a || b` case"], [row])))).toEqual([row]);
+  });
+
   // Review M3. Mutation: the substring test `/\bclosed\b/i` → the qualifier
   // reads as closed, counts as a flip, and State is reset to "open".
   it("an open State that merely mentions 'closed' stays open and keeps its qualifier", () => {

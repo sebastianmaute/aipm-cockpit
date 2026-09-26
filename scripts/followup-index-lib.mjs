@@ -178,11 +178,19 @@ export function headingSlug(n, title) {
     .replace(/ /g, "-");
 }
 
-/** Item text for a heading: the status suffix and any `~~` removed. Whether the
- *  ROW is struck through is the row's own decoration, decided in
- *  `rebuildIndex`, not something the heading dictates. */
+/** Escape every unescaped `|` so heading text can sit in a table cell.
+ *  ★★ Without it a heading carrying ` | ` wrote a FIVE-cell row, and the next
+ *  rebuild then threw "not four cells" on its own output (review M4). GFM
+ *  renders an escaped pipe as `|`, inside a code span too. */
+export function escapeCell(text) {
+  return text.replace(/(?<!\\)\|/g, "\\|");
+}
+
+/** Item text for a heading: the status suffix and any `~~` removed, and `|`
+ *  escaped for the table. Whether the ROW is struck through is the row's own
+ *  decoration, decided in `rebuildIndex`, not something the heading dictates. */
 export function headingItem(title) {
-  return title.replace(STATUS_SUFFIX_RE, "").replace(/~~/g, "").trim();
+  return escapeCell(title.replace(STATUS_SUFFIX_RE, "").replace(/~~/g, "").trim());
 }
 
 /** The State cell a heading implies on its own — used only for a NEW row, or
@@ -190,7 +198,7 @@ export function headingItem(title) {
 export function headingState(title) {
   if (!isClosed(title)) return "open";
   const at = title.indexOf(CLOSED_MARK);
-  return at < 0 ? "**CLOSED**" : `**CLOSED**${title.slice(at + CLOSED_MARK.length)}`;
+  return at < 0 ? "**CLOSED**" : escapeCell(`**CLOSED**${title.slice(at + CLOSED_MARK.length)}`);
 }
 
 /** Whether a State CELL reads as closed, judged on its LEADING token only.
@@ -215,8 +223,14 @@ const FULL_ROW_RE = /^\|\s*\[§(\d+)\]\(#[^)]*\)\s*\|(.*)\|\s*$/;
 /** Text compared when deciding whether a row's Item still says what its
  *  heading says. Strike, bold and code-span markers are decoration, not text:
  *  a row that backticks a name its heading leaves bare (§539) still says the
- *  same thing, and keeps its formatting. */
-export const itemText = (s) => s.replace(/~~|\*\*|`/g, "").trim();
+ *  same thing, and keeps its formatting. An escaped pipe compares as a bare
+ *  one, so a row whose code span carries an unescaped `||` (§279) is not a
+ *  retitle against the escaped heading text. */
+export const itemText = (s) =>
+  s
+    .replace(/\\\|/g, "|")
+    .replace(/~~|\*\*|`/g, "")
+    .trim();
 
 /** Harvest the existing table: §n → { item, origin, size, state }.
  *  ★★ A row that does not split into exactly four cells THROWS. Guessing which
