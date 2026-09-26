@@ -1915,7 +1915,7 @@ describe("ParagraphBlockEditor — the visible-character cap (§185)", () => {
 ```json
 [
   "  documentsBlockTooLongNotSaved:",
-  "    \"Not saved — this paragraph exceeds the {1}-character limit by {0}. Shorten it by {0} to save it; the text and its formatting stay here until you do.\",",
+  "    \"Not saved — this paragraph exceeds the {1}-character limit by {0}. Shorten it to save it; the text and its formatting stay here until you do.\",",
   "  documentsParagraphCharCount: \"{0} / {1} characters\","
 ]
 ```
@@ -1923,11 +1923,11 @@ describe("ParagraphBlockEditor — the visible-character cap (§185)", () => {
 ```json
 [
   "  documentsBlockTooLongNotSaved:",
-  "    \"Nicht gespeichert – dieser Absatz überschreitet das Limit von {1} Zeichen um {0}. Zum Speichern um {0} kürzen; Text und Formatierung bleiben bis dahin hier erhalten.\",",
+  "    \"Nicht gespeichert – dieser Absatz überschreitet das Limit von {1} Zeichen um {0}. Zum Speichern kürzen; Text und Formatierung bleiben bis dahin hier erhalten.\",",
   "  documentsParagraphCharCount: \"{0} / {1} Zeichen\","
 ]
 ```
-Insert both after `documentsBlockConflictNotSaved` (a two-line entry; the helper inserts after its value line).
+(Corrected 2026-09-26 during execution: the first draft used `{0}` twice; `t()` fills each placeholder once, so the second would have reached the user raw.) Insert both after `documentsBlockConflictNotSaved` (a two-line entry; the helper inserts after its value line).
 
 - [ ] **Step 4: Implement the notice and the counter** in `src/app/document-block-notices.tsx`:
 ```tsx
