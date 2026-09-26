@@ -106,7 +106,7 @@ export function TaskFormModal({
     taskModalOpen,
     "aipm-cockpit:modal-pos:task-form",
   );
-  const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:task-form");
+  const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:task-form", { open: taskModalOpen });
   if (!taskModalOpen) return null;
 
   const dialogTitle = isEditing ? t(lang, "taskEditTitle") : t(lang, "tabNewTask");

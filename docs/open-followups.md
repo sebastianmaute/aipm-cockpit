@@ -569,7 +569,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§335](#335-the-rag-health-chips-override-togglebuttons-derived-state-border-so-amber-and-green-stay-under-31-in-the-four-light-schemes) | The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes | found 2026-09-01 in the §55 fix round, from a cold docs review | S | open |
 | [§336](#336-a-docx-hyperlink-is-followable-but-invisible--no-hyperlink-character-style-while-pptx-colours-its-links-from-the-theme--closed-2026-09-01) | ~~A `.docx` hyperlink is followable but INVISIBLE — no `Hyperlink` character style, while PPTX colours its links from the theme~~ | found 2026-09-01 in the §119/§30 cold review; MINTED AS §333 and renumbered on the 2026-09-02 merge, which is why source comments say both | S | **CLOSED** 2026-09-01 (the palette decision: `COLOR_DARK_BLUE` + underline, matching the PPTX theme; closed WIDER than its title — the workspace exporter carried it too) |
 | [§337](#337-a-non-empty-but-unusable-next_public_turso_-both-hides-the-settings-field-and-outranks-it-so-turso-cannot-be-configured-from-the-ui-at-all--closed-2026-09-25) | ~~A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all~~ | found 2026-09-02 debugging "enabling Turso shows no configuration fields"; URL half shipped `28b517b77`, token half this commit | S | **CLOSED** 2026-09-25 |
-| [§338](#338-useresizable-is-a-no-op-in-every-modal-that-stays-mounted-while-closed--open) | `useResizable` is a no-op in every modal that stays mounted while closed | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | M (repo-wide) | open |
+| [§338](#338-useresizable-is-a-no-op-in-every-modal-that-stays-mounted-while-closed--closed-2026-09-26) | `useResizable` is a no-op in every modal that stays mounted while closed | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | M (repo-wide) | **CLOSED** 2026-09-26 |
 | [§339](#339-a-rename-can-strand-a-stale-alt-and-the-broken-image-state-then-paints-it--wcag-253--closed-2026-09-14) | A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-14 |
 | [§340](#340-two-tests-in-the-asset-preview-slice-pass-for-the-wrong-reason--closed-2026-09-26) | Two tests in the asset-preview slice pass for the wrong reason | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-26 |
 | [§341](#341-neither-asset-preview-entry-point-has-ever-been-exercised-against-a-real-turso-project--closed-2026-09-02) | ~~Neither asset-preview entry point has ever been exercised against a real Turso project~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-02 (eye-verified against a live Turso project; the entry records what that pass did NOT cover, which is narrower than the title) |
@@ -28105,32 +28105,47 @@ Both arms of the original report are closed. Nothing here needed `.env.local` in
   also marks the env token rejected and re-shows the field. The failure is loud and recoverable,
   not silent. Not fixed here.
 
-## 338. `useResizable` is a no-op in every modal that stays mounted while closed — open
+## 338. `useResizable` is a no-op in every modal that stays mounted while closed — CLOSED 2026-09-26
 
-**Status:** open — **never machine-verified** (2026-09-02). Found by reading during review of the
-asset preview lightbox, and confirmed against source, not by a failing run. Re-check with
-`grep -n "}, \[storageKey, axis\]" src/app/use-resizable.ts` against
-`grep -n "wasOpen" src/app/use-draggable.ts`.
+**Status:** CLOSED 2026-09-26 on `fix/defect-batch-7`. `useResizable` (`use-resizable.ts`) now takes
+a `ResizableOptions.open` flag, defaulting `true` so the ~40 always-mounted callers are unchanged.
+The attach/restore effect's dependency list is `[storageKey, axis, open]` and its body now bails on
+`!open || !el`, so it re-runs on every false→true transition — mirroring `useDraggable`'s own `open`
+handling — rather than only once at mount.
 
-**Work item:** #244
+Four callers pass the flag through, matching each one's own open/closed state: `task-form-modal.tsx`
+(`{ open: taskModalOpen }`), `asset-preview-modal.tsx` and `notes-window.tsx` (both `{ open }`, from
+their own `open` prop), and `shift-edit-modal.tsx` (`{ open: draft !== null }`, mirroring its
+existing `useDraggable(draft !== null, …)`; that modal's parent currently mounts it only while open,
+so this is defensive). `jira-conflicts-modal.tsx` also calls `useResizable`, but is not a fifth
+caller: it renders `<Modal open onClose={…}>` with a literal `true`, not a boolean prop or state — it
+has no closed-but-mounted state of its own, because its parent conditionally mounts the whole
+component rather than toggling an internal `open`. It never had this bug and needs no `{ open }`.
 
-`useResizable`'s single effect has deps `[storageKey, axis]`, both constant for the life of a
-component, so it runs exactly ONCE — at mount. Modals that stay mounted while closed (the pattern
-`asset-preview-modal.tsx` and `task-form-modal.tsx` both use, so that their own `useState` survives
-an open/close cycle) render `Modal`, which returns `null` while closed. So at that one and only
-run, `ref.current` is `null` and the effect bails immediately.
+Not a mutant: deleting the `!open ||` half of the guard alone is EQUIVALENT, not a regression — a
+closed caller renders no element, so `!el` already bails on its own. The guard exists so the effect
+body reads `open`, which `react-hooks/exhaustive-deps` then requires in the dependency list; without
+reading it there, `open` couldn't join `[storageKey, axis]` without an eslint-disable.
 
-Consequences: the saved size is never restored on open, and the `pointerdown`/`pointerup` listeners
-are never attached, so a drag-resize is never persisted. Native CSS `resize` still works within the
-session and `sizeReset()` still clears inline styles, so NOTHING LOOKS BROKEN — the persistence is
-simply dead.
+Pinned by `use-resizable.test.tsx`'s "useResizable — a component that mounts closed (§338)": restores
+a saved size on the false→true transition, and persists+restores a resize made after opening. Also
+pinned by `asset-preview-modal.test.tsx`'s "restores a saved window size when it opens after mounting
+closed (§338)", since the lightbox is the caller this was originally found in.
 
-★★ The asymmetry is the tell: `useDraggable` takes `open` and re-loads on the false→true
-transition, so drag POSITION is restored correctly. `useResizable` has no such hook.
+Mutation-checked 2026-09-26: reverting the deps list to `[storageKey, axis]` turns both new hook
+tests red (`expected '' to be '640px'`, `expected null to deeply equal { width: 700, height: 500 }`).
+Dropping `{ open }` from the `asset-preview-modal.tsx` call turns its new test red (`expected '' to
+be '777px'`). Both reverted; `git diff --stat` clean of the mutants.
 
-★ Repo-wide, not slice-local. `task-form-modal.tsx` — the precedent the lightbox cites for its
-window mechanics — has the identical shape. Enumerate other affected call sites before fixing;
-a fix belongs in the hook (take `open`, mirroring `useDraggable`), not at each call site.
+Verified 2026-09-26: `npx vitest run src/app/use-resizable.test.tsx src/app/asset-preview-modal.test.tsx
+src/app/notes-window.test.tsx src/app/shift-edit-modal.test.tsx src/app/help-menu.test.tsx
+src/app/budget-bucket-modal.test.tsx src/app/task-form-modal.test.tsx` → `Test Files 7 passed (7)`,
+`Tests 129 passed (129)`, exit 0; `npx eslint --max-warnings=0` on the seven changed files → exit 0.
+`npx tsc --noEmit` was blocked in this worktree by a pre-existing, unrelated corrupted generated file
+(`.next/dev/types/routes.d.ts`, gitignored, predating this task) that `next-env.d.ts` imports
+unconditionally — confirmed unrelated by isolating the same three syntax errors with `.next`
+excluded from `tsconfig`'s `include` (the import still pulls it in); no error was reported against
+any file this fix touches.
 
 ## 339. A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 — CLOSED 2026-09-14
 
