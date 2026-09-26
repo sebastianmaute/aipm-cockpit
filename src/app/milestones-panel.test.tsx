@@ -1047,3 +1047,69 @@ describe("MilestonesPanel — delete arms the destructive-save bypass", () => {
     expect(allowDestructiveSave).not.toHaveBeenCalled();
   });
 });
+
+// --- column-config popover names (§278) ------------------------------------
+
+// ★★ §278. The panel must route its column checklist through the shared
+//   `ColumnConfigPopover`, whose toggles are named "Show column – ‹column›"
+//   (§261). A hand-rolled checklist named by its wrapping <label> alone reads
+//   "Milestone" (`milestonesColName`), the same as the column's own header. The "row-unique names" test
+//   above cannot see this: the popover is closed there, and it PORTALS to
+//   <body>, outside its `scope: container`. So this one opens the popover and
+//   scans the WHOLE document.
+describe("MilestonesPanel column-config popover names", () => {
+  function popoverDoc(id: number, links: DocEntityRef[]): ProjectDocument {
+    return { id, title: `Doc ${id}`, blocks: [], createdAt: "2026-06-01T00:00:00.000Z", updatedAt: "2026-06-01T00:00:00.000Z", linkedEntities: links };
+  }
+
+  it("names every column toggle distinctly across the page, with two rows sharing a name", async () => {
+    // Same collision seed and wiring as "keeps every per-row control distinct
+    // when two rows share a name", so the in-panel control count is the one
+    // measured there.
+    const milestones = [
+      { id: 1, name: "Go live", date: "2026-06-10", linkedTaskIds: [] },
+      { id: 2, name: "Go live", date: "2026-06-20", linkedTaskIds: [] },
+    ];
+    const documentsByEntity = indexDocumentsByEntity([
+      popoverDoc(10, [{ kind: "milestone", id: 1 }]),
+      popoverDoc(11, [{ kind: "milestone", id: 2 }]),
+    ]);
+    render(
+      <>
+        <Seed milestones={milestones} />
+        <MilestonesPanel
+          lang="en-US"
+          today="2026-06-02"
+          holidaySet={new Set()}
+          documentsByEntity={documentsByEntity}
+          onAiEdit={vi.fn()}
+          aiEditEnabled={() => true}
+        />
+      </>,
+      { wrapper },
+    );
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "colConfigTitle") }));
+    const popover = await screen.findByRole("dialog", { name: t("en-US", "colConfigTitle") });
+    // Positive observables: the popover really opened, with one toggle per
+    // configurable column, and the name-column toggle carries its qualified name.
+    expect(within(popover).getAllByRole("checkbox")).toHaveLength(4);
+    // ★★ THIS LOOKUP IS THE LOAD-BEARING PIN; do not drop it as redundant with
+    //   the scan below. `controlNames` reads `aria-label || textContent`, so a
+    //   toggle regressed to a bare label-named <input> scans as "" rather than
+    //   as its real accessible name. The page-wide scan therefore cannot see
+    //   the header collision. Only this exact-name `getByRole` (which computes
+    //   the real accessible name) catches it.
+    screen.getByRole("checkbox", {
+      name: t("en-US", "colConfigToggleColumn", t("en-US", "milestonesColName")),
+    });
+    // Whole-document scope on purpose: the popover is portaled to <body>.
+    // `minControls` is a FLOOR, not a count. It is derived as the in-panel
+    // scan's floor of 20 above plus the 4 portaled toggles, and was not
+    // measured here.
+    expectRowUniqueNames({
+      minControls: 24,
+      roles: ["button", "checkbox"],
+      requireCollisionSeed: true,
+    });
+  });
+});
