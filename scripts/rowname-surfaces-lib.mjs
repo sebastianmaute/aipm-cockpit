@@ -89,6 +89,9 @@ export const STRONG_MARKER = "expectRowUniqueNames";
 
 const PAIRS = { "(": ")", "{": "}", "[": "]" };
 
+/** The characters after which a `//` is read as a comment; see below. */
+const COMMENT_LEAD = /[\s{}()[\],;]/;
+
 /** Index of the delimiter closing the one at `open`, or -1 when unbalanced.
  *  ★ -1 rather than end-of-file: a truncated scope that silently ran to EOF
  *  would drag every later control in the file into one "repeat".
@@ -98,10 +101,18 @@ const PAIRS = { "(": ")", "{": "}", "[": "]" };
  *  it — `seen.add(primary` in `resource-directory.tsx` — made the whole scope
  *  unbalanced, so every control inside fell out of the report without a word.
  *  A block comment that never closes returns -1, like any other unbalance.
- *  ★ A `//` preceded by `:` is NOT a comment: it is a URL scheme inside a
- *  string (`href="https://…"`), and treating it as one would skip the rest of
- *  that line's brackets. A comment written straight after a `:` is the
- *  accepted cost of that guard.
+ *  ★★ A `//` STARTS A COMMENT ONLY AFTER WHITESPACE, `{ } ( ) [ ] , ;` OR THE
+ *  START OF THE TEXT (`COMMENT_LEAD`). Chosen over a quote-aware skip, which
+ *  would bring back the apostrophe problem below. Real comments in this repo
+ *  follow whitespace or one of those; a `//` inside a string does not: a URL
+ *  scheme (`"https://…"`, after `:`), a protocol-relative URL or
+ *  `startsWith("//")` (after a quote), and an escaped slash in a regex
+ *  literal (`/\/\//`, after a backslash). Treating any of those as a comment
+ *  would skip the rest of the line's brackets (review M9). Its known misreads,
+ *  both rare: a comment glued to other code (`x=1//(`) is not skipped, and a
+ *  `//` inside a string right after a space or bracket (`" //("`) is. A
+ *  comment running to the end of the text returns -1, which is correct: no
+ *  bracket can close inside it.
  *
  *  ★★★ STRING LITERALS ARE NOT SKIPPED, AND THAT IS A DOCUMENTED HOLE, NOT AN
  *  OVERSIGHT. `scanOpenTag` skips quotes because it only ever walks an
@@ -115,7 +126,7 @@ export function matchDelimiters(text, open) {
   const stack = [];
   for (let i = open; i < text.length; i++) {
     const ch = text[i];
-    if (ch === "/" && text[i + 1] === "/" && text[i - 1] !== ":") {
+    if (ch === "/" && text[i + 1] === "/" && (i === 0 || COMMENT_LEAD.test(text[i - 1]))) {
       const nl = text.indexOf("\n", i);
       if (nl < 0) return -1;
       i = nl;

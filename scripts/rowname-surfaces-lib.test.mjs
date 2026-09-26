@@ -178,10 +178,30 @@ describe("matchDelimiters", () => {
     expect(matchDelimiters("f(a /* ) b)", 1)).toBe(-1);
   });
 
-  // Mutation: drop the `text[i - 1] !== ":"` guard → -1, because the URL's
-  // `//` swallows the rest of the line including the closing `)`.
+  // Mutation: drop the `COMMENT_LEAD` condition (every `//` is a comment) → -1,
+  // because the URL's `//` swallows the rest of the line including the `)`.
   it("a URL's // inside a string is not read as a comment", () => {
     const text = 'rows.map((r) => <a href="https://x.test">{r}</a>)';
+    expect(matchDelimiters(text, 8)).toBe(text.length - 1);
+  });
+
+  // Review M9. Mutation: the first cut's `text[i - 1] !== ":"` guard → -1,
+  // because the `//` after the quote swallows the rest of the line.
+  it("a protocol-relative // inside a string is not read as a comment", () => {
+    const text = 'rows.map((r) => r.href.startsWith("//") ? <a>{r}</a> : null)';
+    expect(matchDelimiters(text, 8)).toBe(text.length - 1);
+  });
+
+  // The positive side of COMMENT_LEAD: a comment glued to a bracket is still a
+  // comment. Mutation: narrow COMMENT_LEAD to whitespace only → -1.
+  it("a // right after a bracket is still read as a comment", () => {
+    const text = "f({// stray (\n a })";
+    expect(matchDelimiters(text, 1)).toBe(text.length - 1);
+  });
+
+  // Mutation: the same `:`-only guard → -1 (the `//` after the backslash).
+  it("an escaped slash pair in a regex literal is not read as a comment", () => {
+    const text = "rows.map((r) => /\\/\\//.test(r) && <b>{r}</b>)";
     expect(matchDelimiters(text, 8)).toBe(text.length - 1);
   });
 
