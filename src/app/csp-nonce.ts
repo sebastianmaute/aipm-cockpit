@@ -1,10 +1,13 @@
-// src/app/csp-nonce.ts — the per-request CSP nonce, for code that must hand it
-// to a third-party library rather than let Next.js apply it.
+// src/app/csp-nonce.ts — the per-request CSP nonce, for code that must put it
+// on an element Next.js does not render itself.
 //
-// Today that is exactly one caller: rich-text-editor.tsx passes it to Tiptap's
-// `injectNonce`, because @tiptap/core injects its ProseMirror base stylesheet at
-// runtime with document.createElement("style") and the prod CSP is
-// `style-src-elem 'self' 'nonce-…'` (src/proxy.ts). See open-followups §54.
+// The prod CSP is `style-src-elem 'self' 'nonce-…'` (src/proxy.ts). Callers:
+// rich-text-editor.tsx passes it to Tiptap's `injectNonce`, because @tiptap/core
+// injects its ProseMirror base stylesheet at runtime with
+// document.createElement("style") (open-followups §54); export.ts and
+// document-download.ts put it on the PDF print tab's own `<style>` and
+// auto-print `<script>`, because that `about:blank` tab inherits this page's
+// CSP (§468). The reproduce command below lists them.
 
 /** The per-request CSP nonce, or `undefined` when there is none to read.
  *
@@ -43,15 +46,20 @@
  *        import from a subdirectory, which is why this one is rooted at
  *        `src e2e scripts` and admits `../` paths.
  *    grep -rn 'readCspNonce(' src --include=*.ts --include=*.tsx | grep -v '\.test\.' | grep -v csp-nonce.ts
- *      → exactly ONE line: `rich-text-editor.tsx`. The trailing `grep -v` is not
+ *      → one line per caller: `rich-text-editor.tsx`, plus `export.ts` and
+ *        `document-download.ts` (§468). Read the callers off the command, not
+ *        off this list. ★ The two export callers do NOT arm the SSR path: each
+ *        reads the nonce inside a click-time export function (`exportPdf` /
+ *        `downloadDocument`) that returns early on `typeof window ===
+ *        "undefined"`, never during render or SSR. The trailing `grep -v` is not
  *        tidying — without it THIS comment matches its own command. ★★ Keep the
  *        whole pipeline on ONE line: the previous spelling wrapped it across two
  *        comment lines with a trailing backslash, which the shell read as a file
  *        named `r` (`grep: r: No such file or directory`, exit 2). A reproduce
  *        command that does not run is worse than none — it reads as evidence.
  *  ★★★ That makes the guard defensive, NOT dead, and the difference is one word in
- *  one file: flip `ssr` to true in `rich-text-editor-lazy.tsx` — or add a second
- *  caller that is not behind a `dynamic` boundary — and the SSR path is armed
+ *  one file: flip `ssr` to true in `rich-text-editor-lazy.tsx` — or add a caller
+ *  that runs at RENDER time outside a `dynamic` boundary — and the SSR path is armed
  *  again with no other edit. A guard whose live path was removed is the guard
  *  most likely to be tidied away by whoever removes the NEXT one.
  *

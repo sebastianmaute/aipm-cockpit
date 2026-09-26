@@ -78,6 +78,17 @@ const named = (title: string): ProjectDocument => ({ ...doc, title });
 /** The mock's calls, typed. */
 const downloads = () => vi.mocked(triggerDownload).mock.calls;
 
+// The exact pre-§468 browser auto-print block, copied by hand from the
+// module's own `AUTO_PRINT_SCRIPT`. ONE copy: the byte pin and the §468
+// nonced pin (which adds only ` nonce="…"` to the opening tag) both read it.
+const EXPECTED_AUTO_PRINT_SCRIPT = `<script>
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      try { window.focus(); window.print(); } catch (e) {}
+    }, 80);
+  });
+</script>`;
+
 const ASSET_ID = "asset-1";
 /** A 1x1 PNG's first bytes. Only the ALPHABET matters here — the standalone
  *  renderer validates base64 with a character-class regex and never decodes. */
@@ -229,13 +240,6 @@ describe("withAutoPrint", () => {
   // refactor into `withClosingScript`; a change to that literal, or to which
   // script `withAutoPrint` now delegates to, must fail this test.
   it("injects the exact pre-§468 auto-print script", () => {
-    const EXPECTED_AUTO_PRINT_SCRIPT = `<script>
-  window.addEventListener("load", function () {
-    setTimeout(function () {
-      try { window.focus(); window.print(); } catch (e) {}
-    }, 80);
-  });
-</script>`;
     const out = withAutoPrint("<html><body><p>x</p></body></html>");
     expect(out).toContain(EXPECTED_AUTO_PRINT_SCRIPT);
     expect(out.indexOf(EXPECTED_AUTO_PRINT_SCRIPT)).toBeLessThan(out.lastIndexOf("</body>"));
@@ -636,13 +640,6 @@ describe("downloadDocument asset policy per format", () => {
 // ONLY the nonce attribute added.
 describe("downloadDocument — browser print tab carries the CSP nonce (§468)", () => {
   const NONCE = "nOnCe+/=42";
-  const EXPECTED_AUTO_PRINT_SCRIPT = `<script>
-  window.addEventListener("load", function () {
-    setTimeout(function () {
-      try { window.focus(); window.print(); } catch (e) {}
-    }, 80);
-  });
-</script>`;
   let nonced: HTMLScriptElement | null = null;
   beforeEach(() => {
     vi.mocked(triggerDownload).mockClear();

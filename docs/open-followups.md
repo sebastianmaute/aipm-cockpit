@@ -36243,76 +36243,53 @@ themselves, never a green result to cite as coverage.
 
 ## 468. PDF export opens a window that never prints in the desktop app — OPEN
 
-**Status:** FIX LANDED 2026-09-25 on `fix/defect-batch-6` — never machine-verified in the packaged app —
-OWED: manual desktop PDF check (project export plus document export; save dialog shows the suggested
-name; saved file
-opens as a PDF **and is styled, not a bare unstyled table/document** — the export tab's `<style>` block(s)
-face the same nonce-only `style-src-elem` in production (`src/proxy.ts`) that motivated the `<script>` fix
-below, and NOTHING in this fix addresses that separately, in the desktop tab OR the plain browser print
-tab; Cancel writes nothing; main.ts has not been compiled against Electron types or run). Both PDF-export
-renderer paths now route through a main-process save dialog instead of a renderer `window.print()`.
-`pdfWindowName` (new `src/app/pdf-export-protocol.ts`) tells `export.ts`'s `exportPdf` and
-`document-download.ts`'s `downloadDocument` whether they are running in the desktop shell; there, the print
-tab opens under the named frame `PDF_EXPORT_FRAME_NAME` and carries no script at all. ★ The readiness
-signal is a STATIC `<title>` element (`pdfReadyTitleMarkup`, replacing the page's own title rather than
-appending after it, via `replaceHtmlTitle` — a FUNCTION replacement, never a string one, since a document
-title containing `$&`/`$'`/`$$` would otherwise corrupt the emitted markup), not a script, because the tab
-is `document.write`n into an `about:blank` child that inherits the packaged app's nonce-only production CSP
-— an inline `<script>` there has no nonce and would be blocked outright, so a script-based signal (this
-fix's first draft) would very likely never have fired; a `<title>` element needs no script permission and
-reaches main purely from parsing. `desktop/src/main.ts` renders that named frame hidden
-(`overrideBrowserWindowOptions: { show: false }`, gated on `isPdfExportFrame` so no other
-`about:blank`/same-origin open is affected), watches for the ready title on `page-title-updated`
-(`pdfFilenameFromTitle`, both in the new `desktop/src/lib/pdf-export.ts`), then polls
-`document.readyState` via `executeJavaScript` (a privileged call, also unaffected by the page's CSP) until
-`isDocumentReadyState` reports "complete" — the title sits early in `<head>` and can arrive well before the
-rest of the page has rendered — bounded by the same `PDF_EXPORT_TIMEOUT_MS` (60s) that also force-closes
-the window and shows a `dialog.showErrorBox` if the ready title never arrives at all. That bound is CLEARED
-the moment readiness is confirmed, before `printToPDF`/the save dialog run (an earlier revision of this fix
-cleared it only in a trailing `finally`, which left it armed through both — a slow save could show "took
-too long and was cancelled" and close the window while the file was in fact about to be written, or firing
-mid-`printToPDF` produced a second, contradicting error box). Once ready, it sets a clean PDF-metadata
-title, calls `webContents.printToPDF`, offers the result through `dialog.showSaveDialog` with the sanitized
-suggested filename (path separators, Windows-reserved punctuation and device names, trailing dots/spaces
-stripped; length-capped), writes the bytes on confirm — showing an error box rather than failing silently
-if printToPDF/the dialog/the write throws — and always closes the hidden window afterward. ★ KNOWN LIMIT:
-a second export started while a hidden export window still owns the named `window.open` target reuses that
-SAME browsing context, so no fresh `did-create-window` fires for it — the second export is silently lost
-until the first one's `PDF_EXPORT_TIMEOUT_MS` backstop closes the stuck window (or the first export
-completes normally). In a browser, `pdfWindowName` still returns `_blank` and the original auto-print
-script (`EXPORT_AUTO_PRINT_SCRIPT` / `AUTO_PRINT_SCRIPT`) runs exactly as before — pinned byte-for-byte by
-`toContain`-on-the-full-block assertions in `export.test.ts` and `document-download.test.ts`
-(mutation-checked: a one-character change to either script fails the pin), not merely by the pre-existing
-suites continuing to pass. Pinned by `desktop/src/lib/pdf-export.test.ts`,
-`src/app/pdf-export-protocol.test.ts` (including a `$&`/`$'`/`$$` title case for `replaceHtmlTitle`), and
-desktop-UA cases in `src/app/export.test.ts` and `src/app/document-download.test.ts` asserting the named
-frame, the `<title>`-only ready signal (never a `<script>`), and the absence of `window.print`. `main.ts`'s
-own wiring — including the timeout-clearing ORDER and the second-export limit above — sits outside the
-blocking root typecheck and outside vitest coverage (only the pure `pdf-export.ts` lib is tested), and
-`desktop/node_modules` is not installed in this worktree, so none of that has been compiled or run against
-real Electron types. This entry stays OPEN, and its Work item stays attached, until the manual check below
-records a real result — closing on landed-but-unrun code would detach the GitHub issue while the owed
-check is still outstanding. The OPEN-era witnesses below are kept as the record of what was found before
-this fix; read them as history, not as current status. ★★ PACKAGED-APP CHECK 2026-09-26: the save
-dialog, the write and Cancel all worked, but the PDF itself came out unstyled — serif font, Letter
-portrait, wide tables clipped at the right edge (Stakeholders, Changes, Budgets, Resources lost whole
-columns) and task rows many lines tall — and was named `aipm-cockpit-tasks-<date>.pdf` for a whole-project
-export. One cause behind everything but the name, exactly as the OWED note above predicted: the tab's
-`<style>` carried no nonce under the inherited nonce-only `style-src-elem` (reproduced in Electron 44 under
-that CSP; the rows were tall because the clipped off-page columns wrapped narrow). MEASURED in a production
-build (`next start`, Chromium, Export project → PDF) the BROWSER print tab had the same defect and a worse
-one: two CSP violations (inline style, inline script), body font Times New Roman, and `window.print`
-never called — the auto-print never ran. Fixed on both paths: the renderer writes the tab's `<style>` and
-auto-print `<script>` with the page's nonce (`readCspNonce` → `nonceOpenTag`/`withStyleNonce`/
-`withScriptNonce`, `pdf-export-protocol.ts`; the popup-blocked fallback FILE stays nonce-free), after which
-the same measurement shows zero violations, the sans stack, and `window.print` called once. On the desktop,
-`desktop/src/lib/pdf-export.ts`'s `preparePdfPrint` additionally re-applies the page's own `<style>` text
-through `webContents.insertCSS` (belt-and-braces: it does not depend on a nonce being found), passes the
-page size, orientation and margins from the `@page` rule EXPLICITLY to `printToPDF`, scales content wider
-than the page down to a 0.6 floor, and wraps (`PDF_WRAP_CSS`) only the tables still too wide at that floor;
-`export.ts`'s `exportFilename` names a whole-project export `aipm-cockpit-project-<slug>-<date>`.
-`npm run desktop:typecheck` now compiles `main.ts` against real Electron types (EXIT=0), but the packaged
-app itself is still never machine-verified with this change — re-verification owed.
+**Status:** FIX LANDED 2026-09-25 and REWORKED 2026-09-26 on `fix/defect-batch-6` — never machine-verified
+in the packaged app. OWED, one manual run of the rebuilt installer: (1) Export project → PDF opens a Save As
+dialog suggesting `aipm-cockpit-project-<project-slug>-<date>.pdf`, Cancel writes nothing; (2) the saved
+file is A4 LANDSCAPE, sans-serif, with dark-blue table headers; (3) no column of any section is clipped at
+the right edge (Tasks, Stakeholders, Changes, Budgets, Resources were); (4) no task row is many lines taller
+than its content and no page ends in a large blank area; (5) dates, numbers and ids in the wide tables
+stay on one line; (6) a document → PDF is A4 PORTRAIT with its prose at full size even when it embeds a
+wide register table; and, on a production BROWSER deployment, (7) Export → PDF opens the print dialog by
+itself with a styled preview. What the branch verified instead, all recorded in the task-8 report: an
+Electron 44 reproduction of the unstyled output under the production CSP shape, Electron renders of the
+fixed pipeline (A4 landscape export and A4 portrait document page sizes, every section's last column
+present, prose at 12pt beside a table zoomed to 0.6), a production build measured in Chromium before
+(two CSP violations, Times New Roman, `window.print` never called) and after (no violations, the sans stack,
+`window.print` called once), and `npm run desktop:typecheck` compiling `desktop/src/main.ts` against real
+Electron types.
+
+★ WHAT WAS WRONG, IN TWO LAYERS. First (2026-09-25): Electron refuses a renderer-initiated
+`window.print()`, so both PDF-export renderer paths now route through a main-process save dialog.
+`pdfWindowName` (`src/app/pdf-export-protocol.ts`) tells `export.ts`'s `exportPdf` and
+`document-download.ts`'s `downloadDocument` whether they run in the desktop shell; there the print tab opens
+under the named frame `PDF_EXPORT_FRAME_NAME`, carries no script, and signals "rendered" with a STATIC
+`<title>` (`pdfReadyTitleMarkup`, swapped in by `replaceHtmlTitle` — a FUNCTION replacement, since a title
+containing `$&`/`$'`/`$$` would otherwise corrupt the markup). `desktop/src/main.ts` renders that frame
+hidden (gated on `isPdfExportFrame`), reads the filename from the title (`pdfFilenameFromTitle`, sanitized
+and length-capped), polls `document.readyState` via `executeJavaScript` until `isDocumentReadyState`, then
+prints and offers the result through `dialog.showSaveDialog`, with `PDF_EXPORT_TIMEOUT_MS` (60s) bounding
+only the wait for readiness and cleared before printing. Second (2026-09-26, found by the first packaged
+run): the print tab is `document.write`n into an `about:blank` child that INHERITS the opener's production
+CSP, whose `style-src-elem` and `script-src` are nonce-only (`src/proxy.ts`), so the tab's own `<style>` —
+and in a browser its auto-print `<script>` — never applied. That one fact produced the serif font,
+printToPDF's default Letter portrait page, the clipped columns and the tall rows, and in a production
+browser an unstyled tab that never auto-printed. The renderer now writes both elements with the page's
+nonce (`readCspNonce` → `nonceOpenTag`/`withStyleNonce`/`withScriptNonce`); the popup-blocked fallback FILE
+and plain `.html` downloads stay nonce-free. The browser auto-print block's bytes are therefore no longer
+identical to the pre-§468 ones: its opening tag gains ` nonce="…"`, pinned exactly in `export.test.ts` and
+`document-download.test.ts` beside the unchanged no-nonce pin. On the desktop, `preparePdfPrint`
+(`desktop/src/lib/pdf-export.ts`) additionally re-applies the head stylesheet through
+`webContents.insertCSS` (it does not depend on a nonce being found), passes the page size, orientation and
+margins read from the `@page` rule to printToPDF explicitly, prints at 100%, and fits each table that is
+wider than the page ON ITS OWN — CSS `zoom` down to a 0.6 floor, then `overflow-wrap: anywhere` for any
+table still too wide, with date/number/id cells kept on one line (`isAtomicCellValue`). A whole-project
+export is now named `aipm-cockpit-project-<slug>-<date>` (`exportFilename`, slugged by `filenameStem`).
+★ KNOWN LIMIT: a second export started while a hidden export window still owns the named `window.open`
+target reuses that browsing context, so no fresh `did-create-window` fires and the second export is lost
+until the first completes or its 60s backstop closes it. This entry stays OPEN, and its Work item stays
+attached, until the manual run above records a real result. The paragraphs below are the OPEN-era record
+of what was found; read them as history, not as current status.
 
 **Work item:** #297
 
@@ -36332,23 +36309,20 @@ indistinguishable from "my printer is being slow" and impossible to attribute wi
 Reachable from three surfaces, all via the PDF choice: `documents-toolbar.tsx`, `export-menu.tsx` and
 `projects-panel.tsx` (`EXPORT_FORMATS`).
 
-★ The web app is UNAFFECTED — a browser honours `window.print()` in an opened tab, and that is what the
-`window.open`-plus-inline-script shape exists for (`export.ts` explains why a tab beats an iframe). This
-is a desktop-only regression in capability, introduced by shipping the Electron shell, not by any change
-to the export code.
+★ HISTORY, NOT CURRENT: this paragraph used to say the web app was UNAFFECTED because a browser honours
+`window.print()` in an opened tab. That was reasoned, not measured, and a production build measured on
+2026-09-26 disproved it — the tab inherits the nonce-only CSP, so the inline auto-print script was blocked
+and never ran (see the Status block). Only a dev server, whose CSP is permissive, behaved as described.
 
 ★★ A related promise is now also only half-true in the shell: `export.ts` offers the export tab's Ctrl+P
 as the user's fallback when auto-print does not fire. Since the desktop File menu's CmdOrCtrl+P prints
 the FOCUSED window, that fallback **should** work in the packaged app — but it is then the app's own
 print route doing it, not the page's script, and it prints whatever the focused window shows. ★ REASONED,
-NOT OBSERVED, like everything else under this Status line: it needs the export tab to be a real
+NOT OBSERVED, like everything the Status block still owes: it needs the export tab to be a real
 BrowserWindow that receives the application menu's accelerator, which the code supports and no run has
 confirmed. Do not restate it as fact — an earlier revision of this paragraph did.
 
-Fix landed as described in the Status line above: a main-process route via `webContents.printToPDF` plus a
-save dialog, keeping the on-screen-tab shape for both surfaces (the tab is simply hidden in the desktop
-shell rather than removed) rather than replacing it with something else. Still OPEN pending the manual
-packaged-app run. Size M.
+The fix is described in the Status block above. Still OPEN pending the manual packaged-app run. Size M.
 
 ## 469. `SnapshotRecord.currency` is written on every capture and read by nothing — CLOSED 2026-09-16
 
