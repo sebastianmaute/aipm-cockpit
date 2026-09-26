@@ -36293,7 +36293,26 @@ blocking root typecheck and outside vitest coverage (only the pure `pdf-export.t
 real Electron types. This entry stays OPEN, and its Work item stays attached, until the manual check below
 records a real result — closing on landed-but-unrun code would detach the GitHub issue while the owed
 check is still outstanding. The OPEN-era witnesses below are kept as the record of what was found before
-this fix; read them as history, not as current status.
+this fix; read them as history, not as current status. ★★ PACKAGED-APP CHECK 2026-09-26: the save
+dialog, the write and Cancel all worked, but the PDF itself came out unstyled — serif font, Letter
+portrait, wide tables clipped at the right edge (Stakeholders, Changes, Budgets, Resources lost whole
+columns) and task rows many lines tall — and was named `aipm-cockpit-tasks-<date>.pdf` for a whole-project
+export. One cause behind everything but the name, exactly as the OWED note above predicted: the tab's
+`<style>` carried no nonce under the inherited nonce-only `style-src-elem` (reproduced in Electron 44 under
+that CSP; the rows were tall because the clipped off-page columns wrapped narrow). MEASURED in a production
+build (`next start`, Chromium, Export project → PDF) the BROWSER print tab had the same defect and a worse
+one: two CSP violations (inline style, inline script), body font Times New Roman, and `window.print`
+never called — the auto-print never ran. Fixed on both paths: the renderer writes the tab's `<style>` and
+auto-print `<script>` with the page's nonce (`readCspNonce` → `nonceOpenTag`/`withStyleNonce`/
+`withScriptNonce`, `pdf-export-protocol.ts`; the popup-blocked fallback FILE stays nonce-free), after which
+the same measurement shows zero violations, the sans stack, and `window.print` called once. On the desktop,
+`desktop/src/lib/pdf-export.ts`'s `preparePdfPrint` additionally re-applies the page's own `<style>` text
+through `webContents.insertCSS` (belt-and-braces: it does not depend on a nonce being found), passes the
+page size, orientation and margins from the `@page` rule EXPLICITLY to `printToPDF`, scales content wider
+than the page down to a 0.6 floor, and wraps (`PDF_WRAP_CSS`) only the tables still too wide at that floor;
+`export.ts`'s `exportFilename` names a whole-project export `aipm-cockpit-project-<slug>-<date>`.
+`npm run desktop:typecheck` now compiles `main.ts` against real Electron types (EXIT=0), but the packaged
+app itself is still never machine-verified with this change — re-verification owed.
 
 **Work item:** #297
 
