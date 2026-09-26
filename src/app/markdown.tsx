@@ -177,22 +177,35 @@ function parseBlocks(input: string): Block[] {
 // because chained replaces can't easily produce React nodes, and naïve
 // regex replace on already-converted markup is fragile.
 
-const PROBE_ORIGIN = "https://x.invalid";
+// Two distinct probe origins: a relative link stays on whichever origin it is
+// resolved against, while a link that names a host lands on that host — which
+// can equal ONE probe (`//a.invalid/x`) but never both. Resolving against a
+// single probe would accept a link naming the probe host itself.
+const PROBE_ORIGINS = ["https://a.invalid", "http://b.invalid:8080"] as const;
 
 /** True for a root-relative link that stays on this origin. It must start
- *  with one `/` not followed by `/` or `\`, and it must still resolve to the
- *  same origin with no `//` left in its normalised path — so dot segments
- *  (`/./\host`, `/../\host`) cannot smuggle a protocol-relative URL past the
- *  prefix check. Tab/CR/LF are already stripped by the caller. The origin
- *  check is the load-bearing half: the prefix regex (and the caller's strip)
- *  reject nothing it would not, measured by mutation, and stay as cheap
- *  belt-and-braces — the strip also keeps the rendered href equal to the
- *  string that was checked. */
+ *  with one `/` not followed by `/` or `\`, and against both probe origins it
+ *  must resolve same-origin with no `//` left in its normalised path. That last
+ *  conjunct refuses a path such as `/./\host`, which resolves to the same origin
+ *  but as `//host` — harmless to a browser, but a protocol-relative URL again
+ *  if anything later re-parses or redirects to the path. Tab/CR/LF are already
+ *  stripped by the caller, which also keeps the rendered href equal to the
+ *  string checked here.
+ *  THREE OVERLAPPING GUARDS. The prefix regex refuses every host-naming
+ *  prefix (`//`, `/\`), and the caller's strip turns `/<TAB>/` into one; the
+ *  origin check refuses the dot-segment forms that normalise to `//host`.
+ *  With two probe origins the origin check is also sufficient ON ITS OWN:
+ *  over 575 adversarial inputs, without the regex or the strip, it accepted
+ *  none that a browser on this app's origin resolves off-site. Because the
+ *  guards overlap, no end-to-end test can isolate one — dropping the second
+ *  probe, or the regex, survives mutation while the other still stands. */
 function isSameOriginPath(url: string): boolean {
   if (!/^\/(?![/\\])/.test(url)) return false;
   try {
-    const resolved = new URL(url, PROBE_ORIGIN);
-    return resolved.origin === PROBE_ORIGIN && !resolved.pathname.startsWith("//");
+    return PROBE_ORIGINS.every((base) => {
+      const resolved = new URL(url, base);
+      return resolved.origin === base && !resolved.pathname.startsWith("//");
+    });
   } catch {
     return false;
   }

@@ -114,6 +114,19 @@ describe("Markdown", () => {
     },
   );
 
+  // Links naming a probe host. The prefix regex (after the tab strip) refuses
+  // them today; the two-probe origin check would refuse them too if the regex
+  // were ever loosened — a single probe would not. The guards overlap, so these
+  // cannot isolate either one (see isSameOriginPath's docstring).
+  it.each(["//a.invalid/x", "/\\a.invalid/x", "/\t/a.invalid/x", "//b.invalid:8080/x"])(
+    "drops a link naming a probe host (%j)",
+    (href) => {
+      const { container } = render(<Markdown text={`[x](${href})`} />);
+      expect(container.querySelector("a")).toBeNull();
+      expect(container.textContent).toContain(`[x](${href})`);
+    },
+  );
+
   it("still renders root-relative, hash, query and https links", () => {
     const { container } = render(
       <Markdown text="[a](/path/to) and [b](https://example.com/x) and [c](/#top) and [d](/?q=1)" />,
