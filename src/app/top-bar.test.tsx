@@ -195,7 +195,10 @@ describe("top bar left/right cluster classes (source scan)", () => {
   //    The same elastic classes there collapse the field to the input's own
   //    intrinsic ~209px even on a 1600px window, so it keeps a definite
   //    lg:w-96 (the basis) and shrinks only to lg:min-w-56, with min-w-0 on
-  //    its two ancestors (§618).
+  //    the header's left column above it (§618). The trailing row ITSELF has
+  //    no min-w-0 — measured (M2): a no-op, since this wrapper's own
+  //    min-w-0 already zeroes its contribution to the row's automatic
+  //    minimum regardless of the row's own.
   // Below lg the two stay identical (the shared prefix below): both headers
   // behave there exactly as they did before the fix.
   it("keeps each search wrapper sized for its own mount, and identical below lg", () => {
@@ -224,21 +227,21 @@ describe("top bar left/right cluster classes (source scan)", () => {
   // the <header> lets it. `lg:w-96` stays a DEFINITE width (it is the flex
   // basis; the rejected `lg:w-auto` variant lost it and collapsed to the
   // input's ~209px intrinsic width even at 1600px), `lg:min-w-56` is the floor,
-  // and the two `min-w-0`s let the trailing row and the header's left column
-  // shrink below their content at all. jsdom has no layout: the widths are
-  // measured in e2e/classic-header-fit.spec.ts.
+  // and the header's left column's own `min-w-0` lets it shrink below its
+  // content at all. jsdom has no layout: the widths are measured in
+  // e2e/classic-header-fit.spec.ts. ★ The trailing row (shell-chrome.tsx)
+  // does NOT need its own `min-w-0` — measured (M2, including with the tz
+  // switcher and a populated undo stack mounted beside search): removing it
+  // produces no overflow, since the search wrapper's own `min-w-0` already
+  // zeroes its contribution to the row's automatic minimum. No assertion for
+  // it here on purpose; asserting an absent no-op would just re-add the
+  // thing this comment explains was tried and dropped.
   it("lets the classic search shrink from its 24rem basis to a 14rem floor (§618)", () => {
     const left = read("app-header.tsx").match(
       /<header className="[^"]*">\s*(?:\{\/\*[\s\S]*?\*\/\}\s*)?<div className="([^"]*)">/,
     );
     expect(left).not.toBeNull();
     expect(left![1].split(/\s+/)).toContain("min-w-0");
-
-    const trailing = read("shell-chrome.tsx").match(
-      /trailing=\{\s*<div className="([^"]*)">\s*(?:\{\/\*[\s\S]*?\*\/\}\s*)?<div className="[^"]*">\s*<GlobalSearchConnected/,
-    );
-    expect(trailing).not.toBeNull();
-    expect(trailing![1].split(/\s+/)).toContain("min-w-0");
 
     const classic = searchWrapperClasses("shell-chrome.tsx");
     expect(classic).toHaveLength(1);

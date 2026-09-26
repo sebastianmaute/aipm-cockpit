@@ -82,3 +82,67 @@ test.describe("classic header fits from lg up (§618)", () => {
     });
   }
 });
+
+// §618 M2 — the suite above never seats every sibling `trailing` can carry
+// (shell-chrome.tsx), so it couldn't tell whether the trailing row needed its
+// own `min-w-0` or whether the search wrapper's own `min-w-0 lg:min-w-56` was
+// already enough on its own. Measured here with the fullest realistic
+// trailing row mounted — `showDisplayTzSwitcher: true` (the DisplayTzSwitcher
+// pill) AND a POPULATED undo stack (UndoControl self-hides on an empty one —
+// undo/undo-control.tsx `if (depth <= 0) return null`, so it renders NOTHING
+// by default; the undo entry comes from one real field edit, not a seeded
+// fixture, since the stack lives in React state and isn't persisted) — even
+// this state doesn't overflow with the row's own `min-w-0` removed. So
+// shell-chrome.tsx's trailing row deliberately has NO `min-w-0` of its own
+// (see its comment there); this suite is the regression guard for that
+// no-op-by-measurement finding, kept as a general "every sibling present"
+// check rather than a mutant-specific one now that the code it once probed
+// is gone.
+test.describe("classic header trailing row still fits with every sibling present (§618 M2)", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "aipm-cockpit:settings",
+        JSON.stringify({
+          layout: "classic",
+          expertMode: true,
+          ai: { enabled: true, apiKey: "e2e-probe-key" },
+          showDisplayTzSwitcher: true,
+        }),
+      );
+    });
+  });
+
+  for (const width of [1024, 1100] as const) {
+    test(`no sideways scroll at ${width}px with the tz switcher and a populated undo stack`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 850 });
+      await page.clock.install({ time: FROZEN_NOW });
+      await page.goto("/");
+      await page
+        .getByRole("heading", { name: "AI PM Cockpit", level: 1, exact: true })
+        .waitFor({ timeout: 90_000 });
+      // One field edit on the default demo project's "Frontend login flow"
+      // task (not Jira-synced, so its status <select> isn't disabled).
+      // Waiting for the resulting Undo button proves the control actually
+      // mounted (self-hides otherwise) before the width measurement below.
+      await page.getByRole("combobox", { name: "Status – Frontend login flow" }).selectOption("In Progress");
+      await page.getByRole("button", { name: "Undo last change" }).waitFor();
+      const m = await page.evaluate(() => {
+        const h1 = [...document.querySelectorAll("h1")].find((h) => h.textContent === "AI PM Cockpit")!;
+        const header = h1.closest("header")!;
+        const search = document.querySelector<HTMLElement>('input[role="combobox"][aria-label="Global search"]')!;
+        return {
+          docScroll: document.documentElement.scrollWidth,
+          inner: window.innerWidth,
+          headerScroll: header.scrollWidth,
+          headerClient: header.clientWidth,
+          search: Math.round(search.getBoundingClientRect().width),
+        };
+      });
+      const why = JSON.stringify(m);
+      expect(m.docScroll, why).toBeLessThanOrEqual(m.inner);
+      expect(m.headerScroll, why).toBeLessThanOrEqual(m.headerClient);
+      expect(m.search, why).toBeGreaterThanOrEqual(SEARCH_FLOOR_PX);
+    });
+  }
+});
