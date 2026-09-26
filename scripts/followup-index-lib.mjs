@@ -162,6 +162,10 @@ export const INDEX_HEAD = ["| # | Item | Origin | Size | State |", "|---|---|---
  *  keep a status word from eating a title. */
 const STATUS_SUFFIX_RE = / — (?:CLOSED\b.*|OPEN|open|ACCEPTED COST)$/;
 
+/** The same suffix as it can sit inside an existing Item CELL, where a strike
+ *  may wrap it: the closing `~~` is captured so the caller can keep it. */
+const CELL_SUFFIX_RE = / — (?:CLOSED\b.*?|OPEN|open|ACCEPTED COST)(~~)?$/;
+
 const CLOSED_MARK = " — CLOSED";
 
 /** The anchor GitHub renders for `## <n>. <title>`: lowercase, every character
@@ -265,7 +269,14 @@ function rebuildRow(n, title, old) {
   // wrapping the WHOLE remainder. Unwrapping first turned `~~X~~ — CLOSED d`
   // into `X~~` (only the leading `~~` sat at an edge), which then re-wrapped
   // to the malformed fixed point `~~X~~~~`.
-  const body = old.item.replace(STATUS_SUFFIX_RE, "");
+  // ★★ …but a strike that WRAPS the leaked suffix (`~~X — CLOSED d~~`) keeps
+  // its closing `~~`: the greedy heading regex ran to the end of the cell and
+  // ate it, leaving the malformed `~~X` (review round 2, I-1). The lazy form
+  // stops before an optional trailing `~~`, which is put back only when the
+  // cell opened with one.
+  const body = old.item.replace(CELL_SUFFIX_RE, (_, close) =>
+    close && old.item.startsWith("~~") ? "~~" : "",
+  );
   const wrapped = /^~~[\s\S]*~~$/.test(body);
   const inner = wrapped ? body.slice(2, -2) : body;
   let item;
@@ -277,6 +288,13 @@ function rebuildRow(n, title, old) {
   } else {
     // Retitled: text from the heading, and the row keeps being struck if it
     // was (§307's `~~…~~ — not a defect` is this branch).
+    // ★ DELIBERATE: a PARTIAL strike is PROMOTED to a full one here, not
+    // dropped (review round 2, m-3, decided). A retitle discards the row's
+    // text, so the partial boundary no longer maps onto anything; what
+    // survives is only "this row was struck", which in this table means
+    // closed. Dropping it would unstrike §307, a closed row, on today's
+    // register. The `wrapped` test cannot be reused: §307's cell is struck
+    // but not wrapped (`~~…~~ — not a defect`).
     item = old.item.startsWith("~~") && !reopened ? `~~${fresh}~~` : fresh;
   }
   const state = flipped ? headingState(title) : old.state;

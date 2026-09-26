@@ -295,6 +295,66 @@ describe("rebuildIndex", () => {
     expect(rebuildIndex(once)).toBe(once);
   });
 
+  // Review round 2, I-1. Mutation: cut with the greedy STATUS_SUFFIX_RE (the
+  // round-1 code) → "~~X", the closing `~~` eaten with the suffix.
+  it("★★ a strike that WRAPS a leaked suffix keeps its closing ~~, twice", () => {
+    const src = doc(
+      ["## 1. X — CLOSED 2026-01-01", "## 2. Y — OPEN"],
+      [
+        "| [§1](#1-x--closed-2026-01-01) | ~~X — CLOSED 2026-01-01~~ | o | S | **CLOSED** 2026-01-01 |",
+        "| [§2](#2-y--open) | ~~Y — OPEN~~ | o | S | **CLOSED** 2026-01-02 |",
+      ],
+    );
+    const once = rebuildIndex(src);
+    expect(rowsOf(once).map((r) => r.split(" | ")[1])).toEqual(["~~X~~", "Y"]);
+    expect(rebuildIndex(once)).toBe(once);
+  });
+
+  // §2 above is a status FLIP (closed row, open heading), so its strike comes
+  // off by design; this is the same shape without a flip. A PIN: the round-1
+  // code also produced "~~Y~~" here, by way of the retitle branch (its greedy
+  // cut did not match "OPEN~~"). Mutation: `else item = inner` in the kept
+  // branch (never re-wrap) → "Y".
+  it("★★ the OPEN variant: ~~Y — OPEN~~ on an open row keeps its strike, twice", () => {
+    const src = doc(["## 1. Y — OPEN"], ["| [§1](#1-y--open) | ~~Y — OPEN~~ | o | S | open |"]);
+    const once = rebuildIndex(src);
+    expect(rowsOf(once)).toEqual(["| [§1](#1-y--open) | ~~Y~~ | o | S | open |"]);
+    expect(rebuildIndex(once)).toBe(once);
+  });
+
+  // Every strike shape the two rounds of review named, as fixed points.
+  // Mutation: put the closing `~~` back unconditionally (drop the
+  // `old.item.startsWith("~~")` guard) → "X~~" for the last row.
+  it("keeps every named strike shape stable", () => {
+    const shapes = [
+      ["X — CLOSED 2026-01-01", "~~X~~ — CLOSED 2026-01-01", "~~X~~"],
+      ["X Y", "~~X~~ Y~~", "~~X~~ Y~~"],
+      ["A and B", "~~A~~ and ~~B~~", "~~A~~ and ~~B~~"],
+      ["X Y", "~~X~~ Y", "~~X~~ Y"],
+      ["X", "~~X ~~", "~~X ~~"],
+      ["X — CLOSED 2026-01-01", "X — CLOSED 2026-01-01 ~~note~~", "X"],
+    ];
+    for (const [heading, cell, expected] of shapes) {
+      const closed = heading.includes("CLOSED");
+      const state = closed ? "**CLOSED** 2026-01-01" : "open";
+      const src = doc([`## 1. ${heading}`], [`| [§1](#1-x) | ${cell} | o | S | ${state} |`]);
+      const once = rebuildIndex(src);
+      expect(rowsOf(once)[0].split(" | ")[1], cell).toBe(expected);
+      expect(rebuildIndex(once), cell).toBe(once);
+    }
+  });
+
+  // Review round 2, m-3, decided: a retitled PARTIAL strike is promoted to a
+  // full one (see the comment in `rebuildRow`). Mutation: use `wrapped` in the
+  // retitle branch → "X Z" unstruck, and §307 would lose its strike.
+  it("a retitled struck row stays struck, a partial strike included", () => {
+    const src = doc(
+      ["## 1. X Z", "## 2. A B — CLOSED 2026-01-01"],
+      ["| [§1](#1-x-y) | ~~X~~ Y | o | S | open |", "| [§2](#2-a) | ~~A~~ — not a defect | o | S | **CLOSED** 2026-01-01 |"],
+    );
+    expect(rowsOf(rebuildIndex(src)).map((r) => r.split(" | ")[1])).toEqual(["~~X Z~~", "~~A B~~"]);
+  });
+
   // Mutation: re-wrap whenever the cell STARTS with `~~` (`old.item.startsWith`
   // in the kept branch) → "~~~~X~~ Y~~".
   it("keeps a partial strike verbatim rather than wrapping it again", () => {
