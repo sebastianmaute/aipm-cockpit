@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { NO_FLASH_THEME_SCRIPT } from "./boot-theme-script";
+import { NO_FLASH_THEME_SCRIPT, scriptSafeJson } from "./boot-theme-script";
 import { resolveSchemeColors } from "./scheme-tokens";
 import { BEACON_LIGHT } from "./builtin-schemes";
 
@@ -147,5 +147,23 @@ describe("no-flash boot script — runtime behaviour", () => {
     expect(root().getAttribute("data-scheme-dark")).toBe("1");
     expect(root().classList.contains("dark")).toBe(true);
     expect(root().style.getPropertyValue("--surface")).toBe("#16212e");
+  });
+});
+
+describe("no-flash boot script — script-context JSON escape", () => {
+  it("embeds the Beacon map byte-identical to plain JSON.stringify (hex-only map, nothing to escape)", () => {
+    const plain = JSON.stringify(resolveSchemeColors(BEACON_LIGHT));
+    expect(scriptSafeJson(resolveSchemeColors(BEACON_LIGHT))).toBe(plain);
+    expect(NO_FLASH_THEME_SCRIPT).toContain(`:${plain};var structural=`);
+  });
+  it("escapes <, U+2028 and U+2029 so a value cannot close the script element", () => {
+    const value = { a: "</script><script>alert(1)</script>", b: "x\u2028y\u2029z" };
+    const out = scriptSafeJson(value);
+    expect(out).not.toContain("<");
+    expect(out).not.toContain("\u2028");
+    expect(out).not.toContain("\u2029");
+    expect(out).toContain("\\u003c/script>");
+    expect(out).toContain("x\\u2028y\\u2029z");
+    expect(JSON.parse(out)).toEqual(value);
   });
 });
