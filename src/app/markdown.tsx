@@ -177,6 +177,23 @@ function parseBlocks(input: string): Block[] {
 // because chained replaces can't easily produce React nodes, and naïve
 // regex replace on already-converted markup is fragile.
 
+const PROBE_ORIGIN = "https://x.invalid";
+
+/** True for a root-relative link that stays on this origin. It must start
+ *  with one `/` not followed by `/` or `\`, and it must still resolve to the
+ *  same origin with no `//` left in its normalised path — so dot segments
+ *  (`/./\host`, `/../\host`) cannot smuggle a protocol-relative URL past the
+ *  prefix check. Tab/CR/LF are already stripped by the caller. */
+function isSameOriginPath(url: string): boolean {
+  if (!/^\/(?![/\\])/.test(url)) return false;
+  try {
+    const resolved = new URL(url, PROBE_ORIGIN);
+    return resolved.origin === PROBE_ORIGIN && !resolved.pathname.startsWith("//");
+  } catch {
+    return false;
+  }
+}
+
 function parseInline(input: string): ReactNode[] {
   const out: ReactNode[] = [];
   let i = 0;
@@ -283,9 +300,12 @@ function parseInline(input: string): ReactNode[] {
           // Root-relative is allowed, but NOT protocol-relative `//host` — that
           // resolves to an external origin (a `target="_blank"` link to
           // //evil.com). Browsers read a backslash as a slash in an http(s)
-          // URL, so `/\host` and `\\host` are protocol-relative too.
+          // URL, so `/\host` is protocol-relative too (and `\\host` never
+          // starts with `/`). Dot segments (`/./\host`) survive a prefix
+          // check, so the path is also resolved and must stay same-origin
+          // with no `//` left after normalisation.
           // Untrusted model text (incl. table cells) flows here.
-          const isRootRelative = url.startsWith("/") && !/^[/\\]{2}/.test(url);
+          const isRootRelative = isSameOriginPath(url);
           if (/^(https?:|mailto:)/i.test(url) || isRootRelative) {
             flushBuffer();
             out.push(

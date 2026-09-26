@@ -102,12 +102,23 @@ describe("Markdown", () => {
   it("drops a tab-split protocol-relative link (/<TAB>/host) to plain text — no external href", () => {
     const { container } = render(<Markdown text={"[x](/\t/evil.com)"} />);
     expect(container.querySelector("a")).toBeNull();
-    expect(container.textContent).toContain("evil.com");
+    expect(container.textContent).toContain("[x](/\t/evil.com)");
   });
 
-  it("still renders a root-relative link and an https link", () => {
-    const { container } = render(<Markdown text="[a](/path/to) and [b](https://example.com/x)" />);
+  it.each(["/./\\evil.com", "/.//evil.com", "/../\\evil.com"])(
+    "drops a dot-segment link that normalises to //host (%s) — no href",
+    (href) => {
+      const { container } = render(<Markdown text={`[x](${href})`} />);
+      expect(container.querySelector("a")).toBeNull();
+      expect(container.textContent).toContain(`[x](${href})`);
+    },
+  );
+
+  it("still renders root-relative, hash, query and https links", () => {
+    const { container } = render(
+      <Markdown text="[a](/path/to) and [b](https://example.com/x) and [c](/#top) and [d](/?q=1)" />,
+    );
     const hrefs = Array.from(container.querySelectorAll("a")).map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(["/path/to", "https://example.com/x"]);
+    expect(hrefs).toEqual(["/path/to", "https://example.com/x", "/#top", "/?q=1"]);
   });
 });
