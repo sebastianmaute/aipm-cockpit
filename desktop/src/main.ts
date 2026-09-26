@@ -30,6 +30,7 @@ import {
   pdfMetadataTitleFromFilename,
   PDF_EXPORT_READY_POLL_INTERVAL_MS,
   PDF_EXPORT_TIMEOUT_MS,
+  preparePdfPrint,
 } from "./lib/pdf-export";
 import {
   DASHBOARD_VIEW_HASH,
@@ -920,7 +921,15 @@ if (!app.requestSingleInstanceLock()) {
               await childWindow.webContents.executeJavaScript(
                 `document.title = ${JSON.stringify(pdfMetadataTitleFromFilename(filename))};`,
               );
-              const data = await childWindow.webContents.printToPDF({ printBackground: true });
+              // ★★★ §468 packaged-app check -- the tab's own <style> did not
+              // apply in the packaged app (nonce-only style-src-elem), so it
+              // printed unstyled, portrait and clipped. `preparePdfPrint`
+              // (lib/pdf-export.ts) re-applies it via insertCSS as a guarantee
+              // and returns an explicit page size + a fit-to-width scale; see
+              // its comment block.
+              const plan = await preparePdfPrint(childWindow.webContents);
+              if (plan.unwrappedOverflow) log("pdf export: non-table content is wider than the page at the minimum scale");
+              const data = await childWindow.webContents.printToPDF(plan.options);
               const parent = BrowserWindow.fromWebContents(contents);
               const { canceled, filePath } = parent
                 ? await dialog.showSaveDialog(parent, {
