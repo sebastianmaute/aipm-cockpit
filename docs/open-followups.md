@@ -690,7 +690,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§460](#460-a-create-card-can-preview-meeting-attendees-the-create-then-stores-none-of-because-the-previews-link-guard-runs-on-updates-only--closed-2026-09-11) | A create card can preview meeting attendees the create then stores none of, because the preview's link guard runs on updates only | found 2026-09-11 by cold review of the offered-surface landing: a `plan.ts` comment still described both allow-list creates as unguarded | S — closed by `dfcd96b5`, lifting the `target === "row"` gate on link guards, behind a test (`plan.create-path-guards.test.ts`) driving `[4, "4"]` through card and write; §440's refusal-disclosure half stays open | **CLOSED** 2026-09-11 |
 | [§461](#461-an-absence-stores-an-assignee-email-that-is-not-an-address-where-a-task-refuses-the-same-value-loudly--closed-2026-09-14) | An absence stores an assignee email that is not an address, where a task refuses the same value loudly | found 2026-09-11 by cold review of the offered-surface landing, beside §459's task probe | S-M — decide per field whether an assignee email is format-checked, then guard the writer, not the card | **CLOSED** 2026-09-14 |
 | [§462](#462-there-is-no-linux-installer-and-several-windows-only-assumptions-stand-in-the-way-of-one--open) | There is no Linux installer, and several Windows-only assumptions stand in the way of one | found 2026-09-11 while explaining the CI installer's size gap (the sharp finding in the wine-runner spike) | S-M — a native Linux job with its own artifact and Release link, XDG log paths, a rollout section | open |
-| [§463](#463-export-silently-drops-enabled-sections-and-no-path-exports-calendar-events-knowledge-items-or-insights--open) | Export silently drops enabled sections, and no path exports calendar events, knowledge items or insights | found 2026-09-11 by a read-only code check of `main` @ `963a05c5` while triaging the demo-backlog issues #38–#74 (issue #75) | S-M — two object literals, but deciding what each export path should contain (and whether they should be one function) is the work | open |
+| [§463](#463-export-silently-drops-enabled-sections-and-no-path-exports-calendar-events-knowledge-items-or-insights--closed-2026-09-26) | Export silently drops enabled sections, and no path exports calendar events, knowledge items or insights | found 2026-09-11 by a read-only code check of `main` @ `963a05c5` while triaging the demo-backlog issues #38–#74 (issue #75) | S-M — two object literals, but deciding what each export path should contain (and whether they should be one function) is the work | **CLOSED** 2026-09-26 |
 | [§464](#464-cpi-means-two-different-numbers-and-two-winloss-hints-are-wrong--closed-2026-09-12) | "CPI" means two different numbers, and two win/loss hints are wrong | found 2026-09-11 by the same read-only code check (issue #76) | S-M — closed by `0a50e600`: the money ratio is renamed `budgetCciRecovery` ("Cost recovery"), so CPI names the EVM hours ratio alone, and both wrong hints were rewritten EN+DE; `winLossHours` is still rendered nowhere | **CLOSED** 2026-09-12 |
 | [§465](#465-non-eur-fixed-price-buckets-every-money-figure-is-inflated-by-the-fx-rate-and-the-margin-is-wrong--closed-2026-09-12) | Non-EUR fixed-price buckets: every money figure is inflated by the FX rate, and the margin is wrong | found 2026-09-11 by the same read-only code check (issue #77, beside issue #42) | M — closed by the `feat/budget-currency-boundary` slice, which put the boundary at the ENGINE (`419937ca` converts at `computeBucketReport`'s single read; four surfaces relabelled EUR; `ResourcePlan.currency` narrowed to a union) | **CLOSED** 2026-09-12 |
 | [§466](#466-help-promises-a-burn-down-forecast-that-the-chart-does-not-draw--closed-2026-09-13) | Help promises a burn-down forecast that the chart does not draw | found 2026-09-11 by the same read-only code check (issue #78) | S — two strings, EN and DE together | **CLOSED** 2026-09-13 |
@@ -35924,9 +35924,45 @@ What a Linux build would need:
 macOS is deliberately NOT part of this entry: it needs a macOS build host, Apple Developer ID signing
 and notarization, which are a separate problem from anything above.
 
-## 463. Export silently drops enabled sections, and no path exports calendar events, knowledge items or insights — OPEN
+## 463. Export silently drops enabled sections, and no path exports calendar events, knowledge items or insights — CLOSED 2026-09-26
 
-**Status:** OPEN 2026-09-11 — found by a read-only code check against `main` @ `963a05c5` (v1.0.0)
+**Status:** CLOSED 2026-09-26 on `fix/defect-batch-7`. Both export buttons now build their workspace
+through one function, `buildExportWorkspace` (`src/app/export-workspace.ts`), carrying all 19
+`EXPORT_WORKSPACE_KEYS` — including `calendarEvents`, `knowledgeItems` and `insights`, the three that
+were dropped everywhere. `action-menus.tsx`'s `ActionMenus` calls
+`buildExportWorkspace(useWorkspace())`; `task-manager.tsx`'s `handleExportCurrentProject` calls it with
+the same 19-field object literal in place of the old 16-field one. `ExportMenu` no longer takes eleven
+slice props — it takes one `workspace: Workspace` prop and exports exactly the object it is handed
+(`export-menu.test.tsx` pins `exportWorkspace.mock.calls[0][0]).toBe(WS)`). Pinned by
+`export-workspace.test.ts`'s three tests (a derived-axis check that every `EXPORT_SECTION_KEYS` member
+is in `EXPORT_WORKSPACE_KEYS`; a per-key round trip through `buildExportSections`; and a check that the
+builder returns exactly those 19 keys, no documents/activity-log/settings-overrides), by
+`action-menus-sweep.test.ts`'s "builds both export workspaces through buildExportWorkspace", and by
+`export-ooxml.test.ts`'s "§463" describe block, which round-trips calendar events/knowledge
+items/insights through PDF, DOCX, XLSX and PPTX with the section switched on and off.
+
+Mutation-checked: M1 (drop `insights: src.insights,` from `buildExportWorkspace`) died on
+`export-workspace.test.ts` — `AssertionError: insights: expected [] to deeply equal [ 'insights' ]` in
+"feeds every section builder, one switch at a time", and again in "returns only the export slices" (16
+keys instead of 17). M2 (revert `handleExportCurrentProject` to its old inline object literal) died on
+`action-menus-sweep.test.ts`'s "builds both export workspaces through buildExportWorkspace" —
+`AssertionError: expected '…' to contain 'buildExportWorkspace('`. M3 (`ActionMenus` calling
+`buildExportWorkspace({ ...useWorkspace(), calendarEvents: undefined })`) is a confirmed SURVIVOR — no
+test in the green run above catches a header-menu regression on one specific field, because the
+header path is pinned only STRUCTURALLY (the sweep test's source-text check that
+`action-menus.tsx` calls `buildExportWorkspace(`, plus `ExportMenu` exporting the object it is handed)
+and the *content* of what a correct `buildExportWorkspace` call produces is pinned only by the builder
+test, which never sees `action-menus.tsx`'s actual call site. Disclosed rather than closed with a gap
+silently accepted.
+
+CSV and Markdown are unchanged storage formats: `workspaceToCsv`/`workspaceToMarkdown` still gate the
+project block on `config === undefined` (a storage save, never a document export), exactly as this
+entry originally recorded, so this fix does not add a `project` block to a CSV/MD export — the golden
+fixtures (`src/app/__fixtures__/golden-workspace.csv`/`.md`) are byte-identical. `exportFilename`
+(`export.ts`) now applies to both buttons: since both carry `project`, both name their download after
+the project (previously only the Projects-panel export did).
+
+**As filed:** OPEN 2026-09-11 — found by a read-only code check against `main` @ `963a05c5` (v1.0.0)
 while triaging the demo-backlog issues #38–#74; filed as
 internal GitLab issue 75. Established by reading the
 two call sites and the builders, never by running an export. Presence witnesses re-run 2026-09-11:
@@ -35934,8 +35970,6 @@ two call sites and the builders, never by running an export. Presence witnesses 
 `grep -n -A5 "const handleExportCurrentProject" src/app/task-manager.tsx` (sixteen slices),
 `grep -n "config === undefined && ws.project" src/app/csv-codecs-config.ts src/app/markdown-codecs-core.ts`
 (one line each) and `grep -n "aipm-cockpit-tasks" src/app/export.ts` (the filename template).
-
-**Work item:** #75
 
 The header export menu builds the workspace it exports INLINE, from the slices `action-menus.tsx`
 destructures out of `useWorkspace()` and threads into `ExportMenu`: tasks, RAID, absences, shifts,

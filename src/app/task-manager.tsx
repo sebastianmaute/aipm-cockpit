@@ -150,7 +150,7 @@ import {
   type ProjectsRegistry,
 } from "./projects-registry";
 import { deleteHandle } from "./project-file-handles";
-import { exportWorkspace, type ExportFormat } from "./export"; import { reportCapabilityGap, reportSilentFailure } from "./guard-feedback";
+import { exportWorkspace, type ExportFormat } from "./export"; import { buildExportWorkspace } from "./export-workspace"; import { reportCapabilityGap, reportSilentFailure } from "./guard-feedback";
 import { ProjectEmptyState } from "./project-empty-state";
 import { SecretUnlockGate } from "./secret-unlock-gate";
 import { isPassphraseLocked } from "./secrets-store";
@@ -2158,13 +2158,16 @@ function TaskManagerInner() {
   const exportFooter = exportFooterText(settings.branding);
   const handleExportCurrentProject = useCallback(
     (format: string) => {
-      const ws = {
+      // §463 — the same builder as the header Export menu, so the two buttons
+      //  cannot drift apart again.
+      const ws = buildExportWorkspace({
         tasks, raid, absences, shifts, resources, roles, disciplines, grades,
         plan, budgets, fxRates, status, project, milestones, changes, stakeholders,
-      };
+        calendarEvents, knowledgeItems, insights,
+      });
       void exportWorkspace(ws, format as ExportFormat, settings.export ?? defaultExportConfig, lang, exportFooter).catch((e) => reportSilentFailure(showToast, lang, "export.failed", e, "guardExportFailed"));
     },
-    [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders, settings.export, exportFooter, lang, showToast],
+    [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders, calendarEvents, knowledgeItems, insights, settings.export, exportFooter, lang, showToast],
   );
 
   // De-register a project: drop it from the registry (observable copy updated),

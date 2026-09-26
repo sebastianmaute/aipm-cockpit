@@ -14,7 +14,7 @@ import { PopoverPanel } from "./popover-panel";
 import { INTERACTIVE } from "./interaction-styles";
 import { type ExportFormat, exportWorkspace } from "./export";
 import { type Lang, type TranslationKey, t } from "./i18n";
-import type { Absence, BudgetBucket, Discipline, FxRates, Grade, RaidItem, Resource, ResourcePlan, Role, Shift, Task } from "./types";
+import type { Workspace } from "./storage";
 import type { ExportConfig } from "./settings-types";
 import { reportSilentFailure } from "./guard-feedback";
 import { useToastContext } from "./toast-context";
@@ -34,32 +34,13 @@ const OPTIONS: Array<{
 
 export function ExportMenu({
   lang,
-  tasks,
-  raid,
-  absences,
-  shifts,
-  resources,
-  roles,
-  disciplines,
-  grades,
-  plan,
-  budgets,
-  fxRates,
+  workspace,
   exportConfig,
   exportFooter,
 }: {
   lang: Lang;
-  tasks: readonly Task[];
-  raid: readonly RaidItem[];
-  absences: readonly Absence[];
-  shifts: readonly Shift[];
-  resources: readonly Resource[];
-  roles: readonly Role[];
-  disciplines: readonly Discipline[];
-  grades: readonly Grade[];
-  plan: ResourcePlan;
-  budgets: readonly BudgetBucket[];
-  fxRates: FxRates | null;
+  /** Built by `buildExportWorkspace` (§463) — the same object the Projects-panel export sends. */
+  workspace: Workspace;
   exportConfig?: ExportConfig;
   /** Footer line of the PDF/print export (`exportFooterText(settings.branding)`). */
   exportFooter?: string;
@@ -75,7 +56,7 @@ export function ExportMenu({
     // pops the save dialog / new tab. Some browsers focus-steal the dialog
     // and the popover never visually closes otherwise.
     setTimeout(() => {
-      void exportWorkspace({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates }, format, exportConfig, lang, exportFooter)
+      void exportWorkspace(workspace, format, exportConfig, lang, exportFooter)
         .catch((e) => reportSilentFailure(showToast, lang, "export.failed", e, "guardExportFailed"));
     }, 0);
   }
@@ -106,7 +87,7 @@ export function ExportMenu({
           {t(lang, "exportTitle")}
         </h3>
           <p className="mb-2 text-xs text-foreground">
-            {t(lang, "exportSubtitle", tasks.length)}
+            {t(lang, "exportSubtitle", workspace.tasks.length)}
           </p>
           <ul className="space-y-1">
             {OPTIONS.map((o) => (
