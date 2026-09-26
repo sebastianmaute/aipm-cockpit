@@ -96,7 +96,7 @@ describe("StorageConfigSection — SharePoint gating", () => {
         })}
       />,
     );
-    const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
+    const input = screen.getByPlaceholderText(/your-tenant\.sharepoint\.com/i);
     await user.clear(input);
     await user.type(input, "not a url");
     await user.click(screen.getByRole("button", { name: SP_APPLY }));
@@ -137,7 +137,7 @@ describe("StorageConfigSection — the SharePoint URL commits only on an explici
     const user = userEvent.setup();
     const onChange = vi.fn();
     renderSp(onChange);
-    const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
+    const input = screen.getByPlaceholderText(/your-tenant\.sharepoint\.com/i);
     await user.clear(input);
     await user.type(input, SP_URL);
     expect((input as HTMLInputElement).value).toBe(SP_URL); // control: the draft really is held
@@ -151,7 +151,7 @@ describe("StorageConfigSection — the SharePoint URL commits only on an explici
     const user = userEvent.setup();
     const onChange = vi.fn();
     renderSp(onChange);
-    const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
+    const input = screen.getByPlaceholderText(/your-tenant\.sharepoint\.com/i);
     await user.clear(input);
     await user.type(input, SP_URL);
     await user.tab();
@@ -165,7 +165,7 @@ describe("StorageConfigSection — the SharePoint URL commits only on an explici
     const user = userEvent.setup();
     const onChange = vi.fn();
     renderSp(onChange);
-    const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
+    const input = screen.getByPlaceholderText(/your-tenant\.sharepoint\.com/i);
     await user.clear(input);
     await user.type(input, SP_URL);
     await user.click(screen.getByRole("button", { name: SP_APPLY }));
@@ -178,7 +178,7 @@ describe("StorageConfigSection — the SharePoint URL commits only on an explici
     const user = userEvent.setup();
     const onChange = vi.fn();
     renderSp(onChange);
-    const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
+    const input = screen.getByPlaceholderText(/your-tenant\.sharepoint\.com/i);
     await user.clear(input);
     await user.type(input, `${SP_URL}{Enter}`);
     expect(onChange).toHaveBeenCalledTimes(1);
@@ -194,7 +194,7 @@ describe("StorageConfigSection — the SharePoint URL commits only on an explici
     const user = userEvent.setup();
     const onChange = vi.fn();
     renderSp(onChange);
-    const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
+    const input = screen.getByPlaceholderText(/your-tenant\.sharepoint\.com/i);
     await user.clear(input);
     await user.type(input, SP_URL);
     expect(screen.getByRole("button", { name: SP_APPLY })).toBeEnabled(); // control: Apply IS armed
@@ -227,7 +227,7 @@ describe("StorageConfigSection — the SharePoint URL commits only on an explici
         })}
       />,
     );
-    const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
+    const input = screen.getByPlaceholderText(/your-tenant\.sharepoint\.com/i);
     const apply = screen.getByRole("button", { name: SP_APPLY });
     await user.clear(input);
     await user.type(input, SP_URL); // the SAME file, %20-encoded as the browser gives it
@@ -252,7 +252,7 @@ describe("StorageConfigSection — the SharePoint URL commits only on an explici
     const user = userEvent.setup();
     const onChange = vi.fn();
     renderSp(onChange);
-    const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
+    const input = screen.getByPlaceholderText(/your-tenant\.sharepoint\.com/i);
     await user.clear(input);
     expect((input as HTMLInputElement).value).toBe(""); // control: it really was emptied
     await user.tab();
@@ -276,7 +276,7 @@ describe("StorageConfigSection — the SharePoint URL commits only on an explici
     renderSp(onChange);
     const apply = screen.getByRole("button", { name: SP_APPLY });
     expect(apply).toBeDisabled();
-    const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
+    const input = screen.getByPlaceholderText(/your-tenant\.sharepoint\.com/i);
     await user.type(input, "x");
     expect(apply).toBeEnabled();
   });
@@ -321,7 +321,7 @@ describe("StorageConfigSection — the SharePoint URL commits only on an explici
           />
         </Modal>,
       );
-      const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
+      const input = screen.getByPlaceholderText(/your-tenant\.sharepoint\.com/i);
       await user.clear(input);
       await user.type(input, SP_URL);
       await user.keyboard("{Escape}");

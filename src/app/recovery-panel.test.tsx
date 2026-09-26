@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, fireEvent } from "@testing-library/react";
 import { RecoveryPanel } from "./recovery-panel";
 import * as recovery from "./recovery-config";
-import { SETTINGS_KEY } from "./use-settings";
+import { SETTINGS_KEY, writeSettings } from "./use-settings";
+import { SECRETS_KEY } from "./secrets-store";
+import { defaultSettings, type Settings } from "./settings-types";
 import { readDiagLog } from "./diagnostics";
 import { t } from "./i18n";
 
@@ -79,5 +81,54 @@ describe("RecoveryPanel", () => {
     const reset = getByText(/Reset to clean config/i).closest("button") as HTMLButtonElement;
     expect(reset.disabled).toBe(true);
     spy.mockRestore();
+  });
+});
+
+// The settings key never holds the Turso token: writeSettings blanks it, and
+// the sealed ciphertext lives in SECRETS_KEY. "Turso configured" must read
+// that store (presence only, never decrypting) or it says No for every user.
+describe("RecoveryPanel — Turso configured", () => {
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => window.localStorage.clear());
+
+  const persistTurso = (databaseUrl: string) =>
+    writeSettings({
+      ...defaultSettings,
+      integrations: {
+        ...defaultSettings.integrations,
+        turso: { enabled: true, databaseUrl, authToken: "tok-secret" },
+      },
+    } as Settings);
+  const sealedTursoToken = {
+    v: 1,
+    id: "tursoAuthToken",
+    wrap: "device",
+    alg: "AES-GCM",
+    iv: "AAAAAAAAAAAAAAAA",
+    ciphertext: "BBBBBBBBBBBB",
+  };
+  const tursoConfiguredCell = (getByText: (s: string) => HTMLElement) =>
+    getByText(t("en-US", "recoveryTursoConfigured")).nextElementSibling?.textContent;
+
+  it("reads Yes when the database URL is set and a sealed Turso token exists", () => {
+    persistTurso("libsql://x.turso.io");
+    window.localStorage.setItem(SECRETS_KEY, JSON.stringify({ tursoAuthToken: sealedTursoToken }));
+    // Precondition: the settings key really carries no token.
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_KEY)!).integrations.turso.authToken ?? "").toBe("");
+    const { getByText } = render(<RecoveryPanel />);
+    expect(tursoConfiguredCell(getByText)).toBe(t("en-US", "recoveryYes"));
+  });
+
+  it("reads No when the database URL is set but no sealed Turso token exists", () => {
+    persistTurso("libsql://x.turso.io");
+    const { getByText } = render(<RecoveryPanel />);
+    expect(tursoConfiguredCell(getByText)).toBe(t("en-US", "recoveryNo"));
+  });
+
+  it("reads No when a sealed Turso token exists but the database URL is blank", () => {
+    persistTurso("");
+    window.localStorage.setItem(SECRETS_KEY, JSON.stringify({ tursoAuthToken: sealedTursoToken }));
+    const { getByText } = render(<RecoveryPanel />);
+    expect(tursoConfiguredCell(getByText)).toBe(t("en-US", "recoveryNo"));
   });
 });

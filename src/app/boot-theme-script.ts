@@ -28,6 +28,28 @@
 import { BEACON_LIGHT } from "./builtin-schemes";
 import { resolveSchemeColors } from "./scheme-tokens";
 
-const BEACON_LIGHT_COLORS = JSON.stringify(resolveSchemeColors(BEACON_LIGHT));
+/** U+2028 LINE SEPARATOR and U+2029 PARAGRAPH SEPARATOR, built from their code
+ *  points so no raw separator byte ever sits in this source file. */
+const LINE_SEPARATOR = String.fromCharCode(0x2028);
+const PARAGRAPH_SEPARATOR = String.fromCharCode(0x2029);
+
+/**
+ * JSON for splicing into an inline `<script>`. `<` becomes the JSON escape
+ * `\u003c`, so no value can close the element (`</script>`) or open a
+ * comment, and U+2028 / U+2029 are escaped because they end a line in older
+ * JS parsers. All three escapes are still valid JSON and decode to the same
+ * string, so a value without these characters is emitted byte-identical to
+ * `JSON.stringify`.
+ */
+export function scriptSafeJson(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .split(LINE_SEPARATOR)
+    .join("\\u2028")
+    .split(PARAGRAPH_SEPARATOR)
+    .join("\\u2029");
+}
+
+const BEACON_LIGHT_COLORS = scriptSafeJson(resolveSchemeColors(BEACON_LIGHT));
 
 export const NO_FLASH_THEME_SCRIPT = `(function(){try{document.documentElement.setAttribute("data-style","custom");var t=localStorage.getItem("aipm-cockpit-theme")||"system";var themeDark=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);var rawC=localStorage.getItem("aipm-cockpit-active-scheme-colors");var rawS=localStorage.getItem("aipm-cockpit-active-scheme-structural");var rawSupports=localStorage.getItem("aipm-cockpit-scheme-supports-dark");var schemeDark=rawC?(rawSupports==="1"):false;var colors=rawC?JSON.parse(rawC):${BEACON_LIGHT_COLORS};var structural=rawS?JSON.parse(rawS):{};var d=themeDark&&schemeDark;document.documentElement.setAttribute("data-scheme-dark",schemeDark?"1":"0");document.documentElement.classList.toggle("dark",d);var el=document.documentElement;for(var k in colors){if(Object.prototype.hasOwnProperty.call(colors,k)&&typeof colors[k]==="string"&&/^--[\\w-]+$/.test(k)&&/^#[0-9a-fA-F]{3,8}$/.test(colors[k])){el.style.setProperty(k,colors[k]);}}for(var j in structural){if(Object.prototype.hasOwnProperty.call(structural,j)&&typeof structural[j]==="string"&&structural[j].length<=256&&/^--[\\w-]+$/.test(j)&&/^[\\w\\s#.,%()/-]+$/.test(structural[j])&&!/url\\s*\\(|expression|image-set|[;{}@<>\\\\]/i.test(structural[j])){el.style.setProperty(j,structural[j]);}}}catch(e){}})();`;
