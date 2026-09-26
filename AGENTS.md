@@ -236,13 +236,13 @@ npm run e2e:smoke:prod      # smoke against a REAL production server (build FIRS
                             # it would otherwise mistake a foreign server for its own and kill it.
 npm run dup:check           # jscpd duplication GATE (--threshold in package.json dup:check; BLOCKING in CI)
                             # ★★ IT COMPARES ONE NUMBER: the TOTAL duplicated-LINE percentage across all
-                            # formats — NOT per-format, and NOT tokens. 1.19% (1612/135895 lines) against a
-                            # 1.75 threshold on 2026-08-08. The console table prints six cells and flags
-                            # none; the eye-catching per-format token figure (tsx 1.70%) is never read.
-                            # Bisect by exit code — it is the only witness. Run dup:check's own command
-                            # with the threshold overridden: 1.60 and 1.52 both exit 0 (ruling out
-                            # per-format tokens and total tokens), 1.19 exits 0, 1.18 exits 1 with
-                            # "found too many duplicates (1.2%)". See open-followups.md §116.
+                            # formats — NOT per-format, and NOT tokens. 1.11% (2297/207417 lines) against a
+                            # 1.75 threshold on 2026-09-26, jscpd 5.3.2 (it was 1.19% on 2026-08-08). The
+                            # console table prints six cells and flags none; the eye-catching per-format
+                            # token figure is never read. Bisect by exit code — it is the only witness. Run
+                            # dup:check's own command with the threshold overridden: on 2026-09-26 1.11
+                            # exits 0 and 1.10 exits 1; on 2026-08-08, 1.60 and 1.52 both exited 0, ruling
+                            # out per-format tokens and total tokens. See open-followups.md §116.
                             # ★ docs/baselines/jscpd-2026-07.json is a RETAINED July-2026 report, NOT a
                             # gate input — dup:check passes only --threshold and there is no .jscpd.json.
 npm run size:check          # file-size ratchet — fails on a NEW file over the LIMIT, or a baselined file that grew
