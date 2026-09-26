@@ -241,6 +241,9 @@ describe("NarrativeSummary inline editing", () => {
     render(<SummaryHost />);
     await user.click(screen.getByRole("button", { name: ADD }));
     const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    // §619: let the editor's rAF-deferred autofocus land first, or it can
+    //   fire after the menu has focused and pull focus back out of it.
+    await waitFor(() => expect(surface.contains(document.activeElement)).toBe(true));
     await user.click(surface);
     await user.keyboard("Title");
     await user.click(screen.getByRole("button", { name: "Text style" }));
@@ -407,12 +410,60 @@ describe("NarrativeSummary inline editing", () => {
     render(<SummaryHost initial="<p>Old</p>" />);
     await user.click(screen.getByRole("button", { name: EDIT }));
     const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    // §619: without this wait the editor's rAF-deferred autofocus can fire
+    //   AFTER the menu takes focus and pull it back into the text for good.
+    await waitFor(() => expect(surface.contains(document.activeElement)).toBe(true));
     await user.click(screen.getByRole("button", { name: "Text style" }));
     const menu = await screen.findByRole("dialog", { name: "Text style" });
     await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog", { name: "Text style" })).toBeNull();
     expect(screen.getByRole("textbox", { name: surfaceName() })).toBe(surface);
+  });
+
+  // ★★ §619, made deterministic. Tiptap's focus command calls view.focus()
+  //   inside requestAnimationFrame, while the heading menu focuses its first
+  //   item in an effect. A test that opens the menu before that frame runs
+  //   loses focus to the late editor frame. Frames are QUEUED here and drained
+  //   by hand, so the order is fixed rather than left to the jsdom interval.
+  //   Mutation: delete the two lines marked PRE-MENU WAIT and this goes red.
+  it("keeps focus in the heading menu when a queued editor frame runs after it opens", async () => {
+    const user = userEvent.setup();
+    const queued = new Map<number, FrameRequestCallback>();
+    let nextId = 0;
+    const flushFrames = () => {
+      for (let round = 0; round < 10 && queued.size > 0; round++) {
+        const batch = [...queued.values()];
+        queued.clear();
+        for (const cb of batch) cb(0);
+      }
+    };
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+      nextId += 1;
+      queued.set(nextId, cb);
+      return nextId;
+    });
+    const cancel = vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => {
+      queued.delete(id);
+    });
+    try {
+      render(<SummaryHost initial="<p>Old</p>" />);
+      await user.click(screen.getByRole("button", { name: EDIT }));
+      const surface = await screen.findByRole("textbox", { name: surfaceName() });
+      // PRE-MENU WAIT (1/2): run the editor's pending autofocus frame.
+      act(() => flushFrames());
+      // PRE-MENU WAIT (2/2): the same wait the tests above carry.
+      await waitFor(() => expect(surface.contains(document.activeElement)).toBe(true));
+      await user.click(screen.getByRole("button", { name: "Text style" }));
+      const menu = await screen.findByRole("dialog", { name: "Text style" });
+      await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+      act(() => flushFrames());
+      expect(menu.contains(document.activeElement)).toBe(true);
+      expect(screen.getByRole("textbox", { name: surfaceName() })).toBe(surface);
+    } finally {
+      raf.mockRestore();
+      cancel.mockRestore();
+    }
   });
 
   // ★ Focus goes back to the toggle ONLY when the close left it nowhere. A
