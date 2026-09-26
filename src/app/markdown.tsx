@@ -183,7 +183,11 @@ const PROBE_ORIGIN = "https://x.invalid";
  *  with one `/` not followed by `/` or `\`, and it must still resolve to the
  *  same origin with no `//` left in its normalised path — so dot segments
  *  (`/./\host`, `/../\host`) cannot smuggle a protocol-relative URL past the
- *  prefix check. Tab/CR/LF are already stripped by the caller. */
+ *  prefix check. Tab/CR/LF are already stripped by the caller. The origin
+ *  check is the load-bearing half: the prefix regex (and the caller's strip)
+ *  reject nothing it would not, measured by mutation, and stay as cheap
+ *  belt-and-braces — the strip also keeps the rendered href equal to the
+ *  string that was checked. */
 function isSameOriginPath(url: string): boolean {
   if (!/^\/(?![/\\])/.test(url)) return false;
   try {
