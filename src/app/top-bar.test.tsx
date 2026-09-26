@@ -193,7 +193,9 @@ describe("top bar left/right cluster classes (source scan)", () => {
   //    width, a 24rem basis to shrink from, and a 7rem floor.
   //  - CLASSIC: the wrapper sits in a content-sized row under the app title.
   //    The same elastic classes there collapse the field to the input's own
-  //    intrinsic ~209px even on a 1600px window, so it keeps `lg:w-96`.
+  //    intrinsic ~209px even on a 1600px window, so it keeps a definite
+  //    lg:w-96 (the basis) and shrinks only to lg:min-w-56, with min-w-0 on
+  //    its two ancestors (§618).
   // Below lg the two stay identical (the shared prefix below): both headers
   // behave there exactly as they did before the fix.
   it("keeps each search wrapper sized for its own mount, and identical below lg", () => {
@@ -216,6 +218,31 @@ describe("top bar left/right cluster classes (source scan)", () => {
     expect(classicTokens).toContain("lg:w-96");
     expect(modernTokens).toEqual(expect.arrayContaining(["lg:w-auto", "lg:basis-96", "lg:min-w-28"]));
     expect(modernTokens).not.toContain("lg:w-96");
+  });
+
+  // §618 — the classic search can shrink only if every ancestor between it and
+  // the <header> lets it. `lg:w-96` stays a DEFINITE width (it is the flex
+  // basis; the rejected `lg:w-auto` variant lost it and collapsed to the
+  // input's ~209px intrinsic width even at 1600px), `lg:min-w-56` is the floor,
+  // and the two `min-w-0`s let the trailing row and the header's left column
+  // shrink below their content at all. jsdom has no layout: the widths are
+  // measured in e2e/classic-header-fit.spec.ts.
+  it("lets the classic search shrink from its 24rem basis to a 14rem floor (§618)", () => {
+    const left = read("app-header.tsx").match(
+      /<header className="[^"]*">\s*(?:\{\/\*[\s\S]*?\*\/\}\s*)?<div className="([^"]*)">/,
+    );
+    expect(left).not.toBeNull();
+    expect(left![1].split(/\s+/)).toContain("min-w-0");
+
+    const trailing = read("shell-chrome.tsx").match(
+      /trailing=\{\s*<div className="([^"]*)">\s*(?:\{\/\*[\s\S]*?\*\/\}\s*)?<div className="[^"]*">\s*<GlobalSearchConnected/,
+    );
+    expect(trailing).not.toBeNull();
+    expect(trailing![1].split(/\s+/)).toContain("min-w-0");
+
+    const classic = searchWrapperClasses("shell-chrome.tsx");
+    expect(classic).toHaveLength(1);
+    expect(classic[0].split(/\s+/)).toEqual(expect.arrayContaining(["lg:w-96", "lg:min-w-56"]));
   });
 
   // The modern shell's Ask-Claude flex child. `ask-claude-menu.test.tsx` pins

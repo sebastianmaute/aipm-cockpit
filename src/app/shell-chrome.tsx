@@ -141,8 +141,12 @@ export function buildShellChrome(deps: ShellChromeDeps): { appHeaderEl: ReactNod
       onAskClaude={isAiEnabled(settings.ai) ? (body) => requestChat(body, true) : undefined}
       projectSwitcher={projectSwitcher}
       trailing={
-        <div className="flex items-center gap-2">
-          <div className="min-w-0 w-44 max-w-[55vw] sm:w-72 lg:w-96">
+        <div className="flex min-w-0 items-center gap-2">
+          {/* §618 — a DEFINITE lg:w-96 is the preferred width and the flex
+              basis; lg:min-w-56 is the floor it shrinks to. Not the modern
+              mount's w-auto + basis: this row is content-sized, and max-content
+              ignores flex-basis (measured: ~209px at 1600). */}
+          <div className="min-w-0 w-44 max-w-[55vw] sm:w-72 lg:w-96 lg:min-w-56">
             <GlobalSearchConnected lang={lang} />
           </div>
           {undoControl}
