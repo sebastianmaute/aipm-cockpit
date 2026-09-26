@@ -13,7 +13,8 @@
 //
 // ★★ Exit codes: 0 = done / clean; 1 = `--check` found drift; 2 = bad arguments
 // or the table cannot be rebuilt (unreadable file, ambiguous markers, a row
-// that is not four cells, a §number used twice). Nothing is written on a 1 or 2.
+// that is not four cells, a §number used twice) or the file cannot be written.
+// Nothing is written on a 1 or 2.
 // ★ An unknown flag is exit 2, never ignored: a typo such as `--dryrun` used to
 // fall through to a real WRITE.
 import { readFileSync, writeFileSync } from "node:fs";
@@ -62,7 +63,14 @@ if (dropped.length > 0) console.log(`  dropped: ${dropped.map((n) => `§${n}`).j
 if (dryRun) {
   console.log(`--dry-run: ${target} was not written.`);
 } else if (drifted) {
-  writeFileSync(target, out);
+  // ★ A failed write is exit 2 (could not do the job), never an uncaught throw:
+  // node's uncaught exit code is 1, which this file reserves for drift.
+  try {
+    writeFileSync(target, out);
+  } catch (err) {
+    console.error(`could not write ${target}: ${err.code ?? err.message}`);
+    process.exit(2);
+  }
   console.log(`wrote ${target}`);
 } else {
   console.log(`${target} already matches its headings; nothing written.`);

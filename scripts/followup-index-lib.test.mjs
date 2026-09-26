@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -502,20 +502,27 @@ describe("rebuildDrift", () => {
 /** Run one of the two CLIs against a temp copy of `registerText`, from a cwd
  *  whose `docs/open-followups.md` is that copy. Returns the result and the file
  *  text afterwards, so a test can prove nothing was written. */
-function runCli(script, args, registerText) {
+function runCli(script, args, registerText, { readOnly = false } = {}) {
   const dir = mkdtempSync(path.join(os.tmpdir(), "followup-index-"));
   mkdirSync(path.join(dir, "docs"), { recursive: true });
   const file = path.join(dir, "docs", "open-followups.md");
   writeFileSync(file, registerText, "utf8");
+  if (readOnly) chmodSync(file, 0o444);
   const r = spawnSync(process.execPath, [path.join(process.cwd(), "scripts", script), ...args], {
     cwd: dir,
     encoding: "utf8",
     shell: false,
   });
   const after = readFileSync(file, "utf8");
+  // Restored before the cleanup: Windows refuses to delete a read-only file.
+  if (readOnly) chmodSync(file, 0o644);
   rmSync(dir, { recursive: true, force: true });
   return { ...r, after };
 }
+
+/** root ignores file permissions, so a read-only file is writable there and
+ *  the write-failure test below could not fail the write. */
+const RUNNING_AS_ROOT = typeof process.getuid === "function" && process.getuid() === 0;
 
 describe("rebuild-followup-index.mjs exit codes", () => {
   // Red before M1: `--check` was ignored, so the file was WRITTEN and exit was 0.
@@ -547,6 +554,17 @@ describe("rebuild-followup-index.mjs exit codes", () => {
     const r = runCli("rebuild-followup-index.mjs", [], bigRegister(retitleDrift));
     expect(r.status).toBe(0);
     expect(r.after).toBe(bigRegister());
+  });
+
+  // Review round 2, m-2. Red before: the write threw uncaught, and node's
+  // uncaught exit code is 1 — the code this CLI reserves for drift. Mutation:
+  // remove the try/catch around `writeFileSync` → exit 1, no "could not write".
+  it.skipIf(RUNNING_AS_ROOT)("exits 2, naming the path, when the file cannot be written", () => {
+    const src = bigRegister(retitleDrift);
+    const r = runCli("rebuild-followup-index.mjs", [], src, { readOnly: true });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/could not write docs[\\/]open-followups\.md: E[A-Z]+/);
+    expect(r.after).toBe(src);
   });
 });
 
