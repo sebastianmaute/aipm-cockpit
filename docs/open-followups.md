@@ -15762,7 +15762,8 @@ the INTERACTIVE path only. `ParagraphEditorBody` renders `ParagraphCharCount`,
 a visible-character count against `MAX_HTML_TEXT_CHARS` (the same
 `htmlTextLength` measure the cap uses, never `html.length`), from
 `PARAGRAPH_COUNT_FROM` (90% of the cap) upwards, formatted for the locale. It is
-plain text, not a live region, so it is not announced per keystroke. A blur over
+plain text, not a live region, so it is not announced per keystroke; the
+editor's `aria-describedby` names it, so it is read on focus. A blur over
 the cap is REFUSED instead of flattened: `useBlockDraft`'s `tryCommit` sets the
 `tooLong` refusal (carrying the excess), and `BlockRefusalNotice` (`role="status"`)
 says how many characters to remove. Text and marks stay in the editor.
@@ -15778,13 +15779,32 @@ path has no UI to refuse on. AI-written and imported text still go through
 `capHtmlText`'s fallback: option (b), a mark-preserving truncation, stays
 unbuilt.
 
+★★★ A window close or reload runs no React cleanup, so the unmount flush alone
+would LOSE a refused draft. `useBlockDraft` therefore listens for the same two
+signals as `scheduleDebouncedSave` (`visibilitychange` to hidden, and
+`pagehide`) and commits a dirty over-cap draft flattened, inside `flushSync`.
+The workspace save captures its snapshot per effect run, so the commit has to
+re-run that effect within the event; the unload's other signal then writes it.
+A tab switch also counts as hidden and saves the draft flattened. ★★ A refused
+draft stays dirty until the user trims it, and while it is dirty the editor
+does not adopt external writes. If a concurrent write lands in that window, the
+later unmount or hide flush abandons, as the existing conflict policy says. The
+`tooLong` check runs BEFORE the conflict guard, as the `"empty"` refusal does.
+
 Pinned by the `ParagraphBlockEditor — the visible-character cap (§185)` describe
 in `document-block-editors.test.tsx`: counter from exactly 90% (with a
 below-90% regression pin), the German format, the refusal keeping `<strong>`
 and the full length, a commit landing exactly on the cap, and the flattened
-unmount save. Mutants, each killed: deleting the `tryCommit` refusal; deleting
-the stay-dirty return in `commit`; `<` to `<=` in `ParagraphCharCount`;
-`excess: 0`; a hard-coded `"en-US"` in `formatCount`.
+unmount save, the `aria-describedby` reference, and the trim-back escape route. A
+second describe, `a refused over-cap draft on hide or unload (§185)`, pins
+both signals, no double commit, the listener removal, and the ordering against
+the real `scheduleDebouncedSave` in both event orders and both listener
+orders. Mutants, each killed: deleting the `tryCommit` refusal; deleting the
+stay-dirty return in `commit`; `>=` to `>` in `ParagraphCharCount`;
+`excess: 0`; a hard-coded `"en-US"` in `formatCount`; deleting either hide
+listener; dropping `flushSync`; dropping the flush's `markDirty(false)`;
+deleting either listener removal; ignoring `flatten`; dropping the
+`aria-describedby`.
 
 **Severity (as found):** low (bounded, visible, and only past 20 000
 visible characters). **Introduced:** pre-existing in `capHtmlText`; made VISIBLE

@@ -332,8 +332,10 @@ branch returns `plainToHtml(slice)`); a heading kept the trailing whitespace the
 "Add item" appended an empty bullet item that counted as a change, minting a document version for
 content the next load drops — one of `MAX_VERSIONS_PER_DOC` (20) slots spent, and the row the user
 just added gone on reload. The block editor now shows a visible-character counter from 90% of the
-cap and REFUSES an over-cap commit with a notice (§185); only the unmount flush, which has no UI,
-still saves the flattened form. AI-written and imported text keep the old fallback.
+cap and REFUSES an over-cap commit with a notice (§185). Only the exits with no UI still save the
+flattened form: the unmount flush, and a hide/unload flush (`visibilitychange` to hidden, and `pagehide`,
+committed inside `flushSync` so the workspace save's next flush carries it). AI-written and imported
+text keep the old fallback.
 
 ★★ **Per-editor `maxLength` caps are the WRONG fix** and were rejected for the reason the defect
 existed in the first place: one copy of each loader rule per editor, free to drift from the loader's.

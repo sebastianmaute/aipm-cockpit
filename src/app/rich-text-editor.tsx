@@ -117,6 +117,10 @@ export interface RichTextEditorProps {
    *  Read at MOUNT only: a caller that remounts the editor (a `key` bump) gets
    *  focus again, a caller that merely re-renders does not. */
   autoFocus?: boolean;
+  /** `aria-describedby` for the contenteditable (space-separated ids). Read at
+   *  MOUNT, like every other `useEditor` option, so pass a STABLE id and keep
+   *  the element it names mounted. */
+  ariaDescribedBy?: string;
 }
 
 // ★★ THE MARKDOWN INPUT RULES ARE DELIBERATELY ON. Seven StarterKit extensions
@@ -295,6 +299,7 @@ export function RichTextEditor(props: RichTextEditorProps) {
     editorProps: {
       attributes: {
         "aria-label": label,
+        ...(props.ariaDescribedBy ? { "aria-describedby": props.ariaDescribedBy } : {}),
         role: "textbox",
         "aria-multiline": "true",
         // ★ One height for one editor. A caller needing more room passes a

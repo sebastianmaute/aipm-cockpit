@@ -32,7 +32,8 @@
 //  Verify from the repo root (`docs/open-followups.md` §220 carries these too):
 //    grep -rn "export . TableBlockEditor" src/app/document-block-editors.tsx
 //    grep -rn 'from "./document-table-editor"' src/app --include=*.tsx
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useId } from "react";
+import { flushSync } from "react-dom";
 import { RichTextEditor } from "./rich-text-editor-lazy";
 import { paragraphHasImage, blockChanged, normalizeBlockForStorage, exceedsStorageCaps } from "./document-editor-commit";
 import { t, type Lang } from "./i18n";
@@ -60,7 +61,7 @@ export type BlockEditorProps<B extends DocBlock = DocBlock> = {
 
 /** §185 — a paragraph whose VISIBLE text is over the cap. Refused on the
  *  interactive commit path instead of being flattened by `capHtmlText`. */
-function paragraphOverCap(block: DocBlock): block is Extract<DocBlock, { type: "paragraph" }> {
+function paragraphOverCap(block: DocBlock): boolean {
   return block.type === "paragraph" && exceedsStorageCaps(block);
 }
 
@@ -357,13 +358,14 @@ export function useBlockDraft<T, B extends DocBlock>(
    *  `documentsBlockEmptyNotSaved` while this is true. Checked BEFORE the
    *  concurrent-write guard below: a block this hook itself cannot commit is
    *  refused regardless of what any other writer did. */
-  const tryCommit = (raw: DocBlock): boolean => {
+  const tryCommit = (raw: DocBlock, flatten = false): boolean => {
     // ★★★ §185 — REFUSE, NEVER FLATTEN, an over-cap paragraph here. The
     //  normaliser would cap it through `capHtmlText`, whose overflow branch drops
     //  every mark; refusing keeps the text AND its formatting on screen, and the
     //  notice says how much to cut. Only the interactive path can refuse: the
-    //  unmount flush below cannot render a notice, so it keeps today's fallback.
-    if (paragraphOverCap(raw)) {
+    //  unmount flush below cannot render a notice, so it keeps today's fallback,
+    //  and so does the hide/unload flush (`flatten`), for the same reason.
+    if (!flatten && raw.type === "paragraph" && paragraphOverCap(raw)) {
       setRefusal({ kind: "tooLong", excess: htmlTextLength(raw.html) - MAX_HTML_TEXT_CHARS });
       return false;
     }
@@ -418,6 +420,56 @@ export function useBlockDraft<T, B extends DocBlock>(
     tryCommit(toBlock(resolved));
     markDirty(false);
   };
+
+  // ★★★ §185 — THE UNLOAD EXIT FOR A REFUSED OVER-CAP DRAFT. Before the
+  //  refusal, the blur committed the flattened form and the workspace save's
+  //  flush-on-hide (debounced-save.ts) persisted it; now the refused draft lives
+  //  only in this component, and closing or reloading the window runs no React
+  //  cleanup, so the unmount flush never fires. The same two signals as
+  //  debounced-save.ts (`visibilitychange` → hidden first, `pagehide` as the
+  //  backup) commit it FLATTENED, the owner's "save flattened, nothing lost".
+  //  ★★ `flushSync` IS THE ORDERING, not a nicety: the save captures its
+  //   workspace per effect run, so the commit must re-render the provider and
+  //   re-run the save effect INSIDE this event (React flushes a sync render's
+  //   passive effects synchronously). The re-run arms FRESH hide listeners, and
+  //   the unload's OTHER signal, which is still to come, flushes them: a tab
+  //   close hides first and then fires `pagehide`, while a reload or navigation
+  //   fires `pagehide` first and then hides. Either way the second event writes
+  //   this block. Without `flushSync` the update waits for a later task that an
+  //   unload never runs. Pinned in both event orders × both listener orders by
+  //   "reaches the workspace save" in document-block-editors.test.tsx.
+  //  ★ Only a draft that is dirty AND over the cap: every other draft waits for
+  //   its blur as before. The dirty flag is cleared in the same statement as
+  //   the commit, like every other `tryCommit` caller (the ★★★ invariant on
+  //   `preCommitStoredRef`), so the editor adopts what was saved and a later
+  //   signal or the unmount flush stops at its dirty guard. The cost: a TAB
+  //   SWITCH is also "hidden", so switching away from a refused draft saves it
+  //   flattened too, and the editor re-seeds to what was saved.
+  const flushRefusedOnHide = () => {
+    if (!dirtyRef.current) return;
+    const raw = toBlock(liveValueRef.current);
+    if (!paragraphOverCap(raw)) return;
+    flushSync(() => {
+      tryCommit(raw, true);
+      markDirty(false);
+    });
+  };
+  const hideFlushRef = useRef(flushRefusedOnHide);
+  useEffect(() => {
+    hideFlushRef.current = flushRefusedOnHide;
+  });
+  useEffect(() => {
+    const onPageHide = () => hideFlushRef.current();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") hideFlushRef.current();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -571,6 +623,7 @@ function ParagraphEditorBody({
     (nextHtml): DocBlock => ({ type: "paragraph", html: nextHtml }),
     onCommit,
   );
+  const countId = useId();
 
   return (
     <div onBlur={commit}>
@@ -595,8 +648,9 @@ function ParagraphEditorBody({
         label={t(lang, "documentsParagraphLabel", String(index + 1))}
         lang={lang}
         toolbarContainer={toolbarContainer}
+        ariaDescribedBy={countId}
       />
-      <ParagraphCharCount lang={lang} visible={htmlTextLength(html)} />
+      <ParagraphCharCount lang={lang} visible={htmlTextLength(html)} id={countId} />
       {refusal && <BlockRefusalNotice lang={lang} refusal={refusal} />}
     </div>
   );

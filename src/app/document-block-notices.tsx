@@ -95,13 +95,21 @@ export const PARAGRAPH_COUNT_FROM = Math.floor(MAX_HTML_TEXT_CHARS * 0.9);
 /** §185 — a paragraph's VISIBLE-character count against the cap (the same
  *  measure `capHtmlText` uses, never html.length), shown from 90% so going over
  *  is a choice rather than a surprise. Plain text, not a live region: announcing
- *  every keystroke would drown the editor; the refusal notice is the live one. */
-export function ParagraphCharCount({ lang, visible }: { lang: Lang; visible: number }) {
-  if (visible < PARAGRAPH_COUNT_FROM) return null;
+ *  every keystroke would drown the editor; the refusal notice is the live one.
+ *
+ * ★★ The editor's `aria-describedby` names `id`, so a screen-reader user hears
+ *  the count on focus. The element therefore ALWAYS renders, empty below the
+ *  threshold: Tiptap reads its attributes once at mount, so the reference
+ *  cannot follow the counter in and out of the DOM, and an idref to a missing
+ *  element points at nothing. */
+export function ParagraphCharCount({ lang, visible, id }: { lang: Lang; visible: number; id: string }) {
+  const shown = visible >= PARAGRAPH_COUNT_FROM;
   const over = visible > MAX_HTML_TEXT_CHARS;
   return (
-    <p className={`text-xs tabular-nums ${over ? "text-ui-pink-strong" : "text-muted-foreground"}`}>
-      {t(lang, "documentsParagraphCharCount", formatCount(visible, lang), formatCount(MAX_HTML_TEXT_CHARS, lang))}
+    <p id={id} className={`text-xs tabular-nums ${over ? "text-ui-pink-strong" : "text-muted-foreground"}`}>
+      {shown
+        ? t(lang, "documentsParagraphCharCount", formatCount(visible, lang), formatCount(MAX_HTML_TEXT_CHARS, lang))
+        : null}
     </p>
   );
 }
