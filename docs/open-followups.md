@@ -36291,6 +36291,19 @@ until the first completes or its 60s backstop closes it. This entry stays OPEN, 
 attached, until the manual run above records a real result. The paragraphs below are the OPEN-era record
 of what was found; read them as history, not as current status.
 
+★ THE SAME PACKAGED-APP CHECK FOUND TWO UI DEFECTS, fixed alongside on 2026-09-26 and given no number of
+their own: both reproduce in any browser at the same window width, so neither is a desktop defect. (a) In a
+non-maximised ~1390px window the modern top bar truncated the view title ("Proj…") and the project name
+while the search box kept ~290px, and the Projects pane sat in half the main area. From `lg` up, `TopBar`'s
+action cluster now takes only the width the title/switcher cluster leaves, floored at its own min-content,
+and the modern search wrapper shrinks from a 24rem basis to a 7rem floor before anything on the left gives;
+below `lg`, and in the classic header, the old rule is unchanged. The Projects pane spans the available width
+up to 64rem (`CENTERED_WIDE_PANE_CLASS`). (b) Projects → Export project drew its format menu inside the
+project list's scroll container, so Excel and PowerPoint were clipped at the card's edge; it now renders
+through `PopoverPanel` (portaled, `fixed`, flipping above the trigger when there is no room below). Both were
+measured in Chromium before and after; the class and portal contracts are pinned in `top-bar.test.tsx` and
+`projects-panel.test.tsx`.
+
 **Work item:** #297
 
 ★ §467 is absent from this register on purpose — it was minted on a peer session's branch (MR !473), not
