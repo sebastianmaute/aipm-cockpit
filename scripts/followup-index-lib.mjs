@@ -324,9 +324,16 @@ function rebuildRow(n, title, old) {
  * idempotent — after the damage.
  */
 export function rebuildIndex(src) {
-  const eol = src.includes("\r\n") ? "\r\n" : "\n";
   const lines = src.split(/\r?\n/);
   const { begin, end } = indexTableBounds(lines);
+
+  // ★★ SPLICE BY BYTE OFFSET; NEVER RE-JOIN THE FILE. Joining every line with
+  // one EOL picked from the whole file let a single stray CRLF re-line a 3 MB
+  // LF register (review M5). Only the table region is rewritten, with the EOL
+  // that ends the BEGIN line; every other byte is the input's own.
+  const lineStart = [0];
+  for (const m of src.matchAll(/\r?\n/g)) lineStart.push(m.index + m[0].length);
+  const eol = src.slice(lineStart[begin], lineStart[begin + 1]).endsWith("\r\n") ? "\r\n" : "\n";
 
   const headings = new Map();
   for (const line of lines) {
@@ -343,5 +350,6 @@ export function rebuildIndex(src) {
     .sort((a, b) => a - b)
     .map((n) => rebuildRow(n, headings.get(n), old.get(n)));
 
-  return [...lines.slice(0, begin + 1), ...INDEX_HEAD, ...rows, ...lines.slice(end)].join(eol);
+  const table = [...INDEX_HEAD, ...rows].map((l) => l + eol).join("");
+  return src.slice(0, lineStart[begin + 1]) + table + src.slice(lineStart[end]);
 }

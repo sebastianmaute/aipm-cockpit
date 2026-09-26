@@ -224,6 +224,25 @@ describe("rebuildIndex", () => {
     ]);
   });
 
+  // Review M5. Mutation: the first cut's `split(/\r?\n/)` + `join(eol)` with
+  // eol chosen from `src.includes("\r\n")` → every LF line in the file becomes
+  // CRLF because of the one stray CRLF above the table.
+  it("keeps every byte outside the table, a single stray CRLF included", () => {
+    const src = `# R\r\nprose\n${doc(["## 1. X"], ["| [§1](#1-x) | Old | o | S | open |"])}`;
+    const out = rebuildIndex(src);
+    const at = (s, marker) => s.indexOf(marker);
+    expect(out.slice(0, at(out, "<!-- INDEX:BEGIN -->"))).toBe(src.slice(0, at(src, "<!-- INDEX:BEGIN -->")));
+    expect(out.slice(at(out, "<!-- INDEX:END -->"))).toBe(src.slice(at(src, "<!-- INDEX:END -->")));
+    expect((out.match(/\r/g) || []).length).toBe(1);
+    expect(rebuildIndex(out)).toBe(out);
+  });
+
+  // Mutation: always write the table with "\n" → a CRLF file gains LF-only rows.
+  it("writes the table with the EOL of its BEGIN line", () => {
+    const src = doc(["## 1. X"], ["| [§1](#1-x) | X | o | S | open |"]).replace(/\n/g, "\r\n");
+    expect(rebuildIndex(src)).toBe(src);
+  });
+
   // Review M4. Mutation: drop `escapeCell` from `headingItem` → a five-cell
   // row, and the second rebuild throws "not four cells".
   it("escapes a pipe in a new row's heading text, and the result rebuilds again", () => {
