@@ -535,7 +535,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§301](#301-three-type-to-confirm-phrases-are-hardcoded-english-and-one-cannot-be-localised-by-a-string-swap--closed-2026-08-31) | ~~Three type-to-confirm phrases are hardcoded English, and one cannot be localised by a string swap~~ | found 2026-08-30, fixing the DE wipe phrase | M | **CLOSED** 2026-08-31 |
 | [§302](#302-the-storage-readiness-indicator-is-never-disclosed-to-assistive-technology-in-either-state--closed-2026-08-31) | ~~The storage readiness indicator is never disclosed to assistive technology, in either state~~ | found 2026-08-30, fixing the colour-only state cue | M | **CLOSED** 2026-08-31 |
 | [§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--closed-2026-08-31) | ~~One refused save writes two forensic entries, and de-duplicating it needs evaluate to report the mint~~ | found 2026-08-30, in the destructive-refusal fix round | M | **CLOSED** 2026-08-31 |
-| [§304](#304-every-export-section-header-is-an-untranslated-raw-string-not-a-display-label) | Every export section header is an untranslated raw string, not a display label | — | — | open |
+| [§304](#304-every-export-section-header-is-an-untranslated-raw-string-not-a-display-label--closed-2026-09-26) | Every export section header is an untranslated raw string, not a display label | — | — | **CLOSED** 2026-09-26 |
 | [§305](#305-version-diff-rows-whose-recordlabel-matches-render-identical-visible-text-only-the-accessible-name-disambiguates--closed-2026-09-01) | ~~Version-diff rows whose `recordLabel` matches render identical VISIBLE text; only the accessible name disambiguates~~ | — | — | **CLOSED** 2026-09-01 |
 | [§306](#306-negative-test-assertions-matching-quoted-english-literals-go-silently-vacuous-on-a-reword--open) | Negative test assertions matching quoted English literals go silently vacuous on a reword | found 2026-08-30, in the destructive-refusal deletion round | M | open |
 | [§307](#307-a-destructive-save-refusal-cannot-be-staged-in-a-browser-so-the-recourse-has-never-been-seen-working--closed-2026-08-31-not-a-defect) | ~~A destructive-save refusal cannot be staged in a browser, so the recourse has never been seen working~~ | found 2026-08-30, closing out the destructive-refusal slice | M | **CLOSED** 2026-08-31 |
@@ -25839,11 +25839,41 @@ The only discriminator is whether `evaluate` MINTED a new refusal object or retu
 `use-destructive-save-guard.ts` and having the save effect record on the mint — a change to the guard's
 contract, which is why it was left rather than bodged during a fix round.
 
-## 304. Every export section header is an untranslated raw string, not a display label
+## 304. Every export section header is an untranslated raw string, not a display label — CLOSED 2026-09-26
 
-**Status:** open — never machine-verified by a committed probe. Found 2026-08-31 while fixing §36(b).
-
-**Work item:** #229
+**Status:** CLOSED 2026-09-26 on `fix/defect-batch-7` — both halves this entry asked for, in one pass.
+A new module `export-column-labels.ts` holds a field → `TranslationKey` map per section
+(`EXPORT_COLUMN_LABEL_KEYS`), and `export-sections.ts` carries the FIELD list per section
+(`EXPORT_SECTION_FIELDS`). Every builder, the ten CSV-constant ones and the five hand-written ones
+alike, now takes its header row and its heading from one `heading()` helper, so `columns` really is
+"header row (display labels)" in EN and DE. The builders still map rows by the storage field; only the
+header text changed. The ten CSV-constant maps are total `Record`s over their `as const` column
+constant, so a new CSV column fails `tsc` until it has a label. `SHIFTS_CSV_COLUMNS` is typed
+`readonly string[]`, so that map and the four hand-written field lists are pinned by the test instead.
+Labels reuse the app's table-header key where the field has a column, then its edit-form key; 24 new
+`exportCol*` keys cover the fields the app labels nowhere. ★ ONE deliberate exception to reuse: the
+three task effort columns carry raw MINUTES while the Open Points table shows formatted hours under
+"Est."/"Spent", so they get "(min)" keys rather than a mislabelled unit. The status section's
+first-column ROW labels (`ragOverride`, `narrativeUpdatedAt`, …) were raw keys too and now go through
+the dashboard's own override labels (`STATUS_ROW_LABEL_KEYS`). SIX section titles were English
+literals and now use the Settings → Export keys: "Budgets" → `exportLabelBudgets`, "Roles" →
+`exportLabelRoles` ("Roles & rates", the first sheet name with an ampersand, pinned well-formed),
+"Absences" → `exportLabelAbsences`, "Shifts" → `exportLabelShifts`, "Project Status" →
+`exportLabelStatus` ("Status report") and "Insights" → `exportLabelInsights`. Spec decisions recorded:
+XLSX gets the labels too (it prints `columns` as its header row like the other three), and a
+document's embedded data section in HTML/PDF/DOCX/PPTX carries the same labels, because
+`resolveDataSection` calls the real `buildExportSections`. That is intended, not a regression. CSV and
+Markdown never read `columns` and keep raw keys; `golden-workspace.test.ts` stays green with no fixture
+change. Pinned by `export-column-labels.test.ts` (EN and DE, all fifteen sections built from
+`sample-workspace-small.json`): every header equals its label and never its raw field, headers are
+distinct per section, every title is translated, the status rows are labelled, and the workbook with
+translated sheet names parses. Mutation-checked: M1 (`raid: {}`) died on `raid.id has no label key`;
+M2 (`heading()` returns the raw field list) died on `project.field: expected 'field' to be 'Field'`
+(`'Feld'` in DE); M3 (budgets title back to `"Budgets"`) died on `budgets: expected 'Budgets' to be
+'Budget'`; M4 (status rows back to the raw field) died on `expected [ 'ragOverride', …(5) ] to not
+include 'ragOverride'`; M5 (`SHIFT_LABELS` loses `satHours`) died on `shifts.satHours has no label
+key`. Each failed in both languages. ★ The body below, including its three reproduce commands,
+describes the tree BEFORE this fix; on the fixed tree the second and third commands print 0.
 
 `ExportSection.columns` (`export-sections.ts`) is commented `string[]; // header row (display
 labels)`, and NOT ONE builder puts a translated label there. So a PDF, DOCX, XLSX or PPTX export table

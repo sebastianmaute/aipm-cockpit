@@ -43,6 +43,15 @@ import { nearestOccurrence } from "./recurrence";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import type { Lang, TranslationKey } from "./i18n";
 import { t } from "./i18n";
+import {
+  KV_EXPORT_FIELDS,
+  KNOWLEDGE_EXPORT_FIELDS,
+  INSIGHT_EXPORT_FIELDS,
+  CALENDAR_EVENT_EXPORT_FIELDS,
+  EXPORT_SECTION_TITLE_KEYS,
+  STATUS_ROW_LABEL_KEYS,
+  exportColumnLabels,
+} from "./export-column-labels";
 import type {
   Task,
   RaidItem,
@@ -301,7 +310,6 @@ export type ExportSection = {
 // ---------------------------------------------------------------------------
 
 function tasksSection(tasks: readonly Task[], lang: Lang): ExportSection {
-  const columns = CSV_COLUMNS as unknown as string[];
   const rows = tasks.map((task) =>
     CSV_COLUMNS.map((c) =>
       richCell(
@@ -311,7 +319,7 @@ function tasksSection(tasks: readonly Task[], lang: Lang): ExportSection {
       )
     )
   );
-  return { key: "tasks", title: t(lang, "tasks"), columns, rows };
+  return { key: "tasks", ...heading("tasks", lang), rows };
 }
 
 // Columns whose stored value is rich HTML. Exports are read by humans and by
@@ -371,8 +379,22 @@ function projectNoteLog(log: readonly NoteLogEntry[] | undefined, lang: Lang): s
  *   through `projectNoteLog`. */
 export const RAID_EXPORT_COLUMNS = RAID_CSV_COLUMNS.filter((c) => c !== "escalations");
 
+/** §304 — the FIELD each header column carries, in order, per section. The
+ *  builders map rows by these; `columns` prints their labels. */
+export const EXPORT_SECTION_FIELDS: Readonly<Record<ExportSectionKey, readonly string[]>> = {
+  project: KV_EXPORT_FIELDS, status: KV_EXPORT_FIELDS, tasks: CSV_COLUMNS, raid: RAID_EXPORT_COLUMNS,
+  milestones: MILESTONES_CSV_COLUMNS, changes: CHANGES_CSV_COLUMNS, stakeholders: STAKEHOLDERS_CSV_COLUMNS,
+  budgets: BUDGETS_CSV_COLUMNS, resources: RESOURCES_CSV_COLUMNS, roles: ROLES_CSV_COLUMNS,
+  absences: ABSENCES_CSV_COLUMNS, shifts: SHIFTS_CSV_COLUMNS, calendarEvents: CALENDAR_EVENT_EXPORT_FIELDS,
+  knowledgeItems: KNOWLEDGE_EXPORT_FIELDS, insights: INSIGHT_EXPORT_FIELDS,
+};
+
+/** The translated header row and heading for `key`. */
+function heading(key: ExportSectionKey, lang: Lang): { title: string; columns: string[] } {
+  return { title: t(lang, EXPORT_SECTION_TITLE_KEYS[key]), columns: exportColumnLabels(key, EXPORT_SECTION_FIELDS[key], lang) };
+}
+
 function raidSection(raid: readonly RaidItem[], lang: Lang): ExportSection {
-  const columns = RAID_EXPORT_COLUMNS as unknown as string[];
   const rows = raid.map((r) =>
     RAID_EXPORT_COLUMNS.map((c) =>
       richCell(
@@ -382,21 +404,19 @@ function raidSection(raid: readonly RaidItem[], lang: Lang): ExportSection {
       )
     )
   );
-  return { key: "raid", title: t(lang, "tabRaid"), columns, rows };
+  return { key: "raid", ...heading("raid", lang), rows };
 }
 
 function milestonesSection(milestones: readonly Milestone[], lang: Lang): ExportSection {
-  const columns = MILESTONES_CSV_COLUMNS as unknown as string[];
   const rows = milestones.map((m) =>
     MILESTONES_CSV_COLUMNS.map((c) =>
       richCell(milestoneFieldToString(m, c), c, MILESTONE_RICH_COLUMNS)
     )
   );
-  return { key: "milestones", title: t(lang, "navMilestones"), columns, rows };
+  return { key: "milestones", ...heading("milestones", lang), rows };
 }
 
 function changesSection(changes: readonly ChangeItem[], lang: Lang): ExportSection {
-  const columns = CHANGES_CSV_COLUMNS as unknown as string[];
   const rows = changes.map((c) =>
     CHANGES_CSV_COLUMNS.map((col) =>
       richCell(
@@ -406,55 +426,49 @@ function changesSection(changes: readonly ChangeItem[], lang: Lang): ExportSecti
       )
     )
   );
-  return { key: "changes", title: t(lang, "navChanges"), columns, rows };
+  return { key: "changes", ...heading("changes", lang), rows };
 }
 
 function stakeholdersSection(stakeholders: readonly Stakeholder[], lang: Lang): ExportSection {
-  const columns = STAKEHOLDERS_CSV_COLUMNS as unknown as string[];
   const rows = stakeholders.map((s) =>
     STAKEHOLDERS_CSV_COLUMNS.map((col) => stakeholderFieldToString(s, col))
   );
-  return { key: "stakeholders", title: t(lang, "navStakeholders"), columns, rows };
+  return { key: "stakeholders", ...heading("stakeholders", lang), rows };
 }
 
-function budgetsSection(budgets: readonly BudgetBucket[]): ExportSection {
-  const columns = BUDGETS_CSV_COLUMNS as unknown as string[];
+function budgetsSection(budgets: readonly BudgetBucket[], lang: Lang): ExportSection {
   const rows = budgets.map((b) =>
     BUDGETS_CSV_COLUMNS.map((c) => budgetFieldToString(b, c))
   );
-  return { key: "budgets", title: "Budgets", columns, rows };
+  return { key: "budgets", ...heading("budgets", lang), rows };
 }
 
 function resourcesSection(resources: readonly Resource[], lang: Lang): ExportSection {
-  const columns = RESOURCES_CSV_COLUMNS as unknown as string[];
   const rows = resources.map((r) =>
     RESOURCES_CSV_COLUMNS.map((c) => resourceFieldToString(r, c))
   );
-  return { key: "resources", title: t(lang, "tabResources"), columns, rows };
+  return { key: "resources", ...heading("resources", lang), rows };
 }
 
-function rolesSection(roles: readonly Role[]): ExportSection {
-  const columns = ROLES_CSV_COLUMNS as unknown as string[];
+function rolesSection(roles: readonly Role[], lang: Lang): ExportSection {
   const rows = roles.map((r) =>
     ROLES_CSV_COLUMNS.map((c) => String((r as Record<string, unknown>)[c] ?? ""))
   );
-  return { key: "roles", title: "Roles", columns, rows };
+  return { key: "roles", ...heading("roles", lang), rows };
 }
 
-function absencesSection(absences: readonly Absence[]): ExportSection {
-  const columns = ABSENCES_CSV_COLUMNS as unknown as string[];
+function absencesSection(absences: readonly Absence[], lang: Lang): ExportSection {
   const rows = absences.map((a) =>
     ABSENCES_CSV_COLUMNS.map((c) => absenceFieldToString(a, c))
   );
-  return { key: "absences", title: "Absences", columns, rows };
+  return { key: "absences", ...heading("absences", lang), rows };
 }
 
-function shiftsSection(shifts: readonly Shift[]): ExportSection {
-  const columns = SHIFTS_CSV_COLUMNS as unknown as string[];
+function shiftsSection(shifts: readonly Shift[], lang: Lang): ExportSection {
   const rows = shifts.map((s) =>
     SHIFTS_CSV_COLUMNS.map((c) => shiftFieldToString(s, c))
   );
-  return { key: "shifts", title: "Shifts", columns, rows };
+  return { key: "shifts", ...heading("shifts", lang), rows };
 }
 
 // Maps each ProjectMeta field key to its i18n translation key, in display order.
@@ -526,13 +540,14 @@ function projectSection(p: ProjectMeta, lang: Lang): ExportSection {
     rows.push([t(lang, PROJECT_FIELD_I18N_KEYS[key]), value]);
   }
 
-  return { key: "project", title: t(lang, "exportLabelProject"), columns: ["field", "value"], rows };
+  return { key: "project", ...heading("project", lang), rows };
 }
 
-function statusSection(status: ProjectStatus): ExportSection {
+function statusSection(status: ProjectStatus, lang: Lang): ExportSection {
   // Status is a key/value map, not a flat list of entities. We represent it
-  // as two columns ("field", "value") with one row per non-empty status field,
-  // matching what statusToCsv emits (minus the header row it includes).
+  // as two columns (field, value) with one row per non-empty status field,
+  // matching what statusToCsv emits (minus the header row it includes). §304:
+  // the first cell prints the field's label, not its storage key.
   const csv = statusToCsv(status);
   const rows: string[][] = csv
     .split(/\r?\n/)
@@ -540,16 +555,21 @@ function statusSection(status: ProjectStatus): ExportSection {
     .filter((line) => line.trim() !== "")
     .map((line) => {
       const comma = line.indexOf(",");
-      if (comma < 0) return [line, ""];
+      if (comma < 0) return [statusRowLabel(line, lang), ""];
       const field = line.slice(0, comma);
       // strip CSV quoting from value if present
       let val = line.slice(comma + 1);
       if (val.startsWith('"') && val.endsWith('"')) {
         val = val.slice(1, -1).replace(/""/g, '"');
       }
-      return [field, val];
+      return [statusRowLabel(field, lang), val];
     });
-  return { key: "status", title: "Project Status", columns: ["field", "value"], rows };
+  return { key: "status", ...heading("status", lang), rows };
+}
+
+function statusRowLabel(field: string, lang: Lang): string {
+  const key = STATUS_ROW_LABEL_KEYS[field];
+  return key ? t(lang, key) : field;
 }
 
 function knowledgeItemsSection(items: readonly KnowledgeItem[], lang: Lang): ExportSection {
@@ -559,18 +579,12 @@ function knowledgeItemsSection(items: readonly KnowledgeItem[], lang: Lang): Exp
     it.url,
     (it.taskIds ?? []).join(" "),
   ]);
-  return {
-    key: "knowledgeItems",
-    title: t(lang, "exportLabelKnowledgeItems"),
-    columns: ["name", "type", "url", "tasks"],
-    rows,
-  };
+  return { key: "knowledgeItems", ...heading("knowledgeItems", lang), rows };
 }
 
-// English-only builder (consistent with budgets/roles/absences); the insight
-// text is derived from type+data by the React surfaces, so the export renders
-// the structural fields plus a compact key=value dump of `data`.
-function insightsSection(insights: readonly Insight[]): ExportSection {
+// The insight text is derived from type+data by the React surfaces, so the
+// export renders the structural fields plus a compact key=value dump of `data`.
+function insightsSection(insights: readonly Insight[], lang: Lang): ExportSection {
   const rows = insights.map((it) => [
     it.type,
     it.severity,
@@ -581,20 +595,15 @@ function insightsSection(insights: readonly Insight[]): ExportSection {
     String(it.occurrences),
     it.lastSeenAt,
   ]);
-  return {
-    key: "insights",
-    title: "Insights",
-    columns: ["type", "severity", "status", "data", "occurrences", "lastSeen"],
-    rows,
-  };
+  return { key: "insights", ...heading("insights", lang), rows };
 }
 
 function ordinalLabel(n: 1 | 2 | 3 | 4 | -1): string {
   return n === -1 ? "last" : n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : "4th";
 }
 
-/** English-only, i18n-free (consistent with budgets/roles/absences/shifts/
- *  insights): a compact plain-language summary of a recurrence rule, derived
+/** English-only, i18n-free (the headers and titles around it are translated
+ *  since §304; this cell text is not): a compact plain-language summary of a recurrence rule, derived
  *  from the rule alone — no occurrence expansion needed, since an event's own
  *  `startDate`/`startTime` already IS its first occurrence. */
 function describeRecurrence(r: RecurrenceRule | undefined): string {
@@ -664,12 +673,7 @@ function calendarEventsSection(events: readonly CalendarEvent[], lang: Lang): Ex
     describeRecurrence(e.recurrence),
     e.location ?? "",
   ]);
-  return {
-    key: "calendarEvents",
-    title: t(lang, "exportLabelCalendarEvents"),
-    columns: ["title", "first occurrence", "recurs", "location"],
-    rows,
-  };
+  return { key: "calendarEvents", ...heading("calendarEvents", lang), rows };
 }
 
 // ---------------------------------------------------------------------------
@@ -700,42 +704,42 @@ const BUILDERS: Record<ExportSectionKey, SectionBuilder> = {
     const items = ws.stakeholders ?? [];
     return items.length > 0 ? stakeholdersSection(items, lang) : null;
   },
-  budgets: (ws) => {
+  budgets: (ws, lang) => {
     const items = ws.budgets ?? [];
-    return items.length > 0 ? budgetsSection(items) : null;
+    return items.length > 0 ? budgetsSection(items, lang) : null;
   },
   knowledgeItems: (ws, lang) => {
     const items = ws.knowledgeItems ?? [];
     return items.length > 0 ? knowledgeItemsSection(items, lang) : null;
   },
-  insights: (ws) => {
+  insights: (ws, lang) => {
     const items = ws.insights ?? [];
-    return items.length > 0 ? insightsSection(items) : null;
+    return items.length > 0 ? insightsSection(items, lang) : null;
   },
   resources: (ws, lang) => {
     const items = ws.resources;
     return items.length > 0 ? resourcesSection(items, lang) : null;
   },
-  roles: (ws) => {
+  roles: (ws, lang) => {
     const items = ws.roles;
-    return items.length > 0 ? rolesSection(items) : null;
+    return items.length > 0 ? rolesSection(items, lang) : null;
   },
-  absences: (ws) => {
+  absences: (ws, lang) => {
     const items = ws.absences;
-    return items.length > 0 ? absencesSection(items) : null;
+    return items.length > 0 ? absencesSection(items, lang) : null;
   },
-  shifts: (ws) => {
+  shifts: (ws, lang) => {
     const items = ws.shifts;
-    return items.length > 0 ? shiftsSection(items) : null;
+    return items.length > 0 ? shiftsSection(items, lang) : null;
   },
   calendarEvents: (ws, lang) => {
     const items = ws.calendarEvents ?? [];
     return items.length > 0 ? calendarEventsSection(items, lang) : null;
   },
-  status: (ws) => {
+  status: (ws, lang) => {
     const s = ws.status;
     if (!s || Object.keys(s).length === 0) return null;
-    return statusSection(s);
+    return statusSection(s, lang);
   },
 };
 

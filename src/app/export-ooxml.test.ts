@@ -347,7 +347,7 @@ describe("buildXlsx", () => {
   });
 
   it("worksheet names are ≤31 characters", async () => {
-    // Use a section with a long title — status section title is "Project Status" (14 chars, fine),
+    // Use a section with a long title — status section title is `exportLabelStatus` ("Status report", 13 chars, fine),
     // so we enable several sections and verify all sheet names are within limit
     const cfg: ExportConfig = {
       ...defaultExportConfig, milestones: true, changes: true,

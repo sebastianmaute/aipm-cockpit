@@ -8,6 +8,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { resolveDataSection } from "./doc-data-section";
 import { cellText, isRichCell } from "./export-sections";
+import { exportColumnLabel } from "./export-column-labels";
 import { exportCellHtml } from "./download";
 import { loadI18n, t } from "./i18n";
 import type { Workspace } from "./workspace";
@@ -151,8 +152,8 @@ describe("resolveDataSection", () => {
     // module chose. Asserting the shape alone would leave that decision — the
     // thing a reader of this file actually cares about — untested.
     const section = resolveDataSection("raid", populated, "en-US");
-    const titleIdx = section!.columns.indexOf("title");
-    const descIdx = section!.columns.indexOf("description");
+    const titleIdx = section!.columns.indexOf(exportColumnLabel("raid", "title", "en-US"));
+    const descIdx = section!.columns.indexOf(exportColumnLabel("raid", "description", "en-US"));
     expect(titleIdx).toBeGreaterThanOrEqual(0);
     expect(descIdx).toBeGreaterThanOrEqual(0);
 
