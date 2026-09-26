@@ -171,8 +171,9 @@ describe("matchDelimiters", () => {
     expect(matchDelimiters(text, 1)).toBe(text.length - 1);
   });
 
-  // Mutation: make the block-comment branch `continue` without the `end < 0`
-  // check (or return text.length) → no longer -1.
+  // Mutation: `if (end < 0) return i;` (treat an unterminated comment as the
+  // match) → 4. Deleting that line outright instead resets `i` to 0 and the
+  // scan never terminates; "run to the end" is EQUIVALENT (still -1).
   it("an unterminated block comment returns -1", () => {
     expect(matchDelimiters("f(a /* ) b)", 1)).toBe(-1);
   });
@@ -595,7 +596,7 @@ describe("relativeImportsIn", () => {
   });
 
   // §281. Mutation: join against "" instead of the importer's directory → the
-  // key is "lib/row" (or "row" with the old basename key), not "src/app/lib/row".
+  // key is "../lib/row" (or "row" with the old basename key), not "src/app/lib/row".
   it("resolves ../ and nested specifiers against the importing file's directory", () => {
     expect(relativeImportsIn('import { R } from "../lib/row";', "src/app/b/row.test.tsx")).toEqual([
       "src/app/lib/row",
