@@ -27,11 +27,11 @@ describe("dependabot.yml", () => {
   });
   // A cooldown holds VERSION updates back until a release has been public N days; it does not
   // delay security updates. Every entry carries it, so each block must match on its own.
-  it("gives every update entry a cooldown (5 days, 14 for majors)", () => {
+  it("gives every update entry a cooldown (7 days, 14 for majors)", () => {
     const blocks = YML.split(/\n  - package-ecosystem: /).slice(1);
     expect(blocks).toHaveLength(3);
     for (const b of blocks) {
-      expect(b).toMatch(/\n    cooldown:\n(?:\s*#.*\n)*      default-days: 5\n      semver-major-days: 14(?:\n|$)/);
+      expect(b).toMatch(/\n    cooldown:\n(?:\s*#.*\n)*      default-days: 7\n      semver-major-days: 14(?:\n|$)/);
     }
   });
   it("has a minor-and-patch group in each npm directory", () => {

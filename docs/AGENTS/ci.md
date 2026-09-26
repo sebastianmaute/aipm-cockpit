@@ -50,7 +50,7 @@ a 40-hex commit SHA (a `docker://` image by digest) with the version in a traili
 workflow test pins it to the `engines` floor). `.github/dependabot.yml` runs weekly for
 `github-actions`, root `npm` and `desktop/` `npm`: minor/patch updates land as one grouped PR per
 npm directory, majors and every exactly-pinned framework package (CONTRIBUTING's "Dependencies"
-rule) arrive one PR each. Every entry carries a `cooldown` (5 days, 14 for a major) that holds
+rule) arrive one PR each. Every entry carries a `cooldown` (7 days, 14 for a major) that holds
 version updates back until a release has been public that long; security updates are not delayed.
 ★ It does NOT cover container digests (semgrep, actionlint), which are
 re-resolved by hand.
