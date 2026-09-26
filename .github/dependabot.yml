@@ -3,7 +3,7 @@
 # human decision. The vitest family is the exception: it always arrives as one PR of its own.
 # scripts/dependabot-config.test.mjs derives the pinned set from each package.json.
 # Container digests (semgrep, actionlint) are not covered; re-resolve them by hand.
-# Every entry has a cooldown: it holds version updates back until a release has been public 5 days
+# Every entry has a cooldown: it holds version updates back until a release has been public 7 days
 # (14 for a major), and does not delay security updates.
 version: 2
 updates:
@@ -12,7 +12,7 @@ updates:
     schedule:
       interval: weekly
     cooldown:
-      default-days: 5
+      default-days: 7
       semver-major-days: 14
     groups:
       actions:
@@ -22,7 +22,7 @@ updates:
     schedule:
       interval: weekly
     cooldown:
-      default-days: 5
+      default-days: 7
       semver-major-days: 14
     groups:
       # vitest and its plugins must move together: each @vitest/* package peers on the exact
@@ -43,7 +43,7 @@ updates:
     schedule:
       interval: weekly
     cooldown:
-      default-days: 5
+      default-days: 7
       semver-major-days: 14
     groups:
       desktop-minor-patch:
