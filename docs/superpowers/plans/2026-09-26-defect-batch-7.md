@@ -2055,6 +2055,8 @@ Update the ★★★ comment above `tryCommit` ("a paragraph over MAX_HTML_TEXT_
 
 ## Open decisions for the owner
 
+**Owner answers (2026-09-26):** 1 → Turso only; a new register entry + issue carries JSON/IndexedDB (Task 10 files it: take the next § from `origin/main` at that moment, create the issue only on the owner’s say). 2 → save the flattened form on unmount (as planned). 3 → decided at Task 1 from the measurement.
+
 1. **#427 JSON and IndexedDB.** Both load funnels drop a sanitized-to-nothing slice the same way, but neither has a decode-failure channel or a save pause, so "fix them the same way" means building that plumbing for the file and IndexedDB backends. Proposed: this batch fixes Turso only, and a new register entry (with its own issue) carries the other two. Alternative: log a diagnostic in both funnels now (no data protection, only a trace).
 2. **#174 unmount fallback.** When a refused over-cap paragraph unmounts without a blur (a narrowed pane), the plan saves today's flattened form so the edit is not lost. Alternative: discard the uncommitted edit (keeps formatting of the last saved version, loses the new text).
 3. **#428 floor at 1024px.** From the issue's numbers the header is 181px too wide at 1024; the search can give 160px (384→224) and the project switcher the rest (it already truncates). If the measurement shows 1024 still overflowing with a 224px floor, the owner picks: a lower floor, or a narrower cap on the project switcher.
