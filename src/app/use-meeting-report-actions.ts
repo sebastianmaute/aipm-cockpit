@@ -2,7 +2,7 @@
 // steering-committee "report" bag: save a meeting's status report into the
 // committee blob, and email it to the committee members via Graph. Non-memoized
 // handlers read live deps each call. Returns undefined in popouts (read-only).
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { t, type Lang } from "./i18n";
 import type { SteeringCommittee, Resource } from "./types";
 import type { Settings } from "./settings-types";
@@ -45,6 +45,9 @@ export interface MeetingReportBag {
   onSendReport: (meetingId: number, recipients: readonly string[]) => void;
   sendBusyMeetingId: number | null;
   onGenerateReport: (meetingId: number) => void;
+  /** Stop the in-flight AI draft (§125). Aborting stops the WAIT, not the bill:
+   *  a request already sent is still charged. A user stop shows no error toast. */
+  onCancelGenerateReport: () => void;
   generateBusyMeetingId: number | null;
   /** Turso-only: load a meeting's report version history (newest first). Returns
    *  [] when Turso is inactive. */
@@ -61,6 +64,8 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
   const [sendBusyMeetingId, setSendBusyMeetingId] = useState<number | null>(null);
   const [generateBusyMeetingId, setGenerateBusyMeetingId] = useState<number | null>(null);
   const [restoreBusyId, setRestoreBusyId] = useState<string | null>(null);
+  /** The in-flight AI draft's controller — a ref so Stop can reach it (§125). */
+  const generateCtrlRef = useRef<AbortController | null>(null);
   if (deps.isPopout) return undefined;
 
   // Turso-only: snapshot the meeting's CURRENT report as a version before it's
@@ -149,22 +154,34 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     if (!committee || !deps.aiKey) return;
     const meeting = committee.meetings.find((m) => m.id === meetingId);
     if (!meeting) return;
+    const ctrl = new AbortController();
+    generateCtrlRef.current = ctrl;
     setGenerateBusyMeetingId(meetingId);
     try {
-      const html = await runMeetingReport(deps.getDashboardModel(), meeting.agenda ?? "", {
-        apiKey: deps.aiKey,
-        model: deps.aiModel,
-        lang: deps.lang,
-      });
+      const html = await runMeetingReport(
+        deps.getDashboardModel(),
+        meeting.agenda ?? "",
+        { apiKey: deps.aiKey, model: deps.aiModel, lang: deps.lang },
+        ctrl.signal,
+      );
+      // A stop that lost the race to the response still means "don't use it".
+      if (ctrl.signal.aborted) return;
       // onSaveReport sanitizes (AI output is untrusted) before it lands.
       onSaveReport(meetingId, html);
     } catch {
+      // A user stop is not a failure — no toast (§125).
+      if (ctrl.signal.aborted) return;
       // Status-only — never surface the response body (runMeetingReport already
       // throws status-digits/"parse" only).
       deps.showToast("error", t(deps.lang, "reportGenerateFailed"));
     } finally {
+      if (generateCtrlRef.current === ctrl) generateCtrlRef.current = null;
       setGenerateBusyMeetingId(null);
     }
+  }
+
+  function onCancelGenerateReport(): void {
+    generateCtrlRef.current?.abort();
   }
 
   async function loadVersionsUi(meetingId: number): Promise<MeetingReportVersionUi[]> {
@@ -207,6 +224,7 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     onGenerateReport: (meetingId: number) => {
       void onGenerateReport(meetingId);
     },
+    onCancelGenerateReport,
     generateBusyMeetingId,
     loadVersions: loadVersionsUi,
     onRestore: (meetingId: number, versionId: string) => {

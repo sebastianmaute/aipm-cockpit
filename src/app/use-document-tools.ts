@@ -129,10 +129,9 @@ function remapOpIndex(entry: string, callerIndexOf: readonly number[]): string {
  *  `t()` renders neither arg today. They are carried anyway, exactly as
  *  `ai.inlineEdit` carries `(id, title)` against its own placeholder-free
  *  string: the entry is the audit record, and the id is what a deep-link would
- *  need. ★ `dashboard-activity-nav.ts`'s `activityViewOf("ai.documentWrite") ->
- *  "documents"` has NO production caller at all (only its own test), so the
- *  deep-link stays unreachable until something renders it — writing the row does
- *  not by itself light that path up.
+ *  need. ★ Nothing renders a deep-link from an activity row (the dead kind→view
+ *  mapper was deleted, §104), so writing the row does not by itself make the
+ *  document reachable from the Activity panel.
  *
  *  ★ THE ACTOR IS STAMPED EVEN THOUGH `ai.documentWrite` ALREADY SAYS "ai". A
  *  consumer filtering the log by actor — "show me only what the assistant did"

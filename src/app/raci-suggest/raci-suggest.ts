@@ -25,7 +25,12 @@ export type SkipReason =
   | "unknown-stakeholder"
   | "unknown-milestone"
   | "invalid-role"
-  | "duplicate-accountable";
+  | "duplicate-accountable"
+  /** A proposed Accountable for someone else on a milestone whose CURRENT
+   *  Accountable the same proposal demotes. Still refused — see
+   *  `groundRaciCells` — but "that milestone already has an Accountable" would
+   *  misdescribe a proposal that deliberately moves it (§43). */
+  | "accountable-handover";
 
 export interface SkippedRaciCell {
   stakeholderId: number;
@@ -84,6 +89,23 @@ export function groundRaciCells(
     }
   }
 
+  // Milestones whose STORED Accountable this proposal demotes (a valid non-A
+  // role for that holder). A second A proposed for such a milestone is a
+  // HANDOVER, and it is still refused rather than accepted: `onConfirm` applies
+  // whatever subset the user ticks and does not re-check uniqueness, so a user
+  // who unticked the demotion and kept the promotion would write TWO
+  // Accountables. Only the explanation changes (§43). First occurrence per cell
+  // only, matching the `seen` dedupe below.
+  const demotedHolder = new Set<number>();
+  const preSeen = new Set<string>();
+  for (const c of proposed) {
+    const key = cellKey(c);
+    if (preSeen.has(key)) continue;
+    preSeen.add(key);
+    if (!isRaciRole(c.role) || c.role === "A") continue;
+    if (accountableHolder.get(c.milestoneId) === c.stakeholderId) demotedHolder.add(c.milestoneId);
+  }
+
   const cells: GroundedRaciCell[] = [];
   const skipped: SkippedRaciCell[] = [];
   const seen = new Set<string>();
@@ -114,7 +136,12 @@ export function groundRaciCells(
       // someone else is not.
       const holder = accountableHolder.get(c.milestoneId);
       if (holder !== undefined && holder !== c.stakeholderId) {
-        skipped.push({ ...c, reason: "duplicate-accountable" });
+        // `demotedHolder` only names milestones with a STORED holder, and a
+        // stored holder is never replaced in the map, so `holder` here IS the
+        // demoted one. Two proposed A's on a milestone with no stored holder
+        // still read as duplicate-accountable.
+        const handover = demotedHolder.has(c.milestoneId);
+        skipped.push({ ...c, reason: handover ? "accountable-handover" : "duplicate-accountable" });
         continue;
       }
       // Claim it BEFORE the no-op check below, so that a later proposed A for a

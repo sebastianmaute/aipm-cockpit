@@ -240,8 +240,9 @@ export function buildSnapshot(input: BuildSnapshotInput): SnapshotRecord {
  *  The auto-capture effect claims a cadence bucket by writing to it, and
  *  `hasCurrent` never revisits a claimed bucket — so a capture taken over an
  *  empty project is not merely useless, it costs that period its real numbers
- *  forever. Worse, being the first ever row it is also flagged `isBaseline`,
- *  and every later variance row then compares against nulls. (§78.)
+ *  forever. It also used to be flagged `isBaseline` as the first ever row, so
+ *  every later variance row compared against nulls; an auto row is now flagged
+ *  only when complete (see the note below). (§78.)
  *  ★★ `captureNow` and `rebaselineNow` make the IDENTICAL permanent claim and
  *  are deliberately NOT gated on this — a manual capture is an explicit user
  *  act, and §78 is scoped to the automatic one. So do not read "this guards a
@@ -262,11 +263,11 @@ export function buildSnapshot(input: BuildSnapshotInput): SnapshotRecord {
  *  `remainingEstimateMinutes` is a user-pinned override and no EVM term
  *  consumes it, so do NOT assume a newly added effort field reaches these KPIs.
  *  Verify against the code, not this line: `grep -n "Minutes" src/app/evm.ts`.
- *  ★★ KNOWN GAP (open-followups §78): this admits a project with one task and
- *  no budget, whose capture is then baselined with partial KPIs — the exact
- *  case §78 named when it warned that "a naive `tasks.length > 0` test would
- *  still baseline a snapshot with no SPI/CPI". What is closed is the ALL-null
- *  empty-project case. Do not read this predicate as answering that objection.
+ *  ★★ This admits a project with one task and no budget, and that is right: it
+ *  is worth recording. What it no longer does is become the BASELINE with
+ *  partial KPIs (§78) — that is decided separately in `use-snapshots.ts`'s
+ *  auto-capture, which flags only the FIRST `isKpiCompleteSnapshot` row. Do not
+ *  read this predicate as the baseline rule; it answers only "capture at all".
  */
 export function hasCapturableContent(
   input: Pick<BuildSnapshotInput, "tasks" | "milestones" | "model">,
@@ -276,6 +277,20 @@ export function hasCapturableContent(
     input.milestones.length > 0 ||
     input.model.burndown !== null
   );
+}
+
+/** §78 — is this snapshot KPI-complete, i.e. may it serve as a baseline?
+ *  Complete means `remainingHours` is known. It is null when there was no
+ *  burndown (no budget: `model.burndown === null`) AND when the burndown had no
+ *  actuals yet (`lastNonNull` over an all-null series, e.g. a budgeted project
+ *  that has not started) — both leave every later remaining-hours variance
+ *  comparing against null, which is the defect. `remainingCost` is derived the
+ *  same way from the same burndown, so one field answers for both.
+ *  ★ Read from the RECORD, not the capture context, so the SAME test answers
+ *  for a row being built and for one loaded from history (the field
+ *  round-trips through the `snapshot` table's `remaining_hours` column). */
+export function isKpiCompleteSnapshot(rec: Pick<SnapshotRecord, "remainingHours">): boolean {
+  return rec.remainingHours !== null;
 }
 
 export type VarianceKey =
@@ -363,12 +378,18 @@ export function computeVariance(
 }
 
 /** Per-milestone committed baseline (`target`) dates from the pinned baseline
- *  snapshot, keyed by milestone id. Empty when no snapshot is flagged
- *  `isBaseline`. Pure — the Gantt overlays these behind the live diamonds. */
+ *  snapshot, keyed by milestone id; with none flagged, from the EARLIEST row,
+ *  the same fallback `use-snapshots.ts`'s variance baseline uses. Milestone
+ *  targets need no budget, and a project without one never gets an auto
+ *  baseline flag (§78: only a KPI-complete row is flagged), so without the
+ *  fallback its overlay would stay empty forever. Empty only when there are no
+ *  snapshots. Pure — the Gantt overlays these behind the live diamonds. */
 export function baselineMilestoneTargets(
   snapshots: readonly SnapshotRecord[],
 ): Map<number, string> {
-  const base = snapshots.find((s) => s.isBaseline);
+  const base =
+    snapshots.find((s) => s.isBaseline) ??
+    [...snapshots].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt))[0];
   const map = new Map<number, string>();
   if (!base) return map;
   for (const m of base.milestones) map.set(m.id, m.target);

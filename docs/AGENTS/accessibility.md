@@ -27,7 +27,8 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   In LIST of rows, per-row controls need row-UNIQUE accessible name (e.g.
   `aria-label={`${t(lang,"edit")} – ${row.name}`}`) — N identical "Edit"/"Enabled" labels is
   WCAG 2.4.6 fail. ★★★ **THE AXE GATE CANNOT CATCH THIS AT ALL — not "only when one row is seeded".**
-  Measured 2026-08-08 against the installed axe-core 4.12.1, not reasoned: of its 105
+  Measured 2026-08-08 against the installed axe-core 4.12.1, not reasoned, and re-run unchanged on
+  2026-09-25 against 4.13.0 (`docs/open-followups.md` §497), so every "4.12.1" quote here still holds: of its 105
   rules, **69** carry one of the four tags `e2e/a11y.spec.ts` requests (`wcag2a wcag2aa wcag21a
   wcag21aa`), and NOT ONE of them flags two controls sharing an accessible name. ★★ THAT SENTENCE IS
   THE CLAIM — "two CONTROLS" is load-bearing, and every weaker paraphrase of it here has been false.

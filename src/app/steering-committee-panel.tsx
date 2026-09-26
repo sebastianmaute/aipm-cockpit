@@ -627,6 +627,7 @@ export function SteeringCommitteePanel({
                       isPopout={isPopout}
                       aiConfigured={report.aiConfigured}
                       onGenerate={() => report.onGenerateReport(m.id)}
+                      onCancelGenerate={report.onCancelGenerateReport}
                       generateBusy={report.generateBusyMeetingId === m.id}
                       versions={reportVersions}
                       onRestore={(versionId) => report.onRestore(m.id, versionId)}

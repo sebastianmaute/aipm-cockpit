@@ -13,6 +13,11 @@
 
 ### Insights → action loop
 
+★★ **CROSS-VERSION PRUNING IS ACCEPTED.** `sanitizeInsights` admits only the running build's `INSIGHT_TYPES`,
+so a build older than the one that adds a type drops that type on load and can write the pruned list back.
+Every new insight type inherits this. Accepted 2026-09-25 (`docs/open-followups.md` §364): carrying unknown
+types through the validator was weighed and rejected.
+
 - **Pure `insights/` engines (i18n-free):** `detect.ts` `detectInsights(input, today)` runs the
   deterministic detectors (milestone slip · stalled/no-progress work · budget variance · RAID aging ·
   overdue-trend · the four TimeLog guardrails, below) → `DetectedInsight[]`; `reconcile.ts` `reconcileInsights(stored, detected, today)` merges

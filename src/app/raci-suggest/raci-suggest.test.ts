@@ -103,6 +103,30 @@ describe("groundRaciCells", () => {
     expect(g.skipped[0].reason).toBe("duplicate-accountable");
   });
 
+  // §43: a proposal that demotes the current Accountable AND promotes someone
+  // else is a HANDOVER. It is still refused (a user could untick the demotion
+  // and keep the promotion, writing two Accountables), but not as
+  // "already has an Accountable", which misdescribes it. Both orders.
+  it.each([
+    ["demotion first", [{ stakeholderId: 1, milestoneId: 10, role: "R" as const }, { stakeholderId: 2, milestoneId: 10, role: "A" as const }]],
+    ["promotion first", [{ stakeholderId: 2, milestoneId: 10, role: "A" as const }, { stakeholderId: 1, milestoneId: 10, role: "R" as const }]],
+  ])("reports an Accountable handover as accountable-handover, not a duplicate (%s)", (_label, proposal) => {
+    const withA = [sh(1, "Ada", { raci: { "10": "A" } }), sh(2, "Bo")];
+    const g = groundRaciCells(proposal, withA, milestones);
+    expect(g.skipped).toEqual([{ stakeholderId: 2, milestoneId: 10, role: "A", reason: "accountable-handover" }]);
+    // The demotion is still offered on its own.
+    expect(g.cells.map((c) => [c.stakeholderId, c.milestoneId, c.role, c.currentRole])).toEqual([[1, 10, "R", "A"]]);
+  });
+
+  it("a demotion on a DIFFERENT milestone does not turn a duplicate into a handover", () => {
+    const withA = [sh(1, "Ada", { raci: { "10": "A", "11": "A" } }), sh(2, "Bo")];
+    const g = groundRaciCells(
+      [{ stakeholderId: 1, milestoneId: 11, role: "R" }, { stakeholderId: 2, milestoneId: 10, role: "A" }],
+      withA, milestones,
+    );
+    expect(g.skipped.map((s) => s.reason)).toEqual(["duplicate-accountable"]);
+  });
+
   it("does not treat the current Accountable re-asserting itself as a duplicate", () => {
     // It is dropped, but as a NO-OP, not rejected as a duplicate — the two
     // outcomes look alike from `cells` alone, so assert on `skipped`.

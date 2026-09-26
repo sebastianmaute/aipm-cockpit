@@ -65,7 +65,8 @@ function GenerateRecommendationCta({
   );
 }
 
-/** Priority: proposed → summary + Review/Reject; applied → a muted note;
+/** Priority: proposed → summary + Review/Reject; applied → a muted note (plus
+ *  the CTA when some calls were refused — "Partly applied", §351);
  *  rejected → a muted note PLUS the CTA again (so a dismissed suggestion isn't
  *  a dead end — regenerating overwrites it); else → the CTA alone. */
 export function InsightRecommendationControls(props: InsightRecommendationControlsProps) {
@@ -73,6 +74,17 @@ export function InsightRecommendationControls(props: InsightRecommendationContro
   const rec = insight.recommendation;
   if (!rec) return <GenerateRecommendationCta {...props} />;
   if (rec.status === "applied") {
+    // §351: some calls wrote nothing — say so, and re-offer Generate for the
+    // rest (as the rejected branch does). Regenerating REPLACES proposedCalls,
+    // so the creates that already committed are never replayed.
+    if ((rec.refusedCalls ?? 0) > 0) {
+      return (
+        <div className="flex flex-wrap items-center gap-1">
+          <p className="w-full text-xs text-muted-foreground">{t(lang, "insightRecommendationAppliedPartial")}</p>
+          <GenerateRecommendationCta {...props} />
+        </div>
+      );
+    }
     return <p className="text-xs text-muted-foreground">{t(lang, "insightRecommendationApplied")}</p>;
   }
   if (rec.status === "rejected") {

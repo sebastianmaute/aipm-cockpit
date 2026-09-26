@@ -6,7 +6,10 @@ import {
   deleteSnapshots as storeDeleteMany,
   loadSnapshots, setBaseline as storeSetBaseline,
 } from "./snapshot-store";
-import { bucketKey, buildSnapshot, computeVariance, detectGaps, hasCapturableContent, withoutCompletionVariance } from "./snapshot";
+import {
+  bucketKey, buildSnapshot, computeVariance, detectGaps, hasCapturableContent, isKpiCompleteSnapshot,
+  withoutCompletionVariance,
+} from "./snapshot";
 import type { SnapshotCadence, SnapshotRecord, SnapshotTrigger, VarianceRow } from "./snapshot";
 import type { BuildSnapshotInput } from "./snapshot";
 import type { TursoConfig } from "./turso-config";
@@ -182,18 +185,50 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
           // bucket, not the missed one). Create a project on Monday and
           // populate it Tuesday and that first period simply has no auto row.
           // That is a deliberate trade, and strictly better than the bug: the
-          // bucket is NOT claimed, so nothing is poisoned and the first REAL
-          // capture correctly becomes the baseline. Adding `tasks.length` as a
+          // bucket is NOT claimed, so nothing is poisoned and the first
+          // COMPLETE capture becomes the baseline (see below). Adding `tasks.length` as a
           // dep would close the gap but re-runs this effect on every task edit.
           if (!hasCapturableContent(ctx)) {
             setSnapshots(history);
             return;
           }
-          const isFirstEver = history.length === 0;
-          const rec = makeRecord("auto", isFirstEver, currentBucket, ctx);
+          // ★★ §78, the partial-KPI half. THE RULE: an auto row becomes the
+          // baseline only if it is the FIRST complete row — it is complete, NO
+          // row in history is complete, and NO row is flagged. "Complete" is
+          // `isKpiCompleteSnapshot` (`snapshot.ts`): `remainingHours` is known,
+          // which needs a burndown (`model.burndown !== null`) with actuals —
+          // the input `remainingHours` and `remainingCost` derive from (`spi`/
+          // `cpi` come from task effort, not budget, so they are not part of
+          // it). A project with scope but no budget used to baseline its first
+          // row with those two KPIs null, and every later variance row compared
+          // against nulls.
+          // ★★ "No complete row in history" is load-bearing, not redundant with
+          // "none flagged": a user who DELETES the baseline in Trends leaves
+          // complete rows and no flag, and `pickBaseline` then falls back to the
+          // earliest one. Without this conjunct the next bucket's capture would
+          // silently flag itself and reset every variance row to ~zero.
+          // ★ An existing flag (user-set, or an older build's partial one) is
+          // never moved from here.
+          // ★ Appended unflagged, then flagged through the same persisted store
+          // op `setBaseline` uses. If that second write fails, the error is
+          // reported and NOT retried — the row is complete now, so the next
+          // capture no longer qualifies; the user sets the baseline in Trends.
+          // ★ Until a complete row exists nothing is flagged, and a project with
+          // no budget never has one. Both readers fall back to the earliest row
+          // then: `pickBaseline` for variance, `baselineMilestoneTargets` for
+          // the Gantt's milestone overlay. Only the Trends ★ needs the flag.
+          const rec = makeRecord("auto", false, currentBucket, ctx);
+          const promote =
+            isKpiCompleteSnapshot(rec) &&
+            !history.some((s) => s.isBaseline || isKpiCompleteSnapshot(s));
           await storeAppend(cfgRef.current, rec, pidRef.current);
           if (stale()) return;
           setSnapshots([...history, rec]);
+          if (promote) {
+            await storeSetBaseline(cfgRef.current, rec.id, pidRef.current);
+            if (stale()) return;
+            setSnapshots((prev) => prev.map((s) => ({ ...s, isBaseline: s.id === rec.id })));
+          }
         } else {
           setSnapshots(history);
         }

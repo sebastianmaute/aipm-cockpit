@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { computeDelta, type DeltaResult, type LandingState, type RagScope } from "./dashboard-delta";
-import { computeMetricTrends, type MetricKey, type MetricTrend } from "./dashboard-trends";
+import { computeMetricTrends, type MetricKey, type MetricSnapshot, type MetricTrend } from "./dashboard-trends";
 import { loadLandingState, saveLandingState } from "./landing-state";
 import type { ActivityEntry } from "./activity-log";
 import type { Health } from "./health";
@@ -35,8 +35,15 @@ export function useLandingDelta(args: {
    *  so this hook has no I/O of its own; the caller (dashboard-panel) sources
    *  it from `useWorkspace()`. */
   activity: readonly ActivityEntry[];
+  /** True while every task is out of scope (`hasNoActiveScope`). The
+   *  `complete` figure is then a meaningless 0, so it is NOT saved: the next
+   *  visit would otherwise diff against it and show "+N%" measured from a
+   *  baseline the UI refused to display. With no prior `complete`, that visit's
+   *  trend is null and renders no arrow (§64). Required rather than optional so
+   *  a new caller cannot silently drop it. */
+  noActiveScope: boolean;
 }): LandingDelta {
-  const { projectId, currentRag, currentMetrics, overdue, today, isPopout, activity } = args;
+  const { projectId, currentRag, currentMetrics, overdue, today, isPopout, activity, noActiveScope } = args;
 
   // Capture the delta + KPI trends ONCE at mount from the PRIOR snapshot — before
   // advancing. Lazy initializer keeps loadLandingState out of the render body
@@ -57,10 +64,14 @@ export function useLandingDelta(args: {
   useEffect(() => {
     if (isPopout) return;
     const id = window.setTimeout(() => {
+      // Built as a new object: never mutate the caller's `currentMetrics`.
+      const metrics: MetricSnapshot = noActiveScope
+        ? { overdue: currentMetrics.overdue, openRaid: currentMetrics.openRaid }
+        : currentMetrics;
       saveLandingState(projectId, {
         lastVisitAt: new Date().toISOString(),
         rag: snapshotRag(currentRag),
-        metrics: currentMetrics,
+        metrics,
       });
     }, ADVANCE_DELAY_MS);
     return () => window.clearTimeout(id);

@@ -72,7 +72,8 @@ export type GanttPrefs = {
    *  the dependency arrows between them in red. Defaults on. */
   showCriticalPath: boolean;
   /** When true, milestones show a hollow ghost diamond at their committed
-   *  baseline date (from the pinned snapshot) with a connector + slip label.
+   *  baseline date (from the pinned snapshot, else the earliest one, §78) with a
+   *  connector + slip label.
    *  Defaults on; only visible when baseline data exists (Turso). */
   showBaseline: boolean;
   /** Where milestone rows render relative to the task rows. Defaults to

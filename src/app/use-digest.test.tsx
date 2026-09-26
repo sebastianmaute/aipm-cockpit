@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useDigest, type UseDigestDeps } from "./use-digest";
+import { AI_TIMEOUT_MS, useDigest, type UseDigestDeps } from "./use-digest";
 import { t } from "./i18n";
 import { advanceDigestState } from "./digest/digest-state";
 import type { DashboardModel } from "./dashboard";
@@ -337,6 +337,162 @@ describe("useDigest", () => {
     await act(async () => { await result.current.generateNow(); });
     await act(async () => { await result.current.emailDigest(); });
     expect(result.current.busy).toBe(false);
+  });
+
+  // §125: the narrative is a billed Anthropic call and must be stoppable.
+  it("cancel aborts the in-flight narrative, clears generating, and shows no error", async () => {
+    let seen: AbortSignal | undefined;
+    const runNarrative = vi.fn(
+      (_d: unknown, _o: unknown, signal: AbortSignal) =>
+        new Promise<string>((_resolve, reject) => {
+          seen = signal;
+          signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        }),
+    );
+    const showToast = vi.fn();
+    const { result } = renderHook(() =>
+      useDigest(deps({ aiKey: "sk-ant-test", runNarrative: runNarrative as UseDigestDeps["runNarrative"], showToast })),
+    );
+    let pending: Promise<void> | undefined;
+    act(() => { pending = result.current.generateNow(); });
+    // The narrative is in flight: the Stop state is up, the busy flag too.
+    expect(result.current.generating).toBe(true);
+    expect(seen?.aborted).toBe(false);
+
+    await act(async () => {
+      result.current.cancel();
+      await pending;
+    });
+
+    expect(seen?.aborted).toBe(true);
+    expect(result.current.generating).toBe(false);
+    expect(result.current.busy).toBe(false);
+    // Fail-soft: the deterministic digest stands, and a user stop is not an error.
+    expect(result.current.digest?.rag).toBe("A");
+    expect(result.current.digest?.narrative).toBeUndefined();
+    expect(showToast).not.toHaveBeenCalled();
+  });
+
+  // §125 fix round: emailing regenerates for the narrative, so the Generate
+  // button reads "Stop" right after Email is clicked. Pressing it must stop the
+  // (irreversible) send, not mail a narrative-less digest.
+  it("a Stop during the email's narrative stops the email too", async () => {
+    let seen: AbortSignal | undefined;
+    const runNarrative = vi.fn(
+      (_d: unknown, _o: unknown, signal: AbortSignal) =>
+        new Promise<string>((_resolve, reject) => {
+          seen = signal;
+          signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        }),
+    );
+    const send = vi.fn().mockResolvedValue(undefined);
+    const acquireToken = vi.fn().mockResolvedValue("tok");
+    const showToast = vi.fn();
+    const { result } = renderHook(() =>
+      useDigest(deps({
+        aiKey: "sk-ant-test",
+        m365Configured: true,
+        runNarrative: runNarrative as UseDigestDeps["runNarrative"],
+        sendDigestMail: send,
+        acquireToken,
+        showToast,
+      })),
+    );
+    let pending: Promise<void> | undefined;
+    act(() => { pending = result.current.emailDigest(); });
+    expect(result.current.generating).toBe(true); // the Stop is up
+    await act(async () => {
+      result.current.cancel();
+      await pending;
+    });
+    expect(seen?.aborted).toBe(true);
+    expect(acquireToken).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+    expect(showToast).not.toHaveBeenCalled();
+    expect(result.current.busy).toBe(false);
+  });
+
+  // The timeout aborts the narrative directly, never through cancel(): a timed-out
+  // narrative must still send the plain digest. Routing the timeout through cancel()
+  // would silently stop every slow email.
+  it("a narrative that times out still sends the email", async () => {
+    vi.useFakeTimers();
+    try {
+      const runNarrative = vi.fn(
+        (_d: unknown, _o: unknown, signal: AbortSignal) =>
+          new Promise<string>((_resolve, reject) => {
+            signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+          }),
+      );
+      const send = vi.fn().mockResolvedValue(undefined);
+      const acquireToken = vi.fn().mockResolvedValue("tok");
+      const { result } = renderHook(() =>
+        useDigest(deps({
+          aiKey: "sk-ant-test",
+          m365Configured: true,
+          runNarrative: runNarrative as UseDigestDeps["runNarrative"],
+          sendDigestMail: send,
+          acquireToken,
+        })),
+      );
+      let pending: Promise<void> | undefined;
+      act(() => { pending = result.current.emailDigest(); });
+      expect(result.current.generating).toBe(true);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AI_TIMEOUT_MS + 1);
+        await pending;
+      });
+      expect(runNarrative).toHaveBeenCalledTimes(1);
+      expect(acquireToken).toHaveBeenCalledTimes(1);
+      expect(send).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a Stop pressed during an earlier Generate does not block a later email", async () => {
+    const runNarrative = vi.fn(
+      (_d: unknown, _o: unknown, signal: AbortSignal) =>
+        new Promise<string>((resolve, reject) => {
+          signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+          if (runNarrative.mock.calls.length > 1) resolve("Narrative line.");
+        }),
+    );
+    const send = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useDigest(deps({
+        aiKey: "sk-ant-test",
+        m365Configured: true,
+        runNarrative: runNarrative as UseDigestDeps["runNarrative"],
+        sendDigestMail: send,
+        acquireToken: vi.fn().mockResolvedValue("tok"),
+      })),
+    );
+    let pending: Promise<void> | undefined;
+    act(() => { pending = result.current.generateNow(); });
+    await act(async () => { result.current.cancel(); await pending; });
+    // The cached digest has no narrative, so emailing regenerates — and sends.
+    await act(async () => { await result.current.emailDigest(); });
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops a narrative that resolves after the user stopped it", async () => {
+    let release: ((v: string) => void) | undefined;
+    const runNarrative = vi.fn(
+      () => new Promise<string>((resolve) => { release = resolve; }), // ignores the signal
+    );
+    const { result } = renderHook(() =>
+      useDigest(deps({ aiKey: "sk-ant-test", runNarrative: runNarrative as UseDigestDeps["runNarrative"] })),
+    );
+    let pending: Promise<void> | undefined;
+    act(() => { pending = result.current.generateNow(); });
+    await act(async () => {
+      result.current.cancel();
+      release!("Too late.");
+      await pending;
+    });
+    expect(result.current.digest?.narrative).toBeUndefined();
+    expect(result.current.generating).toBe(false);
   });
 
   it("AI-off → no narrative on the digest", async () => {

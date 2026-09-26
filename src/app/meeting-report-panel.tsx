@@ -12,6 +12,7 @@ import { htmlToPlainText } from "./html-to-text";
 import { diffLines } from "./text-diff";
 import { CommTemplateDiffView } from "./comm-template-diff-view";
 import { Button } from "./button";
+import { AiTriggerButton } from "./ai-trigger-button";
 import { Input } from "./form-controls";
 import { RichTextEditor } from "./rich-text-editor-lazy";
 
@@ -36,6 +37,8 @@ export interface MeetingReportPanelProps {
   isPopout?: boolean;
   // Slice 2 (AI draft):
   onGenerate?: () => void;
+  /** Stops the in-flight AI draft (§125). While busy the trigger reads "Stop". */
+  onCancelGenerate?: () => void;
   generateBusy?: boolean;
   aiConfigured?: boolean;
   // Slice 3 (Turso versions):
@@ -67,6 +70,7 @@ export function MeetingReportPanel({
   sendBusy,
   isPopout,
   onGenerate,
+  onCancelGenerate,
   generateBusy,
   aiConfigured,
   versions,
@@ -108,14 +112,21 @@ export function MeetingReportPanel({
     <div className="flex flex-col gap-3">
       {aiConfigured && onGenerate && !readOnly && (
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="secondary"
-            size="xs"
-            onClick={onGenerate}
-            disabled={generateBusy}
-          >
-            {t(lang, generateBusy ? "reportGenerating" : "reportDraftWithAi")}
-          </Button>
+          {/* ★ The shared trigger: while busy it reads "Stop" and aborts (§125).
+              Progress text sits BESIDE it, never on it (WCAG 2.5.3). Only one
+              meeting's report modal is open at a time, so no nameQualifier. */}
+          <AiTriggerButton
+            lang={lang}
+            busy={!!generateBusy}
+            onRun={onGenerate}
+            onCancel={() => onCancelGenerate?.()}
+            idleLabelKey="reportDraftWithAi"
+          />
+          {generateBusy ? (
+            <span role="status" className="text-xs text-muted-foreground">
+              {t(lang, "reportGenerating")}
+            </span>
+          ) : null}
         </div>
       )}
 

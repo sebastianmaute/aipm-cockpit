@@ -54,12 +54,42 @@ export const UNSIGNED_NOTICE = [
   "Verify a download with `gh attestation verify <file> --repo sebastianmaute/aipm-cockpit`.",
 ].join("\n");
 
+// A line that starts a markdown block of its own: a list item, heading, quote, fence, table row,
+// raw HTML, a rule or a setext underline.
+const BLOCK_START_RE = /^\s*(?:[-*+]\s|\d+[.)]\s|#{1,6}\s|>|```|~~~|\||<|(?:-{3,}|\*{3,}|_{3,}|={3,})\s*$)/;
+// A line the next one must never be joined onto: a heading, fence, table row, raw HTML, rule, or
+// one ending in a two-space hard break. Joining onto a closing fence would reopen the code block.
+const NO_JOIN_AFTER_RE = /^\s*(?:#{1,6}\s|```|~~~|\||<|(?:-{3,}|\*{3,}|_{3,}|={3,})\s*$)| {2,}$/;
+
+/** Joins hard-wrapped lines into one line per paragraph or list item. GitHub renders every newline
+ *  in a release body as <br>, and electron-updater hands that HTML to the update dialog, so a
+ *  CHANGELOG wrapped at ~100 columns showed as broken lines in both places. Fenced code, headings,
+ *  tables and rules pass through unchanged. */
+export function unwrapMarkdown(text) {
+  const out = [];
+  let inFence = false;
+  for (const line of text.split(/\r?\n/)) {
+    const isFence = /^\s*(```|~~~)/.test(line);
+    if (inFence || isFence) {
+      out.push(line);
+      if (isFence) inFence = !inFence;
+      continue;
+    }
+    const prev = out.length > 0 ? out[out.length - 1] : "";
+    const joinable = line.trim() !== "" && !BLOCK_START_RE.test(line) && prev.trim() !== ""
+      && !NO_JOIN_AFTER_RE.test(prev);
+    if (joinable) out[out.length - 1] = `${prev} ${line.trim()}`;
+    else out.push(line);
+  }
+  return out.join("\n");
+}
+
 export function releaseNotes(changelog, version) {
   const section = changelogSection(changelog, version);
   if (section === null || section === "") {
     throw new Error(`CHANGELOG.md has no section "## [${version}]" — add it before tagging`);
   }
-  return `${section}\n\n${UNSIGNED_NOTICE}\n`;
+  return unwrapMarkdown(`${section}\n\n${UNSIGNED_NOTICE}\n`);
 }
 
 /** Reads the fixed layout electron-builder writes; throws on anything else. */

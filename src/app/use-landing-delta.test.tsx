@@ -10,10 +10,12 @@ afterEach(() => { clearLandingState(); vi.useRealTimers(); });
 const RAG: Record<RagScope, Health | null> = { overall: "A", schedule: "G", budget: null, scope: null };
 const METRICS = { complete: 50, overdue: 4, openRaid: 3 };
 
-function Harness({ projectId, isPopout }: { projectId: string; isPopout: boolean }) {
+function Harness({
+  projectId, isPopout, metrics = METRICS, noActiveScope = false,
+}: { projectId: string; isPopout: boolean; metrics?: typeof METRICS; noActiveScope?: boolean }) {
   const { delta, trends } = useLandingDelta({
-    projectId, currentRag: RAG, currentMetrics: METRICS, overdue: [], today: "2026-06-21", isPopout,
-    activity: [],
+    projectId, currentRag: RAG, currentMetrics: metrics, overdue: [], today: "2026-06-21", isPopout,
+    activity: [], noActiveScope,
   });
   return (
     <>
@@ -54,6 +56,23 @@ describe("useLandingDelta", () => {
     saveLandingState("p1", { lastVisitAt: "2026-06-20T00:00:00.000Z" });
     const { getByTestId } = render(<Harness projectId="p1" isPopout={false} />);
     expect(getByTestId("overdue-improved").textContent).toBe("null");
+  });
+
+  // §64: while nothing is in scope the completion figure is a meaningless 0.
+  // Saving it would make the NEXT visit diff against it ("+N%" from a baseline
+  // the UI refused to display), so it is left out of the saved snapshot.
+  test("does not save the complete metric while nothing is in scope", () => {
+    vi.useFakeTimers();
+    render(<Harness projectId="p1" isPopout={false} metrics={{ complete: 0, overdue: 4, openRaid: 3 }} noActiveScope />);
+    act(() => { vi.advanceTimersByTime(4000); });
+    expect(loadLandingState("p1").metrics).toEqual({ overdue: 4, openRaid: 3 });
+  });
+
+  test("still saves the complete metric while work is in scope (control)", () => {
+    vi.useFakeTimers();
+    render(<Harness projectId="p1" isPopout={false} metrics={{ complete: 0, overdue: 4, openRaid: 3 }} noActiveScope={false} />);
+    act(() => { vi.advanceTimersByTime(4000); });
+    expect(loadLandingState("p1").metrics).toEqual({ complete: 0, overdue: 4, openRaid: 3 });
   });
 
   test("popout never advances the snapshot", () => {

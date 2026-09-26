@@ -46,6 +46,7 @@ import {
 } from "./document-asset-repairs";
 import { AssetPreviewModal } from "./asset-preview-modal";
 import { buildRowTokens } from "./row-tokens";
+import { FOCUS_RING } from "./interaction-styles";
 
 const ASSET_IMG = "img[data-asset-id]";
 
@@ -92,6 +93,58 @@ function syncAltToLiveName(imgs: readonly HTMLImageElement[], byId: ReadonlyMap<
     const liveName = byId.get(id)?.name;
     if (liveName) img.setAttribute("alt", liveName);
   }
+}
+
+/** Marks the `<button>` this pane wraps around an inserted image (§342). */
+const ASSET_TRIGGER_ATTR = "data-asset-trigger";
+const ASSET_TRIGGER = `button[${ASSET_TRIGGER_ATTR}]`;
+
+/** The trigger button wrapped around `img`, if this pane already made one. */
+function triggerOf(img: HTMLImageElement): HTMLButtonElement | null {
+  const p = img.parentElement;
+  return p instanceof HTMLButtonElement && p.hasAttribute(ASSET_TRIGGER_ATTR) ? p : null;
+}
+
+/** §342 — wrap an inserted image in a REAL `<button>` rather than stamping
+ *  `role="button"` onto the `<img>`, which replaced its implicit `img` role.
+ *  The image keeps its own role and `alt`; the button carries the action and
+ *  its row-unique name. Idempotent: an image already wrapped keeps its button,
+ *  since this runs again on every re-render the effect's deps allow.
+ *  ★ The node MOVES but keeps its identity, so the byte-resolve effect's
+ *  references (it writes `src` onto the same `<img>`) are unaffected and the
+ *  two effects may run in either order.
+ *  ★ Inline style, not Tailwind layout classes, for the reset: it has to beat
+ *  the UA button styles without touching the image's own layout. `display:
+ *  block` + `fit-content` mirrors preflight's block `<img>`, so the picture
+ *  sits where it did and only the picture is clickable. `FOCUS_RING` rides the
+ *  class (its classes are generated from their use elsewhere). */
+function wrapInTrigger(img: HTMLImageElement): HTMLButtonElement {
+  const existing = triggerOf(img);
+  if (existing) return existing;
+  const btn = img.ownerDocument.createElement("button");
+  btn.type = "button";
+  btn.setAttribute(ASSET_TRIGGER_ATTR, "");
+  btn.className = FOCUS_RING;
+  Object.assign(btn.style, {
+    display: "block",
+    width: "fit-content",
+    maxWidth: "100%",
+    padding: "0",
+    margin: "0",
+    border: "0",
+    background: "transparent",
+    font: "inherit",
+    color: "inherit",
+    cursor: "pointer",
+  });
+  img.replaceWith(btn);
+  btn.appendChild(img);
+  return btn;
+}
+
+/** Undo `wrapInTrigger`: put the bare image back where its button was. */
+function unwrapTrigger(img: HTMLImageElement): void {
+  triggerOf(img)?.replaceWith(img);
 }
 
 /** One image as the lightbox wants it. A placed image whose metadata row is
@@ -218,14 +271,16 @@ export function DocumentPreview({
   // ★★★ THE IMAGES ARE MADE INTERACTIVE IMPERATIVELY, FOR THE SAME REASON THEIR
   // `src` IS. The body below is one `dangerouslySetInnerHTML` string, so these
   // `<img>` nodes are not React elements — there is no element to hand a
-  // `tabIndex`, a role or a handler to. This stamps the attributes; activation
-  // itself is DELEGATED from the container (see the handlers on that div).
+  // `tabIndex`, a role or a handler to. This wraps each one in a real
+  // `<button>` (§342); activation itself is DELEGATED from the container (see
+  // the handler on that div).
   // ★★ IT MUST DEPEND ON `html`. React re-assigns `innerHTML` whenever that
-  // string changes, discarding every attribute written here — the same hazard
+  // string changes, discarding every button written here — the same hazard
   // the `bodyHtml` memo above exists to bound.
   // ★★ KEYBOARD REACHABILITY IS NOT OPTIONAL: a click-only region is unusable
-  // for keyboard and touch users, so `tabIndex` and `role="button"` go on with
-  // the name, never after it as a follow-up.
+  // for keyboard and touch users. A native `<button>` is reachable and operable
+  // by Enter and Space on its own, which is why it replaced a `role="button"`
+  // stamped onto the `<img>` — that erased the image's own role (§342).
   useEffect(() => {
     const el = bodyRef.current;
     if (!el) return;
@@ -238,16 +293,11 @@ export function DocumentPreview({
     syncAltToLiveName(imgs, assetsById);
     // ★★★ A NULL CONFIG MEANS ASSET STORAGE IS OFF — the same bail the resolve
     // effect above carries. No byte can ever load, so an affordance promising a
-    // lightbox would be a lie. Attributes are REMOVED rather than merely not
+    // lightbox would be a lie. Buttons are UNWRAPPED rather than merely not
     // added: `html` is unchanged when the config flips to null, so React keeps
-    // the very nodes a previous run stamped.
+    // the very nodes a previous run wrapped.
     if (tursoConfig === null) {
-      for (const img of imgs) {
-        img.removeAttribute("role");
-        img.removeAttribute("tabindex");
-        img.removeAttribute("aria-label");
-        img.style.removeProperty("cursor");
-      }
+      for (const img of imgs) unwrapTrigger(img);
       return;
     }
     // ★★★ TOKENS ARE KEYED BY POSITION, NOT BY ASSET ID. `buildRowTokens`
@@ -257,16 +307,12 @@ export function DocumentPreview({
     // is here to prevent and which no `documentAssets` fixture can reproduce.
     const tokens = buildRowTokens(imgs.map((img, i) => ({ id: i, name: imageName(img, assetsById) })));
     imgs.forEach((img, i) => {
-      img.setAttribute("role", "button");
-      img.setAttribute("tabindex", "0");
-      // ★ `aria-label` OVERRIDES `alt` as the accessible name here, which is
-      // wanted: the control is "open this picture", not the picture itself, and
-      // the token it carries is what disambiguates two of them.
-      img.setAttribute("aria-label", t(lang, "assetPreviewOpen", tokens.get(i) ?? ""));
-      // Inline rather than a Tailwind class: these nodes come from an HTML
-      // string, so no class written here would be in Tailwind's scan set for
-      // any file it actually reads.
-      img.style.cursor = "pointer";
+      // §342: the BUTTON is the control ("open this picture") and carries the
+      // row-unique name; the `<img>` inside keeps its implicit role and `alt`.
+      // A native button is focusable and fires `click` on Enter and Space by
+      // itself, so no tabindex or key handler is needed.
+      const btn = wrapInTrigger(img);
+      btn.setAttribute("aria-label", t(lang, "assetPreviewOpen", tokens.get(i) ?? ""));
     });
   }, [html, assetsById, lang, tursoConfig]);
 
@@ -293,10 +339,12 @@ export function DocumentPreview({
   // of the live DOM inside the ACTIVATION handler, which is also the more
   // correct moment: it is exactly what the reader had in front of them.
   const openPreview = useCallback((target: Element) => {
-    // ★★ GATE THE HANDLER, NOT ONLY THE STAMPING. The interactivity effect
-    // removes `role`/`tabindex`/`aria-label` when storage is off, but
-    // `data-asset-id` lives in the rendered document HTML and survives — so
-    // `closest(ASSET_IMG)` still matches and this still fired in file mode.
+    // ★★ GATE THE HANDLER, NOT ONLY THE WRAPPING. When the image was itself
+    // the control, the effect only removed its attributes when storage went
+    // off, while `data-asset-id` survived in the rendered HTML — so the
+    // delegated lookup still matched and this still fired in file mode. The
+    // effect now unwraps the button instead (§342), but keep this gate: it is
+    // the one that does not depend on the DOM being in the state it expects.
     // Nothing rendered (the modal below is behind the same `tursoConfig`), so
     // the state was simply stuck set with no way to clear it — and if storage
     // was later switched on, the modal mounted with `open` ALREADY true and
@@ -318,8 +366,11 @@ export function DocumentPreview({
   // ★ Scoped to the container, never to `document` — a document-level key
   // listener would fire for every view in the app, and the shared `Modal`
   // already owns Escape through the dismissal stack.
+  // §342: the target is the wrapping BUTTON, and a click anywhere in it (the
+  // image included) resolves to its image. A bare, unwrapped image — asset
+  // storage off — is deliberately not a target.
   const activationTarget = (e: { target: EventTarget | null }): Element | null =>
-    e.target instanceof Element ? e.target.closest(ASSET_IMG) : null;
+    e.target instanceof Element ? (e.target.closest(ASSET_TRIGGER)?.querySelector(ASSET_IMG) ?? null) : null;
 
   if (!doc) return null;
 
@@ -358,15 +409,10 @@ export function DocumentPreview({
           // handler on THIS div still sees the bubbled event from a node React
           // only ever wrote as innerHTML, and `closest` finds the image the
           // reader actually hit.
+          // ★ No key handler: the native button turns Enter and Space into this
+          // `click` itself (and Space on a button does not scroll the region).
+          // A keydown handler here as well would open the lightbox twice.
           onClick={(e) => { const img = activationTarget(e); if (img) openPreview(img); }}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter" && e.key !== " ") return;
-            const img = activationTarget(e);
-            if (!img) return;
-            // Space would otherwise scroll the region this body sits in.
-            e.preventDefault();
-            openPreview(img);
-          }}
           dangerouslySetInnerHTML={bodyHtml}
         />
       </section>

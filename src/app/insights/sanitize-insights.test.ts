@@ -265,6 +265,29 @@ describe("sanitizeInsights", () => {
   });
 });
 
+describe("sanitizeInsights — recommendation.refusedCalls (§351)", () => {
+  const raw = (refusedCalls: unknown) => ({
+    id: 1, key: "k", type: "overdueTrend", severity: "low", status: "acted", data: {},
+    firstSeenAt: "2026-01-01", lastSeenAt: "2026-01-01", occurrences: 1,
+    recommendation: {
+      summary: "s", status: "applied", generatedAt: "2026-01-01", appliedAt: "2026-01-02",
+      proposedCalls: [{ name: "update_task", input: { id: 1 } }],
+      refusedCalls,
+    },
+  });
+  test("keeps a non-negative integer count", () => {
+    expect(sanitizeInsights([raw(1)])[0]?.recommendation?.refusedCalls).toBe(1);
+    expect(sanitizeInsights([raw(0)])[0]?.recommendation?.refusedCalls).toBe(0);
+  });
+  test("drops anything else and omits the key, keeping the recommendation", () => {
+    for (const v of [-1, 2.5, "1", "x", null, undefined, NaN, Infinity, 1e9]) {
+      const rec = sanitizeInsights([raw(v)])[0]?.recommendation;
+      expect(rec?.status).toBe("applied"); // the recommendation itself survives
+      expect(rec && "refusedCalls" in rec).toBe(false);
+    }
+  });
+});
+
 describe("sanitizeInsights — loggedRaidId (§515)", () => {
   const rec = (loggedRaidId: unknown) => ({
     id: 1, key: "k", type: "overdueTrend", severity: "low", status: "acted", data: {},

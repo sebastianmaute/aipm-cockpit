@@ -77,7 +77,7 @@ const EXPECTED: Record<string, string> = {
   StopIcon: "Square",
   SunIcon: "Sun",
   TableCellsIcon: "Table",
-  TrashIcon: "Trash2",
+  TrashIcon: "Trash",
   UserGroupIcon: "UsersRound",
   UserMinusIcon: "UserMinus",
   UsersIcon: "Users",

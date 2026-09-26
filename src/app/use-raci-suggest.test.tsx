@@ -5,7 +5,7 @@ import { foldCellsByStakeholder, useRaciSuggest } from "./use-raci-suggest";
 import { ToastProvider } from "./toast-context";
 import { defaultSettings, type Settings } from "./settings-types";
 import type { Milestone, Stakeholder } from "./types";
-import { t } from "./i18n";
+import { t, tPlural } from "./i18n";
 import { MAX_CONTEXT_MILESTONES } from "./raci-suggest/raci-suggest";
 import * as call from "./raci-suggest-call";
 
@@ -165,6 +165,25 @@ describe("useRaciSuggest (plan-then-apply)", () => {
       expect(showToast).toHaveBeenCalledWith("info", t("en-US", "raciSuggestAllExisting")),
     );
     expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "raciSuggestNoProposal"));
+  });
+
+  // §43 (b): grounding counted the no-ops, but only the empty-and-no-skips
+  // toast above read the count. With one cell a no-op and one refused, the
+  // preview opens and said nothing about the one already in place.
+  it("carries the no-op count into the preview when another cell was refused", async () => {
+    vi.mocked(call.runRaciSuggestion).mockResolvedValue({
+      cells: [
+        { stakeholderId: 1, milestoneId: 10, role: "R" },   // already stored -> no-op
+        { stakeholderId: 2, milestoneId: 11, role: "A" },   // Sam holds A on 11 -> refused
+      ],
+      truncated: false,
+    });
+    renderHarness({ stakeholderRaci: { "10": "R", "11": "A" } });
+    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    await waitFor(() =>
+      expect(screen.getByText(tPlural("en-US", "raciSuggestSkippedAccountable", 1, 1))).toBeTruthy(),
+    );
+    expect(screen.getByText(t("en-US", "raciSuggestNoOpCount", "1"))).toBeTruthy();
   });
 
   it("reports a capped context even when the result is EMPTY", async () => {

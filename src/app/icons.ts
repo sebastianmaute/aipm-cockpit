@@ -16,7 +16,8 @@
 //   ChartBarIcon  heroicons: vertical columns · lucide `ChartBar`: HORIZONTAL
 //                 bars (`M7 16h8`) -> ChartColumn (`M18 17V9`)
 //   TrashIcon     heroicons draws two inner strokes (`m14.74 9-.346 9`); lucide
-//                 `Trash` draws none -> Trash2 (`M10 11v6` + `M14 11v6`)
+//                 `Trash` drew none up to 1.31; by 1.47 it had absorbed Trash2's
+//                 glyph (`M10 11v6` + `M14 11v6`) and Trash2 is its alias -> Trash
 // The other three differ by name as well as glyph, so only reading the path data
 // finds them:
 //   ChartBarSquareIcon  `SquareChartGantt` is three HORIZONTAL bars — a Gantt.
@@ -167,7 +168,7 @@ export {
   SquareIcon as StopIcon,
   SunIcon,
   TableIcon as TableCellsIcon,
-  Trash2Icon as TrashIcon,
+  TrashIcon,
   // Stakeholders. MUST differ from `UsersIcon` (Resources) — pinned by a test.
   UsersRoundIcon as UserGroupIcon,
   UserMinusIcon,

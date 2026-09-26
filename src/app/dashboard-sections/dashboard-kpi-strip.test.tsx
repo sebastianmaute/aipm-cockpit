@@ -159,6 +159,27 @@ describe("DashboardKpiStrip completion tile no-active-scope state", () => {
     expect(screen.getByLabelText(t("en-US", "dashboardCompleteHint"))).toBeInTheDocument();
   });
 
+  // §65: the out-of-scope bucket is cancelled PLUS Done-with-no-completedDate,
+  // so a project whose tasks are all Done-without-a-date must not be told they
+  // were cancelled. LITERAL matches on purpose: the tests above go through
+  // t(key) and would stay green whatever the wording says.
+  it("does not call Done-without-a-date work cancelled", () => {
+    const doneNoDate = modelFor([taskFixture(1, "Done"), taskFixture(2, "Done")]);
+    expect(doneNoDate.progress.outOfScope).toBe(2);   // the fixture really is out of scope
+    render(
+      <DashboardKpiStrip
+        lang="en-US"
+        model={doneNoDate}
+        trends={trends}
+        onNavigate={vi.fn()}
+        dc={densityClasses("comfortable")}
+      />,
+    );
+    expect(screen.getByText("All out of scope (2)")).toBeInTheDocument();   // positive control
+    expect(screen.queryAllByText(/cancel/i)).toHaveLength(0);
+    expect(document.body.textContent).not.toMatch(/cancel/i);
+  });
+
   it("leaves an empty project on 0% complete (not no-active-scope)", () => {
     const empty = modelFor([]);
     render(
@@ -233,6 +254,18 @@ describe("DashboardKpiStrip — merged Progress cells", () => {
     expect(within(cell).getByText("✕")).toHaveAttribute("aria-hidden", "true");
     expect(within(cell).getByText(t("en-US", "dashboardOutOfScopeCount"))).toHaveClass("sr-only");
     expect(screen.getByRole("button", { name: t("en-US", "dashboardRagSplitHint") })).toBeInTheDocument();
+  });
+
+  // §65: the tooltip's wording lives only in the button's aria-label, which the
+  // textContent checks elsewhere cannot read, and the t(key) lookup above passes
+  // whatever the text says. LITERAL on purpose.
+  it("names the R/A/G tooltip's set-aside work out of scope, not cancelled", () => {
+    const m = modelFor(MIXED);
+    render(<DashboardKpiStrip lang="en-US" model={m} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    const hint = screen.getByRole("button", { name: t("en-US", "dashboardRagSplitHint") });
+    expect(hint.getAttribute("aria-label")).toMatch(/out-of-scope work is counted separately/);
+    // Scoped to this tooltip: dashboardCompleteHint still says "cancelled" (§65 leaves it).
+    expect(hint.getAttribute("aria-label")).not.toMatch(/cancel/i);
   });
 
   it("omits the ✕ marker when nothing is out of scope", () => {

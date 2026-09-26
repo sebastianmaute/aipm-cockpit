@@ -45,6 +45,7 @@ function renderModal(
       open
       cells={cells}
       skipped={[]}
+      noOp={0}
       truncated={false}
       contextTruncated={false}
       stakeholders={live?.stakeholders ?? derivedStakeholders}
@@ -114,18 +115,20 @@ describe("skip-reason bucket wiring", () => {
       "raciSuggestSkipped",
       "raciSuggestSkippedInvalidRole",
       "raciSuggestSkippedAccountable",
+      "raciSuggestSkippedHandover",
     ]);
   });
 });
 
 describe("RaciSuggestModal skipped-cell reporting", () => {
-  function renderSkipped(skipped: readonly SkippedRaciCell[]) {
+  function renderSkipped(skipped: readonly SkippedRaciCell[], noOp = 0) {
     render(
       <RaciSuggestModal
         lang="en-US"
         open
         cells={[]}
         skipped={skipped}
+        noOp={noOp}
         truncated={false}
         contextTruncated={false}
         stakeholders={[]}
@@ -166,6 +169,7 @@ describe("RaciSuggestModal skipped-cell reporting", () => {
         open
         cells={[]}
         skipped={[]}
+        noOp={0}
         truncated={false}
         contextTruncated
         stakeholders={[]}
@@ -214,6 +218,28 @@ describe("RaciSuggestModal skipped-cell reporting", () => {
     renderSkipped([skip("duplicate-accountable"), skip("unknown-stakeholder"), skip("invalid-role")]);
     expect(read()).toEqual(first);
     expect(first).toHaveLength(3);
+  });
+
+  // §43 (a): a deliberate handover (the proposal demotes the current
+  // Accountable and promotes someone else) is refused, but "that milestone
+  // already has an Accountable" misdescribes it.
+  it("explains a refused Accountable HANDOVER with its own sentence", () => {
+    renderSkipped([skip("accountable-handover")]);
+    expect(screen.getByText(tPlural("en-US", "raciSuggestSkippedHandover", 1, 1))).toBeInTheDocument();
+    expect(screen.queryByText(tPlural("en-US", "raciSuggestSkippedAccountable", 1, 1))).not.toBeInTheDocument();
+  });
+
+  // §43 (b): cells dropped as no-ops are neither shown nor refused, so a
+  // preview whose other cells were all refused said nothing about them.
+  it("reports how many proposed assignments are already in place", () => {
+    renderSkipped([skip("duplicate-accountable")], 2);
+    expect(screen.getByText(t("en-US", "raciSuggestNoOpCount", "2"))).toBeInTheDocument();
+    expect(screen.getByText("Already in place: 2")).toBeInTheDocument();
+  });
+
+  it("says nothing about existing assignments when there are none", () => {
+    renderSkipped([skip("duplicate-accountable")], 0);
+    expect(screen.queryByText(/Already in place/)).not.toBeInTheDocument();
   });
 
   it("says nothing can be applied when there are no cells to apply", () => {

@@ -256,10 +256,16 @@ describe("baselineMilestoneTargets", () => {
     expect(baselineMilestoneTargets([]).size).toBe(0);
   });
 
-  it("returns an empty map when no snapshot is the baseline", () => {
-    const a = snap("2026-06-01T00:00:00Z", "2026-W23");
-    a.milestones = [ms(1, "2026-07-01")];
-    expect(baselineMilestoneTargets([a]).size).toBe(0);
+  // §78: a project without a budget never gets an auto baseline flag, so the
+  // overlay falls back to the earliest row, as the variance baseline does.
+  it("falls back to the EARLIEST row when no snapshot is the baseline", () => {
+    const later = snap("2026-06-08T00:00:00Z", "2026-W24");
+    later.milestones = [ms(1, "2026-07-15")];
+    const earliest = snap("2026-06-01T00:00:00Z", "2026-W23");
+    earliest.milestones = [ms(1, "2026-07-01")];
+    const map = baselineMilestoneTargets([later, earliest]);
+    expect(map.get(1)).toBe("2026-07-01");
+    expect(map.size).toBe(1);
   });
 
   it("maps each milestone id to its target date from the baseline snapshot", () => {

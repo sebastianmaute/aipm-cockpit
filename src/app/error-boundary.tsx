@@ -31,6 +31,8 @@ export class ErrorBoundary extends Component<Props, State> {
   private handleReset = (): void => {
     quarantineConfig();
     try {
+      // A full reload, not a router push: the crashed tree's in-memory state must not survive.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.assign("/");
     } catch {
       /* noop */

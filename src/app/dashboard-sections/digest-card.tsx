@@ -1,7 +1,8 @@
 // Presentational Dashboard headline card for the weekly status digest. Same
 // slot family as the other dashboard-sections cards; self-hides when no digest.
 import { t, type Lang } from "../i18n";
-import { INTERACTIVE } from "../interaction-styles";
+import { Button } from "../button";
+import { AiTriggerButton } from "../ai-trigger-button";
 import { RagDot } from "../rag-dot";
 import type { DensityClasses } from "../dashboard-density";
 import type { DigestModel } from "../digest/digest-model";
@@ -11,12 +12,26 @@ export interface DigestCardProps {
   digest: DigestModel | null;
   dc: DensityClasses;
   m365Configured: boolean;
+  /** Whole generate/send flow in progress — disables Email. */
   busy: boolean;
+  /** The billed AI narrative is in flight — Generate turns into Stop (§125). */
+  generating: boolean;
   onGenerate: () => void;
+  onCancel: () => void;
   onEmail: () => void;
 }
 
-export function DigestCard({ lang, digest, dc, m365Configured, busy, onGenerate, onEmail }: DigestCardProps) {
+export function DigestCard({
+  lang,
+  digest,
+  dc,
+  m365Configured,
+  busy,
+  generating,
+  onGenerate,
+  onCancel,
+  onEmail,
+}: DigestCardProps) {
   if (!digest) return null;
   const ragLabelKey = digest.rag === "R" ? "healthRed" : digest.rag === "A" ? "healthAmber" : "healthGreen";
   return (
@@ -41,23 +56,22 @@ export function DigestCard({ lang, digest, dc, m365Configured, busy, onGenerate,
         {t(lang, "digestOverdue")}: {digest.overdue.count} · {t(lang, "digestOpenRaid")}: {digest.openRaid.count} ({digest.openRaid.high} {t(lang, "digestHigh")}) · {t(lang, "digestMilestonesDueSoon")}: {digest.milestonesDueSoon.length}
       </p>
       <div className="mt-3 flex gap-2">
-        <button
-          type="button"
-          onClick={onGenerate}
-          disabled={busy}
-          className={`rounded-md border border-line px-3 py-1 text-sm ${INTERACTIVE}`}
-        >
-          {t(lang, "digestGenerateNow")}
-        </button>
+        {/* ★ While the narrative is in flight this reads "Stop" and aborts it
+            (§125). Disabled only for the rest of `busy` (the Graph send), where
+            a Stop would abort nothing. */}
+        <AiTriggerButton
+          lang={lang}
+          busy={generating}
+          onRun={onGenerate}
+          onCancel={onCancel}
+          idleLabelKey="digestGenerateNow"
+          size="sm"
+          disabled={busy && !generating}
+        />
         {m365Configured ? (
-          <button
-            type="button"
-            onClick={onEmail}
-            disabled={busy}
-            className={`rounded-md border border-line px-3 py-1 text-sm ${INTERACTIVE}`}
-          >
+          <Button variant="secondary" size="sm" onClick={onEmail} disabled={busy}>
             {t(lang, "digestEmail")}
-          </button>
+          </Button>
         ) : null}
       </div>
     </div>

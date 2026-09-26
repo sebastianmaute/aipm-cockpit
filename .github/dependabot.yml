@@ -1,6 +1,7 @@
 # Weekly updates. Minor and patch versions arrive as one grouped PR per npm directory; majors and
 # every exactly pinned framework package (CONTRIBUTING "Dependencies") arrive one PR each, for a
-# human decision. scripts/dependabot-config.test.mjs derives the pinned set from each package.json.
+# human decision. The vitest family is the exception: it always arrives as one PR of its own.
+# scripts/dependabot-config.test.mjs derives the pinned set from each package.json.
 # Container digests (semgrep, actionlint) are not covered; re-resolve them by hand.
 version: 2
 updates:
@@ -16,9 +17,19 @@ updates:
     schedule:
       interval: weekly
     groups:
+      # vitest and its plugins must move together: each @vitest/* package peers on the exact
+      # vitest version, so a vitest major alone cannot install (Dependabot PR #415, 2026-09-25).
+      vitest:
+        patterns: [vitest, "@vitest/*"]
       npm-minor-patch:
         update-types: [minor, patch]
         exclude-patterns: [eslint-config-next, next, react, react-dom]
+    ignore:
+      # TypeScript 7 is the native compiler, and its npm package drops the compiler API that
+      # src/test/strip-comments.ts, scripts/src-symbols-lib.mjs and two tests parse with;
+      # next build failed on it too (PR #413). Lift this when both support 7.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: npm
     directory: /desktop
     schedule:

@@ -81,6 +81,14 @@ export interface InsightRecommendation {
   readonly status: InsightRecommendationStatus;
   readonly appliedSummary?: string;
   readonly appliedAt?: string;
+  /** §351: calls that wrote NOTHING at apply — refused as stale (concurrency
+   *  token) or with every field rejected in review. Present (> 0) only on an
+   *  `applied` recommendation whose other calls committed, so `applied` no
+   *  longer means both "fully landed" and "partly landed". A count, bounded by
+   *  `INSIGHT_REC_MAX_CALLS`; absent ⇒ nothing was refused. Kept as a field,
+   *  not a new status, so an older build's status check does not reset the
+   *  record to `proposed` (and re-offer its creates). */
+  readonly refusedCalls?: number;
 }
 
 export const INSIGHT_OUTCOME_DIRECTIONS = ["improved", "unchanged", "worsened"] as const;

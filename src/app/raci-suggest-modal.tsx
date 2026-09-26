@@ -29,9 +29,10 @@ import {
 type SkipMessageKey =
   | "raciSuggestSkipped"
   | "raciSuggestSkippedInvalidRole"
-  | "raciSuggestSkippedAccountable";
+  | "raciSuggestSkippedAccountable"
+  | "raciSuggestSkippedHandover";
 
-// The four SkipReasons do not share an explanation, so they cannot share a
+// The five SkipReasons do not share an explanation, so they cannot share a
 // count. TWO of them mean the cell named something this project does not have.
 // "duplicate-accountable" means the opposite — everything resolved, and it was
 // refused because the milestone already has an Accountable, which is the one
@@ -49,6 +50,9 @@ export const SKIP_REASON_KEY: Record<SkippedRaciCell["reason"], SkipMessageKey> 
   "unknown-milestone": "raciSuggestSkipped",
   "invalid-role": "raciSuggestSkippedInvalidRole",
   "duplicate-accountable": "raciSuggestSkippedAccountable",
+  // Its own bucket, NOT duplicate-accountable's: "already has an Accountable"
+  // is the very explanation that misdescribed a deliberate handover (§43).
+  "accountable-handover": "raciSuggestSkippedHandover",
 };
 
 // Render order is FIXED, not taken from the Map. A Map iterates in insertion
@@ -67,6 +71,7 @@ export const SKIP_KEY_RANK: Record<SkipMessageKey, number> = {
   raciSuggestSkipped: 0,
   raciSuggestSkippedInvalidRole: 1,
   raciSuggestSkippedAccountable: 2,
+  raciSuggestSkippedHandover: 3,
 };
 export const SKIP_KEY_ORDER: readonly SkipMessageKey[] = (
   Object.keys(SKIP_KEY_RANK) as SkipMessageKey[]
@@ -77,6 +82,11 @@ export interface RaciSuggestModalProps {
   open: boolean;
   cells: readonly GroundedRaciCell[];
   skipped: readonly SkippedRaciCell[];
+  /** Proposed cells dropped because the role proposed is the role already
+   *  stored (`groundRaciCells`' `noOp`). Neither shown nor refused, so without
+   *  this the preview cannot say "some of what Claude proposed you already
+   *  have" (§43). */
+  noOp: number;
   /** True when the proposal was too large and some cells were not shown at all. */
   truncated: boolean;
   /** True when the CONTEXT was capped — i.e. the model never saw some
@@ -105,6 +115,7 @@ export function RaciSuggestModal({
   open,
   cells,
   skipped,
+  noOp,
   truncated,
   contextTruncated,
   stakeholders,
@@ -252,8 +263,9 @@ export function RaciSuggestModal({
             </ul>
           )}
 
-          {skippedRows.length > 0 && (
+          {(noOp > 0 || skippedRows.length > 0) && (
             <div className="mt-4 space-y-1 border-t border-line pt-3 text-xs text-muted-foreground">
+              {noOp > 0 && <p>{t(lang, "raciSuggestNoOpCount", String(noOp))}</p>}
               {skippedRows.map(([key, n]) => (
                 <p key={key}>{tPlural(lang, key, n, n)}</p>
               ))}

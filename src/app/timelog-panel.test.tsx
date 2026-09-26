@@ -8,10 +8,11 @@ import { WorkspaceTabProvider } from "./workspace-tab-context";
 import { TimelogPanel } from "./timelog-panel";
 import { SETTINGS_KEY } from "./use-settings";
 import { defaultSettings } from "./settings-types";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import { expectButtonOrder } from "../test/toolbar-order";
 import type { Resource, BudgetBucket } from "./types";
 import type { TimelogLinks } from "./timelog-types";
+import { GUARDRAIL_INSIGHT_TYPES, type Insight } from "./insights/insight";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 
 // ---------------------------------------------------------------------------
@@ -403,6 +404,86 @@ describe("TimelogPanel", () => {
         { wrapper },
       );
       expect(screen.queryByText(t("en-US", "timelogCacheNotSaved"))).toBeNull();
+    });
+  });
+
+  // §366. A fetch that covered no person's whole day (always the case for a
+  // project-scope fetch) persists an EMPTY covered-people list, which freezes
+  // every TimeLog guardrail finding; the panel must say so. A fetch that
+  // covered people persists them, and says nothing.
+  describe("guardrail coverage note (§366)", () => {
+    const GUARDRAIL = [...GUARDRAIL_INSIGHT_TYPES][0];
+    const insight = (type: string, status: string) => ({ id: `${type}-${status}`, type, status }) as unknown as Insight;
+    function SeedInsights({ insights }: { insights: readonly Insight[] }) {
+      const ws = useWorkspace();
+      useEffect(() => {
+        ws.setInsights(insights);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, []);
+      return null;
+    }
+    async function renderWithDailyUsers(
+      dailyUsers: readonly number[] | undefined,
+      insights: readonly Insight[] = [insight(GUARDRAIL, "active")],
+    ) {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue({
+        ...defaultSyncReturn(),
+        dailyUsers,
+      } as unknown as ReturnType<typeof useTimelogSync>);
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace />
+          <SeedInsights insights={insights} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+    }
+
+    // The panel only fetches by project, so without this gate the note showed
+    // after every fetch, for users with no guardrail finding at all.
+    it("shows no note when no guardrail finding is open", async () => {
+      await renderWithDailyUsers([], [insight("stalledWork", "active")]);
+      expect(screen.getByText("8 h")).toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "timelogGuardrailCoverageNote"))).toBeNull();
+    });
+
+    it("shows no note when every guardrail finding is dismissed or resolved", async () => {
+      await renderWithDailyUsers([], [insight(GUARDRAIL, "dismissed"), insight(GUARDRAIL, "resolved")]);
+      expect(screen.getByText("8 h")).toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "timelogGuardrailCoverageNote"))).toBeNull();
+    });
+
+    it("shows the note after a fetch that covered no one (covered people = [])", async () => {
+      await renderWithDailyUsers([]);
+      const note = screen.getByText(t("en-US", "timelogGuardrailCoverageNote"));
+      // M3: the sync state does not record which scope ran, and a self or org
+      // fetch can also cover nobody — so the text must not claim "by project".
+      expect(note.textContent).not.toMatch(/by project/i);
+      expect(note.textContent).toContain("dismiss them in Insights");
+    });
+
+    it("the German text does not claim a project fetch either", async () => {
+      await loadI18n("de");
+      const de = t("de", "timelogGuardrailCoverageNote");
+      expect(de).not.toBe(t("en-US", "timelogGuardrailCoverageNote")); // really the DE string
+      expect(de).not.toMatch(/pro Projekt/i);
+      expect(de).toContain("Erkenntnisse");
+    });
+
+    it("shows no note after a fetch that covered people", async () => {
+      await renderWithDailyUsers([42]);
+      // Positive observable first: the fetched state really rendered.
+      expect(screen.getByText("8 h")).toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "timelogGuardrailCoverageNote"))).toBeNull();
+    });
+
+    it("shows no note when there is no daily roll at all", async () => {
+      await renderWithDailyUsers(undefined);
+      expect(screen.getByText("8 h")).toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "timelogGuardrailCoverageNote"))).toBeNull();
     });
   });
 
