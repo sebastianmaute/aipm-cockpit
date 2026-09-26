@@ -350,3 +350,50 @@ export function rebuildIndex(src) {
   const table = [...INDEX_HEAD, ...rows].map((l) => l + eol).join("");
   return src.slice(0, lineStart[begin + 1]) + table + src.slice(lineStart[end]);
 }
+
+/** The one command that repairs every drift `rebuildDrift` reports. */
+export const REBUILD_COMMAND = "node scripts/rebuild-followup-index.mjs";
+
+/** §n → row line, for the rows between the markers of one version of the file. */
+function tableRows(src) {
+  const lines = src.split(/\r?\n/);
+  const { begin, end } = indexTableBounds(lines);
+  const rows = new Map();
+  for (const line of lines.slice(begin + 1, end)) {
+    const m = INDEX_ROW_RE.exec(line);
+    if (m) rows.set(Number(m[1]), line);
+  }
+  return rows;
+}
+
+/**
+ * Does the committed table equal what a rebuild produces? Shared by the unit
+ * test, `rebuild-followup-index.mjs --check` and `followups:index:check`, so
+ * all three judge the same value and print the same fix (review M1).
+ *
+ * @param {string} src Raw register text.
+ * @returns {{out: string, drifted: boolean, changed: number[], added: number[], dropped: number[], message: string}}
+ *   `drifted` is BYTE inequality, which also catches row order, the header
+ *   lines and line endings inside the table — a per-row compare cannot. The
+ *   three lists name the §numbers whose rows differ; all can be empty while
+ *   `drifted` is true.
+ * @throws whatever `rebuildIndex` throws — the table could not be rebuilt.
+ */
+export function rebuildDrift(src) {
+  const out = rebuildIndex(src);
+  const before = tableRows(src);
+  const after = tableRows(out);
+  const asc = (a, b) => a - b;
+  const changed = [...after.keys()].filter((n) => before.has(n) && before.get(n) !== after.get(n)).sort(asc);
+  const added = [...after.keys()].filter((n) => !before.has(n)).sort(asc);
+  const dropped = [...before.keys()].filter((n) => !after.has(n)).sort(asc);
+  const drifted = out !== src;
+  const list = (label, ns) => (ns.length ? ` ${label}: ${ns.map((n) => `§${n}`).join(" ")}.` : "");
+  const message = drifted
+    ? `The index table is not what a rebuild produces (${changed.length} changed, ${added.length} added,` +
+      ` ${dropped.length} dropped).${list("changed", changed)}${list("added", added)}${list("dropped", dropped)}` +
+      (changed.length + added.length + dropped.length === 0 ? " No row's text differs: their order, the header or line endings do." : "") +
+      ` Run \`${REBUILD_COMMAND}\` and commit the result.`
+    : "The index table is exactly what a rebuild produces.";
+  return { out, drifted, changed, added, dropped, message };
+}

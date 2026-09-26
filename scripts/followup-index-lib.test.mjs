@@ -1,7 +1,9 @@
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { diffHeadingsAgainstIndex, rebuildIndex } from "./followup-index-lib.mjs";
+import { diffHeadingsAgainstIndex, REBUILD_COMMAND, rebuildDrift, rebuildIndex } from "./followup-index-lib.mjs";
 
 // ★ `import.meta.url` is NOT a file: URL under vitest — `readFileSync` on one
 // throws "The URL must be of scheme file". The sibling script tests all resolve
@@ -384,26 +386,131 @@ describe("rebuildIndex", () => {
    *  ★ No allowlist and no tolerance: an earlier cut accepted named retitles
    *  and leaked status suffixes, which is exactly the drift this pins out. */
   it("★★★ the real register's index table is exactly what a rebuild produces", () => {
-    const src = readFileSync(REGISTER, "utf8");
-    const out = rebuildIndex(src);
-
-    const byNumber = (text) =>
-      new Map(rowsOf(text).map((l) => [Number(/^\| \[§(\d+)\]/.exec(l)[1]), l]));
-    const before = byNumber(src);
-    const after = byNumber(out);
-    const differing = [...new Set([...before.keys(), ...after.keys()])]
-      .filter((n) => before.get(n) !== after.get(n))
-      .sort((a, b) => a - b);
-    const message =
-      `docs/open-followups.md's index table is not what the rebuild produces` +
-      ` (${differing.length} row(s) differ: ${differing.map((n) => `§${n}`).join(" ")}).` +
-      " Run `node scripts/rebuild-followup-index.mjs` and commit the result.";
-
-    expect(differing, message).toEqual([]);
-    // Byte equality catches what a per-row compare cannot: row ORDER, the
-    // header lines, and a line-ending change inside the table.
-    expect(out === src, message).toBe(true);
+    const drift = rebuildDrift(readFileSync(REGISTER, "utf8"));
+    // `drifted` is byte inequality, which catches what a per-row compare
+    // cannot: row ORDER, the header lines, and a line-ending change inside the
+    // table. The message names the §numbers and the fix command.
+    expect(drift.drifted, drift.message).toBe(false);
     // Anti-vacuity: a parser that matched no rows would compare empty to empty.
-    expect(before.size).toBeGreaterThan(400);
+    expect(rowsOf(drift.out).length).toBeGreaterThan(400);
+  });
+});
+
+// ── rebuildDrift, the CLI's --check, and the gate (review M1, M6) ───────────
+
+/** A clean 60-entry register: over both CLIs' 50-entry floors, and already
+ *  exactly what a rebuild writes. `mutate` takes the clean text. */
+function bigRegister(mutate = (s) => s) {
+  const heads = Array.from({ length: 60 }, (_, i) => `## ${i + 1}. Entry ${i + 1}`);
+  return mutate(rebuildIndex(doc(heads, [])));
+}
+const retitleDrift = (s) => s.replace("| Entry 5 |", "| Old 5 |");
+
+describe("rebuildDrift", () => {
+  // Red before M1: the export did not exist.
+  it("reports no drift on a table a rebuild already wrote", () => {
+    const drift = rebuildDrift(bigRegister());
+    expect(drift.drifted).toBe(false);
+    expect(drift.changed).toEqual([]);
+  });
+
+  // Mutation: build `message` without the §list → the §5 assertion fails;
+  // without REBUILD_COMMAND → the command assertion fails.
+  it("names the drifted §numbers and the fix command", () => {
+    const drift = rebuildDrift(bigRegister(retitleDrift));
+    expect(drift.drifted).toBe(true);
+    expect(drift.changed).toEqual([5]);
+    expect(drift.message).toContain("§5");
+    expect(drift.message).toContain(REBUILD_COMMAND);
+  });
+
+  // Mutation: `drifted = changed.length + added.length + dropped.length > 0`
+  // → a pure reorder reads clean.
+  it("calls a pure row reorder drift although no row's text differs", () => {
+    const swapped = bigRegister((s) => {
+      const lines = s.split("\n");
+      const i = lines.findIndex((l) => l.startsWith("| [§1]("));
+      [lines[i], lines[i + 1]] = [lines[i + 1], lines[i]];
+      return lines.join("\n");
+    });
+    const drift = rebuildDrift(swapped);
+    expect(drift.changed).toEqual([]);
+    expect(drift.drifted).toBe(true);
+  });
+});
+
+/** Run one of the two CLIs against a temp copy of `registerText`, from a cwd
+ *  whose `docs/open-followups.md` is that copy. Returns the result and the file
+ *  text afterwards, so a test can prove nothing was written. */
+function runCli(script, args, registerText) {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "followup-index-"));
+  mkdirSync(path.join(dir, "docs"), { recursive: true });
+  const file = path.join(dir, "docs", "open-followups.md");
+  writeFileSync(file, registerText, "utf8");
+  const r = spawnSync(process.execPath, [path.join(process.cwd(), "scripts", script), ...args], {
+    cwd: dir,
+    encoding: "utf8",
+    shell: false,
+  });
+  const after = readFileSync(file, "utf8");
+  rmSync(dir, { recursive: true, force: true });
+  return { ...r, after };
+}
+
+describe("rebuild-followup-index.mjs exit codes", () => {
+  // Red before M1: `--check` was ignored, so the file was WRITTEN and exit was 0.
+  it("--check exits 1 on drift, names the §number, and writes nothing", () => {
+    const src = bigRegister(retitleDrift);
+    const r = runCli("rebuild-followup-index.mjs", ["--check"], src);
+    expect(r.status).toBe(1);
+    expect(r.stdout).toContain("§5");
+    expect(r.after).toBe(src);
+  });
+
+  it("--check exits 0 on a clean table", () => {
+    expect(runCli("rebuild-followup-index.mjs", ["--check"], bigRegister()).status).toBe(0);
+  });
+
+  // Review M6. Red before: an unknown flag was ignored and the file WRITTEN.
+  // Mutation: drop the `unknown.length > 0` clause → exit 0 and a write.
+  it("rejects an unknown flag with exit 2 and writes nothing", () => {
+    const src = bigRegister(retitleDrift);
+    const r = runCli("rebuild-followup-index.mjs", ["--dryrun"], src);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/unknown option/);
+    expect(r.after).toBe(src);
+  });
+
+  // Positive control for the write path, so the "writes nothing" assertions
+  // above cannot pass because the CLI never writes at all.
+  it("with no flag, rewrites a drifted table", () => {
+    const r = runCli("rebuild-followup-index.mjs", [], bigRegister(retitleDrift));
+    expect(r.status).toBe(0);
+    expect(r.after).toBe(bigRegister());
+  });
+});
+
+describe("check-followup-index.mjs rebuild check (review M1)", () => {
+  // Red before M1: the gate compared §number SETS only, so a retitled row
+  // with every heading present exited 0. Mutation: `checkRebuildIsNoOp`
+  // exiting 0 unconditionally → exit 0.
+  it("exits 1 when the sets agree but the table is not what a rebuild writes", () => {
+    const r = runCli("check-followup-index.mjs", [], bigRegister(retitleDrift));
+    expect(r.status).toBe(1);
+    expect(r.stdout).toContain("§5");
+    expect(r.stdout).toContain(REBUILD_COMMAND);
+  });
+
+  it("exits 0 on a clean table", () => {
+    expect(runCli("check-followup-index.mjs", [], bigRegister()).status).toBe(0);
+  });
+
+  // Mutation: let a `rebuildDrift` throw escape (drop the try/catch) → node's
+  // uncaught-exception exit code 1, which reads as ordinary drift.
+  it("exits 2 when a row cannot be rebuilt (not four cells)", () => {
+    const fiveCells = bigRegister((s) => s.replace("| Entry 5 | — |", "| Entry 5 | x | — |"));
+    const r = runCli("check-followup-index.mjs", [], fiveCells);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/CANNOT SCAN/);
   });
 });
