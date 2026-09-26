@@ -623,6 +623,14 @@ describe("relativeImportsIn", () => {
     ]);
   });
 
+  // Review M10. Mutation: drop the trailing-slash strip in `moduleKey` →
+  // "src/app/foo/" and "src/app/", which never equal a module key (a false GAP).
+  it("drops a trailing slash from a directory specifier", () => {
+    expect(
+      relativeImportsIn('import { F } from "./foo/";\nimport { G } from "./";', "src/app/x.tsx"),
+    ).toEqual(["src/app/foo", "src/app"]);
+  });
+
   // Mutation: drop the `/index` fold in `moduleKey` → "src/app/foo/index".
   it("folds an explicit /index specifier onto its directory", () => {
     expect(relativeImportsIn('import { F } from "./foo/index";', "src/app/x.tsx")).toEqual([

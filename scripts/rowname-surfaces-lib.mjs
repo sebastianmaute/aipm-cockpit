@@ -555,8 +555,9 @@ function toPosix(file) {
 }
 
 /** A repo-relative file path reduced to the key an import specifier resolves
- *  to: forward slashes, normalised, extension stripped, and a trailing
- *  `/index` folded onto its directory (`./foo` can mean `foo/index.tsx`).
+ *  to: forward slashes, normalised, a trailing slash dropped (`./foo/` names
+ *  the same module as `./foo`), extension stripped, and a trailing `/index`
+ *  folded onto its directory (`./foo` can mean `foo/index.tsx`).
  *  ★★★ THE DIRECTORY IS PART OF THE KEY (§281). It used to be the basename
  *  alone, so `src/app/a/row.tsx` and `src/app/b/row.tsx` shared the key `row`
  *  and a test importing one credited the other — a false COVERED on a surface
@@ -564,6 +565,7 @@ function toPosix(file) {
 export function moduleKey(file) {
   return path.posix
     .normalize(toPosix(file))
+    .replace(/\/+$/, "")
     .replace(/\.(tsx|ts|jsx|js|mjs)$/, "")
     .replace(/\/index$/, "");
 }
