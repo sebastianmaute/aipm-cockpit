@@ -61,6 +61,7 @@ import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { useSettings } from "./use-settings";
 import { useConfirm } from "./confirm-dialog";
+import { CalendarOptOutCheckbox } from "./calendar-opt-out-checkbox";
 
 export type RaidEditModalProps = {
   lang: Lang;
@@ -93,6 +94,9 @@ export type RaidEditModalProps = {
    *  popouts; the button is also disabled for an unsaved (new) draft, which
    *  has no persisted id to resolve. */
   onOpenNotes?: (id: number) => void;
+  /** §486 — Outlook sync is configured for RAID review dates; shows the
+   *  per-item "Sync to Outlook" checkbox. Absent/false hides it. */
+  calendarSyncEnabled?: boolean;
 };
 
 export function RaidEditModal({
@@ -116,6 +120,7 @@ export function RaidEditModal({
   onJumpToRaid,
   onSendInquiry,
   onOpenNotes,
+  calendarSyncEnabled,
 }: RaidEditModalProps) {
   const showToast = useToastContext();
   const { isVisible } = useModalVisibility("raid");
@@ -672,6 +677,17 @@ export function RaidEditModal({
               }
             />
           </HintedLabel>
+          )}
+
+          {calendarSyncEnabled && (
+            <div className="sm:col-span-2">
+              <CalendarOptOutCheckbox
+                lang={lang}
+                checked={!draft.calendarOptOut}
+                itemTitle={draft.title}
+                onChange={(syncs) => onChange({ ...draft, calendarOptOut: syncs ? undefined : true })}
+              />
+            </div>
           )}
 
           {/* `<div>`, not `<label>` — see Category above. */}

@@ -76,6 +76,7 @@ export function useEntityCalendarPush<T extends HasEventLink>(
       const plan = planEntityReconcile(items, existing);
       const newIds = new Map<number, string>();
       const staleIds = new Set<number>();
+      const deletedIds = new Set<string>();
       let failed = 0;
       for (const it of plan.create) {
         try { newIds.set(it.id, await createEvent(token, toGraphEvent(it, projectId))); }
@@ -93,7 +94,7 @@ export function useEntityCalendarPush<T extends HasEventLink>(
         }
       }
       for (const id of plan.delete) {
-        try { await deleteEvent(token, id); }
+        try { await deleteEvent(token, id); deletedIds.add(id); }
         catch (err) { failed++; logDiag("warn", "calendar.pushItemFailed", { entityType, op: "delete", message: err instanceof Error ? err.message : String(err) }); }
       }
       // §548 — the swap can also land DURING the create/update/delete loop above, so the ids just
@@ -104,10 +105,16 @@ export function useEntityCalendarPush<T extends HasEventLink>(
       // next project's rows. ★ No compensating delete is issued here on purpose: a rollback that
       // itself fails mid-way is a worse failure than the churn.
       if (dropStaleScopeWrite(getScopeEpoch, startEpoch, "useEntityCalendarPush", { entityType, at: "write" })) return;
-      if (newIds.size > 0 || staleIds.size > 0) {
+      // §486 — the app's OWN delete must also drop the link. A row still holding a
+      // deleted id (an item that left the pushable set) would otherwise look, to the
+      // next PULL, like an event the user deleted in Outlook — and the prune would
+      // opt it out of sync for good. Only the link is cleared; `calendarOptOut` is
+      // never touched here.
+      if (newIds.size > 0 || staleIds.size > 0 || deletedIds.size > 0) {
         setItems((prev) => prev.map((it) => {
           if (newIds.has(it.id)) return { ...it, outlookEventId: newIds.get(it.id) };
           if (staleIds.has(it.id)) return { ...it, outlookEventId: undefined };
+          if (it.outlookEventId && deletedIds.has(it.outlookEventId)) return { ...it, outlookEventId: undefined };
           return it;
         }));
       }

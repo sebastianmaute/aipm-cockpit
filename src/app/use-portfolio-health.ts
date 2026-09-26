@@ -13,6 +13,7 @@
 
 import { useEffect, useState } from "react";
 import type { TursoConfig } from "./turso-config";
+import { tursoErrorMessageKey } from "./storage-error";
 import { TursoBackend } from "./turso-backend";
 import { buildDashboardInput, computeDashboard, hasNoActiveScope } from "./dashboard";
 import type { ProjectRegistryEntry } from "./projects-registry";
@@ -42,6 +43,10 @@ export type UsePortfolioHealthResult = {
   rows: PortfolioRow[];
   aggregate: PortfolioAggregate;
   loading: boolean;
+  /** `PORTFOLIO_LOAD_FAILED`, a `TursoErrorMessageKey` (an i18n KEY — see
+   *  `tursoErrorMessageKey`/`isTursoErrorMessageKey` in storage-error.ts), or
+   *  a raw fallback message. This hook stays i18n-free; the panel decides
+   *  which of the three it has and translates the first two at render time. */
   error: string | null;
 };
 
@@ -167,8 +172,15 @@ export function usePortfolioHealth(
 
     void loadAll().catch((err: unknown) => {
       if (cancelled) return;
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      setError(msg);
+      // ★★★ Branch review I2 (§337) — this hook stays i18n-free (no `lang`
+      // param), same as its pre-existing `PORTFOLIO_LOAD_FAILED` sentinel:
+      // when the failure is a recognized Turso connectivity kind, `error`
+      // holds the i18n KEY (not translated text), and the panel
+      // (`portfolio-health-panel.tsx`, via `isTursoErrorMessageKey`)
+      // translates it at render time, in whatever language it is currently
+      // showing. Anything else keeps the raw message, unchanged.
+      const key = tursoErrorMessageKey(err);
+      setError(key ?? (err instanceof Error ? err.message : "Unknown error"));
       setLoading(false);
     });
 

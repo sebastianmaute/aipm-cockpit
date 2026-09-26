@@ -531,3 +531,12 @@ describe("decode failures are accumulated for the caller", () => {
     expect(good.decodeFailedSlices).toBeUndefined();
   });
 });
+
+describe("turso single-DB — project meta (§538)", () => {
+  it("reports an unreadable project_meta row and still loads", () => {
+    const diag: DocTruncationDiag = {};
+    const ws = rowsToWorkspace(metaOnlyResults([["project_meta", "{not json"]]), diag);
+    expect(diag.decodeFailedSlices).toEqual(["project_meta"]);
+    expect(ws.project).toBeUndefined();
+  });
+});

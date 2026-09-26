@@ -42,6 +42,7 @@ export function useOutlookCalendarPush({ milestones, projectId, setMilestones, i
       const plan = planCalendarReconcile(milestones, existing);
       const newIds = new Map<number, string>();
       const staleIds = new Set<number>();
+      const deletedIds = new Set<string>();
       let failed = 0;
       for (const m of plan.create) {
         try { newIds.set(m.id, await createEvent(token, milestoneToGraphEvent(m, projectId))); }
@@ -59,7 +60,7 @@ export function useOutlookCalendarPush({ milestones, projectId, setMilestones, i
         }
       }
       for (const id of plan.delete) {
-        try { await deleteEvent(token, id); }
+        try { await deleteEvent(token, id); deletedIds.add(id); }
         catch (err) { failed++; logDiag("warn", "calendar.pushItemFailed", { entityType: "milestone", op: "delete", message: err instanceof Error ? err.message : String(err) }); }
       }
       // §548 — the swap can land during the create/update/delete loop too, so the ids just created are
@@ -67,10 +68,17 @@ export function useOutlookCalendarPush({ milestones, projectId, setMilestones, i
       // by a milestone into `plan.delete`, so the next push DELETES the orphan and RE-CREATES the
       // event — self-healing churn, and better than this project's ids on the next project's rows.
       if (dropStaleScopeWrite(getScopeEpoch, startEpoch, "useOutlookCalendarPush", { at: "write" })) return;
-      if (newIds.size > 0 || staleIds.size > 0) {
+      // §486 — the app's OWN delete must also drop the link. A row still holding a
+      // deleted id (this push passes every milestone, so only a row that
+      // joined the list mid-push — an undo restoring a deleted milestone — can) would otherwise look, to the
+      // next PULL, like an event the user deleted in Outlook — and the prune would
+      // opt it out of sync for good. Only the link is cleared; `calendarOptOut` is
+      // never touched here.
+      if (newIds.size > 0 || staleIds.size > 0 || deletedIds.size > 0) {
         setMilestones((prev) => prev.map((m) => {
           if (newIds.has(m.id)) return { ...m, outlookEventId: newIds.get(m.id) };
           if (staleIds.has(m.id)) return { ...m, outlookEventId: undefined };
+          if (m.outlookEventId && deletedIds.has(m.outlookEventId)) return { ...m, outlookEventId: undefined };
           return m;
         }));
       }

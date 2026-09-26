@@ -38,6 +38,7 @@ import { type NewProjectOpts } from "./new-project-workspace";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { type Settings } from "./settings-types";
 import { ResetSizeButton } from "./task-manager-ui";
+import { useFsaSupported } from "./use-fsa-supported";
 import { useResizable } from "./use-resizable";
 import { type ProjectMeta, type Resource } from "./types";
 
@@ -147,6 +148,12 @@ export function ProjectEmptyState({
     ? t(lang, "projectLoadFromTursoHint")
     : t(lang, "projectTursoNotConfigured");
 
+  // §574 — Firefox/Safari have no File System Access open picker. Disable
+  // "Load from file" there and explain the BROWSER limitation, rather than
+  // letting the load fail and blame Settings.
+  const fsaSupported = useFsaSupported();
+  const fsaHintId = useId();
+
   const titleKey = view === "create" ? "projectsNew" : "projectsEmptyTitle";
   const TITLE_ID = "project-empty-state-title";
   const startLogo = settings.branding?.startLogo;
@@ -218,10 +225,22 @@ export function ProjectEmptyState({
                   {t(lang, "projectsEmptyCreate")}
                 </Button>
                 {/* Load from file is offered in BOTH modes. In Turso mode the host
-                    handler switches the portfolio to file mode and reloads. */}
-                <Button variant="secondary" onClick={onLoadFromFile}>
+                    handler switches the portfolio to file mode and reloads.
+                    Disabled where the browser has no File System Access open
+                    picker (§574) — Firefox/Safari — with the reason named. */}
+                <Button
+                  variant="secondary"
+                  onClick={onLoadFromFile}
+                  disabled={!fsaSupported}
+                  aria-describedby={fsaSupported ? undefined : fsaHintId}
+                >
                   {t(lang, "projectsEmptyLoad")}
                 </Button>
+                {!fsaSupported && (
+                  <span id={fsaHintId} className="text-xs text-muted-foreground">
+                    {t(lang, "storageFsaUnsupported")}
+                  </span>
+                )}
                 {/* Load an existing project from a configured Turso database —
                     file mode only (Turso mode already lists archived projects
                     and has its own picker via the mode selector). */}

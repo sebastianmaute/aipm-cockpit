@@ -1,16 +1,42 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { StorageNotReadyError } from "./storage";
-import { classifyStorageError, isTursoLockTimeout, tursoErrorKind } from "./storage-error";
+import {
+  classifyStorageError,
+  isTursoErrorMessageKey,
+  isTursoLockTimeout,
+  tursoErrorKind,
+  tursoErrorMessageKey,
+} from "./storage-error";
+import { clearEnvTokenRejected, markEnvTokenRejected } from "./turso-config";
+
+afterEach(() => {
+  clearEnvTokenRejected();
+});
 
 describe("tursoErrorKind", () => {
   it("maps the unreachable hint", () => {
     expect(tursoErrorKind(new StorageNotReadyError("storage-unreachable"))).toBe("unreachable");
   });
 
-  it("maps the rejected-auth-token message", () => {
-    expect(
-      tursoErrorKind(new StorageNotReadyError("Turso auth token rejected. Check the token in Settings.")),
-    ).toBe("auth");
+  it("maps the plain rejected-token hint to auth", () => {
+    expect(tursoErrorKind(new StorageNotReadyError("turso-token-rejected"))).toBe("auth");
+  });
+
+  it("maps the env-token-rejected hint to auth-env", () => {
+    expect(tursoErrorKind(new StorageNotReadyError("turso-env-token-rejected"))).toBe("auth-env");
+  });
+
+  // I2 (fix round 1, controller ruling) — attribution rides the HINT alone,
+  // never the global `isEnvTokenRejected()` flag. A flag left set by an
+  // earlier, unrelated incident must not relabel THIS rejection as "auth-env"
+  // just because it happens to still be up.
+  it("classifies by the hint alone, regardless of the isEnvTokenRejected() flag", () => {
+    markEnvTokenRejected();
+    expect(tursoErrorKind(new StorageNotReadyError("turso-token-rejected"))).toBe("auth");
+    expect(tursoErrorKind(new StorageNotReadyError("turso-env-token-rejected"))).toBe("auth-env");
+    clearEnvTokenRejected();
+    expect(tursoErrorKind(new StorageNotReadyError("turso-token-rejected"))).toBe("auth");
+    expect(tursoErrorKind(new StorageNotReadyError("turso-env-token-rejected"))).toBe("auth-env");
   });
 
   it("maps a non-OK Turso HTTP response to unreachable", () => {
@@ -36,15 +62,46 @@ describe("tursoErrorKind", () => {
 describe("classifyStorageError", () => {
   it("keeps recognized Turso kinds", () => {
     expect(classifyStorageError(new StorageNotReadyError("storage-unreachable"))).toBe("unreachable");
-    expect(
-      classifyStorageError(new StorageNotReadyError("Turso auth token rejected. Check the token in Settings.")),
-    ).toBe("auth");
+    expect(classifyStorageError(new StorageNotReadyError("turso-token-rejected"))).toBe("auth");
+    expect(classifyStorageError(new StorageNotReadyError("turso-env-token-rejected"))).toBe("auth-env");
   });
 
   it("classifies any other failure as generic (so local-backend failures still banner)", () => {
     expect(classifyStorageError(new Error("disk full"))).toBe("generic");
     expect(classifyStorageError(new StorageNotReadyError("local-file-permission-needed"))).toBe("generic");
     expect(classifyStorageError(null)).toBe("generic");
+  });
+});
+
+describe("tursoErrorMessageKey (branch review I2)", () => {
+  it("returns the translated banner key for each recognized Turso kind", () => {
+    expect(tursoErrorMessageKey(new StorageNotReadyError("turso-token-rejected"))).toBe("storageAuthBanner");
+    expect(tursoErrorMessageKey(new StorageNotReadyError("turso-env-token-rejected"))).toBe(
+      "storageAuthEnvBanner",
+    );
+    expect(tursoErrorMessageKey(new StorageNotReadyError("storage-unreachable"))).toBe(
+      "storageUnreachableBanner",
+    );
+  });
+
+  it("returns null for an unrecognized failure, so the caller's raw-message fallback still applies", () => {
+    expect(tursoErrorMessageKey(new Error("Turso error: boom"))).toBeNull();
+    expect(tursoErrorMessageKey(new StorageNotReadyError("local-file-permission-needed"))).toBeNull();
+    expect(tursoErrorMessageKey(new Error("boom"))).toBeNull();
+  });
+});
+
+describe("isTursoErrorMessageKey", () => {
+  it("accepts exactly the three keys tursoErrorMessageKey can return", () => {
+    expect(isTursoErrorMessageKey("storageAuthBanner")).toBe(true);
+    expect(isTursoErrorMessageKey("storageAuthEnvBanner")).toBe(true);
+    expect(isTursoErrorMessageKey("storageUnreachableBanner")).toBe(true);
+  });
+
+  it("rejects a sentinel or an unrelated string", () => {
+    expect(isTursoErrorMessageKey("portfolio-load-failed")).toBe(false);
+    expect(isTursoErrorMessageKey("boom")).toBe(false);
+    expect(isTursoErrorMessageKey("")).toBe(false);
   });
 });
 

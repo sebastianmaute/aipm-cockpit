@@ -115,17 +115,45 @@ describe("ProjectSwitcher", () => {
 
   it("calls onLoadFromFile and closes when 'Load from file' is clicked", async () => {
     const user = userEvent.setup();
-    const { onLoadFromFile } = renderSwitcher();
+    // jsdom has no File System Access API by default, which would otherwise
+    // disable this menuitem (§574) — simulate a supporting browser.
+    const had = "showOpenFilePicker" in window;
+    const saved = (window as unknown as Record<string, unknown>).showOpenFilePicker;
+    (window as unknown as Record<string, unknown>).showOpenFilePicker = () => {};
+    try {
+      const { onLoadFromFile } = renderSwitcher();
 
-    await user.click(screen.getByRole("button", { name: /Apollo/ }));
-    await user.click(
-      screen.getByRole("menuitem", {
+      await user.click(screen.getByRole("button", { name: /Apollo/ }));
+      await user.click(
+        screen.getByRole("menuitem", {
+          name: t("en-US", "projectSwitcherLoadFile"),
+        }),
+      );
+
+      expect(onLoadFromFile).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    } finally {
+      if (had) (window as unknown as Record<string, unknown>).showOpenFilePicker = saved;
+      else delete (window as unknown as Record<string, unknown>).showOpenFilePicker;
+    }
+  });
+
+  it("disables 'Load from file' and explains why when the browser lacks file access (§574)", async () => {
+    const user = userEvent.setup();
+    const had = "showOpenFilePicker" in window;
+    const saved = (window as unknown as Record<string, unknown>).showOpenFilePicker;
+    delete (window as unknown as Record<string, unknown>).showOpenFilePicker;
+    try {
+      renderSwitcher();
+      await user.click(screen.getByRole("button", { name: /Apollo/ }));
+      const btn = screen.getByRole("menuitem", {
         name: t("en-US", "projectSwitcherLoadFile"),
-      }),
-    );
-
-    expect(onLoadFromFile).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+      });
+      expect(btn).toBeDisabled();
+      expect(btn).toHaveAccessibleDescription(t("en-US", "storageFsaUnsupported"));
+    } finally {
+      if (had) (window as unknown as Record<string, unknown>).showOpenFilePicker = saved;
+    }
   });
 
   it("calls onNew and closes when '+ New project' is clicked", async () => {
@@ -156,28 +184,39 @@ describe("ProjectSwitcher", () => {
 
     it("moves focus with ArrowDown / ArrowUp and wraps", async () => {
       const user = userEvent.setup();
-      renderSwitcher();
+      // The roving nav skips a disabled menuitem; jsdom has no File System
+      // Access API by default, which would disable "Load from file" (§574) and
+      // remove it from the traversal this test pins — simulate support.
+      const had = "showOpenFilePicker" in window;
+      const saved = (window as unknown as Record<string, unknown>).showOpenFilePicker;
+      (window as unknown as Record<string, unknown>).showOpenFilePicker = () => {};
+      try {
+        renderSwitcher();
 
-      await user.click(screen.getByRole("button", { name: /Apollo/ }));
-      const gemini = screen.getByRole("menuitem", { name: /Gemini/ });
-      const loadFile = screen.getByRole("menuitem", {
-        name: t("en-US", "projectSwitcherLoadFile"),
-      });
-      const newProject = screen.getByRole("menuitem", {
-        name: new RegExp(t("en-US", "projectsNew")),
-      });
+        await user.click(screen.getByRole("button", { name: /Apollo/ }));
+        const gemini = screen.getByRole("menuitem", { name: /Gemini/ });
+        const loadFile = screen.getByRole("menuitem", {
+          name: t("en-US", "projectSwitcherLoadFile"),
+        });
+        const newProject = screen.getByRole("menuitem", {
+          name: new RegExp(t("en-US", "projectsNew")),
+        });
 
-      expect(gemini).toHaveFocus();
-      await user.keyboard("{ArrowDown}");
-      expect(loadFile).toHaveFocus();
-      await user.keyboard("{ArrowUp}");
-      expect(gemini).toHaveFocus();
-      // Wrap backwards to the last item.
-      await user.keyboard("{ArrowUp}");
-      expect(newProject).toHaveFocus();
-      // Wrap forwards to the first item.
-      await user.keyboard("{ArrowDown}");
-      expect(gemini).toHaveFocus();
+        expect(gemini).toHaveFocus();
+        await user.keyboard("{ArrowDown}");
+        expect(loadFile).toHaveFocus();
+        await user.keyboard("{ArrowUp}");
+        expect(gemini).toHaveFocus();
+        // Wrap backwards to the last item.
+        await user.keyboard("{ArrowUp}");
+        expect(newProject).toHaveFocus();
+        // Wrap forwards to the first item.
+        await user.keyboard("{ArrowDown}");
+        expect(gemini).toHaveFocus();
+      } finally {
+        if (had) (window as unknown as Record<string, unknown>).showOpenFilePicker = saved;
+        else delete (window as unknown as Record<string, unknown>).showOpenFilePicker;
+      }
     });
 
     it("jumps to first/last with Home/End", async () => {

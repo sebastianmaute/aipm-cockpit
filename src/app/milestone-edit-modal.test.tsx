@@ -329,3 +329,43 @@ describe("milestone-edit-modal panel size", () => {
     expect(panel?.className).toContain("max-h-[95vh]");
   });
 });
+
+// §486 — the per-item Outlook opt-out.
+describe("MilestoneEditModal — Sync to Outlook (§486)", () => {
+  function renderIt(calendarSyncEnabled: boolean | undefined, over: { calendarOptOut?: boolean } = {}) {
+    const onSave = vi.fn();
+    render(
+      <MilestoneEditModal
+        lang="en-US"
+        milestone={{ id: 1, name: "Kickoff", date: "2026-08-01", linkedTaskIds: [], ...over }}
+        isNew={false}
+        tasks={[]}
+        onSave={onSave}
+        onDelete={vi.fn()}
+        onClose={vi.fn()}
+        calendarSyncEnabled={calendarSyncEnabled}
+      />,
+      { wrapper },
+    );
+    return onSave;
+  }
+  const clickSave = () => fireEvent.click(screen.getByRole("button", { name: t("en-US", "milestoneSave") }));
+  it("unticking and saving hands onSave calendarOptOut: true", () => {
+    const onSave = renderIt(true);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Sync to Outlook – Kickoff" }));
+    clickSave();
+    expect(onSave.mock.calls[0][0].calendarOptOut).toBe(true);
+  });
+  it("re-ticking an opted-out milestone clears the flag", () => {
+    const onSave = renderIt(true, { calendarOptOut: true });
+    const box = screen.getByRole("checkbox", { name: "Sync to Outlook – Kickoff" });
+    expect(box).not.toBeChecked();
+    fireEvent.click(box);
+    clickSave();
+    expect(onSave.mock.calls[0][0].calendarOptOut).toBeUndefined();
+  });
+  it("is absent while Outlook push is not configured", () => {
+    renderIt(undefined);
+    expect(screen.queryByRole("checkbox", { name: /Sync to Outlook/ })).toBeNull();
+  });
+});

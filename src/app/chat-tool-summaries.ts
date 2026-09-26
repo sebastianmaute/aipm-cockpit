@@ -115,8 +115,8 @@ export function toKnowledgeSummary(item: KnowledgeItem): KnowledgeSummary {
   };
 }
 
-/** ★ Drops `localModifiedAt` and `outlookEventId` — the two `TOKEN_EXCLUDED`
- *  fields for this entity. Bookkeeping the model neither chooses nor needs, and
+/** ★ Drops `localModifiedAt`, `outlookEventId` and `calendarOptOut` — the
+ *  `TOKEN_EXCLUDED` fields for this entity. Bookkeeping the model neither chooses nor needs, and
  *  keeping them out is why `getAbsenceRow` (the FULL row) exists separately for
  *  the concurrency token. */
 export function toAbsenceSummary(absence: Absence): AbsenceSummary {

@@ -101,9 +101,11 @@ export function StorageBanner({
   const msg =
     kind === "auth"
       ? t(lang, "storageAuthBanner")
-      : kind === "generic"
-        ? t(lang, "storageSaveFailedBanner")
-        : t(lang, "storageUnreachableBanner");
+      : kind === "auth-env"
+        ? t(lang, "storageAuthEnvBanner")
+        : kind === "generic"
+          ? t(lang, "storageSaveFailedBanner")
+          : t(lang, "storageUnreachableBanner");
   return (
     <AlertBanner severity="error" ariaLabel={t(lang, "storageBannerAria")} icon="⚠"
       actions={<>
@@ -201,8 +203,10 @@ function truncationCopy(lang: Lang, c: Extract<SavingPausedCause, { kind: "trunc
   const countText = countParts.length > 0 ? countParts.join(" ") : null;
   // ★★★ THE HEADLINE FOLLOWS THE CAUSE, because "document data" was true of only
   // one of the two. Truncation IS about documents — the cap cuts document
-  // entries and blocks — but the decode cause reaches ELEVEN meta slices
-  // (`reportUnreadableSlice`), so a corrupt `steering_committee` blob in a
+  // entries and blocks — but the decode cause reaches every `reportUnreadableSlice`
+  // slice, not just documents (re-derive the list rather than trusting a count
+  // here — it has rotted before: `grep -o 'reportUnreadableSlice("[a-zA-Z_]*"'
+  // src/app/turso-schema.ts`), so a corrupt `steering_committee` blob in a
   // project with NO documents announced itself as document data, the user read
   // a headline that plainly did not apply to them, and clicked "Save anyway".
   // That button is a PERMANENT discard, and it was being pressed on a screen

@@ -4,8 +4,11 @@
 // env var wins over the Settings (Integrations panel) value ONLY when it is
 // usable; an unusable env URL falls through to Settings rather than poisoning
 // the result. The TOKEN has no usability test — any non-empty string is a
-// plausible token — so an env token still wins unconditionally, and the
-// Settings "Test connection" button is what tells a user it is wrong.
+// plausible token — so an env token wins over Settings UNLESS Turso itself
+// has rejected it (§337, `isEnvTokenRejected` below), in which case a
+// non-empty Settings token wins instead. The Settings "Test connection"
+// button is what tells a user a token is wrong before that rejection happens
+// for real.
 // Returns null when the URL or token is missing or the URL is unusable — the
 // storage layer surfaces "not ready".
 
@@ -70,6 +73,34 @@ export function isUsableTursoUrl(raw: string): boolean {
 // settings warning telling users to strip the region segment; that advice was
 // wrong and has been removed. Don't reintroduce it.
 
+/** §337 — per-device record that Turso REJECTED the deployment (env) token.
+ *  While set, a non-empty Settings token outranks the env token and the
+ *  Settings field is shown. Cleared by the next success that used the env
+ *  token, so a fixed deployment wins again. Lives under the app-config prefix,
+ *  so clearAppConfig wipes it. Not a secret, not workspace data. */
+export const ENV_TOKEN_REJECTED_KEY = "aipm-cockpit:turso-env-token-rejected";
+export function isEnvTokenRejected(): boolean {
+  try {
+    return typeof localStorage !== "undefined" && localStorage.getItem(ENV_TOKEN_REJECTED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+export function markEnvTokenRejected(): void {
+  try {
+    localStorage.setItem(ENV_TOKEN_REJECTED_KEY, "1");
+  } catch {
+    /* storage unavailable: precedence stays env-first */
+  }
+}
+export function clearEnvTokenRejected(): void {
+  try {
+    localStorage.removeItem(ENV_TOKEN_REJECTED_KEY);
+  } catch {
+    /* same */
+  }
+}
+
 export function getTursoConfig(
   settingsUrl?: string,
   settingsToken?: string,
@@ -84,7 +115,19 @@ export function getTursoConfig(
   // unusable env value already resolved to null.
   const envUrlUsable = !!envUrl && envUrl !== "" && isUsableTursoUrl(envUrl);
   const rawUrl = (envUrlUsable ? envUrl : settingsUrl) ?? "";
-  const authToken = (envToken && envToken !== "" ? envToken : settingsToken) ?? "";
+  // ★★★ §337 (token half) — a USABLE env token can still be WRONG (revoked,
+  // rotated, copy-pasted from another deployment), and there was no way to
+  // find out except a 401/403 from Turso itself with the Settings field
+  // hidden and unable to help. `turso-pipeline.ts` flags that rejection via
+  // `markEnvTokenRejected`; while the flag is set, a non-empty Settings token
+  // outranks the env token so the user has a way out. An empty Settings
+  // token does NOT win — falling back to null here would break every
+  // deployment mid-incident, before the user has had a chance to type
+  // anything.
+  const envTokenSet = !!envToken && envToken !== "";
+  const settingsTokenSet = !!settingsToken && settingsToken !== "";
+  const preferSettings = settingsTokenSet && isEnvTokenRejected();
+  const authToken = (envTokenSet && !preferSettings ? envToken : settingsTokenSet ? settingsToken : envToken) ?? "";
   if (!rawUrl) return null;
   const httpUrl = toHttpUrl(rawUrl);
   if (!httpUrl) return null;

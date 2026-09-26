@@ -23,59 +23,27 @@ import type { DocumentAsset } from "./document-asset";
 import { isAllowedAssetMime } from "./document-asset-upload";
 import type { AssetByteLoader } from "./document-asset-images";
 import { triggerDownload } from "./download";
+import { filenameStem, MAX_FILENAME_STEM } from "./filename-stem";
 import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
 import { reportSilentFailure } from "./guard-feedback";
+import {
+  pdfReadyTitleMarkup,
+  pdfWindowName,
+  replaceHtmlTitle,
+  withScriptNonce,
+  withStyleNonce,
+} from "./pdf-export-protocol";
+import { readCspNonce } from "./csp-nonce";
 
 export type DocFormat = "html" | "docx" | "pptx" | "pdf";
 
 const HTML_MIME = "text/html;charset=utf-8";
 
-/** Longest slug we put in front of the `-YYYY-MM-DD.ext` suffix.
- *
- *  ★ MAX_TITLE_CHARS is 200, so an uncapped stem produces a ~211-character
- *  name. File systems generally cap a path COMPONENT at 255 BYTES — and a
- *  non-ASCII title costs two bytes per character there — while browsers append
- *  " (1)", " (2)" on a name collision. Capping is cheaper than discovering the
- *  limit at write time. */
-export const MAX_FILENAME_STEM = 80;
-
-/** C0 controls, DEL and C1 — expressed as the complement of the printable
- *  ranges. Every bound is an ESCAPE, not the character itself: a literal one
- *  would trip eslint's no-control-regex, and an invisible byte in source is
- *  exactly what a stray editor pass silently mangles. */
-const NON_PRINTABLE = /[^\u0020-\u007E\u00A0-\uFFFF]/g;
-
-/** Path separators, the characters Windows reserves, and any whitespace run.
- *  Collapsing these is what stops a title from introducing a directory
- *  component or a name Explorer refuses to create. */
-const FS_UNSAFE = /[<>:"/\\|?*\s]+/g;
-
-/** Title → filename stem.
- *
- *  ★★ Non-ASCII LETTERS ARE KEPT ON PURPOSE. The obvious slug — lowercase then
- *  `[^a-z0-9]+` → "-" — silently ASCII-mangles German: "Änderung" becomes
- *  "nderung", "Übersicht" becomes "bersicht". German is a first-class language
- *  in this app and the i18n-encoding test already bans ASCII substitutions in
- *  German strings; a filename is no place to reintroduce them. Only characters
- *  a FILE SYSTEM objects to are removed. */
-function slugifyTitle(title: string): string {
-  const slug = title
-    .toLowerCase()
-    // ★★ ORDER IS LOAD-BEARING. Tab, newline and CR are BOTH control
-    // characters and whitespace. Dropping non-printables first fuses the words
-    // either side of a pasted line break ("Q1\tStatus" → "q1status"); mapping
-    // whitespace to a separator first keeps them apart, and only the truly
-    // invisible controls are then dropped. Caught by test, not by review.
-    .replace(FS_UNSAFE, "-")
-    .replace(NON_PRINTABLE, "")
-    .replace(/-{2,}/g, "-")
-    // Leading dots would make a dotfile; leading/trailing dashes are noise.
-    .replace(/^[-.]+/, "")
-    .replace(/[-.]+$/, "");
-  // Trim again after the cut: slicing mid-word can leave a dangling separator.
-  return slug.slice(0, MAX_FILENAME_STEM).replace(/-+$/, "") || "document";
-}
+// The title → stem rule (and its length cap) moved to filename-stem.ts so
+// export.ts can name a whole-project export by the same rule; re-exported
+// here for the callers that already import it from this module.
+export { MAX_FILENAME_STEM };
 
 /** `<slug>-<today>.<ext>`. `today` is passed in rather than read from a clock,
  *  so the function is pure and its tests cannot drift with the date. */
@@ -84,7 +52,7 @@ export function documentFilename(
   format: DocFormat,
   today: string,
 ): string {
-  return `${slugifyTitle(doc.title)}-${today}.${format}`;
+  return `${filenameStem(doc.title, "document")}-${today}.${format}`;
 }
 
 /** The auto-print harness, injected only into the tab we open ourselves.
@@ -103,24 +71,36 @@ const AUTO_PRINT_SCRIPT = `<script>
 
 const BODY_CLOSE = "</body>";
 
-/** Add the auto-print harness to a rendered document.
+/** Inject `script` into a rendered document, before `</body>`.
  *
  *  ★★ This lives HERE, not in renderDocumentHtml behind an `autoPrint` flag.
- *  Auto-printing is a property of the tab we open, not of the document, and
- *  keeping it out of the renderer makes it STRUCTURALLY impossible for the
- *  plain `.html` download to carry it — with a flag, that guarantee would rest
- *  on every future caller remembering to leave the flag off.
+ *  Which script (if any) a tab carries is a property of the tab we open, not
+ *  of the document, and keeping it out of the renderer makes it STRUCTURALLY
+ *  impossible for the plain `.html` download to carry one — with a flag, that
+ *  guarantee would rest on every future caller remembering to leave it off.
  *
  *  ★ The no-`</body>` branch is not paranoia: a silent no-op here would look
  *  like a browser quirk ("sometimes the print dialog doesn't open"), which is
- *  the most expensive kind of bug to chase. */
-export function withAutoPrint(html: string): string {
+ *  the most expensive kind of bug to chase.
+ *
+ *  ★ §468 — extracted from the old `withAutoPrint(html)` so a caller could
+ *  swap in a different script for the desktop shell. That shell no longer
+ *  uses this path at all (its readiness signal is a static `<title>` element,
+ *  via `replaceHtmlTitle`/`pdfReadyTitleMarkup` — see the pdf branch of
+ *  `downloadDocument` below), but the split stays: `withAutoPrint` is a thin
+ *  wrapper so its own tests, and every existing caller, stay unchanged. */
+export function withClosingScript(html: string, script: string): string {
   return html.includes(BODY_CLOSE)
     ? // Function replacement, not a string: `$&` and `` $` `` are special in a
       // replacement string, so a future edit to the script that introduced a
       // "$" would corrupt the output in a way that is very hard to see.
-      html.replace(BODY_CLOSE, () => `${AUTO_PRINT_SCRIPT}${BODY_CLOSE}`)
-    : html + AUTO_PRINT_SCRIPT;
+      html.replace(BODY_CLOSE, () => `${script}${BODY_CLOSE}`)
+    : html + script;
+}
+
+/** Add the auto-print harness to a rendered document. */
+export function withAutoPrint(html: string): string {
+  return withClosingScript(html, AUTO_PRINT_SCRIPT);
 }
 
 /** Shown in the print tab while the bytes load. Deliberately minimal and
@@ -253,6 +233,20 @@ export async function downloadDocument(
   const today = new Date().toISOString().slice(0, 10);
 
   if (format === "pdf") {
+    // ★ §468 — in the desktop shell, Electron refuses the tab's own
+    // `window.print()`. There the tab opens under a NAMED frame and carries
+    // NO script at all — an inline one would be blocked by the packaged app's
+    // nonce-only CSP anyway — and instead its own `<title>` element IS the
+    // readiness signal (`replaceHtmlTitle`/`pdfReadyTitleMarkup`, replacing
+    // the document's normal title rather than appending after it). main.ts
+    // watches the named frame's title, prints it to a real PDF and shows a
+    // save dialog (see pdf-export-protocol.ts / desktop/src/lib/pdf-export.ts).
+    // In a browser, `name` is `_blank` and the script is the auto-print
+    // harness, carrying the page's CSP nonce (see below).
+    const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
+    const name = pdfWindowName(ua);
+    const isDesktop = name !== "_blank";
+
     // ★★★ OPEN FIRST, BEFORE ANY `await`. `window.open` is only permitted
     // inside the user gesture, and awaiting the bytes SPENDS that gesture — so
     // the popup blocker fires for EVERY user and the fallback below silently
@@ -260,7 +254,7 @@ export async function downloadDocument(
     // top-level one rather than an iframe: browsers drive the print dialog
     // more reliably from one, and it leaves the user Ctrl+P if auto-print
     // misfires.
-    const tab = window.open("", "_blank");
+    const tab = window.open("", name);
     if (!tab) {
       const assets = await assetsFor(doc, ws, format, load);
       // ★ The fallback file is the PLAIN document. A downloaded file that
@@ -274,13 +268,41 @@ export async function downloadDocument(
     }
     tab.document.open();
     tab.document.write(PREPARING_HTML);
-    const assets = await assetsFor(doc, ws, format, load);
-    const html = renderDocumentHtml(doc, ws, lang, "standalone", assets, footer);
+    let finalHtml: string;
+    try {
+      const assets = await assetsFor(doc, ws, format, load);
+      const html = renderDocumentHtml(doc, ws, lang, "standalone", assets, footer);
+      // ★★★ §468 packaged-app check — the tab inherits this page's nonce-only
+      // production CSP, so the document's own <style> and the auto-print
+      // <script> carry the page's nonce or neither applies. Only the tab gets
+      // it; the popup-blocked fallback above is a plain file without one.
+      const nonce = readCspNonce();
+      finalHtml = withStyleNonce(
+        isDesktop
+          ? replaceHtmlTitle(html, pdfReadyTitleMarkup(documentFilename(doc, "pdf", today)))
+          : withClosingScript(html, withScriptNonce(AUTO_PRINT_SCRIPT, nonce)),
+        nonce,
+      );
+    } catch (err) {
+      // ★ Close the tab we opened before rethrowing. On desktop this window
+      // never wrote the ready `<title>`, so main.ts's `did-create-window`
+      // handler never saw a ready signal for it -- closing here fires that
+      // handler's `closed` listener (§468 final re-review M6), which
+      // disarms the 60s ready-signal timer, so it does NOT fire a second,
+      // MISLEADING "took too long and was cancelled" error on top of the
+      // real one the caller is about to show. It also frees the named
+      // `window.open` target immediately rather than leaving a later export
+      // silently lost against the same browsing context until that timer
+      // would otherwise have closed this window on its own. In a browser it
+      // would otherwise sit on the "Preparing…" placeholder.
+      tab.close();
+      throw err;
+    }
     // ★★ A SECOND open() RESETS the document. Without it the real document is
     // APPENDED to the placeholder, so the tab prints a file with two <title>
     // elements and a stray doctype in the middle of the body.
     tab.document.open();
-    tab.document.write(withAutoPrint(html));
+    tab.document.write(finalHtml);
     tab.document.close();
     return;
   }

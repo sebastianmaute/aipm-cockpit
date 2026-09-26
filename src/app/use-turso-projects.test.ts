@@ -8,6 +8,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useTursoProjects, type UseTursoProjectsArgs } from "./use-turso-projects";
 import type { ProjectListEntry } from "./turso-tenant-schema";
 import type { ProjectMeta } from "./types";
+import { StorageNotReadyError } from "./storage";
+import { t } from "./i18n";
 
 vi.mock("./turso-portfolio", () => ({
   listProjects: vi.fn(),
@@ -89,6 +91,26 @@ describe("useTursoProjects — create", () => {
     expect(args.refreshTursoProjects).not.toHaveBeenCalled();
   });
 
+  // ★★★ Branch review I2 (§337) — before this fix, a rejected token showed
+  // "Couldn't create the project: turso-token-rejected" — the internal hint
+  // verbatim, with no remedy. One of six toast sites sharing `errorText`;
+  // representative of the shape (a plain toast, `lang` already in closure).
+  it("turso mode: a rejected token shows the translated banner sentence, not the raw hint", async () => {
+    const args = makeArgs({
+      createTursoProject: vi.fn(async () => {
+        throw new StorageNotReadyError("turso-token-rejected");
+      }),
+    });
+    const { result } = renderHook(() => useTursoProjects(args));
+    result.current.handleCreateProjectByMode(META, "json");
+    await waitFor(() =>
+      expect(args.showToast).toHaveBeenCalledWith(
+        "error",
+        t("en-US", "projectCreateFailed", t("en-US", "storageAuthBanner")),
+      ),
+    );
+  });
+
   it("file mode: routes to the file callback", () => {
     const args = makeArgs({ portfolioMode: "file" });
     const { result } = renderHook(() => useTursoProjects(args));
@@ -145,6 +167,28 @@ describe("useTursoProjects — update current meta", () => {
     result.current.handleUpdateCurrentProjectByMode(META);
     expect(args.updateCurrentFileProject).toHaveBeenCalledWith(META);
     expect(vi.mocked(updateProjectMeta)).not.toHaveBeenCalled();
+  });
+
+  it("turso mode, no tursoProjectId (single-DB backend): routes to the file callback instead of no-op'ing (§538)", () => {
+    const args = makeArgs({ tursoProjectId: null });
+    const { result } = renderHook(() => useTursoProjects(args));
+    result.current.handleUpdateCurrentProjectByMode(META);
+    expect(args.updateCurrentFileProject).toHaveBeenCalledWith(META);
+    expect(vi.mocked(updateProjectMeta)).not.toHaveBeenCalled();
+    expect(args.showToast).not.toHaveBeenCalled();
+  });
+
+  it("turso mode, tursoProjectId set but config unready: toasts instead of silently no-op'ing (§538)", async () => {
+    vi.mocked(getTursoConfig).mockReturnValueOnce(null);
+    const args = makeArgs();
+    const { result } = renderHook(() => useTursoProjects(args));
+    result.current.handleUpdateCurrentProjectByMode(META);
+    expect(args.showToast).toHaveBeenCalledWith(
+      "error",
+      "Couldn't save the project details: Enter the Turso URL and token in Settings.",
+    );
+    expect(vi.mocked(updateProjectMeta)).not.toHaveBeenCalled();
+    expect(args.updateCurrentFileProject).not.toHaveBeenCalled();
   });
 });
 

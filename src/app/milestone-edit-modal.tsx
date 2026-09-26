@@ -24,6 +24,7 @@ import { appendDictation } from "./dictation-engine";
 import { useSettings } from "./use-settings";
 import { useConfirm } from "./confirm-dialog";
 import { useDraftState } from "./use-draft-state";
+import { CalendarOptOutCheckbox } from "./calendar-opt-out-checkbox";
 import type { Milestone, Task } from "./types";
 
 interface Props {
@@ -37,6 +38,9 @@ interface Props {
   onSave: (next: Milestone) => void;
   onDelete: (id: number) => void;
   onClose: () => void;
+  /** §486 — Outlook push is configured for milestones; shows the per-item
+   *  "Sync to Outlook" checkbox. Absent/false hides it. */
+  calendarSyncEnabled?: boolean;
 }
 
 export function MilestoneEditModal({
@@ -47,6 +51,7 @@ export function MilestoneEditModal({
   onSave,
   onDelete,
   onClose,
+  calendarSyncEnabled,
 }: Props) {
   // Local draft mirrors the milestone prop. Reset whenever the prop changes
   // (open with a new record, or switch from one milestone to another).
@@ -186,6 +191,15 @@ export function MilestoneEditModal({
               onChange={(e) => update("date", e.target.value)}
             />
           </label>
+          )}
+
+          {calendarSyncEnabled && (
+            <CalendarOptOutCheckbox
+              lang={lang}
+              checked={!draft.calendarOptOut}
+              itemTitle={draft.name}
+              onChange={(syncs) => update("calendarOptOut", syncs ? undefined : true)}
+            />
           )}
 
           {/* ★★ The wrapper is a `<div>`, NOT a `<label>`. A contenteditable is

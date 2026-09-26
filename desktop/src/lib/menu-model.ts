@@ -86,11 +86,14 @@ export function helpAction(id: HelpMenuItemId): HelpMenuAction {
 // is the route to it; the in-page buttons hide themselves in the shell
 // (src/app/desktop-shell.ts) rather than lying.
 //
-// ★★ IT IS NOT THE WHOLE FIX -- two renderer print paths remain inert in the
-// packaged app, unfixed and out of scope here (they need a main-process route
-// such as webContents.printToPDF). **docs/open-followups.md §468** owns that
-// story and the command that enumerates the survivors; an earlier version of
-// this comment restated all of it, which made a third full copy.
+// ★★ IT WAS NOT THE WHOLE FIX -- the two PDF-export renderer print paths
+// (src/app/export.ts, src/app/document-download.ts) were inert in the
+// packaged app. **docs/open-followups.md §468** routes them through a
+// separate main-process route (desktop/src/lib/pdf-export.ts + the
+// `did-create-window`/`printToPDF`/save-dialog wiring in main.ts), not this
+// menu. That fix has landed, but §468 stays OPEN until the owed
+// packaged-app check is done. An earlier version of this comment restated
+// that story here, which made a third full copy of it.
 export type FileMenuItemId = "print";
 export type FileMenuAction = "print-window";
 

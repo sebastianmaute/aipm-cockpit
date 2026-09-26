@@ -23,7 +23,7 @@ import type { SnapshotCadence } from "../snapshot";
 import { useMsAuth } from "../use-ms-auth";
 import { InfoTooltip } from "../info-tooltip";
 import { loadPortfolioMode, savePortfolioMode, type PortfolioMode } from "../portfolio-mode";
-import { getTursoConfig, isUsableTursoUrl } from "../turso-config";
+import { getTursoConfig, isEnvTokenRejected, isUsableTursoUrl } from "../turso-config";
 import { testTursoConnection } from "../turso-pipeline";
 import { tursoErrorKind } from "../storage-error";
 import { SECRET_MERGE_TIMEOUT_MS, writeSettings } from "../use-settings";
@@ -47,6 +47,11 @@ import { useConfirm } from "../confirm-dialog";
  *  translated at RENDER time or it freezes the language it was obtained in. */
 const TURSO_TEST_FAIL_KEYS = {
   auth: "integrationsTursoTestAuth",
+  // §337 — the probe classifies through the SAME `tursoErrorKind` as the
+  // storage banner, so a token that happens to equal the (now-rejected) env
+  // token can come back "auth-env" here too. No dedicated probe copy: the
+  // Settings screen the user is already looking at is the fix either way.
+  "auth-env": "integrationsTursoTestAuth",
   unreachable: "integrationsTursoTestUnreachable",
   generic: "integrationsTursoTestFailGeneric",
 } as const;
@@ -245,20 +250,42 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // cannot drift apart again.
   const envTursoUrlUsable =
     envTursoUrlSet && isUsableTursoUrl(process.env.NEXT_PUBLIC_TURSO_DATABASE_URL ?? "");
-  // ★ The TOKEN gets no equivalent: any non-empty string is a plausible token,
-  // so there is nothing to test locally. UI and resolver therefore both gate
-  // the token on PRESENCE and so AGREE — that agreement is the property §337
-  // restored for the URL, not an unfinished half of it.
-  // ★★ BUT THE RECOURSE IS NOT SYMMETRIC, and an earlier version of this
-  // comment claimed the "Test connection" button was the remedy. It DETECTS a
-  // wrong env token; it gives no way to FIX one, because a present env token
-  // hides the token field and wins unconditionally. So the §337 shape is only
-  // half closed: with a typo'd env URL and a present env token, a user can now
-  // type a working URL and still be stuck with a token they cannot see or
-  // override — a mixed-credential pair that could not arise before this fix,
-  // since the unusable URL used to null the whole config. The only recourse is
-  // changing the deployment env; §337 (still open) is the nearest tracker.
+  // ★ The TOKEN gets no USABILITY equivalent: any non-empty string is a
+  // plausible token, so there is nothing to test locally the way the URL is
+  // tested above — a wrong token can only be discovered by Turso itself
+  // rejecting it (401/403).
+  // ★★★ §337 (token half) — THAT REJECTION USED TO BE A DEAD END. A present
+  // env token hid this field and won unconditionally, so "Test connection"
+  // could DETECT a wrong env token but gave no way to FIX one from this
+  // screen; the only recourse was changing the deployment env. `turso-config.ts`
+  // now records a per-device flag (`markEnvTokenRejected`, set by
+  // `turso-pipeline.ts` on a 401/403 against the env token) — while it is set,
+  // a non-empty Settings token outranks the env token, and this field must
+  // reappear so there is somewhere to type one. `hideTokenField` is the
+  // field's real visibility predicate everywhere below, PRESENCE
+  // (`envTursoTokenSet`) alone is no longer it.
   const envTursoTokenSet = !!process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN;
+  // §337 — lazy INITIAL read (not a render-body side effect), kept in STATE
+  // rather than a plain const.
+  // ★★★ FIX ROUND 1 (I1): a plain `const [envTokenRejected] = useState(...)`
+  // read the flag once at mount and never again — and this component does
+  // NOT remount when the flag flips. The flag is written from INSIDE
+  // `runTursoTest` below (via `testTursoConnection` → `runTursoPipeline` →
+  // `markEnvTokenRejected`), on the very same mounted instance that already
+  // rendered with the field hidden — no `loadPending` swap, no Settings
+  // reopen, nothing unmounts this component between the click and the flag
+  // being set. So a user who clicks "Test connection", gets the rejection,
+  // and looks at the screen saw the SAME hidden field forever, until they
+  // closed and reopened Settings — exactly the discovery flow this whole task
+  // exists to fix. (An earlier revision of this comment claimed "a fresh
+  // mount is guaranteed on any state change that would flip it" — that is
+  // true of the flag's OTHER writer, a real save via `use-storage-backend.ts`
+  // on Turso storage, which DOES sit behind the load hold; it was false of
+  // this component's OWN "Test connection" button, which writes the same
+  // flag without remounting anything.) `runTursoTest`'s catch now re-reads
+  // `isEnvTokenRejected()` into this state after every probe.
+  const [envTokenRejected, setEnvTokenRejected] = useState(() => isEnvTokenRejected());
+  const hideTokenField = envTursoTokenSet && !envTokenRejected;
 
   // ★★★ §548 — `updateTurso` BUILDS FROM THE LATEST SETTINGS, NOT THE ONES ITS CALLER CLOSED OVER.
   //   `onChange` takes a VALUE, not an updater (the prop contract of every settings section, shared
@@ -527,7 +554,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     | { kind: "ok"; url: string | undefined; token: string | undefined }
     | {
         kind: "fail";
-        reason: "auth" | "unreachable" | "generic";
+        reason: "auth" | "auth-env" | "unreachable" | "generic";
         url: string | undefined;
         token: string | undefined;
       }
@@ -570,6 +597,15 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       await testTursoConnection(getTursoConfig(tursoUrl, tursoToken));
       setTursoTest({ kind: "ok", url: tursoUrl, token: tursoToken });
     } catch (e) {
+      // ★★★ FIX ROUND 1 (I1) — re-sync the rejection flag from THIS probe.
+      // `testTursoConnection` may have just called `markEnvTokenRejected()`
+      // (inside `runTursoPipeline`, on a 401/403 against the env token)
+      // without this component remounting — see the state's own comment
+      // above. Without this line the token field/Apply stayed hidden until
+      // Settings was closed and reopened, which is the exact discovery gap
+      // this task exists to close. Safe from an event handler (this whole
+      // function runs from the button's `onClick`), not a render body.
+      setEnvTokenRejected(isEnvTokenRejected());
       // ★ A kind, never the config and never a raw message — nothing thrown
       // here may carry the URL or token into the DOM.
       const kind = tursoErrorKind(e);
@@ -990,7 +1026,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               )}
             </div>
           )}
-          {envTursoTokenSet && (
+          {hideTokenField && (
             <div className="block text-xs">
               <span className="inline-flex items-center gap-1 text-muted-foreground">
                 {t(lang, "integrationsTursoToken")}
@@ -999,7 +1035,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               <FieldHint className="mt-1">{t(lang, "integrationsTursoTokenFromEnv")}</FieldHint>
             </div>
           )}
-          {!envTursoTokenSet && (
+          {!hideTokenField && (
             // ★★ Tooltip AND storage notice sit outside the naming <label>
             // (open-followups §386; the notice for the same reason as the URL
             // notice above). The notice is now the field's description.
@@ -1020,9 +1056,12 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 />
               </HintedLabel>
               <FieldNotice id={tursoTokenNoteId}>{t(lang, "credentialStorageNote")}</FieldNotice>
+              {envTokenRejected && (
+                <FieldNotice>{t(lang, "integrationsTursoTokenEnvRejected")}</FieldNotice>
+              )}
             </div>
           )}
-          {!envTursoTokenSet && (
+          {!hideTokenField && (
             <div className="mt-1">
               <label className="flex items-center gap-2">
                 <Checkbox
@@ -1083,8 +1122,16 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
             </div>
           )}
           {/* ★★ §548 — Apply exists ONLY on Turso storage, the one kind where committing the
-              credentials rebuilds the backend (see `tursoIsLive`). Hidden when the env supplies
-              both values: there is nothing to draft.
+              credentials rebuilds the backend (see `tursoIsLive`). Hidden when NEITHER field is
+              editable: there is nothing to draft.
+              ★★★ §337 (token half, controller ruling) — THE TOKEN HALF OF THIS GUARD RIDES
+              `hideTokenField`, NOT `envTursoTokenSet`. A present-but-REJECTED env token makes
+              `hideTokenField` false (the token input reappears, see above), and a visible,
+              editable field with no way to commit it would defeat the whole point of showing it.
+              Before this ruling the guard read `envTursoUrlUsable && envTursoTokenSet` and stayed
+              true (Apply hidden) in exactly that state — only the Enter-key path
+              (`handleTursoFieldKeyDown`, which checks `canApplyTurso` directly and never this
+              guard) still worked, which is a discoverability gap, not a fix.
               ★★ AN ENABLED APPLY MEANS AN UNAPPLIED CHANGE, BUT NOT THE CONVERSE — this comment
               used to claim "disabled ⟺ the drafts equal the stored values", which is false about
               reachable state. `canApplyTurso` ANDs three further conjuncts (`tokenSealBlocked`,
@@ -1095,7 +1142,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               button cannot say WHY it is dead. The SharePoint Apply has the same asymmetry for a
               different reason (an emptied field); `storage-config.tsx` states its own predicate. */}
           <div className="flex flex-wrap gap-2">
-          {tursoIsLive && !(envTursoUrlUsable && envTursoTokenSet) && (
+          {tursoIsLive && !(envTursoUrlUsable && hideTokenField) && (
             // ★ Same `size` as "Test connection" beside it; the transparent border matches the
             //   secondary variant's 1px border, so the two buttons are the same height.
             <Button

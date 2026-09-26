@@ -164,6 +164,8 @@ export function seedGuardedTask(over: Partial<Task> = {}): Task {
     remainingEstimateMinutes: 120,
     knowledgeLinks: KNOWLEDGE_LINKS,
     outlookEventId: "AAMkAGI2NGVhZTVlLTI1OGMtNDI1My1iNWE0LWE0ZDk0ZTk0ZTNjOABGAAAAAAB",
+    // §486 — seeded so Relation A can probe it (TOKEN_EXCLUDED; only a literal true is kept).
+    calendarOptOut: true,
     noteLog: [
       { id: 1, timestamp: "2026-05-12T08:00:00.000Z", html: "<p>Chased the vendor for the signed contract.</p>", text: "Chased the vendor for the signed contract." },
       { id: 2, timestamp: "2026-05-18T15:45:00.000Z", html: "<p>Contract signed; closing this out.</p>", text: "Contract signed; closing this out." },
@@ -251,6 +253,8 @@ export function seedGuardedRaid(): RaidItem {
     ],
     localModifiedAt: "2026-06-12T08:15:00.000Z",
     outlookEventId: "AAMkADk0ZmVkLTE2NzUtNDU3Mi1iMDJlLTMwNzNiNDI3NTc5MgBGAAAAAAB",
+    // §486 — seeded so Relation A can probe it (TOKEN_EXCLUDED; only a literal true is kept).
+    calendarOptOut: true,
   });
 }
 
@@ -300,6 +304,8 @@ export function seedGuardedChange(over: Partial<ChangeItem> = {}): ChangeItem {
     knowledgeLinks: KNOWLEDGE_LINKS,
     localModifiedAt: "2026-03-04T11:20:00.000Z",
     outlookEventId: "AAMkAGVmMDEzMTM4LTZmYWUtNDdkYS05YTFhLWQ1ZTg1ZDI2MzQwMwBGAAAAAAB",
+    // §486 — seeded so Relation A can probe it (TOKEN_EXCLUDED; only a literal true is kept).
+    calendarOptOut: true,
     ...over,
   };
 }
@@ -327,6 +333,8 @@ export function seedGuardedMilestone(over: Partial<Milestone> = {}): Milestone {
     knowledgeLinks: KNOWLEDGE_LINKS,
     localModifiedAt: "2026-05-20T17:05:00.000Z",
     outlookEventId: "AAMkAGQ3ZDk4ZTFiLWJiMzYtNGI2Ny04ZjYyLTYwOTg0ZmQ4OGE1NQBGAAAAAAB",
+    // §486 — seeded so Relation A can probe it (TOKEN_EXCLUDED; only a literal true is kept).
+    calendarOptOut: true,
     ...over,
   };
 }
@@ -408,6 +416,8 @@ export function seedGuardedAbsence(over: Partial<Absence> = {}): Absence {
     //  by `sanitizeAbsence`.
     localModifiedAt: "2026-06-15T07:50:00.000Z",
     outlookEventId: "AAMkAGFiNmQ0YjEyLWI0ZDgtNDYxZC1hYjA3LTE5MWFlN2E0ZDVhMQBGAAAAAAB",
+    // §486 — seeded so Relation A can probe it (TOKEN_EXCLUDED; only a literal true is kept).
+    calendarOptOut: true,
     ...over,
   };
 }

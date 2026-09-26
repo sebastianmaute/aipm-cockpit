@@ -53,6 +53,7 @@ export const MD_COLUMNS: Array<{ key: keyof Task; label: string }> = [
   { key: "remainingEstimateMinutes", label: "RemainingEstimateMin" },
   { key: "knowledgeLinks", label: "KnowledgeLinks" },
   { key: "outlookEventId", label: "OutlookEventId" },
+  { key: "calendarOptOut", label: "CalendarOptOut" },
   { key: "noteLog", label: "NoteLog" },
 ];
 
@@ -78,6 +79,7 @@ export const RAID_MD_COLUMNS: Array<{ key: keyof RaidItem; label: string }> = [
   { key: "stakeholderIds", label: "StakeholderIds" },
   { key: "knowledgeLinks", label: "KnowledgeLinks" },
   { key: "outlookEventId", label: "OutlookEventId" },
+  { key: "calendarOptOut", label: "CalendarOptOut" },
   { key: "inquiriesSent", label: "Inquiries" },
   { key: "noteLog", label: "NoteLog" },
   { key: "escalations", label: "Escalations" },
@@ -94,6 +96,7 @@ export const ABSENCES_MD_COLUMNS: Array<{ key: keyof Absence; label: string }> =
   { key: "localModifiedAt", label: "LocalModified" },
   { key: "resourceId", label: "ResourceId" },
   { key: "outlookEventId", label: "OutlookEventId" },
+  { key: "calendarOptOut", label: "CalendarOptOut" },
 ];
 
 // Same 13 fields as EVENTS_CSV_COLUMNS (csv-codecs-core.ts), same order.
@@ -221,6 +224,7 @@ export const MILESTONES_MD_COLUMNS: Array<{ key: keyof Milestone; label: string 
   { key: "localModifiedAt", label: "LocalModified" },
   { key: "knowledgeLinks", label: "KnowledgeLinks" },
   { key: "outlookEventId", label: "OutlookEventId" },
+  { key: "calendarOptOut", label: "CalendarOptOut" },
 ];
 
 export const CHANGES_MD_COLUMNS: readonly { key: keyof ChangeItem; label: string }[] = [
@@ -244,6 +248,7 @@ export const CHANGES_MD_COLUMNS: readonly { key: keyof ChangeItem; label: string
   { key: "localModifiedAt", label: "LocalModified" },
   { key: "knowledgeLinks", label: "KnowledgeLinks" },
   { key: "outlookEventId", label: "OutlookEventId" },
+  { key: "calendarOptOut", label: "CalendarOptOut" },
   { key: "noteLog", label: "NoteLog" },
 ];
 

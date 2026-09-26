@@ -52,6 +52,40 @@ export function stripAttachmentsForPersistence(history: readonly ApiMessage[]): 
   });
 }
 
+function attachmentBytes(block: ContentBlock): number {
+  return block.type === "image" || block.type === "document" ? block.source.data.length : 0;
+}
+
+/** Wire-only: keep the outgoing request under `maxBytes` of attachment payload
+ *  by replacing the OLDEST earlier-turn attachments with placeholders (§575).
+ *  The LAST message (the current turn) is never touched — the staging cap
+ *  already bounds it. Under budget the input array's own messages are returned
+ *  unchanged, so an ordinary thread's request is byte-identical and the prompt
+ *  cache prefix survives. Never mutates its input. */
+export function fitHistoryToBudget(history: readonly ApiMessage[], maxBytes: number): ApiMessage[] {
+  let total = 0;
+  for (const m of history) {
+    if (typeof m.content !== "string") for (const b of m.content) total += attachmentBytes(b);
+  }
+  if (total <= maxBytes) return history.slice();
+  const out = history.slice();
+  for (let i = 0; i < out.length - 1 && total > maxBytes; i++) {
+    const msg = out[i];
+    if (typeof msg.content === "string") continue;
+    let changed = false;
+    const content = msg.content.map((block) => {
+      if (total <= maxBytes) return block;
+      const placeholder = attachmentPlaceholder(block);
+      if (!placeholder) return block;
+      total -= attachmentBytes(block);
+      changed = true;
+      return placeholder;
+    });
+    if (changed) out[i] = { ...msg, content } as ApiMessage;
+  }
+  return out;
+}
+
 /** Mint a new thread id, preferring crypto.randomUUID (mirrors newTemplateId in
  *  settings-sections/templates-section.tsx). */
 export function newThreadId(): string {

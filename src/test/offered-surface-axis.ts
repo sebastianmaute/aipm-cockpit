@@ -241,14 +241,16 @@ export const SYNTHETIC_INPUTS: Partial<Record<InlineEntity, readonly string[]>> 
  *  What also stands is the classification: the field is no longer offered, so
  *  Relation B no longer reports it as "offered and dropped". */
 export const AXIS_BASELINE: Record<InlineEntity, { declared: number; undeclared: number }> = {
-  task: { declared: 11, undeclared: 17 },
+  // §486 — `calendarOptOut` joined the task, raid, change, milestone and absence
+  //  CSV columns undeclared by any tool schema (+1 undeclared on each of the five).
+  task: { declared: 11, undeclared: 18 },
   // §515 — `escalations` joined RAID_CSV_COLUMNS undeclared by any tool schema (6 → 7).
-  raid: { declared: 16, undeclared: 7 },
-  change: { declared: 15, undeclared: 5 },
-  milestone: { declared: 5, undeclared: 3 },
+  raid: { declared: 16, undeclared: 8 },
+  change: { declared: 15, undeclared: 6 },
+  milestone: { declared: 5, undeclared: 4 },
   stakeholder: { declared: 8, undeclared: 4 },
   resource: { declared: 13, undeclared: 6 },
-  absence: { declared: 7, undeclared: 2 },
+  absence: { declared: 7, undeclared: 3 },
   calendarEvent: { declared: 9, undeclared: 3 },
 };
 

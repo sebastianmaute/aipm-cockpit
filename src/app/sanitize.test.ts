@@ -376,6 +376,15 @@ describe("sanitizeAbsence", () => {
     expect(sanitizeAbsence({ ...base, outlookEventId: long })?.outlookEventId).toHaveLength(1024);
     expect(sanitizeAbsence(base)?.outlookEventId).toBeUndefined();
   });
+  // §486 — only a literal `true` survives; "yes", 1 and "true" are dropped, key and all.
+  it("keeps calendarOptOut only when it is the literal true (§486)", () => {
+    expect(sanitizeAbsence({ id: 1, assignee: "Jane", startDate: "2026-01-01", endDate: "2026-01-05", type: "vacation", calendarOptOut: true })?.calendarOptOut).toBe(true);
+    for (const bad of ["yes", 1, "true", false]) {
+      const out = sanitizeAbsence({ id: 1, assignee: "Jane", startDate: "2026-01-01", endDate: "2026-01-05", type: "vacation", calendarOptOut: bad });
+      expect(out).not.toBeNull();
+      expect(out).not.toHaveProperty("calendarOptOut");
+    }
+  });
 });
 
 describe("fkIdOrUndefined", () => {

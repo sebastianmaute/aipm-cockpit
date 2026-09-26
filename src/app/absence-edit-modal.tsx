@@ -23,6 +23,7 @@ import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
 import { useConfirm } from "./confirm-dialog";
 import { useDraftState } from "./use-draft-state";
+import { CalendarOptOutCheckbox } from "./calendar-opt-out-checkbox";
 import { sanitizeLoadedEmail } from "./sanitize-core";
 import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
 import { emailFlagDescribedBy, emailFlagVisible, editorEmailRefusalMessage } from "./editor-email-rule";
@@ -38,6 +39,9 @@ interface Props {
   onSave: (next: Absence) => void;
   onDelete: (id: number) => void;
   onClose: () => void;
+  /** §486 — Outlook sync is configured for absences; shows the per-item
+   *  "Sync to Outlook" checkbox. Absent/false hides it. */
+  calendarSyncEnabled?: boolean;
 }
 
 const DATALIST_ID = "absence-assignee-options";
@@ -50,6 +54,7 @@ export function AbsenceEditModal({
   onSave,
   onDelete,
   onClose,
+  calendarSyncEnabled,
 }: Props) {
   // Local draft mirrors the absence prop. Reset whenever the prop changes
   // (open with a new record, or switch from one absence to another).
@@ -276,6 +281,17 @@ export function AbsenceEditModal({
                 placeholder={t(lang, "absencePlaceholderNote")}
               />
             </HintedLabel>
+          )}
+
+          {calendarSyncEnabled && (
+            <div className="sm:col-span-2">
+              <CalendarOptOutCheckbox
+                lang={lang}
+                checked={!draft.calendarOptOut}
+                itemTitle={draft.assignee}
+                onChange={(syncs) => update("calendarOptOut", syncs ? undefined : true)}
+              />
+            </div>
           )}
 
           {error && <ModalFieldError error={error} />}

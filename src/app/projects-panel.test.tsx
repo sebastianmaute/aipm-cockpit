@@ -242,6 +242,46 @@ describe("ProjectsPanel", () => {
     expect(screen.queryByRole("menu")).toBeNull();
   });
 
+  // Packaged-app check (§468 follow-up): the menu used to be an `absolute` list
+  // INSIDE the project list's `overflow-auto` scroller, so its lower formats
+  // were clipped at the card's bottom edge. It now renders through the shared
+  // `PopoverPanel`, which portals to `document.body` and positions `fixed` —
+  // no ancestor's overflow can clip it. jsdom has no layout, so what is pinned
+  // here is the PORTAL (the menu is no descendant of the pane); the geometry
+  // was measured in Chromium.
+  it("renders the export menu outside the pane, so the card's scroller cannot clip it", () => {
+    setup();
+    const pane = screen.getByRole("heading", { name: "Projects" }).closest("div.resize") as HTMLElement;
+    expect(pane).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Export project" }));
+    const menu = screen.getByRole("menu");
+    expect(pane.contains(menu)).toBe(false);
+    expect(within(menu).getAllByRole("menuitem").map((b) => b.textContent)).toEqual([
+      "CSV", "Markdown", "PDF", "Word (.docx)", "Excel (.xlsx)", "PowerPoint (.pptx)",
+    ]);
+  });
+
+  it("moves focus into the export menu on open and back to its trigger on Escape", () => {
+    setup();
+    const trigger = screen.getByRole("button", { name: "Export project" });
+    fireEvent.click(trigger);
+    expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "CSV" }));
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  // The pane used to take `CENTERED_HALF_PANE_CLASS` — half the main area — so
+  // at ~1130px of main width the project card sat in a ~560px column with the
+  // rest of the page empty. It now spans the available width up to a readable
+  // cap. A size the user DRAGGED still wins: `useResizable` writes it inline.
+  it("spans the available width up to a readable cap instead of half the main area", () => {
+    setup();
+    const pane = screen.getByRole("heading", { name: "Projects" }).closest("div.resize") as HTMLElement;
+    expect(pane.className).not.toContain("w-[50%]");
+    expect(pane.className).toContain("w-[min(100%,64rem)]");
+  });
+
   // `currentProject` stays a RENDER gate on Move-to-Turso: with no project
   // there is nothing to move, so a permanently disabled control there would be
   // noise. Not-configured is the DISABLED case instead — pinned in the
@@ -296,6 +336,22 @@ describe("ProjectsPanel file mode", () => {
     expect(
       screen.getByRole("button", { name: /delete project/i }),
     ).toBeInTheDocument();
+  });
+
+  it("disables Load from file and explains why when the browser lacks file access (§574)", () => {
+    const had = "showOpenFilePicker" in window;
+    const saved = (window as unknown as Record<string, unknown>).showOpenFilePicker;
+    delete (window as unknown as Record<string, unknown>).showOpenFilePicker;
+    try {
+      setup({ mode: "file" });
+      const btn = screen.getByRole("button", { name: /load from file/i });
+      expect(btn).toBeDisabled();
+      expect(btn).toHaveAccessibleDescription(
+        "This browser doesn't support direct file access. Use Chrome, Edge, or Opera.",
+      );
+    } finally {
+      if (had) (window as unknown as Record<string, unknown>).showOpenFilePicker = saved;
+    }
   });
 
   // §309, the OTHER branch. `projects-panel.tsx` renders Archive OR Delete —

@@ -120,13 +120,30 @@ describe("TopBar", () => {
     expect(aiIdx).toBeLessThan(alertIdx);
   });
 
-  it("lets the action cluster yield width so the search box cannot overlap its neighbour", () => {
+  // Packaged-app check (§468 follow-up). The action cluster used to carry
+  // min-w-0 and a CONTENT-sized basis, so the header shared its overflow
+  // between the two clusters in proportion to their widths: at ~1130px of main
+  // width the title read "Proj…" and the project name was cut while the search
+  // box still held ~290px. From lg up the cluster now takes only the space LEFT
+  // OVER by the title/switcher cluster (flex-1 from a zero basis), and its
+  // floor is its own min-content -- the icons plus the modern search wrapper's
+  // 7rem floor -- so the search shrinks first, and only once it reaches that
+  // floor does the left cluster start to give.
+  // ★ Below lg the old rule is kept VERBATIM (min-w-0, content basis). There the
+  // sidebar is a drawer and the header can be phone-narrow: the new floor would
+  // exceed the bar, and with right-alignment the overflow runs LEFT, over the
+  // navigation-menu button -- measured at 375px, where the button became
+  // unclickable (the search field intercepted the click).
+  // jsdom has no layout: this pins the classes; the geometry was measured in
+  // Chromium (report of the §468 follow-up).
+  it("gives the action cluster only the left-over width from lg up, floored at its own min-content", () => {
     render(<TopBar {...base} search={<div data-testid="search" />} />);
-    const cluster = screen.getByTestId("search").parentElement;
-    // Without min-w-0 this cluster refuses to shrink (flex items default to
-    // min-width:auto), so every pixel of pressure lands on the left cluster --
-    // which is where the Ask Claude trigger lives.
-    expect(cluster?.className).toContain("min-w-0");
+    const tokens = (screen.getByTestId("search").parentElement?.className ?? "").split(/\s+/);
+    expect(tokens).toEqual(expect.arrayContaining(["lg:flex-1", "lg:min-w-min", "lg:justify-end"]));
+    // Below lg: the pre-fix behaviour, unchanged.
+    expect(tokens).toContain("min-w-0");
+    expect(tokens).not.toContain("flex-1");
+    expect(tokens).not.toContain("min-w-min");
   });
 });
 
@@ -164,10 +181,22 @@ describe("top bar left/right cluster classes (source scan)", () => {
     return [...read(file).matchAll(SEARCH_WRAPPER)].map((m) => m[1]);
   }
 
-  it("keeps the classic and modern search wrappers byte-identical", () => {
-    // The clipping fix had to touch BOTH mounts -- fixing one would have left
-    // the other layout broken -- and nothing compared them. This is that
-    // divergence guard, in both directions: whichever mount drifts, this fails.
+  // ★★ The two wrappers were byte-identical until the §468 follow-up, and this
+  // test used to demand it. They now differ ON PURPOSE, at lg and up only,
+  // because the two mounts sit in different layout contexts -- measured in
+  // Chromium, not reasoned:
+  //  - MODERN: the wrapper is a flex item of TopBar's action cluster, whose
+  //    floor is its own min-content. A fixed `lg:w-96` counts in full toward
+  //    that min-content, so the floor becomes 384px + icons and every pixel of
+  //    pressure lands on the title again (mutant measured at 1390px: title
+  //    36/66px, switcher 110px -- WORSE than before the fix). Hence an auto
+  //    width, a 24rem basis to shrink from, and a 7rem floor.
+  //  - CLASSIC: the wrapper sits in a content-sized row under the app title.
+  //    The same elastic classes there collapse the field to the input's own
+  //    intrinsic ~209px even on a 1600px window, so it keeps `lg:w-96`.
+  // Below lg the two stay identical (the shared prefix below): both headers
+  // behave there exactly as they did before the fix.
+  it("keeps each search wrapper sized for its own mount, and identical below lg", () => {
     const classic = searchWrapperClasses("shell-chrome.tsx");
     const modern = searchWrapperClasses("task-manager.tsx");
 
@@ -177,10 +206,16 @@ describe("top bar left/right cluster classes (source scan)", () => {
     expect(classic[0].length).toBeGreaterThan(0);
     expect(modern[0].length).toBeGreaterThan(0);
 
-    expect(modern[0]).toBe(classic[0]);
-    // And the shrink the fix turned on must actually be in the shared string,
-    // so the two agreeing on a REVERTED value cannot read as green.
-    expect(classic[0]).toContain("min-w-0");
+    const classicTokens = classic[0].split(/\s+/);
+    const modernTokens = modern[0].split(/\s+/);
+    const belowLg = (tokens: string[]) => tokens.filter((c) => !c.startsWith("lg:"));
+    expect(belowLg(modernTokens)).toEqual(belowLg(classicTokens));
+    // The shrink the earlier overlap fix turned on (3317ac595) stays in both.
+    expect(belowLg(classicTokens)).toContain("min-w-0");
+
+    expect(classicTokens).toContain("lg:w-96");
+    expect(modernTokens).toEqual(expect.arrayContaining(["lg:w-auto", "lg:basis-96", "lg:min-w-28"]));
+    expect(modernTokens).not.toContain("lg:w-96");
   });
 
   // The modern shell's Ask-Claude flex child. `ask-claude-menu.test.tsx` pins

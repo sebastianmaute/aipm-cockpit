@@ -14,8 +14,8 @@ import { type Lang, t } from "./i18n";
 import type { Settings } from "./settings-types";
 import type { Task, RaidItem, ChangeItem, Milestone, Absence, ProjectMeta, SteeringCommittee } from "./types";
 import type { LogActivityAsFn } from "./activity-log-context";
-import { isTaskFinished } from "./task-status";
-import { isRaidActiveForReview } from "./raid-review";
+// §486 — the push inputs keep an opted-out item's linked event (see that module).
+import { isPushableAbsence, isPushableChange, isPushableRaid, isPushableTask } from "./calendar-pushable";
 import { useOutlookCalendarPush } from "./use-outlook-calendar-push";
 import { useMilestoneCalendarPull } from "./use-milestone-calendar-pull";
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
@@ -161,16 +161,21 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   // (no consent popup, no error toast on a missing session). Fail-once-per-change.
   const taskSync = calendarSyncFor(settings, "task");
   const taskAutoSyncActive = taskSync.auto && m365Enabled && !isPopout && !loadPending;
+  // §486 — gates the task editor's "Sync to Outlook" checkbox (same shape as
+  // the RAID / change / absence flags below).
+  const calendarTaskEnabled = taskSync.enabled && m365Enabled && !isPopout;
   const pushableTasks = useMemo(
-    () => tasks.filter((x) => !isTaskFinished(x) && !!x.dueDate),
+    () => tasks.filter(isPushableTask),
     [tasks],
   );
   // NOTE: deliberately EXCLUDES outlookEventId — that is an OUTPUT the push
   // writes back, not an input. Including it would re-fire the debounce one extra
-  // time after every create (a redundant no-op reconcile round).
+  // time after every create (a redundant no-op reconcile round). It DOES include
+  // `calendarOptOut` (§486), an input: re-ticking "Sync to Outlook" must trigger
+  // the push that re-creates the event, not wait for an unrelated edit.
   const taskAutoSyncKey = useMemo(
     () => pushableTasks
-      .map((t) => `${t.id}|${t.dueDate}|${t.taskName}|${t.status}`)
+      .map((t) => `${t.id}|${t.dueDate}|${t.taskName}|${t.status}|${t.calendarOptOut === true ? 1 : 0}`)
       .join(";"),
     [pushableTasks],
   );
@@ -198,12 +203,12 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   const calendarRaidEnabled = raidSync.enabled && m365Enabled && !isPopout;
   const raidAutoSyncActive = raidSync.auto && m365Enabled && !isPopout && !loadPending;
   const pushableRaid = useMemo(
-    () => raid.filter((r) => isRaidActiveForReview(r) && !!r.targetDate),
+    () => raid.filter(isPushableRaid),
     [raid],
   );
   // EXCLUDES outlookEventId — an OUTPUT the push writes back (see task block).
   const raidAutoSyncKey = useMemo(
-    () => pushableRaid.map((r) => `${r.id}|${r.targetDate}|${r.title}|${r.status}`).join(";"),
+    () => pushableRaid.map((r) => `${r.id}|${r.targetDate}|${r.title}|${r.status}|${r.calendarOptOut === true ? 1 : 0}`).join(";"),
     [pushableRaid],
   );
   const setRaidForCalendar = useCallback(
@@ -250,10 +255,10 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   const changeSync = calendarSyncFor(settings, "change");
   const calendarChangeEnabled = changeSync.enabled && m365Enabled && !isPopout;
   const changeAutoSyncActive = changeSync.auto && m365Enabled && !isPopout && !loadPending;
-  const pushableChanges = useMemo(() => changes.filter((c) => !!c.decisionDate), [changes]);
+  const pushableChanges = useMemo(() => changes.filter(isPushableChange), [changes]);
   // EXCLUDES outlookEventId — an OUTPUT the push writes back.
   const changeAutoSyncKey = useMemo(
-    () => pushableChanges.map((c) => `${c.id}|${c.decisionDate}|${c.title}|${c.status}`).join(";"),
+    () => pushableChanges.map((c) => `${c.id}|${c.decisionDate}|${c.title}|${c.status}|${c.calendarOptOut === true ? 1 : 0}`).join(";"),
     [pushableChanges],
   );
   const setChangeForCalendar = useCallback(
@@ -301,13 +306,13 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   const calendarAbsenceEnabled = absenceSync.enabled && m365Enabled && !isPopout;
   const absenceAutoSyncActive = absenceSync.auto && m365Enabled && !isPopout && !loadPending;
   const pushableAbsences = useMemo(
-    () => absences.filter((a) => a.type !== "sick" && !!a.startDate && !!a.endDate && a.endDate >= today),
+    () => absences.filter((a) => isPushableAbsence(a, today)),
     [absences, today],
   );
   // EXCLUDES outlookEventId — an OUTPUT the push writes back. Includes `note`
   // so a note-only edit re-pushes the event body (it appears in the Graph body).
   const absenceAutoSyncKey = useMemo(
-    () => pushableAbsences.map((a) => `${a.id}|${a.startDate}|${a.endDate}|${a.type}|${a.assignee}|${a.note ?? ""}`).join(";"),
+    () => pushableAbsences.map((a) => `${a.id}|${a.startDate}|${a.endDate}|${a.type}|${a.assignee}|${a.note ?? ""}|${a.calendarOptOut === true ? 1 : 0}`).join(";"),
     [pushableAbsences],
   );
   const setAbsenceForCalendar = useCallback(
@@ -402,6 +407,8 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     pushableRaid,
     pushableChanges,
     pushableAbsences,
+    // task (the push/pull instances live in tasks-section)
+    calendarTaskEnabled,
     // raid
     calendarRaidEnabled,
     onToggleCalendarRaid,

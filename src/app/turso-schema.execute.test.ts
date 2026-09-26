@@ -25,14 +25,24 @@
 // protocol violation the real server rejects. `expectWireConformantArgs` is the
 // only detector for that half.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeEach } from "vitest";
 import { DatabaseSync } from "node:sqlite";
 import {
-  ENTITY_SPECS, SCHEMA_DDL, workspaceToStatements,
-  type EntitySpec, type SqlStmt,
+  ENTITY_SPECS, SCHEMA_DDL, selectStatements, workspaceToStatements, rowsToWorkspace,
+  type EntitySpec, type SqlStmt, type PipelineResultLike,
 } from "./turso-schema";
-import { tenantSchemaDdl, tenantWorkspaceToStatements } from "./turso-tenant-schema";
+import { tenantSchemaDdl, tenantSelectStatements, tenantWorkspaceToStatements } from "./turso-tenant-schema";
+import {
+  calendarOptOutWorkspace,
+  EXPECTED_CALENDAR_OPT_OUTS,
+  readCalendarOptOuts,
+} from "../test/calendar-opt-out-fixture";
 import { emptyWorkspace, type Workspace } from "./workspace";
+import { sanitizeProjectMeta, sanitizeLoadedProjectMeta } from "./sanitize";
+import type { DocTruncationDiag } from "./document-model";
+import type { ProjectMeta } from "./types";
+import { clearDiagLog, readDiagLog } from "./diagnostics";
+import { __resetNonCalendarDateReportsForTests } from "./sanitize-load-date";
 
 const PROJECT_ID = "proj-exec-1";
 
@@ -136,6 +146,34 @@ function runStatements(db: DatabaseSync, statements: readonly SqlStmt[]): void {
       continue;
     }
     db.prepare(s.sql).run(...s.args.map(bindArg));
+  }
+}
+
+/** The real engine's SELECT result, in the `PipelineResultLike` shape
+ *  `rowsToWorkspace` expects — `.all()` already returns row objects, so this
+ *  is a straight column-name pivot, not a re-decode. */
+function selectAllResults(db: DatabaseSync): PipelineResultLike[] {
+  return selectStatements().map((s) => {
+    const rows = db.prepare(s.sql).all() as Record<string, unknown>[];
+    const cols = rows.length ? Object.keys(rows[0]).map((name) => ({ name })) : [];
+    return {
+      type: "ok",
+      response: { type: "execute", result: { cols, rows: rows.map((r) => cols.map((c) => ({ value: r[c.name] }))) } },
+    };
+  });
+}
+
+/** §538 — a full save→load cycle through the REAL engine: `workspaceToStatements`
+ *  writes into a real single-tenant DB, then a real SELECT per `TABLE_NAMES`
+ *  feeds `rowsToWorkspace` — no string-matching on the generated SQL. */
+function roundTrip(ws: Workspace, diag?: DocTruncationDiag): Workspace {
+  const db = new DatabaseSync(":memory:");
+  try {
+    for (const ddl of SCHEMA_DDL) db.exec(ddl);
+    runStatements(db, workspaceToStatements(ws));
+    return rowsToWorkspace(selectAllResults(db), diag);
+  } finally {
+    db.close();
   }
 }
 
@@ -295,6 +333,70 @@ describe("turso schema id kinds", () => {
       expect(
         (db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").all() as { value: string }[]),
       ).toHaveLength(1);
+    } finally {
+      db.close();
+    }
+  });
+});
+
+describe("turso schema §538 project meta (single-tenant)", () => {
+  beforeEach(() => {
+    clearDiagLog();
+    __resetNonCalendarDateReportsForTests();
+  });
+
+  it("round-trips ws.project through the single-tenant meta table (§538)", () => {
+    const ws = { ...emptyWorkspace(), project: sanitizeProjectMeta({ name: "Apollo", description: "d" }) as ProjectMeta };
+    const back = roundTrip(ws);
+    // The LOAD reader (`sanitizeLoadedProjectMeta`), not the write-path one — this
+    // is a load funnel, matching every other ws.project load path in the repo.
+    expect(back.project).toEqual(sanitizeLoadedProjectMeta(ws.project));
+  });
+
+  it("loads an older DB with no project_meta row as project undefined, with no diag entry (§538)", () => {
+    const diag: DocTruncationDiag = {};
+    const back = roundTrip({ ...emptyWorkspace(), project: undefined }, diag);
+    expect(back.project).toBeUndefined();
+    expect(diag.decodeFailedSlices ?? []).not.toContain("project_meta");
+  });
+
+  it("reports a project_meta start date it blanks (M2), and still loads (§538)", () => {
+    const BAD = "2026-02-30"; // shape-valid, not a real calendar date
+    const ws = {
+      ...emptyWorkspace(),
+      project: { ...sanitizeProjectMeta({ name: "Apollo" }), startDate: BAD } as ProjectMeta,
+    };
+    const back = roundTrip(ws);
+    expect(back.project?.startDate).toBe("");
+    const blanked = readDiagLog().filter((e) => e.code === "storage.nonCalendarDateBlanked");
+    expect(blanked).toEqual(expect.arrayContaining([
+      expect.objectContaining({ fields: expect.objectContaining({ source: "workspace", entity: "project", field: "startDate" }) as unknown }),
+    ]));
+  });
+});
+
+// §486 — write paths 4 and 5 of 6 for calendarOptOut, through the REAL engine:
+// save with the real statement builders, load with a real SELECT into the
+// real `rowsToWorkspace` (the tenant half mirrors `TursoBackend.loadTenant`).
+describe("calendarOptOut (§486)", () => {
+  it("4: round-trips on all five entities through the single-tenant DB", () => {
+    expect(readCalendarOptOuts(roundTrip(calendarOptOutWorkspace()))).toEqual(EXPECTED_CALENDAR_OPT_OUTS);
+  });
+
+  it("5: round-trips on all five entities through the multi-tenant DB", () => {
+    const db = new DatabaseSync(":memory:");
+    try {
+      for (const ddl of tenantSchemaDdl()) db.exec(ddl);
+      runStatements(db, tenantWorkspaceToStatements(calendarOptOutWorkspace(), PROJECT_ID));
+      const results: PipelineResultLike[] = tenantSelectStatements(PROJECT_ID).map((s) => {
+        const rows = db.prepare(s.sql).all(PROJECT_ID) as Record<string, unknown>[];
+        const cols = rows.length ? Object.keys(rows[0]).map((name) => ({ name })) : [];
+        return {
+          type: "ok",
+          response: { type: "execute", result: { cols, rows: rows.map((r) => cols.map((c) => ({ value: r[c.name] }))) } },
+        };
+      });
+      expect(readCalendarOptOuts(rowsToWorkspace(results))).toEqual(EXPECTED_CALENDAR_OPT_OUTS);
     } finally {
       db.close();
     }

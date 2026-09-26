@@ -33,4 +33,13 @@ describe("sanitizeChangeItem", () => {
     const none = sanitizeChangeItem({ id: 3, title: "t", status: "Proposed", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [] });
     expect(none?.outlookEventId).toBeUndefined();
   });
+  // §486 — only a literal `true` survives; "yes", 1 and "true" are dropped, key and all.
+  it("keeps calendarOptOut only when it is the literal true (§486)", () => {
+    expect(sanitizeChangeItem({ id: 1, title: "t", status: "Approved", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [], calendarOptOut: true })?.calendarOptOut).toBe(true);
+    for (const bad of ["yes", 1, "true", false]) {
+      const out = sanitizeChangeItem({ id: 1, title: "t", status: "Approved", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [], calendarOptOut: bad });
+      expect(out).not.toBeNull();
+      expect(out).not.toHaveProperty("calendarOptOut");
+    }
+  });
 });

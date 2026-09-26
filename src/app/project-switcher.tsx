@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ArrowPathIcon, BriefcaseIcon, CheckIcon, ChevronDownIcon } from "./icons";
 import { usePopoverDismiss } from "./use-popover-dismiss";
 import { type Lang, t } from "./i18n";
 import { type ProjectRegistryEntry } from "./projects-registry";
+import { useFsaSupported } from "./use-fsa-supported";
 
 export interface ProjectSwitcherProps {
   /** Name of the active project, or null when none is selected. */
@@ -57,6 +58,10 @@ export function ProjectSwitcher({
   const ref = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  // §574 — Firefox/Safari have no File System Access open picker. Disable the
+  // "Load from file" menuitem there and explain the BROWSER limitation.
+  const fsaSupported = useFsaSupported();
+  const fsaHintId = useId();
 
   usePopoverDismiss(open, ref, () => setOpen(false));
 
@@ -225,14 +230,22 @@ export function ProjectSwitcher({
               type="button"
               role="menuitem"
               tabIndex={-1}
+              disabled={!fsaSupported}
+              aria-disabled={!fsaSupported || undefined}
+              aria-describedby={fsaSupported ? undefined : fsaHintId}
               onClick={() => {
                 onLoadFromFile();
                 setOpen(false);
               }}
-              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green"
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green disabled:cursor-default disabled:text-muted-foreground disabled:hover:bg-transparent"
             >
               {t(lang, "projectSwitcherLoadFile")}
             </button>
+          )}
+          {mode === "file" && !fsaSupported && (
+            <p id={fsaHintId} className="px-3 pb-1 text-xs text-muted-foreground">
+              {t(lang, "storageFsaUnsupported")}
+            </p>
           )}
           <button
             type="button"

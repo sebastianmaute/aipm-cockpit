@@ -293,10 +293,13 @@ describe("SavingPausedBanner", () => {
     expect(screen.queryByRole("alert", { name: "Document data could not be opened" })).toBeNull();
   });
 
-  // ★★★ THE HEADLINE MUST NOT NAME DOCUMENTS FOR A CAUSE THAT COVERS ELEVEN
-  // SLICES. `reportUnreadableSlice` reaches project_status, field_visibility,
-  // features, steering_committee, timelog_links, knowledge_items, insights,
-  // activityLog, documents, documentVersions and settings_overrides. A corrupt
+  // ★★★ THE HEADLINE MUST NOT NAME DOCUMENTS FOR A CAUSE THAT COVERS EVERY
+  // `reportUnreadableSlice` SLICE. Re-derive rather than trusting a hand-kept
+  // list or count — both have rotted before:
+  //   grep -o 'reportUnreadableSlice("[a-zA-Z_]*"' src/app/turso-schema.ts
+  // Today that is: project_status, project_meta, field_visibility, features,
+  // steering_committee, timelog_links, knowledge_items, insights, activityLog,
+  // budgetHistory, documents, documentVersions and settings_overrides. A corrupt
   // steering-committee blob in a project with NO documents announced itself as
   // "document data", the user concluded it did not apply, and clicked the
   // PERMANENT-discard button — on a screen that misnamed what was discarded.

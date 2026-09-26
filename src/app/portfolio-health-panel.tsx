@@ -16,6 +16,7 @@ import type { Health } from "./health";
 import { RagDot } from "./rag-dot";
 import type { SubStatus } from "./dashboard";
 import { usePortfolioHealth, PORTFOLIO_LOAD_FAILED } from "./use-portfolio-health";
+import { isTursoErrorMessageKey } from "./storage-error";
 import type { MilestoneHealthBucket } from "./portfolio-rollup";
 import { EmptyState } from "./empty-state";
 import { DataTable } from "./data-table";
@@ -91,7 +92,16 @@ export function PortfolioHealthPanel({
   }
   if (loading) return <PanelSkeleton lang={lang} />;
   if (error) {
-    const description = error === PORTFOLIO_LOAD_FAILED ? t(lang, "portfolioLoadErrorDesc") : error;
+    // ★★★ Branch review I2 (§337) — `error` may be the sentinel, a
+    // `TursoErrorMessageKey` (an i18n key the hook stores instead of raw
+    // text so it can stay i18n-free — see `use-portfolio-health.ts`), or a
+    // raw fallback message. Translate the first two; show the third as-is.
+    const description =
+      error === PORTFOLIO_LOAD_FAILED
+        ? t(lang, "portfolioLoadErrorDesc")
+        : error && isTursoErrorMessageKey(error)
+          ? t(lang, error)
+          : error;
     return (
       <div className={VIEW_PANE_FILL_CLASS}>
         <EmptyState title={t(lang, "portfolioLoadErrorTitle")} description={description} />

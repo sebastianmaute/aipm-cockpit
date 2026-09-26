@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBroadcastSync } from "./broadcast-sync";
-import { t } from "./i18n";
+import { t, type TranslationKey } from "./i18n";
 import {
   type StorageConfig,
   type Workspace,
@@ -32,6 +32,17 @@ import type { ToastAction } from "./use-toast";
 import type { UseStorageBackendArgs } from "./use-storage-backend-types";
 
 export type { UseStorageBackendArgs } from "./use-storage-backend-types";
+
+/** The toast key for a project-level storage error, or null when the error is
+ *  not a StorageNotReadyError (the caller toasts those differently). §574: the
+ *  browser-unsupported hint must name the BROWSER — the generic key tells the
+ *  user to "pick a file in Settings", which cannot help in Firefox/Safari. */
+export function projectErrorKey(err: unknown): TranslationKey | null {
+  if (!(err instanceof StorageNotReadyError)) return null;
+  if (err.hint === "local-file-permission-needed") return "storagePermissionGestureNeeded";
+  if (err.hint === "file-system-access-unsupported") return "storageFsaUnsupported";
+  return "storageNotReady";
+}
 
 export function useStorageBackend(args: UseStorageBackendArgs) {
   const {
@@ -1062,12 +1073,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   function reportProjectError(err: unknown): void {
     const msg = err instanceof Error ? err.message : String(err);
     if (/abort/i.test(msg) || /user activation/i.test(msg)) return;
-    if (err instanceof StorageNotReadyError) {
-      const hint = (err as StorageNotReadyError).hint;
-      const key =
-        hint === "local-file-permission-needed"
-          ? "storagePermissionGestureNeeded"
-          : "storageNotReady";
+    const key = projectErrorKey(err);
+    if (key) {
       emitToast("error", t(langRef.current, key));
     } else if (!(err instanceof StorageNotImplementedError)) {
       emitToast("error", t(langRef.current, "storageLoadFailed", msg));

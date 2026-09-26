@@ -49,7 +49,14 @@ export function TopBar({ lang, title, bannerCount, onShowAlerts, onOpenAiAssista
         {projectSwitcher && <ProjectSwitcher {...projectSwitcher} />}
         {projectSwitcherTrailing}
       </div>
-      <div className="flex min-w-0 items-center gap-1">
+      {/* From lg up this cluster takes only the width the title/switcher cluster
+          leaves (flex-1 from a zero basis), floored at its own min-content, so
+          the search (whose modern wrapper shrinks from 24rem to a 7rem floor)
+          gives way before the title or project name truncate. Below lg the
+          header can be phone-narrow, where that floor would overrun the bar
+          and cover the menu button; there it keeps the plain min-w-0 rule.
+          Measured in Chromium — see top-bar.test.tsx. */}
+      <div className="flex min-w-0 items-center gap-1 lg:min-w-min lg:flex-1 lg:justify-end">
         {search}
         {onOpenAiAssistant && (
           <IconButton

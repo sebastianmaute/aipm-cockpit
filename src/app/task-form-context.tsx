@@ -55,6 +55,9 @@ export function emptyForm() {
     // Empty string = "Auto" (no override). Mapped to undefined on save.
     healthOverride: "" as "" | Health,
     knowledgeLinks: [] as KnowledgeLink[],
+    // §486 — the item opted out of Outlook sync. `false` = syncs; mapped to
+    // undefined on save so an opted-in row carries no key.
+    calendarOptOut: false,
   };
 }
 

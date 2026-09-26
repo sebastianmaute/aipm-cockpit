@@ -1653,4 +1653,18 @@ describe("TasksSection — the scope epoch reaches the manual Outlook push/pull 
     //   would stay green while "a stale pull cannot touch project B's tasks" stopped being proved.
     expect(pullArgs.at(-1)!.setItems).toBe(pushArgs.at(-1)!.setItems);
   });
+
+
+  // §486 fix round 2 — this pane builds its OWN push input, so it must use the
+  // shared `isPushableTask`: an opted-out task that still holds a link stays in
+  // the push input after it is finished, or the push deletes the kept event.
+  it("keeps an opted-out, linked, finished task in the push input (§486)", () => {
+    const keep = { id: 1, taskName: "Kept", status: "Done", completedDate: "2026-05-01", dueDate: "2026-06-01", outlookEventId: "E1", calendarOptOut: true };
+    const synced = { id: 2, taskName: "Done", status: "Done", completedDate: "2026-05-01", dueDate: "2026-06-01", outlookEventId: "E2" };
+    const open = { id: 3, taskName: "Open", status: "To Do", dueDate: "2026-06-01" };
+    stubWorkspace([keep, synced, open], [keep, synced, open]);
+    render(<TasksSection {...makeProps()} m365Configured />);
+    const items = pushArgs.at(-1)!.items as Array<{ id: number }>;
+    expect(items.map((i) => i.id)).toEqual([1, 3]);
+  });
 });

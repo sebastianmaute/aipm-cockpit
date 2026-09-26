@@ -299,6 +299,9 @@ describe("every create tool applies its entity's merge-site guard", () => {
 const EXCLUDED_PROBES: Readonly<Record<string, unknown>> = {
   localModifiedAt: "2000-01-01T00:00:00.000Z",
   outlookEventId: "AAMkAGModelSuppliedOutlookId",
+  // §486 — the literal `true` is the one value the sanitizers keep, so it is
+  //  the only probe that can land if a strip goes missing.
+  calendarOptOut: true,
   inquiriesSent: 7,
   noteLog: [{ id: 1, timestamp: "2000-01-01T00:00:00.000Z", html: "<p>model note</p>", text: "model note" }],
 };

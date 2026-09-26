@@ -13,7 +13,6 @@ import { defaultResourcePlan } from "./resource-foundation";
 import {
   dropDanglingDependencies,
   parseDependenciesString,
-  sanitizeLoadedAbsence,
   sanitizeLoadedBudgetBucket,
   sanitizeDiscipline,
   sanitizeLoadedFxRates,
@@ -51,6 +50,8 @@ import {
   countDroppedRow,
   buildDocumentAssetFromObj,
   buildRaidItemFromObj,
+  buildAbsenceFromObj,
+  decodeCalendarOptOut,
   decodeRatesMap,
   parseHealthOverride,
 } from "./csv-codecs";
@@ -202,11 +203,11 @@ const ABSENCE_ALIASES: Record<string, string> = {
   start: "startDate", startdate: "startDate", end: "endDate", enddate: "endDate",
   type: "type", note: "note",
   localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
-  outlookeventid: "outlookEventId",
+  outlookeventid: "outlookEventId", calendaroptout: "calendarOptOut",
 };
 
 function markdownToAbsences(md: string, diag?: ImportDiag): Absence[] {
-  return decodeMdTable(md, ABSENCE_ALIASES, sanitizeLoadedAbsence, "absences", diag);
+  return decodeMdTable(md, ABSENCE_ALIASES, buildAbsenceFromObj, "absences", diag);
 }
 
 /** Derived from EVENTS_MD_COLUMNS (markdown-codecs-core.ts), not hand-written —
@@ -354,6 +355,7 @@ const RAID_ALIASES: Record<string, string> = {
   causedby: "causedByRaidIds", causedbyraidid: "causedByRaidIds",
   stakeholderids: "stakeholderIds", stakeholders: "stakeholderIds",
   documentlinks: "knowledgeLinks", knowledgelinks: "knowledgeLinks", outlookeventid: "outlookEventId",
+  calendaroptout: "calendarOptOut",
   inquiries: "inquiriesSent", inquiriessent: "inquiriesSent",
   notelog: "noteLog",
   escalations: "escalations",
@@ -500,6 +502,7 @@ function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
       colMap[idx] = "remainingEstimateMinutes";
     else if (norm === "documentlinks" || norm === "knowledgelinks") colMap[idx] = "knowledgeLinks";
     else if (norm === "outlookeventid") colMap[idx] = "outlookEventId";
+    else if (norm === "calendaroptout") colMap[idx] = "calendarOptOut";
     else if (norm === "notelog") colMap[idx] = "noteLog";
   });
 
@@ -542,6 +545,7 @@ function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
       lastSyncedAt: obj.lastSyncedAt || undefined,
       localModifiedAt: obj.localModifiedAt || undefined,
       outlookEventId: obj.outlookEventId || undefined,
+      calendarOptOut: decodeCalendarOptOut(obj.calendarOptOut),
       healthOverride: parseHealthOverride(obj.healthOverride),
       resourceId: fkIdOrUndefined(obj.resourceId),
       originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),

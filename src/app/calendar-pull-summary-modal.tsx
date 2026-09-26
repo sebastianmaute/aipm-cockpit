@@ -167,6 +167,8 @@ export function CalendarPullSummaryModal({
               <h3 className="mb-2 text-sm font-semibold text-foreground">
                 {t(lang, "calendarPullDeletions")}
               </h3>
+              {/* §486 — the prune that removed these links also opted the items out. */}
+              <p className="mb-2 text-xs text-muted-foreground">{t(lang, "calendarPullDeletionsOptedOutHint")}</p>
               <ul className="space-y-1 text-sm text-muted-foreground">
                 {deletions.map((d) => (
                   <li key={d.id}>

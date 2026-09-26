@@ -466,6 +466,8 @@ const enUS = {
     "Can't reach your Turso database — changes aren't being saved. Check the database URL in Settings; the database may have been renamed or removed.",
   storageAuthBanner:
     "Your Turso auth token was rejected — changes aren't being saved. Update the token in Settings.",
+  storageAuthEnvBanner:
+    "The deployment's Turso token was rejected — check NEXT_PUBLIC_TURSO_AUTH_TOKEN, or enter a token in Settings.",
   storageSaveFailedBanner:
     "Your changes couldn't be saved to the current storage. Fix the issue (e.g. re-grant file access or free up space) and saving will be retried.",
   storageSwitchFlushFailed:
@@ -2367,6 +2369,8 @@ const enUS = {
   integrationsTursoTokenPlaceholder: "Turso database token",
   integrationsTursoTokenFromEnv:
     "Set by NEXT_PUBLIC_TURSO_AUTH_TOKEN in this deployment. An environment value overrides this setting, so the field is hidden.",
+  integrationsTursoTokenEnvRejected:
+    "The deployment token was rejected. A token entered here is used instead.",
   integrationsTursoLearnMore: "Learn more about Turso ↗",
   integrationsComingSoon: "Available in 0.22.0+",
 
@@ -3127,14 +3131,16 @@ const enUS = {
   documentsTruncatedBanner: "Some of this project's document data could not be opened. Saving is paused to protect your saved project - it still holds everything.",
   documentsTruncatedSaveAnyway: "Save anyway",
   documentsTruncatedBannerAria: "Document data could not be opened",
-  // ★★★ THE DECODE CAUSE COVERS ELEVEN META SLICES, NOT DOCUMENTS. The two keys
-  // above are the TRUNCATION headline and are accurate for it (the cap really
-  // does cut document entries and blocks). `reportUnreadableSlice` reaches
-  // project_status, field_visibility, features, steering_committee,
-  // timelog_links, knowledge_items, insights, activityLog, documents,
-  // documentVersions and settings_overrides — so a corrupt steering-committee
-  // blob in a project with NO documents used to be announced as document data,
-  // and the user made a PERMANENT discard decision on a screen that misnamed
+  // ★★★ THE DECODE CAUSE COVERS EVERY `reportUnreadableSlice` SLICE, NOT JUST
+  // DOCUMENTS. The two keys above are the TRUNCATION headline and are accurate
+  // for it (the cap really does cut document entries and blocks). Re-derive the
+  // list rather than trusting this one — it has rotted before:
+  //   grep -o 'reportUnreadableSlice("[a-zA-Z_]*"' src/app/turso-schema.ts
+  // Today that is: project_status, project_meta, field_visibility, features,
+  // steering_committee, timelog_links, knowledge_items, insights, activityLog,
+  // budgetHistory, documents, documentVersions, settings_overrides — so a
+  // corrupt steering-committee blob in a project with NO documents used to be
+  // announced as document data, and the user made a PERMANENT discard decision on a screen that misnamed
   // what was being discarded. These two are the cause-aware alternative, and
   // they are deliberately the wider wording so they also cover the case where
   // BOTH causes hold. Vocabulary matches `documentsUnreadableWarning` /
@@ -3244,6 +3250,10 @@ const enUS = {
   calendarPushResult: "Outlook calendar updated: {0} created, {1} updated, {2} removed.",
   calendarPushPartial: "{0} event(s) could not be synced.",
   calendarPushNoAccess: "Outlook calendar access was not granted.",
+  // §486 — the per-item Outlook opt-out checkbox in the five edit modals.
+  calendarOptOutCaption: "Sync to Outlook",
+  calendarOptOutLabel: "Sync to Outlook – {0}",
+  calendarOptOutHint: "Unticked items are never created or updated in Outlook. An existing event is left as it is.",
   calendarPull: "Pull from Outlook",
   calendarPulling: "Pulling…",
   calendarPullSummaryTitle: "Outlook calendar changes",
@@ -3256,6 +3266,8 @@ const enUS = {
   calendarPullConflictsPendingOne: "1 calendar conflict — open Pull to resolve",
   calendarPullConflictsPending: "{0} calendar conflicts — open Pull to resolve",
   calendarPullEventRemoved: "Its Outlook event was removed",
+  // §486 — a prune opts the item out; the deletions section says so.
+  calendarPullDeletionsOptedOutHint: "These items are now opted out of Outlook sync. Tick \"Sync to Outlook\" in an item's editor to sync it again.",
   settingsOutlookCalendarPush: "Push milestones to my Outlook calendar",
   settingsOutlookCalendarPushHint:
     "Adds a \"Push to Outlook\" button to the Milestones view. One-way: your milestones become all-day events; the app never reads your calendar changes back.",

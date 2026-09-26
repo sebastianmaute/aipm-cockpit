@@ -15,6 +15,7 @@
 import { useCallback } from "react";
 import { t, type Lang } from "./i18n";
 import { getTursoConfig } from "./turso-config";
+import { tursoErrorMessageKey } from "./storage-error";
 import { removeKeyFactsSnapshot } from "./project-key-facts-cache";
 import { listProjects, updateProjectMeta as tursoUpdateMeta } from "./turso-portfolio";
 import { savePortfolioMode, type PortfolioMode } from "./portfolio-mode";
@@ -66,7 +67,14 @@ export interface UseTursoProjectsResult {
   handleHardDeleteTursoProject: (id: string) => void;
 }
 
-function errorText(err: unknown): string {
+// ★★★ Branch review I2 (§337) — classify FIRST, same reasoning as
+// turso-project-picker.tsx's `errorText`: the raw 401/403 hint
+// ("turso-token-rejected") is an internal code with no remedy; a recognized
+// Turso connectivity failure gets its translated banner sentence instead of
+// leaking that code into one of these six operation-specific toasts.
+function errorText(err: unknown, lang: Lang): string {
+  const key = tursoErrorMessageKey(err);
+  if (key) return t(lang, key);
   return err instanceof Error ? err.message : String(err);
 }
 
@@ -110,7 +118,7 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
               window.location.reload();
             }
           } catch (err) {
-            showToast("error", t(lang, "projectCreateFailed", errorText(err)));
+            showToast("error", t(lang, "projectCreateFailed", errorText(err, lang)));
           }
         })();
       } else {
@@ -126,17 +134,29 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
     (meta: ProjectMeta) => {
       if (portfolioMode === "turso") {
         const cfg = getTursoConfig(tursoDatabaseUrl, tursoAuthToken);
-        if (cfg && tursoProjectId) {
-          void (async () => {
-            try {
-              await tursoUpdateMeta(cfg, meta, tursoProjectId);
-              setProject(meta);
-              await refreshTursoProjects();
-            } catch (err) {
-              showToast("error", t(lang, "projectUpdateFailed", errorText(err)));
-            }
-          })();
+        if (!tursoProjectId) {
+          // §538 (branch review M4) — NOT "no tenant id means the single-DB
+          // backend": with portfolioMode "turso" and no selected project, the
+          // active backend is whatever storageConfig names (createBackend
+          // gives single-tenant Turso only when its kind is "turso"). Either
+          // way, the active backend's normal save persists ws.project now, so
+          // the in-memory update here is the whole write.
+          updateCurrentFileProject(meta);
+          return;
         }
+        if (!cfg) {
+          showToast("error", t(lang, "projectUpdateFailed", t(lang, "storageTursoNeedsConfig")));
+          return;
+        }
+        void (async () => {
+          try {
+            await tursoUpdateMeta(cfg, meta, tursoProjectId);
+            setProject(meta);
+            await refreshTursoProjects();
+          } catch (err) {
+            showToast("error", t(lang, "projectUpdateFailed", errorText(err, lang)));
+          }
+        })();
       } else {
         updateCurrentFileProject(meta);
       }
@@ -161,7 +181,7 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
           const survivor = remaining.find((p) => p.id !== removedId);
           if (survivor) await switchToTursoProject(survivor.id);
         } catch (err) {
-          showToast("error", t(lang, "projectRepointFailed", errorText(err)));
+          showToast("error", t(lang, "projectRepointFailed", errorText(err, lang)));
         }
       })();
     },
@@ -181,7 +201,7 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
           const refreshed = await refreshTursoProjects();
           repointAfterRemoval(id, refreshed);
         } catch (err) {
-          showToast("error", t(lang, "projectArchiveFailed", errorText(err)));
+          showToast("error", t(lang, "projectArchiveFailed", errorText(err, lang)));
         }
       })();
     },
@@ -195,7 +215,7 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
           await restoreTursoProject(id);
           await refreshTursoProjects();
         } catch (err) {
-          showToast("error", t(lang, "projectRestoreFailed", errorText(err)));
+          showToast("error", t(lang, "projectRestoreFailed", errorText(err, lang)));
         }
       })();
     },
@@ -213,7 +233,7 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
           const refreshed = await refreshTursoProjects();
           repointAfterRemoval(id, refreshed);
         } catch (err) {
-          showToast("error", t(lang, "projectHardDeleteFailed", errorText(err)));
+          showToast("error", t(lang, "projectHardDeleteFailed", errorText(err, lang)));
         }
       })();
     },

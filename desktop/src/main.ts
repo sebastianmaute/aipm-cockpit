@@ -9,7 +9,7 @@ import {
   type WebContents,
   type WebFrameMain,
 } from "electron";
-import { appendFileSync, mkdirSync } from "node:fs";
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { APP_ORIGIN, APP_PORT } from "./lib/constants";
 import { classifyPortOwner, type PortProbe } from "./lib/port-owner";
@@ -23,6 +23,15 @@ import {
   type LatchedOpenerFrame,
   type NavigationContext,
 } from "./lib/window-open-policy";
+import {
+  isDocumentReadyState,
+  isPdfExportFrame,
+  pdfFilenameFromTitle,
+  pdfMetadataTitleFromFilename,
+  PDF_EXPORT_READY_POLL_INTERVAL_MS,
+  PDF_EXPORT_TIMEOUT_MS,
+  preparePdfPrint,
+} from "./lib/pdf-export";
 import {
   DASHBOARD_VIEW_HASH,
   FILE_MENU_ITEMS,
@@ -711,7 +720,18 @@ if (!app.requestSingleInstanceLock()) {
         const decision = decideWindowOpen(details.url, APP_ORIGIN);
         switch (decision) {
           case "allow-in-app":
-            return { action: "allow" };
+            // ★ §468 — this branch is already `allow-in-app`, which
+            // `decideWindowOpen` grants only to `about:blank`/empty or a
+            // same-APP_ORIGIN URL (never to an external host — that decision
+            // already routed to `open-external` above), so the `frameName`
+            // check adds no new host. It only narrows WITHIN that set: a
+            // window opened under the exact frame name the renderer uses for
+            // PDF export starts hidden, print-target-shaped, instead of a
+            // visible tab. Every other `about:blank`/app-origin open
+            // (popouts, the plain HTML/document print tabs) is unaffected.
+            return isPdfExportFrame(details.frameName)
+              ? { action: "allow", overrideBrowserWindowOptions: { show: false } }
+              : { action: "allow" };
           // ★★ ONE OF FOUR shell.openExternal CALL SITES (M-1, final-review-report.md
           // -- this comment used to say "the only" one, which stopped being true once
           // the navigation guards below could reach it too): this case, the
@@ -772,6 +792,177 @@ if (!app.requestSingleInstanceLock()) {
       });
     } catch (e: unknown) {
       log(`did-create-window handler install: ${String(e)}`);
+    }
+
+    // ★ §468 -- the PDF export route. The window-open handler above already
+    // rendered this child HIDDEN (`show: false`) because its frame name is
+    // `PDF_EXPORT_FRAME_NAME`; this is where main actually prints it.
+    //
+    // ★★★ §468 review round 2 -- the renderer signals "rendered" through a
+    // STATIC `<title>` element (`pdfReadyTitleMarkup`, src/app/pdf-export-
+    // protocol.ts), never a script. The tab is `document.write`n into an
+    // `about:blank` child, which inherits the app's production CSP (a
+    // nonce-only `script-src`, src/proxy.ts); a script-based signal has no
+    // nonce and is blocked outright, so this reaches main purely from
+    // parsing -- `page-title-updated` fires before any script (blocked or
+    // not) would even run.
+    //
+    // ★ The title arriving does NOT mean the page has finished rendering --
+    // the title sits early in `<head>`, so it can be parsed well before the
+    // rest of the document has laid out. `waitForReady` (lib/readiness.ts,
+    // already pure and tested) polls `document.readyState` via
+    // `executeJavaScript` -- a privileged main-process call, unaffected by
+    // the page's CSP -- until `isDocumentReadyState` reports true or the
+    // same `PDF_EXPORT_TIMEOUT_MS` budget runs out.
+    //
+    // ★ `titleHandled` stops re-entering this async body on a SECOND
+    // `page-title-updated` while the first is still in flight (the title is
+    // stable once set, but nothing prevents a future renderer change from
+    // touching it twice). `done` is the wider latch: once anything --
+    // success, cancel, error, or the outer timeout -- has concluded the
+    // export, nothing else may act on this window again.
+    //
+    // ★ §468 review Minor B / round 2 -- `timeout` bounds how long main
+    // waits for the SEQUENCE UP TO "ready to print" (ready title, then
+    // readyState "complete"). A crashed renderer or a hung render would
+    // otherwise leave this hidden window open forever, and because it still
+    // owns the named `window.open` target, a LATER export reuses the same
+    // browsing context and never fires a fresh `did-create-window` --
+    // silently swallowed behind the stuck first one. Left running (not
+    // cleared) while `waitForReady` polls, so it can still cut that poll
+    // short.
+    //
+    // ★★★ §468 re-review N1 -- it is cleared the MOMENT the page is known
+    // ready, BEFORE `printToPDF`/the save dialog run, not in the async
+    // body's `finally` (an earlier revision of this fix cleared it only in
+    // `finally` and was wrong: printToPDF and a native save dialog can both
+    // legitimately run past this budget, and the old placement left the
+    // timeout armed through both -- see the fix's own comment at the clear
+    // site for the two ways that broke). The `finally` clear stays as a
+    // defensive no-op for any path that throws before reaching that line.
+    try {
+      contents.on("did-create-window", (childWindow, details) => {
+        if (!isPdfExportFrame(details.frameName)) return;
+        let done = false;
+        let titleHandled = false;
+        const timeout = setTimeout(() => {
+          if (done) return;
+          done = true;
+          log(`pdf export: timed out after ${PDF_EXPORT_TIMEOUT_MS}ms waiting for the ready signal`);
+          dialog.showErrorBox(
+            "PDF export failed",
+            `The PDF export took too long and was cancelled.\n\nDetails: ${join(logDir, "launch.log")}`,
+          );
+          if (!childWindow.isDestroyed()) childWindow.close();
+        }, PDF_EXPORT_TIMEOUT_MS);
+        // ★ §468 final re-review M6 -- if the RENDERER closes this window
+        // itself (document-download.ts's pdf branch calls `tab.close()` and
+        // rethrows when preparing the document fails, before it ever writes
+        // the ready `<title>`), no `page-title-updated` with the ready
+        // prefix ever arrives, so neither `done` nor `timeout` is otherwise
+        // touched. Without this listener the armed `timeout` fires 60s later
+        // against an already-closed window and shows "took too long and was
+        // cancelled" -- a second, MISLEADING error on top of the real one the
+        // renderer's own caller already surfaced. `once`, not `on`: this
+        // window can only close once, and every OTHER close in this handler
+        // (timeout, success, cancel, error) already sets `done`/clears
+        // `timeout` itself before calling `.close()`, so by the time this
+        // fires here it is a harmless no-op for those paths -- it never
+        // shows a dialog of its own, so it cannot double-report anything.
+        childWindow.once("closed", () => {
+          done = true;
+          clearTimeout(timeout);
+        });
+        childWindow.webContents.on("page-title-updated", (_e, title) => {
+          if (titleHandled || done) return;
+          const filename = pdfFilenameFromTitle(title);
+          if (!filename) return;
+          titleHandled = true;
+          void (async () => {
+            try {
+              const ready = await waitForReady({
+                probe: async () => {
+                  if (childWindow.isDestroyed()) return false;
+                  const state: unknown = await childWindow.webContents.executeJavaScript("document.readyState");
+                  return typeof state === "string" && isDocumentReadyState(state);
+                },
+                timeoutMs: PDF_EXPORT_TIMEOUT_MS,
+                intervalMs: PDF_EXPORT_READY_POLL_INTERVAL_MS,
+                now: () => Date.now(),
+                sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+              });
+              // The outer `timeout` may already have fired (and closed the
+              // window) while this was polling -- nothing left to do.
+              if (done) return;
+              if (!ready.ready) throw new Error("document did not finish rendering before the export timed out");
+
+              // ★ §468 re-review N1 -- the page is now known ready, so the
+              // "ready signal never arrived" backstop no longer applies, and
+              // it must stop being ABLE to fire from here on: printToPDF and
+              // the save dialog can legitimately take longer than
+              // `PDF_EXPORT_TIMEOUT_MS` (a user can sit in a native file
+              // picker as long as they like), and the timeout previously
+              // stayed armed through both -- so a slow save showed "took too
+              // long and was cancelled" and closed the window WHILE
+              // `writeFileSync` was about to succeed (the file lands on disk
+              // right after the user is told the export failed), or firing
+              // mid-`printToPDF` made it reject into the catch below for a
+              // SECOND error box on top of the timeout's own one. Clearing
+              // here, before either call, is what makes the doc comment
+              // above ("cleared only once printing has actually started")
+              // true; the `finally` block below also clears it, defensively,
+              // for any path that throws before reaching this line.
+              done = true;
+              clearTimeout(timeout);
+
+              // A clean metadata title for the PDF itself, not the
+              // ready-signal text -- `executeJavaScript` again runs
+              // regardless of the page's CSP.
+              await childWindow.webContents.executeJavaScript(
+                `document.title = ${JSON.stringify(pdfMetadataTitleFromFilename(filename))};`,
+              );
+              // ★★★ §468 packaged-app check -- the tab's own <style> did not
+              // apply in the packaged app (nonce-only style-src-elem), so it
+              // printed unstyled, portrait and clipped. `preparePdfPrint`
+              // (lib/pdf-export.ts) re-applies it via insertCSS as a guarantee
+              // and returns an explicit page size; each wide table is fitted
+              // on its own (zoom, then wrap), so prose prints at 100%. See its
+              // comment block.
+              const plan = await preparePdfPrint(childWindow.webContents);
+              if (plan.stillOverflows) log("pdf export: content is still wider than the page after fitting its tables");
+              const data = await childWindow.webContents.printToPDF(plan.options);
+              const parent = BrowserWindow.fromWebContents(contents);
+              const { canceled, filePath } = parent
+                ? await dialog.showSaveDialog(parent, {
+                    defaultPath: filename,
+                    filters: [{ name: "PDF", extensions: ["pdf"] }],
+                  })
+                : await dialog.showSaveDialog({
+                    defaultPath: filename,
+                    filters: [{ name: "PDF", extensions: ["pdf"] }],
+                  });
+              if (!canceled && filePath) writeFileSync(filePath, data);
+            } catch (e: unknown) {
+              // ★ §468 review I3 -- a printToPDF/save-dialog/writeFileSync
+              // failure used to be logged only, so a user who clicked Save
+              // was told nothing and believed the file existed. Cancel never
+              // reaches this catch (no error is thrown for it), so Cancel
+              // still shows nothing, same as before.
+              log(`pdf export: ${String(e)}`);
+              dialog.showErrorBox(
+                "PDF export failed",
+                `The PDF could not be saved.\n\nDetails: ${join(logDir, "launch.log")}`,
+              );
+            } finally {
+              done = true;
+              clearTimeout(timeout);
+              if (!childWindow.isDestroyed()) childWindow.close();
+            }
+          })();
+        });
+      });
+    } catch (e: unknown) {
+      log(`pdf export handler install: ${String(e)}`);
     }
 
     // ★★★ AUTH-FLOW CONTEXT FOR THIS WEBCONTENTS, shared by `will-navigate`

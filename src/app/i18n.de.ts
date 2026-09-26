@@ -442,6 +442,8 @@ export const de: Record<TranslationKey, string> = {
     "Turso-Datenbank nicht erreichbar — Änderungen werden nicht gespeichert. Prüfen Sie die Datenbank-URL in den Einstellungen; die Datenbank wurde evtl. umbenannt oder gelöscht.",
   storageAuthBanner:
     "Turso-Authentifizierungstoken abgelehnt — Änderungen werden nicht gespeichert. Aktualisieren Sie das Token in den Einstellungen.",
+  storageAuthEnvBanner:
+    "Das Turso-Token der Bereitstellung wurde abgelehnt – prüfen Sie NEXT_PUBLIC_TURSO_AUTH_TOKEN oder geben Sie in den Einstellungen ein Token ein.",
   storageSaveFailedBanner:
     "Änderungen konnten nicht im aktuellen Speicher gespeichert werden. Beheben Sie das Problem (z. B. Dateizugriff neu erteilen oder Speicherplatz freigeben), dann wird das Speichern erneut versucht.",
   storageSwitchFlushFailed:
@@ -2224,6 +2226,8 @@ export const de: Record<TranslationKey, string> = {
   integrationsTursoTokenPlaceholder: "Turso-Datenbank-Token",
   integrationsTursoTokenFromEnv:
     "Wird in dieser Installation über NEXT_PUBLIC_TURSO_AUTH_TOKEN gesetzt. Ein Wert aus der Umgebung hat Vorrang vor dieser Einstellung, daher ist das Feld ausgeblendet.",
+  integrationsTursoTokenEnvRejected:
+    "Das Token der Bereitstellung wurde abgelehnt. Ein hier eingegebenes Token wird stattdessen verwendet.",
   integrationsTursoLearnMore: "Mehr über Turso erfahren ↗",
   integrationsComingSoon: "Verfügbar ab 0.22.0",
 
@@ -3102,6 +3106,10 @@ export const de: Record<TranslationKey, string> = {
     "Outlook-Kalender aktualisiert: {0} erstellt, {1} aktualisiert, {2} entfernt.",
   calendarPushPartial: "{0} Termin(e) konnten nicht synchronisiert werden.",
   calendarPushNoAccess: "Zugriff auf den Outlook-Kalender wurde nicht erteilt.",
+  // §486 — the per-item Outlook opt-out checkbox in the five edit modals.
+  calendarOptOutCaption: "Mit Outlook synchronisieren",
+  calendarOptOutLabel: "Mit Outlook synchronisieren – {0}",
+  calendarOptOutHint: "Nicht angehakte Einträge werden in Outlook weder angelegt noch aktualisiert. Ein bestehender Termin bleibt unverändert.",
   calendarPull: "Aus Outlook abrufen",
   calendarPulling: "Wird abgerufen…",
   calendarPullSummaryTitle: "Outlook-Kalenderänderungen",
@@ -3114,6 +3122,8 @@ export const de: Record<TranslationKey, string> = {
   calendarPullConflictsPending: "{0} Kalenderkonflikte — im Pull auflösen",
   calendarPullConflictsPendingOne: "1 Kalenderkonflikt — im Pull auflösen",
   calendarPullEventRemoved: "Der Outlook-Termin wurde entfernt",
+  // §486 — a prune opts the item out; the deletions section says so.
+  calendarPullDeletionsOptedOutHint: "Diese Einträge sind jetzt von der Outlook-Synchronisierung ausgenommen. Setzen Sie im Editor eines Eintrags den Haken bei „Mit Outlook synchronisieren“, um ihn wieder zu synchronisieren.",
   settingsOutlookCalendarPush:
     "Meilensteine in meinen Outlook-Kalender übertragen",
   settingsOutlookCalendarPushHint:

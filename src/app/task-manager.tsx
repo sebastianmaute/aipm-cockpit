@@ -2352,6 +2352,7 @@ function TaskManagerInner() {
     pushableRaid,
     pushableChanges,
     pushableAbsences,
+    calendarTaskEnabled,
     calendarRaidEnabled,
     onToggleCalendarRaid,
     pushRaidToOutlook,
@@ -3060,6 +3061,8 @@ function TaskManagerInner() {
         taskOnOpenNotes={editingId !== null ? () => openTaskNotes(editingId) : undefined /* existing task only; a new draft has no id to target */}
         taskNotePanel={editingId !== null ? notePanelPropsFor("task", editingId) : undefined /* existing task only; a new draft has no id to write to */}
         budgetLink={budgetLink}
+        taskCalendarSyncEnabled={calendarTaskEnabled}
+        absenceCalendarSyncEnabled={calendarAbsenceEnabled}
         jiraConflicts={jiraConflicts}
         handleResolveConflicts={handleResolveConflicts}
         clearConflicts={clearConflicts}
@@ -3183,8 +3186,11 @@ function TaskManagerInner() {
         onShowAlerts={() => setActiveTab("actions")}
         onOpenAiAssistant={aiAssistantOpener(settings.ai, () => openPopoutWindow("chat", settings.popout.reuseWindow))}
         onOpenVersion={desktopVersionRequest.openVersion}
+        // From lg up: auto width + 24rem basis + 7rem floor, NOT the classic
+        // mount's fixed lg:w-96 — a fixed width becomes TopBar's action-cluster
+        // floor and squeezes the title (measured; see top-bar.test.tsx).
         search={
-          <div className="min-w-0 w-44 max-w-[55vw] sm:w-72 lg:w-96">
+          <div className="min-w-0 w-44 max-w-[55vw] sm:w-72 lg:w-auto lg:min-w-28 lg:basis-96">
             <GlobalSearchConnected lang={lang} />
           </div>
         }

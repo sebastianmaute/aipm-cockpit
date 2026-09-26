@@ -11,7 +11,7 @@ import {
   MILESTONES_CSV_COLUMNS, CHANGES_CSV_COLUMNS, STAKEHOLDERS_CSV_COLUMNS, EVENTS_CSV_COLUMNS,
   fieldToString, raidFieldToString, absenceFieldToString, shiftFieldToString,
   resourceFieldToString, budgetFieldToString, milestoneFieldToString, buildTaskFromObj, buildRaidItemFromObj,
-  buildMilestoneFromObj, changeFieldToString, buildChangeFromObj,
+  buildMilestoneFromObj, changeFieldToString, buildChangeFromObj, buildAbsenceFromObj,
   stakeholderFieldToString, buildStakeholderFromObj,
   calendarEventFieldToString, buildCalendarEventFromObj,
   decodeRatesMap,
@@ -26,8 +26,8 @@ import { sanitizeFieldVisibility } from "./field-visibility";
 import { sanitizeFeatures } from "./feature-modules";
 import {
   sanitizeResource, sanitizeRole, sanitizeLoadedBudgetBucket, sanitizeDiscipline,
-  sanitizeGrade, sanitizeLoadedAbsence, sanitizeShift, sanitizeLoadedFxRates, sanitizePlan,
-  sanitizeSteeringCommittee,
+  sanitizeGrade, sanitizeShift, sanitizeLoadedFxRates, sanitizePlan,
+  sanitizeSteeringCommittee, sanitizeLoadedProjectMeta,
 } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems } from "./document-link";
@@ -98,7 +98,7 @@ const anyToRow = (r: unknown, c: string) =>
 export const ENTITY_SPECS: EntitySpec<unknown>[] = [
   spec<Task>({ table: "tasks", wsKey: "tasks", columns: CSV_COLUMNS, get: (w) => w.tasks, toRow: fieldToString as unknown as (e: Task, col: string) => string, fromObj: buildTaskFromObj }),
   spec<RaidItem>({ table: "raid", wsKey: "raid", columns: RAID_CSV_COLUMNS, get: (w) => w.raid, toRow: raidFieldToString as unknown as (e: RaidItem, col: string) => string, fromObj: buildRaidItemFromObj }),
-  spec<Absence>({ table: "absences", wsKey: "absences", columns: ABSENCES_CSV_COLUMNS, get: (w) => w.absences, toRow: absenceFieldToString as unknown as (e: Absence, col: string) => string, fromObj: sanitizeLoadedAbsence }),
+  spec<Absence>({ table: "absences", wsKey: "absences", columns: ABSENCES_CSV_COLUMNS, get: (w) => w.absences, toRow: absenceFieldToString as unknown as (e: Absence, col: string) => string, fromObj: buildAbsenceFromObj }),
   spec<Shift>({ table: "shifts", wsKey: "shifts", columns: SHIFTS_CSV_COLUMNS, get: (w) => w.shifts, toRow: shiftFieldToString as unknown as (e: Shift, col: string) => string, fromObj: sanitizeShift }),
   spec<Resource>({ table: "resources", wsKey: "resources", columns: RESOURCES_CSV_COLUMNS, get: (w) => w.resources, toRow: resourceFieldToString, fromObj: sanitizeResource }),
   spec<Role>({ table: "roles", wsKey: "roles", columns: ROLES_CSV_COLUMNS, get: (w) => w.roles, toRow: anyToRow as (e: Role, col: string) => string, fromObj: sanitizeRole }),
@@ -210,6 +210,21 @@ export function rowsToWorkspace(
       ws.status = sanitizeProjectStatus(JSON.parse(statusRow.value));
     } catch (err) {
       reportUnreadableSlice("project_status", err);
+    }
+  }
+  // §538 — single-tenant is the ONLY Turso layout with no projects row, so
+  // project meta rides the meta table here; `rowsToWorkspace` reads
+  // `project_meta` for single-tenant DBs only (see the NOTE above
+  // `loadTenant` in turso-backend.ts — the tenant path overwrites `ws.project`
+  // from the projects row afterwards, and the tenant builder never writes
+  // `project_meta`, so tenant behaviour is unchanged).
+  const pmRow = rowObjects(byTable.get("meta")).find((r) => r.key === "project_meta");
+  if (pmRow?.value) {
+    try {
+      const pm = sanitizeLoadedProjectMeta(JSON.parse(pmRow.value));
+      if (pm) ws.project = pm;
+    } catch (err) {
+      reportUnreadableSlice("project_meta", err);
     }
   }
   const fvRow = rowObjects(byTable.get("meta")).find((r) => r.key === "field_visibility");
@@ -357,10 +372,10 @@ function insertStmt(table: string, columns: readonly string[], values: string[],
  * to its Turso table name (singletons: plan → plan, fxRates → fx_rates,
  * status → meta).
  *
- * `ws.project` is DELIBERATELY excluded: save() never persists it in either
- * mode — the tenant projects row is written only via turso-portfolio.ts's
- * upsert path. If project persistence is ever added to a builder, this diff
- * must learn about it or project-only edits would be silently skipped.
+ * `ws.project` dirties `meta`: single-tenant saves it as the `project_meta`
+ * row (§538). The tenant builder ignores it (the projects row is written via
+ * turso-portfolio.ts), so there the flag costs one meta rewrite and nothing
+ * else.
  */
 export function dirtyWorkspaceTables(prev: Workspace, next: Workspace): Set<string> {
   const dirty = new Set<string>();
@@ -370,6 +385,7 @@ export function dirtyWorkspaceTables(prev: Workspace, next: Workspace): Set<stri
   if (prev.plan !== next.plan) dirty.add("plan");
   if (prev.fxRates !== next.fxRates) dirty.add("fx_rates");
   if (prev.status !== next.status) dirty.add("meta");
+  if (prev.project !== next.project) dirty.add("meta");
   if (prev.fieldVisibility !== next.fieldVisibility) dirty.add("meta");
   if (prev.features !== next.features) dirty.add("meta");
   if (prev.steeringCommittee !== next.steeringCommittee) dirty.add("meta");
@@ -424,6 +440,19 @@ export function workspaceToStatements(ws: Workspace, dirtyTables?: ReadonlySet<s
         { type: "text", value: JSON.stringify(ws.status ?? {}) },
       ],
     });
+    // §538 — single-tenant is the ONLY Turso layout with no projects row, so
+    // project meta rides the meta table here. This builder is single-tenant-only
+    // (TursoBackend.save calls tenantWorkspaceToStatements whenever a projectId
+    // is set), so no mode flag is needed.
+    if (ws.project) {
+      out.push({
+        sql: `INSERT INTO meta (key, value) VALUES (?, ?)`,
+        args: [
+          { type: "text", value: "project_meta" },
+          { type: "text", value: JSON.stringify(ws.project) },
+        ],
+      });
+    }
     if (ws.fieldVisibility && Object.keys(ws.fieldVisibility).length > 0) {
       out.push({
         sql: `INSERT INTO meta (key, value) VALUES (?, ?)`,

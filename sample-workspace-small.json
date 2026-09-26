@@ -1737,6 +1737,7 @@
       "name": "Design Sign-off",
       "date": "2026-07-07",
       "linkedTaskIds": [],
+      "calendarOptOut": true,
       "knowledgeLinks": [
         {
           "id": "dl-4",

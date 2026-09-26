@@ -45,6 +45,11 @@ import type { Workspace } from "./workspace";
 import type { RaidEscalation } from "./types";
 import type { DocumentAsset } from "./document-asset";
 import { recordBudgetChange } from "./budget-history";
+import {
+  calendarOptOutWorkspace,
+  EXPECTED_CALENDAR_OPT_OUTS,
+  readCalendarOptOuts,
+} from "../test/calendar-opt-out-fixture";
 
 const EVT = "evt-registry-123";
 
@@ -715,5 +720,76 @@ describe("Markdown <br> wipe — root cause fix (fix-all-1)", () => {
     expect(back?.noteLog?.[0]?.html).toMatch(/<br\s*\/?>/i);
     expect(back?.escalations).toEqual(escalations);
     expect(back?.description).toBe("Impact spans two lines:<br>see attachment");
+  });
+});
+
+// §486 — Task/RaidItem/Milestone/ChangeItem/Absence.calendarOptOut across the
+// SIX write paths. Counted, not implied:
+//   1. CSV            — round trip below
+//   2. Markdown       — round trip below
+//   3. JSON           — round trip below (runs the load sanitizers for
+//                       milestone/change/absence; task/raid pass through)
+//   4. Turso single   — turso-schema.execute.test.ts, "calendarOptOut (§486)"
+//   5. Turso tenant   — same describe, against the tenant DDL + load
+//   6. IndexedDB      — browser-backend.test.ts, "calendarOptOut over IndexedDB (§486)"
+// Row 2 of each entity carries no flag, and must load back WITHOUT one.
+describe("entity persistence registry — calendarOptOut (§486)", () => {
+  it.each([
+    ["task", CSV_COLUMNS],
+    ["raid", RAID_CSV_COLUMNS],
+    ["milestone", MILESTONES_CSV_COLUMNS],
+    ["change", CHANGES_CSV_COLUMNS],
+    ["absence", ABSENCES_CSV_COLUMNS],
+  ] as const)("%s: calendarOptOut sits right after outlookEventId in the CSV column registry", (_e, cols) => {
+    const list = cols as readonly string[];
+    expect(list.indexOf("calendarOptOut")).toBe(list.indexOf("outlookEventId") + 1);
+  });
+  it("is NOT a pulled-meeting column (EVENTS_CSV_COLUMNS)", () => {
+    expect(EVENTS_CSV_COLUMNS as readonly string[]).not.toContain("calendarOptOut");
+  });
+  it("1: survives the CSV round-trip on all five entities", () => {
+    expect(readCalendarOptOuts(csvToWorkspace(workspaceToCsv(calendarOptOutWorkspace())))).toEqual(EXPECTED_CALENDAR_OPT_OUTS);
+  });
+  it("1: encodes the cell as \"true\" / \"\"", () => {
+    const csv = workspaceToCsv(calendarOptOutWorkspace());
+    expect(csv).not.toMatch(/,false(,|\r?\n)/);
+    expect(csv).toMatch(/,true(,|\r?\n)/);
+  });
+  it("2: survives the Markdown round-trip on all five entities", () => {
+    expect(readCalendarOptOuts(markdownToWorkspace(workspaceToMarkdown(calendarOptOutWorkspace())))).toEqual(EXPECTED_CALENDAR_OPT_OUTS);
+  });
+  it("3: survives the JSON round-trip on all five entities", () => {
+    expect(readCalendarOptOuts(jsonToWorkspace(workspaceToJson(calendarOptOutWorkspace())))).toEqual(EXPECTED_CALENDAR_OPT_OUTS);
+  });
+  it("a hand-edited cell other than \"true\" decodes to unset (the item syncs)", () => {
+    const csv = workspaceToCsv(calendarOptOutWorkspace()).replace(/,true(?=,|\r?\n)/g, ",yes");
+    expect(readCalendarOptOuts(csvToWorkspace(csv))).toEqual({
+      task: [undefined, undefined], raid: [undefined, undefined], milestone: [undefined, undefined],
+      change: [undefined, undefined], absence: [undefined, undefined],
+    });
+  });
+});
+
+// §486 fix round 1 (minor a) — only a literal `true` opts an item out, on EVERY
+// load path. Task and RAID rows skip a record sanitizer on JSON load, so a
+// hand-edited "false" string used to survive as a truthy opt-out.
+describe("entity persistence registry — a non-literal calendarOptOut loads as unset (§486)", () => {
+  const bogus = (): Workspace => {
+    const ws = calendarOptOutWorkspace();
+    const b = (x: unknown) => ({ ...(x as object), calendarOptOut: "false" }) as never;
+    return {
+      ...ws,
+      tasks: ws.tasks.map(b), raid: ws.raid.map(b), milestones: (ws.milestones ?? []).map(b),
+      changes: (ws.changes ?? []).map(b), absences: ws.absences.map(b),
+    };
+  };
+  const UNSET = { task: [undefined, undefined], raid: [undefined, undefined], milestone: [undefined, undefined], change: [undefined, undefined], absence: [undefined, undefined] };
+  it("JSON drops a \"false\" string on all five entities", () => {
+    expect(readCalendarOptOuts(jsonToWorkspace(JSON.stringify(bogus())))).toEqual(UNSET);
+  });
+  it("CSV writes an explicit false as an empty cell, not \"false\"", () => {
+    const ws = calendarOptOutWorkspace();
+    const withFalse: Workspace = { ...ws, tasks: [...ws.tasks, { ...ws.tasks[1], id: 3, calendarOptOut: false }] };
+    expect(workspaceToCsv(withFalse)).not.toMatch(/,false(,|\r?\n)/);
   });
 });

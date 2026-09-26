@@ -312,3 +312,30 @@ describe("AbsenceEditModal", () => {
     expect(onSave.mock.calls[0][0].assigneeEmail).toBeUndefined();
   });
 });
+
+// §486 — the per-item Outlook opt-out.
+describe("AbsenceEditModal — Sync to Outlook (§486)", () => {
+  const submit = () => fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+  it("unticking and saving hands onSave calendarOptOut: true", () => {
+    const onSave = vi.fn();
+    setup({ onSave, calendarSyncEnabled: true });
+    const box = screen.getByRole("checkbox", { name: "Sync to Outlook – Sofia Ramirez" });
+    expect(box).toBeChecked();
+    fireEvent.click(box);
+    submit();
+    expect(onSave.mock.calls[0][0].calendarOptOut).toBe(true);
+  });
+  it("re-ticking an opted-out absence clears the flag", () => {
+    const onSave = vi.fn();
+    setup({ onSave, calendarSyncEnabled: true, absence: { ...base, calendarOptOut: true } });
+    const box = screen.getByRole("checkbox", { name: "Sync to Outlook – Sofia Ramirez" });
+    expect(box).not.toBeChecked();
+    fireEvent.click(box);
+    submit();
+    expect(onSave.mock.calls[0][0].calendarOptOut).toBeUndefined();
+  });
+  it("is absent while Outlook sync is not configured", () => {
+    setup();
+    expect(screen.queryByRole("checkbox", { name: /Sync to Outlook/ })).toBeNull();
+  });
+});

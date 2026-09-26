@@ -91,6 +91,10 @@ export type TokenEntity =
  *                     approach the header rejects
  *    lastSyncedAt     Jira sync bookkeeping
  *    outlookEventId   calendar write-back bookkeeping
+ *    calendarOptOut   §486 Outlook opt-out — set by a pull's prune alongside
+ *                     `outlookEventId`, or by the item's own "Sync to Outlook"
+ *                     checkbox; no tool schema offers it, so the model never
+ *                     writes it (consumers 2 and 3 below)
  *    inquiriesSent    a counter bumped by sending a status inquiry
  *    noteLog          a dated append; adding a note does not invalidate an
  *                     edit to other fields
@@ -116,10 +120,10 @@ export type TokenEntity =
  *  widening it — a consumer reading the wrong question off a shared constant
  *  fails silently at whichever end was not considered. */
 export const TOKEN_EXCLUDED: Readonly<Record<TokenEntity, readonly string[]>> = {
-  task: ["localModifiedAt", "lastSyncedAt", "outlookEventId", "inquiriesSent", "noteLog"],
-  raid: ["localModifiedAt", "outlookEventId", "inquiriesSent", "noteLog"],
-  milestone: ["localModifiedAt", "outlookEventId"],
-  change: ["localModifiedAt", "outlookEventId", "noteLog"],
+  task: ["localModifiedAt", "lastSyncedAt", "outlookEventId", "calendarOptOut", "inquiriesSent", "noteLog"],
+  raid: ["localModifiedAt", "outlookEventId", "calendarOptOut", "inquiriesSent", "noteLog"],
+  milestone: ["localModifiedAt", "outlookEventId", "calendarOptOut"],
+  change: ["localModifiedAt", "outlookEventId", "calendarOptOut", "noteLog"],
   stakeholder: ["localModifiedAt"],
   resource: ["localModifiedAt"],
   // ★★ Both rows are legitimate ONLY because the two merge-site guards
@@ -128,7 +132,7 @@ export const TOKEN_EXCLUDED: Readonly<Record<TokenEntity, readonly string[]>> = 
   // value — the app stamps `localModifiedAt` itself and the Outlook push owns
   // `outlookEventId`. Weaken either guard and these exclusions become the false
   // PERMIT the rule above describes.
-  absence: ["localModifiedAt", "outlookEventId"],
+  absence: ["localModifiedAt", "outlookEventId", "calendarOptOut"],
   calendarEvent: ["localModifiedAt", "outlookEventId"],
 };
 

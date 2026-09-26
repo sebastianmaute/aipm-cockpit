@@ -29,7 +29,6 @@ import { BulkEditModal } from "./bulk-edit-modal";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
-import { isTaskFinished } from "./task-status";
 import { filterTasksByHealth, type HealthFilter } from "./health";
 import { visibleTaskRows } from "./visible-task-rows";
 import { useRowTokens } from "./use-row-tokens";
@@ -44,6 +43,7 @@ import type { ScopeEpochReader } from "./scope-epoch";
 import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
 import { taskToGraphEvent } from "./outlook-calendar-write";
 import { calendarSyncFor } from "./calendar-sync-config";
+import { isPushableTask } from "./calendar-pushable";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ActionChips, chipsForView } from "./action-chips";
@@ -363,12 +363,13 @@ export function TasksSection({
     [],
   );
 
-  // Outlook calendar write-back (SP1): manual push of unfinished, dated tasks.
+  // Outlook calendar write-back (SP1): manual push of unfinished, dated tasks
+  // (plus opted-out ones still linked, so their kept event is not deleted — §486).
   // The hook is called unconditionally (rules of hooks); `enabled` gates the
   // MSAL session so it stays inert when M365 is not configured.
   const calendarTaskEnabled = calendarSyncFor(settings, "task").enabled;
   const pushableTasks = useMemo(
-    () => tasks.filter((x) => !isTaskFinished(x) && !!x.dueDate),
+    () => tasks.filter(isPushableTask),
     [tasks],
   );
   // Bridge the workspace `Dispatch<SetStateAction<readonly Task[]>>` setter to the

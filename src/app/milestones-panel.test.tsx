@@ -273,6 +273,23 @@ describe("MilestonesPanel", () => {
     expect(onPushToOutlook).toHaveBeenCalledTimes(1);
   });
 
+  // §486 — the push handler doubles as the editor's "Sync to Outlook" gate.
+  it("shows the editor's Sync to Outlook checkbox only while milestone push is configured", () => {
+    const { unmount } = render(
+      <>
+        <Seed milestones={[m("Alpha", "2026-06-10")]} />
+        <MilestonesPanel {...baseProps} onPushToOutlook={vi.fn()} />
+      </>,
+      { wrapper },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Alpha" }));
+    expect(screen.getByRole("checkbox", { name: "Sync to Outlook – Alpha" })).toBeInTheDocument();
+    unmount();
+    renderMilestones({ milestones: [m("Alpha", "2026-06-10")] });
+    fireEvent.click(screen.getByRole("button", { name: "Alpha" }));
+    expect(screen.queryByRole("checkbox", { name: /Sync to Outlook/ })).toBeNull();
+  });
+
   it("does not render a Push-to-Outlook button when onPushToOutlook is absent", () => {
     renderMilestones({ milestones: [m("Alpha", "2026-06-10")] });
     expect(

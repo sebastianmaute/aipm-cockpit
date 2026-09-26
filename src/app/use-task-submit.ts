@@ -186,6 +186,9 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         remainingEstimateMinutes: form.remainingEstimateMinutes,
         resourceId: form.resourceId ?? undefined,
         knowledgeLinks: form.knowledgeLinks,
+        // §486 — explicit `undefined` when ticked, so re-ticking clears a stored
+        // opt-out (this payload is spread OVER the row on an edit).
+        calendarOptOut: form.calendarOptOut ? true : undefined,
         // ★★ `noteLog` is DELIBERATELY absent — from this payload AND from the
         // form draft itself (`emptyForm` carries no such field). The note log is
         // WRITE-THROUGH — NoteLogPanel (inline in the editor) and the floating
@@ -585,6 +588,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         pushToJira: false,
         healthOverride: task.healthOverride ?? "",
         knowledgeLinks: task.knowledgeLinks ?? [],
+        calendarOptOut: task.calendarOptOut === true,
       });
       if (typeof window !== "undefined") {
         window.scrollTo({ top: 0, behavior: "smooth" });

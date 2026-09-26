@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { WRITE_THROUGH_FIELDS, WRITE_THROUGH_KEYS } from "./write-through-fields";
 
 describe("write-through fields", () => {
-  it("names the two fields a concurrent writer can set without an undo entry", () => {
-    expect(WRITE_THROUGH_FIELDS).toEqual(["noteLog", "outlookEventId"]);
+  it("names the three fields a concurrent writer can set without an undo entry", () => {
+    expect(WRITE_THROUGH_FIELDS).toEqual(["noteLog", "outlookEventId", "calendarOptOut"]);
   });
 
   // The whole point of the module: the Set is DERIVED, so the two views cannot

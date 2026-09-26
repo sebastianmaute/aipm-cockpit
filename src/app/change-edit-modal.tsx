@@ -51,6 +51,7 @@ import { appendDictationToHtml } from "./rich-text-projection";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { useSettings } from "./use-settings";
+import { CalendarOptOutCheckbox } from "./calendar-opt-out-checkbox";
 
 export interface ChangeEditModalProps {
   lang: Lang;
@@ -76,6 +77,9 @@ export interface ChangeEditModalProps {
    *  popouts; the button is also disabled for an unsaved (new) draft, which has
    *  no persisted id to resolve. */
   onOpenNotes?: (id: number) => void;
+  /** §486 — Outlook sync is configured for change decision dates; shows the
+   *  per-item "Sync to Outlook" checkbox. Absent/false hides it. */
+  calendarSyncEnabled?: boolean;
 }
 
 const TYPE_LABEL_KEYS: Record<ChangeType, TranslationKey> = {
@@ -117,6 +121,7 @@ export function ChangeEditModal({
   onCancel,
   onDelete,
   onOpenNotes,
+  calendarSyncEnabled,
 }: ChangeEditModalProps) {
   const showToast = useToastContext();
   const { isVisible } = useModalVisibility("change");
@@ -652,6 +657,17 @@ export function ChangeEditModal({
               <span className="rounded-md border border-line bg-surface-muted px-3 py-2 text-sm text-muted-foreground">
                 {draft.decisionDate}
               </span>
+            </div>
+          )}
+
+          {calendarSyncEnabled && (
+            <div className="sm:col-span-2">
+              <CalendarOptOutCheckbox
+                lang={lang}
+                checked={!draft.calendarOptOut}
+                itemTitle={draft.title}
+                onChange={(syncs) => onChange({ ...draft, calendarOptOut: syncs ? undefined : true })}
+              />
             </div>
           )}
 

@@ -24,6 +24,7 @@ import { unzipBytes } from "../test/unzip-bytes";
 import { defaultResourcePlan } from "./resource-foundation";
 import type { ProjectDocument } from "./document-model";
 import type { Workspace } from "./workspace";
+import { PDF_EXPORT_FRAME_NAME, PDF_READY_TITLE_PREFIX } from "./pdf-export-protocol";
 
 vi.mock("./download", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./download")>();
@@ -76,6 +77,17 @@ const named = (title: string): ProjectDocument => ({ ...doc, title });
 
 /** The mock's calls, typed. */
 const downloads = () => vi.mocked(triggerDownload).mock.calls;
+
+// The exact pre-§468 browser auto-print block, copied by hand from the
+// module's own `AUTO_PRINT_SCRIPT`. ONE copy: the byte pin and the §468
+// nonced pin (which adds only ` nonce="…"` to the opening tag) both read it.
+const EXPECTED_AUTO_PRINT_SCRIPT = `<script>
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      try { window.focus(); window.print(); } catch (e) {}
+    }, 80);
+  });
+</script>`;
 
 const ASSET_ID = "asset-1";
 /** A 1x1 PNG's first bytes. Only the ALPHABET matters here — the standalone
@@ -221,6 +233,17 @@ describe("withAutoPrint", () => {
   it("appends the script when there is no </body> to inject before", () => {
     expect(withAutoPrint("<p>fragment</p>")).toContain("window.print");
   });
+
+  // ★★★ §468 review I2 — pins the EXACT browser auto-print block byte for
+  // byte, not merely a `window.print()` substring. Copied by hand from the
+  // module's own `AUTO_PRINT_SCRIPT` const as it stood before the §468
+  // refactor into `withClosingScript`; a change to that literal, or to which
+  // script `withAutoPrint` now delegates to, must fail this test.
+  it("injects the exact pre-§468 auto-print script", () => {
+    const out = withAutoPrint("<html><body><p>x</p></body></html>");
+    expect(out).toContain(EXPECTED_AUTO_PRINT_SCRIPT);
+    expect(out.indexOf(EXPECTED_AUTO_PRINT_SCRIPT)).toBeLessThan(out.lastIndexOf("</body>"));
+  });
 });
 
 describe("downloadDocument", () => {
@@ -277,6 +300,56 @@ describe("downloadDocument", () => {
     // ★ There is no PDF writer and no PDF dependency — "PDF" is print-to-PDF.
     // Nothing may be downloaded here, least of all a .pdf blob.
     expect(downloads()).toHaveLength(0);
+  });
+
+  it("opens the named frame with the ready signal, and never window.print, in the desktop shell (§468)", async () => {
+    const tab = fakeTab();
+    const open = vi.fn(() => tab.win);
+    vi.stubGlobal("open", open);
+    const ua = vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 Electron/44.0.0");
+    try {
+      await downloadDocument(doc, "pdf", ws, "en-US");
+
+      expect(open).toHaveBeenCalledWith("", PDF_EXPORT_FRAME_NAME);
+      // §468 review round 2 — the signal is a static <title>, not a script:
+      // an inline <script> here would be blocked by the packaged app's
+      // nonce-only production CSP.
+      expect(tab.html).toContain(`<title>${PDF_READY_TITLE_PREFIX}`);
+      expect(tab.html).not.toContain("<script");
+      expect(tab.html).not.toContain("window.print");
+      // Exactly one <title> — replaced, not appended after the document's own.
+      expect(tab.html.match(/<title>/g)).toHaveLength(1);
+      expect(downloads()).toHaveLength(0);
+    } finally {
+      ua.mockRestore();
+    }
+  });
+
+  // final review M6 (§468) — a failure AFTER the tab opened must close it. On
+  // desktop the hidden named frame would otherwise swallow the next export for
+  // up to 60 s and then report a timeout that is not what happened; in a
+  // browser the user would be left staring at the "Preparing…" placeholder.
+  it.each([
+    ["desktop", "Mozilla/5.0 Electron/44.0.0", PDF_EXPORT_FRAME_NAME],
+    ["browser", "Mozilla/5.0", "_blank"],
+  ])("closes the opened tab and rethrows when preparing the document fails (%s)", async (_label, agent, frame) => {
+    const tab = fakeTab();
+    const close = vi.fn();
+    (tab.win as unknown as { close: () => void }).close = close;
+    const open = vi.fn(() => tab.win);
+    vi.stubGlobal("open", open);
+    const ua = vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(agent);
+    vi.mocked(loadExportAssets).mockRejectedValueOnce(new Error("asset read failed"));
+    try {
+      await expect(
+        downloadDocument(docWithImage(), "pdf", wsWithAsset, "en-US", async () => PNG_B64),
+      ).rejects.toThrow("asset read failed");
+      expect(open).toHaveBeenCalledWith("", frame);
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(downloads()).toHaveLength(0);
+    } finally {
+      ua.mockRestore();
+    }
   });
 
   it("falls back to a plain .html download when the popup is blocked", async () => {
@@ -558,5 +631,60 @@ describe("downloadDocument asset policy per format", () => {
     const media = [...zip.keys()].filter((p) => p.startsWith("word/media/"));
     expect(media).toHaveLength(1);
     expect(zip.get(media[0])!.length).toBe(Math.floor((huge.length * 3) / 4));
+  });
+});
+
+// §468 packaged-app check — the document print tab inherits the app's
+// nonce-only production CSP too, so its `<style>` and auto-print `<script>`
+// must carry the page's nonce. The script is the pinned pre-§468 block with
+// ONLY the nonce attribute added.
+describe("downloadDocument — browser print tab carries the CSP nonce (§468)", () => {
+  const NONCE = "nOnCe+/=42";
+  let nonced: HTMLScriptElement | null = null;
+  beforeEach(() => {
+    vi.mocked(triggerDownload).mockClear();
+    nonced = document.createElement("script");
+    nonced.setAttribute("nonce", NONCE);
+    nonced.nonce = NONCE;
+    document.head.appendChild(nonced);
+  });
+  afterEach(() => {
+    nonced?.remove();
+    nonced = null;
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("nonces the document's stylesheet and the exact auto-print block", async () => {
+    const tab = fakeTab();
+    vi.stubGlobal("open", vi.fn(() => tab.win));
+
+    await downloadDocument(doc, "pdf", ws, "en-US");
+
+    expect(tab.html).toContain(`<style nonce="${NONCE}">`);
+    const expected = EXPECTED_AUTO_PRINT_SCRIPT.replace("<script>", `<script nonce="${NONCE}">`);
+    expect(tab.html).toContain(expected);
+    expect(tab.html.indexOf(expected)).toBeLessThan(tab.html.lastIndexOf("</body>"));
+    // The nonced <style> is the renderer's own HEAD stylesheet — the only
+    // element `withStyleNonce` may touch — and it is the only nonced one.
+    expect(tab.html.indexOf(`<style nonce="${NONCE}">`)).toBeLessThan(tab.html.indexOf("</head>"));
+    expect(tab.html.match(/<style nonce=/g)).toHaveLength(1);
+  });
+
+  it("never writes the live page's nonce into a downloaded .html file", async () => {
+    await downloadDocument(doc, "html", ws, "en-US");
+    const [, blob] = vi.mocked(triggerDownload).mock.calls[0];
+    expect(await blob.text()).not.toContain("nonce=");
+  });
+
+  it("nonces the stylesheet in the desktop shell too, and still carries no script", async () => {
+    const tab = fakeTab();
+    vi.stubGlobal("open", vi.fn(() => tab.win));
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 Electron/44.0.0");
+
+    await downloadDocument(doc, "pdf", ws, "en-US");
+
+    expect(tab.html).toContain(`<style nonce="${NONCE}">`);
+    expect(tab.html).not.toContain("<script");
   });
 });

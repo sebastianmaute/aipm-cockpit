@@ -581,7 +581,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§334](#334-racichippickers-popover-is-positioned-with-no-right-edge-clamp--closed-2026-09-02) | ~~`RaciChipPicker`'s popover is positioned with no right-edge clamp~~ | found 2026-09-01, fixing §55's RACI half; PRE-EXISTING | S | **CLOSED** 2026-09-02 (adopted `PopoverPanel`; closed WIDER than its title — the chips were unreachable by Tab, and the panel's `ariaLabel` was inert without a `role`. One stated constraint, chip-anchored positioning, was DECLINED) |
 | [§335](#335-the-rag-health-chips-override-togglebuttons-derived-state-border-so-amber-and-green-stay-under-31-in-the-four-light-schemes) | The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes | found 2026-09-01 in the §55 fix round, from a cold docs review | S | open |
 | [§336](#336-a-docx-hyperlink-is-followable-but-invisible--no-hyperlink-character-style-while-pptx-colours-its-links-from-the-theme--closed-2026-09-01) | ~~A `.docx` hyperlink is followable but INVISIBLE — no `Hyperlink` character style, while PPTX colours its links from the theme~~ | found 2026-09-01 in the §119/§30 cold review; MINTED AS §333 and renumbered on the 2026-09-02 merge, which is why source comments say both | S | **CLOSED** 2026-09-01 (the palette decision: `COLOR_DARK_BLUE` + underline, matching the PPTX theme; closed WIDER than its title — the workspace exporter carried it too) |
-| [§337](#337-a-non-empty-but-unusable-next_public_turso_-both-hides-the-settings-field-and-outranks-it-so-turso-cannot-be-configured-from-the-ui-at-all--open) | A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all — open | found 2026-09-02 debugging "enabling Turso shows no configuration fields"; the DISCLOSURE half of that report is fixed, this is the residue | S | open |
+| [§337](#337-a-non-empty-but-unusable-next_public_turso_-both-hides-the-settings-field-and-outranks-it-so-turso-cannot-be-configured-from-the-ui-at-all--closed-2026-09-25) | ~~A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all~~ | found 2026-09-02 debugging "enabling Turso shows no configuration fields"; URL half shipped `28b517b77`, token half this commit | S | **CLOSED** 2026-09-25 |
 | [§338](#338-useresizable-is-a-no-op-in-every-modal-that-stays-mounted-while-closed--open) | `useResizable` is a no-op in every modal that stays mounted while closed | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | M (repo-wide) | open |
 | [§339](#339-a-rename-can-strand-a-stale-alt-and-the-broken-image-state-then-paints-it--wcag-253--closed-2026-09-14) | A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 — CLOSED 2026-09-14 | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-14 |
 | [§340](#340-two-tests-in-the-asset-preview-slice-pass-for-the-wrong-reason--open) | Two tests in the asset-preview slice pass for the wrong reason | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
@@ -708,7 +708,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§465](#465-non-eur-fixed-price-buckets-every-money-figure-is-inflated-by-the-fx-rate-and-the-margin-is-wrong--closed-2026-09-12) | Non-EUR fixed-price buckets: every money figure is inflated by the FX rate, and the margin is wrong | found 2026-09-11 by the same read-only code check (issue #77, beside issue #42) | M — closed by the `feat/budget-currency-boundary` slice, which put the boundary at the ENGINE (`419937ca` converts at `computeBucketReport`'s single read; four surfaces relabelled EUR; `ResourcePlan.currency` narrowed to a union) | **CLOSED** 2026-09-12 |
 | [§466](#466-help-promises-a-burn-down-forecast-that-the-chart-does-not-draw--closed-2026-09-13) | Help promises a burn-down forecast that the chart does not draw — CLOSED 2026-09-13 | found 2026-09-11 by the same read-only code check (issue #78) | S — two strings, EN and DE together | **CLOSED** 2026-09-13 |
 | [§467](#467-fields-the-offered-surface-sweeps-typed-probes-cannot-measure--open) | Fields the offered-surface sweep's typed probes cannot measure — OPEN | found 2026-09-11 by the typed-probe slice's first measured run | S per field — a probe shape or a column decision each | open |
-| [§468](#468-pdf-export-opens-a-window-that-never-prints-in-the-desktop-app--open) | PDF export opens a window that never prints in the desktop app — OPEN | found 2026-09-12 by cold review of the desktop print-route commit `b616f021`, which fixed the in-pane Print button and overstated its scope | M — a main-process print route (`webContents.printToPDF` or a print handler on the opened window), then a decision about whether the three PDF surfaces still open a tab at all | open |
+| [§468](#468-pdf-export-opens-a-window-that-never-prints-in-the-desktop-app--closed-2026-09-26) | PDF export opens a window that never prints in the desktop app — CLOSED 2026-09-26 | found 2026-09-12 by cold review of the desktop print-route commit `b616f021`, which fixed the in-pane Print button and overstated its scope | M — a main-process print route (`webContents.printToPDF` or a print handler on the opened window), then a decision about whether the three PDF surfaces still open a tab at all | **CLOSED** 2026-09-26 |
 | [§469](#469-snapshotrecordcurrency-is-written-on-every-capture-and-read-by-nothing--closed-2026-09-16) | `SnapshotRecord.currency` is written on every capture and read by nothing — CLOSED 2026-09-16 | feat/ev-history-scope-attribution | S-M — deleted the field, its writer, column list entry, encode and decode; the DDL column stays until §551 | closed |
 | [§470](#470-the-indexeddb-load-path-sanitizes-the-plans-currency-and-nothing-else--open) | The IndexedDB load path sanitizes the plan's currency and nothing else — OPEN | found 2026-09-12 while closing §465, from `7b0c00e3`'s deliberately narrow currency-only coercion | M — not the edit but a per-field decision about whether an IndexedDB load should repair a malformed stored plan, plus tests for whichever of the four behaviours change | open |
 | [§471](#471-the-fx-override-fields-advertised-minimum-rounds-to-zero-and-is-then-refused--closed-2026-09-13) | The FX-override field's advertised minimum rounds to zero and is then refused — CLOSED 2026-09-13 | found 2026-09-12 by a reviewer reading the bucket modal during the currency-boundary slice; pre-existing | XS-S — align the input's `min`/`step` with the blur handler's `round`; deciding which precision an FX override carries is the only real question | **CLOSED** 2026-09-13 |
@@ -726,7 +726,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§483](#483-moving-the-view-scoped-ai-guide-block-onto-the-turn-tail-slice-g2-is-specced-but-tracked-nowhere-so-the-cost-harness-still-has-no-real-candidate-layout--open) | Moving the view-scoped AI guide block onto the turn tail (slice G2) is specced but tracked nowhere, so the cost harness still has no real candidate layout — OPEN | found 2026-09-13 by the housekeeping audit; `docs/AGENTS/ai-assistant.md` hands a decision to G2, and G2 had no entry or issue | M — the G2 layout as the harness's first real candidate arm, plus the usage-meter measurement it depends on | open |
 | [§484](#484-four-landmine-heavy-subsystems-have-no-docsagents-reference-and-insightsmd-omits-the-timelog-guardrail-detector--open) | Four landmine-heavy subsystems have no docs/AGENTS reference, and insights.md omits the Timelog guardrail detector — OPEN | found 2026-09-13 by the housekeeping audit's docs/AGENTS coverage pass | M — four new subsystem files plus the insights.md correction, each citing symbols rather than line numbers | open |
 | [§485](#485-nothing-keeps-docsfeaturesmd-in-sync-with-libapp-feature-guidemd-and-the-human-facing-copy-has-already-drifted--open) | Nothing keeps docs/features.md in sync with lib/app-feature-guide.md, and the human-facing copy has already drifted — OPEN | found 2026-09-13 by the housekeeping audit's general-docs pass, which counted five false claims in docs/features.md | S — generate features.md from the guide, or add a section-parity check | open |
-| [§486](#486-auto-pull-re-creates-an-outlook-event-the-user-pruned-because-an-item-cannot-opt-out-of-calendar-sync--open) | Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync — OPEN | documented as a known limit by calendar two-way SP5 (0.164) and carried only as tech-debt-register TD-3 until 2026-09-13 | M — a per-item opt-out, which is a new persisted field (all six write paths), plus the reconcile change | open |
+| [§486](#486-auto-pull-re-creates-an-outlook-event-the-user-pruned-because-an-item-cannot-opt-out-of-calendar-sync--closed-2026-09-26) | ~~Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync~~ | documented as a known limit by calendar two-way SP5 (0.164) and carried only as tech-debt-register TD-3 until 2026-09-13; fixed on `fix/defect-batch-6` | M — a per-item `calendarOptOut` across all six write paths, the reconcile change, and an editor checkbox | **CLOSED** 2026-09-26 |
 | [§487](#487-the-windows-installer-is-unsigned-because-no-code-signing-certificate-exists-so-every-install-shows-an-unknown-publisher-warning--open) | The Windows installer is unsigned because no code-signing certificate exists, so every install shows an unknown-publisher warning — OPEN | found 2026-09-13 by the housekeeping audit; recorded as a constraint in `desktop/electron-builder.yml` and as a user instruction in `docs/desktop-rollout.md` | S once a certificate exists — procuring one is an organisational step and the long pole; the CI change is signing settings plus a protected variable | open |
 | [§488](#488-the-390-h-booked-vs-104-h-planned-gap-seen-in-the-demo-is-unexplained-and-a-fixed-price-contract-converted-to-end-to-end-responsibility-has-no-model--open) | The 390 h booked vs 104 h planned gap seen in the demo is unexplained, and a fixed-price contract converted to end-to-end responsibility has no model — OPEN | GitLab #42 (F-5, demo 2026-09-11); its currency lead became #77 / §465 (closed 2026-09-12), and its external-resources lead was refuted in the issue's own comments | M — reproduce the gap on the demo data first; modelling an end-to-end contract type is the open design question | open |
 | [§489](#489-the-floating-helpmenu-has-no-deep-link-input-and-nothing-calls-for-one-yet--open) | The floating HelpMenu has no deep-link input, and nothing calls for one yet — OPEN | split 2026-09-13 from §424 (gap 4), whose modal half shipped as a popover and so never needed this route | S–M once a caller exists — a request prop following the remount-swallow rule | open |
@@ -778,7 +778,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§535](#535-a-cold-item-deep-link-to-a-non-default-view-ends-on-the-dashboard-under-strictmode-and-loses-its-item-id-outside-it--closed-2026-09-20) | A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — CLOSED 2026-09-20 | found 2026-09-14 while fixing §478 on `fix/ui-a11y-batch` | S — let the cold apply's view commit before the view→hash write, and pin `#raid/123` with and without StrictMode | **CLOSED** 2026-09-20 |
 | [§536](#536-a-mid-session-switch-from-classic-to-modern-layout-still-applies-the-cold-hash-rule-to-a-hash-left-stale-during-classic--open) | A mid-session switch from classic to modern layout still applies the cold hash rule to a hash left stale during classic — OPEN | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478); page-load half fixed and mechanism refuted 2026-09-20, mid-session-switch half reopened same day | S–M — give the hook a signal that distinguishes a mid-session enable following a classic stretch from a genuine cold start | open |
 | [§537](#537-project-contact-persons-have-no-ids--open) | Project contact persons have no ids — OPEN | filed 2026-09-14 while specifying the email-guard batch (spec Part 7); user decision: stay id-less for that batch, follow up later; GitLab #327 | M — a storage-format change to the `contactPersons` cell across CSV/Markdown/Turso-tenant, decoder back-compat, and 13 non-test call sites | open |
-| [§538](#538-single-db-turso-never-persists-project-meta--open) | Single-DB Turso never persists project meta — OPEN | found 2026-09-14 while filing §537; GitLab #328 | M — a single-tenant project meta row/table (or reuse of the tenant `projects` table), `dirtyWorkspaceTables` taught about project-only edits, and a `turso-migrate.ts` self-heal entry | open |
+| [§538](#538-single-db-turso-never-persists-project-meta--closed-2026-09-25) | Single-DB Turso never persists project meta — CLOSED 2026-09-25 | found 2026-09-14 while filing §537; GitLab #328 | M — a single-tenant `project_meta` meta row, `dirtyWorkspaceTables` taught about project-only edits, and `handleUpdateCurrentProjectByMode`'s no-config no-op fixed | **CLOSED** 2026-09-25 |
 | [§539](#539-sanitizeisodate-accepts-dates-that-are-not-real-calendar-dates--closed-2026-09-14) | `sanitizeIsoDate` accepts dates that are not real calendar dates — CLOSED 2026-09-14 | reported 2026-09-14 by a peer session's §273 work; user approved "file and fix" in the email-guard batch; GitLab #329 | S — a month/day calendar check in one function plus test migration across ~30 referencing files | **CLOSED** 2026-09-14 |
 | [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--closed-2026-09-20) | A repeated resource deep link re-runs the open while that resource's editor is open — CLOSED 2026-09-20 | found 2026-09-14 by the fix-round reviews of §362 on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | **CLOSED** 2026-09-20 |
 | [§541](#541-the-stakeholder-editor-saves-its-text-fields-uncapped-when-submitted-with-enter--closed-2026-09-21) | The stakeholder editor saves its text fields uncapped when submitted with Enter — CLOSED 2026-09-21 | found 2026-09-14 by the email-guard batch's Task 3 review; user approved filing; GitLab #331 | S — cap each field in `handleSubmit` before `onSave`, or sanitise in `handleSaveStakeholder` | closed |
@@ -814,8 +814,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§571](#571-the-chart-box-clamps-boundary-width-has-no-test--closed-2026-09-21) | The chart-box clamp's boundary width has no test — CLOSED 2026-09-21 | found 2026-09-18 by mutation-testing `anchorFor`, `>` to `>=`, suite stayed green; GitLab #356 | XS — add a case at `rect.width === 352` | closed |
 | [§572](#572-agentsmds-tsc-guidance-cannot-detect-a-vacuous-run--open) | AGENTS.md's tsc guidance cannot detect a vacuous run — OPEN | measured 2026-09-18 on this branch: a corrupt generated file hides a real `src/` error from `tsc`; GitLab #357 | S — amend the Commands block's `npx tsc --noEmit` guidance | open |
 | [§573](#573-the-open-points-visual-baseline-is-stale--closed-2026-09-19) | The Open Points visual baseline is stale | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | **CLOSED** 2026-09-19 |
-| [§574](#574-load-project-from-file-throws-in-firefoxsafari-and-blames-settings-instead-of-the-browser--open) | "Load project from file" throws in Firefox/Safari and blames Settings instead of the browser — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #359 | S — gate the CTA behind `isFileSystemAccessSupported()`, or have `reportProjectError` emit the specific message | open |
-| [§575](#575-ai-assistant-chat-history-re-sends-every-earlier-turns-attachments-so-a-long-thread-can-exceed-the-messages-apis-32-mb-request-limit--open) | AI Assistant chat history re-sends every earlier turn's attachments, so a long thread can exceed the Messages API's 32 MB request limit — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #360 | M — drop/summarize older attachment blocks before send, or track running payload bytes | open |
+| [§574](#574-load-project-from-file-throws-in-firefoxsafari-and-blames-settings-instead-of-the-browser--closed-2026-09-25) | "Load project from file" throws in Firefox/Safari and blames Settings instead of the browser — CLOSED 2026-09-25 | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #359; closed 2026-09-25 on `fix/defect-batch-6` | S — `projectErrorKey` extracted from `reportProjectError`; a new `useFsaSupported()` hook disables the three Load-from-file controls and names the reason | closed |
+| [§575](#575-ai-assistant-chat-history-re-sends-every-earlier-turns-attachments-so-a-long-thread-can-exceed-the-messages-apis-32-mb-request-limit--closed-2026-09-25) | AI Assistant chat history re-sends every earlier turn's attachments, so a long thread can exceed the Messages API's 32 MB request limit — CLOSED 2026-09-25 | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #360; closed 2026-09-25 on `fix/defect-batch-6` | S — `fitHistoryToBudget` (chat-threads.ts) placeholders the oldest earlier-turn attachments at send time until the request fits | closed |
 | [§576](#576-sanitizefxrates-reorders-its-rates-object-on-a-second-decode-so-an-fx-snapshot-is-not-byte-stable-through-a-json-round-trip--closed-2026-09-21) | sanitizeFxRates reorders its rates object on a second decode, so an FX snapshot is not byte-stable through a JSON round-trip — CLOSED 2026-09-21 | json-import-multi-attach-demo-refresh (2026-09-18), found + verified during Task 9; GitLab #361 | S — iterate `SUPPORTED_CURRENCIES` unconditionally instead of conditionally inserting present keys | closed |
 | [§577](#577-the-budgetvariance-insight-compares-full-window-budget-against-to-date-actuals-so-open-buckets-with-future-months-are-flagged-and-an-unstarted-bucket-can-read-100-and-win-worst--closed-2026-09-19) | The budgetVariance insight compares full-window budget against to-date actuals, so open buckets with future months are flagged and an unstarted bucket can read 100% and win "worst" | json-import-multi-attach-demo-refresh (2026-09-18), found + verified against sample-workspace-small.json during Task 9; GitLab #362 | M — scope budgetHours to periods to-date, and/or exclude unstarted buckets from "worst" | **CLOSED** 2026-09-19 |
 | [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open) | Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN | audit (2026-09) | M | open |
@@ -28036,49 +28036,84 @@ entry: not a dangling reference a reader notices, a confidently wrong one they d
 comments across five files were rewritten to `§336` in the merge commit. `grep -rn "§333\|§336"
 src/app --include=*.ts` enumerates both; a `§333` surviving there is a defect, not a leftover.
 
-## 337. A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all — open
+## 337. ~~A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all~~ — CLOSED 2026-09-25
 
-**Status:** open — **never machine-verified** (2026-09-02). Found by reading, not by a failing run:
-the two predicates below are three lines apart in different files. Re-check with
-`grep -n "envTursoUrlSet|envTursoTokenSet" src/app/settings-sections/integrations-section.tsx`
-against `sed -n '/^export function getTursoConfig/,/^}/p' src/app/turso-config.ts`.
+**Status:** CLOSED 2026-09-25 — shipped in two commits, one per half. Re-check with
+`grep -n "isUsableTursoUrl\|isEnvTokenRejected" src/app/turso-config.ts`.
 
-**Work item:** #243
+★ **URL half — shipped in `28b517b77`** ("an unusable env URL no longer outranks the Settings
+value"). `isUsableTursoUrl` (`turso-config.ts`) is exported so `integrations-section.tsx` asks the
+SAME question `getTursoConfig` answers, instead of a second presence-only predicate three lines
+apart: the env URL now wins only when it resolves to a usable pipeline base, an unusable one falls
+through to the Settings value, and the URL field stays editable (with a disclosure naming the var,
+`integrationsTursoUrlEnvUnusable`) whenever the env value does not resolve. That closed the FIRST
+arm of the original report — a typo'd env var locking Turso out of UI configuration entirely.
 
-★★★ **TWO PREDICATES THAT MUST AGREE AND DO NOT, AND EACH IS CORRECT ON ITS OWN.**
-`integrations-section.tsx` hides the Turso URL and token fields on **presence** —
-`!!process.env.NEXT_PUBLIC_TURSO_DATABASE_URL`, any non-empty string. `getTursoConfig` resolves on
-**usability** — a non-empty env value WINS over the settings value, then must parse to an https (or
-loopback http) origin and, for https, carry a token. So a env var that is set but unusable
-— a typo, a `postgres://` paste, a stray quote, a value from a different deployment — puts the app
-in a state with no way out **from the UI**: the field is hidden because the var is present, and the
-settings value it would write is ignored because the var is present. The Storage section then shows
-`storageTursoNeedsConfig` — *"Enter the Turso URL and token in Settings."* — pointing at a screen
-that deliberately renders no such fields.
+★★ **Token half — shipped in `3b531f22e`** on `fix/defect-batch-6` ("fix: report a rejected
+deployment Turso token and let Settings override it"). This was the SECOND, quieter arm: a present
+env token won unconditionally with no usability test of its own, so a stale/revoked token was
+undetectable except by a live 401 from Turso, and even a detected rejection (via "Test connection")
+gave no way to FIX it — the field stayed hidden. `turso-pipeline.ts` now classifies a 401 OR 403 as
+a rejection and, only when the rejected token was the deployment's own env token, records a
+per-device flag (`markEnvTokenRejected` / `isEnvTokenRejected` / `clearEnvTokenRejected`,
+`turso-config.ts`, under the `aipm-cockpit:` prefix — not a secret, not workspace data, already
+wiped by `clearAppConfig` since it shares that prefix). While the flag is set, `getTursoConfig` lets
+a non-empty Settings token outrank the env token, and `integrations-section.tsx` re-shows the token
+field with a notice (`integrationsTursoTokenEnvRejected`) AND the Apply button — the button's own
+visibility guard originally rode env-token PRESENCE rather than this same rejection state and would
+have stayed hidden in exactly this case (the guard now reads
+`!(envTursoUrlUsable && hideTokenField)`).
 
-★★ **A SECOND, QUIETER ARM: a valid URL with a STALE token.** Both fields hide, `getTursoConfig`
-returns non-null, and `TursoBackend.isReady()` is `config !== null` — so the UI reports READY with a
-✓ line while every pipeline call 401s. Worse than the first arm, because nothing on screen is
-even wrong-looking.
+★ **THE CLEAR SIDE IS NOT SYMMETRIC WITH THE MARK SIDE, AND THE FIRST CUT OF THIS ENTRY OVERCLAIMED
+IT WAS.** While a non-empty Settings token exists and the flag is set, `preferSettings` sends the
+SETTINGS token on every pipeline call, never the env one — so a stale, still-populated Settings
+token does not merely "linger" after the flag clears, it PREVENTS the flag from ever clearing on its
+own: no call can use the env token while a Settings token is in the way. The flag only clears once
+the Settings token is emptied (or the field is otherwise driven back to the env token) AND that
+env-token call succeeds. This is NOT "a fixed deployment wins again automatically" — it is "a fixed
+deployment wins again once nothing in Settings is still overriding it".
 
-★ **WHAT WAS ALREADY FIXED, AND WHY THIS IS THE REMAINDER.** The reported symptom — enabling Turso
-showed no configuration fields and nothing said why — was a SILENT HIDE, and that is closed: each
-hidden field now renders its label plus a hint naming the env var that supplies it
-(`integrationsTursoUrlFromEnv` / `integrationsTursoTokenFromEnv`, pinned by three tests in
-`integrations-section.test.tsx`, each mutation-proved at 1 failed / 19 passed of 20). That
-disclosure also makes the first arm SURVIVABLE — a reader now learns which lever to pull — but it
-does not make the app configurable from the UI, and it does not touch the second arm at all.
+★★★ **FIX ROUND 1 (same day), three review findings against the commit above, all closed in a
+second commit:**
+- **I1 — the field never reappeared without a Settings reopen.** `envTokenRejected` was a plain
+  `useState` read once at mount; the flag is written from INSIDE this same component's own
+  "Test connection" handler (`runTursoTest` → `testTursoConnection` → `runTursoPipeline` →
+  `markEnvTokenRejected`), which never remounts anything — so a user who clicked Test, got the
+  rejection, and looked at the still-mounted screen saw no field until closing and reopening
+  Settings. This was the exact discovery flow the whole task exists to fix, and it did not work.
+  Now a state setter (`setEnvTokenRejected`), re-synced from `isEnvTokenRejected()` in `runTursoTest`'s
+  catch block on every probe.
+- **I2 — attribution rode a global flag, not the actual rejection.** `storage-error.ts` classified
+  `"auth-env"` by reading `isEnvTokenRejected()` at classify time, so a Settings-typed token rejected
+  WHILE the flag happened to still be set (from an earlier, unrelated incident) was mislabelled as an
+  env-token problem. `turso-pipeline.ts` now throws a DISTINCT hint (`"turso-env-token-rejected"` vs
+  the plain `"turso-token-rejected"`) so the classifier attributes by what THIS call actually
+  rejected, never by a flag some other call may have left set.
+- **I3 — untested asymmetry on the clear path.** Nothing pinned that a success using a NON-env
+  (Settings) token must leave the flag alone; the mark and clear paths share the same
+  env-token-equality conjunct, but only the mark side had a negative test. Added.
 
-★★ **DO NOT "FIX" THIS BY UN-HIDING THE FIELD.** An editable field whose value `getTursoConfig`
-will discard is worse than an absent one: it invites the user to type a correct URL and watch
-nothing happen. The choices are (a) let a settings value override an UNUSABLE env value — which
-changes the documented env-wins precedence and needs its own decision, or (b) keep env winning and
-say so precisely: when the env var is present but does not resolve, the notice should say the
-DEPLOYMENT is misconfigured and that this screen cannot repair it. (b) is the smaller change and
-the honest one; (a) is a policy change, not a bug fix.
+Both arms of the original report are closed. Nothing here needed `.env.local` in CI to verify —
+`turso-config.test.ts`, `turso-pipeline.test.ts`, `storage-error.test.ts` and
+`integrations-section.test.tsx` cover both halves without a real deployment.
 
-★ Nothing here is reachable on a checkout with no `.env.local`, which is every CI run — so no gate
-will ever see either arm.
+★★ **Added after the closure (branch review BR1 of `fix/defect-batch-6`; each still true):**
+- **The internal hint codes no longer reach users.** The distinct-hint split in fix round 1 (I2)
+  made attribution precise, but every surface that still displayed `err.message` directly then
+  showed `turso-token-rejected` / `turso-env-token-rejected` verbatim. `4e1df31a7` translates them at
+  every raw-message display site through `tursoErrorMessageKey` (`storage-error.ts`). The sites are
+  the project picker, the six `use-turso-projects.ts` operation toasts, and the portfolio-health
+  hook and panel. Each falls back to the raw message only for an unrecognized failure.
+- **Known limit: an already-typed Settings token does not take over until something re-keys the
+  memo.** `getTursoConfig` is impure: it reads the per-device rejection flag. But the memos that
+  call it (`task-manager.tsx`, `workspace-section.tsx`, `workspace-panels.tsx`,
+  `use-storage-backend.ts`) key only on URL and token. So if a Settings token ALREADY existed when
+  the env token was rejected, saves keep sending the env token until a setting changes or the page
+  reloads, while "Test connection" (which calls it fresh) passes. Not fixed here.
+- **Known limit: every 403 counts as a token rejection.** `turso-pipeline.ts` classifies a 401 OR
+  403 as a rejection, so a 403 caused by anything else (for example a database-level permission)
+  also marks the env token rejected and re-shows the field. The failure is loud and recoverable,
+  not silent. Not fixed here.
 
 ## 338. `useResizable` is a no-op in every modal that stays mounted while closed — open
 
@@ -36206,22 +36241,63 @@ admit-nothing) were KILLED; see the spec's closing note for the full table. Ever
 probe-shape or product-decision question that this harness's typed probes cannot resolve by
 themselves, never a green result to cite as coverage.
 
-## 468. PDF export opens a window that never prints in the desktop app — OPEN
+## 468. PDF export opens a window that never prints in the desktop app — CLOSED 2026-09-26
 
-**Status:** OPEN 2026-09-12 — never machine-verified in the packaged app. Two presence witnesses, both
-re-run 2026-09-12: `grep -rn "window\.print()" src --include=*.ts --include=*.tsx | grep -v "\.test\." |
-grep -vE "^\S+: *(//|\*)"` returns **THREE** call sites — the two this entry is about, plus
-`task-manager-ui.tsx`'s `PrintButton` fallback, which still exists in the source but is now unreachable
-in the shell because that button renders nothing there. Read the third as expected, not as a fourth
-defect. (The `grep -vE` drops comments that merely mention the call; without it the output is dominated
-by prose.) Second witness: `grep -aoh "Scripted print is not supported"
-desktop/node_modules/electron/dist/electron.exe` returns the refusal string. ★ That the popup then stays
-SILENT rather than erroring was REASONED from those two until 2026-09-15, when it was OBSERVED: a
-locally packaged Electron 44.3.0 installer (branch `chore/electron-44`), PDF export opened the tab and no
-print dialog appeared. The refusal string is still present in the 44.3.0 binary, so the Electron 33 → 44
-upgrade does not close this entry.
+**Status:** CLOSED 2026-09-26 by `fix/defect-batch-6`, VERIFIED BY THE OWNER in the packaged desktop app built
+from commit `984056292` on 2026-09-26. Every check passed: Export project → PDF opens a Save As dialog
+suggesting `aipm-cockpit-project-<name>-<date>.pdf`; the saved project PDF is styled, A4 landscape, with no
+clipped column, no row gaps, and dates on one line; a single-document PDF is A4 portrait with its prose at
+full size; Cancel writes nothing and shows no error; a slow save (more than 60 s in the dialog) shows no
+error. The same run confirmed the two UI fixes the first packaged check had also found (the header stays
+readable in a non-maximised window, the Projects card uses the width, and the Export project menu is not
+clipped). The production BROWSER path was not part of the owner's run; its evidence is the branch's
+measurement of a production build in Chromium, recorded in the task-8 report: before the fix, two CSP
+violations, Times New Roman and `window.print` never called; after it, no violations, the sans stack, and
+`window.print` called once.
 
-**Work item:** #297
+★ WHAT WAS WRONG, IN TWO LAYERS. First (2026-09-25): Electron refuses a renderer-initiated
+`window.print()`, so both PDF-export renderer paths now route through a main-process save dialog.
+`pdfWindowName` (`src/app/pdf-export-protocol.ts`) tells `export.ts`'s `exportPdf` and
+`document-download.ts`'s `downloadDocument` whether they run in the desktop shell; there the print tab opens
+under the named frame `PDF_EXPORT_FRAME_NAME`, carries no script, and signals "rendered" with a STATIC
+`<title>` (`pdfReadyTitleMarkup`, swapped in by `replaceHtmlTitle` — a FUNCTION replacement, since a title
+containing `$&`/`$'`/`$$` would otherwise corrupt the markup). `desktop/src/main.ts` renders that frame
+hidden (gated on `isPdfExportFrame`), reads the filename from the title (`pdfFilenameFromTitle`, sanitized
+and length-capped), polls `document.readyState` via `executeJavaScript` until `isDocumentReadyState`, then
+prints and offers the result through `dialog.showSaveDialog`, with `PDF_EXPORT_TIMEOUT_MS` (60s) bounding
+only the wait for readiness and cleared before printing. Second (2026-09-26, found by the first packaged
+run): the print tab is `document.write`n into an `about:blank` child that INHERITS the opener's production
+CSP, whose `style-src-elem` and `script-src` are nonce-only (`src/proxy.ts`), so the tab's own `<style>` —
+and in a browser its auto-print `<script>` — never applied. That one fact produced the serif font,
+printToPDF's default Letter portrait page, the clipped columns and the tall rows, and in a production
+browser an unstyled tab that never auto-printed. The renderer now writes both elements with the page's
+nonce (`readCspNonce` → `nonceOpenTag`/`withStyleNonce`/`withScriptNonce`); the popup-blocked fallback FILE
+and plain `.html` downloads stay nonce-free. The browser auto-print block's bytes are therefore no longer
+identical to the pre-§468 ones: its opening tag gains ` nonce="…"`, pinned exactly in `export.test.ts` and
+`document-download.test.ts` beside the unchanged no-nonce pin. On the desktop, `preparePdfPrint`
+(`desktop/src/lib/pdf-export.ts`) additionally re-applies the head stylesheet through
+`webContents.insertCSS` (it does not depend on a nonce being found), passes the page size, orientation and
+margins read from the `@page` rule to printToPDF explicitly, prints at 100%, and fits each table that is
+wider than the page ON ITS OWN — CSS `zoom` down to a 0.6 floor, then `overflow-wrap: anywhere` for any
+table still too wide, with date/number/id cells kept on one line (`isAtomicCellValue`). A whole-project
+export is now named `aipm-cockpit-project-<slug>-<date>` (`exportFilename`, slugged by `filenameStem`).
+★ KNOWN LIMIT: a second export started while a hidden export window still owns the named `window.open`
+target reuses that browsing context, so no fresh `did-create-window` fires and the second export is lost
+until the first completes or its 60s backstop closes it. The paragraphs below are the OPEN-era record
+of what was found; read them as history, not as current status.
+
+★ THE SAME PACKAGED-APP CHECK FOUND TWO UI DEFECTS, fixed alongside on 2026-09-26 and given no number of
+their own: both reproduce in any browser at the same window width, so neither is a desktop defect. (a) In a
+non-maximised ~1390px window the modern top bar truncated the view title ("Proj…") and the project name
+while the search box kept ~290px, and the Projects pane sat in half the main area. From `lg` up, `TopBar`'s
+action cluster now takes only the width the title/switcher cluster leaves, floored at its own min-content,
+and the modern search wrapper shrinks from a 24rem basis to a 7rem floor before anything on the left gives;
+below `lg`, and in the classic header, the old rule is unchanged. The Projects pane spans the available width
+up to 64rem (`CENTERED_WIDE_PANE_CLASS`). (b) Projects → Export project drew its format menu inside the
+project list's scroll container, so Excel and PowerPoint were clipped at the card's edge; it now renders
+through `PopoverPanel` (portaled, `fixed`, flipping above the trigger when there is no room below). Both were
+measured in Chromium before and after; the class and portal contracts are pinned in `top-bar.test.tsx` and
+`projects-panel.test.tsx`.
 
 ★ §467 is absent from this register on purpose — it was minted on a peer session's branch (MR !473), not
 lost here.
@@ -36239,22 +36315,20 @@ indistinguishable from "my printer is being slow" and impossible to attribute wi
 Reachable from three surfaces, all via the PDF choice: `documents-toolbar.tsx`, `export-menu.tsx` and
 `projects-panel.tsx` (`EXPORT_FORMATS`).
 
-★ The web app is UNAFFECTED — a browser honours `window.print()` in an opened tab, and that is what the
-`window.open`-plus-inline-script shape exists for (`export.ts` explains why a tab beats an iframe). This
-is a desktop-only regression in capability, introduced by shipping the Electron shell, not by any change
-to the export code.
+★ HISTORY, NOT CURRENT: this paragraph used to say the web app was UNAFFECTED because a browser honours
+`window.print()` in an opened tab. That was reasoned, not measured, and a production build measured on
+2026-09-26 disproved it — the tab inherits the nonce-only CSP, so the inline auto-print script was blocked
+and never ran (see the Status block). Only a dev server, whose CSP is permissive, behaved as described.
 
 ★★ A related promise is now also only half-true in the shell: `export.ts` offers the export tab's Ctrl+P
 as the user's fallback when auto-print does not fire. Since the desktop File menu's CmdOrCtrl+P prints
 the FOCUSED window, that fallback **should** work in the packaged app — but it is then the app's own
 print route doing it, not the page's script, and it prints whatever the focused window shows. ★ REASONED,
-NOT OBSERVED, like everything else under this Status line: it needs the export tab to be a real
+NOT OBSERVED, like everything the Status block still owes: it needs the export tab to be a real
 BrowserWindow that receives the application menu's accelerator, which the code supports and no run has
 confirmed. Do not restate it as fact — an earlier revision of this paragraph did.
 
-Unfixed, and deliberately so: the repair needs a main-process route (`webContents.printToPDF`, or a
-print handler installed on the opened window) plus a decision about whether the three surfaces keep
-producing an on-screen tab at all when a real PDF writer is available. Size M.
+The fix is described in the Status block above; verified in the packaged app 2026-09-26. Size M.
 
 ## 469. `SnapshotRecord.currency` is written on every capture and read by nothing — CLOSED 2026-09-16
 
@@ -37076,24 +37150,102 @@ Size S.
 
 **Source:** `docs/features.md`, `lib/app-feature-guide.md`; audit candidate 8
 
-## 486. Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync — OPEN
+## 486. ~~Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync~~ — CLOSED 2026-09-26
 
-**Status:** OPEN 2026-09-13 — never machine-verified in a browser. The limit is on record:
-`grep -n "pruned event" docs/superpowers/plans/2026-07-02-calendar-twoway-sp5-autopull.md` → 1 hit, SP5's
-"Known limitation (document, don't fix)". `grep -n "^| TD-3" docs/tech-debt-register.md` → the only other
-record. Before this entry, `grep -c "pruned event" docs/open-followups.md` → 0.
+**Status:** CLOSED 2026-09-26 — shipped on `fix/defect-batch-6`: `affd7bb3e` (the data model, the
+planners, the prune and all six write paths), `c674fc18e` (the "Sync to Outlook" checkbox in the
+five editors), then the review rounds (the pulls, the push inputs, undo, the literal-`true` load
+rule, and the push's own delete: the ★★★ paragraph below). List them with
+`git log --oneline --grep="§486"`; the count is deliberately not quoted. Re-check with
+`grep -n "calendarOptOut" src/app/calendar-reconcile.ts src/app/use-entity-calendar-pull.ts src/app/use-milestone-calendar-pull.ts`.
+Unit-verified, and every behavioural line named below is mutation-proved, including each of the five
+push-input call sites (four in `use-calendar-integrations.ts`, one in `tasks-section.tsx`), each
+killed by reverting it to its old inline filter. The auto-sync content keys are the one unpinned
+piece: they are coverage-excluded glue, and no test watches the push they trigger. Still NOT
+machine-verified against a live Outlook calendar.
 
-**Work item:** #308
+With auto-push on (it shares the `.auto` flag with auto-pull), deleting the Outlook event for an
+entity that was still pushable did not stick: the pull's prune cleared only `outlookEventId`, so
+the next reconcile saw an unlinked pushable item and re-created the event.
 
-With auto-push on (it shares the `.auto` flag with auto-pull), deleting the Outlook event for an entity
-that is still pushable does not stick: the next cycle re-creates it. SP5 documented this as a limit and
-left the fix, a permanent per-item opt-out, as future work. It lived only in the tech-debt register,
-which has no owner, even though it is a user-visible defect.
+★ **The fix.** `Task`, `RaidItem`, `ChangeItem`, `Absence` and `Milestone` carry an optional
+`calendarOptOut`. `CommitteeMeeting` does not — it has no prune path. Both pull hooks' prune now
+sets it beside clearing the link. The push hooks' 404 self-heal is deliberately unchanged: a 404
+during a PATCH is not a user prune, and its re-create is documented behaviour.
 
-★ An opt-out is a new persisted `Workspace` field, so AGENTS.md's six-write-path rule applies. The
-reconcile engine must also treat an opted-out item as neither pushable nor pull-creatable.
+★★ **The planners skip an opted-out item on BOTH halves.** `planEntityReconcile` and
+`planCalendarReconcile` never create or update it, AND keep a still-linked event id in the kept
+set, so the app never DELETES an event the user chose to leave in Outlook. Dropping only the
+create half would have turned "untick Sync" into "delete my event". Each half is pinned by its own
+test and killed its own mutant, in both planners.
 
-Size M. This entry replaces tech-debt-register TD-3.
+★ **Persistence.** One CSV/Turso column right after `outlookEventId` in the five column lists (not
+`EVENTS_CSV_COLUMNS` — pulled meetings are never pushed), encoded `"true"` / `""`. The Markdown
+columns and header aliases include the hand-rolled task decoder in `markdown-codecs-decode.ts`.
+The sanitizers keep only a literal `true`, so anything else syncs the item as before. Absences
+decode the text cell through `buildAbsenceFromObj` before `sanitizeLoadedAbsence`, because the
+CSV, Markdown and Turso loaders share that sanitizer with JSON. Existing Turso databases self-heal
+through `turso-migrate.ts`, which diffs against `ENTITY_SPECS`. The six round trips are counted in
+`entity-persistence-registry.test.ts` ("calendarOptOut (§486)").
+
+★ **The model cannot write it.** It is in `TOKEN_EXCLUDED` for all five entities, so both strip
+helpers drop it from every model create and update. The offered-surface sweep's Relation A
+measures the create arm with a seeded `true`. On the update arm the sweep's own probe is ledgered
+`unmeasured`, and that is the HARNESS's choice, not something the column forces: `admitProbe`
+refuses the only differing probe, `false`, because the writer's sanitizer reshapes it. That refusal
+hides a real difference: if the strip were missing, a model-sent `false` would CLEAR the stored
+`true`. So the update arm is measured directly by "calendarOptOut survives every update_* (§486)"
+in `plan.offered-surface-sweep.test.ts`. On all five entities, a model-sent `false` leaves the
+stored `true` in place, and an update to another field keeps it.
+
+★ **The editor checkbox** (`calendar-opt-out-checkbox.tsx`) is named "Sync to Outlook – ‹title›",
+which is row-unique and contains the visible caption. It renders only while that entity's Outlook
+sync is configured. Unticking sets the flag; re-ticking clears it, and the auto-sync content keys
+include the flag so the re-create is pushed at once. ★★ The axe gate never renders it: the e2e seed
+configures no M365, so the component and modal unit tests are its only coverage.
+
+★★★ **"Opted out but still linked" is a NEW state, and the review round closed the three paths it
+leaked through.** Before this fix a prune cleared the link, so no opted-out item held one; unticking
+the checkbox now creates exactly that item.
+- **The pulls.** `useEntityCalendarPull` and `useMilestoneCalendarPull` drop opted-out items from
+  the pull input (no auto-apply, no conflict row, no prune, no baseline write), and `keepApp` refuses
+  one, so "Keep app date" can never PATCH the event the user chose to leave alone. ★ A side effect:
+  an Outlook-side deletion of an opted-out item's kept event is no longer PRUNED. The dead link
+  stays on the item, which is harmless: while the item is opted out, the push planner only puts that id in its kept set, and a gone event cannot be deleted. If the user
+  ticks Sync again, the next push PATCHes it, gets a 404 and takes the push hooks' documented
+  `staleIds` path, which clears the link and re-creates the event.
+- **The push inputs.** A push DELETES every listed event the planner does not keep, so an opted-out
+  item that LEAVES the synced set (task done, RAID closed, change undated, absence past) used to lose
+  its event. `calendar-pushable.ts` now keeps an opted-out item with a link in all four inputs
+  (`use-calendar-integrations.ts` and `tasks-section.tsx`), where the planner keeps its id. The
+  call sites are pinned through the two existing harnesses: `use-calendar-integrations.pushable.test.ts`
+  covers all four entities, and `tasks-section.test.tsx` covers the pane's own manual push. Milestones
+  were never affected: their push passes every milestone.
+- **The push's OWN delete (final review I1).** When an item left its synced set without being opted
+  out, the push deleted its event but left the item's `outlookEventId` pointing at it. If the item
+  came back (a task reopened) and a PULL ran before the next push, which is common at startup, the
+  missing event read as a user-side deletion. The prune then opted the item out for good, with
+  nothing to tell the user. Both push hooks (`use-entity-calendar-push.ts`,
+  `use-outlook-calendar-push.ts`) now clear `outlookEventId` on any row still holding an id they
+  just deleted successfully, inside the same scope-epoch-guarded write as the create/404 write-back.
+  They never touch `calendarOptOut`. A FAILED delete keeps the link, so the next push retries it.
+  ★ A one-time hazard remains for links that were ALREADY stale in stored data before this branch.
+  Such an item, if reopened, is opted out by the first pull that runs before a push. The pull
+  summary's deletions section now says the items are opted out and how to re-enable them (final
+  review M4).
+- **Undo.** `calendarOptOut` is in `WRITE_THROUGH_FIELDS`, because the prune writes it on a row nobody
+  is editing. A whole-row undo captured before a prune therefore keeps the live flag beside the live
+  cleared link, instead of restoring an unlinked, opted-in item that the next auto-push re-creates.
+  ★ The cost that file already documents applies: a whole-row undo of an editor save that toggled
+  the checkbox leaves the toggle applied. The task editor's field-diff capture is not affected.
+
+★ **Only a literal `true` opts out, on every path.** The planners test `=== true`, and the load
+paths that cast rows instead of sanitizing them (JSON tasks and RAID, every IndexedDB register) run
+`withLiteralCalendarOptOut` (`sanitize-core.ts`), so a hand-edited `"false"` syncs the item as before.
+
+**Pre-existing race, not fixed:** a background prune that lands while that item's editor is open is
+overwritten by the save's draft, which restores the stale link and an unset flag. This is the same
+class as `outlookEventId`'s write-through race and is not specific to this fix.
 
 **Source:** `docs/superpowers/plans/2026-07-02-calendar-twoway-sp5-autopull.md`, `docs/tech-debt-register.md` (TD-3); audit candidate 9
 
@@ -38437,103 +38589,86 @@ grep -rln "contactPersons\|ContactPerson" src --include=*.ts --include=*.tsx | w
 Related: §533 (delimiter-unsafe splitting on the sibling id-less-cell class, `resource.emails`); the
 email-guard batch spec's Part 7 ("Records reached — settled matrix").
 
-## 538. Single-DB Turso never persists project meta — OPEN
+## 538. Single-DB Turso never persists project meta — CLOSED 2026-09-25
 
-**Status:** open 2026-09-14 — found while filing §537 (user chose "file now, fix later"). Verified
-2026-09-14 by reading `dirtyWorkspaceTables`/`workspaceToStatements` (`src/app/turso-schema.ts`),
-`TursoBackend.loadSingleTenant`/`loadTenant` (`src/app/turso-backend.ts`), `createBackend`
-(`src/app/storage.ts`), `handleUpdateCurrentProjectByMode` (`src/app/use-turso-projects.ts`) and the
-`useVersionHistory` comment (`src/app/task-manager.tsx`), and by grepping every consumer listed below
-for a field it reads off `ws.project`. Never machine-verified against a live Turso database — read,
-not reproduced; whether the edit path is even reachable via the Projects panel in single-DB Turso
-storage is unconfirmed.
+**Status:** CLOSED 2026-09-25 by `fix/defect-batch-6` (task 3 of a six-defect batch). Implements fix
+option (a) below: single-tenant `workspaceToStatements` now writes `ws.project` as a `project_meta`
+JSON row in `meta` (right after `project_status`, only when `ws.project` is set), `rowsToWorkspace`
+reads it back on load, and `dirtyWorkspaceTables` marks `meta` dirty on a project-only edit. The
+tenant path is unchanged: `tenantWorkspaceToStatements` never writes `project_meta`, and `loadTenant`
+still overwrites `ws.project` from the `projects` table afterwards. The secondary no-config bug is
+also fixed: `handleUpdateCurrentProjectByMode` now routes a missing `tursoProjectId` to
+`updateCurrentFileProject` (the single-DB backend's save is now the whole write) instead of no-op'ing,
+and a present `tursoProjectId` with no ready config toasts `projectUpdateFailed`/`storageTursoNeedsConfig`
+instead of doing nothing. The load path uses `sanitizeLoadedProjectMeta` (the load-funnel form, which
+reports a blanked start/end date via the M2 diagnostic), matching every other `ws.project` load path
+in the repo (JSON, CSV/Markdown, IndexedDB, tenant Turso).
 
-**Work item:** #328
+**Verified by:** `turso-schema.execute.test.ts` (a real `node:sqlite` engine round trip — save via
+`workspaceToStatements`, read back via a real SELECT + `rowsToWorkspace` — restores `ws.project`; an
+older DB with no `project_meta` row loads with `ws.project` undefined and no diag entry; a
+`project_meta` row with an invalid start date is blanked and reported via the M2
+`storage.nonCalendarDateBlanked` diagnostic). `turso-schema.documents.test.ts` pins an unreadable
+`project_meta` row being reported via `turso.metaSliceUnreadable`/`diag.decodeFailedSlices` while the
+load still succeeds. `turso-schema.test.ts` pins `dirtyWorkspaceTables` flagging `meta` on a
+project-only edit. `use-turso-projects.test.ts` pins the no-`tursoProjectId` case routing to the file
+callback and the present-id/no-config case toasting instead of no-op'ing. Tenant-mode coverage
+(`turso-schema.execute.test.ts`'s multi-tenant suite, `turso-backend.tenant.test.ts`) is unchanged and
+still green — confirming the tenant builder still never writes `project_meta`.
 
-**The problem.** `workspaceToStatements` (`src/app/turso-schema.ts`) never references `ws.project`,
-and `dirtyWorkspaceTables`'s own docstring says so explicitly: `ws.project` is "DELIBERATELY excluded:
-save() never persists it in either mode — the tenant projects row is written only via
-turso-portfolio.ts's upsert path." That upsert path (`upsertProjectStatement`,
-`src/app/turso-tenant-schema.ts`, called from `turso-portfolio.ts`) is reachable only through the
-multi-project Turso picker. `TursoBackend.loadSingleTenant` (`src/app/turso-backend.ts`) returns a
-`Workspace` built with no `project` field at all — contrast `loadTenant`, which reads the tenant's
-`projects` row via `selectProjectStatement`/`rowsToProjectList` and folds its `meta` in. Single-DB
-Turso storage — `TursoBackend` opened with no `tursoProjectId`, which `createBackend`
-(`src/app/storage.ts`) falls back to whenever `tursoProjectId` is null or empty — is a configuration
-the app deliberately supports: a `task-manager.tsx` comment near `useVersionHistory` calls it out by
-name and notes that `trendsActive` and `workspace-section.tsx`'s `chatTursoMode` both already OR two
-signals to handle it. Nothing in that configuration writes `ws.project` anywhere.
+Mutation check (deleting `rowsToWorkspace`'s `project_meta` read block, then restoring it): the round
+trip and M2 tests in `turso-schema.execute.test.ts` and the unreadable-row test in
+`turso-schema.documents.test.ts` all went red — none of them pass against the unfixed code. The
+round-trip failure: `AssertionError: expected undefined to deeply equal { name: 'Apollo', code: '',
+…(14) }`. The unreadable-row failure: `AssertionError: expected undefined to deeply equal [
+'project_meta' ]`.
 
-**Use-case consequences (reload, single-DB Turso storage) — verified each consumer actually reads the
-named field off `ws.project`:**
-- Project name is lost: `use-action-center-handlers.ts`, `use-ai-orchestration.ts`,
-  `use-insight-recommendations.ts` and `use-project-switch.ts` all read `project?.name`.
-- `project.code` is lost: `use-timelog-picker-scope.ts`'s `projectCustomerName`/`projectKey` derivation
-  and `use-calendar-integrations.ts`'s `calendarProjectId` fallback both read `project?.code`;
-  `timelog-panel.tsx` passes `ws.project?.code` into the picker.
-- `customer` and `startDate` are lost: `timelog-panel.tsx` reads `ws.project?.customer` and
-  `ws.project?.startDate` to seed the Time-bookings picker.
-- `operatingTimezone` is lost: `use-bulk-operations.ts`, `workspace-section.tsx` and
-  `task-manager.tsx` all resolve the effective timezone via `resolveTimezone(settings.timezone,
-  project?.operatingTimezone)`.
-- `contactPersons` is lost (compounds §537 — even once contact persons gain ids, single-DB Turso
-  still would not persist them).
-- Project `knowledgeLinks` are lost: `knowledge-panel.tsx`'s `setDocsForSource` writes them via
-  `ws.setProject((p) => ...)`, the same never-persisted field.
-- The next-actions `project-meta` provider (`src/app/next-actions/providers/project-meta.ts`) silently
-  has nothing to work with — it takes `projectMeta` as an input and returns `[]` when absent, so a
-  reload in single-DB Turso storage quietly turns off every action it would otherwise raise, with no
-  distinct symptom of its own.
+**What was true before this fix (kept for context — the docstring quoted below no longer matches the
+code).** `workspaceToStatements` never referenced `ws.project`, and `dirtyWorkspaceTables`'s own
+docstring said so explicitly: `ws.project` was "DELIBERATELY excluded: save() never persists it in
+either mode — the tenant projects row is written only via turso-portfolio.ts's upsert path."
+`TursoBackend.loadSingleTenant` returned a `Workspace` built with no `project` field at all, so every
+reload of single-DB Turso storage lost the project's name, code, customer, dates, timezone, contact
+persons and knowledge links, and the next-actions `project-meta` provider silently produced no
+actions (it takes `projectMeta` as an input and returns `[]` when absent). Separately,
+`handleUpdateCurrentProjectByMode`'s `if (cfg && tursoProjectId)` guard being false skipped the whole
+`if` body — including the in-memory `setProject(meta)` — so the no-config edit path did nothing at
+all, not even in memory.
 
-**Why it is silent.** `handleUpdateCurrentProjectByMode` (`src/app/use-turso-projects.ts`) only
-reports failure from inside its `tursoUpdateMeta` `catch` block (an error toast). When
-`portfolioMode === "turso"` and `cfg && tursoProjectId`, it awaits `tursoUpdateMeta`, calls
-`setProject(meta)`, and refreshes the list — success or a caught failure, either way something is
-shown. In FILE portfolio mode the same handler calls `updateCurrentFileProject`, which is
-`handleUpdateCurrentProject` in `task-manager.tsx` — a bare `setProject(meta)` whose own comment
-assumes "the existing save effect persists the workspace (which carries `project`)". For single-DB
-Turso storage that assumption is false: `setProject` updates in-memory state, the save effect runs,
-and `workspaceToStatements` silently drops the field on the way to the database. Nothing distinguishes
-this from a successful save — no toast, no diagnostic entry, no guard-transparency signal.
+Related: §537 (contact persons have no ids — now that single-DB Turso persists `ws.project`, an
+id-ful `contactPersons` array will actually survive a reload there too, once §537 is fixed).
 
-**Secondary: the no-config edit path.** In `portfolioMode === "turso"` with `cfg` present but
-`tursoProjectId` falsy, `handleUpdateCurrentProjectByMode`'s `if (cfg && tursoProjectId)` guard is
-false and the whole `if` body — including `setProject(meta)` — is skipped: the edit does nothing at
-all, not even in memory. Read, not reproduced; whether a user can reach the project-edit UI in that
-state via the Projects panel is unconfirmed.
+★ **KNOWN MIXED-VERSION LIMIT (branch review M3).** `workspaceToStatements` (`turso-schema.ts`)
+writes a dirty table by issuing a blanket `DELETE FROM meta` and then re-inserting only the KEYS ITS
+OWN CODE KNOWS ABOUT. An OLDER client sharing this single-DB database — a
+desktop build on a prior release, say, alongside this repo's web app — still issues that same
+blanket delete on any meta-dirtying save, but its INSERT set predates `project_meta` and never
+re-adds it. So a mixed-version fleet against one database sees `project_meta` disappear on the
+older client's next unrelated meta edit. No worse than before this fix (which had no `project_meta`
+row to lose at all), but the "single-DB Turso now persists project meta" claim above holds only
+while every writer to that database is on this release or later. Carry this into the eventual
+CHANGELOG entry.
 
-**Fix options, deliberately left open:**
-- (a) A single-tenant `project` meta row/table in the single-DB schema, written by `save()` like any
-  other table. Needs `dirtyWorkspaceTables` to learn about project-only edits (today it is keyed off
-  entity tables; a project-only edit currently touches nothing `dirtyWorkspaceTables` tracks, so it
-  would need its own dirty signal or the existing "always include on any save" fallback), a
-  `turso-migrate.ts` self-heal entry for existing single-DB databases (same PRAGMA-diff/`ALTER ADD
-  COLUMN`-or-`CREATE TABLE` pattern used for column additions), and — per the "new persisted
-  `Workspace` field" hard constraint in `AGENTS.md` — a check of all six write paths even though this
-  is an existing field gaining a new backend, not a new field.
-- (b) Reuse the tenant `projects` table under a fixed synthetic id for single-DB mode, so
-  `loadSingleTenant`/save share code with `loadTenant`/`upsertProjectStatement` instead of duplicating
-  schema. Cheaper on schema, but couples the single-DB path to multi-tenant plumbing it currently has
-  no dependency on.
-- (c) Accept and document: state in `AGENTS.md`'s single-DB Turso bullet that project meta (name,
-  code, customer, dates, timezone, contact persons, knowledge links) does not survive a reload in that
-  configuration, and point users at multi-project Turso storage or file/CSV/Markdown storage instead.
-
-Related: §537 (contact persons have no ids — this entry is why even an id-ful `contactPersons` would
-still not persist in single-DB Turso storage).
+★ **A `project_meta` ROW THAT PARSES BUT FAILS SANITIZING IS DROPPED WITH NO DIAGNOSTIC (T3, parked
+Minor 4).** `rowsToWorkspace`'s read is `if (pm) ws.project = pm;` (`turso-schema.ts`) — `catch` only
+fires on a THROW (bad JSON, a sanitizer that throws), and `sanitizeLoadedProjectMeta` returning a
+falsy value without throwing takes neither branch: no `reportUnreadableSlice` call, no
+`decodeFailedSlices` entry, nothing in the Saving-paused / Save-anyway plumbing. `ws.project` simply
+stays unset, silently, same as every sibling meta slice's identical `if (x) ws.something = x` shape
+(`project_status`, `field_visibility`, `features`, …) — this is not project-meta-specific. The
+consequence IS specific here, though: because the write side only emits `project_meta` when
+`ws.project` is set, and the read never set it, the very NEXT meta-dirtying save's blanket
+`DELETE FROM meta` removes the corrupted row and nothing rewrites it — a silent DROP becomes a
+silent, PERMANENT loss on the first save that follows. Filed as a known gap, not fixed: closing it
+would mean auditing every meta slice's falsy-return path for whether it should also report, which is
+wider than this entry's scope.
 
 **Reproduce / verify:**
 ```bash
-grep -n "DELIBERATELY excluded" src/app/turso-schema.ts                       # dirtyWorkspaceTables docstring
-grep -n "function workspaceToStatements" -A 3 src/app/turso-schema.ts         # never touches ws.project
-grep -n "loadSingleTenant\|loadTenant" src/app/turso-backend.ts               # single-DB path builds no project field
-grep -n "tursoProjectId" src/app/storage.ts                                   # createBackend's fallback to single-DB
-grep -n "portfolioMode === \"turso\"" -A 15 src/app/use-turso-projects.ts     # handleUpdateCurrentProjectByMode
-grep -n "deliberately supports" src/app/task-manager.tsx                      # useVersionHistory comment
-grep -rn "project?\.name\|project?\.code\|project?\.customer\|project?\.startDate\|project?\.operatingTimezone" \
-  src/app/use-action-center-handlers.ts src/app/use-ai-orchestration.ts src/app/use-insight-recommendations.ts \
-  src/app/use-project-switch.ts src/app/use-timelog-picker-scope.ts src/app/use-calendar-integrations.ts \
-  src/app/timelog-panel.tsx src/app/use-bulk-operations.ts src/app/workspace-section.tsx src/app/task-manager.tsx
+npx vitest run src/app/turso-schema.execute.test.ts -t "§538"     # real-engine round trip + missing-row case
+npx vitest run src/app/turso-schema.test.ts -t "§538"             # dirty-tracking case only
+npx vitest run src/app/turso-schema.documents.test.ts -t "§538"   # unreadable project_meta row case
+npx vitest run src/app/use-turso-projects.test.ts -t "§538"       # no-tursoProjectId / no-config paths
 ```
 
 ## 539. sanitizeIsoDate accepts dates that are not real calendar dates — CLOSED 2026-09-14
@@ -39924,14 +40059,33 @@ proved clean) reproduced a real, non-zero pixel diff on Dashboard and Gantt at `
 (`visual: Open Points` still matched exactly at that tolerance for a one-day shift), confirming the pin is
 load-bearing.
 
-## 574. "Load project from file" throws in Firefox/Safari and blames Settings instead of the browser — OPEN
+## 574. "Load project from file" throws in Firefox/Safari and blames Settings instead of the browser — CLOSED 2026-09-25
 
-**Status:** OPEN 2026-09-18 — established by reading `fs-access.ts`, `use-storage-file-ops.ts` and
-`i18n.ts`; never machine-verified (no headless Firefox/Safari run in this session — the bundled
-Playwright browsers here are Chromium-family only). Verified by code reading:
-`grep -n "pickOpenFileAny\|isFileSystemAccessSupported" src/app/fs-access.ts src/app/use-storage-file-ops.ts src/app/storage-config.tsx`.
+**Status:** CLOSED 2026-09-25 by `fix/defect-batch-6`. `use-storage-backend.ts` now exports a pure
+`projectErrorKey(err)`, extracted from `reportProjectError`'s `StorageNotReadyError` branch, which maps
+the `file-system-access-unsupported` hint to `storageFsaUnsupported` (the same browser-naming text
+Settings already shows) instead of falling through to the generic `storageNotReady` ("pick a file in
+Settings") text. Pinned by four unit tests in the new `use-storage-backend.report-error.test.ts`. Mutant:
+reverting the `file-system-access-unsupported` branch to a string that can never match — predicted RED
+on the first test ("names the browser, not Settings…"), actual RED
+(`expected 'storageNotReady' to be 'storageFsaUnsupported'`); restored, green again.
 
-**Work item:** #359
+On the UI side, a new hydration-safe `useFsaSupported()` hook (`use-fsa-supported.ts`,
+`useSyncExternalStore` over `"showOpenFilePicker" in window`, server snapshot `true` so SSR renders the
+controls enabled with no hydration flash) now disables every "Load from file" control in a browser
+lacking the File System Access open picker, and names the reason via `aria-describedby` pointing at the
+`storageFsaUnsupported` text — matching the empty-load Settings treatment mentioned in the original
+report. Wired into all three surfaces: `project-empty-state.tsx`'s primary Load button (visible hint
+span beside it), `project-switcher.tsx`'s dropdown "Load from file" menuitem (native `disabled` +
+`aria-disabled` so the roving keyboard nav skips it, hint `<p>` under the item), and
+`projects-panel.tsx`'s toolbar Load button (same title+`sr-only` wrapper contract as its neighbouring
+Load-from-Turso/Move-to-Turso buttons). Each component's existing "clicks the Load button" test — jsdom
+has no File System Access API by default, which would otherwise silently disable the control — now
+arms `window.showOpenFilePicker` first; a new test per file pins the disabled+described state with it
+absent. Mutants (each `disabled={!fsaSupported}` → `disabled={false}`, run and reverted individually):
+predicted RED on that file's new §574 test, actual RED in all three
+(`project-empty-state.test.tsx`, `project-switcher.test.tsx`, `projects-panel.test.tsx`), each restored
+and reconfirmed green. `npx tsc --noEmit` and `npx eslint --max-warnings=0 src` both exit 0.
 
 `fs-access.ts`'s `pickOpenFileAny` (used by the "Load project from file" empty-state / header CTA, via
 `use-storage-file-ops.ts`'s `loadProjectFromFile`) throws `StorageNotReadyError` with hint
@@ -39955,14 +40109,27 @@ disable it, matching Settings' treatment), or have `reportProjectError` recogniz
 `file-system-access-unsupported` hint specifically and emit the same `storageFsaUnsupported` message
 Settings already has, instead of falling through to the generic `storageNotReady` text.
 
-## 575. AI Assistant chat history re-sends every earlier turn's attachments, so a long thread can exceed the Messages API's 32 MB request limit — OPEN
+## 575. AI Assistant chat history re-sends every earlier turn's attachments, so a long thread can exceed the Messages API's 32 MB request limit — CLOSED 2026-09-25
 
-**Status:** OPEN 2026-09-18 — established by reading `chat-panel.tsx`'s `submitPrompt` and
-`chat-attachments.ts`; never machine-verified end-to-end (would need a live multi-turn send against the
-real Anthropic API with several large attachments to observe the 413 — not attempted). Verified by code
-reading: `grep -n "MAX_STAGED_PAYLOAD_BYTES" src/app/chat-attachments.ts src/app/chat-panel.tsx`.
-
-**Work item:** #360
+**Status:** CLOSED 2026-09-25 by `fix/defect-batch-6`. `chat-threads.ts` now exports a pure
+`fitHistoryToBudget(history, maxBytes)`: it sums attachment bytes across the whole history, and — only
+when that total exceeds `maxBytes` — replaces the OLDEST earlier-turn attachment blocks with the same
+`[attachment: image]`/`[attachment: document]` text placeholders `stripAttachmentsForPersistence` already
+uses, stopping as soon as the running total fits. The LAST message (the current turn) is never touched,
+and an under-budget history is returned as its own unchanged messages (byte-identical, so the prompt
+cache prefix survives) and its input is never mutated. `chat-panel.tsx`'s `submitPrompt` now builds the
+wire-only `messages` via `fitHistoryToBudget(newHistory, MAX_STAGED_PAYLOAD_BYTES)` instead of
+`newHistory.slice()` — the persisted `history` state (and Turso-stored thread) is untouched, only the
+outgoing copy is budgeted. Pinned by four new tests in `chat-threads.test.ts` (unchanged-under-budget,
+oldest-first-and-stops, never-strips-current-turn, does-not-mutate-input) and a wiring test in
+`chat-panel.test.tsx` that seeds two 20 MB earlier-turn attachments via `getChatConversation`, sends a
+third turn, and asserts the request body's oldest attachment is placeholdered while the more recent one
+and the current turn are untouched, and that the seeded (stored) history object itself is never mutated.
+Two mutants confirmed the tests are not vacuous, both restored after: reversing `fitHistoryToBudget`'s
+strip loop to run newest-first — predicted and actual RED on `chat-threads.test.ts`'s "strips the
+OLDEST…" test; and reverting the `chat-panel.tsx` call site back to `newHistory.slice()` — predicted and
+actual RED on the new `chat-panel.test.tsx` wiring test. `npx tsc --noEmit` and
+`npx eslint --max-warnings=0 src` both exit 0.
 
 `chat-attachments.ts`'s `MAX_STAGED_PAYLOAD_BYTES` (30 MB) caps a single outgoing message's staged
 attachment payload via `planStaging`, leaving headroom under the Messages API's real 32 MB body limit —

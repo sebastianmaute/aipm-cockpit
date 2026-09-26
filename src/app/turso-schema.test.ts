@@ -3,6 +3,7 @@ import { SCHEMA_DDL, TABLE_NAMES, ENTITY_SPECS, selectStatements, workspaceToSta
 import { emptyWorkspace } from "./storage";
 import type { ActivityEntry } from "./activity-log";
 import { recordBudgetChange, type BudgetHistoryEntry } from "./budget-history";
+import type { ProjectMeta } from "./types";
 
 function resultsFromStatements(stmts: { sql: string; args?: { value?: string }[] }[]): PipelineResultLike[] {
   const byTable: Record<string, { cols: string[]; rows: { value: string }[][] }> = {};
@@ -193,6 +194,17 @@ describe("Turso project_status", () => {
     const back = rowsToWorkspace(resultsFromStatements(workspaceToStatements(ws)));
     expect(back.status).toEqual(ws.status);
   });
+});
+
+describe("turso project meta (§538)", () => {
+  test("marks meta dirty when only ws.project changed (§538)", () => {
+    const prev = emptyWorkspace();
+    const next = { ...prev, project: { ...(prev.project ?? {}), name: "Renamed" } as ProjectMeta };
+    expect(dirtyWorkspaceTables(prev, next).has("meta")).toBe(true);
+  });
+  // The "reports an unreadable project_meta row" test lives in
+  // turso-schema.documents.test.ts, next to the metaOnlyResults helper it
+  // reuses — see that file's "turso single-DB — project meta (§538)" describe.
 });
 
 describe("changes turso table", () => {

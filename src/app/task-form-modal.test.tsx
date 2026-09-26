@@ -477,3 +477,33 @@ describe("task-form-modal panel size", () => {
     expect(panel?.className).toContain("max-h-[95vh]");
   });
 });
+
+// §486 — the per-item Outlook opt-out. The form draft is stubbed here; the
+// payload half (set + clear on save) is pinned in use-task-submit.test.ts.
+describe("TaskFormModal — Sync to Outlook (§486)", () => {
+  it("unticking writes calendarOptOut: true into the form draft", () => {
+    stubTaskForm({ taskName: "Kickoff" });
+    render(<TaskFormModal {...defaultProps({ calendarSyncEnabled: true })} />, { wrapper: Providers });
+    const box = screen.getByRole("checkbox", { name: "Sync to Outlook – Kickoff" });
+    expect(box).toBeChecked();
+    fireEvent.click(box);
+    const setForm = mockUseTaskForm.mock.results.at(-1)!.value.setForm as ReturnType<typeof vi.fn>;
+    const updater = setForm.mock.calls.at(-1)![0] as (p: ReturnType<typeof emptyForm>) => ReturnType<typeof emptyForm>;
+    expect(updater(emptyForm()).calendarOptOut).toBe(true);
+  });
+  it("an opted-out draft renders unticked, and ticking clears it", () => {
+    stubTaskForm({ taskName: "Kickoff", calendarOptOut: true });
+    render(<TaskFormModal {...defaultProps({ calendarSyncEnabled: true })} />, { wrapper: Providers });
+    const box = screen.getByRole("checkbox", { name: "Sync to Outlook – Kickoff" });
+    expect(box).not.toBeChecked();
+    fireEvent.click(box);
+    const setForm = mockUseTaskForm.mock.results.at(-1)!.value.setForm as ReturnType<typeof vi.fn>;
+    const updater = setForm.mock.calls.at(-1)![0] as (p: ReturnType<typeof emptyForm>) => ReturnType<typeof emptyForm>;
+    expect(updater({ ...emptyForm(), calendarOptOut: true }).calendarOptOut).toBe(false);
+  });
+  it("is absent while Outlook sync is not configured", () => {
+    stubTaskForm({ taskName: "Kickoff" });
+    render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
+    expect(screen.queryByRole("checkbox", { name: /Sync to Outlook/ })).toBeNull();
+  });
+});
