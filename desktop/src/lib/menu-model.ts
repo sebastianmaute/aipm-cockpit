@@ -87,12 +87,13 @@ export function helpAction(id: HelpMenuItemId): HelpMenuAction {
 // (src/app/desktop-shell.ts) rather than lying.
 //
 // ★★ IT WAS NOT THE WHOLE FIX -- the two PDF-export renderer print paths
-// (src/app/export.ts, src/app/document-download.ts) stayed inert in the
-// packaged app until **docs/open-followups.md §468** closed them via a
+// (src/app/export.ts, src/app/document-download.ts) were inert in the
+// packaged app. **docs/open-followups.md §468** routes them through a
 // separate main-process route (desktop/src/lib/pdf-export.ts + the
 // `did-create-window`/`printToPDF`/save-dialog wiring in main.ts), not this
-// menu -- an earlier version of this comment restated that story here, which
-// made a third full copy of it.
+// menu. That fix has landed, but §468 stays OPEN until the owed
+// packaged-app check is done. An earlier version of this comment restated
+// that story here, which made a third full copy of it.
 export type FileMenuItemId = "print";
 export type FileMenuAction = "print-window";
 

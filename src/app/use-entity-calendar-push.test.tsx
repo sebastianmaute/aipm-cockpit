@@ -21,7 +21,9 @@ vi.mock("./outlook-calendar-write", async (imp) => {
 });
 
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
-import { taskToGraphEvent, GraphCalendarError, updateEvent, listEntityEvents, createEvent } from "./outlook-calendar-write";
+import { taskToGraphEvent, GraphCalendarError, updateEvent, listEntityEvents, createEvent, deleteEvent } from "./outlook-calendar-write";
+import { isPushableTask } from "./calendar-pushable";
+import { planCalendarPull } from "./calendar-pull";
 import type { HasEventLink } from "./calendar-reconcile";
 import type { Task } from "./types";
 
@@ -191,5 +193,71 @@ describe("useEntityCalendarPush — the scope epoch (§548)", () => {
     expect(vi.mocked(createEvent)).toHaveBeenCalledTimes(1); // control: the event WAS created in Outlook
     expect(setItems).not.toHaveBeenCalled();
     expect(items[0].outlookEventId).toBeUndefined();
+  });
+});
+
+// §486 final review (I1) — the app's OWN delete must drop the item's link, or
+// a pull that runs before the next push reads the missing event as a user-side
+// deletion, and its prune opts the item out of sync for good.
+describe("useEntityCalendarPush — its own delete clears the item's link (§486)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    acquireTokenMock.mockResolvedValue("tok");
+  });
+
+  function renderPush(get: () => LinkedTask[], set: (next: LinkedTask[]) => void) {
+    const setItems = (u: (p: LinkedTask[]) => LinkedTask[]) => { set(u(get())); };
+    return renderHook(() => useEntityCalendarPush<LinkedTask>({
+      items: get().filter(isPushableTask), entityType: "task", projectId: "p1", toGraphEvent: taskToGraphEvent,
+      setItems, isPopout: false, lang: "en-US", enabled: true,
+    }));
+  }
+
+  it("done → push deletes → reopen → pull finds nothing to prune → next push re-creates", async () => {
+    let live: LinkedTask[] = [makeTask({ status: "Done", completedDate: "2026-07-05", outlookEventId: "E1" })];
+    const get = () => live; const set = (n: LinkedTask[]) => { live = n; };
+    // 1. The finished task left the pushable set, so the push deletes its event.
+    vi.mocked(listEntityEvents).mockResolvedValueOnce([{ id: "E1" }]);
+    const first = renderPush(get, set);
+    await act(async () => { await first.result.current.pushToOutlook(); });
+    expect(vi.mocked(deleteEvent)).toHaveBeenCalledWith("tok", "E1");
+    expect(live[0].outlookEventId).toBeUndefined();
+    expect(live[0].calendarOptOut).toBeUndefined();
+    // 2. Reopened. A pull that runs first sees no link, so it has nothing to prune.
+    live = [{ ...live[0], status: "To Do", completedDate: undefined }];
+    const pull = planCalendarPull({
+      entities: live.map((t) => ({ id: t.id, date: t.dueDate, outlookEventId: t.outlookEventId })),
+      events: [], baseline: {}, eventsComplete: true,
+    });
+    expect(pull.deletions).toEqual([]);
+    // 3. The next push re-creates the event and re-links the item.
+    vi.mocked(listEntityEvents).mockResolvedValueOnce([]);
+    const second = renderPush(get, set);
+    await act(async () => { await second.result.current.pushToOutlook(); });
+    expect(vi.mocked(createEvent)).toHaveBeenCalledTimes(1);
+    expect(live[0].outlookEventId).toBe("NEW1");
+    expect(live[0].calendarOptOut).toBeUndefined();
+  });
+
+  it("a FAILED delete keeps the link, so the next push retries it", async () => {
+    let live: LinkedTask[] = [makeTask({ status: "Done", completedDate: "2026-07-05", outlookEventId: "E1" })];
+    vi.mocked(listEntityEvents).mockResolvedValueOnce([{ id: "E1" }]);
+    vi.mocked(deleteEvent).mockRejectedValueOnce(new Error("503"));
+    const { result } = renderPush(() => live, (n) => { live = n; });
+    await act(async () => { await result.current.pushToOutlook(); });
+    expect(live[0].outlookEventId).toBe("E1");
+  });
+
+  it("never touches an opted-out item's flag", async () => {
+    let live: LinkedTask[] = [
+      makeTask({ id: 1, status: "Done", completedDate: "2026-07-05", outlookEventId: "E1" }),
+      makeTask({ id: 2, status: "Done", completedDate: "2026-07-05", outlookEventId: "E2", calendarOptOut: true }),
+    ];
+    vi.mocked(listEntityEvents).mockResolvedValueOnce([{ id: "E1" }, { id: "E2" }]);
+    const { result } = renderPush(() => live, (n) => { live = n; });
+    await act(async () => { await result.current.pushToOutlook(); });
+    expect(vi.mocked(deleteEvent)).toHaveBeenCalledTimes(1); // E2 is kept (§486)
+    expect(live[1]).toMatchObject({ outlookEventId: "E2", calendarOptOut: true });
+    expect(live[0].outlookEventId).toBeUndefined();
   });
 });

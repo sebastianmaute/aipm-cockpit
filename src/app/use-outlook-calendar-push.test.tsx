@@ -109,3 +109,33 @@ describe("useOutlookCalendarPush", () => {
     expect(setMilestones).toHaveBeenCalledTimes(1);
   });
 });
+
+// §486 final review (I1) — the milestone twin. This push passes EVERY
+// milestone, so a live row can hold a deleted id only if it joined the list
+// mid-push (e.g. an undo restoring a deleted milestone). The write-back still
+// drops that link, or a pull would read it as a user-side deletion and opt the
+// milestone out for good.
+describe("useOutlookCalendarPush — its own delete clears a live row's link (§486)", () => {
+  it("clears outlookEventId on a live row holding a deleted id, and never sets calendarOptOut", async () => {
+    listProjectEvents.mockResolvedValue([{ id: "E9" }]);
+    const setMilestones = vi.fn();
+    const { result } = renderHook(() =>
+      useOutlookCalendarPush({ milestones: [], projectId: "p", setMilestones, isPopout: false, lang: "en-US", enabled: true }));
+    await act(async () => { await result.current.pushToOutlook(); });
+    expect(deleteEvent).toHaveBeenCalledWith("tok", "E9");
+    expect(setMilestones).toHaveBeenCalledTimes(1);
+    const updater = setMilestones.mock.calls.at(-1)![0] as (p: Milestone[]) => Milestone[];
+    const [row] = updater([ms(1, { outlookEventId: "E9" })]);
+    expect(row.outlookEventId).toBeUndefined();
+    expect(row.calendarOptOut).toBeUndefined();
+  });
+  it("a FAILED delete keeps the link", async () => {
+    listProjectEvents.mockResolvedValue([{ id: "E9" }]);
+    deleteEvent.mockRejectedValueOnce(new Error("503"));
+    const setMilestones = vi.fn();
+    const { result } = renderHook(() =>
+      useOutlookCalendarPush({ milestones: [], projectId: "p", setMilestones, isPopout: false, lang: "en-US", enabled: true }));
+    await act(async () => { await result.current.pushToOutlook(); });
+    expect(setMilestones).not.toHaveBeenCalled();
+  });
+});

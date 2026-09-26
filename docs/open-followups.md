@@ -28097,6 +28097,24 @@ Both arms of the original report are closed. Nothing here needed `.env.local` in
 `turso-config.test.ts`, `turso-pipeline.test.ts`, `storage-error.test.ts` and
 `integrations-section.test.tsx` cover both halves without a real deployment.
 
+★★ **Added after the closure (branch review BR1 of `fix/defect-batch-6`; each still true):**
+- **The internal hint codes no longer reach users.** The distinct-hint split in fix round 1 (I2)
+  made attribution precise, but every surface that still displayed `err.message` directly then
+  showed `turso-token-rejected` / `turso-env-token-rejected` verbatim. `4e1df31a7` translates them at
+  every raw-message display site through `tursoErrorMessageKey` (`storage-error.ts`). The sites are
+  the project picker, the six `use-turso-projects.ts` operation toasts, and the portfolio-health
+  hook and panel. Each falls back to the raw message only for an unrecognized failure.
+- **Known limit: an already-typed Settings token does not take over until something re-keys the
+  memo.** `getTursoConfig` is impure: it reads the per-device rejection flag. But the memos that
+  call it (`task-manager.tsx`, `workspace-section.tsx`, `workspace-panels.tsx`,
+  `use-storage-backend.ts`) key only on URL and token. So if a Settings token ALREADY existed when
+  the env token was rejected, saves keep sending the env token until a setting changes or the page
+  reloads, while "Test connection" (which calls it fresh) passes. Not fixed here.
+- **Known limit: every 403 counts as a token rejection.** `turso-pipeline.ts` classifies a 401 OR
+  403 as a rejection, so a 403 caused by anything else (for example a database-level permission)
+  also marks the env token rejected and re-shows the field. The failure is loud and recoverable,
+  not silent. Not fixed here.
+
 ## 338. `useResizable` is a no-op in every modal that stays mounted while closed — open
 
 **Status:** open — **never machine-verified** (2026-09-02). Found by reading during review of the
@@ -37135,10 +37153,11 @@ Size S.
 
 ## 486. ~~Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync~~ — CLOSED 2026-09-26
 
-**Status:** CLOSED 2026-09-26 — shipped in three commits on `fix/defect-batch-6`: `affd7bb3e` (the
-data model, the planners, the prune and all six write paths), `c674fc18e` (the "Sync to Outlook"
-checkbox in the five editors) and a review fix round (the pulls, the push inputs, undo, and the
-literal-`true` load rule — the ★★★ paragraph below). Re-check with
+**Status:** CLOSED 2026-09-26 — shipped on `fix/defect-batch-6`: `affd7bb3e` (the data model, the
+planners, the prune and all six write paths), `c674fc18e` (the "Sync to Outlook" checkbox in the
+five editors), then the review rounds (the pulls, the push inputs, undo, the literal-`true` load
+rule, and the push's own delete: the ★★★ paragraph below). List them with
+`git log --oneline --grep="§486"`; the count is deliberately not quoted. Re-check with
 `grep -n "calendarOptOut" src/app/calendar-reconcile.ts src/app/use-entity-calendar-pull.ts src/app/use-milestone-calendar-pull.ts`.
 Unit-verified, and every behavioural line named below is mutation-proved, including each of the five
 push-input call sites (four in `use-calendar-integrations.ts`, one in `tasks-section.tsx`), each
@@ -37203,6 +37222,18 @@ the checkbox now creates exactly that item.
   call sites are pinned through the two existing harnesses: `use-calendar-integrations.pushable.test.ts`
   covers all four entities, and `tasks-section.test.tsx` covers the pane's own manual push. Milestones
   were never affected: their push passes every milestone.
+- **The push's OWN delete (final review I1).** When an item left its synced set without being opted
+  out, the push deleted its event but left the item's `outlookEventId` pointing at it. If the item
+  came back (a task reopened) and a PULL ran before the next push, which is common at startup, the
+  missing event read as a user-side deletion. The prune then opted the item out for good, with
+  nothing to tell the user. Both push hooks (`use-entity-calendar-push.ts`,
+  `use-outlook-calendar-push.ts`) now clear `outlookEventId` on any row still holding an id they
+  just deleted successfully, inside the same scope-epoch-guarded write as the create/404 write-back.
+  They never touch `calendarOptOut`. A FAILED delete keeps the link, so the next push retries it.
+  ★ A one-time hazard remains for links that were ALREADY stale in stored data before this branch.
+  Such an item, if reopened, is opted out by the first pull that runs before a push. The pull
+  summary's deletions section now says the items are opted out and how to re-enable them (final
+  review M4).
 - **Undo.** `calendarOptOut` is in `WRITE_THROUGH_FIELDS`, because the prune writes it on a row nobody
   is editing. A whole-row undo captured before a prune therefore keeps the live flag beside the live
   cleared link, instead of restoring an unlinked, opted-in item that the next auto-push re-creates.

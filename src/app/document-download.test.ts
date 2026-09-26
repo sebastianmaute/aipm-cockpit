@@ -321,6 +321,33 @@ describe("downloadDocument", () => {
     }
   });
 
+  // final review M6 (§468) — a failure AFTER the tab opened must close it. On
+  // desktop the hidden named frame would otherwise swallow the next export for
+  // up to 60 s and then report a timeout that is not what happened; in a
+  // browser the user would be left staring at the "Preparing…" placeholder.
+  it.each([
+    ["desktop", "Mozilla/5.0 Electron/44.0.0", PDF_EXPORT_FRAME_NAME],
+    ["browser", "Mozilla/5.0", "_blank"],
+  ])("closes the opened tab and rethrows when preparing the document fails (%s)", async (_label, agent, frame) => {
+    const tab = fakeTab();
+    const close = vi.fn();
+    (tab.win as unknown as { close: () => void }).close = close;
+    const open = vi.fn(() => tab.win);
+    vi.stubGlobal("open", open);
+    const ua = vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(agent);
+    vi.mocked(loadExportAssets).mockRejectedValueOnce(new Error("asset read failed"));
+    try {
+      await expect(
+        downloadDocument(docWithImage(), "pdf", wsWithAsset, "en-US", async () => PNG_B64),
+      ).rejects.toThrow("asset read failed");
+      expect(open).toHaveBeenCalledWith("", frame);
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(downloads()).toHaveLength(0);
+    } finally {
+      ua.mockRestore();
+    }
+  });
+
   it("falls back to a plain .html download when the popup is blocked", async () => {
     vi.stubGlobal("open", vi.fn(() => null));
 

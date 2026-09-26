@@ -3266,6 +3266,8 @@ const enUS = {
   calendarPullConflictsPendingOne: "1 calendar conflict — open Pull to resolve",
   calendarPullConflictsPending: "{0} calendar conflicts — open Pull to resolve",
   calendarPullEventRemoved: "Its Outlook event was removed",
+  // §486 — a prune opts the item out; the deletions section says so.
+  calendarPullDeletionsOptedOutHint: "These items are now opted out of Outlook sync. Tick \"Sync to Outlook\" in an item's editor to sync it again.",
   settingsOutlookCalendarPush: "Push milestones to my Outlook calendar",
   settingsOutlookCalendarPushHint:
     "Adds a \"Push to Outlook\" button to the Milestones view. One-way: your milestones become all-day events; the app never reads your calendar changes back.",

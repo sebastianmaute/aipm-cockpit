@@ -112,6 +112,14 @@ describe("CalendarPullSummaryModal", () => {
     ).toBeTruthy();
   });
 
+  // §486 — a prune now opts the item out, so the deletions section must say so
+  // (and how to undo it), or the item silently stops syncing.
+  it("tells the user the removed items are now opted out, and how to re-enable them", () => {
+    setup();
+    expect(screen.getByText(t("en-US", "calendarPullDeletionsOptedOutHint"))).toBeTruthy();
+    expect(t("en-US", "calendarPullDeletionsOptedOutHint")).toContain(t("en-US", "calendarOptOutCaption"));
+  });
+
   it("renders nothing when open is false", () => {
     setup({ open: false });
     expect(screen.queryByTestId("modal")).toBeNull();

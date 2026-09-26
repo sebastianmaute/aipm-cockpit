@@ -3122,6 +3122,8 @@ export const de: Record<TranslationKey, string> = {
   calendarPullConflictsPending: "{0} Kalenderkonflikte — im Pull auflösen",
   calendarPullConflictsPendingOne: "1 Kalenderkonflikt — im Pull auflösen",
   calendarPullEventRemoved: "Der Outlook-Termin wurde entfernt",
+  // §486 — a prune opts the item out; the deletions section says so.
+  calendarPullDeletionsOptedOutHint: "Diese Einträge sind jetzt von der Outlook-Synchronisierung ausgenommen. Setzen Sie im Editor eines Eintrags den Haken bei „Mit Outlook synchronisieren“, um ihn wieder zu synchronisieren.",
   settingsOutlookCalendarPush:
     "Meilensteine in meinen Outlook-Kalender übertragen",
   settingsOutlookCalendarPushHint:

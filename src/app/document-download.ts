@@ -301,14 +301,24 @@ export async function downloadDocument(
     }
     tab.document.open();
     tab.document.write(PREPARING_HTML);
-    const assets = await assetsFor(doc, ws, format, load);
-    const html = renderDocumentHtml(doc, ws, lang, "standalone", assets, footer);
+    let finalHtml: string;
+    try {
+      const assets = await assetsFor(doc, ws, format, load);
+      const html = renderDocumentHtml(doc, ws, lang, "standalone", assets, footer);
+      finalHtml = isDesktop
+        ? replaceHtmlTitle(html, pdfReadyTitleMarkup(documentFilename(doc, "pdf", today)))
+        : withClosingScript(html, AUTO_PRINT_SCRIPT);
+    } catch (err) {
+      // ★ Close the tab we opened before rethrowing. On desktop the hidden
+      // named frame would otherwise hold the next export for up to 60 s and
+      // then report a timeout that is not what happened; in a browser it would
+      // sit on the "Preparing…" placeholder. The caller shows the real error.
+      tab.close();
+      throw err;
+    }
     // ★★ A SECOND open() RESETS the document. Without it the real document is
     // APPENDED to the placeholder, so the tab prints a file with two <title>
     // elements and a stray doctype in the middle of the body.
-    const finalHtml = isDesktop
-      ? replaceHtmlTitle(html, pdfReadyTitleMarkup(documentFilename(doc, "pdf", today)))
-      : withClosingScript(html, AUTO_PRINT_SCRIPT);
     tab.document.open();
     tab.document.write(finalHtml);
     tab.document.close();
