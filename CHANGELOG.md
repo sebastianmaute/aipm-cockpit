@@ -33,12 +33,15 @@ exports, updated dependencies, and clearer update dialogs from the next release 
   - Single-database Turso storage now saves the project details (name, dates and so on); before,
     those edits were lost on reload.
   - A deployment Turso token that is rejected is reported plainly, and the Settings token field
-    appears so a working token can be used instead.
+    appears so a working token can be used instead. Every 403 from Turso is treated as a rejected
+    token.
   - "Load project from file" in Firefox and Safari explains that the browser cannot open files
-    directly, instead of pointing at Settings.
-- **Outlook calendar sync.** Every task, RAID item, change, absence and milestone has a "Sync to
-  Outlook" checkbox. Unticking it, or pruning an item whose Outlook event was deleted, stops the app
-  from re-creating, updating, pulling or deleting that event.
+    directly (use Chrome, Edge or Opera), and the Load-from-file buttons are disabled there, instead
+    of pointing at Settings.
+- **Outlook calendar sync.** The task, RAID item, change, absence and milestone editors have a "Sync
+  to Outlook" checkbox, shown when Outlook sync is set up. Unticking it, or pruning an item whose
+  Outlook event was deleted, stops the app from re-creating, updating, pulling or deleting that
+  event; ticking it again resumes sync. The pull summary says when items are now opted out.
 - **Dashboard and reports.**
   - Work that is out of scope is called "out of scope", not "cancelled".
   - The first visit after scope returns no longer shows a false "+N%" completion arrow.
@@ -52,9 +55,10 @@ exports, updated dependencies, and clearer update dialogs from the next release 
   - A long description no longer overflows its PowerPoint text box.
   - Desktop app: PDF export opens a "Save as" dialog and writes the file; before, nothing happened.
     The PDF is styled and fits the page: project exports are A4 landscape, wide tables shrink (to
-    no less than 60%) and wrap instead of being cut off, and dates stay on one line.
-  - In the browser, PDF export now opens the print dialog and prints styled. The app's security
-    policy had been blocking the print page's styles and its print script.
+    no less than 60%) and wrap instead of being cut off, and dates stay on one line. A document's
+    text stays full size; only its wide tables shrink.
+  - In the browser (production builds), PDF export now opens the print dialog and prints styled.
+    The app's security policy had been blocking the print page's styles and its print script.
   - A whole-project export is named after the project instead of "aipm-cockpit-tasks-…".
 - **Window layout.** In a smaller window the header no longer truncates the page title and project
   name, the Projects page uses the available width, and the project's Export menu is no longer cut
@@ -83,6 +87,8 @@ exports, updated dependencies, and clearer update dialogs from the next release 
     existing Turso databases get the column on the next save.
   - Single-database Turso saves a `project_meta` row. An older app version saving to the same
     database drops that row again.
+- **Undo.** Undo in the RAID, change, absence and milestone editors no longer reverts a "Sync to
+  Outlook" change.
 - **Dependencies.** Vitest 5, Testing Library jest-dom 7, Playwright 1.63 with its CI image,
   eslint-config-next 16.3.4 (equal to Next), and the grouped minor and patch updates. TypeScript 7 is
   deferred.
