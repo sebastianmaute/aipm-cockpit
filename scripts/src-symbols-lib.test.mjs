@@ -20,6 +20,7 @@ import {
   isCommentLine,
   REPORT_SELF_FILES,
 } from "./src-symbols-lib.mjs";
+import { PROXIMITY } from "./agents-symbols-lib.mjs";
 
 function withTempFile(contents, ext, run) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "src-symbols-"));
@@ -150,7 +151,10 @@ describe("citationsInDiff", () => {
 describe("absence-marker suppression (markedNear)", () => {
   // Far enough apart that the marker's PROXIMITY window cannot reach the
   // unmarked name: the filler is a CODE line, so it is never harvested itself.
-  const filler = `const pad = "${"x".repeat(300)}";`;
+  // ★ Derived from PROXIMITY (review M11): a hard-coded length would turn the
+  // positive control red, for a reason it does not name, the day the window
+  // is widened past it.
+  const filler = `const pad = "${"x".repeat(PROXIMITY + 50)}";`;
 
   // Mutation: delete the `markedNear` `continue` in `citationsInFiles` →
   // `goneHelper` is reported too. Mutation: make it `continue` unconditionally
