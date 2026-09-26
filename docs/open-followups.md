@@ -4985,9 +4985,12 @@ portfolio ROW and the CELL but not `aggregatePortfolio`, which summed those zero
 than reading this list, which is the habit the ★★★ below already prescribes. The divisor is now the
 count of projects that contributed a figure.
 
-★ The persisted pair stays open for the reason recorded below and not because it was missed: giving
-a stored figure a null state is a data-shape change that Trends charts over time and version history
-diffs. It is worth its own decision, not a pattern-match onto the presentation fix.
+★ (Historical, before 2026-09-26: at this point in the entry's history the persisted pair — both
+`snapshot.ts` `pctComplete` and the `dashboard-panel.tsx` landing-state `complete:` — stayed open for
+the reason recorded below and not because it was missed: giving a stored figure a null state is a
+data-shape change that Trends charts over time and version history diffs. It was worth its own
+decision, not a pattern-match onto the presentation fix. Both halves of that pair are now CLOSED — the
+landing half 2026-09-25, the `snapshot.ts` half 2026-09-26; see the Status line above.)
 
 The cancelled-work presentation batch fixed the Reports headline tiles, the Dashboard completion
 tile, the Dashboard at-a-glance KPI card, the Dashboard completion-trend sparkline, and the Open
@@ -5079,11 +5082,13 @@ first was done; the fix above deliberately touches no record.
   landing-state snapshot, so the NEXT visit's trend arrow is baselined off a number the UI has just
   decided not to show.
 
-★★ These are NOT one class of change, and the split is the point. Portfolio health is PRESENTATION —
-the same shape as the fixes already made. `pctComplete` is also a PERSISTED figure that Trends charts
-over time and version history diffs, so giving THAT a null state is a data-shape decision with
-migration consequences for every stored snapshot. Decide those separately; do not "finish the sweep"
-by pattern-matching the presentation fix onto the stored ones.
+★★ (Historical, before 2026-09-26: at this point THESE WERE NOT one class of change, and the split was
+the point. Portfolio health was PRESENTATION — the same shape as the fixes already made then.
+`pctComplete` was ALSO a PERSISTED figure that Trends charts over time and version history diffs, so
+giving THAT a null state was a data-shape decision with migration consequences for every stored
+snapshot, to be decided separately rather than by pattern-matching the presentation fix onto the
+stored ones. That decision has since been made: `pctComplete` is `number | null` as of 2026-09-26, see
+the Status line above — this paragraph is kept for the reasoning, not as a live instruction.)
 
 ★★★ THIS SENTENCE HELD A FOURTH COPY OF THE COUNT AND IT WAS WRONG FROM THE DAY IT WAS WRITTEN —
 "the same shape as the three already done", written when four surfaces were already fixed, then left
