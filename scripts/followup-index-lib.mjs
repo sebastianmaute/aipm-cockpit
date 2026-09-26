@@ -236,18 +236,27 @@ function rebuildRow(n, title, old) {
     return `| [§${n}](#${headingSlug(n, title)}) | ${fresh} | — | — | ${headingState(title)} |`;
   }
   const flipped = stateIsClosed(old.state) !== closed;
-  const struck = old.item.startsWith("~~");
-  // A row keeps its hand decoration while its TEXT still matches the heading;
-  // a status suffix that leaked into the cell is dropped, decoration kept.
-  const inner = (struck ? old.item.replace(/^~~|~~$/g, "") : old.item).replace(
-    STATUS_SUFFIX_RE,
-    "",
-  );
-  let item = itemText(inner) === itemText(fresh) ? inner : fresh;
   // ★ On a flip TO open the strike comes off; on a flip to closed none is
   // added — see `rebuildIndex` for the measured convention.
-  const strike = struck && !(flipped && !closed);
-  if (strike) item = `~~${item}~~`;
+  const reopened = flipped && !closed;
+  // ★★ ORDER MATTERS: cut a leaked status suffix FIRST, then look for a strike
+  // wrapping the WHOLE remainder. Unwrapping first turned `~~X~~ — CLOSED d`
+  // into `X~~` (only the leading `~~` sat at an edge), which then re-wrapped
+  // to the malformed fixed point `~~X~~~~`.
+  const body = old.item.replace(STATUS_SUFFIX_RE, "");
+  const wrapped = /^~~[\s\S]*~~$/.test(body);
+  const inner = wrapped ? body.slice(2, -2) : body;
+  let item;
+  if (itemText(inner) === itemText(fresh)) {
+    // The row's own text and decoration survive. A PARTIAL strike (`~~X~~ Y`)
+    // is not re-wrapped — it is already exactly as the row had it.
+    if (reopened) item = inner.replace(/~~/g, "");
+    else item = wrapped ? `~~${inner}~~` : inner;
+  } else {
+    // Retitled: text from the heading, and the row keeps being struck if it
+    // was (§307's `~~…~~ — not a defect` is this branch).
+    item = old.item.startsWith("~~") && !reopened ? `~~${fresh}~~` : fresh;
+  }
   const state = flipped ? headingState(title) : old.state;
   return `| [§${n}](#${headingSlug(n, title)}) | ${item} | ${old.origin} | ${old.size} | ${state} |`;
 }

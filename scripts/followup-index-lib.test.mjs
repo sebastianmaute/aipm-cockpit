@@ -224,6 +224,27 @@ describe("rebuildIndex", () => {
     ]);
   });
 
+  // Review I1. Mutation: unwrap the strike BEFORE cutting the suffix (the
+  // first cut's order) → "~~X~~~~", a malformed cell that is its own fixed point.
+  it("★★ a struck Item with a leaked CLOSED suffix rebuilds to a clean strike, twice", () => {
+    const src = doc(
+      ["## 1. X — CLOSED 2026-01-01"],
+      ["| [§1](#1-x--closed-2026-01-01) | ~~X~~ — CLOSED 2026-01-01 | o | S | **CLOSED** 2026-01-01 |"],
+    );
+    const once = rebuildIndex(src);
+    expect(rowsOf(once)).toEqual([
+      "| [§1](#1-x--closed-2026-01-01) | ~~X~~ | o | S | **CLOSED** 2026-01-01 |",
+    ]);
+    expect(rebuildIndex(once)).toBe(once);
+  });
+
+  // Mutation: re-wrap whenever the cell STARTS with `~~` (`old.item.startsWith`
+  // in the kept branch) → "~~~~X~~ Y~~".
+  it("keeps a partial strike verbatim rather than wrapping it again", () => {
+    const row = "| [§1](#1-x-y) | ~~X~~ Y | o | S | open |";
+    expect(rowsOf(rebuildIndex(doc(["## 1. X Y"], [row])))).toEqual([row]);
+  });
+
   // Mutation: keep `old.state` on a flip (drop `flipped ?`) → the stale
   // "open (narrowed …)" survives beside a CLOSED heading.
   it("★★ regenerates State from the heading when an open row's entry is closed", () => {
