@@ -138,4 +138,16 @@ describe("snapshot schema against a fresh (live DDL) database", () => {
       db.close();
     }
   });
+
+  it("round-trips a null completion figure as null, not 0 (§64)", () => {
+    const db = new DatabaseSync(":memory:");
+    try {
+      for (const ddl of SNAPSHOT_DDL) db.exec(ddl);
+      runStatements(db, appendStatements({ ...rec, pctComplete: null }, "p1"));
+      const out = rowsToSnapshots(query(db, "SELECT * FROM snapshot"), query(db, "SELECT * FROM snapshot_series"));
+      expect(out[0].pctComplete).toBeNull();
+    } finally {
+      db.close();
+    }
+  });
 });

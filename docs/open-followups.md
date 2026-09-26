@@ -295,7 +295,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§61](#61-three-residuals-from-the-use-resource-planner-split-plus-one-pointer--open-all-small) | Three residuals from the `use-resource-planner` split, plus one pointer — open, all small | post-0.212.0 | S | open |
 | [§62](#62-two-reference-data-handlers-have-no-production-consumer--open-pre-existing) | Two reference-data handlers have no production consumer — open, pre-existing | pre-existing, found post-0.212.0 | S | open |
 | [§63](#63-gantttsx-crossed-800-and-was-baselined-rather-than-split--closed-in-02130-split-after-all) | ~~`gantt.tsx` crossed 800 and was baselined rather than split~~ | post-0.212.0 | M | **CLOSED** in 0.213.0, split after all |
-| [§64](#64-other-surfaces-still-read-0-complete-for-an-all-cancelled-project--half-fixed-post-02160) | Other surfaces still read "0% complete" for an all-cancelled project — HALF FIXED post-0.216.0 | cancelled-work presentation | S | open |
+| [§64](#64-other-surfaces-still-read-0-complete-for-an-all-cancelled-project--closed-2026-09-26) | Other surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S | **CLOSED** 2026-09-26 |
 | [§65](#65-a-done-task-with-no-completeddate-shows-the-cross-while-its-tooltip-says-completed--closed-2026-09-25) | A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" | cancelled-work presentation | S | closed |
 | [§66](#66-the-rag-tile-counts-a-cancelled-task-green-one-tile-from-the-fix--closed-post-02160) | ~~The R/A/G tile counts a cancelled task GREEN, one tile from the fix~~ | cancelled-work presentation | M | **CLOSED** post-0.216.0 |
 | [§67](#67-a-committed-nul-byte-makes-use-portfolio-healthts-invisible-to-content-greps--closed-post-02160) | ~~A committed NUL byte makes `use-portfolio-health.ts` invisible to content greps~~ | pre-existing (`155a3458`) | XS | **CLOSED** post-0.216.0 |
@@ -4935,13 +4935,26 @@ currently over the limit.
 
 ---
 
-## 64. Other surfaces still read "0% complete" for an all-cancelled project — HALF FIXED post-0.216.0
+## 64. Other surfaces still read "0% complete" for an all-cancelled project — CLOSED 2026-09-26
 
-**Status:** OPEN — the snapshot half only. Re-verified 2026-09-25: `grep -n "pctComplete" src/app/snapshot.ts` shows the field typed `number` and captured as `model.progress.percent`, so a no-scope capture still stores 0. The landing half was fixed 2026-09-25 on `fix/update-dialog-text`: `useLandingDelta` no longer saves the `complete` metric while nothing is in scope, so the first visit after scope returns shows no false "+N%" arrow (pinned in `use-landing-delta.test.tsx`, mutation-checked). Still open, by owner decision deferred to its own slice: a snapshot captured while nothing is in scope stores `pctComplete` 0, which skews the sparkline and any later baseline. The chosen fix is to store it as null for new captures only, with `completion-trend` and `variance-format` handling null.
+**Status:** CLOSED 2026-09-26 by `fix/defect-batch-7` — the snapshot half. `SnapshotRecord.pctComplete`
+is now `number | null`; `buildSnapshot` (`snapshot.ts`) stores null instead of `model.progress.percent`
+while `hasNoActiveScope(model.progress)` is true. `fromSnapshots` (`completion-trend.ts`) keeps a null
+figure as a gap point rather than clamping it to 0, and falls back to the activity log when fewer than
+two points carry a figure. `Sparkline` (`sparkline.tsx`) breaks the line at a gap and draws no dot for
+it. `CompletionTrendBody` (`dashboard-tile-bodies.tsx`) reads its edge values and the accessible name
+from the first/last point WITH a figure, never a gap. `isKpiCompleteSnapshot` (`snapshot.ts`) now also
+requires a non-null `pctComplete`, so a no-scope row can never become the auto baseline (§78).
+`computeVariance`'s null-baseline row was already empty (`baseline: null, delta: null, health: null`)
+and stays so — pinned as a regression test rather than a new behaviour. Older stored rows keep their
+persisted 0 and are unaffected by this decision; they remain covered by the live `hasNoActiveScope`
+gate applied at render time (`withoutCompletionVariance`, `use-snapshots.ts`). Pinned in
+`snapshot.test.ts`, `snapshot-schema.execute.test.ts`, `completion-trend.test.ts`, `sparkline.test.tsx`
+and `dashboard-panel.test.tsx` (mutation-checked).
 
-Previous status: open — PARTLY FIXED, the two persisted completion figures are still ungated. Reproduced 2026-08-28 by `grep -n "pctComplete" src/app/snapshot.ts`. Re-verified 2026-09-13 on `00f2a273`: `grep -n "pctComplete: model.progress.percent" src/app/snapshot.ts` → 1 hit, still a non-nullable persisted figure.
+Previous status: OPEN — the snapshot half only. Re-verified 2026-09-25: `grep -n "pctComplete" src/app/snapshot.ts` shows the field typed `number` and captured as `model.progress.percent`, so a no-scope capture still stores 0. The landing half was fixed 2026-09-25 on `fix/update-dialog-text`: `useLandingDelta` no longer saves the `complete` metric while nothing is in scope, so the first visit after scope returns shows no false "+N%" arrow (pinned in `use-landing-delta.test.tsx`, mutation-checked). Still open, by owner decision deferred to its own slice: a snapshot captured while nothing is in scope stores `pctComplete` 0, which skews the sparkline and any later baseline. The chosen fix is to store it as null for new captures only, with `completion-trend` and `variance-format` handling null.
 
-**Work item:** #117
+Earlier status: open — PARTLY FIXED, the two persisted completion figures are still ungated. Reproduced 2026-08-28 by `grep -n "pctComplete" src/app/snapshot.ts`. Re-verified 2026-09-13 on `00f2a273`: `grep -n "pctComplete: model.progress.percent" src/app/snapshot.ts` → 1 hit, still a non-nullable persisted figure.
 
 ★ **HALF CLOSED post-0.216.0.** Every surface that reads the figure DIRECTLY is done; both PERSISTED
 figures are deliberately untouched.
@@ -4962,7 +4975,7 @@ shape that hides an item belonging to both.**
 | `portfolio-rollup.ts` `avgCompletionPercent` | CLOSED — **this entry never named it** (see below) |
 | `committee-report/report-draft.ts` | CLOSED — emits "no active scope" instead of "0% complete" |
 | `ai-dashboard-snapshot.ts` | CLOSED — the payload carries an explicit `noActiveScope` |
-| `snapshot.ts` `pctComplete` | **OPEN, deliberately** — persisted |
+| `snapshot.ts` `pctComplete` | CLOSED 2026-09-26 — nullable now; a no-scope capture stores `null`, not 0 (this row is stale otherwise; see the Status line above) |
 | `dashboard-panel.tsx` landing-state `complete:` | **OPEN, deliberately** — persisted **and user-read**: it feeds `trends.complete` → the KPI strip's `TrendArrow` on a later visit |
 
 ★★ **THE SURFACE LIST WAS INCOMPLETE, in exactly the way this entry warns about.** It names the
@@ -5054,7 +5067,11 @@ while the commit message recorded the real one — so the doc and its own commit
 other. The appositive that followed it ("the sole feeder of both surfaces") was true OF
 workspace-section, which is exactly what let a wrong location survive a skim.
 
-★★ **THE PERSISTED HALF IS STILL OPEN**, and the split is why it survived the fix above. Giving the
+★★ **THIS PARAGRAPH IS NOW HISTORICAL — the persisted `snapshot.ts` half CLOSED 2026-09-26.** It
+argued for deferring the data-shape change; the deferral held for a separate slice, then the decision
+was made and `pctComplete` is `number | null` (see the Status line above). It is reproduced here
+because the split it argues for is still the right shape for the other persisted figure below.
+Originally: **THE PERSISTED HALF IS STILL OPEN**, and the split is why it survived the fix above. Giving the
 stored `pctComplete` a null state is a data-shape change that Trends charts over time and version
 history diffs — migration consequences for every stored snapshot. Do not do the second because the
 first was done; the fix above deliberately touches no record.

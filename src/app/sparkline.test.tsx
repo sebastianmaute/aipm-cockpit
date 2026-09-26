@@ -4,7 +4,7 @@ import { Sparkline } from "./sparkline";
 import type { CompletionPoint } from "./completion-trend";
 
 /** One point a day from 2026-06-01, unless explicit days are given. */
-const pts = (vals: number[], days?: number[]): CompletionPoint[] =>
+const pts = (vals: (number | null)[], days?: number[]): CompletionPoint[] =>
   vals.map((v, i) => {
     const d = new Date(Date.UTC(2026, 5, 1 + (days ? days[i] : i)));
     const date = d.toISOString().slice(0, 10);
@@ -63,5 +63,20 @@ describe("Sparkline", () => {
     const { getByRole } = render(<Sparkline points={pts([10, 20])} ariaLabel="Completion trend: 20% now" />);
     const svg = getByRole("img", { name: "Completion trend: 20% now" });
     expect(svg.getAttribute("aria-hidden")).toBeNull();
+  });
+
+  // §64 — a null point is a snapshot taken with nothing in scope: it keeps its
+  //  place in time but draws nothing, so the line BREAKS instead of dropping to
+  //  0 or bridging the gap.
+  test("breaks the line at a null point and draws no dot for it", () => {
+    const { container } = render(<Sparkline points={pts([10, 20, null, 30, 40])} />);
+    expect(container.querySelectorAll("polyline")).toHaveLength(2);
+    expect(container.querySelectorAll("[data-sparkline-point]")).toHaveLength(4);
+  });
+
+  test("draws a lone real point between two gaps as a dot with no line", () => {
+    const { container } = render(<Sparkline points={pts([null, 50, null])} />);
+    expect(container.querySelectorAll("polyline")).toHaveLength(0);
+    expect(container.querySelectorAll("[data-sparkline-point]")).toHaveLength(1);
   });
 });

@@ -210,7 +210,7 @@ export function rowsToSnapshots(
       isBaseline: r.is_baseline === "1",
       remainingHours: numOrNull(r.remaining_hours),
       remainingCost: numOrNull(r.remaining_cost),
-      pctComplete: Number(r.pct_complete || 0),
+      pctComplete: numOrNull(r.pct_complete), // "" = no figure (§64); every older row holds a number
       forecastEndDate: r.forecast_end_date,
       planEndDate: r.plan_end_date,
       spi: numOrNull(r.spi),
