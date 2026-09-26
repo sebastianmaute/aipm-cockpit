@@ -1379,7 +1379,7 @@ describe("§463 — calendar events, knowledge items and insights reach every do
       const slides = async (cfg: ExportConfig) =>
         [...(await unzipBlob(buildPptx(buildExportSections(SAMPLE, cfg, "en-US"), "en-US"))).entries()]
           .filter(([p]) => p.startsWith("ppt/slides/slide")).map(([, x]) => x).join("\n");
-      expect(await slides(on)).toContain(title);
+      expect(await slides(on)).toContain(`>${title}<`);
       expect(await slides(off)).not.toContain(`>${title}<`);
     });
   }

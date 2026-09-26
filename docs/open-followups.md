@@ -35943,17 +35943,26 @@ items/insights through PDF, DOCX, XLSX and PPTX with the section switched on and
 
 Mutation-checked: M1 (drop `insights: src.insights,` from `buildExportWorkspace`) died on
 `export-workspace.test.ts` — `AssertionError: insights: expected [] to deeply equal [ 'insights' ]` in
-"feeds every section builder, one switch at a time", and again in "returns only the export slices" (16
-keys instead of 17). M2 (revert `handleExportCurrentProject` to its old inline object literal) died on
-`action-menus-sweep.test.ts`'s "builds both export workspaces through buildExportWorkspace" —
-`AssertionError: expected '…' to contain 'buildExportWorkspace('`. M3 (`ActionMenus` calling
-`buildExportWorkspace({ ...useWorkspace(), calendarEvents: undefined })`) is a confirmed SURVIVOR — no
-test in the green run above catches a header-menu regression on one specific field, because the
-header path is pinned only STRUCTURALLY (the sweep test's source-text check that
-`action-menus.tsx` calls `buildExportWorkspace(`, plus `ExportMenu` exporting the object it is handed)
-and the *content* of what a correct `buildExportWorkspace` call produces is pinned only by the builder
-test, which never sees `action-menus.tsx`'s actual call site. Disclosed rather than closed with a gap
-silently accepted.
+"feeds every section builder, one switch at a time", and again in "returns only the export slices"
+(18 keys instead of 19 — the mutated builder drops one of the 19 `EXPORT_WORKSPACE_KEYS`). M2 (revert
+`handleExportCurrentProject` to its old inline object literal) died on `action-menus-sweep.test.ts`'s
+"builds both export workspaces through buildExportWorkspace" — `AssertionError: expected '…' to
+contain 'buildExportWorkspace('`. M3 (`ActionMenus` calling `buildExportWorkspace({ ...useWorkspace(),
+calendarEvents: undefined })`) was FIRST a confirmed survivor — nothing pinned the header path's
+per-field CONTENT, only that `action-menus.tsx` calls `buildExportWorkspace(` (source-text sweep) and
+that `ExportMenu` re-exports whatever `workspace` it is handed unchanged. Fixed by a new test,
+`action-menus.test.tsx`'s "hands ExportMenu the SAME per-field values useWorkspace() holds, not a
+partial rebuild": a `Seeder` component pushes three real arrays into context via the live
+`setCalendarEvents`/`setKnowledgeItems`/`setInsights` setters, a `Probe` records the same
+`useWorkspace()` snapshot `ActionMenus` reads, and the test asserts `capturedWorkspace[key] ===
+probeSnapshot[key]` (`Object.is`, not deep-equal) for every one of the 19 `EXPORT_WORKSPACE_KEYS`,
+plus an explicit non-undefined check on the three previously-dropped fields so the loop cannot pass
+vacuously on `undefined === undefined`. Re-run against all three drops: M3 itself
+(`calendarEvents: undefined`) failed on `AssertionError: expected undefined to deeply equal []` (the
+`waitFor` seed-settle guard); dropping `knowledgeItems` failed on `AssertionError: knowledgeItems:
+expected undefined to be [] // Object.is equality`; dropping `insights` failed the same way naming
+`insights`. All three killed; reverted and confirmed green (`action-menus.test.tsx` 6/6) before this
+commit.
 
 CSV and Markdown are unchanged storage formats: `workspaceToCsv`/`workspaceToMarkdown` still gate the
 project block on `config === undefined` (a storage save, never a document export), exactly as this
