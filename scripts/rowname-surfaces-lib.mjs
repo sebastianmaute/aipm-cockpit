@@ -521,20 +521,40 @@ export function coverageMarkersIn(text) {
 
 const IMPORT_RE = /(?:from|import|mock|requireActual)\s*\(?\s*["'](\.[^"']*)["']/g;
 
-/** Module keys a file pulls in by RELATIVE specifier. Bare package specifiers
- *  are not repo modules and are dropped. */
-export function relativeImportsIn(text) {
+/** Module keys a file pulls in by RELATIVE specifier, each resolved against
+ *  the directory of `fromFile` (the importing file's repo-relative path). Bare
+ *  package specifiers are not repo modules and are dropped.
+ *  ★★ `fromFile` is REQUIRED and its absence throws. Without it the only key a
+ *  specifier can produce is its basename, which is the §281 collision this
+ *  signature exists to remove — a silent fallback would bring it back. */
+export function relativeImportsIn(text, fromFile) {
+  if (typeof fromFile !== "string") {
+    throw new TypeError("relativeImportsIn: fromFile (the importer's path) is required");
+  }
+  const dir = path.posix.dirname(toPosix(fromFile));
   const out = [];
   IMPORT_RE.lastIndex = 0;
   let m;
-  while ((m = IMPORT_RE.exec(text))) out.push(moduleKey(m[1]));
+  while ((m = IMPORT_RE.exec(text))) out.push(moduleKey(path.posix.join(dir, m[1])));
   return out;
 }
 
-/** A file path reduced to the key an import specifier resolves to. */
+function toPosix(file) {
+  return file.split(/[\\/]/).join("/");
+}
+
+/** A repo-relative file path reduced to the key an import specifier resolves
+ *  to: forward slashes, normalised, extension stripped, and a trailing
+ *  `/index` folded onto its directory (`./foo` can mean `foo/index.tsx`).
+ *  ★★★ THE DIRECTORY IS PART OF THE KEY (§281). It used to be the basename
+ *  alone, so `src/app/a/row.tsx` and `src/app/b/row.tsx` shared the key `row`
+ *  and a test importing one credited the other — a false COVERED on a surface
+ *  no test reaches. */
 export function moduleKey(file) {
-  const base = file.split(/[\\/]/).pop();
-  return base.replace(/\.(tsx|ts|jsx|js|mjs)$/, "");
+  return path.posix
+    .normalize(toPosix(file))
+    .replace(/\.(tsx|ts|jsx|js|mjs)$/, "")
+    .replace(/\/index$/, "");
 }
 
 function walk(dir, out) {
@@ -611,7 +631,7 @@ export function buildReport({ sources, tests }) {
       // file that actually calls the shared assertion helper, and the reported
       // marker list is the only thing a reader has to discount a COVERED with.
       strength: COVERAGE_MARKERS.findIndex((m) => m.name === markers[0]),
-      imports: new Set(relativeImportsIn(text)),
+      imports: new Set(relativeImportsIn(text, file)),
     });
   }
   asserting.sort((a, b) => a.strength - b.strength);
@@ -621,7 +641,7 @@ export function buildReport({ sources, tests }) {
   const importers = new Map();
   for (const [file, text] of sources) {
     const from = moduleKey(file);
-    for (const target of relativeImportsIn(text)) {
+    for (const target of relativeImportsIn(text, file)) {
       if (!importers.has(target)) importers.set(target, new Set());
       importers.get(target).add(from);
     }

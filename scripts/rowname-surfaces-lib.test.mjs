@@ -584,12 +584,35 @@ describe("coverageMarkersIn", () => {
 });
 
 describe("relativeImportsIn", () => {
-  it("returns the module keys a file imports relatively", () => {
-    expect(relativeImportsIn(ASSERTING_TEST)).toContain("widget-list");
+  it("returns the module keys a file imports relatively, resolved to repo paths", () => {
+    const keys = relativeImportsIn(ASSERTING_TEST, "src/app/widget-list.test.tsx");
+    expect(keys).toContain("src/app/widget-list");
+    expect(keys).toContain("src/test/row-unique-names");
   });
 
   it("regression: ignores a bare package specifier", () => {
-    expect(relativeImportsIn('import { x } from "react";')).toHaveLength(0);
+    expect(relativeImportsIn('import { x } from "react";', "src/app/a.tsx")).toHaveLength(0);
+  });
+
+  // §281. Mutation: join against "" instead of the importer's directory → the
+  // key is "lib/row" (or "row" with the old basename key), not "src/app/lib/row".
+  it("resolves ../ and nested specifiers against the importing file's directory", () => {
+    expect(relativeImportsIn('import { R } from "../lib/row";', "src/app/b/row.test.tsx")).toEqual([
+      "src/app/lib/row",
+    ]);
+  });
+
+  // Mutation: drop the `/index` fold in `moduleKey` → "src/app/foo/index".
+  it("folds an explicit /index specifier onto its directory", () => {
+    expect(relativeImportsIn('import { F } from "./foo/index";', "src/app/x.tsx")).toEqual([
+      "src/app/foo",
+    ]);
+  });
+
+  // Mutation: remove the `typeof fromFile` guard → the call still throws, but a
+  // bare "reading 'split'" TypeError that does not name the missing argument.
+  it("throws when the importer's path is missing rather than guessing", () => {
+    expect(() => relativeImportsIn('import { x } from "./x";')).toThrow(/fromFile/);
   });
 });
 
@@ -604,7 +627,7 @@ describe("buildReport", () => {
       sources,
       tests: new Map([["src/app/widget-list.test.tsx", ASSERTING_TEST]]),
     });
-    const covered = report.surfaces.find((s) => s.module === "widget-list");
+    const covered = report.surfaces.find((s) => s.module === "src/app/widget-list");
     expect(covered.status).toBe("COVERED");
     expect(covered.via).toBe("src/app/widget-list.test.tsx");
   });
@@ -614,8 +637,8 @@ describe("buildReport", () => {
       sources,
       tests: new Map([["src/app/widget-list.test.tsx", NON_ASSERTING_TEST]]),
     });
-    expect(report.surfaces.find((s) => s.module === "widget-list").status).toBe("GAP");
-    expect(report.surfaces.find((s) => s.module === "other-list").status).toBe("GAP");
+    expect(report.surfaces.find((s) => s.module === "src/app/widget-list").status).toBe("GAP");
+    expect(report.surfaces.find((s) => s.module === "src/app/other-list").status).toBe("GAP");
   });
 
   it("★★ credits a parent module's asserting test, and says it was indirect", () => {
@@ -633,9 +656,46 @@ describe("buildReport", () => {
         ],
       ]),
     });
-    const s = report.surfaces.find((x) => x.module === "widget-list");
+    const s = report.surfaces.find((x) => x.module === "src/app/widget-list");
     expect(s.status).toBe("COVERED_VIA_PARENT");
     expect(s.via).toContain("widget-panel");
+  });
+
+  // §281. Two modules sharing a basename in different directories must not
+  // credit each other's tests. Mutation: restore the basename-only `moduleKey`
+  // (`file.split(/[\\/]/).pop()` minus the extension) → both keys are "row" and
+  // the a/ surface is COVERED via the b/ test.
+  it("★★★ regression: a same-named module in ANOTHER directory does not cover a surface", () => {
+    const report = buildReport({
+      sources: new Map([["src/app/a/row.tsx", RAW_FIELD_LIST]]),
+      tests: new Map([
+        [
+          "src/app/b/row.test.tsx",
+          'import { Row } from "./row";\nexpectRowUniqueNames({ container });',
+        ],
+      ]),
+    });
+    const s = report.surfaces.find((x) => x.file === "src/app/a/row.tsx");
+    expect(s.module).toBe("src/app/a/row");
+    expect(s.status).toBe("GAP");
+    expect(s.strongStatus).toBe("GAP");
+  });
+
+  // The positive control for the test above, so it cannot pass by a resolver
+  // that matches nothing. Mutation: resolve every specifier against "" → GAP.
+  it("★★ a same-directory ./row import still covers its surface", () => {
+    const report = buildReport({
+      sources: new Map([["src/app/a/row.tsx", RAW_FIELD_LIST]]),
+      tests: new Map([
+        [
+          "src/app/a/row.test.tsx",
+          'import { Row } from "./row";\nexpectRowUniqueNames({ container });',
+        ],
+      ]),
+    });
+    const s = report.surfaces.find((x) => x.file === "src/app/a/row.tsx");
+    expect(s.status).toBe("COVERED");
+    expect(s.via).toBe("src/app/a/row.test.tsx");
   });
 
   it("★★ prefers the test carrying the STRONGEST marker, not the first one seen", () => {
@@ -653,7 +713,7 @@ describe("buildReport", () => {
         ],
       ]),
     });
-    const s = report.surfaces.find((x) => x.module === "widget-list");
+    const s = report.surfaces.find((x) => x.module === "src/app/widget-list");
     expect(s.via).toBe("src/app/z-strong.test.tsx");
     expect(s.markers[0]).toBe("expectRowUniqueNames");
   });
@@ -762,9 +822,14 @@ describe("against the real repository", () => {
     expect(adopters.length).toBeGreaterThan(20);
   });
 
-  it("moduleKey strips the directory and the extension", () => {
-    expect(moduleKey("src/app/documents-list.tsx")).toBe("documents-list");
-    expect(moduleKey(path.join("src", "app", "documents-list.tsx"))).toBe("documents-list");
+  // §281 migrated this from "strips the directory": the directory is now PART
+  // of the key. Mutation: restore the basename-only key → "documents-list".
+  it("moduleKey keeps the repo-relative directory and strips only the extension", () => {
+    expect(moduleKey("src/app/documents-list.tsx")).toBe("src/app/documents-list");
+    expect(moduleKey(path.join("src", "app", "documents-list.tsx"))).toBe(
+      "src/app/documents-list",
+    );
+    expect(moduleKey("src/app/foo/index.tsx")).toBe("src/app/foo");
   });
 
   it("★ the scanner's own files are not part of the corpus it judges", () => {

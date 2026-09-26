@@ -190,10 +190,10 @@ out("    `<Checkbox />` — is SKIPPED, not reported. That is the unlabelled-con
 out("    defect, which the axe gate DOES catch, and a different question from");
 out("    2.4.6. Both spellings are skipped alike; the self-closing one used to be");
 out("    skipped while the open/close one was reported FIXED with an empty name.");
-out("  * `moduleKey` is basename-only, so two modules sharing a file name in");
-out("    different directories collapse to one key and can credit each other's");
-out("    tests. One collision in the tree when this was measured (`page`, across");
-out("    route files, none of them a surface file, so nothing was mis-credited).");
+out("  * an import that is not a RELATIVE specifier. Keys are repo-relative paths");
+out("    and relative specifiers are resolved against the importer's directory,");
+out("    but a path-alias import (`@/app/...`) is not read at all, so a test");
+out("    reaching a surface only that way reads as a GAP.");
 out("  * `matchDelimiters` skips comments but NOT string literals, unlike");
 out("    `scanOpenTag`, which skips both. A quote skip cannot be copied over: a");
 out("    `.map(` body holds JSX text, where the apostrophe in `Don't` is not a");
