@@ -402,3 +402,81 @@ describe("calendarOptOut (§486)", () => {
     }
   });
 });
+
+describe("§617 — a meta slice that parses but sanitizes to nothing is REPORTED, not dropped", () => {
+  beforeEach(() => clearDiagLog());
+
+  /** A real single-tenant DB holding an empty workspace, with ONE meta row
+   *  replaced by `value` — then loaded through the real SELECTs. */
+  function loadWithMetaRow(key: string, value: string, diag: DocTruncationDiag): Workspace {
+    const db = new DatabaseSync(":memory:");
+    try {
+      for (const ddl of SCHEMA_DDL) db.exec(ddl);
+      runStatements(db, workspaceToStatements(emptyWorkspace()));
+      db.prepare("DELETE FROM meta WHERE key = ?").run(key);
+      db.prepare("INSERT INTO meta (key, value) VALUES (?, ?)").run(key, value);
+      return rowsToWorkspace(selectAllResults(db), diag);
+    } finally {
+      db.close();
+    }
+  }
+
+  const INVALID: readonly (readonly [string, string, keyof Workspace])[] = [
+    ["project_status", JSON.stringify({ ragOverride: "purple" }), "status"],
+    ["project_meta", JSON.stringify({ name: "", code: "APO" }), "project"],
+    ["field_visibility", JSON.stringify({ noSuchModal: { fields: ["x"] } }), "fieldVisibility"],
+    ["features", JSON.stringify(["noSuchModule"]), "features"],
+    ["steering_committee", JSON.stringify("not a committee"), "steeringCommittee"],
+    ["timelog_links", JSON.stringify([1, 2, 3]), "timelogLinks"],
+    ["knowledge_items", JSON.stringify([{ bogus: true }]), "knowledgeItems"],
+    ["insights", JSON.stringify([{ bogus: true }]), "insights"],
+    ["activityLog", JSON.stringify([{ bogus: true }]), "activityLog"],
+    ["budgetHistory", JSON.stringify([{ bogus: true }]), "budgetHistory"],
+    ["documents", JSON.stringify([{ bogus: true }]), "documents"],
+    ["documentVersions", JSON.stringify([{ bogus: true }]), "documentVersions"],
+    ["settings_overrides", JSON.stringify({ nextActions: "garbage" }), "settingsOverrides"],
+  ];
+
+  it.each(INVALID)("reports %s and leaves the slice at its empty default", (key, value, wsKey) => {
+    const diag: DocTruncationDiag = {};
+    const ws = loadWithMetaRow(key, value, diag);
+    expect(diag.decodeFailedSlices).toEqual([key]);
+    expect(ws[wsKey]).toEqual(emptyWorkspace()[wsKey]);
+    expect(readDiagLog().some((e) => e.code === "turso.metaSliceUnreadable")).toBe(true);
+  });
+
+  // ★ The false-positive half, and the one a user would feel: each of these is a
+  //  value a healthy project can hold. Reporting it would pause saving.
+  const LEGIT_EMPTY: readonly (readonly [string, string])[] = [
+    ["project_status", "{}"],
+    ["project_status", JSON.stringify({ narrative: "" })],
+    ["project_meta", "{}"],
+    ["field_visibility", "{}"],
+    ["features", "[]"],
+    ["knowledge_items", "[]"],
+    ["insights", "[]"],
+    ["activityLog", "[]"],
+    ["budgetHistory", "[]"],
+    ["documents", "[]"],
+    ["documentVersions", "[]"],
+    ["settings_overrides", "{}"],
+  ];
+
+  it.each(LEGIT_EMPTY)("stays silent for %s stored as %s", (key, value) => {
+    const diag: DocTruncationDiag = {};
+    loadWithMetaRow(key, value, diag);
+    expect(diag.decodeFailedSlices ?? []).not.toContain(key);
+  });
+
+  it("keeps a stored Simple-mode features list ([]) as Simple mode", () => {
+    const ws = loadWithMetaRow("features", "[]", {});
+    expect(ws.features).toEqual([]);
+  });
+
+  it("loads a valid project_meta row with no report (positive control)", () => {
+    const diag: DocTruncationDiag = {};
+    const ws = loadWithMetaRow("project_meta", JSON.stringify({ name: "Apollo" }), diag);
+    expect(ws.project?.name).toBe("Apollo");
+    expect(diag.decodeFailedSlices ?? []).not.toContain("project_meta");
+  });
+});

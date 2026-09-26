@@ -844,7 +844,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§614](#614-use-weight-suggestionstesttsx-is-order-dependent--its-shared-mock-is-never-reset--closed-2026-09-23) | use-weight-suggestions.test.tsx is order-dependent — its shared mock is never reset | scheduled run 35875601416, job `unit-shuffled-random` (seed 35875601416); GitLab #396 | S — clear the mock before each test; reproduces in isolation | closed |
 | [§615](#615-tiptaps-deferred-editor-destroy-throws-window-is-not-defined-after-a-test-environment-is-torn-down--open) | TipTap's deferred editor destroy throws window is not defined after a test environment is torn down | scheduled run 35875601416, job `unit-shuffled-random` (unhandled error); GitLab #397 | S — hedged with a global 10 ms `afterAll` flush in `vitest.setup.ts`, unverified against the actual race; close after 4 consecutive clean weekly `unit-shuffled-random` runs | open |
 | [§616](#616-timelog-exposes-no-approvereject-write-so-the-review-front-end-is-read-only-until-someone-probes-for-the-undocumented-one--open) | TimeLog exposes no approve/reject WRITE, so the review front-end is read-only until someone probes for the undocumented one | TL1 spec (2026-08-23), a sweep of TimeLog's 63 documented services; GitLab #391 | S — a devtools probe at a workstation | open |
-| [§617](#617-a-meta-slice-whose-sanitizer-returns-nothing-is-dropped-silently-and-the-next-save-deletes-its-row--open) | A meta slice whose sanitizer returns nothing is dropped silently, and the next save deletes its row | split out of §538 on 2026-09-26 (the PR #425 review) | S–M — audit each meta slice's falsy-return path and report it like a throw | open |
+| [§617](#617-a-meta-slice-whose-sanitizer-returns-nothing-is-dropped-silently-and-the-next-save-deletes-its-row--closed-2026-09-26) | A meta slice whose sanitizer returns nothing is dropped silently, and the next save deletes its row | split out of §538 on 2026-09-26 (the PR #425 review) | S–M — audit each meta slice's falsy-return path and report it like a throw | **CLOSED** 2026-09-26 |
 | [§618](#618-the-classic-header-overflows-between-lg-and-1390px-so-the-page-scrolls-sideways--open) | The classic header overflows between lg and ~1390px, so the page scrolls sideways | split out of §468 on 2026-09-26 (#425 window-layout probe) | S — let the classic search shrink from lg up with a min width; measure 1024/1100/1390/1600 | open |
 | [§619](#619-dashboard-narratives-heading-menu-escape-test-failed-once-in-unit-shuffled--focus-never-reached-the-menu--closed-2026-09-26) | dashboard-narrative's heading-menu Escape test failed once in unit-shuffled — focus never reached the menu | — | — | **CLOSED** 2026-09-26 |
 <!-- INDEX:END -->
@@ -41657,15 +41657,41 @@ decisions the AI review slice needs. Design: `docs/superpowers/specs/2026-08-23-
 curl -s https://api.timelog.com/rest/services | grep -oE "/rest/service/[a-z]+" | sort -u
 ```
 
-## 617. A meta slice whose sanitizer returns nothing is dropped silently, and the next save deletes its row — open
+## 617. A meta slice whose sanitizer returns nothing is dropped silently, and the next save deletes its row — CLOSED 2026-09-26
 
-**Status:** open 2026-09-26 — split out of §538 (closed on 2026-09-26 in #425), where it was recorded as a
-known gap. Verified by reading: `grep -n "if (pm) ws.project = pm" src/app/turso-schema.ts` returns the
-`project_meta` read, and `grep -c "if (.*) ws\.[a-zA-Z]* = " src/app/turso-schema.ts` counts 13 assignments of
-the same shape. The silent drop itself is never machine-verified: no test feeds a row that parses but
-sanitizes to a falsy value.
+**Status:** CLOSED 2026-09-26 on `fix/defect-batch-7`, for the Turso load path only (owner decision,
+2026-09-26). `rowsToWorkspace` now routes all 13 meta slices through one local `decodeMeta` helper
+(`grep -c 'decodeMeta("' src/app/turso-schema.ts` → 13): `project_status`, `project_meta`,
+`field_visibility`, `features`, `steering_committee`, `timelog_links`, `knowledge_items`, `insights`,
+`activityLog`, `budgetHistory`, `documents`, `documentVersions`, `settings_overrides`. A throw is reported
+as before; a value that parsed but sanitized to nothing now goes through the same `reportUnreadableSlice`,
+so it lands in `diag.decodeFailedSlices` under its meta key and pauses saving, which keeps the stored row
+instead of letting the next meta-dirty save delete it.
 
-**Work item:** #427
+★★ The rule compares the INPUT with the output (`sanitizedToNothing` in `src/app/meta-slice-decode.ts`),
+not the output alone. A stored `[]`, `{}`, `features: []` (Simple mode) or a status of only blank strings
+also sanitizes to nothing, and reporting those would pause saving on a healthy project. So a slice is
+reported only when the raw value carried content and none survived. "Content" is recursive
+(`hasDecodedContent`): a non-empty string, any number or boolean, or a container holding one at any
+depth. It has to be recursive because `{"narrative":""}` has a key but carries nothing; a keys-only check
+reports it.
+
+Pinned by `turso-schema.execute.test.ts`'s "§617 — a meta slice that parses but sanitizes to nothing is
+REPORTED, not dropped", which loads each row through a real `node:sqlite` DB: 13 INVALID cases (one per
+slice, red before the fix on `expected undefined to deeply equal [ '<key>' ]`), 12 LEGIT_EMPTY cases that
+must stay silent, a Simple-mode `features: []` round-trip and a valid `project_meta` positive control. The
+predicate table is in `meta-slice-decode.test.ts`. Mutation-checked: M1 (`sanitizedToNothing` →
+`isEmptyDecoded(sanitized)` alone) died on 26 tests, among them every LEGIT_EMPTY case (`expected [
+'project_status' ] to not include 'project_status'`); M2 (drop the report call in the sanitized-to-nothing
+branch) died on all 13 INVALID cases (`expected undefined to deeply equal [ '<key>' ]`); M3 (object branch
+of `hasDecodedContent` → `Object.keys(raw).length > 0`) died on the `{"narrative":""}` LEGIT case and
+three tests in `meta-slice-decode.test.ts` (the `{"narrative":""}` and `{"a":[null,""]}` table rows, and
+`sanitizedToNothing`'s own case).
+
+★ **NOT fixed, and not closed silently: the JSON-file and IndexedDB load paths.** Both drop a
+sanitized-to-nothing slice the same way, but neither has a decode-failure channel or a save pause, so the
+Turso fix does not carry over without building that plumbing. By owner decision (2026-09-26) that half
+gets its own new register entry, filed at the end of this batch, not code here.
 
 `rowsToWorkspace` (`src/app/turso-schema.ts`) reports a meta-blob slice as unreadable only when its
 `JSON.parse` or its sanitizer THROWS. A sanitizer that returns a falsy value without throwing takes neither

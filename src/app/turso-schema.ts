@@ -37,6 +37,7 @@ import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersionsWithDiag } from "./document-versions";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { logDiag } from "./diagnostics";
+import { sanitizedToNothing } from "./meta-slice-decode";
 import type {
   Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone, ChangeItem, Stakeholder,
 } from "./types";
@@ -204,147 +205,81 @@ export function rowsToWorkspace(
     });
     if (diag) (diag.decodeFailedSlices ??= []).push(slice);
   };
-  const statusRow = rowObjects(byTable.get("meta")).find((r) => r.key === "project_status");
-  if (statusRow?.value) {
+  const metaRows = rowObjects(byTable.get("meta"));
+  /** §617 — parse and sanitize ONE meta row. A throw is reported as before; a
+   *  value that HAD content but sanitized to nothing is now reported too,
+   *  instead of being dropped silently (for `project_meta` the next save then
+   *  deleted the row for good). Reporting pauses saving, which is what keeps the
+   *  stored row. `undefined` = assign nothing. */
+  const decodeMeta = <T>(key: string, sanitize: (raw: unknown) => T): T | undefined => {
+    const row = metaRows.find((r) => r.key === key);
+    if (!row?.value) return undefined;
     try {
-      ws.status = sanitizeProjectStatus(JSON.parse(statusRow.value));
+      const raw: unknown = JSON.parse(row.value);
+      const out = sanitize(raw);
+      if (sanitizedToNothing(raw, out)) {
+        reportUnreadableSlice(key, new Error("parsed, but sanitized to nothing"));
+        return undefined;
+      }
+      return out;
     } catch (err) {
-      reportUnreadableSlice("project_status", err);
+      reportUnreadableSlice(key, err);
+      return undefined;
     }
-  }
+  };
+  const status = decodeMeta("project_status", sanitizeProjectStatus);
+  if (status !== undefined) ws.status = status;
   // §538 — single-tenant is the ONLY Turso layout with no projects row, so
   // project meta rides the meta table here; `rowsToWorkspace` reads
   // `project_meta` for single-tenant DBs only (see the NOTE above
   // `loadTenant` in turso-backend.ts — the tenant path overwrites `ws.project`
   // from the projects row afterwards, and the tenant builder never writes
   // `project_meta`, so tenant behaviour is unchanged).
-  const pmRow = rowObjects(byTable.get("meta")).find((r) => r.key === "project_meta");
-  if (pmRow?.value) {
-    try {
-      const pm = sanitizeLoadedProjectMeta(JSON.parse(pmRow.value));
-      if (pm) ws.project = pm;
-    } catch (err) {
-      reportUnreadableSlice("project_meta", err);
-    }
-  }
-  const fvRow = rowObjects(byTable.get("meta")).find((r) => r.key === "field_visibility");
-  if (fvRow?.value) {
-    try {
-      const fv = sanitizeFieldVisibility(JSON.parse(fvRow.value));
-      if (fv) ws.fieldVisibility = fv;
-    } catch (err) {
-      reportUnreadableSlice("field_visibility", err);
-    }
-  }
-  const fnRow = rowObjects(byTable.get("meta")).find((r) => r.key === "features");
-  if (fnRow?.value) {
-    try {
-      const f = sanitizeFeatures(JSON.parse(fnRow.value));
-      if (f !== undefined) ws.features = f;
-    } catch (err) {
-      reportUnreadableSlice("features", err);
-    }
-  }
-  const scRow = rowObjects(byTable.get("meta")).find((r) => r.key === "steering_committee");
-  if (scRow?.value) {
-    try {
-      const sc = sanitizeSteeringCommittee(JSON.parse(scRow.value));
-      if (sc) ws.steeringCommittee = sc;
-    } catch (err) {
-      reportUnreadableSlice("steering_committee", err);
-    }
-  }
-  const tlRow = rowObjects(byTable.get("meta")).find((r) => r.key === "timelog_links");
-  if (tlRow?.value) {
-    try {
-      const tl = sanitizeTimelogLinks(JSON.parse(tlRow.value));
-      if (tl) ws.timelogLinks = tl;
-    } catch (err) {
-      reportUnreadableSlice("timelog_links", err);
-    }
-  }
-  const kiRow = rowObjects(byTable.get("meta")).find((r) => r.key === "knowledge_items");
-  if (kiRow?.value) {
-    try {
-      const ki = sanitizeKnowledgeItems(JSON.parse(kiRow.value));
-      if (ki.length) ws.knowledgeItems = ki;
-    } catch (err) {
-      reportUnreadableSlice("knowledge_items", err);
-    }
-  }
-  const insRow = rowObjects(byTable.get("meta")).find((r) => r.key === "insights");
-  if (insRow?.value) {
-    try {
-      const ins = sanitizeInsights(JSON.parse(insRow.value));
-      if (ins.length) ws.insights = ins;
-    } catch (err) {
-      reportUnreadableSlice("insights", err);
-    }
-  }
-  const logRow = rowObjects(byTable.get("meta")).find((r) => r.key === "activityLog");
-  if (logRow?.value) {
-    try {
-      const log = sanitizeActivityLog(JSON.parse(logRow.value));
-      if (log.length) ws.activityLog = log;
-    } catch (err) {
-      reportUnreadableSlice("activityLog", err);
-    }
-  }
-  const budgetHistoryRow = rowObjects(byTable.get("meta")).find((r) => r.key === "budgetHistory");
-  if (budgetHistoryRow?.value) {
-    try {
-      const history = sanitizeBudgetHistory(JSON.parse(budgetHistoryRow.value));
-      if (history.length) ws.budgetHistory = history;
-    } catch (err) {
-      reportUnreadableSlice("budgetHistory", err);
-    }
-  }
+  const pm = decodeMeta("project_meta", sanitizeLoadedProjectMeta);
+  if (pm) ws.project = pm;
+  const fv = decodeMeta("field_visibility", sanitizeFieldVisibility);
+  if (fv) ws.fieldVisibility = fv;
+  const features = decodeMeta("features", sanitizeFeatures);
+  if (features !== undefined) ws.features = features;
+  const sc = decodeMeta("steering_committee", sanitizeSteeringCommittee);
+  if (sc) ws.steeringCommittee = sc;
+  const tl = decodeMeta("timelog_links", sanitizeTimelogLinks);
+  if (tl) ws.timelogLinks = tl;
+  const ki = decodeMeta("knowledge_items", sanitizeKnowledgeItems);
+  if (ki?.length) ws.knowledgeItems = ki;
+  const ins = decodeMeta("insights", sanitizeInsights);
+  if (ins?.length) ws.insights = ins;
+  const log = decodeMeta("activityLog", sanitizeActivityLog);
+  if (log?.length) ws.activityLog = log;
+  const history = decodeMeta("budgetHistory", sanitizeBudgetHistory);
+  if (history?.length) ws.budgetHistory = history;
   // Documents ride `meta` as one JSON blob — no table of their own, so
   // TABLE_NAMES stays untouched. TWO passes, in this order: the structural
   // sanitizer is DOM-FREE and cannot strip markup, so the rich-field allow-list
   // has to follow it or a stored `<script>` reaches the render sink. (One
   // argument, so it is safe as a bare .map callback — see document-rich-fields.)
-  const docRow = rowObjects(byTable.get("meta")).find((r) => r.key === "documents");
-  if (docRow?.value) {
-    try {
-      const docs = sanitizeProjectDocumentsWithDiag(JSON.parse(docRow.value), diag).map(sanitizeDocumentRichFields);
-      if (docs.length) ws.documents = docs;
-    } catch (err) {
-      reportUnreadableSlice("documents", err);
-    }
-  }
+  const docs = decodeMeta("documents", (raw) =>
+    sanitizeProjectDocumentsWithDiag(raw, diag).map(sanitizeDocumentRichFields));
+  if (docs?.length) ws.documents = docs;
   // documentVersions ride `meta` too — same two-pass shape as documents just
   // above. A version has no independent createdAt/updatedAt, so it is passed
   // through a synthetic ProjectDocument-shaped wrapper with savedAt standing
   // in for both (mirrors workspace.ts's JSON path and browser-backend.ts's
   // IndexedDB path).
-  const verRow = rowObjects(byTable.get("meta")).find((r) => r.key === "documentVersions");
-  if (verRow?.value) {
-    try {
-      const versions = sanitizeDocumentVersionsWithDiag(JSON.parse(verRow.value), diag).map((v) => ({
-        ...v,
-        blocks: sanitizeDocumentRichFields({
-          id: v.documentId,
-          title: v.title,
-          blocks: v.blocks,
-          createdAt: v.savedAt,
-          updatedAt: v.savedAt,
-        }).blocks,
-      }));
-      if (versions.length) ws.documentVersions = versions;
-    } catch (err) {
-      reportUnreadableSlice("documentVersions", err);
-    }
-  }
-  const soRow = rowObjects(byTable.get("meta")).find((r) => r.key === "settings_overrides");
-  if (soRow?.value) {
-    try {
-      const so = sanitizeSettingsOverrides(JSON.parse(soRow.value));
-      if (hasAnyOverride(so)) ws.settingsOverrides = so;
-    } catch (err) {
-      reportUnreadableSlice("settings_overrides", err);
-    }
-  }
+  const versions = decodeMeta("documentVersions", (raw) =>
+    sanitizeDocumentVersionsWithDiag(raw, diag).map((v) => ({
+      ...v,
+      blocks: sanitizeDocumentRichFields({
+        id: v.documentId,
+        title: v.title,
+        blocks: v.blocks,
+        createdAt: v.savedAt,
+        updatedAt: v.savedAt,
+      }).blocks,
+    })));
+  if (versions?.length) ws.documentVersions = versions;
+  const so = decodeMeta("settings_overrides", sanitizeSettingsOverrides);
+  if (so && hasAnyOverride(so)) ws.settingsOverrides = so;
   return migrateWorkspaceV10(ws);
 }
 
