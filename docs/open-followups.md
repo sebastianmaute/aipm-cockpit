@@ -857,6 +857,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§614](#614-use-weight-suggestionstesttsx-is-order-dependent--its-shared-mock-is-never-reset--closed-2026-09-23) | use-weight-suggestions.test.tsx is order-dependent — its shared mock is never reset — CLOSED 2026-09-23 | scheduled run 35875601416, job `unit-shuffled-random` (seed 35875601416); GitLab #396 | S — clear the mock before each test; reproduces in isolation | closed |
 | [§615](#615-tiptaps-deferred-editor-destroy-throws-window-is-not-defined-after-a-test-environment-is-torn-down--open) | TipTap's deferred editor destroy throws window is not defined after a test environment is torn down — open | scheduled run 35875601416, job `unit-shuffled-random` (unhandled error); GitLab #397 | S — hedged with a global 10 ms `afterAll` flush in `vitest.setup.ts`, unverified against the actual race; close after 4 consecutive clean weekly `unit-shuffled-random` runs | open |
 | [§616](#616-timelog-exposes-no-approvereject-write-so-the-review-front-end-is-read-only-until-someone-probes-for-the-undocumented-one--open) | TimeLog exposes no approve/reject WRITE, so the review front-end is read-only until someone probes for the undocumented one — open | TL1 spec (2026-08-23), a sweep of TimeLog's 63 documented services; GitLab #391 | S — a devtools probe at a workstation | open |
+| [§617](#617-a-meta-slice-whose-sanitizer-returns-nothing-is-dropped-silently-and-the-next-save-deletes-its-row--open) | A meta slice whose sanitizer returns nothing is dropped silently, and the next save deletes its row — open | split out of §538 on 2026-09-26 (the PR #425 review) | S–M — audit each meta slice's falsy-return path and report it like a throw | open |
+| [§618](#618-the-classic-header-overflows-between-lg-and-1390px-so-the-page-scrolls-sideways--open) | The classic header overflows between lg and ~1390px, so the page scrolls sideways — open | split out of §468 on 2026-09-26 (#425 window-layout probe) | S — let the classic search shrink from lg up with a min width; measure 1024/1100/1390/1600 | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -41638,3 +41640,74 @@ decisions the AI review slice needs. Design: `docs/superpowers/specs/2026-08-23-
 # lists every documented service; none carries a manager approve/reject method
 curl -s https://api.timelog.com/rest/services | grep -oE "/rest/service/[a-z]+" | sort -u
 ```
+
+## 617. A meta slice whose sanitizer returns nothing is dropped silently, and the next save deletes its row — open
+
+**Status:** open 2026-09-26 — split out of §538 (closed on 2026-09-26 in #425), where it was recorded as a
+known gap. Verified by reading: `grep -n "if (pm) ws.project = pm" src/app/turso-schema.ts` returns the
+`project_meta` read, and `grep -c "if (.*) ws\.[a-zA-Z]* = " src/app/turso-schema.ts` counts 13 assignments of
+the same shape. The silent drop itself is never machine-verified: no test feeds a row that parses but
+sanitizes to a falsy value.
+
+**Work item:** #427
+
+`rowsToWorkspace` (`src/app/turso-schema.ts`) reports a meta-blob slice as unreadable only when its
+`JSON.parse` or its sanitizer THROWS. A sanitizer that returns a falsy value without throwing takes neither
+branch of `if (x) ws.something = x`: no `reportUnreadableSlice`, no `decodeFailedSlices` entry, nothing in
+the Saving-paused / Save-anyway plumbing. The slice stays unset, silently. This is the shape of every
+sibling meta slice (`project_status`, `field_visibility`, `features`, …), not a `project_meta` quirk.
+
+★★ For `project_meta` the drop becomes a PERMANENT loss. The write side emits the row only when
+`ws.project` is set, and the read never set it, so the next meta-dirtying save's blanket
+`DELETE FROM meta` removes the corrupted row and nothing rewrites it. Other slices need the same
+write-side check before anyone assumes their loss is recoverable.
+
+What would close it: audit each meta slice's falsy-return path, and route "parsed, but sanitized to
+nothing" into the same unreadable-slice reporting a throw already gets. A test per slice must feed a row
+that parses but sanitizes to falsy, and must be red today.
+
+Size S–M.
+
+**Source:** §538's closing note ("A `project_meta` row that parses but fails sanitizing is dropped with no
+diagnostic"), and the PR #425 review, which suggested minting it as its own entry.
+
+## 618. The classic header overflows between lg and ~1390px, so the page scrolls sideways — open
+
+**Status:** open 2026-09-26 — split out of §468 (closed on 2026-09-26 in #425), whose layout fix changed the
+modern top bar only and left the classic header as it was. The cause is re-checkable by reading:
+`grep -n "lg:w-96" src/app/shell-chrome.tsx` returns the classic search mount's fixed width. The overflow was
+MEASURED on 2026-09-26 by a scratch Playwright probe (Chromium, e2e seed, classic layout) that was deleted
+after #425 merged, so the numbers below are a dated observation that a command cannot reproduce. They were
+also not re-measured on a pre-#425 commit, though no #425 commit touches the classic header.
+
+**Work item:** #428
+
+In the CLASSIC layout (the `AppHeader` path, not `ModernShell`) the header row does not fit between the
+`lg` breakpoint and about 1390px. The whole page gains a horizontal scrollbar and the rightmost icon is cut
+off.
+
+| viewport | document scrollWidth | header client / scroll |
+|---|---|---|
+| 1600 | 1600 | 1456 / 1456, fits |
+| 1390 | 1390 | 1310 / 1310, fits |
+| 1100 | 1165 (scrolls by 65px) | 1020 / 1125 |
+| 1024 | 1165 | 944 / 1125 |
+
+Below `lg` (768px) it overflows too, but that is a different layout regime and not part of this entry.
+
+The cause is the classic search mount's fixed `lg:w-96` (384px, `src/app/shell-chrome.tsx`). Next to it sit
+the project picker, sync, Ask-Claude and eight trailing icon buttons. The modern mount (`task-manager.tsx`)
+already shrinks, from a 24rem basis to a 7rem floor.
+
+★ A measured fix was REJECTED. Applying the modern rule as-is removes the overflow at 1024 and 1100, but it
+also shrinks the classic search to about 209px even at 1600. The direction to take instead: let the classic
+search shrink below `w-96` from `lg` up, with a sensible minimum width. Measure it at 1024, 1100, 1390 and 1600.
+
+**Reproduce:** use the classic layout at a 1100×850 viewport in Chromium, then check in the console:
+`document.documentElement.scrollWidth > innerWidth` (true, 1165 > 1100), and whether the header's
+`scrollWidth > clientWidth`.
+
+Size S.
+
+**Source:** #425's window-layout task (§468's packaged-app check), classic-layout probe. Raw log and
+screenshots were kept outside the repo.
