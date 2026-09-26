@@ -108,10 +108,15 @@ const COMMENT_LEAD = /[\s{}()[\],;]/;
  *  scheme (`"https://…"`, after `:`), a protocol-relative URL or
  *  `startsWith("//")` (after a quote), and an escaped slash in a regex
  *  literal (`/\/\//`, after a backslash). Treating any of those as a comment
- *  would skip the rest of the line's brackets (review M9). Its known misreads,
- *  both rare: a comment glued to other code (`x=1//(`) is not skipped, and a
- *  `//` inside a string right after a space or bracket (`" //("`) is. A
- *  comment running to the end of the text returns -1, which is correct: no
+ *  would skip the rest of the line's brackets (review M9). Its known misreads:
+ *  - a comment glued to other code (`x=1//(`) is NOT skipped;
+ *  - a `//` inside a string right after a space or bracket (`" //("`) IS;
+ *  - template interpolation `${a}//${b}` IS, because `}` leads a comment —
+ *    `src/app/api/jira/_helpers.ts` builds a URL exactly this way today
+ *    (`grep -rn '}//\${' src`), outside any `.map(` scope. `}` stays in
+ *    COMMENT_LEAD because `}// note` is a real comment shape;
+ *  - JSX text `<p> //host</p>` IS, after its space.
+ *  A comment running to the end of the text returns -1, which is correct: no
  *  bracket can close inside it.
  *
  *  ★★★ STRING LITERALS ARE NOT SKIPPED, AND THAT IS A DOCUMENTED HOLE, NOT AN
