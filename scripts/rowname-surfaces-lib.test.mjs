@@ -156,6 +156,41 @@ describe("matchDelimiters", () => {
   it("regression: an unbalanced opener returns -1 rather than the end of file", () => {
     expect(matchDelimiters("f(a, (b)", 1)).toBe(-1);
   });
+
+  // §280. Mutation: delete the `//` branch in `matchDelimiters` → -1 (the
+  // comment's `(` is pushed and never popped).
+  it("regression: a bracket inside a // comment does not unbalance the scope", () => {
+    const text = "f(a, // stray (\n b)";
+    expect(matchDelimiters(text, 1)).toBe(text.length - 1);
+  });
+
+  // §280. Mutation: delete the `/* */` branch → 7, the `)` INSIDE the comment.
+  // A wrong match, not just a refusal — the more dangerous shape.
+  it("regression: a closer inside a /* */ comment is not taken as the match", () => {
+    const text = "f(a /* ) */, b)";
+    expect(matchDelimiters(text, 1)).toBe(text.length - 1);
+  });
+
+  // Mutation: make the block-comment branch `continue` without the `end < 0`
+  // check (or return text.length) → no longer -1.
+  it("an unterminated block comment returns -1", () => {
+    expect(matchDelimiters("f(a /* ) b)", 1)).toBe(-1);
+  });
+
+  // Mutation: drop the `text[i - 1] !== ":"` guard → -1, because the URL's
+  // `//` swallows the rest of the line including the closing `)`.
+  it("a URL's // inside a string is not read as a comment", () => {
+    const text = 'rows.map((r) => <a href="https://x.test">{r}</a>)';
+    expect(matchDelimiters(text, 8)).toBe(text.length - 1);
+  });
+
+  // Green before and after §280 — a PIN against a later "skip quotes too"
+  // change. Mutation: add a `'`/`"` string skip → -1 (the apostrophe opens a
+  // string that never closes).
+  it("an apostrophe in JSX text is not a string delimiter", () => {
+    const text = "rows.map((r) => <li>Don't {r}</li>)";
+    expect(matchDelimiters(text, 8)).toBe(text.length - 1);
+  });
 });
 
 describe("scanOpenTag", () => {

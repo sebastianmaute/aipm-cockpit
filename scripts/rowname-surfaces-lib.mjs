@@ -91,11 +91,42 @@ const PAIRS = { "(": ")", "{": "}", "[": "]" };
 
 /** Index of the delimiter closing the one at `open`, or -1 when unbalanced.
  *  ★ -1 rather than end-of-file: a truncated scope that silently ran to EOF
- *  would drag every later control in the file into one "repeat". */
+ *  would drag every later control in the file into one "repeat".
+ *
+ *  ★★ `//` and `/* … *\/` COMMENTS ARE SKIPPED (§280). A `.map(` body in this
+ *  repo routinely carries a comment quoting a grep command, and one bracket in
+ *  it — `seen.add(primary` in `resource-directory.tsx` — made the whole scope
+ *  unbalanced, so every control inside fell out of the report without a word.
+ *  A block comment that never closes returns -1, like any other unbalance.
+ *  ★ A `//` preceded by `:` is NOT a comment: it is a URL scheme inside a
+ *  string (`href="https://…"`), and treating it as one would skip the rest of
+ *  that line's brackets. A comment written straight after a `:` is the
+ *  accepted cost of that guard.
+ *
+ *  ★★★ STRING LITERALS ARE NOT SKIPPED, AND THAT IS A DOCUMENTED HOLE, NOT AN
+ *  OVERSIGHT. `scanOpenTag` skips quotes because it only ever walks an
+ *  attribute list; this function also walks `.map(` bodies, which hold JSX
+ *  TEXT, where the apostrophe in `<li>Don't …</li>` is not a delimiter. Copying
+ *  the quote skip here would open a "string" at that apostrophe and never close
+ *  it — measured on the tree, a quote skip alone broke 32 scopes. So an
+ *  unbalanced bracket inside a string literal still corrupts the match; the
+ *  honest full fix is a real tokenizer (`ts.createScanner`, JSX variant). */
 export function matchDelimiters(text, open) {
   const stack = [];
   for (let i = open; i < text.length; i++) {
     const ch = text[i];
+    if (ch === "/" && text[i + 1] === "/" && text[i - 1] !== ":") {
+      const nl = text.indexOf("\n", i);
+      if (nl < 0) return -1;
+      i = nl;
+      continue;
+    }
+    if (ch === "/" && text[i + 1] === "*") {
+      const end = text.indexOf("*/", i + 2);
+      if (end < 0) return -1;
+      i = end + 1;
+      continue;
+    }
     if (PAIRS[ch]) stack.push(PAIRS[ch]);
     else if (ch === ")" || ch === "}" || ch === "]") {
       if (stack.pop() !== ch) return -1;
