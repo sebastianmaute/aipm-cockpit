@@ -1224,7 +1224,9 @@ against TWO `missing.add` (a null row, and an `isRenderable` decline).
 ★★★ **`blocked` IS A POLICY REFUSAL, NOT MISSING DATA — §320.** `blocked` holds an id whose bytes
 are present but whose stored mime `isBlockedAssetMime` refuses (truthy and outside the upload
 allowlist; an EMPTY mime is not refused, §225). `isBlocked` is asked AFTER the null-row check (no
-byte row is still `missing`, whatever the type) and BEFORE `isRenderable` and the budget, so a
+byte row is still `missing` in the BUCKETS, whatever the type — but the renderers' own policy check
+reads the stored mime, so such an id still prints "file type not allowed" in every export: policy
+trumps the bucket) and BEFORE `isRenderable` and the budget, so a
 refused id is never charged. `document-download.ts` passes the same `isBlocked` to every format.
 HTML/PDF render a `span[data-asset-blocked]` text placeholder (`assetExportBlocked`, name escaped)
 when the id is in the bucket OR its stored mime is refused — the mime check is what closes the

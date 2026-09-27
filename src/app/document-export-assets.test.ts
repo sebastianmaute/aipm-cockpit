@@ -100,7 +100,8 @@ describe("loadExportAssets", () => {
     expect([...out.omitted]).toEqual([]);
   });
 
-  // §320 — bytes present, type refused: a THIRD state. It is never charged
+  // §320 — bytes present, type refused: a FOURTH bucket (beside inlined,
+  //  omitted and missing). It is never charged
   //  against the budget (the ★ above the isRenderable branch stays right) and
   //  never called missing, which told the reader the data was gone.
   it("routes a policy-refused id to blocked, off the budget and out of missing", async () => {

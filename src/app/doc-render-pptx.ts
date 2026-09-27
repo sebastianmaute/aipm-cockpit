@@ -256,8 +256,9 @@ function asMarkup(fragment: string): string {
  *
  * Every other `<img>` — omitted by the budget, missing bytes, a dangling id, no
  * stored dimensions, a mime outside the allow-list — is left exactly where it
- * is, so `withImagePlaceholders` substitutes the S3c-1 disclosure for it as
- * before.
+ * is, so `withImagePlaceholders` substitutes a text disclosure for it: the
+ * S3c-1 "[Image: name]" as before, except that a mime the policy refuses now
+ * gets `assetExportBlocked` (§320, via `assetExportPlaceholder`).
  *
  * ★★ An image becomes its OWN line rather than staying inline, because a
  * `<p:pic>` is a sibling SHAPE of the body text box, not a run inside it —

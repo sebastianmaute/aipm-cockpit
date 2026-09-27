@@ -150,8 +150,9 @@ export async function loadExportAssets(
   budgetBytes: number = EXPORT_INLINE_BUDGET_BYTES,
   /** ★★★ Asked BEFORE the budget is charged. A renderer declines an id for
    *  reasons this module cannot see — no metadata row, no stored dimensions to
-   *  build an extent from. (A mime outside the allowlist is `isBlocked`'s
-   *  question, asked first, so it never reaches this one — §320.) Charging
+   *  build an extent from. (A TRUTHY mime outside the allowlist is
+   *  `isBlocked`'s question, asked first, so it never reaches this one — §320.
+   *  An EMPTY mime is not blocked (§225) and still reaches this one.) Charging
    *  those bytes anyway lets a few unusable assets spend the whole budget and
    *  push a later, perfectly good image into `omitted`: deterministic, wrong,
    *  and invisible to any single layer's tests, because each layer is correct
