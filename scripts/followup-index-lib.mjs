@@ -219,6 +219,11 @@ export function stateIsClosed(state) {
   return /^\s*(\*\*)?closed\b/i.test(state);
 }
 
+/** A State cell exactly as `headingState` writes it for a heading that
+ *  closes with a date and nothing after it. Only this shape is re-derived
+ *  while the status agrees; hand-written State prose is left alone. */
+const GENERATED_CLOSED_STATE_RE = /^\*\*CLOSED\*\* \d{4}-\d{2}-\d{2}$/;
+
 const FULL_ROW_RE = /^\|\s*\[§(\d+)\]\(#[^)]*\)\s*\|(.*)\|\s*$/;
 
 /** Text compared when deciding whether a row's Item still says what its
@@ -297,7 +302,12 @@ function rebuildRow(n, title, old) {
     // but not wrapped (`~~…~~ — not a defect`).
     item = old.item.startsWith("~~") && !reopened ? `~~${fresh}~~` : fresh;
   }
-  const state = flipped ? headingState(title) : old.state;
+  // A closed row whose State is exactly the generated `**CLOSED** <date>` is
+  // re-derived too, so a heading whose closing DATE changed (and nothing else)
+  // does not leave a stale date behind. A hand-written State, meaning anything
+  // longer or differently spelled, is still kept as long as the status agrees.
+  const regenerated = closed && GENERATED_CLOSED_STATE_RE.test(old.state);
+  const state = flipped || regenerated ? headingState(title) : old.state;
   return `| [§${n}](#${headingSlug(n, title)}) | ${item} | ${old.origin} | ${old.size} | ${state} |`;
 }
 

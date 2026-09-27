@@ -384,6 +384,25 @@ describe("rebuildIndex", () => {
     expect(rowsOf(rebuildIndex(src))).toEqual(["| [§1](#1-x) | X | o | S | open |"]);
   });
 
+  // Mutation: drop `|| regenerated` → the stale 2026-09-26 date survives beside
+  // a heading that now closes on 2026-09-27 (found in batch-7's §185).
+  it("★★ re-derives a generated closed State when only the heading's closing date changed", () => {
+    const src = doc(
+      ["## 1. Y — CLOSED 2026-09-27"],
+      ["| [§1](#1-y--closed-2026-09-26) | Y | o | S | **CLOSED** 2026-09-26 |"],
+    );
+    const out = rowsOf(rebuildIndex(src));
+    expect(out).toEqual(["| [§1](#1-y--closed-2026-09-27) | Y | o | S | **CLOSED** 2026-09-27 |"]);
+    expect(rowsOf(rebuildIndex(rebuildIndex(src)))).toEqual(out); // stable on a second rebuild
+  });
+
+  // Mutation: widen GENERATED_CLOSED_STATE_RE to any `**CLOSED**` prefix → the
+  // hand-written note is replaced by the heading's bare date.
+  it("keeps a hand-written closed State even when the heading's date changed", () => {
+    const row = "| [§1](#1-y--closed-2026-09-27) | Y | o | S | **CLOSED** 2026-09-26 — folded into §2 |";
+    expect(rowsOf(rebuildIndex(doc(["## 1. Y — CLOSED 2026-09-27"], [row])))).toEqual([row]);
+  });
+
   // Mutation: `item = inner` unconditionally → the stale title survives.
   it("rewrites an Item cell whose heading was retitled", () => {
     const src = doc(["## 1. New title"], ["| [§1](#1-old-title) | Old title | o | S | open |"]);
