@@ -853,6 +853,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§623](#623-loadexportassets-loads-the-bytes-of-a-policy-refused-asset-before-discarding-them--open) | `loadExportAssets` loads the bytes of a policy-refused asset before discarding them | — | — | open |
 | [§624](#624-ai-evalts-and-update-ooxml-manifestts-import-the-dom-free-sanitizer-graph-with-no-dom-and-nothing-proves-they-never-reach-a-dompurify-call--open) | `ai-eval.ts` and `update-ooxml-manifest.ts` import the DOM-free sanitizer graph with no DOM, and nothing proves they never reach a DOMPurify call | — | — | open |
 | [§625](#625-the-dashboard-status-narrative-draft-is-lost-on-window-close--closed-2026-09-27) | The dashboard status narrative draft is lost on window close | — | — | **CLOSED** 2026-09-27 |
+| [§626](#626-async-commit-editors-chat-thread-rename-comm-templates-dictation-key-still-lose-an-unblurred-draft-on-window-close--open) | Async-commit editors (chat thread rename, comm templates, dictation key) still lose an unblurred draft on window close | — | — | open |
+| [§627](#627-several-dirty-drafts-at-pagehide-start-unserialised-full-saves-so-on-filesharepoint-an-older-snapshot-can-finish-last--open) | Several dirty drafts at pagehide start unserialised full saves, so on file/SharePoint an older snapshot can finish last | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -42544,3 +42546,31 @@ The first returns 36 files, the second 7 (hooks declared outside a `use-*` file)
   `combobox-shared.tsx`, `dictation-mic.tsx` and `entity-combobox.ts` hold no typed text in hook state.
 
 **Source:** the batch-8 verdict pass (2026-09-27) and `docs/superpowers/specs/2026-09-27-defect-batch-8-design.md` §1.
+
+## 626. Async-commit editors (chat thread rename, comm templates, dictation key) still lose an unblurred draft on window close — open
+
+**Status:** open 2026-09-27 — found by the §622 sweep on `fix/defect-batch-8` (recorded in §625). Verified by reading plus `grep -c "useCommitOnPageHide" src/app/chat-thread-list.tsx src/app/settings-sections/comm-templates-section.tsx src/app/settings-sections/dictation-section.tsx` (0 in each), `grep -n "saveThread" src/app/use-chat-threads.ts` (the rename persists through `runPersist(… saveThread …)`) and `grep -n "saveSecretValue" src/app/settings-sections/dictation-section.tsx` (`void saveSecretValue(…).then(…)`); no browser reproduction.
+
+**Work item:** #442
+
+Three editors hold a typed draft until blur and commit it ASYNCHRONOUSLY, so a close, reload or navigation before the blur loses it:
+
+- the chat thread rename (`chat-thread-list.tsx` → `renameThread` in `use-chat-threads.ts`, whose durable write is an async Turso save);
+- the communication-template rename and body (`settings-sections/comm-templates-section.tsx`, whose saves return Promises);
+- the dictation speech-to-text API key (`settings-sections/dictation-section.tsx`, sealed through WebCrypto in `handleSttKeyBlur`; the ordinary settings write blanks the key, so the seal is its only persistence).
+
+§622's `useCommitOnPageHide` cannot make these safe: it can only START an async commit inside `pagehide`, not guarantee it lands, and a jsdom test would pass anyway. A fix needs its own design, for example a synchronous local mirror written during `pagehide`, or `keepalive`/`sendBeacon` for the network write.
+
+**Source:** batch-8 owner decision at PR time (2026-09-27); §625.
+
+## 627. Several dirty drafts at pagehide start unserialised full saves, so on file/SharePoint an older snapshot can finish last — open
+
+**Status:** open 2026-09-27 — found by the batch-8 whole-branch review on `fix/defect-batch-8`. Verified by reading plus `grep -n "if (pageHiding) flush" src/app/debounced-save.ts` (every save scheduled while hiding flushes at once) and `grep -n "async save" src/app/local-file-backend.ts src/app/sharepoint-backend.ts` (no queue around either); the race itself was never machine-verified.
+
+**Work item:** #443
+
+Every `useCommitOnPageHide` commit re-runs the workspace save effect, and because `debounced-save.ts` knows the page is hiding (`pageHiding`), each run flushes a full `backend.save` at once. React state is correct, since each snapshot contains the earlier commits. But `LocalFileBackend.save` and the SharePoint backend do not serialise saves, so an older snapshot that finishes last overwrites the newer one and drops the later commit. IndexedDB orders its transactions.
+
+It is reachable only with two or more dirty drafts at unload, for example a refused over-cap paragraph plus another unblurred edit. The §622 test "commits BOTH of two dirty editors on one pagehide" asserts the commit callbacks, not the last persisted snapshot. A fix needs save serialisation (or coalescing to one final save) on those backends, and a test on the persisted result.
+
+**Source:** batch-8 whole-branch review (2026-09-27), owner decision at PR time.
