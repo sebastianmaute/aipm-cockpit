@@ -165,9 +165,7 @@ describe("ActionMenus — header export workspace pins every field (§463 M3)", 
     for (const key of EXPORT_WORKSPACE_KEYS) {
       expect(ws[key], key).toBe(probeSnapshot![key]);
     }
-    // A field could pass the loop above vacuously if it were undefined on both
-    // sides (a dropped slice reads back as undefined === undefined). Pin one
-    // seeded field to a real, non-undefined value so that can't happen.
+    // These only repeat the loop for the three once-dropped slices; the anti-vacuity gate is the waitFor above (seeded values, not undefined).
     expect(ws.calendarEvents).toBe(probeSnapshot!.calendarEvents);
     expect(ws.knowledgeItems).toBe(probeSnapshot!.knowledgeItems);
     expect(ws.insights).toBe(probeSnapshot!.insights);

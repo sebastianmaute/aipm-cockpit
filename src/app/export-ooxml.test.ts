@@ -1355,9 +1355,15 @@ describe("PPTX export footer", () => {
 });
 
 describe("§463 — calendar events, knowledge items and insights reach every document format", () => {
-  const SAMPLE = buildExportWorkspace(
-    jsonToWorkspace(readFileSync(join(import.meta.dirname, "..", "..", "sample-workspace-small.json"), "utf8")),
-  );
+  const WS = jsonToWorkspace(readFileSync(join(import.meta.dirname, "..", "..", "sample-workspace-small.json"), "utf8"));
+  // `buildExportWorkspace` requires every slice by name; the ten optional ones
+  // are listed explicitly (a bare `Workspace` leaves them optional).
+  const SAMPLE = buildExportWorkspace({
+    ...WS,
+    budgets: WS.budgets, fxRates: WS.fxRates, status: WS.status, project: WS.project,
+    milestones: WS.milestones, changes: WS.changes, stakeholders: WS.stakeholders,
+    calendarEvents: WS.calendarEvents, knowledgeItems: WS.knowledgeItems, insights: WS.insights,
+  });
   const CASES = [
     ["calendarEvents", "exportLabelCalendarEvents"],
     ["knowledgeItems", "exportLabelKnowledgeItems"],

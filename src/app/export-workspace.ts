@@ -20,15 +20,23 @@ export const EXPORT_WORKSPACE_KEYS = [
 
 export type ExportWorkspaceKey = (typeof EXPORT_WORKSPACE_KEYS)[number];
 
-/** `Pick`, not an all-required mapped type: several of these `Workspace`
- *  fields (`budgets`, `fxRates`, `status`, `project`, `milestones`, `changes`,
- *  `stakeholders`, `calendarEvents`, `knowledgeItems`, `insights`) are
- *  optional on `Workspace` itself, so requiring every key would reject a real
- *  `Workspace` — including `export-workspace.test.ts`'s own sample — with
- *  TS2345. The guard that every Settings → Export switch has a slice here is
- *  `export-workspace.test.ts`'s derived-axis test over `EXPORT_SECTION_KEYS`,
- *  not the parameter type. */
-export function buildExportWorkspace(src: Pick<Workspace, ExportWorkspaceKey>): Workspace {
+/** Every export slice as a REQUIRED key (`-?`), not `Pick<Workspace, …>`:
+ *  ten of these fields (`budgets`, `fxRates`, `status`, `project`,
+ *  `milestones`, `changes`, `stakeholders`, `calendarEvents`,
+ *  `knowledgeItems`, `insights`) are optional on `Workspace`, and a `Pick`
+ *  keeps them optional — so a caller's object literal could leave one out and
+ *  still compile, and that section would vanish from its export. Here an
+ *  omitted key is a TS2345 at the call site; a slice the project does not have
+ *  is passed as `undefined`, explicitly (`Workspace[K]` of an optional field
+ *  already admits it, and a required field still does not). A whole
+ *  `Workspace` is therefore NOT assignable — its optional fields are optional
+ *  — so a caller holding one lists the slices. */
+export type ExportWorkspaceSlices = { [K in ExportWorkspaceKey]-?: Workspace[K] };
+
+/** The guard that every Settings → Export switch has a slice here is
+ *  `export-workspace.test.ts`'s derived-axis test over `EXPORT_SECTION_KEYS`;
+ *  the guard that a caller passes every slice is `ExportWorkspaceSlices`. */
+export function buildExportWorkspace(src: ExportWorkspaceSlices): Workspace {
   return {
     tasks: src.tasks, raid: src.raid, absences: src.absences, shifts: src.shifts,
     resources: src.resources, roles: src.roles, disciplines: src.disciplines, grades: src.grades,

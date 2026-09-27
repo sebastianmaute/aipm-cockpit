@@ -2158,8 +2158,10 @@ function TaskManagerInner() {
   const exportFooter = exportFooterText(settings.branding);
   const handleExportCurrentProject = useCallback(
     (format: string) => {
-      // §463 — the same builder as the header Export menu, so the two buttons
-      //  cannot drift apart again.
+      // §463 — the same builder as the header Export menu. What keeps this
+      //  literal complete is the builder's parameter type,
+      //  `ExportWorkspaceSlices`: every slice is a required key, so leaving
+      //  one out here is a compile error, not a section missing from the file.
       const ws = buildExportWorkspace({
         tasks, raid, absences, shifts, resources, roles, disciplines, grades,
         plan, budgets, fxRates, status, project, milestones, changes, stakeholders,

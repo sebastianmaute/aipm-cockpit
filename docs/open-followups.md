@@ -36081,6 +36081,24 @@ expected undefined to be [] // Object.is equality`; dropping `insights` failed t
 `insights`. All three killed; reverted and confirmed green (`action-menus.test.tsx` 6/6) before this
 commit.
 
+Amended 2026-09-27 (whole-branch review): the Projects-panel literal was still able to drop a slice
+and compile, because the parameter type was `Pick<Workspace, ExportWorkspaceKey>`, which keeps the
+ten fields that are optional on `Workspace` optional — and `action-menus-sweep.test.ts` checks only
+that the literal goes through the builder, not what it holds. The
+parameter is now `ExportWorkspaceSlices` (`{ [K in ExportWorkspaceKey]-?: Workspace[K] }`): every key
+required, `undefined` still allowed where the `Workspace` field is optional. The brief's
+`Workspace[K] | undefined` was not used — it would also admit `undefined` for the nine required
+slices, which `buildExportWorkspace` then returns as a `Workspace` (TS2322 on each). Removing
+`insights,` from `handleExportCurrentProject`'s literal now fails `npx tsc --noEmit` with TS2345
+("Property 'insights' is missing in type … but required in type 'ExportWorkspaceSlices'"); restored.
+`ActionMenus`' `useWorkspace()` value already carries all 19 keys. Tests holding a bare `Workspace`
+(`export-workspace.test.ts`, `export-ooxml.test.ts`'s §463 block) now name the ten optional slices
+explicitly. The type itself is pinned by `export-workspace.test.ts`'s "refuses, at compile time, a
+caller that leaves a slice out" (a `@ts-expect-error` call without `insights`): reverting the type to
+`Pick<Workspace, ExportWorkspaceKey>` fails `tsc` with TS2578 "Unused '@ts-expect-error' directive";
+reverted. The comment above the literal that said the two buttons "cannot drift apart again" now
+names the type as the guard.
+
 CSV and Markdown are unchanged storage formats: `workspaceToCsv`/`workspaceToMarkdown` still gate the
 project block on `config === undefined` (a storage save, never a document export), exactly as this
 entry originally recorded, so this fix does not add a `project` block to a CSV/MD export — the golden
