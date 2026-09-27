@@ -42890,15 +42890,33 @@ that completed 2 runs:
   last write wins, so the first journal this session writes (a save started while the page is hidden,
   or one still unconfirmed at `pagehide`) replaces the STORED record the notice describes, and that
   save's confirmation clears it. Since the final fix wave the notice keeps an in-memory copy of the
-  record, and Restore anyway applies that copy. The copy is dropped by Restore anyway, by Discard,
-  when this tab closes or reloads the page, and when this tab's load effect calls `restoreOnLoad`
-  again: a later load that is not cancelled, has not failed, was not refused as empty and is not
-  incomplete, for example a project switch (the load effect's one `restoreOnLoad` call in
-  `use-storage-backend.ts`; every branch of `restoreOnLoad` sets the copy to null or to a new record).
-  The in-app "Reload project" does not call `restoreOnLoad` and keeps the copy. So what is lost is a
-  notice not answered before the tab closes or loads a project again in that way, and only when the
-  stored record no longer holds the draft by then. Corrected 2026-09-27: this sentence first said the
-  copy survives "until this tab closes". The in-memory half is pinned by the 2 "Restore anyway still
+  record, and Restore anyway applies that copy. The copy is dropped in these 4 cases and in no other
+  (corrected 2026-09-27 by the PR #444 pre-merge review, item I2: this line first named a project
+  switch as one):
+  - Restore anyway, when it applies. When the save gate is shut, or the copy is for a target not in
+    scope, it keeps the copy.
+  - Discard.
+  - This tab closing or reloading the page: the copy lives only in memory.
+  - A run of this tab's load effect that reaches `restoreOnLoad` (its one call in
+    `use-storage-backend.ts`): a load that is not suppressed, not cancelled, has not failed, was not
+    refused as empty and is not incomplete. Every branch of `restoreOnLoad` sets the copy to null or
+    to the conflict the loaded key yields now, whichever target loaded. The effect runs on hydration
+    and whenever the backend memo rebuilds (its inputs: the storage config, the sign-in token
+    function, and the Turso URL, token and project id). The 7 project ops arm `suppressNextLoadRef`
+    (`use-storage-file-ops.ts`: `switchToProject`, `createProject`, `loadProjectFromFile`,
+    `createDemoProject` and a converting `onRequestStorageSwitch`; `use-storage-turso-ops.ts`:
+    `switchToTursoProject` and `createTursoProject`), so their load returns before `restoreOnLoad`
+    and keeps the copy; the notice hides while another target is in scope and shows again when the
+    conflicting one is back. So the user actions that reach it are the page's first load and a
+    rebuild outside an op, for example a SharePoint address applied in Settings, a storage-kind
+    switch made while the current load had not succeeded (it switches without the conversion copy
+    and arms nothing), or a Turso URL or token change.
+
+  The in-app "Reload project" does not call `restoreOnLoad`, so it keeps the copy and the notice;
+  since the pre-merge fix below it drops this tab's unconfirmed saves and this tab's stored record,
+  never the copy. So what is lost is a notice not answered before the tab closes or a load reaches
+  `restoreOnLoad`, and only when the stored record no longer holds the draft by then. Corrected
+  2026-09-27: this sentence first said the copy survives "until this tab closes". The in-memory half is pinned by the 2 "Restore anyway still
   applies and saves the last session's record" unit tests in
   `src/app/use-unload-journal.restore.test.tsx`; the close half is read from `use-unload-journal.ts`
   and never machine-verified.
@@ -42930,7 +42948,11 @@ that completed 2 runs:
   the record the notice describes" (red with the identity check dropped), the 2 Restore anyway tests
   "still applies and saves the last session's record" with the key overwritten and with it cleared
   (both red when Restore anyway reads the key instead of the copy), and the no-conflict error-toast
-  test (red with the toast removed).
+  test (red with the toast removed). Added in `08cde0097`: while the save gate is shut for the backend
+  in scope (its load failed, was refused as empty, or has not applied yet), Restore anyway shows the
+  `unloadJournalRestoreBlocked` error toast, applies nothing and keeps the copy and the notice; pinned
+  by "Restore anyway while saving is paused (a rebuilt load FAILED) reports it, applies nothing, keeps
+  the notice, and works once saving resumes".
 
 **2026-09-27, final review (known limitation, owed):**
 
@@ -42955,14 +42977,35 @@ that completed 2 runs:
   collection non-empty when 2 or more loaded non-empty, passes. (c) The in-app "Reload project"
   (`reloadProject`): `reloadCurrentProject` in `use-storage-backend.ts` applies what is stored without
   calling `restoreOnLoad`, the suppressed-save branch clears the standing refusal
-  (`destructive.clearRefusal()`), and the one save that follows confirms and clears the re-tagged
-  journal (`noteSaveConfirmed` in `use-unload-journal.ts`); this drops the draft, and (c) is read from
-  the code, never machine-verified. Corrected 2026-09-27: this line first listed "a project reload
+  (`destructive.clearRefusal()`), and `dropUnconfirmed` in `use-unload-journal.ts` removes the
+  re-tagged journal at once, since it carries this tab's id (the pre-merge fix below; before it, the
+  record stayed until a later save's confirmation, `noteSaveConfirmed`, cleared it); this drops the
+  draft, and (c) is read from the code, never machine-verified. Corrected 2026-09-27: this line first listed "a project reload
   followed by a confirmed save" and "a later confirmed save of any edit" as exits. This path offers no
   Discard. Read from the load effect in `src/app/use-storage-backend.ts`; the refusal itself is pinned
   by the unit test "match: the restored workspace meets the destructive guard, measured against what
   the backend RETURNED", the loop on reload is never machine-verified. A fix could offer Discard
   beside the refusal when the refused save is a journal save-back.
+
+**2026-09-27, PR #444 pre-merge review (fixed on `fix/defect-batch-8`, and 1 recorded choice):**
+
+- **"Reload project" no longer lets a failed save's journal restore the discarded state.** A save
+  that rejects never reaches `noteSaveConfirmed`, so its workspace stayed the latest unconfirmed one.
+  `reloadCurrentProject` reset only the base; the next `pagehide` then wrote that workspace over the
+  reloaded base, and the next page load found the base unchanged and restored it silently and saved
+  it. `reloadCurrentProject` now also calls `dropUnconfirmed(key)` (`use-unload-journal.ts`), which
+  forgets this tab's unconfirmed entries for the key and removes the stored record only when it has
+  this page load's `tabId`. An earlier page's record, the conflict notice and its in-memory copy stay.
+  Pinned in `src/app/use-unload-journal.restore.test.tsx` by "I1 — a FAILED save, then Reload
+  project, then pagehide with no new edit: nothing is journaled, and the next page load restores
+  nothing" (red with the call removed) and "I1 — Reload project leaves an earlier page's conflict
+  record, its notice and its in-memory copy alone" (red with the tab-id guard dropped).
+- **Undo after Restore anyway: kept live, by controller choice.** Restore anyway applies with the
+  "merge" log mode and calls neither `resolveLogModeAndStamp` nor `bumpScopeEpoch`, so the scope
+  epoch does not move and undo entries captured before the click
+  stay live and an undo applies them onto the restored workspace of the same project; this matches
+  §628's owner ruling that history survives a same-project reload, and calling `pruneStale` there
+  instead would make the restore a new baseline.
 
 Size M–L.
 
