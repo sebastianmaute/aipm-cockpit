@@ -41894,6 +41894,10 @@ curl -s https://api.timelog.com/rest/services | grep -oE "/rest/service/[a-z]+" 
 as before; a value that parsed but sanitized to nothing now goes through the same `reportUnreadableSlice`,
 so it lands in `diag.decodeFailedSlices` under its meta key and pauses saving, which keeps the stored row
 instead of letting the next meta-dirty save delete it.
+This also covers version skew: a stored value that a newer or older build's sanitizer rejects entirely —
+a retired module id, a timezone the device's ICU rejects, an unknown rag — now shows "Saving paused",
+and "Save anyway" clears the pause, where the old path deleted the row on the next meta-dirty save. PARTIAL
+sanitizer loss (some entries survive, others are dropped) stays silent; it is outside this fix.
 
 ★★ The rule compares the INPUT with the output (`sanitizedToNothing` in `src/app/meta-slice-decode.ts`),
 not the output alone. A stored `[]`, `{}`, `features: []` (Simple mode) or a status of only blank strings
