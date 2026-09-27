@@ -42715,8 +42715,15 @@ that completed 2 runs:
   last write wins, so the first journal this session writes (a save started while the page is hidden,
   or one still unconfirmed at `pagehide`) replaces the STORED record the notice describes, and that
   save's confirmation clears it. Since the final fix wave the notice keeps an in-memory copy of the
-  record until this tab closes, and Restore anyway applies that copy, so what is lost is only a notice
-  never answered before this tab closes. The in-memory half is pinned by the 2 "Restore anyway still
+  record, and Restore anyway applies that copy. The copy is dropped by Restore anyway, by Discard,
+  when this tab closes or reloads the page, and when this tab's load effect calls `restoreOnLoad`
+  again: a later load that is not cancelled, has not failed, was not refused as empty and is not
+  incomplete, for example a project switch (the load effect's one `restoreOnLoad` call in
+  `use-storage-backend.ts`; every branch of `restoreOnLoad` sets the copy to null or to a new record).
+  The in-app "Reload project" does not call `restoreOnLoad` and keeps the copy. So what is lost is a
+  notice not answered before the tab closes or loads a project again in that way, and only when the
+  stored record no longer holds the draft by then. Corrected 2026-09-27: this sentence first said the
+  copy survives "until this tab closes". The in-memory half is pinned by the 2 "Restore anyway still
   applies and saves the last session's record" unit tests in
   `src/app/use-unload-journal.restore.test.tsx`; the close half is read from `use-unload-journal.ts`
   and never machine-verified.
@@ -42759,12 +42766,28 @@ that completed 2 runs:
   this path: `storageRefusedWipe` in `src/app/i18n.ts` reads "Saving is paused - a large deletion was
   withheld. Review it in the banner above, or reload the page to restore your saved data." So is the
   confirm dialog's `storageDestructiveConfirmBody`: "If you did not do this, reload the page instead -
-  your saved data is intact." The exits are the banner's "Save this deletion"
-  (`storageDestructiveSaveAnyway`), a project reload followed by a confirmed save, or a later confirmed
-  save of any edit; this path offers no Discard. Read from the load effect in `src/app/use-storage-backend.ts`;
-  the refusal itself is pinned by the unit test "match: the restored workspace meets the destructive
-  guard, measured against what the backend RETURNED", the loop on reload is never machine-verified.
-  A fix could offer Discard beside the refusal when the refused save is a journal save-back.
+  your saved data is intact." A page reload is not an exit: it re-runs the load effect, which
+  re-applies the journal, and that is the loop. The refusal keeps the loaded counts as its baselines
+  (the `// keep baselines` return in the save effect of `use-storage-backend.ts`), so every later save
+  is measured against them. There are 3 exits. (a) The banner's "Save this deletion"
+  (`storageDestructiveSaveAnyway`), confirmed in its dialog with "Remove these records"
+  (`storageDestructiveConfirmSaveAnyway`); on the full-wipe tier the banner reads "Save this full
+  wipe" and the dialog, after the user types "yes, save this wipe", "Save this wipe". (b) A later save
+  that the guard no longer refuses: `evaluateSaveGuard` (`src/app/save-guard.ts`) refuses a full wipe
+  (0 collections where the baseline had 2 or more) or a mass deletion (`isMassDeletion` in
+  `src/app/workspace-metrics.ts`: 5 or more records removed AND at most 10% of the baseline left), so
+  an edit whose save removes fewer than 5 records or leaves more than 10% of what loaded, and leaves a
+  collection non-empty when 2 or more loaded non-empty, passes. (c) The in-app "Reload project"
+  (`reloadProject`): `reloadCurrentProject` in `use-storage-backend.ts` applies what is stored without
+  calling `restoreOnLoad`, the suppressed-save branch clears the standing refusal
+  (`destructive.clearRefusal()`), and the one save that follows confirms and clears the re-tagged
+  journal (`noteSaveConfirmed` in `use-unload-journal.ts`); this drops the draft, and (c) is read from
+  the code, never machine-verified. Corrected 2026-09-27: this line first listed "a project reload
+  followed by a confirmed save" and "a later confirmed save of any edit" as exits. This path offers no
+  Discard. Read from the load effect in `src/app/use-storage-backend.ts`; the refusal itself is pinned
+  by the unit test "match: the restored workspace meets the destructive guard, measured against what
+  the backend RETURNED", the loop on reload is never machine-verified. A fix could offer Discard
+  beside the refusal when the refused save is a journal save-back.
 
 Size M–L.
 
