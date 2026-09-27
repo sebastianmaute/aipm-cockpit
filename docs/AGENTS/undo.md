@@ -167,13 +167,28 @@ undo block the redo, and the next undo then spliced in a second copy.
 - **The history panel reads `activeIndex` through `clamp` everywhere** — the entry list can shrink
   while the panel is open (a Ctrl+Z from the focused list), and a raw read over-counts and throws on
   Enter. See the `undo-control.tsx` header.
-- ★★★ **AN UNDO AFTER A PROJECT SWAP WRITES THE OLD PROJECT'S ROWS INTO THE NEW ONE — CONFIRMED,
-  tracked as §628 (#445).** Nothing clears the stack when the project changes: `UndoStackApi` has no
-  clear or reset member, and `useUndoStack` is called in `TaskManagerInner`, which no project-keyed
-  parent remounts. A same-mode swap applies the new workspace through the same setters the runners
-  close over, so a delete-image re-inserts the old project's row and an edit-image overwrites the new
-  project's row with the same id; the next autosave persists it. Confirmed by a code trace plus an
-  engine-level probe, not in a browser.
+- ★★★ **EVERY ENTRY IS SCOPE-STAMPED, BECAUSE THE STACK OUTLIVES A PROJECT SWITCH (§628, closed).**
+  `useUndoStack` lives in `TaskManagerInner`, which an in-place switch does not remount, and every
+  runner closes over the workspace's stable setters — so before §628 an undo after a switch
+  re-inserted the old project's deleted rows into the new one and overwrote its same-id rows. Three
+  mechanisms in `use-undo-stack.ts` / `use-undo-batch.ts` now hold it:
+  - `pushEntry` stamps each entry with `getScopeEpoch()`, and the stamp travels with it across
+    stacks (an undo's push onto the redo stack, `redo`'s push back, and the `undoThrough` /
+    `redoThrough` inverses). `undo`, `redo`, `undoById`,
+    `undoThrough` and `redoThrough` DROP a stale entry (`dropStaleScopeWrite`, no toast) instead of
+    running it; when the entry the user picked was stale, the call stops rather than running an
+    older one in its place.
+  - `useUndoBatch.runBatched` pushes after `await fn()`, so it reads the epoch when the batch OPENS
+    and passes it as `readEpoch`; `pushEntry` refuses a push whose stamp is already stale. ★ The
+    refusal is whole-batch: rows the batch wrote into the new project after a mid-batch switch get no
+    undo either. That they land there at all is the proposal-apply gap, §600 (open).
+  - `usePruneUndoOnScopeChange(loadPending, pruneStale)`, a render-time reconcile called after
+    `useStorageBackend`, removes the stale entries from BOTH stacks on each falling edge of the load
+    hold, and only those. The epoch moves only on a real scope change, so history survives Save-As, a
+    cancelled Open or Save-As, a same-project reload and a declined or failed migrate-to-Turso. A
+    SUCCESSFUL migrate ends in `window.location.reload()` (`use-storage-turso-ops.ts`), which empties
+    the in-memory history anyway. ★★ Do not "simplify" this to clearing on every rise of the hold —
+    that was the first cut, and it threw away history across every one of those ops.
 
 ## Open entries
 
@@ -186,4 +201,5 @@ undo block the redo, and the next undo then spliced in a second copy.
 - §291 — `mergeRecord` rebuilds in the live row's key order.
 - §292 — the merge property test's anti-vacuity floor.
 - §299 — an undo/redo that flips a task's delivered-ness writes no completion or reopening entry.
-- §628 (#445) — an undo after a project swap writes into the new project (see "Gates on the stack").
+- §600 — the staged proposal-apply path has no scope guard (the rows a batch refused at push still
+  land in the new project; see "Gates on the stack").

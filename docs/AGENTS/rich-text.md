@@ -127,8 +127,8 @@ register's fix to another is how two of them broke. Read the note that names you
   entity sanitizers must stay DOM-free (by CONTRACT: `scripts/ai-eval.ts` and
   `scripts/update-ooxml-manifest.ts` import that graph with no DOM installed — NOT because the sample
   generator lacks one, it installs JSDOM first; `docs/open-followups.md` §151). So ANY caller that sanitizes an EXISTING RAID row silently erases its log.
-  `use-chat-dispatcher.ts` `updateRaid` did exactly that until 0.211.1 and every AI edit to a RAID item
-  wiped its notes unrecoverably (no undo on AI writes) — it now re-applies the stored log after
+  `updateRaid` (then in `use-chat-dispatcher.ts`, now in `use-register-tools.ts`) did exactly that until 0.211.1 and every AI edit to a RAID item
+  wiped its notes unrecoverably (AI writes took no undo capture then) — it now re-applies the stored log after
   sanitizing (`docs/open-followups.md` §49). The other THREE callers are CREATES and safe. ★ A NEW
   `sanitizeRaidItem` call site must ask whether it holds a stored row; nothing gates this. ★★ Sweep on
   the BARE name — `ai-project-proposal.ts` passes the sanitizer by REFERENCE into `buildList`, so
