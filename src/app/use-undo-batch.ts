@@ -2,7 +2,8 @@
 //
 // ★★★ THE PROBLEM THIS EXISTS FOR. Every AI entity update and delete, and the
 // RAID escalation, captures its own undo entry — except `send_inquiry` (it bumps
-// `Task.inquiriesSent` with no capture), `update_settings` and the document
+// `Task.inquiriesSent` with no capture), `update_settings`, `set_language`,
+// `set_filters` and the document
 // tools, none of which capture (nineteen
 // `undoRef.current?.captureComposite({…})` sites across
 // `use-chat-dispatcher.ts` and `use-register-tools.ts` on 2026-09-27; re-count
