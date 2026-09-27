@@ -42617,7 +42617,7 @@ It is reachable whenever a pagehide commit starts a save while any other save is
 
 ## 629. A draft committed on window close only STARTS the save — no real-browser or desktop proof that it lands on the file, SharePoint, Turso or desktop backends — open
 
-**Status:** open 2026-09-27 — found by the PR #444 (defect batch 8) review. MEASURED on one backend with `npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB, which is the default `defaultStorageConfig`): a `pagehide` dispatched while the page stays alive commits the draft and its save lands, but on a real `page.reload()` the save does NOT land, for both editors the spec drives (a document heading through `useBlockDraft` and a task-name inline cell through `useInlineCellEdit`). The reload cases are `test.fail()` in that spec. The local file, SharePoint, Turso and the packaged desktop app are never machine-verified; `git grep -n "keepalive\|sendBeacon" -- src/app` finds no use of either in any save path.
+**Status:** open 2026-09-27 — found by the PR #444 (defect batch 8) review. MEASURED on one backend with `npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB, which is the default `defaultStorageConfig`): a `pagehide` dispatched while the page stays alive commits the draft and its save lands, but on a real `page.reload()` the save does NOT land, for both editors the spec drives (a document heading through `useBlockDraft` and a task-name inline cell through `useInlineCellEdit`); on a tab close (`page.close({ runBeforeUnload: true })`) the heading save does not land either. Those cases are `test.fail()` in that spec. The task cell survived a tab close in 5 of 5 runs (`--repeat-each=4` plus one), a race it happened to win, so the spec pins neither outcome for it. The local file, SharePoint, Turso and the packaged desktop app are never machine-verified; `git grep -n "keepalive\|sendBeacon" -- src/app` finds no use of either in any save path.
 
 **Work item:** #446
 
@@ -42628,7 +42628,13 @@ It is reachable whenever a pagehide commit starts a save while any other save is
 - **SharePoint** and **Turso**: a plain `fetch` with no `keepalive`, which the browser may abort on unload.
 - **Packaged desktop app**: closing the window runs `app.on("window-all-closed", () => app.quit())`, and the `before-quit` handler calls `killServer(serverChild)` (both in `desktop/src/main.ts`). The renderer goes with the window and the local server child is killed; whether a save started in the renderer's `pagehide` survives either is unmeasured.
 
-A throwaway probe on 2026-09-27 (not kept in the repo) also found that on IndexedDB an ALREADY-scheduled debounced save, flushed by §185's flush-on-hide on a reload, does not land either: blur a heading, then reload within the debounce window, and the edit is gone. So the loss is not specific to the pagehide commit; it is the unload path of every save on that backend.
+Throwaway probes on 2026-09-27 (not kept in the repo; raw output in the PR #444 fix report) re-measured this on a fresh dev server with NO fake clock, after the app was idle (network idle, and the stored `documents` record unchanged across 3 s), two runs each:
+
+- a heading typed and never blurred, then reload: lost; then tab close: lost;
+- a heading blurred so a debounced save is pending (§185's flush-on-hide path), then reload at once: lost; then tab close at once: lost;
+- control: a heading blurred, 2 s past the debounce, then reload: kept.
+
+An instrumented `IDBDatabase.prototype.transaction` (counters written to `localStorage`, which is synchronous) showed that on a tab close the save CREATED 20 readwrite transactions after `pagehide` and none fired `complete` or `abort`; on a reload none was created after `pagehide` before the page went. So the loss is not specific to the pagehide commit: it is the unload path of every save on that backend, including §185's flush-on-hide.
 
 Owed: a packaged-desktop window-close check, and the file, SharePoint and Turso backends in a real browser. The fix needs a save that completes or survives the unload: a synchronous fallback (for example a localStorage journal of the unsaved workspace, replayed on the next load) or `keepalive` / `sendBeacon` for the network backends. §626 (async editors) and §627 (unserialised saves at unload) are the same unload path.
 

@@ -11,14 +11,16 @@
 // SharePoint, Turso and the packaged desktop app are not covered; see §629.
 //
 // ★★★ WHAT IT MEASURED (2026-09-27): the draft is committed and its save is
-// started, but on a REAL reload the IndexedDB write does not land. Each editor
-// therefore has two tests:
+// started, but on a REAL reload the IndexedDB write does not land, and on a tab
+// close it did not land for the heading (the task cell's won the race; see the
+// note on `pinTabClose`). The tests per editor:
 //  - "page stays": a `pagehide` dispatched while the page stays alive. The
 //    commit runs and the save it starts lands. This proves the commit path and
-//    the storage reader below, so the reload test's red is not a blind reader.
-//  - "reload": `test.fail()`, the known defect §629. When §629 is fixed this
-//    test passes, Playwright reports the expected failure as an error, and the
-//    `test.fail` line must go.
+//    the storage reader below, so the unload tests' red is not a blind reader.
+//  - "reload" and "tab close" (`page.close({ runBeforeUnload: true })`):
+//    `test.fail()`, the known defect §629. When §629 is fixed they pass,
+//    Playwright reports the expected failure as an error, and the `test.fail`
+//    lines must go.
 //
 // ★★★ THE LOAD-BEARING ASSERTIONS ARE ON THE IndexedDB RECORD, not the UI.
 //  Before the unload the typed marker must be ABSENT from storage: the draft
@@ -30,8 +32,8 @@
 //  `useCommitOnPageHide(...)` call into a bare, never-called arrow in
 //  `useBlockDraft` (document-block-editors.tsx) and in `useInlineCellEdit`
 //  (use-inline-cell-edit.ts) turns BOTH "page stays" tests RED at their storage
-//  assertion. With `test.fail` removed, both reload tests fail at that same
-//  assertion, not earlier. Re-do both before trusting a run after a refactor of
+//  assertion. With `test.fail` removed, the reload and tab-close tests fail at
+//  that same assertion, not earlier. Re-do both before trusting a run after a refactor of
 //  the unload path.
 //
 // Run against a fresh server from THIS checkout, never one another worktree
@@ -132,8 +134,8 @@ async function reload(page: Page): Promise<void> {
 }
 
 const EDITORS = [
-  { name: "document heading (useBlockDraft)", where: { kv: "documents" } as Where, type: typeHeadingDraft },
-  { name: "task name inline cell (useInlineCellEdit)", where: { store: "tasks" } as Where, type: typeTaskNameDraft },
+  { name: "document heading (useBlockDraft)", where: { kv: "documents" } as Where, type: typeHeadingDraft, pinTabClose: true },
+  { name: "task name inline cell (useInlineCellEdit)", where: { store: "tasks" } as Where, type: typeTaskNameDraft, pinTabClose: false },
 ];
 
 test.describe("a draft committed on pagehide: does its save land? (IndexedDB, Chromium)", () => {
@@ -144,7 +146,7 @@ test.describe("a draft committed on pagehide: does its save land? (IndexedDB, Ch
     });
   });
 
-  EDITORS.forEach(({ name, where, type }, i) => {
+  EDITORS.forEach(({ name, where, type, pinTabClose }, i) => {
     test(`${name}: page stays — the commit's save lands`, async ({ page }) => {
       const marker = `zqpagehide${i}a`;
       await type(page, marker);
@@ -160,6 +162,23 @@ test.describe("a draft committed on pagehide: does its save land? (IndexedDB, Ch
       await expectAbsentBeforeUnload(page, where, marker);
       await reload(page);
       await expectLanded(page, where, marker);
+    });
+
+    // ★★ `pinTabClose` is set for the heading only. For the task-name cell a tab close LANDED in 5 of 5 runs
+    //  on 2026-09-27 while its reload was lost in every run: the unload races
+    //  the IndexedDB write and the smaller one can win. A race won is not a
+    //  guarantee, so neither outcome is pinned for that editor (see §629).
+    const testTabClose = pinTabClose ? test : test.skip;
+    testTabClose(`${name}: tab close — the commit's save is lost (known defect §629)`, async ({ page, context }) => {
+      test.fail(true, "§629: the IndexedDB write started on pagehide does not survive closing the tab");
+      const marker = `zqpagehide${i}c`;
+      await type(page, marker);
+      await expectAbsentBeforeUnload(page, where, marker);
+      await page.close({ runBeforeUnload: true });
+      // A same-origin page in the same context reads the same IndexedDB.
+      const reader = await context.newPage();
+      await reader.goto("/favicon.ico");
+      await expectLanded(reader, where, marker);
     });
   });
 });
