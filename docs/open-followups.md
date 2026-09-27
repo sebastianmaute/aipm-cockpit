@@ -42392,6 +42392,9 @@ So the open question has two halves, and both are unverified:
 - does either DECODE a workspace through a codec, which would silently drop every document rather
   than throw.
 
+The codecs are not the whole set: both scripts also reach the document decodes in `workspace.ts`,
+`turso-schema.ts` and `browser-backend.ts`, which surface a failure instead of swallowing it.
+
 To re-run, root the runtime resolver below at each script and print the parent chain for
 `csv-codecs-config` and `markdown-codecs-core`.
 

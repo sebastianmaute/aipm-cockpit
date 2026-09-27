@@ -628,10 +628,10 @@ describe("DOM-free guard", () => {
     // (via ooxml-docx-primitives.ts → export-sections.ts) and the DOM-bound
     // ooxml-docx-primitives.ts itself, so only the paths it CALLS decide whether
     // it throws — open-followups §624. It is deliberately NOT a root: its graph
-    // legitimately contains both modules, so rooting it would fail on correct
-    // code. The sample generator IS a root, but not because it lacks a DOM (it
-    // and regen-golden-fixtures.ts install JSDOM first, §151): its graph is the
-    // largest set of load-path modules, the contract's widest reach.
+    // legitimately contains rich-text-projection, so rooting it would fail on
+    // correct code. The sample generator IS a root, but not because it lacks a
+    // DOM (it and regen-golden-fixtures.ts install JSDOM first, §151): it is the
+    // rootable script whose graph reaches every load path through storage.ts.
     //
     // ★★ rich-text-plain.ts and narrative-html.ts are IN this set. They are the
     // two DOM-free modules inside this file's own dependency graph, so a reach
@@ -651,7 +651,7 @@ describe("DOM-free guard", () => {
     // the file AGENTS.md now warns a reader not to add a DOMPurify import to —
     // was among the ones it missed.
     // ★★ Until 2026-09-27 the generator was the ONLY root. That left ai-eval.ts's
-    // own modules unscanned (chat-api.ts, its direct import, and about 49 others,
+    // own modules unscanned (chat-api.ts, its direct import, and 48 others,
     // measured that day) while a comment here already claimed to protect it —
     // open-followups §151/§624.
     // ★ The 18 is a historical fact about the deleted filter and does not rot.

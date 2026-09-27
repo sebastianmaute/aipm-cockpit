@@ -286,8 +286,8 @@ export function csvToDocuments(
     // generator, regen-golden-fixtures.ts and sample-link-exports.ts install
     // JSDOM into globalThis BEFORE they dynamically import src/app. But two
     // scripts reach this module with NO DOM: update-ooxml-manifest.ts (via
-    // storage) and ai-eval.ts (via turso-schema). Neither decodes a CSV as far
-    // as anyone has checked; if one does, it silently loses every document
+    // storage) and ai-eval.ts (via turso-schema). Nobody has checked whether
+    // either decodes a CSV; if one does, it silently loses every document
     // (open-followups §624). A new bare-node importer must install a DOM first.
     // ★ `diag` records what the MAX_DOCUMENTS cap silently discarded, so an
     // over-cap file can tell the user before the next autosave writes the
