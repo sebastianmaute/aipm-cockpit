@@ -13,8 +13,8 @@ longer carries its own changelog comment.
 A maintenance release. Typed text you had not yet clicked out of is kept when you close or reload
 the window, and data this version cannot read now pauses saving instead of being overwritten. The
 close-window recovery is so far tested in the browser with browser storage only; the desktop app
-and file, SharePoint and Turso projects are not yet verified. Also fixes to undo, exports,
-documents, window layout, dialog sizes, bulk edit and Trends.
+and file, SharePoint and Turso projects are not yet verified. Also fixes to undo, AI chat plans,
+exports, documents, window layout, dialog sizes, bulk edit and Trends.
 
 ### Fixed
 
@@ -49,6 +49,12 @@ documents, window layout, dialog sizes, bulk edit and Trends.
   overwrite a row in the current project with the previous project's content. Undo history now
   belongs to the project it was made in, and is kept through Save As, Reload project and cancelled
   dialogs.
+- **AI chat plans applied to the wrong project.** A plan the assistant staged for review is no
+  longer applied if the project changed since it was made, including when the new project has the
+  same name (for example after opening another storage file). Such a plan is replaced in the chat
+  by "This plan was made for a different project and was not applied." If the project changes
+  partway through applying, applying stops there, and the rows not yet applied are unticked and
+  show "Not applied — the project changed."
 - **Exports.**
   - Both Export buttons now include every section switched on in Settings → Export, including
     calendar events, knowledge items and insights, and both name the file after the project.
