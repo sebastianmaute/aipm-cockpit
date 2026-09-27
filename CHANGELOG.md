@@ -10,10 +10,11 @@ longer carries its own changelog comment.
 
 ## [1.14.2] - 2026-09-27 "Deaver"
 
-A maintenance release. Unsaved edits now survive closing or reloading the window, and settings the
-app cannot read no longer get overwritten silently. Also fixes to window layout, dialog sizes, bulk
-edit, Trends, exports, documents and undo, plus stricter checks on the project's own register and
-test suite.
+A maintenance release. Typed text you had not yet clicked out of is kept when you close or reload
+the window, and data this version cannot read now pauses saving instead of being overwritten. The
+close-window recovery is so far tested in the browser with browser storage only; the desktop app
+and file, SharePoint and Turso projects are not yet verified. Also fixes to undo, exports,
+documents, window layout, dialog sizes, bulk edit and Trends.
 
 ### Fixed
 
@@ -29,85 +30,83 @@ test suite.
 - **Changes lost because the save could not finish before the window closed.** The app now keeps a
   copy of your latest unsaved changes in the browser when the window closes, and restores it the
   next time you open the project. If the project was changed elsewhere in the meantime, a notice
-  lets you choose **Restore anyway** or **Discard**, so nothing is overwritten without asking.
-  The copy is kept in this browser's local storage, also when you work on a Turso or SharePoint
-  project. It never contains passwords or tokens.
-- **Unreadable settings in project files and browser storage.** When a JSON project file or the
-  browser's own storage holds a setting this version cannot use at all (for example one written by
-  a newer version), the app now shows "Saving paused" instead of silently dropping it and
-  overwriting it on the next save. "Save anyway" clears it. Single-database Turso storage gets the same
-  protection in this release (below).
+  lets you choose **Restore anyway** or **Discard**, so nothing is overwritten without asking. The
+  copy is kept in this browser's local storage whatever the project's storage, and it never
+  contains passwords or tokens. So far this is verified in the browser with browser storage; the
+  desktop app and file, SharePoint and Turso projects are not yet verified.
+- **Data this version cannot read.** When a project holds data this version cannot use at all (for
+  example project settings, documents or logs written by a newer version), the app now shows
+  "Saving paused" instead of silently dropping it and overwriting it on the next save. "Save
+  anyway" clears it. This covers JSON project files (on disk or on SharePoint), browser storage and
+  Turso databases. For Turso it also covers content that is all invalid, such as a feature list or
+  project status.
 - **Browser storage and documents.** If a stored document could not be cleaned up on load, the next
   save used to delete the project's documents, document history, activity log, budget history and
   images from browser storage. That load now pauses saving instead, and the rest of the project
   still loads.
-- **Window layout.** In the classic layout the header no longer makes the page scroll sideways
-  between 1024 and about 1390px wide: the search box narrows (to no less than 224px) instead.
-- **Dialog sizes.** The task form, the image preview, the notes window and the Help panel now
-  remember a size you resize them to.
-- **Bulk edit.** Its controls have names of their own ("Change Status", "New Status") instead of
-  repeating the column header, so screen readers and search-by-name no longer confuse them.
-- **Single-database Turso storage.** A stored setting that loads as unusable data (for example a
-  feature list or project status whose content is all invalid) now shows "Saving paused" instead of
-  being dropped silently and deleted on the next save. A setting written by a newer or older app
-  version can also trigger this; "Save anyway" clears it.
-- **Trends.** A snapshot taken while nothing is in scope (for example all tasks cancelled) no longer
-  records 0% complete: it records no figure, the completion sparkline shows a gap, and such a
-  snapshot never becomes the completion baseline. Existing snapshots are unchanged.
+- **Undo after switching project.** Undo no longer reaches back into the project you just left.
+  Before, pressing Undo after switching could re-insert a row deleted in the previous project, or
+  overwrite a row in the current project with the previous project's content. Undo history now
+  belongs to the project it was made in, and is kept through Save As, Reload project and cancelled
+  dialogs.
 - **Exports.**
   - Both Export buttons now include every section switched on in Settings → Export, including
     calendar events, knowledge items and insights, and both name the file after the project.
-    Calendar events are switched on by default, so default exports now include their titles and
-    locations; knowledge items and insights stay off unless switched on.
+    Calendar events are switched on by default, so default exports now include each meeting's
+    title, first date, repeat pattern and location; knowledge items and insights stay off unless
+    switched on.
   - PDF, Word, PowerPoint and Excel exports show translated column headers (English and German)
     instead of internal field names, and the section titles Budget, Roles & rates, Absences,
     Shifts, Status report and Insights are translated. Columns holding an ID say so ("Role ID").
     CSV and Markdown exports keep their field names.
+  - German exports now also translate an insight's type, severity and status, and a meeting's
+    repeat pattern, which read "Every 2 weeks · Mon, Wed" or "Monthly · 2nd Tue" (a meeting that
+    does not repeat reads "Never").
   - An image whose file type is not allowed now reads "Image not shown — file type not allowed"
-    instead of appearing as missing (HTML/PDF) or as left out for size (Word/PowerPoint).
+    instead of appearing as missing (HTML/PDF) or as left out for size (Word/PowerPoint), and the
+    export no longer downloads it first.
 - **Documents.** While you edit a paragraph, a character counter appears near the 20,000-character
   limit. A paragraph over the limit is no longer silently flattened to plain text: saving is refused
   with a notice saying how much to remove, and your text and formatting stay in the editor. If the
   window is closed, reloaded or navigated away first, it is saved as plain text so nothing is lost;
   switching tabs keeps it as it is.
-
-- **Undo after switching project.** Undo no longer reaches back into the project you just left.
-  Before, pressing Undo after switching could re-insert a row deleted in the previous project, or
-  overwrite a row in the current project with the previous project's content. Undo history now
-  belongs to the project it was made in, and survives Save As, reloads and cancelled dialogs.
 - **Help for document images.** The help buttons on the image library and the image preview now
   open the help about document images, rather than the general documents help.
-- **German exports.** PDF, Word, PowerPoint and Excel exports now show an insight's type, severity
-  and status, and a meeting's repeat pattern, in the export's language instead of in English.
-- **Repeat wording.** A meeting's repeat pattern now reads "Every 2 weeks · Mon, Wed" or
-  "Monthly · 2nd Tue" in exports, and "Every 2 weeks" rather than "Every 2 week(s)" in the list of
-  all meetings. A meeting that does not repeat reads "Never" in exports.
-- **Exports skip blocked images sooner.** An image whose file type is not allowed is no longer
-  downloaded during an export only to be left out.
+- **Meetings list.** A repeating meeting reads "Every 2 weeks" rather than "Every 2 week(s)".
+- **Window layout.** In the classic layout the header no longer makes the page scroll sideways
+  between 1024 and about 1390px wide: the search box narrows (to no less than 224px) instead.
+- **Dialog sizes.** The task form, the shift dialog, the image preview, the notes window and the
+  Help panel now remember a size you resize them to.
+- **Bulk edit.** Its controls have names of their own ("Change Status", "New Status") instead of
+  repeating the column header, so screen readers and search-by-name no longer confuse them.
+- **Trends.** A snapshot taken while nothing is in scope (for example all tasks cancelled) no longer
+  records 0% complete: it records no figure, the completion sparkline shows a gap, and such a
+  snapshot never becomes the completion baseline. Existing snapshots are unchanged.
 
 ### Changed
 
 - **Data.** New snapshots taken with nothing in scope store an empty completion figure (same Turso
   column, no schema change).
-- **German wording.** "Lösung / Begründung" and "Rollen & Sätze" (this also renames the matching
-  Settings → Export switch and the Excel sheet).
+- **German wording.** The change dialog's resolution field now reads "Lösung / Begründung" (it
+  read "Begruendung"), and "Rollen & Raten" is now "Rollen & Sätze", which also renames the
+  matching Settings → Export switch, the export section and the Excel sheet.
 
 ### Development
 
-- **The follow-up register's index table is generated and checked.** It is rebuilt from the entry
-  headings by `node scripts/rebuild-followup-index.mjs`, and CI fails when it has drifted, naming
-  the command. The old hand-run recipe, which damaged the table, is gone.
-- **Quality checks.** The row-name scanner no longer counts brackets inside comments, and keys files
-  by their full path; a flaky editor test, caused by a race in the test itself, is fixed; and three
-  missing test pins are added. A new test keeps `docs/features.md` in step with the in-app feature
-  guide.
+- **The follow-up list's index is generated and checked.** It is rebuilt from the entry headings by
+  a script, and CI fails when it has drifted. The old hand-run recipe, which damaged the table, is
+  gone.
+- **Quality checks.** A scanner for duplicate control names no longer counts brackets inside
+  comments and keys files by their full path; a flaky editor test, caused by a race in the test
+  itself, is fixed; and three missing test pins are added. A new test keeps the feature list in
+  the docs in step with the in-app feature guide.
 - **Accurate reasons in code comments and docs.** Four wrong explanations are corrected wherever
   they appeared, most widely the claim that the sample generator runs without a browser
   environment. The check that keeps browser-only code out of scripts now also covers the AI
   evaluation script.
-- **Where the close-window recovery is proven.** It is tested in Chromium with the
-  browser-storage backend (`e2e/pagehide-draft-persist.spec.ts`). The desktop app and the file,
-  SharePoint and Turso backends are not yet verified on a real target (§629).
+- **Close-window recovery tests.** An end-to-end test proves the recovery in Chromium with browser
+  storage. The desktop app and the file, SharePoint and Turso backends are tracked for
+  verification on a real target.
 - **New contributor references** for the budget and currency rules, the undo system, and the
   desktop app at runtime. The docs name check now also covers the desktop app's source.
 
