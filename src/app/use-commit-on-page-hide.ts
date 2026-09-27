@@ -15,9 +15,9 @@
 //  asynchronous on every workspace backend (FS-Access writable, fetch without
 //  `keepalive`, IndexedDB transaction). Measured in Chromium on the default
 //  backend (IndexedDB) by e2e/pagehide-draft-persist.spec.ts: the save lands
-//  when the page outlives the event, and does NOT land on a real reload. So on
-//  a real unload the draft is still lost there; that, and every other backend
-//  and the packaged desktop app, is §629.
+//  when the page outlives the event, and the save itself may not land on a real
+//  reload or close. The unload journal (§629) then carries the draft across the
+//  reload or close; that spec measures it in Chromium on IndexedDB only.
 // ★★★ NOT `visibilitychange` → hidden, by OWNER DECISION (§185, 2026-09-27):
 //  that signal is also a tab switch or a minimise, which must keep the draft.
 // ★★ `flushSync` IS THE ORDERING: the workspace save captures its snapshot per

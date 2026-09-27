@@ -17,6 +17,8 @@
 //   and the key of the target it was loaded from; `holdBase` / `adoptHeldBase`
 //   — the same for a project op, whose target key is not in scope yet when it
 //   applies (see `holdBase`).
+// - `dropUnconfirmed` — called by "Reload project", which discards the
+//   in-memory state: forgets this tab's unconfirmed saves for that key.
 // - `restoreOnLoad` — called by the load effect between a load that passed every
 //   gate and its apply: a journal whose content IS the loaded workspace is cleared
 //   silently (its save landed), else the journal on a base match, else a published
@@ -248,6 +250,20 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
     replaceBase({ projectKey: key, workspace: held.workspace, savedAt: held.savedAt, fingerprint: null });
   }, [replaceBase]);
 
+  /** "Reload project" DISCARDS the in-memory state, so this tab's unconfirmed saves for `key` go
+   *  with it: kept, a save that FAILED would be written at pagehide over the reloaded base, and the
+   *  next load would find that base unchanged and restore the discarded state silently. The stored
+   *  record goes only while it is THIS tab's (the tab-id guard): an earlier page's record, such as
+   *  the conflict the notice describes, stays, and so does the notice's in-memory copy. */
+  const dropUnconfirmed = useCallback((key: string): void => {
+    const latest = latestUnconfirmedRef.current;
+    if (latest !== null && latest.projectKey === key) latestUnconfirmedRef.current = null;
+    for (const [at, k] of inFlightRef.current) {
+      if (k === key) inFlightRef.current.delete(at);
+    }
+    clearUnloadJournal(key, { tabId: UNLOAD_JOURNAL_TAB_ID, ifSavedAtAtMost: lastSavedAt });
+  }, []);
+
   const baseFingerprint = useCallback((): string => baseFingerprintFor(projectKeyRef.current), [baseFingerprintFor]);
 
   /** The journal the last restore found and could not apply (its base did not match) — see `ConflictRecord`. */
@@ -318,7 +334,7 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
   }, [write]);
 
   return {
-    noteSaveStarted, noteSaveConfirmed, baseFingerprint, setBase, holdBase, adoptHeldBase,
+    noteSaveStarted, noteSaveConfirmed, baseFingerprint, setBase, holdBase, adoptHeldBase, dropUnconfirmed,
     restoreOnLoad, restoreConflict, discardConflict, conflict,
   };
 }

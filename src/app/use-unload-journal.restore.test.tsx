@@ -381,6 +381,60 @@ describe("§629 — the load effect restores the unload journal", () => {
     expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
   });
 
+  /** An edit whose save fires while visible (so nothing is journaled yet) and REJECTS, then "Reload
+   *  project" re-reads STORED. Returns the hook with that reload applied. */
+  async function failedSaveThenReload() {
+    const backend = makeBackend(100);
+    createBackendMock.mockReturnValue(backend);
+    const hook = render();
+    await advance(800);
+    act(() => { hook.result.current.setTasks(JOURNALED.tasks); });
+    await advance(600);
+    expect(backend.save).toHaveBeenCalledTimes(1);
+    await act(async () => { backend.saves[0].reject(new Error("save boom")); });
+    await advance(0);
+    let reload: Promise<void> | undefined;
+    act(() => { reload = hook.result.current.reloadCurrentProject(); });
+    await advance(200);
+    await act(async () => { await reload; });
+    expect(hook.result.current.tasks.map((x) => x.id)).toEqual([1]); // the premise: the reload discarded task 2
+    return hook;
+  }
+
+  function pageHide() {
+    act(() => { window.dispatchEvent(new Event("pagehide")); });
+    window.dispatchEvent(new Event("pageshow")); // resets debounced-save.ts's module-level `pageHiding` (jsdom never fires one)
+  }
+
+  it("I1 — a FAILED save, then Reload project, then pagehide with no new edit: nothing is journaled, and the next page load restores nothing", async () => {
+    const first = await failedSaveThenReload();
+    pageHide();
+    expect(readJournal()).toBeNull();
+    first.unmount();
+
+    const next = makeBackend(100);
+    createBackendMock.mockReturnValue(next);
+    const { result } = render();
+    await advance(800);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(restoredToast()).toHaveLength(0);
+    expect(result.current.unloadJournalConflict).toBe(false);
+    await advance(600);
+    expect(next.save).not.toHaveBeenCalled();
+    expect(readJournal()).toBeNull();
+  });
+
+  it("I1 — Reload project leaves an earlier page's conflict record, its notice and its in-memory copy alone", async () => {
+    const seeded = seedJournal("changed-elsewhere");
+    const hook = await failedSaveThenReload();
+    expect(readJournal()).toEqual(seeded);
+    expect(hook.result.current.unloadJournalConflict).toBe(true);
+
+    await act(async () => { hook.result.current.restoreUnloadJournalAnyway(); });
+    expect(hook.result.current.tasks.map((x) => x.id)).toEqual([1, 2]);
+    expect(restoredToast()).toHaveLength(1);
+  });
+
   it.each<[string, LoadReport]>([
     ["truncated", { lastLoadTruncation: { entries: 1, blocks: 0 } }],
     ["decode failures", { lastDecodeFailures: ["documentVersions"] }],

@@ -1216,6 +1216,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // project. After a rebuild onto an EMPTY target the refusal left the previous project in scope, and
       // `reloadEmptyConfirm` promises the user a REPLACE.
       unloadJournal.setBase(workspace, journalProjectKey); // §629 R2 — as the load effect
+      unloadJournal.dropUnconfirmed(journalProjectKey); // §629 — the reload DISCARDS the in-memory state, so a failed save's journal must not bring it back on the next page load
       applyWorkspaceFromLoad(workspace, "raise", resolveLogModeAndStamp());
       // Confirm the manual recovery action succeeded (a bare re-render gives no feedback that the reload actually re-read the backend).
       // ★★ BEFORE `reportFor`, not after — single-slot surface, see the landmine there. Safe to hoist past the await: `refreshBackendStatus` swallows every error, so this cannot report success over a status check that blew up.
