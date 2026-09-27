@@ -1908,7 +1908,8 @@ describe("document tool defs", () => {
 
   // ★★★ An ops array, NEVER a bare `blocks` replacement array. A
   // replace-the-whole-thing write is the set_task_dependencies failure class:
-  // omission reads as deletion, and chat tool writes have NO undo capture.
+  // omission reads as deletion, and document tool writes take NO undo capture
+  // (set_task_dependencies itself now does; only the version history is left).
   it("gives update_document an ops array, not a bare blocks array", () => {
     const def = TOOL_DEFS.find((d) => d.name === "update_document")!;
     const props = def.input_schema.properties as Record<string, unknown>;

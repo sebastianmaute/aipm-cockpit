@@ -14,7 +14,7 @@
 // ★★ Document tool writes have NO undo capture — the version log
 // (document-versions.ts) is the only thing standing behind them, and it records
 // what a mutation replaced, not what a caller meant. So a guard that lets a
-// wrong write through cannot be recovered from within the session that made it.
+// wrong write through leaves no Undo; only a restore from that log recovers it.
 import type { DocOp } from "./document-mutations";
 import type { ProjectDocument } from "./document-model";
 import { blockToken } from "./document-block-token";
@@ -186,7 +186,7 @@ function requirePayload(op: unknown, i: number): void {
   // — so the strictness has to live HERE, at the boundary where the caller is
   // known to be a model. Without it a model can overwrite a block the user
   // edited after it read the document, and document tool writes have NO undo
-  // capture, so that loss cannot be recovered from within the session.
+  // capture, so only a restore from the document's version history recovers it.
   //
   // ★★ ORDER IS LOAD-BEARING: this sits AFTER the block-shape check above, so
   // a `replace` carrying neither a block nor a token still reports the missing

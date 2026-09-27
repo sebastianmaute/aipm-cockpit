@@ -360,8 +360,8 @@ export const MODAL_HELP = {
   // documents. `feature-document-assets` is about images and never mentions a
   // rename, so moving this row there would be a nearest-neighbour pick.
   documentsRename: "feature-documents",
-  // ★★ The image library and the one-image lightbox open the entry for
-  // document IMAGES. `feature-documents`, which both pointed at before, never
+  // ★★ The image library and the lightbox (which steps Prev/Next through the
+  // list of images it was opened on) open the entry for document IMAGES. `feature-documents`, which both pointed at before, never
   // mentions an image (§453 gap 2).
   assetLibrary: "feature-document-assets",
   assetPreview: "feature-document-assets",

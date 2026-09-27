@@ -208,7 +208,7 @@ function TaskManagerInner() {
   const { toast, showToast, showToastAction, pause: pauseToast, resume: resumeToast } = useToast();
   const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen, requestChat, requestHelpConcept, requestDocumentsForEntity } = useWorkspaceTab();
   // Local in-memory undo (deletes / clear-all / bulk-edit across every entity).
-  // capture is threaded into each entity hook below; undo/control are surfaces. ★ Undo/redo is ALWAYS user-caused, but the AI's update, delete and RAID-escalate tool writes DO capture (through the dispatcher's `undo` prop below); creates and document writes do not.
+  // capture is threaded into each entity hook below; undo/control are surfaces. ★ Undo/redo is ALWAYS user-caused, but the AI's entity update, delete and RAID-escalate tool writes DO capture (through the dispatcher's `undo` prop below); creates, document writes, `send_inquiry` (bumps `Task.inquiriesSent`) and `update_settings` / `set_language` / `set_filters` do not.
   // ★ `allowDestructiveSave` is produced by `useStorageBackend` further down, so
   // it does not exist at this call site. Forward it through a ref filled by the
   // effect below — the same pattern `use-reference-data.ts` uses for THIS VERY

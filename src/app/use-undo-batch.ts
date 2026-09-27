@@ -1,7 +1,9 @@
 // src/app/use-undo-batch.ts — collapse a burst of AI undo captures into ONE entry.
 //
-// ★★★ THE PROBLEM THIS EXISTS FOR. Every AI update and delete, and the RAID
-// escalation, captures its own undo entry (nineteen
+// ★★★ THE PROBLEM THIS EXISTS FOR. Every AI entity update and delete, and the
+// RAID escalation, captures its own undo entry — except `send_inquiry` (it bumps
+// `Task.inquiriesSent` with no capture), `update_settings` and the document
+// tools, none of which capture (nineteen
 // `undoRef.current?.captureComposite({…})` sites across
 // `use-chat-dispatcher.ts` and `use-register-tools.ts` on 2026-09-27; re-count
 // with the `kind: "` grep below rather than trusting it). That is right for a

@@ -1216,8 +1216,10 @@ if (!app.requestSingleInstanceLock()) {
 
   // ★★★ The child MUST die with the parent. An orphan holds the pinned port
   // and still serves our own page, so the next launch's `classifyPortOwner`
-  // calls it `ours` and loads it instead of spawning a server: after an
-  // update the user is served the OLD version, and because that launch never
+  // calls it `ours` and loads it instead of spawning a server (nothing
+  // compares its version): after an update the user COULD be served the OLD
+  // version, but only if an orphan survived both this process's death and the
+  // installer, neither of which is measured (§631). Because that launch never
   // spawned the orphan, `serverChild` stays null and its quit kills nothing
   // either. (This said the next launch "refuses to start"; that is only the
   // `foreign` branch. Corrected 2026-09-27 by reading `classifyPortOwner`,
