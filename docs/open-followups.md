@@ -680,7 +680,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§450](#450-keys-in-both-dictionaries-dodge-plural-agreement-with-a-parenthetical-plural-and-every-detector-for-this-class-is-blind-to-them-by-construction--open) | Keys in both dictionaries dodge plural agreement with a parenthetical plural, and every detector for this class is blind to them by construction | found 2026-09-08 while measuring §415's disputed count | M-L — tier it: 8 activity keys, then the sentence keys, then the multi-count and unit-label cases; add a value-axis detector | **OPEN** |
 | [§451](#451-a-tree-scanning-i18n-test-sits-at-25s-against-the-20s-testtimeout-so-it-reds-under-load-and-its-red-looks-like-a-content-failure--open) | A tree-scanning i18n test sits at ~25s against the 20s testTimeout, so it reds under load and its red looks like a content failure | found 2026-09-08 in the pre-merge gate run for the §415 B fix | S — hoist the per-base regexes out of the line loop; do NOT raise the global timeout | **OPEN** |
 | [§452](#452-the-c1-chat-history-budget-is-deliberately-not-built-a-trim-saves-tokens-at-01x-and-pays-a-125x-rewrite-so-payback-needs-tens-of-further-turns--open) | The C1 chat-history budget is deliberately not built: a trim saves tokens at 0.1x and pays a 1.25x rewrite, so payback needs tens of further turns | decided 2026-09-09 while moving the caps onto a cost basis — the economics inverted when the guide-block cache split landed | N/A — a decision NOT to build; revisit only if the bursty-use case below becomes the common one | **OPEN** |
-| [§453](#453-four-help-content-gaps-the-modal-help-icon-slice-surfaced-but-did-not-fill--open) | Four Help-CONTENT gaps the modal-help-icon slice surfaced but did not fill | found 2026-09-09 wiring the §424 modal help icons | S–M — three are Help prose; the fourth is a one-line decision | **OPEN** |
+| [§453](#453-four-help-content-gaps-the-modal-help-icon-slice-surfaced-but-did-not-fill--closed-2026-09-27) | Four Help-CONTENT gaps the modal-help-icon slice surfaced but did not fill | found 2026-09-09 wiring the §424 modal help icons | S–M — three are Help prose; the fourth is a one-line decision | **CLOSED** 2026-09-27 |
 | [§454](#454-asking-all-five-probes-in-one-reply-would-buy-5x-the-resolution-at-a-third-of-the-cost-but-partial-credit-is-a-new-outcome-shape-through-scoreresponse-hitrate-and-verdict--open) | Asking all five probes in ONE reply would buy 5x the resolution at a third of the cost, but partial credit is a new outcome shape through `scoreResponse`, `hitRate` and `verdict` | proposed 2026-09-09 during the six-run calibration of the AI prompt-quality harness — every lever that made retrieval harder measured as SPENT | M — a new outcome shape through `scoreResponse`, `hitRate` and `verdict` plus a restarted series; add it as the MEASUREMENT beside the single-probe gate, never as a replacement | **OPEN** |
 | [§455](#455-three-latent-defects-in-the-harness-response-parser-all-pre-existing-and-identical-across-the-liverequest-split--open) | Three latent defects in the harness response parser, all pre-existing and identical across the liveRequest split | found 2026-09-10 by the differential equivalence review of `0c03ee5a` — it was testing whether the extraction changed behaviour, and these fell out of the corpus | S — each is a one-line change, but each alters output that review just certified unchanged, so each needs its own test | **OPEN** |
 | [§456](#456-twelve-headerless-dialogs-deliberately-carry-no-help-icon-and-only-the-call-site-comments-record-why--open) | Twelve headerless dialogs deliberately carry no help icon, and only the call-site comments record why | recorded 2026-09-10 finishing the §424 sweep — 13 sites, 1 wired, 12 refused | N/A — a RECORD of deliberate absences; re-measure the term counts before reusing one | **OPEN** |
@@ -33379,7 +33379,7 @@ matches zero of the 66 entries). Both call sites carry a comment recording the a
 deliberate, so a later reader does not "complete the pattern".
 ★★★ **BOTH REMOVALS WERE REVERSED ON 2026-09-10 AND BOTH DELIBERATE-ABSENCE COMMENTS ARE GONE —
 read the sentence above as the dated record of why they went, never as today's map.** The entries
-they lacked were written (`054b0f75`) and the rows restored to point at them (`2ed295c5`); the
+they lacked were written (`19cd4f89e`) and the rows restored to point at them (`131f385d8`); the
 "`/series/i` matches zero" measurement was falsified by the very commit that filled the gap, which
 is the precise defect §453 is about. The criterion did not weaken: each restored row was decided by
 reading the NEW body against the surface it opens from, not by picking the closest-sounding id.
@@ -35617,9 +35617,27 @@ send and is worse than not caching at all.
 thread-resume frequency — the usage meter can now supply both halves, since it stores raw counts and
 prices them at read. Until someone runs that, this entry is arithmetic, not evidence.
 
-## 453. Four Help-CONTENT gaps the modal-help-icon slice surfaced but did not fill — OPEN
+## 453. Four Help-CONTENT gaps the modal-help-icon slice surfaced but did not fill — CLOSED 2026-09-27
 
-**Status:** open — but almost nothing in the original four now reads as it did. As of 2026-09-10:
+**Status:** CLOSED 2026-09-27 by `docs/coverage`. Each gap, with the commit that closed it:
+1. Meeting series: 19cd4f89e wrote `feature-meeting-series` (EN + DE), and 131f385d8 wired
+   `calendarEvent` to it.
+2. Images: 19cd4f89e wrote `feature-document-assets` (EN + DE), and 53c030643 pointed
+   `assetLibrary` and `assetPreview` at it, pinned by a test in `help-content.test.ts`.
+   `documentsRename` stays on `feature-documents` by decision: that dialog renames the document's
+   title, and the images entry never mentions renaming.
+3. Task effort: 19cd4f89e wrote `feature-task-effort` (EN + DE), and 131f385d8 wired
+   `taskTimeTracking` to it.
+4. AI settings: settled by 72aaa5eb9, which added the `aiSettings` row pointing at `feature-ai`.
+5. Note registers: 9a7b5e751 rewrote `helpSecRichTextBody` in EN and DE to name tasks, RAID items
+   and changes. 53c030643 removed the comment above `MODAL_HELP.notesWindow` that still called the
+   copy stale, so the last sentence of gap 5 below no longer holds.
+
+Reproduce: `grep -n "calendarEvent:\|taskTimeTracking:\|documentsRename:\|assetLibrary:\|assetPreview:\|notesWindow:\|aiSettings:" src/app/help-content.ts`.
+Everything below is the dated record of the gaps and is kept as written, apart from the commit ids,
+which now name the commits on `main`.
+
+**Record, as of 2026-09-10:** open, but almost nothing in the original four read as it did:
 **gaps 1 and 3 are FILLED and their modals RE-WIRED; gap 2's PROSE is written but its three call
 sites still point somewhere else, so the failure mode gap 2 named is the one thing here still
 shipping; gap 4 was SETTLED on 2026-09-09; and a FIFTH gap was found on 2026-09-10 and is recorded
@@ -35653,8 +35671,6 @@ BESIDE FINDINGS COUNTED THE OTHER WAY, AND THAT MIXTURE IS THE DEFECT CORRECTED 
 66 bodies"). Both conventions, re-measured that day by a rebuilt probe that asserted 66/66 before
 reading anything, titles and primers excluded, case-insensitive:
 
-**Work item:** #289
-
 | term | occurrences | bodies (of 66) |
 |---|---|---|
 | task | 59 | 28 |
@@ -35677,7 +35693,7 @@ the STRICTER test of a zero — it can only ever match more, never less — so t
 a tokenisation artifact.
 ★ The 66 is the corpus AS MEASURED, not today's size: it had grown to 69 by 2026-09-10 (§456). The
 66-body figures are reproducible today by resolving all 69 and excluding the three entries commit
-`054b0f75` added (`feature-meeting-series`, `feature-document-assets`, `feature-task-effort`).
+`19cd4f89e` added (`feature-meeting-series`, `feature-document-assets`, `feature-task-effort`).
 ★★ Do NOT substitute a bare `grep -i "<term>"
 src/app/i18n.ts` — that file holds ~3967 keys of which 66 are help bodies, so it fails the OTHER
 way, matching UI labels and reporting coverage that does not exist. Every count below is
@@ -35694,7 +35710,7 @@ body-scoped.
    conclusion is unchanged, but do not re-derive that sentence from the wrong premise.
 
    ★★★ **THE "3 OF THE 66" IS A BASE MEASUREMENT AND THE SLICE THAT WROTE IT MOVED IT TO 4 —
-   corrected 2026-09-10, found by cold review, not by any gate.** Commit `fb989269` on the same
+   corrected 2026-09-10, found by cold review, not by any gate.** Commit `83637db71` on the same
    branch rewrote `helpSecResourcesBody` from "tasks, absences, and holidays" to "tasks,
    absences, holidays, and meetings", so `feature-resources` became a fourth matching body:
    occurrences 7 → 8, bodies 3 → 4. Read the numbers above as MEASURED AT THE BASE, which is the
@@ -35719,16 +35735,16 @@ body-scoped.
    comment hits and refutes itself. The absence is already gated by `help-content.test.ts` — the map
    row count and the both-directions wiring comparison both go red if a row returns.
    ★★★ **FILLED AND RE-WIRED 2026-09-10 — READ EVERYTHING ABOVE AS THE RECORD OF THE GAP, NOT AS
-   TODAY'S STATE.** Commit `054b0f75` wrote `feature-meeting-series` (EN + DE), whose body is about
+   TODAY'S STATE.** Commit `19cd4f89e` wrote `feature-meeting-series` (EN + DE), whose body is about
    the repeat rule, its three mutually exclusive end conditions and the per-occurrence exceptions —
-   the fields the dialog actually edits — and `2ed295c5` restored the map row pointing
+   the fields the dialog actually edits — and `131f385d8` restored the map row pointing
    `calendarEvent` at it, deleting the deliberate-absence comment in the same commit. Reproduce:
    `grep -n "calendarEvent:" src/app/help-content.ts`. ★ The removal's justification is preserved
    beside the map in `help-content.ts` and is explicitly marked as a dated record, because a
    removal's reasoning outliving the condition it measured is this file's own recurring defect.
 2. **"image" and "asset" appear in ZERO of the 66 bodies** — and zero across titles and primers
    too. So the three documents/asset modals point at entries with no content about what they do.
-   ★★★ **HALF-FILLED 2026-09-10, AND THE REMAINING HALF IS THE ONE THAT SHIPS.** `054b0f75` wrote
+   ★★★ **HALF-FILLED 2026-09-10, AND THE REMAINING HALF IS THE ONE THAT SHIPS.** `19cd4f89e` wrote
    `feature-document-assets` (EN + DE) — the Turso gate, the picker/paste/drop paths, the accepted
    formats, the downscale rule, the dedupe, the read-only image block, the 20-image cap and the
    export behaviour. But **the wiring decision was NOT taken for these rows**: `documentsRename`,
@@ -35749,10 +35765,10 @@ body-scoped.
    bodies. "effort" appears once, in `concept-dependency`, meaning wasted rework — not tracked
    effort. This is why `taskTimeTracking` was wired and then REMOVED from `MODAL_HELP` rather than
    left pointing somewhere plausible.
-   ★★★ **FILLED AND RE-WIRED 2026-09-10.** `054b0f75` wrote `feature-task-effort` (EN + DE), whose
+   ★★★ **FILLED AND RE-WIRED 2026-09-10.** `19cd4f89e` wrote `feature-task-effort` (EN + DE), whose
    body describes the estimate / spent / remaining triple and states outright that the figures are
    the task's own and do not sync anywhere — the correction of the exact confusion `feature-timelog`
-   created here — and `2ed295c5` restored the `taskTimeTracking` row pointing at it, deleting the
+   created here — and `131f385d8` restored the `taskTimeTracking` row pointing at it, deleting the
    deliberate-absence comment in the same commit. Reproduce:
    `grep -n "taskTimeTracking:" src/app/help-content.ts`.
 4. ~~**AI settings.**~~ **SETTLED 2026-09-09 — the answer was "yes", and the entry already
