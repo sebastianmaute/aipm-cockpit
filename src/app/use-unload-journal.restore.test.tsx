@@ -330,6 +330,9 @@ describe("§629 — the load effect restores the unload journal", () => {
     await advance(600);
     expect(backend.save).toHaveBeenCalledTimes(2);
     expect(savedTaskIds(backend, 1)).toEqual([1, 2]);
+    await act(async () => { backend.saves[1].resolve(); });
+    await advance(0);
+    expect(readJournal()).toBeNull(); // the save-back's confirmation clears the re-tagged record
   });
 
   it("Restore anyway while saving is paused (a rebuilt load FAILED) reports it, applies nothing, keeps the notice, and works once saving resumes", async () => {
