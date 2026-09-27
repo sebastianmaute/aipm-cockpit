@@ -50,7 +50,7 @@ live in [`docs/open-followups.md`](docs/open-followups.md), not here.
 
 ★★★ **Almost nothing gates these files, and the one gate that exists checks the weakest property.**
 `agents-symbol-check` (`npm run docs:symbols:check`) fails when a backticked name in THIS file or in
-any `docs/AGENTS/*.md` exists nowhere in `src`/`scripts`/`e2e`. That is all it does: it proves a NAME
+any `docs/AGENTS/*.md` exists nowhere in `src`/`scripts`/`e2e`/`desktop`. That is all it does: it proves a NAME
 is real, never that a CLAIM about it is true. "`sanitizeX` guards this path" passes the gate whether
 or not that path calls it. ★★★ NARROWER STILL — **it only checks MIXED-CASE names, so every
 backticked `SCREAMING_CASE` constant in AGENTS.md and every file in `docs/AGENTS/` is completely ungated.** The scan requires
