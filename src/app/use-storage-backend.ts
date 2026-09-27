@@ -1166,7 +1166,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setRaid,
     tasks,
     bumpScopeEpoch, // §548 clause (b) — onOpenStorageFile's accept branch only
-    applyPickedWorkspace: (ws: Workspace) => { applyWorkspaceForOp(ws); unloadJournal.setBase(ws, journalProjectKey); }, // §629 — no config flip follows (the picked file is bound to THIS backend), so the base is keyed now. §590 — onPickStorageFile's load-instead branch; the wrapper bumps the epoch itself, so that branch must NOT also call `bumpScopeEpoch`.
+    applyPickedWorkspace: (ws: Workspace) => { applyWorkspaceForOp(ws); unloadJournal.setBase(ws, journalProjectKey); unloadJournal.dropUnconfirmed(journalProjectKey); }, // §629 — no config flip follows (the picked file is bound to THIS backend), so the base is keyed now; the user chose the file over the live workspace, so its unconfirmed saves go, as in `reloadCurrentProject`. §590 — onPickStorageFile's load-instead branch; the wrapper bumps the epoch itself, so that branch must NOT also call `bumpScopeEpoch`.
   });
 
   // Re-load the CURRENT project's workspace from its backend, discarding the

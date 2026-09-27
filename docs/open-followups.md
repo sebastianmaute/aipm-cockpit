@@ -43000,6 +43000,13 @@ that completed 2 runs:
   project, then pagehide with no new edit: nothing is journaled, and the next page load restores
   nothing" (red with the call removed) and "I1 — Reload project leaves an earlier page's conflict
   record, its notice and its in-memory copy alone" (red with the tab-id guard dropped).
+- **The picker's "load the file instead" makes the same call (controller ruling).** Accepting
+  `storagePickFileHasProject` in `onPickStorageFile` discards the live workspace and `setBase`s the
+  picked one, the I1 shape, so `applyPickedWorkspace` (`use-storage-backend.ts`) now also calls
+  `dropUnconfirmed`. Pinned in `src/app/use-storage-file-ops.pick-overwrite.test.tsx` by "a FAILED
+  save, then load the picked file instead, then pagehide: nothing is journaled, and the next page
+  load restores nothing" (red with the call removed). `onOpenStorageFile` is ruled not a discard and
+  is unchanged: it sets no base, so a failed save's journal there can only raise the notice.
 - **Undo after Restore anyway: kept live, by controller choice.** Restore anyway applies with the
   "merge" log mode and calls neither `resolveLogModeAndStamp` nor `bumpScopeEpoch`, so the scope
   epoch does not move and undo entries captured before the click

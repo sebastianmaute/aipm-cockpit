@@ -29,7 +29,8 @@ import { t } from "./i18n";
 import type { Settings } from "./settings-types";
 import type { FsHandle, StorageConfig } from "./storage";
 import { jsonToWorkspace, LocalFileBackend, StorageNotReadyError, workspaceToJson } from "./storage";
-import type { Task } from "./types";
+import type { ProjectMeta, Task } from "./types";
+import type { ReactNode } from "react";
 import { taskRec, ws } from "../test/workspace-records";
 
 /** `LocalFileBackend` persists its picked handle through `idb`'s kv helpers, and a real IndexedDB
@@ -150,6 +151,7 @@ vi.mock("./use-load-truncation", async (importOriginal) => {
 
 import { readDiagLog } from "./diagnostics"; // the REAL one — the mock above spreads `importOriginal`
 import { TestProviders } from "./test-providers";
+import { UNLOAD_JOURNAL_PREFIX } from "./unload-journal";
 import { useStorageBackend } from "./use-storage-backend";
 import { useWorkspace } from "./workspace-context";
 
@@ -783,6 +785,51 @@ describe("§590 — the dismissed OS dialog", () => {
     // …and it is NOT reported as a failed save, because no write was started.
     expect(showToast).not.toHaveBeenCalledWith("error", expect.stringContaining("Couldn't save"));
     expect(KV.has(HANDLE_KEY)).toBe(false);
+    expect(tasksInFile()).toHaveLength(2);
+  });
+});
+
+// §629 — the load-instead branch DISCARDS the live workspace, as "Reload project" does, so a failed
+// save of that workspace must not be journaled at pagehide over the picked file and restored by the
+// next page load. Here the mount load LANDS (a live file is bound), so a save can fire and fail.
+describe("§629 — loading the picked file instead drops this tab's unconfirmed journal", () => {
+  const LIVE_FILE = "live.json";
+  const JOURNAL_KEY = `${UNLOAD_JOURNAL_PREFIX}browser`; // no registry entry: the key is "browser"
+
+  function useJournalProbe(args: Parameters<typeof useStorageBackend>[0]) {
+    const hook = useStorageBackend(args);
+    const { tasks, setProject } = useWorkspace();
+    return { ...hook, tasks, setProject };
+  }
+
+  const loaded = () => logDiagSpy.mock.calls.filter((c) => c[1] === "storage.loaded").length;
+
+  it("a FAILED save, then load the picked file instead, then pagehide: nothing is journaled, and the next page load restores nothing", async () => {
+    DISK.set(LIVE_FILE, workspaceToJson(ws({})));
+    DISK.set(PICKED_FILE, populatedProjectBytes());
+    KV.set(HANDLE_KEY, { ...handleFor(LIVE_FILE), createWritable: async () => { throw new Error("disk full"); } });
+    showSaveFilePicker.mockResolvedValue(handleFor(PICKED_FILE));
+    confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const args = makeArgs({ kind: "local-json" } as StorageConfig);
+    const wrapper = ({ children }: { children: ReactNode }) => <TestProviders>{children}</TestProviders>;
+
+    const first = renderHook(() => useJournalProbe(args), { wrapper });
+    await waitFor(() => expect(loaded()).toBe(1));
+    act(() => { first.result.current.setProject({ name: "Renamed", code: "REN" } as ProjectMeta); }); // no authored record, so the pick still offers to load instead
+    await waitFor(() => expect(logDiagSpy.mock.calls.some((c) => c[1] === "storage.saveFailed")).toBe(true), { timeout: 3000 });
+    await act(async () => { await first.result.current.onPickStorageFile(); });
+    expect(first.result.current.tasks.map((x) => x.id)).toEqual([1, 2]); // the premise: the user chose the file
+    act(() => { window.dispatchEvent(new Event("pagehide")); });
+    window.dispatchEvent(new Event("pageshow")); // resets debounced-save.ts's module-level `pageHiding` (jsdom never fires one)
+    expect(localStorage.getItem(JOURNAL_KEY)).toBeNull();
+    first.unmount();
+
+    showToast.mockClear();
+    const next = renderHook(() => useJournalProbe(args), { wrapper });
+    await waitFor(() => expect(loaded()).toBe(2));
+    expect(next.result.current.tasks.map((x) => x.id)).toEqual([1, 2]);
+    expect(showToast).not.toHaveBeenCalledWith("success", t("en-US", "unloadJournalRestored"));
+    expect(next.result.current.unloadJournalConflict).toBe(false);
     expect(tasksInFile()).toHaveLength(2);
   });
 });
