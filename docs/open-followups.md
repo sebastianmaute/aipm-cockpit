@@ -852,6 +852,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§622](#622-an-ordinary-under-cap-document-paragraph-edit-that-was-never-blurred-is-lost-when-the-window-closes--open) | An ordinary, under-cap document paragraph edit that was never blurred is lost when the window closes | — | — | open |
 | [§623](#623-loadexportassets-loads-the-bytes-of-a-policy-refused-asset-before-discarding-them--open) | `loadExportAssets` loads the bytes of a policy-refused asset before discarding them | — | — | open |
 | [§624](#624-ai-evalts-and-update-ooxml-manifestts-import-the-dom-free-sanitizer-graph-with-no-dom-and-nothing-proves-they-never-reach-a-dompurify-call--open) | `ai-eval.ts` and `update-ooxml-manifest.ts` import the DOM-free sanitizer graph with no DOM, and nothing proves they never reach a DOMPurify call | — | — | open |
+| [§628](#628-the-undo-stack-survives-a-project-switch-so-an-undo-writes-the-previous-projects-rows-into-the-current-one--closed-2026-09-27) | The undo stack survives a project switch, so an undo writes the previous project's rows into the current one | — | — | **CLOSED** 2026-09-27 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -42431,3 +42432,52 @@ Size S.
 
 **Source:** the §151 census on `docs/accuracy-2`, 2026-09-27, which found five scripts importing app
 code where §151 had recorded one.
+
+## 628. The undo stack survives a project switch, so an undo writes the previous project's rows into the current one — CLOSED 2026-09-27
+
+**Status:** CLOSED 2026-09-27 on `fix/undo-scope`, by two guards in `src/app/undo/use-undo-stack.ts`:
+
+- **The load hold clears both stacks.** `useClearUndoOnLoadHold(loadPending, clear)` is a render-time
+  reconcile (not an effect, since `set-state-in-effect` is banned) that empties the undo AND redo
+  stacks on every false→true transition of `loadPending`. It is a separate hook rather than a
+  `loadPending` field on `UseUndoStackDeps` because `useUndoStack` is called ABOVE `useStorageBackend`
+  in `task-manager.tsx` (the undo API is threaded into hooks declared between the two, and
+  `useUndoHotkey`'s listener order depends on the call site), so `loadPending` does not exist there.
+  The companion is called right after `useStorageBackend`, in the same component.
+- **Every entry is scope-stamped.** `pushEntry` records `getScopeEpoch()` on the entry, the stamp
+  travels with it between the two stacks, and `undo`, `redo`, `undoById`, `undoThrough` and
+  `redoThrough` DROP (never run) an entry whose stamp is stale per `isScopeStale`, logging each drop
+  through `dropStaleScopeWrite` and showing no toast. When the entry the user picked was stale, the
+  call stops after dropping rather than running an older entry in its place. An absent reader is never
+  stale, so tests and popouts keep their old behaviour. `task-manager.tsx` passes the storage hook's
+  reader through the same forward-ref shape as `allowDestructiveSaveRef`.
+
+Pinned by the "project scope (§628)" describe in `use-undo-stack.test.tsx` (T1: a switch empties both
+stacks and an undo leaves B's rows untouched; T1b: the redo stack too; T2: an entry stamped before an
+epoch bump is dropped with no hold transition; T2b: the other four entry points drop too; T3: an
+in-scope undo still applies) and by `task-manager.undo-scope-wiring.test.tsx`, which pins the wiring:
+the undo stack reads the storage hook's reader live, and the clear is fed this stack's `clear` and the
+storage hook's `loadPending`. Before the fix, T1, T1b, T2 and T2b were red, and T2's failure shows B's
+unrelated row 3 overwritten with A's pre-edit name. Mutation proof, each mutant restored
+byte-identical: deleting the clear turns T1 and T1b red; deleting the stale check turns T2 and T2b red
+(T1 stays green, so the two guards are independently pinned); dropping the reader from the deps, never
+filling its forward ref, or deleting the companion call each turns one wiring test red.
+
+★ The clear is deliberately coarse: it also fires on a same-project reload and on a held op the user
+cancels, which costs that undo history. The epoch stamp is the precise guard. ★ The stamp is the epoch
+at PUSH time, so it cannot see a capture whose images were read in the old scope and pushed after the
+bump. That direction is closed by the writers' own `!loadPending` start gates (`scope-epoch.ts`), not
+by the undo stack.
+
+**Original status:** `useUndoStack` is called in `TaskManagerInner` with no key, so its state survives
+an in-place project switch (`switchToProject` / `switchToTursoProject` go through
+`applyWorkspaceForOp`, which calls the SAME workspace setters and never remounts the component). Nothing
+cleared the stack, `UndoStackApi` had no clear, and nothing in `src/app/undo` read the scope epoch; the
+only guard was the undo hotkey's `loadPendingRef` check, which covers the hold itself and nothing after
+it. Every runner closes over the stable setters and applies its images to `prev`, so an undo after a
+switch applied project A's entry to project B: A's deleted row was injected into B and B's same-id row
+was overwritten with A's content (field-patch undos merge onto B's same-id row the same way), and the
+next autosave persisted it to B. Found by a cold review of `docs/AGENTS/undo.md` (added on its own branch), which had called
+the cross-project behaviour unmeasured; the review answered it with a code trace plus an engine-level probe
+over `undo-stack.ts` (A deletes task 2 and edits task 3; after a swap to B = [1, 3, 7] an undo gave
+`[B1, A2-deleted, A3-before-edit, B7]`). It was not driven in a browser.
