@@ -56,7 +56,12 @@ function journalKey(projectKey: string): string {
  *  clear so a key never carries a credential. `storageTargetKey` (which holds
  *  the Turso auth token) is deliberately NOT an input here.
  *
- *  - Turso: the Turso project id.
+ *  - Turso: the Turso project id, or the sentinel `"turso"` when there is
+ *    none (falsy or empty) — fix round 1 / ruling R4: Turso single-tenant
+ *    mode is one workspace per database, so a project-less Turso setup is a
+ *    real, valid case, and it must NOT fall back to `"browser"` — that would
+ *    collide with an IndexedDB/local backend with no current project id,
+ *    which is a DIFFERENT workspace on the same origin.
  *  - Every other kind: the registry's current project id, or `"browser"` when
  *    there is none (falsy or empty). */
 export function journalProjectKey(
@@ -64,8 +69,10 @@ export function journalProjectKey(
   tursoProjectId: string | null | undefined,
   currentProjectId: string | null | undefined,
 ): string {
-  const raw = storageKind === "turso" ? tursoProjectId : currentProjectId;
-  return raw && raw.length > 0 ? raw : "browser";
+  if (storageKind === "turso") {
+    return tursoProjectId && tursoProjectId.length > 0 ? tursoProjectId : "turso";
+  }
+  return currentProjectId && currentProjectId.length > 0 ? currentProjectId : "browser";
 }
 
 // --- Fingerprint -------------------------------------------------------
@@ -162,11 +169,14 @@ export function writeUnloadJournal(rec: Omit<UnloadJournal, "v">): boolean {
   }
 }
 
-function isUnloadJournal(value: unknown): value is UnloadJournal {
-  if (!value || typeof value !== "object") return false;
+/** Every field EXCEPT `v` matches the record shape — checked separately from
+ *  `v` itself so a well-formed-but-different-version record (ruling R5: a
+ *  hypothetical future v2 journal) can be told apart from a genuinely
+ *  malformed one. */
+function hasJournalFields(value: unknown): value is Omit<UnloadJournal, "v"> & Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const rec = value as Record<string, unknown>;
   return (
-    rec.v === 1 &&
     typeof rec.projectKey === "string" &&
     typeof rec.tabId === "string" &&
     typeof rec.savedAt === "number" &&
@@ -175,10 +185,20 @@ function isUnloadJournal(value: unknown): value is UnloadJournal {
   );
 }
 
-/** Reads the journal for `projectKey`. Returns null when absent, when the
- *  stored value fails to parse, or when it parses but is not a v1 record
- *  (wrong/missing `v`, or a missing/mistyped field) — a corrupt value in
- *  either sense logs `workspace.unloadJournalCorrupt` and removes the key. */
+function isUnloadJournal(value: unknown): value is UnloadJournal {
+  return hasJournalFields(value) && (value as Record<string, unknown>).v === 1;
+}
+
+/** Reads the journal for `projectKey`.
+ *
+ *  - Absent key: null, no diagnostic.
+ *  - Unparseable JSON, or parsed but missing/mistyped a field OTHER than `v`:
+ *    "malformed" — null, removes the key, logs `workspace.unloadJournalCorrupt`.
+ *  - Parses, has every field but `v !== 1` (ruling R5 — a well-formed record
+ *    from a version this build doesn't know, e.g. a future v2): null, but the
+ *    key is LEFT IN PLACE untouched and nothing is logged — it isn't this
+ *    build's to delete.
+ *  - `v === 1` and every field matches: the record. */
 export function readUnloadJournal(projectKey: string): UnloadJournal | null {
   if (typeof window === "undefined") return null;
   const key = journalKey(projectKey);
@@ -186,12 +206,13 @@ export function readUnloadJournal(projectKey: string): UnloadJournal | null {
     const raw = window.localStorage.getItem(key);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
-    if (!isUnloadJournal(parsed)) {
+    if (!hasJournalFields(parsed)) {
       window.localStorage.removeItem(key);
       logDiag("warn", "workspace.unloadJournalCorrupt", { projectKey });
       return null;
     }
-    return parsed;
+    if (parsed.v !== 1) return null;
+    return parsed as UnloadJournal;
   } catch (err) {
     try {
       window.localStorage.removeItem(key);

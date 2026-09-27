@@ -21,7 +21,7 @@ import {
   rowsToWorkspace, selectStatements, workspaceToStatements,
   type PipelineResultLike, type SqlStmt,
 } from "./turso-schema";
-import { emptyWorkspace, jsonToWorkspace, type StorageKind, type Workspace } from "./workspace";
+import { jsonToWorkspace, workspaceToJson, type StorageKind, type Workspace } from "./workspace";
 import {
   UNLOAD_JOURNAL_MAX_CHARS, UNLOAD_JOURNAL_PREFIX,
   clearUnloadJournal, fingerprintWorkspace, journalProjectKey,
@@ -58,6 +58,20 @@ describe("journalProjectKey", () => {
   // like one and confirming it comes through unchanged.
   it("never derives from anything token-shaped — the turso id passes through verbatim", () => {
     expect(journalProjectKey("turso", "not-a-token-just-an-id", "ignored")).toBe("not-a-token-just-an-id");
+  });
+
+  // Fix round 1 / ruling R4: Turso with no id must NOT collide with the
+  // "browser" key an IndexedDB/local backend with no current project uses —
+  // Turso single-tenant mode is one workspace per database, so it gets its
+  // own sentinel instead.
+  it("returns the sentinel 'turso' (never 'browser') when the Turso id is null or empty", () => {
+    expect(journalProjectKey("turso", null, "registry-current")).toBe("turso");
+    expect(journalProjectKey("turso", undefined, "registry-current")).toBe("turso");
+    expect(journalProjectKey("turso", "", "registry-current")).toBe("turso");
+  });
+
+  it("still returns a real Turso project id when one is given", () => {
+    expect(journalProjectKey("turso", "p1", "registry-current")).toBe("p1");
   });
 });
 
@@ -121,7 +135,7 @@ describe("writeUnloadJournal / readUnloadJournal", () => {
     setItemSpy.mockRestore();
   });
 
-  it("a corrupt value reads as null, removes the key, logs a diagnostic", () => {
+  it("an unparseable value reads as null, removes the key, logs a diagnostic", () => {
     const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
     window.localStorage.setItem(`${UNLOAD_JOURNAL_PREFIX}${REC.projectKey}`, "{not json");
     expect(readUnloadJournal(REC.projectKey)).toBeNull();
@@ -133,13 +147,44 @@ describe("writeUnloadJournal / readUnloadJournal", () => {
     );
   });
 
-  it("a well-formed but wrong-version value also reads as null and is removed", () => {
+  // Ruling R5: malformed (parses, but a field OTHER than `v` is missing/mistyped)
+  // is removed+logged, same as unparseable — distinct from a well-formed
+  // wrong-version record below, which is left alone.
+  it("a parseable but malformed value (missing a required field) reads as null, removes the key, logs a diagnostic", () => {
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    const withoutTabId: Record<string, unknown> = { v: 1, ...REC };
+    delete withoutTabId.tabId;
     window.localStorage.setItem(
       `${UNLOAD_JOURNAL_PREFIX}${REC.projectKey}`,
-      JSON.stringify({ ...REC, v: 2 }),
+      JSON.stringify(withoutTabId),
     );
     expect(readUnloadJournal(REC.projectKey)).toBeNull();
     expect(window.localStorage.getItem(`${UNLOAD_JOURNAL_PREFIX}${REC.projectKey}`)).toBeNull();
+    expect(spy).toHaveBeenCalledWith(
+      "warn",
+      "workspace.unloadJournalCorrupt",
+      expect.objectContaining({ projectKey: REC.projectKey }),
+    );
+  });
+
+  // Ruling R5: a well-formed record whose `v` this build doesn't recognise
+  // (e.g. a future v2) reads as null but is left in storage untouched —
+  // it isn't this build's to delete, and no diagnostic fires for it.
+  it("a well-formed but wrong-version value reads as null and is LEFT IN STORAGE, with no diagnostic", () => {
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    const stored = JSON.stringify({ ...REC, v: 2 });
+    window.localStorage.setItem(`${UNLOAD_JOURNAL_PREFIX}${REC.projectKey}`, stored);
+    expect(readUnloadJournal(REC.projectKey)).toBeNull();
+    expect(window.localStorage.getItem(`${UNLOAD_JOURNAL_PREFIX}${REC.projectKey}`)).toBe(stored);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("a well-formed value with `v` MISSING entirely is also left in storage, not deleted", () => {
+    // REC itself carries no `v` field, so storing it verbatim IS the missing-`v` case.
+    const stored = JSON.stringify(REC);
+    window.localStorage.setItem(`${UNLOAD_JOURNAL_PREFIX}${REC.projectKey}`, stored);
+    expect(readUnloadJournal(REC.projectKey)).toBeNull();
+    expect(window.localStorage.getItem(`${UNLOAD_JOURNAL_PREFIX}${REC.projectKey}`)).toBe(stored);
   });
 
   it("absent key reads as null without touching diagnostics", () => {
@@ -207,18 +252,22 @@ describe("fingerprintWorkspace", () => {
   }
 
   /** Mutates ONE slice, regardless of its shape, in a way that survives that
-   *  slice's own load-time sanitizer (several of `emptyWorkspace()`'s slices
-   *  are whitelist-sanitized on decode — see `sanitizeProjectStatus` et al. —
-   *  so an arbitrary unknown marker field is silently stripped there and the
-   *  "before"/"after" fingerprints would collide for the wrong reason: the
-   *  mutation never survived to be hashed, not that the fingerprint is blind
-   *  to it). `plan`/`fxRates`/`status` get a dedicated, schema-shaped tweak;
-   *  a non-empty entity array gets an appended clone of its last row with a
-   *  bumped `id` (every entity here — absences/shifts/resources/roles/
-   *  disciplines/grades/budgets/milestones/changes/stakeholders — has one).
-   *  Everything else (tasks/raid, and any empty array) falls back to a marker
-   *  field/element, which IS enough for tasks/raid: their decode is a
-   *  patch over the stored object, not a whitelist reconstruction. */
+   *  slice's own load-time sanitizer. Several `Workspace` slices are
+   *  whitelist-sanitized on decode (`sanitizeProjectStatus`, `sanitizeLoadedFxRates`,
+   *  `sanitizeFieldVisibility`, `sanitizeSettingsOverrides`, ... — see the
+   *  fix-round-1 review), so an arbitrary unknown marker field is silently
+   *  stripped there and the "before"/"after" fingerprints would collide for
+   *  the wrong reason: the mutation never survived to be hashed, not that the
+   *  fingerprint is blind to it. Slices whose sanitizer whitelists specific
+   *  sub-fields get a dedicated, schema-shaped tweak below; a non-empty
+   *  entity array gets an appended clone of its last row with a bumped `id`
+   *  (every entity/meta-blob array here has one: absences/shifts/resources/
+   *  roles/disciplines/grades/budgets/milestones/changes/stakeholders/
+   *  calendarEvents/knowledgeItems/insights/activityLog/documents/
+   *  documentVersions). Everything else (tasks/raid, and any empty array not
+   *  covered by a dedicated case) falls back to a marker field/element, which
+   *  IS enough for tasks/raid: their decode is a patch over the stored
+   *  object, not a whitelist reconstruction. */
   function mutateSlice(ws: Workspace, key: keyof Workspace): Workspace {
     const current = (ws as unknown as Record<string, unknown>)[key];
 
@@ -243,6 +292,65 @@ describe("fingerprintWorkspace", () => {
       const narrative = `${typeof status.narrative === "string" ? status.narrative : ""} (mutated)`;
       return { ...ws, status: { ...status, narrative } } as Workspace;
     }
+    if (key === "project" && current && typeof current === "object") {
+      // `sanitizeLoadedProjectMeta` requires only `name`; tweaking it is a
+      // known-accepted, non-format-validated field.
+      const project = current as Record<string, unknown>;
+      return { ...ws, project: { ...project, name: `${String(project.name ?? "")} (mutated)` } } as Workspace;
+    }
+    if (key === "steeringCommittee" && current && typeof current === "object") {
+      const sc = current as Record<string, unknown>;
+      return { ...ws, steeringCommittee: { ...sc, name: `${String(sc.name ?? "")} (mutated)` } } as Workspace;
+    }
+    if (key === "timelogLinks") {
+      // `sanitizeTimelogLinks` requires `timelogUserId`/`resourceId` to be
+      // numbers and dedupes `userLinks` by `timelogUserId` — a fresh id can't
+      // collide with an existing link.
+      const tl = (current as Record<string, unknown> | undefined) ?? {};
+      const userLinks = Array.isArray(tl.userLinks) ? tl.userLinks : [];
+      const nextLink = { timelogUserId: 999999, resourceId: 1, manual: true };
+      return { ...ws, timelogLinks: { ...tl, userLinks: [...userLinks, nextLink] } } as Workspace;
+    }
+    if (key === "fieldVisibility") {
+      // `sanitizeFieldVisibility` always adds every REQUIRED field id for a
+      // named modal regardless of the input `fields` array, so `{fields: []}`
+      // for a modal absent from the current config always sanitizes to a
+      // non-empty, non-vacuous entry.
+      const fv = (current as Record<string, unknown> | undefined) ?? {};
+      const nextModal = fv.task ? "raid" : "task";
+      return { ...ws, fieldVisibility: { ...fv, [nextModal]: { fields: [] } } } as Workspace;
+    }
+    if (key === "features") {
+      const ALL_FEATURE_IDS = [
+        "dashboard", "trends", "gantt", "milestones", "resources", "budget",
+        "raid", "changes", "stakeholders", "history", "knowledge", "timelog",
+      ];
+      const arr = Array.isArray(current) ? (current as string[]) : [];
+      const toAdd = ALL_FEATURE_IDS.find((id) => !arr.includes(id)) ?? "dashboard";
+      return { ...ws, features: [...arr, toAdd] } as Workspace;
+    }
+    if (key === "settingsOverrides") {
+      // A valid IANA zone `sanitizeTimezoneOverride` accepts via `isValidTimeZone`.
+      const so = (current as Record<string, unknown> | undefined) ?? {};
+      return { ...ws, settingsOverrides: { ...so, timezone: { timezone: "Europe/Berlin" } } } as Workspace;
+    }
+    if (key === "documentAssets") {
+      const arr = Array.isArray(current) ? current : [];
+      const nextAsset = {
+        id: `mut-asset-${arr.length + 1}`, name: "m.txt", mime: "text/plain",
+        size: 10, hash: "h", createdAt: "2026-01-01T00:00:00.000Z",
+      };
+      return { ...ws, documentAssets: [...arr, nextAsset] } as Workspace;
+    }
+    if (key === "budgetHistory") {
+      const arr = Array.isArray(current) ? current : [];
+      const nextEntry = {
+        id: `mut-bh-${arr.length + 1}`, at: "2026-01-01T00:00:00.000Z", date: "2026-01-01",
+        kind: "created", bucketId: 1, bucketName: "mutated bucket",
+        projectBacHours: 100, projectBacValue: 1000, deltaHours: 10, deltaValue: 100,
+      };
+      return { ...ws, budgetHistory: [...arr, nextEntry] } as Workspace;
+    }
     if (Array.isArray(current) && current.length > 0) {
       const last = current[current.length - 1] as Record<string, unknown>;
       const clone = { ...(JSON.parse(JSON.stringify(last)) as Record<string, unknown>), id: bumpId(last.id) };
@@ -256,12 +364,37 @@ describe("fingerprintWorkspace", () => {
     return { ...ws, [key]: mutated } as Workspace;
   }
 
-  // Parametrised over emptyWorkspace()'s own keys, per the brief: a new slice
-  // added to Workspace and wired into emptyWorkspace() is covered automatically,
-  // with no separate list to keep in sync.
-  const slices = Object.keys(emptyWorkspace()) as (keyof Workspace)[];
-  it("covers at least the slices emptyWorkspace() currently declares", () => {
-    expect(slices.length).toBeGreaterThan(0);
+  // Fix round 1: the reviewer found the previous `Object.keys(emptyWorkspace())`
+  // list covered only 15 of `Workspace`'s 29 fields (emptyWorkspace() never
+  // sets project/fieldVisibility/features/steeringCommittee/timelogLinks/
+  // knowledgeItems/insights/activityLog/budgetHistory/documents/
+  // documentVersions/settingsOverrides/calendarEvents/documentAssets), so a
+  // regression dropping e.g. `documents` from the fingerprint — the one field
+  // the spec singles out as the hard round-trip case — went completely
+  // uncovered. `satisfies Record<keyof Workspace, true>` instead makes a
+  // MISSING key (any key `Workspace` declares that this literal omits) a
+  // COMPILE ERROR, and an extra key not on `Workspace` one too — so the list
+  // cannot silently drift from the real type in either direction.
+  const ALL_WORKSPACE_KEYS = {
+    tasks: true, raid: true, absences: true, shifts: true, resources: true, roles: true,
+    disciplines: true, grades: true, plan: true, budgets: true, fxRates: true, status: true,
+    milestones: true, changes: true, stakeholders: true, project: true, fieldVisibility: true,
+    features: true, steeringCommittee: true, timelogLinks: true, knowledgeItems: true,
+    insights: true, activityLog: true, budgetHistory: true, documents: true, documentVersions: true,
+    settingsOverrides: true, calendarEvents: true, documentAssets: true,
+  } satisfies Record<keyof Workspace, true>;
+  const slices = Object.keys(ALL_WORKSPACE_KEYS) as (keyof Workspace)[];
+
+  it("covers the full 29-key Workspace surface (counted in the fix-round-1 report)", () => {
+    expect(slices.length).toBe(29);
+  });
+
+  it("every mutation actually changes workspaceToJson (no case is vacuous)", () => {
+    for (const key of slices) {
+      const before = workspaceToJson(smallWs);
+      const after = workspaceToJson(mutateSlice(smallWs, key));
+      expect(after, String(key)).not.toBe(before);
+    }
   });
 
   for (const key of slices) {
