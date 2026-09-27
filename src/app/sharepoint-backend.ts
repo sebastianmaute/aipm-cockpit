@@ -117,6 +117,10 @@ export class SharePointBackend implements StorageBackend {
     // longer exists has an unclosed quotation mark. Anything added here that
     // can return or throw must leave both mechanisms intact — a new early
     // return is the exact shape that broke it.
+    // ★ `lastDecodeFailures` is reset HERE too, beside the import flags, not
+    // only published in the `finally` below — belt-and-braces with the same
+    // placement, since a future early return added ABOVE the `finally` (the
+    // 404 short-circuit is already one) must not resurrect a stale value.
     const diag: ImportDiag = { droppedRows: 0 };
     this.lastImportDroppedRows = 0;
     this.lastImportDroppedBySection = undefined;

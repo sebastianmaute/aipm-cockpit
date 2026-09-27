@@ -11,6 +11,7 @@ import { sanitizeKnowledgeItems } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import { sanitizeProjectDocumentsWithDiag, type DocTruncationDiag } from "./document-model";
 import { sanitizedToNothing } from "./meta-slice-decode";
+import { logDiag } from "./diagnostics";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersionsWithDiag } from "./document-versions";
 import { sanitizeDocumentAsset, type DocumentAsset } from "./document-asset";
@@ -336,10 +337,25 @@ export class BrowserBackend implements StorageBackend {
       // contract, so the paragraph HTML allow-list has to run after it as a
       // separate map. Structural-only would pass stored `<script>` straight
       // through to the render sink.
-      {
+      // ★★★ §620 — the rich-field pass is the ONLY DOM-dependent step here, and
+      // it needs its OWN catch, exactly like `jsonToWorkspace` (workspace.ts).
+      // Without one, a throw here reached the outer `catch` below, which treats
+      // it as "IDB unavailable" and falls through — so `documentVersions`,
+      // `activityLog`, `budgetHistory` and `documentAssets` (every slice
+      // processed AFTER this one) never even got sanitized that load, nothing
+      // was recorded, saving was not paused, and the next save deleted all of
+      // them from IDB for good. Scoped to THIS pass only, never widened: a
+      // broader catch would swallow a real IDB failure the outer one exists to
+      // report.
+      try {
         const docs = sanitizeProjectDocumentsWithDiag(idbDocuments, diag).map(sanitizeDocumentRichFields);
         noteIfDropped("documents", idbDocuments, docs);
         documents = docs.length ? docs : undefined;
+      } catch (err) {
+        logDiag("error", "workspace.documentsDropped", {
+          message: err instanceof Error ? err.message : String(err),
+        });
+        (diag.decodeFailedSlices ??= []).push("documents");
       }
       // Optional list: junk/empty versions sanitize to [] → keep undefined.
       // Same two-pass shape as documents just above — sanitizeDocumentVersions
@@ -347,7 +363,8 @@ export class BrowserBackend implements StorageBackend {
       // paragraph HTML allow-list via sanitizeDocumentRichFields. A version has
       // no independent createdAt/updatedAt, so it is passed through a synthetic
       // ProjectDocument-shaped wrapper with savedAt standing in for both.
-      {
+      // ★ Same containment as documents just above, for the same reason.
+      try {
         const versions = sanitizeDocumentVersionsWithDiag(idbDocumentVersions, diag).map((v) => ({
           ...v,
           blocks: sanitizeDocumentRichFields({
@@ -360,6 +377,11 @@ export class BrowserBackend implements StorageBackend {
         }));
         noteIfDropped("documentVersions", idbDocumentVersions, versions);
         documentVersions = versions.length ? versions : undefined;
+      } catch (err) {
+        logDiag("error", "workspace.documentVersionsDropped", {
+          message: err instanceof Error ? err.message : String(err),
+        });
+        (diag.decodeFailedSlices ??= []).push("documentVersions");
       }
       // Optional list: junk/empty entries sanitize to [] → keep undefined, so a
       // cleared log reads as absent rather than as an empty array.
