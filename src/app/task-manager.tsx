@@ -74,7 +74,7 @@ import { useCalendarIntegrations } from "./use-calendar-integrations";
 import { useActionCenterHandlers } from "./use-action-center-handlers";
 import { useAiOrchestration } from "./use-ai-orchestration";
 import { buildShellChrome } from "./shell-chrome";
-import { useUndoStack } from "./undo/use-undo-stack";
+import { useUndoStack, usePruneUndoOnScopeChange } from "./undo/use-undo-stack";
 import { creatableResourceEmail } from "./resource-create-email";
 import { useUndoHotkey } from "./use-undo-hotkey";
 import { useUndoBatch } from "./use-undo-batch";
@@ -222,7 +222,10 @@ function TaskManagerInner() {
   const loadPendingRef = useRef(true); // §548 — filled beside `allowDestructiveSaveRef`, read by the undo hotkey below. Starts TRUE (fail safe) so a keystroke landing before the first effect commit cannot slip through the false-by-default window; `loadPending` itself is true pre-hydration anyway (ruling 8), so the effect below overwrites this immediately either way.
   const armDestructiveForUndo = useCallback(() => { allowDestructiveSaveRef.current?.(); }, []);
   const readOnlyForUndo = useCallback(() => isPopoutRef.current, []);
-  const undoApi = useUndoStack({ lang, logActivity: logActivityUser, showToast, showToastAction, allowDestructiveSave: armDestructiveForUndo, isReadOnly: readOnlyForUndo });
+  // §628 — same forward-ref shape; filled below with `useStorageBackend`'s stable reader, and `usePruneUndoOnScopeChange` sits after that call for the same ordering reason.
+  const getScopeEpochRef = useRef<() => number>(() => 0);
+  const readScopeEpochForUndo = useCallback(() => getScopeEpochRef.current(), []);
+  const undoApi = useUndoStack({ lang, logActivity: logActivityUser, showToast, showToastAction, allowDestructiveSave: armDestructiveForUndo, isReadOnly: readOnlyForUndo, getScopeEpoch: readScopeEpochForUndo });
   // ★★ §548 — the one undo path that does NOT unmount with the app tree during the load hold (a document
   //   keydown listener), and an undo applied then is replaced when the load lands, so it is dropped.
   //   `loadPending` comes from `useStorageBackend` further down, so it is read through a ref (the same
@@ -240,7 +243,7 @@ function TaskManagerInner() {
   // captures would still reach the live stack — and NOTHING would report it:
   // the plan would apply, undo would work, and the user would simply have to
   // press it N times. Read the module header before splitting these.
-  const chatUndoBatch = useUndoBatch(undoApi);
+  const chatUndoBatch = useUndoBatch(undoApi, readScopeEpochForUndo); // §628 — a batch is stamped with the epoch it OPENED in
   // Stable identity so ToastProvider consumers don't re-render on every parent render.
   const toastApi = useMemo(() => ({ showToast, showToastAction }), [showToast, showToastAction]);
 
@@ -515,7 +518,8 @@ function TaskManagerInner() {
 
   // Fills the forward-ref declared above `useUndoStack`, so an undo-stack redo
   // that re-removes rows can arm the one-shot destructive-save bypass (§295).
-  useEffect(() => { allowDestructiveSaveRef.current = allowDestructiveSave; isPopoutRef.current = isPopout; loadPendingRef.current = loadPending; }, [allowDestructiveSave, isPopout, loadPending]);
+  useEffect(() => { allowDestructiveSaveRef.current = allowDestructiveSave; isPopoutRef.current = isPopout; loadPendingRef.current = loadPending; getScopeEpochRef.current = getScopeEpoch; }, [allowDestructiveSave, isPopout, loadPending, getScopeEpoch]);
+  usePruneUndoOnScopeChange(loadPending, undoApi.pruneStale); // §628 — a project switch drops the previous project's undo entries; a hold that kept the project drops none.
 
   // ★★ Render-time reconcile, NOT an effect (`set-state-in-effect` is banned): a NEW
   // incomplete load re-shows the banner after a dismiss (the ONLY "Save anyway" surface).
