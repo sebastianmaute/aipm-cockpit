@@ -1395,7 +1395,7 @@ describe("useUndoStack — project scope (§628)", () => {
     return { hook, deps, box, setter, bump: () => { epoch += 1; } };
   }
 
-  it("T1: a project switch clears both stacks, so an undo cannot write A's rows into B", () => {
+  it("T1: empties both stacks on a real switch, so an undo cannot write A's rows into B", () => {
     const { hook, deps, box, bump } = setup();
     // Anti-vacuity: both captures registered in A.
     expect(hook.result.current.canUndo).toBe(true);
@@ -1434,6 +1434,7 @@ describe("useUndoStack — project scope (§628)", () => {
     act(() => hook.result.current.undo());
     expect(hook.result.current.stack).toHaveLength(1);
     expect(hook.result.current.redoStack).toHaveLength(1);
+    const [stackBefore, redoBefore] = [hook.result.current.stack, hook.result.current.redoStack];
 
     // The hold rises and falls; the epoch never moves.
     hook.rerender({ loadPending: true });
@@ -1441,6 +1442,9 @@ describe("useUndoStack — project scope (§628)", () => {
 
     expect(hook.result.current.stack).toHaveLength(1);
     expect(hook.result.current.redoStack).toHaveLength(1);
+    // R3 — the SAME arrays, so the history controls fed from them do not re-render.
+    expect(hook.result.current.stack).toBe(stackBefore);
+    expect(hook.result.current.redoStack).toBe(redoBefore);
     // And the kept entry still works: the undo re-inserts task 2.
     act(() => hook.result.current.undo());
     expect(box.rows.map((r) => r.id)).toEqual([1, 2, 3]);
@@ -1534,7 +1538,10 @@ describe("useUndoStack — project scope (§628)", () => {
       expect(hook.result.current.redoStack).toHaveLength(2);
       bump();
       box.rows = B_ROWS;
-      act(() => hook.result.current.redo());
+      // ★ Redo BOTH, not just the top: the top re-removes task 2, which B lacks,
+      // so it cannot change B's rows. The edit's redo merges "A3-after" onto B's
+      // unrelated row 3, so the rows assertion is the one that can fail.
+      act(() => hook.result.current.redoThrough(hook.result.current.redoStack[0].id));
       expect(box.rows).toEqual(B_ROWS);
       expect(deps.logActivity).toHaveBeenCalledTimes(1);
     });

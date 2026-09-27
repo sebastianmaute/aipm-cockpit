@@ -15,6 +15,8 @@
 //         the same test is red (the fallback answers 0, never 7).
 //   MU3 — delete the `usePruneUndoOnScopeChange(loadPending, undoApi.pruneStale)` line:
 //         "the scope-change prune is wired" is red.
+//   MU4 — `useUndoBatch(undoApi, readScopeEpochForUndo)` → `useUndoBatch(undoApi)`:
+//         "the undo batch gets the same reader" is red (a batch would stamp nothing).
 import { describe, expect, it, beforeAll, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
@@ -25,6 +27,7 @@ const captured = vi.hoisted(() => {
     storageLoadPending: undefined as boolean | undefined,
     undoReader: undefined as (() => number) | undefined,
     undoPrune: undefined as unknown,
+    batchReader: undefined as unknown,
     holdCalls: [] as { loadPending: boolean; prune: unknown }[],
   };
   return c;
@@ -56,6 +59,15 @@ vi.mock("./undo/use-undo-stack", async (importOriginal) => {
 });
 
 // The shell is stubbed, as in `task-manager.scope-epoch-wiring.test.tsx`: the panes are irrelevant.
+vi.mock("./use-undo-batch", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./use-undo-batch")>();
+  function useUndoBatch(...args: Parameters<typeof actual.useUndoBatch>) {
+    captured.batchReader = args[1];
+    return actual.useUndoBatch(...args);
+  }
+  return { ...actual, useUndoBatch };
+});
+
 vi.mock("./modern-shell", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./modern-shell")>()),
   ModernShell: () => <div data-testid="modern-shell-mock" />,
@@ -82,6 +94,12 @@ describe("§628 task-manager scopes the undo stack", () => {
     expect(captured.undoReader!()).toBe(7);
     captured.epoch = 9;
     expect(captured.undoReader!()).toBe(9);
+  });
+
+  it("the undo batch gets the same reader the undo stack reads (MU4)", () => {
+    // Anti-vacuity: the stack's reader is a real function (the test above proves it is live).
+    expect(typeof captured.undoReader).toBe("function");
+    expect(captured.batchReader).toBe(captured.undoReader);
   });
 
   it("the scope-change prune is wired to this undo stack and the storage hook's flag (MU3)", () => {
