@@ -26,11 +26,10 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
   covers them. The excluded files are typechecked by `npm run desktop:typecheck`
   (`scripts/check-desktop-types.mjs`: `tsc -p desktop/tsconfig.json`, then `desktop/tsconfig.test.json`),
   which runs in the `static` group of `scripts/gate-local.mjs` and in CI's `static` job.
-  ★ **"Only the manual desktop-package build compiles `main.ts`" is no longer true**, and several
-  comments still say it or something like it: `menu-model.ts` ("`allow_failure: true` on a merge
-  request", a GitLab-era claim), `main.ts`'s Help-menu default branch ("BLOCKING only on a tag") and
-  §547's body. Verify the current scope with `grep -n "desktop" scripts/gate-local.mjs` rather than
-  trusting any of them. ★ Locally, `desktop:typecheck` SKIPS with exit 0 when `desktop/node_modules`
+  ★ **"Only the manual desktop-package build compiles `main.ts`" is no longer true.** The comments
+  in `menu-model.ts` and `main.ts` that said so were corrected on 2026-09-27, and §547 carries a dated
+  correction. Verify the current scope with `grep -n "desktop" scripts/gate-local.mjs` rather than
+  trusting any prose. ★ Locally, `desktop:typecheck` SKIPS with exit 0 when `desktop/node_modules`
   is missing; under CI it exits 2.
 - **Tests.** `vitest.config.ts`'s `include` covers `desktop/**/*.{test,spec}.ts`. Coverage does not
   (it stays `src/**`).
@@ -167,7 +166,7 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
 
 ## Open register entries
 
-§462 (no Linux installer) · §479 (1.0.1–1.0.3 never tagged) · §480 (update feed; its body predates `updater.ts`) · §487 and
+§462 (no Linux installer) · §479 (1.0.1–1.0.3 never tagged) · §487 and
 §563 (unsigned installer) · §547 (the sign-in state machine has no harness) · §561 (fuses confirmed on
 a local package only). Re-list them with
 `grep -nE "^## [0-9]+\..*(desktop|Electron|installer).*OPEN" docs/open-followups.md`.

@@ -151,8 +151,9 @@
   what survives; verify the literal array in `use-chat-dispatcher.ts` rather than trusting a quoted one.
   ★★ **REPLACE-SEMANTICS TOOLS: OMISSION MEANS DELETION.** `set_task_dependencies` replaces a task's whole
   predecessor list, so it is the ONLY tool in `runTool` where what the model LEAVES OUT is destroyed
-  (`update_task` is a patch — a sloppy model can only overwrite what it names). Chat tool writes have **NO undo
-  capture**, so that loss is unrecoverable. Two guards are mandatory and any FUTURE replace-semantics tool needs
+  (`update_task` is a patch — a sloppy model can only overwrite what it names). The handler takes an undo
+  capture (one `task.updated` entry, after its early returns), but only a user who notices the loss will
+  undo it. Two guards are mandatory and any FUTURE replace-semantics tool needs
   both: (1) a wholly-refused write (every proposed entry rejected, e.g. all cyclic) must leave the stored list
   UNTOUCHED — writing the empty result deletes the existing graph while the model reports only "I couldn't add
   that"; (2) every real write returns `removed[]` (prior minus applied) so a model that sends only the NEW entry
@@ -406,7 +407,8 @@
   ★★★ **`chat-tools-documents.ts` IS THE VALIDATION BOUNDARY, and the only one.** Everything downstream is
   deliberately permissive — `applyDocMutation` is pure and treats its input as already-shaped, and the entity
   sanitizers degrade unknown shapes rather than throwing. Malformed model output refused anywhere else silently
-  becomes a legal-looking write, and chat tool writes have **NO undo capture**, so the version log is the only
+  becomes a legal-looking write, and document tool writes have **NO undo capture** (unlike the entity update
+  and delete handlers), so the version log is the only
   thing behind them — and it records what a mutation REPLACED, not what the caller meant.
   ★★★ **`requireOps` validates ops ARRAY-NESS at the tool boundary** (the `set_task_dependencies` shape above),
   but **the consequence here is NOT a wipe and the plan claimed it was.** MEASURED by deleting the check: a
@@ -466,7 +468,7 @@
   (same rule as `withAiRichFields`). ★ `paragraph.html` is the only `DocBlock` field reaching a render sink as
   markup, so sanitizing just that block type is complete.
   ★★ **Every write refuses in a read-only popout** (`isReadOnly` → `readOnlyError()`), mirroring
-  `use-chat-dispatcher`'s own per-tool guards. No undo capture means a popout mirror must never reach
+  `use-chat-dispatcher`'s own per-tool guards. Document writes take no undo capture, so a popout mirror must never reach
   `mutateDocuments` at all.
   ★★ **`use-document-tools.ts` is deliberately NOT in `vitest.config.ts`'s `coverage.exclude`**, unlike the
   render-scope UI-glue hooks beside it. It holds real decisions — which mutation kind a call becomes, what is
@@ -563,8 +565,8 @@
   (b) RETENTION: `ACTIVITY_MAX_ENTRIES` drops the oldest, so an empty result for an OLD range is
   indistinguishable from a quiet period.
   ★★ Both WERE fixed in the DESCRIPTION rather than the wiring, on the reasoning that logging chat writes
-  is a feature with its own design questions (which kinds, what args, how it interacts with the fact that
-  chat writes take no undo capture) and half-wiring it would produce a log that is wrong in a new way. That
+  is a feature with its own design questions (which kinds, what args, how it interacts with undo, which
+  creates and document writes do not capture) and half-wiring it would produce a log that is wrong in a new way. That
   feature landed, so the coverage caveat came out of the description in the same release and the description
   now DISCLOSES the actor instead: its OPENING clause names all three sources of change in one breath (the
   app's own UI, its integrations, and the user), and a later sentence tells the model never to attribute an

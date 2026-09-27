@@ -51,7 +51,7 @@ live in [`docs/open-followups.md`](docs/open-followups.md), not here.
 
 ★★★ **Almost nothing gates these files, and the one gate that exists checks the weakest property.**
 `agents-symbol-check` (`npm run docs:symbols:check`) fails when a backticked name in THIS file or in
-any `docs/AGENTS/*.md` exists nowhere in `src`/`scripts`/`e2e`/`desktop`. That is all it does: it proves a NAME
+any `docs/AGENTS/*.md` exists nowhere in `src`/`scripts`/`e2e`/`desktop/src`/`desktop/scripts`. That is all it does: it proves a NAME
 is real, never that a CLAIM about it is true. "`sanitizeX` guards this path" passes the gate whether
 or not that path calls it. ★★★ NARROWER STILL — **it only checks MIXED-CASE names, so every
 backticked `SCREAMING_CASE` constant in AGENTS.md and every file in `docs/AGENTS/` is completely ungated.** The scan requires
@@ -1066,8 +1066,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   **Print · reset-columns · reset-pane-size**, in that order. Destructive/bulk actions (Activity's "Clear log")
   and integration blocks (the Outlook `CalendarSyncControls`) go BEFORE it, never between two members.
   ★★ IN THE ELECTRON DESKTOP SHELL EVERY ARITY BELOW LOSES ITS **Print** MEMBER — `PrintButton` renders
-  `null` there ([why](docs/AGENTS/desktop.md)), so a group one short is not drift. Unit assertions are
-  unaffected (jsdom's UA is not Electron's).
+  `null` there ([why](docs/AGENTS/desktop.md#print-and-the-menu)), so one short is not drift;
+  jsdom still renders Print.
   ★★ THE DASHBOARD'S GROUP IS A 2×2 GRID (Print | reset-layout over reset-size | badge; DOM order unchanged, so it still reads row by row) AND ITS MIDDLE MEMBER IS **reset-LAYOUT**, not reset-columns —
   `ResetLayoutButton`, restoring the tile arrangement to `DEFAULT_LAYOUT`. That pane has no columns to reset, and
   arrangement is the reset-columns ANALOGUE (it restores CONTENT arrangement, where reset-pane-size restores the

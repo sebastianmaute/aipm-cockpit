@@ -30,7 +30,12 @@ or the load hold (`docs/AGENTS/platform.md`). One fact, one doc.
   (`grep -c captureComposite src/app/use-document-tools.ts` prints 0). An APPLIED staged plan
   collapses all of its captures into ONE entry through `useUndoBatch` / `collapseCaptures`, with a
   `primaryCount` summed from the captures that reversed something.
-- **Not undoable:** creates (below), project delete (`handleDeleteProject` takes no capture — §6 (a)),
+  ★ The AI allocation plan (`useAllocPlan`, logged `ai.allocationPlan`) is undoable too, but not
+  through a chat tool handler: it records one `capture` with `kind: "bulk.edit"` and
+  `entityKey: "resource"`.
+- **Not undoable:** creates (below), `send_inquiry` (an AI update: its handler in
+  `use-chat-dispatcher.ts` bumps `Task.inquiriesSent` with no capture — see the `shouldStage`
+  docstring in `chat-proposal.ts`), project delete (`handleDeleteProject` takes no capture — §6 (a)),
   anything done in a popout (below), and anything across a reload — the stack is React state and
   dies with the page.
 - **Retention:** `UNDO_CAP` entries on each stack (`grep -n "UNDO_CAP = " src/app/undo/use-undo-stack.ts`).
@@ -104,7 +109,8 @@ captured group's values wholesale.
 back to fragment 0 when nothing is flagged, a field part publishes no remap, and every
 `fkRemapField` cascade then points at stale ids with no error. `use-task-submit.ts` rides that
 fallback today, harmlessly, because its composite has no cascade (§134). The `captureFieldPart`
-docstring carries the call-site grep — it needs all three call shapes.
+docstring carries the call-site grep — it needs all three call shapes. It prints one line per
+composite capture site, so its count grows with every new site and is not quoted here.
 ★ `captureFieldPart` requires DISTINCT ids and nothing on the path enforces it: a repeated id
 collapses to its last patch, and `captureFieldRows` over-counts its toast.
 
@@ -161,10 +167,13 @@ undo block the redo, and the next undo then spliced in a second copy.
 - **The history panel reads `activeIndex` through `clamp` everywhere** — the entry list can shrink
   while the panel is open (a Ctrl+Z from the focused list), and a raw read over-counts and throws on
   Enter. See the `undo-control.tsx` header.
-- ★ Nothing clears the stack when the project changes: `UndoStackApi` has no clear or reset member,
-  and `useUndoStack` is called in `TaskManagerInner`, which no project-keyed parent remounts. What an
-  undo does to another project's arrays after a swap has NOT been measured — do not assume it is
-  scoped to the project it was captured in.
+- ★★★ **AN UNDO AFTER A PROJECT SWAP WRITES THE OLD PROJECT'S ROWS INTO THE NEW ONE — CONFIRMED,
+  tracked as §628 (#445).** Nothing clears the stack when the project changes: `UndoStackApi` has no
+  clear or reset member, and `useUndoStack` is called in `TaskManagerInner`, which no project-keyed
+  parent remounts. A same-mode swap applies the new workspace through the same setters the runners
+  close over, so a delete-image re-inserts the old project's row and an edit-image overwrites the new
+  project's row with the same id; the next autosave persists it. Confirmed by a code trace plus an
+  engine-level probe, not in a browser.
 
 ## Open entries
 
@@ -177,3 +186,4 @@ undo block the redo, and the next undo then spliced in a second copy.
 - §291 — `mergeRecord` rebuilds in the live row's key order.
 - §292 — the merge property test's anti-vacuity floor.
 - §299 — an undo/redo that flips a task's delivered-ness writes no completion or reopening entry.
+- §628 (#445) — an undo after a project swap writes into the new project (see "Gates on the stack").
