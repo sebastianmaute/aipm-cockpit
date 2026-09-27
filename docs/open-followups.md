@@ -42435,15 +42435,22 @@ code where §151 had recorded one.
 
 ## 628. The undo stack survives a project switch, so an undo writes the previous project's rows into the current one — CLOSED 2026-09-27
 
-**Status:** CLOSED 2026-09-27 on `fix/undo-scope`, by two guards in `src/app/undo/use-undo-stack.ts`:
+**Status:** CLOSED 2026-09-27 on `fix/undo-scope`, by three mechanisms in `src/app/undo/use-undo-stack.ts` and `src/app/use-undo-batch.ts`:
 
-- **Every entry is scope-stamped.** `pushEntry` records `getScopeEpoch()` on the entry, and the stamp
-  travels with it every time it changes stacks (`commitUndo`'s redo push, `redo`'s push back, and the
-  `undoThrough` / `redoThrough` inverses). `undo`, `redo`, `undoById`, `undoThrough` and `redoThrough`
-  DROP (never run) an entry whose stamp is stale per `isScopeStale`, logging each drop through
-  `dropStaleScopeWrite` and showing no toast. When the entry the user picked was stale, the call stops
-  after dropping rather than running an older entry in its place. `task-manager.tsx` passes the storage
-  hook's reader through the same forward-ref shape as `allowDestructiveSaveRef`.
+- **Every entry is scope-stamped with the scope it was READ in.** `pushEntry` records `getScopeEpoch()`
+  on the entry, and the stamp travels with it every time it changes stacks (`commitUndo`'s redo push,
+  `redo`'s push back, and the `undoThrough` / `redoThrough` inverses). `undo`, `redo`, `undoById`,
+  `undoThrough` and `redoThrough` DROP (never run) an entry whose stamp is stale per `isScopeStale`,
+  logging each drop through `dropStaleScopeWrite` and showing no toast. When the entry the user picked
+  was stale, the call stops after dropping rather than running an older entry in its place.
+  `task-manager.tsx` passes the storage hook's reader through the same forward-ref shape as
+  `allowDestructiveSaveRef`.
+- **An undo batch is stamped when it OPENS.** `useUndoBatch.runBatched` is the one capture that
+  straddles an await: it pushes its composite after `await fn()`. A push-time stamp would label a batch
+  read in A with B's epoch if a switch landed mid-batch, and neither guard could then drop it. The batch
+  now reads the epoch when it opens and passes it as `CaptureCompositeOpts.readEpoch`; `pushEntry` stamps
+  the entry with it and REFUSES the push (logged through `dropStaleScopeWrite`, no toast) when it is
+  already stale. `task-manager.tsx` hands `useUndoBatch` the same reader it hands `useUndoStack`.
 - **A real switch empties the history.** `usePruneUndoOnScopeChange(loadPending, pruneStale)` is a
   render-time reconcile (not an effect, since `set-state-in-effect` is banned). On every true→false
   transition of `loadPending` it removes from BOTH stacks the entries whose stamp is stale, and only
@@ -42451,7 +42458,8 @@ code where §151 had recorded one.
   falling edge it has moved exactly when the project changed. History therefore survives Save-As, a
   cancelled Open or Save-As, a same-project reload and migrate-to-Turso, all of which raise the hold
   without changing the project (owner ruling on the review of the first cut, which cleared both stacks
-  on every RISE of the hold). It is a separate hook rather than a `loadPending` field on
+  on every RISE of the hold). When nothing is stale it returns the same arrays, so `UndoControl` /
+  `RedoControl` keep their inputs' identity. It is a separate hook rather than a `loadPending` field on
   `UseUndoStackDeps` because `useUndoStack` is called ABOVE `useStorageBackend` in `task-manager.tsx`
   (the undo API is threaded into hooks declared between the two, and `useUndoHotkey`'s listener order
   depends on the call site), so `loadPending` does not exist there. The companion is called right after
@@ -42463,42 +42471,51 @@ occurs in engine tests.
 
 Pinned by the "project scope (§628)" describe in `use-undo-stack.test.tsx`: T1 and T1b (a switch with
 the epoch bumped empties both stacks, and an undo leaves B's rows untouched); T-new (a hold with the epoch
-unchanged keeps both stacks, and the kept entry still undoes); T-new-b (a switch keeps an entry pushed in
-the new scope during the hold); T2 and T2b (an entry stamped before a bump is dropped by all five entry
-points with no hold transition); the "stamp survives every stack-to-stack move" cases (`redo`,
-`undoThrough`, `redoThrough`); and T3 (an in-scope undo still applies). `task-manager.undo-scope-wiring.test.tsx`
-pins the wiring: the undo stack reads the storage hook's reader live, and the prune is fed this stack's
-`pruneStale` and the storage hook's `loadPending`.
+unchanged keeps both stacks as the SAME arrays, and the kept entry still undoes); T-new-b (a switch keeps
+an entry pushed in the new scope during the hold); T2 and T2b (an entry stamped before a bump is dropped
+by all five entry points with no hold transition); the "stamp survives every stack-to-stack move" cases
+(`redo`, `undoThrough`, `redoThrough`, each arranged so a wrongly-run entry changes B's rows); and T3 (an
+in-scope undo still applies). `undo-batch-scope.test.tsx` pins the batch: one that opens and closes in
+one scope pushes one entry whose undo applies; one read in A and closed after a switch to B (hold rise,
+bump, hold fall, all mid-batch) pushes nothing, toasts nothing, and an undo leaves B's rows untouched.
+`task-manager.undo-scope-wiring.test.tsx` pins the wiring: the undo stack reads the storage hook's reader
+live, the undo batch gets that same reader, and the prune is fed this stack's `pruneStale` and the
+storage hook's `loadPending`.
 
-Results, each quoted from its run log (scratchpad of the fixing session, 2026-09-27):
-- **Red against `main`** (first round, `undo-red.log`, a variant without the companion call): T1, T1b,
-  T2 and T2b failed on their assertions and T3 passed. T2's diff shows B's unrelated row 3
+Results. Test counts, failures and mutant lines are quoted from the named run logs (scratchpad of the
+fixing session, 2026-09-27). The round-3 logs carry their own `EXIT=` line; the round-1 and round-2 exit
+codes are recorded in that session's `undo-report.md`, not in those logs.
+- **Red against `main`** (round 1, `undo-red.log`, a variant without the companion call): T1, T1b, T2
+  and T2b failed on their assertions and T3 passed. T2's diff shows B's unrelated row 3
   (`"B3-unrelated"`) received `"A3-before"`. T1b's body has since changed, so that result covers the
-  first-round T1b only.
-- **Red against the first cut** (`undo2-red.log`, HEAD's clear-on-rise `use-undo-stack.ts` with the new
-  tests): `Tests 1 failed | 67 passed (68)`. T-new failed with `expected [] to have a length of 1 but got
-  +0`. T-new-b passed there, because a clear on the rise leaves an entry pushed later untouched.
-- **Green** (`undo2-green.log`): `use-undo-stack.test.tsx` `Tests 68 passed (68)`, EXIT=0. The wiring test
-  (`undo2-wiring.log`) had 2 passed. Five sibling files (`undo2-sib.log`: task-manager load-hold,
-  characterization, scope-epoch-wiring, popout-guard, undo-control) had 60 passed.
-- **Mutants** (`undo2-mutation.log`; every restore byte-identical, and `git diff --stat` unchanged
-  afterwards):
+  round-1 T1b only.
+- **Red against the clear-on-rise cut** (round 2, `undo2-red.log`): `Tests 1 failed | 67 passed (68)`.
+  T-new failed with `expected [] to have a length of 1 but got +0`; T-new-b passed there.
+- **Red against the push-time-stamp cut** (round 3, `undo3-red.log`, HEAD's `use-undo-stack.ts`,
+  `use-undo-batch.ts` and `task-manager.tsx` with the round-3 tests): `Tests 2 failed | 71 passed (73)`,
+  `EXIT=1`. The batch test failed with `expected [ { id: 1, …(4) } ] to have a length of +0 but got 1`
+  (the batch entry was pushed), and the wiring batch-reader test with `expected undefined to be
+  [Function]`.
+- **Green** (round 3): `use-undo-stack.test.tsx` `Tests 68 passed (68)` (`undo3-green-stack.log`),
+  `undo-batch-scope.test.tsx` `Tests 2 passed (2)` (`undo3-green-batch.log`), the wiring test
+  `Tests 3 passed (3)` (`undo3-green-wiring.log`), each `EXIT=0`. Seven sibling files
+  (`undo3-sib.log`: chat-proposal-apply, workspace-section, task-manager load-hold, characterization,
+  scope-epoch-wiring, popout-guard, undo-control): `Tests 128 passed (128)`, `EXIT=0`.
+- **Mutants** (round 3, `undo3-mutation.log` with one `undo3-mut-*.log` each; every mutant `EXIT=1`,
+  every restore byte-identical, `git diff --stat` unchanged afterwards):
   - deleting the prune turned T1, T1b and T-new-b red;
   - pruning on an unchanged epoch too turned T-new and T-new-b red;
-  - deleting the restore-time stale check turned T2, T2b and the three propagation cases red, with T1
-    green, so the two guards are pinned independently;
+  - a prune that always returns a new array turned T-new red on the `toBe` identity assertion;
+  - deleting the restore-time stale check turned T2, T2b and the three propagation cases red, each on
+    its rows assertion, with T1 green, so the prune and the restore check are pinned independently;
   - dropping `epoch` from `redo`'s push, the `undoThrough` inverses or the `redoThrough` inverses turned
-    only its own propagation case red;
-  - dropping the reader from the deps, never filling its forward ref, or deleting the companion call
-    each turned exactly one of the two wiring tests red.
-
-★★ NOT CLOSED, only unreachable in practice: the stamp is the epoch at PUSH time, so a capture whose
-images were read in the old scope but pushed after the bump reads as current. The one capture that
-straddles an await is `useUndoBatch.runBatched`, which pushes its composite after `await fn()` in a
-staged-plan apply that normally lasts milliseconds, so a project switch would have to land inside that
-window. If one did, the push carries the NEW epoch whether it lands during the hold or after it, so
-neither guard drops it. Closing it means stamping the epoch when the batch OPENS and passing it through
-`captureComposite`.
+    only its own propagation case red, each on the rows assertion (B's row changed);
+  - the batch flushing with the push-time epoch, or `pushEntry` without the stale `readEpoch` refusal,
+    turned the batch test red (`to have a length of +0 but got 1`);
+  - never filling the reader's forward ref, deleting the prune call, or dropping the reader from
+    `useUndoBatch` each turned exactly one wiring test red; dropping the reader from the `useUndoStack`
+    deps turned two red, the stack-reader test and the batch-reader test (whose anti-vacuity check needs
+    the stack's reader).
 
 **Original status:** `useUndoStack` is called in `TaskManagerInner` with no key, so its state survives
 an in-place project switch (`switchToProject` / `switchToTursoProject` go through
