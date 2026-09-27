@@ -16715,7 +16715,9 @@ installed `@tiptap/core` and corrected it, and the comment now says what was mea
   `focus` returns false, but it still forwards `dispatch`. So the insert lands and `run()` reports
   false. The reviewer probed this with jsdom and StarterKit, no stubs: the doc text became "Yb"
   while `run()` returned `false`.
-- It is not reached in this app today only because `@tiptap/react` never calls `unmount()`.
+- It is not reached in this app today only because nothing calls `unmount()`: `@tiptap/react` never does, and no
+  code in `src/` does either (`grep -rn "unmount()" src --include=*.ts --include=*.tsx`, which
+  prints comments only).
 
 No code change and no test in this closure; the comment is the fix this entry asked for. Re-check
 with `grep -n "createFakeChain" -B2 -A3 node_modules/@tiptap/core/src/Editor.ts`,
@@ -21631,7 +21633,9 @@ reading every hit. What remains is deliberate:
 - the new load-path test, which asserts that a span does NOT survive;
 - this register's own §218, §231 and §249 discussions of the mechanism;
 - the dated `docs/superpowers/` plans and specs for 2026-08-24 and 2026-08-25, and their probe
-  script. Those are records and were not rewritten. (2) §218's table cell now reads `paragraph yes, reference NO †`, with a dated
+  script. Those are records and were not rewritten.
+
+(2) §218's table cell now reads `paragraph yes, reference NO †`, with a dated
 note under its existing correction. (3) `document-asset-usage.test.ts` gained "a non-img carrier the
 LOADER can produce still holds a cap slot": a numeric-id document loaded through
 `sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)` keeps `<p data-asset-id="a1">` in
@@ -42359,7 +42363,7 @@ abort the run and at worst be caught somewhere and silently change what it produ
 
 The two scripts stand differently toward the DOM-free contract:
 - **`ai-eval.ts`** is the importer the contract and the graph guards in `rich-text-plain.test.ts`
-  protect: both DOMPurify-bearing projection modules are outside its graph. Even so, whether its
+  protect: both of those DOMPurify-calling modules are outside its graph. Even so, whether its
   call paths ever reach `sanitizeRichHtml` is unverified.
 - **`update-ooxml-manifest.ts`** is NOT protected by those guards. It already loads
   `rich-text-projection.ts` and the DOM-bound `ooxml-docx-primitives.ts` by another route. Whether it
