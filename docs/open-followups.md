@@ -855,7 +855,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§625](#625-the-dashboard-status-narrative-draft-is-lost-on-window-close--closed-2026-09-27) | The dashboard status narrative draft is lost on window close | — | — | **CLOSED** 2026-09-27 |
 | [§626](#626-async-commit-editors-chat-thread-rename-comm-templates-dictation-key-still-lose-an-unblurred-draft-on-window-close--open) | Async-commit editors (chat thread rename, comm templates, dictation key) still lose an unblurred draft on window close | — | — | open |
 | [§627](#627-several-dirty-drafts-at-pagehide-start-unserialised-full-saves-so-on-filesharepoint-an-older-snapshot-can-finish-last--open) | Several dirty drafts at pagehide start unserialised full saves, so on file/SharePoint an older snapshot can finish last | — | — | open |
-| [§629](#629-the-unload-journal-is-unverified-on-the-desktop-close-and-on-the-file-sharepoint-and-turso-backends-and-a-document-heading-tab-close-writes-no-journal--open) | The unload journal is unverified on the desktop close and on the file, SharePoint and Turso backends, and a document-heading tab close writes no journal | — | — | open |
+| [§629](#629-the-unload-journal-is-unverified-on-the-packaged-desktop-close-and-on-the-file-sharepoint-and-turso-backends--open) | The unload journal is unverified on the packaged desktop close and on the file, SharePoint and Turso backends | — | — | open |
 | [§630](#630-csv-and-markdown-project-files-still-drop-an-all-invalid-meta-slice-silently-on-load-620-covers-json-and-indexeddb-only--open) | CSV and Markdown project files still drop an all-invalid meta slice silently on load (§620 covers JSON and IndexedDB only) | — | — | open |
 <!-- INDEX:END -->
 
@@ -42364,6 +42364,18 @@ in 3 of 3 runs: a document heading typed and never blurred, then reloaded, is in
 reload, and so is a heading blurred and reloaded at once. A TAB CLOSE is not fixed for the heading: its
 close writes no journal (a `test.fail` in that spec), which stays owed under §629.
 
+**2026-09-27, the tab close (§629 fix round):** an unblurred draft now survives a reload AND a tab
+close via the unload journal. Measured in Chromium on the default IndexedDB backend by
+`PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1`, 10 of 10
+passed in each of 3 runs, with no `test.fail`. The spec drives two editors: a document HEADING block
+(`useBlockDraft`) and a task-name inline cell (`useInlineCellEdit`). The line above that says the
+heading's close "writes no journal" was a read race in the spec, not the app: the close does write it,
+and the spec now polls for it. This entry's own subject, the PARAGRAPH block editor, is NOT driven by
+that spec. It shares `useBlockDraft` with the heading; its commit on `pagehide` is pinned by the unit
+tests in `src/app/document-block-editors.test.tsx`, and the journal's write and restore, which do not
+depend on the editor, by `src/app/use-unload-journal.test.tsx` and
+`src/app/use-unload-journal.restore.test.tsx`.
+
 An ordinary paragraph edit that stays under `MAX_HTML_TEXT_CHARS` (so it never trips the §185 over-cap
 refusal) and was never blurred — for example, the window closes mid-edit, or a pane narrows away without a
 blur — is lost entirely: nothing was committed, so `scheduleDebouncedSave` was never scheduled, and the
@@ -42513,6 +42525,18 @@ green in 3 of 3 runs. On a tab close the cell's journal is written and the draft
 IndexedDB write also won the unload race, so the next load shows the conflict notice (§629). The
 narrative editor itself is not driven by that spec.
 
+**2026-09-27, the tab close (§629 fix round):** an unblurred draft now survives a reload AND a tab
+close via the unload journal, with no conflict notice. Measured in Chromium on the default IndexedDB
+backend by `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1`,
+10 of 10 passed in each of 3 runs. The spec drives two editors: a task-name inline cell
+(`useInlineCellEdit`, from this entry's sweep) and a document heading block (`useBlockDraft`). The
+notice the line above describes is fixed: a journal whose content is what the next load returns is now
+cleared silently, and the spec's landed-journal case asserts that for the cell's tab close. This
+entry's own subject, the NARRATIVE editor, is NOT driven by that spec; its commit on `pagehide` is
+pinned by the unit tests in `src/app/dashboard-sections/dashboard-narrative.test.tsx`, and the journal's
+write and restore by `src/app/use-unload-journal.test.tsx` and
+`src/app/use-unload-journal.restore.test.tsx`.
+
 The status narrative editor kept its draft (`draftNarrative`) in component state and committed it only on
 blur, Done or Escape. A window close, reload or navigation runs none of those, so a summary that was typed
 and never blurred was lost. It is §622's class, found by the batch-8 verdict pass (2026-09-27), and was not
@@ -42637,15 +42661,23 @@ Discard) when one did. Read from the code; never machine-verified on the file or
 IN-SESSION race is unchanged: while the page stays, an older snapshot that finishes last still
 overwrites the newer one, and the newer save's confirmation clears the journal.
 
+**2026-09-27, §629 fix round:** when the save that landed is the journal's own (its content is what
+the next load returns), that load now clears the journal silently instead of offering it. The notice
+remains for this entry's race, where an OLDER snapshot lands last: neither the journal's content nor
+its base is what loads. Read from `restoreOnLoad` in `src/app/use-unload-journal.ts`; never
+machine-verified on the file or SharePoint backend.
+
 Every `useCommitOnPageHide` commit that changes the workspace re-runs the workspace save effect, and because `debounced-save.ts` knows the page is hiding (`pageHiding`), each run flushes a full `backend.save` at once. React state is correct, since each snapshot contains the earlier commits. But `LocalFileBackend.save` and the SharePoint backend do not serialise saves, so an older snapshot that finishes last overwrites the newer one and drops the later commit. IndexedDB orders its transactions.
 
 It is reachable whenever a pagehide commit starts a save while any other save is pending or in flight, and ONE dirty draft is enough (corrected 2026-09-27; this paragraph first said "only with two or more dirty drafts at unload"). With a single draft the other save can be: a save the debounce timer already started that is still writing; the flush that `visibilitychange` → hidden fires on a tab close just before `pagehide` (`onVisibilityChange` in `scheduleDebouncedSave`); or a pending save whose own `pagehide` listener, registered before the editor's (an edit committed inside the debounce window just before that editor mounted), flushes first. Two or more dirty drafts, for example a refused over-cap paragraph plus another unblurred edit, is one more way in. The §622 test "commits BOTH of two dirty editors on one pagehide" asserts the commit callbacks, not the last persisted snapshot; until the 2026-09-27 fix round it did not even hold two drafts dirty at once (`userEvent.type` into the second editor blurred and committed the first), and it now changes the second with `fireEvent.change` so both are dirty at the pagehide. A fix needs save serialisation (or coalescing to one final save) on those backends, and a test on the persisted result.
 
 **Source:** batch-8 whole-branch review (2026-09-27), owner decision at PR time.
 
-## 629. The unload journal is unverified on the desktop close and on the file, SharePoint and Turso backends, and a document-heading tab close writes no journal — open
+## 629. The unload journal is unverified on the packaged desktop close and on the file, SharePoint and Turso backends — open
 
-**Status:** open 2026-09-27, narrowed 2026-09-27 — FIXED on `fix/defect-batch-8` for a RELOAD on the default backend by the unload journal: `pagehide` writes the unconfirmed outgoing workspace to localStorage synchronously (`src/app/unload-journal.ts`, `src/app/use-unload-journal.ts`), and the next load restores it when its base fingerprint matches what the backend returned, or shows a conflict notice (Restore anyway, Discard) when it does not. MEASURED with `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB), 8 of 8 as expected in each of 3 runs: both editors' reload cases pass without `test.fail`, and so do a blur-then-immediate-reload and a base mismatch whose notice appears and whose Discard removes the key. Negative control: with the `restoreOnLoad` call in `use-storage-backend.ts` replaced by `null`, the three reload cases failed at "the draft must have landed in IndexedDB" and the mismatch case at the notice. STILL OWED, and the only reasons this stays open: (1) a document heading's TAB CLOSE writes no journal (the new page reads null; `test.fail` in that spec, failing at that read in every run whose message was read); (2) the packaged desktop (Electron) window close; (3) real-browser runs of the file, SharePoint and Turso backends. The journal itself is backend-agnostic, so (2) and (3) check localStorage durability and each backend's load and fingerprint on the real target, never machine-verified.
+**Status:** open 2026-09-27, narrowed twice on 2026-09-27 — FIXED on `fix/defect-batch-8` for a RELOAD AND a TAB CLOSE on the default backend by the unload journal: `pagehide` writes the unconfirmed outgoing workspace to localStorage synchronously (`src/app/unload-journal.ts`, `src/app/use-unload-journal.ts`), and the next load clears it silently when its content is what the backend returned (its save landed), restores it when its base fingerprint matches, or shows a conflict notice (Restore anyway, Discard) otherwise. MEASURED with `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB), 10 of 10 passed in each of 3 runs, with no `test.fail`. The spec drives two editors: a document heading (`useBlockDraft`) and a task-name inline cell (`useInlineCellEdit`). Negative control: with the `restoreOnLoad` call in `use-storage-backend.ts` replaced by `null`, 8 of the 10 failed (the 3 reload cases and the heading tab close at "the draft must have landed in IndexedDB", the cell tab close and the landed-journal case at "the load must consume the journal", the 2 mismatch cases at the notice), and the 2 "page stays" cases passed. STILL OWED, and the only reasons this stays open: (1) the packaged desktop (Electron) window close; (2) real-browser runs of the file, SharePoint and Turso backends. The journal itself is backend-agnostic, so (1) and (2) check localStorage durability and each backend's load and fingerprint on the real target, never machine-verified.
+
+**Status before the tab-close fix (2026-09-27, kept as measured):** open 2026-09-27, narrowed 2026-09-27 — FIXED on `fix/defect-batch-8` for a RELOAD on the default backend by the unload journal: `pagehide` writes the unconfirmed outgoing workspace to localStorage synchronously (`src/app/unload-journal.ts`, `src/app/use-unload-journal.ts`), and the next load restores it when its base fingerprint matches what the backend returned, or shows a conflict notice (Restore anyway, Discard) when it does not. MEASURED with `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB), 8 of 8 as expected in each of 3 runs: both editors' reload cases pass without `test.fail`, and so do a blur-then-immediate-reload and a base mismatch whose notice appears and whose Discard removes the key. Negative control: with the `restoreOnLoad` call in `use-storage-backend.ts` replaced by `null`, the three reload cases failed at "the draft must have landed in IndexedDB" and the mismatch case at the notice. STILL OWED, and the only reasons this stays open: (1) a document heading's TAB CLOSE writes no journal (the new page reads null; `test.fail` in that spec, failing at that read in every run whose message was read); (2) the packaged desktop (Electron) window close; (3) real-browser runs of the file, SharePoint and Turso backends. The journal itself is backend-agnostic, so (2) and (3) check localStorage durability and each backend's load and fingerprint on the real target, never machine-verified.
 
 **Status before the journal (2026-09-27, kept as measured):** open 2026-09-27 — found by the PR #444 (defect batch 8) review. MEASURED on one backend with `npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB, which is the default `defaultStorageConfig`): a `pagehide` dispatched while the page stays alive commits the draft and its save lands, but on a real `page.reload()` the save does NOT land, for both editors the spec drives (a document heading through `useBlockDraft` and a task-name inline cell through `useInlineCellEdit`); on a tab close (`page.close({ runBeforeUnload: true })`) the heading save does not land either. Those cases are `test.fail()` in that spec. The task cell survived a tab close in 5 of 5 runs (`--repeat-each=4` plus one), a race it happened to win, so the spec pins neither outcome for it. The local file, SharePoint, Turso and the packaged desktop app are never machine-verified; `git grep -n "keepalive\|sendBeacon" -- src/app` finds no use of either in any save path.
 
@@ -42681,6 +42713,30 @@ that completed 2 runs:
   session writes (a save still unconfirmed at `pagehide`, or one started while the page is hidden)
   overwrites the journal the notice describes. Read from `use-unload-journal.ts`; never
   machine-verified.
+
+**2026-09-27, §629 fix round (both fixed on `fix/defect-batch-8`):**
+
+- **The heading's tab close was a spec race, not an app defect.** The close does write the journal,
+  with the draft in it. `page.close({ runBeforeUnload: true })` resolves before the closing page's
+  `pagehide` handlers finish, and the heading's runs a synchronous `flushSync` re-render of the
+  Documents view (116 ms and 128 ms in 2 timed runs) before the journal write, so the spec's one-shot
+  read by the new page saw null. Diagnosed with throwaway probes (not kept): an immediate read saw null
+  and a read 1 s later held the draft, in 3 of 3 runs. The spec now polls every journal read after a
+  close; the heading's tab-close case passes in each of the 3 runs above, and fails at "the draft must
+  have landed in IndexedDB" under the negative control.
+- **The false conflict notice is fixed.** `restoreOnLoad` (`src/app/use-unload-journal.ts`) now checks,
+  before the base, whether the journal's content fingerprints as the loaded workspace; if so its save
+  landed, and the journal is cleared with nothing applied and no notice. Pinned by the 2 landed-journal
+  unit tests in `src/app/use-unload-journal.restore.test.tsx` (both red with the check deleted),
+  and by the spec's landed-journal case, which asserts its premise (the close's own IndexedDB write
+  landed) before the load, then that the key is removed with no notice. With the check deleted, that
+  case and the cell's tab-close case fail at "the load must consume the journal".
+- **The conflict actions act only on the record the notice describes.** Restore anyway and Discard
+  re-read the key and act only while it still holds the conflicting record's `tabId` and `savedAt`;
+  otherwise they only dismiss the notice. So under the limitation above, a notice whose journal was
+  overwritten no longer applies or deletes the newer record. Pinned by the 2 unit tests "the restore /
+  discard action acts only on the record the notice describes" in the same file (both red with the
+  identity check dropped).
 
 Size M–L.
 
