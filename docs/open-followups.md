@@ -42268,7 +42268,9 @@ IndexedDB backends now publish `lastDecodeFailures`, and the generic `reportFor`
 (`jsonToWorkspace(blob, { diag })` in `turso-backend.ts`) reports too. ★ Limit: object-shaped junk in
 `steeringCommittee` or `timelogLinks` is never reported on any backend. Both sanitizers return an object
 with fixed keys for any object input, so `sanitizedToNothing` is never true and that partial loss stays
-silent, as in §617.
+silent, as in §617. That holds for any OBJECT-shaped value in either key, not only junk: a newer build's
+object shape is emptied silently (unknown keys dropped, unrecognised entries filtered out), a limit of
+`sanitizedToNothing` itself, the same on Turso since §617.
 
 A meta slice whose value parses but sanitizes to nothing is dropped silently on both the JSON-file load
 path (`jsonToWorkspace`, `src/app/workspace.ts`) and the IndexedDB load path (`BrowserBackend.load`,
@@ -42472,7 +42474,9 @@ code where §151 had recorded one.
 §622's hook, so `pagehide` commits a changed draft. An unchanged draft commits nothing, and a tab switch
 commits nothing (owner rule, §185). Pinned by the three cases of the "NarrativeEditor commits via pagehide
 (E1)" describe in `dashboard-narrative.test.tsx`. Filed and closed in the same batch, so it has no work
-item.
+item. The second sweep below also converted `useCommitDraft` (`src/app/use-commit-draft.ts`, the budget
+and actual hours and % complete inputs), pinned by the "pagehide (§625 …)" describe in
+`use-commit-draft.test.tsx`.
 
 The status narrative editor kept its draft (`draftNarrative`) in component state and committed it only on
 blur, Done or Escape. A window close, reload or navigation runs none of those, so a summary that was typed
@@ -42511,5 +42515,32 @@ blur, Enter or Save/Done, and no `onChange` path commits it.
   change, `storage-config.tsx`, which commits only on Apply, and `type-to-confirm-dialog.tsx`); and
   `note-log-panel.tsx`, borderline, whose composer and entry edit commit only on Add or Enter, so leaving
   it was never expected to save.
+
+**Correction (2026-09-27): those 25 rows were NOT the whole class.** The first sweep's grep keys on a
+`useState(` call in the SAME file as the `onBlur={`, so it cannot see a draft that lives in a HOOK module:
+`budget-panel-totals.tsx` and `budget-panel-cards.tsx` wire `onBlur={…}` to `useCommitDraft` and call no
+`useState(` themselves. A second sweep, over hook modules, run in `src/app`:
+
+```bash
+find . \( -name "use-*.ts" -o -name "use-*.tsx" \) ! -name "*.test.*" | xargs grep -l "useState" | xargs grep -liE "onBlur|commit|draft"
+grep -rlE "^(export )?function use[A-Z]" --include=*.ts --include=*.tsx . | grep -v "\.test\." | grep -vE "/use-[^/]*$" | xargs grep -l "useState" | xargs grep -lE "onBlur|[Dd]raft"
+```
+
+The first returns 36 files, the second 7 (hooks declared outside a `use-*` file): 43 rows.
+
+- **AFFECTED and converted (1), a synchronous commit:** `use-commit-draft.ts` (`useCommitDraft`: the
+  budget and actual hours in `budget-panel-totals.tsx`, % complete in `budget-panel-cards.tsx`). Its
+  commit is a `setCell`/`updateBucket` state write through `onChangeBuckets`.
+- **COVERED already (2):** `use-inline-cell-edit.ts` (§622, the row above) and `document-block-editors.tsx`
+  (`useBlockDraft`, §622).
+- **NOT (40):** 22 files of the first grep contain neither `draft` nor `onBlur` (they match on `commit`
+  only) and hold no typed text; `use-chart-readout.ts` (its `onBlur` closes a readout); `use-comm-send.ts`,
+  `use-document-tools.ts`, `use-meeting-report-actions.ts`, `use-notes-window.ts` (write-through) and
+  `use-register-tools.ts` hold no typed text in hook state; `use-email-draft.ts` (its callers persist a
+  write-safe value on every keystroke); `use-draft-state.ts`, `use-task-submit.ts`, `use-calendar-events.ts`,
+  `use-resource-directory.ts` and `use-resource-planner.ts` (modal drafts whose Save is the only commit,
+  as in the modal row above); and of the second grep, `raid-create-host.tsx` (`useRaidCreate`) and
+  `task-form-context.tsx` (`useTaskForm`) are modal drafts, while `action-cta-controls.tsx`,
+  `combobox-shared.tsx`, `dictation-mic.tsx` and `entity-combobox.ts` hold no typed text in hook state.
 
 **Source:** the batch-8 verdict pass (2026-09-27) and `docs/superpowers/specs/2026-09-27-defect-batch-8-design.md` §1.

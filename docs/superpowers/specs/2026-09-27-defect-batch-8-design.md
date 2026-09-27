@@ -77,6 +77,8 @@ E1 is the same class and is not yet registered: the dashboard status narrative (
   - record on every empty value;
   - let the version-diff path pass a recorder.
 
+> **Correction (2026-09-27):** the `steeringCommittee` half of the Example above is NOT covered by this fix. An OBJECT-shaped `steeringCommittee` (or `timelogLinks`) value is never reported on any backend: both sanitizers return an object with fixed keys for any object input, so `sanitizedToNothing` is never true and a newer object shape is emptied silently, the same on Turso since §617. Register §620 records the limit.
+
 ## 3. Close-outs — §98 (#135), §241 (#206), §242 (#207)
 
 Each entry was verified fixed at `e6793604d`:

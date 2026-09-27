@@ -4,7 +4,9 @@
 //  reload or navigation: none of them runs React cleanup, so an unmount flush
 //  never fires, and a blur never happens. `pagehide` is the one signal all
 //  three send. Editors whose blur commit is a synchronous state write register
-//  it here (§622; the dashboard narrative, §625). An editor that commits
+//  it here, including the shared draft hooks `useBlockDraft`,
+//  `useInlineCellEdit` and `useCommitDraft` (§622; register §625 lists every
+//  editor classified). An editor that commits
 //  asynchronously (a fetch, a Promise, a WebCrypto seal) cannot be made safe by
 //  this hook: it only STARTS the commit, and nothing guarantees it lands after
 //  unload. Register §625 names the three editors that therefore do not register.

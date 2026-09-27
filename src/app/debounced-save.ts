@@ -17,8 +17,9 @@ export const SAVE_DEBOUNCE_MS = 500;
  *  scheduled inside that window has NO later signal left to flush it. On a tab
  *  close the page hid first, so `visibilitychange` has already fired, and the
  *  timer never runs on an unload. So `scheduleDebouncedSave` writes such a save
- *  AT ONCE. The one caller today is a refused over-cap document paragraph that
- *  commits its flattened form on `pagehide` (document-block-editors.tsx).
+ *  AT ONCE. Such saves come from the local drafts committed on `pagehide`
+ *  through `useCommitOnPageHide` (use-commit-on-page-hide.ts): each commit
+ *  re-runs the workspace save effect inside that event.
  *  ★★ Why not a fresh `pagehide` listener instead: one added DURING the
  *   dispatch is not invoked by it. Measured in real Chromium: a non-capture
  *   listener added by a capture listener at the target did NOT run (jsdom does

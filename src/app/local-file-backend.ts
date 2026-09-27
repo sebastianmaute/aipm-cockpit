@@ -207,7 +207,7 @@ export class LocalFileBackend implements StorageBackend {
    * through here; nothing it does can re-point the backend. `load()` is the
    * thin wrapper that supplies the STORED handle.
    * ★★ Both diagnostic mechanisms live in this body — the `finally` publishing
-   * `lastLoadTruncation`, and the `resetLoadDiagnostics()` call above the first
+   * `lastLoadTruncation` and `lastDecodeFailures`, and the `resetLoadDiagnostics()` call above the first
    * possible exit. Adding an early return here is the shape that broke
    * `sharepoint-backend.load()`; do not add one.
    * ★★★ THAT COVERS THIS BODY AND SAYS NOTHING ABOUT ITS CALLERS, and an earlier
@@ -229,10 +229,11 @@ export class LocalFileBackend implements StorageBackend {
     // throwing codec, the JSON return and the CSV/MD return.
     //
     // ★★★ TWO MECHANISMS, NOT ONE, AND THE `finally` IS NOT THE GENERAL ONE.
-    // It publishes `lastLoadTruncation` ONLY. The two import flags are reset
-    // HERE instead, BEFORE the first exit can be taken, because that is the one
-    // placement no exit can skip: they used to sit below BOTH throws and below
-    // `readHandle`, so a CSV load that hit an unterminated quote, followed by a
+    // It publishes `lastLoadTruncation` and (since §620) `lastDecodeFailures`
+    // only (`resetLoadDiagnostics()` below also zeroes both). The two import
+    // flags are reset HERE instead, BEFORE the first exit can be taken, because
+    // that is the one placement no exit can skip: they used to sit below BOTH
+    // throws and below `readHandle`, so a CSV load that hit an unterminated quote, followed by a
     // load of a file that had since been DELETED or un-picked, left the stale
     // `true` standing and would have said a file that no longer exists has an
     // unclosed quotation mark. Same defect, same placement, same fix as
