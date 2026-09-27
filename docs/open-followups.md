@@ -856,9 +856,10 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§626](#626-async-commit-editors-chat-thread-rename-comm-templates-dictation-key-still-lose-an-unblurred-draft-on-window-close--open) | Async-commit editors (chat thread rename, comm templates, dictation key) still lose an unblurred draft on window close | — | — | open |
 | [§627](#627-several-dirty-drafts-at-pagehide-start-unserialised-full-saves-so-on-filesharepoint-an-older-snapshot-can-finish-last--open) | Several dirty drafts at pagehide start unserialised full saves, so on file/SharePoint an older snapshot can finish last | — | — | open |
 | [§628](#628-the-undo-stack-survives-a-project-switch-so-an-undo-writes-the-previous-projects-rows-into-the-current-one--closed-2026-09-27) | The undo stack survives a project switch, so an undo writes the previous project's rows into the current one | — | — | **CLOSED** 2026-09-27 |
-| [§629](#629-the-unload-journal-is-unverified-on-the-packaged-desktop-close-and-on-the-file-sharepoint-and-turso-backends--open) | The unload journal is unverified on the packaged desktop close and on the file, SharePoint and Turso backends | — | — | open |
+| [§629](#629-the-unload-journal-is-unverified-on-the-packaged-desktop-close-and-on-the-file-sharepoint-and-turso-backends-and-a-restore-the-mass-deletion-guard-refuses-repeats-on-every-reload--open) | The unload journal is unverified on the packaged desktop close and on the file, SharePoint and Turso backends, and a restore the mass-deletion guard refuses repeats on every reload | — | — | open |
 | [§630](#630-csv-and-markdown-project-files-still-drop-an-all-invalid-meta-slice-silently-on-load-620-covers-json-and-indexeddb-only--open) | CSV and Markdown project files still drop an all-invalid meta slice silently on load (§620 covers JSON and IndexedDB only) | — | — | open |
 | [§631](#631-the-desktop-shell-reuses-a-leftover-server-without-checking-its-version-so-an-orphan-could-serve-an-old-build-after-an-update--open) | The desktop shell reuses a leftover server without checking its version, so an orphan could serve an old build after an update | — | — | open |
+| [§632](#632-unload-journals-whose-project-key-is-never-loaded-again-are-never-swept-so-they-can-fill-browser-storage--open) | Unload journals whose project key is never loaded again are never swept, so they can fill browser storage | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -42847,7 +42848,7 @@ the cross-project behaviour unmeasured; the review answered it with a code trace
 over `undo-stack.ts` (A deletes task 2 and edits task 3; after a swap to B = [1, 3, 7] an undo gave
 `[B1, A2-deleted, A3-before-edit, B7]`). It was not driven in a browser.
 
-## 629. The unload journal is unverified on the packaged desktop close and on the file, SharePoint and Turso backends — open
+## 629. The unload journal is unverified on the packaged desktop close and on the file, SharePoint and Turso backends, and a restore the mass-deletion guard refuses repeats on every reload — open
 
 **Status:** open 2026-09-27, narrowed twice on 2026-09-27 — FIXED on `fix/defect-batch-8` for a RELOAD AND a TAB CLOSE on the default backend by the unload journal: `pagehide` writes the unconfirmed outgoing workspace to localStorage synchronously (`src/app/unload-journal.ts`, `src/app/use-unload-journal.ts`), and the next load clears it silently when its content is what the backend returned (its save landed), restores it when its base fingerprint matches, or shows a conflict notice (Restore anyway, Discard) otherwise. MEASURED with `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB), 10 of 10 passed in each of 3 runs, with no `test.fail`. The spec drives two editors: a document heading (`useBlockDraft`) and a task-name inline cell (`useInlineCellEdit`). Negative control: with the `restoreOnLoad` call in `use-storage-backend.ts` replaced by `null`, 8 of the 10 failed (the 3 reload cases and the heading tab close at "the draft must have landed in IndexedDB", the cell tab close and the landed-journal case at "the load must consume the journal", the 2 mismatch cases at the notice), and the 2 "page stays" cases passed. STILL OWED, and the only reasons this stays open: (1) the packaged desktop (Electron) window close; (2) real-browser runs of the file, SharePoint and Turso backends; (3) the guard-refused save-back loop recorded under "final review" below (added 2026-09-27). The journal itself is backend-agnostic, so (1) and (2) check localStorage durability and each backend's load and fingerprint on the real target, never machine-verified.
 
@@ -42883,7 +42884,7 @@ that completed 2 runs:
   completed probe runs, so the spec asserts only that the draft is stored for that case. No data is
   lost, but the notice is a false alarm.
 - **Known limitation, controller ruling R9 (derived from the spec's multi-tab rule, "the last close
-  wins"); owner confirmation pending.** Corrected 2026-09-27: this line first called it
+  wins"); confirmed by the owner on 2026-09-27.** Corrected 2026-09-27: this line first called it
   "owner-accepted", which no owner decision supports, and said an ignored notice "does not survive the
   session", which claimed more than the code does. What happens: there is one key per project and the
   last write wins, so the first journal this session writes (a save started while the page is hidden,
@@ -43031,3 +43032,27 @@ Size S.
 **Source:** the desktop server-lifecycle verdict in the docs-coverage slice, which checked the
 `before-quit` comment in `desktop/src/main.ts` against `classifyPortOwner`, `probePort` and `start()`.
 
+## 632. Unload journals whose project key is never loaded again are never swept, so they can fill browser storage — open
+
+**Status:** open 2026-09-27. Filed by owner decision from the final review of the batch 8 unload journal (PR #444). Verified by reading, plus `git grep -n "clearUnloadJournal(" -- src/app ':!*.test.*'`, which finds one definition and three calls, all in `use-unload-journal.ts`. `grep -n "removeItem" src/app/unload-journal.ts` finds four removals, each of the key it was given. No reproduction.
+
+**Work item:** #453
+
+The unload journal (§629) keeps unsaved changes in `localStorage` under `aipm-cockpit:unload-journal:<projectKey>`. For a single project, a record is removed only when its own key is read or written:
+- a confirmed save from the same tab;
+- a later load of that key that finds its content already stored;
+- Discard on the conflict notice;
+- a read that finds the record malformed.
+
+Apart from the app reset (`clearAppConfig` in `app-reset.ts`, which removes every `aipm-cockpit:*` key), nothing removes a record whose key is never loaded again. That happens when:
+- a project is deleted or archived in another tab;
+- the in-app migration to Turso changes the key from the registry id to the Turso id;
+- `browser` becomes a real project id.
+
+Each record can hold up to `UNLOAD_JOURNAL_MAX_CHARS` (1,500,000 chars), in an origin quota of about 5M chars shared with the other `aipm-cockpit:*` keys. `writeStore` in `secrets-store.ts` swallows a quota error.
+
+What would close it: a sweep that never loses a draft silently. For example, list orphaned journals (a key with no matching project) and offer to restore or discard them, or expire them after a stated age with a notice. Add a test for each rule.
+
+Size S–M.
+
+**Source:** the final review of the unload journal, PR #444 (2026-09-27), item m3.
