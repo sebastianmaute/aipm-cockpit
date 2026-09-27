@@ -67,7 +67,10 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
   useCommitOnPageHide(() => {
     for (const tpl of userTemplates) {
       const value = renameDrafts.current.get(tpl.id);
-      if (value !== undefined) renameIfChanged(tpl, value);
+      if (value === undefined) continue;
+      renameIfChanged(tpl, value);
+      // As on blur: a bfcache restore must not replay it over a later rename.
+      renameDrafts.current.delete(tpl.id);
     }
   });
 

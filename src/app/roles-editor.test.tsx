@@ -595,4 +595,17 @@ describe("RefList rename commits via pagehide (§622)", () => {
     pageHide();
     expect(onRenameDiscipline).toHaveBeenCalledTimes(1);
   });
+
+  // Same rule for a PAGEHIDE-committed rename: after a bfcache restore, a second
+  // pagehide must not replay it over a newer external name.
+  it("does not write a pagehide-committed rename back over a newer external name", () => {
+    const onRenameDiscipline = vi.fn();
+    const { rerender } = render(refLists(onRenameDiscipline, noop));
+    fireEvent.change(screen.getByDisplayValue("Design"), { target: { value: "UX Design" } });
+    pageHide();
+    expect(onRenameDiscipline).toHaveBeenCalledTimes(1);
+    rerender(refLists(onRenameDiscipline, noop, [{ id: 1, name: "Engineering" }, { id: 2, name: "Product Design" }]));
+    pageHide();
+    expect(onRenameDiscipline).toHaveBeenCalledTimes(1);
+  });
 });

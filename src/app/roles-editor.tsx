@@ -418,7 +418,10 @@ function RefList({
   useCommitOnPageHide(() => {
     for (const it of items) {
       const value = renameDrafts.current.get(it.id);
-      if (value !== undefined) renameIfChanged(it, value);
+      if (value === undefined) continue;
+      renameIfChanged(it, value);
+      // As on blur: a bfcache restore must not replay it over a later rename.
+      renameDrafts.current.delete(it.id);
     }
   });
 

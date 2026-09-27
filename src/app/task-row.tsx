@@ -167,8 +167,9 @@ function TaskRowImpl({
     onInlinePatch(task.id, { assignee: d.name, assigneeEmail: d.email, resourceId });
   };
   // ★ §622 class — a close/reload never blurs the picker; `commitAssignee` skips an unchanged draft.
+  //  Only while the picker is the open cell: a draft left over after another cell took over must not replay.
   useCommitOnPageHide(() => {
-    if (assigneeDraft) commitAssignee();
+    if (assigneeDraft && inline.editing === "assignee") commitAssignee();
   });
   const onInlineKeyDown = (e: KeyboardEvent<HTMLElement>) => {
     if (e.key === "Enter") {

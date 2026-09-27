@@ -138,4 +138,17 @@ describe("TemplatesSection rename commits via pagehide (§622)", () => {
     pageHide();
     expect(storedNames()).toEqual(["External"]);
   });
+
+  // Same rule for a PAGEHIDE-committed rename: after a bfcache restore, a second
+  // pagehide must not replay it over a newer external name.
+  it("does not write a pagehide-committed rename back over a newer external name", async () => {
+    await seedTemplate("Draft", <ExternalRenamer />);
+    fireEvent.change(renameBox(), { target: { value: "Final" } });
+    pageHide();
+    expect(storedNames()).toEqual(["Final"]);
+    fireEvent.click(screen.getByRole("button", { name: "external rename" }));
+    await waitFor(() => expect(storedNames()).toEqual(["External"]));
+    pageHide();
+    expect(storedNames()).toEqual(["External"]);
+  });
 });

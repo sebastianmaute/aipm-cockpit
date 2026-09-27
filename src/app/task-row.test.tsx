@@ -1508,6 +1508,20 @@ describe("TaskRow inline cell editing", () => {
       pageHide();
       expect(onInlinePatch).not.toHaveBeenCalled();
     });
+
+    // Abandon, never clobber: once another cell took over (the picker unmounted
+    // without a blur), the left-over assignee draft is no longer being edited.
+    test("pagehide does not replay an assignee draft once another cell is being edited", () => {
+      const onInlinePatch = vi.fn();
+      const task = makeTask({ id: 64, taskName: "Switch", assignee: "Alice", assigneeEmail: "a@b.com" });
+      const { getByRole, getByText, getByLabelText } = renderRow(makeContext({ onInlinePatch }), task);
+      fireEvent.click(getByRole("button", { name: "Assignee – Switch" }));
+      fireEvent.change(getByRole("combobox", { name: "Assignee – Switch" }), { target: { value: "Bob" } });
+      fireEvent.doubleClick(getByText("Switch"));
+      expect(getByLabelText("Task name – Switch").tagName).toBe("INPUT"); // the name cell took over
+      pageHide();
+      expect(onInlinePatch).not.toHaveBeenCalled();
+    });
   });
 
   // Replaces "relations cell exposes an edit button that opens the dependency
