@@ -6,7 +6,7 @@
 // things to whoever opens the exported file. Collapsing omitted into missing
 // tells a user their image is lost when it is not; collapsing it into inlined
 // blows the budget the bucket exists to enforce.
-// "blocked" (the bytes exist, the type is refused — §320).
+// "blocked" (the stored type is refused — §320; decided before any fetch, §623).
 
 import type { ProjectDocument } from "./document-model";
 import type { AssetByteLoader } from "./document-asset-images";
@@ -88,9 +88,11 @@ export type ExportAssets = {
   omitted: ReadonlySet<string>;
   /** No byte row, or the load failed. A DATA problem — the dangling case. */
   missing: ReadonlySet<string>;
-  /** Bytes exist and are intact, but the stored type is outside the upload
-   *  allowlist (`isBlockedAssetMime`). A POLICY refusal (§320): never charged
-   *  against the budget, and never reported as missing. */
+  /** The stored type is outside the upload allowlist (`isBlockedAssetMime`).
+   *  A POLICY refusal (§320): never charged against the budget, and never
+   *  reported as missing. ★ Decided BEFORE any fetch (§623), so it says
+   *  nothing about whether the bytes exist: a refused id with no byte row is
+   *  `blocked`, because the type alone already keeps it out of the file. */
   blocked: ReadonlySet<string>;
 };
 
@@ -160,16 +162,23 @@ export async function loadExportAssets(
    *  WHOLE truth — without it there is another state, inlined-but-unusable,
    *  that no bucket describes and the user is told nothing about. */
   isRenderable?: (id: string) => boolean,
-  /** §320 — asked AFTER the null-row check and BEFORE `isRenderable` and the
-   *  budget: an id refused by TYPE lands in `blocked`, never `missing`, and is
-   *  never charged. */
+  /** §320 — asked FIRST, before the bytes are even fetched (§623): an id
+   *  refused by TYPE lands in `blocked`, never `missing`, is never charged,
+   *  and never costs a load. */
   isBlocked?: (id: string) => boolean,
 ): Promise<ExportAssets> {
   const ids = documentAssetIds(doc);
   if (ids.length === 0) return NO_EXPORT_ASSETS;
 
+  const blocked = new Set<string>();
   const fetched = await Promise.all(
     ids.map(async (id) => {
+      // §623 — a type-refused id is routed here, so its bytes are never
+      // fetched or decoded only to be thrown away.
+      if (isBlocked && isBlocked(id)) {
+        blocked.add(id);
+        return null;
+      }
       try {
         return { id, b64: await load(id) };
       } catch {
@@ -181,20 +190,17 @@ export async function loadExportAssets(
   const inlined: Record<string, string> = {};
   const omitted = new Set<string>();
   const missing = new Set<string>();
-  const blocked = new Set<string>();
   let spent = 0;
 
-  for (const { id, b64 } of fetched) {
+  for (const entry of fetched) {
+    if (entry === null) continue; // blocked above, before its fetch
+    const { id, b64 } = entry;
     // ★ An EMPTY string is a present-but-empty row, distinct from an absent
     // one (see loadAssetData's own comment). It costs nothing, inlines, and
     // the renderers' own validity checks then decline it — which lands it back
     // in the missing presentation without this function having to guess.
     if (b64 === null) {
       missing.add(id);
-      continue;
-    }
-    if (isBlocked && isBlocked(id)) {
-      blocked.add(id);
       continue;
     }
     // ★ ORDER IS LOAD-BEARING: after the null check (a null row is `missing`

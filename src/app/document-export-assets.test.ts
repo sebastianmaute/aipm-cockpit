@@ -4,6 +4,7 @@ import {
 } from "./document-export-assets";
 import { IMG_TAG_ASSET_ID_RE } from "./document-asset-patterns";
 import type { ProjectDocument } from "./document-model";
+import type { AssetByteLoader } from "./document-asset-images";
 
 const doc = (html: string[]): ProjectDocument => ({
   id: 1,
@@ -116,8 +117,26 @@ describe("loadExportAssets", () => {
     expect([...out.omitted]).toEqual([]);
   });
 
-  it("still calls an id with no byte row missing, whatever its type", async () => {
+  // §623 — the type decides before any fetch, so a refused id never costs a
+  //  load, and one with no byte row is blocked rather than missing.
+  it("never loads the bytes of a policy-refused id", async () => {
+    const load = vi.fn<AssetByteLoader>(async () => b64OfBytes(60));
+    const out = await loadExportAssets(
+      doc([`<p><img data-asset-id="svg"><img data-asset-id="good"></p>`]),
+      load, 100, () => true, (id) => id === "svg",
+    );
+    expect(load.mock.calls.map((c) => c[0])).toEqual(["good"]);
+    expect([...out.blocked]).toEqual(["svg"]);
+  });
+
+  it("calls a refused id with no byte row blocked, since the type alone keeps it out", async () => {
     const out = await loadExportAssets(doc([`<p><img data-asset-id="x"></p>`]), vi.fn(async () => null), undefined, undefined, () => true);
+    expect([...out.blocked]).toEqual(["x"]);
+    expect([...out.missing]).toEqual([]);
+  });
+
+  it("still calls an allowed id with no byte row missing", async () => {
+    const out = await loadExportAssets(doc([`<p><img data-asset-id="x"></p>`]), vi.fn(async () => null), undefined, undefined, () => false);
     expect([...out.missing]).toEqual(["x"]);
     expect([...out.blocked]).toEqual([]);
   });
