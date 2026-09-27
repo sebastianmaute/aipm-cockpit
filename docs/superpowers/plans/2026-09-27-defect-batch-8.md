@@ -663,3 +663,9 @@ E1 is that number + 1. Record it in the plan's Rulings section below.
 ## Rulings
 
 (The controller records rulings here during execution: the E1 number, sweep outcome, any fixture changes.)
+
+- **E1 = §625.** The register max on `origin/main` (`4f87c2ee7`, after #441) was 624, read immediately before numbering.
+- **Sweep (Task 3):** 23 candidate files plus 2 `useBlockDraft` files = 25 rows: 4 COVERED, 6 AFFECTED, 15 NOT. The 3 AFFECTED editors with a synchronous commit were converted (task-row inline cells + assignee, roles-editor discipline/grade rename, templates-section rename). The 3 with an asynchronous commit (chat-thread-list rename, comm-templates-section rename + body, dictation-section STT key) were NOT converted; they are a proposed new register entry, filed only on the owner's say. note-log-panel stays NOT.
+- **Task 4:** `status` and `features` are assigned unconditionally, so a drop leaves `{}`/`[]`; still recorded. `steeringCommittee` junk is `"not-an-object"`, because object-shaped junk never sanitizes to nothing (limit named in §620's Status).
+- **Task 5:** the IndexedDB `documents`/`documentVersions` rich-field throw is contained and recorded (reverses the dispatch instruction; it was a silent deletion of five slices).
+- **Task 6:** §242's `documentVersions` bullet ("can never be the ONLY non-empty content slice") is false — a deleted last document leaves only its tombstone. Recorded in §242's Status and the code comment; the decision stands.

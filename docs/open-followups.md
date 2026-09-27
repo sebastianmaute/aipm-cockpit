@@ -329,7 +329,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§95](#95-no-test-in-ci-exercises-a-real-turso-database--open-narrowed-2026-08-25) | No test in CI exercises a real Turso database — open, NARROWED 2026-08-25 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M | open |
 | [§96](#96-the-previewprint-path-loads-the-whole-section-registry-unconditionally--open-priority-unknown) | The preview/print path loads the whole section registry unconditionally — open, priority UNKNOWN | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open |
 | [§97](#97-the-dom-constraint-inverted-for-the-document-load-paths--open-trap-safe-today) | The DOM constraint INVERTED for the document load paths — open (TRAP, safe today) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | open |
-| [§98](#98-documents-is-invisible-to-both-save-time-data-loss-guards--open-missing-net-counters-widened-2026-08-29-live-path-found--284) | `documents` is invisible to both save-time data-loss guards — open (MISSING NET; counters WIDENED 2026-08-29, live path FOUND — §284) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M — two lines of code, but it moves a live save-REFUSAL threshold | open |
+| [§98](#98-documents-is-invisible-to-both-save-time-data-loss-guards--closed-2026-09-27) | `documents` is invisible to both save-time data-loss guards | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M — two lines of code, but it moves a live save-REFUSAL threshold | **CLOSED** 2026-09-27 |
 | [§99](#99-the-e2e-seed-writes-only-four-of-browserbackends-ten-optional-slices-so-some-axe-scans-run-on-an-empty-state--open-partly-fixed-2026-08-08) | The e2e seed writes only four of BrowserBackend's ten optional slices, so some axe scans run on an empty state — open, PARTLY FIXED 2026-08-08 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | open |
 | [§100](#100-tab-ejects-focus-from-a-portaled-popover-opened-inside-a-modal--closed-2026-08-31) | ~~Tab ejects focus from a portaled popover opened inside a modal~~ | field controls → modal header, unreleased | M | **CLOSED** 2026-08-31 |
 | [§101](#101-segmentedcontrols-selected-segment-is-colour-only-in-the-three-dark-schemes-and-in-beacon-light--closed-2026-09-01) | ~~`SegmentedControl`'s selected segment is colour-only in the three DARK schemes AND in beacon-light~~ | field controls → modal header, unreleased | S | **CLOSED** 2026-09-01 (title AMENDED — beacon-light measures 1.13:1 and the entry omitted it) |
@@ -472,8 +472,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§238](#238-sample-workspace-bighugejson-are-generated-artifacts-with-no-consumer-and-no-regeneration-gate) | `sample-workspace-big/huge.json` are generated artifacts with no consumer and no regeneration gate | — | — | open |
 | [§239](#239-an-imported-colour-scheme-can-pin-the-aa-derived-tokens-bypassing-the-derivation-entirely) | An imported colour scheme can pin the AA-derived tokens, bypassing the derivation entirely | — | — | open |
 | [§240](#240-the-version-restore-payload-carried-18-slices-while-the-restore-fanned-out-24-blanking-six-of-them--closed-2026-08-25) | The version-restore payload carried 18 slices while the restore fanned out 24, blanking six of them | — | — | **CLOSED** 2026-08-25 |
-| [§241](#241-five-array-typed-slices-are-captured-but-invisible-to-diffworkspaces-so-they-can-never-be-restored-and-a-session-that-only-edits-them-captures-no-version-at-all--restore-half-fixed-2026-08-26-the-documents-pair-deliberately-not-restorable) | Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all — restore half FIXED 2026-08-26, the documents pair deliberately NOT restorable | — | — | open |
-| [§242](#242-isemptyworkspacepayload-counts-nine-legacy-content-lists-so-a-documents-only-project-reads-as-empty-and-every-version-capture-is-skipped--three-of-the-five-fixed-2026-08-26-insights-and-documentversions-deliberately-still-uncounted) | `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped — three of the five FIXED 2026-08-26, `insights` and `documentVersions` deliberately still uncounted | — | — | open |
+| [§241](#241-five-array-typed-slices-are-captured-but-invisible-to-diffworkspaces-so-they-can-never-be-restored-and-a-session-that-only-edits-them-captures-no-version-at-all--closed-2026-09-27) | Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all | — | — | **CLOSED** 2026-09-27 |
+| [§242](#242-isemptyworkspacepayload-counts-nine-legacy-content-lists-so-a-documents-only-project-reads-as-empty-and-every-version-capture-is-skipped--closed-2026-09-27) | `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped | — | — | **CLOSED** 2026-09-27 |
 | [§243](#243-history-rows-give-every-version-the-same-two-accessible-names-and-nothing-in-the-gate-suite-can-see-it--closed-2026-08-25) | History rows give every version the same two accessible names, and nothing in the gate suite can see it | pre-existing, found 0.259.0 | S | **CLOSED** 2026-08-25 |
 | [§244](#244-the-property-suites-anti-vacuity-floors-are-probabilistic-and-one-of-them-took-a-release-pipeline-red--closed-2026-08-26) | The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red | 0.259.0 release pipeline | S–M | **CLOSED** 2026-08-26 |
 | [§245](#245-the-row-unique-names-sweep-is-bounded-by-test-names-and-a-property-based-scan-finds-far-more-surface) | The row-unique-names sweep is bounded by test NAMES, and a property-based scan finds far more surface | row-unique-accessible-names slice (2026-08-25) | S | open |
@@ -847,11 +847,12 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§617](#617-a-meta-slice-whose-sanitizer-returns-nothing-is-dropped-silently-and-the-next-save-deletes-its-row--closed-2026-09-26) | A meta slice whose sanitizer returns nothing is dropped silently, and the next save deletes its row | split out of §538 on 2026-09-26 (the PR #425 review) | S–M — audit each meta slice's falsy-return path and report it like a throw | **CLOSED** 2026-09-26 |
 | [§618](#618-the-classic-header-overflows-between-lg-and-1390px-so-the-page-scrolls-sideways--closed-2026-09-27) | The classic header overflows between lg and ~1390px, so the page scrolls sideways | split out of §468 on 2026-09-26 (#425 window-layout probe) | S — let the classic search shrink from lg up with a min width; measure 1024/1100/1390/1600 | **CLOSED** 2026-09-27 |
 | [§619](#619-dashboard-narratives-heading-menu-escape-test-failed-once-in-unit-shuffled--focus-never-reached-the-menu--closed-2026-09-26) | dashboard-narrative's heading-menu Escape test failed once in unit-shuffled — focus never reached the menu | — | — | **CLOSED** 2026-09-26 |
-| [§620](#620-the-json-file-and-indexeddb-load-paths-drop-a-meta-slice-that-sanitizes-to-nothing-with-no-decode-failure-channel--open) | The JSON-file and IndexedDB load paths drop a meta slice that sanitizes to nothing, with no decode-failure channel | — | — | open |
+| [§620](#620-the-json-file-and-indexeddb-load-paths-drop-a-meta-slice-that-sanitizes-to-nothing-with-no-decode-failure-channel--closed-2026-09-27) | The JSON-file and IndexedDB load paths drop a meta slice that sanitizes to nothing, with no decode-failure channel | — | — | **CLOSED** 2026-09-27 |
 | [§621](#621-pdfdocxpptxxlsx-exports-still-print-recurrence-text-and-insight-typeseveritystatus-values-in-english--open) | PDF/DOCX/PPTX/XLSX exports still print recurrence text and insight type/severity/status values in English | — | — | open |
-| [§622](#622-an-ordinary-under-cap-document-paragraph-edit-that-was-never-blurred-is-lost-when-the-window-closes--open) | An ordinary, under-cap document paragraph edit that was never blurred is lost when the window closes | — | — | open |
+| [§622](#622-an-ordinary-under-cap-document-paragraph-edit-that-was-never-blurred-is-lost-when-the-window-closes--closed-2026-09-27) | An ordinary, under-cap document paragraph edit that was never blurred is lost when the window closes | — | — | **CLOSED** 2026-09-27 |
 | [§623](#623-loadexportassets-loads-the-bytes-of-a-policy-refused-asset-before-discarding-them--open) | `loadExportAssets` loads the bytes of a policy-refused asset before discarding them | — | — | open |
 | [§624](#624-ai-evalts-and-update-ooxml-manifestts-import-the-dom-free-sanitizer-graph-with-no-dom-and-nothing-proves-they-never-reach-a-dompurify-call--open) | `ai-eval.ts` and `update-ooxml-manifest.ts` import the DOM-free sanitizer graph with no DOM, and nothing proves they never reach a DOMPurify call | — | — | open |
+| [§625](#625-the-dashboard-status-narrative-draft-is-lost-on-window-close--closed-2026-09-27) | The dashboard status narrative draft is lost on window close | — | — | **CLOSED** 2026-09-27 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -7657,16 +7658,18 @@ neither should be quoted as a general rule.
 
 ---
 
-## 98. `documents` is invisible to both save-time data-loss guards — open (MISSING NET; counters WIDENED 2026-08-29, live path FOUND — §284)
+## 98. `documents` is invisible to both save-time data-loss guards — CLOSED 2026-09-27
 
-**Status:** open — the counters were WIDENED 2026-08-29: `documents`, `knowledgeItems` and
-`documentAssets` now count toward both. Kept open for the decision record and because the widening
-moved a live save-REFUSAL threshold that nothing has exercised against a real project. Membership
-re-measured 2026-08-29 by `grep -cE "ws[.](documents|knowledgeItems|documentAssets)" src/app/workspace-metrics.ts`
-(→ 7, across `isWorkspaceEmpty` and both counters). The threshold change's effect on a real
-project is never machine-verified.
-
-**Work item:** #135
+**Status:** CLOSED 2026-09-27 on fix/defect-batch-8 — no code change in this batch: the batch-8 verdict
+pass (2026-09-27, read against `origin/main` at `e6793604d`, recorded in
+`docs/superpowers/specs/2026-09-27-defect-batch-8-design.md`) found the missing net built. Both save-time
+counters in `src/app/workspace-metrics.ts` count `documents`, `knowledgeItems` and `documentAssets`:
+`nonEmptyCollectionCount` at `:107-109` and `workspaceRecordCount` at `:129-131` (the `:106-131` span).
+Re-measured on the branch: `sed -n '/export function nonEmptyCollectionCount/,/^}/p'
+src/app/workspace-metrics.ts | grep -c "n++"` → 16, over a range of 20 lines (not 0, so the `sed` range
+opened). The per-slice decision record is `SLICE_POLICY` (`workspace-slice-policy.ts`), gated by
+`workspace-slice-policy.test.ts`; arming the destructive-save bypass is §285 (closed). ★ What this close
+does NOT claim: the moved save-refusal threshold has still never been exercised against a real project.
 
 ★★★ **CORRECTED 2026-08-29: "no known live path" WAS FALSE, and the path does not start here.** A
 malformed Turso meta blob is discarded in silence at load and then written over as an intentional
@@ -20755,16 +20758,18 @@ re-captures. That half carries its own discriminating test, added separately in 
 
 ---
 
-## 241. Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all — restore half FIXED 2026-08-26, the documents pair deliberately NOT restorable
+## 241. Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all — CLOSED 2026-09-27
 
-**Status:** open, restore half FIXED 2026-08-26 on the version-history-completeness slice. Found
-2026-08-25 while fixing the array-as-object corruption below. All five slices are now registered, so
-consequences (2) and (3) below are closed for every one of them and (1) is closed for three;
-`documents` and `documentVersions` carry `restorable: false` and stay un-restorable BY DECISION,
-which is why this is not a full close. What would have to change to revisit that decision is in the
-closing ★. Never machine-verified by a committed probe.
-
-**Work item:** #206
+**Status:** CLOSED 2026-09-27 on fix/defect-batch-8 — the batch-8 verdict pass (2026-09-27) found the
+remaining half settled in code. All 24 slices `getVersionPayload` (`task-manager.tsx`) emits have a
+`COLLECTION_SPECS` row in `version-diff.ts` (measured by comparing the two key lists: 24 = 24, none
+missing, none extra); the five this entry named plus `settingsOverrides` are six rows
+(`grep -cE 'key: "(knowledgeItems|insights|calendarEvents|documents|documentVersions|settingsOverrides)"'
+src/app/version-diff.ts` → 6).
+`documents` and `documentVersions` stay `restorable: false` BY DECISION: diff-visible, but a document is
+restored through its own document history (tombstones, `docs/AGENTS/documents.md`). Decision moved into
+code comments at `use-version-history.ts` (the ★★ §241 comment beside the diff gate in `writeVersion`),
+so this entry is no longer its only record.
 
 `COLLECTION_SPECS` (`version-diff.ts`) is the registry BOTH `diffWorkspaces` and `applyRestore`
 walk. When this was filed, of the six slices `getVersionPayload` captures only `settingsOverrides`
@@ -20866,14 +20871,18 @@ of the two histories wins when they disagree; it is not a matter of flipping a f
 
 ---
 
-## 242. `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped — three of the five FIXED 2026-08-26, `insights` and `documentVersions` deliberately still uncounted
+## 242. `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped — CLOSED 2026-09-27
 
-**Status:** open, three of the five added 2026-08-26 on the version-history-completeness slice.
-Found 2026-08-25 alongside §241; a SEPARATE function with a separate fix, which is why it is a
-separate number — closing §241 did not touch this. It stays open because the two remaining slices
-are UNCOUNTED BY DECISION and nothing but this entry records the decision. Never machine-verified by a committed probe.
-
-**Work item:** #207
+**Status:** CLOSED 2026-09-27 on fix/defect-batch-8 — the batch-8 verdict pass (2026-09-27) found it
+settled in code: `isEmptyWorkspacePayload`'s `lists` counts `knowledgeItems`, `documents` and
+`calendarEvents` beside the nine legacy lists (the `lists` array in `isEmptyWorkspacePayload`). `insights` and
+`documentVersions` stay uncounted BY DECISION. Decision moved into code comments at
+`use-version-history.ts` (the ★★ §242 comment beside `lists`), so this entry is no longer its only
+record. ★★ Correction found while writing that comment: the `documentVersions` bullet below says it "can
+never be the ONLY non-empty content slice". That is FALSE. Deleting a project's last document leaves
+`documents` empty and the document's tombstone in `documentVersions` (`docs/AGENTS/documents.md`), so
+the payload reads as empty and that capture is skipped. It loses nothing restorable, because both slices
+are `restorable: false` (§241), so the decision stands; the code comment gives the corrected reason.
 
 `writeVersion` runs two guards before capturing. §241 is about the second; this is the FIRST:
 
@@ -42237,16 +42246,28 @@ Size S.
 
 **Source:** PR #429's `unit-shuffled` run, 2026-09-26.
 
-## 620. The JSON-file and IndexedDB load paths drop a meta slice that sanitizes to nothing, with no decode-failure channel — open
+## 620. The JSON-file and IndexedDB load paths drop a meta slice that sanitizes to nothing, with no decode-failure channel — CLOSED 2026-09-27
 
-**Status:** open 2026-09-27 — split out of §617 (closed 2026-09-26 in #427) by owner decision, which fixed
-the Turso load path only. Verified by reading: `jsonToWorkspace` (`src/app/workspace.ts`) assigns each
-sanitized slice (for example `status: sanitizeProjectStatus(p.status)`) the same way `rowsToWorkspace` did
-before §617, and `BrowserBackend.load` (`src/app/browser-backend.ts`) has the identical shape. `grep -rn
-"decodeFailedSlices\|lastDecodeFailures" src/app` returns only `turso-schema.ts` and `turso-backend.ts` —
-neither `workspace.ts` nor `browser-backend.ts` has an equivalent.
-
-**Work item:** #433
+**Status:** CLOSED 2026-09-27 on fix/defect-batch-8 — `jsonToWorkspace` (`src/app/workspace.ts`) now
+records a slice whose stored value carried content but sanitized to nothing in
+`diag.decodeFailedSlices`, through §617's `sanitizedToNothing`. Thirteen keys (`grep -c
+'noteIfDropped("' src/app/workspace.ts` → 13): `status`, `project`, `fieldVisibility`, `features`,
+`steeringCommittee`, `timelogLinks`, `knowledgeItems`, `insights`, `activityLog`, `budgetHistory`,
+`documents`, `documentVersions`, `settingsOverrides`. `status` and `features` are assigned
+unconditionally, so a drop leaves `{}` / `[]` instead of removing the key; it is recorded anyway, because
+the next save writes that empty value over the stored one. A `documents` or `documentVersions`
+rich-field sanitize THROW is contained and recorded under the same key. The local-file, SharePoint and
+IndexedDB backends now publish `lastDecodeFailures`, and the generic `reportFor` in
+`use-load-truncation.ts` pauses saving (Save anyway) exactly as on Turso. `BrowserBackend.load`
+(`browser-backend.ts`) records 12 of the keys itself (`grep -c 'noteIfDropped("'` → 12); IndexedDB
+`status` is not sanitized on that path and stays with §470. IndexedDB now also contains a
+`documents`/`documentVersions` rich-field throw and records it. Before, that throw fell into the outer
+"IDB unavailable" catch, recorded nothing, and the next save deleted `documents`, `documentVersions`,
+`activityLog`, `budgetHistory` and `documentAssets`. The Turso single-tenant legacy-blob path
+(`jsonToWorkspace(blob, { diag })` in `turso-backend.ts`) reports too. ★ Limit: object-shaped junk in
+`steeringCommittee` or `timelogLinks` is never reported on any backend. Both sanitizers return an object
+with fixed keys for any object input, so `sanitizedToNothing` is never true and that partial loss stays
+silent, as in §617.
 
 A meta slice whose value parses but sanitizes to nothing is dropped silently on both the JSON-file load
 path (`jsonToWorkspace`, `src/app/workspace.ts`) and the IndexedDB load path (`BrowserBackend.load`,
@@ -42293,15 +42314,26 @@ Size S–M.
 **Source:** Task 7's closing comment sweep for §304 (#229), which documents both spots as out of scope and
 noted they "may deserve its own register entry".
 
-## 622. An ordinary, under-cap document paragraph edit that was never blurred is lost when the window closes — open
+## 622. An ordinary, under-cap document paragraph edit that was never blurred is lost when the window closes — CLOSED 2026-09-27
 
-**Status:** open 2026-09-27 — predates batch 7; found via Task 9's work on §185 (closed 2026-09-27 in
-#174). Verified by reading: `grep -n "flushRefusedOnPageHide\|pageHiding" src/app/debounced-save.ts
-src/app/document-block-editors.tsx` returns the §185 flush mechanism, which is wired only from the tooLong
-refusal path in `tryCommit`, not from an ordinary blur-only commit — an in-progress, under-cap edit that
-never blurs never reaches `scheduleDebouncedSave` (`src/app/debounced-save.ts`) at all.
-
-**Work item:** #435
+**Status:** CLOSED 2026-09-27 on fix/defect-batch-8 — a new hook, `useCommitOnPageHide`
+(`src/app/use-commit-on-page-hide.ts`), runs a commit inside `flushSync` on `pagehide`, so the save
+effect re-runs while `debounced-save.ts` knows the page is hiding (`pageHiding`) and writes at once.
+`useBlockDraft` (`document-block-editors.tsx`) now commits every dirty draft on `pagehide`, flattened
+only when a paragraph is over the cap. The guard that returned early unless the paragraph was over the cap
+(§185's `flushRefusedOnPageHide`) is removed. The four block editors that hold a draft in `useBlockDraft`
+(heading, paragraph, bullets, table) each have a case in the "useBlockDraft — an unblurred draft on
+pagehide (§622)" describe (`document-block-editors.test.tsx`), beside "persists an UNDER-cap unblurred
+draft exactly once on pagehide (§622)" and a `pagehide` twin of the concurrent-write abandon case. The
+dataSection picker also uses `useBlockDraft` but commits on change. A tab switch (`visibilitychange`)
+still commits nothing (owner rule, §185). Mutations: M1 (restore the over-cap-only return) → 6 red; M2
+(drop `flushSync`) → 6 red; M3 (also commit on `visibilitychange`) → 3 red; M4 (drop `markDirty(false)`)
+→ 4 red, killed through the §185 "persists it flattened exactly once" cases rather than the unmount case
+the plan predicted, because the `blockChanged` baseline check also stops that double commit. The same
+hook fixes the dashboard narrative (§625) and, from the §625 sweep, the task-row inline cells and assignee
+(through `use-inline-cell-edit.ts`), the roles-editor discipline/grade rename and the templates-section
+rename. A fix round made those two renames drop a draft once blur commits it, so a later `pagehide`
+cannot replay it over a later external change.
 
 An ordinary paragraph edit that stays under `MAX_HTML_TEXT_CHARS` (so it never trips the §185 over-cap
 refusal) and was never blurred — for example, the window closes mid-edit, or a pane narrows away without a
@@ -42431,3 +42463,52 @@ Size S.
 
 **Source:** the §151 census on `docs/accuracy-2`, 2026-09-27, which found five scripts importing app
 code where §151 had recorded one.
+
+## 625. The dashboard status narrative draft is lost on window close — CLOSED 2026-09-27
+
+**Status:** CLOSED 2026-09-27 on fix/defect-batch-8 — `NarrativeEditor`
+(`src/app/dashboard-sections/dashboard-narrative.tsx`) now calls `useCommitOnPageHide(commitNarrative)`,
+§622's hook, so `pagehide` commits a changed draft. An unchanged draft commits nothing, and a tab switch
+commits nothing (owner rule, §185). Pinned by the three cases of the "NarrativeEditor commits via pagehide
+(E1)" describe in `dashboard-narrative.test.tsx`. Filed and closed in the same batch, so it has no work
+item.
+
+The status narrative editor kept its draft (`draftNarrative`) in component state and committed it only on
+blur, Done or Escape. A window close, reload or navigation runs none of those, so a summary that was typed
+and never blurred was lost. It is §622's class, found by the batch-8 verdict pass (2026-09-27), and was not
+registered before this batch.
+
+### The sweep for further editors in the class
+
+Candidates, run in `src/app`:
+
+```bash
+grep -rlE "onBlur=\{" --include=*.tsx . | grep -v "\.test\." | xargs grep -lE "useState\(" | sort
+```
+
+That returns 23 files. `bullets-block-editor.tsx` and `document-table-editor.tsx` get their blur through
+`useBlockDraft` and have no `onBlur={` literal, so they were added by hand: 25 rows. An editor is
+AFFECTED when all three hold: the typed text lives only locally, it reaches the workspace or storage only on
+blur, Enter or Save/Done, and no `onChange` path commits it.
+
+- **COVERED (4):** the dashboard narrative (this entry), and `document-block-editors.tsx`,
+  `bullets-block-editor.tsx` and `document-table-editor.tsx` through `useBlockDraft` (§622).
+- **AFFECTED and converted (3), all synchronous commits:** `task-row.tsx` (the inline cells through
+  `use-inline-cell-edit.ts`, plus the assignee), `roles-editor.tsx` (discipline and grade rename) and
+  `settings-sections/templates-section.tsx` (project-template rename).
+- **AFFECTED and NOT converted (3), all asynchronous commits:** `chat-thread-list.tsx` (thread rename, a
+  Turso fetch through `saveThread`), `settings-sections/comm-templates-section.tsx` (rename and body,
+  Promise-returning `onRename` / `onSaveBody`) and `settings-sections/dictation-section.tsx` (the STT key,
+  sealed with WebCrypto). `useCommitOnPageHide` can only START an async commit inside `pagehide`; nothing
+  guarantees it lands after unload, and a jsdom test with mocked persistence would pass either way. They
+  are proposed as a separate new register entry, pending the owner's decision. That entry is NOT filed
+  here.
+- **NOT (15):** seven modal forms whose Save is the only commit and whose Cancel discards on purpose
+  (the change, milestone, RAID, resource, shift and stakeholder edit modals, and `task-form-fields.tsx`);
+  seven controls whose blur commits no typed data (`chat-panel.tsx`, `info-tooltip.tsx`,
+  `resource-calendar-band.tsx`, `resource-picker.tsx`, `settings-sections/ai-section.tsx`, which seals on
+  change, `storage-config.tsx`, which commits only on Apply, and `type-to-confirm-dialog.tsx`); and
+  `note-log-panel.tsx`, borderline, whose composer and entry edit commit only on Add or Enter, so leaving
+  it was never expected to save.
+
+**Source:** the batch-8 verdict pass (2026-09-27) and `docs/superpowers/specs/2026-09-27-defect-batch-8-design.md` §1.
