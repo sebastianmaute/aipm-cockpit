@@ -475,7 +475,7 @@ describe("§629 — useUnloadJournal on its own", () => {
     const { result } = renderJournal();
     result.current.setBase(WS_1, "p1");
     result.current.holdBase(WS_2);
-    expect(result.current.baseFingerprint()).toBe(fingerprintWorkspace(WS_1)); // the old pair stands
+    expect(result.current.baseFingerprint()).toBe(""); // R7 (Task 3): the hold drops the live base — no pair stands
     result.current.adoptHeldBase("p2");
     expect(result.current.baseFingerprint()).toBe(""); // p1 has no base now; the held one went to p2
   });

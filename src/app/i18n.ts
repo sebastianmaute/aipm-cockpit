@@ -4278,6 +4278,11 @@ const enUS = {
   reloadProjectError: "Could not reload the project. Its data was left unchanged.",
   reloadEmptyConfirm: "Reloading would replace this project with empty data (the saved copy has no records). This usually means a failed read. Reload anyway and discard the current content?",
   storageKeptCurrentData: "Storage returned no data, so your current project was kept. Reload the page if this persists.",
+  // §629 — the unload journal's restore on load (use-unload-journal.ts) and its conflict notice.
+  unloadJournalRestored: "Restored unsaved changes from your last session.",
+  unloadJournalConflict: "Unsaved changes from your last session could not be restored automatically because this project was changed elsewhere since.",
+  unloadJournalRestoreAnyway: "Restore anyway",
+  unloadJournalDiscard: "Discard",
   storageRefusedWipe: "Saving is paused - a large deletion was withheld. Review it in the banner above, or reload the page to restore your saved data.",
   storageSavePausedLoadFailed: "Saving is paused because the project could not be loaded. Changes you make now are not saved. Reload the project to try again.",
   storageSavePausedEmptyLoad: "Saving is paused: this storage returned no data, so the project on screen was kept but is not written into it. Changes you make now are not saved. Check the storage settings, or reload the project to open the empty storage.",

@@ -4033,6 +4033,11 @@ export const de: Record<TranslationKey, string> = {
   reloadProjectError: "Projekt konnte nicht neu geladen werden. Die Daten wurden nicht verändert.",
   reloadEmptyConfirm: "Das Neuladen würde dieses Projekt durch leere Daten ersetzen (die gespeicherte Kopie enthält keine Einträge). Das deutet meist auf einen fehlgeschlagenen Lesevorgang hin. Trotzdem neu laden und den aktuellen Inhalt verwerfen?",
   storageKeptCurrentData: "Der Speicher lieferte keine Daten — Ihr aktuelles Projekt wurde beibehalten. Laden Sie die Seite neu, falls dies weiterhin auftritt.",
+  // §629 — the unload journal's restore on load (use-unload-journal.ts) and its conflict notice.
+  unloadJournalRestored: "Nicht gespeicherte Änderungen aus der letzten Sitzung wurden wiederhergestellt.",
+  unloadJournalConflict: "Nicht gespeicherte Änderungen aus der letzten Sitzung konnten nicht automatisch wiederhergestellt werden, weil dieses Projekt inzwischen anderswo geändert wurde.",
+  unloadJournalRestoreAnyway: "Trotzdem wiederherstellen",
+  unloadJournalDiscard: "Verwerfen",
   storageDestructiveBanner: "Das Speichern ist pausiert. Eine große Löschung wurde zurückgehalten, um Ihr Projekt zu schützen.",
   storageDestructiveBannerAria: "Speichern pausiert - eine große Löschung wurde zurückgehalten",
   storageDestructiveCount: "{0} von {1} Datensätzen würden entfernt.",

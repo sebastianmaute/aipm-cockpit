@@ -62,7 +62,7 @@ import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { GlobalSearchConnected } from "./global-search-box";
-import { BirthdayBanner, JiraTokenBanner, StorageBanner, SavingPausedBanner } from "./notifications";
+import { BirthdayBanner, JiraTokenBanner, StorageBanner, SavingPausedBanner, UnloadJournalConflictBanner } from "./notifications";
 import { classifyStorageError, type StorageErrorKind } from "./storage-error";
 import { useStakeholderComms } from "./use-stakeholder-comms";
 import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
@@ -511,6 +511,7 @@ function TaskManagerInner() {
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId, loadPending, getScopeEpoch, isSwapInFlight,
+    unloadJournalConflict, restoreUnloadJournalAnyway, discardUnloadJournal,
   } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, showToastAction, onRevealSavingPaused: () => { setDestructiveBannerDismissed(false); setLoadPauseBannerDismissed(false); }, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
 
   // Fills the forward-ref declared above `useUndoStack`, so an undo-stack redo
@@ -2965,6 +2966,9 @@ function TaskManagerInner() {
       )}
       {!isPopout && storageError && !storageErrorDismissed && (
         <StorageBanner kind={storageError.kind} lang={lang} onOpenSettings={() => setActiveTab("settings")} onDismiss={() => setStorageErrorDismissed(true)} />
+      )}
+      {unloadJournalConflict && (
+        <UnloadJournalConflictBanner lang={lang} onRestoreAnyway={restoreUnloadJournalAnyway} onDiscard={discardUnloadJournal} />
       )}
       {!isPopout && loadWasIncomplete && (
         <SavingPausedBanner lang={lang} cause={{ kind: "truncation", truncation, decodeFailureCount, malformedQuoteCount }} dismissed={truncationBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowIncompleteSave} onDismiss={() => setTruncationBannerDismissed(true)} onReopen={() => setTruncationBannerDismissed(false)} />

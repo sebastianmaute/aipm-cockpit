@@ -1,7 +1,6 @@
 // src/app/use-unload-journal.ts
 //
-// §629 — the WRITE and CLEAR half of the unload journal (the restore on load
-// is a separate step). The record format, key, fingerprint and the never-throw
+// §629 — WHEN the unload journal is written, cleared and restored. The record format, key, fingerprint and the never-throw
 // storage calls live in unload-journal.ts; this hook owns only WHEN they run:
 //
 // - `noteSaveStarted` — called by `doSave` (use-storage-backend.ts) at the one
@@ -18,20 +17,26 @@
 //   and the key of the target it was loaded from; `holdBase` / `adoptHeldBase`
 //   — the same for a project op, whose target key is not in scope yet when it
 //   applies (see `holdBase`).
+// - `restoreOnLoad` — called by the load effect between a load that passed every
+//   gate and its apply: the journal on a base match, else a published conflict that
+//   `restoreConflict` (Restore anyway) or `discardConflict` (Discard) resolves.
 //
 // See docs/superpowers/specs/2026-09-27-unload-journal-design.md.
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { isPageHiding } from "./debounced-save";
 import { logDiag } from "./diagnostics";
 import { loadRegistry } from "./projects-registry";
 import {
   clearUnloadJournal,
   fingerprintWorkspace,
+  JOURNAL_FINGERPRINT_UNSTABLE_KINDS,
   journalProjectKey,
+  readUnloadJournal,
   writeUnloadJournal,
+  type UnloadJournal,
 } from "./unload-journal";
-import { workspaceToJson, type StorageKind, type Workspace } from "./workspace";
+import { jsonToWorkspace, workspaceToJson, type StorageKind, type Workspace } from "./workspace";
 
 function newTabId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -51,6 +56,29 @@ let lastSavedAt = 0;
 function nextSavedAt(): number {
   lastSavedAt = Math.max(Date.now(), lastSavedAt + 1);
   return lastSavedAt;
+}
+
+/** Ruling R3 — re-writes an APPLIED journal under this page's tab id, its savedAt kept, so the
+ *  confirmation of its save-back (a later savedAt from this tab) clears it through the guard in
+ *  `clearUnloadJournal`; left under the earlier page's id it would never clear. Lifts the savedAt
+ *  counter to it as well, so that save-back is later even if the earlier page's clock ran ahead. */
+function retagToThisTab(journal: UnloadJournal): void {
+  lastSavedAt = Math.max(lastSavedAt, journal.savedAt);
+  const { projectKey, savedAt, baseFingerprint, workspace } = journal;
+  writeUnloadJournal({ projectKey, tabId: UNLOAD_JOURNAL_TAB_ID, savedAt, baseFingerprint, workspace });
+}
+
+/** The journal's workspace, or null when it does not decode — logged, and the key left in place. */
+function journalWorkspace(journal: UnloadJournal): Workspace | null {
+  try {
+    return jsonToWorkspace(journal.workspace);
+  } catch (err) {
+    logDiag("warn", "workspace.unloadJournalCorrupt", {
+      projectKey: journal.projectKey,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
 }
 
 /** The journal's `projectKey` for the storage target in scope. Reads the
@@ -185,10 +213,15 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
   /** ★★★ §629 fix round 1 (I1) — A PROJECT OP APPLIES BEFORE IT FLIPS THE TARGET. The
    *  switch / create / open ops apply the new workspace, THEN set the storage config or
    *  Turso project id (the §77 order, use-storage-backend.ts's load effect), so no key in
-   *  scope at apply time is the target's. The op's workspace is therefore held with NO key,
-   *  and the old base stays in place (still one target's pair) until `adoptHeldBase`. */
+   *  scope at apply time is the target's. The op's workspace is therefore held with NO key
+   *  until `adoptHeldBase`.
+   *  ★★ Ruling R7 — and the live base is dropped meanwhile: scope no longer holds the
+   *  workspace it describes. A journal written in that window (an op that fails between its
+   *  apply and its flip) carries base "", which no fingerprint equals, so it restores as the
+   *  conflict notice, never as a match. */
   const holdBase = useCallback((ws: Workspace): void => {
     heldBaseRef.current = { workspace: ws, savedAt: lastSavedAt };
+    baseRef.current = null;
   }, []);
 
   /** Keys the held op base — called by the load effect's suppress branch, the one run of
@@ -202,6 +235,55 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
 
   const baseFingerprint = useCallback((): string => baseFingerprintFor(projectKeyRef.current), [baseFingerprintFor]);
 
+  /** The key of a journal the last restore found and could not apply (its base did not match). */
+  const [conflictKey, setConflictKey] = useState<string | null>(null);
+
+  /** The restore. `loaded` is what a load that passed every gate returned, `key` the journal key
+   *  of the target it came from. Returns the journal's workspace to apply INSTEAD when the journal's
+   *  base equals `loaded`'s fingerprint (ruling R8: `===` only — a base of "" never matches), re-tagged
+   *  per R3. Otherwise null: on a mismatch, or a kind in `JOURNAL_FINGERPRINT_UNSTABLE_KINDS`, the
+   *  journal is kept and the conflict published. A popout (or a disabled hook) never restores. */
+  const restoreOnLoad = useCallback((loaded: Workspace, key: string, kind: StorageKind): Workspace | null => {
+    if (!activeRef.current) return null;
+    const journal = readUnloadJournal(key);
+    const restored = journal === null ? null : journalWorkspace(journal);
+    if (journal === null || restored === null) {
+      setConflictKey(null);
+      return null;
+    }
+    const comparable = !JOURNAL_FINGERPRINT_UNSTABLE_KINDS.includes(kind);
+    if (comparable && journal.baseFingerprint === fingerprintWorkspace(loaded)) {
+      retagToThisTab(journal);
+      setConflictKey(null);
+      return restored;
+    }
+    setConflictKey(key);
+    return null;
+  }, []);
+
+  /** Restore anyway: the conflicting journal's workspace, re-tagged per R3 — or null when the
+   *  conflict is not the target in scope, or its journal is gone or does not decode. The caller
+   *  applies it and saves it through the normal path. */
+  const restoreConflict = useCallback((): Workspace | null => {
+    if (conflictKey === null || conflictKey !== projectKeyRef.current) return null;
+    setConflictKey(null);
+    const journal = readUnloadJournal(conflictKey);
+    const restored = journal === null ? null : journalWorkspace(journal);
+    if (journal === null || restored === null) return null;
+    retagToThisTab(journal);
+    return restored;
+  }, [conflictKey]);
+
+  /** Discard: removes the conflicting journal, unguarded — the user chose to drop it. */
+  const discardConflict = useCallback((): void => {
+    if (conflictKey === null) return;
+    clearUnloadJournal(conflictKey);
+    setConflictKey(null);
+  }, [conflictKey]);
+
+  /** Published only while the conflicting journal's target is the one in scope. */
+  const conflict = conflictKey !== null && conflictKey === projectKey && enabled && !isPopout;
+
   useEffect(() => {
     const onPageHide = () => {
       if (!activeRef.current) return;
@@ -212,5 +294,8 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
     return () => window.removeEventListener("pagehide", onPageHide);
   }, [write]);
 
-  return { noteSaveStarted, noteSaveConfirmed, baseFingerprint, setBase, holdBase, adoptHeldBase };
+  return {
+    noteSaveStarted, noteSaveConfirmed, baseFingerprint, setBase, holdBase, adoptHeldBase,
+    restoreOnLoad, restoreConflict, discardConflict, conflict,
+  };
 }

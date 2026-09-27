@@ -1,0 +1,350 @@
+// §629 — the unload journal's RESTORE on load (use-unload-journal.ts `restoreOnLoad` and
+// its conflict pair, plus the thin calls in use-storage-backend.ts's load effect). The
+// write and clear halves are tested in use-unload-journal.test.tsx.
+//
+// Two layers:
+//   1. `useStorageBackend` with a fake backend — the spec's Restore branches but "No
+//      journal" (every other storage-hook suite loads without one): match, mismatch
+//      (+ Restore anyway, + Discard), each incomplete-load cause, a failed load, an
+//      empty-load refusal, another project's journal, and a popout.
+//   2. `useUnloadJournal` on its own — ruling R7 (a held op base nulls the live one).
+import { act, renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { t, type Lang } from "./i18n";
+import type { Settings } from "./settings-types";
+import type { StorageConfig } from "./storage";
+import type { Task } from "./types";
+
+vi.mock("./storage", () => ({
+  createBackend: vi.fn(),
+  StorageNotReadyError: class StorageNotReadyError extends Error {
+    hint: string;
+    constructor(hint: string) { super(hint); this.hint = hint; }
+  },
+  StorageNotImplementedError: class StorageNotImplementedError extends Error {
+    hint: string;
+    constructor(hint: string) { super(hint); this.hint = hint; }
+  },
+  openFileForBackend: vi.fn(() => null),
+  loadFromHandleForBackend: vi.fn(),
+  pickFileForBackend: vi.fn(() => null),
+  pickFileHandleForBackend: vi.fn(() => null),
+  pickOpenFileAny: vi.fn(),
+  formatFromFileName: vi.fn(() => "json"),
+  requestWriteAccessForBackend: vi.fn(() => null),
+  setBackendFileHandle: vi.fn(() => null),
+  getBackendFileHandle: vi.fn(() => null),
+}));
+vi.mock("./project-file-handles", () => ({
+  getHandle: vi.fn().mockResolvedValue(null),
+  saveHandle: vi.fn().mockResolvedValue(undefined),
+  deleteHandle: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn() }));
+vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
+
+import * as storageMod from "./storage";
+import { TestProviders } from "./test-providers";
+import { fingerprintWorkspace, UNLOAD_JOURNAL_PREFIX, type UnloadJournal } from "./unload-journal";
+import { useStorageBackend } from "./use-storage-backend";
+import { UNLOAD_JOURNAL_TAB_ID, useUnloadJournal } from "./use-unload-journal";
+import { emptyWorkspace, jsonToWorkspace, workspaceToJson, type Workspace } from "./workspace";
+import { isMassDeletion, workspaceRecordCount } from "./workspace-metrics";
+import { useWorkspace } from "./workspace-context";
+
+const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
+
+// No registry entry and kind "browser" → projectKey "browser".
+const JOURNAL_KEY = `${UNLOAD_JOURNAL_PREFIX}browser`;
+
+const STORED = { tasks: [{ id: 1, taskName: "Stored" } as unknown as Task], raid: [], absences: [], shifts: [] };
+const EMPTY = { tasks: [], raid: [], absences: [], shifts: [] };
+const JOURNALED: Workspace = { ...emptyWorkspace(), tasks: [{ id: 1, taskName: "Stored" }, { id: 2, taskName: "Unsaved" }] as unknown as Task[] };
+
+type Settle = { resolve: () => void; reject: (err: unknown) => void };
+type LoadReport = { lastLoadTruncation?: { entries: number; blocks: number }; lastDecodeFailures?: readonly string[]; lastImportMalformedQuotes?: number };
+
+/** A backend whose load lands after `loadMs`, reporting `report` about that load, and whose
+ *  saves stay pending until the test settles them through `saves`. */
+function makeBackend(loadMs: number, loadOutcome: "resolve" | "reject" = "resolve", stored: object = STORED, report: LoadReport = {}) {
+  const saves: Settle[] = [];
+  return {
+    saves,
+    kind: "browser",
+    ...report,
+    load: vi.fn(() => new Promise((resolve, reject) => {
+      setTimeout(() => (loadOutcome === "resolve" ? resolve(stored) : reject(new Error("load boom"))), loadMs);
+    })),
+    save: vi.fn(() => new Promise<void>((resolve, reject) => { saves.push({ resolve, reject }); })),
+    isReady: vi.fn().mockResolvedValue(true),
+    describe: vi.fn().mockResolvedValue(null),
+  };
+}
+
+const showToast = vi.fn();
+
+function makeArgs(isPopout = false, storageConfig: StorageConfig = { kind: "browser" }): Parameters<typeof useStorageBackend>[0] {
+  return {
+    settings: { storageConfig } as unknown as Settings,
+    lang: "en-US" as Lang,
+    hydrated: true,
+    isPopout,
+    showToast,
+    showToastAction: vi.fn(),
+    onRevealSavingPaused: vi.fn(),
+    setStorageConfig: vi.fn(),
+  };
+}
+
+function useProbe(args: Parameters<typeof useStorageBackend>[0]) {
+  const hook = useStorageBackend(args);
+  const { tasks, setTasks } = useWorkspace();
+  return { ...hook, tasks, setTasks };
+}
+
+function render(args = makeArgs()) {
+  return renderHook((props: { args: Parameters<typeof useStorageBackend>[0] }) => useProbe(props.args), {
+    initialProps: { args },
+    wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+  });
+}
+
+/** Small steps, each in its own `act` — see the same helper in use-storage-backend.load-gate.test.tsx. */
+async function advance(ms: number) {
+  const STEP = 25;
+  for (let done = 0; done < ms; done += STEP) {
+    await act(async () => { await vi.advanceTimersByTimeAsync(Math.min(STEP, ms - done)); });
+  }
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+}
+
+const EARLIER_TAB = "an-earlier-page";
+const EARLIER_SAVED_AT = 1_000;
+
+/** Seeds a journal as an earlier page load would have left it. */
+function seedJournal(baseFingerprint: string, key = JOURNAL_KEY, projectKey = "browser"): UnloadJournal {
+  const rec: UnloadJournal = { v: 1, projectKey, tabId: EARLIER_TAB, savedAt: EARLIER_SAVED_AT, baseFingerprint, workspace: workspaceToJson(JOURNALED) };
+  localStorage.setItem(key, JSON.stringify(rec));
+  return rec;
+}
+
+function readJournal(key = JOURNAL_KEY): UnloadJournal | null {
+  const raw = localStorage.getItem(key);
+  return raw === null ? null : (JSON.parse(raw) as UnloadJournal);
+}
+
+function savedTaskIds(backend: ReturnType<typeof makeBackend>, call: number): number[] {
+  return (backend.save.mock.calls[call] as unknown as [Workspace])[0].tasks.map((x) => x.id as number);
+}
+
+const matchingBase = () => fingerprintWorkspace(STORED as unknown as Workspace);
+const restoredToast = () => showToast.mock.calls.filter((c) => c[1] === t("en-US", "unloadJournalRestored"));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.useFakeTimers({ now: 5_000_000 });
+  localStorage.clear();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe("§629 — the load effect restores the unload journal", () => {
+  it("match: the journal is applied, toasted, SAVED (not suppressed), and cleared when that save confirms (R3)", async () => {
+    seedJournal(matchingBase());
+    const backend = makeBackend(100);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(200);
+
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1, 2]);
+    expect(restoredToast()).toHaveLength(1);
+    expect(result.current.unloadJournalConflict).toBe(false);
+    // R3 — re-tagged to THIS page load, savedAt kept.
+    expect(readJournal()).toMatchObject({ tabId: UNLOAD_JOURNAL_TAB_ID, savedAt: EARLIER_SAVED_AT });
+
+    await advance(600); // the debounce: the restored workspace goes out through the normal path
+    expect(backend.save).toHaveBeenCalledTimes(1);
+    expect(savedTaskIds(backend, 0)).toEqual([1, 2]);
+
+    await act(async () => { backend.saves[0].resolve(); });
+    await advance(0);
+    expect(readJournal()).toBeNull();
+  });
+
+  it("R3 — restore, the save-back confirms, and the key is gone (the confirmation alone clears it)", async () => {
+    seedJournal(matchingBase());
+    const backend = makeBackend(100);
+    createBackendMock.mockReturnValue(backend);
+    render();
+    await advance(800);
+    expect(backend.save).toHaveBeenCalledTimes(1);
+    expect(readJournal()).not.toBeNull(); // still there while the save-back is in flight
+
+    await act(async () => { backend.saves[0].resolve(); });
+    await advance(0);
+    expect(readJournal()).toBeNull();
+  });
+
+  it("match: the restored workspace meets the destructive guard, measured against what the backend RETURNED", async () => {
+    const many = { ...STORED, tasks: Array.from({ length: 400 }, (_, i) => ({ id: i + 1, taskName: `T${i}` })) as unknown as Task[] };
+    seedJournal(fingerprintWorkspace(many as unknown as Workspace)); // JOURNALED holds 2 of those 400
+    // The precondition, measured rather than assumed: decoding seeds reference lists into the journal.
+    expect(isMassDeletion(workspaceRecordCount(many as unknown as Workspace), workspaceRecordCount(jsonToWorkspace(workspaceToJson(JOURNALED))))).toBe(true);
+    const backend = makeBackend(100, "resolve", many);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(200);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1, 2]);
+
+    await advance(600);
+    expect(backend.save).not.toHaveBeenCalled(); // a mass deletion: refused, not written
+    expect(result.current.destructiveRefusal).not.toBeNull();
+  });
+
+  it("mismatch: the loaded workspace applies as today, the journal is kept untouched, and the notice is published", async () => {
+    const seeded = seedJournal("changed-elsewhere");
+    const backend = makeBackend(100);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(800);
+
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(readJournal()).toEqual(seeded);
+    expect(result.current.unloadJournalConflict).toBe(true);
+    expect(restoredToast()).toHaveLength(0);
+    expect(backend.save).not.toHaveBeenCalled(); // the load's own save is suppressed, as today
+  });
+
+  it("mismatch → Restore anyway: the journal is applied, saved, and cleared when that save confirms", async () => {
+    seedJournal("changed-elsewhere");
+    const backend = makeBackend(100);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(800);
+
+    await act(async () => { result.current.restoreUnloadJournalAnyway(); });
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1, 2]);
+    expect(result.current.unloadJournalConflict).toBe(false);
+    expect(readJournal()).toMatchObject({ tabId: UNLOAD_JOURNAL_TAB_ID, savedAt: EARLIER_SAVED_AT });
+
+    await advance(600);
+    expect(backend.save).toHaveBeenCalledTimes(1);
+    expect(savedTaskIds(backend, 0)).toEqual([1, 2]);
+    await act(async () => { backend.saves[0].resolve(); });
+    await advance(0);
+    expect(readJournal()).toBeNull();
+  });
+
+  it("mismatch → Discard: the key is removed, the notice goes, and the loaded workspace stays", async () => {
+    seedJournal("changed-elsewhere");
+    const backend = makeBackend(100);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(800);
+
+    await act(async () => { result.current.discardUnloadJournal(); });
+    expect(readJournal()).toBeNull();
+    expect(result.current.unloadJournalConflict).toBe(false);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+  });
+
+  it.each<[string, LoadReport]>([
+    ["truncated", { lastLoadTruncation: { entries: 1, blocks: 0 } }],
+    ["decode failures", { lastDecodeFailures: ["documentVersions"] }],
+    ["malformed quotes", { lastImportMalformedQuotes: 2 }],
+  ])("an incomplete load (%s): nothing applied, nothing cleared, no notice", async (_label, report) => {
+    const seeded = seedJournal(matchingBase());
+    const backend = makeBackend(100, "resolve", STORED, report);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(800);
+
+    expect(result.current.loadWasIncomplete).toBe(true); // the fake really did report a paused load
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(readJournal()).toEqual(seeded);
+    expect(result.current.unloadJournalConflict).toBe(false);
+    expect(restoredToast()).toHaveLength(0);
+  });
+
+  it("a FAILED load: nothing applied, nothing cleared, no notice", async () => {
+    const seeded = seedJournal(matchingBase());
+    createBackendMock.mockReturnValue(makeBackend(100, "reject"));
+    const { result } = render();
+    await advance(800);
+
+    expect(result.current.loadPause).toBe("load-failed");
+    expect(result.current.tasks).toEqual([]);
+    expect(readJournal()).toEqual(seeded);
+    expect(result.current.unloadJournalConflict).toBe(false);
+  });
+
+  it("an EMPTY-load refusal: nothing applied, nothing cleared, no notice", async () => {
+    const a = makeBackend(100);
+    const b = makeBackend(100, "resolve", EMPTY);
+    createBackendMock.mockReturnValueOnce(a).mockReturnValue(b);
+    const { result, rerender } = render();
+    await advance(700);
+    const seeded = seedJournal(fingerprintWorkspace(EMPTY as unknown as Workspace)); // it WOULD match the empty load
+
+    rerender({ args: makeArgs(false, { kind: "browser" }) });
+    await advance(700);
+    expect(result.current.loadPause).toBe("empty-refused");
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(readJournal()).toEqual(seeded);
+    expect(result.current.unloadJournalConflict).toBe(false);
+  });
+
+  it("another project's journal is ignored and never deleted", async () => {
+    const otherKey = `${UNLOAD_JOURNAL_PREFIX}some-other-project`;
+    const seeded = seedJournal(matchingBase(), otherKey, "some-other-project");
+    const backend = makeBackend(100);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(800);
+
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(readJournal(otherKey)).toEqual(seeded);
+    expect(result.current.unloadJournalConflict).toBe(false);
+    expect(restoredToast()).toHaveLength(0);
+  });
+
+  it("a popout never restores — not on a match, not as a notice", async () => {
+    const seeded = seedJournal(matchingBase());
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const { result } = render(makeArgs(true));
+    await advance(800);
+
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(readJournal()).toEqual(seeded);
+    expect(result.current.unloadJournalConflict).toBe(false);
+    expect(restoredToast()).toHaveLength(0);
+  });
+});
+
+describe("§629 — useUnloadJournal restore on its own", () => {
+  const WS_1: Workspace = { ...emptyWorkspace(), tasks: [{ id: 1, taskName: "One" } as unknown as Task] };
+  const WS_2: Workspace = { ...emptyWorkspace(), tasks: [{ id: 2, taskName: "Two" } as unknown as Task] };
+  const KEY = `${UNLOAD_JOURNAL_PREFIX}p1`;
+
+  it("R7 — holdBase nulls the live base: an op that fails before its config flip journals base \"\", which restores as a notice, never a match", () => {
+    const { result } = renderHook(() => useUnloadJournal({ projectKey: "p1", enabled: true, isPopout: false }));
+    act(() => { result.current.setBase(WS_1, "p1"); });
+    act(() => { result.current.holdBase(WS_2); }); // the op applied; its flip never comes
+    expect(result.current.baseFingerprint()).toBe("");
+
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    try {
+      act(() => { result.current.noteSaveStarted(WS_2); });
+    } finally {
+      Reflect.deleteProperty(document, "visibilityState");
+    }
+    expect(readJournal(KEY)!.baseFingerprint).toBe("");
+
+    let applied: Workspace | null = WS_2;
+    act(() => { applied = result.current.restoreOnLoad(WS_1, "p1", "browser"); });
+    expect(applied).toBeNull();
+    expect(result.current.conflict).toBe(true);
+  });
+});

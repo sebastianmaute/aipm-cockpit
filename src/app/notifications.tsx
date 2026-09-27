@@ -119,6 +119,27 @@ export function StorageBanner({
   );
 }
 
+/** §629 — the unload journal's conflict notice: the last session's unsaved changes were kept
+ *  but not applied, because the project changed elsewhere since. No dismiss: it stays until the
+ *  user decides, since the journal it describes stays in storage until then. */
+export function UnloadJournalConflictBanner({
+  lang, onRestoreAnyway, onDiscard,
+}: { lang: Lang; onRestoreAnyway: () => void; onDiscard: () => void }) {
+  return (
+    <AlertBanner severity="warn" ariaLabel={t(lang, "unloadJournalConflict")} icon="⚠"
+      actions={<>
+        <Button variant="primary" size="xs" onClick={onRestoreAnyway}>
+          {t(lang, "unloadJournalRestoreAnyway")}
+        </Button>
+        <Button variant="secondary" size="xs" onClick={onDiscard}>
+          {t(lang, "unloadJournalDiscard")}
+        </Button>
+      </>}>
+      <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "unloadJournalConflict")}</p>
+    </AlertBanner>
+  );
+}
+
 /** WHY saving is paused. The two causes cannot be active at once, and it takes
  *  TWO mechanisms.
  *  See `use-destructive-save-guard.ts`'s header. */
