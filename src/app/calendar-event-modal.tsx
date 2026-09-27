@@ -34,10 +34,11 @@
 // give them purpose ship (0.203.0).
 
 import { useState } from "react";
-import { type Lang, type TranslationKey, t } from "./i18n";
+import { type Lang, t } from "./i18n";
 import { clampRangeEnd } from "./date-range";
 import { parseUtc } from "./calendar-window";
 import { weekdayIndex } from "./recurrence";
+import { INTERVAL_UNIT_KEY, ORDINAL_LABEL_KEY, WEEKDAY_LABEL_KEY } from "./calendar-recurrence-labels";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { MODAL_HELP } from "./help-content";
 import { FieldHint } from "./field-hint";
@@ -96,32 +97,6 @@ interface Props {
 }
 
 const ORDINALS: readonly Ordinal[] = [1, 2, 3, 4, -1];
-
-// Reuses the existing weekday-abbreviation keys (shift-edit-modal's own
-// weekday grid uses the same set) rather than minting a second copy.
-const WEEKDAY_LABEL_KEY: Record<Weekday, TranslationKey> = {
-  MO: "shiftDayMon",
-  TU: "shiftDayTue",
-  WE: "shiftDayWed",
-  TH: "shiftDayThu",
-  FR: "shiftDayFri",
-  SA: "shiftDaySat",
-  SU: "shiftDaySun",
-};
-
-const ORDINAL_LABEL_KEY: Record<Ordinal, TranslationKey> = {
-  1: "calendarEventOrdinal1",
-  2: "calendarEventOrdinal2",
-  3: "calendarEventOrdinal3",
-  4: "calendarEventOrdinal4",
-  [-1]: "calendarEventOrdinalLast",
-};
-
-const INTERVAL_UNIT_KEY: Record<"daily" | "weekly" | "monthly", TranslationKey> = {
-  daily: "calendarEventIntervalUnitDaily",
-  weekly: "calendarEventIntervalUnitWeekly",
-  monthly: "calendarEventIntervalUnitMonthly",
-};
 
 export function CalendarEventModal({ lang, event, isNew, onSave, onDelete, onClose }: Props) {
   const [prevEvent, setPrevEvent] = useState(event);
