@@ -33,7 +33,7 @@
 //    grep -rn "export . TableBlockEditor" src/app/document-block-editors.tsx
 //    grep -rn 'from "./document-table-editor"' src/app --include=*.tsx
 import { useState, useRef, useEffect, useId } from "react";
-import { flushSync } from "react-dom";
+import { useCommitOnPageHide } from "./use-commit-on-page-hide";
 import { RichTextEditor } from "./rich-text-editor-lazy";
 import { paragraphHasImage, blockChanged, normalizeBlockForStorage, exceedsStorageCaps } from "./document-editor-commit";
 import { t, type Lang } from "./i18n";
@@ -421,55 +421,29 @@ export function useBlockDraft<T, B extends DocBlock>(
     markDirty(false);
   };
 
-  // ★★★ §185 — THE UNLOAD EXIT FOR A REFUSED OVER-CAP DRAFT. Before the
-  //  refusal, the blur committed the flattened form and the workspace save's
-  //  flush-on-hide (debounced-save.ts) persisted it; now the refused draft lives
-  //  only in this component, and closing or reloading the window runs no React
-  //  cleanup, so the unmount flush never fires. `pagehide` (a close, a reload,
-  //  a navigation) commits it FLATTENED, the owner's "save flattened, nothing
-  //  lost".
-  //  ★★★ NOT `visibilitychange` → hidden, by OWNER DECISION: that signal is
-  //   also a tab switch or a minimise, which must keep the rich draft, its
-  //   notice and its dirty flag. Only a real unload flattens.
-  //  ★★ `flushSync` IS THE ORDERING, not a nicety: the save captures its
-  //   workspace per effect run, so the commit must re-render the provider and
-  //   re-run the save effect INSIDE this event (React flushes a sync render's
-  //   passive effects synchronously). That re-run is written AT ONCE because
-  //   debounced-save.ts knows the page is hiding (`pageHiding`). Nothing else
-  //   would write it: on a tab close the page hid first and the save's
-  //   hide-flush has already run, the timer never fires on an unload, and a
-  //   `pagehide` listener added mid-dispatch is not invoked. Pinned in both
-  //   event orders × both listener orders by "persists it flattened exactly
-  //   once" in document-block-editors.test.tsx.
-  //  ★ A plain bubble listener on purpose. jsdom (unlike Chromium) invokes a
-  //   bubble listener that a CAPTURE listener adds at the target, so a capture
-  //   listener here would let the tests pass through the save's re-armed
-  //   listener, which the browser never calls, and hide a broken `pageHiding`.
-  //  ★ Only a draft that is dirty AND over the cap: every other draft waits for
-  //   its blur as before. The dirty flag is cleared in the same statement as
-  //   the commit, like every other `tryCommit` caller (the ★★★ invariant on
-  //   `preCommitStoredRef`), so the editor adopts what was saved and a later
-  //   `pagehide` or the unmount flush stops at its dirty guard.
-  const flushRefusedOnPageHide = () => {
+  // ★★★ §185 + §622 — THE UNLOAD EXIT FOR EVERY DIRTY DRAFT. A window close,
+  //  reload or navigation runs no React cleanup, so the unmount flush below
+  //  never fires and an unblurred draft would be LOST. `pagehide` commits it:
+  //  an over-cap paragraph FLATTENED (the owner's "save flattened, nothing
+  //  lost" — no notice can render during an unload), every other draft as is.
+  //  §622: this used to return early unless the paragraph was over the cap, so
+  //  an ordinary edit in any block type was lost on close.
+  //  ★★★ The listener, the `flushSync` ordering and the no-`visibilitychange`
+  //   owner rule live in `useCommitOnPageHide`; read its header before changing
+  //   this.
+  //  ★ The dirty flag is cleared in the same statement as the commit, like every
+  //   other `tryCommit` caller (the ★★★ invariant on `preCommitStoredRef`), so
+  //   the editor adopts what was saved and the unmount flush stops at its dirty
+  //   guard. An emptied draft is refused inside `tryCommit`, and a concurrent
+  //   write still abandons it (`externallyWritten`), exactly as on a blur.
+  //  Pinned by "persists it flattened exactly once" (§185) and the §622
+  //  describe in document-block-editors.test.tsx.
+  useCommitOnPageHide(() => {
     if (!dirtyRef.current) return;
     const raw = toBlock(liveValueRef.current);
-    if (!paragraphOverCap(raw)) return;
-    flushSync(() => {
-      tryCommit(raw, true);
-      markDirty(false);
-    });
-  };
-  const pageHideFlushRef = useRef(flushRefusedOnPageHide);
-  useEffect(() => {
-    pageHideFlushRef.current = flushRefusedOnPageHide;
+    tryCommit(raw, paragraphOverCap(raw));
+    markDirty(false);
   });
-  useEffect(() => {
-    const onPageHide = () => pageHideFlushRef.current();
-    window.addEventListener("pagehide", onPageHide);
-    return () => {
-      window.removeEventListener("pagehide", onPageHide);
-    };
-  }, []);
 
   useEffect(() => {
     return () => {
