@@ -28,6 +28,7 @@ import { useTursoProjectOps } from "./use-storage-turso-ops";
 import { useFileProjectOps, useStorageFilePickerOps } from "./use-storage-file-ops";
 import { useLoadTruncation } from "./use-load-truncation";
 import { useDestructiveSaveGuard } from "./use-destructive-save-guard";
+import { resolveJournalProjectKey, useUnloadJournal } from "./use-unload-journal";
 import type { ToastAction } from "./use-toast";
 import type { UseStorageBackendArgs } from "./use-storage-backend-types";
 
@@ -355,6 +356,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const [savesAllowedFor, setSavesAllowedFor] = useState<ReturnType<typeof createBackend> | null>(null);
   const savesAllowedForRef = useRef<ReturnType<typeof createBackend> | null>(null);
   const savesAllowed = savesAllowedFor !== null && savesAllowedFor === backend;
+  // §629 — the unload journal (use-unload-journal.ts). Re-read per storage config: an op commits the registry in the same tick as the config change.
+  const journalProjectKey = useMemo(() => resolveJournalProjectKey(args.settings.storageConfig.kind, tursoProjectId), [args.settings.storageConfig, tursoProjectId]);
+  const unloadJournal = useUnloadJournal({ projectKey: journalProjectKey, enabled: args.hydrated, isPopout: args.isPopout });
   // ★ A `const`, not a `function` declaration: `use-load-truncation.test.ts` keys each `.save(` on the
   // nearest preceding DECLARATION, and one here would rename the `flushCurrent` write's key below.
   const allowSavesTo = (target: ReturnType<typeof createBackend>): void => {
@@ -466,6 +470,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   Anything that replaces the workspace with ANOTHER PROJECT's must go through
   //   `applyWorkspaceForOp` below instead. The old bare name made the wrong one the obvious one.
   const applyWorkspaceFromLoad = (workspace: Workspace, seedMode: "reset" | "raise" = "reset", logMode: "merge" | "replace" = "replace") => {
+    unloadJournal.setBase(workspace); // §629 R2 — the journal base is what the backend RETURNED, before anything below adjusts it
     // ★★★ NO MIGRATION HAS EVER BACK-FILLED `Task.resourceId` FOR A REAL
     // PROJECT, on any backend. Two near-misses make it look otherwise and both
     // were written into an earlier version of this comment before being
@@ -864,8 +869,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // together with the effect-level check turns (a) (b) (c) (e) (h) (i) red. It is here for a future
       // path that schedules without that check.
       if (savesAllowedForRef.current !== backend) return;
+      const journalSavedAt = unloadJournal.noteSaveStarted(outgoing); // §629 — here, past every guard: the save below really fires
       backend.save(outgoing).then(() => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
         committedBaselineRef.current = { collections: curCollections, records: curRecords }; // the write landed: these are on disk now
+        unloadJournal.noteSaveConfirmed(journalSavedAt, outgoing); // §629 — clears this tab's journal for it and rolls the base forward
         emitOutcome(null);
       }).catch((err) => {
         // ★★★ PUT THE BASELINES BACK — nothing was written, so the guard must not

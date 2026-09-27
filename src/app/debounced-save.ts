@@ -36,6 +36,12 @@ if (typeof window !== "undefined") {
   window.addEventListener("pageshow", () => { pageHiding = false; });
 }
 
+/** Read-only view of the `pageHiding` flag above — §629's unload journal writes at once
+ *  while it is true. Reading it changes nothing here. */
+export function isPageHiding(): boolean {
+  return pageHiding;
+}
+
 /** Debounce `save` by `delayMs`, flushing early if the page is hidden or
  *  unloaded. Returns the cleanup to run when the effect re-runs or unmounts.
  *
