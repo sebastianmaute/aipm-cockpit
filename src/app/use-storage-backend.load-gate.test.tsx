@@ -128,6 +128,10 @@ async function advance(ms: number) {
   await act(async () => { await vi.advanceTimersByTimeAsync(0); });
 }
 
+// ★ The `pagehide` below leaves `debounced-save.ts`'s module-level `pageHiding`
+//  flag TRUE for the rest of the test, so any save scheduled after a hideTab()
+//  takes the immediate path, not the debounce. vitest.setup.ts dispatches
+//  `pageshow` after each test to reset it (jsdom never fires one).
 function hideTab() {
   Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
   document.dispatchEvent(new Event("visibilitychange"));
