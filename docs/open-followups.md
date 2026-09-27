@@ -26951,12 +26951,13 @@ which of those two properties is worth more before writing code.
 ## 320. The HTML and PDF exports tell the reader a policy-refused image's data is gone — CLOSED 2026-09-26
 
 **Status:** CLOSED 2026-09-26 on `fix/defect-batch-7` — both HTML/PDF sites, plus the OOXML half.
-`ExportAssets` gained a fourth bucket, `blocked` (the stored type is refused, whatever the state of
-the bytes — policy takes precedence over the missing bucket; an EMPTY mime is still not refused, §225). `loadExportAssets` takes an
+`ExportAssets` gained a fourth bucket, `blocked` (bytes present, stored type refused; an EMPTY mime is
+still not refused, §225 — a row with no bytes stays in `missing`, but site two below shows it as refused anyway). `loadExportAssets` takes an
 `isBlocked` predicate asked AFTER the null-row check and BEFORE `isRenderable` and the budget, so a
 refusal is never charged and never lands in `missing`; `assetPolicy` (`document-download.ts`) passes
 the same predicate to all four formats. Site two: `inlineDocumentImages` (`doc-render-html.ts`) now
-checks the bucket OR the stored mime FIRST and renders `<span data-asset-blocked>` with the escaped
+checks the bucket OR the stored mime FIRST (so a refused type wins over the `missing` bucket, whatever the
+state of the bytes) and renders `<span data-asset-blocked>` with the escaped
 `assetExportBlocked` text ("[Image not shown — file type not allowed: name]"), so `assetSrcAttr` no
 longer sees a disallowed truthy mime and cannot fall through to `data-asset-missing` for it; the
 standalone stylesheet gained its own palette-safe `span[data-asset-blocked]` rule. The OOXML half the
