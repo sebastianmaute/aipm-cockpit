@@ -1,20 +1,21 @@
 # Budget — the EUR boundary, earned value, and the Budget panel's cell layer
 
-Owns the budget engine's money: the FX boundary (`fx.ts`) and the rule that every figure the engine
-produces is EUR, how the plan's and a bucket's currency are sanitised on load, the budget-follows-plan
+Owns the budget engine's money: the FX boundary (`fx.ts`) and the rule that the engine treats every
+figure as EUR, how the plan's and a bucket's currency are sanitised on load, the budget-follows-plan
 mirroring rule the panel and the engine share, bucket earned value (Phase C EVM), and the Budget
 panel's module map and column arithmetic.
 
-Does NOT own the dashboard's budget tiles and FX rollup caption
-([`dashboard.md`](dashboard.md)), the `budgetHistory` meta-blob slice
+Does NOT own the dashboard's budget tiles ([`dashboard.md`](dashboard.md)), the `budgetHistory` meta-blob slice
 ([`activity-log.md`](activity-log.md) "Sibling slice: `budgetHistory`"), the role rate card
 ([`platform.md`](platform.md) "Rate card = DAY rates"), the six-write-paths rule (`AGENTS.md`), or
 the shared table header `SortResizeTh` ([`ui-shell.md`](ui-shell.md)). One fact, one doc.
 
-★★★ **EVERY FIGURE THE BUDGET ENGINE PRODUCES IS EUR, AND EXACTLY ONE STORED FIELD IS NOT.** Role
-rates are EUR by construction and are converted nowhere. `BudgetBucket.fixedPriceAmount` is stored
-in the BUCKET's currency and is the one figure that passes through `currencyToEur`. A new money term
-is EUR unless it reads that field; converting anything else is a second conversion.
+★★★ **THE BUDGET ENGINE TREATS EVERY FIGURE AS EUR, AND EXACTLY ONE STORED FIELD IS CONVERTED.** Role
+rates are TREATED as EUR and converted nowhere. Nothing enforces that: nothing decides what currency
+a role rate is in, and the `ResourcePlan.currency` docstring says they are in the plan currency
+(§473, below). `BudgetBucket.fixedPriceAmount` is stored in the BUCKET's currency and is the one
+figure that passes through `currencyToEur`. A new money term is EUR unless it reads that field;
+converting anything else is a second conversion.
 
 ## The FX boundary (`fx.ts`)
 
@@ -32,11 +33,12 @@ is EUR unless it reads that field; converting anything else is a second conversi
   from `resolveRate(...) === 1`. Ask `resolveRateSource`. `bucketCurrencyLabel`
   (`budget-currency-label.ts`) is shared by the Budget panel and the Budget report so both
   surfaces decide the `(×rate)` / no-rate marker from the SOURCE (§474, closed).
-- ★ **Only a FIXED-PRICE bucket can be summed at par.** A T&M bucket's money is hours × EUR role
-  rates and is never converted, so a missing rate changes none of its figures.
+- ★ **Only a FIXED-PRICE bucket can be summed at par.** A T&M bucket's money is hours × role rates
+  (treated as EUR) and is never converted, so a missing rate changes none of its figures.
   `countUnresolvedBuckets` counts fixed-price buckets only, and `BudgetFxRollupNotice` renders that
   count under the EUR project rollup. The report's detail table (`detailRowRateSource` and the
-  `currencyLabel` in `BucketDetailTable`) renders a T&M row bare for the same reason. The Budget
+  `currencyLabel` in `BucketDetailTable`) renders an UNRESOLVED T&M row bare for the same reason; a
+  T&M row with a resolved rate still gets `bucketCurrencyLabel`'s `(×rate)` suffix. The Budget
   panel's bucket CARD keeps the marker for T&M too, because the card displays through
   `eurToCurrency` at that same rate.
 - **The conversion sites.** Every `currencyToEur` call converts `fixedPriceAmount`:
@@ -65,9 +67,11 @@ is EUR unless it reads that field; converting anything else is a second conversi
   in `SUPPORTED_CURRENCIES`, so a table decodes byte-stably through a JSON round trip (§576,
   closed). They also ROUND every other rate to 6 decimals. A bucket's `fxRateOverride` is rounded
   separately, to 4 decimals, by the bucket sanitizer in `sanitize-entities.ts`.
-- ★ `displayHours` (`budget-panel-totals.tsx`) rounds READ-ONLY (mirrored) hours to 2 decimals for
-  DISPLAY only. The stored and aggregated values keep their float noise. Editable cells are not
-  rounded, because rounding while the user types fights the input.
+- ★ `displayHours` (`budget-panel-totals.tsx`) rounds READ-ONLY hours to 2 decimals for DISPLAY
+  only. Three cases reach it: a mirrored budget cell, an actual cell locked because its hours come
+  from TimeLog, and every `TotalsTd` figure. The stored and aggregated values keep their float
+  noise. Editable cells are not rounded, because rounding while the user types fights the input.
+  Re-derive the cases with `grep -n "displayHours(" src/app/budget-panel-totals.tsx`.
 
 ## Currency on the plan, and the load paths
 
@@ -89,11 +93,11 @@ is EUR unless it reads that field; converting anything else is a second conversi
 
 - `effectiveBudgetHours` (`budget-report.ts`) is the rule: when `plan.budgetFollowsPlan` is on AND
   the allocation has resources, a period's budget hours are the live planned capacity, otherwise the
-  stored `budgetHours` entry. The panel's `cellBudget`, the report, the burn-down and the rate-mix
-  signal all call it. Re-derive the callers with
+  stored `budgetHours` entry. The panel's `cellBudget`, the report, the burn-down, the rate-mix
+  signal and the budget-variance detector (`insights/detect.ts`) call it. Re-derive the callers with
   `git grep -n "effectiveBudgetHours(" -- src/app ':!*.test.*'`.
-- ★ Mirrored cells are read-only in the panel, and their values carry float noise. That is why
-  `displayHours` rounds them for display.
+- ★ Mirrored cells are read-only in the panel (`readOnly={mirror}`), and their values carry float
+  noise. That is one reason `displayHours` rounds read-only cells for display.
 
 ## Budget bucket earned value (Phase C EVM, ★)
 
@@ -111,12 +115,13 @@ is EUR unless it reads that field; converting anything else is a second conversi
   when `pct` is `null`.
 - `budget-report.ts` folds `earnedValue` and `costPerformanceIndex` (earned value ÷ actual cost,
   guarded on `cost > 0`) into both `BucketReport` and the project rollup.
-  `costPerformanceIndexHealth` (`budget-health.ts`) bands the 0-1 ratio at the same thresholds as
-  the percent-flavoured `costPerformanceHealth`, divided by 100 (`COST_PERF_RED`/`COST_PERF_AMBER`),
-  so the two scales never collide.
+  `costPerformanceIndexHealth` (`budget-health.ts`) bands the raw ratio (1 = on budget; it can
+  exceed 1) as R < 0.8, A < 0.9, G >= 0.9. Those are the percent-flavoured `costPerformanceHealth`
+  thresholds (`COST_PERF_RED` = 80, `COST_PERF_AMBER` = 90) divided by 100, so the two scales never
+  collide.
 - ★★ **THE PROJECT ROLLUP IS ALL-OR-NOTHING.** `projectEarnedValue` and
-  `projectCostPerformanceIndex` are `null` unless every bucket with a budgeted cost above zero has a
-  known `earnedValue`. A bucket with no budgeted cost is exempt. One unscored bucket blanks the
+  `projectCostPerformanceIndex` are `null` unless at least one bucket has a budgeted cost above zero
+  AND every such bucket has a known `earnedValue`. A bucket with no budgeted cost is exempt. One unscored bucket blanks the
   rollup rather than summing a partial figure, which is the same stance as `costIsKnowable`.
 - **The tile.** The Budget panel's "Internal cost index" tile (`budgetCciInternalCostIndex`, the
   third of four `Cci` tiles in each row; `grep -n "<Cci label" src/app/budget-panel.tsx`) renders
@@ -129,7 +134,10 @@ is EUR unless it reads that field; converting anything else is a second conversi
   (`docs/superpowers/specs/2026-09-14-budget-forecast-union-design.md` §11 "Three indices, one
   word"), introduced a price-based CPI/SPI pair on the forecast cards, so a bare "CPI"/"SPI" now
   means THAT index. This tile became "Internal cost index", and the hours ratio (keys `evmCpi` and
-  `evmSpi`, unchanged) is rendered "Effort CPI"/"Effort SPI". ★ The dead spellings budgetCciCpi,
+  `evmSpi`, unchanged) is rendered "Effort CPI"/"Effort SPI" on the Dashboard (the KPI strip, and the
+  variance summary through `variance-format.ts`), the Budget report and Trends (the keys there are
+  `trendKpiCpi`/`trendKpiSpi`;
+  `git grep -ln "evmCpi\|trendKpiCpi" -- src ':!*.test.*'`). ★ The dead spellings budgetCciCpi,
   budgetCciCpiHint, budgetCciRecovery and budgetCciRecoveryHint are deliberately un-backticked here:
   all four were renamed out of the codebase, and `docs:symbols:check` fails on a backticked
   mixed-case name that exists nowhere.
@@ -138,8 +146,9 @@ is EUR unless it reads that field; converting anything else is a second conversi
 
 ## Budget panel module map (gantt pattern)
 
-`budget-panel.tsx` is the orchestrator (state, derivation, the bucket cards, the CCI tiles). The
-bucket table's CELL layer is the presentational leaf `budget-panel-totals.tsx`: `HoursCell`/`HoursTd`
+`budget-panel.tsx` is the orchestrator: state, derivation, and the layout of the bucket cards and
+the CCI tiles it mounts. The tile component `Cci` and the manual-percent editor `ManualPercentCell`
+live in the leaf `budget-panel-cards.tsx`. The bucket table's CELL layer is the presentational leaf `budget-panel-totals.tsx`: `HoursCell`/`HoursTd`
 (the editable period cells), `TotalsTd` (the fixed Total column's cells and every cell of a bucket
 total row), `BucketRowLeadCells` (the three PINNED leading cells: RAG dot · label · Total),
 `BucketTotalRow`, `RowDot`, and the pure `bucketBudgetGrid` arithmetic. It was split out to keep
@@ -151,7 +160,9 @@ the orchestrator under the size ratchet, which was 800 at the time. The per-pers
   hardcoded offset drifts the moment it is dragged. That arithmetic holds only while every column to
   a pinned one's LEFT renders exactly as wide as it declares, and TWO independent mechanisms break
   that. `table-layout: auto` lets CONTENT push a column past its declared width, so the dot header's
-  label is `sr-only`. A `w-full` table spreads LEFTOVER width across every column, pinned ones
+  label is `sr-only` and the role cells are clamped (`BucketRowLeadCells` gives the role `<td>`
+  `truncate` plus `width` and `maxWidth` equal to the role width; without it a long discipline name
+  grows the cell and the pinned Total sits on top of the label). A `w-full` table spreads LEFTOVER width across every column, pinned ones
   included, so the table is `w-max`. ★ The `w-max` cost is real and deliberate: a short plan no
   longer stretches to fill the pane. ★ jsdom has no layout, so nothing in the unit suite can see any
   of this. The tests pin the class and offset plumbing only, and the geometry was measured in
@@ -201,7 +212,8 @@ comments).
 ## Open register entries
 
 §470 (the IndexedDB plan path sanitises only the currency) · §473 (a non-EUR plan) · §476 (the
-baseline currency is hardcoded EUR) · §477 (only three currencies; INR wanted) · §545 (the AI
+baseline currency is hardcoded EUR) · §477 (only three currencies; INR wanted) · §500 (budget
+forecast hours cannot be imported from a spreadsheet) · §545 (the AI
 dashboard snapshot and the exports carry no budget forecast figures) · §551 (the dead snapshot
 `currency` column). This list was read off the register on 2026-09-27 and is not gated. Re-check
 it against the headings, since a `budget` search also returns entries about other budgets.

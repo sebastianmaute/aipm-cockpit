@@ -1042,9 +1042,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `REPORTS_*_COL_WIDTHS` consts and `AssigneeSort`/`GroupOrLabelSort` types). One-way dep (reports →
   reports-tables → reports-stats); per-type report engines/panels (budget/raid/resource/stakeholder) live
   in their own files. Reports IS in axe `A11Y_VIEWS`.
-- **Budget, FX and the Budget panel → [`docs/AGENTS/budget.md`](docs/AGENTS/budget.md).** Every figure the
-  budget engine produces is EUR; `fixedPriceAmount` is the one stored field that is not, and `currencyToEur`
-  converts it at the engine's read. That file owns the FX boundary, earned value and the panel's pinned-column arithmetic.
+- **Budget, FX and the Budget panel → [`docs/AGENTS/budget.md`](docs/AGENTS/budget.md).** The budget
+  engine treats every figure as EUR (§473); `fixedPriceAmount` is the one stored field it converts, with
+  `currencyToEur`. That file owns the FX boundary, earned value and the panel's pinned-column arithmetic.
 - **Tables — `SortResizeTh<K>` + `TableFilter` (`report-table.tsx`) → [`docs/AGENTS/ui-shell.md`](docs/AGENTS/ui-shell.md)
   "tables" section.** Every sortable header in the app flows through `SortResizeTh`, which owns
   `aria-sort` and the `aria-hidden` sort glyph — never hand-roll a sort header. ★★ `stickyLeft` turns
