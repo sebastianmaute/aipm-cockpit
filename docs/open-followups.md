@@ -853,6 +853,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§623](#623-loadexportassets-loads-the-bytes-of-a-policy-refused-asset-before-discarding-them--open) | `loadExportAssets` loads the bytes of a policy-refused asset before discarding them | — | — | open |
 | [§624](#624-ai-evalts-and-update-ooxml-manifestts-import-the-dom-free-sanitizer-graph-with-no-dom-and-nothing-proves-they-never-reach-a-dompurify-call--open) | `ai-eval.ts` and `update-ooxml-manifest.ts` import the DOM-free sanitizer graph with no DOM, and nothing proves they never reach a DOMPurify call | — | — | open |
 | [§628](#628-the-undo-stack-survives-a-project-switch-so-an-undo-writes-the-previous-projects-rows-into-the-current-one--closed-2026-09-27) | The undo stack survives a project switch, so an undo writes the previous project's rows into the current one | — | — | **CLOSED** 2026-09-27 |
+| [§631](#631-the-desktop-shell-reuses-a-leftover-server-without-checking-its-version-so-an-orphan-could-serve-an-old-build-after-an-update--open) | The desktop shell reuses a leftover server without checking its version, so an orphan could serve an old build after an update | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -42604,3 +42605,51 @@ next autosave persisted it to B. Found by a cold review of `docs/AGENTS/undo.md`
 the cross-project behaviour unmeasured; the review answered it with a code trace plus an engine-level probe
 over `undo-stack.ts` (A deletes task 2 and edits task 3; after a swap to B = [1, 3, 7] an undo gave
 `[B1, A2-deleted, A3-before-edit, B7]`). It was not driven in a browser.
+
+## 631. The desktop shell reuses a leftover server without checking its version, so an orphan could serve an old build after an update — open
+
+**Status:** open 2026-09-27 — found by reading the code only; no orphan server was produced and the app
+was not run. Low severity (latent). The two code facts it rests on were re-checked by grep:
+`grep -n "OURS_MARKER" desktop/src/lib/port-owner.ts` shows the attribute is only tested for presence,
+never read as a value, and `grep -n "serverChild = spawnServer" desktop/src/main.ts` returns the one
+assignment, inside the `owner === "free"` branch.
+
+**Work item:** #449
+
+**The mechanism.** `start()` in `desktop/src/main.ts` probes the pinned port and asks `classifyPortOwner`
+(`desktop/src/lib/port-owner.ts`) who holds it: unreachable is `free`, a body matching
+`/data-app-version\s*=\s*["']/` is `ours`, anything else is `foreign`. The attribute comes from
+`data-app-version={APP_VERSION}` in `src/app/layout.tsx`, so the old version number IS in the body, but
+nothing compares it with the running build. Only the `free` branch calls `spawnServer` and assigns
+`serverChild`; an `ours` result loads the page it found, and `serverChild` stays `null`, so that launch's
+`before-quit` / `process.on("exit")` call `killServer(null)`, which kills nothing. A leftover server is
+therefore reused silently and the app cannot kill it.
+
+**The preconditions**, all needed for the stale-version case:
+1. version N spawned the server (`free`);
+2. its main process died without running `before-quit` or the `exit` handler — a hard crash, or
+   ending only the browser process in Task Manager;
+3. the server, a `utilityProcess.fork` child (`server-child.ts` `spawnServer`), outlived its parent and
+   kept listening;
+4. the version N+1 installer replaced the files and the orphan was still alive afterwards;
+5. N+1 launched, classified the port `ours`, and loaded N's page — on every launch until the orphan dies
+   or the machine reboots.
+
+**Why the normal update paths are safe.** "Restart now" (`quitAndInstall(true, true)` in
+`desktop/src/updater.ts`) and "On next quit" (`autoInstallOnAppQuit`) both quit through `before-quit`,
+whose `killServer` runs `taskkill /PID <pid> /T /F` synchronously, so they leave no orphan. Steps 3 and 4
+are REASONED, not measured: a Chromium utility process normally ends when its IPC channel to the browser
+process drops, and electron-builder's default NSIS installer (`desktop/electron-builder.yml` has no custom
+NSIS include) closes the app's running processes before it overwrites the files. Neither has been verified
+in this repo. ★ An `ours` result can also be another live instance's server, which the single-instance
+lock makes rare.
+
+What would close it — either of two cheap fixes:
+- compare the probed `data-app-version` value with the build's own version, and on a mismatch treat the
+  holder as stale (fail loudly, or kill it);
+- or have the child write its pid, so an `ours` launch can adopt the server and kill it on quit.
+
+Size S.
+
+**Source:** the desktop server-lifecycle verdict in the docs-coverage slice, which checked the
+`before-quit` comment in `desktop/src/main.ts` against `classifyPortOwner`, `probePort` and `start()`.
