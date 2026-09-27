@@ -680,7 +680,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§450](#450-keys-in-both-dictionaries-dodge-plural-agreement-with-a-parenthetical-plural-and-every-detector-for-this-class-is-blind-to-them-by-construction--open) | Keys in both dictionaries dodge plural agreement with a parenthetical plural, and every detector for this class is blind to them by construction | found 2026-09-08 while measuring §415's disputed count | M-L — tier it: 8 activity keys, then the sentence keys, then the multi-count and unit-label cases; add a value-axis detector | **OPEN** |
 | [§451](#451-a-tree-scanning-i18n-test-sits-at-25s-against-the-20s-testtimeout-so-it-reds-under-load-and-its-red-looks-like-a-content-failure--open) | A tree-scanning i18n test sits at ~25s against the 20s testTimeout, so it reds under load and its red looks like a content failure | found 2026-09-08 in the pre-merge gate run for the §415 B fix | S — hoist the per-base regexes out of the line loop; do NOT raise the global timeout | **OPEN** |
 | [§452](#452-the-c1-chat-history-budget-is-deliberately-not-built-a-trim-saves-tokens-at-01x-and-pays-a-125x-rewrite-so-payback-needs-tens-of-further-turns--open) | The C1 chat-history budget is deliberately not built: a trim saves tokens at 0.1x and pays a 1.25x rewrite, so payback needs tens of further turns | decided 2026-09-09 while moving the caps onto a cost basis — the economics inverted when the guide-block cache split landed | N/A — a decision NOT to build; revisit only if the bursty-use case below becomes the common one | **OPEN** |
-| [§453](#453-four-help-content-gaps-the-modal-help-icon-slice-surfaced-but-did-not-fill--closed-2026-09-27) | Four Help-CONTENT gaps the modal-help-icon slice surfaced but did not fill | found 2026-09-09 wiring the §424 modal help icons | S–M — three are Help prose; the fourth is a one-line decision | **CLOSED** 2026-09-27 |
+| [§453](#453-the-image-preview-lightboxs-help-entry-never-describes-prevnext-stepping-the-position-counter-or-the-unavailable-and-blocked-states--open) | The image preview lightbox's Help entry never describes Prev/Next stepping, the position counter or the unavailable and blocked states | found 2026-09-09 wiring the §424 modal help icons | S — narrowed 2026-09-27 to one Help body in EN and DE, or a new preview entry | open |
 | [§454](#454-asking-all-five-probes-in-one-reply-would-buy-5x-the-resolution-at-a-third-of-the-cost-but-partial-credit-is-a-new-outcome-shape-through-scoreresponse-hitrate-and-verdict--open) | Asking all five probes in ONE reply would buy 5x the resolution at a third of the cost, but partial credit is a new outcome shape through `scoreResponse`, `hitRate` and `verdict` | proposed 2026-09-09 during the six-run calibration of the AI prompt-quality harness — every lever that made retrieval harder measured as SPENT | M — a new outcome shape through `scoreResponse`, `hitRate` and `verdict` plus a restarted series; add it as the MEASUREMENT beside the single-probe gate, never as a replacement | **OPEN** |
 | [§455](#455-three-latent-defects-in-the-harness-response-parser-all-pre-existing-and-identical-across-the-liverequest-split--open) | Three latent defects in the harness response parser, all pre-existing and identical across the liveRequest split | found 2026-09-10 by the differential equivalence review of `0c03ee5a` — it was testing whether the extraction changed behaviour, and these fell out of the corpus | S — each is a one-line change, but each alters output that review just certified unchanged, so each needs its own test | **OPEN** |
 | [§456](#456-twelve-headerless-dialogs-deliberately-carry-no-help-icon-and-only-the-call-site-comments-record-why--open) | Twelve headerless dialogs deliberately carry no help icon, and only the call-site comments record why | recorded 2026-09-10 finishing the §424 sweep — 13 sites, 1 wired, 12 refused | N/A — a RECORD of deliberate absences; re-measure the term counts before reusing one | **OPEN** |
@@ -707,11 +707,11 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§477](#477-only-three-currencies-are-supported-and-inr-is-wanted--open) | Only three currencies are supported, and INR is wanted | requested 2026-09-12 alongside §476 and independent of it — an INR bucket under today's EUR baseline needs none of the baseline work | XS if the ECB daily feed carries INR (one array member plus a fixture exercising the parser's filter on a fourth currency); unknown and much larger if it does not, which nothing has yet checked | open |
 | [§478](#478-switching-back-to-the-modern-layout-moves-the-user-off-their-current-view--closed-2026-09-14) | Switching back to the modern layout moves the user off their current view | found 2026-09-12 while fixing the cold startup rule's re-run defect (`2a1fe97a`, on `fix/shell-polish-mr-c`), as the alternative that fix did not take | S–M — separate page-load cold from layout re-entry, and rewrite the re-arm test | **CLOSED** 2026-09-14 |
 | [§479](#479-releases-101-102-and-103-were-never-tagged-so-no-published-installer-carries-them-and-their-owed-packaged-build-checks-were-never-run--open) | Releases 1.0.1, 1.0.2 and 1.0.3 were never tagged, so no published installer carries them and their owed packaged-build checks were never run | found 2026-09-13 by the housekeeping audit, from the CHANGELOG owed list and the RUNBOOK's unverified release steps | S — a tag per release, each at its own release merge, then a manual pass over the packaged installer | open |
-| [§480](#480-the-desktop-installer-has-no-auto-update-and-its-update-feed-question-is-undecided--open) | The desktop installer has no auto-update and its update-feed question is undecided | found 2026-09-13 by the housekeeping audit; GitLab #67 had been closed with this remainder written into its own body, and was reopened 2026-09-13 | M — the feed decision (UNC share or HTTPS) first, then the updater and its release wiring | open |
+| [§480](#480-the-desktop-installer-has-no-auto-update-and-its-update-feed-question-is-undecided--closed-2026-09-27) | The desktop installer has no auto-update and its update-feed question is undecided | found 2026-09-13 by the housekeeping audit; GitLab #67 had been closed with this remainder written into its own body, and was reopened 2026-09-13 | M — the feed decision (UNC share or HTTPS) first, then the updater and its release wiring | **CLOSED** 2026-09-27 |
 | [§481](#481-the-task-row-n-changes-badge-is-a-static-label-with-no-way-to-jump-to-the-linked-changes--open) | The task-row "N changes" badge is a static label with no way to jump to the linked changes | found 2026-09-13 by the housekeeping audit, from the change-log register design's deferred click-to-jump | S — a jump handler threaded the way the RAID badge's is | open |
 | [§482](#482-the-document-asset-library-table-shows-no-image-thumbnails--open) | The document asset library table shows no image thumbnails | found 2026-09-13 by the housekeeping audit, from the asset-preview lightbox design's named follow-up | S — a thumbnail column reusing the existing blob-URL lifecycle | open |
 | [§483](#483-moving-the-view-scoped-ai-guide-block-onto-the-turn-tail-slice-g2-is-specced-but-tracked-nowhere-so-the-cost-harness-still-has-no-real-candidate-layout--open) | Moving the view-scoped AI guide block onto the turn tail (slice G2) is specced but tracked nowhere, so the cost harness still has no real candidate layout | found 2026-09-13 by the housekeeping audit; `docs/AGENTS/ai-assistant.md` hands a decision to G2, and G2 had no entry or issue | M — the G2 layout as the harness's first real candidate arm, plus the usage-meter measurement it depends on | open |
-| [§484](#484-four-landmine-heavy-subsystems-have-no-docsagents-reference-and-insightsmd-omits-the-timelog-guardrail-detector--open) | Four landmine-heavy subsystems have no docs/AGENTS reference, and insights.md omits the Timelog guardrail detector | found 2026-09-13 by the housekeeping audit's docs/AGENTS coverage pass | M — four new subsystem files plus the insights.md correction, each citing symbols rather than line numbers | open |
+| [§484](#484-storage-and-recovery-have-no-docsagents-reference--open) | Storage and recovery have no docs/AGENTS reference | found 2026-09-13 by the housekeeping audit's docs/AGENTS coverage pass | M — narrowed 2026-09-27 to one new storage/recovery file, citing symbols rather than line numbers | open |
 | [§485](#485-nothing-keeps-docsfeaturesmd-in-sync-with-libapp-feature-guidemd-and-the-human-facing-copy-has-already-drifted--closed-2026-09-27) | Nothing keeps docs/features.md in sync with lib/app-feature-guide.md, and the human-facing copy has already drifted | found 2026-09-13 by the housekeeping audit's general-docs pass, which counted five false claims in docs/features.md | S — generate features.md from the guide, or add a section-parity check | **CLOSED** 2026-09-27 |
 | [§486](#486-auto-pull-re-creates-an-outlook-event-the-user-pruned-because-an-item-cannot-opt-out-of-calendar-sync--closed-2026-09-26) | ~~Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync~~ | documented as a known limit by calendar two-way SP5 (0.164) and carried only as tech-debt-register TD-3 until 2026-09-13; fixed on `fix/defect-batch-6` | M — a per-item `calendarOptOut` across all six write paths, the reconcile change, and an editor checkbox | **CLOSED** 2026-09-26 |
 | [§487](#487-the-windows-installer-is-unsigned-because-no-code-signing-certificate-exists-so-every-install-shows-an-unknown-publisher-warning--open) | The Windows installer is unsigned because no code-signing certificate exists, so every install shows an unknown-publisher warning | found 2026-09-13 by the housekeeping audit; recorded as a constraint in `desktop/electron-builder.yml` and as a user instruction in `docs/desktop-rollout.md` | S once a certificate exists — procuring one is an organisational step and the long pole; the CI change is signing settings plus a protected variable | open |
@@ -35617,12 +35617,12 @@ send and is worse than not caching at all.
 thread-resume frequency — the usage meter can now supply both halves, since it stores raw counts and
 prices them at read. Until someone runs that, this entry is arithmetic, not evidence.
 
-## 453. Four Help-CONTENT gaps the modal-help-icon slice surfaced but did not fill — CLOSED 2026-09-27
+## 453. The image preview lightbox's Help entry never describes Prev/Next stepping, the position counter or the unavailable and blocked states — OPEN
 
-**Status:** CLOSED 2026-09-27 by `docs/coverage`. Each gap, with the commit that closed it:
+**Status:** open, narrowed 2026-09-27 to the preview half of gap 2. What is fixed, with its commit:
 1. Meeting series: 19cd4f89e wrote `feature-meeting-series` (EN + DE), and 131f385d8 wired
    `calendarEvent` to it.
-2. Images: 19cd4f89e wrote `feature-document-assets` (EN + DE), and 53c030643 pointed
+2. Images, library half: 19cd4f89e wrote `feature-document-assets` (EN + DE), and 53c030643 pointed
    `assetLibrary` and `assetPreview` at it, pinned by a test in `help-content.test.ts`.
    `documentsRename` stays on `feature-documents` by decision: that dialog renames the document's
    title, and the images entry never mentions renaming.
@@ -35632,12 +35632,25 @@ prices them at read. Until someone runs that, this entry is arithmetic, not evid
 5. Note registers: 9a7b5e751 rewrote `helpSecRichTextBody` in EN and DE to name tasks, RAID items
    and changes. 53c030643 removed the comment above `MODAL_HELP.notesWindow` that still called the
    copy stale, so the last sentence of gap 5 below no longer holds.
+Still open, the preview half of gap 2: `assetPreview` now opens `feature-document-assets`, but that
+body (`helpSecDocumentAssetsBody`) describes only the library side: adding, formats, downscaling,
+dedupe, the read-only block, the cap and exports. `asset-preview-modal.tsx` is a lightbox that steps
+Prev/Next through the caller's list without wrapping, shows a position counter
+(`assetPreviewPosition`), and renders an unavailable state and a blocked state
+(`assetPreviewUnavailable`, `assetPreviewBlocked`). The body names none of these. Fix: extend the
+body in EN and DE, or write a preview entry and re-point `assetPreview`. Verified 2026-09-27 by
+`grep -n "assetPreviewPrev\|assetPreviewPosition\|assetPreviewUnavailable\|assetPreviewBlocked" src/app/asset-preview-modal.tsx`
+against `grep -n "helpSecDocumentAssetsBody" src/app/i18n.ts`.
 
-Reproduce: `grep -n "calendarEvent:\|taskTimeTracking:\|documentsRename:\|assetLibrary:\|assetPreview:\|notesWindow:\|aiSettings:" src/app/help-content.ts`.
+**Work item:** #289
+
+Reproduce the fixed rows: `grep -n "calendarEvent:\|taskTimeTracking:\|documentsRename:\|assetLibrary:\|assetPreview:\|notesWindow:\|aiSettings:" src/app/help-content.ts`.
 Everything below is the dated record of the gaps and is kept as written, apart from the commit ids,
-which now name the commits on `main`.
+which now name the commits on `main`. ★ The heading was retitled on 2026-09-27 from "Four
+Help-CONTENT gaps the modal-help-icon slice surfaced but did not fill" when the entry was narrowed,
+so the "Four" the record below mentions refers to that old title.
 
-**Record, as of 2026-09-10:** open, but almost nothing in the original four read as it did:
+Original status: open — almost nothing in the original four read as it did as of 2026-09-10:
 **gaps 1 and 3 are FILLED and their modals RE-WIRED; gap 2's PROSE is written but its three call
 sites still point somewhere else, so the failure mode gap 2 named is the one thing here still
 shipping; gap 4 was SETTLED on 2026-09-09; and a FIFTH gap was found on 2026-09-10 and is recorded
@@ -36907,6 +36920,18 @@ verbatim HERE, unlike `jsonToWorkspace`, which runs their entity sanitizers") an
 the plan slice, which is in the same boat — so a reader auditing that comment for the list of
 unsanitized slices gets an incomplete one.
 
+★★ **ADDED 2026-09-27: the FX-rates slice is in the same boat, and no comment discloses it.** The
+IndexedDB load takes the stored blob raw: `fxRates = idbFxRates ?? null`, with no
+`sanitizeLoadedFxRates` call, and `migrateWorkspaceV10` does not touch `fxRates` either. The JSON,
+CSV, Markdown and Turso loads each run `sanitizeLoadedFxRates`, which returns `null` for a non-EUR
+base, a missing date or `fetchedAt`, and keeps only positive finite rates for the supported
+currencies. Found by reading the code, not by a run; what a malformed stored blob then does
+downstream has not been measured. Re-run:
+`grep -n "fxRates = idbFxRates" src/app/browser-backend.ts` → 1 hit, against
+`grep -rln "sanitizeLoadedFxRates(" src/app --include=*.ts | grep -v test` → five files: the four
+other load paths (`csv-codecs-decode.ts`, `markdown-codecs-decode.ts`, `turso-schema.ts`,
+`workspace.ts`) plus the definition in `sanitize-entities.ts`.
+
 Size M: not the edit but the decision, per field, about whether an IndexedDB load should repair a
 malformed stored plan or preserve it, plus tests for whichever four behaviours change.
 
@@ -37456,13 +37481,22 @@ Size S. Each tag is one command; the packaged checks are a manual pass.
 
 **Source:** `CHANGELOG.md` (1.0.1 section), `docs/RUNBOOK.md`, `docs/desktop-rollout.md`; audit candidate 1 in the 2026-09-13 housekeeping list
 
-## 480. The desktop installer has no auto-update and its update-feed question is undecided — OPEN
+## 480. The desktop installer has no auto-update and its update-feed question is undecided — CLOSED 2026-09-27
 
-**Status:** OPEN 2026-09-13 — `grep -rn "electron-updater" desktop/src desktop/package.json desktop/electron-builder.yml`
+**Status:** CLOSED 2026-09-27 as superseded. Both halves were answered by the 2026-09-24
+releases-and-updates work (`docs/superpowers/specs/2026-09-24-releases-and-updates-design.md`):
+- Auto-update exists. 7fe75435c added `desktop/src/updater.ts`, an ask-then-install updater over
+  electron-updater, and CHANGELOG 1.14.0 records "The desktop app can update itself".
+- The feed question is decided: `desktop/electron-builder.yml` publishes with `provider: github`, so
+  the feed is the public GitHub Releases `latest.yml`, not a UNC share or a GitLab feed.
+The unsigned-installer concern in the last paragraph below is not closed by this; §487 and §563 own
+it. Re-run: `grep -rln "electron-updater" desktop/src desktop/package.json` (hits in `updater.ts`,
+its loader, its policy module, their tests and `package.json`) and `grep -n "provider: github" desktop/electron-builder.yml` → 1 hit.
+Its GitLab work item #67 still needs closing on the tracker.
+
+Original status: OPEN 2026-09-13 — `grep -rn "electron-updater" desktop/src desktop/package.json desktop/electron-builder.yml`
 → no hits; `grep -n "ships no auto-updater" CHANGELOG.md` → 1 hit; `glab issue view 67` → state open. #67 was reopened 2026-09-12T23:37Z (2026-09-13 local), after this line
 first read "state closed".
-
-**Work item:** #67
 
 ★ **GitLab #67 was closed while its own body said the work was not done.** Its 2026-09-11 update
 records that the installer shipped in 1.0.0 and that "What remains is **auto-update**", and nothing else
@@ -37541,13 +37575,28 @@ Size M.
 
 **Source:** `docs/superpowers/specs/2026-09-08-ai-guide-block-cache-split-design.md`, `docs/superpowers/specs/2026-09-08-ai-cost-roadmap-design.md`, `docs/superpowers/specs/2026-09-09-ai-prompt-quality-harness-design.md`, `docs/ai-cost.md`; audit candidate 5
 
-## 484. Four landmine-heavy subsystems have no docs/AGENTS reference, and insights.md omits the Timelog guardrail detector — OPEN
+## 484. Storage and recovery have no docs/AGENTS reference — OPEN
 
-**Status:** OPEN 2026-09-13 — `grep -c "timelogGuardrailInsights" docs/AGENTS/insights.md` → 0, against
-`grep -c "timelogGuardrailInsights" src/app/insights/detect.ts` → 2. `ls docs/AGENTS` lists 12 files, and
-none covers the desktop shell, budget/FX, storage/recovery or the undo engine.
+**Status:** open, narrowed 2026-09-27 to the storage/recovery page. `ls docs/AGENTS` now lists
+`budget.md`, `desktop.md` and `undo.md`, written on the `docs/coverage` branch, and still no storage
+page: `ls docs/AGENTS | grep -ci storage` → 0. The insights.md half was already fixed by f45dbd81b,
+which added the "TimeLog guardrail insights" bullet: `grep -c "TimeLog guardrail insights" docs/AGENTS/insights.md` → 1.
 
 **Work item:** #306
+
+★★ **NARROWED 2026-09-27; everything from "Original status:" on is the 2026-09-13 record.** Three of the
+four pages now exist on `docs/coverage` (budget/FX, the undo engine, the desktop shell), so only
+storage remains. Two parts of the original status line no longer hold:
+- Its probe, `grep -c "timelogGuardrailInsights" docs/AGENTS/insights.md` → 0, still reads 0 after
+  the fix. `timelogGuardrailInsights` is a private function in `detect.ts`, and the fix
+  documents the behaviour through `detectInsights` and `evaluateTimelogPolicy` without naming it. The
+  probe above greps the bullet f45dbd81b added instead.
+- The ★ below about the "twelve files" count is stale: 96e220e8c removed the hard-coded count from
+  AGENTS.md, so there is no count to update. The two tables still need a row each.
+
+Original status: OPEN 2026-09-13 — `grep -c "timelogGuardrailInsights" docs/AGENTS/insights.md` → 0, against
+`grep -c "timelogGuardrailInsights" src/app/insights/detect.ts` → 2. `ls docs/AGENTS` lists 12 files, and
+none covers the desktop shell, budget/FX, storage/recovery or the undo engine.
 
 No subsystem reference exists for four areas:
 - **The Electron desktop shell:** `desktop/`, the installer and the tag release.
@@ -39523,6 +39572,12 @@ Also: this file is invisible to two gates that would otherwise force a size/type
 the file-size ratchet. The root `tsconfig.json` `exclude` list carries `"desktop/src/main.ts"` by name, so the
 blocking root `npx tsc --noEmit` never typechecks it either (only the manual desktop-package build compiles
 it — see `local-gates-ci-only`).
+★★ **CORRECTED 2026-09-27: the type half of that paragraph is stale.** d6ec3e503 (2026-09-24) added
+`npm run desktop:typecheck` to the `static` group of `scripts/gate-local.mjs`, which CI's `static` job
+runs, so `main.ts` is typechecked on every pull request: `desktop/tsconfig.json` includes
+`src/**/*.ts`. The root tsc still excludes it, and the file-size half still holds. Re-run:
+`grep -n "desktop:typecheck" scripts/gate-local.mjs` → 1 hit, and
+`grep -n "readdirSync" scripts/check-file-sizes.mjs`.
 
 Proposed shape (from the branch's final review, not yet built — none of the names below exist in the repo
 today): a pure `desktop/src/lib/auth-flow-tracker.ts` holding a `{committed, staged}` state, with
