@@ -17,8 +17,9 @@ export interface CompletionPoint {
   date: string;
   /** Short day label "MM-DD" for tooltips/labels. */
   label: string;
-  /** Completion percentage, clamped to [0, 100]. */
-  percent: number;
+  /** Completion percentage, clamped to [0, 100]; null = a snapshot taken while
+   *  nothing was in scope (§64) — a GAP, never 0. */
+  percent: number | null;
 }
 
 export interface CompletionTrendInput {
@@ -72,11 +73,14 @@ function trailing<T>(arr: readonly T[]): T[] {
 function fromSnapshots(snapshots: readonly SnapshotRecord[]): CompletionPoint[] {
   if (snapshots.length < 2) return [];
   const sorted = [...snapshots].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
-  return trailing(sorted).map((s) => ({
+  const points = trailing(sorted).map((s) => ({
     date: s.capturedAt.slice(0, 10),
     label: dayLabel(s.capturedAt),
-    percent: clampPctValue(s.pctComplete),
+    percent: s.pctComplete === null ? null : clampPctValue(s.pctComplete),
   }));
+  // §64 — fewer than two real figures is not a trend; the log reconstruction
+  //  takes over exactly as it does for fewer than two snapshots.
+  return points.filter((p) => p.percent !== null).length >= 2 ? points : [];
 }
 
 const COUNT_KINDS = new Set(["task.created", "task.completed", "task.reopened", "task.deleted"]);

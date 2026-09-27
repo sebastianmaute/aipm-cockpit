@@ -331,13 +331,19 @@ on returning a non-null block. Reading it as covering both passes is how that wo
 branch returns `plainToHtml(slice)`); a heading kept the trailing whitespace the loader trims; and
 "Add item" appended an empty bullet item that counted as a change, minting a document version for
 content the next load drops — one of `MAX_VERSIONS_PER_DOC` (20) slots spent, and the row the user
-just added gone on reload.
+just added gone on reload. The block editor now shows a visible-character counter from 90% of the
+cap and REFUSES an over-cap commit with a notice (§185). Only the exits with no UI still save the
+flattened form: the unmount flush, and a `pagehide` flush committed inside `flushSync`, which
+`scheduleDebouncedSave` writes at once because its `pageHiding` flag is set. A tab switch
+(`visibilitychange` to hidden) deliberately does NOT flatten: owner decision. AI-written and imported
+text keep the old fallback.
 
 ★★ **Per-editor `maxLength` caps are the WRONG fix** and were rejected for the reason the defect
 existed in the first place: one copy of each loader rule per editor, free to drift from the loader's.
 
 ★ `null` means the loader would DISCARD the block. That refusal is shown (`BlockRefusalNotice`), and
-so is the concurrent-write ABANDON — one nullable `"empty" | "conflict"` state, because the abandon
+so is the concurrent-write ABANDON — one nullable `BlockRefusal` state (`"empty"`, `"conflict"`, or
+§185's `tooLong` with its excess), because the abandon
 used to be silent and a user watched their typing be replaced on screen with no explanation. ★ The
 UNMOUNT flush abandons silently and must: the component is going away, so there is nothing to render
 into.
@@ -1191,10 +1197,11 @@ unit math and shapes — `EMU_PER_INCH`, `EMU_PER_TWIP`, `emuFromPx`, `emuFromTw
 package builders and both renderers can share it without either importing the other. Keep it free
 of DOM and of translation, exactly like `document-model.ts`.
 
-### The three-bucket contract (`document-export-assets.ts`)
+### The four-bucket contract (`document-export-assets.ts`)
 
-`loadExportAssets(doc, load, budgetBytes?, isRenderable?)` returns `{inlined, omitted, missing}`:
-`inlined` is id — base64, `omitted` and `missing` are id sets.
+`loadExportAssets(doc, load, budgetBytes?, isRenderable?, isBlocked?)` returns
+`{inlined, omitted, missing, blocked}`: `inlined` is id — base64, `omitted`, `missing` and
+`blocked` are id sets.
 
 ★★★ **`omitted` AND `missing` ARE NOT TWO NAMES FOR THE SAME THING, AND COLLAPSING THEM
 LOSES THE ONLY DISTINCTION A USER CAN ACT ON.** `omitted` is a BUDGET decision — the bytes exist
@@ -1214,17 +1221,21 @@ halves to every session that loads it. Reproduce the real routing with
 `grep -nE "^\s+(omitted|missing)\.add" src/app/document-export-assets.ts` — ONE `omitted.add` (budget)
 against TWO `missing.add` (a null row, and an `isRenderable` decline).
 
-★★★ **AND `missing` ABSORBING POLICY IS A DISCLOSURE DEFECT, NOT JUST A NAMING ONE — §320.** For
-HTML/PDF `isRenderable` IS the mime allowlist, so an asset the policy refuses is routed to `missing`
-and rendered `data-asset-missing`: the export tells the reader the bytes are gone when they are
-present and intact. TWO independent sites reach that conclusion — this routing, and `assetSrcAttr`
-returning null for a disallowed mime — so a one-site fix does not close it. The preview half of the
-same defect was §230, fixed by splitting `data-asset-blocked` out of the missing sink; the export
-sink has no blocked state at all, and `doc-render-html.ts` carries its own separate
-`img[data-asset-missing]` rule that a test pins, so widening this needs both files. Routing a
-refusal to `missing` was deliberate — the comment above the branch says an id the renderer will
-decline must never be charged against the budget, which is correct — but putting it in `missing`
-rather than a third state is what loses the distinction.
+★★★ **`blocked` IS A POLICY REFUSAL, NOT MISSING DATA — §320.** `blocked` holds an id whose bytes
+are present but whose stored mime `isBlockedAssetMime` refuses (truthy and outside the upload
+allowlist; an EMPTY mime is not refused, §225). `isBlocked` is asked AFTER the null-row check (no
+byte row is still `missing` in the BUCKETS, whatever the type — but the renderers' own policy check
+reads the stored mime, so such an id still prints "file type not allowed" in every export: policy
+trumps the bucket) and BEFORE `isRenderable` and the budget, so a
+refused id is never charged. `document-download.ts` passes the same `isBlocked` to every format.
+HTML/PDF render a `span[data-asset-blocked]` text placeholder (`assetExportBlocked`, name escaped)
+when the id is in the bucket OR its stored mime is refused — the mime check is what closes the
+second site, `assetSrcAttr` falling through to `data-asset-missing` for a disallowed mime — and the
+standalone stylesheet carries its own `span[data-asset-blocked]` rule. DOCX/PPTX do not read the
+buckets for their text: `withImagePlaceholders` chooses the same `assetExportBlocked` text from
+metadata through `assetExportPlaceholder` (`asset-export-placeholder.ts`), so a refused image no
+longer reads like a budget omission there either. Before §320 a refusal was routed to `missing` and
+the export told the reader the bytes were gone when they were present and intact.
 
 ★★ **ORDER IS LOAD-BEARING.** `documentAssetIds` returns ids in DOCUMENT order, de-duplicated,
 and the budget is charged serially over that list — so which images survive a tight budget is the
@@ -1234,7 +1245,7 @@ from the document.
 
 ★ `isRenderable` is asked BEFORE the budget is charged, so an asset the renderer cannot draw
 never spends budget a later good image needs. It has **no default** — omitting it means no
-renderability filtering at all. `NO_EXPORT_ASSETS` is the frozen empty triple, returned for a
+renderability filtering at all. `NO_EXPORT_ASSETS` is the frozen empty four-bucket value, returned for a
 document with no images so a caller never branches on `undefined`.
 
 ★★★ **THAT RATIONALE DOES NOT APPLY TO THE SINKS THAT ACTUALLY PASS IT, AND FOR ONE RELEASE
@@ -1243,12 +1254,17 @@ parameter and were then never handed to it — `document-download.ts` resolved O
 per download and gave it to every format — so `canEmbedDocxAsset` shipped as a dead export while
 three ★★★ docstrings asserted the protection was live. `document-download.ts` now resolves assets
 PER FORMAT (`assetPolicy`), and the two OOXML sinks are exactly the UNBUDGETED ones, so no
-budget headroom is at stake for them: what the predicate buys there is the three-bucket contract
-— an undrawable id lands in `missing` instead of `inlined`-but-undrawable, the fourth state no
-bucket describes — plus keeping its base64 out of memory. ★★ The emitted DOCX/PPTX bytes are
+budget headroom is at stake for them: what the predicate buys there is the bucket contract
+— an undrawable id lands in `missing` instead of `inlined`-but-undrawable, the state no bucket
+describes — plus keeping its base64 out of memory. (A refused mime never reaches it: `isBlocked`
+is asked first and routes that id to `blocked` — §320.) ★★ The emitted DOCX/PPTX bytes are
 IDENTICAL either way (measured: `drawingFor` falls through to the same placeholder), so no output
 test can see it; the wiring is pinned in `document-download.test.ts` by asserting — and
 INVOKING — the argument `loadExportAssets` receives, and nowhere else.
+
+★ **SUPERSEDED — the paragraph below is the pre-`assetPolicy` record.** The inline sinks now pass
+their own predicate (`isRenderable` = the mime allowlist, no geometry; see `assetPolicy` in
+`document-download.ts`), and since §320 a refused mime lands in `blocked` before it is asked.
 
 ★★ **THE HTML SINK IS THE ONE THAT HAS BUDGET TO LOSE, AND IT DELIBERATELY PASSES NO PREDICATE.**
 That is right for the common case — it can inline any allowed mime, and `assetSrcAttr` declines an

@@ -100,6 +100,28 @@ describe("loadExportAssets", () => {
     expect([...out.omitted]).toEqual([]);
   });
 
+  // §320 — bytes present, type refused: a FOURTH bucket (beside inlined,
+  //  omitted and missing). It is never charged
+  //  against the budget (the ★ above the isRenderable branch stays right) and
+  //  never called missing, which told the reader the data was gone.
+  it("routes a policy-refused id to blocked, off the budget and out of missing", async () => {
+    const load = vi.fn(async () => b64OfBytes(60));
+    const out = await loadExportAssets(
+      doc([`<p><img data-asset-id="svg"><img data-asset-id="good"></p>`]),
+      load, 100, () => true, (id) => id === "svg",
+    );
+    expect([...out.blocked]).toEqual(["svg"]);
+    expect([...out.missing]).toEqual([]);
+    expect(Object.keys(out.inlined)).toEqual(["good"]); // 60 of 100: the refused 60 was not charged
+    expect([...out.omitted]).toEqual([]);
+  });
+
+  it("still calls an id with no byte row missing, whatever its type", async () => {
+    const out = await loadExportAssets(doc([`<p><img data-asset-id="x"></p>`]), vi.fn(async () => null), undefined, undefined, () => true);
+    expect([...out.missing]).toEqual(["x"]);
+    expect([...out.blocked]).toEqual([]);
+  });
+
   it("treats a present-but-empty row as renderable-if-the-caller-says-so", async () => {
     // An empty string is a present-but-empty row, distinct from an absent one.
     // It costs no budget; whether it is usable is the caller's question.

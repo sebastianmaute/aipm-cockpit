@@ -72,7 +72,10 @@ export function AppHeader({
 }: AppHeaderProps) {
   return (
     <header className="mb-8 flex items-start justify-between gap-4">
-      <div>
+      {/* §618 — min-w-0 lets this column shrink below its content, so the
+          search in the row below can give up width from lg up instead of
+          pushing the header wider than the window. */}
+      <div className="min-w-0">
         <h1 className="text-3xl font-semibold tracking-tight text-ui-dark-blue dark:text-ui-light-grey">
           {t(lang, "appTitle")}
         </h1>

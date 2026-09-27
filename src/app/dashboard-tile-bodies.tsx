@@ -270,8 +270,12 @@ function CompletionTrendBody({ lang, points, today }: {
   points: readonly CompletionPoint[];
   today: string;
 }) {
-  const first = points[0];
-  const last = points[points.length - 1];
+  // §64 — the edges and the accessible name read the first and last points
+  // that HAVE a figure; a null point is a gap in the line, never "null%".
+  const measured = points.filter((p): p is CompletionPoint & { percent: number } => p.percent !== null);
+  if (measured.length < 2) return null;
+  const first = measured[0];
+  const last = measured[measured.length - 1];
   const locale = localeFor(lang);
   const firstDate = formatDayMonth(first.date, locale);
   const lastDate = formatDayMonth(last.date, locale);

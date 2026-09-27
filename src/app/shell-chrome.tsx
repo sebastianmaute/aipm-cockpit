@@ -141,8 +141,22 @@ export function buildShellChrome(deps: ShellChromeDeps): { appHeaderEl: ReactNod
       onAskClaude={isAiEnabled(settings.ai) ? (body) => requestChat(body, true) : undefined}
       projectSwitcher={projectSwitcher}
       trailing={
+        // §618 — no `min-w-0` here on purpose. The search wrapper below
+        // already carries its own `min-w-0 lg:min-w-56`, which zeroes its
+        // contribution to THIS row's automatic minimum regardless of
+        // whether the row itself can shrink — measured: removing this row's
+        // `min-w-0` (M2) still produces no overflow at 1024/1100 even with
+        // both other trailing siblings mounted (the tz switcher AND a
+        // populated undo stack, e2e/classic-header-fit.spec.ts's "every
+        // sibling present" suite). A `min-w-0` here would be a no-op, not a
+        // second load-bearing link in the shrink chain — see the app-header
+        // column's own `min-w-0` (app-header.tsx) for the one that matters.
         <div className="flex items-center gap-2">
-          <div className="min-w-0 w-44 max-w-[55vw] sm:w-72 lg:w-96">
+          {/* §618 — a DEFINITE lg:w-96 is the preferred width and the flex
+              basis; lg:min-w-56 is the floor it shrinks to. Not the modern
+              mount's w-auto + basis: this row is content-sized, and max-content
+              ignores flex-basis (measured: ~209px at 1600). */}
+          <div className="min-w-0 w-44 max-w-[55vw] sm:w-72 lg:w-96 lg:min-w-56">
             <GlobalSearchConnected lang={lang} />
           </div>
           {undoControl}

@@ -3,6 +3,8 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { allVisibleSelected, toggleAllInSet, toggleInSet } from "./row-selection";
 import { BulkEditBar } from "./bulk-edit-bar";
 import { BulkEditPanel, selectField, dateField } from "./bulk-edit-panel";
+import { t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 describe("row-selection pure ops", () => {
   test("toggleInSet adds then removes, immutably", () => {
@@ -66,8 +68,8 @@ describe("BulkEditPanel", () => {
     const applyBtn = screen.getByRole("button", { name: "Apply to 2" });
     expect(applyBtn).toBeDisabled();
 
-    // enable Status (the enable checkbox is labelled by the field label)
-    fireEvent.click(screen.getByRole("checkbox", { name: "Status" }));
+    // enable Status (the enable checkbox is named 'Change <field>', §277)
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "bulkEditChangeField", "Status") }));
     expect(applyBtn).toBeEnabled();
     fireEvent.click(applyBtn);
     // only the ticked field is emitted; seeded to first option
@@ -79,5 +81,22 @@ describe("BulkEditPanel", () => {
     render(<BulkEditPanel lang="en-US" count={1} fields={FIELDS} onApply={() => {}} onCancel={onCancel} />);
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  // §277 — the panel spends each field label on TWO controls, and the owning
+  //  panel's sortable column header spends it on a third. Each bulk control
+  //  now carries a qualified name of its own.
+  test("names the enable checkbox 'Change …' and the value control 'New …' (§277)", () => {
+    render(<BulkEditPanel lang="en-US" count={2} fields={FIELDS} onApply={() => {}} onCancel={() => {}} />);
+    expect(screen.getByRole("checkbox", { name: t("en-US", "bulkEditChangeField", "Status") })).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: t("en-US", "bulkEditChangeField", "Target date") }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: t("en-US", "bulkEditNewValue", "Status") })).toBeInTheDocument();
+    expect(screen.getByLabelText(t("en-US", "bulkEditNewValue", "Target date"))).toHaveAttribute("type", "date");
+    // The bare label belongs to the column header now.
+    expect(screen.queryByRole("checkbox", { name: "Status" })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "Status" })).toBeNull();
+    expectRowUniqueNames({ minControls: 3, roles: ["checkbox", "combobox"] });
   });
 });

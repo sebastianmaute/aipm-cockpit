@@ -7,6 +7,7 @@ import { ExportMenu } from "./export-menu";
 import { ToastProvider } from "./toast-context";
 import { readDiagLog, clearDiagLog } from "./diagnostics";
 import { exportWorkspace } from "./export";
+import { emptyWorkspace } from "./workspace";
 import type { ResourcePlan } from "./types";
 
 // exportWorkspace is async and can throw (e.g. a dynamic export-ooxml chunk
@@ -35,24 +36,12 @@ describe("export menu stacking", () => {
 });
 
 const PLAN: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
+const WS = { ...emptyWorkspace(), plan: PLAN };
 
 function renderMenu(showToastSpy: (kind: "info" | "error" | "success", text: string) => void) {
   return render(
     <ToastProvider value={{ showToast: showToastSpy, showToastAction: showToastSpy }}>
-      <ExportMenu
-        lang="en-US"
-        tasks={[]}
-        raid={[]}
-        absences={[]}
-        shifts={[]}
-        resources={[]}
-        roles={[]}
-        disciplines={[]}
-        grades={[]}
-        plan={PLAN}
-        budgets={[]}
-        fxRates={null}
-      />
+      <ExportMenu lang="en-US" workspace={WS} />
     </ToastProvider>,
   );
 }
@@ -86,16 +75,14 @@ describe("export menu — footer", () => {
   it("hands the configured footer to exportWorkspace", async () => {
     render(
       <ToastProvider value={{ showToast: vi.fn(), showToastAction: vi.fn() }}>
-        <ExportMenu
-          lang="en-US" tasks={[]} raid={[]} absences={[]} shifts={[]} resources={[]} roles={[]}
-          disciplines={[]} grades={[]} plan={PLAN} budgets={[]} fxRates={null}
-          exportFooter="Acme GmbH"
-        />
+        <ExportMenu lang="en-US" workspace={WS} exportFooter="Acme GmbH" />
       </ToastProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: /export/i }));
     fireEvent.click(screen.getByText("CSV"));
     await waitFor(() => expect(exportWorkspace).toHaveBeenCalled());
     expect(vi.mocked(exportWorkspace).mock.calls[0][4]).toBe("Acme GmbH");
+    // The menu must export the workspace it was handed, not rebuild one.
+    expect(vi.mocked(exportWorkspace).mock.calls[0][0]).toBe(WS);
   });
 });

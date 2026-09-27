@@ -37,4 +37,15 @@ describe("action menus — single source of truth", () => {
       });
     }
   }
+
+  // §463 — the header button and the Projects-panel button used to build two
+  //  different object literals, and neither carried calendar events,
+  //  knowledge items or insights. Both now go through ONE builder.
+  it("builds both export workspaces through buildExportWorkspace", () => {
+    expect(read("src/app/action-menus.tsx")).toContain("buildExportWorkspace(");
+    const tm = read("src/app/task-manager.tsx");
+    const start = tm.indexOf("const handleExportCurrentProject");
+    expect(start).toBeGreaterThan(-1);
+    expect(tm.slice(start, tm.indexOf("\n  );", start))).toContain("buildExportWorkspace(");
+  });
 });

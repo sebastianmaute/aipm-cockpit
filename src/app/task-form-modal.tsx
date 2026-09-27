@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, type RefObject } from "react";
+import { type ReactNode } from "react";
 import { ModalFieldControls } from "./modal-field-controls";
 import { ModalHeader } from "./modal-header";
 import { MODAL_HELP } from "./help-content";
@@ -38,7 +38,6 @@ export interface TaskFormModalProps {
   holidaySet: Set<string>;
   jiraProjectKey: string | undefined;
   jiraDefaultIssueType: string | undefined;
-  modalRef: RefObject<HTMLDivElement | null>;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   onCancel: () => void;
   onRemoveContact: (name: string) => void;
@@ -86,7 +85,6 @@ export function TaskFormModal({
   holidaySet,
   jiraProjectKey,
   jiraDefaultIssueType,
-  modalRef,
   onSubmit,
   onCancel,
   onRemoveContact,
@@ -106,7 +104,7 @@ export function TaskFormModal({
     taskModalOpen,
     "aipm-cockpit:modal-pos:task-form",
   );
-  const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:task-form");
+  const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:task-form", { open: taskModalOpen });
   if (!taskModalOpen) return null;
 
   const dialogTitle = isEditing ? t(lang, "taskEditTitle") : t(lang, "tabNewTask");
@@ -135,10 +133,7 @@ export function TaskFormModal({
       backdropClassName="bg-ui-dark-blue/40 overflow-y-auto"
     >
       <div
-        ref={(el) => {
-          modalRef.current = el;
-          sizeRef.current = el;
-        }}
+        ref={sizeRef}
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
         // Opens at 1280x960 — the description RichTextEditor toolbar needs

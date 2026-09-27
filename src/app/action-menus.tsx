@@ -7,6 +7,7 @@ import { SaveTemplateMenu, ApplyTemplateMenu } from "./template-menus";
 import { HelpMenu } from "./help-menu";
 import { VersionMenu } from "./version-menu";
 import { useWorkspace } from "./workspace-context";
+import { buildExportWorkspace } from "./export-workspace";
 import { defaultExportConfig, type ExportConfig } from "./settings-types";
 import type { ProjectTemplate, SaveTemplateInput } from "./templates";
 
@@ -40,8 +41,9 @@ interface ActionMenusProps {
 /**
  * The shared header action cluster — Voice, Export, Help, Version — rendered
  * identically by the classic `AppHeader` and the modern `TopBar`. ExportMenu's
- * data comes from `useWorkspace()` here so callers pass only `lang` + the voice
- * handlers (single source of truth; see the action-menus-sweep guard test).
+ * workspace is `buildExportWorkspace(useWorkspace())` here — the same builder
+ * the Projects-panel export uses (§463) — so callers pass only `lang` + the
+ * voice handlers (single source of truth; see the action-menus-sweep guard test).
  * Settings come from props (not a local useSettings() call) so the live export
  * config from TaskManagerInner is used — otherwise toggling export sections
  * wouldn't reach the Export button until a full reload.
@@ -57,11 +59,11 @@ export function ActionMenus({
   onSaveTemplate,
   expertMode = false,
 }: ActionMenusProps) {
-  const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates } = useWorkspace();
+  const workspace = buildExportWorkspace(useWorkspace());
   return (
     <>
       <VoiceCommandButton lang={lang} onCommand={onCommand} onError={onVoiceError} />
-      <ExportMenu lang={lang} tasks={tasks} raid={raid} absences={absences} shifts={shifts} resources={resources} roles={roles} disciplines={disciplines} grades={grades} plan={plan} budgets={budgets} fxRates={fxRates} exportConfig={exportConfig} exportFooter={exportFooter} />
+      <ExportMenu lang={lang} workspace={workspace} exportConfig={exportConfig} exportFooter={exportFooter} />
       {expertMode && (
         <>
           <SaveTemplateMenu lang={lang} onSave={onSaveTemplate ?? (() => {})} />

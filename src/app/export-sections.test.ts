@@ -13,6 +13,7 @@ import {
   CHANGE_RICH_COLUMNS,
 } from "./export-sections";
 import type { ExportCell, RichCell, CellRunLine } from "./export-sections";
+import { exportColumnLabel, exportColumnLabels } from "./export-column-labels";
 import { descriptionTextWithBreaks } from "./rich-text-projection";
 import {
   CSV_COLUMNS,
@@ -183,7 +184,7 @@ describe("buildExportSections", () => {
     expect(sections[2].key).toBe("milestones");
 
     const milSec = sections[2];
-    expect(milSec.columns).toEqual(MILESTONES_CSV_COLUMNS);
+    expect(milSec.columns).toEqual(exportColumnLabels("milestones", MILESTONES_CSV_COLUMNS, "en-US"));
     expect(milSec.rows).toHaveLength(2);
     expect(milSec.rows[0].map(flatCell)).toEqual(
       MILESTONES_CSV_COLUMNS.map((c) => milestoneFieldToString(ms[0], c))
@@ -231,8 +232,8 @@ describe("buildExportSections", () => {
     const sections = buildExportSections(ws, defaultExportConfig, "en-US");
     const taskSec = sections.find((s) => s.key === "tasks")!;
 
-    // Column headers must be the same list that workspaceToCsv uses
-    expect(taskSec.columns).toEqual(CSV_COLUMNS);
+    // Column headers are the labels of the same list workspaceToCsv uses (§304)
+    expect(taskSec.columns).toEqual(exportColumnLabels("tasks", CSV_COLUMNS, "en-US"));
 
     // Each row must equal what fieldToString produces for the same task
     tasks.forEach((task, idx) => {
@@ -254,8 +255,9 @@ describe("buildExportSections", () => {
 
     // §515: the structured escalations column is out of scope for document exports
     // (the note-log echo, which names the recipient, is still exported).
-    expect(raidSec.columns).toEqual(RAID_EXPORT_COLUMNS);
-    expect(raidSec.columns).not.toContain("escalations");
+    expect(raidSec.columns).toEqual(exportColumnLabels("raid", RAID_EXPORT_COLUMNS, "en-US"));
+    expect(RAID_EXPORT_COLUMNS).not.toContain("escalations");
+    expect(raidSec.columns).toHaveLength(RAID_EXPORT_COLUMNS.length);
     expect(RAID_EXPORT_COLUMNS).toHaveLength(RAID_CSV_COLUMNS.length - 1);
     raidItems.forEach((r, idx) => {
       const expectedRow = RAID_EXPORT_COLUMNS.map((c) => raidFieldToString(r, c));
@@ -341,7 +343,7 @@ describe("calendarEvents section", () => {
     };
     const sections = buildExportSections(ws, defaultExportConfig, "en-US");
     const sec = sections.find((s) => s.key === "calendarEvents")!;
-    expect(sec.columns).toEqual(["title", "first occurrence", "recurs", "location"]);
+    expect(sec.columns).toEqual(["Title", "First occurrence", "Repeat", "Location"]);
     expect(sec.rows).toEqual([["Event 1", "2025-03-10 09:00", "Does not repeat", "Room 4"]]);
   });
 
@@ -611,7 +613,7 @@ describe("task descriptions are projected like every other rich field", () => {
     };
     const sections = buildExportSections(ws, defaultExportConfig, "en-US");
     const tasks = sections.find((s) => s.key === "tasks");
-    const col = tasks!.columns.indexOf("description");
+    const col = tasks!.columns.indexOf(exportColumnLabel("tasks", "description", "en-US"));
     expect(col).toBeGreaterThanOrEqual(0);
     const cell = String(flatCell(tasks!.rows[0][col]));
     expect(cell).not.toContain("<p>");
@@ -634,7 +636,7 @@ describe("task descriptions are projected like every other rich field", () => {
     };
     const sections = buildExportSections(ws, defaultExportConfig, "en-US");
     const raid = sections.find((s) => s.key === "raid");
-    const col = raid!.columns.indexOf("description");
+    const col = raid!.columns.indexOf(exportColumnLabel("raid", "description", "en-US"));
     expect(String(flatCell(raid!.rows[0][col]))).toBe("one\ntwo");
   });
 });
@@ -656,7 +658,7 @@ describe("rich cells carry both representations (§141(b))", () => {
 
   it("emits a RichCell for a rich column", () => {
     const section = tasksSectionOf(wsWithTask({ description: html }));
-    const col = section.columns.indexOf("description");
+    const col = section.columns.indexOf(exportColumnLabel("tasks", "description", "en-US"));
     expect(col).toBeGreaterThanOrEqual(0);
     const cell = section.rows[0][col];
     expect(isRichCell(cell)).toBe(true);
@@ -666,7 +668,7 @@ describe("rich cells carry both representations (§141(b))", () => {
   it("keeps .text byte-identical to the previous flat projection", () => {
     // This is the regression that proves the FLAT consumers did not move.
     const section = tasksSectionOf(wsWithTask({ description: html }));
-    const col = section.columns.indexOf("description");
+    const col = section.columns.indexOf(exportColumnLabel("tasks", "description", "en-US"));
     expect(col).toBeGreaterThanOrEqual(0);
     const cell = section.rows[0][col] as RichCell;
     expect(cell.text).toBe(descriptionTextWithBreaks(html));
@@ -677,7 +679,7 @@ describe("rich cells carry both representations (§141(b))", () => {
     // (CSV_COLUMNS), and indexOf("title") would be -1 — a cell that reads
     // `undefined` and passes `isRichCell(...) === false` for the wrong reason.
     const section = tasksSectionOf(wsWithTask({ description: html, taskName: "T" }));
-    const col = section.columns.indexOf("taskName");
+    const col = section.columns.indexOf(exportColumnLabel("tasks", "taskName", "en-US"));
     expect(col).toBeGreaterThanOrEqual(0);
     expect(isRichCell(section.rows[0][col])).toBe(false);
     expect(section.rows[0][col]).toBe("T");
@@ -717,7 +719,7 @@ describe("rich cells carry both representations (§141(b))", () => {
     ] as const) {
       const section = sections.find((s) => s.key === key)!;
       for (const name of rich) {
-        const col = section.columns.indexOf(name);
+        const col = section.columns.indexOf(exportColumnLabel(key, name, "en-US"));
         expect(col).toBeGreaterThanOrEqual(0);
         expect(isRichCell(section.rows[0][col])).toBe(true);
       }
@@ -769,7 +771,7 @@ describe("note logs export as readable text, not a raw JSON blob (§36b)", () =>
     const sections = buildExportSections(ws, cfg, "en-US");
     const section = sections.find((s) => s.key === key);
     expect(section).toBeDefined();
-    const col = section!.columns.indexOf("noteLog");
+    const col = section!.columns.indexOf(exportColumnLabel(key, "noteLog", "en-US"));
     expect(col).toBeGreaterThanOrEqual(0);
     return String(flatCell(section!.rows[0][col]));
   }
@@ -821,7 +823,7 @@ describe("note logs export as readable text, not a raw JSON blob (§36b)", () =>
     const ws: Workspace = { ...base, tasks: [{ ...makeTask(1), noteLog: [] }] };
     const sections = buildExportSections(ws, defaultExportConfig, "en-US");
     const tasks = sections.find((s) => s.key === "tasks");
-    const col = tasks!.columns.indexOf("noteLog");
+    const col = tasks!.columns.indexOf(exportColumnLabel("tasks", "noteLog", "en-US"));
     expect(col).toBeGreaterThanOrEqual(0);
     expect(flatCell(tasks!.rows[0][col])).toBe("");
   });

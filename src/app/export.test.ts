@@ -17,6 +17,7 @@ import type { ExportConfig } from "./settings-types";
 import type { Workspace } from "./storage";
 import type { Task, RaidItem, Milestone, ProjectMeta } from "./types";
 import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
+import { t } from "./i18n";
 import { PDF_EXPORT_FRAME_NAME, PDF_READY_TITLE_PREFIX } from "./pdf-export-protocol";
 
 // ---------------------------------------------------------------------------
@@ -260,8 +261,8 @@ describe("buildPdfHtml", () => {
 
     const html = buildPdfHtml(ws, cfg, "en-US");
 
-    // Status section heading (title from export-sections: "Project Status")
-    expect(html).toContain("Project Status");
+    // Status section heading (§304: `exportLabelStatus`)
+    expect(html).toContain(t("en-US", "exportLabelStatus"));
     // Status field/value rows appear in the table
     expect(html).toContain("On track");
   });
@@ -278,15 +279,15 @@ function wsWithDescription(description: string): Workspace {
 }
 
 describe("buildPdfHtml — rich cells (§141(b))", () => {
-  // ★ The section header row emits the raw CSV column KEYS, so asserting the
-  //   <th> is what proves the column under test is real. A fixture aimed at a
+  // ★ The header row prints each column's display label (§304), so asserting
+  //   the `<th>` still proves the column under test is real. A fixture aimed at a
   //   column that does not exist asserts nothing at all, and that has already
   //   happened once in this slice (a test written against "title", which is
   //   spelled `taskName`).
   it("the two columns under test are real columns of the tasks section", () => {
     const html = buildPdfHtml(wsWithDescription("x"), defaultExportConfig, "en-US");
-    expect(html).toContain("<th>description</th>"); // rich
-    expect(html).toContain("<th>taskName</th>"); // NOT rich
+    expect(html).toContain(`<th>${t("en-US", "description")}</th>`); // rich
+    expect(html).toContain(`<th>${t("en-US", "task")}</th>`); // NOT rich
   });
 
   it("emits markup for a rich column instead of escaping it", () => {

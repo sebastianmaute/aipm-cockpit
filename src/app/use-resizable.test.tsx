@@ -138,3 +138,38 @@ describe("useResizable — reset", () => {
     expect(window.localStorage.getItem(KEY)).toBeNull();
   });
 });
+
+/** A modal that stays MOUNTED while closed and renders nothing — the shape of
+ *  task-form-modal, asset-preview-modal and notes-window. */
+function ClosableHarness({ open }: { open: boolean }) {
+  const { ref } = useResizable(KEY, { open });
+  if (!open) return null;
+  return <div ref={ref} data-testid="box" />;
+}
+
+describe("useResizable — a component that mounts closed (§338)", () => {
+  it("restores the saved size when it opens after mounting closed", () => {
+    window.localStorage.setItem(KEY, JSON.stringify({ width: 640, height: 480 }));
+    const { rerender, getByTestId } = render(<ClosableHarness open={false} />);
+    rerender(<ClosableHarness open />);
+    const box = getByTestId("box");
+    expect(box.style.width).toBe("640px");
+    expect(box.style.height).toBe("480px");
+  });
+
+  it("persists a resize made after opening, and restores it on the next open", () => {
+    const { rerender, getByTestId, queryByTestId } = render(<ClosableHarness open={false} />);
+    rerender(<ClosableHarness open />);
+    const box = getByTestId("box");
+    stubRect(box, { right: 200, bottom: 200, width: 700, height: 500 });
+    box.dispatchEvent(pointer("pointerdown", { clientX: 195, clientY: 195 }));
+    window.dispatchEvent(pointer("pointerup"));
+    expect(JSON.parse(window.localStorage.getItem(KEY)!)).toEqual({ width: 700, height: 500 });
+
+    rerender(<ClosableHarness open={false} />);
+    expect(queryByTestId("box")).toBeNull();
+    rerender(<ClosableHarness open />);
+    expect(getByTestId("box").style.width).toBe("700px");
+    expect(getByTestId("box").style.height).toBe("500px");
+  });
+});

@@ -487,7 +487,7 @@ describe("Changes bulk edit", () => {
   it("applies a bulk status change to the selected row via onSave", () => {
     const onSave = vi.fn();
     const changes = [ci({ id: 1, title: "Alpha scope", status: "Proposed" })];
-    const { getByRole, getAllByRole } = render(
+    const { getByRole } = render(
       <ChangePanel {...base} changes={changes} onSave={onSave} />,
       { wrapper: Providers },
     );
@@ -496,11 +496,10 @@ describe("Changes bulk edit", () => {
     fireEvent.click(getByRole("checkbox", { name: t("en-US", "selectItem", "Alpha scope") }));
     // open the bulk panel
     fireEvent.click(getByRole("button", { name: t("en-US", "bulkEdit") }));
-    // enable Status + set it to Approved (the bulk select shares its name with the
-    // toolbar filter — disambiguate by the bulk control's id)
-    fireEvent.click(getByRole("checkbox", { name: t("en-US", "changeFieldStatus") }));
-    const bulkStatus = getAllByRole("combobox", { name: t("en-US", "changeFieldStatus") })
-      .find((el) => el.id === "bulk-status")!;
+    // enable Status + set it to Approved (§277: the bulk select has its own name.)
+    const status = t("en-US", "changeFieldStatus");
+    fireEvent.click(getByRole("checkbox", { name: t("en-US", "bulkEditChangeField", status) }));
+    const bulkStatus = getByRole("combobox", { name: t("en-US", "bulkEditNewValue", status) });
     fireEvent.change(bulkStatus, { target: { value: "Approved" } });
     fireEvent.click(getByRole("button", { name: t("en-US", "bulkApplyCount", "1") }));
 
@@ -547,7 +546,7 @@ describe("Changes bulk edit", () => {
       // would still change — it would prove nothing.
       ci({ id: 3, title: "Gamma risk", status: "Approved", decisionDate: "2026-06-05" }),
     ];
-    const { getByRole, getAllByRole } = render(
+    const { getByRole } = render(
       <ChangePanel {...base} changes={changes} onSave={onSave} onCaptureBulk={onCaptureBulk} />,
       { wrapper: Providers },
     );
@@ -556,9 +555,10 @@ describe("Changes bulk edit", () => {
       fireEvent.click(getByRole("checkbox", { name: t("en-US", "selectItem", title) }));
     }
     fireEvent.click(getByRole("button", { name: t("en-US", "bulkEdit") }));
-    fireEvent.click(getByRole("checkbox", { name: t("en-US", "changeFieldStatus") }));
-    const bulkStatus = getAllByRole("combobox", { name: t("en-US", "changeFieldStatus") })
-      .find((el) => el.id === "bulk-status")!;
+    // §277: the bulk select has its own name.
+    const status = t("en-US", "changeFieldStatus");
+    fireEvent.click(getByRole("checkbox", { name: t("en-US", "bulkEditChangeField", status) }));
+    const bulkStatus = getByRole("combobox", { name: t("en-US", "bulkEditNewValue", status) });
     fireEvent.change(bulkStatus, { target: { value: "Approved" } });
     fireEvent.click(getByRole("button", { name: t("en-US", "bulkApplyCount", "3") }));
 
@@ -617,15 +617,16 @@ describe("Changes bulk edit", () => {
     value: ChangeStatus,
     onSave: (item: ChangeItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void,
   ) {
-    const { getByRole, getAllByRole } = render(
+    const { getByRole } = render(
       <ChangePanel {...base} changes={changes} onSave={onSave} />,
       { wrapper: Providers },
     );
     fireEvent.click(getByRole("checkbox", { name: t("en-US", "selectItem", changes[0].title) }));
     fireEvent.click(getByRole("button", { name: t("en-US", "bulkEdit") }));
-    fireEvent.click(getByRole("checkbox", { name: t("en-US", "changeFieldStatus") }));
-    const bulkStatus = getAllByRole("combobox", { name: t("en-US", "changeFieldStatus") })
-      .find((el) => el.id === "bulk-status")!;
+    // §277: the bulk select has its own name.
+    const status = t("en-US", "changeFieldStatus");
+    fireEvent.click(getByRole("checkbox", { name: t("en-US", "bulkEditChangeField", status) }));
+    const bulkStatus = getByRole("combobox", { name: t("en-US", "bulkEditNewValue", status) });
     fireEvent.change(bulkStatus, { target: { value } });
     fireEvent.click(getByRole("button", { name: t("en-US", "bulkApplyCount", "1") }));
   }
@@ -763,7 +764,7 @@ describe("Changes bulk edit undo — real useChangeLog + real useUndoStack", () 
       // writes both already hold the target value, so this row's diff is empty.
       ci({ id: 3, title: "Gamma risk", status: "Approved", decisionDate: "2026-06-05", localModifiedAt: SEED_STAMP }),
     ];
-    const { getByRole, getAllByRole, getByTestId } = render(
+    const { getByRole, getByTestId } = render(
       <Harness seed={seed} logActivity={logActivity} />,
       { wrapper: Providers },
     );
@@ -772,9 +773,10 @@ describe("Changes bulk edit undo — real useChangeLog + real useUndoStack", () 
       fireEvent.click(getByRole("checkbox", { name: t("en-US", "selectItem", title) }));
     }
     fireEvent.click(getByRole("button", { name: t("en-US", "bulkEdit") }));
-    fireEvent.click(getByRole("checkbox", { name: t("en-US", "changeFieldStatus") }));
-    const bulkStatus = getAllByRole("combobox", { name: t("en-US", "changeFieldStatus") })
-      .find((el) => el.id === "bulk-status")!;
+    // §277: the bulk select has its own name.
+    const status = t("en-US", "changeFieldStatus");
+    fireEvent.click(getByRole("checkbox", { name: t("en-US", "bulkEditChangeField", status) }));
+    const bulkStatus = getByRole("combobox", { name: t("en-US", "bulkEditNewValue", status) });
     fireEvent.change(bulkStatus, { target: { value: "Approved" } });
     fireEvent.click(getByRole("button", { name: t("en-US", "bulkApplyCount", "3") }));
 

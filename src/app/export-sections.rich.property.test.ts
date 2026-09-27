@@ -59,6 +59,7 @@ import {
   CHANGE_RICH_COLUMNS,
 } from "./export-sections";
 import type { ExportCell, RichCell } from "./export-sections";
+import { exportColumnLabel } from "./export-column-labels";
 import { emptyWorkspace } from "./workspace";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import type { ExportConfig, ExportSectionKey } from "./settings-types";
@@ -178,7 +179,7 @@ function cellFor(ws: Workspace, section: ExportSectionKey, column: string): Expo
   const sections = buildExportSections(ws, ALL_ON, "en-US");
   const found = sections.find((s) => s.key === section);
   expect(found, `section ${section} missing`).toBeDefined();
-  const idx = found!.columns.indexOf(column);
+  const idx = found!.columns.indexOf(exportColumnLabel(section, column, "en-US"));
   expect(idx, `column ${column} missing from ${section}`).toBeGreaterThanOrEqual(0);
   expect(found!.rows.length).toBeGreaterThan(0);
   return found!.rows[0][idx];

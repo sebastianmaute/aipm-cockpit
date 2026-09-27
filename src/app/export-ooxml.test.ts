@@ -8,10 +8,12 @@
 // section-driven rendering is wired up correctly.
 
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { buildDocx, buildXlsx, buildPptx } from "./export-ooxml";
 import { MAX_FIELD_PARAGRAPHS } from "./export-pptx";
 import { buildPdfHtml } from "./export";
-import { loadI18n } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import { buildExportSections, cellTextWithLinks } from "./export-sections";
 import type { ExportCell, ExportSection } from "./export-sections";
 import { COLOR_DARK_BLUE } from "./export-ooxml-shared";
@@ -21,6 +23,8 @@ import type { ExportConfig } from "./settings-types";
 import type { Workspace } from "./storage";
 import type { Task, RaidItem, Milestone } from "./types";
 import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
+import { jsonToWorkspace } from "./workspace";
+import { buildExportWorkspace } from "./export-workspace";
 
 // ---------------------------------------------------------------------------
 // Minimal ZIP reader (no external dependency — reads the STORE entries we write)
@@ -343,7 +347,7 @@ describe("buildXlsx", () => {
   });
 
   it("worksheet names are ≤31 characters", async () => {
-    // Use a section with a long title — status section title is "Project Status" (14 chars, fine),
+    // Use a section with a long title — status section title is `exportLabelStatus` ("Status report", 13 chars, fine),
     // so we enable several sections and verify all sheet names are within limit
     const cfg: ExportConfig = {
       ...defaultExportConfig, milestones: true, changes: true,
@@ -1348,4 +1352,41 @@ describe("PPTX export footer", () => {
     expect(parts.get("ppt/slides/slide1.xml")).toContain(`<a:t>${DEFAULT_EXPORT_FOOTER}</a:t>`);
     expect(parts.get("ppt/theme/theme1.xml")).toContain(`<a:clrScheme name="${DEFAULT_EXPORT_FOOTER}">`);
   });
+});
+
+describe("§463 — calendar events, knowledge items and insights reach every document format", () => {
+  const WS = jsonToWorkspace(readFileSync(join(import.meta.dirname, "..", "..", "sample-workspace-small.json"), "utf8"));
+  // `buildExportWorkspace` requires every slice by name; the ten optional ones
+  // are listed explicitly (a bare `Workspace` leaves them optional).
+  const SAMPLE = buildExportWorkspace({
+    ...WS,
+    budgets: WS.budgets, fxRates: WS.fxRates, status: WS.status, project: WS.project,
+    milestones: WS.milestones, changes: WS.changes, stakeholders: WS.stakeholders,
+    calendarEvents: WS.calendarEvents, knowledgeItems: WS.knowledgeItems, insights: WS.insights,
+  });
+  const CASES = [
+    ["calendarEvents", "exportLabelCalendarEvents"],
+    ["knowledgeItems", "exportLabelKnowledgeItems"],
+    ["insights", "exportLabelInsights"],
+  ] as const;
+  for (const [key, titleKey] of CASES) {
+    it(`${key}: present when switched on, absent when switched off`, async () => {
+      const title = t("en-US", titleKey);
+      const on: ExportConfig = { ...defaultExportConfig, [key]: true };
+      const off: ExportConfig = { ...defaultExportConfig, [key]: false };
+      expect(buildPdfHtml(SAMPLE, on, "en-US")).toContain(`>${title}</h2>`);
+      expect(buildPdfHtml(SAMPLE, off, "en-US")).not.toContain(`>${title}</h2>`);
+      const docx = async (cfg: ExportConfig) => (await unzipBlob(buildDocx(buildExportSections(SAMPLE, cfg, "en-US")))).get("word/document.xml")!;
+      expect(await docx(on)).toContain(`>${title}<`);
+      expect(await docx(off)).not.toContain(`>${title}<`);
+      const wb = async (cfg: ExportConfig) => (await unzipBlob(buildXlsx(buildExportSections(SAMPLE, cfg, "en-US")))).get("xl/workbook.xml")!;
+      expect(await wb(on)).toContain(`name="${title}"`);
+      expect(await wb(off)).not.toContain(`name="${title}"`);
+      const slides = async (cfg: ExportConfig) =>
+        [...(await unzipBlob(buildPptx(buildExportSections(SAMPLE, cfg, "en-US"), "en-US"))).entries()]
+          .filter(([p]) => p.startsWith("ppt/slides/slide")).map(([, x]) => x).join("\n");
+      expect(await slides(on)).toContain(`>${title}<`);
+      expect(await slides(off)).not.toContain(`>${title}<`);
+    });
+  }
 });

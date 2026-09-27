@@ -333,7 +333,9 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
   // site because both surfaces that show variance — the dashboard's Trends card
   // and the Trends view — read this one value, and a per-surface gate is exactly
   // how the dashboard's own two completion cards came to disagree.
-  // ★ PRESENTATION ONLY: the stored `SnapshotRecord.pctComplete` is untouched.
+  // ★ Still needed after §64: rows captured before §64 store 0 for a no-scope
+  // project, and this gate covers them. New no-scope captures store null
+  // instead, which `computeVariance` already turns into an empty row.
   // ★★ KNOWN LIMIT — the gate mixes LIVE and HISTORICAL data: the rows come from
   // two stored snapshots, the predicate reads today's tasks. Narrow in practice
   // (no-active-scope needs every task to lack a `completedDate`, so a non-zero

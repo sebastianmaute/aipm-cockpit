@@ -729,7 +729,7 @@ describe("DashboardPanel top-band Budget/Scope pill gating", () => {
 });
 
 describe("DashboardPanel completion-trend card", () => {
-  function snapRec(capturedAt: string, pct: number) {
+  function snapRec(capturedAt: string, pct: number | null) {
     return {
       id: capturedAt, capturedAt, bucket: capturedAt.slice(0, 10), cadence: "daily" as const,
       trigger: "manual" as const, isBaseline: false, remainingHours: null, remainingCost: null,
@@ -792,6 +792,29 @@ describe("DashboardPanel completion-trend card", () => {
     }
     expect(within(tile).queryByText("Today")).toBeNull();   // the last point is not today (2026-06-21)
     expect(within(tile).queryByText(/points$/)).toBeNull(); // the bare point count is gone
+  });
+
+  // §64 — the edge values and the accessible name read the first and last
+  //  points that HAVE a figure; a leading no-scope capture must never print
+  //  "null%" or become the "from" figure.
+  it("reads its edge values from the first and last points with a figure", () => {
+    withTrendOnBoard("p-trend-gap");
+    render(
+      <DashboardPanel
+        {...baseProps}
+        projectId="p-trend-gap"
+        snapshots={[
+          snapRec("2026-06-08T00:00:00.000Z", null),
+          snapRec("2026-06-10T00:00:00.000Z", 20),
+          snapRec("2026-06-14T00:00:00.000Z", 55),
+        ]}
+      />,
+      { wrapper },
+    );
+    expect(screen.getByRole("img", { name: "Completion trend: 55% on Jun 14, from 20% on Jun 10" })).toBeInTheDocument();
+    const tile = screen.getByTestId("tile-completionTrend");
+    expect(within(tile).queryByText(/null/)).toBeNull();
+    expect(within(tile).getByText("Jun 10")).toBeInTheDocument();
   });
 
   it("labels the last point Today when it is today's figure", () => {

@@ -5,7 +5,7 @@
 // (persisted Turso-only) so slippage can be shown over time.
 
 import type { Health } from "./health";
-import type { DashboardModel } from "./dashboard";
+import { hasNoActiveScope, type DashboardModel } from "./dashboard";
 import { bucketPercentComplete } from "./budget-earned-value";
 import { isTaskClosed, isTaskOutOfScope } from "./task-closed";
 import type { BudgetBucket, Milestone, Task } from "./types";
@@ -42,7 +42,7 @@ export interface SnapshotRecord {
   isBaseline: boolean;
   remainingHours: number | null;
   remainingCost: number | null;
-  pctComplete: number;
+  pctComplete: number | null;  // null = captured while nothing was in scope (§64)
   forecastEndDate: string;  // YYYY-MM-DD
   planEndDate: string;      // YYYY-MM-DD
   spi: number | null;
@@ -214,7 +214,9 @@ export function buildSnapshot(input: BuildSnapshotInput): SnapshotRecord {
     isBaseline: false,
     remainingHours: bd ? lastNonNull(bd.actualRemainingHours) : null,
     remainingCost: bd ? lastNonNull(bd.actualRemainingValue) : null,
-    pctComplete: model.progress.percent,
+    // §64 — no in-scope task means no denominator: store NO figure rather
+    //  than a 0 that reads as lost delivery. Existing rows keep their number.
+    pctComplete: hasNoActiveScope(model.progress) ? null : model.progress.percent,
     forecastEndDate: forecastEndDate(tasks, milestones, tasksById, planEndDate),
     planEndDate,
     spi: model.evm.spi,
@@ -288,9 +290,13 @@ export function hasCapturableContent(
  *  same way from the same burndown, so one field answers for both.
  *  ★ Read from the RECORD, not the capture context, so the SAME test answers
  *  for a row being built and for one loaded from history (the field
- *  round-trips through the `snapshot` table's `remaining_hours` column). */
-export function isKpiCompleteSnapshot(rec: Pick<SnapshotRecord, "remainingHours">): boolean {
-  return rec.remainingHours !== null;
+ *  round-trips through the `snapshot` table's `remaining_hours` column).
+ *  ★ And a known completion figure (§64): a row captured while nothing was in
+ *  scope stores `pctComplete: null`. */
+export function isKpiCompleteSnapshot(rec: Pick<SnapshotRecord, "remainingHours" | "pctComplete">): boolean {
+  // §64 — a no-scope row has no completion figure, so it can never be the
+  // baseline a later completion variance is measured against.
+  return rec.remainingHours !== null && rec.pctComplete !== null;
 }
 
 export type VarianceKey =
@@ -337,11 +343,9 @@ function worseIfLower(baseline: number | null, current: number | null): Health |
  *  never emits `"R"` for a numeric KPI, only for a forecast-date slip. A review
  *  and this comment both said "red" until a test asserted it.
  *
- *  ★★★ This is PRESENTATION ONLY and must stay that way. The stored
- *  `SnapshotRecord.pctComplete` is untouched: giving THAT a null state is a
- *  data-shape change with migration consequences for every stored snapshot and
- *  for what Trends charts over time (`docs/open-followups.md` §64 keeps the two
- *  halves apart deliberately). Do not "finish the job" at the record.
+ *  ★★★ Still needed after §64: rows captured before §64 store 0 for a
+ *  no-scope project, and the live no-scope gate applies to them. New captures
+ *  store null, which `computeVariance` already turns into an empty row.
  */
 export function withoutCompletionVariance(rows: readonly VarianceRow[]): VarianceRow[] {
   return rows.filter((row) => row.key !== "pctComplete");

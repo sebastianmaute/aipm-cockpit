@@ -12,6 +12,26 @@
  *  window below stays small. */
 export const SAVE_DEBOUNCE_MS = 500;
 
+/** ★★★ §185 — TRUE FROM `pagehide` UNTIL `pageshow`: the page is closing,
+ *  reloading, navigating away, or entering the back/forward cache. A save
+ *  scheduled inside that window has NO later signal left to flush it. On a tab
+ *  close the page hid first, so `visibilitychange` has already fired, and the
+ *  timer never runs on an unload. So `scheduleDebouncedSave` writes such a save
+ *  AT ONCE. The one caller today is a refused over-cap document paragraph that
+ *  commits its flattened form on `pagehide` (document-block-editors.tsx).
+ *  ★★ Why not a fresh `pagehide` listener instead: one added DURING the
+ *   dispatch is not invoked by it. Measured in real Chromium: a non-capture
+ *   listener added by a capture listener at the target did NOT run (jsdom does
+ *   run it, so a jsdom test alone would have passed a mechanism that fails in
+ *   the browser).
+ *  ★ CAPTURE, and registered at module load, so it runs before every listener
+ *   a component adds later, whichever phase that one uses. */
+let pageHiding = false;
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", () => { pageHiding = true; }, { capture: true });
+  window.addEventListener("pageshow", () => { pageHiding = false; });
+}
+
 /** Debounce `save` by `delayMs`, flushing early if the page is hidden or
  *  unloaded. Returns the cleanup to run when the effect re-runs or unmounts.
  *
@@ -70,6 +90,8 @@ export function scheduleDebouncedSave(
   };
   document.addEventListener("visibilitychange", onVisibilityChange);
   window.addEventListener("pagehide", flush);
+  // §185 — scheduled while the page is going away: nothing later will flush it.
+  if (pageHiding) flush();
   return () => {
     // ★ §589 — order is not arbitrary: `flush` clears the timer itself and sets `fired`, so the
     //   `clearTimeout` below is a no-op after a flush and the timer can never fire twice. Putting

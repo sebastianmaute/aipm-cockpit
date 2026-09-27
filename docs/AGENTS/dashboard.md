@@ -684,7 +684,10 @@ IS in axe `A11Y_VIEWS`. Built as slices:
   self-hiding card below the KPI strip. Pure i18n-free `completion-trend.ts`
   `computeCompletionTrend({snapshots, activity, currentDone, currentTotal, today})` → `CompletionPoint[]`
   (`{date,label,percent}` — `date` is the full "YYYY-MM-DD" day on BOTH paths, what the line is spaced by). ★★ SOURCE PRIORITY: if `snapshots` yields ≥2 points → exact
-  `SnapshotRecord.pctComplete` series (Turso path); ELSE reconstruct done/total from the LOCAL activity log —
+  `SnapshotRecord.pctComplete` series (Turso path) — ★ `pctComplete` is null for a capture taken while
+  nothing was in scope (§64): `fromSnapshots` keeps it as a null point, `Sparkline` breaks the line there,
+  `CompletionTrendBody` reads its edges from the first/last point WITH a figure, and fewer than two figures
+  falls back to the log; ELSE reconstruct done/total from the LOCAL activity log —
   anchor at the live counts and walk `task.created/completed/reopened/deleted` BACKWARD per day (deleted
   task's done-state unknown → assumed NOT done; documented approximation, like `newOverdue`). Neither ≥2 →
   `[]` (card hidden). Pure: `today`+counts passed in; percents clamped 0–100; future-dated + non-task events

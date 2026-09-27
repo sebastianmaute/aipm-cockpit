@@ -56,9 +56,10 @@ const MIME: Record<Exclude<ExportFormat, "pdf">, string> = {
  *  whose workspace carries `project`) is named after the project, slugged by
  *  the same `filenameStem` rule a document's filename uses: the old fixed
  *  `aipm-cockpit-tasks-<date>` named a whole-project PDF after just one of its
- *  sections. An export without a project name (the Open Points export
- *  menu passes no `project`) keeps that old name unchanged. All six formats
- *  share this, so one export's PDF and DOCX never disagree about their name. */
+ *  sections. Both export buttons now carry `project` (`buildExportWorkspace`,
+ *  §463), so both are named after it; a workspace without a project name
+ *  keeps the old name. All six formats share this, so one export's PDF and
+ *  DOCX never disagree about their name. */
 export function exportFilename(format: ExportFormat, today: string, projectName?: string): string {
   // A name that slugs to nothing ("???") keeps the tasks name rather than
   // producing "aipm-cockpit-project--<date>" or "…-project-project-…".

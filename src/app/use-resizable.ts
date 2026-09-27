@@ -6,7 +6,8 @@
 //
 //   1. On mount, reads a saved `{ width, height }` from localStorage at
 //      `storageKey` and writes them to the element's inline `style`. Inline
-//      styles override CSS classes, so the user's last size wins.
+//      styles override CSS classes, so the user's last size wins. (and again
+//      every time `open` turns true — §338)
 //
 //   2. Watches for `pointerdown` in the bottom-right ~CORNER_PX square of the
 //      element — that's where the native CSS resize handle sits — and treats
@@ -50,15 +51,23 @@ export type ResizableAxis = "both" | "x";
 
 export interface ResizableOptions {
   axis?: ResizableAxis;
+  /** §338 — false while the caller renders NOTHING (a modal that stays mounted
+   *  while closed). The attach/restore effect re-runs on every false→true
+   *  change, mirroring `useDraggable`'s open transition; without it the
+   *  effect's only run found no element and bailed, so no size was ever
+   *  restored or saved. Default `true` — an always-rendered caller is
+   *  unchanged. */
+  open?: boolean;
 }
 
 export function useResizable(storageKey: string, options?: ResizableOptions) {
   const axis: ResizableAxis = options?.axis ?? "both";
+  const open = options?.open ?? true;
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!open || !el) return;
 
     // Restore saved size.
     try {
@@ -114,7 +123,7 @@ export function useResizable(storageKey: string, options?: ResizableOptions) {
       el.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointerup", onPointerUp);
     };
-  }, [storageKey, axis]);
+  }, [storageKey, axis, open]);
 
   const reset = useCallback(() => {
     const el = ref.current;
