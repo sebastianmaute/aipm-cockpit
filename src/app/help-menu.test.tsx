@@ -132,6 +132,54 @@ describe("HelpMenu floating panel", () => {
   });
 });
 
+// §338 — HelpMenu stays mounted while closed and renders its panel only on
+// `{open && pos && …}`, with `pos` landing a tick after open. The size hook's
+// attach/restore effect must therefore re-run when the PANEL appears, or it
+// finds no element, restores nothing and never saves a drag.
+describe("HelpMenu window size (§338)", () => {
+  const SIZE_KEY = "aipm-cockpit:help-size-v3";
+
+  function stubRect(el: HTMLElement, rect: Partial<DOMRect>) {
+    el.getBoundingClientRect = vi.fn(
+      () => ({ left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, ...rect }) as DOMRect,
+    );
+  }
+
+  function pointer(type: string, coords?: { clientX: number; clientY: number }) {
+    const ev = new Event(type, { bubbles: true });
+    if (coords) Object.assign(ev, coords);
+    return ev;
+  }
+
+  it("restores a saved size on open, persists a resize, and restores it on reopen", () => {
+    window.localStorage.setItem(SIZE_KEY, JSON.stringify({ width: 777, height: 555 }));
+    try {
+      render(<HelpMenu lang="en-US" />);
+      openPanel();
+      const panel = screen.getByRole("dialog", { name: "Help" });
+      expect(panel.style.width).toBe("777px");
+      expect(panel.style.height).toBe("555px");
+
+      stubRect(panel, { right: 200, bottom: 200, width: 900, height: 700 });
+      act(() => {
+        panel.dispatchEvent(pointer("pointerdown", { clientX: 195, clientY: 195 }));
+        window.dispatchEvent(pointer("pointerup"));
+      });
+      expect(JSON.parse(window.localStorage.getItem(SIZE_KEY)!)).toEqual({ width: 900, height: 700 });
+
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "close") }));
+      expect(screen.queryByRole("dialog", { name: "Help" })).toBeNull();
+      openPanel();
+      const reopened = screen.getByRole("dialog", { name: "Help" });
+      expect(reopened.style.width).toBe("900px");
+      expect(reopened.style.height).toBe("700px");
+    } finally {
+      window.localStorage.removeItem(SIZE_KEY);
+      window.localStorage.removeItem("aipm-cockpit:help-pos");
+    }
+  });
+});
+
 // The floating Help window can be open ON TOP of the in-pane Help view, so with
 // a shared name both fields — and both clears — would appear twice, identically
 // named, in one accessibility tree (WCAG 2.4.6). The window's field therefore

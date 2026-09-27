@@ -28251,8 +28251,11 @@ Both arms of the original report are closed. Nothing here needed `.env.local` in
 ## 338. `useResizable` is a no-op in every modal that stays mounted while closed — CLOSED 2026-09-26
 
 **Status:** CLOSED 2026-09-26 on `fix/defect-batch-7`. `useResizable` (`use-resizable.ts`) now takes
-a `ResizableOptions.open` flag, defaulting `true` so the ~40 always-mounted callers are unchanged.
-The attach/restore effect's dependency list is `[storageKey, axis, open]` and its body now bails on
+a `ResizableOptions.open` flag, defaulting `true`, so the 40 call sites that do not pass it keep
+their old behaviour exactly. That is correct only where the element is rendered whenever the hook is
+mounted, and the callers were not audited one by one: the whole-branch review (2026-09-27) found two
+that are not — `help-menu.tsx` (now the fifth caller, below) and `task-manager.tsx`'s
+`aipm-cockpit:task-modal-size` (below). The attach/restore effect's dependency list is `[storageKey, axis, open]` and its body now bails on
 `!open || !el`, so it re-runs on every false→true transition — mirroring `useDraggable`'s own `open`
 handling — rather than only once at mount.
 
@@ -28264,6 +28267,22 @@ so this is defensive). `jira-conflicts-modal.tsx` also calls `useResizable`, but
 caller: it renders `<Modal open onClose={…}>` with a literal `true`, not a boolean prop or state — it
 has no closed-but-mounted state of its own, because its parent conditionally mounts the whole
 component rather than toggling an internal `open`. It never had this bug and needs no `{ open }`.
+
+Fifth caller, added 2026-09-27: `help-menu.tsx` stays mounted while closed and renders its panel
+only on `{open && pos && …}`, with `pos` (from `useDraggableWindow`) landing a tick after `open`. It
+passes `{ open: open && pos !== null }` — raw `open` would re-run the effect while the panel did not
+exist yet, and it would never run again. Because that gate needs the drag hook's `pos`, the panel ref
+is now created before both hooks and joined to the size hook's ref by one callback ref. Pinned by
+`help-menu.test.tsx`'s "HelpMenu window size (§338)" (saved size restored on open; a corner drag is
+persisted; close and reopen restores it). Mutant: `{ open }` in place of `{ open: open && pos !==
+null }` → red, `expected '' to be '777px'`; reverted, `git diff --stat` unchanged by it.
+
+Not changed, for the owner: `task-manager.tsx` calls `useResizable("aipm-cockpit:task-modal-size")`
+with no `open`, so its effect runs once at mount while the task form is closed and never attaches.
+Its return value IS used — the ref is threaded through `app-modals.tsx` into `task-form-modal.tsx`,
+whose callback ref writes the panel node into it — but nothing reads that ref back, and the panel's
+real size persistence is `task-form-modal.tsx`'s own `aipm-cockpit:modal-size:task-form` hook. Left
+as found: removing it means changing the `AppModals`/`TaskFormModal` prop contract.
 
 Not a mutant: deleting the `!open ||` half of the guard alone is EQUIVALENT, not a regression — a
 closed caller renders no element, so `!el` already bails on its own. The guard exists so the effect
