@@ -42437,37 +42437,68 @@ code where §151 had recorded one.
 
 **Status:** CLOSED 2026-09-27 on `fix/undo-scope`, by two guards in `src/app/undo/use-undo-stack.ts`:
 
-- **The load hold clears both stacks.** `useClearUndoOnLoadHold(loadPending, clear)` is a render-time
-  reconcile (not an effect, since `set-state-in-effect` is banned) that empties the undo AND redo
-  stacks on every false→true transition of `loadPending`. It is a separate hook rather than a
-  `loadPending` field on `UseUndoStackDeps` because `useUndoStack` is called ABOVE `useStorageBackend`
-  in `task-manager.tsx` (the undo API is threaded into hooks declared between the two, and
-  `useUndoHotkey`'s listener order depends on the call site), so `loadPending` does not exist there.
-  The companion is called right after `useStorageBackend`, in the same component.
-- **Every entry is scope-stamped.** `pushEntry` records `getScopeEpoch()` on the entry, the stamp
-  travels with it between the two stacks, and `undo`, `redo`, `undoById`, `undoThrough` and
-  `redoThrough` DROP (never run) an entry whose stamp is stale per `isScopeStale`, logging each drop
-  through `dropStaleScopeWrite` and showing no toast. When the entry the user picked was stale, the
-  call stops after dropping rather than running an older entry in its place. An absent reader is never
-  stale, so tests and popouts keep their old behaviour. `task-manager.tsx` passes the storage hook's
-  reader through the same forward-ref shape as `allowDestructiveSaveRef`.
+- **Every entry is scope-stamped.** `pushEntry` records `getScopeEpoch()` on the entry, and the stamp
+  travels with it every time it changes stacks (`commitUndo`'s redo push, `redo`'s push back, and the
+  `undoThrough` / `redoThrough` inverses). `undo`, `redo`, `undoById`, `undoThrough` and `redoThrough`
+  DROP (never run) an entry whose stamp is stale per `isScopeStale`, logging each drop through
+  `dropStaleScopeWrite` and showing no toast. When the entry the user picked was stale, the call stops
+  after dropping rather than running an older entry in its place. `task-manager.tsx` passes the storage
+  hook's reader through the same forward-ref shape as `allowDestructiveSaveRef`.
+- **A real switch empties the history.** `usePruneUndoOnScopeChange(loadPending, pruneStale)` is a
+  render-time reconcile (not an effect, since `set-state-in-effect` is banned). On every true→false
+  transition of `loadPending` it removes from BOTH stacks the entries whose stamp is stale, and only
+  those. The epoch is bumped only on a real scope change, synchronously and inside the hold, so at the
+  falling edge it has moved exactly when the project changed. History therefore survives Save-As, a
+  cancelled Open or Save-As, a same-project reload and migrate-to-Turso, all of which raise the hold
+  without changing the project (owner ruling on the review of the first cut, which cleared both stacks
+  on every RISE of the hold). It is a separate hook rather than a `loadPending` field on
+  `UseUndoStackDeps` because `useUndoStack` is called ABOVE `useStorageBackend` in `task-manager.tsx`
+  (the undo API is threaded into hooks declared between the two, and `useUndoHotkey`'s listener order
+  depends on the call site), so `loadPending` does not exist there. The companion is called right after
+  `useStorageBackend`, in the same component.
 
-Pinned by the "project scope (§628)" describe in `use-undo-stack.test.tsx` (T1: a switch empties both
-stacks and an undo leaves B's rows untouched; T1b: the redo stack too; T2: an entry stamped before an
-epoch bump is dropped with no hold transition; T2b: the other four entry points drop too; T3: an
-in-scope undo still applies) and by `task-manager.undo-scope-wiring.test.tsx`, which pins the wiring:
-the undo stack reads the storage hook's reader live, and the clear is fed this stack's `clear` and the
-storage hook's `loadPending`. Before the fix, T1, T1b, T2 and T2b were red, and T2's failure shows B's
-unrelated row 3 overwritten with A's pre-edit name. Mutation proof, each mutant restored
-byte-identical: deleting the clear turns T1 and T1b red; deleting the stale check turns T2 and T2b red
-(T1 stays green, so the two guards are independently pinned); dropping the reader from the deps, never
-filling its forward ref, or deleting the companion call each turns one wiring test red.
+★ Popouts are passed the reader too. They are unaffected because `isReadOnly` makes every capture and
+every restore entry point return early, so their stacks stay empty; an absent reader (never stale) only
+occurs in engine tests.
 
-★ The clear is deliberately coarse: it also fires on a same-project reload and on a held op the user
-cancels, which costs that undo history. The epoch stamp is the precise guard. ★ The stamp is the epoch
-at PUSH time, so it cannot see a capture whose images were read in the old scope and pushed after the
-bump. That direction is closed by the writers' own `!loadPending` start gates (`scope-epoch.ts`), not
-by the undo stack.
+Pinned by the "project scope (§628)" describe in `use-undo-stack.test.tsx`: T1 and T1b (a switch with
+the epoch bumped empties both stacks, and an undo leaves B's rows untouched); T-new (a hold with the epoch
+unchanged keeps both stacks, and the kept entry still undoes); T-new-b (a switch keeps an entry pushed in
+the new scope during the hold); T2 and T2b (an entry stamped before a bump is dropped by all five entry
+points with no hold transition); the "stamp survives every stack-to-stack move" cases (`redo`,
+`undoThrough`, `redoThrough`); and T3 (an in-scope undo still applies). `task-manager.undo-scope-wiring.test.tsx`
+pins the wiring: the undo stack reads the storage hook's reader live, and the prune is fed this stack's
+`pruneStale` and the storage hook's `loadPending`.
+
+Results, each quoted from its run log (scratchpad of the fixing session, 2026-09-27):
+- **Red against `main`** (first round, `undo-red.log`, a variant without the companion call): T1, T1b,
+  T2 and T2b failed on their assertions and T3 passed. T2's diff shows B's unrelated row 3
+  (`"B3-unrelated"`) received `"A3-before"`. T1b's body has since changed, so that result covers the
+  first-round T1b only.
+- **Red against the first cut** (`undo2-red.log`, HEAD's clear-on-rise `use-undo-stack.ts` with the new
+  tests): `Tests 1 failed | 67 passed (68)`. T-new failed with `expected [] to have a length of 1 but got
+  +0`. T-new-b passed there, because a clear on the rise leaves an entry pushed later untouched.
+- **Green** (`undo2-green.log`): `use-undo-stack.test.tsx` `Tests 68 passed (68)`, EXIT=0. The wiring test
+  (`undo2-wiring.log`) had 2 passed. Five sibling files (`undo2-sib.log`: task-manager load-hold,
+  characterization, scope-epoch-wiring, popout-guard, undo-control) had 60 passed.
+- **Mutants** (`undo2-mutation.log`; every restore byte-identical, and `git diff --stat` unchanged
+  afterwards):
+  - deleting the prune turned T1, T1b and T-new-b red;
+  - pruning on an unchanged epoch too turned T-new and T-new-b red;
+  - deleting the restore-time stale check turned T2, T2b and the three propagation cases red, with T1
+    green, so the two guards are pinned independently;
+  - dropping `epoch` from `redo`'s push, the `undoThrough` inverses or the `redoThrough` inverses turned
+    only its own propagation case red;
+  - dropping the reader from the deps, never filling its forward ref, or deleting the companion call
+    each turned exactly one of the two wiring tests red.
+
+★★ NOT CLOSED, only unreachable in practice: the stamp is the epoch at PUSH time, so a capture whose
+images were read in the old scope but pushed after the bump reads as current. The one capture that
+straddles an await is `useUndoBatch.runBatched`, which pushes its composite after `await fn()` in a
+staged-plan apply that normally lasts milliseconds, so a project switch would have to land inside that
+window. If one did, the push carries the NEW epoch whether it lands during the hold or after it, so
+neither guard drops it. Closing it means stamping the epoch when the batch OPENS and passing it through
+`captureComposite`.
 
 **Original status:** `useUndoStack` is called in `TaskManagerInner` with no key, so its state survives
 an in-place project switch (`switchToProject` / `switchToTursoProject` go through
