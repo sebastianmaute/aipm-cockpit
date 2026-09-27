@@ -257,7 +257,8 @@ export function selectTopChanges(changes: readonly ChangeItem[], limit: number):
  * identity when there is nothing to attach, so a caller can pass a sanitized
  * row through unconditionally without churning it.
  *
- * ★ This module is DOM-FREE (it runs under bare node in the sample generator).
+ * ★ This module is DOM-FREE by contract (scripts import the entity-sanitizer
+ * graph with no DOM; NOT because the sample generator lacks one — §151).
  * The helper only MOVES an already-sanitized array; it must never call
  * `sanitizeNoteLog` itself.
  */

@@ -382,7 +382,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§148](#148-retryloads-reload-branch-clobbers-a-concurrently-minted-chat-thread--closed-2026-08-31) | `retryLoad`'s reload branch clobbers a concurrently-minted chat thread | — | — | **CLOSED** 2026-08-31 |
 | [§149](#149-date-dependent-unit-tests-detonate-on-a-calendar-rollover-with-no-code-change-behind-them) | Date-dependent unit tests detonate on a calendar rollover, with no code change behind them | — | — | open |
 | [§150](#150-a-balanced-pair-of-stray-quotes-mislabels-rows-across-a-csv-section-boundary--closed-2026-09-13-as-an-accepted-limit) | A balanced pair of stray quotes mislabels rows across a CSV section boundary | cold review of the branch closing §105, 2026-08-16 | UNKNOWN | **CLOSED** 2026-09-13 as an accepted limit |
-| [§151](#151-the-sample-generator-runs-under-bare-node-is-false-retracted-in-several-source-headers-and-still-asserted-as-a-live-rationale-elsewhere--open-needs-a-probe) | "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere — open, needs a probe | cold review of the branch closing §105, 2026-08-16 | UNKNOWN — it is a probe, not a fix | open |
+| [§151](#151-the-sample-generator-runs-under-bare-node-is-false-retracted-in-several-source-headers-and-still-asserted-as-a-live-rationale-elsewhere--closed-2026-09-27) | "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere | cold review of the branch closing §105, 2026-08-16 | UNKNOWN — it is a probe, not a fix | **CLOSED** 2026-09-27 |
 | [§152](#152-onopenstoragefile-applies-tasks--raid-from-a-malformed-csv-and-reports-no-import-loss--closed-2026-08-29) | `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports no import loss | cold review of the branch closing §105, 2026-08-16 | S for the split; UNKNOWN for per-section attribution | **CLOSED** 2026-08-29 |
 | [§153](#153-pptx-export-is-one-slide-per-row-and-drops-most-rich-fields-before-they-can-be-rendered--open-measured) | PPTX export is one slide per row and drops most rich fields before they can be rendered — open, measured | — | — | open |
 | [§154](#154-native-docx-list-numbering-needs-a-package-part-and-nothing-in-the-repo-can-detect-a-malformed-one--open) | Native DOCX list numbering needs a package part, and nothing in the repo can detect a malformed one | — | — | open |
@@ -428,7 +428,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§194](#194-the-lazy-editors-queue-has-no-strictmode-coverage-and-the-test-that-would-give-it-must-assert-the-attach-sequence--closed-2026-08-20) | The lazy editor's queue has NO StrictMode coverage, and the test that would give it must assert the attach SEQUENCE | — | — | **CLOSED** 2026-08-20 |
 | [§195](#195-appendtext-must-read-everfocused-before-building-the-chain-and-nothing-in-this-repo-can-catch-a-regression) | `appendText` must read `everFocused` BEFORE building the chain, and nothing in this repo can catch a regression | — | — | open |
 | [§196](#196-the-two-routes-agree-property-192-exists-to-establish-has-no-fixture) | The two-routes-agree property §192 exists to establish has NO fixture | — | — | open |
-| [§197](#197-appendtexts-return-value-is-over-claimed-by-one-word--focus-can-also-return-false) | `appendText`'s return value is over-claimed by one word — `focus` can also return false | — | — | open |
+| [§197](#197-appendtexts-return-value-is-over-claimed-by-one-word--focus-can-also-return-false--closed-2026-09-27) | `appendText`'s return value is over-claimed by one word — `focus` can also return false | — | — | **CLOSED** 2026-09-27 |
 | [§198](#198-a-block-delete-reads-its-baseline-at-click-time-not-at-menu-open-time) | A block delete reads its baseline at CLICK time, not at menu-open time | — | — | open |
 | [§199](#199-adding-a-block-at-a-narrow-pane-leaves-the-new-block-collapsed-read-only--closed-2026-09-02) | ~~Adding a block at a narrow pane leaves the NEW block collapsed read-only~~ | — | — | **CLOSED** 2026-09-02 (the fork decided (a): a paragraph insert carries the selection; every other kind unchanged) |
 | [§200](#200-internal-identifiers-ship-in-the-tracked-tree--blocks-flipping-the-github-mirror-public--closed-2026-09-24) | Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public | sub-project 3 rollout 2026-09-23: leak gate in CI, history proof FAILS on 7 session-trailer lines; GitLab #185 | closed at flip step 4: rewritten history on a fresh repository, `--expect clean` passes | closed |
@@ -480,7 +480,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§246](#246-two-shared-primitives--infotooltip-and-sortresizeth--collide-on-accessible-name-across-the-app--closed-2026-08-30) | ~~Two shared primitives — `InfoTooltip` and `SortResizeTh` — collide on accessible name across the app~~ | row-unique-accessible-names slice (2026-08-25) | M | **CLOSED** 2026-08-30 |
 | [§247](#247-per-item-tasks-components-cannot-disambiguate-themselves--they-cannot-see-their-siblings--closed-2026-08-27) | Per-item Tasks components cannot disambiguate themselves — they cannot see their siblings | row-unique-accessible-names slice (2026-08-25) | S | **CLOSED** 2026-08-27 |
 | [§248](#248-a-whole-class-was-excluded-by-calling-row-varying-names-a-scan-false-positive--closed-2026-08-27) | A whole class was excluded by calling row-VARYING names a scan FALSE POSITIVE | — | — | **CLOSED** 2026-08-27 |
-| [§249](#249-218s-guard-is-argued-from-a-span-data-asset-id-the-loader-cannot-produce-and-every-test-for-it-scans-un-loaded-html) | §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html | pre-existing, found 2026-08-25 | S | open |
+| [§249](#249-218s-guard-is-argued-from-a-span-data-asset-id-the-loader-cannot-produce-and-every-test-for-it-scans-un-loaded-html--closed-2026-09-27) | §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html | pre-existing, found 2026-08-25 | S | **CLOSED** 2026-09-27 |
 | [§250](#250-sanitizeblock-silently-deleted-real-image-blocks-on-load-when-an-earlier-attribute-value-contained--then---closed-2026-08-25-02601) | `sanitizeBlock` silently deleted real image blocks on load when an earlier attribute value contained `>` then `<` | pre-existing, found 2026-08-25 | M | **CLOSED** 2026-08-25 (0.260.1) |
 | [§251](#251-htmlplainprojections-tag-regex-is-quadratic-on-unterminated-tag-input-on-every-rich-field-load-path--closed-2026-08-28) | `htmlPlainProjection`'s `TAG` regex is quadratic on unterminated-tag input, on every rich-field load path | pre-existing, found 2026-08-25 | S | **CLOSED** 2026-08-28 |
 | [§252](#252-all-four-data-asset-id-patterns-treat--as-an-attribute-separator-unconditionally) | All four `data-asset-id` patterns treat `/` as an attribute separator unconditionally | pre-existing, found 2026-08-25 | S | open |
@@ -684,7 +684,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§454](#454-asking-all-five-probes-in-one-reply-would-buy-5x-the-resolution-at-a-third-of-the-cost-but-partial-credit-is-a-new-outcome-shape-through-scoreresponse-hitrate-and-verdict--open) | Asking all five probes in ONE reply would buy 5x the resolution at a third of the cost, but partial credit is a new outcome shape through `scoreResponse`, `hitRate` and `verdict` | proposed 2026-09-09 during the six-run calibration of the AI prompt-quality harness — every lever that made retrieval harder measured as SPENT | M — a new outcome shape through `scoreResponse`, `hitRate` and `verdict` plus a restarted series; add it as the MEASUREMENT beside the single-probe gate, never as a replacement | **OPEN** |
 | [§455](#455-three-latent-defects-in-the-harness-response-parser-all-pre-existing-and-identical-across-the-liverequest-split--open) | Three latent defects in the harness response parser, all pre-existing and identical across the liveRequest split | found 2026-09-10 by the differential equivalence review of `0c03ee5a` — it was testing whether the extraction changed behaviour, and these fell out of the corpus | S — each is a one-line change, but each alters output that review just certified unchanged, so each needs its own test | **OPEN** |
 | [§456](#456-twelve-headerless-dialogs-deliberately-carry-no-help-icon-and-only-the-call-site-comments-record-why--open) | Twelve headerless dialogs deliberately carry no help icon, and only the call-site comments record why | recorded 2026-09-10 finishing the §424 sweep — 13 sites, 1 wired, 12 refused | N/A — a RECORD of deliberate absences; re-measure the term counts before reusing one | **OPEN** |
-| [§457](#457-a-stale-reachability-claim-in-the-calendar-meetings-band-move-handler-and-the-one-gate-correction-is-itself-wrong--open) | A stale reachability claim in the calendar meetings-band move handler, and the one-gate correction is itself wrong | found 2026-09-10 while recording the §424 refusals | S — replace the sentence naming BOTH gates; a one-gate fix invites a false "drag is broken" diagnosis | **OPEN** |
+| [§457](#457-a-stale-reachability-claim-in-the-calendar-meetings-band-move-handler-and-the-one-gate-correction-is-itself-wrong--closed-2026-09-27) | A stale reachability claim in the calendar meetings-band move handler, and the one-gate correction is itself wrong | found 2026-09-10 while recording the §424 refusals | S — replace the sentence naming BOTH gates; a one-gate fix invites a false "drag is broken" diagnosis | **CLOSED** 2026-09-27 |
 | [§458](#458-the-modal-header-help-popover-tab-test-fails-on-press-1-alone-under-ci-load-and-the-autofocus-diagnosis-was-wrong--open) | The modal-header help-popover Tab test fails on press 1 alone under CI load, and the autoFocus diagnosis was wrong | found 2026-09-10 from two CI runs on `feat/modal-help-bespoke`; one attempted fix measured wrong and reverted the same day | M — CI-only, intermittent; needs a diagnostic run under real load before any fix, and the obvious fix has already been tried and reverted | **OPEN** |
 | [§459](#459-two-relation-b-create-arm-probes-are-invalid-by-construction-because-the-harness-mutates-the-seed-rows-value-without-regard-to-what-the-create-will-accept--closed-2026-09-11) | Two Relation B create-arm probes are invalid by construction, because the harness mutates the seed row's value without regard to what the create will accept | first reported 2026-09-08 on the original branch (`1375f3c7`, local-only) and never filed there; analysed and filed 2026-09-11 from the sweep's first run on the landing branch | S — closed by the typed `probeFor` derivation (`src/test/sweep-probes.ts`) replacing the invalid mutated-seed probes; both fields dropped from the sweep's ledger | **CLOSED** 2026-09-11 |
 | [§460](#460-a-create-card-can-preview-meeting-attendees-the-create-then-stores-none-of-because-the-previews-link-guard-runs-on-updates-only--closed-2026-09-11) | A create card can preview meeting attendees the create then stores none of, because the preview's link guard runs on updates only | found 2026-09-11 by cold review of the offered-surface landing: a `plan.ts` comment still described both allow-list creates as unguarded | S — closed by `dfcd96b5`, lifting the `target === "row"` gate on link guards, behind a test (`plan.create-path-guards.test.ts`) driving `[4, "4"]` through card and write; §440's refusal-disclosure half stays open | **CLOSED** 2026-09-11 |
@@ -851,6 +851,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§621](#621-pdfdocxpptxxlsx-exports-still-print-recurrence-text-and-insight-typeseveritystatus-values-in-english--open) | PDF/DOCX/PPTX/XLSX exports still print recurrence text and insight type/severity/status values in English | — | — | open |
 | [§622](#622-an-ordinary-under-cap-document-paragraph-edit-that-was-never-blurred-is-lost-when-the-window-closes--open) | An ordinary, under-cap document paragraph edit that was never blurred is lost when the window closes | — | — | open |
 | [§623](#623-loadexportassets-loads-the-bytes-of-a-policy-refused-asset-before-discarding-them--open) | `loadExportAssets` loads the bytes of a policy-refused asset before discarding them | — | — | open |
+| [§624](#624-ai-evalts-and-update-ooxml-manifestts-import-the-dom-free-sanitizer-graph-with-no-dom-and-nothing-proves-they-never-reach-a-dompurify-call--open) | `ai-eval.ts` and `update-ooxml-manifest.ts` import the DOM-free sanitizer graph with no DOM, and nothing proves they never reach a DOMPurify call | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -1934,11 +1935,15 @@ which escapes and caps but is **DOM-free by contract**. `buildMilestoneFromObj` 
 object literal and never calls `sanitizeRaidItem` — only its `noteLog` goes through `decodeNoteLog`.
 Turso inherits the CSV column exactly, because `ENTITY_SPECS.fromObj` reuses `build*FromObj`.
 
-★★ **This is out of scope by construction, not by oversight.** The codecs run under bare node in
+★★ **This is out of scope by construction, not by oversight.** ~~The codecs run under bare node in
 `scripts/generate-sample-workspace.ts` and the fixture flow, where DOMPurify's `sanitize` is
 undefined and a call throws — which `jsonToWorkspace`'s catch-all converts into an EMPTY workspace
-that then "successfully" writes near-empty sample files. That is the entire reason `rich-text-plain.ts`
-exists and is guarded. Closing this column needs a **post-decode hook** in `csvToWorkspace` /
+that then "successfully" writes near-empty sample files.~~ **RETRACTED 2026-09-27 (§151):** both the
+generator and the fixture script (`scripts/regen-golden-fixtures.ts`) install JSDOM before importing
+`src/app`. The scope decision stands on the DOM-free CONTRACT of the codec/sanitizer modules, which
+two scripts import with no DOM (`scripts/ai-eval.ts`, `scripts/update-ooxml-manifest.ts`); whether
+they CALL a DOM-bound path is §624's open question. That
+contract is the entire reason `rich-text-plain.ts` exists and is guarded. Closing this column needs a **post-decode hook** in `csvToWorkspace` /
 `markdownToWorkspace` / `TursoBackend.load()` — the same shape as the two paths already fixed, but at
 a boundary that does not exist today — plus its own golden-stability answer.
 
@@ -3451,6 +3456,8 @@ specific to notes.
 ---
 
 ## 49. ~~Every AI edit to a RAID item erased its whole note log~~ — CLOSED in 0.211.1
+
+> ★★ **2026-09-27:** the "bare node" rationale below is FALSE — the sample generator installs JSDOM before importing `src/app`. The DOM-free rule stands on the contract, not on that; see §151. Kept as written, not rewritten.
 
 **Cited from:** `use-chat-dispatcher.test.tsx` — this entry cannot be deleted.
 
@@ -7621,6 +7628,13 @@ Verified by grep, not assumed: no file outside `src/app` imports these codecs di
 DOM-free importer is `scripts/generate-sample-workspace.ts` (which installs JSDOM into `globalThis`
 BEFORE its `await import("../src/app/storage")` — the dynamic import is load-bearing, a static one
 would hoist above the install), and every runtime decode caller is browser-side.
+
+> ★★ **2026-09-27 (§151, §624):** "the only DOM-free importer is the generator" is STALE, and the
+> paragraph above is kept as the record it was. `regen-golden-fixtures.ts` and `sample-link-exports.ts`
+> also import app code, and both install JSDOM first. But `update-ooxml-manifest.ts` reaches BOTH
+> codecs with no DOM, via `storage.ts`, and `ai-eval.ts` reaches `csv-codecs-config.ts` with no DOM,
+> via `turso-schema.ts`. That is this entry's "NEW bare-node script" case, already present. Whether
+> either one DECODES documents is unverified and is tracked in §624.
 
 ### What would break it
 
@@ -13184,11 +13198,53 @@ provably undecidable residue only invites the heuristics this entry already refu
 comments that cite §150 (`splitCsvLines`, `ImportDiag.malformedQuotes`, `useLoadTruncation`, their
 tests) cite it for the undecidability argument, which stands unchanged; none calls it open.
 
-## 151. "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere — open, needs a probe
+## 151. "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere — CLOSED 2026-09-27
 
-**Status:** open — a retracted rationale still asserted in several places; three sites retracted 2026-08-28, the rest untouched. Both legs disproved 2026-08-28 by `grep -nE "JSDOM|await import" scripts/generate-sample-workspace.ts` plus the graph resolver below.
+**Status:** CLOSED 2026-09-27 by `docs/accuracy-2`: the claim is corrected at every live site a
+repo-wide sweep finds, and every DOM-free RULE stays exactly as it was. The residual question —
+whether `scripts/ai-eval.ts` or `scripts/update-ooxml-manifest.ts`, which import the entity-sanitizer
+graph with no DOM, ever reach a DOMPurify CALL at runtime — is not a prose question and is **§624**.
+The sweep is a script FILE (not `node -e`, which loses the backslashes): walk `src`, `scripts`,
+`docs`, `e2e`, `AGENTS.md`, `CONTRIBUTING.md` and `README.md`; strip line-leading `*`, `//` and `>`
+markers and flatten whitespace (the phrase wraps inside JSDoc, which a plain flatten misses); print
+every `bare[- ]?node` or `near-empty sample` match whose surrounding 200 characters mention
+`generat`, `sample` or `fixture`; then READ each hit. Final run 2026-09-27: **0 ASSERTS**. The hit total is deliberately not quoted: this entry matches its
+own sweep, so the total moves with every edit here.
+Every other hit is a retraction, a banner-noted dated record, a true statement about bare node
+itself (`jsonToWorkspace` does return an empty workspace with no DOM), or this entry.
+A second pass for the claim WITHOUT the words "bare node" (a `sample generator` /
+`generate-sample-workspace` / `fixture flow` mention near `DOMPurify`, "no DOM" or "throws", with no
+`JSDOM` nearby) found one more asserting site, the `documents` docstring on `Workspace` in
+`workspace.ts`, and it was corrected too.
+A third pass, added after the final review, catches the "SOLE importer" spelling of the claim, which
+neither earlier pass keys on: `(only|sole|single) (DOM-free )?(importer|script|consumer|caller)` near
+`src/app`, the generator, JSDOM or a codec. It found four more sites, now fixed. Three are live codec
+comments: `csvToDocuments` and `csvToDocumentVersions` in `csv-codecs-config.ts`, and the documents
+decode in `markdown-codecs-core.ts`. They are corrected to the true census. The fourth is §97's "Why
+it is safe today", which got a dated banner. Every other hit of that pass concerns an unrelated
+"only consumer" or "only caller", or is a `git commit --only` flag in a plan.
+Second round, same day: `activity-log.ts` (`sanitizeActivityLog`), `change-log.ts`
+(`withStoredNoteLog`), `ai-rich-text.ts`, `narrative-html.ts`, `download.ts`, `note-log.ts` (its
+`decodeNoteLog` note also claimed the generator and fixture flow decode every note log to empty),
+`document-asset-patterns.ts`, `workspace.ts` (twice), the guard comments in
+`document-asset-patterns.test.ts`, `document-model.test.ts`, `workspace.documents.test.ts` and
+`use-chat-dispatcher.test.tsx`, plus `CONTRIBUTING.md`, `docs/CODEMAPS/data.md` and
+`docs/CODEMAPS/dependencies.md`. Fifteen dated `docs/superpowers/` plans and specs that asserted it
+got a one-line dated correction note under their title instead of a rewrite.
+First round, same day. The corrected sites now say the modules are DOM-free BY CONTRACT, that DOM-free
+importers of that graph exist (`scripts/ai-eval.ts`, `scripts/update-ooxml-manifest.ts`), and that
+the generator and `scripts/regen-golden-fixtures.ts` install JSDOM first. Corrected: §28 (lead
+sentence struck through, retraction added), §49 (a dated banner; the entry is closed and was not
+rewritten), the headers of `rich-text-plain.ts` (plus its two docstrings that repeated the claim)
+and `html-start.ts` (neither was in the table below), the three asserting bullets in
+`docs/AGENTS/rich-text.md`, the guard comments in `rich-text-plain.test.ts`, and `templates.ts`
+`sanitizeSeedTask`, which no longer quotes a graph size.
+A first draft of this Status left the entry OPEN because the first round's table missed the
+second round's sites, and closing on the table alone would have been a verdict from the title.
+`grep -rln "bare node in the sample generator" src/app` returned `change-log.ts` and `download.ts`
+before the second round and returns nothing after it.
 
-**Work item:** #161
+Original status: open — a retracted rationale still asserted in several places; three sites retracted 2026-08-28, the rest untouched. Both legs disproved 2026-08-28 by `grep -nE "JSDOM|await import" scripts/generate-sample-workspace.ts` plus the graph resolver below.
 
 Opened 2026-08-16, out of the same cold review as §150. **No fix is applied here and none should be
 applied casually** — this entry exists to stop a FIFTH retraction being derived from scratch.
@@ -13200,13 +13256,14 @@ would swallow the throw into a near-empty sample file."
 **The claim is false about the generator.** `generate-sample-workspace.ts` constructs a `JSDOM` and
 `Object.assign`s `window`/`document` onto `globalThis` BEFORE its dynamic
 `await import("../src/app/storage")` — its own comment says the install exists so the DOM-bound
-sanitizers downstream work. It is also the only script that imports `src/app` at all; the other
-`scripts/*.mjs` files merely NAME the path inside comments and doc-gate fixtures.
+sanitizers downstream work. ~~It is also the only script that imports `src/app` at all; the other
+`scripts/*.mjs` files merely NAME the path inside comments and doc-gate fixtures.~~ **Stale by
+2026-09-27:** four more scripts import app code (census below, under "Measured").
 
 **There is a SECOND leg, added 2026-08-28, and it is the one that kills the weaker restatement.** Sites
 that hedge toward "a DOMPurify call there would PULL DOMPurify INTO the graph" are wrong too:
 `sanitize-html.ts`, the module that does `import DOMPurify from "dompurify"`, is ALREADY one of the 92
-files, reached by `html-start.ts` (which imports `RICH_ALLOWED_TAGS` from it) and independently by
+files (measured 2026-08-28; see the dated note under the resolver below), reached by `html-start.ts` (which imports `RICH_ALLOWED_TAGS` from it) and independently by
 `note-log.ts`. So the graph contains the dependency either way; what the guard bans is the two named
 modules being imported by a graph member, which is a CONTRACT, not a consequence.
 ★★ Keep the two legs separate. Leg 1 refutes "the call would throw"; leg 2 refutes "the import would
@@ -13227,6 +13284,14 @@ console.log((g.has(r+"/src/app/"+f+".ts")?"IN  ":"out ")+f)'
 ```
 Measured 2026-08-28: 92 files; `sanitize-html`, `html-start`, `note-log`, `templates` all IN;
 `template-apply` OUT — which is why §36(a)'s allow-list is legal in the latter and not the former.
+> ★ **2026-09-27 re-measure (dated note; the line above is kept as the record it is):** the same
+> resolver printed 110 files with the same memberships. Going forward no count is quoted, because it
+> moves on any import edit; print it with the resolver. ★★ The resolver follows `import type` edges
+> and comment text, so its `templates` IN is an artifact. Every edge into `templates.ts` from the
+> generator's graph is type-only, and TypeScript elides those, so the generator never LOADS
+> `templates.ts`. With comments and `import type` statements stripped first, `templates` is OUT and
+> `sanitize-html` and `note-log` stay IN. The legality argument for `template-apply` is unaffected,
+> since it is OUT either way.
 
 ### Measured
 
@@ -13240,6 +13305,25 @@ scripts/followup-claims-lib.test.mjs   <- comment text only
 scripts/generate-sample-workspace.ts   <- the only real importer; installs JSDOM first
 ```
 
+★★ **CENSUS RE-RUN 2026-09-27 — FIVE scripts now import app code, and two have NO DOM.** The block
+above stands as the 2026-08-16 measurement it was. Re-run with
+`git grep -lE "from ['\"]\.\./src/|import\(['\"]\.\./src/" -- scripts/`, then read each hit
+(`scripts/ai-eval.test.ts` is a test of `ai-eval.ts`, not a separate consumer):
+
+| Script | Imports | DOM before the import? |
+|---|---|---|
+| `generate-sample-workspace.ts` | `src/app/storage` (dynamic) | yes — JSDOM installed first |
+| `regen-golden-fixtures.ts` | `src/app/storage` (dynamic) — this is the "fixture flow" §28 named | yes — JSDOM installed first |
+| `sample-link-exports.ts` | `src/app` | yes — JSDOM installed first |
+| `ai-eval.ts` (`npm run ai:eval`) | `src/app` statically | **NO** — its header says nothing needs `jsonToWorkspace`, "and therefore nothing needs jsdom" |
+| `update-ooxml-manifest.ts` (`npm run ooxml:manifest`) | `src/test/ooxml-manifest*`, which reach `src/app` | **NO** |
+
+Check the DOM column with `grep -c -i jsdom <script>` (`ai-eval.ts` matches once, in the comment that
+says it needs none). So leg 1 is false for the generator AND for the fixture flow, but DOM-free
+importers of the entity-sanitizer graph DO exist — they are simply not the generator. That is why the
+corrected sites ground the rule on the per-module CONTRACT, and why whether either DOM-free script
+ever reaches a DOMPurify call is tracked separately in §624.
+
 Posture of every site, classified BY READING it — the sweep below only produces candidates:
 
 | Where | Posture |
@@ -13249,13 +13333,15 @@ Posture of every site, classified BY READING it — the sweep below only produce
 | `document-versions.ts` | RETRACTS, and cites the other two |
 | `document-rich-fields.ts` | RETRACTS ("obsolete") — ★★ and does NOT contain the phrase, see below |
 | §97 (this file) | RETRACTS, scoped to the DOCUMENT load paths only |
-| `docs/AGENTS/rich-text.md`, four separate mentions | ASSERTS — **moved out of AGENTS.md, see below** |
-| §28 (this file) | ASSERTS — "out of scope by construction" |
-| §36(a) (this file) | **RETRACTS as of 2026-08-28** — was the stated REASON the boundary cannot be added |
+| `docs/AGENTS/rich-text.md`, four separate mentions | ASSERTS — **moved out of AGENTS.md, see below**. **CORRECTED 2026-09-27**: the three that still asserted (the `sanitizeRaidItem` bullet, the `html-start.ts` note, the `rich-text-plain.ts` "MUST NEVER CALL DOMPurify" bullet) now give the contract |
+| §28 (this file) | ASSERTS — "out of scope by construction". **CORRECTED 2026-09-27**: the lead sentence is struck through and retracted; the scope decision stands on the contract |
+| §36(a) (this file) | **RETRACTS as of 2026-08-28** — was the stated REASON the boundary cannot be added. The entry is now CLOSED |
+| `rich-text-plain.ts` file header (and two of its docstrings) | ASSERTED — **missing from this table until 2026-09-27**, when it was found and **CORRECTED** |
+| `html-start.ts` file header | ASSERTED — **missing from this table until 2026-09-27**, when it was found and **CORRECTED** |
 | `templates.ts` `sanitizeSeedTask` | **RETRACTS as of 2026-08-28** — was ASSERTING, and is the site a fixer reads first |
-| `rich-text-plain.test.ts`, the graph guard's own comment | **ASSERTS** — leg 1 verbatim, and it is the DESTINATION the three retractions point at, so a fixer following them reads the false rationale again on arrival. Left deliberately: correcting it means editing the guard's rationale, which wants its own commit. ★★ Its neighbouring "the graph is 76 files today" claim was DELETED on 2026-08-29 and replaced by a floor plus a retraction quoting the old wording — so an exact-phrase grep for it now returns 0, and this row must not be read as describing a live claim |
+| `rich-text-plain.test.ts`, the graph guard's own comment | **ASSERTS** — leg 1 verbatim, and it is the DESTINATION the three retractions point at, so a fixer following them reads the false rationale again on arrival. Left deliberately: correcting it means editing the guard's rationale, which wants its own commit. ★★ Its neighbouring "the graph is 76 files today" claim was DELETED on 2026-08-29 and replaced by a floor plus a retraction quoting the old wording — so an exact-phrase grep for it now returns 0, and this row must not be read as describing a live claim. **CORRECTED 2026-09-27**, together with the three sibling comments in that file that asserted the same chain (the `diagnostics.ts` pin, the rich-text-projection guard, the `ai-rich-text` offender note) and the logDiag note |
 | `docs/AGENTS/rich-text.md`, the `sanitizeSeedTask` mention | **RETRACTS as of 2026-08-28** — the other four mentions there still ASSERT |
-| §49 (this file) | ASSERTS — "the obvious fix is forbidden" |
+| §49 (this file) | ASSERTS — "the obvious fix is forbidden". The entry was CLOSED in 0.211.1; since 2026-09-27 it carries a dated banner pointing here, and its body is kept as written |
 
 Candidate sweep, flattening whitespace first — the phrase WRAPS ACROSS LINES in several headers, so a
 plain `grep "bare node"` under-reports, and it is hyphenated in one place:
@@ -16626,12 +16712,40 @@ assertion did not.
 fix round, whose job is to CUT. Adding a new fixture while correcting is the highest-risk commit
 class in this repo, which is the thing this branch has now demonstrated twice.
 
-## 197. `appendText`'s return value is over-claimed by one word — `focus` can also return false
+## 197. `appendText`'s return value is over-claimed by one word — `focus` can also return false — CLOSED 2026-09-27
 
-**Status:** open — NOT reachable today, NOT a regression, and NOT to be "fixed" by changing the code.
+**Status:** CLOSED 2026-09-27 by `docs/accuracy-2`, prose only, as this entry asked. The comment on
+`appendText`'s return in `src/app/rich-text-editor.tsx` no longer says `focus` is the only other
+command "and nothing else touches the transaction". It now says `focus` touches no content but CAN
+return false (`@tiptap/core`'s `focus` catches a throwing `view.hasFocus()`), that on that path the
+insert HAS been dispatched, so the lazy wrapper would re-queue and later replay text that already
+landed — a duplicate append, which is worse than the misleading boolean this entry first described —
+and when that state can occur. A cold review of the first closure measured the mechanism against the
+installed `@tiptap/core` and corrected it, and the comment now says what was measured:
+- A DESTROYED editor is safe, and never throws. `Editor.chain()` returns
+  `CommandManager.createFakeChain()` when `commandManager` is null, and `destroy()` nulls it, so
+  `run()` is `false` with nothing inserted and the wrapper's re-queue is correct.
+- The duplicate IS reachable through public API: an editor whose view was UNMOUNTED
+  (`editor.unmount()`) while its `commandManager` lives. The `view` Proxy throws on `hasFocus`, so
+  `focus` returns false, but it still forwards `dispatch`. So the insert lands and `run()` reports
+  false. The reviewer probed this with jsdom and StarterKit, no stubs: the doc text became "Yb"
+  while `run()` returned `false`.
+- It is not reached in this app today only because nothing calls `unmount()` except `destroy()`,
+  which nulls `commandManager` in the same synchronous call. `@tiptap/react` never calls it, and no
+  code in `src/` calls `editor.unmount()` either. Check with
+  `grep -rnE "(editor|Editor)\??\.unmount\(" src --include=*.ts --include=*.tsx`. On 2026-09-27 it
+  prints exactly one hit, and that hit is the COMMENT in `rich-text-editor.tsx` that describes this
+  state, not a call. A second hit that is code reopens this. Do NOT grep a bare `unmount()`: that
+  prints over a hundred React Testing Library `unmount()` calls in tests, none of them Tiptap's.
+
+No code change and no test in this closure; the comment is the fix this entry asked for. Re-check
+with `grep -n "createFakeChain" -B2 -A3 node_modules/@tiptap/core/src/Editor.ts`,
+`grep -n "public destroy" -A15 node_modules/@tiptap/core/src/Editor.ts | grep commandManager` and
+`grep -c "\.unmount()" node_modules/@tiptap/react/dist/index.js` (0), plus
+`grep -n "CAN itself return false" -A 12 src/app/rich-text-editor.tsx`.
+
+Original status: open — NOT reachable today, NOT a regression, and NOT to be "fixed" by changing the code.
 Filed so the comment is not read as stronger than it is. Reproduced 2026-08-28 by `grep -n "the only other command is" src/app/rich-text-editor.tsx`.
-
-**Work item:** #183
 
 `appendText` in `rich-text-editor.tsx` returns the chain's own verdict rather than an unconditional
 `true`, and the comment beside that return justifies reading a `false` as "nothing landed" on the
@@ -16640,6 +16754,12 @@ can itself return false: verified in the installed `@tiptap/core`, its body wrap
 `view.hasFocus()` early-exit in a `try` whose `catch` returns false. A false command does not abort
 the chain, so on that path the insert has still been dispatched — a `false` there would mean "the
 text landed and the focus attempt threw", not "nothing landed".
+
+> ★★ **2026-09-27 correction:** the next paragraph's "A DESTROYED editor throws at `editor.chain()`"
+> is FALSE. `Editor.chain()` returns `CommandManager.createFakeChain()` once `destroy()` has nulled
+> `commandManager`, so nothing throws and nothing is inserted. The reaching state it says could not be
+> constructed exists, through public API: an `editor.unmount()`ed view. See the Status above. Kept as
+> written.
 
 ★★ **NOT REACHABLE TODAY, and that is the half worth keeping.** On the realistic path — a
 never-focused editor, `opts` undefined — `appendText` returns TRUE. A DESTROYED editor throws at
@@ -18528,7 +18648,7 @@ not see". The fifteenth — the span row's *survives load* — is INSPECTED only
 | reference | counted by the cap | drawable / exported | survives load |
 |---|---|---|---|
 | `<img data-asset-id="x">` (double-quoted) | yes | yes | yes |
-| `<span data-asset-id="x">text</span>` | yes | no | yes † |
+| `<span data-asset-id="x">text</span>` | yes | no | paragraph yes, reference NO † |
 | `<img data-asset-id='x'>` (single-quoted) | no | no | **yes** |
 | `<IMG DATA-ASSET-ID="x">` (uppercase) | no | no | **yes** |
 | `<img data-asset-id="">` (empty id) | no | no | no |
@@ -18549,7 +18669,10 @@ sanitiser unwraps the element and the attribute leaves with it. Do NOT
 read that as the tag-agnostic guard being pointless: `data-asset-id` DOES survive load on
 allow-listed non-`img` carriers (`<p>`, `<strong>`, `<li>`, `<a>` each keep it), so the guard
 protects a reachable case — just never the `<span>` this entry names throughout. **§249** carries
-the probe, the mechanism and what it would take to settle it.
+the probe, the mechanism and what it would take to settle it. (2026-09-27, §249: the cell above,
+which read `yes †`, was corrected to `paragraph yes, reference NO †`; the reference half is now
+asserted on the load path by `document-asset-usage.test.ts`'s "a non-img carrier the LOADER can
+produce still holds a cap slot".)
 
 ★★ **AND THAT CELL IS NOT ASSERTED, WHICH IS WHY THE CLAIM "all measured" WAS WRONG TWICE OVER.**
 The test's span case deliberately checks `{counted, drawable}` and omits *survives load*, and it is
@@ -21506,13 +21629,48 @@ detector story — AGENTS.md's a11y bullet records that `label-content-name-mism
 question above is the same SC, decided rather than fixed.)
 
 ---
-## 249. §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html
+## 249. §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html — CLOSED 2026-09-27
 
-**Status:** OPEN — an **open question against §218**, not a defect. Nothing is broken today and the
+**Status:** CLOSED 2026-09-27 by `docs/accuracy-2`. All three steps are done.
+(1) Every LIVE explanation now uses a carrier the loader can produce. Scope: `src/`, `docs/AGENTS/`,
+`docs/CODEMAPS/`, `AGENTS.md` and `CONTRIBUTING.md`. The fixes:
+- the `AssetRefs` note in `src/app/document-asset-usage.ts` says `<p data-asset-id>` and adds why a
+  span cannot be it, and its `undrawable` note says "on a `<p>` in one block";
+- the `assetRefsInDocument` bullet in `docs/AGENTS/documents.md` says the same;
+- the cap-message comments in `src/app/documents-asset-section.tsx` (three);
+- the cap-message header in `src/app/documents-asset-section.test.tsx`, which also now says why its
+  span FIXTURES are legal: they are un-loaded html. The first closure missed these two files and a
+  cold review caught them.
+- `document-asset-patterns.ts` and the documents.md divergence paragraph were already fixed.
+
+Re-checked with
+`git grep -nE "span[^>]{0,20}data-asset-id" -- src docs AGENTS.md CONTRIBUTING.md e2e scripts`,
+reading every hit. What remains is deliberate:
+- un-loaded pattern FIXTURES, which this entry's reason 2 exempts: `document-asset-patterns.test.ts`,
+  the `document-asset-usage.test.ts` pattern cases, and the two `documents-asset-section.test.tsx`
+  fixtures;
+- the new load-path test, which asserts that a span does NOT survive;
+- this register's own §218, §231 and §249 discussions of the mechanism;
+- the dated `docs/superpowers/` plans and specs for 2026-08-24 and 2026-08-25, and their probe
+  script. Those are records and were not rewritten.
+
+(2) §218's table cell now reads `paragraph yes, reference NO †`, with a dated
+note under its existing correction. (3) `document-asset-usage.test.ts` gained "a non-img carrier the
+LOADER can produce still holds a cap slot": a numeric-id document loaded through
+`sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)` keeps `<p data-asset-id="a1">` in
+`all` and out of `drawable` while the `<img>` control stays drawable, and a sibling case shows a
+`<span data-asset-id>` is absent from `all` after load. Both assert the document survived. Both
+pass against today's code, and three mutants of `sanitize-html.ts`, each run on its own on
+2026-09-27, turn them red:
+- dropping `"p"` from `RICH_ALLOWED_TAGS` fails the `<p>` case;
+- dropping `data-asset-id` from the document attribute list fails both new cases and four older ones;
+- adding `"span"` to `DOCUMENT_ALLOWED_TAGS` fails the `<span>` case.
+Re-check with
+`grep -n "a non-img carrier the LOADER" -A 40 src/app/document-asset-usage.test.ts`.
+
+Original status: OPEN — an **open question against §218**, not a defect. Nothing is broken today and the
 decision §218 records is still the right one. What is in doubt is the EXAMPLE that decision is
 argued from, everywhere it is argued. Status recorded 2026-08-28; never machine-verified by a committed probe.
-
-**Work item:** #209
 
 **What was measured.** 2026-08-25, through the real two-pass load composition
 (`sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)`) rather than either pass alone:
@@ -35782,11 +35940,18 @@ serialises, since the census is written into the artifact.
 
 **Why this is filed at all.** Twelve deliberate absences are indistinguishable from twelve oversights to anyone reading the tree later, and the cheap repair — "wire it to the closest entry" — is the one that ships the failure mode. `docs:symbols:check` cannot help: it reads only `AGENTS.md` and `docs/AGENTS/*.md`, and it proves a NAME exists, never that pointing an icon at it is right.
 
-## 457. A stale reachability claim in the calendar meetings-band move handler, and the one-gate correction is itself wrong — OPEN
+## 457. A stale reachability claim in the calendar meetings-band move handler, and the one-gate correction is itself wrong — CLOSED 2026-09-27
 
-**Status:** open — found 2026-09-10 while recording the §424 refusals, and deliberately NOT fixed in that commit. Verified that day by `grep -n "exercised end to end" src/app/calendar-event-move-handler.ts` (the stale sentence), `grep -n "onEditEvent=\|onMoveOccurrence=" src/app/resources-panel.tsx` (both gates), and `grep -n "onEditEvent ?" src/app/resource-calendar.tsx` (the mount condition).
+**Status:** CLOSED 2026-09-27 by `docs/accuracy-2`, prose only; the code was already correct. The
+header above `buildMoveOccurrenceHandler` in `src/app/calendar-event-move-handler.ts` now keeps the
+old sentence's history ("when this was extracted the band could not be exercised end to end") and
+names BOTH gates: `resources-panel.tsx` passes `onEditEvent` only outside a popout AND when the
+caller supplied `onEditCalendarEvent` (an optional prop — a refinement of this entry's "gated on
+`!isPopout` alone"), so the band MOUNTS; while `onMoveOccurrence` is undefined in a popout OR when no
+`onSaveCalendarEvent` is supplied, in which case the band renders with its drag UNARMED. No test:
+it is a comment. Re-check with `grep -n "TWO gates" -A 4 src/app/calendar-event-move-handler.ts`.
 
-**Work item:** #292
+Original status: open — found 2026-09-10 while recording the §424 refusals, and deliberately NOT fixed in that commit. Verified that day by `grep -n "exercised end to end" src/app/calendar-event-move-handler.ts` (the stale sentence), `grep -n "onEditEvent=\|onMoveOccurrence=" src/app/resources-panel.tsx` (both gates), and `grep -n "onEditEvent ?" src/app/resource-calendar.tsx` (the mount condition).
 
 The header comment on `buildMoveOccurrenceHandler` says the meetings band "can't be exercised end to end yet, since `resource-calendar.tsx` only mounts it when `onEditEvent` is ALSO present, and that prop lands separately with the series editor modal". That is **stale as to reachability**: `resources-panel.tsx` now wires `onEditEvent`, and `resource-calendar.tsx` mounts `CalendarBand` under a check on it, so the band mounts and the drag path IS reachable.
 
@@ -42179,3 +42344,90 @@ Size S.
 
 **Source:** the §320 (#235) task review in defect batch 7, which found that `loadExportAssets` still loads the
 bytes of blocked assets before discarding them.
+
+## 624. `ai-eval.ts` and `update-ooxml-manifest.ts` import the DOM-free sanitizer graph with no DOM, and nothing proves they never reach a DOMPurify call — open
+
+**Status:** open 2026-09-27 — found while correcting §151 on `docs/accuracy-2`. Neither script was
+executed. Verified by reading: `grep -c -i jsdom scripts/ai-eval.ts scripts/update-ooxml-manifest.ts`
+returns 1 and 0, and the one `ai-eval.ts` hit is the comment saying it needs no jsdom. The import
+graphs were resolved with §151's resolver pointed at each script instead of the generator, then
+re-resolved as RUNTIME graphs (type-only edges stripped) after a cold review.
+
+**Work item:** #440
+
+§151 established that the sample generator is NOT a DOM-free consumer: it, `regen-golden-fixtures.ts`
+and `sample-link-exports.ts` all install JSDOM before importing `src/app`. Two other scripts do not:
+
+- `scripts/ai-eval.ts` (`npm run ai:eval`, run with `npx vite-node`) imports `src/app` statically with
+  no DOM. Its header says nothing it uses needs `jsonToWorkspace`, "and therefore nothing needs jsdom".
+  Its RUNTIME import graph (comments and `import type` edges stripped) reaches `sanitize.ts`,
+  `rich-text-plain.ts`, `sanitize-html.ts` (which imports DOMPurify and calls it inside
+  `sanitizeRichHtml`) and `note-log.ts` (which calls `sanitizeRichHtml`). `rich-text-projection.ts`
+  and `ai-rich-text.ts` are both OUT of it.
+- `scripts/update-ooxml-manifest.ts` (`npm run ooxml:manifest`, run with `jiti`) installs no DOM and
+  imports `src/test/ooxml-manifest*`. Its runtime graph reaches `storage.ts`, `sanitize.ts`,
+  `rich-text-plain.ts`, the DOM-BOUND `ooxml-docx-primitives.ts` (its header: `htmlToRichLines`
+  parses with DOMParser), and `rich-text-projection.ts`, a module that CALLS DOMPurify. The chain is
+  `src/test/ooxml-manifest-subjects.ts` → `ooxml-docx-primitives.ts` → `export-sections.ts` →
+  `rich-text-projection.ts`.
+- ★ `templates.ts` is in NEITHER runtime graph. §151's resolver counts it because it follows
+  `import type` edges and comment text; every edge into it from these graphs is type-only, which
+  TypeScript elides.
+
+★★★ **THE CONCRETE SILENT-LOSS PATH, found by the final review of `docs/accuracy-2`.** Both scripts
+also reach a document CODEC, where a no-DOM call does not throw at all but is swallowed:
+- `update-ooxml-manifest.ts` reaches `csv-codecs-config.ts` and `markdown-codecs-core.ts` through
+  `src/test/ooxml-manifest-subjects.ts` → `ooxml-docx-primitives.ts` → `export-sections.ts` →
+  `storage.ts` → `csv-codecs.ts` / `markdown-codecs.ts`.
+- `ai-eval.ts` reaches `csv-codecs-config.ts` through `use-operating-guides.ts` →
+  `operating-guide-store.ts` → `operating-guide-schema.ts` → `turso-schema.ts` → `csv-codecs.ts`.
+
+Their `documents` / `documentVersions` decodes (`csvToDocuments`, and the matching Markdown and
+version decodes) compose `sanitizeDocumentRichFields`, a DOMPurify pass, inside a `try/catch`. With
+no DOM the throw is swallowed and the documents decode to UNDEFINED, dropped whole with no
+diagnostic, as the comments beside those decodes record.
+
+So the open question has two halves, and both are unverified:
+- does either script's reachable call path THROW for want of a DOM;
+- does either DECODE a workspace through a codec, which would silently drop every document rather
+  than throw.
+
+The codecs are not the whole set: both scripts also reach the document decodes in `workspace.ts`,
+`turso-schema.ts` and `browser-backend.ts`, which surface a failure instead of swallowing it.
+
+To re-run, root the runtime resolver below at each script and print the parent chain for
+`csv-codecs-config` and `markdown-codecs-core`.
+
+Being in the graph is harmless: only a CALL needs a DOM (`sanitize-html.ts` defers `addHook` for
+exactly that reason). What nobody has checked is whether either script's reachable RUNTIME path makes
+such a call. If one does, the call throws with no DOM. `ai-eval.ts` is a dry run by default and a
+paid run when enabled, and `ooxml:manifest` regenerates a baseline, so a throw there would at best
+abort the run and at worst be caught somewhere and silently change what it produces.
+
+The two scripts stand differently toward the DOM-free contract:
+- **`ai-eval.ts`** is the importer the contract and the graph guards in `rich-text-plain.test.ts`
+  protect: both of those DOMPurify-calling modules are outside its graph. Even so, whether its
+  call paths ever reach `sanitizeRichHtml` is unverified.
+- **`update-ooxml-manifest.ts`** is NOT protected by those guards. It already loads
+  `rich-text-projection.ts` and the DOM-bound `ooxml-docx-primitives.ts` by another route. Whether it
+  throws therefore depends only on the paths it CALLS, and that is exactly what this entry leaves open.
+
+Re-run the graphs: copy §151's resolver into a script FILE (not `node -e`, which loses the
+backslash handling). Strip comments and `import type` statements before matching, so the graph is
+the runtime one. Change its root from `generate-sample-workspace.ts` to `ai-eval.ts`, then to
+`update-ooxml-manifest.ts`. Print membership for `sanitize-html`, `note-log`, `rich-text-plain`,
+`rich-text-projection`, `ai-rich-text`, `ooxml-docx-primitives` and `storage`, plus the parent chain
+to `rich-text-projection.ts`. The file counts move on any import edit, so none is quoted. Check the
+two anchors with `grep -n "rich-text-projection" src/app/export-sections.ts` and
+`grep -n "DOM-BOUND" src/app/ooxml-docx-primitives.ts`.
+
+What would close it: run both scripts (the `ai:eval` dry run spends nothing; run `ooxml:manifest`
+on a scratch copy of the baseline, since it rewrites the committed one) and record that neither throws
+for want of a DOM AND that neither decodes documents through a codec (a swallowed decode throws
+nothing, so "it ran" alone does not answer that half); or add a `// @vitest-environment node` test that drives each script's reachable
+entry points and proves no DOMPurify call is made on those paths.
+
+Size S.
+
+**Source:** the §151 census on `docs/accuracy-2`, 2026-09-27, which found five scripts importing app
+code where §151 had recorded one.

@@ -77,8 +77,10 @@ const MILESTONE_RICH_FIELDS = ["description"] as const satisfies readonly RichFi
  *  guard: measured under bare node with no DOM,
  *  `decodeNoteLog(JSON.stringify([{id:1,timestamp:"2026-01-01T00:00:00.000Z",
  *  html:"<p>hi</p>",text:"hi"}]))` returns `[]` — a well-formed entry SILENTLY
- *  discarded, no throw, no diagnostic. So in the sample generator and the fixture
- *  flow the codecs decode every note log to empty. Recorded, not fixed, under
+ *  discarded, no throw, no diagnostic. So anywhere the codecs run with no DOM,
+ *  they decode every note log to empty. (That is NOT the sample generator or the
+ *  fixture flow, as this once said: both install JSDOM before importing src/app
+ *  — open-followups §151.) Recorded, not fixed, under
  *  open-followups §28: widening the catch is the wrong repair (it is what stops a
  *  malformed cell failing a whole load), and telling "malformed JSON" apart from
  *  "no DOM" needs the post-decode hook that entry already owns. */

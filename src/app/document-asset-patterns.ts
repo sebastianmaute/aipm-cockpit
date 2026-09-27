@@ -25,7 +25,8 @@
 // ★★★ DOM-FREE BY CONTRACT, AND IT IMPORTS NOTHING. `document-model.ts` — itself
 // DOM-free, the ONE structural validator every load path routes through —
 // depends on this module, so a DOMPurify or `document.`/`window` reference here
-// would break bare-node use (the sample generator), and an import here could
+// would break that contract for every DOM-free importer (NOT the sample
+// generator, which installs JSDOM first — open-followups §151), and an import here could
 // grow the `settings-types` ⇄ `workspace` ⇄ `document-model` cycle
 // open-followups §92 records. Both properties are source scans in this module's
 // test, over the shared parser-backed stripper (`src/test/strip-comments.ts`) —

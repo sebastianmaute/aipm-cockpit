@@ -226,11 +226,11 @@ before touching any of them.
 Five rules, each of which has already cost a bug:
 
 1. **`rich-text-plain.ts` must never *call* DOMPurify.** It runs inside the
-   entity sanitizers, which execute under bare Node in
-   `scripts/generate-sample-workspace.ts`; DOMPurify binds `window` at module
-   eval, so with no DOM the call throws and `jsonToWorkspace`'s catch-all turns
-   it into an **empty** workspace that then "successfully" writes near-empty
-   sample files. Importing from it is fine — a source-scanning test in
+   entity sanitizers, which are DOM-free **by contract**: `scripts/ai-eval.ts`
+   and `scripts/update-ooxml-manifest.ts` import them with no DOM installed,
+   and a DOMPurify call with no DOM throws. (Not because of the sample
+   generator: it and `scripts/regen-golden-fixtures.ts` install JSDOM before
+   importing `src/app` — `docs/open-followups.md` §151.) Importing from it is fine — a source-scanning test in
    `rich-text-plain.test.ts` enforces the no-call rule. Anything that
    needs a DOM lives in `rich-text-projection.ts` or `ai-rich-text.ts`.
 2. **Migration is read-time, not write-time.** Decoders hand-build entities and

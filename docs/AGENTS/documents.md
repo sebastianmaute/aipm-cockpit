@@ -1109,7 +1109,7 @@ hand-composed case stays green. The other nine compositions are verified by insp
 structural pass, because it is an AI WRITE path, not a load path.
 
 ★ `assetRefsInDocument` (`document-asset-usage.ts`) computes `{ all, drawable, undrawable }` in one
-pass; `undrawable` is measured over the WHOLE document, so an id on a span in one block and an
+pass; `undrawable` is measured over the WHOLE document, so an id on a `<p>` in one block and an
 `<img>` in another is drawable and does not inflate the count. The cap message
 (`assetLibraryMaxPerDocumentFreeable`) reports how many MORE images could be added once those
 references are removed, rather than reporting a bare "full" — and rather than reporting

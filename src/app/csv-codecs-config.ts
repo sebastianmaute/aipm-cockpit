@@ -282,11 +282,13 @@ export function csvToDocuments(
     // SILENT. Measured both ways with the generator's exact arrangement: with
     // JSDOM installed first, documents decode and come back sanitized; with no
     // DOM the DOMPurify call throws, the catch below swallows it, and documents
-    // decode to UNDEFINED — dropped whole, no error, no diagnostic. Today the
-    // only DOM-free importer is scripts/generate-sample-workspace.ts, which
-    // installs JSDOM into globalThis BEFORE it dynamically imports
-    // src/app/storage (see its header). A NEW bare-node importer of this module
-    // must do the same or it will silently lose every document.
+    // decode to UNDEFINED — dropped whole, no error, no diagnostic. The
+    // generator, regen-golden-fixtures.ts and sample-link-exports.ts install
+    // JSDOM into globalThis BEFORE they dynamically import src/app. But two
+    // scripts reach this module with NO DOM: update-ooxml-manifest.ts (via
+    // storage) and ai-eval.ts (via turso-schema). Nobody has checked whether
+    // either decodes a CSV; if one does, it silently loses every document
+    // (open-followups §624). A new bare-node importer must install a DOM first.
     // ★ `diag` records what the MAX_DOCUMENTS cap silently discarded, so an
     // over-cap file can tell the user before the next autosave writes the
     // truncation back (open-followups §103).
@@ -328,10 +330,11 @@ export function csvToDocumentVersions(
     // ★★ THIS MAKES THE DECODE PATH DOM-DEPENDENT, and the failure mode is
     // SILENT, exactly like csvToDocuments: without a DOM the rich-field pass
     // throws, the catch below swallows it, and history decodes to UNDEFINED —
-    // dropped whole, no error, no diagnostic. The only DOM-free importer today is
-    // scripts/generate-sample-workspace.ts, which installs JSDOM into globalThis
-    // BEFORE it dynamically imports src/app/storage; a new bare-node importer of
-    // this module must do the same or it will silently lose every version.
+    // dropped whole, no error, no diagnostic. The generator,
+    // regen-golden-fixtures.ts and sample-link-exports.ts install JSDOM before
+    // importing src/app, but update-ooxml-manifest.ts and ai-eval.ts reach this
+    // module with NO DOM (see csvToDocuments above and open-followups §624); a
+    // decode there would silently lose every version.
     // ★ Same accumulator as csvToDocuments above, but here it fills
     // `truncatedBlocks` — a version can never trip the DOCUMENT cap, since
     // sanitizeDocumentVersions sanitizes one version at a time.

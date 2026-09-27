@@ -228,8 +228,9 @@ describe("workspace JSON — a throwing documents sanitize is CONTAINED", () => 
     // covers only the diagnostics-ring half of the report; since §620 the SAME
     // throw ALSO reaches `decodeFailedSlices` when a `diag` is passed — see
     // "also records documents in decodeFailedSlices" below. logDiag is a no-op
-    // when `window` is undefined, which keeps the bare-node sample generator
-    // working.
+    // when `window` is undefined, which keeps any script that loads this path
+    // with no DOM working (the sample generator is not one: it installs JSDOM
+    // first — open-followups §151).
     forceRichFieldThrow = true;
     jsonToWorkspace(json());
     const codes = readDiagLog().map((e) => e.code);

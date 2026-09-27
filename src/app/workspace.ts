@@ -46,7 +46,9 @@ import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersionsWithDiag, type DocVersion } from "./document-versions";
 import { sanitizedToNothing } from "./meta-slice-decode";
 // ★ logDiag is a no-op when `window` is undefined and swallows its own errors,
-// so importing it here cannot break the bare-node sample generator.
+// so importing it here cannot break a script that loads this module with no DOM
+// (ai-eval.ts, update-ooxml-manifest.ts; the sample generator installs JSDOM
+// first — open-followups §151).
 import { logDiag } from "./diagnostics";
 import type { SettingsOverrides } from "./settings-types";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
@@ -149,8 +151,9 @@ export type Workspace = {
    *  Optional & additive: undefined/empty serializes to nothing (byte-stable).
    *  Sanitized in TWO passes — `sanitizeProjectDocuments` for structure, then
    *  `sanitizeDocumentRichFields` for the paragraph HTML allow-list. They are
-   *  separate because the first is DOM-FREE by contract (it runs under bare
-   *  node in the sample generator) and therefore cannot call DOMPurify. */
+   *  separate because the first is DOM-FREE by contract (NOT because the sample
+   *  generator lacks a DOM — it installs JSDOM first; open-followups §151) and
+   *  therefore cannot call DOMPurify. */
   documents?: readonly ProjectDocument[];
   /** Before-image snapshots of document mutations (AI and user) — the safety
    *  net that makes direct AI document writes acceptable, since chat tool

@@ -64,8 +64,9 @@ export function countAssetUsage(documents: readonly ProjectDocument[]): Record<s
  *  safety and the usage count, while `IMG_TAG_ASSET_ID_RE` (same module)
  *  is tag-ANCHORED because an export must only fetch bytes for something it
  *  can actually draw. What was missing was anywhere that said so — a
- *  `<span data-asset-id>` consumed a cap slot, contributed to no export, and
+ *  `<p data-asset-id>` consumed a cap slot, contributed to no export, and
  *  appeared in none of `inlined`/`omitted`/`missing`. open-followups §218.
+ *  (Not <span>: span is off DOCUMENT_ALLOWED_TAGS, so a load unwraps it and the attribute leaves with it — §249.)
  *
  *  ★★ A THIRD pattern sits beside those two and deliberately does NOT feed this
  *  type: `ASSET_IMG_TEST_RE` yields no ids at all — it is `.test()`-only,
@@ -84,7 +85,7 @@ export function countAssetUsage(documents: readonly ProjectDocument[]): Record<s
  *  `grep -rln "data-asset-id" src/app --include=*.ts --include=*.tsx`.
  *
  *  ★ `undrawable` is computed over the WHOLE document, not per block, so an id
- *  that appears on a span in one block and an img in another is drawable and
+ *  that appears on a <p> in one block and an img in another is drawable and
  *  is correctly absent — otherwise the cap message would over-report.
  *
  *  ★★★ `drawable` IS NOT A SUBSET OF `all`, SO THESE ARE NOT THREE VIEWS OF ONE

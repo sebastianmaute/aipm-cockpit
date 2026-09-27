@@ -234,7 +234,7 @@ export function DocumentsAssetSection({
       const present = new Set(refs.all);
       // ★★ TRACKED ACROSS THE BATCH, for the same reason `present` and `at` are:
       // `refs` describes the PRE-batch document and the loop below changes what
-      // it describes. An id already present as a `<span data-asset-id>` is
+      // it describes. An id already present as a `<p data-asset-id>` is
       // undrawable AND exempt from the cap (it spends no new slot), so it is
       // inserted -- as an `<img>`, which makes it drawable. Reading the frozen
       // `refs.undrawable` afterwards counts it as still-undrawable, which under
@@ -277,20 +277,23 @@ export function DocumentsAssetSection({
       // ★★ IT STILL DOES NOT NAME HOW MANY FILES WERE SKIPPED, deliberately:
       // by the time the message shows, the document is holding the cap, and the
       // number that helps is not "N refused" but how much room the user could
-      // actually reclaim. A `<span data-asset-id>` spends a slot, contributes to
+      // actually reclaim. A `<p data-asset-id>` spends a slot, contributes to
       // no export and lands in none of the export's `inlined`/`omitted`/`missing`
       // buckets — so a user at the cap saw a full document with nothing on
-      // screen to account for it (open-followups §218).
+      // screen to account for it (open-followups §218). (Not a `<span>`: span is
+      // off DOCUMENT_ALLOWED_TAGS, so a load unwraps it and the attribute leaves
+      // with it — §249. documents-asset-section.test.tsx uses span fixtures,
+      // which is legal only because they are UN-loaded html.)
       //
       // ★★★ REPORT RECLAIMABLE ROOM, NEVER `undrawable.size` — THAT WAS WRONG IN
       // BOTH DIRECTIONS, and each direction is pinned by a test.
       //   (a) IT COULD EXCEED THE CAP IT HAD JUST QUOTED. Nothing enforces the
       //       cap on LOAD, so `refs.all` is UNBOUNDED: a document holding 21
-      //       `<span data-asset-id>` references announced "the maximum of 20
+      //       `<p data-asset-id>` references announced "the maximum of 20
       //       images. 21 of these slots …" — 21 of 20.
       //   (b) IT WAS ACTIONABLE-SOUNDING AND INERT. At 20 `<img>` PLUS 3
-      //       `<span>` it said 3, but the drawable images alone already hold the
-      //       whole cap, so deleting all three spans frees NOTHING. The message
+      //       undrawable references it said 3, but the drawable images alone
+      //       already hold the whole cap, so deleting all three frees NOTHING. The message
       //       sent the user to do work with no effect.
       // `drawn` is the references an export can actually draw, so
       // `cap - drawn` is what removing every undrawable reference would buy.

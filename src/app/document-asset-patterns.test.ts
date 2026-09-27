@@ -394,7 +394,8 @@ describe("document-asset-patterns", () => {
     it("does not touch the DOM", () => {
       // Guard: document-model.ts — DOM-free by contract, and the validator every
       // load path routes through — depends on this module, so a DOM reference
-      // here breaks bare-node use (the sample generator).
+      // here breaks that contract for every DOM-free importer (NOT the sample
+      // generator, which installs JSDOM first — open-followups §151).
       //
       // ★★★ IDENTIFIERS FROM THE PARSER, NOT A REGEX. This was
       // `/DOMPurify|dompurify|\bwindow\b|\bdocument\b\s*\./`, which fired only
@@ -403,7 +404,7 @@ describe("document-asset-patterns", () => {
       // `navigator.*`, `location.*`, `HTMLElement`, `document?.createElement`,
       // `globalThis.document`, `document["createElement"]`, and any aliasing
       // (`const d = document; d.createElement(…)`). A `DOMParser` reference —
-      // precisely what breaks the bare-node generator this guard exists to
+      // precisely what breaks the DOM-free contract this guard exists to
       // protect — shipped green. Its sibling `moduleEdges` guard was already
       // parser-backed; the two read as peers and were not.
       expect(domReferences(src, PATH)).toEqual([]);

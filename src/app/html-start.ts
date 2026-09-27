@@ -34,8 +34,10 @@
 // hand-mirrored. The fourth, "render", has no allow-list to derive from — see the
 // note on its SINK_RE member.
 //
-// ★★ DOM-FREE. This module runs inside the entity sanitizers, which execute under
-// bare node in scripts/generate-sample-workspace.ts. It imports tag arrays from
+// ★★ DOM-FREE. This module runs inside the entity sanitizers, which are DOM-free
+// BY CONTRACT: scripts import them without a DOM (ai-eval.ts,
+// update-ooxml-manifest.ts). NOT because the sample generator lacks a DOM: it
+// installs JSDOM first (open-followups §151). It imports tag arrays from
 // sanitize-html.ts and calls nothing there — importing is safe, only a DOMPurify
 // CALL needs a DOM.
 import { DOCUMENT_ALLOWED_TAGS, RICH_ALLOWED_TAGS } from "./sanitize-html";
