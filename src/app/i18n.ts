@@ -1996,6 +1996,12 @@ const enUS = {
   calendarEventIntervalUnitDaily: "day(s)",
   calendarEventIntervalUnitWeekly: "week(s)",
   calendarEventIntervalUnitMonthly: "month(s)",
+  // A rule's summary line (all-series list, document export). Used only when
+  // the interval is above 1, so the unit is always plural; an interval of 1
+  // reads "Daily"/"Weekly"/"Monthly" instead (§621).
+  calendarEventEveryNDays: "Every {0} days",
+  calendarEventEveryNWeeks: "Every {0} weeks",
+  calendarEventEveryNMonths: "Every {0} months",
   calendarEventWeekdays: "Repeat on",
   calendarEventMonthlyMode: "Repeat by",
   calendarEventMonthlyModeDayOfMonth: "Day of month",

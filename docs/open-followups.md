@@ -848,12 +848,13 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§618](#618-the-classic-header-overflows-between-lg-and-1390px-so-the-page-scrolls-sideways--closed-2026-09-27) | The classic header overflows between lg and ~1390px, so the page scrolls sideways | split out of §468 on 2026-09-26 (#425 window-layout probe) | S — let the classic search shrink from lg up with a min width; measure 1024/1100/1390/1600 | **CLOSED** 2026-09-27 |
 | [§619](#619-dashboard-narratives-heading-menu-escape-test-failed-once-in-unit-shuffled--focus-never-reached-the-menu--closed-2026-09-26) | dashboard-narrative's heading-menu Escape test failed once in unit-shuffled — focus never reached the menu | — | — | **CLOSED** 2026-09-26 |
 | [§620](#620-the-json-file-and-indexeddb-load-paths-drop-a-meta-slice-that-sanitizes-to-nothing-with-no-decode-failure-channel--open) | The JSON-file and IndexedDB load paths drop a meta slice that sanitizes to nothing, with no decode-failure channel | — | — | open |
-| [§621](#621-pdfdocxpptxxlsx-exports-still-print-recurrence-text-and-insight-typeseveritystatus-values-in-english--open) | PDF/DOCX/PPTX/XLSX exports still print recurrence text and insight type/severity/status values in English | — | — | open |
+| [§621](#621-pdfdocxpptxxlsx-exports-still-print-recurrence-text-and-insight-typeseveritystatus-values-in-english--closed-2026-09-27) | PDF/DOCX/PPTX/XLSX exports still print recurrence text and insight type/severity/status values in English | — | — | **CLOSED** 2026-09-27 |
 | [§622](#622-an-ordinary-under-cap-document-paragraph-edit-that-was-never-blurred-is-lost-when-the-window-closes--open) | An ordinary, under-cap document paragraph edit that was never blurred is lost when the window closes | — | — | open |
-| [§623](#623-loadexportassets-loads-the-bytes-of-a-policy-refused-asset-before-discarding-them--open) | `loadExportAssets` loads the bytes of a policy-refused asset before discarding them | — | — | open |
+| [§623](#623-loadexportassets-loads-the-bytes-of-a-policy-refused-asset-before-discarding-them--closed-2026-09-27) | `loadExportAssets` loads the bytes of a policy-refused asset before discarding them | — | — | **CLOSED** 2026-09-27 |
 | [§624](#624-ai-evalts-and-update-ooxml-manifestts-import-the-dom-free-sanitizer-graph-with-no-dom-and-nothing-proves-they-never-reach-a-dompurify-call--open) | `ai-eval.ts` and `update-ooxml-manifest.ts` import the DOM-free sanitizer graph with no DOM, and nothing proves they never reach a DOMPurify call | — | — | open |
 | [§628](#628-the-undo-stack-survives-a-project-switch-so-an-undo-writes-the-previous-projects-rows-into-the-current-one--closed-2026-09-27) | The undo stack survives a project switch, so an undo writes the previous project's rows into the current one | — | — | **CLOSED** 2026-09-27 |
 | [§631](#631-the-desktop-shell-reuses-a-leftover-server-without-checking-its-version-so-an-orphan-could-serve-an-old-build-after-an-update--open) | The desktop shell reuses a leftover server without checking its version, so an orphan could serve an old build after an update | — | — | open |
+| [§633](#633-the-document-preview-fetches-and-decodes-a-policy-refused-images-bytes-before-declining-it--open) | The document preview fetches and decodes a policy-refused image's bytes before declining it | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -42340,15 +42341,34 @@ Size M.
 paths … gets its own new register entry, filed at the end of this batch"), and the defect-batch-7 plan's
 Correction 3.
 
-## 621. PDF/DOCX/PPTX/XLSX exports still print recurrence text and insight type/severity/status values in English — open
+## 621. PDF/DOCX/PPTX/XLSX exports still print recurrence text and insight type/severity/status values in English — CLOSED 2026-09-27
 
-**Status:** open 2026-09-27 — found while implementing §304 (closed 2026-09-26 in #229), which translated
+**Status:** CLOSED 2026-09-27 on `fix/export-polish`. Both cells now print the app's own words in the
+export's language; three new i18n keys give an interval above 1 a real plural.
+
+- **Insights.** `insightsSection` prints `t(lang, …)` for type, severity and status through
+  `INSIGHT_TYPE_LABEL_KEY`, `INSIGHT_SEVERITY_LABEL_KEY` and `INSIGHT_STATUS_LABEL_KEY`, now exported from
+  `src/app/insights/insight-text.ts`. The Insights panel had private copies of all three maps and the
+  Dashboard insights card one of the severity map; both import the shared ones, so the export prints the panel's words. The `data`
+  key=value dump stays raw, since it is the evidence.
+- **Recurrence.** `describeRecurrence` is gone. The calendar-events cell is `recurrenceSummaryText` in the
+  new `src/app/calendar-recurrence-labels.ts`, built from the event editor's own labels: the frequency
+  ("Weekly", or "Every 2 weeks" from the new `calendarEventEveryNDays` / `…Weeks` / `…Months` keys, since
+  the editor's "week(s)" unit label read as unfinished in a sentence), then " · " and the weekdays ("Mon, Wed"), the nth weekday
+  ("2nd Tue") or the day of the month ("Day 15"). A one-off event reads "Never", as in the editor. The
+  editor's weekday, ordinal and interval-unit maps and the all-series list's summary
+  (`recurrenceFrequencyText`) moved into the same module, so all three surfaces use one vocabulary.
+  `calendar-recurrence-text.ts`, the i18n-free text for the AI review card, is untouched.
+
+Pinned in `export-sections.test.ts`: the English and German recurrence columns for six rules, the
+German "Nie", and the insights rows in both languages. `calendar-recurrence-labels.test.ts` pins the
+module directly, including a monthly rule with neither day setting.
+
+**Original status:** open 2026-09-27 — found while implementing §304 (closed 2026-09-26 in #229), which translated
 export column headers and section titles only. Verified by reading: `grep -n "English-only, i18n-free"
 src/app/export-sections.ts` returns `describeRecurrence`'s own doc comment saying the cell text is not
 translated, and `grep -n "it.type,$" src/app/export-sections.ts` returns `insightsSection`'s raw enum read
 (`it.type`, `it.severity`, `it.status`, no `t()` call).
-
-**Work item:** #434
 
 §304 translated export column headers and section titles, but left CELL TEXT untouched. Two spots still
 print English-only values in a German export: `describeRecurrence` (`src/app/export-sections.ts`), which
@@ -42393,15 +42413,21 @@ Size S.
 example, ordinary typing) are still not flushed on unload. That was already true before this change and is
 out of scope."
 
-## 623. `loadExportAssets` loads the bytes of a policy-refused asset before discarding them — open
+## 623. `loadExportAssets` loads the bytes of a policy-refused asset before discarding them — CLOSED 2026-09-27
 
-**Status:** open 2026-09-27 — found while implementing §320 (closed 2026-09-26 in #235). Low impact.
+**Status:** CLOSED 2026-09-27 on `fix/export-polish`. `loadExportAssets` asks `isBlocked(id)` inside the
+`Promise.all` BEFORE calling `load(id)`, so a type-refused id goes straight to `blocked` and its bytes are
+never fetched or decoded. One behaviour changed, deliberately: an id that is both type-refused and has no
+byte row used to land in `missing`, and now lands in `blocked`, because the decision is made before
+anything could tell the two apart. The exported file does not change: the renderers already read the
+stored mime and print "file type not allowed" for such an id either way, so the gain is the skipped load. `document-export-assets.test.ts` pins that `load` is called only for the allowed id, that
+a refused id with no bytes is `blocked`, and that an allowed id with no bytes is still `missing`.
+
+**Original status:** open 2026-09-27 — found while implementing §320 (closed 2026-09-26 in #235). Low impact.
 Verified by reading: `grep -n "b64: await load(id)" src/app/document-export-assets.ts` returns the
 unconditional fetch inside `loadExportAssets`'s `Promise.all`, which runs before the loop below it checks
 `isBlocked`, so an id later routed to the `blocked` bucket (§320) still has its bytes fetched and
 base64-decoded first.
-
-**Work item:** #436
 
 `loadExportAssets` (`src/app/document-export-assets.ts`) fetches every asset's bytes via `load(id)` up
 front, then only afterwards checks `isBlocked(id)` — the §320 predicate, sourced from `isBlockedAssetMime`
@@ -42653,3 +42679,26 @@ Size S.
 
 **Source:** the desktop server-lifecycle verdict in the docs-coverage slice, which checked the
 `before-quit` comment in `desktop/src/main.ts` against `classifyPortOwner`, `probePort` and `start()`.
+
+## 633. The document preview fetches and decodes a policy-refused image's bytes before declining it — open
+
+**Status:** open 2026-09-27 — found by the final review of the §623 fix (PR #452). Low impact. Verified by
+reading: `grep -n "await load(id)\|safeBase64ToBytes(b64)\|isBlockedAssetMime(mime)" src/app/document-asset-images.ts`
+returns the load and the decode inside `attachAssetImages`'s `Promise.all`, both ahead of the type check.
+
+**Work item:** #454
+
+`attachAssetImages` (`src/app/document-asset-images.ts`), which puts images into the in-app document
+preview, loads every referenced asset's bytes with `load(id)`, decodes them with `safeBase64ToBytes`, and
+only then asks `isBlockedAssetMime(mimeFor?.(id))` to route a refused id to `blocked`. An image whose
+stored type the upload policy refuses therefore still costs a full fetch and decode for bytes that are
+thrown away. §623 closed the same waste on the export path (`loadExportAssets`); this is the preview path,
+which §623 never covered.
+
+What would close it: ask `isBlockedAssetMime(mimeFor?.(id))` before `load(id)`, as `loadExportAssets`
+now does. The same trade-off applies: a refused id with no byte row would be marked blocked rather than
+missing.
+
+Size S.
+
+**Source:** the final whole-branch review of PR #452 (§621, §623).

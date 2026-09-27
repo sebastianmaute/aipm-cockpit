@@ -1,9 +1,9 @@
 "use client";
 
-import { type Lang, t, type TranslationKey } from "../i18n";
+import { type Lang, t } from "../i18n";
 import { RagDot } from "../rag-dot";
 import { Button } from "../button";
-import { insightTitle, insightDetail, insightRowTitles } from "../insights/insight-text";
+import { INSIGHT_SEVERITY_LABEL_KEY, insightTitle, insightDetail, insightRowTitles } from "../insights/insight-text";
 import {
   INSIGHT_SEVERITY_RANK,
   type Insight,
@@ -24,11 +24,6 @@ const MAX_INSIGHTS_CARD = 5;
 // Severity → RAG token: colour rides the DOT (non-text, AA-exempt), never tinted
 // small text (per AGENTS.md — --rag-amber-text fails AA on dark/mockup).
 const SEVERITY_HEALTH: Record<InsightSeverity, Health> = { high: "R", medium: "A", low: "G" };
-const SEVERITY_LABEL_KEY: Record<InsightSeverity, TranslationKey> = {
-  high: "insightSeverityHigh",
-  medium: "insightSeverityMedium",
-  low: "insightSeverityLow",
-};
 
 export interface InsightsCardProps {
   insights: readonly Insight[];
@@ -105,7 +100,7 @@ export function InsightsCard({
               level={SEVERITY_HEALTH[insight.severity]}
               size="md"
               className="mt-1"
-              label={t(lang, SEVERITY_LABEL_KEY[insight.severity])}
+              label={t(lang, INSIGHT_SEVERITY_LABEL_KEY[insight.severity])}
             />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-foreground">{title}</p>

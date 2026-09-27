@@ -4,9 +4,25 @@
 // language-neutral (no prose is ever stored, per insight.ts).
 import { type Lang, t, tPlural, type TranslationKey } from "../i18n";
 import { buildRowTokens } from "../row-tokens";
-import type { Insight, InsightType } from "./insight";
+import type { Insight, InsightSeverity, InsightStatus, InsightType } from "./insight";
 
-const TITLE_KEY: Record<InsightType, TranslationKey> = {
+/** The ONE label map per insight enum. The Insights panel and the document
+ *  export read all three, the Dashboard card reads the severity map, and
+ *  `insightTitle` below reads the type map, so a German export prints the same
+ *  words the panel shows (§621). */
+export const INSIGHT_SEVERITY_LABEL_KEY: Record<InsightSeverity, TranslationKey> = {
+  high: "insightSeverityHigh",
+  medium: "insightSeverityMedium",
+  low: "insightSeverityLow",
+};
+export const INSIGHT_STATUS_LABEL_KEY: Record<InsightStatus, TranslationKey> = {
+  active: "insightStatusActive",
+  acknowledged: "insightStatusAcknowledged",
+  acted: "insightStatusActed",
+  dismissed: "insightStatusDismissed",
+  resolved: "insightStatusResolved",
+};
+export const INSIGHT_TYPE_LABEL_KEY: Record<InsightType, TranslationKey> = {
   milestoneSlip: "insightMilestoneSlipTitle",
   overdueTrend: "insightOverdueTrendTitle",
   stalledWork: "insightStalledWorkTitle",
@@ -30,7 +46,7 @@ function num(data: Insight["data"], key: string): number {
 
 /** Short headline for an insight (type-driven, i18n). */
 export function insightTitle(insight: Insight, lang: Lang): string {
-  return t(lang, TITLE_KEY[insight.type]);
+  return t(lang, INSIGHT_TYPE_LABEL_KEY[insight.type]);
 }
 
 /**
