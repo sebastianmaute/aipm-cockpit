@@ -382,7 +382,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§148](#148-retryloads-reload-branch-clobbers-a-concurrently-minted-chat-thread--closed-2026-08-31) | `retryLoad`'s reload branch clobbers a concurrently-minted chat thread | — | — | **CLOSED** 2026-08-31 |
 | [§149](#149-date-dependent-unit-tests-detonate-on-a-calendar-rollover-with-no-code-change-behind-them) | Date-dependent unit tests detonate on a calendar rollover, with no code change behind them | — | — | open |
 | [§150](#150-a-balanced-pair-of-stray-quotes-mislabels-rows-across-a-csv-section-boundary--closed-2026-09-13-as-an-accepted-limit) | A balanced pair of stray quotes mislabels rows across a CSV section boundary | cold review of the branch closing §105, 2026-08-16 | UNKNOWN | **CLOSED** 2026-09-13 as an accepted limit |
-| [§151](#151-the-sample-generator-runs-under-bare-node-is-false-retracted-in-several-source-headers-and-still-asserted-as-a-live-rationale-elsewhere--open-needs-a-probe) | "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere — open, needs a probe | cold review of the branch closing §105, 2026-08-16 | UNKNOWN — it is a probe, not a fix | open |
+| [§151](#151-the-sample-generator-runs-under-bare-node-is-false-retracted-in-several-source-headers-and-still-asserted-as-a-live-rationale-elsewhere--closed-2026-09-27) | "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere | cold review of the branch closing §105, 2026-08-16 | UNKNOWN — it is a probe, not a fix | **CLOSED** 2026-09-27 |
 | [§152](#152-onopenstoragefile-applies-tasks--raid-from-a-malformed-csv-and-reports-no-import-loss--closed-2026-08-29) | `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports no import loss | cold review of the branch closing §105, 2026-08-16 | S for the split; UNKNOWN for per-section attribution | **CLOSED** 2026-08-29 |
 | [§153](#153-pptx-export-is-one-slide-per-row-and-drops-most-rich-fields-before-they-can-be-rendered--open-measured) | PPTX export is one slide per row and drops most rich fields before they can be rendered — open, measured | — | — | open |
 | [§154](#154-native-docx-list-numbering-needs-a-package-part-and-nothing-in-the-repo-can-detect-a-malformed-one--open) | Native DOCX list numbering needs a package part, and nothing in the repo can detect a malformed one | — | — | open |
@@ -13190,10 +13190,33 @@ provably undecidable residue only invites the heuristics this entry already refu
 comments that cite §150 (`splitCsvLines`, `ImportDiag.malformedQuotes`, `useLoadTruncation`, their
 tests) cite it for the undecidability argument, which stands unchanged; none calls it open.
 
-## 151. "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere — open, needs a probe
+## 151. "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere — CLOSED 2026-09-27
 
-**Status:** open — PARTLY corrected 2026-09-27 by `docs/accuracy-2`; every DOM-free RULE stays
-exactly as it was. The corrected sites now say the modules are DOM-free BY CONTRACT, that DOM-free
+**Status:** CLOSED 2026-09-27 by `docs/accuracy-2`: the claim is corrected at every live site a
+repo-wide sweep finds, and every DOM-free RULE stays exactly as it was. The residual question —
+whether `scripts/ai-eval.ts` or `scripts/update-ooxml-manifest.ts`, which import the entity-sanitizer
+graph with no DOM, ever reach a DOMPurify CALL at runtime — is not a prose question and is **§624**.
+The sweep is a script FILE (not `node -e`, which loses the backslashes): walk `src`, `scripts`,
+`docs`, `e2e`, `AGENTS.md`, `CONTRIBUTING.md` and `README.md`; strip line-leading `*`, `//` and `>`
+markers and flatten whitespace (the phrase wraps inside JSDoc, which a plain flatten misses); print
+every `bare[- ]?node` or `near-empty sample` match whose surrounding 200 characters mention
+`generat`, `sample` or `fixture`; then READ each hit. Final run 2026-09-27: **0 ASSERTS**. The hit total is deliberately not quoted: this entry matches its
+own sweep, so the total moves with every edit here.
+Every other hit is a retraction, a banner-noted dated record, a true statement about bare node
+itself (`jsonToWorkspace` does return an empty workspace with no DOM), or this entry.
+A second pass for the claim WITHOUT the words "bare node" (a `sample generator` /
+`generate-sample-workspace` / `fixture flow` mention near `DOMPurify`, "no DOM" or "throws", with no
+`JSDOM` nearby) found one more asserting site, the `documents` docstring on `Workspace` in
+`workspace.ts`, and it was corrected too.
+Second round, same day: `activity-log.ts` (`sanitizeActivityLog`), `change-log.ts`
+(`withStoredNoteLog`), `ai-rich-text.ts`, `narrative-html.ts`, `download.ts`, `note-log.ts` (its
+`decodeNoteLog` note also claimed the generator and fixture flow decode every note log to empty),
+`document-asset-patterns.ts`, `workspace.ts` (twice), the guard comments in
+`document-asset-patterns.test.ts`, `document-model.test.ts`, `workspace.documents.test.ts` and
+`use-chat-dispatcher.test.tsx`, plus `CONTRIBUTING.md`, `docs/CODEMAPS/data.md` and
+`docs/CODEMAPS/dependencies.md`. Fifteen dated `docs/superpowers/` plans and specs that asserted it
+got a one-line dated correction note under their title instead of a rewrite.
+First round, same day. The corrected sites now say the modules are DOM-free BY CONTRACT, that DOM-free
 importers of that graph exist (`scripts/ai-eval.ts`, `scripts/update-ooxml-manifest.ts`), and that
 the generator and `scripts/regen-golden-fixtures.ts` install JSDOM first. Corrected: §28 (lead
 sentence struck through, retraction added), §49 (a dated banner; the entry is closed and was not
@@ -13201,28 +13224,12 @@ rewritten), the headers of `rich-text-plain.ts` (plus its two docstrings that re
 and `html-start.ts` (neither was in the table below), the three asserting bullets in
 `docs/AGENTS/rich-text.md`, the guard comments in `rich-text-plain.test.ts`, and `templates.ts`
 `sanitizeSeedTask`, which no longer quotes a graph size.
-★★★ **LEFT OPEN, because a wider sweep on the same day found the claim still ASSERTED at sites
-this table never listed**, and resolving it on the table alone would have been a verdict from the
-title. `grep -rln "bare node in the sample generator" src/app` still returns `change-log.ts` and
-`download.ts` (2026-09-27), and that phrase is only one spelling. Read by hand 2026-09-27, each still says the generator (or "the sample/fixture scripts") runs with no
-DOM: the headers or docstrings of `activity-log.ts` (`sanitizeActivityLog`'s load boundary),
-`change-log.ts` (`withStoredNoteLog`), `ai-rich-text.ts`, `narrative-html.ts`, `download.ts` (its
-contrast with `rich-text-plain.ts`), `note-log.ts` (the `decodeNoteLog` note, which also claims the
-generator and fixture flow decode every note log to empty), `document-asset-patterns.ts`, and
-`workspace.ts` (the `logDiag` import note); the guard comments in `document-asset-patterns.test.ts`
-(two), `document-model.test.ts`, `workspace.documents.test.ts` and `use-chat-dispatcher.test.tsx`;
-and `CONTRIBUTING.md`, `docs/CODEMAPS/data.md` and `docs/CODEMAPS/dependencies.md`. NOT asserting:
-the `csv-codecs-config.ts` and `markdown-codecs-core.ts` notes (they say the generator installs
-JSDOM, which is true), and the dated `docs/superpowers/` plans and specs (records — banner, never
-rewrite). Re-run the sweep with a script FILE, not `node -e` (the shell eats backslashes): walk
-`src`, `scripts`, `docs` (minus this register), `e2e`, `AGENTS.md`, `CONTRIBUTING.md` and
-`README.md`; flatten whitespace; print every `bare[- ]?node` match whose surrounding 160 characters
-mention `generat`, `sample` or `fixture`; then READ each hit. The runtime question — whether the two
-DOM-free scripts ever reach a DOMPurify CALL — is not a prose question and is tracked in **§624**.
+A first draft of this Status left the entry OPEN because the first round's table missed the
+second round's sites, and closing on the table alone would have been a verdict from the title.
+`grep -rln "bare node in the sample generator" src/app` returned `change-log.ts` and `download.ts`
+before the second round and returns nothing after it.
 
 Original status: open — a retracted rationale still asserted in several places; three sites retracted 2026-08-28, the rest untouched. Both legs disproved 2026-08-28 by `grep -nE "JSDOM|await import" scripts/generate-sample-workspace.ts` plus the graph resolver below.
-
-**Work item:** #161
 
 Opened 2026-08-16, out of the same cold review as §150. **No fix is applied here and none should be
 applied casually** — this entry exists to stop a FIFTH retraction being derived from scratch.
@@ -42277,7 +42284,7 @@ executed. Verified by reading: `grep -c -i jsdom scripts/ai-eval.ts scripts/upda
 returns 1 and 0, and the one `ai-eval.ts` hit is the comment saying it needs no jsdom; the import
 graphs were resolved with §151's resolver pointed at each script instead of the generator.
 
-**Work item:** #NNN
+**Work item:** #440
 
 §151 established that the sample generator is NOT a DOM-free consumer: it, `regen-golden-fixtures.ts`
 and `sample-link-exports.ts` all install JSDOM before importing `src/app`. Two other scripts do not:
