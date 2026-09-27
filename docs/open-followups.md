@@ -416,7 +416,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§182](#182-template-import-can-store-an-inconsistent-statuscompleteddate-pair-and-nothing-repairs-it--closed-2026-08-23) | Template import can store an inconsistent `status`/`completedDate` pair, and nothing repairs it | — | — | **CLOSED** 2026-08-23 |
 | [§183](#183-the-jira-conflict-merge-writes-completeddate-without-status-so-accepting-the-modals-default-splits-the-pair-from-well-formed-data--closed-2026-08-23) | The Jira conflict merge writes `completedDate` without `status`, so accepting the modal's default splits the pair from well-formed data | — | — | **CLOSED** 2026-08-23 |
 | [§184](#184-the-documents-block-editor-is-in-a11y_views-but-is-never-scanned--closed-2026-08-20) | The Documents block editor is in A11Y_VIEWS but is never scanned | — | — | **CLOSED** 2026-08-20 |
-| [§185](#185-an-over-long-document-paragraph-is-flattened-to-plain-text-at-commit--closed-2026-09-27) | An over-long document paragraph is flattened to plain text at commit | — | — | **CLOSED** 2026-09-26 |
+| [§185](#185-an-over-long-document-paragraph-is-flattened-to-plain-text-at-commit--closed-2026-09-27) | An over-long document paragraph is flattened to plain text at commit | — | — | **CLOSED** 2026-09-27 |
 | [§186](#186-the-block-editor-conflict-reason-reaches-users-untranslated) | The block-editor conflict reason reaches users untranslated | — | — | open |
 | [§187](#187-usedocumenttools-has-no-test-file-and-one-guard-there-is-unpinned) | `useDocumentTools` has no test file, and one guard there is unpinned | — | — | open |
 | [§188](#188-a-block-refusal-notice-outlives-the-attempt-it-describes) | A block refusal notice outlives the attempt it describes | — | — | open |
