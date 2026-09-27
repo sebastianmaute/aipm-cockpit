@@ -8,7 +8,7 @@ import { isDeleteKind, type ActivityKind } from "../activity-log";
 import type { ToastAction } from "../use-toast";
 import { WRITE_THROUGH_FIELDS } from "./write-through-fields";
 import { mergeFieldPatch } from "./merge-field-value";
-import { dropStaleScopeWrite, type ScopeEpochReader } from "../scope-epoch";
+import { dropStaleScopeWrite, isScopeStale, type ScopeEpochReader } from "../scope-epoch";
 import {
   applyUndoRestoreWithRemap,
   applyUndoForward,
@@ -576,10 +576,11 @@ export interface UndoStackApi {
   /** Redo every entry from `id` up to the top of the redo stack, as ONE commit. */
   redoThrough: (id: number) => void;
   redo: () => void;
-  /** Empty BOTH stacks, running nothing and logging nothing. §628: driven by
-   *  `useClearUndoOnLoadHold` when a load hold rises, so no entry captured in one
-   *  project survives into the next. */
-  clear: () => void;
+  /** Remove from BOTH stacks every entry whose scope epoch is stale, running
+   *  nothing and logging nothing. §628: driven by `usePruneUndoOnScopeChange`
+   *  when a load hold FALLS, so a real project switch empties the history while
+   *  a hold that kept the project (Save-As, a cancelled dialog, a reload) keeps it. */
+  pruneStale: () => void;
   stack: readonly UndoMeta[];
   redoStack: readonly UndoMeta[];
   canUndo: boolean;
@@ -608,7 +609,11 @@ export interface UseUndoStackDeps {
   /** §628 — the scope-epoch reader `useStorageBackend` publishes. Read LAZILY
    *  through `depsRef`: each entry is stamped with it at capture, and every
    *  restore entry point DROPS (never runs) an entry whose stamp is stale per
-   *  `isScopeStale`. Absent → nothing is ever stale (tests, popouts). */
+   *  `isScopeStale`. Absent → nothing is ever stale (engine tests).
+   *  ★ A POPOUT IS PASSED A READER TOO (`task-manager.tsx` always threads it).
+   *  Popouts are unaffected because `isReadOnly` makes every capture and every
+   *  restore entry point return early, so their stacks stay empty — not because
+   *  the reader is absent. */
   getScopeEpoch?: ScopeEpochReader;
 }
 
@@ -622,7 +627,8 @@ interface StackEntry {
 }
 
 /**
- * §628 — clear the undo AND redo stacks when the load hold rises.
+ * §628 — when the load hold FALLS, prune every scope-stale entry from the undo
+ * AND redo stacks.
  *
  * ★★★ WHY THIS IS NEEDED AT ALL: `useUndoStack` lives in `TaskManagerInner`, which
  * an in-place project switch (`applyWorkspaceForOp`) does NOT remount, and every
@@ -634,20 +640,24 @@ interface StackEntry {
  * call ORDER: `useUndoStack` is called above `useStorageBackend` (the undo API is
  * threaded into hooks declared between the two, and `useUndoHotkey`'s listener
  * order depends on it), so `loadPending` does not exist yet at that call site.
- * This hook is called after it, in the SAME component, so `clear`'s setStates
- * are a render-phase update of the component that is rendering.
- * ★ Render-time reconcile, NOT an effect (`set-state-in-effect` is banned). It
- * fires on the false→true transition only; a hold that is already true at mount
- * has nothing to clear.
- * ★ It clears on EVERY rise of the hold, including a same-project reload or a
- * cancelled held op. That is deliberately coarse: the epoch stamp below is the
- * precise guard, this is the belt that also empties the visible history.
+ * This hook is called after it, in the SAME component, so `pruneStale`'s
+ * setStates are a render-phase update of the component that is rendering.
+ * ★ Render-time reconcile, NOT an effect (`set-state-in-effect` is banned).
+ * ★★ THE FALLING EDGE, AND ONLY STALE ENTRIES — owner ruling. The hold rises for
+ * many ops that keep the project (Save-As, a cancelled Open or Save-As, a
+ * same-project reload, migrate-to-Turso, a backend rebuild); an earlier cut
+ * cleared on every RISE and threw that history away. The epoch is bumped only on
+ * a real scope change, synchronously and INSIDE the hold, so by the falling edge
+ * it has moved exactly when the project changed. Falling rather than rising also
+ * catches an entry pushed DURING the hold, which a rising-edge reconcile cannot see.
+ * ★ The restore-time epoch check in `liveEntries` stays as the second guard, for
+ * an entry that goes stale with no hold transition.
  */
-export function useClearUndoOnLoadHold(loadPending: boolean, clear: () => void): void {
+export function usePruneUndoOnScopeChange(loadPending: boolean, pruneStale: () => void): void {
   const [seenLoadPending, setSeenLoadPending] = useState(loadPending);
   if (loadPending !== seenLoadPending) {
     setSeenLoadPending(loadPending);
-    if (loadPending) clear();
+    if (!loadPending) pruneStale();
   }
 }
 
@@ -786,8 +796,18 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     setStack((s) => pushUndo(s, { meta: popped.entry.meta, run: undoRun, epoch: popped.entry.epoch }, UNDO_CAP));
   }, [liveEntries]);
 
-  // §628 — see `useClearUndoOnLoadHold`. Stable identity (`[]`).
-  const clear = useCallback(() => { setStack([]); setRedoStack([]); }, []);
+  // §628 — see `usePruneUndoOnScopeChange`. Stable identity (`[]`). Returns the
+  // SAME array when nothing is stale, so a hold that kept the project costs no
+  // re-render.
+  const pruneStale = useCallback(() => {
+    const read = depsRef.current.getScopeEpoch;
+    const prune = (s: readonly StackEntry[]) => {
+      const live = s.filter((e) => !isScopeStale(read, e.epoch));
+      return live.length === s.length ? s : live;
+    };
+    setStack(prune);
+    setRedoStack(prune);
+  }, []);
 
   // Shared tail: push one undo entry, invalidate any pending redo (a fresh
   // destructive op breaks redo coherence), and fire its action toast. `run` is
@@ -806,8 +826,14 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     // §628 — stamp the scope at capture; a restore entry point drops the entry
     // once the epoch has moved on. ★★ The stamp is the epoch at PUSH time, so it
     // cannot see a capture whose images were read in the old scope but pushed
-    // after the bump — that direction is closed by the writers' own
-    // `!loadPending` start gates (see `scope-epoch.ts`), not here.
+    // after the bump. That is NOT closed, only unreachable in practice: the one
+    // capture that straddles an await is `useUndoBatch.runBatched`, which pushes
+    // its composite after `await fn()` (a staged-plan apply, normally a few
+    // milliseconds), so a project switch would have to land inside that window.
+    // If one did, the push is stamped with the NEW epoch whether it lands during
+    // the hold or after it, so neither `usePruneUndoOnScopeChange` nor the
+    // restore-time check drops it. Closing it means stamping the epoch when the
+    // batch OPENS; see open-followups §628.
     const epoch = depsRef.current.getScopeEpoch?.();
     setStack((s) => pushUndo(s, { meta, run, epoch }, UNDO_CAP));
     setRedoStack([]);
@@ -875,7 +901,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     undoThrough,
     redoThrough,
     redo,
-    clear,
+    pruneStale,
     stack: metas,
     redoStack: redoMetas,
     canUndo: stack.length > 0,

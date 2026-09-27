@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useState, type Dispatch, type SetStateAction } from "react";
-import { useUndoStack, useClearUndoOnLoadHold, capturePart, buildUndoLabel } from "./use-undo-stack";
+import { useUndoStack, usePruneUndoOnScopeChange, capturePart, buildUndoLabel } from "./use-undo-stack";
 import { ACTIVITY_KIND_TO_KEY, type ActivityKind } from "../activity-log";
 import { t } from "../i18n";
 
@@ -1380,7 +1380,7 @@ describe("useUndoStack — project scope (§628)", () => {
     const hook = renderHook(
       ({ loadPending }: { loadPending: boolean }) => {
         const api = useUndoStack(deps);
-        useClearUndoOnLoadHold(loadPending, api.clear);
+        usePruneUndoOnScopeChange(loadPending, api.pruneStale);
         return api;
       },
       { initialProps: { loadPending: false } },
@@ -1414,16 +1414,54 @@ describe("useUndoStack — project scope (§628)", () => {
     expect(deps.logActivity).not.toHaveBeenCalled();
   });
 
-  it("T1b: the load hold also clears the REDO stack", () => {
-    const { hook, box } = setup();
+  it("T1b: a real switch also empties the REDO stack", () => {
+    const { hook, box, bump } = setup();
     act(() => hook.result.current.undo());
-    // Anti-vacuity: the undo applied in A and left a redo entry.
+    // Anti-vacuity: the undo applied in A and left an entry on EACH stack.
     expect(box.rows.find((r) => r.id === 3)?.name).toBe("A3-before");
     expect(hook.result.current.canRedo).toBe(true);
+    expect(hook.result.current.canUndo).toBe(true);
 
     hook.rerender({ loadPending: true });
+    bump();
+    hook.rerender({ loadPending: false });
     expect(hook.result.current.canRedo).toBe(false);
     expect(hook.result.current.canUndo).toBe(false);
+  });
+
+  it("T-new: a hold that keeps the project (Save-As, a cancelled dialog, a reload) KEEPS both stacks", () => {
+    const { hook, box } = setup();
+    act(() => hook.result.current.undo());
+    expect(hook.result.current.stack).toHaveLength(1);
+    expect(hook.result.current.redoStack).toHaveLength(1);
+
+    // The hold rises and falls; the epoch never moves.
+    hook.rerender({ loadPending: true });
+    hook.rerender({ loadPending: false });
+
+    expect(hook.result.current.stack).toHaveLength(1);
+    expect(hook.result.current.redoStack).toHaveLength(1);
+    // And the kept entry still works: the undo re-inserts task 2.
+    act(() => hook.result.current.undo());
+    expect(box.rows.map((r) => r.id)).toEqual([1, 2, 3]);
+  });
+
+  it("T-new-b: a switch prunes only the stale entries, keeping one pushed in the new scope", () => {
+    const { hook, deps, box, setter, bump } = setup();
+    hook.rerender({ loadPending: true });
+    bump();
+    box.rows = B_ROWS;
+    // A capture pushed in B while the hold is still up (e.g. during the load) is B's.
+    act(() => {
+      hook.result.current.capture({ setter, kind: "task.deleted", removed: [B_ROWS[2]], fromArray: B_ROWS });
+    });
+    box.rows = B_ROWS.slice(0, 2);
+    hook.rerender({ loadPending: false });
+
+    expect(hook.result.current.stack).toHaveLength(1);
+    act(() => hook.result.current.undo());
+    expect(box.rows).toEqual(B_ROWS);
+    expect(deps.logActivity).toHaveBeenCalledTimes(1);
   });
 
   it("T2: an entry captured before an epoch bump is DROPPED on undo, not applied, even with no load-hold transition", () => {
@@ -1468,6 +1506,52 @@ describe("useUndoStack — project scope (§628)", () => {
       expect(hook.result.current.canRedo).toBe(false);
       expect(deps.logActivity).toHaveBeenCalledTimes(1);
     }
+  });
+
+  // M1 — the capture-time stamp must travel with the entry EVERY time it changes
+  // stacks. Each case moves the entries in scope through ONE propagation site, then
+  // bumps the epoch; if that site dropped `epoch`, the moved entry would read as
+  // never-stale and would apply to B's rows.
+  describe("the stamp survives every stack-to-stack move", () => {
+    it("redo() → undo stack", () => {
+      const { hook, deps, box, bump } = setup();
+      act(() => hook.result.current.undo());
+      act(() => hook.result.current.redo());
+      // Anti-vacuity: both in-scope moves applied.
+      expect(deps.logActivity).toHaveBeenCalledTimes(2);
+      expect(hook.result.current.stack).toHaveLength(2);
+      bump();
+      box.rows = B_ROWS;
+      act(() => hook.result.current.undo());
+      expect(box.rows).toEqual(B_ROWS);
+      expect(deps.logActivity).toHaveBeenCalledTimes(2);
+    });
+
+    it("undoThrough() → redo stack", () => {
+      const { hook, deps, box, bump } = setup();
+      act(() => hook.result.current.undoThrough(hook.result.current.stack[0].id));
+      expect(deps.logActivity).toHaveBeenCalledTimes(1);
+      expect(hook.result.current.redoStack).toHaveLength(2);
+      bump();
+      box.rows = B_ROWS;
+      act(() => hook.result.current.redo());
+      expect(box.rows).toEqual(B_ROWS);
+      expect(deps.logActivity).toHaveBeenCalledTimes(1);
+    });
+
+    it("redoThrough() → undo stack", () => {
+      const { hook, deps, box, bump } = setup();
+      act(() => hook.result.current.undo());
+      act(() => hook.result.current.undo());
+      act(() => hook.result.current.redoThrough(hook.result.current.redoStack[0].id));
+      expect(deps.logActivity).toHaveBeenCalledTimes(3);
+      expect(hook.result.current.stack).toHaveLength(2);
+      bump();
+      box.rows = B_ROWS;
+      act(() => hook.result.current.undo());
+      expect(box.rows).toEqual(B_ROWS);
+      expect(deps.logActivity).toHaveBeenCalledTimes(3);
+    });
   });
 
   it("T3: capture and undo within the same epoch still applies", () => {
