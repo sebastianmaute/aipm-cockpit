@@ -41,6 +41,7 @@ before your first edit — the rest is reference, reachable from here.
 | [rich-text](docs/AGENTS/rich-text.md) | note logs · the seven rich fields · DOM-free vs browser-only · sanitizers + model-write boundaries · export fidelity · the toolbar |
 | [activity-log](docs/AGENTS/activity-log.md) | meta-blob persistence · `logMode` · actors · forward-compat sanitising · the three completion-trend delta shapes |
 | [task-status](docs/AGENTS/task-status.md) | the `status` ⟺ `completedDate` pair · the five writers · load does NOT repair a split pair · `isTaskClosed` vs `isTaskDelivered` |
+| [budget](docs/AGENTS/budget.md) | the EUR boundary (`fx.ts`) · plan currency on load · budget follows plan · earned value · the Budget panel's cell layer |
 
 Conventions used throughout: **★** = a non-obvious rule, **★★** = something that has already
 caused a bug, **★★★** = something that has caused the same bug more than once. Open follow-ups
@@ -1041,59 +1042,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `REPORTS_*_COL_WIDTHS` consts and `AssigneeSort`/`GroupOrLabelSort` types). One-way dep (reports →
   reports-tables → reports-stats); per-type report engines/panels (budget/raid/resource/stakeholder) live
   in their own files. Reports IS in axe `A11Y_VIEWS`.
-- **Budget panel module map (gantt pattern):** `budget-panel.tsx` is the orchestrator (state, derivation,
-  the bucket cards, the CCI tiles); the bucket table's CELL layer is the presentational leaf
-  `budget-panel-totals.tsx` — `HoursCell`/`HoursTd` (the editable period cells), `TotalsTd` (the fixed
-  Total column's cells and every cell of a bucket total row), `BucketRowLeadCells` (the three PINNED
-  leading cells: RAG dot · label · Total), `BucketTotalRow`, `RowDot`, and the pure `bucketColumnTotals`
-  arithmetic. Split out to keep the orchestrator under the size ratchet, which was 800 at the time.
-  ★★ The three leading columns are PINNED by arithmetic — role at `DOT_COL_PX`, Total at `DOT_COL_PX +
-  the LIVE role width` (the role column is user-resizable, so a hardcoded offset drifts the moment it is
-  dragged). That arithmetic is only true while every column to a pinned one's LEFT renders exactly as
-  wide as it declares, and TWO independent mechanisms break that: `table-layout: auto` lets CONTENT push
-  a column past its declared width (so the dot header's label is `sr-only` and the role cells are
-  clamped), and a `w-full` table spreads LEFTOVER width across every column including the pinned ones
-  (so the table is `w-max`). ★ The `w-max` cost is real and deliberate: a short plan no longer stretches
-  to fill the pane. ★ jsdom has no layout, so NOTHING in the unit suite can see any of this — the tests
-  pin the class/offset plumbing only, and the geometry itself was measured in Chromium.
-  ★★ The total row's separating rule rides `cellClass` onto the CELLS, never the `<tr>` — see
-  `docs/open-followups.md` §68 for why a `<tr>` border in these tables has never painted.
-  ★ `bucketColumnTotals` takes the caller's OWN `cellBudget` as `budgetOf`, so the column sums and the
-  row sums come from one accessor and cannot disagree (it honours budget-follows-plan mirroring). It is
-  fed the FILTERED rows, so the totals follow the role filter — §70.
-  ★★ A ROLE CELL IS TWO LINES AND A PERSON SUB-ROW IS ONE, so they can only line up HORIZONTALLY, and
-  that alignment is arithmetic: `HOURS_LINE_UNITS` (exported from `budget-panel-totals.tsx`) is the `w-14`
-  label + `gap-1` + `w-16` value box **counted in Tailwind SPACING UNITS** (14+1+16=31), i.e. where the
-  box's RIGHT edge lands from the cell's content-box left. `budget-panel-people-rows.tsx`'s `HoursFigure`
-  right-aligns a block of exactly that width (`HOURS_LINE_REM`), so the person figures share the role's
-  value-box column. They used to carry `text-right` on the `<td>`, which anchored them to the far edge of
-  a much wider PERIOD column and stranded every figure right of the boxes above it.
-  ★★ `text-right` must therefore be ABSENT from the cell and PRESENT on the block — leaving it on both
-  renders identically for any figure that happens to fill the block and drifts for any that does not, a
-  fixture-dependent failure that survives a test suite.
-  ★★★ UNITS, NOT PIXELS, and matching the box's `px-1` with a `pr-1`. Both were review findings against a
-  first cut that used a px constant and no padding, and each broke the alignment on its own: a px block
-  only tracks rem-based `w-14`/`w-16` at a 16px root font size, and a block that is merely the same WIDTH
-  puts its digits one unit right of every role figure, because the value box's own `px-1` stops its digits
-  short. That was a visible ~4px stagger down the column — **the boxes lined up and the numbers did not**,
-  and the numbers are the only thing a reader compares. (`DOT_COL_PX`/`TOTAL_COL_PX` beside it are
-  genuinely px and predate this; the sticky-column arithmetic they drive already assumes a 16px root.)
-  ★ The bordered `HoursCell` inputs still stop 1px short of the read-only `TotalsTd` spans, since `border`
-  is px — pre-existing, between the role rows' own two spellings, and not closable from the person row.
-  ★ The Total column already lined up, and NOT by luck: `TOTAL_COL_PX` was itself derived as this width
-  plus the cell's `px-3` (124+24=148) — the docstring on `TOTAL_COL_PX` itself says so, immediately above
-  the declaration. Both now measure from the one constant, so the two derivations cannot drift apart.
-  ★★ An earlier revision here called that alignment a COINCIDENCE while that docstring sat a few lines up
-  in the same file, and its replacement then said the docstring was "130 lines above" — a distance nothing
-  ever measured (it is ~16). Two errors about one docstring, in consecutive revisions, neither touching the
-  arithmetic they surrounded. Cite the SYMBOL and read it; a line distance is unverifiable at a glance,
-  rots on the next insertion, and buys the reader nothing a `grep` would not.
-  ★ jsdom has no layout, so no test can compare the two edges — what is pinned is that both derive from
-  ONE constant, plus tests tying it to the classes in BOTH role cells. ★★ Read that scope literally:
-  `budget-panel-totals.tsx` spells the same three widths FOUR times, twice in `TotalsTd` (read-only spans)
-  and twice in `HoursCell` (the editable inputs the PERIOD columns align against). A first cut covered
-  `TotalsTd` only and claimed "change `w-14` and it goes red", which was false for the more important
-  half — changing `HoursCell`'s `w-14` broke every person period figure with the suite green.
+- **Budget, FX and the Budget panel → [`docs/AGENTS/budget.md`](docs/AGENTS/budget.md).** Every figure the
+  budget engine produces is EUR; `fixedPriceAmount` is the one stored field that is not, and `currencyToEur`
+  converts it at the engine's read. That file owns the FX boundary, earned value and the panel's pinned-column arithmetic.
 - **Tables — `SortResizeTh<K>` + `TableFilter` (`report-table.tsx`) → [`docs/AGENTS/ui-shell.md`](docs/AGENTS/ui-shell.md)
   "tables" section.** Every sortable header in the app flows through `SortResizeTh`, which owns
   `aria-sort` and the `aria-hidden` sort glyph — never hand-roll a sort header. ★★ `stickyLeft` turns
@@ -1294,3 +1245,4 @@ proves only that a backticked NAME is real, never that a CLAIM about it is true.
 | [activity-log.md](docs/AGENTS/activity-log.md) | `Workspace.activityLog` — meta-blob persistence · storage-only on every path · `logMode` REPLACE-by-default · entry ids and actors · forward-compat sanitising · the THREE incompatible completion-trend delta shapes |
 | [documents.md](docs/AGENTS/documents.md) | documents — the DATA half: `DocVersion` before-images · retention + tombstones + the `"restored"` marker · `applyDocMutation` (the single mutation path) · `documentVersions` across all six write paths and both load funnels · AND the UI half: renderers, pane split, the hand block editor |
 | [task-status.md](docs/AGENTS/task-status.md) | the task completion model — the `status` ⟺ `completedDate` invariant · the FIVE paths that write the pair and the mechanism each holds it by · why `migrateTask` does NOT repair a split pair · the `isTaskClosed` / `isTaskDelivered` split |
+| [budget.md](docs/AGENTS/budget.md) | budget and money — `resolveRate` / `currencyToEur` and the one stored non-EUR field · the IndexedDB plan-currency coercion · `effectiveBudgetHours` mirroring · bucket earned value and its all-or-nothing rollup · the panel module map and pinned-column arithmetic |
