@@ -1,5 +1,7 @@
 # Slice B — rich-text descriptions + inline note log
 
+> ★★ **Correction 2026-09-27 (`docs/open-followups.md` §151):** where this dated record says the sample generator or the fixture flow runs under bare node with no DOM, that is false — both install JSDOM before importing `src/app`. The DOM-free rules it describes stand on their contract, not on that. Kept as written otherwise.
+
 _Opened 2026-07-29 against 0.208.0 "Yolen". Final slice of the UX batch roadmap
 (`2026-07-27-ux-batch-roadmap-design.md`), taken out of order at the user's request: the locked
 order is C → D → F → A → E → S6 → S7 → **B**, and S6's spec + plan are written but unstarted, so

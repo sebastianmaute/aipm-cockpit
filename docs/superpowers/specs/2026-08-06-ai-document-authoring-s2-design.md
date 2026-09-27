@@ -1,5 +1,7 @@
 # AI document authoring S2 — AI tools and version history — design
 
+> ★★ **Correction 2026-09-27 (`docs/open-followups.md` §151):** where this dated record says the sample generator or the fixture flow runs under bare node with no DOM, that is false — both install JSDOM before importing `src/app`. The DOM-free rules it describes stand on their contract, not on that. Kept as written otherwise.
+
 Date: 2026-08-06
 Status: design approved, unimplemented
 Baseline: 0.219.0 "Elgin", `main` @ `0dcb6bc3`

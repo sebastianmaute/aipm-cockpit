@@ -1,5 +1,7 @@
 # AI Document Authoring S2 — AI Tools and Version History — Implementation Plan
 
+> ★★ **Correction 2026-09-27 (`docs/open-followups.md` §151):** where this dated record says the sample generator or the fixture flow runs under bare node with no DOM, that is false — both install JSDOM before importing `src/app`. The DOM-free rules it describes stand on their contract, not on that. Kept as written otherwise.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Give the AI assistant five document tools, and make every document mutation — AI or user — recoverable through a per-document version history with restore, including restore of deleted documents.

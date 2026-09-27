@@ -5,8 +5,10 @@
 // until the user saves, so an untouched project's stored bytes are unchanged.
 //
 // ★ No DOMPurify call here and none in sanitizeProjectStatus: sanitisation is a
-// SINK concern (see RichTextView). DOMPurify has no DOM under bare node, where
-// the codecs run in the sample/fixture scripts.
+// SINK concern (see RichTextView). The codecs are DOM-free by contract, and
+// DOMPurify has no DOM in the scripts that import them without one (ai-eval.ts,
+// update-ooxml-manifest.ts). The sample/fixture scripts install JSDOM first, so
+// they are not the reason (open-followups §151).
 import { plainToHtml } from "./sanitize-html";
 import { isHtmlStart, RICH_SINK } from "./html-start";
 

@@ -444,8 +444,9 @@ describe("useChatDispatcher", () => {
 
   // ★★★ open-followups §49. `sanitizeRaidItem` builds its result from an explicit
   //   field list and `noteLog` is NOT in it — and it CANNOT be, because the
-  //   sanitizer is DOM-free by contract (it runs under bare node in the sample
-  //   generator) while `sanitizeNoteLog` calls DOMPurify. So the round-trip through
+  //   sanitizer is DOM-free by contract (scripts import it with no DOM; NOT
+  //   because the sample generator lacks one — open-followups §151) while
+  //   `sanitizeNoteLog` calls DOMPurify. So the round-trip through
   //   the sanitizer silently dropped the whole log: "push R#3's target date to June"
   //   erased every note on it, with no undo capture on AI writes to recover from.
   //   ★ The fix re-applies the STORED log after sanitizing — same "stored row wins"

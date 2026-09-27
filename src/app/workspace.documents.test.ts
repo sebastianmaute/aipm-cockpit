@@ -228,8 +228,9 @@ describe("workspace JSON — a throwing documents sanitize is CONTAINED", () => 
     // optional `DocTruncationDiag` is NOT the channel for this: it counts what
     // the CAPS discarded and has no field for a sanitize throw, so a caller
     // reading it here learns nothing. The app's diagnostics ring is the channel;
-    // logDiag is a no-op when `window` is undefined, which keeps the bare-node
-    // sample generator working.
+    // logDiag is a no-op when `window` is undefined, which keeps any script
+    // that loads this path with no DOM working (the sample generator is not one:
+    // it installs JSDOM first — open-followups §151).
     forceRichFieldThrow = true;
     jsonToWorkspace(json());
     const codes = readDiagLog().map((e) => e.code);

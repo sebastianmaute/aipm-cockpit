@@ -543,7 +543,8 @@ describe("sanitizeProjectDocuments", () => {
   });
 
   it("does not touch the DOM", () => {
-    // Guard: this module must stay usable under bare node (the sample generator).
+    // Guard: this module is DOM-free by contract and must stay usable with no DOM
+    // (NOT because of the sample generator, which installs JSDOM first — §151).
     // A source scan is the enforcement; see the comment-stripped check below.
     // ★ cwd-relative, NOT `new URL(..., import.meta.url)` — under vitest
     // `import.meta.url` is not a file: URL, so readFileSync throws

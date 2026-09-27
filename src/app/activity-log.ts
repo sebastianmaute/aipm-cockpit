@@ -421,8 +421,10 @@ export function activityMessageKey(kind: string): TranslationKey | null {
 }
 
 /**
- * The workspace LOAD boundary for the whole log. DOM-free — it runs under
- * bare node in `scripts/generate-sample-workspace.ts`. Drops malformed
+ * The workspace LOAD boundary for the whole log. DOM-free by contract, like
+ * the other entity sanitizers — scripts import that graph with no DOM
+ * (ai-eval.ts, update-ooxml-manifest.ts); the sample generator is NOT one of
+ * them, it installs JSDOM first (open-followups §151). Drops malformed
  * entries, strips a malformed per-entry `changes` payload, and caps to the
  * newest ACTIVITY_MAX_ENTRIES.
  *
