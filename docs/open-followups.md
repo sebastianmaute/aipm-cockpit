@@ -854,6 +854,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§624](#624-ai-evalts-and-update-ooxml-manifestts-import-the-dom-free-sanitizer-graph-with-no-dom-and-nothing-proves-they-never-reach-a-dompurify-call--open) | `ai-eval.ts` and `update-ooxml-manifest.ts` import the DOM-free sanitizer graph with no DOM, and nothing proves they never reach a DOMPurify call | — | — | open |
 | [§628](#628-the-undo-stack-survives-a-project-switch-so-an-undo-writes-the-previous-projects-rows-into-the-current-one--closed-2026-09-27) | The undo stack survives a project switch, so an undo writes the previous project's rows into the current one | — | — | **CLOSED** 2026-09-27 |
 | [§631](#631-the-desktop-shell-reuses-a-leftover-server-without-checking-its-version-so-an-orphan-could-serve-an-old-build-after-an-update--open) | The desktop shell reuses a leftover server without checking its version, so an orphan could serve an old build after an update | — | — | open |
+| [§633](#633-the-document-preview-fetches-and-decodes-a-policy-refused-images-bytes-before-declining-it--open) | The document preview fetches and decodes a policy-refused image's bytes before declining it | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -42342,8 +42343,8 @@ Correction 3.
 
 ## 621. PDF/DOCX/PPTX/XLSX exports still print recurrence text and insight type/severity/status values in English — CLOSED 2026-09-27
 
-**Status:** CLOSED 2026-09-27 on `fix/export-polish`. No new i18n keys were needed: both cells now print
-words the app already shows elsewhere.
+**Status:** CLOSED 2026-09-27 on `fix/export-polish`. Both cells now print the app's own words in the
+export's language; three new i18n keys give an interval above 1 a real plural.
 
 - **Insights.** `insightsSection` prints `t(lang, …)` for type, severity and status through
   `INSIGHT_TYPE_LABEL_KEY`, `INSIGHT_SEVERITY_LABEL_KEY` and `INSIGHT_STATUS_LABEL_KEY`, now exported from
@@ -42352,14 +42353,16 @@ words the app already shows elsewhere.
   key=value dump stays raw, since it is the evidence.
 - **Recurrence.** `describeRecurrence` is gone. The calendar-events cell is `recurrenceSummaryText` in the
   new `src/app/calendar-recurrence-labels.ts`, built from the event editor's own labels: the frequency
-  ("Weekly", or "Every 2 week(s)"), then " · " and the weekdays ("Mon, Wed"), the nth weekday
+  ("Weekly", or "Every 2 weeks" from the new `calendarEventEveryNDays` / `…Weeks` / `…Months` keys, since
+  the editor's "week(s)" unit label read as unfinished in a sentence), then " · " and the weekdays ("Mon, Wed"), the nth weekday
   ("2nd Tue") or the day of the month ("Day 15"). A one-off event reads "Never", as in the editor. The
   editor's weekday, ordinal and interval-unit maps and the all-series list's summary
   (`recurrenceFrequencyText`) moved into the same module, so all three surfaces use one vocabulary.
   `calendar-recurrence-text.ts`, the i18n-free text for the AI review card, is untouched.
 
 Pinned in `export-sections.test.ts`: the English and German recurrence columns for six rules, the
-German "Nie", and the insights rows in both languages.
+German "Nie", and the insights rows in both languages. `calendar-recurrence-labels.test.ts` pins the
+module directly, including a monthly rule with neither day setting.
 
 **Original status:** open 2026-09-27 — found while implementing §304 (closed 2026-09-26 in #229), which translated
 export column headers and section titles only. Verified by reading: `grep -n "English-only, i18n-free"
@@ -42676,3 +42679,26 @@ Size S.
 
 **Source:** the desktop server-lifecycle verdict in the docs-coverage slice, which checked the
 `before-quit` comment in `desktop/src/main.ts` against `classifyPortOwner`, `probePort` and `start()`.
+
+## 633. The document preview fetches and decodes a policy-refused image's bytes before declining it — open
+
+**Status:** open 2026-09-27 — found by the final review of the §623 fix (PR #452). Low impact. Verified by
+reading: `grep -n "await load(id)\|safeBase64ToBytes(b64)\|isBlockedAssetMime(mime)" src/app/document-asset-images.ts`
+returns the load and the decode inside `attachAssetImages`'s `Promise.all`, both ahead of the type check.
+
+**Work item:** #454
+
+`attachAssetImages` (`src/app/document-asset-images.ts`), which puts images into the in-app document
+preview, loads every referenced asset's bytes with `load(id)`, decodes them with `safeBase64ToBytes`, and
+only then asks `isBlockedAssetMime(mimeFor?.(id))` to route a refused id to `blocked`. An image whose
+stored type the upload policy refuses therefore still costs a full fetch and decode for bytes that are
+thrown away. §623 closed the same waste on the export path (`loadExportAssets`); this is the preview path,
+which §623 never covered.
+
+What would close it: ask `isBlockedAssetMime(mimeFor?.(id))` before `load(id)`, as `loadExportAssets`
+now does. The same trade-off applies: a refused id with no byte row would be marked blocked rather than
+missing.
+
+Size S.
+
+**Source:** the final whole-branch review of PR #452 (§621, §623).
