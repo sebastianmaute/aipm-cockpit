@@ -42451,6 +42451,9 @@ code where §151 had recorded one.
   now reads the epoch when it opens and passes it as `CaptureCompositeOpts.readEpoch`; `pushEntry` stamps
   the entry with it and REFUSES the push (logged through `dropStaleScopeWrite`, no toast) when it is
   already stale. `task-manager.tsx` hands `useUndoBatch` the same reader it hands `useUndoStack`.
+  ★ The refusal is whole-batch. A batch cannot be split by project, so any rows the batch wrote into B
+  after a mid-batch switch get no undo either. That those writes land in B at all is a separate,
+  pre-existing gap in the proposal apply path (`applyProposal`), not closed here.
 - **A real switch empties the history.** `usePruneUndoOnScopeChange(loadPending, pruneStale)` is a
   render-time reconcile (not an effect, since `set-state-in-effect` is banned). On every true→false
   transition of `loadPending` it removes from BOTH stacks the entries whose stamp is stale, and only
