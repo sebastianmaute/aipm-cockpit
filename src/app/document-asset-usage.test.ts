@@ -253,6 +253,48 @@ describe("the load path normalises quoting BEFORE anything counts references", (
   });
 });
 
+describe("a non-img carrier the LOADER can produce still holds a cap slot", () => {
+  // ★★ The tag-agnostic cap defends a REAL case, and this pins it with a
+  // carrier that survives a load. `<p>` is on DOCUMENT_ALLOWED_TAGS and
+  // `data-asset-id` on DOCUMENT_ALLOWED_ATTR, so the reference comes through
+  // counted-but-undrawable. `<span>` is NOT on the tag list: a load unwraps it
+  // and the attribute leaves with it, which is why every explanation that once
+  // illustrated this with a span described stored html that cannot exist.
+  // open-followups §249 (and the §218 table cell it corrected).
+  //
+  // ★ Composed exactly as every load path composes it:
+  //   sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)
+  // The id is NUMERIC on purpose — the structural pass drops a document with a
+  // non-numeric id, and an empty result would make every negative below pass.
+  const load = (html: string): ProjectDocument[] =>
+    sanitizeProjectDocuments([
+      doc(31, [
+        { type: "paragraph", html },
+        { type: "paragraph", html: `<p><img data-asset-id="i1"></p>` },
+      ]),
+    ]).map(sanitizeDocumentRichFields);
+
+  it("a <p data-asset-id> survives load: counted in `all`, absent from `drawable`", () => {
+    const loaded = load(`<p data-asset-id="a1">x</p>`);
+    expect(loaded).toHaveLength(1); // anti-vacuity: the document survived
+
+    const refs = assetRefsInDocument(loaded[0]);
+    expect(refs.drawable.has("i1")).toBe(true); // control: the img still draws
+    expect(refs.all.has("a1")).toBe(true);
+    expect(refs.drawable.has("a1")).toBe(false);
+    expect(refs.undrawable.has("a1")).toBe(true);
+  });
+
+  it("a <span data-asset-id> does NOT survive load: absent from `all`", () => {
+    const loaded = load(`<span data-asset-id="s">x</span>`);
+    expect(loaded).toHaveLength(1); // anti-vacuity: the document survived
+
+    const refs = assetRefsInDocument(loaded[0]);
+    expect(refs.drawable.has("i1")).toBe(true); // control: the pass ran and kept the img
+    expect(refs.all.has("s")).toBe(false);
+  });
+});
+
 describe("what being ALREADY-SANITIZED does and does not buy this module", () => {
   // ★★★ THE MODULE HEADER USED TO CLAIM SANITISING WAS A GUARD HERE, AND IT IS
   // NOT. It said a literal `data-asset-id="…"` in TEXT content "would already

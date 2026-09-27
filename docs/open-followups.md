@@ -18528,7 +18528,7 @@ not see". The fifteenth — the span row's *survives load* — is INSPECTED only
 | reference | counted by the cap | drawable / exported | survives load |
 |---|---|---|---|
 | `<img data-asset-id="x">` (double-quoted) | yes | yes | yes |
-| `<span data-asset-id="x">text</span>` | yes | no | yes † |
+| `<span data-asset-id="x">text</span>` | yes | no | paragraph yes, reference NO † |
 | `<img data-asset-id='x'>` (single-quoted) | no | no | **yes** |
 | `<IMG DATA-ASSET-ID="x">` (uppercase) | no | no | **yes** |
 | `<img data-asset-id="">` (empty id) | no | no | no |
@@ -18549,7 +18549,10 @@ sanitiser unwraps the element and the attribute leaves with it. Do NOT
 read that as the tag-agnostic guard being pointless: `data-asset-id` DOES survive load on
 allow-listed non-`img` carriers (`<p>`, `<strong>`, `<li>`, `<a>` each keep it), so the guard
 protects a reachable case — just never the `<span>` this entry names throughout. **§249** carries
-the probe, the mechanism and what it would take to settle it.
+the probe, the mechanism and what it would take to settle it. (2026-09-27, §249: the cell above,
+which read `yes †`, was corrected to `paragraph yes, reference NO †`; the reference half is now
+asserted on the load path by `document-asset-usage.test.ts`'s "a non-img carrier the LOADER can
+produce still holds a cap slot".)
 
 ★★ **AND THAT CELL IS NOT ASSERTED, WHICH IS WHY THE CLAIM "all measured" WAS WRONG TWICE OVER.**
 The test's span case deliberately checks `{counted, drawable}` and omits *survives load*, and it is
