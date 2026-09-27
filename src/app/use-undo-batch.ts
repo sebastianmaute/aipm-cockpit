@@ -217,8 +217,8 @@ export function useUndoBatch(live: CaptureSurface, getScopeEpoch?: ScopeEpochRea
         // project if a switch landed mid-batch; this one makes the entry stale
         // (refused at push) instead of labelling A's rows as B's. The refusal is
         // whole-batch: a batch cannot be split by project, so any rows it wrote
-        // into B after the switch get no undo either (those writes landing in B
-        // at all is a separate, pre-existing gap in the proposal apply path, §600).
+        // into B after the switch get no undo either (the proposal apply path now
+        // stops at the row where the scope moves, §600, so none should land in B).
         const openEpoch = readEpochRef.current?.();
         collectedRef.current = collected;
         try {

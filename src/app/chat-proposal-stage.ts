@@ -61,8 +61,8 @@ export function appliedProposalNotice(applied: number, failed: number): string {
     "now committed. Do not propose them again and do not tell the user they are still waiting.";
   if (failed === 0) return head;
   return (
-    `${head} ${failed} ${failed === 1 ? "row was" : "rows were"} NOT applied and ` +
-    "remain selected for the user to retry; re-read the affected records before saying anything about them."
+    `${head} ${failed} ${failed === 1 ? "row was" : "rows were"} NOT applied; ` +
+    "the review card shows which, and the user may retry those that can still succeed; re-read the affected records before saying anything about them."
   );
 }
 

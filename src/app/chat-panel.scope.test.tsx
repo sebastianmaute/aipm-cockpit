@@ -21,7 +21,7 @@
 // stale census of a guard is a licence to remove the part it forgot.
 
 import "fake-indexeddb/auto";
-import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { ChatPanel } from "./chat-panel";
 import { isValidAnthropicApiKey } from "./chat-models";
@@ -533,5 +533,121 @@ describe("in-flight send vs. the storage scope", () => {
     // The second turn's text is the same claim seen from the transcript side —
     // an absence assertion, so it rides ALONGSIDE the count, never instead of it.
     expect(screen.queryByText("second round trip")).toBeNull();
+  });
+});
+
+// §600 — the STAGED path. A review card is applied later, on a click, and the
+// render-time reconcile clears it only when the project ID changes; the epoch also
+// moves when it does not (browser/local-* keyed on kind alone, an accepted storage
+// file, a backend change). So the plan carries the epoch its turn was SENT in.
+describe("staged plan vs. the storage scope", () => {
+  afterEach(() => vi.restoreAllMocks()); // see the note on the first describe's hook
+
+  const CARD = { name: "Proposed changes" } as const;
+  const SCOPE_NOTICE = "This plan was made for a different project and was not applied.";
+
+  /** Stages a two-`delete_task` plan (destructive, so `shouldStage` routes it to
+   *  the card) and waits for the card. Returns the epoch setter so each test moves
+   *  the scope exactly where it means to. `deleteTask` succeeds: its CALL COUNT is
+   *  the observable, and a default `false` would throw and make every row fail. */
+  async function stagePlan() {
+    let epoch = 1;
+    const dispatcher = makeDispatcher();
+    vi.mocked(dispatcher.deleteTask).mockReturnValue(true);
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({
+        content: [
+          { type: "tool_use", id: "t1", name: "delete_task", input: { id: 1 } },
+          { type: "tool_use", id: "t2", name: "delete_task", input: { id: 2 } },
+        ],
+        stop_reason: "tool_use",
+        usage,
+      }))
+      .mockResolvedValue(jsonResponse({
+        content: [{ type: "text", text: "staged" }],
+        stop_reason: "end_turn",
+        usage,
+      }));
+
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        onAcceptConsent={vi.fn()}
+        getScopeEpoch={() => epoch}
+        isSwapInFlight={() => false}
+      />,
+    );
+    send("delete both");
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("staged"); // let the send settle before interacting
+    expect(dispatcher.deleteTask).not.toHaveBeenCalled();
+    return { dispatcher, card, setEpoch: (n: number) => { epoch = n; } };
+  }
+
+  const clickApply = (card: HTMLElement) =>
+    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
+
+  it("refuses a plan whose scope moved while the project id held", async () => {
+    // ★★★ NO projectId PROP CHANGE ANYWHERE, which is the whole case: the
+    //  `projectId !== seenProjectId` reconcile never fires, so the card stays live
+    //  and — unguarded — Apply deletes two rows of the NEXT project.
+    const { dispatcher, card, setEpoch } = await stagePlan();
+    setEpoch(2);
+    clickApply(card);
+
+    await waitFor(() => expect(screen.getByText(SCOPE_NOTICE)).toBeInTheDocument());
+    expect(dispatcher.deleteTask).not.toHaveBeenCalled();
+    expect(screen.queryByRole("region", CARD)).toBeNull();
+  });
+
+  it("still applies the plan when the scope never moved", async () => {
+    // The anti-vacuity half: same fixture, epoch untouched, both writes land.
+    const { dispatcher, card } = await stagePlan();
+    clickApply(card);
+
+    await waitFor(() => expect(dispatcher.deleteTask).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText(SCOPE_NOTICE)).toBeNull();
+  });
+
+  it("stops the replay at the row where the scope moved mid-batch", async () => {
+    // ★★ THE SWAP LANDS DURING ROW 0'S WRITE, so the click-time check above sees a
+    //  live scope. Only the per-row `isScopeStale` threaded into `applyProposal`
+    //  can keep row 1 out of the next project.
+    const { dispatcher, card, setEpoch } = await stagePlan();
+    vi.mocked(dispatcher.deleteTask).mockImplementation(() => { setEpoch(2); return true; });
+    clickApply(card);
+
+    await waitFor(() => expect(dispatcher.deleteTask).toHaveBeenCalledTimes(1));
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(dispatcher.deleteTask).toHaveBeenCalledTimes(1);
+    expect(within(card).getByText("Not applied — the project changed.")).toBeInTheDocument();
+    // ★★ The scope-refused row is NOT re-offered: Apply is disabled and the card
+    //  stays, so a second click cannot retire a partly applied plan as "not
+    //  applied" and lose the record of the row that landed.
+    expect(within(card).getByRole("button", { name: /^Apply \(/ })).toBeDisabled();
+    expect(screen.queryByText("This plan was made for a different project and was not applied.")).toBeNull();
+  });
+
+  it("keeps a partly applied card when a retry is refused for scope", async () => {
+    // ★★ The `p.applied !== null` half of the pre-apply guard. Row 0 lands, row 1
+    //  fails for an ordinary reason and stays ticked for a retry; the scope then
+    //  moves. The retry must not retire the card as "not applied" — row 0 DID
+    //  land — so the card stays, with row 1 marked refused for scope and unticked.
+    const { dispatcher, card, setEpoch } = await stagePlan();
+    vi.mocked(dispatcher.deleteTask).mockReturnValueOnce(true).mockReturnValueOnce(false);
+    clickApply(card);
+    await waitFor(() => expect(dispatcher.deleteTask).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(within(card).getByRole("button", { name: /^Apply \(/ })).toBeEnabled());
+
+    setEpoch(2);
+    clickApply(card);
+
+    await waitFor(() => expect(within(card).getByText("Not applied — the project changed.")).toBeInTheDocument());
+    expect(dispatcher.deleteTask).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("region", CARD)).toBeInTheDocument();
+    expect(screen.queryByText(SCOPE_NOTICE)).toBeNull();
+    expect(within(card).getByRole("button", { name: /^Apply \(/ })).toBeDisabled();
   });
 });
