@@ -17,7 +17,7 @@ The page goes away before any of it runs. A research pass found no existing snap
 ## Owner decisions (2026-09-27)
 
 - **Mechanism:** a synchronous unload journal in `localStorage`, the same for every backend. It is not a per-backend synchronous write, and there is no Electron close hook in this PR.
-- **Conflict policy:** apply the journal automatically only if the loaded project still matches the state the journal was based on. Otherwise keep the backend's version, keep the journal, and show a notice with **Restore anyway** and **Discard**. Nothing is overwritten silently in either direction.
+- **Conflict policy:** apply the journal automatically only if the loaded project still matches the state the journal was based on. Otherwise keep the backend's version, keep the journal, and show a notice with **Restore anyway** and **Discard**. Nothing is overwritten silently in either direction. (Amended: see Amendment A1 and A2.)
 
 ## Design
 
@@ -56,23 +56,23 @@ It is never written:
 
 ### Clear
 
-A `backend.save` whose `.then` confirms a state with `savedAt ≥` the journal's `savedAt` (same tab) removes the key and rolls `baseFingerprint` forward. A `pageshow` after a bfcache restore does not clear it; the next confirmed save does.
+A `backend.save` whose `.then` confirms a state with `savedAt ≥` the journal's `savedAt` (same tab) removes the key and rolls `baseFingerprint` forward (see Amendment R1). A `pageshow` after a bfcache restore does not clear it; the next confirmed save does.
 
 ### Restore (on load)
 
 The restore runs after `await backend.load()` succeeds and before `applyWorkspaceFromLoad`.
 
 - **No journal:** nothing changes.
-- **Journal present, and `fingerprintWorkspace(loaded) === journal.baseFingerprint`:** the app applies the journal's workspace instead of the loaded one. The save that follows is NOT suppressed, so the normal save path writes it back through the destructive guard and the other guards. A toast says "Restored unsaved changes from your last session." The journal clears on the confirmed save.
-- **Journal present, fingerprint mismatch:** the app applies the loaded workspace as today and keeps the journal. A notice (i18n EN/DE) says the unsaved changes from the last session could not be restored because the project changed elsewhere, with two choices:
-  - **Restore anyway:** apply the journal, then save.
-  - **Discard:** remove the key.
+- **Journal present, and `fingerprintWorkspace(loaded) === journal.baseFingerprint`:** the app applies the journal's workspace instead of the loaded one. The save that follows is NOT suppressed, so the normal save path writes it back through the destructive guard and the other guards. A toast says "Restored unsaved changes from your last session." The journal clears on the confirmed save. (Amended: see Amendment A1, R3 and R10.)
+- **Journal present, fingerprint mismatch:** the app applies the loaded workspace as today and keeps the journal (amended, see Amendment A1). A notice (i18n EN/DE) says the unsaved changes from the last session could not be restored because the project changed elsewhere, with two choices:
+  - **Restore anyway:** apply the journal, then save. (Amended: see Amendment A2.)
+  - **Discard:** remove the key. (Amended: see Amendment A2.)
 - **Load failed, empty-load refusal, truncated or decode-paused load:** nothing is applied and the journal is left untouched, to be retried on a later load.
 - **The project id does not match:** the journal is ignored, but not deleted. It belongs to another project.
 
 ### Multi-tab
 
-Two tabs of the same project write the same key, and the last close wins. The base-fingerprint check protects the other tab's newer save, because that save changes the base. A journal written by a tab whose base is no longer the stored state shows the notice.
+Two tabs of the same project write the same key, and the last close wins. The base-fingerprint check protects the other tab's newer save, because that save changes the base. A journal written by a tab whose base is no longer the stored state shows the notice. (See Amendment R9.)
 
 ### Out of scope
 
@@ -86,9 +86,29 @@ Two tabs of the same project write the same key, and the last close wins. The ba
 - **Unit tests:**
   - the journal module: write, read, cap, quota error, key without a credential, and clear;
   - the fingerprint round-trip for each backend kind;
-  - the storage hook, for each write path, each clear, and each restore branch: match, mismatch with Restore anyway, mismatch with Discard, paused, failed load, other project, and a popout.
+  - the storage hook, for each write path, each clear, and each restore branch: match, mismatch with Restore anyway, mismatch with Discard, paused, failed load, other project, and a popout. (Amended: see Amendment V.)
 - **Mutants:** removing the pagehide write, removing the clear, applying on a mismatch, and deleting the journal on a paused load must each go red.
 - **Playwright, Chromium, default backend:** the `test.fail()` reload cases in `e2e/pagehide-draft-persist.spec.ts` now pass, and their `test.fail` markers are removed. Added:
   - a blur-then-immediate-reload case;
-  - a mismatch case, where the stored state is changed between the journal write and the reload, and the notice appears.
+  - a mismatch case, where the stored state is changed between the journal write and the reload, and the notice appears. (Amended: see Amendment V.)
 - **Unchanged:** the §622 and §185 behaviour. A tab switch commits no draft.
+
+## Amendment 2026-09-27 (implementation rulings)
+
+Added in the §629 fix round on `fix/defect-batch-8`. The text above is kept as written; each sentence this section changes carries a pointer here. Each item states what the code does now, read from `src/app/use-unload-journal.ts` (the hook) and `src/app/use-storage-backend.ts` (the load effect).
+
+1. **A1: a journal that already landed is cleared silently.** On a load that passed every gate, `restoreOnLoad` first compares the journal's CONTENT with the loaded workspace. When `fingerprintWorkspace(journal workspace) === fingerprintWorkspace(loaded)`, the journal's save landed and only its `.then` never ran. The journal is removed (unguarded), nothing is applied, and there is no notice and no toast. This check comes BEFORE the base branches, so it also replaces the base-match branch (and its toast) whenever the content is equal. It keeps the owner rule "nothing is overwritten silently": the journal holds nothing that is not already stored, so nothing is lost.
+2. **A2: Restore anyway and Discard act only on the record the notice describes.** When the conflict is raised, the hook remembers the record's `tabId` and `savedAt`. At click time both actions re-read the key and act only while the stored record still has both. Otherwise Restore anyway applies nothing and Discard removes nothing; each only dismisses the notice.
+3. **R1: a confirmed save clears only its own tab's record.** A save's confirmation removes the key only when the stored record has this page load's `tabId` and a `savedAt` no greater than the confirmed save's (`clearUnloadJournal` with a guard). A record another page load or another tab wrote is never cleared by a confirmation.
+4. **R3: an applied journal is re-tagged to this page load.** When a journal is applied (the base-match branch, or Restore anyway), it is re-written under the current tab's `tabId` with its `savedAt` kept, so the confirmation of the save-back, a later `savedAt` from this tab, clears it.
+5. **R7: a project op holds the base with no key.** A switch, create or open op applies its workspace before the storage config flips to the target, so the hook holds that workspace as a keyless base (`holdBase`) and drops the live base. The load effect adopts it under the target's key when the flip lands (`adoptHeldBase`). An op that fails between its apply and its flip leaves a journal with base `""`, which no fingerprint equals, so it degrades to the notice (or, if its content equals what loads, to the silent clear of A1), never to an automatic apply.
+6. **R9: an ignored notice does not survive the session.** There is one key per project and the last write wins, so this session's next journal write (a save still unconfirmed at `pagehide`, or one started while the page is hidden) overwrites the record the notice describes. With A2, a notice whose record was overwritten no longer applies or deletes the newer record. Owner-accepted; never machine-verified.
+7. **R10: the restore's save-back faces the destructive guard, rebaselined to what the backend returned.** On the base-match branch the load effect syncs the guard's baselines to the counts of the LOADED workspace (`syncBaselinesToLoaded`) before the journal's workspace is applied, so a journal that is a mass deletion relative to the stored project is refused, not written.
+
+**V. Verification as built** (replaces the lists in "Verification" where they differ):
+
+- **Unit tests:**
+  - `src/app/unload-journal.test.ts`: the key (no credential), write and read, the cap, the quota error, clear with and without its guard, the fingerprint, and the fingerprint round trip for the browser (IndexedDB), SharePoint JSON and Turso kinds. The local-file round trip is in `src/app/local-file-backend.test.ts`.
+  - `src/app/use-unload-journal.test.tsx`: the write paths, the clear on confirmation, R1, the base roll-forward, the popout, and the held op base (R7).
+  - `src/app/use-unload-journal.restore.test.tsx`: the restore branches: match (with R3 and R10), mismatch, mismatch with Restore anyway, mismatch with Discard, already landed (A1, both with a mismatched and a matching base), each action once the key holds a different record (A2), each incomplete-load cause, a failed load, an empty-load refusal, another project's journal, a popout, and R7's degrade to the notice.
+- **Playwright, Chromium, default backend** (`e2e/pagehide-draft-persist.spec.ts`, 10 cases, no `test.fail`): for a document heading and a task-name inline cell, "page stays", reload and tab close; a task-cell tab close whose own IndexedDB write landed (A1); a blur-then-immediate-reload with the clock paused before the blur; and the mismatch case once per action (Discard, Restore anyway).

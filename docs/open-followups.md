@@ -42714,7 +42714,7 @@ that completed 2 runs:
   overwrites the journal the notice describes. Read from `use-unload-journal.ts`; never
   machine-verified.
 
-**2026-09-27, §629 fix round (both fixed on `fix/defect-batch-8`):**
+**2026-09-27, §629 fix round (3 items: the heading close was a spec race; the false notice and the conflict-action identity are fixed on `fix/defect-batch-8`):**
 
 - **The heading's tab close was a spec race, not an app defect.** The close does write the journal,
   with the draft in it. `page.close({ runBeforeUnload: true })` resolves before the closing page's

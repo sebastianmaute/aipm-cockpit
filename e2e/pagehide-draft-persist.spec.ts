@@ -59,7 +59,7 @@
 //    turns the task cell's tab-close test and the landed-journal test RED;
 //  - deleting the `page.clock.pauseAt` in the blur-then-reload test turns it
 //    RED at its premise (the debounced save landed before the reload).
-//  Re-do both before trusting a run after a refactor of the unload path.
+//  Re-do all four before trusting a run after a refactor of the unload path.
 //
 // Run against a fresh server from THIS checkout, never one another worktree
 // started on the default port (`reuseExistingServer` would attach to it):
