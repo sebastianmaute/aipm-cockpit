@@ -543,6 +543,10 @@ export interface CaptureCompositeOpts {
    *  (spec Part 7: a resource save that also corrected linked copies names the
    *  count). The label and the activity log are unaffected. */
   toastText?: string;
+  /** §628 — the scope epoch the fragments' images were READ in, when that is
+   *  earlier than the push (`useUndoBatch.runBatched` stamps it when the batch
+   *  opens). Omitted → the epoch at push time. A stale value refuses the push. */
+  readEpoch?: number;
 }
 
 /** A single-array bulk field edit: N rows, each reverted by MERGING a field
@@ -797,8 +801,11 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   }, [liveEntries]);
 
   // §628 — see `usePruneUndoOnScopeChange`. Stable identity (`[]`). Returns the
-  // SAME array when nothing is stale, so a hold that kept the project costs no
-  // re-render.
+  // SAME array when nothing is stale. That does not spare the component body (the
+  // falling edge already re-renders it through `setSeenLoadPending`); it keeps
+  // `stack` / `redoStack` — and so the `metas` / `redoMetas` handed to
+  // `UndoControl` / `RedoControl` — the same identity, so a hold that kept the
+  // project does not re-render the history controls.
   const pruneStale = useCallback(() => {
     const read = depsRef.current.getScopeEpoch;
     const prune = (s: readonly StackEntry[]) => {
@@ -818,23 +825,25 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     run: Runner,
     labelOpts?: { name?: string; entityKey?: UndoEntityKey },
     toastText?: string,
+    readEpoch?: number,
   ) => {
     if (depsRef.current.isReadOnly?.()) return;
+    // §628 — a caller whose images were read BEFORE this push (an undo batch,
+    // stamped when it opened) passes that epoch. If the scope has moved since,
+    // the entry is already stale: refuse it here, logged and with no toast, so it
+    // never reaches either stack and never offers an Undo that would be dropped.
+    if (dropStaleScopeWrite(depsRef.current.getScopeEpoch, readEpoch, "undo.push", { kind })) return;
     const id = (idRef.current += 1);
     const label = buildUndoLabel(depsRef.current.lang, kind, primaryCount, labelOpts);
     const meta: UndoMeta = { id, kind, count: primaryCount, timestamp: new Date().toISOString(), label };
-    // §628 — stamp the scope at capture; a restore entry point drops the entry
-    // once the epoch has moved on. ★★ The stamp is the epoch at PUSH time, so it
-    // cannot see a capture whose images were read in the old scope but pushed
-    // after the bump. That is NOT closed, only unreachable in practice: the one
-    // capture that straddles an await is `useUndoBatch.runBatched`, which pushes
-    // its composite after `await fn()` (a staged-plan apply, normally a few
-    // milliseconds), so a project switch would have to land inside that window.
-    // If one did, the push is stamped with the NEW epoch whether it lands during
-    // the hold or after it, so neither `usePruneUndoOnScopeChange` nor the
-    // restore-time check drops it. Closing it means stamping the epoch when the
-    // batch OPENS; see open-followups §628.
-    const epoch = depsRef.current.getScopeEpoch?.();
+    // §628 — stamp the scope the images were READ in; a restore entry point drops
+    // the entry once the epoch has moved on. For a synchronous capture that is
+    // the epoch now. ★★ For one that straddles an await it is NOT: the only such
+    // capture is `useUndoBatch.runBatched`, which pushes after `await fn()`, and
+    // a push-time stamp would label a batch read in A with B's epoch, so neither
+    // guard would ever drop it. The batch therefore passes the epoch it OPENED in
+    // as `readEpoch`, which the refusal above has already checked.
+    const epoch = readEpoch ?? depsRef.current.getScopeEpoch?.();
     setStack((s) => pushUndo(s, { meta, run, epoch }, UNDO_CAP));
     setRedoStack([]);
     const { lang, showToastAction } = depsRef.current;
@@ -879,7 +888,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   const captureComposite = useCallback((opts: CaptureCompositeOpts) => {
     const fragments = opts.parts.filter((f): f is CompositeFragment => f !== null);
     if (fragments.length === 0) return;
-    pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments, armDestructive), { name: opts.name, entityKey: opts.entityKey }, opts.toastText);
+    pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments, armDestructive), { name: opts.name, entityKey: opts.entityKey }, opts.toastText, opts.readEpoch);
   }, [pushEntry, armDestructive]);
 
   const captureFieldRows = useCallback(<T extends { id: number }>(opts: CaptureFieldRowsOpts<T>) => {

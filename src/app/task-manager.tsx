@@ -243,7 +243,7 @@ function TaskManagerInner() {
   // captures would still reach the live stack — and NOTHING would report it:
   // the plan would apply, undo would work, and the user would simply have to
   // press it N times. Read the module header before splitting these.
-  const chatUndoBatch = useUndoBatch(undoApi);
+  const chatUndoBatch = useUndoBatch(undoApi, readScopeEpochForUndo); // §628 — a batch is stamped with the epoch it OPENED in
   // Stable identity so ToastProvider consumers don't re-render on every parent render.
   const toastApi = useMemo(() => ({ showToast, showToastAction }), [showToast, showToastAction]);
 
