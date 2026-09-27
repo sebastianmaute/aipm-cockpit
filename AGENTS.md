@@ -42,6 +42,7 @@ before your first edit — the rest is reference, reachable from here.
 | [activity-log](docs/AGENTS/activity-log.md) | meta-blob persistence · `logMode` · actors · forward-compat sanitising · the three completion-trend delta shapes |
 | [task-status](docs/AGENTS/task-status.md) | the `status` ⟺ `completedDate` pair · the five writers · load does NOT repair a split pair · `isTaskClosed` vs `isTaskDelivered` |
 | [budget](docs/AGENTS/budget.md) | the EUR boundary (`fx.ts`) · plan currency on load · budget follows plan · earned value · the Budget panel's cell layer |
+| [undo](docs/AGENTS/undo.md) | what is undoable · creates · label registrations · rows vs patches · the redo arm |
 
 Conventions used throughout: **★** = a non-obvious rule, **★★** = something that has already
 caused a bug, **★★★** = something that has caused the same bug more than once. Open follow-ups
@@ -888,9 +889,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `TaskFormModal` takes a `deleteAction` prop (the old `TaskEditView` `footerLeading` path is gone).
   Dark-mode hover uses `dark:hover:bg-ui-pink/5`.
 - **Task status model → [`docs/AGENTS/task-status.md`](docs/AGENTS/task-status.md).** `Task.status`
-  (To Do/In Progress/On Hold/In Review/Cancelled/Done) is the SOURCE OF TRUTH for "done", but
-  `completedDate` is AUTO-MANAGED to keep the invariant **`status==="Done" ⟺ completedDate set`** — so
-  the ~30 existing completedDate-based derivations were left untouched. ★★ A caller must also say WHICH
+  is the SOURCE OF TRUTH for "done", but `completedDate` is AUTO-MANAGED to keep the invariant
+  **`status==="Done" ⟺ completedDate set`**. ★★ A caller must also say WHICH
   question it is asking: `task-closed.ts` exposes `isTaskClosed` ("will this be worked on again?" =
   Done|Cancelled) and `isTaskDelivered` ("was it delivered?" = `!!completedDate`) — Cancelled is CLOSED
   but never DELIVERED, and reading `!!completedDate` as "closed" is the bug that made cancelled tasks
@@ -1204,8 +1204,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 
 ★★★ **Only THIS file reaches every session.** `CLAUDE.md` is `@AGENTS.md`, so
 everything above is loaded before you type anything; the files in the table below
-are not. That is the whole point of the split — this file had grown to 324 KB
-(~81k tokens) of which ~73% was subsystem reference that most tasks never touch.
+are not. That is the whole point of the split (sizes in the next paragraph).
 **Open the matching file before editing that subsystem's code.** The landmines
 did not get weaker by moving, and a landmine nobody loads is a landmine nobody
 reads — which is the risk this arrangement trades for the context saving.
@@ -1226,8 +1225,7 @@ in `docs/AGENTS/`, and moving it is a NET WIN even when every line of it is true
 why it regrows: nothing here is wrong, it is merely not worth every session's context.
 
 ★★ `npm run docs:symbols:check` gates every file in `docs/AGENTS/`, not just this one — `docs/AGENTS/`
-is GLOBBED (`readdirSync`), so a new subsystem file is scanned the moment it lands. It still
-proves only that a backticked NAME is real, never that a CLAIM about it is true.
+is GLOBBED (`readdirSync`), so a new subsystem file is scanned the moment it lands.
 
 | File | Owns |
 |---|---|
@@ -1246,3 +1244,4 @@ proves only that a backticked NAME is real, never that a CLAIM about it is true.
 | [documents.md](docs/AGENTS/documents.md) | documents — the DATA half: `DocVersion` before-images · retention + tombstones + the `"restored"` marker · `applyDocMutation` (the single mutation path) · `documentVersions` across all six write paths and both load funnels · AND the UI half: renderers, pane split, the hand block editor |
 | [task-status.md](docs/AGENTS/task-status.md) | the task completion model — the `status` ⟺ `completedDate` invariant · the FIVE paths that write the pair and the mechanism each holds it by · why `migrateTask` does NOT repair a split pair · the `isTaskClosed` / `isTaskDelivered` split |
 | [budget.md](docs/AGENTS/budget.md) | budget and money — `resolveRate` / `currencyToEur` and the one stored non-EUR field · the IndexedDB plan-currency coercion · `effectiveBudgetHours` mirroring · bucket earned value and its all-or-nothing rollup · the panel module map and pinned-column arithmetic |
+| [undo.md](docs/AGENTS/undo.md) | the undo/redo stack — creates · label registrations · row vs field-patch capture · field groups · the §295 redo arm · popout + load-hold |
