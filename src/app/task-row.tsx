@@ -22,6 +22,7 @@ import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { Input, Select } from "./form-controls";
 import { useInlineCellEdit, type InlineField } from "./use-inline-cell-edit";
+import { useCommitOnPageHide } from "./use-commit-on-page-hide";
 import { effectiveAssignee } from "./resource-foundation";
 import { ResourcePicker, type ResourcePickerValue } from "./resource-picker";
 import { PopoverPanel } from "./popover-panel";
@@ -165,6 +166,11 @@ function TaskRowImpl({
     if (unchanged) return;
     onInlinePatch(task.id, { assignee: d.name, assigneeEmail: d.email, resourceId });
   };
+  // ★ §622 class — a close/reload never blurs the picker; `commitAssignee` skips an unchanged draft.
+  //  Only while the picker is the open cell: a draft left over after another cell took over must not replay.
+  useCommitOnPageHide(() => {
+    if (assigneeDraft && inline.editing === "assignee") commitAssignee();
+  });
   const onInlineKeyDown = (e: KeyboardEvent<HTMLElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();

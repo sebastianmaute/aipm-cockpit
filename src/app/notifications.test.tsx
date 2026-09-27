@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
-import { BirthdayBanner, JiraTokenBanner, SavingPausedBanner } from "./notifications";
+import { BirthdayBanner, JiraTokenBanner, SavingPausedBanner, UnloadJournalConflictBanner } from "./notifications";
 
 // SavingPausedBanner routes "Save anyway" through the branded ConfirmDialog.
 // No ConfirmProvider is mounted in this harness, and the real context DEFAULT
@@ -24,7 +24,7 @@ import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import type { UpcomingBirthday } from "./birthdays";
 import type { Resource } from "./types";
 import type { JiraTokenAlert } from "./jira-token-status";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 
 function makeResource(id: number, firstName: string, lastName: string): Resource {
   return {
@@ -641,5 +641,25 @@ describe("SavingPausedBanner", () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageSavingPausedAction") }));
     expect(onReopen).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("UnloadJournalConflictBanner (§629)", () => {
+  it("states the conflict and wires Restore anyway and Discard to their own handlers, in German too", async () => {
+    await loadI18n("de"); // the DE dictionary is lazy — without this "de" renders English
+    const onRestoreAnyway = vi.fn();
+    const onDiscard = vi.fn();
+    const { rerender } = render(<UnloadJournalConflictBanner lang="en-US" onRestoreAnyway={onRestoreAnyway} onDiscard={onDiscard} />);
+    expect(screen.getByRole("region", { name: t("en-US", "unloadJournalConflict") })).toHaveTextContent(t("en-US", "unloadJournalConflict"));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "unloadJournalRestoreAnyway") }));
+    expect(onRestoreAnyway).toHaveBeenCalledTimes(1);
+    expect(onDiscard).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "unloadJournalDiscard") }));
+    expect(onDiscard).toHaveBeenCalledTimes(1);
+    expect(onRestoreAnyway).toHaveBeenCalledTimes(1);
+
+    rerender(<UnloadJournalConflictBanner lang="de" onRestoreAnyway={onRestoreAnyway} onDiscard={onDiscard} />);
+    expect(screen.getByRole("button", { name: "Trotzdem wiederherstellen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Verwerfen" })).toBeInTheDocument();
   });
 });

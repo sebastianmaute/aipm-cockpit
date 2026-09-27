@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import * as store from "./version-store";
@@ -356,5 +358,49 @@ describe("useVersionHistory", () => {
     expect(append).toHaveBeenCalledTimes(1);
     const captured = JSON.parse(append.mock.calls[0][1].payload);
     expect(captured.tasks[0].title).toBe("Old"); // the RESTORED state was captured
+  });
+});
+
+// Review Focus 4 (§620): a version payload holding a junk `steeringCommittee`
+// (or any other slice that sanitizes to nothing) is diffed and restored
+// through this file's `jsonToWorkspace(prev)` / `jsonToWorkspace(payload)`
+// calls with no decode failure ever recorded, because none of them pass a
+// `diag` — so `writeVersion`'s diff gate and `restore` never pause saving on
+// this hook's behalf. This is a STRUCTURAL PIN on that fact, not a behavioral
+// one: it reads the module's own source and asserts no `jsonToWorkspace(`
+// call's argument text contains `diag`, rather than exercising a diff/restore
+// with a junk payload — version-history never opts INTO the pause mechanism
+// at all, so the fact worth pinning is the absence of `diag` at every call
+// site, which a source read states directly and a behavioral probe could only
+// infer indirectly (and only for whichever slice the probe happens to pick).
+describe("useVersionHistory — jsonToWorkspace never records a decode failure (§620)", () => {
+  /** Bracket-matches from `${fnName}(` to its closing `)`, so a nested call
+   *  like `jsonToWorkspace(getPayload())` is captured whole rather than
+   *  truncated at the first `)`. */
+  function callArgLists(src: string, fnName: string): string[] {
+    const marker = `${fnName}(`;
+    const out: string[] = [];
+    let idx = src.indexOf(marker);
+    while (idx !== -1) {
+      let depth = 1;
+      let i = idx + marker.length;
+      while (depth > 0 && i < src.length) {
+        if (src[i] === "(") depth++;
+        else if (src[i] === ")") depth--;
+        i++;
+      }
+      out.push(src.slice(idx + marker.length, i - 1));
+      idx = src.indexOf(marker, i);
+    }
+    return out;
+  }
+
+  it("structural pin: no jsonToWorkspace( call in use-version-history.ts passes a diag", () => {
+    const src = readFileSync(join(import.meta.dirname, "use-version-history.ts"), "utf8");
+    const calls = callArgLists(src, "jsonToWorkspace");
+    // Guards the pin itself against a future refactor silently deleting every
+    // call this test means to cover.
+    expect(calls.length).toBeGreaterThanOrEqual(6);
+    for (const call of calls) expect(call).not.toMatch(/diag/);
   });
 });

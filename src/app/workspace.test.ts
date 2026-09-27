@@ -1,14 +1,18 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   emptyWorkspace,
   isWorkspaceEmpty,
   jsonToWorkspace,
+  sanitizeProjectStatus,
   workspaceToJson,
   WorkspaceParseError,
   type Workspace,
 } from "./workspace";
 import { ACTIVITY_MAX_ENTRIES } from "./activity-log";
 import { recordBudgetChange, type BudgetHistoryEntry } from "./budget-history";
+import { type DocTruncationDiag } from "./document-model";
 
 /** Render a STORED value the way a sink would and assert nothing live survives.
  *  Deliberately does NOT re-sanitize: the subject is the LOAD boundary, and the
@@ -532,5 +536,105 @@ describe("budgetHistory JSON write path", () => {
     const hist = budgetHistoryFixture();
     const json = JSON.stringify({ tasks: [], raid: [], budgetHistory: [hist[0], { id: "bad", kind: "nope" }, hist[1]] });
     expect((jsonToWorkspace(json).budgetHistory ?? []).map((e) => e.id)).toEqual(["bh-1", "bh-2"]);
+  });
+});
+
+describe("jsonToWorkspace — a slice that sanitizes to nothing (§620)", () => {
+  const base = { tasks: [], raid: [] };
+  const load = (extra: Record<string, unknown>) => {
+    const diag: DocTruncationDiag = {};
+    const ws = jsonToWorkspace(JSON.stringify({ ...base, ...extra }), { diag });
+    return { ws, failed: diag.decodeFailedSlices ?? [] };
+  };
+
+  // status and features are each assigned UNCONDITIONALLY inside their own
+  // branch (`status: sanitizeProjectStatus(p.status)` outside any `if`;
+  // `raw.features = sanitizeFeatures(p.features)` inside `if (p.features !==
+  // undefined)` but with no length gate), so neither ever "leaves the slice
+  // off" the way the twelve slices below do — a drop leaves `status: {}` /
+  // `features: []`, the same shape an explicit empty value already produces.
+  // Both are still RECORDED through the same accumulator, so each gets its
+  // own test rather than joining the shared it.each below (whose second
+  // assertion assumes the key vanishes entirely).
+  it("records status when it sanitizes to an object with no own keys", () => {
+    const junk = { unknownField: "x" };
+    expect(Object.keys(sanitizeProjectStatus(junk))).toEqual([]); // sanity, per brief
+    const { ws, failed } = load({ status: junk });
+    expect(failed).toEqual(["status"]);
+    expect(ws.status).toEqual({});
+  });
+
+  it("records features when every id is unrecognized", () => {
+    const { ws, failed } = load({ features: ["no-such-module"] });
+    expect(failed).toEqual(["features"]);
+    expect(ws.features).toEqual([]);
+  });
+
+  // One junk value per slice: it has content, and its sanitizer keeps none.
+  // ★ steeringCommittee and timelogLinks depart from the brief's proposed junk
+  //  ({ members: "not-a-list", x: 1 } / { junk: 1 }): both sanitizers build an
+  //  object literal with FIXED own keys for any object input regardless of its
+  //  contents — sanitizeSteeringCommittee always returns
+  //  { name, memberResourceIds, meetings, infoSchedules }, sanitizeTimelogLinks
+  //  always returns { userLinks, projectLinks } — so an object-shaped junk value
+  //  never sanitizes to nothing (`isEmptyDecoded` sees 4/2 own keys and reports
+  //  false). A value that is not an object at all (steeringCommittee's guard is
+  //  `typeof raw !== "object"`) or an array (timelogLinks' guard also excludes
+  //  `Array.isArray`) makes the sanitizer return `undefined` instead, which DOES
+  //  sanitize to nothing — verified by reading each sanitizer's source above.
+  it.each([
+    ["project", { name: 42, bogus: true }],
+    ["fieldVisibility", { nope: "x" }],
+    ["steeringCommittee", "not-an-object"],
+    ["timelogLinks", ["junk"]],
+    ["knowledgeItems", [{ nope: 1 }]],
+    ["insights", [{ nope: 1 }]],
+    ["activityLog", [{ nope: 1 }]],
+    ["budgetHistory", [{ nope: 1 }]],
+    ["documents", [{ nope: 1 }]],
+    ["documentVersions", [{ nope: 1 }]],
+    ["settingsOverrides", { unknownKey: 5 }],
+  ])("records %s and leaves the slice off", (key, junk) => {
+    const { ws, failed } = load({ [key]: junk });
+    expect(failed).toEqual([key]);
+    expect((ws as unknown as Record<string, unknown>)[key]).toBeUndefined();
+  });
+
+  it.each([
+    ["features", []],
+    ["steeringCommittee", {}],
+    ["settingsOverrides", {}],
+    ["knowledgeItems", []],
+    ["status", { narrative: "" }],
+    ["project", {}],
+  ])("stays silent for a genuinely empty %s", (key, empty) => {
+    expect(load({ [key]: empty }).failed).toEqual([]);
+  });
+
+  it("records nothing and changes nothing when no diag is passed", () => {
+    const text = JSON.stringify({ ...base, steeringCommittee: "not-an-object" });
+    expect(() => jsonToWorkspace(text)).not.toThrow();
+    expect(jsonToWorkspace(text).steeringCommittee).toBeUndefined();
+  });
+
+  it("records nothing for a valid slice", () => {
+    const valid = jsonToWorkspace(workspaceToJson({ ...emptyWorkspace(), features: [] }));
+    const diag: DocTruncationDiag = {};
+    jsonToWorkspace(workspaceToJson(valid), { diag });
+    expect(diag.decodeFailedSlices ?? []).toEqual([]);
+  });
+
+  // The test above only exercises emptyWorkspace()'s slices (all absent or
+  // trivially valid); it cannot catch a real sanitizer wrongly flagging a
+  // GENUINE, non-empty value as "sanitized to nothing". The repo's curated
+  // sample carries real content in status, project, steeringCommittee,
+  // documents, documentVersions, knowledgeItems, insights, timelogLinks and
+  // activityLog — nine of the thirteen slices this task touches — so a
+  // round-trip through it is the false-positive check those nine actually need.
+  it("records nothing for the repo's curated sample workspace", () => {
+    const sampleJson = readFileSync(join(import.meta.dirname, "..", "..", "sample-workspace-small.json"), "utf8");
+    const diag: DocTruncationDiag = {};
+    jsonToWorkspace(sampleJson, { diag });
+    expect(diag.decodeFailedSlices ?? []).toEqual([]);
   });
 });

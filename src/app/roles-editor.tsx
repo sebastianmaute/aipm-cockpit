@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { type Lang, t, localeFor } from "./i18n";
 import { currencySymbol } from "./resource-cost";
 import type { Discipline, Grade, Role } from "./types";
@@ -17,6 +17,7 @@ import { IconButton } from "./icon-button";
 import { XMarkIcon } from "./icons";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
 import { DragHandle } from "./drag-handle";
+import { useCommitOnPageHide } from "./use-commit-on-page-hide";
 
 /** Shared chrome for the two reorder grips, both now the `DragHandle` primitive.
  *  ★ It was a native `<button>` rendering `≡` until the primitive learned to
@@ -409,6 +410,20 @@ function RefList({
     onReorder,
   });
   const confirm = useConfirm();
+  const renameDrafts = useRef(new Map<number, string>());
+  const renameIfChanged = (it: { id: number; name: string }, value: string) => {
+    if (value.trim() && value.trim() !== it.name) onRename(it.id, value);
+  };
+  // ★ §622 class — a close/reload never blurs the uncontrolled rename input; commit any edited row.
+  useCommitOnPageHide(() => {
+    for (const it of items) {
+      const value = renameDrafts.current.get(it.id);
+      if (value === undefined) continue;
+      renameIfChanged(it, value);
+      // As on blur: a bfcache restore must not replay it over a later rename.
+      renameDrafts.current.delete(it.id);
+    }
+  });
 
   return (
     <div>
@@ -430,7 +445,12 @@ function RefList({
               className={`px-1 ${REORDER_HANDLE_CLASS}`}
             />
             <input defaultValue={it.name}
-              onBlur={(e) => { if (e.target.value.trim() && e.target.value.trim() !== it.name) onRename(it.id, e.target.value); }}
+              onChange={(e) => renameDrafts.current.set(it.id, e.target.value)}
+              onBlur={(e) => {
+                renameIfChanged(it, e.target.value);
+                // Committed (or rejected): pagehide must not replay it over a newer name.
+                renameDrafts.current.delete(it.id);
+              }}
               className="flex-1 rounded-md border border-line px-2 py-1 text-sm bg-surface-muted" />
             <IconButton
               variant="danger"

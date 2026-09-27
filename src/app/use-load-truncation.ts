@@ -11,6 +11,20 @@ import type { StorageBackend, Workspace } from "./storage";
  *  backend and guarded by `backend-truncation-registry.test.ts`. */
 export type LoadTruncation = { entries: number; blocks: number } | undefined;
 
+/** Whether the load `backend` just served reports any of the three causes
+ *  `loadWasIncomplete` derives from — the same tests `reportLoadTruncation`,
+ *  `reportDecodeFailures` and `reportMalformedQuotes` raise on — i.e. whether
+ *  `reportFor` is about to pause saving. Read BEFORE the apply, by the §629
+ *  unload-journal restore, which must not run on a load whose saves pause. */
+export function lastLoadWasIncomplete(
+  backend: Pick<StorageBackend, "lastLoadTruncation" | "lastDecodeFailures" | "lastImportMalformedQuotes">,
+): boolean {
+  const truncation = backend.lastLoadTruncation;
+  return (truncation?.entries ?? 0) > 0 || (truncation?.blocks ?? 0) > 0
+    || (backend.lastDecodeFailures ?? []).length > 0
+    || (backend.lastImportMalformedQuotes ?? 0) > 0;
+}
+
 type ShowToast = (kind: "info" | "error" | "success", text: string) => void;
 
 /**

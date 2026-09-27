@@ -63,6 +63,20 @@ const findParagraphEditable = (index: number): Promise<HTMLElement> =>
     { name: t(LANG, "documentsParagraphLabel", String(index + 1)) },
   );
 
+/** Pin the caret to end-of-content before typing into a paragraph editable.
+ *  `.focus()` alone does not set a caret position, and a prior ProseMirror
+ *  mount/unmount elsewhere in the suite can leave async selection residue in
+ *  jsdom — without this, a typed chunk can land at the START instead of the
+ *  end (see the inline comment further below where this was first pinned). */
+const pinCaretToEnd = (editable: HTMLElement) => {
+  const range = document.createRange();
+  range.selectNodeContents(editable);
+  range.collapse(false); // end
+  const sel = window.getSelection()!;
+  sel.removeAllRanges();
+  sel.addRange(range);
+};
+
 describe("ParagraphBlockEditor", () => {
   it("renders an editor for a paragraph with no image", async () => {
     render(
@@ -482,8 +496,8 @@ describe("ParagraphBlockEditor — a refused over-cap draft on hide or unload (�
 
   /** `tick` re-arms the save after the editor mounted, so the save's listeners
    *  run BEFORE the editor's rather than after (`saveFirst` below). */
-  function SaveHarness({ tick, saved, commits }: { tick: number; saved: string[]; commits: string[] }) {
-    const [html, setHtml] = useState(() => bold(MAX_HTML_TEXT_CHARS - 1));
+  function SaveHarness({ tick, saved, commits, start }: { tick: number; saved: string[]; commits: string[]; start?: string }) {
+    const [html, setHtml] = useState(() => start ?? bold(MAX_HTML_TEXT_CHARS - 1));
     const block = useMemo(() => ({ type: "paragraph" as const, html }), [html]);
     useEffect(() => scheduleDebouncedSave(() => { saved.push(html); }, SAVE_DEBOUNCE_MS), [html, tick, saved]);
     const onCommit = (_i: number, b: DocBlock) => {
@@ -562,6 +576,148 @@ describe("ParagraphBlockEditor — a refused over-cap draft on hide or unload (�
     expect(commits).toHaveLength(1);
     act(() => firePageHide());
     expect(commits).toHaveLength(1);
+  });
+
+  it("persists an UNDER-cap unblurred draft exactly once on pagehide (§622)", async () => {
+    const saved: string[] = [];
+    const commits: string[] = [];
+    render(<SaveHarness tick={0} saved={saved} commits={commits} start="<p>a</p>" />);
+    const editable = await findParagraphEditable(44);
+    editable.focus();
+    pinCaretToEnd(editable); // see the ★ comment above on the caret-residue flake
+    await userEvent.type(editable, "bc");
+    let savedDuringUnload: string[] = [];
+    act(() => { firePageHide(); savedDuringUnload = [...saved]; });
+    expect(commits).toHaveLength(1);
+    expect(commits[0]).toContain("abc");
+    expect(savedDuringUnload.filter((h) => h.includes("abc"))).toHaveLength(1);
+  });
+});
+
+// ★★★ §622 — an ordinary (under-cap) draft that was never blurred was LOST on
+//  close, reload or navigation: the §185 `pagehide` flush committed only an
+//  over-cap paragraph. Every block type shares `useBlockDraft`, so each is
+//  pinned here. A tab switch still commits nothing (owner rule, §185).
+describe("useBlockDraft — an unblurred draft on pagehide (§622)", () => {
+  const firePageHide = () => window.dispatchEvent(new Event("pagehide"));
+  const fireHidden = () => {
+    const spy = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    document.dispatchEvent(new Event("visibilitychange"));
+    spy.mockRestore();
+  };
+
+  it("paragraph: commits the typed text on pagehide, without a blur", async () => {
+    const onCommit = vi.fn();
+    render(<ParagraphBlockEditor lang={LANG} index={0} block={{ type: "paragraph", html: "<p>a</p>" }} onCommit={onCommit} />);
+    const editable = await findParagraphEditable(0);
+    editable.focus();
+    pinCaretToEnd(editable); // see the ★ comment above on the caret-residue flake
+    await userEvent.type(editable, "bc");
+    expect(onCommit).not.toHaveBeenCalled();
+    act(() => firePageHide());
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit.mock.calls[0][1].html).toContain("abc");
+  });
+
+  it("heading: commits the typed text on pagehide, without a blur", async () => {
+    const onCommit = vi.fn();
+    render(<HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 2, text: "Old" }} onCommit={onCommit} />);
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(text, "er");
+    act(() => firePageHide());
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit.mock.calls[0][1]).toEqual({ type: "heading", level: 2, text: "Older" });
+  });
+
+  it("bullets: commits the typed item on pagehide, without a blur", async () => {
+    const onCommit = vi.fn();
+    render(<BulletsBlockEditor lang={LANG} index={0} block={{ type: "bullets", items: ["one"] }} onCommit={onCommit} />);
+    const item = screen.getAllByRole("textbox", { name: /^Item \d+/ })[0];
+    await userEvent.type(item, "!");
+    act(() => firePageHide());
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit.mock.calls[0][1]).toEqual({ type: "bullets", items: ["one!"] });
+  });
+
+  it("table: commits the typed cell on pagehide, without a blur", async () => {
+    const onCommit = vi.fn();
+    const block: Extract<DocBlock, { type: "table" }> = {
+      type: "table",
+      columns: ["Name", "Owner"],
+      rows: [
+        ["a", "b"],
+        ["c", "d"],
+      ],
+    };
+    render(<TableBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
+    const cell = screen.getAllByRole("textbox", { name: /^Row \d+, column \d+/ })[0];
+    await userEvent.type(cell, "z");
+    act(() => firePageHide());
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(onCommit.mock.calls[0][1])).toContain("az");
+  });
+
+  it("commits nothing on a tab switch; the draft stays dirty for the blur", async () => {
+    const onCommit = vi.fn();
+    render(<HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 2, text: "Old" }} onCommit={onCommit} />);
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(text, "er");
+    act(() => fireHidden());
+    expect(onCommit).not.toHaveBeenCalled();
+    text.blur();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+  });
+
+  // ★★ The count is asserted BEFORE the unmount: after the unmount alone the
+  //  pre-§622 code (commit nothing on pagehide, flush at unmount) also reads 1.
+  //  The adoption step is what observes the cleared dirty flag: a draft left
+  //  dirty refuses the next stored block (the render-time reconcile's guard),
+  //  which is what a page restored from the back/forward cache would show.
+  it("commits on pagehide and clears the dirty flag: adopts the next stored block, no second commit at unmount", async () => {
+    const onCommit = vi.fn();
+    const view = render(<HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 2, text: "Old" }} onCommit={onCommit} />);
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(text, "er");
+    act(() => firePageHide());
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    view.rerender(<HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 2, text: "Newer" }} onCommit={onCommit} />);
+    expect(text).toHaveValue("Newer");
+    view.unmount();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses an emptied draft on pagehide instead of saving an empty block", async () => {
+    const onCommit = vi.fn();
+    render(<HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 2, text: "Old" }} onCommit={onCommit} />);
+    await userEvent.clear(screen.getByRole("textbox", { name: headingTextName(0) }));
+    expect(() => act(() => firePageHide())).not.toThrow();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  // ★★ BOTH drafts must be dirty AT the pagehide. Typing into B with
+  //  `userEvent.type` clicks B first, which blurs A and commits it, so only B
+  //  would be dirty. B is therefore changed with `fireEvent.change`, which moves
+  //  no focus; the pre-pagehide assertions prove neither was committed yet.
+  it("commits BOTH of two dirty editors on one pagehide", async () => {
+    const a = vi.fn();
+    const b = vi.fn();
+    render(
+      <>
+        <HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 2, text: "A" }} onCommit={a} />
+        <HeadingBlockEditor lang={LANG} index={1} block={{ type: "heading", level: 2, text: "B" }} onCommit={b} />
+      </>,
+    );
+    const textA = screen.getByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(textA, "1");
+    fireEvent.change(screen.getByRole("textbox", { name: headingTextName(1) }), { target: { value: "B2" } });
+    expect(document.activeElement).toBe(textA);
+    expect(a).not.toHaveBeenCalled();
+    expect(b).not.toHaveBeenCalled();
+    act(() => firePageHide());
+    expect(a).toHaveBeenCalledTimes(1);
+    expect(a.mock.calls[0][1]).toEqual({ type: "heading", level: 2, text: "A1" });
+    expect(b).toHaveBeenCalledTimes(1);
+    expect(b.mock.calls[0][1]).toEqual({ type: "heading", level: 2, text: "B2" });
   });
 });
 
@@ -1443,6 +1599,25 @@ describe("useBlockDraft — an external write to the block being edited", () => 
     rerender(<HeadingBlockEditor lang={LANG} index={0} block={restored} onCommit={onCommit} />);
 
     text.blur();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  // The pagehide twin of the test above (§622): the same concurrent-write
+  //  ordering, but the unload signal replaces the blur. The abandon guard
+  //  inside `tryCommit` is what `useCommitOnPageHide`'s callback runs through,
+  //  so a stored block that moved underneath a dirty draft must still refuse
+  //  to commit on a real unload.
+  it("abandons a dirty draft on pagehide when the stored block moved underneath it", async () => {
+    const onCommit = vi.fn();
+    const { rerender } = render(
+      <HeadingBlockEditor lang={LANG} index={0} block={heading} onCommit={onCommit} />,
+    );
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(text, "!"); // dirty, unblurred
+    expect(text).toHaveValue("Alpha!");
+    rerender(<HeadingBlockEditor lang={LANG} index={0} block={restored} onCommit={onCommit} />);
+
+    act(() => window.dispatchEvent(new Event("pagehide")));
     expect(onCommit).not.toHaveBeenCalled();
   });
 

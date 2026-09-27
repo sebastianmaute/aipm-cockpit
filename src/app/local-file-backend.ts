@@ -56,6 +56,10 @@ export class LocalFileBackend implements StorageBackend {
   lastImportMalformedQuotes = 0;
   /** What the most recent load() discarded to stay inside the document caps. */
   lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
+  /** §620 — meta slices the last load decoded to NOTHING (see `jsonToWorkspace`).
+   *  Read by `truncationOps.reportFor`, which pauses saving. Reset and published
+   *  exactly like `lastLoadTruncation`, for the same stale-value reason. */
+  lastDecodeFailures: readonly string[] = [];
   private readonly idbKey: string;
   private readonly format: FilePickType;
 
@@ -203,7 +207,7 @@ export class LocalFileBackend implements StorageBackend {
    * through here; nothing it does can re-point the backend. `load()` is the
    * thin wrapper that supplies the STORED handle.
    * ★★ Both diagnostic mechanisms live in this body — the `finally` publishing
-   * `lastLoadTruncation`, and the `resetLoadDiagnostics()` call above the first
+   * `lastLoadTruncation` and `lastDecodeFailures`, and the `resetLoadDiagnostics()` call above the first
    * possible exit. Adding an early return here is the shape that broke
    * `sharepoint-backend.load()`; do not add one.
    * ★★★ THAT COVERS THIS BODY AND SAYS NOTHING ABOUT ITS CALLERS, and an earlier
@@ -225,10 +229,11 @@ export class LocalFileBackend implements StorageBackend {
     // throwing codec, the JSON return and the CSV/MD return.
     //
     // ★★★ TWO MECHANISMS, NOT ONE, AND THE `finally` IS NOT THE GENERAL ONE.
-    // It publishes `lastLoadTruncation` ONLY. The two import flags are reset
-    // HERE instead, BEFORE the first exit can be taken, because that is the one
-    // placement no exit can skip: they used to sit below BOTH throws and below
-    // `readHandle`, so a CSV load that hit an unterminated quote, followed by a
+    // It publishes `lastLoadTruncation` and (since §620) `lastDecodeFailures`
+    // only (`resetLoadDiagnostics()` below also zeroes both). The two import
+    // flags are reset HERE instead, BEFORE the first exit can be taken, because
+    // that is the one placement no exit can skip: they used to sit below BOTH
+    // throws and below `readHandle`, so a CSV load that hit an unterminated quote, followed by a
     // load of a file that had since been DELETED or un-picked, left the stale
     // `true` standing and would have said a file that no longer exists has an
     // unclosed quotation mark. Same defect, same placement, same fix as
@@ -269,6 +274,7 @@ export class LocalFileBackend implements StorageBackend {
         entries: diag.truncatedEntries ?? 0,
         blocks: diag.truncatedBlocks ?? 0,
       };
+      this.lastDecodeFailures = diag.decodeFailedSlices ?? [];
     }
   }
 
@@ -276,13 +282,15 @@ export class LocalFileBackend implements StorageBackend {
    * Zero every field the two load-diagnostic mechanisms publish.
    *
    * ★★★ EXTRACTED SO THE ONE EXIT ABOVE `loadFrom` CAN RUN IT TOO. These four
-   * import flags plus `lastLoadTruncation` are read by `truncationOps.reportFor`
-   * to decide whether a load lost rows; a stale value is WORSE than a zero,
-   * because it raises a data-loss warning about a file that is fine. `loadFrom`
-   * calls this above its first possible exit, and `load()` calls it when handle
-   * lookup rejects before `loadFrom` is even entered.
-   * ★★ Zeroing `lastLoadTruncation` here is harmless on the `loadFrom` path — its
-   * `finally` overwrites the field on every exit, including the throwing ones.
+   * import flags plus `lastLoadTruncation` and `lastDecodeFailures` are read by
+   * `truncationOps.reportFor` to decide whether a load lost rows; a stale value
+   * is WORSE than a zero, because it raises a data-loss warning about a file
+   * that is fine. `loadFrom` calls this above its first possible exit, and
+   * `load()` calls it when handle lookup rejects before `loadFrom` is even
+   * entered.
+   * ★★ Zeroing `lastLoadTruncation`/`lastDecodeFailures` here is harmless on the
+   * `loadFrom` path — its `finally` overwrites both fields on every exit,
+   * including the throwing ones.
    */
   private resetLoadDiagnostics(): void {
     this.lastImportDroppedRows = 0;
@@ -290,6 +298,7 @@ export class LocalFileBackend implements StorageBackend {
     this.lastImportUnterminatedQuote = false;
     this.lastImportMalformedQuotes = 0;
     this.lastLoadTruncation = { entries: 0, blocks: 0 };
+    this.lastDecodeFailures = [];
   }
 
   async load(): Promise<Workspace> {

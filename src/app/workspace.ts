@@ -44,6 +44,7 @@ import { sanitizeBudgetHistory, type BudgetHistoryEntry } from "./budget-history
 import { sanitizeProjectDocumentsWithDiag, type DocTruncationDiag, type ProjectDocument } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersionsWithDiag, type DocVersion } from "./document-versions";
+import { sanitizedToNothing } from "./meta-slice-decode";
 // ★ logDiag is a no-op when `window` is undefined and swallows its own errors,
 // so importing it here cannot break a script that loads this module with no DOM
 // (ai-eval.ts, update-ooxml-manifest.ts; the sample generator installs JSDOM
@@ -604,7 +605,14 @@ export class WorkspaceParseError extends Error {
  *  `opts.diag`: an optional accumulator the caller owns. The document and
  *  document-version sanitizers write into it what a load-time CAP silently
  *  discarded, so a backend can report the loss instead of truncating in
- *  silence. Purely additive — omitting it decodes exactly as before. */
+ *  silence. Since §620, `diag.decodeFailedSlices` also receives the JSON key
+ *  of any of the 13 meta slices (status, project, fieldVisibility, features,
+ *  steeringCommittee, timelogLinks, knowledgeItems, insights, activityLog,
+ *  budgetHistory, documents, documentVersions, settingsOverrides) whose stored
+ *  value carried content but sanitized to nothing. `documents` and
+ *  `documentVersions` are ALSO recorded when their sanitize pass THROWS — in
+ *  non-strict mode only, since strict rethrows. Purely additive — omitting it
+ *  decodes exactly as before. */
 export function jsonToWorkspace(
   text: string,
   opts?: { strict?: boolean; diag?: DocTruncationDiag },
@@ -660,52 +668,80 @@ export function jsonToWorkspace(
         .map(sanitizeChangeRichFields),
       stakeholders: ((p.stakeholders as unknown[]) ?? []).map((s) => sanitizeStakeholder(s)).filter((s): s is Stakeholder => s !== null),
     };
+    // ★★★ §620 — A SLICE THAT SANITIZES TO NOTHING WAS DROPPED IN SILENCE, and
+    //  the next save wrote the file without it — gone for good. Turso reports the
+    //  same case since §617 (`decodeMeta` in turso-schema.ts); this is the JSON
+    //  half, through the SAME accumulator, so `use-load-truncation` pauses saving
+    //  with no new mechanism. Opt-in by `diag`: the version-history diff, import
+    //  and the demo seed pass none and never raise a pause.
+    //  ★★ `sanitizedToNothing` compares INPUT with output, so a stored `[]`, `{}`
+    //   or blank-string record (which also sanitizes to nothing) stays silent.
+    const decodeDiag = opts?.diag;
+    const noteIfDropped = (key: string, rawValue: unknown, sanitized: unknown): void => {
+      if (decodeDiag && sanitizedToNothing(rawValue, sanitized)) {
+        (decodeDiag.decodeFailedSlices ??= []).push(key);
+      }
+    };
+    // ★ status is assigned UNCONDITIONALLY above (never gated on an `if`), so a
+    // drop never removes the key — it just leaves `status: {}`, same shape as an
+    // absent status field. Still worth recording: the next save writes that {}
+    // over whatever the file actually held.
+    noteIfDropped("status", p.status, raw.status);
     // Additive: sanitize an incoming project when present; otherwise leave the
     // key off so no-project files round-trip without a `project` field.
     if (p.project !== undefined) {
       const project = sanitizeLoadedProjectMeta(p.project);
       if (project) raw.project = project;
+      noteIfDropped("project", p.project, project);
     }
     // Additive: sanitize an incoming field-visibility config when present;
     // junk sanitizes to undefined and the key stays off.
     const fieldVisibility = sanitizeFieldVisibility(p.fieldVisibility);
     if (fieldVisibility) raw.fieldVisibility = fieldVisibility;
+    noteIfDropped("fieldVisibility", p.fieldVisibility, fieldVisibility);
     // Additive + present-checked: only sanitize when the key is present, so an
     // absent key stays undefined (no override) and an explicit [] (Simple) is
     // preserved rather than expanded to all modules by sanitizeFeatures(undefined).
     if (p.features !== undefined) {
       raw.features = sanitizeFeatures(p.features);
+      noteIfDropped("features", p.features, raw.features);
     }
     // Additive: sanitize an incoming committee when present; garbage sanitizes
     // to undefined and the key stays off so committee-less files round-trip.
     if (p.steeringCommittee !== undefined) {
       const committee = sanitizeSteeringCommittee(p.steeringCommittee);
       if (committee) raw.steeringCommittee = committee;
+      noteIfDropped("steeringCommittee", p.steeringCommittee, committee);
     }
     // Additive: sanitize incoming timelog links when present.
     if (p.timelogLinks !== undefined) {
       const links = sanitizeTimelogLinks(p.timelogLinks);
       if (links) raw.timelogLinks = links;
+      noteIfDropped("timelogLinks", p.timelogLinks, links);
     }
     // Additive: sanitize incoming standalone knowledge items when present.
     if (p.knowledgeItems !== undefined) {
       const items = sanitizeKnowledgeItems(p.knowledgeItems);
       if (items.length) raw.knowledgeItems = items;
+      noteIfDropped("knowledgeItems", p.knowledgeItems, items);
     }
     // Additive: sanitize incoming insights when present.
     if (p.insights !== undefined) {
       const ins = sanitizeInsights(p.insights);
       if (ins.length) raw.insights = ins;
+      noteIfDropped("insights", p.insights, ins);
     }
     // Additive: sanitize incoming activity-log entries when present.
     if (p.activityLog !== undefined) {
       const log = sanitizeActivityLog(p.activityLog);
       if (log.length) raw.activityLog = log;
+      noteIfDropped("activityLog", p.activityLog, log);
     }
     // Additive: sanitize incoming budget-history entries when present.
     if (p.budgetHistory !== undefined) {
       const hist = sanitizeBudgetHistory(p.budgetHistory);
       if (hist.length) raw.budgetHistory = hist;
+      noteIfDropped("budgetHistory", p.budgetHistory, hist);
     }
     // Additive: sanitize incoming documents when present. TWO passes, in this
     // order: sanitizeProjectDocuments enforces the STRUCTURE (and is DOM-free
@@ -730,21 +766,27 @@ export function jsonToWorkspace(
       try {
         const docs = sanitizeProjectDocumentsWithDiag(p.documents, opts?.diag).map(sanitizeDocumentRichFields);
         if (docs.length) raw.documents = docs;
+        noteIfDropped("documents", p.documents, docs);
       } catch (err) {
         // ★★ strict must stay LOUD. The sample generator decodes with
         // { strict: true } so a bad load fails the build rather than writing a
         // near-empty artifact; rethrowing lets the outer catch raise the same
         // WorkspaceParseError("shape") it always did.
         if (strict) throw err;
-        // ★ Not silent: the diagnostics ring is the channel for THIS loss. The
-        // signature does carry an optional `DocTruncationDiag`, but that
-        // accumulator counts only what the CAPS discarded — it has no field for
-        // a sanitize THROW, and a caller reading it after this branch sees
-        // nothing. So the ring stays the channel here. Names what was lost, so
+        // ★ Not silent, and now reported through BOTH channels. `logDiag` names
+        // it for an operator reading the diagnostics ring — the channel a
+        // caller's `diag` accumulator is not reachable from. And since §620,
+        // the SAME loss also pushes into `decodeFailedSlices` below — the
+        // channel the ring is not reachable from — so a caller like
+        // `use-load-truncation` can pause saving on it exactly as it does for
+        // any other slice that sanitized to nothing. Names what was lost, so
         // a user who opens a file and finds no documents has something to find.
         logDiag("error", "workspace.documentsDropped", {
           message: err instanceof Error ? err.message : String(err),
         });
+        // §620: a THROW is also a slice this backend never got to keep — Turso
+        // reports this same class of loss through the accumulator too.
+        if (decodeDiag) (decodeDiag.decodeFailedSlices ??= []).push("documents");
       }
     }
     // Additive: sanitize incoming document version history when present. Same
@@ -770,11 +812,14 @@ export function jsonToWorkspace(
           }).blocks,
         }));
         if (versions.length) raw.documentVersions = versions;
+        noteIfDropped("documentVersions", p.documentVersions, versions);
       } catch (err) {
         if (strict) throw err;
         logDiag("error", "workspace.documentVersionsDropped", {
           message: err instanceof Error ? err.message : String(err),
         });
+        // §620: same as documents — a THROW is a slice this backend lost too.
+        if (decodeDiag) (decodeDiag.decodeFailedSlices ??= []).push("documentVersions");
       }
     }
     // Additive: sanitize incoming per-project policy overrides when present;
@@ -782,6 +827,7 @@ export function jsonToWorkspace(
     if (p.settingsOverrides !== undefined) {
       const overrides = sanitizeSettingsOverrides(p.settingsOverrides);
       if (hasAnyOverride(overrides)) raw.settingsOverrides = overrides;
+      noteIfDropped("settingsOverrides", p.settingsOverrides, hasAnyOverride(overrides) ? overrides : undefined);
     }
     // Additive: sanitize incoming calendar events when present; garbage rows
     // are dropped individually (sanitizeLoadedCalendarEvent never throws), and an

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { type Lang, t } from "../i18n";
 import { INTERACTIVE } from "../interaction-styles";
 import { Checkbox, Input } from "../form-controls";
@@ -10,6 +10,7 @@ import { templateFromWorkspace, type ProjectTemplate } from "../templates";
 import { useTemplates } from "../use-templates";
 import { useCurrentWorkspace } from "../use-current-workspace";
 import { useSettings } from "../use-settings";
+import { useCommitOnPageHide } from "../use-commit-on-page-hide";
 import { buildRowTokens, rowLabel } from "../row-tokens";
 
 // Module-scope accessor (see use-row-tokens.ts): a fresh inline arrow would
@@ -56,6 +57,22 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
     () => buildRowTokens(userTemplates.map((tpl) => ({ id: tpl.id, name: nameOfTemplate(tpl) }))),
     [userTemplates],
   );
+
+  const renameDrafts = useRef(new Map<string, string>());
+  function renameIfChanged(tpl: ProjectTemplate, value: string) {
+    const next = value.trim();
+    if (next && next !== tpl.name) updateTemplate(tpl.id, { name: next });
+  }
+  // ★ §622 class — a close/reload never blurs the uncontrolled rename input; commit any typed rename.
+  useCommitOnPageHide(() => {
+    for (const tpl of userTemplates) {
+      const value = renameDrafts.current.get(tpl.id);
+      if (value === undefined) continue;
+      renameIfChanged(tpl, value);
+      // As on blur: a bfcache restore must not replay it over a later rename.
+      renameDrafts.current.delete(tpl.id);
+    }
+  });
 
   const trimmed = name.trim();
   function saveCurrent() {
@@ -164,9 +181,11 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") e.currentTarget.blur();
                     }}
+                    onChange={(e) => renameDrafts.current.set(tpl.id, e.target.value)}
                     onBlur={(e) => {
-                      const name = e.target.value.trim();
-                      if (name && name !== tpl.name) updateTemplate(tpl.id, { name });
+                      renameIfChanged(tpl, e.target.value);
+                      // Committed (or rejected): pagehide must not replay it over a newer name.
+                      renameDrafts.current.delete(tpl.id);
                     }}
                   />
                   <span className="text-xs text-muted-foreground">{modeSummary(lang, tpl)}</span>
