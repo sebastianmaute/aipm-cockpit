@@ -42690,7 +42690,9 @@ checks `danglingIds` first) shows it dangling. Both are true, neither can be rep
 upload path refuses the type), and the preview cannot know the bytes are gone without the fetch it now
 skips; the comment at the check says so. `document-asset-images.test.ts` pins that the loader is called only for the allowed id and that a
 refused id with no bytes is blocked; the existing test keeping an allowed id with no bytes on the
-missing marker is unchanged. `docs/AGENTS/documents.md`'s "consults nothing" paragraph, stale since
+missing marker is unchanged. The image lightbox (`asset-preview-modal.tsx`), found by the same review
+to load before checking, now asks `isBlockedAssetMime(currentMime)` before `loadImage` too; its test
+pins that the loader is never called for a refused asset. `docs/AGENTS/documents.md`'s "consults nothing" paragraph, stale since
 2026-08-23 (`cea043f9a`, which made the preview decline a refused mime), now says the preview declines a refused type (§230) and
 does so before the fetch (§633). The same review found five comments still describing the old order
 or the pre-§230 library, in `asset-object-url.ts`, its test, `globals.css` and

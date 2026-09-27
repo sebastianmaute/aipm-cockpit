@@ -28,6 +28,7 @@ import { useResizable } from "./use-resizable";
 import { useDraggable } from "./use-draggable";
 import { rowLabel } from "./row-tokens";
 import { type AssetObjectUrl, assetBytesToObjectUrl } from "./asset-object-url";
+import { isBlockedAssetMime } from "./document-asset-upload";
 import { logDiag } from "./diagnostics";
 
 // ★ Neither key collides. Enumerate today's set rather than trusting a list
@@ -144,6 +145,10 @@ export function AssetPreviewModal({
     let cancelled = false;
     void (async () => {
       setView(null);
+      // §633 — a refused type is decided BEFORE the fetch, so it costs no load
+      // (the export and the document preview do the same). `assetBytesToObjectUrl`
+      // would answer "blocked" for it anyway, after the bytes had been paid for.
+      if (isBlockedAssetMime(currentMime)) { setView({ forId: id, result: { kind: "blocked" } }); return; }
       const base64 = await loadImageRef.current(id).catch((err: unknown) => {
         logDiag("error", "assetPreview.loadFailed", { message: err instanceof Error ? err.message : String(err) });
         return null;
