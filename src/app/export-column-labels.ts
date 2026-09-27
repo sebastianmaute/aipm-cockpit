@@ -8,9 +8,13 @@
 //  Markdown never read `columns` — they are storage formats and keep raw keys.
 // ★★ Reuse the app's TABLE-header key where the field has a column, then its
 //  edit-form key, and an `exportCol*` key only where the app labels the field
-//  nowhere. ONE deliberate exception: the three task effort columns carry raw
+//  nowhere. TWO deliberate exceptions, both where the app's label names a
+//  different VALUE than the cell holds: the three task effort columns carry raw
 //  MINUTES while the table shows formatted hours under "Est."/"Spent", so they
-//  get "(min)" keys instead of mislabelling the unit.
+//  get "(min)" keys; and a foreign-key column (`roleId`, `disciplineId`,
+//  `gradeId`, a stakeholder's `resourceId`, `successorId`) holds an ID where
+//  the app shows the linked record's NAME, so it gets an "… ID" key, like
+//  `exportColResourceId`.
 // ★ Each map is a total Record over its `as const` column constant, so a new
 //  CSV column fails `tsc` here until it has a label. SHIFTS_CSV_COLUMNS is typed
 //  `readonly string[]`, so its totality — and the four hand-written field lists
@@ -80,14 +84,14 @@ const STAKEHOLDER_LABELS: LabelsFor<typeof STAKEHOLDERS_CSV_COLUMNS> = {
   id: "id", name: "stakeholderFieldName", organization: "stakeholderFieldOrganization",
   title: "stakeholderFieldTitle", email: "stakeholderFieldEmail", category: "stakeholderFieldCategory",
   influence: "stakeholderFieldInfluence", interest: "stakeholderFieldInterest", notes: "stakeholderFieldNotes",
-  resourceId: "stakeholderFieldResource", raci: "raci", localModifiedAt: "exportColLocalModifiedAt",
+  resourceId: "exportColLinkedResourceId", raci: "raci", localModifiedAt: "exportColLocalModifiedAt",
   knowledgeLinks: "documentLinks",
 };
 
 const BUDGET_LABELS: LabelsFor<typeof BUDGETS_CSV_COLUMNS> = {
   id: "id", name: "name", poNumber: "budgetPoNumber", type: "budgetType", currency: "budgetCurrency",
   fixedPriceAmount: "budgetFixedPriceAmount", startDate: "budgetStartDate", endDate: "budgetEndDate",
-  successorId: "budgetSuccessor", status: "status", closedDate: "fieldClosedDate", createdDate: "colCreatedDate",
+  successorId: "exportColSuccessorBucketId", status: "status", closedDate: "fieldClosedDate", createdDate: "colCreatedDate",
   fxRateOverride: "budgetFxOverride", allocations: "budgetAllocations", localModifiedAt: "exportColLocalModifiedAt",
   order: "exportColOrder", planningMode: "exportColPlanningMode",
   disciplineAllocations: "exportColDisciplineAllocations", rateOverrideInternal: "budgetRateOverrideInternal",
@@ -99,13 +103,13 @@ const RESOURCE_LABELS: LabelsFor<typeof RESOURCES_CSV_COLUMNS> = {
   id: "id", firstName: "resourceFirstName", lastName: "resourceLastName", title: "resourceColTitle",
   businessPhone: "resourceColPhone", location: "resourceLocation", department: "resourceColDepartment",
   email: "email", company: "resourceCompany", birthday: "resourceColBirthday", notes: "resourceNotes",
-  roleId: "role", utilizationMode: "exportColUtilizationMode", utilization: "utilization",
+  roleId: "exportColRoleId", utilizationMode: "exportColUtilizationMode", utilization: "utilization",
   absenceOverride: "exportColAbsenceOverride", active: "resourceActiveLabel",
   localModifiedAt: "exportColLocalModifiedAt", emails: "resourceEmailsLabel", isExternal: "resourceExternal",
 };
 
 const ROLE_LABELS: LabelsFor<typeof ROLES_CSV_COLUMNS> = {
-  id: "id", disciplineId: "rolesDiscipline", gradeId: "rolesGrade", internalRate: "rolesInternalRate",
+  id: "id", disciplineId: "exportColDisciplineId", gradeId: "exportColGradeId", internalRate: "rolesInternalRate",
   externalRate: "rolesExternalRate", internalRateDay: "rolesInternalRateDay",
   externalRateDay: "rolesExternalRateDay", rateBasis: "rolesRateBasis",
   localModifiedAt: "exportColLocalModifiedAt", order: "exportColOrder",

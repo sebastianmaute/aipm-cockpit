@@ -61,3 +61,35 @@ describe.each(["en-US", "de"] as const)("export headers are display labels (§30
     expect(names).toContain(t(lang, "exportLabelRoles"));
   });
 });
+
+// ★ LITERAL header text for the high-risk columns. The test above compares each
+//  header with `t(lang, key)` for the key the SAME map names, so it cannot see a
+//  field pointed at the wrong key. These are written out: the three raw-minutes
+//  effort columns, the task status, and the columns whose cells hold an ID.
+describe("export headers — exact text of the high-risk columns (§304)", () => {
+  const CASES: readonly (readonly [section: "tasks" | "raid" | "resources" | "roles" | "stakeholders" | "budgets", field: string, en: string, de: string])[] = [
+    ["tasks", "originalEstimateMinutes", "Original estimate (min)", "Ursprüngliche Schätzung (Min.)"],
+    ["tasks", "timeSpentMinutes", "Time spent (min)", "Aufgewandte Zeit (Min.)"],
+    ["tasks", "remainingEstimateMinutes", "Time remaining (min)", "Verbleibende Zeit (Min.)"],
+    ["tasks", "status", "Status", "Status"],
+    ["raid", "ownerResourceId", "Resource ID", "Ressourcen-ID"],
+    ["resources", "roleId", "Role ID", "Rollen-ID"],
+    ["roles", "disciplineId", "Discipline ID", "Disziplin-ID"],
+    ["roles", "gradeId", "Grade ID", "Stufen-ID"],
+    ["stakeholders", "resourceId", "Linked resource ID", "Verknüpfte Ressourcen-ID"],
+    ["budgets", "successorId", "Successor bucket ID", "Nachfolge-Bucket-ID"],
+  ];
+
+  for (const [lang, col] of [["en-US", 2], ["de", 3]] as const) {
+    it(`prints the exact header for each (${lang})`, () => {
+      const sections = buildExportSections(SAMPLE, ALL_ON, lang);
+      for (const c of CASES) {
+        const [section, field] = c;
+        const s = sections.find((x) => x.key === section)!;
+        const i = EXPORT_SECTION_FIELDS[section].indexOf(field);
+        expect(i, `${section}.${field} is not an export field`).toBeGreaterThanOrEqual(0);
+        expect(s.columns[i], `${section}.${field}`).toBe(c[col]);
+      }
+    });
+  }
+});

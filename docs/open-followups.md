@@ -25933,6 +25933,23 @@ include 'ragOverride'`; M5 (`SHIFT_LABELS` loses `satHours`) died on `shifts.sat
 key`. Each failed in both languages. ★ The body below, including its three reproduce commands,
 describes the tree BEFORE this fix; on the fixed tree the second and third commands print 0.
 
+Amended 2026-09-27 (whole-branch review): five foreign-key columns were labelled with the NAME the app
+shows for the linked record while their cells hold its ID — resources `roleId` ("Role"), roles
+`disciplineId`/`gradeId` ("Discipline"/"Grade"), stakeholders `resourceId` ("Linked resource") and
+budgets `successorId` ("Successor bucket"). They now use five new keys in the `exportColResourceId`
+pattern: "Role ID"/"Rollen-ID", "Discipline ID"/"Disziplin-ID", "Grade ID"/"Stufen-ID", "Linked
+resource ID"/"Verknüpfte Ressourcen-ID", "Successor bucket ID"/"Nachfolge-Bucket-ID" — a second
+deliberate exception to reuse, beside the "(min)" columns. The label test above compared each header
+with `t(lang, key)` for the key the same map names, so it could not see a field pointed at the wrong
+key; `export-column-labels.test.ts`'s "export headers — exact text of the high-risk columns (§304)"
+now asserts the literal EN and DE text of the three "(min)" columns, `tasks.status`,
+`raid.ownerResourceId` and the five ID columns. It was red before the relabel (`resources.roleId:
+expected 'Role' to be 'Role ID'`, `'Rolle'` in DE); mutant `gradeId: "rolesGrade"` → red in both
+languages (`roles.gradeId: expected 'Grade' to be 'Grade ID'`), reverted. Two German labels corrected
+in the same pass: `changeFieldResolution` "Lösung / Begründung" (was "Begruendung") and
+`exportLabelRoles` "Rollen & Sätze" (was "Rollen & Raten"; still the first sheet name with an
+ampersand, and the DE workbook still parses).
+
 `ExportSection.columns` (`export-sections.ts`) is commented `string[]; // header row (display
 labels)`, and NOT ONE builder puts a translated label there. So a PDF, DOCX, XLSX or PPTX export table
 renders untranslated raw strings as its column headers, in EN and DE alike.
