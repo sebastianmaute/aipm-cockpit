@@ -262,7 +262,9 @@ describe("a non-img carrier the LOADER can produce still holds a cap slot", () =
   // illustrated this with a span described stored html that cannot exist.
   // open-followups §249 (and the §218 table cell it corrected).
   //
-  // ★ Composed exactly as every load path composes it:
+  // ★ Composed EQUIVALENTLY to every load path. The real paths call the Diag
+  // variant, sanitizeProjectDocumentsWithDiag(raw, diag); this is that function
+  // with no diag, then the same rich pass:
   //   sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)
   // The id is NUMERIC on purpose — the structural pass drops a document with a
   // non-numeric id, and an empty result would make every negative below pass.

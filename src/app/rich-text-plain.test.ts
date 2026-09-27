@@ -549,12 +549,14 @@ describe("DOM-free guard", () => {
   // says nothing about whether the module touches a DOM. `diagnostics.ts` in
   // fact references `window` throughout — it is safe only because every
   // reference is GUARDED, and the guard is what has to hold, not the absence of
-  // a DOMPurify call. A future edit dropping the `typeof window` check would
-  // sail past the scan above and throw on IMPORT in any script that loads the
-  // entity sanitizers with no DOM installed (`scripts/ai-eval.ts`,
-  // `scripts/update-ooxml-manifest.ts`), which is precisely the failure the
-  // allowlist exists to prevent. (NOT the sample generator: it installs JSDOM
-  // first — open-followups §151.)
+  // a DOMPurify call. A future edit dropping the MODULE-LEVEL guard — the
+  // top-level `if (typeof window !== "undefined")` around the `__aipmDiag`
+  // assignment — would sail past the scan above and throw on IMPORT in any
+  // script that loads the entity sanitizers with no DOM installed (e.g.
+  // `scripts/ai-eval.ts`), which is precisely the failure the allowlist exists
+  // to prevent. The in-function guards are different: each sits inside a
+  // `try { … } catch {}`, so dropping one of them throws nothing. (NOT the
+  // sample generator: it installs JSDOM first — open-followups §151.)
   //
   // ★★ `document-asset-patterns.ts` is pinned at ZERO imports rather than
   // scanned, because that is the property that makes it safe: a leaf cannot
@@ -618,10 +620,14 @@ describe("DOM-free guard", () => {
   it("keeps rich-text-projection out of every DOM-free reach", () => {
     // ★ Nothing guarded this direction at all. rich-text-projection calls
     // DOMPurify, so a codec or an entity sanitizer importing it breaks their
-    // DOM-free CONTRACT, and a script that loads them with no DOM installed
-    // (`scripts/ai-eval.ts`, `scripts/update-ooxml-manifest.ts`) would throw on
-    // the call. NOT the sample generator: it and regen-golden-fixtures.ts
-    // install JSDOM first (open-followups §151).
+    // DOM-free CONTRACT. The DOM-free importer this protects is
+    // `scripts/ai-eval.ts`, which loads the sanitizer graph with no DOM and has
+    // rich-text-projection and ai-rich-text OUT of its graph. NOT
+    // `scripts/update-ooxml-manifest.ts`: it already loads rich-text-projection
+    // (via ooxml-docx-primitives.ts → export-sections.ts) and the DOM-bound
+    // ooxml-docx-primitives.ts itself, so only the paths it CALLS decide whether
+    // it throws — open-followups §624. NOT the sample generator either: it and
+    // regen-golden-fixtures.ts install JSDOM first (§151).
     //
     // ★★ rich-text-plain.ts and narrative-html.ts are IN this set. They are the
     // two DOM-free modules inside this file's own dependency graph, so a reach
@@ -707,10 +713,11 @@ describe("DOM-free guard", () => {
           .replace(/\/\/.*$/gm, "");
         // ★★ BOTH DOMPurify-calling modules, not just rich-text-projection.
         // `ai-rich-text.ts` (added in 0.210.0) calls DOMPurify too, so importing
-        // it from a sanitizer/codec breaks the same DOM-free contract, and throws
-        // in any script that loads that graph with no DOM installed (ai-eval.ts,
-        // update-ooxml-manifest.ts — NOT the sample generator, which installs
-        // JSDOM first; open-followups §151). A guard naming one module by hand
+        // it from a sanitizer/codec breaks the same DOM-free contract that
+        // keeps ai-eval.ts (no DOM, both modules outside its graph) safe to
+        // load. (update-ooxml-manifest.ts already reaches rich-text-projection
+        // by another route, so this guard does not protect it — §624; and the
+        // sample generator installs JSDOM first — §151.) A guard naming one module by hand
         // goes stale the moment a second one appears; if you add a third, add it
         // here in the same commit.
         // ★ Any quote style, any extension, static or dynamic — see the pin above.
