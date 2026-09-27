@@ -855,6 +855,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§625](#625-the-dashboard-status-narrative-draft-is-lost-on-window-close--closed-2026-09-27) | The dashboard status narrative draft is lost on window close | — | — | **CLOSED** 2026-09-27 |
 | [§626](#626-async-commit-editors-chat-thread-rename-comm-templates-dictation-key-still-lose-an-unblurred-draft-on-window-close--open) | Async-commit editors (chat thread rename, comm templates, dictation key) still lose an unblurred draft on window close | — | — | open |
 | [§627](#627-several-dirty-drafts-at-pagehide-start-unserialised-full-saves-so-on-filesharepoint-an-older-snapshot-can-finish-last--open) | Several dirty drafts at pagehide start unserialised full saves, so on file/SharePoint an older snapshot can finish last | — | — | open |
+| [§629](#629-a-draft-committed-on-window-close-only-starts-the-save--no-real-browser-or-desktop-proof-that-it-lands-on-the-file-sharepoint-turso-or-desktop-backends--open) | A draft committed on window close only STARTS the save — no real-browser or desktop proof that it lands on the file, SharePoint, Turso or desktop backends | — | — | open |
+| [§630](#630-csv-and-markdown-project-files-still-drop-an-all-invalid-meta-slice-silently-on-load-620-covers-json-and-indexeddb-only--open) | CSV and Markdown project files still drop an all-invalid meta slice silently on load (§620 covers JSON and IndexedDB only) | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -42256,9 +42258,12 @@ records a slice whose stored value carried content but sanitized to nothing in
 `diag.decodeFailedSlices`, through §617's `sanitizedToNothing`. Thirteen keys (`grep -c
 'noteIfDropped("' src/app/workspace.ts` → 13): `status`, `project`, `fieldVisibility`, `features`,
 `steeringCommittee`, `timelogLinks`, `knowledgeItems`, `insights`, `activityLog`, `budgetHistory`,
-`documents`, `documentVersions`, `settingsOverrides`. `status` and `features` are assigned
-unconditionally, so a drop leaves `{}` / `[]` instead of removing the key; it is recorded anyway, because
-the next save writes that empty value over the stored one. A `documents` or `documentVersions`
+`documents`, `documentVersions`, `settingsOverrides`. `status` is assigned unconditionally and
+`features` whenever its key is present (`if (p.features !== undefined)`; corrected 2026-09-27, this line
+first said both were unconditional), so a drop leaves `{}` / `[]` instead of removing the key; it is
+recorded anyway, because the next save writes that empty value over the stored one. An emptied
+`features` list also turns the project to Simple mode (`deriveMode([])` in `feature-modules.ts`). A
+`documents` or `documentVersions`
 rich-field sanitize THROW is contained and recorded under the same key. The local-file, SharePoint and
 IndexedDB backends now publish `lastDecodeFailures`, and the generic `reportFor` in
 `use-load-truncation.ts` pauses saving (Save anyway) exactly as on Turso. `BrowserBackend.load`
@@ -42267,7 +42272,16 @@ IndexedDB backends now publish `lastDecodeFailures`, and the generic `reportFor`
 `documents`/`documentVersions` rich-field throw and records it. Before, that throw fell into the outer
 "IDB unavailable" catch, recorded nothing, and the next save deleted `documents`, `documentVersions`,
 `activityLog`, `budgetHistory` and `documentAssets`. The Turso single-tenant legacy-blob path
-(`jsonToWorkspace(blob, { diag })` in `turso-backend.ts`) reports too. ★ Limit: object-shaped junk in
+(`jsonToWorkspace(blob, { diag })` in `turso-backend.ts`) now reports too, so a load there pauses saving
+as well, a behaviour change on Turso. ★★ Scope (added 2026-09-27 after the PR review): the pause covers
+the JSON file, SharePoint JSON, IndexedDB and the Turso legacy blob. The CSV and Markdown codecs (a
+local CSV/Markdown file and SharePoint CSV) still drop such a slice silently: that is §630. ★★ A
+consequence for whoever RETIRES an id: a stored `insights` list whose every entry has a removed
+`INSIGHT_TYPES` type, a `features` list of retired `ALL_MODULE_IDS` ids, or a `fieldVisibility`
+config of retired `MODAL_IDS` sanitizes to nothing, so every project holding one now pauses saving on a
+JSON or IndexedDB load until the user presses Save anyway, which then drops that data (the same on
+Turso since §617). The three lists live in three modules, so no single code comment carries this
+warning; this entry is the record. ★ Limit: object-shaped junk in
 `steeringCommittee` or `timelogLinks` is never reported on any backend. Both sanitizers return an object
 with fixed keys for any object input, so `sanitizedToNothing` is never true and that partial loss stays
 silent, as in §617. That holds for any OBJECT-shaped value in either key, not only junk: a newer build's
@@ -42339,6 +42353,16 @@ hook fixes the dashboard narrative (§625) and, from the §625 sweep, the task-r
 (through `use-inline-cell-edit.ts`), the roles-editor discipline/grade rename and the templates-section
 rename. A fix round made those two renames drop a draft once blur commits it, so a later `pagehide`
 cannot replay it over a later external change.
+
+★★★ **Correction (2026-09-27, PR #444 review): this closure covers the COMMIT, not persistence.** On
+`pagehide` the draft is COMMITTED and the workspace save it triggers is STARTED; that save is asynchronous
+on every backend. Measured in Chromium on the default backend (IndexedDB) with
+`npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1`: when the page
+outlives the event the save lands, but on a real reload it does NOT, so on that backend an unblurred draft
+is still lost on a reload or close. That, and every other backend, is §629. The describe's "commits once"
+case was also renamed (it passed on the pre-batch code, because an unmount flush alone supplies one
+commit): it now asserts the count before the unmount and that the editor adopts the next stored block,
+which a dirty flag left set would refuse. M4 (drop `markDirty(false)`) turns it red.
 
 An ordinary paragraph edit that stays under `MAX_HTML_TEXT_CHARS` (so it never trips the §185 over-cap
 refusal) and was never blurred — for example, the window closes mid-edit, or a pane narrows away without a
@@ -42480,6 +42504,15 @@ item. The second sweep below also converted `useCommitDraft` (`src/app/use-commi
 and actual hours and % complete inputs), pinned by the "pagehide (§625 …)" describe in
 `use-commit-draft.test.tsx`.
 
+★★★ **Correction (2026-09-27, PR #444 review): as in §622, this closure covers the COMMIT, not
+persistence.** Every editor converted here now has its draft COMMITTED and its save STARTED on
+`pagehide`. Measured in Chromium on IndexedDB (`npx playwright test e2e/pagehide-draft-persist.spec.ts
+--project=chromium --workers=1`, which drives a task-name inline cell through `useInlineCellEdit`): the
+save does NOT land on a real reload. `templates-section.tsx` differs: its rename reaches the settings
+writer (`writeSettings`, a synchronous `localStorage.setItem`) inside the event, as its test "persists a
+typed-but-unblurred rename on pagehide" pins in jsdom; that was not measured in a browser either. The
+rest is §629.
+
 The status narrative editor kept its draft (`draftNarrative`) in component state and committed it only on
 blur, Done or Escape. A window close, reload or navigation runs none of those, so a summary that was typed
 and never blurred was lost. It is §622's class, found by the batch-8 verdict pass (2026-09-27), and was not
@@ -42517,6 +42550,32 @@ blur, Enter or Save/Done, and no `onChange` path commits it.
   change, `storage-config.tsx`, which commits only on Apply, and `type-to-confirm-dialog.tsx`); and
   `note-log-panel.tsx`, borderline, whose composer and entry edit commit only on Add or Enter, so leaving
   it was never expected to save.
+
+**Update (2026-09-27, PR #444 review):** the async-editor entry proposed in the row above WAS filed, as
+§626. And the first grep has a second blind spot besides the one the correction below records: its
+`useState\(` pattern cannot match a typed call `useState<T>(`. Widened to `useState(<|\()`, run in
+`src/app`:
+
+```bash
+grep -rlE "onBlur=\{" --include=*.tsx . | grep -v "\.test\." | xargs grep -lE "useState(<|\()" | sort
+grep -rlE "onBlur=\{" --include=*.tsx . | grep -v "\.test\." | xargs grep -LE "useState(<|\()" | sort
+```
+
+The first returns 27 files, 4 more than the 23; the second returns 6 files with no `useState` call at
+all. So 33 files carry `onBlur={`, and the first grep dropped 10. Each was checked by reading:
+
+- **Already classified (4):** `bullets-block-editor.tsx` and `document-table-editor.tsx` (COVERED,
+  `useBlockDraft`; the row above says they carry no `onBlur={` literal, but both do, on their wrapping
+  `div`: they were dropped for having no `useState(` call, not for lacking the literal), and
+  `budget-panel-totals.tsx` and `budget-panel-cards.tsx` (`useCommitDraft`, the second sweep below).
+- **NOT (6):** `budget-bucket-modal.tsx` (a modal draft whose Save, `onSave`, is the only commit; its
+  blurs only tidy the draft), `project-form-fields.tsx` (its blurs only `markTouched`; the fields write a
+  form draft that `project-form.tsx` or `create-project-wizard.tsx` commits on submit), `combo-input.tsx` (forwards its caller's `onBlur`;
+  the callers, `bulk-edit-modal.tsx` and `task-form-fields.tsx`, are modal drafts), `node-graph.tsx`
+  (blur clears a highlight), `resource-calendar.tsx` (blur cancels a pending keyboard move; no typed text) and `app-modals.tsx` (blur
+  resumes a toast timer).
+
+None of the 10 holds an AFFECTED editor.
 
 **Correction (2026-09-27): those 25 rows were NOT the whole class.** The first sweep's grep keys on a
 `useState(` call in the SAME file as the `onBlur={`, so it cannot see a draft that lives in a HOOK module:
@@ -42565,12 +42624,49 @@ Three editors hold a typed draft until blur and commit it ASYNCHRONOUSLY, so a c
 
 ## 627. Several dirty drafts at pagehide start unserialised full saves, so on file/SharePoint an older snapshot can finish last — open
 
-**Status:** open 2026-09-27 — found by the batch-8 whole-branch review on `fix/defect-batch-8`. Verified by reading plus `grep -n "if (pageHiding) flush" src/app/debounced-save.ts` (every save scheduled while hiding flushes at once) and `grep -n "async save" src/app/local-file-backend.ts src/app/sharepoint-backend.ts` (no queue around either); the race itself was never machine-verified.
+**Status:** open 2026-09-27 — found by the batch-8 whole-branch review on `fix/defect-batch-8`. Verified by reading plus `grep -n "if (pageHiding) flush" src/app/debounced-save.ts` (every save scheduled while hiding flushes at once) and `grep -n "async save" src/app/local-file-backend.ts src/app/sharepoint-backend.ts` (no queue around either); the race itself was never machine-verified. Re-read 2026-09-27 for the single-draft path with `grep -n "onVisibilityChange\|if (pageHiding) flush" src/app/debounced-save.ts` (the hidden flush and the flush-at-once both present).
 
 **Work item:** #443
 
-Every `useCommitOnPageHide` commit re-runs the workspace save effect, and because `debounced-save.ts` knows the page is hiding (`pageHiding`), each run flushes a full `backend.save` at once. React state is correct, since each snapshot contains the earlier commits. But `LocalFileBackend.save` and the SharePoint backend do not serialise saves, so an older snapshot that finishes last overwrites the newer one and drops the later commit. IndexedDB orders its transactions.
+Every `useCommitOnPageHide` commit that changes the workspace re-runs the workspace save effect, and because `debounced-save.ts` knows the page is hiding (`pageHiding`), each run flushes a full `backend.save` at once. React state is correct, since each snapshot contains the earlier commits. But `LocalFileBackend.save` and the SharePoint backend do not serialise saves, so an older snapshot that finishes last overwrites the newer one and drops the later commit. IndexedDB orders its transactions.
 
-It is reachable only with two or more dirty drafts at unload, for example a refused over-cap paragraph plus another unblurred edit. The §622 test "commits BOTH of two dirty editors on one pagehide" asserts the commit callbacks, not the last persisted snapshot. A fix needs save serialisation (or coalescing to one final save) on those backends, and a test on the persisted result.
+It is reachable whenever a pagehide commit starts a save while any other save is pending or in flight, and ONE dirty draft is enough (corrected 2026-09-27; this paragraph first said "only with two or more dirty drafts at unload"). With a single draft the other save can be: a save the debounce timer already started that is still writing; the flush that `visibilitychange` → hidden fires on a tab close just before `pagehide` (`onVisibilityChange` in `scheduleDebouncedSave`); or a pending save whose own `pagehide` listener, registered before the editor's (an edit committed inside the debounce window just before that editor mounted), flushes first. Two or more dirty drafts, for example a refused over-cap paragraph plus another unblurred edit, is one more way in. The §622 test "commits BOTH of two dirty editors on one pagehide" asserts the commit callbacks, not the last persisted snapshot; until the 2026-09-27 fix round it did not even hold two drafts dirty at once (`userEvent.type` into the second editor blurred and committed the first), and it now changes the second with `fireEvent.change` so both are dirty at the pagehide. A fix needs save serialisation (or coalescing to one final save) on those backends, and a test on the persisted result.
 
 **Source:** batch-8 whole-branch review (2026-09-27), owner decision at PR time.
+
+## 629. A draft committed on window close only STARTS the save — no real-browser or desktop proof that it lands on the file, SharePoint, Turso or desktop backends — open
+
+**Status:** open 2026-09-27 — found by the PR #444 (defect batch 8) review. MEASURED on one backend with `npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB, which is the default `defaultStorageConfig`): a `pagehide` dispatched while the page stays alive commits the draft and its save lands, but on a real `page.reload()` the save does NOT land, for both editors the spec drives (a document heading through `useBlockDraft` and a task-name inline cell through `useInlineCellEdit`). The reload cases are `test.fail()` in that spec. The local file, SharePoint, Turso and the packaged desktop app are never machine-verified; `git grep -n "keepalive\|sendBeacon" -- src/app` finds no use of either in any save path.
+
+**Work item:** #446
+
+§622 and §625 made a dirty draft commit on `pagehide` through `useCommitOnPageHide`, and `debounced-save.ts` (`pageHiding`) then starts the workspace save at once. That is where the guarantee ends: every backend's save is asynchronous.
+
+- **IndexedDB** (`BrowserBackend.save`): transactions behind a `Promise.all`. Measured lost on a reload (above).
+- **Local file** (FS-Access, `fs-access.ts`): `createWritable`, `write`, `close`. A writable that is never closed discards its swap file.
+- **SharePoint** and **Turso**: a plain `fetch` with no `keepalive`, which the browser may abort on unload.
+- **Packaged desktop app**: closing the window runs `app.on("window-all-closed", () => app.quit())`, and the `before-quit` handler calls `killServer(serverChild)` (both in `desktop/src/main.ts`). The renderer goes with the window and the local server child is killed; whether a save started in the renderer's `pagehide` survives either is unmeasured.
+
+A throwaway probe on 2026-09-27 (not kept in the repo) also found that on IndexedDB an ALREADY-scheduled debounced save, flushed by §185's flush-on-hide on a reload, does not land either: blur a heading, then reload within the debounce window, and the edit is gone. So the loss is not specific to the pagehide commit; it is the unload path of every save on that backend.
+
+Owed: a packaged-desktop window-close check, and the file, SharePoint and Turso backends in a real browser. The fix needs a save that completes or survives the unload: a synchronous fallback (for example a localStorage journal of the unsaved workspace, replayed on the next load) or `keepalive` / `sendBeacon` for the network backends. §626 (async editors) and §627 (unserialised saves at unload) are the same unload path.
+
+Size M–L.
+
+**Source:** PR #444 review (2026-09-27), item I1, and the Playwright measurement above.
+
+## 630. CSV and Markdown project files still drop an all-invalid meta slice silently on load (§620 covers JSON and IndexedDB only) — open
+
+**Status:** open 2026-09-27 — found by the PR #444 (defect batch 8) review. Verified by reading plus `git grep -nE "sanitizeInsights\(|sanitizeActivityLog\(|sanitizeFieldVisibility\(|sanitizeProjectStatus\(" -- 'src/app/csv-codecs*.ts' 'src/app/markdown-codecs*.ts' ':!*.test.*'` (eight calls, four in each of `csv-codecs-config.ts` and `markdown-codecs-core.ts`) and `git grep -n "decodeFailedSlices" -- src/app ':!*.test.*'` (pushed only from `workspace.ts`, `browser-backend.ts` and `turso-schema.ts`, never from a CSV or Markdown codec), and `grep -c "decodeFailedSlices" src/app/csv-codecs-config.ts src/app/markdown-codecs-core.ts src/app/csv-codecs-decode.ts src/app/markdown-codecs-decode.ts` (0 in each); no reproduction.
+
+**Work item:** #447
+
+§620 made a meta slice that sanitizes to nothing pause saving on the JSON file, SharePoint JSON, IndexedDB and the Turso legacy blob. The CSV and Markdown codecs were not touched. `csvToInsights` and `csvToActivityLog` (`csv-codecs-config.ts`) return `undefined` when the sanitized list is empty, `csvToFieldVisibility` returns whatever `sanitizeFieldVisibility` gives, and all three also return `undefined` when `JSON.parse` throws; the Markdown twins in `markdown-codecs-core.ts` do the same. Nothing reaches `diag.decodeFailedSlices`, so `lastDecodeFailures` stays empty and no save is paused.
+
+Reached from `LocalFileBackend.loadFrom` (`csvToWorkspace(text, diag)` or `markdownToWorkspace(text, diag)`) and from `SharePointBackend.load` for `sp-csv` (`csvToWorkspace(csv, diag)`). A project on one of those whose insights, activity log or field-visibility row is unreadable loads without it, and the next save rewrites the file without that row: the loss §620 describes.
+
+What would close it: record such a slice from the codec loaders (extend `noteIfDropped`'s use, or push into `diag.decodeFailedSlices` from each `csvTo*` / `markdownTo*` decoder, counting a `JSON.parse` failure as well), plus a test per format.
+
+Size S–M.
+
+**Source:** PR #444 review (2026-09-27), item I2.
