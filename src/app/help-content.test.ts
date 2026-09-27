@@ -96,6 +96,14 @@ describe("MODAL_HELP", () => {
     }
   });
 
+  // ★★ The two tests above prove each value names a REAL entry, which a
+  // well-spelled wrong one also satisfies. These rows were re-pointed by
+  // reading the entry against the dialog (§453 gap 2), so pin the targets.
+  it("points the image library and the image preview at the document-images entry", () => {
+    expect(MODAL_HELP.assetLibrary).toBe("feature-document-assets");
+    expect(MODAL_HELP.assetPreview).toBe("feature-document-assets");
+  });
+
   it("wires every MODAL_HELP key, one call site each unless allowlisted", () => {
     // ★★ The two tests above pin the MAP -- that each key names a real entry.
     // NOTHING pinned the WIRING. A modal that silently loses its

@@ -439,10 +439,11 @@ function helpMenuClick(id: HelpMenuItemId): () => void {
     default: {
       // ★★★ LOG AND DEGRADE, NEVER THROW -- see the note above this function.
       // The `never` assignment is the compile-time half: a new HelpMenuAction
-      // with no case here fails `tsc -p desktop/tsconfig.json` (the desktop
-      // build). That job is BLOCKING only on a tag, so this runtime branch is
-      // the half that has to hold on a merge request, and it costs the user
-      // one inert menu item rather than an app that will not open.
+      // with no case here fails `tsc -p desktop/tsconfig.json`, which
+      // `npm run desktop:typecheck` runs in the blocking `static` gate group
+      // (in CI; locally it skips without desktop/node_modules). This runtime branch is the half that still holds
+      // if a build skipped that gate, and it costs the user one inert menu item
+      // rather than an app that will not open.
       const unhandled: never = action;
       log(`help menu: no handler for action ${String(unhandled)} (id ${id})`);
       return () => {
@@ -1213,9 +1214,16 @@ if (!app.requestSingleInstanceLock()) {
   // Closing the window quits: the window IS the app. No tray icon.
   app.on("window-all-closed", () => app.quit());
 
-  // ★★★ The child MUST die with the parent. An orphan holds the pinned port,
-  // so the next launch correctly refuses to start and the app appears
-  // permanently broken.
+  // ★★★ The child MUST die with the parent. An orphan holds the pinned port
+  // and still serves our own page, so the next launch's `classifyPortOwner`
+  // calls it `ours` and loads it instead of spawning a server (nothing
+  // compares its version): after an update the user COULD be served the OLD
+  // version, but only if an orphan survived both this process's death and the
+  // installer, neither of which is measured (§631). Because that launch never
+  // spawned the orphan, `serverChild` stays null and its quit kills nothing
+  // either. (This said the next launch "refuses to start"; that is only the
+  // `foreign` branch. Corrected 2026-09-27 by reading `classifyPortOwner`,
+  // `probePort` and `start()`, not by running an orphan.)
   app.on("before-quit", () => {
     quitting = true;
     killServer(serverChild);

@@ -1,8 +1,13 @@
 // src/app/use-undo-batch.ts — collapse a burst of AI undo captures into ONE entry.
 //
-// ★★★ THE PROBLEM THIS EXISTS FOR. Every AI update and delete captures its own
-// undo entry (fourteen `undoRef.current?.captureComposite({…})` sites across
-// `use-chat-dispatcher.ts` and `use-register-tools.ts`). That is right for a
+// ★★★ THE PROBLEM THIS EXISTS FOR. Every AI entity update and delete, and the
+// RAID escalation, captures its own undo entry — except `send_inquiry` (it bumps
+// `Task.inquiriesSent` with no capture), `update_settings`, `set_language`,
+// `set_filters` and the document
+// tools, none of which capture (nineteen
+// `undoRef.current?.captureComposite({…})` sites across
+// `use-chat-dispatcher.ts` and `use-register-tools.ts` on 2026-09-27; re-count
+// with the `kind: "` grep below rather than trusting it). That is right for a
 // turn that writes ONE row and applies immediately. It is wrong for an APPLIED
 // STAGED PLAN: replaying five kept rows would push FIVE entries, so the user
 // who approved one reviewed plan has to press undo five times to walk it back —
@@ -14,7 +19,7 @@
 // array is for, and `use-bulk-operations.ts` / `use-reference-data.ts` already
 // build multi-array composites that way. What did NOT exist is a way to
 // INTERCEPT captures made by code that does not know it is being batched —
-// which is exactly the fourteen sites' situation. So this module adds the
+// which is exactly those sites' situation. So this module adds the
 // interception and reuses the existing collapse.
 //
 // ★ Installed as the dispatcher's `undo` prop, not inside the dispatcher: the
@@ -33,7 +38,7 @@ import type {
   UndoStackApi,
 } from "./undo/use-undo-stack";
 
-/** The one method the fourteen capture sites reach for. Deliberately the same
+/** The one method the AI capture sites reach for. Deliberately the same
  *  `Pick` `ChatDispatcherArgs.undo` declares, so this wrapper is substitutable
  *  for the real stack at that prop without widening anything. */
 export type CaptureSurface = Pick<UndoStackApi, "captureComposite">;
@@ -63,12 +68,14 @@ export interface UndoBatch {
  * `UndoOp` is "delete" | "edit" — restoring a "removed" image for a row that is
  * still live takes the id-reuse branch and splices in a SECOND copy, so
  * capturing a create would DUPLICATE it on undo), and `use-document-tools.ts`
- * captures at none of its sites. Measured, not assumed: the fourteen sites'
- * kinds are all `*.updated` / `*.deleted` — no site emits a `bulk.*` kind, the
+ * captures at none of its sites. Measured, not assumed: the sites' kinds are
+ * all `*.updated` / `*.deleted` plus the one `raid.escalated` — no site emits
+ * a `bulk.*` kind, the
  * `delete_all_tasks` capture included: it mirrors the human bulk delete
  * (`use-bulk-operations.ts`) and captures `task.deleted` with a count
  *   grep -n 'kind: "' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts
- * — 14 lines, one per site. ★★★ DELIBERATELY NOT AN `-A<n>` WINDOW ON
+ * — 19 lines on 2026-09-27 (it read 14 when this was written), one per
+ * site. ★★★ DELIBERATELY NOT AN `-A<n>` WINDOW ON
  * `captureComposite({`, and the history is the argument: a site's `kind:` sits
  * ONE line below its call at some sites and THIRTEEN at another, so every fixed
  * window is wrong again the next time a comment there grows. `-A2` returned 13;
@@ -99,8 +106,9 @@ export interface UndoBatch {
  * `fkRemapField`. `compositeUndoRunner` picks ONE primary (the first flagged)
  * and every cascade fragment reads THAT one's id-remap box, so concatenating
  * two captures that each had a primary + cascade would make the second's
- * cascade follow the first's re-mint. All fourteen sites pass a single
- * `isPrimary: true` part and none passes `fkRemapField`
+ * cascade follow the first's re-mint. Every site passes a single part (a
+ * `capturePart` flagged `isPrimary: true`, or at `raid.escalated` a
+ * `captureFieldPart`, which is never primary) and none passes `fkRemapField`
  *   grep -n "fkRemapField" src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts
  * (no matches), so no fragment reads the box and the choice of primary is inert.
  * Re-check that grep before adding a cascade to any chat write.

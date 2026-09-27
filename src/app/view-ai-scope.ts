@@ -184,8 +184,8 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
     // ("Draft a status report", "Draft a steering deck", ask-claude-prompts.ts)
     // ARE create requests, so read-only hints would contradict them.
     // ★★ `delete_document` is EXCLUDED on purpose — do not "complete" the list.
-    // Nothing on this surface asks for a deletion, chat tool writes take no undo
-    // capture, and this block is also emitted into INLINE EDIT (see
+    // Nothing on this surface asks for a deletion, document tool writes take no
+    // undo capture, and this block is also emitted into INLINE EDIT (see
     // inline-ai-edit-call.ts), whose scope block forbids touching anything but
     // the one item being edited. A destructive verb advertised as "relevant
     // here" is the one hint whose cost is unrecoverable. Pinned by

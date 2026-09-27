@@ -352,15 +352,19 @@ export const MODAL_HELP = {
   // three off one props object). `feature-rich-text` is pointed at because its
   // BODY describes this window — the dated entries, the floating drag, the
   // notes badge, the self-stamped author, the save-as-you-go — not because its
-  // title happens to say "notes". ★★ That body still says "Tasks and RAID
-  // items" and the window serves changes too; the copy is stale by one
-  // register, which is a CONTENT fix and not this key's to make.
+  // title happens to say "notes". That body names all three registers.
   notesWindow: "feature-rich-text",
   budgetBucket: "concept-budget",
   documentsHistory: "feature-document-history",
+  // ★ Renames the DOCUMENT's title, not an image, so it stays on the entry for
+  // documents. `feature-document-assets` is about images and never mentions a
+  // rename, so moving this row there would be a nearest-neighbour pick.
   documentsRename: "feature-documents",
-  assetLibrary: "feature-documents",
-  assetPreview: "feature-documents",
+  // ★★ The image library and the lightbox (which steps Prev/Next through the
+  // list of images it was opened on) open the entry for document IMAGES. `feature-documents`, which both pointed at before, never
+  // mentions an image (§453 gap 2).
+  assetLibrary: "feature-document-assets",
+  assetPreview: "feature-document-assets",
   jiraConflicts: "feature-jira",
   backendConfig: "feature-storage",
   aiSettings: "feature-ai",

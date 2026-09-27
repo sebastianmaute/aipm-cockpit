@@ -453,8 +453,11 @@ export interface CaptureFieldPart<T extends { id: number }> {
  * `use-task-submit.ts` invokes it, i.e. it missed the very caller that motivated
  * this function. Reproduce with all three:
  * `grep -rn "captureComposite?\.({\|captureComposite({\|captureCompositeRef.current?.({" src/app |
- * grep -v "\.test\." | grep -v use-undo-stack.ts` → 7. Both filters matter, and
- * BOTH are what make that 7 stable: the unfiltered grep also sweeps the engine's
+ * grep -v "\.test\." | grep -v use-undo-stack.ts` — one line per composite
+ * capture site. It printed 7 when this was written and 30 on 2026-09-27 (the
+ * AI tool sites alone are 19), so re-run it rather than trust either number.
+ * Both filters matter, and BOTH are what make its count stable between site
+ * changes: the unfiltered grep also sweeps the engine's
  * own tests AND this comment, so it over-counts by however many times the
  * patterns appear here — a number that changes every time this block is edited,
  * which is why one is not quoted.

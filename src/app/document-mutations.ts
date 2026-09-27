@@ -2,7 +2,7 @@
 // the AI tools use to mutate a document. If each mutated documents/versions
 // independently, "every mutation snapshots its before-image" would only be
 // half-implemented — and that snapshot is the entire safety net, because AI
-// chat tool writes bypass the undo stack entirely.
+// document tool writes bypass the undo stack entirely.
 //
 // A DocVersion is a before-image: the state a mutation REPLACED. Restore
 // writes it back verbatim — there is deliberately no inversion logic here or

@@ -9,8 +9,8 @@
 // exports in `export.ts` and `document-download.ts`, were inert.
 // **`docs/open-followups.md` §468** routes them through a separate main-process
 // route (`desktop/src/lib/pdf-export.ts`; `pdf-export-protocol.ts` is the
-// renderer half). That fix has landed, but §468 stays OPEN until the owed
-// packaged-app check is done. Do not restate that story here; an earlier
+// renderer half). That fix has landed, and §468 was closed on 2026-09-26 once
+// the owner checked it in the packaged app. Do not restate that story here; an earlier
 // version of this header did, and that made three full copies of one narrative.
 //
 // ★★ A STRING PARAMETER, not a read of `navigator`, so this is testable with
