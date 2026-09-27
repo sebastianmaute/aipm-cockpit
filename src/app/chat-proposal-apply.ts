@@ -119,7 +119,7 @@ export const SCOPE_CHANGED_ERROR =
 /** Which of the six not-ok outcomes a row hit, so the card can say something
  *  true about it.
  *
- *  ★★★ KEYED OFF THE EXPORTED CONSTANTS, NEVER BY MATCHING PROSE. All three
+ *  ★★★ KEYED OFF THE EXPORTED CONSTANTS, NEVER BY MATCHING PROSE. All four
  *   refusal strings are exported precisely so a consumer can recognise the outcome
  *   without string-sniffing a message that may be reworded.
  *

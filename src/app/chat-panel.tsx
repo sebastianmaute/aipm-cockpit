@@ -1127,7 +1127,19 @@ function ChatPanelInner({
     // ★★★ §600 — BEFORE anything is marked applying or written. A plan staged in
     // another scope is retired exactly as a discard is (the marker REPLACED, not
     // removed), with a notice that says why; nothing of it reaches the dispatcher.
+    // ★★ A card that ALREADY applied rows is not retired: "was not applied" would
+    // be false for it and would erase the record of which rows landed. Its
+    // still-selected rows are marked refused for scope and unticked instead.
     if (dropStaleScopeWrite(getScopeEpoch, p.scopeEpoch, "chat-panel.applyProposal", { proposalId: p.id })) {
+      if (p.applied !== null) {
+        setPendingProposal((prev) => {
+          if (prev?.id !== p.id) return prev;
+          const failed = new Map(prev.failed);
+          for (const i of prev.selected) failed.set(i, "scopeChanged");
+          return { ...prev, failed, selected: new Set<number>() };
+        });
+        return;
+      }
       setPendingProposal(null);
       setDisplay((prev) =>
         prev.map((item) =>
@@ -1169,7 +1181,10 @@ function ChatPanelInner({
               ...prev,
               applying: false,
               failed,
-              selected: new Set(failed.keys()),
+              // ★★ §600 — a row refused for SCOPE is not re-offered: it can never
+              // succeed in this card's scope, so leaving it ticked would keep
+              // Apply live for a click that can only be refused.
+              selected: new Set([...failed].filter(([, kind]) => kind !== "scopeChanged").map(([i]) => i)),
               applied: appliedCount,
             }
           : prev,

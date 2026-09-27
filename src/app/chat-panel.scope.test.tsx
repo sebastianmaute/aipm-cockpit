@@ -623,5 +623,10 @@ describe("staged plan vs. the storage scope", () => {
     await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(dispatcher.deleteTask).toHaveBeenCalledTimes(1);
     expect(within(card).getByText("Not applied — the project changed.")).toBeInTheDocument();
+    // ★★ The scope-refused row is NOT re-offered: Apply is disabled and the card
+    //  stays, so a second click cannot retire a partly applied plan as "not
+    //  applied" and lose the record of the row that landed.
+    expect(within(card).getByRole("button", { name: /^Apply \(/ })).toBeDisabled();
+    expect(screen.queryByText("This plan was made for a different project and was not applied.")).toBeNull();
   });
 });
