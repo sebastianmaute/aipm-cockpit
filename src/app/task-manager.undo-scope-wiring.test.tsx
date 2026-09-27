@@ -13,8 +13,8 @@
 //         "the undo stack reads the storage hook's epoch" is red (reader undefined).
 //   MU2 — drop `getScopeEpochRef.current = getScopeEpoch;` from the forward-ref effect:
 //         the same test is red (the fallback answers 0, never 7).
-//   MU3 — delete the `useClearUndoOnLoadHold(loadPending, undoApi.clear)` line:
-//         "the load-hold clear is wired" is red.
+//   MU3 — delete the `usePruneUndoOnScopeChange(loadPending, undoApi.pruneStale)` line:
+//         "the scope-change prune is wired" is red.
 import { describe, expect, it, beforeAll, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
@@ -24,8 +24,8 @@ const captured = vi.hoisted(() => {
     sentinel: (): number => c.epoch, // ONE stable function, like the real `useCallback(…, [])` reader
     storageLoadPending: undefined as boolean | undefined,
     undoReader: undefined as (() => number) | undefined,
-    undoClear: undefined as unknown,
-    holdCalls: [] as { loadPending: boolean; clear: unknown }[],
+    undoPrune: undefined as unknown,
+    holdCalls: [] as { loadPending: boolean; prune: unknown }[],
   };
   return c;
 });
@@ -45,14 +45,14 @@ vi.mock("./undo/use-undo-stack", async (importOriginal) => {
   function useUndoStack(deps: Parameters<typeof actual.useUndoStack>[0]) {
     captured.undoReader = deps.getScopeEpoch;
     const api = actual.useUndoStack(deps);
-    captured.undoClear = api.clear;
+    captured.undoPrune = api.pruneStale;
     return api;
   }
-  function useClearUndoOnLoadHold(loadPending: boolean, clear: () => void) {
-    captured.holdCalls.push({ loadPending, clear });
-    actual.useClearUndoOnLoadHold(loadPending, clear);
+  function usePruneUndoOnScopeChange(loadPending: boolean, prune: () => void) {
+    captured.holdCalls.push({ loadPending, prune });
+    actual.usePruneUndoOnScopeChange(loadPending, prune);
   }
-  return { ...actual, useUndoStack, useClearUndoOnLoadHold };
+  return { ...actual, useUndoStack, usePruneUndoOnScopeChange };
 });
 
 // The shell is stubbed, as in `task-manager.scope-epoch-wiring.test.tsx`: the panes are irrelevant.
@@ -84,13 +84,13 @@ describe("§628 task-manager scopes the undo stack", () => {
     expect(captured.undoReader!()).toBe(9);
   });
 
-  it("the load-hold clear is wired to this undo stack and the storage hook's flag (MU3)", () => {
-    // Anti-vacuity: the storage hook really ran and the undo stack really produced a clear.
+  it("the scope-change prune is wired to this undo stack and the storage hook's flag (MU3)", () => {
+    // Anti-vacuity: the storage hook really ran and the undo stack really produced a prune.
     expect(typeof captured.storageLoadPending).toBe("boolean");
-    expect(typeof captured.undoClear).toBe("function");
+    expect(typeof captured.undoPrune).toBe("function");
     expect(captured.holdCalls.length).toBeGreaterThan(0);
     const last = captured.holdCalls[captured.holdCalls.length - 1];
-    expect(last.clear).toBe(captured.undoClear);
+    expect(last.prune).toBe(captured.undoPrune);
     expect(last.loadPending).toBe(captured.storageLoadPending);
     // The hold was seen both raised (boot) and lowered (the load landed), so the reconcile saw a real transition input.
     expect(captured.holdCalls.some((c) => c.loadPending)).toBe(true);
