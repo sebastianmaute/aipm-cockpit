@@ -42143,5 +42143,5 @@ fetch's cost) so a policy-refused asset never has its bytes loaded.
 
 Size S.
 
-**Source:** Task 8's report on §320 (#235), Concern: "loadExportAssets still loads bytes for blocked ids
-(I/O+memory)" (`progress.md`), deferred as a register-note candidate.
+**Source:** the §320 (#235) task review in defect batch 7, which found that `loadExportAssets` still loads the
+bytes of blocked assets before discarding them.
