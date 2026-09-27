@@ -50,9 +50,12 @@ vi.mock("./fs-access", async (importOriginal) => {
   return { ...actual, pickOpenFile: async () => pickedByUser.current };
 });
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { FsHandle } from "./fs-access";
 import { LocalFileBackend } from "./local-file-backend";
-import { StorageNotReadyError } from "./workspace";
+import { StorageNotReadyError, jsonToWorkspace } from "./workspace";
+import { fingerprintWorkspace } from "./unload-journal";
 
 /** A file whose TASKS section both drops a row (no id) AND ends inside a
  *  quoted cell — so ONE load raises BOTH import flags off their defaults,
@@ -401,5 +404,56 @@ describe("LocalFileBackend.load resets diagnostics when the handle store rejects
     idbGetError.current = cause;
 
     await expect(be.load()).rejects.toBe(cause);
+  });
+});
+
+// §629 unload-journal Step 3 — the local-json round-trip proof lives HERE
+// rather than in unload-journal.test.ts: it needs a WRITABLE fake handle
+// (write() actually updates what the next getFile() returns), and this file
+// already mocks `./idb` as the in-memory handle store that setHandle/getHandle
+// need. Mocking `./idb` in unload-journal.test.ts too would break the real
+// fake-indexeddb calls its OWN (browser-kind) round-trip proof depends on.
+function writableFakeHandle(): FsHandle {
+  let text = "";
+  return {
+    name: "project.json",
+    queryPermission: async () => "granted",
+    requestPermission: async () => "granted",
+    getFile: async () => ({ text: async () => text }) as File,
+    createWritable: async () => ({
+      write: async (data: string | Blob) => {
+        text = typeof data === "string" ? data : text;
+      },
+      close: async () => {},
+    }),
+  };
+}
+
+const repoRoot = join(import.meta.dirname, "..", "..");
+const smallWs = jsonToWorkspace(readFileSync(join(repoRoot, "sample-workspace-small.json"), "utf8"));
+const bigWs = jsonToWorkspace(readFileSync(join(repoRoot, "sample-workspace-big.json"), "utf8"));
+
+describe("fingerprint round-trip: local-json (§629 unload journal Step 3)", () => {
+  beforeEach(() => {
+    kv.clear();
+    idbGetError.current = null;
+  });
+
+  it("small sample workspace", async () => {
+    const before = fingerprintWorkspace(smallWs);
+    const be = new LocalFileBackend("local-json");
+    await be.setHandle(writableFakeHandle());
+    await be.save(smallWs);
+    const loaded = await be.load();
+    expect(fingerprintWorkspace(loaded)).toBe(before);
+  });
+
+  it("bigger sample workspace (documents included)", async () => {
+    const before = fingerprintWorkspace(bigWs);
+    const be = new LocalFileBackend("local-json");
+    await be.setHandle(writableFakeHandle());
+    await be.save(bigWs);
+    const loaded = await be.load();
+    expect(fingerprintWorkspace(loaded)).toBe(before);
   });
 });
