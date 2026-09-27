@@ -42354,16 +42354,6 @@ hook fixes the dashboard narrative (§625) and, from the §625 sweep, the task-r
 rename. A fix round made those two renames drop a draft once blur commits it, so a later `pagehide`
 cannot replay it over a later external change.
 
-★★★ **Correction (2026-09-27, PR #444 review): this closure covers the COMMIT, not persistence.** On
-`pagehide` the draft is COMMITTED and the workspace save it triggers is STARTED; that save is asynchronous
-on every backend. Measured in Chromium on the default backend (IndexedDB) with
-`npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1`: when the page
-outlives the event the save lands, but on a real reload it does NOT, so on that backend an unblurred draft
-is still lost on a reload or close. That, and every other backend, is §629. The describe's "commits once"
-case was also renamed (it passed on the pre-batch code, because an unmount flush alone supplies one
-commit): it now asserts the count before the unmount and that the editor adopts the next stored block,
-which a dirty flag left set would refuse. M4 (drop `markDirty(false)`) turns it red.
-
 An ordinary paragraph edit that stays under `MAX_HTML_TEXT_CHARS` (so it never trips the §185 over-cap
 refusal) and was never blurred — for example, the window closes mid-edit, or a pane narrows away without a
 blur — is lost entirely: nothing was committed, so `scheduleDebouncedSave` was never scheduled, and the
@@ -42503,15 +42493,6 @@ commits nothing (owner rule, §185). Pinned by the three cases of the "Narrative
 item. The second sweep below also converted `useCommitDraft` (`src/app/use-commit-draft.ts`, the budget
 and actual hours and % complete inputs), pinned by the "pagehide (§625 …)" describe in
 `use-commit-draft.test.tsx`.
-
-★★★ **Correction (2026-09-27, PR #444 review): as in §622, this closure covers the COMMIT, not
-persistence.** Every editor converted here now has its draft COMMITTED and its save STARTED on
-`pagehide`. Measured in Chromium on IndexedDB (`npx playwright test e2e/pagehide-draft-persist.spec.ts
---project=chromium --workers=1`, which drives a task-name inline cell through `useInlineCellEdit`): the
-save does NOT land on a real reload. `templates-section.tsx` differs: its rename reaches the settings
-writer (`writeSettings`, a synchronous `localStorage.setItem`) inside the event, as its test "persists a
-typed-but-unblurred rename on pagehide" pins in jsdom; that was not measured in a browser either. The
-rest is §629.
 
 The status narrative editor kept its draft (`draftNarrative`) in component state and committed it only on
 blur, Done or Escape. A window close, reload or navigation runs none of those, so a summary that was typed
