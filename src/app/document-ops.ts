@@ -244,7 +244,7 @@ export function applyOps(
   }
   // ★★★ A WHOLLY-REFUSED WRITE MUST NOT MUTATE. Writing the (unchanged or
   // empty) result here would destroy the document while the caller reports
-  // only "I couldn't do that" — chat tool writes have NO undo capture, so
+  // only "I couldn't do that" — document tool writes have NO undo capture, so
   // this branch is the only thing standing between a bad model index and
   // real data loss.
   return applied === 0 ? null : next;

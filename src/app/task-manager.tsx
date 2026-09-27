@@ -208,7 +208,7 @@ function TaskManagerInner() {
   const { toast, showToast, showToastAction, pause: pauseToast, resume: resumeToast } = useToast();
   const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen, requestChat, requestHelpConcept, requestDocumentsForEntity } = useWorkspaceTab();
   // Local in-memory undo (deletes / clear-all / bulk-edit across every entity).
-  // capture is threaded into each entity hook below; undo/control are surfaces. ★ Undo/redo is ALWAYS user-caused — a chat tool write takes no undo capture.
+  // capture is threaded into each entity hook below; undo/control are surfaces. ★ Undo/redo is ALWAYS user-caused, but the AI's update, delete and RAID-escalate tool writes DO capture (through the dispatcher's `undo` prop below); creates and document writes do not.
   // ★ `allowDestructiveSave` is produced by `useStorageBackend` further down, so
   // it does not exist at this call site. Forward it through a ref filled by the
   // effect below — the same pattern `use-reference-data.ts` uses for THIS VERY
@@ -233,8 +233,8 @@ function TaskManagerInner() {
     () => { if (!loadPendingRef.current) undoApi.redo(); },
   );
   // ★★★ ONE INSTANCE, TWO CONSUMERS, AND THEY MUST BE THE SAME ONE. `.undo`
-  // goes in as the chat dispatcher's `undo` prop (below) so the fourteen AI
-  // capture sites are intercepted; `.runBatched` goes down to `ChatPanel` so an
+  // goes in as the chat dispatcher's `undo` prop (below) so the AI capture
+  // sites are intercepted (count them with the `kind: "` grep in use-undo-batch.ts); `.runBatched` goes down to `ChatPanel` so an
   // applied staged plan pushes ONE undo entry instead of one per row. A second
   // `useUndoBatch(...)` for the panel would collect nothing — the dispatcher's
   // captures would still reach the live stack — and NOTHING would report it:

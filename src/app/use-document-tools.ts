@@ -19,7 +19,7 @@
 // did).
 //
 // ★★ Every write refuses in a read-only popout (mirrors use-chat-dispatcher's
-// own per-tool `isReadOnly` guards) — chat tool writes have no undo capture,
+// own per-tool `isReadOnly` guards) — document tool writes have no undo capture,
 // so a popout mirror must never be able to reach mutateDocuments at all.
 import { useMemo, useRef, useEffect } from "react";
 import type { LogActivityAsFn } from "./activity-log-context";
@@ -118,8 +118,8 @@ function remapOpIndex(entry: string, callerIndexOf: readonly number[]): string {
  *  not one row per block or per op. A refused write (read-only popout, a create
  *  whose blocks failed the allow-list, an update whose every op was rejected, a
  *  delete of a missing id) must emit NOTHING: the row is a record of what
- *  happened, and `applyDocMutation` reports exactly that as `changed`. Chat tool
- *  writes take no undo capture, so an activity row claiming an edit that never
+ *  happened, and `applyDocMutation` reports exactly that as `changed`. Document
+ *  tool writes take no undo capture, so an activity row claiming an edit that never
  *  landed is the same false-success class the refusal paths below exist to
  *  prevent. Every write therefore gates on `result.changed` (create reaches its
  *  log only past the `if (!doc) throw`, which is the same condition).
@@ -201,7 +201,7 @@ export function useDocumentTools(
         // documents.ts's DocumentToolDispatcher) with no `rejected` field, so a
         // shorter array after sanitizing simply produced a document missing a
         // section while the tool resolved and the model told the user it had
-        // written the whole thing. Chat tool writes take no undo capture, so
+        // written the whole thing. Document tool writes take no undo capture, so
         // "reported success, content gone" is the one outcome this path must
         // not have. THROW BEFORE THE WRITE instead: nothing is created, no
         // version row is minted, and the model gets a reason it can retry

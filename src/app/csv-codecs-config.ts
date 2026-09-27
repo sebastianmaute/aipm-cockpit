@@ -304,7 +304,7 @@ export function csvToDocuments(
 // --- Document version history encoder / decoder ------------------------------
 //
 // Same single `config,<json>` row shape as documents just above, and the same
-// STORAGE-ONLY gate: version history exists to give AI chat tool writes an
+// STORAGE-ONLY gate: version history exists to give AI document writes an
 // undo path, not to appear in a file the user opens in Excel — there is no
 // `documentVersions` export key, so emission is gated purely on the array
 // being non-empty.

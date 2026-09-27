@@ -11,7 +11,7 @@
 // degrade unknown shapes rather than throwing. Malformed MODEL output has to be
 // refused here or it silently becomes a legal-looking write.
 //
-// ★★ Chat tool writes have NO undo capture — the version log
+// ★★ Document tool writes have NO undo capture — the version log
 // (document-versions.ts) is the only thing standing behind them, and it records
 // what a mutation replaced, not what a caller meant. So a guard that lets a
 // wrong write through cannot be recovered from within the session that made it.
@@ -185,7 +185,7 @@ function requirePayload(op: unknown, i: number): void {
   // `expectHash` — the hand block editor shares those arms and omits the field
   // — so the strictness has to live HERE, at the boundary where the caller is
   // known to be a model. Without it a model can overwrite a block the user
-  // edited after it read the document, and chat tool writes have NO undo
+  // edited after it read the document, and document tool writes have NO undo
   // capture, so that loss cannot be recovered from within the session.
   //
   // ★★ ORDER IS LOAD-BEARING: this sits AFTER the block-shape check above, so
