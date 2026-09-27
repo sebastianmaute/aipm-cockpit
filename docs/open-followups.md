@@ -855,7 +855,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§625](#625-the-dashboard-status-narrative-draft-is-lost-on-window-close--closed-2026-09-27) | The dashboard status narrative draft is lost on window close | — | — | **CLOSED** 2026-09-27 |
 | [§626](#626-async-commit-editors-chat-thread-rename-comm-templates-dictation-key-still-lose-an-unblurred-draft-on-window-close--open) | Async-commit editors (chat thread rename, comm templates, dictation key) still lose an unblurred draft on window close | — | — | open |
 | [§627](#627-several-dirty-drafts-at-pagehide-start-unserialised-full-saves-so-on-filesharepoint-an-older-snapshot-can-finish-last--open) | Several dirty drafts at pagehide start unserialised full saves, so on file/SharePoint an older snapshot can finish last | — | — | open |
-| [§629](#629-a-draft-committed-on-window-close-only-starts-the-save--no-real-browser-or-desktop-proof-that-it-lands-on-the-file-sharepoint-turso-or-desktop-backends--open) | A draft committed on window close only STARTS the save — no real-browser or desktop proof that it lands on the file, SharePoint, Turso or desktop backends | — | — | open |
+| [§629](#629-the-unload-journal-is-unverified-on-the-desktop-close-and-on-the-file-sharepoint-and-turso-backends-and-a-document-heading-tab-close-writes-no-journal--open) | The unload journal is unverified on the desktop close and on the file, SharePoint and Turso backends, and a document-heading tab close writes no journal | — | — | open |
 | [§630](#630-csv-and-markdown-project-files-still-drop-an-all-invalid-meta-slice-silently-on-load-620-covers-json-and-indexeddb-only--open) | CSV and Markdown project files still drop an all-invalid meta slice silently on load (§620 covers JSON and IndexedDB only) | — | — | open |
 <!-- INDEX:END -->
 
@@ -42354,6 +42354,16 @@ hook fixes the dashboard narrative (§625) and, from the §625 sweep, the task-r
 rename. A fix round made those two renames drop a draft once blur commits it, so a later `pagehide`
 cannot replay it over a later external change.
 
+**2026-09-27, the unload journal (§629):** the committed draft now also survives a real RELOAD.
+`pagehide` writes the outgoing workspace to a synchronous localStorage journal
+(`src/app/unload-journal.ts`), and the next load restores it when its base fingerprint matches what the
+backend returned. Measured in Chromium on the default IndexedDB backend by
+`e2e/pagehide-draft-persist.spec.ts`, with
+`PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1`, green
+in 3 of 3 runs: a document heading typed and never blurred, then reloaded, is in IndexedDB after the
+reload, and so is a heading blurred and reloaded at once. A TAB CLOSE is not fixed for the heading: its
+close writes no journal (a `test.fail` in that spec), which stays owed under §629.
+
 An ordinary paragraph edit that stays under `MAX_HTML_TEXT_CHARS` (so it never trips the §185 over-cap
 refusal) and was never blurred — for example, the window closes mid-edit, or a pane narrows away without a
 blur — is lost entirely: nothing was committed, so `scheduleDebouncedSave` was never scheduled, and the
@@ -42494,6 +42504,15 @@ item. The second sweep below also converted `useCommitDraft` (`src/app/use-commi
 and actual hours and % complete inputs), pinned by the "pagehide (§625 …)" describe in
 `use-commit-draft.test.tsx`.
 
+**2026-09-27, the unload journal (§629):** for this entry's sweep, a task-name inline cell
+(`useInlineCellEdit`) typed and never blurred now survives a real RELOAD: `pagehide` writes the outgoing
+workspace to a synchronous localStorage journal (`src/app/unload-journal.ts`), which the next load
+restores. Measured in Chromium on the default IndexedDB backend by `e2e/pagehide-draft-persist.spec.ts`,
+with `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1`,
+green in 3 of 3 runs. On a tab close the cell's journal is written and the draft is stored, but its
+IndexedDB write also won the unload race, so the next load shows the conflict notice (§629). The
+narrative editor itself is not driven by that spec.
+
 The status narrative editor kept its draft (`draftNarrative`) in component state and committed it only on
 blur, Done or Escape. A window close, reload or navigation runs none of those, so a summary that was typed
 and never blurred was lost. It is §622's class, found by the batch-8 verdict pass (2026-09-27), and was not
@@ -42609,15 +42628,26 @@ Three editors hold a typed draft until blur and commit it ASYNCHRONOUSLY, so a c
 
 **Work item:** #443
 
+**2026-09-27, the unload journal (§629):** on a RELOAD the race no longer loses the newest state. Each
+save is recorded as the latest unconfirmed workspace when it fires (`noteSaveStarted` in
+`src/app/use-unload-journal.ts`), and the journal written at `pagehide` holds that newest one. A
+confirmation of an older save clears only a journal no newer than itself. On the next load the journal
+is restored automatically when no save landed, and offered through the conflict notice (Restore anyway,
+Discard) when one did. Read from the code; never machine-verified on the file or SharePoint backend. The
+IN-SESSION race is unchanged: while the page stays, an older snapshot that finishes last still
+overwrites the newer one, and the newer save's confirmation clears the journal.
+
 Every `useCommitOnPageHide` commit that changes the workspace re-runs the workspace save effect, and because `debounced-save.ts` knows the page is hiding (`pageHiding`), each run flushes a full `backend.save` at once. React state is correct, since each snapshot contains the earlier commits. But `LocalFileBackend.save` and the SharePoint backend do not serialise saves, so an older snapshot that finishes last overwrites the newer one and drops the later commit. IndexedDB orders its transactions.
 
 It is reachable whenever a pagehide commit starts a save while any other save is pending or in flight, and ONE dirty draft is enough (corrected 2026-09-27; this paragraph first said "only with two or more dirty drafts at unload"). With a single draft the other save can be: a save the debounce timer already started that is still writing; the flush that `visibilitychange` → hidden fires on a tab close just before `pagehide` (`onVisibilityChange` in `scheduleDebouncedSave`); or a pending save whose own `pagehide` listener, registered before the editor's (an edit committed inside the debounce window just before that editor mounted), flushes first. Two or more dirty drafts, for example a refused over-cap paragraph plus another unblurred edit, is one more way in. The §622 test "commits BOTH of two dirty editors on one pagehide" asserts the commit callbacks, not the last persisted snapshot; until the 2026-09-27 fix round it did not even hold two drafts dirty at once (`userEvent.type` into the second editor blurred and committed the first), and it now changes the second with `fireEvent.change` so both are dirty at the pagehide. A fix needs save serialisation (or coalescing to one final save) on those backends, and a test on the persisted result.
 
 **Source:** batch-8 whole-branch review (2026-09-27), owner decision at PR time.
 
-## 629. A draft committed on window close only STARTS the save — no real-browser or desktop proof that it lands on the file, SharePoint, Turso or desktop backends — open
+## 629. The unload journal is unverified on the desktop close and on the file, SharePoint and Turso backends, and a document-heading tab close writes no journal — open
 
-**Status:** open 2026-09-27 — found by the PR #444 (defect batch 8) review. MEASURED on one backend with `npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB, which is the default `defaultStorageConfig`): a `pagehide` dispatched while the page stays alive commits the draft and its save lands, but on a real `page.reload()` the save does NOT land, for both editors the spec drives (a document heading through `useBlockDraft` and a task-name inline cell through `useInlineCellEdit`); on a tab close (`page.close({ runBeforeUnload: true })`) the heading save does not land either. Those cases are `test.fail()` in that spec. The task cell survived a tab close in 5 of 5 runs (`--repeat-each=4` plus one), a race it happened to win, so the spec pins neither outcome for it. The local file, SharePoint, Turso and the packaged desktop app are never machine-verified; `git grep -n "keepalive\|sendBeacon" -- src/app` finds no use of either in any save path.
+**Status:** open 2026-09-27, narrowed 2026-09-27 — FIXED on `fix/defect-batch-8` for a RELOAD on the default backend by the unload journal: `pagehide` writes the unconfirmed outgoing workspace to localStorage synchronously (`src/app/unload-journal.ts`, `src/app/use-unload-journal.ts`), and the next load restores it when its base fingerprint matches what the backend returned, or shows a conflict notice (Restore anyway, Discard) when it does not. MEASURED with `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB), 8 of 8 as expected in each of 3 runs: both editors' reload cases pass without `test.fail`, and so do a blur-then-immediate-reload and a base mismatch whose notice appears and whose Discard removes the key. Negative control: with the `restoreOnLoad` call in `use-storage-backend.ts` replaced by `null`, the three reload cases failed at "the draft must have landed in IndexedDB" and the mismatch case at the notice. STILL OWED, and the only reasons this stays open: (1) a document heading's TAB CLOSE writes no journal (the new page reads null; `test.fail` in that spec, failing at that read in every run whose message was read); (2) the packaged desktop (Electron) window close; (3) real-browser runs of the file, SharePoint and Turso backends. The journal itself is backend-agnostic, so (2) and (3) check localStorage durability and each backend's load and fingerprint on the real target, never machine-verified.
+
+**Status before the journal (2026-09-27, kept as measured):** open 2026-09-27 — found by the PR #444 (defect batch 8) review. MEASURED on one backend with `npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB, which is the default `defaultStorageConfig`): a `pagehide` dispatched while the page stays alive commits the draft and its save lands, but on a real `page.reload()` the save does NOT land, for both editors the spec drives (a document heading through `useBlockDraft` and a task-name inline cell through `useInlineCellEdit`); on a tab close (`page.close({ runBeforeUnload: true })`) the heading save does not land either. Those cases are `test.fail()` in that spec. The task cell survived a tab close in 5 of 5 runs (`--repeat-each=4` plus one), a race it happened to win, so the spec pins neither outcome for it. The local file, SharePoint, Turso and the packaged desktop app are never machine-verified; `git grep -n "keepalive\|sendBeacon" -- src/app` finds no use of either in any save path.
 
 **Work item:** #446
 
@@ -42637,6 +42667,20 @@ Throwaway probes on 2026-09-27 (not kept in the repo; raw output in the PR #444 
 An instrumented `IDBDatabase.prototype.transaction` (counters written to `localStorage`, which is synchronous) showed that on a tab close the save CREATED 20 readwrite transactions after `pagehide` and none fired `complete` or `abort`; on a reload none was created after `pagehide` before the page went. So the loss is not specific to the pagehide commit: it is the unload path of every save on that backend, including §185's flush-on-hide.
 
 Owed: a packaged-desktop window-close check, and the file, SharePoint and Turso backends in a real browser. The fix needs a save that completes or survives the unload: a synchronous fallback (for example a localStorage journal of the unsaved workspace, replayed on the next load) or `keepalive` / `sendBeacon` for the network backends. §626 (async editors) and §627 (unserialised saves at unload) are the same unload path.
+
+**2026-09-27, with the journal in place.** Measured by the spec above, plus a throwaway probe (not kept)
+that completed 2 runs:
+
+- A task-name cell's tab close writes the journal, and its IndexedDB write also landed (as before the
+  journal). The next load therefore held the draft AND a journal whose base no longer matched. It showed
+  the conflict notice and kept the journal, though the draft was already stored. That happened in both
+  completed probe runs, so the spec asserts only that the draft is stored for that case. No data is
+  lost, but the notice is a false alarm.
+- **Known limitation, owner-accepted (the spec's multi-tab rule):** an IGNORED conflict notice does not
+  survive the session. There is one key per project and the last write wins, so the first journal this
+  session writes (a save still unconfirmed at `pagehide`, or one started while the page is hidden)
+  overwrites the journal the notice describes. Read from `use-unload-journal.ts`; never
+  machine-verified.
 
 Size M–L.
 
