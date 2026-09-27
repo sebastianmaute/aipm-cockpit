@@ -13,6 +13,7 @@ import { sanitizeRichHtml } from "../sanitize-html";
 import { isNarrativeEmpty, narrativeToHtml, normalizeNarrativeHtml } from "../narrative-html";
 import type { ProjectStatus } from "../types";
 import { useClaimsWhenFocusWithin, useDismissable } from "../use-dismissable";
+import { useCommitOnPageHide } from "../use-commit-on-page-hide";
 
 /** The Dashboard's ONE status summary (Tier 0): the saved narrative, read-only,
  *  with an Edit button — or an Add button when there is none — that swaps it for
@@ -203,6 +204,12 @@ export function NarrativeEditor({
     if (unchanged) return;
     setStatus((s) => ({ ...s, narrative: nextValue, narrativeUpdatedAt: new Date().toISOString() }));
   };
+
+  // ★★★ E1 (§622's class) — the narrative draft lives only in this component
+  //  and is committed on blur, Done or Escape. A window close, reload or
+  //  navigation does none of those, so the typed summary was LOST. `pagehide`
+  //  commits it; a tab switch does not (owner rule, see the hook's header).
+  useCommitOnPageHide(commitNarrative);
 
   const clearNarrative = () => {
     setDraftNarrative("");
