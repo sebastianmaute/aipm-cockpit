@@ -43,6 +43,7 @@ before your first edit — the rest is reference, reachable from here.
 | [task-status](docs/AGENTS/task-status.md) | the `status` ⟺ `completedDate` pair · the five writers · load does NOT repair a split pair · `isTaskClosed` vs `isTaskDelivered` |
 | [budget](docs/AGENTS/budget.md) | the EUR boundary (`fx.ts`) · plan currency on load · budget follows plan · earned value · the Budget panel's cell layer |
 | [undo](docs/AGENTS/undo.md) | what is undoable · creates · label registrations · rows vs patches · the redo arm |
+| [desktop](docs/AGENTS/desktop.md) | Electron runtime · port · sign-in popup · print · PDF · updater |
 
 Conventions used throughout: **★** = a non-obvious rule, **★★** = something that has already
 caused a bug, **★★★** = something that has caused the same bug more than once. Open follow-ups
@@ -565,10 +566,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `SATELLITES` in `scripts/version-sync-lib.mjs` — not this line, which said "FIVE MORE PLACES" and
   missed `desktop/package.json` + `desktop/package-lock.json`. Read it with
   `grep -n 'file: "' scripts/version-sync-lib.mjs` (one line per file or glob; each lockfile carries
-  TWO occurrences); CONTRIBUTING.md's Versioning table says what changes in each.
-  Verified 2026-07-30: `package.json` had been stuck at 0.203.0 for six releases, `package-lock.json`
-  at 0.199.0 for eleven, and the README badge + codemap headers at 0.203.0 — while `version.ts` and
-  `CHANGELOG.md` were correct.
+  TWO occurrences); CONTRIBUTING.md's Versioning section says what changes in each and why the
+  gate exists.
   Propagate them with `npm run version:sync` rather than editing each by hand — the
   `version:check` step of CI's `static` job is BLOCKING, so drift now fails CI instead of accumulating.
 - **New persisted `Workspace` field → SIX write paths** (JSON/CSV/MD/Turso-single/Turso-tenant/
@@ -1067,9 +1066,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   **Print · reset-columns · reset-pane-size**, in that order. Destructive/bulk actions (Activity's "Clear log")
   and integration blocks (the Outlook `CalendarSyncControls`) go BEFORE it, never between two members.
   ★★ IN THE ELECTRON DESKTOP SHELL EVERY ARITY BELOW LOSES ITS **Print** MEMBER — `PrintButton` renders
-  `null` there (`isDesktopShellUserAgent`, `src/app/desktop-shell.ts`), so a group one shorter than this
-  rule states is not drift. Unit assertions are unaffected (jsdom's UA is not Electron's); the why is
-  beside that helper.
+  `null` there ([why](docs/AGENTS/desktop.md)), so a group one short is not drift. Unit assertions are
+  unaffected (jsdom's UA is not Electron's).
   ★★ THE DASHBOARD'S GROUP IS A 2×2 GRID (Print | reset-layout over reset-size | badge; DOM order unchanged, so it still reads row by row) AND ITS MIDDLE MEMBER IS **reset-LAYOUT**, not reset-columns —
   `ResetLayoutButton`, restoring the tile arrangement to `DEFAULT_LAYOUT`. That pane has no columns to reset, and
   arrangement is the reset-columns ANALOGUE (it restores CONTENT arrangement, where reset-pane-size restores the
@@ -1245,3 +1243,4 @@ is GLOBBED (`readdirSync`), so a new subsystem file is scanned the moment it lan
 | [task-status.md](docs/AGENTS/task-status.md) | the task completion model — the `status` ⟺ `completedDate` invariant · the FIVE paths that write the pair and the mechanism each holds it by · why `migrateTask` does NOT repair a split pair · the `isTaskClosed` / `isTaskDelivered` split |
 | [budget.md](docs/AGENTS/budget.md) | budget and money — `resolveRate` / `currencyToEur` and the one stored non-EUR field · the IndexedDB plan-currency coercion · `effectiveBudgetHours` mirroring · bucket earned value and its all-or-nothing rollup · the panel module map and pinned-column arithmetic |
 | [undo.md](docs/AGENTS/undo.md) | the undo/redo stack — creates · label registrations · row vs field-patch capture · field groups · the §295 redo arm · popout + load-hold |
+| [desktop.md](docs/AGENTS/desktop.md) | the Electron shell at RUNTIME — port + server child · navigation + sign-in popup · print + menu · PDF export · updater |
