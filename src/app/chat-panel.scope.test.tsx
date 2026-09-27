@@ -629,4 +629,25 @@ describe("staged plan vs. the storage scope", () => {
     expect(within(card).getByRole("button", { name: /^Apply \(/ })).toBeDisabled();
     expect(screen.queryByText("This plan was made for a different project and was not applied.")).toBeNull();
   });
+
+  it("keeps a partly applied card when a retry is refused for scope", async () => {
+    // ★★ The `p.applied !== null` half of the pre-apply guard. Row 0 lands, row 1
+    //  fails for an ordinary reason and stays ticked for a retry; the scope then
+    //  moves. The retry must not retire the card as "not applied" — row 0 DID
+    //  land — so the card stays, with row 1 marked refused for scope and unticked.
+    const { dispatcher, card, setEpoch } = await stagePlan();
+    vi.mocked(dispatcher.deleteTask).mockReturnValueOnce(true).mockReturnValueOnce(false);
+    clickApply(card);
+    await waitFor(() => expect(dispatcher.deleteTask).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(within(card).getByRole("button", { name: /^Apply \(/ })).toBeEnabled());
+
+    setEpoch(2);
+    clickApply(card);
+
+    await waitFor(() => expect(within(card).getByText("Not applied — the project changed.")).toBeInTheDocument());
+    expect(dispatcher.deleteTask).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("region", CARD)).toBeInTheDocument();
+    expect(screen.queryByText(SCOPE_NOTICE)).toBeNull();
+    expect(within(card).getByRole("button", { name: /^Apply \(/ })).toBeDisabled();
+  });
 });
