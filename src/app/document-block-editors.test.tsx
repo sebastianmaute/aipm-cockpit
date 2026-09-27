@@ -668,11 +668,20 @@ describe("useBlockDraft — an unblurred draft on pagehide (§622)", () => {
     expect(onCommit).toHaveBeenCalledTimes(1);
   });
 
-  it("commits once: a later unmount does not commit again", async () => {
+  // ★★ The count is asserted BEFORE the unmount: after the unmount alone the
+  //  pre-§622 code (commit nothing on pagehide, flush at unmount) also reads 1.
+  //  The adoption step is what observes the cleared dirty flag: a draft left
+  //  dirty refuses the next stored block (the render-time reconcile's guard),
+  //  which is what a page restored from the back/forward cache would show.
+  it("commits on pagehide and clears the dirty flag: adopts the next stored block, no second commit at unmount", async () => {
     const onCommit = vi.fn();
     const view = render(<HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 2, text: "Old" }} onCommit={onCommit} />);
-    await userEvent.type(screen.getByRole("textbox", { name: headingTextName(0) }), "er");
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(text, "er");
     act(() => firePageHide());
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    view.rerender(<HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 2, text: "Newer" }} onCommit={onCommit} />);
+    expect(text).toHaveValue("Newer");
     view.unmount();
     expect(onCommit).toHaveBeenCalledTimes(1);
   });
@@ -685,6 +694,10 @@ describe("useBlockDraft — an unblurred draft on pagehide (§622)", () => {
     expect(onCommit).not.toHaveBeenCalled();
   });
 
+  // ★★ BOTH drafts must be dirty AT the pagehide. Typing into B with
+  //  `userEvent.type` clicks B first, which blurs A and commits it, so only B
+  //  would be dirty. B is therefore changed with `fireEvent.change`, which moves
+  //  no focus; the pre-pagehide assertions prove neither was committed yet.
   it("commits BOTH of two dirty editors on one pagehide", async () => {
     const a = vi.fn();
     const b = vi.fn();
@@ -694,11 +707,17 @@ describe("useBlockDraft — an unblurred draft on pagehide (§622)", () => {
         <HeadingBlockEditor lang={LANG} index={1} block={{ type: "heading", level: 2, text: "B" }} onCommit={b} />
       </>,
     );
-    await userEvent.type(screen.getByRole("textbox", { name: headingTextName(0) }), "1");
-    await userEvent.type(screen.getByRole("textbox", { name: headingTextName(1) }), "2");
+    const textA = screen.getByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(textA, "1");
+    fireEvent.change(screen.getByRole("textbox", { name: headingTextName(1) }), { target: { value: "B2" } });
+    expect(document.activeElement).toBe(textA);
+    expect(a).not.toHaveBeenCalled();
+    expect(b).not.toHaveBeenCalled();
     act(() => firePageHide());
     expect(a).toHaveBeenCalledTimes(1);
+    expect(a.mock.calls[0][1]).toEqual({ type: "heading", level: 2, text: "A1" });
     expect(b).toHaveBeenCalledTimes(1);
+    expect(b.mock.calls[0][1]).toEqual({ type: "heading", level: 2, text: "B2" });
   });
 });
 

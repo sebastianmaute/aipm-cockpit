@@ -16,10 +16,13 @@ export const SAVE_DEBOUNCE_MS = 500;
  *  reloading, navigating away, or entering the back/forward cache. A save
  *  scheduled inside that window has NO later signal left to flush it. On a tab
  *  close the page hid first, so `visibilitychange` has already fired, and the
- *  timer never runs on an unload. So `scheduleDebouncedSave` writes such a save
- *  AT ONCE. Such saves come from the local drafts committed on `pagehide`
- *  through `useCommitOnPageHide` (use-commit-on-page-hide.ts): each commit
- *  re-runs the workspace save effect inside that event.
+ *  timer never runs on an unload. So `scheduleDebouncedSave` STARTS such a save
+ *  AT ONCE; the backend write it starts is still asynchronous, and whether it
+ *  lands before the page is gone is register §629 (measured on IndexedDB in
+ *  Chromium: on a real reload it does not). Such saves come from the
+ *  local drafts committed on `pagehide` through `useCommitOnPageHide`
+ *  (use-commit-on-page-hide.ts): each commit that changes the workspace re-runs
+ *  the workspace save effect inside that event.
  *  ★★ Why not a fresh `pagehide` listener instead: one added DURING the
  *   dispatch is not invoked by it. Measured in real Chromium: a non-capture
  *   listener added by a capture listener at the target did NOT run (jsdom does

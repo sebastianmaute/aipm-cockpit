@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, act, screen } from "@testing-library/react";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { useCommitOnPageHide } from "./use-commit-on-page-hide";
 
 function Probe({ commit }: { commit: () => void }) {
@@ -38,6 +38,30 @@ describe("useCommitOnPageHide", () => {
     act(() => firePageHide());
     expect(first).not.toHaveBeenCalled();
     expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls the LATEST commit even when pagehide lands before passive effects run", () => {
+    // A layout effect dispatches the pagehide during the commit phase: after
+    // the render that made the new closure, before any passive effect ran. That
+    // is the window a real pagehide can land in, and a ref refreshed in a
+    // passive effect still holds the previous render's closure there.
+    const seen: string[] = [];
+    function Racer({ v }: { v: string }) {
+      useCommitOnPageHide(() => seen.push(v));
+      useLayoutEffect(() => {
+        if (v === "second") window.dispatchEvent(new Event("pagehide"));
+      }, [v]);
+      return null;
+    }
+    // flushSync inside a layout effect logs a React warning; the commit still runs.
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const view = render(<Racer v="first" />);
+      view.rerender(<Racer v="second" />);
+    } finally {
+      quiet.mockRestore();
+    }
+    expect(seen).toEqual(["second"]);
   });
 
   it("stops listening after unmount", () => {
