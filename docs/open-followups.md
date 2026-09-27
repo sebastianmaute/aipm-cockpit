@@ -19885,7 +19885,7 @@ DEFAULTS the prop, which fires only for `undefined`, and is normalised by its on
 Verified 2026-08-31 by
 `npx vitest run src/app/document-asset-images.test.ts src/app/asset-library.test.tsx src/app/documents-history-modal.test.tsx`.
 ★ Closure covers the DISCLOSURE, which is what this entry was filed for; the export sinks reach the
-same wrong conclusion by two other routes and are tracked separately as §320 — a residual with its
+same wrong conclusion by two other routes and are tracked separately as §320 (CLOSED 2026-09-26) — a residual with its
 own number does not un-close its parent.
 
 **The record of the defect follows, as written on 2026-08-24.** Both halves of it are fixed; the text
