@@ -519,7 +519,7 @@ function TaskManagerInner() {
   // Fills the forward-ref declared above `useUndoStack`, so an undo-stack redo
   // that re-removes rows can arm the one-shot destructive-save bypass (§295).
   useEffect(() => { allowDestructiveSaveRef.current = allowDestructiveSave; isPopoutRef.current = isPopout; loadPendingRef.current = loadPending; getScopeEpochRef.current = getScopeEpoch; }, [allowDestructiveSave, isPopout, loadPending, getScopeEpoch]);
-  usePruneUndoOnScopeChange(loadPending, undoApi.pruneStale); // §628 — a project switch empties both undo stacks; a hold that kept the project does not.
+  usePruneUndoOnScopeChange(loadPending, undoApi.pruneStale); // §628 — a project switch drops the previous project's undo entries; a hold that kept the project drops none.
 
   // ★★ Render-time reconcile, NOT an effect (`set-state-in-effect` is banned): a NEW
   // incomplete load re-shows the banner after a dismiss (the ONLY "Save anyway" surface).

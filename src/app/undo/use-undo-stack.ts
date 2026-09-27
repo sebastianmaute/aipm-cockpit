@@ -649,7 +649,8 @@ interface StackEntry {
  * ★ Render-time reconcile, NOT an effect (`set-state-in-effect` is banned).
  * ★★ THE FALLING EDGE, AND ONLY STALE ENTRIES — owner ruling. The hold rises for
  * many ops that keep the project (Save-As, a cancelled Open or Save-As, a
- * same-project reload, migrate-to-Turso, a backend rebuild); an earlier cut
+ * same-project reload, a declined or failed migrate-to-Turso — a successful one
+ * ends in a page reload, which empties memory anyway — a backend rebuild); an earlier cut
  * cleared on every RISE and threw that history away. The epoch is bumped only on
  * a real scope change, synchronously and INSIDE the hold, so by the falling edge
  * it has moved exactly when the project changed. Falling rather than rising also

@@ -42453,14 +42453,15 @@ code where §151 had recorded one.
   already stale. `task-manager.tsx` hands `useUndoBatch` the same reader it hands `useUndoStack`.
   ★ The refusal is whole-batch. A batch cannot be split by project, so any rows the batch wrote into B
   after a mid-batch switch get no undo either. That those writes land in B at all is a separate,
-  pre-existing gap in the proposal apply path (`applyProposal`), not closed here.
+  pre-existing gap in the proposal apply path (`applyProposal`), tracked as §600 and not closed here.
 - **A real switch empties the history.** `usePruneUndoOnScopeChange(loadPending, pruneStale)` is a
   render-time reconcile (not an effect, since `set-state-in-effect` is banned). On every true→false
   transition of `loadPending` it removes from BOTH stacks the entries whose stamp is stale, and only
   those. The epoch is bumped only on a real scope change, synchronously and inside the hold, so at the
   falling edge it has moved exactly when the project changed. History therefore survives Save-As, a
-  cancelled Open or Save-As, a same-project reload and migrate-to-Turso, all of which raise the hold
-  without changing the project (owner ruling on the review of the first cut, which cleared both stacks
+  cancelled Open or Save-As, a same-project reload and a declined or failed migrate-to-Turso, all of
+  which raise the hold without changing the project (a SUCCESSFUL migrate ends in
+  `window.location.reload()` in `use-storage-turso-ops.ts`, which empties the in-memory history anyway) (owner ruling on the review of the first cut, which cleared both stacks
   on every RISE of the hold). When nothing is stale it returns the same arrays, so `UndoControl` /
   `RedoControl` keep their inputs' identity. It is a separate hook rather than a `loadPending` field on
   `UseUndoStackDeps` because `useUndoStack` is called ABOVE `useStorageBackend` in `task-manager.tsx`
