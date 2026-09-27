@@ -42,16 +42,23 @@ vi.mock("./project-file-handles", () => ({
 }));
 vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn() }));
 vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
+// A pass-through spy: every fingerprint the hook computes is counted (fix round 1, M1).
+vi.mock("./unload-journal", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./unload-journal")>();
+  return { ...actual, fingerprintWorkspace: vi.fn(actual.fingerprintWorkspace) };
+});
 
 import * as storageMod from "./storage";
 import { TestProviders } from "./test-providers";
 import { fingerprintWorkspace, UNLOAD_JOURNAL_PREFIX, type UnloadJournal } from "./unload-journal";
+import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
 import { useStorageBackend } from "./use-storage-backend";
 import { UNLOAD_JOURNAL_TAB_ID, useUnloadJournal } from "./use-unload-journal";
 import { emptyWorkspace, jsonToWorkspace, type Workspace } from "./workspace";
 import { useWorkspace } from "./workspace-context";
 
 const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
+const fingerprintSpy = fingerprintWorkspace as unknown as ReturnType<typeof vi.fn>;
 
 // No registry entry and kind "browser" → projectKey "browser".
 const JOURNAL_KEY = `${UNLOAD_JOURNAL_PREFIX}browser`;
@@ -63,16 +70,16 @@ const EDIT_2 = [...EDIT, { id: 3, taskName: "More" }] as unknown as Task[];
 type Settle = { resolve: () => void; reject: (err: unknown) => void };
 
 /** A backend whose load lands after `loadMs`, and whose saves stay pending until the test
- *  settles them through `saves`. */
-function makeBackend(loadMs: number, loadOutcome: "resolve" | "reject" = "resolve") {
+ *  settles them through `saves` — or resolve at once with `autoSave`. */
+function makeBackend(loadMs: number, loadOutcome: "resolve" | "reject" = "resolve", stored: object = STORED, autoSave = false) {
   const saves: Settle[] = [];
   return {
     saves,
     kind: "browser",
     load: vi.fn(() => new Promise((resolve, reject) => {
-      setTimeout(() => (loadOutcome === "resolve" ? resolve(STORED) : reject(new Error("load boom"))), loadMs);
+      setTimeout(() => (loadOutcome === "resolve" ? resolve(stored) : reject(new Error("load boom"))), loadMs);
     })),
-    save: vi.fn(() => new Promise<void>((resolve, reject) => { saves.push({ resolve, reject }); })),
+    save: vi.fn(() => (autoSave ? Promise.resolve() : new Promise<void>((resolve, reject) => { saves.push({ resolve, reject }); }))),
     isReady: vi.fn().mockResolvedValue(true),
     describe: vi.fn().mockResolvedValue(null),
   };
@@ -303,6 +310,44 @@ describe("§629 — the storage hook writes the unload journal and clears it on 
     await advance(0);
     expect(readJournal()).toBeNull();
   });
+
+  it("I1 — after a project SWITCH (op), the journal lands under the TARGET's key with the target's loaded state as base", async () => {
+    // The op applies B's workspace BEFORE it flips the storage config (§77 order), so the key in
+    // scope at apply time is still A's. The base must still come out as {B, B's state}.
+    const STORED_B = { tasks: [{ id: 9, taskName: "Target" } as unknown as Task], raid: [], absences: [], shifts: [] };
+    const reg = addProject(addProject(emptyRegistry(), { id: "pa", name: "A", code: "A", storageConfig: { kind: "browser" } }, true),
+      { id: "pb", name: "B", code: "B", storageConfig: { kind: "browser" } }, false);
+    saveRegistry(reg);
+    const current = makeBackend(0, "resolve", STORED, true); // A — its pre-switch flush must resolve
+    const built = makeBackend(0, "resolve", STORED_B); // backendFor(B): the instance the switch loads
+    const memo = makeBackend(0, "resolve", STORED_B); // the memo's own instance once the config flips
+    createBackendMock.mockReturnValueOnce(current).mockReturnValueOnce(built).mockReturnValue(memo);
+    let rerenderWith: (cfg: StorageConfig) => void = () => {};
+    const setStorageConfig = vi.fn((cfg: StorageConfig) => rerenderWith(cfg));
+    const { result, rerender } = render({ ...makeArgs(), setStorageConfig });
+    rerenderWith = (cfg) => rerender({ args: { ...makeArgs(false, cfg), setStorageConfig } });
+    await advance(100);
+
+    await act(async () => {
+      const p = result.current.switchToProject("pb");
+      await vi.advanceTimersByTimeAsync(10);
+      await p;
+    });
+    await advance(600);
+    expect(memo.load).not.toHaveBeenCalled(); // the op's suppress branch ran
+    expect(result.current.tasks.map((x) => x.id)).toEqual([9]);
+
+    await act(async () => { result.current.setTasks([...result.current.tasks, { id: 10, taskName: "New" } as unknown as Task]); });
+    await advance(600);
+    expect(memo.save).toHaveBeenCalledTimes(1); // fired, unconfirmed
+    await act(async () => { pageHide(); });
+
+    const keyB = `${UNLOAD_JOURNAL_PREFIX}pb`;
+    expect(journalTaskIds(keyB)).toEqual([9, 10]);
+    expect(readJournal(keyB)!.baseFingerprint).toBe(fingerprintWorkspace(STORED_B as unknown as Workspace));
+    expect(readJournal(`${UNLOAD_JOURNAL_PREFIX}pa`)).toBeNull();
+    expect(journalKeys()).toEqual([keyB]);
+  });
 });
 
 describe("§629 — useUnloadJournal on its own", () => {
@@ -331,7 +376,7 @@ describe("§629 — useUnloadJournal on its own", () => {
 
   it("an OLDER save confirming late neither rolls the base back nor drops the newer unconfirmed entry", () => {
     const { result } = renderJournal();
-    result.current.setBase(WS_1);
+    result.current.setBase(WS_1, "p1");
     const older = result.current.noteSaveStarted(WS_1);
     const newer = result.current.noteSaveStarted(WS_2);
 
@@ -356,7 +401,7 @@ describe("§629 — useUnloadJournal on its own", () => {
   it("a save started BEFORE a load was applied does not replace that load's base when it confirms", () => {
     const { result } = renderJournal();
     const before = result.current.noteSaveStarted(WS_1);
-    result.current.setBase(WS_2); // e.g. a reload landing while that save is in flight
+    result.current.setBase(WS_2, "p1"); // e.g. a reload landing while that save is in flight
     result.current.noteSaveConfirmed(before, WS_1);
     expect(result.current.baseFingerprint()).toBe(fingerprintWorkspace(WS_2));
   });
@@ -370,10 +415,75 @@ describe("§629 — useUnloadJournal on its own", () => {
     expect(readJournal(KEY)).toEqual(foreign);
   });
 
+  it("M1 — over the cap, the base fingerprint is never computed", () => {
+    const huge: Workspace = { ...emptyWorkspace(), tasks: [{ id: 1, taskName: "x".repeat(1_600_000) } as unknown as Task] };
+    const { result } = renderJournal();
+    result.current.setBase(WS_1, "p1"); // the idle warm-up has NOT run: no timer was advanced
+    fingerprintSpy.mockClear();
+    tabSwitch();
+    result.current.noteSaveStarted(huge);
+    pageHide();
+    expect(localStorage.getItem(KEY)).toBeNull();
+    expect(fingerprintSpy).not.toHaveBeenCalled();
+  });
+
+  it("M1 — once the idle warm-up ran, a pagehide write does not recompute the fingerprint", async () => {
+    const expected = fingerprintWorkspace(WS_1);
+    const { result } = renderJournal();
+    result.current.setBase(WS_1, "p1");
+    fingerprintSpy.mockClear();
+    await act(async () => { await vi.advanceTimersByTimeAsync(10); }); // the warm-up
+    expect(fingerprintSpy).toHaveBeenCalledTimes(1);
+    fingerprintSpy.mockClear();
+    result.current.noteSaveStarted(WS_2);
+    pageHide();
+    expect(readJournal(KEY)!.baseFingerprint).toBe(expected);
+    expect(fingerprintSpy).not.toHaveBeenCalled();
+  });
+
+  it("M1 — a stale warm-up never overwrites a NEWER base", () => {
+    // ★ A stubbed requestIdleCallback whose callbacks the test runs ONE at a time: with the timer
+    //   fallback both warm-ups share a due time and fire together, and WS_2's own warm-up would
+    //   then mask a stale write by WS_1's. In a browser an event can land between the two.
+    const idle: Array<() => void> = [];
+    Object.defineProperty(window, "requestIdleCallback", {
+      value: (cb: IdleRequestCallback) => idle.push(() => cb({ didTimeout: false, timeRemaining: () => 50 })),
+      configurable: true,
+    });
+    try {
+      const { result } = renderJournal();
+      result.current.setBase(WS_1, "p1");
+      result.current.setBase(WS_2, "p1"); // replaces the base before WS_1's warm-up runs
+      expect(idle).toHaveLength(2);
+      idle[0](); // WS_1's warm-up alone
+      expect(result.current.baseFingerprint()).toBe(fingerprintWorkspace(WS_2));
+    } finally {
+      Reflect.deleteProperty(window, "requestIdleCallback");
+    }
+  });
+
+  it("M3 — a lazily computed fingerprint is kept: a second read does not recompute", () => {
+    const { result } = renderJournal();
+    result.current.setBase(WS_1, "p1"); // no timer advanced: no warm-up
+    fingerprintSpy.mockClear();
+    result.current.baseFingerprint();
+    result.current.baseFingerprint();
+    expect(fingerprintSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("I1 — a held op base is keyed only when adopted, and only under the key it is adopted with", () => {
+    const { result } = renderJournal();
+    result.current.setBase(WS_1, "p1");
+    result.current.holdBase(WS_2);
+    expect(result.current.baseFingerprint()).toBe(fingerprintWorkspace(WS_1)); // the old pair stands
+    result.current.adoptHeldBase("p2");
+    expect(result.current.baseFingerprint()).toBe(""); // p1 has no base now; the held one went to p2
+  });
+
   it("setBase stores the fingerprint of the workspace it is given", () => {
     const { result } = renderJournal();
     expect(result.current.baseFingerprint()).toBe("");
-    result.current.setBase(WS_1);
+    result.current.setBase(WS_1, "p1");
     expect(result.current.baseFingerprint()).toBe(fingerprintWorkspace(WS_1));
   });
 });

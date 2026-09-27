@@ -14,7 +14,10 @@
 //   not confirmed yet is not lost either.
 // - `noteSaveConfirmed` — called from the save's `.then`: clears the journal
 //   this tab wrote for that save (or an older one) and rolls the base forward.
-// - `setBase` — called where a load is applied, with what the backend returned.
+// - `setBase` — called where a load is applied, with what the backend returned
+//   and the key of the target it was loaded from; `holdBase` / `adoptHeldBase`
+//   — the same for a project op, whose target key is not in scope yet when it
+//   applies (see `holdBase`).
 //
 // See docs/superpowers/specs/2026-09-27-unload-journal-design.md.
 
@@ -61,14 +64,20 @@ type Unconfirmed = { projectKey: string; workspace: Workspace; savedAt: number }
 
 /** The last confirmed state of `projectKey`. `savedAt` is the confirmed save's
  *  own savedAt, or — for a base set from a load — the latest savedAt issued at
- *  that moment; only a save started AFTER it can replace it. The fingerprint is
- *  computed on first use, so a base replaced before any journal is written
- *  never pays for one. */
+ *  that moment (for an op, the moment it was held); only a save started AFTER it
+ *  can replace it. The fingerprint is warmed when the page is idle, or computed
+ *  at the first journal write if the warm-up has not run by then. */
 type Base = { projectKey: string; workspace: Workspace; savedAt: number; fingerprint: string | null };
 
-function fingerprintOf(base: Base): string {
-  if (base.fingerprint === null) base.fingerprint = fingerprintWorkspace(base.workspace);
-  return base.fingerprint;
+/** Runs `fn` when the page is idle (`requestIdleCallback`), or on a zero-delay
+ *  timer where that API is absent. Used to take the base fingerprint off the
+ *  unload path; the lazy computation at write time stays as the fallback. */
+function whenIdle(fn: () => void): void {
+  if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(() => fn());
+    return;
+  }
+  setTimeout(fn, 0);
 }
 
 export type UseUnloadJournalArgs = {
@@ -90,6 +99,8 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
   useEffect(() => { activeRef.current = enabled && !isPopout; }, [enabled, isPopout]);
 
   const baseRef = useRef<Base | null>(null);
+  /** A project op's applied workspace, waiting for its target's key — see `holdBase`. */
+  const heldBaseRef = useRef<{ workspace: Workspace; savedAt: number } | null>(null);
   const latestUnconfirmedRef = useRef<Unconfirmed | null>(null);
   /** savedAt → projectKey of each save started and not yet confirmed, so a confirmation
    *  clears the key its save was journaled under even after a project switch. */
@@ -97,7 +108,22 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
 
   const baseFingerprintFor = useCallback((key: string): string => {
     const base = baseRef.current;
-    return base !== null && base.projectKey === key ? fingerprintOf(base) : "";
+    if (base === null || base.projectKey !== key) return "";
+    if (base.fingerprint !== null) return base.fingerprint;
+    const fingerprint = fingerprintWorkspace(base.workspace);
+    baseRef.current = { ...base, fingerprint };
+    return fingerprint;
+  }, []);
+
+  /** Replaces the base and warms its fingerprint when the page is idle. The warm-up
+   *  writes only if `next` is STILL the base by then (identity): a newer base, or the
+   *  lazy fill above, replaces the object, and the stale warm-up does nothing. */
+  const replaceBase = useCallback((next: Base): void => {
+    baseRef.current = next;
+    whenIdle(() => {
+      if (baseRef.current !== next) return;
+      baseRef.current = { ...next, fingerprint: fingerprintWorkspace(next.workspace) };
+    });
   }, []);
 
   const write = useCallback((entry: Unconfirmed): void => {
@@ -115,7 +141,7 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
       projectKey: entry.projectKey,
       tabId: UNLOAD_JOURNAL_TAB_ID,
       savedAt: entry.savedAt,
-      baseFingerprint: baseFingerprintFor(entry.projectKey),
+      baseFingerprint: () => baseFingerprintFor(entry.projectKey), // a thunk: skipped over the cap
       workspace,
     });
   }, [baseFingerprintFor]);
@@ -145,12 +171,34 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
     if (key !== projectKeyRef.current) return;
     const base = baseRef.current;
     if (base !== null && base.projectKey === key && savedAt <= base.savedAt) return;
-    baseRef.current = { projectKey: key, workspace: confirmed, savedAt, fingerprint: null };
+    replaceBase({ projectKey: key, workspace: confirmed, savedAt, fingerprint: null });
+  }, [replaceBase]);
+
+  /** The base for a load: `ws` is what the backend returned, `key` the journal key of
+   *  the target it came from — passed by the caller, never read from scope, so the pair
+   *  is always one target's. Drops any held op base. */
+  const setBase = useCallback((ws: Workspace, key: string): void => {
+    heldBaseRef.current = null;
+    replaceBase({ projectKey: key, workspace: ws, savedAt: lastSavedAt, fingerprint: null });
+  }, [replaceBase]);
+
+  /** ★★★ §629 fix round 1 (I1) — A PROJECT OP APPLIES BEFORE IT FLIPS THE TARGET. The
+   *  switch / create / open ops apply the new workspace, THEN set the storage config or
+   *  Turso project id (the §77 order, use-storage-backend.ts's load effect), so no key in
+   *  scope at apply time is the target's. The op's workspace is therefore held with NO key,
+   *  and the old base stays in place (still one target's pair) until `adoptHeldBase`. */
+  const holdBase = useCallback((ws: Workspace): void => {
+    heldBaseRef.current = { workspace: ws, savedAt: lastSavedAt };
   }, []);
 
-  const setBase = useCallback((ws: Workspace): void => {
-    baseRef.current = { projectKey: projectKeyRef.current, workspace: ws, savedAt: lastSavedAt, fingerprint: null };
-  }, []);
+  /** Keys the held op base — called by the load effect's suppress branch, the one run of
+   *  the render whose backend IS the op's target, with that render's key. No held base: no-op. */
+  const adoptHeldBase = useCallback((key: string): void => {
+    const held = heldBaseRef.current;
+    if (held === null) return;
+    heldBaseRef.current = null;
+    replaceBase({ projectKey: key, workspace: held.workspace, savedAt: held.savedAt, fingerprint: null });
+  }, [replaceBase]);
 
   const baseFingerprint = useCallback((): string => baseFingerprintFor(projectKeyRef.current), [baseFingerprintFor]);
 
@@ -164,5 +212,5 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
     return () => window.removeEventListener("pagehide", onPageHide);
   }, [write]);
 
-  return { noteSaveStarted, noteSaveConfirmed, baseFingerprint, setBase };
+  return { noteSaveStarted, noteSaveConfirmed, baseFingerprint, setBase, holdBase, adoptHeldBase };
 }

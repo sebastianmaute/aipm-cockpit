@@ -143,19 +143,42 @@ export function fingerprintWorkspace(ws: Workspace): string {
 
 // --- Record write / read / clear ---------------------------------------
 
-/** Writes the journal. Never throws: a size over `UNLOAD_JOURNAL_MAX_CHARS`
- *  or a `localStorage.setItem` failure (e.g. `QuotaExceededError`) both log
- *  `workspace.unloadJournalSkipped` and return false instead of writing. */
-export function writeUnloadJournal(rec: Omit<UnloadJournal, "v">): boolean {
+/** What `writeUnloadJournal` takes: the record without `v`, where `baseFingerprint`
+ *  may be a thunk. A thunk is called only once the record WITHOUT it already fits
+ *  the cap, so a record that is going to be skipped never pays for a fingerprint
+ *  (§629 fix round 1 — the caller runs inside an unload handler). */
+export type UnloadJournalWrite = Omit<UnloadJournal, "v" | "baseFingerprint"> & {
+  baseFingerprint: string | (() => string);
+};
+
+function logSkippedSize(projectKey: string, size: number): void {
+  logDiag("warn", "workspace.unloadJournalSkipped", { projectKey, size });
+}
+
+/** Writes the journal. Never throws: a size over `UNLOAD_JOURNAL_MAX_CHARS`,
+ *  a `baseFingerprint` thunk that throws, or a `localStorage.setItem` failure
+ *  (e.g. `QuotaExceededError`) each log `workspace.unloadJournalSkipped` and
+ *  return false instead of writing. */
+export function writeUnloadJournal(rec: UnloadJournalWrite): boolean {
   try {
     if (typeof window === "undefined") return false;
-    const value: UnloadJournal = { v: 1, ...rec };
+    const { baseFingerprint, ...rest } = rec;
+    if (typeof baseFingerprint === "function") {
+      // A fingerprint only lengthens the record, so one over the cap without it stays over.
+      const withoutFingerprint = JSON.stringify({ v: 1, ...rest, baseFingerprint: "" });
+      if (withoutFingerprint.length > UNLOAD_JOURNAL_MAX_CHARS) {
+        logSkippedSize(rec.projectKey, withoutFingerprint.length);
+        return false;
+      }
+    }
+    const value: UnloadJournal = {
+      v: 1,
+      ...rest,
+      baseFingerprint: typeof baseFingerprint === "function" ? baseFingerprint() : baseFingerprint,
+    };
     const serialized = JSON.stringify(value);
     if (serialized.length > UNLOAD_JOURNAL_MAX_CHARS) {
-      logDiag("warn", "workspace.unloadJournalSkipped", {
-        projectKey: rec.projectKey,
-        size: serialized.length,
-      });
+      logSkippedSize(rec.projectKey, serialized.length);
       return false;
     }
     window.localStorage.setItem(journalKey(rec.projectKey), serialized);

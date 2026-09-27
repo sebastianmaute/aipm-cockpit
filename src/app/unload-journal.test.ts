@@ -117,6 +117,29 @@ describe("writeUnloadJournal / readUnloadJournal", () => {
     );
   });
 
+  it("a fingerprint THUNK is not called when the record is over the cap without it", () => {
+    vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    const thunk = vi.fn(() => "abc123");
+    const oversized = { ...REC, baseFingerprint: thunk, workspace: "x".repeat(UNLOAD_JOURNAL_MAX_CHARS) };
+    expect(writeUnloadJournal(oversized)).toBe(false);
+    expect(thunk).not.toHaveBeenCalled();
+    expect(window.localStorage.length).toBe(0);
+  });
+
+  it("a fingerprint THUNK under the cap is called once and its value stored", () => {
+    const thunk = vi.fn(() => "abc123");
+    expect(writeUnloadJournal({ ...REC, baseFingerprint: thunk })).toBe(true);
+    expect(thunk).toHaveBeenCalledTimes(1);
+    expect(readUnloadJournal(REC.projectKey)).toEqual({ v: 1, ...REC });
+  });
+
+  it("a fingerprint THUNK that throws is a skip: false, nothing written, never throws", () => {
+    vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    const thunk = () => { throw new Error("fp boom"); };
+    expect(writeUnloadJournal({ ...REC, baseFingerprint: thunk })).toBe(false);
+    expect(window.localStorage.length).toBe(0);
+  });
+
   it("a setItem that throws (QuotaExceededError) returns false, logs, and never throws", () => {
     const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
     const err = new DOMException("quota", "QuotaExceededError");
