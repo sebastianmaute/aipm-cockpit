@@ -160,6 +160,13 @@ npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity). `next 
                             # after a multi-file edit they routinely show phantom "Cannot find module"/
                             # "implicitly any" that a real `npx tsc --noEmit` (exit 0) contradicts. Trust
                             # tsc, not the squiggles.
+                            # ★★ A PASS IS EXIT 0 WITH ZERO ERRORS IN TOTAL — never "0 errors in src/".
+                            # One syntax error anywhere, e.g. in a corrupt generated `.next` types file
+                            # that the gitignored `next-env.d.ts` imports, suppresses the real type
+                            # errors while tsc still exits 2, so a src/-filtered count reads green. The
+                            # checked-file count goes UP in that case, so it cannot detect it either.
+                            # Fix: stop the dev server, delete `.next` (that alone regenerates nothing),
+                            # then regenerate with `npx next typegen`, `npm run dev` or `npm run build`.
 npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout = 20s
                             # (raised from the 5s default in vitest.config) — the CPU-heavy
                             # fast-check property suites (`*.property.test.ts`, ~100 runs each) +
