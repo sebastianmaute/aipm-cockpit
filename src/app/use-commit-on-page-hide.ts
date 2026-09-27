@@ -3,8 +3,11 @@
 // ★★★ A draft that lives only in component state is LOST on a window close,
 //  reload or navigation: none of them runs React cleanup, so an unmount flush
 //  never fires, and a blur never happens. `pagehide` is the one signal all
-//  three send. Every editor that holds a draft until blur registers its commit
-//  here (§622, and the dashboard narrative).
+//  three send. Editors whose blur commit is a synchronous state write register
+//  it here (§622; the dashboard narrative, §625). An editor that commits
+//  asynchronously (a fetch, a Promise, a WebCrypto seal) cannot be made safe by
+//  this hook: it only STARTS the commit, and nothing guarantees it lands after
+//  unload. Register §625 names the three editors that therefore do not register.
 // ★★★ NOT `visibilitychange` → hidden, by OWNER DECISION (§185, 2026-09-27):
 //  that signal is also a tab switch or a minimise, which must keep the draft.
 // ★★ `flushSync` IS THE ORDERING: the workspace save captures its snapshot per

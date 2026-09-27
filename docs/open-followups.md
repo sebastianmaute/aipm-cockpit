@@ -20881,7 +20881,8 @@ settled in code: `isEmptyWorkspacePayload`'s `lists` counts `knowledgeItems`, `d
 record. ★★ Correction found while writing that comment: the `documentVersions` bullet below says it "can
 never be the ONLY non-empty content slice". That is FALSE. Deleting a project's last document leaves
 `documents` empty and the document's tombstone in `documentVersions` (`docs/AGENTS/documents.md`), so
-the payload reads as empty and that capture is skipped. It loses nothing restorable, because both slices
+in a project whose other counted lists are all empty, the payload reads as empty and that capture is
+skipped. It loses nothing restorable, because both slices
 are `restorable: false` (§241), so the decision stands; the code comment gives the corrected reason.
 
 `writeVersion` runs two guards before capturing. §241 is about the second; this is the FIRST:

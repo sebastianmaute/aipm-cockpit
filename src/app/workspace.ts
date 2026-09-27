@@ -606,12 +606,13 @@ export class WorkspaceParseError extends Error {
  *  document-version sanitizers write into it what a load-time CAP silently
  *  discarded, so a backend can report the loss instead of truncating in
  *  silence. Since §620, `diag.decodeFailedSlices` also receives the JSON key
- *  of any OTHER meta slice (status, project, fieldVisibility, features,
+ *  of any of the 13 meta slices (status, project, fieldVisibility, features,
  *  steeringCommittee, timelogLinks, knowledgeItems, insights, activityLog,
- *  budgetHistory, settingsOverrides) whose stored value carried content but
- *  sanitized to nothing, and of `documents`/`documentVersions` when their
- *  rich-field pass THROWS rather than merely capping. Purely additive —
- *  omitting it decodes exactly as before. */
+ *  budgetHistory, documents, documentVersions, settingsOverrides) whose stored
+ *  value carried content but sanitized to nothing. `documents` and
+ *  `documentVersions` are ALSO recorded when their sanitize pass THROWS — in
+ *  non-strict mode only, since strict rethrows. Purely additive — omitting it
+ *  decodes exactly as before. */
 export function jsonToWorkspace(
   text: string,
   opts?: { strict?: boolean; diag?: DocTruncationDiag },

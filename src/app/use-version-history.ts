@@ -63,8 +63,7 @@ export interface UseVersionHistoryResult {
 //     (`task-manager.tsx`); a timer armed by the OLD project's inputs can fire
 //     after the reset, so counting it would let a stale write mask a transient.
 //   - `documentVersions` is derived from `documents` (`workspace-context.tsx`
-//     sets both from one loader result), so it adds nothing a `documents` count
-//     does not, and inherits the same objection.
+//     sets both from one loader result), so it inherits the same objection.
 // Same reasoning already excludes `activityLog` — see docs/AGENTS/activity-log.md —
 // and `budgetHistory`, which is storage-only: carried by the save funnel
 // (`use-storage-backend.ts`'s `outgoing`) but deliberately absent from the
@@ -78,8 +77,9 @@ export function isEmptyWorkspacePayload(json: string): boolean {
     //  DELIBERATELY UNCOUNTED, for the reasons in THE RULE above. ★ Being
     //  derived does NOT make `documentVersions` redundant here: deleting a
     //  project's last document leaves `documents` empty and its tombstone in
-    //  `documentVersions` (docs/AGENTS/documents.md), so the payload reads as
-    //  empty and that capture is skipped. It loses nothing restorable — both
+    //  `documentVersions` (docs/AGENTS/documents.md), so in a project whose
+    //  other counted lists are all empty, the payload reads as empty and that
+    //  capture is skipped. It loses nothing restorable — both
     //  slices are `restorable: false` in `COLLECTION_SPECS` (see §241 below).
     //  Counting is per slice, not "every slice in COLLECTION_SPECS": roles,
     //  disciplines and grades have rows there and are uncounted here (seeded
