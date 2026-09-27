@@ -535,7 +535,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§301](#301-three-type-to-confirm-phrases-are-hardcoded-english-and-one-cannot-be-localised-by-a-string-swap--closed-2026-08-31) | ~~Three type-to-confirm phrases are hardcoded English, and one cannot be localised by a string swap~~ | found 2026-08-30, fixing the DE wipe phrase | M | **CLOSED** 2026-08-31 |
 | [§302](#302-the-storage-readiness-indicator-is-never-disclosed-to-assistive-technology-in-either-state--closed-2026-08-31) | ~~The storage readiness indicator is never disclosed to assistive technology, in either state~~ | found 2026-08-30, fixing the colour-only state cue | M | **CLOSED** 2026-08-31 |
 | [§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--closed-2026-08-31) | ~~One refused save writes two forensic entries, and de-duplicating it needs evaluate to report the mint~~ | found 2026-08-30, in the destructive-refusal fix round | M | **CLOSED** 2026-08-31 |
-| [§304](#304-every-export-section-header-is-an-untranslated-raw-string-not-a-display-label--closed-2026-09-26) | Every export section header is an untranslated raw string, not a display label | — | — | **CLOSED** 2026-09-26 |
+| [§304](#304-every-export-section-header-is-an-untranslated-raw-string-not-a-display-label--closed-2026-09-27) | Every export section header is an untranslated raw string, not a display label | — | — | **CLOSED** 2026-09-27 |
 | [§305](#305-version-diff-rows-whose-recordlabel-matches-render-identical-visible-text-only-the-accessible-name-disambiguates--closed-2026-09-01) | ~~Version-diff rows whose `recordLabel` matches render identical VISIBLE text; only the accessible name disambiguates~~ | — | — | **CLOSED** 2026-09-01 |
 | [§306](#306-negative-test-assertions-matching-quoted-english-literals-go-silently-vacuous-on-a-reword--open) | Negative test assertions matching quoted English literals go silently vacuous on a reword | found 2026-08-30, in the destructive-refusal deletion round | M | open |
 | [§307](#307-a-destructive-save-refusal-cannot-be-staged-in-a-browser-so-the-recourse-has-never-been-seen-working--closed-2026-08-31-not-a-defect) | ~~A destructive-save refusal cannot be staged in a browser, so the recourse has never been seen working~~ | found 2026-08-30, closing out the destructive-refusal slice | M | **CLOSED** 2026-08-31 |
@@ -569,7 +569,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§335](#335-the-rag-health-chips-override-togglebuttons-derived-state-border-so-amber-and-green-stay-under-31-in-the-four-light-schemes) | The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes | found 2026-09-01 in the §55 fix round, from a cold docs review | S | open |
 | [§336](#336-a-docx-hyperlink-is-followable-but-invisible--no-hyperlink-character-style-while-pptx-colours-its-links-from-the-theme--closed-2026-09-01) | ~~A `.docx` hyperlink is followable but INVISIBLE — no `Hyperlink` character style, while PPTX colours its links from the theme~~ | found 2026-09-01 in the §119/§30 cold review; MINTED AS §333 and renumbered on the 2026-09-02 merge, which is why source comments say both | S | **CLOSED** 2026-09-01 (the palette decision: `COLOR_DARK_BLUE` + underline, matching the PPTX theme; closed WIDER than its title — the workspace exporter carried it too) |
 | [§337](#337-a-non-empty-but-unusable-next_public_turso_-both-hides-the-settings-field-and-outranks-it-so-turso-cannot-be-configured-from-the-ui-at-all--closed-2026-09-25) | ~~A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all~~ | found 2026-09-02 debugging "enabling Turso shows no configuration fields"; URL half shipped `28b517b77`, token half this commit | S | **CLOSED** 2026-09-25 |
-| [§338](#338-useresizable-is-a-no-op-in-every-modal-that-stays-mounted-while-closed--closed-2026-09-26) | `useResizable` is a no-op in every modal that stays mounted while closed | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | M (repo-wide) | **CLOSED** 2026-09-26 |
+| [§338](#338-useresizable-is-a-no-op-in-every-modal-that-stays-mounted-while-closed--closed-2026-09-27) | `useResizable` is a no-op in every modal that stays mounted while closed | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | M (repo-wide) | **CLOSED** 2026-09-27 |
 | [§339](#339-a-rename-can-strand-a-stale-alt-and-the-broken-image-state-then-paints-it--wcag-253--closed-2026-09-14) | A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-14 |
 | [§340](#340-two-tests-in-the-asset-preview-slice-pass-for-the-wrong-reason--closed-2026-09-26) | Two tests in the asset-preview slice pass for the wrong reason | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-26 |
 | [§341](#341-neither-asset-preview-entry-point-has-ever-been-exercised-against-a-real-turso-project--closed-2026-09-02) | ~~Neither asset-preview entry point has ever been exercised against a real Turso project~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-02 (eye-verified against a live Turso project; the entry records what that pass did NOT cover, which is narrower than the title) |
@@ -690,7 +690,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§460](#460-a-create-card-can-preview-meeting-attendees-the-create-then-stores-none-of-because-the-previews-link-guard-runs-on-updates-only--closed-2026-09-11) | A create card can preview meeting attendees the create then stores none of, because the preview's link guard runs on updates only | found 2026-09-11 by cold review of the offered-surface landing: a `plan.ts` comment still described both allow-list creates as unguarded | S — closed by `dfcd96b5`, lifting the `target === "row"` gate on link guards, behind a test (`plan.create-path-guards.test.ts`) driving `[4, "4"]` through card and write; §440's refusal-disclosure half stays open | **CLOSED** 2026-09-11 |
 | [§461](#461-an-absence-stores-an-assignee-email-that-is-not-an-address-where-a-task-refuses-the-same-value-loudly--closed-2026-09-14) | An absence stores an assignee email that is not an address, where a task refuses the same value loudly | found 2026-09-11 by cold review of the offered-surface landing, beside §459's task probe | S-M — decide per field whether an assignee email is format-checked, then guard the writer, not the card | **CLOSED** 2026-09-14 |
 | [§462](#462-there-is-no-linux-installer-and-several-windows-only-assumptions-stand-in-the-way-of-one--open) | There is no Linux installer, and several Windows-only assumptions stand in the way of one | found 2026-09-11 while explaining the CI installer's size gap (the sharp finding in the wine-runner spike) | S-M — a native Linux job with its own artifact and Release link, XDG log paths, a rollout section | open |
-| [§463](#463-export-silently-drops-enabled-sections-and-no-path-exports-calendar-events-knowledge-items-or-insights--closed-2026-09-26) | Export silently drops enabled sections, and no path exports calendar events, knowledge items or insights | found 2026-09-11 by a read-only code check of `main` @ `963a05c5` while triaging the demo-backlog issues #38–#74 (issue #75) | S-M — two object literals, but deciding what each export path should contain (and whether they should be one function) is the work | **CLOSED** 2026-09-26 |
+| [§463](#463-export-silently-drops-enabled-sections-and-no-path-exports-calendar-events-knowledge-items-or-insights--closed-2026-09-27) | Export silently drops enabled sections, and no path exports calendar events, knowledge items or insights | found 2026-09-11 by a read-only code check of `main` @ `963a05c5` while triaging the demo-backlog issues #38–#74 (issue #75) | S-M — two object literals, but deciding what each export path should contain (and whether they should be one function) is the work | **CLOSED** 2026-09-27 |
 | [§464](#464-cpi-means-two-different-numbers-and-two-winloss-hints-are-wrong--closed-2026-09-12) | "CPI" means two different numbers, and two win/loss hints are wrong | found 2026-09-11 by the same read-only code check (issue #76) | S-M — closed by `0a50e600`: the money ratio is renamed `budgetCciRecovery` ("Cost recovery"), so CPI names the EVM hours ratio alone, and both wrong hints were rewritten EN+DE; `winLossHours` is still rendered nowhere | **CLOSED** 2026-09-12 |
 | [§465](#465-non-eur-fixed-price-buckets-every-money-figure-is-inflated-by-the-fx-rate-and-the-margin-is-wrong--closed-2026-09-12) | Non-EUR fixed-price buckets: every money figure is inflated by the FX rate, and the margin is wrong | found 2026-09-11 by the same read-only code check (issue #77, beside issue #42) | M — closed by the `feat/budget-currency-boundary` slice, which put the boundary at the ENGINE (`419937ca` converts at `computeBucketReport`'s single read; four surfaces relabelled EUR; `ResourcePlan.currency` narrowed to a union) | **CLOSED** 2026-09-12 |
 | [§466](#466-help-promises-a-burn-down-forecast-that-the-chart-does-not-draw--closed-2026-09-13) | Help promises a burn-down forecast that the chart does not draw | found 2026-09-11 by the same read-only code check (issue #78) | S — two strings, EN and DE together | **CLOSED** 2026-09-13 |
@@ -25905,9 +25905,9 @@ The only discriminator is whether `evaluate` MINTED a new refusal object or retu
 `use-destructive-save-guard.ts` and having the save effect record on the mint — a change to the guard's
 contract, which is why it was left rather than bodged during a fix round.
 
-## 304. Every export section header is an untranslated raw string, not a display label — CLOSED 2026-09-26
+## 304. Every export section header is an untranslated raw string, not a display label — CLOSED 2026-09-27
 
-**Status:** CLOSED 2026-09-26 on `fix/defect-batch-7` — both halves this entry asked for, in one pass.
+**Status:** CLOSED 2026-09-27 on `fix/defect-batch-7` — both halves this entry asked for, in one pass.
 A new module `export-column-labels.ts` holds a field → `TranslationKey` map per section
 (`EXPORT_COLUMN_LABEL_KEYS`), and `export-sections.ts` carries the FIELD list per section
 (`EXPORT_SECTION_FIELDS`). Every builder, the ten CSV-constant ones and the five hand-written ones
@@ -26951,8 +26951,8 @@ which of those two properties is worth more before writing code.
 ## 320. The HTML and PDF exports tell the reader a policy-refused image's data is gone — CLOSED 2026-09-26
 
 **Status:** CLOSED 2026-09-26 on `fix/defect-batch-7` — both HTML/PDF sites, plus the OOXML half.
-`ExportAssets` gained a fourth bucket, `blocked` (bytes present, stored mime refused by
-`isBlockedAssetMime`; an EMPTY mime is still not refused, §225). `loadExportAssets` takes an
+`ExportAssets` gained a fourth bucket, `blocked` (the stored type is refused, whatever the state of
+the bytes — policy takes precedence over the missing bucket; an EMPTY mime is still not refused, §225). `loadExportAssets` takes an
 `isBlocked` predicate asked AFTER the null-row check and BEFORE `isRenderable` and the budget, so a
 refusal is never charged and never lands in `missing`; `assetPolicy` (`document-download.ts`) passes
 the same predicate to all four formats. Site two: `inlineDocumentImages` (`doc-render-html.ts`) now
@@ -28273,9 +28273,9 @@ Both arms of the original report are closed. Nothing here needed `.env.local` in
   also marks the env token rejected and re-shows the field. The failure is loud and recoverable,
   not silent. Not fixed here.
 
-## 338. `useResizable` is a no-op in every modal that stays mounted while closed — CLOSED 2026-09-26
+## 338. `useResizable` is a no-op in every modal that stays mounted while closed — CLOSED 2026-09-27
 
-**Status:** CLOSED 2026-09-26 on `fix/defect-batch-7`. `useResizable` (`use-resizable.ts`) now takes
+**Status:** CLOSED 2026-09-27 on `fix/defect-batch-7`. `useResizable` (`use-resizable.ts`) now takes
 a `ResizableOptions.open` flag, defaulting `true`, so the 40 call sites that do not pass it keep
 their old behaviour exactly. That is correct only where the element is rendered whenever the hook is
 mounted, and the callers were not audited one by one: the whole-branch review (2026-09-27) found two
@@ -36066,9 +36066,9 @@ What a Linux build would need:
 macOS is deliberately NOT part of this entry: it needs a macOS build host, Apple Developer ID signing
 and notarization, which are a separate problem from anything above.
 
-## 463. Export silently drops enabled sections, and no path exports calendar events, knowledge items or insights — CLOSED 2026-09-26
+## 463. Export silently drops enabled sections, and no path exports calendar events, knowledge items or insights — CLOSED 2026-09-27
 
-**Status:** CLOSED 2026-09-26 on `fix/defect-batch-7`. Both export buttons now build their workspace
+**Status:** CLOSED 2026-09-27 on `fix/defect-batch-7`. Both export buttons now build their workspace
 through one function, `buildExportWorkspace` (`src/app/export-workspace.ts`), carrying all 19
 `EXPORT_WORKSPACE_KEYS` — including `calendarEvents`, `knowledgeItems` and `insights`, the three that
 were dropped everywhere. `action-menus.tsx`'s `ActionMenus` calls
@@ -41905,7 +41905,10 @@ instead of letting the next meta-dirty save delete it.
 This also covers version skew: a stored value that a newer or older build's sanitizer rejects entirely —
 a retired module id, a timezone the device's ICU rejects, an unknown rag — now shows "Saving paused",
 and "Save anyway" clears the pause, where the old path deleted the row on the next meta-dirty save. PARTIAL
-sanitizer loss (some entries survive, others are dropped) stays silent; it is outside this fix.
+sanitizer loss (some entries survive, others are dropped) stays silent; it is outside this fix. That
+silence is total, not just partial, for a slice whose sanitizer always returns a keyed object —
+steering committee, timelog links — because the emptiness check sees only an empty top-level container:
+losing every inner entry still leaves a non-empty container, so none of it is ever reported.
 
 ★★ The rule compares the INPUT with the output (`sanitizedToNothing` in `src/app/meta-slice-decode.ts`),
 not the output alone. A stored `[]`, `{}`, `features: []` (Simple mode) or a status of only blank strings

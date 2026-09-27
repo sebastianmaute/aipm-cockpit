@@ -111,7 +111,8 @@ const DOCUMENT_PAGE_STYLES = `
       opacity: 0.6;
     }
     /* §320 — an image whose type the upload policy refuses. Text, not an
-       empty box: the bytes exist, so "missing" would be false. Palette-safe:
+       empty box: the stored type is refused, whatever the state of the bytes;
+       policy takes precedence over the missing bucket. Palette-safe:
        currentColor only. */
     span[data-asset-blocked] {
       display: inline-block;
@@ -309,10 +310,12 @@ function inlineDocumentImages(
   lang: Lang,
 ): string {
   return html.replace(IMG_TAG_ASSET_ID_RE, (tag, id: string) => {
-    // §320 — refused by TYPE, bytes intact. Checked from the bucket AND the
-    //  stored mime, because `assetSrcAttr` refused a disallowed mime on its
-    //  own and fell through to the missing marker: both sites said "gone".
-    //  The name is escaped here exactly as for `omitted` below.
+    // §320 — the stored type is refused, whatever the state of the bytes;
+    //  policy takes precedence over the missing bucket. Checked from the
+    //  bucket AND the stored mime, because `assetSrcAttr` refused a
+    //  disallowed mime on its own and fell through to the missing marker:
+    //  both sites said "gone". The name is escaped here exactly as for
+    //  `omitted` below.
     if (assets.blocked.has(id) || isBlockedAssetMime(mimeById.get(id))) {
       return `<span data-asset-blocked="true">${htmlEscape(t(lang, "assetExportBlocked", nameById.get(id) ?? id))}</span>`;
     }
