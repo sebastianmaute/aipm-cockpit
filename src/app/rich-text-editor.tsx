@@ -391,9 +391,13 @@ export function RichTextEditor(props: RichTextEditorProps) {
         // `insertContentAt` returns false on a content error (it catches and emits
         // `contentError` instead of throwing). ★ A false command does NOT abort the
         // chain: `run()` dispatches regardless and returns `callbacks.every(cb =>
-        // cb === true)`, so "nothing lands" is a claim about THIS chain only, where
-        // the only other command is `focus` and nothing else touches the
-        // transaction. The wrapper's queue treats this return as "the text landed",
+        // cb === true)`, so "nothing lands" is a claim about THIS chain only. The
+        // other command, `focus`, touches no content but CAN itself return false —
+        // @tiptap/core's focus catches a throwing view.hasFocus() and returns false —
+        // and on that path the insert HAS been dispatched, so the wrapper would
+        // re-queue (and later replay) text that already landed. Not reachable today:
+        // a destroyed editor throws at editor.chain() first (open-followups §197).
+        // The wrapper's queue treats this return as "the text landed",
         // so reporting an unconditional true drops it — the exact silent-loss class
         // the queue exists to close.
         return (
