@@ -1,10 +1,14 @@
 // src/app/calendar-recurrence-labels.ts — the localized words for a recurrence
 // rule, shared by the event editor, the all-series list and the document export.
 //
-// ★ One vocabulary, three surfaces. The editor's own labels (the
-// calendarEventRepeat-, calendarEventInterval- and calendarEventOrdinal-
-// prefixed keys, calendarEventMonthlyDayLabel, and the shiftDay weekday
-// abbreviations) are the only words used, so an export reads exactly as the editor that wrote the rule (§621).
+// ★ One vocabulary, three surfaces. The summary lines below reuse the editor's
+// own labels (the calendarEventRepeat- and calendarEventOrdinal-prefixed keys,
+// calendarEventMonthlyDayLabel and the shiftDay weekday abbreviations), so an
+// export names a rule in the editor's words (§621). The one addition is the
+// calendarEventEveryN- phrases: the editor pairs a number input with a unit
+// label ("week(s)"), which reads as unfinished in a sentence, so an interval
+// above 1 gets a real plural ("Every 2 weeks") instead. The editor never shows
+// a combined line like "Monthly · 2nd Tue"; that shape is the export's.
 //
 // ★★ This is NOT `calendar-recurrence-text.ts`. That module is i18n-free by
 // contract and mirrors `sanitizeRecurrence` for the AI review card; this one
@@ -43,13 +47,20 @@ const REPEAT_KEY: Record<RecurrenceRule["freq"], TranslationKey> = {
   monthly: "calendarEventRepeatMonthly",
 };
 
-/** Frequency and interval only ("Weekly", "Every 2 week(s)"), or "Never" when
+const EVERY_N_KEY: Record<RecurrenceRule["freq"], TranslationKey> = {
+  daily: "calendarEventEveryNDays",
+  weekly: "calendarEventEveryNWeeks",
+  monthly: "calendarEventEveryNMonths",
+};
+
+/** Frequency and interval only ("Weekly", "Every 2 weeks"), or "Never" when
  *  there is no rule. The all-series list shows this; the full rule is one
- *  click away in the editor. */
+ *  click away in the editor. ★ The EveryN phrases are plural-only, which is
+ *  safe because they are reached only for an interval above 1. */
 export function recurrenceFrequencyText(rule: RecurrenceRule | undefined, lang: Lang): string {
   if (!rule) return t(lang, "calendarEventRepeatNever");
   if (rule.interval <= 1) return t(lang, REPEAT_KEY[rule.freq]);
-  return `${t(lang, "calendarEventInterval")} ${rule.interval} ${t(lang, INTERVAL_UNIT_KEY[rule.freq])}`;
+  return t(lang, EVERY_N_KEY[rule.freq], rule.interval);
 }
 
 /** The frequency text plus which days, after " · ": the weekdays of a weekly

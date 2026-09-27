@@ -375,10 +375,10 @@ describe("calendarEvents section", () => {
     const sec = sections.find((s) => s.key === "calendarEvents")!;
     expect(sec.rows.map((r) => r[2])).toEqual([
       "Daily",
-      "Every 2 week(s) · Mon, Wed",
+      "Every 2 weeks · Mon, Wed",
       "Monthly · 2nd Tue",
       "Monthly · Day 15",
-      "Every 3 month(s) · Last Wed",
+      "Every 3 months · Last Wed",
       "Weekly",
     ]);
   });
@@ -393,10 +393,10 @@ describe("calendarEvents section", () => {
       const sec = sections.find((s) => s.key === "calendarEvents")!;
       expect(sec.rows.map((r) => r[2])).toEqual([
         "Täglich",
-        "Alle 2 Woche(n) · Mo., Mi.",
+        "Alle 2 Wochen · Mo., Mi.",
         "Monatlich · 2. Di.",
         "Monatlich · Tag 15",
-        "Alle 3 Monat(e) · Letzter Mi.",
+        "Alle 3 Monate · Letzter Mi.",
         "Wöchentlich",
       ]);
     });
