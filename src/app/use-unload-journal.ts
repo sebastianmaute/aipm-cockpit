@@ -21,7 +21,8 @@
 //   gate and its apply: a journal whose content IS the loaded workspace is cleared
 //   silently (its save landed), else the journal on a base match, else a published
 //   conflict that `restoreConflict` (Restore anyway) or `discardConflict` (Discard)
-//   resolves — each acting only while the key still holds the record the notice describes.
+//   resolves — Restore anyway from an in-memory copy of the record the notice describes,
+//   Discard removing the key only while it still holds that record.
 //
 // See docs/superpowers/specs/2026-09-27-unload-journal-design.md.
 
@@ -92,14 +93,16 @@ export function resolveJournalProjectKey(storageKind: StorageKind, tursoProjectI
 
 type Unconfirmed = { projectKey: string; workspace: Workspace; savedAt: number };
 
-/** The record a conflict notice describes: its key, and the `tabId` + `savedAt` that identify it. */
-type ConflictRecord = { key: string; tabId: string; savedAt: number };
+/** The record a conflict notice describes, kept IN MEMORY as the restore read it: its key, the
+ *  record itself (its `tabId` + `savedAt` identify it) and its decoded workspace. Restore anyway
+ *  applies this copy, so a later write to the key cannot take it away while the notice shows. */
+type ConflictRecord = { key: string; journal: UnloadJournal; workspace: Workspace };
 
-/** The stored journal for `c.key` if it is still the record `c` names, else null — a later write
- *  (this tab's own hidden-tab or pagehide write, or another tab's) is a different record. */
-function readConflictRecord(c: ConflictRecord): UnloadJournal | null {
-  const journal = readUnloadJournal(c.key);
-  return journal !== null && journal.tabId === c.tabId && journal.savedAt === c.savedAt ? journal : null;
+/** True while the key still holds the record `c` names — a later write (this tab's own
+ *  hidden-tab or pagehide write, or another tab's) is a different record. */
+function keyStillHolds(c: ConflictRecord): boolean {
+  const stored = readUnloadJournal(c.key);
+  return stored !== null && stored.tabId === c.journal.tabId && stored.savedAt === c.journal.savedAt;
 }
 
 /** The last confirmed state of `projectKey`. `savedAt` is the confirmed save's
@@ -247,8 +250,7 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
 
   const baseFingerprint = useCallback((): string => baseFingerprintFor(projectKeyRef.current), [baseFingerprintFor]);
 
-  /** The journal the last restore found and could not apply (its base did not match): its key,
-   *  and the `tabId` + `savedAt` that identify the record the notice describes. */
+  /** The journal the last restore found and could not apply (its base did not match) — see `ConflictRecord`. */
   const [conflictRecord, setConflictRecord] = useState<ConflictRecord | null>(null);
 
   /** The restore. `loaded` is what a load that passed every gate returned, `key` the journal key
@@ -279,29 +281,26 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
       setConflictRecord(null);
       return restored;
     }
-    setConflictRecord({ key, tabId: journal.tabId, savedAt: journal.savedAt });
+    setConflictRecord({ key, journal, workspace: restored });
     return null;
   }, []);
 
-  /** Restore anyway: the conflicting journal's workspace, re-tagged per R3 — or null when the
-   *  conflict is not the target in scope, or the key no longer holds the record the notice
-   *  describes (gone, replaced, or not decoding); the notice is dismissed either way. The caller
-   *  applies it and saves it through the normal path. */
+  /** Restore anyway: the in-memory copy of the record the notice describes, whatever the key
+   *  holds now (a later write of this tab may have replaced or cleared it), re-tagged per R3 and
+   *  dismissed. Null only when there is no conflict for the target in scope; the caller reports
+   *  that rather than doing nothing. The caller applies it and saves it through the normal path. */
   const restoreConflict = useCallback((): Workspace | null => {
     if (conflictRecord === null || conflictRecord.key !== projectKeyRef.current) return null;
     setConflictRecord(null);
-    const journal = readConflictRecord(conflictRecord);
-    const restored = journal === null ? null : journalWorkspace(journal);
-    if (journal === null || restored === null) return null;
-    retagToThisTab(journal);
-    return restored;
+    retagToThisTab(conflictRecord.journal);
+    return conflictRecord.workspace;
   }, [conflictRecord]);
 
   /** Discard: removes the conflicting journal, unguarded — the user chose to drop it — but only
-   *  while the key still holds that record; otherwise it only dismisses the notice. */
+   *  while the key still holds that record; either way it drops the in-memory copy and the notice. */
   const discardConflict = useCallback((): void => {
     if (conflictRecord === null) return;
-    if (readConflictRecord(conflictRecord) !== null) clearUnloadJournal(conflictRecord.key);
+    if (keyStillHolds(conflictRecord)) clearUnloadJournal(conflictRecord.key);
     setConflictRecord(null);
   }, [conflictRecord]);
 

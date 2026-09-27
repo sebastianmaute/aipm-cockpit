@@ -4280,6 +4280,7 @@ const enUS = {
   storageKeptCurrentData: "Storage returned no data, so your current project was kept. Reload the page if this persists.",
   // §629 — the unload journal's restore on load (use-unload-journal.ts) and its conflict notice.
   unloadJournalRestored: "Restored unsaved changes from your last session.",
+  unloadJournalRestoreUnavailable: "The unsaved changes from your last session are no longer available to restore.",
   unloadJournalConflict: "Unsaved changes from your last session could not be restored automatically because this project was changed elsewhere since.",
   unloadJournalRestoreAnyway: "Restore anyway",
   unloadJournalDiscard: "Discard",

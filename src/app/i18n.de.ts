@@ -4035,6 +4035,7 @@ export const de: Record<TranslationKey, string> = {
   storageKeptCurrentData: "Der Speicher lieferte keine Daten — Ihr aktuelles Projekt wurde beibehalten. Laden Sie die Seite neu, falls dies weiterhin auftritt.",
   // §629 — the unload journal's restore on load (use-unload-journal.ts) and its conflict notice.
   unloadJournalRestored: "Nicht gespeicherte Änderungen aus der letzten Sitzung wurden wiederhergestellt.",
+  unloadJournalRestoreUnavailable: "Die nicht gespeicherten Änderungen aus der letzten Sitzung sind nicht mehr verfügbar.",
   unloadJournalConflict: "Nicht gespeicherte Änderungen aus der letzten Sitzung konnten nicht automatisch wiederhergestellt werden, weil dieses Projekt inzwischen anderswo geändert wurde.",
   unloadJournalRestoreAnyway: "Trotzdem wiederherstellen",
   unloadJournalDiscard: "Verwerfen",

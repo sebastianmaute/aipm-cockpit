@@ -6,7 +6,7 @@
 //   1. `useStorageBackend` with a fake backend — the spec's Restore branches but "No
 //      journal" (every other storage-hook suite loads without one): match, mismatch
 //      (+ Restore anyway, + Discard), a journal that already landed, each conflict
-//      action once the key holds a different record, each incomplete-load cause, a
+//      action once this tab has overwritten or cleared the key, each incomplete-load cause, a
 //      failed load, an empty-load refusal, another project's journal, and a popout.
 //   2. `useUnloadJournal` on its own — ruling R7 (a held op base nulls the live one).
 import { act, renderHook } from "@testing-library/react";
@@ -278,36 +278,69 @@ describe("§629 — the load effect restores the unload journal", () => {
     expect(backend.save).not.toHaveBeenCalled();
   });
 
-  it.each(["restore", "discard"] as const)("the %s action acts only on the record the notice describes: this tab's later write is untouched and nothing is applied", async (action) => {
+  /** Raises the conflict, then this tab, hidden, saves: `noteSaveStarted` writes its own record
+   *  over the conflicting one. With `confirm`, that save's confirmation then clears the key. Ends
+   *  with a visible edit whose save is not yet due, so an apply would be observable. */
+  async function conflictThenThisTabsWrite(confirm: boolean) {
     seedJournal("changed-elsewhere");
     const backend = makeBackend(100);
     createBackendMock.mockReturnValue(backend);
-    const { result } = render();
+    const hook = render();
     await advance(800);
-    expect(result.current.unloadJournalConflict).toBe(true);
-
-    // This tab, now hidden, saves: `noteSaveStarted` writes its own record over the conflicting one.
+    expect(hook.result.current.unloadJournalConflict).toBe(true);
     Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
     try {
-      act(() => { result.current.setTasks([{ id: 1, taskName: "Stored" }, { id: 3, taskName: "Later" }] as unknown as Task[]); });
+      act(() => { hook.result.current.setTasks([{ id: 1, taskName: "Stored" }, { id: 3, taskName: "Later" }] as unknown as Task[]); });
       await advance(600);
     } finally {
       Reflect.deleteProperty(document, "visibilityState");
     }
     expect(backend.save).toHaveBeenCalledTimes(1);
+    expect(readJournal()).toMatchObject({ tabId: UNLOAD_JOURNAL_TAB_ID }); // the premise: the key now holds a DIFFERENT record
+    if (confirm) {
+      await act(async () => { backend.saves[0].resolve(); });
+      await advance(0);
+      expect(readJournal()).toBeNull(); // the premise: that save's confirmation cleared the key
+    }
     const later = readJournal();
-    expect(later).toMatchObject({ tabId: UNLOAD_JOURNAL_TAB_ID }); // the premise: the key now holds a DIFFERENT record
-    // A visible edit after it (its save not yet due), so applying that record would be observable.
-    act(() => { result.current.setTasks([{ id: 1, taskName: "Stored" }, { id: 3, taskName: "Later" }, { id: 4, taskName: "Live" }] as unknown as Task[]); });
+    act(() => { hook.result.current.setTasks([{ id: 1, taskName: "Stored" }, { id: 3, taskName: "Later" }, { id: 4, taskName: "Live" }] as unknown as Task[]); });
+    return { ...hook, backend, later };
+  }
 
-    await act(async () => {
-      if (action === "restore") result.current.restoreUnloadJournalAnyway();
-      else result.current.discardUnloadJournal();
-    });
+  it("Discard acts only on the record the notice describes: this tab's later write is untouched and nothing is applied", async () => {
+    const { result, later } = await conflictThenThisTabsWrite(false);
+    await act(async () => { result.current.discardUnloadJournal(); });
     expect(result.current.unloadJournalConflict).toBe(false);
     expect(readJournal()).toEqual(later);
     expect(result.current.tasks.map((x) => x.id)).toEqual([1, 3, 4]);
     expect(restoredToast()).toHaveLength(0);
+  });
+
+  it.each([
+    ["overwritten by this tab's later write", false],
+    ["cleared by that write's confirmation", true],
+  ] as const)("Restore anyway still applies and saves the last session's record once the key is %s", async (_label, confirm) => {
+    const { result, backend } = await conflictThenThisTabsWrite(confirm);
+    await act(async () => { result.current.restoreUnloadJournalAnyway(); });
+    expect(result.current.unloadJournalConflict).toBe(false);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1, 2]);
+    expect(restoredToast()).toHaveLength(1);
+    expect(readJournal()).toMatchObject({ tabId: UNLOAD_JOURNAL_TAB_ID, savedAt: EARLIER_SAVED_AT }); // R3
+
+    await advance(600);
+    expect(backend.save).toHaveBeenCalledTimes(2);
+    expect(savedTaskIds(backend, 1)).toEqual([1, 2]);
+  });
+
+  it("Restore anyway with no conflict for the target in scope reports it, rather than doing nothing", async () => {
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const { result } = render();
+    await advance(800);
+    expect(result.current.unloadJournalConflict).toBe(false);
+
+    await act(async () => { result.current.restoreUnloadJournalAnyway(); });
+    expect(showToast.mock.calls.filter((c) => c[1] === t("en-US", "unloadJournalRestoreUnavailable"))).toEqual([["error", t("en-US", "unloadJournalRestoreUnavailable")]]);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
   });
 
   it.each<[string, LoadReport]>([
