@@ -1446,6 +1446,70 @@ describe("TaskRow inline cell editing", () => {
     expect(onInlinePatch).toHaveBeenCalledWith(47, { blockers: "waiting on Y" });
   });
 
+  // ★★★ §622 class — an open inline cell holds its draft in state and commits
+  // on blur/Enter. A window close, reload or navigation runs neither, so a
+  // typed-but-unblurred cell was LOST. `pagehide` commits it; a tab switch must
+  // not (owner rule), and a close with nothing typed must write nothing.
+  describe("pagehide (§622)", () => {
+    const pageHide = () => act(() => { window.dispatchEvent(new Event("pagehide")); });
+    const tabSwitch = () => act(() => {
+      const spy = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+      document.dispatchEvent(new Event("visibilitychange"));
+      spy.mockRestore();
+    });
+
+    test("commits a typed-but-unblurred text cell on pagehide", () => {
+      const onInlinePatch = vi.fn();
+      const task = makeTask({ id: 60, taskName: "Close me", dueDate: "2026-07-01" });
+      const { getByRole, getByLabelText } = renderRow(makeContext({ onInlinePatch }), task);
+      fireEvent.click(getByRole("button", { name: "Due date – Close me" }));
+      fireEvent.change(getByLabelText("Due date – Close me"), { target: { value: "2026-07-20" } });
+      pageHide();
+      expect(onInlinePatch).toHaveBeenCalledTimes(1);
+      expect(onInlinePatch).toHaveBeenCalledWith(60, { dueDate: "2026-07-20" });
+    });
+
+    test("commits a typed-but-unblurred assignee on pagehide", () => {
+      const onInlinePatch = vi.fn();
+      const task = makeTask({ id: 61, taskName: "Close me", assignee: "Alice", assigneeEmail: "a@b.com" });
+      const { getByRole } = renderRow(makeContext({ onInlinePatch }), task);
+      fireEvent.click(getByRole("button", { name: "Assignee – Close me" }));
+      fireEvent.change(getByRole("combobox", { name: "Assignee – Close me" }), { target: { value: "Bob" } });
+      pageHide();
+      expect(onInlinePatch).toHaveBeenCalledTimes(1);
+      expect(onInlinePatch).toHaveBeenCalledWith(61, { assignee: "Bob", assigneeEmail: "a@b.com", resourceId: undefined });
+    });
+
+    test("a tab switch commits neither a typed cell nor a typed assignee", () => {
+      const onInlinePatch = vi.fn();
+      const task = makeTask({ id: 62, taskName: "Stay", dueDate: "2026-07-01", assignee: "Alice" });
+      const { getByRole, getByLabelText } = renderRow(makeContext({ onInlinePatch }), task);
+      fireEvent.click(getByRole("button", { name: "Due date – Stay" }));
+      fireEvent.change(getByLabelText("Due date – Stay"), { target: { value: "2026-07-20" } });
+      tabSwitch();
+      expect(getByLabelText("Due date – Stay")).toHaveValue("2026-07-20"); // still open, draft kept
+      fireEvent.keyDown(getByLabelText("Due date – Stay"), { key: "Escape" });
+      fireEvent.click(getByRole("button", { name: "Assignee – Stay" }));
+      fireEvent.change(getByRole("combobox", { name: "Assignee – Stay" }), { target: { value: "Bob" } });
+      tabSwitch();
+      expect(onInlinePatch).not.toHaveBeenCalled();
+    });
+
+    test("pagehide writes nothing when no cell is open or an open cell is unchanged", () => {
+      const onInlinePatch = vi.fn();
+      const task = makeTask({ id: 63, taskName: "Idle", dueDate: "2026-07-01", assignee: "Alice" });
+      const { getByRole, getByLabelText } = renderRow(makeContext({ onInlinePatch }), task);
+      pageHide();
+      fireEvent.click(getByRole("button", { name: "Due date – Idle" }));
+      pageHide();
+      expect(getByLabelText("Due date – Idle").tagName).toBe("INPUT"); // the unchanged cell was open
+      fireEvent.keyDown(getByLabelText("Due date – Idle"), { key: "Escape" });
+      fireEvent.click(getByRole("button", { name: "Assignee – Idle" }));
+      pageHide();
+      expect(onInlinePatch).not.toHaveBeenCalled();
+    });
+  });
+
   // Replaces "relations cell exposes an edit button that opens the dependency
   // editor popover". That popover wrote through live via `onInlinePatch` and had
   // no draft, so it could not stage a successor link; it is deleted rather than

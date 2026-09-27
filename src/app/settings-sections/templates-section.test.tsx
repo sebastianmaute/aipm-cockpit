@@ -1,10 +1,11 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { TemplatesSection } from "./templates-section";
 import { FiltersProvider } from "../filters-context";
 import { WorkspaceProvider } from "../workspace-context";
 import { t } from "../i18n";
+import { SETTINGS_KEY } from "../use-settings";
 import { expectRowUniqueNames } from "../../test/row-unique-names";
 
 afterEach(() => window.localStorage.clear());
@@ -67,5 +68,51 @@ describe("TemplatesSection", () => {
       roles: ["textbox", "button"],
       requireCollisionSeed: true,
     });
+  });
+});
+
+// ★★★ §622 class — the user-template rename input is uncontrolled and commits
+// only on blur/Enter. A window close, reload or navigation runs neither, so a
+// typed rename was LOST. `pagehide` commits it; a tab switch must not (owner
+// rule), and a close with nothing typed must rename nothing. Asserted on the
+// persisted settings, synchronously after the event — the page is gone after.
+describe("TemplatesSection rename commits via pagehide (§622)", () => {
+  const storedNames = (): string[] =>
+    ((JSON.parse(window.localStorage.getItem(SETTINGS_KEY) ?? "{}") as { templates?: { name: string }[] }).templates ?? [])
+      .map((tpl) => tpl.name);
+  const renameBox = () => screen.getByRole("textbox", { name: new RegExp(`^${t("en-US", "templatesRename")} – `) });
+  async function seedTemplate(name: string) {
+    render(<TemplatesSection lang="en-US" />, { wrapper });
+    fireEvent.change(screen.getByLabelText(t("en-US", "templateSaveName")), { target: { value: name } });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "templateSaveAction") }));
+    await waitFor(() => expect(storedNames()).toEqual([name]));
+  }
+  const pageHide = () => act(() => { window.dispatchEvent(new Event("pagehide")); });
+
+  it("persists a typed-but-unblurred rename on pagehide", async () => {
+    await seedTemplate("Draft");
+    fireEvent.change(renameBox(), { target: { value: "Final" } });
+    pageHide();
+    expect(storedNames()).toEqual(["Final"]);
+  });
+
+  it("persists nothing on a tab switch", async () => {
+    await seedTemplate("Draft");
+    fireEvent.change(renameBox(), { target: { value: "Final" } });
+    act(() => {
+      const spy = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+      document.dispatchEvent(new Event("visibilitychange"));
+      spy.mockRestore();
+    });
+    expect(storedNames()).toEqual(["Draft"]);
+  });
+
+  it("renames nothing on pagehide when unedited or blanked", async () => {
+    await seedTemplate("Draft");
+    const before = window.localStorage.getItem(SETTINGS_KEY);
+    pageHide();
+    fireEvent.change(renameBox(), { target: { value: "   " } });
+    pageHide();
+    expect(window.localStorage.getItem(SETTINGS_KEY)).toBe(before);
   });
 });
