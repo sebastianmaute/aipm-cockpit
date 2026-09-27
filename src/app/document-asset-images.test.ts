@@ -233,6 +233,30 @@ describe("attachAssetImages", () => {
     detach();
   });
 
+  // §633 — the type is asked BEFORE the fetch, so a refused image never costs
+  //  a load or a decode (the export path does the same since §623).
+  it("never loads the bytes of a refused asset", async () => {
+    const el = root('<img data-asset-id="evil"><img data-asset-id="ok">');
+    const load = vi.fn<(id: string) => Promise<string | null>>(async () => "QUJD");
+    const detach = await attachAssetImages(el, load, (id) => (id === "evil" ? "image/svg+xml" : "image/png"));
+    expect(load.mock.calls.map((c) => c[0])).toEqual(["ok"]);
+    expect(el.querySelector('img[data-asset-id="evil"]')?.getAttribute("data-asset-blocked")).toBe("true");
+    expect(el.querySelector('img[data-asset-id="ok"]')?.getAttribute("src")).toMatch(/^blob:/);
+    detach();
+  });
+
+  // §633 — the one case where the preview now differs from the library: a
+  //  refused id whose bytes are also gone is blocked here (the type decides
+  //  first), while the library row shows it dangling. Both are true.
+  it("marks a refused asset with no bytes blocked, not missing", async () => {
+    const el = root('<img data-asset-id="gone-svg">');
+    const detach = await attachAssetImages(el, async () => null, () => "image/svg+xml");
+    const img = el.querySelector("img");
+    expect(img?.getAttribute("data-asset-blocked")).toBe("true");
+    expect(img?.hasAttribute("data-asset-missing")).toBe(false);
+    detach();
+  });
+
   it("keeps a missing-bytes row on the missing marker, not the blocked one", async () => {
     const el = root('<img data-asset-id="gone">');
     const detach = await attachAssetImages(el, async () => null, () => "image/png");

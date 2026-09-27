@@ -39,6 +39,36 @@ export async function attachAssetImages(
 
   await Promise.all(ids.map(async (id) => {
     try {
+      const mime = mimeFor?.(id);
+      // ★★★ THE TEST IS TRUTHY, NOT `mime !== undefined`, AND THE DIFFERENCE
+      // BREAKS WORKING IMAGES. FOUR cases reach this line, not three:
+      //   (a) no `mimeFor` supplied at all      → undefined → fall through
+      //   (b) lookup MISSED (no metadata row)   → undefined → fall through
+      //   (c) lookup hit a DISALLOWED mime      → e.g. image/svg+xml → DECLINE, marked blocked
+      //   (d) lookup hit a row whose mime is "" → fall through
+      // (d) is the one `!== undefined` gets wrong. `sanitizeDocumentAsset`
+      // requires only an `id`; its mime is `sanitizeText(o.mime, …)`, which
+      // returns "" for anything non-string — so a missing, blank or non-string
+      // mime SURVIVES sanitising as "" on every load path, and such an asset
+      // has always rendered by content-sniffing. `isAllowedAssetMime("")` is
+      // false, so `!== undefined` would decline it and stamp the repair marker
+      // on an image that works. Truthy also mirrors the Blob ternary at the
+      // end of this block, so the two lines cannot disagree about what "no
+      // mime" means.
+      // (§223 predicted this consumer: it reads a stored mime and builds a
+      // Blob from it with no allowlist and no cast, so no search for
+      // `ASSET_MIME_ALLOWED` could find it.)
+      // §230 — record WHY, so the apply loop can tell a refused row from a
+      // missing one. The predicate is shared with `asset-library.tsx`; its
+      // truthy spelling is load-bearing (§225) and documented at its definition.
+      // ★★ §633 — ASKED BEFORE THE FETCH, so a refused image costs no load and
+      // no decode (the export path does the same since §623). The price is one
+      // rare disagreement with the library: a refused id whose bytes are ALSO
+      // gone is marked blocked here, while the library row (which checks
+      // `danglingIds` first) shows it dangling and keeps its repair affordance.
+      // Both are true; this function cannot know the bytes are gone without the
+      // very fetch it now skips.
+      if (isBlockedAssetMime(mime)) { blocked.add(id); return; }
       const b64 = await load(id);
       if (!b64) return;
       // ★★★ `safeBase64ToBytes`, NOT the raw `base64ToBytes`, and the CATCH
@@ -57,29 +87,6 @@ export async function attachAssetImages(
       // admits SharedArrayBuffer and so does not satisfy BlobPart on its own
       // (mirrors the same re-wrap in use-document-assets.ts).
       const bytes = new Uint8Array(decoded);
-      const mime = mimeFor?.(id);
-      // ★★★ THE TEST IS TRUTHY, NOT `mime !== undefined`, AND THE DIFFERENCE
-      // BREAKS WORKING IMAGES. FOUR cases reach this line, not three:
-      //   (a) no `mimeFor` supplied at all      → undefined → fall through
-      //   (b) lookup MISSED (no metadata row)   → undefined → fall through
-      //   (c) lookup hit a DISALLOWED mime      → e.g. image/svg+xml → DECLINE, marked blocked
-      //   (d) lookup hit a row whose mime is "" → fall through
-      // (d) is the one `!== undefined` gets wrong. `sanitizeDocumentAsset`
-      // requires only an `id`; its mime is `sanitizeText(o.mime, …)`, which
-      // returns "" for anything non-string — so a missing, blank or non-string
-      // mime SURVIVES sanitising as "" on every load path, and such an asset
-      // has always rendered by content-sniffing. `isAllowedAssetMime("")` is
-      // false, so `!== undefined` would decline it and stamp the repair marker
-      // on an image that works. Truthy also mirrors the ternary immediately
-      // below, so the two lines cannot disagree about what "no mime" means.
-      // (§223 predicted this consumer: it reads a stored mime and builds a
-      // Blob from it with no allowlist and no cast, so no search for
-      // `ASSET_MIME_ALLOWED` could find it.)
-      // §230 — record WHY, so the apply loop can tell a refused row from a
-      // missing one. The predicate is shared with `asset-library.tsx` so the
-      // render and the library row cannot disagree; its truthy spelling is
-      // load-bearing (§225) and documented at its definition.
-      if (isBlockedAssetMime(mime)) { blocked.add(id); return; }
       const blob = mime ? new Blob([bytes], { type: mime }) : new Blob([bytes]);
       urls.set(id, URL.createObjectURL(blob));
     } catch {
