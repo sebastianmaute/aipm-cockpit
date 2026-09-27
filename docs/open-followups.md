@@ -845,7 +845,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§615](#615-tiptaps-deferred-editor-destroy-throws-window-is-not-defined-after-a-test-environment-is-torn-down--open) | TipTap's deferred editor destroy throws window is not defined after a test environment is torn down | scheduled run 35875601416, job `unit-shuffled-random` (unhandled error); GitLab #397 | S — hedged with a global 10 ms `afterAll` flush in `vitest.setup.ts`, unverified against the actual race; close after 4 consecutive clean weekly `unit-shuffled-random` runs | open |
 | [§616](#616-timelog-exposes-no-approvereject-write-so-the-review-front-end-is-read-only-until-someone-probes-for-the-undocumented-one--open) | TimeLog exposes no approve/reject WRITE, so the review front-end is read-only until someone probes for the undocumented one | TL1 spec (2026-08-23), a sweep of TimeLog's 63 documented services; GitLab #391 | S — a devtools probe at a workstation | open |
 | [§617](#617-a-meta-slice-whose-sanitizer-returns-nothing-is-dropped-silently-and-the-next-save-deletes-its-row--closed-2026-09-26) | A meta slice whose sanitizer returns nothing is dropped silently, and the next save deletes its row | split out of §538 on 2026-09-26 (the PR #425 review) | S–M — audit each meta slice's falsy-return path and report it like a throw | **CLOSED** 2026-09-26 |
-| [§618](#618-the-classic-header-overflows-between-lg-and-1390px-so-the-page-scrolls-sideways--open) | The classic header overflows between lg and ~1390px, so the page scrolls sideways | split out of §468 on 2026-09-26 (#425 window-layout probe) | S — let the classic search shrink from lg up with a min width; measure 1024/1100/1390/1600 | open |
+| [§618](#618-the-classic-header-overflows-between-lg-and-1390px-so-the-page-scrolls-sideways--closed-2026-09-27) | The classic header overflows between lg and ~1390px, so the page scrolls sideways | split out of §468 on 2026-09-26 (#425 window-layout probe) | S — let the classic search shrink from lg up with a min width; measure 1024/1100/1390/1600 | **CLOSED** 2026-09-27 |
 | [§619](#619-dashboard-narratives-heading-menu-escape-test-failed-once-in-unit-shuffled--focus-never-reached-the-menu--closed-2026-09-26) | dashboard-narrative's heading-menu Escape test failed once in unit-shuffled — focus never reached the menu | — | — | **CLOSED** 2026-09-26 |
 <!-- INDEX:END -->
 
@@ -41940,16 +41940,34 @@ Size S–M.
 **Source:** §538's closing note ("A `project_meta` row that parses but fails sanitizing is dropped with no
 diagnostic"), and the PR #425 review, which suggested minting it as its own entry.
 
-## 618. The classic header overflows between lg and ~1390px, so the page scrolls sideways — open
+## 618. The classic header overflows between lg and ~1390px, so the page scrolls sideways — CLOSED 2026-09-27
 
-**Status:** open 2026-09-26 — split out of §468 (closed on 2026-09-26 in #425), whose layout fix changed the
+**Status:** CLOSED 2026-09-27 on `fix/defect-batch-7`. The mechanism: `AppHeader`'s left column
+(`app-header.tsx`) now carries `min-w-0`, so the classic search can shrink at all; the search wrapper
+(`shell-chrome.tsx`) keeps its definite `lg:w-96` basis and gains the floor `lg:min-w-56` (224px). The
+trailing row deliberately has NO `min-w-0`: removing it (mutant M2) changed nothing measurable, even in
+the fuller state with the timezone switcher shown and a populated undo stack, because the search wrapper's
+own `min-w-0` already zeroes its automatic minimum — so it would be a no-op, and M2 is equivalent.
+Reproduction needed `expertMode` and AI enabled; the default e2e seed does not overflow. Measured before
+the fix: document scrollWidth 1113 and header scrollWidth 1073 at both 1024 and 1100 — not the 1165/1125
+this entry recorded (the scratch probe's settings were not kept). After: the search is 308px @1024, 353px
+@1100, 384px @1390 and 384px @1600, with no document scroll at any of them. Owner decision 3: the 224px
+floor was enough; no project-switcher width cap was needed. Pinned by `e2e/classic-header-fit.spec.ts`
+(both describes: "classic header fits from lg up (§618)" and "classic header trailing row still fits with
+every sibling present (§618 M2)") and by `top-bar.test.tsx`'s "lets the classic search shrink from its
+24rem basis to a 14rem floor (§618)". Mutants: M1 (drop the left column's `min-w-0`) → Playwright red
+@1024/1100 (docScroll 1113) and the unit test red; M4 (`lg:w-auto lg:min-w-56 lg:basis-96`) → Playwright
+red @1390/1600 (`Expected: 384, Received: 224`); M3 (drop `lg:min-w-56`) is killed ONLY by the unit
+test's class assertion — no measured width reaches the floor, so the floor has no behavioural pin.
+★ Corrected: "Below `lg` (768px)" below was wrong — `lg` is 1024px (768px is `md`). The below-`lg`
+regime stays out of scope, and no new entry is filed for it.
+
+Original status: open 2026-09-26 — split out of §468 (closed on 2026-09-26 in #425), whose layout fix changed the
 modern top bar only and left the classic header as it was. The cause is re-checkable by reading:
 `grep -n "lg:w-96" src/app/shell-chrome.tsx` returns the classic search mount's fixed width. The overflow was
 MEASURED on 2026-09-26 by a scratch Playwright probe (Chromium, e2e seed, classic layout) that was deleted
 after #425 merged, so the numbers below are a dated observation that a command cannot reproduce. They were
 also not re-measured on a pre-#425 commit, though no #425 commit touches the classic header.
-
-**Work item:** #428
 
 In the CLASSIC layout (the `AppHeader` path, not `ModernShell`) the header row does not fit between the
 `lg` breakpoint and about 1390px. The whole page gains a horizontal scrollbar and the rightmost icon is cut
