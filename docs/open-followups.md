@@ -42686,12 +42686,15 @@ Size S.
 `mimeFor?.(id)` and asks `isBlockedAssetMime` at the top of its per-id block, BEFORE `load(id)`, so a
 refused image is marked blocked with no fetch and no decode. One accepted difference from the library:
 a refused id whose bytes are ALSO gone is now blocked in the preview, while the library row (which
-checks `danglingIds` first) shows it dangling with its repair affordance. Both are true, and the
-preview cannot know the bytes are gone without the fetch it now skips; the comment at the check says
-so. `document-asset-images.test.ts` pins that the loader is called only for the allowed id and that a
+checks `danglingIds` first) shows it dangling. Both are true, neither can be repaired by upload (the
+upload path refuses the type), and the preview cannot know the bytes are gone without the fetch it now
+skips; the comment at the check says so. `document-asset-images.test.ts` pins that the loader is called only for the allowed id and that a
 refused id with no bytes is blocked; the existing test keeping an allowed id with no bytes on the
 missing marker is unchanged. `docs/AGENTS/documents.md`'s "consults nothing" paragraph, stale since
-§230, now describes both checks.
+2026-08-23 (`cea043f9a`, which made the preview decline a refused mime), now says the preview declines a refused type (§230) and
+does so before the fetch (§633). The same review found five comments still describing the old order
+or the pre-§230 library, in `asset-object-url.ts`, its test, `globals.css` and
+`document-asset-images.test.ts`; all are corrected.
 
 **Original status:** open 2026-09-27 — found by the final review of the §623 fix (PR #452). Low impact. Verified by
 reading: `grep -n "await load(id)\|safeBase64ToBytes(b64)\|isBlockedAssetMime(mime)" src/app/document-asset-images.ts`

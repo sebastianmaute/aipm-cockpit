@@ -207,8 +207,8 @@ describe("attachAssetImages", () => {
   // for the constant could find, because it never spelled one. A stored row
   // whose mime is outside `ASSET_MIME_ALLOWED` (an `image/svg+xml` written by
   // an older build, a hand-edited JSON workspace, a desynchronised metadata
-  // table) minted a Blob carrying that type verbatim. Declined down the SAME
-  // marker path a missing byte row already uses.
+  // table) minted a Blob carrying that type verbatim. Declined to its own
+  // blocked marker (§230), which shares the missing marker's frame.
   // ★★★ NOT BECAUSE THAT BLOB WOULD RUN SCRIPT — an earlier revision of this
   // comment said "an SVG object URL in an `<img>` is a script-bearing
   // document", which contradicts §223 and §225, both of which state that a
@@ -225,9 +225,9 @@ describe("attachAssetImages", () => {
     const img = el.querySelector("img");
     expect(img?.hasAttribute("src")).toBe(false);
     expect(img?.getAttribute("data-asset-blocked")).toBe("true");
-    // §230 — NOT the missing sink. The bytes are present and intact; the
-    // library shows this row healthy, so telling the reader "missing" was a
-    // contradiction one pane away.
+    // §230 — NOT the missing sink. The bytes are present and intact, and the
+    // library row names this a blocked type, not a dangling one, so telling
+    // the reader "missing" would contradict the pane beside it.
     expect(img?.hasAttribute("data-asset-missing")).toBe(false);
     expect(URL.createObjectURL).not.toHaveBeenCalled();
     detach();

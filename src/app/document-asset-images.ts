@@ -65,9 +65,9 @@ export async function attachAssetImages(
       // no decode (the export path does the same since §623). The price is one
       // rare disagreement with the library: a refused id whose bytes are ALSO
       // gone is marked blocked here, while the library row (which checks
-      // `danglingIds` first) shows it dangling and keeps its repair affordance.
-      // Both are true; this function cannot know the bytes are gone without the
-      // very fetch it now skips.
+      // `danglingIds` first) shows it dangling. Both are true, and neither can
+      // be repaired by upload (the upload path refuses the type); this function
+      // cannot know the bytes are gone without the very fetch it now skips.
       if (isBlockedAssetMime(mime)) { blocked.add(id); return; }
       const b64 = await load(id);
       if (!b64) return;
