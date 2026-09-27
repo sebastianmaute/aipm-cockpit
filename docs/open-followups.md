@@ -847,6 +847,10 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§617](#617-a-meta-slice-whose-sanitizer-returns-nothing-is-dropped-silently-and-the-next-save-deletes-its-row--closed-2026-09-26) | A meta slice whose sanitizer returns nothing is dropped silently, and the next save deletes its row | split out of §538 on 2026-09-26 (the PR #425 review) | S–M — audit each meta slice's falsy-return path and report it like a throw | **CLOSED** 2026-09-26 |
 | [§618](#618-the-classic-header-overflows-between-lg-and-1390px-so-the-page-scrolls-sideways--closed-2026-09-27) | The classic header overflows between lg and ~1390px, so the page scrolls sideways | split out of §468 on 2026-09-26 (#425 window-layout probe) | S — let the classic search shrink from lg up with a min width; measure 1024/1100/1390/1600 | **CLOSED** 2026-09-27 |
 | [§619](#619-dashboard-narratives-heading-menu-escape-test-failed-once-in-unit-shuffled--focus-never-reached-the-menu--closed-2026-09-26) | dashboard-narrative's heading-menu Escape test failed once in unit-shuffled — focus never reached the menu | — | — | **CLOSED** 2026-09-26 |
+| [§620](#620-the-json-file-and-indexeddb-load-paths-drop-a-meta-slice-that-sanitizes-to-nothing-with-no-decode-failure-channel--open) | The JSON-file and IndexedDB load paths drop a meta slice that sanitizes to nothing, with no decode-failure channel | — | — | open |
+| [§621](#621-pdfdocxpptxxlsx-exports-still-print-recurrence-text-and-insight-typeseveritystatus-values-in-english--open) | PDF/DOCX/PPTX/XLSX exports still print recurrence text and insight type/severity/status values in English | — | — | open |
+| [§622](#622-an-ordinary-under-cap-document-paragraph-edit-that-was-never-blurred-is-lost-when-the-window-closes--open) | An ordinary, under-cap document paragraph edit that was never blurred is lost when the window closes | — | — | open |
+| [§623](#623-loadexportassets-loads-the-bytes-of-a-policy-refused-asset-before-discarding-them--open) | `loadExportAssets` loads the bytes of a policy-refused asset before discarding them | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -41926,7 +41930,7 @@ three tests in `meta-slice-decode.test.ts` (the `{"narrative":""}` and `{"a":[nu
 ★ **NOT fixed, and not closed silently: the JSON-file and IndexedDB load paths.** Both drop a
 sanitized-to-nothing slice the same way, but neither has a decode-failure channel or a save pause, so the
 Turso fix does not carry over without building that plumbing. By owner decision (2026-09-26) that half
-gets its own new register entry, filed at the end of this batch, not code here.
+gets its own new register entry, §620, filed at the end of this batch, not code here.
 
 `rowsToWorkspace` (`src/app/turso-schema.ts`) reports a meta-blob slice as unreadable only when its
 `JSON.parse` or its sanitizer THROWS. A sanitizer that returns a falsy value without throwing takes neither
@@ -42033,3 +42037,111 @@ npx vitest run src/app/dashboard-sections/dashboard-narrative.test.tsx --sequenc
 Size S.
 
 **Source:** PR #429's `unit-shuffled` run, 2026-09-26.
+
+## 620. The JSON-file and IndexedDB load paths drop a meta slice that sanitizes to nothing, with no decode-failure channel — open
+
+**Status:** open 2026-09-27 — split out of §617 (closed 2026-09-26 in #427) by owner decision, which fixed
+the Turso load path only. Verified by reading: `jsonToWorkspace` (`src/app/workspace.ts`) assigns each
+sanitized slice (for example `status: sanitizeProjectStatus(p.status)`) the same way `rowsToWorkspace` did
+before §617, and `BrowserBackend.load` (`src/app/browser-backend.ts`) has the identical shape. `grep -rn
+"decodeFailedSlices\|lastDecodeFailures" src/app` returns only `turso-schema.ts` and `turso-backend.ts` —
+neither `workspace.ts` nor `browser-backend.ts` has an equivalent.
+
+**Work item:** #433
+
+A meta slice whose value parses but sanitizes to nothing is dropped silently on both the JSON-file load
+path (`jsonToWorkspace`, `src/app/workspace.ts`) and the IndexedDB load path (`BrowserBackend.load`,
+`src/app/browser-backend.ts`), exactly as it was on the Turso path before §617. Neither backend has a
+decode-failure channel (no `decodeFailedSlices`/`lastDecodeFailures` equivalent) or a Saving-paused /
+Save-anyway pause, so a corrupted or unreadable slice is lost with no diagnostic and no chance for the user
+to intervene.
+
+Closing it means building that plumbing for both backends: a place to record an unreadable slice per load,
+and a way to surface it to the user (or at minimum log a diagnostic) before the next save overwrites the
+stored value. The predicates §617 introduced (`sanitizedToNothing`, `hasDecodedContent` in
+`src/app/meta-slice-decode.ts`) are reusable as-is; what is missing is the reporting/pause channel itself
+for these two backends.
+
+Size M.
+
+**Source:** §617's closing note ("NOT fixed, and not closed silently: the JSON-file and IndexedDB load
+paths … gets its own new register entry, filed at the end of this batch"), and the defect-batch-7 plan's
+Correction 3.
+
+## 621. PDF/DOCX/PPTX/XLSX exports still print recurrence text and insight type/severity/status values in English — open
+
+**Status:** open 2026-09-27 — found while implementing §304 (closed 2026-09-26 in #229), which translated
+export column headers and section titles only. Verified by reading: `grep -n "English-only, i18n-free"
+src/app/export-sections.ts` returns `describeRecurrence`'s own doc comment saying the cell text is not
+translated, and `grep -n "it.type,$" src/app/export-sections.ts` returns `insightsSection`'s raw enum read
+(`it.type`, `it.severity`, `it.status`, no `t()` call).
+
+**Work item:** #434
+
+§304 translated export column headers and section titles, but left CELL TEXT untouched. Two spots still
+print English-only values in a German export: `describeRecurrence` (`src/app/export-sections.ts`), which
+builds a plain-language recurrence summary such as "Every week on MO", and `insightsSection`
+(`src/app/export-sections.ts`), whose rows carry the raw `type`, `severity` and `status` enum values from
+`Insight` with no i18n lookup. Both are reached from `buildExportSections`, so the English text reaches
+every export surface: PDF, DOCX, PPTX, and the CSV/Markdown paths that share the same builders.
+
+What would close it: give each insight enum value (type, severity, status) and the recurrence phrase
+pieces their own i18n keys, the way §304 did for headers and titles, and thread `lang` through
+`describeRecurrence` and `insightsSection`'s row-building.
+
+Size S–M.
+
+**Source:** Task 7's closing comment sweep for §304 (#229), which documents both spots as out of scope and
+noted they "may deserve its own register entry".
+
+## 622. An ordinary, under-cap document paragraph edit that was never blurred is lost when the window closes — open
+
+**Status:** open 2026-09-27 — predates batch 7; found via Task 9's work on §185 (closed 2026-09-27 in
+#174). Verified by reading: `grep -n "flushRefusedOnPageHide\|pageHiding" src/app/debounced-save.ts
+src/app/document-block-editors.tsx` returns the §185 flush mechanism, which is wired only from the tooLong
+refusal path in `tryCommit`, not from an ordinary blur-only commit — an in-progress, under-cap edit that
+never blurs never reaches `scheduleDebouncedSave` (`src/app/debounced-save.ts`) at all.
+
+**Work item:** #435
+
+An ordinary paragraph edit that stays under `MAX_HTML_TEXT_CHARS` (so it never trips the §185 over-cap
+refusal) and was never blurred — for example, the window closes mid-edit, or a pane narrows away without a
+blur — is lost entirely: nothing was committed, so `scheduleDebouncedSave` was never scheduled, and the
+`pageHiding` flush §185 added has nothing to flush.
+
+§185 gave `debounced-save.ts` a module-level `pageHiding` flag, set by a capture-phase `pagehide` listener,
+that forces an already-scheduled save to flush immediately on real unload, plus a `flushRefusedOnPageHide`
+commit in `document-block-editors.tsx` for the refused-over-cap case specifically. That same mechanism
+makes a fix for this entry straightforward: extend the `pagehide` handling to commit any dirty,
+uncommitted paragraph draft on unload, not only a refused over-cap one.
+
+Size S.
+
+**Source:** Task 9's report on §185 (#174), Concern 2: "Other dirty drafts that were never blurred (for
+example, ordinary typing) are still not flushed on unload. That was already true before this change and is
+out of scope."
+
+## 623. `loadExportAssets` loads the bytes of a policy-refused asset before discarding them — open
+
+**Status:** open 2026-09-27 — found while implementing §320 (closed 2026-09-26 in #235). Low impact.
+Verified by reading: `grep -n "b64: await load(id)" src/app/document-export-assets.ts` returns the
+unconditional fetch inside `loadExportAssets`'s `Promise.all`, which runs before the loop below it checks
+`isBlocked`, so an id later routed to the `blocked` bucket (§320) still has its bytes fetched and
+base64-decoded first.
+
+**Work item:** #436
+
+`loadExportAssets` (`src/app/document-export-assets.ts`) fetches every asset's bytes via `load(id)` up
+front, then only afterwards checks `isBlocked(id)` — the §320 predicate, sourced from `isBlockedAssetMime`
+— to route it to the `blocked` bucket. An asset whose stored mime the type policy refuses still costs a
+full network/IO fetch and a base64 decode, for bytes that are immediately discarded. Impact is low: the
+type policy already rejects such assets, so the wasted work is bounded by however many blocked assets a
+document holds.
+
+What would close it: check `isBlocked(id)` before calling `load(id)` (or otherwise avoid paying the
+fetch's cost) so a policy-refused asset never has its bytes loaded.
+
+Size S.
+
+**Source:** Task 8's report on §320 (#235), Concern: "loadExportAssets still loads bytes for blocked ids
+(I/O+memory)" (`progress.md`), deferred as a register-note candidate.
