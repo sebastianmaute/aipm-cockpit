@@ -5,12 +5,12 @@
 // Milestone description).
 //
 // ★★★ NOTHING HERE MAY CALL DOMPURIFY. These functions run inside the entity
-// sanitizers, which execute under bare node in scripts/generate-sample-
-// workspace.ts and the fixture flow. DOMPurify binds its `window` ONCE at
-// module-eval; with no DOM that bind fails, sanitize() throws, and
-// jsonToWorkspace's catch-all silently swallows it into an EMPTY workspace —
-// which then "successfully" writes near-empty sample files. Sanitisation is a
-// SINK concern: RichTextView re-sanitises at render.
+// sanitizers, which are DOM-free BY CONTRACT: scripts import them without a
+// DOM (ai-eval.ts, update-ooxml-manifest.ts), and a DOMPurify call with no DOM
+// throws. NOT because the sample generator lacks a DOM: it, and
+// regen-golden-fixtures.ts, install JSDOM before importing src/app
+// (open-followups §151). Sanitisation is a SINK concern: RichTextView
+// re-sanitises at render.
 //
 // Importing plainToHtml is safe (narrative-html.ts already does): only a CALL
 // to DOMPurify needs a DOM, and plainToHtml deliberately makes none — it
@@ -215,8 +215,9 @@ export const TASK_MARK_UNCHECKED = "[ ] ";
 /** Replaces a task item's opening tag with its state marker.
  *
  *  ★★ DOM-FREE, like everything else in this module — it runs inside the entity
- *  sanitizers' call graph, which executes under bare node in the sample
- *  generator. Regex, not DOMParser.
+ *  sanitizers' call graph, which is DOM-free by contract (see the file header;
+ *  NOT because the sample generator lacks a DOM — open-followups §151). Regex,
+ *  not DOMParser.
  *
  *  ★★★ The markers land in a String.replace REPLACEMENT position, where `` $` ``
  *  and `$&` are special. Both constants above are literal square brackets and an
@@ -334,9 +335,9 @@ const DEGRADE_IMG_CAP = 20;
  *  in the truncation diag.
  *
  *  ★★★ MARKUP-AWARE TRUNCATION IS NOT AN OPTION HERE AND THAT IS STRUCTURAL, not
- *  a preference: this module is DOM-FREE by contract (see the file header — a
- *  DOMPurify call here makes jsonToWorkspace silently produce an EMPTY
- *  workspace under bare node). Anything that has to understand tree structure to
+ *  a preference: this module is DOM-FREE by contract (see the file header — it
+ *  is imported by scripts that install no DOM, where a DOMPurify call throws;
+ *  open-followups §151). Anything that has to understand tree structure to
  *  truncate correctly cannot live in this file. Carrying the images across a
  *  flatten is the most that can be done without a DOM.
  *

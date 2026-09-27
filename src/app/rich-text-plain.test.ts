@@ -457,9 +457,12 @@ describe("sanitizeRichText", () => {
   });
 });
 
-// ★★ Guard: this module runs inside the entity sanitizers, which execute under
-// bare node in the sample/fixture scripts. A DOMPurify CALL there throws, and
-// jsonToWorkspace's catch-all turns that into an EMPTY workspace.
+// ★★ Guard: this module runs inside the entity sanitizers, which are DOM-free BY
+// CONTRACT — scripts import them with no DOM installed (ai-eval.ts,
+// update-ooxml-manifest.ts), and a DOMPurify CALL there throws. NOT because the
+// sample/fixture scripts lack a DOM: generate-sample-workspace.ts and
+// regen-golden-fixtures.ts both install JSDOM before importing src/app
+// (open-followups §151). The rule stands; only its old rationale was false.
 //
 // ★ Comments are STRIPPED before the scan (the strip-then-ban shape the palette
 // guards use), so the module can name the landmine explicitly in prose while its
@@ -547,9 +550,11 @@ describe("DOM-free guard", () => {
   // fact references `window` throughout — it is safe only because every
   // reference is GUARDED, and the guard is what has to hold, not the absence of
   // a DOMPurify call. A future edit dropping the `typeof window` check would
-  // sail past the scan above and make `jsonToWorkspace` throw under bare node,
-  // which is precisely the failure the allowlist exists to prevent (and which
-  // `scripts/generate-sample-workspace.ts` would hit first).
+  // sail past the scan above and throw on IMPORT in any script that loads the
+  // entity sanitizers with no DOM installed (`scripts/ai-eval.ts`,
+  // `scripts/update-ooxml-manifest.ts`), which is precisely the failure the
+  // allowlist exists to prevent. (NOT the sample generator: it installs JSDOM
+  // first — open-followups §151.)
   //
   // ★★ `document-asset-patterns.ts` is pinned at ZERO imports rather than
   // scanned, because that is the property that makes it safe: a leaf cannot
@@ -612,10 +617,11 @@ describe("DOM-free guard", () => {
 
   it("keeps rich-text-projection out of every DOM-free reach", () => {
     // ★ Nothing guarded this direction at all. rich-text-projection calls
-    // DOMPurify, so a codec, an entity sanitizer or anything under scripts/
-    // importing it would throw under bare node — where jsonToWorkspace's
-    // catch-all converts the throw into an EMPTY workspace that then
-    // "successfully" writes near-empty sample files.
+    // DOMPurify, so a codec or an entity sanitizer importing it breaks their
+    // DOM-free CONTRACT, and a script that loads them with no DOM installed
+    // (`scripts/ai-eval.ts`, `scripts/update-ooxml-manifest.ts`) would throw on
+    // the call. NOT the sample generator: it and regen-golden-fixtures.ts
+    // install JSDOM first (open-followups §151).
     //
     // ★★ rich-text-plain.ts and narrative-html.ts are IN this set. They are the
     // two DOM-free modules inside this file's own dependency graph, so a reach
@@ -701,9 +707,10 @@ describe("DOM-free guard", () => {
           .replace(/\/\/.*$/gm, "");
         // ★★ BOTH DOMPurify-calling modules, not just rich-text-projection.
         // `ai-rich-text.ts` (added in 0.210.0) calls DOMPurify too, so importing
-        // it from a sanitizer/codec/script reproduces the exact bare-node throw →
-        // jsonToWorkspace catch-all → EMPTY workspace → near-empty sample files
-        // failure this guard exists to prevent. A guard naming one module by hand
+        // it from a sanitizer/codec breaks the same DOM-free contract, and throws
+        // in any script that loads that graph with no DOM installed (ai-eval.ts,
+        // update-ooxml-manifest.ts — NOT the sample generator, which installs
+        // JSDOM first; open-followups §151). A guard naming one module by hand
         // goes stale the moment a second one appears; if you add a third, add it
         // here in the same commit.
         // ★ Any quote style, any extension, static or dynamic — see the pin above.
@@ -1154,8 +1161,9 @@ describe("degradeToPlain", () => {
 });
 
 // ★★ The degrade is REPORTED, not silent. logDiag is a no-op when `window` is
-// undefined, which is what makes it legal in this DOM-free module — the sample
-// generator runs here under bare node and must not throw.
+// undefined, which is what makes it legal in this DOM-free module — scripts that
+// load it with no DOM (ai-eval.ts, update-ooxml-manifest.ts) must not throw. (The
+// sample generator is NOT one of them: it installs JSDOM first — §151.)
 //
 // ★★★ THE `not.toThrow()` ASSERTION BELOW WAS ONCE THE ONLY ONE HERE, AND IT
 // PINNED NOTHING ABOUT THE REPORT. Every one of these mutants shipped green

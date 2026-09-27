@@ -184,8 +184,10 @@ export function sanitizeSeedTask(raw: unknown): Task | null {
     // Measured 2026-08-28: the generator installs JSDOM globals BEFORE its
     // dynamic `await import("../src/app/storage")`, so a DOMPurify call
     // downstream has a DOM; and sanitize-html.ts — which imports dompurify — is
-    // ALREADY in that 92-file graph, via html-start.ts and again via
-    // note-log.ts. Neither leg survives. See open-followups.md §151.
+    // ALREADY in the generator's import graph, via html-start.ts and again via
+    // note-log.ts. Neither leg survives. See open-followups.md §151, whose
+    // resolver command prints the graph's current size (it moves on any import
+    // edit, so no count is quoted here).
     // ★★ The allow-list DOES run, just not here: `template-apply.ts` is outside
     // the graph and allow-lists every rich field on all three note-log entities
     // at apply time (§36(a)). Do not read this DOM-free posture as "the seed is
