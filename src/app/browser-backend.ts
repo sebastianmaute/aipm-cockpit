@@ -10,6 +10,7 @@ import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import { sanitizeProjectDocumentsWithDiag, type DocTruncationDiag } from "./document-model";
+import { sanitizedToNothing } from "./meta-slice-decode";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersionsWithDiag } from "./document-versions";
 import { sanitizeDocumentAsset, type DocumentAsset } from "./document-asset";
@@ -131,15 +132,31 @@ export class BrowserBackend implements StorageBackend {
 
   /** What the most recent load() discarded to stay inside the document caps. */
   lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
+  /** §620 — meta slices the last load decoded to NOTHING (see `jsonToWorkspace`).
+   *  Read by `truncationOps.reportFor`, which pauses saving. Reset and published
+   *  exactly like `lastLoadTruncation`, for the same stale-value reason. */
+  lastDecodeFailures: readonly string[] = [];
 
   async load(): Promise<Workspace> {
     // Reset BEFORE any early return. A path that exits without publishing would
     // leave the PREVIOUS load's counts standing — worse than zero, because the
     // consumer would then warn about data loss on a workspace that is fine.
     this.lastLoadTruncation = { entries: 0, blocks: 0 };
+    this.lastDecodeFailures = [];
     if (typeof window === "undefined") return emptyWorkspace();
 
     const diag: DocTruncationDiag = {};
+    // §620 — same accumulator and rule as `jsonToWorkspace` (see
+    // `meta-slice-decode.ts`'s `sanitizedToNothing`): a stored slice that
+    // carried content and sanitized to nothing is dropped in silence and the
+    // next save writes the file/DB without it. This backend reads each slice
+    // independently (no single `jsonToWorkspace` call to record it centrally),
+    // so it duplicates that decoder's local helper here, bound to this `diag`.
+    const noteIfDropped = (key: string, rawValue: unknown, sanitized: unknown): void => {
+      if (sanitizedToNothing(rawValue, sanitized)) {
+        (diag.decodeFailedSlices ??= []).push(key);
+      }
+    };
     let tasks: readonly Task[] = [];
     let raid: readonly RaidItem[] = [];
     let absences: Absence[] = [];
@@ -269,31 +286,40 @@ export class BrowserBackend implements StorageBackend {
       changes = idbChanges ?? [];
       stakeholders = idbStakeholders ?? [];
       project = sanitizeLoadedProjectMeta(idbProject) ?? undefined;
+      noteIfDropped("project", idbProject, project);
       // Optional singletons: junk/empty fieldVisibility sanitizes to undefined.
       fieldVisibility = sanitizeFieldVisibility(idbFieldVisibility);
+      noteIfDropped("fieldVisibility", idbFieldVisibility, fieldVisibility);
       // Present-check: absent ⇒ undefined (no override); an explicit [] (Simple)
       // is preserved rather than expanded to all modules by sanitizeFeatures(undefined).
-      features =
-        idbFeatures !== undefined && idbFeatures !== null
-          ? sanitizeFeatures(idbFeatures)
-          : undefined;
+      if (idbFeatures !== undefined && idbFeatures !== null) {
+        features = sanitizeFeatures(idbFeatures);
+        noteIfDropped("features", idbFeatures, features);
+      } else {
+        features = undefined;
+      }
       // Optional singleton: junk/empty committee sanitizes to undefined.
       steeringCommittee = sanitizeSteeringCommittee(idbSteeringCommittee);
+      noteIfDropped("steeringCommittee", idbSteeringCommittee, steeringCommittee);
       // Optional singleton: junk/empty links sanitize to undefined.
       timelogLinks = sanitizeTimelogLinks(idbTimelogLinks);
+      noteIfDropped("timelogLinks", idbTimelogLinks, timelogLinks);
       // Optional list: junk/empty knowledge items sanitize to [] → keep undefined.
       {
         const ki = sanitizeKnowledgeItems(idbKnowledgeItems);
+        noteIfDropped("knowledgeItems", idbKnowledgeItems, ki);
         knowledgeItems = ki.length ? ki : undefined;
       }
       // Optional list: junk/empty insights sanitize to [] → keep undefined.
       {
         const ins = sanitizeInsights(idbInsights);
+        noteIfDropped("insights", idbInsights, ins);
         insights = ins.length ? ins : undefined;
       }
       // Optional singleton: junk/empty overrides sanitize to {} → keep undefined.
       {
         const so = sanitizeSettingsOverrides(idbSettingsOverrides);
+        noteIfDropped("settingsOverrides", idbSettingsOverrides, hasAnyOverride(so) ? so : undefined);
         settingsOverrides = hasAnyOverride(so) ? so : undefined;
       }
       // Optional list: garbage rows dropped individually (sanitizeLoadedCalendarEvent
@@ -312,6 +338,7 @@ export class BrowserBackend implements StorageBackend {
       // through to the render sink.
       {
         const docs = sanitizeProjectDocumentsWithDiag(idbDocuments, diag).map(sanitizeDocumentRichFields);
+        noteIfDropped("documents", idbDocuments, docs);
         documents = docs.length ? docs : undefined;
       }
       // Optional list: junk/empty versions sanitize to [] → keep undefined.
@@ -331,17 +358,20 @@ export class BrowserBackend implements StorageBackend {
             updatedAt: v.savedAt,
           }).blocks,
         }));
+        noteIfDropped("documentVersions", idbDocumentVersions, versions);
         documentVersions = versions.length ? versions : undefined;
       }
       // Optional list: junk/empty entries sanitize to [] → keep undefined, so a
       // cleared log reads as absent rather than as an empty array.
       {
         const log = sanitizeActivityLog(idbActivityLog);
+        noteIfDropped("activityLog", idbActivityLog, log);
         activityLog = log.length ? log : undefined;
       }
       // Same optional-list shape for the budget history (never capped).
       {
         const history = sanitizeBudgetHistory(idbBudgetHistory);
+        noteIfDropped("budgetHistory", idbBudgetHistory, history);
         budgetHistory = history.length ? history : undefined;
       }
       // Optional list: garbage rows dropped individually (sanitizeDocumentAsset
@@ -438,6 +468,7 @@ export class BrowserBackend implements StorageBackend {
       entries: diag.truncatedEntries ?? 0,
       blocks: diag.truncatedBlocks ?? 0,
     };
+    this.lastDecodeFailures = diag.decodeFailedSlices ?? [];
     return ws;
   }
 

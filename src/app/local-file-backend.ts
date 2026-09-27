@@ -56,6 +56,10 @@ export class LocalFileBackend implements StorageBackend {
   lastImportMalformedQuotes = 0;
   /** What the most recent load() discarded to stay inside the document caps. */
   lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
+  /** §620 — meta slices the last load decoded to NOTHING (see `jsonToWorkspace`).
+   *  Read by `truncationOps.reportFor`, which pauses saving. Reset and published
+   *  exactly like `lastLoadTruncation`, for the same stale-value reason. */
+  lastDecodeFailures: readonly string[] = [];
   private readonly idbKey: string;
   private readonly format: FilePickType;
 
@@ -269,6 +273,7 @@ export class LocalFileBackend implements StorageBackend {
         entries: diag.truncatedEntries ?? 0,
         blocks: diag.truncatedBlocks ?? 0,
       };
+      this.lastDecodeFailures = diag.decodeFailedSlices ?? [];
     }
   }
 
@@ -276,13 +281,15 @@ export class LocalFileBackend implements StorageBackend {
    * Zero every field the two load-diagnostic mechanisms publish.
    *
    * ★★★ EXTRACTED SO THE ONE EXIT ABOVE `loadFrom` CAN RUN IT TOO. These four
-   * import flags plus `lastLoadTruncation` are read by `truncationOps.reportFor`
-   * to decide whether a load lost rows; a stale value is WORSE than a zero,
-   * because it raises a data-loss warning about a file that is fine. `loadFrom`
-   * calls this above its first possible exit, and `load()` calls it when handle
-   * lookup rejects before `loadFrom` is even entered.
-   * ★★ Zeroing `lastLoadTruncation` here is harmless on the `loadFrom` path — its
-   * `finally` overwrites the field on every exit, including the throwing ones.
+   * import flags plus `lastLoadTruncation` and `lastDecodeFailures` are read by
+   * `truncationOps.reportFor` to decide whether a load lost rows; a stale value
+   * is WORSE than a zero, because it raises a data-loss warning about a file
+   * that is fine. `loadFrom` calls this above its first possible exit, and
+   * `load()` calls it when handle lookup rejects before `loadFrom` is even
+   * entered.
+   * ★★ Zeroing `lastLoadTruncation`/`lastDecodeFailures` here is harmless on the
+   * `loadFrom` path — its `finally` overwrites both fields on every exit,
+   * including the throwing ones.
    */
   private resetLoadDiagnostics(): void {
     this.lastImportDroppedRows = 0;
@@ -290,6 +297,7 @@ export class LocalFileBackend implements StorageBackend {
     this.lastImportUnterminatedQuote = false;
     this.lastImportMalformedQuotes = 0;
     this.lastLoadTruncation = { entries: 0, blocks: 0 };
+    this.lastDecodeFailures = [];
   }
 
   async load(): Promise<Workspace> {

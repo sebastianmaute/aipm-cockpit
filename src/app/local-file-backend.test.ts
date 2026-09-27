@@ -229,6 +229,41 @@ describe("LocalFileBackend load() import diagnostics", () => {
   });
 });
 
+// §620 — a stored meta slice that PARSES but SANITIZES TO NOTHING (junk
+// `steeringCommittee`, per Task 4's `sanitizedToNothing`) used to be dropped
+// silently on a JSON load; the next save then wrote the file without it.
+// `jsonToWorkspace` records the JSON key into `diag.decodeFailedSlices`
+// (workspace.test.ts pins the decoder itself); this backend's job is only to
+// PUBLISH what `loadFrom`'s `diag` collected, exactly like `lastLoadTruncation`.
+describe("LocalFileBackend load() §620 decode failures (JSON)", () => {
+  beforeEach(() => {
+    kv.clear();
+    idbGetError.current = null;
+  });
+
+  it("publishes the slice a JSON load could not decode", async () => {
+    const be = new LocalFileBackend("local-json");
+    await be.setHandle(
+      fakeHandle({ text: JSON.stringify({ tasks: [], raid: [], steeringCommittee: "not-an-object" }) }),
+    );
+    await be.load();
+    expect(be.lastDecodeFailures).toEqual(["steeringCommittee"]);
+  });
+
+  it("clears the flag on the next clean load — proves the reset, not just the set", async () => {
+    const be = new LocalFileBackend("local-json");
+    await be.setHandle(
+      fakeHandle({ text: JSON.stringify({ tasks: [], raid: [], steeringCommittee: "not-an-object" }) }),
+    );
+    await be.load();
+    expect(be.lastDecodeFailures).toEqual(["steeringCommittee"]); // the state this test needs to exist
+
+    await be.setHandle(fakeHandle({ text: JSON.stringify({ tasks: [], raid: [] }) }));
+    await be.load();
+    expect(be.lastDecodeFailures).toEqual([]);
+  });
+});
+
 // ★★★ THE ONLY THING STANDING BETWEEN §287 AND A SILENT REGRESSION. The fix moved
 // the handle commit OUT of `openFile()` and into the caller's accept branch, but the
 // hook-level tests covering that branch mock `./storage` wholesale — so they assert that
@@ -335,6 +370,25 @@ describe("LocalFileBackend.load resets diagnostics when the handle store rejects
     await expect(be.load()).rejects.toThrow("indexedDB unavailable");
 
     expect(be.lastLoadTruncation).toEqual({ entries: 0, blocks: 0 });
+  });
+
+  it("clears decode failures too (§620) — its own mechanism, same placement as the import flags", async () => {
+    // ★★ Its own it(), like `lastLoadTruncation` above: `lastDecodeFailures` is
+    // published by `loadFrom`'s `finally` on a normal exit, but reset directly
+    // in `load()`'s catch when the handle lookup itself rejects (before
+    // `loadFrom` is ever entered) — a THIRD site, not covered by proving the
+    // other two reset.
+    const be = new LocalFileBackend("local-json");
+    await be.setHandle(
+      fakeHandle({ text: JSON.stringify({ tasks: [], raid: [], steeringCommittee: "not-an-object" }) }),
+    );
+    await be.load();
+    expect(be.lastDecodeFailures).toEqual(["steeringCommittee"]); // the state this test needs to exist
+
+    idbGetError.current = new Error("indexedDB unavailable");
+    await expect(be.load()).rejects.toThrow("indexedDB unavailable");
+
+    expect(be.lastDecodeFailures).toEqual([]);
   });
 
   it("rethrows the original error rather than masking it", async () => {

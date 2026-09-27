@@ -389,6 +389,33 @@ describe("BrowserBackend parallel IDB save/load", () => {
     expect((loaded.budgetHistory ?? []).map((e) => e.id)).toEqual([hist[1].id]);
   });
 
+  // §620 — a stored meta slice that PARSES but SANITIZES TO NOTHING (junk
+  // `steeringCommittee`, per Task 4's `sanitizedToNothing`) used to be dropped
+  // silently on load, and the next save wrote IDB without it. Unlike the JSON
+  // backend (`jsonToWorkspace` records it centrally), this backend reads each
+  // KV slot independently, so it needs its own `noteIfDropped` calls.
+  describe("§620 decode failures over IndexedDB", () => {
+    it("publishes a slice the load could not decode", async () => {
+      await idbSet("steeringCommittee", "not-an-object");
+      const loaded = await new BrowserBackend().load();
+      expect(loaded.steeringCommittee).toBeUndefined(); // control: it really sanitized to nothing
+      const backend = new BrowserBackend();
+      await backend.load();
+      expect(backend.lastDecodeFailures).toEqual(["steeringCommittee"]);
+    });
+
+    it("clears the flag on the next clean load — proves the reset, not just the set", async () => {
+      await idbSet("steeringCommittee", "not-an-object");
+      const backend = new BrowserBackend();
+      await backend.load();
+      expect(backend.lastDecodeFailures).toEqual(["steeringCommittee"]); // the state this test needs to exist
+
+      await idbSet("steeringCommittee", null);
+      await backend.load();
+      expect(backend.lastDecodeFailures).toEqual([]);
+    });
+  });
+
   it("second save of an unchanged workspace emits empty deltas (baselines advanced)", async () => {
     const backend = new BrowserBackend();
     const ws = { ...emptyWorkspace(), tasks: [task], raid: [raidItem] };

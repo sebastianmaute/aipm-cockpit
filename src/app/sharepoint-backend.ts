@@ -50,6 +50,10 @@ export class SharePointBackend implements StorageBackend {
   lastImportMalformedQuotes = 0;
   /** What the most recent load() discarded to stay inside the document caps. */
   lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
+  /** §620 — meta slices the last load decoded to NOTHING (see `jsonToWorkspace`).
+   *  Read by `truncationOps.reportFor`, which pauses saving. Reset and published
+   *  exactly like `lastLoadTruncation`, for the same stale-value reason. */
+  lastDecodeFailures: readonly string[] = [];
   private location: SpFileLocation;
   private acquireToken: (
     scopes: readonly string[],
@@ -104,19 +108,21 @@ export class SharePointBackend implements StorageBackend {
     // is fine.
     //
     // ★★★ TWO MECHANISMS, NOT ONE, AND THE `finally` IS NOT THE GENERAL ONE.
-    // It publishes `lastLoadTruncation` only. The two import flags are reset
-    // HERE instead, BEFORE the first exit can be taken, because that is the
-    // one placement the 404 short-circuit cannot skip: they used to sit below
-    // it, so a CSV load that hit an unterminated quote, followed by a load of
-    // a file that had since been DELETED, re-published the stale `true` and
-    // told the user a file that no longer exists has an unclosed quotation
-    // mark. Anything added here that can return or throw must leave both
-    // mechanisms intact — a new early return is the exact shape that broke it.
+    // It publishes `lastLoadTruncation` and (since §620) `lastDecodeFailures`
+    // only. The two import flags are reset HERE instead, BEFORE the first exit
+    // can be taken, because that is the one placement the 404 short-circuit
+    // cannot skip: they used to sit below it, so a CSV load that hit an
+    // unterminated quote, followed by a load of a file that had since been
+    // DELETED, re-published the stale `true` and told the user a file that no
+    // longer exists has an unclosed quotation mark. Anything added here that
+    // can return or throw must leave both mechanisms intact — a new early
+    // return is the exact shape that broke it.
     const diag: ImportDiag = { droppedRows: 0 };
     this.lastImportDroppedRows = 0;
     this.lastImportDroppedBySection = undefined;
     this.lastImportUnterminatedQuote = false;
     this.lastImportMalformedQuotes = 0;
+    this.lastDecodeFailures = [];
     try {
       const token = await this.getToken();
       // ★★ §548 — BOUNDED, like Turso's load: the app is held behind a skeleton until this load settles,
@@ -168,6 +174,7 @@ export class SharePointBackend implements StorageBackend {
         entries: diag.truncatedEntries ?? 0,
         blocks: diag.truncatedBlocks ?? 0,
       };
+      this.lastDecodeFailures = diag.decodeFailedSlices ?? [];
     }
   }
 
