@@ -1531,8 +1531,10 @@ here.
 does NOT enforce `ASSET_MIME_ALLOWED` on load, so each consumer restates the allowlist check by
 hand — seven copies of `(ASSET_MIME_ALLOWED as readonly string[]).includes(...)` today — and a
 consumer that forgets gets no signal from any gate. ★★★ **ONE ALREADY HAS**: `document-preview.tsx`
-hands the raw stored mime to `attachAssetImages`, which types its Blob with it and consults
-nothing — and because it never names the constant, no grep for the constant can find it. §223
+handed the raw stored mime to `attachAssetImages`, which typed its Blob with it and consulted
+nothing — and because it never named the constant, no grep for the constant could find it. It now
+declines a refused mime through `isBlockedAssetMime` (§230), and asks before fetching the bytes
+(§633), so a refused image costs the preview no load. §223
 carries the four kinds of use, the mime-reader sweep that DOES find it, and the argument against
 narrowing the storage layer; do NOT close it there.
 

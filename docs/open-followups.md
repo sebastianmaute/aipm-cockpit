@@ -854,7 +854,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§624](#624-ai-evalts-and-update-ooxml-manifestts-import-the-dom-free-sanitizer-graph-with-no-dom-and-nothing-proves-they-never-reach-a-dompurify-call--open) | `ai-eval.ts` and `update-ooxml-manifest.ts` import the DOM-free sanitizer graph with no DOM, and nothing proves they never reach a DOMPurify call | — | — | open |
 | [§628](#628-the-undo-stack-survives-a-project-switch-so-an-undo-writes-the-previous-projects-rows-into-the-current-one--closed-2026-09-27) | The undo stack survives a project switch, so an undo writes the previous project's rows into the current one | — | — | **CLOSED** 2026-09-27 |
 | [§631](#631-the-desktop-shell-reuses-a-leftover-server-without-checking-its-version-so-an-orphan-could-serve-an-old-build-after-an-update--open) | The desktop shell reuses a leftover server without checking its version, so an orphan could serve an old build after an update | — | — | open |
-| [§633](#633-the-document-preview-fetches-and-decodes-a-policy-refused-images-bytes-before-declining-it--open) | The document preview fetches and decodes a policy-refused image's bytes before declining it | — | — | open |
+| [§633](#633-the-document-preview-fetches-and-decodes-a-policy-refused-images-bytes-before-declining-it--closed-2026-09-27) | The document preview fetches and decodes a policy-refused image's bytes before declining it | — | — | **CLOSED** 2026-09-27 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -42680,13 +42680,22 @@ Size S.
 **Source:** the desktop server-lifecycle verdict in the docs-coverage slice, which checked the
 `before-quit` comment in `desktop/src/main.ts` against `classifyPortOwner`, `probePort` and `start()`.
 
-## 633. The document preview fetches and decodes a policy-refused image's bytes before declining it — open
+## 633. The document preview fetches and decodes a policy-refused image's bytes before declining it — CLOSED 2026-09-27
 
-**Status:** open 2026-09-27 — found by the final review of the §623 fix (PR #452). Low impact. Verified by
+**Status:** CLOSED 2026-09-27 on `fix/preview-blocked-fetch`. `attachAssetImages` now reads
+`mimeFor?.(id)` and asks `isBlockedAssetMime` at the top of its per-id block, BEFORE `load(id)`, so a
+refused image is marked blocked with no fetch and no decode. One accepted difference from the library:
+a refused id whose bytes are ALSO gone is now blocked in the preview, while the library row (which
+checks `danglingIds` first) shows it dangling with its repair affordance. Both are true, and the
+preview cannot know the bytes are gone without the fetch it now skips; the comment at the check says
+so. `document-asset-images.test.ts` pins that the loader is called only for the allowed id and that a
+refused id with no bytes is blocked; the existing test keeping an allowed id with no bytes on the
+missing marker is unchanged. `docs/AGENTS/documents.md`'s "consults nothing" paragraph, stale since
+§230, now describes both checks.
+
+**Original status:** open 2026-09-27 — found by the final review of the §623 fix (PR #452). Low impact. Verified by
 reading: `grep -n "await load(id)\|safeBase64ToBytes(b64)\|isBlockedAssetMime(mime)" src/app/document-asset-images.ts`
 returns the load and the decode inside `attachAssetImages`'s `Promise.all`, both ahead of the type check.
-
-**Work item:** #454
 
 `attachAssetImages` (`src/app/document-asset-images.ts`), which puts images into the in-app document
 preview, loads every referenced asset's bytes with `load(id)`, decodes them with `safeBase64ToBytes`, and
