@@ -4036,6 +4036,7 @@ export const de: Record<TranslationKey, string> = {
   // §629 — the unload journal's restore on load (use-unload-journal.ts) and its conflict notice.
   unloadJournalRestored: "Nicht gespeicherte Änderungen aus der letzten Sitzung wurden wiederhergestellt.",
   unloadJournalRestoreUnavailable: "Die nicht gespeicherten Änderungen aus der letzten Sitzung sind nicht mehr verfügbar.",
+  unloadJournalRestoreBlocked: "Das Speichern ist pausiert, daher können die nicht gespeicherten Änderungen aus Ihrer letzten Sitzung gerade nicht wiederhergestellt werden. Der Hinweis bleibt bestehen, damit Sie es erneut versuchen können.",
   unloadJournalConflict: "Nicht gespeicherte Änderungen aus der letzten Sitzung konnten nicht automatisch wiederhergestellt werden, weil dieses Projekt inzwischen anderswo geändert wurde.",
   unloadJournalRestoreAnyway: "Trotzdem wiederherstellen",
   unloadJournalDiscard: "Verwerfen",

@@ -4281,6 +4281,7 @@ const enUS = {
   // §629 — the unload journal's restore on load (use-unload-journal.ts) and its conflict notice.
   unloadJournalRestored: "Restored unsaved changes from your last session.",
   unloadJournalRestoreUnavailable: "The unsaved changes from your last session are no longer available to restore.",
+  unloadJournalRestoreBlocked: "Saving is paused, so the unsaved changes from your last session can't be restored right now. The notice stays so you can try again.",
   unloadJournalConflict: "Unsaved changes from your last session could not be restored automatically because this project was changed elsewhere since.",
   unloadJournalRestoreAnyway: "Restore anyway",
   unloadJournalDiscard: "Discard",

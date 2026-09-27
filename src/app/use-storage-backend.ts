@@ -551,8 +551,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   by `resolveLogModeAndStamp` (clause (a)) instead — its name says so, so this wrapper cannot be
   //   bypassed by reaching for the obvious one.
   const applyWorkspaceForOp = (workspace: Workspace) => { bumpScopeEpoch(); applyWorkspaceFromLoad(workspace); unloadJournal.holdBase(workspace); }; // §629 — HELD: the op's target key is not in scope until its config flip; the suppress branch adopts it
-  // §629 — the unload-journal conflict notice's "Restore anyway": applied like a same-target reload ("raise": the mint never lowers; "merge": local log appends kept), then saved by the normal path. Never over a shut save gate.
-  const restoreUnloadJournalAnyway = (): void => { if (savesAllowedForRef.current !== backend) return; const ws = unloadJournal.restoreConflict(); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalRestoreUnavailable")); return; } applyWorkspaceFromLoad(ws, "raise", "merge"); emitToast("success", t(langRef.current, "unloadJournalRestored")); };
+  // §629 — the unload-journal conflict notice's "Restore anyway": applied like a same-target reload ("raise": the mint never lowers; "merge": local log appends kept), then saved by the normal path. Never over a shut save gate: that is reported, and the notice and its record are kept for a retry.
+  const restoreUnloadJournalAnyway = (): void => { if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalRestoreBlocked")); return; } const ws = unloadJournal.restoreConflict(); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalRestoreUnavailable")); return; } applyWorkspaceFromLoad(ws, "raise", "merge"); emitToast("success", t(langRef.current, "unloadJournalRestored")); };
 
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
   //     four setters. These are the last §72 setters in this hook that can

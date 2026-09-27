@@ -332,6 +332,41 @@ describe("§629 — the load effect restores the unload journal", () => {
     expect(savedTaskIds(backend, 1)).toEqual([1, 2]);
   });
 
+  it("Restore anyway while saving is paused (a rebuilt load FAILED) reports it, applies nothing, keeps the notice, and works once saving resumes", async () => {
+    seedJournal("changed-elsewhere");
+    const a = makeBackend(100);
+    const failed = makeBackend(100, "reject");
+    const c = makeBackend(100);
+    createBackendMock.mockReturnValueOnce(a).mockReturnValueOnce(failed).mockReturnValue(c);
+    const { result, rerender } = render();
+    await advance(800);
+    expect(result.current.unloadJournalConflict).toBe(true);
+
+    rerender({ args: makeArgs(false, { kind: "browser" }) }); // same target key, a new instance whose load fails
+    await advance(800);
+    expect(result.current.loadPause).toBe("load-failed"); // the premise: saves are not allowed
+    expect(result.current.unloadJournalConflict).toBe(true);
+
+    await act(async () => { result.current.restoreUnloadJournalAnyway(); });
+    expect(showToast.mock.calls.filter((call) => call[1] === t("en-US", "unloadJournalRestoreBlocked"))).toEqual([["error", t("en-US", "unloadJournalRestoreBlocked")]]);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(restoredToast()).toHaveLength(0);
+    expect(result.current.unloadJournalConflict).toBe(true);
+    await advance(600);
+    expect(a.save).not.toHaveBeenCalled();
+    expect(failed.save).not.toHaveBeenCalled();
+
+    rerender({ args: makeArgs(false, { kind: "browser" }) }); // saving resumes: a load that lands
+    await advance(800);
+    expect(result.current.loadPause).toBeNull();
+    await act(async () => { result.current.restoreUnloadJournalAnyway(); });
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1, 2]);
+    expect(restoredToast()).toHaveLength(1);
+    await advance(600);
+    expect(c.save).toHaveBeenCalledTimes(1);
+    expect(savedTaskIds(c, 0)).toEqual([1, 2]);
+  });
+
   it("Restore anyway with no conflict for the target in scope reports it, rather than doing nothing", async () => {
     createBackendMock.mockReturnValue(makeBackend(100));
     const { result } = render();
