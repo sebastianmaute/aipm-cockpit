@@ -282,7 +282,8 @@ export function DocumentsAssetSection({
       // buckets — so a user at the cap saw a full document with nothing on
       // screen to account for it (open-followups §218). (Not a `<span>`: span is
       // off DOCUMENT_ALLOWED_TAGS, so a load unwraps it and the attribute leaves
-      // with it — §249. The tests below use span fixtures on UN-loaded html.)
+      // with it — §249. documents-asset-section.test.tsx uses span fixtures,
+      // which is legal only because they are UN-loaded html.)
       //
       // ★★★ REPORT RECLAIMABLE ROOM, NEVER `undrawable.size` — THAT WAS WRONG IN
       // BOTH DIRECTIONS, and each direction is pinned by a test.

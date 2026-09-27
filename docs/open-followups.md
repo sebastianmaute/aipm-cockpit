@@ -1941,7 +1941,8 @@ undefined and a call throws — which `jsonToWorkspace`'s catch-all converts int
 that then "successfully" writes near-empty sample files.~~ **RETRACTED 2026-09-27 (§151):** both the
 generator and the fixture script (`scripts/regen-golden-fixtures.ts`) install JSDOM before importing
 `src/app`. The scope decision stands on the DOM-free CONTRACT of the codec/sanitizer modules, which
-DOM-free importers (`scripts/ai-eval.ts`, `scripts/update-ooxml-manifest.ts`) do exercise. That
+two scripts import with no DOM (`scripts/ai-eval.ts`, `scripts/update-ooxml-manifest.ts`); whether
+they CALL a DOM-bound path is §624's open question. That
 contract is the entire reason `rich-text-plain.ts` exists and is guarded. Closing this column needs a **post-decode hook** in `csvToWorkspace` /
 `markdownToWorkspace` / `TursoBackend.load()` — the same shape as the two paths already fixed, but at
 a boundary that does not exist today — plus its own golden-stability answer.
@@ -7628,6 +7629,13 @@ DOM-free importer is `scripts/generate-sample-workspace.ts` (which installs JSDO
 BEFORE its `await import("../src/app/storage")` — the dynamic import is load-bearing, a static one
 would hoist above the install), and every runtime decode caller is browser-side.
 
+> ★★ **2026-09-27 (§151, §624):** "the only DOM-free importer is the generator" is STALE, and the
+> paragraph above is kept as the record it was. `regen-golden-fixtures.ts` and `sample-link-exports.ts`
+> also import app code, and both install JSDOM first. But `update-ooxml-manifest.ts` reaches BOTH
+> codecs with no DOM, via `storage.ts`, and `ai-eval.ts` reaches `csv-codecs-config.ts` with no DOM,
+> via `turso-schema.ts`. That is this entry's "NEW bare-node script" case, already present. Whether
+> either one DECODES documents is unverified and is tracked in §624.
+
 ### What would break it
 
 Removing or reordering the generator's JSDOM install; converting its dynamic import back to a static
@@ -13208,6 +13216,13 @@ A second pass for the claim WITHOUT the words "bare node" (a `sample generator` 
 `generate-sample-workspace` / `fixture flow` mention near `DOMPurify`, "no DOM" or "throws", with no
 `JSDOM` nearby) found one more asserting site, the `documents` docstring on `Workspace` in
 `workspace.ts`, and it was corrected too.
+A third pass, added after the final review, catches the "SOLE importer" spelling of the claim, which
+neither earlier pass keys on: `(only|sole|single) (DOM-free )?(importer|script|consumer|caller)` near
+`src/app`, the generator, JSDOM or a codec. It found four more sites, now fixed. Three are live codec
+comments: `csvToDocuments` and `csvToDocumentVersions` in `csv-codecs-config.ts`, and the documents
+decode in `markdown-codecs-core.ts`. They are corrected to the true census. The fourth is §97's "Why
+it is safe today", which got a dated banner. Every other hit of that pass concerns an unrelated
+"only consumer" or "only caller", or is a `git commit --only` flag in a plan.
 Second round, same day: `activity-log.ts` (`sanitizeActivityLog`), `change-log.ts`
 (`withStoredNoteLog`), `ai-rich-text.ts`, `narrative-html.ts`, `download.ts`, `note-log.ts` (its
 `decodeNoteLog` note also claimed the generator and fixture flow decode every note log to empty),
@@ -16715,9 +16730,13 @@ installed `@tiptap/core` and corrected it, and the comment now says what was mea
   `focus` returns false, but it still forwards `dispatch`. So the insert lands and `run()` reports
   false. The reviewer probed this with jsdom and StarterKit, no stubs: the doc text became "Yb"
   while `run()` returned `false`.
-- It is not reached in this app today only because nothing calls `unmount()`: `@tiptap/react` never does, and no
-  code in `src/` does either (`grep -rn "unmount()" src --include=*.ts --include=*.tsx`, which
-  prints comments only).
+- It is not reached in this app today only because nothing calls `unmount()` except `destroy()`,
+  which nulls `commandManager` in the same synchronous call. `@tiptap/react` never calls it, and no
+  code in `src/` calls `editor.unmount()` either. Check with
+  `grep -rnE "(editor|Editor)\??\.unmount\(" src --include=*.ts --include=*.tsx`. On 2026-09-27 it
+  prints exactly one hit, and that hit is the COMMENT in `rich-text-editor.tsx` that describes this
+  state, not a call. A second hit that is code reopens this. Do NOT grep a bare `unmount()`: that
+  prints over a hundred React Testing Library `unmount()` calls in tests, none of them Tiptap's.
 
 No code change and no test in this closure; the comment is the fix this entry asked for. Re-check
 with `grep -n "createFakeChain" -B2 -A3 node_modules/@tiptap/core/src/Editor.ts`,
@@ -42355,6 +42374,27 @@ and `sample-link-exports.ts` all install JSDOM before importing `src/app`. Two o
   `import type` edges and comment text; every edge into it from these graphs is type-only, which
   TypeScript elides.
 
+★★★ **THE CONCRETE SILENT-LOSS PATH, found by the final review of `docs/accuracy-2`.** Both scripts
+also reach a document CODEC, where a no-DOM call does not throw at all but is swallowed:
+- `update-ooxml-manifest.ts` reaches `csv-codecs-config.ts` and `markdown-codecs-core.ts` through
+  `src/test/ooxml-manifest-subjects.ts` → `ooxml-docx-primitives.ts` → `export-sections.ts` →
+  `storage.ts` → `csv-codecs.ts` / `markdown-codecs.ts`.
+- `ai-eval.ts` reaches `csv-codecs-config.ts` through `use-operating-guides.ts` →
+  `operating-guide-store.ts` → `operating-guide-schema.ts` → `turso-schema.ts` → `csv-codecs.ts`.
+
+Their `documents` / `documentVersions` decodes (`csvToDocuments`, and the matching Markdown and
+version decodes) compose `sanitizeDocumentRichFields`, a DOMPurify pass, inside a `try/catch`. With
+no DOM the throw is swallowed and the documents decode to UNDEFINED, dropped whole with no
+diagnostic, as the comments beside those decodes record.
+
+So the open question has two halves, and both are unverified:
+- does either script's reachable call path THROW for want of a DOM;
+- does either DECODE a workspace through a codec, which would silently drop every document rather
+  than throw.
+
+To re-run, root the runtime resolver below at each script and print the parent chain for
+`csv-codecs-config` and `markdown-codecs-core`.
+
 Being in the graph is harmless: only a CALL needs a DOM (`sanitize-html.ts` defers `addHook` for
 exactly that reason). What nobody has checked is whether either script's reachable RUNTIME path makes
 such a call. If one does, the call throws with no DOM. `ai-eval.ts` is a dry run by default and a
@@ -42380,7 +42420,8 @@ two anchors with `grep -n "rich-text-projection" src/app/export-sections.ts` and
 
 What would close it: run both scripts (the `ai:eval` dry run spends nothing; run `ooxml:manifest`
 on a scratch copy of the baseline, since it rewrites the committed one) and record that neither throws
-for want of a DOM; or add a `// @vitest-environment node` test that drives each script's reachable
+for want of a DOM AND that neither decodes documents through a codec (a swallowed decode throws
+nothing, so "it ran" alone does not answer that half); or add a `// @vitest-environment node` test that drives each script's reachable
 entry points and proves no DOMPurify call is made on those paths.
 
 Size S.

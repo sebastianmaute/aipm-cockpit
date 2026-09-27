@@ -399,8 +399,10 @@ export function RichTextEditor(props: RichTextEditorProps) {
         // is an editor whose view was UNMOUNTED (`editor.unmount()`) while its
         // commandManager lives: the `view` Proxy throws on hasFocus, but still
         // forwards `dispatch`, so the insert lands and run() reports false. Not
-        // reached in this app today, only because nothing calls unmount():
-        // not @tiptap/react, and not our own code. A DESTROYED editor is safe: `Editor.chain()` returns
+        // reached in this app today, only because nothing calls unmount() except
+        // destroy() — not @tiptap/react, and not our own code — and destroy()
+        // nulls commandManager in the same synchronous call. A DESTROYED editor
+        // is therefore safe: `Editor.chain()` returns
         // `CommandManager.createFakeChain()` once destroy() nulls commandManager,
         // whose run() is false with nothing inserted (open-followups §197).
         // The wrapper's queue treats this return as "the text landed",
