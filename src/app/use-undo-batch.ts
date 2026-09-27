@@ -25,6 +25,7 @@
 "use client";
 import { useEffect, useMemo, useRef } from "react";
 import { isDeleteKind, type ActivityKind } from "./activity-log";
+import type { ScopeEpochReader } from "./scope-epoch";
 import type {
   CaptureCompositeOpts,
   CompositeFragment,
@@ -174,11 +175,13 @@ export function collapseCaptures(
  * triggers. A fresh wrapper per render would drop a batch opened before an
  * `await` and started collecting into an object nobody flushes.
  */
-export function useUndoBatch(live: CaptureSurface): UndoBatch {
+export function useUndoBatch(live: CaptureSurface, getScopeEpoch?: ScopeEpochReader): UndoBatch {
   const liveRef = useRef(live);
+  const readEpochRef = useRef(getScopeEpoch);
   useEffect(() => {
     liveRef.current = live;
-  }, [live]);
+    readEpochRef.current = getScopeEpoch;
+  }, [live, getScopeEpoch]);
   // Non-null exactly while a batch is open; the collected captures ARE the box.
   const collectedRef = useRef<CaptureCompositeOpts[] | null>(null);
 
@@ -201,13 +204,21 @@ export function useUndoBatch(live: CaptureSurface): UndoBatch {
         // a loud failure instead of a silently mis-attributed undo entry.
         if (collectedRef.current) throw new Error("an undo batch is already open");
         const collected: CaptureCompositeOpts[] = [];
+        // §628 — the scope the batch's writes READ from. The push lands after
+        // `await fn()`, so the epoch at push time would describe the wrong
+        // project if a switch landed mid-batch; this one makes the entry stale
+        // (refused at push) instead of labelling A's rows as B's. The refusal is
+        // whole-batch: a batch cannot be split by project, so any rows it wrote
+        // into B after the switch get no undo either (those writes landing in B
+        // at all is a separate, pre-existing gap in the proposal apply path, §600).
+        const openEpoch = readEpochRef.current?.();
         collectedRef.current = collected;
         try {
           return await fn();
         } finally {
           collectedRef.current = null;
           const one = collapseCaptures(collected);
-          if (one) liveRef.current.captureComposite(one);
+          if (one) liveRef.current.captureComposite({ ...one, readEpoch: openEpoch });
         }
       },
     }),

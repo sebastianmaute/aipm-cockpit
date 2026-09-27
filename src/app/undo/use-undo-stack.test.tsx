@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useState, type Dispatch, type SetStateAction } from "react";
-import { useUndoStack, capturePart, buildUndoLabel } from "./use-undo-stack";
+import { useUndoStack, usePruneUndoOnScopeChange, capturePart, buildUndoLabel } from "./use-undo-stack";
 import { ACTIVITY_KIND_TO_KEY, type ActivityKind } from "../activity-log";
 import { t } from "../i18n";
 
@@ -1358,5 +1358,216 @@ describe("whole-row undo keeps a concurrent prune (§486)", () => {
     expect(arr[0].name).toBe("before");
     expect(arr[0].outlookEventId).toBeUndefined();
     expect(arr[0].calendarOptOut).toBe(true);
+  });
+});
+
+// §628 — an undo entry belongs to the project it was captured in. The hook lives in
+// `TaskManagerInner`, which a project switch does NOT remount, and every runner closes
+// over the workspace's stable setters — so without a scope an undo after a switch
+// writes project A's rows into project B.
+describe("useUndoStack — project scope (§628)", () => {
+  const A_BEFORE: readonly Row[] = [{ id: 1, name: "A1" }, { id: 2, name: "A2" }, { id: 3, name: "A3-before" }];
+  const A_AFTER: readonly Row[] = [{ id: 1, name: "A1" }, { id: 3, name: "A3-after" }];
+  const B_ROWS: readonly Row[] = [{ id: 1, name: "B1" }, { id: 3, name: "B3-unrelated" }, { id: 7, name: "B7" }];
+
+  function setup() {
+    let epoch = 0;
+    const deps = makeDeps({ getScopeEpoch: () => epoch });
+    const box = { rows: A_AFTER };
+    const setter: Dispatch<SetStateAction<readonly Row[]>> = (u) => {
+      box.rows = typeof u === "function" ? u(box.rows) : u;
+    };
+    const hook = renderHook(
+      ({ loadPending }: { loadPending: boolean }) => {
+        const api = useUndoStack(deps);
+        usePruneUndoOnScopeChange(loadPending, api.pruneStale);
+        return api;
+      },
+      { initialProps: { loadPending: false } },
+    );
+    // Project A: task 2 deleted, task 3 renamed — both captured.
+    act(() => {
+      hook.result.current.capture({ setter, kind: "task.deleted", removed: [A_BEFORE[1]], fromArray: A_BEFORE });
+    });
+    act(() => {
+      hook.result.current.captureFieldEdit({ setter, kind: "task.updated", id: 3, before: { name: "A3-before" }, after: { name: "A3-after" } });
+    });
+    return { hook, deps, box, setter, bump: () => { epoch += 1; } };
+  }
+
+  it("T1: empties both stacks on a real switch, so an undo cannot write A's rows into B", () => {
+    const { hook, deps, box, bump } = setup();
+    // Anti-vacuity: both captures registered in A.
+    expect(hook.result.current.canUndo).toBe(true);
+    expect(hook.result.current.stack).toHaveLength(2);
+
+    // The switch: the load hold rises, the epoch bumps, B's workspace lands, the hold drops.
+    hook.rerender({ loadPending: true });
+    bump();
+    box.rows = B_ROWS;
+    hook.rerender({ loadPending: false });
+
+    expect(hook.result.current.canUndo).toBe(false);
+    expect(hook.result.current.stack).toHaveLength(0);
+    act(() => hook.result.current.undo());
+    expect(box.rows).toEqual(B_ROWS);
+    expect(deps.logActivity).not.toHaveBeenCalled();
+  });
+
+  it("T1b: a real switch also empties the REDO stack", () => {
+    const { hook, box, bump } = setup();
+    act(() => hook.result.current.undo());
+    // Anti-vacuity: the undo applied in A and left an entry on EACH stack.
+    expect(box.rows.find((r) => r.id === 3)?.name).toBe("A3-before");
+    expect(hook.result.current.canRedo).toBe(true);
+    expect(hook.result.current.canUndo).toBe(true);
+
+    hook.rerender({ loadPending: true });
+    bump();
+    hook.rerender({ loadPending: false });
+    expect(hook.result.current.canRedo).toBe(false);
+    expect(hook.result.current.canUndo).toBe(false);
+  });
+
+  it("T-new: a hold that keeps the project (Save-As, a cancelled dialog, a reload) KEEPS both stacks", () => {
+    const { hook, box } = setup();
+    act(() => hook.result.current.undo());
+    expect(hook.result.current.stack).toHaveLength(1);
+    expect(hook.result.current.redoStack).toHaveLength(1);
+    const [stackBefore, redoBefore] = [hook.result.current.stack, hook.result.current.redoStack];
+
+    // The hold rises and falls; the epoch never moves.
+    hook.rerender({ loadPending: true });
+    hook.rerender({ loadPending: false });
+
+    expect(hook.result.current.stack).toHaveLength(1);
+    expect(hook.result.current.redoStack).toHaveLength(1);
+    // R3 — the SAME arrays, so the history controls fed from them do not re-render.
+    expect(hook.result.current.stack).toBe(stackBefore);
+    expect(hook.result.current.redoStack).toBe(redoBefore);
+    // And the kept entry still works: the undo re-inserts task 2.
+    act(() => hook.result.current.undo());
+    expect(box.rows.map((r) => r.id)).toEqual([1, 2, 3]);
+  });
+
+  it("T-new-b: a switch prunes only the stale entries, keeping one pushed in the new scope", () => {
+    const { hook, deps, box, setter, bump } = setup();
+    hook.rerender({ loadPending: true });
+    bump();
+    box.rows = B_ROWS;
+    // A capture pushed in B while the hold is still up (e.g. during the load) is B's.
+    act(() => {
+      hook.result.current.capture({ setter, kind: "task.deleted", removed: [B_ROWS[2]], fromArray: B_ROWS });
+    });
+    box.rows = B_ROWS.slice(0, 2);
+    hook.rerender({ loadPending: false });
+
+    expect(hook.result.current.stack).toHaveLength(1);
+    act(() => hook.result.current.undo());
+    expect(box.rows).toEqual(B_ROWS);
+    expect(deps.logActivity).toHaveBeenCalledTimes(1);
+  });
+
+  it("T2: an entry captured before an epoch bump is DROPPED on undo, not applied, even with no load-hold transition", () => {
+    const { hook, deps, box, bump } = setup();
+    // Anti-vacuity: the captures registered.
+    expect(hook.result.current.canUndo).toBe(true);
+
+    bump();
+    box.rows = B_ROWS;
+    act(() => hook.result.current.undo());
+
+    expect(box.rows).toEqual(B_ROWS);
+    expect(hook.result.current.canUndo).toBe(false);
+    expect(hook.result.current.canRedo).toBe(false);
+    expect(deps.logActivity).not.toHaveBeenCalled();
+    expect(deps.showToast).not.toHaveBeenCalled();
+  });
+
+  it("T2b: redo, undoById, undoThrough and redoThrough drop a stale entry too", () => {
+    // undoById / undoThrough on the undo stack.
+    for (const via of ["undoById", "undoThrough"] as const) {
+      const { hook, deps, box, bump } = setup();
+      const bottomId = hook.result.current.stack[0].id;
+      bump();
+      box.rows = B_ROWS;
+      act(() => hook.result.current[via](bottomId));
+      expect(box.rows).toEqual(B_ROWS);
+      expect(hook.result.current.stack.some((m) => m.id === bottomId)).toBe(false);
+      expect(deps.logActivity).not.toHaveBeenCalled();
+    }
+    // redo / redoThrough on the redo stack.
+    for (const via of ["redo", "redoThrough"] as const) {
+      const { hook, deps, box, bump } = setup();
+      act(() => hook.result.current.undo());
+      const redoId = hook.result.current.redoStack[0].id;
+      // Anti-vacuity: the in-scope undo applied.
+      expect(deps.logActivity).toHaveBeenCalledTimes(1);
+      bump();
+      box.rows = B_ROWS;
+      act(() => (via === "redo" ? hook.result.current.redo() : hook.result.current.redoThrough(redoId)));
+      expect(box.rows).toEqual(B_ROWS);
+      expect(hook.result.current.canRedo).toBe(false);
+      expect(deps.logActivity).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  // M1 — the capture-time stamp must travel with the entry EVERY time it changes
+  // stacks. Each case moves the entries in scope through ONE propagation site, then
+  // bumps the epoch; if that site dropped `epoch`, the moved entry would read as
+  // never-stale and would apply to B's rows.
+  describe("the stamp survives every stack-to-stack move", () => {
+    it("redo() → undo stack", () => {
+      const { hook, deps, box, bump } = setup();
+      act(() => hook.result.current.undo());
+      act(() => hook.result.current.redo());
+      // Anti-vacuity: both in-scope moves applied.
+      expect(deps.logActivity).toHaveBeenCalledTimes(2);
+      expect(hook.result.current.stack).toHaveLength(2);
+      bump();
+      box.rows = B_ROWS;
+      act(() => hook.result.current.undo());
+      expect(box.rows).toEqual(B_ROWS);
+      expect(deps.logActivity).toHaveBeenCalledTimes(2);
+    });
+
+    it("undoThrough() → redo stack", () => {
+      const { hook, deps, box, bump } = setup();
+      act(() => hook.result.current.undoThrough(hook.result.current.stack[0].id));
+      expect(deps.logActivity).toHaveBeenCalledTimes(1);
+      expect(hook.result.current.redoStack).toHaveLength(2);
+      bump();
+      box.rows = B_ROWS;
+      // ★ Redo BOTH, not just the top: the top re-removes task 2, which B lacks,
+      // so it cannot change B's rows. The edit's redo merges "A3-after" onto B's
+      // unrelated row 3, so the rows assertion is the one that can fail.
+      act(() => hook.result.current.redoThrough(hook.result.current.redoStack[0].id));
+      expect(box.rows).toEqual(B_ROWS);
+      expect(deps.logActivity).toHaveBeenCalledTimes(1);
+    });
+
+    it("redoThrough() → undo stack", () => {
+      const { hook, deps, box, bump } = setup();
+      act(() => hook.result.current.undo());
+      act(() => hook.result.current.undo());
+      act(() => hook.result.current.redoThrough(hook.result.current.redoStack[0].id));
+      expect(deps.logActivity).toHaveBeenCalledTimes(3);
+      expect(hook.result.current.stack).toHaveLength(2);
+      bump();
+      box.rows = B_ROWS;
+      act(() => hook.result.current.undo());
+      expect(box.rows).toEqual(B_ROWS);
+      expect(deps.logActivity).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  it("T3: capture and undo within the same epoch still applies", () => {
+    const { hook, deps, box } = setup();
+    act(() => hook.result.current.undo());
+    act(() => hook.result.current.undo());
+    expect(box.rows).toEqual(A_BEFORE);
+    expect(hook.result.current.canUndo).toBe(false);
+    expect(hook.result.current.canRedo).toBe(true);
+    expect(deps.logActivity).toHaveBeenCalledTimes(2);
   });
 });
