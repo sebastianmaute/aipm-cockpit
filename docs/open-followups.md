@@ -42347,8 +42347,8 @@ words the app already shows elsewhere.
 
 - **Insights.** `insightsSection` prints `t(lang, …)` for type, severity and status through
   `INSIGHT_TYPE_LABEL_KEY`, `INSIGHT_SEVERITY_LABEL_KEY` and `INSIGHT_STATUS_LABEL_KEY`, now exported from
-  `src/app/insights/insight-text.ts`. The Insights panel and the Dashboard insights card had private
-  copies of those maps; both import the shared ones, so the export prints the panel's words. The `data`
+  `src/app/insights/insight-text.ts`. The Insights panel had private copies of all three maps and the
+  Dashboard insights card one of the severity map; both import the shared ones, so the export prints the panel's words. The `data`
   key=value dump stays raw, since it is the evidence.
 - **Recurrence.** `describeRecurrence` is gone. The calendar-events cell is `recurrenceSummaryText` in the
   new `src/app/calendar-recurrence-labels.ts`, built from the event editor's own labels: the frequency
@@ -42416,8 +42416,8 @@ out of scope."
 `Promise.all` BEFORE calling `load(id)`, so a type-refused id goes straight to `blocked` and its bytes are
 never fetched or decoded. One behaviour changed, deliberately: an id that is both type-refused and has no
 byte row used to land in `missing`, and now lands in `blocked`, because the decision is made before
-anything could tell the two apart. Either way the image is left out; the file now names the type policy
-as the reason. `document-export-assets.test.ts` pins that `load` is called only for the allowed id, that
+anything could tell the two apart. The exported file does not change: the renderers already read the
+stored mime and print "file type not allowed" for such an id either way, so the gain is the skipped load. `document-export-assets.test.ts` pins that `load` is called only for the allowed id, that
 a refused id with no bytes is `blocked`, and that an allowed id with no bytes is still `missing`.
 
 **Original status:** open 2026-09-27 — found while implementing §320 (closed 2026-09-26 in #235). Low impact.

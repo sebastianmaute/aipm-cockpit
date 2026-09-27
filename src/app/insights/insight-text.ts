@@ -6,8 +6,9 @@ import { type Lang, t, tPlural, type TranslationKey } from "../i18n";
 import { buildRowTokens } from "../row-tokens";
 import type { Insight, InsightSeverity, InsightStatus, InsightType } from "./insight";
 
-/** The ONE label map per insight enum. The Insights panel, the Dashboard card
- *  and the document export all read these, so a German export prints the same
+/** The ONE label map per insight enum. The Insights panel and the document
+ *  export read all three, the Dashboard card reads the severity map, and
+ *  `insightTitle` below reads the type map, so a German export prints the same
  *  words the panel shows (§621). */
 export const INSIGHT_SEVERITY_LABEL_KEY: Record<InsightSeverity, TranslationKey> = {
   high: "insightSeverityHigh",

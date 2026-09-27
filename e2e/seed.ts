@@ -160,7 +160,7 @@ const SEED_WORKSPACE: Record<string, unknown> = {
   // ★★★ FOUR insights, and TWO OF THEM SHARE A TYPE ON PURPOSE. Every per-row
   // control in insights-panel.tsx is named by the insight's rendered TITLE
   // ("Acknowledge – <title>"), and `insightTitle` (insights/insight-text.ts) is
-  // `t(lang, TITLE_KEY[insight.type])` — TYPE-DRIVEN AND NOTHING ELSE. So rows of
+  // `t(lang, INSIGHT_TYPE_LABEL_KEY[insight.type])` — TYPE-DRIVEN AND NOTHING ELSE. So rows of
   // DIFFERENT types can never produce a duplicate accessible name no matter how
   // many are seeded; only same-type rows can. 9101 and 9104 are both
   // `milestoneSlip` and both `active`, so they render four pairs of

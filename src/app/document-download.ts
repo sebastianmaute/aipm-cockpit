@@ -150,11 +150,11 @@ function assetPolicy(
     //  OOXML predicates are exempt from by being unbudgeted. `sanitizeDocumentAsset`
     //  does NOT enforce the mime allowlist on load (verified: it only truncates
     //  the string via `sanitizeText`), so an imported or hand-edited workspace
-    //  can carry an `image/svg+xml` row whose bytes are fetched and would be
+    //  can carry an `image/svg+xml` row whose bytes would otherwise be fetched and
     //  charged against the 25 MB budget — pushing a good image into `omitted` —
     //  only to be dropped to a placeholder anyway. Asking first is what stops a
-    //  row that can never be drawn from evicting one that can. §320: such a
-    //  row is now caught one step earlier by `isBlocked` and lands in
+    //  row that can never be drawn from evicting one that can. §320, §623: such a
+    //  row is now caught first by `isBlocked`, before any fetch, and lands in
     //  `blocked`, not `missing`; `isRenderable` still declines an EMPTY mime
     //  (not refused, but nothing to build a data: URI from) into `missing`.
     //

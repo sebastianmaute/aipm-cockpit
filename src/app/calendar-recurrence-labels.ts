@@ -3,8 +3,8 @@
 //
 // ★ One vocabulary, three surfaces. The editor's own labels (the
 // calendarEventRepeat-, calendarEventInterval- and calendarEventOrdinal-
-// prefixed keys, plus the shiftDay weekday abbreviations) are the only words
-// used, so an export reads exactly as the editor that wrote the rule (§621).
+// prefixed keys, calendarEventMonthlyDayLabel, and the shiftDay weekday
+// abbreviations) are the only words used, so an export reads exactly as the editor that wrote the rule (§621).
 //
 // ★★ This is NOT `calendar-recurrence-text.ts`. That module is i18n-free by
 // contract and mirrors `sanitizeRecurrence` for the AI review card; this one
