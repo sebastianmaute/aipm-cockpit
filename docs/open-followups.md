@@ -42675,7 +42675,7 @@ It is reachable whenever a pagehide commit starts a save while any other save is
 
 ## 629. The unload journal is unverified on the packaged desktop close and on the file, SharePoint and Turso backends — open
 
-**Status:** open 2026-09-27, narrowed twice on 2026-09-27 — FIXED on `fix/defect-batch-8` for a RELOAD AND a TAB CLOSE on the default backend by the unload journal: `pagehide` writes the unconfirmed outgoing workspace to localStorage synchronously (`src/app/unload-journal.ts`, `src/app/use-unload-journal.ts`), and the next load clears it silently when its content is what the backend returned (its save landed), restores it when its base fingerprint matches, or shows a conflict notice (Restore anyway, Discard) otherwise. MEASURED with `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB), 10 of 10 passed in each of 3 runs, with no `test.fail`. The spec drives two editors: a document heading (`useBlockDraft`) and a task-name inline cell (`useInlineCellEdit`). Negative control: with the `restoreOnLoad` call in `use-storage-backend.ts` replaced by `null`, 8 of the 10 failed (the 3 reload cases and the heading tab close at "the draft must have landed in IndexedDB", the cell tab close and the landed-journal case at "the load must consume the journal", the 2 mismatch cases at the notice), and the 2 "page stays" cases passed. STILL OWED, and the only reasons this stays open: (1) the packaged desktop (Electron) window close; (2) real-browser runs of the file, SharePoint and Turso backends. The journal itself is backend-agnostic, so (1) and (2) check localStorage durability and each backend's load and fingerprint on the real target, never machine-verified.
+**Status:** open 2026-09-27, narrowed twice on 2026-09-27 — FIXED on `fix/defect-batch-8` for a RELOAD AND a TAB CLOSE on the default backend by the unload journal: `pagehide` writes the unconfirmed outgoing workspace to localStorage synchronously (`src/app/unload-journal.ts`, `src/app/use-unload-journal.ts`), and the next load clears it silently when its content is what the backend returned (its save landed), restores it when its base fingerprint matches, or shows a conflict notice (Restore anyway, Discard) otherwise. MEASURED with `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB), 10 of 10 passed in each of 3 runs, with no `test.fail`. The spec drives two editors: a document heading (`useBlockDraft`) and a task-name inline cell (`useInlineCellEdit`). Negative control: with the `restoreOnLoad` call in `use-storage-backend.ts` replaced by `null`, 8 of the 10 failed (the 3 reload cases and the heading tab close at "the draft must have landed in IndexedDB", the cell tab close and the landed-journal case at "the load must consume the journal", the 2 mismatch cases at the notice), and the 2 "page stays" cases passed. STILL OWED, and the only reasons this stays open: (1) the packaged desktop (Electron) window close; (2) real-browser runs of the file, SharePoint and Turso backends; (3) the guard-refused save-back loop recorded under "final review" below (added 2026-09-27). The journal itself is backend-agnostic, so (1) and (2) check localStorage durability and each backend's load and fingerprint on the real target, never machine-verified.
 
 **Status before the tab-close fix (2026-09-27, kept as measured):** open 2026-09-27, narrowed 2026-09-27 — FIXED on `fix/defect-batch-8` for a RELOAD on the default backend by the unload journal: `pagehide` writes the unconfirmed outgoing workspace to localStorage synchronously (`src/app/unload-journal.ts`, `src/app/use-unload-journal.ts`), and the next load restores it when its base fingerprint matches what the backend returned, or shows a conflict notice (Restore anyway, Discard) when it does not. MEASURED with `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB), 8 of 8 as expected in each of 3 runs: both editors' reload cases pass without `test.fail`, and so do a blur-then-immediate-reload and a base mismatch whose notice appears and whose Discard removes the key. Negative control: with the `restoreOnLoad` call in `use-storage-backend.ts` replaced by `null`, the three reload cases failed at "the draft must have landed in IndexedDB" and the mismatch case at the notice. STILL OWED, and the only reasons this stays open: (1) a document heading's TAB CLOSE writes no journal (the new page reads null; `test.fail` in that spec, failing at that read in every run whose message was read); (2) the packaged desktop (Electron) window close; (3) real-browser runs of the file, SharePoint and Turso backends. The journal itself is backend-agnostic, so (2) and (3) check localStorage durability and each backend's load and fingerprint on the real target, never machine-verified.
 
@@ -42708,11 +42708,18 @@ that completed 2 runs:
   the conflict notice and kept the journal, though the draft was already stored. That happened in both
   completed probe runs, so the spec asserts only that the draft is stored for that case. No data is
   lost, but the notice is a false alarm.
-- **Known limitation, owner-accepted (the spec's multi-tab rule):** an IGNORED conflict notice does not
-  survive the session. There is one key per project and the last write wins, so the first journal this
-  session writes (a save still unconfirmed at `pagehide`, or one started while the page is hidden)
-  overwrites the journal the notice describes. Read from `use-unload-journal.ts`; never
-  machine-verified.
+- **Known limitation, controller ruling R9 (derived from the spec's multi-tab rule, "the last close
+  wins"); owner confirmation pending.** Corrected 2026-09-27: this line first called it
+  "owner-accepted", which no owner decision supports, and said an ignored notice "does not survive the
+  session", which claimed more than the code does. What happens: there is one key per project and the
+  last write wins, so the first journal this session writes (a save started while the page is hidden,
+  or one still unconfirmed at `pagehide`) replaces the STORED record the notice describes, and that
+  save's confirmation clears it. Since the final fix wave the notice keeps an in-memory copy of the
+  record until this tab closes, and Restore anyway applies that copy, so what is lost is only a notice
+  never answered before this tab closes. The in-memory half is pinned by the 2 "Restore anyway still
+  applies and saves the last session's record" unit tests in
+  `src/app/use-unload-journal.restore.test.tsx`; the close half is read from `use-unload-journal.ts`
+  and never machine-verified.
 
 **2026-09-27, §629 fix round (3 items: the heading close was a spec race; the false notice and the conflict-action identity are fixed on `fix/defect-batch-8`):**
 
@@ -42731,12 +42738,33 @@ that completed 2 runs:
   and by the spec's landed-journal case, which asserts its premise (the close's own IndexedDB write
   landed) before the load, then that the key is removed with no notice. With the check deleted, that
   case and the cell's tab-close case fail at "the load must consume the journal".
-- **The conflict actions act only on the record the notice describes.** Restore anyway and Discard
-  re-read the key and act only while it still holds the conflicting record's `tabId` and `savedAt`;
-  otherwise they only dismiss the notice. So under the limitation above, a notice whose journal was
-  overwritten no longer applies or deletes the newer record. Pinned by the 2 unit tests "the restore /
-  discard action acts only on the record the notice describes" in the same file (both red with the
-  identity check dropped).
+- **The conflict actions act only on the record the notice describes.** The hook keeps that record,
+  and its decoded workspace, in memory when the notice is raised. Restore anyway applies the in-memory
+  copy whatever the key holds by then, re-tags it and saves it; with no copy for the target in scope it
+  shows an error toast (`unloadJournalRestoreUnavailable`) instead of doing nothing. Discard removes the
+  key only while it still holds the record's `tabId` and `savedAt`, and always drops the copy and the
+  notice. So under the limitation above, this tab's own later write neither takes the draft away from
+  Restore anyway nor is deleted by Discard. Pinned in the same file by the Discard test "acts only on
+  the record the notice describes" (red with the identity check dropped), the 2 Restore anyway tests
+  "still applies and saves the last session's record" with the key overwritten and with it cleared
+  (both red when Restore anyway reads the key instead of the copy), and the no-conflict error-toast
+  test (red with the toast removed).
+
+**2026-09-27, final review (known limitation, owed):**
+
+- **A restore whose save-back the destructive guard refuses loops on reload.** When the journal
+  applied on a base match is a mass deletion relative to what loaded, the guard refuses its save-back
+  (R10). The journal is re-tagged to this tab and nothing was written, so the base still matches and a
+  reload re-applies the journal, and the guard refuses again. The refusal toast's advice is false on
+  this path: `storageRefusedWipe` in `src/app/i18n.ts` reads "Saving is paused - a large deletion was
+  withheld. Review it in the banner above, or reload the page to restore your saved data." So is the
+  confirm dialog's `storageDestructiveConfirmBody`: "If you did not do this, reload the page instead -
+  your saved data is intact." The exits are the banner's "Save this deletion"
+  (`storageDestructiveSaveAnyway`), a project reload followed by a confirmed save, or a later confirmed
+  save of any edit; this path offers no Discard. Read from the load effect in `src/app/use-storage-backend.ts`;
+  the refusal itself is pinned by the unit test "match: the restored workspace meets the destructive
+  guard, measured against what the backend RETURNED", the loop on reload is never machine-verified.
+  A fix could offer Discard beside the refusal when the refused save is a journal save-back.
 
 Size M–L.
 
