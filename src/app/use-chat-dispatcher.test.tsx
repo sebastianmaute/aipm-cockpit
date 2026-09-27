@@ -448,7 +448,7 @@ describe("useChatDispatcher", () => {
   //   because the sample generator lacks one — open-followups §151) while
   //   `sanitizeNoteLog` calls DOMPurify. So the round-trip through
   //   the sanitizer silently dropped the whole log: "push R#3's target date to June"
-  //   erased every note on it, with no undo capture on AI writes to recover from.
+  //   erased every note on it, with no undo capture on AI writes (at the time) to recover from.
   //   ★ The fix re-applies the STORED log after sanitizing — same "stored row wins"
   //   rule the RAID editor fix (§48) established, because `noteLog` is write-through
   //   and is not in any AI tool schema, so a patch can never legitimately carry one.
@@ -500,7 +500,7 @@ describe("useChatDispatcher", () => {
 
   // ★★★ The same defect as §49, one register over: `sanitizeChangeItem` drops
   //   `noteLog` for the same DOM-free reason, so `update_change` erased the log.
-  //   AI writes take no undo capture, so the loss is unrecoverable.
+  //   AI writes took no undo capture then, so the loss was unrecoverable.
   it("update_change preserves the stored note log", () => {
     const { result } = renderRaidProbe();
     const log = [{ id: 1, timestamp: "2026-01-01T00:00:00.000Z", html: "<p>keep me</p>", text: "keep me" }];
@@ -3615,8 +3615,8 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
   // ★★ A bulk op logs ONE summarising row, not N. ACTIVITY_MAX_ENTRIES is 500,
   //    so N rows from one chat turn can age out a week of user history.
   //    jira.sync already models the summarising shape.
-  // ★★ `bulk.delete`, not `bulk.edit`. Chat tool writes take no undo capture,
-  //    so this row is the only account of an irreversible mass deletion —
+  // ★★ `bulk.delete`, not `bulk.edit`. The undo entry `delete_all_tasks` now
+  //    captures expires with the session, so this row is the lasting account of a mass deletion —
   //    "Bulk edit applied to 3 task(s)" understates what happened.
   it("logs delete-all as a single bulk.delete row, not one row per task", () => {
     const { result, logActivityAs } = renderWithLog();

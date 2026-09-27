@@ -41,6 +41,9 @@ before your first edit — the rest is reference, reachable from here.
 | [rich-text](docs/AGENTS/rich-text.md) | note logs · the seven rich fields · DOM-free vs browser-only · sanitizers + model-write boundaries · export fidelity · the toolbar |
 | [activity-log](docs/AGENTS/activity-log.md) | meta-blob persistence · `logMode` · actors · forward-compat sanitising · the three completion-trend delta shapes |
 | [task-status](docs/AGENTS/task-status.md) | the `status` ⟺ `completedDate` pair · the five writers · load does NOT repair a split pair · `isTaskClosed` vs `isTaskDelivered` |
+| [budget](docs/AGENTS/budget.md) | the EUR boundary (`fx.ts`) · plan currency on load · budget follows plan · earned value · the Budget panel's cell layer |
+| [undo](docs/AGENTS/undo.md) | what is undoable · creates · label registrations · rows vs patches · the redo arm |
+| [desktop](docs/AGENTS/desktop.md) | Electron runtime · port · sign-in popup · print · PDF · updater |
 
 Conventions used throughout: **★** = a non-obvious rule, **★★** = something that has already
 caused a bug, **★★★** = something that has caused the same bug more than once. Open follow-ups
@@ -48,7 +51,7 @@ live in [`docs/open-followups.md`](docs/open-followups.md), not here.
 
 ★★★ **Almost nothing gates these files, and the one gate that exists checks the weakest property.**
 `agents-symbol-check` (`npm run docs:symbols:check`) fails when a backticked name in THIS file or in
-any `docs/AGENTS/*.md` exists nowhere in `src`/`scripts`/`e2e`. That is all it does: it proves a NAME
+any `docs/AGENTS/*.md` exists nowhere in `src`/`scripts`/`e2e`/`desktop/src`/`desktop/scripts`. That is all it does: it proves a NAME
 is real, never that a CLAIM about it is true. "`sanitizeX` guards this path" passes the gate whether
 or not that path calls it. ★★★ NARROWER STILL — **it only checks MIXED-CASE names, so every
 backticked `SCREAMING_CASE` constant in AGENTS.md and every file in `docs/AGENTS/` is completely ungated.** The scan requires
@@ -563,10 +566,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `SATELLITES` in `scripts/version-sync-lib.mjs` — not this line, which said "FIVE MORE PLACES" and
   missed `desktop/package.json` + `desktop/package-lock.json`. Read it with
   `grep -n 'file: "' scripts/version-sync-lib.mjs` (one line per file or glob; each lockfile carries
-  TWO occurrences); CONTRIBUTING.md's Versioning table says what changes in each.
-  Verified 2026-07-30: `package.json` had been stuck at 0.203.0 for six releases, `package-lock.json`
-  at 0.199.0 for eleven, and the README badge + codemap headers at 0.203.0 — while `version.ts` and
-  `CHANGELOG.md` were correct.
+  TWO occurrences); CONTRIBUTING.md's Versioning section says what changes in each and why the
+  gate exists.
   Propagate them with `npm run version:sync` rather than editing each by hand — the
   `version:check` step of CI's `static` job is BLOCKING, so drift now fails CI instead of accumulating.
 - **New persisted `Workspace` field → SIX write paths** (JSON/CSV/MD/Turso-single/Turso-tenant/
@@ -887,9 +888,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `TaskFormModal` takes a `deleteAction` prop (the old `TaskEditView` `footerLeading` path is gone).
   Dark-mode hover uses `dark:hover:bg-ui-pink/5`.
 - **Task status model → [`docs/AGENTS/task-status.md`](docs/AGENTS/task-status.md).** `Task.status`
-  (To Do/In Progress/On Hold/In Review/Cancelled/Done) is the SOURCE OF TRUTH for "done", but
-  `completedDate` is AUTO-MANAGED to keep the invariant **`status==="Done" ⟺ completedDate set`** — so
-  the ~30 existing completedDate-based derivations were left untouched. ★★ A caller must also say WHICH
+  is the SOURCE OF TRUTH for "done", but `completedDate` is AUTO-MANAGED to keep the invariant
+  **`status==="Done" ⟺ completedDate set`**. ★★ A caller must also say WHICH
   question it is asking: `task-closed.ts` exposes `isTaskClosed` ("will this be worked on again?" =
   Done|Cancelled) and `isTaskDelivered` ("was it delivered?" = `!!completedDate`) — Cancelled is CLOSED
   but never DELIVERED, and reading `!!completedDate` as "closed" is the bug that made cancelled tasks
@@ -1041,59 +1041,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `REPORTS_*_COL_WIDTHS` consts and `AssigneeSort`/`GroupOrLabelSort` types). One-way dep (reports →
   reports-tables → reports-stats); per-type report engines/panels (budget/raid/resource/stakeholder) live
   in their own files. Reports IS in axe `A11Y_VIEWS`.
-- **Budget panel module map (gantt pattern):** `budget-panel.tsx` is the orchestrator (state, derivation,
-  the bucket cards, the CCI tiles); the bucket table's CELL layer is the presentational leaf
-  `budget-panel-totals.tsx` — `HoursCell`/`HoursTd` (the editable period cells), `TotalsTd` (the fixed
-  Total column's cells and every cell of a bucket total row), `BucketRowLeadCells` (the three PINNED
-  leading cells: RAG dot · label · Total), `BucketTotalRow`, `RowDot`, and the pure `bucketColumnTotals`
-  arithmetic. Split out to keep the orchestrator under the size ratchet, which was 800 at the time.
-  ★★ The three leading columns are PINNED by arithmetic — role at `DOT_COL_PX`, Total at `DOT_COL_PX +
-  the LIVE role width` (the role column is user-resizable, so a hardcoded offset drifts the moment it is
-  dragged). That arithmetic is only true while every column to a pinned one's LEFT renders exactly as
-  wide as it declares, and TWO independent mechanisms break that: `table-layout: auto` lets CONTENT push
-  a column past its declared width (so the dot header's label is `sr-only` and the role cells are
-  clamped), and a `w-full` table spreads LEFTOVER width across every column including the pinned ones
-  (so the table is `w-max`). ★ The `w-max` cost is real and deliberate: a short plan no longer stretches
-  to fill the pane. ★ jsdom has no layout, so NOTHING in the unit suite can see any of this — the tests
-  pin the class/offset plumbing only, and the geometry itself was measured in Chromium.
-  ★★ The total row's separating rule rides `cellClass` onto the CELLS, never the `<tr>` — see
-  `docs/open-followups.md` §68 for why a `<tr>` border in these tables has never painted.
-  ★ `bucketColumnTotals` takes the caller's OWN `cellBudget` as `budgetOf`, so the column sums and the
-  row sums come from one accessor and cannot disagree (it honours budget-follows-plan mirroring). It is
-  fed the FILTERED rows, so the totals follow the role filter — §70.
-  ★★ A ROLE CELL IS TWO LINES AND A PERSON SUB-ROW IS ONE, so they can only line up HORIZONTALLY, and
-  that alignment is arithmetic: `HOURS_LINE_UNITS` (exported from `budget-panel-totals.tsx`) is the `w-14`
-  label + `gap-1` + `w-16` value box **counted in Tailwind SPACING UNITS** (14+1+16=31), i.e. where the
-  box's RIGHT edge lands from the cell's content-box left. `budget-panel-people-rows.tsx`'s `HoursFigure`
-  right-aligns a block of exactly that width (`HOURS_LINE_REM`), so the person figures share the role's
-  value-box column. They used to carry `text-right` on the `<td>`, which anchored them to the far edge of
-  a much wider PERIOD column and stranded every figure right of the boxes above it.
-  ★★ `text-right` must therefore be ABSENT from the cell and PRESENT on the block — leaving it on both
-  renders identically for any figure that happens to fill the block and drifts for any that does not, a
-  fixture-dependent failure that survives a test suite.
-  ★★★ UNITS, NOT PIXELS, and matching the box's `px-1` with a `pr-1`. Both were review findings against a
-  first cut that used a px constant and no padding, and each broke the alignment on its own: a px block
-  only tracks rem-based `w-14`/`w-16` at a 16px root font size, and a block that is merely the same WIDTH
-  puts its digits one unit right of every role figure, because the value box's own `px-1` stops its digits
-  short. That was a visible ~4px stagger down the column — **the boxes lined up and the numbers did not**,
-  and the numbers are the only thing a reader compares. (`DOT_COL_PX`/`TOTAL_COL_PX` beside it are
-  genuinely px and predate this; the sticky-column arithmetic they drive already assumes a 16px root.)
-  ★ The bordered `HoursCell` inputs still stop 1px short of the read-only `TotalsTd` spans, since `border`
-  is px — pre-existing, between the role rows' own two spellings, and not closable from the person row.
-  ★ The Total column already lined up, and NOT by luck: `TOTAL_COL_PX` was itself derived as this width
-  plus the cell's `px-3` (124+24=148) — the docstring on `TOTAL_COL_PX` itself says so, immediately above
-  the declaration. Both now measure from the one constant, so the two derivations cannot drift apart.
-  ★★ An earlier revision here called that alignment a COINCIDENCE while that docstring sat a few lines up
-  in the same file, and its replacement then said the docstring was "130 lines above" — a distance nothing
-  ever measured (it is ~16). Two errors about one docstring, in consecutive revisions, neither touching the
-  arithmetic they surrounded. Cite the SYMBOL and read it; a line distance is unverifiable at a glance,
-  rots on the next insertion, and buys the reader nothing a `grep` would not.
-  ★ jsdom has no layout, so no test can compare the two edges — what is pinned is that both derive from
-  ONE constant, plus tests tying it to the classes in BOTH role cells. ★★ Read that scope literally:
-  `budget-panel-totals.tsx` spells the same three widths FOUR times, twice in `TotalsTd` (read-only spans)
-  and twice in `HoursCell` (the editable inputs the PERIOD columns align against). A first cut covered
-  `TotalsTd` only and claimed "change `w-14` and it goes red", which was false for the more important
-  half — changing `HoursCell`'s `w-14` broke every person period figure with the suite green.
+- **Budget, FX and the Budget panel → [`docs/AGENTS/budget.md`](docs/AGENTS/budget.md).** The budget
+  engine treats every figure as EUR (§473); `fixedPriceAmount` is the one stored field it converts, with
+  `currencyToEur`. That file owns the FX boundary, earned value and the panel's pinned-column arithmetic.
 - **Tables — `SortResizeTh<K>` + `TableFilter` (`report-table.tsx`) → [`docs/AGENTS/ui-shell.md`](docs/AGENTS/ui-shell.md)
   "tables" section.** Every sortable header in the app flows through `SortResizeTh`, which owns
   `aria-sort` and the `aria-hidden` sort glyph — never hand-roll a sort header. ★★ `stickyLeft` turns
@@ -1116,9 +1066,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   **Print · reset-columns · reset-pane-size**, in that order. Destructive/bulk actions (Activity's "Clear log")
   and integration blocks (the Outlook `CalendarSyncControls`) go BEFORE it, never between two members.
   ★★ IN THE ELECTRON DESKTOP SHELL EVERY ARITY BELOW LOSES ITS **Print** MEMBER — `PrintButton` renders
-  `null` there (`isDesktopShellUserAgent`, `src/app/desktop-shell.ts`), so a group one shorter than this
-  rule states is not drift. Unit assertions are unaffected (jsdom's UA is not Electron's); the why is
-  beside that helper.
+  `null` there ([why](docs/AGENTS/desktop.md#print-and-the-menu)), so one short is not drift;
+  jsdom still renders Print.
   ★★ THE DASHBOARD'S GROUP IS A 2×2 GRID (Print | reset-layout over reset-size | badge; DOM order unchanged, so it still reads row by row) AND ITS MIDDLE MEMBER IS **reset-LAYOUT**, not reset-columns —
   `ResetLayoutButton`, restoring the tile arrangement to `DEFAULT_LAYOUT`. That pane has no columns to reset, and
   arrangement is the reset-columns ANALOGUE (it restores CONTENT arrangement, where reset-pane-size restores the
@@ -1253,8 +1202,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 
 ★★★ **Only THIS file reaches every session.** `CLAUDE.md` is `@AGENTS.md`, so
 everything above is loaded before you type anything; the files in the table below
-are not. That is the whole point of the split — this file had grown to 324 KB
-(~81k tokens) of which ~73% was subsystem reference that most tasks never touch.
+are not. That is the whole point of the split (sizes in the next paragraph).
 **Open the matching file before editing that subsystem's code.** The landmines
 did not get weaker by moving, and a landmine nobody loads is a landmine nobody
 reads — which is the risk this arrangement trades for the context saving.
@@ -1275,8 +1223,7 @@ in `docs/AGENTS/`, and moving it is a NET WIN even when every line of it is true
 why it regrows: nothing here is wrong, it is merely not worth every session's context.
 
 ★★ `npm run docs:symbols:check` gates every file in `docs/AGENTS/`, not just this one — `docs/AGENTS/`
-is GLOBBED (`readdirSync`), so a new subsystem file is scanned the moment it lands. It still
-proves only that a backticked NAME is real, never that a CLAIM about it is true.
+is GLOBBED (`readdirSync`), so a new subsystem file is scanned the moment it lands.
 
 | File | Owns |
 |---|---|
@@ -1294,3 +1241,6 @@ proves only that a backticked NAME is real, never that a CLAIM about it is true.
 | [activity-log.md](docs/AGENTS/activity-log.md) | `Workspace.activityLog` — meta-blob persistence · storage-only on every path · `logMode` REPLACE-by-default · entry ids and actors · forward-compat sanitising · the THREE incompatible completion-trend delta shapes |
 | [documents.md](docs/AGENTS/documents.md) | documents — the DATA half: `DocVersion` before-images · retention + tombstones + the `"restored"` marker · `applyDocMutation` (the single mutation path) · `documentVersions` across all six write paths and both load funnels · AND the UI half: renderers, pane split, the hand block editor |
 | [task-status.md](docs/AGENTS/task-status.md) | the task completion model — the `status` ⟺ `completedDate` invariant · the FIVE paths that write the pair and the mechanism each holds it by · why `migrateTask` does NOT repair a split pair · the `isTaskClosed` / `isTaskDelivered` split |
+| [budget.md](docs/AGENTS/budget.md) | budget and money — `resolveRate` / `currencyToEur` and the one stored non-EUR field · the IndexedDB plan-currency coercion · `effectiveBudgetHours` mirroring · bucket earned value and its all-or-nothing rollup · the panel module map and pinned-column arithmetic |
+| [undo.md](docs/AGENTS/undo.md) | the undo/redo stack — creates · label registrations · row vs field-patch capture · field groups · the §295 redo arm · popout + load-hold |
+| [desktop.md](docs/AGENTS/desktop.md) | the Electron shell at RUNTIME — port + server child · navigation + sign-in popup · print + menu · PDF export · updater |

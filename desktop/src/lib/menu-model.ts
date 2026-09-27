@@ -27,8 +27,11 @@ export const HELP_MENU_ITEMS: readonly HelpMenuItem[] = [
 // needs Electron for all three); this owns the decision, so the decision is
 // unit-testable and -- the point -- lands in the BLOCKING root `typecheck`
 // job. Root tsconfig.json excludes `desktop/src/main.ts` and nothing else
-// here, so a mapping written in main.ts is typechecked only by the desktop
-// build, which is `allow_failure: true` on a merge request.
+// here, so a mapping written in main.ts is typechecked only by
+// `npm run desktop:typecheck`. That runs in the `static` group of
+// scripts/gate-local.mjs and in CI's `static` job, so it is blocking on every
+// pull request too (this said `allow_failure: true`, a GitLab-era claim,
+// until 2026-09-27).
 export type HelpMenuAction = "open-help" | "show-version" | "check-for-updates";
 
 // ★★★ A `Record` KEYED BY THE UNION, deliberately NOT a switch with a
@@ -91,8 +94,8 @@ export function helpAction(id: HelpMenuItemId): HelpMenuAction {
 // packaged app. **docs/open-followups.md §468** routes them through a
 // separate main-process route (desktop/src/lib/pdf-export.ts + the
 // `did-create-window`/`printToPDF`/save-dialog wiring in main.ts), not this
-// menu. That fix has landed, but §468 stays OPEN until the owed
-// packaged-app check is done. An earlier version of this comment restated
+// menu. That fix has landed, and §468 was closed on 2026-09-26 once the
+// owner checked it in the packaged app. An earlier version of this comment restated
 // that story here, which made a third full copy of it.
 export type FileMenuItemId = "print";
 export type FileMenuAction = "print-window";

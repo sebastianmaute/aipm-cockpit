@@ -21,7 +21,7 @@ surfaces did not exist; they landed later in the same branch and the paragraph w
 Restoring writes it back verbatim, so there is deliberately **no inversion logic anywhere**
 in this module or downstream of it. Do not add any; a "revert" is a write of a stored
 snapshot, nothing more. This is the entire safety net behind direct AI document writes,
-because chat tool writes take no undo capture.
+because document tool writes take no undo capture (the AI's entity updates and deletes do).
 
 ★★★ **THIS MODEL IS THE ONLY HISTORY A DOCUMENT HAS, and as of 2026-08-26 the WORKSPACE-level
 version history states that explicitly rather than by omission.** `documents` and
@@ -185,7 +185,7 @@ what lets the property test drive it.
 ★★★ **A WHOLLY-REFUSED WRITE MUST NOT MUTATE.** When every op in a `kind: "ops"` mutation is
 rejected (and no title changed), `applyOps` returns `null` and the engine returns the caller's
 own state untouched. Writing the empty/unchanged result would destroy the document while the
-caller reported only "I couldn't do that" — and chat tool writes have no undo capture, so this
+caller reported only "I couldn't do that" — and document tool writes have no undo capture, so this
 branch is the only thing between a bad model index and real data loss.
 
 ★ **`changed: false` paths return the caller's OWN array references**, never rebuilt-but-equal

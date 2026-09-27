@@ -75,7 +75,16 @@ const DOCS = [
         .map((f) => path.join(DOC_DIR, f))
     : []),
 ];
-const CODE_DIRS = ["src", "scripts", "e2e"];
+// ★★ `desktop/` is walked as its two TRACKED source roots, not as `desktop`.
+// The whole directory also holds `desktop/release/` (electron-builder output,
+// gitignored, present only after a local `desktop:package`), whose unpacked
+// Next server is JS and JSON the repo does not track, plus `package-lock.json`,
+// whose integrity hashes split into mixed-case identifier fragments. Either
+// would make a name "exist" on one machine and not another. `SKIP_DIRS` in
+// agents-symbols-lib.mjs already covers `node_modules` and `dist`, but not
+// `release`, and `check-followup-claims.mjs` walks with the same set, so it is
+// left alone.
+const CODE_DIRS = ["src", "scripts", "e2e", "desktop/src", "desktop/scripts"];
 
 function main() {
   for (const doc of DOCS) {
@@ -148,7 +157,7 @@ function main() {
   if (findings.length === 0) {
     console.log(
       `${DOCS.length} doc(s): ${verified.size} named symbols all resolve ` +
-        `(against ${known.size} identifiers in ${CODE_DIRS.join("/")})`,
+        `(against ${known.size} identifiers in ${CODE_DIRS.join(", ")})`,
     );
     return;
   }

@@ -29,8 +29,9 @@ export type ActivityKind =
   | "raid.autoIssue"
   | "raid.escalated"
   | "bulk.edit"
-  // ★★ SEPARATE FROM `bulk.edit` ON PURPOSE. A mass delete is irreversible on
-  // the chat path (tool writes take no undo capture), so the log is the ONLY
+  // ★★ SEPARATE FROM `bulk.edit` ON PURPOSE. A mass delete's undo entry
+  // expires with the session (the chat path's `delete_all_tasks` does capture
+  // one; this said it took none until 2026-09-27), so the log is the durable
   // account of it — describing it as an "edit" understates what happened. Same
   // `bulk.` prefix, so `activityGroupOf` files it under the same group.
   | "bulk.delete"
