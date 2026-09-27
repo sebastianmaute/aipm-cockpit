@@ -1,5 +1,6 @@
 // src/app/export-sections.test.ts
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
+import { loadI18n } from "./i18n";
 import {
   buildExportSections,
   cellText,
@@ -29,6 +30,7 @@ import type { ExportConfig } from "./settings-types";
 import type { Workspace } from "./storage";
 import type { Task, RaidItem, Milestone, NoteLogEntry } from "./types";
 import type { CalendarEvent } from "./calendar-event";
+import type { Insight } from "./insights/insight";
 import { nearestOccurrence } from "./recurrence";
 
 // ---------------------------------------------------------------------------
@@ -344,34 +346,66 @@ describe("calendarEvents section", () => {
     const sections = buildExportSections(ws, defaultExportConfig, "en-US");
     const sec = sections.find((s) => s.key === "calendarEvents")!;
     expect(sec.columns).toEqual(["Title", "First occurrence", "Repeat", "Location"]);
-    expect(sec.rows).toEqual([["Event 1", "2025-03-10 09:00", "Does not repeat", "Room 4"]]);
+    expect(sec.rows).toEqual([["Event 1", "2025-03-10 09:00", "Never", "Room 4"]]);
   });
 
   it("omits location as an empty cell rather than dropping the column", () => {
     const ws: Workspace = { ...makeBaseWorkspace(), calendarEvents: [makeCalendarEvent(1)] };
     const sections = buildExportSections(ws, defaultExportConfig, "en-US");
     const sec = sections.find((s) => s.key === "calendarEvents")!;
-    expect(sec.rows[0]).toEqual(["Event 1", "2025-03-10 09:00", "Does not repeat", ""]);
+    expect(sec.rows[0]).toEqual(["Event 1", "2025-03-10 09:00", "Never", ""]);
   });
 
+  // §621 — the summary is built from the event editor's own labels, so it
+  //  reads as the editor that wrote the rule, in the export's language.
+  const RECURRING: Workspace = {
+    ...makeBaseWorkspace(),
+    calendarEvents: [
+      makeCalendarEvent(1, { recurrence: { freq: "daily", interval: 1 } }),
+      makeCalendarEvent(2, { recurrence: { freq: "weekly", interval: 2, byDay: ["MO", "WE"] } }),
+      makeCalendarEvent(3, { recurrence: { freq: "monthly", interval: 1, byDay: { ordinal: 2, day: "TU" } } }),
+      makeCalendarEvent(4, { recurrence: { freq: "monthly", interval: 1, byMonthDay: 15 } }),
+      makeCalendarEvent(5, { recurrence: { freq: "monthly", interval: 3, byDay: { ordinal: -1, day: "WE" } } }),
+      makeCalendarEvent(6, { recurrence: { freq: "weekly", interval: 1 } }),
+    ],
+  };
+
   it("describes weekly/monthly recurrence in plain language", () => {
-    const ws: Workspace = {
-      ...makeBaseWorkspace(),
-      calendarEvents: [
-        makeCalendarEvent(1, { recurrence: { freq: "daily", interval: 1 } }),
-        makeCalendarEvent(2, { recurrence: { freq: "weekly", interval: 2, byDay: ["MO", "WE"] } }),
-        makeCalendarEvent(3, { recurrence: { freq: "monthly", interval: 1, byDay: { ordinal: 2, day: "TU" } } }),
-        makeCalendarEvent(4, { recurrence: { freq: "monthly", interval: 1, byMonthDay: 15 } }),
-      ],
-    };
-    const sections = buildExportSections(ws, defaultExportConfig, "en-US");
+    const sections = buildExportSections(RECURRING, defaultExportConfig, "en-US");
     const sec = sections.find((s) => s.key === "calendarEvents")!;
     expect(sec.rows.map((r) => r[2])).toEqual([
-      "Every day",
-      "Every 2 weeks on MO, WE",
-      "Every month on the 2nd TU",
-      "Every month on day 15",
+      "Daily",
+      "Every 2 weeks · Mon, Wed",
+      "Monthly · 2nd Tue",
+      "Monthly · Day 15",
+      "Every 3 months · Last Wed",
+      "Weekly",
     ]);
+  });
+
+  describe("in a German export", () => {
+    beforeAll(async () => {
+      await loadI18n("de");
+    });
+
+    it("describes recurrence in German", () => {
+      const sections = buildExportSections(RECURRING, defaultExportConfig, "de");
+      const sec = sections.find((s) => s.key === "calendarEvents")!;
+      expect(sec.rows.map((r) => r[2])).toEqual([
+        "Täglich",
+        "Alle 2 Wochen · Mo., Mi.",
+        "Monatlich · 2. Di.",
+        "Monatlich · Tag 15",
+        "Alle 3 Monate · Letzter Mi.",
+        "Wöchentlich",
+      ]);
+    });
+
+    it("says a single event never repeats in German", () => {
+      const ws: Workspace = { ...makeBaseWorkspace(), calendarEvents: [makeCalendarEvent(1)] };
+      const sec = buildExportSections(ws, defaultExportConfig, "de").find((s) => s.key === "calendarEvents")!;
+      expect(sec.rows[0][2]).toBe("Nie");
+    });
   });
 
   it("is dropped entirely when disabled, even with events present", () => {
@@ -1006,5 +1040,39 @@ describe("cellLinkedLines — the structural projection (§330)", () => {
   it("diverges from the stored projection for pre, the one kind that keeps whitespace", () => {
     const cell = richCell('<pre>  see <a href="https://a/x">x</a></pre>');
     expect(flatten(cellLinkedLines(cell) ?? [])).not.toBe(cell.text);
+  });
+});
+
+// §621 — type, severity and status print the Insights panel's own labels in
+//  the export's language; only the `data` evidence dump stays raw.
+describe("insights section", () => {
+  const INSIGHTS: Insight[] = [
+    {
+      id: 1, key: "raidAging:7", type: "raidAging", severity: "low", status: "dismissed",
+      data: { days: 12 }, firstSeenAt: "2025-03-01", lastSeenAt: "2025-03-09", occurrences: 3,
+    },
+    {
+      id: 2, key: "milestoneSlip:4", type: "milestoneSlip", severity: "high", status: "acted",
+      data: { name: "Go-live" }, firstSeenAt: "2025-03-02", lastSeenAt: "2025-03-10", occurrences: 1,
+    },
+  ];
+  const ws: Workspace = { ...makeBaseWorkspace(), insights: INSIGHTS };
+  const cfg: ExportConfig = { ...defaultExportConfig, insights: true };
+
+  it("prints translated labels in an English export", () => {
+    const sec = buildExportSections(ws, cfg, "en-US").find((s) => s.key === "insights")!;
+    expect(sec.rows).toEqual([
+      ["RAID item ageing", "Low", "Dismissed", "days=12", "3", "2025-03-09"],
+      ["Milestone at risk", "High", "Acted", "name=Go-live", "1", "2025-03-10"],
+    ]);
+  });
+
+  it("prints German labels in a German export", async () => {
+    await loadI18n("de");
+    const sec = buildExportSections(ws, cfg, "de").find((s) => s.key === "insights")!;
+    expect(sec.rows.map((r) => r.slice(0, 4))).toEqual([
+      ["RAID-Eintrag altert", "Niedrig", "Verworfen", "days=12"],
+      ["Meilenstein gefährdet", "Hoch", "Bearbeitet", "name=Go-live"],
+    ]);
   });
 });

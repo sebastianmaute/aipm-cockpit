@@ -10,7 +10,7 @@
 // callbacks arrive via the same `InsightActions` bag task-manager threads.
 
 import { useMemo, useState } from "react";
-import { type Lang, t, type TranslationKey } from "./i18n";
+import { type Lang, t } from "./i18n";
 import { Button } from "./button";
 import { Select } from "./form-controls";
 import { Checkbox } from "./form-controls";
@@ -19,7 +19,14 @@ import { RagDot } from "./rag-dot";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { insightTitle, insightDetail, insightRowTitles } from "./insights/insight-text";
+import {
+  INSIGHT_SEVERITY_LABEL_KEY,
+  INSIGHT_STATUS_LABEL_KEY,
+  INSIGHT_TYPE_LABEL_KEY,
+  insightTitle,
+  insightDetail,
+  insightRowTitles,
+} from "./insights/insight-text";
 import { InsightOutcomeBadge } from "./insights/insight-outcome-badge";
 import { InsightDigestCard } from "./insights/insight-digest-card";
 import { computeInsightDigest } from "./insights/digest";
@@ -40,29 +47,6 @@ import type { Health } from "./health";
 
 // Severity rides the DOT (non-text, AA-exempt) — never tinted small text.
 const SEVERITY_HEALTH: Record<InsightSeverity, Health> = { high: "R", medium: "A", low: "G" };
-const SEVERITY_LABEL_KEY: Record<InsightSeverity, TranslationKey> = {
-  high: "insightSeverityHigh",
-  medium: "insightSeverityMedium",
-  low: "insightSeverityLow",
-};
-const STATUS_LABEL_KEY: Record<InsightStatus, TranslationKey> = {
-  active: "insightStatusActive",
-  acknowledged: "insightStatusAcknowledged",
-  acted: "insightStatusActed",
-  dismissed: "insightStatusDismissed",
-  resolved: "insightStatusResolved",
-};
-const TYPE_LABEL_KEY: Record<InsightType, TranslationKey> = {
-  milestoneSlip: "insightMilestoneSlipTitle",
-  overdueTrend: "insightOverdueTrendTitle",
-  stalledWork: "insightStalledWorkTitle",
-  budgetVariance: "insightBudgetVarianceTitle",
-  raidAging: "insightRaidAgingTitle",
-  timelogCapPerEntry: "insightTimelogCapPerEntryTitle",
-  timelogCapPerDay: "insightTimelogCapPerDayTitle",
-  timelogNonWorkingDay: "insightTimelogNonWorkingDayTitle",
-  timelogWorkingHours: "insightTimelogWorkingHoursTitle",
-};
 
 type StatusFilter = "all" | InsightStatus;
 type TypeFilter = "all" | InsightType;
@@ -148,7 +132,7 @@ export function InsightsPanel({
           <option value="all">{t(lang, "insightStatusAll")}</option>
           {INSIGHT_STATUSES.map((s) => (
             <option key={s} value={s}>
-              {t(lang, STATUS_LABEL_KEY[s])}
+              {t(lang, INSIGHT_STATUS_LABEL_KEY[s])}
             </option>
           ))}
         </Select>
@@ -162,7 +146,7 @@ export function InsightsPanel({
           <option value="all">{t(lang, "insightTypeAll")}</option>
           {INSIGHT_TYPES.map((ty) => (
             <option key={ty} value={ty}>
-              {t(lang, TYPE_LABEL_KEY[ty])}
+              {t(lang, INSIGHT_TYPE_LABEL_KEY[ty])}
             </option>
           ))}
         </Select>
@@ -226,13 +210,13 @@ export function InsightsPanel({
                     level={SEVERITY_HEALTH[insight.severity]}
                     size="md"
                     className="mt-1"
-                    label={t(lang, SEVERITY_LABEL_KEY[insight.severity])}
+                    label={t(lang, INSIGHT_SEVERITY_LABEL_KEY[insight.severity])}
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-foreground">{title}</p>
                     <p className="text-xs text-muted-foreground">{detail}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {t(lang, STATUS_LABEL_KEY[insight.status])}
+                      {t(lang, INSIGHT_STATUS_LABEL_KEY[insight.status])}
                       {" · "}
                       {`${insight.occurrences}×`}
                       {" · "}

@@ -38,8 +38,14 @@ import { contactDisplay } from "./contact-display";
 import type { ExportConfig, ExportSectionKey } from "./settings-types";
 import { linkKindOf, type KnowledgeItem } from "./document-link";
 import type { Insight } from "./insights/insight";
-import type { CalendarEvent, RecurrenceRule } from "./calendar-event";
+import type { CalendarEvent } from "./calendar-event";
 import { nearestOccurrence } from "./recurrence";
+import { recurrenceSummaryText } from "./calendar-recurrence-labels";
+import {
+  INSIGHT_SEVERITY_LABEL_KEY,
+  INSIGHT_STATUS_LABEL_KEY,
+  INSIGHT_TYPE_LABEL_KEY,
+} from "./insights/insight-text";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import type { Lang, TranslationKey } from "./i18n";
 import { t } from "./i18n";
@@ -584,11 +590,13 @@ function knowledgeItemsSection(items: readonly KnowledgeItem[], lang: Lang): Exp
 
 // The insight text is derived from type+data by the React surfaces, so the
 // export renders the structural fields plus a compact key=value dump of `data`.
+// Type, severity and status print the same translated labels the Insights
+// panel shows (§621); the `data` dump stays raw, since it is the evidence.
 function insightsSection(insights: readonly Insight[], lang: Lang): ExportSection {
   const rows = insights.map((it) => [
-    it.type,
-    it.severity,
-    it.status,
+    t(lang, INSIGHT_TYPE_LABEL_KEY[it.type]),
+    t(lang, INSIGHT_SEVERITY_LABEL_KEY[it.severity]),
+    t(lang, INSIGHT_STATUS_LABEL_KEY[it.status]),
     Object.entries(it.data)
       .map(([k, v]) => `${k}=${v}`)
       .join(" "),
@@ -596,26 +604,6 @@ function insightsSection(insights: readonly Insight[], lang: Lang): ExportSectio
     it.lastSeenAt,
   ]);
   return { key: "insights", ...heading("insights", lang), rows };
-}
-
-function ordinalLabel(n: 1 | 2 | 3 | 4 | -1): string {
-  return n === -1 ? "last" : n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : "4th";
-}
-
-/** English-only, i18n-free (the headers and titles around it are translated
- *  since §304; this cell text is not): a compact plain-language summary of a recurrence rule, derived
- *  from the rule alone — no occurrence expansion needed, since an event's own
- *  `startDate`/`startTime` already IS its first occurrence. */
-function describeRecurrence(r: RecurrenceRule | undefined): string {
-  if (!r) return "Does not repeat";
-  const unit = (word: string) => (r.interval > 1 ? `${r.interval} ${word}s` : word);
-  if (r.freq === "daily") return `Every ${unit("day")}`;
-  if (r.freq === "weekly") {
-    const days = r.byDay && r.byDay.length > 0 ? ` on ${r.byDay.join(", ")}` : "";
-    return `Every ${unit("week")}${days}`;
-  }
-  if (r.byDay) return `Every ${unit("month")} on the ${ordinalLabel(r.byDay.ordinal)} ${r.byDay.day}`;
-  return `Every ${unit("month")} on day ${r.byMonthDay ?? "?"}`;
 }
 
 /** The date+time the calendar actually renders FIRST for this event — which
@@ -670,7 +658,7 @@ function calendarEventsSection(events: readonly CalendarEvent[], lang: Lang): Ex
   const rows = events.map((e) => [
     e.title,
     firstOccurrenceLabel(e),
-    describeRecurrence(e.recurrence),
+    recurrenceSummaryText(e.recurrence, lang),
     e.location ?? "",
   ]);
   return { key: "calendarEvents", ...heading("calendarEvents", lang), rows };

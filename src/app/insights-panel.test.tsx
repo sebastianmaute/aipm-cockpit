@@ -77,15 +77,14 @@ describe("InsightsPanel", () => {
     expect(rowHasTitle("milestoneSlip")).toBe(false);
   });
 
-  // tsc enforces that TYPE_LABEL_KEY carries an entry for EVERY InsightType; it
+  // tsc enforces that INSIGHT_TYPE_LABEL_KEY (insights/insight-text.ts) carries an entry for EVERY InsightType; it
   // cannot enforce that the entry is the RIGHT key. Aiming one guardrail at
   // another guardrail's title key renders a wrong <option> label with every gate
   // green, and the four guardrail keys differ only by a rule name — the easiest
   // copy-paste in the map. Pinned to literal English so this cannot pass by
   // reading the same map the panel does.
-  // ★ The sibling map TITLE_KEY (insights/insight-text.ts) has the identical
-  // exposure and is ALREADY pinned, by insight-text.test.ts asserting the same
-  // four literals through `insightTitle`. METRIC_FIELD (insights/outcome.ts) is
+  // ★ The same map also feeds `insightTitle`, and insight-text.test.ts pins the
+  // same four literals through it. METRIC_FIELD (insights/outcome.ts) is
   // the third such map and needs no pin: all four guardrails map to "count", so
   // a swap between them is a no-op.
   it("labels each guardrail type-filter option with its own title", () => {

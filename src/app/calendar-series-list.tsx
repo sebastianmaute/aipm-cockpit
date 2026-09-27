@@ -8,36 +8,13 @@
 // table (an explicit user decision on this component).
 import { useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
-import type { CalendarEvent, RecurrenceRule } from "./calendar-event";
+import type { CalendarEvent } from "./calendar-event";
 import { nearestOccurrence } from "./recurrence";
+import { recurrenceFrequencyText } from "./calendar-recurrence-labels";
 import { DataTable } from "./data-table";
 import { EmptyState } from "./empty-state";
 import { Button } from "./button";
 import { type SortDir, SortResizeTh, useSortHeaderProps, compareStrOrNum, nextSortDir } from "./report-table";
-
-/** Compact, i18n'd recurrence summary for a list row — deliberately terser
- *  than export-sections.ts's `describeRecurrence` (which is English-only by
- *  the sibling document-export convention and spells out byDay/ordinal
- *  detail for an audit trail read once). This list's job is just letting the
- *  user tell series apart and reach one that's off-window; the exact rule
- *  mechanics are one click away via Edit, so frequency + interval is enough
- *  here. Reuses the calendar-event editor's OWN vocabulary (the
- *  calendarEventRepeat-, calendarEventInterval- and
- *  calendarEventIntervalUnit-prefixed keys) rather than inventing a
- *  parallel set of words for the same concepts —
- *  needs zero new i18n keys and reads identically to what the editor itself
- *  calls the same rule. */
-function describeRecurs(rule: RecurrenceRule | undefined, lang: Lang): string {
-  if (!rule) return t(lang, "calendarEventRepeatNever");
-  if (rule.interval <= 1) {
-    const key = rule.freq === "daily" ? "calendarEventRepeatDaily"
-      : rule.freq === "weekly" ? "calendarEventRepeatWeekly" : "calendarEventRepeatMonthly";
-    return t(lang, key);
-  }
-  const unitKey = rule.freq === "daily" ? "calendarEventIntervalUnitDaily"
-    : rule.freq === "weekly" ? "calendarEventIntervalUnitWeekly" : "calendarEventIntervalUnitMonthly";
-  return `${t(lang, "calendarEventInterval")} ${rule.interval} ${t(lang, unitKey)}`;
-}
 
 /** Next occurrence at-or-after `today`, formatted, or a localized fallback.
  *  Shares its window-search mechanics with export-sections.ts's
@@ -177,7 +154,7 @@ export function CalendarSeriesList({ lang, events, today, onEdit }: CalendarSeri
               {rows.map(({ event: e, next }) => (
                 <tr key={e.id}>
                   <td className="px-3 py-2 font-medium text-foreground">{e.title}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{describeRecurs(e.recurrence, lang)}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{recurrenceFrequencyText(e.recurrence, lang)}</td>
                   <td className="px-3 py-2 tabular-nums text-muted-foreground">{next.label}</td>
                   <td className="px-3 py-2">
                     {onEdit && (
