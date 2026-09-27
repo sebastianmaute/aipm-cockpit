@@ -8,6 +8,7 @@ import { isDeleteKind, type ActivityKind } from "../activity-log";
 import type { ToastAction } from "../use-toast";
 import { WRITE_THROUGH_FIELDS } from "./write-through-fields";
 import { mergeFieldPatch } from "./merge-field-value";
+import { dropStaleScopeWrite, type ScopeEpochReader } from "../scope-epoch";
 import {
   applyUndoRestoreWithRemap,
   applyUndoForward,
@@ -575,6 +576,10 @@ export interface UndoStackApi {
   /** Redo every entry from `id` up to the top of the redo stack, as ONE commit. */
   redoThrough: (id: number) => void;
   redo: () => void;
+  /** Empty BOTH stacks, running nothing and logging nothing. §628: driven by
+   *  `useClearUndoOnLoadHold` when a load hold rises, so no entry captured in one
+   *  project survives into the next. */
+  clear: () => void;
   stack: readonly UndoMeta[];
   redoStack: readonly UndoMeta[];
   canUndo: boolean;
@@ -600,12 +605,50 @@ export interface UseUndoStackDeps {
    *  through `depsRef` at call time: captures push nothing and toast nothing,
    *  and every restore entry point returns without running a runner or logging. */
   isReadOnly?: () => boolean;
+  /** §628 — the scope-epoch reader `useStorageBackend` publishes. Read LAZILY
+   *  through `depsRef`: each entry is stamped with it at capture, and every
+   *  restore entry point DROPS (never runs) an entry whose stamp is stale per
+   *  `isScopeStale`. Absent → nothing is ever stale (tests, popouts). */
+  getScopeEpoch?: ScopeEpochReader;
 }
 
-/** One entry on either stack: display meta + the impure directional runner. */
+/** One entry on either stack: display meta + the impure directional runner.
+ *  `epoch` is the scope epoch at capture (§628); it travels with the entry
+ *  between the two stacks, because a redo entry replays the SAME project's op. */
 interface StackEntry {
   meta: UndoMeta;
   run: Runner;
+  epoch?: number;
+}
+
+/**
+ * §628 — clear the undo AND redo stacks when the load hold rises.
+ *
+ * ★★★ WHY THIS IS NEEDED AT ALL: `useUndoStack` lives in `TaskManagerInner`, which
+ * an in-place project switch (`applyWorkspaceForOp`) does NOT remount, and every
+ * runner closes over the workspace's STABLE setters and applies its images to
+ * `prev`. So an entry captured in project A, undone after a switch to B, injects
+ * A's deleted rows into B and overwrites B's same-id rows with A's content — and
+ * the next autosave persists it to B.
+ * ★★ A SEPARATE HOOK, not a `loadPending` field on `UseUndoStackDeps`, because of
+ * call ORDER: `useUndoStack` is called above `useStorageBackend` (the undo API is
+ * threaded into hooks declared between the two, and `useUndoHotkey`'s listener
+ * order depends on it), so `loadPending` does not exist yet at that call site.
+ * This hook is called after it, in the SAME component, so `clear`'s setStates
+ * are a render-phase update of the component that is rendering.
+ * ★ Render-time reconcile, NOT an effect (`set-state-in-effect` is banned). It
+ * fires on the false→true transition only; a hold that is already true at mount
+ * has nothing to clear.
+ * ★ It clears on EVERY rise of the hold, including a same-project reload or a
+ * cancelled held op. That is deliberately coarse: the epoch stamp below is the
+ * precise guard, this is the belt that also empties the visible history.
+ */
+export function useClearUndoOnLoadHold(loadPending: boolean, clear: () => void): void {
+  const [seenLoadPending, setSeenLoadPending] = useState(loadPending);
+  if (loadPending !== seenLoadPending) {
+    setSeenLoadPending(loadPending);
+    if (loadPending) clear();
+  }
 }
 
 export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
@@ -623,6 +666,17 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   // time would spend a stale callback. Stable identity (`[]`), so the module-scope
   // runner builders can close over it once and never need re-minting.
   const armDestructive = useCallback(() => { depsRef.current.allowDestructiveSave?.(); }, []);
+
+  // §628 — split a stack into the entries still in scope. Every stale one is
+  // DROPPED (logged once each by `dropStaleScopeWrite`, no toast), never run.
+  // ★ An entry point whose TARGET was stale stops after dropping: the act the
+  // user asked for no longer exists, and running an older entry in its place
+  // would undo something they did not pick.
+  const liveEntries = useCallback((s: readonly StackEntry[], which: "undo" | "redo") => {
+    const read = depsRef.current.getScopeEpoch;
+    const live = s.filter((e) => !dropStaleScopeWrite(read, e.epoch, `undo.${which}`, { kind: e.meta.kind, id: e.meta.id }));
+    return { live, dropped: live.length !== s.length };
+  }, []);
 
   // Run an entry's undo + side effects OUTSIDE any setState updater (strict mode
   // double-invokes updaters → double restore). `entry.run()` applies the undo
@@ -644,7 +698,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     showToast("info", t(lang, "undoneX", entry.meta.label));
     setStack(nextStack);
     if (pushRedo) {
-      setRedoStack((rs) => pushUndo(rs, { meta: entry.meta, run: redoRun }, UNDO_CAP));
+      setRedoStack((rs) => pushUndo(rs, { meta: entry.meta, run: redoRun, epoch: entry.epoch }, UNDO_CAP));
     } else {
       setRedoStack([]);
     }
@@ -652,19 +706,23 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
 
   const undoById = useCallback((id: number) => {
     if (depsRef.current.isReadOnly?.()) return;
-    const s = stackRef.current;
+    const { live: s, dropped } = liveEntries(stackRef.current, "undo");
     const entry = s.find((e) => e.meta.id === id);
-    if (!entry) return;
+    if (!entry) { if (dropped) setStack(s); return; }
     const isTop = s.length > 0 && s[s.length - 1].meta.id === id;
     commitUndo(entry, dropEntry(s, id), isTop);
-  }, [commitUndo]);
+  }, [commitUndo, liveEntries]);
 
   const undo = useCallback(() => {
     if (depsRef.current.isReadOnly?.()) return;
-    const popped = popUndo(stackRef.current);
+    const all = stackRef.current;
+    const { live, dropped } = liveEntries(all, "undo");
+    // The top entry was stale: drop, apply nothing (see `liveEntries`).
+    if (dropped && live[live.length - 1] !== all[all.length - 1]) { setStack(live); return; }
+    const popped = popUndo(live);
     if (!popped) return;
     commitUndo(popped.entry, popped.rest, true);
-  }, [commitUndo]);
+  }, [commitUndo, liveEntries]);
 
   // ★★ NOT a loop over undo(): `stackRef` is refreshed by an effect, so N calls
   //    in one tick all read the same stale stack and undo the top entry N times.
@@ -674,9 +732,10 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   //    reason commitUndo runs entry.run() before its setStates).
   const undoThrough = useCallback((id: number) => {
     if (depsRef.current.isReadOnly?.()) return;
-    const taken = takeThrough(stackRef.current, id);
-    if (!taken) return;
-    const inverses = taken.entries.map((e) => ({ meta: e.meta, run: e.run() }));
+    const { live, dropped } = liveEntries(stackRef.current, "undo");
+    const taken = takeThrough(live, id);
+    if (!taken) { if (dropped) setStack(live); return; }
+    const inverses = taken.entries.map((e) => ({ meta: e.meta, run: e.run(), epoch: e.epoch }));
     const summed = taken.entries.reduce((n, e) => n + e.meta.count, 0);
     const { lang, logActivity, showToast } = depsRef.current;
     logActivity("undo", summed, ...reversedKindCounts(taken.entries.map((e) => e.meta)));
@@ -688,16 +747,17 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
       : t(lang, "undoneNActions", inverses.length));
     setStack(taken.rest);
     setRedoStack((rs) => pushUndoMany(rs, inverses, UNDO_CAP));
-  }, []);
+  }, [liveEntries]);
 
   // Mirror of undoThrough against the redo stack. Deliberately NOT folded in
   // with redo() — that function has its own body and shares nothing with
   // commitUndo, so unifying them would be a refactor of working code.
   const redoThrough = useCallback((id: number) => {
     if (depsRef.current.isReadOnly?.()) return;
-    const taken = takeThrough(redoStackRef.current, id);
-    if (!taken) return;
-    const inverses = taken.entries.map((e) => ({ meta: e.meta, run: e.run() }));
+    const { live, dropped } = liveEntries(redoStackRef.current, "redo");
+    const taken = takeThrough(live, id);
+    if (!taken) { if (dropped) setRedoStack(live); return; }
+    const inverses = taken.entries.map((e) => ({ meta: e.meta, run: e.run(), epoch: e.epoch }));
     const summed = taken.entries.reduce((n, e) => n + e.meta.count, 0);
     const { lang, logActivity, showToast } = depsRef.current;
     logActivity("redo", summed, ...reversedKindCounts(taken.entries.map((e) => e.meta)));
@@ -707,21 +767,27 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
       : t(lang, "redoneNActions", inverses.length));
     setRedoStack(taken.rest);
     setStack((s) => pushUndoMany(s, inverses, UNDO_CAP));
-  }, []);
+  }, [liveEntries]);
 
   // Redo the last undone op: apply its forward runner (which returns a fresh undo
   // runner so redo→undo round-trips), and push the re-undoable entry back on top.
   const redo = useCallback(() => {
     if (depsRef.current.isReadOnly?.()) return;
-    const popped = popUndo(redoStackRef.current);
+    const all = redoStackRef.current;
+    const { live, dropped } = liveEntries(all, "redo");
+    if (dropped && live[live.length - 1] !== all[all.length - 1]) { setRedoStack(live); return; }
+    const popped = popUndo(live);
     if (!popped) return;
     const undoRun = popped.entry.run();
     const { lang, logActivity, showToast } = depsRef.current;
     logActivity("redo", popped.entry.meta.count, ...reversedKindCounts([popped.entry.meta]));
     showToast("info", t(lang, "redoneX", popped.entry.meta.label));
     setRedoStack(popped.rest);
-    setStack((s) => pushUndo(s, { meta: popped.entry.meta, run: undoRun }, UNDO_CAP));
-  }, []);
+    setStack((s) => pushUndo(s, { meta: popped.entry.meta, run: undoRun, epoch: popped.entry.epoch }, UNDO_CAP));
+  }, [liveEntries]);
+
+  // §628 — see `useClearUndoOnLoadHold`. Stable identity (`[]`).
+  const clear = useCallback(() => { setStack([]); setRedoStack([]); }, []);
 
   // Shared tail: push one undo entry, invalidate any pending redo (a fresh
   // destructive op breaks redo coherence), and fire its action toast. `run` is
@@ -737,7 +803,13 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     const id = (idRef.current += 1);
     const label = buildUndoLabel(depsRef.current.lang, kind, primaryCount, labelOpts);
     const meta: UndoMeta = { id, kind, count: primaryCount, timestamp: new Date().toISOString(), label };
-    setStack((s) => pushUndo(s, { meta, run }, UNDO_CAP));
+    // §628 — stamp the scope at capture; a restore entry point drops the entry
+    // once the epoch has moved on. ★★ The stamp is the epoch at PUSH time, so it
+    // cannot see a capture whose images were read in the old scope but pushed
+    // after the bump — that direction is closed by the writers' own
+    // `!loadPending` start gates (see `scope-epoch.ts`), not here.
+    const epoch = depsRef.current.getScopeEpoch?.();
+    setStack((s) => pushUndo(s, { meta, run, epoch }, UNDO_CAP));
     setRedoStack([]);
     const { lang, showToastAction } = depsRef.current;
     // Same predicate as `buildUndoLabel` above, deliberately: the toast and the
@@ -803,6 +875,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     undoThrough,
     redoThrough,
     redo,
+    clear,
     stack: metas,
     redoStack: redoMetas,
     canUndo: stack.length > 0,
