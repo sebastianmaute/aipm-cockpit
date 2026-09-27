@@ -25,10 +25,20 @@
 //    journal and saved back, and that save's confirmation clears the journal.
 //  - "tab close" (`page.close({ runBeforeUnload: true })`): the journal the
 //    closing page wrote is read back from localStorage by a NEW page in the
-//    SAME context, which then loads the app; the draft must be in IndexedDB.
-//    The heading's is `test.fail` — see `tabCloseFails`.
-// Plus: a heading blur-then-immediate-reload, and a base mismatch that must
-// show the conflict notice, whose Discard removes the key.
+//    SAME context, which then loads the app; the draft must be in IndexedDB,
+//    and the load must consume the journal with no conflict notice.
+// Plus: a heading blur-then-immediate-reload (the debounce paused, so only the
+// journal can carry it), a task-cell tab close whose own IndexedDB write ALSO
+// landed (the journal already landed: cleared silently), and a base mismatch
+// that must show the conflict notice, once per action (Discard, Restore anyway).
+//
+// ★★★ READ THE JOURNAL WITH A POLL AFTER A CLOSE. `page.close({ runBeforeUnload:
+// true })` resolves before the closing page has finished its `pagehide`
+// handlers. Measured 2026-09-27 (diag-heading-close): the heading's handler runs
+// a synchronous ~115-128 ms `flushSync` re-render of the Documents view before
+// the journal write, so a one-shot read by the new page saw null in 3 of 3
+// runs, while a read 1 s later held the draft. The task cell's (~50 ms) won the
+// same race. So every journal read after a close is `expect.poll`.
 //
 // ★★★ THE LOAD-BEARING ASSERTIONS ARE ON STORAGE (IndexedDB and the journal's
 //  localStorage key), not the UI. Before the unload the typed marker must be
@@ -42,8 +52,13 @@
 //    `useInlineCellEdit` (use-inline-cell-edit.ts) turns BOTH "page stays"
 //    tests RED at their storage assertion;
 //  - replacing the `unloadJournal.restoreOnLoad(...)` call in
-//    use-storage-backend.ts's load effect with `null` turns the reload tests
-//    RED; see §629 for the run.
+//    use-storage-backend.ts's load effect with `null` turns RED every reload
+//    test (the blur-then-reload one included), both tab-close tests, the
+//    landed-journal test and both mismatch tests; see §629 for the run;
+//  - deleting the already-landed branch of `restoreOnLoad` (use-unload-journal.ts)
+//    turns the task cell's tab-close test and the landed-journal test RED;
+//  - deleting the `page.clock.pauseAt` in the blur-then-reload test turns it
+//    RED at its premise (the debounced save landed before the reload).
 //  Re-do both before trusting a run after a refactor of the unload path.
 //
 // Run against a fresh server from THIS checkout, never one another worktree
@@ -151,11 +166,19 @@ async function expectLanded(page: Page, where: Where, marker: string): Promise<v
     .toBe(true);
 }
 
-/** The restored journal's save-back confirmed and cleared this project's key,
- *  and no conflict notice was raised for it. */
+/** The load consumed this project's key — restored and cleared by its save-back's
+ *  confirmation, or cleared at once as already landed — and raised no conflict notice. */
 async function expectJournalConsumed(page: Page): Promise<void> {
-  await expect.poll(() => readJournal(page), { message: "the confirmed save-back must clear the journal" }).toBeNull();
+  await expect.poll(() => readJournal(page), { message: "the load must consume the journal" }).toBeNull();
   await expect(page.getByRole("region", { name: CONFLICT_NOTICE })).toHaveCount(0);
+}
+
+/** A tab close: the closing page's `pagehide` must have written `marker` into the
+ *  journal. Polled — see the header on why a one-shot read races the close. */
+async function expectJournalWritten(reader: Page, marker: string): Promise<void> {
+  await expect
+    .poll(() => readJournal(reader), { message: "the closing page's pagehide must have written the journal" })
+    .toContain(marker);
 }
 
 async function pageHideWhilePageStays(page: Page): Promise<void> {
@@ -175,19 +198,15 @@ async function sameOriginReader(context: BrowserContext): Promise<Page> {
   return reader;
 }
 
-// ★★ `tabCloseFails`: measured 2026-09-27 with the journal in place (see §629).
-//  - The heading's tab close writes NO journal: the new page reads null. Its
-//    reload does write one, so the heading's commit reaches `doSave` too late
-//    for a close, though not for a reload. Pinned as `test.fail`.
-//  - The task cell's tab close writes the journal inside the event, and its
-//    IndexedDB write ALSO won the race (as before the journal). The next load
-//    then holds the draft AND a journal whose base no longer matches, so the
-//    conflict notice shows and the journal stays. Both race outcomes put the
-//    draft in IndexedDB (landed, or restored), so only that is asserted; the
-//    journal's consumption is not.
+// A tab close has two race outcomes on this backend, and each must end with the
+// draft stored and the journal consumed without a notice: the closing page's own
+// IndexedDB write lands (the journal's content is then what loads, so it is
+// cleared as already landed), or it does not (the journal's base matches, so it
+// is restored and saved back). Which one ran is pinned only by the landed-journal
+// test below, which asserts its premise.
 const EDITORS = [
-  { name: "document heading (useBlockDraft)", where: { kv: "documents" } as Where, type: typeHeadingDraft, tabCloseFails: true },
-  { name: "task name inline cell (useInlineCellEdit)", where: { store: "tasks" } as Where, type: typeTaskNameDraft, tabCloseFails: false },
+  { name: "document heading (useBlockDraft)", where: { kv: "documents" } as Where, type: typeHeadingDraft },
+  { name: "task name inline cell (useInlineCellEdit)", where: { store: "tasks" } as Where, type: typeTaskNameDraft },
 ];
 
 test.describe("a draft committed on pagehide: does it survive the unload? (IndexedDB, Chromium)", () => {
@@ -199,7 +218,7 @@ test.describe("a draft committed on pagehide: does it survive the unload? (Index
     });
   });
 
-  EDITORS.forEach(({ name, where, type, tabCloseFails }, i) => {
+  EDITORS.forEach(({ name, where, type }, i) => {
     test(`${name}: page stays — the commit's save lands`, async ({ page }) => {
       const marker = `zqpagehide${i}a`;
       await type(page, marker);
@@ -218,63 +237,107 @@ test.describe("a draft committed on pagehide: does it survive the unload? (Index
     });
 
     test(`${name}: tab close — a new page reads the journal back, and the draft is stored`, async ({ page, context }) => {
-      test.fail(tabCloseFails, "§629: the heading's tab close writes no unload journal in Chromium");
       const marker = `zqpagehide${i}c`;
       await type(page, marker);
       await expectAbsentBeforeUnload(page, where, marker);
       await page.close({ runBeforeUnload: true });
       const next = await sameOriginReader(context);
-      expect(await readJournal(next), "the closing page's pagehide must have written the journal").toContain(marker);
+      await expectJournalWritten(next, marker);
       await gotoApp(next);
       await expectLanded(next, where, marker);
+      await expectJournalConsumed(next);
     });
+  });
+
+  test("task name inline cell: a tab close whose own IndexedDB write also landed — the journal clears silently", async ({ page, context }) => {
+    const where: Where = { store: "tasks" };
+    const marker = "zqpagehidelanded";
+    await typeTaskNameDraft(page, marker);
+    await expectAbsentBeforeUnload(page, where, marker);
+    await page.close({ runBeforeUnload: true });
+    const next = await sameOriginReader(context);
+    await expectJournalWritten(next, marker);
+    // The premise, read before any app code runs on this page: the close's save
+    // landed too, so the journal's content IS what the next load returns.
+    await expect
+      .poll(() => storedContains(next, where, marker), { message: "premise: the closing page's IndexedDB write landed" })
+      .toBe(true);
+    await gotoApp(next);
+    await expectJournalConsumed(next);
+    expect(await storedContains(next, where, marker), "the landed value stays stored").toBe(true);
   });
 
   test("document heading: blur then an immediate reload — the committed value survives", async ({ page }) => {
     const where: Where = { kv: "documents" };
     const marker = "zqpagehideblur";
     await typeHeadingDraft(page, marker);
-    // Commit by blur: the debounced save (SAVE_DEBOUNCE_MS, 500) is scheduled, not yet run.
+    // Pause the (installed, see gotoApp) clock BEFORE the blur: the debounced save
+    // (500 ms) it schedules then cannot run before the reload, so the flush the
+    // reload's pagehide starts, and the journal it writes, are the only path.
+    // A second ahead of the page's clock, which keeps running while the call is in flight.
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1_000));
     await page.keyboard.press("Tab");
     await expect(headingInput(page)).not.toBeFocused();
+    // Twice the debounce in REAL time: a running clock would have saved by now.
+    await page.waitForTimeout(1_000);
     await expectAbsentBeforeUnload(page, where, marker);
-    await reload(page);
+    await page.reload();
+    await page.clock.resume(); // the restored workspace's save-back needs its debounce to run
+    await expect(page.locator("main").first()).toBeVisible({ timeout: 60_000 });
     await expectLanded(page, where, marker);
     await expectJournalConsumed(page);
   });
 
-  test("a journal whose base no longer matches shows the conflict notice; Discard removes it", async ({ page, context }) => {
-    const where: Where = { kv: "documents" };
-    const drafted = "zqpagehidemma";
-    const changed = "zqpagehidemmb";
-    // 1. A journal: an unblurred task-name draft, then the pagehide of a tab
-    //    close — the editor whose close writes it (see `tabCloseFails`). Whether
-    //    its IndexedDB write also lands does not matter: step 2 changes the
-    //    stored project either way.
-    await typeTaskNameDraft(page, drafted);
-    await page.close({ runBeforeUnload: true });
-    const next = await sameOriginReader(context);
-    const journal = await readJournal(next);
-    expect(journal, "the closing page's pagehide must have written the journal").toContain(drafted);
-    // 2. Set it aside, so the app's next load does not restore it, and change the
-    //    stored project through the app's own save path (a blur commit).
-    await next.evaluate((key) => localStorage.removeItem(key), JOURNAL_KEY);
-    await typeHeadingDraft(next, changed);
-    await next.keyboard.press("Tab");
-    await expectLanded(next, where, changed);
-    await expect.poll(() => readJournal(next), { message: "a visible page's save writes no journal" }).toBeNull();
-    // 3. Put the journal back: its base is the fingerprint of the project BEFORE
-    //    the change, so the reload's load cannot match it.
-    await next.evaluate(({ key, value }) => localStorage.setItem(key, value), { key: JOURNAL_KEY, value: journal as string });
-    await reload(next);
-    const notice = next.getByRole("region", { name: CONFLICT_NOTICE });
-    await expect(notice).toBeVisible();
-    expect(await readJournal(next), "the notice describes the set-aside journal, kept in place").toContain(drafted);
-    // 4. Discard: the notice goes and so does the key; the changed project stays.
-    await notice.getByRole("button", { name: "Discard" }).click();
-    await expect(notice).toHaveCount(0);
-    expect(await readJournal(next), "Discard must remove the journal key").toBeNull();
-    await openDocumentBlockEditor(next);
-    await expect(headingInput(next), "a mismatched journal is not applied").toHaveValue(new RegExp(`${changed}$`));
+  const RESOLUTIONS = [
+    { action: "Discard", applied: false },
+    { action: "Restore anyway", applied: true },
+  ] as const;
+
+  RESOLUTIONS.forEach(({ action, applied }, i) => {
+    test(`a journal whose base no longer matches shows the conflict notice; ${action} resolves it`, async ({ page, context }) => {
+      const where: Where = { kv: "documents" };
+      const drafted = `zqpagehidemm${i}a`;
+      const changed = `zqpagehidemm${i}b`;
+      // 1. A journal: an unblurred task-name draft, then the pagehide of a tab close.
+      await typeTaskNameDraft(page, drafted);
+      await page.close({ runBeforeUnload: true });
+      const next = await sameOriginReader(context);
+      await expectJournalWritten(next, drafted);
+      const journal = await readJournal(next);
+      // 2. Set it aside, so the app's next load does not act on it, and change the
+      //    stored project through the app's own save path (a blur commit). The
+      //    close's own IndexedDB write may already have moved the stored project
+      //    off the journal's base (it did in 2 of 2 probe runs on 2026-09-27, before
+      //    the landed-journal fix); this step makes
+      //    the mismatch certain either way. It also keeps the journal's CONTENT
+      //    off what the reload loads, which a landed close write alone would not:
+      //    that load would clear the journal silently. And it gives the last
+      //    assertion something to tell "applied" from "not applied" by.
+      await next.evaluate((key) => localStorage.removeItem(key), JOURNAL_KEY);
+      await typeHeadingDraft(next, changed);
+      await next.keyboard.press("Tab");
+      await expectLanded(next, where, changed);
+      // 3. Put the journal back: its base and its content both differ from what the
+      //    reload loads, so the notice must show.
+      await next.evaluate(({ key, value }) => localStorage.setItem(key, value), { key: JOURNAL_KEY, value: journal as string });
+      await reload(next);
+      const notice = next.getByRole("region", { name: CONFLICT_NOTICE });
+      await expect(notice).toBeVisible();
+      expect(await readJournal(next), "the notice describes the set-aside journal, kept in place").toContain(drafted);
+      // 4. The action: the notice goes and so does the key (Discard removes it; Restore
+      //    anyway's save-back confirmation clears it).
+      await notice.getByRole("button", { name: action }).click();
+      await expect(notice).toHaveCount(0);
+      await expect.poll(() => readJournal(next), { message: `${action} must end with the journal key removed` }).toBeNull();
+      if (applied) {
+        // The journal predates step 2, so applying it and saving it back drops `changed`.
+        await expect
+          .poll(() => storedContains(next, where, changed), { message: "Restore anyway must apply and save the journal" })
+          .toBe(false);
+      } else {
+        await openDocumentBlockEditor(next);
+        await expect(headingInput(next), "a discarded journal is not applied").toHaveValue(new RegExp(`${changed}$`));
+      }
+    });
   });
 });
