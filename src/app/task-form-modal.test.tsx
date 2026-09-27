@@ -1,7 +1,7 @@
 import { describe, test, it, expect, vi, beforeEach, beforeAll } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createRef, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { useTaskForm, emptyForm, emptyBulkEdit } from "./task-form-context";
@@ -92,7 +92,6 @@ function defaultProps(overrides?: Partial<Parameters<typeof TaskFormModal>[0]>) 
     holidaySet: new Set<string>(),
     jiraProjectKey: undefined,
     jiraDefaultIssueType: undefined,
-    modalRef: createRef<HTMLDivElement | null>(),
     onSubmit: vi.fn(),
     onCancel: vi.fn(),
     onRemoveContact: vi.fn(),

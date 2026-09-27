@@ -377,7 +377,6 @@ function TaskManagerInner() {
   const { ref: workspaceRef, reset: resetWorkspaceSize } = useResizable(
     "aipm-cockpit:workspace-size",
   );
-  const { ref: modalRef } = useResizable("aipm-cockpit:task-modal-size");
 
   // Per-project EFFECTIVE settings: fold the project's POLICY overrides
   // (Workspace.settingsOverrides) onto the device settings. Appearance is Phase 6
@@ -3103,7 +3102,6 @@ function TaskManagerInner() {
         holidaySet={holidaySet}
         jiraProjectKey={settings.jira.projectKey}
         jiraDefaultIssueType={settings.jira.issueTypes[0]}
-        modalRef={modalRef}
         handleSubmit={handleSubmit}
         handleCancelEdit={handleCancelEdit}
         handleRemoveContact={handleRemoveContact}

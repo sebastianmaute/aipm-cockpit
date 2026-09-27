@@ -28302,12 +28302,9 @@ is now created before both hooks and joined to the size hook's ref by one callba
 persisted; close and reopen restores it). Mutant: `{ open }` in place of `{ open: open && pos !==
 null }` → red, `expected '' to be '777px'`; reverted, `git diff --stat` unchanged by it.
 
-Not changed, for the owner: `task-manager.tsx` calls `useResizable("aipm-cockpit:task-modal-size")`
-with no `open`, so its effect runs once at mount while the task form is closed and never attaches.
-Its return value IS used — the ref is threaded through `app-modals.tsx` into `task-form-modal.tsx`,
-whose callback ref writes the panel node into it — but nothing reads that ref back, and the panel's
-real size persistence is `task-form-modal.tsx`'s own `aipm-cockpit:modal-size:task-form` hook. Left
-as found: removing it means changing the `AppModals`/`TaskFormModal` prop contract.
+`task-manager.tsx`'s dead `useResizable("aipm-cockpit:task-modal-size")` call and the unread `modalRef`
+prop it fed through `app-modals.tsx` into `task-form-modal.tsx` were removed 2026-09-27 as dead code,
+with the owner's approval.
 
 Not a mutant: deleting the `!open ||` half of the guard alone is EQUIVALENT, not a regression — a
 closed caller renders no element, so `!el` already bails on its own. The guard exists so the effect

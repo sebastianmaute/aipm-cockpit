@@ -1,5 +1,4 @@
 // src/app/app-modals.test.tsx
-import React from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { AppModals, type AppModalsProps } from "./app-modals";
@@ -95,7 +94,6 @@ function makeProps(): AppModalsProps {
     holidaySet: new Set(),
     jiraProjectKey: undefined,
     jiraDefaultIssueType: undefined,
-    modalRef: React.createRef<HTMLDivElement>(),
     onAddAssigneeToAddressBook: vi.fn(),
     handleSubmit: vi.fn(),
     handleCancelEdit: vi.fn(),
