@@ -140,6 +140,15 @@ interface PendingProposal {
    *   normally happens had none. `null` is deliberately distinct from `0`: no
    *   Apply yet, versus an Apply that committed nothing. */
   readonly applied: number | null;
+  /** §600 — the scope epoch of the turn that STAGED this plan: that turn's
+   *  `sendEpoch`, NOT a fresh `getScopeEpoch()` read at staging or at Apply.
+   *  ★★★ THE MODEL WROTE ITS CALLS AGAINST THE SEND-TIME PROJECT. Capturing at
+   *   the Apply click would certify whatever project is in scope by then — the
+   *   swap itself — rather than catch it. The render-time `seenProjectId`
+   *   reconcile cannot stand in for this: the epoch also moves when the project
+   *   ID does not (browser/local-* kinds keyed on kind alone, an accepted storage
+   *   file, a backend change). */
+  readonly scopeEpoch: number;
 }
 
 /** `runBatched`'s stand-in when no batch was threaded: run the plan, collect
@@ -783,6 +792,7 @@ function ChatPanelInner({
               applying: false,
               failed: new Map<number, ProposalFailureKind>(),
               applied: null,
+              scopeEpoch: sendEpoch,
             });
             setDisplay((prev) => [
               ...prev,
@@ -1114,6 +1124,20 @@ function ChatPanelInner({
   async function applyPendingProposal() {
     const p = pendingProposal;
     if (!p || p.applying) return;
+    // ★★★ §600 — BEFORE anything is marked applying or written. A plan staged in
+    // another scope is retired exactly as a discard is (the marker REPLACED, not
+    // removed), with a notice that says why; nothing of it reaches the dispatcher.
+    if (dropStaleScopeWrite(getScopeEpoch, p.scopeEpoch, "chat-panel.applyProposal", { proposalId: p.id })) {
+      setPendingProposal(null);
+      setDisplay((prev) =>
+        prev.map((item) =>
+          item.kind === "proposal" && item.id === p.id
+            ? { kind: "notice", text: t(lang, "chatProposalScopeChanged") }
+            : item,
+        ),
+      );
+      return;
+    }
     setPendingProposal((prev) => (prev?.id === p.id ? { ...prev, applying: true } : prev));
     try {
       const result = await applyProposal({
@@ -1121,12 +1145,23 @@ function ChatPanelInner({
         rows: p.rows,
         selected: p.selected,
         batch: { runBatched: runBatched ?? RUN_UNBATCHED },
+        // ★★ The click-time check above cannot see a swap that lands DURING the
+        // replay — `runTool` is awaited per row — so the same epoch is re-read
+        // before every row.
+        isScopeStale: () => isScopeStale(getScopeEpoch, p.scopeEpoch),
       });
       const failed = new Map(
         result.rows
           .filter((r): r is FailedAppliedRow => !r.ok)
           .map((r) => [r.index, failureKindOf(r)] as const),
       );
+      // ONE diagnostic for a batch the scope stopped mid-way, not one per row.
+      if ([...failed.values()].includes("scopeChanged")) {
+        dropStaleScopeWrite(getScopeEpoch, p.scopeEpoch, "chat-panel.applyProposal", {
+          proposalId: p.id,
+          stage: "midBatch",
+        });
+      }
       const appliedCount = result.rows.length - failed.size;
       setPendingProposal((prev) =>
         prev?.id === p.id

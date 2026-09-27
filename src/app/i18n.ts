@@ -4635,12 +4635,14 @@ const enUS = {
   chatProposalFailedUnreadable: "Not applied — its target could not be read back",
   chatProposalFailedError: "Not applied",
   chatProposalFailedRejected: "Not applied — every change in it was rejected",
+  chatProposalFailedScope: "Not applied — the project changed.",
   // Shown in place of the card when the transcript still carries a proposal
   // marker but the live plan is gone (a project or thread switch, or a restored
   // conversation). Deliberately NOT an error: nothing failed, the plan simply
   // stopped being applyable and the transcript keeps the record that it existed.
   chatProposalExpired: "This proposal is no longer active.",
   chatProposalDiscarded: "Proposal discarded.",
+  chatProposalScopeChanged: "This plan was made for a different project and was not applied.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

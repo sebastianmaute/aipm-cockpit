@@ -109,7 +109,14 @@ export const NEW_ROW_TOKEN_UNAVAILABLE_ERROR =
 export const ALL_FIELDS_REJECTED_ERROR =
   "every field this call writes was rejected on the review card, so nothing was sent";
 
-/** Which of the five not-ok outcomes a row hit, so the card can say something
+/** `AppliedRow.error` for a row NOT SENT because the scope epoch moved during the
+ *  replay (§600) — the project it would write into is no longer the one the plan
+ *  was made against. Exported, like its siblings, so the card and a test
+ *  recognise the outcome without matching prose. */
+export const SCOPE_CHANGED_ERROR =
+  "the project changed while this plan was being applied, so this call was not sent";
+
+/** Which of the six not-ok outcomes a row hit, so the card can say something
  *  true about it.
  *
  *  ★★★ KEYED OFF THE EXPORTED CONSTANTS, NEVER BY MATCHING PROSE. All three
@@ -119,7 +126,13 @@ export const ALL_FIELDS_REJECTED_ERROR =
  *  ★★ `stale` IS CHECKED FIRST because it is the only outcome the original card
  *   string was ever right about. Everything else is a row that did not land for
  *   a reason that has nothing to do with concurrency. */
-export type ProposalFailureKind = "conflict" | "dependency" | "unreadable" | "rejected" | "error";
+export type ProposalFailureKind =
+  | "conflict"
+  | "dependency"
+  | "unreadable"
+  | "rejected"
+  | "scopeChanged"
+  | "error";
 
 /** An `AppliedRow` that did NOT land — the only shape `failureKindOf` has an
  *  honest answer for.
@@ -142,6 +155,7 @@ export function failureKindOf(row: FailedAppliedRow): ProposalFailureKind {
   if (row.error === PENDING_MINT_ERROR) return "dependency";
   if (row.error === NEW_ROW_TOKEN_UNAVAILABLE_ERROR) return "unreadable";
   if (row.error === ALL_FIELDS_REJECTED_ERROR) return "rejected";
+  if (row.error === SCOPE_CHANGED_ERROR) return "scopeChanged";
   return "error";
 }
 
@@ -252,6 +266,12 @@ export interface ApplyProposalArgs {
    *  that silently swallows captures is exactly the failure the batch exists to
    *  prevent. The real `UndoBatch` still satisfies this. */
   readonly batch: Pick<UndoBatch, "runBatched">;
+  /** §600 — re-read before EVERY row. True means the in-scope project is no
+   *  longer the one the plan was staged against, so this row and every remaining
+   *  selected one are refused with `SCOPE_CHANGED_ERROR` and none is dispatched.
+   *  ★★ PER ROW, NOT ONCE: `runTool` is awaited per row, so a swap can land
+   *   between two rows of one batch. Absent = never stale (a unit test's opt-out). */
+  readonly isScopeStale?: () => boolean;
 }
 
 /** The real id a create tool's result carries, or `undefined` when it carries
@@ -323,7 +343,7 @@ function resolveMintedId(
  * points strictly backward, which is exactly what makes one forward pass enough.
  */
 export async function applyProposal(args: ApplyProposalArgs): Promise<ApplyProposalResult> {
-  const { dispatcher, rows, selected, batch } = args;
+  const { dispatcher, rows, selected, batch, isScopeStale } = args;
   const applied: AppliedRow[] = [];
 
   // create tool → (provisional id → the id the real minter handed out). Filled
@@ -354,8 +374,18 @@ export async function applyProposal(args: ApplyProposalArgs): Promise<ApplyPropo
   }
 
   await batch.runBatched(async () => {
+    // §600 — once the scope has moved it stays moved for this batch: every later
+    // selected row is refused, never re-checked into a write.
+    let scopeChanged = false;
     for (let index = 0; index < rows.length; index += 1) {
       if (!selected.has(index)) continue;
+      // ★★★ FIRST, before `namesPendingMint`: a row bound for another project is
+      //  refused for THAT reason, whatever else might also be wrong with it.
+      if (scopeChanged || isScopeStale?.() === true) {
+        scopeChanged = true;
+        applied.push({ index, ok: false, error: SCOPE_CHANGED_ERROR });
+        continue;
+      }
       const row = rows[index];
       const { stamped } = row;
       // ★★★ BEFORE the try, and before `runTool` — this is a refusal to write,

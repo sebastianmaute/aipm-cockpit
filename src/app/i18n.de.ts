@@ -4351,6 +4351,8 @@ export const de: Record<TranslationKey, string> = {
   chatProposalFailedUnreadable: "Nicht übernommen – das Ziel konnte nicht erneut gelesen werden",
   chatProposalFailedError: "Nicht übernommen",
   chatProposalFailedRejected: "Nicht übernommen – jede Änderung darin wurde abgelehnt",
+  chatProposalFailedScope: "Nicht angewendet – das Projekt hat sich geändert.",
   chatProposalExpired: "Dieser Vorschlag ist nicht mehr aktiv.",
   chatProposalDiscarded: "Vorschlag verworfen.",
+  chatProposalScopeChanged: "Dieser Plan wurde für ein anderes Projekt erstellt und nicht angewendet.",
 };
