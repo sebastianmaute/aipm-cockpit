@@ -43,7 +43,7 @@ export interface NotesWindowProps extends Omit<NoteLogPanelProps, "labelSuffix">
 export function NotesWindow(props: NotesWindowProps) {
   const { open, onClose, entries, onAdd, onEdit, onDelete, self, resources, lang, entityLabel, aiReadable } = props;
 
-  const { ref: panelRef, reset: resetSize } = useResizable(STORAGE_KEY_SIZE);
+  const { ref: panelRef, reset: resetSize } = useResizable(STORAGE_KEY_SIZE, { open });
   // Drag/position (shared with help-menu); size stays on useResizable above.
   const { pos, onTitleBarMouseDown } = useDraggableWindow(STORAGE_KEY_POS, {
     open,

@@ -20,8 +20,16 @@ export interface BulkField {
   default?: string;
   /** Renders the control. The panel owns value/enable state and passes them in;
    *  `id` is the control's id (its visible label is bound to the ENABLE checkbox,
-   *  so the control carries its own aria-label). */
-  render: (p: { value: string; onChange: (v: string) => void; disabled: boolean; id: string }) => React.ReactNode;
+   *  so the control carries its own aria-label). `ariaLabel` is the value
+   *  control's accessible name, qualified by the panel ("New <label>") so it
+   *  never equals the column header's bare label (§277). */
+  render: (p: {
+    value: string;
+    onChange: (v: string) => void;
+    disabled: boolean;
+    id: string;
+    ariaLabel: string;
+  }) => React.ReactNode;
 }
 
 /** Builder: a `<select>` bulk field. `options[0]` is the seeded default. */
@@ -30,11 +38,11 @@ export function selectField(key: string, label: string, options: readonly BulkFi
     key,
     label,
     default: options[0]?.value ?? "",
-    render: ({ value, onChange, disabled, id }) => (
+    render: ({ value, onChange, disabled, id, ariaLabel }) => (
       <Select
         id={id}
         size="xs"
-        aria-label={label}
+        aria-label={ariaLabel}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
@@ -56,12 +64,12 @@ export function dateField(key: string, label: string, opts?: { min?: string }): 
     key,
     label,
     default: "",
-    render: ({ value, onChange, disabled, id }) => (
+    render: ({ value, onChange, disabled, id, ariaLabel }) => (
       <Input
         id={id}
         type="date"
         size="xs"
-        aria-label={label}
+        aria-label={ariaLabel}
         min={opts?.min}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -78,12 +86,12 @@ export function textField(key: string, label: string, opts?: { placeholder?: str
     key,
     label,
     default: "",
-    render: ({ value, onChange, disabled, id }) => (
+    render: ({ value, onChange, disabled, id, ariaLabel }) => (
       <Input
         id={id}
         type="text"
         size="xs"
-        aria-label={label}
+        aria-label={ariaLabel}
         maxLength={opts?.maxLength}
         placeholder={opts?.placeholder}
         value={value}
@@ -135,6 +143,10 @@ export function BulkEditPanel({ lang, count, fields, onApply, onCancel }: BulkEd
               <input
                 id={`${id}-enable`}
                 type="checkbox"
+                // §277 — the visible <label> below reads just the field; the
+                // accessible name is qualified so it differs from the value
+                // control's and from the column header's sort button.
+                aria-label={t(lang, "bulkEditChangeField", f.label)}
                 checked={on}
                 onChange={() => setEnabled((e) => ({ ...e, [f.key]: !e[f.key] }))}
                 className={`mt-2 h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
@@ -148,6 +160,7 @@ export function BulkEditPanel({ lang, count, fields, onApply, onCancel }: BulkEd
                   onChange: (v) => setValues((s) => ({ ...s, [f.key]: v })),
                   disabled: !on,
                   id,
+                  ariaLabel: t(lang, "bulkEditNewValue", f.label),
                 })}
               </div>
             </div>

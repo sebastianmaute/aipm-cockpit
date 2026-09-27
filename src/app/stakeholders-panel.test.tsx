@@ -189,12 +189,11 @@ describe("Stakeholders bulk edit", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", "Dana") }));
     // open the bulk panel
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
-    // enable Influence + set it to High (the bulk select shares its name with the
-    // column-header sort control — disambiguate by the bulk control's id)
-    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "stakeholderFieldInfluence") }));
-    const bulkInfluence = screen
-      .getAllByRole("combobox", { name: t("en-US", "stakeholderFieldInfluence") })
-      .find((el) => el.id === "bulk-influence")!;
+    // enable Influence + set it to High (§277: the bulk controls carry their
+    // own qualified names, so no DOM-id workaround is needed any more)
+    const influence = t("en-US", "stakeholderFieldInfluence");
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "bulkEditChangeField", influence) }));
+    const bulkInfluence = screen.getByRole("combobox", { name: t("en-US", "bulkEditNewValue", influence) });
     fireEvent.change(bulkInfluence, { target: { value: "High" } });
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkApplyCount", "1") }));
 
@@ -255,15 +254,13 @@ describe("Stakeholders bulk edit", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", "Finn") }));
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
 
-    // Tick + set both fields (the bulk selects share their names with the column
-    // header sort controls — disambiguate by the bulk control's id).
-    for (const [field, id] of [
-      ["stakeholderFieldInfluence", "bulk-influence"],
-      ["stakeholderFieldInterest", "bulk-interest"],
-    ] as const) {
-      fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", field) }));
-      const control = screen.getAllByRole("combobox", { name: t("en-US", field) }).find((el) => el.id === id)!;
-      fireEvent.change(control, { target: { value: "High" } });
+    // Tick + set both fields (§277: each bulk control has its own name).
+    for (const field of ["stakeholderFieldInfluence", "stakeholderFieldInterest"] as const) {
+      const label = t("en-US", field);
+      fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "bulkEditChangeField", label) }));
+      fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "bulkEditNewValue", label) }), {
+        target: { value: "High" },
+      });
     }
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkApplyCount", "3") }));
 
@@ -311,6 +308,20 @@ describe("Stakeholders bulk edit", () => {
     // What the loop DOES depend on is `edits`, and that dependency is pinned by
     // the Finn assertions, not by this line.
     expect(onCaptureBulk.mock.invocationCallOrder[0]).toBeLessThan(onSave.mock.invocationCallOrder[0]);
+  });
+
+  it("keeps the bulk controls' names apart from the column headers they share a label with (§277)", () => {
+    renderStakeholders({ stakeholders: [sampleStakeholder({ id: 1, name: "Dana" })] });
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", "Dana") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
+    const panel = screen.getByRole("heading", { name: t("en-US", "bulkEditCount", "1") }).parentElement!;
+    for (const key of ["stakeholderFieldCategory", "stakeholderFieldInfluence", "stakeholderFieldInterest"] as const) {
+      const label = t("en-US", key);
+      expect(within(panel).queryAllByRole("checkbox", { name: label })).toHaveLength(0);
+      expect(within(panel).queryAllByRole("combobox", { name: label })).toHaveLength(0);
+      expect(within(panel).getAllByRole("checkbox", { name: t("en-US", "bulkEditChangeField", label) })).toHaveLength(1);
+      expect(within(panel).getAllByRole("combobox", { name: t("en-US", "bulkEditNewValue", label) })).toHaveLength(1);
+    }
   });
 });
 

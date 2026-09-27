@@ -237,8 +237,9 @@ li[data-type="taskItem"][data-checked="true"]::before { content: "\2611"; }
    leaving a bare broken-image icon with no explanation.
    ★ The standalone-HTML export in `doc-render-html.ts` carries its OWN,
    different `img[data-asset-missing]` rule (currentColor, no background, no
-   ::before) and has no blocked sink at all — see §320 before widening this
-   pair to it. Border + background are reliable on an <img>
+   ::before), and — since §320 — its own `span[data-asset-blocked]` rule in
+   that same export stylesheet, not this one; widening this pair further
+   still means touching both files. Border + background are reliable on an <img>
    with no `src` set at all; the classic "style a broken image" ::before glyph
    trick (mirrored from the task-item checkbox glyph above) works for the same
    reason that one does — no `src` means the element renders as if it were

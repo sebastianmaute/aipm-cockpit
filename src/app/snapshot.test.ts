@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { baselineMilestoneTargets, bucketKey, buildSnapshot, computeVariance, detectGaps, expectedBuckets, forecastEndDate, hasCapturableContent, milestoneForecast, withoutCompletionVariance } from "./snapshot";
+import { baselineMilestoneTargets, bucketKey, buildSnapshot, computeVariance, detectGaps, expectedBuckets, forecastEndDate, hasCapturableContent, isKpiCompleteSnapshot, milestoneForecast, withoutCompletionVariance } from "./snapshot";
 import type { Milestone, Task } from "./types";
 import type { SnapshotMilestone, SnapshotRecord } from "./snapshot";
 import type { DashboardModel } from "./dashboard";
@@ -191,6 +191,17 @@ describe("buildSnapshot", () => {
     expect(rec.remainingCost).toBeNull();
     expect(rec.series).toEqual([]);
   });
+
+  // §64 — an all-cancelled project has no denominator: 0% would read as lost
+  //  delivery on the sparkline and could become a baseline's figure.
+  it("stores no completion figure (null) while nothing is in scope", () => {
+    const noScope = { ...model, progress: { total: 2, inScope: 0, completed: 0, percent: 0, counts: { R: 0, A: 0, G: 0 } } } as unknown as DashboardModel;
+    const rec = buildSnapshot({
+      model: noScope, tasks: [], milestones: [], planEndDate: "2026-07-31", buckets: [],
+      capturedAt: "2026-06-03T09:00:00.000Z", cadence: "weekly", trigger: "manual",
+    });
+    expect(rec.pctComplete).toBeNull();
+  });
 });
 
 function recWith(over: Partial<SnapshotRecord>): SnapshotRecord {
@@ -305,5 +316,24 @@ describe("hasCapturableContent", () => {
   it("is true when a burndown exists even with no tasks or milestones", () => {
     const model = { burndown: { periods: [] } } as unknown as DashboardModel;
     expect(hasCapturableContent({ ...empty, model })).toBe(true);
+  });
+});
+
+describe("isKpiCompleteSnapshot (§64, §78)", () => {
+  it("never lets a no-scope row become the auto baseline", () => {
+    expect(isKpiCompleteSnapshot({ remainingHours: 10, pctComplete: null })).toBe(false);
+    expect(isKpiCompleteSnapshot({ remainingHours: 10, pctComplete: 0 })).toBe(true);
+    expect(isKpiCompleteSnapshot({ remainingHours: null, pctComplete: 40 })).toBe(false);
+  });
+
+  // §64 — REGRESSION PIN: this is already green on unfixed code (a null
+  //  baseline was always treated as "no baseline yet"), and it stays that way
+  //  once `pctComplete` can itself be null. It exists so a later change to the
+  //  baseline/variance site cannot silently start coercing a null baseline
+  //  figure to 0 without this test noticing.
+  it("gives an empty completion variance against a null baseline figure", () => {
+    const rows = computeVariance(recWith({ pctComplete: null }), recWith({ pctComplete: 40 }));
+    const pct = rows.find((r) => r.key === "pctComplete")!;
+    expect(pct).toMatchObject({ baseline: null, current: 40, delta: null, health: null });
   });
 });

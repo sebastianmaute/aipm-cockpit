@@ -4,7 +4,7 @@ import type { SnapshotRecord } from "./snapshot";
 import type { ActivityEntry } from "./activity-log";
 import type { Task } from "./types";
 
-function snap(capturedAt: string, pct: number): SnapshotRecord {
+function snap(capturedAt: string, pct: number | null): SnapshotRecord {
   return {
     id: capturedAt, capturedAt, bucket: capturedAt.slice(0, 10), cadence: "daily",
     trigger: "manual", isBaseline: false, remainingHours: null, remainingCost: null,
@@ -146,6 +146,22 @@ describe("computeCompletionTrend", () => {
     ];
     const out = computeCompletionTrend({ snapshots: [], activity, tasks: [], currentDone: 6, currentTotal: 10, today: "2026-06-21" });
     expect(out.map((p) => p.label)).toEqual(["06-18", "06-20"]);
+  });
+
+  test("keeps a no-scope snapshot as a gap (null), never 0 (§64)", () => {
+    const snapshots = [
+      snap("2026-06-10T00:00:00.000Z", 20),
+      snap("2026-06-12T00:00:00.000Z", null),
+      snap("2026-06-14T00:00:00.000Z", 55),
+    ];
+    const out = computeCompletionTrend({ snapshots, activity: [], tasks: [], currentDone: 9, currentTotal: 10, today: "2026-06-21" });
+    expect(out.map((p) => p.percent)).toEqual([20, null, 55]);
+  });
+
+  test("falls back to the activity log when fewer than two snapshots carry a figure (§64)", () => {
+    const input = { activity: [ev("2026-06-12T00:00:00.000Z", "task.completed")], tasks: doneBefore(2), currentDone: 3, currentTotal: 10, today: "2026-06-21" };
+    const withNull = computeCompletionTrend({ ...input, snapshots: [snap("2026-06-10T00:00:00.000Z", null), snap("2026-06-14T00:00:00.000Z", 40)] });
+    expect(withNull).toEqual(computeCompletionTrend({ ...input, snapshots: [] }));
   });
 });
 

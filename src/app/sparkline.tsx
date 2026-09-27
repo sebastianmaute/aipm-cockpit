@@ -33,7 +33,8 @@ function dayOffsets(points: readonly CompletionPoint[]): number[] | null {
  *  tile prints the end values beside the line for the detail.
  *  ★ The SVG is stretched non-uniformly (`preserveAspectRatio="none"`), so a
  *  `<circle>` would draw as an ellipse. Each dot is a zero-length path with a
- *  round cap and `vector-effect: non-scaling-stroke`, which stays round. */
+ *  round cap and `vector-effect: non-scaling-stroke`, which stays round.
+ *  ★ A null point (§64) is a gap: no dot, and the line breaks there. */
 export function Sparkline({ points, className, ariaLabel }: SparklineProps) {
   if (points.length < 2) return null;
   const n = points.length;
@@ -42,16 +43,26 @@ export function Sparkline({ points, className, ariaLabel }: SparklineProps) {
   const xAt = (i: number) =>
     PAD + (offsets && span > 0 ? offsets[i] / span : i / (n - 1)) * (W - 2 * PAD);
   const yAt = (v: number) => PAD + (1 - Math.min(100, Math.max(0, v)) / 100) * (H - 2 * PAD);
-  const xy = points.map((p, i) => [xAt(i).toFixed(1), yAt(p.percent).toFixed(1)] as const);
+  // §64 — a null point keeps its x slot (time still passed) but draws
+  // nothing, so the line BREAKS there: one polyline per run of real points.
+  const xy = points.map((p, i) =>
+    p.percent === null ? null : ([xAt(i).toFixed(1), yAt(p.percent).toFixed(1)] as const));
+  const runs = xy.reduce<(readonly (readonly [string, string])[])[]>((acc, pt, i) => {
+    if (pt === null) return acc;
+    const startsRun = i === 0 || xy[i - 1] === null;
+    return startsRun ? [...acc, [pt]] : [...acc.slice(0, -1), [...acc[acc.length - 1], pt]];
+  }, []);
   const a11y = ariaLabel
     ? { role: "img" as const, "aria-label": ariaLabel }
     : { "aria-hidden": true as const };
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className={`w-full overflow-visible ${className ?? ""}`} preserveAspectRatio="none" {...a11y}>
-      <polyline points={xy.map(([x, y]) => `${x},${y}`).join(" ")} fill="none" className="stroke-ui-dark-blue" strokeWidth={2}
-        strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-      {xy.map(([x, y], i) => (
-        <path key={i} data-sparkline-point="" d={`M${x} ${y}h0`} className="stroke-ui-dark-blue" strokeWidth={6}
+      {runs.filter((run) => run.length >= 2).map((run, r) => (
+        <polyline key={r} points={run.map(([x, y]) => `${x},${y}`).join(" ")} fill="none" className="stroke-ui-dark-blue" strokeWidth={2}
+          strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      ))}
+      {xy.map((pt, i) => pt && (
+        <path key={i} data-sparkline-point="" d={`M${pt[0]} ${pt[1]}h0`} className="stroke-ui-dark-blue" strokeWidth={6}
           strokeLinecap="round" vectorEffect="non-scaling-stroke" />
       ))}
     </svg>

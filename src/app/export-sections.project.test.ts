@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { buildExportSections } from "./export-sections";
 import { emptyWorkspace } from "./storage";
 import { defaultExportConfig } from "./settings-types";
-import { loadI18n } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import type { ProjectMeta } from "./types";
 import type { KnowledgeLink } from "./document-link";
 
@@ -96,8 +96,8 @@ describe("buildExportSections – project section", () => {
     const projectSec = sections.find((s) => s.key === "project")!;
 
     expect(projectSec.columns).toHaveLength(2);
-    expect(projectSec.columns[0]).toBe("field");
-    expect(projectSec.columns[1]).toBe("value");
+    expect(projectSec.columns[0]).toBe(t("en-US", "exportColField"));
+    expect(projectSec.columns[1]).toBe(t("en-US", "exportColValue"));
   });
 
   it("each row is a [fieldLabel, value] pair with a non-empty label", () => {

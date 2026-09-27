@@ -150,7 +150,7 @@ import {
   type ProjectsRegistry,
 } from "./projects-registry";
 import { deleteHandle } from "./project-file-handles";
-import { exportWorkspace, type ExportFormat } from "./export"; import { reportCapabilityGap, reportSilentFailure } from "./guard-feedback";
+import { exportWorkspace, type ExportFormat } from "./export"; import { buildExportWorkspace } from "./export-workspace"; import { reportCapabilityGap, reportSilentFailure } from "./guard-feedback";
 import { ProjectEmptyState } from "./project-empty-state";
 import { SecretUnlockGate } from "./secret-unlock-gate";
 import { isPassphraseLocked } from "./secrets-store";
@@ -377,7 +377,6 @@ function TaskManagerInner() {
   const { ref: workspaceRef, reset: resetWorkspaceSize } = useResizable(
     "aipm-cockpit:workspace-size",
   );
-  const { ref: modalRef } = useResizable("aipm-cockpit:task-modal-size");
 
   // Per-project EFFECTIVE settings: fold the project's POLICY overrides
   // (Workspace.settingsOverrides) onto the device settings. Appearance is Phase 6
@@ -2158,13 +2157,18 @@ function TaskManagerInner() {
   const exportFooter = exportFooterText(settings.branding);
   const handleExportCurrentProject = useCallback(
     (format: string) => {
-      const ws = {
+      // §463 — the same builder as the header Export menu. What keeps this
+      //  literal complete is the builder's parameter type,
+      //  `ExportWorkspaceSlices`: every slice is a required key, so leaving
+      //  one out here is a compile error, not a section missing from the file.
+      const ws = buildExportWorkspace({
         tasks, raid, absences, shifts, resources, roles, disciplines, grades,
         plan, budgets, fxRates, status, project, milestones, changes, stakeholders,
-      };
+        calendarEvents, knowledgeItems, insights,
+      });
       void exportWorkspace(ws, format as ExportFormat, settings.export ?? defaultExportConfig, lang, exportFooter).catch((e) => reportSilentFailure(showToast, lang, "export.failed", e, "guardExportFailed"));
     },
-    [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders, settings.export, exportFooter, lang, showToast],
+    [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders, calendarEvents, knowledgeItems, insights, settings.export, exportFooter, lang, showToast],
   );
 
   // De-register a project: drop it from the registry (observable copy updated),
@@ -3098,7 +3102,6 @@ function TaskManagerInner() {
         holidaySet={holidaySet}
         jiraProjectKey={settings.jira.projectKey}
         jiraDefaultIssueType={settings.jira.issueTypes[0]}
-        modalRef={modalRef}
         handleSubmit={handleSubmit}
         handleCancelEdit={handleCancelEdit}
         handleRemoveContact={handleRemoveContact}

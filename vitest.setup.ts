@@ -82,6 +82,11 @@ afterEach(() => {
   // the IntersectionObserver stub above.
   if (typeof localStorage !== "undefined") localStorage.clear();
   server.resetHandlers();
+  // debounced-save.ts keeps a module-level "page is hiding" flag from a
+  // `pagehide` until the next `pageshow` (§185). jsdom never fires `pageshow`,
+  // so a test that dispatches `pagehide` would otherwise make every later save
+  // in the same file flush at once instead of debouncing.
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("pageshow"));
 });
 
 afterAll(() => server.close());

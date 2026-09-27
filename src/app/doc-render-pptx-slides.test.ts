@@ -39,7 +39,7 @@ describe("createDeckMedia — a malformed byte row is declined, never thrown", (
 
   const ctxWith = (inlined: Record<string, string>, ...list: DocumentAsset[]): RenderCtx => {
     const metas = list.length > 0 ? list : [asset()];
-    const assets: ExportAssets = { inlined, omitted: new Set(), missing: new Set() };
+    const assets: ExportAssets = { inlined, omitted: new Set(), missing: new Set(), blocked: new Set() };
     return {
       ws: emptyWorkspace(),
       lang: "en-US",

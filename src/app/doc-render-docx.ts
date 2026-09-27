@@ -51,7 +51,8 @@ import { isAllowedAssetMime, safeBase64ToBytes } from "./document-asset-upload";
 import type { DocumentAsset } from "./document-asset";
 import { htmlEscape } from "./download";
 import type { Workspace } from "./workspace";
-import { t, type Lang } from "./i18n";
+import type { Lang } from "./i18n";
+import { assetExportPlaceholder } from "./asset-export-placeholder";
 
 /** ★★ A project document is PROSE, so it is PORTRAIT — `doc-render-html.ts`
  *  overrides `@page` to portrait for these same documents and explains why
@@ -107,6 +108,8 @@ function para(text: string, style?: string): string {
 // in its own paragraph (`paragraphBlock`). Every other reason still falls
 // through to this substitution: omitted by the export budget, no byte row, no
 // metadata row, a mime outside the upload allow-list, or no stored dimensions.
+// §320: the refused-mime case gets its own text ("file type not allowed", via
+// `assetExportPlaceholder`); every other reason keeps "[Image: name]".
 //
 // ★★★ WHY IT SUBSTITUTES ON THE RAW HTML, BEFORE THE PARSE — and why a drawing
 // CANNOT. `docxRichParagraphs` -> `htmlToRichLines` (rich-text-runs.ts) has no
@@ -126,8 +129,7 @@ function para(text: string, style?: string): string {
 function withImagePlaceholders(
   html: string, byId: ReadonlyMap<string, DocumentAsset>, lang: Lang,
 ): string {
-  return html.replace(IMG_TAG_ASSET_ID_RE, (_tag, id: string) =>
-    htmlEscape(t(lang, "assetExportPlaceholder", byId.get(id)?.name ?? id)));
+  return html.replace(IMG_TAG_ASSET_ID_RE, (_tag, id: string) => htmlEscape(assetExportPlaceholder(id, byId, lang)));
 }
 
 /** The extension and geometry one asset embeds as, or null if it cannot embed
@@ -161,15 +163,17 @@ function docxEmbedFor(
  *  A call site that re-implements these conditions instead of calling this
  *  drifts from the drawing silently.
  *
- *  ★★★ WHAT IT BUYS HERE IS THE THREE-BUCKET CONTRACT, NOT BUDGET HEADROOM —
+ *  ★★★ WHAT IT BUYS HERE IS THE BUCKET CONTRACT, NOT BUDGET HEADROOM —
  *  and this comment asserted the opposite for a release in which NOTHING passed
  *  the predicate at all. `loadExportAssets` asks it before charging the budget
  *  so an undrawable asset cannot push a good one into `omitted`; but the DOCX
  *  sink runs UNBUDGETED (`Number.POSITIVE_INFINITY`), so nothing is ever
  *  omitted there and there is no headroom to protect. What the predicate does
  *  do is route an undrawable id to `missing` rather than leaving it
- *  `inlined`-but-undrawable — the fourth state no bucket describes, named in
+ *  `inlined`-but-undrawable — the state no bucket describes, named in
  *  `loadExportAssets`' own docstring — and keep its base64 out of memory.
+ *  (A mime the upload policy refuses never reaches it: `isBlocked` is asked
+ *  first and routes that id to `blocked` — §320.)
  *
  *  ★★ SO NO OUTPUT TEST CAN SEE THIS. Measured, not reasoned: rendering an
  *  undrawable asset with the bytes inlined and with the id in `missing` yields

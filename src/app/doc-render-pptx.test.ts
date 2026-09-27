@@ -1208,6 +1208,13 @@ describe("renderDocumentPptx — S3c-1 image placeholders", () => {
     expect(text).toContain(t("en-US", "assetExportPlaceholder", "sunset.png"));
   });
 
+  it("says the file type was refused, not the generic placeholder, for a blocked mime (§320)", async () => {
+    const wsWithAsset = { ...ws, documentAssets: [{ ...assetMeta("a1", "diagram.svg"), mime: "image/svg+xml" }] } as Workspace;
+    const text = await textOf('<p><img data-asset-id="a1"></p>', wsWithAsset);
+    expect(text).toContain(t("en-US", "assetExportBlocked", "diagram.svg"));
+    expect(text).not.toContain(t("en-US", "assetExportPlaceholder", "diagram.svg"));
+  });
+
   it("does not drop the paragraph the image sat in — surrounding text survives", async () => {
     const wsWithAsset = { ...ws, documentAssets: [assetMeta("a1", "sunset.png")] } as Workspace;
     const text = await textOf('<p>Before <img data-asset-id="a1"> After</p>', wsWithAsset);
@@ -1328,7 +1335,7 @@ describe("renderDocumentPptx — S3c-2 placed pictures", () => {
   const inlined = (map: Record<string, string>): ExportAssets => ({
     inlined: map,
     omitted: new Set(),
-    missing: new Set(),
+    missing: new Set(), blocked: new Set(),
   });
 
   const para = (html: string): DocBlock => ({ type: "paragraph", html });
@@ -1440,7 +1447,7 @@ describe("renderDocumentPptx — S3c-2 placed pictures", () => {
     const zip = await zipOf(
       [para('<p><img data-asset-id="a1"></p>')],
       wsWith(sized()),
-      { inlined: {}, omitted: new Set(["a1"]), missing: new Set() },
+      { inlined: {}, omitted: new Set(["a1"]), missing: new Set(), blocked: new Set() },
     );
     expect(mediaPaths(zip)).toEqual([]);
     expect(partText(zip, "ppt/slides/slide2.xml")).toContain("chart.png");

@@ -295,7 +295,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§61](#61-three-residuals-from-the-use-resource-planner-split-plus-one-pointer--open-all-small) | Three residuals from the `use-resource-planner` split, plus one pointer — open, all small | post-0.212.0 | S | open |
 | [§62](#62-two-reference-data-handlers-have-no-production-consumer--open-pre-existing) | Two reference-data handlers have no production consumer — open, pre-existing | pre-existing, found post-0.212.0 | S | open |
 | [§63](#63-gantttsx-crossed-800-and-was-baselined-rather-than-split--closed-in-02130-split-after-all) | ~~`gantt.tsx` crossed 800 and was baselined rather than split~~ | post-0.212.0 | M | **CLOSED** in 0.213.0, split after all |
-| [§64](#64-other-surfaces-still-read-0-complete-for-an-all-cancelled-project--half-fixed-post-02160) | Other surfaces still read "0% complete" for an all-cancelled project — HALF FIXED post-0.216.0 | cancelled-work presentation | S | open |
+| [§64](#64-other-surfaces-still-read-0-complete-for-an-all-cancelled-project--closed-2026-09-26) | Other surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S | **CLOSED** 2026-09-26 |
 | [§65](#65-a-done-task-with-no-completeddate-shows-the-cross-while-its-tooltip-says-completed--closed-2026-09-25) | A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" | cancelled-work presentation | S | closed |
 | [§66](#66-the-rag-tile-counts-a-cancelled-task-green-one-tile-from-the-fix--closed-post-02160) | ~~The R/A/G tile counts a cancelled task GREEN, one tile from the fix~~ | cancelled-work presentation | M | **CLOSED** post-0.216.0 |
 | [§67](#67-a-committed-nul-byte-makes-use-portfolio-healthts-invisible-to-content-greps--closed-post-02160) | ~~A committed NUL byte makes `use-portfolio-health.ts` invisible to content greps~~ | pre-existing (`155a3458`) | XS | **CLOSED** post-0.216.0 |
@@ -416,7 +416,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§182](#182-template-import-can-store-an-inconsistent-statuscompleteddate-pair-and-nothing-repairs-it--closed-2026-08-23) | Template import can store an inconsistent `status`/`completedDate` pair, and nothing repairs it | — | — | **CLOSED** 2026-08-23 |
 | [§183](#183-the-jira-conflict-merge-writes-completeddate-without-status-so-accepting-the-modals-default-splits-the-pair-from-well-formed-data--closed-2026-08-23) | The Jira conflict merge writes `completedDate` without `status`, so accepting the modal's default splits the pair from well-formed data | — | — | **CLOSED** 2026-08-23 |
 | [§184](#184-the-documents-block-editor-is-in-a11y_views-but-is-never-scanned--closed-2026-08-20) | The Documents block editor is in A11Y_VIEWS but is never scanned | — | — | **CLOSED** 2026-08-20 |
-| [§185](#185-an-over-long-document-paragraph-is-flattened-to-plain-text-at-commit) | An over-long document paragraph is flattened to plain text at commit | — | — | open |
+| [§185](#185-an-over-long-document-paragraph-is-flattened-to-plain-text-at-commit--closed-2026-09-27) | An over-long document paragraph is flattened to plain text at commit | — | — | **CLOSED** 2026-09-27 |
 | [§186](#186-the-block-editor-conflict-reason-reaches-users-untranslated) | The block-editor conflict reason reaches users untranslated | — | — | open |
 | [§187](#187-usedocumenttools-has-no-test-file-and-one-guard-there-is-unpinned) | `useDocumentTools` has no test file, and one guard there is unpinned | — | — | open |
 | [§188](#188-a-block-refusal-notice-outlives-the-attempt-it-describes) | A block refusal notice outlives the attempt it describes | — | — | open |
@@ -508,7 +508,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§274](#274-budget-paneltsxs-bucket-card-map-is-the-block-the-panel-split-convention-prescribes-extracting) | `budget-panel.tsx`'s bucket-card map is the block the panel-split convention prescribes extracting | found 2026-08-28 | M | open |
 | [§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary) | `use-insight-recommendations.ts` was coverage-excluded under a glue rationale, and one of its callbacks is a security boundary | found 2026-08-28 | S | open |
 | [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives--the-one-real-defect-it-named-fixed-2026-08-31--closed-2026-08-31) | The row-name surface scan: the GAP files with no asserting test, and the sites where nothing per-row survives — the one REAL defect it named FIXED 2026-08-31 | scan 2026-08-28 | L | **CLOSED** 2026-08-31 |
-| [§277](#277-bulk-edit-field-labels-reuse-the-column-header-keys-in-four-panels--the-261-shape-on-a-different-pair) | Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair | found 2026-08-28 | M | open |
+| [§277](#277-bulk-edit-field-labels-reuse-the-column-header-keys-in-four-panels--the-261-shape-on-a-different-pair--closed-2026-09-26) | Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair | found 2026-08-28 | M | **CLOSED** 2026-09-26 |
 | [§278](#278-two-of-the-five-column-toggle-consumers-got-the-fix-with-no-panel-level-regression-pin--closed-2026-09-26) | Two of the five column-toggle consumers got the fix with no panel-level regression pin | found 2026-08-28 | S | **CLOSED** 2026-09-26 |
 | [§279](#279-controlnames-reads-aria-label--textcontent-not-the-accessible-name--an-input-reports-the-empty-string) | `controlNames` reads `aria-label || textContent`, not the accessible name — an `<input>` reports the empty string | found 2026-08-28 | M | open |
 | [§280](#280-matchdelimiters-counts-brackets-without-skipping-strings-or-comments--the-class-that-just-bit-scanopentag--closed-2026-09-26) | `matchDelimiters` counts brackets without skipping strings or comments — the class that just bit `scanOpenTag` | found 2026-08-28 | S | **CLOSED** 2026-09-26 |
@@ -535,7 +535,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§301](#301-three-type-to-confirm-phrases-are-hardcoded-english-and-one-cannot-be-localised-by-a-string-swap--closed-2026-08-31) | ~~Three type-to-confirm phrases are hardcoded English, and one cannot be localised by a string swap~~ | found 2026-08-30, fixing the DE wipe phrase | M | **CLOSED** 2026-08-31 |
 | [§302](#302-the-storage-readiness-indicator-is-never-disclosed-to-assistive-technology-in-either-state--closed-2026-08-31) | ~~The storage readiness indicator is never disclosed to assistive technology, in either state~~ | found 2026-08-30, fixing the colour-only state cue | M | **CLOSED** 2026-08-31 |
 | [§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--closed-2026-08-31) | ~~One refused save writes two forensic entries, and de-duplicating it needs evaluate to report the mint~~ | found 2026-08-30, in the destructive-refusal fix round | M | **CLOSED** 2026-08-31 |
-| [§304](#304-every-export-section-header-is-an-untranslated-raw-string-not-a-display-label) | Every export section header is an untranslated raw string, not a display label | — | — | open |
+| [§304](#304-every-export-section-header-is-an-untranslated-raw-string-not-a-display-label--closed-2026-09-27) | Every export section header is an untranslated raw string, not a display label | — | — | **CLOSED** 2026-09-27 |
 | [§305](#305-version-diff-rows-whose-recordlabel-matches-render-identical-visible-text-only-the-accessible-name-disambiguates--closed-2026-09-01) | ~~Version-diff rows whose `recordLabel` matches render identical VISIBLE text; only the accessible name disambiguates~~ | — | — | **CLOSED** 2026-09-01 |
 | [§306](#306-negative-test-assertions-matching-quoted-english-literals-go-silently-vacuous-on-a-reword--open) | Negative test assertions matching quoted English literals go silently vacuous on a reword | found 2026-08-30, in the destructive-refusal deletion round | M | open |
 | [§307](#307-a-destructive-save-refusal-cannot-be-staged-in-a-browser-so-the-recourse-has-never-been-seen-working--closed-2026-08-31-not-a-defect) | ~~A destructive-save refusal cannot be staged in a browser, so the recourse has never been seen working~~ | found 2026-08-30, closing out the destructive-refusal slice | M | **CLOSED** 2026-08-31, not a defect |
@@ -551,7 +551,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§317](#317-an-unsettled-chat-persist-is-invisible-to-retryloads-gate-so-a-reload-in-that-window-drops-the-reply-from-screen--closed-2026-08-31-02720) | An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen | — | — | **CLOSED** 2026-08-31, 0.272.0 |
 | [§318](#318-use-focus-trap-runs-a-tab-trap-that-never-joins-the-dismissal-stack--closed-2026-09-01) | `use-focus-trap` runs a Tab trap that never joins the dismissal stack | found 2026-08-31 while closing §100 | S | **CLOSED** 2026-09-01 |
 | [§319](#319-this-registers-own-index-rebuild-recipe-silently-strips-hand-written-state-cells-and-claims-to-be-idempotent--closed-2026-09-26) | This register's own index-rebuild recipe silently strips hand-written `State` cells, and claims to be idempotent | found 2026-08-31 while filing §318 | S | **CLOSED** 2026-09-26 |
-| [§320](#320-the-html-and-pdf-exports-tell-the-reader-a-policy-refused-images-data-is-gone) | The HTML and PDF exports tell the reader a policy-refused image's data is gone | found 2026-08-31 in the §230 fix round | M | open |
+| [§320](#320-the-html-and-pdf-exports-tell-the-reader-a-policy-refused-images-data-is-gone--closed-2026-09-26) | The HTML and PDF exports tell the reader a policy-refused image's data is gone | found 2026-08-31 in the §230 fix round | M | **CLOSED** 2026-09-26 |
 | [§321](#321-submitprompt-is-still-only-effectively-single-flight-and-the-identity-clear-does-not-make-it-structural) | `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural | split out of §312 on closing it | S | open |
 | [§322](#322-the-asset-library-offers-insert-on-a-refused-format-row-which-can-only-ever-render-as-blocked--closed-2026-09-14) | The asset library offers Insert on a refused-format row, which can only ever render as blocked | found 2026-08-31 in the §230 cold review | S | **CLOSED** 2026-09-14 |
 | [§323](#323-the-single-task-delete-is-the-one-entity-delete-that-never-arms-the-destructive-save-bypass--closed-2026-09-14) | The single-task delete is the one entity delete that never arms the destructive-save bypass | found 2026-08-31, closing §303 | S | **CLOSED** 2026-09-14 |
@@ -569,7 +569,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§335](#335-the-rag-health-chips-override-togglebuttons-derived-state-border-so-amber-and-green-stay-under-31-in-the-four-light-schemes) | The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes | found 2026-09-01 in the §55 fix round, from a cold docs review | S | open |
 | [§336](#336-a-docx-hyperlink-is-followable-but-invisible--no-hyperlink-character-style-while-pptx-colours-its-links-from-the-theme--closed-2026-09-01) | ~~A `.docx` hyperlink is followable but INVISIBLE — no `Hyperlink` character style, while PPTX colours its links from the theme~~ | found 2026-09-01 in the §119/§30 cold review; MINTED AS §333 and renumbered on the 2026-09-02 merge, which is why source comments say both | S | **CLOSED** 2026-09-01 (the palette decision: `COLOR_DARK_BLUE` + underline, matching the PPTX theme; closed WIDER than its title — the workspace exporter carried it too) |
 | [§337](#337-a-non-empty-but-unusable-next_public_turso_-both-hides-the-settings-field-and-outranks-it-so-turso-cannot-be-configured-from-the-ui-at-all--closed-2026-09-25) | ~~A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all~~ | found 2026-09-02 debugging "enabling Turso shows no configuration fields"; URL half shipped `28b517b77`, token half this commit | S | **CLOSED** 2026-09-25 |
-| [§338](#338-useresizable-is-a-no-op-in-every-modal-that-stays-mounted-while-closed--open) | `useResizable` is a no-op in every modal that stays mounted while closed | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | M (repo-wide) | open |
+| [§338](#338-useresizable-is-a-no-op-in-every-modal-that-stays-mounted-while-closed--closed-2026-09-27) | `useResizable` is a no-op in every modal that stays mounted while closed | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | M (repo-wide) | **CLOSED** 2026-09-27 |
 | [§339](#339-a-rename-can-strand-a-stale-alt-and-the-broken-image-state-then-paints-it--wcag-253--closed-2026-09-14) | A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-14 |
 | [§340](#340-two-tests-in-the-asset-preview-slice-pass-for-the-wrong-reason--closed-2026-09-26) | Two tests in the asset-preview slice pass for the wrong reason | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-26 |
 | [§341](#341-neither-asset-preview-entry-point-has-ever-been-exercised-against-a-real-turso-project--closed-2026-09-02) | ~~Neither asset-preview entry point has ever been exercised against a real Turso project~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-02 (eye-verified against a live Turso project; the entry records what that pass did NOT cover, which is narrower than the title) |
@@ -690,7 +690,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§460](#460-a-create-card-can-preview-meeting-attendees-the-create-then-stores-none-of-because-the-previews-link-guard-runs-on-updates-only--closed-2026-09-11) | A create card can preview meeting attendees the create then stores none of, because the preview's link guard runs on updates only | found 2026-09-11 by cold review of the offered-surface landing: a `plan.ts` comment still described both allow-list creates as unguarded | S — closed by `dfcd96b5`, lifting the `target === "row"` gate on link guards, behind a test (`plan.create-path-guards.test.ts`) driving `[4, "4"]` through card and write; §440's refusal-disclosure half stays open | **CLOSED** 2026-09-11 |
 | [§461](#461-an-absence-stores-an-assignee-email-that-is-not-an-address-where-a-task-refuses-the-same-value-loudly--closed-2026-09-14) | An absence stores an assignee email that is not an address, where a task refuses the same value loudly | found 2026-09-11 by cold review of the offered-surface landing, beside §459's task probe | S-M — decide per field whether an assignee email is format-checked, then guard the writer, not the card | **CLOSED** 2026-09-14 |
 | [§462](#462-there-is-no-linux-installer-and-several-windows-only-assumptions-stand-in-the-way-of-one--open) | There is no Linux installer, and several Windows-only assumptions stand in the way of one | found 2026-09-11 while explaining the CI installer's size gap (the sharp finding in the wine-runner spike) | S-M — a native Linux job with its own artifact and Release link, XDG log paths, a rollout section | open |
-| [§463](#463-export-silently-drops-enabled-sections-and-no-path-exports-calendar-events-knowledge-items-or-insights--open) | Export silently drops enabled sections, and no path exports calendar events, knowledge items or insights | found 2026-09-11 by a read-only code check of `main` @ `963a05c5` while triaging the demo-backlog issues #38–#74 (issue #75) | S-M — two object literals, but deciding what each export path should contain (and whether they should be one function) is the work | open |
+| [§463](#463-export-silently-drops-enabled-sections-and-no-path-exports-calendar-events-knowledge-items-or-insights--closed-2026-09-27) | Export silently drops enabled sections, and no path exports calendar events, knowledge items or insights | found 2026-09-11 by a read-only code check of `main` @ `963a05c5` while triaging the demo-backlog issues #38–#74 (issue #75) | S-M — two object literals, but deciding what each export path should contain (and whether they should be one function) is the work | **CLOSED** 2026-09-27 |
 | [§464](#464-cpi-means-two-different-numbers-and-two-winloss-hints-are-wrong--closed-2026-09-12) | "CPI" means two different numbers, and two win/loss hints are wrong | found 2026-09-11 by the same read-only code check (issue #76) | S-M — closed by `0a50e600`: the money ratio is renamed `budgetCciRecovery` ("Cost recovery"), so CPI names the EVM hours ratio alone, and both wrong hints were rewritten EN+DE; `winLossHours` is still rendered nowhere | **CLOSED** 2026-09-12 |
 | [§465](#465-non-eur-fixed-price-buckets-every-money-figure-is-inflated-by-the-fx-rate-and-the-margin-is-wrong--closed-2026-09-12) | Non-EUR fixed-price buckets: every money figure is inflated by the FX rate, and the margin is wrong | found 2026-09-11 by the same read-only code check (issue #77, beside issue #42) | M — closed by the `feat/budget-currency-boundary` slice, which put the boundary at the ENGINE (`419937ca` converts at `computeBucketReport`'s single read; four surfaces relabelled EUR; `ResourcePlan.currency` narrowed to a union) | **CLOSED** 2026-09-12 |
 | [§466](#466-help-promises-a-burn-down-forecast-that-the-chart-does-not-draw--closed-2026-09-13) | Help promises a burn-down forecast that the chart does not draw | found 2026-09-11 by the same read-only code check (issue #78) | S — two strings, EN and DE together | **CLOSED** 2026-09-13 |
@@ -844,9 +844,13 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§614](#614-use-weight-suggestionstesttsx-is-order-dependent--its-shared-mock-is-never-reset--closed-2026-09-23) | use-weight-suggestions.test.tsx is order-dependent — its shared mock is never reset | scheduled run 35875601416, job `unit-shuffled-random` (seed 35875601416); GitLab #396 | S — clear the mock before each test; reproduces in isolation | closed |
 | [§615](#615-tiptaps-deferred-editor-destroy-throws-window-is-not-defined-after-a-test-environment-is-torn-down--open) | TipTap's deferred editor destroy throws window is not defined after a test environment is torn down | scheduled run 35875601416, job `unit-shuffled-random` (unhandled error); GitLab #397 | S — hedged with a global 10 ms `afterAll` flush in `vitest.setup.ts`, unverified against the actual race; close after 4 consecutive clean weekly `unit-shuffled-random` runs | open |
 | [§616](#616-timelog-exposes-no-approvereject-write-so-the-review-front-end-is-read-only-until-someone-probes-for-the-undocumented-one--open) | TimeLog exposes no approve/reject WRITE, so the review front-end is read-only until someone probes for the undocumented one | TL1 spec (2026-08-23), a sweep of TimeLog's 63 documented services; GitLab #391 | S — a devtools probe at a workstation | open |
-| [§617](#617-a-meta-slice-whose-sanitizer-returns-nothing-is-dropped-silently-and-the-next-save-deletes-its-row--open) | A meta slice whose sanitizer returns nothing is dropped silently, and the next save deletes its row | split out of §538 on 2026-09-26 (the PR #425 review) | S–M — audit each meta slice's falsy-return path and report it like a throw | open |
-| [§618](#618-the-classic-header-overflows-between-lg-and-1390px-so-the-page-scrolls-sideways--open) | The classic header overflows between lg and ~1390px, so the page scrolls sideways | split out of §468 on 2026-09-26 (#425 window-layout probe) | S — let the classic search shrink from lg up with a min width; measure 1024/1100/1390/1600 | open |
+| [§617](#617-a-meta-slice-whose-sanitizer-returns-nothing-is-dropped-silently-and-the-next-save-deletes-its-row--closed-2026-09-26) | A meta slice whose sanitizer returns nothing is dropped silently, and the next save deletes its row | split out of §538 on 2026-09-26 (the PR #425 review) | S–M — audit each meta slice's falsy-return path and report it like a throw | **CLOSED** 2026-09-26 |
+| [§618](#618-the-classic-header-overflows-between-lg-and-1390px-so-the-page-scrolls-sideways--closed-2026-09-27) | The classic header overflows between lg and ~1390px, so the page scrolls sideways | split out of §468 on 2026-09-26 (#425 window-layout probe) | S — let the classic search shrink from lg up with a min width; measure 1024/1100/1390/1600 | **CLOSED** 2026-09-27 |
 | [§619](#619-dashboard-narratives-heading-menu-escape-test-failed-once-in-unit-shuffled--focus-never-reached-the-menu--closed-2026-09-26) | dashboard-narrative's heading-menu Escape test failed once in unit-shuffled — focus never reached the menu | — | — | **CLOSED** 2026-09-26 |
+| [§620](#620-the-json-file-and-indexeddb-load-paths-drop-a-meta-slice-that-sanitizes-to-nothing-with-no-decode-failure-channel--open) | The JSON-file and IndexedDB load paths drop a meta slice that sanitizes to nothing, with no decode-failure channel | — | — | open |
+| [§621](#621-pdfdocxpptxxlsx-exports-still-print-recurrence-text-and-insight-typeseveritystatus-values-in-english--open) | PDF/DOCX/PPTX/XLSX exports still print recurrence text and insight type/severity/status values in English | — | — | open |
+| [§622](#622-an-ordinary-under-cap-document-paragraph-edit-that-was-never-blurred-is-lost-when-the-window-closes--open) | An ordinary, under-cap document paragraph edit that was never blurred is lost when the window closes | — | — | open |
+| [§623](#623-loadexportassets-loads-the-bytes-of-a-policy-refused-asset-before-discarding-them--open) | `loadExportAssets` loads the bytes of a policy-refused asset before discarding them | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -4935,26 +4939,43 @@ currently over the limit.
 
 ---
 
-## 64. Other surfaces still read "0% complete" for an all-cancelled project — HALF FIXED post-0.216.0
+## 64. Other surfaces still read "0% complete" for an all-cancelled project — CLOSED 2026-09-26
 
-**Status:** OPEN — the snapshot half only. Re-verified 2026-09-25: `grep -n "pctComplete" src/app/snapshot.ts` shows the field typed `number` and captured as `model.progress.percent`, so a no-scope capture still stores 0. The landing half was fixed 2026-09-25 on `fix/update-dialog-text`: `useLandingDelta` no longer saves the `complete` metric while nothing is in scope, so the first visit after scope returns shows no false "+N%" arrow (pinned in `use-landing-delta.test.tsx`, mutation-checked). Still open, by owner decision deferred to its own slice: a snapshot captured while nothing is in scope stores `pctComplete` 0, which skews the sparkline and any later baseline. The chosen fix is to store it as null for new captures only, with `completion-trend` and `variance-format` handling null.
+**Status:** CLOSED 2026-09-26 by `fix/defect-batch-7` — the snapshot half. `SnapshotRecord.pctComplete`
+is now `number | null`; `buildSnapshot` (`snapshot.ts`) stores null instead of `model.progress.percent`
+while `hasNoActiveScope(model.progress)` is true. `fromSnapshots` (`completion-trend.ts`) keeps a null
+figure as a gap point rather than clamping it to 0, and falls back to the activity log when fewer than
+two points carry a figure. `Sparkline` (`sparkline.tsx`) breaks the line at a gap and draws no dot for
+it. `CompletionTrendBody` (`dashboard-tile-bodies.tsx`) reads its edge values and the accessible name
+from the first/last point WITH a figure, never a gap. `isKpiCompleteSnapshot` (`snapshot.ts`) now also
+requires a non-null `pctComplete`, so a no-scope row can never become the auto baseline (§78).
+`computeVariance`'s null-baseline row was already empty (`baseline: null, delta: null, health: null`)
+and stays so — pinned as a regression test rather than a new behaviour. Older stored rows keep their
+persisted 0 and are unaffected by this decision; they remain covered by the live `hasNoActiveScope`
+gate applied at render time (`withoutCompletionVariance`, `use-snapshots.ts`). Pinned in
+`snapshot.test.ts`, `snapshot-schema.execute.test.ts`, `completion-trend.test.ts`, `sparkline.test.tsx`
+and `dashboard-panel.test.tsx` (mutation-checked).
 
-Previous status: open — PARTLY FIXED, the two persisted completion figures are still ungated. Reproduced 2026-08-28 by `grep -n "pctComplete" src/app/snapshot.ts`. Re-verified 2026-09-13 on `00f2a273`: `grep -n "pctComplete: model.progress.percent" src/app/snapshot.ts` → 1 hit, still a non-nullable persisted figure.
+Previous status: OPEN — the snapshot half only. Re-verified 2026-09-25: `grep -n "pctComplete" src/app/snapshot.ts` shows the field typed `number` and captured as `model.progress.percent`, so a no-scope capture still stores 0. The landing half was fixed 2026-09-25 on `fix/update-dialog-text`: `useLandingDelta` no longer saves the `complete` metric while nothing is in scope, so the first visit after scope returns shows no false "+N%" arrow (pinned in `use-landing-delta.test.tsx`, mutation-checked). Still open, by owner decision deferred to its own slice: a snapshot captured while nothing is in scope stores `pctComplete` 0, which skews the sparkline and any later baseline. The chosen fix is to store it as null for new captures only, with `completion-trend` and `variance-format` handling null.
 
-**Work item:** #117
+Earlier status: open — PARTLY FIXED, the two persisted completion figures are still ungated. Reproduced 2026-08-28 by `grep -n "pctComplete" src/app/snapshot.ts`. Re-verified 2026-09-13 on `00f2a273`: `grep -n "pctComplete: model.progress.percent" src/app/snapshot.ts` → 1 hit, still a non-nullable persisted figure.
 
-★ **HALF CLOSED post-0.216.0.** Every surface that reads the figure DIRECTLY is done; both PERSISTED
-figures are deliberately untouched.
+★ (Historical, before 2026-09-25: **HALF CLOSED post-0.216.0.** Every surface that reads the figure
+DIRECTLY is done; both PERSISTED figures were at that point deliberately untouched. Both are now
+CLOSED — see the Status line above.)
 
-★★★ **DO NOT STATE THAT AS "everything a user READS is done" — a draft did, and it is FALSE.** The
-landing-state `complete:` is persisted AND user-read: `dashboard-panel.tsx` writes
-`complete: model.progress.percent` into the per-device snapshot, `use-landing-delta.ts` feeds it to
-`computeMetricTrends`, and `dashboard-kpi-strip.tsx` renders `trends.complete` as a `TrendArrow`. The
-arrow is suppressed WHILE the project is no-scope, so the poisoned 0 surfaces on the visit AFTER
-scope returns — reachable, rendered, still open. This entry's own body says exactly that ("the NEXT
-visit's trend arrow is baselined off a number the UI has just decided not to show"), so the draft
-contradicted the entry it was closing. **A clean two-way split (read vs persisted) is exactly the
-shape that hides an item belonging to both.**
+★★★ (Historical, before 2026-09-25: **DO NOT STATE THAT AS "everything a user READS is done" — a
+draft did, and it is FALSE.** The landing-state `complete:` was persisted AND user-read:
+`dashboard-panel.tsx` wrote `complete: model.progress.percent` into the per-device snapshot,
+`use-landing-delta.ts` fed it to `computeMetricTrends`, and `dashboard-kpi-strip.tsx` rendered
+`trends.complete` as a `TrendArrow`. The arrow was suppressed WHILE the project was no-scope, so the
+poisoned 0 surfaced on the visit AFTER scope returned — reachable, rendered, open at the time. This
+entry's own body said exactly that ("the NEXT visit's trend arrow is baselined off a number the UI has
+just decided not to show"), so a draft that stated "everything a user reads is done" contradicted the
+entry it was closing. **A clean two-way split (read vs persisted) is exactly the shape that hides an
+item belonging to both.** Fixed 2026-09-25 on `fix/update-dialog-text`: `useLandingDelta` no longer
+saves the `complete` metric while nothing is in scope, so the poisoned figure is never persisted to
+begin with — see the Status line above.)
 
 | surface | state |
 |---|---|
@@ -4962,8 +4983,8 @@ shape that hides an item belonging to both.**
 | `portfolio-rollup.ts` `avgCompletionPercent` | CLOSED — **this entry never named it** (see below) |
 | `committee-report/report-draft.ts` | CLOSED — emits "no active scope" instead of "0% complete" |
 | `ai-dashboard-snapshot.ts` | CLOSED — the payload carries an explicit `noActiveScope` |
-| `snapshot.ts` `pctComplete` | **OPEN, deliberately** — persisted |
-| `dashboard-panel.tsx` landing-state `complete:` | **OPEN, deliberately** — persisted **and user-read**: it feeds `trends.complete` → the KPI strip's `TrendArrow` on a later visit |
+| `snapshot.ts` `pctComplete` | CLOSED 2026-09-26 — nullable now; a no-scope capture stores `null`, not 0 (this row is stale otherwise; see the Status line above) |
+| `dashboard-panel.tsx` landing-state `complete:` | CLOSED 2026-09-25 — persisted **and user-read**: it fed `trends.complete` → the KPI strip's `TrendArrow` on a later visit; `useLandingDelta` no longer saves it while `noActiveScope` (this row is stale otherwise; see the Status line above) |
 
 ★★ **THE SURFACE LIST WAS INCOMPLETE, in exactly the way this entry warns about.** It names the
 portfolio ROW and the CELL but not `aggregatePortfolio`, which summed those zeroes and divided by
@@ -4972,9 +4993,12 @@ portfolio ROW and the CELL but not `aggregatePortfolio`, which summed those zero
 than reading this list, which is the habit the ★★★ below already prescribes. The divisor is now the
 count of projects that contributed a figure.
 
-★ The persisted pair stays open for the reason recorded below and not because it was missed: giving
-a stored figure a null state is a data-shape change that Trends charts over time and version history
-diffs. It is worth its own decision, not a pattern-match onto the presentation fix.
+★ (Historical, before 2026-09-26: at this point in the entry's history the persisted pair — both
+`snapshot.ts` `pctComplete` and the `dashboard-panel.tsx` landing-state `complete:` — stayed open for
+the reason recorded below and not because it was missed: giving a stored figure a null state is a
+data-shape change that Trends charts over time and version history diffs. It was worth its own
+decision, not a pattern-match onto the presentation fix. Both halves of that pair are now CLOSED — the
+landing half 2026-09-25, the `snapshot.ts` half 2026-09-26; see the Status line above.)
 
 The cancelled-work presentation batch fixed the Reports headline tiles, the Dashboard completion
 tile, the Dashboard at-a-glance KPI card, the Dashboard completion-trend sparkline, and the Open
@@ -5054,19 +5078,29 @@ while the commit message recorded the real one — so the doc and its own commit
 other. The appositive that followed it ("the sole feeder of both surfaces") was true OF
 workspace-section, which is exactly what let a wrong location survive a skim.
 
-★★ **THE PERSISTED HALF IS STILL OPEN**, and the split is why it survived the fix above. Giving the
-stored `pctComplete` a null state is a data-shape change that Trends charts over time and version
+★★ **THIS PARAGRAPH IS NOW HISTORICAL, on both counts.** It argued THE PERSISTED HALF IS STILL OPEN,
+naming two figures — both are now CLOSED: `dashboard-panel.tsx`'s landing-state `complete:` (bullet
+below) 2026-09-25, `snapshot.ts`'s `pctComplete` (this entry's Status line) 2026-09-26. The reasoning
+it gave for deferring the data-shape change (a stored figure's null state has migration consequences
+for every stored snapshot, worth its own decision rather than a pattern-match onto the presentation
+fix) held for a separate slice; the decision has since been made and `pctComplete` is `number | null`.
+Kept for the reasoning, not as a live instruction.
+Originally: THE PERSISTED HALF IS STILL OPEN, and the split is why it survived the fix above. Giving
+the stored `pctComplete` a null state is a data-shape change that Trends charts over time and version
 history diffs — migration consequences for every stored snapshot. Do not do the second because the
 first was done; the fix above deliberately touches no record.
-- `dashboard-panel.tsx:175` writes `complete: model.progress.percent` into the per-device
-  landing-state snapshot, so the NEXT visit's trend arrow is baselined off a number the UI has just
-  decided not to show.
+- `dashboard-panel.tsx:175` wrote `complete: model.progress.percent` into the per-device
+  landing-state snapshot, so the NEXT visit's trend arrow was baselined off a number the UI had just
+  decided not to show. Fixed 2026-09-25 (see the Status line above): `useLandingDelta` no longer saves
+  `complete` while `noActiveScope`.
 
-★★ These are NOT one class of change, and the split is the point. Portfolio health is PRESENTATION —
-the same shape as the fixes already made. `pctComplete` is also a PERSISTED figure that Trends charts
-over time and version history diffs, so giving THAT a null state is a data-shape decision with
-migration consequences for every stored snapshot. Decide those separately; do not "finish the sweep"
-by pattern-matching the presentation fix onto the stored ones.
+★★ (Historical, before 2026-09-26: at this point THESE WERE NOT one class of change, and the split was
+the point. Portfolio health was PRESENTATION — the same shape as the fixes already made then.
+`pctComplete` was ALSO a PERSISTED figure that Trends charts over time and version history diffs, so
+giving THAT a null state was a data-shape decision with migration consequences for every stored
+snapshot, to be decided separately rather than by pattern-matching the presentation fix onto the
+stored ones. That decision has since been made: `pctComplete` is `number | null` as of 2026-09-26, see
+the Status line above — this paragraph is kept for the reasoning, not as a live instruction.)
 
 ★★★ THIS SENTENCE HELD A FOURTH COPY OF THE COUNT AND IT WAS WRONG FROM THE DAY IT WAS WRITTEN —
 "the same shape as the three already done", written when four surfaces were already fixed, then left
@@ -5076,11 +5110,13 @@ fourth one it did not know about. **A count in this register lives in as many pl
 chose to write one.** Do not enumerate the places; the durable fix is to stop writing counts that a
 later edit can invalidate — say "the fixes already made", not "the three already done".
 
-★★ The honest framing meanwhile — and the previous two attempts at this sentence were both WRONG in
-the same direction, each declaring a screen finished that was not. **Portfolio health** — the
-cross-project table, a different screen — is the user-read surface that remains. The Trends card and
-Trends view, named here in the previous revision, were fixed rather than deferred. Named, not
-numbered: every ordinal that has lived in this sentence went stale within days.
+★★ (Historical, before the portfolio-health fix recorded in the table above: the honest framing
+meanwhile — and the previous two attempts at this sentence were both WRONG in the same direction, each
+declaring a screen finished that was not. **Portfolio health** — the cross-project table, a different
+screen — was at that point the user-read surface that remained. The Trends card and Trends view, named
+here in the previous revision, were fixed rather than deferred. Named, not numbered: every ordinal
+that has lived in this sentence went stale within days. Portfolio health is itself CLOSED now — see
+the table row above.)
 
 ★★★ THE LESSON THAT KEEPS COSTING: a claim of the form "every X on screen Y is now fixed" is a claim
 about EVERY CONSUMER of a value, and it cannot be made from a diff. It was written twice from the
@@ -15723,13 +15759,71 @@ naming is covered by `document-block-gutter.test.tsx` alongside the multi-block 
 `document-block-editors.test.tsx` and `document-editor.test.tsx`. A green
 scan here says nothing about that class, and no configuration of this gate ever will.
 
-## 185. An over-long document paragraph is flattened to plain text at commit
+## 185. An over-long document paragraph is flattened to plain text at commit — CLOSED 2026-09-27
 
-**Status:** open. **Severity:** low (bounded, visible, and only past 20 000
+**Status:** CLOSED 2026-09-27 on `fix/defect-batch-7` with option (a) below, on
+the INTERACTIVE path only. `ParagraphEditorBody` renders `ParagraphCharCount`,
+a visible-character count against `MAX_HTML_TEXT_CHARS` (the same
+`htmlTextLength` measure the cap uses, never `html.length`), from
+`PARAGRAPH_COUNT_FROM` (90% of the cap) upwards, formatted for the locale. It is
+plain text, not a live region, so it is not announced per keystroke; the
+editor's `aria-describedby` names it, so it is read on focus. A blur over
+the cap is REFUSED instead of flattened: `useBlockDraft`'s `tryCommit` sets the
+`tooLong` refusal (carrying the excess), and `BlockRefusalNotice` (`role="status"`)
+says how many characters to remove. Text and marks stay in the editor.
+
+★★ This entry's own objection, "the user's text would then be unsaveable", is
+met by keeping the draft on screen and editable: shortening it and blurring
+commits normally. ★★★ The refused draft STAYS DIRTY (`commit` skips
+`markDirty(false)` for an over-cap paragraph), so a row that unmounts with no
+blur, such as a non-selected row when the pane is narrowed, still reaches the
+unmount flush, which saves today's flattened form rather than dropping the edit.
+That fallback is an OWNER DECISION (2026-09-26), not an oversight; the unmount
+path has no UI to refuse on. AI-written and imported text still go through
+`capHtmlText`'s fallback: option (b), a mark-preserving truncation, stays
+unbuilt.
+
+★★★ A window close, reload or navigation runs no React cleanup, so the unmount
+flush alone would LOSE a refused draft. On `pagehide`, `useBlockDraft` commits a
+dirty over-cap draft flattened, inside `flushSync`. ★★★ A tab switch or
+minimise (`visibilitychange` to hidden) does NOT flatten it: the rich draft,
+its notice and its dirty flag survive (OWNER DECISION, 2026-09-27: flatten on
+`pagehide` only; a tab switch or minimise keeps the rich draft). The cost of
+that decision: a refused draft kept through a tab switch is LOST if the hidden
+tab is then discarded or killed without a `pagehide` (a browser tab discard, an
+OS or crash kill), because nothing flattened and saved it on the way out. The
+workspace save captures its snapshot per effect run, so the commit re-runs that
+effect within the event. `scheduleDebouncedSave` then writes it AT ONCE,
+because its module-level `pageHiding` flag (set on `pagehide` in the capture
+phase, cleared on `pageshow`) says no later signal will flush it. On a tab close
+the page hid first, so the save's hide-flush has already run. A `pagehide`
+listener armed mid-dispatch is not invoked either: measured in real Chromium,
+though jsdom does invoke it. ★★ A refused draft stays dirty until the user
+trims it, and while it is dirty the editor does not adopt external writes. If a
+concurrent write lands in that window, the later unmount or `pagehide` flush
+abandons, as the existing conflict policy says. The `tooLong` check runs BEFORE
+the conflict guard, as the `"empty"` refusal does.
+
+Pinned by the `ParagraphBlockEditor — the visible-character cap (§185)` describe
+in `document-block-editors.test.tsx`: counter from exactly 90% (with a
+below-90% regression pin), the German format, the refusal keeping `<strong>`
+and the full length, a commit landing exactly on the cap, and the flattened
+unmount save, the `aria-describedby` reference, and the trim-back escape route. A
+second describe, `a refused over-cap draft on hide or unload (§185)`, runs
+against the real `scheduleDebouncedSave`. It pins that a tab switch keeps the
+draft, that a tab close and a reload each persist it flattened exactly once
+(both listener orders, read BEFORE `act` flushes), no double commit, and the
+listener removal. `debounced-save.test.ts` pins the flag. Mutants, each killed:
+deleting the `tryCommit` refusal; deleting the stay-dirty return in `commit`;
+`>=` to `>` in `ParagraphCharCount`; `excess: 0`; a hard-coded `"en-US"` in
+`formatCount`; deleting the `pagehide` listener; re-adding a hidden flush;
+deleting `if (pageHiding) flush()`; deleting the `pageshow` reset; dropping
+`flushSync`; dropping the flush's `markDirty(false)`; deleting the listener
+removal; ignoring `flatten`; dropping the `aria-describedby`.
+
+**Severity (as found):** low (bounded, visible, and only past 20 000
 visible characters). **Introduced:** pre-existing in `capHtmlText`; made VISIBLE
 rather than silent by the S3b normalise-at-commit change. Reproduced 2026-08-28 by `grep -n "capHtmlText" src/app/document-model.ts`.
-
-**Work item:** #174
 
 `document-model.ts` caps a paragraph at `MAX_HTML_TEXT_CHARS` (20 000 visible
 characters) via `capHtmlText`, whose truncation branch returns
@@ -15772,6 +15866,10 @@ then be unsaveable, which is worse. Nor by a per-editor `maxLength`: the cap is
 measured on VISIBLE text, and a `maxLength` counts markup too, so the two
 disagree on any formatted paragraph — that mismatch is exactly what the
 normalise-at-commit change removed.
+
+★ **Superseded 2026-09-26 (the refusal half only):** the fix above does refuse
+the commit, and keeps the text editable so it is not unsaveable; see the Status
+line. The `maxLength` reasoning stands, and the counter measures visible text.
 
 **To close:** either (a) count visible characters live in `RichTextEditor` and
 warn as the cap approaches, so overflow is a choice rather than a surprise, or
@@ -19791,7 +19889,7 @@ DEFAULTS the prop, which fires only for `undefined`, and is normalised by its on
 Verified 2026-08-31 by
 `npx vitest run src/app/document-asset-images.test.ts src/app/asset-library.test.tsx src/app/documents-history-modal.test.tsx`.
 ★ Closure covers the DISCLOSURE, which is what this entry was filed for; the export sinks reach the
-same wrong conclusion by two other routes and are tracked separately as §320 — a residual with its
+same wrong conclusion by two other routes and are tracked separately as §320 (CLOSED 2026-09-26) — a residual with its
 own number does not un-close its parent.
 
 **The record of the defect follows, as written on 2026-08-24.** Both halves of it are fixed; the text
@@ -22409,7 +22507,7 @@ grep -rln "ColumnConfigPopover" src/app --include=*.tsx | grep -v test | grep -v
 
 ★★ **RESIDUAL, disclosed and given its own number rather than left here:** the BULK-EDIT field
 labels reuse the same column-header keys in four panels, which is this entry's shape on a different
-control pair, and nothing in this slice touched it. See [§277](#277-bulk-edit-field-labels-reuse-the-column-header-keys-in-four-panels--the-261-shape-on-a-different-pair).
+control pair, and nothing in this slice touched it. See [§277](#277-bulk-edit-field-labels-reuse-the-column-header-keys-in-four-panels--the-261-shape-on-a-different-pair--closed-2026-09-26).
 
 ★ **`milestones-panel.tsx` and `tasks-section.tsx` received the third leg without a panel-level
 regression pin** — the shared `column-config-popover.test.tsx` covers the mechanism, and only the
@@ -23661,14 +23759,27 @@ someone reached for the shared helper, never that they fed it a fixture capable 
 zero-row fixture, and `requireCollisionSeed` is the opt-in guard that closes exactly this gap. A
 strong-marker `COVERED` on a collision-free fixture certifies nothing.
 
-## 277. Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair
+## 277. Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair — CLOSED 2026-09-26
 
-**Status:** open. Found 2026-08-28 while closing
-[§261](#261-toolbar-filter-vs-sortable-header-name-collisions-systemic-7-pairs-across-3-panels--closed-2026-08-28), by
-asking whether that entry's filter/header pairing was the only pair sharing a key in the panels it
-touched. It is not, and this half was never in anyone's brief. Never machine-verified by a committed probe.
-
-**Work item:** #217
+**Status:** CLOSED 2026-09-26 on `fix/defect-batch-7` — one qualifier pair (`bulkEditChangeField` /
+`bulkEditNewValue`) added inside the shared `bulk-edit-panel.tsx` (the shape this entry recommended),
+so every `bulkFields` consumer is fixed at once. The enable checkbox is now named `t(lang,
+"bulkEditChangeField", f.label)` and the value control `t(lang, "bulkEditNewValue", f.label)`, both
+distinct from the bare column-header label. The DOM-id disambiguation workaround
+(`.find((el) => el.id === "bulk-…")`) is removed from all four affected test files
+(`stakeholders-panel.test.tsx`, `change-panel.test.tsx`, `raid-panel.test.tsx`,
+`milestones-panel.test.tsx`) now that the queries resolve uniquely by name. Pinned by
+`bulk-edit.test.tsx`'s "names the enable checkbox 'Change …' and the value control 'New …' (§277)"
+and `stakeholders-panel.test.tsx`'s "keeps the bulk controls' names apart from the column headers
+they share a label with (§277)", mutation-checked: M1 (drop the checkbox `aria-label`) died on
+`TestingLibraryElementError: Unable to find an accessible element with the role "checkbox" and name
+"Change Status"` (the checkbox falls back to its bare `<label>` name); M2 (`ariaLabel: f.label` in
+`BulkEditPanel`) died on `queryAllByRole("combobox", { name: "Status" })` returning length 1 instead
+of 0; M3 (`aria-label={label}` in `selectField` only) died the same way as M1 but for the value
+control (`Unable to find … role "combobox" and name "New Status"`). The row-unique-name helper
+(`expectRowUniqueNames`) runs over `BulkEditPanel` alone; the header collision this entry named is
+pinned separately, by the stakeholders test's `within(panel)` name queries against the column-header
+labels.
 
 Each panel's `bulkFields` list labels its fields with the SAME i18n keys its `SortResizeTh` columns
 use. `bulk-edit-panel.tsx` then spends each label TWICE — on the field's enable checkbox (via a
@@ -25802,11 +25913,58 @@ The only discriminator is whether `evaluate` MINTED a new refusal object or retu
 `use-destructive-save-guard.ts` and having the save effect record on the mint — a change to the guard's
 contract, which is why it was left rather than bodged during a fix round.
 
-## 304. Every export section header is an untranslated raw string, not a display label
+## 304. Every export section header is an untranslated raw string, not a display label — CLOSED 2026-09-27
 
-**Status:** open — never machine-verified by a committed probe. Found 2026-08-31 while fixing §36(b).
+**Status:** CLOSED 2026-09-27 on `fix/defect-batch-7` — both halves this entry asked for, in one pass.
+A new module `export-column-labels.ts` holds a field → `TranslationKey` map per section
+(`EXPORT_COLUMN_LABEL_KEYS`), and `export-sections.ts` carries the FIELD list per section
+(`EXPORT_SECTION_FIELDS`). Every builder, the ten CSV-constant ones and the five hand-written ones
+alike, now takes its header row and its heading from one `heading()` helper, so `columns` really is
+"header row (display labels)" in EN and DE. The builders still map rows by the storage field; only the
+header text changed. The ten CSV-constant maps are total `Record`s over their `as const` column
+constant, so a new CSV column fails `tsc` until it has a label. `SHIFTS_CSV_COLUMNS` is typed
+`readonly string[]`, so that map and the four hand-written field lists are pinned by the test instead.
+Labels reuse the app's table-header key where the field has a column, then its edit-form key; 24 new
+`exportCol*` keys cover the fields the app labels nowhere. ★ ONE deliberate exception to reuse: the
+three task effort columns carry raw MINUTES while the Open Points table shows formatted hours under
+"Est."/"Spent", so they get "(min)" keys rather than a mislabelled unit. The status section's
+first-column ROW labels (`ragOverride`, `narrativeUpdatedAt`, …) were raw keys too and now go through
+the dashboard's own override labels (`STATUS_ROW_LABEL_KEYS`). SIX section titles were English
+literals and now use the Settings → Export keys: "Budgets" → `exportLabelBudgets`, "Roles" →
+`exportLabelRoles` ("Roles & rates", the first sheet name with an ampersand, pinned well-formed),
+"Absences" → `exportLabelAbsences`, "Shifts" → `exportLabelShifts`, "Project Status" →
+`exportLabelStatus` ("Status report") and "Insights" → `exportLabelInsights`. Spec decisions recorded:
+XLSX gets the labels too (it prints `columns` as its header row like the other three), and a
+document's embedded data section in HTML/PDF/DOCX/PPTX carries the same labels, because
+`resolveDataSection` calls the real `buildExportSections`. That is intended, not a regression. CSV and
+Markdown never read `columns` and keep raw keys; `golden-workspace.test.ts` stays green with no fixture
+change. Pinned by `export-column-labels.test.ts` (EN and DE, all fifteen sections built from
+`sample-workspace-small.json`): every header equals its label and never its raw field, headers are
+distinct per section, every title is translated, the status rows are labelled, and the workbook with
+translated sheet names parses. Mutation-checked: M1 (`raid: {}`) died on `raid.id has no label key`;
+M2 (`heading()` returns the raw field list) died on `project.field: expected 'field' to be 'Field'`
+(`'Feld'` in DE); M3 (budgets title back to `"Budgets"`) died on `budgets: expected 'Budgets' to be
+'Budget'`; M4 (status rows back to the raw field) died on `expected [ 'ragOverride', …(5) ] to not
+include 'ragOverride'`; M5 (`SHIFT_LABELS` loses `satHours`) died on `shifts.satHours has no label
+key`. Each failed in both languages. ★ The body below, including its three reproduce commands,
+describes the tree BEFORE this fix; on the fixed tree the second and third commands print 0.
 
-**Work item:** #229
+Amended 2026-09-27 (whole-branch review): five foreign-key columns were labelled with the NAME the app
+shows for the linked record while their cells hold its ID — resources `roleId` ("Role"), roles
+`disciplineId`/`gradeId` ("Discipline"/"Grade"), stakeholders `resourceId` ("Linked resource") and
+budgets `successorId` ("Successor bucket"). They now use five new keys in the `exportColResourceId`
+pattern: "Role ID"/"Rollen-ID", "Discipline ID"/"Disziplin-ID", "Grade ID"/"Stufen-ID", "Linked
+resource ID"/"Verknüpfte Ressourcen-ID", "Successor bucket ID"/"Nachfolge-Bucket-ID" — a second
+deliberate exception to reuse, beside the "(min)" columns. The label test above compared each header
+with `t(lang, key)` for the key the same map names, so it could not see a field pointed at the wrong
+key; `export-column-labels.test.ts`'s "export headers — exact text of the high-risk columns (§304)"
+now asserts the literal EN and DE text of the three "(min)" columns, `tasks.status`,
+`raid.ownerResourceId` and the five ID columns. It was red before the relabel (`resources.roleId:
+expected 'Role' to be 'Role ID'`, `'Rolle'` in DE); mutant `gradeId: "rolesGrade"` → red in both
+languages (`roles.gradeId: expected 'Grade' to be 'Grade ID'`), reverted. Two German labels corrected
+in the same pass: `changeFieldResolution` "Lösung / Begründung" (was "Begruendung") and
+`exportLabelRoles` "Rollen & Sätze" (was "Rollen & Raten"; still the first sheet name with an
+ampersand, and the DE workbook still parses).
 
 `ExportSection.columns` (`export-sections.ts`) is commented `string[]; // header row (display
 labels)`, and NOT ONE builder puts a translated label there. So a PDF, DOCX, XLSX or PPTX export table
@@ -26798,14 +26956,25 @@ inverts the current design, in which the heading is the single source of truth f
 and would let a stale table row disagree with a heading forever. Whoever takes this should decide
 which of those two properties is worth more before writing code.
 
-## 320. The HTML and PDF exports tell the reader a policy-refused image's data is gone
+## 320. The HTML and PDF exports tell the reader a policy-refused image's data is gone — CLOSED 2026-09-26
 
-**Status:** OPEN. Filed 2026-08-31 from the §230 fix round — the disclosure §230 closed for the
-PREVIEW is still wrong in HTML and PDF, by two independent routes. Disclosure only: no data is lost,
-and nothing renders that the upload policy forbids. Reproduced 2026-08-31 by
-`grep -nE "^\s+(omitted|missing)\.add" src/app/document-export-assets.ts`.
-
-**Work item:** #235
+**Status:** CLOSED 2026-09-26 on `fix/defect-batch-7` — both HTML/PDF sites, plus the OOXML half.
+`ExportAssets` gained a fourth bucket, `blocked` (bytes present, stored type refused; an EMPTY mime is
+still not refused, §225 — a row with no bytes stays in `missing`, but site two below shows it as refused anyway). `loadExportAssets` takes an
+`isBlocked` predicate asked AFTER the null-row check and BEFORE `isRenderable` and the budget, so a
+refusal is never charged and never lands in `missing`; `assetPolicy` (`document-download.ts`) passes
+the same predicate to all four formats. Site two: `inlineDocumentImages` (`doc-render-html.ts`) now
+checks the bucket OR the stored mime FIRST (so a refused type wins over the `missing` bucket, whatever the
+state of the bytes) and renders `<span data-asset-blocked>` with the escaped
+`assetExportBlocked` text ("[Image not shown — file type not allowed: name]"), so `assetSrcAttr` no
+longer sees a disallowed truthy mime and cannot fall through to `data-asset-missing` for it; the
+standalone stylesheet gained its own palette-safe `span[data-asset-blocked]` rule. The OOXML half the
+cold review split off below (a refused image read like a budget omission) is fixed in the same
+change: DOCX and PPTX `withImagePlaceholders` choose the text through one helper,
+`assetExportPlaceholder` (`asset-export-placeholder.ts`), from metadata. The body below is the
+dated record as filed. Reproduce the routing now with
+`grep -nE "^\s+(omitted|missing|blocked)\.add" src/app/document-export-assets.ts` — one
+`blocked.add` beside the one `omitted.add` and two `missing.add`.
 
 ★★★ **THIS ENTRY WAS FILED AS "EVERY EXPORT SINK" AND THAT WAS WRONG — corrected 2026-08-31 by cold
 review, in the same round that filed it.** DOCX and PPTX do NOT say the data is gone:
@@ -28113,32 +28282,63 @@ Both arms of the original report are closed. Nothing here needed `.env.local` in
   also marks the env token rejected and re-shows the field. The failure is loud and recoverable,
   not silent. Not fixed here.
 
-## 338. `useResizable` is a no-op in every modal that stays mounted while closed — open
+## 338. `useResizable` is a no-op in every modal that stays mounted while closed — CLOSED 2026-09-27
 
-**Status:** open — **never machine-verified** (2026-09-02). Found by reading during review of the
-asset preview lightbox, and confirmed against source, not by a failing run. Re-check with
-`grep -n "}, \[storageKey, axis\]" src/app/use-resizable.ts` against
-`grep -n "wasOpen" src/app/use-draggable.ts`.
+**Status:** CLOSED 2026-09-27 on `fix/defect-batch-7`. `useResizable` (`use-resizable.ts`) now takes
+a `ResizableOptions.open` flag, defaulting `true`, so the 40 call sites that do not pass it keep
+their old behaviour exactly. That is correct only where the element is rendered whenever the hook is
+mounted, and the callers were not audited one by one: the whole-branch review (2026-09-27) found two
+that are not — `help-menu.tsx` (now the fifth caller, below) and `task-manager.tsx`'s
+`aipm-cockpit:task-modal-size` (below). The attach/restore effect's dependency list is `[storageKey, axis, open]` and its body now bails on
+`!open || !el`, so it re-runs on every false→true transition — mirroring `useDraggable`'s own `open`
+handling — rather than only once at mount.
 
-**Work item:** #244
+Four callers pass the flag through, matching each one's own open/closed state: `task-form-modal.tsx`
+(`{ open: taskModalOpen }`), `asset-preview-modal.tsx` and `notes-window.tsx` (both `{ open }`, from
+their own `open` prop), and `shift-edit-modal.tsx` (`{ open: draft !== null }`, mirroring its
+existing `useDraggable(draft !== null, …)`; that modal's parent currently mounts it only while open,
+so this is defensive). `jira-conflicts-modal.tsx` also calls `useResizable`, but is not a fifth
+caller: it renders `<Modal open onClose={…}>` with a literal `true`, not a boolean prop or state — it
+has no closed-but-mounted state of its own, because its parent conditionally mounts the whole
+component rather than toggling an internal `open`. It never had this bug and needs no `{ open }`.
 
-`useResizable`'s single effect has deps `[storageKey, axis]`, both constant for the life of a
-component, so it runs exactly ONCE — at mount. Modals that stay mounted while closed (the pattern
-`asset-preview-modal.tsx` and `task-form-modal.tsx` both use, so that their own `useState` survives
-an open/close cycle) render `Modal`, which returns `null` while closed. So at that one and only
-run, `ref.current` is `null` and the effect bails immediately.
+Fifth caller, added 2026-09-27: `help-menu.tsx` stays mounted while closed and renders its panel
+only on `{open && pos && …}`, with `pos` (from `useDraggableWindow`) landing a tick after `open`. It
+passes `{ open: open && pos !== null }` — raw `open` would re-run the effect while the panel did not
+exist yet, and it would never run again. Because that gate needs the drag hook's `pos`, the panel ref
+is now created before both hooks and joined to the size hook's ref by one callback ref. Pinned by
+`help-menu.test.tsx`'s "HelpMenu window size (§338)" (saved size restored on open; a corner drag is
+persisted; close and reopen restores it). Mutant: `{ open }` in place of `{ open: open && pos !==
+null }` → red, `expected '' to be '777px'`; reverted, `git diff --stat` unchanged by it.
 
-Consequences: the saved size is never restored on open, and the `pointerdown`/`pointerup` listeners
-are never attached, so a drag-resize is never persisted. Native CSS `resize` still works within the
-session and `sizeReset()` still clears inline styles, so NOTHING LOOKS BROKEN — the persistence is
-simply dead.
+`task-manager.tsx`'s dead `useResizable("aipm-cockpit:task-modal-size")` call and the unread `modalRef`
+prop it fed through `app-modals.tsx` into `task-form-modal.tsx` were removed 2026-09-27 as dead code,
+with the owner's approval.
 
-★★ The asymmetry is the tell: `useDraggable` takes `open` and re-loads on the false→true
-transition, so drag POSITION is restored correctly. `useResizable` has no such hook.
+Not a mutant: deleting the `!open ||` half of the guard alone is EQUIVALENT, not a regression — a
+closed caller renders no element, so `!el` already bails on its own. The guard exists so the effect
+body reads `open`, which `react-hooks/exhaustive-deps` then requires in the dependency list; without
+reading it there, `open` couldn't join `[storageKey, axis]` without an eslint-disable.
 
-★ Repo-wide, not slice-local. `task-form-modal.tsx` — the precedent the lightbox cites for its
-window mechanics — has the identical shape. Enumerate other affected call sites before fixing;
-a fix belongs in the hook (take `open`, mirroring `useDraggable`), not at each call site.
+Pinned by `use-resizable.test.tsx`'s "useResizable — a component that mounts closed (§338)": restores
+a saved size on the false→true transition, and persists+restores a resize made after opening. Also
+pinned by `asset-preview-modal.test.tsx`'s "restores a saved window size when it opens after mounting
+closed (§338)", since the lightbox is the caller this was originally found in.
+
+Mutation-checked 2026-09-26: reverting the deps list to `[storageKey, axis]` turns both new hook
+tests red (`expected '' to be '640px'`, `expected null to deeply equal { width: 700, height: 500 }`).
+Dropping `{ open }` from the `asset-preview-modal.tsx` call turns its new test red (`expected '' to
+be '777px'`). Both reverted; `git diff --stat` clean of the mutants.
+
+Verified 2026-09-26: `npx vitest run src/app/use-resizable.test.tsx src/app/asset-preview-modal.test.tsx
+src/app/notes-window.test.tsx src/app/shift-edit-modal.test.tsx src/app/help-menu.test.tsx
+src/app/budget-bucket-modal.test.tsx src/app/task-form-modal.test.tsx` → `Test Files 7 passed (7)`,
+`Tests 129 passed (129)`, exit 0; `npx eslint --max-warnings=0` on the seven changed files → exit 0.
+`npx tsc --noEmit` was blocked in this worktree by a pre-existing, unrelated corrupted generated file
+(`.next/dev/types/routes.d.ts`, gitignored, predating this task) that `next-env.d.ts` imports
+unconditionally — confirmed unrelated by isolating the same three syntax errors with `.next`
+excluded from `tsconfig`'s `include` (the import still pulls it in); no error was reported against
+any file this fix touches.
 
 ## 339. A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 — CLOSED 2026-09-14
 
@@ -35872,9 +36072,72 @@ What a Linux build would need:
 macOS is deliberately NOT part of this entry: it needs a macOS build host, Apple Developer ID signing
 and notarization, which are a separate problem from anything above.
 
-## 463. Export silently drops enabled sections, and no path exports calendar events, knowledge items or insights — OPEN
+## 463. Export silently drops enabled sections, and no path exports calendar events, knowledge items or insights — CLOSED 2026-09-27
 
-**Status:** OPEN 2026-09-11 — found by a read-only code check against `main` @ `963a05c5` (v1.0.0)
+**Status:** CLOSED 2026-09-27 on `fix/defect-batch-7`. Both export buttons now build their workspace
+through one function, `buildExportWorkspace` (`src/app/export-workspace.ts`), carrying all 19
+`EXPORT_WORKSPACE_KEYS` — including `calendarEvents`, `knowledgeItems` and `insights`, the three that
+were dropped everywhere. `action-menus.tsx`'s `ActionMenus` calls
+`buildExportWorkspace(useWorkspace())`; `task-manager.tsx`'s `handleExportCurrentProject` calls it with
+the same 19-field object literal in place of the old 16-field one. `ExportMenu` no longer takes eleven
+slice props — it takes one `workspace: Workspace` prop and exports exactly the object it is handed
+(`export-menu.test.tsx` pins `exportWorkspace.mock.calls[0][0]).toBe(WS)`). Pinned by
+`export-workspace.test.ts`'s three tests (a derived-axis check that every `EXPORT_SECTION_KEYS` member
+is in `EXPORT_WORKSPACE_KEYS`; a per-key round trip through `buildExportSections`; and a check that the
+builder returns exactly those 19 keys, no documents/activity-log/settings-overrides), by
+`action-menus-sweep.test.ts`'s "builds both export workspaces through buildExportWorkspace", and by
+`export-ooxml.test.ts`'s "§463" describe block, which round-trips calendar events/knowledge
+items/insights through PDF, DOCX, XLSX and PPTX with the section switched on and off.
+
+Mutation-checked: M1 (drop `insights: src.insights,` from `buildExportWorkspace`) died on
+`export-workspace.test.ts` — `AssertionError: insights: expected [] to deeply equal [ 'insights' ]` in
+"feeds every section builder, one switch at a time", and again in "returns only the export slices"
+(18 keys instead of 19 — the mutated builder drops one of the 19 `EXPORT_WORKSPACE_KEYS`). M2 (revert
+`handleExportCurrentProject` to its old inline object literal) died on `action-menus-sweep.test.ts`'s
+"builds both export workspaces through buildExportWorkspace" — `AssertionError: expected '…' to
+contain 'buildExportWorkspace('`. M3 (`ActionMenus` calling `buildExportWorkspace({ ...useWorkspace(),
+calendarEvents: undefined })`) was FIRST a confirmed survivor — nothing pinned the header path's
+per-field CONTENT, only that `action-menus.tsx` calls `buildExportWorkspace(` (source-text sweep) and
+that `ExportMenu` re-exports whatever `workspace` it is handed unchanged. Fixed by a new test,
+`action-menus.test.tsx`'s "hands ExportMenu the SAME per-field values useWorkspace() holds, not a
+partial rebuild": a `Seeder` component pushes three real arrays into context via the live
+`setCalendarEvents`/`setKnowledgeItems`/`setInsights` setters, a `Probe` records the same
+`useWorkspace()` snapshot `ActionMenus` reads, and the test asserts `capturedWorkspace[key] ===
+probeSnapshot[key]` (`Object.is`, not deep-equal) for every one of the 19 `EXPORT_WORKSPACE_KEYS`,
+plus an explicit non-undefined check on the three previously-dropped fields so the loop cannot pass
+vacuously on `undefined === undefined`. Re-run against all three drops: M3 itself
+(`calendarEvents: undefined`) failed on `AssertionError: expected undefined to deeply equal []` (the
+`waitFor` seed-settle guard); dropping `knowledgeItems` failed on `AssertionError: knowledgeItems:
+expected undefined to be [] // Object.is equality`; dropping `insights` failed the same way naming
+`insights`. All three killed; reverted and confirmed green (`action-menus.test.tsx` 6/6) before this
+commit.
+
+Amended 2026-09-27 (whole-branch review): the Projects-panel literal was still able to drop a slice
+and compile, because the parameter type was `Pick<Workspace, ExportWorkspaceKey>`, which keeps the
+ten fields that are optional on `Workspace` optional — and `action-menus-sweep.test.ts` checks only
+that the literal goes through the builder, not what it holds. The
+parameter is now `ExportWorkspaceSlices` (`{ [K in ExportWorkspaceKey]-?: Workspace[K] }`): every key
+required, `undefined` still allowed where the `Workspace` field is optional. The brief's
+`Workspace[K] | undefined` was not used — it would also admit `undefined` for the nine required
+slices, which `buildExportWorkspace` then returns as a `Workspace` (TS2322 on each). Removing
+`insights,` from `handleExportCurrentProject`'s literal now fails `npx tsc --noEmit` with TS2345
+("Property 'insights' is missing in type … but required in type 'ExportWorkspaceSlices'"); restored.
+`ActionMenus`' `useWorkspace()` value already carries all 19 keys. Tests holding a bare `Workspace`
+(`export-workspace.test.ts`, `export-ooxml.test.ts`'s §463 block) now name the ten optional slices
+explicitly. The type itself is pinned by `export-workspace.test.ts`'s "refuses, at compile time, a
+caller that leaves a slice out" (a `@ts-expect-error` call without `insights`): reverting the type to
+`Pick<Workspace, ExportWorkspaceKey>` fails `tsc` with TS2578 "Unused '@ts-expect-error' directive";
+reverted. The comment above the literal that said the two buttons "cannot drift apart again" now
+names the type as the guard.
+
+CSV and Markdown are unchanged storage formats: `workspaceToCsv`/`workspaceToMarkdown` still gate the
+project block on `config === undefined` (a storage save, never a document export), exactly as this
+entry originally recorded, so this fix does not add a `project` block to a CSV/MD export — the golden
+fixtures (`src/app/__fixtures__/golden-workspace.csv`/`.md`) are byte-identical. `exportFilename`
+(`export.ts`) now applies to both buttons: since both carry `project`, both name their download after
+the project (previously only the Projects-panel export did).
+
+**As filed:** OPEN 2026-09-11 — found by a read-only code check against `main` @ `963a05c5` (v1.0.0)
 while triaging the demo-backlog issues #38–#74; filed as
 internal GitLab issue 75. Established by reading the
 two call sites and the builders, never by running an export. Presence witnesses re-run 2026-09-11:
@@ -35882,8 +36145,6 @@ two call sites and the builders, never by running an export. Presence witnesses 
 `grep -n -A5 "const handleExportCurrentProject" src/app/task-manager.tsx` (sixteen slices),
 `grep -n "config === undefined && ws.project" src/app/csv-codecs-config.ts src/app/markdown-codecs-core.ts`
 (one line each) and `grep -n "aipm-cockpit-tasks" src/app/export.ts` (the filename template).
-
-**Work item:** #75
 
 The header export menu builds the workspace it exports INLINE, from the slices `action-menus.tsx`
 destructures out of `useWorkspace()` and threads into `ExportMenu`: tasks, RAID, absences, shifts,
@@ -41662,15 +41923,48 @@ decisions the AI review slice needs. Design: `docs/superpowers/specs/2026-08-23-
 curl -s https://api.timelog.com/rest/services | grep -oE "/rest/service/[a-z]+" | sort -u
 ```
 
-## 617. A meta slice whose sanitizer returns nothing is dropped silently, and the next save deletes its row — open
+## 617. A meta slice whose sanitizer returns nothing is dropped silently, and the next save deletes its row — CLOSED 2026-09-26
 
-**Status:** open 2026-09-26 — split out of §538 (closed on 2026-09-26 in #425), where it was recorded as a
-known gap. Verified by reading: `grep -n "if (pm) ws.project = pm" src/app/turso-schema.ts` returns the
-`project_meta` read, and `grep -c "if (.*) ws\.[a-zA-Z]* = " src/app/turso-schema.ts` counts 13 assignments of
-the same shape. The silent drop itself is never machine-verified: no test feeds a row that parses but
-sanitizes to a falsy value.
+**Status:** CLOSED 2026-09-26 on `fix/defect-batch-7`, for the Turso load path only (owner decision,
+2026-09-26). `rowsToWorkspace` now routes all 13 meta slices through one local `decodeMeta` helper
+(`grep -c 'decodeMeta("' src/app/turso-schema.ts` → 13): `project_status`, `project_meta`,
+`field_visibility`, `features`, `steering_committee`, `timelog_links`, `knowledge_items`, `insights`,
+`activityLog`, `budgetHistory`, `documents`, `documentVersions`, `settings_overrides`. A throw is reported
+as before; a value that parsed but sanitized to nothing now goes through the same `reportUnreadableSlice`,
+so it lands in `diag.decodeFailedSlices` under its meta key and pauses saving, which keeps the stored row
+instead of letting the next meta-dirty save delete it.
+This also covers version skew: a stored value that a newer or older build's sanitizer rejects entirely —
+a retired module id, a timezone the device's ICU rejects, an unknown rag — now shows "Saving paused",
+and "Save anyway" clears the pause, where the old path deleted the row on the next meta-dirty save. PARTIAL
+sanitizer loss (some entries survive, others are dropped) stays silent; it is outside this fix. That
+silence is total, not just partial, for a slice whose sanitizer always returns a keyed object —
+steering committee, timelog links — because the emptiness check sees only an empty top-level container:
+losing every inner entry still leaves a non-empty container, so none of it is ever reported.
 
-**Work item:** #427
+★★ The rule compares the INPUT with the output (`sanitizedToNothing` in `src/app/meta-slice-decode.ts`),
+not the output alone. A stored `[]`, `{}`, `features: []` (Simple mode) or a status of only blank strings
+also sanitizes to nothing, and reporting those would pause saving on a healthy project. So a slice is
+reported only when the raw value carried content and none survived. "Content" is recursive
+(`hasDecodedContent`): a non-empty string, any number or boolean, or a container holding one at any
+depth. It has to be recursive because `{"narrative":""}` has a key but carries nothing; a keys-only check
+reports it.
+
+Pinned by `turso-schema.execute.test.ts`'s "§617 — a meta slice that parses but sanitizes to nothing is
+REPORTED, not dropped", which loads each row through a real `node:sqlite` DB: 13 INVALID cases (one per
+slice, red before the fix on `expected undefined to deeply equal [ '<key>' ]`), 12 LEGIT_EMPTY cases that
+must stay silent, a Simple-mode `features: []` round-trip and a valid `project_meta` positive control. The
+predicate table is in `meta-slice-decode.test.ts`. Mutation-checked: M1 (`sanitizedToNothing` →
+`isEmptyDecoded(sanitized)` alone) died on 26 tests, among them every LEGIT_EMPTY case (`expected [
+'project_status' ] to not include 'project_status'`); M2 (drop the report call in the sanitized-to-nothing
+branch) died on all 13 INVALID cases (`expected undefined to deeply equal [ '<key>' ]`); M3 (object branch
+of `hasDecodedContent` → `Object.keys(raw).length > 0`) died on the `{"narrative":""}` LEGIT case and
+three tests in `meta-slice-decode.test.ts` (the `{"narrative":""}` and `{"a":[null,""]}` table rows, and
+`sanitizedToNothing`'s own case).
+
+★ **NOT fixed, and not closed silently: the JSON-file and IndexedDB load paths.** Both drop a
+sanitized-to-nothing slice the same way, but neither has a decode-failure channel or a save pause, so the
+Turso fix does not carry over without building that plumbing. By owner decision (2026-09-26) that half
+gets its own new register entry, §620, filed at the end of this batch, not code here.
 
 `rowsToWorkspace` (`src/app/turso-schema.ts`) reports a meta-blob slice as unreadable only when its
 `JSON.parse` or its sanitizer THROWS. A sanitizer that returns a falsy value without throwing takes neither
@@ -41692,16 +41986,34 @@ Size S–M.
 **Source:** §538's closing note ("A `project_meta` row that parses but fails sanitizing is dropped with no
 diagnostic"), and the PR #425 review, which suggested minting it as its own entry.
 
-## 618. The classic header overflows between lg and ~1390px, so the page scrolls sideways — open
+## 618. The classic header overflows between lg and ~1390px, so the page scrolls sideways — CLOSED 2026-09-27
 
-**Status:** open 2026-09-26 — split out of §468 (closed on 2026-09-26 in #425), whose layout fix changed the
+**Status:** CLOSED 2026-09-27 on `fix/defect-batch-7`. The mechanism: `AppHeader`'s left column
+(`app-header.tsx`) now carries `min-w-0`, so the classic search can shrink at all; the search wrapper
+(`shell-chrome.tsx`) keeps its definite `lg:w-96` basis and gains the floor `lg:min-w-56` (224px). The
+trailing row deliberately has NO `min-w-0`: removing it (mutant M2) changed nothing measurable, even in
+the fuller state with the timezone switcher shown and a populated undo stack, because the search wrapper's
+own `min-w-0` already zeroes its automatic minimum — so it would be a no-op, and M2 is equivalent.
+Reproduction needed `expertMode` and AI enabled; the default e2e seed does not overflow. Measured before
+the fix: document scrollWidth 1113 and header scrollWidth 1073 at both 1024 and 1100 — not the 1165/1125
+this entry recorded (the scratch probe's settings were not kept). After: the search is 308px @1024, 353px
+@1100, 384px @1390 and 384px @1600, with no document scroll at any of them. Owner decision 3: the 224px
+floor was enough; no project-switcher width cap was needed. Pinned by `e2e/classic-header-fit.spec.ts`
+(both describes: "classic header fits from lg up (§618)" and "classic header trailing row still fits with
+every sibling present (§618 M2)") and by `top-bar.test.tsx`'s "lets the classic search shrink from its
+24rem basis to a 14rem floor (§618)". Mutants: M1 (drop the left column's `min-w-0`) → Playwright red
+@1024/1100 (docScroll 1113) and the unit test red; M4 (`lg:w-auto lg:min-w-56 lg:basis-96`) → Playwright
+red @1390/1600 (`Expected: 384, Received: 224`); M3 (drop `lg:min-w-56`) is killed ONLY by the unit
+test's class assertion — no measured width reaches the floor, so the floor has no behavioural pin.
+★ Corrected: "Below `lg` (768px)" below was wrong — `lg` is 1024px (768px is `md`). The below-`lg`
+regime stays out of scope, and no new entry is filed for it.
+
+Original status: open 2026-09-26 — split out of §468 (closed on 2026-09-26 in #425), whose layout fix changed the
 modern top bar only and left the classic header as it was. The cause is re-checkable by reading:
 `grep -n "lg:w-96" src/app/shell-chrome.tsx` returns the classic search mount's fixed width. The overflow was
 MEASURED on 2026-09-26 by a scratch Playwright probe (Chromium, e2e seed, classic layout) that was deleted
 after #425 merged, so the numbers below are a dated observation that a command cannot reproduce. They were
 also not re-measured on a pre-#425 commit, though no #425 commit touches the classic header.
-
-**Work item:** #428
 
 In the CLASSIC layout (the `AppHeader` path, not `ModernShell`) the header row does not fit between the
 `lg` breakpoint and about 1390px. The whole page gains a horizontal scrollbar and the rightmost icon is cut
@@ -41759,3 +42071,111 @@ npx vitest run src/app/dashboard-sections/dashboard-narrative.test.tsx --sequenc
 Size S.
 
 **Source:** PR #429's `unit-shuffled` run, 2026-09-26.
+
+## 620. The JSON-file and IndexedDB load paths drop a meta slice that sanitizes to nothing, with no decode-failure channel — open
+
+**Status:** open 2026-09-27 — split out of §617 (closed 2026-09-26 in #427) by owner decision, which fixed
+the Turso load path only. Verified by reading: `jsonToWorkspace` (`src/app/workspace.ts`) assigns each
+sanitized slice (for example `status: sanitizeProjectStatus(p.status)`) the same way `rowsToWorkspace` did
+before §617, and `BrowserBackend.load` (`src/app/browser-backend.ts`) has the identical shape. `grep -rn
+"decodeFailedSlices\|lastDecodeFailures" src/app` returns only `turso-schema.ts` and `turso-backend.ts` —
+neither `workspace.ts` nor `browser-backend.ts` has an equivalent.
+
+**Work item:** #433
+
+A meta slice whose value parses but sanitizes to nothing is dropped silently on both the JSON-file load
+path (`jsonToWorkspace`, `src/app/workspace.ts`) and the IndexedDB load path (`BrowserBackend.load`,
+`src/app/browser-backend.ts`), exactly as it was on the Turso path before §617. Neither backend has a
+decode-failure channel (no `decodeFailedSlices`/`lastDecodeFailures` equivalent) or a Saving-paused /
+Save-anyway pause, so a corrupted or unreadable slice is lost with no diagnostic and no chance for the user
+to intervene.
+
+Closing it means building that plumbing for both backends: a place to record an unreadable slice per load,
+and a way to surface it to the user (or at minimum log a diagnostic) before the next save overwrites the
+stored value. The predicates §617 introduced (`sanitizedToNothing`, `hasDecodedContent` in
+`src/app/meta-slice-decode.ts`) are reusable as-is; what is missing is the reporting/pause channel itself
+for these two backends.
+
+Size M.
+
+**Source:** §617's closing note ("NOT fixed, and not closed silently: the JSON-file and IndexedDB load
+paths … gets its own new register entry, filed at the end of this batch"), and the defect-batch-7 plan's
+Correction 3.
+
+## 621. PDF/DOCX/PPTX/XLSX exports still print recurrence text and insight type/severity/status values in English — open
+
+**Status:** open 2026-09-27 — found while implementing §304 (closed 2026-09-26 in #229), which translated
+export column headers and section titles only. Verified by reading: `grep -n "English-only, i18n-free"
+src/app/export-sections.ts` returns `describeRecurrence`'s own doc comment saying the cell text is not
+translated, and `grep -n "it.type,$" src/app/export-sections.ts` returns `insightsSection`'s raw enum read
+(`it.type`, `it.severity`, `it.status`, no `t()` call).
+
+**Work item:** #434
+
+§304 translated export column headers and section titles, but left CELL TEXT untouched. Two spots still
+print English-only values in a German export: `describeRecurrence` (`src/app/export-sections.ts`), which
+builds a plain-language recurrence summary such as "Every week on MO", and `insightsSection`
+(`src/app/export-sections.ts`), whose rows carry the raw `type`, `severity` and `status` enum values from
+`Insight` with no i18n lookup. Both are reached from `buildExportSections`, so the English text reaches
+every export surface: PDF, DOCX, PPTX, and the CSV/Markdown paths that share the same builders.
+
+What would close it: give each insight enum value (type, severity, status) and the recurrence phrase
+pieces their own i18n keys, the way §304 did for headers and titles, and thread `lang` through
+`describeRecurrence` and `insightsSection`'s row-building.
+
+Size S–M.
+
+**Source:** Task 7's closing comment sweep for §304 (#229), which documents both spots as out of scope and
+noted they "may deserve its own register entry".
+
+## 622. An ordinary, under-cap document paragraph edit that was never blurred is lost when the window closes — open
+
+**Status:** open 2026-09-27 — predates batch 7; found via Task 9's work on §185 (closed 2026-09-27 in
+#174). Verified by reading: `grep -n "flushRefusedOnPageHide\|pageHiding" src/app/debounced-save.ts
+src/app/document-block-editors.tsx` returns the §185 flush mechanism, which is wired only from the tooLong
+refusal path in `tryCommit`, not from an ordinary blur-only commit — an in-progress, under-cap edit that
+never blurs never reaches `scheduleDebouncedSave` (`src/app/debounced-save.ts`) at all.
+
+**Work item:** #435
+
+An ordinary paragraph edit that stays under `MAX_HTML_TEXT_CHARS` (so it never trips the §185 over-cap
+refusal) and was never blurred — for example, the window closes mid-edit, or a pane narrows away without a
+blur — is lost entirely: nothing was committed, so `scheduleDebouncedSave` was never scheduled, and the
+`pageHiding` flush §185 added has nothing to flush.
+
+§185 gave `debounced-save.ts` a module-level `pageHiding` flag, set by a capture-phase `pagehide` listener,
+that forces an already-scheduled save to flush immediately on real unload, plus a `flushRefusedOnPageHide`
+commit in `document-block-editors.tsx` for the refused-over-cap case specifically. That same mechanism
+makes a fix for this entry straightforward: extend the `pagehide` handling to commit any dirty,
+uncommitted paragraph draft on unload, not only a refused over-cap one.
+
+Size S.
+
+**Source:** Task 9's report on §185 (#174), Concern 2: "Other dirty drafts that were never blurred (for
+example, ordinary typing) are still not flushed on unload. That was already true before this change and is
+out of scope."
+
+## 623. `loadExportAssets` loads the bytes of a policy-refused asset before discarding them — open
+
+**Status:** open 2026-09-27 — found while implementing §320 (closed 2026-09-26 in #235). Low impact.
+Verified by reading: `grep -n "b64: await load(id)" src/app/document-export-assets.ts` returns the
+unconditional fetch inside `loadExportAssets`'s `Promise.all`, which runs before the loop below it checks
+`isBlocked`, so an id later routed to the `blocked` bucket (§320) still has its bytes fetched and
+base64-decoded first.
+
+**Work item:** #436
+
+`loadExportAssets` (`src/app/document-export-assets.ts`) fetches every asset's bytes via `load(id)` up
+front, then only afterwards checks `isBlocked(id)` — the §320 predicate, sourced from `isBlockedAssetMime`
+— to route it to the `blocked` bucket. An asset whose stored mime the type policy refuses still costs a
+full network/IO fetch and a base64 decode, for bytes that are immediately discarded. Impact is low: the
+type policy already rejects such assets, so the wasted work is bounded by however many blocked assets a
+document holds.
+
+What would close it: check `isBlocked(id)` before calling `load(id)` (or otherwise avoid paying the
+fetch's cost) so a policy-refused asset never has its bytes loaded.
+
+Size S.
+
+**Source:** the §320 (#235) task review in defect batch 7, which found that `loadExportAssets` still loads the
+bytes of blocked assets before discarding them.

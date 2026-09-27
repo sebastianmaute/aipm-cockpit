@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
-import { StrictMode } from "react";
-import { render, screen, within, fireEvent, act } from "@testing-library/react";
+import { StrictMode, useEffect, useMemo, useState } from "react";
+import { render, screen, within, fireEvent, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   ParagraphBlockEditor,
@@ -13,10 +13,13 @@ import { BulletsBlockEditor } from "./bullets-block-editor";
 import { DocumentEditor } from "./document-editor";
 import { replaceBlockOp } from "./document-editor-commit";
 import { applyDocMutation, type DocOp, type DocState } from "./document-mutations";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import type { DocBlock, ProjectDocument } from "./document-model";
-import { MAX_TABLE_COLUMNS } from "./document-model";
+import { MAX_TABLE_COLUMNS, MAX_HTML_TEXT_CHARS } from "./document-model";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
+import { PARAGRAPH_COUNT_FROM } from "./document-block-notices";
+import { htmlTextLength } from "./rich-text-plain";
+import { scheduleDebouncedSave, SAVE_DEBOUNCE_MS } from "./debounced-save";
 
 /** `structural` is REQUIRED on `DocumentEditorProps`. The three fixtures in
  *  this file exercise the CONTENT commit path only and never touch the block
@@ -333,6 +336,232 @@ describe("ParagraphBlockEditor", () => {
     unmount();
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit.mock.calls[0][1].html).toContain("y");
+  });
+});
+
+describe("ParagraphBlockEditor — the visible-character cap (§185)", () => {
+  const fmt = (n: number) => new Intl.NumberFormat("en-US").format(n);
+  const bold = (n: number) => `<p><strong>${"a".repeat(n)}</strong></p>`;
+  const countText = (n: number) => t(LANG, "documentsParagraphCharCount", fmt(n), fmt(MAX_HTML_TEXT_CHARS));
+
+  // REGRESSION PIN, not the red test: green on the unfixed code too (there was
+  //  no counter at all). It keeps the 90% threshold from sliding downwards.
+  it("shows no counter below 90% of the cap", async () => {
+    render(<ParagraphBlockEditor lang={LANG} index={20} block={{ type: "paragraph", html: bold(PARAGRAPH_COUNT_FROM - 1) }} onCommit={vi.fn()} />);
+    await findParagraphEditable(20);
+    expect(screen.queryByText(countText(PARAGRAPH_COUNT_FROM - 1))).toBeNull();
+  });
+
+  it("shows the running count from exactly 90% of the cap", async () => {
+    render(<ParagraphBlockEditor lang={LANG} index={21} block={{ type: "paragraph", html: bold(PARAGRAPH_COUNT_FROM) }} onCommit={vi.fn()} />);
+    await findParagraphEditable(21);
+    expect(screen.getByText(countText(PARAGRAPH_COUNT_FROM))).toBeInTheDocument();
+  });
+
+  // Literal, not built through `t()`: pins the German copy AND the locale's
+  //  digit grouping, which an expectation formatted the same way could not.
+  it("formats the count for the German locale", async () => {
+    await loadI18n("de");
+    render(<ParagraphBlockEditor lang="de" index={25} block={{ type: "paragraph", html: bold(PARAGRAPH_COUNT_FROM) }} onCommit={vi.fn()} />);
+    await screen.findByRole("textbox", { name: t("de", "documentsParagraphLabel", "26") });
+    expect(screen.getByText("18.000 / 20.000 Zeichen")).toBeInTheDocument();
+  });
+
+  it("refuses an over-cap commit with the notice, keeping the text and its formatting", async () => {
+    const onCommit = vi.fn();
+    render(<ParagraphBlockEditor lang={LANG} index={22} block={{ type: "paragraph", html: bold(MAX_HTML_TEXT_CHARS - 1) }} onCommit={onCommit} />);
+    const editable = await findParagraphEditable(22);
+    editable.focus();
+    await userEvent.type(editable, "bc");
+    editable.blur();
+    expect(onCommit).not.toHaveBeenCalled();
+    const notice = await screen.findByText(t(LANG, "documentsBlockTooLongNotSaved", "1", fmt(MAX_HTML_TEXT_CHARS)));
+    // ★ `t()` fills each `{n}` ONCE (a string `replace`), so a placeholder
+    //  repeated in the copy would reach the user raw — and an expectation built
+    //  through the same `t()` could never see it.
+    expect(notice.textContent).not.toMatch(/\{\d\}/);
+    expect(notice).toHaveAttribute("role", "status");
+    expect(editable.querySelector("strong")).not.toBeNull();
+    expect(editable.textContent).toHaveLength(MAX_HTML_TEXT_CHARS + 1);
+  });
+
+  it("commits a paragraph that lands exactly on the cap, formatting intact", async () => {
+    const onCommit = vi.fn();
+    render(<ParagraphBlockEditor lang={LANG} index={23} block={{ type: "paragraph", html: bold(MAX_HTML_TEXT_CHARS - 1) }} onCommit={onCommit} />);
+    const editable = await findParagraphEditable(23);
+    editable.focus();
+    await userEvent.type(editable, "b");
+    editable.blur();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit.mock.calls[0][1].html).toContain("<strong>");
+  });
+
+  // Review Focus 4 — narrowing the pane unmounts a non-selected row with no
+  //  blur. The refused edit must not be LOST: the unmount flush still saves
+  //  it, in today's flattened form (the one path with no UI to refuse on).
+  it("still saves a refused over-cap edit, flattened, if the editor unmounts", async () => {
+    const onCommit = vi.fn();
+    const { unmount } = render(<ParagraphBlockEditor lang={LANG} index={24} block={{ type: "paragraph", html: bold(MAX_HTML_TEXT_CHARS - 1) }} onCommit={onCommit} />);
+    const editable = await findParagraphEditable(24);
+    editable.focus();
+    await userEvent.type(editable, "bc");
+    editable.blur();
+    expect(onCommit).not.toHaveBeenCalled();
+    unmount();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    const html = onCommit.mock.calls[0][1].html as string;
+    expect(html).not.toContain("<strong>");
+    expect(htmlTextLength(html)).toBe(MAX_HTML_TEXT_CHARS);
+  });
+
+  it("names the counter in the editor's aria-describedby, empty below 90%", async () => {
+    render(<ParagraphBlockEditor lang={LANG} index={26} block={{ type: "paragraph", html: bold(PARAGRAPH_COUNT_FROM) }} onCommit={vi.fn()} />);
+    render(<ParagraphBlockEditor lang={LANG} index={27} block={{ type: "paragraph", html: bold(5) }} onCommit={vi.fn()} />);
+    const described = (el: HTMLElement) => {
+      const id = el.getAttribute("aria-describedby");
+      expect(id).toBeTruthy();
+      const target = document.getElementById(id!);
+      expect(target).not.toBeNull();
+      return target!;
+    };
+    expect(described(await findParagraphEditable(26)).textContent).toBe(countText(PARAGRAPH_COUNT_FROM));
+    expect(described(await findParagraphEditable(27)).textContent).toBe("");
+  });
+
+  // The escape route the refusal promises: trim back to the cap and blur.
+  it("commits with its formatting once a refused paragraph is trimmed back to the cap", async () => {
+    const onCommit = vi.fn();
+    render(<ParagraphBlockEditor lang={LANG} index={28} block={{ type: "paragraph", html: bold(MAX_HTML_TEXT_CHARS - 1) }} onCommit={onCommit} />);
+    const editable = await findParagraphEditable(28);
+    editable.focus();
+    await userEvent.type(editable, "bc");
+    editable.blur();
+    const refusalText = t(LANG, "documentsBlockTooLongNotSaved", "1", fmt(MAX_HTML_TEXT_CHARS));
+    expect(await screen.findByText(refusalText)).toBeInTheDocument();
+    editable.focus();
+    // ★ The caret is placed EXPLICITLY: where `type` puts it in a focused
+    //  contenteditable is not stable across runs (measured: "bc" once landed at
+    //  the START, where Backspace deletes nothing). ProseMirror adopts a DOM
+    //  selection on `selectionchange`.
+    const caret = document.createRange();
+    caret.selectNodeContents(editable);
+    caret.collapse(false);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(caret);
+    document.dispatchEvent(new Event("selectionchange"));
+    await userEvent.keyboard("{Backspace}");
+    expect(editable.textContent).toHaveLength(MAX_HTML_TEXT_CHARS);
+    editable.blur();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit.mock.calls[0][1].html).toContain("<strong>");
+    expect(htmlTextLength(onCommit.mock.calls[0][1].html as string)).toBe(MAX_HTML_TEXT_CHARS);
+    await waitFor(() => expect(screen.queryByText(refusalText)).toBeNull());
+  });
+});
+
+// ★★★ §185 fix rounds 1–2 — a refused draft lives only in the component, and a
+//  window close, reload or navigation runs no React cleanup, so the unmount
+//  flush alone would LOSE it. `pagehide` commits it flattened instead. A tab
+//  switch or minimise (`visibilitychange` → hidden) must NOT: the owner ruled
+//  that the rich draft, its notice and its dirty flag survive it.
+//  Every test runs against the REAL `scheduleDebouncedSave`, because what has
+//  to be proved is that the commit is PERSISTED, not merely made: the save
+//  captures its snapshot per effect run. Both events of an unload go in ONE
+//  `act`, so nothing React-side is flushed between them that a real unload
+//  would not flush either.
+describe("ParagraphBlockEditor — a refused over-cap draft on hide or unload (§185)", () => {
+  const bold = (n: number) => `<p><strong>${"a".repeat(n)}</strong></p>`;
+  const refusalText = t(LANG, "documentsBlockTooLongNotSaved", "1", new Intl.NumberFormat("en-US").format(MAX_HTML_TEXT_CHARS));
+  const fireVisibility = (state: "hidden" | "visible") => {
+    const spy = vi.spyOn(document, "visibilityState", "get").mockReturnValue(state);
+    document.dispatchEvent(new Event("visibilitychange"));
+    spy.mockRestore();
+  };
+  const firePageHide = () => window.dispatchEvent(new Event("pagehide"));
+  const isFlattened = (html: string) => !html.includes("<strong>") && htmlTextLength(html) === MAX_HTML_TEXT_CHARS;
+
+  /** `tick` re-arms the save after the editor mounted, so the save's listeners
+   *  run BEFORE the editor's rather than after (`saveFirst` below). */
+  function SaveHarness({ tick, saved, commits }: { tick: number; saved: string[]; commits: string[] }) {
+    const [html, setHtml] = useState(() => bold(MAX_HTML_TEXT_CHARS - 1));
+    const block = useMemo(() => ({ type: "paragraph" as const, html }), [html]);
+    useEffect(() => scheduleDebouncedSave(() => { saved.push(html); }, SAVE_DEBOUNCE_MS), [html, tick, saved]);
+    const onCommit = (_i: number, b: DocBlock) => {
+      const next = (b as { html: string }).html;
+      commits.push(next);
+      setHtml(next);
+    };
+    return <ParagraphBlockEditor lang={LANG} index={44} block={block} onCommit={onCommit} />;
+  }
+
+  const refuseInHarness = async (saveFirst = false) => {
+    const saved: string[] = [];
+    const commits: string[] = [];
+    const view = render(<SaveHarness tick={0} saved={saved} commits={commits} />);
+    if (saveFirst) view.rerender(<SaveHarness tick={1} saved={saved} commits={commits} />);
+    const editable = await findParagraphEditable(44);
+    editable.focus();
+    await userEvent.type(editable, "bc");
+    editable.blur();
+    expect(await screen.findByText(refusalText)).toBeInTheDocument();
+    expect(commits).toEqual([]);
+    return { unmount: view.unmount, saved, commits, editable };
+  };
+
+  it("keeps the rich draft, its notice and its dirty flag through a tab switch", async () => {
+    const { saved, commits, editable, unmount } = await refuseInHarness();
+    act(() => { fireVisibility("hidden"); fireVisibility("visible"); });
+    expect(commits).toEqual([]);
+    expect(saved.some(isFlattened)).toBe(false);
+    expect(editable.querySelector("strong")).not.toBeNull();
+    expect(screen.getByText(refusalText)).toBeInTheDocument();
+    // Still DIRTY: the unmount flush (the owner's no-UI fallback) still saves it.
+    unmount();
+    expect(commits).toHaveLength(1);
+    expect(isFlattened(commits[0])).toBe(true);
+  });
+
+  it.each([
+    { unload: "tab close (hidden, then pagehide)", saveFirst: false },
+    { unload: "tab close (hidden, then pagehide)", saveFirst: true },
+    { unload: "reload (pagehide, then hidden)", saveFirst: false },
+    { unload: "reload (pagehide, then hidden)", saveFirst: true },
+  ])("persists it flattened exactly once on $unload, save listeners first: $saveFirst", async ({ unload, saveFirst }) => {
+    const { saved, commits } = await refuseInHarness(saveFirst);
+    // ★★ Read INSIDE the `act`, before it flushes anything: an unloading page
+    //  runs no later task, so only what was written during the events counts.
+    //  (Read after the `act`, a missing `flushSync` survives: `act` renders the
+    //  queued commit, and the save then runs under the still-set `pageHiding`.)
+    let savedDuringUnload: string[] = [];
+    act(() => {
+      if (unload.startsWith("tab")) { fireVisibility("hidden"); firePageHide(); }
+      else { firePageHide(); fireVisibility("hidden"); }
+      savedDuringUnload = [...saved];
+    });
+    expect(commits).toHaveLength(1);
+    expect(isFlattened(commits[0])).toBe(true);
+    expect(savedDuringUnload.filter(isFlattened)).toHaveLength(1);
+    expect(isFlattened(savedDuringUnload.at(-1) ?? "")).toBe(true);
+    expect(saved.filter(isFlattened)).toHaveLength(1);
+    // The flush clears the dirty flag, so the editor adopts what was saved
+    //  rather than holding a draft that storage no longer matches.
+    await waitFor(async () => expect((await findParagraphEditable(44)).querySelector("strong")).toBeNull());
+  });
+
+  it("does not commit again at unmount after a pagehide", async () => {
+    const { commits, unmount } = await refuseInHarness();
+    act(() => firePageHide());
+    expect(commits).toHaveLength(1);
+    unmount();
+    expect(commits).toHaveLength(1);
+  });
+
+  it("stops listening once unmounted, so a later pagehide cannot commit twice", async () => {
+    const { commits, unmount } = await refuseInHarness();
+    unmount();
+    expect(commits).toHaveLength(1);
+    act(() => firePageHide());
+    expect(commits).toHaveLength(1);
   });
 });
 

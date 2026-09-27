@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { QuestionMarkCircleIcon, XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import { type Lang, t } from "./i18n";
@@ -56,10 +56,13 @@ export function HelpMenu({ lang }: { lang: Lang }) {
   const { settings } = useSettings();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const { ref: panelRef, reset: resetHelpSize } = useResizable(STORAGE_KEY_SIZE);
-  // Drag/position (shared with notes-window); size stays on useResizable above.
+  // Drag/position (shared with notes-window); size stays on useResizable below.
   // The panel renders only once `pos` is set, so the placement fallback size is
   // the panel's default dimensions.
+  // ★ The panel ref is created here, before either hook, because the size
+  // hook's `open` gate needs the drag hook's `pos` — so the drag hook must run
+  // first and cannot take the size hook's ref.
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const { pos, onTitleBarMouseDown } = useDraggableWindow(STORAGE_KEY_POS, {
     open,
     panelRef,
@@ -67,6 +70,20 @@ export function HelpMenu({ lang }: { lang: Lang }) {
     fallbackWidth: 820,
     fallbackHeight: 640,
   });
+  // §338 — `open && pos !== null`, not raw `open`: the panel renders on
+  // `{open && pos && …}` and `pos` lands a tick after open, so a raw `open`
+  // re-ran the attach/restore effect while the node did not exist yet and it
+  // never ran again — no saved size was restored and no drag was saved.
+  const { ref: sizeRef, reset: resetHelpSize } = useResizable(STORAGE_KEY_SIZE, {
+    open: open && pos !== null,
+  });
+  const attachPanel = useCallback(
+    (node: HTMLDivElement | null) => {
+      panelRef.current = node;
+      sizeRef.current = node;
+    },
+    [sizeRef],
+  );
 
   // Escape closes the panel — but only while focus is inside it, or nowhere.
   // Same shape as `notes-window`: a persistent draggable panel that stays open
@@ -105,7 +122,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
 
       {open && pos && (
         <div
-          ref={panelRef}
+          ref={attachPanel}
           role="dialog"
           // Focus target for `usePanelInitialFocus` — no focus ring, not in the
           // tab order.

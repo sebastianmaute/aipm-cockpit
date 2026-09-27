@@ -72,6 +72,31 @@ describe("AssetPreviewModal — shell", () => {
     await userEvent.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  // §338 — its callers keep this modal MOUNTED while closed (so its own state
+  //  survives), and the size hook's only run used to find no element. A saved
+  //  size must still reach the panel when it opens.
+  it("restores a saved window size when it opens after mounting closed (§338)", async () => {
+    const SIZE_KEY = "aipm-cockpit:modal-size:asset-preview";
+    window.localStorage.setItem(SIZE_KEY, JSON.stringify({ width: 777, height: 555 }));
+    try {
+      const { rerender } = renderModal({ open: false });
+      rerender(
+        <AssetPreviewModal
+          lang="en-US" open onClose={vi.fn()}
+          assets={[asset("a", "Alpha"), asset("b", "Beta")]}
+          startIndex={0} loadImage={vi.fn(async () => TINY_GIF)}
+        />,
+      );
+      await screen.findByRole("dialog", { name: /Alpha/ });
+      const panel = document.querySelector<HTMLElement>("[data-modal-panel]");
+      expect(panel).not.toBeNull();
+      expect(panel!.style.width).toBe("777px");
+      expect(panel!.style.height).toBe("555px");
+    } finally {
+      window.localStorage.removeItem(SIZE_KEY);
+    }
+  });
 });
 
 describe("AssetPreviewModal — object URL lifecycle", () => {

@@ -95,6 +95,7 @@ import type { ExportCell } from "./export-sections";
 import { cellTextWithLinks } from "./export-sections";
 import type { Workspace } from "./workspace";
 import { t, type Lang } from "./i18n";
+import { assetExportPlaceholder } from "./asset-export-placeholder";
 import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
 
 export type DocSlide = { title: string; body: DocBlock[] };
@@ -207,12 +208,12 @@ function tableLines(
 
 /** `assetNames` resolves an id to the asset's display name (`ws.documentAssets`);
  *  a dangling id (row deleted, byte store empty) falls back to the id itself
- *  rather than a blank name. */
+ *  rather than a blank name. §320: a refused mime gets its own text through
+ *  `assetExportPlaceholder`, shared with doc-render-docx.ts. */
 function withImagePlaceholders(
   html: string, byId: ReadonlyMap<string, DocumentAsset>, lang: Lang,
 ): string {
-  return html.replace(IMG_TAG_ASSET_ID_RE, (_tag, id: string) =>
-    htmlEscape(t(lang, "assetExportPlaceholder", byId.get(id)?.name ?? id)));
+  return html.replace(IMG_TAG_ASSET_ID_RE, (_tag, id: string) => htmlEscape(assetExportPlaceholder(id, byId, lang)));
 }
 
 /** Wrap a split fragment so the rich pipeline still treats it as MARKUP.
@@ -255,8 +256,9 @@ function asMarkup(fragment: string): string {
  *
  * Every other `<img>` — omitted by the budget, missing bytes, a dangling id, no
  * stored dimensions, a mime outside the allow-list — is left exactly where it
- * is, so `withImagePlaceholders` substitutes the S3c-1 disclosure for it as
- * before.
+ * is, so `withImagePlaceholders` substitutes a text disclosure for it: the
+ * S3c-1 "[Image: name]" as before, except that a mime the policy refuses now
+ * gets `assetExportBlocked` (§320, via `assetExportPlaceholder`).
  *
  * ★★ An image becomes its OWN line rather than staying inline, because a
  * `<p:pic>` is a sibling SHAPE of the body text box, not a run inside it —

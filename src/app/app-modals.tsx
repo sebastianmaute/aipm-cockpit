@@ -1,6 +1,6 @@
 "use client";
 
-import React, { type ReactNode, type RefObject } from "react";
+import React, { type ReactNode } from "react";
 import { TaskFormModal } from "./task-form-modal";
 import { type TaskFieldErrors } from "./task-validation";
 import { JiraConflictsModal } from "./jira-conflicts-modal";
@@ -75,7 +75,6 @@ export interface AppModalsProps {
   holidaySet: Set<string>;
   jiraProjectKey: string | undefined;
   jiraDefaultIssueType: string | undefined;
-  modalRef: RefObject<HTMLDivElement | null>;
   handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   handleCancelEdit: () => void;
   handleRemoveContact: (name: string) => void;
@@ -153,7 +152,6 @@ export function AppModals({
   holidaySet,
   jiraProjectKey,
   jiraDefaultIssueType,
-  modalRef,
   onAddAssigneeToAddressBook,
   handleSubmit,
   handleCancelEdit,
@@ -199,7 +197,6 @@ export function AppModals({
           holidaySet={holidaySet}
           jiraProjectKey={jiraProjectKey}
           jiraDefaultIssueType={jiraDefaultIssueType}
-          modalRef={modalRef}
           onAddAssigneeToAddressBook={onAddAssigneeToAddressBook}
           onSubmit={handleSubmit}
           onCancel={handleCancelEdit}

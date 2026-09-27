@@ -62,7 +62,7 @@ import { sanitizeDocumentHtml } from "./sanitize-html";
 import { descriptionHtml } from "./rich-text-plain";
 import { RENDER_SINK } from "./html-start";
 import { htmlEscape, exportCellHtml, PRINT_STYLES } from "./download";
-import { isAllowedAssetMime, safeBase64ToBytes } from "./document-asset-upload";
+import { isAllowedAssetMime, isBlockedAssetMime, safeBase64ToBytes } from "./document-asset-upload";
 import type { ExportCell } from "./export-sections";
 import type { Workspace } from "./workspace";
 import { t, type Lang } from "./i18n";
@@ -109,6 +109,16 @@ const DOCUMENT_PAGE_STYLES = `
       min-height: 4rem;
       border: 1px dashed currentColor;
       opacity: 0.6;
+    }
+    /* §320 — an image whose type the upload policy refuses. Text, not an
+       empty box: the stored type is refused, whatever the state of the bytes;
+       policy takes precedence over the missing bucket. Palette-safe:
+       currentColor only. */
+    span[data-asset-blocked] {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border: 1px dotted currentColor;
+      font-size: 0.85em;
     }`;
 
 /** ONE table renderer for both the `table` block and a resolved dataSection.
@@ -216,7 +226,11 @@ function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
  *  drift), plus a real decode through `safeBase64ToBytes` for the bytes (see the
  *  ★★★ below). A miss falls through to the existing `data-asset-missing`
  *  branch: an unrenderable asset is marked absent, never rendered as a broken
- *  URI.
+ *  URI. ★ §320: a TRUTHY mime outside the allowlist no longer reaches this
+ *  function — `inlineDocumentImages` answers it first with the blocked
+ *  placeholder — so the allowlist check here is a backstop for a direct
+ *  caller, and the misses that still fall through are data problems (no
+ *  mime, bytes that do not decode).
  *
  *  ★ Returns the whole ATTRIBUTE, not a boolean, so the only interpolation of
  *  either value lives inside the guard that just validated both.
@@ -296,6 +310,15 @@ function inlineDocumentImages(
   lang: Lang,
 ): string {
   return html.replace(IMG_TAG_ASSET_ID_RE, (tag, id: string) => {
+    // §320 — the stored type is refused, whatever the state of the bytes;
+    //  policy takes precedence over the missing bucket. Checked from the
+    //  bucket AND the stored mime, because `assetSrcAttr` refused a
+    //  disallowed mime on its own and fell through to the missing marker:
+    //  both sites said "gone". The name is escaped here exactly as for
+    //  `omitted` below.
+    if (assets.blocked.has(id) || isBlockedAssetMime(mimeById.get(id))) {
+      return `<span data-asset-blocked="true">${htmlEscape(t(lang, "assetExportBlocked", nameById.get(id) ?? id))}</span>`;
+    }
     if (assets.omitted.has(id)) {
       return htmlEscape(t(lang, "assetExportPlaceholder", nameById.get(id) ?? id));
     }

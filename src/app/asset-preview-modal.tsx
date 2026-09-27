@@ -70,7 +70,7 @@ export function AssetPreviewModal({
   // open→closed branch below.
   const [view, setView] = useState<{ forId: string; result: AssetObjectUrl } | null>(null);
   const { offset, reset: dragReset, handleProps } = useDraggable(open, STORAGE_KEY_POS);
-  const { ref: sizeRef, reset: sizeReset } = useResizable(STORAGE_KEY_SIZE);
+  const { ref: sizeRef, reset: sizeReset } = useResizable(STORAGE_KEY_SIZE, { open });
 
   // Re-seed on a `startIndex` change AND on the closed→open transition.
   // Render-time reconcile, NOT a useEffect — `react-hooks/set-state-in-effect`

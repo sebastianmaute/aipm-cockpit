@@ -20,7 +20,7 @@ import {
 } from "./document-export-assets";
 import type { ExportAssets } from "./document-export-assets";
 import type { DocumentAsset } from "./document-asset";
-import { isAllowedAssetMime } from "./document-asset-upload";
+import { isAllowedAssetMime, isBlockedAssetMime } from "./document-asset-upload";
 import type { AssetByteLoader } from "./document-asset-images";
 import { triggerDownload } from "./download";
 import { filenameStem, MAX_FILENAME_STEM } from "./filename-stem";
@@ -136,12 +136,13 @@ const PREPARING_HTML = "<!doctype html><title></title>";
 function assetPolicy(
   format: DocFormat,
   ws: Workspace,
-): { budgetBytes: number; isRenderable?: (id: string) => boolean } {
+): { budgetBytes: number; isRenderable?: (id: string) => boolean; isBlocked: (id: string) => boolean } {
   // ★ ONE map for both branches — two maps built from the same list, threaded
   //  into two predicates, is the shape that drifts.
   const byId = new Map<string, DocumentAsset>(
     (ws.documentAssets ?? []).map((a) => [a.id, a]),
   );
+  const isBlocked = (id: string) => isBlockedAssetMime(byId.get(id)?.mime); // §320 — same rule for every format
   if (format !== "docx" && format !== "pptx") {
     // ★ The `!tab` PDF fallback renders HTML, so "pdf" belongs here with it.
     // ★★★ HTML IS THE ONE SINK WHERE THE BUDGET CAN ACTUALLY BE SPENT, so it
@@ -149,10 +150,13 @@ function assetPolicy(
     //  OOXML predicates are exempt from by being unbudgeted. `sanitizeDocumentAsset`
     //  does NOT enforce the mime allowlist on load (verified: it only truncates
     //  the string via `sanitizeText`), so an imported or hand-edited workspace
-    //  can carry an `image/svg+xml` row whose bytes are fetched, charged against
-    //  the 25 MB budget — pushing a good image into `omitted` — and then dropped
-    //  to a placeholder by `assetSrcAttr` anyway. Asking first is what stops a
-    //  row that can never be drawn from evicting one that can.
+    //  can carry an `image/svg+xml` row whose bytes are fetched and would be
+    //  charged against the 25 MB budget — pushing a good image into `omitted` —
+    //  only to be dropped to a placeholder anyway. Asking first is what stops a
+    //  row that can never be drawn from evicting one that can. §320: such a
+    //  row is now caught one step earlier by `isBlocked` and lands in
+    //  `blocked`, not `missing`; `isRenderable` still declines an EMPTY mime
+    //  (not refused, but nothing to build a data: URI from) into `missing`.
     //
     //  ★★★ NO DIMENSION CHECK, and the asymmetry with the two OOXML predicates
     //  is the POINT rather than an omission. `canEmbedDocxAsset`/`canEmbedPptxAsset`
@@ -166,6 +170,7 @@ function assetPolicy(
     return {
       budgetBytes: EXPORT_INLINE_BUDGET_BYTES,
       isRenderable: (id: string) => isAllowedAssetMime(byId.get(id)?.mime),
+      isBlocked,
     };
   }
   // ★★ The predicate the OOXML renderers already own, adapted from the id
@@ -175,19 +180,22 @@ function assetPolicy(
   //  was live. One map, built from the SAME list the renderers build theirs
   //  from.
   //
-  //  ★★★ IT BUYS THE THREE-BUCKET CONTRACT HERE, NOT BUDGET HEADROOM, and
-  //  saying otherwise is the claim this change exists to stop repeating. The
-  //  usual reason to filter first — an undrawable asset spending budget a later
+  //  ★★★ IT BUYS THE BUCKET CONTRACT HERE, NOT BUDGET HEADROOM, and saying
+  //  otherwise is the claim this change exists to stop repeating. The usual
+  //  reason to filter first — an undrawable asset spending budget a later
   //  good image needs — cannot apply to the two sinks that pass the predicate,
   //  because those are exactly the UNBUDGETED ones. What it does buy is that an
-  //  undrawable id lands in `missing` rather than `inlined`-but-undrawable, the
-  //  fourth state no bucket describes, and that its base64 is never held. The
-  //  emitted package is byte-identical either way (measured), so only the
-  //  argument assertions in document-download.test.ts can see this.
+  //  undrawable id lands in `missing` (or, refused by type, in `blocked` —
+  //  §320, asked first) rather than `inlined`-but-undrawable, the state no
+  //  bucket describes, and that its base64 is never held. The emitted package
+  //  is byte-identical either way (measured), so only the argument assertions
+  //  in document-download.test.ts can see this. (The OOXML renderers choose
+  //  the refused-type TEXT from metadata, not from the bucket.)
   const canEmbed = format === "docx" ? canEmbedDocxAsset : canEmbedPptxAsset;
   return {
     budgetBytes: Number.POSITIVE_INFINITY,
     isRenderable: (id: string) => canEmbed(byId.get(id)),
+    isBlocked,
   };
 }
 
@@ -204,8 +212,8 @@ async function assetsFor(
   load: AssetByteLoader | undefined,
 ): Promise<ExportAssets> {
   if (!load) return NO_EXPORT_ASSETS;
-  const { budgetBytes, isRenderable } = assetPolicy(format, ws);
-  return loadExportAssets(doc, load, budgetBytes, isRenderable);
+  const { budgetBytes, isRenderable, isBlocked } = assetPolicy(format, ws);
+  return loadExportAssets(doc, load, budgetBytes, isRenderable, isBlocked);
 }
 
 /**

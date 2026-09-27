@@ -475,11 +475,10 @@ describe("Milestones bulk edit", () => {
     );
     // open the bulk panel
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
-    // enable Target date (checkbox name = the date label) + set a new date.
-    // The date input shares its aria-label with the column header sort button,
-    // so disambiguate the input by the bulk control's id.
+    // enable Target date + set a new date. The date input is named 'New Target
+    // date' (§277); the id query is kept for brevity.
     fireEvent.click(
-      screen.getByRole("checkbox", { name: t("en-US", "milestoneDate") }),
+      screen.getByRole("checkbox", { name: t("en-US", "bulkEditChangeField", t("en-US", "milestoneDate")) }),
     );
     const dateInput = document.getElementById("bulk-date") as HTMLInputElement;
     fireEvent.change(dateInput, { target: { value: "2026-07-15" } });
@@ -502,7 +501,7 @@ describe("Milestones bulk edit", () => {
       fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", name) }));
     }
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
-    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "achievedDate") }));
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "bulkEditChangeField", t("en-US", "achievedDate")) }));
     fireEvent.click(
       screen.getByRole("button", { name: t("en-US", "bulkApplyCount", String(names.length)) }),
     );
@@ -962,7 +961,10 @@ describe("Milestones bulk edit undo", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", "Beta") }));
     // open the bulk panel and apply a target-date change to both
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
-    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "milestoneDate") }));
+    // The date input is named 'New Target date' (§277); the id query is kept for brevity.
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: t("en-US", "bulkEditChangeField", t("en-US", "milestoneDate")) }),
+    );
     const dateInput = document.getElementById("bulk-date") as HTMLInputElement;
     fireEvent.change(dateInput, { target: { value: "2026-02-01" } });
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkApplyCount", "2") }));

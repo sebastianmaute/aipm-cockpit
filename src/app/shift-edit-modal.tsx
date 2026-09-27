@@ -100,7 +100,7 @@ export function ShiftEditModal({
     draft !== null,
     "aipm-cockpit:modal-pos:shift-edit",
   );
-  const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:shift-edit");
+  const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:shift-edit", { open: draft !== null });
 
   // Escape, focus management, and backdrop-click are owned by <Modal>.
 

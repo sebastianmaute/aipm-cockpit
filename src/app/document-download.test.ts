@@ -571,6 +571,23 @@ describe("downloadDocument asset policy per format", () => {
     }
   });
 
+  it("hands every format a blocked predicate built from the stored mime (§320)", async () => {
+    const wsSvg: Workspace = {
+      ...ws,
+      documentAssets: [{ ...wsWithSizedAsset.documentAssets![0], mime: "image/svg+xml" }],
+    };
+    for (const format of ["html", "pdf", "docx", "pptx"] as const) {
+      vi.mocked(loadExportAssets).mockClear();
+      await downloadDocument(docWithImage(), format, wsSvg, "en-US", async () => PNG_B64);
+      const isBlocked = loadArgs()[4];
+      expect(isBlocked!(ASSET_ID), format).toBe(true);
+      expect(isBlocked!("no-such-asset"), format).toBe(false); // no metadata = missing, not blocked
+      vi.mocked(loadExportAssets).mockClear();
+      await downloadDocument(docWithImage(), format, wsWithSizedAsset, "en-US", async () => PNG_B64);
+      expect(loadArgs()[4]!(ASSET_ID), format).toBe(false);
+    }
+  });
+
   it("does NOT require dimensions on the inline sinks, where the OOXML ones do", async () => {
     // ★★★ THE ASYMMETRY IS THE DESIGN, NOT AN OVERSIGHT. `wsWithAsset` carries
     //  no width/height. A drawing has to be PLACED in a fixed page or slide
