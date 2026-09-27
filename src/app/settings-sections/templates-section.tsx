@@ -179,7 +179,11 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
                       if (e.key === "Enter") e.currentTarget.blur();
                     }}
                     onChange={(e) => renameDrafts.current.set(tpl.id, e.target.value)}
-                    onBlur={(e) => renameIfChanged(tpl, e.target.value)}
+                    onBlur={(e) => {
+                      renameIfChanged(tpl, e.target.value);
+                      // Committed (or rejected): pagehide must not replay it over a newer name.
+                      renameDrafts.current.delete(tpl.id);
+                    }}
                   />
                   <span className="text-xs text-muted-foreground">{modeSummary(lang, tpl)}</span>
                 </span>

@@ -410,15 +410,15 @@ function RefList({
     onReorder,
   });
   const confirm = useConfirm();
-  const renameInputs = useRef(new Map<number, HTMLInputElement>());
+  const renameDrafts = useRef(new Map<number, string>());
   const renameIfChanged = (it: { id: number; name: string }, value: string) => {
     if (value.trim() && value.trim() !== it.name) onRename(it.id, value);
   };
   // ★ §622 class — a close/reload never blurs the uncontrolled rename input; commit any edited row.
   useCommitOnPageHide(() => {
     for (const it of items) {
-      const input = renameInputs.current.get(it.id);
-      if (input) renameIfChanged(it, input.value);
+      const value = renameDrafts.current.get(it.id);
+      if (value !== undefined) renameIfChanged(it, value);
     }
   });
 
@@ -442,8 +442,12 @@ function RefList({
               className={`px-1 ${REORDER_HANDLE_CLASS}`}
             />
             <input defaultValue={it.name}
-              ref={(el) => { if (el) renameInputs.current.set(it.id, el); else renameInputs.current.delete(it.id); }}
-              onBlur={(e) => renameIfChanged(it, e.target.value)}
+              onChange={(e) => renameDrafts.current.set(it.id, e.target.value)}
+              onBlur={(e) => {
+                renameIfChanged(it, e.target.value);
+                // Committed (or rejected): pagehide must not replay it over a newer name.
+                renameDrafts.current.delete(it.id);
+              }}
               className="flex-1 rounded-md border border-line px-2 py-1 text-sm bg-surface-muted" />
             <IconButton
               variant="danger"

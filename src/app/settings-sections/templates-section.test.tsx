@@ -6,6 +6,7 @@ import { FiltersProvider } from "../filters-context";
 import { WorkspaceProvider } from "../workspace-context";
 import { t } from "../i18n";
 import { SETTINGS_KEY } from "../use-settings";
+import { useTemplates } from "../use-templates";
 import { expectRowUniqueNames } from "../../test/row-unique-names";
 
 afterEach(() => window.localStorage.clear());
@@ -81,8 +82,8 @@ describe("TemplatesSection rename commits via pagehide (§622)", () => {
     ((JSON.parse(window.localStorage.getItem(SETTINGS_KEY) ?? "{}") as { templates?: { name: string }[] }).templates ?? [])
       .map((tpl) => tpl.name);
   const renameBox = () => screen.getByRole("textbox", { name: new RegExp(`^${t("en-US", "templatesRename")} – `) });
-  async function seedTemplate(name: string) {
-    render(<TemplatesSection lang="en-US" />, { wrapper });
+  async function seedTemplate(name: string, beside?: ReactNode) {
+    render(<><TemplatesSection lang="en-US" />{beside}</>, { wrapper });
     fireEvent.change(screen.getByLabelText(t("en-US", "templateSaveName")), { target: { value: name } });
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "templateSaveAction") }));
     await waitFor(() => expect(storedNames()).toEqual([name]));
@@ -114,5 +115,27 @@ describe("TemplatesSection rename commits via pagehide (§622)", () => {
     fireEvent.change(renameBox(), { target: { value: "   " } });
     pageHide();
     expect(window.localStorage.getItem(SETTINGS_KEY)).toBe(before);
+  });
+
+  // ★★ Abandon, never clobber: a blur-committed rename must not survive its own
+  // commit. Another settings writer (import/restore) renaming the template while
+  // this section stays mounted must win over the OLD typed name on close.
+  function ExternalRenamer() {
+    const { userTemplates, updateTemplate } = useTemplates();
+    return (
+      <button type="button" onClick={() => updateTemplate(userTemplates[0].id, { name: "External" })}>
+        external rename
+      </button>
+    );
+  }
+  it("does not write a blur-committed rename back over a newer external name", async () => {
+    await seedTemplate("Draft", <ExternalRenamer />);
+    fireEvent.change(renameBox(), { target: { value: "Final" } });
+    fireEvent.blur(renameBox());
+    await waitFor(() => expect(storedNames()).toEqual(["Final"]));
+    fireEvent.click(screen.getByRole("button", { name: "external rename" }));
+    await waitFor(() => expect(storedNames()).toEqual(["External"]));
+    pageHide();
+    expect(storedNames()).toEqual(["External"]);
   });
 });
