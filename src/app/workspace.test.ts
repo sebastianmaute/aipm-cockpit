@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   emptyWorkspace,
@@ -579,7 +581,7 @@ describe("jsonToWorkspace — a slice that sanitizes to nothing (§620)", () => 
   //  false). A value that is not an object at all (steeringCommittee's guard is
   //  `typeof raw !== "object"`) or an array (timelogLinks' guard also excludes
   //  `Array.isArray`) makes the sanitizer return `undefined` instead, which DOES
-  //  sanitize to nothing. See task-4-report.md for the verification.
+  //  sanitize to nothing — verified by reading each sanitizer's source above.
   it.each([
     ["project", { name: 42, bogus: true }],
     ["fieldVisibility", { nope: "x" }],
@@ -619,6 +621,20 @@ describe("jsonToWorkspace — a slice that sanitizes to nothing (§620)", () => 
     const valid = jsonToWorkspace(workspaceToJson({ ...emptyWorkspace(), features: [] }));
     const diag: DocTruncationDiag = {};
     jsonToWorkspace(workspaceToJson(valid), { diag });
+    expect(diag.decodeFailedSlices ?? []).toEqual([]);
+  });
+
+  // The test above only exercises emptyWorkspace()'s slices (all absent or
+  // trivially valid); it cannot catch a real sanitizer wrongly flagging a
+  // GENUINE, non-empty value as "sanitized to nothing". The repo's curated
+  // sample carries real content in status, project, steeringCommittee,
+  // documents, documentVersions, knowledgeItems, insights, timelogLinks and
+  // activityLog — nine of the thirteen slices this task touches — so a
+  // round-trip through it is the false-positive check those nine actually need.
+  it("records nothing for the repo's curated sample workspace", () => {
+    const sampleJson = readFileSync(join(import.meta.dirname, "..", "..", "sample-workspace-small.json"), "utf8");
+    const diag: DocTruncationDiag = {};
+    jsonToWorkspace(sampleJson, { diag });
     expect(diag.decodeFailedSlices ?? []).toEqual([]);
   });
 });

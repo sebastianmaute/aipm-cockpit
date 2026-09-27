@@ -369,8 +369,10 @@ describe("useVersionHistory", () => {
 // this hook's behalf. This is a STRUCTURAL PIN on that fact, not a behavioral
 // one: it reads the module's own source and asserts no `jsonToWorkspace(`
 // call's argument text contains `diag`, rather than exercising a diff/restore
-// with a junk payload — see task-4-report.md for why that source-reading form
-// was accepted here.
+// with a junk payload — version-history never opts INTO the pause mechanism
+// at all, so the fact worth pinning is the absence of `diag` at every call
+// site, which a source read states directly and a behavioral probe could only
+// infer indirectly (and only for whichever slice the probe happens to pick).
 describe("useVersionHistory — jsonToWorkspace never records a decode failure (§620)", () => {
   /** Bracket-matches from `${fnName}(` to its closing `)`, so a nested call
    *  like `jsonToWorkspace(getPayload())` is captured whole rather than

@@ -224,12 +224,12 @@ describe("workspace JSON — a throwing documents sanitize is CONTAINED", () => 
   });
 
   it("records the loss in the diagnostics log instead of swallowing it", () => {
-    // ★ A local catch that says nothing just moves the silence. The signature's
-    // optional `DocTruncationDiag` is NOT the channel for this: it counts what
-    // the CAPS discarded and has no field for a sanitize throw, so a caller
-    // reading it here learns nothing. The app's diagnostics ring is the channel;
-    // logDiag is a no-op when `window` is undefined, which keeps the bare-node
-    // sample generator working.
+    // ★ A local catch that says nothing just moves the silence. This test
+    // covers only the diagnostics-ring half of the report; since §620 the SAME
+    // throw ALSO reaches `decodeFailedSlices` when a `diag` is passed — see
+    // "also records documents in decodeFailedSlices" below. logDiag is a no-op
+    // when `window` is undefined, which keeps the bare-node sample generator
+    // working.
     forceRichFieldThrow = true;
     jsonToWorkspace(json());
     const codes = readDiagLog().map((e) => e.code);
@@ -251,6 +251,29 @@ describe("workspace JSON — a throwing documents sanitize is CONTAINED", () => 
     expect(ws.tasks).toHaveLength(1);
     expect(ws.documents).toHaveLength(1);
     expect(readDiagLog().map((e) => e.code)).not.toContain("workspace.documentsDropped");
+  });
+
+  // §620 — a THROW is also a slice this load never got to keep, so it goes to
+  // BOTH channels now: the diagnostics ring above (for an operator reading
+  // logs) AND `decodeFailedSlices` (for a caller's save guard, which the ring
+  // is not reachable from). Pins the `push("documents")` in the catch block
+  // beside `logDiag` — deleting it leaves every OTHER test in this describe
+  // green, since none of them read `diag`.
+  it("also records documents in decodeFailedSlices (non-strict, diag present)", () => {
+    forceRichFieldThrow = true;
+    const diag: DocTruncationDiag = {};
+    jsonToWorkspace(json(), { diag });
+    expect(diag.decodeFailedSlices).toEqual(["documents"]);
+  });
+
+  it("does not record a decode failure when strict throws instead", () => {
+    // Strict propagates the WorkspaceParseError before the diag push is ever
+    // reached — a caller catching the throw has no use for a half-written
+    // accumulator, so it must stay untouched.
+    forceRichFieldThrow = true;
+    const diag: DocTruncationDiag = {};
+    expect(() => jsonToWorkspace(json(), { strict: true, diag })).toThrow();
+    expect(diag.decodeFailedSlices).toBeUndefined();
   });
 });
 
@@ -346,5 +369,60 @@ describe("workspace JSON — documentVersions", () => {
     expect(ws.documentVersions?.[0].blocks).toHaveLength(MAX_BLOCKS_PER_DOC);
     expect(diag.truncatedBlocks).toBe(3);
     expect(diag.truncatedEntries).toBeUndefined();
+  });
+});
+
+// §620 — the documentVersions rich-field pass shares the SAME containment
+// shape as documents just above (it runs through the same mocked
+// `sanitizeDocumentRichFields`), so a throw there is now recorded through
+// BOTH channels too: the diagnostics ring (`workspace.documentVersionsDropped`)
+// and `decodeFailedSlices`. Pins the `push("documentVersions")` in workspace.ts
+// beside its own `logDiag` call — deleting it leaves every other test in this
+// file green.
+describe("workspace JSON — a throwing documentVersions sanitize is CONTAINED", () => {
+  const versionJson = () => JSON.stringify({ ...EMPTY, documentVersions: [VERSION] });
+
+  beforeEach(() => {
+    forceRichFieldThrow = false;
+    clearDiagLog();
+  });
+
+  it("keeps the rest of the workspace when the sanitize throws (non-strict)", () => {
+    forceRichFieldThrow = true;
+    const ws = jsonToWorkspace(versionJson());
+    expect(ws.tasks).toHaveLength(1);
+    expect(ws.documentVersions).toBeUndefined();
+  });
+
+  it("records the loss in the diagnostics log instead of swallowing it", () => {
+    forceRichFieldThrow = true;
+    jsonToWorkspace(versionJson());
+    expect(readDiagLog().map((e) => e.code)).toContain("workspace.documentVersionsDropped");
+  });
+
+  it("STILL throws in strict mode — the loud failure is not weakened", () => {
+    forceRichFieldThrow = true;
+    expect(() => jsonToWorkspace(versionJson(), { strict: true })).toThrow();
+  });
+
+  it("does not contain anything when the sanitize succeeds", () => {
+    const ws = jsonToWorkspace(versionJson());
+    expect(ws.tasks).toHaveLength(1);
+    expect(ws.documentVersions).toHaveLength(1);
+    expect(readDiagLog().map((e) => e.code)).not.toContain("workspace.documentVersionsDropped");
+  });
+
+  it("also records documentVersions in decodeFailedSlices (non-strict, diag present)", () => {
+    forceRichFieldThrow = true;
+    const diag: DocTruncationDiag = {};
+    jsonToWorkspace(versionJson(), { diag });
+    expect(diag.decodeFailedSlices).toEqual(["documentVersions"]);
+  });
+
+  it("does not record a decode failure when strict throws instead", () => {
+    forceRichFieldThrow = true;
+    const diag: DocTruncationDiag = {};
+    expect(() => jsonToWorkspace(versionJson(), { strict: true, diag })).toThrow();
+    expect(diag.decodeFailedSlices).toBeUndefined();
   });
 });

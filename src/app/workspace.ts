@@ -602,7 +602,13 @@ export class WorkspaceParseError extends Error {
  *  `opts.diag`: an optional accumulator the caller owns. The document and
  *  document-version sanitizers write into it what a load-time CAP silently
  *  discarded, so a backend can report the loss instead of truncating in
- *  silence. Purely additive — omitting it decodes exactly as before. */
+ *  silence. Since §620, `diag.decodeFailedSlices` also receives the JSON key
+ *  of any OTHER meta slice (status, project, fieldVisibility, features,
+ *  steeringCommittee, timelogLinks, knowledgeItems, insights, activityLog,
+ *  budgetHistory, settingsOverrides) whose stored value carried content but
+ *  sanitized to nothing, and of `documents`/`documentVersions` when their
+ *  rich-field pass THROWS rather than merely capping. Purely additive —
+ *  omitting it decodes exactly as before. */
 export function jsonToWorkspace(
   text: string,
   opts?: { strict?: boolean; diag?: DocTruncationDiag },
@@ -763,11 +769,13 @@ export function jsonToWorkspace(
         // near-empty artifact; rethrowing lets the outer catch raise the same
         // WorkspaceParseError("shape") it always did.
         if (strict) throw err;
-        // ★ Not silent: the diagnostics ring is the channel for THIS loss. The
-        // signature does carry an optional `DocTruncationDiag`, but that
-        // accumulator counts only what the CAPS discarded — it has no field for
-        // a sanitize THROW, and a caller reading it after this branch sees
-        // nothing. So the ring stays the channel here. Names what was lost, so
+        // ★ Not silent, and now reported through BOTH channels. `logDiag` names
+        // it for an operator reading the diagnostics ring — the channel a
+        // caller's `diag` accumulator is not reachable from. And since §620,
+        // the SAME loss also pushes into `decodeFailedSlices` below — the
+        // channel the ring is not reachable from — so a caller like
+        // `use-load-truncation` can pause saving on it exactly as it does for
+        // any other slice that sanitized to nothing. Names what was lost, so
         // a user who opens a file and finds no documents has something to find.
         logDiag("error", "workspace.documentsDropped", {
           message: err instanceof Error ? err.message : String(err),
