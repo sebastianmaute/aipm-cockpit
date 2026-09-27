@@ -416,7 +416,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§182](#182-template-import-can-store-an-inconsistent-statuscompleteddate-pair-and-nothing-repairs-it--closed-2026-08-23) | Template import can store an inconsistent `status`/`completedDate` pair, and nothing repairs it | — | — | **CLOSED** 2026-08-23 |
 | [§183](#183-the-jira-conflict-merge-writes-completeddate-without-status-so-accepting-the-modals-default-splits-the-pair-from-well-formed-data--closed-2026-08-23) | The Jira conflict merge writes `completedDate` without `status`, so accepting the modal's default splits the pair from well-formed data | — | — | **CLOSED** 2026-08-23 |
 | [§184](#184-the-documents-block-editor-is-in-a11y_views-but-is-never-scanned--closed-2026-08-20) | The Documents block editor is in A11Y_VIEWS but is never scanned | — | — | **CLOSED** 2026-08-20 |
-| [§185](#185-an-over-long-document-paragraph-is-flattened-to-plain-text-at-commit--closed-2026-09-26) | An over-long document paragraph is flattened to plain text at commit | — | — | **CLOSED** 2026-09-26 |
+| [§185](#185-an-over-long-document-paragraph-is-flattened-to-plain-text-at-commit--closed-2026-09-27) | An over-long document paragraph is flattened to plain text at commit | — | — | **CLOSED** 2026-09-26 |
 | [§186](#186-the-block-editor-conflict-reason-reaches-users-untranslated) | The block-editor conflict reason reaches users untranslated | — | — | open |
 | [§187](#187-usedocumenttools-has-no-test-file-and-one-guard-there-is-unpinned) | `useDocumentTools` has no test file, and one guard there is unpinned | — | — | open |
 | [§188](#188-a-block-refusal-notice-outlives-the-attempt-it-describes) | A block refusal notice outlives the attempt it describes | — | — | open |
@@ -15755,9 +15755,9 @@ naming is covered by `document-block-gutter.test.tsx` alongside the multi-block 
 `document-block-editors.test.tsx` and `document-editor.test.tsx`. A green
 scan here says nothing about that class, and no configuration of this gate ever will.
 
-## 185. An over-long document paragraph is flattened to plain text at commit — CLOSED 2026-09-26
+## 185. An over-long document paragraph is flattened to plain text at commit — CLOSED 2026-09-27
 
-**Status:** CLOSED 2026-09-26 on `fix/defect-batch-7` with option (a) below, on
+**Status:** CLOSED 2026-09-27 on `fix/defect-batch-7` with option (a) below, on
 the INTERACTIVE path only. `ParagraphEditorBody` renders `ParagraphCharCount`,
 a visible-character count against `MAX_HTML_TEXT_CHARS` (the same
 `htmlTextLength` measure the cap uses, never `html.length`), from
@@ -15783,7 +15783,11 @@ unbuilt.
 flush alone would LOSE a refused draft. On `pagehide`, `useBlockDraft` commits a
 dirty over-cap draft flattened, inside `flushSync`. ★★★ A tab switch or
 minimise (`visibilitychange` to hidden) does NOT flatten it: the rich draft,
-its notice and its dirty flag survive (OWNER DECISION, 2026-09-27). The
+its notice and its dirty flag survive (OWNER DECISION, 2026-09-27: flatten on
+`pagehide` only; a tab switch or minimise keeps the rich draft). The cost of
+that decision: a refused draft kept through a tab switch is LOST if the hidden
+tab is then discarded or killed without a `pagehide` (a browser tab discard, an
+OS or crash kill), because nothing flattened and saved it on the way out. The
 workspace save captures its snapshot per effect run, so the commit re-runs that
 effect within the event. `scheduleDebouncedSave` then writes it AT ONCE,
 because its module-level `pageHiding` flag (set on `pagehide` in the capture
