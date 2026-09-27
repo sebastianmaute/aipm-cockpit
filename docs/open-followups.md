@@ -513,7 +513,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§279](#279-controlnames-reads-aria-label--textcontent-not-the-accessible-name--an-input-reports-the-empty-string) | `controlNames` reads `aria-label || textContent`, not the accessible name — an `<input>` reports the empty string | found 2026-08-28 | M | open |
 | [§280](#280-matchdelimiters-counts-brackets-without-skipping-strings-or-comments--the-class-that-just-bit-scanopentag--closed-2026-09-26) | `matchDelimiters` counts brackets without skipping strings or comments — the class that just bit `scanOpenTag` | found 2026-08-28 | S | **CLOSED** 2026-09-26 |
 | [§281](#281-modulekey-is-basename-only-so-directory-distinct-modules-collapse-into-one-coverage-key--closed-2026-09-26) | `moduleKey` is basename-only, so directory-distinct modules collapse into one coverage key | found 2026-08-28 | S | **CLOSED** 2026-09-26 |
-| [§282](#282-the-scope-choice-rule-in-row-unique-namests-has-no-live-worked-example) | The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example | found 2026-08-28 | S | open |
+| [§282](#282-the-scope-choice-rule-in-row-unique-namests-has-no-live-worked-example--closed-2026-09-27) | The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example | found 2026-08-28 | S | **CLOSED** 2026-09-27 |
 | [§283](#283-export-sections-emits-an-empty-angle-bracket-pair-for-a-contact-with-no-email--closed-2026-08-30) | Export sections emits an empty angle-bracket pair for a contact with no email | found 2026-08-28 | S | **CLOSED** 2026-08-30 |
 | [§284](#284-a-malformed-turso-meta-blob-is-discarded-in-silence-then-written-over-as-an-intentional-empty--fixed-2026-08-29-end-to-end-proof-discharged-2026-08-29--closed-2026-08-29) | A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29 | found 2026-08-28, fixed 2026-08-29 | L — three links, all shipped | **CLOSED** 2026-08-29 |
 | [§285](#285-nothing-gates-that-a-counted-slices-delete-routes-arm-the-destructive-save-bypass--closed-2026-08-29) | Nothing gates that a counted slice's delete routes arm the destructive-save bypass | found 2026-08-29, fixed 2026-08-29 | M | **CLOSED** 2026-08-29 |
@@ -712,7 +712,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§482](#482-the-document-asset-library-table-shows-no-image-thumbnails--open) | The document asset library table shows no image thumbnails | found 2026-09-13 by the housekeeping audit, from the asset-preview lightbox design's named follow-up | S — a thumbnail column reusing the existing blob-URL lifecycle | open |
 | [§483](#483-moving-the-view-scoped-ai-guide-block-onto-the-turn-tail-slice-g2-is-specced-but-tracked-nowhere-so-the-cost-harness-still-has-no-real-candidate-layout--open) | Moving the view-scoped AI guide block onto the turn tail (slice G2) is specced but tracked nowhere, so the cost harness still has no real candidate layout | found 2026-09-13 by the housekeeping audit; `docs/AGENTS/ai-assistant.md` hands a decision to G2, and G2 had no entry or issue | M — the G2 layout as the harness's first real candidate arm, plus the usage-meter measurement it depends on | open |
 | [§484](#484-four-landmine-heavy-subsystems-have-no-docsagents-reference-and-insightsmd-omits-the-timelog-guardrail-detector--open) | Four landmine-heavy subsystems have no docs/AGENTS reference, and insights.md omits the Timelog guardrail detector | found 2026-09-13 by the housekeeping audit's docs/AGENTS coverage pass | M — four new subsystem files plus the insights.md correction, each citing symbols rather than line numbers | open |
-| [§485](#485-nothing-keeps-docsfeaturesmd-in-sync-with-libapp-feature-guidemd-and-the-human-facing-copy-has-already-drifted--open) | Nothing keeps docs/features.md in sync with lib/app-feature-guide.md, and the human-facing copy has already drifted | found 2026-09-13 by the housekeeping audit's general-docs pass, which counted five false claims in docs/features.md | S — generate features.md from the guide, or add a section-parity check | open |
+| [§485](#485-nothing-keeps-docsfeaturesmd-in-sync-with-libapp-feature-guidemd-and-the-human-facing-copy-has-already-drifted--closed-2026-09-27) | Nothing keeps docs/features.md in sync with lib/app-feature-guide.md, and the human-facing copy has already drifted | found 2026-09-13 by the housekeeping audit's general-docs pass, which counted five false claims in docs/features.md | S — generate features.md from the guide, or add a section-parity check | **CLOSED** 2026-09-27 |
 | [§486](#486-auto-pull-re-creates-an-outlook-event-the-user-pruned-because-an-item-cannot-opt-out-of-calendar-sync--closed-2026-09-26) | ~~Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync~~ | documented as a known limit by calendar two-way SP5 (0.164) and carried only as tech-debt-register TD-3 until 2026-09-13; fixed on `fix/defect-batch-6` | M — a per-item `calendarOptOut` across all six write paths, the reconcile change, and an editor checkbox | **CLOSED** 2026-09-26 |
 | [§487](#487-the-windows-installer-is-unsigned-because-no-code-signing-certificate-exists-so-every-install-shows-an-unknown-publisher-warning--open) | The Windows installer is unsigned because no code-signing certificate exists, so every install shows an unknown-publisher warning | found 2026-09-13 by the housekeeping audit; recorded as a constraint in `desktop/electron-builder.yml` and as a user instruction in `docs/desktop-rollout.md` | S once a certificate exists — procuring one is an organisational step and the long pole; the CI change is signing settings plus a protected variable | open |
 | [§488](#488-the-390-h-booked-vs-104-h-planned-gap-seen-in-the-demo-is-unexplained-and-a-fixed-price-contract-converted-to-end-to-end-responsibility-has-no-model--open) | The 390 h booked vs 104 h planned gap seen in the demo is unexplained, and a fixed-price contract converted to end-to-end responsibility has no model | GitLab #42 (F-5, demo 2026-09-11); its currency lead became #77 / §465 (closed 2026-09-12), and its external-resources lead was refuted in the issue's own comments | M — reproduce the gap on the demo data first; modelling an end-to-end contract type is the open design question | open |
@@ -799,7 +799,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§569](#569-screen-readers-may-never-deliver-the-chart-readouts-arrow-keys--open) | Screen readers may never deliver the chart readout's arrow keys | found 2026-09-18 reviewing the merged chart hover readout; never run under a real screen reader; GitLab #354 | S — a real NVDA and JAWS pass, then pick `role="application"`, instructions, or the live-region fallback | open |
 | [§570](#570-the-spoken-readout-capitalises-mid-sentence--closed-2026-09-21) | The spoken readout capitalises mid-sentence | found 2026-09-18 reading `rowText` against the tip strings in `i18n.ts`/`i18n.de.ts`; GitLab #355 | XS — lower-case the explanation or join with a full stop; German nouns make a blanket lower-case unsafe | closed |
 | [§571](#571-the-chart-box-clamps-boundary-width-has-no-test--closed-2026-09-21) | The chart-box clamp's boundary width has no test | found 2026-09-18 by mutation-testing `anchorFor`, `>` to `>=`, suite stayed green; GitLab #356 | XS — add a case at `rect.width === 352` | closed |
-| [§572](#572-agentsmds-tsc-guidance-cannot-detect-a-vacuous-run--open) | AGENTS.md's tsc guidance cannot detect a vacuous run | measured 2026-09-18 on this branch: a corrupt generated file hides a real `src/` error from `tsc`; GitLab #357 | S — amend the Commands block's `npx tsc --noEmit` guidance | open |
+| [§572](#572-agentsmds-tsc-guidance-cannot-detect-a-vacuous-run--closed-2026-09-27) | AGENTS.md's tsc guidance cannot detect a vacuous run | measured 2026-09-18 on this branch: a corrupt generated file hides a real `src/` error from `tsc`; GitLab #357 | S — amend the Commands block's `npx tsc --noEmit` guidance | **CLOSED** 2026-09-27 |
 | [§573](#573-the-open-points-visual-baseline-is-stale--closed-2026-09-19) | The Open Points visual baseline is stale | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | **CLOSED** 2026-09-19 |
 | [§574](#574-load-project-from-file-throws-in-firefoxsafari-and-blames-settings-instead-of-the-browser--closed-2026-09-25) | "Load project from file" throws in Firefox/Safari and blames Settings instead of the browser | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #359; closed 2026-09-25 on `fix/defect-batch-6` | S — `projectErrorKey` extracted from `reportProjectError`; a new `useFsaSupported()` hook disables the three Load-from-file controls and names the reason | closed |
 | [§575](#575-ai-assistant-chat-history-re-sends-every-earlier-turns-attachments-so-a-long-thread-can-exceed-the-messages-apis-32-mb-request-limit--closed-2026-09-25) | AI Assistant chat history re-sends every earlier turn's attachments, so a long thread can exceed the Messages API's 32 MB request limit | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #360; closed 2026-09-25 on `fix/defect-batch-6` | S — `fitHistoryToBudget` (chat-threads.ts) placeholders the oldest earlier-turn attachments at send time until the request fits | closed |
@@ -23877,12 +23877,20 @@ importing file's directory and trying the extension list, which is what `moduleK
 The cheap alternative is a guard rather than a fix: fail the scan when two SURFACE files share a key,
 which costs nothing today (there are none) and turns the latent case into a loud one.
 
-## 282. The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example
+## 282. The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example — CLOSED 2026-09-27
 
-**Status:** open. Filed 2026-08-28. The stale citation itself is already gone — this entry exists
+**Status:** CLOSED 2026-09-27 by `docs/gaps`. The SCOPE CHOICE comment in
+`src/test/row-unique-names.ts` now cites a narrowing whose collision is real today:
+`project-form-fields.test.tsx` scans `IdentityPeopleFields` inside its `contactsList` helper, and
+the comment above that helper names the collision. `Field` passes `label={t(lang, "infoMore")}` to
+`InfoTooltip`, which sets `aria-label={label ?? text}`, so the section's three tooltip-bearing
+`Field`s (project name, code, manager) all share the name "More information". That was re-checked
+against the code before citing it, as the ★★ paragraph below requires. The `change-panel.test.tsx`
+`tbody` narrowing is still described as NOT an example. Comment-only; no test pins the citation.
+Re-check with `grep -n "SCOPE CHOICE" -A 20 src/test/row-unique-names.ts`.
+
+Original status: open. Filed 2026-08-28. The stale citation itself is already gone — this entry exists
 because what replaced it is an acknowledged HOLE, and a hole nobody has filed is a hole nobody fills. Never machine-verified by a committed probe.
-
-**Work item:** #222
 
 `src/test/row-unique-names.ts`'s SCOPE CHOICE rule says: default to whole-container scope, and narrow
 to a sub-tree only when a specific, named collision with unrelated chrome has been CONFIRMED in that
@@ -37117,13 +37125,25 @@ Size M.
 
 **Source:** the 2026-09-13 housekeeping audit's docs/AGENTS findings (coverage gaps section)
 
-## 485. Nothing keeps docs/features.md in sync with lib/app-feature-guide.md, and the human-facing copy has already drifted — OPEN
+## 485. Nothing keeps docs/features.md in sync with lib/app-feature-guide.md, and the human-facing copy has already drifted — CLOSED 2026-09-27
 
-**Status:** OPEN 2026-09-13 — `grep -rln "docs/features.md" scripts .gitlab-ci.yml package.json` → no
+**Status:** CLOSED 2026-09-27 by `docs/gaps`, with a coverage check rather than generation (the two
+files have different shapes and audiences). `scripts/feature-docs-sync.test.mjs` parses the guide
+with the generator's own `parseFeatureGuide` and holds an explicit map from each guide section to
+the `docs/features.md` rows it corresponds to. It fails when a guide section is missing from the
+map, when the map names a section the guide no longer has, or when a mapped row is missing from
+`docs/features.md`. It was committed red on the one gap live at closure: the guide's Portfolio
+health section had no row in `docs/features.md`. The next commit added a "Portfolio health (Turso)"
+row, drawn from that section and the panel code, and turned it green. It runs in the unit job with
+the other script tests; it is not a separate gate.
+★★ **It cannot catch a false claim INSIDE a row.** It proves only that a row with the mapped name
+exists. Claim-level drift still needs a manual audit, and the owner accepted that residue rather than
+keeping this entry open for it. The five false claims the 2026-09-13 audit found were all of that
+kind; they were fixed in `c4217a804`, fifteen minutes before this entry was filed.
+
+Original status: OPEN 2026-09-13 — `grep -rln "docs/features.md" scripts .gitlab-ci.yml package.json` → no
 output, beside the positive control `grep -c "app-feature-guide.md" scripts/gen-operating-guide.mjs` → 1.
 So the guide has a reader and `docs/features.md` has none.
-
-**Work item:** #307
 
 `lib/app-feature-guide.md` is read by `scripts/gen-operating-guide.mjs`, which validates each section's
 view ids and fails on an unknown one. `docs/features.md` restates the same feature catalogue for human
@@ -39974,12 +39994,25 @@ exact edit and rerunning the file, which still passed 19/19.
 Fix shape: add a case at `rect.width === 352` (i.e. `HALF * 2`) and assert which clamp it takes, so the
 boundary itself — not just each side of it — is pinned.
 
-## 572. AGENTS.md's tsc guidance cannot detect a vacuous run — OPEN
+## 572. AGENTS.md's tsc guidance cannot detect a vacuous run — CLOSED 2026-09-27
 
-**Status:** OPEN 2026-09-18 — measured on this branch: corrupting the generated routes file with a syntax
+**Status:** CLOSED 2026-09-27 by `docs/gaps`. AGENTS.md's `npx tsc --noEmit` comment now says that a
+pass is exit 0 with zero errors in TOTAL, never a count filtered to `src/`; that a syntax error in a
+generated `.next` types file suppresses the real type errors while tsc still exits 2; that the
+checked-file count goes UP in that case, so it cannot detect it either; and how to repair it: stop
+the dev server, delete `.next`, then regenerate with `npx next typegen`, `npm run dev` or
+`npm run build`. `next typegen` was confirmed in the installed Next's CLI, not run.
+Two corrections to the body below:
+- `next-env.d.ts` imports `./.next/types/routes.d.ts` (the build output) today, not
+  `./.next/dev/types/routes.d.ts`. `tsconfig.json` includes both `.next/types/**` and
+  `.next/dev/types/**`. Re-check with `cat next-env.d.ts` (the file is gitignored and rewritten by Next).
+- Deleting `.next` alone regenerates nothing. It leaves `next-env.d.ts` importing a missing file, which
+  is one more error outside `src/`.
+The gates were never affected: `scripts/gate-local.mjs` and CI read tsc's exit code, which is 2 in the
+vacuous case. The trap is in how a human reads the output.
+
+Original status: OPEN 2026-09-18 — measured on this branch: corrupting the generated routes file with a syntax
 error made a real, pre-existing semantic error in `src/` vanish from `npx tsc --noEmit`'s output.
-
-**Work item:** #357
 
 AGENTS.md's Commands block tells readers to run `npx tsc --noEmit` and to trust it over the IDE's inline
 squiggles. That is correct as far as it goes, but incomplete: TypeScript only collects SEMANTIC diagnostics
