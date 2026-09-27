@@ -391,9 +391,21 @@ export function RichTextEditor(props: RichTextEditorProps) {
         // `insertContentAt` returns false on a content error (it catches and emits
         // `contentError` instead of throwing). ★ A false command does NOT abort the
         // chain: `run()` dispatches regardless and returns `callbacks.every(cb =>
-        // cb === true)`, so "nothing lands" is a claim about THIS chain only, where
-        // the only other command is `focus` and nothing else touches the
-        // transaction. The wrapper's queue treats this return as "the text landed",
+        // cb === true)`, so "nothing lands" is a claim about THIS chain only. The
+        // other command, `focus`, touches no content but CAN itself return false —
+        // @tiptap/core's focus catches a throwing view.hasFocus() and returns false —
+        // and on that path the insert HAS been dispatched, so the wrapper would
+        // re-queue (and later replay) text that already landed. The reaching state
+        // is an editor whose view was UNMOUNTED (`editor.unmount()`) while its
+        // commandManager lives: the `view` Proxy throws on hasFocus, but still
+        // forwards `dispatch`, so the insert lands and run() reports false. Not
+        // reached in this app today, only because nothing calls unmount() except
+        // destroy() — not @tiptap/react, and not our own code — and destroy()
+        // nulls commandManager in the same synchronous call. A DESTROYED editor
+        // is therefore safe: `Editor.chain()` returns
+        // `CommandManager.createFakeChain()` once destroy() nulls commandManager,
+        // whose run() is false with nothing inserted (open-followups §197).
+        // The wrapper's queue treats this return as "the text landed",
         // so reporting an unconditional true drops it — the exact silent-loss class
         // the queue exists to close.
         return (

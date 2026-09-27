@@ -11,8 +11,9 @@
 // `document-download.ts` all reach a DOMPurify sanitizer or DOMParser through
 // their own imports — so this adds no new constraint. It DOES add one for a
 // future consumer: nothing in `scripts/` may import this module. Contrast
-// `rich-text-plain.ts`, which is DOM-FREE BY CONTRACT because the entity
-// sanitizers run under bare node in the sample generator.
+// `rich-text-plain.ts`, which is DOM-FREE BY CONTRACT because scripts import the
+// entity sanitizers with no DOM (ai-eval.ts, update-ooxml-manifest.ts) — NOT
+// because the sample generator lacks one; it installs JSDOM first (§151).
 
 import { type ExportCell, isRichCell } from "./export-sections";
 import { sanitizeRichHtml } from "./sanitize-html";

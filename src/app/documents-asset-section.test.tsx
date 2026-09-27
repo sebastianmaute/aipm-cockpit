@@ -760,17 +760,19 @@ describe("documents asset byte partition", () => {
 });
 
 // ★★★ THE CAP MESSAGE MUST EXPLAIN A CAP THE USER CANNOT SEE. A
-// `<span data-asset-id>` holds a cap slot, contributes to no export and lands
+// `<p data-asset-id>` holds a cap slot, contributes to no export and lands
 // in none of `inlined`/`omitted`/`missing` — so a document whose slots are
 // held by them reads as full with nothing on screen to account for it.
-// open-followups §218.
+// open-followups §218. ★ The FIXTURES below use `<span data-asset-id>`, which
+// is fine only because they hand the component UN-loaded html: a real load
+// unwraps a span and drops the attribute (§249), so no stored document holds one.
 //
 // ★★★ THE NUMBER IS ROOM RECLAIMABLE, NOT UNDRAWABLE REFERENCES, and the two
 // diverge in both directions. Reporting `undrawable.size` was wrong twice: the
 // cap is not enforced on LOAD, so a
-// document holding 21 `<span data-asset-id>` references said "maximum of 20
-// images. 21 of these slots…"; and at 20 `<img>` PLUS 3 `<span>` it said "3"
-// while deleting all three spans frees NOTHING, because the drawable images
+// document holding 21 undrawable references said "maximum of 20
+// images. 21 of these slots…"; and at 20 `<img>` PLUS 3 undrawable ones it said "3"
+// while deleting all three frees NOTHING, because the drawable images
 // alone already hold the cap. The message now reports
 // `max(0, cap - (all - undrawable))` — how many images the user could add
 // after removing every undrawable reference. Both of those inputs are pinned

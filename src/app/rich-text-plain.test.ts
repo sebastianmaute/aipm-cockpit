@@ -457,9 +457,12 @@ describe("sanitizeRichText", () => {
   });
 });
 
-// ★★ Guard: this module runs inside the entity sanitizers, which execute under
-// bare node in the sample/fixture scripts. A DOMPurify CALL there throws, and
-// jsonToWorkspace's catch-all turns that into an EMPTY workspace.
+// ★★ Guard: this module runs inside the entity sanitizers, which are DOM-free BY
+// CONTRACT — scripts import them with no DOM installed (ai-eval.ts,
+// update-ooxml-manifest.ts), and a DOMPurify CALL there throws. NOT because the
+// sample/fixture scripts lack a DOM: generate-sample-workspace.ts and
+// regen-golden-fixtures.ts both install JSDOM before importing src/app
+// (open-followups §151). The rule stands; only its old rationale was false.
 //
 // ★ Comments are STRIPPED before the scan (the strip-then-ban shape the palette
 // guards use), so the module can name the landmine explicitly in prose while its
@@ -546,10 +549,14 @@ describe("DOM-free guard", () => {
   // says nothing about whether the module touches a DOM. `diagnostics.ts` in
   // fact references `window` throughout — it is safe only because every
   // reference is GUARDED, and the guard is what has to hold, not the absence of
-  // a DOMPurify call. A future edit dropping the `typeof window` check would
-  // sail past the scan above and make `jsonToWorkspace` throw under bare node,
-  // which is precisely the failure the allowlist exists to prevent (and which
-  // `scripts/generate-sample-workspace.ts` would hit first).
+  // a DOMPurify call. A future edit dropping the MODULE-LEVEL guard — the
+  // top-level `if (typeof window !== "undefined")` around the `__aipmDiag`
+  // assignment — would sail past the scan above and throw on IMPORT in any
+  // script that loads the entity sanitizers with no DOM installed (e.g.
+  // `scripts/ai-eval.ts`), which is precisely the failure the allowlist exists
+  // to prevent. The in-function guards are different: each sits inside a
+  // `try { … } catch {}`, so dropping one of them throws nothing. (NOT the
+  // sample generator: it installs JSDOM first — open-followups §151.)
   //
   // ★★ `document-asset-patterns.ts` is pinned at ZERO imports rather than
   // scanned, because that is the property that makes it safe: a leaf cannot
@@ -612,10 +619,19 @@ describe("DOM-free guard", () => {
 
   it("keeps rich-text-projection out of every DOM-free reach", () => {
     // ★ Nothing guarded this direction at all. rich-text-projection calls
-    // DOMPurify, so a codec, an entity sanitizer or anything under scripts/
-    // importing it would throw under bare node — where jsonToWorkspace's
-    // catch-all converts the throw into an EMPTY workspace that then
-    // "successfully" writes near-empty sample files.
+    // DOMPurify, so a codec or an entity sanitizer importing it breaks their
+    // DOM-free CONTRACT. The DOM-free importer this protects is
+    // `scripts/ai-eval.ts`, which loads the sanitizer graph with no DOM and has
+    // rich-text-projection and ai-rich-text OUT of its graph — which is why it
+    // is a walk ROOT below, not merely named here. NOT
+    // `scripts/update-ooxml-manifest.ts`: it already loads rich-text-projection
+    // (via ooxml-docx-primitives.ts → export-sections.ts) and the DOM-bound
+    // ooxml-docx-primitives.ts itself, so only the paths it CALLS decide whether
+    // it throws — open-followups §624. It is deliberately NOT a root: its graph
+    // legitimately contains rich-text-projection, so rooting it would fail on
+    // correct code. The sample generator IS a root, but not because it lacks a
+    // DOM (it and regen-golden-fixtures.ts install JSDOM first, §151): it is the
+    // rootable script whose graph reaches every load path through storage.ts.
     //
     // ★★ rich-text-plain.ts and narrative-html.ts are IN this set. They are the
     // two DOM-free modules inside this file's own dependency graph, so a reach
@@ -626,19 +642,27 @@ describe("DOM-free guard", () => {
     // scanning" exists: `offenders` is empty when the walk root is wrong, when
     // the filter matches nothing, and when a rename empties the matched set. A
     // scanning guard needs proof its scan ran.
-    // ★★★ The DOM-free set is the sample generator's IMPORT GRAPH, resolved here,
-    // NOT a list of path patterns. It used to be the latter, and that was the
-    // defect: the filter matched 18 files while the generator loads FAR more, and
-    // both times it was widened (workspace.ts/storage.ts, then
-    // rich-text-plain/narrative-html) it was because a reviewer happened to notice
-    // one specific file. `templates.ts` — the file AGENTS.md now warns a reader not
-    // to add a DOMPurify import to — was among the ones it missed.
+    // ★★★ The DOM-free set is the IMPORT GRAPH of the roots in `GUARD_ROOTS` (the
+    // generator and ai-eval.ts), resolved here, NOT a list of path patterns. It
+    // used to be the latter, and that was the defect: the filter matched 18
+    // files while the generator loads FAR more, and both times it was widened
+    // (workspace.ts/storage.ts, then rich-text-plain/narrative-html) it was
+    // because a reviewer happened to notice one specific file. `templates.ts` —
+    // the file AGENTS.md now warns a reader not to add a DOMPurify import to —
+    // was among the ones it missed.
+    // ★★ Until 2026-09-27 the generator was the ONLY root. That left ai-eval.ts's
+    // own modules unscanned (chat-api.ts, its direct import, and 48 others,
+    // measured that day) while a comment here already claimed to protect it —
+    // open-followups §151/§624.
     // ★ The 18 is a historical fact about the deleted filter and does not rot.
     // The graph size does, which is why no second number appears here — see the
     // floor's own comment below.
     //
-    // ★★ Resolving the graph means the guard covers whatever the generator loads
-    // TODAY, including files nobody thought to name. `.tsx` is followed too: a
+    // ★★ Resolving the graph means the guard covers whatever the roots load
+    // TODAY, including files nobody thought to name. The resolver reads raw text,
+    // so it follows `import type` edges and even specifiers quoted in comments;
+    // its set is a SUPERSET of each root's runtime graph — over-scanning, never
+    // under. `.tsx` is followed too: a
     // component in the graph would be just as fatal, and only its absence from the
     // graph keeps it out.
     const repoRoot = join(import.meta.dirname, "..", "..");
@@ -651,8 +675,11 @@ describe("DOM-free guard", () => {
       }
       return null;
     };
+    // One walk over every root: the shared `graph` set is the visited set, so a
+    // module both roots reach is read once.
+    const GUARD_ROOTS = ["generate-sample-workspace.ts", "ai-eval.ts"];
     const graph = new Set<string>();
-    const pending = [join(repoRoot, "scripts", "generate-sample-workspace.ts").replace(/\\/g, "/")];
+    const pending = GUARD_ROOTS.map((name) => join(repoRoot, "scripts", name).replace(/\\/g, "/"));
     while (pending.length > 0) {
       const file = pending.pop()!;
       if (graph.has(file)) continue;
@@ -664,11 +691,14 @@ describe("DOM-free guard", () => {
         if (next !== null) pending.push(next);
       }
     }
-    // ★★ The graph is the SET THAT MATTERS, but scanning only it would drop a
-    // DOM-free-by-contract file that has not entered the graph yet — the resolver
-    // lost `sanitize-report.ts` that way. Union the graph with the name patterns so
-    // coverage only ever grows: the graph catches what is reachable TODAY, the
-    // patterns catch a sanitizer/codec that is reachable TOMORROW.
+    // ★★ The roots' graphs are the SET THAT MATTERS, but scanning only them would
+    // drop a DOM-free-by-contract file that has not entered either graph yet — the
+    // resolver lost `sanitize-report.ts` that way. Union the graphs with the name
+    // patterns so coverage only ever grows: the graphs catch what is reachable
+    // TODAY, the patterns catch a sanitizer/codec that is reachable TOMORROW.
+    // ★ The `scripts/` pattern scans every script's own file, including
+    // update-ooxml-manifest.ts, but walks no further from it: only GUARD_ROOTS
+    // are walked.
     for (const extra of [join(repoRoot, "src", "app"), join(repoRoot, "scripts")]) {
       const stack = [extra];
       while (stack.length > 0) {
@@ -701,9 +731,14 @@ describe("DOM-free guard", () => {
           .replace(/\/\/.*$/gm, "");
         // ★★ BOTH DOMPurify-calling modules, not just rich-text-projection.
         // `ai-rich-text.ts` (added in 0.210.0) calls DOMPurify too, so importing
-        // it from a sanitizer/codec/script reproduces the exact bare-node throw →
-        // jsonToWorkspace catch-all → EMPTY workspace → near-empty sample files
-        // failure this guard exists to prevent. A guard naming one module by hand
+        // it from a sanitizer/codec, or from anything in ai-eval.ts's graph,
+        // breaks the same DOM-free contract. That contract keeps ai-eval.ts (no
+        // DOM, both modules outside its graph, and a walk root above) free of
+        // either module. It does NOT make it safe to RUN: whether its call paths
+        // reach sanitizeRichHtml is §624's question. update-ooxml-manifest.ts
+        // already reaches rich-text-projection by another route, so this guard
+        // does not protect it (§624). The sample generator installs JSDOM first
+        // (§151). A guard naming one module by hand
         // goes stale the moment a second one appears; if you add a third, add it
         // here in the same commit.
         // ★ Any quote style, any extension, static or dynamic — see the pin above.
@@ -1154,8 +1189,9 @@ describe("degradeToPlain", () => {
 });
 
 // ★★ The degrade is REPORTED, not silent. logDiag is a no-op when `window` is
-// undefined, which is what makes it legal in this DOM-free module — the sample
-// generator runs here under bare node and must not throw.
+// undefined, which is what makes it legal in this DOM-free module — scripts that
+// load it with no DOM (ai-eval.ts, update-ooxml-manifest.ts) must not throw. (The
+// sample generator is NOT one of them: it installs JSDOM first — §151.)
 //
 // ★★★ THE `not.toThrow()` ASSERTION BELOW WAS ONCE THE ONLY ONE HERE, AND IT
 // PINNED NOTHING ABOUT THE REPORT. Every one of these mutants shipped green

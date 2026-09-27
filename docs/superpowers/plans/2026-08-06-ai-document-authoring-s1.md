@@ -1,5 +1,7 @@
 # AI Document Authoring — S1 Implementation Plan
 
+> ★★ **Correction 2026-09-27 (`docs/open-followups.md` §151):** where this dated record says the sample generator or the fixture flow runs under bare node with no DOM, that is false — both install JSDOM before importing `src/app`. The DOM-free rules it describes stand on their contract, not on that. Kept as written otherwise.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ship a canonical block-based document model that persists with the project across all six storage backends, a Documents view to manage those documents, and rendering to HTML / DOCX / PPTX / print-PDF with download.

@@ -21,9 +21,10 @@
 //
 // ★★★ Why this exists as its own module rather than living in rich-text-plain.ts:
 // it CALLS DOMPurify, and rich-text-plain.ts must never do that — it runs inside
-// the entity sanitizers under bare node, where a DOMPurify call throws and
-// jsonToWorkspace's catch-all converts the throw into an EMPTY workspace that then
-// "successfully" writes near-empty sample files. Every caller here is browser-side
+// the entity sanitizers, which are DOM-free by contract: scripts import them with
+// no DOM (ai-eval.ts, update-ooxml-manifest.ts), where a DOMPurify call throws.
+// (NOT the sample generator, which installs JSDOM first — open-followups §151.)
+// Every caller here is browser-side
 // (a React hook or a browser-only proposal path), so the DOM is there; keeping it
 // out of the DOM-free module is what preserves that guarantee.
 import { MAX_HTML_TEXT_CHARS } from "./document-model";

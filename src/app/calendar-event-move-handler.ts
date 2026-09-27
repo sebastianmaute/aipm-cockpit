@@ -1,10 +1,14 @@
 // Builds the Resources → Calendar meetings-band occurrence-drag handler
 // (R5 Task 17). Extracted so the wiring — resolve the dragged occurrence's
 // event by id, commit via applyOccurrenceMove, save through the panel's
-// event-save path — is unit-testable without rendering the panel: the band
-// itself can't be exercised end to end yet, since resource-calendar.tsx only
-// mounts it when `onEditEvent` is ALSO present, and that prop lands
-// separately with the series editor modal.
+// event-save path — is unit-testable without rendering the panel. When this
+// was extracted the band could not be exercised end to end: resource-calendar.tsx
+// mounts it only when `onEditEvent` is present, and that prop had not landed.
+// It has since, so there are now TWO gates: resources-panel.tsx passes
+// `onEditEvent` when not a popout and the caller supplied onEditCalendarEvent
+// (the band MOUNTS), but `onMoveOccurrence` is undefined in a popout OR when no
+// onSaveCalendarEvent is supplied. A band mounted without a save handler renders
+// with its drag UNARMED, not broken (open-followups §457).
 import { applyOccurrenceMove } from "./calendar-event";
 import type { CalendarEvent } from "./calendar-event";
 import type { Occurrence } from "./recurrence";

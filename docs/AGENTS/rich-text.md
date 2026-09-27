@@ -124,8 +124,9 @@ register's fix to another is how two of them broke. Read the note that names you
   under-report exactly as RAID's does; its own comment says so, and it is left open for the same reason.
   ★★★ **`sanitizeRaidItem` DROPS `noteLog` and CANNOT be taught to keep it.** It builds from an
   explicit field list, and `sanitizeNoteLog` → `sanitizeRichHtml` → DOMPurify is DOM-BOUND while the
-  entity sanitizers must stay DOM-free (they run under bare node in the sample generator — same
-  constraint as §36(a)). So ANY caller that sanitizes an EXISTING RAID row silently erases its log.
+  entity sanitizers must stay DOM-free (by CONTRACT: `scripts/ai-eval.ts` and
+  `scripts/update-ooxml-manifest.ts` import that graph with no DOM installed — NOT because the sample
+  generator lacks one, it installs JSDOM first; `docs/open-followups.md` §151). So ANY caller that sanitizes an EXISTING RAID row silently erases its log.
   `use-chat-dispatcher.ts` `updateRaid` did exactly that until 0.211.1 and every AI edit to a RAID item
   wiped its notes unrecoverably (no undo on AI writes) — it now re-applies the stored log after
   sanitizing (`docs/open-followups.md` §49). The other THREE callers are CREATES and safe. ★ A NEW
@@ -279,8 +280,9 @@ register's fix to another is how two of them broke. Read the note that names you
   [`docs/CODEMAPS/data.md`](../CODEMAPS/data.md) tabulates four; it is a model-write BOUNDARY
   rather than a projection, and is covered further down this bullet.)
   ★★ `html-start.ts` obeys the SAME axis and is **DOM-FREE** for the same reason — it is imported by
-  `rich-text-plain.ts`, so it reaches the entity sanitizers and runs under bare node in the sample
-  generator. It is not a `rich-text-*` module and is deliberately not counted above; it may IMPORT the
+  `rich-text-plain.ts`, so it reaches the entity sanitizers and inherits their DOM-free contract (NOT
+  because the sample generator lacks a DOM — it installs JSDOM first; `docs/open-followups.md` §151).
+  It is not a `rich-text-*` module and is deliberately not counted above; it may IMPORT the
   tag arrays from `sanitize-html.ts` but must never CALL DOMPurify. Its own header carries the rule.
   • `rich-text-plain.ts` — **DOM-FREE**. `descriptionHtml` (upgrade), `htmlPlainProjection`,
   `htmlTextLength`, `capHtmlText`, `sanitizeRichText` (the entity sanitizers' entry point).
@@ -435,10 +437,11 @@ register's fix to another is how two of them broke. Read the note that names you
   typed `" " | "\n"`, not `string`: it lands in a `String.replace` REPLACEMENT position where `` $` ``
   and `$&` are special.
   ★★★ `rich-text-plain.ts` MUST NEVER CALL DOMPurify. It runs inside the entity sanitizers, which
-  execute under bare node in `scripts/generate-sample-workspace.ts` and the fixture flow; DOMPurify
-  binds `window` at module-eval, so with no DOM `sanitize` is undefined, the call throws, and
-  `jsonToWorkspace`'s catch-all swallows it into an EMPTY workspace that then "successfully" writes
-  near-empty sample files. A comment-stripping source scan in its test enforces it — comments may
+  are DOM-free BY CONTRACT: `scripts/ai-eval.ts` and `scripts/update-ooxml-manifest.ts` import that
+  graph with no DOM installed, and a DOMPurify call with no DOM throws. NOT because the sample
+  generator lacks a DOM — it and `scripts/regen-golden-fixtures.ts` install JSDOM before importing
+  `src/app` (`docs/open-followups.md` §151). The rule stands; only its old rationale was false. A
+  comment-stripping source scan in its test enforces it — comments may
   name the library, code may not. IMPORTING `plainToHtml` is fine (only a CALL needs the DOM).
   ★★★ **EVERY WRITE BOUNDARY FOR A RICH FIELD MUST BE UPGRADE-AWARE — `sanitizeRichText`, never
   `plainToHtml`.** `plainToHtml` ESCAPES `& < >`, so an HTML value passed through it is stored as

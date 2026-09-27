@@ -239,11 +239,13 @@ export function markdownToDocuments(
     // SILENT. Measured both ways with the generator's exact arrangement: with
     // JSDOM installed first, documents decode and come back sanitized; with no
     // DOM the DOMPurify call throws, the catch below swallows it, and documents
-    // decode to UNDEFINED — dropped whole, no error, no diagnostic. Today the
-    // only DOM-free importer is scripts/generate-sample-workspace.ts, which
-    // installs JSDOM into globalThis BEFORE it dynamically imports
-    // src/app/storage (see its header). A NEW bare-node importer of this module
-    // must do the same or it will silently lose every document.
+    // decode to UNDEFINED — dropped whole, no error, no diagnostic. The
+    // generator, regen-golden-fixtures.ts and sample-link-exports.ts install
+    // JSDOM into globalThis BEFORE they dynamically import src/app. But
+    // update-ooxml-manifest.ts reaches this module with NO DOM (via storage).
+    // Nobody has checked that it never decodes Markdown; if it does, it silently
+    // loses every document (open-followups §624). A new bare-node importer must
+    // install a DOM first.
     const docs = sanitizeProjectDocumentsWithDiag(JSON.parse(m[1]), diag).map(sanitizeDocumentRichFields);
     return docs.length ? docs : undefined;
   } catch {
