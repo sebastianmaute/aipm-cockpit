@@ -364,7 +364,7 @@ export function useBlockDraft<T, B extends DocBlock>(
     //  every mark; refusing keeps the text AND its formatting on screen, and the
     //  notice says how much to cut. Only the interactive path can refuse: the
     //  unmount flush below cannot render a notice, so it keeps today's fallback,
-    //  and so does the hide/unload flush (`flatten`), for the same reason.
+    //  and so does the `pagehide` flush (`flatten`), for the same reason.
     if (!flatten && raw.type === "paragraph" && paragraphOverCap(raw)) {
       setRefusal({ kind: "tooLong", excess: htmlTextLength(raw.html) - MAX_HTML_TEXT_CHARS });
       return false;
@@ -425,27 +425,32 @@ export function useBlockDraft<T, B extends DocBlock>(
   //  refusal, the blur committed the flattened form and the workspace save's
   //  flush-on-hide (debounced-save.ts) persisted it; now the refused draft lives
   //  only in this component, and closing or reloading the window runs no React
-  //  cleanup, so the unmount flush never fires. The same two signals as
-  //  debounced-save.ts (`visibilitychange` → hidden first, `pagehide` as the
-  //  backup) commit it FLATTENED, the owner's "save flattened, nothing lost".
+  //  cleanup, so the unmount flush never fires. `pagehide` (a close, a reload,
+  //  a navigation) commits it FLATTENED, the owner's "save flattened, nothing
+  //  lost".
+  //  ★★★ NOT `visibilitychange` → hidden, by OWNER DECISION: that signal is
+  //   also a tab switch or a minimise, which must keep the rich draft, its
+  //   notice and its dirty flag. Only a real unload flattens.
   //  ★★ `flushSync` IS THE ORDERING, not a nicety: the save captures its
   //   workspace per effect run, so the commit must re-render the provider and
   //   re-run the save effect INSIDE this event (React flushes a sync render's
-  //   passive effects synchronously). The re-run arms FRESH hide listeners, and
-  //   the unload's OTHER signal, which is still to come, flushes them: a tab
-  //   close hides first and then fires `pagehide`, while a reload or navigation
-  //   fires `pagehide` first and then hides. Either way the second event writes
-  //   this block. Without `flushSync` the update waits for a later task that an
-  //   unload never runs. Pinned in both event orders × both listener orders by
-  //   "reaches the workspace save" in document-block-editors.test.tsx.
+  //   passive effects synchronously). That re-run is written AT ONCE because
+  //   debounced-save.ts knows the page is hiding (`pageHiding`). Nothing else
+  //   would write it: on a tab close the page hid first and the save's
+  //   hide-flush has already run, the timer never fires on an unload, and a
+  //   `pagehide` listener added mid-dispatch is not invoked. Pinned in both
+  //   event orders × both listener orders by "persists it flattened exactly
+  //   once" in document-block-editors.test.tsx.
+  //  ★ A plain bubble listener on purpose. jsdom (unlike Chromium) invokes a
+  //   bubble listener that a CAPTURE listener adds at the target, so a capture
+  //   listener here would let the tests pass through the save's re-armed
+  //   listener, which the browser never calls, and hide a broken `pageHiding`.
   //  ★ Only a draft that is dirty AND over the cap: every other draft waits for
   //   its blur as before. The dirty flag is cleared in the same statement as
   //   the commit, like every other `tryCommit` caller (the ★★★ invariant on
   //   `preCommitStoredRef`), so the editor adopts what was saved and a later
-  //   signal or the unmount flush stops at its dirty guard. The cost: a TAB
-  //   SWITCH is also "hidden", so switching away from a refused draft saves it
-  //   flattened too, and the editor re-seeds to what was saved.
-  const flushRefusedOnHide = () => {
+  //   `pagehide` or the unmount flush stops at its dirty guard.
+  const flushRefusedOnPageHide = () => {
     if (!dirtyRef.current) return;
     const raw = toBlock(liveValueRef.current);
     if (!paragraphOverCap(raw)) return;
@@ -454,19 +459,14 @@ export function useBlockDraft<T, B extends DocBlock>(
       markDirty(false);
     });
   };
-  const hideFlushRef = useRef(flushRefusedOnHide);
+  const pageHideFlushRef = useRef(flushRefusedOnPageHide);
   useEffect(() => {
-    hideFlushRef.current = flushRefusedOnHide;
+    pageHideFlushRef.current = flushRefusedOnPageHide;
   });
   useEffect(() => {
-    const onPageHide = () => hideFlushRef.current();
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "hidden") hideFlushRef.current();
-    };
-    document.addEventListener("visibilitychange", onVisibilityChange);
+    const onPageHide = () => pageHideFlushRef.current();
     window.addEventListener("pagehide", onPageHide);
     return () => {
-      document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pagehide", onPageHide);
     };
   }, []);

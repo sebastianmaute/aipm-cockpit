@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, vi, type Mock } from "vitest";
+import { describe, it, expect, beforeAll, vi } from "vitest";
 import { StrictMode, useEffect, useMemo, useState } from "react";
 import { render, screen, within, fireEvent, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -459,107 +459,109 @@ describe("ParagraphBlockEditor — the visible-character cap (§185)", () => {
   });
 });
 
-// ★★★ §185 fix round 1 — a refused draft lives only in the component, and a
-//  window close or reload runs no React cleanup, so the unmount flush alone
-//  would LOSE it. The hide/unload signals commit it flattened instead.
+// ★★★ §185 fix rounds 1–2 — a refused draft lives only in the component, and a
+//  window close, reload or navigation runs no React cleanup, so the unmount
+//  flush alone would LOSE it. `pagehide` commits it flattened instead. A tab
+//  switch or minimise (`visibilitychange` → hidden) must NOT: the owner ruled
+//  that the rich draft, its notice and its dirty flag survive it.
+//  Every test runs against the REAL `scheduleDebouncedSave`, because what has
+//  to be proved is that the commit is PERSISTED, not merely made: the save
+//  captures its snapshot per effect run. Both events of an unload go in ONE
+//  `act`, so nothing React-side is flushed between them that a real unload
+//  would not flush either.
 describe("ParagraphBlockEditor — a refused over-cap draft on hide or unload (§185)", () => {
   const bold = (n: number) => `<p><strong>${"a".repeat(n)}</strong></p>`;
-  const hideVisibility = () => vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
-  const fireVisibilityHidden = () => {
-    const spy = hideVisibility();
+  const refusalText = t(LANG, "documentsBlockTooLongNotSaved", "1", new Intl.NumberFormat("en-US").format(MAX_HTML_TEXT_CHARS));
+  const fireVisibility = (state: "hidden" | "visible") => {
+    const spy = vi.spyOn(document, "visibilityState", "get").mockReturnValue(state);
     document.dispatchEvent(new Event("visibilitychange"));
     spy.mockRestore();
   };
   const firePageHide = () => window.dispatchEvent(new Event("pagehide"));
+  const isFlattened = (html: string) => !html.includes("<strong>") && htmlTextLength(html) === MAX_HTML_TEXT_CHARS;
 
-  type CommitMock = Mock<(index: number, block: DocBlock, expect?: DocBlock) => void>;
-  const refuse = async (index: number, onCommit: CommitMock) => {
-    const view = render(<ParagraphBlockEditor lang={LANG} index={index} block={{ type: "paragraph", html: bold(MAX_HTML_TEXT_CHARS - 1) }} onCommit={onCommit} />);
-    const editable = await findParagraphEditable(index);
-    editable.focus();
-    await userEvent.type(editable, "bc");
-    editable.blur();
-    expect(onCommit).not.toHaveBeenCalled();
-    return view;
-  };
-  const expectFlattenedOnce = (onCommit: CommitMock) => {
-    expect(onCommit).toHaveBeenCalledTimes(1);
-    const { html } = onCommit.mock.calls[0][1] as { html: string };
-    expect(html).not.toContain("<strong>");
-    expect(htmlTextLength(html)).toBe(MAX_HTML_TEXT_CHARS);
-  };
-
-  it("commits it flattened on pagehide, and the later unmount does not commit again", async () => {
-    const onCommit = vi.fn();
-    const { unmount } = await refuse(40, onCommit);
-    act(() => firePageHide());
-    expectFlattenedOnce(onCommit);
-    unmount();
-    expectFlattenedOnce(onCommit);
-  });
-
-  it("commits it flattened when the page becomes hidden, and a later pagehide does not commit again", async () => {
-    const onCommit = vi.fn();
-    await refuse(41, onCommit);
-    act(() => fireVisibilityHidden());
-    expectFlattenedOnce(onCommit);
-    act(() => firePageHide());
-    expectFlattenedOnce(onCommit);
-  });
-
-  it("ignores a visibilitychange that leaves the page visible", async () => {
-    const onCommit = vi.fn();
-    await refuse(42, onCommit);
-    act(() => { document.dispatchEvent(new Event("visibilitychange")); });
-    expect(onCommit).not.toHaveBeenCalled();
-  });
-
-  it("stops listening once unmounted, so a later pagehide cannot commit twice", async () => {
-    const onCommit = vi.fn();
-    const { unmount } = await refuse(43, onCommit);
-    unmount();
-    expectFlattenedOnce(onCommit);
-    act(() => { firePageHide(); fireVisibilityHidden(); });
-    expectFlattenedOnce(onCommit);
-  });
-
-  // ★★★ THE ORDERING, END TO END against the REAL `scheduleDebouncedSave`: the
-  //  save captures its snapshot per effect run, so the commit only counts if
-  //  the unload's OTHER signal writes it. A tab close hides first and then fires
-  //  `pagehide`; a reload fires `pagehide` first and then hides. Both events go
-  //  in ONE `act`, so nothing React-side is flushed between them that a real
-  //  unload would not flush either. `saveFirst` re-arms the save after the
-  //  editor mounted, so its listeners run BEFORE the editor's rather than after.
-  function SaveHarness({ tick, saved }: { tick: number; saved: string[] }) {
+  /** `tick` re-arms the save after the editor mounted, so the save's listeners
+   *  run BEFORE the editor's rather than after (`saveFirst` below). */
+  function SaveHarness({ tick, saved, commits }: { tick: number; saved: string[]; commits: string[] }) {
     const [html, setHtml] = useState(() => bold(MAX_HTML_TEXT_CHARS - 1));
     const block = useMemo(() => ({ type: "paragraph" as const, html }), [html]);
     useEffect(() => scheduleDebouncedSave(() => { saved.push(html); }, SAVE_DEBOUNCE_MS), [html, tick, saved]);
-    return <ParagraphBlockEditor lang={LANG} index={44} block={block} onCommit={(_i, b) => setHtml((b as { html: string }).html)} />;
+    const onCommit = (_i: number, b: DocBlock) => {
+      const next = (b as { html: string }).html;
+      commits.push(next);
+      setHtml(next);
+    };
+    return <ParagraphBlockEditor lang={LANG} index={44} block={block} onCommit={onCommit} />;
   }
+
+  const refuseInHarness = async (saveFirst = false) => {
+    const saved: string[] = [];
+    const commits: string[] = [];
+    const view = render(<SaveHarness tick={0} saved={saved} commits={commits} />);
+    if (saveFirst) view.rerender(<SaveHarness tick={1} saved={saved} commits={commits} />);
+    const editable = await findParagraphEditable(44);
+    editable.focus();
+    await userEvent.type(editable, "bc");
+    editable.blur();
+    expect(await screen.findByText(refusalText)).toBeInTheDocument();
+    expect(commits).toEqual([]);
+    return { unmount: view.unmount, saved, commits, editable };
+  };
+
+  it("keeps the rich draft, its notice and its dirty flag through a tab switch", async () => {
+    const { saved, commits, editable, unmount } = await refuseInHarness();
+    act(() => { fireVisibility("hidden"); fireVisibility("visible"); });
+    expect(commits).toEqual([]);
+    expect(saved.some(isFlattened)).toBe(false);
+    expect(editable.querySelector("strong")).not.toBeNull();
+    expect(screen.getByText(refusalText)).toBeInTheDocument();
+    // Still DIRTY: the unmount flush (the owner's no-UI fallback) still saves it.
+    unmount();
+    expect(commits).toHaveLength(1);
+    expect(isFlattened(commits[0])).toBe(true);
+  });
 
   it.each([
     { unload: "tab close (hidden, then pagehide)", saveFirst: false },
     { unload: "tab close (hidden, then pagehide)", saveFirst: true },
     { unload: "reload (pagehide, then hidden)", saveFirst: false },
     { unload: "reload (pagehide, then hidden)", saveFirst: true },
-  ])("reaches the workspace save on $unload, save listeners first: $saveFirst", async ({ unload, saveFirst }) => {
-    const saved: string[] = [];
-    const { rerender } = render(<SaveHarness tick={0} saved={saved} />);
-    if (saveFirst) rerender(<SaveHarness tick={1} saved={saved} />);
-    const editable = await findParagraphEditable(44);
-    editable.focus();
-    await userEvent.type(editable, "bc");
-    editable.blur();
+  ])("persists it flattened exactly once on $unload, save listeners first: $saveFirst", async ({ unload, saveFirst }) => {
+    const { saved, commits } = await refuseInHarness(saveFirst);
+    // ★★ Read INSIDE the `act`, before it flushes anything: an unloading page
+    //  runs no later task, so only what was written during the events counts.
+    //  (Read after the `act`, a missing `flushSync` survives: `act` renders the
+    //  queued commit, and the save then runs under the still-set `pageHiding`.)
+    let savedDuringUnload: string[] = [];
     act(() => {
-      if (unload.startsWith("tab")) { fireVisibilityHidden(); firePageHide(); }
-      else { firePageHide(); fireVisibilityHidden(); }
+      if (unload.startsWith("tab")) { fireVisibility("hidden"); firePageHide(); }
+      else { firePageHide(); fireVisibility("hidden"); }
+      savedDuringUnload = [...saved];
     });
-    const last = saved.at(-1) ?? "";
-    expect(last).not.toContain("<strong>");
-    expect(htmlTextLength(last)).toBe(MAX_HTML_TEXT_CHARS);
+    expect(commits).toHaveLength(1);
+    expect(isFlattened(commits[0])).toBe(true);
+    expect(savedDuringUnload.filter(isFlattened)).toHaveLength(1);
+    expect(isFlattened(savedDuringUnload.at(-1) ?? "")).toBe(true);
+    expect(saved.filter(isFlattened)).toHaveLength(1);
     // The flush clears the dirty flag, so the editor adopts what was saved
     //  rather than holding a draft that storage no longer matches.
     await waitFor(async () => expect((await findParagraphEditable(44)).querySelector("strong")).toBeNull());
+  });
+
+  it("does not commit again at unmount after a pagehide", async () => {
+    const { commits, unmount } = await refuseInHarness();
+    act(() => firePageHide());
+    expect(commits).toHaveLength(1);
+    unmount();
+    expect(commits).toHaveLength(1);
+  });
+
+  it("stops listening once unmounted, so a later pagehide cannot commit twice", async () => {
+    const { commits, unmount } = await refuseInHarness();
+    unmount();
+    expect(commits).toHaveLength(1);
+    act(() => firePageHide());
+    expect(commits).toHaveLength(1);
   });
 });
 

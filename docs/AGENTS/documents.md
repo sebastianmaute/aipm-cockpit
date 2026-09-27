@@ -333,8 +333,9 @@ branch returns `plainToHtml(slice)`); a heading kept the trailing whitespace the
 content the next load drops — one of `MAX_VERSIONS_PER_DOC` (20) slots spent, and the row the user
 just added gone on reload. The block editor now shows a visible-character counter from 90% of the
 cap and REFUSES an over-cap commit with a notice (§185). Only the exits with no UI still save the
-flattened form: the unmount flush, and a hide/unload flush (`visibilitychange` to hidden, and `pagehide`,
-committed inside `flushSync` so the workspace save's next flush carries it). AI-written and imported
+flattened form: the unmount flush, and a `pagehide` flush committed inside `flushSync`, which
+`scheduleDebouncedSave` writes at once because its `pageHiding` flag is set. A tab switch
+(`visibilitychange` to hidden) deliberately does NOT flatten: owner decision. AI-written and imported
 text keep the old fallback.
 
 ★★ **Per-editor `maxLength` caps are the WRONG fix** and were rejected for the reason the defect

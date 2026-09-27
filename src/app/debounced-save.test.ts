@@ -125,4 +125,28 @@ describe("scheduleDebouncedSave", () => {
   //    after a flush `fired` is already true, so a later `pagehide` is a no-op whether the listener
   //    was removed or not. It cannot fail for the reason its title would claim. Listener removal is
   //    isolated by "stops listening after cleanup" above, which takes the NO-flush path.
+
+  // ── §185: a save scheduled while the page is going away ───────────────────
+  // ★ vitest.setup.ts dispatches `pageshow` after every test, which is what
+  //   clears the flag between them (jsdom never fires one itself).
+
+  it("§185: saves AT ONCE when scheduled after a pagehide, with no timer and no second write", () => {
+    const save = vi.fn();
+    window.dispatchEvent(new Event("pagehide"));
+    scheduleDebouncedSave(save, 500);
+    expect(save).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(500);
+    window.dispatchEvent(new Event("pagehide"));
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it("§185: debounces again once pageshow says the page came back", () => {
+    const save = vi.fn();
+    window.dispatchEvent(new Event("pagehide"));
+    window.dispatchEvent(new Event("pageshow"));
+    scheduleDebouncedSave(save, 500);
+    expect(save).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(500);
+    expect(save).toHaveBeenCalledTimes(1);
+  });
 });
