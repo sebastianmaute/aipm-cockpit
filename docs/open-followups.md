@@ -21594,10 +21594,13 @@ note under its existing correction. (3) `document-asset-usage.test.ts` gained "a
 LOADER can produce still holds a cap slot": a numeric-id document loaded through
 `sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)` keeps `<p data-asset-id="a1">` in
 `all` and out of `drawable` while the `<img>` control stays drawable, and a sibling case shows a
-`<span data-asset-id>` is absent from `all` after load. Both assert the document survived. The test
-was written to pass against today's code; its mutation proof (drop `"p"` from `RICH_ALLOWED_TAGS`
-or `data-asset-id` from the document attribute list) was NOT run on this branch, because vitest
-was out of scope for it. Re-check with
+`<span data-asset-id>` is absent from `all` after load. Both assert the document survived. Both
+pass against today's code, and three mutants of `sanitize-html.ts`, each run on its own on
+2026-09-27, turn them red:
+- dropping `"p"` from `RICH_ALLOWED_TAGS` fails the `<p>` case;
+- dropping `data-asset-id` from the document attribute list fails both new cases and four older ones;
+- adding `"span"` to `DOCUMENT_ALLOWED_TAGS` fails the `<span>` case.
+Re-check with
 `grep -n "a non-img carrier the LOADER" -A 40 src/app/document-asset-usage.test.ts`.
 
 Original status: OPEN — an **open question against §218**, not a defect. Nothing is broken today and the
