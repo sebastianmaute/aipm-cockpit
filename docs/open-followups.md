@@ -13247,8 +13247,8 @@ sanitizers downstream work. ~~It is also the only script that imports `src/app` 
 
 **There is a SECOND leg, added 2026-08-28, and it is the one that kills the weaker restatement.** Sites
 that hedge toward "a DOMPurify call there would PULL DOMPurify INTO the graph" are wrong too:
-`sanitize-html.ts`, the module that does `import DOMPurify from "dompurify"`, is ALREADY in the
-generator's import graph, reached by `html-start.ts` (which imports `RICH_ALLOWED_TAGS` from it) and independently by
+`sanitize-html.ts`, the module that does `import DOMPurify from "dompurify"`, is ALREADY one of the 92
+files (measured 2026-08-28; see the dated note under the resolver below), reached by `html-start.ts` (which imports `RICH_ALLOWED_TAGS` from it) and independently by
 `note-log.ts`. So the graph contains the dependency either way; what the guard bans is the two named
 modules being imported by a graph member, which is a CONTRACT, not a consequence.
 ★★ Keep the two legs separate. Leg 1 refutes "the call would throw"; leg 2 refutes "the import would
@@ -13267,10 +13267,16 @@ for(const m of readFileSync(f,"utf8").matchAll(/(?:from|import)\s*\(?\s*["\x27](
 console.log(g.size);for(const f of ["sanitize-html","html-start","note-log","templates","template-apply"])
 console.log((g.has(r+"/src/app/"+f+".ts")?"IN  ":"out ")+f)'
 ```
-Measured 2026-08-28: `sanitize-html`, `html-start`, `note-log`, `templates` all IN;
+Measured 2026-08-28: 92 files; `sanitize-html`, `html-start`, `note-log`, `templates` all IN;
 `template-apply` OUT — which is why §36(a)'s allow-list is legal in the latter and not the former.
-Re-measured 2026-09-27 with the same memberships. The file count is deliberately NOT quoted: it
-moved between the two runs and moves on any import edit, so print it with the resolver.
+> ★ **2026-09-27 re-measure (dated note; the line above is kept as the record it is):** the same
+> resolver printed 110 files with the same memberships. Going forward no count is quoted, because it
+> moves on any import edit; print it with the resolver. ★★ The resolver follows `import type` edges
+> and comment text, so its `templates` IN is an artifact. Every edge into `templates.ts` from the
+> generator's graph is type-only, and TypeScript elides those, so the generator never LOADS
+> `templates.ts`. With comments and `import type` statements stripped first, `templates` is OUT and
+> `sanitize-html` and `note-log` stay IN. The legality argument for `template-apply` is unaffected,
+> since it is OUT either way.
 
 ### Measured
 
@@ -16699,9 +16705,23 @@ command "and nothing else touches the transaction". It now says `focus` touches 
 return false (`@tiptap/core`'s `focus` catches a throwing `view.hasFocus()`), that on that path the
 insert HAS been dispatched, so the lazy wrapper would re-queue and later replay text that already
 landed — a duplicate append, which is worse than the misleading boolean this entry first described —
-and that the path is not reachable today. No code change and no test: the reaching state cannot be
-built without stubbing Tiptap internals. Re-check with
-`grep -n "CAN itself return false" -A 4 src/app/rich-text-editor.tsx`.
+and when that state can occur. A cold review of the first closure measured the mechanism against the
+installed `@tiptap/core` and corrected it, and the comment now says what was measured:
+- A DESTROYED editor is safe, and never throws. `Editor.chain()` returns
+  `CommandManager.createFakeChain()` when `commandManager` is null, and `destroy()` nulls it, so
+  `run()` is `false` with nothing inserted and the wrapper's re-queue is correct.
+- The duplicate IS reachable through public API: an editor whose view was UNMOUNTED
+  (`editor.unmount()`) while its `commandManager` lives. The `view` Proxy throws on `hasFocus`, so
+  `focus` returns false, but it still forwards `dispatch`. So the insert lands and `run()` reports
+  false. The reviewer probed this with jsdom and StarterKit, no stubs: the doc text became "Yb"
+  while `run()` returned `false`.
+- It is not reached in this app today only because `@tiptap/react` never calls `unmount()`.
+
+No code change and no test in this closure; the comment is the fix this entry asked for. Re-check
+with `grep -n "createFakeChain" -B2 -A3 node_modules/@tiptap/core/src/Editor.ts`,
+`grep -n "public destroy" -A15 node_modules/@tiptap/core/src/Editor.ts | grep commandManager` and
+`grep -c "\.unmount()" node_modules/@tiptap/react/dist/index.js` (0), plus
+`grep -n "CAN itself return false" -A 12 src/app/rich-text-editor.tsx`.
 
 Original status: open — NOT reachable today, NOT a regression, and NOT to be "fixed" by changing the code.
 Filed so the comment is not read as stronger than it is. Reproduced 2026-08-28 by `grep -n "the only other command is" src/app/rich-text-editor.tsx`.
@@ -16713,6 +16733,12 @@ can itself return false: verified in the installed `@tiptap/core`, its body wrap
 `view.hasFocus()` early-exit in a `try` whose `catch` returns false. A false command does not abort
 the chain, so on that path the insert has still been dispatched — a `false` there would mean "the
 text landed and the focus attempt threw", not "nothing landed".
+
+> ★★ **2026-09-27 correction:** the next paragraph's "A DESTROYED editor throws at `editor.chain()`"
+> is FALSE. `Editor.chain()` returns `CommandManager.createFakeChain()` once `destroy()` has nulled
+> `commandManager`, so nothing throws and nothing is inserted. The reaching state it says could not be
+> constructed exists, through public API: an `editor.unmount()`ed view. See the Status above. Kept as
+> written.
 
 ★★ **NOT REACHABLE TODAY, and that is the half worth keeping.** On the realistic path — a
 never-focused editor, `opts` undefined — `appendText` returns TRUE. A DESTROYED editor throws at
@@ -21584,12 +21610,28 @@ question above is the same SC, decided rather than fixed.)
 ---
 ## 249. §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html — CLOSED 2026-09-27
 
-**Status:** CLOSED 2026-09-27 by `docs/accuracy-2`. All three steps are done. (1) Every remaining
-illustration now uses a carrier the loader can produce: the `AssetRefs` note in
-`src/app/document-asset-usage.ts` says `<p data-asset-id>` and adds why a span cannot be it, its
-`undrawable` note says "on a `<p>` in one block", and so does the `assetRefsInDocument` bullet in
-`docs/AGENTS/documents.md` (`document-asset-patterns.ts` and the documents.md divergence paragraph
-were already fixed). (2) §218's table cell now reads `paragraph yes, reference NO †`, with a dated
+**Status:** CLOSED 2026-09-27 by `docs/accuracy-2`. All three steps are done.
+(1) Every LIVE explanation now uses a carrier the loader can produce. Scope: `src/`, `docs/AGENTS/`,
+`docs/CODEMAPS/`, `AGENTS.md` and `CONTRIBUTING.md`. The fixes:
+- the `AssetRefs` note in `src/app/document-asset-usage.ts` says `<p data-asset-id>` and adds why a
+  span cannot be it, and its `undrawable` note says "on a `<p>` in one block";
+- the `assetRefsInDocument` bullet in `docs/AGENTS/documents.md` says the same;
+- the cap-message comments in `src/app/documents-asset-section.tsx` (three);
+- the cap-message header in `src/app/documents-asset-section.test.tsx`, which also now says why its
+  span FIXTURES are legal: they are un-loaded html. The first closure missed these two files and a
+  cold review caught them.
+- `document-asset-patterns.ts` and the documents.md divergence paragraph were already fixed.
+
+Re-checked with
+`git grep -nE "span[^>]{0,20}data-asset-id" -- src docs AGENTS.md CONTRIBUTING.md e2e scripts`,
+reading every hit. What remains is deliberate:
+- un-loaded pattern FIXTURES, which this entry's reason 2 exempts: `document-asset-patterns.test.ts`,
+  the `document-asset-usage.test.ts` pattern cases, and the two `documents-asset-section.test.tsx`
+  fixtures;
+- the new load-path test, which asserts that a span does NOT survive;
+- this register's own §218, §231 and §249 discussions of the mechanism;
+- the dated `docs/superpowers/` plans and specs for 2026-08-24 and 2026-08-25, and their probe
+  script. Those are records and were not rewritten. (2) §218's table cell now reads `paragraph yes, reference NO †`, with a dated
 note under its existing correction. (3) `document-asset-usage.test.ts` gained "a non-img carrier the
 LOADER can produce still holds a cap slot": a numeric-id document loaded through
 `sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)` keeps `<p data-asset-id="a1">` in
@@ -42284,8 +42326,9 @@ bytes of blocked assets before discarding them.
 
 **Status:** open 2026-09-27 — found while correcting §151 on `docs/accuracy-2`. Neither script was
 executed. Verified by reading: `grep -c -i jsdom scripts/ai-eval.ts scripts/update-ooxml-manifest.ts`
-returns 1 and 0, and the one `ai-eval.ts` hit is the comment saying it needs no jsdom; the import
-graphs were resolved with §151's resolver pointed at each script instead of the generator.
+returns 1 and 0, and the one `ai-eval.ts` hit is the comment saying it needs no jsdom. The import
+graphs were resolved with §151's resolver pointed at each script instead of the generator, then
+re-resolved as RUNTIME graphs (type-only edges stripped) after a cold review.
 
 **Work item:** #440
 
@@ -42294,24 +42337,42 @@ and `sample-link-exports.ts` all install JSDOM before importing `src/app`. Two o
 
 - `scripts/ai-eval.ts` (`npm run ai:eval`, run with `npx vite-node`) imports `src/app` statically with
   no DOM. Its header says nothing it uses needs `jsonToWorkspace`, "and therefore nothing needs jsdom".
-  Its resolved import graph reaches `sanitize.ts`, `rich-text-plain.ts`, `sanitize-html.ts` (which
-  imports DOMPurify), `note-log.ts` (which calls it), `html-start.ts` and `templates.ts`.
+  Its RUNTIME import graph (comments and `import type` edges stripped) reaches `sanitize.ts`,
+  `rich-text-plain.ts`, `sanitize-html.ts` (which imports DOMPurify and calls it inside
+  `sanitizeRichHtml`) and `note-log.ts` (which calls `sanitizeRichHtml`). `rich-text-projection.ts`
+  and `ai-rich-text.ts` are both OUT of it.
 - `scripts/update-ooxml-manifest.ts` (`npm run ooxml:manifest`, run with `jiti`) installs no DOM and
-  imports `src/test/ooxml-manifest*`. Its graph reaches `storage.ts`, `sanitize.ts`,
-  `rich-text-plain.ts` and `rich-text-projection.ts`, a module that CALLS DOMPurify.
+  imports `src/test/ooxml-manifest*`. Its runtime graph reaches `storage.ts`, `sanitize.ts`,
+  `rich-text-plain.ts`, the DOM-BOUND `ooxml-docx-primitives.ts` (its header: `htmlToRichLines`
+  parses with DOMParser), and `rich-text-projection.ts`, a module that CALLS DOMPurify. The chain is
+  `src/test/ooxml-manifest-subjects.ts` → `ooxml-docx-primitives.ts` → `export-sections.ts` →
+  `rich-text-projection.ts`.
+- ★ `templates.ts` is in NEITHER runtime graph. §151's resolver counts it because it follows
+  `import type` edges and comment text; every edge into it from these graphs is type-only, which
+  TypeScript elides.
 
 Being in the graph is harmless: only a CALL needs a DOM (`sanitize-html.ts` defers `addHook` for
 exactly that reason). What nobody has checked is whether either script's reachable RUNTIME path makes
 such a call. If one does, the call throws with no DOM. `ai-eval.ts` is a dry run by default and a
 paid run when enabled, and `ooxml:manifest` regenerates a baseline, so a throw there would at best
-abort the run and at worst be caught somewhere and silently change what it produces. This is why the
-corrected §151 sites ground the DOM-free rule on the per-module contract: these two scripts are the
-DOM-free importers that contract actually protects.
+abort the run and at worst be caught somewhere and silently change what it produces.
+
+The two scripts stand differently toward the DOM-free contract:
+- **`ai-eval.ts`** is the importer the contract and the graph guards in `rich-text-plain.test.ts`
+  protect: both DOMPurify-bearing projection modules are outside its graph. Even so, whether its
+  call paths ever reach `sanitizeRichHtml` is unverified.
+- **`update-ooxml-manifest.ts`** is NOT protected by those guards. It already loads
+  `rich-text-projection.ts` and the DOM-bound `ooxml-docx-primitives.ts` by another route. Whether it
+  throws therefore depends only on the paths it CALLS, and that is exactly what this entry leaves open.
 
 Re-run the graphs: copy §151's resolver into a script FILE (not `node -e`, which loses the
-backslash handling) and change its root from `generate-sample-workspace.ts` to `ai-eval.ts` and then
-`update-ooxml-manifest.ts`, printing membership for `sanitize-html`, `note-log`, `rich-text-plain`,
-`rich-text-projection` and `storage`. The file counts move on any import edit, so none is quoted.
+backslash handling). Strip comments and `import type` statements before matching, so the graph is
+the runtime one. Change its root from `generate-sample-workspace.ts` to `ai-eval.ts`, then to
+`update-ooxml-manifest.ts`. Print membership for `sanitize-html`, `note-log`, `rich-text-plain`,
+`rich-text-projection`, `ai-rich-text`, `ooxml-docx-primitives` and `storage`, plus the parent chain
+to `rich-text-projection.ts`. The file counts move on any import edit, so none is quoted. Check the
+two anchors with `grep -n "rich-text-projection" src/app/export-sections.ts` and
+`grep -n "DOM-BOUND" src/app/ooxml-docx-primitives.ts`.
 
 What would close it: run both scripts (the `ai:eval` dry run spends nothing; run `ooxml:manifest`
 on a scratch copy of the baseline, since it rewrites the committed one) and record that neither throws
