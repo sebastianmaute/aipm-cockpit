@@ -5,8 +5,9 @@
 // Two layers:
 //   1. `useStorageBackend` with a fake backend — the spec's Restore branches but "No
 //      journal" (every other storage-hook suite loads without one): match, mismatch
-//      (+ Restore anyway, + Discard), each incomplete-load cause, a failed load, an
-//      empty-load refusal, another project's journal, and a popout.
+//      (+ Restore anyway, + Discard), a journal that already landed, each conflict
+//      action once the key holds a different record, each incomplete-load cause, a
+//      failed load, an empty-load refusal, another project's journal, and a popout.
 //   2. `useUnloadJournal` on its own — ruling R7 (a held op base nulls the live one).
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -122,8 +123,8 @@ const EARLIER_TAB = "an-earlier-page";
 const EARLIER_SAVED_AT = 1_000;
 
 /** Seeds a journal as an earlier page load would have left it. */
-function seedJournal(baseFingerprint: string, key = JOURNAL_KEY, projectKey = "browser"): UnloadJournal {
-  const rec: UnloadJournal = { v: 1, projectKey, tabId: EARLIER_TAB, savedAt: EARLIER_SAVED_AT, baseFingerprint, workspace: workspaceToJson(JOURNALED) };
+function seedJournal(baseFingerprint: string, key = JOURNAL_KEY, projectKey = "browser", workspace: Workspace = JOURNALED): UnloadJournal {
+  const rec: UnloadJournal = { v: 1, projectKey, tabId: EARLIER_TAB, savedAt: EARLIER_SAVED_AT, baseFingerprint, workspace: workspaceToJson(workspace) };
   localStorage.setItem(key, JSON.stringify(rec));
   return rec;
 }
@@ -248,6 +249,65 @@ describe("§629 — the load effect restores the unload journal", () => {
     expect(readJournal()).toBeNull();
     expect(result.current.unloadJournalConflict).toBe(false);
     expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+  });
+
+  it("a journal that already LANDED (its content is what loaded, its base is not): cleared silently — no notice, no toast", async () => {
+    seedJournal("changed-elsewhere", JOURNAL_KEY, "browser", STORED as unknown as Workspace);
+    const backend = makeBackend(100);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(800);
+
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(readJournal()).toBeNull();
+    expect(result.current.unloadJournalConflict).toBe(false);
+    expect(restoredToast()).toHaveLength(0);
+    expect(backend.save).not.toHaveBeenCalled(); // nothing extra applied, so nothing to write back
+  });
+
+  it("a landed journal whose base ALSO matches is cleared silently too — the content check comes first", async () => {
+    seedJournal(matchingBase(), JOURNAL_KEY, "browser", STORED as unknown as Workspace);
+    const backend = makeBackend(100);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(800);
+
+    expect(readJournal()).toBeNull();
+    expect(result.current.unloadJournalConflict).toBe(false);
+    expect(restoredToast()).toHaveLength(0);
+    expect(backend.save).not.toHaveBeenCalled();
+  });
+
+  it.each(["restore", "discard"] as const)("the %s action acts only on the record the notice describes: this tab's later write is untouched and nothing is applied", async (action) => {
+    seedJournal("changed-elsewhere");
+    const backend = makeBackend(100);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(800);
+    expect(result.current.unloadJournalConflict).toBe(true);
+
+    // This tab, now hidden, saves: `noteSaveStarted` writes its own record over the conflicting one.
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    try {
+      act(() => { result.current.setTasks([{ id: 1, taskName: "Stored" }, { id: 3, taskName: "Later" }] as unknown as Task[]); });
+      await advance(600);
+    } finally {
+      Reflect.deleteProperty(document, "visibilityState");
+    }
+    expect(backend.save).toHaveBeenCalledTimes(1);
+    const later = readJournal();
+    expect(later).toMatchObject({ tabId: UNLOAD_JOURNAL_TAB_ID }); // the premise: the key now holds a DIFFERENT record
+    // A visible edit after it (its save not yet due), so applying that record would be observable.
+    act(() => { result.current.setTasks([{ id: 1, taskName: "Stored" }, { id: 3, taskName: "Later" }, { id: 4, taskName: "Live" }] as unknown as Task[]); });
+
+    await act(async () => {
+      if (action === "restore") result.current.restoreUnloadJournalAnyway();
+      else result.current.discardUnloadJournal();
+    });
+    expect(result.current.unloadJournalConflict).toBe(false);
+    expect(readJournal()).toEqual(later);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1, 3, 4]);
+    expect(restoredToast()).toHaveLength(0);
   });
 
   it.each<[string, LoadReport]>([

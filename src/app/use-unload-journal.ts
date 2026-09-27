@@ -18,8 +18,10 @@
 //   — the same for a project op, whose target key is not in scope yet when it
 //   applies (see `holdBase`).
 // - `restoreOnLoad` — called by the load effect between a load that passed every
-//   gate and its apply: the journal on a base match, else a published conflict that
-//   `restoreConflict` (Restore anyway) or `discardConflict` (Discard) resolves.
+//   gate and its apply: a journal whose content IS the loaded workspace is cleared
+//   silently (its save landed), else the journal on a base match, else a published
+//   conflict that `restoreConflict` (Restore anyway) or `discardConflict` (Discard)
+//   resolves — each acting only while the key still holds the record the notice describes.
 //
 // See docs/superpowers/specs/2026-09-27-unload-journal-design.md.
 
@@ -89,6 +91,16 @@ export function resolveJournalProjectKey(storageKind: StorageKind, tursoProjectI
 }
 
 type Unconfirmed = { projectKey: string; workspace: Workspace; savedAt: number };
+
+/** The record a conflict notice describes: its key, and the `tabId` + `savedAt` that identify it. */
+type ConflictRecord = { key: string; tabId: string; savedAt: number };
+
+/** The stored journal for `c.key` if it is still the record `c` names, else null — a later write
+ *  (this tab's own hidden-tab or pagehide write, or another tab's) is a different record. */
+function readConflictRecord(c: ConflictRecord): UnloadJournal | null {
+  const journal = readUnloadJournal(c.key);
+  return journal !== null && journal.tabId === c.tabId && journal.savedAt === c.savedAt ? journal : null;
+}
 
 /** The last confirmed state of `projectKey`. `savedAt` is the confirmed save's
  *  own savedAt, or — for a base set from a load — the latest savedAt issued at
@@ -235,54 +247,66 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
 
   const baseFingerprint = useCallback((): string => baseFingerprintFor(projectKeyRef.current), [baseFingerprintFor]);
 
-  /** The key of a journal the last restore found and could not apply (its base did not match). */
-  const [conflictKey, setConflictKey] = useState<string | null>(null);
+  /** The journal the last restore found and could not apply (its base did not match): its key,
+   *  and the `tabId` + `savedAt` that identify the record the notice describes. */
+  const [conflictRecord, setConflictRecord] = useState<ConflictRecord | null>(null);
 
   /** The restore. `loaded` is what a load that passed every gate returned, `key` the journal key
-   *  of the target it came from. Returns the journal's workspace to apply INSTEAD when the journal's
-   *  base equals `loaded`'s fingerprint (ruling R8: `===` only — a base of "" never matches), re-tagged
-   *  per R3. Otherwise null: on a mismatch, or a kind in `JOURNAL_FINGERPRINT_UNSTABLE_KINDS`, the
-   *  journal is kept and the conflict published. A popout (or a disabled hook) never restores. */
+   *  of the target it came from. First, a journal whose CONTENT fingerprints as `loaded` describes
+   *  what is stored — its save landed, only its `.then` never ran — so it is cleared, unguarded,
+   *  with nothing applied and no notice. Otherwise returns the journal's workspace to apply INSTEAD
+   *  when the journal's base equals `loaded`'s fingerprint (ruling R8: `===` only — a base of ""
+   *  never matches), re-tagged per R3. Otherwise null: on a mismatch, or a kind in
+   *  `JOURNAL_FINGERPRINT_UNSTABLE_KINDS`, the journal is kept and the conflict published. A popout
+   *  (or a disabled hook) never restores. */
   const restoreOnLoad = useCallback((loaded: Workspace, key: string, kind: StorageKind): Workspace | null => {
     if (!activeRef.current) return null;
     const journal = readUnloadJournal(key);
     const restored = journal === null ? null : journalWorkspace(journal);
     if (journal === null || restored === null) {
-      setConflictKey(null);
+      setConflictRecord(null);
+      return null;
+    }
+    const loadedFingerprint = fingerprintWorkspace(loaded);
+    if (fingerprintWorkspace(restored) === loadedFingerprint) {
+      clearUnloadJournal(key);
+      setConflictRecord(null);
       return null;
     }
     const comparable = !JOURNAL_FINGERPRINT_UNSTABLE_KINDS.includes(kind);
-    if (comparable && journal.baseFingerprint === fingerprintWorkspace(loaded)) {
+    if (comparable && journal.baseFingerprint === loadedFingerprint) {
       retagToThisTab(journal);
-      setConflictKey(null);
+      setConflictRecord(null);
       return restored;
     }
-    setConflictKey(key);
+    setConflictRecord({ key, tabId: journal.tabId, savedAt: journal.savedAt });
     return null;
   }, []);
 
   /** Restore anyway: the conflicting journal's workspace, re-tagged per R3 — or null when the
-   *  conflict is not the target in scope, or its journal is gone or does not decode. The caller
+   *  conflict is not the target in scope, or the key no longer holds the record the notice
+   *  describes (gone, replaced, or not decoding); the notice is dismissed either way. The caller
    *  applies it and saves it through the normal path. */
   const restoreConflict = useCallback((): Workspace | null => {
-    if (conflictKey === null || conflictKey !== projectKeyRef.current) return null;
-    setConflictKey(null);
-    const journal = readUnloadJournal(conflictKey);
+    if (conflictRecord === null || conflictRecord.key !== projectKeyRef.current) return null;
+    setConflictRecord(null);
+    const journal = readConflictRecord(conflictRecord);
     const restored = journal === null ? null : journalWorkspace(journal);
     if (journal === null || restored === null) return null;
     retagToThisTab(journal);
     return restored;
-  }, [conflictKey]);
+  }, [conflictRecord]);
 
-  /** Discard: removes the conflicting journal, unguarded — the user chose to drop it. */
+  /** Discard: removes the conflicting journal, unguarded — the user chose to drop it — but only
+   *  while the key still holds that record; otherwise it only dismisses the notice. */
   const discardConflict = useCallback((): void => {
-    if (conflictKey === null) return;
-    clearUnloadJournal(conflictKey);
-    setConflictKey(null);
-  }, [conflictKey]);
+    if (conflictRecord === null) return;
+    if (readConflictRecord(conflictRecord) !== null) clearUnloadJournal(conflictRecord.key);
+    setConflictRecord(null);
+  }, [conflictRecord]);
 
   /** Published only while the conflicting journal's target is the one in scope. */
-  const conflict = conflictKey !== null && conflictKey === projectKey && enabled && !isPopout;
+  const conflict = conflictRecord !== null && conflictRecord.key === projectKey && enabled && !isPopout;
 
   useEffect(() => {
     const onPageHide = () => {
