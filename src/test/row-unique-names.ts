@@ -48,15 +48,22 @@
 // ★ SCOPE CHOICE: default to whole-container scope. Narrow to a sub-tree only
 // when a specific, named collision with unrelated chrome has been confirmed
 // in that panel — and say which one, in a comment at the narrowing.
-// ★★ THIS RULE CURRENTLY HAS NO LIVE WORKED EXAMPLE, and that is the honest
-// state rather than an omission. `change-panel.test.tsx` was it — that panel
-// reused one translation string across a toolbar filter select and a
-// sortable-header button — but §261 gave the two distinct strings, so the
-// collision it demonstrated no longer exists and the citation would send a
-// reader looking for something the tree does not contain. The test still
-// narrows to `tbody`; read the reason recorded AT the narrowing, which is a
-// different and weaker one (keeping the assertion about row identity), not
-// the confirmed-collision case this paragraph governs.
+// ★★ WORKED EXAMPLE: `project-form-fields.test.tsx` narrows its
+// `IdentityPeopleFields` scan to the contacts list (its `contactsList`
+// helper), and the comment above that helper names the collision. `Field`
+// passes `label={t(lang, "infoMore")}` to `InfoTooltip`, which sets
+// `aria-label={label ?? text}`, so the three tooltip-bearing `Field`s in that
+// section (project name, code, manager) are all named "More information".
+// A whole-container scan is therefore red on chrome, and the same collision
+// would satisfy `requireCollisionSeed` on its own, masking a fixture that
+// stopped seeding a contact collision.
+// `change-panel.test.tsx` also narrows (to `tbody`) but is NOT an example of
+// this rule. It once was — that panel reused one translation string across a
+// toolbar filter select and a sortable-header button — but §261 gave the two
+// distinct strings, so that collision no longer exists. Read the reason
+// recorded AT its narrowing, which is a different and weaker one (keeping the
+// assertion about row identity), not the confirmed-collision case this
+// paragraph governs.
 // `milestones-panel.test.tsx` uses whole-container because its Status column
 // is a plain non-sortable `<th>` with no such collision to dodge.
 import { expect } from "vitest";
