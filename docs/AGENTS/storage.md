@@ -182,6 +182,11 @@ A synchronous localStorage copy of the unconfirmed outgoing workspace:
   Anything else raises the `unloadJournalConflict` notice: Restore anyway (`restoreConflict`, from
   an in-memory copy) or Discard (`discardConflict`).
 - A popout never journals or restores.
+- **Journals under other keys (§632).** Once per page, after the first load has run its own restore,
+  journals under other keys that are older than 30 days (`UNLOAD_JOURNAL_MAX_AGE_MS`) are removed and
+  announced in a notice (`OtherJournalsBanner` in `notifications.tsx`); the rest are listed there with
+  Download (the record's workspace JSON, which the Step 0 import reads) and Discard. The key in scope is
+  never expired, and a key whose restore already ran on this page is not listed (`use-other-journals.ts`).
 
 ★★ **What is verified, exactly as the register says.** §629 is MEASURED only on Chromium with
 IndexedDB (`e2e/pagehide-draft-persist.spec.ts`). The packaged desktop window close and real-browser
