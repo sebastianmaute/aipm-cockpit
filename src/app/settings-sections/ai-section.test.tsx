@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { useState } from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AiSection } from "./ai-section";
 import { defaultSettings as baseSettings, type Settings } from "../settings-types";
@@ -17,7 +17,9 @@ import {
 // (default OFF). These tests exercise the expanded config, so flip it on.
 const defaultSettings = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true } };
 import { t } from "../i18n";
-import { readDeviceSecret, isPassphraseLocked } from "../secrets-store";
+import { readDeviceSecret, isPassphraseLocked, loadSealed } from "../secrets-store";
+import * as secrets from "../secrets";
+import { type SealedSecret, sealDevice } from "../secrets";
 import { ToastProvider } from "../toast-context";
 import { expectExactLabelNames, expectNoHintInNamingLabel } from "../../test/hint-label";
 
@@ -559,5 +561,32 @@ describe("AiSection API-key validation", () => {
     fireEvent.change(input, { target: { value: "sk-ant-api03-AbC123_def-456GHI789jkl" } });
     fireEvent.blur(input);
     expect(showToast).not.toHaveBeenCalled();
+  });
+
+  // §609: the typed key's device seal is still awaiting WebCrypto when the blur discards the key
+  // (removeSealed). The late seal must neither write the ciphertext back nor re-arm "stored".
+  it("a key cleared while its seal is in flight stays cleared when the seal lands", async () => {
+    const validKey = "sk-ant-api03-race0000000000000";
+    const sealed = await sealDevice("anthropicApiKey", validKey); // real ciphertext, before the spy
+    let releaseSeal: (s: SealedSecret) => void = () => {};
+    vi.spyOn(secrets, "sealDevice").mockReturnValueOnce(
+      new Promise<SealedSecret>((r) => {
+        releaseSeal = r;
+      }),
+    );
+    renderAi();
+    const input = screen.getByPlaceholderText("sk-ant-...");
+    fireEvent.change(input, { target: { value: validKey } }); // seal starts, held open
+    expect(secrets.sealDevice).toHaveBeenCalledWith("anthropicApiKey", validKey);
+    fireEvent.change(input, { target: { value: "garbage-key" } });
+    fireEvent.blur(input); // discards the key → removeSealed
+
+    await act(async () => {
+      releaseSeal(sealed);
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(loadSealed("anthropicApiKey")).toBeNull();
+    expect(screen.queryByRole("button", { name: /remove stored secret/i })).toBeNull();
   });
 });

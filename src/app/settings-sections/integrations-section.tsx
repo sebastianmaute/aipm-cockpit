@@ -374,7 +374,12 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       removeSealed("tursoAuthToken");
       setTokenStored(false);
     } else if (tokenChanged && tokenWrap === "device") {
-      trackTokenSeal(saveSecretValue("tursoAuthToken", tokenValue, "device").then(() => setTokenStored(true)));
+      // §609: a seal superseded by a clear or a newer commit resolves false — no "stored" flag.
+      trackTokenSeal(
+        saveSecretValue("tursoAuthToken", tokenValue, "device").then((stored) => {
+          if (stored) setTokenStored(true);
+        }),
+      );
     } else if (tokenChanged && tursoIsLive && passphraseReady) {
       trackTokenSeal(sealUnderTypedPassphrase(tokenValue));
     }
@@ -390,8 +395,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   //   passphrase opens it (`typedPassphraseOpensRecord`), so a mistyped or different passphrase
   //   cannot silently become the new one — "Save passphrase" stays the only way to CHANGE it.
   async function sealUnderTypedPassphrase(token: string) {
-    await setSecretPassphrase("tursoAuthToken", token, tokenPassphrase);
-    setTokenStored(true);
+    if (await setSecretPassphrase("tursoAuthToken", token, tokenPassphrase)) setTokenStored(true);
     setTokenPassphrase("");
     setTokenConfirm("");
   }
@@ -640,8 +644,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     // secret. Either way flip wrap to device so the checkbox actually toggles.
     trackTokenSeal((async () => {
       if ((sealableTursoToken ?? "").trim()) {
-        await saveSecretValue("tursoAuthToken", sealableTursoToken ?? "", "device");
-        setTokenStored(true);
+        if (await saveSecretValue("tursoAuthToken", sealableTursoToken ?? "", "device")) setTokenStored(true);
       } else if (isPassphraseLocked("tursoAuthToken")) {
         removeSealed("tursoAuthToken");
         setTokenStored(false);
@@ -654,8 +657,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
 
   function handleTokenLockConfirm() {
     trackTokenSeal((async () => {
-      await setSecretPassphrase("tursoAuthToken", sealableTursoToken ?? "", tokenPassphrase);
-      setTokenStored(true);
+      if (await setSecretPassphrase("tursoAuthToken", sealableTursoToken ?? "", tokenPassphrase)) setTokenStored(true);
       setTokenPassphrase("");
       setTokenConfirm("");
     })());

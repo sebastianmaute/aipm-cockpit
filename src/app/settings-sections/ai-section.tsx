@@ -111,7 +111,10 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   function handleApiKeyChange(value: string) {
     onChange({ ...settings, ai: { ...settings.ai, apiKey: value } });
     if (keyWrap === "device" && isValidAnthropicApiKey(value)) {
-      void saveSecretValue("anthropicApiKey", value, "device").then(() => setKeyStored(true));
+      // §609: a seal superseded by a later keystroke or a clear resolves false — no "stored" flag.
+      void saveSecretValue("anthropicApiKey", value, "device").then((stored) => {
+        if (stored) setKeyStored(true);
+      });
     }
   }
 
@@ -142,8 +145,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
     // (the old early-return left it stuck checked when the key was locked).
     void (async () => {
       if (settings.ai.apiKey.trim()) {
-        await saveSecretValue("anthropicApiKey", settings.ai.apiKey, "device");
-        setKeyStored(true);
+        if (await saveSecretValue("anthropicApiKey", settings.ai.apiKey, "device")) setKeyStored(true);
       } else if (isPassphraseLocked("anthropicApiKey")) {
         removeSealed("anthropicApiKey");
         setKeyStored(false);
@@ -162,8 +164,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       return;
     }
     void (async () => {
-      await setSecretPassphrase("anthropicApiKey", settings.ai.apiKey, keyPassphrase);
-      setKeyStored(true);
+      if (await setSecretPassphrase("anthropicApiKey", settings.ai.apiKey, keyPassphrase)) setKeyStored(true);
       setKeyPassphrase("");
       setKeyConfirm("");
     })();

@@ -40,7 +40,10 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
   function handleSttKeyBlur() {
     const v = (settings.dictation?.sttApiKey ?? "").trim();
     if (v) {
-      void saveSecretValue("sttApiKey", v, "device").then(() => setSttKeyStored(true));
+      // §609: a seal superseded by a clear or a newer save resolves false — no "stored" flag.
+      void saveSecretValue("sttApiKey", v, "device").then((stored) => {
+        if (stored) setSttKeyStored(true);
+      });
     } else if (sttKeyStored) {
       removeSealed("sttApiKey");
       setSttKeyStored(false);

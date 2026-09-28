@@ -65,9 +65,9 @@ const applyLabel = t("en-US", "integrationsTursoApplyLabel");
 
 beforeEach(() => {
   vi.mocked(saveSecretValue).mockReset();
-  vi.mocked(saveSecretValue).mockResolvedValue(undefined);
+  vi.mocked(saveSecretValue).mockResolvedValue(true);
   vi.mocked(setSecretPassphrase).mockReset();
-  vi.mocked(setSecretPassphrase).mockResolvedValue(undefined);
+  vi.mocked(setSecretPassphrase).mockResolvedValue(true);
   localStorage.clear();
 });
 afterEach(async () => {
@@ -183,7 +183,7 @@ describe("A5 — Save & switch applies the drafts and waits (bounded) for the to
   it("an applied token's pending seal holds the reload until it resolves (M5)", async () => {
     const user = userEvent.setup();
     let release: () => void = () => {};
-    vi.mocked(saveSecretValue).mockReturnValueOnce(new Promise<void>((r) => { release = r; }));
+    vi.mocked(saveSecretValue).mockReturnValueOnce(new Promise<boolean>((r) => { release = () => r(true); }));
     render(<Controlled />);
 
     await user.type(tokenField(), "2");
@@ -232,7 +232,7 @@ describe("A5 — Save & switch applies the drafts and waits (bounded) for the to
   it("a seal that never settles delays the reload by SECRET_MERGE_TIMEOUT_MS at most (MA5)", async () => {
     vi.useFakeTimers();
     let release: () => void = () => {};
-    vi.mocked(saveSecretValue).mockReturnValueOnce(new Promise<void>((r) => { release = r; }));
+    vi.mocked(saveSecretValue).mockReturnValueOnce(new Promise<boolean>((r) => { release = () => r(true); }));
     try {
       render(<Controlled />);
       fireEvent.change(tokenField(), { target: { value: "tok5" } });

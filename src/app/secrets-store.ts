@@ -42,9 +42,45 @@ export function saveSealed(sealed: SealedSecret): void {
   writeStore(s);
 }
 export function removeSealed(id: SecretId): void {
+  bumpGeneration(id);
   const s = readStore();
   delete s[id];
   writeStore(s);
+}
+
+// ★★ §609 — A LATE SEAL MUST NEVER RESURRECT A CLEARED SECRET. A seal awaits WebCrypto (and, for
+//   a passphrase, PBKDF2) BEFORE it writes, and the settings fields fire one per keystroke without
+//   awaiting it. A clear (`removeSealed`) is synchronous, so a seal still in flight used to land
+//   AFTER it and write the old ciphertext back; two keystrokes could also land out of order.
+// ★ So every write carries a per-id GENERATION: `beginSealedWrite` bumps it and hands back a commit
+//   that writes only if nothing bumped it since. The newest START wins, whichever seal finishes
+//   first. The counter lives HERE, not in use-secrets, so EVERY clear from any caller (settings
+//   sections, jira/timelog settings, a factory reset) cancels in-flight seals without having to
+//   know they exist. `saveSealed` stays the raw writer and does NOT bump (see the migration).
+const writeGenerations = new Map<SecretId, number>();
+
+function bumpGeneration(id: SecretId): number {
+  const next = (writeGenerations.get(id) ?? 0) + 1;
+  writeGenerations.set(id, next);
+  return next;
+}
+
+/** Start a sealed write for `id`: call it BEFORE the seal's await. The returned commit stores
+ *  the sealed value and returns true — or, when a newer write or a clear for the same id began
+ *  in the meantime, writes nothing and returns false. */
+export function beginSealedWrite(id: SecretId): (sealed: SealedSecret) => boolean {
+  const generation = bumpGeneration(id);
+  return (sealed) => {
+    if (writeGenerations.get(id) !== generation) return false;
+    saveSealed(sealed);
+    return true;
+  };
+}
+
+/** Cancel every sealed write in flight, for every id. For callers that wipe the store without
+ *  going through `removeSealed` (the factory reset clears the whole `aipm-cockpit:*` prefix). */
+export function invalidateAllSealedWrites(): void {
+  for (const id of SECRET_IDS) bumpGeneration(id);
 }
 export function isPassphraseLocked(id: SecretId): boolean {
   return loadSealed(id)?.wrap === "passphrase";

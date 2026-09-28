@@ -1,6 +1,8 @@
 import "fake-indexeddb/auto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { clearAppConfig, resetAppToCleanSlate } from "./app-reset";
+import { beginSealedWrite, SECRETS_KEY } from "./secrets-store";
+import { sealDevice } from "./secrets";
 
 afterEach(() => {
   localStorage.clear();
@@ -34,6 +36,19 @@ describe("clearAppConfig", () => {
     expect(spy).toHaveBeenCalledWith("aipm-cockpit-project-handles");
     // The workspace data store is NEVER deleted (detach-only).
     expect(spy).not.toHaveBeenCalledWith("aipm-cockpit");
+  });
+});
+
+// §609 — `clearAppConfig` removes the secrets key directly (not via `removeSealed`), and the
+// reload that follows does not stop a WebCrypto continuation already queued, so it must also
+// cancel every seal in flight.
+describe("clearAppConfig vs a seal in flight (§609)", () => {
+  it("a seal that began before the reset never writes the secrets key back", async () => {
+    const sealed = await sealDevice("anthropicApiKey", "sk-1");
+    const commit = beginSealedWrite("anthropicApiKey");
+    clearAppConfig();
+    expect(commit(sealed)).toBe(false);
+    expect(localStorage.getItem(SECRETS_KEY)).toBeNull();
   });
 });
 

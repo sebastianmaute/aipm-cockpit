@@ -10,6 +10,8 @@
 // Projects are *detached* (the registry pointer is cleared) — not deleted — so
 // the user can re-open them later via Load / Create.
 
+import { invalidateAllSealedWrites } from "./secrets-store";
+
 const LOP_APP_PREFIX = "aipm-cockpit:";
 /** IndexedDB databases a full reset removes. These hold CONFIG, not project
  *  data: the non-extractable secrets device key, and saved File-System-Access
@@ -24,6 +26,11 @@ const CONFIG_DBS = ["aipm-cockpit-secrets", "aipm-cockpit-project-handles"] as c
 export function clearAppConfig(): void {
   if (typeof window === "undefined" || !window.localStorage) return;
   const store = window.localStorage;
+  // ★ §609 — the sweep below removes the secrets key directly, not via `removeSealed`, and the
+  //   reload that follows is a navigation, not a stop: a seal whose WebCrypto continuation is
+  //   already queued would still commit and write the key back (a passphrase-sealed one would
+  //   even survive the device-key delete). Cancel every seal in flight first.
+  invalidateAllSealedWrites();
   // Snapshot the keys first — removing during iteration shifts indices.
   const keys: string[] = [];
   for (let i = 0; i < store.length; i += 1) {
