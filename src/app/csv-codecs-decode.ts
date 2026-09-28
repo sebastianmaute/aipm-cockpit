@@ -630,7 +630,12 @@ function csvToRaid(csv: string, diag?: ImportDiag): RaidItem[] {
 }
 
 /** Parses all sections out of a (possibly section-marked) CSV string. Pass an
- *  optional {@link ImportDiag} to count rows rejected as malformed. */
+ *  optional {@link ImportDiag} to count rows rejected as malformed.
+ *
+ *  ★ §630: the same accumulator collects `decodeFailedSlices` — every meta
+ *  decoder below (status, project and the eleven `config,<json>` blobs)
+ *  receives `diag` and records a slice it could not keep, as jsonToWorkspace
+ *  does since §620. */
 export function csvToWorkspace(csv: string, diag?: ImportDiag): Workspace {
   const s = splitCsvSections(csv, diag);
   const ws: Workspace = {
@@ -646,39 +651,39 @@ export function csvToWorkspace(csv: string, diag?: ImportDiag): Workspace {
     plan: (s.planText.trim() && parsePlanLine(s.planText)) || defaultResourcePlan(new Date().toISOString().slice(0, 10)),
     budgets: s.budgetsText.trim() ? csvToBudgets(s.budgetsText, diag) : [],
     fxRates: s.fxRatesText.trim() ? parseFxRatesLine(s.fxRatesText.split(/\r?\n/).find((l) => l.trim() && !l.startsWith("#")) ?? "") : null,
-    status: s.statusText.trim() ? csvToStatus(s.statusText) : {},
+    status: s.statusText.trim() ? csvToStatus(s.statusText, diag) : {},
     milestones: s.milestonesText.trim() ? csvToMilestones(s.milestonesText, diag) : [],
     changes: s.changesText.trim() ? csvToChanges(s.changesText, diag) : [],
     stakeholders: s.stakeholdersText.trim() ? csvToStakeholders(s.stakeholdersText, diag) : [],
   };
-  const project = s.projectText.trim() ? csvToProject(s.projectText) : null;
+  const project = s.projectText.trim() ? csvToProject(s.projectText, diag) : null;
   if (project) ws.project = project;
   if (s.fieldVisText.trim()) {
-    const fv = csvToFieldVisibility(s.fieldVisText);
+    const fv = csvToFieldVisibility(s.fieldVisText, diag);
     if (fv) ws.fieldVisibility = fv;
   }
   if (s.functionsText.trim()) {
-    const f = csvToFeatures(s.functionsText);
+    const f = csvToFeatures(s.functionsText, diag);
     if (f !== undefined) ws.features = f;
   }
   if (s.steeringText.trim()) {
-    const sc = csvToSteeringCommittee(s.steeringText);
+    const sc = csvToSteeringCommittee(s.steeringText, diag);
     if (sc) ws.steeringCommittee = sc;
   }
   if (s.timelogLinksText.trim()) {
-    const tl = csvToTimelogLinks(s.timelogLinksText);
+    const tl = csvToTimelogLinks(s.timelogLinksText, diag);
     if (tl) ws.timelogLinks = tl;
   }
   if (s.knowledgeItemsText.trim()) {
-    const ki = csvToKnowledgeItems(s.knowledgeItemsText);
+    const ki = csvToKnowledgeItems(s.knowledgeItemsText, diag);
     if (ki) ws.knowledgeItems = ki;
   }
   if (s.insightsText.trim()) {
-    const ins = csvToInsights(s.insightsText);
+    const ins = csvToInsights(s.insightsText, diag);
     if (ins) ws.insights = ins;
   }
   if (s.settingsOverridesText.trim()) {
-    const so = csvToSettingsOverrides(s.settingsOverridesText);
+    const so = csvToSettingsOverrides(s.settingsOverridesText, diag);
     if (so) ws.settingsOverrides = so;
   }
   if (s.documentsText.trim()) {
@@ -697,11 +702,11 @@ export function csvToWorkspace(csv: string, diag?: ImportDiag): Workspace {
     if (assets.length) ws.documentAssets = assets;
   }
   if (s.activityLogText.trim()) {
-    const log = csvToActivityLog(s.activityLogText);
+    const log = csvToActivityLog(s.activityLogText, diag);
     if (log) ws.activityLog = log;
   }
   if (s.budgetHistoryText.trim()) {
-    const history = csvToBudgetHistory(s.budgetHistoryText);
+    const history = csvToBudgetHistory(s.budgetHistoryText, diag);
     if (history) ws.budgetHistory = history;
   }
   return migrateWorkspaceV10(ws);

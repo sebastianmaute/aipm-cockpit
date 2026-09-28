@@ -80,6 +80,7 @@ import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersionsWithDiag, type DocVersion } from "./document-versions";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
+import { decodeMetaJson, noteIfSanitizedToNothing } from "./meta-slice-decode";
 
 // --- Project Status CSV encoder / decoder ------------------------------------
 
@@ -97,14 +98,20 @@ export function statusToCsv(status: ProjectStatus, neutralize = false): string {
   return rows.join("\r\n");
 }
 
-export function csvToStatus(text: string): ProjectStatus {
+export function csvToStatus(text: string, diag?: DocTruncationDiag): ProjectStatus {
   const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] && !r[0].startsWith("#"));
   const map: Record<string, string> = {};
   for (const [k, v] of rows) {
     if (k === "field") continue; // header row
     map[k] = v;
   }
-  return sanitizeProjectStatus(map);
+  const status = sanitizeProjectStatus(map);
+  // ★ §630: status is always returned (a drop leaves {}, as before), but a row
+  // map that carried a value and kept none is still recorded — the next save
+  // writes that {} over whatever the file held. Same rule as jsonToWorkspace's
+  // status; a blank `narrative,` row carries nothing and stays silent.
+  noteIfSanitizedToNothing("status", map, status, diag);
+  return status;
 }
 
 // --- Field-visibility encoder / decoder --------------------------------------
@@ -118,14 +125,13 @@ export function fieldVisibilityToCsv(cfg: FieldVisibilityConfig, neutralize = fa
   return ["config", csvCellEscape(JSON.stringify(cfg), neutralize)].join(",");
 }
 
-export function csvToFieldVisibility(text: string): FieldVisibilityConfig | undefined {
+export function csvToFieldVisibility(text: string, diag?: DocTruncationDiag): FieldVisibilityConfig | undefined {
   const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
   if (rows.length === 0) return undefined;
-  try {
-    return sanitizeFieldVisibility(JSON.parse(rows[0][1]));
-  } catch {
-    return undefined;
-  }
+  // ★ §630: every `config,<json>` blob decoder below goes through
+  // `decodeMetaJson`, which records the slice's key when the JSON does not
+  // parse or sanitizes to nothing — the swallowed `catch` used to lose both.
+  return decodeMetaJson(rows[0][1], sanitizeFieldVisibility, "fieldVisibility", diag);
 }
 
 // --- Per-project feature-module list encoder / decoder -----------------------
@@ -139,14 +145,10 @@ export function featuresToCsv(features: readonly FeatureModuleId[], neutralize =
   return ["config", csvCellEscape(JSON.stringify(features), neutralize)].join(",");
 }
 
-export function csvToFeatures(text: string): FeatureModuleId[] | undefined {
+export function csvToFeatures(text: string, diag?: DocTruncationDiag): FeatureModuleId[] | undefined {
   const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
   if (rows.length === 0) return undefined;
-  try {
-    return sanitizeFeatures(JSON.parse(rows[0][1]));
-  } catch {
-    return undefined;
-  }
+  return decodeMetaJson(rows[0][1], sanitizeFeatures, "features", diag);
 }
 
 // --- Steering-committee encoder / decoder ------------------------------------
@@ -160,14 +162,10 @@ export function steeringCommitteeToCsv(committee: SteeringCommittee, neutralize 
   return ["config", csvCellEscape(JSON.stringify(committee), neutralize)].join(",");
 }
 
-export function csvToSteeringCommittee(text: string): SteeringCommittee | undefined {
+export function csvToSteeringCommittee(text: string, diag?: DocTruncationDiag): SteeringCommittee | undefined {
   const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
   if (rows.length === 0) return undefined;
-  try {
-    return sanitizeSteeringCommittee(JSON.parse(rows[0][1]));
-  } catch {
-    return undefined;
-  }
+  return decodeMetaJson(rows[0][1], sanitizeSteeringCommittee, "steeringCommittee", diag);
 }
 
 // --- Timelog-links encoder / decoder -----------------------------------------
@@ -176,14 +174,10 @@ export function timelogLinksToCsv(links: TimelogLinks, neutralize = false): stri
   return ["config", csvCellEscape(JSON.stringify(links), neutralize)].join(",");
 }
 
-export function csvToTimelogLinks(text: string): TimelogLinks | undefined {
+export function csvToTimelogLinks(text: string, diag?: DocTruncationDiag): TimelogLinks | undefined {
   const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
   if (rows.length === 0) return undefined;
-  try {
-    return sanitizeTimelogLinks(JSON.parse(rows[0][1]));
-  } catch {
-    return undefined;
-  }
+  return decodeMetaJson(rows[0][1], sanitizeTimelogLinks, "timelogLinks", diag);
 }
 
 // --- Settings-overrides encoder / decoder ------------------------------------
@@ -197,15 +191,18 @@ export function settingsOverridesToCsv(overrides: SettingsOverrides, neutralize 
   return ["config", csvCellEscape(JSON.stringify(overrides), neutralize)].join(",");
 }
 
-export function csvToSettingsOverrides(text: string): SettingsOverrides | undefined {
+export function csvToSettingsOverrides(text: string, diag?: DocTruncationDiag): SettingsOverrides | undefined {
   const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
   if (rows.length === 0) return undefined;
-  try {
-    const o = sanitizeSettingsOverrides(JSON.parse(rows[0][1]));
-    return hasAnyOverride(o) ? o : undefined;
-  } catch {
-    return undefined;
-  }
+  return decodeMetaJson(rows[0][1], sanitizeOverridesOrNone, "settingsOverrides", diag);
+}
+
+/** ★ Folds an override-less result to undefined INSIDE the sanitize step, so an
+ *  all-junk override counts as "sanitized to nothing" — the judgement
+ *  jsonToWorkspace makes for this slice. Shared with the Markdown decoder. */
+export function sanitizeOverridesOrNone(raw: unknown): SettingsOverrides | undefined {
+  const o = sanitizeSettingsOverrides(raw);
+  return hasAnyOverride(o) ? o : undefined;
 }
 
 // --- Standalone knowledge-items encoder / decoder ----------------------------
@@ -218,15 +215,11 @@ export function knowledgeItemsToCsv(items: readonly KnowledgeItem[], neutralize 
   return ["config", csvCellEscape(JSON.stringify(items), neutralize)].join(",");
 }
 
-export function csvToKnowledgeItems(text: string): KnowledgeItem[] | undefined {
+export function csvToKnowledgeItems(text: string, diag?: DocTruncationDiag): KnowledgeItem[] | undefined {
   const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
   if (rows.length === 0) return undefined;
-  try {
-    const items = sanitizeKnowledgeItems(JSON.parse(rows[0][1]));
-    return items.length ? items : undefined;
-  } catch {
-    return undefined;
-  }
+  const items = decodeMetaJson(rows[0][1], sanitizeKnowledgeItems, "knowledgeItems", diag);
+  return items?.length ? items : undefined;
 }
 
 // --- Insights encoder / decoder ----------------------------------------------
@@ -238,15 +231,11 @@ export function insightsToCsv(insights: readonly Insight[], neutralize = false):
   return ["config", csvCellEscape(JSON.stringify(insights), neutralize)].join(",");
 }
 
-export function csvToInsights(text: string): Insight[] | undefined {
+export function csvToInsights(text: string, diag?: DocTruncationDiag): Insight[] | undefined {
   const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
   if (rows.length === 0) return undefined;
-  try {
-    const ins = sanitizeInsights(JSON.parse(rows[0][1]));
-    return ins.length ? ins : undefined;
-  } catch {
-    return undefined;
-  }
+  const ins = decodeMetaJson(rows[0][1], sanitizeInsights, "insights", diag);
+  return ins?.length ? ins : undefined;
 }
 
 // --- Documents encoder / decoder ---------------------------------------------
@@ -270,35 +259,37 @@ export function csvToDocuments(
 ): ProjectDocument[] | undefined {
   const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
   if (rows.length === 0) return undefined;
-  try {
-    // ★★★ TWO PASSES, and the second one is not optional. sanitizeProjectDocuments
-    // is DOM-FREE BY CONTRACT, so it enforces STRUCTURE and cannot strip markup;
-    // sanitizeDocumentRichFields applies the paragraph HTML allow-list. CSV and
-    // Markdown were the only two of the six load paths missing this, which left
-    // the same document decoding to different in-memory HTML depending on the
-    // backend it came from — and a CSV→JSON migration then WROTE the unfiltered
-    // markup into a backend that would have cleaned it.
-    // ★★ THIS MAKES THE DECODE PATH DOM-DEPENDENT, and the failure mode is
-    // SILENT. Measured both ways with the generator's exact arrangement: with
-    // JSDOM installed first, documents decode and come back sanitized; with no
-    // DOM the DOMPurify call throws, the catch below swallows it, and documents
-    // decode to UNDEFINED — dropped whole, no error, no diagnostic. The
-    // generator, regen-golden-fixtures.ts and sample-link-exports.ts install
-    // JSDOM into globalThis BEFORE they dynamically import src/app. But two
-    // scripts reach this module with NO DOM: update-ooxml-manifest.ts (via
-    // storage) and ai-eval.ts (via turso-schema). Nobody has checked whether
-    // either decodes a CSV; if one does, it silently loses every document
-    // (open-followups §624). A new bare-node importer must install a DOM first.
-    // ★ `diag` records what the MAX_DOCUMENTS cap silently discarded, so an
-    // over-cap file can tell the user before the next autosave writes the
-    // truncation back (open-followups §103).
-    const docs = sanitizeProjectDocumentsWithDiag(JSON.parse(rows[0][1]), diag).map(
-      sanitizeDocumentRichFields,
-    );
-    return docs.length ? docs : undefined;
-  } catch {
-    return undefined;
-  }
+  // ★★★ TWO PASSES, and the second one is not optional. sanitizeProjectDocuments
+  // is DOM-FREE BY CONTRACT, so it enforces STRUCTURE and cannot strip markup;
+  // sanitizeDocumentRichFields applies the paragraph HTML allow-list. CSV and
+  // Markdown were the only two of the six load paths missing this, which left
+  // the same document decoding to different in-memory HTML depending on the
+  // backend it came from — and a CSV→JSON migration then WROTE the unfiltered
+  // markup into a backend that would have cleaned it.
+  // ★★ THIS MAKES THE DECODE PATH DOM-DEPENDENT, and the failure mode is
+  // SILENT. Measured both ways with the generator's exact arrangement: with
+  // JSDOM installed first, documents decode and come back sanitized; with no
+  // DOM the DOMPurify call throws, the catch in `decodeMetaJson` swallows it,
+  // and documents decode to UNDEFINED — dropped whole, no error, and (since
+  // §630) reported only through `diag.decodeFailedSlices` when a caller passes
+  // one. The generator, regen-golden-fixtures.ts and sample-link-exports.ts
+  // install JSDOM into globalThis BEFORE they dynamically import src/app. But
+  // two scripts reach this module with NO DOM: update-ooxml-manifest.ts (via
+  // storage) and ai-eval.ts (via turso-schema). Nobody has checked whether
+  // either decodes a CSV; if one does, it silently loses every document
+  // (open-followups §624). A new bare-node importer must install a DOM first.
+  // ★ `diag` records what the MAX_DOCUMENTS cap silently discarded, so an
+  // over-cap file can tell the user before the next autosave writes the
+  // truncation back (open-followups §103). Since §630 it also records
+  // `documents` when the blob does not parse, the rich-field pass throws, or
+  // the list sanitizes to nothing.
+  const docs = decodeMetaJson(
+    rows[0][1],
+    (raw) => sanitizeProjectDocumentsWithDiag(raw, diag).map(sanitizeDocumentRichFields),
+    "documents",
+    diag,
+  );
+  return docs?.length ? docs : undefined;
 }
 
 // --- Document version history encoder / decoder ------------------------------
@@ -319,39 +310,43 @@ export function csvToDocumentVersions(
 ): DocVersion[] | undefined {
   const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
   if (rows.length === 0) return undefined;
-  try {
-    // ★★★ TWO PASSES, same shape as csvToDocuments above: sanitizeDocumentVersions
-    // is DOM-FREE BY CONTRACT (enforces structure only, delegating block/title
-    // shape to sanitizeProjectDocuments), so sanitizeDocumentRichFields still has
-    // to run separately to apply the paragraph HTML allow-list. A version has no
-    // independent createdAt/updatedAt, so it is passed through a synthetic
-    // ProjectDocument-shaped wrapper with savedAt standing in for both — mirrors
-    // the JSON path's load boundary (workspace.ts).
-    // ★★ THIS MAKES THE DECODE PATH DOM-DEPENDENT, and the failure mode is
-    // SILENT, exactly like csvToDocuments: without a DOM the rich-field pass
-    // throws, the catch below swallows it, and history decodes to UNDEFINED —
-    // dropped whole, no error, no diagnostic. The generator,
-    // regen-golden-fixtures.ts and sample-link-exports.ts install JSDOM before
-    // importing src/app, but update-ooxml-manifest.ts and ai-eval.ts reach this
-    // module with NO DOM (see csvToDocuments above and open-followups §624); a
-    // decode there would silently lose every version.
-    // ★ Same accumulator as csvToDocuments above, but here it fills
-    // `truncatedBlocks` — a version can never trip the DOCUMENT cap, since
-    // sanitizeDocumentVersions sanitizes one version at a time.
-    const versions = sanitizeDocumentVersionsWithDiag(JSON.parse(rows[0][1]), diag).map((v) => ({
-      ...v,
-      blocks: sanitizeDocumentRichFields({
-        id: v.documentId,
-        title: v.title,
-        blocks: v.blocks,
-        createdAt: v.savedAt,
-        updatedAt: v.savedAt,
-      }).blocks,
-    }));
-    return versions.length ? versions : undefined;
-  } catch {
-    return undefined;
-  }
+  // ★★★ TWO PASSES, same shape as csvToDocuments above: sanitizeDocumentVersions
+  // is DOM-FREE BY CONTRACT (enforces structure only, delegating block/title
+  // shape to sanitizeProjectDocuments), so sanitizeDocumentRichFields still has
+  // to run separately to apply the paragraph HTML allow-list. A version has no
+  // independent createdAt/updatedAt, so it is passed through a synthetic
+  // ProjectDocument-shaped wrapper with savedAt standing in for both — mirrors
+  // the JSON path's load boundary (workspace.ts).
+  // ★★ THIS MAKES THE DECODE PATH DOM-DEPENDENT, and the failure mode is
+  // SILENT, exactly like csvToDocuments: without a DOM the rich-field pass
+  // throws, the catch in `decodeMetaJson` swallows it, and history decodes to
+  // UNDEFINED — dropped whole, no error, and (since §630) reported only through
+  // `diag.decodeFailedSlices` when a caller passes one. The generator,
+  // regen-golden-fixtures.ts and sample-link-exports.ts install JSDOM before
+  // importing src/app, but update-ooxml-manifest.ts and ai-eval.ts reach this
+  // module with NO DOM (see csvToDocuments above and open-followups §624); a
+  // decode there would silently lose every version.
+  // ★ Same accumulator as csvToDocuments above, but here it fills
+  // `truncatedBlocks` — a version can never trip the DOCUMENT cap, since
+  // sanitizeDocumentVersions sanitizes one version at a time — and, since
+  // §630, `decodeFailedSlices` under `documentVersions`.
+  const versions = decodeMetaJson(
+    rows[0][1],
+    (raw) =>
+      sanitizeDocumentVersionsWithDiag(raw, diag).map((v) => ({
+        ...v,
+        blocks: sanitizeDocumentRichFields({
+          id: v.documentId,
+          title: v.title,
+          blocks: v.blocks,
+          createdAt: v.savedAt,
+          updatedAt: v.savedAt,
+        }).blocks,
+      })),
+    "documentVersions",
+    diag,
+  );
+  return versions?.length ? versions : undefined;
 }
 
 // --- Activity log encoder / decoder ------------------------------------------
@@ -372,15 +367,11 @@ export function activityLogToCsv(log: readonly ActivityEntry[], neutralize = fal
   return ["config", csvCellEscape(JSON.stringify(log), neutralize)].join(",");
 }
 
-export function csvToActivityLog(text: string): ActivityEntry[] | undefined {
+export function csvToActivityLog(text: string, diag?: DocTruncationDiag): ActivityEntry[] | undefined {
   const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
   if (rows.length === 0) return undefined;
-  try {
-    const log = sanitizeActivityLog(JSON.parse(rows[0][1]));
-    return log.length ? log : undefined;
-  } catch {
-    return undefined;
-  }
+  const log = decodeMetaJson(rows[0][1], sanitizeActivityLog, "activityLog", diag);
+  return log?.length ? log : undefined;
 }
 
 // --- Budget history encoder / decoder ----------------------------------------
@@ -392,15 +383,11 @@ export function budgetHistoryToCsv(history: readonly BudgetHistoryEntry[], neutr
   return ["config", csvCellEscape(JSON.stringify(history), neutralize)].join(",");
 }
 
-export function csvToBudgetHistory(text: string): BudgetHistoryEntry[] | undefined {
+export function csvToBudgetHistory(text: string, diag?: DocTruncationDiag): BudgetHistoryEntry[] | undefined {
   const row = parseCsv(text).find((r) => r.length >= 2 && r[0] === "config");
   if (!row) return undefined;
-  try {
-    const history = sanitizeBudgetHistory(JSON.parse(row[1]));
-    return history.length ? history : undefined;
-  } catch {
-    return undefined;
-  }
+  const history = decodeMetaJson(row[1], sanitizeBudgetHistory, "budgetHistory", diag);
+  return history?.length ? history : undefined;
 }
 
 // --- Project metadata encoder / decoder --------------------------------------
@@ -632,14 +619,18 @@ export function projectToCsv(project: ProjectMeta, neutralize = false): string {
   return rows.join("\r\n");
 }
 
-export function csvToProject(text: string): ProjectMeta | null {
+export function csvToProject(text: string, diag?: DocTruncationDiag): ProjectMeta | null {
   const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] && !r[0].startsWith("#"));
   const map: Record<string, string> = {};
   for (const [k, v] of rows) {
     if (k === "field") continue; // header row
     map[k] = v;
   }
-  return buildProjectFromObj(map);
+  const project = buildProjectFromObj(map);
+  // ★ §630: a whole-record reject (no name, an unknown naceSection) loses the
+  // project on the next save; recorded when the map carried anything.
+  noteIfSanitizedToNothing("project", map, project, diag);
+  return project;
 }
 
 /** Multi-section CSV: tasks then (optionally) raid, absences, and shifts,

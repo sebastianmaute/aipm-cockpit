@@ -10,6 +10,8 @@
 //  report pauses saving. So the rule compares the INPUT with the output: only
 //  a value that carried something, and lost all of it, is reported.
 
+import type { DocTruncationDiag } from "./document-model";
+
 /** True when a parsed JSON value carries anything a sanitizer could lose: a
  *  non-empty string, any number or boolean, or an array/object holding such a
  *  value at ANY depth. `null`, `""`, `[]`, `{}` and containers of only those
@@ -35,4 +37,54 @@ export function isEmptyDecoded(value: unknown): boolean {
 /** §617 — the stored value had content and the sanitizer kept none of it. */
 export function sanitizedToNothing(raw: unknown, sanitized: unknown): boolean {
   return hasDecodedContent(raw) && isEmptyDecoded(sanitized);
+}
+
+/** Only the accumulator field these helpers write. Structural, so both
+ *  `DocTruncationDiag` and the codecs' `ImportDiag` satisfy it. */
+export type DecodeFailureDiag = Pick<DocTruncationDiag, "decodeFailedSlices">;
+
+/** §630 — record `key` when `raw` had content and `sanitized` kept none. A
+ *  no-op without a `diag`. The table-shaped CSV/Markdown slices (status,
+ *  project) call this with the raw `field -> value` map as `raw`. */
+export function noteIfSanitizedToNothing(
+  key: string,
+  raw: unknown,
+  sanitized: unknown,
+  diag: DecodeFailureDiag | undefined,
+): void {
+  if (diag && sanitizedToNothing(raw, sanitized)) (diag.decodeFailedSlices ??= []).push(key);
+}
+
+/** §630 — decode ONE stored JSON meta slice, reporting what it could not keep.
+ *
+ * ★★★ THE CSV AND MARKDOWN CODECS SWALLOWED BOTH FAILURES. Each `csvTo*` /
+ *  `markdownTo*` blob decoder wrapped `sanitize(JSON.parse(cell))` in a bare
+ *  `catch { return undefined; }` and returned whatever the sanitizer gave, so
+ *  an unreadable slice and a junk one both vanished with no report, and the
+ *  next save rewrote the file without them — the loss §620 closed for JSON.
+ *  This records `key` into the SAME accumulator `jsonToWorkspace` uses, under
+ *  the same key names, so `lastDecodeFailures` pauses saving with no new
+ *  mechanism.
+ * ★★ ANY THROW COUNTS, not only `JSON.parse`'s: `sanitize` may run the
+ *  DOM-dependent rich-field pass (documents), and a throw there loses the
+ *  slice just the same. The return stays `undefined`, as it always was.
+ * ★ The result is returned UNFILTERED — callers keep their own "empty means
+ *  absent" post-processing (`ins.length ? ins : undefined`, …). */
+export function decodeMetaJson<T>(
+  json: string,
+  sanitize: (raw: unknown) => T,
+  key: string,
+  diag?: DecodeFailureDiag,
+): T | undefined {
+  let raw: unknown;
+  let sanitized: T;
+  try {
+    raw = JSON.parse(json);
+    sanitized = sanitize(raw);
+  } catch {
+    if (diag) (diag.decodeFailedSlices ??= []).push(key);
+    return undefined;
+  }
+  noteIfSanitizedToNothing(key, raw, sanitized, diag);
+  return sanitized;
 }
