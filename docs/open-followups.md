@@ -37614,7 +37614,8 @@ six" (corrected in place: it buys both Turso layouts), and §634, §635 and §63
 `fix/storage-followups`), with §637 filed open. `docs:symbols:check` and `docs:claims:check` pass over the
 page. A cold review checked its claims against the code and found three wrong (the `applyWorkspace`
 survival, a release version it could not know, and this entry's own AGENTS.md correction, which named the
-decoder as the writers' codec); all three were fixed before merge.
+decoder as the writers' codec) and four incomplete (the reproduce command's scope, the silent save gate,
+`withWriteLock`'s unlocked fallback, the `ensureColumns` retry); all were fixed in c5b14f59d.
 
 **Status before closure (2026-09-27):** open, narrowed 2026-09-27 to the storage/recovery page. `ls docs/AGENTS` now lists
 `budget.md`, `desktop.md` and `undo.md`, written on the `docs/coverage` branch, and still no storage

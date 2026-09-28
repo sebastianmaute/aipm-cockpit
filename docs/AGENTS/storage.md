@@ -116,7 +116,7 @@ Per path, verified in the code (register §617, §620, §630):
 | Turso relational (both layouts) | `rowsToWorkspace` → local `decodeMeta`, 13 slices (`grep -c 'decodeMeta("' src/app/turso-schema.ts`) | `reportUnreadableSlice`: `logDiag` + `noteDecodeFailure` |
 | Turso single-tenant legacy blob | `jsonToWorkspace(blob, { diag })`, NON-strict | as JSON non-strict, below |
 | IndexedDB | `BrowserBackend.load`, 12 keys via `noteIfDropped` (`grep -c 'noteIfDropped("' src/app/browser-backend.ts`); `status` is not sanitized there (§470) | a documents or versions throw: `logDiag` + `noteDecodeFailure` |
-| JSON file, SharePoint JSON | `jsonToWorkspace(text, { strict: true, diag })` (`grep -rn "strict: true, diag" src/app`) | sanitized-to-nothing: 13 keys via `noteIfDropped`; a documents or versions THROW: `logDiag` + `noteDecodeFailure` (§635, below) |
+| JSON file, SharePoint JSON | `jsonToWorkspace(text, { strict: true, diag })` (`grep -rn "strict: true, diag" src/app | grep -v test`) | sanitized-to-nothing: 13 keys via `noteIfDropped`; a documents or versions THROW: `logDiag` + `noteDecodeFailure` (§635, below) |
 | CSV / Markdown file, SharePoint CSV | `csvToWorkspace` / `markdownToWorkspace` → `decodeMetaJson` per slice | `noteDecodeFailure` only, no `logDiag` (`grep -n logDiag src/app/meta-slice-decode.ts` prints nothing) |
 
 ★★ **`strict` stays loud only without an accumulator (§635).** `jsonToWorkspace`'s documents and
