@@ -54,12 +54,16 @@ import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
 import { TestProviders } from "./test-providers";
 import { useStorageBackend } from "./use-storage-backend";
 import { useWorkspace } from "./workspace-context";
+import { seedDisciplines, seedGrades } from "./resource-foundation";
 
 const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
 
 const STORED = { tasks: [{ id: 1, taskName: "Stored" } as unknown as Task], raid: [], absences: [], shifts: [] };
 const STORED_B = { tasks: [{ id: 9, taskName: "Target" } as unknown as Task], raid: [], absences: [], shifts: [] };
 const EMPTY = { tasks: [], raid: [], absences: [], shifts: [] };
+/** §601 — what decoding a structurally valid, record-free file returns: no records, but the preset
+ *  reference lists that `migrateWorkspaceV5` seeds. */
+const SEED_ONLY = { ...EMPTY, disciplines: seedDisciplines(), grades: seedGrades() };
 const EDIT = [{ id: 1, taskName: "Stored" }, { id: 2, taskName: "Edited" }] as unknown as Task[];
 
 type FakeBackend = {
@@ -487,5 +491,71 @@ describe("§586 — no save before a load for the current backend has succeeded"
     await advance(600);
     expect(backend.save).toHaveBeenCalledTimes(1);
     expect(pausedToasts("storageSavePausedLoadFailed")).toHaveLength(0);
+  });
+});
+
+describe("§601 — a load holding only the seeded reference data counts as EMPTY", () => {
+  it("(a) a rebuild onto a SEED-ONLY target is refused like an empty one: scope kept, saves paused", async () => {
+    const a = makeBackend(100);
+    const b = makeBackend(100, "resolve", SEED_ONLY);
+    createBackendMock.mockReturnValueOnce(a).mockReturnValue(b);
+    const { result, rerender } = render();
+    await advance(700);
+
+    rerender({ args: makeArgs({ kind: "browser" }) });
+    await advance(700);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "storageKeptCurrentData"));
+    expect(result.current.loadPause).toBe("empty-refused");
+
+    await act(async () => { result.current.setTasks(EDIT); });
+    await advance(600);
+    expect(b.save).not.toHaveBeenCalled();
+    expect(a.save).not.toHaveBeenCalled();
+  });
+
+  it("(b) a load whose only content is knowledge items is NOT refused over a populated project", async () => {
+    const a = makeBackend(100);
+    const b = makeBackend(100, "resolve", { ...SEED_ONLY, knowledgeItems: [{ id: "k1", title: "Note" }] });
+    createBackendMock.mockReturnValueOnce(a).mockReturnValue(b);
+    const { result, rerender } = render();
+    await advance(700);
+
+    rerender({ args: makeArgs({ kind: "browser" }) });
+    await advance(700);
+    expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "storageKeptCurrentData"));
+    expect(result.current.loadPause).toBeNull();
+    expect(result.current.tasks).toEqual([]); // B's workspace applied
+  });
+
+  it("(b2) review I1 — scope whose only content isWorkspaceEmpty misses stays protected against an empty read", async () => {
+    // project meta is counted by neither predicate; only the seeded lists make this scope read as populated
+    const a = makeBackend(100, "resolve", { ...SEED_ONLY, project: { name: "Only a charter header" } });
+    const c = makeBackend(100, "resolve", EMPTY);
+    createBackendMock.mockReturnValueOnce(a).mockReturnValue(c);
+    const { result, rerender } = render();
+    await advance(700);
+
+    rerender({ args: makeArgs({ kind: "browser" }) });
+    await advance(700);
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "storageKeptCurrentData"));
+    expect(result.current.loadPause).toBe("empty-refused");
+    expect(c.save).not.toHaveBeenCalled();
+  });
+
+  it("(c) a reload returning only the seeded reference data over a populated project asks first, and declining keeps it", async () => {
+    const backend = makeBackend(100);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(700);
+    backend.load.mockImplementation(() => Promise.resolve(SEED_ONLY));
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    try {
+      await act(async () => { await result.current.reloadCurrentProject(); });
+      expect(confirmSpy).toHaveBeenCalledWith(t("en-US", "reloadEmptyConfirm"));
+      expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    } finally {
+      confirmSpy.mockRestore();
+    }
   });
 });
