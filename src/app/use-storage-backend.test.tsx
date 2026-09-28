@@ -11,7 +11,7 @@ import type { DocumentAsset } from "./document-asset";
 import type { StorageConfig } from "./storage";
 import { useStorageBackend } from "./use-storage-backend";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
-import { useBroadcastSync } from "./broadcast-sync";
+import { useBroadcastSync, type SyncContext } from "./broadcast-sync";
 import { useWorkspace } from "./workspace-context";
 import { TestProviders } from "./test-providers";
 import { useUndoStack } from "./undo/use-undo-stack";
@@ -1141,57 +1141,64 @@ describe("useStorageBackend — broadcast send gating", () => {
     (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
   });
 
-  it("passes canSend=true to every useBroadcastSync call in the main window", () => {
-    renderBackend(makeArgs({ isPopout: false }));
-    const calls = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls;
-    expect(calls.length).toBeGreaterThanOrEqual(9);
-    for (const call of calls) {
-      expect(call[3]).toBe(true);
+  const syncContexts = () => (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[3] as SyncContext);
+
+  it("gives every useBroadcastSync call of a main window one main context with the hook's own readers", () => {
+    const { result } = renderBackend(makeArgs({ isPopout: false }));
+    const ctxs = syncContexts();
+    expect(ctxs.length).toBeGreaterThanOrEqual(17);
+    const last = ctxs[ctxs.length - 1];
+    if (last.role !== "main") throw new Error("expected a main context");
+    // Review I1 on §642 — the receiver drops messages while an op's epoch bump has not committed,
+    // so every call must read the hook's OWN scope epoch, not some other counter.
+    expect(last.getEpoch).toBe(result.current.getScopeEpoch);
+    for (const ctx of ctxs.slice(-17)) expect(ctx).toBe(last);
+  });
+
+  it("gives every useBroadcastSync call of a pop-out a pop-out context following its opener", () => {
+    window.history.replaceState(null, "", "/?popout=gantt&opener=w-opener");
+    try {
+      renderBackend(makeArgs({ isPopout: true }));
+      const ctxs = syncContexts();
+      expect(ctxs.length).toBeGreaterThanOrEqual(17);
+      for (const ctx of ctxs) expect(ctx).toEqual({ role: "popout", openerId: "w-opener" });
+    } finally {
+      window.history.replaceState(null, "", "/");
     }
   });
 
-  it("passes canSend=false to every useBroadcastSync call in a popout", () => {
-    renderBackend(makeArgs({ isPopout: true }));
-    const calls = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls;
-    expect(calls.length).toBeGreaterThanOrEqual(9);
-    for (const call of calls) {
-      expect(call[3]).toBe(false);
-    }
-  });
-
-  // §642 — the scope must be the OPEN project's key, not a constant: two windows on different
+  // §642/§643 — the scope must name the OPEN project, not a constant: two windows on different
   // projects must pass different scopes, or each applies (and autosaves) the other's slices.
-  it("scopes every useBroadcastSync call to the open project (§642)", () => {
-    const scopesFor = (projectId: string, isPopout = false) => {
+  it("scopes a main window's sync to the open project (§642, §643)", () => {
+    const scopeFor = (projectId: string) => {
       window.localStorage.removeItem("aipm-cockpit:projects");
       saveRegistry({ currentProjectId: projectId, projects: [{ id: projectId, name: projectId, code: "SC", storageConfig: { kind: "browser" } }] });
       vi.clearAllMocks();
       (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
-      const { unmount } = renderBackend(makeArgs({ isPopout }));
-      const calls = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls;
+      const { unmount } = renderBackend(makeArgs({ isPopout: false }));
+      const scopes = new Set(syncContexts().map((c) => (c.role === "main" ? c.scope : "popout")));
       unmount();
-      expect(calls.length).toBeGreaterThanOrEqual(17);
-      return new Set(calls.map((c) => c[4]));
+      return scopes;
     };
-    // Review I1 on §642 — the receiver drops messages while an op's epoch bump has not committed, so
-    // every call must read the hook's OWN scope epoch, not some other counter.
-    {
-      vi.clearAllMocks();
-      (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
-      const { result, unmount } = renderBackend(makeArgs({ isPopout: false }));
-      const calls = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls;
-      expect(calls.length).toBeGreaterThanOrEqual(17);
-      for (const call of calls) expect(call[5]).toBe(result.current.getScopeEpoch);
-      unmount();
-    }
     try {
-      expect(scopesFor("proj-scope-a")).toEqual(new Set(["proj-scope-a"]));
-      expect(scopesFor("proj-scope-b")).toEqual(new Set(["proj-scope-b"]));
-      // A pop-out of that project resolves the same key, so main-window-to-pop-out sync still works.
-      expect(scopesFor("proj-scope-b", true)).toEqual(new Set(["proj-scope-b"]));
+      expect(scopeFor("proj-scope-a")).toEqual(new Set([JSON.stringify(["browser", "proj-scope-a"])]));
+      expect(scopeFor("proj-scope-b")).toEqual(new Set([JSON.stringify(["browser", "proj-scope-b"])]));
     } finally {
       window.localStorage.removeItem("aipm-cockpit:projects");
     }
+  });
+
+  // §644 — a load apply must bump the generation the sync context reads, or a window broadcasts
+  // what it just LOADED as an edit and replaces another same-project window's unsaved edits.
+  it("bumps the sync context's load generation when a load is applied (§644)", async () => {
+    renderBackend(makeArgs({ isPopout: false }));
+    const ctx = syncContexts()[0];
+    if (ctx.role !== "main") throw new Error("expected a main context");
+    const before = ctx.getLoadGeneration();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await vi.waitFor(() => expect(ctx.getLoadGeneration()).toBeGreaterThan(before));
   });
 });
 

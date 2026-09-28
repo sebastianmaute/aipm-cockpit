@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useBroadcastSync } from "./broadcast-sync";
+import { useBroadcastSync, type SyncContext } from "./broadcast-sync";
 import { t, type TranslationKey } from "./i18n";
 import {
   type StorageConfig,
@@ -14,7 +14,8 @@ import { backfillTaskResourceFks } from "./resource-foundation";
 import { recordDataLossEvent } from "./dataloss-forensics";
 import { logDiag } from "./diagnostics";
 import { seedMintFromWorkspace } from "./id-mint-session";
-import { saveRegistry, type ProjectsRegistry } from "./projects-registry";
+import { loadRegistry, saveRegistry, type ProjectsRegistry } from "./projects-registry";
+import { readPopoutOpenerFromUrl, syncScopeKey } from "./sync-scope";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
 import { loadCurrentTursoProjectId } from "./portfolio-mode";
@@ -317,6 +318,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // `[]`-dep ref or callback without re-subscribing anything. Deliberately NOT a render value:
   // publishing the number would re-render every consumer on each swap.
   const getScopeEpoch = useCallback(() => scopeEpochRef.current, []);
+  // §644 — bumped by every `applyWorkspaceFromLoad`: tab sync sends the changes of the commit that
+  // applied a load as `fromLoad`, which other main windows ignore (they would lose unsaved edits).
+  const loadGenerationRef = useRef(0);
+  const getLoadGeneration = useCallback(() => loadGenerationRef.current, []);
   // §596 — the swap-in-flight reader, published for the same reason and with the same contract as
   // `getScopeEpoch`: STABLE for the hook's lifetime, reads a synchronously-maintained ref, never a
   // render value.
@@ -479,6 +484,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   Anything that replaces the workspace with ANOTHER PROJECT's must go through
   //   `applyWorkspaceForOp` below instead. The old bare name made the wrong one the obvious one.
   const applyWorkspaceFromLoad = (workspace: Workspace, seedMode: "reset" | "raise" = "reset", logMode: "merge" | "replace" = "replace") => {
+    loadGenerationRef.current += 1; // §644 — see `getLoadGeneration`
     // ★★★ NO MIGRATION HAS EVER BACK-FILLED `Task.resourceId` FOR A REAL
     // PROJECT, on any backend. Two near-misses make it look otherwise and both
     // were written into an earlier version of this comment before being
@@ -714,12 +720,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     const armed = destructive.consumeArm();
     if (!args.hydrated) return;
     // Single-writer rule: the main window owns persistence. ★★★ A popout does
-    // NOT save and does NOT forward edits — `canSend = !args.isPopout` below
-    // disables every outbound broadcast, so an edit escaping the read-only
+    // NOT save and does NOT forward edits — its `syncContext` below has `role: "popout"`,
+    // which `useBroadcastSync` never broadcasts from, so an edit escaping the read-only
     // guards stays popout-LOCAL — the activity log INCLUDED now that it is a
     // workspace slice (it used to escape via `use-activity-log`'s own
     // localStorage write, which had no isPopout check — §91; that writer is
-    // gone). `canSend` is the authority, not this prose: two earlier versions of it were wrong in
+    // gone). `syncContext` is the authority, not this prose: two earlier versions of it were wrong in
     // opposite directions and both reached a commit message. Saving from both
     // windows would also race, and popup storage is often blocked
     // ("AbortError: Aborted due to security policy") — skipping fixes both.
@@ -1031,29 +1037,37 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, args.hydrated, args.isPopout, backend, loadWasIncomplete, destructive.refusal, savesAllowed]);
 
-  const canSend = !args.isPopout;
-  // ★★ §642 — the channel is shared by every window of the origin; scoping each message to the
-  // project key (the §629 journal key, re-read when an op commits the registry) keeps a window on
-  // project A from applying, and then autosaving, a slice sent from a window on project B.
-  const syncScope = journalProjectKey;
-  useBroadcastSync("tasks", tasks, setTasks, canSend, syncScope, getScopeEpoch);
-  useBroadcastSync("raid", raid, setRaid, canSend, syncScope, getScopeEpoch);
-  useBroadcastSync("absences", absences, setAbsences, canSend, syncScope, getScopeEpoch);
-  useBroadcastSync("shifts", shifts, setShifts, canSend, syncScope, getScopeEpoch);
-  useBroadcastSync("resources", resources, setResources, canSend, syncScope, getScopeEpoch);
-  useBroadcastSync("roles", roles, setRoles, canSend, syncScope, getScopeEpoch);
-  useBroadcastSync("disciplines", disciplines, setDisciplines, canSend, syncScope, getScopeEpoch);
-  useBroadcastSync("grades", grades, setGrades, canSend, syncScope, getScopeEpoch);
-  useBroadcastSync("budgets", budgets, setBudgets, canSend, syncScope, getScopeEpoch);
-  useBroadcastSync("milestones", milestones, setMilestones, canSend, syncScope, getScopeEpoch);
-  useBroadcastSync("changes", changes, setChanges, canSend, syncScope, getScopeEpoch);
-  useBroadcastSync("stakeholders", stakeholders, setStakeholders, canSend, syncScope, getScopeEpoch);
-  useBroadcastSync("documents", documents, setDocuments, canSend, syncScope, getScopeEpoch); useBroadcastSync("documentVersions", documentVersions, setDocumentVersions, canSend, syncScope, getScopeEpoch); // ★ PAIRED on one line: written when the size ratchet's LIMIT was 800 and this file sat at it (check-file-sizes.mjs counts split("\n").length = wc -l + 1); the LIMIT is 1600 now. They must also stay in step: the autosave writes the WHOLE workspace, so a tab holding a stale half overwrites the other tab's work — the same reason `documents` is synced. ★ Secondary: `deletedDocumentVersions` derives tombstones from BOTH slices, and `documents-panel.tsx` renders that list (its deleted-documents section and the toolbar count), so a desynced tab produces a WRONG visible list with Restore buttons on it — an observable symptom, not a latent one.
-  useBroadcastSync("activityLog", activityLog, setActivityLog, canSend, syncScope, getScopeEpoch); // ★ Now the WORKSPACE slice, not a per-device arg: the autosave writes the WHOLE workspace, so a tab holding a stale log would overwrite the other tab's entries — the same reason `documents` is synced above. `mergeActivityLogs` cannot cover this; it runs on LOAD, not on a broadcast.
-  useBroadcastSync("budgetHistory", budgetHistory, setBudgetHistory, canSend, syncScope, getScopeEpoch); // ★ Same reason as `activityLog`: the autosave writes the whole workspace, so a tab with a stale history would overwrite the other tab's entries.
+  // ★★ §642/§643 — the channel is shared by every window of the origin. A main window syncs only
+  // with main windows whose `syncScopeKey` equals its own, so a window on project A never applies,
+  // and then autosaves, a slice sent from a window on project B. The registry is re-read per
+  // storage config, as for the journal key: an op commits the registry in the same tick as the
+  // config change. A pop-out follows the window that opened it instead (`opener` URL parameter).
+  const syncScope = useMemo(
+    () => syncScopeKey({ storageConfig: args.settings.storageConfig, tursoDatabaseUrl: tursoUrlForBackend, tursoProjectId, registryProjectId: loadRegistry().currentProjectId }),
+    [args.settings.storageConfig, tursoUrlForBackend, tursoProjectId],
+  );
+  const syncContext = useMemo<SyncContext>(
+    () => (args.isPopout ? { role: "popout", openerId: readPopoutOpenerFromUrl() } : { role: "main", scope: syncScope, getEpoch: getScopeEpoch, getLoadGeneration }),
+    [args.isPopout, syncScope, getScopeEpoch, getLoadGeneration],
+  );
+  useBroadcastSync("tasks", tasks, setTasks, syncContext);
+  useBroadcastSync("raid", raid, setRaid, syncContext);
+  useBroadcastSync("absences", absences, setAbsences, syncContext);
+  useBroadcastSync("shifts", shifts, setShifts, syncContext);
+  useBroadcastSync("resources", resources, setResources, syncContext);
+  useBroadcastSync("roles", roles, setRoles, syncContext);
+  useBroadcastSync("disciplines", disciplines, setDisciplines, syncContext);
+  useBroadcastSync("grades", grades, setGrades, syncContext);
+  useBroadcastSync("budgets", budgets, setBudgets, syncContext);
+  useBroadcastSync("milestones", milestones, setMilestones, syncContext);
+  useBroadcastSync("changes", changes, setChanges, syncContext);
+  useBroadcastSync("stakeholders", stakeholders, setStakeholders, syncContext);
+  useBroadcastSync("documents", documents, setDocuments, syncContext); useBroadcastSync("documentVersions", documentVersions, setDocumentVersions, syncContext); // ★ PAIRED on one line: written when the size ratchet's LIMIT was 800 and this file sat at it (check-file-sizes.mjs counts split("\n").length = wc -l + 1); the LIMIT is 1600 now. They must also stay in step: the autosave writes the WHOLE workspace, so a tab holding a stale half overwrites the other tab's work — the same reason `documents` is synced. ★ Secondary: `deletedDocumentVersions` derives tombstones from BOTH slices, and `documents-panel.tsx` renders that list (its deleted-documents section and the toolbar count), so a desynced tab produces a WRONG visible list with Restore buttons on it — an observable symptom, not a latent one.
+  useBroadcastSync("activityLog", activityLog, setActivityLog, syncContext); // ★ Now the WORKSPACE slice, not a per-device arg: the autosave writes the WHOLE workspace, so a tab holding a stale log would overwrite the other tab's entries — the same reason `documents` is synced above. `mergeActivityLogs` cannot cover this; it runs on LOAD, not on a broadcast.
+  useBroadcastSync("budgetHistory", budgetHistory, setBudgetHistory, syncContext); // ★ Same reason as `activityLog`: the autosave writes the whole workspace, so a tab with a stale history would overwrite the other tab's entries.
   // `project` (ProjectMeta | undefined) so a main-window project switch live-updates
   // the read-only project header in popout windows. The generic handles undefined.
-  useBroadcastSync("project", project, setProject, canSend, syncScope, getScopeEpoch);
+  useBroadcastSync("project", project, setProject, syncContext);
 
   // Snapshot the live workspace from the render-scope closure — same pattern as
   // the file-picker handlers in use-storage-file-ops.ts (onPickStorageFile /
