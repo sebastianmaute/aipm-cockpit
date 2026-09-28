@@ -134,7 +134,9 @@ async function appWindow(browser: Browser): Promise<Page> {
 // while it serves our page it is "ours" (both launches run the same build, so
 // never "stale") and the launch loads it instead of spawning its own; once it
 // answers with anything else it is "foreign" and the launch refuses with a
-// "Port in use" dialog (both reasoned from main.ts's owner branches).
+// "Port in use" dialog; once it stops answering it is "free" and the launch
+// spawns its own server while the old listener may still hold the port (all
+// three reasoned from main.ts's owner branches).
 //
 // Waiting on the CONDITION (nothing answers on the port) rather than sleeping
 // a guessed interval: a sleep that is long enough today is a flake tomorrow.
