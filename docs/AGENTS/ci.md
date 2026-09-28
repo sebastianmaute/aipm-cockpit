@@ -32,7 +32,10 @@ and the job ids in `.github/workflows/ci.yml` differ.
 Three workflows: `.github/workflows/ci.yml` (the required checks), `.github/workflows/release.yml`
 (tag-triggered, see below) and `.github/workflows/scheduled.yml` (weekly, see below). `ci/gitlab-sync.yml`
 is NOT one of them — it is a GitLab-side CI config, run by GitLab's own CI configuration path, that
-only pushes GitHub's history into the read-only mirror. The design and its reasoning are in
+pushes GitHub's history into the read-only mirror and then, in a second job (`mirror-releases`, §640),
+creates a GitLab release for every GitHub release that has none yet, with asset links to the GitHub
+downloads (`scripts/gitlab-release-mirror.mjs`, create-only, with its own `GITLAB_RELEASE_TOKEN`, a project
+access token). `release.yml` itself knows nothing of GitLab. The design and its reasoning are in
 `docs/superpowers/specs/2026-09-23-github-actions-ci-design.md` for `ci.yml`/`scheduled.yml` and
 `docs/superpowers/specs/2026-09-24-releases-and-updates-design.md` for `release.yml`. Read the YAML
 before relying on anything here — every job name, `needs:`, timeout and command below was checked
