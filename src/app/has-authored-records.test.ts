@@ -34,6 +34,9 @@ describe("hasAuthoredRecords (§601)", () => {
     expect(hasAuthoredRecords({ ...seeded(), tasks: [{ id: 1 } as never] })).toBe(true);
     expect(hasAuthoredRecords({ ...seeded(), documents: [{ id: 1 } as never] })).toBe(true);
     expect(hasAuthoredRecords({ ...emptyWorkspace(), roles: [{ id: 1 } as never] })).toBe(true);
+    // counted by workspaceRecordCount but not by isWorkspaceEmpty (review I1)
+    expect(hasAuthoredRecords({ ...seeded(), knowledgeItems: [{ id: "k1" } as never] })).toBe(true);
+    expect(hasAuthoredRecords({ ...seeded(), documentAssets: [{ id: "a1" } as never] })).toBe(true);
   });
 
   it("is true when the disciplines or grades differ from the presets", () => {

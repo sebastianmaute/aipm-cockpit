@@ -10,8 +10,10 @@ import type { Workspace } from "./workspace";
 import { PRESET_DISCIPLINES, PRESET_GRADES } from "./types";
 
 /** True when a workspace holds NO user records in any collection (a default
- *  plan / empty config does not count). Guards a reload from silently replacing
- *  a populated project with an empty backend read — a real data-loss vector. */
+ *  plan / empty config does not count). Guards a load or reload from silently
+ *  replacing a populated project with an empty backend read — a real data-loss
+ *  vector. ★ It is the IN-SCOPE side of both empty-load refusals; the INCOMING
+ *  side asks `hasAuthoredRecords` (§601), which discounts the seeded lists. */
 export function isWorkspaceEmpty(ws: Workspace): boolean {
   return (ws.tasks?.length ?? 0) === 0
     && (ws.raid?.length ?? 0) === 0
@@ -156,14 +158,21 @@ function isPresetList(list: ReadonlyArray<{ id: number; name: string }> | undefi
  *  question, and `isWorkspaceEmpty` answers a different one: decoding a structurally valid file
  *  that carries no records seeds the preset disciplines and grades, which `isWorkspaceEmpty`
  *  counts, so such a load read as POPULATED and replaced the project in scope.
+ *  ★★ It also counts what `workspaceRecordCount` counts and `isWorkspaceEmpty` does not
+ *    (knowledgeItems, documentAssets), so a project holding only those is not mistaken for an
+ *    empty read. Project meta, the steering committee and timelog links are counted by neither.
+ *  ★★★ INCOMING SIDE ONLY. The refusals keep `isWorkspaceEmpty` for the workspace in scope:
+ *    there the seeded lists make a decoded project read as populated, which is what protected
+ *    a project holding only slices neither predicate counts (review I1 on §601).
  *  ★★ The preset lists are discounted only while they are EXACTLY the presets, unlike §590's
  *    `authoredRecordCount` (use-storage-file-ops.ts), which subtracts every discipline and grade.
  *    A project whose only content is its own disciplines or grades is authored work, and refusing
  *    to load it would pause saving behind a banner. Do not merge the two without re-deciding §590. */
 export function hasAuthoredRecords(ws: Workspace): boolean {
-  return !isWorkspaceEmpty({
+  const discounted: Workspace = {
     ...ws,
     disciplines: isPresetList(ws.disciplines, PRESET_DISCIPLINES) ? [] : ws.disciplines,
     grades: isPresetList(ws.grades, PRESET_GRADES) ? [] : ws.grades,
-  });
+  };
+  return !isWorkspaceEmpty(discounted) || workspaceRecordCount(discounted) > 0;
 }

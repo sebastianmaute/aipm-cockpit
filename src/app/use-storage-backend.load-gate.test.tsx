@@ -514,10 +514,10 @@ describe("§601 — a load holding only the seeded reference data counts as EMPT
     expect(a.save).not.toHaveBeenCalled();
   });
 
-  it("(b) scope holding only the seeded reference data is not protected: an empty target's load applies", async () => {
-    const a = makeBackend(100, "resolve", SEED_ONLY);
-    const c = makeBackend(100, "resolve", EMPTY);
-    createBackendMock.mockReturnValueOnce(a).mockReturnValue(c);
+  it("(b) a load whose only content is knowledge items is NOT refused over a populated project", async () => {
+    const a = makeBackend(100);
+    const b = makeBackend(100, "resolve", { ...SEED_ONLY, knowledgeItems: [{ id: "k1", title: "Note" }] });
+    createBackendMock.mockReturnValueOnce(a).mockReturnValue(b);
     const { result, rerender } = render();
     await advance(700);
 
@@ -525,10 +525,22 @@ describe("§601 — a load holding only the seeded reference data counts as EMPT
     await advance(700);
     expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "storageKeptCurrentData"));
     expect(result.current.loadPause).toBeNull();
+    expect(result.current.tasks).toEqual([]); // B's workspace applied
+  });
 
-    await act(async () => { result.current.setTasks(EDIT); });
-    await advance(600);
-    expect(c.save).toHaveBeenCalledTimes(1); // the gate opened for the empty target
+  it("(b2) review I1 — scope whose only content isWorkspaceEmpty misses stays protected against an empty read", async () => {
+    // project meta is counted by neither predicate; only the seeded lists make this scope read as populated
+    const a = makeBackend(100, "resolve", { ...SEED_ONLY, project: { name: "Only a charter header" } });
+    const c = makeBackend(100, "resolve", EMPTY);
+    createBackendMock.mockReturnValueOnce(a).mockReturnValue(c);
+    const { result, rerender } = render();
+    await advance(700);
+
+    rerender({ args: makeArgs({ kind: "browser" }) });
+    await advance(700);
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "storageKeptCurrentData"));
+    expect(result.current.loadPause).toBe("empty-refused");
+    expect(c.save).not.toHaveBeenCalled();
   });
 
   it("(c) a reload returning only the seeded reference data over a populated project asks first, and declining keeps it", async () => {
