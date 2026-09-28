@@ -43,6 +43,12 @@ export function sanitizedToNothing(raw: unknown, sanitized: unknown): boolean {
  *  `DocTruncationDiag` and the codecs' `ImportDiag` satisfy it. */
 export type DecodeFailureDiag = Pick<DocTruncationDiag, "decodeFailedSlices">;
 
+/** Push `key` into the accumulator. A no-op without a `diag`. The one writer
+ *  both helpers below share. */
+function noteDecodeFailure(key: string, diag: DecodeFailureDiag | undefined): void {
+  if (diag) (diag.decodeFailedSlices ??= []).push(key);
+}
+
 /** §630 — record `key` when `raw` had content and `sanitized` kept none. A
  *  no-op without a `diag`. The table-shaped CSV/Markdown slices (status,
  *  project) call this with the raw `field -> value` map as `raw`. */
@@ -52,7 +58,7 @@ export function noteIfSanitizedToNothing(
   sanitized: unknown,
   diag: DecodeFailureDiag | undefined,
 ): void {
-  if (diag && sanitizedToNothing(raw, sanitized)) (diag.decodeFailedSlices ??= []).push(key);
+  if (sanitizedToNothing(raw, sanitized)) noteDecodeFailure(key, diag);
 }
 
 /** §630 — decode ONE stored JSON meta slice, reporting what it could not keep.
@@ -68,6 +74,11 @@ export function noteIfSanitizedToNothing(
  * ★★ ANY THROW COUNTS, not only `JSON.parse`'s: `sanitize` may run the
  *  DOM-dependent rich-field pass (documents), and a throw there loses the
  *  slice just the same. The return stays `undefined`, as it always was.
+ * ★★ A BLANK TEXT IS SILENT, not a parse failure. An empty `config,` cell or
+ *  an empty fenced block (a hand-edit; the encoder writes neither) carries
+ *  nothing, so by the §617 rule it must not pause saving. It returns
+ *  `undefined` — what the old `JSON.parse("")` throw returned — without a
+ *  report.
  * ★ The result is returned UNFILTERED — callers keep their own "empty means
  *  absent" post-processing (`ins.length ? ins : undefined`, …). */
 export function decodeMetaJson<T>(
@@ -76,13 +87,14 @@ export function decodeMetaJson<T>(
   key: string,
   diag?: DecodeFailureDiag,
 ): T | undefined {
+  if (json.trim() === "") return undefined;
   let raw: unknown;
   let sanitized: T;
   try {
     raw = JSON.parse(json);
     sanitized = sanitize(raw);
   } catch {
-    if (diag) (diag.decodeFailedSlices ??= []).push(key);
+    noteDecodeFailure(key, diag);
     return undefined;
   }
   noteIfSanitizedToNothing(key, raw, sanitized, diag);

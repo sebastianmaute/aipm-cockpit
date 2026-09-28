@@ -50,6 +50,11 @@ describe("decodeMetaJson (§630)", () => {
     expect(run('["a"]')).toEqual({ value: [], failed: ["k"] });
   });
 
+  it("stays silent and returns undefined for a blank or whitespace-only text", () => {
+    expect(run("")).toEqual({ value: undefined, failed: undefined });
+    expect(run(" \n\t ")).toEqual({ value: undefined, failed: undefined });
+  });
+
   it("stays silent for a stored empty value and for a value that survived", () => {
     expect(run("[]")).toEqual({ value: [], failed: undefined });
     expect(run('[1,"a"]')).toEqual({ value: [1], failed: undefined });

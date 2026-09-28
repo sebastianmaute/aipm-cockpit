@@ -29,19 +29,22 @@ type MetaKey =
 
 /** The eleven fenced-JSON slices: heading, one junk value that has content but
  *  sanitizes to nothing (the values workspace.test.ts's §620 table uses), and a
- *  genuinely empty stored value. */
-const BLOB_CASES: readonly { key: MetaKey; heading: string; junk: unknown; empty: unknown }[] = [
-  { key: "fieldVisibility", heading: "## Field Visibility", junk: { nope: "x" }, empty: {} },
-  { key: "features", heading: "## Functions", junk: ["no-such-module"], empty: [] },
-  { key: "steeringCommittee", heading: "## Steering Committee", junk: "not-an-object", empty: {} },
-  { key: "timelogLinks", heading: "## Timelog Links", junk: ["junk"], empty: {} },
-  { key: "knowledgeItems", heading: "## Knowledge Items", junk: [{ nope: 1 }], empty: [] },
-  { key: "insights", heading: "## Insights", junk: [{ nope: 1 }], empty: [] },
-  { key: "settingsOverrides", heading: "## Settings Overrides", junk: { unknownKey: 5 }, empty: {} },
-  { key: "documents", heading: "## Documents", junk: [{ nope: 1 }], empty: [] },
-  { key: "documentVersions", heading: "## Document versions", junk: [{ nope: 1 }], empty: [] },
-  { key: "activityLog", heading: "## Activity Log", junk: [{ nope: 1 }], empty: [] },
-  { key: "budgetHistory", heading: "## Budget History", junk: [{ nope: 1 }], empty: [] },
+ *  genuinely empty stored value, with what it decodes
+ *  to — unchanged from before §630 (features keeps `[]`, Simple mode; the
+ *  committee and timelog sanitizers build fixed-key objects; everything else
+ *  is absent). */
+const BLOB_CASES: readonly { key: MetaKey; heading: string; junk: unknown; empty: unknown; emptyDecoded: unknown }[] = [
+  { key: "fieldVisibility", heading: "## Field Visibility", junk: { nope: "x" }, empty: {}, emptyDecoded: undefined },
+  { key: "features", heading: "## Functions", junk: ["no-such-module"], empty: [], emptyDecoded: [] },
+  { key: "steeringCommittee", heading: "## Steering Committee", junk: "not-an-object", empty: {}, emptyDecoded: { name: "", memberResourceIds: [], meetings: [], infoSchedules: [] } },
+  { key: "timelogLinks", heading: "## Timelog Links", junk: ["junk"], empty: {}, emptyDecoded: { userLinks: [], projectLinks: [] } },
+  { key: "knowledgeItems", heading: "## Knowledge Items", junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
+  { key: "insights", heading: "## Insights", junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
+  { key: "settingsOverrides", heading: "## Settings Overrides", junk: { unknownKey: 5 }, empty: {}, emptyDecoded: undefined },
+  { key: "documents", heading: "## Documents", junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
+  { key: "documentVersions", heading: "## Document versions", junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
+  { key: "activityLog", heading: "## Activity Log", junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
+  { key: "budgetHistory", heading: "## Budget History", junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
 ];
 
 const ALL_KEYS: readonly MetaKey[] = ["status", "project", ...BLOB_CASES.map((c) => c.key)];
@@ -102,10 +105,19 @@ describe("markdownToWorkspace — a meta slice it could not keep is reported (§
     expect(slice(bare, key)).toEqual(slice(ws, key));
   });
 
-  it.each(BLOB_CASES)("stays silent for a stored empty $key", ({ key, heading, empty }) => {
+  it.each(BLOB_CASES)("stays silent for a stored empty $key", ({ key, heading, empty, emptyDecoded }) => {
     const { ws, failed, bare } = load(withSection(fenced(heading, JSON.stringify(empty))));
     expect(failed).toEqual([]);
-    expect(slice(bare, key)).toEqual(slice(ws, key));
+    expect(slice(ws, key)).toEqual(emptyDecoded);
+    expect(slice(bare, key)).toEqual(emptyDecoded);
+  });
+
+  // ★ A blank fenced block carries nothing (§617), so it is silent — not a
+  // parse failure — and decodes to absent, as the old `JSON.parse("")` throw did.
+  it.each(["", "   "])("stays silent for a blank insights block %j", (inner) => {
+    const { ws, failed } = load(withSection(fenced("## Insights", inner)));
+    expect(failed).toEqual([]);
+    expect(ws.insights).toBeUndefined();
   });
 
   it("records status when every field is dropped by the sanitizer", () => {
@@ -134,11 +146,16 @@ describe("markdownToWorkspace — a meta slice it could not keep is reported (§
   });
 
   it("records nothing for genuine values of all thirteen slices, and decodes each as before", () => {
-    const { ws, failed, bare } = load(workspaceToMarkdown(fullWorkspace()));
+    const full = fullWorkspace();
+    const { ws, failed, bare } = load(workspaceToMarkdown(full));
     expect(failed).toEqual([]);
     for (const key of ALL_KEYS) {
       expect(slice(ws, key), key).toBeDefined();
-      expect(slice(ws, key), key).toEqual(slice(bare, key));
+      // ★ Against the SOURCE value, not only the no-diag decode: both of those
+      // go through decodeMetaJson, so a helper that returned the raw parse
+      // instead of the sanitized value would pass a with/without comparison.
+      expect(slice(ws, key), key).toEqual(slice(full, key));
+      expect(slice(bare, key), key).toEqual(slice(full, key));
     }
     expect(Object.keys(ws.status ?? {}).length).toBeGreaterThan(0);
   });

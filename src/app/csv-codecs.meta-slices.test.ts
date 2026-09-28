@@ -45,19 +45,22 @@ type MetaKey =
 
 /** The eleven single-JSON-blob slices: marker, one junk value that has content
  *  but sanitizes to nothing (the values workspace.test.ts's §620 table uses),
- *  and a genuinely empty stored value. */
-const BLOB_CASES: readonly { key: MetaKey; marker: string; junk: unknown; empty: unknown }[] = [
-  { key: "fieldVisibility", marker: CSV_SECTION_FIELD_VIS, junk: { nope: "x" }, empty: {} },
-  { key: "features", marker: CSV_SECTION_FUNCTIONS, junk: ["no-such-module"], empty: [] },
-  { key: "steeringCommittee", marker: CSV_SECTION_STEERING, junk: "not-an-object", empty: {} },
-  { key: "timelogLinks", marker: CSV_SECTION_TIMELOG_LINKS, junk: ["junk"], empty: {} },
-  { key: "knowledgeItems", marker: CSV_SECTION_KNOWLEDGE_ITEMS, junk: [{ nope: 1 }], empty: [] },
-  { key: "insights", marker: CSV_SECTION_INSIGHTS, junk: [{ nope: 1 }], empty: [] },
-  { key: "settingsOverrides", marker: CSV_SECTION_SETTINGS_OVERRIDES, junk: { unknownKey: 5 }, empty: {} },
-  { key: "documents", marker: CSV_SECTION_DOCUMENTS, junk: [{ nope: 1 }], empty: [] },
-  { key: "documentVersions", marker: CSV_SECTION_DOCUMENT_VERSIONS, junk: [{ nope: 1 }], empty: [] },
-  { key: "activityLog", marker: CSV_SECTION_ACTIVITY, junk: [{ nope: 1 }], empty: [] },
-  { key: "budgetHistory", marker: CSV_SECTION_BUDGET_HISTORY, junk: [{ nope: 1 }], empty: [] },
+ *  and a genuinely empty stored value, with what it decodes
+ *  to — unchanged from before §630 (features keeps `[]`, Simple mode; the
+ *  committee and timelog sanitizers build fixed-key objects; everything else
+ *  is absent). */
+const BLOB_CASES: readonly { key: MetaKey; marker: string; junk: unknown; empty: unknown; emptyDecoded: unknown }[] = [
+  { key: "fieldVisibility", marker: CSV_SECTION_FIELD_VIS, junk: { nope: "x" }, empty: {}, emptyDecoded: undefined },
+  { key: "features", marker: CSV_SECTION_FUNCTIONS, junk: ["no-such-module"], empty: [], emptyDecoded: [] },
+  { key: "steeringCommittee", marker: CSV_SECTION_STEERING, junk: "not-an-object", empty: {}, emptyDecoded: { name: "", memberResourceIds: [], meetings: [], infoSchedules: [] } },
+  { key: "timelogLinks", marker: CSV_SECTION_TIMELOG_LINKS, junk: ["junk"], empty: {}, emptyDecoded: { userLinks: [], projectLinks: [] } },
+  { key: "knowledgeItems", marker: CSV_SECTION_KNOWLEDGE_ITEMS, junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
+  { key: "insights", marker: CSV_SECTION_INSIGHTS, junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
+  { key: "settingsOverrides", marker: CSV_SECTION_SETTINGS_OVERRIDES, junk: { unknownKey: 5 }, empty: {}, emptyDecoded: undefined },
+  { key: "documents", marker: CSV_SECTION_DOCUMENTS, junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
+  { key: "documentVersions", marker: CSV_SECTION_DOCUMENT_VERSIONS, junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
+  { key: "activityLog", marker: CSV_SECTION_ACTIVITY, junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
+  { key: "budgetHistory", marker: CSV_SECTION_BUDGET_HISTORY, junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
 ];
 
 const ALL_KEYS: readonly MetaKey[] = ["status", "project", ...BLOB_CASES.map((c) => c.key)];
@@ -118,10 +121,19 @@ describe("csvToWorkspace — a meta slice it could not keep is reported (§630)"
     expect(slice(bare, key)).toEqual(slice(ws, key));
   });
 
-  it.each(BLOB_CASES)("stays silent for a stored empty $key", ({ key, marker, empty }) => {
+  it.each(BLOB_CASES)("stays silent for a stored empty $key", ({ key, marker, empty, emptyDecoded }) => {
     const { ws, failed, bare } = load(withSection(marker, configRow(JSON.stringify(empty))));
     expect(failed).toEqual([]);
-    expect(slice(bare, key)).toEqual(slice(ws, key));
+    expect(slice(ws, key)).toEqual(emptyDecoded);
+    expect(slice(bare, key)).toEqual(emptyDecoded);
+  });
+
+  // ★ A blank cell carries nothing (§617), so it is silent — not a parse
+  // failure — and decodes to absent, as the old `JSON.parse("")` throw did.
+  it.each(["config,", "config,   "])("stays silent for a blank insights cell %j", (row) => {
+    const { ws, failed } = load(withSection(CSV_SECTION_INSIGHTS, row));
+    expect(failed).toEqual([]);
+    expect(ws.insights).toBeUndefined();
   });
 
   it("records status when every field is dropped by the sanitizer", () => {
@@ -154,11 +166,16 @@ describe("csvToWorkspace — a meta slice it could not keep is reported (§630)"
   });
 
   it("records nothing for genuine values of all thirteen slices, and decodes each as before", () => {
-    const { ws, failed, bare } = load(workspaceToCsv(fullWorkspace()));
+    const full = fullWorkspace();
+    const { ws, failed, bare } = load(workspaceToCsv(full));
     expect(failed).toEqual([]);
     for (const key of ALL_KEYS) {
       expect(slice(ws, key), key).toBeDefined();
-      expect(slice(ws, key), key).toEqual(slice(bare, key));
+      // ★ Against the SOURCE value, not only the no-diag decode: both of those
+      // go through decodeMetaJson, so a helper that returned the raw parse
+      // instead of the sanitized value would pass a with/without comparison.
+      expect(slice(ws, key), key).toEqual(slice(full, key));
+      expect(slice(bare, key), key).toEqual(slice(full, key));
     }
     expect(Object.keys(ws.status ?? {}).length).toBeGreaterThan(0);
   });
