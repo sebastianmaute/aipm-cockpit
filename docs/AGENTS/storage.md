@@ -215,6 +215,9 @@ journal (`grep -n "UNLOAD_JOURNAL_PREFIX =" src/app/unload-journal.ts`).
   stalled save released after `SAVE_STALL_MS` (30 s). Before, several `pagehide` commits could
   start overlapping full saves on a local file or SharePoint, and an older snapshot that finished
   last overwrote a newer one.
+- **Reads wait for queued saves (§641).** `reloadCurrentProject` and the picker's load-instead
+  branch wait for `whenSaved(backend)` (`save-queue.ts`) before reading or re-binding. The reload
+  reads again, at most twice more (`RELOAD_REREAD_LIMIT`), if a save started while it read.
 - **IndexedDB** orders its transactions (§627).
 
 ## The six write paths
