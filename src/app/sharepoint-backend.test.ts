@@ -337,6 +337,16 @@ describe("SharePointBackend", () => {
     expect(be.lastDecodeFailures).toEqual(["steeringCommittee"]);
   });
 
+  // §630 — the CSV half: `csvToWorkspace` now records an unreadable meta slice
+  // into the same accumulator (csv-codecs.meta-slices.test.ts pins the codec);
+  // this pins that an `sp-csv` load publishes it.
+  it("publishes a slice the CSV load could not decode", async () => {
+    server.use(http.get(CONTENT_RE, () => HttpResponse.text("# TASKS\r\nid,taskName\r\n7,T7\r\n\r\n# INSIGHTS\r\nconfig,{not json\r\n")));
+    const be = new SharePointBackend({ kind: "sp-csv", ...FAKE_LOCATION }, acquireToken);
+    await be.load();
+    expect(be.lastDecodeFailures).toEqual(["insights"]);
+  });
+
   it("clears the flag on the next clean load", async () => {
     server.use(http.get(CONTENT_RE, () => HttpResponse.json({ ...EMPTY_WORKSPACE, steeringCommittee: "not-an-object" })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);

@@ -267,6 +267,33 @@ describe("LocalFileBackend load() §620 decode failures (JSON)", () => {
   });
 });
 
+// §630 — the CSV and Markdown halves of the §620 block above. The codecs now
+// record an unreadable meta slice into the same `diag.decodeFailedSlices`
+// (csv-/markdown-codecs.meta-slices.test.ts pin the decoders); this pins that
+// `loadFrom` publishes it for those two formats too.
+describe("LocalFileBackend load() §630 decode failures (CSV and Markdown)", () => {
+  beforeEach(() => {
+    kv.clear();
+    idbGetError.current = null;
+  });
+
+  it("publishes the slice a CSV load could not decode", async () => {
+    const be = new LocalFileBackend("local-csv");
+    await be.setHandle(
+      fakeHandle({ text: "# TASKS\r\nid,taskName\r\n7,T7\r\n\r\n# INSIGHTS\r\nconfig,{not json\r\n" }),
+    );
+    await be.load();
+    expect(be.lastDecodeFailures).toEqual(["insights"]);
+  });
+
+  it("publishes the slice a Markdown load could not decode", async () => {
+    const be = new LocalFileBackend("local-md");
+    await be.setHandle(fakeHandle({ text: "## Insights\n\n```json\n{not json\n```\n" }));
+    await be.load();
+    expect(be.lastDecodeFailures).toEqual(["insights"]);
+  });
+});
+
 // ★★★ THE ONLY THING STANDING BETWEEN §287 AND A SILENT REGRESSION. The fix moved
 // the handle commit OUT of `openFile()` and into the caller's accept branch, but the
 // hook-level tests covering that branch mock `./storage` wholesale — so they assert that
