@@ -109,15 +109,17 @@ describe("MODAL_HELP", () => {
   // dialog, not only the library. The button labels and the counter are built
   // from the dialog's own keys, so a renamed button fails here until the Help
   // text follows it.
-  it.each<[Lang, string, string]>([
-    ["en-US", "data is missing", "no longer supported"],
-    ["de", "Fehlen die Daten", "nicht mehr unterstützt"],
-  ])("describes the image preview dialog in the document-images body (%s)", async (lang, missing, unsupported) => {
+  it.each<[Lang, string, string, string, string]>([
+    ["en-US", "click an image in a document's preview", "instead of wrapping", "data is missing", "no longer supported"],
+    ["de", "per Klick auf ein Bild in der Vorschau", "statt von vorn zu beginnen", "Fehlen die Daten", "nicht mehr unterstützt"],
+  ])("describes the image preview dialog in the document-images body (%s)", async (lang, opens, noWrap, missing, unsupported) => {
     await loadI18n(lang);
     const body = t(lang, "helpSecDocumentAssetsBody");
     expect(body).toContain(t(lang, "assetPreviewPrev"));
     expect(body).toContain(t(lang, "assetPreviewNext"));
     expect(body).toContain(t(lang, "assetPreviewPosition", 2, 5));
+    expect(body).toContain(opens);
+    expect(body).toContain(noWrap);
     expect(body).toContain(missing);
     expect(body).toContain(unsupported);
   });

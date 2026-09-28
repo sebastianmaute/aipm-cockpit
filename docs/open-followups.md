@@ -35637,15 +35637,16 @@ prices them at read. Until someone runs that, this entry is arithmetic, not evid
 
 ## 453. The image preview lightbox's Help entry never describes Prev/Next stepping, the position counter or the unavailable and blocked states — CLOSED 2026-09-28
 
-**Status:** CLOSED 2026-09-28 on `docs/lightbox-help`. `helpSecDocumentAssetsBody` now ends with a
-paragraph on the preview dialog, in EN and DE: how it opens (Preview or the image's name on a row of the
+**Status:** CLOSED 2026-09-28 on `docs/lightbox-help`. `helpSecDocumentAssetsBody` now ends with
+sentences on the preview dialog, in EN and DE: how it opens (Preview or the image's name on a row of the
 image library, or a click on an image in a document's preview), Previous image and Next image stepping through the list it was
 opened from and stopping at the first and last image, the position counter, and the two notices (data
 missing or not loadable, and a format no longer supported). `assetPreview` still opens
 `feature-document-assets`, so no map row changed. A test in `help-content.test.ts` builds the two button
 labels and the counter from the dialog's own keys (`assetPreviewPrev`, `assetPreviewNext`,
 `assetPreviewPosition`) and checks that the body contains them in EN and DE, plus the wording of both
-notices. Removing any one of those five phrases, in either language, fails it (10 of 10 mutants).
+notices, how the dialog opens and that stepping does not wrap. Removing any one of those seven phrases,
+in either language, fails it (14 of 14 mutants).
 
 **Original status:** open, narrowed 2026-09-27 to the preview half of gap 2. What is fixed, with its commit:
 1. Meeting series: 19cd4f89e wrote `feature-meeting-series` (EN + DE), and 131f385d8 wired
@@ -35676,7 +35677,7 @@ which now name the commits on `main`. ★ The heading was retitled on 2026-09-27
 Help-CONTENT gaps the modal-help-icon slice surfaced but did not fill" when the entry was narrowed,
 so the "Four" the record below mentions refers to that old title.
 
-Status as of 2026-09-10: open — almost nothing in the original four read as it did as of 2026-09-10:
+Original status: open — almost nothing in the original four read as it did as of 2026-09-10:
 **gaps 1 and 3 are FILLED and their modals RE-WIRED; gap 2's PROSE is written but its three call
 sites still point somewhere else, so the failure mode gap 2 named is the one thing here still
 shipping; gap 4 was SETTLED on 2026-09-09; and a FIFTH gap was found on 2026-09-10 and is recorded
