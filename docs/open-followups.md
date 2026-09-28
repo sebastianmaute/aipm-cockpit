@@ -869,6 +869,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§639](#639-time-tracking-dialog-tests-type-before-the-dialogs-raf-deferred-initial-focus--closed-2026-09-28) | Time-tracking dialog tests type before the dialog's rAF-deferred initial focus | — | — | **CLOSED** 2026-09-28 |
 | [§640](#640-github-releases-never-reached-the-read-only-gitlab-copy-which-had-the-tags-but-no-release-entries--closed-2026-09-28) | GitHub releases never reached the read-only GitLab copy, which had the tags but no Release entries | — | — | **CLOSED** 2026-09-28 |
 | [§641](#641-a-save-waiting-in-the-627-queue-could-land-after-a-reload-and-write-the-pre-reload-snapshot-back-over-the-file--closed-2026-09-28) | A save waiting in the §627 queue could land after a reload and write the pre-reload snapshot back over the file | — | — | **CLOSED** 2026-09-28 |
+| [§642](#642-two-tabs-on-different-projects-pushed-their-data-into-each-other-through-tab-sync--closed-2026-09-28) | Two tabs on different projects pushed their data into each other through tab sync | — | — | **CLOSED** 2026-09-28 |
+| [§643](#643-tab-sync-still-shares-a-scope-between-projects-that-have-no-registry-entry-or-no-turso-project-id--open) | Tab sync still shares a scope between projects that have no registry entry or no Turso project id | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -43499,3 +43501,21 @@ Known limits: a debounce falling due in the few ms between the read resolving an
 **Originally recorded 2026-09-28:** the integration review of main at 718a0f014 (§601 + §627, review I1; M1 to M3 minor).
 
 **Source:** the post-merge integration review, 2026-09-28.
+
+## 642. Two tabs on different projects pushed their data into each other through tab sync — CLOSED 2026-09-28
+
+**Status:** CLOSED 2026-09-28 on `fix/broadcast-project-scope` (owner: "Data safety" batch, design approved). `useBroadcastSync` (`src/app/broadcast-sync.ts`) now takes a required `scope`. Every message carries the sender's scope, and a receiver drops any message whose scope differs from its own; the listener re-subscribes when the scope changes, so a window that switched project drops messages still arriving for the old one. `use-storage-backend.ts` passes `syncScope`, the §629 unload-journal key (`journalProjectKey`), to all 17 calls (`grep -o "canSend, syncScope)" src/app/use-storage-backend.ts | wc -l`). A pop-out of the same project resolves the same key from the same settings, so main-window-to-pop-out sync still works. Tests: `broadcast-sync.test.ts` "useBroadcastSync project scope (§642)" (another project's message is dropped, the same project's is applied, a scope change drops the old project's messages with a stable callback as in production, every outgoing message carries the scope); `use-storage-backend.test.tsx` "scopes every useBroadcastSync call to the open project (§642)" (two registry projects give two different scopes, and a pop-out gets its main window's). Mutation: the receiver ignoring the scope, the listener not following a scope change, the sender omitting the scope, and the call sites passing a constant, all killed (4/4). The known limit, a key shared by projects with no registry entry or no Turso project id, is §643.
+
+**Original status:** found 2026-09-28 by the data-safety verdict pass and confirmed by reading `broadcast-sync.ts`. The channel `aipm-cockpit:sync` is shared by every window of the origin, and messages carried only a client id, the slice kind and the value. Every main window both sent and received, and applied every incoming message whichever project it had open. With project A in one tab and project B in another, an edit to tasks in A replaced B's task list, and B's autosave then wrote A's tasks into project B. Never reproduced in a browser: the RED unit test reproduced it at the hook, where a message sent for project A was applied by a window on project B.
+
+**Source:** the data-safety verdict pass, 2026-09-28.
+
+## 643. Tab sync still shares a scope between projects that have no registry entry or no Turso project id — open
+
+**Status:** open 2026-09-28, split out of §642. Never machine-verified in a browser; the key collision itself is read off `journalProjectKey` in `src/app/unload-journal.ts`.
+
+**Work item:** #481
+
+§642 scopes tab-sync messages to the §629 unload-journal key. That key is coarse in two cases: a file or browser-storage project with no registry entry is keyed `"browser"`, and a Turso database with no project id is keyed `"turso"`. Two main windows in the same one of those cases, but on different data, still share a scope, so they can still apply and autosave each other's slices. A fix needs a finer identity for those two cases, such as the file handle's identity or the Turso database URL. The §629 journal has the same collision and would take the same key.
+
+**Source:** the §642 design, 2026-09-28.

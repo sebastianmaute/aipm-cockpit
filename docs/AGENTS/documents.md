@@ -1583,7 +1583,8 @@ a channel at all. The two are additionally coupled: `deletedDocumentVersions` de
 from **both**, so a tab that received a document delete without the matching version (or the
 reverse) would compute a wrong deleted-documents list.
 ★ `useBroadcastSync` takes a **free string** `kind` over one shared `BroadcastChannel` — there is
-no key union, registry or allowlist, so a new channel needs no registration anywhere.
+no key union, registry or allowlist, so a new channel needs no registration anywhere. It also takes
+a required `scope` (the open project's key, §642), and a window drops messages scoped to another project.
 
 ★ The two channel registrations share **one source line** for a historical size-cap reason that
 no longer applies (the ratchet `LIMIT` is 1600), so unpairing them is free. It argues for
