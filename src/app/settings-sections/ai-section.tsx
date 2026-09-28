@@ -110,7 +110,19 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
 
   function handleApiKeyChange(value: string) {
     onChange({ ...settings, ai: { ...settings.ai, apiKey: value } });
-    if (keyWrap === "device" && isValidAnthropicApiKey(value)) {
+    if (value.trim() === "") {
+      // §565 blank-first rule (as jira/timelog/turso): an emptied key REMOVES the seal and the
+      // flag — else the blanked key rehydrated from the store on reload. `removeSealed` also
+      // cancels a seal still in flight for an earlier keystroke (§609).
+      // ★★ EXCEPT a passphrase-wrapped record: its plaintext is never hydrated into settings (the
+      //   chat unlock keeps it local), so this field shows "" for a LOCKED key, and typing a
+      //   character then deleting it would land here and destroy a key the user never saw. A
+      //   passphrase key is forgotten only via "Remove stored secret" (or the lock untick).
+      if (!isPassphraseLocked("anthropicApiKey")) {
+        removeSealed("anthropicApiKey");
+        setKeyStored(false);
+      }
+    } else if (keyWrap === "device" && isValidAnthropicApiKey(value)) {
       // §609: a seal superseded by a later keystroke or a clear resolves false — no "stored" flag.
       void saveSecretValue("anthropicApiKey", value, "device").then((stored) => {
         if (stored) setKeyStored(true);
@@ -145,7 +157,11 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
     // (the old early-return left it stuck checked when the key was locked).
     void (async () => {
       if (settings.ai.apiKey.trim()) {
-        if (await saveSecretValue("anthropicApiKey", settings.ai.apiKey, "device")) setKeyStored(true);
+        // §609: false = a newer op on this key (a re-tick + "Save passphrase", a clear) began during
+        // the seal and owns the wrap state now; flipping it to device would show device over a
+        // passphrase record.
+        if (!(await saveSecretValue("anthropicApiKey", settings.ai.apiKey, "device"))) return;
+        setKeyStored(true);
       } else if (isPassphraseLocked("anthropicApiKey")) {
         removeSealed("anthropicApiKey");
         setKeyStored(false);

@@ -1,10 +1,25 @@
 // src/app/settings-sections/dictation-section.test.tsx
-import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import React, { useState } from "react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { DictationSection } from "./dictation-section";
-import { defaultSettings } from "../settings-types";
+import { defaultSettings, type Settings } from "../settings-types";
 import { t } from "../i18n";
+import { saveSecretValue } from "../use-secrets";
+import { removeSealed } from "../secrets-store";
+
+// The key's seal is mocked so a test can make it resolve `false` (superseded, §609);
+// `removeSealed` is a spy so the stored flag is observable through the blank-blur path.
+vi.mock("../use-secrets", () => ({ saveSecretValue: vi.fn() }));
+vi.mock("../secrets-store", async (importActual) => ({
+  ...(await importActual<typeof import("../secrets-store")>()),
+  removeSealed: vi.fn(),
+}));
+
+afterEach(() => {
+  vi.mocked(saveSecretValue).mockReset();
+  vi.mocked(removeSealed).mockReset();
+});
 
 function setup(overrides = {}) {
   const onChange = vi.fn();
@@ -68,5 +83,42 @@ describe("DictationSection — hotkey capture", () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ dictation: expect.objectContaining({ hotkey: "F4" }) }),
     );
+  });
+});
+
+// §609 — the "stored" flag is set only when the seal actually wrote. It has no visible
+// indicator here; it gates the blank-blur `removeSealed`, so that is what the tests observe.
+describe("DictationSection — STT key stored flag (§609)", () => {
+  function renderStt() {
+    function Harness() {
+      const [s, setS] = useState<Settings>({ ...defaultSettings, dictation: { engine: "stt", hotkey: "F4" } });
+      return <DictationSection lang="en-US" settings={s} onChange={setS} />;
+    }
+    render(<Harness />);
+    return screen.getByLabelText(t("en-US", "dictationSttKey"), { selector: "input" });
+  }
+
+  async function saveThenBlank(input: HTMLElement) {
+    fireEvent.change(input, { target: { value: "stt-key" } });
+    await act(async () => {
+      fireEvent.blur(input);
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.blur(input);
+  }
+
+  it("a stored key is removed when the field is blanked (control)", async () => {
+    vi.mocked(saveSecretValue).mockResolvedValueOnce(true);
+    await saveThenBlank(renderStt());
+    expect(saveSecretValue).toHaveBeenCalledWith("sttApiKey", "stt-key", "device");
+    expect(removeSealed).toHaveBeenCalledWith("sttApiKey");
+  });
+
+  it("a superseded save (resolves false) leaves the stored flag off", async () => {
+    vi.mocked(saveSecretValue).mockResolvedValueOnce(false);
+    await saveThenBlank(renderStt());
+    expect(saveSecretValue).toHaveBeenCalledWith("sttApiKey", "stt-key", "device");
+    expect(removeSealed).not.toHaveBeenCalled();
   });
 });

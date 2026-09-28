@@ -644,7 +644,10 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     // secret. Either way flip wrap to device so the checkbox actually toggles.
     trackTokenSeal((async () => {
       if ((sealableTursoToken ?? "").trim()) {
-        if (await saveSecretValue("tursoAuthToken", sealableTursoToken ?? "", "device")) setTokenStored(true);
+        // §609: false = a newer op on the token (a re-tick + passphrase Save, a clear) began during
+        // the seal and owns the wrap state now; flipping it to device would misreport the wrap.
+        if (!(await saveSecretValue("tursoAuthToken", sealableTursoToken ?? "", "device"))) return;
+        setTokenStored(true);
       } else if (isPassphraseLocked("tursoAuthToken")) {
         removeSealed("tursoAuthToken");
         setTokenStored(false);

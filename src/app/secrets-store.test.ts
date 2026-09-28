@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import * as secrets from "./secrets";
 import { sealDevice, sealPassphrase, SECRET_IDS } from "./secrets";
-import { saveSealed, loadSealed, removeSealed, readDeviceSecret, isPassphraseLocked, migratePlaintextSecrets, probeDeviceSecretReadable, SECRETS_KEY, beginSealedWrite, invalidateAllSealedWrites } from "./secrets-store";
+import { saveSealed, loadSealed, removeSealed, readDeviceSecret, isPassphraseLocked, migratePlaintextSecrets, probeDeviceSecretReadable, SECRETS_KEY, beginSealedWrite, invalidateAllSealedWrites, snapshotSealedWrite } from "./secrets-store";
 import { logDiag } from "./diagnostics";
 
 vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
@@ -158,5 +158,82 @@ describe("beginSealedWrite (§609)", () => {
     invalidateAllSealedWrites();
     for (const [id, commit] of commits) expect(commit(await sealDevice(id, id)), id).toBe(false);
     expect(localStorage.getItem(SECRETS_KEY)).toBeNull();
+  });
+
+  it("snapshotSealedWrite commits when nothing began since, and never cancels a write in flight", async () => {
+    const sealedUser = await sealDevice("anthropicApiKey", "sk-user");
+    const snapshot = snapshotSealedWrite("anthropicApiKey");
+    expect(snapshot(await sealDevice("anthropicApiKey", "sk-bg"))).toBe(true);
+    const commitUser = beginSealedWrite("anthropicApiKey");
+    snapshotSealedWrite("anthropicApiKey"); // taken after the user's begin: bumps nothing
+    expect(commitUser(sealedUser)).toBe(true);
+    expect(await readDeviceSecret("anthropicApiKey")).toBe("sk-user");
+  });
+});
+
+// §609 I1 — the boot migration's seal can land after the §548 merge timeout has handed the UI
+// over; a user clear or a new value committed in that window must win over the legacy value.
+describe("migratePlaintextSecrets vs user writes in flight (§609)", () => {
+  function heldSeal() {
+    let release: (s: secrets.SealedSecret) => void = () => {};
+    const promise = new Promise<secrets.SealedSecret>((r) => {
+      release = r;
+    });
+    return { promise, release };
+  }
+
+  it("a clear during the migration's seal wins: nothing is written", async () => {
+    const legacy = await sealDevice("anthropicApiKey", "sk-legacy");
+    const seal = heldSeal();
+    vi.spyOn(secrets, "sealDevice").mockReturnValueOnce(seal.promise);
+
+    const migrating = migratePlaintextSecrets({ apiKey: "sk-legacy" });
+    removeSealed("anthropicApiKey");
+    seal.release(legacy);
+
+    expect((await migrating).apiKey).toBe("");
+    expect(loadSealed("anthropicApiKey")).toBeNull();
+  });
+
+  it("a user save that begins during the migration's seal wins, whichever lands first", async () => {
+    const legacy = await sealDevice("anthropicApiKey", "sk-legacy");
+    const sealedUser = await sealDevice("anthropicApiKey", "sk-user");
+    const seal = heldSeal();
+    vi.spyOn(secrets, "sealDevice").mockReturnValueOnce(seal.promise);
+
+    const migrating = migratePlaintextSecrets({ apiKey: "sk-legacy" });
+    const commitUser = beginSealedWrite("anthropicApiKey");
+    seal.release(legacy);
+    await migrating;
+    expect(loadSealed("anthropicApiKey")).toBeNull(); // the migration's write was dropped
+    expect(commitUser(sealedUser)).toBe(true);
+    expect(await readDeviceSecret("anthropicApiKey")).toBe("sk-user");
+  });
+
+  it("a user save that began BEFORE the migration and lands during its seal is not overwritten", async () => {
+    const legacy = await sealDevice("anthropicApiKey", "sk-legacy");
+    const sealedUser = await sealDevice("anthropicApiKey", "sk-user");
+    const seal = heldSeal();
+    vi.spyOn(secrets, "sealDevice").mockReturnValueOnce(seal.promise);
+
+    const commitUser = beginSealedWrite("anthropicApiKey");
+    const migrating = migratePlaintextSecrets({ apiKey: "sk-legacy" });
+    expect(commitUser(sealedUser)).toBe(true);
+    seal.release(legacy);
+    await migrating;
+
+    expect(await readDeviceSecret("anthropicApiKey")).toBe("sk-user");
+  });
+
+  it("with no user action, a held migration seal still writes when it lands", async () => {
+    const legacy = await sealDevice("anthropicApiKey", "sk-legacy");
+    const seal = heldSeal();
+    vi.spyOn(secrets, "sealDevice").mockReturnValueOnce(seal.promise);
+
+    const migrating = migratePlaintextSecrets({ apiKey: "sk-legacy" });
+    seal.release(legacy);
+
+    expect((await migrating).apiKey).toBe("");
+    expect(await readDeviceSecret("anthropicApiKey")).toBe("sk-legacy");
   });
 });

@@ -56,7 +56,8 @@ export function removeSealed(id: SecretId): void {
 //   that writes only if nothing bumped it since. The newest START wins, whichever seal finishes
 //   first. The counter lives HERE, not in use-secrets, so EVERY clear from any caller (settings
 //   sections, jira/timelog settings, a factory reset) cancels in-flight seals without having to
-//   know they exist. `saveSealed` stays the raw writer and does NOT bump (see the migration).
+//   know they exist. `saveSealed` stays the raw writer and does NOT bump; the boot migration
+//   commits through `snapshotSealedWrite` (see `migrateOne`).
 const writeGenerations = new Map<SecretId, number>();
 
 function bumpGeneration(id: SecretId): number {
@@ -65,16 +66,30 @@ function bumpGeneration(id: SecretId): number {
   return next;
 }
 
-/** Start a sealed write for `id`: call it BEFORE the seal's await. The returned commit stores
- *  the sealed value and returns true — or, when a newer write or a clear for the same id began
- *  in the meantime, writes nothing and returns false. */
-export function beginSealedWrite(id: SecretId): (sealed: SealedSecret) => boolean {
-  const generation = bumpGeneration(id);
+function commitAt(id: SecretId, generation: number): (sealed: SealedSecret) => boolean {
   return (sealed) => {
-    if (writeGenerations.get(id) !== generation) return false;
+    if ((writeGenerations.get(id) ?? 0) !== generation) return false;
     saveSealed(sealed);
     return true;
   };
+}
+
+/** Start a sealed write for `id`: call it BEFORE the seal's await. The returned commit stores
+ *  the sealed value and returns true — or, when a newer write or a clear for the same id began
+ *  in the meantime, writes nothing and returns false.
+ *  ★ No fallback: when the newest seal FAILS, the older ones it superseded stay unwritten, so the
+ *    store keeps its previous record (or nothing). Deliberate — letting a superseded older seal
+ *    commit after all would bring back "older value wins", and it would need a second guard. The
+ *    in-memory settings still hold the plaintext for the session. */
+export function beginSealedWrite(id: SecretId): (sealed: SealedSecret) => boolean {
+  return commitAt(id, bumpGeneration(id));
+}
+
+/** Like `beginSealedWrite`, but WITHOUT bumping: the commit writes only if no write or clear for
+ *  `id` began since this snapshot, and it never cancels one already in flight. For background
+ *  writers that must yield to the user (the boot migration, see `migrateOne`). */
+export function snapshotSealedWrite(id: SecretId): (sealed: SealedSecret) => boolean {
+  return commitAt(id, writeGenerations.get(id) ?? 0);
 }
 
 /** Cancel every sealed write in flight, for every id. For callers that wipe the store without
@@ -147,46 +162,12 @@ export async function migratePlaintextSecrets(input: {
   // Per-secret seal: a crypto/IndexedDB failure on one secret must neither
   // reject the whole migration nor blank a secret we failed to persist. On a
   // failed seal we return the ORIGINAL plaintext so the caller keeps it.
-  let apiKeyOut = "";
-  let authTokenOut = "";
-  let jiraApiTokenOut = "";
-  let timelogApiTokenOut = "";
-  let sttApiKeyOut = "";
-  if (apiKey && !loadSealed("anthropicApiKey")) {
-    try {
-      saveSealed(await sealDevice("anthropicApiKey", apiKey));
-    } catch {
-      apiKeyOut = apiKey; // seal failed → keep plaintext un-migrated
-    }
-  }
-  if (authToken && !loadSealed("tursoAuthToken")) {
-    try {
-      saveSealed(await sealDevice("tursoAuthToken", authToken));
-    } catch {
-      authTokenOut = authToken; // seal failed → keep plaintext un-migrated
-    }
-  }
-  if (jiraApiToken && !loadSealed("jiraApiToken")) {
-    try {
-      saveSealed(await sealDevice("jiraApiToken", jiraApiToken));
-    } catch {
-      jiraApiTokenOut = jiraApiToken; // seal failed → keep plaintext un-migrated
-    }
-  }
-  if (timelogApiToken && !loadSealed("timelogApiToken")) {
-    try {
-      saveSealed(await sealDevice("timelogApiToken", timelogApiToken));
-    } catch {
-      timelogApiTokenOut = timelogApiToken; // seal failed → keep plaintext un-migrated
-    }
-  }
-  if (sttApiKey && !loadSealed("sttApiKey")) {
-    try {
-      saveSealed(await sealDevice("sttApiKey", sttApiKey));
-    } catch {
-      sttApiKeyOut = sttApiKey; // seal failed → keep plaintext un-migrated
-    }
-  }
+  // Sequential, as before: one seal at a time.
+  const apiKeyOut = await migrateOne("anthropicApiKey", apiKey);
+  const authTokenOut = await migrateOne("tursoAuthToken", authToken);
+  const jiraApiTokenOut = await migrateOne("jiraApiToken", jiraApiToken);
+  const timelogApiTokenOut = await migrateOne("timelogApiToken", timelogApiToken);
+  const sttApiKeyOut = await migrateOne("sttApiKey", sttApiKey);
   return {
     apiKey: apiKeyOut,
     authToken: authTokenOut,
@@ -194,4 +175,25 @@ export async function migratePlaintextSecrets(input: {
     timelogApiToken: timelogApiTokenOut,
     sttApiKey: sttApiKeyOut,
   };
+}
+
+/** Seal one legacy plaintext value if nothing is sealed for `id` yet. Returns "" (migrated, or
+ *  nothing to do, or superseded by the user) or the ORIGINAL plaintext when the seal failed. */
+async function migrateOne(id: SecretId, value: string): Promise<string> {
+  if (!value || loadSealed(id)) return "";
+  // ★★ §609 — the migration SNAPSHOTS the generation instead of bumping it. Its seal can land
+  //   after the §548 merge timeout has already handed the UI over, so a clear or a new value the
+  //   user commits in that window must win: any bump since the snapshot drops the migration's
+  //   write. It must NOT bump itself — that would cancel a newer user seal already in flight and
+  //   let the legacy value win instead. ★ It also re-checks "nothing sealed yet" at commit: a user
+  //   seal that began BEFORE the snapshot (so it bumped nothing after it) may have landed during
+  //   the await, and the legacy value must not overwrite it.
+  const commit = snapshotSealedWrite(id);
+  try {
+    const sealed = await sealDevice(id, value);
+    if (!loadSealed(id)) commit(sealed);
+    return ""; // stored, or superseded by a newer user write/clear — either way not plaintext
+  } catch {
+    return value; // seal failed → keep plaintext un-migrated
+  }
 }
