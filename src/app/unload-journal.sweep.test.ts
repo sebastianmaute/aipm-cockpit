@@ -41,6 +41,23 @@ describe("listUnloadJournals", () => {
     expect(listUnloadJournals().map((j) => j.projectKey)).toEqual(["real-key"]);
   });
 
+  it.each([1e16, -1e16])("treats a record whose savedAt %s is outside the Date range as malformed: removed and logged", (savedAt) => {
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    window.localStorage.setItem(`${UNLOAD_JOURNAL_PREFIX}far`, JSON.stringify({
+      v: 1, projectKey: "far", tabId: "t", savedAt, baseFingerprint: "fp", workspace: "{}",
+    }));
+    expect(listUnloadJournals()).toEqual([]);
+    expect(window.localStorage.getItem(`${UNLOAD_JOURNAL_PREFIX}far`)).toBeNull();
+    expect(spy).toHaveBeenCalledWith("warn", "workspace.unloadJournalCorrupt", { projectKey: "far" });
+  });
+
+  it("accepts a savedAt at the edge of the Date range", () => {
+    window.localStorage.setItem(`${UNLOAD_JOURNAL_PREFIX}edge`, JSON.stringify({
+      v: 1, projectKey: "edge", tabId: "t", savedAt: 8.64e15, baseFingerprint: "fp", workspace: "{}",
+    }));
+    expect(listUnloadJournals().map((j) => j.projectKey)).toEqual(["edge"]);
+  });
+
   it("leaves another version's record in place even when its fields changed shape", () => {
     const v3 = JSON.stringify({ v: 3, key: "k", body: {} });
     window.localStorage.setItem(`${UNLOAD_JOURNAL_PREFIX}v3`, v3);

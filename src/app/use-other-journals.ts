@@ -11,10 +11,11 @@
 //
 // Nothing is removed without the user being told: an expiry is announced, a Discard is a click.
 //
-// Only the key the PAGE LOADED is left out of the list: its restore ran (use-storage-backend.ts's load
-// effect). A project op (switch, create) loads without a restore, so a journal under the key it moves
-// to stays listed; reloading the page with that project open restores it. Records this page wrote
-// itself are left out too: they are this session's, not an earlier one's.
+// Only keys whose restore RAN on this page are left out of the list (`restoredKeys` from
+// use-unload-journal.ts): a load that skips it (an incomplete load) or a project op (switch, create,
+// which loads without a restore) leaves its key's journal listed; reloading the page with that
+// project open restores it. Records this page wrote itself are left out too: they are this
+// session's, not an earlier one's. The key in scope is never expired.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { downloadJson } from "./download-json";
@@ -30,15 +31,17 @@ export type OtherJournal = {
 };
 
 export type UseOtherJournalsArgs = {
-  /** The journal key in scope — never expired; the one the page loaded is never listed. */
+  /** The journal key in scope — never expired. */
   projectKey: string;
+  /** Keys whose restore ran on this page — never listed. */
+  restoredKeys: ReadonlySet<string>;
   /** True once the first load for `projectKey` has applied (so its restore has run). */
   enabled: boolean;
   isPopout: boolean;
 };
 
-function labelFor(projectKey: string): string | null {
-  return loadRegistry().projects.find((p) => p.id === projectKey)?.name ?? null;
+function toEntry(journal: UnloadJournal): OtherJournal {
+  return { journal, label: loadRegistry().projects.find((p) => p.id === journal.projectKey)?.name ?? null };
 }
 
 /** The download's file name. The key never holds a credential (see `journalProjectKey`); anything
@@ -49,35 +52,45 @@ export function otherJournalFileName(journal: UnloadJournal): string {
   return `aipm-cockpit-unsaved-${safeKey}-${day}.json`;
 }
 
-export function useOtherJournals({ projectKey, enabled, isPopout }: UseOtherJournalsArgs) {
+export function useOtherJournals({ projectKey, restoredKeys, enabled, isPopout }: UseOtherJournalsArgs) {
   const active = enabled && !isPopout;
   const [others, setOthers] = useState<OtherJournal[]>([]);
-  const [expiredCount, setExpiredCount] = useState(0);
+  const [expired, setExpired] = useState<OtherJournal[]>([]);
   const [dismissed, setDismissed] = useState(false);
-  /** The key in scope when the first load applied — the one whose journal the load restored. */
-  const loadedKeyRef = useRef<string | null>(null);
+  const sweptRef = useRef(false);
+
+  /** Re-reads the list from storage: every journal except those under a key whose restore ran on this
+   *  page (use-unload-journal.ts owns those) and those this page wrote. Newest first. */
+  const relist = useCallback((): void => {
+    setOthers(listUnloadJournals()
+      .filter((j) => !restoredKeys.has(j.projectKey) && j.tabId !== UNLOAD_JOURNAL_TAB_ID)
+      .sort((a, b) => b.savedAt - a.savedAt)
+      .map(toEntry));
+  }, [restoredKeys]);
 
   useEffect(() => {
     if (!active) return;
-    if (loadedKeyRef.current === null) {
-      loadedKeyRef.current = projectKey;
-      setExpiredCount(expireUnloadJournals(Date.now(), projectKey).length);
+    if (!sweptRef.current) {
+      sweptRef.current = true;
+      setExpired(expireUnloadJournals(Date.now(), projectKey).map(toEntry));
     }
-    const loadedKey = loadedKeyRef.current;
-    setOthers(listUnloadJournals()
-      .filter((j) => j.projectKey !== loadedKey && j.tabId !== UNLOAD_JOURNAL_TAB_ID)
-      .sort((a, b) => b.savedAt - a.savedAt)
-      .map((journal) => ({ journal, label: labelFor(journal.projectKey) })));
-  }, [active, projectKey]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a read of localStorage, re-run when the key in scope or the restored keys change
+    relist();
+  }, [active, projectKey, relist]);
 
-  /** Removes the record the entry describes — not a later write under the same key — and the entry. */
+  /** Removes the record the entry describes — not a later write under the same key. When the key now
+   *  holds a different record (another tab rewrote it), the list is re-read so that record shows. */
   const discard = useCallback((entry: OtherJournal): void => {
     const { journal } = entry;
-    clearUnloadJournal(journal.projectKey, { tabId: journal.tabId, ifSavedAtAtMost: journal.savedAt });
-    setOthers((list) => list.filter((e) => e !== entry));
-  }, []);
+    if (clearUnloadJournal(journal.projectKey, { tabId: journal.tabId, ifSavedAtAtMost: journal.savedAt })) {
+      setOthers((list) => list.filter((e) => e !== entry));
+    } else {
+      relist();
+    }
+  }, [relist]);
 
-  /** Downloads the entry's workspace JSON as listed. False when the browser refused. */
+  /** Downloads the entry's workspace JSON as listed (or as it was when it expired). False when the
+   *  browser refused. */
   const download = useCallback((entry: OtherJournal): boolean => (
     downloadJson(otherJournalFileName(entry.journal), entry.journal.workspace)
   ), []);
@@ -87,10 +100,12 @@ export function useOtherJournals({ projectKey, enabled, isPopout }: UseOtherJour
   return {
     /** Shown until dismissed for this page; the records stay in storage. */
     others: dismissed ? [] : others,
-    expiredCount,
+    /** The records the sweep removed, kept in memory so the notice can name them and still offer
+     *  Download until it is dismissed. */
+    expired,
     discard,
     download,
     dismiss: useCallback(() => setDismissed(true), []),
-    dismissExpired: useCallback(() => setExpiredCount(0), []),
+    dismissExpired: useCallback(() => setExpired([]), []),
   };
 }

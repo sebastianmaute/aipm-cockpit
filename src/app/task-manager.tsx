@@ -2974,7 +2974,7 @@ function TaskManagerInner() {
       {unloadJournalConflict && (
         <UnloadJournalConflictBanner lang={lang} onRestoreAnyway={restoreUnloadJournalAnyway} onDiscard={discardUnloadJournal} />
       )}
-      {otherJournals.expiredCount > 0 && <ExpiredJournalsBanner lang={lang} count={otherJournals.expiredCount} onDismiss={otherJournals.dismissExpired} />}
+      {otherJournals.expired.length > 0 && <ExpiredJournalsBanner lang={lang} expired={otherJournals.expired} onDownload={otherJournals.download} onDismiss={otherJournals.dismissExpired} />}
       {otherJournals.others.length > 0 && (
         <OtherJournalsBanner lang={lang} others={otherJournals.others} onDownload={otherJournals.download} onDiscard={otherJournals.discard} onDismiss={otherJournals.dismiss} />
       )}

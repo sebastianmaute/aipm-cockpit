@@ -192,6 +192,13 @@ export function writeUnloadJournal(rec: UnloadJournalWrite): boolean {
   }
 }
 
+/** §632 — a number `new Date` can format: a `savedAt` outside that range made the other-keys notice
+ *  throw on render, so such a record counts as malformed. */
+const MAX_DATE_MS = 8.64e15; // the ECMAScript Date range, either side of the epoch
+function isTimestamp(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= MAX_DATE_MS;
+}
+
 /** Every field EXCEPT `v` matches the record shape — checked separately from
  *  `v` itself so a well-formed-but-different-version record (ruling R5: a
  *  hypothetical future v2 journal) can be told apart from a genuinely
@@ -202,7 +209,7 @@ function hasJournalFields(value: unknown): value is Omit<UnloadJournal, "v"> & R
   return (
     typeof rec.projectKey === "string" &&
     typeof rec.tabId === "string" &&
-    typeof rec.savedAt === "number" &&
+    isTimestamp(rec.savedAt) &&
     typeof rec.baseFingerprint === "string" &&
     typeof rec.workspace === "string"
   );

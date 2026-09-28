@@ -361,7 +361,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const journalProjectKey = useMemo(() => resolveJournalProjectKey(args.settings.storageConfig.kind, tursoProjectId), [args.settings.storageConfig, tursoProjectId]);
   const unloadJournal = useUnloadJournal({ projectKey: journalProjectKey, enabled: args.hydrated, isPopout: args.isPopout });
   // §632 — journals under OTHER keys: expired past 30 days, the rest listed. After the first load, so its restore has run.
-  const otherJournals = useOtherJournals({ projectKey: journalProjectKey, enabled: args.hydrated && workspaceLoaded, isPopout: args.isPopout });
+  const otherJournals = useOtherJournals({ projectKey: journalProjectKey, restoredKeys: unloadJournal.restoredKeys, enabled: args.hydrated && workspaceLoaded, isPopout: args.isPopout });
   // ★ A `const`, not a `function` declaration: `use-load-truncation.test.ts` keys each `.save(` on the
   // nearest preceding DECLARATION, and one here would rename the `flushCurrent` write's key below.
   const allowSavesTo = (target: ReturnType<typeof createBackend>): void => {
