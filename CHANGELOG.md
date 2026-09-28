@@ -8,7 +8,7 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [1.14.2] - 2026-09-27 "Deaver"
+## [1.14.2] - 2026-09-28 "Deaver"
 
 A maintenance release. Typed text you had not yet clicked out of is kept when you close or reload
 the window, and data this version cannot read now pauses saving instead of being overwritten. The
@@ -76,6 +76,9 @@ exports, documents, window layout, dialog sizes, bulk edit and Trends.
   with a notice saying how much to remove, and your text and formatting stay in the editor. If the
   window is closed, reloaded or navigated away first, it is saved as plain text so nothing is lost;
   switching tabs keeps it as it is.
+- **Image previews.** The document preview, the version-history preview and the image preview
+  window no longer download an image whose file type is not allowed; they show at once that its
+  format is not supported.
 - **Help for document images.** The help buttons on the image library and the image preview now
   open the help about document images, rather than the general documents help.
 - **Meetings list.** A repeating meeting reads "Every 2 weeks" rather than "Every 2 week(s)".
