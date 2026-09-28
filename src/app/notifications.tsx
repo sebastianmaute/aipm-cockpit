@@ -8,7 +8,8 @@ import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import type { UpcomingBirthday } from "./birthdays";
 import { resourceDisplayName } from "./resource-foundation";
-import { formatExpiryDate } from "./date-format";
+import { formatExpiryDate, formatFetchedAt } from "./date-format";
+import type { OtherJournal } from "./use-other-journals";
 import type { JiraTokenAlert } from "./jira-token-status";
 import type { StorageErrorKind } from "./storage-error";
 import { Banner, type BannerSeverity } from "./banner";
@@ -136,6 +137,95 @@ export function UnloadJournalConflictBanner({
         </Button>
       </>}>
       <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "unloadJournalConflict")}</p>
+    </AlertBanner>
+  );
+}
+
+/** §632 — the name a journal entry is shown under: its registry project's name, else its key, with
+ *  the `browser` and `turso` fallback keys translated. */
+function journalName(lang: Lang, entry: OtherJournal): string {
+  if (entry.label !== null) return entry.label;
+  if (entry.journal.projectKey === "browser") return t(lang, "unloadJournalKeyBrowser");
+  if (entry.journal.projectKey === "turso") return t(lang, "unloadJournalKeyTurso");
+  return entry.journal.projectKey;
+}
+
+/** §632 — one line per journal (name, date, size) with Download and, when `onDiscard` is given,
+ *  Discard; the buttons carry the entry's name. A refused download is named in an alert. */
+function JournalList({
+  lang, entries, onDownload, onDiscard,
+}: {
+  lang: Lang;
+  entries: readonly OtherJournal[];
+  onDownload: (entry: OtherJournal) => boolean;
+  onDiscard?: (entry: OtherJournal) => void;
+}) {
+  const [downloadFailed, setDownloadFailed] = useState<string | null>(null);
+  return (
+    <>
+      <ul className="mt-2 flex flex-col gap-1">
+        {entries.map((entry) => {
+          const name = journalName(lang, entry);
+          return (
+            <li key={`${entry.journal.projectKey}:${entry.journal.tabId}:${entry.journal.savedAt}`} className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="min-w-0 break-all">
+                {t(lang, "unloadJournalOthersEntry", name,
+                  formatFetchedAt(new Date(entry.journal.savedAt).toISOString(), lang),
+                  Math.max(1, Math.ceil(entry.journal.workspace.length / 1024)))}
+              </span>
+              <Button variant="secondary" size="xs" aria-label={`${t(lang, "unloadJournalDownload")}: ${name}`}
+                onClick={() => setDownloadFailed(onDownload(entry) ? null : name)}>
+                {t(lang, "unloadJournalDownload")}
+              </Button>
+              {onDiscard && (
+                <Button variant="secondary" size="xs" aria-label={`${t(lang, "unloadJournalDiscard")}: ${name}`} onClick={() => onDiscard(entry)}>
+                  {t(lang, "unloadJournalDiscard")}
+                </Button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {downloadFailed !== null && <p role="alert" className="mt-1 text-sm">{t(lang, "unloadJournalDownloadFailed", downloadFailed)}</p>}
+    </>
+  );
+}
+
+/** §632 — unload journals kept under OTHER keys (use-other-journals.ts), each with Download and
+ *  Discard. Dismiss hides the notice for this page only; the records stay. */
+export function OtherJournalsBanner({
+  lang, others, onDownload, onDiscard, onDismiss,
+}: {
+  lang: Lang;
+  others: readonly OtherJournal[];
+  onDownload: (entry: OtherJournal) => boolean;
+  onDiscard: (entry: OtherJournal) => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <AlertBanner severity="info" ariaLabel={t(lang, "unloadJournalOthers")} icon="ℹ"
+      actions={<DismissButton lang={lang} onClick={onDismiss} />}>
+      <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "unloadJournalOthers")}</p>
+      <JournalList lang={lang} entries={others} onDownload={onDownload} onDiscard={onDiscard} />
+    </AlertBanner>
+  );
+}
+
+/** §632 — the journals older than 30 days the load removed, so none goes silently: each is named, and
+ *  its in-memory copy can still be downloaded until the notice is dismissed. */
+export function ExpiredJournalsBanner({
+  lang, expired, onDownload, onDismiss,
+}: {
+  lang: Lang;
+  expired: readonly OtherJournal[];
+  onDownload: (entry: OtherJournal) => boolean;
+  onDismiss: () => void;
+}) {
+  const msg = tPlural(lang, "unloadJournalExpired", expired.length, expired.length);
+  return (
+    <AlertBanner severity="info" ariaLabel={msg} icon="ℹ" actions={<DismissButton lang={lang} onClick={onDismiss} />}>
+      <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{msg}</p>
+      <JournalList lang={lang} entries={expired} onDownload={onDownload} />
     </AlertBanner>
   );
 }

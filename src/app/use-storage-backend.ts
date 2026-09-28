@@ -29,6 +29,7 @@ import { useFileProjectOps, useStorageFilePickerOps } from "./use-storage-file-o
 import { lastLoadWasIncomplete, useLoadTruncation } from "./use-load-truncation";
 import { useDestructiveSaveGuard } from "./use-destructive-save-guard";
 import { resolveJournalProjectKey, useUnloadJournal } from "./use-unload-journal";
+import { useOtherJournals } from "./use-other-journals";
 import type { ToastAction } from "./use-toast";
 import type { UseStorageBackendArgs } from "./use-storage-backend-types";
 
@@ -359,6 +360,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // §629 — the unload journal (use-unload-journal.ts). Re-read per storage config: an op commits the registry in the same tick as the config change.
   const journalProjectKey = useMemo(() => resolveJournalProjectKey(args.settings.storageConfig.kind, tursoProjectId), [args.settings.storageConfig, tursoProjectId]);
   const unloadJournal = useUnloadJournal({ projectKey: journalProjectKey, enabled: args.hydrated, isPopout: args.isPopout });
+  // §632 — journals under OTHER keys: expired past 30 days, the rest listed. After the first load, so its restore has run.
+  const otherJournals = useOtherJournals({ projectKey: journalProjectKey, restoredKeys: unloadJournal.restoredKeys, enabled: args.hydrated && workspaceLoaded, isPopout: args.isPopout });
   // ★ A `const`, not a `function` declaration: `use-load-truncation.test.ts` keys each `.save(` on the
   // nearest preceding DECLARATION, and one here would rename the `flushCurrent` write's key below.
   const allowSavesTo = (target: ReturnType<typeof createBackend>): void => {
@@ -1409,5 +1412,6 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     archiveTursoProject, restoreTursoProject, hardDeleteTursoProject,
     tursoProjectId,
     unloadJournalConflict: unloadJournal.conflict, restoreUnloadJournalAnyway, discardUnloadJournal: unloadJournal.discardConflict, // §629
+    otherJournals, // §632
   };
 }

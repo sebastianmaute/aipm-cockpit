@@ -270,6 +270,9 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
 
   /** The journal the last restore found and could not apply (its base did not match) — see `ConflictRecord`. */
   const [conflictRecord, setConflictRecord] = useState<ConflictRecord | null>(null);
+  /** §632 — every key `restoreOnLoad` ran for on this page. use-other-journals.ts leaves these out of
+   *  its list: their journal was applied, cleared, or published as the conflict notice. */
+  const [restoredKeys, setRestoredKeys] = useState<ReadonlySet<string>>(() => new Set());
 
   /** The restore. `loaded` is what a load that passed every gate returned, `key` the journal key
    *  of the target it came from. First, a journal whose CONTENT fingerprints as `loaded` describes
@@ -281,6 +284,7 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
    *  (or a disabled hook) never restores. */
   const restoreOnLoad = useCallback((loaded: Workspace, key: string, kind: StorageKind): Workspace | null => {
     if (!activeRef.current) return null;
+    setRestoredKeys((prev) => (prev.has(key) ? prev : new Set([...prev, key])));
     const journal = readUnloadJournal(key);
     const restored = journal === null ? null : journalWorkspace(journal);
     if (journal === null || restored === null) {
@@ -337,6 +341,6 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
 
   return {
     noteSaveStarted, noteSaveConfirmed, baseFingerprint, setBase, holdBase, adoptHeldBase, dropUnconfirmed,
-    restoreOnLoad, restoreConflict, discardConflict, conflict,
+    restoreOnLoad, restoreConflict, discardConflict, conflict, restoredKeys,
   };
 }

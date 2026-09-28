@@ -18,6 +18,7 @@ import { loadSealed } from "./secrets-store";
 import { MODE_KEY } from "./portfolio-mode";
 import { DiagnosticsPanel } from "./diagnostics-panel";
 import { logDiag } from "./diagnostics";
+import { downloadJson } from "./download-json";
 
 interface ConfigSummary {
   backendKind: string;
@@ -51,21 +52,6 @@ function readSummary(): ConfigSummary {
     /* defaults */
   }
   return { backendKind, portfolioMode, tursoConfigured };
-}
-
-function downloadJson(filename: string, json: string): boolean {
-  try {
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 export function RecoveryPanel() {
