@@ -533,3 +533,26 @@ describe("§629 — useUnloadJournal restore on its own", () => {
     expect(result.current.conflict).toBe(true);
   });
 });
+
+describe("§632 — journals under other keys, wired into the load", () => {
+  it("expires an old one only once the first load has applied, and lists a younger one", async () => {
+    const now = Date.UTC(2026, 8, 28);
+    vi.setSystemTime(now);
+    const old = { v: 1, projectKey: "gone", tabId: EARLIER_TAB, savedAt: now - 31 * 24 * 60 * 60 * 1000, baseFingerprint: "", workspace: "{}" };
+    const young = { ...old, projectKey: "other", savedAt: now - 60_000 };
+    localStorage.setItem(`${UNLOAD_JOURNAL_PREFIX}gone`, JSON.stringify(old));
+    localStorage.setItem(`${UNLOAD_JOURNAL_PREFIX}other`, JSON.stringify(young));
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const { result } = render();
+
+    await advance(50); // the load is still in flight
+    expect(readJournal(`${UNLOAD_JOURNAL_PREFIX}gone`)).not.toBeNull();
+    expect(result.current.otherJournals.others).toEqual([]);
+    expect(result.current.otherJournals.expiredCount).toBe(0);
+
+    await advance(150);
+    expect(readJournal(`${UNLOAD_JOURNAL_PREFIX}gone`)).toBeNull();
+    expect(result.current.otherJournals.expiredCount).toBe(1);
+    expect(result.current.otherJournals.others.map((e) => e.journal.projectKey)).toEqual(["other"]);
+  });
+});

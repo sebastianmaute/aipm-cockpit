@@ -257,20 +257,23 @@ export function readUnloadJournal(projectKey: string): UnloadJournal | null {
  *    `guard.tabId` AND its `savedAt` is `<= guard.ifSavedAtAtMost` — so a
  *    confirmed save only ever clears the journal entry IT wrote (or an older
  *    one from the same tab), never a different tab's newer write or a
- *    different tab's write at all. */
+ *    different tab's write at all.
+ *
+ *  Returns true when it removed a record (an unguarded clear always reports
+ *  true), false when it left the key as it was. */
 export function clearUnloadJournal(
   projectKey: string,
   guard?: { tabId: string; ifSavedAtAtMost: number },
-): void {
-  if (typeof window === "undefined") return;
+): boolean {
+  if (typeof window === "undefined") return false;
   const key = journalKey(projectKey);
   try {
     if (!guard) {
       window.localStorage.removeItem(key);
-      return;
+      return true;
     }
     const raw = window.localStorage.getItem(key);
-    if (!raw) return;
+    if (!raw) return false;
     const parsed: unknown = JSON.parse(raw);
     if (
       isUnloadJournal(parsed) &&
@@ -278,9 +281,59 @@ export function clearUnloadJournal(
       parsed.savedAt <= guard.ifSavedAtAtMost
     ) {
       window.localStorage.removeItem(key);
+      return true;
     }
+    return false;
   } catch {
     /* a guarded clear that can't read the existing record leaves it in
        place rather than guessing — never throws either way */
+    return false;
   }
+}
+
+// --- Other keys: list and expire (§632) --------------------------------
+
+/** A journal under a key nothing loads again (a project deleted in another tab, a key changed by
+ *  the migration to Turso) is otherwise never removed. Past this age it is expired. */
+export const UNLOAD_JOURNAL_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** Every readable v1 journal in storage. `projectKey` is the storage key's suffix — what
+ *  `readUnloadJournal` / `clearUnloadJournal` take — whatever the record itself says. Reads through
+ *  `readUnloadJournal`, so a malformed record is removed and a future-version one left alone. */
+export function listUnloadJournals(): UnloadJournal[] {
+  if (typeof window === "undefined") return [];
+  const projectKeys: string[] = [];
+  try {
+    const storage = window.localStorage;
+    for (let i = 0; i < storage.length; i++) {
+      const key = storage.key(i);
+      if (key !== null && key.startsWith(UNLOAD_JOURNAL_PREFIX)) projectKeys.push(key.slice(UNLOAD_JOURNAL_PREFIX.length));
+    }
+  } catch {
+    return [];
+  }
+  const journals: UnloadJournal[] = [];
+  for (const projectKey of projectKeys) {
+    const journal = readUnloadJournal(projectKey);
+    if (journal !== null) journals.push({ ...journal, projectKey });
+  }
+  return journals;
+}
+
+/** Removes every journal older than `UNLOAD_JOURNAL_MAX_AGE_MS` at `now`, except the one under
+ *  `keepProjectKey` (the key in scope, which the load's restore handles) and one dated after `now`
+ *  (clock skew). Each removal is guarded to the record listed and logged as
+ *  `workspace.unloadJournalExpired`; returns the records removed, so the caller can say so. */
+export function expireUnloadJournals(now: number, keepProjectKey: string): UnloadJournal[] {
+  const expired: UnloadJournal[] = [];
+  for (const journal of listUnloadJournals()) {
+    if (journal.projectKey === keepProjectKey) continue;
+    if (now - journal.savedAt <= UNLOAD_JOURNAL_MAX_AGE_MS) continue;
+    if (!clearUnloadJournal(journal.projectKey, { tabId: journal.tabId, ifSavedAtAtMost: journal.savedAt })) continue;
+    logDiag("info", "workspace.unloadJournalExpired", {
+      projectKey: journal.projectKey, savedAt: journal.savedAt, size: journal.workspace.length,
+    });
+    expired.push(journal);
+  }
+  return expired;
 }

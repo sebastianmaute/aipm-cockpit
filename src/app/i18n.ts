@@ -4291,6 +4291,13 @@ const enUS = {
   unloadJournalConflict: "Unsaved changes from your last session could not be restored automatically because this project was changed elsewhere since.",
   unloadJournalRestoreAnyway: "Restore anyway",
   unloadJournalDiscard: "Discard",
+  // §632 — journals under other keys (use-other-journals.ts) and the ones expired at load.
+  unloadJournalOthers: "Unsaved changes from earlier sessions are still kept in this browser for other projects or storage locations. Opening that project restores them; you can also download or discard them here.",
+  unloadJournalOthersEntry: "{0} — saved {1}, {2} KB",
+  unloadJournalDownload: "Download",
+  unloadJournalDownloadFailed: "The download could not be started.",
+  unloadJournalExpired: "{0} unsaved drafts older than 30 days were removed from this browser.",
+  unloadJournalExpiredOne: "{0} unsaved draft older than 30 days was removed from this browser.",
   storageRefusedWipe: "Saving is paused - a large deletion was withheld. Review it in the banner above, or reload the page to restore your saved data.",
   storageSavePausedLoadFailed: "Saving is paused because the project could not be loaded. Changes you make now are not saved. Reload the project to try again.",
   storageSavePausedEmptyLoad: "Saving is paused: this storage returned no data, so the project on screen was kept but is not written into it. Changes you make now are not saved. Check the storage settings, or reload the project to open the empty storage.",

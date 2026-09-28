@@ -859,7 +859,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§629](#629-the-unload-journal-is-unverified-on-the-packaged-desktop-close-and-on-the-file-sharepoint-and-turso-backends-and-a-restore-the-mass-deletion-guard-refuses-repeats-on-every-reload--open) | The unload journal is unverified on the packaged desktop close and on the file, SharePoint and Turso backends, and a restore the mass-deletion guard refuses repeats on every reload | — | — | open |
 | [§630](#630-csv-and-markdown-project-files-still-drop-an-all-invalid-meta-slice-silently-on-load-620-covers-json-and-indexeddb-only--closed-2026-09-28) | CSV and Markdown project files still drop an all-invalid meta slice silently on load (§620 covers JSON and IndexedDB only) | — | — | **CLOSED** 2026-09-28 |
 | [§631](#631-the-desktop-shell-reuses-a-leftover-server-without-checking-its-version-so-an-orphan-could-serve-an-old-build-after-an-update--closed-2026-09-28) | The desktop shell reuses a leftover server without checking its version, so an orphan could serve an old build after an update | — | — | **CLOSED** 2026-09-28 |
-| [§632](#632-unload-journals-whose-project-key-is-never-loaded-again-are-never-swept-so-they-can-fill-browser-storage--open) | Unload journals whose project key is never loaded again are never swept, so they can fill browser storage | — | — | open |
+| [§632](#632-unload-journals-whose-project-key-is-never-loaded-again-are-never-swept-so-they-can-fill-browser-storage--closed-2026-09-28) | Unload journals whose project key is never loaded again are never swept, so they can fill browser storage | — | — | **CLOSED** 2026-09-28 |
 | [§633](#633-the-document-preview-fetches-and-decodes-a-policy-refused-images-bytes-before-declining-it--closed-2026-09-27) | The document preview fetches and decodes a policy-refused image's bytes before declining it | — | — | **CLOSED** 2026-09-27 |
 <!-- INDEX:END -->
 
@@ -43136,11 +43136,17 @@ Size S.
 **Source:** the desktop server-lifecycle verdict in the docs-coverage slice, which checked the
 `before-quit` comment in `desktop/src/main.ts` against `classifyPortOwner`, `probePort` and `start()`.
 
-## 632. Unload journals whose project key is never loaded again are never swept, so they can fill browser storage — open
+## 632. Unload journals whose project key is never loaded again are never swept, so they can fill browser storage — CLOSED 2026-09-28
 
-**Status:** open 2026-09-27. Filed by owner decision from the final review of the batch 8 unload journal (PR #444). Verified by reading, plus `git grep -n "clearUnloadJournal(" -- src/app ':!*.test.*'`, which finds one definition and three calls, all in `use-unload-journal.ts`. `grep -n "removeItem" src/app/unload-journal.ts` finds four removals, each of the key it was given. No reproduction.
+**Status:** CLOSED 2026-09-28 on fix/orphan-journal-sweep, by owner decision "surface + expire". Once per page, after the first load has applied (so its own restore has run), `useOtherJournals` (`src/app/use-other-journals.ts`, called from `use-storage-backend.ts`):
+- expires every journal older than `UNLOAD_JOURNAL_MAX_AGE_MS` (30 days) under a key other than the one in scope, through `expireUnloadJournals` in `unload-journal.ts`. Each removal is guarded to the record listed, logged as `workspace.unloadJournalExpired`, and announced by `ExpiredJournalsBanner`. A journal dated in the future (clock skew) is never expired, nor is the key in scope;
+- lists the rest in `OtherJournalsBanner` (`notifications.tsx`), labelled with the registry project's name or else the key, with its date and size. Download saves the record's workspace JSON, which the Step 0 import reads; Discard removes only the record listed, not a later write under the same key; Dismiss hides the notice for the page and keeps the records. The list is re-read when the key in scope changes.
 
-**Work item:** #453
+`downloadJson` moved from `recovery-panel.tsx` to `src/app/download-json.ts`, and `clearUnloadJournal` now reports whether it removed a record. Tests: `unload-journal.sweep.test.ts`, `use-other-journals.test.tsx`, and the §632 case in `use-unload-journal.restore.test.tsx` (no sweep while the first load is in flight). Seventeen mutants, each killed.
+
+Known limits, not fixed here: the 30-day age is fixed, with no setting. A journal written at `pagehide` by a tab still held in the back/forward cache can be listed in another tab; discarding it there drops that snapshot, and the cached tab writes a new one on its next unload. The sweep counts only readable v1 records: a future-version record is left alone, as `readUnloadJournal` already does.
+
+**Originally recorded 2026-09-27:** Filed by owner decision from the final review of the batch 8 unload journal (PR #444). Verified by reading, plus `git grep -n "clearUnloadJournal(" -- src/app ':!*.test.*'`, which finds one definition and three calls, all in `use-unload-journal.ts`. `grep -n "removeItem" src/app/unload-journal.ts` finds four removals, each of the key it was given. No reproduction.
 
 The unload journal (§629) keeps unsaved changes in `localStorage` under `aipm-cockpit:unload-journal:<projectKey>`. For a single project, a record is removed only when its own key is read or written:
 - a confirmed save from the same tab;

@@ -8,7 +8,8 @@ import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import type { UpcomingBirthday } from "./birthdays";
 import { resourceDisplayName } from "./resource-foundation";
-import { formatExpiryDate } from "./date-format";
+import { formatExpiryDate, formatFetchedAt } from "./date-format";
+import type { OtherJournal } from "./use-other-journals";
 import type { JiraTokenAlert } from "./jira-token-status";
 import type { StorageErrorKind } from "./storage-error";
 import { Banner, type BannerSeverity } from "./banner";
@@ -136,6 +137,54 @@ export function UnloadJournalConflictBanner({
         </Button>
       </>}>
       <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "unloadJournalConflict")}</p>
+    </AlertBanner>
+  );
+}
+
+/** §632 — unload journals kept under OTHER keys (use-other-journals.ts): one line per record, each
+ *  with Download and Discard. Dismiss hides the notice for this page only; the records stay. */
+export function OtherJournalsBanner({
+  lang, others, onDownload, onDiscard, onDismiss,
+}: {
+  lang: Lang;
+  others: readonly OtherJournal[];
+  onDownload: (entry: OtherJournal) => boolean;
+  onDiscard: (entry: OtherJournal) => void;
+  onDismiss: () => void;
+}) {
+  const [downloadFailed, setDownloadFailed] = useState(false);
+  return (
+    <AlertBanner severity="info" ariaLabel={t(lang, "unloadJournalOthers")} icon="ℹ"
+      actions={<DismissButton lang={lang} onClick={onDismiss} />}>
+      <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "unloadJournalOthers")}</p>
+      <ul className="mt-2 flex flex-col gap-1">
+        {others.map((entry) => (
+          <li key={`${entry.journal.projectKey}:${entry.journal.tabId}:${entry.journal.savedAt}`} className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="min-w-0 break-all">
+              {t(lang, "unloadJournalOthersEntry", entry.label,
+                formatFetchedAt(new Date(entry.journal.savedAt).toISOString(), lang),
+                Math.max(1, Math.ceil(entry.journal.workspace.length / 1024)))}
+            </span>
+            <Button variant="secondary" size="xs" onClick={() => setDownloadFailed(!onDownload(entry))}>
+              {t(lang, "unloadJournalDownload")}
+            </Button>
+            <Button variant="secondary" size="xs" onClick={() => onDiscard(entry)}>
+              {t(lang, "unloadJournalDiscard")}
+            </Button>
+          </li>
+        ))}
+      </ul>
+      {downloadFailed && <p role="alert" className="mt-1 text-sm">{t(lang, "unloadJournalDownloadFailed")}</p>}
+    </AlertBanner>
+  );
+}
+
+/** §632 — says how many journals older than 30 days the load removed, so none goes silently. */
+export function ExpiredJournalsBanner({ lang, count, onDismiss }: { lang: Lang; count: number; onDismiss: () => void }) {
+  const msg = tPlural(lang, "unloadJournalExpired", count, count);
+  return (
+    <AlertBanner severity="info" ariaLabel={msg} icon="ℹ" actions={<DismissButton lang={lang} onClick={onDismiss} />}>
+      <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{msg}</p>
     </AlertBanner>
   );
 }
