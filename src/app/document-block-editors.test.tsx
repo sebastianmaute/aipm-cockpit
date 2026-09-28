@@ -17,7 +17,7 @@ import { loadI18n, t } from "./i18n";
 import type { DocBlock, ProjectDocument } from "./document-model";
 import { MAX_TABLE_COLUMNS, MAX_TABLE_ROWS, MAX_BULLET_ITEMS, MAX_TEXT_CHARS, MAX_HTML_TEXT_CHARS } from "./document-model";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
-import { PARAGRAPH_COUNT_FROM } from "./document-block-notices";
+import { PARAGRAPH_COUNT_FROM, BlockRefusalNotice } from "./document-block-notices";
 import { htmlTextLength } from "./rich-text-plain";
 import { scheduleDebouncedSave, SAVE_DEBOUNCE_MS } from "./debounced-save";
 
@@ -2046,6 +2046,18 @@ describe("block size limits (§191)", () => {
     expect(onCommit).toHaveBeenCalledTimes(1);
     const saved = onCommit.mock.calls[0][1] as { rows: string[][] };
     expect(saved.rows[0][0]).toHaveLength(MAX_TEXT_CHARS);
+  });
+
+  // The notice maps each limit kind to its own message; a swapped key would
+  // tell the user to remove rows from a table with too many columns.
+  it.each([
+    ["text", MAX_TEXT_CHARS, "documentsBlockOverTextLimitNotSaved"],
+    ["items", MAX_BULLET_ITEMS, "documentsBlockOverItemLimitNotSaved"],
+    ["columns", MAX_TABLE_COLUMNS, "documentsBlockOverColumnLimitNotSaved"],
+    ["rows", MAX_TABLE_ROWS, "documentsBlockOverRowLimitNotSaved"],
+  ] as const)("names the %s limit in the refusal notice", (kind, limit, key) => {
+    render(<BlockRefusalNotice lang={LANG} refusal={{ kind: "overLimit", violation: { kind, limit } }} />);
+    expect(screen.getByRole("status").textContent).toBe(t(LANG, key, fmt(limit)));
   });
 
   it("disables Add item at the list limit, with a visible reason it points to", () => {

@@ -193,7 +193,8 @@ export function exceedsStorageCaps(block: DocBlock): boolean {
  *  §185 path and returns null here, and so does a ragged row (more cells than
  *  columns), which no editor control can produce; both still truncate as before.
  *  ★ Keep it in step with `exceedsStorageCaps` above: a cap only that one knows
- *   is truncated silently again. `document-model.test.ts` pins their agreement. */
+ *   is truncated silently again. `document-model.test.ts` pins their agreement
+ *   on its listed cases only, so a new cap also needs a new case there. */
 export type CapViolation = {
   readonly kind: "text" | "items" | "columns" | "rows";
   readonly limit: number;

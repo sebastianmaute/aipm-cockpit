@@ -239,8 +239,9 @@ export function useBlockDraft<T, B extends DocBlock>(
   //   this hook's last commit would then equal `preCommitStoredRef` and read
   //   as unmoved — a clobber. Pinned by "treats a restore to the version
   //   before its own last commit as an external write".
-  //   ★ The §185 over-cap refusal in `commit` DOES stay dirty, and does not
-  //    break this: it returns before `onCommit`, so no window is opened.
+  //   ★ The §185 and §191 over-cap refusals DO stay dirty, in `commit` and in
+  //    `commitValue`, and do not break this: `tryCommit` returns before
+  //    `onCommit`, so no window is opened.
   const preCommitStoredRef = useRef<DocBlock>(storedBlock);
 
   // ★★★ RENDER-TIME RECONCILE, NOT AN EFFECT. `react-hooks/set-state-in-effect`
@@ -284,8 +285,11 @@ export function useBlockDraft<T, B extends DocBlock>(
     //  Identity keying discarded draft-only content — "Add item" appends an empty row
     //  the normaliser drops. Compare via that rule, NOT `baselineRef` (re-pointed at
     //  the STALE block below). `exceedsStorageCaps` then excludes a draft a CAP ate
-    //  onto storage — it cannot commit while over it. Since §191 such a draft is
-    //  refused with a notice and stays dirty, which skips this branch.
+    //  onto storage — it cannot commit while over it. Since §191 an over-cap draft
+    //  is refused with a notice and stays dirty, which skips this branch; it is
+    //  still reached by a draft with a ragged table row (`firstCapViolation` does
+    //  not refuse those) and by a draft left over the cap and undirty after a
+    //  `pagehide` flush when the page comes back from the back/forward cache.
     const draftAsStored = normalizeBlockForStorage(toBlock(rawValue));
     if (!draftAsStored || exceedsStorageCaps(toBlock(rawValue)) || blockChanged(draftAsStored, storedBlock)) {
       const seeded = fromBlock(storedBlock);
