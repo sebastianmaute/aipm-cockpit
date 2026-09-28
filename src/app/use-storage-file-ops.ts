@@ -10,6 +10,7 @@
 // state, refs, the load/save effects, and the shared helpers passed in via deps.
 import type React from "react";
 import { logDiag } from "./diagnostics";
+import { whenSaved } from "./save-queue";
 import type { Lang } from "./i18n";
 import { t, tPlural } from "./i18n";
 import type { Settings } from "./settings-types";
@@ -676,6 +677,11 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
         //   the abort catch above already applies, and the key `onOpenStorageFile` uses for its own
         //   load path.
         try {
+          // ★★ §641 — LET THE SAVES QUEUED TO THE OLD FILE LAND THERE FIRST. The bind re-points this same
+          //   backend instance at the picked file, so a save still waiting in the §627 queue would run
+          //   AFTER it and write the pre-pick workspace over the project the user just chose to load.
+          const queuedSaves = whenSaved(deps.backend);
+          if (queuedSaves) await queuedSaves;
           await setBackendFileHandle(deps.backend, picked); // ★ commit the pick ONLY now — the §287 shape `onOpenStorageFile` already uses.
           // ★★★ §588 — THE BIND GUARD. `setBackendFileHandle` is a REAL resumption point
           //   (`LocalFileBackend.setHandle` awaits `idbSet`), and it was introduced by §590 between

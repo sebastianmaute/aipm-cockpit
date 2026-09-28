@@ -27,6 +27,11 @@
 //   whenever it finishes.
 // ★ Per backend INSTANCE (a WeakMap), so a rebuilt backend starts idle and a
 //   save to one target never waits for another's.
+// ★★ §641 — `whenSaved` lets a READ wait for every save queued before it. The
+//   waiting slot starts its save later, possibly after a reload's read has
+//   returned; that save would then write the pre-reload snapshot over what the
+//   reload just showed. It drops nothing: the queued saves land first, and the
+//   read sees them.
 
 import { logDiag } from "./diagnostics";
 
@@ -46,7 +51,7 @@ type Waiting = {
   reject: (err: unknown) => void;
 };
 
-type Queue = { running: boolean; waiting: Waiting | null };
+type Queue = { running: boolean; waiting: Waiting | null; idle: Array<() => void> };
 
 const queues = new WeakMap<object, Queue>();
 
@@ -68,8 +73,13 @@ function start(queue: Queue, entry: Waiting): void {
     clearTimeout(stall);
     const next = queue.waiting;
     queue.waiting = null;
-    if (next) start(queue, next);
-    else queue.running = false;
+    if (next) {
+      start(queue, next);
+      return;
+    }
+    queue.running = false;
+    const idle = queue.idle.splice(0);
+    for (const notify of idle) notify();
   };
   const stall = setTimeout(() => {
     logDiag("warn", "storage.saveStalled", { afterMs: SAVE_STALL_MS });
@@ -88,7 +98,7 @@ function start(queue: Queue, entry: Waiting): void {
 export function enqueueSave(backend: object, save: () => Promise<void>, options: EnqueueOptions = {}): Promise<SaveResult> {
   let queue = queues.get(backend);
   if (!queue) {
-    queue = { running: false, waiting: null };
+    queue = { running: false, waiting: null, idle: [] };
     queues.set(backend, queue);
   }
   return new Promise<SaveResult>((resolve, reject) => {
@@ -106,4 +116,15 @@ export function enqueueSave(backend: object, save: () => Promise<void>, options:
       entry.reject = (err) => { reject(err); if (asOwn) replaced.reject(err); else replaced.resolve("superseded"); };
     }
   });
+}
+
+/** A promise that resolves once nothing is saving to `backend`: the running save
+ *  and the one waiting behind it have settled (or the stall timer released them).
+ *  Never rejects. `null` when nothing is saving, so a caller can stay synchronous
+ *  on the idle path (the §588 reload tests pin `load()` starting in the click's own
+ *  tick). §641 — see the header. */
+export function whenSaved(backend: object): Promise<void> | null {
+  const queue = queues.get(backend);
+  if (!queue || !queue.running) return null;
+  return new Promise<void>((resolve) => { queue.idle.push(resolve); });
 }

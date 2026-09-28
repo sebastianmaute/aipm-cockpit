@@ -48,6 +48,7 @@ vi.mock("./project-file-handles", () => ({
 vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn() }));
 vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
 
+import { logDiag } from "./diagnostics";
 import * as storageMod from "./storage";
 import * as handles from "./project-file-handles";
 import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
@@ -697,5 +698,138 @@ describe("§601 — a load holding only the seeded reference data counts as EMPT
     } finally {
       confirmSpy.mockRestore();
     }
+  });
+});
+
+// §641 — the §627 queue's WAITING slot starts a save later, possibly after a reload's read has
+// returned. A reload that did not wait for it applied the file's contents and then had them
+// overwritten on disk by the pre-reload snapshot, while the baseline and journal moved onto it.
+describe("§641 — a reload waits for the saves queued before it", () => {
+  const task = (id: number) => ({ id, taskName: `T${id}` } as unknown as Task);
+
+  it("(a) reload with one save running and one waiting: reads only after both landed, and nothing is written after it", async () => {
+    const backend = makeBackend(0);
+    createBackendMock.mockReturnValue(backend);
+    const disk: { tasks: Task[] }[] = [];
+    const pending: Array<() => void> = [];
+    backend.save.mockImplementation((ws: { tasks: Task[] }) => new Promise<void>((resolve) => {
+      pending.push(() => { disk.push({ tasks: ws.tasks }); resolve(); });
+    }));
+    const { result } = render();
+    await advance(100);
+
+    hideTab();
+    await act(async () => { result.current.setTasks([task(1), task(2)]); });
+    await act(async () => { result.current.setTasks([task(1), task(2), task(3)]); });
+    expect(pending).toHaveLength(1); // one running, one waiting
+
+    const loadsBefore = backend.load.mock.calls.length;
+    backend.load.mockImplementation(() => Promise.resolve(disk.at(-1)));
+    let reload!: Promise<void>;
+    act(() => { reload = result.current.reloadCurrentProject(); }); // ★ captured in a SYNC act, as the §588 tests do
+    await advance(0);
+    expect(backend.load.mock.calls.length).toBe(loadsBefore); // not read yet
+    pending[0]();
+    await advance(0);
+    expect(backend.load.mock.calls.length).toBe(loadsBefore); // the waiting save is running now
+    pending[1]();
+    await act(async () => { await reload; });
+    expect(backend.load.mock.calls.length).toBe(loadsBefore + 1);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1, 2, 3]);
+
+    const savesAtReload = backend.save.mock.calls.length;
+    await advance(600);
+    expect(backend.save.mock.calls.length).toBe(savesAtReload); // no stale write lands after the reload
+    expect(disk.at(-1)?.tasks.map((x) => x.id)).toEqual([1, 2, 3]);
+  });
+
+  it("(b) review M1 — a rebuild onto a SEED-ONLY target while the old backend has a save running and one waiting: the target is never written", async () => {
+    const a = makeBackend(0);
+    const b = makeBackend(100, "resolve", SEED_ONLY);
+    createBackendMock.mockReturnValueOnce(a).mockReturnValue(b);
+    const written: number[][] = [];
+    const pending: Array<() => void> = [];
+    a.save.mockImplementation((ws: { tasks: Task[] }) => new Promise<void>((resolve) => {
+      pending.push(() => { written.push(ws.tasks.map((x) => x.id)); resolve(); });
+    }));
+    const { result, rerender } = render();
+    await advance(100);
+
+    hideTab();
+    await act(async () => { result.current.setTasks([task(1), task(2)]); });
+    await act(async () => { result.current.setTasks([task(1), task(2), task(3)]); });
+    rerender({ args: makeArgs({ kind: "browser" }) });
+    while (pending.length > written.length) {
+      pending[written.length]();
+      await advance(0);
+    }
+    await advance(700);
+
+    expect(result.current.loadPause).toBe("empty-refused");
+    expect(b.save).not.toHaveBeenCalled();
+    expect(written.at(-1)).toEqual([1, 2, 3]);
+  });
+
+  it("(c) review I1 — a save that starts while the reload reads: the reload reads again once it landed", async () => {
+    const backend = makeBackend(0);
+    createBackendMock.mockReturnValue(backend);
+    const disk: number[][] = [[1]];
+    const pending: Array<() => void> = [];
+    backend.save.mockImplementation((ws: { tasks: Task[] }) => new Promise<void>((resolve) => {
+      pending.push(() => { disk.push(ws.tasks.map((x) => x.id)); resolve(); });
+    }));
+    const { result } = render();
+    await advance(100);
+
+    const reads: Array<() => void> = [];
+    backend.load.mockImplementation(() => new Promise((resolve) => {
+      reads.push(() => resolve({ ...EMPTY, tasks: (disk.at(-1) ?? []).map(task) }));
+    }));
+    let reload!: Promise<void>;
+    act(() => { reload = result.current.reloadCurrentProject(); });
+    expect(reads).toHaveLength(1); // idle: the read started in the click's own tick
+
+    hideTab();
+    await act(async () => { result.current.setTasks([task(1), task(5)]); }); // its save starts mid-read
+    expect(pending).toHaveLength(1);
+    reads[0](); // the read returns the file BEFORE that save
+    await advance(0);
+    expect(reads).toHaveLength(1); // waits for the save instead of applying
+    pending[0]();
+    await advance(0);
+    expect(reads).toHaveLength(2);
+    reads[1]();
+    await act(async () => { await reload; });
+
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1, 5]);
+    expect(disk.at(-1)).toEqual([1, 5]);
+    await advance(600);
+    expect(pending).toHaveLength(1); // nothing written after the reload
+  });
+
+  it("(d) review M1 — a rebuild during the wait: the replaced backend is not read again", async () => {
+    const a = makeBackend(0);
+    const b = makeBackend(100);
+    createBackendMock.mockReturnValueOnce(a).mockReturnValue(b);
+    const pending: Array<() => void> = [];
+    a.save.mockImplementation(() => new Promise<void>((resolve) => { pending.push(resolve); }));
+    const { result, rerender } = render();
+    await advance(100);
+
+    hideTab();
+    await act(async () => { result.current.setTasks([task(1), task(2)]); });
+    expect(pending).toHaveLength(1);
+    const readsOfA = a.load.mock.calls.length;
+    let reload!: Promise<void>;
+    act(() => { reload = result.current.reloadCurrentProject(); });
+    rerender({ args: makeArgs({ kind: "browser" }) });
+    await advance(0);
+    pending[0]();
+    await act(async () => { await reload; });
+    await advance(200);
+
+    expect(a.load.mock.calls.length).toBe(readsOfA);
+    expect(b.load).toHaveBeenCalled();
+    expect(logDiag).toHaveBeenCalledWith("warn", "storage.supersededLoadDropped", { writer: "reloadCurrentProject", outcome: "waited" });
   });
 });
