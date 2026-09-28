@@ -43082,9 +43082,9 @@ treats `stale` like `foreign`: `fail()` shows "Another version is still running"
 versions and telling the user to restart or end the processes in Task Manager, and quits. The server is
 neither reused nor killed, because this launch has no pid for it. `port-owner.test.ts` pins `ours`,
 `stale` for an older, a newer, an empty and a prefix-extended version, `foreign` and `free`; each of six
-mutants of `port-owner.ts` turns it red. NOT verified: the `stale` branch in `main.ts` has no test (CI
-does not compile `desktop/src/main.ts`; it was typechecked locally with `tsc -p desktop/tsconfig.json`),
-and no orphan was produced, so the dialog has never been seen on a packaged build. The same-build case
+mutants of `port-owner.ts` turns it red. NOT verified: the `stale` branch in `main.ts` has no test (it is
+typechecked, by CI's `desktop:typecheck` in the `static` job), and no orphan was produced, so the dialog
+has never been seen on a packaged build. The same-build case
 is unchanged: an orphan of the SAME version is still reused and cannot be stopped by that launch.
 
 **Original status:** open 2026-09-27 — found by reading the code only; no orphan server was produced and the app

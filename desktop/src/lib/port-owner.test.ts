@@ -17,6 +17,12 @@ describe("classifyPortOwner", () => {
     expect(classifyPortOwner(OURS, VERSION)).toBe("ours");
   });
 
+  it("accepts whitespace around the equals sign", () => {
+    expect(
+      classifyPortOwner({ ...OURS, body: `<html data-app-version = "${VERSION}"></html>` }, VERSION),
+    ).toBe("ours");
+  });
+
   it("accepts a single-quoted attribute", () => {
     expect(
       classifyPortOwner({ ...OURS, body: `<html data-app-version='${VERSION}'></html>` }, VERSION),

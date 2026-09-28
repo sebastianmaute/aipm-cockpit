@@ -154,11 +154,14 @@ async function waitForPortRelease(): Promise<void> {
 
 // ★★★ PRE-FLIGHT: the port must be free BEFORE a launch. An installed copy of
 // the app holds 17300 while it runs, and it serves the same
-// `data-app-version` marker, so main.ts's `classifyPortOwner` rates it "ours"
-// -- not "foreign" -- and the app under test spawns NO server of its own. Its
-// window then loads the INSTALLED copy's server, so the boot test's assertions
-// run against the wrong build and pass whenever the two versions match (reasoned
-// from main.ts's owner branches, not measured). What this spec actually
+// `data-app-version` marker, so main.ts's `classifyPortOwner` never rates it
+// "foreign". When the installed copy is the SAME version it is "ours": the app
+// under test spawns NO server of its own and its window loads the INSTALLED
+// copy's server, so the boot test's assertions run against the wrong build and
+// pass. When it is a DIFFERENT version it is "stale" (§631): the app under test
+// shows a dialog and quits, and the boot test fails for a reason that has
+// nothing to do with the package (both reasoned from main.ts's owner branches,
+// not measured). What this spec actually
 // reported was waitForPortRelease()'s "leaked server child" (then worded
 // "after app.close()"), blaming the package for a process it never started.
 //

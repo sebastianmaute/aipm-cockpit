@@ -558,7 +558,7 @@ async function start(): Promise<void> {
     const found = probe.reachable ? probedAppVersion(probe.body) : null;
     fail(
       "Another version is still running",
-      `An earlier copy of AI PM Cockpit (version ${found || "unknown"}) is still running in the background, ` +
+      `Another copy of AI PM Cockpit (version ${found || "unknown"}) is still running in the background, ` +
         `so this version (${app.getVersion()}) cannot start. ` +
         `Restart your computer, or end the AI PM Cockpit processes in Task Manager, then open the app again.`,
     );
