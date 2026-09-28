@@ -8,7 +8,7 @@ import {
   StorageNotImplementedError, StorageNotReadyError, createBackend,
   getBackendFileHandle, requestWriteAccessForBackend,
 } from "./storage";
-import { isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount } from "./workspace";
+import { hasAuthoredRecords, isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount } from "./workspace";
 import { scheduleDebouncedSave, SAVE_DEBOUNCE_MS } from "./debounced-save";
 import { backfillTaskResourceFks } from "./resource-foundation";
 import { recordDataLossEvent } from "./dataloss-forensics";
@@ -631,8 +631,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         // throws on a malformed/partial read) — applying it wipes the project and
         // autosave then persists the empty. On initial mount the current
         // workspace is empty, so a normal first load is never blocked.
-        if (isWorkspaceEmpty(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
-          recordDataLossEvent({ path: "load", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: 0, refused: true });
+        // ★★ §601 — the INCOMING side asks whether the load brought back anything the USER made:
+        //   decoding a record-free file seeds the preset disciplines and grades, which
+        //   `isWorkspaceEmpty` counted, so such a load read as populated and replaced the project.
+        //   ★★★ The in-scope side stays `isWorkspaceEmpty` — see `hasAuthoredRecords` for why.
+        if (!hasAuthoredRecords(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
+          recordDataLossEvent({ path: "load", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: nonEmptyCollectionCount(workspace), refused: true });
           setSettledBackend(backend); // §548 — nothing applied, but nothing is still in flight either.
           emitToast("info", t(langRef.current, "storageKeptCurrentData"));
           setSavesPaused({ backend, reason: "empty-refused" }); // ★★★ §587: the save gate stays SHUT — opening it here copied the previous project into this (empty) target. See `savesAllowedFor`; the save effect announces the pause.
@@ -1202,11 +1206,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // wipes the in-memory workspace and autosave then persists the empty (a
       // real loss we hit). Only replace a NON-empty project with an empty load
       // after an explicit confirm; default is to keep the current data untouched.
-      if (isWorkspaceEmpty(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
+      // ★★ §601 — the same two predicates as the load effect's refusal; see `hasAuthoredRecords`.
+      if (!hasAuthoredRecords(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
         const confirmed =
           typeof window !== "undefined" &&
           window.confirm(t(langRef.current, "reloadEmptyConfirm"));
-        recordDataLossEvent({ path: "reload", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: 0, refused: !confirmed });
+        recordDataLossEvent({ path: "reload", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: nonEmptyCollectionCount(workspace), refused: !confirmed });
         if (!confirmed) {
           truncationOps.raiseDecodeFailuresFor(backend); // ★★★ THE CAUTIOUS ANSWER MUST NOT DISARM THE GUARD. Declining keeps the in-memory workspace and leaves autosave pointed at THIS backend, so an undecodable meta blob here is precisely the loss the flag exists to pause — the user picking the SAFE option was what skipped the report and left the next edit free to `DELETE FROM meta` over it. Raise-only, and truncation is deliberately not published: see `raiseDecodeFailuresFor`.
           emitOutcome(null);
