@@ -34,8 +34,9 @@
 //     the sender's `applyWorkspaceFromLoad` applied from storage, and applying it would
 //     replace this window's unsaved edits to the same project. Pop-outs still apply it,
 //     since they must follow their opener. The flag follows the VALUE (`isLoadedValue`),
-//     never the commit it lands in: a keystroke can commit between a load and its render
-//     (review I4). A restored journal is sent as an edit: it is unsaved work (review I3).
+//     never the commit it lands in (review I4). ★ Known limit: an edit queued before the
+//     load's render is rebased onto the loaded value, which then commits as neither and goes
+//     out as an edit (§644). A restored journal is sent as an edit: it is unsaved work (I3).
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { AppView } from "./nav-config";
@@ -47,7 +48,7 @@ const WINDOW_ID_KEY = "aipm-cockpit:sync-window-id";
 export type SyncContext =
   | {
       role: "main";
-      /** `syncScopeKey` of the data this window edits; `null` when nothing identifies it. */
+      /** `syncScopeKey`: the storage this window writes; `null` only for Turso without a URL. */
       scope: string | null;
       /** The §548 scope epoch reader (`getScopeEpoch`). */
       getEpoch: () => number;

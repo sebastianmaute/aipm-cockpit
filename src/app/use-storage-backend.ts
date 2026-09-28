@@ -320,8 +320,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const getScopeEpoch = useCallback(() => scopeEpochRef.current, []);
   // §644 — the exact slice values the latest `applyWorkspaceFromLoad` applied FROM STORAGE. Tab sync
   // sends one of them as `fromLoad`, which other main windows ignore: it is what storage already
-  // holds, and applying it would replace their unsaved edits. By value, never by commit: a keystroke
-  // can commit between a load and its render (review I4). A new set per load, so only the latest
+  // holds, and applying it would replace their unsaved edits. By value, never by commit (review I4);
+  // an edit React rebases onto a loaded value commits as neither and goes out as an edit, a known
+  // limit recorded in §644. A new set per load, so only the latest
   // load's values count; a restored journal is not recorded, since it is unsaved work (review I3).
   const loadedValuesRef = useRef<WeakSet<object>>(new WeakSet());
   const isLoadedValue = useCallback((value: unknown) => typeof value === "object" && value !== null && loadedValuesRef.current.has(value), []);
@@ -1044,10 +1045,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, args.hydrated, args.isPopout, backend, loadWasIncomplete, destructive.refusal, savesAllowed]);
 
   // ★★ §642/§643 — the channel is shared by every window of the origin. A main window syncs only
-  // with main windows whose `syncScopeKey` equals its own, so a window on project A never applies,
-  // and then autosaves, a slice sent from a window on project B. The key names the storage this
-  // window writes (`sync-scope.ts`), never the registry's current project, which every tab shares
-  // through localStorage. A pop-out follows the window that opened it instead (`opener` URL parameter).
+  // with main windows whose `syncScopeKey` equals its own: the storage it WRITES (`sync-scope.ts`),
+  // never the registry's current project, which every tab shares through localStorage. Windows on
+  // different storage never apply, and then autosave, each other's slices. ★ Browser storage and
+  // each local-file kind are ONE store or handle slot for every tab, so windows sharing one exchange
+  // slices whatever registry project each shows (§645). A pop-out follows its opener instead.
   const syncScope = useMemo(
     () => syncScopeKey({ storageConfig: args.settings.storageConfig, tursoDatabaseUrl: tursoUrlForBackend, tursoProjectId }),
     [args.settings.storageConfig, tursoUrlForBackend, tursoProjectId],

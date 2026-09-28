@@ -237,11 +237,12 @@ describe("useBroadcastSync load changes (§644)", () => {
     ]);
   });
 
-  // Review I4 on §644 — the load's setters run after an await, so a keystroke (a higher-priority
-  // update) can commit BEFORE them. Judging by "the first commit after the load" then sent the
-  // keystroke as fromLoad (lost to other tabs) and the load as an edit (the §644 defect again). The
-  // flag must follow the VALUE, whatever order the commits land in.
-  it("classifies by value even when an edit commits between the load and its render", () => {
+  // Review I4 on §644 — the first cut judged by "the first commit after the load", so a commit that
+  // landed between a load and its render took the load's flag. The flag must follow the VALUE, not
+  // the commit order. ★ This pins the hook's contract only. In React a keystroke queued before the
+  // load's render is REBASED onto it, so the value that commits is neither the loaded array nor a
+  // plain edit, and it goes out as an edit: a known limit, recorded in §644.
+  it("classifies by value, not by the order commits land in", () => {
     posted.length = 0;
     vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel as unknown as typeof BroadcastChannel);
     const loadedSet = new WeakSet<object>();

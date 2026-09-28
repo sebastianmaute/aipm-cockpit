@@ -1203,6 +1203,29 @@ describe("useStorageBackend — broadcast send gating", () => {
     act(() => { result.current.setTasks((prev) => [...prev]); });
     expect(ctx.isLoadedValue(result.current.tasks)).toBe(false);
   });
+
+  // Review 2 on §644 — every synced slice, not tasks alone, and the merge-mode reload whose
+  // activityLog / budgetHistory go through UPDATERS: each value the last render passes to
+  // useBroadcastSync must be one the load recorded (a slice that is not an object, such as an
+  // absent project, cannot be recorded and is skipped).
+  it("records every synced slice of a load and of a merge-mode reload (§644)", async () => {
+    const ws = () => ({ tasks: [{ id: 1, taskName: "T" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+    mockBackend.load.mockResolvedValueOnce(ws());
+    const { result } = renderBackend(makeArgs({ isPopout: false }));
+    await vi.waitFor(() => expect(result.current.workspaceLoaded).toBe(true));
+    const unrecorded = () => {
+      const calls = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.slice(-17);
+      const ctx = calls[0][3] as SyncContext;
+      if (ctx.role !== "main") throw new Error("expected a main context");
+      expect(calls.map((c) => c[0])).toContain("activityLog");
+      return calls.filter((c) => typeof c[1] === "object" && c[1] !== null && !ctx.isLoadedValue(c[1])).map((c) => c[0]);
+    };
+    expect(unrecorded()).toEqual([]);
+    mockBackend.load.mockResolvedValueOnce(ws());
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(unrecorded()).toEqual([]);
+  });
 });
 
 // ── Activity log reaches every workspace-assembly site ───────────────────────
