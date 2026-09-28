@@ -12,7 +12,7 @@ import {
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { APP_ORIGIN, APP_PORT } from "./lib/constants";
-import { classifyPortOwner, type PortProbe } from "./lib/port-owner";
+import { classifyPortOwner, probedAppVersion, type PortProbe } from "./lib/port-owner";
 import { shouldReportServerExit } from "./lib/exit-reporting";
 import {
   decideNavigation,
@@ -531,7 +531,8 @@ async function start(): Promise<void> {
   });
   await win.loadFile(join(__dirname, "..", "splash.html"));
 
-  const owner = classifyPortOwner(await probePort());
+  const probe = await probePort();
+  const owner = classifyPortOwner(probe, app.getVersion());
 
   if (owner === "foreign") {
     // ★★★ NEVER rebind to a free port. The port is half the origin, so a
@@ -542,6 +543,24 @@ async function start(): Promise<void> {
       `Another program is already using port ${APP_PORT} on this computer. ` +
         `AI PM Cockpit cannot start until that program is closed. ` +
         `It will not use a different port, because its saved data belongs to this one.`,
+    );
+    return;
+  }
+
+  if (owner === "stale") {
+    // §631: our own server, but a different build, left running by a crash.
+    // Reusing it would show the user that build instead of the one they
+    // installed, and this launch could not stop it on quit (it never spawned
+    // it, so `serverChild` stays null). Its pid is unknown here, and killing
+    // whatever holds a port is an identity guess, so fail loudly instead.
+    // `app.getVersion()` is desktop/package.json's version, which
+    // `npm run version:check` keeps equal to APP_VERSION, the attribute's source.
+    const found = probe.reachable ? probedAppVersion(probe.body) : null;
+    fail(
+      "Another version is still running",
+      `Another copy of AI PM Cockpit (version ${found || "unknown"}) is still running in the background, ` +
+        `so this version (${app.getVersion()}) cannot start. ` +
+        `Restart your computer, or end the AI PM Cockpit processes in Task Manager, then open the app again.`,
     );
     return;
   }
@@ -1215,15 +1234,12 @@ if (!app.requestSingleInstanceLock()) {
   app.on("window-all-closed", () => app.quit());
 
   // ★★★ The child MUST die with the parent. An orphan holds the pinned port
-  // and still serves our own page, so the next launch's `classifyPortOwner`
-  // calls it `ours` and loads it instead of spawning a server (nothing
-  // compares its version): after an update the user COULD be served the OLD
-  // version, but only if an orphan survived both this process's death and the
-  // installer, neither of which is measured (§631). Because that launch never
-  // spawned the orphan, `serverChild` stays null and its quit kills nothing
-  // either. (This said the next launch "refuses to start"; that is only the
-  // `foreign` branch. Corrected 2026-09-27 by reading `classifyPortOwner`,
-  // `probePort` and `start()`, not by running an orphan.)
+  // and still serves our own page. The next launch of the SAME build calls it
+  // `ours` and loads it without spawning, so `serverChild` stays null and that
+  // launch's quit kills nothing either. A launch of a DIFFERENT build (after an
+  // update) calls it `stale` and refuses to start with a dialog (§631), rather
+  // than serve the old build. Whether an orphan can survive both this
+  // process's death and the installer is not measured.
   app.on("before-quit", () => {
     quitting = true;
     killServer(serverChild);

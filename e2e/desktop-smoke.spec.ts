@@ -130,8 +130,13 @@ async function appWindow(browser: Browser): Promise<Page> {
 // desktop/src/lib/constants.ts) and main.ts holds a single-instance lock, so
 // they must not overlap AND the previous server child must be gone before the
 // next launch. `taskkill` returns before the OS has torn the listener down,
-// so the second launch's port-owner probe would classify a dying server as
-// "foreign" and refuse to start with a "Port in use" dialog.
+// so the second launch's port-owner probe can still reach the dying server:
+// while it serves our page it is "ours" (both launches run the same build, so
+// never "stale") and the launch loads it instead of spawning its own; once it
+// answers with anything else it is "foreign" and the launch refuses with a
+// "Port in use" dialog; once it stops answering it is "free" and the launch
+// spawns its own server while the old listener may still hold the port (all
+// three reasoned from main.ts's owner branches).
 //
 // Waiting on the CONDITION (nothing answers on the port) rather than sleeping
 // a guessed interval: a sleep that is long enough today is a flake tomorrow.
@@ -154,11 +159,14 @@ async function waitForPortRelease(): Promise<void> {
 
 // ★★★ PRE-FLIGHT: the port must be free BEFORE a launch. An installed copy of
 // the app holds 17300 while it runs, and it serves the same
-// `data-app-version` marker, so main.ts's `classifyPortOwner` rates it "ours"
-// -- not "foreign" -- and the app under test spawns NO server of its own. Its
-// window then loads the INSTALLED copy's server, so the boot test's assertions
-// run against the wrong build and pass whenever the two versions match (reasoned
-// from main.ts's owner branches, not measured). What this spec actually
+// `data-app-version` marker, so main.ts's `classifyPortOwner` never rates it
+// "foreign". When the installed copy is the SAME version it is "ours": the app
+// under test spawns NO server of its own and its window loads the INSTALLED
+// copy's server, so the boot test's assertions run against the wrong build and
+// pass. When it is a DIFFERENT version it is "stale" (§631): the app under test
+// shows a dialog and quits, and the boot test fails for a reason that has
+// nothing to do with the package (both reasoned from main.ts's owner branches,
+// not measured). What this spec actually
 // reported was waitForPortRelease()'s "leaked server child" (then worded
 // "after app.close()"), blaming the package for a process it never started.
 //
