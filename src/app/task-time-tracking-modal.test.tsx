@@ -1,9 +1,16 @@
-import { createEvent, fireEvent, render, screen } from "@testing-library/react";
+import { act, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import { expectButtonOrder } from "../test/toolbar-order";
 import { loadI18n, t } from "./i18n";
 import { TaskTimeTrackingModal } from "./task-time-tracking-modal";
+
+// §639: `Modal` moves focus to its first control one animation frame after it
+// opens. A test that clicks into a box and types before that frame can have
+// focus pulled out from under it mid-typing, so Enter lands on a button and
+// commits nothing. Wait for that focus to land inside the dialog first.
+const settleInitialFocus = () =>
+  waitFor(() => expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(true));
 
 const base = {
   open: true,
@@ -46,6 +53,7 @@ describe("TaskTimeTrackingModal", () => {
     render(
       <TaskTimeTrackingModal {...base} remainingMinutes={90} onSave={onSave} onClose={vi.fn()} />,
     );
+    await settleInitialFocus();
     await userEvent.clear(screen.getByRole("textbox", { name: t("en-US", "taskTimeRemaining") }));
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(onSave).toHaveBeenCalledWith({ spentMinutes: 120, remainingMinutes: undefined });
@@ -55,6 +63,7 @@ describe("TaskTimeTrackingModal", () => {
     const onSave = vi.fn();
     const onClose = vi.fn();
     render(<TaskTimeTrackingModal {...base} onSave={onSave} onClose={onClose} />);
+    await settleInitialFocus();
     await userEvent.clear(screen.getByRole("textbox", { name: /time spent/i }));
     await userEvent.type(screen.getByRole("textbox", { name: /time spent/i }), "3h");
     await userEvent.click(screen.getByRole("button", { name: DIALOG_CANCEL }));
@@ -106,6 +115,7 @@ describe("TaskTimeTrackingModal", () => {
       <TaskTimeTrackingModal {...base} remainingMinutes={90} onSave={onSave} onClose={vi.fn()} />,
     );
     const remaining = screen.getByRole("textbox", { name: t("en-US", "taskTimeRemaining") });
+    await settleInitialFocus();
     await userEvent.clear(remaining);
     await userEvent.type(remaining, "4 hours");
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
@@ -122,10 +132,48 @@ describe("TaskTimeTrackingModal", () => {
     const onClose = vi.fn();
     render(<TaskTimeTrackingModal {...base} onSave={onSave} onClose={onClose} />);
     const spent = screen.getByRole("textbox", { name: /time spent/i });
+    await settleInitialFocus();
     await userEvent.clear(spent);
     await userEvent.type(spent, "3h{Enter}");
     expect(onSave).toHaveBeenCalledWith({ spentMinutes: 180, remainingMinutes: undefined });
     expect(onClose).toHaveBeenCalled();
+  });
+  // ★★ §639 made deterministic: animation frames are QUEUED and drained by hand,
+  //  so Modal's initial-focus frame runs exactly where the flaky CI run had it,
+  //  after the box was focused. Mutation: delete the line marked PRE-TYPE DRAIN
+  //  and the late frame pulls focus onto a button, so Enter saves nothing.
+  test("Enter still commits when the dialog's initial-focus frame runs before typing", async () => {
+    const queued = new Map<number, FrameRequestCallback>();
+    let nextId = 0;
+    const flushFrames = () => {
+      for (let round = 0; round < 10 && queued.size > 0; round++) {
+        const batch = [...queued.values()];
+        queued.clear();
+        for (const cb of batch) cb(0);
+      }
+    };
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+      nextId += 1;
+      queued.set(nextId, cb);
+      return nextId;
+    });
+    const cancel = vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => {
+      queued.delete(id);
+    });
+    try {
+      const onSave = vi.fn();
+      render(<TaskTimeTrackingModal {...base} onSave={onSave} onClose={vi.fn()} />);
+      act(() => flushFrames()); // PRE-TYPE DRAIN
+      const spent = screen.getByRole("textbox", { name: /time spent/i });
+      await userEvent.clear(spent);
+      await userEvent.type(spent, "3h");
+      act(() => flushFrames());
+      await userEvent.keyboard("{Enter}");
+      expect(onSave).toHaveBeenCalledWith({ spentMinutes: 180, remainingMinutes: undefined });
+    } finally {
+      raf.mockRestore();
+      cancel.mockRestore();
+    }
   });
 
   test("Enter in an INVALID duration box commits nothing", async () => {
@@ -136,6 +184,7 @@ describe("TaskTimeTrackingModal", () => {
     const onClose = vi.fn();
     render(<TaskTimeTrackingModal {...base} onSave={onSave} onClose={onClose} />);
     const spent = screen.getByRole("textbox", { name: /time spent/i });
+    await settleInitialFocus();
     await userEvent.clear(spent);
     await userEvent.type(spent, "4 hours{Enter}");
     expect(onSave).not.toHaveBeenCalled();

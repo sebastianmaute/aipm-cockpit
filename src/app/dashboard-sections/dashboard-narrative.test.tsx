@@ -515,14 +515,62 @@ describe("NarrativeSummary inline editing", () => {
     const user = userEvent.setup();
     render(<SummaryHost initial="<p>Something</p>" />);
     await user.click(screen.getByRole("button", { name: EDIT }));
-    await screen.findByRole("textbox", { name: surfaceName() });
+    const surface = await screen.findByRole("textbox", { name: surfaceName() });
+    // §619 class: let the editor's rAF-deferred autofocus land, as the tests above do.
+    await waitFor(() => expect(surface.contains(document.activeElement)).toBe(true));
     await user.click(screen.getByRole("button", { name: /clear/i }));
     expect(screen.getByTestId("stored").textContent).toBe("");
+    // ★★ Clear REMOUNTS the editor (`seedNonce` keys it), and the new one focuses
+    //  itself in a later animation frame. Until then focus sits on <body>, so a
+    //  click outside moves focus out of nothing and the region never closes; the
+    //  late frame then puts focus into the new editor. Wait for that focus first.
+    //  The queued-frame test below reproduces the race on demand.
+    await waitFor(() =>
+      expect(screen.getByRole("textbox", { name: surfaceName() }).contains(document.activeElement)).toBe(true),
+    );
     await user.click(screen.getByRole("button", { name: "outside" }));
     expect(screen.queryByRole("textbox", { name: surfaceName() })).toBeNull();
     expect(screen.getByRole("button", { name: ADD })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: EDIT })).toBeNull();
     expect(screen.queryByText("Something")).toBeNull();
+  });
+  // ★★ The race above, made deterministic (the §619 technique): animation frames
+  //  are QUEUED and drained by hand. Mutation: delete the line marked POST-CLEAR
+  //  DRAIN and the click outside no longer closes the editor.
+  it("closes on a click outside after Clear once the remounted editor's focus frame has run", async () => {
+    const user = userEvent.setup();
+    const queued = new Map<number, FrameRequestCallback>();
+    let nextId = 0;
+    const flushFrames = () => {
+      for (let round = 0; round < 10 && queued.size > 0; round++) {
+        const batch = [...queued.values()];
+        queued.clear();
+        for (const cb of batch) cb(0);
+      }
+    };
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+      nextId += 1;
+      queued.set(nextId, cb);
+      return nextId;
+    });
+    const cancel = vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => {
+      queued.delete(id);
+    });
+    try {
+      render(<SummaryHost initial="<p>Something</p>" />);
+      await user.click(screen.getByRole("button", { name: EDIT }));
+      await screen.findByRole("textbox", { name: surfaceName() });
+      act(() => flushFrames());
+      await user.click(screen.getByRole("button", { name: /clear/i }));
+      act(() => flushFrames()); // POST-CLEAR DRAIN
+      await user.click(screen.getByRole("button", { name: "outside" }));
+      act(() => flushFrames());
+      expect(screen.queryByRole("textbox", { name: surfaceName() })).toBeNull();
+      expect(screen.getByRole("button", { name: ADD })).toBeInTheDocument();
+    } finally {
+      raf.mockRestore();
+      cancel.mockRestore();
+    }
   });
 
   // ★★ Clear on the ADD path: nothing is stored, so Clear writes nothing and
