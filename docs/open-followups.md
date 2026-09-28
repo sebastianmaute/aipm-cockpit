@@ -865,6 +865,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§635](#635-on-local-and-sharepoint-json-a-document-rich-field-error-fails-the-whole-load-instead-of-pausing-saving--closed-2026-09-28) | On local and SharePoint JSON a document rich-field error fails the whole load instead of pausing saving | — | — | **CLOSED** 2026-09-28 |
 | [§636](#636-the-comment-above-rollbackbesteffort-says-the-rollback-protects-readers-but-the-batch-has-already-committed--closed-2026-09-28) | The comment above rollbackBestEffort says the ROLLBACK protects readers, but the batch has already committed | — | — | **CLOSED** 2026-09-28 |
 | [§637](#637-a-turso-save-whose-batch-hits-a-failing-statement-still-commits-the-rest-then-reports-failure--open) | A Turso save whose batch hits a failing statement still commits the rest, then reports failure | — | — | open |
+| [§638](#638-the-dashboard-narrative-after-clear-test-races-the-remounted-editors-autofocus-frame--closed-2026-09-28) | The dashboard-narrative "after Clear" test races the remounted editor's autofocus frame | — | — | **CLOSED** 2026-09-28 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -43387,3 +43388,22 @@ the release then being prepared, and to fix only the comment (§636).
 Size M.
 
 **Source:** the §484 storage-page research, 2026-09-28.
+
+## 638. The dashboard-narrative "after Clear" test races the remounted editor's autofocus frame — CLOSED 2026-09-28
+
+**Status:** CLOSED 2026-09-28 on `fix/narrative-flake`, test-only. "after Clear, the read-only area shows the
+Add button" (`dashboard-sections/dashboard-narrative.test.tsx`) now waits, after Edit and again after Clear, for
+focus to sit inside the editor surface before it clicks outside, as its neighbours already do after Edit.
+A new test, "closes on a click outside after Clear once the remounted editor's focus frame has run", queues
+animation frames and drains them by hand (the §619 technique), so the order is fixed; deleting its
+POST-CLEAR DRAIN line fails it. No product code changed.
+
+**Original status:** open 2026-09-28 — the test failed `unit-shuffled` on PR #455 and on PR #470, in files
+neither PR touched, and both reruns passed. Cause, read from the code: Clear bumps `seedNonce`
+(`grep -n "setSeedNonce" src/app/dashboard-sections/dashboard-narrative.tsx`), which keys the
+`RichTextEditor`, so the editor REMOUNTS and the new instance focuses itself in a later animation frame.
+A click outside that lands before that frame moves focus out of nothing (focus is on `<body>`), so the
+region's `onBlur` never fires and the editor stays open; the late frame then focuses the new editor. Same
+class as §619 (`1035cb999`). A person cannot click within one frame of Clear.
+
+**Source:** CI on PR #455 and PR #470, 2026-09-28.
