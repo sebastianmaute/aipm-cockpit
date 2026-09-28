@@ -42,9 +42,65 @@ export function saveSealed(sealed: SealedSecret): void {
   writeStore(s);
 }
 export function removeSealed(id: SecretId): void {
+  bumpGeneration(id);
   const s = readStore();
   delete s[id];
   writeStore(s);
+}
+
+// ★★ §609 — A LATE SEAL MUST NEVER RESURRECT A CLEARED SECRET. A seal awaits WebCrypto (and, for
+//   a passphrase, PBKDF2) BEFORE it writes, and the settings fields fire one per keystroke without
+//   awaiting it. A clear (`removeSealed`) is synchronous, so a seal still in flight used to land
+//   AFTER it and write the old ciphertext back; two keystrokes could also land out of order.
+// ★ So every write carries a per-id GENERATION: `beginSealedWrite` bumps it and hands back a commit
+//   that writes only if nothing bumped it since. The newest START wins, whichever seal finishes
+//   first. The counter lives HERE, not in use-secrets, so EVERY clear from any caller (settings
+//   sections, jira/timelog settings, a factory reset) cancels in-flight seals without having to
+//   know they exist. `saveSealed` stays the raw writer and does NOT bump; the boot migration
+//   commits through `snapshotSealedWrite` (see `migrateOne`).
+// ★ Known limit: the counter is PER TAB (module state). A seal in flight in ANOTHER tab is not
+//   cancelled by a clear here, and lands after it. Accepted: it needs edits to the same secret in
+//   two tabs within one seal's latency.
+const writeGenerations = new Map<SecretId, number>();
+
+type SealedCommit = (sealed: SealedSecret) => boolean;
+
+function bumpGeneration(id: SecretId): number {
+  const next = (writeGenerations.get(id) ?? 0) + 1;
+  writeGenerations.set(id, next);
+  return next;
+}
+
+function commitAt(id: SecretId, generation: number): (sealed: SealedSecret) => boolean {
+  return (sealed) => {
+    if ((writeGenerations.get(id) ?? 0) !== generation) return false;
+    saveSealed(sealed);
+    return true;
+  };
+}
+
+/** Start a sealed write for `id`: call it BEFORE the seal's await. The returned commit stores
+ *  the sealed value and returns true — or, when a newer write or a clear for the same id began
+ *  in the meantime, writes nothing and returns false.
+ *  ★ No fallback: when the newest seal FAILS, the older ones it superseded stay unwritten, so the
+ *    store keeps its previous record (or nothing). Deliberate — letting a superseded older seal
+ *    commit after all would bring back "older value wins", and it would need a second guard. The
+ *    in-memory settings still hold the plaintext for the session. */
+export function beginSealedWrite(id: SecretId): (sealed: SealedSecret) => boolean {
+  return commitAt(id, bumpGeneration(id));
+}
+
+/** Like `beginSealedWrite`, but WITHOUT bumping: the commit writes only if no write or clear for
+ *  `id` began since this snapshot, and it never cancels one already in flight. For background
+ *  writers that must yield to the user (the boot migration, see `migrateOne`). */
+export function snapshotSealedWrite(id: SecretId): (sealed: SealedSecret) => boolean {
+  return commitAt(id, writeGenerations.get(id) ?? 0);
+}
+
+/** Cancel every sealed write in flight, for every id. For callers that wipe the store without
+ *  going through `removeSealed` (the factory reset clears the whole `aipm-cockpit:*` prefix). */
+export function invalidateAllSealedWrites(): void {
+  for (const id of SECRET_IDS) bumpGeneration(id);
 }
 export function isPassphraseLocked(id: SecretId): boolean {
   return loadSealed(id)?.wrap === "passphrase";
@@ -111,46 +167,19 @@ export async function migratePlaintextSecrets(input: {
   // Per-secret seal: a crypto/IndexedDB failure on one secret must neither
   // reject the whole migration nor blank a secret we failed to persist. On a
   // failed seal we return the ORIGINAL plaintext so the caller keeps it.
-  let apiKeyOut = "";
-  let authTokenOut = "";
-  let jiraApiTokenOut = "";
-  let timelogApiTokenOut = "";
-  let sttApiKeyOut = "";
-  if (apiKey && !loadSealed("anthropicApiKey")) {
-    try {
-      saveSealed(await sealDevice("anthropicApiKey", apiKey));
-    } catch {
-      apiKeyOut = apiKey; // seal failed → keep plaintext un-migrated
-    }
-  }
-  if (authToken && !loadSealed("tursoAuthToken")) {
-    try {
-      saveSealed(await sealDevice("tursoAuthToken", authToken));
-    } catch {
-      authTokenOut = authToken; // seal failed → keep plaintext un-migrated
-    }
-  }
-  if (jiraApiToken && !loadSealed("jiraApiToken")) {
-    try {
-      saveSealed(await sealDevice("jiraApiToken", jiraApiToken));
-    } catch {
-      jiraApiTokenOut = jiraApiToken; // seal failed → keep plaintext un-migrated
-    }
-  }
-  if (timelogApiToken && !loadSealed("timelogApiToken")) {
-    try {
-      saveSealed(await sealDevice("timelogApiToken", timelogApiToken));
-    } catch {
-      timelogApiTokenOut = timelogApiToken; // seal failed → keep plaintext un-migrated
-    }
-  }
-  if (sttApiKey && !loadSealed("sttApiKey")) {
-    try {
-      saveSealed(await sealDevice("sttApiKey", sttApiKey));
-    } catch {
-      sttApiKeyOut = sttApiKey; // seal failed → keep plaintext un-migrated
-    }
-  }
+  // ★ §609 — EVERY id's snapshot is taken HERE, synchronously, before the first await. Taken
+  //   inside the sequential loop, a later id's snapshot would come after the earlier ids' seals —
+  //   and a clear of that id in the §548 window would then precede its own snapshot and be missed.
+  const commits = Object.fromEntries(SECRET_IDS.map((id) => [id, snapshotSealedWrite(id)])) as Record<
+    SecretId,
+    SealedCommit
+  >;
+  // Sequential, as before: one seal at a time.
+  const apiKeyOut = await migrateOne("anthropicApiKey", apiKey, commits.anthropicApiKey);
+  const authTokenOut = await migrateOne("tursoAuthToken", authToken, commits.tursoAuthToken);
+  const jiraApiTokenOut = await migrateOne("jiraApiToken", jiraApiToken, commits.jiraApiToken);
+  const timelogApiTokenOut = await migrateOne("timelogApiToken", timelogApiToken, commits.timelogApiToken);
+  const sttApiKeyOut = await migrateOne("sttApiKey", sttApiKey, commits.sttApiKey);
   return {
     apiKey: apiKeyOut,
     authToken: authTokenOut,
@@ -158,4 +187,25 @@ export async function migratePlaintextSecrets(input: {
     timelogApiToken: timelogApiTokenOut,
     sttApiKey: sttApiKeyOut,
   };
+}
+
+/** Seal one legacy plaintext value if nothing is sealed for `id` yet, committing through `commit`
+ *  (its snapshot, taken up front). Returns "" (migrated, or nothing to do, or superseded by the
+ *  user) or the ORIGINAL plaintext when the seal failed. */
+async function migrateOne(id: SecretId, value: string, commit: SealedCommit): Promise<string> {
+  if (!value || loadSealed(id)) return "";
+  // ★★ §609 — the migration SNAPSHOTS the generation instead of bumping it. Its seal can land
+  //   after the §548 merge timeout has already handed the UI over, so a clear or a new value the
+  //   user commits in that window must win: any bump since the snapshot drops the migration's
+  //   write. It must NOT bump itself — that would cancel a newer user seal already in flight and
+  //   let the legacy value win instead. ★ It also re-checks "nothing sealed yet" at commit: a user
+  //   seal that began BEFORE the snapshot (so it bumped nothing after it) may have landed during
+  //   the await, and the legacy value must not overwrite it.
+  try {
+    const sealed = await sealDevice(id, value);
+    if (!loadSealed(id)) commit(sealed);
+    return ""; // stored, or superseded by a newer user write/clear — either way not plaintext
+  } catch {
+    return value; // seal failed → keep plaintext un-migrated
+  }
 }
