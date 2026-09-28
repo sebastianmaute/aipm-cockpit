@@ -77,3 +77,29 @@ describe("noteIfSanitizedToNothing (§630)", () => {
     expect(() => noteIfSanitizedToNothing("status", { ragOverride: "X" }, {}, undefined)).not.toThrow();
   });
 });
+
+describe("meta-slice-decode depth and no-diag safety (§630 follow-up)", () => {
+  const nest = (depth: number, leaf: unknown): unknown => {
+    let value: unknown = leaf;
+    for (let i = 0; i < depth; i++) value = [value];
+    return value;
+  };
+
+  it("walks a value nested 100,000 deep without overflowing the stack", () => {
+    expect(hasDecodedContent(nest(100_000, []))).toBe(false);
+    expect(hasDecodedContent(nest(100_000, "x"))).toBe(true);
+  });
+
+  it("does not inspect the raw value at all without a diag", () => {
+    // A getter that throws proves the content walk never ran.
+    const raw = Object.defineProperty({}, "boom", {
+      enumerable: true,
+      get() {
+        throw new Error("walked without a diag");
+      },
+    });
+    expect(() => noteIfSanitizedToNothing("status", raw, {}, undefined)).not.toThrow();
+    const diag: { decodeFailedSlices?: string[] } = {};
+    expect(() => noteIfSanitizedToNothing("status", raw, {}, diag)).toThrow("walked without a diag");
+  });
+});

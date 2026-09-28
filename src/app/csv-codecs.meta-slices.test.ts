@@ -193,6 +193,7 @@ describe("csvToWorkspace — a meta slice it could not keep is reported (§630)"
     expect(ws.documents).toBeUndefined();
     expect(ws.documentVersions).toBeUndefined();
     expect(bare.documents).toBeUndefined();
+    expect(bare.documentVersions).toBeUndefined();
     // Everything else decodes exactly as it does without the throw.
     const withoutDocs = (w: typeof ws) => ({ ...w, documents: undefined, documentVersions: undefined });
     expect(withoutDocs(ws)).toEqual(withoutDocs(reference));

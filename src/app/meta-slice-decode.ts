@@ -15,14 +15,27 @@ import type { DocTruncationDiag } from "./document-model";
 /** True when a parsed JSON value carries anything a sanitizer could lose: a
  *  non-empty string, any number or boolean, or an array/object holding such a
  *  value at ANY depth. `null`, `""`, `[]`, `{}` and containers of only those
- *  carry nothing. Recursive on purpose — a status of `{"narrative":""}` must
- *  not count as content. */
+ *  carry nothing. Walks to ANY depth on purpose — a status of
+ *  `{"narrative":""}` must not count as content.
+ * ★ An explicit stack, not recursion: a stored value nested tens of
+ *  thousands deep would otherwise overflow the call stack and fail the whole
+ *  load instead of being reported. */
 export function hasDecodedContent(raw: unknown): boolean {
-  if (raw === null || raw === undefined) return false;
-  if (typeof raw === "string") return raw !== "";
-  if (Array.isArray(raw)) return raw.some(hasDecodedContent);
-  if (typeof raw === "object") return Object.values(raw).some(hasDecodedContent);
-  return true;
+  const pending: unknown[] = [raw];
+  while (pending.length > 0) {
+    const value = pending.pop();
+    if (value === null || value === undefined) continue;
+    if (typeof value === "string") {
+      if (value !== "") return true;
+    } else if (Array.isArray(value)) {
+      pending.push(...(value as unknown[]));
+    } else if (typeof value === "object") {
+      pending.push(...Object.values(value));
+    } else {
+      return true;
+    }
+  }
+  return false;
 }
 
 /** True when a sanitizer's result holds nothing: null/undefined, an empty
@@ -59,7 +72,9 @@ export function noteIfSanitizedToNothing(
   sanitized: unknown,
   diag: DecodeFailureDiag | undefined,
 ): void {
-  if (sanitizedToNothing(raw, sanitized)) noteDecodeFailure(key, diag);
+  // ★ The diag is checked FIRST: without one the content walk never runs, as
+  // before §630 moved the JSON path onto this helper.
+  if (diag && sanitizedToNothing(raw, sanitized)) noteDecodeFailure(key, diag);
 }
 
 /** §630 — decode ONE stored JSON meta slice, reporting what it could not keep.
