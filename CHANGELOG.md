@@ -14,7 +14,7 @@ A maintenance release. Typed text you had not yet clicked out of is kept when yo
 the window, and data this version cannot read now pauses saving instead of being overwritten. The
 close-window recovery is so far tested in the browser with browser storage only; the desktop app
 and file, SharePoint and Turso projects are not yet verified. Also fixes to undo, AI chat plans,
-exports, documents, window layout, dialog sizes, bulk edit and Trends.
+exports, documents, window layout, dialog sizes, bulk edit, Trends and the desktop app.
 
 ### Fixed
 
@@ -94,6 +94,10 @@ exports, documents, window layout, dialog sizes, bulk edit and Trends.
 - **Trends.** A snapshot taken while nothing is in scope (for example all tasks cancelled) no longer
   records 0% complete: it records no figure, the completion sparkline shows a gap, and such a
   snapshot never becomes the completion baseline. Existing snapshots are unchanged.
+- **Desktop app after an update.** If a copy of a different version is still running in the
+  background (for example after a crash), the desktop app no longer shows that other copy. It stops
+  with "Another version is still running" and explains how to end the other copy. This is not yet
+  verified on an installed build.
 
 ### Changed
 
