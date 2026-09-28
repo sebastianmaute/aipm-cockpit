@@ -37,7 +37,7 @@ import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersionsWithDiag } from "./document-versions";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { logDiag } from "./diagnostics";
-import { sanitizedToNothing } from "./meta-slice-decode";
+import { noteDecodeFailure, sanitizedToNothing } from "./meta-slice-decode";
 import type {
   Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone, ChangeItem, Stakeholder,
 } from "./types";
@@ -203,7 +203,7 @@ export function rowsToWorkspace(
       slice,
       message: err instanceof Error ? err.message : String(err),
     });
-    if (diag) (diag.decodeFailedSlices ??= []).push(slice);
+    noteDecodeFailure(slice, diag);
   };
   const metaRows = rowObjects(byTable.get("meta"));
   /** §617 — parse and sanitize ONE meta row. A throw is reported as before; a

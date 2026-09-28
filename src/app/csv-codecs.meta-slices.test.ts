@@ -10,12 +10,10 @@
 // ★★ The §617 rule still holds: a stored `[]`, `{}` or blank value sanitizes to
 //  nothing too, and must stay SILENT (each report pauses saving).
 // ★ Fixtures are the real encoder's output with ONE section appended by hand,
-//  in the encoder's own `<marker>\r\nconfig,<cell>` shape.
+//  in the encoder's own `<marker>\r\nconfig,<cell>` shape. The per-slice
+//  values are shared with the Markdown twin (src/test/meta-slices-fixtures.ts).
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { describe, expect, it } from "vitest";
-import { recordBudgetChange } from "./budget-history";
+import { afterEach, describe, expect, it, vi, onTestFinished } from "vitest";
 import {
   CSV_SECTION_ACTIVITY,
   CSV_SECTION_BUDGET_HISTORY,
@@ -30,40 +28,56 @@ import {
   CSV_SECTION_STATUS,
   CSV_SECTION_STEERING,
   CSV_SECTION_TIMELOG_LINKS,
-  type ImportDiag,
   csvCellEscape,
   csvToWorkspace,
   workspaceToCsv,
 } from "./csv-codecs";
-import type { FeatureModuleId } from "./feature-modules";
-import { type Workspace, emptyWorkspace, jsonToWorkspace } from "./workspace";
+import { emptyWorkspace } from "./workspace";
+import {
+  ALL_META_KEYS,
+  META_BLOB_CASES,
+  type BlobKey,
+  decodeWithDiag,
+  fullMetaWorkspace,
+  metaSlice as slice,
+} from "../test/meta-slices-fixtures";
 
-type MetaKey =
-  | "status" | "project" | "fieldVisibility" | "features" | "steeringCommittee"
-  | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides"
-  | "documents" | "documentVersions" | "activityLog" | "budgetHistory";
+// Forces the documents/documentVersions rich-field pass to throw, as
+// browser-backend.test.ts does for §620 (same cause in the wild: DOMPurify
+// without a bound window). Delegates to the REAL implementation unless the
+// flag is set, so every other test here runs the genuine pass.
+const richFieldCtl = vi.hoisted(() => ({ throwing: false }));
+vi.mock("./document-rich-fields", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./document-rich-fields")>();
+  return {
+    ...actual,
+    sanitizeDocumentRichFields: (doc: Parameters<typeof actual.sanitizeDocumentRichFields>[0]) => {
+      if (richFieldCtl.throwing) throw new TypeError("DOMPurify.sanitize is not a function");
+      return actual.sanitizeDocumentRichFields(doc);
+    },
+  };
+});
 
-/** The eleven single-JSON-blob slices: marker, one junk value that has content
- *  but sanitizes to nothing (the values workspace.test.ts's §620 table uses),
- *  and a genuinely empty stored value, with what it decodes
- *  to — unchanged from before §630 (features keeps `[]`, Simple mode; the
- *  committee and timelog sanitizers build fixed-key objects; everything else
- *  is absent). */
-const BLOB_CASES: readonly { key: MetaKey; marker: string; junk: unknown; empty: unknown; emptyDecoded: unknown }[] = [
-  { key: "fieldVisibility", marker: CSV_SECTION_FIELD_VIS, junk: { nope: "x" }, empty: {}, emptyDecoded: undefined },
-  { key: "features", marker: CSV_SECTION_FUNCTIONS, junk: ["no-such-module"], empty: [], emptyDecoded: [] },
-  { key: "steeringCommittee", marker: CSV_SECTION_STEERING, junk: "not-an-object", empty: {}, emptyDecoded: { name: "", memberResourceIds: [], meetings: [], infoSchedules: [] } },
-  { key: "timelogLinks", marker: CSV_SECTION_TIMELOG_LINKS, junk: ["junk"], empty: {}, emptyDecoded: { userLinks: [], projectLinks: [] } },
-  { key: "knowledgeItems", marker: CSV_SECTION_KNOWLEDGE_ITEMS, junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
-  { key: "insights", marker: CSV_SECTION_INSIGHTS, junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
-  { key: "settingsOverrides", marker: CSV_SECTION_SETTINGS_OVERRIDES, junk: { unknownKey: 5 }, empty: {}, emptyDecoded: undefined },
-  { key: "documents", marker: CSV_SECTION_DOCUMENTS, junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
-  { key: "documentVersions", marker: CSV_SECTION_DOCUMENT_VERSIONS, junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
-  { key: "activityLog", marker: CSV_SECTION_ACTIVITY, junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
-  { key: "budgetHistory", marker: CSV_SECTION_BUDGET_HISTORY, junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
-];
+afterEach(() => {
+  richFieldCtl.throwing = false;
+});
 
-const ALL_KEYS: readonly MetaKey[] = ["status", "project", ...BLOB_CASES.map((c) => c.key)];
+const MARKERS: Record<BlobKey, string> = {
+  fieldVisibility: CSV_SECTION_FIELD_VIS,
+  features: CSV_SECTION_FUNCTIONS,
+  steeringCommittee: CSV_SECTION_STEERING,
+  timelogLinks: CSV_SECTION_TIMELOG_LINKS,
+  knowledgeItems: CSV_SECTION_KNOWLEDGE_ITEMS,
+  insights: CSV_SECTION_INSIGHTS,
+  settingsOverrides: CSV_SECTION_SETTINGS_OVERRIDES,
+  documents: CSV_SECTION_DOCUMENTS,
+  documentVersions: CSV_SECTION_DOCUMENT_VERSIONS,
+  activityLog: CSV_SECTION_ACTIVITY,
+  budgetHistory: CSV_SECTION_BUDGET_HISTORY,
+};
+
+/** The shared eleven blob cases, each with its CSV section marker. */
+const BLOB_CASES = META_BLOB_CASES.map((c) => ({ ...c, marker: MARKERS[c.key] }));
 
 /** An empty workspace's CSV with one extra `marker` section holding `body`. */
 function withSection(marker: string, body: string): string {
@@ -72,37 +86,7 @@ function withSection(marker: string, body: string): string {
 
 const configRow = (json: string): string => `config,${csvCellEscape(json, false)}`;
 
-function load(text: string): { ws: Workspace; failed: string[]; bare: Workspace } {
-  const diag: ImportDiag = { droppedRows: 0 };
-  const ws = csvToWorkspace(text, diag);
-  return { ws, failed: diag.decodeFailedSlices ?? [], bare: csvToWorkspace(text) };
-}
-
-const slice = (ws: Workspace, key: MetaKey): unknown => (ws as unknown as Record<string, unknown>)[key];
-
-function budgetHistoryFixture(): Workspace["budgetHistory"] {
-  let n = 0;
-  return recordBudgetChange([], {
-    kind: "updated", bucketId: 1, bucketName: "Build",
-    before: { hours: 100, value: 10000 }, after: { hours: 120, value: 12000 },
-    at: "2026-09-01T10:00:00.000Z", date: "2026-09-01", newId: () => `bh-${++n}`,
-  });
-}
-
-/** The curated sample carries nine of the thirteen slices; the other four are
- *  added here so every key has a GENUINE, non-empty value. */
-function fullWorkspace(): Workspace {
-  const sample = jsonToWorkspace(
-    readFileSync(join(import.meta.dirname, "..", "..", "sample-workspace-small.json"), "utf8"),
-  );
-  return {
-    ...sample,
-    fieldVisibility: { task: { fields: ["taskName"] } },
-    features: ["raid"] as FeatureModuleId[],
-    settingsOverrides: { timezone: { timezone: "Europe/Berlin" } },
-    budgetHistory: budgetHistoryFixture(),
-  };
-}
+const load = (text: string) => decodeWithDiag(csvToWorkspace, text);
 
 describe("csvToWorkspace — a meta slice it could not keep is reported (§630)", () => {
   it.each(BLOB_CASES)("records $key when its JSON does not parse", ({ key, marker }) => {
@@ -166,10 +150,10 @@ describe("csvToWorkspace — a meta slice it could not keep is reported (§630)"
   });
 
   it("records nothing for genuine values of all thirteen slices, and decodes each as before", () => {
-    const full = fullWorkspace();
+    const full = fullMetaWorkspace();
     const { ws, failed, bare } = load(workspaceToCsv(full));
     expect(failed).toEqual([]);
-    for (const key of ALL_KEYS) {
+    for (const key of ALL_META_KEYS) {
       expect(slice(ws, key), key).toBeDefined();
       // ★ Against the SOURCE value, not only the no-diag decode: both of those
       // go through decodeMetaJson, so a helper that returned the raw parse
@@ -186,6 +170,34 @@ describe("csvToWorkspace — a meta slice it could not keep is reported (§630)"
       `${CSV_SECTION_ACTIVITY}\r\n${configRow(JSON.stringify([{ nope: 1 }]))}`,
     ].join("\r\n\r\n");
     expect(load(text).failed.sort()).toEqual(["activityLog", "insights"]);
+  });
+
+  // ★ End to end through csvToWorkspace, not only decodeMetaJson's own unit
+  // test: a throw in the DOM-dependent rich-field pass loses both document
+  // slices, and each must be reported while every other slice still decodes.
+  it("records documents and documentVersions when the rich-field pass throws", () => {
+    // ★ The clock is pinned: both decodes below stamp `new Date()` at day
+    // precision, so a run across midnight would otherwise compare two dates.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-15T12:00:00Z"));
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    const text = workspaceToCsv(fullMetaWorkspace());
+    const reference = csvToWorkspace(text);
+    expect(reference.documents?.length, "non-vacuity").toBeGreaterThan(0);
+    expect(reference.documentVersions?.length, "non-vacuity").toBeGreaterThan(0);
+    richFieldCtl.throwing = true;
+    const { ws, failed, bare } = load(text);
+    expect([...failed].sort()).toEqual(["documentVersions", "documents"]);
+    expect(ws.documents).toBeUndefined();
+    expect(ws.documentVersions).toBeUndefined();
+    expect(bare.documents).toBeUndefined();
+    expect(bare.documentVersions).toBeUndefined();
+    // Everything else decodes exactly as it does without the throw.
+    const withoutDocs = (w: typeof ws) => ({ ...w, documents: undefined, documentVersions: undefined });
+    expect(withoutDocs(ws)).toEqual(withoutDocs(reference));
+    expect(ws.tasks.length).toBeGreaterThan(0);
   });
 
   it("does not throw without a diag", () => {

@@ -15,14 +15,28 @@ import type { DocTruncationDiag } from "./document-model";
 /** True when a parsed JSON value carries anything a sanitizer could lose: a
  *  non-empty string, any number or boolean, or an array/object holding such a
  *  value at ANY depth. `null`, `""`, `[]`, `{}` and containers of only those
- *  carry nothing. Recursive on purpose — a status of `{"narrative":""}` must
- *  not count as content. */
+ *  carry nothing. Walks to ANY depth on purpose — a status of
+ *  `{"narrative":""}` must not count as content.
+ * ★ An explicit stack, not recursion: a stored value nested tens of
+ *  thousands deep would otherwise overflow the call stack and fail the whole
+ *  load instead of being reported. Items are pushed one at a time: spreading a
+ *  very wide array into push() hits the engine's argument limit. */
 export function hasDecodedContent(raw: unknown): boolean {
-  if (raw === null || raw === undefined) return false;
-  if (typeof raw === "string") return raw !== "";
-  if (Array.isArray(raw)) return raw.some(hasDecodedContent);
-  if (typeof raw === "object") return Object.values(raw).some(hasDecodedContent);
-  return true;
+  const pending: unknown[] = [raw];
+  while (pending.length > 0) {
+    const value = pending.pop();
+    if (value === null || value === undefined) continue;
+    if (typeof value === "string") {
+      if (value !== "") return true;
+    } else if (Array.isArray(value)) {
+      for (const item of value as unknown[]) pending.push(item);
+    } else if (typeof value === "object") {
+      for (const item of Object.values(value)) pending.push(item);
+    } else {
+      return true;
+    }
+  }
+  return false;
 }
 
 /** True when a sanitizer's result holds nothing: null/undefined, an empty
@@ -44,8 +58,9 @@ export function sanitizedToNothing(raw: unknown, sanitized: unknown): boolean {
 export type DecodeFailureDiag = Pick<DocTruncationDiag, "decodeFailedSlices">;
 
 /** Push `key` into the accumulator. A no-op without a `diag`. The one writer
- *  both helpers below share. */
-function noteDecodeFailure(key: string, diag: DecodeFailureDiag | undefined): void {
+ *  every decoder shares: both helpers below, and the THROW paths of
+ *  `jsonToWorkspace`, the IndexedDB load and Turso's `rowsToWorkspace`. */
+export function noteDecodeFailure(key: string, diag: DecodeFailureDiag | undefined): void {
   if (diag) (diag.decodeFailedSlices ??= []).push(key);
 }
 
@@ -58,7 +73,9 @@ export function noteIfSanitizedToNothing(
   sanitized: unknown,
   diag: DecodeFailureDiag | undefined,
 ): void {
-  if (sanitizedToNothing(raw, sanitized)) noteDecodeFailure(key, diag);
+  // ★ The diag is checked FIRST: without one the content walk never runs, as
+  // before §630 moved the JSON path onto this helper.
+  if (diag && sanitizedToNothing(raw, sanitized)) noteDecodeFailure(key, diag);
 }
 
 /** §630 — decode ONE stored JSON meta slice, reporting what it could not keep.

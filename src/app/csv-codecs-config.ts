@@ -9,7 +9,7 @@ import { encodeKnowledgeLinks, decodeKnowledgeLinks } from "./document-link";
 import { sanitizeLoadedProjectMeta, sanitizeSteeringCommittee } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import type { TimelogLinks } from "./timelog-types";
-import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
+import { sanitizeOverridesOrNone, hasAnyOverride } from "./settings-overrides";
 import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import {
   type ContactPerson,
@@ -195,14 +195,6 @@ export function csvToSettingsOverrides(text: string, diag?: DocTruncationDiag): 
   const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
   if (rows.length === 0) return undefined;
   return decodeMetaJson(rows[0][1], sanitizeOverridesOrNone, "settingsOverrides", diag);
-}
-
-/** ★ Folds an override-less result to undefined INSIDE the sanitize step, so an
- *  all-junk override counts as "sanitized to nothing" — the judgement
- *  jsonToWorkspace makes for this slice. Shared with the Markdown decoder. */
-export function sanitizeOverridesOrNone(raw: unknown): SettingsOverrides | undefined {
-  const o = sanitizeSettingsOverrides(raw);
-  return hasAnyOverride(o) ? o : undefined;
 }
 
 // --- Standalone knowledge-items encoder / decoder ----------------------------
