@@ -20,13 +20,13 @@ import { describe, expect, test } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  type ImportDiag,
   csvToWorkspace,
   jsonToWorkspace,
   markdownToWorkspace,
   workspaceToCsv,
   workspaceToMarkdown,
 } from "./storage";
-import type { ImportDiag } from "./csv-codecs";
 
 const repoRoot = join(import.meta.dirname, "..", "..");
 const fixturesDir = join(import.meta.dirname, "__fixtures__");
