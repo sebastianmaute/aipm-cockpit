@@ -32,14 +32,33 @@ exports, documents, window layout, dialog sizes, bulk edit, Trends and the deskt
   next time you open the project. If the project was changed elsewhere in the meantime, a notice
   lets you choose **Restore anyway** or **Discard**, so nothing is overwritten without asking. The
   copy is kept in this browser's local storage whatever the project's storage, and it never
-  contains passwords or tokens. So far this is verified in the browser with browser storage; the
-  desktop app and file, SharePoint and Turso projects are not yet verified.
+  contains passwords or tokens. Copies left for other projects are listed in a notice with
+  Download and Discard; those older than 30 days are removed after the page loads, and a second
+  notice names them and still offers a download until it is closed. So far this is verified in the
+  browser with browser storage; the desktop app and file, SharePoint and Turso projects are not
+  yet verified.
+- **Saves finishing out of order.** When several edits were saved at once as the page closed, an
+  older save could finish last and overwrite a newer one on file or SharePoint storage. Saves to
+  one location now run one at a time, newest last.
 - **Data this version cannot read.** When a project holds data this version cannot use at all (for
   example project settings, documents or logs written by a newer version), the app now shows
   "Saving paused" instead of silently dropping it and overwriting it on the next save. "Save
   anyway" clears it. This covers JSON, CSV and Markdown project files (on disk; JSON and CSV also on
   SharePoint), browser storage and Turso databases, and on all of them it also covers content that
-  is all invalid, such as a feature list or project status.
+  is all invalid, such as a feature list or project status. A JSON project file (on disk or on
+  SharePoint) holding a document that cannot be safely read now opens and pauses saving the same
+  way; before, the whole project failed to open. Opening such a file with "Open storage file",
+  which keeps your current documents, does not pause saving.
+- **Loading a file with nothing in it.** A workspace file holding no records of its own (only the
+  default disciplines and grades) no longer replaces an open project when it is loaded or
+  reloaded. The load is refused and saving pauses, as for an empty read.
+- **Cleared secrets stay cleared.** A secret you clear in Settings (the AI key, the dictation key,
+  the Jira, TimeLog or Turso token) now stays cleared. Before, if the old value was still being
+  encrypted when you cleared the field, it was written back afterwards, returned on the next reload,
+  and the "stored" indicator came back on. The value you typed last now wins; before, an earlier
+  keystroke could finish saving last and overwrite it. Emptying the AI key field now removes the
+  stored key (a passphrase-protected key is still kept; use "Remove stored secret"), and emptying
+  the dictation key field removes it even while it is still being saved.
 - **Browser storage and documents.** If a stored document could not be cleaned up on load, the next
   save used to delete the project's documents, document history, activity log, budget history and
   images from browser storage. That load now pauses saving instead, and the rest of the project
@@ -75,7 +94,10 @@ exports, documents, window layout, dialog sizes, bulk edit, Trends and the deskt
   limit. A paragraph over the limit is no longer silently flattened to plain text: saving is refused
   with a notice saying how much to remove, and your text and formatting stay in the editor. If the
   window is closed, reloaded or navigated away first, it is saved as plain text so nothing is lost;
-  switching tabs keeps it as it is.
+  switching tabs keeps it as it is. Headings, lists and tables over their size limit are now refused
+  the same way, with a notice naming the limit, instead of being cut off without a word; Add row,
+  Add column and Add item are disabled at their limits, with the reason shown. If the window closes
+  first, they are saved cut to the limit.
 - **Image previews.** The document preview, the version-history preview and the image preview
   window no longer download an image whose file type is not allowed; they show at once that its
   format is not supported.
@@ -101,11 +123,15 @@ exports, documents, window layout, dialog sizes, bulk edit, Trends and the deskt
 
 ### Changed
 
+- **SharePoint JSON files.** A project stored as JSON on SharePoint is now written in exactly the
+  same format as a local JSON file. Older files still open.
 - **Data.** New snapshots taken with nothing in scope store an empty completion figure (same Turso
   column, no schema change).
 - **German wording.** The change dialog's resolution field now reads "Lösung / Begründung" (it
   read "Begruendung"), and "Rollen & Raten" is now "Rollen & Sätze", which also renames the
-  matching Settings → Export switch, the export section and the Excel sheet.
+  matching Settings → Export switch, the export section and the Excel sheet. Two messages now use
+  the singular for one item ("1 Datensatz", "1 verknüpften Eintrag"), and in English no longer
+  say "record(s)".
 
 ### Development
 
@@ -123,8 +149,11 @@ exports, documents, window layout, dialog sizes, bulk edit, Trends and the deskt
 - **Close-window recovery tests.** An end-to-end test proves the recovery in Chromium with browser
   storage. The desktop app and the file, SharePoint and Turso backends are tracked for
   verification on a real target.
-- **New contributor references** for the budget and currency rules, the undo system, and the
-  desktop app at runtime. The docs name check now also covers the desktop app's source.
+- **New contributor references** for the budget and currency rules, the undo system, the desktop
+  app at runtime, and storage and recovery. The docs name check now also covers the desktop app's
+  source.
+- **Releases on the GitLab copy.** The daily sync to the read-only GitLab copy can now also create
+  each GitHub release there (notes and download links), once a release token is set on GitLab.
 
 ## [1.14.1] - 2026-09-26 "Deaver"
 
