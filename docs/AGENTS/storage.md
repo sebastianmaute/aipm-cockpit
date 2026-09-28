@@ -26,8 +26,10 @@ dropped is gone once the next save lands. The pause is the only thing between th
 
 ## Module map
 
-All paths are under `src/app/`. Reproduce the list: `ls src/app | grep -E
-"^(storage|browser-backend|idb|local-file|fs-access|sharepoint-backend|turso-|debounced-save|unload-journal|use-unload-journal|recovery|app-reset|meta-slice-decode|use-load-truncation)"`.
+All paths are under `src/app/`. Most rows reproduce with `ls src/app | grep -v test | grep -E
+"^(storage|browser-backend|idb|local-file|fs-access|sharepoint-backend|turso-|debounced-save|unload-journal|use-unload-journal|recovery|app-reset|meta-slice-decode|use-load-truncation)"`; `workspace.ts`,
+`use-storage-backend.ts`, `save-guard.ts`, `safe-mode.ts` and the codec files are named by hand, and the grep also
+lists a few UI files (`storage-config.tsx`, `turso-project-picker.tsx`) this table leaves out.
 
 | Module | What it does |
 |---|---|
@@ -70,8 +72,11 @@ reach it through `applyWorkspaceForOp`, which also bumps the scope epoch. The Tu
 restore is the second funnel, `applyRestoredWorkspace` (`task-manager.tsx`), which does not go
 through the first. The docstring on `backfillTaskResourceFks` (`resource-foundation.ts`) names both
 and says a third funnel must call it too. ★ That docstring and several comments call the first
-funnel `applyWorkspace`; the name survives only as the `applyWorkspace` field of the op hooks'
-deps (`grep -n "applyWorkspace:" src/app/use-storage-file-ops.ts`).
+funnel `applyWorkspace`. That name survives as a deps FIELD in two places, one per funnel: the op
+hooks' `applyWorkspace` (`grep -n "applyWorkspace:" src/app/use-storage-file-ops.ts`) and
+`useVersionHistory`'s optional `applyWorkspace`, which `task-manager.tsx` fills with
+`applyRestoredWorkspace` — the SECOND funnel (`grep -n "applyWorkspace?:" src/app/use-version-history.ts`).
+Read which one a mention means before relying on it.
 
 **The load effect** (`useEffect` on `[backend, args.hydrated]` in `use-storage-backend.ts`), in order:
 1. A project op that armed `suppressNextLoadRef` already applied its workspace: the effect
@@ -137,7 +142,8 @@ a Markdown fence the decoder's regex misses reads as absent (§630's "Known limi
 
 **The save effect** (`use-storage-backend.ts`) re-runs on every slice change. It returns early,
 in order: before hydration; in a popout (a popout never saves); while the save gate is shut for
-this backend (`"load-failed"` / `"empty-refused"`, toasting once); on the one render a load just
+this backend (also before any load has succeeded, silently; for `"load-failed"` / `"empty-refused"`
+it toasts once); on the one render a load just
 applied (`suppressNextSaveRef`, which resyncs the destructive-guard baselines); while an incomplete
 load holds (`mayCommitAfterIncompleteLoad`); and when `evaluateSaveGuard` (`save-guard.ts`) refuses
 a full wipe or a mass deletion. Past all of them it builds `doSave` and hands it to
@@ -189,7 +195,9 @@ journal (`grep -n "UNLOAD_JOURNAL_PREFIX =" src/app/unload-journal.ts`).
 ### Concurrency
 
 - **Turso** saves run inside `withWriteLock`: an exclusive cross-tab Web Lock per database and
-  project, bounded by a wait timeout that fails with `TursoLockTimeoutError`.
+  project, bounded by a wait timeout that fails with `TursoLockTimeoutError`. Where
+  `navigator.locks` is missing (or no config is set) it runs the save UNLOCKED
+  (`grep -n "if (!locks || !this.config) return fn();" src/app/turso-backend.ts`).
 - **Local file and SharePoint** saves are NOT serialised (§627, open): several `pagehide` commits
   can start overlapping full saves, and an older snapshot that finishes last overwrites a newer
   one. The journal covers the reload case; the in-session race is unchanged. The register states
@@ -226,7 +234,8 @@ Kept short: `AGENTS.md` owns each rule.
   NOT workspace data**.
 - **`idKind`**: a spec with a string id must declare `idKind: "text"`; one does today (`grep -n
   'idKind: "' src/app/turso-schema.ts`). Same bullet.
-- **Self-heal**: `ensureColumns` runs once per backend instance, inside the write lock, before
+- **Self-heal**: `ensureColumns` runs once per backend instance (retried after a failure, which
+  clears the memo), inside the write lock, before
   the save pipeline — a PRAGMA read, then renames (`columnRenameAlters`) before adds, in one
   `BEGIN`…`COMMIT`. Rule: **New COLUMN on existing entity**.
 - **Partial saves**: `dirtyWorkspaceTables` diffs against the last saved workspace by reference;
@@ -262,8 +271,8 @@ data (reset/clear boundary)**.
 
 ## Follow-ups found while writing this page
 
-Filed in `docs/open-followups.md` on 2026-09-28. The first three are closed in 1.14.2; the fourth is
-open.
+Filed in `docs/open-followups.md` on 2026-09-28. The first three are closed on
+`fix/storage-followups`; the fourth is open.
 - **§634** — SharePoint JSON was saved with `JSON.stringify`, so it had no `schemaVersion`.
 - **§635** — a documents rich-field throw failed the whole strict JSON load instead of pausing
   saving.

@@ -37612,9 +37612,11 @@ who writes each of the six paths, the Turso rules (linked to their AGENTS.md bul
 it disproved four statements, each fixed or filed: AGENTS.md's "one `ENTITY_SPECS` row buys three of the
 six" (corrected in place: it buys both Turso layouts), and §634, §635 and §636 (closed on
 `fix/storage-followups`), with §637 filed open. `docs:symbols:check` and `docs:claims:check` pass over the
-page; its claims were checked by a cold review before merge.
+page. A cold review checked its claims against the code and found three wrong (the `applyWorkspace`
+survival, a release version it could not know, and this entry's own AGENTS.md correction, which named the
+decoder as the writers' codec); all three were fixed before merge.
 
-**Original status:** open, narrowed 2026-09-27 to the storage/recovery page. `ls docs/AGENTS` now lists
+**Status before closure (2026-09-27):** open, narrowed 2026-09-27 to the storage/recovery page. `ls docs/AGENTS` now lists
 `budget.md`, `desktop.md` and `undo.md`, written on the `docs/coverage` branch, and still no storage
 page: `ls docs/AGENTS | grep -ci storage` → 0. The insights.md half was already fixed by f45dbd81b,
 which added the "TimeLog guardrail insights" bullet: `grep -c "TimeLog guardrail insights" docs/AGENTS/insights.md` → 1.

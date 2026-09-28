@@ -574,8 +574,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 - **New persisted `Workspace` field → SIX write paths** (JSON/CSV/MD/Turso-single/Turso-tenant/
   IndexedDB). Miss one and data silently drops on that backend. `calendarEvents`
   ("Resource calendar meetings" below) is a worked example — one `ENTITY_SPECS` row buys BOTH Turso layouts;
-  CSV and Markdown still need a hand-written section (`calendarEventsToCsv`, `calendarEventsToMarkdown`) that
-  reuses the row codec `buildCalendarEventFromObj`. (Corrected 2026-09-28: this said "buys three of the six".)
+  CSV and Markdown still need a hand-written section each. Their writers (`calendarEventsToCsv`,
+  `calendarEventsToMarkdown`, the latter with its own `EVENTS_MD_COLUMNS`) encode cells with the row encoder
+  `calendarEventFieldToString`, and their decoders use `buildCalendarEventFromObj`, the row decoder the spec
+  also uses. (Corrected 2026-09-28: this said one row "buys three of the six".)
   ★★ `activityLog` ("Activity log" below) is the CONTRASTING worked example, and the cheaper shape is the
   reason: a **meta-blob** slice has no `ENTITY_SPECS` row, so it buys nothing and needs all six written by
   hand — and the Turso TENANT path was the one missed, caught in review rather than by any gate.
