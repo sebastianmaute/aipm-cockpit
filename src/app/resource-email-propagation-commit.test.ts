@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { SetStateAction } from "react";
 import { commitEmailPropagation, commitResourceEmailCorrection, contactPersonsFragment, type PropagationSetters } from "./resource-email-propagation-commit";
 import { propagateResourceEmail, type EmailPropagationInput } from "./resource-email-propagation";
-import { t } from "./i18n";
+import { t, tPlural } from "./i18n";
 import type { ContactPerson, ProjectMeta, Resource, Task } from "./types";
 
 const change = { resourceId: 7, from: "old@x.com", to: "new@x.com" };
@@ -186,5 +186,17 @@ describe("contactPersonsFragment", () => {
     const live = { name: "P", contactPersons: [{ ...ada, email: "new@x.com" }, addedLater] } as ProjectMeta;
     const undone = apply<ProjectMeta | undefined>(live, setProjectCall(s, 0));
     expect(undone?.contactPersons.map((c) => c.email)).toEqual([" Old@X.com ", "old@x.com"]);
+  });
+});
+
+// §450 — the toast agrees with a count of ONE (it used to read "record(s)").
+describe("commitResourceEmailCorrection — the toast's plural (§450)", () => {
+  const person: Resource = { id: 7, firstName: "Ada", lastName: "L", email: "old@x.com", roleId: null, utilizationMode: "percent", utilization: {} };
+  it("says \"1 linked record\" when one linked row changed", () => {
+    const s = setters();
+    const out = commitResourceEmailCorrection({ previous: person, next: { ...person, email: "new@x.com" }, input: empty({ tasks: [linked] }), setters: s, lang: "en-US" });
+    expect(out?.result.count).toBe(1);
+    expect(out?.toastText).toBe(tPlural("en-US", "undoToastResourceEmailPropagated", 1, 1));
+    expect(out?.toastText).toBe("Edited 1 item and updated 1 linked record");
   });
 });

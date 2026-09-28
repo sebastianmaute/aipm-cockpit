@@ -18,8 +18,9 @@
 //  `document-block-editors.test.tsx` ("gives block-position-dependent controls
 //  DISTINCT names across sibling table blocks") — NOT in this file, and there
 //  is no test file beside this one.
-import { t } from "./i18n";
-import type { DocBlock } from "./document-model";
+import { t, localeFor } from "./i18n";
+import { useId } from "react";
+import { MAX_TABLE_COLUMNS, MAX_TABLE_ROWS, type DocBlock } from "./document-model";
 import { type BlockEditorProps, useBlockDraft } from "./document-block-editors";
 import { BlockRefusalNotice } from "./document-block-notices";
 import { Button } from "./button";
@@ -56,6 +57,14 @@ export function TableBlockEditor({
 
   const blockQualifier = t(lang, "documentsBlockN", String(index + 1));
   const qualify = (label: string) => `${label} – ${blockQualifier}`;
+  // §191 — at a cap the Add control is disabled, and the visible reason is its
+  //  description: a disabled control with no reason reads as a broken one.
+  const limitId = useId();
+  const rowLimitId = `${limitId}-rows`;
+  const columnLimitId = `${limitId}-columns`;
+  const atRowLimit = value.rows.length >= MAX_TABLE_ROWS;
+  const atColumnLimit = value.columns.length >= MAX_TABLE_COLUMNS;
+  const formatLimit = (n: number) => new Intl.NumberFormat(localeFor(lang)).format(n);
 
   const editCaption = (text: string) => setValue((prev) => ({ ...prev, caption: text }));
 
@@ -206,6 +215,8 @@ export function TableBlockEditor({
           size="xs"
           aria-label={qualify(t(lang, "documentsAddRow"))}
           onClick={addRow}
+          disabled={atRowLimit}
+          aria-describedby={atRowLimit ? rowLimitId : undefined}
         >
           {t(lang, "documentsAddRow")}
         </Button>
@@ -214,10 +225,22 @@ export function TableBlockEditor({
           size="xs"
           aria-label={qualify(t(lang, "documentsAddColumn"))}
           onClick={addColumn}
+          disabled={atColumnLimit}
+          aria-describedby={atColumnLimit ? columnLimitId : undefined}
         >
           {t(lang, "documentsAddColumn")}
         </Button>
       </div>
+      {atRowLimit && (
+        <p id={rowLimitId} className="text-xs text-muted-foreground">
+          {t(lang, "documentsTableRowLimitReached", formatLimit(MAX_TABLE_ROWS))}
+        </p>
+      )}
+      {atColumnLimit && (
+        <p id={columnLimitId} className="text-xs text-muted-foreground">
+          {t(lang, "documentsTableColumnLimitReached", formatLimit(MAX_TABLE_COLUMNS))}
+        </p>
+      )}
       {refusal && <BlockRefusalNotice lang={lang} refusal={refusal} />}
     </div>
   );

@@ -150,9 +150,10 @@ export function normalizeBlockForStorage(block: DocBlock): DocBlock | null {
  *   does discard something the user could have rescued by deleting a row
  *   first. That trade restores the pre-branch behaviour rather than adding a
  *   new one — the identity-keyed re-seed it replaced dropped the same text on
- *   the same trigger — but it is the WRONG fix for the real defect: the cap
- *   path shows no refusal notice and the Add controls are not disabled at the
- *   cap, so nothing tells the user any of it. `docs/open-followups.md` §191.
+ *   the same trigger. §191 has since fixed the real defect: an over-cap
+ *   heading, list or table is refused on a blur with a notice naming the
+ *   limit (`firstCapViolation` below) and stays dirty, and the Add controls
+ *   are disabled at their caps, so the editor rarely reaches this re-seed now.
  *   Measured before this existed: add a column to a 30-column table, edit any
  *   other cell, and the phantom column survived every subsequent commit.
  *  ★★ Length checks only — a TRIM or an empty-drop is not truncation, and
@@ -183,6 +184,39 @@ export function exceedsStorageCaps(block: DocBlock): boolean {
       );
     default:
       return false;
+  }
+}
+
+/** §191 — which storage cap a heading, bullets or table block breaks, so the
+ *  editor can REFUSE the commit with a notice naming it instead of letting
+ *  `normalizeBlockForStorage` truncate in silence. A paragraph has its own
+ *  §185 path and returns null here, and so does a ragged row (more cells than
+ *  columns), which no editor control can produce; both still truncate as before.
+ *  ★ Keep it in step with `exceedsStorageCaps` above: a cap only that one knows
+ *   is truncated silently again. `document-model.test.ts` pins their agreement
+ *   on its listed cases only, so a new cap also needs a new case there. */
+export type CapViolation = {
+  readonly kind: "text" | "items" | "columns" | "rows";
+  readonly limit: number;
+};
+
+export function firstCapViolation(block: DocBlock): CapViolation | null {
+  const tooLong = (s: string) => s.length > MAX_TEXT_CHARS;
+  const text: CapViolation = { kind: "text", limit: MAX_TEXT_CHARS };
+  switch (block.type) {
+    case "heading":
+      return tooLong(block.text) ? text : null;
+    case "bullets":
+      if (block.items.length > MAX_BULLET_ITEMS) return { kind: "items", limit: MAX_BULLET_ITEMS };
+      return block.items.some(tooLong) ? text : null;
+    case "table":
+      if (block.columns.length > MAX_TABLE_COLUMNS) return { kind: "columns", limit: MAX_TABLE_COLUMNS };
+      if (block.rows.length > MAX_TABLE_ROWS) return { kind: "rows", limit: MAX_TABLE_ROWS };
+      return block.columns.some(tooLong) || tooLong(block.caption ?? "") || block.rows.some((r) => r.some(tooLong))
+        ? text
+        : null;
+    default:
+      return null;
   }
 }
 

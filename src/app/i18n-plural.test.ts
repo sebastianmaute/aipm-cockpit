@@ -291,3 +291,24 @@ describe("plural key pairing", () => {
     ).toEqual([]);
   });
 });
+
+// §450 — two keys that dodged plural agreement with "(s)" and a slash form.
+describe("§450 plural pairs", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  it("undoToastResourceEmailPropagated agrees with its count in EN and DE", () => {
+    expect(tPlural("en-US", "undoToastResourceEmailPropagated", 1, 1)).toBe("Edited 1 item and updated 1 linked record");
+    expect(tPlural("en-US", "undoToastResourceEmailPropagated", 2, 2)).toBe("Edited 1 item and updated 2 linked records");
+    expect(tPlural("de", "undoToastResourceEmailPropagated", 1, 1)).toBe("1 Element bearbeitet und 1 verknüpften Eintrag aktualisiert");
+    expect(tPlural("de", "undoToastResourceEmailPropagated", 2, 2)).toBe("1 Element bearbeitet und 2 verknüpfte Einträge aktualisiert");
+  });
+
+  it("storagePickFileHasProject agrees with its count in EN and DE", () => {
+    expect(tPlural("en-US", "storagePickFileHasProject", 1, "f.json", 1)).toContain("a project with 1 record.");
+    expect(tPlural("en-US", "storagePickFileHasProject", 3, "f.json", 3)).toContain("a project with 3 records.");
+    expect(tPlural("de", "storagePickFileHasProject", 1, "f.json", 1)).toContain("ein Projekt mit 1 Datensatz.");
+    expect(tPlural("de", "storagePickFileHasProject", 3, "f.json", 3)).toContain("ein Projekt mit 3 Datensätzen.");
+  });
+});

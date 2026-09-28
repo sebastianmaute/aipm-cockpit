@@ -25,7 +25,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Lang } from "./i18n";
-import { t } from "./i18n";
+import { t, tPlural } from "./i18n";
 import type { Settings } from "./settings-types";
 import type { FsHandle, StorageConfig } from "./storage";
 import { jsonToWorkspace, LocalFileBackend, StorageNotReadyError, workspaceToJson } from "./storage";
@@ -831,5 +831,17 @@ describe("§629 — loading the picked file instead drops this tab's unconfirmed
     expect(showToast).not.toHaveBeenCalledWith("success", t("en-US", "unloadJournalRestored"));
     expect(next.result.current.unloadJournalConflict).toBe(false);
     expect(tasksInFile()).toHaveLength(2);
+  });
+});
+
+// §450 — the offer agrees with a count of ONE (it used to read "record(s)").
+// One unassigned task: no resource is derived from an assignee, so the file
+// holds exactly one authored record.
+describe("§450 — the offer's plural", () => {
+  it("names \"1 record\" for a file holding one record", async () => {
+    const oneRecord = workspaceToJson(ws({ tasks: [{ ...taskRec(1, ""), assignee: "" } as Task] }));
+    const { confirmSpy } = await setupPick({ fileBytes: oneRecord, confirmAnswer: false });
+    expect(confirmSpy).toHaveBeenCalledWith(tPlural("en-US", "storagePickFileHasProject", 1, PICKED_FILE, 1));
+    expect(String(confirmSpy.mock.calls[0][0])).toContain("a project with 1 record.");
   });
 });
