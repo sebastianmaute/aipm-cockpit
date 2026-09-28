@@ -20,7 +20,8 @@ import { sanitizeDocumentVersionsWithDiag, type DocVersion } from "./document-ve
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
 import type { TimelogLinks } from "./timelog-types";
-import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
+import { hasAnyOverride } from "./settings-overrides";
+import { decodeMetaJson, noteIfSanitizedToNothing } from "./meta-slice-decode";
 import type { SettingsOverrides } from "./settings-types";
 import {
   type Absence,
@@ -66,6 +67,7 @@ import {
   projectFieldToString,
   raidFieldToString,
   resourceFieldToString,
+  sanitizeOverridesOrNone,
   shiftFieldToString,
   stakeholderFieldToString,
 } from "./csv-codecs";
@@ -108,13 +110,17 @@ export function statusToMarkdown(status: ProjectStatus): string {
   return lines.join("\n") + "\n";
 }
 
-export function markdownToStatus(md: string): ProjectStatus {
+export function markdownToStatus(md: string, diag?: DocTruncationDiag): ProjectStatus {
   const map: Record<string, string> = {};
   for (const line of md.split(/\r?\n/)) {
     const m = /^- (\w+):\s*(.*)$/.exec(line.trim());
     if (m) map[m[1]] = m[2].trim();
   }
-  return sanitizeProjectStatus(map);
+  const status = sanitizeProjectStatus(map);
+  // ★ §630: same rule as csvToStatus — always returned, recorded when the
+  // bullets carried a value and the sanitizer kept none.
+  noteIfSanitizedToNothing("status", map, status, diag);
+  return status;
 }
 
 
@@ -124,14 +130,17 @@ export function fieldVisibilityToMarkdown(cfg: FieldVisibilityConfig): string {
   return ["## Field Visibility", "", "```json", JSON.stringify(cfg, null, 2), "```", ""].join("\n");
 }
 
-export function markdownToFieldVisibility(md: string): FieldVisibilityConfig | undefined {
+export function markdownToFieldVisibility(md: string, diag?: DocTruncationDiag): FieldVisibilityConfig | undefined {
   const m = /## Field Visibility\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
   if (!m) return undefined;
-  try {
-    return sanitizeFieldVisibility(JSON.parse(m[1]));
-  } catch {
-    return undefined;
-  }
+  // ★★ §630: every fenced-json decoder below goes through `decodeMetaJson`,
+  //  which records the slice's key when the JSON does not parse or sanitizes
+  //  to nothing — the swallowed `catch` used to lose both.
+  // ★ KNOWN LIMITATION, shared by all of them: a heading whose ```json fence
+  //  this regex cannot find (a hand-edit that broke the fence) returns above
+  //  as ABSENT and is not recorded. Telling "broken fence" from "no section"
+  //  needs a real section parser, which this codec does not have.
+  return decodeMetaJson(m[1], sanitizeFieldVisibility, "fieldVisibility", diag);
 }
 
 /** Serializes the per-project feature list as JSON inside a fenced
@@ -140,14 +149,10 @@ export function featuresToMarkdown(features: readonly FeatureModuleId[]): string
   return ["## Functions", "", "```json", JSON.stringify(features, null, 2), "```", ""].join("\n");
 }
 
-export function markdownToFeatures(md: string): FeatureModuleId[] | undefined {
+export function markdownToFeatures(md: string, diag?: DocTruncationDiag): FeatureModuleId[] | undefined {
   const m = /## Functions\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
   if (!m) return undefined;
-  try {
-    return sanitizeFeatures(JSON.parse(m[1]));
-  } catch {
-    return undefined;
-  }
+  return decodeMetaJson(m[1], sanitizeFeatures, "features", diag);
 }
 
 /** Serializes the steering committee (nested object) as JSON inside a fenced
@@ -157,43 +162,31 @@ export function steeringCommitteeToMarkdown(committee: SteeringCommittee): strin
   return ["## Steering Committee", "", "```json", JSON.stringify(committee, null, 2), "```", ""].join("\n");
 }
 
-export function markdownToSteeringCommittee(md: string): SteeringCommittee | undefined {
+export function markdownToSteeringCommittee(md: string, diag?: DocTruncationDiag): SteeringCommittee | undefined {
   const m = /## Steering Committee\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
   if (!m) return undefined;
-  try {
-    return sanitizeSteeringCommittee(JSON.parse(m[1]));
-  } catch {
-    return undefined;
-  }
+  return decodeMetaJson(m[1], sanitizeSteeringCommittee, "steeringCommittee", diag);
 }
 
 export function timelogLinksToMarkdown(links: TimelogLinks): string {
   return ["## Timelog Links", "", "```json", JSON.stringify(links, null, 2), "```", ""].join("\n");
 }
 
-export function markdownToTimelogLinks(md: string): TimelogLinks | undefined {
+export function markdownToTimelogLinks(md: string, diag?: DocTruncationDiag): TimelogLinks | undefined {
   const m = /## Timelog Links\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
   if (!m) return undefined;
-  try {
-    return sanitizeTimelogLinks(JSON.parse(m[1]));
-  } catch {
-    return undefined;
-  }
+  return decodeMetaJson(m[1], sanitizeTimelogLinks, "timelogLinks", diag);
 }
 
 export function knowledgeItemsToMarkdown(items: readonly KnowledgeItem[]): string {
   return ["## Knowledge Items", "", "```json", JSON.stringify(items, null, 2), "```", ""].join("\n");
 }
 
-export function markdownToKnowledgeItems(md: string): KnowledgeItem[] | undefined {
+export function markdownToKnowledgeItems(md: string, diag?: DocTruncationDiag): KnowledgeItem[] | undefined {
   const m = /## Knowledge Items\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
   if (!m) return undefined;
-  try {
-    const items = sanitizeKnowledgeItems(JSON.parse(m[1]));
-    return items.length ? items : undefined;
-  } catch {
-    return undefined;
-  }
+  const items = decodeMetaJson(m[1], sanitizeKnowledgeItems, "knowledgeItems", diag);
+  return items?.length ? items : undefined;
 }
 
 /** Documents persist as a fenced json blob, the knowledgeItems/insights
@@ -227,30 +220,32 @@ export function markdownToDocuments(
 ): ProjectDocument[] | undefined {
   const m = /## Documents\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
   if (!m) return undefined;
-  try {
-    // ★★★ TWO PASSES, and the second one is not optional. sanitizeProjectDocuments
-    // is DOM-FREE BY CONTRACT, so it enforces STRUCTURE and cannot strip markup;
-    // sanitizeDocumentRichFields applies the paragraph HTML allow-list. Markdown
-    // and CSV were the only two of the six load paths missing this, which left
-    // the same document decoding to different in-memory HTML depending on the
-    // backend it came from — and a Markdown→JSON migration then WROTE the
-    // unfiltered markup into a backend that would have cleaned it.
-    // ★★ THIS MAKES THE DECODE PATH DOM-DEPENDENT, and the failure mode is
-    // SILENT. Measured both ways with the generator's exact arrangement: with
-    // JSDOM installed first, documents decode and come back sanitized; with no
-    // DOM the DOMPurify call throws, the catch below swallows it, and documents
-    // decode to UNDEFINED — dropped whole, no error, no diagnostic. The
-    // generator, regen-golden-fixtures.ts and sample-link-exports.ts install
-    // JSDOM into globalThis BEFORE they dynamically import src/app. But
-    // update-ooxml-manifest.ts reaches this module with NO DOM (via storage).
-    // Nobody has checked that it never decodes Markdown; if it does, it silently
-    // loses every document (open-followups §624). A new bare-node importer must
-    // install a DOM first.
-    const docs = sanitizeProjectDocumentsWithDiag(JSON.parse(m[1]), diag).map(sanitizeDocumentRichFields);
-    return docs.length ? docs : undefined;
-  } catch {
-    return undefined;
-  }
+  // ★★★ TWO PASSES, and the second one is not optional. sanitizeProjectDocuments
+  // is DOM-FREE BY CONTRACT, so it enforces STRUCTURE and cannot strip markup;
+  // sanitizeDocumentRichFields applies the paragraph HTML allow-list. Markdown
+  // and CSV were the only two of the six load paths missing this, which left
+  // the same document decoding to different in-memory HTML depending on the
+  // backend it came from — and a Markdown→JSON migration then WROTE the
+  // unfiltered markup into a backend that would have cleaned it.
+  // ★★ THIS MAKES THE DECODE PATH DOM-DEPENDENT, and the failure mode is
+  // SILENT. Measured both ways with the generator's exact arrangement: with
+  // JSDOM installed first, documents decode and come back sanitized; with no
+  // DOM the DOMPurify call throws, the catch in `decodeMetaJson` swallows it,
+  // and documents decode to UNDEFINED — dropped whole, no error, and (since
+  // §630) reported only through `diag.decodeFailedSlices` when a caller passes
+  // one. The generator, regen-golden-fixtures.ts and sample-link-exports.ts
+  // install JSDOM into globalThis BEFORE they dynamically import src/app. But
+  // update-ooxml-manifest.ts reaches this module with NO DOM (via storage).
+  // Nobody has checked that it never decodes Markdown; if it does, it silently
+  // loses every document (open-followups §624). A new bare-node importer must
+  // install a DOM first.
+  const docs = decodeMetaJson(
+    m[1],
+    (raw) => sanitizeProjectDocumentsWithDiag(raw, diag).map(sanitizeDocumentRichFields),
+    "documents",
+    diag,
+  );
+  return docs?.length ? docs : undefined;
 }
 
 /** Document version history persists the same way as documents just above —
@@ -275,41 +270,39 @@ export function markdownToDocumentVersions(
 ): DocVersion[] | undefined {
   const m = /## Document versions\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
   if (!m) return undefined;
-  try {
-    // Same two-pass shape as markdownToDocuments just above: sanitizeDocumentVersions
-    // enforces structure (DOM-free), then each version's blocks get the paragraph
-    // HTML allow-list via sanitizeDocumentRichFields. A version has no independent
-    // createdAt/updatedAt, so it is passed through a synthetic ProjectDocument-shaped
-    // wrapper with savedAt standing in for both.
-    const versions = sanitizeDocumentVersionsWithDiag(JSON.parse(m[1]), diag).map((v) => ({
-      ...v,
-      blocks: sanitizeDocumentRichFields({
-        id: v.documentId,
-        title: v.title,
-        blocks: v.blocks,
-        createdAt: v.savedAt,
-        updatedAt: v.savedAt,
-      }).blocks,
-    }));
-    return versions.length ? versions : undefined;
-  } catch {
-    return undefined;
-  }
+  // Same two-pass shape as markdownToDocuments just above: sanitizeDocumentVersions
+  // enforces structure (DOM-free), then each version's blocks get the paragraph
+  // HTML allow-list via sanitizeDocumentRichFields. A version has no independent
+  // createdAt/updatedAt, so it is passed through a synthetic ProjectDocument-shaped
+  // wrapper with savedAt standing in for both.
+  const versions = decodeMetaJson(
+    m[1],
+    (raw) =>
+      sanitizeDocumentVersionsWithDiag(raw, diag).map((v) => ({
+        ...v,
+        blocks: sanitizeDocumentRichFields({
+          id: v.documentId,
+          title: v.title,
+          blocks: v.blocks,
+          createdAt: v.savedAt,
+          updatedAt: v.savedAt,
+        }).blocks,
+      })),
+    "documentVersions",
+    diag,
+  );
+  return versions?.length ? versions : undefined;
 }
 
 export function insightsToMarkdown(insights: readonly Insight[]): string {
   return ["## Insights", "", "```json", JSON.stringify(insights, null, 2), "```", ""].join("\n");
 }
 
-export function markdownToInsights(md: string): Insight[] | undefined {
+export function markdownToInsights(md: string, diag?: DocTruncationDiag): Insight[] | undefined {
   const m = /## Insights\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
   if (!m) return undefined;
-  try {
-    const ins = sanitizeInsights(JSON.parse(m[1]));
-    return ins.length ? ins : undefined;
-  } catch {
-    return undefined;
-  }
+  const ins = decodeMetaJson(m[1], sanitizeInsights, "insights", diag);
+  return ins?.length ? ins : undefined;
 }
 
 /** Activity log persists the same way as documents/insights above — a fenced
@@ -329,17 +322,13 @@ export function activityLogToMarkdown(log: readonly ActivityEntry[]): string {
   return ["## Activity Log", "", "```json", JSON.stringify(log, null, 2), "```", ""].join("\n");
 }
 
-export function markdownToActivityLog(md: string): ActivityEntry[] | undefined {
+export function markdownToActivityLog(md: string, diag?: DocTruncationDiag): ActivityEntry[] | undefined {
   const m = /## Activity Log\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
   if (!m) return undefined;
-  try {
-    // sanitizeActivityLog (activity-log.ts) is DOM-free — no second rich-field
-    // pass needed, unlike markdownToDocuments above.
-    const log = sanitizeActivityLog(JSON.parse(m[1]));
-    return log.length ? log : undefined;
-  } catch {
-    return undefined;
-  }
+  // sanitizeActivityLog (activity-log.ts) is DOM-free — no second rich-field
+  // pass needed, unlike markdownToDocuments above.
+  const log = decodeMetaJson(m[1], sanitizeActivityLog, "activityLog", diag);
+  return log?.length ? log : undefined;
 }
 
 /** Budget history — meta-blob sibling of the activity log above: the same
@@ -348,30 +337,21 @@ export function budgetHistoryToMarkdown(history: readonly BudgetHistoryEntry[]):
   return ["## Budget History", "", "```json", JSON.stringify(history, null, 2), "```", ""].join("\n");
 }
 
-export function markdownToBudgetHistory(md: string): BudgetHistoryEntry[] | undefined {
+export function markdownToBudgetHistory(md: string, diag?: DocTruncationDiag): BudgetHistoryEntry[] | undefined {
   const found = /## Budget History\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
   if (!found) return undefined;
-  try {
-    const history = sanitizeBudgetHistory(JSON.parse(found[1]));
-    return history.length ? history : undefined;
-  } catch {
-    return undefined;
-  }
+  const history = decodeMetaJson(found[1], sanitizeBudgetHistory, "budgetHistory", diag);
+  return history?.length ? history : undefined;
 }
 
 export function settingsOverridesToMarkdown(overrides: SettingsOverrides): string {
   return ["## Settings Overrides", "", "```json", JSON.stringify(overrides, null, 2), "```", ""].join("\n");
 }
 
-export function markdownToSettingsOverrides(md: string): SettingsOverrides | undefined {
+export function markdownToSettingsOverrides(md: string, diag?: DocTruncationDiag): SettingsOverrides | undefined {
   const m = /## Settings Overrides\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
   if (!m) return undefined;
-  try {
-    const o = sanitizeSettingsOverrides(JSON.parse(m[1]));
-    return hasAnyOverride(o) ? o : undefined;
-  } catch {
-    return undefined;
-  }
+  return decodeMetaJson(m[1], sanitizeOverridesOrNone, "settingsOverrides", diag);
 }
 
 
@@ -386,14 +366,18 @@ export function projectToMarkdown(project: ProjectMeta): string {
   return lines.join("\n") + "\n";
 }
 
-export function markdownToProject(md: string): ProjectMeta | null {
+export function markdownToProject(md: string, diag?: DocTruncationDiag): ProjectMeta | null {
   const map: Record<string, string> = {};
   for (const line of md.split(/\r?\n/)) {
     const m = /^- (\w+):\s*(.*)$/.exec(line.trim());
     // No .trim() (unlike markdownToStatus): the encoded value may end in escaped chars that decodeProjectScalar must receive verbatim.
     if (m) map[m[1]] = m[2];
   }
-  return buildProjectFromObj(map);
+  const project = buildProjectFromObj(map);
+  // ★ §630: same rule as csvToProject — a whole-record reject is recorded when
+  // the bullets carried anything.
+  noteIfSanitizedToNothing("project", map, project, diag);
+  return project;
 }
 
 

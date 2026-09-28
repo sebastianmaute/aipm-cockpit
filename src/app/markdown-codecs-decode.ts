@@ -371,7 +371,11 @@ function markdownToRaid(md: string, diag?: ImportDiag): RaidItem[] {
  *  ★ The SAME accumulator also carries the document-cap counters — a capped
  *  document is a DIFFERENT loss from a dropped row (it was perfectly valid and
  *  simply went unread), but it travels this path, so both fenced-json document
- *  decoders below receive `diag` too. */
+ *  decoders below receive `diag` too.
+ *
+ *  ★ §630: so does every other meta decoder (status, project and the nine
+ *  other fenced-json blobs) — each records a slice it could not keep into
+ *  `diag.decodeFailedSlices`, as jsonToWorkspace does since §620. */
 export function markdownToWorkspace(md: string, diag?: ImportDiag): Workspace {
   const s = splitMarkdownSections(md);
   const ws: Workspace = {
@@ -387,24 +391,24 @@ export function markdownToWorkspace(md: string, diag?: ImportDiag): Workspace {
     plan: (s.planMd.trim() && parsePlanMarkdown(s.planMd)) || defaultResourcePlan(new Date().toISOString().slice(0, 10)),
     budgets: s.budgetsMd.trim() ? markdownToBudgets(s.budgetsMd, diag) : [],
     fxRates: s.fxRatesMd.trim() ? parseFxRatesMarkdown(s.fxRatesMd) : null,
-    status: s.statusMd.trim() ? markdownToStatus(s.statusMd) : {},
+    status: s.statusMd.trim() ? markdownToStatus(s.statusMd, diag) : {},
     milestones: s.milestonesMd.trim() ? markdownToMilestones(s.milestonesMd, diag) : [],
     changes: s.changesMd.trim() ? markdownToChanges(s.changesMd, diag) : [],
     stakeholders: s.stakeholdersMd.trim() ? markdownToStakeholders(s.stakeholdersMd, diag) : [],
   };
-  const project = s.projectMd.trim() ? markdownToProject(s.projectMd) : null;
+  const project = s.projectMd.trim() ? markdownToProject(s.projectMd, diag) : null;
   if (project) ws.project = project;
-  const fv = markdownToFieldVisibility(md);
+  const fv = markdownToFieldVisibility(md, diag);
   if (fv) ws.fieldVisibility = fv;
-  const fns = markdownToFeatures(md);
+  const fns = markdownToFeatures(md, diag);
   if (fns !== undefined) ws.features = fns;
-  const sc = markdownToSteeringCommittee(md);
+  const sc = markdownToSteeringCommittee(md, diag);
   if (sc) ws.steeringCommittee = sc;
-  const tl = markdownToTimelogLinks(md);
+  const tl = markdownToTimelogLinks(md, diag);
   if (tl) ws.timelogLinks = tl;
-  const ki = markdownToKnowledgeItems(md);
+  const ki = markdownToKnowledgeItems(md, diag);
   if (ki) ws.knowledgeItems = ki;
-  const ins = markdownToInsights(md);
+  const ins = markdownToInsights(md, diag);
   if (ins) ws.insights = ins;
   // Whole-md scan like the other fenced-json sections: the "## Documents"
   // heading is not one splitMarkdownSections knows, so its lines stay in
@@ -428,16 +432,16 @@ export function markdownToWorkspace(md: string, diag?: ImportDiag): Workspace {
     const assets = markdownToDocumentAssets(s.documentAssetsMd, diag);
     if (assets.length) ws.documentAssets = assets;
   }
-  const so = markdownToSettingsOverrides(md);
+  const so = markdownToSettingsOverrides(md, diag);
   if (so) ws.settingsOverrides = so;
   // Whole-md scan, same shape as documents/documentVersions above: "## Activity
   // Log" is not a heading splitMarkdownSections knows, so its lines stay
   // wherever they landed — harmless, since the block is emitted last and its
   // lines never look like a table row.
-  const activityLog = markdownToActivityLog(md);
+  const activityLog = markdownToActivityLog(md, diag);
   if (activityLog) ws.activityLog = activityLog;
   // Same whole-md scan for the budget history, emitted after the log.
-  const budgetHistory = markdownToBudgetHistory(md);
+  const budgetHistory = markdownToBudgetHistory(md, diag);
   if (budgetHistory) ws.budgetHistory = budgetHistory;
   return migrateWorkspaceV10(ws);
 }
