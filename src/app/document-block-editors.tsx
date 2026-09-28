@@ -286,10 +286,12 @@ export function useBlockDraft<T, B extends DocBlock>(
     //  the normaliser drops. Compare via that rule, NOT `baselineRef` (re-pointed at
     //  the STALE block below). `exceedsStorageCaps` then excludes a draft a CAP ate
     //  onto storage — it cannot commit while over it. Since §191 an over-cap draft
-    //  is refused with a notice and stays dirty, which skips this branch; it is
-    //  still reached by a draft with a ragged table row (`firstCapViolation` does
-    //  not refuse those) and by a draft left over the cap and undirty after a
-    //  `pagehide` flush when the page comes back from the back/forward cache.
+    //  is refused with a notice and stays dirty, which skips this branch. It is
+    //  still reached when a `pagehide` flush clears the dirty flag on an over-cap
+    //  draft: the `flushSync` re-render re-seeds it to the capped form within the
+    //  event, or on the next external write if the capped form already equals
+    //  storage. A ragged table row would reach it too, but no editor control or
+    //  load produces one.
     const draftAsStored = normalizeBlockForStorage(toBlock(rawValue));
     if (!draftAsStored || exceedsStorageCaps(toBlock(rawValue)) || blockChanged(draftAsStored, storedBlock)) {
       const seeded = fromBlock(storedBlock);
