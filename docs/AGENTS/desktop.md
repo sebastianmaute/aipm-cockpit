@@ -44,8 +44,11 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
   `127.0.0.1:17300` and deliberately not configurable. ★★★ **Never fall back to another port.** The
   port is half the origin and IndexedDB is origin-scoped, so a different port is a different, empty
   workspace. `classifyPortOwner` (`lib/port-owner.ts`) answers `free`, `ours` (the response carries a
-  `data-app-version` attribute) or `foreign`. `start()` spawns a server only on `free`, loads the app
-  without spawning on `ours`, and on `foreign` shows a "Port in use" dialog and quits.
+  `data-app-version` attribute equal to `app.getVersion()`), `stale` (the attribute carries a different
+  version, §631) or `foreign` (no attribute). `start()` spawns a server only on `free`, loads the app
+  without spawning on `ours`, and on `foreign` or `stale` shows a dialog ("Port in use", "Another
+  version is still running") and quits. A `stale` server is never reused or killed: this launch did
+  not spawn it and has no pid for it.
 - **The server runs as `utilityProcess.fork`** of `standalone/server.js` under `process.resourcesPath`
   (`spawnServer`). ★★★ NOT `spawn(process.execPath)` with `ELECTRON_RUN_AS_NODE`: the packaged build
   turns the RunAsNode fuse off, so that path booted a second Electron GUI and the server never

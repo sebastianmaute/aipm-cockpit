@@ -128,6 +128,7 @@ export function killServer(child: UtilityProcess | null): void {
     }
   } catch {
     // Already gone, or taskkill unavailable. Nothing to do -- the next launch's
-    // port-owner check is the backstop.
+    // port-owner check is the backstop: the same build reuses the server, a
+    // different build refuses to start (§631).
   }
 }

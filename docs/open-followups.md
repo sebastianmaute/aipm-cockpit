@@ -858,7 +858,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§628](#628-the-undo-stack-survives-a-project-switch-so-an-undo-writes-the-previous-projects-rows-into-the-current-one--closed-2026-09-27) | The undo stack survives a project switch, so an undo writes the previous project's rows into the current one | — | — | **CLOSED** 2026-09-27 |
 | [§629](#629-the-unload-journal-is-unverified-on-the-packaged-desktop-close-and-on-the-file-sharepoint-and-turso-backends-and-a-restore-the-mass-deletion-guard-refuses-repeats-on-every-reload--open) | The unload journal is unverified on the packaged desktop close and on the file, SharePoint and Turso backends, and a restore the mass-deletion guard refuses repeats on every reload | — | — | open |
 | [§630](#630-csv-and-markdown-project-files-still-drop-an-all-invalid-meta-slice-silently-on-load-620-covers-json-and-indexeddb-only--closed-2026-09-28) | CSV and Markdown project files still drop an all-invalid meta slice silently on load (§620 covers JSON and IndexedDB only) | — | — | **CLOSED** 2026-09-28 |
-| [§631](#631-the-desktop-shell-reuses-a-leftover-server-without-checking-its-version-so-an-orphan-could-serve-an-old-build-after-an-update--open) | The desktop shell reuses a leftover server without checking its version, so an orphan could serve an old build after an update | — | — | open |
+| [§631](#631-the-desktop-shell-reuses-a-leftover-server-without-checking-its-version-so-an-orphan-could-serve-an-old-build-after-an-update--closed-2026-09-28) | The desktop shell reuses a leftover server without checking its version, so an orphan could serve an old build after an update | — | — | **CLOSED** 2026-09-28 |
 | [§632](#632-unload-journals-whose-project-key-is-never-loaded-again-are-never-swept-so-they-can-fill-browser-storage--open) | Unload journals whose project key is never loaded again are never swept, so they can fill browser storage | — | — | open |
 | [§633](#633-the-document-preview-fetches-and-decodes-a-policy-refused-images-bytes-before-declining-it--closed-2026-09-27) | The document preview fetches and decodes a policy-refused image's bytes before declining it | — | — | **CLOSED** 2026-09-27 |
 <!-- INDEX:END -->
@@ -43071,15 +43071,27 @@ Size S–M.
 
 **Source:** PR #444 review (2026-09-27), item I2.
 
-## 631. The desktop shell reuses a leftover server without checking its version, so an orphan could serve an old build after an update — open
+## 631. The desktop shell reuses a leftover server without checking its version, so an orphan could serve an old build after an update — CLOSED 2026-09-28
 
-**Status:** open 2026-09-27 — found by reading the code only; no orphan server was produced and the app
+**Status:** CLOSED 2026-09-28 on `fix/desktop-stale-server`, by the first of the two fixes below.
+`classifyPortOwner(probe, expectedVersion)` (`desktop/src/lib/port-owner.ts`) now reads the attribute's
+value (`probedAppVersion`) and answers `ours` only when it equals the expected version; a different
+value, an empty one included, is the new `stale`. `start()` in `desktop/src/main.ts` passes
+`app.getVersion()` (desktop/package.json, kept equal to `APP_VERSION` by `npm run version:check`) and
+treats `stale` like `foreign`: `fail()` shows "Another version is still running", naming both
+versions and telling the user to restart or end the processes in Task Manager, and quits. The server is
+neither reused nor killed, because this launch has no pid for it. `port-owner.test.ts` pins `ours`,
+`stale` for an older, a newer, an empty and a prefix-extended version, `foreign` and `free`; each of six
+mutants of `port-owner.ts` turns it red. NOT verified: the `stale` branch in `main.ts` has no test (CI
+does not compile `desktop/src/main.ts`; it was typechecked locally with `tsc -p desktop/tsconfig.json`),
+and no orphan was produced, so the dialog has never been seen on a packaged build. The same-build case
+is unchanged: an orphan of the SAME version is still reused and cannot be stopped by that launch.
+
+**Original status:** open 2026-09-27 — found by reading the code only; no orphan server was produced and the app
 was not run. Low severity (latent). The two code facts it rests on were re-checked by grep:
 `grep -n "OURS_MARKER" desktop/src/lib/port-owner.ts` shows the attribute is only tested for presence,
 never read as a value, and `grep -n "serverChild = spawnServer" desktop/src/main.ts` returns the one
 assignment, inside the `owner === "free"` branch.
-
-**Work item:** #449
 
 **The mechanism.** `start()` in `desktop/src/main.ts` probes the pinned port and asks `classifyPortOwner`
 (`desktop/src/lib/port-owner.ts`) who holds it: unreachable is `free`, a body matching
