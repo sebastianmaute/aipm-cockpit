@@ -867,6 +867,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§637](#637-a-turso-save-whose-batch-hits-a-failing-statement-still-commits-the-rest-then-reports-failure--open) | A Turso save whose batch hits a failing statement still commits the rest, then reports failure | — | — | open |
 | [§638](#638-the-dashboard-narrative-after-clear-test-races-the-remounted-editors-autofocus-frame--closed-2026-09-28) | The dashboard-narrative "after Clear" test races the remounted editor's autofocus frame | — | — | **CLOSED** 2026-09-28 |
 | [§639](#639-time-tracking-dialog-tests-type-before-the-dialogs-raf-deferred-initial-focus--closed-2026-09-28) | Time-tracking dialog tests type before the dialog's rAF-deferred initial focus | — | — | **CLOSED** 2026-09-28 |
+| [§640](#640-github-releases-never-reached-the-read-only-gitlab-copy-which-had-the-tags-but-no-release-entries--closed-2026-09-28) | GitHub releases never reached the read-only GitLab copy, which had the tags but no Release entries | — | — | **CLOSED** 2026-09-28 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -43445,3 +43446,25 @@ button, and the dialog's Enter handler, which is scoped to inputs, ignored the k
 it passed on the unfixed code, because separate change events re-render in between.
 
 **Source:** CI on PR #470 and PR #471, 2026-09-28.
+
+## 640. GitHub releases never reached the read-only GitLab copy, which had the tags but no Release entries — CLOSED 2026-09-28
+
+**Status:** CLOSED 2026-09-28 on `feat/gitlab-release-mirror` (owner request, 1.14.2). `ci/gitlab-sync.yml` has a
+second job, `mirror-releases` (`needs: [sync-from-github]`, same `resource_group`), that fetches
+`scripts/gitlab-release-mirror.mjs` from GitHub's `main` through the contents API and runs it. For every GitHub
+release (drafts excluded) whose tag has no GitLab release, it creates one with the same tag, name and notes,
+plus asset LINKS to the GitHub downloads and the GitHub release page. No binaries are copied. It is
+create-only, so a re-run is safe. GitLab is addressed only through `$CI_API_V4_URL` and `$CI_PROJECT_ID`, so
+the repository names no GitLab host. `scripts/gitlab-release-mirror.test.mjs` pins the mapping, the plan
+(drafts, existing tags, re-runs), the pagination, and `main` against a stubbed `fetch` (both paginations, each
+side's token, a refused release, a missing variable); `scripts/gitlab-sync-config.test.mjs` pins the job. Each
+of 8 mutants fails a test.
+NOT verified: the job has never run on GitLab (it needs `GITLAB_SYNC_TOKEN` with the `api` scope and at least
+the Developer role, an owner action), and whether BusyBox `wget` in `node:22-alpine` fetches over HTTPS
+with the two headers is untested. While the GitHub repository is private, the asset links need GitHub access.
+
+**Original status:** open 2026-09-28 — owner question "does GitLab receive the release?". Verified by reading
+`ci/gitlab-sync.yml` (it pushes `refs/heads/*` and `refs/tags/*` only) and
+`grep -rn -i gitlab .github/workflows` (no hit: `release.yml` publishes to GitHub only).
+
+**Source:** the owner, 2026-09-28.

@@ -86,3 +86,31 @@ describe("ci/gitlab-sync.yml", () => {
     expect(header).toMatch(/delete/i);
   });
 });
+
+describe("ci/gitlab-sync.yml — mirror-releases (§640)", () => {
+  const start = lines.findIndex((l) => /^mirror-releases:/.test(l));
+  const job = lines.slice(start).join("\n");
+
+  it("exists as a separate job that runs after the sync pushed the tags", () => {
+    expect(start).toBeGreaterThan(lines.findIndex((l) => /^sync-from-github:/.test(l)));
+    expect(job).toMatch(/^\s*needs: \[sync-from-github\]\s*$/m);
+    expect(job).toMatch(/^\s*resource_group: gitlab-sync\s*$/m);
+  });
+
+  it("fails fast when a token is missing", () => {
+    expect(job).toMatch(/test -n "\$GITHUB_SYNC_TOKEN" && test -n "\$GITLAB_SYNC_TOKEN"/);
+    expect(job).toMatch(/exit 2/);
+  });
+
+  it("runs the script as it is on GitHub main, fetched through the contents API", () => {
+    expect(job).toContain("https://api.github.com/repos/sebastianmaute/aipm-cockpit/contents/scripts/gitlab-release-mirror.mjs?ref=main");
+    expect(job).toMatch(/node \/tmp\/gitlab-release-mirror\.mjs/);
+  });
+
+  it("pushes nothing and names no GitLab host", () => {
+    expect(job).not.toMatch(/git push/);
+    const urls = [...job.matchAll(/https?:\/\/[^\s"']+/g)].map((m) => m[0]);
+    expect(urls.length).toBeGreaterThan(0);
+    expect(urls.filter((u) => !/^https:\/\/(api\.)?github\.com\//.test(u))).toEqual([]);
+  });
+});
