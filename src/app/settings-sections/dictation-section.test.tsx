@@ -8,7 +8,7 @@ import { defaultSettings, type Settings } from "../settings-types";
 import { t } from "../i18n";
 import * as secrets from "../secrets";
 import { type SealedSecret, sealDevice } from "../secrets";
-import { loadSealed, readDeviceSecret } from "../secrets-store";
+import { loadSealed, readDeviceSecret, saveSealed } from "../secrets-store";
 
 afterEach(async () => {
   // Let any un-awaited seal from a test land before the store is wiped (see ai-section.test).
@@ -82,8 +82,8 @@ describe("DictationSection — hotkey capture", () => {
   });
 });
 
-// §609 round 2 I2 — the blank-blur clear is unconditional, so it cancels a seal still in flight.
-// (It used to be gated on a "stored" flag that stayed false until the seal landed.)
+// §609 — emptying the field removes the seal on the CHANGE, so it cancels a seal still in flight.
+// (It used to be a blur clear gated on a "stored" flag that stayed false until the seal landed.)
 describe("DictationSection — STT key seal vs a clear (§609)", () => {
   function renderStt() {
     function Harness() {
@@ -113,8 +113,8 @@ describe("DictationSection — STT key seal vs a clear (§609)", () => {
     fireEvent.change(input, { target: { value: "stt-key" } });
     fireEvent.blur(input); // seal starts, held open
     expect(secrets.sealDevice).toHaveBeenCalledWith("sttApiKey", "stt-key");
-    fireEvent.change(input, { target: { value: "" } });
-    fireEvent.blur(input); // clear → removeSealed
+    fireEvent.change(input, { target: { value: "" } }); // emptied → removeSealed
+    fireEvent.blur(input);
 
     await act(async () => {
       releaseSeal(sealed);
@@ -122,5 +122,15 @@ describe("DictationSection — STT key seal vs a clear (§609)", () => {
     });
 
     expect(loadSealed("sttApiKey")).toBeNull();
+  });
+
+  // A field that renders blank while a key is stored (e.g. another tab saved it after this one
+  // rendered) must not lose that key to a focus-and-leave: only an EDIT to blank removes it.
+  it("blurring a field that was already blank keeps a stored key", async () => {
+    saveSealed(await sealDevice("sttApiKey", "other-tab-key"));
+    const input = renderStt(); // settings hold no key, so the field is blank
+    fireEvent.focus(input);
+    fireEvent.blur(input);
+    expect(await readDeviceSecret("sttApiKey")).toBe("other-tab-key");
   });
 });

@@ -34,19 +34,16 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
 
   function handleSttKeyChange(value: string) {
     setDictation({ sttApiKey: value });
+    // §565 blank-first / §609: EMPTYING the field removes the seal, like jira/timelog/turso, and
+    // cancels a seal still in flight for an earlier value. On the change, not the blur: a blur of
+    // a field that was already blank (another tab saved the key since this one rendered) must
+    // not delete a key the user never touched here.
+    if (value.trim() === "") removeSealed("sttApiKey");
   }
 
   function handleSttKeyBlur() {
     const v = (settings.dictation?.sttApiKey ?? "").trim();
-    if (v) {
-      void saveSecretValue("sttApiKey", v, "device");
-    } else {
-      // §565 blank-first / §609: an emptied key ALWAYS removes the seal, like jira/timelog/turso.
-      // It used to be gated on a "stored" flag that stays false until the seal lands, so a clear
-      // while the seal was in flight never called `removeSealed` and the late seal won. (That flag
-      // had no other reader, so it is gone; removing an absent record is harmless.)
-      removeSealed("sttApiKey");
-    }
+    if (v) void saveSecretValue("sttApiKey", v, "device");
   }
 
   function handleHotkeyCapture(e: KeyboardEvent<HTMLButtonElement>) {

@@ -319,7 +319,7 @@ describe("I1 — on Turso storage the passphrase actions seal the APPLIED token,
   // a clear began during it), the section shows what the STORE holds instead of forcing device:
   //   - nothing stored (a clear won) → lock unticked, Remove hidden;
   //   - a passphrase record (a passphrase save won) → lock ticked, Remove shown.
-  // The  case is the control (the untick flips to device and shows Remove).
+  // The `true` case is the control (the untick flips to device and shows Remove).
   it.each([
     { resolves: true, seedPassphrase: false, checked: false, remove: true },
     { resolves: false, seedPassphrase: false, checked: false, remove: false },
