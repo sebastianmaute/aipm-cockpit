@@ -167,6 +167,7 @@ describe("parseSharePointSiteUrl", () => {
 
 import { SharePointBackend } from "./sharepoint-backend";
 import type { Workspace } from "./storage";
+import { workspaceToJson } from "./workspace";
 
 const FAKE_LOCATION = {
   hostname: "contoso.sharepoint.com",
@@ -408,7 +409,9 @@ describe("SharePointBackend", () => {
     await be.save(EMPTY_WORKSPACE);
     expect(captured?.url).toBe(CONTENT_URL);
     expect(captured?.method).toBe("PUT");
-    expect(body).toBe(JSON.stringify(EMPTY_WORKSPACE));
+    // §634: the same canonical serialisation as a local JSON file, schemaVersion included.
+    expect(body).toBe(workspaceToJson(EMPTY_WORKSPACE));
+    expect(JSON.parse(body)).toHaveProperty("schemaVersion");
     expect(captured?.headers.get("Content-Type")).toBe("application/json");
     expect(captured?.headers.get("Authorization")).toBe("Bearer fake-token");
   });
