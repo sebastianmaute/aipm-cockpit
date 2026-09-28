@@ -1527,14 +1527,15 @@ it is now VISIBLE (the cap message reports how much room removing those referenc
 and pinned. It is described under "The three asset-id patterns" above, and only §217 remains open
 here.
 
-★★ A third is a maintainability gap rather than a divergence: `sanitizeDocumentAsset` deliberately
-does NOT enforce `ASSET_MIME_ALLOWED` on load, so each consumer restates the allowlist check by
-hand — seven copies of `(ASSET_MIME_ALLOWED as readonly string[]).includes(...)` today — and a
-consumer that forgets gets no signal from any gate. ★★★ **ONE ALREADY HAS**: `document-preview.tsx`
-hands the raw stored mime to `attachAssetImages`, which types its Blob with it and consults
-nothing — and because it never names the constant, no grep for the constant can find it. §223
-carries the four kinds of use, the mime-reader sweep that DOES find it, and the argument against
-narrowing the storage layer; do NOT close it there.
+★★ A third was a maintainability gap rather than a divergence, CLOSED as §223 (2026-08-23):
+`sanitizeDocumentAsset` deliberately does NOT enforce `ASSET_MIME_ALLOWED` on load, so every
+consumer once restated the allowlist check by hand. They now share `isAllowedAssetMime` and
+`isBlockedAssetMime` (`document-asset-upload.ts`); `git grep -n "ASSET_MIME_ALLOWED as readonly
+string"` finds the one remaining spelling, inside `isAllowedAssetMime`. ★★ The consumer no grep
+for the constant could find was `attachAssetImages`, which typed its Blob with the raw stored mime
+and consulted nothing. It now declines a refused mime through `isBlockedAssetMime` (§230), asked
+before the bytes are fetched (§633), so a refused image costs the preview no load. §223 carries the
+four kinds of use and the argument against narrowing the storage layer.
 
 ★★★ **TWO MORE WERE FOUND IN REVIEW AND ARE DISCLOSED RATHER THAN FIXED, and BOTH are silent.**
 (a) `image/webp` is on `ASSET_MIME_ALLOWED` and survives every downstream layer — `processUpload`

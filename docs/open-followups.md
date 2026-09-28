@@ -860,7 +860,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§630](#630-csv-and-markdown-project-files-still-drop-an-all-invalid-meta-slice-silently-on-load-620-covers-json-and-indexeddb-only--closed-2026-09-28) | CSV and Markdown project files still drop an all-invalid meta slice silently on load (§620 covers JSON and IndexedDB only) | — | — | **CLOSED** 2026-09-28 |
 | [§631](#631-the-desktop-shell-reuses-a-leftover-server-without-checking-its-version-so-an-orphan-could-serve-an-old-build-after-an-update--open) | The desktop shell reuses a leftover server without checking its version, so an orphan could serve an old build after an update | — | — | open |
 | [§632](#632-unload-journals-whose-project-key-is-never-loaded-again-are-never-swept-so-they-can-fill-browser-storage--open) | Unload journals whose project key is never loaded again are never swept, so they can fill browser storage | — | — | open |
-| [§633](#633-the-document-preview-fetches-and-decodes-a-policy-refused-images-bytes-before-declining-it--open) | The document preview fetches and decodes a policy-refused image's bytes before declining it | — | — | open |
+| [§633](#633-the-document-preview-fetches-and-decodes-a-policy-refused-images-bytes-before-declining-it--closed-2026-09-27) | The document preview fetches and decodes a policy-refused image's bytes before declining it | — | — | **CLOSED** 2026-09-27 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -43135,13 +43135,27 @@ Size S–M.
 
 **Source:** the final review of the unload journal, PR #444 (2026-09-27), item m3.
 
-## 633. The document preview fetches and decodes a policy-refused image's bytes before declining it — open
+## 633. The document preview fetches and decodes a policy-refused image's bytes before declining it — CLOSED 2026-09-27
 
-**Status:** open 2026-09-27 — found by the final review of the §623 fix (PR #452). Low impact. Verified by
+**Status:** CLOSED 2026-09-27 on `fix/preview-blocked-fetch`. `attachAssetImages` now reads
+`mimeFor?.(id)` and asks `isBlockedAssetMime` at the top of its per-id block, BEFORE `load(id)`, so a
+refused image is marked blocked with no fetch and no decode. One accepted difference from the library:
+a refused id whose bytes are ALSO gone is now blocked in the preview, while the library row (which
+checks `danglingIds` first) shows it dangling. Both are true, neither can be repaired by upload (the
+upload path refuses the type), and the preview cannot know the bytes are gone without the fetch it now
+skips; the comment at the check says so. `document-asset-images.test.ts` pins that the loader is called only for the allowed id and that a
+refused id with no bytes is blocked; the existing test keeping an allowed id with no bytes on the
+missing marker is unchanged. The image lightbox (`asset-preview-modal.tsx`), found by the same review
+to load before checking, now asks `isBlockedAssetMime(currentMime)` before `loadImage` too; its test
+pins that the loader is never called for a refused asset. `docs/AGENTS/documents.md`'s "consults nothing" paragraph, stale since
+2026-08-23 (`cea043f9a`, which made the preview decline a refused mime), now says the preview declines a refused type (§230) and
+does so before the fetch (§633). The same review found five comments still describing the old order
+or the pre-§230 library, in `asset-object-url.ts`, its test, `globals.css` and
+`document-asset-images.test.ts`; all are corrected.
+
+**Original status:** open 2026-09-27 — found by the final review of the §623 fix (PR #452). Low impact. Verified by
 reading: `grep -n "await load(id)\|safeBase64ToBytes(b64)\|isBlockedAssetMime(mime)" src/app/document-asset-images.ts`
 returns the load and the decode inside `attachAssetImages`'s `Promise.all`, both ahead of the type check.
-
-**Work item:** #454
 
 `attachAssetImages` (`src/app/document-asset-images.ts`), which puts images into the in-app document
 preview, loads every referenced asset's bytes with `load(id)`, decodes them with `safeBase64ToBytes`, and

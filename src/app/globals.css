@@ -226,14 +226,15 @@ li[data-type="taskItem"][data-checked="true"]::before { content: "\2611"; }
 /* S3c-1 — a document image the preview could not draw. TWO markers, ONE frame,
    and the split is §230: `data-asset-missing` means the BYTES will not render
    (a dangling asset id, no Turso config, a whitespace-only byte row, an `atob`
-   reject, or the byte load threw), while `data-asset-blocked` means the bytes
-   are PRESENT and intact but the stored mime is outside the upload allowlist.
+   reject, or the byte load threw), while `data-asset-blocked` means the stored
+   mime is outside the upload allowlist. Since §633 that is decided BEFORE the
+   bytes are fetched, so blocked says nothing about whether they exist.
    They share this frame deliberately — both are "this image is not here" to a
    reader — and differ only in the copy the asset library puts on the row,
    because only one of the two is repairable. Do not fold them back together:
-   the library reports a blocked row healthy (its byte row exists, so the
-   dangling diff never flags it), which is the contradiction §230 was filed
-   for. `attachAssetImages` (document-asset-images.ts) stamps both rather than
+   before §230 the library reported a blocked row healthy (its byte row exists,
+   so the dangling diff never flags it) while the preview called it missing,
+   which is the contradiction §230 was filed for. `attachAssetImages` (document-asset-images.ts) stamps both rather than
    leaving a bare broken-image icon with no explanation.
    ★ The standalone-HTML export in `doc-render-html.ts` carries its OWN,
    different `img[data-asset-missing]` rule (currentColor, no background, no
