@@ -11,7 +11,9 @@ import {
   MAX_TEXT_CHARS,
   MAX_HTML_TEXT_CHARS,
   exceedsStorageCaps,
+  firstCapViolation,
   normalizeBlockForStorage,
+  type CapViolation,
   type DocBlock,
   type DocTruncationDiag,
   type ProjectDocument,
@@ -784,5 +786,40 @@ describe("exceedsStorageCaps", () => {
     const ragged: DocBlock = { type: "table", columns: ["a"], rows: [["one", "two"]] };
     expect(exceedsStorageCaps(ragged)).toBe(true);
     expect(truncates(ragged)).toBe(true);
+  });
+});
+
+// §191 — the heading, bullets and table caps are REFUSED on the interactive
+// commit path with a notice naming the limit, like the §185 paragraph cap.
+describe("firstCapViolation (§191)", () => {
+  const long = "x".repeat(MAX_TEXT_CHARS + 1);
+  const atLimit = "x".repeat(MAX_TEXT_CHARS);
+  const text: CapViolation = { kind: "text", limit: MAX_TEXT_CHARS };
+  const cases: [string, DocBlock, CapViolation | null][] = [
+    ["a heading at the limit", { type: "heading", level: 1, text: atLimit }, null],
+    ["a heading over the limit", { type: "heading", level: 1, text: long }, text],
+    ["a list at the item limit", { type: "bullets", items: Array.from({ length: MAX_BULLET_ITEMS }, () => "a") }, null],
+    ["a list over the item limit", { type: "bullets", items: Array.from({ length: MAX_BULLET_ITEMS + 1 }, () => "a") }, { kind: "items", limit: MAX_BULLET_ITEMS }],
+    ["a list item over the text limit", { type: "bullets", items: ["a", long] }, text],
+    ["a table over the column limit", { type: "table", columns: Array.from({ length: MAX_TABLE_COLUMNS + 1 }, (_, i) => `C${i}`), rows: [] }, { kind: "columns", limit: MAX_TABLE_COLUMNS }],
+    ["a table over the row limit", { type: "table", columns: ["A"], rows: Array.from({ length: MAX_TABLE_ROWS + 1 }, () => ["v"]) }, { kind: "rows", limit: MAX_TABLE_ROWS }],
+    ["a table cell over the text limit", { type: "table", columns: ["A"], rows: [[long]] }, text],
+    ["a table header over the text limit", { type: "table", columns: [long], rows: [["v"]] }, text],
+    ["a table caption over the text limit", { type: "table", caption: long, columns: ["A"], rows: [["v"]] }, text],
+    ["a table at every limit", { type: "table", columns: Array.from({ length: MAX_TABLE_COLUMNS }, (_, i) => `C${i}`), rows: Array.from({ length: MAX_TABLE_ROWS }, () => Array.from({ length: MAX_TABLE_COLUMNS }, () => "v")) }, null],
+    ["a paragraph, which has its own §185 path", { type: "paragraph", html: `<p>${"x".repeat(MAX_HTML_TEXT_CHARS + 1)}</p>` }, null],
+  ];
+
+  it.each(cases)("%s", (_name, block, expected) => {
+    expect(firstCapViolation(block)).toEqual(expected);
+  });
+
+  // The two must not drift: a cap `exceedsStorageCaps` knows and this does not
+  // would be truncated silently again.
+  it("agrees with exceedsStorageCaps on every heading, list and table case", () => {
+    for (const [name, block] of cases) {
+      if (block.type === "paragraph") continue;
+      expect(exceedsStorageCaps(block), name).toBe(firstCapViolation(block) !== null);
+    }
   });
 });

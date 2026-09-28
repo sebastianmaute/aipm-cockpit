@@ -394,7 +394,9 @@ export const de: Record<TranslationKey, string> = {
   // §590 - siehe i18n.ts (auch für den Grund, warum hier keine Ursache genannt wird).
   // {0} = Dateiname, {1} = Anzahl Datensätze in dieser Datei.
   storagePickFileHasProject:
-    "\"{0}\" enthält bereits ein Projekt mit {1} Datensatz/Datensätzen. Das geöffnete Projekt ist leer — ein Speichern in diese Datei würde den vorhandenen Inhalt ersetzen.\n\nOK lädt stattdessen das vorhandene Projekt aus dieser Datei. Abbrechen lässt Datei und App unverändert.",
+    "\"{0}\" enthält bereits ein Projekt mit {1} Datensätzen. Das geöffnete Projekt ist leer — ein Speichern in diese Datei würde den vorhandenen Inhalt ersetzen.\n\nOK lädt stattdessen das vorhandene Projekt aus dieser Datei. Abbrechen lässt Datei und App unverändert.",
+  storagePickFileHasProjectOne:
+    "\"{0}\" enthält bereits ein Projekt mit {1} Datensatz. Das geöffnete Projekt ist leer — ein Speichern in diese Datei würde den vorhandenen Inhalt ersetzen.\n\nOK lädt stattdessen das vorhandene Projekt aus dieser Datei. Abbrechen lässt Datei und App unverändert.",
   storagePermissionNeeded: "Berechtigung beim nächsten Speichern erforderlich",
   storageSwitchedToast: "Speicherort gewechselt.",
   projectSwitchedToast: "Zu Projekt {0} gewechselt.",
@@ -2349,6 +2351,7 @@ export const de: Record<TranslationKey, string> = {
   undoToastDelete: "{0} Element(e) gelöscht",
   undoToastEdit: "{0} Element(e) bearbeitet",
   undoToastResourceEmailPropagated: "1 Element bearbeitet und {0} verknüpfte Einträge aktualisiert",
+  undoToastResourceEmailPropagatedOne: "1 Element bearbeitet und {0} verknüpften Eintrag aktualisiert",
   activityRedo: "Wiederholen: {0} Element(e) erneut angewendet",
   activityUnknownKind: "Unbekannte Aktivität ({0})",
   redo: "Wiederholen",
@@ -2897,6 +2900,17 @@ export const de: Record<TranslationKey, string> = {
     "Nicht gespeichert – dieser Block wurde an anderer Stelle geändert; die neuere Fassung wird angezeigt.",
   documentsBlockTooLongNotSaved:
     "Nicht gespeichert – dieser Absatz überschreitet das Limit von {1} Zeichen um {0}. Zum Speichern kürzen; Text und Formatierung bleiben bis dahin hier erhalten.",
+  documentsBlockOverTextLimitNotSaved:
+    "Nicht gespeichert – ein Text in diesem Block ist länger als {0} Zeichen. Zum Speichern kürzen; bis dahin bleibt alles hier erhalten.",
+  documentsBlockOverItemLimitNotSaved:
+    "Nicht gespeichert – diese Liste hat mehr als {0} Einträge. Zum Speichern Einträge entfernen; bis dahin bleibt alles hier erhalten.",
+  documentsBlockOverColumnLimitNotSaved:
+    "Nicht gespeichert – diese Tabelle hat mehr als {0} Spalten. Zum Speichern Spalten entfernen; bis dahin bleibt alles hier erhalten.",
+  documentsBlockOverRowLimitNotSaved:
+    "Nicht gespeichert – diese Tabelle hat mehr als {0} Zeilen. Zum Speichern Zeilen entfernen; bis dahin bleibt alles hier erhalten.",
+  documentsListItemLimitReached: "Diese Liste hat die Höchstzahl von {0} Einträgen erreicht.",
+  documentsTableRowLimitReached: "Diese Tabelle hat die Höchstzahl von {0} Zeilen erreicht.",
+  documentsTableColumnLimitReached: "Diese Tabelle hat die Höchstzahl von {0} Spalten erreicht.",
   documentsParagraphCharCount: "{0} / {1} Zeichen",
   documentsBlockNoEditor: "Dieser Block hat keinen bearbeitbaren Inhalt.",
   documentsNoBlocks: "Dieses Dokument hat noch keine Blöcke.",

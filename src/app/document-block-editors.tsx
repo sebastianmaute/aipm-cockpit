@@ -38,7 +38,7 @@ import { RichTextEditor } from "./rich-text-editor-lazy";
 import { paragraphHasImage, blockChanged, normalizeBlockForStorage, exceedsStorageCaps } from "./document-editor-commit";
 import { t, type Lang } from "./i18n";
 import type { DocBlock } from "./document-model";
-import { MAX_HTML_TEXT_CHARS } from "./document-model";
+import { MAX_HTML_TEXT_CHARS, firstCapViolation } from "./document-model";
 import { htmlTextLength } from "./rich-text-plain";
 import { BlockReadOnlyNotice, BlockRefusalNotice, ParagraphCharCount, type BlockRefusal } from "./document-block-notices";
 import { Input, Select } from "./form-controls";
@@ -63,6 +63,14 @@ export type BlockEditorProps<B extends DocBlock = DocBlock> = {
  *  interactive commit path instead of being flattened by `capHtmlText`. */
 function paragraphOverCap(block: DocBlock): boolean {
   return block.type === "paragraph" && exceedsStorageCaps(block);
+}
+
+/** §185 + §191 — any block the interactive path REFUSES for a storage cap: an
+ *  over-cap paragraph, or a heading, list or table `firstCapViolation` names.
+ *  Such a draft stays dirty, so an unmount or `pagehide` flush still saves it
+ *  in its capped form rather than dropping the edit. */
+function blockOverCap(block: DocBlock): boolean {
+  return paragraphOverCap(block) || firstCapViolation(block) !== null;
 }
 
 /**
@@ -276,7 +284,8 @@ export function useBlockDraft<T, B extends DocBlock>(
     //  Identity keying discarded draft-only content — "Add item" appends an empty row
     //  the normaliser drops. Compare via that rule, NOT `baselineRef` (re-pointed at
     //  the STALE block below). `exceedsStorageCaps` then excludes a draft a CAP ate
-    //  onto storage — it cannot commit while over it (§191 carries the cost).
+    //  onto storage — it cannot commit while over it. Since §191 such a draft is
+    //  refused with a notice and stays dirty, which skips this branch.
     const draftAsStored = normalizeBlockForStorage(toBlock(rawValue));
     if (!draftAsStored || exceedsStorageCaps(toBlock(rawValue)) || blockChanged(draftAsStored, storedBlock)) {
       const seeded = fromBlock(storedBlock);
@@ -369,6 +378,15 @@ export function useBlockDraft<T, B extends DocBlock>(
       setRefusal({ kind: "tooLong", excess: htmlTextLength(raw.html) - MAX_HTML_TEXT_CHARS });
       return false;
     }
+    // ★★ §191 — the same for a heading, list or table over a storage cap: refused
+    //  with a notice naming the limit, where the normaliser below used to truncate
+    //  it in silence. The `pagehide` flush passes `flatten` and still saves the
+    //  capped form, because no notice can render during an unload.
+    const violation = flatten ? null : firstCapViolation(raw);
+    if (violation) {
+      setRefusal({ kind: "overLimit", violation });
+      return false;
+    }
     const next = normalizeBlockForStorage(raw);
     if (!next) { setRefusal("empty"); return false; }
     if (!blockChanged(baselineRef.current, next)) { setRefusal(null); return false; }
@@ -405,7 +423,8 @@ export function useBlockDraft<T, B extends DocBlock>(
     //  saved yet, and a pane that unmounts it without a blur must still reach
     //  the unmount flush, which saves the flattened form rather than dropping
     //  the edit. Every other outcome clears the flag exactly as before.
-    if (paragraphOverCap(raw)) return;
+    // §191: the same for a refused heading, list or table.
+    if (blockOverCap(raw)) return;
     markDirty(false);
   };
 
@@ -417,8 +436,12 @@ export function useBlockDraft<T, B extends DocBlock>(
     const resolved = resolveValue(next);
     liveValueRef.current = resolved;
     setRawValue(resolved);
-    tryCommit(toBlock(resolved));
-    markDirty(false);
+    const raw = toBlock(resolved);
+    tryCommit(raw);
+    // §191: a structural change that lands over a cap is refused, and the draft
+    //  stays DIRTY so a later unmount or `pagehide` flush still saves it capped.
+    //  The Add controls are disabled at their caps, so this is the fallback.
+    markDirty(blockOverCap(raw));
   };
 
   // ★★★ §185 + §622 — THE UNLOAD EXIT FOR EVERY DIRTY DRAFT. A window close,
@@ -441,7 +464,7 @@ export function useBlockDraft<T, B extends DocBlock>(
   useCommitOnPageHide(() => {
     if (!dirtyRef.current) return;
     const raw = toBlock(liveValueRef.current);
-    tryCommit(raw, paragraphOverCap(raw));
+    tryCommit(raw, blockOverCap(raw));
     markDirty(false);
   });
 
