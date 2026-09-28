@@ -6,8 +6,8 @@
 // they are being rendered.
 
 import { sanitizeDocumentHtml } from "./sanitize-html";
-import { MAX_HTML_TEXT_CHARS } from "./document-model";
-import { t, localeFor, type Lang } from "./i18n";
+import { MAX_HTML_TEXT_CHARS, type CapViolation } from "./document-model";
+import { t, localeFor, type Lang, type TranslationKey } from "./i18n";
 
 /**
  * Read-only notice for a block this editor cannot safely edit in place (used
@@ -42,7 +42,19 @@ export function BlockReadOnlyNotice({ html, reason }: { html: string; reason: st
  *  contradiction the way independent booleans could. `tooLong` (§185) carries
  *  how many visible characters are over the cap, because "shorten it" with no
  *  number is not actionable at 20 000 characters. */
-export type BlockRefusal = "empty" | "conflict" | { readonly kind: "tooLong"; readonly excess: number };
+export type BlockRefusal =
+  | "empty"
+  | "conflict"
+  | { readonly kind: "tooLong"; readonly excess: number }
+  // §191: a heading, list or table over a storage cap, named so the notice can say which.
+  | { readonly kind: "overLimit"; readonly violation: CapViolation };
+
+const OVER_LIMIT_KEY = {
+  text: "documentsBlockOverTextLimitNotSaved",
+  items: "documentsBlockOverItemLimitNotSaved",
+  columns: "documentsBlockOverColumnLimitNotSaved",
+  rows: "documentsBlockOverRowLimitNotSaved",
+} as const satisfies Record<CapViolation["kind"], TranslationKey>;
 
 const formatCount = (n: number, lang: Lang): string => new Intl.NumberFormat(localeFor(lang)).format(n);
 
@@ -79,9 +91,12 @@ const formatCount = (n: number, lang: Lang): string => new Intl.NumberFormat(loc
  *   `documents-panel.tsx`'s rejection banner.
  */
 export function BlockRefusalNotice({ lang, refusal }: { lang: Lang; refusal: BlockRefusal }) {
-  const text = typeof refusal === "object"
-    ? t(lang, "documentsBlockTooLongNotSaved", formatCount(refusal.excess, lang), formatCount(MAX_HTML_TEXT_CHARS, lang))
-    : t(lang, refusal === "empty" ? "documentsBlockEmptyNotSaved" : "documentsBlockConflictNotSaved");
+  const text =
+    typeof refusal !== "object"
+      ? t(lang, refusal === "empty" ? "documentsBlockEmptyNotSaved" : "documentsBlockConflictNotSaved")
+      : refusal.kind === "tooLong"
+        ? t(lang, "documentsBlockTooLongNotSaved", formatCount(refusal.excess, lang), formatCount(MAX_HTML_TEXT_CHARS, lang))
+        : t(lang, OVER_LIMIT_KEY[refusal.violation.kind], formatCount(refusal.violation.limit, lang));
   return (
     <p role="status" className="text-xs text-ui-pink-strong">
       {text}

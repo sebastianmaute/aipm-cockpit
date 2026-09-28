@@ -670,7 +670,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
         // ★ OK = load the existing project; Cancel = leave both the file and the app untouched. The
         //   safe answer is the one the dialog's own Cancel gives, so an accidental dismissal
         //   destroys nothing.
-        if (!window.confirm(t(deps.langRef.current, "storagePickFileHasProject", picked.name ?? "", existing.records))) return;
+        if (!window.confirm(tPlural(deps.langRef.current, "storagePickFileHasProject", existing.records, picked.name ?? "", existing.records))) return;
         // ★★ ITS OWN try/catch, so a throw here is announced as a failed LOAD. The op's outer catch
         //   speaks `storageSaveFailed`, and this branch performs no write at all — the same reasoning
         //   the abort catch above already applies, and the key `onOpenStorageFile` uses for its own

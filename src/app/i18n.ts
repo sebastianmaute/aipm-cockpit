@@ -400,7 +400,9 @@ const enUS = {
   // the gate establishes only that the count is zero. A dialog that tells the user why, wrongly, is
   // worse than one that tells them what.
   storagePickFileHasProject:
-    "\"{0}\" already holds a project with {1} record(s). The open project is empty, so saving into this file would replace what is already there.\n\nOK loads the existing project from this file instead. Cancel leaves both the file and the app untouched.",
+    "\"{0}\" already holds a project with {1} records. The open project is empty, so saving into this file would replace what is already there.\n\nOK loads the existing project from this file instead. Cancel leaves both the file and the app untouched.",
+  storagePickFileHasProjectOne:
+    "\"{0}\" already holds a project with {1} record. The open project is empty, so saving into this file would replace what is already there.\n\nOK loads the existing project from this file instead. Cancel leaves both the file and the app untouched.",
   storagePermissionNeeded: "permission required on next save",
   storageSwitchedToast: "Storage backend switched.",
   projectSwitchedToast: "Switched to project {0}.",
@@ -2501,7 +2503,8 @@ const enUS = {
   undoRestored: "Restored {0} item(s)",
   undoToastDelete: "Deleted {0} item(s)",
   undoToastEdit: "Edited {0} item(s)",
-  undoToastResourceEmailPropagated: "Edited 1 item and updated {0} linked record(s)",
+  undoToastResourceEmailPropagated: "Edited 1 item and updated {0} linked records",
+  undoToastResourceEmailPropagatedOne: "Edited 1 item and updated {0} linked record",
   redo: "Redo",
   redoTooltip: "Redo last change",
   redoRestored: "Redid {0} item(s)",
@@ -3107,6 +3110,17 @@ const enUS = {
     "Not saved — this block was changed elsewhere, and the newer version is shown.",
   documentsBlockTooLongNotSaved:
     "Not saved — this paragraph exceeds the {1}-character limit by {0}. Shorten it to save it; the text and its formatting stay here until you do.",
+  documentsBlockOverTextLimitNotSaved:
+    "Not saved — some text in this block is longer than {0} characters. Shorten it to save it; everything stays here until you do.",
+  documentsBlockOverItemLimitNotSaved:
+    "Not saved — this list has more than {0} items. Remove items to save it; everything stays here until you do.",
+  documentsBlockOverColumnLimitNotSaved:
+    "Not saved — this table has more than {0} columns. Remove columns to save it; everything stays here until you do.",
+  documentsBlockOverRowLimitNotSaved:
+    "Not saved — this table has more than {0} rows. Remove rows to save it; everything stays here until you do.",
+  documentsListItemLimitReached: "This list has reached the maximum of {0} items.",
+  documentsTableRowLimitReached: "This table has reached the maximum of {0} rows.",
+  documentsTableColumnLimitReached: "This table has reached the maximum of {0} columns.",
   documentsParagraphCharCount: "{0} / {1} characters",
   documentsNewTitle: "Untitled document",
   documentsHistory: "History",
