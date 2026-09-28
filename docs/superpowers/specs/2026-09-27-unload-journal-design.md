@@ -68,7 +68,7 @@ The restore runs after `await backend.load()` succeeds and before `applyWorkspac
   - **Restore anyway:** apply the journal, then save. (Amended: see Amendment A2.)
   - **Discard:** remove the key. (Amended: see Amendment A2.)
 - **Load failed, empty-load refusal, truncated or decode-paused load:** nothing is applied and the journal is left untouched, to be retried on a later load.
-- **The project id does not match:** the journal is ignored, but not deleted. It belongs to another project.
+- **The project id does not match:** the journal is ignored, but not deleted. It belongs to another project. (§632, 2026-09-28: after the first load, a journal under another key is listed in a notice with Download and Discard, and one older than 30 days is expired with a notice; see `src/app/use-other-journals.ts`.)
 
 ### Multi-tab
 
