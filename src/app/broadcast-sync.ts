@@ -19,8 +19,15 @@
 //   shared by EVERY window of the origin, so two main windows on different
 //   projects hear each other: unscoped, an edit in project A replaced project B's
 //   slice in the other window, and B's autosave then wrote A's data into B.
+//   ★★ The receiver judges a message by the window's CURRENT scope, read from refs a
+//   layout effect updates at every commit, never by the scope its listener captured:
+//   the listener re-subscribes only in a passive effect, after the commit that
+//   switched project. And it drops EVERY message while `getEpoch()` differs from the
+//   epoch at the last commit: a project op bumps the scope epoch synchronously and
+//   React renders the new project in a later task, and a setter queued in between
+//   would run after the op's and put the old project's slice back (review I1 on §642).
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import type { AppView } from "./nav-config";
 
 const CHANNEL_NAME = "aipm-cockpit:sync";
@@ -45,7 +52,17 @@ export function useBroadcastSync<T>(
   applyIncoming: (next: T) => void,
   canSend: boolean,
   scope: string,
+  getEpoch: () => number,
 ): void {
+  const scopeRef = useRef(scope);
+  const getEpochRef = useRef(getEpoch);
+  const committedEpochRef = useRef(getEpoch());
+  // No deps: every commit records the scope and the epoch it rendered under.
+  useLayoutEffect(() => {
+    scopeRef.current = scope;
+    getEpochRef.current = getEpoch;
+    committedEpochRef.current = getEpoch();
+  });
   const channelRef = useRef<BroadcastChannel | null>(null);
   const clientIdRef = useRef<string>("");
   // The last value we either sent or received. Reference-equal check on the
@@ -70,7 +87,10 @@ export function useBroadcastSync<T>(
 
     const onMessage = (ev: MessageEvent<SyncMessage<T>>) => {
       const msg = ev.data;
-      if (!msg || msg.clientId === clientIdRef.current || msg.kind !== kind || msg.scope !== scope) {
+      if (!msg || msg.clientId === clientIdRef.current || msg.kind !== kind || msg.scope !== scopeRef.current) {
+        return;
+      }
+      if (getEpochRef.current() !== committedEpochRef.current) {
         return;
       }
       lastSeenRef.current = msg.value;
@@ -83,7 +103,7 @@ export function useBroadcastSync<T>(
       channel.close();
       channelRef.current = null;
     };
-  }, [kind, applyIncoming, scope]);
+  }, [kind, applyIncoming]);
 
   useEffect(() => {
     if (!canSend) return;

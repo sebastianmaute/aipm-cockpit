@@ -1036,24 +1036,24 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // project key (the §629 journal key, re-read when an op commits the registry) keeps a window on
   // project A from applying, and then autosaving, a slice sent from a window on project B.
   const syncScope = journalProjectKey;
-  useBroadcastSync("tasks", tasks, setTasks, canSend, syncScope);
-  useBroadcastSync("raid", raid, setRaid, canSend, syncScope);
-  useBroadcastSync("absences", absences, setAbsences, canSend, syncScope);
-  useBroadcastSync("shifts", shifts, setShifts, canSend, syncScope);
-  useBroadcastSync("resources", resources, setResources, canSend, syncScope);
-  useBroadcastSync("roles", roles, setRoles, canSend, syncScope);
-  useBroadcastSync("disciplines", disciplines, setDisciplines, canSend, syncScope);
-  useBroadcastSync("grades", grades, setGrades, canSend, syncScope);
-  useBroadcastSync("budgets", budgets, setBudgets, canSend, syncScope);
-  useBroadcastSync("milestones", milestones, setMilestones, canSend, syncScope);
-  useBroadcastSync("changes", changes, setChanges, canSend, syncScope);
-  useBroadcastSync("stakeholders", stakeholders, setStakeholders, canSend, syncScope);
-  useBroadcastSync("documents", documents, setDocuments, canSend, syncScope); useBroadcastSync("documentVersions", documentVersions, setDocumentVersions, canSend, syncScope); // ★ PAIRED on one line: written when the size ratchet's LIMIT was 800 and this file sat at it (check-file-sizes.mjs counts split("\n").length = wc -l + 1); the LIMIT is 1600 now. They must also stay in step: the autosave writes the WHOLE workspace, so a tab holding a stale half overwrites the other tab's work — the same reason `documents` is synced. ★ Secondary: `deletedDocumentVersions` derives tombstones from BOTH slices, and `documents-panel.tsx` renders that list (its deleted-documents section and the toolbar count), so a desynced tab produces a WRONG visible list with Restore buttons on it — an observable symptom, not a latent one.
-  useBroadcastSync("activityLog", activityLog, setActivityLog, canSend, syncScope); // ★ Now the WORKSPACE slice, not a per-device arg: the autosave writes the WHOLE workspace, so a tab holding a stale log would overwrite the other tab's entries — the same reason `documents` is synced above. `mergeActivityLogs` cannot cover this; it runs on LOAD, not on a broadcast.
-  useBroadcastSync("budgetHistory", budgetHistory, setBudgetHistory, canSend, syncScope); // ★ Same reason as `activityLog`: the autosave writes the whole workspace, so a tab with a stale history would overwrite the other tab's entries.
+  useBroadcastSync("tasks", tasks, setTasks, canSend, syncScope, getScopeEpoch);
+  useBroadcastSync("raid", raid, setRaid, canSend, syncScope, getScopeEpoch);
+  useBroadcastSync("absences", absences, setAbsences, canSend, syncScope, getScopeEpoch);
+  useBroadcastSync("shifts", shifts, setShifts, canSend, syncScope, getScopeEpoch);
+  useBroadcastSync("resources", resources, setResources, canSend, syncScope, getScopeEpoch);
+  useBroadcastSync("roles", roles, setRoles, canSend, syncScope, getScopeEpoch);
+  useBroadcastSync("disciplines", disciplines, setDisciplines, canSend, syncScope, getScopeEpoch);
+  useBroadcastSync("grades", grades, setGrades, canSend, syncScope, getScopeEpoch);
+  useBroadcastSync("budgets", budgets, setBudgets, canSend, syncScope, getScopeEpoch);
+  useBroadcastSync("milestones", milestones, setMilestones, canSend, syncScope, getScopeEpoch);
+  useBroadcastSync("changes", changes, setChanges, canSend, syncScope, getScopeEpoch);
+  useBroadcastSync("stakeholders", stakeholders, setStakeholders, canSend, syncScope, getScopeEpoch);
+  useBroadcastSync("documents", documents, setDocuments, canSend, syncScope, getScopeEpoch); useBroadcastSync("documentVersions", documentVersions, setDocumentVersions, canSend, syncScope, getScopeEpoch); // ★ PAIRED on one line: written when the size ratchet's LIMIT was 800 and this file sat at it (check-file-sizes.mjs counts split("\n").length = wc -l + 1); the LIMIT is 1600 now. They must also stay in step: the autosave writes the WHOLE workspace, so a tab holding a stale half overwrites the other tab's work — the same reason `documents` is synced. ★ Secondary: `deletedDocumentVersions` derives tombstones from BOTH slices, and `documents-panel.tsx` renders that list (its deleted-documents section and the toolbar count), so a desynced tab produces a WRONG visible list with Restore buttons on it — an observable symptom, not a latent one.
+  useBroadcastSync("activityLog", activityLog, setActivityLog, canSend, syncScope, getScopeEpoch); // ★ Now the WORKSPACE slice, not a per-device arg: the autosave writes the WHOLE workspace, so a tab holding a stale log would overwrite the other tab's entries — the same reason `documents` is synced above. `mergeActivityLogs` cannot cover this; it runs on LOAD, not on a broadcast.
+  useBroadcastSync("budgetHistory", budgetHistory, setBudgetHistory, canSend, syncScope, getScopeEpoch); // ★ Same reason as `activityLog`: the autosave writes the whole workspace, so a tab with a stale history would overwrite the other tab's entries.
   // `project` (ProjectMeta | undefined) so a main-window project switch live-updates
   // the read-only project header in popout windows. The generic handles undefined.
-  useBroadcastSync("project", project, setProject, canSend, syncScope);
+  useBroadcastSync("project", project, setProject, canSend, syncScope, getScopeEpoch);
 
   // Snapshot the live workspace from the render-scope closure — same pattern as
   // the file-picker handlers in use-storage-file-ops.ts (onPickStorageFile /

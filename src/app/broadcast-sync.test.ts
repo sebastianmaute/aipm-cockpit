@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { render, renderHook } from "@testing-library/react";
+import { createElement, Fragment, useLayoutEffect } from "react";
 import { useBroadcastSync, isReportPopoutTab, REPORT_POPOUT_TABS } from "./broadcast-sync";
+
+/** The scope epoch as the tests' windows see it: nothing ever bumps it unless a test says so. */
+const noEpoch = () => 0;
 
 // Records every postMessage so we can assert what a window broadcasts.
 const posted: unknown[] = [];
@@ -23,13 +27,13 @@ describe("useBroadcastSync", () => {
   // workspace with empty state, which the main window then persisted — wiping
   // the local file. Only real post-mount changes may broadcast.
   it("does NOT broadcast the initial value on mount", () => {
-    renderHook(() => useBroadcastSync("tasks", [] as number[], () => {}, true, "p"));
+    renderHook(() => useBroadcastSync("tasks", [] as number[], () => {}, true, "p", noEpoch));
     expect(posted).toHaveLength(0);
   });
 
   it("broadcasts a value change that happens after mount", () => {
     const { rerender } = renderHook(
-      ({ v }: { v: number[] }) => useBroadcastSync("tasks", v, () => {}, true, "p"),
+      ({ v }: { v: number[] }) => useBroadcastSync("tasks", v, () => {}, true, "p", noEpoch),
       { initialProps: { v: [] as number[] } },
     );
     expect(posted).toHaveLength(0);
@@ -41,7 +45,7 @@ describe("useBroadcastSync", () => {
   it("does NOT broadcast a post-mount change when canSend is false", () => {
     const { rerender } = renderHook(
       ({ v }: { v: number[] }) =>
-        useBroadcastSync("tasks", v, () => {}, /* canSend */ false, "p"),
+        useBroadcastSync("tasks", v, () => {}, /* canSend */ false, "p", noEpoch),
       { initialProps: { v: [] as number[] } },
     );
     rerender({ v: [1] });
@@ -50,7 +54,7 @@ describe("useBroadcastSync", () => {
 
   it("still broadcasts post-mount changes when canSend defaults to true", () => {
     const { rerender } = renderHook(
-      ({ v }: { v: number[] }) => useBroadcastSync("tasks", v, () => {}, true, "p"),
+      ({ v }: { v: number[] }) => useBroadcastSync("tasks", v, () => {}, true, "p", noEpoch),
       { initialProps: { v: [] as number[] } },
     );
     rerender({ v: [2] });
@@ -64,7 +68,7 @@ describe("useBroadcastSync", () => {
     type Props = { v: Meta | undefined };
     const next: Meta = { name: "Gemini", code: "GMN" };
     const { rerender } = renderHook(
-      ({ v }: Props) => useBroadcastSync("project", v, () => {}, true, "p"),
+      ({ v }: Props) => useBroadcastSync("project", v, () => {}, true, "p", noEpoch),
       { initialProps: { v: undefined } as Props },
     );
     expect(posted).toHaveLength(0);
@@ -108,12 +112,13 @@ describe("useBroadcastSync apply path", () => {
         (v) => applied.push(v),
         /* canSend */ false,
         "p",
+        noEpoch,
       ),
     );
     // Sender: the main window broadcasts a project change.
     type Props = { v: Meta | undefined };
     const { rerender } = renderHook(
-      ({ v }: Props) => useBroadcastSync<Meta | undefined>("project", v, () => {}, true, "p"),
+      ({ v }: Props) => useBroadcastSync<Meta | undefined>("project", v, () => {}, true, "p", noEpoch),
       { initialProps: { v: undefined } as Props },
     );
     rerender({ v: next });
@@ -147,7 +152,7 @@ describe("useBroadcastSync project scope (§642)", () => {
 
   function sendFrom(scope: string, value: number[]) {
     const { rerender } = renderHook(
-      ({ v }: { v: number[] }) => useBroadcastSync("tasks", v, () => {}, true, scope),
+      ({ v }: { v: number[] }) => useBroadcastSync("tasks", v, () => {}, true, scope, noEpoch),
       { initialProps: { v: [] as number[] } },
     );
     rerender({ v: value });
@@ -156,7 +161,7 @@ describe("useBroadcastSync project scope (§642)", () => {
   it("does not apply a message sent for another project", () => {
     installBus();
     const applied: number[][] = [];
-    renderHook(() => useBroadcastSync("tasks", [] as number[], (v) => applied.push(v), true, "project-b"));
+    renderHook(() => useBroadcastSync("tasks", [] as number[], (v) => applied.push(v), true, "project-b", noEpoch));
     sendFrom("project-a", [1]);
     expect(applied).toEqual([]);
   });
@@ -164,7 +169,7 @@ describe("useBroadcastSync project scope (§642)", () => {
   it("still applies a message sent for the same project", () => {
     installBus();
     const applied: number[][] = [];
-    renderHook(() => useBroadcastSync("tasks", [] as number[], (v) => applied.push(v), true, "project-a"));
+    renderHook(() => useBroadcastSync("tasks", [] as number[], (v) => applied.push(v), true, "project-a", noEpoch));
     sendFrom("project-a", [1]);
     expect(applied).toEqual([[1]]);
   });
@@ -177,13 +182,61 @@ describe("useBroadcastSync project scope (§642)", () => {
     const apply = (v: number[]) => { applied.push(v); };
     const initial: number[] = [];
     const { rerender } = renderHook(
-      ({ scope }: { scope: string }) => useBroadcastSync("tasks", initial, apply, true, scope),
+      ({ scope }: { scope: string }) => useBroadcastSync("tasks", initial, apply, true, scope, noEpoch),
       { initialProps: { scope: "project-a" } },
     );
     rerender({ scope: "project-b" });
     sendFrom("project-a", [1]);
     sendFrom("project-b", [2]);
     expect(applied).toEqual([[2]]);
+  });
+
+  // Review I1 on §642 — a project op bumps the scope epoch synchronously, then React renders the new
+  // project in a LATER task. A message arriving in between reached the listener still subscribed with
+  // the old scope, and the setter it queued ran AFTER the op's, so the old project's slice won.
+  it("drops every message while an op has bumped the scope epoch and the new project has not committed", () => {
+    installBus();
+    let epoch = 0;
+    const getEpoch = () => epoch;
+    const applied: number[][] = [];
+    const apply = (v: number[]) => { applied.push(v); };
+    const initial: number[] = [];
+    const { rerender } = renderHook(
+      ({ scope }: { scope: string }) => useBroadcastSync("tasks", initial, apply, true, scope, getEpoch),
+      { initialProps: { scope: "project-a" } },
+    );
+    epoch = 1; // `applyWorkspaceForOp` bumped; its render has not happened yet
+    sendFrom("project-a", [1]);
+    expect(applied).toEqual([]);
+    rerender({ scope: "project-a" }); // the op's render commits (a same-key op, e.g. a reload)
+    sendFrom("project-a", [2]);
+    expect(applied).toEqual([[2]]);
+  });
+
+  // Review I1 on §642 — after the commit that switches scope, the listener re-subscribes only in a
+  // PASSIVE effect. A message delivered before that (modelled by a sibling's layout effect, which runs
+  // in the same commit, before any passive effect) must already be judged against the NEW scope.
+  it("judges a message delivered between the scope switch's commit and the re-subscribe by the new scope", () => {
+    installBus();
+    const applied: number[][] = [];
+    const apply = (v: number[]) => { applied.push(v); };
+    const initial: number[] = [];
+    function Receiver({ scope }: { scope: string }) {
+      useBroadcastSync("tasks", initial, apply, true, scope, noEpoch);
+      return null;
+    }
+    function OldProjectWindow({ scope }: { scope: string }) {
+      useLayoutEffect(() => {
+        if (scope !== "project-b") return;
+        new BroadcastChannel("aipm-cockpit:sync").postMessage({ clientId: "other-window", kind: "tasks", scope: "project-a", value: [9] });
+      }, [scope]);
+      return null;
+    }
+    const tree = (scope: string) =>
+      createElement(Fragment, null, createElement(Receiver, { scope }), createElement(OldProjectWindow, { scope }));
+    const { rerender } = render(tree("project-a"));
+    rerender(tree("project-b"));
+    expect(applied).toEqual([]);
   });
 
   it("tags every outgoing message with the sender's scope", () => {

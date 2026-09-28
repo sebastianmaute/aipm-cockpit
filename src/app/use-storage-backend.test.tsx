@@ -1173,6 +1173,17 @@ describe("useStorageBackend — broadcast send gating", () => {
       expect(calls.length).toBeGreaterThanOrEqual(17);
       return new Set(calls.map((c) => c[4]));
     };
+    // Review I1 on §642 — the receiver drops messages while an op's epoch bump has not committed, so
+    // every call must read the hook's OWN scope epoch, not some other counter.
+    {
+      vi.clearAllMocks();
+      (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+      const { result, unmount } = renderBackend(makeArgs({ isPopout: false }));
+      const calls = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls;
+      expect(calls.length).toBeGreaterThanOrEqual(17);
+      for (const call of calls) expect(call[5]).toBe(result.current.getScopeEpoch);
+      unmount();
+    }
     try {
       expect(scopesFor("proj-scope-a")).toEqual(new Set(["proj-scope-a"]));
       expect(scopesFor("proj-scope-b")).toEqual(new Set(["proj-scope-b"]));
