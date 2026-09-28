@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { enqueueSave, SAVE_STALL_MS } from "./save-queue";
+import { enqueueSave, SAVE_STALL_MS, whenSaved } from "./save-queue";
 
 /** A save the test settles by hand, recording the snapshot it wrote. */
 function manual() {
@@ -186,5 +186,75 @@ describe("enqueueSave — a save that never settles (§627 review I1)", () => {
     m.pending[1].resolve();
     await vi.advanceTimersByTimeAsync(0);
     expect(m.pending.map((x) => x.snap)).toEqual(["A", "B", "C"]);
+  });
+});
+
+describe("whenSaved — the reload waits for every queued save (§641)", () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("is null when nothing is saving to the backend, or once it has drained", async () => {
+    expect(whenSaved({})).toBeNull();
+    const m = manual();
+    const backend = {};
+    void enqueueSave(backend, m.save("A"));
+    expect(whenSaved(backend)).not.toBeNull();
+    m.pending[0].resolve();
+    await flush();
+    expect(whenSaved(backend)).toBeNull();
+  });
+
+  it("waits for the running save AND the one waiting behind it", async () => {
+    const m = manual();
+    const backend = {};
+    void enqueueSave(backend, m.save("A"));
+    void enqueueSave(backend, m.save("B"));
+    let idle = false;
+    void whenSaved(backend)?.then(() => { idle = true; });
+    m.pending[0].resolve();
+    await flush();
+    expect(idle).toBe(false); // B started, still running
+    m.pending[1].resolve();
+    await flush();
+    expect(idle).toBe(true);
+    expect(m.written).toEqual(["A", "B"]);
+  });
+
+  it("does not replace the waiting save", async () => {
+    const m = manual();
+    const backend = {};
+    void enqueueSave(backend, m.save("A"));
+    const pb = enqueueSave(backend, m.save("B"));
+    void whenSaved(backend);
+    m.pending[0].resolve();
+    await flush();
+    m.pending[1].resolve();
+    await expect(pb).resolves.toBe("saved");
+  });
+
+  it("resolves after a failed save too", async () => {
+    const m = manual();
+    const backend = {};
+    enqueueSave(backend, m.save("A")).catch(() => undefined);
+    const idle = whenSaved(backend);
+    m.pending[0].reject(new Error("disk full"));
+    await expect(idle).resolves.toBeUndefined();
+  });
+
+  it("resolves when the stall timer releases a save that never settles", async () => {
+    vi.useFakeTimers();
+    const backend = {};
+    void enqueueSave(backend, () => new Promise<void>(() => undefined));
+    let idle = false;
+    void whenSaved(backend)?.then(() => { idle = true; });
+    await vi.advanceTimersByTimeAsync(SAVE_STALL_MS - 1);
+    expect(idle).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(idle).toBe(true);
+  });
+
+  it("is per backend: another backend's save does not hold it", async () => {
+    const m = manual();
+    void enqueueSave({}, m.save("A"));
+    expect(whenSaved({})).toBeNull();
   });
 });

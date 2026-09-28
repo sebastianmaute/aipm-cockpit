@@ -30,7 +30,7 @@ import { lastLoadWasIncomplete, useLoadTruncation } from "./use-load-truncation"
 import { useDestructiveSaveGuard } from "./use-destructive-save-guard";
 import { resolveJournalProjectKey, useUnloadJournal } from "./use-unload-journal";
 import { useOtherJournals } from "./use-other-journals";
-import { enqueueSave } from "./save-queue";
+import { enqueueSave, whenSaved } from "./save-queue";
 import type { ToastAction } from "./use-toast";
 import type { UseStorageBackendArgs } from "./use-storage-backend-types";
 
@@ -402,7 +402,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // §629 — the suppress branch's resync, for the one load whose save is NOT suppressed (a restored unload journal): the guard then measures the restore against what the backend returned.
   const syncBaselinesToLoaded = (loaded: Workspace): void => { const collections = nonEmptyCollectionCount(loaded), records = workspaceRecordCount(loaded); destructive.syncBaselines(collections, records); committedBaselineRef.current = { collections, records }; destructive.clearRefusal(); };
   // ★★ §103 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
-  const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, async () => { if (savesAllowedForRef.current === backend) { const ws = currentWorkspace(); await enqueueSave(backend, () => backend.save(ws), { settleReplacedAsOwn: true }); } else logDiag("warn", "storage.flushSkippedBeforeLoad", {}); }); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend. ★★★ §586: this is `flushCurrent`'s write (the pre-switch flush), so it obeys the save gate too — a switch away from a project whose load failed must not write the empty workspace over it. A skip, not a throw: the flush is best-effort.
+  const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, async () => { if (savesAllowedForRef.current === backend) { const ws = currentWorkspace(); await enqueueSave(backend, () => backend.save(ws), { settleReplacedAsOwn: true }); } else logDiag("warn", "storage.flushSkippedBeforeLoad", {}); }); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it writes the workspace LIVE WHEN THE FLUSH IS REQUESTED to the CURRENT backend (§627: the write itself may wait behind a save in flight; `holdDuring` blocks edits meanwhile). ★★★ §586: this is `flushCurrent`'s write (the pre-switch flush), so it obeys the save gate too — a switch away from a project whose load failed must not write the empty workspace over it. A skip, not a throw: the flush is best-effort.
 
   // ── §72: caller-callback teardown guard ─────────────────────────────────────
   // Every callback this hook fires back into the component drives React state up
@@ -907,9 +907,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         //   setState from an async callback (§72) and would cancel any pending save.
         //   ★★ COMPARE-AND-SWAP, since a later run or a load may have re-baselined
         //   mid-flight onto a different workspace.
-        //   ★★ §627: saves through `enqueueSave` no longer overlap on one backend, so the
+        //   ★★ §627: saves through `enqueueSave` no longer overlap on one backend INSTANCE, so the
         //   baseline a failure restores is the last save that LANDED (`guardedWrite` and the
-        //   pre-switch flush queue too). A save released by the queue's stall timer can still overlap.
+        //   pre-switch flush queue too, and §641's reload waits for the queue before it reads).
+        //   Still able to overlap: a save released by the queue's stall timer, and saves from two
+        //   instances pointing at the same target (the queue is keyed by instance).
         const live = destructive.readBaselines();
         if (live.collections === curCollections && live.records === curRecords) {
           destructive.syncBaselines(committedBaselineRef.current.collections, committedBaselineRef.current.records);
@@ -1194,6 +1196,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (reloadInFlightRef.current) return; // ignore a re-entrant click while loading
     reloadInFlightRef.current = true;
     try {
+      // ★★ §641 — WAIT FOR THE SAVES QUEUED BEFORE THE CLICK. The §627 queue's waiting slot starts its
+      //   save only when the running one settles, possibly after the read below returned: it then wrote
+      //   the pre-reload snapshot over what this reload just applied, and its `.then` moved the baseline
+      //   and the journal base onto that discarded snapshot. Waiting drops nothing — those saves land,
+      //   and the read sees them. (A debounced save not yet fired is dropped by the effect cleanup.)
+      const queuedSaves = whenSaved(backend);
+      if (queuedSaves) await queuedSaves; // ★ `null` when idle: the read then starts in the click's own tick, as before
       const workspace = await backend.load();
       // ★★★ §588 — A SETTINGS-DRIVEN REBUILD MAY HAVE REPLACED THE BACKEND WHILE WE AWAITED, and this
       //   closure still holds the one the click started against. Applying now would (a) stomp the live

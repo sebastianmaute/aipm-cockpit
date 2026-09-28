@@ -868,6 +868,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§638](#638-the-dashboard-narrative-after-clear-test-races-the-remounted-editors-autofocus-frame--closed-2026-09-28) | The dashboard-narrative "after Clear" test races the remounted editor's autofocus frame | — | — | **CLOSED** 2026-09-28 |
 | [§639](#639-time-tracking-dialog-tests-type-before-the-dialogs-raf-deferred-initial-focus--closed-2026-09-28) | Time-tracking dialog tests type before the dialog's rAF-deferred initial focus | — | — | **CLOSED** 2026-09-28 |
 | [§640](#640-github-releases-never-reached-the-read-only-gitlab-copy-which-had-the-tags-but-no-release-entries--closed-2026-09-28) | GitHub releases never reached the read-only GitLab copy, which had the tags but no Release entries | — | — | **CLOSED** 2026-09-28 |
+| [§641](#641-a-save-waiting-in-the-627-queue-could-land-after-a-reload-and-write-the-pre-reload-snapshot-back-over-the-file--closed-2026-09-28) | A save waiting in the §627 queue could land after a reload and write the pre-reload snapshot back over the file | — | — | **CLOSED** 2026-09-28 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -43488,3 +43489,13 @@ is private, the asset links need GitHub access.
 `grep -rn -i gitlab .github/workflows` (no hit: `release.yml` publishes to GitHub only).
 
 **Source:** the owner, 2026-09-28.
+
+## 641. A save waiting in the §627 queue could land after a reload and write the pre-reload snapshot back over the file — CLOSED 2026-09-28
+
+**Status:** CLOSED 2026-09-28 on `fix/reload-drains-save-queue` (owner: "fix all", after the post-merge integration review of §601 and §627). `reloadCurrentProject` in `use-storage-backend.ts` now waits for every save queued to its backend before it reads: `whenSaved(backend)` (`src/app/save-queue.ts`) resolves once the running save and the one waiting behind it have settled, or the §627 stall timer released them, and never rejects. It drops nothing, so those saves land and the reload reads them. It is `null` while nothing is saving, so on the idle path the read still starts in the click's own tick, which the §588 superseded-reload tests pin. Before this, the waiting slot started its save only when the running one settled, possibly after the reload's read had returned. That save then overwrote on disk what the reload had just applied, and its `.then` moved `committedBaselineRef` and the §629 journal base onto the discarded snapshot. The reload arms `suppressNextSaveRef`, so nothing rewrote the file until the next edit, and the screen and the file disagreed. A §601 confirmed replace took the same path. Tests: `save-queue.test.ts` (`whenSaved`: null when idle and after draining, waits for the running and the waiting save, does not replace the waiting one, resolves after a failure and on a stall release, per backend); the §641 block in `use-storage-backend.load-gate.test.tsx`: (a) a reload with one save running and one waiting reads only after both landed, and nothing is written after it; (b) (review M1) a rebuild onto a seed-only target while the old backend has a save running and one waiting never writes the target. Mutation: 4 mutants (the reload not waiting, `whenSaved` null while saving, notifying before the waiting save ran, never notifying), all killed. The review's two comment findings are corrected: the §627 note on overlapping saves now names both remaining exceptions, and the pre-switch flush comment says it writes the workspace live when the flush is requested.
+
+Known limits: an edit made while the reload waits or reads starts a new save that can still land after the reload applies, as before. Saves from two backend instances pointing at the same target are still not ordered with each other (the queue is keyed by instance). A reload waits up to `SAVE_STALL_MS` (30 s) behind a save that never settles.
+
+**Originally recorded 2026-09-28:** the integration review of main at 718a0f014 (§601 + §627, review I1; M1 to M3 minor).
+
+**Source:** the post-merge integration review, 2026-09-28.
