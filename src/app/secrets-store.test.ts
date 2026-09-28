@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import * as secrets from "./secrets";
 import { sealDevice, sealPassphrase, SECRET_IDS } from "./secrets";
-import { saveSealed, loadSealed, removeSealed, readDeviceSecret, isPassphraseLocked, migratePlaintextSecrets, probeDeviceSecretReadable, SECRETS_KEY } from "./secrets-store";
+import { saveSealed, loadSealed, removeSealed, readDeviceSecret, isPassphraseLocked, migratePlaintextSecrets, probeDeviceSecretReadable, SECRETS_KEY, beginSealedWrite, invalidateAllSealedWrites, snapshotSealedWrite } from "./secrets-store";
 import { logDiag } from "./diagnostics";
 
 vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
@@ -111,5 +111,149 @@ describe("secrets-store", () => {
     const onDisk = JSON.parse(localStorage.getItem(SECRETS_KEY) ?? "{}") as Record<string, unknown>;
     expect(Object.keys(onDisk).sort()).toEqual([...SECRET_IDS].sort());
     for (const id of SECRET_IDS) expect(loadSealed(id), id).not.toBeNull();
+  });
+});
+
+// §609 — a seal awaits WebCrypto before it writes; a clear or a newer seal that starts in the
+// meantime must win, so the late commit writes nothing and reports `false`.
+describe("beginSealedWrite (§609)", () => {
+  it("commits a lone write and reports true", async () => {
+    const commit = beginSealedWrite("anthropicApiKey");
+    expect(commit(await sealDevice("anthropicApiKey", "sk-1"))).toBe(true);
+    expect(await readDeviceSecret("anthropicApiKey")).toBe("sk-1");
+  });
+
+  it("a removeSealed after the write began cancels it", async () => {
+    const sealed = await sealDevice("anthropicApiKey", "sk-1");
+    const commit = beginSealedWrite("anthropicApiKey");
+    removeSealed("anthropicApiKey");
+    expect(commit(sealed)).toBe(false);
+    expect(loadSealed("anthropicApiKey")).toBeNull();
+  });
+
+  it("a newer write for the same id supersedes the older one, whichever commits first", async () => {
+    const sealedA = await sealDevice("anthropicApiKey", "sk-A");
+    const sealedB = await sealDevice("anthropicApiKey", "sk-B");
+    const commitA = beginSealedWrite("anthropicApiKey");
+    const commitB = beginSealedWrite("anthropicApiKey");
+    expect(commitB(sealedB)).toBe(true);
+    expect(commitA(sealedA)).toBe(false);
+    expect(await readDeviceSecret("anthropicApiKey")).toBe("sk-B");
+  });
+
+  it("different ids never cancel each other", async () => {
+    const sealedKey = await sealDevice("anthropicApiKey", "sk-1");
+    const sealedStt = await sealDevice("sttApiKey", "stt-1");
+    const commitKey = beginSealedWrite("anthropicApiKey");
+    const commitStt = beginSealedWrite("sttApiKey");
+    removeSealed("anthropicApiKey");
+    expect(commitKey(sealedKey)).toBe(false);
+    expect(commitStt(sealedStt)).toBe(true);
+    expect(loadSealed("anthropicApiKey")).toBeNull();
+    expect(await readDeviceSecret("sttApiKey")).toBe("stt-1");
+  });
+
+  it("invalidateAllSealedWrites cancels every write in flight", async () => {
+    const commits = SECRET_IDS.map((id) => [id, beginSealedWrite(id)] as const);
+    invalidateAllSealedWrites();
+    for (const [id, commit] of commits) expect(commit(await sealDevice(id, id)), id).toBe(false);
+    expect(localStorage.getItem(SECRETS_KEY)).toBeNull();
+  });
+
+  it("snapshotSealedWrite commits when nothing began since, and never cancels a write in flight", async () => {
+    const sealedUser = await sealDevice("anthropicApiKey", "sk-user");
+    const snapshot = snapshotSealedWrite("anthropicApiKey");
+    expect(snapshot(await sealDevice("anthropicApiKey", "sk-bg"))).toBe(true);
+    const commitUser = beginSealedWrite("anthropicApiKey");
+    snapshotSealedWrite("anthropicApiKey"); // taken after the user's begin: bumps nothing
+    expect(commitUser(sealedUser)).toBe(true);
+    expect(await readDeviceSecret("anthropicApiKey")).toBe("sk-user");
+  });
+});
+
+// §609 I1 — the boot migration's seal can land after the §548 merge timeout has handed the UI
+// over; a user clear or a new value committed in that window must win over the legacy value.
+describe("migratePlaintextSecrets vs user writes in flight (§609)", () => {
+  function heldSeal() {
+    let release: (s: secrets.SealedSecret) => void = () => {};
+    const promise = new Promise<secrets.SealedSecret>((r) => {
+      release = r;
+    });
+    return { promise, release };
+  }
+
+  it("a clear during the migration's seal wins: nothing is written", async () => {
+    const legacy = await sealDevice("anthropicApiKey", "sk-legacy");
+    const seal = heldSeal();
+    vi.spyOn(secrets, "sealDevice").mockReturnValueOnce(seal.promise);
+
+    const migrating = migratePlaintextSecrets({ apiKey: "sk-legacy" });
+    removeSealed("anthropicApiKey");
+    seal.release(legacy);
+
+    expect((await migrating).apiKey).toBe("");
+    expect(loadSealed("anthropicApiKey")).toBeNull();
+  });
+
+  it("a user save that begins during the migration's seal wins, whichever lands first", async () => {
+    const legacy = await sealDevice("anthropicApiKey", "sk-legacy");
+    const sealedUser = await sealDevice("anthropicApiKey", "sk-user");
+    const seal = heldSeal();
+    vi.spyOn(secrets, "sealDevice").mockReturnValueOnce(seal.promise);
+
+    const migrating = migratePlaintextSecrets({ apiKey: "sk-legacy" });
+    const commitUser = beginSealedWrite("anthropicApiKey");
+    seal.release(legacy);
+    await migrating;
+    expect(loadSealed("anthropicApiKey")).toBeNull(); // the migration's write was dropped
+    expect(commitUser(sealedUser)).toBe(true);
+    expect(await readDeviceSecret("anthropicApiKey")).toBe("sk-user");
+  });
+
+  it("a user save that began BEFORE the migration and lands during its seal is not overwritten", async () => {
+    const legacy = await sealDevice("anthropicApiKey", "sk-legacy");
+    const sealedUser = await sealDevice("anthropicApiKey", "sk-user");
+    const seal = heldSeal();
+    vi.spyOn(secrets, "sealDevice").mockReturnValueOnce(seal.promise);
+
+    const commitUser = beginSealedWrite("anthropicApiKey");
+    const migrating = migratePlaintextSecrets({ apiKey: "sk-legacy" });
+    expect(commitUser(sealedUser)).toBe(true);
+    seal.release(legacy);
+    await migrating;
+
+    expect(await readDeviceSecret("anthropicApiKey")).toBe("sk-user");
+  });
+
+  it("with no user action, a held migration seal still writes when it lands", async () => {
+    const legacy = await sealDevice("anthropicApiKey", "sk-legacy");
+    const seal = heldSeal();
+    vi.spyOn(secrets, "sealDevice").mockReturnValueOnce(seal.promise);
+
+    const migrating = migratePlaintextSecrets({ apiKey: "sk-legacy" });
+    seal.release(legacy);
+
+    expect((await migrating).apiKey).toBe("");
+    expect(await readDeviceSecret("anthropicApiKey")).toBe("sk-legacy");
+  });
+
+  // Round 2 I1: every snapshot is taken before the FIRST await. A clear of a LATER id while an
+  // earlier id is still sealing used to precede that id's own (late) snapshot, so its legacy
+  // value was written back.
+  it("a clear of a later id while an earlier id is still sealing wins too", async () => {
+    const legacy = await sealDevice("anthropicApiKey", "sk-legacy");
+    const seal = heldSeal();
+    // Only the first seal (anthropicApiKey) is held; jira's runs for real afterwards.
+    vi.spyOn(secrets, "sealDevice").mockReturnValueOnce(seal.promise);
+
+    const migrating = migratePlaintextSecrets({ apiKey: "sk-legacy", jiraApiToken: "jira-legacy" });
+    removeSealed("jiraApiToken"); // the user blanks the Jira token in the §548 window
+    seal.release(legacy);
+    const result = await migrating;
+
+    expect(secrets.sealDevice).toHaveBeenCalledWith("jiraApiToken", "jira-legacy"); // it did seal
+    expect(loadSealed("jiraApiToken")).toBeNull(); // …but never wrote
+    expect(result.jiraApiToken).toBe("");
+    expect(await readDeviceSecret("anthropicApiKey")).toBe("sk-legacy"); // control: untouched id
   });
 });
