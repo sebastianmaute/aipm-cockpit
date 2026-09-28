@@ -341,13 +341,9 @@ describe("SharePointBackend", () => {
     expect(be.lastImportDroppedRows).toBe(0);
   });
 
-  // §620 — a stored meta slice that PARSES but SANITIZES TO NOTHING (junk
-  // `steeringCommittee`) used to be dropped silently on a JSON load, and the
-  // next save wrote the file without it. `jsonToWorkspace` records the JSON key
-  // into `diag.decodeFailedSlices`; this backend's job is only to PUBLISH what
-  // `load`'s `diag` collected, exactly like `lastLoadTruncation`.
   // §635: the strict sp-json load passes a diag, so a rich-field throw is
-  // recorded and saving pauses, instead of the whole load failing.
+  // recorded (and saving pauses on the load paths that call `reportFor`)
+  // instead of the whole load failing.
   it("records a documents rich-field throw instead of failing the load (§635)", async () => {
     server.use(http.get(CONTENT_RE, () => HttpResponse.json({ ...EMPTY_WORKSPACE, documents: [{ id: 1, title: "Status report", blocks: [{ type: "paragraph", html: "<p>reaches DOMPurify</p>" }], createdAt: "2026-08-06T00:00:00.000Z", updatedAt: "2026-08-06T00:00:00.000Z" }] })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
@@ -361,6 +357,11 @@ describe("SharePointBackend", () => {
     }
   });
 
+  // §620 — a stored meta slice that PARSES but SANITIZES TO NOTHING (junk
+  // `steeringCommittee`) used to be dropped silently on a JSON load, and the
+  // next save wrote the file without it. `jsonToWorkspace` records the JSON key
+  // into `diag.decodeFailedSlices`; this backend's job is only to PUBLISH what
+  // `load`'s `diag` collected, exactly like `lastLoadTruncation`.
   it("publishes a slice the JSON load could not decode", async () => {
     server.use(http.get(CONTENT_RE, () => HttpResponse.json({ ...EMPTY_WORKSPACE, steeringCommittee: "not-an-object" })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);

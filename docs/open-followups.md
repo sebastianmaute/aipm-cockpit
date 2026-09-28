@@ -43226,13 +43226,15 @@ so its file had no `schemaVersion` and differed byte-wise from a local JSON save
 **Status:** CLOSED 2026-09-28 on `fix/storage-followups`. In `jsonToWorkspace` (`workspace.ts`) the
 `documents` and `documentVersions` catch blocks now rethrow only when `strict` is set AND no `diag` was
 passed (`grep -n "strict && !opts?.diag" src/app/workspace.ts`). The local JSON file and SharePoint JSON
-backends pass both, so such a throw is now logged and recorded in `decodeFailedSlices`. On the load paths
-that apply the whole workspace (the load effect, reload and project swaps, which call `reportFor`) saving
+backends pass both, so such a throw is now logged and recorded in `decodeFailedSlices`. On every load path
+that calls `reportFor` (the load effect, reload, project swaps and the picker's load-existing branch) saving
 then pauses ("Saving paused" / "Save anyway") exactly as on the CSV, Markdown, IndexedDB and Turso loads.
 ★ "Open storage file" (`onOpenStorageFile` in `use-storage-file-ops.ts`) calls `reportImportFor`, which
-never raises the decode pause, so there a failure that used to be loud is now quiet. It loses nothing:
-that path applies only tasks and RAID and keeps the live documents, so the file's documents were never
-going to be used. Callers
+never raises the decode pause, so there a failure that used to be loud is now quiet. That path applies
+only tasks and RAID and keeps the live documents, so the file's documents were never going to be used.
+What is new for this failure case is that the open now SUCCEEDS and binds the file, so the next save
+writes the live documents over the file's unreadable ones, as any successful open already does; before
+§635 the open failed before binding and left the file untouched. Callers
 with no accumulator (the sample generator, demo data, native import, version-history restore) still fail
 loudly. `workspace.documents.test.ts` pins both halves for both slices: "reports instead of throwing when
 strict comes WITH a diag (§635)" and "STILL throws in strict mode".

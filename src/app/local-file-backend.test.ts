@@ -260,7 +260,7 @@ describe("LocalFileBackend load() §620 decode failures (JSON)", () => {
   });
 
   // §635: a strict JSON load WITH a diag records a rich-field throw instead
-  // of failing the whole load, so saving pauses like on every other backend.
+  // of failing the whole load, so the load paths that call `reportFor` pause saving.
   it("records a documents rich-field throw instead of failing the load (§635)", async () => {
     const be = new LocalFileBackend("local-json");
     await be.setHandle(
