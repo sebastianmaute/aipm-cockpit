@@ -535,6 +535,17 @@ describe("§629 — useUnloadJournal restore on its own", () => {
 });
 
 describe("§632 — journals under other keys, wired into the load", () => {
+  it("the loaded key's own journal, however old, is restored rather than expired", async () => {
+    vi.setSystemTime(Date.UTC(2026, 8, 28));
+    seedJournal(matchingBase()); // savedAt 1_000: decades old
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const { result } = render();
+    await advance(200);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1, 2]);
+    expect(result.current.otherJournals.expiredCount).toBe(0);
+    expect(result.current.otherJournals.others).toEqual([]);
+  });
+
   it("expires an old one only once the first load has applied, and lists a younger one", async () => {
     const now = Date.UTC(2026, 8, 28);
     vi.setSystemTime(now);

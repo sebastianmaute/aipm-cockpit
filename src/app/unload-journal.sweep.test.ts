@@ -41,6 +41,13 @@ describe("listUnloadJournals", () => {
     expect(listUnloadJournals().map((j) => j.projectKey)).toEqual(["real-key"]);
   });
 
+  it("leaves another version's record in place even when its fields changed shape", () => {
+    const v3 = JSON.stringify({ v: 3, key: "k", body: {} });
+    window.localStorage.setItem(`${UNLOAD_JOURNAL_PREFIX}v3`, v3);
+    expect(listUnloadJournals()).toEqual([]);
+    expect(window.localStorage.getItem(`${UNLOAD_JOURNAL_PREFIX}v3`)).toBe(v3);
+  });
+
   it("drops a malformed record (as readUnloadJournal does) and leaves a future-version one in place", () => {
     vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
     window.localStorage.setItem(`${UNLOAD_JOURNAL_PREFIX}bad`, "{not json");

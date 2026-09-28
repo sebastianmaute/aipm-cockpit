@@ -298,8 +298,9 @@ export function clearUnloadJournal(
 export const UNLOAD_JOURNAL_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** Every readable v1 journal in storage. `projectKey` is the storage key's suffix — what
- *  `readUnloadJournal` / `clearUnloadJournal` take — whatever the record itself says. Reads through
- *  `readUnloadJournal`, so a malformed record is removed and a future-version one left alone. */
+ *  `readUnloadJournal` / `clearUnloadJournal` take — whatever the record itself says. A record whose
+ *  `v` is a number other than 1 (another version's, whatever its fields) is skipped and left in place;
+ *  anything else is read through `readUnloadJournal`, so a malformed record is removed and logged. */
 export function listUnloadJournals(): UnloadJournal[] {
   if (typeof window === "undefined") return [];
   const projectKeys: string[] = [];
@@ -314,10 +315,23 @@ export function listUnloadJournals(): UnloadJournal[] {
   }
   const journals: UnloadJournal[] = [];
   for (const projectKey of projectKeys) {
+    if (isOtherVersion(projectKey)) continue;
     const journal = readUnloadJournal(projectKey);
     if (journal !== null) journals.push({ ...journal, projectKey });
   }
   return journals;
+}
+
+/** True when the key holds a JSON object whose `v` is a number other than 1. Never throws. */
+function isOtherVersion(projectKey: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(journalKey(projectKey)) ?? "null");
+    if (!parsed || typeof parsed !== "object") return false;
+    const v = (parsed as Record<string, unknown>).v;
+    return typeof v === "number" && v !== 1;
+  } catch {
+    return false;
+  }
 }
 
 /** Removes every journal older than `UNLOAD_JOURNAL_MAX_AGE_MS` at `now`, except the one under

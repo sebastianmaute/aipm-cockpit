@@ -11,6 +11,7 @@ import { ExpiredJournalsBanner, OtherJournalsBanner } from "./notifications";
 import { saveRegistry } from "./projects-registry";
 import { UNLOAD_JOURNAL_MAX_AGE_MS, readUnloadJournal, writeUnloadJournal } from "./unload-journal";
 import { otherJournalFileName, useOtherJournals, type OtherJournal } from "./use-other-journals";
+import { UNLOAD_JOURNAL_TAB_ID } from "./use-unload-journal";
 
 const NOW = 1_800_000_000_000;
 const OLD = NOW - UNLOAD_JOURNAL_MAX_AGE_MS - 1;
@@ -50,15 +51,15 @@ describe("useOtherJournals", () => {
     expect(result.current.others.map((e) => e.journal.projectKey)).toEqual(["p2", "p1"]);
   });
 
-  it("labels an entry with the registry project's name, else the key", () => {
+  it("labels an entry with the registry project's name, else null", () => {
     saveRegistry({ projects: [{ id: "p1", name: "Apollo", code: "AP", storageConfig: { kind: "local-json" } as never }], currentProjectId: "current" });
     put("p1", NOW - 10);
     put("turso", NOW - 5);
     const { result } = renderHook(() => useOtherJournals({ projectKey: "current", enabled: true, isPopout: false }));
-    expect(result.current.others.map((e) => e.label)).toEqual(["turso", "Apollo"]);
+    expect(result.current.others.map((e) => e.label)).toEqual([null, "Apollo"]);
   });
 
-  it("sweeps only once per page, and re-lists without the new key in scope when it changes", () => {
+  it("sweeps only once per page; after a project op the key it moved to stays listed (no restore ran for it), the loaded one never is", () => {
     put("a", NOW - 10);
     put("b", NOW - 5);
     const { result, rerender } = renderHook((p: { projectKey: string }) =>
@@ -66,9 +67,28 @@ describe("useOtherJournals", () => {
     expect(result.current.others.map((e) => e.journal.projectKey)).toEqual(["b"]);
     put("c", OLD);
     rerender({ projectKey: "b" });
-    expect(result.current.others.map((e) => e.journal.projectKey)).toEqual(["a", "c"]);
+    expect(result.current.others.map((e) => e.journal.projectKey)).toEqual(["b", "c"]);
     expect(result.current.expiredCount).toBe(0);
     expect(readUnloadJournal("c")).not.toBeNull();
+  });
+
+  it("leaves out a record this page wrote itself", () => {
+    put("p1", NOW, UNLOAD_JOURNAL_TAB_ID);
+    put("p2", NOW - 5);
+    const { result } = renderHook(() => useOtherJournals({ projectKey: "current", enabled: true, isPopout: false }));
+    expect(result.current.others.map((e) => e.journal.projectKey)).toEqual(["p2"]);
+  });
+
+  it("keeps showing the expiry and the list when a later load leaves the workspace unloaded", () => {
+    put("gone", OLD);
+    put("p1", NOW);
+    const { result, rerender } = renderHook((p: { enabled: boolean }) =>
+      useOtherJournals({ projectKey: "current", enabled: p.enabled, isPopout: false }), { initialProps: { enabled: true } });
+    rerender({ enabled: false });
+    expect(result.current.expiredCount).toBe(1);
+    expect(result.current.others.map((e) => e.journal.projectKey)).toEqual(["p1"]);
+    act(() => result.current.dismissExpired());
+    expect(result.current.expiredCount).toBe(0);
   });
 
   it("never runs in a popout", () => {
@@ -119,7 +139,7 @@ describe("otherJournalFileName", () => {
   });
 });
 
-function entry(projectKey: string, label: string, chars: number): OtherJournal {
+function entry(projectKey: string, label: string | null, chars: number): OtherJournal {
   return { label, journal: { v: 1, projectKey, tabId: "t", savedAt: NOW, baseFingerprint: "", workspace: "x".repeat(chars) } };
 }
 
@@ -131,21 +151,33 @@ describe("OtherJournalsBanner", () => {
     const a = entry("p1", "Apollo", 3000);
     const b = entry("p2", "Zeus", 10);
     render(<OtherJournalsBanner lang="en-US" others={[a, b]} onDownload={onDownload} onDiscard={onDiscard} onDismiss={onDismiss} />);
-    expect(screen.getByText(/^Apollo — saved .*, 3 KB$/)).toBeTruthy();
-    expect(screen.getByText(/^Zeus — saved .*, 1 KB$/)).toBeTruthy();
-    fireEvent.click(screen.getAllByRole("button", { name: "Download" })[1]);
+    expect(screen.getByText(/^Apollo — from .*, 3 KB$/)).toBeTruthy();
+    expect(screen.getByText(/^Zeus — from .*, 1 KB$/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Download: Zeus" }));
     expect(onDownload).toHaveBeenCalledWith(b);
-    fireEvent.click(screen.getAllByRole("button", { name: "Discard" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Discard: Apollo" }));
     expect(onDiscard).toHaveBeenCalledWith(a);
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(onDismiss).toHaveBeenCalled();
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("says so when the browser refused the download", () => {
-    render(<OtherJournalsBanner lang="en-US" others={[entry("p1", "Apollo", 1)]} onDownload={() => false} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Download" }));
-    expect(screen.getByRole("alert").textContent).toBe("The download could not be started.");
+  it("names the entry whose download the browser refused, and clears it once one succeeds", () => {
+    let ok = false;
+    render(<OtherJournalsBanner lang="en-US" others={[entry("p1", "Apollo", 1)]} onDownload={() => ok} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Download: Apollo" }));
+    expect(screen.getByRole("alert").textContent).toBe("The download of Apollo could not be started.");
+    ok = true;
+    fireEvent.click(screen.getByRole("button", { name: "Download: Apollo" }));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("names an entry without a registry project by its key, translating browser and turso", () => {
+    render(<OtherJournalsBanner lang="en-US" others={[entry("browser", null, 1), entry("turso", null, 1), entry("tp-9", null, 1)]}
+      onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Discard: Browser workspace (no project)" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Discard: Turso workspace (no project)" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Discard: tp-9" })).toBeTruthy();
   });
 });
 
@@ -153,7 +185,10 @@ describe("ExpiredJournalsBanner", () => {
   it("counts the removed drafts, singular and plural", () => {
     const { rerender } = render(<ExpiredJournalsBanner lang="en-US" count={1} onDismiss={vi.fn()} />);
     expect(screen.getByText("1 unsaved draft older than 30 days was removed from this browser.")).toBeTruthy();
-    rerender(<ExpiredJournalsBanner lang="en-US" count={3} onDismiss={vi.fn()} />);
+    const onDismiss = vi.fn();
+    rerender(<ExpiredJournalsBanner lang="en-US" count={3} onDismiss={onDismiss} />);
     expect(screen.getByText("3 unsaved drafts older than 30 days were removed from this browser.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(onDismiss).toHaveBeenCalled();
   });
 });

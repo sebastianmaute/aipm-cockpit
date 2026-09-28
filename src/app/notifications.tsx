@@ -152,7 +152,12 @@ export function OtherJournalsBanner({
   onDiscard: (entry: OtherJournal) => void;
   onDismiss: () => void;
 }) {
-  const [downloadFailed, setDownloadFailed] = useState(false);
+  // The entry whose download the browser refused, named in the alert; null when none did.
+  const [downloadFailed, setDownloadFailed] = useState<string | null>(null);
+  const nameOf = (entry: OtherJournal): string => entry.label ?? (
+    entry.journal.projectKey === "browser" ? t(lang, "unloadJournalKeyBrowser")
+      : entry.journal.projectKey === "turso" ? t(lang, "unloadJournalKeyTurso")
+        : entry.journal.projectKey);
   return (
     <AlertBanner severity="info" ariaLabel={t(lang, "unloadJournalOthers")} icon="ℹ"
       actions={<DismissButton lang={lang} onClick={onDismiss} />}>
@@ -161,20 +166,21 @@ export function OtherJournalsBanner({
         {others.map((entry) => (
           <li key={`${entry.journal.projectKey}:${entry.journal.tabId}:${entry.journal.savedAt}`} className="flex flex-wrap items-center gap-2 text-sm">
             <span className="min-w-0 break-all">
-              {t(lang, "unloadJournalOthersEntry", entry.label,
+              {t(lang, "unloadJournalOthersEntry", nameOf(entry),
                 formatFetchedAt(new Date(entry.journal.savedAt).toISOString(), lang),
                 Math.max(1, Math.ceil(entry.journal.workspace.length / 1024)))}
             </span>
-            <Button variant="secondary" size="xs" onClick={() => setDownloadFailed(!onDownload(entry))}>
+            <Button variant="secondary" size="xs" aria-label={`${t(lang, "unloadJournalDownload")}: ${nameOf(entry)}`}
+              onClick={() => setDownloadFailed(onDownload(entry) ? null : nameOf(entry))}>
               {t(lang, "unloadJournalDownload")}
             </Button>
-            <Button variant="secondary" size="xs" onClick={() => onDiscard(entry)}>
+            <Button variant="secondary" size="xs" aria-label={`${t(lang, "unloadJournalDiscard")}: ${nameOf(entry)}`} onClick={() => onDiscard(entry)}>
               {t(lang, "unloadJournalDiscard")}
             </Button>
           </li>
         ))}
       </ul>
-      {downloadFailed && <p role="alert" className="mt-1 text-sm">{t(lang, "unloadJournalDownloadFailed")}</p>}
+      {downloadFailed !== null && <p role="alert" className="mt-1 text-sm">{t(lang, "unloadJournalDownloadFailed", downloadFailed)}</p>}
     </AlertBanner>
   );
 }
