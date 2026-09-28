@@ -85,7 +85,9 @@ Read which one a mention means before relying on it.
    banner (§586).
 3. An EMPTY load over a non-empty live workspace is refused: nothing is applied, saves stay
    paused with reason `"empty-refused"` (§587), and `raiseDecodeFailuresFor` still publishes any
-   decode failure of that load.
+   decode failure of that load. The incoming workspace counts as empty when it holds nothing the
+   user made (`hasAuthoredRecords`, §601: the seeded preset lists do not count), while the
+   workspace in scope still counts as populated by `isWorkspaceEmpty`.
 4. Otherwise the journal restore runs (see "Save path"), then `applyWorkspaceFromLoad`, then
    `truncationOps.reportFor(backend)`, which raises or lowers the incomplete-load pause.
 
@@ -205,10 +207,11 @@ journal (`grep -n "UNLOAD_JOURNAL_PREFIX =" src/app/unload-journal.ts`).
   project, bounded by a wait timeout that fails with `TursoLockTimeoutError`. Where
   `navigator.locks` is missing (or no config is set) it runs the save UNLOCKED
   (`grep -n "if (!locks || !this.config) return fn();" src/app/turso-backend.ts`).
-- **Local file and SharePoint** saves are NOT serialised (§627, open): several `pagehide` commits
-  can start overlapping full saves, and an older snapshot that finishes last overwrites a newer
-  one. The journal covers the reload case; the in-session race is unchanged. The register states
-  the race "was never machine-verified".
+- **Every full save to one backend** (autosave, the pre-switch flush, `guardedWrite`) goes through
+  `enqueueSave` (`save-queue.ts`, §627): one at a time, a newer save replacing a waiting one, and a
+  stalled save released after `SAVE_STALL_MS` (30 s). Before, several `pagehide` commits could
+  start overlapping full saves on a local file or SharePoint, and an older snapshot that finished
+  last overwrote a newer one.
 - **IndexedDB** orders its transactions (§627).
 
 ## The six write paths
