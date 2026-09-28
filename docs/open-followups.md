@@ -7554,6 +7554,15 @@ there is evidence of a user-visible problem. Measure before scheduling it, and c
 
 **Status:** open — a load path that requires a DOM and swallows the failure. Reproduced 2026-08-28 by `grep -n "import DOMPurify" src/app/sanitize-html.ts`.
 
+★ Narrowed 2026-09-28 (register sweep): the "silent even though a reporting channel exists" half is
+closed. A DOM throw in the documents rich-field pass is now recorded in `diag.decodeFailedSlices` on
+every path: CSV/Markdown via `decodeMetaJson` (§630, `96d4d8c04`), Turso via `reportUnreadableSlice`,
+IndexedDB and non-strict JSON via `noteDecodeFailure` (§620), and strict JSON with a `diag` since §635.
+The load paths that call `reportFor` then pause saving. The 2026-08-28 text correction is superseded:
+`DocTruncationDiag` now carries that field and the catch writes to it. Still open: with no DOM the
+documents are still dropped (`grep -n 'from "dompurify"' src/app/sanitize-html.ts`), and a CSV, Markdown,
+IndexedDB or Turso caller that passes no `diag` gets no report (JSON still logs to the diagnostics ring).
+
 **Work item:** #134
 
 **Nothing here is broken. The danger is that the rule everyone has memorised is now BACKWARDS for
@@ -7821,6 +7830,12 @@ about than either end state.
 ## 99. The e2e seed writes only four of BrowserBackend's ten optional slices, so some axe scans run on an empty state — open, PARTLY FIXED 2026-08-08
 
 **Status:** open — PARTLY FIXED, seven optional slices are still unseeded. Reproduced 2026-08-28 by `grep -n "const KV_" src/app/browser-backend.ts`. Re-verified 2026-09-13 on `00f2a273`: the KV-intersection node command in the body now reports `entries 12` (was 11), seeded `documents,documentVersions,insights,timelogLinks`, and the same six slices dropped; `grep -c "^const KV_" src/app/browser-backend.ts` → 12.
+
+★ Narrowed 2026-09-28 (register sweep): `KV_` now counts 13. `budgetHistory` and `documentAssets` are
+new optional slices and both ARE seeded (`ea2e9c7e8`, `67733bbaf`); the seed map has 13 entries, 6 of
+them optional. The same seven are still dropped: fieldVisibility, features, steeringCommittee,
+knowledgeItems, settingsOverrides, calendarEvents and activityLog. The entry's own probe hardcodes the
+old 10-slice list, so it cannot see the new keys.
 
 **Work item:** #136
 
@@ -12344,6 +12359,11 @@ mistake "required" for "collision-proof".
 
 **Status:** open — PARTLY FIXED, the type-level guard is open and every call site is converted. Reproduced 2026-08-28 by `grep -rn "RichTextSink" src/app --include=*.ts`.
 
+★ Narrowed 2026-09-28 (register sweep): the entry's own "converted to constants" command now returns
+**49** lines, not 35: 38 call sites plus 11 comment mentions, since unlike the raw-literal command it does
+not exclude comments. "Still raw literals" is still **0**. `RichTextSink` is unchanged (`DerivedSink | "render"`,
+`html-start.ts`), so the type-level guard is still the open item.
+
 **Work item:** #157
 
 Opened 2026-08-11 out of a cold review of `unify-rich-text-s1`. `isHtmlStart(value, sink)` is that
@@ -16254,6 +16274,11 @@ then config + reformat + cap + baseline in one reviewable change set.
 surface that already shows the reason visually). **Found by:** cold code review
 of the S3b fix round, 2026-08-19. Never machine-verified by a committed probe.
 
+★ Narrowed 2026-09-28 (register sweep): the notice now uses `text-ui-pink-strong` (`7b17f3912`), the same
+token as `FieldNotice`, so the palette cost under "Costs" is gone and only the `mt-1` margin differs.
+`BlockRefusal` also has a third, object variant (`tooLong`, §185). All five call sites still mount the
+notice together with its text.
+
 **Work item:** #179
 
 `BlockRefusalNotice` (`document-block-notices.tsx`) renders
@@ -16382,6 +16407,11 @@ belongs in the docstring rather than in a test.
 **Status:** open. **Severity:** medium (a false affordance plus a silent
 refusal; no data reaches storage wrongly). **Found by:** the pre-release cold
 review of the S3b branch, 2026-08-19. Never machine-verified by a committed probe.
+
+★ Narrowed 2026-09-28 (register sweep): the PARAGRAPH cap (`MAX_HTML_TEXT_CHARS`) now has its own
+refusal: `BlockRefusal` carries `{kind:"tooLong"}` and `tryCommit` sets it with a notice (`5433b01ed`,
+§185). The heading, bullet and table caps still reach the silent branch, the Add controls are still
+never disabled at the cap, and `exceedsStorageCaps` still ends in `default: return false`.
 
 **Work item:** #180
 
@@ -17355,6 +17385,10 @@ NOT "fix" it by deleting the citation. ★★★ THE MECHANISM IS DELIBERATELY N
 attempt blamed `SWEEP_DIRS`, which drives only the IDENTIFIER sweep and not path resolution, so
 editing it would not move the verdict — a wrong cause filed inside the entry that exists to record a
 wrong cause. Whoever fixes it should trace the resolver rather than trust a name from this line.
+
+★ Narrowed 2026-09-28 (register sweep): `.gitlab-ci.yml` no longer exists, so its `grep -c crossengine`
+command does not run. The equivalent now is `grep -c crossengine .github/workflows/*.yml`, which also
+prints 0 for each file: `e2e-crossengine/` is still in no CI job. The eye-verify is still owed.
 
 **Work item:** #189
 
@@ -19360,6 +19394,12 @@ the ONE definition of "this STORED mime is refused", imported by `document-asset
 declines the render) and `asset-library.tsx` (which discloses it on the row) so the two cannot drift
 — see §230. Reproduced 2026-08-31 by
 `grep -rn "isBlockedAssetMime" src/app --include=*.ts --include=*.tsx`.
+
+★ Narrowed 2026-09-28 (register sweep): the typeless-Blob fallback now exists at TWO sites,
+`document-asset-images.ts` and `asset-object-url.ts` (added by `fa11ce915`, the original left in place), and
+`isBlockedAssetMime`
+has seven importers, not two. The first Verify command no longer matches anything; grep
+`isBlockedAssetMime` instead. The truthy spelling and both pinning tests are unchanged.
 
 **Work item:** #198
 
@@ -23549,6 +23589,11 @@ adding to it extracts rather than trims — the same disposition §272 asked for
 
 **Status:** open. Filed 2026-08-28. `2fb25ae7`'s commit message says a follow-up "is filed
 separately"; this entry is what makes that sentence true. Never machine-verified by a committed probe.
+
+★ Narrowed 2026-09-28 (register sweep): `src/app/use-insight-recommendations.test.tsx` now exists and
+drives the hook through `renderHook`, which refutes "not unit-testable in isolation". None of its cases
+feeds a tool outside `ALLOWED_REC_TOOLS`, so the apply-time filter is still unpinned, and the file is
+still in `coverage.exclude`.
 
 **Work item:** #216
 
@@ -32284,6 +32329,11 @@ subtracted for a fair comparison); that figure is recorded here as an UNRECONCIL
 averaged with, split against, or quietly preferred over the 31. Reproduce commands are inlined per
 claim below; none of them was run with `--update` or otherwise made to agree with a prior number.
 
+★ Narrowed 2026-09-28 (register sweep): the live pairing count is now **46** `…One` keys in both
+`i18n.ts` and `i18n.de.ts` (was 42). The four added are `budgetFxRollupUnresolved`,
+`projectKeyFactsMissing`, `dashboardHiddenTilesBadge` and `raciSuggestSkippedHandover`. Exception A's
+four provider ternaries, the 12-key dead set and the 31-row table are unchanged.
+
 **Work item:** #275
 
 ### What this branch converted — and what "converted" does not cover (2026-09-07)
@@ -35349,6 +35399,12 @@ which before writing anything.
 no rendering. Verified with the wrapped-aware parse in the code block below (**72** EN, **62** DE),
 `grep -cE '^  activity[A-Za-z0-9_]+: ".*\([sne]+\)' src/app/i18n.ts` (**9**, all single-line), and
 `npm run followups:index:check` (exit 0).
+
+★ Narrowed 2026-09-28 (register sweep): the class has GROWN. Re-running this entry's own scripts gives
+**74** EN / **62** DE, EN-only **13** / DE-only **1**, and **59** on the `^  [A-Za-z0-9_]+: ".*\([sne]+\)` grep (was 58). The two new
+EN-only keys are `undoToastResourceEmailPropagated` (`75d0af7da`; the German is a bare plural, wrong at
+a count of one) and `storagePickFileHasProject` (`32f6ee1a7`; the German uses the slash shape). There is
+still no check on dictionary values.
 
 **Work item:** #286
 
@@ -39057,6 +39113,13 @@ to stay id-less for that batch and file a follow-up. Counted 2026-09-14 with
 `dirtyWorkspaceTables`/`workspaceToStatements` (`src/app/turso-schema.ts`), `upsertProjectStatement`
 (`src/app/turso-tenant-schema.ts`), `turso-portfolio.ts`, `workspaceToJson` (`src/app/workspace.ts`),
 `browser-backend.ts` and `ContactPersonsControl` (`src/app/project-form-fields.tsx`).
+
+★ Narrowed 2026-09-28 (register sweep): the "Turso single — never persisted at all" bullet is false since
+`2a38b1791` (§538). Single-tenant now writes `ws.project` as the `project_meta` meta row
+(`workspaceToStatements` in `turso-schema.ts`), so `resourceId` round-trips there as JSON. The reproduce
+line `grep -n "DELIBERATELY excluded" src/app/turso-schema.ts` now prints nothing. The Turso-tenant
+bullet's `dirtyWorkspaceTables` premise is stale too: `ws.project` now dirties `meta`, which the tenant
+builder ignores, so tenant persistence is unchanged. The core is still open: `ContactPerson` has no `id`, and removal is still by array position.
 
 **Work item:** #327
 
