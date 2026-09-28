@@ -42551,7 +42551,8 @@ want of a DOM, and no document is decoded, so none can be dropped silently. That
 not only the codecs: the `sanitizeDocumentRichFields` marker sits in the rich-field pass that the JSON,
 IndexedDB and Turso decodes call too. ★ The original status's premise that `workspace.ts`,
 `turso-schema.ts` and `browser-backend.ts` "surface a failure instead of swallowing it" is FALSE with no
-DOM: each catches the throw (`noteDecodeFailure` / `reportUnreadableSlice`), and `logDiag` returns early
+DOM: each NON-strict caller catches the throw (`noteDecodeFailure` / `reportUnreadableSlice`; a strict JSON
+load rethrows it instead, which §635 changes), and `logDiag` returns early
 when `typeof window === "undefined"`, so there the loss would be as quiet as the codec path. It did not
 matter here only because no run reached the pass. The original wording below is kept as the record. The files were
 restored and checked byte for byte. `ai-eval.ts`'s header, which inferred "nothing needs jsdom" from
