@@ -103,3 +103,10 @@ describe("meta-slice-decode depth and no-diag safety (§630 follow-up)", () => {
     expect(() => noteIfSanitizedToNothing("status", raw, {}, diag)).toThrow("walked without a diag");
   });
 });
+
+describe("hasDecodedContent on a very wide value (§630 follow-up)", () => {
+  it("walks a 500,000-element array without hitting the argument limit", () => {
+    expect(hasDecodedContent(new Array<unknown>(500_000).fill([]))).toBe(false);
+    expect(hasDecodedContent({ list: new Array<unknown>(500_000).fill("") })).toBe(false);
+  });
+});

@@ -19,7 +19,8 @@ import type { DocTruncationDiag } from "./document-model";
  *  `{"narrative":""}` must not count as content.
  * ★ An explicit stack, not recursion: a stored value nested tens of
  *  thousands deep would otherwise overflow the call stack and fail the whole
- *  load instead of being reported. */
+ *  load instead of being reported. Items are pushed one at a time: spreading a
+ *  very wide array into push() hits the engine's argument limit. */
 export function hasDecodedContent(raw: unknown): boolean {
   const pending: unknown[] = [raw];
   while (pending.length > 0) {
@@ -28,9 +29,9 @@ export function hasDecodedContent(raw: unknown): boolean {
     if (typeof value === "string") {
       if (value !== "") return true;
     } else if (Array.isArray(value)) {
-      pending.push(...(value as unknown[]));
+      for (const item of value as unknown[]) pending.push(item);
     } else if (typeof value === "object") {
-      pending.push(...Object.values(value));
+      for (const item of Object.values(value)) pending.push(item);
     } else {
       return true;
     }
