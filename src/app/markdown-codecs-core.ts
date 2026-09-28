@@ -20,7 +20,7 @@ import { sanitizeDocumentVersionsWithDiag, type DocVersion } from "./document-ve
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
 import type { TimelogLinks } from "./timelog-types";
-import { hasAnyOverride } from "./settings-overrides";
+import { hasAnyOverride, sanitizeOverridesOrNone } from "./settings-overrides";
 import { decodeMetaJson, noteIfSanitizedToNothing } from "./meta-slice-decode";
 import type { SettingsOverrides } from "./settings-types";
 import {
@@ -67,7 +67,6 @@ import {
   projectFieldToString,
   raidFieldToString,
   resourceFieldToString,
-  sanitizeOverridesOrNone,
   shiftFieldToString,
   stakeholderFieldToString,
 } from "./csv-codecs";
@@ -116,6 +115,9 @@ export function markdownToStatus(md: string, diag?: DocTruncationDiag): ProjectS
     const m = /^- (\w+):\s*(.*)$/.exec(line.trim());
     if (m) map[m[1]] = m[2].trim();
   }
+  // ★ `md` also holds any following fenced-JSON section whose heading
+  // `splitMarkdownSections` does not know. The §630 report below stays free of
+  // false positives only because no trimmed JSON line can start with "- ".
   const status = sanitizeProjectStatus(map);
   // ★ §630: same rule as csvToStatus — always returned, recorded when the
   // bullets carried a value and the sanitizer kept none.
@@ -376,6 +378,9 @@ export function markdownToProject(md: string, diag?: DocTruncationDiag): Project
   const project = buildProjectFromObj(map);
   // ★ §630: same rule as csvToProject — a whole-record reject is recorded when
   // the bullets carried anything.
+  // ★ `md` also absorbs the fenced-JSON blocks emitted after it (headings
+  // `splitMarkdownSections` does not know); they stay out of `map`, and out of
+  // the report, only because no trimmed JSON line can start with "- ".
   noteIfSanitizedToNothing("project", map, project, diag);
   return project;
 }
