@@ -10,12 +10,12 @@ import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import { sanitizeProjectDocumentsWithDiag, type DocTruncationDiag } from "./document-model";
-import { sanitizedToNothing } from "./meta-slice-decode";
+import { noteDecodeFailure, noteIfSanitizedToNothing } from "./meta-slice-decode";
 import { logDiag } from "./diagnostics";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersionsWithDiag } from "./document-versions";
 import { sanitizeDocumentAsset, type DocumentAsset } from "./document-asset";
-import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
+import { sanitizeOverridesOrNone, hasAnyOverride } from "./settings-overrides";
 import { type CalendarEvent, sanitizeLoadedCalendarEvent } from "./calendar-event";
 import { migrateTask } from "./task-status";
 import {
@@ -152,12 +152,9 @@ export class BrowserBackend implements StorageBackend {
     // carried content and sanitized to nothing is dropped in silence and the
     // next save writes the file/DB without it. This backend reads each slice
     // independently (no single `jsonToWorkspace` call to record it centrally),
-    // so it duplicates that decoder's local helper here, bound to this `diag`.
-    const noteIfDropped = (key: string, rawValue: unknown, sanitized: unknown): void => {
-      if (sanitizedToNothing(rawValue, sanitized)) {
-        (diag.decodeFailedSlices ??= []).push(key);
-      }
-    };
+    // so it binds the shared `noteIfSanitizedToNothing` helper to this `diag`.
+    const noteIfDropped = (key: string, rawValue: unknown, sanitized: unknown): void =>
+      noteIfSanitizedToNothing(key, rawValue, sanitized, diag);
     let tasks: readonly Task[] = [];
     let raid: readonly RaidItem[] = [];
     let absences: Absence[] = [];
@@ -319,9 +316,9 @@ export class BrowserBackend implements StorageBackend {
       }
       // Optional singleton: junk/empty overrides sanitize to {} → keep undefined.
       {
-        const so = sanitizeSettingsOverrides(idbSettingsOverrides);
-        noteIfDropped("settingsOverrides", idbSettingsOverrides, hasAnyOverride(so) ? so : undefined);
-        settingsOverrides = hasAnyOverride(so) ? so : undefined;
+        const so = sanitizeOverridesOrNone(idbSettingsOverrides);
+        noteIfDropped("settingsOverrides", idbSettingsOverrides, so);
+        settingsOverrides = so;
       }
       // Optional list: garbage rows dropped individually (sanitizeLoadedCalendarEvent
       // never throws); junk/empty list sanitizes to [] → keep undefined.
@@ -355,7 +352,7 @@ export class BrowserBackend implements StorageBackend {
         logDiag("error", "workspace.documentsDropped", {
           message: err instanceof Error ? err.message : String(err),
         });
-        (diag.decodeFailedSlices ??= []).push("documents");
+        noteDecodeFailure("documents", diag);
       }
       // Optional list: junk/empty versions sanitize to [] → keep undefined.
       // Same two-pass shape as documents just above — sanitizeDocumentVersions
@@ -381,7 +378,7 @@ export class BrowserBackend implements StorageBackend {
         logDiag("error", "workspace.documentVersionsDropped", {
           message: err instanceof Error ? err.message : String(err),
         });
-        (diag.decodeFailedSlices ??= []).push("documentVersions");
+        noteDecodeFailure("documentVersions", diag);
       }
       // Optional list: junk/empty entries sanitize to [] → keep undefined, so a
       // cleared log reads as absent rather than as an empty array.
