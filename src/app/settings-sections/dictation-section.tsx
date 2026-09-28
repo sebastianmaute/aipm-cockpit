@@ -7,7 +7,7 @@ import { SegmentedControl } from "../segmented-control";
 import { InfoTooltip } from "../info-tooltip";
 import { FieldHint } from "../field-hint";
 import { saveSecretValue } from "../use-secrets";
-import { loadSealed, removeSealed } from "../secrets-store";
+import { removeSealed } from "../secrets-store";
 import { INTERACTIVE } from "../interaction-styles";
 import { eventToCombo, eventComboFromMouse, mouseButtonToToken } from "../dictation-hotkey";
 import { Input } from "../form-controls";
@@ -25,7 +25,6 @@ type DictationEngineId = "web-speech" | "stt";
 export function DictationSection({ lang, settings, onChange }: DictationSectionProps) {
   const dictation = settings.dictation;
   const engine: DictationEngineId = dictation?.engine ?? "web-speech";
-  const [sttKeyStored, setSttKeyStored] = useState(() => loadSealed("sttApiKey") != null);
   const [hotkeyArmed, setHotkeyArmed] = useState(false);
   const hotkey = dictation?.hotkey ?? "F4";
 
@@ -40,13 +39,13 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
   function handleSttKeyBlur() {
     const v = (settings.dictation?.sttApiKey ?? "").trim();
     if (v) {
-      // §609: a seal superseded by a clear or a newer save resolves false — no "stored" flag.
-      void saveSecretValue("sttApiKey", v, "device").then((stored) => {
-        if (stored) setSttKeyStored(true);
-      });
-    } else if (sttKeyStored) {
+      void saveSecretValue("sttApiKey", v, "device");
+    } else {
+      // §565 blank-first / §609: an emptied key ALWAYS removes the seal, like jira/timelog/turso.
+      // It used to be gated on a "stored" flag that stays false until the seal lands, so a clear
+      // while the seal was in flight never called `removeSealed` and the late seal won. (That flag
+      // had no other reader, so it is gone; removing an absent record is harmless.)
       removeSealed("sttApiKey");
-      setSttKeyStored(false);
     }
   }
 

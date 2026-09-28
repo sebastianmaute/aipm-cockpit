@@ -236,4 +236,24 @@ describe("migratePlaintextSecrets vs user writes in flight (§609)", () => {
     expect((await migrating).apiKey).toBe("");
     expect(await readDeviceSecret("anthropicApiKey")).toBe("sk-legacy");
   });
+
+  // Round 2 I1: every snapshot is taken before the FIRST await. A clear of a LATER id while an
+  // earlier id is still sealing used to precede that id's own (late) snapshot, so its legacy
+  // value was written back.
+  it("a clear of a later id while an earlier id is still sealing wins too", async () => {
+    const legacy = await sealDevice("anthropicApiKey", "sk-legacy");
+    const seal = heldSeal();
+    // Only the first seal (anthropicApiKey) is held; jira's runs for real afterwards.
+    vi.spyOn(secrets, "sealDevice").mockReturnValueOnce(seal.promise);
+
+    const migrating = migratePlaintextSecrets({ apiKey: "sk-legacy", jiraApiToken: "jira-legacy" });
+    removeSealed("jiraApiToken"); // the user blanks the Jira token in the §548 window
+    seal.release(legacy);
+    const result = await migrating;
+
+    expect(secrets.sealDevice).toHaveBeenCalledWith("jiraApiToken", "jira-legacy"); // it did seal
+    expect(loadSealed("jiraApiToken")).toBeNull(); // …but never wrote
+    expect(result.jiraApiToken).toBe("");
+    expect(await readDeviceSecret("anthropicApiKey")).toBe("sk-legacy"); // control: untouched id
+  });
 });

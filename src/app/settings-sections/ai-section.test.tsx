@@ -482,9 +482,44 @@ describe("AiSection", () => {
       await new Promise((r) => setTimeout(r, 0));
     });
 
-    expect(lock()).toBeChecked();
-    await waitFor(() => expect(isPassphraseLocked("anthropicApiKey")).toBe(true));
-    expect(lock()).toBeChecked();
+    // Round 2: the superseded device seal shows what the store holds meanwhile; the passphrase
+    // save sets the wrap back to passphrase when it lands, so the END state is the lock, ticked.
+    await waitFor(() => {
+      expect(isPassphraseLocked("anthropicApiKey")).toBe(true);
+      expect(lock()).toBeChecked();
+    });
+  });
+
+  // §609 round 2 M2: a CLEAR (emptying the field) supersedes the untick re-seal. The store then
+  // holds nothing, so the lock shows device and nothing is marked stored — not stuck on passphrase.
+  it("a clear during the unlock re-seal leaves the lock on device and nothing stored", async () => {
+    const key = "sk-ant-api03-have0000000000000";
+    const deviceSealed = await sealDevice("anthropicApiKey", key); // real ciphertext, before the spy
+    let releaseSeal: (s: SealedSecret) => void = () => {};
+    vi.spyOn(secrets, "sealDevice").mockReturnValueOnce(
+      new Promise<SealedSecret>((r) => {
+        releaseSeal = r;
+      }),
+    );
+    function Harness() {
+      const [s, setS] = useState<Settings>({ ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: key } });
+      return <AiSection lang="en-US" settings={s} onChange={setS} />;
+    }
+    render(<Harness />);
+    const lock = () => screen.getByLabelText(/require a passphrase/i);
+    fireEvent.click(lock()); // tick
+    fireEvent.click(lock()); // untick → device re-seal starts, held open
+    expect(secrets.sealDevice).toHaveBeenCalledWith("anthropicApiKey", key);
+    fireEvent.change(screen.getByPlaceholderText(t("en-US", "aiApiKeyPlaceholder")), { target: { value: "" } });
+
+    await act(async () => {
+      releaseSeal(deviceSealed);
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(loadSealed("anthropicApiKey")).toBeNull();
+    expect(lock()).not.toBeChecked();
+    expect(screen.queryByRole("button", { name: /remove stored secret/i })).toBeNull();
   });
 
   it("a mismatched confirm disables Save and shows the mismatch message", () => {

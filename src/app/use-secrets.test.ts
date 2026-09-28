@@ -3,7 +3,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import * as secrets from "./secrets";
 import { type SealedSecret, sealDevice, sealPassphrase } from "./secrets";
 import { saveSecretValue, setSecretPassphrase, unlockSecret } from "./use-secrets";
-import { loadSealed, readDeviceSecret, removeSealed } from "./secrets-store";
+import { loadSealed, readDeviceSecret, removeSealed, saveSealed } from "./secrets-store";
 
 afterEach(() => {
   localStorage.clear();
@@ -131,5 +131,24 @@ describe("use-secrets — a late seal never resurrects a cleared secret (§609)"
     expect(await savingStt).toBe(true);
     expect(loadSealed("anthropicApiKey")).toBeNull();
     expect(await readDeviceSecret("sttApiKey")).toBe("stt-1");
+  });
+
+  // Round 2 M4 — the documented "no fallback": when the NEWEST seal fails, the older one it
+  // superseded still resolves false and writes nothing; the previous record stays.
+  it("when the newest seal rejects, the older in-flight seal still writes nothing", async () => {
+    saveSealed(await sealDevice("anthropicApiKey", "sk-prev"));
+    const sealedA = await sealDevice("anthropicApiKey", "sk-A");
+    const sealA = deferred<SealedSecret>();
+    vi.spyOn(secrets, "sealDevice")
+      .mockReturnValueOnce(sealA.promise)
+      .mockRejectedValueOnce(new Error("crypto unavailable"));
+
+    const savingA = saveSecretValue("anthropicApiKey", "sk-A", "device");
+    const savingB = saveSecretValue("anthropicApiKey", "sk-B", "device");
+    await expect(savingB).rejects.toThrow("crypto unavailable");
+    sealA.resolve(sealedA);
+
+    expect(await savingA).toBe(false);
+    expect(await readDeviceSecret("anthropicApiKey")).toBe("sk-prev");
   });
 });

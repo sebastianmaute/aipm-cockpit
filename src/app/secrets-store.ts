@@ -58,7 +58,12 @@ export function removeSealed(id: SecretId): void {
 //   sections, jira/timelog settings, a factory reset) cancels in-flight seals without having to
 //   know they exist. `saveSealed` stays the raw writer and does NOT bump; the boot migration
 //   commits through `snapshotSealedWrite` (see `migrateOne`).
+// ★ Known limit: the counter is PER TAB (module state). A seal in flight in ANOTHER tab is not
+//   cancelled by a clear here, and lands after it. Accepted: it needs edits to the same secret in
+//   two tabs within one seal's latency.
 const writeGenerations = new Map<SecretId, number>();
+
+type SealedCommit = (sealed: SealedSecret) => boolean;
 
 function bumpGeneration(id: SecretId): number {
   const next = (writeGenerations.get(id) ?? 0) + 1;
@@ -162,12 +167,19 @@ export async function migratePlaintextSecrets(input: {
   // Per-secret seal: a crypto/IndexedDB failure on one secret must neither
   // reject the whole migration nor blank a secret we failed to persist. On a
   // failed seal we return the ORIGINAL plaintext so the caller keeps it.
+  // ★ §609 — EVERY id's snapshot is taken HERE, synchronously, before the first await. Taken
+  //   inside the sequential loop, a later id's snapshot would come after the earlier ids' seals —
+  //   and a clear of that id in the §548 window would then precede its own snapshot and be missed.
+  const commits = Object.fromEntries(SECRET_IDS.map((id) => [id, snapshotSealedWrite(id)])) as Record<
+    SecretId,
+    SealedCommit
+  >;
   // Sequential, as before: one seal at a time.
-  const apiKeyOut = await migrateOne("anthropicApiKey", apiKey);
-  const authTokenOut = await migrateOne("tursoAuthToken", authToken);
-  const jiraApiTokenOut = await migrateOne("jiraApiToken", jiraApiToken);
-  const timelogApiTokenOut = await migrateOne("timelogApiToken", timelogApiToken);
-  const sttApiKeyOut = await migrateOne("sttApiKey", sttApiKey);
+  const apiKeyOut = await migrateOne("anthropicApiKey", apiKey, commits.anthropicApiKey);
+  const authTokenOut = await migrateOne("tursoAuthToken", authToken, commits.tursoAuthToken);
+  const jiraApiTokenOut = await migrateOne("jiraApiToken", jiraApiToken, commits.jiraApiToken);
+  const timelogApiTokenOut = await migrateOne("timelogApiToken", timelogApiToken, commits.timelogApiToken);
+  const sttApiKeyOut = await migrateOne("sttApiKey", sttApiKey, commits.sttApiKey);
   return {
     apiKey: apiKeyOut,
     authToken: authTokenOut,
@@ -177,9 +189,10 @@ export async function migratePlaintextSecrets(input: {
   };
 }
 
-/** Seal one legacy plaintext value if nothing is sealed for `id` yet. Returns "" (migrated, or
- *  nothing to do, or superseded by the user) or the ORIGINAL plaintext when the seal failed. */
-async function migrateOne(id: SecretId, value: string): Promise<string> {
+/** Seal one legacy plaintext value if nothing is sealed for `id` yet, committing through `commit`
+ *  (its snapshot, taken up front). Returns "" (migrated, or nothing to do, or superseded by the
+ *  user) or the ORIGINAL plaintext when the seal failed. */
+async function migrateOne(id: SecretId, value: string, commit: SealedCommit): Promise<string> {
   if (!value || loadSealed(id)) return "";
   // ★★ §609 — the migration SNAPSHOTS the generation instead of bumping it. Its seal can land
   //   after the §548 merge timeout has already handed the UI over, so a clear or a new value the
@@ -188,7 +201,6 @@ async function migrateOne(id: SecretId, value: string): Promise<string> {
   //   let the legacy value win instead. ★ It also re-checks "nothing sealed yet" at commit: a user
   //   seal that began BEFORE the snapshot (so it bumped nothing after it) may have landed during
   //   the await, and the legacy value must not overwrite it.
-  const commit = snapshotSealedWrite(id);
   try {
     const sealed = await sealDevice(id, value);
     if (!loadSealed(id)) commit(sealed);

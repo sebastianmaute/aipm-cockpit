@@ -395,7 +395,10 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   //   passphrase opens it (`typedPassphraseOpensRecord`), so a mistyped or different passphrase
   //   cannot silently become the new one — "Save passphrase" stays the only way to CHANGE it.
   async function sealUnderTypedPassphrase(token: string) {
-    if (await setSecretPassphrase("tursoAuthToken", token, tokenPassphrase)) setTokenStored(true);
+    if (await setSecretPassphrase("tursoAuthToken", token, tokenPassphrase)) {
+      setTokenStored(true);
+      setTokenWrap("passphrase"); // §609: the record IS passphrase-wrapped now (see the untick)
+    }
     setTokenPassphrase("");
     setTokenConfirm("");
   }
@@ -644,9 +647,14 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     // secret. Either way flip wrap to device so the checkbox actually toggles.
     trackTokenSeal((async () => {
       if ((sealableTursoToken ?? "").trim()) {
-        // §609: false = a newer op on the token (a re-tick + passphrase Save, a clear) began during
-        // the seal and owns the wrap state now; flipping it to device would misreport the wrap.
-        if (!(await saveSecretValue("tursoAuthToken", sealableTursoToken ?? "", "device"))) return;
+        // §609: false = a newer op on the token (a passphrase Save, a clear) began during the seal.
+        // Don't force device over it: show what the STORE now holds (a clear → device, nothing
+        // stored). A passphrase save still in flight sets the wrap itself when it lands.
+        if (!(await saveSecretValue("tursoAuthToken", sealableTursoToken ?? "", "device"))) {
+          setTokenWrap(isPassphraseLocked("tursoAuthToken") ? "passphrase" : "device");
+          setTokenStored(loadSealed("tursoAuthToken") != null);
+          return;
+        }
         setTokenStored(true);
       } else if (isPassphraseLocked("tursoAuthToken")) {
         removeSealed("tursoAuthToken");
@@ -660,7 +668,10 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
 
   function handleTokenLockConfirm() {
     trackTokenSeal((async () => {
-      if (await setSecretPassphrase("tursoAuthToken", sealableTursoToken ?? "", tokenPassphrase)) setTokenStored(true);
+      if (await setSecretPassphrase("tursoAuthToken", sealableTursoToken ?? "", tokenPassphrase)) {
+        setTokenStored(true);
+        setTokenWrap("passphrase"); // §609: the record IS passphrase-wrapped now (see the untick)
+      }
       setTokenPassphrase("");
       setTokenConfirm("");
     })());

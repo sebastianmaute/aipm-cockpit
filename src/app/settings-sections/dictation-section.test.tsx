@@ -1,24 +1,20 @@
 // src/app/settings-sections/dictation-section.test.tsx
+import "fake-indexeddb/auto";
 import React, { useState } from "react";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DictationSection } from "./dictation-section";
 import { defaultSettings, type Settings } from "../settings-types";
 import { t } from "../i18n";
-import { saveSecretValue } from "../use-secrets";
-import { removeSealed } from "../secrets-store";
+import * as secrets from "../secrets";
+import { type SealedSecret, sealDevice } from "../secrets";
+import { loadSealed, readDeviceSecret } from "../secrets-store";
 
-// The key's seal is mocked so a test can make it resolve `false` (superseded, §609);
-// `removeSealed` is a spy so the stored flag is observable through the blank-blur path.
-vi.mock("../use-secrets", () => ({ saveSecretValue: vi.fn() }));
-vi.mock("../secrets-store", async (importActual) => ({
-  ...(await importActual<typeof import("../secrets-store")>()),
-  removeSealed: vi.fn(),
-}));
-
-afterEach(() => {
-  vi.mocked(saveSecretValue).mockReset();
-  vi.mocked(removeSealed).mockReset();
+afterEach(async () => {
+  // Let any un-awaited seal from a test land before the store is wiped (see ai-section.test).
+  await new Promise((r) => setTimeout(r, 0));
+  localStorage.clear();
+  vi.restoreAllMocks();
 });
 
 function setup(overrides = {}) {
@@ -86,9 +82,9 @@ describe("DictationSection — hotkey capture", () => {
   });
 });
 
-// §609 — the "stored" flag is set only when the seal actually wrote. It has no visible
-// indicator here; it gates the blank-blur `removeSealed`, so that is what the tests observe.
-describe("DictationSection — STT key stored flag (§609)", () => {
+// §609 round 2 I2 — the blank-blur clear is unconditional, so it cancels a seal still in flight.
+// (It used to be gated on a "stored" flag that stayed false until the seal landed.)
+describe("DictationSection — STT key seal vs a clear (§609)", () => {
   function renderStt() {
     function Harness() {
       const [s, setS] = useState<Settings>({ ...defaultSettings, dictation: { engine: "stt", hotkey: "F4" } });
@@ -98,27 +94,33 @@ describe("DictationSection — STT key stored flag (§609)", () => {
     return screen.getByLabelText(t("en-US", "dictationSttKey"), { selector: "input" });
   }
 
-  async function saveThenBlank(input: HTMLElement) {
+  it("a key blurred with a value is sealed and stored (control)", async () => {
+    const input = renderStt();
     fireEvent.change(input, { target: { value: "stt-key" } });
-    await act(async () => {
-      fireEvent.blur(input);
-      await new Promise((r) => setTimeout(r, 0));
-    });
-    fireEvent.change(input, { target: { value: "" } });
     fireEvent.blur(input);
-  }
-
-  it("a stored key is removed when the field is blanked (control)", async () => {
-    vi.mocked(saveSecretValue).mockResolvedValueOnce(true);
-    await saveThenBlank(renderStt());
-    expect(saveSecretValue).toHaveBeenCalledWith("sttApiKey", "stt-key", "device");
-    expect(removeSealed).toHaveBeenCalledWith("sttApiKey");
+    await waitFor(async () => expect(await readDeviceSecret("sttApiKey")).toBe("stt-key"));
   });
 
-  it("a superseded save (resolves false) leaves the stored flag off", async () => {
-    vi.mocked(saveSecretValue).mockResolvedValueOnce(false);
-    await saveThenBlank(renderStt());
-    expect(saveSecretValue).toHaveBeenCalledWith("sttApiKey", "stt-key", "device");
-    expect(removeSealed).not.toHaveBeenCalled();
+  it("emptying the key while its seal is in flight wins: nothing is stored when the seal lands", async () => {
+    const sealed = await sealDevice("sttApiKey", "stt-key"); // real ciphertext, before the spy
+    let releaseSeal: (s: SealedSecret) => void = () => {};
+    vi.spyOn(secrets, "sealDevice").mockReturnValueOnce(
+      new Promise<SealedSecret>((r) => {
+        releaseSeal = r;
+      }),
+    );
+    const input = renderStt();
+    fireEvent.change(input, { target: { value: "stt-key" } });
+    fireEvent.blur(input); // seal starts, held open
+    expect(secrets.sealDevice).toHaveBeenCalledWith("sttApiKey", "stt-key");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.blur(input); // clear → removeSealed
+
+    await act(async () => {
+      releaseSeal(sealed);
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(loadSealed("sttApiKey")).toBeNull();
   });
 });
