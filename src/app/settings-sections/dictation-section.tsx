@@ -7,7 +7,7 @@ import { SegmentedControl } from "../segmented-control";
 import { InfoTooltip } from "../info-tooltip";
 import { FieldHint } from "../field-hint";
 import { saveSecretValue } from "../use-secrets";
-import { loadSealed, removeSealed } from "../secrets-store";
+import { removeSealed } from "../secrets-store";
 import { INTERACTIVE } from "../interaction-styles";
 import { eventToCombo, eventComboFromMouse, mouseButtonToToken } from "../dictation-hotkey";
 import { Input } from "../form-controls";
@@ -25,7 +25,6 @@ type DictationEngineId = "web-speech" | "stt";
 export function DictationSection({ lang, settings, onChange }: DictationSectionProps) {
   const dictation = settings.dictation;
   const engine: DictationEngineId = dictation?.engine ?? "web-speech";
-  const [sttKeyStored, setSttKeyStored] = useState(() => loadSealed("sttApiKey") != null);
   const [hotkeyArmed, setHotkeyArmed] = useState(false);
   const hotkey = dictation?.hotkey ?? "F4";
 
@@ -35,16 +34,16 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
 
   function handleSttKeyChange(value: string) {
     setDictation({ sttApiKey: value });
+    // §565 blank-first / §609: EMPTYING the field removes the seal, like jira/timelog/turso, and
+    // cancels a seal still in flight for an earlier value. On the change, not the blur: a blur of
+    // a field that was already blank (another tab saved the key since this one rendered) must
+    // not delete a key the user never touched here.
+    if (value.trim() === "") removeSealed("sttApiKey");
   }
 
   function handleSttKeyBlur() {
     const v = (settings.dictation?.sttApiKey ?? "").trim();
-    if (v) {
-      void saveSecretValue("sttApiKey", v, "device").then(() => setSttKeyStored(true));
-    } else if (sttKeyStored) {
-      removeSealed("sttApiKey");
-      setSttKeyStored(false);
-    }
+    if (v) void saveSecretValue("sttApiKey", v, "device");
   }
 
   function handleHotkeyCapture(e: KeyboardEvent<HTMLButtonElement>) {

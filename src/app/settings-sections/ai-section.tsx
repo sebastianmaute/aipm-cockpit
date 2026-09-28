@@ -110,8 +110,27 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
 
   function handleApiKeyChange(value: string) {
     onChange({ ...settings, ai: { ...settings.ai, apiKey: value } });
-    if (keyWrap === "device" && isValidAnthropicApiKey(value)) {
-      void saveSecretValue("anthropicApiKey", value, "device").then(() => setKeyStored(true));
+    if (value.trim() === "") {
+      // §565 blank-first rule (as jira/timelog/turso): an emptied key REMOVES the seal and the
+      // flag — else the blanked key rehydrated from the store on reload. `removeSealed` also
+      // cancels a seal still in flight for an earlier keystroke (§609).
+      // ★★ EXCEPT a passphrase-wrapped record: its plaintext is never hydrated into settings (the
+      //   chat unlock keeps it local), so this field shows "" for a LOCKED key, and typing a
+      //   character then deleting it would land here and destroy a key the user never saw. A
+      //   passphrase key is forgotten only via "Remove stored secret" (or the lock untick).
+      // ★ Known limit: the check is the RECORD's wrap, not whether this session held the plaintext,
+      //   so a passphrase key the user typed + saved here (field shows it) is also kept when the
+      //   field is emptied. Deliberate — the stored flag and Remove button stay truthful, and
+      //   "Remove stored secret" is the way out.
+      if (!isPassphraseLocked("anthropicApiKey")) {
+        removeSealed("anthropicApiKey");
+        setKeyStored(false);
+      }
+    } else if (keyWrap === "device" && isValidAnthropicApiKey(value)) {
+      // §609: a seal superseded by a later keystroke or a clear resolves false — no "stored" flag.
+      void saveSecretValue("anthropicApiKey", value, "device").then((stored) => {
+        if (stored) setKeyStored(true);
+      });
     }
   }
 
@@ -142,7 +161,14 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
     // (the old early-return left it stuck checked when the key was locked).
     void (async () => {
       if (settings.ai.apiKey.trim()) {
-        await saveSecretValue("anthropicApiKey", settings.ai.apiKey, "device");
+        // §609: false = a newer op on this key (a "Save passphrase", a clear) began during the seal.
+        // Don't force device over it: show what the STORE now holds (a clear → device, nothing
+        // stored). A passphrase save still in flight sets the wrap itself when it lands.
+        if (!(await saveSecretValue("anthropicApiKey", settings.ai.apiKey, "device"))) {
+          setKeyWrap(isPassphraseLocked("anthropicApiKey") ? "passphrase" : "device");
+          setKeyStored(loadSealed("anthropicApiKey") != null);
+          return;
+        }
         setKeyStored(true);
       } else if (isPassphraseLocked("anthropicApiKey")) {
         removeSealed("anthropicApiKey");
@@ -162,8 +188,12 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       return;
     }
     void (async () => {
-      await setSecretPassphrase("anthropicApiKey", settings.ai.apiKey, keyPassphrase);
-      setKeyStored(true);
+      if (await setSecretPassphrase("anthropicApiKey", settings.ai.apiKey, keyPassphrase)) {
+        setKeyStored(true);
+        // §609: the record IS passphrase-wrapped now — also after a superseded untick re-seal
+        // reset the wrap from the store while this seal was still in flight.
+        setKeyWrap("passphrase");
+      }
       setKeyPassphrase("");
       setKeyConfirm("");
     })();

@@ -65,9 +65,9 @@ const applyLabel = t("en-US", "integrationsTursoApplyLabel");
 
 beforeEach(() => {
   vi.mocked(saveSecretValue).mockReset();
-  vi.mocked(saveSecretValue).mockResolvedValue(undefined);
+  vi.mocked(saveSecretValue).mockResolvedValue(true);
   vi.mocked(setSecretPassphrase).mockReset();
-  vi.mocked(setSecretPassphrase).mockResolvedValue(undefined);
+  vi.mocked(setSecretPassphrase).mockResolvedValue(true);
   localStorage.clear();
 });
 afterEach(async () => {
@@ -153,6 +153,21 @@ describe("A1/A4 — the Turso fields in a Modal host (BackendConfigModal)", () =
     expect(saveSecretValue).toHaveBeenLastCalledWith("tursoAuthToken", "tok2", "device");
     expect(await screen.findByRole("button", { name: t("en-US", "secretPassphraseRemove") })).toBeInTheDocument();
   });
+
+  // §609: a seal superseded by a clear or a newer commit resolves false — it wrote nothing, so
+  // it must not turn the stored flag (and with it the Remove button) on. The §565 case above is
+  // the control: the same typing with seals resolving true does show Remove.
+  it("§609: a superseded device seal (resolves false) leaves Remove hidden", async () => {
+    vi.mocked(saveSecretValue).mockResolvedValue(false);
+    const user = userEvent.setup();
+    renderModal(settingsWith(URL_A, "tok", BROWSER));
+    await user.type(tokenField(), "9");
+    expect(saveSecretValue).toHaveBeenCalledWith("tursoAuthToken", "tok9", "device");
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(screen.queryByRole("button", { name: t("en-US", "secretPassphraseRemove") })).toBeNull();
+  });
 });
 
 describe("A5 — Save & switch applies the drafts and waits (bounded) for the token seal", () => {
@@ -183,7 +198,7 @@ describe("A5 — Save & switch applies the drafts and waits (bounded) for the to
   it("an applied token's pending seal holds the reload until it resolves (M5)", async () => {
     const user = userEvent.setup();
     let release: () => void = () => {};
-    vi.mocked(saveSecretValue).mockReturnValueOnce(new Promise<void>((r) => { release = r; }));
+    vi.mocked(saveSecretValue).mockReturnValueOnce(new Promise<boolean>((r) => { release = () => r(true); }));
     render(<Controlled />);
 
     await user.type(tokenField(), "2");
@@ -232,7 +247,7 @@ describe("A5 — Save & switch applies the drafts and waits (bounded) for the to
   it("a seal that never settles delays the reload by SECRET_MERGE_TIMEOUT_MS at most (MA5)", async () => {
     vi.useFakeTimers();
     let release: () => void = () => {};
-    vi.mocked(saveSecretValue).mockReturnValueOnce(new Promise<void>((r) => { release = r; }));
+    vi.mocked(saveSecretValue).mockReturnValueOnce(new Promise<boolean>((r) => { release = () => r(true); }));
     try {
       render(<Controlled />);
       fireEvent.change(tokenField(), { target: { value: "tok5" } });
@@ -299,6 +314,36 @@ describe("I1 — on Turso storage the passphrase actions seal the APPLIED token,
     expect(saveSecretValue).toHaveBeenCalledWith("tursoAuthToken", "tok", "device");
     expect(saveSecretValue).not.toHaveBeenCalledWith("tursoAuthToken", "tokNEW", "device");
   });
+
+  // §609 M3 + round 2 M2: when the untick re-seal is superseded (resolves false — a newer write or
+  // a clear began during it), the section shows what the STORE holds instead of forcing device:
+  //   - nothing stored (a clear won) → lock unticked, Remove hidden;
+  //   - a passphrase record (a passphrase save won) → lock ticked, Remove shown.
+  // The `true` case is the control (the untick flips to device and shows Remove).
+  it.each([
+    { resolves: true, seedPassphrase: false, checked: false, remove: true },
+    { resolves: false, seedPassphrase: false, checked: false, remove: false },
+    { resolves: false, seedPassphrase: true, checked: true, remove: true },
+  ])(
+    "untick re-seal resolving $resolves (passphrase record: $seedPassphrase): lock checked=$checked, Remove shown=$remove",
+    async ({ resolves, seedPassphrase, checked, remove }) => {
+      if (seedPassphrase) saveSealed(await sealPassphrase("tursoAuthToken", "tok", "pw"));
+      vi.mocked(saveSecretValue).mockResolvedValueOnce(resolves);
+      const user = userEvent.setup();
+      render(<IntegrationsSection lang="en-US" settings={settingsWith(URL_A, "tok")} onChange={vi.fn()} />);
+      const removeButton = () => screen.queryByRole("button", { name: t("en-US", "secretPassphraseRemove") });
+      if (!seedPassphrase) await user.click(lock()); // tick: no seal yet
+      expect(lock()).toBeChecked();
+      await user.click(lock()); // untick: device re-seal
+      await waitFor(() => expect(saveSecretValue).toHaveBeenCalledWith("tursoAuthToken", "tok", "device"));
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      if (checked) expect(lock()).toBeChecked();
+      else expect(lock()).not.toBeChecked();
+      expect(removeButton() !== null).toBe(remove);
+    },
+  );
 
   it("passphrase Save seals the committed token", async () => {
     const user = userEvent.setup();

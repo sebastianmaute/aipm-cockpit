@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { useState } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IntegrationsSection } from "./integrations-section";
@@ -16,7 +16,10 @@ import {
   type Settings,
 } from "../settings-types";
 import { defaultTimelogConfig } from "../timelog-types";
-import { readDeviceSecret, isPassphraseLocked } from "../secrets-store";
+import { readDeviceSecret, isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
+import * as secrets from "../secrets";
+import { type SealedSecret, sealDevice } from "../secrets";
+import { savePortfolioMode } from "../portfolio-mode";
 import { testTursoConnection } from "../turso-pipeline";
 import { clearEnvTokenRejected, isEnvTokenRejected, markEnvTokenRejected } from "../turso-config";
 import { expectRowUniqueNames } from "../../test/row-unique-names";
@@ -1052,5 +1055,49 @@ describe("IntegrationsSection — Test-connection button names (WCAG 2.4.6)", ()
     // regression. Keep all three `getByRole` lines: each pins one label by key,
     // and they are what goes red when a single label is dropped.
     expectRowUniqueNames({ minControls: 3 });
+  });
+});
+
+// §609 round 2 M4 — the "Save & switch" device seal (`confirmPortfolioModeSwitch`) ignores the
+// boolean (the page reloads), but it rides the same guard: a clear that lands while it is in
+// flight must win, so the reload does not boot onto a resurrected token.
+describe("§609 — a clear beats the Save & switch token seal", () => {
+  const originalLocation = window.location;
+  let reload: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    reload = vi.fn();
+    Object.defineProperty(window, "location", { configurable: true, value: { ...originalLocation, reload } });
+    savePortfolioMode("file");
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+  });
+
+  it("a clear while the switch seal is in flight leaves nothing stored when it lands", async () => {
+    const sealed = await sealDevice("tursoAuthToken", "tok7"); // real ciphertext, before the spy
+    let releaseSeal: (s: SealedSecret) => void = () => {};
+    vi.spyOn(secrets, "sealDevice").mockReturnValueOnce(
+      new Promise<SealedSecret>((r) => {
+        releaseSeal = r;
+      }),
+    );
+    function Controlled() {
+      const [s, setS] = useState<Settings>({ ...tursoSettings("tok"), storageConfig: { kind: "turso" } });
+      return <IntegrationsSection lang="en-US" settings={s} onChange={setS} />;
+    }
+    const user = userEvent.setup();
+    render(<Controlled />);
+    await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
+    await user.type(screen.getByPlaceholderText(t("en-US", "integrationsTursoTokenPlaceholder")), "7"); // a draft
+    await user.click(screen.getByRole("button", { name: t("en-US", "portfolioModeSwitchConfirm") }));
+    expect(secrets.sealDevice).toHaveBeenCalledWith("tursoAuthToken", "tok7"); // the switch seal, held
+    expect(reload).not.toHaveBeenCalled();
+
+    removeSealed("tursoAuthToken"); // a clear lands meanwhile
+    releaseSeal(sealed);
+
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    expect(loadSealed("tursoAuthToken")).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { useState } from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AiSection } from "./ai-section";
 import { defaultSettings as baseSettings, type Settings } from "../settings-types";
@@ -17,7 +17,9 @@ import {
 // (default OFF). These tests exercise the expanded config, so flip it on.
 const defaultSettings = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true } };
 import { t } from "../i18n";
-import { readDeviceSecret, isPassphraseLocked } from "../secrets-store";
+import { readDeviceSecret, isPassphraseLocked, loadSealed, saveSealed } from "../secrets-store";
+import * as secrets from "../secrets";
+import { type SealedSecret, sealDevice, sealPassphrase } from "../secrets";
 import { ToastProvider } from "../toast-context";
 import { expectExactLabelNames, expectNoHintInNamingLabel } from "../../test/hint-label";
 
@@ -452,6 +454,74 @@ describe("AiSection", () => {
     await waitFor(() => expect(isPassphraseLocked("anthropicApiKey")).toBe(true));
   });
 
+  // §609 M3: untick → the device re-seal is held open (the wrap flips only after it, so the
+  // passphrase fields stay up); "Save passphrase" then starts a newer write, so the device seal
+  // resolves false and must NOT flip the checkbox to device over the passphrase record.
+  it("a superseded unlock re-seal leaves the newer passphrase lock in place", async () => {
+    const key = "sk-ant-api03-have0000000000000";
+    const deviceSealed = await sealDevice("anthropicApiKey", key); // real ciphertext, before the spy
+    let releaseSeal: (s: SealedSecret) => void = () => {};
+    vi.spyOn(secrets, "sealDevice").mockReturnValueOnce(
+      new Promise<SealedSecret>((r) => {
+        releaseSeal = r;
+      }),
+    );
+    const settingsWithKey = { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: key } };
+    render(<AiSection lang="en-US" settings={settingsWithKey} onChange={vi.fn()} />);
+    const lock = () => screen.getByLabelText(/require a passphrase/i);
+    fireEvent.click(lock()); // tick → passphrase fields
+    fireEvent.change(screen.getByLabelText(/^passphrase$/i), { target: { value: "pw" } });
+    fireEvent.change(screen.getByLabelText(/confirm passphrase/i), { target: { value: "pw" } });
+    fireEvent.click(lock()); // untick → device re-seal starts, held open; wrap not flipped yet
+    expect(secrets.sealDevice).toHaveBeenCalledWith("anthropicApiKey", key);
+    expect(lock()).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: /save passphrase/i })); // newer write begins
+
+    await act(async () => {
+      releaseSeal(deviceSealed);
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Round 2: the superseded device seal shows what the store holds meanwhile; the passphrase
+    // save sets the wrap back to passphrase when it lands, so the END state is the lock, ticked.
+    await waitFor(() => {
+      expect(isPassphraseLocked("anthropicApiKey")).toBe(true);
+      expect(lock()).toBeChecked();
+    });
+  });
+
+  // §609 round 2 M2: a CLEAR (emptying the field) supersedes the untick re-seal. The store then
+  // holds nothing, so the lock shows device and nothing is marked stored — not stuck on passphrase.
+  it("a clear during the unlock re-seal leaves the lock on device and nothing stored", async () => {
+    const key = "sk-ant-api03-have0000000000000";
+    const deviceSealed = await sealDevice("anthropicApiKey", key); // real ciphertext, before the spy
+    let releaseSeal: (s: SealedSecret) => void = () => {};
+    vi.spyOn(secrets, "sealDevice").mockReturnValueOnce(
+      new Promise<SealedSecret>((r) => {
+        releaseSeal = r;
+      }),
+    );
+    function Harness() {
+      const [s, setS] = useState<Settings>({ ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: key } });
+      return <AiSection lang="en-US" settings={s} onChange={setS} />;
+    }
+    render(<Harness />);
+    const lock = () => screen.getByLabelText(/require a passphrase/i);
+    fireEvent.click(lock()); // tick
+    fireEvent.click(lock()); // untick → device re-seal starts, held open
+    expect(secrets.sealDevice).toHaveBeenCalledWith("anthropicApiKey", key);
+    fireEvent.change(screen.getByPlaceholderText(t("en-US", "aiApiKeyPlaceholder")), { target: { value: "" } });
+
+    await act(async () => {
+      releaseSeal(deviceSealed);
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(loadSealed("anthropicApiKey")).toBeNull();
+    expect(lock()).not.toBeChecked();
+    expect(screen.queryByRole("button", { name: /remove stored secret/i })).toBeNull();
+  });
+
   it("a mismatched confirm disables Save and shows the mismatch message", () => {
     const settingsWithKey = {
       ...defaultSettings,
@@ -519,12 +589,12 @@ describe("AiSection API-key validation", () => {
   // state, so React resets the DOM value to "" and the blur sees an empty key.
   // Lift state through a harness (the live SettingsView does the same) so the
   // typed value reaches the blur handler, while still spying every onChange call.
-  function renderAi(showToast = vi.fn()) {
+  function renderAi(showToast = vi.fn(), apiKey = "") {
     const onChange = vi.fn();
     function Harness() {
       const [s, setS] = useState<Settings>({
         ...defaultSettings,
-        ai: { ...defaultSettings.ai, enabled: true },
+        ai: { ...defaultSettings.ai, enabled: true, apiKey },
       });
       return (
         <ToastProvider value={{ showToast, showToastAction: showToast }}>
@@ -559,5 +629,57 @@ describe("AiSection API-key validation", () => {
     fireEvent.change(input, { target: { value: "sk-ant-api03-AbC123_def-456GHI789jkl" } });
     fireEvent.blur(input);
     expect(showToast).not.toHaveBeenCalled();
+  });
+
+  // §565 blank-first rule (§609 M4): emptying the field removes a stored device key — it used to
+  // stay sealed and rehydrate on the next load. A passphrase key is exempt (see below).
+  it("emptying the field removes a stored device-sealed key and hides Remove", async () => {
+    const key = "sk-ant-api03-have0000000000000";
+    saveSealed(await sealDevice("anthropicApiKey", key));
+    renderAi(vi.fn(), key);
+    const remove = () => screen.queryByRole("button", { name: /remove stored secret/i });
+    expect(remove()).not.toBeNull(); // control: the stored badge starts on
+    fireEvent.change(screen.getByPlaceholderText("sk-ant-..."), { target: { value: "" } });
+    expect(loadSealed("anthropicApiKey")).toBeNull();
+    expect(remove()).toBeNull();
+  });
+
+  // A LOCKED passphrase key shows "" here (its plaintext is never hydrated into settings), so a
+  // stray keystroke deleted again must not destroy it; "Remove stored secret" stays the way out.
+  it("typing into a locked key's blank field and deleting it keeps the passphrase record", async () => {
+    saveSealed(await sealPassphrase("anthropicApiKey", "sk-ant-api03-have0000000000000", "pw"));
+    renderAi(); // locked: settings hold ""
+    const input = screen.getByPlaceholderText("sk-ant-...");
+    expect(screen.getByLabelText(/require a passphrase/i)).toBeChecked();
+    fireEvent.change(input, { target: { value: "x" } });
+    fireEvent.change(input, { target: { value: "" } });
+    expect(isPassphraseLocked("anthropicApiKey")).toBe(true);
+    expect(screen.getByRole("button", { name: /remove stored secret/i })).toBeInTheDocument();
+  });
+
+  // §609: the typed key's device seal is still awaiting WebCrypto when the field is emptied
+  // (removeSealed). The late seal must neither write the ciphertext back nor re-arm "stored".
+  it("a key cleared while its seal is in flight stays cleared when the seal lands", async () => {
+    const validKey = "sk-ant-api03-race0000000000000";
+    const sealed = await sealDevice("anthropicApiKey", validKey); // real ciphertext, before the spy
+    let releaseSeal: (s: SealedSecret) => void = () => {};
+    vi.spyOn(secrets, "sealDevice").mockReturnValueOnce(
+      new Promise<SealedSecret>((r) => {
+        releaseSeal = r;
+      }),
+    );
+    renderAi();
+    const input = screen.getByPlaceholderText("sk-ant-...");
+    fireEvent.change(input, { target: { value: validKey } }); // seal starts, held open
+    expect(secrets.sealDevice).toHaveBeenCalledWith("anthropicApiKey", validKey);
+    fireEvent.change(input, { target: { value: "" } }); // emptied → removeSealed
+
+    await act(async () => {
+      releaseSeal(sealed);
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(loadSealed("anthropicApiKey")).toBeNull();
+    expect(screen.queryByRole("button", { name: /remove stored secret/i })).toBeNull();
   });
 });
