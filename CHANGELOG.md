@@ -8,6 +8,158 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.14.2] - 2026-09-28 "Deaver"
+
+A maintenance release. Typed text you had not yet clicked out of is kept when you close or reload
+the window, and data this version cannot read now pauses saving instead of being overwritten. The
+close-window recovery is so far tested in the browser with browser storage only; the desktop app
+and file, SharePoint and Turso projects are not yet verified. Also fixes to undo, AI chat plans,
+exports, documents, window layout, dialog sizes, bulk edit, Trends and the desktop app.
+
+### Fixed
+
+- **Unsaved edits on close.** Text you typed but had not yet clicked out of is now kept when you
+  close, reload or navigate away from the window. This covers:
+  - document headings, paragraphs, bullet lists and tables;
+  - the dashboard status summary;
+  - task table cells and the assignee;
+  - discipline, grade and project-template names;
+  - budget hours, actual hours and % complete.
+
+  Switching tabs or minimising still saves nothing until you leave the field.
+- **Changes lost because the save could not finish before the window closed.** The app now keeps a
+  copy of your latest unsaved changes in the browser when the window closes, and restores it the
+  next time you open the project. If the project was changed elsewhere in the meantime, a notice
+  lets you choose **Restore anyway** or **Discard**, so nothing is overwritten without asking. The
+  copy is kept in this browser's local storage whatever the project's storage, and it never
+  contains passwords or tokens. Copies left for other projects are listed in a notice with
+  Download and Discard; those older than 30 days are removed after the page loads, and a second
+  notice names them and still offers a download until it is closed. So far this is verified in the
+  browser with browser storage; the desktop app and file, SharePoint and Turso projects are not
+  yet verified.
+- **Saves finishing out of order.** When several edits were saved at once as the page closed, an
+  older save could finish last and overwrite a newer one on file or SharePoint storage. Saves to
+  one location now run one at a time, newest last; if the window closes before the newest one
+  runs, the close-window recovery above restores it.
+- **Reload while saving.** Reloading a project while a save was still running could write the
+  pre-reload data back over the saved project, so the screen and the saved project disagreed
+  until the next edit. Reload now waits for pending saves to finish first.
+- **Data this version cannot read.** When a project holds data this version cannot use at all (for
+  example project settings, documents or logs written by a newer version), the app now shows
+  "Saving paused" instead of silently dropping it and overwriting it on the next save. "Save
+  anyway" followed by "Discard the unopened data" saves over it, and that data is lost. This
+  covers JSON, CSV and Markdown project files (on disk; JSON and CSV also on SharePoint), browser
+  storage and Turso databases, and on all of them it also covers content that is all invalid, such
+  as a feature list or project status. A JSON project file (on disk or on
+  SharePoint) holding a document that cannot be safely read now opens and pauses saving the same
+  way; before, the whole project failed to open. Opening such a file with "Open storage file",
+  which keeps your current documents, does not pause saving.
+- **Loading a file with nothing in it.** A workspace file holding no records of its own (only the
+  default disciplines and grades) no longer replaces an open project without asking. Opening it
+  is refused and saving pauses, as for an empty read; Reload project asks before replacing.
+- **Cleared secrets stay cleared.** A secret you clear in Settings (the AI key, the dictation key,
+  the Jira, TimeLog or Turso token) now stays cleared. Before, if the old value was still being
+  encrypted when you cleared the field, it was written back afterwards, returned on the next reload,
+  and the "stored" indicator came back on. The value you typed last now wins; before, an earlier
+  keystroke could finish saving last and overwrite it. Emptying the AI key field now removes the
+  stored key (a passphrase-protected key is still kept; use "Remove stored secret"), and emptying
+  the dictation key field removes it even while it is still being saved.
+- **Browser storage and documents.** If a stored document could not be cleaned up on load, the next
+  save used to delete the project's documents, document history, activity log, budget history and
+  images from browser storage. That load now pauses saving instead, and the rest of the project
+  still loads.
+- **Undo after switching project.** Undo no longer reaches back into the project you just left.
+  Before, pressing Undo after switching could re-insert a row deleted in the previous project, or
+  overwrite a row in the current project with the previous project's content. Undo history now
+  belongs to the project it was made in, and is kept through Save As, Reload project and cancelled
+  dialogs.
+- **AI chat plans applied to the wrong project.** A plan the assistant staged for review is no
+  longer applied if the project changed since it was made, including when the new project has the
+  same name (for example after opening another storage file). Such a plan is replaced in the chat
+  by "This plan was made for a different project and was not applied." If the project changes
+  partway through applying, applying stops there, and the rows not yet applied are unticked and
+  show "Not applied — the project changed."
+- **Exports.**
+  - Both Export buttons now include every section switched on in Settings → Export, including
+    calendar events, knowledge items and insights, and both name the file after the project.
+    Calendar events are switched on by default, so default exports now include each meeting's
+    title, first date, repeat pattern and location; knowledge items and insights stay off unless
+    switched on.
+  - PDF, Word, PowerPoint and Excel exports show translated column headers (English and German)
+    instead of internal field names, and the section titles Budget, Roles & rates, Absences,
+    Shifts, Status report and Insights are translated. Columns holding an ID say so ("Role ID").
+    CSV and Markdown exports keep their field names.
+  - German exports now also translate an insight's type, severity and status, and a meeting's
+    repeat pattern, which read "Every 2 weeks · Mon, Wed" or "Monthly · 2nd Tue" (a meeting that
+    does not repeat reads "Never").
+  - An image whose file type is not allowed now reads "Image not shown — file type not allowed"
+    instead of appearing as missing (HTML/PDF) or as left out for size (Word/PowerPoint), and the
+    export no longer downloads it first.
+- **Documents.** While you edit a paragraph, a character counter appears near the 20,000-character
+  limit. A paragraph over the limit is no longer silently flattened to plain text: saving is refused
+  with a notice saying how much to remove, and your text and formatting stay in the editor. If the
+  window is closed, reloaded or navigated away first, it is saved as plain text so nothing is lost;
+  switching tabs keeps it as it is. Headings, lists and tables over their size limit are now refused
+  the same way, with a notice naming the limit, instead of being cut off without a word; Add row,
+  Add column and Add item are disabled at their limits, with the reason shown. If the window closes
+  first, they are saved cut to the limit.
+- **Image previews.** The document preview, the version-history preview and the image preview
+  window no longer download an image whose file type is not allowed; they show at once that its
+  format is not supported.
+- **Help for document images.** The help buttons on the image library and the image preview now
+  open the help about document images, rather than the general documents help. That help now also
+  explains the image preview: how to open it, stepping with Previous image and Next image, the
+  position counter, and what it shows when an image's data is missing or its format is not
+  supported.
+- **Meetings list.** A repeating meeting reads "Every 2 weeks" rather than "Every 2 week(s)".
+- **Window layout.** In the classic layout the header no longer makes the page scroll sideways
+  between 1024 and about 1390px wide: the search box narrows (to no less than 224px) instead.
+- **Dialog sizes.** The task form, the image preview, the notes window and the Help panel now
+  remember a size you resize them to.
+- **Bulk edit.** Its controls have names of their own ("Change Status", "New Status") instead of
+  repeating the column header, so screen readers and search-by-name no longer confuse them.
+- **Trends.** A snapshot taken while nothing is in scope (for example all tasks cancelled) no longer
+  records 0% complete: it records no figure, the completion sparkline shows a gap, and such a
+  snapshot never becomes the completion baseline. Existing snapshots are unchanged.
+- **Desktop app after an update.** If a copy of a different version is still running in the
+  background (for example after a crash), the desktop app no longer shows that other copy. It stops
+  with "Another version is still running" and explains how to end the other copy. This is not yet
+  verified on an installed build.
+
+### Changed
+
+- **SharePoint JSON files.** A project stored as JSON on SharePoint is now written in exactly the
+  same format as a local JSON file. Older files still open.
+- **Data.** New snapshots taken with nothing in scope store an empty completion figure (same Turso
+  column, no schema change).
+- **German wording.** The change dialog's resolution field now reads "Lösung / Begründung" (it
+  read "Begruendung"), and "Rollen & Raten" is now "Rollen & Sätze", which also renames the
+  matching Settings → Export switch, the export section and the Excel sheet. Two messages now use
+  the singular for one item ("1 Datensatz", "1 verknüpften Eintrag"), and in English no longer
+  say "record(s)".
+
+### Development
+
+- **The follow-up list's index is generated and checked.** It is rebuilt from the entry headings by
+  a script, and CI fails when it has drifted. The old hand-run recipe, which damaged the table, is
+  gone.
+- **Quality checks.** A scanner for duplicate control names no longer counts brackets inside
+  comments and keys files by their full path; a flaky editor test, caused by a race in the test
+  itself, is fixed; and three missing test pins are added. A new test keeps the feature list in
+  the docs in step with the in-app feature guide.
+- **Accurate reasons in code comments and docs.** Four wrong explanations are corrected wherever
+  they appeared, most widely the claim that the sample generator runs without a browser
+  environment. The check that keeps browser-only code out of scripts now also covers the AI
+  evaluation script.
+- **Close-window recovery tests.** An end-to-end test proves the recovery in Chromium with browser
+  storage. The desktop app and the file, SharePoint and Turso backends are tracked for
+  verification on a real target.
+- **New contributor references** for the budget and currency rules, the undo system, the desktop
+  app at runtime, and storage and recovery. The docs name check now also covers the desktop app's
+  source.
+- **Releases on the GitLab copy.** The daily sync to the read-only GitLab copy can now also create
+  each GitHub release there (notes and download links), once a release token is set on GitLab.
+
 ## [1.14.1] - 2026-09-26 "Deaver"
 
 A maintenance release: defect fixes across the AI Assistant, storage, calendar sync, dashboard and
