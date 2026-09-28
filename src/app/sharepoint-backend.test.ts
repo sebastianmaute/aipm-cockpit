@@ -167,6 +167,22 @@ describe("parseSharePointSiteUrl", () => {
 
 import { SharePointBackend } from "./sharepoint-backend";
 import type { Workspace } from "./storage";
+import { workspaceToJson } from "./workspace";
+
+// §635: forces the documents rich-field pass to throw (the no-DOM DOMPurify
+// failure), delegating to the real pass unless the flag is set. Reset after
+// every test that sets it, so no other test in this file sees it on.
+const richThrow = vi.hoisted(() => ({ on: false }));
+vi.mock("./document-rich-fields", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./document-rich-fields")>();
+  return {
+    ...actual,
+    sanitizeDocumentRichFields: (doc: Parameters<typeof actual.sanitizeDocumentRichFields>[0]) => {
+      if (richThrow.on) throw new TypeError("DOMPurify.sanitize is not a function");
+      return actual.sanitizeDocumentRichFields(doc);
+    },
+  };
+});
 
 const FAKE_LOCATION = {
   hostname: "contoso.sharepoint.com",
@@ -325,6 +341,22 @@ describe("SharePointBackend", () => {
     expect(be.lastImportDroppedRows).toBe(0);
   });
 
+  // §635: the strict sp-json load passes a diag, so a rich-field throw is
+  // recorded (and saving pauses on the load paths that call `reportFor`)
+  // instead of the whole load failing.
+  it("records a documents rich-field throw instead of failing the load (§635)", async () => {
+    server.use(http.get(CONTENT_RE, () => HttpResponse.json({ ...EMPTY_WORKSPACE, documents: [{ id: 1, title: "Status report", blocks: [{ type: "paragraph", html: "<p>reaches DOMPurify</p>" }], createdAt: "2026-08-06T00:00:00.000Z", updatedAt: "2026-08-06T00:00:00.000Z" }] })));
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
+    richThrow.on = true;
+    try {
+      const ws = await be.load();
+      expect(be.lastDecodeFailures).toEqual(["documents"]);
+      expect(ws.documents).toBeUndefined();
+    } finally {
+      richThrow.on = false;
+    }
+  });
+
   // §620 — a stored meta slice that PARSES but SANITIZES TO NOTHING (junk
   // `steeringCommittee`) used to be dropped silently on a JSON load, and the
   // next save wrote the file without it. `jsonToWorkspace` records the JSON key
@@ -408,7 +440,9 @@ describe("SharePointBackend", () => {
     await be.save(EMPTY_WORKSPACE);
     expect(captured?.url).toBe(CONTENT_URL);
     expect(captured?.method).toBe("PUT");
-    expect(body).toBe(JSON.stringify(EMPTY_WORKSPACE));
+    // §634: the same canonical serialisation as a local JSON file, schemaVersion included.
+    expect(body).toBe(workspaceToJson(EMPTY_WORKSPACE));
+    expect(JSON.parse(body)).toHaveProperty("schemaVersion");
     expect(captured?.headers.get("Content-Type")).toBe("application/json");
     expect(captured?.headers.get("Authorization")).toBe("Bearer fake-token");
   });

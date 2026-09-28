@@ -219,6 +219,9 @@ describe("jsonToWorkspace normalises every rich field, not only description", ()
 describe("jsonToWorkspace strict mode", () => {
   it("throws WorkspaceParseError on truncated JSON in strict mode", () => {
     expect(() => jsonToWorkspace('{"tasks":[', { strict: true })).toThrow(WorkspaceParseError);
+    // §635 relaxed strict only for a documents rich-field throw WITH a diag;
+    // a real parse failure must still throw when a diag is passed.
+    expect(() => jsonToWorkspace('{"tasks":[', { strict: true, diag: {} })).toThrow(WorkspaceParseError);
   });
   it("throws on wrong shape (missing tasks/raid) in strict mode", () => {
     expect(() => jsonToWorkspace('{"foo":1}', { strict: true })).toThrow(WorkspaceParseError);
