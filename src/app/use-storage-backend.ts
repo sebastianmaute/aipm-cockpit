@@ -47,6 +47,9 @@ export function projectErrorKey(err: unknown): TranslationKey | null {
   return "storageNotReady";
 }
 
+/** §641 — how many extra reads `reloadCurrentProject` makes when a save started while it read. */
+const RELOAD_REREAD_LIMIT = 2;
+
 export function useStorageBackend(args: UseStorageBackendArgs) {
   const {
     tasks, setTasks,
@@ -1196,14 +1199,24 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (reloadInFlightRef.current) return; // ignore a re-entrant click while loading
     reloadInFlightRef.current = true;
     try {
-      // ★★ §641 — WAIT FOR THE SAVES QUEUED BEFORE THE CLICK. The §627 queue's waiting slot starts its
-      //   save only when the running one settles, possibly after the read below returned: it then wrote
-      //   the pre-reload snapshot over what this reload just applied, and its `.then` moved the baseline
-      //   and the journal base onto that discarded snapshot. Waiting drops nothing — those saves land,
-      //   and the read sees them. (A debounced save not yet fired is dropped by the effect cleanup.)
-      const queuedSaves = whenSaved(backend);
-      if (queuedSaves) await queuedSaves; // ★ `null` when idle: the read then starts in the click's own tick, as before
-      const workspace = await backend.load();
+      // ★★ §641 — READ ONLY WHAT NO QUEUED SAVE WILL OVERWRITE. The §627 queue's waiting slot starts its
+      //   save only when the running one settles, possibly after the read returned: it then wrote the
+      //   pre-reload snapshot over what this reload just applied, and its `.then` moved the baseline and
+      //   the journal base onto that discarded snapshot. So wait for the queue before reading. Waiting
+      //   drops nothing — those saves land, and the read sees them.
+      // ★★ AND READ AGAIN IF A SAVE STARTED DURING THE READ (review I1 on §641). `holdDuring` does not
+      //   clear the save effect's debounce timer, so an edit made just before the click can fire its
+      //   save while `load()` is awaited; applying that read would split screen and file the same way.
+      //   From `load()` resolving to the apply below nothing yields, so a save not started by then is
+      //   dropped by the effect cleanup the apply's render runs. Bounded by `RELOAD_REREAD_LIMIT`.
+      let workspace: Workspace | null = null;
+      for (let reads = 0; ; reads += 1) {
+        const queuedSaves = whenSaved(backend);
+        if (queuedSaves) await queuedSaves; // ★ `null` when idle: the read then starts in the click's own tick, as before
+        if (isSupersededBackend()) break; // ★ review M1 — no read of a replaced instance; the §588 guard below drops the click
+        workspace = await backend.load();
+        if (!whenSaved(backend) || reads >= RELOAD_REREAD_LIMIT) break;
+      }
       // ★★★ §588 — A SETTINGS-DRIVEN REBUILD MAY HAVE REPLACED THE BACKEND WHILE WE AWAITED, and this
       //   closure still holds the one the click started against. Applying now would (a) stomp the live
       //   project with THIS instance's payload, (b) `setSettledBackend` the superseded instance, which
@@ -1215,7 +1228,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       //   single superseded resolution, not three defects. Do not split it into three.
       // ★ Nothing is emitted but the diagnostic: the click's outcome belongs to the backend the user
       //   is no longer on, and the live instance's own load effect owns the screen now.
-      if (isSupersededBackend()) {
+      if (workspace === null || isSupersededBackend()) { // `null` only when the §641 wait above saw the rebuild first
         logDiag("warn", "storage.supersededLoadDropped", { writer: "reloadCurrentProject", outcome: "resolved" });
         return;
       }

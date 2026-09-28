@@ -254,7 +254,9 @@ describe("whenSaved — the reload waits for every queued save (§641)", () => {
 
   it("is per backend: another backend's save does not hold it", async () => {
     const m = manual();
-    void enqueueSave({}, m.save("A"));
+    const saving = enqueueSave({}, m.save("A"));
     expect(whenSaved({})).toBeNull();
+    m.pending[0].resolve(); // ★ settle it, so its stall timer does not outlive the test
+    await saving;
   });
 });

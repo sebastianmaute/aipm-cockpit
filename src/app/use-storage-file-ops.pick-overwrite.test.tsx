@@ -66,6 +66,11 @@ vi.mock("./idb", async (importOriginal) => ({
 // Cross-tab plumbing and the per-project handle store: neither is on any path this file exercises,
 // and both reach for browser stores jsdom has no use for.
 vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn() }));
+// §641 — the REAL queue, observable: one test below holds `whenSaved` open to see what the pick does meanwhile.
+vi.mock("./save-queue", async (importOriginal) => {
+  const real = await importOriginal<typeof import("./save-queue")>();
+  return { ...real, whenSaved: vi.fn(real.whenSaved) };
+});
 vi.mock("./project-file-handles", () => ({
   getHandle: vi.fn().mockResolvedValue(null),
   saveHandle: vi.fn().mockResolvedValue(undefined),
@@ -154,6 +159,7 @@ import { TestProviders } from "./test-providers";
 import { UNLOAD_JOURNAL_PREFIX } from "./unload-journal";
 import { useStorageBackend } from "./use-storage-backend";
 import { useWorkspace } from "./workspace-context";
+import { whenSaved } from "./save-queue";
 
 /** The in-memory "disk": file name → its bytes. Every `FsHandle` below is a view onto one entry, so
  *  a write reaching the file system is observable here as a content change — the whole of §590. */
@@ -409,6 +415,27 @@ describe("§590 — the picked file already holds a project and the app is empty
   it("reports nothing when the user declines, because nothing was applied", async () => {
     await setupPick({ ...POPULATED(), confirmAnswer: false });
     expect(reportForSpy).not.toHaveBeenCalled();
+  });
+});
+
+// §641 — the accept branch re-points the SAME backend instance at the picked file. A save still queued
+// for the old file would otherwise run after the bind and write the pre-pick workspace over the project
+// the user chose to load. KILLED BY: dropping the `await` of `whenSaved` before `setBackendFileHandle`.
+describe("§641 — loading the picked file waits for the saves queued to the old one", () => {
+  it("binds the picked file only once the queue has drained", async () => {
+    let drain: (() => void) | null = null;
+    let boundWhenDrained: boolean | null = null;
+    vi.mocked(whenSaved).mockImplementationOnce(() => new Promise<void>((resolve) => {
+      drain = () => { boundWhenDrained = KV.has(HANDLE_KEY); resolve(); };
+    }));
+    const picking = setupPick({ ...POPULATED(), confirmAnswer: true });
+    await waitFor(() => expect(drain).not.toBeNull());
+    await new Promise((r) => setTimeout(r, 20)); // give an un-awaited bind the time to land
+    drain!();
+    await picking;
+    expect(boundWhenDrained).toBe(false);
+    expect(KV.has(HANDLE_KEY)).toBe(true);
+    expect(tasksInFile().map((x) => x.id)).toEqual([1, 2]);
   });
 });
 
