@@ -680,7 +680,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§450](#450-keys-in-both-dictionaries-dodge-plural-agreement-with-a-parenthetical-plural-and-every-detector-for-this-class-is-blind-to-them-by-construction--open) | Keys in both dictionaries dodge plural agreement with a parenthetical plural, and every detector for this class is blind to them by construction | found 2026-09-08 while measuring §415's disputed count | M-L — tier it: 8 activity keys, then the sentence keys, then the multi-count and unit-label cases; add a value-axis detector | **OPEN** |
 | [§451](#451-a-tree-scanning-i18n-test-sits-at-25s-against-the-20s-testtimeout-so-it-reds-under-load-and-its-red-looks-like-a-content-failure--open) | A tree-scanning i18n test sits at ~25s against the 20s testTimeout, so it reds under load and its red looks like a content failure | found 2026-09-08 in the pre-merge gate run for the §415 B fix | S — hoist the per-base regexes out of the line loop; do NOT raise the global timeout | **OPEN** |
 | [§452](#452-the-c1-chat-history-budget-is-deliberately-not-built-a-trim-saves-tokens-at-01x-and-pays-a-125x-rewrite-so-payback-needs-tens-of-further-turns--open) | The C1 chat-history budget is deliberately not built: a trim saves tokens at 0.1x and pays a 1.25x rewrite, so payback needs tens of further turns | decided 2026-09-09 while moving the caps onto a cost basis — the economics inverted when the guide-block cache split landed | N/A — a decision NOT to build; revisit only if the bursty-use case below becomes the common one | **OPEN** |
-| [§453](#453-the-image-preview-lightboxs-help-entry-never-describes-prevnext-stepping-the-position-counter-or-the-unavailable-and-blocked-states--open) | The image preview lightbox's Help entry never describes Prev/Next stepping, the position counter or the unavailable and blocked states | found 2026-09-09 wiring the §424 modal help icons | S — narrowed 2026-09-27 to one Help body in EN and DE, or a new preview entry | open |
+| [§453](#453-the-image-preview-lightboxs-help-entry-never-describes-prevnext-stepping-the-position-counter-or-the-unavailable-and-blocked-states--closed-2026-09-28) | The image preview lightbox's Help entry never describes Prev/Next stepping, the position counter or the unavailable and blocked states | found 2026-09-09 wiring the §424 modal help icons | S — narrowed 2026-09-27 to one Help body in EN and DE, or a new preview entry | **CLOSED** 2026-09-28 |
 | [§454](#454-asking-all-five-probes-in-one-reply-would-buy-5x-the-resolution-at-a-third-of-the-cost-but-partial-credit-is-a-new-outcome-shape-through-scoreresponse-hitrate-and-verdict--open) | Asking all five probes in ONE reply would buy 5x the resolution at a third of the cost, but partial credit is a new outcome shape through `scoreResponse`, `hitRate` and `verdict` | proposed 2026-09-09 during the six-run calibration of the AI prompt-quality harness — every lever that made retrieval harder measured as SPENT | M — a new outcome shape through `scoreResponse`, `hitRate` and `verdict` plus a restarted series; add it as the MEASUREMENT beside the single-probe gate, never as a replacement | **OPEN** |
 | [§455](#455-three-latent-defects-in-the-harness-response-parser-all-pre-existing-and-identical-across-the-liverequest-split--open) | Three latent defects in the harness response parser, all pre-existing and identical across the liveRequest split | found 2026-09-10 by the differential equivalence review of `0c03ee5a` — it was testing whether the extraction changed behaviour, and these fell out of the corpus | S — each is a one-line change, but each alters output that review just certified unchanged, so each needs its own test | **OPEN** |
 | [§456](#456-twelve-headerless-dialogs-deliberately-carry-no-help-icon-and-only-the-call-site-comments-record-why--open) | Twelve headerless dialogs deliberately carry no help icon, and only the call-site comments record why | recorded 2026-09-10 finishing the §424 sweep — 13 sites, 1 wired, 12 refused | N/A — a RECORD of deliberate absences; re-measure the term counts before reusing one | **OPEN** |
@@ -35635,9 +35635,19 @@ send and is worse than not caching at all.
 thread-resume frequency — the usage meter can now supply both halves, since it stores raw counts and
 prices them at read. Until someone runs that, this entry is arithmetic, not evidence.
 
-## 453. The image preview lightbox's Help entry never describes Prev/Next stepping, the position counter or the unavailable and blocked states — OPEN
+## 453. The image preview lightbox's Help entry never describes Prev/Next stepping, the position counter or the unavailable and blocked states — CLOSED 2026-09-28
 
-**Status:** open, narrowed 2026-09-27 to the preview half of gap 2. What is fixed, with its commit:
+**Status:** CLOSED 2026-09-28 on `docs/lightbox-help`. `helpSecDocumentAssetsBody` now ends with a
+paragraph on the preview dialog, in EN and DE: how it opens (Preview or the image's name on a row of the
+image library, or a click on an image in a document's preview), Previous image and Next image stepping through the list it was
+opened from and stopping at the first and last image, the position counter, and the two notices (data
+missing or not loadable, and a format no longer supported). `assetPreview` still opens
+`feature-document-assets`, so no map row changed. A test in `help-content.test.ts` builds the two button
+labels and the counter from the dialog's own keys (`assetPreviewPrev`, `assetPreviewNext`,
+`assetPreviewPosition`) and checks that the body contains them in EN and DE, plus the wording of both
+notices. Removing any one of those five phrases, in either language, fails it (10 of 10 mutants).
+
+**Original status:** open, narrowed 2026-09-27 to the preview half of gap 2. What is fixed, with its commit:
 1. Meeting series: 19cd4f89e wrote `feature-meeting-series` (EN + DE), and 131f385d8 wired
    `calendarEvent` to it.
 2. Images, library half: 19cd4f89e wrote `feature-document-assets` (EN + DE), and 53c030643 pointed
@@ -35660,15 +35670,13 @@ body in EN and DE, or write a preview entry and re-point `assetPreview`. Verifie
 `grep -n "assetPreviewPrev\|assetPreviewPosition\|assetPreviewUnavailable\|assetPreviewBlocked" src/app/asset-preview-modal.tsx`
 against `grep -n "helpSecDocumentAssetsBody" src/app/i18n.ts`.
 
-**Work item:** #289
-
 Reproduce the fixed rows: `grep -n "calendarEvent:\|taskTimeTracking:\|documentsRename:\|assetLibrary:\|assetPreview:\|notesWindow:\|aiSettings:" src/app/help-content.ts`.
 Everything below is the dated record of the gaps and is kept as written, apart from the commit ids,
 which now name the commits on `main`. ★ The heading was retitled on 2026-09-27 from "Four
 Help-CONTENT gaps the modal-help-icon slice surfaced but did not fill" when the entry was narrowed,
 so the "Four" the record below mentions refers to that old title.
 
-Original status: open — almost nothing in the original four read as it did as of 2026-09-10:
+Status as of 2026-09-10: open — almost nothing in the original four read as it did as of 2026-09-10:
 **gaps 1 and 3 are FILLED and their modals RE-WIRED; gap 2's PROSE is written but its three call
 sites still point somewhere else, so the failure mode gap 2 named is the one thing here still
 shipping; gap 4 was SETTLED on 2026-09-09; and a FIFTH gap was found on 2026-09-10 and is recorded

@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { HELP_ENTRIES, HELP_GROUP_ORDER, HELP_GROUP_LABEL, helpGroupOrder, MODAL_HELP } from "./help-content";
 import { allNavViews } from "./nav-config";
+import { loadI18n, t, type Lang } from "./i18n";
 
 describe("help-content backbone", () => {
   it("has unique entry ids", () => {
@@ -102,6 +103,23 @@ describe("MODAL_HELP", () => {
   it("points the image library and the image preview at the document-images entry", () => {
     expect(MODAL_HELP.assetLibrary).toBe("feature-document-assets");
     expect(MODAL_HELP.assetPreview).toBe("feature-document-assets");
+  });
+
+  // §453: the preview dialog opens this entry, so its body must describe the
+  // dialog, not only the library. The button labels and the counter are built
+  // from the dialog's own keys, so a renamed button fails here until the Help
+  // text follows it.
+  it.each<[Lang, string, string]>([
+    ["en-US", "data is missing", "no longer supported"],
+    ["de", "Fehlen die Daten", "nicht mehr unterstützt"],
+  ])("describes the image preview dialog in the document-images body (%s)", async (lang, missing, unsupported) => {
+    await loadI18n(lang);
+    const body = t(lang, "helpSecDocumentAssetsBody");
+    expect(body).toContain(t(lang, "assetPreviewPrev"));
+    expect(body).toContain(t(lang, "assetPreviewNext"));
+    expect(body).toContain(t(lang, "assetPreviewPosition", 2, 5));
+    expect(body).toContain(missing);
+    expect(body).toContain(unsupported);
   });
 
   it("wires every MODAL_HELP key, one call site each unless allowlisted", () => {
