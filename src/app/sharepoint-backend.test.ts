@@ -169,6 +169,21 @@ import { SharePointBackend } from "./sharepoint-backend";
 import type { Workspace } from "./storage";
 import { workspaceToJson } from "./workspace";
 
+// §635: forces the documents rich-field pass to throw (the no-DOM DOMPurify
+// failure), delegating to the real pass unless the flag is set. Reset after
+// every test that sets it, so no other test in this file sees it on.
+const richThrow = vi.hoisted(() => ({ on: false }));
+vi.mock("./document-rich-fields", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./document-rich-fields")>();
+  return {
+    ...actual,
+    sanitizeDocumentRichFields: (doc: Parameters<typeof actual.sanitizeDocumentRichFields>[0]) => {
+      if (richThrow.on) throw new TypeError("DOMPurify.sanitize is not a function");
+      return actual.sanitizeDocumentRichFields(doc);
+    },
+  };
+});
+
 const FAKE_LOCATION = {
   hostname: "contoso.sharepoint.com",
   sitePath: "/sites/Alpha",
@@ -331,6 +346,21 @@ describe("SharePointBackend", () => {
   // next save wrote the file without it. `jsonToWorkspace` records the JSON key
   // into `diag.decodeFailedSlices`; this backend's job is only to PUBLISH what
   // `load`'s `diag` collected, exactly like `lastLoadTruncation`.
+  // §635: the strict sp-json load passes a diag, so a rich-field throw is
+  // recorded and saving pauses, instead of the whole load failing.
+  it("records a documents rich-field throw instead of failing the load (§635)", async () => {
+    server.use(http.get(CONTENT_RE, () => HttpResponse.json({ ...EMPTY_WORKSPACE, documents: [{ id: 1, title: "Status report", blocks: [{ type: "paragraph", html: "<p>reaches DOMPurify</p>" }], createdAt: "2026-08-06T00:00:00.000Z", updatedAt: "2026-08-06T00:00:00.000Z" }] })));
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
+    richThrow.on = true;
+    try {
+      const ws = await be.load();
+      expect(be.lastDecodeFailures).toEqual(["documents"]);
+      expect(ws.documents).toBeUndefined();
+    } finally {
+      richThrow.on = false;
+    }
+  });
+
   it("publishes a slice the JSON load could not decode", async () => {
     server.use(http.get(CONTENT_RE, () => HttpResponse.json({ ...EMPTY_WORKSPACE, steeringCommittee: "not-an-object" })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);

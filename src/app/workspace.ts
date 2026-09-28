@@ -773,7 +773,7 @@ export function jsonToWorkspace(
         // rather than writing a near-empty artifact; rethrowing lets the outer
         // catch raise the same WorkspaceParseError("shape") it always did.
         // §635: a caller that passes a `diag` (the local JSON file and SharePoint
-        // JSON backends) wants the loss REPORTED so it can pause saving, as the
+        // JSON backends) wants the loss REPORTED so its full-apply loads can pause saving, as the
         // CSV, Markdown, IndexedDB and Turso loads already do, not a failed load.
         if (strict && !opts?.diag) throw err;
         // ★ Not silent, and now reported through BOTH channels. `logDiag` names

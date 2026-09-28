@@ -43209,7 +43209,10 @@ kind with `workspaceToJson(workspace)`, the codec the local JSON backend uses, s
 SharePoint as JSON carries `schemaVersion` and the canonical serialisation. `sharepoint-backend.test.ts`
 ("save constructs correct PUT URL and body for sp-json") pins the PUT body as `workspaceToJson` of the
 workspace and checks that it parses with a `schemaVersion` key. Loading is unchanged: `jsonToWorkspace`
-never required the key, so files written before the fix still load.
+never required the key, so files written before the fix still load. ★ `workspaceToJson` pretty-prints
+with two-space indentation, as a local JSON file always has, so the SharePoint file is larger than before;
+the save uses one simple PUT with no chunked upload, so a very large project reaches Graph's simple-upload
+size limit sooner.
 
 **Original status:** open 2026-09-28 — found while writing the storage reference page (§484). Verified by
 `grep -n "JSON.stringify(workspace)" src/app/sharepoint-backend.ts` against
@@ -43223,15 +43226,20 @@ so its file had no `schemaVersion` and differed byte-wise from a local JSON save
 **Status:** CLOSED 2026-09-28 on `fix/storage-followups`. In `jsonToWorkspace` (`workspace.ts`) the
 `documents` and `documentVersions` catch blocks now rethrow only when `strict` is set AND no `diag` was
 passed (`grep -n "strict && !opts?.diag" src/app/workspace.ts`). The local JSON file and SharePoint JSON
-backends pass both, so such a throw is now logged and recorded in `decodeFailedSlices`, and saving pauses
-("Saving paused" / "Save anyway") exactly as on the CSV, Markdown, IndexedDB and Turso loads. Callers
+backends pass both, so such a throw is now logged and recorded in `decodeFailedSlices`. On the load paths
+that apply the whole workspace (the load effect, reload and project swaps, which call `reportFor`) saving
+then pauses ("Saving paused" / "Save anyway") exactly as on the CSV, Markdown, IndexedDB and Turso loads.
+★ "Open storage file" (`onOpenStorageFile` in `use-storage-file-ops.ts`) calls `reportImportFor`, which
+never raises the decode pause, so there a failure that used to be loud is now quiet. It loses nothing:
+that path applies only tasks and RAID and keeps the live documents, so the file's documents were never
+going to be used. Callers
 with no accumulator (the sample generator, demo data, native import, version-history restore) still fail
 loudly. `workspace.documents.test.ts` pins both halves for both slices: "reports instead of throwing when
 strict comes WITH a diag (§635)" and "STILL throws in strict mode".
 
 **Original status:** open 2026-09-28 — found while writing the storage reference page (§484). Both catch
 blocks began `if (strict) throw err;` (`grep -n "if (strict) throw err" src/app/workspace.ts` → 2), and
-the two file backends load with `{ strict: true, diag }` (`grep -rn "strict: true, diag" src/app`), so a
+the two file backends load with `{ strict: true, diag }` (`grep -rn "strict: true, diag" src/app | grep -v test`), so a
 rich-field throw there failed the whole load ("load failed") and never reached the pause. §620's closure
 said such a throw "is contained and recorded"; that held for non-strict callers only.
 
@@ -43259,7 +43267,7 @@ against a live database and pins it in `documents-images-interactive.spec.ts` ("
 the insert — and the batch still COMMITS around it"; that spec skips without a database, so CI never
 re-checks it). The code path was checked by `grep -n "isTransactional(stmts)) await rollbackBestEffort" src/app/turso-pipeline.ts`
 (the ROLLBACK is sent after the results are read, then the error is thrown); the commit-anyway batch behaviour
-itself is `never machine-verified` in this session.
+itself was never machine-verified in this session.
 
 **Work item:** #464
 
@@ -43271,7 +43279,8 @@ minus the rejected rows.
 
 What would close it: send the save as a Hrana `batch` whose `COMMIT` step runs only if every earlier step
 succeeded, with a `ROLLBACK` step otherwise, then verify it against a live database (the spec above, run
-with credentials). It changes the Turso transport, so it was kept out of 1.14.2 by owner decision.
+with credentials). It changes the Turso transport, so the owner decided on 2026-09-28 to leave it out of
+the release then being prepared, and to fix only the comment (§636).
 
 Size M.
 

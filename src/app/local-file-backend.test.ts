@@ -18,6 +18,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const kv = vi.hoisted(() => new Map<string, unknown>());
 
+// §635: forces the documents rich-field pass to throw (the no-DOM DOMPurify
+// failure), delegating to the real pass unless the flag is set. Reset after
+// every test that sets it, so no other test in this file sees it on.
+const richThrow = vi.hoisted(() => ({ on: false }));
+vi.mock("./document-rich-fields", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./document-rich-fields")>();
+  return {
+    ...actual,
+    sanitizeDocumentRichFields: (doc: Parameters<typeof actual.sanitizeDocumentRichFields>[0]) => {
+      if (richThrow.on) throw new TypeError("DOMPurify.sanitize is not a function");
+      return actual.sanitizeDocumentRichFields(doc);
+    },
+  };
+});
+
 // ★★ `idbGet` REALLY DOES REJECT in the browser — `openIdb` rejects when there is
 // no `indexedDB` at all, and on a store error. Nothing else in this file can reach
 // that path, so it gets an explicit lever rather than a contrived handle.
@@ -242,6 +257,24 @@ describe("LocalFileBackend load() §620 decode failures (JSON)", () => {
   beforeEach(() => {
     kv.clear();
     idbGetError.current = null;
+  });
+
+  // §635: a strict JSON load WITH a diag records a rich-field throw instead
+  // of failing the whole load, so saving pauses like on every other backend.
+  it("records a documents rich-field throw instead of failing the load (§635)", async () => {
+    const be = new LocalFileBackend("local-json");
+    await be.setHandle(
+      fakeHandle({ text: JSON.stringify({ tasks: [{ id: 7, title: "Kept" }], raid: [], documents: [{ id: 1, title: "Status report", blocks: [{ type: "paragraph", html: "<p>reaches DOMPurify</p>" }], createdAt: "2026-08-06T00:00:00.000Z", updatedAt: "2026-08-06T00:00:00.000Z" }] }) }),
+    );
+    richThrow.on = true;
+    try {
+      const ws = await be.load();
+      expect(be.lastDecodeFailures).toEqual(["documents"]);
+      expect(ws.tasks.map((t) => t.id)).toEqual([7]);
+      expect(ws.documents).toBeUndefined();
+    } finally {
+      richThrow.on = false;
+    }
   });
 
   it("publishes the slice a JSON load could not decode", async () => {
