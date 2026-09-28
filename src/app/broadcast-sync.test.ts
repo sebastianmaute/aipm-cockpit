@@ -23,13 +23,13 @@ describe("useBroadcastSync", () => {
   // workspace with empty state, which the main window then persisted — wiping
   // the local file. Only real post-mount changes may broadcast.
   it("does NOT broadcast the initial value on mount", () => {
-    renderHook(() => useBroadcastSync("tasks", [] as number[], () => {}));
+    renderHook(() => useBroadcastSync("tasks", [] as number[], () => {}, true, "p"));
     expect(posted).toHaveLength(0);
   });
 
   it("broadcasts a value change that happens after mount", () => {
     const { rerender } = renderHook(
-      ({ v }: { v: number[] }) => useBroadcastSync("tasks", v, () => {}),
+      ({ v }: { v: number[] }) => useBroadcastSync("tasks", v, () => {}, true, "p"),
       { initialProps: { v: [] as number[] } },
     );
     expect(posted).toHaveLength(0);
@@ -41,7 +41,7 @@ describe("useBroadcastSync", () => {
   it("does NOT broadcast a post-mount change when canSend is false", () => {
     const { rerender } = renderHook(
       ({ v }: { v: number[] }) =>
-        useBroadcastSync("tasks", v, () => {}, /* canSend */ false),
+        useBroadcastSync("tasks", v, () => {}, /* canSend */ false, "p"),
       { initialProps: { v: [] as number[] } },
     );
     rerender({ v: [1] });
@@ -50,7 +50,7 @@ describe("useBroadcastSync", () => {
 
   it("still broadcasts post-mount changes when canSend defaults to true", () => {
     const { rerender } = renderHook(
-      ({ v }: { v: number[] }) => useBroadcastSync("tasks", v, () => {}),
+      ({ v }: { v: number[] }) => useBroadcastSync("tasks", v, () => {}, true, "p"),
       { initialProps: { v: [] as number[] } },
     );
     rerender({ v: [2] });
@@ -64,7 +64,7 @@ describe("useBroadcastSync", () => {
     type Props = { v: Meta | undefined };
     const next: Meta = { name: "Gemini", code: "GMN" };
     const { rerender } = renderHook(
-      ({ v }: Props) => useBroadcastSync("project", v, () => {}),
+      ({ v }: Props) => useBroadcastSync("project", v, () => {}, true, "p"),
       { initialProps: { v: undefined } as Props },
     );
     expect(posted).toHaveLength(0);
@@ -107,17 +107,90 @@ describe("useBroadcastSync apply path", () => {
         undefined,
         (v) => applied.push(v),
         /* canSend */ false,
+        "p",
       ),
     );
     // Sender: the main window broadcasts a project change.
     type Props = { v: Meta | undefined };
     const { rerender } = renderHook(
-      ({ v }: Props) => useBroadcastSync<Meta | undefined>("project", v, () => {}),
+      ({ v }: Props) => useBroadcastSync<Meta | undefined>("project", v, () => {}, true, "p"),
       { initialProps: { v: undefined } as Props },
     );
     rerender({ v: next });
 
     expect(applied).toContainEqual(next);
+  });
+});
+
+// §642 — the channel is one per origin, so two MAIN windows on different projects both hear every
+// message. Without a project scope, editing tasks in project A replaced project B's task list in
+// the other window, and B's autosave then wrote A's tasks into B.
+describe("useBroadcastSync project scope (§642)", () => {
+  function installBus() {
+    const listeners: ((ev: MessageEvent) => void)[] = [];
+    class BusChannel {
+      constructor(public name: string) {}
+      postMessage(msg: unknown) {
+        for (const l of [...listeners]) l({ data: msg } as MessageEvent);
+      }
+      addEventListener(_type: string, cb: (ev: MessageEvent) => void) {
+        listeners.push(cb);
+      }
+      removeEventListener(_type: string, cb: (ev: MessageEvent) => void) {
+        const i = listeners.indexOf(cb);
+        if (i >= 0) listeners.splice(i, 1);
+      }
+      close() {}
+    }
+    vi.stubGlobal("BroadcastChannel", BusChannel as unknown as typeof BroadcastChannel);
+  }
+
+  function sendFrom(scope: string, value: number[]) {
+    const { rerender } = renderHook(
+      ({ v }: { v: number[] }) => useBroadcastSync("tasks", v, () => {}, true, scope),
+      { initialProps: { v: [] as number[] } },
+    );
+    rerender({ v: value });
+  }
+
+  it("does not apply a message sent for another project", () => {
+    installBus();
+    const applied: number[][] = [];
+    renderHook(() => useBroadcastSync("tasks", [] as number[], (v) => applied.push(v), true, "project-b"));
+    sendFrom("project-a", [1]);
+    expect(applied).toEqual([]);
+  });
+
+  it("still applies a message sent for the same project", () => {
+    installBus();
+    const applied: number[][] = [];
+    renderHook(() => useBroadcastSync("tasks", [] as number[], (v) => applied.push(v), true, "project-a"));
+    sendFrom("project-a", [1]);
+    expect(applied).toEqual([[1]]);
+  });
+
+  it("follows a scope change: after switching project, the old project's messages are dropped", () => {
+    installBus();
+    const applied: number[][] = [];
+    // ★ STABLE callback and value, like the real `setTasks`/state: a fresh arrow per render
+    // re-subscribes on its own, which hides a listener that fails to follow the new scope.
+    const apply = (v: number[]) => { applied.push(v); };
+    const initial: number[] = [];
+    const { rerender } = renderHook(
+      ({ scope }: { scope: string }) => useBroadcastSync("tasks", initial, apply, true, scope),
+      { initialProps: { scope: "project-a" } },
+    );
+    rerender({ scope: "project-b" });
+    sendFrom("project-a", [1]);
+    sendFrom("project-b", [2]);
+    expect(applied).toEqual([[2]]);
+  });
+
+  it("tags every outgoing message with the sender's scope", () => {
+    posted.length = 0;
+    vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel as unknown as typeof BroadcastChannel);
+    sendFrom("project-a", [1]);
+    expect(posted).toEqual([expect.objectContaining({ kind: "tasks", value: [1], scope: "project-a" })]);
   });
 });
 

@@ -1158,6 +1158,30 @@ describe("useStorageBackend — broadcast send gating", () => {
       expect(call[3]).toBe(false);
     }
   });
+
+  // §642 — the scope must be the OPEN project's key, not a constant: two windows on different
+  // projects must pass different scopes, or each applies (and autosaves) the other's slices.
+  it("scopes every useBroadcastSync call to the open project (§642)", () => {
+    const scopesFor = (projectId: string, isPopout = false) => {
+      window.localStorage.removeItem("aipm-cockpit:projects");
+      saveRegistry({ currentProjectId: projectId, projects: [{ id: projectId, name: projectId, code: "SC", storageConfig: { kind: "browser" } }] });
+      vi.clearAllMocks();
+      (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+      const { unmount } = renderBackend(makeArgs({ isPopout }));
+      const calls = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls;
+      unmount();
+      expect(calls.length).toBeGreaterThanOrEqual(17);
+      return new Set(calls.map((c) => c[4]));
+    };
+    try {
+      expect(scopesFor("proj-scope-a")).toEqual(new Set(["proj-scope-a"]));
+      expect(scopesFor("proj-scope-b")).toEqual(new Set(["proj-scope-b"]));
+      // A pop-out of that project resolves the same key, so main-window-to-pop-out sync still works.
+      expect(scopesFor("proj-scope-b", true)).toEqual(new Set(["proj-scope-b"]));
+    } finally {
+      window.localStorage.removeItem("aipm-cockpit:projects");
+    }
+  });
 });
 
 // ── Activity log reaches every workspace-assembly site ───────────────────────

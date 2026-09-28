@@ -14,6 +14,11 @@
 //   bail out on reference equality instead of re-broadcasting.
 // - When `canSend` is false, this instance receives but never broadcasts —
 //   used by popout/mirror windows to stay in sync without pushing state back.
+// - ★★ §642 — every message carries the sender's `scope` (the project key) and a
+//   receiver drops any message whose scope differs from its own. The channel is
+//   shared by EVERY window of the origin, so two main windows on different
+//   projects hear each other: unscoped, an edit in project A replaced project B's
+//   slice in the other window, and B's autosave then wrote A's data into B.
 
 import { useEffect, useRef } from "react";
 import type { AppView } from "./nav-config";
@@ -23,6 +28,7 @@ const CHANNEL_NAME = "aipm-cockpit:sync";
 type SyncMessage<T> = {
   clientId: string;
   kind: string;
+  scope: string;
   value: T;
 };
 
@@ -37,7 +43,8 @@ export function useBroadcastSync<T>(
   kind: string,
   value: T,
   applyIncoming: (next: T) => void,
-  canSend: boolean = true,
+  canSend: boolean,
+  scope: string,
 ): void {
   const channelRef = useRef<BroadcastChannel | null>(null);
   const clientIdRef = useRef<string>("");
@@ -63,7 +70,7 @@ export function useBroadcastSync<T>(
 
     const onMessage = (ev: MessageEvent<SyncMessage<T>>) => {
       const msg = ev.data;
-      if (!msg || msg.clientId === clientIdRef.current || msg.kind !== kind) {
+      if (!msg || msg.clientId === clientIdRef.current || msg.kind !== kind || msg.scope !== scope) {
         return;
       }
       lastSeenRef.current = msg.value;
@@ -76,7 +83,7 @@ export function useBroadcastSync<T>(
       channel.close();
       channelRef.current = null;
     };
-  }, [kind, applyIncoming]);
+  }, [kind, applyIncoming, scope]);
 
   useEffect(() => {
     if (!canSend) return;
@@ -90,10 +97,11 @@ export function useBroadcastSync<T>(
     const msg: SyncMessage<T> = {
       clientId: clientIdRef.current,
       kind,
+      scope,
       value,
     };
     channel.postMessage(msg);
-  }, [kind, value, canSend]);
+  }, [kind, value, canSend, scope]);
 }
 
 // Popout-capable subset of the `AppView` union in nav-config.ts. Kept in
