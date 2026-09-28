@@ -217,7 +217,9 @@ journal (`grep -n "UNLOAD_JOURNAL_PREFIX =" src/app/unload-journal.ts`).
   last overwrote a newer one.
 - **Reads wait for queued saves (§641).** `reloadCurrentProject` and the picker's load-instead
   branch wait for `whenSaved(backend)` (`save-queue.ts`) before reading or re-binding. The reload
-  reads again, at most twice more (`RELOAD_REREAD_LIMIT`), if a save started while it read.
+  reads again, at most twice more (`RELOAD_REREAD_LIMIT`), if a save started while it read. If the
+  backend was replaced while it waited (`isSupersededBackend`), the read is skipped and the §588
+  guard drops the click.
 - **IndexedDB** orders its transactions (§627).
 
 ## The six write paths
