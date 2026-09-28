@@ -149,6 +149,120 @@ afterEach(() => {
   Reflect.deleteProperty(document, "visibilityState");
 });
 
+// §627 — several dirty drafts committing while the page hides each start a full save at once. On the
+// file and SharePoint backends nothing ordered those writes, so an older snapshot finishing last
+// overwrote a newer one. The fake backend below settles saves by hand, and the assertions are on what
+// was PERSISTED last, not on which saves were started.
+describe("§627 — saves to one backend are serialised, newest snapshot last", () => {
+  function manualSaves(backend: FakeBackend) {
+    const persisted: number[][] = [];
+    const pending: Array<() => void> = [];
+    backend.save.mockImplementation((ws: { tasks: Task[] }) => new Promise<void>((resolve) => {
+      pending.push(() => { persisted.push(ws.tasks.map((x) => x.id)); resolve(); });
+    }));
+    /** Settle every started save NEWEST FIRST — the order that used to lose the newest snapshot. */
+    async function settleNewestFirst() {
+      while (pending.length > 0) {
+        const batch = pending.splice(0).reverse();
+        for (const settle of batch) settle();
+        await advance(0);
+      }
+    }
+    return { persisted, pending, settleNewestFirst };
+  }
+  const task = (id: number) => ({ id, taskName: `T${id}` } as unknown as Task);
+
+  it("(a) three commits while hiding: one save runs, the newest replaces the waiting one, and it is persisted last", async () => {
+    const backend = makeBackend(0);
+    createBackendMock.mockReturnValue(backend);
+    const saves = manualSaves(backend);
+    const { result } = render();
+    await advance(100);
+
+    hideTab(); // from here every save effect run flushes at once
+    await act(async () => { result.current.setTasks([task(1), task(2)]); });
+    await act(async () => { result.current.setTasks([task(1), task(2), task(3)]); });
+    await act(async () => { result.current.setTasks([task(1), task(2), task(3), task(4)]); });
+    expect(saves.pending).toHaveLength(1); // the other two wait, and the newer replaced the older
+
+    await saves.settleNewestFirst();
+    expect(saves.persisted.at(-1)).toEqual([1, 2, 3, 4]);
+    expect(saves.persisted).toEqual([[1, 2], [1, 2, 3, 4]]);
+    expect(showToast).not.toHaveBeenCalledWith("error", expect.anything());
+  });
+
+  it("(b) a failed save does not strand the one waiting behind it", async () => {
+    const backend = makeBackend(0);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(100);
+    const persisted: number[][] = [];
+    let failFirst: (e: Error) => void = () => {};
+    backend.save
+      .mockImplementationOnce(() => new Promise<void>((_, reject) => { failFirst = reject; }))
+      .mockImplementation((ws: { tasks: Task[] }) => { persisted.push(ws.tasks.map((x) => x.id)); return Promise.resolve(); });
+
+    hideTab();
+    await act(async () => { result.current.setTasks([task(1), task(2)]); });
+    await act(async () => { result.current.setTasks([task(1), task(2), task(3)]); });
+    expect(backend.save).toHaveBeenCalledTimes(1);
+    await act(async () => { failFirst(new Error("disk full")); });
+    await advance(0);
+    expect(backend.save).toHaveBeenCalledTimes(2);
+    expect(persisted).toEqual([[1, 2, 3]]);
+  });
+
+  it("(c) a replaced save reports nothing: the failure of the save that replaced it is the last outcome", async () => {
+    const backend = makeBackend(0);
+    createBackendMock.mockReturnValue(backend);
+    const onStorageOutcome = vi.fn();
+    const { result } = render({ ...makeArgs(), onStorageOutcome });
+    await advance(100);
+    const settle: Array<{ ok: () => void; fail: (e: Error) => void }> = [];
+    backend.save.mockImplementation(() => new Promise<void>((ok, fail) => { settle.push({ ok, fail }); }));
+
+    hideTab();
+    await act(async () => { result.current.setTasks([task(1), task(2)]); });
+    await act(async () => { result.current.setTasks([task(1), task(2), task(3)]); }); // waits
+    await act(async () => { result.current.setTasks([task(1), task(2), task(3), task(4)]); }); // replaces it
+    onStorageOutcome.mockClear();
+    await act(async () => { settle[0].ok(); });
+    await advance(0);
+    expect(settle).toHaveLength(2);
+    await act(async () => { settle[1].fail(new Error("disk full")); });
+    await advance(0);
+    expect(onStorageOutcome.mock.calls.map((c) => (c[0] === null ? null : String(c[0])))).toEqual([null, "Error: disk full"]);
+  });
+
+  it("(d) the pre-switch flush waits behind a save in flight to the same backend", async () => {
+    saveRegistry(addProject(emptyRegistry(), { id: "target", name: "Target", code: "T", storageConfig: { kind: "browser" } }, false));
+    const current = makeBackend(0);
+    const target = makeBackend(0, "resolve", STORED_B);
+    createBackendMock.mockReturnValueOnce(current).mockReturnValue(target);
+    const { result } = render();
+    await advance(100);
+    const settle: Array<() => void> = [];
+    current.save.mockImplementation(() => new Promise<void>((ok) => { settle.push(ok); }));
+
+    await act(async () => { result.current.setTasks(EDIT); });
+    await advance(600); // the debounced save is in flight
+    expect(current.save).toHaveBeenCalledTimes(1);
+
+    let switched = false;
+    await act(async () => { void result.current.switchToProject("target").then(() => { switched = true; }); });
+    await advance(50);
+    expect(current.save).toHaveBeenCalledTimes(1); // the flush waits: it would otherwise race the save in flight
+    expect(switched).toBe(false);
+
+    await act(async () => { settle[0](); });
+    await advance(0);
+    expect(current.save).toHaveBeenCalledTimes(2);
+    await act(async () => { settle[1](); });
+    await advance(50);
+    expect(switched).toBe(true);
+  });
+});
+
 describe("§586 — no save before a load for the current backend has succeeded", () => {
   it("(a) a slow load: nothing is saved while it is pending, and an edit after it lands saves normally", async () => {
     const backend = makeBackend(2000);
