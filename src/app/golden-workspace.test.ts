@@ -26,6 +26,7 @@ import {
   workspaceToCsv,
   workspaceToMarkdown,
 } from "./storage";
+import type { ImportDiag } from "./csv-codecs";
 
 const repoRoot = join(import.meta.dirname, "..", "..");
 const fixturesDir = join(import.meta.dirname, "__fixtures__");
@@ -82,5 +83,27 @@ describe("golden workspace serializer bytes (storage path, no export config)", (
     expect((goldenCsv.match(/\n/g) ?? []).length).toBe(crlfCount); // no lone LF
     expect(crlfCount).toBeGreaterThan(0);
     expect(goldenMd.includes("\r")).toBe(false);
+  });
+});
+
+// ★ §630 no-false-positive guard on REAL files. Every name in
+// `decodeFailedSlices` pauses saving, so a future sanitizer tightening that
+// starts dropping a value these curated fixtures carry would pause saves on
+// users' real files — this turns red first.
+// ★★ Covers only the slices these fixtures hold: 9 of the 13. They carry no
+// features, fieldVisibility, settingsOverrides or budgetHistory section, so a
+// false report on one of those stays green here; the meta-slices round-trip
+// tests (csv-/markdown-codecs.meta-slices.test.ts) cover all 13.
+describe("golden workspace fixtures decode with no meta slice reported (§630)", () => {
+  test("csvToWorkspace reports nothing for the CSV fixture", () => {
+    const diag: ImportDiag = { droppedRows: 0 };
+    csvToWorkspace(goldenCsv, diag);
+    expect(diag.decodeFailedSlices).toBeUndefined();
+  });
+
+  test("markdownToWorkspace reports nothing for the Markdown fixture", () => {
+    const diag: ImportDiag = { droppedRows: 0 };
+    markdownToWorkspace(goldenMd, diag);
+    expect(diag.decodeFailedSlices).toBeUndefined();
   });
 });

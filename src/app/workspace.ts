@@ -44,14 +44,14 @@ import { sanitizeBudgetHistory, type BudgetHistoryEntry } from "./budget-history
 import { sanitizeProjectDocumentsWithDiag, type DocTruncationDiag, type ProjectDocument } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersionsWithDiag, type DocVersion } from "./document-versions";
-import { sanitizedToNothing } from "./meta-slice-decode";
+import { noteDecodeFailure, noteIfSanitizedToNothing } from "./meta-slice-decode";
 // ★ logDiag is a no-op when `window` is undefined and swallows its own errors,
 // so importing it here cannot break a script that loads this module with no DOM
 // (ai-eval.ts, update-ooxml-manifest.ts; the sample generator installs JSDOM
 // first — open-followups §151).
 import { logDiag } from "./diagnostics";
 import type { SettingsOverrides } from "./settings-types";
-import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
+import { sanitizeOverridesOrNone, hasAnyOverride } from "./settings-overrides";
 import { type CalendarEvent, sanitizeLoadedCalendarEvent } from "./calendar-event";
 import { sanitizeDocumentAsset, type DocumentAsset } from "./document-asset";
 import {
@@ -676,12 +676,11 @@ export function jsonToWorkspace(
     //  and the demo seed pass none and never raise a pause.
     //  ★★ `sanitizedToNothing` compares INPUT with output, so a stored `[]`, `{}`
     //   or blank-string record (which also sanitizes to nothing) stays silent.
+    //  ★ The rule and the push are the shared meta-slice-decode helpers the
+    //   CSV/Markdown codecs use (§630); this closure only binds `decodeDiag`.
     const decodeDiag = opts?.diag;
-    const noteIfDropped = (key: string, rawValue: unknown, sanitized: unknown): void => {
-      if (decodeDiag && sanitizedToNothing(rawValue, sanitized)) {
-        (decodeDiag.decodeFailedSlices ??= []).push(key);
-      }
-    };
+    const noteIfDropped = (key: string, rawValue: unknown, sanitized: unknown): void =>
+      noteIfSanitizedToNothing(key, rawValue, sanitized, decodeDiag);
     // ★ status is assigned UNCONDITIONALLY above (never gated on an `if`), so a
     // drop never removes the key — it just leaves `status: {}`, same shape as an
     // absent status field. Still worth recording: the next save writes that {}
@@ -786,7 +785,7 @@ export function jsonToWorkspace(
         });
         // §620: a THROW is also a slice this backend never got to keep — Turso
         // reports this same class of loss through the accumulator too.
-        if (decodeDiag) (decodeDiag.decodeFailedSlices ??= []).push("documents");
+        noteDecodeFailure("documents", decodeDiag);
       }
     }
     // Additive: sanitize incoming document version history when present. Same
@@ -819,15 +818,15 @@ export function jsonToWorkspace(
           message: err instanceof Error ? err.message : String(err),
         });
         // §620: same as documents — a THROW is a slice this backend lost too.
-        if (decodeDiag) (decodeDiag.decodeFailedSlices ??= []).push("documentVersions");
+        noteDecodeFailure("documentVersions", decodeDiag);
       }
     }
     // Additive: sanitize incoming per-project policy overrides when present;
     // an all-junk override sanitizes to {} (no valid sub-key) and the key stays off.
     if (p.settingsOverrides !== undefined) {
-      const overrides = sanitizeSettingsOverrides(p.settingsOverrides);
-      if (hasAnyOverride(overrides)) raw.settingsOverrides = overrides;
-      noteIfDropped("settingsOverrides", p.settingsOverrides, hasAnyOverride(overrides) ? overrides : undefined);
+      const overrides = sanitizeOverridesOrNone(p.settingsOverrides);
+      if (overrides) raw.settingsOverrides = overrides;
+      noteIfDropped("settingsOverrides", p.settingsOverrides, overrides);
     }
     // Additive: sanitize incoming calendar events when present; garbage rows
     // are dropped individually (sanitizeLoadedCalendarEvent never throws), and an

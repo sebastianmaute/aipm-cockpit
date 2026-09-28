@@ -44,8 +44,9 @@ export function sanitizedToNothing(raw: unknown, sanitized: unknown): boolean {
 export type DecodeFailureDiag = Pick<DocTruncationDiag, "decodeFailedSlices">;
 
 /** Push `key` into the accumulator. A no-op without a `diag`. The one writer
- *  both helpers below share. */
-function noteDecodeFailure(key: string, diag: DecodeFailureDiag | undefined): void {
+ *  every decoder shares: both helpers below, and the THROW paths of
+ *  `jsonToWorkspace`, the IndexedDB load and Turso's `rowsToWorkspace`. */
+export function noteDecodeFailure(key: string, diag: DecodeFailureDiag | undefined): void {
   if (diag) (diag.decodeFailedSlices ??= []).push(key);
 }
 

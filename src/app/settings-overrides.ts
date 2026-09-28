@@ -156,3 +156,12 @@ export function hasAnyOverride(o?: SettingsOverrides): boolean {
     (o.nextActions !== undefined || o.notifications !== undefined || o.timezone !== undefined)
   );
 }
+
+/** Sanitize, then fold an override-less result to undefined INSIDE the sanitize
+ *  step, so an all-junk override counts as "sanitized to nothing" (section 617)
+ *  -- the one judgement jsonToWorkspace and the CSV/Markdown decoders share for
+ *  this slice. One argument, so it is safe to pass point-free. */
+export function sanitizeOverridesOrNone(raw: unknown): SettingsOverrides | undefined {
+  const o = sanitizeSettingsOverrides(raw);
+  return hasAnyOverride(o) ? o : undefined;
+}
