@@ -44,6 +44,7 @@ before your first edit — the rest is reference, reachable from here.
 | [budget](docs/AGENTS/budget.md) | the EUR boundary (`fx.ts`) · plan currency on load · budget follows plan · earned value · the Budget panel's cell layer |
 | [undo](docs/AGENTS/undo.md) | what is undoable · creates · label registrations · rows vs patches · the redo arm |
 | [desktop](docs/AGENTS/desktop.md) | Electron runtime · port · sign-in popup · print · PDF · updater |
+| [storage](docs/AGENTS/storage.md) | the backends · load and save paths · decode diagnostics ("Saving paused") · unload journal · recovery + reset |
 
 Conventions used throughout: **★** = a non-obvious rule, **★★** = something that has already
 caused a bug, **★★★** = something that has caused the same bug more than once. Open follow-ups
@@ -572,7 +573,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `version:check` step of CI's `static` job is BLOCKING, so drift now fails CI instead of accumulating.
 - **New persisted `Workspace` field → SIX write paths** (JSON/CSV/MD/Turso-single/Turso-tenant/
   IndexedDB). Miss one and data silently drops on that backend. `calendarEvents`
-  ("Resource calendar meetings" below) is a worked example — one `ENTITY_SPECS` row buys three of the six.
+  ("Resource calendar meetings" below) is a worked example — one `ENTITY_SPECS` row buys BOTH Turso layouts;
+  CSV and Markdown still need a hand-written section each. Their writers (`calendarEventsToCsv`,
+  `calendarEventsToMarkdown`, the latter with its own `EVENTS_MD_COLUMNS`) encode cells with the row encoder
+  `calendarEventFieldToString`, and their decoders use `buildCalendarEventFromObj`, the row decoder the spec
+  also uses. (Corrected 2026-09-28: this said one row "buys three of the six".)
   ★★ `activityLog` ("Activity log" below) is the CONTRASTING worked example, and the cheaper shape is the
   reason: a **meta-blob** slice has no `ENTITY_SPECS` row, so it buys nothing and needs all six written by
   hand — and the Turso TENANT path was the one missed, caught in review rather than by any gate.
@@ -1244,3 +1249,4 @@ is GLOBBED (`readdirSync`), so a new subsystem file is scanned the moment it lan
 | [budget.md](docs/AGENTS/budget.md) | budget and money — `resolveRate` / `currencyToEur` and the one stored non-EUR field · the IndexedDB plan-currency coercion · `effectiveBudgetHours` mirroring · bucket earned value and its all-or-nothing rollup · the panel module map and pinned-column arithmetic |
 | [undo.md](docs/AGENTS/undo.md) | the undo/redo stack — creates · label registrations · row vs field-patch capture · field groups · the §295 redo arm · popout + load-hold |
 | [desktop.md](docs/AGENTS/desktop.md) | the Electron shell at RUNTIME — port + server child · navigation + sign-in popup · print + menu · PDF export · updater |
+| [storage.md](docs/AGENTS/storage.md) | the storage layer — `createBackend` and the four backend classes · the two load funnels · decode diagnostics and the save pause · the debounced save and flush-on-hide · the §629 unload journal · who writes each of the six paths · `/recovery`, safe mode and the factory reset |
