@@ -97,14 +97,17 @@ describe("ci/gitlab-sync.yml — mirror-releases (§640)", () => {
     expect(job).toMatch(/^\s*resource_group: gitlab-sync\s*$/m);
   });
 
-  it("fails fast when a token is missing", () => {
-    expect(job).toMatch(/test -n "\$GITHUB_SYNC_TOKEN" && test -n "\$GITLAB_SYNC_TOKEN"/);
+  it("fails fast when a token is missing, and uses its own release token, not the push token", () => {
+    expect(job).toMatch(/test -n "\$GITHUB_SYNC_TOKEN" && test -n "\$GITLAB_RELEASE_TOKEN"/);
     expect(job).toMatch(/exit 2/);
+    expect(job).not.toMatch(/GITLAB_SYNC_TOKEN/);
   });
 
   it("runs the script as it is on GitHub main, fetched through the contents API", () => {
     expect(job).toContain("https://api.github.com/repos/sebastianmaute/aipm-cockpit/contents/scripts/gitlab-release-mirror.mjs?ref=main");
     expect(job).toMatch(/node \/tmp\/gitlab-release-mirror\.mjs/);
+    expect(job).toContain('--header "Accept: application/vnd.github.raw"');
+    expect(job).toMatch(/^\s*image: node:22-alpine\s*$/m);
   });
 
   it("pushes nothing and names no GitLab host", () => {

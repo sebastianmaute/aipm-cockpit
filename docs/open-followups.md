@@ -43452,16 +43452,21 @@ it passed on the unfixed code, because separate change events re-render in betwe
 **Status:** CLOSED 2026-09-28 on `feat/gitlab-release-mirror` (owner request, 1.14.2). `ci/gitlab-sync.yml` has a
 second job, `mirror-releases` (`needs: [sync-from-github]`, same `resource_group`), that fetches
 `scripts/gitlab-release-mirror.mjs` from GitHub's `main` through the contents API and runs it. For every GitHub
-release (drafts excluded) whose tag has no GitLab release, it creates one with the same tag, name and notes,
-plus asset LINKS to the GitHub downloads and the GitHub release page. No binaries are copied. It is
-create-only, so a re-run is safe. GitLab is addressed only through `$CI_API_V4_URL` and `$CI_PROJECT_ID`, so
-the repository names no GitLab host. `scripts/gitlab-release-mirror.test.mjs` pins the mapping, the plan
-(drafts, existing tags, re-runs), the pagination, and `main` against a stubbed `fetch` (both paginations, each
-side's token, a refused release, a missing variable); `scripts/gitlab-sync-config.test.mjs` pins the job. Each
-of 8 mutants fails a test.
-NOT verified: the job has never run on GitLab (it needs `GITLAB_SYNC_TOKEN` with the `api` scope and at least
-the Developer role, an owner action), and whether BusyBox `wget` in `node:22-alpine` fetches over HTTPS
-with the two headers is untested. While the GitHub repository is private, the asset links need GitHub access.
+release (drafts excluded, prereleases mirrored as ordinary releases) whose tag has no GitLab release, it
+creates one with the same tag, name, notes and release date (`released_at` from GitHub, so a backfill keeps
+the newest release "Latest"), plus asset LINKS to the GitHub downloads and the GitHub release page; GitHub
+`#N` references in the notes become absolute GitHub links. No binaries are copied. It is create-only, so a
+re-run is safe. A tag GitLab does not have yet is skipped and picked up by the next run, and a refused
+release no longer blocks the others (failures are collected and fail the job once). It uses its own
+`GITLAB_RELEASE_TOKEN`, meant to be a PROJECT access token, so the push token keeps its narrower rights.
+GitLab is addressed only through `$CI_API_V4_URL` and `$CI_PROJECT_ID`, so the repository names no GitLab
+host. `scripts/gitlab-release-mirror.test.mjs` pins the mapping (with the release date and the `#N` links),
+the plan (drafts, existing releases, tags not yet on GitLab, re-runs), the pagination, `main` against a
+stubbed `fetch`, and the exit code 2 from the command line; `scripts/gitlab-sync-config.test.mjs` pins the job.
+NOT verified: the job has never run on GitLab. It needs `GITLAB_RELEASE_TOKEN`, a project access token with
+the `api` scope and a role that may create releases on protected tags, created by the owner. Whether BusyBox
+`wget` in `node:22-alpine` fetches over HTTPS with the two headers is untested. While the GitHub repository
+is private, the asset links need GitHub access.
 
 **Original status:** open 2026-09-28 — owner question "does GitLab receive the release?". Verified by reading
 `ci/gitlab-sync.yml` (it pushes `refs/heads/*` and `refs/tags/*` only) and
