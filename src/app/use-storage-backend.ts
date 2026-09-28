@@ -14,7 +14,7 @@ import { backfillTaskResourceFks } from "./resource-foundation";
 import { recordDataLossEvent } from "./dataloss-forensics";
 import { logDiag } from "./diagnostics";
 import { seedMintFromWorkspace } from "./id-mint-session";
-import { loadRegistry, saveRegistry, type ProjectsRegistry } from "./projects-registry";
+import { saveRegistry, type ProjectsRegistry } from "./projects-registry";
 import { readPopoutOpenerFromUrl, syncScopeKey } from "./sync-scope";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
@@ -318,10 +318,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // `[]`-dep ref or callback without re-subscribing anything. Deliberately NOT a render value:
   // publishing the number would re-render every consumer on each swap.
   const getScopeEpoch = useCallback(() => scopeEpochRef.current, []);
-  // §644 — bumped by every `applyWorkspaceFromLoad`: tab sync sends the changes of the commit that
-  // applied a load as `fromLoad`, which other main windows ignore (they would lose unsaved edits).
-  const loadGenerationRef = useRef(0);
-  const getLoadGeneration = useCallback(() => loadGenerationRef.current, []);
+  // §644 — the exact slice values the latest `applyWorkspaceFromLoad` applied FROM STORAGE. Tab sync
+  // sends one of them as `fromLoad`, which other main windows ignore: it is what storage already
+  // holds, and applying it would replace their unsaved edits. By value, never by commit: a keystroke
+  // can commit between a load and its render (review I4). A new set per load, so only the latest
+  // load's values count; a restored journal is not recorded, since it is unsaved work (review I3).
+  const loadedValuesRef = useRef<WeakSet<object>>(new WeakSet());
+  const isLoadedValue = useCallback((value: unknown) => typeof value === "object" && value !== null && loadedValuesRef.current.has(value), []);
   // §596 — the swap-in-flight reader, published for the same reason and with the same contract as
   // `getScopeEpoch`: STABLE for the hook's lifetime, reads a synchronously-maintained ref, never a
   // render value.
@@ -483,8 +486,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   `reloadCurrentProject`) decide by `resolveLogModeAndStamp`, which bumps only on "replace".
   //   Anything that replaces the workspace with ANOTHER PROJECT's must go through
   //   `applyWorkspaceForOp` below instead. The old bare name made the wrong one the obvious one.
-  const applyWorkspaceFromLoad = (workspace: Workspace, seedMode: "reset" | "raise" = "reset", logMode: "merge" | "replace" = "replace") => {
-    loadGenerationRef.current += 1; // §644 — see `getLoadGeneration`
+  const applyWorkspaceFromLoad = (workspace: Workspace, seedMode: "reset" | "raise" = "reset", logMode: "merge" | "replace" = "replace", source: "load" | "restore" = "load") => {
+    // §644 — see `isLoadedValue`: record what a LOAD applies; a restored journal goes out as an edit.
+    const loadedValues = source === "load" ? new WeakSet<object>() : null;
+    if (loadedValues) loadedValuesRef.current = loadedValues;
+    const mark = <V,>(value: V): V => { if (loadedValues && typeof value === "object" && value !== null) loadedValues.add(value); return value; };
     // ★★★ NO MIGRATION HAS EVER BACK-FILLED `Task.resourceId` FOR A REAL
     // PROJECT, on any backend. Two near-misses make it look otherwise and both
     // were written into an earlier version of this comment before being
@@ -500,26 +506,26 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // belongs at the one function every backend converges on rather than in the
     // versioned chain. Idempotent and reference-preserving: a workspace needing
     // nothing keeps its array identity.
-    setTasks(backfillTaskResourceFks(workspace.resources ?? [], workspace.tasks ?? []));
-    setRaid(workspace.raid ?? []); setAbsences(workspace.absences ?? []); setShifts(workspace.shifts ?? []);
-    setResources(workspace.resources ?? []); setRoles(workspace.roles ?? []); setDisciplines(workspace.disciplines ?? []); setGrades(workspace.grades ?? []);
+    setTasks(mark(backfillTaskResourceFks(workspace.resources ?? [], workspace.tasks ?? [])));
+    setRaid(mark(workspace.raid ?? [])); setAbsences(mark(workspace.absences ?? [])); setShifts(mark(workspace.shifts ?? []));
+    setResources(mark(workspace.resources ?? [])); setRoles(mark(workspace.roles ?? [])); setDisciplines(mark(workspace.disciplines ?? [])); setGrades(mark(workspace.grades ?? []));
     if (workspace.plan) setPlan(workspace.plan);
-    setBudgets(workspace.budgets ?? []); setFxRates(workspace.fxRates ?? null); setStatus(workspace.status ?? {});
-    setProject(workspace.project); setFieldVisibility(workspace.fieldVisibility); setFeatures(workspace.features);
-    setMilestones(workspace.milestones ?? []); setChanges(workspace.changes ?? []); setStakeholders(workspace.stakeholders ?? []);
+    setBudgets(mark(workspace.budgets ?? [])); setFxRates(workspace.fxRates ?? null); setStatus(workspace.status ?? {});
+    setProject(mark(workspace.project)); setFieldVisibility(workspace.fieldVisibility); setFeatures(workspace.features);
+    setMilestones(mark(workspace.milestones ?? [])); setChanges(mark(workspace.changes ?? [])); setStakeholders(mark(workspace.stakeholders ?? []));
     setSteeringCommittee(workspace.steeringCommittee);
     setTimelogLinks(workspace.timelogLinks);
     setKnowledgeItems(workspace.knowledgeItems);
-    setInsights(workspace.insights); setDocuments(workspace.documents ?? []); setDocumentVersions(workspace.documentVersions ?? []);
+    setInsights(workspace.insights); setDocuments(mark(workspace.documents ?? [])); setDocumentVersions(mark(workspace.documentVersions ?? []));
     // ★★★ TWO BRANCHES, unlike the always-replace `documents` neighbours above — a later reader WILL try
     // to make it consistent with them. Do NOT, in either direction. MERGE (same-project load/reload): the
     // log is append-only, so replacing drops entries appended locally while the load was in flight;
     // `mergeActivityLogs` unions by id, sorts by timestamp, caps to the newest. REPLACE (switch/create/
     // load-from-file): `prev` is the OUTGOING project's log, so merging carries its entries — including
     // `changes` payloads holding its old/new field values — into the target project, unrecoverably.
-    setActivityLog((prev) => (logMode === "merge" ? mergeActivityLogs(prev, workspace.activityLog) : (workspace.activityLog ?? [])));
+    setActivityLog((prev) => mark(logMode === "merge" ? mergeActivityLogs(prev, workspace.activityLog) : (workspace.activityLog ?? [])));
     // Same two branches for the budget history, but merged by id in stored order and NEVER capped.
-    setBudgetHistory((prev) => (logMode === "merge" ? mergeBudgetHistories(prev, workspace.budgetHistory) : (workspace.budgetHistory ?? [])));
+    setBudgetHistory((prev) => mark(logMode === "merge" ? mergeBudgetHistories(prev, workspace.budgetHistory) : (workspace.budgetHistory ?? [])));
     setSettingsOverrides(workspace.settingsOverrides);
     setCalendarEvents(workspace.calendarEvents); setDocumentAssets(workspace.documentAssets);
     // Seed the session id-minter's high-water from the loaded set so the next
@@ -565,7 +571,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   bypassed by reaching for the obvious one.
   const applyWorkspaceForOp = (workspace: Workspace) => { bumpScopeEpoch(); applyWorkspaceFromLoad(workspace); unloadJournal.holdBase(workspace); }; // §629 — HELD: the op's target key is not in scope until its config flip; the suppress branch adopts it
   // §629 — the unload-journal conflict notice's "Restore anyway": applied like a same-target reload ("raise": the mint never lowers; "merge": local log appends kept), then saved by the normal path. Never over a shut save gate: that is reported, and the notice and its record are kept for a retry.
-  const restoreUnloadJournalAnyway = (): void => { if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalRestoreBlocked")); return; } const ws = unloadJournal.restoreConflict(); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalRestoreUnavailable")); return; } applyWorkspaceFromLoad(ws, "raise", "merge"); emitToast("success", t(langRef.current, "unloadJournalRestored")); };
+  const restoreUnloadJournalAnyway = (): void => { if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalRestoreBlocked")); return; } const ws = unloadJournal.restoreConflict(); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalRestoreUnavailable")); return; } applyWorkspaceFromLoad(ws, "raise", "merge", "restore"); emitToast("success", t(langRef.current, "unloadJournalRestored")); };
 
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
   //     four setters. These are the last §72 setters in this hook that can
@@ -661,7 +667,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         // §629 — the unload-journal restore runs HERE only: past the `cancelled`, failed-load (`catch`) and empty-refusal returns, and skipped for a load whose saves pause. The hook skips a popout.
         const restored = lastLoadWasIncomplete(backend) ? null : unloadJournal.restoreOnLoad(workspace, journalProjectKey, args.settings.storageConfig.kind);
         if (restored !== null) { syncBaselinesToLoaded(workspace); emitToast("success", t(langRef.current, "unloadJournalRestored")); } // BEFORE `reportFor`: single-slot toast
-        applyWorkspaceFromLoad(restored ?? workspace, "reset", resolveLogModeAndStamp());
+        applyWorkspaceFromLoad(restored ?? workspace, "reset", resolveLogModeAndStamp(), restored !== null ? "restore" : "load");
         logDiag("info", "storage.loaded", { records: workspaceRecordCount(workspace) });
         truncationOps.reportFor(backend); // ★ after applyWorkspaceFromLoad only: the empty-load REFUSAL above applies nothing, so neither raising nor lowering the TRUNCATION flag would describe the workspace that is actually live. ★★ That reasoning is TRUNCATION-specific and does NOT extend to the decode cause — the refusal path publishes that one itself, just above.
         suppressNextSaveRef.current = restored === null; // §629 — a restored journal is SAVED back, through every save guard
@@ -1039,16 +1045,16 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
 
   // ★★ §642/§643 — the channel is shared by every window of the origin. A main window syncs only
   // with main windows whose `syncScopeKey` equals its own, so a window on project A never applies,
-  // and then autosaves, a slice sent from a window on project B. The registry is re-read per
-  // storage config, as for the journal key: an op commits the registry in the same tick as the
-  // config change. A pop-out follows the window that opened it instead (`opener` URL parameter).
+  // and then autosaves, a slice sent from a window on project B. The key names the storage this
+  // window writes (`sync-scope.ts`), never the registry's current project, which every tab shares
+  // through localStorage. A pop-out follows the window that opened it instead (`opener` URL parameter).
   const syncScope = useMemo(
-    () => syncScopeKey({ storageConfig: args.settings.storageConfig, tursoDatabaseUrl: tursoUrlForBackend, tursoProjectId, registryProjectId: loadRegistry().currentProjectId }),
+    () => syncScopeKey({ storageConfig: args.settings.storageConfig, tursoDatabaseUrl: tursoUrlForBackend, tursoProjectId }),
     [args.settings.storageConfig, tursoUrlForBackend, tursoProjectId],
   );
   const syncContext = useMemo<SyncContext>(
-    () => (args.isPopout ? { role: "popout", openerId: readPopoutOpenerFromUrl() } : { role: "main", scope: syncScope, getEpoch: getScopeEpoch, getLoadGeneration }),
-    [args.isPopout, syncScope, getScopeEpoch, getLoadGeneration],
+    () => (args.isPopout ? { role: "popout", openerId: readPopoutOpenerFromUrl() } : { role: "main", scope: syncScope, getEpoch: getScopeEpoch, isLoadedValue }),
+    [args.isPopout, syncScope, getScopeEpoch, isLoadedValue],
   );
   useBroadcastSync("tasks", tasks, setTasks, syncContext);
   useBroadcastSync("raid", raid, setRaid, syncContext);

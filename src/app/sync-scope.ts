@@ -2,13 +2,19 @@
 //
 // §643 — the scope a MAIN window's tab-sync messages carry (`useBroadcastSync`). Two main windows
 // apply each other's slices only when their scopes are equal, and each then autosaves what it
-// applied, so the scope must name the DATA a window edits. `journalProjectKey` (the §629 journal
-// key) was used first and is too coarse for that: every non-Turso kind without a registry entry
-// fell back to "browser", and Turso keyed on the bare project id, so two databases holding the
-// same id collided. It stays the JOURNAL key; changing it would orphan journals already written.
+// applied, so the scope must name the STORAGE a window writes. It follows `storageTargetKey`'s rule
+// for what a target is (browser storage and every local-file kind keyed on the KIND alone, §591
+// ruling 3), minus the Turso auth token, which a message must never carry.
+// ★★ Browser storage is ONE IndexedDB store (`new BrowserBackend()` takes no project) and a local
+// file is read through ONE handle slot per kind (`file-handle:<kind>`) that any tab's project
+// switch re-points, so windows of one kind write the same data whatever registry project they show
+// (review I1/I2). Keying them by registry project split tabs that write the same data, and each
+// one's whole-workspace autosave then overwrote the other's. That the slot is shared at all is §645.
+// The §629 journal key (`journalProjectKey`) stays the JOURNAL key; changing it would orphan
+// journals already written.
 //
-// `null` means "nothing identifies this data": such a window neither sends to nor accepts from
-// other main windows. Pop-outs do not use a scope at all; they follow their opener's window id.
+// `null` means there is no target to name (Turso without a database URL): such a window neither
+// sends to nor accepts from other main windows. Pop-outs use no scope; they follow their opener.
 
 import type { StorageConfig } from "./workspace";
 
@@ -17,8 +23,6 @@ export type SyncScopeInput = {
   /** The Turso database URL in use, when the storage is Turso. Never the auth token. */
   tursoDatabaseUrl: string | undefined;
   tursoProjectId: string | null;
-  /** The projects registry's current project id (`loadRegistry().currentProjectId`). */
-  registryProjectId: string | null;
 };
 
 export function syncScopeKey(input: SyncScopeInput): string | null {
@@ -32,14 +36,10 @@ export function syncScopeKey(input: SyncScopeInput): string | null {
     case "sp-csv":
       return JSON.stringify([config.kind, config.hostname, config.sitePath, config.itemPath]);
     case "browser":
-      // Browser storage is ONE store (`new BrowserBackend()` takes no project), so every window
-      // without a registry entry is on the same data and shares one scope.
-      return JSON.stringify(["browser", input.registryProjectId ?? ""]);
     case "local-json":
     case "local-csv":
     case "local-md":
-      // A local file is identified only by its registry entry, which owns the file handle.
-      return input.registryProjectId ? JSON.stringify([config.kind, input.registryProjectId]) : null;
+      return JSON.stringify([config.kind]);
     default: {
       const exhaustiveCheck: never = config;
       throw new Error(`syncScopeKey: unhandled StorageConfig kind ${JSON.stringify(exhaustiveCheck)}`);

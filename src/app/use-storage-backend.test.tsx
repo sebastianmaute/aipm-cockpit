@@ -1167,38 +1167,41 @@ describe("useStorageBackend — broadcast send gating", () => {
     }
   });
 
-  // §642/§643 — the scope must name the OPEN project, not a constant: two windows on different
-  // projects must pass different scopes, or each applies (and autosaves) the other's slices.
-  it("scopes a main window's sync to the open project (§642, §643)", () => {
-    const scopeFor = (projectId: string) => {
+  // §642/§643 — the scope names the storage a window WRITES: windows on different targets must pass
+  // different scopes, or each applies (and autosaves) the other's slices; windows writing the same
+  // store or handle slot must share one, whatever registry project they show (review I1/I2).
+  it("scopes a main window's sync to the storage it writes (§642, §643)", () => {
+    const scopeFor = (storageConfig: StorageConfig, registryProjectId: string) => {
       window.localStorage.removeItem("aipm-cockpit:projects");
-      saveRegistry({ currentProjectId: projectId, projects: [{ id: projectId, name: projectId, code: "SC", storageConfig: { kind: "browser" } }] });
+      saveRegistry({ currentProjectId: registryProjectId, projects: [{ id: registryProjectId, name: registryProjectId, code: "SC", storageConfig }] });
       vi.clearAllMocks();
       (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
-      const { unmount } = renderBackend(makeArgs({ isPopout: false }));
+      const { unmount } = renderBackend(makeArgs({ isPopout: false, settings: { storageConfig } as unknown as Settings }));
       const scopes = new Set(syncContexts().map((c) => (c.role === "main" ? c.scope : "popout")));
       unmount();
-      return scopes;
+      expect(scopes.size).toBe(1);
+      return [...scopes][0];
     };
+    const sp = (itemPath: string): StorageConfig => ({ kind: "sp-json", hostname: "h.sharepoint.com", sitePath: "/sites/x", itemPath });
     try {
-      expect(scopeFor("proj-scope-a")).toEqual(new Set([JSON.stringify(["browser", "proj-scope-a"])]));
-      expect(scopeFor("proj-scope-b")).toEqual(new Set([JSON.stringify(["browser", "proj-scope-b"])]));
+      expect(scopeFor({ kind: "browser" }, "proj-a")).toBe(JSON.stringify(["browser"]));
+      expect(scopeFor({ kind: "browser" }, "proj-b")).toBe(JSON.stringify(["browser"]));
+      expect(scopeFor(sp("/a.json"), "proj-a")).not.toBe(scopeFor(sp("/b.json"), "proj-a"));
     } finally {
       window.localStorage.removeItem("aipm-cockpit:projects");
     }
   });
 
-  // §644 — a load apply must bump the generation the sync context reads, or a window broadcasts
-  // what it just LOADED as an edit and replaces another same-project window's unsaved edits.
-  it("bumps the sync context's load generation when a load is applied (§644)", async () => {
-    renderBackend(makeArgs({ isPopout: false }));
+  // §644 — a load must record the exact values it applied, or a window broadcasts what it just
+  // LOADED as an edit and replaces another same-project window's unsaved edits.
+  it("records the slices a load applied as loaded, and an edit afterwards not (§644)", async () => {
+    const { result } = renderBackend(makeArgs({ isPopout: false }));
     const ctx = syncContexts()[0];
     if (ctx.role !== "main") throw new Error("expected a main context");
-    const before = ctx.getLoadGeneration();
-    await act(async () => {
-      await Promise.resolve();
-    });
-    await vi.waitFor(() => expect(ctx.getLoadGeneration()).toBeGreaterThan(before));
+    await vi.waitFor(() => expect(result.current.workspaceLoaded).toBe(true));
+    expect(ctx.isLoadedValue(result.current.tasks)).toBe(true);
+    act(() => { result.current.setTasks((prev) => [...prev]); });
+    expect(ctx.isLoadedValue(result.current.tasks)).toBe(false);
   });
 });
 

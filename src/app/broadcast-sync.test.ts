@@ -12,7 +12,7 @@ import { readPopoutOpenerFromUrl } from "./sync-scope";
 
 /** A main window's context. Nothing bumps the epoch or the load generation unless a test says so. */
 function main(scope: string | null, over: Partial<Extract<SyncContext, { role: "main" }>> = {}): SyncContext {
-  return { role: "main", scope, getEpoch: () => 0, getLoadGeneration: () => 0, ...over };
+  return { role: "main", scope, getEpoch: () => 0, isLoadedValue: () => false, ...over };
 }
 function popout(openerId: string | null): SyncContext {
   return { role: "popout", openerId };
@@ -220,21 +220,43 @@ describe("useBroadcastSync main-window scope (§642, §643)", () => {
 // §644 — a window that LOADS a project changes its slices to what it read from storage. Applying
 // that in another main window on the same project replaced that window's unsaved edits.
 describe("useBroadcastSync load changes (§644)", () => {
-  it("marks the changes of the commit that applied a load as fromLoad, and later edits not", () => {
+  it("marks exactly the values a load applied as fromLoad, and an edit not", () => {
     posted.length = 0;
     vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel as unknown as typeof BroadcastChannel);
-    let gen = 0;
-    const ctx = main("p", { getLoadGeneration: () => gen });
+    const loaded = [1];
+    const ctx = main("p", { isLoadedValue: (v) => v === loaded });
     const { rerender } = renderHook(
       ({ v }: { v: number[] }) => useBroadcastSync("tasks", v, () => {}, ctx),
       { initialProps: { v: [] as number[] } },
     );
-    gen = 1; // `applyWorkspaceFromLoad` ran, in the same tick as its setters
-    rerender({ v: [1] });
+    rerender({ v: loaded });
     rerender({ v: [2] }); // an ordinary edit afterwards
     expect(posted).toEqual([
       expect.objectContaining({ value: [1], fromLoad: true }),
       expect.objectContaining({ value: [2], fromLoad: false }),
+    ]);
+  });
+
+  // Review I4 on §644 — the load's setters run after an await, so a keystroke (a higher-priority
+  // update) can commit BEFORE them. Judging by "the first commit after the load" then sent the
+  // keystroke as fromLoad (lost to other tabs) and the load as an edit (the §644 defect again). The
+  // flag must follow the VALUE, whatever order the commits land in.
+  it("classifies by value even when an edit commits between the load and its render", () => {
+    posted.length = 0;
+    vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel as unknown as typeof BroadcastChannel);
+    const loadedSet = new WeakSet<object>();
+    const ctx = main("p", { isLoadedValue: (v) => typeof v === "object" && v !== null && loadedSet.has(v) });
+    const { rerender } = renderHook(
+      ({ v }: { v: number[] }) => useBroadcastSync("tasks", v, () => {}, ctx),
+      { initialProps: { v: [] as number[] } },
+    );
+    const loaded = [1];
+    loadedSet.add(loaded); // the load ran and recorded its value; its render has not committed
+    rerender({ v: [9] }); // the keystroke commits first
+    rerender({ v: loaded }); // then the load
+    expect(posted).toEqual([
+      expect.objectContaining({ value: [9], fromLoad: false }),
+      expect.objectContaining({ value: [1], fromLoad: true }),
     ]);
   });
 

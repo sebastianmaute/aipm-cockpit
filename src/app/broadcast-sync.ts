@@ -30,10 +30,12 @@
 //     and React renders the new project in a later task, and a setter queued in
 //     between would run after the op's and put the old project's slice back
 //     (review I1 on §642). A message dropped in that window is LOST, not deferred.
-//   - ★★ A MAIN window also drops a message marked `fromLoad` (§644): a slice that
-//     changed because the sender LOADED its project is what that sender read from
-//     storage, and applying it would replace this window's unsaved edits to the same
-//     project. Pop-outs still apply it, since they must follow their opener.
+//   - ★★ A MAIN window also drops a message marked `fromLoad` (§644): the value is one
+//     the sender's `applyWorkspaceFromLoad` applied from storage, and applying it would
+//     replace this window's unsaved edits to the same project. Pop-outs still apply it,
+//     since they must follow their opener. The flag follows the VALUE (`isLoadedValue`),
+//     never the commit it lands in: a keystroke can commit between a load and its render
+//     (review I4). A restored journal is sent as an edit: it is unsaved work (review I3).
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { AppView } from "./nav-config";
@@ -49,8 +51,8 @@ export type SyncContext =
       scope: string | null;
       /** The §548 scope epoch reader (`getScopeEpoch`). */
       getEpoch: () => number;
-      /** Bumped by every load apply; a commit that saw a bump sends its changes as `fromLoad`. */
-      getLoadGeneration: () => number;
+      /** True for a value the latest load applied from storage; sent as `fromLoad`. */
+      isLoadedValue: (value: unknown) => boolean;
     }
   | {
       role: "popout";
@@ -79,7 +81,9 @@ let _windowId: string | null = null;
 /** This main window's id: stable across a reload of the tab (sessionStorage), so a pop-out keeps
  *  following its opener after the opener reloads. Falls back to a per-page id when sessionStorage
  *  is unavailable. ★ A DUPLICATED tab starts with a copy of sessionStorage and so shares the id; a
- *  pop-out of either then mirrors both, read-only (§643's closing note). */
+ *  pop-out of either then mirrors both, read-only (§642's closing note). A pop-out opened with
+ *  `window.open` also starts with a copy, so its own id equals its opener's; harmless while pop-outs
+ *  never send and never open pop-outs themselves. */
 export function getWindowId(): string {
   if (_windowId) return _windowId;
   let id: string | null = null;
@@ -104,17 +108,10 @@ export function useBroadcastSync<T>(
 ): void {
   const syncRef = useRef(sync);
   const committedEpochRef = useRef(sync.role === "main" ? sync.getEpoch() : 0);
-  const committedLoadGenRef = useRef(sync.role === "main" ? sync.getLoadGeneration() : 0);
-  const commitIsLoadRef = useRef(false);
-  // No deps: every commit records the context it rendered under, the epoch, and whether a load
-  // was applied since the previous commit.
+  // No deps: every commit records the context it rendered under and the epoch.
   useLayoutEffect(() => {
     syncRef.current = sync;
-    if (sync.role !== "main") return;
-    committedEpochRef.current = sync.getEpoch();
-    const gen = sync.getLoadGeneration();
-    commitIsLoadRef.current = gen !== committedLoadGenRef.current;
-    committedLoadGenRef.current = gen;
+    if (sync.role === "main") committedEpochRef.current = sync.getEpoch();
   });
   const channelRef = useRef<BroadcastChannel | null>(null);
   const clientIdRef = useRef<string>("");
@@ -161,10 +158,10 @@ export function useBroadcastSync<T>(
     };
   }, [kind, applyIncoming]);
 
-  const isMain = sync.role === "main";
   const scope = sync.role === "main" ? sync.scope : null;
   useEffect(() => {
-    if (!isMain) return;
+    const ctx = syncRef.current;
+    if (ctx.role !== "main") return; // a pop-out never broadcasts
     const channel = channelRef.current;
     if (!channel) return;
     // Skip echoing a value that arrived from another window. The incoming
@@ -177,11 +174,11 @@ export function useBroadcastSync<T>(
       windowId: getWindowId(),
       kind,
       scope,
-      fromLoad: commitIsLoadRef.current,
+      fromLoad: ctx.isLoadedValue(value),
       value,
     };
     channel.postMessage(msg);
-  }, [kind, value, isMain, scope]);
+  }, [kind, value, scope]);
 }
 
 // Popout-capable subset of the `AppView` union in nav-config.ts. Kept in
