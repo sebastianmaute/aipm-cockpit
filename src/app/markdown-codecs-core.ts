@@ -238,9 +238,9 @@ export function markdownToDocuments(
   // one. The generator, regen-golden-fixtures.ts and sample-link-exports.ts
   // install JSDOM into globalThis BEFORE they dynamically import src/app. But
   // update-ooxml-manifest.ts reaches this module with NO DOM (via storage).
-  // Nobody has checked that it never decodes Markdown; if it does, it silently
-  // loses every document (open-followups §624). A new bare-node importer must
-  // install a DOM first.
+  // §624 measured on 2026-09-28, with a throwaway marker here, that its run
+  // never reaches this decode; a new call path needs that probe re-run. A new
+  // bare-node importer must install a DOM first.
   const docs = decodeMetaJson(
     m[1],
     (raw) => sanitizeProjectDocumentsWithDiag(raw, diag).map(sanitizeDocumentRichFields),

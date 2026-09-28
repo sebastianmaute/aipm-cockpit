@@ -47,12 +47,17 @@ async function postPipeline(
   );
 }
 
-// Best-effort ROLLBACK after a mid-pipeline statement error so a concurrent
-// reader cannot observe a half-written workspace while the server-side
-// transaction stays open. Both thrown exceptions AND non-ok HTTP responses are
-// deliberately discarded so the original statement error is never masked, and
-// it goes straight to postPipeline, so it can never recurse back into
-// runTursoPipeline.
+// Best-effort ROLLBACK after a mid-pipeline statement error.
+// ★★★ §636: it does NOT undo a half-written save. A libSQL `/v2/pipeline` batch
+// does not stop at a failing statement, so by the time the results are read
+// the COMMIT has usually run and committed every statement that succeeded; this
+// ROLLBACK then finds no open transaction and changes nothing (measured against
+// a live database; AGENTS.md's `idKind` bullet). It only matters when the batch
+// ended with its transaction still open, e.g. the COMMIT itself did not run.
+// Making a failed save write nothing is §637. Both thrown exceptions AND non-ok
+// HTTP responses are deliberately discarded so the original statement error is
+// never masked, and it goes straight to postPipeline, so it can never recurse
+// back into runTursoPipeline.
 async function rollbackBestEffort(config: TursoConfig): Promise<void> {
   try {
     await postPipeline(config, [{ sql: "ROLLBACK" }], ROLLBACK_TIMEOUT_MS);

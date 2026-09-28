@@ -267,14 +267,17 @@ describe("workspace JSON — a throwing documents sanitize is CONTAINED", () => 
     expect(diag.decodeFailedSlices).toEqual(["documents"]);
   });
 
-  it("does not record a decode failure when strict throws instead", () => {
-    // Strict propagates the WorkspaceParseError before the diag push is ever
-    // reached — a caller catching the throw has no use for a half-written
-    // accumulator, so it must stay untouched.
+  it("reports instead of throwing when strict comes WITH a diag (§635)", () => {
+    // The local JSON file and SharePoint JSON load with { strict: true, diag }.
+    // A caller that passes an accumulator wants the loss REPORTED, so it can
+    // pause saving like every other backend does, not a failed load. The
+    // strict-without-diag test above keeps the generator's loud failure.
     forceRichFieldThrow = true;
     const diag: DocTruncationDiag = {};
-    expect(() => jsonToWorkspace(json(), { strict: true, diag })).toThrow();
-    expect(diag.decodeFailedSlices).toBeUndefined();
+    const ws = jsonToWorkspace(json(), { strict: true, diag });
+    expect(diag.decodeFailedSlices).toEqual(["documents"]);
+    expect(ws.tasks).toHaveLength(1);
+    expect(ws.documents).toBeUndefined();
   });
 });
 
@@ -420,10 +423,12 @@ describe("workspace JSON — a throwing documentVersions sanitize is CONTAINED",
     expect(diag.decodeFailedSlices).toEqual(["documentVersions"]);
   });
 
-  it("does not record a decode failure when strict throws instead", () => {
+  it("reports instead of throwing when strict comes WITH a diag (§635)", () => {
     forceRichFieldThrow = true;
     const diag: DocTruncationDiag = {};
-    expect(() => jsonToWorkspace(versionJson(), { strict: true, diag })).toThrow();
-    expect(diag.decodeFailedSlices).toBeUndefined();
+    const ws = jsonToWorkspace(versionJson(), { strict: true, diag });
+    expect(diag.decodeFailedSlices).toEqual(["documentVersions"]);
+    expect(ws.tasks).toHaveLength(1);
+    expect(ws.documentVersions).toBeUndefined();
   });
 });

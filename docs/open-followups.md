@@ -836,7 +836,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§606](#606-the-diagnostics-catch-all-misses-a-base64-secret-whose-separators-split-it-into-short-runs--closed-2026-09-21) | The diagnostics catch-all misses a base64 secret whose separators split it into short runs | found 2026-09-21 reviewing §564 on `fix/backlog-sweep`, filed and closed on the same branch | S — one base64-alphabet rule placed before the §564 catch-all | closed |
 | [§607](#607-the-timelog-and-ecb-proxies-log-a-raw-error-object-on-upstream-failure--closed-2026-09-21) | The Timelog and ECB proxies log a raw error object on upstream failure | found 2026-09-21 reviewing §566 on `fix/backlog-sweep`, filed and closed on the same branch | S — one shared helper (`describeUpstreamError`) moved and reused at two more call sites | closed |
 | [§608](#608-the-diagnostics-secret-patterns-take-quadratic-time-on-a-long-run-that-fails-them--open) | The diagnostics secret patterns take quadratic time on a long run that fails them | final-review M6 on `fix/backlog-sweep`, measured 2026-09-21 reviewing §606; GitLab #389 | M — bound backtracking or the input length before matching (see §578) | open |
-| [§609](#609-a-late-seal-can-resurrect-a-sealed-secret-the-user-just-cleared--open) | A late seal can resurrect a sealed secret the user just cleared | final-review M7 on `fix/backlog-sweep` (Task 5 deferred minor, upgraded), read from code, pre-existing and family-wide; GitLab #390 | S — a per-secret generation guard | open |
+| [§609](#609-a-late-seal-can-resurrect-a-sealed-secret-the-user-just-cleared--closed-2026-09-28) | A late seal can resurrect a sealed secret the user just cleared | — | — | **CLOSED** 2026-09-28 |
 | [§610](#610-fork-prs-cannot-run-the-leak-gate--decide-the-rule-at-the-visibility-flip--open) | Fork PRs cannot run the leak gate — decide the rule at the visibility flip | deferred by the sub-project 3 spec (`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`); GitLab #392 | S — decide the rule at the flip; prove it with a fork PR | open |
 | [§611](#611-the-weekly-zap-jobs-docker-run-images-float-unpinned--pin-them-by-digest--closed-2026-09-23) | The weekly ZAP job's docker run images float unpinned — pin them by digest | final review of sub-project 3 on `ci/sp3-actions-workflows` (the plan's unrecorded "follow-up"); GitLab #393 | S — pin both images by `@sha256:` digest and record how to re-resolve them | closed |
 | [§612](#612-a-scaling-guard-went-red-in-ci-on-correct-code--shrink-the-memory-bound-fixtures--open) | A scaling guard went red in CI on correct code — shrink the memory-bound fixtures | GitHub Actions run 35844783726, job `unit-shuffled`, on `main`; GitLab #394 | S — hedged on `fix/scaling-flake-ci` (smaller n, `repeats: 5`: no shown effect on the failure; readable CI log); close after green `unit-shuffled` runs on `main` | open |
@@ -851,7 +851,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§621](#621-pdfdocxpptxxlsx-exports-still-print-recurrence-text-and-insight-typeseveritystatus-values-in-english--closed-2026-09-27) | PDF/DOCX/PPTX/XLSX exports still print recurrence text and insight type/severity/status values in English | — | — | **CLOSED** 2026-09-27 |
 | [§622](#622-an-ordinary-under-cap-document-paragraph-edit-that-was-never-blurred-is-lost-when-the-window-closes--closed-2026-09-27) | An ordinary, under-cap document paragraph edit that was never blurred is lost when the window closes | — | — | **CLOSED** 2026-09-27 |
 | [§623](#623-loadexportassets-loads-the-bytes-of-a-policy-refused-asset-before-discarding-them--closed-2026-09-27) | `loadExportAssets` loads the bytes of a policy-refused asset before discarding them | — | — | **CLOSED** 2026-09-27 |
-| [§624](#624-ai-evalts-and-update-ooxml-manifestts-import-the-dom-free-sanitizer-graph-with-no-dom-and-nothing-proves-they-never-reach-a-dompurify-call--open) | `ai-eval.ts` and `update-ooxml-manifest.ts` import the DOM-free sanitizer graph with no DOM, and nothing proves they never reach a DOMPurify call | — | — | open |
+| [§624](#624-ai-evalts-and-update-ooxml-manifestts-import-the-dom-free-sanitizer-graph-with-no-dom-and-nothing-proves-they-never-reach-a-dompurify-call--closed-2026-09-28) | `ai-eval.ts` and `update-ooxml-manifest.ts` import the DOM-free sanitizer graph with no DOM, and nothing proves they never reach a DOMPurify call | — | — | **CLOSED** 2026-09-28 |
 | [§625](#625-the-dashboard-status-narrative-draft-is-lost-on-window-close--closed-2026-09-27) | The dashboard status narrative draft is lost on window close | — | — | **CLOSED** 2026-09-27 |
 | [§626](#626-async-commit-editors-chat-thread-rename-comm-templates-dictation-key-still-lose-an-unblurred-draft-on-window-close--open) | Async-commit editors (chat thread rename, comm templates, dictation key) still lose an unblurred draft on window close | — | — | open |
 | [§627](#627-several-dirty-drafts-at-pagehide-start-unserialised-full-saves-so-on-filesharepoint-an-older-snapshot-can-finish-last--open) | Several dirty drafts at pagehide start unserialised full saves, so on file/SharePoint an older snapshot can finish last | — | — | open |
@@ -861,6 +861,10 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§631](#631-the-desktop-shell-reuses-a-leftover-server-without-checking-its-version-so-an-orphan-could-serve-an-old-build-after-an-update--closed-2026-09-28) | The desktop shell reuses a leftover server without checking its version, so an orphan could serve an old build after an update | — | — | **CLOSED** 2026-09-28 |
 | [§632](#632-unload-journals-whose-project-key-is-never-loaded-again-are-never-swept-so-they-can-fill-browser-storage--open) | Unload journals whose project key is never loaded again are never swept, so they can fill browser storage | — | — | open |
 | [§633](#633-the-document-preview-fetches-and-decodes-a-policy-refused-images-bytes-before-declining-it--closed-2026-09-27) | The document preview fetches and decodes a policy-refused image's bytes before declining it | — | — | **CLOSED** 2026-09-27 |
+| [§634](#634-sharepoint-json-is-saved-with-jsonstringify-instead-of-workspacetojson-so-it-carries-no-schemaversion--closed-2026-09-28) | SharePoint JSON is saved with JSON.stringify instead of workspaceToJson, so it carries no schemaVersion | — | — | **CLOSED** 2026-09-28 |
+| [§635](#635-on-local-and-sharepoint-json-a-document-rich-field-error-fails-the-whole-load-instead-of-pausing-saving--closed-2026-09-28) | On local and SharePoint JSON a document rich-field error fails the whole load instead of pausing saving | — | — | **CLOSED** 2026-09-28 |
+| [§636](#636-the-comment-above-rollbackbesteffort-says-the-rollback-protects-readers-but-the-batch-has-already-committed--closed-2026-09-28) | The comment above rollbackBestEffort says the ROLLBACK protects readers, but the batch has already committed | — | — | **CLOSED** 2026-09-28 |
+| [§637](#637-a-turso-save-whose-batch-hits-a-failing-statement-still-commits-the-rest-then-reports-failure--open) | A Turso save whose batch hits a failing statement still commits the rest, then reports failure | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -41831,14 +41835,16 @@ a fifth site of its own. Found reviewing [§606](#606-the-diagnostics-catch-all-
 **The fix shape:** bound the input each pattern sees, or bound the patterns' own backtracking, without
 letting a real credential's tail survive the cut unredacted — see §578 for the general shape.
 
-## 609. A late seal can resurrect a sealed secret the user just cleared — OPEN
+## 609. A late seal can resurrect a sealed secret the user just cleared — CLOSED 2026-09-28
 
-**Status:** OPEN 2026-09-21 — read from code; call sites confirmed by
+**Status:** CLOSED 2026-09-28 on fix/secret-seal-race with the per-secret generation guard the fix shape below describes. `secrets-store.ts` keeps a write generation per `SecretId`: `beginSealedWrite(id)` bumps it before the seal's await and its commit stores only if nothing newer started, `removeSealed(id)` bumps it (so every clear, from any caller, cancels a seal in flight), and `invalidateAllSealedWrites()` bumps every id for `clearAppConfig`, which wipes the store directly and could otherwise be overwritten by a late seal. `saveSecretValue` and `setSecretPassphrase` (`use-secrets.ts`) resolve `true` only when they stored, and the ai and integrations sections set their stored flag, and flip the lock back to device, only on `true`; on `false` the lock and flag follow what the store holds. The boot migration (`migratePlaintextSecrets`, now one `migrateOne` per id) takes a `snapshotSealedWrite(id)` for all five ids before its first await, and a snapshot does NOT bump: after the §548 merge timeout the UI is live while a migration seal can still be pending, so a user clear or newer value in that window wins, for a later id as much as for the one being sealed, and the migration never cancels one. The dictation key is removed when the field is edited to blank (it had been a blur clear gated on a stored flag that stays false while a seal is in flight; a blur of a field that was already blank no longer deletes anything), and a lock untick whose re-seal was superseded sets the lock and stored flag from what the store holds. When the newest seal of several fails, no older value is stored — falling back would reintroduce "older value wins". Also fixed here, by owner decision: the AI key field did NOT remove its record on clear, contrary to the entry below; emptying it now removes a device-sealed key and its stored flag (the §565 blank-first rule). A passphrase-wrapped key is exempt, because its plaintext is never hydrated into settings, so the field is blank for a locked key and a stray keystroke must not destroy it. Verified by race tests with hand-resolved seals in `secrets-store.test.ts` and `use-secrets.test.ts` (a clear in flight, out-of-order keystrokes, the passphrase path, independent ids, the migration against a user clear or save), `app-reset.test.ts`, and component tests in `ai-section.test.tsx`, `dictation-section.test.tsx`, `integrations-section.test.tsx` and `integrations-section.drafts.test.tsx`, plus a `use-secrets.test.ts` case where the newest seal fails and nothing older is written; each of fifteen mutants turns a test red.
+
+Known limits, not fixed here: the generation counter is per tab, so a clear in one tab does not cancel a seal still in flight in another tab that shares the same `localStorage`. A passphrase-wrapped AI key is also kept when the user empties the field after unlocking it in this session, or while its lock is being removed; "Remove stored secret" removes it.
+
+**Originally recorded 2026-09-21:** read from code; call sites confirmed by
 `grep -rn "removeSealed(" src/app/jira-settings.tsx src/app/timelog-settings.tsx src/app/settings-sections/integrations-section.tsx src/app/settings-sections/ai-section.tsx src/app/settings-sections/dictation-section.tsx`.
 Never machine-verified against a live timed race — an in-flight seal outrunning a clear was not
 reproduced end to end.
-
-**Work item:** #390
 
 `saveSecretValue` (`use-secrets.ts`) is async: it `await`s `sealDevice`/`sealPassphrase` (WebCrypto)
 before calling `saveSealed`. Every per-field change handler fires it fire-and-forget
@@ -42359,7 +42365,9 @@ first said both were unconditional), so a drop leaves `{}` / `[]` instead of rem
 recorded anyway, because the next save writes that empty value over the stored one. An emptied
 `features` list also turns the project to Simple mode (`deriveMode([])` in `feature-modules.ts`). A
 `documents` or `documentVersions`
-rich-field sanitize THROW is contained and recorded under the same key. The local-file, SharePoint and
+rich-field sanitize THROW is contained and recorded under the same key. (★ Corrected 2026-09-28:
+that held only for NON-strict callers; the local JSON file and SharePoint JSON load with `strict: true`
+and rethrew it, failing the whole load, until §635.) The local-file, SharePoint and
 IndexedDB backends now publish `lastDecodeFailures`, and the generic `reportFor` in
 `use-load-truncation.ts` pauses saving (Save anyway) exactly as on Turso. `BrowserBackend.load`
 (`browser-backend.ts`) records 12 of the keys itself (`grep -c 'noteIfDropped("'` → 12); IndexedDB
@@ -42538,15 +42546,44 @@ Size S.
 **Source:** the §320 (#235) task review in defect batch 7, which found that `loadExportAssets` still loads the
 bytes of blocked assets before discarding them.
 
-## 624. `ai-eval.ts` and `update-ooxml-manifest.ts` import the DOM-free sanitizer graph with no DOM, and nothing proves they never reach a DOMPurify call — open
+## 624. `ai-eval.ts` and `update-ooxml-manifest.ts` import the DOM-free sanitizer graph with no DOM, and nothing proves they never reach a DOMPurify call — CLOSED 2026-09-28
 
-**Status:** open 2026-09-27 — found while correcting §151 on `docs/accuracy-2`. Neither script was
+**Status:** CLOSED 2026-09-28 on `fix/dom-free-scripts`, by measurement: neither script reaches a DOM
+call or a document decoder. A throwaway probe inserted a marker line (`console.error("DOMPROBE:<name>")`)
+before every DOM call site in `src/app` — the one `DOMPurify.addHook` and the three `DOMPurify.sanitize`
+calls in `sanitize-html.ts` (the only non-test module that imports DOMPurify: `grep -rln "from \"dompurify\"" src/app | grep -v ".test."`),
+and the one `new DOMParser` in `rich-text-runs.ts` — and at the start of `sanitizeDocumentRichFields`,
+`csvToDocuments`, `csvToDocumentVersions`, `markdownToDocuments` and `markdownToDocumentVersions`, ten
+markers in five files. Then:
+- **Positive control:** a two-line vite-node file calling `sanitizeRichHtml` printed its marker and threw
+  `TypeError: … addHook is not a function`, so a DOM call with no DOM is both visible to the probe and
+  LOUD, not swallowed.
+- **`npx vite-node scripts/ai-eval.ts`** (dry run, `AI_EVAL_SPEND` unset): exit 0, no marker, "dry run —
+  no requests sent".
+- **`npx jiti scripts/update-ooxml-manifest.ts`:** exit 0, no marker, and
+  `git diff --ignore-cr-at-eol docs/baselines/ooxml-parts.json` empty (it rewrote the baseline with the
+  same content; only the working copy's line endings changed, and were put back).
+
+So both halves of the question below are answered no for the runs measured (the `ai:eval` DRY run; its
+live path was not run, and a throw there is caught and printed as "run incomplete"): nothing throws for
+want of a DOM, and no document is decoded, so none can be dropped silently. That covers every load path,
+not only the codecs: the `sanitizeDocumentRichFields` marker sits in the rich-field pass that the JSON,
+IndexedDB and Turso decodes call too. ★ The original status's premise that `workspace.ts`,
+`turso-schema.ts` and `browser-backend.ts` "surface a failure instead of swallowing it" is FALSE with no
+DOM: each NON-strict caller catches the throw (`noteDecodeFailure` / `reportUnreadableSlice`; a strict JSON
+load rethrows it instead, which §635 changes), and `logDiag` returns early
+when `typeof window === "undefined"`, so there the loss would be as quiet as the codec path. It did not
+matter here only because no run reached the pass. The original wording below is kept as the record. The files were
+restored and checked byte for byte. `ai-eval.ts`'s header, which inferred "nothing needs jsdom" from
+"nothing needs `jsonToWorkspace`", now cites this measurement instead. ★ The probe is not committed and
+guards nothing going forward: a later edit that routes either script through a DOM call would throw
+loudly (the control shows how), and a new document decode would need the same probe re-run.
+
+**Original status:** open 2026-09-27 — found while correcting §151 on `docs/accuracy-2`. Neither script was
 executed. Verified by reading: `grep -c -i jsdom scripts/ai-eval.ts scripts/update-ooxml-manifest.ts`
 returns 1 and 0, and the one `ai-eval.ts` hit is the comment saying it needs no jsdom. The import
 graphs were resolved with §151's resolver pointed at each script instead of the generator, then
 re-resolved as RUNTIME graphs (type-only edges stripped) after a cold review.
-
-**Work item:** #440
 
 §151 established that the sample generator is NOT a DOM-free consumer: it, `regen-golden-fixtures.ts`
 and `sample-link-exports.ts` all install JSDOM before importing `src/app`. Two other scripts do not:
@@ -43206,3 +43243,89 @@ missing.
 Size S.
 
 **Source:** the final whole-branch review of PR #452 (§621, §623).
+
+## 634. SharePoint JSON is saved with JSON.stringify instead of workspaceToJson, so it carries no schemaVersion — CLOSED 2026-09-28
+
+**Status:** CLOSED 2026-09-28 on `fix/storage-followups`. `SharePointBackend.save` now writes the `sp-json`
+kind with `workspaceToJson(workspace)`, the codec the local JSON backend uses, so a project saved to
+SharePoint as JSON carries `schemaVersion` and the canonical serialisation. `sharepoint-backend.test.ts`
+("save constructs correct PUT URL and body for sp-json") pins the PUT body as `workspaceToJson` of the
+workspace and checks that it parses with a `schemaVersion` key. Loading is unchanged: `jsonToWorkspace`
+never required the key, so files written before the fix still load. ★ `workspaceToJson` pretty-prints
+with two-space indentation, as a local JSON file always has, so the SharePoint file is larger than before;
+the save uses one simple PUT with no chunked upload, so a very large project reaches Graph's simple-upload
+size limit sooner.
+
+**Original status:** open 2026-09-28 — found while writing the storage reference page (§484). Verified by
+`grep -n "JSON.stringify(workspace)" src/app/sharepoint-backend.ts` against
+`grep -n "workspaceToJson" src/app/local-file-backend.ts`: the SharePoint save serialised the raw object,
+so its file had no `schemaVersion` and differed byte-wise from a local JSON save of the same project.
+
+**Source:** the §484 storage-page research, 2026-09-28.
+
+## 635. On local and SharePoint JSON a document rich-field error fails the whole load instead of pausing saving — CLOSED 2026-09-28
+
+**Status:** CLOSED 2026-09-28 on `fix/storage-followups`. In `jsonToWorkspace` (`workspace.ts`) the
+`documents` and `documentVersions` catch blocks now rethrow only when `strict` is set AND no `diag` was
+passed (`grep -n "strict && !opts?.diag" src/app/workspace.ts`). The local JSON file and SharePoint JSON
+backends pass both, so such a throw is now logged and recorded in `decodeFailedSlices`. On every load path
+that calls `reportFor` (the load effect, reload, project swaps and the picker's load-existing branch) saving
+then pauses ("Saving paused" / "Save anyway") exactly as on the CSV, Markdown, IndexedDB and Turso loads.
+★ "Open storage file" (`onOpenStorageFile` in `use-storage-file-ops.ts`) calls `reportImportFor`, which
+never raises the decode pause, so there a failure that used to be loud is now quiet. That path applies
+only tasks and RAID and keeps the live documents, so the file's documents were never going to be used.
+What is new for this failure case is that the open now SUCCEEDS and binds the file, so the next save
+writes the live documents over the file's unreadable ones, as any successful open already does; before
+§635 the open failed before binding and left the file untouched. Callers
+with no accumulator (the sample generator, demo data, native import, version-history restore) still fail
+loudly. `workspace.documents.test.ts` pins both halves for both slices: "reports instead of throwing when
+strict comes WITH a diag (§635)" and "STILL throws in strict mode".
+
+**Original status:** open 2026-09-28 — found while writing the storage reference page (§484). Both catch
+blocks began `if (strict) throw err;` (`grep -n "if (strict) throw err" src/app/workspace.ts` → 2), and
+the two file backends load with `{ strict: true, diag }` (`grep -rn "strict: true, diag" src/app | grep -v test`), so a
+rich-field throw there failed the whole load ("load failed") and never reached the pause. §620's closure
+said such a throw "is contained and recorded"; that held for non-strict callers only.
+
+**Source:** the §484 storage-page research, 2026-09-28.
+
+## 636. The comment above rollbackBestEffort says the ROLLBACK protects readers, but the batch has already committed — CLOSED 2026-09-28
+
+**Status:** CLOSED 2026-09-28 on `fix/storage-followups`, as a comment fix by owner decision. The comment
+above `rollbackBestEffort` (`turso-pipeline.ts`) now says that a libSQL `/v2/pipeline` batch does not
+stop at a failing statement, so the COMMIT has usually run and the ROLLBACK normally changes nothing; that
+it only matters when the batch ended with its transaction still open; and that making a failed save write
+nothing is §637. No behaviour changed.
+
+**Original status:** open 2026-09-28 — found while writing the storage reference page (§484). The comment
+said the ROLLBACK exists "so a concurrent reader cannot observe a half-written workspace while the
+server-side transaction stays open", which AGENTS.md's `idKind` hard-constraint bullet contradicts with a
+measurement against a live database.
+
+**Source:** the §484 storage-page research, 2026-09-28.
+
+## 637. A Turso save whose batch hits a failing statement still commits the rest, then reports failure — open
+
+**Status:** open 2026-09-28 — recorded from AGENTS.md's `idKind` hard-constraint bullet, which measured it
+against a live database and pins it in `documents-images-interactive.spec.ts` ("the pre-idKind DDL rejects
+the insert — and the batch still COMMITS around it"; that spec skips without a database, so CI never
+re-checks it). The code path was checked by `grep -n "isTransactional(stmts)) await rollbackBestEffort" src/app/turso-pipeline.ts`
+(the ROLLBACK is sent after the results are read, then the error is thrown); the commit-anyway batch behaviour
+itself was never machine-verified in this session.
+
+**Work item:** #464
+
+A Turso workspace save sends `BEGIN` … statements … `COMMIT` as one `/v2/pipeline` request. When one
+statement fails, the batch does not stop: `COMMIT` still runs and commits everything that succeeded.
+`runTursoPipeline` then sees the error, calls `rollbackBestEffort` (which finds no open transaction and
+changes nothing, §636) and throws. So the user is shown a failed save while the workspace WAS written,
+minus the rejected rows.
+
+What would close it: send the save as a Hrana `batch` whose `COMMIT` step runs only if every earlier step
+succeeded, with a `ROLLBACK` step otherwise, then verify it against a live database (the spec above, run
+with credentials). It changes the Turso transport, so the owner decided on 2026-09-28 to leave it out of
+the release then being prepared, and to fix only the comment (§636).
+
+Size M.
+
+**Source:** the §484 storage-page research, 2026-09-28.
