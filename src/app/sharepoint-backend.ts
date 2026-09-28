@@ -9,6 +9,7 @@ import {
   StorageNotReadyError,
   emptyWorkspace,
   jsonToWorkspace,
+  workspaceToJson,
   type StorageBackend,
   type Workspace,
 } from "./workspace";
@@ -187,7 +188,9 @@ export class SharePointBackend implements StorageBackend {
     const body =
       this.kind === "sp-csv"
         ? workspaceToCsv(workspace)
-        : JSON.stringify(workspace);
+        // §634: the same codec as a local JSON file (schemaVersion and all), so
+        // a project reads and writes identically wherever the JSON lives.
+        : workspaceToJson(workspace);
     const contentType =
       this.kind === "sp-csv" ? "text/csv;charset=utf-8" : "application/json";
     const res = await fetch(graphUrlFor(this.location), {

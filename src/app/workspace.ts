@@ -478,10 +478,10 @@ export interface StorageBackend {
    * counts what the caps discarded — this is data that was unreadable.
    *
    * ★★ A backend that leaves this undefined reports no decode failure, and its
-   * users lose those slices in silence on the next save. Today only the Turso
-   * backend can produce one (meta blobs are a Turso storage detail), but the
-   * field is on the interface so a future blob-storing backend inherits the
-   * obligation rather than rediscovering it.
+   * users lose those slices in silence on the next save. All four backends
+   * set it (Turso, IndexedDB, the local file and SharePoint, since §620 and
+   * §630): `grep -rn "lastDecodeFailures = " src/app --include=*.ts | grep -v test`.
+   * A new backend inherits the obligation through this interface.
    * ★ Reset it on EVERY load before any early return. A stale value pauses
    * saving on a healthy project.
    */
@@ -610,9 +610,10 @@ export class WorkspaceParseError extends Error {
  *  steeringCommittee, timelogLinks, knowledgeItems, insights, activityLog,
  *  budgetHistory, documents, documentVersions, settingsOverrides) whose stored
  *  value carried content but sanitized to nothing. `documents` and
- *  `documentVersions` are ALSO recorded when their sanitize pass THROWS — in
- *  non-strict mode only, since strict rethrows. Purely additive — omitting it
- *  decodes exactly as before. */
+ *  `documentVersions` are ALSO recorded when their sanitize pass THROWS, and
+ *  since §635 that holds in strict mode too: strict rethrows such a throw only
+ *  when NO `diag` was passed. Purely additive — omitting it decodes exactly as
+ *  before. */
 export function jsonToWorkspace(
   text: string,
   opts?: { strict?: boolean; diag?: DocTruncationDiag },
@@ -767,11 +768,14 @@ export function jsonToWorkspace(
         if (docs.length) raw.documents = docs;
         noteIfDropped("documents", p.documents, docs);
       } catch (err) {
-        // ★★ strict must stay LOUD. The sample generator decodes with
-        // { strict: true } so a bad load fails the build rather than writing a
-        // near-empty artifact; rethrowing lets the outer catch raise the same
-        // WorkspaceParseError("shape") it always did.
-        if (strict) throw err;
+        // ★★ strict must stay LOUD for a caller with no accumulator. The sample
+        // generator decodes with { strict: true } so a bad load fails the build
+        // rather than writing a near-empty artifact; rethrowing lets the outer
+        // catch raise the same WorkspaceParseError("shape") it always did.
+        // §635: a caller that passes a `diag` (the local JSON file and SharePoint
+        // JSON backends) wants the loss REPORTED so its full-apply loads can pause saving, as the
+        // CSV, Markdown, IndexedDB and Turso loads already do, not a failed load.
+        if (strict && !opts?.diag) throw err;
         // ★ Not silent, and now reported through BOTH channels. `logDiag` names
         // it for an operator reading the diagnostics ring — the channel a
         // caller's `diag` accumulator is not reachable from. And since §620,
@@ -813,7 +817,8 @@ export function jsonToWorkspace(
         if (versions.length) raw.documentVersions = versions;
         noteIfDropped("documentVersions", p.documentVersions, versions);
       } catch (err) {
-        if (strict) throw err;
+        // §635: same rule as documents — loud only without an accumulator.
+        if (strict && !opts?.diag) throw err;
         logDiag("error", "workspace.documentVersionsDropped", {
           message: err instanceof Error ? err.message : String(err),
         });
