@@ -91,8 +91,8 @@ escaped markup or fused text.
 ★★★ The DOM-free rule on `rich-text-plain.ts` is load-bearing for **the DOM-free contract**, not
 style: it runs inside the entity sanitizers, which are DOM-free BY CONTRACT. `scripts/ai-eval.ts`
 and `scripts/update-ooxml-manifest.ts` import them with no DOM installed, and a DOMPurify call with
-no DOM throws. Whether either script actually CALLS such a path is unverified
-(`docs/open-followups.md` §624). NOT because of the sample generator — it and `scripts/regen-golden-fixtures.ts` install
+no DOM throws. Neither CALLS such a path in the runs measured on 2026-09-28 (the `ai:eval` dry
+run and `ooxml:manifest`, `docs/open-followups.md` §624). NOT because of the sample generator — it and `scripts/regen-golden-fixtures.ts` install
 JSDOM before importing `src/app` (`docs/open-followups.md` §151). A source-scanning test enforces it (importing is
 fine; calling is not).
 
