@@ -422,7 +422,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§188](#188-a-block-refusal-notice-outlives-the-attempt-it-describes) | A block refusal notice outlives the attempt it describes | — | — | open |
 | [§189](#189-adopt-prettier-at-printwidth-120-and-raise-the-size-cap-to-900) | Adopt Prettier at `printWidth: 120` and raise the size cap to 900 | — | — | open |
 | [§190](#190-the-block-refusal-notice-is-inserted-together-with-its-text-which-is-the-unreliable-half-of-the-live-region-contract) | The block refusal notice is inserted together with its text, which is the unreliable half of the live-region contract | — | — | open |
-| [§191](#191-a-block-draft-over-a-storage-cap-refuses-silently-and-the-add-controls-do-not-stop-you-reaching-that-state) | A block draft over a storage cap refuses silently, and the Add controls do not stop you reaching that state | — | — | open |
+| [§191](#191-a-block-draft-over-a-storage-cap-refuses-silently-and-the-add-controls-do-not-stop-you-reaching-that-state--closed-2026-09-28) | A block draft over a storage cap refuses silently, and the Add controls do not stop you reaching that state | — | — | **CLOSED** 2026-09-28 |
 | [§192](#192-appendtext-prepends-when-the-editor-has-never-been-focused--and-which-of-its-two-branches-runs-is-decided-by-the-network--closed-2026-08-20) | `appendText` PREPENDS when the editor has never been focused — and which of its two branches runs is decided by the NETWORK | — | — | **CLOSED** 2026-08-20 |
 | [§193](#193-nine-explicit--timeout-15_000--waits-are-redundant-with-the-global-asyncutiltimeout-and-a-count-of-them-has-already-rotted--closed-2026-08-20) | Nine explicit `{ timeout: 15_000 }` waits are redundant with the global `asyncUtilTimeout`, and a count of them has already rotted | — | — | **CLOSED** 2026-08-20 |
 | [§194](#194-the-lazy-editors-queue-has-no-strictmode-coverage-and-the-test-that-would-give-it-must-assert-the-attach-sequence--closed-2026-08-20) | The lazy editor's queue has NO StrictMode coverage, and the test that would give it must assert the attach SEQUENCE | — | — | **CLOSED** 2026-08-20 |
@@ -16404,9 +16404,23 @@ announcement, and correct the two over-broad docstring sentences in the same
 commit. Nothing will catch a regression here afterwards, so whatever is decided
 belongs in the docstring rather than in a test.
 
-## 191. A block draft over a storage cap refuses silently, and the Add controls do not stop you reaching that state
+## 191. A block draft over a storage cap refuses silently, and the Add controls do not stop you reaching that state — CLOSED 2026-09-28
 
-**Status:** open. **Severity:** medium (a false affordance plus a silent
+**Status:** CLOSED 2026-09-28 on `fix/block-limits-plurals`. A heading, list or table over a storage cap is
+now REFUSED on the interactive commit path with a notice naming the limit, as the paragraph cap has been
+since §185. `firstCapViolation` (`document-model.ts`) names the cap (text length, list items, table
+columns or rows); `tryCommit` in `document-block-editors.tsx` refuses with
+`{ kind: "overLimit", violation }`, and `BlockRefusalNotice` renders one of four new EN/DE messages.
+The refused draft stays dirty (`blockOverCap`), so an unmount or `pagehide` flush still saves it in its
+capped form rather than dropping the edit. Add row, Add column and Add item are disabled at their caps,
+each with a visible reason it points to through `aria-describedby`. `document-model.test.ts` pins
+`firstCapViolation` and its agreement with `exceedsStorageCaps`; the "block size limits (§191)" describe
+in `document-block-editors.test.tsx` pins the refusals, the dirty flush and the disabled controls, and
+replaces the test that pinned the silent re-seed. 13 of 13 mutants (with §450) fail a test. Not
+covered, as before: a ragged table row (more cells than columns), which no editor control can produce, is
+still truncated by the normaliser.
+
+**Original status:** open. **Severity:** medium (a false affordance plus a silent
 refusal; no data reaches storage wrongly). **Found by:** the pre-release cold
 review of the S3b branch, 2026-08-19. Never machine-verified by a committed probe.
 
@@ -16414,8 +16428,6 @@ review of the S3b branch, 2026-08-19. Never machine-verified by a committed prob
 refusal: `BlockRefusal` carries `{kind:"tooLong"}` and `tryCommit` sets it with a notice (`5433b01ed`,
 §185). The heading, bullet and table caps still reach the silent branch, the Add controls are still
 never disabled at the cap, and `exceedsStorageCaps` still ends in `default: return false`.
-
-**Work item:** #180
 
 `normalizeBlockForStorage` clamps a block to `MAX_TABLE_COLUMNS` (30),
 `MAX_TABLE_ROWS` (500), `MAX_BULLET_ITEMS` (200), `MAX_TEXT_CHARS` (5 000) and
@@ -35407,6 +35419,12 @@ no rendering. Verified with the wrapped-aware parse in the code block below (**7
 EN-only keys are `undoToastResourceEmailPropagated` (`75d0af7da`; the German is a bare plural, wrong at
 a count of one) and `storagePickFileHasProject` (`32f6ee1a7`; the German uses the slash shape). There is
 still no check on dictionary values.
+
+★ Narrowed 2026-09-28 (`fix/block-limits-plurals`): the two keys named just above are fixed.
+`undoToastResourceEmailPropagated` and `storagePickFileHasProject` are now `…One` pairs rendered through
+`tPlural` at their call sites (`resource-email-propagation-commit.ts`, `use-storage-file-ops.ts`), so German
+reads "1 verknüpften Eintrag" and "1 Datensatz"; `i18n-plural.test.ts` and each call site's test pin the
+count of one. The class itself stays open, and there is still no detector for it.
 
 **Work item:** #286
 
