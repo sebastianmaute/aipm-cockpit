@@ -1207,8 +1207,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // ★★ AND READ AGAIN IF A SAVE STARTED DURING THE READ (review I1 on §641). `holdDuring` does not
       //   clear the save effect's debounce timer, so an edit made just before the click can fire its
       //   save while `load()` is awaited; applying that read would split screen and file the same way.
-      //   From `load()` resolving to the apply below nothing yields, so a save not started by then is
-      //   dropped by the effect cleanup the apply's render runs. Bounded by `RELOAD_REREAD_LIMIT`.
+      //   From `load()` resolving to the apply below nothing awaits, and the apply's render re-runs the
+      //   save effect, whose cleanup clears a pending timer. Only a debounce falling due in the few ms
+      //   before React commits that render can still start the old snapshot's save (re-review N1 on
+      //   §641). Bounded by `RELOAD_REREAD_LIMIT`.
       let workspace: Workspace | null = null;
       for (let reads = 0; ; reads += 1) {
         const queuedSaves = whenSaved(backend);
@@ -1229,7 +1231,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // ★ Nothing is emitted but the diagnostic: the click's outcome belongs to the backend the user
       //   is no longer on, and the live instance's own load effect owns the screen now.
       if (workspace === null || isSupersededBackend()) { // `null` only when the §641 wait above saw the rebuild first
-        logDiag("warn", "storage.supersededLoadDropped", { writer: "reloadCurrentProject", outcome: "resolved" });
+        logDiag("warn", "storage.supersededLoadDropped", { writer: "reloadCurrentProject", outcome: workspace === null ? "waited" : "resolved" }); // "waited": the rebuild was seen before any read
         return;
       }
       // ★ DATA-LOSS GUARD: a reload that would EMPTY a populated project is

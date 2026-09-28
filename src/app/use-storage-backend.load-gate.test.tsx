@@ -48,6 +48,7 @@ vi.mock("./project-file-handles", () => ({
 vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn() }));
 vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
 
+import { logDiag } from "./diagnostics";
 import * as storageMod from "./storage";
 import * as handles from "./project-file-handles";
 import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
@@ -829,5 +830,6 @@ describe("§641 — a reload waits for the saves queued before it", () => {
 
     expect(a.load.mock.calls.length).toBe(readsOfA);
     expect(b.load).toHaveBeenCalled();
+    expect(logDiag).toHaveBeenCalledWith("warn", "storage.supersededLoadDropped", { writer: "reloadCurrentProject", outcome: "waited" });
   });
 });
