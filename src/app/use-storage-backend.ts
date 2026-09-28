@@ -904,8 +904,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         //   ★★ COMPARE-AND-SWAP, since a later run or a load may have re-baselined
         //   mid-flight onto a different workspace.
         //   ★★ §627: saves through `enqueueSave` no longer overlap on one backend, so the
-        //   baseline a failure restores is the last save that LANDED. A `guardedWrite`
-        //   (use-load-truncation.ts) does not go through the queue and is not ordered with it.
+        //   baseline a failure restores is the last save that LANDED (`guardedWrite` and the
+        //   pre-switch flush queue too). A save released by the queue's stall timer can still overlap.
         const live = destructive.readBaselines();
         if (live.collections === curCollections && live.records === curRecords) {
           destructive.syncBaselines(committedBaselineRef.current.collections, committedBaselineRef.current.records);
