@@ -3,8 +3,9 @@
 // that file sat at the file-size gate's 800-line cap with zero headroom — see
 // its own header comment for why `useBlockDraft` and `BlockReadOnlyNotice`
 // stay there as the shared template rather than being duplicated here.
-import { t } from "./i18n";
-import type { DocBlock } from "./document-model";
+import { t, localeFor } from "./i18n";
+import { useId } from "react";
+import { MAX_BULLET_ITEMS, type DocBlock } from "./document-model";
 import { type BlockEditorProps, useBlockDraft } from "./document-block-editors";
 import { BlockRefusalNotice } from "./document-block-notices";
 import { ToggleButton } from "./toggle-button";
@@ -58,6 +59,10 @@ export function BulletsBlockEditor({
 
   const blockQualifier = t(lang, "documentsBlockN", String(index + 1));
   const qualify = (label: string) => `${label} – ${blockQualifier}`;
+  // §191 — at the cap Add item is disabled, and the visible reason is its
+  //  description: a disabled control with no reason reads as a broken one.
+  const itemLimitId = useId();
+  const atItemLimit = value.items.length >= MAX_BULLET_ITEMS;
 
   // Functional updaters throughout: `commitValue` resolves each against the
   // shared `liveValueRef`, not this render's `value`, so two of these fired
@@ -156,10 +161,17 @@ export function BulletsBlockEditor({
           size="xs"
           aria-label={qualify(t(lang, "documentsAddItem"))}
           onClick={addItem}
+          disabled={atItemLimit}
+          aria-describedby={atItemLimit ? itemLimitId : undefined}
         >
           {t(lang, "documentsAddItem")}
         </Button>
       </div>
+      {atItemLimit && (
+        <p id={itemLimitId} className="text-xs text-muted-foreground">
+          {t(lang, "documentsListItemLimitReached", new Intl.NumberFormat(localeFor(lang)).format(MAX_BULLET_ITEMS))}
+        </p>
+      )}
       {refusal && <BlockRefusalNotice lang={lang} refusal={refusal} />}
     </div>
   );

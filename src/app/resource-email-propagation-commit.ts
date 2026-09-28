@@ -15,7 +15,7 @@
 //  after `captureComposite` has already pushed the entry.
 import type { useWorkspace } from "./workspace-context";
 import type { ContactPerson, Resource } from "./types";
-import { type Lang, t } from "./i18n";
+import { type Lang, tPlural } from "./i18n";
 import { capturePart, type CompositeFragment } from "./undo/use-undo-stack";
 import {
   propagateResourceEmail, resourceEmailChange, restoreContactPersonEmails,
@@ -104,5 +104,5 @@ export function commitResourceEmailCorrection(args: {
   const result = propagateResourceEmail(change, args.input);
   if (result.count === 0) return null;
   const cascade = commitEmailPropagation({ change, input: args.input, result, setters: args.setters });
-  return { result, cascade, toastText: t(args.lang, "undoToastResourceEmailPropagated", result.count) };
+  return { result, cascade, toastText: tPlural(args.lang, "undoToastResourceEmailPropagated", result.count, result.count) };
 }

@@ -422,7 +422,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§188](#188-a-block-refusal-notice-outlives-the-attempt-it-describes) | A block refusal notice outlives the attempt it describes | — | — | open |
 | [§189](#189-adopt-prettier-at-printwidth-120-and-raise-the-size-cap-to-900) | Adopt Prettier at `printWidth: 120` and raise the size cap to 900 | — | — | open |
 | [§190](#190-the-block-refusal-notice-is-inserted-together-with-its-text-which-is-the-unreliable-half-of-the-live-region-contract) | The block refusal notice is inserted together with its text, which is the unreliable half of the live-region contract | — | — | open |
-| [§191](#191-a-block-draft-over-a-storage-cap-refuses-silently-and-the-add-controls-do-not-stop-you-reaching-that-state) | A block draft over a storage cap refuses silently, and the Add controls do not stop you reaching that state | — | — | open |
+| [§191](#191-a-block-draft-over-a-storage-cap-refuses-silently-and-the-add-controls-do-not-stop-you-reaching-that-state--closed-2026-09-28) | A block draft over a storage cap refuses silently, and the Add controls do not stop you reaching that state | — | — | **CLOSED** 2026-09-28 |
 | [§192](#192-appendtext-prepends-when-the-editor-has-never-been-focused--and-which-of-its-two-branches-runs-is-decided-by-the-network--closed-2026-08-20) | `appendText` PREPENDS when the editor has never been focused — and which of its two branches runs is decided by the NETWORK | — | — | **CLOSED** 2026-08-20 |
 | [§193](#193-nine-explicit--timeout-15_000--waits-are-redundant-with-the-global-asyncutiltimeout-and-a-count-of-them-has-already-rotted--closed-2026-08-20) | Nine explicit `{ timeout: 15_000 }` waits are redundant with the global `asyncUtilTimeout`, and a count of them has already rotted | — | — | **CLOSED** 2026-08-20 |
 | [§194](#194-the-lazy-editors-queue-has-no-strictmode-coverage-and-the-test-that-would-give-it-must-assert-the-attach-sequence--closed-2026-08-20) | The lazy editor's queue has NO StrictMode coverage, and the test that would give it must assert the attach SEQUENCE | — | — | **CLOSED** 2026-08-20 |
@@ -865,6 +865,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§635](#635-on-local-and-sharepoint-json-a-document-rich-field-error-fails-the-whole-load-instead-of-pausing-saving--closed-2026-09-28) | On local and SharePoint JSON a document rich-field error fails the whole load instead of pausing saving | — | — | **CLOSED** 2026-09-28 |
 | [§636](#636-the-comment-above-rollbackbesteffort-says-the-rollback-protects-readers-but-the-batch-has-already-committed--closed-2026-09-28) | The comment above rollbackBestEffort says the ROLLBACK protects readers, but the batch has already committed | — | — | **CLOSED** 2026-09-28 |
 | [§637](#637-a-turso-save-whose-batch-hits-a-failing-statement-still-commits-the-rest-then-reports-failure--open) | A Turso save whose batch hits a failing statement still commits the rest, then reports failure | — | — | open |
+| [§638](#638-the-dashboard-narrative-after-clear-test-races-the-remounted-editors-autofocus-frame--closed-2026-09-28) | The dashboard-narrative "after Clear" test races the remounted editor's autofocus frame | — | — | **CLOSED** 2026-09-28 |
+| [§639](#639-time-tracking-dialog-tests-type-before-the-dialogs-raf-deferred-initial-focus--closed-2026-09-28) | Time-tracking dialog tests type before the dialog's rAF-deferred initial focus | — | — | **CLOSED** 2026-09-28 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -16402,9 +16404,23 @@ announcement, and correct the two over-broad docstring sentences in the same
 commit. Nothing will catch a regression here afterwards, so whatever is decided
 belongs in the docstring rather than in a test.
 
-## 191. A block draft over a storage cap refuses silently, and the Add controls do not stop you reaching that state
+## 191. A block draft over a storage cap refuses silently, and the Add controls do not stop you reaching that state — CLOSED 2026-09-28
 
-**Status:** open. **Severity:** medium (a false affordance plus a silent
+**Status:** CLOSED 2026-09-28 on `fix/block-limits-plurals`. A heading, list or table over a storage cap is
+now REFUSED on the interactive commit path with a notice naming the limit, as the paragraph cap has been
+since §185. `firstCapViolation` (`document-model.ts`) names the cap (text length, list items, table
+columns or rows); `tryCommit` in `document-block-editors.tsx` refuses with
+`{ kind: "overLimit", violation }`, and `BlockRefusalNotice` renders one of four new EN/DE messages.
+The refused draft stays dirty (`blockOverCap`), so an unmount or `pagehide` flush still saves it in its
+capped form rather than dropping the edit. Add row, Add column and Add item are disabled at their caps,
+each with a visible reason it points to through `aria-describedby`. `document-model.test.ts` pins
+`firstCapViolation` and its agreement with `exceedsStorageCaps`; the "block size limits (§191)" describe
+in `document-block-editors.test.tsx` pins the refusals, the dirty flush and the disabled controls, and
+replaces the test that pinned the silent re-seed. 13 of 13 mutants (with §450) fail a test. Not
+covered, as before: a ragged table row (more cells than columns), which no editor control can produce, is
+still truncated by the normaliser.
+
+**Original status:** open. **Severity:** medium (a false affordance plus a silent
 refusal; no data reaches storage wrongly). **Found by:** the pre-release cold
 review of the S3b branch, 2026-08-19. Never machine-verified by a committed probe.
 
@@ -16412,8 +16428,6 @@ review of the S3b branch, 2026-08-19. Never machine-verified by a committed prob
 refusal: `BlockRefusal` carries `{kind:"tooLong"}` and `tryCommit` sets it with a notice (`5433b01ed`,
 §185). The heading, bullet and table caps still reach the silent branch, the Add controls are still
 never disabled at the cap, and `exceedsStorageCaps` still ends in `default: return false`.
-
-**Work item:** #180
 
 `normalizeBlockForStorage` clamps a block to `MAX_TABLE_COLUMNS` (30),
 `MAX_TABLE_ROWS` (500), `MAX_BULLET_ITEMS` (200), `MAX_TEXT_CHARS` (5 000) and
@@ -35406,6 +35420,12 @@ EN-only keys are `undoToastResourceEmailPropagated` (`75d0af7da`; the German is 
 a count of one) and `storagePickFileHasProject` (`32f6ee1a7`; the German uses the slash shape). There is
 still no check on dictionary values.
 
+★ Narrowed 2026-09-28 (`fix/block-limits-plurals`): the two keys named just above are fixed.
+`undoToastResourceEmailPropagated` and `storagePickFileHasProject` are now `…One` pairs rendered through
+`tPlural` at their call sites (`resource-email-propagation-commit.ts`, `use-storage-file-ops.ts`), so German
+reads "1 verknüpften Eintrag" and "1 Datensatz"; `i18n-plural.test.ts` and each call site's test pin the
+count of one. The class itself stays open, and there is still no detector for it.
+
 **Work item:** #286
 
 Found 2026-09-08 while measuring §415's disputed count, not by looking for it. The dictionary carries
@@ -43398,3 +43418,41 @@ the release then being prepared, and to fix only the comment (§636).
 Size M.
 
 **Source:** the §484 storage-page research, 2026-09-28.
+
+## 638. The dashboard-narrative "after Clear" test races the remounted editor's autofocus frame — CLOSED 2026-09-28
+
+**Status:** CLOSED 2026-09-28 on `fix/narrative-flake`, test-only. "after Clear, the read-only area shows the
+Add button" (`dashboard-sections/dashboard-narrative.test.tsx`) now waits, after Edit and again after Clear, for
+focus to sit inside the editor surface before it clicks outside, as its neighbours already do after Edit.
+A new test, "closes on a click outside after Clear once the remounted editor's focus frame has run", queues
+animation frames and drains them by hand (the §619 technique), so the order is fixed; deleting its
+POST-CLEAR DRAIN line fails it. No product code changed.
+
+**Original status:** open 2026-09-28 — the test failed `unit-shuffled` on PR #455 and on PR #470, in files
+neither PR touched, and both reruns passed. Cause, read from the code: Clear bumps `seedNonce`
+(`grep -n "setSeedNonce" src/app/dashboard-sections/dashboard-narrative.tsx`), which keys the
+`RichTextEditor`, so the editor REMOUNTS and the new instance focuses itself in a later animation frame.
+A click outside that lands before that frame moves focus out of nothing (focus is on `<body>`), so the
+region's `onBlur` never fires and the editor stays open; the late frame then focuses the new editor. Same
+class as §619 (`1035cb999`). A person cannot click within one frame of Clear.
+
+**Source:** CI on PR #455 and PR #470, 2026-09-28.
+
+## 639. Time-tracking dialog tests type before the dialog's rAF-deferred initial focus — CLOSED 2026-09-28
+
+**Status:** CLOSED 2026-09-28 on `fix/narrative-flake`, test-only. The five tests in
+`task-time-tracking-modal.test.tsx` that clear or type into a duration box right after rendering now first
+wait for the dialog's initial focus to land inside it (`settleInitialFocus`). A new test, "Enter still
+commits when the dialog's initial-focus frame runs before typing", queues animation frames and drains them
+by hand (the §619 technique); deleting its PRE-TYPE DRAIN line fails it with `onSave` "Number of calls: 0",
+the exact CI message. No product code changed.
+
+**Original status:** open 2026-09-28 — "Enter in a VALID duration box commits the dialog" failed
+`unit-shuffled` on PR #470 (docs-only) and PR #471, while `main` passed on the same code. Cause: `Modal`
+focuses its first control inside a `requestAnimationFrame` after it opens
+(`grep -n "requestAnimationFrame" src/app/modal.tsx`). A frame that landed mid-typing moved focus to a
+button, and the dialog's Enter handler, which is scoped to inputs, ignored the key. Same class as §619 and
+§638. A first theory, a stale validity comparison in `EffortField`, was ruled out by measurement: a test for
+it passed on the unfixed code, because separate change events re-render in between.
+
+**Source:** CI on PR #470 and PR #471, 2026-09-28.
