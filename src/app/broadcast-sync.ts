@@ -26,6 +26,7 @@
 //   epoch at the last commit: a project op bumps the scope epoch synchronously and
 //   React renders the new project in a later task, and a setter queued in between
 //   would run after the op's and put the old project's slice back (review I1 on §642).
+//   A message dropped in that window is LOST, not deferred: nothing replays it.
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { AppView } from "./nav-config";
