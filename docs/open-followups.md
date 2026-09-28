@@ -7560,8 +7560,8 @@ every path: CSV/Markdown via `decodeMetaJson` (§630, `96d4d8c04`), Turso via `r
 IndexedDB and non-strict JSON via `noteDecodeFailure` (§620), and strict JSON with a `diag` since §635.
 The load paths that call `reportFor` then pause saving. The 2026-08-28 text correction is superseded:
 `DocTruncationDiag` now carries that field and the catch writes to it. Still open: with no DOM the
-documents are still dropped (`grep -n 'from "dompurify"' src/app/sanitize-html.ts`), and a caller that
-passes no `diag` still gets nothing.
+documents are still dropped (`grep -n 'from "dompurify"' src/app/sanitize-html.ts`), and a CSV, Markdown,
+IndexedDB or Turso caller that passes no `diag` gets no report (JSON still logs to the diagnostics ring).
 
 **Work item:** #134
 
@@ -12360,8 +12360,8 @@ mistake "required" for "collision-proof".
 **Status:** open — PARTLY FIXED, the type-level guard is open and every call site is converted. Reproduced 2026-08-28 by `grep -rn "RichTextSink" src/app --include=*.ts`.
 
 ★ Narrowed 2026-09-28 (register sweep): the entry's own "converted to constants" command now returns
-**49**, not 35, and "still raw literals" is still **0**, so the identity is now `49 + 0`; new call sites
-arrived already using the constants. `RichTextSink` is unchanged (`DerivedSink | "render"`,
+**49** lines, not 35: 38 call sites plus 11 comment mentions, since unlike the raw-literal command it does
+not exclude comments. "Still raw literals" is still **0**. `RichTextSink` is unchanged (`DerivedSink | "render"`,
 `html-start.ts`), so the type-level guard is still the open item.
 
 **Work item:** #157
@@ -19396,7 +19396,8 @@ declines the render) and `asset-library.tsx` (which discloses it on the row) so 
 `grep -rn "isBlockedAssetMime" src/app --include=*.ts --include=*.tsx`.
 
 ★ Narrowed 2026-09-28 (register sweep): the typeless-Blob fallback now exists at TWO sites,
-`document-asset-images.ts` and `asset-object-url.ts` (extracted by `fa11ce915`), and `isBlockedAssetMime`
+`document-asset-images.ts` and `asset-object-url.ts` (added by `fa11ce915`, the original left in place), and
+`isBlockedAssetMime`
 has seven importers, not two. The first Verify command no longer matches anything; grep
 `isBlockedAssetMime` instead. The truthy spelling and both pinning tests are unchanged.
 
@@ -35400,7 +35401,7 @@ no rendering. Verified with the wrapped-aware parse in the code block below (**7
 `npm run followups:index:check` (exit 0).
 
 ★ Narrowed 2026-09-28 (register sweep): the class has GROWN. Re-running this entry's own scripts gives
-**74** EN / **62** DE, EN-only **13** / DE-only **1**, and **59** on the single-line grep. The two new
+**74** EN / **62** DE, EN-only **13** / DE-only **1**, and **59** on the `^  [A-Za-z0-9_]+: ".*\([sne]+\)` grep (was 58). The two new
 EN-only keys are `undoToastResourceEmailPropagated` (`75d0af7da`; the German is a bare plural, wrong at
 a count of one) and `storagePickFileHasProject` (`32f6ee1a7`; the German uses the slash shape). There is
 still no check on dictionary values.
@@ -39116,8 +39117,9 @@ to stay id-less for that batch and file a follow-up. Counted 2026-09-14 with
 ★ Narrowed 2026-09-28 (register sweep): the "Turso single — never persisted at all" bullet is false since
 `2a38b1791` (§538). Single-tenant now writes `ws.project` as the `project_meta` meta row
 (`workspaceToStatements` in `turso-schema.ts`), so `resourceId` round-trips there as JSON. The reproduce
-line `grep -n "DELIBERATELY excluded" src/app/turso-schema.ts` now prints nothing. The core is still
-open: `ContactPerson` has no `id`, and removal is still by array position.
+line `grep -n "DELIBERATELY excluded" src/app/turso-schema.ts` now prints nothing. The Turso-tenant
+bullet's `dirtyWorkspaceTables` premise is stale too: `ws.project` now dirties `meta`, which the tenant
+builder ignores, so tenant persistence is unchanged. The core is still open: `ContactPerson` has no `id`, and removal is still by array position.
 
 **Work item:** #327
 
