@@ -41,10 +41,9 @@ exports, documents, window layout, dialog sizes, bulk edit, Trends and the deskt
   older save could finish last and overwrite a newer one on file or SharePoint storage. Saves to
   one location now run one at a time, newest last; if the window closes before the newest one
   runs, the close-window recovery above restores it.
-- **Reload while saving.** Reloading a project while saves were still pending could write the
-  pre-reload data back over the file, so the screen and the file disagreed until the next edit.
-  Loading the project in a picked file could likewise be overwritten by a save queued for the
-  previous file. Both now wait for pending saves to finish first.
+- **Reload while saving.** Reloading a project while a save was still running could write the
+  pre-reload data back over the saved project, so the screen and the saved project disagreed
+  until the next edit. Reload now waits for pending saves to finish first.
 - **Data this version cannot read.** When a project holds data this version cannot use at all (for
   example project settings, documents or logs written by a newer version), the app now shows
   "Saving paused" instead of silently dropping it and overwriting it on the next save. "Save
