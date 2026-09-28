@@ -711,7 +711,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§481](#481-the-task-row-n-changes-badge-is-a-static-label-with-no-way-to-jump-to-the-linked-changes--open) | The task-row "N changes" badge is a static label with no way to jump to the linked changes | found 2026-09-13 by the housekeeping audit, from the change-log register design's deferred click-to-jump | S — a jump handler threaded the way the RAID badge's is | open |
 | [§482](#482-the-document-asset-library-table-shows-no-image-thumbnails--open) | The document asset library table shows no image thumbnails | found 2026-09-13 by the housekeeping audit, from the asset-preview lightbox design's named follow-up | S — a thumbnail column reusing the existing blob-URL lifecycle | open |
 | [§483](#483-moving-the-view-scoped-ai-guide-block-onto-the-turn-tail-slice-g2-is-specced-but-tracked-nowhere-so-the-cost-harness-still-has-no-real-candidate-layout--open) | Moving the view-scoped AI guide block onto the turn tail (slice G2) is specced but tracked nowhere, so the cost harness still has no real candidate layout | found 2026-09-13 by the housekeeping audit; `docs/AGENTS/ai-assistant.md` hands a decision to G2, and G2 had no entry or issue | M — the G2 layout as the harness's first real candidate arm, plus the usage-meter measurement it depends on | open |
-| [§484](#484-storage-and-recovery-have-no-docsagents-reference--open) | Storage and recovery have no docs/AGENTS reference | found 2026-09-13 by the housekeeping audit's docs/AGENTS coverage pass | M — narrowed 2026-09-27 to one new storage/recovery file, citing symbols rather than line numbers | open |
+| [§484](#484-storage-and-recovery-have-no-docsagents-reference--closed-2026-09-28) | Storage and recovery have no docs/AGENTS reference | found 2026-09-13 by the housekeeping audit's docs/AGENTS coverage pass | M — narrowed 2026-09-27 to one new storage/recovery file, citing symbols rather than line numbers | **CLOSED** 2026-09-28 |
 | [§485](#485-nothing-keeps-docsfeaturesmd-in-sync-with-libapp-feature-guidemd-and-the-human-facing-copy-has-already-drifted--closed-2026-09-27) | Nothing keeps docs/features.md in sync with lib/app-feature-guide.md, and the human-facing copy has already drifted | found 2026-09-13 by the housekeeping audit's general-docs pass, which counted five false claims in docs/features.md | S — generate features.md from the guide, or add a section-parity check | **CLOSED** 2026-09-27 |
 | [§486](#486-auto-pull-re-creates-an-outlook-event-the-user-pruned-because-an-item-cannot-opt-out-of-calendar-sync--closed-2026-09-26) | ~~Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync~~ | documented as a known limit by calendar two-way SP5 (0.164) and carried only as tech-debt-register TD-3 until 2026-09-13; fixed on `fix/defect-batch-6` | M — a per-item `calendarOptOut` across all six write paths, the reconcile change, and an editor checkbox | **CLOSED** 2026-09-26 |
 | [§487](#487-the-windows-installer-is-unsigned-because-no-code-signing-certificate-exists-so-every-install-shows-an-unknown-publisher-warning--open) | The Windows installer is unsigned because no code-signing certificate exists, so every install shows an unknown-publisher warning | found 2026-09-13 by the housekeeping audit; recorded as a constraint in `desktop/electron-builder.yml` and as a user instruction in `docs/desktop-rollout.md` | S once a certificate exists — procuring one is an organisational step and the long pole; the CI change is signing settings plus a protected variable | open |
@@ -37602,14 +37602,22 @@ Size M.
 
 **Source:** `docs/superpowers/specs/2026-09-08-ai-guide-block-cache-split-design.md`, `docs/superpowers/specs/2026-09-08-ai-cost-roadmap-design.md`, `docs/superpowers/specs/2026-09-09-ai-prompt-quality-harness-design.md`, `docs/ai-cost.md`; audit candidate 5
 
-## 484. Storage and recovery have no docs/AGENTS reference — OPEN
+## 484. Storage and recovery have no docs/AGENTS reference — CLOSED 2026-09-28
 
-**Status:** open, narrowed 2026-09-27 to the storage/recovery page. `ls docs/AGENTS` now lists
+**Status:** CLOSED 2026-09-28 on `docs/storage-reference`. `docs/AGENTS/storage.md` now exists
+(`ls docs/AGENTS | grep -c storage` → 1) and covers the module map, the two load funnels, the decode
+diagnostics and the save pause, the save path with the §629 unload journal and its unverified targets,
+who writes each of the six paths, the Turso rules (linked to their AGENTS.md bullets, not restated) and
+`/recovery`, safe mode and the factory reset. Both AGENTS.md subsystem tables carry a row for it. Writing
+it disproved four statements, each fixed or filed: AGENTS.md's "one `ENTITY_SPECS` row buys three of the
+six" (corrected in place: it buys both Turso layouts), and §634, §635 and §636 (closed on
+`fix/storage-followups`), with §637 filed open. `docs:symbols:check` and `docs:claims:check` pass over the
+page; its claims were checked by a cold review before merge.
+
+**Original status:** open, narrowed 2026-09-27 to the storage/recovery page. `ls docs/AGENTS` now lists
 `budget.md`, `desktop.md` and `undo.md`, written on the `docs/coverage` branch, and still no storage
 page: `ls docs/AGENTS | grep -ci storage` → 0. The insights.md half was already fixed by f45dbd81b,
 which added the "TimeLog guardrail insights" bullet: `grep -c "TimeLog guardrail insights" docs/AGENTS/insights.md` → 1.
-
-**Work item:** #306
 
 ★★ **NARROWED 2026-09-27; everything from "Original status:" on is the 2026-09-13 record.** Three of the
 four pages now exist on `docs/coverage` (budget/FX, the undo engine, the desktop shell), so only
