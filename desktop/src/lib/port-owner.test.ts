@@ -4,7 +4,10 @@ import { classifyPortOwner, probedAppVersion, type PortProbe } from "./port-owne
 
 const VERSION = "0.301.0";
 
-const OURS_BODY = `<!DOCTYPE html><html lang="en" data-app-version="${VERSION}"><body></body></html>`;
+// Shaped like the page src/app/layout.tsx renders: more quoted attributes follow
+// the version on the same line, so a capture that runs past the closing quote
+// reads the wrong value and fails the same-version case.
+const OURS_BODY = `<!DOCTYPE html><html lang="en" data-app-version="${VERSION}" class="h-full"><body class="min-h-full"></body></html>`;
 
 const OURS: PortProbe = { reachable: true, status: 200, body: OURS_BODY };
 

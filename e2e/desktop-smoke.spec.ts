@@ -130,8 +130,11 @@ async function appWindow(browser: Browser): Promise<Page> {
 // desktop/src/lib/constants.ts) and main.ts holds a single-instance lock, so
 // they must not overlap AND the previous server child must be gone before the
 // next launch. `taskkill` returns before the OS has torn the listener down,
-// so the second launch's port-owner probe would classify a dying server as
-// "foreign" and refuse to start with a "Port in use" dialog.
+// so the second launch's port-owner probe can still reach the dying server:
+// while it serves our page it is "ours" (both launches run the same build, so
+// never "stale") and the launch loads it instead of spawning its own; once it
+// answers with anything else it is "foreign" and the launch refuses with a
+// "Port in use" dialog (both reasoned from main.ts's owner branches).
 //
 // Waiting on the CONDITION (nothing answers on the port) rather than sleeping
 // a guessed interval: a sleep that is long enough today is a flake tomorrow.

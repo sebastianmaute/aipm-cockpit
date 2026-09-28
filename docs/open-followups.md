@@ -43081,8 +43081,11 @@ value, an empty one included, is the new `stale`. `start()` in `desktop/src/main
 treats `stale` like `foreign`: `fail()` shows "Another version is still running", naming both
 versions and telling the user to restart or end the processes in Task Manager, and quits. The server is
 neither reused nor killed, because this launch has no pid for it. `port-owner.test.ts` pins `ours`,
-`stale` for an older, a newer, an empty and a prefix-extended version, `foreign` and `free`; each of six
-mutants of `port-owner.ts` turns it red. NOT verified: the `stale` branch in `main.ts` has no test (it is
+`stale` for an older, a newer, an empty and a prefix-extended version, `foreign` and `free`, on a test
+page shaped like the real one (more quoted attributes after the version). Each of seven mutants of
+`port-owner.ts` turns it red: the version comparison removed, a prefix match instead of equality, the
+no-attribute branch removed, the whole match returned instead of the value, the closing quote no longer
+tied to the opening one, an empty value treated as absent, and a greedy value capture. NOT verified: the `stale` branch in `main.ts` has no test (it is
 typechecked, by CI's `desktop:typecheck` in the `static` job), and no orphan was produced, so the dialog
 has never been seen on a packaged build. The same-build case
 is unchanged: an orphan of the SAME version is still reused and cannot be stopped by that launch.
