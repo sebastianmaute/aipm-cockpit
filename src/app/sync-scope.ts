@@ -1,0 +1,56 @@
+// src/app/sync-scope.ts
+//
+// §643 — the scope a MAIN window's tab-sync messages carry (`useBroadcastSync`). Two main windows
+// apply each other's slices only when their scopes are equal, and each then autosaves what it
+// applied, so the scope must name the STORAGE a window writes. It follows `storageTargetKey`'s rule
+// for what a target is (browser storage and every local-file kind keyed on the KIND alone, §591
+// ruling 3), minus the Turso auth token, which a message must never carry.
+// ★★ Browser storage is ONE IndexedDB store (`new BrowserBackend()` takes no project) and a local
+// file is read through ONE handle slot per kind (`file-handle:<kind>`) that any tab's project
+// switch re-points, so windows of one kind write the same data whatever registry project they show
+// (review I1/I2). Keying them by registry project split tabs that write the same data, and each
+// one's whole-workspace autosave then overwrote the other's. That the slot is shared at all is §645.
+// The §629 journal key (`journalProjectKey`) stays the JOURNAL key; changing it would orphan
+// journals already written.
+//
+// `null` means there is no target to name (Turso without a database URL): such a window neither
+// sends to nor accepts from other main windows. Pop-outs use no scope; they follow their opener.
+
+import type { StorageConfig } from "./workspace";
+
+export type SyncScopeInput = {
+  storageConfig: StorageConfig;
+  /** The Turso database URL in use, when the storage is Turso. Never the auth token. */
+  tursoDatabaseUrl: string | undefined;
+  tursoProjectId: string | null;
+};
+
+export function syncScopeKey(input: SyncScopeInput): string | null {
+  const config = input.storageConfig;
+  switch (config.kind) {
+    case "turso":
+      // The URL names the database; the project id names the project inside it (empty for a
+      // single-project database). Without a URL there is no database to name.
+      return input.tursoDatabaseUrl ? JSON.stringify(["turso", input.tursoDatabaseUrl, input.tursoProjectId ?? ""]) : null;
+    case "sp-json":
+    case "sp-csv":
+      return JSON.stringify([config.kind, config.hostname, config.sitePath, config.itemPath]);
+    case "browser":
+    case "local-json":
+    case "local-csv":
+    case "local-md":
+      return JSON.stringify([config.kind]);
+    default: {
+      const exhaustiveCheck: never = config;
+      throw new Error(`syncScopeKey: unhandled StorageConfig kind ${JSON.stringify(exhaustiveCheck)}`);
+    }
+  }
+}
+
+/** The opener's `windowId` a pop-out follows (`?popout=<tab>&opener=<id>`, written by
+ *  `openPopoutWindow`), or `null`. Lives here rather than in `broadcast-sync.ts`, which many test
+ *  files mock whole. */
+export function readPopoutOpenerFromUrl(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("opener") || null;
+}

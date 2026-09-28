@@ -52,6 +52,7 @@ import { UNLOAD_JOURNAL_TAB_ID, useUnloadJournal } from "./use-unload-journal";
 import { emptyWorkspace, jsonToWorkspace, workspaceToJson, type Workspace } from "./workspace";
 import { isMassDeletion, workspaceRecordCount } from "./workspace-metrics";
 import { useWorkspace } from "./workspace-context";
+import { useBroadcastSync, type SyncContext } from "./broadcast-sync";
 
 const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
 
@@ -582,5 +583,45 @@ describe("§632 — journals under other keys, wired into the load", () => {
     expect(readJournal(`${UNLOAD_JOURNAL_PREFIX}gone`)).toBeNull();
     expect(result.current.otherJournals.expired.length).toBe(1);
     expect(result.current.otherJournals.others.map((e) => e.journal.projectKey)).toEqual(["other"]);
+  });
+});
+
+// §644 (review I3) — tab sync tells other same-project windows to ignore a slice this window LOADED,
+// because it is only what storage already holds. A restored journal is the opposite: unsaved EDITS
+// that storage does not hold, so it must go out as an edit, or another tab's autosave writes over it.
+describe("§644 — a restored journal is sent to other tabs as an edit, a load is not", () => {
+  const mainSyncContext = () => {
+    const calls = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls;
+    const ctx = calls[calls.length - 1][3] as SyncContext;
+    if (ctx.role !== "main") throw new Error("expected a main context");
+    return ctx;
+  };
+
+  it("marks a plain load's slices as loaded", async () => {
+    seedJournal("changed-elsewhere"); // a mismatch: the loaded workspace applies, nothing is restored
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const { result } = render();
+    await advance(800);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(mainSyncContext().isLoadedValue(result.current.tasks)).toBe(true);
+  });
+
+  it("does not mark the slices of a journal restored on load", async () => {
+    seedJournal(matchingBase());
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const { result } = render();
+    await advance(200);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1, 2]);
+    expect(mainSyncContext().isLoadedValue(result.current.tasks)).toBe(false);
+  });
+
+  it("does not mark the slices of a journal restored with Restore anyway", async () => {
+    seedJournal("changed-elsewhere");
+    createBackendMock.mockReturnValue(makeBackend(100));
+    const { result } = render();
+    await advance(800);
+    await act(async () => { result.current.restoreUnloadJournalAnyway(); });
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1, 2]);
+    expect(mainSyncContext().isLoadedValue(result.current.tasks)).toBe(false);
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useBroadcastSync } from "./broadcast-sync";
+import { useBroadcastSync, type SyncContext } from "./broadcast-sync";
 import { t, type TranslationKey } from "./i18n";
 import {
   type StorageConfig,
@@ -15,6 +15,7 @@ import { recordDataLossEvent } from "./dataloss-forensics";
 import { logDiag } from "./diagnostics";
 import { seedMintFromWorkspace } from "./id-mint-session";
 import { saveRegistry, type ProjectsRegistry } from "./projects-registry";
+import { readPopoutOpenerFromUrl, syncScopeKey } from "./sync-scope";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
 import { loadCurrentTursoProjectId } from "./portfolio-mode";
@@ -317,6 +318,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // `[]`-dep ref or callback without re-subscribing anything. Deliberately NOT a render value:
   // publishing the number would re-render every consumer on each swap.
   const getScopeEpoch = useCallback(() => scopeEpochRef.current, []);
+  // §644 — the exact slice values the latest `applyWorkspaceFromLoad` applied FROM STORAGE. Tab sync
+  // sends one of them as `fromLoad`, which other main windows ignore: it is what storage already
+  // holds, and applying it would replace their unsaved edits. By value, never by commit (review I4);
+  // an edit React rebases onto a loaded value commits as neither and goes out as an edit, a known
+  // limit recorded in §644. A new set per load, so only the latest
+  // load's values count; a restored journal is not recorded, since it is unsaved work (review I3).
+  const loadedValuesRef = useRef<WeakSet<object>>(new WeakSet());
+  const isLoadedValue = useCallback((value: unknown) => typeof value === "object" && value !== null && loadedValuesRef.current.has(value), []);
   // §596 — the swap-in-flight reader, published for the same reason and with the same contract as
   // `getScopeEpoch`: STABLE for the hook's lifetime, reads a synchronously-maintained ref, never a
   // render value.
@@ -478,7 +487,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   `reloadCurrentProject`) decide by `resolveLogModeAndStamp`, which bumps only on "replace".
   //   Anything that replaces the workspace with ANOTHER PROJECT's must go through
   //   `applyWorkspaceForOp` below instead. The old bare name made the wrong one the obvious one.
-  const applyWorkspaceFromLoad = (workspace: Workspace, seedMode: "reset" | "raise" = "reset", logMode: "merge" | "replace" = "replace") => {
+  const applyWorkspaceFromLoad = (workspace: Workspace, seedMode: "reset" | "raise" = "reset", logMode: "merge" | "replace" = "replace", source: "load" | "restore" = "load") => {
+    // §644 — see `isLoadedValue`: record what a LOAD applies; a restored journal goes out as an edit.
+    const loadedValues = source === "load" ? new WeakSet<object>() : null;
+    if (loadedValues) loadedValuesRef.current = loadedValues;
+    const mark = <V,>(value: V): V => { if (loadedValues && typeof value === "object" && value !== null) loadedValues.add(value); return value; };
     // ★★★ NO MIGRATION HAS EVER BACK-FILLED `Task.resourceId` FOR A REAL
     // PROJECT, on any backend. Two near-misses make it look otherwise and both
     // were written into an earlier version of this comment before being
@@ -494,26 +507,26 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // belongs at the one function every backend converges on rather than in the
     // versioned chain. Idempotent and reference-preserving: a workspace needing
     // nothing keeps its array identity.
-    setTasks(backfillTaskResourceFks(workspace.resources ?? [], workspace.tasks ?? []));
-    setRaid(workspace.raid ?? []); setAbsences(workspace.absences ?? []); setShifts(workspace.shifts ?? []);
-    setResources(workspace.resources ?? []); setRoles(workspace.roles ?? []); setDisciplines(workspace.disciplines ?? []); setGrades(workspace.grades ?? []);
+    setTasks(mark(backfillTaskResourceFks(workspace.resources ?? [], workspace.tasks ?? [])));
+    setRaid(mark(workspace.raid ?? [])); setAbsences(mark(workspace.absences ?? [])); setShifts(mark(workspace.shifts ?? []));
+    setResources(mark(workspace.resources ?? [])); setRoles(mark(workspace.roles ?? [])); setDisciplines(mark(workspace.disciplines ?? [])); setGrades(mark(workspace.grades ?? []));
     if (workspace.plan) setPlan(workspace.plan);
-    setBudgets(workspace.budgets ?? []); setFxRates(workspace.fxRates ?? null); setStatus(workspace.status ?? {});
-    setProject(workspace.project); setFieldVisibility(workspace.fieldVisibility); setFeatures(workspace.features);
-    setMilestones(workspace.milestones ?? []); setChanges(workspace.changes ?? []); setStakeholders(workspace.stakeholders ?? []);
+    setBudgets(mark(workspace.budgets ?? [])); setFxRates(workspace.fxRates ?? null); setStatus(workspace.status ?? {});
+    setProject(mark(workspace.project)); setFieldVisibility(workspace.fieldVisibility); setFeatures(workspace.features);
+    setMilestones(mark(workspace.milestones ?? [])); setChanges(mark(workspace.changes ?? [])); setStakeholders(mark(workspace.stakeholders ?? []));
     setSteeringCommittee(workspace.steeringCommittee);
     setTimelogLinks(workspace.timelogLinks);
     setKnowledgeItems(workspace.knowledgeItems);
-    setInsights(workspace.insights); setDocuments(workspace.documents ?? []); setDocumentVersions(workspace.documentVersions ?? []);
+    setInsights(workspace.insights); setDocuments(mark(workspace.documents ?? [])); setDocumentVersions(mark(workspace.documentVersions ?? []));
     // ★★★ TWO BRANCHES, unlike the always-replace `documents` neighbours above — a later reader WILL try
     // to make it consistent with them. Do NOT, in either direction. MERGE (same-project load/reload): the
     // log is append-only, so replacing drops entries appended locally while the load was in flight;
     // `mergeActivityLogs` unions by id, sorts by timestamp, caps to the newest. REPLACE (switch/create/
     // load-from-file): `prev` is the OUTGOING project's log, so merging carries its entries — including
     // `changes` payloads holding its old/new field values — into the target project, unrecoverably.
-    setActivityLog((prev) => (logMode === "merge" ? mergeActivityLogs(prev, workspace.activityLog) : (workspace.activityLog ?? [])));
+    setActivityLog((prev) => mark(logMode === "merge" ? mergeActivityLogs(prev, workspace.activityLog) : (workspace.activityLog ?? [])));
     // Same two branches for the budget history, but merged by id in stored order and NEVER capped.
-    setBudgetHistory((prev) => (logMode === "merge" ? mergeBudgetHistories(prev, workspace.budgetHistory) : (workspace.budgetHistory ?? [])));
+    setBudgetHistory((prev) => mark(logMode === "merge" ? mergeBudgetHistories(prev, workspace.budgetHistory) : (workspace.budgetHistory ?? [])));
     setSettingsOverrides(workspace.settingsOverrides);
     setCalendarEvents(workspace.calendarEvents); setDocumentAssets(workspace.documentAssets);
     // Seed the session id-minter's high-water from the loaded set so the next
@@ -559,7 +572,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   bypassed by reaching for the obvious one.
   const applyWorkspaceForOp = (workspace: Workspace) => { bumpScopeEpoch(); applyWorkspaceFromLoad(workspace); unloadJournal.holdBase(workspace); }; // §629 — HELD: the op's target key is not in scope until its config flip; the suppress branch adopts it
   // §629 — the unload-journal conflict notice's "Restore anyway": applied like a same-target reload ("raise": the mint never lowers; "merge": local log appends kept), then saved by the normal path. Never over a shut save gate: that is reported, and the notice and its record are kept for a retry.
-  const restoreUnloadJournalAnyway = (): void => { if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalRestoreBlocked")); return; } const ws = unloadJournal.restoreConflict(); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalRestoreUnavailable")); return; } applyWorkspaceFromLoad(ws, "raise", "merge"); emitToast("success", t(langRef.current, "unloadJournalRestored")); };
+  const restoreUnloadJournalAnyway = (): void => { if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalRestoreBlocked")); return; } const ws = unloadJournal.restoreConflict(); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalRestoreUnavailable")); return; } applyWorkspaceFromLoad(ws, "raise", "merge", "restore"); emitToast("success", t(langRef.current, "unloadJournalRestored")); };
 
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
   //     four setters. These are the last §72 setters in this hook that can
@@ -655,7 +668,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         // §629 — the unload-journal restore runs HERE only: past the `cancelled`, failed-load (`catch`) and empty-refusal returns, and skipped for a load whose saves pause. The hook skips a popout.
         const restored = lastLoadWasIncomplete(backend) ? null : unloadJournal.restoreOnLoad(workspace, journalProjectKey, args.settings.storageConfig.kind);
         if (restored !== null) { syncBaselinesToLoaded(workspace); emitToast("success", t(langRef.current, "unloadJournalRestored")); } // BEFORE `reportFor`: single-slot toast
-        applyWorkspaceFromLoad(restored ?? workspace, "reset", resolveLogModeAndStamp());
+        applyWorkspaceFromLoad(restored ?? workspace, "reset", resolveLogModeAndStamp(), restored !== null ? "restore" : "load");
         logDiag("info", "storage.loaded", { records: workspaceRecordCount(workspace) });
         truncationOps.reportFor(backend); // ★ after applyWorkspaceFromLoad only: the empty-load REFUSAL above applies nothing, so neither raising nor lowering the TRUNCATION flag would describe the workspace that is actually live. ★★ That reasoning is TRUNCATION-specific and does NOT extend to the decode cause — the refusal path publishes that one itself, just above.
         suppressNextSaveRef.current = restored === null; // §629 — a restored journal is SAVED back, through every save guard
@@ -714,12 +727,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     const armed = destructive.consumeArm();
     if (!args.hydrated) return;
     // Single-writer rule: the main window owns persistence. ★★★ A popout does
-    // NOT save and does NOT forward edits — `canSend = !args.isPopout` below
-    // disables every outbound broadcast, so an edit escaping the read-only
+    // NOT save and does NOT forward edits — its `syncContext` below has `role: "popout"`,
+    // which `useBroadcastSync` never broadcasts from, so an edit escaping the read-only
     // guards stays popout-LOCAL — the activity log INCLUDED now that it is a
     // workspace slice (it used to escape via `use-activity-log`'s own
     // localStorage write, which had no isPopout check — §91; that writer is
-    // gone). `canSend` is the authority, not this prose: two earlier versions of it were wrong in
+    // gone). `syncContext` is the authority, not this prose: two earlier versions of it were wrong in
     // opposite directions and both reached a commit message. Saving from both
     // windows would also race, and popup storage is often blocked
     // ("AbortError: Aborted due to security policy") — skipping fixes both.
@@ -1031,25 +1044,38 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, args.hydrated, args.isPopout, backend, loadWasIncomplete, destructive.refusal, savesAllowed]);
 
-  const canSend = !args.isPopout;
-  useBroadcastSync("tasks", tasks, setTasks, canSend);
-  useBroadcastSync("raid", raid, setRaid, canSend);
-  useBroadcastSync("absences", absences, setAbsences, canSend);
-  useBroadcastSync("shifts", shifts, setShifts, canSend);
-  useBroadcastSync("resources", resources, setResources, canSend);
-  useBroadcastSync("roles", roles, setRoles, canSend);
-  useBroadcastSync("disciplines", disciplines, setDisciplines, canSend);
-  useBroadcastSync("grades", grades, setGrades, canSend);
-  useBroadcastSync("budgets", budgets, setBudgets, canSend);
-  useBroadcastSync("milestones", milestones, setMilestones, canSend);
-  useBroadcastSync("changes", changes, setChanges, canSend);
-  useBroadcastSync("stakeholders", stakeholders, setStakeholders, canSend);
-  useBroadcastSync("documents", documents, setDocuments, canSend); useBroadcastSync("documentVersions", documentVersions, setDocumentVersions, canSend); // ★ PAIRED on one line: written when the size ratchet's LIMIT was 800 and this file sat at it (check-file-sizes.mjs counts split("\n").length = wc -l + 1); the LIMIT is 1600 now. They must also stay in step: the autosave writes the WHOLE workspace, so a tab holding a stale half overwrites the other tab's work — the same reason `documents` is synced. ★ Secondary: `deletedDocumentVersions` derives tombstones from BOTH slices, and `documents-panel.tsx` renders that list (its deleted-documents section and the toolbar count), so a desynced tab produces a WRONG visible list with Restore buttons on it — an observable symptom, not a latent one.
-  useBroadcastSync("activityLog", activityLog, setActivityLog, canSend); // ★ Now the WORKSPACE slice, not a per-device arg: the autosave writes the WHOLE workspace, so a tab holding a stale log would overwrite the other tab's entries — the same reason `documents` is synced above. `mergeActivityLogs` cannot cover this; it runs on LOAD, not on a broadcast.
-  useBroadcastSync("budgetHistory", budgetHistory, setBudgetHistory, canSend); // ★ Same reason as `activityLog`: the autosave writes the whole workspace, so a tab with a stale history would overwrite the other tab's entries.
+  // ★★ §642/§643 — the channel is shared by every window of the origin. A main window syncs only
+  // with main windows whose `syncScopeKey` equals its own: the storage it WRITES (`sync-scope.ts`),
+  // never the registry's current project, which every tab shares through localStorage. Windows on
+  // different storage never apply, and then autosave, each other's slices. ★ Browser storage and
+  // each local-file kind are ONE store or handle slot for every tab, so windows sharing one exchange
+  // slices whatever registry project each shows (§645). A pop-out follows its opener instead.
+  const syncScope = useMemo(
+    () => syncScopeKey({ storageConfig: args.settings.storageConfig, tursoDatabaseUrl: tursoUrlForBackend, tursoProjectId }),
+    [args.settings.storageConfig, tursoUrlForBackend, tursoProjectId],
+  );
+  const syncContext = useMemo<SyncContext>(
+    () => (args.isPopout ? { role: "popout", openerId: readPopoutOpenerFromUrl() } : { role: "main", scope: syncScope, getEpoch: getScopeEpoch, isLoadedValue }),
+    [args.isPopout, syncScope, getScopeEpoch, isLoadedValue],
+  );
+  useBroadcastSync("tasks", tasks, setTasks, syncContext);
+  useBroadcastSync("raid", raid, setRaid, syncContext);
+  useBroadcastSync("absences", absences, setAbsences, syncContext);
+  useBroadcastSync("shifts", shifts, setShifts, syncContext);
+  useBroadcastSync("resources", resources, setResources, syncContext);
+  useBroadcastSync("roles", roles, setRoles, syncContext);
+  useBroadcastSync("disciplines", disciplines, setDisciplines, syncContext);
+  useBroadcastSync("grades", grades, setGrades, syncContext);
+  useBroadcastSync("budgets", budgets, setBudgets, syncContext);
+  useBroadcastSync("milestones", milestones, setMilestones, syncContext);
+  useBroadcastSync("changes", changes, setChanges, syncContext);
+  useBroadcastSync("stakeholders", stakeholders, setStakeholders, syncContext);
+  useBroadcastSync("documents", documents, setDocuments, syncContext); useBroadcastSync("documentVersions", documentVersions, setDocumentVersions, syncContext); // ★ PAIRED on one line: written when the size ratchet's LIMIT was 800 and this file sat at it (check-file-sizes.mjs counts split("\n").length = wc -l + 1); the LIMIT is 1600 now. They must also stay in step: the autosave writes the WHOLE workspace, so a tab holding a stale half overwrites the other tab's work — the same reason `documents` is synced. ★ Secondary: `deletedDocumentVersions` derives tombstones from BOTH slices, and `documents-panel.tsx` renders that list (its deleted-documents section and the toolbar count), so a desynced tab produces a WRONG visible list with Restore buttons on it — an observable symptom, not a latent one.
+  useBroadcastSync("activityLog", activityLog, setActivityLog, syncContext); // ★ Now the WORKSPACE slice, not a per-device arg: the autosave writes the WHOLE workspace, so a tab holding a stale log would overwrite the other tab's entries — the same reason `documents` is synced above. `mergeActivityLogs` cannot cover this; it runs on LOAD, not on a broadcast.
+  useBroadcastSync("budgetHistory", budgetHistory, setBudgetHistory, syncContext); // ★ Same reason as `activityLog`: the autosave writes the whole workspace, so a tab with a stale history would overwrite the other tab's entries.
   // `project` (ProjectMeta | undefined) so a main-window project switch live-updates
   // the read-only project header in popout windows. The generic handles undefined.
-  useBroadcastSync("project", project, setProject, canSend);
+  useBroadcastSync("project", project, setProject, syncContext);
 
   // Snapshot the live workspace from the render-scope closure — same pattern as
   // the file-picker handlers in use-storage-file-ops.ts (onPickStorageFile /

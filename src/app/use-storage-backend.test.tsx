@@ -11,7 +11,7 @@ import type { DocumentAsset } from "./document-asset";
 import type { StorageConfig } from "./storage";
 import { useStorageBackend } from "./use-storage-backend";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
-import { useBroadcastSync } from "./broadcast-sync";
+import { useBroadcastSync, type SyncContext } from "./broadcast-sync";
 import { useWorkspace } from "./workspace-context";
 import { TestProviders } from "./test-providers";
 import { useUndoStack } from "./undo/use-undo-stack";
@@ -1141,22 +1141,90 @@ describe("useStorageBackend — broadcast send gating", () => {
     (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
   });
 
-  it("passes canSend=true to every useBroadcastSync call in the main window", () => {
-    renderBackend(makeArgs({ isPopout: false }));
-    const calls = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls;
-    expect(calls.length).toBeGreaterThanOrEqual(9);
-    for (const call of calls) {
-      expect(call[3]).toBe(true);
+  const syncContexts = () => (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[3] as SyncContext);
+
+  it("gives every useBroadcastSync call of a main window one main context with the hook's own readers", () => {
+    const { result } = renderBackend(makeArgs({ isPopout: false }));
+    const ctxs = syncContexts();
+    expect(ctxs.length).toBeGreaterThanOrEqual(17);
+    const last = ctxs[ctxs.length - 1];
+    if (last.role !== "main") throw new Error("expected a main context");
+    // Review I1 on §642 — the receiver drops messages while an op's epoch bump has not committed,
+    // so every call must read the hook's OWN scope epoch, not some other counter.
+    expect(last.getEpoch).toBe(result.current.getScopeEpoch);
+    for (const ctx of ctxs.slice(-17)) expect(ctx).toBe(last);
+  });
+
+  it("gives every useBroadcastSync call of a pop-out a pop-out context following its opener", () => {
+    window.history.replaceState(null, "", "/?popout=gantt&opener=w-opener");
+    try {
+      renderBackend(makeArgs({ isPopout: true }));
+      const ctxs = syncContexts();
+      expect(ctxs.length).toBeGreaterThanOrEqual(17);
+      for (const ctx of ctxs) expect(ctx).toEqual({ role: "popout", openerId: "w-opener" });
+    } finally {
+      window.history.replaceState(null, "", "/");
     }
   });
 
-  it("passes canSend=false to every useBroadcastSync call in a popout", () => {
-    renderBackend(makeArgs({ isPopout: true }));
-    const calls = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls;
-    expect(calls.length).toBeGreaterThanOrEqual(9);
-    for (const call of calls) {
-      expect(call[3]).toBe(false);
+  // §642/§643 — the scope names the storage a window WRITES: windows on different targets must pass
+  // different scopes, or each applies (and autosaves) the other's slices; windows writing the same
+  // store or handle slot must share one, whatever registry project they show (review I1/I2).
+  it("scopes a main window's sync to the storage it writes (§642, §643)", () => {
+    const scopeFor = (storageConfig: StorageConfig, registryProjectId: string) => {
+      window.localStorage.removeItem("aipm-cockpit:projects");
+      saveRegistry({ currentProjectId: registryProjectId, projects: [{ id: registryProjectId, name: registryProjectId, code: "SC", storageConfig }] });
+      vi.clearAllMocks();
+      (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+      const { unmount } = renderBackend(makeArgs({ isPopout: false, settings: { storageConfig } as unknown as Settings }));
+      const scopes = new Set(syncContexts().map((c) => (c.role === "main" ? c.scope : "popout")));
+      unmount();
+      expect(scopes.size).toBe(1);
+      return [...scopes][0];
+    };
+    const sp = (itemPath: string): StorageConfig => ({ kind: "sp-json", hostname: "h.sharepoint.com", sitePath: "/sites/x", itemPath });
+    try {
+      expect(scopeFor({ kind: "browser" }, "proj-a")).toBe(JSON.stringify(["browser"]));
+      expect(scopeFor({ kind: "browser" }, "proj-b")).toBe(JSON.stringify(["browser"]));
+      expect(scopeFor(sp("/a.json"), "proj-a")).not.toBe(scopeFor(sp("/b.json"), "proj-a"));
+    } finally {
+      window.localStorage.removeItem("aipm-cockpit:projects");
     }
+  });
+
+  // §644 — a load must record the exact values it applied, or a window broadcasts what it just
+  // LOADED as an edit and replaces another same-project window's unsaved edits.
+  it("records the slices a load applied as loaded, and an edit afterwards not (§644)", async () => {
+    const { result } = renderBackend(makeArgs({ isPopout: false }));
+    const ctx = syncContexts()[0];
+    if (ctx.role !== "main") throw new Error("expected a main context");
+    await vi.waitFor(() => expect(result.current.workspaceLoaded).toBe(true));
+    expect(ctx.isLoadedValue(result.current.tasks)).toBe(true);
+    act(() => { result.current.setTasks((prev) => [...prev]); });
+    expect(ctx.isLoadedValue(result.current.tasks)).toBe(false);
+  });
+
+  // Review 2 on §644 — every synced slice, not tasks alone, and the merge-mode reload whose
+  // activityLog / budgetHistory go through UPDATERS: each value the last render passes to
+  // useBroadcastSync must be one the load recorded (a slice that is not an object, such as an
+  // absent project, cannot be recorded and is skipped).
+  it("records every synced slice of a load and of a merge-mode reload (§644)", async () => {
+    const ws = () => ({ tasks: [{ id: 1, taskName: "T" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+    mockBackend.load.mockResolvedValueOnce(ws());
+    const { result } = renderBackend(makeArgs({ isPopout: false }));
+    await vi.waitFor(() => expect(result.current.workspaceLoaded).toBe(true));
+    const unrecorded = () => {
+      const calls = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.slice(-17);
+      const ctx = calls[0][3] as SyncContext;
+      if (ctx.role !== "main") throw new Error("expected a main context");
+      expect(calls.map((c) => c[0])).toContain("activityLog");
+      return calls.filter((c) => typeof c[1] === "object" && c[1] !== null && !ctx.isLoadedValue(c[1])).map((c) => c[0]);
+    };
+    expect(unrecorded()).toEqual([]);
+    mockBackend.load.mockResolvedValueOnce(ws());
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(unrecorded()).toEqual([]);
   });
 });
 
