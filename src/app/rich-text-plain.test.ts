@@ -627,7 +627,7 @@ describe("DOM-free guard", () => {
     // `scripts/update-ooxml-manifest.ts`: it already loads rich-text-projection
     // (via ooxml-docx-primitives.ts → export-sections.ts) and the DOM-bound
     // ooxml-docx-primitives.ts itself, so only the paths it CALLS decide whether
-    // it throws — open-followups §624. It is deliberately NOT a root: its graph
+    // it throws; §624 measured that its run calls none. It is deliberately NOT a root: its graph
     // legitimately contains rich-text-projection, so rooting it would fail on
     // correct code. The sample generator IS a root, but not because it lacks a
     // DOM (it and regen-golden-fixtures.ts install JSDOM first, §151): it is the
@@ -734,8 +734,8 @@ describe("DOM-free guard", () => {
         // it from a sanitizer/codec, or from anything in ai-eval.ts's graph,
         // breaks the same DOM-free contract. That contract keeps ai-eval.ts (no
         // DOM, both modules outside its graph, and a walk root above) free of
-        // either module. It does NOT make it safe to RUN: whether its call paths
-        // reach sanitizeRichHtml is §624's question. update-ooxml-manifest.ts
+        // either module. It does NOT make it safe to RUN: §624 measured that its
+        // dry run reaches no sanitizeRichHtml call. update-ooxml-manifest.ts
         // already reaches rich-text-projection by another route, so this guard
         // does not protect it (§624). The sample generator installs JSDOM first
         // (§151). A guard naming one module by hand
