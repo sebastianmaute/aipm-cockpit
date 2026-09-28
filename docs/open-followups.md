@@ -851,7 +851,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§621](#621-pdfdocxpptxxlsx-exports-still-print-recurrence-text-and-insight-typeseveritystatus-values-in-english--closed-2026-09-27) | PDF/DOCX/PPTX/XLSX exports still print recurrence text and insight type/severity/status values in English | — | — | **CLOSED** 2026-09-27 |
 | [§622](#622-an-ordinary-under-cap-document-paragraph-edit-that-was-never-blurred-is-lost-when-the-window-closes--closed-2026-09-27) | An ordinary, under-cap document paragraph edit that was never blurred is lost when the window closes | — | — | **CLOSED** 2026-09-27 |
 | [§623](#623-loadexportassets-loads-the-bytes-of-a-policy-refused-asset-before-discarding-them--closed-2026-09-27) | `loadExportAssets` loads the bytes of a policy-refused asset before discarding them | — | — | **CLOSED** 2026-09-27 |
-| [§624](#624-ai-evalts-and-update-ooxml-manifestts-import-the-dom-free-sanitizer-graph-with-no-dom-and-nothing-proves-they-never-reach-a-dompurify-call--open) | `ai-eval.ts` and `update-ooxml-manifest.ts` import the DOM-free sanitizer graph with no DOM, and nothing proves they never reach a DOMPurify call | — | — | open |
+| [§624](#624-ai-evalts-and-update-ooxml-manifestts-import-the-dom-free-sanitizer-graph-with-no-dom-and-nothing-proves-they-never-reach-a-dompurify-call--closed-2026-09-28) | `ai-eval.ts` and `update-ooxml-manifest.ts` import the DOM-free sanitizer graph with no DOM, and nothing proves they never reach a DOMPurify call | — | — | **CLOSED** 2026-09-28 |
 | [§625](#625-the-dashboard-status-narrative-draft-is-lost-on-window-close--closed-2026-09-27) | The dashboard status narrative draft is lost on window close | — | — | **CLOSED** 2026-09-27 |
 | [§626](#626-async-commit-editors-chat-thread-rename-comm-templates-dictation-key-still-lose-an-unblurred-draft-on-window-close--open) | Async-commit editors (chat thread rename, comm templates, dictation key) still lose an unblurred draft on window close | — | — | open |
 | [§627](#627-several-dirty-drafts-at-pagehide-start-unserialised-full-saves-so-on-filesharepoint-an-older-snapshot-can-finish-last--open) | Several dirty drafts at pagehide start unserialised full saves, so on file/SharePoint an older snapshot can finish last | — | — | open |
@@ -42527,15 +42527,36 @@ Size S.
 **Source:** the §320 (#235) task review in defect batch 7, which found that `loadExportAssets` still loads the
 bytes of blocked assets before discarding them.
 
-## 624. `ai-eval.ts` and `update-ooxml-manifest.ts` import the DOM-free sanitizer graph with no DOM, and nothing proves they never reach a DOMPurify call — open
+## 624. `ai-eval.ts` and `update-ooxml-manifest.ts` import the DOM-free sanitizer graph with no DOM, and nothing proves they never reach a DOMPurify call — CLOSED 2026-09-28
 
-**Status:** open 2026-09-27 — found while correcting §151 on `docs/accuracy-2`. Neither script was
+**Status:** CLOSED 2026-09-28 on `fix/dom-free-scripts`, by measurement: neither script reaches a DOM
+call or a document decoder. A throwaway probe inserted a marker line (`console.error("DOMPROBE:<name>")`)
+before every DOM call site in `src/app` — the one `DOMPurify.addHook` and the three `DOMPurify.sanitize`
+calls in `sanitize-html.ts` (the only non-test module that imports DOMPurify: `grep -rln "from \"dompurify\"" src/app | grep -v ".test."`),
+and the one `new DOMParser` in `rich-text-runs.ts` — and at the start of `sanitizeDocumentRichFields`,
+`csvToDocuments`, `csvToDocumentVersions`, `markdownToDocuments` and `markdownToDocumentVersions`, ten
+markers in five files. Then:
+- **Positive control:** a two-line vite-node file calling `sanitizeRichHtml` printed its marker and threw
+  `TypeError: … addHook is not a function`, so a DOM call with no DOM is both visible to the probe and
+  LOUD, not swallowed.
+- **`npx vite-node scripts/ai-eval.ts`** (dry run, `AI_EVAL_SPEND` unset): exit 0, no marker, "dry run —
+  no requests sent".
+- **`npx jiti scripts/update-ooxml-manifest.ts`:** exit 0, no marker, and
+  `git diff --ignore-cr-at-eol docs/baselines/ooxml-parts.json` empty (it rewrote the baseline with the
+  same content; only the working copy's line endings changed, and were put back).
+
+So both halves of the question below are answered no for today's call paths: nothing throws for want of a
+DOM, and no document is decoded through a codec, so none can be dropped silently. The files were
+restored and checked byte for byte. `ai-eval.ts`'s header, which inferred "nothing needs jsdom" from
+"nothing needs `jsonToWorkspace`", now cites this measurement instead. ★ The probe is not committed and
+guards nothing going forward: a later edit that routes either script through a DOM call would throw
+loudly (the control shows how), and a new document decode would need the same probe re-run.
+
+**Original status:** open 2026-09-27 — found while correcting §151 on `docs/accuracy-2`. Neither script was
 executed. Verified by reading: `grep -c -i jsdom scripts/ai-eval.ts scripts/update-ooxml-manifest.ts`
 returns 1 and 0, and the one `ai-eval.ts` hit is the comment saying it needs no jsdom. The import
 graphs were resolved with §151's resolver pointed at each script instead of the generator, then
 re-resolved as RUNTIME graphs (type-only edges stripped) after a cold review.
-
-**Work item:** #440
 
 §151 established that the sample generator is NOT a DOM-free consumer: it, `regen-golden-fixtures.ts`
 and `sample-link-exports.ts` all install JSDOM before importing `src/app`. Two other scripts do not:

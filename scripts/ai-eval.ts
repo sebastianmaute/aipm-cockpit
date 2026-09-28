@@ -141,7 +141,10 @@ const CHAT_ALT_TITLES = ["Resource levelling review", "Milestone re-forecast"];
  *
  *  ★★★ A LITERAL, NOT A DECODED WORKSPACE. `getSnapshot`'s return type is
  *  structural — scalars, string arrays and bounded summaries — so nothing here
- *  needs `jsonToWorkspace`, and therefore nothing needs jsdom. It is also the
+ *  needs `jsonToWorkspace`. That alone does not prove the run needs no DOM (the
+ *  imports reach `sanitize-html.ts`, which calls DOMPurify); §624 measured it
+ *  instead: with a marker before every DOMPurify and DOMParser call site, a dry
+ *  run hit none of them and exited 0, so it runs without jsdom. It is also the
  *  only way to get planted tokens to sit at chosen depths inside chosen fields,
  *  which a real decode cannot be made to do.
  *
