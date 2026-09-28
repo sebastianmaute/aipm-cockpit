@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { enqueueSave } from "./save-queue";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { enqueueSave, SAVE_STALL_MS } from "./save-queue";
 
 /** A save the test settles by hand, recording the snapshot it wrote. */
 function manual() {
@@ -105,6 +105,55 @@ describe("enqueueSave (§627)", () => {
     expect(m.pending.map((x) => x.snap)).toEqual(["A", "B"]);
   });
 
+  it("a replacement chain: every replaced save settles superseded, only the newest runs", async () => {
+    const m = manual();
+    const backend = {};
+    void enqueueSave(backend, m.save("A"));
+    const pb = enqueueSave(backend, m.save("B"));
+    const pc = enqueueSave(backend, m.save("C"));
+    const pd = enqueueSave(backend, m.save("D"));
+    m.pending[0].resolve();
+    await flush();
+    expect(m.pending.map((x) => x.snap)).toEqual(["A", "D"]);
+    m.pending[1].resolve();
+    await expect(pb).resolves.toBe("superseded");
+    await expect(pc).resolves.toBe("superseded");
+    await expect(pd).resolves.toBe("saved");
+    expect(m.written).toEqual(["A", "D"]);
+  });
+
+  it("settleReplacedAsOwn: the replaced save settles as the replacing one did — saved, or its error", async () => {
+    const m = manual();
+    const backend = {};
+    void enqueueSave(backend, m.save("A"));
+    const pb = enqueueSave(backend, m.save("B"));
+    const pc = enqueueSave(backend, m.save("C"), { settleReplacedAsOwn: true });
+    m.pending[0].resolve();
+    await flush();
+    m.pending[1].resolve();
+    await expect(pc).resolves.toBe("saved");
+    await expect(pb).resolves.toBe("saved");
+
+    const pe = enqueueSave(backend, m.save("E"));
+    const pf = enqueueSave(backend, m.save("F"));
+    const pg = enqueueSave(backend, m.save("G"), { settleReplacedAsOwn: true });
+    m.pending[2].resolve();
+    await flush();
+    m.pending[3].reject(new Error("G boom"));
+    await expect(pe).resolves.toBe("saved");
+    await expect(pg).rejects.toThrow("G boom");
+    await expect(pf).rejects.toThrow("G boom");
+  });
+
+  it("a save returning a non-promise does not lock the queue", async () => {
+    const m = manual();
+    const backend = {};
+    const pa = enqueueSave(backend, (() => undefined) as unknown as () => Promise<void>);
+    await expect(pa).resolves.toBe("saved");
+    void enqueueSave(backend, m.save("B"));
+    expect(m.pending.map((x) => x.snap)).toEqual(["B"]);
+  });
+
   it("the queue is idle again after it drains", async () => {
     const m = manual();
     const backend = {};
@@ -113,5 +162,29 @@ describe("enqueueSave (§627)", () => {
     await pa;
     void enqueueSave(backend, m.save("B"));
     expect(m.pending.map((x) => x.snap)).toEqual(["A", "B"]);
+  });
+});
+
+describe("enqueueSave — a save that never settles (§627 review I1)", () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("releases the queue after SAVE_STALL_MS, and the stalled save still settles its own promise later", async () => {
+    vi.useFakeTimers();
+    const m = manual();
+    const backend = {};
+    const pa = enqueueSave(backend, m.save("A")); // hangs
+    void enqueueSave(backend, m.save("B"));
+    await vi.advanceTimersByTimeAsync(SAVE_STALL_MS - 1);
+    expect(m.pending.map((x) => x.snap)).toEqual(["A"]);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(m.pending.map((x) => x.snap)).toEqual(["A", "B"]); // B started anyway
+
+    void enqueueSave(backend, m.save("C")); // B holds the queue now
+    m.pending[0].resolve(); // A finally lands: it must not release B's hold
+    await expect(pa).resolves.toBe("saved");
+    expect(m.pending.map((x) => x.snap)).toEqual(["A", "B"]);
+    m.pending[1].resolve();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(m.pending.map((x) => x.snap)).toEqual(["A", "B", "C"]);
   });
 });

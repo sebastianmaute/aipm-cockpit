@@ -261,6 +261,32 @@ describe("§627 — saves to one backend are serialised, newest snapshot last", 
     await advance(50);
     expect(switched).toBe(true);
   });
+
+  it("(e) review I2 — a pre-switch flush that REPLACES a waiting autosave and fails still reports the loss", async () => {
+    saveRegistry(addProject(emptyRegistry(), { id: "target", name: "Target", code: "T", storageConfig: { kind: "browser" } }, false));
+    const current = makeBackend(0);
+    const target = makeBackend(0, "resolve", STORED_B);
+    createBackendMock.mockReturnValueOnce(current).mockReturnValue(target);
+    const { result } = render();
+    await advance(100);
+    const settle: Array<{ ok: () => void; fail: (e: Error) => void }> = [];
+    current.save.mockImplementation(() => new Promise<void>((ok, fail) => { settle.push({ ok, fail }); }));
+
+    await act(async () => { result.current.setTasks(EDIT); });
+    await advance(600); // autosave 1 in flight
+    await act(async () => { result.current.setTasks([...EDIT, task(3)]); });
+    await advance(600); // autosave 2 waits behind it
+    await act(async () => { void result.current.switchToProject("target"); });
+    await advance(50); // the flush replaces autosave 2
+    expect(current.save).toHaveBeenCalledTimes(1);
+
+    await act(async () => { settle[0].ok(); });
+    await advance(0);
+    expect(current.save).toHaveBeenCalledTimes(2); // the flush, not autosave 2
+    await act(async () => { settle[1].fail(new Error("disk full")); });
+    await advance(50);
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageSaveFailed", "Error: disk full"));
+  });
 });
 
 describe("§586 — no save before a load for the current backend has succeeded", () => {

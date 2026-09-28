@@ -5,6 +5,7 @@ import { type Lang, type TranslationKey, t, tPlural } from "./i18n";
 import { IMPORT_SECTION_KEYS, type ImportSectionKey } from "./csv-codecs-sections";
 import { logDiag } from "./diagnostics";
 import type { StorageBackend, Workspace } from "./storage";
+import { enqueueSave } from "./save-queue";
 
 /** What a backend reports about the load it just served — the optional
  *  `StorageBackend.lastLoadTruncation` (`workspace.ts`), published by every
@@ -794,7 +795,8 @@ export function useLoadTruncation(
         truncationOps.refuseWrite();
         return false;
       }
-      await backend.save(ws);
+      // §627 — through the per-backend queue, so it cannot race an autosave to the same backend.
+      await enqueueSave(backend, () => backend.save(ws), { settleReplacedAsOwn: true });
       return true;
     },
   };
