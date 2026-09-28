@@ -7,6 +7,7 @@ import {
   failureKindOf,
   NEW_ROW_TOKEN_UNAVAILABLE_ERROR,
   PENDING_MINT_ERROR,
+  SCOPE_CHANGED_ERROR,
   TOKEN_REQUIRED_TOOLS,
   TOKEN_ROW_SOURCE,
   type FailedAppliedRow,
@@ -1059,5 +1060,79 @@ describe("§534 — Apply sends only what the card showed", () => {
     expect(outcome.rows).toEqual([{ index: 0, ok: false, error: ALL_FIELDS_REJECTED_ERROR }]);
     expect(failureKindOf(outcome.rows[0] as FailedAppliedRow)).toBe("rejected");
     expect(result.current.dispatcher.getTask(2)?.assigneeEmail).toBe("");
+  });
+});
+
+// §600 — a project swap DURING the replay must not land the remaining rows in the
+// next project. `runTool` is awaited per row, so the scope can move between two
+// rows of one batch; `isScopeStale` is re-read before every row.
+describe("§600 — applyProposal stops at the row where the scope changed", () => {
+  const THREE_UPDATES: ProposedCall[] = [
+    { name: "update_task", input: { id: 1, taskName: "One" } },
+    { name: "update_task", input: { id: 2, taskName: "Two" } },
+    { name: "update_task", input: { id: 3, taskName: "Three" } },
+  ];
+
+  /** Applies `THREE_UPDATES` through a dispatcher whose `updateTask` is a
+   *  pass-through spy — THE observable: every row that reaches `runTool` calls it
+   *  exactly once. `isScopeStale` gets the spy so a test can flip it on a write. */
+  async function applyWithScope(isScopeStale?: (writes: number) => boolean) {
+    const { result } = renderApply();
+    const real = result.current.dispatcher;
+    const updateTask = vi.fn(real.updateTask);
+    const dispatcher: ToolDispatcher = { ...real, updateTask };
+    const rows = describeProposal(THREE_UPDATES, seedWorkspace());
+    let outcome: Awaited<ReturnType<typeof applyProposal>> | undefined;
+    await act(async () => {
+      outcome = await applyProposal({
+        dispatcher,
+        rows,
+        selected: new Set([0, 1, 2]),
+        batch: result.current.batch,
+        ...(isScopeStale ? { isScopeStale: () => isScopeStale(updateTask.mock.calls.length) } : {}),
+      });
+    });
+    return { result, outcome: outcome!, updateTask };
+  }
+
+  test("a scope that moves after row 0 refuses rows 1 and 2 without dispatching them", async () => {
+    // ★★ THE SWAP LANDS DURING ROW 0'S WRITE, so a guard read once at the top of
+    //  the batch sees a live scope and waves every row through — only a per-row
+    //  read catches it.
+    const { result, outcome, updateTask } = await applyWithScope((writes) => writes > 0);
+    expect(outcome.rows).toEqual([
+      { index: 0, ok: true },
+      { index: 1, ok: false, error: SCOPE_CHANGED_ERROR },
+      { index: 2, ok: false, error: SCOPE_CHANGED_ERROR },
+    ]);
+    expect(updateTask).toHaveBeenCalledTimes(1);
+    expect(result.current.dispatcher.getTask(1)?.taskName).toBe("One");
+    expect(result.current.dispatcher.getTask(2)?.taskName).toBe("Before");
+    expect(result.current.dispatcher.getTask(3)?.taskName).toBe("Third");
+  });
+
+  test("a scope already stale before row 0 dispatches nothing", async () => {
+    const { outcome, updateTask } = await applyWithScope(() => true);
+    expect(outcome.rows).toEqual([
+      { index: 0, ok: false, error: SCOPE_CHANGED_ERROR },
+      { index: 1, ok: false, error: SCOPE_CHANGED_ERROR },
+      { index: 2, ok: false, error: SCOPE_CHANGED_ERROR },
+    ]);
+    expect(updateTask).not.toHaveBeenCalled();
+  });
+
+  test("failureKindOf calls a scope refusal 'scopeChanged', not a plain error", () => {
+    expect(failureKindOf({ index: 0, ok: false, error: SCOPE_CHANGED_ERROR })).toBe("scopeChanged");
+  });
+
+  test("an omitted isScopeStale applies every row exactly as before", async () => {
+    // The anti-vacuity half: the same fixture really does write all three.
+    const { outcome, updateTask } = await applyWithScope();
+    expect(outcome.rows).toEqual([
+      { index: 0, ok: true },
+      { index: 1, ok: true },
+      { index: 2, ok: true },
+    ]);
+    expect(updateTask).toHaveBeenCalledTimes(3);
   });
 });

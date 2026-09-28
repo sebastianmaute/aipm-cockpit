@@ -26,8 +26,9 @@ import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
 import { useTursoProjectOps } from "./use-storage-turso-ops";
 import { useFileProjectOps, useStorageFilePickerOps } from "./use-storage-file-ops";
-import { useLoadTruncation } from "./use-load-truncation";
+import { lastLoadWasIncomplete, useLoadTruncation } from "./use-load-truncation";
 import { useDestructiveSaveGuard } from "./use-destructive-save-guard";
+import { resolveJournalProjectKey, useUnloadJournal } from "./use-unload-journal";
 import type { ToastAction } from "./use-toast";
 import type { UseStorageBackendArgs } from "./use-storage-backend-types";
 
@@ -355,6 +356,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const [savesAllowedFor, setSavesAllowedFor] = useState<ReturnType<typeof createBackend> | null>(null);
   const savesAllowedForRef = useRef<ReturnType<typeof createBackend> | null>(null);
   const savesAllowed = savesAllowedFor !== null && savesAllowedFor === backend;
+  // §629 — the unload journal (use-unload-journal.ts). Re-read per storage config: an op commits the registry in the same tick as the config change.
+  const journalProjectKey = useMemo(() => resolveJournalProjectKey(args.settings.storageConfig.kind, tursoProjectId), [args.settings.storageConfig, tursoProjectId]);
+  const unloadJournal = useUnloadJournal({ projectKey: journalProjectKey, enabled: args.hydrated, isPopout: args.isPopout });
   // ★ A `const`, not a `function` declaration: `use-load-truncation.test.ts` keys each `.save(` on the
   // nearest preceding DECLARATION, and one here would rename the `flushCurrent` write's key below.
   const allowSavesTo = (target: ReturnType<typeof createBackend>): void => {
@@ -391,6 +395,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // BEFORE the debounced write, so a REJECTED write would otherwise leave the
   // destroyed counts standing as "last committed". The `.catch` restores THIS.
   const committedBaselineRef = useRef({ collections: 0, records: 0 });
+  // §629 — the suppress branch's resync, for the one load whose save is NOT suppressed (a restored unload journal): the guard then measures the restore against what the backend returned.
+  const syncBaselinesToLoaded = (loaded: Workspace): void => { const collections = nonEmptyCollectionCount(loaded), records = workspaceRecordCount(loaded); destructive.syncBaselines(collections, records); committedBaselineRef.current = { collections, records }; destructive.clearRefusal(); };
   // ★★ §103 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
   const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, async () => { if (savesAllowedForRef.current === backend) await backend.save(currentWorkspace()); else logDiag("warn", "storage.flushSkippedBeforeLoad", {}); }); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend. ★★★ §586: this is `flushCurrent`'s write (the pre-switch flush), so it obeys the save gate too — a switch away from a project whose load failed must not write the empty workspace over it. A skip, not a throw: the flush is best-effort.
 
@@ -544,7 +550,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // ★ `applyWorkspaceFromLoad` above stays the load effect's and `reloadCurrentProject`'s, which decide
   //   by `resolveLogModeAndStamp` (clause (a)) instead — its name says so, so this wrapper cannot be
   //   bypassed by reaching for the obvious one.
-  const applyWorkspaceForOp = (workspace: Workspace) => { bumpScopeEpoch(); applyWorkspaceFromLoad(workspace); };
+  const applyWorkspaceForOp = (workspace: Workspace) => { bumpScopeEpoch(); applyWorkspaceFromLoad(workspace); unloadJournal.holdBase(workspace); }; // §629 — HELD: the op's target key is not in scope until its config flip; the suppress branch adopts it
+  // §629 — the unload-journal conflict notice's "Restore anyway": applied like a same-target reload ("raise": the mint never lowers; "merge": local log appends kept), then saved by the normal path. Never over a shut save gate: that is reported, and the notice and its record are kept for a retry.
+  const restoreUnloadJournalAnyway = (): void => { if (savesAllowedForRef.current !== backend) { emitToast("error", t(langRef.current, "unloadJournalRestoreBlocked")); return; } const ws = unloadJournal.restoreConflict(); if (ws === null) { emitToast("error", t(langRef.current, "unloadJournalRestoreUnavailable")); return; } applyWorkspaceFromLoad(ws, "raise", "merge"); emitToast("success", t(langRef.current, "unloadJournalRestored")); };
 
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
   //     four setters. These are the last §72 setters in this hook that can
@@ -606,6 +614,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         setLoadedBackend(backend);
         setSettledBackend(backend); // §548 — nothing is in flight: the op already put this target in scope.
         allowSavesTo(backend); // §586 — the op already loaded or built what scope holds.
+        unloadJournal.adoptHeldBase(journalProjectKey); // §629 — this render's key IS the op's target's
         scopeTargetKeyRef.current = targetKey; // §591 — and that workspace belongs to THIS target.
         await refreshBackendStatus();
         return;
@@ -631,10 +640,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         }
         // §591 — "merge" (keep appends made while this load was in flight) ONLY onto the same target;
         // after a rebuild onto another target, scope holds the previous project, so REPLACE.
-        applyWorkspaceFromLoad(workspace, "reset", resolveLogModeAndStamp());
+        unloadJournal.setBase(workspace, journalProjectKey); // §629 R2 — what the backend RETURNED, keyed by the target this render loaded
+        // §629 — the unload-journal restore runs HERE only: past the `cancelled`, failed-load (`catch`) and empty-refusal returns, and skipped for a load whose saves pause. The hook skips a popout.
+        const restored = lastLoadWasIncomplete(backend) ? null : unloadJournal.restoreOnLoad(workspace, journalProjectKey, args.settings.storageConfig.kind);
+        if (restored !== null) { syncBaselinesToLoaded(workspace); emitToast("success", t(langRef.current, "unloadJournalRestored")); } // BEFORE `reportFor`: single-slot toast
+        applyWorkspaceFromLoad(restored ?? workspace, "reset", resolveLogModeAndStamp());
         logDiag("info", "storage.loaded", { records: workspaceRecordCount(workspace) });
         truncationOps.reportFor(backend); // ★ after applyWorkspaceFromLoad only: the empty-load REFUSAL above applies nothing, so neither raising nor lowering the TRUNCATION flag would describe the workspace that is actually live. ★★ That reasoning is TRUNCATION-specific and does NOT extend to the decode cause — the refusal path publishes that one itself, just above.
-        suppressNextSaveRef.current = true;
+        suppressNextSaveRef.current = restored === null; // §629 — a restored journal is SAVED back, through every save guard
         await refreshBackendStatus();
         emitOutcome(null);
       } catch (err) {
@@ -864,8 +877,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // together with the effect-level check turns (a) (b) (c) (e) (h) (i) red. It is here for a future
       // path that schedules without that check.
       if (savesAllowedForRef.current !== backend) return;
+      const journalSavedAt = unloadJournal.noteSaveStarted(outgoing); // §629 — here, past every guard: the save below really fires
       backend.save(outgoing).then(() => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
         committedBaselineRef.current = { collections: curCollections, records: curRecords }; // the write landed: these are on disk now
+        unloadJournal.noteSaveConfirmed(journalSavedAt, outgoing); // §629 — clears this tab's journal for it and rolls the base forward
         emitOutcome(null);
       }).catch((err) => {
         // ★★★ PUT THE BASELINES BACK — nothing was written, so the guard must not
@@ -1151,7 +1166,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setRaid,
     tasks,
     bumpScopeEpoch, // §548 clause (b) — onOpenStorageFile's accept branch only
-    applyPickedWorkspace: applyWorkspaceForOp, // §590 — onPickStorageFile's load-instead branch; the wrapper bumps the epoch itself, so that branch must NOT also call `bumpScopeEpoch`.
+    applyPickedWorkspace: (ws: Workspace) => { applyWorkspaceForOp(ws); unloadJournal.setBase(ws, journalProjectKey); unloadJournal.dropUnconfirmed(journalProjectKey); }, // §629 — no config flip follows (the picked file is bound to THIS backend), so the base is keyed now; the user chose the file over the live workspace, so its unconfirmed saves go, as in `reloadCurrentProject`. §590 — onPickStorageFile's load-instead branch; the wrapper bumps the epoch itself, so that branch must NOT also call `bumpScopeEpoch`.
   });
 
   // Re-load the CURRENT project's workspace from its backend, discarding the
@@ -1200,6 +1215,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // §591 — "merge" (a reload must not drop this device's entries) ONLY while scope holds THIS target's
       // project. After a rebuild onto an EMPTY target the refusal left the previous project in scope, and
       // `reloadEmptyConfirm` promises the user a REPLACE.
+      unloadJournal.setBase(workspace, journalProjectKey); // §629 R2 — as the load effect
+      unloadJournal.dropUnconfirmed(journalProjectKey); // §629 — the reload DISCARDS the in-memory state, so a failed save's journal must not bring it back on the next page load
       applyWorkspaceFromLoad(workspace, "raise", resolveLogModeAndStamp());
       // Confirm the manual recovery action succeeded (a bare re-render gives no feedback that the reload actually re-read the backend).
       // ★★ BEFORE `reportFor`, not after — single-slot surface, see the landmine there. Safe to hoist past the await: `refreshBackendStatus` swallows every error, so this cannot report success over a status check that blew up.
@@ -1391,5 +1408,6 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     migrateCurrentProjectToTurso: holdDuring(migrateCurrentProjectToTurso, "same-scope"),
     archiveTursoProject, restoreTursoProject, hardDeleteTursoProject,
     tursoProjectId,
+    unloadJournalConflict: unloadJournal.conflict, restoreUnloadJournalAnyway, discardUnloadJournal: unloadJournal.discardConflict, // §629
   };
 }

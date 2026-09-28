@@ -50,9 +50,12 @@ vi.mock("./fs-access", async (importOriginal) => {
   return { ...actual, pickOpenFile: async () => pickedByUser.current };
 });
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { FsHandle } from "./fs-access";
 import { LocalFileBackend } from "./local-file-backend";
-import { StorageNotReadyError } from "./workspace";
+import { StorageNotReadyError, jsonToWorkspace } from "./workspace";
+import { fingerprintWorkspace } from "./unload-journal";
 
 /** A file whose TASKS section both drops a row (no id) AND ends inside a
  *  quoted cell — so ONE load raises BOTH import flags off their defaults,
@@ -229,6 +232,41 @@ describe("LocalFileBackend load() import diagnostics", () => {
   });
 });
 
+// §620 — a stored meta slice that PARSES but SANITIZES TO NOTHING (junk
+// `steeringCommittee`, per Task 4's `sanitizedToNothing`) used to be dropped
+// silently on a JSON load; the next save then wrote the file without it.
+// `jsonToWorkspace` records the JSON key into `diag.decodeFailedSlices`
+// (workspace.test.ts pins the decoder itself); this backend's job is only to
+// PUBLISH what `loadFrom`'s `diag` collected, exactly like `lastLoadTruncation`.
+describe("LocalFileBackend load() §620 decode failures (JSON)", () => {
+  beforeEach(() => {
+    kv.clear();
+    idbGetError.current = null;
+  });
+
+  it("publishes the slice a JSON load could not decode", async () => {
+    const be = new LocalFileBackend("local-json");
+    await be.setHandle(
+      fakeHandle({ text: JSON.stringify({ tasks: [], raid: [], steeringCommittee: "not-an-object" }) }),
+    );
+    await be.load();
+    expect(be.lastDecodeFailures).toEqual(["steeringCommittee"]);
+  });
+
+  it("clears the flag on the next clean load — proves the reset, not just the set", async () => {
+    const be = new LocalFileBackend("local-json");
+    await be.setHandle(
+      fakeHandle({ text: JSON.stringify({ tasks: [], raid: [], steeringCommittee: "not-an-object" }) }),
+    );
+    await be.load();
+    expect(be.lastDecodeFailures).toEqual(["steeringCommittee"]); // the state this test needs to exist
+
+    await be.setHandle(fakeHandle({ text: JSON.stringify({ tasks: [], raid: [] }) }));
+    await be.load();
+    expect(be.lastDecodeFailures).toEqual([]);
+  });
+});
+
 // ★★★ THE ONLY THING STANDING BETWEEN §287 AND A SILENT REGRESSION. The fix moved
 // the handle commit OUT of `openFile()` and into the caller's accept branch, but the
 // hook-level tests covering that branch mock `./storage` wholesale — so they assert that
@@ -337,6 +375,25 @@ describe("LocalFileBackend.load resets diagnostics when the handle store rejects
     expect(be.lastLoadTruncation).toEqual({ entries: 0, blocks: 0 });
   });
 
+  it("clears decode failures too (§620) — its own mechanism, same placement as the import flags", async () => {
+    // ★★ Its own it(), like `lastLoadTruncation` above: `lastDecodeFailures` is
+    // published by `loadFrom`'s `finally` on a normal exit, but reset directly
+    // in `load()`'s catch when the handle lookup itself rejects (before
+    // `loadFrom` is ever entered) — a THIRD site, not covered by proving the
+    // other two reset.
+    const be = new LocalFileBackend("local-json");
+    await be.setHandle(
+      fakeHandle({ text: JSON.stringify({ tasks: [], raid: [], steeringCommittee: "not-an-object" }) }),
+    );
+    await be.load();
+    expect(be.lastDecodeFailures).toEqual(["steeringCommittee"]); // the state this test needs to exist
+
+    idbGetError.current = new Error("indexedDB unavailable");
+    await expect(be.load()).rejects.toThrow("indexedDB unavailable");
+
+    expect(be.lastDecodeFailures).toEqual([]);
+  });
+
   it("rethrows the original error rather than masking it", async () => {
     // ★★★ THE POSITIVE CONTROL, and the one that stops the fix becoming a
     // swallow. A `load()` that caught the rejection and resolved — or that converted it
@@ -347,5 +404,56 @@ describe("LocalFileBackend.load resets diagnostics when the handle store rejects
     idbGetError.current = cause;
 
     await expect(be.load()).rejects.toBe(cause);
+  });
+});
+
+// §629 unload-journal Step 3 — the local-json round-trip proof lives HERE
+// rather than in unload-journal.test.ts: it needs a WRITABLE fake handle
+// (write() actually updates what the next getFile() returns), and this file
+// already mocks `./idb` as the in-memory handle store that setHandle/getHandle
+// need. Mocking `./idb` in unload-journal.test.ts too would break the real
+// fake-indexeddb calls its OWN (browser-kind) round-trip proof depends on.
+function writableFakeHandle(): FsHandle {
+  let text = "";
+  return {
+    name: "project.json",
+    queryPermission: async () => "granted",
+    requestPermission: async () => "granted",
+    getFile: async () => ({ text: async () => text }) as File,
+    createWritable: async () => ({
+      write: async (data: string | Blob) => {
+        text = typeof data === "string" ? data : text;
+      },
+      close: async () => {},
+    }),
+  };
+}
+
+const repoRoot = join(import.meta.dirname, "..", "..");
+const smallWs = jsonToWorkspace(readFileSync(join(repoRoot, "sample-workspace-small.json"), "utf8"));
+const bigWs = jsonToWorkspace(readFileSync(join(repoRoot, "sample-workspace-big.json"), "utf8"));
+
+describe("fingerprint round-trip: local-json (§629 unload journal Step 3)", () => {
+  beforeEach(() => {
+    kv.clear();
+    idbGetError.current = null;
+  });
+
+  it("small sample workspace", async () => {
+    const before = fingerprintWorkspace(smallWs);
+    const be = new LocalFileBackend("local-json");
+    await be.setHandle(writableFakeHandle());
+    await be.save(smallWs);
+    const loaded = await be.load();
+    expect(fingerprintWorkspace(loaded)).toBe(before);
+  });
+
+  it("bigger sample workspace (documents included)", async () => {
+    const before = fingerprintWorkspace(bigWs);
+    const be = new LocalFileBackend("local-json");
+    await be.setHandle(writableFakeHandle());
+    await be.save(bigWs);
+    const loaded = await be.load();
+    expect(fingerprintWorkspace(loaded)).toBe(before);
   });
 });

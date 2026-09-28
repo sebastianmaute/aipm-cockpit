@@ -4036,6 +4036,13 @@ export const de: Record<TranslationKey, string> = {
   reloadProjectError: "Projekt konnte nicht neu geladen werden. Die Daten wurden nicht verändert.",
   reloadEmptyConfirm: "Das Neuladen würde dieses Projekt durch leere Daten ersetzen (die gespeicherte Kopie enthält keine Einträge). Das deutet meist auf einen fehlgeschlagenen Lesevorgang hin. Trotzdem neu laden und den aktuellen Inhalt verwerfen?",
   storageKeptCurrentData: "Der Speicher lieferte keine Daten — Ihr aktuelles Projekt wurde beibehalten. Laden Sie die Seite neu, falls dies weiterhin auftritt.",
+  // §629 — the unload journal's restore on load (use-unload-journal.ts) and its conflict notice.
+  unloadJournalRestored: "Nicht gespeicherte Änderungen aus der letzten Sitzung wurden wiederhergestellt.",
+  unloadJournalRestoreUnavailable: "Die nicht gespeicherten Änderungen aus der letzten Sitzung sind nicht mehr verfügbar.",
+  unloadJournalRestoreBlocked: "Das Speichern ist pausiert, daher können die nicht gespeicherten Änderungen aus Ihrer letzten Sitzung gerade nicht wiederhergestellt werden. Der Hinweis bleibt bestehen, damit Sie es erneut versuchen können.",
+  unloadJournalConflict: "Nicht gespeicherte Änderungen aus der letzten Sitzung konnten nicht automatisch wiederhergestellt werden, weil dieses Projekt inzwischen anderswo geändert wurde.",
+  unloadJournalRestoreAnyway: "Trotzdem wiederherstellen",
+  unloadJournalDiscard: "Verwerfen",
   storageDestructiveBanner: "Das Speichern ist pausiert. Eine große Löschung wurde zurückgehalten, um Ihr Projekt zu schützen.",
   storageDestructiveBannerAria: "Speichern pausiert - eine große Löschung wurde zurückgehalten",
   storageDestructiveCount: "{0} von {1} Datensätzen würden entfernt.",
@@ -4344,6 +4351,8 @@ export const de: Record<TranslationKey, string> = {
   chatProposalFailedUnreadable: "Nicht übernommen – das Ziel konnte nicht erneut gelesen werden",
   chatProposalFailedError: "Nicht übernommen",
   chatProposalFailedRejected: "Nicht übernommen – jede Änderung darin wurde abgelehnt",
+  chatProposalFailedScope: "Nicht angewendet – das Projekt hat sich geändert.",
   chatProposalExpired: "Dieser Vorschlag ist nicht mehr aktiv.",
   chatProposalDiscarded: "Vorschlag verworfen.",
+  chatProposalScopeChanged: "Dieser Plan wurde für ein anderes Projekt erstellt und nicht angewendet.",
 };

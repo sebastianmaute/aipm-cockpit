@@ -63,8 +63,7 @@ export interface UseVersionHistoryResult {
 //     (`task-manager.tsx`); a timer armed by the OLD project's inputs can fire
 //     after the reset, so counting it would let a stale write mask a transient.
 //   - `documentVersions` is derived from `documents` (`workspace-context.tsx`
-//     sets both from one loader result), so it adds nothing a `documents` count
-//     does not, and inherits the same objection.
+//     sets both from one loader result), so it inherits the same objection.
 // Same reasoning already excludes `activityLog` — see docs/AGENTS/activity-log.md —
 // and `budgetHistory`, which is storage-only: carried by the save funnel
 // (`use-storage-backend.ts`'s `outgoing`) but deliberately absent from the
@@ -74,6 +73,17 @@ export function isEmptyWorkspacePayload(json: string): boolean {
     // Parse RAW (not jsonToWorkspace, which sanitizes/drops incomplete records) —
     // the guard reflects what the payload literally stores.
     const w = JSON.parse(json) as Record<string, unknown>;
+    // ★★ §242 (closed 2026-09-27) — `insights` and `documentVersions` are
+    //  DELIBERATELY UNCOUNTED, for the reasons in THE RULE above. ★ Being
+    //  derived does NOT make `documentVersions` redundant here: deleting a
+    //  project's last document leaves `documents` empty and its tombstone in
+    //  `documentVersions` (docs/AGENTS/documents.md), so in a project whose
+    //  other counted lists are all empty, the payload reads as empty and that
+    //  capture is skipped. It loses nothing restorable — both
+    //  slices are `restorable: false` in `COLLECTION_SPECS` (see §241 below).
+    //  Counting is per slice, not "every slice in COLLECTION_SPECS": roles,
+    //  disciplines and grades have rows there and are uncounted here (seeded
+    //  reference data, above). Answer THE RULE for each new slice.
     const lists = [
       "tasks", "raid", "milestones", "stakeholders", "resources",
       "changes", "budgets", "absences", "shifts",
@@ -201,6 +211,14 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
         // bookkeeping (e.g. localModifiedAt), so an auto-save that only bumps
         // timestamps — with no real content change — does not create an empty
         // version. (Manual checkpoints always capture.)
+        // ★★ §241 (closed 2026-09-27) — this gate sees only what
+        //  `COLLECTION_SPECS` (version-diff.ts) walks, so a payload slice without
+        //  a row would make a session that edits only it capture NOTHING. All 24
+        //  slices `getVersionPayload` (task-manager.tsx) emits have a row today.
+        //  `documents` and `documentVersions` are `restorable: false` ON PURPOSE:
+        //  diff-visible, but a document is restored through its own document
+        //  history (tombstones, docs/AGENTS/documents.md), not this panel. A new
+        //  payload slice needs a row too.
         if (prev) {
           try {
             // ★ Same rule as the summary above: judged against what `prev` can

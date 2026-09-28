@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { act, render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { RolesEditor } from "./roles-editor";
@@ -518,5 +518,94 @@ describe("RolesEditor sortable column headers", () => {
   it("gives each rate-card header tooltip its own accessible name", () => {
     const { container } = renderEditor();
     expectRowUniqueNames({ minControls: 21, scope: container, roles: ["button"] });
+  });
+});
+
+// ★★★ §622 class — the discipline/grade rename input is uncontrolled and commits
+// only on blur. A window close, reload or navigation never blurs it, so a typed
+// rename was LOST. `pagehide` commits it; a tab switch must not (owner rule),
+// and a close with nothing typed must rename nothing.
+describe("RefList rename commits via pagehide (§622)", () => {
+  function refLists(
+    onRenameDiscipline: (id: number, name: string) => void,
+    onRenameGrade: (id: number, name: string) => void,
+    disciplines: Discipline[] = [{ id: 1, name: "Engineering" }, { id: 2, name: "Design" }],
+  ) {
+    return (
+      <RolesEditor
+        lang="en-US" currency="EUR" workdayHours={8} roles={[]}
+        disciplines={disciplines}
+        grades={[{ id: 7, name: "Senior" }]}
+        onSaveRole={noop} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onReorderRoles={noop}
+        onAddDiscipline={() => 0} onRenameDiscipline={onRenameDiscipline} onDeleteDiscipline={noop} onReorderDisciplines={noop}
+        onAddGrade={() => 0} onRenameGrade={onRenameGrade} onDeleteGrade={noop} onReorderGrades={noop}
+      />
+    );
+  }
+  const renderRefLists = (onRenameDiscipline: (id: number, name: string) => void, onRenameGrade: (id: number, name: string) => void) =>
+    render(refLists(onRenameDiscipline, onRenameGrade));
+  const pageHide = () => act(() => { window.dispatchEvent(new Event("pagehide")); });
+
+  it("commits a typed-but-unblurred rename on pagehide, and only the edited row", () => {
+    const onRenameDiscipline = vi.fn();
+    const onRenameGrade = vi.fn();
+    renderRefLists(onRenameDiscipline, onRenameGrade);
+    fireEvent.change(screen.getByDisplayValue("Design"), { target: { value: "UX Design" } });
+    pageHide();
+    expect(onRenameDiscipline).toHaveBeenCalledTimes(1);
+    expect(onRenameDiscipline).toHaveBeenCalledWith(2, "UX Design");
+    expect(onRenameGrade).not.toHaveBeenCalled();
+  });
+
+  it("commits nothing on a tab switch", () => {
+    const onRenameDiscipline = vi.fn();
+    renderRefLists(onRenameDiscipline, noop);
+    fireEvent.change(screen.getByDisplayValue("Design"), { target: { value: "UX Design" } });
+    act(() => {
+      const spy = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+      document.dispatchEvent(new Event("visibilitychange"));
+      spy.mockRestore();
+    });
+    expect(onRenameDiscipline).not.toHaveBeenCalled();
+  });
+
+  it("renames nothing on pagehide when no row was edited (or only blanked)", () => {
+    const onRenameDiscipline = vi.fn();
+    const onRenameGrade = vi.fn();
+    renderRefLists(onRenameDiscipline, onRenameGrade);
+    pageHide();
+    fireEvent.change(screen.getByDisplayValue("Senior"), { target: { value: "   " } });
+    pageHide();
+    expect(onRenameDiscipline).not.toHaveBeenCalled();
+    expect(onRenameGrade).not.toHaveBeenCalled();
+  });
+
+  // ★★ Abandon, never clobber: a blur-committed rename must not survive its own
+  // commit. An uncontrolled input keeps showing the typed text after a later
+  // external rename (a sync) changes `it.name`, so a pagehide that read the DOM
+  // would write the OLD typed name back over the newer one.
+  it("does not write a blur-committed rename back over a newer external name", () => {
+    const onRenameDiscipline = vi.fn();
+    const { rerender } = render(refLists(onRenameDiscipline, noop));
+    const input = screen.getByDisplayValue("Design");
+    fireEvent.change(input, { target: { value: "UX Design" } });
+    fireEvent.blur(input);
+    expect(onRenameDiscipline).toHaveBeenCalledTimes(1);
+    rerender(refLists(onRenameDiscipline, noop, [{ id: 1, name: "Engineering" }, { id: 2, name: "Product Design" }]));
+    pageHide();
+    expect(onRenameDiscipline).toHaveBeenCalledTimes(1);
+  });
+
+  // Same rule for a PAGEHIDE-committed rename: after a bfcache restore, a second
+  // pagehide must not replay it over a newer external name.
+  it("does not write a pagehide-committed rename back over a newer external name", () => {
+    const onRenameDiscipline = vi.fn();
+    const { rerender } = render(refLists(onRenameDiscipline, noop));
+    fireEvent.change(screen.getByDisplayValue("Design"), { target: { value: "UX Design" } });
+    pageHide();
+    expect(onRenameDiscipline).toHaveBeenCalledTimes(1);
+    rerender(refLists(onRenameDiscipline, noop, [{ id: 1, name: "Engineering" }, { id: 2, name: "Product Design" }]));
+    pageHide();
+    expect(onRenameDiscipline).toHaveBeenCalledTimes(1);
   });
 });

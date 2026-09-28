@@ -270,9 +270,11 @@ function ProposalRow({
                 ? "chatProposalFailedUnreadable"
                 : row.failedKind === "rejected"
                   ? "chatProposalFailedRejected"
-                  : row.failedKind === "error"
-                    ? "chatProposalFailedError"
-                    : "chatProposalFailed",
+                  : row.failedKind === "scopeChanged"
+                    ? "chatProposalFailedScope"
+                    : row.failedKind === "error"
+                      ? "chatProposalFailedError"
+                      : "chatProposalFailed",
           )}
         </p>
       )}

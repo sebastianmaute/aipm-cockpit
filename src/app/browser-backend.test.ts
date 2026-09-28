@@ -45,10 +45,48 @@ vi.mock("./idb", async (importOriginal) => {
   };
 });
 
+// §620 fix round 1 — forces the documents/documentVersions rich-field pass to
+// throw, for the containment tests below. Mirrors `forceRichFieldThrow` in
+// workspace.documents.test.ts (same cause: DOMPurify without a bound window).
+// It delegates to the REAL implementation unless the flag is set, so every
+// other test in this file still exercises the genuine DOMPurify pass.
+const richFieldCtl = vi.hoisted(() => ({ throwOnce: false }));
+vi.mock("./document-rich-fields", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./document-rich-fields")>();
+  return {
+    ...actual,
+    sanitizeDocumentRichFields: (doc: Parameters<typeof actual.sanitizeDocumentRichFields>[0]) => {
+      if (richFieldCtl.throwOnce) throw new TypeError("DOMPurify.sanitize is not a function");
+      return actual.sanitizeDocumentRichFields(doc);
+    },
+  };
+});
+
+// §620 M2 correction — forces `migrateWorkspaceV10` (the last step of `load()`,
+// AFTER the outer try/catch that wraps the IDB reads) to throw once, so a test
+// can prove a load rejecting from CODE OUTSIDE that try/catch is the case the
+// early `lastDecodeFailures = []` reset (not the end-of-load publish, which
+// this throw pre-empts) is responsible for clearing.
+const migrateCtl = vi.hoisted(() => ({ throwOnce: false }));
+vi.mock("./workspace", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./workspace")>();
+  return {
+    ...actual,
+    migrateWorkspaceV10: (raw: Parameters<typeof actual.migrateWorkspaceV10>[0]) => {
+      if (migrateCtl.throwOnce) {
+        migrateCtl.throwOnce = false;
+        throw new Error("forced post-try throw (§620 M2)");
+      }
+      return actual.migrateWorkspaceV10(raw);
+    },
+  };
+});
+
 import { BrowserBackend } from "./browser-backend";
 import type { FeatureModuleId } from "./feature-modules";
 import { IDB_RAID_STORE, IDB_TASKS_STORE, idbGet, idbSet } from "./idb";
 import { emptyWorkspace, jsonToWorkspace, workspaceToJson } from "./workspace";
+import { clearDiagLog, readDiagLog } from "./diagnostics";
 
 function budgetHistoryFixture(): readonly BudgetHistoryEntry[] {
   let n = 0;
@@ -88,6 +126,13 @@ describe("BrowserBackend parallel IDB save/load", () => {
     globalThis.indexedDB = new IDBFactory();
     ctl.failStore = null;
     ctl.calls = [];
+    // ★★★ FILE-SCOPED, not describe-scoped, same hazard as
+    // workspace.documents.test.ts's `forceRichFieldThrow`: reset here so a
+    // containment test that throws before its own cleanup cannot leak the flag
+    // into an unrelated later test under a shuffled run.
+    richFieldCtl.throwOnce = false;
+    migrateCtl.throwOnce = false;
+    clearDiagLog();
   });
 
   it("advances NO baseline when one store write rejects (retry re-emits everything dirty)", async () => {
@@ -387,6 +432,125 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
     const loaded = await new BrowserBackend().load();
     expect((loaded.budgetHistory ?? []).map((e) => e.id)).toEqual([hist[1].id]);
+  });
+
+  // §620 — a stored meta slice that PARSES but SANITIZES TO NOTHING (junk
+  // `steeringCommittee`, per Task 4's `sanitizedToNothing`) used to be dropped
+  // silently on load, and the next save wrote IDB without it. Unlike the JSON
+  // backend (`jsonToWorkspace` records it centrally), this backend reads each
+  // KV slot independently, so it needs its own `noteIfDropped` calls.
+  describe("§620 decode failures over IndexedDB", () => {
+    it("publishes a slice the load could not decode", async () => {
+      await idbSet("steeringCommittee", "not-an-object");
+      const loaded = await new BrowserBackend().load();
+      expect(loaded.steeringCommittee).toBeUndefined(); // control: it really sanitized to nothing
+      const backend = new BrowserBackend();
+      await backend.load();
+      expect(backend.lastDecodeFailures).toEqual(["steeringCommittee"]);
+    });
+
+    it("clears the flag on the next clean load — proves the reset, not just the set", async () => {
+      await idbSet("steeringCommittee", "not-an-object");
+      const backend = new BrowserBackend();
+      await backend.load();
+      expect(backend.lastDecodeFailures).toEqual(["steeringCommittee"]); // the state this test needs to exist
+
+      await idbSet("steeringCommittee", null);
+      await backend.load();
+      expect(backend.lastDecodeFailures).toEqual([]);
+    });
+
+    // ★★★ Fix round 1 — the rich-field pass is the ONLY DOM-dependent step in
+    // EITHER of these two slices, and it had no local catch: a throw there
+    // reached the outer "IDB unavailable" catch, which falls through silently.
+    // Since documents/documentVersions are read in the middle of that outer
+    // try (activityLog and budgetHistory are processed AFTER them), a throw
+    // used to discard those two as well for that load — nothing recorded,
+    // saving not paused, and the next save `idbDelete`s all four slices for
+    // good. Mirrors `jsonToWorkspace`'s own containment
+    // (workspace.documents.test.ts).
+    describe("a throwing rich-field pass is CONTAINED (fix round 1)", () => {
+      const DOC = {
+        id: 1, title: "Status report",
+        blocks: [{ type: "heading" as const, level: 1 as const, text: "March" }],
+        createdAt: "2026-08-06T00:00:00.000Z", updatedAt: "2026-08-06T00:00:00.000Z",
+      };
+      const VERSION = {
+        id: 1, documentId: 4, title: "Prior",
+        blocks: [{ type: "heading" as const, level: 2 as const, text: "Old" }],
+        savedAt: "2026-08-02T08:00:00.000Z", source: "user" as const, op: "restored" as const,
+      };
+      const log: ActivityEntry[] = [
+        { id: "dev1-s1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created", args: ["T-1"] },
+      ];
+
+      it("records documents in decodeFailedSlices, drops only documents, and keeps LATER slices loading", async () => {
+        await idbSet("documents", [DOC]);
+        await idbSet("activityLog", log); // processed AFTER documents — the positive observable
+        richFieldCtl.throwOnce = true;
+
+        const backend = new BrowserBackend();
+        const loaded = await backend.load();
+
+        expect(loaded.documents).toBeUndefined();
+        expect(backend.lastDecodeFailures).toEqual(["documents"]);
+        // The whole point: before the fix, activityLog (and documentVersions,
+        // budgetHistory, documentAssets) never even got sanitized this load.
+        expect(loaded.activityLog).toEqual(log);
+        expect(readDiagLog().map((e) => e.code)).toContain("workspace.documentsDropped");
+      });
+
+      it("records documentVersions in decodeFailedSlices, drops only documentVersions, and keeps LATER slices loading", async () => {
+        await idbSet("documentVersions", [VERSION]);
+        await idbSet("activityLog", log); // processed AFTER documentVersions
+        richFieldCtl.throwOnce = true;
+
+        const backend = new BrowserBackend();
+        const loaded = await backend.load();
+
+        expect(loaded.documentVersions).toBeUndefined();
+        expect(backend.lastDecodeFailures).toEqual(["documentVersions"]);
+        expect(loaded.activityLog).toEqual(log);
+        expect(readDiagLog().map((e) => e.code)).toContain("workspace.documentVersionsDropped");
+      });
+
+      it("CONTROL: with the flag off, the same fixtures load normally and record nothing", async () => {
+        await idbSet("documents", [DOC]);
+        await idbSet("documentVersions", [VERSION]);
+        await idbSet("activityLog", log);
+
+        const backend = new BrowserBackend();
+        const loaded = await backend.load();
+
+        expect(loaded.documents).toEqual([DOC]);
+        expect(loaded.documentVersions).toEqual([VERSION]);
+        expect(loaded.activityLog).toEqual(log);
+        expect(backend.lastDecodeFailures).toEqual([]);
+        expect(readDiagLog()).toEqual([]);
+      });
+    });
+
+    // ★★★ Fix round 1 correction — my original report explained M2's survival
+    // with the wrong reason (that the end-of-load publish always overwrites
+    // the field). It does NOT on every path: `migrateWorkspaceV10(raw)` and
+    // everything after the outer try/catch (lines ~400-447: `migrateLegacyIfNeeded`,
+    // the `.map()` sanitizer chain, `migrateWorkspaceV10` itself) run OUTSIDE any
+    // try/catch in `load()`. A throw there rejects the whole `load()` call
+    // BEFORE the end-of-load publish is ever reached — so a PREVIOUS load's
+    // `lastDecodeFailures` would stand stale were it not for the reset at the
+    // TOP of `load()`, which already ran (synchronously, before any `await`)
+    // by the time this throw happens.
+    it("clears decode failures set by a previous load when a LATER load throws AFTER the main try (§620 M2)", async () => {
+      await idbSet("steeringCommittee", "not-an-object");
+      const backend = new BrowserBackend();
+      await backend.load();
+      expect(backend.lastDecodeFailures).toEqual(["steeringCommittee"]); // the state this test needs to exist
+
+      migrateCtl.throwOnce = true;
+      await expect(backend.load()).rejects.toThrow("forced post-try throw (§620 M2)");
+
+      expect(backend.lastDecodeFailures).toEqual([]);
+    });
   });
 
   it("second save of an unchanged workspace emits empty deltas (baselines advanced)", async () => {

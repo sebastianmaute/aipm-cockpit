@@ -5,6 +5,7 @@
 "use client";
 import { useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
+import { useCommitOnPageHide } from "./use-commit-on-page-hide";
 
 export interface CommitDraft {
   /** The live draft while editing, else the committed value — so an undo/redo
@@ -27,6 +28,13 @@ export function useCommitDraft(committed: string, commit: (raw: string) => void)
     setDraft(null);
     if (raw !== null && raw !== committed) commit(raw);
   };
+
+  // §625: a close/reload never blurs, so commit the un-blurred draft on
+  // pagehide. `doCommit` skips a draft already committed (Enter/blur) or
+  // cancelled (Escape), and an unchanged value; `draft === null` is no edit.
+  useCommitOnPageHide(() => {
+    if (draft !== null) doCommit(draft);
+  });
 
   return {
     value: draft ?? committed,

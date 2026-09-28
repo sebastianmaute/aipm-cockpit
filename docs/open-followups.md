@@ -329,7 +329,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§95](#95-no-test-in-ci-exercises-a-real-turso-database--open-narrowed-2026-08-25) | No test in CI exercises a real Turso database — open, NARROWED 2026-08-25 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M | open |
 | [§96](#96-the-previewprint-path-loads-the-whole-section-registry-unconditionally--open-priority-unknown) | The preview/print path loads the whole section registry unconditionally — open, priority UNKNOWN | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open |
 | [§97](#97-the-dom-constraint-inverted-for-the-document-load-paths--open-trap-safe-today) | The DOM constraint INVERTED for the document load paths — open (TRAP, safe today) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | open |
-| [§98](#98-documents-is-invisible-to-both-save-time-data-loss-guards--open-missing-net-counters-widened-2026-08-29-live-path-found--284) | `documents` is invisible to both save-time data-loss guards — open (MISSING NET; counters WIDENED 2026-08-29, live path FOUND — §284) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M — two lines of code, but it moves a live save-REFUSAL threshold | open |
+| [§98](#98-documents-is-invisible-to-both-save-time-data-loss-guards--closed-2026-09-27) | `documents` is invisible to both save-time data-loss guards | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M — two lines of code, but it moves a live save-REFUSAL threshold | **CLOSED** 2026-09-27 |
 | [§99](#99-the-e2e-seed-writes-only-four-of-browserbackends-ten-optional-slices-so-some-axe-scans-run-on-an-empty-state--open-partly-fixed-2026-08-08) | The e2e seed writes only four of BrowserBackend's ten optional slices, so some axe scans run on an empty state — open, PARTLY FIXED 2026-08-08 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | open |
 | [§100](#100-tab-ejects-focus-from-a-portaled-popover-opened-inside-a-modal--closed-2026-08-31) | ~~Tab ejects focus from a portaled popover opened inside a modal~~ | field controls → modal header, unreleased | M | **CLOSED** 2026-08-31 |
 | [§101](#101-segmentedcontrols-selected-segment-is-colour-only-in-the-three-dark-schemes-and-in-beacon-light--closed-2026-09-01) | ~~`SegmentedControl`'s selected segment is colour-only in the three DARK schemes AND in beacon-light~~ | field controls → modal header, unreleased | S | **CLOSED** 2026-09-01 (title AMENDED — beacon-light measures 1.13:1 and the entry omitted it) |
@@ -472,8 +472,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§238](#238-sample-workspace-bighugejson-are-generated-artifacts-with-no-consumer-and-no-regeneration-gate) | `sample-workspace-big/huge.json` are generated artifacts with no consumer and no regeneration gate | — | — | open |
 | [§239](#239-an-imported-colour-scheme-can-pin-the-aa-derived-tokens-bypassing-the-derivation-entirely) | An imported colour scheme can pin the AA-derived tokens, bypassing the derivation entirely | — | — | open |
 | [§240](#240-the-version-restore-payload-carried-18-slices-while-the-restore-fanned-out-24-blanking-six-of-them--closed-2026-08-25) | The version-restore payload carried 18 slices while the restore fanned out 24, blanking six of them | — | — | **CLOSED** 2026-08-25 |
-| [§241](#241-five-array-typed-slices-are-captured-but-invisible-to-diffworkspaces-so-they-can-never-be-restored-and-a-session-that-only-edits-them-captures-no-version-at-all--restore-half-fixed-2026-08-26-the-documents-pair-deliberately-not-restorable) | Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all — restore half FIXED 2026-08-26, the documents pair deliberately NOT restorable | — | — | open |
-| [§242](#242-isemptyworkspacepayload-counts-nine-legacy-content-lists-so-a-documents-only-project-reads-as-empty-and-every-version-capture-is-skipped--three-of-the-five-fixed-2026-08-26-insights-and-documentversions-deliberately-still-uncounted) | `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped — three of the five FIXED 2026-08-26, `insights` and `documentVersions` deliberately still uncounted | — | — | open |
+| [§241](#241-five-array-typed-slices-are-captured-but-invisible-to-diffworkspaces-so-they-can-never-be-restored-and-a-session-that-only-edits-them-captures-no-version-at-all--closed-2026-09-27) | Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all | — | — | **CLOSED** 2026-09-27 |
+| [§242](#242-isemptyworkspacepayload-counts-nine-legacy-content-lists-so-a-documents-only-project-reads-as-empty-and-every-version-capture-is-skipped--closed-2026-09-27) | `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped | — | — | **CLOSED** 2026-09-27 |
 | [§243](#243-history-rows-give-every-version-the-same-two-accessible-names-and-nothing-in-the-gate-suite-can-see-it--closed-2026-08-25) | History rows give every version the same two accessible names, and nothing in the gate suite can see it | pre-existing, found 0.259.0 | S | **CLOSED** 2026-08-25 |
 | [§244](#244-the-property-suites-anti-vacuity-floors-are-probabilistic-and-one-of-them-took-a-release-pipeline-red--closed-2026-08-26) | The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red | 0.259.0 release pipeline | S–M | **CLOSED** 2026-08-26 |
 | [§245](#245-the-row-unique-names-sweep-is-bounded-by-test-names-and-a-property-based-scan-finds-far-more-surface) | The row-unique-names sweep is bounded by test NAMES, and a property-based scan finds far more surface | row-unique-accessible-names slice (2026-08-25) | S | open |
@@ -827,7 +827,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§597](#597-the-scaled-sample-workspaces-carried-the-pre-577-curated-budget-variance-insight-for-two-releases-because-no-test-reads-them--closed-2026-09-20) | The scaled sample workspaces carried the pre-§577 curated budget-variance insight for two releases, because no test reads them | found 2026-09-20 reading the three samples across revisions; still live on `origin/main` when filed, closed incidentally by `e879d2ac6` | S — regenerate; the CAUSE (nothing reads them) stays open under §598 | **CLOSED** 2026-09-20 |
 | [§598](#598-the-577-closure-ran-no-repo-wide-sweep-for-the-tests-its-detector-change-invalidated-and-curated-sample-data-is-one-of-the-things-a-detector-change-moves--open) | The §577 closure ran no repo-wide sweep for the tests its detector change invalidated, and curated sample data is one of the things a detector change moves | established 2026-09-20 from pipeline 7271's failure and the commit order; GitLab #379 | S — name the curated-fixture class in the detector-change checklist | open |
 | [§599](#599-the-curated-sample-insights-severity-is-compared-by-nothing-so-it-can-drift-from-the-detector-exactly-as-variancepct-did--open) | The curated sample insight's `severity` is compared by nothing, so it can drift from the detector exactly as `variancePct` did | found 2026-09-20 reading `sample-workspace-budget.test.ts` against the detector; no drift today; GitLab #380 | S — widen the assertion to the fields the upsert refreshes, and prove it can fail | open |
-| [§600](#600-the-staged-proposal-apply-path-has-no-scope-guard-and-it-is-the-majority-path-not-the-exception--open) | The STAGED proposal-apply path has no scope guard, and it is the majority path, not the exception | found 2026-09-20 in the §596 assertion audit, read from code; ruled out of scope as a mid-slice discovery; GitLab #381 | M — capture the epoch at STAGE time, not at Apply, and drop before the batch | open |
+| [§600](#600-the-staged-proposal-apply-path-has-no-scope-guard-and-it-is-the-majority-path-not-the-exception--closed-2026-09-27) | The STAGED proposal-apply path has no scope guard, and it is the majority path, not the exception | — | — | **CLOSED** 2026-09-27 |
 | [§601](#601-a-structurally-valid-workspace-file-that-holds-no-records-defeats-the-empty-load-data-loss-guard-because-decoding-seeds-reference-data-that-the-guard-counts--open) | A structurally valid workspace file that holds no records defeats the empty-load data-loss guard, because decoding seeds reference data that the guard counts | found 2026-09-20 alongside §590, read from code with both bounds checked; deliberately narrower than first stated; GitLab #382 | S — decide per call site which question is asked, as §590 had to | open |
 | [§602](#602-a-source-scanning-gate-read-raw-text-counted-its-own-documentation-and-was-standing-green-over-the-critical-it-was-built-to-catch--open) | A source-scanning gate read raw text, counted its own documentation, and was standing green over the Critical it was built to catch | MEASURED twice at base `280207fc` during §590; the report census is fixed, the `.save(` census is not; GitLab #383 | S — route the `.save(` scan through the shared stripper, with a fixture of its own | open |
 | [§603](#603-the-picked-file-write-that-lands-inside-guardedwrites-own-await-still-reaches-the-superseded-backend-and-that-is-accepted-rather-than-fixed--open) | The picked-file write that lands inside `guardedWrite`'s own await still reaches the superseded backend, and that is accepted rather than fixed | §588 implementation concern C2, read from code; its original stronger claim is false at HEAD; GitLab #384 | S — accepted; re-judge if that window ever becomes human-scale | open |
@@ -847,13 +847,19 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§617](#617-a-meta-slice-whose-sanitizer-returns-nothing-is-dropped-silently-and-the-next-save-deletes-its-row--closed-2026-09-26) | A meta slice whose sanitizer returns nothing is dropped silently, and the next save deletes its row | split out of §538 on 2026-09-26 (the PR #425 review) | S–M — audit each meta slice's falsy-return path and report it like a throw | **CLOSED** 2026-09-26 |
 | [§618](#618-the-classic-header-overflows-between-lg-and-1390px-so-the-page-scrolls-sideways--closed-2026-09-27) | The classic header overflows between lg and ~1390px, so the page scrolls sideways | split out of §468 on 2026-09-26 (#425 window-layout probe) | S — let the classic search shrink from lg up with a min width; measure 1024/1100/1390/1600 | **CLOSED** 2026-09-27 |
 | [§619](#619-dashboard-narratives-heading-menu-escape-test-failed-once-in-unit-shuffled--focus-never-reached-the-menu--closed-2026-09-26) | dashboard-narrative's heading-menu Escape test failed once in unit-shuffled — focus never reached the menu | — | — | **CLOSED** 2026-09-26 |
-| [§620](#620-the-json-file-and-indexeddb-load-paths-drop-a-meta-slice-that-sanitizes-to-nothing-with-no-decode-failure-channel--open) | The JSON-file and IndexedDB load paths drop a meta slice that sanitizes to nothing, with no decode-failure channel | — | — | open |
+| [§620](#620-the-json-file-and-indexeddb-load-paths-drop-a-meta-slice-that-sanitizes-to-nothing-with-no-decode-failure-channel--closed-2026-09-27) | The JSON-file and IndexedDB load paths drop a meta slice that sanitizes to nothing, with no decode-failure channel | — | — | **CLOSED** 2026-09-27 |
 | [§621](#621-pdfdocxpptxxlsx-exports-still-print-recurrence-text-and-insight-typeseveritystatus-values-in-english--closed-2026-09-27) | PDF/DOCX/PPTX/XLSX exports still print recurrence text and insight type/severity/status values in English | — | — | **CLOSED** 2026-09-27 |
-| [§622](#622-an-ordinary-under-cap-document-paragraph-edit-that-was-never-blurred-is-lost-when-the-window-closes--open) | An ordinary, under-cap document paragraph edit that was never blurred is lost when the window closes | — | — | open |
+| [§622](#622-an-ordinary-under-cap-document-paragraph-edit-that-was-never-blurred-is-lost-when-the-window-closes--closed-2026-09-27) | An ordinary, under-cap document paragraph edit that was never blurred is lost when the window closes | — | — | **CLOSED** 2026-09-27 |
 | [§623](#623-loadexportassets-loads-the-bytes-of-a-policy-refused-asset-before-discarding-them--closed-2026-09-27) | `loadExportAssets` loads the bytes of a policy-refused asset before discarding them | — | — | **CLOSED** 2026-09-27 |
 | [§624](#624-ai-evalts-and-update-ooxml-manifestts-import-the-dom-free-sanitizer-graph-with-no-dom-and-nothing-proves-they-never-reach-a-dompurify-call--open) | `ai-eval.ts` and `update-ooxml-manifest.ts` import the DOM-free sanitizer graph with no DOM, and nothing proves they never reach a DOMPurify call | — | — | open |
+| [§625](#625-the-dashboard-status-narrative-draft-is-lost-on-window-close--closed-2026-09-27) | The dashboard status narrative draft is lost on window close | — | — | **CLOSED** 2026-09-27 |
+| [§626](#626-async-commit-editors-chat-thread-rename-comm-templates-dictation-key-still-lose-an-unblurred-draft-on-window-close--open) | Async-commit editors (chat thread rename, comm templates, dictation key) still lose an unblurred draft on window close | — | — | open |
+| [§627](#627-several-dirty-drafts-at-pagehide-start-unserialised-full-saves-so-on-filesharepoint-an-older-snapshot-can-finish-last--open) | Several dirty drafts at pagehide start unserialised full saves, so on file/SharePoint an older snapshot can finish last | — | — | open |
 | [§628](#628-the-undo-stack-survives-a-project-switch-so-an-undo-writes-the-previous-projects-rows-into-the-current-one--closed-2026-09-27) | The undo stack survives a project switch, so an undo writes the previous project's rows into the current one | — | — | **CLOSED** 2026-09-27 |
+| [§629](#629-the-unload-journal-is-unverified-on-the-packaged-desktop-close-and-on-the-file-sharepoint-and-turso-backends-and-a-restore-the-mass-deletion-guard-refuses-repeats-on-every-reload--open) | The unload journal is unverified on the packaged desktop close and on the file, SharePoint and Turso backends, and a restore the mass-deletion guard refuses repeats on every reload | — | — | open |
+| [§630](#630-csv-and-markdown-project-files-still-drop-an-all-invalid-meta-slice-silently-on-load-620-covers-json-and-indexeddb-only--open) | CSV and Markdown project files still drop an all-invalid meta slice silently on load (§620 covers JSON and IndexedDB only) | — | — | open |
 | [§631](#631-the-desktop-shell-reuses-a-leftover-server-without-checking-its-version-so-an-orphan-could-serve-an-old-build-after-an-update--open) | The desktop shell reuses a leftover server without checking its version, so an orphan could serve an old build after an update | — | — | open |
+| [§632](#632-unload-journals-whose-project-key-is-never-loaded-again-are-never-swept-so-they-can-fill-browser-storage--open) | Unload journals whose project key is never loaded again are never swept, so they can fill browser storage | — | — | open |
 | [§633](#633-the-document-preview-fetches-and-decodes-a-policy-refused-images-bytes-before-declining-it--closed-2026-09-27) | The document preview fetches and decodes a policy-refused image's bytes before declining it | — | — | **CLOSED** 2026-09-27 |
 <!-- INDEX:END -->
 
@@ -7660,16 +7666,18 @@ neither should be quoted as a general rule.
 
 ---
 
-## 98. `documents` is invisible to both save-time data-loss guards — open (MISSING NET; counters WIDENED 2026-08-29, live path FOUND — §284)
+## 98. `documents` is invisible to both save-time data-loss guards — CLOSED 2026-09-27
 
-**Status:** open — the counters were WIDENED 2026-08-29: `documents`, `knowledgeItems` and
-`documentAssets` now count toward both. Kept open for the decision record and because the widening
-moved a live save-REFUSAL threshold that nothing has exercised against a real project. Membership
-re-measured 2026-08-29 by `grep -cE "ws[.](documents|knowledgeItems|documentAssets)" src/app/workspace-metrics.ts`
-(→ 7, across `isWorkspaceEmpty` and both counters). The threshold change's effect on a real
-project is never machine-verified.
-
-**Work item:** #135
+**Status:** CLOSED 2026-09-27 on fix/defect-batch-8 — no code change in this batch: the batch-8 verdict
+pass (2026-09-27, read against `origin/main` at `e6793604d`, recorded in
+`docs/superpowers/specs/2026-09-27-defect-batch-8-design.md`) found the missing net built. Both save-time
+counters in `src/app/workspace-metrics.ts` count `documents`, `knowledgeItems` and `documentAssets`:
+`nonEmptyCollectionCount` at `:107-109` and `workspaceRecordCount` at `:129-131` (the `:106-131` span).
+Re-measured on the branch: `sed -n '/export function nonEmptyCollectionCount/,/^}/p'
+src/app/workspace-metrics.ts | grep -c "n++"` → 16, over a range of 20 lines (not 0, so the `sed` range
+opened). The per-slice decision record is `SLICE_POLICY` (`workspace-slice-policy.ts`), gated by
+`workspace-slice-policy.test.ts`; arming the destructive-save bypass is §285 (closed). ★ What this close
+does NOT claim: the moved save-refusal threshold has still never been exercised against a real project.
 
 ★★★ **CORRECTED 2026-08-29: "no known live path" WAS FALSE, and the path does not start here.** A
 malformed Turso meta blob is discarded in silence at load and then written over as an intentional
@@ -20758,16 +20766,18 @@ re-captures. That half carries its own discriminating test, added separately in 
 
 ---
 
-## 241. Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all — restore half FIXED 2026-08-26, the documents pair deliberately NOT restorable
+## 241. Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all — CLOSED 2026-09-27
 
-**Status:** open, restore half FIXED 2026-08-26 on the version-history-completeness slice. Found
-2026-08-25 while fixing the array-as-object corruption below. All five slices are now registered, so
-consequences (2) and (3) below are closed for every one of them and (1) is closed for three;
-`documents` and `documentVersions` carry `restorable: false` and stay un-restorable BY DECISION,
-which is why this is not a full close. What would have to change to revisit that decision is in the
-closing ★. Never machine-verified by a committed probe.
-
-**Work item:** #206
+**Status:** CLOSED 2026-09-27 on fix/defect-batch-8 — the batch-8 verdict pass (2026-09-27) found the
+remaining half settled in code. All 24 slices `getVersionPayload` (`task-manager.tsx`) emits have a
+`COLLECTION_SPECS` row in `version-diff.ts` (measured by comparing the two key lists: 24 = 24, none
+missing, none extra); the five this entry named plus `settingsOverrides` are six rows
+(`grep -cE 'key: "(knowledgeItems|insights|calendarEvents|documents|documentVersions|settingsOverrides)"'
+src/app/version-diff.ts` → 6).
+`documents` and `documentVersions` stay `restorable: false` BY DECISION: diff-visible, but a document is
+restored through its own document history (tombstones, `docs/AGENTS/documents.md`). Decision moved into
+code comments at `use-version-history.ts` (the ★★ §241 comment beside the diff gate in `writeVersion`),
+so this entry is no longer its only record.
 
 `COLLECTION_SPECS` (`version-diff.ts`) is the registry BOTH `diffWorkspaces` and `applyRestore`
 walk. When this was filed, of the six slices `getVersionPayload` captures only `settingsOverrides`
@@ -20869,14 +20879,19 @@ of the two histories wins when they disagree; it is not a matter of flipping a f
 
 ---
 
-## 242. `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped — three of the five FIXED 2026-08-26, `insights` and `documentVersions` deliberately still uncounted
+## 242. `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped — CLOSED 2026-09-27
 
-**Status:** open, three of the five added 2026-08-26 on the version-history-completeness slice.
-Found 2026-08-25 alongside §241; a SEPARATE function with a separate fix, which is why it is a
-separate number — closing §241 did not touch this. It stays open because the two remaining slices
-are UNCOUNTED BY DECISION and nothing but this entry records the decision. Never machine-verified by a committed probe.
-
-**Work item:** #207
+**Status:** CLOSED 2026-09-27 on fix/defect-batch-8 — the batch-8 verdict pass (2026-09-27) found it
+settled in code: `isEmptyWorkspacePayload`'s `lists` counts `knowledgeItems`, `documents` and
+`calendarEvents` beside the nine legacy lists (the `lists` array in `isEmptyWorkspacePayload`). `insights` and
+`documentVersions` stay uncounted BY DECISION. Decision moved into code comments at
+`use-version-history.ts` (the ★★ §242 comment beside `lists`), so this entry is no longer its only
+record. ★★ Correction found while writing that comment: the `documentVersions` bullet below says it "can
+never be the ONLY non-empty content slice". That is FALSE. Deleting a project's last document leaves
+`documents` empty and the document's tombstone in `documentVersions` (`docs/AGENTS/documents.md`), so
+in a project whose other counted lists are all empty, the payload reads as empty and that capture is
+skipped. It loses nothing restorable, because both slices
+are `restorable: false` (§241), so the decision stands; the code comment gives the corrected reason.
 
 `writeVersion` runs two guards before capturing. §241 is about the second; this is the FIRST:
 
@@ -41478,11 +41493,11 @@ Related: §577, §597, §599.
 
 Related: §577, §597, §598.
 
-## 600. The STAGED proposal-apply path has no scope guard, and it is the majority path, not the exception — OPEN
+## 600. The STAGED proposal-apply path has no scope guard, and it is the majority path, not the exception — CLOSED 2026-09-27
 
-**Status:** OPEN 2026-09-20 — read from code in the assertion audit for [§596](#596-the-ai-chat-tool-loop-runs-its-writes-into-whatever-project-is-in-scope-when-each-tools-turn-comes-and-it-is-unconditional-on-unmount-rather-than-a-race--closed-2026-09-20). The **defect is never machine-verified**: no probe drives a project swap across a staged apply. What the body's executed `awk`-range count establishes is the ABSENCE of a guard (0 scope-reader mentions inside `applyPendingProposal`, against a positive control of 4 inside `submitPrompt`) — which is a fact about the source, not an observation of a wrong-project write. Ruled out of scope for that slice as a mid-slice discovery rather than silently folded in, and this entry records that reasoning so the decision is reviewable.
+**Status:** CLOSED 2026-09-27 on fix/proposal-scope-guard — a staged plan now records the turn's send-time scope epoch (`PendingProposal.scopeEpoch` = `sendEpoch`, `chat-panel.tsx`), captured at STAGE time as the fix shape below requires. `applyPendingProposal` calls `dropStaleScopeWrite` before anything is marked applying: a plan whose scope moved is retired with the notice "This plan was made for a different project and was not applied." (a card that already applied rows keeps them and marks the rest refused instead). `applyProposal` takes an optional `isScopeStale` and re-reads it before every row, so a swap that lands mid-batch stops the replay at that row and reports the rest as `SCOPE_CHANGED_ERROR` → `"scopeChanged"` ("Not applied — the project changed."); such a row is unticked rather than re-offered. Pinned by `chat-proposal-apply.test.tsx` (the §600 describe) and `chat-panel.scope.test.tsx` ("staged plan vs. the storage scope", where the project id never changes); each guard mutation-checked (pre-apply guard, per-row guard, the untick of scope-refused rows).
 
-**Work item:** #381
+**Originally recorded 2026-09-20:** read from code in the assertion audit for [§596](#596-the-ai-chat-tool-loop-runs-its-writes-into-whatever-project-is-in-scope-when-each-tools-turn-comes-and-it-is-unconditional-on-unmount-rather-than-a-race--closed-2026-09-20). The **defect is never machine-verified**: no probe drives a project swap across a staged apply. What the body's executed `awk`-range count establishes is the ABSENCE of a guard (0 scope-reader mentions inside `applyPendingProposal`, against a positive control of 4 inside `submitPrompt`) — which is a fact about the source, not an observation of a wrong-project write. Ruled out of scope for that slice as a mid-slice discovery rather than silently folded in, and this entry records that reasoning so the decision is reviewable.
 
 §596 guarded the per-tool loop in `chat-panel.tsx`. It did NOT guard `applyPendingProposal`, which awaits `applyProposal` and then writes, with no epoch captured before the await and no `dropStaleScopeWrite` after it. Measured, with a positive control so the zero is not vacuity: counting scope-reader mentions inside each function with `awk '/async function applyPendingProposal/,/^  \}$/' src/app/chat-panel.tsx | grep -c "dropStaleScopeWrite\|getScopeEpoch"` prints **0**, while the same count over `submitPrompt` prints **4**.
 
@@ -42311,16 +42326,42 @@ Size S.
 
 **Source:** PR #429's `unit-shuffled` run, 2026-09-26.
 
-## 620. The JSON-file and IndexedDB load paths drop a meta slice that sanitizes to nothing, with no decode-failure channel — open
+## 620. The JSON-file and IndexedDB load paths drop a meta slice that sanitizes to nothing, with no decode-failure channel — CLOSED 2026-09-27
 
-**Status:** open 2026-09-27 — split out of §617 (closed 2026-09-26 in #427) by owner decision, which fixed
-the Turso load path only. Verified by reading: `jsonToWorkspace` (`src/app/workspace.ts`) assigns each
-sanitized slice (for example `status: sanitizeProjectStatus(p.status)`) the same way `rowsToWorkspace` did
-before §617, and `BrowserBackend.load` (`src/app/browser-backend.ts`) has the identical shape. `grep -rn
-"decodeFailedSlices\|lastDecodeFailures" src/app` returns only `turso-schema.ts` and `turso-backend.ts` —
-neither `workspace.ts` nor `browser-backend.ts` has an equivalent.
-
-**Work item:** #433
+**Status:** CLOSED 2026-09-27 on fix/defect-batch-8 — `jsonToWorkspace` (`src/app/workspace.ts`) now
+records a slice whose stored value carried content but sanitized to nothing in
+`diag.decodeFailedSlices`, through §617's `sanitizedToNothing`. Thirteen keys (`grep -c
+'noteIfDropped("' src/app/workspace.ts` → 13): `status`, `project`, `fieldVisibility`, `features`,
+`steeringCommittee`, `timelogLinks`, `knowledgeItems`, `insights`, `activityLog`, `budgetHistory`,
+`documents`, `documentVersions`, `settingsOverrides`. `status` is assigned unconditionally and
+`features` whenever its key is present (`if (p.features !== undefined)`; corrected 2026-09-27, this line
+first said both were unconditional), so a drop leaves `{}` / `[]` instead of removing the key; it is
+recorded anyway, because the next save writes that empty value over the stored one. An emptied
+`features` list also turns the project to Simple mode (`deriveMode([])` in `feature-modules.ts`). A
+`documents` or `documentVersions`
+rich-field sanitize THROW is contained and recorded under the same key. The local-file, SharePoint and
+IndexedDB backends now publish `lastDecodeFailures`, and the generic `reportFor` in
+`use-load-truncation.ts` pauses saving (Save anyway) exactly as on Turso. `BrowserBackend.load`
+(`browser-backend.ts`) records 12 of the keys itself (`grep -c 'noteIfDropped("'` → 12); IndexedDB
+`status` is not sanitized on that path and stays with §470. IndexedDB now also contains a
+`documents`/`documentVersions` rich-field throw and records it. Before, that throw fell into the outer
+"IDB unavailable" catch, recorded nothing, and the next save deleted `documents`, `documentVersions`,
+`activityLog`, `budgetHistory` and `documentAssets`. The Turso single-tenant legacy-blob path
+(`jsonToWorkspace(blob, { diag })` in `turso-backend.ts`) now reports too, so a load there pauses saving
+as well, a behaviour change on Turso. ★★ Scope (added 2026-09-27 after the PR review): the pause covers
+the JSON file, SharePoint JSON, IndexedDB and the Turso legacy blob. The CSV and Markdown codecs (a
+local CSV/Markdown file and SharePoint CSV) still drop such a slice silently: that is §630. ★★ A
+consequence for whoever RETIRES an id: a stored `insights` list whose every entry has a removed
+`INSIGHT_TYPES` type, a `features` list of retired `ALL_MODULE_IDS` ids, or a `fieldVisibility`
+config of retired `MODAL_IDS` sanitizes to nothing, so every project holding one now pauses saving on a
+JSON or IndexedDB load until the user presses Save anyway, which then drops that data (the same on
+Turso since §617). The three lists live in three modules, so no single code comment carries this
+warning; this entry is the record. ★ Limit: object-shaped junk in
+`steeringCommittee` or `timelogLinks` is never reported on any backend. Both sanitizers return an object
+with fixed keys for any object input, so `sanitizedToNothing` is never true and that partial loss stays
+silent, as in §617. That holds for any OBJECT-shaped value in either key, not only junk: a newer build's
+object shape is emptied silently (unknown keys dropped, unrecognised entries filtered out), a limit of
+`sanitizedToNothing` itself, the same on Turso since §617.
 
 A meta slice whose value parses but sanitizes to nothing is dropped silently on both the JSON-file load
 path (`jsonToWorkspace`, `src/app/workspace.ts`) and the IndexedDB load path (`BrowserBackend.load`,
@@ -42386,15 +42427,48 @@ Size S–M.
 **Source:** Task 7's closing comment sweep for §304 (#229), which documents both spots as out of scope and
 noted they "may deserve its own register entry".
 
-## 622. An ordinary, under-cap document paragraph edit that was never blurred is lost when the window closes — open
+## 622. An ordinary, under-cap document paragraph edit that was never blurred is lost when the window closes — CLOSED 2026-09-27
 
-**Status:** open 2026-09-27 — predates batch 7; found via Task 9's work on §185 (closed 2026-09-27 in
-#174). Verified by reading: `grep -n "flushRefusedOnPageHide\|pageHiding" src/app/debounced-save.ts
-src/app/document-block-editors.tsx` returns the §185 flush mechanism, which is wired only from the tooLong
-refusal path in `tryCommit`, not from an ordinary blur-only commit — an in-progress, under-cap edit that
-never blurs never reaches `scheduleDebouncedSave` (`src/app/debounced-save.ts`) at all.
+**Status:** CLOSED 2026-09-27 on fix/defect-batch-8 — a new hook, `useCommitOnPageHide`
+(`src/app/use-commit-on-page-hide.ts`), runs a commit inside `flushSync` on `pagehide`, so the save
+effect re-runs while `debounced-save.ts` knows the page is hiding (`pageHiding`) and writes at once.
+`useBlockDraft` (`document-block-editors.tsx`) now commits every dirty draft on `pagehide`, flattened
+only when a paragraph is over the cap. The guard that returned early unless the paragraph was over the cap
+(§185's `flushRefusedOnPageHide`) is removed. The four block editors that hold a draft in `useBlockDraft`
+(heading, paragraph, bullets, table) each have a case in the "useBlockDraft — an unblurred draft on
+pagehide (§622)" describe (`document-block-editors.test.tsx`), beside "persists an UNDER-cap unblurred
+draft exactly once on pagehide (§622)" and a `pagehide` twin of the concurrent-write abandon case. The
+dataSection picker also uses `useBlockDraft` but commits on change. A tab switch (`visibilitychange`)
+still commits nothing (owner rule, §185). Mutations: M1 (restore the over-cap-only return) → 6 red; M2
+(drop `flushSync`) → 6 red; M3 (also commit on `visibilitychange`) → 3 red; M4 (drop `markDirty(false)`)
+→ 4 red, killed through the §185 "persists it flattened exactly once" cases rather than the unmount case
+the plan predicted, because the `blockChanged` baseline check also stops that double commit. The same
+hook fixes the dashboard narrative (§625) and, from the §625 sweep, the task-row inline cells and assignee
+(through `use-inline-cell-edit.ts`), the roles-editor discipline/grade rename and the templates-section
+rename. A fix round made those two renames drop a draft once blur commits it, so a later `pagehide`
+cannot replay it over a later external change.
 
-**Work item:** #435
+**2026-09-27, the unload journal (§629):** the committed draft now also survives a real RELOAD.
+`pagehide` writes the outgoing workspace to a synchronous localStorage journal
+(`src/app/unload-journal.ts`), and the next load restores it when its base fingerprint matches what the
+backend returned. Measured in Chromium on the default IndexedDB backend by
+`e2e/pagehide-draft-persist.spec.ts`, with
+`PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1`, green
+in 3 of 3 runs: a document heading typed and never blurred, then reloaded, is in IndexedDB after the
+reload, and so is a heading blurred and reloaded at once. A TAB CLOSE is not fixed for the heading: its
+close writes no journal (a `test.fail` in that spec), which stays owed under §629.
+
+**2026-09-27, the tab close (§629 fix round):** an unblurred draft now survives a reload AND a tab
+close via the unload journal. Measured in Chromium on the default IndexedDB backend by
+`PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1`, 10 of 10
+passed in each of 3 runs, with no `test.fail`. The spec drives two editors: a document HEADING block
+(`useBlockDraft`) and a task-name inline cell (`useInlineCellEdit`). The line above that says the
+heading's close "writes no journal" was a read race in the spec, not the app: the close does write it,
+and the spec now polls for it. This entry's own subject, the PARAGRAPH block editor, is NOT driven by
+that spec. It shares `useBlockDraft` with the heading; its commit on `pagehide` is pinned by the unit
+tests in `src/app/document-block-editors.test.tsx`, and the journal's write and restore, which do not
+depend on the editor, by `src/app/use-unload-journal.test.tsx` and
+`src/app/use-unload-journal.restore.test.tsx`.
 
 An ordinary paragraph edit that stays under `MAX_HTML_TEXT_CHARS` (so it never trips the §185 over-cap
 refusal) and was never blurred — for example, the window closes mid-edit, or a pane narrows away without a
@@ -42531,6 +42605,174 @@ Size S.
 **Source:** the §151 census on `docs/accuracy-2`, 2026-09-27, which found five scripts importing app
 code where §151 had recorded one.
 
+## 625. The dashboard status narrative draft is lost on window close — CLOSED 2026-09-27
+
+**Status:** CLOSED 2026-09-27 on fix/defect-batch-8 — `NarrativeEditor`
+(`src/app/dashboard-sections/dashboard-narrative.tsx`) now calls `useCommitOnPageHide(commitNarrative)`,
+§622's hook, so `pagehide` commits a changed draft. An unchanged draft commits nothing, and a tab switch
+commits nothing (owner rule, §185). Pinned by the three cases of the "NarrativeEditor commits via pagehide
+(E1)" describe in `dashboard-narrative.test.tsx`. Filed and closed in the same batch, so it has no work
+item. The second sweep below also converted `useCommitDraft` (`src/app/use-commit-draft.ts`, the budget
+and actual hours and % complete inputs), pinned by the "pagehide (§625 …)" describe in
+`use-commit-draft.test.tsx`.
+
+**2026-09-27, the unload journal (§629):** for this entry's sweep, a task-name inline cell
+(`useInlineCellEdit`) typed and never blurred now survives a real RELOAD: `pagehide` writes the outgoing
+workspace to a synchronous localStorage journal (`src/app/unload-journal.ts`), which the next load
+restores. Measured in Chromium on the default IndexedDB backend by `e2e/pagehide-draft-persist.spec.ts`,
+with `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1`,
+green in 3 of 3 runs. On a tab close the cell's journal is written and the draft is stored, but its
+IndexedDB write also won the unload race, so the next load shows the conflict notice (§629). The
+narrative editor itself is not driven by that spec.
+
+**2026-09-27, the tab close (§629 fix round):** an unblurred draft now survives a reload AND a tab
+close via the unload journal, with no conflict notice. Measured in Chromium on the default IndexedDB
+backend by `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1`,
+10 of 10 passed in each of 3 runs. The spec drives two editors: a task-name inline cell
+(`useInlineCellEdit`, from this entry's sweep) and a document heading block (`useBlockDraft`). The
+notice the line above describes is fixed: a journal whose content is what the next load returns is now
+cleared silently, and the spec's landed-journal case asserts that for the cell's tab close. This
+entry's own subject, the NARRATIVE editor, is NOT driven by that spec; its commit on `pagehide` is
+pinned by the unit tests in `src/app/dashboard-sections/dashboard-narrative.test.tsx`, and the journal's
+write and restore by `src/app/use-unload-journal.test.tsx` and
+`src/app/use-unload-journal.restore.test.tsx`.
+
+The status narrative editor kept its draft (`draftNarrative`) in component state and committed it only on
+blur, Done or Escape. A window close, reload or navigation runs none of those, so a summary that was typed
+and never blurred was lost. It is §622's class, found by the batch-8 verdict pass (2026-09-27), and was not
+registered before this batch.
+
+### The sweep for further editors in the class
+
+Candidates, run in `src/app`:
+
+```bash
+grep -rlE "onBlur=\{" --include=*.tsx . | grep -v "\.test\." | xargs grep -lE "useState\(" | sort
+```
+
+That returns 23 files. `bullets-block-editor.tsx` and `document-table-editor.tsx` get their blur through
+`useBlockDraft` and have no `onBlur={` literal, so they were added by hand: 25 rows. An editor is
+AFFECTED when all three hold: the typed text lives only locally, it reaches the workspace or storage only on
+blur, Enter or Save/Done, and no `onChange` path commits it.
+
+- **COVERED (4):** the dashboard narrative (this entry), and `document-block-editors.tsx`,
+  `bullets-block-editor.tsx` and `document-table-editor.tsx` through `useBlockDraft` (§622).
+- **AFFECTED and converted (3), all synchronous commits:** `task-row.tsx` (the inline cells through
+  `use-inline-cell-edit.ts`, plus the assignee), `roles-editor.tsx` (discipline and grade rename) and
+  `settings-sections/templates-section.tsx` (project-template rename).
+- **AFFECTED and NOT converted (3), all asynchronous commits:** `chat-thread-list.tsx` (thread rename, a
+  Turso fetch through `saveThread`), `settings-sections/comm-templates-section.tsx` (rename and body,
+  Promise-returning `onRename` / `onSaveBody`) and `settings-sections/dictation-section.tsx` (the STT key,
+  sealed with WebCrypto). `useCommitOnPageHide` can only START an async commit inside `pagehide`; nothing
+  guarantees it lands after unload, and a jsdom test with mocked persistence would pass either way. They
+  are proposed as a separate new register entry, pending the owner's decision. That entry is NOT filed
+  here.
+- **NOT (15):** seven modal forms whose Save is the only commit and whose Cancel discards on purpose
+  (the change, milestone, RAID, resource, shift and stakeholder edit modals, and `task-form-fields.tsx`);
+  seven controls whose blur commits no typed data (`chat-panel.tsx`, `info-tooltip.tsx`,
+  `resource-calendar-band.tsx`, `resource-picker.tsx`, `settings-sections/ai-section.tsx`, which seals on
+  change, `storage-config.tsx`, which commits only on Apply, and `type-to-confirm-dialog.tsx`); and
+  `note-log-panel.tsx`, borderline, whose composer and entry edit commit only on Add or Enter, so leaving
+  it was never expected to save.
+
+**Update (2026-09-27, PR #444 review):** the async-editor entry proposed in the row above WAS filed, as
+§626. And the first grep has a second blind spot besides the one the correction below records: its
+`useState\(` pattern cannot match a typed call `useState<T>(`. Widened to `useState(<|\()`, run in
+`src/app`:
+
+```bash
+grep -rlE "onBlur=\{" --include=*.tsx . | grep -v "\.test\." | xargs grep -lE "useState(<|\()" | sort
+grep -rlE "onBlur=\{" --include=*.tsx . | grep -v "\.test\." | xargs grep -LE "useState(<|\()" | sort
+```
+
+The first returns 27 files, 4 more than the 23; the second returns 6 files with no `useState` call at
+all. So 33 files carry `onBlur={`, and the first grep dropped 10. Each was checked by reading:
+
+- **Already classified (4):** `bullets-block-editor.tsx` and `document-table-editor.tsx` (COVERED,
+  `useBlockDraft`; the row above says they carry no `onBlur={` literal, but both do, on their wrapping
+  `div`: they were dropped for having no `useState(` call, not for lacking the literal), and
+  `budget-panel-totals.tsx` and `budget-panel-cards.tsx` (`useCommitDraft`, the second sweep below).
+- **NOT (6):** `budget-bucket-modal.tsx` (a modal draft whose Save, `onSave`, is the only commit; its
+  blurs only tidy the draft), `project-form-fields.tsx` (its blurs only `markTouched`; the fields write a
+  form draft that `project-form.tsx` or `create-project-wizard.tsx` commits on submit), `combo-input.tsx` (forwards its caller's `onBlur`;
+  the callers, `bulk-edit-modal.tsx` and `task-form-fields.tsx`, are modal drafts), `node-graph.tsx`
+  (blur clears a highlight), `resource-calendar.tsx` (blur cancels a pending keyboard move; no typed text) and `app-modals.tsx` (blur
+  resumes a toast timer).
+
+None of the 10 holds an AFFECTED editor.
+
+**Correction (2026-09-27): those 25 rows were NOT the whole class.** The first sweep's grep keys on a
+`useState(` call in the SAME file as the `onBlur={`, so it cannot see a draft that lives in a HOOK module:
+`budget-panel-totals.tsx` and `budget-panel-cards.tsx` wire `onBlur={…}` to `useCommitDraft` and call no
+`useState(` themselves. A second sweep, over hook modules, run in `src/app`:
+
+```bash
+find . \( -name "use-*.ts" -o -name "use-*.tsx" \) ! -name "*.test.*" | xargs grep -l "useState" | xargs grep -liE "onBlur|commit|draft"
+grep -rlE "^(export )?function use[A-Z]" --include=*.ts --include=*.tsx . | grep -v "\.test\." | grep -vE "/use-[^/]*$" | xargs grep -l "useState" | xargs grep -lE "onBlur|[Dd]raft"
+```
+
+The first returns 36 files, the second 7 (hooks declared outside a `use-*` file): 43 rows.
+
+- **AFFECTED and converted (1), a synchronous commit:** `use-commit-draft.ts` (`useCommitDraft`: the
+  budget and actual hours in `budget-panel-totals.tsx`, % complete in `budget-panel-cards.tsx`). Its
+  commit is a `setCell`/`updateBucket` state write through `onChangeBuckets`.
+- **COVERED already (2):** `use-inline-cell-edit.ts` (§622, the row above) and `document-block-editors.tsx`
+  (`useBlockDraft`, §622).
+- **NOT (40):** 22 files of the first grep contain neither `draft` nor `onBlur` (they match on `commit`
+  only) and hold no typed text; `use-chart-readout.ts` (its `onBlur` closes a readout); `use-comm-send.ts`,
+  `use-document-tools.ts`, `use-meeting-report-actions.ts`, `use-notes-window.ts` (write-through) and
+  `use-register-tools.ts` hold no typed text in hook state; `use-email-draft.ts` (its callers persist a
+  write-safe value on every keystroke); `use-draft-state.ts`, `use-task-submit.ts`, `use-calendar-events.ts`,
+  `use-resource-directory.ts` and `use-resource-planner.ts` (modal drafts whose Save is the only commit,
+  as in the modal row above); and of the second grep, `raid-create-host.tsx` (`useRaidCreate`) and
+  `task-form-context.tsx` (`useTaskForm`) are modal drafts, while `action-cta-controls.tsx`,
+  `combobox-shared.tsx`, `dictation-mic.tsx` and `entity-combobox.ts` hold no typed text in hook state.
+
+**Source:** the batch-8 verdict pass (2026-09-27) and `docs/superpowers/specs/2026-09-27-defect-batch-8-design.md` §1.
+
+## 626. Async-commit editors (chat thread rename, comm templates, dictation key) still lose an unblurred draft on window close — open
+
+**Status:** open 2026-09-27 — found by the §622 sweep on `fix/defect-batch-8` (recorded in §625). Verified by reading plus `grep -c "useCommitOnPageHide" src/app/chat-thread-list.tsx src/app/settings-sections/comm-templates-section.tsx src/app/settings-sections/dictation-section.tsx` (0 in each), `grep -n "saveThread" src/app/use-chat-threads.ts` (the rename persists through `runPersist(… saveThread …)`) and `grep -n "saveSecretValue" src/app/settings-sections/dictation-section.tsx` (`void saveSecretValue(…).then(…)`); no browser reproduction.
+
+**Work item:** #442
+
+Three editors hold a typed draft until blur and commit it ASYNCHRONOUSLY, so a close, reload or navigation before the blur loses it:
+
+- the chat thread rename (`chat-thread-list.tsx` → `renameThread` in `use-chat-threads.ts`, whose durable write is an async Turso save);
+- the communication-template rename and body (`settings-sections/comm-templates-section.tsx`, whose saves return Promises);
+- the dictation speech-to-text API key (`settings-sections/dictation-section.tsx`, sealed through WebCrypto in `handleSttKeyBlur`; the ordinary settings write blanks the key, so the seal is its only persistence).
+
+§622's `useCommitOnPageHide` cannot make these safe: it can only START an async commit inside `pagehide`, not guarantee it lands, and a jsdom test would pass anyway. A fix needs its own design, for example a synchronous local mirror written during `pagehide`, or `keepalive`/`sendBeacon` for the network write.
+
+**Source:** batch-8 owner decision at PR time (2026-09-27); §625.
+
+## 627. Several dirty drafts at pagehide start unserialised full saves, so on file/SharePoint an older snapshot can finish last — open
+
+**Status:** open 2026-09-27 — found by the batch-8 whole-branch review on `fix/defect-batch-8`. Verified by reading plus `grep -n "if (pageHiding) flush" src/app/debounced-save.ts` (every save scheduled while hiding flushes at once) and `grep -n "async save" src/app/local-file-backend.ts src/app/sharepoint-backend.ts` (no queue around either); the race itself was never machine-verified. Re-read 2026-09-27 for the single-draft path with `grep -n "onVisibilityChange\|if (pageHiding) flush" src/app/debounced-save.ts` (the hidden flush and the flush-at-once both present).
+
+**Work item:** #443
+
+**2026-09-27, the unload journal (§629):** on a RELOAD the race no longer loses the newest state. Each
+save is recorded as the latest unconfirmed workspace when it fires (`noteSaveStarted` in
+`src/app/use-unload-journal.ts`), and the journal written at `pagehide` holds that newest one. A
+confirmation of an older save clears only a journal no newer than itself. On the next load the journal
+is restored automatically when no save landed, and offered through the conflict notice (Restore anyway,
+Discard) when one did. Read from the code; never machine-verified on the file or SharePoint backend. The
+IN-SESSION race is unchanged: while the page stays, an older snapshot that finishes last still
+overwrites the newer one, and the newer save's confirmation clears the journal.
+
+**2026-09-27, §629 fix round:** when the save that landed is the journal's own (its content is what
+the next load returns), that load now clears the journal silently instead of offering it. The notice
+remains for this entry's race, where an OLDER snapshot lands last: neither the journal's content nor
+its base is what loads. Read from `restoreOnLoad` in `src/app/use-unload-journal.ts`; never
+machine-verified on the file or SharePoint backend.
+
+Every `useCommitOnPageHide` commit that changes the workspace re-runs the workspace save effect, and because `debounced-save.ts` knows the page is hiding (`pageHiding`), each run flushes a full `backend.save` at once. React state is correct, since each snapshot contains the earlier commits. But `LocalFileBackend.save` and the SharePoint backend do not serialise saves, so an older snapshot that finishes last overwrites the newer one and drops the later commit. IndexedDB orders its transactions.
+
+It is reachable whenever a pagehide commit starts a save while any other save is pending or in flight, and ONE dirty draft is enough (corrected 2026-09-27; this paragraph first said "only with two or more dirty drafts at unload"). With a single draft the other save can be: a save the debounce timer already started that is still writing; the flush that `visibilitychange` → hidden fires on a tab close just before `pagehide` (`onVisibilityChange` in `scheduleDebouncedSave`); or a pending save whose own `pagehide` listener, registered before the editor's (an edit committed inside the debounce window just before that editor mounted), flushes first. Two or more dirty drafts, for example a refused over-cap paragraph plus another unblurred edit, is one more way in. The §622 test "commits BOTH of two dirty editors on one pagehide" asserts the commit callbacks, not the last persisted snapshot; until the 2026-09-27 fix round it did not even hold two drafts dirty at once (`userEvent.type` into the second editor blurred and committed the first), and it now changes the second with `fireEvent.change` so both are dirty at the pagehide. A fix needs save serialisation (or coalescing to one final save) on those backends, and a test on the persisted result.
+
+**Source:** batch-8 whole-branch review (2026-09-27), owner decision at PR time.
+
 ## 628. The undo stack survives a project switch, so an undo writes the previous project's rows into the current one — CLOSED 2026-09-27
 
 **Status:** CLOSED 2026-09-27 on `fix/undo-scope`, by three mechanisms in `src/app/undo/use-undo-stack.ts` and `src/app/use-undo-batch.ts`:
@@ -42632,6 +42874,192 @@ the cross-project behaviour unmeasured; the review answered it with a code trace
 over `undo-stack.ts` (A deletes task 2 and edits task 3; after a swap to B = [1, 3, 7] an undo gave
 `[B1, A2-deleted, A3-before-edit, B7]`). It was not driven in a browser.
 
+## 629. The unload journal is unverified on the packaged desktop close and on the file, SharePoint and Turso backends, and a restore the mass-deletion guard refuses repeats on every reload — open
+
+**Status:** open 2026-09-27, narrowed twice on 2026-09-27 — FIXED on `fix/defect-batch-8` for a RELOAD AND a TAB CLOSE on the default backend by the unload journal: `pagehide` writes the unconfirmed outgoing workspace to localStorage synchronously (`src/app/unload-journal.ts`, `src/app/use-unload-journal.ts`), and the next load clears it silently when its content is what the backend returned (its save landed), restores it when its base fingerprint matches, or shows a conflict notice (Restore anyway, Discard) otherwise. MEASURED with `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB), 10 of 10 passed in each of 3 runs, with no `test.fail`. The spec drives two editors: a document heading (`useBlockDraft`) and a task-name inline cell (`useInlineCellEdit`). Negative control: with the `restoreOnLoad` call in `use-storage-backend.ts` replaced by `null`, 8 of the 10 failed (the 3 reload cases and the heading tab close at "the draft must have landed in IndexedDB", the cell tab close and the landed-journal case at "the load must consume the journal", the 2 mismatch cases at the notice), and the 2 "page stays" cases passed. STILL OWED, and the only reasons this stays open: (1) the packaged desktop (Electron) window close; (2) real-browser runs of the file, SharePoint and Turso backends; (3) the guard-refused save-back loop recorded under "final review" below (added 2026-09-27). The journal itself is backend-agnostic, so (1) and (2) check localStorage durability and each backend's load and fingerprint on the real target, never machine-verified.
+
+**Status before the tab-close fix (2026-09-27, kept as measured):** open 2026-09-27, narrowed 2026-09-27 — FIXED on `fix/defect-batch-8` for a RELOAD on the default backend by the unload journal: `pagehide` writes the unconfirmed outgoing workspace to localStorage synchronously (`src/app/unload-journal.ts`, `src/app/use-unload-journal.ts`), and the next load restores it when its base fingerprint matches what the backend returned, or shows a conflict notice (Restore anyway, Discard) when it does not. MEASURED with `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB), 8 of 8 as expected in each of 3 runs: both editors' reload cases pass without `test.fail`, and so do a blur-then-immediate-reload and a base mismatch whose notice appears and whose Discard removes the key. Negative control: with the `restoreOnLoad` call in `use-storage-backend.ts` replaced by `null`, the three reload cases failed at "the draft must have landed in IndexedDB" and the mismatch case at the notice. STILL OWED, and the only reasons this stays open: (1) a document heading's TAB CLOSE writes no journal (the new page reads null; `test.fail` in that spec, failing at that read in every run whose message was read); (2) the packaged desktop (Electron) window close; (3) real-browser runs of the file, SharePoint and Turso backends. The journal itself is backend-agnostic, so (2) and (3) check localStorage durability and each backend's load and fingerprint on the real target, never machine-verified.
+
+**Status before the journal (2026-09-27, kept as measured):** open 2026-09-27 — found by the PR #444 (defect batch 8) review. MEASURED on one backend with `npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB, which is the default `defaultStorageConfig`): a `pagehide` dispatched while the page stays alive commits the draft and its save lands, but on a real `page.reload()` the save does NOT land, for both editors the spec drives (a document heading through `useBlockDraft` and a task-name inline cell through `useInlineCellEdit`); on a tab close (`page.close({ runBeforeUnload: true })`) the heading save does not land either. Those cases are `test.fail()` in that spec. The task cell survived a tab close in 5 of 5 runs (`--repeat-each=4` plus one), a race it happened to win, so the spec pins neither outcome for it. The local file, SharePoint, Turso and the packaged desktop app are never machine-verified; `git grep -n "keepalive\|sendBeacon" -- src/app` finds no use of either in any save path.
+
+**Work item:** #446
+
+§622 and §625 made a dirty draft commit on `pagehide` through `useCommitOnPageHide`, and `debounced-save.ts` (`pageHiding`) then starts the workspace save at once. That is where the guarantee ends: every backend's save is asynchronous.
+
+- **IndexedDB** (`BrowserBackend.save`): transactions behind a `Promise.all`. Measured lost on a reload (above).
+- **Local file** (FS-Access, `fs-access.ts`): `createWritable`, `write`, `close`. A writable that is never closed discards its swap file.
+- **SharePoint** and **Turso**: a plain `fetch` with no `keepalive`, which the browser may abort on unload.
+- **Packaged desktop app**: closing the window runs `app.on("window-all-closed", () => app.quit())`, and the `before-quit` handler calls `killServer(serverChild)` (both in `desktop/src/main.ts`). The renderer goes with the window and the local server child is killed; whether a save started in the renderer's `pagehide` survives either is unmeasured.
+
+Throwaway probes on 2026-09-27 (not kept in the repo; raw output in the PR #444 fix report) re-measured this on a fresh dev server with NO fake clock, after the app was idle (network idle, and the stored `documents` record unchanged across 3 s), two runs each:
+
+- a heading typed and never blurred, then reload: lost; then tab close: lost;
+- a heading blurred so a debounced save is pending (§185's flush-on-hide path), then reload at once: lost; then tab close at once: lost;
+- control: a heading blurred, 2 s past the debounce, then reload: kept.
+
+An instrumented `IDBDatabase.prototype.transaction` (counters written to `localStorage`, which is synchronous) showed that on a tab close the save CREATED 20 readwrite transactions after `pagehide` and none fired `complete` or `abort`; on a reload none was created after `pagehide` before the page went. So the loss is not specific to the pagehide commit: it is the unload path of every save on that backend, including §185's flush-on-hide.
+
+Owed: a packaged-desktop window-close check, and the file, SharePoint and Turso backends in a real browser. The fix needs a save that completes or survives the unload: a synchronous fallback (for example a localStorage journal of the unsaved workspace, replayed on the next load) or `keepalive` / `sendBeacon` for the network backends. §626 (async editors) and §627 (unserialised saves at unload) are the same unload path.
+
+**2026-09-27, with the journal in place.** Measured by the spec above, plus a throwaway probe (not kept)
+that completed 2 runs:
+
+- A task-name cell's tab close writes the journal, and its IndexedDB write also landed (as before the
+  journal). The next load therefore held the draft AND a journal whose base no longer matched. It showed
+  the conflict notice and kept the journal, though the draft was already stored. That happened in both
+  completed probe runs, so the spec asserts only that the draft is stored for that case. No data is
+  lost, but the notice is a false alarm.
+- **Known limitation, controller ruling R9 (derived from the spec's multi-tab rule, "the last close
+  wins"); confirmed by the owner on 2026-09-27.** Corrected 2026-09-27: this line first called it
+  "owner-accepted", which no owner decision supports, and said an ignored notice "does not survive the
+  session", which claimed more than the code does. What happens: there is one key per project and the
+  last write wins, so the first journal this session writes (a save started while the page is hidden,
+  or one still unconfirmed at `pagehide`) replaces the STORED record the notice describes, and that
+  save's confirmation clears it. Since the final fix wave the notice keeps an in-memory copy of the
+  record, and Restore anyway applies that copy. The copy is dropped in these 4 cases and in no other
+  (corrected 2026-09-27 by the PR #444 pre-merge review, item I2: this line first named a project
+  switch as one):
+  - Restore anyway, when it applies. When the save gate is shut, or the copy is for a target not in
+    scope, it keeps the copy.
+  - Discard.
+  - This tab closing or reloading the page: the copy lives only in memory.
+  - A run of this tab's load effect that reaches `restoreOnLoad` (its one call in
+    `use-storage-backend.ts`): a load that is not suppressed, not cancelled, has not failed, was not
+    refused as empty and is not incomplete. Every branch of `restoreOnLoad` sets the copy to null or
+    to the conflict the loaded key yields now, whichever target loaded. The effect runs on hydration
+    and whenever the backend memo rebuilds (its inputs: the storage config, the sign-in token
+    function, and the Turso URL, token and project id). The 7 project ops arm `suppressNextLoadRef`
+    (`use-storage-file-ops.ts`: `switchToProject`, `createProject`, `loadProjectFromFile`,
+    `createDemoProject` and a converting `onRequestStorageSwitch`; `use-storage-turso-ops.ts`:
+    `switchToTursoProject` and `createTursoProject`), so their load returns before `restoreOnLoad`
+    and keeps the copy; the notice hides while another target is in scope and shows again when the
+    conflicting one is back. So the user actions that reach it are the page's first load and a
+    rebuild outside an op, for example a SharePoint address applied in Settings, a storage-kind
+    switch made while the current load had not succeeded (it switches without the conversion copy
+    and arms nothing), or a Turso URL or token change.
+
+  The in-app "Reload project" does not call `restoreOnLoad`, so it keeps the copy and the notice;
+  since the pre-merge fix below it drops this tab's unconfirmed saves and this tab's stored record,
+  never the copy. So what is lost is a notice not answered before the tab closes or a load reaches
+  `restoreOnLoad`, and only when the stored record no longer holds the draft by then. Corrected
+  2026-09-27: this sentence first said the copy survives "until this tab closes". The in-memory half is pinned by the 2 "Restore anyway still
+  applies and saves the last session's record" unit tests in
+  `src/app/use-unload-journal.restore.test.tsx`; the close half is read from `use-unload-journal.ts`
+  and never machine-verified.
+
+**2026-09-27, §629 fix round (3 items: the heading close was a spec race; the false notice and the conflict-action identity are fixed on `fix/defect-batch-8`):**
+
+- **The heading's tab close was a spec race, not an app defect.** The close does write the journal,
+  with the draft in it. `page.close({ runBeforeUnload: true })` resolves before the closing page's
+  `pagehide` handlers finish, and the heading's runs a synchronous `flushSync` re-render of the
+  Documents view (116 ms and 128 ms in 2 timed runs) before the journal write, so the spec's one-shot
+  read by the new page saw null. Diagnosed with throwaway probes (not kept): an immediate read saw null
+  and a read 1 s later held the draft, in 3 of 3 runs. The spec now polls every journal read after a
+  close; the heading's tab-close case passes in each of the 3 runs above, and fails at "the draft must
+  have landed in IndexedDB" under the negative control.
+- **The false conflict notice is fixed.** `restoreOnLoad` (`src/app/use-unload-journal.ts`) now checks,
+  before the base, whether the journal's content fingerprints as the loaded workspace; if so its save
+  landed, and the journal is cleared with nothing applied and no notice. Pinned by the 2 landed-journal
+  unit tests in `src/app/use-unload-journal.restore.test.tsx` (both red with the check deleted),
+  and by the spec's landed-journal case, which asserts its premise (the close's own IndexedDB write
+  landed) before the load, then that the key is removed with no notice. With the check deleted, that
+  case and the cell's tab-close case fail at "the load must consume the journal".
+- **The conflict actions act only on the record the notice describes.** The hook keeps that record,
+  and its decoded workspace, in memory when the notice is raised. Restore anyway applies the in-memory
+  copy whatever the key holds by then, re-tags it and saves it; with no copy for the target in scope it
+  shows an error toast (`unloadJournalRestoreUnavailable`) instead of doing nothing. Discard removes the
+  key only while it still holds the record's `tabId` and `savedAt`, and always drops the copy and the
+  notice. So under the limitation above, this tab's own later write neither takes the draft away from
+  Restore anyway nor is deleted by Discard. Pinned in the same file by the Discard test "acts only on
+  the record the notice describes" (red with the identity check dropped), the 2 Restore anyway tests
+  "still applies and saves the last session's record" with the key overwritten and with it cleared
+  (both red when Restore anyway reads the key instead of the copy), and the no-conflict error-toast
+  test (red with the toast removed). Added in `08cde0097`: while the save gate is shut for the backend
+  in scope (its load failed, was refused as empty, or has not applied yet), Restore anyway shows the
+  `unloadJournalRestoreBlocked` error toast, applies nothing and keeps the copy and the notice; pinned
+  by "Restore anyway while saving is paused (a rebuilt load FAILED) reports it, applies nothing, keeps
+  the notice, and works once saving resumes".
+
+**2026-09-27, final review (known limitation, owed):**
+
+- **A restore whose save-back the destructive guard refuses loops on reload.** When the journal
+  applied on a base match is a mass deletion relative to what loaded, the guard refuses its save-back
+  (R10). The journal is re-tagged to this tab and nothing was written, so the base still matches and a
+  reload re-applies the journal, and the guard refuses again. The refusal toast's advice is false on
+  this path: `storageRefusedWipe` in `src/app/i18n.ts` reads "Saving is paused - a large deletion was
+  withheld. Review it in the banner above, or reload the page to restore your saved data." So is the
+  confirm dialog's `storageDestructiveConfirmBody`: "If you did not do this, reload the page instead -
+  your saved data is intact." A page reload is not an exit: it re-runs the load effect, which
+  re-applies the journal, and that is the loop. The refusal keeps the loaded counts as its baselines
+  (the `// keep baselines` return in the save effect of `use-storage-backend.ts`), so every later save
+  is measured against them. There are 3 exits. (a) The banner's "Save this deletion"
+  (`storageDestructiveSaveAnyway`), confirmed in its dialog with "Remove these records"
+  (`storageDestructiveConfirmSaveAnyway`); on the full-wipe tier the banner reads "Save this full
+  wipe" and the dialog, after the user types "yes, save this wipe", "Save this wipe". (b) A later save
+  that the guard no longer refuses: `evaluateSaveGuard` (`src/app/save-guard.ts`) refuses a full wipe
+  (0 collections where the baseline had 2 or more) or a mass deletion (`isMassDeletion` in
+  `src/app/workspace-metrics.ts`: 5 or more records removed AND at most 10% of the baseline left), so
+  an edit whose save removes fewer than 5 records or leaves more than 10% of what loaded, and leaves a
+  collection non-empty when 2 or more loaded non-empty, passes. (c) The in-app "Reload project"
+  (`reloadProject`): `reloadCurrentProject` in `use-storage-backend.ts` applies what is stored without
+  calling `restoreOnLoad`, the suppressed-save branch clears the standing refusal
+  (`destructive.clearRefusal()`), and `dropUnconfirmed` in `use-unload-journal.ts` removes the
+  re-tagged journal at once, since it carries this tab's id (the pre-merge fix below; before it, the
+  record stayed until a later save's confirmation, `noteSaveConfirmed`, cleared it); this drops the
+  draft, and (c) is read from the code, never machine-verified. Corrected 2026-09-27: this line first listed "a project reload
+  followed by a confirmed save" and "a later confirmed save of any edit" as exits. This path offers no
+  Discard. Read from the load effect in `src/app/use-storage-backend.ts`; the refusal itself is pinned
+  by the unit test "match: the restored workspace meets the destructive guard, measured against what
+  the backend RETURNED", the loop on reload is never machine-verified. A fix could offer Discard
+  beside the refusal when the refused save is a journal save-back.
+
+**2026-09-27, PR #444 pre-merge review (fixed on `fix/defect-batch-8`, and 1 recorded choice):**
+
+- **"Reload project" no longer lets a failed save's journal restore the discarded state.** A save
+  that rejects never reaches `noteSaveConfirmed`, so its workspace stayed the latest unconfirmed one.
+  `reloadCurrentProject` reset only the base; the next `pagehide` then wrote that workspace over the
+  reloaded base, and the next page load found the base unchanged and restored it silently and saved
+  it. `reloadCurrentProject` now also calls `dropUnconfirmed(key)` (`use-unload-journal.ts`), which
+  forgets this tab's unconfirmed entries for the key and removes the stored record only when it has
+  this page load's `tabId`. An earlier page's record, the conflict notice and its in-memory copy stay.
+  Pinned in `src/app/use-unload-journal.restore.test.tsx` by "I1 — a FAILED save, then Reload
+  project, then pagehide with no new edit: nothing is journaled, and the next page load restores
+  nothing" (red with the call removed) and "I1 — Reload project leaves an earlier page's conflict
+  record, its notice and its in-memory copy alone" (red with the tab-id guard dropped).
+- **The picker's "load the file instead" makes the same call (controller ruling).** Accepting
+  `storagePickFileHasProject` in `onPickStorageFile` discards the live workspace and `setBase`s the
+  picked one, the I1 shape, so `applyPickedWorkspace` (`use-storage-backend.ts`) now also calls
+  `dropUnconfirmed`. Pinned in `src/app/use-storage-file-ops.pick-overwrite.test.tsx` by "a FAILED
+  save, then load the picked file instead, then pagehide: nothing is journaled, and the next page
+  load restores nothing" (red with the call removed). `onOpenStorageFile` is ruled not a discard and
+  is unchanged: it sets no base, so a failed save's journal there can only raise the notice.
+- **Undo after Restore anyway: kept live, by controller choice.** Restore anyway applies with the
+  "merge" log mode and calls neither `resolveLogModeAndStamp` nor `bumpScopeEpoch`, so the scope
+  epoch does not move and undo entries captured before the click
+  stay live and an undo applies them onto the restored workspace of the same project; this matches
+  §628's owner ruling that history survives a same-project reload, and calling `pruneStale` there
+  instead would make the restore a new baseline.
+
+Size M–L.
+
+**Source:** PR #444 review (2026-09-27), item I1, and the Playwright measurement above.
+
+## 630. CSV and Markdown project files still drop an all-invalid meta slice silently on load (§620 covers JSON and IndexedDB only) — open
+
+**Status:** open 2026-09-27 — found by the PR #444 (defect batch 8) review. Verified by reading plus `git grep -nE "sanitizeInsights\(|sanitizeActivityLog\(|sanitizeFieldVisibility\(|sanitizeProjectStatus\(" -- 'src/app/csv-codecs*.ts' 'src/app/markdown-codecs*.ts' ':!*.test.*'` (eight calls, four in each of `csv-codecs-config.ts` and `markdown-codecs-core.ts`) and `git grep -n "decodeFailedSlices" -- src/app ':!*.test.*'` (pushed only from `workspace.ts`, `browser-backend.ts` and `turso-schema.ts`, never from a CSV or Markdown codec), and `grep -c "decodeFailedSlices" src/app/csv-codecs-config.ts src/app/markdown-codecs-core.ts src/app/csv-codecs-decode.ts src/app/markdown-codecs-decode.ts` (0 in each); no reproduction.
+
+**Work item:** #447
+
+§620 made a meta slice that sanitizes to nothing pause saving on the JSON file, SharePoint JSON, IndexedDB and the Turso legacy blob. The CSV and Markdown codecs were not touched. `csvToInsights` and `csvToActivityLog` (`csv-codecs-config.ts`) return `undefined` when the sanitized list is empty, `csvToFieldVisibility` returns whatever `sanitizeFieldVisibility` gives, and all three also return `undefined` when `JSON.parse` throws; the Markdown twins in `markdown-codecs-core.ts` do the same. Nothing reaches `diag.decodeFailedSlices`, so `lastDecodeFailures` stays empty and no save is paused.
+
+Reached from `LocalFileBackend.loadFrom` (`csvToWorkspace(text, diag)` or `markdownToWorkspace(text, diag)`) and from `SharePointBackend.load` for `sp-csv` (`csvToWorkspace(csv, diag)`). A project on one of those whose insights, activity log or field-visibility row is unreadable loads without it, and the next save rewrites the file without that row: the loss §620 describes.
+
+What would close it: record such a slice from the codec loaders (extend `noteIfDropped`'s use, or push into `diag.decodeFailedSlices` from each `csvTo*` / `markdownTo*` decoder, counting a `JSON.parse` failure as well), plus a test per format.
+
+Size S–M.
+
+**Source:** PR #444 review (2026-09-27), item I2.
+
 ## 631. The desktop shell reuses a leftover server without checking its version, so an orphan could serve an old build after an update — open
 
 **Status:** open 2026-09-27 — found by reading the code only; no orphan server was produced and the app
@@ -42679,6 +43107,31 @@ Size S.
 
 **Source:** the desktop server-lifecycle verdict in the docs-coverage slice, which checked the
 `before-quit` comment in `desktop/src/main.ts` against `classifyPortOwner`, `probePort` and `start()`.
+
+## 632. Unload journals whose project key is never loaded again are never swept, so they can fill browser storage — open
+
+**Status:** open 2026-09-27. Filed by owner decision from the final review of the batch 8 unload journal (PR #444). Verified by reading, plus `git grep -n "clearUnloadJournal(" -- src/app ':!*.test.*'`, which finds one definition and three calls, all in `use-unload-journal.ts`. `grep -n "removeItem" src/app/unload-journal.ts` finds four removals, each of the key it was given. No reproduction.
+
+**Work item:** #453
+
+The unload journal (§629) keeps unsaved changes in `localStorage` under `aipm-cockpit:unload-journal:<projectKey>`. For a single project, a record is removed only when its own key is read or written:
+- a confirmed save from the same tab;
+- a later load of that key that finds its content already stored;
+- Discard on the conflict notice;
+- a read that finds the record malformed.
+
+Apart from the app reset (`clearAppConfig` in `app-reset.ts`, which removes every `aipm-cockpit:*` key), nothing removes a record whose key is never loaded again. That happens when:
+- a project is deleted or archived in another tab;
+- the in-app migration to Turso changes the key from the registry id to the Turso id;
+- `browser` becomes a real project id.
+
+Each record can hold up to `UNLOAD_JOURNAL_MAX_CHARS` (1,500,000 chars), in an origin quota of about 5M chars shared with the other `aipm-cockpit:*` keys. `writeStore` in `secrets-store.ts` swallows a quota error.
+
+What would close it: a sweep that never loses a draft silently. For example, list orphaned journals (a key with no matching project) and offer to restore or discard them, or expire them after a stated age with a notice. Add a test for each rule.
+
+Size S–M.
+
+**Source:** the final review of the unload journal, PR #444 (2026-09-27), item m3.
 
 ## 633. The document preview fetches and decodes a policy-refused image's bytes before declining it — CLOSED 2026-09-27
 

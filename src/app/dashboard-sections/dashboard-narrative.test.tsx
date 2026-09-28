@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState, type ReactNode } from "react";
+import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { t } from "../i18n";
 import type { ProjectStatus } from "../types";
 import { useDismissable } from "../use-dismissable";
@@ -569,8 +569,21 @@ describe("NarrativeSummary inline editing", () => {
 
 // A host that owns ProjectStatus state so the editor's commit/clear + the
 // render-time reconcile run against a real setState (mirrors WorkspaceProvider).
-function EditorHost({ initial = "", externalNarrative }: { initial?: string; externalNarrative?: string }) {
+function EditorHost({ initial = "", externalNarrative, onCommit }: {
+  initial?: string;
+  externalNarrative?: string;
+  // Fired with the narrative the editor asks to store, without changing what
+  // `setStatus` itself does — the pagehide tests below assert commit COUNT.
+  onCommit?: (narrative: string) => void;
+}) {
   const [status, setStatus] = useState<ProjectStatus>({ narrative: initial });
+  const trackedSetStatus: Dispatch<SetStateAction<ProjectStatus>> = onCommit
+    ? (update) => setStatus((prev) => {
+        const next = typeof update === "function" ? (update as (s: ProjectStatus) => ProjectStatus)(prev) : update;
+        onCommit(next.narrative ?? "");
+        return next;
+      })
+    : setStatus;
   return (
     <>
       <button type="button" onClick={() => setStatus({ narrative: externalNarrative ?? "" })}>
@@ -580,7 +593,7 @@ function EditorHost({ initial = "", externalNarrative }: { initial?: string; ext
           "the narrative was actually cleared" — the two diverged in the defect
           this host's Clear tests cover. */}
       <span data-testid="stored">{status.narrative ?? ""}</span>
-      <NarrativeEditor lang="en-US" status={status} setStatus={setStatus} />
+      <NarrativeEditor lang="en-US" status={status} setStatus={trackedSetStatus} />
     </>
   );
 }
@@ -722,5 +735,45 @@ describe("NarrativeEditor", () => {
       "title",
       "Delete the saved status narrative, not just this draft",
     );
+  });
+});
+
+// ★★★ E1 (§622's class) — the draft above lived only in this component's state,
+// committed on blur, Done or Escape. A window close, reload or navigation runs
+// none of those, so a typed-but-unblurred narrative was LOST. `pagehide` (via
+// `useCommitOnPageHide`, §622) commits it; a tab switch must not (owner rule).
+describe("NarrativeEditor commits via pagehide (E1)", () => {
+  it("commits the typed narrative on pagehide without a blur", async () => {
+    const user = userEvent.setup();
+    const commits: string[] = [];
+    render(<EditorHost onCommit={(n) => commits.push(n)} />);
+    const surface = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
+    await user.click(surface);
+    await user.keyboard(" more");
+    act(() => { window.dispatchEvent(new Event("pagehide")); });
+    expect(commits).toHaveLength(1);
+    expect(commits[0]).toContain("more");
+  });
+
+  it("commits nothing on a tab switch", async () => {
+    const user = userEvent.setup();
+    const commits: string[] = [];
+    render(<EditorHost onCommit={(n) => commits.push(n)} />);
+    const surface = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
+    await user.click(surface);
+    await user.keyboard(" more");
+    act(() => {
+      const spy = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+      document.dispatchEvent(new Event("visibilitychange"));
+      spy.mockRestore();
+    });
+    expect(commits).toHaveLength(0);
+  });
+
+  it("commits nothing on pagehide when unchanged", () => {
+    const commits: string[] = [];
+    render(<EditorHost onCommit={(n) => commits.push(n)} />);
+    act(() => { window.dispatchEvent(new Event("pagehide")); });
+    expect(commits).toHaveLength(0);
   });
 });

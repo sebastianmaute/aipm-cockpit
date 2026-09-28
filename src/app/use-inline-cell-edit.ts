@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useRef, useState } from "react";
+import { useCommitOnPageHide } from "./use-commit-on-page-hide";
 
 /** The Open-Points task cells that support in-place inline editing. */
 export type InlineField =
@@ -36,8 +37,10 @@ export function useInlineCellEdit(
   const [editing, setEditing] = useState<InlineField | null>(null);
   const [draft, setDraft] = useState("");
   const editingRef = useRef<InlineField | null>(null);
+  const seedRef = useRef("");
   const begin = useCallback((field: InlineField, current: string) => {
     editingRef.current = field;
+    seedRef.current = current;
     setEditing(field);
     setDraft(current);
   }, []);
@@ -52,5 +55,9 @@ export function useInlineCellEdit(
     setEditing(null);
     onCommit(field, draft);
   }, [draft, onCommit]);
+  // ★ §622 class — a close/reload never blurs the open cell; commit it only if typed into.
+  useCommitOnPageHide(() => {
+    if (editingRef.current !== null && draft !== seedRef.current) commit();
+  });
   return { editing, draft, setDraft, begin, cancel, commit };
 }

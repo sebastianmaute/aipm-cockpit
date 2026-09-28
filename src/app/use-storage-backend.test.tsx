@@ -4802,6 +4802,66 @@ describe("useStorageBackend — the decode signal survives the empty-load refusa
   });
 });
 
+// §620 twin of the decode-signal coverage above: File/SharePoint/IndexedDB
+// backends now publish `lastDecodeFailures` too (Task 5), and `reportFor`
+// reads the field generically off ANY backend — it never branches on `kind`
+// (see `truncationOps.reportFor` / `reportDecodeFailures` in
+// use-load-truncation.ts) — so the same pause and the same "Save anyway"
+// escape (`allowIncompleteSave`) apply no matter which backend kind reported
+// the loss. Mirrors the §103 truncated-load guard's shape exactly, swapping
+// `lastLoadTruncation` for `lastDecodeFailures` on a file-kind fake.
+describe("useStorageBackend — a file-kind backend's decode failure pauses saving too (§620)", () => {
+  function useFileKindDecodeFailBackend(failures: readonly string[]) {
+    const b = {
+      kind: "local-json",
+      load: vi.fn(async () => {
+        b.lastDecodeFailures = failures;
+        return { tasks: [], raid: [], absences: [], shifts: [] };
+      }),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("project.json"),
+      lastDecodeFailures: undefined as readonly string[] | undefined,
+    };
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(b);
+    return b;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("pauses saving, and 'Save anyway' (allowIncompleteSave) lets the pending edit through", async () => {
+    const backend = useFileKindDecodeFailBackend(["steeringCommittee"]);
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.loadWasIncomplete).toBe(true);
+    expect(result.current.decodeFailureCount).toBe(1);
+
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    // The SAME paused state a Turso decode failure produces — the guard does
+    // not know or care which backend kind reported the loss.
+    expect(backend.save).not.toHaveBeenCalled();
+
+    await act(async () => { result.current.allowIncompleteSave(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(backend.save).toHaveBeenCalledWith(
+      expect.objectContaining({ tasks: [expect.objectContaining({ id: 1, taskName: "T1" })] }),
+    );
+  });
+});
+
 describe("useStorageBackend — onOpenStorageFile binds the picked handle only on accept (§287)", () => {
   /** LOCAL per test, never the shared `mockBackend`: these fixtures install
    *  IMPLEMENTATIONS, and `vi.clearAllMocks()` is `mockClear` — it wipes call

@@ -325,6 +325,43 @@ describe("SharePointBackend", () => {
     expect(be.lastImportDroppedRows).toBe(0);
   });
 
+  // §620 — a stored meta slice that PARSES but SANITIZES TO NOTHING (junk
+  // `steeringCommittee`) used to be dropped silently on a JSON load, and the
+  // next save wrote the file without it. `jsonToWorkspace` records the JSON key
+  // into `diag.decodeFailedSlices`; this backend's job is only to PUBLISH what
+  // `load`'s `diag` collected, exactly like `lastLoadTruncation`.
+  it("publishes a slice the JSON load could not decode", async () => {
+    server.use(http.get(CONTENT_RE, () => HttpResponse.json({ ...EMPTY_WORKSPACE, steeringCommittee: "not-an-object" })));
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
+    await be.load();
+    expect(be.lastDecodeFailures).toEqual(["steeringCommittee"]);
+  });
+
+  it("clears the flag on the next clean load", async () => {
+    server.use(http.get(CONTENT_RE, () => HttpResponse.json({ ...EMPTY_WORKSPACE, steeringCommittee: "not-an-object" })));
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
+    await be.load();
+    expect(be.lastDecodeFailures).toEqual(["steeringCommittee"]); // the state this test needs to exist
+
+    server.use(http.get(CONTENT_RE, () => HttpResponse.json(EMPTY_WORKSPACE)));
+    await be.load();
+    expect(be.lastDecodeFailures).toEqual([]);
+  });
+
+  // ★★ A THROWING load after a failing one must not leave the stale value
+  // standing — same `finally` publishes both `lastLoadTruncation` and
+  // `lastDecodeFailures` on every exit, throwing ones included.
+  it("clears decode failures too when a later load throws (500)", async () => {
+    server.use(http.get(CONTENT_RE, () => HttpResponse.json({ ...EMPTY_WORKSPACE, steeringCommittee: "not-an-object" })));
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
+    await be.load();
+    expect(be.lastDecodeFailures).toEqual(["steeringCommittee"]); // the state this test needs to exist
+
+    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 500 })));
+    await expect(be.load()).rejects.toThrow(/sharepoint returned 500/i);
+    expect(be.lastDecodeFailures).toEqual([]);
+  });
+
   it("load 401 throws StorageNotReadyError with reauthenticate hint", async () => {
     server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 401 })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
