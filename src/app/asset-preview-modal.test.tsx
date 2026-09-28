@@ -303,6 +303,15 @@ describe("AssetPreviewModal — degraded assets", () => {
     expect(screen.queryByRole("img")).toBeNull();
   });
 
+  // §633 — the type is decided before the fetch, so a refused asset never
+  //  costs a load, and one whose bytes are also gone still reads "blocked".
+  it("never loads the bytes of a blocked asset", async () => {
+    const loadImage = vi.fn(async () => null);
+    renderModal({ assets: [asset("a", "Alpha", "image/svg+xml")], loadImage });
+    expect(await screen.findByText(t("en-US", "assetPreviewBlocked"))).toBeInTheDocument();
+    expect(loadImage).not.toHaveBeenCalled();
+  });
+
   // ★★ Navigation must still work PAST a broken asset — otherwise one missing
   // image strands the user on it.
   it("navigates past an unavailable asset", async () => {
