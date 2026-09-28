@@ -37,9 +37,9 @@ exports, documents, window layout, dialog sizes, bulk edit and Trends.
 - **Data this version cannot read.** When a project holds data this version cannot use at all (for
   example project settings, documents or logs written by a newer version), the app now shows
   "Saving paused" instead of silently dropping it and overwriting it on the next save. "Save
-  anyway" clears it. This covers JSON project files (on disk or on SharePoint), browser storage and
-  Turso databases. For Turso it also covers content that is all invalid, such as a feature list or
-  project status.
+  anyway" clears it. This covers JSON, CSV and Markdown project files (on disk; JSON and CSV also on
+  SharePoint), browser storage and Turso databases, and on all of them it also covers content that
+  is all invalid, such as a feature list or project status.
 - **Browser storage and documents.** If a stored document could not be cleaned up on load, the next
   save used to delete the project's documents, document history, activity log, budget history and
   images from browser storage. That load now pauses saving instead, and the rest of the project
@@ -80,7 +80,10 @@ exports, documents, window layout, dialog sizes, bulk edit and Trends.
   window no longer download an image whose file type is not allowed; they show at once that its
   format is not supported.
 - **Help for document images.** The help buttons on the image library and the image preview now
-  open the help about document images, rather than the general documents help.
+  open the help about document images, rather than the general documents help. That help now also
+  explains the image preview: how to open it, stepping with Previous image and Next image, the
+  position counter, and what it shows when an image's data is missing or its format is not
+  supported.
 - **Meetings list.** A repeating meeting reads "Every 2 weeks" rather than "Every 2 week(s)".
 - **Window layout.** In the classic layout the header no longer makes the page scroll sideways
   between 1024 and about 1390px wide: the search box narrows (to no less than 224px) instead.
