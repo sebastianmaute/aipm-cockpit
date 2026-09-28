@@ -15,6 +15,7 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useLoadTruncation } from "./use-load-truncation";
 import { type Lang, t } from "./i18n";
+import { enqueueSave } from "./save-queue";
 
 const langRef = { current: "en-US" as Lang };
 
@@ -712,6 +713,19 @@ describe("useLoadTruncation — guardedWrite (explicit user actions)", () => {
     await act(async () => {
       await expect(result.current.truncationOps.guardedWrite(b, {} as never)).rejects.toThrow("disk full");
     });
+  });
+
+  it("§627 — waits behind a save already in flight to the same backend", async () => {
+    const { result } = render();
+    let settleFirst: () => void = () => {};
+    const b = { save: vi.fn(() => new Promise<void>((ok) => { settleFirst = ok; })) };
+    void enqueueSave(b, () => b.save());
+    let written: Promise<boolean> = Promise.resolve(false);
+    act(() => { written = result.current.truncationOps.guardedWrite(b, {} as never); });
+    expect(b.save).toHaveBeenCalledTimes(1); // the guarded write waits
+    b.save.mockImplementation(async () => {});
+    await act(async () => { settleFirst(); await written; });
+    expect(b.save).toHaveBeenCalledTimes(2);
   });
 });
 

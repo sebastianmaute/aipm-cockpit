@@ -30,6 +30,7 @@ import { lastLoadWasIncomplete, useLoadTruncation } from "./use-load-truncation"
 import { useDestructiveSaveGuard } from "./use-destructive-save-guard";
 import { resolveJournalProjectKey, useUnloadJournal } from "./use-unload-journal";
 import { useOtherJournals } from "./use-other-journals";
+import { enqueueSave } from "./save-queue";
 import type { ToastAction } from "./use-toast";
 import type { UseStorageBackendArgs } from "./use-storage-backend-types";
 
@@ -401,7 +402,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // §629 — the suppress branch's resync, for the one load whose save is NOT suppressed (a restored unload journal): the guard then measures the restore against what the backend returned.
   const syncBaselinesToLoaded = (loaded: Workspace): void => { const collections = nonEmptyCollectionCount(loaded), records = workspaceRecordCount(loaded); destructive.syncBaselines(collections, records); committedBaselineRef.current = { collections, records }; destructive.clearRefusal(); };
   // ★★ §103 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
-  const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, async () => { if (savesAllowedForRef.current === backend) await backend.save(currentWorkspace()); else logDiag("warn", "storage.flushSkippedBeforeLoad", {}); }); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend. ★★★ §586: this is `flushCurrent`'s write (the pre-switch flush), so it obeys the save gate too — a switch away from a project whose load failed must not write the empty workspace over it. A skip, not a throw: the flush is best-effort.
+  const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, async () => { if (savesAllowedForRef.current === backend) { const ws = currentWorkspace(); await enqueueSave(backend, () => backend.save(ws), { settleReplacedAsOwn: true }); } else logDiag("warn", "storage.flushSkippedBeforeLoad", {}); }); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend. ★★★ §586: this is `flushCurrent`'s write (the pre-switch flush), so it obeys the save gate too — a switch away from a project whose load failed must not write the empty workspace over it. A skip, not a throw: the flush is best-effort.
 
   // ── §72: caller-callback teardown guard ─────────────────────────────────────
   // Every callback this hook fires back into the component drives React state up
@@ -885,7 +886,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // path that schedules without that check.
       if (savesAllowedForRef.current !== backend) return;
       const journalSavedAt = unloadJournal.noteSaveStarted(outgoing); // §629 — here, past every guard: the save below really fires
-      backend.save(outgoing).then(() => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
+      // ★★ §627 — through the per-backend queue (save-queue.ts): one full save at a time, newest last,
+      //   so an older snapshot can no longer finish after a newer one on file/SharePoint. A save
+      //   REPLACED by a newer autosave never ran and resolves "superseded": it moves no baseline,
+      //   confirms no journal entry and reports no outcome — that newer autosave carries its content
+      //   and settles all three. Replaced by the pre-switch flush or `guardedWrite` instead, it
+      //   settles as that write did (`settleReplacedAsOwn`), so its own handlers below still run.
+      enqueueSave(backend, () => backend.save(outgoing)).then((result) => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
+        if (result === "superseded") return;
         committedBaselineRef.current = { collections: curCollections, records: curRecords }; // the write landed: these are on disk now
         unloadJournal.noteSaveConfirmed(journalSavedAt, outgoing); // §629 — clears this tab's journal for it and rolls the base forward
         emitOutcome(null);
@@ -899,8 +907,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         //   setState from an async callback (§72) and would cancel any pending save.
         //   ★★ COMPARE-AND-SWAP, since a later run or a load may have re-baselined
         //   mid-flight onto a different workspace.
-        //   ★★ RESIDUAL: two saves overlapping in flight can still settle on a
-        //   never-written baseline — coordinating them is out of scope here.
+        //   ★★ §627: saves through `enqueueSave` no longer overlap on one backend, so the
+        //   baseline a failure restores is the last save that LANDED (`guardedWrite` and the
+        //   pre-switch flush queue too). A save released by the queue's stall timer can still overlap.
         const live = destructive.readBaselines();
         if (live.collections === curCollections && live.records === curRecords) {
           destructive.syncBaselines(committedBaselineRef.current.collections, committedBaselineRef.current.records);

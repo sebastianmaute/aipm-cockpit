@@ -328,6 +328,12 @@ describe("§629 — the load effect restores the unload journal", () => {
     expect(readJournal()).toMatchObject({ tabId: UNLOAD_JOURNAL_TAB_ID, savedAt: EARLIER_SAVED_AT }); // R3
 
     await advance(600);
+    if (!confirm) {
+      // §627 — one save at a time per backend: the save-back waits behind this tab's write, still in flight.
+      expect(backend.save).toHaveBeenCalledTimes(1);
+      await act(async () => { backend.saves[0].resolve(); });
+      await advance(0);
+    }
     expect(backend.save).toHaveBeenCalledTimes(2);
     expect(savedTaskIds(backend, 1)).toEqual([1, 2]);
     await act(async () => { backend.saves[1].resolve(); });
