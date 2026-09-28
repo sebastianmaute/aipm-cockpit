@@ -15,9 +15,9 @@ import { replaceBlockOp } from "./document-editor-commit";
 import { applyDocMutation, type DocOp, type DocState } from "./document-mutations";
 import { loadI18n, t } from "./i18n";
 import type { DocBlock, ProjectDocument } from "./document-model";
-import { MAX_TABLE_COLUMNS, MAX_HTML_TEXT_CHARS } from "./document-model";
+import { MAX_TABLE_COLUMNS, MAX_TABLE_ROWS, MAX_BULLET_ITEMS, MAX_TEXT_CHARS, MAX_HTML_TEXT_CHARS } from "./document-model";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
-import { PARAGRAPH_COUNT_FROM } from "./document-block-notices";
+import { PARAGRAPH_COUNT_FROM, BlockRefusalNotice } from "./document-block-notices";
 import { htmlTextLength } from "./rich-text-plain";
 import { scheduleDebouncedSave, SAVE_DEBOUNCE_MS } from "./debounced-save";
 
@@ -1279,54 +1279,6 @@ describe("TableBlockEditor", () => {
     }, expect.anything());
   });
 
-  // ★★★ THE RECONCILE'S SKIP IS NOT "the draft normalises onto storage" — it is
-  //  that AND "the draft could still commit AS IT STANDS". A draft the CAP
-  //  flattened onto storage satisfies the first and fails the second:
-  //  `tryCommit` finds no change, returns false WITHOUT a notice, and the
-  //  extra control would sit there swallowing keystrokes. The identity-keyed
-  //  re-seed this branch replaced removed it — destructively, but visibly — so
-  //  dropping the cap arm turns a self-correcting phantom into a permanent
-  //  silent sink.
-  //  ★★ "as it stands" is load-bearing: removing any column routes the whole
-  //   draft through `commitValue`, which then fits and SAVES the over-cap
-  //   text, so this re-seed does discard a recoverable edit (§191).
-  //  ★ Counting remove-column buttons rather than header inputs: one per
-  //   column, and it is the control the user would actually be stuck with.
-  it("re-seeds away a column that cannot commit while the draft stays over the cap", async () => {
-    const wide: Extract<DocBlock, { type: "table" }> = {
-      type: "table",
-      columns: Array.from({ length: MAX_TABLE_COLUMNS }, (_, i) => `C${i + 1}`),
-      rows: [Array.from({ length: MAX_TABLE_COLUMNS }, (_, i) => `v${i + 1}`)],
-    };
-    const columnCount = () => screen.getAllByRole("button", { name: /^Remove column/ }).length;
-    const onCommit = vi.fn();
-    const { rerender } = render(
-      <TableBlockEditor lang={LANG} index={0} block={wide} onCommit={onCommit} />,
-    );
-    expect(columnCount()).toBe(MAX_TABLE_COLUMNS);
-
-    await userEvent.click(
-      screen.getByRole("button", { name: qualified(t(LANG, "documentsAddColumn")) }),
-    );
-    // The cap ate it: normalising slices back to MAX_TABLE_COLUMNS, so the
-    // block is unchanged and nothing is written — silently.
-    expect(onCommit).not.toHaveBeenCalled();
-    expect(columnCount()).toBe(MAX_TABLE_COLUMNS + 1);
-
-    // Any later parent render — our own commit echoing back, an AI write, a
-    // second tab — must clear the phantom. A NEW object carrying the SAME
-    // content, which is exactly what `applyOps` hands back.
-    rerender(
-      <TableBlockEditor
-        lang={LANG}
-        index={0}
-        block={{ ...wide, columns: [...wide.columns], rows: wide.rows.map((r) => [...r]) }}
-        onCommit={onCommit}
-      />,
-    );
-    expect(columnCount()).toBe(MAX_TABLE_COLUMNS);
-  });
-
   it("removes a column from the header AND every row", async () => {
     const onCommit = vi.fn();
     render(<TableBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
@@ -2034,5 +1986,116 @@ describe("every commit carries the draft's baseline", () => {
       { type: "heading", level: 1, text: "Alpha!" },
       original,
     );
+  });
+});
+
+// §191 — a heading, list or table over its storage limit is REFUSED on a
+// blur with a notice naming the limit (it used to be truncated in silence),
+// and the Add controls are disabled at the limit with a visible reason.
+describe("block size limits (§191)", () => {
+  const fmt = (n: number) => new Intl.NumberFormat("en-US").format(n);
+  const blockQ = (n: number) => t(LANG, "documentsBlockN", String(n));
+  const qualified = (label: string, n = 1) => `${label} – ${blockQ(n)}`;
+  const firePageHide = () => window.dispatchEvent(new Event("pagehide"));
+
+  it("refuses an over-limit heading with a notice and keeps the text on screen", () => {
+    const onCommit = vi.fn();
+    render(<HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 1, text: "H" }} onCommit={onCommit} />);
+    const input = screen.getByRole("textbox", { name: headingTextName(0) }) as HTMLInputElement;
+    input.focus();
+    fireEvent.change(input, { target: { value: "x".repeat(MAX_TEXT_CHARS + 1) } });
+    act(() => input.blur());
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.getByRole("status").textContent).toBe(t(LANG, "documentsBlockOverTextLimitNotSaved", fmt(MAX_TEXT_CHARS)));
+    expect(input.value).toHaveLength(MAX_TEXT_CHARS + 1);
+  });
+
+  it("keeps a refused heading dirty, so an unload still saves it truncated", () => {
+    const onCommit = vi.fn();
+    render(<HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 1, text: "H" }} onCommit={onCommit} />);
+    const input = screen.getByRole("textbox", { name: headingTextName(0) });
+    input.focus();
+    fireEvent.change(input, { target: { value: "x".repeat(MAX_TEXT_CHARS + 1) } });
+    act(() => input.blur());
+    expect(onCommit).not.toHaveBeenCalled();
+    act(() => firePageHide());
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect((onCommit.mock.calls[0][1] as { text: string }).text).toHaveLength(MAX_TEXT_CHARS);
+  });
+
+  it("refuses an over-limit table cell with a notice", () => {
+    const onCommit = vi.fn();
+    render(<TableBlockEditor lang={LANG} index={0} block={{ type: "table", columns: ["A"], rows: [["v"]] }} onCommit={onCommit} />);
+    const cell = screen.getByRole("textbox", { name: /^Row 1, column 1/ });
+    cell.focus();
+    fireEvent.change(cell, { target: { value: "x".repeat(MAX_TEXT_CHARS + 1) } });
+    act(() => cell.blur());
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.getByRole("status").textContent).toBe(t(LANG, "documentsBlockOverTextLimitNotSaved", fmt(MAX_TEXT_CHARS)));
+  });
+
+  it("keeps a structural change that lands over a limit dirty, so an unload still saves it capped", async () => {
+    const onCommit = vi.fn();
+    render(<TableBlockEditor lang={LANG} index={0} block={{ type: "table", columns: ["A"], rows: [["v"]] }} onCommit={onCommit} />);
+    const cell = screen.getByRole("textbox", { name: /^Row 1, column 1/ });
+    fireEvent.change(cell, { target: { value: "x".repeat(MAX_TEXT_CHARS + 1) } });
+    await userEvent.click(screen.getByRole("button", { name: qualified(t(LANG, "documentsAddRow")) }));
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.getByRole("status").textContent).toBe(t(LANG, "documentsBlockOverTextLimitNotSaved", fmt(MAX_TEXT_CHARS)));
+    act(() => firePageHide());
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    const saved = onCommit.mock.calls[0][1] as { rows: string[][] };
+    expect(saved.rows[0][0]).toHaveLength(MAX_TEXT_CHARS);
+  });
+
+  // The notice maps each limit kind to its own message; a swapped key would
+  // tell the user to remove rows from a table with too many columns.
+  it.each([
+    ["text", MAX_TEXT_CHARS, "documentsBlockOverTextLimitNotSaved"],
+    ["items", MAX_BULLET_ITEMS, "documentsBlockOverItemLimitNotSaved"],
+    ["columns", MAX_TABLE_COLUMNS, "documentsBlockOverColumnLimitNotSaved"],
+    ["rows", MAX_TABLE_ROWS, "documentsBlockOverRowLimitNotSaved"],
+  ] as const)("names the %s limit in the refusal notice", (kind, limit, key) => {
+    render(<BlockRefusalNotice lang={LANG} refusal={{ kind: "overLimit", violation: { kind, limit } }} />);
+    expect(screen.getByRole("status").textContent).toBe(t(LANG, key, fmt(limit)));
+  });
+
+  it("disables Add item at the list limit, with a visible reason it points to", () => {
+    const items = Array.from({ length: MAX_BULLET_ITEMS }, (_, i) => `i${i}`);
+    render(<BulletsBlockEditor lang={LANG} index={0} block={{ type: "bullets", items }} onCommit={vi.fn()} />);
+    const add = screen.getByRole("button", { name: qualified(t(LANG, "documentsAddItem")) });
+    expect(add).toBeDisabled();
+    const reason = screen.getByText(t(LANG, "documentsListItemLimitReached", fmt(MAX_BULLET_ITEMS)));
+    expect(reason.id).not.toBe("");
+    expect(add.getAttribute("aria-describedby")).toBe(reason.id);
+  });
+
+  it("keeps Add item enabled, with no reason shown, one below the limit", () => {
+    const items = Array.from({ length: MAX_BULLET_ITEMS - 1 }, (_, i) => `i${i}`);
+    render(<BulletsBlockEditor lang={LANG} index={0} block={{ type: "bullets", items }} onCommit={vi.fn()} />);
+    const add = screen.getByRole("button", { name: qualified(t(LANG, "documentsAddItem")) });
+    expect(add).toBeEnabled();
+    expect(add.hasAttribute("aria-describedby")).toBe(false);
+    expect(screen.queryByText(t(LANG, "documentsListItemLimitReached", fmt(MAX_BULLET_ITEMS)))).toBeNull();
+  });
+
+  it("disables Add row, and only Add row, at the row limit", () => {
+    const rows = Array.from({ length: MAX_TABLE_ROWS }, () => ["v"]);
+    render(<TableBlockEditor lang={LANG} index={0} block={{ type: "table", columns: ["A"], rows }} onCommit={vi.fn()} />);
+    const addRow = screen.getByRole("button", { name: qualified(t(LANG, "documentsAddRow")) });
+    expect(addRow).toBeDisabled();
+    expect(screen.getByRole("button", { name: qualified(t(LANG, "documentsAddColumn")) })).toBeEnabled();
+    const reason = screen.getByText(t(LANG, "documentsTableRowLimitReached", fmt(MAX_TABLE_ROWS)));
+    expect(addRow.getAttribute("aria-describedby")).toBe(reason.id);
+  });
+
+  it("disables Add column, and only Add column, at the column limit", () => {
+    const columns = Array.from({ length: MAX_TABLE_COLUMNS }, (_, i) => `C${i + 1}`);
+    render(<TableBlockEditor lang={LANG} index={0} block={{ type: "table", columns, rows: [columns.map(() => "v")] }} onCommit={vi.fn()} />);
+    const addColumn = screen.getByRole("button", { name: qualified(t(LANG, "documentsAddColumn")) });
+    expect(addColumn).toBeDisabled();
+    expect(screen.getByRole("button", { name: qualified(t(LANG, "documentsAddRow")) })).toBeEnabled();
+    const reason = screen.getByText(t(LANG, "documentsTableColumnLimitReached", fmt(MAX_TABLE_COLUMNS)));
+    expect(addColumn.getAttribute("aria-describedby")).toBe(reason.id);
   });
 });
