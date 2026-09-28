@@ -903,7 +903,7 @@ describe("ops files — no unguarded backend access (source scan)", () => {
   it("reports the decode cause at every empty-load refusal", () => {
     const src = readFileSync("src/app/use-storage-backend.ts", "utf8");
     // The refusal's own predicate — the one shape both guards share.
-    const refusals = src.match(/isWorkspaceEmpty\(workspace\)\s*&&\s*!isWorkspaceEmpty\(/g)?.length ?? 0;
+    const refusals = src.match(/!hasAuthoredRecords\(workspace\)\s*&&\s*hasAuthoredRecords\(/g)?.length ?? 0; // §601
     const raises = src.match(/raiseDecodeFailuresFor\(/g)?.length ?? 0;
     expect(refusals, "no empty-load refusal found — the census would be vacuous").toBeGreaterThan(0);
     expect(

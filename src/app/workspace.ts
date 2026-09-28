@@ -187,7 +187,7 @@ const SCHEMA_VERSION = 11;
 // isMassDeletion moved to ./workspace-metrics when this file crossed the
 // 800-line file-size ratchet. Re-exported here so every existing
 // `from "./workspace"` import of these names keeps working unchanged.
-export { isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount, isMassDeletion } from "./workspace-metrics";
+export { isWorkspaceEmpty, hasAuthoredRecords, nonEmptyCollectionCount, workspaceRecordCount, isMassDeletion } from "./workspace-metrics";
 
 /** A blank workspace with a default plan anchored to today. */
 export function emptyWorkspace(): Workspace {

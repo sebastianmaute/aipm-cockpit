@@ -8,7 +8,7 @@ import {
   StorageNotImplementedError, StorageNotReadyError, createBackend,
   getBackendFileHandle, requestWriteAccessForBackend,
 } from "./storage";
-import { isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount } from "./workspace";
+import { hasAuthoredRecords, nonEmptyCollectionCount, workspaceRecordCount } from "./workspace";
 import { scheduleDebouncedSave, SAVE_DEBOUNCE_MS } from "./debounced-save";
 import { backfillTaskResourceFks } from "./resource-foundation";
 import { recordDataLossEvent } from "./dataloss-forensics";
@@ -631,7 +631,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         // throws on a malformed/partial read) — applying it wipes the project and
         // autosave then persists the empty. On initial mount the current
         // workspace is empty, so a normal first load is never blocked.
-        if (isWorkspaceEmpty(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
+        // ★★ §601 — "empty" means NOTHING THE USER MADE, on both sides: decoding a record-free file
+        //   seeds the preset disciplines and grades, and `isWorkspaceEmpty` counted those, so such a
+        //   load read as populated and replaced the project. See `hasAuthoredRecords`.
+        if (!hasAuthoredRecords(workspace) && hasAuthoredRecords(currentWorkspace())) {
           recordDataLossEvent({ path: "load", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: 0, refused: true });
           setSettledBackend(backend); // §548 — nothing applied, but nothing is still in flight either.
           emitToast("info", t(langRef.current, "storageKeptCurrentData"));
@@ -1202,7 +1205,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // wipes the in-memory workspace and autosave then persists the empty (a
       // real loss we hit). Only replace a NON-empty project with an empty load
       // after an explicit confirm; default is to keep the current data untouched.
-      if (isWorkspaceEmpty(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
+      // ★★ §601 — the same predicate as the load effect's refusal; see `hasAuthoredRecords`.
+      if (!hasAuthoredRecords(workspace) && hasAuthoredRecords(currentWorkspace())) {
         const confirmed =
           typeof window !== "undefined" &&
           window.confirm(t(langRef.current, "reloadEmptyConfirm"));

@@ -7,6 +7,7 @@
 // keeps working.
 
 import type { Workspace } from "./workspace";
+import { PRESET_DISCIPLINES, PRESET_GRADES } from "./types";
 
 /** True when a workspace holds NO user records in any collection (a default
  *  plan / empty config does not count). Guards a reload from silently replacing
@@ -139,4 +140,30 @@ export function workspaceRecordCount(ws: Workspace): number {
 export function isMassDeletion(prev: number, cur: number, floor = 5, fraction = 0.1): boolean {
   if (cur >= prev) return false;
   return (prev - cur) >= floor && cur <= prev * fraction;
+}
+
+/** True when a reference list is exactly what `migrateWorkspaceV5` seeds into an empty one: every
+ *  preset name at its seeded id (1-based position), in any order. A rename, a removal, an added entry
+ *  or a moved id is the user's own work. `localModifiedAt` is not compared: it is a sync stamp,
+ *  not content. */
+function isPresetList(list: ReadonlyArray<{ id: number; name: string }> | undefined, presets: readonly string[]): boolean {
+  if (!list || list.length !== presets.length) return false;
+  return list.every((item) => presets[item.id - 1] === item.name)
+    && new Set(list.map((item) => item.id)).size === list.length;
+}
+
+/** §601 — does this workspace hold anything the USER made? This is the empty-load refusal's
+ *  question, and `isWorkspaceEmpty` answers a different one: decoding a structurally valid file
+ *  that carries no records seeds the preset disciplines and grades, which `isWorkspaceEmpty`
+ *  counts, so such a load read as POPULATED and replaced the project in scope.
+ *  ★★ The preset lists are discounted only while they are EXACTLY the presets, unlike §590's
+ *    `authoredRecordCount` (use-storage-file-ops.ts), which subtracts every discipline and grade.
+ *    A project whose only content is its own disciplines or grades is authored work, and refusing
+ *    to load it would pause saving behind a banner. Do not merge the two without re-deciding §590. */
+export function hasAuthoredRecords(ws: Workspace): boolean {
+  return !isWorkspaceEmpty({
+    ...ws,
+    disciplines: isPresetList(ws.disciplines, PRESET_DISCIPLINES) ? [] : ws.disciplines,
+    grades: isPresetList(ws.grades, PRESET_GRADES) ? [] : ws.grades,
+  });
 }

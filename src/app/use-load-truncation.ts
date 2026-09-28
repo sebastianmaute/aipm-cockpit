@@ -505,7 +505,7 @@ export function useLoadTruncation(
    * ★★★ IT IS THE SAME LOSS AS §103, ARRIVING BY A DIFFERENT ROUTE, which is
    * why it routes into this guard rather than a mechanism of its own. A
    * malformed blob leaves its slice undefined and the load carries on —
-   * `isWorkspaceEmpty` refuses only a TOTALLY empty read — and the next save
+   * the empty-load refusal fires only on a read with NOTHING authored (§601) — and the next save
    * runs `DELETE FROM meta` and re-inserts only the rows it has, destroying the
    * blob. Nothing document-related has to happen for that to land: `meta` is
    * dirty whenever any of its slices changes reference, and `activityLog` is
