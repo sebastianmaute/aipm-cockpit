@@ -42545,8 +42545,15 @@ markers in five files. Then:
   `git diff --ignore-cr-at-eol docs/baselines/ooxml-parts.json` empty (it rewrote the baseline with the
   same content; only the working copy's line endings changed, and were put back).
 
-So both halves of the question below are answered no for today's call paths: nothing throws for want of a
-DOM, and no document is decoded through a codec, so none can be dropped silently. The files were
+So both halves of the question below are answered no for the runs measured (the `ai:eval` DRY run; its
+live path was not run, and a throw there is caught and printed as "run incomplete"): nothing throws for
+want of a DOM, and no document is decoded, so none can be dropped silently. That covers every load path,
+not only the codecs: the `sanitizeDocumentRichFields` marker sits in the rich-field pass that the JSON,
+IndexedDB and Turso decodes call too. ★ The original status's premise that `workspace.ts`,
+`turso-schema.ts` and `browser-backend.ts` "surface a failure instead of swallowing it" is FALSE with no
+DOM: each catches the throw (`noteDecodeFailure` / `reportUnreadableSlice`), and `logDiag` returns early
+when `typeof window === "undefined"`, so there the loss would be as quiet as the codec path. It did not
+matter here only because no run reached the pass. The original wording below is kept as the record. The files were
 restored and checked byte for byte. `ai-eval.ts`'s header, which inferred "nothing needs jsdom" from
 "nothing needs `jsonToWorkspace`", now cites this measurement instead. ★ The probe is not committed and
 guards nothing going forward: a later edit that routes either script through a DOM call would throw
