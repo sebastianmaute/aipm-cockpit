@@ -88,6 +88,9 @@ Read which one a mention means before relying on it.
    decode failure of that load. The incoming workspace counts as empty when it holds nothing the
    user made (`hasAuthoredRecords`, §601: the seeded preset lists do not count), while the
    workspace in scope still counts as populated by `isWorkspaceEmpty`.
+   Reload project uses the same two predicates but asks (`reloadEmptyConfirm`) instead of
+   refusing: confirming replaces the project; declining keeps it and still publishes that load's
+   decode failures (`raiseDecodeFailuresFor`).
 4. Otherwise the journal restore runs (see "Save path"), then `applyWorkspaceFromLoad`, then
    `truncationOps.reportFor(backend)`, which raises or lowers the incomplete-load pause.
 
