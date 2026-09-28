@@ -39,19 +39,21 @@ exports, documents, window layout, dialog sizes, bulk edit, Trends and the deskt
   yet verified.
 - **Saves finishing out of order.** When several edits were saved at once as the page closed, an
   older save could finish last and overwrite a newer one on file or SharePoint storage. Saves to
-  one location now run one at a time, newest last.
+  one location now run one at a time, newest last; if the window closes before the newest one
+  runs, the close-window recovery above restores it.
 - **Data this version cannot read.** When a project holds data this version cannot use at all (for
   example project settings, documents or logs written by a newer version), the app now shows
   "Saving paused" instead of silently dropping it and overwriting it on the next save. "Save
-  anyway" clears it. This covers JSON, CSV and Markdown project files (on disk; JSON and CSV also on
-  SharePoint), browser storage and Turso databases, and on all of them it also covers content that
-  is all invalid, such as a feature list or project status. A JSON project file (on disk or on
+  anyway" followed by "Discard the unopened data" saves over it, and that data is lost. This
+  covers JSON, CSV and Markdown project files (on disk; JSON and CSV also on SharePoint), browser
+  storage and Turso databases, and on all of them it also covers content that is all invalid, such
+  as a feature list or project status. A JSON project file (on disk or on
   SharePoint) holding a document that cannot be safely read now opens and pauses saving the same
   way; before, the whole project failed to open. Opening such a file with "Open storage file",
   which keeps your current documents, does not pause saving.
 - **Loading a file with nothing in it.** A workspace file holding no records of its own (only the
-  default disciplines and grades) no longer replaces an open project when it is loaded or
-  reloaded. The load is refused and saving pauses, as for an empty read.
+  default disciplines and grades) no longer replaces an open project without asking. Opening it
+  is refused and saving pauses, as for an empty read; Reload project asks before replacing.
 - **Cleared secrets stay cleared.** A secret you clear in Settings (the AI key, the dictation key,
   the Jira, TimeLog or Turso token) now stays cleared. Before, if the old value was still being
   encrypted when you cleared the field, it was written back afterwards, returned on the next reload,
@@ -109,8 +111,8 @@ exports, documents, window layout, dialog sizes, bulk edit, Trends and the deskt
 - **Meetings list.** A repeating meeting reads "Every 2 weeks" rather than "Every 2 week(s)".
 - **Window layout.** In the classic layout the header no longer makes the page scroll sideways
   between 1024 and about 1390px wide: the search box narrows (to no less than 224px) instead.
-- **Dialog sizes.** The task form, the shift dialog, the image preview, the notes window and the
-  Help panel now remember a size you resize them to.
+- **Dialog sizes.** The task form, the image preview, the notes window and the Help panel now
+  remember a size you resize them to.
 - **Bulk edit.** Its controls have names of their own ("Change Status", "New Status") instead of
   repeating the column header, so screen readers and search-by-name no longer confuse them.
 - **Trends.** A snapshot taken while nothing is in scope (for example all tasks cancelled) no longer
