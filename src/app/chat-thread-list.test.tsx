@@ -231,6 +231,47 @@ describe("ChatThreadList", () => {
     expect(screen.queryByRole("textbox", { name: 'Rename "Q1 budget"' })).not.toBeInTheDocument();
   });
 
+  it("typing in the rename input reports the draft", () => {
+    const onRenameDraft = vi.fn();
+    render(
+      <ChatThreadList
+        lang="en-US"
+        threads={[threadA]}
+        activeThreadId={null}
+        onSelect={vi.fn()}
+        onNew={vi.fn()}
+        onRename={vi.fn()}
+        onRenameDraft={onRenameDraft}
+        onDelete={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: 'Rename "Q1 budget"' }));
+    fireEvent.change(screen.getByRole("textbox", { name: 'Rename "Q1 budget"' }), { target: { value: "New" } });
+    expect(onRenameDraft).toHaveBeenCalledWith("a", "New");
+  });
+
+  it("Escape reports the cancel", () => {
+    const onRenameCancel = vi.fn();
+    render(
+      <ChatThreadList
+        lang="en-US"
+        threads={[threadA]}
+        activeThreadId={null}
+        onSelect={vi.fn()}
+        onNew={vi.fn()}
+        onRename={vi.fn()}
+        onRenameCancel={onRenameCancel}
+        onDelete={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: 'Rename "Q1 budget"' }));
+    const input = screen.getByRole("textbox", { name: 'Rename "Q1 budget"' });
+    fireEvent.change(input, { target: { value: "Q2 budget" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(onRenameCancel).toHaveBeenCalledTimes(1);
+    expect(onRenameCancel).toHaveBeenCalledWith("a");
+  });
+
   it("falls back to Untitled chat for a whitespace-only name, in both the visible text and every control's accessible name", () => {
     const whitespaceThread: ChatThread = { ...threadA, id: "c", name: "   " };
     render(

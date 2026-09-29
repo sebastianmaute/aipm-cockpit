@@ -45,6 +45,8 @@ export interface ChatThreadSidebarProps {
   onSelect: (id: string) => void;
   onNew: () => void;
   onRename: (id: string, name: string) => void;
+  onRenameDraft?: (id: string, value: string) => void;
+  onRenameCancel?: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
@@ -57,6 +59,8 @@ export function ChatThreadSidebar({
   onSelect,
   onNew,
   onRename,
+  onRenameDraft,
+  onRenameCancel,
   onDelete,
 }: ChatThreadSidebarProps) {
   // ★ `axis: "x"` — this column is `resize-x`, so height is not a dimension the
@@ -94,6 +98,8 @@ export function ChatThreadSidebar({
         onSelect={onSelect}
         onNew={onNew}
         onRename={onRename}
+        onRenameDraft={onRenameDraft}
+        onRenameCancel={onRenameCancel}
         onDelete={onDelete}
         // ★ TWO classes, and the split is the point: `overflow-y-auto` belongs
         // on the wrapper around the <ul> ONLY. On the list component's ROOT it

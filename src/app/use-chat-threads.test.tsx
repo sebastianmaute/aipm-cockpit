@@ -12,6 +12,10 @@ import { loadThreads, saveThread, deleteThread } from "./chat-threads-store";
 import type { ChatThread } from "./chat-threads";
 import type { ApiMessage, DisplayItem } from "./chat-api";
 import { clearChatThreads, publishChatThreads, readChatThreads } from "./chat-threads-registry";
+import { clearDiagLog, readDiagLog } from "./diagnostics";
+import {
+  PENDING_EDITS_PREFIX, pendingEditScope, resetPendingEditsForTests, takePendingEdits,
+} from "./pending-edits";
 
 vi.mock("./chat-threads-store", () => ({
   loadThreads: vi.fn(async () => []),
@@ -2172,5 +2176,191 @@ describe("useChatThreads — retryLoad's settle vs. an unsettled persist (§317)
     resolveReload([SERVER_ROW]);
 
     await waitFor(() => expect(setHistory).toHaveBeenCalledWith(SERVER_ROW.history));
+  });
+});
+
+// §626 — the pending-edits outbox for a chat-thread rename.
+describe("useChatThreads — pending rename outbox", () => {
+  const CFG = { httpUrl: "https://outbox-test.example.invalid", authToken: "secret-token" };
+  const scopeFor = (projectId: string) => pendingEditScope(CFG.httpUrl, projectId);
+  const storageKeyFor = (projectId: string) => `${PENDING_EDITS_PREFIX}${scopeFor(projectId)}`;
+
+  function seedEdit(projectId: string, over: Record<string, unknown> = {}): void {
+    const edit = { v: 1, kind: "chat-thread-name", id: "t1", base: "Thread t1", value: "Replayed", savedAt: Date.now(), ...over };
+    window.localStorage.setItem(storageKeyFor(projectId), JSON.stringify([edit]));
+  }
+  const pagehide = () => window.dispatchEvent(new Event("pagehide"));
+  const stored = (projectId = "default") => takePendingEdits(scopeFor(projectId), Date.now());
+  const droppedLog = () => readDiagLog().filter((e) => e.code === "storage.pendingEditDropped");
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    resetPendingEditsForTests();
+    clearDiagLog();
+  });
+  afterEach(() => {
+    resetPendingEditsForTests();
+    window.localStorage.clear();
+  });
+
+  async function renderLoaded(overrides: Partial<UseChatThreadsDeps> = {}) {
+    loadThreadsMock.mockResolvedValue([thread("t1", { name: "Old name" })]);
+    const rendered = renderChatThreads({ tursoConfig: CFG, ...overrides });
+    await waitFor(() => expect(rendered.result.current.threads).toHaveLength(1));
+    return rendered;
+  }
+
+  it("an open rename draft is written on pagehide", async () => {
+    const { result } = await renderLoaded();
+
+    act(() => result.current.trackRenameDraft("t1", "Renamed"));
+    pagehide();
+
+    expect(stored()).toEqual([
+      expect.objectContaining({ kind: "chat-thread-name", id: "t1", base: "Old name", value: "Renamed" }),
+    ]);
+  });
+
+  it("a draft equal to the current name is not kept", async () => {
+    const { result } = await renderLoaded();
+
+    act(() => result.current.trackRenameDraft("t1", "Renamed"));
+    act(() => result.current.trackRenameDraft("t1", "  Old name "));
+    pagehide();
+
+    expect(stored()).toEqual([]);
+  });
+
+  it("a cancelled draft is not kept", async () => {
+    const { result } = await renderLoaded();
+
+    act(() => result.current.trackRenameDraft("t1", "Renamed"));
+    act(() => result.current.cancelRenameDraft("t1"));
+    pagehide();
+
+    expect(stored()).toEqual([]);
+  });
+
+  it("a rename whose save has not resolved is written on pagehide", async () => {
+    saveThreadMock.mockReturnValueOnce(new Promise<void>(() => undefined));
+    const { result } = await renderLoaded();
+
+    act(() => result.current.renameThread("t1", "Renamed"));
+    pagehide();
+
+    expect(stored()).toEqual([
+      expect.objectContaining({ kind: "chat-thread-name", id: "t1", base: "Old name", value: "Renamed" }),
+    ]);
+  });
+
+  it("a rename whose save was rejected stays tracked", async () => {
+    saveThreadMock.mockRejectedValueOnce(new Error("network down"));
+    const { result } = await renderLoaded();
+
+    act(() => result.current.renameThread("t1", "Renamed"));
+    await waitFor(() => expect(result.current.threadsError).toBe(true));
+    pagehide();
+
+    expect(stored()).toEqual([expect.objectContaining({ id: "t1", value: "Renamed" })]);
+  });
+
+  it("a resolved rename is settled", async () => {
+    const { result } = await renderLoaded();
+
+    act(() => result.current.renameThread("t1", "Renamed"));
+    await waitFor(() => {
+      pagehide();
+      expect(stored()).toEqual([]);
+    });
+  });
+
+  it("the next load replays an edit whose base still matches", async () => {
+    seedEdit("default", { base: "Old name" });
+    loadThreadsMock.mockResolvedValue([thread("t1", { name: "Old name" })]);
+
+    const { result } = renderChatThreads({ tursoConfig: CFG });
+
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalled());
+    expect((saveThreadMock.mock.calls.at(-1)![1] as ChatThread).name).toBe("Replayed");
+    expect(result.current.threads[0]!.name).toBe("Replayed");
+    expect(window.localStorage.getItem(storageKeyFor("default"))).toBeNull();
+    await waitFor(() => {
+      pagehide();
+      expect(stored()).toEqual([]);
+    });
+  });
+
+  it("an edit whose thread name changed meanwhile is dropped", async () => {
+    seedEdit("default", { base: "Older name" });
+    loadThreadsMock.mockResolvedValue([thread("t1", { name: "Old name" })]);
+
+    const { result } = renderChatThreads({ tursoConfig: CFG });
+
+    await waitFor(() => expect(result.current.threads).toHaveLength(1));
+    expect(saveThreadMock).not.toHaveBeenCalled();
+    expect(result.current.threads[0]!.name).toBe("Old name");
+    expect(window.localStorage.getItem(storageKeyFor("default"))).toBeNull();
+    expect(droppedLog()).toEqual([
+      expect.objectContaining({ fields: { reason: "changed", kind: "chat-thread-name", id: "t1" } }),
+    ]);
+    expect(JSON.stringify(readDiagLog())).not.toContain("Replayed");
+  });
+
+  it("an edit for a deleted thread is dropped, not recreated", async () => {
+    seedEdit("default", { id: "gone", base: "Thread gone" });
+    loadThreadsMock.mockResolvedValue([thread("t1", { name: "Old name" })]);
+
+    const { result } = renderChatThreads({ tursoConfig: CFG });
+
+    await waitFor(() => expect(result.current.threads).toHaveLength(1));
+    expect(saveThreadMock).not.toHaveBeenCalled();
+    expect(result.current.threads.map((th) => th.id)).toEqual(["t1"]);
+    expect(droppedLog()).toEqual([
+      expect.objectContaining({ fields: { reason: "missing", kind: "chat-thread-name", id: "gone" } }),
+    ]);
+    expect(JSON.stringify(readDiagLog())).not.toContain("Replayed");
+  });
+
+  it("an edit tracked in project A is replayed only in project A", async () => {
+    seedEdit("pA", { base: "Old name" });
+    loadThreadsMock.mockResolvedValue([thread("t1", { name: "Old name" })]);
+
+    const { result, rerender, initialProps } = renderChatThreads({ tursoConfig: CFG, projectId: "pB" });
+    await waitFor(() => expect(result.current.threads).toHaveLength(1));
+
+    expect(saveThreadMock).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(storageKeyFor("pA"))).not.toBeNull();
+
+    rerender({ ...initialProps, projectId: "pA" });
+
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalled());
+    expect((saveThreadMock.mock.calls.at(-1)![1] as ChatThread).name).toBe("Replayed");
+    expect(window.localStorage.getItem(storageKeyFor("pA"))).toBeNull();
+  });
+
+  it("without Turso nothing is replayed or cleared", async () => {
+    seedEdit("default", { base: "Old name" });
+
+    const { result } = renderChatThreads({ tursoMode: false, tursoConfig: CFG });
+    await act(async () => undefined);
+
+    expect(loadThreadsMock).not.toHaveBeenCalled();
+    expect(saveThreadMock).not.toHaveBeenCalled();
+    expect(result.current.threads).toEqual([]);
+    expect(window.localStorage.getItem(storageKeyFor("default"))).not.toBeNull();
+  });
+
+  it("never puts the Turso URL or token in a key or record", async () => {
+    saveThreadMock.mockReturnValueOnce(new Promise<void>(() => undefined));
+    const { result } = await renderLoaded();
+
+    act(() => result.current.renameThread("t1", "Renamed"));
+    pagehide();
+
+    const keys = Object.keys(window.localStorage).filter((k) => k.startsWith(PENDING_EDITS_PREFIX));
+    expect(keys).toHaveLength(1);
+    const everything = keys.join("|") + (window.localStorage.getItem(keys[0]!) ?? "");
+    expect(everything).not.toContain("outbox-test");
+    expect(everything).not.toContain("secret-token");
   });
 });

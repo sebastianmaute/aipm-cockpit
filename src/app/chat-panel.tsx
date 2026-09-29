@@ -1365,6 +1365,8 @@ function ChatPanelInner({
           onSelect={chatThreads.selectThread}
           onNew={chatThreads.newThread}
           onRename={chatThreads.renameThread}
+          onRenameDraft={chatThreads.trackRenameDraft}
+          onRenameCancel={chatThreads.cancelRenameDraft}
           onDelete={chatThreads.requestDeleteThread}
         />
       )}

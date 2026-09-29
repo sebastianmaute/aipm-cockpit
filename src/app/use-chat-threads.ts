@@ -30,10 +30,42 @@ import type { ConfirmFn } from "./confirm-dialog";
 import { loadThreads, saveThread, deleteThread as deleteThreadRow } from "./chat-threads-store";
 import { type ChatThread, newThreadId, deriveThreadName, stripAttachmentsForPersistence } from "./chat-threads";
 import { publishChatThreads, clearChatThreadsFor } from "./chat-threads-registry";
+import { logDiag } from "./diagnostics";
+import {
+  pendingEditScope, trackPendingEdit, settlePendingEdit, takePendingEdits,
+} from "./pending-edits";
 import {
   mergeThreadsAfterLoad,
   resetThreadsAfterFailedLoad,
 } from "./chat-thread-load";
+
+/** §626 — the outbox kind for a thread rename. */
+const RENAME_KIND = "chat-thread-name" as const;
+
+/** The outbox scope for a Turso database and project, or null when there is no usable config (no
+ *  config, or one without an `httpUrl` — hashing an absent URL would throw inside a load settle). */
+function outboxScope(tursoConfig: TursoConfig | null, projectId: string): string | null {
+  return typeof tursoConfig?.httpUrl === "string" ? pendingEditScope(tursoConfig.httpUrl, projectId) : null;
+}
+
+/** The stored rename edits for `scope` that still apply to `loaded`. An edit whose thread is gone
+ *  (`missing`) or whose name has moved on since the draft began (`changed`) is dropped and logged —
+ *  kind and id only, never the typed value. */
+function takeRenameReplays(scope: string, loaded: readonly ChatThread[]): { target: ChatThread; value: string }[] {
+  const replays: { target: ChatThread; value: string }[] = [];
+  for (const edit of takePendingEdits(scope, Date.now())) {
+    if (edit.kind !== RENAME_KIND) continue;
+    const target = loaded.find((th) => th.id === edit.id);
+    if (!target) {
+      logDiag("warn", "storage.pendingEditDropped", { reason: "missing", kind: edit.kind, id: edit.id });
+    } else if (target.name !== edit.base) {
+      logDiag("warn", "storage.pendingEditDropped", { reason: "changed", kind: edit.kind, id: edit.id });
+    } else {
+      replays.push({ target, value: edit.value });
+    }
+  }
+  return replays;
+}
 
 /** Live render-scope values the Turso thread flows read each render. */
 export interface UseChatThreadsDeps {
@@ -319,7 +351,10 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // assistant's reply was never persisted, and the user was never told.
   // A superseded call therefore returns without touching either the retry map
   // or the banner; the write that owns the key decides both.
-  function runPersist(key: string, action: () => Promise<void>): void {
+  //
+  // `onSuccess` runs only for the write that OWNS the key, after it resolves — a superseded write
+  // must not settle an outbox entry a later write for the same thread still depends on.
+  function runPersist(key: string, action: () => Promise<void>, onSuccess?: () => void): void {
     const seq = (persistSeqRef.current += 1);
     latestSeqRef.current.set(key, seq);
     const owns = () => latestSeqRef.current.get(key) === seq;
@@ -327,6 +362,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       .then(() => {
         persistSettledRef.current += 1;
         if (!owns()) return;
+        onSuccess?.();
         pendingRetryRef.current.delete(key);
         setThreadsError(pendingRetryRef.current.size > 0);
       })
@@ -389,6 +425,12 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         const settled = mergeThreadsAfterLoad(startedOn, threadIdRef.current, projectId, loaded, false);
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
+        // §626. A rename typed before the last close and never saved: re-issue it now that the
+        // server's own copy is in hand to check the draft's base against.
+        const replayScope = outboxScope(tursoConfig, projectId);
+        if (replayScope) {
+          for (const { target, value } of takeRenameReplays(replayScope, loaded)) applyRenameRef.current(target, value);
+        }
         if (settled.stale) return;
         setActiveThreadId(settled.next?.id ?? null);
         setHistory(settled.next?.history ?? []);
@@ -747,12 +789,50 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // busy-persist effect (once that turn settles) inserts it.
   }
 
+  // §626. The outbox scope for this render's Turso database and project, or null without Turso. It
+  // is read at track time, so an edit tracked before a project switch stays in its own scope.
+  function renameScope(): string | null {
+    return tursoMode ? outboxScope(tursoConfig, projectId) : null;
+  }
+
+  function applyRename(target: ChatThread, name: string): void {
+    const { id } = target;
+    const updated: ChatThread = { ...target, name, updatedAt: new Date().toISOString() };
+    setThreads((prev) => prev.map((th) => (th.id === id ? updated : th)));
+    const scope = renameScope();
+    if (scope) trackPendingEdit(scope, { kind: RENAME_KIND, id, base: target.name, value: name });
+    runPersist(
+      id,
+      () => saveThread(tursoConfig, updated),
+      scope ? () => settlePendingEdit(scope, RENAME_KIND, id) : undefined,
+    );
+  }
+  // The load effect's replay runs from a closure that cannot list `applyRename` as a dependency
+  // (it is re-created every render), so it reads the latest one through this ref.
+  const applyRenameRef = useRef(applyRename);
+  useEffect(() => {
+    applyRenameRef.current = applyRename;
+  });
+
   function renameThread(id: string, name: string): void {
     const target = threads.find((th) => th.id === id);
     if (!target) return;
-    const updated: ChatThread = { ...target, name, updatedAt: new Date().toISOString() };
-    setThreads((prev) => prev.map((th) => (th.id === id ? updated : th)));
-    runPersist(id, () => saveThread(tursoConfig, updated));
+    applyRename(target, name);
+  }
+
+  // §626. The open rename input's draft, kept for a page close. A draft equal to the current name
+  // has nothing to lose, so it settles instead.
+  function trackRenameDraft(id: string, value: string): void {
+    const scope = renameScope();
+    const target = threads.find((th) => th.id === id);
+    if (!scope || !target) return;
+    if (value.trim() === target.name) settlePendingEdit(scope, RENAME_KIND, id);
+    else trackPendingEdit(scope, { kind: RENAME_KIND, id, base: target.name, value });
+  }
+
+  function cancelRenameDraft(id: string): void {
+    const scope = renameScope();
+    if (scope) settlePendingEdit(scope, RENAME_KIND, id);
   }
 
   async function requestDeleteThread(id: string): Promise<void> {
@@ -793,6 +873,8 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     selectThread,
     newThread,
     renameThread,
+    trackRenameDraft,
+    cancelRenameDraft,
     requestDeleteThread,
     retryLoad,
   };

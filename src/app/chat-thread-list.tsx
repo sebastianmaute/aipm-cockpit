@@ -29,6 +29,10 @@ export interface ChatThreadListProps {
   onSelect: (id: string) => void;
   onNew: () => void;
   onRename: (id: string, name: string) => void;
+  /** §626 — the rename input's live draft, so a page close can keep it. */
+  onRenameDraft?: (id: string, value: string) => void;
+  /** §626 — the rename was abandoned (Escape); drop the kept draft. */
+  onRenameCancel?: (id: string) => void;
   onDelete: (id: string) => void;
   className?: string;
   /** Classes for the SCROLL wrapper around the thread list itself — never the
@@ -58,6 +62,8 @@ export function ChatThreadList({
   onSelect,
   onNew,
   onRename,
+  onRenameDraft,
+  onRenameCancel,
   onDelete,
   className,
   listClassName,
@@ -100,9 +106,10 @@ export function ChatThreadList({
     onRename(id, draftName.trim() || t(lang, "chatThreadUntitled"));
   }
 
-  function cancelRename() {
+  function cancelRename(id: string) {
     renamingIdRef.current = null;
     setRenamingId(null);
+    onRenameCancel?.(id);
   }
 
   return (
@@ -148,13 +155,16 @@ export function ChatThreadList({
                       size="xs"
                       aria-label={renameLabel}
                       value={draftName}
-                      onChange={(e) => setDraftName(e.target.value)}
+                      onChange={(e) => {
+                        setDraftName(e.target.value);
+                        onRenameDraft?.(th.id, e.target.value);
+                      }}
                       onBlur={() => commitRename(th.id)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.nativeEvent.isComposing) {
                           commitRename(th.id);
                         } else if (e.key === "Escape") {
-                          cancelRename();
+                          cancelRename(th.id);
                         }
                       }}
                       className="w-full"
