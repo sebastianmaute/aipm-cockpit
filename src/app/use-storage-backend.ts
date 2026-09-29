@@ -1064,7 +1064,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     () => (args.isPopout ? { role: "popout", openerId: readPopoutOpenerFromUrl() } : { role: "main", scope: syncScope, getEpoch: getScopeEpoch, isLoadedValue }),
     [args.isPopout, syncScope, getScopeEpoch, isLoadedValue],
   );
-  const adoptPeerRevision = useCallback((revision: string) => { backend.adoptRevision?.(revision); }, [backend]);
+  const adoptPeerRevision = useCallback((revision: string) => {
+    if (whenSaved(backend) !== null) return; // a running/queued save was built without the peer's slices; adopting would let it overwrite them, so it must meet the newer revision and pause
+    backend.adoptRevision?.(revision);
+  }, [backend]);
   useRevisionSync(syncContext, adoptPeerRevision);
   useBroadcastSync("tasks", tasks, setTasks, syncContext);
   useBroadcastSync("raid", raid, setRaid, syncContext);

@@ -508,6 +508,44 @@ describe("useStorageBackend — save effect", () => {
       expect(adopt).toHaveBeenCalledWith("9");
     });
 
+    const latestOnRevision = () => (useRevisionSync as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1] as (rev: string) => void;
+
+    // A save running or queued was built from a workspace that may lack the peer's slices; adopting would
+    // let it pass the revision check and overwrite them. Left alone it meets the newer revision and pauses.
+    it("does NOT adopt while a save of its own is in flight", async () => {
+      const adopt = vi.fn();
+      revisioned.adoptRevision = adopt;
+      let finish: () => void = () => {};
+      mockBackend.save.mockImplementation(() => new Promise<void>((resolve) => { finish = resolve; }));
+      const { result } = renderBackend();
+      await settle();
+      await act(async () => { result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]); });
+      await settle(); // the debounced save has started and never settles
+      expect(mockBackend.save).toHaveBeenCalled();
+      act(() => { latestOnRevision()("9"); });
+      expect(adopt).not.toHaveBeenCalled();
+      await act(async () => { finish(); await Promise.resolve(); });
+      act(() => { latestOnRevision()("10"); });
+      expect(adopt).toHaveBeenCalledWith("10"); // idle again
+    });
+
+    it("saves the peer's mirrored slice, not the pending snapshot, after adopting while idle", async () => {
+      const adopt = vi.fn();
+      revisioned.adoptRevision = adopt;
+      const { result } = renderBackend();
+      await settle();
+      mockBackend.save.mockClear();
+      await act(async () => { result.current.setTasks([{ id: 1, taskName: "mine" } as unknown as Task]); });
+      const applyTasks = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.filter((c) => c[0] === "tasks").at(-1)![2] as (v: Task[]) => void;
+      await act(async () => { applyTasks([{ id: 2, taskName: "peer" } as unknown as Task]); });
+      act(() => { latestOnRevision()("9"); }); // debounce still pending: queue idle
+      expect(adopt).toHaveBeenCalledWith("9");
+      await act(async () => { vi.advanceTimersByTime(600); });
+      await act(async () => { await Promise.resolve(); });
+      const saved = mockBackend.save.mock.calls.at(-1)![0] as { tasks: Task[] };
+      expect(saved.tasks.map((x) => x.taskName)).toEqual(["peer"]);
+    });
+
     it("tolerates a backend without adoptRevision", async () => {
       renderBackend();
       await settle();
