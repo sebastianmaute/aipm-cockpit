@@ -72,8 +72,12 @@ function makeBackend() {
  *  ★ `postRevision` tags its message with a per-PAGE id, and both windows here share one module
  *  graph, so B would drop A's revision as its own echo. The bus gives each revision message a fresh
  *  id, as a second page would; the poster then hears its own too, which it cannot adopt (it no longer
- *  holds the base its save was checked against). Slice messages already carry a per-hook id. */
+ *  holds the base its save was checked against). Slice messages already carry a per-hook id.
+ *  While `bus.hold` is set, deliveries wait for `bus.release()`, which runs them all in one go. */
+const bus = { hold: false, held: [] as (() => void)[], release() { const due = this.held.splice(0); for (const deliver of due) deliver(); } };
 function installBus() {
+  bus.hold = false;
+  bus.held = [];
   const open = new Set<{ listeners: Set<(ev: MessageEvent) => void> }>();
   let revisionSender = 0;
   class BusChannel {
@@ -84,7 +88,9 @@ function installBus() {
       for (const channel of open) {
         if (channel === this) continue;
         const data = structuredClone(sent);
-        queueMicrotask(() => { for (const l of channel.listeners) l({ data } as MessageEvent); });
+        const deliver = () => { for (const l of channel.listeners) l({ data } as MessageEvent); };
+        if (bus.hold) bus.held.push(deliver);
+        else queueMicrotask(deliver);
       }
     }
     addEventListener(_type: string, cb: (ev: MessageEvent) => void) { this.listeners.add(cb); }
@@ -94,7 +100,7 @@ function installBus() {
   vi.stubGlobal("BroadcastChannel", BusChannel as unknown as typeof BroadcastChannel);
 }
 
-function openWindow() {
+function openWindow(reactStrictMode: boolean) {
   const backend = makeBackend();
   const storageConfig = { kind: "browser" } as StorageConfig;
   backendFor.set(storageConfig, backend);
@@ -112,6 +118,7 @@ function openWindow() {
   };
   const hook = renderHook(() => { useStorageBackend(args); return useWorkspace(); }, {
     wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+    reactStrictMode, // ★ the option, not a StrictMode inside the wrapper (strictmode.meta.test.tsx)
   });
   const conflicts = () => onStorageOutcome.mock.calls.filter(([err]) => err instanceof SaveConflictError).length;
   return { backend, hook, conflicts };
@@ -127,7 +134,7 @@ async function run(ms: number) {
 const task = (id: number, taskName: string) => ({ id, taskName }) as unknown as Task;
 const raidItem = (id: string, title: string) => ({ id, title }) as unknown as RaidItem;
 
-describe("useStorageBackend — a mirrored edit is saved once, by its writer (§4)", () => {
+describe.each([false, true])("useStorageBackend — a mirrored edit is saved once, by its writer (§4), reactStrictMode=%s", (strict) => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
     installBus();
@@ -141,12 +148,12 @@ describe("useStorageBackend — a mirrored edit is saved once, by its writer (§
   });
 
   async function openBoth() {
-    const a = openWindow();
-    const b = openWindow();
+    const a = openWindow(strict);
+    const b = openWindow(strict);
     await run(0);
     await run(1000); // both loads applied, their suppressed runs spent
-    expect(a.backend.load).toHaveBeenCalledTimes(1);
-    expect(b.backend.load).toHaveBeenCalledTimes(1);
+    expect(a.backend.load).toHaveBeenCalled(); // twice under StrictMode: its first effect run is cancelled
+    expect(b.backend.load).toHaveBeenCalled();
     return { a, b };
   }
 
@@ -220,5 +227,22 @@ describe("useStorageBackend — a mirrored edit is saved once, by its writer (§
     await run(500 + LATENCY_MS + 100);
     expect(b.backend.save.mock.calls.length + b.conflicts()).toBeGreaterThan(0);
     expect(store.workspace.tasks).toEqual([]);
+  });
+
+  // Two peer values of one part reaching B before B renders: the first is applied eagerly, the second
+  // in render — where StrictMode runs the updater twice. Both runs must judge it mirrored.
+  it("a peer's consecutive edits of one part, applied in one render, stay mirrored", async () => {
+    const { a, b } = await openBoth();
+    bus.hold = true;
+    await act(async () => { a.hook.result.current.setTasks([task(1, "A1")]); });
+    await act(async () => { a.hook.result.current.setTasks([task(1, "A2")]); });
+    bus.hold = false;
+    expect(bus.held.length).toBeGreaterThanOrEqual(2); // both of A's tasks messages are waiting for B
+    await act(async () => { bus.release(); });
+    expect(b.hook.result.current.tasks.map((x) => x.taskName)).toEqual(["A2"]);
+    await run(500 + LATENCY_MS + 100);
+    expect(b.backend.save).not.toHaveBeenCalled();
+    expect(a.conflicts() + b.conflicts()).toBe(0);
+    expect(store.workspace.tasks.map((x) => x.taskName)).toEqual(["A2"]);
   });
 });

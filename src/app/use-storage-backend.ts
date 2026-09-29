@@ -340,15 +340,22 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const savedWorkspaceRef = useRef<Workspace | null>(null);
   const mirroredRef = useRef(new Map<string, unknown>());
   const contestedRef = useRef(new Set<string>());
-  const markWorkspaceSaved = (ws: Workspace): void => { savedWorkspaceRef.current = ws; mirroredRef.current = new Map(); contestedRef.current = new Set(); };
+  const peerValuesRef = useRef(new Map<string, Set<unknown>>()); // per slice: every peer value applied since then
+  const markWorkspaceSaved = (ws: Workspace): void => { savedWorkspaceRef.current = ws; mirroredRef.current = new Map(); contestedRef.current = new Set(); peerValuesRef.current = new Map(); };
   // The applier tab sync calls for a peer's value. `live` is the updater's `prev`: the slice with every
   // update queued before this one applied — an own edit a setter queued but React has not committed yet
-  // included — so it is current where committed state can lag. Idempotent, as an updater may run twice.
+  // included — so it is current where committed state can lag.
+  // ★★ The SAME ANSWER HOWEVER OFTEN REACT RUNS IT: StrictMode runs an updater processed in render twice.
+  //   `live` is own-unsaved when it is neither the saved value nor ANY peer value applied since; the set only
+  //   gains `value`, never `live`, so a second run judges `live` exactly as the first. Every write repeats
+  //   harmlessly. Judging against the LATEST mirrored entry instead flipped the second run to contested, as
+  //   the first had just moved that entry to `value`. No early return on "entry already === value": a
+  //   replayed render may carry an own edit in `live` that the first run did not see.
   const mirrorApply = useMemo(() => {
     const judge = (kind: string, live: unknown, value: unknown): void => {
-      const saved = savedWorkspaceRef.current;
-      const isOwnUnsaved = !Object.is(live, saved?.[kind as keyof Workspace]) && !(mirroredRef.current.has(kind) && Object.is(live, mirroredRef.current.get(kind)));
-      if (isOwnUnsaved || contestedRef.current.has(kind)) { contestedRef.current.add(kind); mirroredRef.current.delete(kind); return; }
+      const peerValues = peerValuesRef.current.get(kind) ?? new Set<unknown>();
+      if (!Object.is(live, savedWorkspaceRef.current?.[kind as keyof Workspace]) && !peerValues.has(live)) contestedRef.current.add(kind);
+      peerValuesRef.current.set(kind, peerValues.add(value));
       mirroredRef.current.set(kind, value);
     };
     const into = <T,>(kind: keyof Workspace, set: Dispatch<SetStateAction<T>>) => (value: T): void => { set((live) => { judge(kind, live, value); return value; }); };
