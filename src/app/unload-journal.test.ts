@@ -473,13 +473,18 @@ describe("fingerprint round-trip: sp-json (SharePoint JSON)", () => {
 
   beforeEach(() => {
     stored = null;
-    fetchSpy = vi.fn(async (_url: string, init?: RequestInit) => {
+    fetchSpy = vi.fn(async (url: string, init?: RequestInit) => {
       if (init?.method === "PUT") {
         stored = init.body as string;
         return { ok: true, status: 200, headers: new Headers(), text: async () => "" } as unknown as Response;
       }
       if (stored === null) return { ok: false, status: 404, headers: new Headers(), text: async () => "" } as unknown as Response;
-      return { ok: true, status: 200, headers: new Headers(), text: async () => stored as string } as unknown as Response;
+      // §4 (R13): a load is the item metadata, then the bytes from the pre-authenticated download URL.
+      if (url.startsWith("https://download.example.test/")) {
+        return { ok: true, status: 200, headers: new Headers(), text: async () => stored as string } as unknown as Response;
+      }
+      const meta = JSON.stringify({ eTag: '"e1"', "@microsoft.graph.downloadUrl": "https://download.example.test/dl" });
+      return { ok: true, status: 200, headers: new Headers(), text: async () => meta } as unknown as Response;
     });
     vi.stubGlobal("fetch", fetchSpy);
   });

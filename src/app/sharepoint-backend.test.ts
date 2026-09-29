@@ -197,6 +197,28 @@ const CONTENT_URL =
   "https://graph.microsoft.com/v1.0/sites/contoso.sharepoint.com:/sites/Alpha:/drive/root:/Shared%20Documents/lop/workspace.json:/content";
 // Bare colons in the path break msw's path-param matcher, so match by RegExp.
 const CONTENT_RE = /graph\.microsoft\.com\/v1\.0\/sites\/.+\/content$/;
+// §4 (R13) — the load is TWO requests: item metadata (eTag + pre-authenticated download URL), then the
+// bytes from that URL on another host. The metadata URL is the content URL minus its `:/content` tail.
+const META_RE = /graph\.microsoft\.com\/v1\.0\/sites\/[^?]*workspace\.json$/;
+const META_URL_PREFIX =
+  "https://graph.microsoft.com/v1.0/sites/contoso.sharepoint.com:/sites/Alpha:/drive/root:/Shared%20Documents/lop/workspace.json";
+const DOWNLOAD_URL = "https://download.example.test/dl/abc?tempauth=xyz";
+/** Serves a whole load. `getResp` answers the FILE: a non-ok response fails the METADATA step (that is
+ *  where 404/401/403/5xx now arrive), an ok one is the bytes served from the download URL. `etag` goes in
+ *  the metadata BODY only (null omits it), never as a header. `downloadUrl: null` omits the URL. */
+function serveLoad(getResp: () => Response, etag: string | null = '"e1"', downloadUrl: string | null = DOWNLOAD_URL) {
+  return [
+    http.get(META_RE, () => {
+      const r = getResp();
+      if (!r.ok) return r;
+      return HttpResponse.json({
+        ...(etag !== null ? { eTag: etag } : {}),
+        ...(downloadUrl !== null ? { "@microsoft.graph.downloadUrl": downloadUrl } : {}),
+      });
+    }),
+    http.get(DOWNLOAD_URL.split("?")[0], () => getResp()),
+  ];
+}
 
 const EMPTY_WORKSPACE: Workspace = {
   tasks: [],
@@ -263,25 +285,26 @@ describe("SharePointBackend", () => {
 
   it("load constructs the correct Graph URL", async () => {
     const requests: Request[] = [];
-    server.use(http.get(CONTENT_RE, ({ request }) => {
+    server.use(http.get(META_RE, ({ request }) => {
       requests.push(request);
-      return HttpResponse.json(EMPTY_WORKSPACE);
-    }));
+      return HttpResponse.json({ eTag: '"e1"', "@microsoft.graph.downloadUrl": DOWNLOAD_URL });
+    }), http.get(DOWNLOAD_URL.split("?")[0], () => HttpResponse.json(EMPTY_WORKSPACE)));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await be.load();
     expect(requests).toHaveLength(1);
-    expect(requests[0].url).toBe(CONTENT_URL);
+    expect(decodeURIComponent(requests[0].url)).toBe(`${decodeURIComponent(META_URL_PREFIX)}?$select=eTag,@microsoft.graph.downloadUrl`);
+    expect(requests[0].headers.get("Authorization")).toBe("Bearer fake-token");
   });
 
   it("load 200 returns parsed Workspace for sp-json", async () => {
-    server.use(http.get(CONTENT_RE, () => HttpResponse.json(EMPTY_WORKSPACE)));
+    server.use(...serveLoad(() => HttpResponse.json(EMPTY_WORKSPACE)));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     const ws = await be.load();
     expect(ws.tasks).toEqual([]);
   });
 
   it("load 404 returns default empty Workspace", async () => {
-    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 404 })));
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     const ws = await be.load();
     expect(ws.tasks).toEqual([]);
@@ -306,13 +329,13 @@ describe("SharePointBackend", () => {
     '# TASKS\r\nid,taskName,blockers\r\n,No id at all,\r\n7,T7,"never closed';
 
   it("load 404 clears the import flags a previous CSV load set", async () => {
-    server.use(http.get(CONTENT_RE, () => HttpResponse.text(DIRTY_CSV)));
+    server.use(...serveLoad(() => HttpResponse.text(DIRTY_CSV)));
     const be = new SharePointBackend({ kind: "sp-csv", ...FAKE_LOCATION }, acquireToken);
     await be.load();
     expect(be.lastImportUnterminatedQuote).toBe(true);
     expect(be.lastImportDroppedRows).toBeGreaterThan(0);
 
-    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 404 })));
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
     await be.load();
     expect(be.lastImportUnterminatedQuote).toBe(false);
     expect(be.lastImportDroppedRows).toBe(0);
@@ -326,7 +349,7 @@ describe("SharePointBackend", () => {
   // import-flag reset and re-published a previous load's diagnostics for a file
   // that no longer exists.
   it("publishes the per-section breakdown and clears it on a 404", async () => {
-    server.use(http.get(CONTENT_RE, () => HttpResponse.text(DIRTY_CSV)));
+    server.use(...serveLoad(() => HttpResponse.text(DIRTY_CSV)));
     const be = new SharePointBackend({ kind: "sp-csv", ...FAKE_LOCATION }, acquireToken);
     await be.load();
     // The positive observable: DIRTY_CSV's id-less row is a dropped TASK, so the
@@ -335,7 +358,7 @@ describe("SharePointBackend", () => {
     expect(be.lastImportDroppedBySection).toEqual({ tasks: 1 });
     expect(be.lastImportDroppedRows).toBe(1);
 
-    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 404 })));
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
     await be.load();
     // ★ Absent, not zero-filled — same rule as the codec layer.
     expect(be.lastImportDroppedBySection).toBeUndefined();
@@ -346,7 +369,7 @@ describe("SharePointBackend", () => {
   // recorded (and saving pauses on the load paths that call `reportFor`)
   // instead of the whole load failing.
   it("records a documents rich-field throw instead of failing the load (§635)", async () => {
-    server.use(http.get(CONTENT_RE, () => HttpResponse.json({ ...EMPTY_WORKSPACE, documents: [{ id: 1, title: "Status report", blocks: [{ type: "paragraph", html: "<p>reaches DOMPurify</p>" }], createdAt: "2026-08-06T00:00:00.000Z", updatedAt: "2026-08-06T00:00:00.000Z" }] })));
+    server.use(...serveLoad(() => HttpResponse.json({ ...EMPTY_WORKSPACE, documents: [{ id: 1, title: "Status report", blocks: [{ type: "paragraph", html: "<p>reaches DOMPurify</p>" }], createdAt: "2026-08-06T00:00:00.000Z", updatedAt: "2026-08-06T00:00:00.000Z" }] })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     richThrow.on = true;
     try {
@@ -364,7 +387,7 @@ describe("SharePointBackend", () => {
   // into `diag.decodeFailedSlices`; this backend's job is only to PUBLISH what
   // `load`'s `diag` collected, exactly like `lastLoadTruncation`.
   it("publishes a slice the JSON load could not decode", async () => {
-    server.use(http.get(CONTENT_RE, () => HttpResponse.json({ ...EMPTY_WORKSPACE, steeringCommittee: "not-an-object" })));
+    server.use(...serveLoad(() => HttpResponse.json({ ...EMPTY_WORKSPACE, steeringCommittee: "not-an-object" })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await be.load();
     expect(be.lastDecodeFailures).toEqual(["steeringCommittee"]);
@@ -374,19 +397,19 @@ describe("SharePointBackend", () => {
   // into the same accumulator (csv-codecs.meta-slices.test.ts pins the codec);
   // this pins that an `sp-csv` load publishes it.
   it("publishes a slice the CSV load could not decode", async () => {
-    server.use(http.get(CONTENT_RE, () => HttpResponse.text("# TASKS\r\nid,taskName\r\n7,T7\r\n\r\n# INSIGHTS\r\nconfig,{not json\r\n")));
+    server.use(...serveLoad(() => HttpResponse.text("# TASKS\r\nid,taskName\r\n7,T7\r\n\r\n# INSIGHTS\r\nconfig,{not json\r\n")));
     const be = new SharePointBackend({ kind: "sp-csv", ...FAKE_LOCATION }, acquireToken);
     await be.load();
     expect(be.lastDecodeFailures).toEqual(["insights"]);
   });
 
   it("clears the flag on the next clean load", async () => {
-    server.use(http.get(CONTENT_RE, () => HttpResponse.json({ ...EMPTY_WORKSPACE, steeringCommittee: "not-an-object" })));
+    server.use(...serveLoad(() => HttpResponse.json({ ...EMPTY_WORKSPACE, steeringCommittee: "not-an-object" })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await be.load();
     expect(be.lastDecodeFailures).toEqual(["steeringCommittee"]); // the state this test needs to exist
 
-    server.use(http.get(CONTENT_RE, () => HttpResponse.json(EMPTY_WORKSPACE)));
+    server.use(...serveLoad(() => HttpResponse.json(EMPTY_WORKSPACE)));
     await be.load();
     expect(be.lastDecodeFailures).toEqual([]);
   });
@@ -395,30 +418,30 @@ describe("SharePointBackend", () => {
   // standing — same `finally` publishes both `lastLoadTruncation` and
   // `lastDecodeFailures` on every exit, throwing ones included.
   it("clears decode failures too when a later load throws (500)", async () => {
-    server.use(http.get(CONTENT_RE, () => HttpResponse.json({ ...EMPTY_WORKSPACE, steeringCommittee: "not-an-object" })));
+    server.use(...serveLoad(() => HttpResponse.json({ ...EMPTY_WORKSPACE, steeringCommittee: "not-an-object" })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await be.load();
     expect(be.lastDecodeFailures).toEqual(["steeringCommittee"]); // the state this test needs to exist
 
-    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 500 })));
+    server.use(...serveLoad(() => new HttpResponse("", { status: 500 })));
     await expect(be.load()).rejects.toThrow(/sharepoint returned 500/i);
     expect(be.lastDecodeFailures).toEqual([]);
   });
 
   it("load 401 throws StorageNotReadyError with reauthenticate hint", async () => {
-    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 401 })));
+    server.use(...serveLoad(() => new HttpResponse("", { status: 401 })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await expect(be.load()).rejects.toThrow(/sign-in expired/i);
   });
 
   it("load 403 throws StorageNotReadyError with permission hint", async () => {
-    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 403 })));
+    server.use(...serveLoad(() => new HttpResponse("", { status: 403 })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await expect(be.load()).rejects.toThrow(/permission denied/i);
   });
 
   it("load 500 throws with friendly hint", async () => {
-    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 500 })));
+    server.use(...serveLoad(() => new HttpResponse("", { status: 500 })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await expect(be.load()).rejects.toThrow(/sharepoint returned 500/i);
   });
@@ -481,12 +504,14 @@ describe("SharePointBackend revision guard (§4)", () => {
   beforeEach(() => { acquireToken = vi.fn().mockResolvedValue("fake-token"); });
   afterEach(() => { vi.unstubAllGlobals(); });
   const make = () => new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
-  const loadOk = (etag?: string) => server.use(http.get(CONTENT_RE, () =>
-    HttpResponse.json(EMPTY_WORKSPACE, etag ? { headers: { ETag: etag } } : undefined)));
+  const putUrls: string[] = [];
+  const CREATE_ONLY = "@microsoft.graph.conflictBehavior=fail";
+  const loadOk = (etag?: string) => server.use(...serveLoad(() => HttpResponse.json(EMPTY_WORKSPACE), etag ?? null));
   /** Captures each PUT's If-Match (null when absent) and answers with `respond`. */
   function capturePuts(respond: () => Response = () => HttpResponse.json({ eTag: '"new,2"' }, { status: 200 })) {
     const seen: (string | null)[] = [];
-    server.use(http.put(CONTENT_RE, ({ request }) => { seen.push(request.headers.get("If-Match")); return respond(); }));
+    putUrls.length = 0;
+    server.use(http.put(CONTENT_RE, ({ request }) => { seen.push(request.headers.get("If-Match")); putUrls.push(request.url); return respond(); }));
     return seen;
   }
 
@@ -590,17 +615,121 @@ describe("SharePointBackend revision guard (§4)", () => {
     expect(be.revision()).toBeNull();
   });
 
-  it("a load that 404s (no file yet) is a loaded baseline with no ETag", async () => {
-    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 404 })));
-    const seen = capturePuts(() => new HttpResponse("", { status: 201 }));
+  it("a load that 404s (no file yet) is a loaded baseline that may CREATE, create-only, without If-Match", async () => {
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
+    const seen = capturePuts();
+    const be = make();
+    await be.load();
+    expect(be.revision()).toBeNull();
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual([null]);
+    expect(putUrls[0]).toContain(CREATE_ONLY);
+  });
+
+  it("after a successful create the instance is 'loaded with an ETag': the next save sends If-Match and no conflictBehavior", async () => {
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
+    const seen = capturePuts();
     const be = make();
     await be.load();
     await be.save(EMPTY_WORKSPACE);
+    expect(be.revision()).toBe('"new,2"');
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual([null, '"new,2"']);
+    expect(putUrls[1]).not.toContain("conflictBehavior");
+  });
+
+  it("a 409 on the create becomes SaveConflictError, and the state stays absent (a retry is still create-only)", async () => {
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
+    capturePuts(() => new HttpResponse("", { status: 409 }));
+    const be = make();
+    await be.load();
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+    expect(be.revision()).toBeNull();
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+    expect(putUrls).toHaveLength(2);
+    expect(putUrls.every((u) => u.includes(CREATE_ONLY))).toBe(true);
+  });
+
+  it("a 412 on the create is also a SaveConflictError", async () => {
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
+    capturePuts(() => new HttpResponse("", { status: 412 }));
+    const be = make();
+    await be.load();
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+  });
+
+  it("a forced save on an absent baseline sends neither If-Match nor conflictBehavior", async () => {
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
+    const seen = capturePuts();
+    const be = make();
+    await be.load();
+    be.forceNextSave();
+    await be.save(EMPTY_WORKSPACE);
     expect(seen).toEqual([null]);
+    expect(putUrls[0]).not.toContain("conflictBehavior");
+  });
+
+  it("adoptFrom copies the absent state; adoptRevision leaves it", async () => {
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
+    const seen = capturePuts();
+    const source = make();
+    await source.load();
+    const live = make();
+    live.adoptFrom(source);
+    await live.save(EMPTY_WORKSPACE);
+    expect(putUrls[0]).toContain(CREATE_ONLY);
+    const other = make();
+    other.adoptRevision('"r"');
+    await other.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual([null, '"r"']);
+    expect(putUrls[1]).not.toContain("conflictBehavior");
+  });
+
+  it("the ETag comes from the metadata BODY even though no response carries an ETag header", async () => {
+    server.use(...serveLoad(() => HttpResponse.json(EMPTY_WORKSPACE), '"body-only,7"'));
+    const be = make();
+    await be.load();
+    expect(be.revision()).toBe('"body-only,7"');
+  });
+
+  it("the download request carries NO Authorization header, and the metadata request does", async () => {
+    const auth: Record<string, string | null> = {};
+    server.use(
+      http.get(META_RE, ({ request }) => {
+        auth.meta = request.headers.get("Authorization");
+        return HttpResponse.json({ eTag: '"e1"', "@microsoft.graph.downloadUrl": DOWNLOAD_URL });
+      }),
+      http.get(DOWNLOAD_URL.split("?")[0], ({ request }) => {
+        auth.download = request.headers.get("Authorization");
+        return HttpResponse.json(EMPTY_WORKSPACE);
+      }),
+    );
+    await make().load();
+    expect(auth).toEqual({ meta: "Bearer fake-token", download: null });
+  });
+
+  it("a missing downloadUrl fails the load and leaves the instance never-loaded", async () => {
+    server.use(...serveLoad(() => HttpResponse.json(EMPTY_WORKSPACE), '"e1"', null));
+    const seen = capturePuts();
+    const be = make();
+    await expect(be.load()).rejects.toThrow(/download/i);
+    expect(be.revision()).toBeNull();
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+    expect(seen).toEqual([]);
+  });
+
+  it("a failing download (non-ok) fails the load and leaves the instance never-loaded", async () => {
+    server.use(
+      http.get(META_RE, () => HttpResponse.json({ eTag: '"e1"', "@microsoft.graph.downloadUrl": DOWNLOAD_URL })),
+      http.get(DOWNLOAD_URL.split("?")[0], () => new HttpResponse("", { status: 503 })),
+    );
+    const be = make();
+    await expect(be.load()).rejects.toThrow(/503/);
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
   });
 
   it("a failed load leaves a fresh instance never-loaded (save refuses)", async () => {
-    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 500, headers: { ETag: '"x"' } })));
+    server.use(...serveLoad(() => new HttpResponse("", { status: 500 })));
     const seen = capturePuts();
     const be = make();
     await expect(be.load()).rejects.toThrow(/sharepoint returned 500/i);
@@ -610,7 +739,7 @@ describe("SharePointBackend revision guard (§4)", () => {
   });
 
   it("a load whose body fails to parse does not become the baseline", async () => {
-    server.use(http.get(CONTENT_RE, () => new HttpResponse("{not json", { status: 200, headers: { ETag: '"bad"' } })));
+    server.use(...serveLoad(() => new HttpResponse("{not json", { status: 200 }), '"bad"'));
     const be = make();
     await expect(be.load()).rejects.toThrow();
     expect(be.revision()).toBeNull();
