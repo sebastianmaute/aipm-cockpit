@@ -1,4 +1,5 @@
-import { describe, expect, it, vi, afterEach } from "vitest";
+import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
+import { __resetAiKeyStatusForTests, getAiKeyStatus } from "./ai-key-status";
 import { renderHook, waitFor } from "@testing-library/react";
 import { useChatModels } from "./use-chat-models";
 
@@ -64,5 +65,24 @@ describe("useChatModels", () => {
     renderHook(() => useChatModels("", true, "claude-sonnet-4-6"));
     renderHook(() => useChatModels("not-a-key", true, "claude-sonnet-4-6"));
     expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe("useChatModels — §650 its own /v1/models answer feeds the key verdict", () => {
+  beforeEach(() => __resetAiKeyStatusForTests());
+
+  it.each([
+    [401, "rejected"],
+    [403, "forbidden"],
+  ] as const)("a %i reports %s instead of being swallowed", async (status, expected) => {
+    mockFetchOnce({ error: { type: "authentication_error" } }, false, status);
+    renderHook(() => useChatModels(KEY, true, "claude-sonnet-4-6"));
+    await waitFor(() => expect(getAiKeyStatus()).toBe(expected));
+  });
+
+  it("a 200 reports ok", async () => {
+    mockFetchOnce({ data: [] });
+    renderHook(() => useChatModels(KEY, true, "claude-sonnet-4-6"));
+    await waitFor(() => expect(getAiKeyStatus()).toBe("ok"));
   });
 });

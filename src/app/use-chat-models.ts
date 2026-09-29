@@ -1,7 +1,7 @@
 // src/app/use-chat-models.ts
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { ANTHROPIC_VERSION } from "./chat-api";
+import { fetchAnthropicModels } from "./anthropic-models";
 import { CHAT_MODELS } from "./settings-types";
 import {
   buildModelOptions,
@@ -35,20 +35,10 @@ export function useChatModels(
     const ctrl = new AbortController();
     void (async () => {
       try {
-        const res = await fetch("https://api.anthropic.com/v1/models?limit=1000", {
-          headers: {
-            "x-api-key": key,
-            "anthropic-version": ANTHROPIC_VERSION,
-            "anthropic-dangerous-direct-browser-access": "true",
-          },
-          signal: ctrl.signal,
-        });
-        if (!res.ok) {
-          if (active) setLiveState({ key, models: [] });
-          return;
-        }
-        const body = (await res.json()) as { data?: LiveModel[] };
-        if (active) setLiveState({ key, models: Array.isArray(body.data) ? body.data : [] });
+        // §650 — the shared fetch reports a 401/403 into the key verdict (`ai-key-status.ts`)
+        // instead of the failure being swallowed here.
+        const result = await fetchAnthropicModels(key, ctrl.signal);
+        if (active) setLiveState({ key, models: result.kind === "ok" ? result.models : [] });
       } catch {
         // Network/parse/abort — silent fallback to the registry.
         if (active) setLiveState({ key: "", models: [] });
