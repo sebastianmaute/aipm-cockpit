@@ -11,12 +11,38 @@ import {
 import { withDefault } from "./comm-templates";
 import type { CommTemplate, CommTemplateCategory } from "./comm-templates";
 import type { TursoConfig } from "./turso-config";
+import { logDiag } from "./diagnostics";
+import { pendingEditScope, settlePendingEdit, takePendingEdits, trackPendingEdit } from "./pending-edits";
+import type { PendingEditKind } from "./pending-edits";
+
+/** §626 — the outbox kinds for a template's two draftable fields. */
+export type TemplateDraftField = "name" | "body";
+const DRAFT_KIND: Record<TemplateDraftField, PendingEditKind> = { name: "template-name", body: "template-body" };
+
+/** The outbox scope for the templates of a Turso database, or null when there is no usable config
+ *  (hashing an absent URL would throw). */
+function outboxScope(config: TursoConfig | null): string | null {
+  const url: unknown = config?.httpUrl;
+  return typeof url === "string" && url.length > 0 ? pendingEditScope(url, "templates") : null;
+}
+
+/** A typed template name as the commit stores it: trimmed, and null when nothing is left. Shared by the
+ *  section's commit and the outbox replay so both normalize identically. */
+export function normalizeTemplateName(raw: string): string | null {
+  const name = raw.trim();
+  return name.length > 0 ? name : null;
+}
 
 export interface UseCommTemplatesArgs {
   /** True only when storage is Turso, tursoConfig !== null, and not a popout. */
   active: boolean;
   config: TursoConfig | null;
+  /** §626 — a startup replay write failed. Carries kind and id only (never the draft); the caller
+   *  reports it the way a failed template save is reported. The edit stays in the outbox. */
+  onReplayFailure?: (edit: { kind: PendingEditKind; id: string }) => void;
 }
+
+type FieldPatch = Partial<Pick<CommTemplate, "name" | "body">>;
 
 export interface UseCommTemplatesResult {
   templates: CommTemplate[];
@@ -24,6 +50,9 @@ export interface UseCommTemplatesResult {
   create: (category: CommTemplateCategory, name: string, body: string) => Promise<void>;
   rename: (id: string, name: string) => Promise<void>;
   saveBody: (id: string, body: string) => Promise<void>;
+  /** §626 — reports the draft in a name or body field so it survives a page close. A value equal to
+   *  the stored field cancels the draft. */
+  trackDraft: (id: string, field: TemplateDraftField, value: string) => void;
   remove: (id: string) => Promise<void>;
   setDefault: (category: CommTemplateCategory, id: string) => Promise<void>;
   resolveTemplateBody: (category: CommTemplateCategory) => string | null;
@@ -31,7 +60,14 @@ export interface UseCommTemplatesResult {
 }
 
 export function useCommTemplates(args: UseCommTemplatesArgs): UseCommTemplatesResult {
-  const { active, config } = args;
+  const { active, config, onReplayFailure } = args;
+  const onReplayFailureRef = useRef(onReplayFailure);
+  useEffect(() => { onReplayFailureRef.current = onReplayFailure; }, [onReplayFailure]);
+  // §626. The value each in-flight write is saving, per `kind:id`: a draft dropped back to the
+  // confirmed value while that save is still out must keep the save's edit tracked. `seq` is the write
+  // that set it last (§653: a later write carrying the same value takes it over), and only that write
+  // removes it — an earlier one settling must not leave a write still in flight unaccounted for.
+  const inFlightRef = useRef(new Map<string, { value: string; seq: number }>());
   const [templates, setTemplates] = useState<CommTemplate[]>([]);
   const [busy, setBusy] = useState(false);
   const cfgRef = useRef(config);
@@ -40,17 +76,39 @@ export function useCommTemplates(args: UseCommTemplatesArgs): UseCommTemplatesRe
   const opSeqRef = useRef(0);
   useEffect(() => { cfgRef.current = config; }, [config]);
 
+  // §626 (R9). The last SERVER-CONFIRMED name and body per template id: set from every load and moved
+  // only once a write resolves. The outbox `base` comes from here, never from optimistic local state,
+  // so a draft typed while an earlier save is still in flight is based on what the server holds.
+  const confirmedRef = useRef(new Map<string, { name: string; body: string }>());
+  // The whole row, name and body: every upsert writes the full row (comm-templates-schema.ts), so the
+  // server holds the pair a landed write carried, never a mix of two writes' fields.
+  const confirm = useCallback((tpl: CommTemplate) => {
+    confirmedRef.current.set(tpl.id, { name: tpl.name, body: tpl.body });
+  }, []);
+  // §626 (R14, R18). Per template id, the `opSeqRef` number of the newest write that has landed. Writes
+  // can resolve out of order; the newest issued write is taken as the row the server ends up holding, so
+  // an older one landing after it confirms nothing, settles nothing and changes nothing on screen.
+  const landedSeqRef = useRef(new Map<string, number>());
+  const adoptLoaded = useCallback((list: readonly CommTemplate[]) => {
+    confirmedRef.current = new Map(list.map((t) => [t.id, { name: t.name, body: t.body }]));
+  }, []);
+
+  // Written by the render below, once upsertField exists: both load success paths replay through it.
+  const replayRef = useRef<(loaded: readonly CommTemplate[]) => void>(() => {});
+
   const load = useCallback(async () => {
     if (!active || !cfgRef.current) return;
     const startSeq = opSeqRef.current;
     try {
       const list = await loadTemplates(cfgRef.current);
       if (opSeqRef.current !== startSeq) return;
+      adoptLoaded(list);
       setTemplates(list);
+      replayRef.current(list);
     } catch {
       // Optional feature: swallow so the send flow falls back to i18n.
     }
-  }, [active]);
+  }, [active, adoptLoaded]);
 
   useEffect(() => {
     if (!active || !cfgRef.current) return;
@@ -60,14 +118,16 @@ export function useCommTemplates(args: UseCommTemplatesArgs): UseCommTemplatesRe
       try {
         const list = await loadTemplates(cfgRef.current);
         if (cancelled || opSeqRef.current !== startSeq) return;
+        adoptLoaded(list);
         setTemplates(list);
+        replayRef.current(list);
       } catch {
         // ignore
       }
     })();
     return () => { cancelled = true; };
-    // active is the only meaningful trigger; config is read via cfgRef.
-  }, [active]);
+    // active is the only meaningful trigger; config is read via cfgRef. adoptLoaded is stable.
+  }, [active, adoptLoaded]);
 
   const create = useCallback(async (category: CommTemplateCategory, name: string, body: string) => {
     if (!active || !cfgRef.current) return;
@@ -81,26 +141,125 @@ export function useCommTemplates(args: UseCommTemplatesArgs): UseCommTemplatesRe
       const isDefault = !templates.some((tpl) => tpl.category === category && tpl.isDefault);
       const tpl: CommTemplate = { id: `${category}-${now}-${suffix}`, category, name, body, isDefault, createdAt: now, updatedAt: now };
       await storeUpsert(cfgRef.current, tpl);
+      confirm(tpl);
       setTemplates((prev) => [...prev, tpl]);
     } finally {
       setBusy(false);
     }
-  }, [active, templates]);
+  }, [active, templates, confirm]);
 
-  const upsertField = useCallback(async (id: string, patch: Partial<Pick<CommTemplate, "name" | "body">>) => {
-    if (!active || !cfgRef.current) return;
-    opSeqRef.current += 1;
+  /** Writes `patch` onto `existing` (a full-row upsert). Once the durable write resolves, and unless a
+   *  newer write for the template has already landed, the saved row becomes the confirmed base and the
+   *  on-screen row, and each patched field's outbox edit is settled with the value just saved: a newer
+   *  draft typed while the write was in flight stays. A stale landing changes nothing, so its row can
+   *  never become the `existing` of a later write and push older values back to the server. A rejection
+   *  leaves the edit tracked. */
+  const writeField = useCallback(async (existing: CommTemplate, ownPatch: FieldPatch) => {
+    const cfg = cfgRef.current;
+    if (!active || !cfg) return;
+    const seq = (opSeqRef.current += 1);
     setBusy(true);
+    // §653. `existing` is the row as last CONFIRMED, so a field another write is still saving would go
+    // out with its old value and, landing last, put it back on the server. Every write therefore also
+    // carries the value each other field's in-flight write is saving: the write that lands last holds
+    // the newest of both fields, in either landing order.
+    const patch: FieldPatch = { ...ownPatch };
+    for (const field of ["name", "body"] as const) {
+      const carried = inFlightRef.current.get(`${DRAFT_KIND[field]}:${existing.id}`)?.value;
+      if (patch[field] === undefined && carried !== undefined) patch[field] = carried;
+    }
+    const saving = (["name", "body"] as const).flatMap((field) => {
+      const saved = patch[field];
+      return saved === undefined ? [] : [{ field, saved, key: `${DRAFT_KIND[field]}:${existing.id}` }];
+    });
+    for (const { key, saved } of saving) inFlightRef.current.set(key, { value: saved, seq });
     try {
-      const existing = templates.find((t) => t.id === id);
-      if (!existing) return;
       const next: CommTemplate = { ...existing, ...patch, updatedAt: new Date().toISOString() };
-      await storeUpsert(cfgRef.current, next);
-      setTemplates((prev) => prev.map((t) => (t.id === id ? next : t)));
+      await storeUpsert(cfg, next);
+      if ((landedSeqRef.current.get(existing.id) ?? 0) > seq) return;
+      landedSeqRef.current.set(existing.id, seq);
+      // Settling last: it is the only step here that can throw, and it must not skip the confirm.
+      confirm(next);
+      setTemplates((prev) => prev.map((t) => (t.id === existing.id ? next : t)));
+      const scope = outboxScope(cfg);
+      if (scope) for (const { field, saved } of saving) settlePendingEdit(scope, DRAFT_KIND[field], existing.id, saved);
     } finally {
+      for (const { key } of saving) if (inFlightRef.current.get(key)?.seq === seq) inFlightRef.current.delete(key);
       setBusy(false);
     }
-  }, [active, templates]);
+  }, [active, confirm]);
+
+  const upsertField = useCallback(async (id: string, patch: FieldPatch) => {
+    const existing = templates.find((t) => t.id === id);
+    if (!existing) return;
+    await writeField(existing, patch);
+  }, [templates, writeField]);
+
+  // §626. Re-issues the name and body edits typed before the last close, once a load has succeeded.
+  // Two passes. First every edit that still applies is validated against the loaded list (a second
+  // stored edit for the same field, from another tab, sees the first as applied and drops as changed)
+  // and TRACKED before any write starts, as the chat replay does: a close during the replay keeps the
+  // drafts still waiting. Then the writes run in order, each settling its edit with the saved value.
+  // Normalized exactly as the commit is. A failed write leaves its edit tracked and is reported.
+  const replayEdits = useCallback((loaded: readonly CommTemplate[]) => {
+    const scope = outboxScope(cfgRef.current);
+    if (!active || !scope) return;
+    const edits = takePendingEdits(scope, Date.now());
+    if (edits.length === 0) return;
+    const accepted: { kind: PendingEditKind; id: string; field: TemplateDraftField; value: string }[] = [];
+    let expected = [...loaded];
+    for (const edit of edits) {
+      const field = (Object.keys(DRAFT_KIND) as TemplateDraftField[]).find((f) => DRAFT_KIND[f] === edit.kind);
+      if (!field) continue;
+      const target = expected.find((t) => t.id === edit.id);
+      if (!target) {
+        logDiag("warn", "storage.pendingEditDropped", { reason: "missing", kind: edit.kind, id: edit.id });
+        continue;
+      }
+      if (target[field] !== edit.base) {
+        logDiag("warn", "storage.pendingEditDropped", { reason: "changed", kind: edit.kind, id: edit.id });
+        continue;
+      }
+      const value = field === "name" ? normalizeTemplateName(edit.value) : edit.value;
+      if (value === null || value === target[field]) continue;
+      trackPendingEdit(scope, { kind: edit.kind, id: edit.id, base: edit.base, value });
+      accepted.push({ kind: edit.kind, id: edit.id, field, value });
+      expected = expected.map((t) => (t.id === target.id ? { ...t, [field]: value } : t));
+    }
+    if (accepted.length === 0) return;
+    void (async () => {
+      let written = [...loaded];
+      for (const { kind, id, field, value } of accepted) {
+        const target = written.find((t) => t.id === id);
+        if (!target) continue;
+        try {
+          await writeField(target, { [field]: value });
+          written = written.map((t) => (t.id === id ? { ...t, [field]: value } : t));
+        } catch {
+          // Kind and id only: the draft is the user's own content.
+          logDiag("warn", "storage.pendingEditReplayFailed", { kind, id });
+          onReplayFailureRef.current?.({ kind, id });
+        }
+      }
+    })();
+  }, [active, writeField]);
+  useEffect(() => { replayRef.current = replayEdits; }, [replayEdits]);
+
+  // §626. Keeps what the user wants `field` of template `id` to be for a page close. A name is compared
+  // as the commit stores it (trimmed; blank counts as unchanged), so the tracked value is the one a
+  // save settles. Equal to the confirmed value there is nothing to lose and the edit settles, unless a
+  // save for that field is still in flight: that save's edit stays tracked.
+  const trackDraft = useCallback((id: string, field: TemplateDraftField, value: string) => {
+    const scope = outboxScope(cfgRef.current);
+    const confirmed = confirmedRef.current.get(id);
+    if (!active || !scope || !confirmed) return;
+    const kind = DRAFT_KIND[field];
+    const wanted = field === "name" ? (normalizeTemplateName(value) ?? confirmed.name) : value;
+    const inFlight = inFlightRef.current.get(`${kind}:${id}`)?.value;
+    const keep = wanted !== confirmed[field] ? wanted : inFlight !== undefined && inFlight !== confirmed[field] ? inFlight : null;
+    if (keep === null) settlePendingEdit(scope, kind, id);
+    else trackPendingEdit(scope, { kind, id, base: confirmed[field], value: keep });
+  }, [active]);
 
   const rename = useCallback((id: string, name: string) => upsertField(id, { name }), [upsertField]);
   const saveBody = useCallback((id: string, body: string) => upsertField(id, { body }), [upsertField]);
@@ -111,6 +270,9 @@ export function useCommTemplates(args: UseCommTemplatesArgs): UseCommTemplatesRe
     setBusy(true);
     try {
       await storeDelete(cfgRef.current, id);
+      confirmedRef.current.delete(id);
+      const scope = outboxScope(cfgRef.current);
+      if (scope) for (const kind of Object.values(DRAFT_KIND)) settlePendingEdit(scope, kind, id);
       setTemplates((prev) => prev.filter((t) => t.id !== id));
     } finally {
       setBusy(false);
@@ -138,5 +300,5 @@ export function useCommTemplates(args: UseCommTemplatesArgs): UseCommTemplatesRe
     [active, templates],
   );
 
-  return { templates, busy, create, rename, saveBody, remove, setDefault, resolveTemplateBody, refresh: load };
+  return { templates, busy, create, rename, saveBody, trackDraft, remove, setDefault, resolveTemplateBody, refresh: load };
 }

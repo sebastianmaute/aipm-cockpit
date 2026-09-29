@@ -93,7 +93,8 @@ const FNV_PRIME_64 = BigInt("0x100000001b3");
 const MASK_64 = BigInt("0xffffffffffffffff");
 const MASK_53 = (BigInt(1) << BigInt(53)) - BigInt(1);
 
-function fnv1a53(input: string): string {
+/** Also the pending-edits outbox's scope hash (§626): a stable, non-reversible stand-in for a URL. */
+export function hashForStorageKey(input: string): string {
   let hash = FNV_OFFSET_BASIS_64;
   for (let i = 0; i < input.length; i++) {
     hash ^= BigInt(input.charCodeAt(i));
@@ -138,7 +139,7 @@ function sortKeysDeep(value: unknown): unknown {
 export function fingerprintWorkspace(ws: Workspace): string {
   const canonical = workspaceToJson(jsonToWorkspace(workspaceToJson(ws)));
   const sorted = sortKeysDeep(JSON.parse(canonical) as unknown);
-  return fnv1a53(JSON.stringify(sorted));
+  return hashForStorageKey(JSON.stringify(sorted));
 }
 
 // --- Record write / read / clear ---------------------------------------

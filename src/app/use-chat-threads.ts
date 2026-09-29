@@ -28,12 +28,71 @@ import type { ApiMessage, DisplayItem } from "./chat-api";
 import type { TursoConfig } from "./turso-config";
 import type { ConfirmFn } from "./confirm-dialog";
 import { loadThreads, saveThread, deleteThread as deleteThreadRow } from "./chat-threads-store";
-import { type ChatThread, newThreadId, deriveThreadName, stripAttachmentsForPersistence } from "./chat-threads";
+import {
+  type ChatThread, newThreadId, deriveThreadName, normalizeThreadName, stripAttachmentsForPersistence,
+} from "./chat-threads";
 import { publishChatThreads, clearChatThreadsFor } from "./chat-threads-registry";
+import { logDiag } from "./diagnostics";
+import {
+  pendingEditScope, trackPendingEdit, settlePendingEdit, rebasePendingEdit, takePendingEdits,
+} from "./pending-edits";
 import {
   mergeThreadsAfterLoad,
   resetThreadsAfterFailedLoad,
 } from "./chat-thread-load";
+
+/** §626 — the outbox kind for a thread rename. */
+const RENAME_KIND = "chat-thread-name" as const;
+
+/** The outbox scope for a Turso database and project, or null when there is no usable config (no
+ *  config, or one without a non-empty `httpUrl` — hashing an absent URL would throw inside a load
+ *  settle). */
+function outboxScope(tursoConfig: TursoConfig | null, projectId: string): string | null {
+  const url: unknown = tursoConfig?.httpUrl;
+  // `chat:` keeps a project whose id is literally "templates" off the templates outbox's key.
+  return typeof url === "string" && url.length > 0 ? pendingEditScope(url, `chat:${projectId}`) : null;
+}
+
+/** §604. Two configs name the same Turso database when their URLs match; the token may differ. */
+function sameDatabase(a: TursoConfig | null, b: TursoConfig | null): boolean {
+  return a?.httpUrl === b?.httpUrl;
+}
+
+/** The stored rename edits for `scope` that still apply to `loaded`. An edit whose thread is gone
+ *  (`missing`) or whose name has moved on since the draft began (`changed`) is dropped and logged —
+ *  kind and id only, never the typed value. */
+function takeRenameReplays(scope: string, loaded: readonly ChatThread[]): { target: ChatThread; value: string }[] {
+  const replays: { target: ChatThread; value: string }[] = [];
+  for (const edit of takePendingEdits(scope, Date.now())) {
+    if (edit.kind !== RENAME_KIND) continue;
+    const target = loaded.find((th) => th.id === edit.id);
+    if (!target) {
+      logDiag("warn", "storage.pendingEditDropped", { reason: "missing", kind: edit.kind, id: edit.id });
+    } else if (target.name !== edit.base) {
+      logDiag("warn", "storage.pendingEditDropped", { reason: "changed", kind: edit.kind, id: edit.id });
+    } else {
+      replays.push({ target, value: edit.value });
+    }
+  }
+  return replays;
+}
+
+/** A thread's newest landed write: its issue `seq`, and `at`, the landing count when it landed. */
+type LandedWrite = { seq: number; at: number };
+
+/** §626 (R11). Adopts a load's names as the confirmed ones, except for a thread whose save landed
+ *  after the load started (`landingsAtStart`): that name is newer than anything the load can have read. */
+function adoptConfirmedNames(
+  confirmed: Map<string, string>,
+  landed: ReadonlyMap<string, LandedWrite>,
+  loaded: readonly ChatThread[],
+  landingsAtStart: number,
+): void {
+  for (const th of loaded) {
+    if ((landed.get(th.id)?.at ?? 0) > landingsAtStart) continue;
+    confirmed.set(th.id, th.name);
+  }
+}
 
 /** Live render-scope values the Turso thread flows read each render. */
 export interface UseChatThreadsDeps {
@@ -181,6 +240,26 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   useEffect(() => {
     projectEpochRef.current += 1;
   }, [projectId]);
+  // §604. The same guard for the Turso DATABASE: a retryLoad issued against database A that settles
+  // after the config moved to B would put A's rows (and A's confirmed names, and A's outbox replay)
+  // under B. Bumped when the database URL changes — a token rotation for the same URL is not a move —
+  // and compared at settle beside `projectEpochRef`.
+  const targetEpochRef = useRef(0);
+  const targetUrl = tursoConfig?.httpUrl;
+  useEffect(() => {
+    targetEpochRef.current += 1;
+  }, [targetUrl]);
+  // §604. The live config, for a write pinned to a database: while the pinned database is still the
+  // current one it writes with the live config (a rotated token included), resolved when the write
+  // RUNS — a Retry too — and only a write whose database has moved keeps its pinned config.
+  const liveConfigRef = useRef(tursoConfig);
+  useEffect(() => {
+    liveConfigRef.current = tursoConfig;
+  });
+  function writeConfig(pinned: TursoConfig | null): TursoConfig | null {
+    const live = liveConfigRef.current;
+    return sameDatabase(pinned, live) ? live : pinned;
+  }
 
   // Publish to the module registry the AI dispatcher reads. See
   // chat-threads-registry.ts for why this is not a prop.
@@ -299,6 +378,19 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // adopt anything ever again.
   const persistSettledRef = useRef(0);
 
+  // §626. Per thread id, the last name the server is known to hold: set from every successful load
+  // and after a save of the thread resolves. It is an outbox entry's `base`, never the optimistic
+  // name in `threads` — a rename not yet landed is not what the next start's load will return, and
+  // replay drops an edit whose base differs from the loaded name.
+  const confirmedNamesRef = useRef<Map<string, string>>(new Map());
+
+  // §626 (R11). Per thread id, the newest write that has LANDED: its `seq`, and `at`, the value of
+  // `landingsRef` when it landed. `seq` keeps an older save resolving after a newer one from moving
+  // the confirmed name backwards; `at` lets a load that started before that landing leave the
+  // confirmed name alone, since what it read may predate the save.
+  const landedRef = useRef<Map<string, LandedWrite>>(new Map());
+  const landingsRef = useRef(0);
+
   // Fire a Turso WRITE (save or delete), tracking it as the retry target
   // (keyed by the thread id it targets) on failure and clearing just THAT
   // key on success — the error banner only clears once nothing is left
@@ -319,23 +411,41 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // assistant's reply was never persisted, and the user was never told.
   // A superseded call therefore returns without touching either the retry map
   // or the banner; the write that owns the key decides both.
-  function runPersist(key: string, action: () => Promise<void>): void {
+  //
+  // §626 (R11). `onLanded` runs for EVERY write that resolves, superseded or not, unless a newer
+  // write for the key has already landed: the server holds what a superseded save carried until a
+  // later one lands, so its name must be confirmed. `owns` tells it whether this write owns the key —
+  // only the owner may settle an outbox entry, which a later write may still depend on.
+  //
+  // `onLanded` runs LAST, and the rejection handler is the second argument of `.then`, not a `.catch`:
+  // a throw inside `onLanded` must neither skip the landing's bookkeeping nor send a write that landed
+  // down the failure path (a retry of a saved write, and the error banner). It surfaces as an
+  // unhandled rejection instead.
+  function runPersist(key: string, action: () => Promise<void>, onLanded?: (owns: boolean) => void): void {
     const seq = (persistSeqRef.current += 1);
     latestSeqRef.current.set(key, seq);
     const owns = () => latestSeqRef.current.get(key) === seq;
-    action()
-      .then(() => {
+    action().then(
+      () => {
+        persistSettledRef.current += 1;
+        const isNewestLanding = (landedRef.current.get(key)?.seq ?? 0) < seq;
+        if (isNewestLanding) {
+          landingsRef.current += 1;
+          landedRef.current.set(key, { seq, at: landingsRef.current });
+        }
+        if (owns()) {
+          pendingRetryRef.current.delete(key);
+          setThreadsError(pendingRetryRef.current.size > 0);
+        }
+        if (isNewestLanding) onLanded?.(owns());
+      },
+      () => {
         persistSettledRef.current += 1;
         if (!owns()) return;
-        pendingRetryRef.current.delete(key);
-        setThreadsError(pendingRetryRef.current.size > 0);
-      })
-      .catch(() => {
-        persistSettledRef.current += 1;
-        if (!owns()) return;
-        pendingRetryRef.current.set(key, () => runPersist(key, action));
+        pendingRetryRef.current.set(key, () => runPersist(key, action, onLanded));
         setThreadsError(true);
-      });
+      },
+    );
   }
 
   // Turso mode: (re)fetch this project's thread list on mount and on project
@@ -357,6 +467,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // auto-sends from a MOUNT effect, in the same commit that starts this
     // fetch), or a "New chat" / thread click.
     const startedOn = threadIdRef.current;
+    const landingsAtStart = landingsRef.current;
     loadThreads(tursoConfig, projectId)
       .then((loaded) => {
         if (cancelled) return;
@@ -389,6 +500,10 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         const settled = mergeThreadsAfterLoad(startedOn, threadIdRef.current, projectId, loaded, false);
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
+        // §626. A rename typed before the last close and never saved: re-issue it now that the
+        // server's own copy is in hand to check the draft's base against.
+        adoptConfirmedNames(confirmedNamesRef.current, landedRef.current, loaded, landingsAtStart);
+        replayRenamesRef.current(loaded); // the ref is synced by the effect beside `replayRenames`, below
         if (settled.stale) return;
         setActiveThreadId(settled.next?.id ?? null);
         setHistory(settled.next?.history ?? []);
@@ -554,10 +669,22 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // before it by `persistInFlightAtClick` — so no mutant could kill it alone.
     const persistInFlightAtClick = persistSeqRef.current > persistSettledRef.current;
     const persistSeqAtClick = persistSeqRef.current;
+    // §626 (R11). A save that lands while this reload is out keeps its confirmed name — see
+    // adoptConfirmedNames. Not shouldPreserveLive(): that is project-wide and also true for a write
+    // that FAILS, so it would freeze every thread's confirmed name, not just the one that landed.
+    const landingsAtClick = landingsRef.current;
     // §313. The project epoch this reload is FOR, compared at settle against
     // the live one. The mount effect's `cancelled` local cannot serve here —
     // retryLoad runs from an event handler, outside that effect's closure.
     const issuedAtEpoch = projectEpochRef.current;
+    // §604. The database this reload reads; a settle after the config moved is dropped (no rows, no
+    // confirmed names, no outbox replay, no failure banner) and logged without the URL or token.
+    const issuedAtTargetEpoch = targetEpochRef.current;
+    const targetMoved = (outcome: "loaded" | "failed"): boolean => {
+      if (issuedAtTargetEpoch === targetEpochRef.current) return false;
+      logDiag("info", "storage.chatThreadsStaleTargetDropped", { outcome });
+      return true;
+    };
     // ★★ A FUNCTION, NOT A VALUE — three disjuncts read refs that must be
     // sampled AT SETTLE; evaluating at click time would reduce this to
     // `sendInFlightAtClick || persistInFlightAtClick` and reopen (b) and (c).
@@ -575,12 +702,15 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         // below would write p1's data under p2 — including setLoadedProjectId,
         // which would then claim ownership of rows p2's own fetch put there.
         if (issuedAtEpoch !== projectEpochRef.current) return;
+        if (targetMoved("loaded")) return;
         setThreadsError(false);
         setLoadFailed(false);
         const preserveLive = shouldPreserveLive();
         const settled = mergeThreadsAfterLoad(startedOn, threadIdRef.current, projectId, loaded, preserveLive);
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
+        adoptConfirmedNames(confirmedNamesRef.current, landedRef.current, loaded, landingsAtClick);
+        replayRenamesRef.current(loaded); // same replay as the load effect's success branch
         if (settled.stale) return;
         setActiveThreadId(settled.next?.id ?? null);
         setHistory(settled.next?.history ?? []);
@@ -588,6 +718,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       })
       .catch(() => {
         if (issuedAtEpoch !== projectEpochRef.current) return;
+        if (targetMoved("failed")) return;
         setThreadsError(true);
         setLoadFailed(true);
         const preserveLive = shouldPreserveLive();
@@ -615,12 +746,31 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // chatSeed effect) so it can't refire on the frequent history/display churn
   // WHILE busy stays true.
   const prevBusyRef = useRef(busy);
+  // §604. The Turso config of the render where this turn STARTED (busy's rising edge). The turn is
+  // saved there, and its rename edit settles under that database's outbox scope — never the live
+  // config, which a switch mid-turn has moved to another database.
+  const turnConfigRef = useRef(tursoConfig);
+  // §604. The thread the turn started on, next to its config.
+  const turnThreadIdRef = useRef(activeThreadId);
   useEffect(() => {
     const wasBusy = prevBusyRef.current;
     prevBusyRef.current = busy;
+    if (!wasBusy && busy) {
+      turnConfigRef.current = tursoConfig;
+      turnThreadIdRef.current = activeThreadId;
+    }
     if (!tursoMode || !wasBusy || busy) return;
+    const turnConfig = turnConfigRef.current;
+    // §604. The turn is saved in the database it started in. When the DATABASE has moved since (the
+    // URL, not a rotated token), the live list is the NEW database's: the thread is not put into it
+    // (nor made active there), or a later send or rename on it would upsert A's conversation into B.
+    const movedAway = !sameDatabase(turnConfig, tursoConfig);
+    // ★ And when B's load has already settled, it made B's thread active, loaded B's transcript and
+    // so aborted this send: what is on screen is B's, not the turn's. Saving it would write B's
+    // conversation into A — there is nothing of this turn left to save.
+    if (movedAway && activeThreadId !== turnThreadIdRef.current) return;
     const id = activeThreadId ?? newThreadId();
-    setActiveThreadId((prev) => prev ?? id);
+    if (!movedAway) setActiveThreadId((prev) => prev ?? id);
     const existing = threads.find((th) => th.id === id);
     const now = new Date().toISOString();
     const thread: ChatThread = {
@@ -632,8 +782,9 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       history: stripAttachmentsForPersistence(history),
       display,
     };
-    setThreads((prev) => [thread, ...prev.filter((th) => th.id !== id)]);
-    runPersist(id, () => saveThread(tursoConfig, thread));
+    if (!movedAway) setThreads((prev) => [thread, ...prev.filter((th) => th.id !== id)]);
+    const scope = renameScope(turnConfig);
+    runPersist(id, () => saveThread(writeConfig(turnConfig), thread), (owns) => confirmSavedName(scope, id, thread.name, owns));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy]);
 
@@ -727,7 +878,8 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       display: sentDisplay,
     };
     setThreads((prev) => (prev.some((th) => th.id === id) ? prev : [inserted, ...prev]));
-    runPersist(id, () => saveThread(tursoConfig, inserted));
+    const scope = renameScope();
+    runPersist(id, () => saveThread(tursoConfig, inserted), (owns) => confirmSavedName(scope, id, inserted.name, owns));
     return id;
   }
 
@@ -747,18 +899,102 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // busy-persist effect (once that turn settles) inserts it.
   }
 
+  // §626. The outbox scope for a Turso database (this render's unless a write pinned another, §604)
+  // and this project, or null without Turso. It is read at track time, so an edit tracked before a
+  // project switch stays in its own scope. A write and its scope always come from ONE config value.
+  function renameScope(config: TursoConfig | null = tursoConfig): string | null {
+    return tursoMode ? outboxScope(config, projectId) : null;
+  }
+
+  // §626. The base of a rename edit: the server-confirmed name, or — for a thread neither loaded nor
+  // saved yet in this session — the name it was created with.
+  function confirmedName(target: ChatThread): string {
+    return confirmedNamesRef.current.get(target.id) ?? target.name;
+  }
+
+  // §626. A save of thread `id` carrying `name` landed, and no newer write for it has: the server now
+  // holds `name`. A waiting outbox entry is re-based onto `name`, which is what the next start will
+  // load. Only the write that `owns` the key settles an entry for exactly that value (value-aware: a
+  // newer draft typed while the save was in flight stays); a superseded one leaves the entry to the
+  // later write it still depends on.
+  function confirmSavedName(scope: string | null, id: string, name: string, owns: boolean): void {
+    confirmedNamesRef.current.set(id, name);
+    if (!scope) return;
+    // Rebase before the settle, which is the only step that can throw (it installs the flush listener).
+    rebasePendingEdit(scope, RENAME_KIND, id, name);
+    if (owns) settlePendingEdit(scope, RENAME_KIND, id, name);
+  }
+
+  function applyRename(target: ChatThread, name: string): void {
+    const { id } = target;
+    const updated: ChatThread = { ...target, name, updatedAt: new Date().toISOString() };
+    setThreads((prev) => prev.map((th) => (th.id === id ? updated : th)));
+    // §604. Pinned: the save and its outbox scope target the database of this call's render.
+    const config = tursoConfig;
+    const scope = renameScope(config);
+    if (scope) trackPendingEdit(scope, { kind: RENAME_KIND, id, base: confirmedName(target), value: name });
+    runPersist(id, () => saveThread(writeConfig(config), updated), (owns) => confirmSavedName(scope, id, name, owns));
+  }
+
+  // §626. Re-issues the renames typed before the last close, once a load for this project has
+  // settled. Normalized exactly as the list's commit does. Both load success branches call it
+  // through a ref because neither closure can list a per-render function as a dependency.
+  function replayRenames(loaded: readonly ChatThread[]): void {
+    const scope = outboxScope(tursoConfig, projectId);
+    if (!scope) return;
+    for (const { target, value } of takeRenameReplays(scope, loaded)) {
+      applyRename(target, normalizeThreadName(value, t(lang, "chatThreadUntitled")));
+    }
+  }
+  const replayRenamesRef = useRef(replayRenames);
+  useEffect(() => {
+    replayRenamesRef.current = replayRenames;
+  });
+
   function renameThread(id: string, name: string): void {
     const target = threads.find((th) => th.id === id);
     if (!target) return;
-    const updated: ChatThread = { ...target, name, updatedAt: new Date().toISOString() };
-    setThreads((prev) => prev.map((th) => (th.id === id ? updated : th)));
-    runPersist(id, () => saveThread(tursoConfig, updated));
+    applyRename(target, name);
+  }
+
+  // §626. Keeps what the user wants thread `id` to be called — `wanted`, a draft or the committed
+  // name — for a page close. Compared after the commit's own normalization against the
+  // server-confirmed name: equal has nothing to lose, so it settles; anything else is tracked from
+  // that confirmed name, so a rename still in flight is not dropped as `changed` at the next start.
+  function keepRename(id: string, wanted: (target: ChatThread) => string): void {
+    const scope = renameScope();
+    const target = threads.find((th) => th.id === id);
+    if (!scope) return;
+    if (!target) {
+      // The thread is gone from the list: there is nothing left to rename.
+      settlePendingEdit(scope, RENAME_KIND, id);
+      return;
+    }
+    const value = wanted(target);
+    const base = confirmedName(target);
+    const unchanged = value === base || normalizeThreadName(value, t(lang, "chatThreadUntitled")) === base;
+    if (unchanged) settlePendingEdit(scope, RENAME_KIND, id);
+    else trackPendingEdit(scope, { kind: RENAME_KIND, id, base, value });
+  }
+
+  // §626. The open rename input's draft.
+  function trackRenameDraft(id: string, value: string): void {
+    keepRename(id, () => value);
+  }
+
+  // §626. The draft is dropped; what is left to keep is the committed name, which differs from the
+  // confirmed one while an earlier rename's save has not resolved.
+  function cancelRenameDraft(id: string): void {
+    keepRename(id, (target) => target.name);
   }
 
   async function requestDeleteThread(id: string): Promise<void> {
     const target = threads.find((th) => th.id === id);
     if (!target) return;
     const displayName = target.name || t(lang, "chatThreadUntitled");
+    // §604. The database the dialog was opened in, captured BEFORE the confirm await: the row is
+    // deleted there even if the config moves while the dialog is open.
+    const deleteConfig = tursoConfig;
     if (!(await confirm({ message: t(lang, "chatThreadDeleteConfirm", displayName), tone: "danger" }))) return;
     // `threads`/`activeThreadId` above were captured at render time, BEFORE
     // this await — a concurrent write (the busy-persist effect settling, or
@@ -779,7 +1015,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // Scope the delete by project (defense-in-depth against a project-id
     // collision in the id space) — `target` was resolved from `threads`
     // before the confirm await and still carries the row's own projectId.
-    runPersist(id, () => deleteThreadRow(tursoConfig, id, target.projectId));
+    runPersist(id, () => deleteThreadRow(writeConfig(deleteConfig), id, target.projectId));
   }
 
   return {
@@ -793,6 +1029,8 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     selectThread,
     newThread,
     renameThread,
+    trackRenameDraft,
+    cancelRenameDraft,
     requestDeleteThread,
     retryLoad,
   };

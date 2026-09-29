@@ -20,6 +20,7 @@ import type { Settings } from "./settings-types";
 import type { StorageConfig } from "./storage";
 import type { Task } from "./types";
 import { SAVE_DEBOUNCE_MS } from "./debounced-save";
+import { listUnloadJournals, UNLOAD_JOURNAL_PREFIX } from "./unload-journal";
 
 vi.mock("./storage", () => ({
   createBackend: vi.fn(),
@@ -559,5 +560,124 @@ describe("§588 — a superseded pick must not write to, or arm, the dead backen
     //   assertions pinned picker, read and the two binds and reported "all three", naming a set that
     //   did not include this one.
     expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.supersededPickDropped", { stage: "write" });
+  });
+
+  // ★★ §603 — THE QUEUED WINDOW, which the test above cannot reach: there `first.save` is the PICK's own
+  // write and is already running when the rebuild lands. Here an AUTOSAVE is what hangs on `first`, so
+  // the pick's write is still WAITING in the per-backend queue, and the rebuild lands while it waits.
+  // The check inside the queued thunk is what stops it.
+  // ★ POSITIVE CONTROLS: `first.save` is called exactly once (the autosave, so the pick really did
+  // queue behind a running save and "not called again" is not a vacuous pass), and `second` still
+  // takes the next edit (the pick did not move the save gate off the live backend).
+  it("a picked-file write queued behind an autosave never reaches a backend replaced while it waited", async () => {
+    const first = makeBackend(50, EMPTY, "browser");
+    // `second` holds what the autosave wrote, so the data-loss guard sees no shrink and does not refuse its saves.
+    const second = makeBackend(100, { ...EMPTY, tasks: EDIT_ONE });
+    createBackendMock.mockReturnValueOnce(first).mockReturnValue(second);
+    const EDIT_THREE = [...EDIT_TWO, { id: 3, taskName: "Third edit" }] as unknown as Task[];
+    let releaseAutosave: () => void = () => {};
+    // Only the FIRST save (the autosave) hangs; a later one settles at once, so a regression fails on
+    // the call-count assertion below rather than by hanging the test until its timeout.
+    first.save = vi.fn()
+      .mockImplementationOnce(() => new Promise<void>((resolve) => { releaseAutosave = () => resolve(); }))
+      .mockResolvedValue(undefined);
+
+    const { result, rerender } = renderHook(
+      (props: { config: StorageConfig }) => useProbe(makeArgs(props.config)),
+      {
+        wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+        initialProps: { config: { kind: "browser" } as StorageConfig },
+      },
+    );
+    await advance(100);
+
+    await act(async () => { result.current.setTasks(EDIT_ONE); });
+    await advance(SAVE_DEBOUNCE_MS + 100);
+    expect(first.save).toHaveBeenCalledTimes(1); // the autosave, hanging
+
+    (storageMod.pickFileHandleForBackend as ReturnType<typeof vi.fn>).mockReturnValueOnce(Promise.resolve({ name: "picked.json" }));
+    let pick!: Promise<void>;
+    act(() => { pick = result.current.onPickStorageFile(); });
+    await advance(1);
+    expect(first.save).toHaveBeenCalledTimes(1); // the hung autosave is still the only save started; that the pick's write is QUEUED (not dropped earlier) is carried by the write-queued log assertion below
+
+    rerender({ config: { kind: "turso" } as StorageConfig });
+    await advance(150);
+    expect(second.load).toHaveBeenCalledTimes(1);
+
+    await act(async () => { releaseAutosave(); await pick; });
+    await advance(1);
+
+    expect(first.save).toHaveBeenCalledTimes(1); // still only the autosave: the queued pick write was skipped
+    expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.supersededLoadDropped", { writer: "onPickStorageFile", stage: "write-queued" });
+
+    // The gate stays where it was: `second` takes the edits made once the pick op (which holds edits while it runs) is over.
+    await act(async () => { result.current.setTasks(EDIT_TWO); });
+    await advance(SAVE_DEBOUNCE_MS + 100);
+    await act(async () => { result.current.setTasks(EDIT_THREE); });
+    await advance(SAVE_DEBOUNCE_MS + 100);
+    expect(second.save).toHaveBeenCalledTimes(2);
+    expect(second.save.mock.calls[1][0].tasks.map((x: Task) => x.id)).toEqual([1, 2, 3]);
+  });
+
+  // ★★ §603 FIX ROUND 1 — A SKIPPED WRITE IS NOT A SAVED ONE. Autosave A hangs on `first`, autosave B
+  // waits behind it, and the pick's write is enqueued with `settleReplacedAsOwn`, so it REPLACES B and B
+  // settles exactly as the pick's write does. If the skip settled "saved", B's handler would confirm a
+  // write nothing made: move the baselines, emit a success outcome and clear its unload-journal entry —
+  // the recovery record for B's edits. The skip settles "superseded" instead, so B's handler returns early.
+  // ★ WHAT EACH ASSERTION SEPARATES: A's own handler legitimately emits ONE success outcome and confirms
+  // only entries up to A's own timestamp; B's record is newer, so it survives only if B was NOT confirmed,
+  // and a second success outcome can only come from B. (The baseline move sits in the same handler, on
+  // the same early return, and has no observable of its own.)
+  it("a skipped pick write does not confirm the autosave it replaced (journal kept, no success outcome)", async () => {
+    for (const key of Object.keys(window.localStorage)) if (key.startsWith(UNLOAD_JOURNAL_PREFIX)) window.localStorage.removeItem(key);
+    const first = makeBackend(50, EMPTY, "browser");
+    const second = makeBackend(100, { ...EMPTY, tasks: EDIT_ONE });
+    createBackendMock.mockReturnValueOnce(first).mockReturnValue(second);
+    let releaseAutosaveA: () => void = () => {};
+    first.save = vi.fn()
+      .mockImplementationOnce(() => new Promise<void>((resolve) => { releaseAutosaveA = () => resolve(); }))
+      .mockResolvedValue(undefined);
+    const onStorageOutcome = vi.fn();
+    // A page that is hiding is what makes an autosave write its unload journal.
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    try {
+      const { result, rerender } = renderHook(
+        (props: { config: StorageConfig }) => useProbe({ ...makeArgs(props.config), onStorageOutcome }),
+        {
+          wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+          initialProps: { config: { kind: "browser" } as StorageConfig },
+        },
+      );
+      await advance(100);
+
+      await act(async () => { result.current.setTasks(EDIT_ONE); });
+      await advance(SAVE_DEBOUNCE_MS + 100);
+      expect(first.save).toHaveBeenCalledTimes(1); // autosave A, hanging
+      await act(async () => { result.current.setTasks(EDIT_TWO); });
+      await advance(SAVE_DEBOUNCE_MS + 100);
+      expect(first.save).toHaveBeenCalledTimes(1); // autosave B is WAITING behind A
+      expect(listUnloadJournals()).toHaveLength(1); // PRECONDITION: B's unconfirmed save is journaled
+
+      (storageMod.pickFileHandleForBackend as ReturnType<typeof vi.fn>).mockReturnValueOnce(Promise.resolve({ name: "picked.json" }));
+      let pick!: Promise<void>;
+      act(() => { pick = result.current.onPickStorageFile(); });
+      await advance(1);
+
+      rerender({ config: { kind: "turso" } as StorageConfig });
+      await advance(150);
+      expect(second.load).toHaveBeenCalledTimes(1);
+
+      onStorageOutcome.mockClear();
+      await act(async () => { releaseAutosaveA(); await pick; });
+      await advance(1);
+
+      expect(first.save).toHaveBeenCalledTimes(1); // neither B nor the pick's write ran
+      expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.supersededLoadDropped", { writer: "onPickStorageFile", stage: "write-queued" });
+      expect(onStorageOutcome.mock.calls.filter(([err]) => err === null)).toHaveLength(1); // A's alone
+      expect(listUnloadJournals()).toHaveLength(1); // B's recovery record survives
+    } finally {
+      visibility.mockRestore();
+    }
   });
 });

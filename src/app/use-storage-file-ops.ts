@@ -733,7 +733,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       //   bound" — measured as a SURVIVOR before that test existed, with its load-instead sibling in
       //   place: the two branches carry separate guards and the branch is chosen before either runs.
       if (!deps.isBackendCurrent()) { logDiag("warn", "storage.supersededPickDropped", { stage: "bind-overwrite" }); return; }
-      if (!(await deps.truncationOps.guardedWrite(deps.backend, deps.currentWorkspace()))) return; // ★ Kept as the backstop: the pre-check above is the one that matters, but a truncating load landing between them must still not commit.
+      if (!(await deps.truncationOps.guardedWrite(deps.backend, deps.currentWorkspace(), deps.isBackendCurrent))) return; // ★★ §603: `isBackendCurrent` is re-asked inside the queued write, right before the save, so a write queued behind an autosave never reaches a backend replaced while it waited. ★ Kept as the backstop: the pre-check above is the one that matters, but a truncating load landing between them must still not commit.
       // ★★ §588 — THE WRITE GUARD, for a DIFFERENT window: `guardedWrite` is itself an await, so a
       //   rebuild can land inside it, after every guard above has already said "current". One guard
       //   per await, because one guard cannot see past the next one. ★ Its hazard set is a STRICT

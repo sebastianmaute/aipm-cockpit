@@ -618,12 +618,13 @@ number; `DocumentAsset` mints a `crypto.randomUUID()`, so a real engine answers 
 The asset INSERT rides the SAME `BEGIN…COMMIT` as tasks, RAID, milestones, budgets, plan and meta,
 so **every workspace save reported failure from then on** — and the feature is Turso-gated, so it
 reached exactly the users who could reach it.
-★★★ IT DID NOT DIE MID-TRANSACTION, AND THIS PARAGRAPH SAID IT DID. A libSQL `/v2/pipeline` batch
-does not abort at a failing statement: it errors that ONE statement, keeps executing, and COMMIT
-still runs and succeeds. `runTursoPipeline` then calls `rollbackBestEffort` against an
-already-committed transaction — which changes nothing — and throws. So the workspace WAS written,
-minus the rejected row, behind a message saying the save failed. Measured against a live database;
-`docs/open-followups.md` §211 and AGENTS.md's `idKind` bullet carry the same correction. `EntitySpec.idKind` (`turso-schema.ts`) now selects the pair:
+★★★ IT DID NOT DIE MID-TRANSACTION, AND THIS PARAGRAPH SAID IT DID. A libSQL `/v2/pipeline` of
+separate `execute` requests does not abort at a failing statement: it errors that ONE statement,
+keeps executing, and COMMIT still runs and succeeds. So the workspace WAS written, minus the
+rejected row, behind a message saying the save failed. Measured against a live database;
+`docs/open-followups.md` §211 and AGENTS.md's `idKind` bullet carry the same correction. Since
+§637 the save goes out as one conditional Hrana `batch`, so a failing row skips COMMIT and nothing
+is written (per the Hrana protocol; the live-database check is owed). `EntitySpec.idKind` (`turso-schema.ts`) now selects the pair:
 `"text"` gives `id TEXT PRIMARY KEY` single-tenant, a plain `id TEXT` inside the composite tenant
 PK, and a text-bound arg. ★ It DEFAULTS to `"integer"`, which is what keeps every other spec
 byte-identical and is also what makes omitting it silent. Enumerate today's declarers with

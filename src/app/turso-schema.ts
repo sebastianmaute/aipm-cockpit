@@ -60,18 +60,15 @@ export interface PipelineResultLike {
  *  entity minting a non-numeric id (`document_assets`, a crypto.randomUUID())
  *  must declare "text", which switches BOTH the DDL and the arg binding.
  *
- *  ★★★ "THAT ONE ROW KILLS THE WHOLE SAVE" WAS THE WORDING HERE, AND IT IS
- *  FALSE IN THE HALF THAT MATTERS. A libSQL /v2/pipeline batch does NOT abort
- *  at a failing statement — it returns an error for that ONE statement and
- *  keeps executing, so COMMIT runs, returns ok, and commits everything that
- *  succeeded. `runTursoPipeline` then scans the results, sees the error and
- *  calls `rollbackBestEffort` against an ALREADY-COMMITTED transaction, which
- *  changes nothing, before throwing. Every save does report failure; the
- *  workspace is NOT left untouched. The user is shown a failed save while the
- *  data WAS written, minus the rejected row — and a reader who believes the
- *  old wording will never go looking for partially-written data. Measured
- *  against a live database and pinned by the e2e spec named in AGENTS.md's
- *  idKind bullet, not reasoned from the SQLite docs.
+ *  ★★★ A libSQL /v2/pipeline sent as separate `execute` requests does NOT
+ *  abort at a failing statement: it errors that ONE statement and keeps going,
+ *  so COMMIT used to commit everything that succeeded around the rejected row
+ *  while the save reported failure (measured against a live database; the e2e
+ *  spec named in AGENTS.md's idKind bullet). Since §637 `runTursoPipeline`
+ *  sends a BEGIN…COMMIT list as ONE conditional Hrana `batch`, so the failing
+ *  row now skips COMMIT and the save writes nothing (per the Hrana protocol;
+ *  the live-database check is owed). Every save still reports failure until
+ *  the DDL is fixed.
  *
  *  "text", which switches BOTH the DDL and the arg binding. The tenant DDL
  *  emits a plain `id INTEGER` (composite PK), whose affinity SQLite does NOT

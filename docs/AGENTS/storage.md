@@ -204,6 +204,27 @@ it. Read §629 before touching either file.
 ★ The journal key starts `aipm-cockpit:`, so the factory reset's prefix sweep deletes any pending
 journal (`grep -n "UNLOAD_JOURNAL_PREFIX =" src/app/unload-journal.ts`).
 
+### Pending edits (§626)
+
+The unload journal holds workspaces; `pending-edits.ts` holds the drafts of the three Turso-only
+async editors that a workspace save never carries: a chat thread rename, a template name and a
+template body.
+- **What.** `{ v, kind, id, base, value, savedAt }` per edit, where `base` is the last value the
+  server CONFIRMED (loaded, or a save that landed), never the optimistic one on screen.
+- **Scope.** One key per scope: `PENDING_EDITS_PREFIX` + a hash of the Turso `httpUrl`
+  (`hashForStorageKey`) + `:chat:<projectId>` or `:templates`. Neither the URL nor the token is in the
+  key or the record.
+- **When.** Live edits stay in memory until `pagehide`, which writes each touched scope with one
+  synchronous `setItem`, merged with what other tabs stored: only entries this tab tracked or
+  settled are replaced. An edit is settled when its save lands with the same value.
+- **Replay.** After a successful load of that project (or the templates), once per scope per page
+  lifetime: an edit younger than `UNLOAD_JOURNAL_MAX_AGE_MS` is re-applied through the normal
+  commit only when the stored value still equals `base`; otherwise it is dropped and logged
+  (`storage.pendingEditDropped`, `reason` `missing` or `changed`, kind and id only).
+- The speech-to-text key is not in the outbox: `dictation-section.tsx` seals it on every change.
+- ★ Proven in jsdom only: that the write happens inside `pagehide`, not that a real browser keeps
+  it across a close.
+
 ### Concurrency
 
 - **Turso** saves run inside `withWriteLock`: an exclusive cross-tab Web Lock per database and
@@ -258,10 +279,13 @@ Kept short: `AGENTS.md` owns each rule.
   `BEGIN`…`COMMIT`. Rule: **New COLUMN on existing entity**.
 - **Partial saves**: `dirtyWorkspaceTables` diffs against the last saved workspace by reference;
   any meta slice change rewrites the whole `meta` table.
-- **Batch commit**: `runTursoPipeline` scans the results, calls `rollbackBestEffort` for a
-  transactional batch, then throws. `AGENTS.md`'s `idKind` bullet records that the batch has
-  already committed by then, measured, so the ROLLBACK normally changes nothing (§636); making a
-  failed save write nothing is §637.
+- **Batch commit**: a statement list that starts with `BEGIN` and ends with `COMMIT` goes out
+  as ONE Hrana `batch` request. Each step runs only if the step before it succeeded, and a
+  trailing `ROLLBACK` step runs whenever `COMMIT` did not, so a failed save writes nothing
+  (§637; per the Hrana protocol, live-database check owed). Anything before `BEGIN`, or a `BEGIN`
+  without a trailing `COMMIT`, is refused before sending. `runTursoPipeline` maps the step results back to one result per statement and throws
+  the first statement error. Any other list is sent as separate `execute` requests, which do not
+  stop at a failing statement.
 
 ## Recovery and reset
 
@@ -295,4 +319,5 @@ Filed in `docs/open-followups.md` on 2026-09-28. The first three are closed on
 - **§635** — a documents rich-field throw failed the whole strict JSON load instead of pausing
   saving.
 - **§636** — the comment above `rollbackBestEffort` said the ROLLBACK protects readers.
-- **§637** (open) — a Turso save whose batch hits a failing statement still commits the rest.
+- **§637** — a Turso save whose batch hit a failing statement still committed the rest, then
+  reported failure.

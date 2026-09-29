@@ -61,6 +61,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import type { Page, Route } from "@playwright/test";
 import { colDdl, ENTITY_SPECS, TABLE_NAMES } from "../src/app/turso-schema";
+import { runTursoPipeline } from "../src/app/turso-pipeline";
 import {
   test, expect, gotoApp, openView, FROZEN_NOW,
   E2E_DOCUMENT_ASSET, E2E_DOCUMENT_ASSET_IMAGE_ONLY,
@@ -130,7 +131,7 @@ async function pipeline(stmts: { sql: string; args?: { type: string; value: stri
   return json.results ?? [];
 }
 
-const txt = (value: string) => ({ type: "text", value });
+const txt = (value: string) => ({ type: "text" as const, value });
 
 const ASSET_DDL =
   "CREATE TABLE IF NOT EXISTS document_asset_data (id TEXT, project_id TEXT, data TEXT, PRIMARY KEY (id, project_id))";
@@ -982,10 +983,10 @@ test.describe("§211 — a text id against the pre-idKind DDL", () => {
     // `ok, ok, error(datatype mismatch), ok` and the co-resident row was
     // readable afterwards over a fresh connection.
     //
-    // ★★★ THE REAL FAILURE MODE IS WORSE THAN THE DOCUMENTED ONE, not milder.
-    // `runTursoPipeline` scans the results, sees the error, calls
-    // `rollbackBestEffort` — which now runs against a transaction that has
-    // ALREADY COMMITTED, so it changes nothing — and throws. The user is shown
+    // ★★★ THE REAL FAILURE MODE WAS WORSE THAN THE DOCUMENTED ONE, not milder.
+    // Until §637, `runTursoPipeline` scanned the results, saw the error, called
+    // `rollbackBestEffort` — which ran against a transaction that had ALREADY
+    // COMMITTED, so it changed nothing — and threw. The user is shown
     // a failed save while the workspace was in fact written, minus the one
     // rejected row. "Every save reports failure" is right; "nothing is saved"
     // is not, and a reader who believes the latter will not go looking for the
@@ -996,12 +997,41 @@ test.describe("§211 — a text id against the pre-idKind DDL", () => {
     // engine (or the pipeline protocol) started aborting batches at the first
     // error — at which point the docs became right and this comment is what
     // needs deleting.
+    //
+    // ★★★ §637: this is the ENGINE's behaviour for separate `execute`
+    // requests, which this probe's raw `pipeline` helper still sends. The app no
+    // longer does: `runTursoPipeline` sends a BEGIN…COMMIT list as one
+    // conditional batch, which the next test pins.
     expect(
       await markerNote(),
       "the co-resident write did NOT survive — this engine aborted the batch at the failing " +
         "statement. That would make turso-schema.ts's 'COMMIT is never reached' correct and this " +
         "test's premise stale; re-measure and rewrite both.",
     ).toBe("before");
+  });
+
+  test("§637 — the same transaction through runTursoPipeline writes nothing, and reports the failure", async () => {
+    await pipeline([
+      { sql: "DROP TABLE IF EXISTS e2e_probe_marker" },
+      { sql: MARKER_DDL },
+      { sql: "DROP TABLE IF EXISTS document_assets" },
+      { sql: `CREATE TABLE document_assets (${colDdl(assetSpec.columns, "integer")})` },
+    ]);
+    const config = { httpUrl: PIPELINE_URL.replace(/\/v2\/pipeline$/, ""), authToken: ENV.token };
+
+    await expect(
+      runTursoPipeline(config, [
+        { sql: "BEGIN" },
+        { sql: "INSERT OR REPLACE INTO e2e_probe_marker (id, note) VALUES (?, ?)", args: [txt("m1"), txt("atomic")] },
+        { sql: assetInsertSql(), args: assetInsertArgs("11111111-2222-3333-4444-555555555555") },
+        { sql: "COMMIT" },
+      ]),
+    ).rejects.toThrow(/datatype mismatch/i);
+    expect(
+      await markerNote(),
+      "the co-resident write survived a failed runTursoPipeline save — the batch committed around " +
+        "the rejected row again (§637)",
+    ).toBeNull();
   });
 
   test("dropping the table is a real remedy — the same transaction then commits", async () => {

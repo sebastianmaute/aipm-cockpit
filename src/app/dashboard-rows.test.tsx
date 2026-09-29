@@ -41,23 +41,59 @@ describe("DashboardStatusRow (spec C row 2)", () => {
   });
 });
 
+/** rem value of a Tailwind spacing class suffix (`2` → 0.5), at the 0.25rem unit. */
+const rem = (step: string) => Number(step) * 0.25;
+
 describe("DashboardTopRow (spec C row 1)", () => {
-  it("puts the digest beside the delta strip at about a third, with the controls on the far right", () => {
+  it("sizes the delta strip like the hero column and lets the digest take the rest, controls on the far right", () => {
     render(<DashboardTopRow dc={dc} delta={<p>delta</p>} digest={<p>digest</p>} controls={<div data-testid="controls" />} />);
     const row = screen.getByTestId("dashboard-row-top");
+    const delta = screen.getByTestId("dashboard-row-top-delta");
     const slot = screen.getByTestId("dashboard-row-top-digest");
+    expect(delta).toHaveTextContent("delta");
     expect(slot).toHaveTextContent("digest");
-    expect(slot.className).toContain("lg:w-1/3");
+    expect(delta.className).toContain(dc.topRowSplit);
+    expect(delta.className).toContain("flex-1");
+    // The digest grows into whatever the split leaves; no fixed fraction any more.
+    expect(slot.className).toContain("flex-1");
+    expect(slot.className).not.toMatch(/lg:w-/);
     expect(row.lastElementChild).toBe(screen.getByTestId("controls"));
-    expect(screen.getByText("delta").parentElement!.className).toContain("flex-1");
   });
 
-  it("stacks the delta strip and the digest below lg", () => {
+  it("uses the compact split under compact density", () => {
+    const compact = densityClasses("compact");
+    render(<DashboardTopRow dc={compact} delta={<p>delta</p>} digest={<p>digest</p>} controls={<div />} />);
+    expect(screen.getByTestId("dashboard-row-top-delta").className).toContain(compact.topRowSplit);
+  });
+
+  it("stacks the delta strip and the digest below lg, and flattens into the row at lg", () => {
     render(<DashboardTopRow dc={dc} delta={<p>delta</p>} digest={<p>digest</p>} controls={<div />} />);
     const inner = screen.getByTestId("dashboard-row-top-digest").parentElement!;
     expect(inner.className).toContain("flex-col");
-    expect(inner.className).toContain("lg:flex-row");
+    // `contents` makes the split's 50% resolve against the whole row, as row 2's does.
+    expect(inner.className).toContain("lg:contents");
   });
+
+  it.each(["comfortable", "compact"] as const)(
+    "starts the digest where Overall status starts (%s): split width + margin + row gap = 50% + half the section gap",
+    (density) => {
+      const d = densityClasses(density);
+      const split = d.topRowSplit;
+      // Every split class applies only while the digest beside it is showing.
+      for (const cls of split.split(" ")) expect(cls.startsWith("lg:[&:has(+:not(:empty))]:")).toBe(true);
+      expect(split).toContain("flex-none");
+      const width = /w-\[calc\(50%_-_([\d.]+)rem\)\]/.exec(split);
+      expect(width).not.toBeNull();
+      const margin = /:mr-(\d+)(\s|$)/.exec(split);
+      const rowGap = rem("2"); // DashboardTopRow's own `gap-2`
+      const sectionGap = rem(/gap-(\d+)/.exec(d.sectionGap)![1]);
+      // Row 2's hero is 50% − sectionGap/2 wide; the delta strip matches it …
+      expect(Number(width![1])).toBe(sectionGap / 2);
+      // … and the digest's left edge lands at 50% + sectionGap/2, like Overall status.
+      const digestStart = -Number(width![1]) + (margin ? rem(margin[1]) : 0) + rowGap;
+      expect(digestStart).toBe(sectionGap / 2);
+    },
+  );
 
   it("collapses the digest slot when the digest renders nothing, so the delta strip takes the width", () => {
     function NoDigest() { return null; }

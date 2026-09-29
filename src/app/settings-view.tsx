@@ -470,6 +470,7 @@ export function SettingsView(props: SettingsViewProps) {
             onCreate={props.commTemplates.create}
             onRename={props.commTemplates.rename}
             onSaveBody={props.commTemplates.saveBody}
+            trackDraft={props.commTemplates.trackDraft}
             onRemove={props.commTemplates.remove}
             onSetDefault={props.commTemplates.setDefault}
             config={props.commTemplatesConfig ?? null}

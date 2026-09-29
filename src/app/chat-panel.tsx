@@ -961,15 +961,14 @@ function ChatPanelInner({
       //   unmount cancel this task had to undo. If you think this needs changing,
       //   the change is a DIFFERENT note ("the storage target changed"), never
       //   silence.
-      // ★ NOT a claim that nothing persists. Verify, don't trust this line:
-      //   `grep -n "saveThread(" src/app/use-chat-threads.ts` — every hit passes the
-      //   LIVE `tursoConfig`, which on a target change is already the NEW one, so a
-      //   transcript can land in a different database under the same projectId.
-      //   Smaller than a workspace write, out of scope here, and OPEN as §604 in
-      //   `docs/open-followups.md` — do not read this bullet as saying it is fine.
-      //   ★ The §-number is the point of this sentence: without it a reader can
-      //   see the hazard described and has no way to reach the record, which is
-      //   indistinguishable from a hazard nobody filed.
+      // ★ NOT a claim that nothing persists — a Turso TARGET change is not this
+      //   gate's business either, because the thread writes pin it themselves
+      //   (§604, closed in `docs/open-followups.md`): `use-chat-threads.ts` saves a
+      //   finished turn with the `tursoConfig` of the render where `busy` ROSE
+      //   (`turnConfigRef`), deletes with the config its confirm dialog opened
+      //   under, and drops a load retry issued before the change
+      //   (`storage.chatThreadsStaleTargetDropped`). Pinned by
+      //   `use-chat-threads.target.test.tsx`.
       const switchedAway = projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId;
       if (!switchedAway) {
         if (cancelledRef.current) {
@@ -1375,6 +1374,8 @@ function ChatPanelInner({
           onSelect={chatThreads.selectThread}
           onNew={chatThreads.newThread}
           onRename={chatThreads.renameThread}
+          onRenameDraft={chatThreads.trackRenameDraft}
+          onRenameCancel={chatThreads.cancelRenameDraft}
           onDelete={chatThreads.requestDeleteThread}
         />
       )}

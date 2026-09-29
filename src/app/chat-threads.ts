@@ -17,6 +17,12 @@ export interface ChatThread {
   display: DisplayItem[];
 }
 
+/** The name a rename draft becomes once committed: trimmed, and the caller-supplied translated
+ *  "Untitled chat" (this module is i18n-free) when nothing is left. The one rule shared by the list's commit and the outbox replay (§626). */
+export function normalizeThreadName(draft: string, untitled: string): string {
+  return draft.trim() || untitled;
+}
+
 /** Auto-derived thread name is capped at this many Unicode code points. */
 export const THREAD_NAME_MAX = 60;
 

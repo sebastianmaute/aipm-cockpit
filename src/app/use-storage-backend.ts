@@ -908,6 +908,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       //   confirms no journal entry and reports no outcome — that newer autosave carries its content
       //   and settles all three. Replaced by the pre-switch flush or `guardedWrite` instead, it
       //   settles as that write did (`settleReplacedAsOwn`), so its own handlers below still run.
+      //   ★ §603 — and a write that CHOSE not to write (a picked-file write whose backend was replaced while
+      //   it queued) settles "superseded", which a save it replaced inherits: the early return below then
+      //   keeps the baselines, the unload-journal entry and the outcome for edits nothing wrote.
       enqueueSave(backend, () => backend.save(outgoing)).then((result) => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
         if (result === "superseded") return;
         committedBaselineRef.current = { collections: curCollections, records: curRecords }; // the write landed: these are on disk now

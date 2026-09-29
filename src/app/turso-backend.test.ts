@@ -6,6 +6,7 @@ import { SCHEMA_DDL, TABLE_NAMES } from "./turso-schema";
 import { singleTenantTableColumns } from "./turso-migrate";
 import { LOAD_TIMEOUT_MS } from "./turso-pipeline";
 import * as diagnostics from "./diagnostics";
+import { failedBatchBody, okPipelineBody, pipelineSqls } from "../test/turso-wire";
 
 const CONFIG: TursoConfig = { httpUrl: "https://db.turso.io", authToken: "tok" };
 
@@ -86,13 +87,17 @@ describe("TursoBackend", () => {
 
   it("save issues a BEGIN…COMMIT relational overwrite pipeline", async () => {
     fetchSpy.mockResolvedValueOnce(upToDatePragma());
-    fetchSpy.mockResolvedValueOnce(jsonRes({ results: [okExec()] }));
+    fetchSpy.mockImplementationOnce((_url: unknown, init?: RequestInit) => jsonRes(okPipelineBody(init)));
     const ws = emptyWorkspace();
     ws.tasks = [minimalTask as never];
     await new TursoBackend(CONFIG).save(ws);
-    const sqls = JSON.parse((fetchSpy.mock.calls[1][1] as RequestInit).body as string).requests.map((r: { stmt?: { sql: string } }) => r.stmt?.sql);
+    const sqls = pipelineSqls(fetchSpy.mock.calls[1][1] as RequestInit);
     expect(sqls[0]).toBe("BEGIN");
     expect(sqls).toContain("DELETE FROM tasks");
+    // §637 — the save goes out as ONE batch request, never as separate execute requests.
+    const requests = JSON.parse((fetchSpy.mock.calls[1][1] as RequestInit).body as string).requests;
+    expect(requests).toHaveLength(1);
+    expect(requests[0].type).toBe("batch");
     expect(sqls.some((s: string) => s?.startsWith("INSERT INTO tasks"))).toBe(true);
     expect(sqls[sqls.length - 1]).toBe("COMMIT");
   });
@@ -222,16 +227,14 @@ describe("TursoBackend", () => {
   });
 
   describe("dirty-table saves", () => {
-    const okSave = () => jsonRes({ results: [okExec()] });
+    const okSave = (_url: unknown, init?: RequestInit) => jsonRes(okPipelineBody(init));
     /** SQL of every statement in the pipeline body of fetch call N. */
     const bodySqls = (call: number): string[] =>
-      JSON.parse((fetchSpy.mock.calls[call][1] as RequestInit).body as string)
-        .requests.map((r: { stmt?: { sql: string } }) => r.stmt?.sql)
-        .filter((s: string | undefined): s is string => s !== undefined);
+      pipelineSqls(fetchSpy.mock.calls[call][1] as RequestInit);
 
     it("first save (no baseline) is a full rewrite", async () => {
       fetchSpy.mockResolvedValueOnce(upToDatePragma());
-      fetchSpy.mockResolvedValue(okSave());
+      fetchSpy.mockImplementation(okSave);
       const ws = emptyWorkspace();
       ws.tasks = [minimalTask as never];
       await new TursoBackend(CONFIG).save(ws);
@@ -243,7 +246,7 @@ describe("TursoBackend", () => {
 
     it("second save with only a new tasks array emits DDL + DELETE/INSERT for tasks only", async () => {
       fetchSpy.mockResolvedValueOnce(upToDatePragma());
-      fetchSpy.mockResolvedValue(okSave());
+      fetchSpy.mockImplementation(okSave);
       const backend = new TursoBackend(CONFIG);
       const ws = emptyWorkspace();
       ws.tasks = [minimalTask as never];
@@ -265,7 +268,7 @@ describe("TursoBackend", () => {
 
     it("a save with zero changes performs no pipeline call but still resolves", async () => {
       fetchSpy.mockResolvedValueOnce(upToDatePragma());
-      fetchSpy.mockResolvedValue(okSave());
+      fetchSpy.mockImplementation(okSave);
       const backend = new TursoBackend(CONFIG);
       const ws = emptyWorkspace();
       await backend.save(ws);
@@ -278,7 +281,7 @@ describe("TursoBackend", () => {
 
     it("a failed save does not advance the baseline — the next save retries the dirty tables", async () => {
       fetchSpy.mockResolvedValueOnce(upToDatePragma()); // call 0: column-ensure PRAGMA
-      fetchSpy.mockResolvedValueOnce(okSave()); // call 1: first save's overwrite
+      fetchSpy.mockImplementationOnce(okSave); // call 1: first save's overwrite
       const backend = new TursoBackend(CONFIG);
       const ws = emptyWorkspace();
       ws.tasks = [minimalTask as never];
@@ -286,16 +289,32 @@ describe("TursoBackend", () => {
       const ws2 = { ...ws, tasks: [{ ...minimalTask, taskName: "edited" } as never] };
       fetchSpy.mockRejectedValueOnce(new TypeError("Failed to fetch")); // call 2: failed save (migration memoized)
       await expect(backend.save(ws2)).rejects.toMatchObject({ hint: "storage-unreachable" });
-      fetchSpy.mockResolvedValueOnce(okSave()); // call 3: retry
+      fetchSpy.mockImplementationOnce(okSave); // call 3: retry
       await backend.save(ws2);
       const sqls = bodySqls(3);
       expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toEqual(["DELETE FROM tasks"]);
       expect(sqls.some((s) => s.startsWith("INSERT INTO tasks"))).toBe(true);
     });
+
+    it("a save whose batch step fails is rejected and does not advance the baseline (§637)", async () => {
+      fetchSpy.mockResolvedValueOnce(upToDatePragma()); // call 0: column-ensure PRAGMA
+      fetchSpy.mockImplementationOnce(okSave); // call 1: first save's overwrite
+      const backend = new TursoBackend(CONFIG);
+      const ws = emptyWorkspace();
+      ws.tasks = [minimalTask as never];
+      await backend.save(ws);
+      const ws2 = { ...ws, tasks: [{ ...minimalTask, taskName: "edited" } as never] };
+      fetchSpy.mockImplementationOnce((_url: unknown, init?: RequestInit) =>
+        jsonRes(failedBatchBody(init, 2, "datatype mismatch"))); // call 2: a statement step fails
+      await expect(backend.save(ws2)).rejects.toThrow("Turso error: datatype mismatch");
+      fetchSpy.mockImplementationOnce(okSave); // call 3: retry
+      await backend.save(ws2);
+      expect(bodySqls(3).filter((s) => s.startsWith("DELETE FROM"))).toEqual(["DELETE FROM tasks"]);
+    });
   });
 
   describe("cross-tab write lock", () => {
-    const okSave = () => jsonRes({ results: [okExec()] });
+    const okSave = (_url: unknown, init?: RequestInit) => jsonRes(okPipelineBody(init));
     /** Install a navigator.locks mock (jsdom does not implement the Web Locks API). */
     const defineLocks = (
       request: (
@@ -317,7 +336,7 @@ describe("TursoBackend", () => {
         return cb();
       });
       fetchSpy.mockResolvedValueOnce(upToDatePragma());
-      fetchSpy.mockResolvedValue(okSave());
+      fetchSpy.mockImplementation(okSave);
       const backend = new TursoBackend(CONFIG);
       const ws = emptyWorkspace();
       await backend.save(ws);
@@ -335,7 +354,7 @@ describe("TursoBackend", () => {
     it("falls back to a direct save when navigator.locks is unavailable (jsdom default)", async () => {
       expect((navigator as { locks?: unknown }).locks).toBeUndefined();
       fetchSpy.mockResolvedValueOnce(upToDatePragma());
-      fetchSpy.mockResolvedValue(okSave());
+      fetchSpy.mockImplementation(okSave);
       await expect(new TursoBackend(CONFIG).save(emptyWorkspace())).resolves.toBeUndefined();
       // column-ensure PRAGMA + overwrite, both without a lock.
       expect(fetchSpy).toHaveBeenCalledTimes(2);
@@ -355,12 +374,11 @@ describe("TursoBackend", () => {
       // Baseline did not advance: the retry is still a full first save.
       defineLocks(async (_name, _options, cb) => cb());
       fetchSpy.mockResolvedValueOnce(upToDatePragma());
-      fetchSpy.mockResolvedValue(okSave());
+      fetchSpy.mockImplementation(okSave);
       await backend.save(ws);
       // call 0: column-ensure PRAGMA, call 1: the overwrite.
       expect(fetchSpy).toHaveBeenCalledTimes(2);
-      const sqls = JSON.parse((fetchSpy.mock.calls[1][1] as RequestInit).body as string)
-        .requests.map((r: { stmt?: { sql: string } }) => r.stmt?.sql);
+      const sqls = pipelineSqls(fetchSpy.mock.calls[1][1] as RequestInit);
       expect(sqls).toContain("DELETE FROM tasks");
     });
 
@@ -382,12 +400,10 @@ describe("TursoBackend", () => {
   });
 
   describe("column-ensure migration on save", () => {
-    const okSave = () => jsonRes({ results: [okExec()] });
+    const okSave = (_url: unknown, init?: RequestInit) => jsonRes(okPipelineBody(init));
     /** SQL of every statement in the pipeline body of fetch call N. */
     const bodySqls = (call: number): string[] =>
-      JSON.parse((fetchSpy.mock.calls[call][1] as RequestInit).body as string)
-        .requests.map((r: { stmt?: { sql: string } }) => r.stmt?.sql)
-        .filter((s: string | undefined): s is string => s !== undefined);
+      pipelineSqls(fetchSpy.mock.calls[call][1] as RequestInit);
 
     /** Single-tenant PRAGMA responses where `milestones` is missing outlookEventId. */
     function pragmaMissingOutlookEventId() {
@@ -400,8 +416,8 @@ describe("TursoBackend", () => {
 
     it("ALTERs in the missing column before the INSERTs when an existing DB lacks it", async () => {
       fetchSpy.mockResolvedValueOnce(pragmaMissingOutlookEventId()); // call 0: PRAGMA read
-      fetchSpy.mockResolvedValueOnce(okSave()); // call 1: ALTER pipeline
-      fetchSpy.mockResolvedValueOnce(okSave()); // call 2: overwrite
+      fetchSpy.mockImplementationOnce(okSave); // call 1: ALTER pipeline
+      fetchSpy.mockImplementationOnce(okSave); // call 2: overwrite
       const ws = emptyWorkspace();
       ws.tasks = [minimalTask as never];
       await new TursoBackend(CONFIG).save(ws);
@@ -417,7 +433,7 @@ describe("TursoBackend", () => {
 
     it("issues NO ALTER (and no second migration round-trip) when the DB is up to date", async () => {
       fetchSpy.mockResolvedValueOnce(upToDatePragma()); // call 0: PRAGMA read — all columns present
-      fetchSpy.mockResolvedValueOnce(okSave()); // call 1: overwrite (no ALTER pipeline)
+      fetchSpy.mockImplementationOnce(okSave); // call 1: overwrite (no ALTER pipeline)
       const ws = emptyWorkspace();
       ws.tasks = [minimalTask as never];
       await new TursoBackend(CONFIG).save(ws);
@@ -429,7 +445,7 @@ describe("TursoBackend", () => {
 
     it("runs the column-ensure PRAGMA only once per backend instance", async () => {
       fetchSpy.mockResolvedValueOnce(upToDatePragma()); // call 0: PRAGMA (first save only)
-      fetchSpy.mockResolvedValue(okSave());
+      fetchSpy.mockImplementation(okSave);
       const backend = new TursoBackend(CONFIG);
       const ws = emptyWorkspace();
       ws.tasks = [minimalTask as never];
@@ -450,8 +466,8 @@ describe("TursoBackend", () => {
         ),
       });
       fetchSpy.mockResolvedValueOnce(tenantPragma); // call 0: PRAGMA
-      fetchSpy.mockResolvedValueOnce(okSave()); // call 1: ALTER
-      fetchSpy.mockResolvedValueOnce(okSave()); // call 2: overwrite
+      fetchSpy.mockImplementationOnce(okSave); // call 1: ALTER
+      fetchSpy.mockImplementationOnce(okSave); // call 2: overwrite
       const ws = emptyWorkspace();
       ws.tasks = [minimalTask as never];
       await new TursoBackend(CONFIG, "proj-1").save(ws);
@@ -467,7 +483,7 @@ describe("TursoBackend", () => {
       ws.tasks = [minimalTask as never];
       await expect(backend.save(ws)).rejects.toMatchObject({ hint: "storage-unreachable" });
       fetchSpy.mockResolvedValueOnce(upToDatePragma()); // call 1: retry PRAGMA
-      fetchSpy.mockResolvedValueOnce(okSave()); // call 2: overwrite
+      fetchSpy.mockImplementationOnce(okSave); // call 2: overwrite
       await backend.save(ws);
       expect(bodySqls(1).every((s) => s.startsWith("PRAGMA table_info"))).toBe(true);
       expect(bodySqls(2).some((s) => s.startsWith("INSERT INTO tasks"))).toBe(true);
