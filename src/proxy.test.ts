@@ -55,6 +55,27 @@ describe("proxy CSP — connect-src", () => {
   });
 });
 
+describe("proxy CSP — SharePoint download hosts (§4)", () => {
+  it("allowlists the hosts of the pre-authenticated @microsoft.graph.downloadUrl", () => {
+    // The SharePoint backend's load asks Graph for the item metadata, then GETs the file bytes from
+    // `@microsoft.graph.downloadUrl` — a pre-authenticated URL on a SharePoint host (or, on OneDrive,
+    // files.1drv.com). Without these two sources every SharePoint load is blocked in a real browser;
+    // unit tests and MSW never apply the CSP, so only this pin can see it.
+    const connect = directive(cspFor(), "connect-src");
+    expect(connect).toContain("https://*.sharepoint.com");
+    expect(connect).toContain("https://*.files.1drv.com");
+  });
+
+  it("adds them to connect-src ONLY", () => {
+    const csp = cspFor();
+    for (const name of ["default-src", "script-src", "img-src", "frame-src", "font-src"]) {
+      const value = directive(csp, name) ?? "";
+      expect(value).not.toContain("sharepoint.com");
+      expect(value).not.toContain("1drv.com");
+    }
+  });
+});
+
 describe("proxy CSP — worker-src", () => {
   it("allows the PWA service worker (/sw.js) via an explicit worker-src 'self'", () => {
     // script-src uses 'strict-dynamic', which makes browsers ignore 'self' for

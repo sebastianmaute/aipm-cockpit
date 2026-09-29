@@ -64,6 +64,12 @@ import { type NextRequest, NextResponse } from "next/server";
 //                    graph.microsoft.com — SharePoint backend + Outlook
 //                    calendar/contacts. login.microsoftonline.com — MSAL
 //                    PKCE token exchange (acquireTokenSilent).
+//                    *.sharepoint.com + *.files.1drv.com — the SharePoint
+//                    backend's load reads the item metadata from Graph, then
+//                    fetches the file bytes from `@microsoft.graph.downloadUrl`,
+//                    a pre-authenticated URL on one of these hosts (no Graph
+//                    token is sent to it). Blocked without them in a real
+//                    browser; unit tests never apply the CSP.
 //   frame-src        login.microsoftonline.com — MSAL acquireTokenSilent
 //                    renews tokens in a hidden iframe pointed at the login
 //                    host. (Sign-in/out + interactive consent use popups,
@@ -105,7 +111,7 @@ function buildCsp(nonce: string): string {
     // can only ever decode an image.
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    "connect-src 'self' https://api.anthropic.com https://*.turso.io https://graph.microsoft.com https://login.microsoftonline.com http://localhost:* http://127.0.0.1:*",
+    "connect-src 'self' https://api.anthropic.com https://*.turso.io https://graph.microsoft.com https://*.sharepoint.com https://*.files.1drv.com https://login.microsoftonline.com http://localhost:* http://127.0.0.1:*",
     "frame-src https://login.microsoftonline.com",
     "frame-ancestors 'none'",
     "object-src 'none'",
