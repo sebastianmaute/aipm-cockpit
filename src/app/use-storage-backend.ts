@@ -326,6 +326,30 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // load's values count; a restored journal is not recorded, since it is unsaved work (review I3).
   const loadedValuesRef = useRef<WeakSet<object>>(new WeakSet());
   const isLoadedValue = useCallback((value: unknown) => typeof value === "object" && value !== null && loadedValuesRef.current.has(value), []);
+  // §4 — a window that only MIRRORS a peer's edit must not autosave it: both windows would write the same
+  // content from the same revision and one would be refused as a conflict. `savedWorkspaceRef` is what this
+  // window last loaded (the suppressed run after a load or op) or last WROTE (a landed save); `mirroredRef`
+  // holds, per slice, the last value applied from a peer since then. A run whose every slice that differs
+  // from `savedWorkspaceRef` is exactly that slice's mirrored value writes nothing (`isMirroredOnly`).
+  // ★ Cleared whenever `savedWorkspaceRef` moves: a live entry means "the peer wrote this and this window has
+  //   written nothing since", so a later value equal to it is already what storage holds.
+  const savedWorkspaceRef = useRef<Workspace | null>(null);
+  const mirroredRef = useRef(new Map<string, unknown>());
+  const noteMirrored = useCallback((kind: string, value: unknown) => { mirroredRef.current.set(kind, value); }, []);
+  const markWorkspaceSaved = (ws: Workspace): void => { savedWorkspaceRef.current = ws; mirroredRef.current = new Map(); };
+  // ★ False when nothing differs: a run with no change still writes (the incomplete-load "save anyway", an
+  //   opened save gate), and false before any load or save, so only a mirror can ever skip a write.
+  const isMirroredOnly = (ws: Workspace): boolean => {
+    const saved = savedWorkspaceRef.current;
+    if (saved === null) return false;
+    let changed = false;
+    for (const key of Object.keys(ws) as (keyof Workspace)[]) {
+      if (Object.is(ws[key], saved[key])) continue;
+      if (!mirroredRef.current.has(key) || !Object.is(mirroredRef.current.get(key), ws[key])) return false;
+      changed = true;
+    }
+    return changed;
+  };
   // §596 — the swap-in-flight reader, published for the same reason and with the same contract as
   // `getScopeEpoch`: STABLE for the hook's lifetime, reads a synchronously-maintained ref, never a
   // render value.
@@ -830,8 +854,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // ★ The spend that used to sit here is now at the TOP of this effect, so
       // this branch spends by construction like every other. The resync
       // rationale above is unchanged and still the reason it is SAFE to spend.
+      markWorkspaceSaved(outgoing); // §4 — what scope holds after the load/op is what storage holds
       return;
     }
+    // §4 — only mirrored changes since the last load or landed write: the peer that made them saves them.
+    // Nothing is written, so nothing moves — no baseline, no journal entry, no outcome — and the pending
+    // timer of an earlier run is gone only if that run's own change has since been replaced by a mirror.
+    // ★ Any arm was spent at the top; an arm comes with a local mutation in the same commit, and a run
+    //   carrying one is not mirrored-only.
+    if (isMirroredOnly(outgoing)) return;
     // ★ DATA-LOSS INVARIANTS at the persistence choke point (all backends): L3 and
     //   Layer B, both decided by the pure `evaluateSaveGuard` (save-guard.ts) — read the
     //   two invariants there, not here. An explicit user bulk-op (clear-all / bulk delete)
@@ -916,6 +947,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       enqueueSave(backend, () => { baseRevision = backend.revision?.() ?? null; return backend.save(outgoing); }).then((result) => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
         if (result === "superseded") return;
         committedBaselineRef.current = { collections: curCollections, records: curRecords }; // the write landed: these are on disk now
+        markWorkspaceSaved(outgoing); // §4 — and this is what storage holds
         unloadJournal.noteSaveConfirmed(journalSavedAt, outgoing); // §629 — clears this tab's journal for it and rolls the base forward
         emitOutcome(null);
         // §4 — tell the windows mirroring this storage which revision the write produced, or their next save is refused as stale.
@@ -1063,8 +1095,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     [args.settings.storageConfig, tursoUrlForBackend, tursoProjectId],
   );
   const syncContext = useMemo<SyncContext>(
-    () => (args.isPopout ? { role: "popout", openerId: readPopoutOpenerFromUrl() } : { role: "main", scope: syncScope, getEpoch: getScopeEpoch, isLoadedValue }),
-    [args.isPopout, syncScope, getScopeEpoch, isLoadedValue],
+    () => (args.isPopout ? { role: "popout", openerId: readPopoutOpenerFromUrl() } : { role: "main", scope: syncScope, getEpoch: getScopeEpoch, isLoadedValue, onMirrored: noteMirrored }),
+    [args.isPopout, syncScope, getScopeEpoch, isLoadedValue, noteMirrored],
   );
   const adoptPeerRevision = useCallback((revision: string, baseRevision: string) => {
     // Adopt only from the revision this window holds: `fromLoad` slices are not mirrored, so a window that missed a reload (or is paused on a real conflict) would otherwise adopt and then save its stale copy over it.

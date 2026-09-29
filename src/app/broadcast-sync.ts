@@ -54,6 +54,8 @@ export type SyncContext =
       getEpoch: () => number;
       /** True for a value the latest load applied from storage; sent as `fromLoad`. */
       isLoadedValue: (value: unknown) => boolean;
+      /** §4 — told of every peer value this window applies, just before it is applied, so the autosave can tell a mirrored change from its own. */
+      onMirrored: (kind: string, value: unknown) => void;
     }
   | {
       role: "popout";
@@ -146,6 +148,7 @@ export function useBroadcastSync<T>(
         if (msg.fromLoad) return;
         if (ctx.scope === null || msg.scope !== ctx.scope) return;
         if (ctx.getEpoch() !== committedEpochRef.current) return;
+        ctx.onMirrored(kind, msg.value);
       }
       lastSeenRef.current = msg.value;
       applyIncoming(msg.value);
@@ -185,8 +188,11 @@ export function useBroadcastSync<T>(
 // ★★ §4 — THE REVISION MESSAGE. Windows mirroring one storage keep each other's slices, and every
 // backend refuses a save made from a revision it has not seen; so after a confirmed write the writer
 // tells the others which revision it produced, and they adopt it instead of pausing on their next save.
-// It carries NO token, URL or path — the scope already names the storage — only the revision string.
-// Same acceptance rules as a slice: a main window adopts only for its own non-null, committed scope; a
+// It carries NO token, URL or path — the scope already names the storage — only two revision strings: the
+// one the write produced (`revision`) and the one it was checked against (`baseRevision`). A receiver
+// adopts only while it holds `baseRevision` itself and has no save of its own running or queued
+// (`adoptPeerRevision` in use-storage-backend.ts), so a window that missed a write, or is saving, never
+// skips past it. Same acceptance rules as a slice: a main window adopts only for its own non-null, committed scope; a
 // pop-out never saves and so never adopts (and never posts). One id per PAGE (not per hook instance),
 // because the poster and the listener are different objects of one window and a same-window BroadcastChannel
 // still delivers to its siblings.

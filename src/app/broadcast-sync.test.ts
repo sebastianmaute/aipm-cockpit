@@ -14,7 +14,7 @@ import { readPopoutOpenerFromUrl } from "./sync-scope";
 
 /** A main window's context. Nothing bumps the epoch or the load generation unless a test says so. */
 function main(scope: string | null, over: Partial<Extract<SyncContext, { role: "main" }>> = {}): SyncContext {
-  return { role: "main", scope, getEpoch: () => 0, isLoadedValue: () => false, ...over };
+  return { role: "main", scope, getEpoch: () => 0, isLoadedValue: () => false, onMirrored: () => {}, ...over };
 }
 function popout(openerId: string | null): SyncContext {
   return { role: "popout", openerId };
@@ -311,6 +311,22 @@ describe("useBroadcastSync main-window scope (§642, §643)", () => {
     const { rerender } = render(tree("project-a"));
     rerender(tree("project-b"));
     expect(applied).toEqual([]);
+  });
+
+  // §4 — the autosave skips a run whose only changes are values mirrored from a peer; it learns which
+  // values those are here, for every message a main window applies and for none it drops.
+  it("reports each applied value to onMirrored before applying it, and nothing it drops", () => {
+    const mirrored: [string, unknown][] = [];
+    const applied: number[][] = [];
+    const initial: number[] = [];
+    const apply = (v: number[]) => { expect(mirrored.at(-1)?.[1]).toBe(v); applied.push(v); };
+    const ctx = main("project-a", { onMirrored: (kind, value) => { mirrored.push([kind, value]); } });
+    renderHook(() => useBroadcastSync("tasks", initial, apply, ctx));
+    sendFrom("project-b", [1]);
+    postRaw({ scope: "project-a", fromLoad: true, value: [2] });
+    sendFrom("project-a", [3]);
+    expect(mirrored).toEqual([["tasks", [3]]]);
+    expect(applied).toEqual([[3]]);
   });
 });
 

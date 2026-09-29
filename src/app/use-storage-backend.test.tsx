@@ -516,8 +516,10 @@ describe("useStorageBackend — save effect", () => {
     // A save replaced under settleReplacedAsOwn (a guardedWrite / pre-switch flush queued behind it) never
     // runs its thunk yet resolves "saved"; it wrote nothing, so it must not announce a revision.
     it("posts nothing for an autosave replaced by a guarded write", async () => {
-      trackRevision();
-      mockBackend.save.mockImplementation(() => new Promise<void>((resolve) => { finishPending = resolve; }));
+      // Like `trackRevision`, but the write lands only when the test says so: autosave 1 moves "1" to "2".
+      let rev = "1";
+      revisioned.revision = vi.fn(() => rev);
+      mockBackend.save.mockImplementation(() => new Promise<void>((resolve) => { finishPending = () => { rev = "2"; resolve(); }; }));
       const { result } = renderBackend();
       await settle();
       (postRevision as ReturnType<typeof vi.fn>).mockClear();
@@ -528,6 +530,7 @@ describe("useStorageBackend — save effect", () => {
       await act(async () => { void enqueueSave(mockBackend, async () => undefined, { settleReplacedAsOwn: true }); });
       await act(async () => { finishPending?.(); await whenSaved(mockBackend); });
       expect(postRevision).toHaveBeenCalledTimes(1); // autosave 1 alone; the replaced autosave 2 ran nothing
+      expect(postRevision).toHaveBeenCalledWith(expect.anything(), "2", "1");
     });
 
     it("adopts an incoming revision through backend.adoptRevision, under the same context", async () => {

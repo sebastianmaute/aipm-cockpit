@@ -1,0 +1,191 @@
+// §4 — two main windows on ONE storage, with the REAL `broadcast-sync` between them (the sibling
+// suites mock it) and one shared fake store whose save takes real latency and ENFORCES the revision:
+// a save checked against a revision the store no longer holds throws `SaveConflictError`, as the
+// file, IndexedDB and SharePoint backends do. The instant mock saves elsewhere cannot show the race
+// this pins: a window that merely MIRRORS a peer's edit must not autosave it, or both windows write
+// the same content from the same revision and one of them is refused.
+import { act, renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Settings } from "./settings-types";
+import type { Lang } from "./i18n";
+import type { RaidItem, Task } from "./types";
+import type { StorageConfig, Workspace } from "./storage";
+import { SaveConflictError } from "./storage-error";
+import { useStorageBackend } from "./use-storage-backend";
+import { useWorkspace } from "./workspace-context";
+import { TestProviders } from "./test-providers";
+
+vi.mock("./storage", () => ({
+  createBackend: vi.fn(),
+  emptyWorkspace: vi.fn(() => ({ tasks: [], raid: [], absences: [], shifts: [], resources: [], roles: [], disciplines: [], grades: [] })),
+  StorageNotReadyError: class StorageNotReadyError extends Error {
+    hint: string;
+    constructor(hint: string) { super(hint); this.hint = hint; }
+  },
+  StorageNotImplementedError: class StorageNotImplementedError extends Error {},
+  openFileForBackend: vi.fn(),
+  loadFromHandleForBackend: vi.fn(),
+  pickFileForBackend: vi.fn(),
+  pickFileHandleForBackend: vi.fn(),
+  pickOpenFileAny: vi.fn(),
+  formatFromFileName: vi.fn(() => "json"),
+  requestWriteAccessForBackend: vi.fn(),
+  setBackendFileHandle: vi.fn(() => null),
+  getBackendFileHandle: vi.fn(() => null),
+}));
+import * as storageMod from "./storage";
+vi.mock("./project-file-handles", () => ({
+  getHandle: vi.fn().mockResolvedValue(null),
+  saveHandle: vi.fn().mockResolvedValue(undefined),
+  deleteHandle: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
+
+/** How long a save takes to reach the store: a real-latency backend (Turso, SharePoint). */
+const LATENCY_MS = 300;
+
+/** The one storage both windows write. `rev` is what a conditional write is checked against. */
+type Store = { rev: number; workspace: Workspace };
+let store: Store;
+
+/** A window's backend instance over `store`: it holds the revision it last loaded, wrote or adopted. */
+function makeBackend() {
+  let held: number | null = null;
+  return {
+    load: vi.fn(async () => { held = store.rev; return structuredClone(store.workspace); }),
+    save: vi.fn(async (ws: Workspace) => {
+      const expected = held;
+      await new Promise((resolve) => setTimeout(resolve, LATENCY_MS));
+      if (expected !== store.rev) throw new SaveConflictError("browser");
+      store.rev += 1;
+      store.workspace = ws;
+      held = store.rev;
+    }),
+    isReady: vi.fn(async () => true),
+    describe: vi.fn(async () => "shared store"),
+    revision: () => (held === null ? null : String(held)),
+    adoptRevision: (revision: string) => { held = Number(revision); },
+  };
+}
+
+/** One origin's windows: every channel but the poster's gets a structured clone, a microtask later.
+ *  ★ `postRevision` tags its message with a per-PAGE id, and both windows here share one module
+ *  graph, so B would drop A's revision as its own echo. The bus gives each revision message a fresh
+ *  id, as a second page would; the poster then hears its own too, which it cannot adopt (it no longer
+ *  holds the base its save was checked against). Slice messages already carry a per-hook id. */
+function installBus() {
+  const open = new Set<{ listeners: Set<(ev: MessageEvent) => void> }>();
+  let revisionSender = 0;
+  class BusChannel {
+    listeners = new Set<(ev: MessageEvent) => void>();
+    constructor(public name: string) { open.add(this); }
+    postMessage(msg: { kind?: string; clientId?: string }) {
+      const sent = msg.kind === "__revision" ? { ...msg, clientId: `page-${++revisionSender}` } : msg;
+      for (const channel of open) {
+        if (channel === this) continue;
+        const data = structuredClone(sent);
+        queueMicrotask(() => { for (const l of channel.listeners) l({ data } as MessageEvent); });
+      }
+    }
+    addEventListener(_type: string, cb: (ev: MessageEvent) => void) { this.listeners.add(cb); }
+    removeEventListener(_type: string, cb: (ev: MessageEvent) => void) { this.listeners.delete(cb); }
+    close() { open.delete(this); }
+  }
+  vi.stubGlobal("BroadcastChannel", BusChannel as unknown as typeof BroadcastChannel);
+}
+
+function openWindow() {
+  const backend = makeBackend();
+  const storageConfig = { kind: "browser" } as StorageConfig;
+  backendFor.set(storageConfig, backend);
+  const onStorageOutcome = vi.fn();
+  const args: Parameters<typeof useStorageBackend>[0] = {
+    settings: { storageConfig } as unknown as Settings,
+    lang: "en-US" as Lang,
+    hydrated: true,
+    isPopout: false,
+    showToast: vi.fn(),
+    showToastAction: vi.fn(),
+    onRevealSavingPaused: vi.fn(),
+    setStorageConfig: vi.fn(),
+    onStorageOutcome,
+  };
+  const hook = renderHook(() => { useStorageBackend(args); return useWorkspace(); }, {
+    wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+  });
+  const conflicts = () => onStorageOutcome.mock.calls.filter(([err]) => err instanceof SaveConflictError).length;
+  return { backend, hook, conflicts };
+}
+
+const backendFor = new Map<StorageConfig, ReturnType<typeof makeBackend>>();
+
+/** Runs fake time forward with every microtask (channel delivery, save promises) in between. */
+async function run(ms: number) {
+  await act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+}
+
+const task = (id: number, taskName: string) => ({ id, taskName }) as unknown as Task;
+const raidItem = (id: string, title: string) => ({ id, title }) as unknown as RaidItem;
+
+describe("useStorageBackend — a mirrored edit is saved once, by its writer (§4)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+    installBus();
+    store = { rev: 1, workspace: { tasks: [], raid: [], absences: [], shifts: [] } as unknown as Workspace };
+    backendFor.clear();
+    vi.mocked(storageMod.createBackend).mockImplementation(((config: StorageConfig) => backendFor.get(config)) as unknown as typeof storageMod.createBackend);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  async function openBoth() {
+    const a = openWindow();
+    const b = openWindow();
+    await run(0);
+    await run(1000); // both loads applied, their suppressed runs spent
+    expect(a.backend.load).toHaveBeenCalledTimes(1);
+    expect(b.backend.load).toHaveBeenCalledTimes(1);
+    return { a, b };
+  }
+
+  it("neither window pauses when one edits and the other only mirrors it", async () => {
+    const { a, b } = await openBoth();
+    await act(async () => { a.hook.result.current.setTasks([task(1, "from A")]); });
+    await run(0);
+    expect(b.hook.result.current.tasks.map((x) => x.taskName)).toEqual(["from A"]); // B really mirrored it
+    await run(500 + LATENCY_MS + 100);
+    expect(a.conflicts()).toBe(0);
+    expect(b.conflicts()).toBe(0);
+    expect(store.workspace.tasks.map((x) => x.taskName)).toEqual(["from A"]);
+    expect(b.backend.save).not.toHaveBeenCalled();
+  });
+
+  it("the mirroring window adopts the writer's revision, so its own later edit saves without a pause", async () => {
+    const { a, b } = await openBoth();
+    await act(async () => { a.hook.result.current.setTasks([task(1, "from A")]); });
+    await run(500 + LATENCY_MS + 100);
+    expect(b.backend.revision()).toBe("2"); // adopted from A's {2, base 1}
+    await act(async () => { b.hook.result.current.setRaid([raidItem("r1", "from B")]); });
+    await run(500 + LATENCY_MS + 100);
+    expect(a.conflicts()).toBe(0);
+    expect(b.conflicts()).toBe(0);
+    expect(store.rev).toBe(3);
+    expect(store.workspace.tasks.map((x) => x.taskName)).toEqual(["from A"]);
+    expect(store.workspace.raid.map((x) => x.title)).toEqual(["from B"]);
+  });
+
+  // A genuine concurrent edit: B's own change is still in its debounce when A's slice arrives. B's save
+  // must still happen — it may be refused as a conflict, which is the guard working — never be dropped.
+  it("still saves the mirroring window's own pending edit when a peer's slice arrives", async () => {
+    const { a, b } = await openBoth();
+    await act(async () => { b.hook.result.current.setRaid([raidItem("r1", "from B")]); });
+    await run(100);
+    await act(async () => { a.hook.result.current.setTasks([task(1, "from A")]); });
+    await run(0);
+    await run(500 + LATENCY_MS + 500);
+    const bSaved = b.backend.save.mock.calls.map(([ws]) => ws.raid.map((x) => x.title));
+    expect(bSaved).toContainEqual(["from B"]);
+  });
+});
