@@ -560,4 +560,62 @@ describe("§588 — a superseded pick must not write to, or arm, the dead backen
     //   did not include this one.
     expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.supersededPickDropped", { stage: "write" });
   });
+
+  // ★★ §603 — THE QUEUED WINDOW, which the test above cannot reach: there `first.save` is the PICK's own
+  // write and is already running when the rebuild lands. Here an AUTOSAVE is what hangs on `first`, so
+  // the pick's write is still WAITING in the per-backend queue, and the rebuild lands while it waits.
+  // The check inside the queued thunk is what stops it.
+  // ★ POSITIVE CONTROLS: `first.save` is called exactly once (the autosave, so the pick really did
+  // queue behind a running save and "not called again" is not a vacuous pass), and `second` still
+  // takes the next edit (the pick did not move the save gate off the live backend).
+  it("a picked-file write queued behind an autosave never reaches a backend replaced while it waited", async () => {
+    const first = makeBackend(50, EMPTY, "browser");
+    // `second` holds what the autosave wrote, so the data-loss guard sees no shrink and does not refuse its saves.
+    const second = makeBackend(100, { ...EMPTY, tasks: EDIT_ONE });
+    createBackendMock.mockReturnValueOnce(first).mockReturnValue(second);
+    const EDIT_THREE = [...EDIT_TWO, { id: 3, taskName: "Third edit" }] as unknown as Task[];
+    let releaseAutosave: () => void = () => {};
+    // Only the FIRST save (the autosave) hangs; a later one settles at once, so a regression fails on
+    // the call-count assertion below rather than by hanging the test until its timeout.
+    first.save = vi.fn()
+      .mockImplementationOnce(() => new Promise<void>((resolve) => { releaseAutosave = () => resolve(); }))
+      .mockResolvedValue(undefined);
+
+    const { result, rerender } = renderHook(
+      (props: { config: StorageConfig }) => useProbe(makeArgs(props.config)),
+      {
+        wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+        initialProps: { config: { kind: "browser" } as StorageConfig },
+      },
+    );
+    await advance(100);
+
+    await act(async () => { result.current.setTasks(EDIT_ONE); });
+    await advance(SAVE_DEBOUNCE_MS + 100);
+    expect(first.save).toHaveBeenCalledTimes(1); // the autosave, hanging
+
+    (storageMod.pickFileHandleForBackend as ReturnType<typeof vi.fn>).mockReturnValueOnce(Promise.resolve({ name: "picked.json" }));
+    let pick!: Promise<void>;
+    act(() => { pick = result.current.onPickStorageFile(); });
+    await advance(1);
+    expect(first.save).toHaveBeenCalledTimes(1); // the pick's write is queued, not running
+
+    rerender({ config: { kind: "turso" } as StorageConfig });
+    await advance(150);
+    expect(second.load).toHaveBeenCalledTimes(1);
+
+    await act(async () => { releaseAutosave(); await pick; });
+    await advance(1);
+
+    expect(first.save).toHaveBeenCalledTimes(1); // still only the autosave: the queued pick write was skipped
+    expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.supersededLoadDropped", { writer: "onPickStorageFile", stage: "write-queued" });
+
+    // The gate stays where it was: `second` takes the edits made once the pick op (which holds edits while it runs) is over.
+    await act(async () => { result.current.setTasks(EDIT_TWO); });
+    await advance(SAVE_DEBOUNCE_MS + 100);
+    await act(async () => { result.current.setTasks(EDIT_THREE); });
+    await advance(SAVE_DEBOUNCE_MS + 100);
+    expect(second.save).toHaveBeenCalledTimes(2);
+    expect(second.save.mock.calls[1][0].tasks.map((x: Task) => x.id)).toEqual([1, 2, 3]);
+  });
 });

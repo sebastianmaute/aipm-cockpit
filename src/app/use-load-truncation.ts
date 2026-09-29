@@ -218,8 +218,14 @@ export interface TruncationOps {
    *  the user believes holds their project and does not, and `onRequestStorageSwitch`
    *  then repoints the app AT that short copy — the original becomes the
    *  abandoned one. So the refusal re-toasts the truncation counts and the
-   *  caller must not report success. */
-  guardedWrite: (backend: Pick<StorageBackend, "save">, ws: Workspace) => Promise<boolean>;
+   *  caller must not report success.
+   *
+   *  ★★ §603 — `isCurrent`, when given, is asked INSIDE the queued thunk, right before `save`:
+   *  a write queued behind a running save waits, and the backend can be replaced meanwhile.
+   *  A false answer skips the write, logs `stage: "write-queued"` and resolves false. ★ A save
+   *  ALREADY RUNNING when the replacement lands cannot be aborted (no backend can abort an
+   *  in-flight write) — that one-write window is the recorded residual. */
+  guardedWrite: (backend: Pick<StorageBackend, "save">, ws: Workspace, isCurrent?: () => boolean) => Promise<boolean>;
   /** The refusal WITHOUT the write — for a caller that must decline BEFORE its
    *  own irreversible side effect rather than after it.
    *
@@ -787,7 +793,7 @@ export function useLoadTruncation(
       }
       if (parts.length > 0) showToast("error", parts.join(" "));
     },
-    guardedWrite: async (backend, ws) => {
+    guardedWrite: async (backend, ws, isCurrent) => {
       // ★ ONE implementation of the refusal, shared with `refuseWrite` above, so
       // a caller that declines early and one that declines at the write cannot
       // report the loss differently.
@@ -796,8 +802,19 @@ export function useLoadTruncation(
         return false;
       }
       // §627 — through the per-backend queue, so it cannot race an autosave to the same backend.
-      await enqueueSave(backend, () => backend.save(ws), { settleReplacedAsOwn: true });
-      return true;
+      // ★★ §603 — the check is INSIDE the thunk, not before the enqueue: the thunk runs only after the
+      // saves ahead of it settle, and that wait is the window in which the backend gets replaced.
+      // Nothing identifying the storage target is logged.
+      let skipped = false;
+      await enqueueSave(backend, async () => {
+        if (isCurrent && !isCurrent()) {
+          skipped = true;
+          logDiag("warn", "storage.supersededLoadDropped", { writer: "onPickStorageFile", stage: "write-queued" });
+          return;
+        }
+        await backend.save(ws);
+      }, { settleReplacedAsOwn: true });
+      return !skipped;
     },
   };
 
