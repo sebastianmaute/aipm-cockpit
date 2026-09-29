@@ -50,6 +50,13 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
   const [newName, setNewName] = useState("");
   const [bodyDraft, setBodyDraft] = useState("");
   const [restoreNonce, setRestoreNonce] = useState(0);
+  // §626. The uncontrolled name input and the body draft are copies of the stored template taken when
+  // it was selected. `seen` is the stored name and body they were last aligned with; `nameTyped` is
+  // the last name the input held. A stored value that moves (a replay landing while the template is
+  // selected) re-syncs the copy that has no open edit, so a later blur cannot revert it.
+  const [seen, setSeen] = useState<{ id: string; name: string; body: string } | null>(null);
+  const [nameTyped, setNameTyped] = useState("");
+  const [nameNonce, setNameNonce] = useState(0);
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const CURRENT_ID = "__current__";
   const inCategory = templates.filter((tpl) => tpl.category === category);
@@ -63,6 +70,17 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
   // verb when the name itself repeats.
   const rowTokens = buildRowTokens(inCategory.map((tpl) => ({ id: tpl.id, name: tpl.name })));
   const selected = inCategory.find((tpl) => tpl.id === selectedId) ?? null;
+  if (selected && seen && seen.id === selected.id && (seen.name !== selected.name || seen.body !== selected.body)) {
+    setSeen({ id: selected.id, name: selected.name, body: selected.body });
+    if (seen.name !== selected.name && nameTyped === seen.name) {
+      setNameTyped(selected.name);
+      setNameNonce((n) => n + 1);
+    }
+    if (seen.body !== selected.body && bodyDraft === seen.body) {
+      setBodyDraft(selected.body);
+      setRestoreNonce((n) => n + 1);
+    }
+  }
 
   const versions = useCommTemplateVersions({ active: props.config !== null, config: props.config, templateId: selectedId });
   // ★★ A version name is whatever `window.prompt` returned in
@@ -98,6 +116,8 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
   function selectTemplate(tpl: CommTemplate) {
     setSelectedId(tpl.id);
     setBodyDraft(tpl.body);
+    setSeen({ id: tpl.id, name: tpl.name, body: tpl.body });
+    setNameTyped(tpl.name);
     setCompareIds([]);
   }
 
@@ -293,12 +313,12 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
           <label className="flex flex-col gap-1 text-sm text-foreground">
             <span className="font-medium">{t(lang, "commTplRename")}</span>
             <Input
-              key={selected.id}
+              key={`${selected.id}:${nameNonce}`}
               size="xs"
               type="text"
               defaultValue={selected.name}
               aria-label={t(lang, "commTplRename")}
-              onChange={(e) => props.trackDraft(selected.id, "name", e.target.value)}
+              onChange={(e) => { setNameTyped(e.target.value); props.trackDraft(selected.id, "name", e.target.value); }}
               onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
               onBlur={(e) => {
                 const n = normalizeTemplateName(e.target.value);

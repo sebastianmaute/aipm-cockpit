@@ -1791,7 +1791,12 @@ function TaskManagerInner() {
   }, [pendingOpen, tasks, openEditModal, clearPendingOpen]);
 
   const commTemplatesActive = tursoConfig !== null && !isPopout;
-  const commTemplates = useCommTemplates({ active: commTemplatesActive, config: tursoConfig });
+  const commTemplates = useCommTemplates({
+    active: commTemplatesActive,
+    config: tursoConfig,
+    // §626. A startup replay write failed: reported as a failed template save is. Kind and id only.
+    onReplayFailure: ({ kind, id }) => reportSilentFailure(showToast, lang, "commTemplates.replayFailed", new Error(`${kind}:${id}`), "guardCommTemplateSaveFailed"),
+  });
   const operatingGuides = useOperatingGuides({ config: tursoConfig });
   const meetingReportActions = useMeetingReportActions({
     lang,

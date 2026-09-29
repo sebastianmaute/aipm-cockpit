@@ -179,6 +179,84 @@ describe("useCommTemplates — pending edits outbox", () => {
     expect(stored()).toEqual([]);
   });
 
+  it("a replay write still in flight keeps its edit, and the ones queued behind it, across a pagehide", async () => {
+    seedEdits(
+      { kind: "template-name", id: "d", base: "Def", value: "Replayed" },
+      { kind: "template-body", id: "d", base: "<p>hi</p>", value: "<p>replayed</p>" },
+    );
+    upsertTemplate.mockReturnValueOnce(new Promise<void>(() => undefined));
+    await renderLoaded();
+    await waitFor(() => expect(upsertTemplate).toHaveBeenCalledTimes(1));
+    pagehide();
+    expect(stored()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "template-name", id: "d", base: "Def", value: "Replayed" }),
+      expect.objectContaining({ kind: "template-body", id: "d", base: "<p>hi</p>", value: "<p>replayed</p>" }),
+    ]));
+    expect(stored()).toHaveLength(2);
+  });
+
+  it("a replay write that lands settles its edit", async () => {
+    seedEdits({ kind: "template-name", id: "d", base: "Def", value: "Replayed" });
+    await renderLoaded();
+    await waitFor(() => expect(upsertTemplate).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(upsertTemplate).toHaveReturned());
+    await act(async () => { await Promise.resolve(); });
+    pagehide();
+    expect(stored()).toEqual([]);
+  });
+
+  it("a failed replay write is reported with kind and id only, and stays tracked", async () => {
+    seedEdits({ kind: "template-name", id: "d", base: "Def", value: "Secret draft" });
+    upsertTemplate.mockRejectedValueOnce(new Error("network down"));
+    const onReplayFailure = vi.fn();
+    loadTemplates.mockResolvedValue([def]);
+    renderHook(() => useCommTemplates({ active: true, config: CFG, onReplayFailure }));
+    await waitFor(() => expect(onReplayFailure).toHaveBeenCalledWith({ kind: "template-name", id: "d" }));
+    const failed = readDiagLog().filter((e) => e.code === "storage.pendingEditReplayFailed");
+    expect(failed).toHaveLength(1);
+    expect(failed[0].fields).toEqual({ kind: "template-name", id: "d" });
+    expect(JSON.stringify(readDiagLog())).not.toContain("Secret draft");
+    pagehide();
+    expect(stored()).toEqual([expect.objectContaining({ kind: "template-name", value: "Secret draft" })]);
+  });
+
+  it("a padded name is tracked as the commit saves it, so the save settles it", async () => {
+    const { result } = await renderLoaded();
+    act(() => result.current.trackDraft("d", "name", "  Renamed "));
+    pagehide();
+    expect(stored()).toEqual([expect.objectContaining({ kind: "template-name", value: "Renamed" })]);
+    await act(async () => { await result.current.rename("d", "Renamed"); });
+    pagehide();
+    expect(stored()).toEqual([]);
+  });
+
+  it("a blank name draft settles instead of tracking", async () => {
+    const { result } = await renderLoaded();
+    act(() => result.current.trackDraft("d", "name", "Renamed"));
+    act(() => result.current.trackDraft("d", "name", "   "));
+    pagehide();
+    expect(stored()).toEqual([]);
+  });
+
+  it("cancelling a body draft while its save is in flight keeps that save's edit tracked", async () => {
+    const { result } = await renderLoaded();
+    upsertTemplate.mockReturnValueOnce(new Promise<void>(() => undefined));
+    act(() => result.current.trackDraft("d", "body", "<p>x</p>"));
+    act(() => { void result.current.saveBody("d", "<p>x</p>"); });
+    act(() => result.current.trackDraft("d", "body", "<p>hi</p>"));
+    pagehide();
+    expect(stored()).toEqual([expect.objectContaining({ kind: "template-body", base: "<p>hi</p>", value: "<p>x</p>" })]);
+  });
+
+  it("removing a template settles its name and body drafts", async () => {
+    const { result } = await renderLoaded();
+    act(() => result.current.trackDraft("d", "name", "Renamed"));
+    act(() => result.current.trackDraft("d", "body", "<p>x</p>"));
+    await act(async () => { await result.current.remove("d"); });
+    pagehide();
+    expect(stored()).toEqual([]);
+  });
+
   it("nothing is tracked without a usable httpUrl", async () => {
     loadTemplates.mockResolvedValue([def]);
     const { result } = renderHook(() => useCommTemplates({ active: true, config: {} as never }));
