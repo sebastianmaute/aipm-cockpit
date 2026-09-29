@@ -3,11 +3,11 @@ import { densityClasses } from "./dashboard-density";
 
 describe("densityClasses", () => {
   test("comfortable keeps the current spacing (no-op for existing users)", () => {
-    expect(densityClasses("comfortable")).toEqual({ outer: "space-y-4", kpiGap: "gap-2", cardPad: "p-3", kpiPad: "p-3", sectionGap: "gap-4", tileRow: "auto-rows-[80px]" });
+    expect(densityClasses("comfortable")).toEqual({ outer: "space-y-4", kpiGap: "gap-2", cardPad: "p-3", kpiPad: "p-3", sectionGap: "gap-4", tileRow: "auto-rows-[80px]", topRowSplit: expect.any(String) });
   });
 
   test("compact tightens rhythm, KPI gap, and card padding", () => {
-    expect(densityClasses("compact")).toEqual({ outer: "space-y-2", kpiGap: "gap-1", cardPad: "p-2", kpiPad: "px-2 py-0", sectionGap: "gap-2", tileRow: "auto-rows-[72px]" });
+    expect(densityClasses("compact")).toEqual({ outer: "space-y-2", kpiGap: "gap-1", cardPad: "p-2", kpiPad: "px-2 py-0", sectionGap: "gap-2", tileRow: "auto-rows-[72px]", topRowSplit: expect.any(String) });
   });
 
   test("kpiPad keeps the KPI strip's width in both densities, dropping only compact's vertical padding (§585)", () => {
