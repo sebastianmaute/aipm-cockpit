@@ -6,6 +6,20 @@ const yml = readFileSync(join(import.meta.dirname, "../ci/gitlab-sync.yml"), "ut
 const lines = yml.split(/\r?\n/);
 
 describe("ci/gitlab-sync.yml", () => {
+  // §646 — these tests match TEXT and never parsed the file, so a script line that YAML cannot
+  // read passed them all and GitLab rejected the whole file ("Invalid YAML syntax"), which also
+  // stopped the sync. No YAML parser is a dependency here, so this pins the rule that bit: in an
+  // UNQUOTED sequence item, ": " makes YAML read a mapping and " #" starts a comment. An item that
+  // needs either must be quoted.
+  it("quotes every script item that YAML would otherwise misread (§646)", () => {
+    const items = lines
+      .map((l, i) => ({ n: i + 1, m: /^\s*- (.*)$/.exec(l) }))
+      .filter(({ m }) => m && !/^['"|>]/.test(m[1]) && !/^[A-Za-z_]+:( |$)/.test(m[1]));
+    expect(items.length).toBeGreaterThan(3);
+    const bad = items.filter(({ m }) => /: |\s#/.test(m[1])).map(({ n }) => n);
+    expect(bad).toEqual([]);
+  });
+
   it("runs only on a schedule or the manual Run pipeline button", () => {
     const ifs = lines.filter((l) => /^\s*- if:/.test(l));
     expect(ifs).toHaveLength(2);
