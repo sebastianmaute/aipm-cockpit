@@ -483,6 +483,10 @@ function TaskManagerInner() {
   useAiKeyCheck({ ai: settings.ai, hydrated, isPopout });
   const aiKeyStatus = useAiKeyStatus();
   const [aiKeyBannerDismissed, setAiKeyBannerDismissed] = useState(false);
+  // A dismissal belongs to the bad verdict it dismissed: once the verdict leaves the bad states (a new
+  // key resets it to "unknown", or a call succeeds) the dismissal is cleared, so a NEW refusal shows
+  // the banner again. Render-time reconcile, not an effect (set-state-in-effect is banned).
+  if (aiKeyBannerDismissed && !isAiKeyStatusBad(aiKeyStatus)) setAiKeyBannerDismissed(false);
 
   // ★★★ FIX ROUND 1 (M3): THE ONLY VersionInfoModal IN THE APP, and its
   // `openVersion` is now the ONE way anything opens it — the desktop shell's

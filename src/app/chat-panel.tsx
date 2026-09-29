@@ -56,7 +56,7 @@ import {
 } from "./chat-api";
 import { buildWireMessages } from "./chat-cache-layout";
 import { AiHttpError, classifyAiError } from "./ai-errors";
-import { aiKeyMessageKeyForError } from "./ai-key-status";
+import { aiKeyMessageKeyForError, syncAiKey } from "./ai-key-status";
 import { ToolBlock } from "./chat-tool-block";
 import type { TursoConfig } from "./turso-config";
 import { dropStaleScopeWrite, isScopeStale, type ScopeEpochReader } from "./scope-epoch";
@@ -1247,6 +1247,10 @@ function ChatPanelInner({
     const v = await unlockSecret("anthropicApiKey", unlockPass);
     if (v) {
       setUnlockedKey(v);
+      // §650 — a passphrase-wrapped key reads "" in settings, so the verdict's live key is ""; make
+      // the unlocked key the live one, or every report made with it is dropped as stale. In memory
+      // only — the store never persists it.
+      syncAiKey(v);
       setUnlockPass("");
       setUnlockError(false);
     } else {

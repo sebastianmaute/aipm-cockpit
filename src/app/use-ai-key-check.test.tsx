@@ -135,6 +135,28 @@ describe("useAiKeyCheck — §650 start-up and on-save key check", () => {
   });
 });
 
+describe("useAiKeyCheck — a late answer for an OLD key", () => {
+  it("is dropped: start a check for KEY_A, switch to KEY_B, then A answers 401 — the verdict stays unknown", async () => {
+    let resolveA!: (r: unknown) => void;
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+      const key = (init.headers as Record<string, string>)["x-api-key"];
+      // A ignores its abort on purpose: the store, not the abort, must drop the late answer.
+      if (key === KEY_A) return new Promise((resolve) => { resolveA = resolve; });
+      return new Promise(() => {}); // B never answers
+    }));
+    const { rerender } = mount();
+    await settle(); // A is in flight
+    expect(resolveA).toBeTypeOf("function");
+    rerender({ ...BASE, apiKey: KEY_B });
+    expect(getAiKeyStatus()).toBe("unknown");
+    await act(async () => {
+      resolveA({ ok: false, status: 401, json: async () => ({}) });
+      await Promise.resolve();
+    });
+    expect(getAiKeyStatus()).toBe("unknown");
+  });
+});
+
 describe("useAiKeyStatus", () => {
   it("re-renders with the store's verdict", () => {
     const { result } = renderHook(() => useAiKeyStatus());

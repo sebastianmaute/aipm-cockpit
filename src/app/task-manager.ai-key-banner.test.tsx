@@ -5,10 +5,10 @@
 // sees task-manager mount it. The start-up check is mocked out (its own suite is
 // use-ai-key-check.test.tsx) so the verdict staged here is the one the banner reads, and so the
 // test can assert the check is mounted with the popout flag.
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
-import { __resetAiKeyStatusForTests, reportAiKeyResponse, reportAiKeyUnreadable } from "./ai-key-status";
+import { __resetAiKeyStatusForTests, reportAiKeyResponse, reportAiKeyUnreadable, syncAiKey } from "./ai-key-status";
 
 const checkCalls = vi.hoisted(() => ({ args: [] as { isPopout: boolean; hydrated: boolean }[] }));
 vi.mock("./use-ai-key-check", async (importOriginal) => {
@@ -29,6 +29,7 @@ vi.mock("./workspace-section", async (importOriginal) => ({
 import TaskManager from "./task-manager";
 
 const KEY = "sk-ant-api03-BannerTestKey0000000000";
+const KEY_2 = "sk-ant-api03-BannerTestKey2222222222";
 const REJECTED = "Claude rejected your Anthropic API key. Enter a new key in Settings → AI.";
 
 function seed(layout: "modern" | "classic", aiEnabled = true) {
@@ -98,6 +99,20 @@ describe("task-manager → AI key banner", () => {
     expect(banner()).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(banner()).toBeNull();
+  }, 45000);
+
+  it("a dismissal belongs to the verdict it dismissed: a NEW key refused again shows the banner again", async () => {
+    seed("modern");
+    reportAiKeyResponse(KEY, 401);
+    await mountAt();
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(banner()).toBeNull();
+    // The user enters a new key: the verdict resets to unknown …
+    act(() => syncAiKey(KEY_2));
+    expect(banner()).toBeNull();
+    // … and that key is refused too.
+    act(() => reportAiKeyResponse(KEY_2, 401));
+    expect(banner()).not.toBeNull();
   }, 45000);
 
   it("is not rendered in a popout, and the popout mounts the check with isPopout", async () => {

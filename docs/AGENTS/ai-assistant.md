@@ -88,8 +88,12 @@
   either envelope feeds it with no extra code. `useAiKeyCheck` (`use-ai-key-check.ts`, mounted once in
   `task-manager.tsx`) syncs the live key and runs one debounced `/v1/models` check per settled key in the main
   window; a network failure never flags a key. The §567 probe reports an unreadable Anthropic key to the
-  verdict instead of the generic toast. `AiKeyBanner` (`notifications.tsx`) and the Settings → AI notice read it
-  through `useAiKeyStatus`. ★ A new per-feature error surface should check `aiKeyMessageKeyForError(err)` (or
+  verdict instead of the generic toast. ★ A passphrase-wrapped key reads `""` in settings, so `chat-panel.tsx` calls `syncAiKey` with the key
+  it UNLOCKS — any other surface that unlocks the key must do the same, or its reports are dropped as stale.
+  `AiKeyBanner` (`notifications.tsx`) and the Settings → AI notice read it through `useAiKeyStatus`; the
+  banner's dismissal is cleared when the verdict leaves the bad states. ★★ Its "Open AI settings" deep link
+  works in the MODERN shell only: classic has no Settings view (the classic-fallback effect bounces
+  `"settings"` to chat) — the same gap `StorageBanner`'s button has. ★ A new per-feature error surface should check `aiKeyMessageKeyForError(err)` (or
   `aiKeyMessageKeyForStatusToken` where a hook stores the status digits) BEFORE its generic message, as every
   existing site now does — otherwise a 401 reads as "couldn't reach Claude" again.
 - **Per-project setting overrides (`Workspace.settingsOverrides`, v0.190.42):** a "This project" Settings section
