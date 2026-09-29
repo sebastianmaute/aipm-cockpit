@@ -390,28 +390,36 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // write for the key has already landed: the server holds what a superseded save carried until a
   // later one lands, so its name must be confirmed. `owns` tells it whether this write owns the key —
   // only the owner may settle an outbox entry, which a later write may still depend on.
+  //
+  // `onLanded` runs LAST, and the rejection handler is the second argument of `.then`, not a `.catch`:
+  // a throw inside `onLanded` must neither skip the landing's bookkeeping nor send a write that landed
+  // down the failure path (a retry of a saved write, and the error banner). It surfaces as an
+  // unhandled rejection instead.
   function runPersist(key: string, action: () => Promise<void>, onLanded?: (owns: boolean) => void): void {
     const seq = (persistSeqRef.current += 1);
     latestSeqRef.current.set(key, seq);
     const owns = () => latestSeqRef.current.get(key) === seq;
-    action()
-      .then(() => {
+    action().then(
+      () => {
         persistSettledRef.current += 1;
-        if ((landedRef.current.get(key)?.seq ?? 0) < seq) {
+        const isNewestLanding = (landedRef.current.get(key)?.seq ?? 0) < seq;
+        if (isNewestLanding) {
           landingsRef.current += 1;
           landedRef.current.set(key, { seq, at: landingsRef.current });
-          onLanded?.(owns());
         }
-        if (!owns()) return;
-        pendingRetryRef.current.delete(key);
-        setThreadsError(pendingRetryRef.current.size > 0);
-      })
-      .catch(() => {
+        if (owns()) {
+          pendingRetryRef.current.delete(key);
+          setThreadsError(pendingRetryRef.current.size > 0);
+        }
+        if (isNewestLanding) onLanded?.(owns());
+      },
+      () => {
         persistSettledRef.current += 1;
         if (!owns()) return;
         pendingRetryRef.current.set(key, () => runPersist(key, action, onLanded));
         setThreadsError(true);
-      });
+      },
+    );
   }
 
   // Turso mode: (re)fetch this project's thread list on mount and on project
@@ -856,8 +864,9 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   function confirmSavedName(scope: string | null, id: string, name: string, owns: boolean): void {
     confirmedNamesRef.current.set(id, name);
     if (!scope) return;
-    if (owns) settlePendingEdit(scope, RENAME_KIND, id, name);
+    // Rebase before the settle, which is the only step that can throw (it installs the flush listener).
     rebasePendingEdit(scope, RENAME_KIND, id, name);
+    if (owns) settlePendingEdit(scope, RENAME_KIND, id, name);
   }
 
   function applyRename(target: ChatThread, name: string): void {
