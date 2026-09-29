@@ -73,12 +73,25 @@
 - **AI model picker:** `CHAT_MODELS` (`settings-types.ts`) is the SINGLE source for the dropdown; `ChatModel` is widened to
   `string` (open — pick any live model), sanitized on load by `/^claude-[\w.-]+$/` (≤64 chars, else `defaultAiConfig.model`).
   `use-chat-models.ts` `useChatModels(apiKey, enabled, currentId)` → `{options, loaded}` fetches Anthropic
-  `GET /v1/models?limit=1000` browser-direct (live `claude-*` newest-first; key never logged). ★★ v0.165: NO
+  `GET /v1/models?limit=1000` browser-direct through `fetchAnthropicModels` (`anthropic-models.ts`, shared with
+  the §650 start-up key check; live `claude-*` newest-first; key never logged). ★★ v0.165: NO
   offline pre-fill — `buildModelOptions(reg, live, currentId, {registryAsBase:false})` keeps the dropdown EMPTY
   (bar the current selection, still registry-labelled) until a live poll SUCCEEDS; `loaded` gates the
-  `aiModelNeedsKey` hint (`ai-section.tsx`). Pure
+  `aiModelNeedsKey` hint (`ai-section.tsx`), which for a key that is PRESENT but refused shows the key message
+  instead (§650, below). Pure
   `chat-models.ts` `buildModelOptions`/`isValidAnthropicApiKey` (format `sk-ant-…`). ★ the AI key seals only when
   format-valid and is DISCARDED on blur with a toast (`ai-section.tsx`).
+- **The AI key verdict (§650):** `ai-key-status.ts` holds ONE in-memory verdict on the live Anthropic key
+  (`unknown`/`ok`/`rejected`/`forbidden`/`unreadable`), reset when the key changes and NEVER persisted. It is
+  reported at the ENVELOPES — `callClaude` and `runForcedToolCall` (2xx → ok, 401 → rejected, 403 → forbidden
+  unless `classifyAiError` says limit) — and by `fetchAnthropicModels`, so a new AI feature routed through
+  either envelope feeds it with no extra code. `useAiKeyCheck` (`use-ai-key-check.ts`, mounted once in
+  `task-manager.tsx`) syncs the live key and runs one debounced `/v1/models` check per settled key in the main
+  window; a network failure never flags a key. The §567 probe reports an unreadable Anthropic key to the
+  verdict instead of the generic toast. `AiKeyBanner` (`notifications.tsx`) and the Settings → AI notice read it
+  through `useAiKeyStatus`. ★ A new per-feature error surface should check `aiKeyMessageKeyForError(err)` (or
+  `aiKeyMessageKeyForStatusToken` where a hook stores the status digits) BEFORE its generic message, as every
+  existing site now does — otherwise a 401 reads as "couldn't reach Claude" again.
 - **Per-project setting overrides (`Workspace.settingsOverrides`, v0.190.42):** a "This project" Settings section
   (`settings-sections/project-overrides-section.tsx`, SectionId `projectOverrides`, hidden in popouts) overrides
   otherwise-per-device settings. SPLIT storage: POLICY overrides (nextActions/notifications/timezone) travel WITH
