@@ -447,14 +447,21 @@ describe("fingerprint round-trip: browser (IndexedDB)", () => {
 
   it("small sample workspace", async () => {
     const before = fingerprintWorkspace(smallWs);
-    await new BrowserBackend().save(smallWs);
+    // §4 fix round 2 — a fresh backend has never loaded; force this blind
+    // seed write (R10 change 1, fail closed).
+    const backend = new BrowserBackend();
+    backend.forceNextSave();
+    await backend.save(smallWs);
     const loaded = await new BrowserBackend().load();
     expect(fingerprintWorkspace(loaded)).toBe(before);
   });
 
   it("bigger sample workspace (documents included)", async () => {
     const before = fingerprintWorkspace(bigWs);
-    await new BrowserBackend().save(bigWs);
+    // §4 fix round 2 — see the sibling test above.
+    const backend = new BrowserBackend();
+    backend.forceNextSave();
+    await backend.save(bigWs);
     const loaded = await new BrowserBackend().load();
     expect(fingerprintWorkspace(loaded)).toBe(before);
   });
