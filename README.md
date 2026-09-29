@@ -5,7 +5,7 @@
 
 > **The AI project-management cockpit that knows *your* project.**
 >
-> A command surface for project leads with a Claude copilot grounded in your operating guides and the view you're in — it surfaces the next best action and can act on it. It plugs into the Microsoft 365 / Jira / Timelog stack you already use, so it accelerates your workflow instead of becoming one more place to re-key data. Local-first, bring-your-own-key, open source — no backend account required.
+> A command surface for project leads with a Claude copilot grounded in your operating guides and the view you're in. It surfaces the next best action and can act on it. It plugs into the Microsoft 365 / Jira / Timelog stack you already use, so it accelerates your workflow instead of becoming one more place to re-key data. Local-first, bring-your-own-key and open source, with no backend account required.
 
 ![The AI PM Cockpit dashboard: overall project health, top actions, progress and open RAID](docs/assets/dashboard.png)
 
@@ -20,32 +20,32 @@
 ## Why AI PM Cockpit
 
 **A copilot that knows *this* project.**
-The Claude assistant is grounded in your operating guides, so its advice fits this project rather than reading like a generic chatbot. Per-view **"Ask Claude"** prompts and one-tap starters (a risk review, a weekly status update, a stakeholder update, "prioritize all tasks") mean the tool tells you the next step — and can take it, creating and updating tasks, RAID, changes, milestones, and stakeholders in natural language.
+The Claude assistant is grounded in your operating guides, so its advice fits this project rather than reading like a generic chatbot. Per-view "Ask Claude" prompts and one-tap starters (a risk review, a weekly status update, a stakeholder update, "prioritize all tasks") mean the tool tells you the next step and can take it, creating and updating tasks, RAID, changes, milestones, and stakeholders in natural language.
 
 **It tells you what it cannot see.**
-The assistant knows which view you are on and — on Open Points, Workload, Gantt and Budget — what your current filters are actually showing. Where no tool can answer it says so, by name: time bookings, the activity log, cross-project portfolio data, RACI assignments, calendar absences.
+The assistant knows which view you are on. On Open Points, Workload, Gantt and Budget it also knows what your current filters are showing. Where no tool can answer it says so, by name: time bookings, the activity log, cross-project portfolio data, RACI assignments, calendar absences.
 
 **Plugs into the stack you already use.**
 Pull people in from Outlook, attach documents straight from SharePoint, push milestones to your calendar, sync a two-way Jira project (plus optional read-only monitor projects), and fold actual Timelog bookings into your budget, without re-keying the same data.
 
 **Own your data.**
-It runs in your browser with no backend account. Bring your own API keys — they're encrypted at rest (AES-256-GCM, device-sealed).
+It runs in your browser with no backend account. Bring your own API keys; they're encrypted at rest (AES-256-GCM, device-sealed).
 
 **One cockpit for the whole engagement.**
-Project-health RAG, RAID and change-control registers, a stakeholder register with RACI, resource capacity and budget with Earned Value, and a multi-project portfolio — in one surface, with a landing dashboard that opens on what needs you.
+Project-health RAG, RAID and change-control registers, a stakeholder register with RACI, resource capacity and budget with Earned Value, and a multi-project portfolio, all in one surface, with a landing dashboard that opens on what needs you.
 
 **A solo consultant and a regulated multi-workstream programme run the same tool.**
-No two project leads track the same things, so the cockpit bends to fit: see work as a table, Kanban board or Gantt, toggle whole feature modules off, pick a Simple / Modular / Advanced **mode** that gates complexity, and start from a reusable **project template** that presets it all.
+No two project leads track the same things, so the cockpit bends to fit: see work as a table, Kanban board or Gantt, toggle whole feature modules off, pick a Simple / Modular / Advanced mode that gates complexity, and start from a reusable project template that presets it all.
 
 ### Built to be trusted
 
-The cockpit is in active friendly-user testing, used by project leads on real projects. It is backed by a unit and component suite under coverage floors that are enforced rather than merely reported (lines, statements, functions and branches, plus tighter per-engine floors), a WCAG accessibility gate (axe across 17 views × 7 theme/scheme combinations), semgrep SAST, and duplication and file-size ratchets — all blocking in CI. Local-first and bring-your-own-key by design: no server stores your data or credentials (the handful of API routes are stateless proxies to services you configure), so the browser profile is the security boundary (see [Security Model](docs/security.md#security-model)).
+The cockpit is in active friendly-user testing, used by project leads on real projects. It is backed by a unit and component suite under coverage floors that are enforced rather than merely reported (lines, statements, functions and branches, plus tighter per-engine floors), a WCAG accessibility gate (axe across 17 views × 7 theme/scheme combinations), semgrep SAST, and duplication and file-size ratchets, all blocking in CI. Local-first and bring-your-own-key by design: no server stores your data or credentials (the handful of API routes are stateless proxies to services you configure), so the browser profile is the security boundary (see [Security Model](docs/security.md#security-model)).
 
 ### See it in a minute
 
 1. Install the desktop app from the [Releases page](https://github.com/sebastianmaute/aipm-cockpit/releases), open it, and click **Explore a demo project** to load a realistic workspace.
 2. Add or import tasks; view them as a table, a Kanban board, or a Gantt chart.
-3. Open the Dashboard for health, ranked top actions, and trends — then ask the copilot "What's next?".
+3. Open the Dashboard for health, ranked top actions, and trends, then ask the copilot "What's next?".
 4. Wire up Jira / Microsoft 365 / Timelog in Settings when you want it plugged into your stack.
 
 ---
@@ -81,7 +81,7 @@ npm run dev        # start the development server
 
 Open [http://localhost:3000](http://localhost:3000).
 
-No environment variables are required — every integration is configured in-app
+No environment variables are required: every integration is configured in-app
 via Settings. See [docs/security.md](docs/security.md#environment-variables)
 for the optional build-time overrides.
 
@@ -101,8 +101,8 @@ The handful you need to work on the app:
 | `npm run test:run` | Unit and component tests, single run |
 | `npm run lint` | ESLint |
 
-That is a curated subset. The **full script table is generated from
-`package.json` and lives in [CONTRIBUTING.md](CONTRIBUTING.md#scripts)** — every
+That is a curated subset. The full script table is generated from
+`package.json` and lives in [CONTRIBUTING.md](CONTRIBUTING.md#scripts): every
 gate, checker and test runner in the repo, each with the caveat that bites when
 you run it. It is the one authoritative copy; this list is a starting point, not
 a second inventory to keep in sync.
@@ -142,5 +142,5 @@ If AI PM Cockpit saves you time, you can support its development through
 
 ## License
 
-European Union Public Licence v1.2 (EUPL-1.2) — see the [LICENSE](./LICENSE) file for the
+European Union Public Licence v1.2 (EUPL-1.2). See the [LICENSE](./LICENSE) file for the
 full text, also available at the [European Commission](https://interoperable-europe.ec.europa.eu/collection/eupl/eupl-text-eupl-12).

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hideTile, moveTile, reconcile, restoreTile, type DashboardLayout } from "./dashboard-layout";
+import { DEFAULT_LAYOUT, hideTile, moveTile, reconcile, restoreTile, type DashboardLayout } from "./dashboard-layout";
 import { DASHBOARD_TILES } from "./dashboard-tiles";
 
 const layout = (): DashboardLayout => ({
@@ -10,6 +10,17 @@ const layout = (): DashboardLayout => ({
     { id: "upcoming", w: 2, h: 2 },
   ],
   hidden: ["burn"],
+});
+
+describe("Trends tile default size", () => {
+  it("is two wide and two high on a fresh or reset board", () => {
+    expect(DEFAULT_LAYOUT.board.find((t) => t.id === "trends")).toEqual({ id: "trends", w: 2, h: 2 });
+  });
+
+  it("comes back two wide and two high when restored from the tray", () => {
+    const hidden = hideTile(DEFAULT_LAYOUT, "trends");
+    expect(restoreTile(hidden, "trends").board.find((t) => t.id === "trends")).toEqual({ id: "trends", w: 2, h: 2 });
+  });
 });
 
 describe("moveTile", () => {
