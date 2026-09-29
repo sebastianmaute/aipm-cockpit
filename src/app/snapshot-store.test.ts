@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { appendSnapshot, deleteSnapshot, deleteSnapshots, loadSnapshots, setBaseline } from "./snapshot-store";
 import type { TursoConfig } from "./turso-config";
 import type { SnapshotRecord } from "./snapshot";
+import { okPipelineBody, pipelineSqls } from "../test/turso-wire";
 
 const cfg: TursoConfig = { httpUrl: "https://db.example.com", authToken: "tok" };
 
@@ -25,8 +26,7 @@ function okFetch(n: number) {
 
 function bodySqls(fetchMock: ReturnType<typeof vi.fn>, callIndex = 0): string[] {
   const init = fetchMock.mock.calls[callIndex][1] as RequestInit;
-  const body = JSON.parse(init.body as string);
-  return body.requests.map((r: { stmt: { sql: string } }) => r.stmt.sql);
+  return pipelineSqls(init);
 }
 
 /** A PRAGMA table_info result naming `names`, in libSQL's wire shape. */
@@ -48,14 +48,12 @@ const OLD_SNAPSHOT_COLS = [
   "scope_rag", "currency", "milestones_json", "project_id",
 ];
 
-/** Two responses in order: DDL×2 + PRAGMA, then the ensure+insert pipeline. */
+/** Two responses in order: DDL×2 + PRAGMA, then the ensure+insert batch (§637), answered all-ok. */
 function appendFetch(existing: readonly string[]) {
-  const responses = [
-    { results: [{ type: "ok" }, { type: "ok" }, pragmaResult(existing)] },
-    { results: Array.from({ length: 20 }, () => ({ type: "ok" })) },
-  ];
   let call = 0;
-  const fetchMock = vi.fn(async () => new Response(JSON.stringify(responses[call++]), { status: 200 }));
+  const fetchMock = vi.fn(async (_url: unknown, init?: RequestInit) => new Response(JSON.stringify(
+    call++ === 0 ? { results: [{ type: "ok" }, { type: "ok" }, pragmaResult(existing)] } : okPipelineBody(init),
+  ), { status: 200 }));
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
@@ -78,7 +76,8 @@ describe("snapshot-store", () => {
   // ★★ A libSQL pipeline does NOT abort at a failing statement, so an INSERT
   // naming a column the table lacks would fail alone while COMMIT still ran.
   // The ALTER must therefore precede the INSERT — inside the transaction, since
-  // runTursoPipeline only rolls back a batch whose FIRST statement is BEGIN.
+  // runTursoPipeline only sends a list as one all-or-nothing batch when its FIRST statement is BEGIN and
+  // its LAST is COMMIT (§637).
   it("appendSnapshot adds a missing bucket_progress_json column ahead of the insert", async () => {
     const fetchMock = appendFetch(OLD_SNAPSHOT_COLS);
     await appendSnapshot(cfg, rec, "p1");

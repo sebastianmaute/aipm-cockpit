@@ -27,9 +27,9 @@ export async function loadSnapshots(config: TursoConfig | null, projectId: strin
 
 /** The only INSERT path. Two round-trips: the DDL plus a column read, then the
  *  insert transaction with any missing-column ALTERs AHEAD of its INSERTs.
- *  ★★ The ALTERs cannot ride behind the INSERT, nor be skipped: a libSQL
- *  pipeline does not abort at a failing statement, so an INSERT naming a column
- *  an older table lacks would fail alone while COMMIT still ran (see
+ *  ★★ The ALTERs cannot ride behind the INSERT, nor be skipped: an INSERT naming
+ *  a column an older table lacks fails, and since §637 that rolls the whole
+ *  snapshot back, so every capture against that table would fail (see
  *  `snapshotColumnEnsureStatements`). */
 export async function appendSnapshot(config: TursoConfig | null, rec: SnapshotRecord, projectId: string): Promise<void> {
   const head = await runTursoPipeline(config, [...ddl(), { sql: 'PRAGMA table_info("snapshot")' }]);

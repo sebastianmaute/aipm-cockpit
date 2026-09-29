@@ -22,7 +22,8 @@ export const threadsSelect = (projectId: string): SqlStmt[] => [
 
 /** Upsert as ONE atomic `INSERT OR REPLACE`, never a delete-then-insert pair.
  *  `runTursoPipeline` only opens a server-side transaction when the pipeline's
- *  FIRST statement is literally `BEGIN` (see its `isTransactional` check) —
+ *  FIRST statement is literally `BEGIN` and its LAST is `COMMIT` (see its
+ *  `isTransactional` check) —
  *  every other statement list, this one included, autocommits statement by
  *  statement. A standalone DELETE followed by a separate INSERT would leave a
  *  real window where the thread is gone if the INSERT then failed. */

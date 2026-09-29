@@ -258,10 +258,13 @@ Kept short: `AGENTS.md` owns each rule.
   `BEGIN`…`COMMIT`. Rule: **New COLUMN on existing entity**.
 - **Partial saves**: `dirtyWorkspaceTables` diffs against the last saved workspace by reference;
   any meta slice change rewrites the whole `meta` table.
-- **Batch commit**: `runTursoPipeline` scans the results, calls `rollbackBestEffort` for a
-  transactional batch, then throws. `AGENTS.md`'s `idKind` bullet records that the batch has
-  already committed by then, measured, so the ROLLBACK normally changes nothing (§636); making a
-  failed save write nothing is §637.
+- **Batch commit**: a statement list that starts with `BEGIN` and ends with `COMMIT` goes out
+  as ONE Hrana `batch` request. Each step runs only if the step before it succeeded, and a
+  trailing `ROLLBACK` step runs whenever `COMMIT` did not, so a failed save writes nothing
+  (§637; per the Hrana protocol, live-database check owed). Anything before `BEGIN`, or a `BEGIN`
+  without a trailing `COMMIT`, is refused before sending. `runTursoPipeline` maps the step results back to one result per statement and throws
+  the first statement error. Any other list is sent as separate `execute` requests, which do not
+  stop at a failing statement.
 
 ## Recovery and reset
 
@@ -295,4 +298,5 @@ Filed in `docs/open-followups.md` on 2026-09-28. The first three are closed on
 - **§635** — a documents rich-field throw failed the whole strict JSON load instead of pausing
   saving.
 - **§636** — the comment above `rollbackBestEffort` said the ROLLBACK protects readers.
-- **§637** (open) — a Turso save whose batch hits a failing statement still commits the rest.
+- **§637** — a Turso save whose batch hit a failing statement still committed the rest, then
+  reported failure.

@@ -864,7 +864,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§634](#634-sharepoint-json-is-saved-with-jsonstringify-instead-of-workspacetojson-so-it-carries-no-schemaversion--closed-2026-09-28) | SharePoint JSON is saved with JSON.stringify instead of workspaceToJson, so it carries no schemaVersion | — | — | **CLOSED** 2026-09-28 |
 | [§635](#635-on-local-and-sharepoint-json-a-document-rich-field-error-fails-the-whole-load-instead-of-pausing-saving--closed-2026-09-28) | On local and SharePoint JSON a document rich-field error fails the whole load instead of pausing saving | — | — | **CLOSED** 2026-09-28 |
 | [§636](#636-the-comment-above-rollbackbesteffort-says-the-rollback-protects-readers-but-the-batch-has-already-committed--closed-2026-09-28) | The comment above rollbackBestEffort says the ROLLBACK protects readers, but the batch has already committed | — | — | **CLOSED** 2026-09-28 |
-| [§637](#637-a-turso-save-whose-batch-hits-a-failing-statement-still-commits-the-rest-then-reports-failure--open) | A Turso save whose batch hits a failing statement still commits the rest, then reports failure | — | — | open |
+| [§637](#637-a-turso-save-whose-batch-hits-a-failing-statement-still-commits-the-rest-then-reports-failure--closed-2026-09-29) | A Turso save whose batch hits a failing statement still commits the rest, then reports failure | — | — | **CLOSED** 2026-09-29 |
 | [§638](#638-the-dashboard-narrative-after-clear-test-races-the-remounted-editors-autofocus-frame--closed-2026-09-28) | The dashboard-narrative "after Clear" test races the remounted editor's autofocus frame | — | — | **CLOSED** 2026-09-28 |
 | [§639](#639-time-tracking-dialog-tests-type-before-the-dialogs-raf-deferred-initial-focus--closed-2026-09-28) | Time-tracking dialog tests type before the dialog's rAF-deferred initial focus | — | — | **CLOSED** 2026-09-28 |
 | [§640](#640-github-releases-never-reached-the-read-only-gitlab-copy-which-had-the-tags-but-no-release-entries--closed-2026-09-28) | GitHub releases never reached the read-only GitLab copy, which had the tags but no Release entries | — | — | **CLOSED** 2026-09-28 |
@@ -43404,16 +43404,52 @@ measurement against a live database.
 
 **Source:** the §484 storage-page research, 2026-09-28.
 
-## 637. A Turso save whose batch hits a failing statement still commits the rest, then reports failure — open
+## 637. A Turso save whose batch hits a failing statement still commits the rest, then reports failure — CLOSED 2026-09-29
 
-**Status:** open 2026-09-28 — recorded from AGENTS.md's `idKind` hard-constraint bullet, which measured it
+**Status:** CLOSED 2026-09-29 on `fix/turso-batch-atomic`, verified by unit tests and mutation only; the
+live-database check is written but owed. `runTursoPipeline` (`turso-pipeline.ts`) now sends a statement
+list that starts with `BEGIN` and ends with `COMMIT` as ONE Hrana `batch` request. Each step runs only if
+the step before it succeeded (`{ type: "ok", step: i - 1 }`), and a trailing `ROLLBACK` step runs when
+`COMMIT` did not succeed (`{ type: "not", cond: { type: "ok", step: last } }`), so a failing statement skips
+the rest and the save writes nothing. The step results are mapped back to one execute-shaped result per
+statement, so no caller changed. The first statement error is thrown as before (the ROLLBACK step's own
+error is ignored), and a statement that neither ran nor failed is a shape error rather than a success.
+`rollbackBestEffort` and its separate follow-up request are gone. A list without `BEGIN` is still sent as
+separate `execute` requests; a `BEGIN` anywhere but first, or a `BEGIN` with no trailing `COMMIT`, is now
+refused before anything is sent, because it would silently commit around a failing statement. Review
+(Important 1) found the one such caller: `hardDeleteProject` (`turso-portfolio.ts`) put the tenant DDL
+before `BEGIN`, so its deletes were never one transaction and a failing DELETE left a half-deleted project.
+The DDL now goes after `BEGIN`, as `appendStatements` already did. The comments in `turso-schema.ts` (`EntityIdKind`), `snapshot-schema.ts` and
+`chat-threads-schema.ts`, AGENTS.md's `idKind` bullet, and `docs/AGENTS/documents.md` and
+`docs/AGENTS/storage.md` now describe the batch.
+
+Tests: `turso-pipeline.test.ts`'s "§637 — a BEGIN…COMMIT pipeline commits all of it or none of it" pins
+the exact request body, the result mapping, the thrown statement error with no follow-up request, the
+statement error winning over the ROLLBACK step's, a skipped COMMIT failing, the batch's own error, a batch
+answer without step results, a failing COMMIT, a list without `BEGIN` staying separate `execute`
+requests, and a misplaced or unterminated `BEGIN` refused with nothing sent. `turso-portfolio.test.ts`
+pins the hard delete as one transaction; `turso-backend.test.ts` pins that a save goes out as one batch
+request and that a failing batch step rejects the save without advancing the baseline.
+`src/test/turso-wire.ts` reads and answers both request shapes for `turso-backend.test.ts` and
+`snapshot-store.test.ts`. Mutation: steps without conditions, no ROLLBACK step, `BEGIN` alone counted as
+transactional, step errors ignored, a skipped step accepted, every list sent as `execute` requests, the
+batch's own error ignored, the misplaced-`BEGIN` guard removed, and the hard delete's DDL back before
+`BEGIN` — all killed.
+
+★★ **Owed: the live check.** `documents-images-interactive.spec.ts` gains "§637 — the same transaction
+through runTursoPipeline writes nothing, and reports the failure", which sends the pre-idKind save shape
+through `runTursoPipeline` and expects `datatype mismatch` with the co-resident marker row ABSENT. It
+skips without `.env.local` Turso credentials, as the whole describe does, and no machine here has them,
+so it has never run. The Hrana `batch` request and condition shapes follow the Hrana protocol
+specification; that the server honours them is exactly what that spec would prove. The owner accepted
+closing on unit verification (2026-09-29).
+
+**Original status:** open 2026-09-28 — recorded from AGENTS.md's `idKind` hard-constraint bullet, which measured it
 against a live database and pins it in `documents-images-interactive.spec.ts` ("the pre-idKind DDL rejects
 the insert — and the batch still COMMITS around it"; that spec skips without a database, so CI never
 re-checks it). The code path was checked by `grep -n "isTransactional(stmts)) await rollbackBestEffort" src/app/turso-pipeline.ts`
 (the ROLLBACK is sent after the results are read, then the error is thrown); the commit-anyway batch behaviour
 itself was never machine-verified in this session.
-
-**Work item:** #464
 
 A Turso workspace save sends `BEGIN` … statements … `COMMIT` as one `/v2/pipeline` request. When one
 statement fails, the batch does not stop: `COMMIT` still runs and commits everything that succeeded.

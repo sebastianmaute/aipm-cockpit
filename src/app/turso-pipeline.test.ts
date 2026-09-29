@@ -38,6 +38,13 @@ function jsonRes(body: unknown): Response {
 const errorResults = { results: [{ type: "error", error: { message: "boom" } }] };
 const beginBatch = [{ sql: "BEGIN" }, { sql: "INSERT INTO tasks VALUES (1)" }, { sql: "COMMIT" }];
 
+/** The Hrana `batch` response for a BEGIN…COMMIT pipeline (§637): one entry per step, the trailing
+ *  ROLLBACK step included, each carrying a result, an error or neither (skipped). */
+function batchRes(stepResults: unknown[], stepErrors: unknown[]) {
+  return { results: [{ type: "ok", response: { type: "batch", result: { step_results: stepResults, step_errors: stepErrors } } }] };
+}
+const okStep = { cols: [], rows: [] };
+
 describe("runTursoPipeline", () => {
   it("throws StorageNotReadyError when config is null", async () => {
     await expect(runTursoPipeline(null, [{ sql: "SELECT 1" }])).rejects.toBeInstanceOf(StorageNotReadyError);
@@ -162,14 +169,14 @@ describe("runTursoPipeline timeout", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("leaves no armed timer when a statement error triggers the rollback", async () => {
+  it("leaves no armed timer when a batch step fails", async () => {
     vi.useFakeTimers();
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(jsonRes(errorResults))
-      .mockResolvedValueOnce(jsonRes({ results: [] }));
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonRes(batchRes([okStep, null, null, okStep], [null, { message: "boom" }, null, null])),
+    );
     vi.stubGlobal("fetch", fetchMock);
     await expect(runTursoPipeline(cfg, beginBatch)).rejects.toThrow(/boom/);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -180,41 +187,96 @@ describe("runTursoPipeline timeout", () => {
   });
 });
 
-describe("runTursoPipeline rollback on statement error", () => {
-  it("posts a single best-effort ROLLBACK when a BEGIN batch reports a statement error", async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(jsonRes(errorResults))
-      .mockResolvedValueOnce(jsonRes({ results: [] }));
+describe("§637 — a BEGIN…COMMIT pipeline commits all of it or none of it", () => {
+  function sentBody(fetchMock: ReturnType<typeof vi.fn>, call = 0) {
+    return JSON.parse((fetchMock.mock.calls[call][1] as RequestInit).body as string);
+  }
+
+  it("sends ONE batch whose every step runs only if the step before it succeeded, then a ROLLBACK unless COMMIT did", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonRes(batchRes([okStep, okStep, okStep, null], [null, null, null, null])));
     vi.stubGlobal("fetch", fetchMock);
-    await expect(runTursoPipeline(cfg, beginBatch)).rejects.toThrow(/boom/);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    const body = JSON.parse((fetchMock.mock.calls[1][1] as RequestInit).body as string);
-    expect(body.requests).toEqual([{ type: "execute", stmt: { sql: "ROLLBACK" } }]);
-    const headers = (fetchMock.mock.calls[1][1] as RequestInit).headers as Record<string, string>;
-    expect(headers.Authorization).toBe("Bearer tok");
+    await runTursoPipeline(cfg, beginBatch);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(sentBody(fetchMock)).toEqual({
+      requests: [{
+        type: "batch",
+        batch: {
+          steps: [
+            { stmt: { sql: "BEGIN" } },
+            { stmt: { sql: "INSERT INTO tasks VALUES (1)" }, condition: { type: "ok", step: 0 } },
+            { stmt: { sql: "COMMIT" }, condition: { type: "ok", step: 1 } },
+            { stmt: { sql: "ROLLBACK" }, condition: { type: "not", cond: { type: "ok", step: 2 } } },
+          ],
+        },
+      }],
+    });
   });
 
-  it("does not send ROLLBACK for non-transactional pipelines", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonRes(errorResults));
+  it("returns one execute-shaped result per statement, in order, without the ROLLBACK step", async () => {
+    const row = { cols: [{ name: "n" }], rows: [[{ value: "1" }]] };
+    stubFetch(() => jsonRes(batchRes([okStep, row, okStep, null], [null, null, null, null])));
+    const out = await runTursoPipeline(cfg, beginBatch);
+    expect(out).toEqual([
+      { type: "ok", response: { type: "execute", result: okStep } },
+      { type: "ok", response: { type: "execute", result: row } },
+      { type: "ok", response: { type: "execute", result: okStep } },
+    ]);
+  });
+
+  it("throws the failing statement's error from the one request, and sends no follow-up", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonRes(batchRes([okStep, null, null, okStep], [null, { message: "datatype mismatch" }, null, null])),
+    );
     vi.stubGlobal("fetch", fetchMock);
-    await expect(runTursoPipeline(cfg, [{ sql: "SELECT 1" }])).rejects.toThrow(/boom/);
+    await expect(runTursoPipeline(cfg, beginBatch)).rejects.toThrow("Turso error: datatype mismatch");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("swallows a failing ROLLBACK, still throws the original error, and does not recurse", async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(jsonRes(errorResults))
-      .mockRejectedValueOnce(new TypeError("Failed to fetch"));
-    vi.stubGlobal("fetch", fetchMock);
-    await expect(runTursoPipeline(cfg, beginBatch)).rejects.toThrow(/boom/);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+  it("reports the statement's error, not the ROLLBACK step's, when both failed", async () => {
+    stubFetch(() => jsonRes(batchRes([null, null, null, null], [{ message: "cannot begin" }, null, null, { message: "no transaction is active" }])));
+    await expect(runTursoPipeline(cfg, beginBatch)).rejects.toThrow("Turso error: cannot begin");
   });
 
-  it("swallows a ROLLBACK whose own response reports a statement error", async () => {
+  it("a COMMIT that did not run is a failure even when no step reports an error", async () => {
+    stubFetch(() => jsonRes(batchRes([okStep, okStep, null, okStep], [null, null, null, null])));
+    await expect(runTursoPipeline(cfg, beginBatch)).rejects.toThrow(/unexpected response shape/);
+  });
+
+  it("throws the batch request's own error", async () => {
+    stubFetch(() => jsonRes(errorResults));
+    await expect(runTursoPipeline(cfg, beginBatch)).rejects.toThrow("Turso error: boom");
+  });
+
+  it("a batch answer without step results is a shape error", async () => {
+    stubFetch(() => jsonRes({ results: [{ type: "ok", response: { type: "batch", result: {} } }] }));
+    await expect(runTursoPipeline(cfg, beginBatch)).rejects.toThrow(/unexpected response shape/);
+  });
+
+  it("a failing COMMIT is reported, and the ROLLBACK step that ran after it does not mask it", async () => {
+    stubFetch(() => jsonRes(batchRes([okStep, okStep, null, okStep], [null, null, { message: "database is locked" }, null])));
+    await expect(runTursoPipeline(cfg, beginBatch)).rejects.toThrow("Turso error: database is locked");
+  });
+
+  it("a statement list without BEGIN is sent statement by statement, as before", async () => {
+    const stmts = [{ sql: "SELECT 1" }, { sql: "SELECT 2" }];
     const fetchMock = vi.fn().mockResolvedValue(jsonRes(errorResults));
     vi.stubGlobal("fetch", fetchMock);
-    await expect(runTursoPipeline(cfg, beginBatch)).rejects.toThrow(/boom/);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await expect(runTursoPipeline(cfg, stmts)).rejects.toThrow(/boom/);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(sentBody(fetchMock).requests).toEqual(stmts.map((stmt) => ({ type: "execute", stmt })));
+  });
+
+  it("refuses, before sending anything, a BEGIN that is not first or a BEGIN with no trailing COMMIT", async () => {
+    const malformed = [
+      [{ sql: "CREATE TABLE IF NOT EXISTS t (id TEXT)" }, ...beginBatch],
+      [{ sql: "BEGIN" }, { sql: "INSERT INTO tasks VALUES (1)" }],
+    ];
+    for (const stmts of malformed) {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      await expect(runTursoPipeline(cfg, stmts)).rejects.toThrow(/must start with BEGIN and end with COMMIT/);
+      expect(fetchMock).not.toHaveBeenCalled();
+    }
   });
 });
 

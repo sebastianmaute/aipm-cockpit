@@ -623,19 +623,18 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `DocumentAsset` (a `crypto.randomUUID()`), whose INSERT rides the SAME `BEGIN…COMMIT` as tasks,
   RAID, milestones, plan and meta: a real engine answers `datatype mismatch` and EVERY save then
   reports failure.
-  ★★★ **BUT "COMMIT IS NEVER REACHED, SO NOTHING IS SAVED" IS FALSE, AND THE TRUTH IS WORSE.**
-  That is what this bullet said. A libSQL `/v2/pipeline` batch does NOT abort at a failing
-  statement — it returns an error for that ONE statement and keeps executing, so COMMIT runs,
-  returns ok, and commits everything that succeeded. `runTursoPipeline` then scans the results,
-  sees the error, and calls `rollbackBestEffort` AGAINST AN ALREADY-COMMITTED TRANSACTION — which
-  changes nothing — before throwing. So the user is shown a failed save **while the workspace was
-  in fact written, minus the rejected row**, and a reader who believes the old claim will not go
-  looking for partially-written data. ★★ Measured against a live database, not reasoned from the
-  SQLite docs, and pinned by `documents-images-interactive.spec.ts`'s "the pre-idKind DDL rejects
-  the insert — and the batch still COMMITS around it", whose comment names the assertion to
-  rewrite if the engine ever starts aborting batches. ★ That spec SKIPS without a live database
-  (it parses `.env.local` itself — playwright does not), so CI is green on it and silent about
-  this: the claim is only ever re-checked by someone running it against a real Turso project.
+  ★★★ **A PIPELINE OF SEPARATE `execute` REQUESTS DOES NOT STOP AT A FAILING STATEMENT.** It
+  errors that ONE statement and keeps executing, so COMMIT runs and commits everything that
+  succeeded — measured against a live database and pinned by `documents-images-interactive.spec.ts`'s
+  "the pre-idKind DDL rejects the insert — and the batch still COMMITS around it". Until §637 the
+  save was sent that way, so the user saw a failed save **while the workspace was written, minus
+  the rejected row**. Since §637 `runTursoPipeline` sends a BEGIN…COMMIT list as ONE Hrana
+  `batch` whose steps each run only if the previous one succeeded, with a ROLLBACK step when
+  COMMIT did not: a failed save now writes nothing, per the Hrana protocol. The same spec's
+  "§637 — … through runTursoPipeline writes nothing" checks that, but it has NOT yet run against a
+  live database (owed, register §637). ★ Both SKIP without a live database (the spec parses
+  `.env.local` itself — playwright does not), so CI is green on them and silent about this: the
+  claim is only ever re-checked by someone running them against a real Turso project.
   `EntitySpec.idKind`
   defaults to `"integer"`, so an omission is silent at every layer that does not execute SQL — and
   a DDL-string-matching test cannot see it either (`entity-persistence-registry.test.ts` never

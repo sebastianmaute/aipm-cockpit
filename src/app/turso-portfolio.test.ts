@@ -68,6 +68,16 @@ describe("turso-portfolio", () => {
     expect(deleteCalls[0][1].some((s) => s.sql.includes("DELETE FROM projects WHERE id = ?"))).toBe(true);
   });
 
+  it("hardDeleteProject sends its deletes as ONE transaction: BEGIN first, COMMIT last, the DDL inside (§637)", async () => {
+    vi.mocked(runTursoPipeline).mockResolvedValue([]);
+    await hardDeleteProject(cfg, "p1");
+    const stmts = vi.mocked(runTursoPipeline).mock.calls[0][1];
+    expect(stmts[0].sql).toBe("BEGIN");
+    expect(stmts.at(-1)!.sql).toBe("COMMIT");
+    expect(stmts.filter((s) => /^\s*BEGIN\b/i.test(s.sql))).toHaveLength(1);
+    expect(stmts.some((s) => s.sql.startsWith("CREATE TABLE IF NOT EXISTS"))).toBe(true);
+  });
+
   it("hardDeleteProject also cleans the project's asset bytes, scoped to that project id", async () => {
     vi.mocked(runTursoPipeline).mockResolvedValue([]);
     await hardDeleteProject(cfg, "p1");

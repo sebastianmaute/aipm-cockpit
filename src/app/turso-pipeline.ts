@@ -15,17 +15,46 @@ export const DEFAULT_PIPELINE_TIMEOUT_MS = 15_000;
 // The LOAD bound lives in fetch-with-timeout.ts (shared with the SharePoint load); re-exported so the
 // Turso backend and its tests keep importing it from here.
 export { LOAD_TIMEOUT_MS } from "./fetch-with-timeout";
-// Short budget for the best-effort ROLLBACK follow-up after a statement error.
-const ROLLBACK_TIMEOUT_MS = 5_000;
-
 function execute(stmt: SqlStmt) {
   return { type: "execute" as const, stmt };
 }
 
-// Transactional batches always start with BEGIN, so only the first statement
-// is checked (avoids false positives on mid-batch matches).
+const BEGIN_RE = /^\s*BEGIN\b/i;
+
+// A transactional statement list starts with BEGIN and ends with COMMIT.
 function isTransactional(stmts: SqlStmt[]): boolean {
-  return /^\s*BEGIN\b/i.test(stmts[0]?.sql ?? "");
+  return BEGIN_RE.test(stmts[0]?.sql ?? "") && /^\s*COMMIT\b/i.test(stmts[stmts.length - 1]?.sql ?? "");
+}
+
+// ★★ A BEGIN that is not the first statement, or a list that starts with BEGIN
+// but does not end with COMMIT, would go out as separate `execute` requests and
+// commit around a failing statement — the §637 failure, silently. Every such
+// list is a caller bug (a DDL prefix before BEGIN was one), so it is refused
+// before anything is sent.
+function assertWellFormedTransaction(stmts: SqlStmt[]): void {
+  const misplaced = stmts.some((s, i) => i > 0 && BEGIN_RE.test(s.sql));
+  if (misplaced || (BEGIN_RE.test(stmts[0]?.sql ?? "") && !isTransactional(stmts))) {
+    throw new Error("A Turso transaction must start with BEGIN and end with COMMIT, with nothing before BEGIN.");
+  }
+}
+
+// ★★★ §637: a transactional list goes out as ONE Hrana `batch` request, never
+// as separate `execute` requests. The server runs every `execute` in a
+// pipeline even after one fails, so COMMIT used to commit everything that
+// succeeded around a rejected row while the save reported failure (measured
+// against a live database; AGENTS.md's `idKind` bullet). In the batch each
+// step runs only if the step before it succeeded, so a failure skips the rest
+// and COMMIT with it, and the trailing ROLLBACK step runs whenever COMMIT did
+// not succeed. A failed save therefore writes nothing — per the Hrana protocol;
+// the live-database check (e2e, §637) has not run yet.
+type BatchCondition = { type: "ok"; step: number } | { type: "not"; cond: BatchCondition };
+
+function atomicBatch(stmts: SqlStmt[]) {
+  const steps: { stmt: SqlStmt; condition?: BatchCondition }[] = stmts.map((stmt, i) =>
+    i === 0 ? { stmt } : { stmt, condition: { type: "ok", step: i - 1 } },
+  );
+  steps.push({ stmt: { sql: "ROLLBACK" }, condition: { type: "not", cond: { type: "ok", step: stmts.length - 1 } } });
+  return { type: "batch" as const, batch: { steps } };
 }
 
 /** POST a pipeline request through `fetchTextWithTimeout`, which owns the timeout AND the rule that the
@@ -40,30 +69,36 @@ async function postPipeline(
   if (config.authToken) {
     headers.Authorization = `Bearer ${config.authToken}`;
   }
+  const requests = isTransactional(stmts) ? [atomicBatch(stmts)] : stmts.map(execute);
   return fetchTextWithTimeout(
     `${config.httpUrl}/v2/pipeline`,
-    { method: "POST", headers, body: JSON.stringify({ requests: stmts.map(execute) }) },
+    { method: "POST", headers, body: JSON.stringify({ requests }) },
     timeoutMs,
   );
 }
 
-// Best-effort ROLLBACK after a mid-pipeline statement error.
-// ★★★ §636: it does NOT undo a half-written save. A libSQL `/v2/pipeline` batch
-// does not stop at a failing statement, so by the time the results are read
-// the COMMIT has usually run and committed every statement that succeeded; this
-// ROLLBACK then finds no open transaction and changes nothing (measured against
-// a live database; AGENTS.md's `idKind` bullet). It only matters when the batch
-// ended with its transaction still open, e.g. the COMMIT itself did not run.
-// Making a failed save write nothing is §637. Both thrown exceptions AND non-ok
-// HTTP responses are deliberately discarded so the original statement error is
-// never masked, and it goes straight to postPipeline, so it can never recurse
-// back into runTursoPipeline.
-async function rollbackBestEffort(config: TursoConfig): Promise<void> {
-  try {
-    await postPipeline(config, [{ sql: "ROLLBACK" }], ROLLBACK_TIMEOUT_MS);
-  } catch {
-    // Intentionally swallowed: the caller is about to throw the original error.
-  }
+const SHAPE_ERROR = "Turso returned an unexpected response shape.";
+
+type StepResult = NonNullable<PipelineResultLike["response"]>["result"];
+interface BatchAnswer { step_results?: (StepResult | null)[]; step_errors?: ({ message?: string } | null)[] }
+
+/** Unpacks a batch answer into the one-result-per-statement shape every caller reads. Throws the first
+ *  statement's error (the ROLLBACK step's own error only follows it), and treats a statement that neither
+ *  ran nor failed as a shape error: every statement must have run for the COMMIT to have run. */
+function batchResults(results: PipelineResultLike[], count: number): PipelineResultLike[] {
+  const [only] = results;
+  if (only?.type === "error") throw new Error(`Turso error: ${only.error?.message ?? "unknown"}`);
+  const answer = (only?.response as { result?: BatchAnswer } | undefined)?.result;
+  const stepResults = answer?.step_results;
+  const stepErrors = answer?.step_errors ?? [];
+  if (only?.response?.type !== "batch" || !Array.isArray(stepResults)) throw new Error(SHAPE_ERROR);
+  const failed = stepErrors.slice(0, count).find((e) => e);
+  if (failed) throw new Error(`Turso error: ${failed.message ?? "unknown"}`);
+  return Array.from({ length: count }, (_, i) => {
+    const result = stepResults[i];
+    if (!result) throw new Error(SHAPE_ERROR);
+    return { type: "ok" as const, response: { type: "execute", result } };
+  });
 }
 
 export async function runTursoPipeline(
@@ -74,6 +109,7 @@ export async function runTursoPipeline(
   if (!config) {
     throw new StorageNotReadyError("Configure the Turso URL and token in Settings.");
   }
+  assertWellFormedTransaction(stmts);
   let res: { status: number; ok: boolean; text: string };
   try {
     res = await postPipeline(config, stmts, timeoutMs);
@@ -105,17 +141,16 @@ export async function runTursoPipeline(
     raw = JSON.parse(res.text);
   } catch {
     // A non-JSON 200 used to escape as a raw SyntaxError from `res.json()`.
-    throw new Error("Turso returned an unexpected response shape.");
+    throw new Error(SHAPE_ERROR);
   }
   if (!raw || typeof raw !== "object" || !("results" in raw)) {
-    throw new Error("Turso returned an unexpected response shape.");
+    throw new Error(SHAPE_ERROR);
   }
-  const results = (raw as { results?: PipelineResultLike[] }).results ?? [];
+  const rawResults = (raw as { results?: PipelineResultLike[] }).results ?? [];
+  const results = isTransactional(stmts) ? batchResults(rawResults, stmts.length) : rawResults;
+  // Only the `execute` path can still carry an error here: `batchResults` has already thrown on one.
   for (const r of results) {
     if (r.type === "error") {
-      // Awaited so the ROLLBACK completes before the caller sees the rejection
-      // (and before any debounced retry could start a new pipeline).
-      if (isTransactional(stmts)) await rollbackBestEffort(config);
       throw new Error(`Turso error: ${r.error?.message ?? "unknown"}`);
     }
   }

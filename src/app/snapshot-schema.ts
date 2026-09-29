@@ -64,19 +64,18 @@ export function snapshotSelectStatements(projectId: string): SqlStmt[] {
  *
  *  ★★ `CREATE TABLE IF NOT EXISTS` is a no-op against a table created by an
  *  earlier release, so a column added since (`bucket_progress_json`) is absent
- *  there and the named-column INSERT is rejected. A libSQL pipeline does NOT
- *  abort at that failing statement: the snapshot INSERT fails, its series rows
- *  still commit, and the save reports failure. So these ALTERs must run BEFORE
- *  the INSERT — `appendStatements` takes them as `ensure` and places them first
- *  inside the transaction.
+ *  there and the named-column INSERT is rejected, which rolls the whole capture
+ *  back (§637; before it, the series rows committed around the failed INSERT).
+ *  So these ALTERs must run BEFORE the INSERT — `appendStatements` takes them as
+ *  `ensure` and places them first inside the transaction.
  *
  *  Returns [] when the PRAGMA result is unreadable or the table is absent — the
  *  same "do not ALTER" rule `existingColumnsFromPragma` applies to workspace
  *  tables (the DDL creates an absent table with every column).
  *
  *  ★ Two clients upgrading at the same moment can both send the ALTER; the
- *  second fails with "duplicate column", its capture still commits, and that
- *  save is reported as failed (SQLite has no ADD COLUMN IF NOT EXISTS). */
+ *  second fails with "duplicate column", so that capture is rolled back and
+ *  reported as failed (SQLite has no ADD COLUMN IF NOT EXISTS). */
 export function snapshotColumnEnsureStatements(pragmaResult: PipelineResultLike | undefined): SqlStmt[] {
   const existing = existingColumnsFromPragma(pragmaResult);
   if (existing === null) return [];
@@ -87,8 +86,8 @@ export function snapshotColumnEnsureStatements(pragmaResult: PipelineResultLike 
  *  inserted row carries project_id (the trailing column of both COLS arrays).
  *
  *  `ensure` (from `snapshotColumnEnsureStatements`) goes AFTER BEGIN, not
- *  before it: `runTursoPipeline` only treats a batch as transactional — and
- *  rolls it back on an error — when its FIRST statement is literal BEGIN.
+ *  before it: `runTursoPipeline` only sends a list as one all-or-nothing batch
+ *  (§637) when its FIRST statement is literal BEGIN and its LAST is COMMIT.
  *  SQLite DDL is transactional, so the ALTERs commit with the rows. */
 export function appendStatements(
   rec: SnapshotRecord,

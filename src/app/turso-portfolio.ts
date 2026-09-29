@@ -52,7 +52,12 @@ export async function restoreProject(config: TursoConfig | null, id: string): Pr
 }
 
 export async function hardDeleteProject(config: TursoConfig | null, id: string): Promise<void> {
-  await runTursoPipeline(config, [...ddl(), ...hardDeleteProjectStatements(id)]);
+  // The DDL goes INSIDE the transaction, after BEGIN: `runTursoPipeline` sends a
+  // list as one all-or-nothing batch only when BEGIN is its FIRST statement and
+  // COMMIT its LAST (§637), and a DDL prefix used to make these deletes commit
+  // around a failing one. SQLite DDL is transactional.
+  const [begin, ...deletes] = hardDeleteProjectStatements(id);
+  await runTursoPipeline(config, [begin, ...ddl(), ...deletes]);
   // open-followups §204 — every project-scoped side table lives OUTSIDE
   // TABLE_NAMES (a workspace save's per-table DELETE would wipe it), so the
   // transaction above never reaches them. ONE separate, non-fatal pipeline:
