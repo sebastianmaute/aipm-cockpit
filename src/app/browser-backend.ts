@@ -86,6 +86,13 @@ const KV_DOCUMENT_VERSIONS_KEY = "documentVersions";
 const KV_ACTIVITY_LOG_KEY = "activityLog";
 const KV_BUDGET_HISTORY_KEY = "budgetHistory";
 const KV_DOCUMENT_ASSETS_KEY = "documentAssets";
+// §4 — the integer save revision this backend stamps on every successful
+// save (see `save()`/`saveLocked()` below); missing on load → 0.
+const KV_REVISION_KEY = "revision";
+// §4 — the cross-tab Web Lock name `save()` acquires (when available) around
+// the compare-then-write critical section, so two tabs racing a save can't
+// both read the same stored revision before either writes.
+const BROWSER_SAVE_LOCK_NAME = "aipm-cockpit:save:browser";
 import {
   type StorageBackend,
   type Workspace,
@@ -94,6 +101,7 @@ import {
 } from "./workspace";
 import { sanitizeActivityLog } from "./activity-log";
 import { sanitizeBudgetHistory } from "./budget-history";
+import { SaveConflictError } from "./storage-error";
 
 /**
  * Browser-local persistence backed by IndexedDB record stores (one row per
@@ -130,6 +138,11 @@ export class BrowserBackend implements StorageBackend {
   private disciplinesBaseline = new Map<number, Discipline>();
   private gradesBaseline = new Map<number, Grade>();
   private budgetsBaseline = new Map<number, BudgetBucket>();
+
+  /** §4 — the revision this instance last loaded or wrote; `null` before any load. */
+  private currentRevision: number | null = null;
+  /** §4 — one-shot: set by `forceNextSave()`, consumed by the very next `save()`. */
+  private forceNext = false;
 
   /** What the most recent load() discarded to stay inside the document caps. */
   lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
@@ -184,6 +197,8 @@ export class BrowserBackend implements StorageBackend {
     let activityLog: Workspace["activityLog"] | undefined;
     let budgetHistory: Workspace["budgetHistory"] | undefined;
     let documentAssets: Workspace["documentAssets"] | undefined;
+    // §4 — stamped by `saveLocked()`; missing (never saved yet) → 0.
+    let revision = 0;
     try {
       // Independent stores/keys — fetch in parallel instead of ~16 awaits in
       // sequence. Result assembly below keeps the original order/defaults.
@@ -217,6 +232,7 @@ export class BrowserBackend implements StorageBackend {
         idbActivityLog,
         idbDocumentAssets,
         idbBudgetHistory,
+        idbRevision,
       ] = await Promise.all([
         idbGetAll<Task>(IDB_TASKS_STORE),
         idbGetAll<RaidItem>(IDB_RAID_STORE),
@@ -247,10 +263,12 @@ export class BrowserBackend implements StorageBackend {
         idbGet(KV_ACTIVITY_LOG_KEY),
         idbGet(KV_DOCUMENT_ASSETS_KEY),
         idbGet(KV_BUDGET_HISTORY_KEY),
+        idbGet<number>(KV_REVISION_KEY),
       ]);
       tasks = idbTasks;
       raid = idbRaid;
       absences = idbAbsences;
+      revision = idbRevision ?? 0;
       shifts = idbShifts;
       resources = idbResources;
       roles = idbRoles;
@@ -483,6 +501,9 @@ export class BrowserBackend implements StorageBackend {
     this.disciplinesBaseline = new Map(ws.disciplines.map((d) => [d.id, d]));
     this.gradesBaseline = new Map(ws.grades.map((g) => [g.id, g]));
     this.budgetsBaseline = new Map((ws.budgets ?? []).map((b) => [b.id, b]));
+    // §4 — adopt whatever revision this load actually saw, even on the IDB-
+    // unavailable/empty path above (where `revision` stays its 0 default).
+    this.currentRevision = revision;
     this.lastLoadTruncation = {
       entries: diag.truncatedEntries ?? 0,
       blocks: diag.truncatedBlocks ?? 0,
@@ -545,6 +566,66 @@ export class BrowserBackend implements StorageBackend {
 
   async save(ws: Workspace): Promise<void> {
     if (typeof window === "undefined") return;
+
+    // §4 — run the compare-then-write critical section under the cross-tab
+    // Web Lock when it's available, so two tabs racing a save can't both
+    // read the same stored revision before either has written. jsdom (and
+    // older browsers) has no `navigator.locks`: fall back to a direct call —
+    // the compare still runs, just without cross-tab mutual exclusion.
+    const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
+    if (locks) {
+      await locks.request(BROWSER_SAVE_LOCK_NAME, () => this.saveLocked(ws));
+    } else {
+      await this.saveLocked(ws);
+    }
+  }
+
+  /**
+   * §4 — the actual save. Reads the STORED revision and compares it with
+   * this instance's own BEFORE any data write: a mismatch means another
+   * writer (another tab/window) has saved since this instance last loaded or
+   * wrote, and throws `SaveConflictError` — nothing here is written. On
+   * success, the new revision (`stored + 1`) is stored and adopted only
+   * after every data write below has succeeded, at the same point the
+   * baselines refresh.
+   *
+   * `forceNextSave()` (one-shot) skips the compare and instead makes this
+   * save a full rewrite: every id-keyed store is physically cleared first —
+   * reading its REAL current contents, not this instance's possibly-stale
+   * in-memory baseline — and the baselines reset to empty, so a row only a
+   * concurrent writer had (this instance never loaded it) does not survive.
+   */
+  private async saveLocked(ws: Workspace): Promise<void> {
+    const force = this.forceNext;
+    this.forceNext = false;
+
+    const storedRevision = (await idbGet<number>(KV_REVISION_KEY)) ?? 0;
+    if (!force && this.currentRevision !== null && storedRevision !== this.currentRevision) {
+      throw new SaveConflictError("browser");
+    }
+
+    if (force) {
+      await Promise.all([
+        this.clearIdKeyedStore(IDB_TASKS_STORE),
+        this.clearIdKeyedStore(IDB_RAID_STORE),
+        this.clearIdKeyedStore(IDB_ABSENCES_STORE),
+        this.clearIdKeyedStore(IDB_SHIFTS_STORE),
+        this.clearIdKeyedStore(IDB_RESOURCES_STORE),
+        this.clearIdKeyedStore(IDB_ROLES_STORE),
+        this.clearIdKeyedStore(IDB_DISCIPLINES_STORE),
+        this.clearIdKeyedStore(IDB_GRADES_STORE),
+        this.clearIdKeyedStore(IDB_BUDGETS_STORE),
+      ]);
+      this.tasksBaseline = new Map();
+      this.raidBaseline = new Map();
+      this.absencesBaseline = new Map();
+      this.shiftsBaseline = new Map();
+      this.resourcesBaseline = new Map();
+      this.rolesBaseline = new Map();
+      this.disciplinesBaseline = new Map();
+      this.gradesBaseline = new Map();
+      this.budgetsBaseline = new Map();
+    }
 
     const taskDelta = this.diff(this.tasksBaseline, ws.tasks);
     const raidDelta = this.diff(this.raidBaseline, ws.raid);
@@ -646,6 +727,38 @@ export class BrowserBackend implements StorageBackend {
     this.disciplinesBaseline = new Map(ws.disciplines.map((d) => [d.id, d]));
     this.gradesBaseline = new Map(ws.grades.map((g) => [g.id, g]));
     this.budgetsBaseline = new Map((ws.budgets ?? []).map((b) => [b.id, b]));
+
+    // §4 — bump + adopt only now that every data write above has succeeded.
+    const newRevision = storedRevision + 1;
+    await idbSet(KV_REVISION_KEY, newRevision);
+    this.currentRevision = newRevision;
+  }
+
+  /** §4 helper for `forceNextSave()`'s full rewrite — physically deletes
+   *  every row REALLY in `storeName` right now (a fresh read, not this
+   *  instance's in-memory baseline, which cannot know about a concurrent
+   *  writer's additions). No-op when the store is already empty. */
+  private async clearIdKeyedStore(storeName: string): Promise<void> {
+    const current = await idbGetAll<{ id: number }>(storeName);
+    if (current.length === 0) return;
+    await idbBulkUpdate(storeName, [], current.map((r) => r.id));
+  }
+
+  /** §4 — the revision this instance last loaded or wrote; `null` before any load. */
+  revision(): string | null {
+    return this.currentRevision === null ? null : String(this.currentRevision);
+  }
+
+  /** §4 — adopt `rev` as this instance's current revision without a load/save. */
+  adoptRevision(rev: string): void {
+    const parsed = Number.parseInt(rev, 10);
+    if (!Number.isNaN(parsed)) this.currentRevision = parsed;
+  }
+
+  /** §4 — make the next `save()` skip the revision compare and force a full
+   *  rewrite (see `saveLocked()`), then clear itself. */
+  forceNextSave(): void {
+    this.forceNext = true;
   }
 
   /**
