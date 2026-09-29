@@ -11,7 +11,7 @@ import type { DocumentAsset } from "./document-asset";
 import type { StorageConfig } from "./storage";
 import { useStorageBackend } from "./use-storage-backend";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
-import { useBroadcastSync, type SyncContext } from "./broadcast-sync";
+import { useBroadcastSync, useRevisionSync, postRevision, type SyncContext } from "./broadcast-sync";
 import { useWorkspace } from "./workspace-context";
 import { TestProviders } from "./test-providers";
 import { useUndoStack } from "./undo/use-undo-stack";
@@ -69,7 +69,7 @@ import {
 
 // ── Broadcast-sync mock ───────────────────────────────────────────────────────
 vi.mock("./broadcast-sync", () => ({
-  useBroadcastSync: vi.fn(),
+  useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn(),
 }));
 
 // ── Diagnostics mock (only the §72 teardown test asserts on it) ───────────────
@@ -450,6 +450,70 @@ describe("useStorageBackend — save effect", () => {
     expect(mockBackend.save).toHaveBeenCalledWith(
       expect.objectContaining({ tasks: expect.any(Array), raid: expect.any(Array) }),
     );
+  });
+
+  // §4 — a confirmed write hands its revision to the windows mirroring this storage; a refused,
+  // failed or skipped one must not, or they would adopt a revision nothing wrote.
+  describe("revision message (§4)", () => {
+    const revisioned = mockBackend as typeof mockBackend & { revision?: () => string | null; adoptRevision?: (rev: string) => void };
+    afterEach(() => {
+      delete revisioned.revision;
+      delete revisioned.adoptRevision;
+    });
+    const settle = async () => {
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => { vi.advanceTimersByTime(600); });
+      await act(async () => { await Promise.resolve(); });
+    };
+    const editOnce = async () => {
+      const { result } = renderBackend();
+      await settle();
+      (postRevision as ReturnType<typeof vi.fn>).mockClear();
+      await act(async () => { result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]); });
+      await settle();
+    };
+
+    it("posts backend.revision() after a confirmed save, under the window's sync context", async () => {
+      revisioned.revision = vi.fn(() => "42");
+      await editOnce();
+      const ctx = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[3] as SyncContext;
+      expect(postRevision).toHaveBeenCalledWith(ctx, "42");
+    });
+
+    it("posts nothing when the backend has no revision, or its revision is null", async () => {
+      await editOnce();
+      expect(postRevision).not.toHaveBeenCalled();
+      revisioned.revision = vi.fn(() => null);
+      await editOnce();
+      expect(postRevision).not.toHaveBeenCalled();
+    });
+
+    it("posts nothing when the save failed", async () => {
+      revisioned.revision = vi.fn(() => "42");
+      mockBackend.save.mockRejectedValue(new Error("stale"));
+      await editOnce();
+      expect(mockBackend.save).toHaveBeenCalled();
+      expect(postRevision).not.toHaveBeenCalled();
+    });
+
+    it("adopts an incoming revision through backend.adoptRevision, under the same context", async () => {
+      const adopt = vi.fn();
+      revisioned.adoptRevision = adopt;
+      renderBackend();
+      await settle();
+      const calls = (useRevisionSync as ReturnType<typeof vi.fn>).mock.calls;
+      const [ctx, onRevision] = calls.at(-1) as [SyncContext, (rev: string) => void];
+      expect(ctx).toBe((useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[3]);
+      onRevision("9");
+      expect(adopt).toHaveBeenCalledWith("9");
+    });
+
+    it("tolerates a backend without adoptRevision", async () => {
+      renderBackend();
+      await settle();
+      const [, onRevision] = (useRevisionSync as ReturnType<typeof vi.fn>).mock.calls.at(-1) as [SyncContext, (rev: string) => void];
+      expect(() => onRevision("9")).not.toThrow();
+    });
   });
 
   it("persists a DOCUMENTS-ONLY change — the autosave deps-array guard", async () => {

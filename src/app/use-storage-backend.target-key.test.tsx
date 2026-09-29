@@ -48,7 +48,7 @@ vi.mock("./project-file-handles", () => ({
   saveHandle: vi.fn().mockResolvedValue(undefined),
   deleteHandle: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn() }));
+vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn() }));
 vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
 
 import * as storageMod from "./storage";

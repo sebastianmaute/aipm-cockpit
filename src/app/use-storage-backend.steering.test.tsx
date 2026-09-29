@@ -30,7 +30,7 @@ import type { Settings } from "./settings-types";
 import type { SteeringCommittee, Task } from "./types";
 
 // Cross-tab broadcast is irrelevant here and needs a BroadcastChannel — stub it.
-vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn() }));
+vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn() }));
 
 import { BrowserBackend } from "./browser-backend";
 import { TestProviders } from "./test-providers";

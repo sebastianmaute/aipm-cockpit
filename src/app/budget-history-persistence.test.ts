@@ -23,7 +23,7 @@ import type { Task } from "./types";
 import { recordBudgetChange, type BudgetHistoryEntry } from "./budget-history";
 
 // Cross-tab broadcast is irrelevant here and needs a BroadcastChannel — stub it.
-vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn() }));
+vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn() }));
 
 import { useBroadcastSync } from "./broadcast-sync";
 import { BrowserBackend } from "./browser-backend";

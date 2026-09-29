@@ -182,6 +182,61 @@ export function useBroadcastSync<T>(
   }, [kind, value, scope]);
 }
 
+// ★★ §4 — THE REVISION MESSAGE. Windows mirroring one storage keep each other's slices, and every
+// backend refuses a save made from a revision it has not seen; so after a confirmed write the writer
+// tells the others which revision it produced, and they adopt it instead of pausing on their next save.
+// It carries NO token, URL or path — the scope already names the storage — only the revision string.
+// Same acceptance rules as a slice: a main window adopts only for its own non-null, committed scope; a
+// pop-out never saves and so never adopts (and never posts). One id per PAGE (not per hook instance),
+// because the poster and the listener are different objects of one window and a same-window BroadcastChannel
+// still delivers to its siblings.
+const REVISION_KIND = "__revision";
+const REVISION_CLIENT_ID = newClientId();
+
+type RevisionMessage = { clientId: string; windowId: string; kind: typeof REVISION_KIND; scope: string | null; revision: string };
+
+/** Tells the other windows on this storage which revision a confirmed save produced. Main windows with a scope only. */
+export function postRevision(sync: SyncContext, revision: string): void {
+  if (typeof BroadcastChannel === "undefined") return;
+  if (sync.role !== "main" || sync.scope === null) return;
+  const msg: RevisionMessage = { clientId: REVISION_CLIENT_ID, windowId: getWindowId(), kind: REVISION_KIND, scope: sync.scope, revision };
+  const channel = new BroadcastChannel(CHANNEL_NAME);
+  try {
+    channel.postMessage(msg);
+  } finally {
+    channel.close();
+  }
+}
+
+/** Calls `onRevision` for a revision another window on the same scope announced. Mirrors `useBroadcastSync`'s main-window gates. */
+export function useRevisionSync(sync: SyncContext, onRevision: (revision: string) => void): void {
+  const syncRef = useRef(sync);
+  const committedEpochRef = useRef(sync.role === "main" ? sync.getEpoch() : 0);
+  useLayoutEffect(() => {
+    syncRef.current = sync;
+    if (sync.role === "main") committedEpochRef.current = sync.getEpoch();
+  });
+  useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
+    const channel = new BroadcastChannel(CHANNEL_NAME);
+    const onMessage = (ev: MessageEvent<Partial<RevisionMessage>>) => {
+      const msg = ev.data;
+      if (!msg || msg.kind !== REVISION_KIND || msg.clientId === REVISION_CLIENT_ID) return;
+      if (typeof msg.revision !== "string") return;
+      const ctx = syncRef.current;
+      if (ctx.role !== "main") return;
+      if (ctx.scope === null || msg.scope !== ctx.scope) return;
+      if (ctx.getEpoch() !== committedEpochRef.current) return;
+      onRevision(msg.revision);
+    };
+    channel.addEventListener("message", onMessage);
+    return () => {
+      channel.removeEventListener("message", onMessage);
+      channel.close();
+    };
+  }, [onRevision]);
+}
+
 // Popout-capable subset of the `AppView` union in nav-config.ts. Kept in
 // sync manually: AppView also contains main-window-only views ("open-points",
 // "settings") that must never be offered as popout targets.

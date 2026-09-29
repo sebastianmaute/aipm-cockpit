@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useBroadcastSync, type SyncContext } from "./broadcast-sync";
+import { postRevision, useBroadcastSync, useRevisionSync, type SyncContext } from "./broadcast-sync";
 import { t, type TranslationKey } from "./i18n";
 import {
   type StorageConfig,
@@ -916,6 +916,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         committedBaselineRef.current = { collections: curCollections, records: curRecords }; // the write landed: these are on disk now
         unloadJournal.noteSaveConfirmed(journalSavedAt, outgoing); // §629 — clears this tab's journal for it and rolls the base forward
         emitOutcome(null);
+        // §4 — tell the windows mirroring this storage which revision the write produced, or their next save is refused as stale.
+        const revision = backend.revision?.();
+        if (revision != null) postRevision(syncContext, revision);
       }).catch((err) => {
         // ★★★ PUT THE BASELINES BACK — nothing was written, so the guard must not
         //   believe the destroyed counts are stored. Left adopted they disarm the
@@ -1061,6 +1064,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     () => (args.isPopout ? { role: "popout", openerId: readPopoutOpenerFromUrl() } : { role: "main", scope: syncScope, getEpoch: getScopeEpoch, isLoadedValue }),
     [args.isPopout, syncScope, getScopeEpoch, isLoadedValue],
   );
+  const adoptPeerRevision = useCallback((revision: string) => { backend.adoptRevision?.(revision); }, [backend]);
+  useRevisionSync(syncContext, adoptPeerRevision);
   useBroadcastSync("tasks", tasks, setTasks, syncContext);
   useBroadcastSync("raid", raid, setRaid, syncContext);
   useBroadcastSync("absences", absences, setAbsences, syncContext);

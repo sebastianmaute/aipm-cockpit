@@ -4,6 +4,8 @@ import { createElement, Fragment, useLayoutEffect } from "react";
 import {
   getWindowId,
   useBroadcastSync,
+  useRevisionSync,
+  postRevision,
   isReportPopoutTab,
   REPORT_POPOUT_TABS,
   type SyncContext,
@@ -132,6 +134,97 @@ describe("useBroadcastSync", () => {
   it("still sends from a main window with no scope, so its own pop-outs follow it", () => {
     sendFrom(null, [1]);
     expect(posted).toEqual([expect.objectContaining({ scope: null, value: [1] })]);
+  });
+});
+
+// §4 — windows mirroring one storage adopt each other's revision after a save, or the second window's
+// next save would be refused as stale.
+describe("revision message (§4)", () => {
+  const raw = (msg: Record<string, unknown>) =>
+    new BroadcastChannel("aipm-cockpit:sync").postMessage({ clientId: "other-client", windowId: "other-window", kind: "__revision", scope: "p", revision: "7", ...msg });
+  function revisionReceiver(initialCtx: SyncContext) {
+    const adopted: string[] = [];
+    const onRevision = (rev: string) => { adopted.push(rev); };
+    const hook = renderHook(({ ctx }: { ctx: SyncContext }) => useRevisionSync(ctx, onRevision), { initialProps: { ctx: initialCtx } });
+    return { adopted, rerender: (ctx: SyncContext) => hook.rerender({ ctx }) };
+  }
+
+  describe("receiving", () => {
+    beforeEach(() => installBus());
+
+    it("adopts a revision sent for the same non-null scope", () => {
+      const r = revisionReceiver(main("p"));
+      raw({ revision: "7" });
+      expect(r.adopted).toEqual(["7"]);
+    });
+
+    it("ignores another scope, a null scope and a non-revision kind", () => {
+      const r = revisionReceiver(main("p"));
+      raw({ scope: "q" });
+      raw({ scope: null });
+      raw({ kind: "tasks" });
+      expect(r.adopted).toEqual([]);
+      const n = revisionReceiver(main(null));
+      raw({ scope: null });
+      expect(n.adopted).toEqual([]);
+    });
+
+    it("ignores a message without a string revision", () => {
+      const r = revisionReceiver(main("p"));
+      raw({ revision: 7 });
+      raw({ revision: undefined });
+      expect(r.adopted).toEqual([]);
+    });
+
+    it("drops a message while a scope-epoch bump has not committed", () => {
+      let epoch = 0;
+      const ctx = main("p", { getEpoch: () => epoch });
+      const r = revisionReceiver(ctx);
+      epoch = 1;
+      raw({ revision: "8" });
+      expect(r.adopted).toEqual([]);
+      r.rerender({ ...ctx });
+      raw({ revision: "9" });
+      expect(r.adopted).toEqual(["9"]);
+    });
+
+    it("judges by the scope of the latest commit, not the one the listener captured", () => {
+      const r = revisionReceiver(main("p"));
+      r.rerender(main("q"));
+      raw({ scope: "p" });
+      raw({ scope: "q", revision: "3" });
+      expect(r.adopted).toEqual(["3"]);
+    });
+
+    it("never adopts in a pop-out", () => {
+      const r = revisionReceiver(popout("other-window"));
+      raw({});
+      expect(r.adopted).toEqual([]);
+    });
+
+    it("ignores this page's own post", () => {
+      const r = revisionReceiver(main("p"));
+      postRevision(main("p"), "5");
+      expect(r.adopted).toEqual([]);
+    });
+  });
+
+  describe("posting", () => {
+    beforeEach(() => {
+      posted.length = 0;
+      vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel as unknown as typeof BroadcastChannel);
+    });
+
+    it("posts exactly clientId, windowId, kind, scope and revision from a main window", () => {
+      postRevision(main("p"), "5");
+      expect(posted).toEqual([{ clientId: expect.any(String), windowId: getWindowId(), kind: "__revision", scope: "p", revision: "5" }]);
+    });
+
+    it("never posts from a pop-out, nor for a null scope", () => {
+      postRevision(popout(getWindowId()), "5");
+      postRevision(main(null), "5");
+      expect(posted).toEqual([]);
+    });
   });
 });
 
