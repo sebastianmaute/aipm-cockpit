@@ -1146,13 +1146,13 @@ describe("useStorageBackend — broadcast send gating", () => {
   it("gives every useBroadcastSync call of a main window one main context with the hook's own readers", () => {
     const { result } = renderBackend(makeArgs({ isPopout: false }));
     const ctxs = syncContexts();
-    expect(ctxs.length).toBeGreaterThanOrEqual(17);
+    expect(ctxs.length).toBeGreaterThanOrEqual(29);
     const last = ctxs[ctxs.length - 1];
     if (last.role !== "main") throw new Error("expected a main context");
     // Review I1 on §642 — the receiver drops messages while an op's epoch bump has not committed,
     // so every call must read the hook's OWN scope epoch, not some other counter.
     expect(last.getEpoch).toBe(result.current.getScopeEpoch);
-    for (const ctx of ctxs.slice(-17)) expect(ctx).toBe(last);
+    for (const ctx of ctxs.slice(-29)) expect(ctx).toBe(last);
   });
 
   it("gives every useBroadcastSync call of a pop-out a pop-out context following its opener", () => {
@@ -1160,7 +1160,7 @@ describe("useStorageBackend — broadcast send gating", () => {
     try {
       renderBackend(makeArgs({ isPopout: true }));
       const ctxs = syncContexts();
-      expect(ctxs.length).toBeGreaterThanOrEqual(17);
+      expect(ctxs.length).toBeGreaterThanOrEqual(29);
       for (const ctx of ctxs) expect(ctx).toEqual({ role: "popout", openerId: "w-opener" });
     } finally {
       window.history.replaceState(null, "", "/");
@@ -1209,15 +1209,19 @@ describe("useStorageBackend — broadcast send gating", () => {
   // useBroadcastSync must be one the load recorded (a slice that is not an object, such as an
   // absent project, cannot be recorded and is skipped).
   it("records every synced slice of a load and of a merge-mode reload (§644)", async () => {
-    const ws = () => ({ tasks: [{ id: 1, taskName: "T" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+    // `plan` is set only when the loaded workspace has one, so the fixture carries one to be recorded.
+    const ws = () => ({ tasks: [{ id: 1, taskName: "T" }] as unknown as Task[], raid: [], absences: [], shifts: [], plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" as const } });
     mockBackend.load.mockResolvedValueOnce(ws());
     const { result } = renderBackend(makeArgs({ isPopout: false }));
     await vi.waitFor(() => expect(result.current.workspaceLoaded).toBe(true));
     const unrecorded = () => {
-      const calls = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.slice(-17);
+      const calls = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.slice(-29);
       const ctx = calls[0][3] as SyncContext;
       if (ctx.role !== "main") throw new Error("expected a main context");
       expect(calls.map((c) => c[0])).toContain("activityLog");
+      // §4 — the twelve parts added after the first seventeen: a stale window's save must not drop them.
+      for (const kind of ["plan", "fxRates", "status", "fieldVisibility", "features", "steeringCommittee", "timelogLinks", "knowledgeItems", "insights", "settingsOverrides", "calendarEvents", "documentAssets"]) expect(calls.map((c) => c[0])).toContain(kind);
+      expect(calls).toHaveLength(29);
       return calls.filter((c) => typeof c[1] === "object" && c[1] !== null && !ctx.isLoadedValue(c[1])).map((c) => c[0]);
     };
     expect(unrecorded()).toEqual([]);

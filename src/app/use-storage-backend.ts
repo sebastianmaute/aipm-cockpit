@@ -510,14 +510,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setTasks(mark(backfillTaskResourceFks(workspace.resources ?? [], workspace.tasks ?? [])));
     setRaid(mark(workspace.raid ?? [])); setAbsences(mark(workspace.absences ?? [])); setShifts(mark(workspace.shifts ?? []));
     setResources(mark(workspace.resources ?? [])); setRoles(mark(workspace.roles ?? [])); setDisciplines(mark(workspace.disciplines ?? [])); setGrades(mark(workspace.grades ?? []));
-    if (workspace.plan) setPlan(workspace.plan);
-    setBudgets(mark(workspace.budgets ?? [])); setFxRates(workspace.fxRates ?? null); setStatus(workspace.status ?? {});
-    setProject(mark(workspace.project)); setFieldVisibility(workspace.fieldVisibility); setFeatures(workspace.features);
+    if (workspace.plan) setPlan(mark(workspace.plan));
+    setBudgets(mark(workspace.budgets ?? [])); setFxRates(mark(workspace.fxRates ?? null)); setStatus(mark(workspace.status ?? {}));
+    setProject(mark(workspace.project)); setFieldVisibility(mark(workspace.fieldVisibility)); setFeatures(mark(workspace.features));
     setMilestones(mark(workspace.milestones ?? [])); setChanges(mark(workspace.changes ?? [])); setStakeholders(mark(workspace.stakeholders ?? []));
-    setSteeringCommittee(workspace.steeringCommittee);
-    setTimelogLinks(workspace.timelogLinks);
-    setKnowledgeItems(workspace.knowledgeItems);
-    setInsights(workspace.insights); setDocuments(mark(workspace.documents ?? [])); setDocumentVersions(mark(workspace.documentVersions ?? []));
+    setSteeringCommittee(mark(workspace.steeringCommittee));
+    setTimelogLinks(mark(workspace.timelogLinks));
+    setKnowledgeItems(mark(workspace.knowledgeItems));
+    setInsights(mark(workspace.insights)); setDocuments(mark(workspace.documents ?? [])); setDocumentVersions(mark(workspace.documentVersions ?? []));
     // ★★★ TWO BRANCHES, unlike the always-replace `documents` neighbours above — a later reader WILL try
     // to make it consistent with them. Do NOT, in either direction. MERGE (same-project load/reload): the
     // log is append-only, so replacing drops entries appended locally while the load was in flight;
@@ -527,8 +527,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setActivityLog((prev) => mark(logMode === "merge" ? mergeActivityLogs(prev, workspace.activityLog) : (workspace.activityLog ?? [])));
     // Same two branches for the budget history, but merged by id in stored order and NEVER capped.
     setBudgetHistory((prev) => mark(logMode === "merge" ? mergeBudgetHistories(prev, workspace.budgetHistory) : (workspace.budgetHistory ?? [])));
-    setSettingsOverrides(workspace.settingsOverrides);
-    setCalendarEvents(workspace.calendarEvents); setDocumentAssets(workspace.documentAssets);
+    setSettingsOverrides(mark(workspace.settingsOverrides));
+    setCalendarEvents(mark(workspace.calendarEvents)); setDocumentAssets(mark(workspace.documentAssets));
     // Seed the session id-minter's high-water from the loaded set so the next
     // mint after a delete can never reuse a just-freed id. RESET (default) for a
     // possibly-DIFFERENT loaded workspace — initial load / project switch /
@@ -1076,6 +1076,19 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   useBroadcastSync("documents", documents, setDocuments, syncContext); useBroadcastSync("documentVersions", documentVersions, setDocumentVersions, syncContext); // ★ PAIRED on one line: written when the size ratchet's LIMIT was 800 and this file sat at it (check-file-sizes.mjs counts split("\n").length = wc -l + 1); the LIMIT is 1600 now. They must also stay in step: the autosave writes the WHOLE workspace, so a tab holding a stale half overwrites the other tab's work — the same reason `documents` is synced. ★ Secondary: `deletedDocumentVersions` derives tombstones from BOTH slices, and `documents-panel.tsx` renders that list (its deleted-documents section and the toolbar count), so a desynced tab produces a WRONG visible list with Restore buttons on it — an observable symptom, not a latent one.
   useBroadcastSync("activityLog", activityLog, setActivityLog, syncContext); // ★ Now the WORKSPACE slice, not a per-device arg: the autosave writes the WHOLE workspace, so a tab holding a stale log would overwrite the other tab's entries — the same reason `documents` is synced above. `mergeActivityLogs` cannot cover this; it runs on LOAD, not on a broadcast.
   useBroadcastSync("budgetHistory", budgetHistory, setBudgetHistory, syncContext); // ★ Same reason as `activityLog`: the autosave writes the whole workspace, so a tab with a stale history would overwrite the other tab's entries.
+  // §4 — the remaining workspace parts: the autosave writes the WHOLE workspace, so a window holding a stale copy of any of them would overwrite the other window's edit.
+  useBroadcastSync("plan", plan, setPlan, syncContext);
+  useBroadcastSync("fxRates", fxRates, setFxRates, syncContext);
+  useBroadcastSync("status", status, setStatus, syncContext);
+  useBroadcastSync("fieldVisibility", fieldVisibility, setFieldVisibility, syncContext);
+  useBroadcastSync("features", features, setFeatures, syncContext);
+  useBroadcastSync("steeringCommittee", steeringCommittee, setSteeringCommittee, syncContext);
+  useBroadcastSync("timelogLinks", timelogLinks, setTimelogLinks, syncContext);
+  useBroadcastSync("knowledgeItems", knowledgeItems, setKnowledgeItems, syncContext);
+  useBroadcastSync("insights", insights, setInsights, syncContext);
+  useBroadcastSync("settingsOverrides", settingsOverrides, setSettingsOverrides, syncContext);
+  useBroadcastSync("calendarEvents", calendarEvents, setCalendarEvents, syncContext);
+  useBroadcastSync("documentAssets", documentAssets, setDocumentAssets, syncContext);
   // `project` (ProjectMeta | undefined) so a main-window project switch live-updates
   // the read-only project header in popout windows. The generic handles undefined.
   useBroadcastSync("project", project, setProject, syncContext);
