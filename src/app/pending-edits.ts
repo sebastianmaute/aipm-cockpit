@@ -81,25 +81,44 @@ export function settlePendingEdit(scope: string, kind: PendingEditKind, id: stri
   liveEdits.get(scope)?.delete(editKey(kind, id));
 }
 
+function logTooLarge(edit: PendingEdit, size: number): void {
+  // Kind and id only, never the draft, which is the user's own content.
+  logDiag("warn", "storage.pendingEditsWriteFailed", { reason: "too-large", kind: edit.kind, id: edit.id, size });
+}
+
+/** The edits that fit `UNLOAD_JOURNAL_MAX_CHARS`: each on its own first (one huge template body must
+ *  not stop a small rename in the same scope being written), then, while the array is still over the
+ *  cap together, the largest goes. Every drop is logged. */
+function fittingEdits(edits: PendingEdit[]): PendingEdit[] {
+  const fitting: PendingEdit[] = [];
+  for (const edit of edits) {
+    const size = JSON.stringify(edit).length;
+    if (size > UNLOAD_JOURNAL_MAX_CHARS) logTooLarge(edit, size);
+    else fitting.push(edit);
+  }
+  while (fitting.length > 0 && JSON.stringify(fitting).length > UNLOAD_JOURNAL_MAX_CHARS) {
+    let largest = 0;
+    let largestSize = -1;
+    fitting.forEach((edit, i) => {
+      const size = JSON.stringify(edit).length;
+      if (size > largestSize) { largest = i; largestSize = size; }
+    });
+    logTooLarge(fitting[largest], largestSize);
+    fitting.splice(largest, 1);
+  }
+  return fitting;
+}
+
 function writeScope(scope: string, edits: Map<string, PendingEdit>, now: number): void {
   const key = storageKeyFor(scope);
   try {
-    if (edits.size === 0) {
-      window.localStorage.removeItem(key);
-      return;
-    }
-    const serialized = JSON.stringify([...edits.values()].map((edit) => ({ ...edit, savedAt: now })));
-    if (serialized.length > UNLOAD_JOURNAL_MAX_CHARS) {
-      // Kinds only — never the draft text, which is the user's own content.
-      logDiag("warn", "storage.pendingEditsWriteFailed", {
-        reason: "too-large", size: serialized.length, kinds: [...edits.values()].map((edit) => edit.kind),
-      });
-      return;
-    }
-    window.localStorage.setItem(key, serialized);
+    const fitting = fittingEdits([...edits.values()].map((edit) => ({ ...edit, savedAt: now })));
+    // Nothing left to store: remove the key so a stale earlier record cannot replay.
+    if (fitting.length === 0) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, JSON.stringify(fitting));
   } catch (err) {
     logDiag("warn", "storage.pendingEditsWriteFailed", {
-      reason: "storage", message: err instanceof Error ? err.message : String(err),
+      reason: "storage-error", message: err instanceof Error ? err.message : String(err),
     });
   }
 }
@@ -124,24 +143,46 @@ function isPendingEditFields(value: unknown): value is PendingEdit {
   );
 }
 
-function logDropped(reason: "corrupt" | "expired", fields: Record<string, unknown> = {}): void {
+type DropReason = "corrupt" | "expired" | "storage-error";
+
+function logDropped(reason: DropReason, fields: Record<string, unknown> = {}): void {
   logDiag("warn", "storage.pendingEditDropped", { reason, ...fields });
 }
 
+/** `kind` and `id` of a stored entry when they are present and strings, never the value. */
+function entryIdentity(entry: unknown): Record<string, string> {
+  if (!entry || typeof entry !== "object") return {};
+  const rec = entry as Record<string, unknown>;
+  const out: Record<string, string> = {};
+  if (typeof rec.kind === "string") out.kind = rec.kind;
+  if (typeof rec.id === "string") out.id = rec.id;
+  return out;
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 /** Reads the stored edits for `scope` and removes the key. Records that fail to parse or validate, and
- *  those older than `UNLOAD_JOURNAL_MAX_AGE_MS` at `now`, are dropped and logged (kind and id only,
- *  never the value). Never throws. */
+ *  those older than `UNLOAD_JOURNAL_MAX_AGE_MS` at `now`, are dropped and logged (kind and id where
+ *  known, never the value). A storage read or remove error is logged as `storage-error`, not
+ *  `corrupt`; a failed removal still returns the edits already read. Never throws. */
 export function takePendingEdits(scope: string, now: number): PendingEdit[] {
   if (typeof window === "undefined") return [];
   const key = storageKeyFor(scope);
   let raw: string | null;
   try {
     raw = window.localStorage.getItem(key);
-    if (!raw) return [];
+  } catch (err) {
+    logDropped("storage-error", { operation: "read", message: errorMessage(err) });
+    return [];
+  }
+  if (!raw) return [];
+  try {
     window.localStorage.removeItem(key);
   } catch (err) {
-    logDropped("corrupt", { message: err instanceof Error ? err.message : String(err) });
-    return [];
+    // The draft was read: hand it back anyway rather than lose it over a failed cleanup.
+    logDropped("storage-error", { operation: "remove", message: errorMessage(err) });
   }
   let parsed: unknown;
   try {
@@ -157,7 +198,7 @@ export function takePendingEdits(scope: string, now: number): PendingEdit[] {
   const kept: PendingEdit[] = [];
   for (const entry of parsed as unknown[]) {
     if (!isPendingEditFields(entry)) {
-      logDropped("corrupt");
+      logDropped("corrupt", entryIdentity(entry));
     } else if (now - entry.savedAt > UNLOAD_JOURNAL_MAX_AGE_MS) {
       logDropped("expired", { kind: entry.kind, id: entry.id });
     } else {

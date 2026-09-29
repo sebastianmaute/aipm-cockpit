@@ -21,6 +21,13 @@ function edit(over: Partial<{ id: string; base: string; value: string }> = {}) {
   return { kind: "template-name" as const, id: "t1", base: "A", value: "B", ...over };
 }
 
+/** The logged fields of every `logDiag` call as one JSON string: a drop must never carry the draft. */
+function loggedJson(spy: { mock: { calls: unknown[][] } }): string {
+  return JSON.stringify(spy.mock.calls.map((call) => call[2]));
+}
+
+const DRAFT = "draft-text-must-not-leak";
+
 function pagehide(): void {
   window.dispatchEvent(new Event("pagehide"));
 }
@@ -108,10 +115,11 @@ describe("pending-edits outbox", () => {
   it("an edit older than 30 days is dropped", () => {
     const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
     window.localStorage.setItem(storageKey, JSON.stringify([
-      { v: 1, ...edit(), savedAt: NOW - UNLOAD_JOURNAL_MAX_AGE_MS - 1 },
+      { v: 1, ...edit({ value: DRAFT }), savedAt: NOW - UNLOAD_JOURNAL_MAX_AGE_MS - 1 },
     ]));
     expect(takePendingEdits(scope, NOW)).toEqual([]);
-    expect(spy).toHaveBeenCalledWith("warn", "storage.pendingEditDropped", expect.objectContaining({ reason: "expired" }));
+    expect(spy).toHaveBeenCalledWith("warn", "storage.pendingEditDropped", { reason: "expired", kind: "template-name", id: "t1" });
+    expect(loggedJson(spy)).not.toContain(DRAFT);
     expect(window.localStorage.getItem(storageKey)).toBeNull();
   });
 
@@ -119,6 +127,7 @@ describe("pending-edits outbox", () => {
     const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
     window.localStorage.setItem(storageKey, "{not json");
     expect(takePendingEdits(scope, NOW)).toEqual([]);
+    expect(loggedJson(spy)).not.toContain("storage-error");
     expect(spy).toHaveBeenCalledWith("warn", "storage.pendingEditDropped", expect.objectContaining({ reason: "corrupt" }));
     expect(window.localStorage.getItem(storageKey)).toBeNull();
   });
@@ -127,11 +136,14 @@ describe("pending-edits outbox", () => {
     const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
     window.localStorage.setItem(storageKey, JSON.stringify([
       { v: 1, ...edit(), savedAt: NOW },
-      { v: 1, kind: "nope", id: 7 },
+      { v: 1, kind: "nope", id: "t9", value: DRAFT },
+      { v: 1, kind: "template-name", id: 7, value: DRAFT },
     ]));
     const taken = takePendingEdits(scope, NOW);
     expect(taken).toHaveLength(1);
-    expect(spy).toHaveBeenCalledWith("warn", "storage.pendingEditDropped", expect.objectContaining({ reason: "corrupt" }));
+    expect(spy).toHaveBeenCalledWith("warn", "storage.pendingEditDropped", { reason: "corrupt", kind: "nope", id: "t9" });
+    expect(spy).toHaveBeenCalledWith("warn", "storage.pendingEditDropped", { reason: "corrupt", kind: "template-name" });
+    expect(loggedJson(spy)).not.toContain(DRAFT);
   });
 
   it("setItem throwing during pagehide does not escape", () => {
@@ -144,19 +156,58 @@ describe("pending-edits outbox", () => {
     expect(spy).toHaveBeenCalledWith("warn", "storage.pendingEditsWriteFailed", expect.anything());
   });
 
-  it("getItem throwing during take does not escape", () => {
-    vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+  it("getItem throwing during take does not escape and is logged as storage-error", () => {
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new DOMException("denied", "SecurityError");
     });
     expect(takePendingEdits(scope, NOW)).toEqual([]);
+    expect(spy).toHaveBeenCalledWith("warn", "storage.pendingEditDropped", expect.objectContaining({ reason: "storage-error", operation: "read" }));
   });
 
-  it("a record over UNLOAD_JOURNAL_MAX_CHARS is not written", () => {
+  it("removeItem throwing during take still returns the edits that were read", () => {
     const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    window.localStorage.setItem(storageKey, JSON.stringify([{ v: 1, ...edit({ value: DRAFT }), savedAt: NOW }]));
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new DOMException("denied", "SecurityError");
+    });
+    const taken = takePendingEdits(scope, NOW);
+    expect(taken).toHaveLength(1);
+    expect(taken[0].value).toBe(DRAFT);
+    expect(spy).toHaveBeenCalledWith("warn", "storage.pendingEditDropped", expect.objectContaining({ reason: "storage-error", operation: "remove" }));
+    expect(spy).not.toHaveBeenCalledWith("warn", "storage.pendingEditDropped", expect.objectContaining({ reason: "corrupt" }));
+  });
+
+  it("an oversize edit is dropped alone; the others in the scope are written", () => {
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    trackPendingEdit(scope, { ...edit({ id: "big", value: "x".repeat(UNLOAD_JOURNAL_MAX_CHARS + 1) }), kind: "template-body" });
+    trackPendingEdit(scope, edit({ id: "small", value: DRAFT }));
+    pagehide();
+    const taken = takePendingEdits(scope, NOW);
+    expect(taken.map((e) => e.id)).toEqual(["small"]);
+    expect(spy).toHaveBeenCalledWith("warn", "storage.pendingEditsWriteFailed", expect.objectContaining({ reason: "too-large", kind: "template-body", id: "big" }));
+    expect(loggedJson(spy)).not.toContain("xxxxxxxx");
+  });
+
+  it("when every edit is oversize nothing is written and a stale earlier record is removed", () => {
+    vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    window.localStorage.setItem(storageKey, JSON.stringify([{ v: 1, ...edit(), savedAt: NOW }]));
     trackPendingEdit(scope, edit({ value: "x".repeat(UNLOAD_JOURNAL_MAX_CHARS + 1) }));
     pagehide();
     expect(window.localStorage.getItem(storageKey)).toBeNull();
-    expect(spy).toHaveBeenCalledWith("warn", "storage.pendingEditsWriteFailed", expect.objectContaining({ reason: "too-large" }));
+  });
+
+  it("edits that each fit but not together: the largest is dropped until the array fits", () => {
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    const part = Math.floor(UNLOAD_JOURNAL_MAX_CHARS * 0.6);
+    trackPendingEdit(scope, edit({ id: "a", value: "a".repeat(part) }));
+    trackPendingEdit(scope, edit({ id: "b", value: "b".repeat(part + 100) }));
+    trackPendingEdit(scope, edit({ id: "c", value: DRAFT }));
+    pagehide();
+    const raw = window.localStorage.getItem(storageKey) ?? "";
+    expect(raw.length).toBeLessThanOrEqual(UNLOAD_JOURNAL_MAX_CHARS);
+    expect(takePendingEdits(scope, NOW).map((e) => e.id).sort()).toEqual(["a", "c"]);
+    expect(spy).toHaveBeenCalledWith("warn", "storage.pendingEditsWriteFailed", expect.objectContaining({ reason: "too-large", id: "b" }));
+    expect(loggedJson(spy)).not.toContain("bbbbbbbb");
   });
 });
