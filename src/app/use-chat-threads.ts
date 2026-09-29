@@ -234,6 +234,13 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   useEffect(() => {
     projectEpochRef.current += 1;
   }, [projectId]);
+  // §604. The same guard for the Turso DATABASE: a retryLoad issued against database A that settles
+  // after the config moved to B would put A's rows (and A's confirmed names, and A's outbox replay)
+  // under B. Bumped on every config change, compared at settle beside `projectEpochRef`.
+  const targetEpochRef = useRef(0);
+  useEffect(() => {
+    targetEpochRef.current += 1;
+  }, [tursoConfig]);
 
   // Publish to the module registry the AI dispatcher reads. See
   // chat-threads-registry.ts for why this is not a prop.
@@ -651,6 +658,14 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // the live one. The mount effect's `cancelled` local cannot serve here —
     // retryLoad runs from an event handler, outside that effect's closure.
     const issuedAtEpoch = projectEpochRef.current;
+    // §604. The database this reload reads; a settle after the config moved is dropped (no rows, no
+    // confirmed names, no outbox replay, no failure banner) and logged without the URL or token.
+    const issuedAtTargetEpoch = targetEpochRef.current;
+    const targetMoved = (outcome: "loaded" | "failed"): boolean => {
+      if (issuedAtTargetEpoch === targetEpochRef.current) return false;
+      logDiag("info", "storage.chatThreadsStaleTargetDropped", { outcome });
+      return true;
+    };
     // ★★ A FUNCTION, NOT A VALUE — three disjuncts read refs that must be
     // sampled AT SETTLE; evaluating at click time would reduce this to
     // `sendInFlightAtClick || persistInFlightAtClick` and reopen (b) and (c).
@@ -668,6 +683,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         // below would write p1's data under p2 — including setLoadedProjectId,
         // which would then claim ownership of rows p2's own fetch put there.
         if (issuedAtEpoch !== projectEpochRef.current) return;
+        if (targetMoved("loaded")) return;
         setThreadsError(false);
         setLoadFailed(false);
         const preserveLive = shouldPreserveLive();
@@ -683,6 +699,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       })
       .catch(() => {
         if (issuedAtEpoch !== projectEpochRef.current) return;
+        if (targetMoved("failed")) return;
         setThreadsError(true);
         setLoadFailed(true);
         const preserveLive = shouldPreserveLive();
@@ -710,10 +727,16 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // chatSeed effect) so it can't refire on the frequent history/display churn
   // WHILE busy stays true.
   const prevBusyRef = useRef(busy);
+  // §604. The Turso config of the render where this turn STARTED (busy's rising edge). The turn is
+  // saved there, and its rename edit settles under that database's outbox scope — never the live
+  // config, which a switch mid-turn has moved to another database.
+  const turnConfigRef = useRef(tursoConfig);
   useEffect(() => {
     const wasBusy = prevBusyRef.current;
     prevBusyRef.current = busy;
+    if (!wasBusy && busy) turnConfigRef.current = tursoConfig;
     if (!tursoMode || !wasBusy || busy) return;
+    const turnConfig = turnConfigRef.current;
     const id = activeThreadId ?? newThreadId();
     setActiveThreadId((prev) => prev ?? id);
     const existing = threads.find((th) => th.id === id);
@@ -728,8 +751,8 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       display,
     };
     setThreads((prev) => [thread, ...prev.filter((th) => th.id !== id)]);
-    const scope = renameScope();
-    runPersist(id, () => saveThread(tursoConfig, thread), (owns) => confirmSavedName(scope, id, thread.name, owns));
+    const scope = renameScope(turnConfig);
+    runPersist(id, () => saveThread(turnConfig, thread), (owns) => confirmSavedName(scope, id, thread.name, owns));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy]);
 
@@ -844,10 +867,11 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // busy-persist effect (once that turn settles) inserts it.
   }
 
-  // §626. The outbox scope for this render's Turso database and project, or null without Turso. It
-  // is read at track time, so an edit tracked before a project switch stays in its own scope.
-  function renameScope(): string | null {
-    return tursoMode ? outboxScope(tursoConfig, projectId) : null;
+  // §626. The outbox scope for a Turso database (this render's unless a write pinned another, §604)
+  // and this project, or null without Turso. It is read at track time, so an edit tracked before a
+  // project switch stays in its own scope. A write and its scope always come from ONE config value.
+  function renameScope(config: TursoConfig | null = tursoConfig): string | null {
+    return tursoMode ? outboxScope(config, projectId) : null;
   }
 
   // §626. The base of a rename edit: the server-confirmed name, or — for a thread neither loaded nor
@@ -873,9 +897,11 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     const { id } = target;
     const updated: ChatThread = { ...target, name, updatedAt: new Date().toISOString() };
     setThreads((prev) => prev.map((th) => (th.id === id ? updated : th)));
-    const scope = renameScope();
+    // §604. Pinned: the save and its outbox scope target the database of this call's render.
+    const config = tursoConfig;
+    const scope = renameScope(config);
     if (scope) trackPendingEdit(scope, { kind: RENAME_KIND, id, base: confirmedName(target), value: name });
-    runPersist(id, () => saveThread(tursoConfig, updated), (owns) => confirmSavedName(scope, id, name, owns));
+    runPersist(id, () => saveThread(config, updated), (owns) => confirmSavedName(scope, id, name, owns));
   }
 
   // §626. Re-issues the renames typed before the last close, once a load for this project has
@@ -934,6 +960,9 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     const target = threads.find((th) => th.id === id);
     if (!target) return;
     const displayName = target.name || t(lang, "chatThreadUntitled");
+    // §604. The database the dialog was opened in, captured BEFORE the confirm await: the row is
+    // deleted there even if the config moves while the dialog is open.
+    const deleteConfig = tursoConfig;
     if (!(await confirm({ message: t(lang, "chatThreadDeleteConfirm", displayName), tone: "danger" }))) return;
     // `threads`/`activeThreadId` above were captured at render time, BEFORE
     // this await — a concurrent write (the busy-persist effect settling, or
@@ -954,7 +983,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // Scope the delete by project (defense-in-depth against a project-id
     // collision in the id space) — `target` was resolved from `threads`
     // before the confirm await and still carries the row's own projectId.
-    runPersist(id, () => deleteThreadRow(tursoConfig, id, target.projectId));
+    runPersist(id, () => deleteThreadRow(deleteConfig, id, target.projectId));
   }
 
   return {
