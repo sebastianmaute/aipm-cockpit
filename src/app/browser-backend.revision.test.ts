@@ -5,12 +5,37 @@
 // BrowserBackend instances sharing ONE fake IndexedDB to stand in for two
 // tabs/windows on the same browser storage.
 import "fake-indexeddb/auto";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
 import { BrowserBackend } from "./browser-backend";
 import { emptyWorkspace } from "./workspace";
 import { SaveConflictError } from "./storage-error";
-import type { Task } from "./types";
+import type { Milestone, Task } from "./types";
+
+// Fix round 1 — lets one test hold back the REAL `idbGet("revision")` call
+// (not merely its delivery: the underlying fetch itself) until released, to
+// deterministically model `load()`'s revision read genuinely executing AFTER
+// a concurrent writer's save has landed. `gate: null` (the default) makes
+// every call pass straight through, so this mock is inert for every other
+// test in this file. One-shot: arming it holds back only the very NEXT
+// `idbGet("revision")` call (b's stalled load) — a's own save() reads the
+// revision too (to compare/bump it) and must not be blocked by the same gate,
+// or the test deadlocks on itself.
+const revisionReadCtl = vi.hoisted(() => ({ gate: null as Promise<void> | null }));
+vi.mock("./idb", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./idb")>();
+  return {
+    ...actual,
+    idbGet: async (key: string) => {
+      if (key === "revision" && revisionReadCtl.gate) {
+        const gate = revisionReadCtl.gate;
+        revisionReadCtl.gate = null;
+        await gate;
+      }
+      return actual.idbGet(key);
+    },
+  };
+});
 
 const taskA = {
   id: 1,
@@ -39,10 +64,18 @@ const taskD = {
   dueDate: "2026-01-05",
 } as unknown as Task;
 
+const milestoneA: Milestone = {
+  id: 5,
+  name: "A's milestone",
+  date: "2026-12-01",
+  linkedTaskIds: [],
+};
+
 describe("BrowserBackend §4 revision guard", () => {
   beforeEach(() => {
     // Fresh in-memory IDB per test so saves don't leak across cases.
     globalThis.indexedDB = new IDBFactory();
+    revisionReadCtl.gate = null;
   });
 
   afterEach(() => {
@@ -120,6 +153,58 @@ describe("BrowserBackend §4 revision guard", () => {
     await expect(b.save({ ...emptyWorkspace(), tasks: [taskB] })).rejects.toBeInstanceOf(
       SaveConflictError,
     );
+  });
+
+  // Fix round 1 (Important finding) — `load()` used to read the revision
+  // LAST, in the SAME Promise.all as every data store/KV read. Each of those
+  // opens its OWN IndexedDB transaction (idb.ts), so that Promise.all was
+  // never one snapshot: a load overlapping another tab's locked save could
+  // read OLD data but a NEWER revision (the save writes data first, revision
+  // last) — the next save would then pass the compare and silently rewrite
+  // every KV blob with the stale view, dropping the other writer's change.
+  describe("fix round 1 — a load racing a concurrent save", () => {
+    it("never ends up with a revision newer than the data it actually read", async () => {
+      const a = new BrowserBackend();
+      const b = new BrowserBackend();
+      await a.load();
+      await b.load(); // both at revision 0, no milestones yet
+
+      // Hold b's revision read back until released, below.
+      let releaseGate: () => void = () => {};
+      revisionReadCtl.gate = new Promise<void>((resolve) => {
+        releaseGate = resolve;
+      });
+      const bReloadPromise = b.load();
+
+      // a saves a milestone WHILE b's load is stalled on its revision read.
+      await a.save({ ...emptyWorkspace(), milestones: [milestoneA] });
+      expect(a.revision()).toBe("1");
+
+      releaseGate();
+      revisionReadCtl.gate = null;
+      const bWs = await bReloadPromise;
+
+      // Whatever b's (possibly torn) reload actually produced, b's NEXT
+      // save — built from exactly what it just read, plus its own small
+      // edit, the realistic app pattern — must never silently drop a's
+      // concurrent milestone. Either b's load genuinely caught up (so the
+      // save succeeds AND preserves a's milestone, because bWs already
+      // carried it) or b's load is genuinely stale and the save is
+      // rejected — either outcome is safe; only a save that both SUCCEEDS
+      // and DROPS a's milestone is the bug this round closes.
+      let saveError: unknown;
+      try {
+        await b.save({ ...bWs, tasks: [...bWs.tasks, taskB] });
+      } catch (err) {
+        saveError = err;
+      }
+      if (saveError !== undefined) {
+        expect(saveError).toBeInstanceOf(SaveConflictError);
+      }
+
+      const reloaded = await new BrowserBackend().load();
+      expect(reloaded.milestones?.some((m) => m.id === milestoneA.id)).toBe(true);
+    });
   });
 
   describe("with navigator.locks absent", () => {

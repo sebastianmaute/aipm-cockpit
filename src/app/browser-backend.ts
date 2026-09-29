@@ -200,6 +200,22 @@ export class BrowserBackend implements StorageBackend {
     // §4 — stamped by `saveLocked()`; missing (never saved yet) → 0.
     let revision = 0;
     try {
+      // §4 fix round 1 — read BEFORE the parallel data reads below, in its
+      // OWN await/transaction, not alongside them in the same Promise.all.
+      // `idbGet`/`idbGetAll` (idb.ts) each open their own IDB transaction, so
+      // that Promise.all is not one snapshot: reading the revision LAST let a
+      // load that overlapped another tab's locked save adopt the NEWER
+      // revision while the data reads below it had already (or would still)
+      // observe a MIX of old and new rows — a torn load that then adopts a
+      // revision consistent with data it never actually read. This instance's
+      // next save would pass the compare against that adopted revision and
+      // silently rewrite every KV blob (and any row both writers touched).
+      // Reading it first instead means a torn load can only adopt an OLDER
+      // revision than what's really stored — this instance's next save then
+      // fails safe as a spurious (but never silently-clobbering) conflict.
+      const idbRevision = await idbGet<number>(KV_REVISION_KEY);
+      revision = idbRevision ?? 0;
+
       // Independent stores/keys — fetch in parallel instead of ~16 awaits in
       // sequence. Result assembly below keeps the original order/defaults.
       const [
@@ -232,7 +248,6 @@ export class BrowserBackend implements StorageBackend {
         idbActivityLog,
         idbDocumentAssets,
         idbBudgetHistory,
-        idbRevision,
       ] = await Promise.all([
         idbGetAll<Task>(IDB_TASKS_STORE),
         idbGetAll<RaidItem>(IDB_RAID_STORE),
@@ -263,12 +278,10 @@ export class BrowserBackend implements StorageBackend {
         idbGet(KV_ACTIVITY_LOG_KEY),
         idbGet(KV_DOCUMENT_ASSETS_KEY),
         idbGet(KV_BUDGET_HISTORY_KEY),
-        idbGet<number>(KV_REVISION_KEY),
       ]);
       tasks = idbTasks;
       raid = idbRaid;
       absences = idbAbsences;
-      revision = idbRevision ?? 0;
       shifts = idbShifts;
       resources = idbResources;
       roles = idbRoles;
