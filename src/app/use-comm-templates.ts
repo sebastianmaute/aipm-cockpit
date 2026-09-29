@@ -64,8 +64,10 @@ export function useCommTemplates(args: UseCommTemplatesArgs): UseCommTemplatesRe
   const onReplayFailureRef = useRef(onReplayFailure);
   useEffect(() => { onReplayFailureRef.current = onReplayFailure; }, [onReplayFailure]);
   // §626. The value each in-flight write is saving, per `kind:id`: a draft dropped back to the
-  // confirmed value while that save is still out must keep the save's edit tracked.
-  const inFlightRef = useRef(new Map<string, string>());
+  // confirmed value while that save is still out must keep the save's edit tracked. `seq` is the write
+  // that set it last (§653: a later write carrying the same value takes it over), and only that write
+  // removes it — an earlier one settling must not leave a write still in flight unaccounted for.
+  const inFlightRef = useRef(new Map<string, { value: string; seq: number }>());
   const [templates, setTemplates] = useState<CommTemplate[]>([]);
   const [busy, setBusy] = useState(false);
   const cfgRef = useRef(config);
@@ -163,14 +165,14 @@ export function useCommTemplates(args: UseCommTemplatesArgs): UseCommTemplatesRe
     // the newest of both fields, in either landing order.
     const patch: FieldPatch = { ...ownPatch };
     for (const field of ["name", "body"] as const) {
-      const carried = inFlightRef.current.get(`${DRAFT_KIND[field]}:${existing.id}`);
+      const carried = inFlightRef.current.get(`${DRAFT_KIND[field]}:${existing.id}`)?.value;
       if (patch[field] === undefined && carried !== undefined) patch[field] = carried;
     }
     const saving = (["name", "body"] as const).flatMap((field) => {
       const saved = patch[field];
       return saved === undefined ? [] : [{ field, saved, key: `${DRAFT_KIND[field]}:${existing.id}` }];
     });
-    for (const { key, saved } of saving) inFlightRef.current.set(key, saved);
+    for (const { key, saved } of saving) inFlightRef.current.set(key, { value: saved, seq });
     try {
       const next: CommTemplate = { ...existing, ...patch, updatedAt: new Date().toISOString() };
       await storeUpsert(cfg, next);
@@ -182,7 +184,7 @@ export function useCommTemplates(args: UseCommTemplatesArgs): UseCommTemplatesRe
       const scope = outboxScope(cfg);
       if (scope) for (const { field, saved } of saving) settlePendingEdit(scope, DRAFT_KIND[field], existing.id, saved);
     } finally {
-      for (const { key, saved } of saving) if (inFlightRef.current.get(key) === saved) inFlightRef.current.delete(key);
+      for (const { key } of saving) if (inFlightRef.current.get(key)?.seq === seq) inFlightRef.current.delete(key);
       setBusy(false);
     }
   }, [active, confirm]);
@@ -253,7 +255,7 @@ export function useCommTemplates(args: UseCommTemplatesArgs): UseCommTemplatesRe
     if (!active || !scope || !confirmed) return;
     const kind = DRAFT_KIND[field];
     const wanted = field === "name" ? (normalizeTemplateName(value) ?? confirmed.name) : value;
-    const inFlight = inFlightRef.current.get(`${kind}:${id}`);
+    const inFlight = inFlightRef.current.get(`${kind}:${id}`)?.value;
     const keep = wanted !== confirmed[field] ? wanted : inFlight !== undefined && inFlight !== confirmed[field] ? inFlight : null;
     if (keep === null) settlePendingEdit(scope, kind, id);
     else trackPendingEdit(scope, { kind, id, base: confirmed[field], value: keep });

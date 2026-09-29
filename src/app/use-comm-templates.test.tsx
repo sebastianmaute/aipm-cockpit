@@ -235,6 +235,27 @@ describe("useCommTemplates — pending edits outbox", () => {
     expect(stored()).toEqual([expect.objectContaining({ kind: "template-name", id: "d", base: "B", value: "D" })]);
   });
 
+  // §653 — a failed body save must not drop the body a still-pending rename carries.
+  it("a body save that fails while a rename carrying its body is in flight: a third write still carries that body", async () => {
+    const { result } = await renderLoaded();
+    let rejectBody: (e: Error) => void = () => {};
+    let resolveName: () => void = () => {};
+    upsertTemplate
+      .mockReturnValueOnce(new Promise<void>((_, rej) => { rejectBody = rej; }))
+      .mockReturnValueOnce(new Promise<void>((r) => { resolveName = r; }));
+    act(() => result.current.trackDraft("d", "body", "<p>Y</p>"));
+    let body: Promise<void> = Promise.resolve();
+    let name: Promise<void> = Promise.resolve();
+    act(() => { body = result.current.saveBody("d", "<p>Y</p>").catch(() => {}); });
+    act(() => { name = result.current.rename("d", "B"); });
+    await act(async () => { rejectBody(new Error("offline")); await body; });
+
+    await act(async () => { await result.current.rename("d", "C"); });
+    expect(upsertTemplate).toHaveBeenLastCalledWith(CFG, expect.objectContaining({ name: "C", body: "<p>Y</p>" }));
+    await act(async () => { resolveName(); await name; });
+    expect(result.current.templates[0]).toEqual(expect.objectContaining({ name: "C", body: "<p>Y</p>" }));
+  });
+
   // §653 — the pre-merge review's scenario: the two saves land IN ORDER, body first.
   it("a body save and a later rename landing in order keep the new body on the server and on screen", async () => {
     const { result } = await renderLoaded();
