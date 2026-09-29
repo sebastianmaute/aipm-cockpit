@@ -6,9 +6,14 @@
 // save (the "handle per window" half of §645). Mirrors
 // browser-backend.revision.test.ts's shape, but the "other writer" here is
 // modelled as a foreign process mutating the same FsHandle's content +
-// lastModified directly (createWritable/close bypassed), and the "other
-// window" is a second LocalFileBackend instance sharing the same mocked IDB
+// revision directly (createWritable/close bypassed), and the "other window"
+// is a second LocalFileBackend instance sharing the same mocked IDB
 // handle-slot.
+//
+// §4 fix round 1 (R10) additions: fail-closed on an unknown revision (change
+// 1), the R6 one-shot pre-read (change 2), adoptFrom (change 3), the force
+// flag surviving a failed write (change 4), the lock-wait timeout (change 6)
+// and the lastModified:size revision encoding (change 7).
 //
 // ★ `./idb` is mocked with an in-memory Map, exactly like
 // local-file-backend.test.ts: an FsHandle is an object of methods, and a real
@@ -36,41 +41,61 @@ vi.mock("./idb", async (importOriginal) => {
 import type { FsHandle } from "./fs-access";
 import { LocalFileBackend } from "./local-file-backend";
 import { emptyWorkspace, workspaceToJson } from "./workspace";
-import { SaveConflictError } from "./storage-error";
+import { SaveConflictError, SaveLockTimeoutError } from "./storage-error";
+
+/** The `lastModified:size` encoding (R10 change 7), spelled out once here so
+ *  a test asserting an EXACT revision string does not hardcode the format. */
+function rev(lastModified: number, text: string): string {
+  return `${lastModified}:${text.length}`;
+}
 
 /**
  * Extends the `writableFakeHandle` pattern from local-file-backend.test.ts
- * with a `lastModified` that actually changes on every real write — via a
- * monotonic COUNTER, never `Date.now()`, so two writes inside the same
- * millisecond still produce distinct revisions (controller ruling).
+ * with a revision that actually changes on every real write — `lastModified`
+ * via a monotonic COUNTER, never `Date.now()`, so two writes inside the same
+ * millisecond still produce distinct revisions (controller ruling), and
+ * `size` as the live `text.length` (R10 change 7's second component).
  *
  * `externalWrite` simulates a FOREIGN process (another program, or — for the
  * §645 "handle per window" tests — nothing at all, since those tests instead
  * point a SECOND backend instance at a different handle) mutating the file
  * directly, bypassing `createWritable`/`close`, but through the SAME counter
- * so the bump is still observable and still monotonic.
+ * so the bump is still observable and still monotonic. `armWriteFailure`
+ * makes the very next `createWritable()` throw once (R10 change 4).
  */
 function revisionFakeHandle(initial: { text?: string; lastModified?: number } = {}): FsHandle & {
   externalWrite(text: string): void;
+  armWriteFailure(): void;
 } {
   let text = initial.text ?? "";
   let counter = initial.lastModified ?? 1000;
+  let failNextWrite = false;
   return {
     name: "project.json",
     queryPermission: async () => "granted",
     requestPermission: async () => "granted",
-    getFile: async () => ({ text: async () => text, lastModified: counter }) as unknown as File,
-    createWritable: async () => ({
-      write: async (data: string | Blob) => {
-        text = typeof data === "string" ? data : text;
-      },
-      close: async () => {
-        counter += 1;
-      },
-    }),
+    getFile: async () =>
+      ({ text: async () => text, lastModified: counter, size: text.length }) as unknown as File,
+    createWritable: async () => {
+      if (failNextWrite) {
+        failNextWrite = false;
+        throw new Error("simulated write failure");
+      }
+      return {
+        write: async (data: string | Blob) => {
+          text = typeof data === "string" ? data : text;
+        },
+        close: async () => {
+          counter += 1;
+        },
+      };
+    },
     externalWrite(newText: string) {
       text = newText;
       counter += 1;
+    },
+    armWriteFailure() {
+      failNextWrite = true;
     },
   };
 }
@@ -85,18 +110,18 @@ describe("LocalFileBackend §4 §645 revision guard", () => {
     Reflect.deleteProperty(navigator, "locks");
   });
 
-  it("revision() after load matches the file's lastModified; after save it's the new one", async () => {
+  it("revision() after load matches the file's revision; after save it's the new one", async () => {
     const be = new LocalFileBackend("local-json");
     const handle = revisionFakeHandle({ text: "", lastModified: 1000 });
     await be.setHandle(handle);
 
     await be.load();
-    expect(be.revision()).toBe("1000");
+    expect(be.revision()).toBe(rev(1000, ""));
 
     await be.save(emptyWorkspace());
     const file = await handle.getFile();
-    expect(be.revision()).toBe(String(file.lastModified));
-    expect(be.revision()).not.toBe("1000");
+    expect(be.revision()).toBe(rev(file.lastModified, await file.text()));
+    expect(be.revision()).not.toBe(rev(1000, ""));
   });
 
   it("a foreign write between load and save rejects with SaveConflictError and writes nothing", async () => {
@@ -147,10 +172,10 @@ describe("LocalFileBackend §4 §645 revision guard", () => {
 
     const fresh = new LocalFileBackend("local-json");
     await fresh.load();
-    expect(fresh.revision()).toBe("1000");
+    expect(fresh.revision()).toBe(rev(1000, ""));
   });
 
-  it("forceNextSave() writes despite a foreign change and adopts the new lastModified", async () => {
+  it("forceNextSave() writes despite a foreign change and adopts the new revision", async () => {
     const be = new LocalFileBackend("local-json");
     const handle = revisionFakeHandle({ text: "", lastModified: 1000 });
     await be.setHandle(handle);
@@ -163,21 +188,164 @@ describe("LocalFileBackend §4 §645 revision guard", () => {
 
     const file = await handle.getFile();
     expect(await file.text()).toBe(workspaceToJson(emptyWorkspace()));
-    expect(be.revision()).toBe(String(file.lastModified));
-    expect(be.revision()).not.toBe("1000");
+    expect(be.revision()).toBe(rev(file.lastModified, await file.text()));
+    expect(be.revision()).not.toBe(rev(1000, ""));
+  });
+
+  // §4 fix round 1 (R10 change 1) — fail closed.
+  describe("fail-closed on an unknown revision (R10 change 1)", () => {
+    it("a bound-but-never-loaded instance refuses to save, and writes nothing", async () => {
+      const be = new LocalFileBackend("local-json");
+      const handle = revisionFakeHandle({ text: "original", lastModified: 1000 });
+      await be.setHandle(handle);
+      // Never loaded, never forced, never adopted: currentRevision is UNKNOWN.
+
+      await expect(be.save(emptyWorkspace())).rejects.toBeInstanceOf(SaveConflictError);
+
+      const file = await handle.getFile();
+      expect(await file.text()).toBe("original");
+    });
+
+    it("a fresh instance restored from the slot (never loaded by THIS instance) also refuses", async () => {
+      // "restores the last file on startup" (above) binds via getHandle()'s
+      // slot fallback, but binding alone is not a load: this instance's own
+      // revision is still unknown until it actually reads the file.
+      const seed = new LocalFileBackend("local-json");
+      const handle = revisionFakeHandle({ text: "original", lastModified: 1000 });
+      await seed.setHandle(handle);
+
+      const fresh = new LocalFileBackend("local-json");
+      // Deliberately no fresh.load() — only the slot fallback binds the handle.
+      await expect(fresh.save(emptyWorkspace())).rejects.toBeInstanceOf(SaveConflictError);
+
+      const file = await handle.getFile();
+      expect(await file.text()).toBe("original");
+    });
+
+    it("forceNextSave lets a never-loaded instance write anyway (the intentional-blind-write escape hatch)", async () => {
+      const be = new LocalFileBackend("local-json");
+      const handle = revisionFakeHandle({ text: "original", lastModified: 1000 });
+      await be.setHandle(handle);
+
+      be.forceNextSave();
+      await expect(be.save(emptyWorkspace())).resolves.toBeUndefined();
+
+      const file = await handle.getFile();
+      expect(await file.text()).toBe(workspaceToJson(emptyWorkspace()));
+    });
+  });
+
+  // §4 fix round 1 (R10 change 2) — the R6 one-shot pre-read.
+  describe("R6 one-shot pre-read (R10 change 2)", () => {
+    it("setHandle adopts the revision from a prior loadFrom of the SAME handle (preview-then-commit)", async () => {
+      const be = new LocalFileBackend("local-json");
+      const handle = revisionFakeHandle({ text: "", lastModified: 1000 });
+
+      // Preview: read the candidate file WITHOUT binding (§287/§590).
+      await be.loadFrom(handle);
+      expect(be.revision()).toBeNull(); // not yet bound — nothing adopted yet
+
+      // Commit: bind it now.
+      await be.setHandle(handle);
+
+      // No load() of the BOUND handle happened, but the preview read already
+      // established a real baseline — the very next save must not fail-closed.
+      expect(be.revision()).toBe(rev(1000, ""));
+      await expect(be.save(emptyWorkspace())).resolves.toBeUndefined();
+    });
+
+    it("is consumed (one-shot): a second bind of the SAME handle without a fresh loadFrom does not reuse it", async () => {
+      const be = new LocalFileBackend("local-json");
+      const handle = revisionFakeHandle({ text: "", lastModified: 1000 });
+
+      await be.loadFrom(handle);
+      await be.setHandle(handle); // consumes the pre-read
+      expect(be.revision()).toBe(rev(1000, ""));
+
+      await be.setHandle(handle); // re-bind the SAME handle, no fresh loadFrom
+      expect(be.revision()).toBeNull();
+    });
+
+    it("does not transfer to a setHandle of a DIFFERENT handle", async () => {
+      const be = new LocalFileBackend("local-json");
+      const x = revisionFakeHandle({ text: "", lastModified: 1000 });
+      const y = revisionFakeHandle({ text: "", lastModified: 2000 });
+
+      await be.loadFrom(x); // preview X
+      await be.setHandle(y); // commit a DIFFERENT handle, Y
+
+      expect(be.revision()).toBeNull();
+      await expect(be.save(emptyWorkspace())).rejects.toBeInstanceOf(SaveConflictError);
+    });
+
+    it("is overwritten (never merged) by a later loadFrom of a different handle", async () => {
+      const be = new LocalFileBackend("local-json");
+      const x = revisionFakeHandle({ text: "", lastModified: 1000 });
+      const y = revisionFakeHandle({ text: "", lastModified: 2000 });
+
+      await be.loadFrom(x); // remembers X
+      await be.loadFrom(y); // overwrites the memory with Y
+      await be.setHandle(x); // X's pre-read is gone — no match
+
+      expect(be.revision()).toBeNull();
+    });
+  });
+
+  // §4 fix round 1 (R10 change 4) — force flag survives a failed write.
+  it("forceNextSave keeps the flag when the forced write fails, for a retry", async () => {
+    const be = new LocalFileBackend("local-json");
+    const handle = revisionFakeHandle({ text: "", lastModified: 1000 });
+    await be.setHandle(handle);
+    await be.load();
+
+    // The file now conflicts AND the next write attempt will itself fail.
+    handle.externalWrite("mutated-by-someone-else");
+    handle.armWriteFailure();
+
+    be.forceNextSave();
+    await expect(be.save(emptyWorkspace())).rejects.toThrow(); // the write failure, not SaveConflictError
+
+    // The flag must still be set: a retry (the write will succeed this time)
+    // must STILL skip the compare, even though the file is still "conflicting".
+    await expect(be.save(emptyWorkspace())).resolves.toBeUndefined();
+    const file = await handle.getFile();
+    expect(await file.text()).toBe(workspaceToJson(emptyWorkspace()));
+  });
+
+  // §4 fix round 1 (R10 change 3) — adoptFrom.
+  it("adoptFrom(other): an instance adopted from a loaded instance saves without conflict and writes the adopted handle, not the slot's current one", async () => {
+    const op = new LocalFileBackend("local-json");
+    const x = revisionFakeHandle({ text: "", lastModified: 1000 });
+    await op.setHandle(x);
+    await op.load();
+
+    const live = new LocalFileBackend("local-json");
+    const y = revisionFakeHandle({ text: "Y-original", lastModified: 2000 });
+    // live's OWN bind, simulating the shared slot currently pointing elsewhere.
+    await live.setHandle(y);
+
+    live.adoptFrom(op);
+
+    await expect(live.save({ ...emptyWorkspace(), tasks: [] })).resolves.toBeUndefined();
+
+    const xFile = await x.getFile();
+    const yFile = await y.getFile();
+    expect(await xFile.text()).toBe(workspaceToJson({ ...emptyWorkspace(), tasks: [] }));
+    expect(await yFile.text()).toBe("Y-original");
   });
 
   describe("with navigator.locks present", () => {
+    const defineLocks = (
+      request: (name: string, options: unknown, cb: () => Promise<unknown>) => Promise<unknown>,
+    ) => {
+      Object.defineProperty(navigator, "locks", { value: { request }, configurable: true });
+    };
+
     it("runs save() under navigator.locks.request with the per-kind lock name", async () => {
       const seenNames: string[] = [];
-      Object.defineProperty(navigator, "locks", {
-        value: {
-          request: (name: string, cb: () => Promise<unknown>) => {
-            seenNames.push(name);
-            return cb();
-          },
-        },
-        configurable: true,
+      defineLocks((name, _options, cb) => {
+        seenNames.push(name);
+        return cb();
       });
 
       const be = new LocalFileBackend("local-csv");
@@ -188,6 +356,35 @@ describe("LocalFileBackend §4 §645 revision guard", () => {
       await be.save(emptyWorkspace());
 
       expect(seenNames).toEqual(["aipm-cockpit:save:local-csv"]);
+    });
+
+    // §4 fix round 1 (R10 change 6) — lock-wait timeout.
+    it("a lock-wait timeout surfaces as SaveLockTimeoutError and writes nothing", async () => {
+      const handle = revisionFakeHandle({ text: "original", lastModified: 1000 });
+      const be = new LocalFileBackend("local-json");
+      await be.setHandle(handle);
+      // The wait itself is aborted before the callback ever runs — modelling
+      // AbortSignal.timeout firing while another window still holds the lock.
+      defineLocks(async () => {
+        throw new DOMException("The operation was aborted.", "AbortError");
+      });
+
+      await expect(be.save(emptyWorkspace())).rejects.toBeInstanceOf(SaveLockTimeoutError);
+
+      const file = await handle.getFile();
+      expect(await file.text()).toBe("original");
+    });
+
+    it("a real failure INSIDE the held lock (e.g. a save conflict) passes through unchanged, not as a timeout", async () => {
+      defineLocks((_name, _options, cb) => cb());
+
+      const be = new LocalFileBackend("local-json");
+      const handle = revisionFakeHandle({ text: "", lastModified: 1000 });
+      await be.setHandle(handle);
+      await be.load();
+      handle.externalWrite("mutated-by-someone-else");
+
+      await expect(be.save(emptyWorkspace())).rejects.toBeInstanceOf(SaveConflictError);
     });
   });
 

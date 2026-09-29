@@ -26,7 +26,25 @@ import {
   workspaceToJson,
 } from "./workspace";
 import type { ImportSectionKey } from "./csv-codecs-sections";
-import { SaveConflictError } from "./storage-error";
+import { SaveConflictError, SaveLockTimeoutError } from "./storage-error";
+
+/** §4 fix round 1 (R10 change 7) — the local-file revision encoding:
+ *  `lastModified` ALONE is not fine-grained enough on filesystems/OSes with a
+ *  coarse mtime resolution (some report whole seconds), so two different
+ *  writes landing in the same tick would be indistinguishable and a real
+ *  conflict could go undetected. Pairing it with `size` catches any write
+ *  that also changed the byte length, which is true of almost every real
+ *  edit. Revisions are opaque strings to callers — nothing outside this file
+ *  parses the encoding. */
+function fileRevision(file: File): string {
+  return `${file.lastModified}:${file.size}`;
+}
+
+/** Upper bound on waiting for the per-kind save Web Lock, on the pattern of
+ *  `turso-backend.ts`'s `LOCK_WAIT_TIMEOUT_MS`. Local file I/O has no network
+ *  round-trip, so a much shorter bound than Turso's 20s is still generous for
+ *  a healthy lock holder (open a writable, write, close) to finish first. */
+const LOCAL_LOCK_WAIT_TIMEOUT_MS = 10_000;
 
 export class LocalFileBackend implements StorageBackend {
   readonly kind: LocalKind;
@@ -76,14 +94,33 @@ export class LocalFileBackend implements StorageBackend {
    *  every call re-read the slot, so any window's re-point/project-switch
    *  retargeted every other window's next save too). */
   private boundHandle: FsHandle | null = null;
-  /** §645 — the revision this instance last loaded or wrote from `boundHandle`;
-   *  `null` before any load of that handle (no baseline to compare against,
-   *  so `save()` skips the compare — see `setHandle`/`pickFile`, which reset
-   *  this to `null` on every NEW bind so a stale revision from the
-   *  PREVIOUSLY bound file can never be compared against a different one). */
+  /** §645 fix round 1 (R10 change 1) — the revision this instance last loaded
+   *  or wrote from `boundHandle`; `null` means UNKNOWN (never loaded/written
+   *  that handle, and not adopted or forced) — `save()` now FAILS CLOSED on
+   *  `null` rather than skipping the compare, so `setHandle`/`pickFile`
+   *  resetting this to `null` on every NEW bind means the very next save on a
+   *  freshly bound/switched handle refuses until a real load (or
+   *  `adoptFrom`/`adoptRevision`/`forceNextSave`) establishes a baseline. */
   private currentRevision: string | null = null;
-  /** §645 — one-shot: set by `forceNextSave()`, consumed by the very next `save()`. */
+  /** §645 — one-shot: set by `forceNextSave()`, consumed by `saveLocked()`
+   *  only once its write has actually succeeded (R10 change 4) — a forced
+   *  save that fails (e.g. the write throws) keeps the flag set for the
+   *  retry, rather than silently falling back to a compare it was never
+   *  meant to face. */
   private forceNext = false;
+  /**
+   * §645 fix round 1 (R10 change 2, "R6 one-shot pre-read") — the
+   * `{handle, revision}` pair from the MOST RECENT `loadFrom()` read of ANY
+   * handle, bound or not. This is what lets the §287/§590 preview-before-
+   * commit flow (`openFile()`/`pickFileHandle()` → `loadFromHandleForBackend`
+   * → accept → `setHandle()`) establish a real baseline instead of forcing
+   * the caller to reload the very file it just previewed: `setHandle(h)`
+   * adopts `revision` when `h === handle`, and always CONSUMES (clears) this
+   * regardless of whether it matched. Any LATER `loadFrom()` call — for a
+   * different candidate, or the bound handle's own regular `load()` — simply
+   * overwrites it; only the single most recent read is ever remembered.
+   */
+  private pendingRead: { handle: FsHandle; revision: string } | null = null;
 
   constructor(kind: LocalKind) {
     this.kind = kind;
@@ -130,15 +167,22 @@ export class LocalFileBackend implements StorageBackend {
    */
   async setHandle(handle: FsHandle): Promise<void> {
     await idbSet(this.idbKey, handle);
-    // §645 — bind THIS instance to the handle it just committed, and drop any
-    // revision baseline the PREVIOUSLY bound file left behind: comparing a new
-    // file's real `lastModified` against an old file's revision would either
-    // falsely conflict (near-certain — the two numbers are unrelated) or, by
-    // sheer coincidence, falsely pass. `null` means "no baseline yet, don't
-    // compare" (see `save()`), which is correct until this instance actually
-    // loads (or writes) this handle.
+    // §645 — bind THIS instance to the handle it just committed.
     this.boundHandle = handle;
-    this.currentRevision = null;
+    // R10 change 2 (R6 one-shot pre-read) — adopt the revision from a PRIOR
+    // `loadFrom(handle)` read of this EXACT handle (the §287/§590 preview
+    // flow), so committing a file the caller just previewed does not
+    // immediately fail-closed on the very next save. Any other case — no
+    // prior read, or a read of a DIFFERENT handle — leaves the revision
+    // UNKNOWN (`null`): comparing a new file's real revision against an old
+    // file's would either falsely conflict (near-certain — the two are
+    // unrelated) or, by sheer coincidence, falsely pass, and fabricating a
+    // baseline for a handle never actually read would defeat the whole
+    // fail-closed rule (R10 change 1). Consumed either way — cleared so a
+    // stale pre-read can never be adopted by a LATER, unrelated setHandle.
+    this.currentRevision =
+      this.pendingRead && this.pendingRead.handle === handle ? this.pendingRead.revision : null;
+    this.pendingRead = null;
   }
 
   /** Reads back the handle currently bound to this backend (after a pick/open),
@@ -327,21 +371,27 @@ export class LocalFileBackend implements StorageBackend {
       if (!(await hasGrantedPermission(handle, "read"))) {
         throw new StorageNotReadyError("local-file-permission-needed");
       }
-      // §645 — read getFile() ONCE and take both the content and lastModified
-      // from that SAME File object (not two separate getFile() calls), so a
-      // concurrent writer between them can never make this instance adopt a
-      // revision that is newer than the content it actually read. Inlined
-      // rather than calling the shared `readHandle` helper for exactly this
-      // reason — that helper only returns the text.
+      // §645 — read getFile() ONCE and take both the content and revision
+      // (lastModified + size) from that SAME File object (not two separate
+      // getFile() calls), so a concurrent writer between them can never make
+      // this instance adopt a revision that is newer than the content it
+      // actually read. Inlined rather than calling the shared `readHandle`
+      // helper for exactly this reason — that helper only returns the text.
       const file = await handle.getFile();
       const text = await file.text();
+      const revision = fileRevision(file);
+      // R10 change 2 — remember this exact read for `setHandle()`'s one-shot
+      // pre-read adoption, for ANY handle (bound or not): overwrites whatever
+      // the previous `loadFrom()` call remembered, so only the most recent
+      // read is ever available to adopt.
+      this.pendingRead = { handle, revision };
       // Only when `handle` is the ACTIVE bound handle: `loadFrom` is also the
       // read half of the commit-on-accept split (§287/§590), called directly
       // with a candidate handle nobody has committed to yet. Adopting THAT
       // file's revision here would silently swap this instance's save baseline
       // to a file it may never bind.
       if (handle === this.boundHandle) {
-        this.currentRevision = String(file.lastModified);
+        this.currentRevision = revision;
       }
       if (!text.trim()) return emptyWorkspace();
       if (this.format === "json") return jsonToWorkspace(text, { strict: true, diag });
@@ -403,35 +453,62 @@ export class LocalFileBackend implements StorageBackend {
   async save(ws: Workspace): Promise<void> {
     // §645 — run the compare-then-write critical section under the cross-tab/
     // cross-window Web Lock when it's available, so two windows racing a save
-    // can't both read the same file's `lastModified` before either has
-    // written. jsdom (and older browsers) has no `navigator.locks`: fall back
-    // to a direct call — the compare still runs, just without cross-window
-    // mutual exclusion.
+    // can't both read the same file's revision before either has written.
+    // jsdom (and older browsers) has no `navigator.locks`: fall back to a
+    // direct call — the compare still runs, just without cross-window mutual
+    // exclusion.
+    //
+    // R10 change 6 — bounded wait, on the pattern of `turso-backend.ts`'s
+    // `withWriteLock`: if the lock is not GRANTED within
+    // `LOCAL_LOCK_WAIT_TIMEOUT_MS`, the wait itself is aborted and this
+    // throws `SaveLockTimeoutError` instead of hanging forever — nothing is
+    // written. `granted` distinguishes that from a real failure INSIDE
+    // `saveLocked()` (a genuine `SaveConflictError`/write failure once the
+    // lock WAS granted), which must pass through unchanged.
     const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
-    if (locks) {
-      await locks.request(this.lockName, () => this.saveLocked(ws));
-    } else {
+    if (!locks) {
       await this.saveLocked(ws);
+      return;
+    }
+    let granted = false;
+    try {
+      await locks.request(
+        this.lockName,
+        { mode: "exclusive", signal: AbortSignal.timeout(LOCAL_LOCK_WAIT_TIMEOUT_MS) },
+        () => {
+          granted = true;
+          return this.saveLocked(ws);
+        },
+      );
+    } catch (err) {
+      if (!granted) throw new SaveLockTimeoutError(this.kind, { cause: err });
+      throw err;
     }
   }
 
   /**
    * §645 — the actual save. Reads this instance's bound handle's CURRENT
-   * `getFile().lastModified` and compares it with the revision this instance
-   * last loaded or wrote, BEFORE any write: a mismatch means another writer
-   * (another window, or another program) has changed the file since, and
-   * throws `SaveConflictError` — nothing here is written. `currentRevision ===
-   * null` means this instance has no baseline yet (a handle just bound by
-   * `setHandle`/`pickFile` and never loaded) — the compare is skipped, exactly
-   * like `BrowserBackend`'s `currentRevision !== null` guard.
+   * revision (`fileRevision()`, `lastModified:size`) and compares it with the
+   * revision this instance last loaded or wrote, BEFORE any write: a mismatch
+   * means another writer (another window, or another program) has changed
+   * the file since, and throws `SaveConflictError` — nothing here is written.
    *
-   * `forceNextSave()` (one-shot) skips the compare and writes regardless. On
-   * success — forced or not — the file is re-read and its NEW `lastModified`
-   * is adopted, at the same point (never before every write has succeeded).
+   * R10 change 1 (fail closed) — `currentRevision === null` means UNKNOWN
+   * (never loaded that handle, and not adopted or forced), and now REFUSES
+   * with the same `SaveConflictError` rather than skipping the compare: a
+   * save on an instance that has never established a real baseline must not
+   * silently win against whatever another window already put there. An
+   * intentional blind write — Save-As, a brand-new file, create, demo,
+   * conversion — goes through `forceNextSave()`.
+   *
+   * `forceNextSave()` (one-shot) skips the compare and writes regardless. The
+   * force flag is cleared, and the revision adopted, only AFTER the write has
+   * actually succeeded (R10 change 4) — a forced save that fails keeps the
+   * flag set for the retry instead of silently reverting to a compare it was
+   * never meant to face.
    */
   private async saveLocked(ws: Workspace): Promise<void> {
     const force = this.forceNext;
-    this.forceNext = false;
 
     const handle = await this.getHandle();
     if (!handle) throw new StorageNotReadyError("local-file-not-picked");
@@ -443,9 +520,10 @@ export class LocalFileBackend implements StorageBackend {
       throw new StorageNotReadyError("local-file-permission-needed");
     }
 
-    if (!force && this.currentRevision !== null) {
+    if (!force) {
+      if (this.currentRevision === null) throw new SaveConflictError(this.kind);
       const current = await handle.getFile();
-      if (String(current.lastModified) !== this.currentRevision) {
+      if (fileRevision(current) !== this.currentRevision) {
         throw new SaveConflictError(this.kind);
       }
     }
@@ -456,9 +534,11 @@ export class LocalFileBackend implements StorageBackend {
     else content = workspaceToMarkdown(ws);
     await writeHandle(handle, content);
 
-    // §645 — adopt only now that the write has succeeded.
+    // §645 — clear the force flag + adopt the new revision only now that the
+    // write has succeeded (R10 change 4).
+    if (force) this.forceNext = false;
     const written = await handle.getFile();
-    this.currentRevision = String(written.lastModified);
+    this.currentRevision = fileRevision(written);
   }
 
   /** §645: the revision this instance last loaded or wrote from its bound
@@ -473,8 +553,23 @@ export class LocalFileBackend implements StorageBackend {
   }
 
   /** §645: make the next `save()` skip the revision compare and write
-   *  regardless, then clear itself. */
+   *  regardless, then clear itself (R10 change 4 — only once that save's
+   *  write actually succeeds; see `saveLocked()`). */
   forceNextSave(): void {
     this.forceNext = true;
+  }
+
+  /**
+   * §645 fix round 1 (R10 change 3) — copies another `LocalFileBackend`
+   * instance's bound handle and revision, so a throwaway backend used to
+   * perform an op (e.g. a preview read, or a create/convert helper) can hand
+   * its resulting state to the LIVE instance in one step. Same-class only,
+   * not part of `StorageBackend` — a later task calls this at the one site
+   * that needs it. `other` must have loaded or written the SAME target this
+   * instance should now treat as current; this does not verify that itself.
+   */
+  adoptFrom(other: LocalFileBackend): void {
+    this.boundHandle = other.boundHandle;
+    this.currentRevision = other.currentRevision;
   }
 }

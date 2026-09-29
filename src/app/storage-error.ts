@@ -27,6 +27,31 @@ export function isSaveConflict(err: unknown): err is SaveConflictError {
   return err instanceof SaveConflictError;
 }
 
+/** §4 fix round 1 (R10 change 6) — a `StorageBackend.save()`'s Web Lock wait
+ *  timed out before the lock was ever granted (another window is mid-save).
+ *  Generalized by `StorageKind` for the browser + local-file backends, on the
+ *  pattern of `TursoLockTimeoutError` (`turso-backend.ts`'s `withWriteLock`):
+ *  same "bounded wait, typed timeout error" shape, but added here rather than
+ *  widening `TursoLockTimeoutError` itself — that class is Turso-specific in
+ *  both name and message, and already has its own `isTursoLockTimeout` plus
+ *  dedicated coverage in `storage-error.test.ts`/`turso-backend.test.ts`;
+ *  repurposing it for a different backend would either break that message or
+ *  require a Turso-only rename ripple this round does not need. Deliberately
+ *  NOT classified by `classifyStorageError`, exactly like
+ *  `TursoLockTimeoutError`: a lock timeout is transient (another window is
+ *  writing), so it surfaces via the generic save-failure toast rather than a
+ *  persistent connectivity/auth banner. */
+export class SaveLockTimeoutError extends Error {
+  constructor(public readonly kind: StorageKind, options?: ErrorOptions) {
+    super(`Save lock timed out for ${kind}: another window may be saving.`, options);
+    this.name = "SaveLockTimeoutError";
+  }
+}
+
+export function isSaveLockTimeout(err: unknown): err is SaveLockTimeoutError {
+  return err instanceof SaveLockTimeoutError;
+}
+
 /** True when a save failed because the cross-tab Web Locks wait timed out
  *  (another tab is writing). Deliberately NOT a StorageErrorKind — it's
  *  transient, so it stays on the toast path; the UI boundary uses this to
