@@ -95,7 +95,7 @@ const turn = {
   history: [{ role: "user", content: "hi" }] as ApiMessage[],
   display: [{ kind: "user", text: "hi" }] as DisplayItem[],
 };
-const storageKeyFor = (cfg: TursoConfig) => `${PENDING_EDITS_PREFIX}${pendingEditScope(cfg.httpUrl, "default")}`;
+const storageKeyFor = (cfg: TursoConfig) => `${PENDING_EDITS_PREFIX}${pendingEditScope(cfg.httpUrl, "chat:default")}`;
 const stored = (cfg: TursoConfig): unknown[] =>
   JSON.parse(window.localStorage.getItem(storageKeyFor(cfg)) ?? "[]") as unknown[];
 const pagehide = () => window.dispatchEvent(new Event("pagehide"));
@@ -132,7 +132,7 @@ describe("useChatThreads — writes stay in the Turso database they started in (
     expect((saveThreadMock.mock.calls[0]![1] as ChatThread).history).toEqual(turn.history);
   });
 
-  it("a turn finished after a config change stays out of the new database's thread list", async () => {
+  it("a turn aborted by the new database's load saves nothing, so B's thread never reaches A", async () => {
     const inB = [thread("tB", { name: "In B" })];
     loadsByDatabase([thread("t1")], undefined, inB);
     const { result, rerender, initialProps } = renderChatThreads();
@@ -141,12 +141,88 @@ describe("useChatThreads — writes stay in the Turso database they started in (
     rerender({ ...initialProps, ...turn, busy: true });
     rerender({ ...initialProps, ...turn, busy: true, tursoConfig: CFG_B });
     await waitFor(() => expect(result.current.threads).toEqual(inB));
+    saveThreadMock.mockClear();
+    rerender({ ...initialProps, ...turn, busy: false, tursoConfig: CFG_B });
+    await settle(() => {});
+
+    // B's load made B's thread active and replaced the transcript: nothing on screen is this turn's.
+    expect(saveThreadMock).not.toHaveBeenCalled();
+    expect(result.current.threads).toEqual(inB);
+    expect(result.current.activeThreadId).toBe("tB");
+  });
+
+  it("a turn finished after a config change, before the new database loads, is saved to A and kept out of B's list", async () => {
+    loadsByDatabase([thread("t1")]); // B's load never settles
+    const { result, rerender, initialProps } = renderChatThreads();
+    await waitFor(() => expect(result.current.activeThreadId).toBe("t1"));
+    const listBefore = result.current.threads;
+
+    rerender({ ...initialProps, ...turn, busy: true });
+    rerender({ ...initialProps, ...turn, busy: true, tursoConfig: CFG_B });
+    saveThreadMock.mockClear();
     rerender({ ...initialProps, ...turn, busy: false, tursoConfig: CFG_B });
 
-    await waitFor(() => expect(saveThreadMock).toHaveBeenCalled());
-    expect((saveThreadMock.mock.calls.at(-1)![0] as TursoConfig).httpUrl).toBe(CFG_A.httpUrl);
-    expect(result.current.threads).toEqual(inB);
-    expect(result.current.activeThreadId).not.toBe("t1");
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
+    expect(saveThreadMock.mock.calls[0]![0]).toBe(CFG_A);
+    expect((saveThreadMock.mock.calls[0]![1] as ChatThread).id).toBe("t1");
+    expect(result.current.threads).toBe(listBefore);
+  });
+
+  it("a token rotated mid-turn is the same database: the turn saves with the new token and stays in the list", async () => {
+    const CFG_A2: TursoConfig = { httpUrl: CFG_A.httpUrl, authToken: "token-a-rotated" };
+    loadsByDatabase([thread("t1")]);
+    const { result, rerender, initialProps } = renderChatThreads();
+    await waitFor(() => expect(result.current.activeThreadId).toBe("t1"));
+
+    rerender({ ...initialProps, ...turn, busy: true });
+    rerender({ ...initialProps, ...turn, busy: true, tursoConfig: CFG_A2 });
+    saveThreadMock.mockClear();
+    rerender({ ...initialProps, ...turn, busy: false, tursoConfig: CFG_A2 });
+
+    // Same database: the token rotation is not a move, so the turn is saved with the NEW token.
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
+    expect(saveThreadMock.mock.calls[0]![0]).toBe(CFG_A2);
+    const saved = saveThreadMock.mock.calls[0]![1] as ChatThread;
+    expect(saved.id).toBe("t1");
+    expect(saved.history).toEqual(turn.history);
+    expect(result.current.activeThreadId).toBe("t1");
+  });
+
+  it("a load retry issued before a token rotation is not dropped: same database", async () => {
+    const CFG_A2: TursoConfig = { httpUrl: CFG_A.httpUrl, authToken: "token-a-rotated" };
+    const retry = deferred<ChatThread[]>();
+    loadsByDatabase([thread("t1")], retry.promise);
+    const { result, rerender, initialProps } = renderChatThreads();
+    await waitFor(() => expect(result.current.activeThreadId).toBe("t1"));
+
+    act(() => result.current.retryLoad());
+    rerender({ ...initialProps, tursoConfig: CFG_A2 });
+    await settle(() => retry.resolve([thread("t1", { name: "Reloaded" })]));
+
+    expect(staleTargetLog()).toHaveLength(0);
+    expect(result.current.threads.map((th) => th.name)).toEqual(["Reloaded"]);
+  });
+
+  it("a delete confirmed after a token rotation deletes with the new token", async () => {
+    const CFG_A2: TursoConfig = { httpUrl: CFG_A.httpUrl, authToken: "token-a-rotated" };
+    loadsByDatabase([thread("t1"), thread("t2")]);
+    const dialog = deferred<boolean>();
+    const confirm = vi.fn(() => dialog.promise);
+    const { result, rerender, initialProps } = renderChatThreads({ confirm });
+    await waitFor(() => expect(result.current.threads).toHaveLength(2));
+
+    let deleting: Promise<void> = Promise.resolve();
+    act(() => {
+      deleting = result.current.requestDeleteThread("t1");
+    });
+    rerender({ ...initialProps, tursoConfig: CFG_A2 });
+    await act(async () => {
+      dialog.resolve(true);
+      await deleting;
+    });
+
+    expect(deleteThreadMock).toHaveBeenCalledTimes(1);
+    expect(deleteThreadMock).toHaveBeenCalledWith(CFG_A2, "t1", "default");
   });
 
   it("a send started after a config change persists to the new database", async () => {

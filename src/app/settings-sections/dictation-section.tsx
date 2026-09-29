@@ -7,6 +7,7 @@ import { SegmentedControl } from "../segmented-control";
 import { InfoTooltip } from "../info-tooltip";
 import { FieldHint } from "../field-hint";
 import { saveSecretValue } from "../use-secrets";
+import { logDiag } from "../diagnostics";
 import { removeSealed } from "../secrets-store";
 import { INTERACTIVE } from "../interaction-styles";
 import { eventToCombo, eventComboFromMouse, mouseButtonToToken } from "../dictation-hotkey";
@@ -41,12 +42,22 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
     if (value.trim() === "") removeSealed("sttApiKey");
     // §626: every non-empty change seals too, so closing the page right after typing keeps the key.
     // The plaintext goes to saveSecretValue only; beginSealedWrite (§609) lets the newest seal win.
-    else void saveSecretValue("sttApiKey", value.trim(), "device");
+    else sealSttKey(value.trim());
   }
 
   function handleSttKeyBlur() {
     const v = (settings.dictation?.sttApiKey ?? "").trim();
-    if (v) void saveSecretValue("sttApiKey", v, "device");
+    if (v) sealSttKey(v);
+  }
+
+  // A seal that fails (IndexedDB blocked, WebCrypto unavailable) is logged — by its error NAME only,
+  // never the key — instead of surfacing as one unhandled rejection per keystroke.
+  function sealSttKey(v: string) {
+    saveSecretValue("sttApiKey", v, "device").catch((err: unknown) => {
+      // `.name` read structurally: a DOMException (IndexedDB, WebCrypto) is not always `instanceof Error`.
+      const name: unknown = (err as { name?: unknown } | null)?.name;
+      logDiag("warn", "secrets.sttKeySealFailed", { error: typeof name === "string" ? name : typeof err });
+    });
   }
 
   function handleHotkeyCapture(e: KeyboardEvent<HTMLButtonElement>) {

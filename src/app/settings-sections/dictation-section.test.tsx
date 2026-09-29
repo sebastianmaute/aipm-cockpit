@@ -7,6 +7,7 @@ import { DictationSection } from "./dictation-section";
 import { defaultSettings, type Settings } from "../settings-types";
 import { t } from "../i18n";
 import * as secrets from "../secrets";
+import * as diagnostics from "../diagnostics";
 import { type SealedSecret, sealDevice } from "../secrets";
 import { loadSealed, readDeviceSecret, saveSealed } from "../secrets-store";
 
@@ -168,5 +169,28 @@ describe("DictationSection — STT key sealed on every change (§626)", () => {
     });
     expect(sealSpy).not.toHaveBeenCalled();
     expect(loadSealed("sttApiKey")).toBeNull();
+  });
+
+  it("a seal that fails is logged by error name, never the key, and raises no unhandled rejection", async () => {
+    const unhandled = vi.fn();
+    window.addEventListener("unhandledrejection", unhandled);
+    process.on("unhandledRejection", unhandled);
+    const logSpy = vi.spyOn(diagnostics, "logDiag");
+    vi.spyOn(secrets, "sealDevice").mockRejectedValue(new DOMException("blocked", "InvalidStateError"));
+    try {
+      const input = renderStt();
+      fireEvent.change(input, { target: { value: "sk-secret-123" } });
+      await waitFor(() =>
+        expect(logSpy).toHaveBeenCalledWith("warn", "secrets.sttKeySealFailed", { error: "InvalidStateError" }),
+      );
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      expect(JSON.stringify(logSpy.mock.calls)).not.toContain("sk-secret-123");
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener("unhandledrejection", unhandled);
+      process.off("unhandledRejection", unhandled);
+    }
   });
 });

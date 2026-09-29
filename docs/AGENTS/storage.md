@@ -212,7 +212,7 @@ template body.
 - **What.** `{ v, kind, id, base, value, savedAt }` per edit, where `base` is the last value the
   server CONFIRMED (loaded, or a save that landed), never the optimistic one on screen.
 - **Scope.** One key per scope: `PENDING_EDITS_PREFIX` + a hash of the Turso `httpUrl`
-  (`hashForStorageKey`) + `:<projectId>` or `:templates`. Neither the URL nor the token is in the
+  (`hashForStorageKey`) + `:chat:<projectId>` or `:templates`. Neither the URL nor the token is in the
   key or the record.
 - **When.** Live edits stay in memory until `pagehide`, which writes each touched scope with one
   synchronous `setItem`, merged with what other tabs stored: only entries this tab tracked or

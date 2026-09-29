@@ -2180,7 +2180,7 @@ describe("useChatThreads — retryLoad's settle vs. an unsettled persist (§317)
 // §626 — the pending-edits outbox for a chat-thread rename.
 describe("useChatThreads — pending rename outbox", () => {
   const CFG = { httpUrl: "https://outbox-test.example.invalid", authToken: "secret-token" };
-  const scopeFor = (projectId: string) => pendingEditScope(CFG.httpUrl, projectId);
+  const scopeFor = (projectId: string) => pendingEditScope(CFG.httpUrl, `chat:${projectId}`);
   const storageKeyFor = (projectId: string) => `${PENDING_EDITS_PREFIX}${scopeFor(projectId)}`;
 
   function seedEdit(projectId: string, over: Record<string, unknown> = {}): void {

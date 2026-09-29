@@ -49,7 +49,13 @@ const RENAME_KIND = "chat-thread-name" as const;
  *  settle). */
 function outboxScope(tursoConfig: TursoConfig | null, projectId: string): string | null {
   const url: unknown = tursoConfig?.httpUrl;
-  return typeof url === "string" && url.length > 0 ? pendingEditScope(url, projectId) : null;
+  // `chat:` keeps a project whose id is literally "templates" off the templates outbox's key.
+  return typeof url === "string" && url.length > 0 ? pendingEditScope(url, `chat:${projectId}`) : null;
+}
+
+/** §604. Two configs name the same Turso database when their URLs match; the token may differ. */
+function sameDatabase(a: TursoConfig | null, b: TursoConfig | null): boolean {
+  return a?.httpUrl === b?.httpUrl;
 }
 
 /** The stored rename edits for `scope` that still apply to `loaded`. An edit whose thread is gone
@@ -236,11 +242,24 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   }, [projectId]);
   // §604. The same guard for the Turso DATABASE: a retryLoad issued against database A that settles
   // after the config moved to B would put A's rows (and A's confirmed names, and A's outbox replay)
-  // under B. Bumped on every config change, compared at settle beside `projectEpochRef`.
+  // under B. Bumped when the database URL changes — a token rotation for the same URL is not a move —
+  // and compared at settle beside `projectEpochRef`.
   const targetEpochRef = useRef(0);
+  const targetUrl = tursoConfig?.httpUrl;
   useEffect(() => {
     targetEpochRef.current += 1;
-  }, [tursoConfig]);
+  }, [targetUrl]);
+  // §604. The live config, for a write pinned to a database: while the pinned database is still the
+  // current one it writes with the live config (a rotated token included), resolved when the write
+  // RUNS — a Retry too — and only a write whose database has moved keeps its pinned config.
+  const liveConfigRef = useRef(tursoConfig);
+  useEffect(() => {
+    liveConfigRef.current = tursoConfig;
+  });
+  function writeConfig(pinned: TursoConfig | null): TursoConfig | null {
+    const live = liveConfigRef.current;
+    return sameDatabase(pinned, live) ? live : pinned;
+  }
 
   // Publish to the module registry the AI dispatcher reads. See
   // chat-threads-registry.ts for why this is not a prop.
@@ -731,16 +750,25 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // saved there, and its rename edit settles under that database's outbox scope — never the live
   // config, which a switch mid-turn has moved to another database.
   const turnConfigRef = useRef(tursoConfig);
+  // §604. The thread the turn started on, next to its config.
+  const turnThreadIdRef = useRef(activeThreadId);
   useEffect(() => {
     const wasBusy = prevBusyRef.current;
     prevBusyRef.current = busy;
-    if (!wasBusy && busy) turnConfigRef.current = tursoConfig;
+    if (!wasBusy && busy) {
+      turnConfigRef.current = tursoConfig;
+      turnThreadIdRef.current = activeThreadId;
+    }
     if (!tursoMode || !wasBusy || busy) return;
     const turnConfig = turnConfigRef.current;
-    // §604. The turn is saved in the database it started in. When the config has moved since, the
-    // live list is the NEW database's: the thread is not put into it (nor made active there), or a
-    // later send or rename on it would upsert A's conversation into B by a second route.
-    const movedAway = turnConfig !== tursoConfig;
+    // §604. The turn is saved in the database it started in. When the DATABASE has moved since (the
+    // URL, not a rotated token), the live list is the NEW database's: the thread is not put into it
+    // (nor made active there), or a later send or rename on it would upsert A's conversation into B.
+    const movedAway = !sameDatabase(turnConfig, tursoConfig);
+    // ★ And when B's load has already settled, it made B's thread active, loaded B's transcript and
+    // so aborted this send: what is on screen is B's, not the turn's. Saving it would write B's
+    // conversation into A — there is nothing of this turn left to save.
+    if (movedAway && activeThreadId !== turnThreadIdRef.current) return;
     const id = activeThreadId ?? newThreadId();
     if (!movedAway) setActiveThreadId((prev) => prev ?? id);
     const existing = threads.find((th) => th.id === id);
@@ -756,7 +784,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     };
     if (!movedAway) setThreads((prev) => [thread, ...prev.filter((th) => th.id !== id)]);
     const scope = renameScope(turnConfig);
-    runPersist(id, () => saveThread(turnConfig, thread), (owns) => confirmSavedName(scope, id, thread.name, owns));
+    runPersist(id, () => saveThread(writeConfig(turnConfig), thread), (owns) => confirmSavedName(scope, id, thread.name, owns));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy]);
 
@@ -905,7 +933,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     const config = tursoConfig;
     const scope = renameScope(config);
     if (scope) trackPendingEdit(scope, { kind: RENAME_KIND, id, base: confirmedName(target), value: name });
-    runPersist(id, () => saveThread(config, updated), (owns) => confirmSavedName(scope, id, name, owns));
+    runPersist(id, () => saveThread(writeConfig(config), updated), (owns) => confirmSavedName(scope, id, name, owns));
   }
 
   // §626. Re-issues the renames typed before the last close, once a load for this project has
@@ -987,7 +1015,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // Scope the delete by project (defense-in-depth against a project-id
     // collision in the id space) — `target` was resolved from `threads`
     // before the confirm await and still carries the row's own projectId.
-    runPersist(id, () => deleteThreadRow(deleteConfig, id, target.projectId));
+    runPersist(id, () => deleteThreadRow(writeConfig(deleteConfig), id, target.projectId));
   }
 
   return {
