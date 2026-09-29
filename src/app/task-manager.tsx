@@ -1289,11 +1289,27 @@ function TaskManagerInner() {
   // even after the previous one was consumed/cleared — robust whether SettingsView
   // remounts (modern) or stays mounted.
   const settingsSectionNonceRef = useRef(0);
+  // §650 — the CLASSIC layout has no Settings view (the classic-fallback effect above bounces
+  // "settings" to chat); its settings are the header `SettingsMenu` popover, controlled from here so
+  // an "open settings" request opens it. The popover has no sections, so it opens at the top. No
+  // nonce is involved on this path: the state lives HERE and the menu is controlled, so there is no
+  // child-side "handled" seed to swallow a request on a fresh mount.
+  const [classicSettingsOpen, setClassicSettingsOpen] = useState(false);
+  const isClassicLayout = settings.layout === "classic";
   const onOpenSettingsSection = useCallback((id: SettingsSectionId) => {
+    if (isClassicLayout) {
+      setClassicSettingsOpen(true);
+      return;
+    }
     settingsSectionNonceRef.current += 1;
     setSettingsSectionRequest({ id, nonce: settingsSectionNonceRef.current });
     setActiveTab("settings");
-  }, [setActiveTab]);
+  }, [setActiveTab, isClassicLayout]);
+  /** The un-sectioned "open settings" request (the storage banner's action), in either layout. */
+  const onOpenSettings = useCallback(() => {
+    if (isClassicLayout) setClassicSettingsOpen(true);
+    else setActiveTab("settings");
+  }, [setActiveTab, isClassicLayout]);
   const onOpenLearningSettings = useCallback(() => onOpenSettingsSection("nextActions"), [onOpenSettingsSection]);
   const clearSettingsSectionRequest = useCallback(() => setSettingsSectionRequest(undefined), []);
   const openAction = useCallback(
@@ -2967,6 +2983,8 @@ function TaskManagerInner() {
     handleSaveTemplate,
     handleApplyTemplate,
     undoControl: undoControlEl,
+    settingsMenuOpen: classicSettingsOpen,
+    onSettingsMenuOpenChange: setClassicSettingsOpen,
   });
 
   // The Birthday / Jira-token / Storage reminder banners, shared by the classic
@@ -2982,7 +3000,7 @@ function TaskManagerInner() {
         <JiraTokenBanner alert={jiraTokenAlert} lang={lang} onSnooze={jiraTokenSnooze.snooze} onDismiss={() => setJiraTokenDismissed(true)} />
       )}
       {!isPopout && storageError && !storageErrorDismissed && (
-        <StorageBanner kind={storageError.kind} lang={lang} onOpenSettings={() => setActiveTab("settings")} onDismiss={() => setStorageErrorDismissed(true)} />
+        <StorageBanner kind={storageError.kind} lang={lang} onOpenSettings={onOpenSettings} onDismiss={() => setStorageErrorDismissed(true)} />
       )}
       {/* §650 — gated on the AI switch too: a verdict about a key the user has turned off is not news. */}
       {!isPopout && settings.ai?.enabled === true && isAiKeyStatusBad(aiKeyStatus) && !aiKeyBannerDismissed && (

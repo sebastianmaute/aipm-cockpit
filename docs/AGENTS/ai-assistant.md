@@ -91,9 +91,11 @@
   verdict instead of the generic toast. ★ A passphrase-wrapped key reads `""` in settings, so `chat-panel.tsx` calls `syncAiKey` with the key
   it UNLOCKS — any other surface that unlocks the key must do the same, or its reports are dropped as stale.
   `AiKeyBanner` (`notifications.tsx`) and the Settings → AI notice read it through `useAiKeyStatus`; the
-  banner's dismissal is cleared when the verdict leaves the bad states. ★★ Its "Open AI settings" deep link
-  works in the MODERN shell only: classic has no Settings view (the classic-fallback effect bounces
-  `"settings"` to chat) — the same gap `StorageBanner`'s button has. ★ A new per-feature error surface should check `aiKeyMessageKeyForError(err)` (or
+  banner's dismissal is cleared when the verdict leaves the bad states. ★★ Its "Open AI settings" action works in
+  BOTH shells, by different routes: modern navigates to the Settings view at the AI section; classic has no
+  Settings view (the classic-fallback effect bounces `"settings"` to chat), so `onOpenSettingsSection` opens
+  the classic header's `SettingsMenu` popover instead (at the top — the popover has no sections). See
+  `docs/AGENTS/ui-shell.md`'s settings deep-link bullet. ★ A new per-feature error surface should check `aiKeyMessageKeyForError(err)` (or
   `aiKeyMessageKeyForStatusToken` where a hook stores the status digits) BEFORE its generic message, as every
   existing site now does — otherwise a 401 reads as "couldn't reach Claude" again.
 - **Per-project setting overrides (`Workspace.settingsOverrides`, v0.190.42):** a "This project" Settings section

@@ -387,6 +387,13 @@
   • Settings-section deep-link is GENERAL: dashboard `onNavigate(view, section?: SettingsSectionId)` →
   task-manager `onOpenSettingsSection(section)` → `settingsSectionRequest` → SettingsView. `SettingsSectionId`
   (mirrored in `dashboard-coaching.ts`) is a SUBSET of settings-view `SectionId`.
+  ★★ CLASSIC HAS NO SETTINGS VIEW — task-manager's classic-fallback effect bounces `"settings"` to chat. So in
+  classic, `onOpenSettingsSection` (and `onOpenSettings`, the storage banner's un-sectioned request) open the
+  header's `SettingsMenu` popover instead: its `open`/`onOpenChange` are held in task-manager
+  (`classicSettingsOpen`) and threaded `buildShellChrome` → `AppHeader` → `SettingsMenu` (§650). The popover
+  has no sections, so it opens at the TOP whatever section was named; `PopoverPanel` owns focus-in and the
+  Escape / focus-restore (to the gear trigger). No nonce on this path — the state is the parent's, so the
+  remount-swallow rule does not arise. Pinned by `task-manager.classic-settings.test.tsx`.
   • **Backend setup wizard:** `backend-setup-wizard.tsx` (4-step modal: Storage & connections → AI → Jira
   → Review; integration steps skippable; Review summarises configured/not-configured for storage/M365/AI/
   Jira/Timelog, driven by pure `backend-setup-steps.ts` — `BackendSetupStepKey`, `BACKEND_SETUP_STEPS`,

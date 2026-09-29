@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type React from "react";
 import { FiltersProvider } from "./filters-context";
@@ -44,6 +44,8 @@ function makeDeps(overrides: Partial<ShellChromeDeps> = {}): ShellChromeDeps {
     handleSaveTemplate: vi.fn(),
     handleApplyTemplate: vi.fn(),
     undoControl: null,
+    settingsMenuOpen: undefined,
+    onSettingsMenuOpenChange: undefined,
     ...overrides,
   };
 }
@@ -75,5 +77,22 @@ describe("buildShellChrome — AI assistant button gate", () => {
     );
     render(<>{appHeaderEl}</>, { wrapper: Wrapper });
     expect(screen.getByRole("button", { name: "Ask Claude" })).toBeInTheDocument();
+  });
+});
+
+describe("buildShellChrome — §650 the classic settings popover is controllable", () => {
+  it("settingsMenuOpen opens the classic header settings popover, and closing reports through onSettingsMenuOpenChange", () => {
+    const onSettingsMenuOpenChange = vi.fn();
+    const { appHeaderEl } = buildShellChrome(makeDeps({ settingsMenuOpen: true, onSettingsMenuOpenChange }));
+    render(<>{appHeaderEl}</>, { wrapper: Wrapper });
+    expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(onSettingsMenuOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("without the prop the popover starts closed (uncontrolled, as before)", () => {
+    const { appHeaderEl } = buildShellChrome(makeDeps());
+    render(<>{appHeaderEl}</>, { wrapper: Wrapper });
+    expect(screen.queryByRole("dialog", { name: "Settings" })).toBeNull();
   });
 });

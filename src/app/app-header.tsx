@@ -42,6 +42,10 @@ export interface AppHeaderProps {
   projectSwitcher?: ProjectSwitcherProps;
   /** Extra control rendered beside the project switcher / Ask-Claude row (e.g. the display-tz switcher). */
   trailing?: React.ReactNode;
+  /** §650 — controlled open state of the header's settings popover, so a banner's "open settings"
+   *  action can open it (the classic layout has no Settings view). Omitted ⇒ the menu owns it. */
+  settingsMenuOpen?: boolean;
+  onSettingsMenuOpenChange?: (open: boolean) => void;
 }
 
 export function AppHeader({
@@ -69,6 +73,8 @@ export function AppHeader({
   onAskClaude,
   projectSwitcher,
   trailing,
+  settingsMenuOpen,
+  onSettingsMenuOpenChange,
 }: AppHeaderProps) {
   return (
     <header className="mb-8 flex items-start justify-between gap-4">
@@ -164,6 +170,8 @@ export function AppHeader({
             onGrantStorageWrite={onGrantStorageWrite}
             onRequestStorageSwitch={onRequestStorageSwitch}
             onMigrateToTurso={onMigrateToTurso}
+            open={settingsMenuOpen}
+            onOpenChange={onSettingsMenuOpenChange}
           />
         </div>
       </div>
