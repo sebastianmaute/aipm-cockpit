@@ -4323,6 +4323,8 @@ const enUS = {
   unloadJournalExpiredOne: "{0} unsaved draft older than 30 days was removed from this browser. You can still download it until you close this notice.",
   storageRefusedWipe: "Saving is paused - a large deletion was withheld. Review it in the banner above, or reload the page to restore your saved data.",
   storageSavePausedLoadFailed: "Saving is paused because the project could not be loaded. Changes you make now are not saved. Reload the project to try again.",
+  storageSavePausedConflict: "This project was changed in another tab or on another device. Your changes since then are not saved yet.",
+  storageConflictNotSavedOnSwitch: "Your changes were not saved before switching, because the project was changed in another tab or on another device. They are kept and will be restored when you reopen it.",
   storageSavePausedEmptyLoad: "Saving is paused: this storage returned no data, so the project on screen was kept but is not written into it. Changes you make now are not saved. Check the storage settings, or reload the project to open the empty storage.",
   storageSwitchedWithoutCopy: "Switched storage to {0}. Nothing was copied, because no project had been loaded from the previous storage.",
   storageDestructiveBanner: "Saving is paused. A large deletion was withheld to protect your project.",

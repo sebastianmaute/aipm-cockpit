@@ -19,7 +19,7 @@ import { readPopoutOpenerFromUrl, syncScopeKey } from "./sync-scope";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
 import { loadCurrentTursoProjectId } from "./portfolio-mode";
-import { isTursoLockTimeout, tursoErrorKind } from "./storage-error";
+import { isSaveConflict, isTursoLockTimeout, tursoErrorKind } from "./storage-error";
 import { mergeActivityLogs } from "./activity-log-merge";
 import { mergeBudgetHistories } from "./budget-history";
 import { storageTargetKey } from "./storage-target-key";
@@ -401,14 +401,17 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // nearest preceding DECLARATION, and one here would rename the `flushCurrent` write's key below.
   const allowSavesTo = (target: ReturnType<typeof createBackend>): void => {
     savesAllowedForRef.current = target;
+    conflictPausedForRef.current = null;
     setSavesAllowedFor(target);
   };
   // Why saving to an instance is paused: its load FAILED, or it came back EMPTY over a populated
   // project and was refused. STATE, not a ref, because the banner must stay up for as long as the
   // pause holds — a toast alone disappears after seven seconds (review I1). Published only while the
   // gate for the CURRENT instance is shut, so any opener above clears it by construction.
-  const [savesPaused, setSavesPaused] = useState<{ backend: ReturnType<typeof createBackend>; reason: "load-failed" | "empty-refused" } | null>(null);
+  // §4 — or a save was refused as stale (`"conflict"`, `emitConflictPause`): another writer saved first.
+  const [savesPaused, setSavesPaused] = useState<{ backend: ReturnType<typeof createBackend>; reason: "load-failed" | "empty-refused" | "conflict" } | null>(null);
   const loadPause = savesPaused !== null && savesPaused.backend === backend && !savesAllowed ? savesPaused.reason : null;
+  const conflictPausedForRef = useRef<ReturnType<typeof createBackend> | null>(null); // §4 — for the pre-switch flush, which runs after this render; cleared by `allowSavesTo`
   // The instance the save-paused toast was already shown for — once per backend, not per refused edit.
   const savePausedAnnouncedForRef = useRef<ReturnType<typeof createBackend> | null>(null);
 
@@ -437,7 +440,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // §629 — the suppress branch's resync, for the one load whose save is NOT suppressed (a restored unload journal): the guard then measures the restore against what the backend returned.
   const syncBaselinesToLoaded = (loaded: Workspace): void => { const collections = nonEmptyCollectionCount(loaded), records = workspaceRecordCount(loaded); destructive.syncBaselines(collections, records); committedBaselineRef.current = { collections, records }; destructive.clearRefusal(); };
   // ★★ §103 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
-  const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, async () => { if (savesAllowedForRef.current === backend) { const ws = currentWorkspace(); await enqueueSave(backend, () => backend.save(ws), { settleReplacedAsOwn: true }); } else logDiag("warn", "storage.flushSkippedBeforeLoad", {}); }); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it writes the workspace LIVE WHEN THE FLUSH IS REQUESTED to the CURRENT backend (§627: the write itself may wait behind a save in flight; `holdDuring` blocks edits meanwhile). ★★★ §586: this is `flushCurrent`'s write (the pre-switch flush), so it obeys the save gate too — a switch away from a project whose load failed must not write the empty workspace over it. A skip, not a throw: the flush is best-effort.
+  const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, async () => { if (savesAllowedForRef.current === backend) { const ws = currentWorkspace(); try { await enqueueSave(backend, () => backend.save(ws), { settleReplacedAsOwn: true }); } catch (err) { if (!isSaveConflict(err)) throw err; keepNotSavedOnSwitch(ws); } } else if (conflictPausedForRef.current === backend) keepNotSavedOnSwitch(currentWorkspace()); else logDiag("warn", "storage.flushSkippedBeforeLoad", {}); });
+  // §4 — the flush above met a newer revision (it wrote nothing), or saving was already paused on one: the op goes ahead, so the journal is written NOW, under the key being left, and a toast says so. Not rethrown, so no op adds its generic flush-failed toast.
+  function keepNotSavedOnSwitch(ws: Workspace): void { unloadJournal.followLive(ws, true); emitToast("error", t(langRef.current, "storageConflictNotSavedOnSwitch")); } // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it writes the workspace LIVE WHEN THE FLUSH IS REQUESTED to the CURRENT backend (§627: the write itself may wait behind a save in flight; `holdDuring` blocks edits meanwhile). ★★★ §586: this is `flushCurrent`'s write (the pre-switch flush), so it obeys the save gate too — a switch away from a project whose load failed must not write the empty workspace over it. A skip, not a throw: the flush is best-effort.
 
   // ── §72: caller-callback teardown guard ─────────────────────────────────────
   // Every callback this hook fires back into the component drives React state up
@@ -487,6 +492,18 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   function emitToastAction(kind: "info" | "error" | "success", text: string, action: ToastAction): void {
     if (!mountedRef.current) return;
     args.showToastAction(kind, text, action);
+  }
+  // §4 — a save refused as stale: SHUT `target`'s gate and publish the pause; the save effect's re-run then
+  // toasts once and journals the live workspace. Only while the gate is still open for `target`, so a second
+  // refused save (one queued behind the first) changes nothing. The announcement ref is reset so THIS pause
+  // is toasted even when an earlier pause on the same instance already was.
+  function emitConflictPause(target: ReturnType<typeof createBackend>): void {
+    if (!mountedRef.current || savesAllowedForRef.current !== target) return;
+    savesAllowedForRef.current = null;
+    conflictPausedForRef.current = target;
+    savePausedAnnouncedForRef.current = null;
+    setSavesAllowedFor(null);
+    setSavesPaused({ backend: target, reason: "conflict" });
   }
   function emitRegistryChange(registry: ProjectsRegistry): void {
     if (!mountedRef.current) return;
@@ -767,19 +784,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   its baselines start at 0/0. ★★ ABOVE the suppress branch, so an op's one-shot survives until
     //   the gate opens and is spent THEN — below it, the op's suppress would be spent on this closed
     //   run and the re-run the gate's opening triggers (`savesAllowed` is a dep) would re-write the
-    //   workspace the op had just loaded.
-    if (!savesAllowed) {
-      if (loadPause !== null && savePausedAnnouncedForRef.current !== backend) {
-        savePausedAnnouncedForRef.current = backend;
-        // ★ The SAME shape as the destructive refusal's toast: it names the pause and its action
-        // re-shows the sticky banner (the toast itself times out; the banner is the lasting surface).
-        emitToastAction("error", t(langRef.current, loadPause === "empty-refused" ? "storageSavePausedEmptyLoad" : "storageSavePausedLoadFailed"), {
-          labelKey: "storageSavingPausedAction",
-          run: () => args.onRevealSavingPaused(),
-        });
-      }
-      return;
-    }
+    //   workspace the op had just loaded. (Placed below `outgoing`, which the conflict pause journals.)
     // ★ ONE object: counted by the guard below AND handed to backend.save. The save used to
     //   re-spell this 28-field literal, so a new Workspace field could be counted here and
     //   never written. ★★ The `: Workspace` annotation (not `as`) only catches a missing
@@ -787,6 +792,19 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   Measured: dropping `activityLog` from this literal keeps tsc GREEN. The single
     //   spelling, NOT tsc, is what protects this; do not re-inline the literal at the save.
     const outgoing: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory };
+    if (!savesAllowed) {
+      if (loadPause === "conflict") unloadJournal.followLive(outgoing); // §4 — no save can carry these edits: pagehide journals them
+      if (loadPause !== null && savePausedAnnouncedForRef.current !== backend) {
+        savePausedAnnouncedForRef.current = backend;
+        // ★ The SAME shape as the destructive refusal's toast: it names the pause and its action
+        // re-shows the sticky banner (the toast itself times out; the banner is the lasting surface).
+        emitToastAction("error", t(langRef.current, loadPause === "conflict" ? "storageSavePausedConflict" : loadPause === "empty-refused" ? "storageSavePausedEmptyLoad" : "storageSavePausedLoadFailed"), {
+          labelKey: "storageSavingPausedAction",
+          run: () => args.onRevealSavingPaused(),
+        });
+      }
+      return;
+    }
     const curCollections = nonEmptyCollectionCount(outgoing);
     const curRecords = workspaceRecordCount(outgoing);
     if (suppressNextSaveRef.current) {
@@ -975,6 +993,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         }
         emitOutcome(err);
         logDiag("error", "storage.saveFailed", { message: String(err) });
+        if (isSaveConflict(err)) { emitConflictPause(backend); return; } // §4 — nothing was written; a lock timeout is NOT this and falls through
         // Turso connectivity/auth failures show the persistent banner — skip the toast.
         if (tursoErrorKind(err)) return;
         if (err instanceof StorageNotReadyError) {
@@ -1476,7 +1495,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // (`LIMIT` lives in `scripts/check-file-sizes.mjs`).
   // Measure: node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
   return {
-    storageDescription, storageReady, workspaceLoaded, loadPause, loadPending, getScopeEpoch, isSwapInFlight,
+    storageDescription, storageReady, workspaceLoaded, loadPause, conflictPause: loadPause === "conflict", loadPending, getScopeEpoch, isSwapInFlight,
     // ★★★ §590 PUT `onPickStorageFile` UNDER THE HOLD, and it was deliberately outside it before.
     //   The exclusion was right while the op only ever wrote the live workspace OUTWARD — nothing was
     //   replaced, so there was nothing for a background writer to land in the middle of. Its

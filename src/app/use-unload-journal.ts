@@ -11,6 +11,8 @@
 // - this hook's own `pagehide` listener — writes the latest unconfirmed
 //   workspace, so a save that fired while the page was still visible and has
 //   not confirmed yet is not lost either.
+// - `followLive` — §4: while saving is paused on a conflict, the live workspace
+//   in place of a save that never starts.
 // - `noteSaveConfirmed` — called from the save's `.then`: clears the journal
 //   this tab wrote for that save (or an older one) and rolls the base forward.
 // - `setBase` — called where a load is applied, with what the backend returned
@@ -202,6 +204,17 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
     return savedAt;
   }, [write]);
 
+  /** §4 — while saving is paused on a conflict no save starts, so `noteSaveStarted` never runs: the
+   *  storage hook hands the LIVE workspace here instead. It becomes the latest unconfirmed one, which
+   *  pagehide writes; `now` (the pre-switch flush, which leaves the key behind) writes it at once too.
+   *  No in-flight entry: there is no save whose confirmation could clear it. */
+  const followLive = useCallback((live: Workspace, now = false): void => {
+    if (!activeRef.current) return;
+    const entry: Unconfirmed = { projectKey: projectKeyRef.current, workspace: live, savedAt: nextSavedAt() };
+    latestUnconfirmedRef.current = entry;
+    if (now || isPageHiding() || document.visibilityState === "hidden") write(entry);
+  }, [write]);
+
   const noteSaveConfirmed = useCallback((savedAt: number, confirmed: Workspace): void => {
     const key = inFlightRef.current.get(savedAt);
     if (key === undefined) return;
@@ -340,7 +353,7 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
   }, [write]);
 
   return {
-    noteSaveStarted, noteSaveConfirmed, baseFingerprint, setBase, holdBase, adoptHeldBase, dropUnconfirmed,
+    noteSaveStarted, followLive, noteSaveConfirmed, baseFingerprint, setBase, holdBase, adoptHeldBase, dropUnconfirmed,
     restoreOnLoad, restoreConflict, discardConflict, conflict, restoredKeys,
   };
 }

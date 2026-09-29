@@ -3042,7 +3042,7 @@ function TaskManagerInner() {
           itself is pinned in `use-storage-backend.test.tsx`, which is where it lives. */}
       {/* §586/§587 — the save gate is shut for the active backend (its load failed, or came back empty over
           a populated project). STICKY for as long as the pause holds: the refused-edit toast times out. */}
-      {!isPopout && loadPause !== null && (
+      {!isPopout && loadPause !== null && loadPause !== "conflict" && ( // §4 — the conflict pause gets its own banner; until then the toast and the sidebar's "saving paused" show it
         <SavingPausedBanner lang={lang} cause={{ kind: "load", reason: loadPause }} dismissed={loadPauseBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={() => { void reloadCurrentProject(); }} onDismiss={() => setLoadPauseBannerDismissed(true)} onReopen={() => setLoadPauseBannerDismissed(false)} />
       )}
       {!isPopout && destructiveRefusal !== null && (

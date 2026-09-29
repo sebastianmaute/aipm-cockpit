@@ -480,6 +480,31 @@ describe("§629 — useUnloadJournal on its own", () => {
     expect(result.current.baseFingerprint()).toBe(""); // p1 has no base now; the held one went to p2
   });
 
+  it("§4 followLive — the live workspace replaces the refused outgoing one, and pagehide writes it", () => {
+    const { result } = renderJournal();
+    act(() => { result.current.noteSaveStarted(WS_1); });
+    act(() => { result.current.followLive(WS_2); });
+    expect(localStorage.getItem(KEY)).toBeNull(); // visible: nothing written yet
+    pageHide();
+    expect(jsonToWorkspace(readJournal(KEY)!.workspace).tasks.map((x) => x.id)).toEqual([2]);
+  });
+
+  it("§4 followLive(ws, true) writes at once, under the base of the last confirmed state", () => {
+    const { result } = renderJournal();
+    result.current.setBase(WS_1, "p1");
+    act(() => { result.current.followLive(WS_2, true); });
+    const rec = readJournal(KEY)!;
+    expect(jsonToWorkspace(rec.workspace).tasks.map((x) => x.id)).toEqual([2]);
+    expect(rec.baseFingerprint).toBe(fingerprintWorkspace(WS_1));
+  });
+
+  it("§4 followLive never writes from a popout", () => {
+    const { result } = renderJournal(true);
+    act(() => { result.current.followLive(WS_2, true); });
+    pageHide();
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
   it("setBase stores the fingerprint of the workspace it is given", () => {
     const { result } = renderJournal();
     expect(result.current.baseFingerprint()).toBe("");

@@ -4086,6 +4086,8 @@ export const de: Record<TranslationKey, string> = {
   storageDestructiveWipeBannerSaveAnyway: "Diese Komplettlöschung speichern",
   storageRefusedWipe: "Das Speichern ist pausiert - eine große Löschung wurde zurückgehalten. Prüfen Sie sie im Hinweis oben, oder laden Sie die Seite neu, um Ihre gespeicherten Daten wiederherzustellen.",
   storageSavePausedLoadFailed: "Das Speichern ist pausiert, weil das Projekt nicht geladen werden konnte. Änderungen, die Sie jetzt vornehmen, werden nicht gespeichert. Laden Sie das Projekt neu, um es erneut zu versuchen.",
+  storageSavePausedConflict: "Dieses Projekt wurde in einem anderen Tab oder auf einem anderen Gerät geändert. Ihre Änderungen seitdem sind noch nicht gespeichert.",
+  storageConflictNotSavedOnSwitch: "Ihre Änderungen wurden vor dem Wechsel nicht gespeichert, weil das Projekt in einem anderen Tab oder auf einem anderen Gerät geändert wurde. Sie bleiben erhalten und werden wiederhergestellt, wenn Sie es erneut öffnen.",
   storageSavePausedEmptyLoad: "Das Speichern ist pausiert: Dieser Speicher lieferte keine Daten. Das angezeigte Projekt wurde beibehalten, wird aber nicht hineingeschrieben. Änderungen, die Sie jetzt vornehmen, werden nicht gespeichert. Prüfen Sie die Speichereinstellungen, oder laden Sie das Projekt neu, um den leeren Speicher zu öffnen.",
   storageSwitchedWithoutCopy: "Speicher auf {0} umgestellt. Es wurde nichts übernommen, weil aus dem bisherigen Speicher kein Projekt geladen worden war.",
   historyRestoreNothing: "Nichts wiederherzustellen — diese Version unterscheidet sich nicht vom aktuellen Projekt (möglicherweise ein leerer Snapshot).",
