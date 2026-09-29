@@ -36,6 +36,10 @@ export type PendingEdit = {
 /** Live edits per scope, keyed `kind:id`. A scope stays in the map once seen, even when emptied, so
  *  the next flush removes a key an earlier flush wrote. */
 const liveEdits = new Map<string, Map<string, PendingEdit>>();
+/** Scopes `takePendingEdits` has already read in this page's lifetime. Stored edits are replayed on
+ *  the next START only: a later take (a bfcache restore leaves the record in place) would apply a
+ *  draft the user has since cancelled. */
+const takenScopes = new Set<string>();
 let listenerInstalled = false;
 
 function storageKeyFor(scope: string): string {
@@ -76,9 +80,14 @@ export function trackPendingEdit(scope: string, edit: Omit<PendingEdit, "v" | "s
   }
 }
 
-/** The edit's durable write resolved (or the draft was cancelled): it no longer needs the outbox. */
-export function settlePendingEdit(scope: string, kind: PendingEditKind, id: string): void {
-  liveEdits.get(scope)?.delete(editKey(kind, id));
+/** The edit's durable write resolved (or the draft was cancelled): it no longer needs the outbox.
+ *  With `value`, settles only while the live entry still carries that value: a save that resolves
+ *  after the user typed a newer draft into the same field must not delete the newer draft. */
+export function settlePendingEdit(scope: string, kind: PendingEditKind, id: string, value?: string): void {
+  const edits = liveEdits.get(scope);
+  const key = editKey(kind, id);
+  if (value !== undefined && edits?.get(key)?.value !== value) return;
+  edits?.delete(key);
 }
 
 function logTooLarge(edit: PendingEdit, size: number): void {
@@ -165,10 +174,13 @@ function errorMessage(err: unknown): string {
 
 /** Reads the stored edits for `scope` and removes the key. Records that fail to parse or validate, and
  *  those older than `UNLOAD_JOURNAL_MAX_AGE_MS` at `now`, are dropped and logged (kind and id where
- *  known, never the value). A storage read or remove error is logged as `storage-error`, not
+ *  known, never the value). Only the first take of a scope in a page lifetime reads; later ones return
+ *  `[]` and leave storage alone. A storage read or remove error is logged as `storage-error`, not
  *  `corrupt`; a failed removal still returns the edits already read. Never throws. */
 export function takePendingEdits(scope: string, now: number): PendingEdit[] {
   if (typeof window === "undefined") return [];
+  if (takenScopes.has(scope)) return [];
+  takenScopes.add(scope);
   const key = storageKeyFor(scope);
   let raw: string | null;
   try {
@@ -210,6 +222,7 @@ export function takePendingEdits(scope: string, now: number): PendingEdit[] {
 
 export function resetPendingEditsForTests(): void {
   liveEdits.clear();
+  takenScopes.clear();
   if (listenerInstalled && typeof window !== "undefined") window.removeEventListener("pagehide", onPageHide);
   listenerInstalled = false;
 }

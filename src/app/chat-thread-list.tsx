@@ -20,7 +20,7 @@ import { EmptyState } from "./empty-state";
 import { Input } from "./form-controls";
 import { Dot } from "./dot";
 import { INTERACTIVE } from "./interaction-styles";
-import type { ChatThread } from "./chat-threads";
+import { type ChatThread, normalizeThreadName } from "./chat-threads";
 
 export interface ChatThreadListProps {
   lang: Lang;
@@ -103,7 +103,7 @@ export function ChatThreadList({
     if (renamingIdRef.current !== id) return; // double-commit guard (blur after Enter)
     renamingIdRef.current = null;
     setRenamingId(null);
-    onRename(id, draftName.trim() || t(lang, "chatThreadUntitled"));
+    onRename(id, normalizeThreadName(draftName, t(lang, "chatThreadUntitled")));
   }
 
   function cancelRename(id: string) {

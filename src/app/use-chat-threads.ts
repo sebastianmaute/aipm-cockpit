@@ -28,7 +28,9 @@ import type { ApiMessage, DisplayItem } from "./chat-api";
 import type { TursoConfig } from "./turso-config";
 import type { ConfirmFn } from "./confirm-dialog";
 import { loadThreads, saveThread, deleteThread as deleteThreadRow } from "./chat-threads-store";
-import { type ChatThread, newThreadId, deriveThreadName, stripAttachmentsForPersistence } from "./chat-threads";
+import {
+  type ChatThread, newThreadId, deriveThreadName, normalizeThreadName, stripAttachmentsForPersistence,
+} from "./chat-threads";
 import { publishChatThreads, clearChatThreadsFor } from "./chat-threads-registry";
 import { logDiag } from "./diagnostics";
 import {
@@ -43,9 +45,11 @@ import {
 const RENAME_KIND = "chat-thread-name" as const;
 
 /** The outbox scope for a Turso database and project, or null when there is no usable config (no
- *  config, or one without an `httpUrl` — hashing an absent URL would throw inside a load settle). */
+ *  config, or one without a non-empty `httpUrl` — hashing an absent URL would throw inside a load
+ *  settle). */
 function outboxScope(tursoConfig: TursoConfig | null, projectId: string): string | null {
-  return typeof tursoConfig?.httpUrl === "string" ? pendingEditScope(tursoConfig.httpUrl, projectId) : null;
+  const url: unknown = tursoConfig?.httpUrl;
+  return typeof url === "string" && url.length > 0 ? pendingEditScope(url, projectId) : null;
 }
 
 /** The stored rename edits for `scope` that still apply to `loaded`. An edit whose thread is gone
@@ -369,7 +373,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       .catch(() => {
         persistSettledRef.current += 1;
         if (!owns()) return;
-        pendingRetryRef.current.set(key, () => runPersist(key, action));
+        pendingRetryRef.current.set(key, () => runPersist(key, action, onSuccess));
         setThreadsError(true);
       });
   }
@@ -427,10 +431,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         setLoadedProjectId(projectId);
         // §626. A rename typed before the last close and never saved: re-issue it now that the
         // server's own copy is in hand to check the draft's base against.
-        const replayScope = outboxScope(tursoConfig, projectId);
-        if (replayScope) {
-          for (const { target, value } of takeRenameReplays(replayScope, loaded)) applyRenameRef.current(target, value);
-        }
+        replayRenamesRef.current(loaded); // the ref is synced by the effect beside `replayRenames`, below
         if (settled.stale) return;
         setActiveThreadId(settled.next?.id ?? null);
         setHistory(settled.next?.history ?? []);
@@ -623,6 +624,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         const settled = mergeThreadsAfterLoad(startedOn, threadIdRef.current, projectId, loaded, preserveLive);
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
+        replayRenamesRef.current(loaded); // same replay as the load effect's success branch
         if (settled.stale) return;
         setActiveThreadId(settled.next?.id ?? null);
         setHistory(settled.next?.history ?? []);
@@ -804,14 +806,24 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     runPersist(
       id,
       () => saveThread(tursoConfig, updated),
-      scope ? () => settlePendingEdit(scope, RENAME_KIND, id) : undefined,
+      // Value-aware: a newer draft typed into the same field while this save was in flight stays.
+      scope ? () => settlePendingEdit(scope, RENAME_KIND, id, name) : undefined,
     );
   }
-  // The load effect's replay runs from a closure that cannot list `applyRename` as a dependency
-  // (it is re-created every render), so it reads the latest one through this ref.
-  const applyRenameRef = useRef(applyRename);
+
+  // §626. Re-issues the renames typed before the last close, once a load for this project has
+  // settled. Normalized exactly as the list's commit does. Both load success branches call it
+  // through a ref because neither closure can list a per-render function as a dependency.
+  function replayRenames(loaded: readonly ChatThread[]): void {
+    const scope = outboxScope(tursoConfig, projectId);
+    if (!scope) return;
+    for (const { target, value } of takeRenameReplays(scope, loaded)) {
+      applyRename(target, normalizeThreadName(value, t(lang, "chatThreadUntitled")));
+    }
+  }
+  const replayRenamesRef = useRef(replayRenames);
   useEffect(() => {
-    applyRenameRef.current = applyRename;
+    replayRenamesRef.current = replayRenames;
   });
 
   function renameThread(id: string, name: string): void {

@@ -48,7 +48,7 @@ describe("pending-edits outbox", () => {
     const taken = takePendingEdits(scope, NOW);
     expect(taken).toHaveLength(1);
     expect(taken[0]).toMatchObject({ v: 1, kind: "template-name", id: "t1", base: "A", value: "B" });
-    expect(takePendingEdits(scope, NOW)).toEqual([]);
+    expect(window.localStorage.getItem(storageKey)).toBeNull();
   });
 
   it("nothing touches localStorage before pagehide", () => {
@@ -93,6 +93,37 @@ describe("pending-edits outbox", () => {
     settlePendingEdit(scope, "template-name", "t1");
     pagehide();
     expect(window.localStorage.getItem(storageKey)).toBeNull();
+  });
+
+  it("settling with a value removes the edit only while it still carries that value", () => {
+    trackPendingEdit(scope, edit({ value: "B" }));
+    settlePendingEdit(scope, "template-name", "t1", "B");
+    pagehide();
+    expect(window.localStorage.getItem(storageKey)).toBeNull();
+  });
+
+  it("settling with an older value leaves a newer draft in place", () => {
+    trackPendingEdit(scope, edit({ value: "B" }));
+    trackPendingEdit(scope, edit({ value: "C" }));
+    settlePendingEdit(scope, "template-name", "t1", "B");
+    pagehide();
+    expect(takePendingEdits(scope, NOW)).toEqual([expect.objectContaining({ id: "t1", value: "C" })]);
+  });
+
+  it("settling without a value removes whatever is live", () => {
+    trackPendingEdit(scope, edit({ value: "C" }));
+    settlePendingEdit(scope, "template-name", "t1");
+    pagehide();
+    expect(window.localStorage.getItem(storageKey)).toBeNull();
+  });
+
+  it("a scope already taken in this page lifetime is not read or cleared again", () => {
+    const record = JSON.stringify([{ v: 1, ...edit(), savedAt: NOW }]);
+    window.localStorage.setItem(storageKey, record);
+    expect(takePendingEdits(scope, NOW)).toHaveLength(1);
+    window.localStorage.setItem(storageKey, record);
+    expect(takePendingEdits(scope, NOW)).toEqual([]);
+    expect(window.localStorage.getItem(storageKey)).toBe(record);
   });
 
   it("the storage key and record contain neither the URL nor a token", () => {

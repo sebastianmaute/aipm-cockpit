@@ -13,9 +13,7 @@ import type { ChatThread } from "./chat-threads";
 import type { ApiMessage, DisplayItem } from "./chat-api";
 import { clearChatThreads, publishChatThreads, readChatThreads } from "./chat-threads-registry";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
-import {
-  PENDING_EDITS_PREFIX, pendingEditScope, resetPendingEditsForTests, takePendingEdits,
-} from "./pending-edits";
+import { PENDING_EDITS_PREFIX, pendingEditScope, resetPendingEditsForTests } from "./pending-edits";
 
 vi.mock("./chat-threads-store", () => ({
   loadThreads: vi.fn(async () => []),
@@ -2190,7 +2188,10 @@ describe("useChatThreads — pending rename outbox", () => {
     window.localStorage.setItem(storageKeyFor(projectId), JSON.stringify([edit]));
   }
   const pagehide = () => window.dispatchEvent(new Event("pagehide"));
-  const stored = (projectId = "default") => takePendingEdits(scopeFor(projectId), Date.now());
+  /** The stored edits as written by the last pagehide. A raw read: `takePendingEdits` reads a scope
+   *  only once per page lifetime, so it cannot be polled. */
+  const stored = (projectId = "default"): unknown[] =>
+    JSON.parse(window.localStorage.getItem(storageKeyFor(projectId)) ?? "[]") as unknown[];
   const droppedLog = () => readDiagLog().filter((e) => e.code === "storage.pendingEditDropped");
 
   beforeEach(() => {
@@ -2338,16 +2339,110 @@ describe("useChatThreads — pending rename outbox", () => {
     expect(window.localStorage.getItem(storageKeyFor("pA"))).toBeNull();
   });
 
-  it("without Turso nothing is replayed or cleared", async () => {
+  it("with tursoMode false a draft and a rename store nothing", async () => {
+    saveThreadMock.mockReturnValue(new Promise<void>(() => undefined));
+    const { result, rerender, initialProps } = await renderLoaded();
+    rerender({ ...initialProps, tursoMode: false });
+
+    act(() => result.current.trackRenameDraft("t1", "Draft"));
+    act(() => result.current.renameThread("t1", "Renamed"));
+    pagehide();
+
+    expect(saveThreadMock).toHaveBeenCalled();
+    expect(window.localStorage.getItem(storageKeyFor("default"))).toBeNull();
+  });
+
+  it("an empty httpUrl gets no outbox scope", async () => {
+    const { result } = await renderLoaded({ tursoConfig: { httpUrl: "", authToken: "" } });
+
+    act(() => result.current.trackRenameDraft("t1", "Draft"));
+    pagehide();
+
+    expect(Object.keys(window.localStorage).filter((k) => k.startsWith(PENDING_EDITS_PREFIX))).toEqual([]);
+  });
+
+  it("a rename that fails and then succeeds on Retry is settled", async () => {
+    saveThreadMock.mockRejectedValueOnce(new Error("network down"));
+    const { result } = await renderLoaded();
+
+    act(() => result.current.renameThread("t1", "Renamed"));
+    await waitFor(() => expect(result.current.threadsError).toBe(true));
+    act(() => result.current.retryLoad());
+
+    await waitFor(() => expect(result.current.threadsError).toBe(false));
+    await waitFor(() => {
+      pagehide();
+      expect(stored()).toEqual([]);
+    });
+  });
+
+  it("a save resolving after a newer draft was typed leaves the newer draft tracked", async () => {
+    let resolveSave: () => void = () => undefined;
+    saveThreadMock.mockReturnValueOnce(new Promise<void>((resolve) => { resolveSave = resolve; }));
+    const { result } = await renderLoaded();
+
+    act(() => result.current.renameThread("t1", "A"));
+    act(() => result.current.trackRenameDraft("t1", "B"));
+    await act(async () => { resolveSave(); });
+    pagehide();
+
+    expect(stored()).toEqual([expect.objectContaining({ id: "t1", base: "A", value: "B" })]);
+  });
+
+  it("a superseded write resolving does not settle the newer write's edit", async () => {
+    let resolveFirst: () => void = () => undefined;
+    let resolveSecond: () => void = () => undefined;
+    saveThreadMock
+      .mockReturnValueOnce(new Promise<void>((resolve) => { resolveFirst = resolve; }))
+      .mockReturnValueOnce(new Promise<void>((resolve) => { resolveSecond = resolve; }));
+    const { result } = await renderLoaded();
+
+    act(() => result.current.renameThread("t1", "Same"));
+    act(() => result.current.renameThread("t1", "Same"));
+    await act(async () => { resolveFirst(); });
+    pagehide();
+    expect(stored()).toEqual([expect.objectContaining({ id: "t1", value: "Same" })]);
+
+    await act(async () => { resolveSecond(); });
+    await waitFor(() => {
+      pagehide();
+      expect(stored()).toEqual([]);
+    });
+  });
+
+  it("a replayed draft is normalized as a commit is: trimmed", async () => {
+    seedEdit("default", { base: "Old name", value: "  New name  " });
+    loadThreadsMock.mockResolvedValue([thread("t1", { name: "Old name" })]);
+
+    renderChatThreads({ tursoConfig: CFG });
+
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalled());
+    expect((saveThreadMock.mock.calls.at(-1)![1] as ChatThread).name).toBe("New name");
+  });
+
+  it("a replayed blank draft becomes the untitled name, as a commit does", async () => {
+    seedEdit("default", { base: "Old name", value: "   " });
+    loadThreadsMock.mockResolvedValue([thread("t1", { name: "Old name" })]);
+
+    renderChatThreads({ tursoConfig: CFG });
+
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalled());
+    expect((saveThreadMock.mock.calls.at(-1)![1] as ChatThread).name).toBe("Untitled chat");
+  });
+
+  it("a reload after a failed first load also replays the stored edit", async () => {
     seedEdit("default", { base: "Old name" });
-
-    const { result } = renderChatThreads({ tursoMode: false, tursoConfig: CFG });
-    await act(async () => undefined);
-
-    expect(loadThreadsMock).not.toHaveBeenCalled();
+    loadThreadsMock.mockRejectedValueOnce(new Error("offline"));
+    const { result } = renderChatThreads({ tursoConfig: CFG });
+    await waitFor(() => expect(result.current.threadsError).toBe(true));
     expect(saveThreadMock).not.toHaveBeenCalled();
-    expect(result.current.threads).toEqual([]);
-    expect(window.localStorage.getItem(storageKeyFor("default"))).not.toBeNull();
+
+    loadThreadsMock.mockResolvedValue([thread("t1", { name: "Old name" })]);
+    act(() => result.current.retryLoad());
+
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalled());
+    expect((saveThreadMock.mock.calls.at(-1)![1] as ChatThread).name).toBe("Replayed");
+    expect(window.localStorage.getItem(storageKeyFor("default"))).toBeNull();
   });
 
   it("never puts the Turso URL or token in a key or record", async () => {
