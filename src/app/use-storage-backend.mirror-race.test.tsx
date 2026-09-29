@@ -123,11 +123,18 @@ function openWindow(reactStrictMode: boolean) {
     setStorageConfig: vi.fn(),
     onStorageOutcome,
   };
-  const hook = renderHook(() => { useStorageBackend(args); return useWorkspace(); }, {
+  // §4 — a refused save raises the conflict pause and never reaches `onStorageOutcome`: count each time the pause is RAISED.
+  const pause = { raised: 0, last: false };
+  const hook = renderHook(() => {
+    const { conflictPause } = useStorageBackend(args);
+    if (conflictPause && !pause.last) pause.raised += 1;
+    pause.last = conflictPause;
+    return useWorkspace();
+  }, {
     wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
     reactStrictMode, // ★ the option, not a StrictMode inside the wrapper (strictmode.meta.test.tsx)
   });
-  const conflicts = () => onStorageOutcome.mock.calls.filter(([err]) => err instanceof SaveConflictError).length;
+  const conflicts = () => pause.raised;
   return { backend, hook, conflicts };
 }
 

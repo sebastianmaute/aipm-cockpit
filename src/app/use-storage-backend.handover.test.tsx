@@ -83,6 +83,9 @@ const showOpenFilePicker = vi.fn<() => Promise<FsHandle[]>>();
 
 function renderApp(initial: StorageConfig) {
   const onStorageOutcome = vi.fn();
+  // §4 — a refused save is not a storage failure: it shuts the gate with a conflict pause and never reaches
+  // `onStorageOutcome`. Count each time the pause is RAISED, so one that is later lifted is still seen.
+  const pause = { raised: 0, last: false };
   const hook = renderHook(() => {
     const [storageConfig, setStorageConfig] = useState(initial);
     const settings = useMemo(() => ({ storageConfig }) as unknown as Settings, [storageConfig]);
@@ -90,13 +93,15 @@ function renderApp(initial: StorageConfig) {
       settings, lang: "en-US" as Lang, hydrated: true, isPopout: false, showToast, showToastAction: vi.fn(),
       onRevealSavingPaused: vi.fn(), setStorageConfig, onStorageOutcome,
     });
+    if (ops.conflictPause && !pause.last) pause.raised += 1;
+    pause.last = ops.conflictPause;
     return { ops, workspace: useWorkspace() };
   }, { wrapper: TestProviders });
   const failures = () => onStorageOutcome.mock.calls.map(([err]) => err).filter((err) => err != null);
   return {
     hook,
     ops: () => hook.result.current.ops,
-    conflicts: () => failures().filter((err) => err instanceof SaveConflictError).length,
+    conflicts: () => pause.raised,
     failures,
   };
 }
@@ -111,11 +116,11 @@ async function booted(app: App) {
   await settle();
 }
 
-/** Makes one edit and waits for its autosave to land (`saved()`) or to be reported as failed. */
+/** Makes one edit and waits for its autosave to land (`saved()`), to be reported as failed, or to raise the conflict pause. */
 async function editAndSave(app: App, saved: () => boolean | Promise<boolean>) {
-  const before = app.failures().length;
+  const before = app.failures().length, conflictsBefore = app.conflicts();
   await act(async () => { app.hook.result.current.workspace.setTasks([edited]); });
-  await waitFor(async () => expect((await saved()) || app.failures().length > before).toBe(true), { timeout: 4000 });
+  await waitFor(async () => expect((await saved()) || app.failures().length > before || app.conflicts() > conflictsBefore).toBe(true), { timeout: 4000 });
 }
 
 async function browserTasks(): Promise<string[]> {
@@ -181,6 +186,8 @@ describe("useStorageBackend — a switched or created project saves under the re
       await editAndSave(app, () => file.text().includes(EDIT));
       expect(app.conflicts()).toBeGreaterThan(0);
       expect(file.text()).toBe("{\"someone\":\"else\"}");
+      // §4 — the pause is the whole report: no generic storage-error outcome beside it (that raised a sticky banner no save could clear while paused).
+      expect(app.failures().filter((err) => err instanceof SaveConflictError)).toEqual([]);
     });
 
     it("§645: another tab re-pointing the shared handle slot does not redirect this window's save", async () => {

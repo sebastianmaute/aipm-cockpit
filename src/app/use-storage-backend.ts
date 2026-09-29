@@ -992,13 +992,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         if (live.collections === curCollections && live.records === curRecords) {
           destructive.syncBaselines(committedBaselineRef.current.collections, committedBaselineRef.current.records);
         }
-        emitOutcome(err);
+        if (!isSaveConflict(err)) emitOutcome(err); // §4 — a refusal is reported by the pause (or the kept-journal toast) alone: the generic outcome raised a sticky storage banner no save could clear while paused
         logDiag("error", "storage.saveFailed", { message: String(err) });
         if (isSaveConflict(err) && backendRef.current === backend) { emitConflictPause(backend); return; } // §4 — nothing was written; a lock timeout is NOT this and falls through
         if (isSaveConflict(err)) { // §4 — its backend was replaced meanwhile (a rebuild, or an op's §589 cleanup flush): no pause can hold these edits and the next load would re-base their entry, so they are kept now — unless the op's own flush kept them already
           const keptByFlush = keptOnSwitchForRef.current === backend;
           unloadJournal.noteSaveRefused(journalSavedAt, keptByFlush ? null : outgoing);
-          if (!keptByFlush) emitToast("error", t(langRef.current, "storageConflictNotSavedOnSwitch"));
+          if (!keptByFlush) emitToast("error", t(langRef.current, "storageConflictNotSavedOnRebuild")); // no switch here: an op's flush keeps (and toasts) its own
           return;
         }
         // Turso connectivity/auth failures show the persistent banner — skip the toast.

@@ -69,6 +69,8 @@ const showToastAction = vi.fn();
 
 function renderApp(initial: StorageConfig) {
   const onStorageOutcome = vi.fn();
+  // §4 — a refused save raises the conflict pause and never reaches `onStorageOutcome`: count each time the pause is RAISED.
+  const pause = { raised: 0, last: false };
   const hook = renderHook(() => {
     const [storageConfig, setStorageConfig] = useState(initial);
     const settings = useMemo(() => ({ storageConfig }) as unknown as Settings, [storageConfig]);
@@ -76,12 +78,16 @@ function renderApp(initial: StorageConfig) {
       settings, lang: "en-US" as Lang, hydrated: true, isPopout: false, showToast, showToastAction,
       onRevealSavingPaused: vi.fn(), setStorageConfig, onStorageOutcome,
     });
+    if (ops.conflictPause && !pause.last) pause.raised += 1;
+    pause.last = ops.conflictPause;
     return { ops, workspace: useWorkspace(), setStorageConfig };
   }, { wrapper: TestProviders });
   return {
     hook,
     ops: () => hook.result.current.ops,
-    conflicts: () => onStorageOutcome.mock.calls.filter(([err]) => err instanceof SaveConflictError).length,
+    conflicts: () => pause.raised,
+    /** Every refused save reported as a generic storage failure — §4: none may be. */
+    conflictOutcomes: () => onStorageOutcome.mock.calls.filter(([err]) => err instanceof SaveConflictError).length,
   };
 }
 type App = ReturnType<typeof renderApp>;
@@ -133,6 +139,7 @@ describe("useStorageBackend — a stale save pauses saving and keeps the edits j
     const { app, file } = await pausedOnConflict();
     expect(app.ops().conflictPause).toBe(true);
     expect(app.ops().loadPause).toBe("conflict");
+    expect(app.conflictOutcomes()).toBe(0); // the pause is the whole report: no generic storage-error banner beside it
     expect(pauseToasts()).toBe(1);
     await edit(app, [task(1, "FIRST"), task(2, "SECOND")]);
     await settle(900); // past the debounce: a save would have run and been refused again
@@ -324,14 +331,15 @@ describe("useStorageBackend — a stale save pauses saving and keeps the edits j
     file.foreignWrite(workspaceToJson({ ...emptyWorkspace(), tasks: [task(7, "PEER")] }));
     await edit(app, [task(1, "REBUILD-EDIT")]); // inside the debounce: the rebuild's cleanup flush writes it
     await act(async () => { app.hook.result.current.setStorageConfig({ kind: "local-json" }); }); // a new identity: the backend is rebuilt
-    await waitFor(() => expect(app.conflicts()).toBe(1), { timeout: 4000 });
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConflictNotSavedOnRebuild")), { timeout: 4000 }); // the old instance was refused: no pause can hold it (nothing reaches `onStorageOutcome` either)
     await settle(200);
     expect(app.hook.result.current.workspace.tasks.map((x) => x.taskName)).toEqual(["PEER"]); // the new backend's load
     act(() => { window.dispatchEvent(new Event("pagehide")); });
     const byKey = new Map(journals().map((j) => [j.key, j.journal]));
     expect(byKey.get(`${UNLOAD_JOURNAL_PREFIX}${keptProjectKey("browser")}`)?.workspace).toContain("REBUILD-EDIT");
     expect(byKey.get(`${UNLOAD_JOURNAL_PREFIX}browser`)?.workspace ?? "").not.toContain("REBUILD-EDIT");
-    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConflictNotSavedOnSwitch"));
+    expect(showToast).not.toHaveBeenCalledWith("error", t("en-US", "storageConflictNotSavedOnSwitch")); // §4 — nothing was switched: a rebuild says so in its own words
+    expect(app.conflictOutcomes()).toBe(0);
   });
 
   it("a conflict in the pre-switch flush: the switch happens, the journal keeps the outgoing edits, and a toast says so", async () => {
