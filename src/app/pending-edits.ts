@@ -33,9 +33,12 @@ export type PendingEdit = {
   savedAt: number;
 };
 
-/** Live edits per scope, keyed `kind:id`. A scope stays in the map once seen, even when emptied, so
- *  the next flush removes a key an earlier flush wrote. */
+/** Live edits per scope, keyed `kind:id`. */
 const liveEdits = new Map<string, Map<string, PendingEdit>>();
+/** Per scope, every `kind:id` this tab has tracked or settled since the page started. A flush owns
+ *  exactly these entries of the stored record: it replaces or removes them and keeps every other
+ *  entry, so a second tab on the same project cannot erase this tab's draft or the reverse. */
+const touchedEdits = new Map<string, Set<string>>();
 /** Scopes `takePendingEdits` has already read in this page's lifetime. Stored edits are replayed on
  *  the next START only: a later take (a bfcache restore leaves the record in place) would apply a
  *  draft the user has since cancelled. */
@@ -56,6 +59,22 @@ export function pendingEditScope(httpUrl: string, part: string): string {
   return `${hashForStorageKey(httpUrl)}:${part}`;
 }
 
+/** Marks `kind:id` as this tab's to flush, installing the module's `pagehide` listener on first use:
+ *  a tab that only settled still has to remove what an earlier flush wrote for that key. */
+function markTouched(scope: string, key: string): void {
+  if (typeof window === "undefined") return;
+  if (!listenerInstalled) {
+    window.addEventListener("pagehide", onPageHide);
+    listenerInstalled = true;
+  }
+  let touched = touchedEdits.get(scope);
+  if (!touched) {
+    touched = new Set();
+    touchedEdits.set(scope, touched);
+  }
+  touched.add(key);
+}
+
 function onPageHide(): void {
   flushPendingEdits(Date.now());
 }
@@ -65,16 +84,14 @@ function onPageHide(): void {
 export function trackPendingEdit(scope: string, edit: Omit<PendingEdit, "v" | "savedAt">): void {
   try {
     if (typeof window === "undefined") return;
-    if (!listenerInstalled) {
-      window.addEventListener("pagehide", onPageHide);
-      listenerInstalled = true;
-    }
     let edits = liveEdits.get(scope);
     if (!edits) {
       edits = new Map();
       liveEdits.set(scope, edits);
     }
-    edits.set(editKey(edit.kind, edit.id), { v: 1, ...edit, savedAt: 0 });
+    const key = editKey(edit.kind, edit.id);
+    edits.set(key, { v: 1, ...edit, savedAt: 0 });
+    markTouched(scope, key);
   } catch (err) {
     logDiag("warn", "storage.pendingEditsWriteFailed", { message: err instanceof Error ? err.message : String(err) });
   }
@@ -88,6 +105,16 @@ export function settlePendingEdit(scope: string, kind: PendingEditKind, id: stri
   const key = editKey(kind, id);
   if (value !== undefined && edits?.get(key)?.value !== value) return;
   edits?.delete(key);
+  markTouched(scope, key);
+}
+
+/** The value the live edit started from was saved as `base`: a newer draft still waiting in the
+ *  outbox now starts from it, so a replay checks it against what the server holds. No live edit, no-op. */
+export function rebasePendingEdit(scope: string, kind: PendingEditKind, id: string, base: string): void {
+  const edits = liveEdits.get(scope);
+  const key = editKey(kind, id);
+  const edit = edits?.get(key);
+  if (edits && edit) edits.set(key, { ...edit, base });
 }
 
 function logTooLarge(edit: PendingEdit, size: number): void {
@@ -118,10 +145,46 @@ function fittingEdits(edits: PendingEdit[]): PendingEdit[] {
   return fitting;
 }
 
-function writeScope(scope: string, edits: Map<string, PendingEdit>, now: number): void {
+/** The valid entries of the record stored under `key`, as another tab (or an earlier flush of this
+ *  one) left it. An unreadable or corrupt record reads as empty and is logged, so it never blocks the
+ *  write that replaces it. Never throws. */
+function storedEntries(key: string): PendingEdit[] {
+  let raw: string | null;
+  try {
+    raw = window.localStorage.getItem(key);
+  } catch (err) {
+    logDropped("storage-error", { operation: "read", message: errorMessage(err) });
+    return [];
+  }
+  if (!raw) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    logDropped("corrupt");
+    return [];
+  }
+  if (!Array.isArray(parsed)) {
+    logDropped("corrupt");
+    return [];
+  }
+  const valid: PendingEdit[] = [];
+  for (const entry of parsed as unknown[]) {
+    if (isPendingEditFields(entry)) valid.push(entry);
+    else logDropped("corrupt", entryIdentity(entry));
+  }
+  return valid;
+}
+
+/** Merges this tab's part of `scope` into the stored record: the stored entries this tab never
+ *  touched are kept as they are, the ones it touched are replaced by its live edits (or dropped when
+ *  settled). */
+function writeScope(scope: string, touched: ReadonlySet<string>, now: number): void {
   const key = storageKeyFor(scope);
   try {
-    const fitting = fittingEdits([...edits.values()].map((edit) => ({ ...edit, savedAt: now })));
+    const others = storedEntries(key).filter((edit) => !touched.has(editKey(edit.kind, edit.id)));
+    const own = [...(liveEdits.get(scope)?.values() ?? [])].map((edit) => ({ ...edit, savedAt: now }));
+    const fitting = fittingEdits([...others, ...own]);
     // Nothing left to store: remove the key so a stale earlier record cannot replay.
     if (fitting.length === 0) window.localStorage.removeItem(key);
     else window.localStorage.setItem(key, JSON.stringify(fitting));
@@ -132,11 +195,12 @@ function writeScope(scope: string, edits: Map<string, PendingEdit>, now: number)
   }
 }
 
-/** Writes every scope's live set (an empty set removes its key), stamping `savedAt` with `now`. Called
- *  by the `pagehide` listener; exported for tests. Never throws. */
+/** Merges every touched scope's live set into its stored record (a record left empty removes its key),
+ *  stamping this tab's edits' `savedAt` with `now`. Called by the `pagehide` listener; exported for
+ *  tests. Never throws. */
 export function flushPendingEdits(now: number): void {
   if (typeof window === "undefined") return;
-  for (const [scope, edits] of liveEdits) writeScope(scope, edits, now);
+  for (const [scope, touched] of touchedEdits) writeScope(scope, touched, now);
 }
 
 function isPendingEditFields(value: unknown): value is PendingEdit {
@@ -222,6 +286,7 @@ export function takePendingEdits(scope: string, now: number): PendingEdit[] {
 
 export function resetPendingEditsForTests(): void {
   liveEdits.clear();
+  touchedEdits.clear();
   takenScopes.clear();
   if (listenerInstalled && typeof window !== "undefined") window.removeEventListener("pagehide", onPageHide);
   listenerInstalled = false;

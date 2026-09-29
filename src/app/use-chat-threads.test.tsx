@@ -2458,4 +2458,109 @@ describe("useChatThreads — pending rename outbox", () => {
     expect(everything).not.toContain("outbox-test");
     expect(everything).not.toContain("secret-token");
   });
+
+  // R9: an edit's base is the name the server last confirmed, never the optimistic one in `threads`.
+  describe("the base is the server-confirmed name", () => {
+    it("a draft typed while an earlier rename's save is in flight keeps the confirmed base, and the next start replays it", async () => {
+      saveThreadMock.mockReturnValueOnce(new Promise<void>(() => undefined));
+      const { result, unmount } = await renderLoaded();
+
+      act(() => result.current.renameThread("t1", "B"));
+      act(() => result.current.trackRenameDraft("t1", "C"));
+      pagehide();
+
+      expect(stored()).toEqual([expect.objectContaining({ id: "t1", base: "Old name", value: "C" })]);
+
+      // The next start: a fresh page (module state gone, storage kept) whose load still has the old name.
+      unmount();
+      resetPendingEditsForTests();
+      saveThreadMock.mockClear();
+      loadThreadsMock.mockResolvedValue([thread("t1", { name: "Old name" })]);
+      const next = renderChatThreads({ tursoConfig: CFG });
+
+      await waitFor(() => expect(saveThreadMock).toHaveBeenCalled());
+      expect((saveThreadMock.mock.calls.at(-1)![1] as ChatThread).name).toBe("C");
+      expect(next.result.current.threads[0]!.name).toBe("C");
+    });
+
+    it("a second rename committed before the first one's save lands keeps the confirmed base", async () => {
+      saveThreadMock.mockReturnValue(new Promise<void>(() => undefined));
+      const { result } = await renderLoaded();
+
+      act(() => result.current.renameThread("t1", "B"));
+      act(() => result.current.renameThread("t1", "C"));
+      pagehide();
+
+      expect(stored()).toEqual([expect.objectContaining({ id: "t1", base: "Old name", value: "C" })]);
+    });
+
+    it("a draft edited back to the committed name while its save is in flight keeps the commit tracked", async () => {
+      saveThreadMock.mockReturnValueOnce(new Promise<void>(() => undefined));
+      const { result } = await renderLoaded();
+
+      act(() => result.current.renameThread("t1", "B"));
+      act(() => result.current.trackRenameDraft("t1", "Bx"));
+      act(() => result.current.trackRenameDraft("t1", "B"));
+      pagehide();
+
+      expect(stored()).toEqual([expect.objectContaining({ id: "t1", base: "Old name", value: "B" })]);
+    });
+
+    it("a draft cancelled while an earlier rename's save is in flight keeps the commit tracked", async () => {
+      saveThreadMock.mockReturnValueOnce(new Promise<void>(() => undefined));
+      const { result } = await renderLoaded();
+
+      act(() => result.current.renameThread("t1", "B"));
+      act(() => result.current.trackRenameDraft("t1", "C"));
+      act(() => result.current.cancelRenameDraft("t1"));
+      pagehide();
+
+      expect(stored()).toEqual([expect.objectContaining({ id: "t1", base: "Old name", value: "B" })]);
+    });
+
+    it("an emptied draft on a thread already called the untitled name is not kept", async () => {
+      loadThreadsMock.mockResolvedValue([thread("t1", { name: "Untitled chat" })]);
+      const { result } = renderChatThreads({ tursoConfig: CFG });
+      await waitFor(() => expect(result.current.threads).toHaveLength(1));
+
+      act(() => result.current.trackRenameDraft("t1", "   "));
+      pagehide();
+
+      expect(stored()).toEqual([]);
+    });
+
+    it("a turn's save that lands the renamed thread confirms its name as the next draft's base", async () => {
+      saveThreadMock.mockReturnValueOnce(new Promise<void>(() => undefined));
+      const { result, rerender, initialProps } = await renderLoaded();
+      await waitFor(() => expect(result.current.activeThreadId).toBe("t1"));
+
+      act(() => result.current.renameThread("t1", "B"));
+      rerender({ ...initialProps, busy: true });
+      rerender({ ...initialProps, busy: false });
+      await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(2));
+      await act(async () => { await Promise.resolve(); });
+      act(() => result.current.trackRenameDraft("t1", "C"));
+      pagehide();
+
+      expect(stored()).toEqual([expect.objectContaining({ id: "t1", base: "B", value: "C" })]);
+    });
+
+    it("a new thread's first save confirms its name as a later rename's base", async () => {
+      const { result } = renderChatThreads({ tursoConfig: CFG });
+      await waitFor(() => expect(loadThreadsMock).toHaveBeenCalled());
+      await act(async () => { await Promise.resolve(); }); // let the (empty) load settle first
+      const display: DisplayItem[] = [{ kind: "user", text: "First message" }];
+      let id = "";
+      act(() => { id = result.current.ensureThreadForSend([{ role: "user", content: "First message" }], display) ?? ""; });
+      await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
+      await act(async () => { await Promise.resolve(); });
+
+      saveThreadMock.mockReturnValueOnce(new Promise<void>(() => undefined));
+      act(() => result.current.renameThread(id, "B"));
+      act(() => result.current.trackRenameDraft(id, "C"));
+      pagehide();
+
+      expect(stored()).toEqual([expect.objectContaining({ id, base: "First message", value: "C" })]);
+    });
+  });
 });

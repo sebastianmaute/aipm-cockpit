@@ -7,7 +7,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
 import * as diagnostics from "./diagnostics";
 import {
-  PENDING_EDITS_PREFIX, flushPendingEdits, pendingEditScope, resetPendingEditsForTests,
+  PENDING_EDITS_PREFIX, flushPendingEdits, pendingEditScope, rebasePendingEdit, resetPendingEditsForTests,
   settlePendingEdit, takePendingEdits, trackPendingEdit,
 } from "./pending-edits";
 import { UNLOAD_JOURNAL_MAX_AGE_MS, UNLOAD_JOURNAL_MAX_CHARS } from "./unload-journal";
@@ -226,6 +226,59 @@ describe("pending-edits outbox", () => {
     trackPendingEdit(scope, edit({ value: "x".repeat(UNLOAD_JOURNAL_MAX_CHARS + 1) }));
     pagehide();
     expect(window.localStorage.getItem(storageKey)).toBeNull();
+  });
+
+  describe("a flush merges with what another tab stored in the same scope", () => {
+    /** An entry as another tab's flush wrote it. */
+    const otherTabs = (over: Partial<{ id: string; base: string; value: string }> = {}) =>
+      ({ v: 1, ...edit({ id: "t2", value: "Other tab", ...over }), savedAt: NOW - 1000 });
+    const raw = () => JSON.parse(window.localStorage.getItem(storageKey) ?? "null") as unknown;
+
+    it("keeps a stored entry this tab never touched beside its own", () => {
+      window.localStorage.setItem(storageKey, JSON.stringify([otherTabs()]));
+      trackPendingEdit(scope, edit({ id: "t1", value: "Mine" }));
+      pagehide();
+      expect(raw()).toEqual([otherTabs(), expect.objectContaining({ id: "t1", value: "Mine" })]);
+    });
+
+    it("keeps a stored entry this tab never touched when this tab has nothing left to write", () => {
+      window.localStorage.setItem(storageKey, JSON.stringify([otherTabs()]));
+      trackPendingEdit(scope, edit({ id: "t1" }));
+      settlePendingEdit(scope, "template-name", "t1");
+      pagehide();
+      expect(raw()).toEqual([otherTabs()]);
+    });
+
+    it("replaces a stored entry for a kind and id this tab tracked", () => {
+      window.localStorage.setItem(storageKey, JSON.stringify([otherTabs({ id: "t1", value: "Older" })]));
+      trackPendingEdit(scope, edit({ id: "t1", value: "Newer" }));
+      pagehide();
+      expect(raw()).toEqual([expect.objectContaining({ id: "t1", value: "Newer", savedAt: expect.any(Number) })]);
+    });
+
+    it("removes a stored entry for a kind and id this tab settled", () => {
+      window.localStorage.setItem(storageKey, JSON.stringify([otherTabs({ id: "t1" })]));
+      settlePendingEdit(scope, "template-name", "t1");
+      pagehide();
+      expect(window.localStorage.getItem(storageKey)).toBeNull();
+    });
+
+    it("a corrupt stored record does not block this tab's write, and is logged as corrupt", () => {
+      const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+      window.localStorage.setItem(storageKey, "{not json");
+      trackPendingEdit(scope, edit({ id: "t1", value: DRAFT }));
+      pagehide();
+      expect(raw()).toEqual([expect.objectContaining({ id: "t1", value: DRAFT })]);
+      expect(spy).toHaveBeenCalledWith("warn", "storage.pendingEditDropped", { reason: "corrupt" });
+      expect(loggedJson(spy)).not.toContain(DRAFT);
+    });
+  });
+
+  it("a rebased edit keeps its value and carries the new base", () => {
+    trackPendingEdit(scope, edit({ base: "A", value: "C" }));
+    rebasePendingEdit(scope, "template-name", "t1", "B");
+    pagehide();
+    expect(takePendingEdits(scope, NOW)).toEqual([expect.objectContaining({ id: "t1", base: "B", value: "C" })]);
   });
 
   it("edits that each fit but not together: the largest is dropped until the array fits", () => {

@@ -34,7 +34,7 @@ import {
 import { publishChatThreads, clearChatThreadsFor } from "./chat-threads-registry";
 import { logDiag } from "./diagnostics";
 import {
-  pendingEditScope, trackPendingEdit, settlePendingEdit, takePendingEdits,
+  pendingEditScope, trackPendingEdit, settlePendingEdit, rebasePendingEdit, takePendingEdits,
 } from "./pending-edits";
 import {
   mergeThreadsAfterLoad,
@@ -335,6 +335,12 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // adopt anything ever again.
   const persistSettledRef = useRef(0);
 
+  // §626. Per thread id, the last name the server is known to hold: set from every successful load
+  // and after a save of the thread resolves. It is an outbox entry's `base`, never the optimistic
+  // name in `threads` — a rename not yet landed is not what the next start's load will return, and
+  // replay drops an edit whose base differs from the loaded name.
+  const confirmedNamesRef = useRef<Map<string, string>>(new Map());
+
   // Fire a Turso WRITE (save or delete), tracking it as the retry target
   // (keyed by the thread id it targets) on failure and clearing just THAT
   // key on success — the error banner only clears once nothing is left
@@ -431,6 +437,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         setLoadedProjectId(projectId);
         // §626. A rename typed before the last close and never saved: re-issue it now that the
         // server's own copy is in hand to check the draft's base against.
+        for (const th of loaded) confirmedNamesRef.current.set(th.id, th.name);
         replayRenamesRef.current(loaded); // the ref is synced by the effect beside `replayRenames`, below
         if (settled.stale) return;
         setActiveThreadId(settled.next?.id ?? null);
@@ -624,6 +631,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         const settled = mergeThreadsAfterLoad(startedOn, threadIdRef.current, projectId, loaded, preserveLive);
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
+        for (const th of loaded) confirmedNamesRef.current.set(th.id, th.name);
         replayRenamesRef.current(loaded); // same replay as the load effect's success branch
         if (settled.stale) return;
         setActiveThreadId(settled.next?.id ?? null);
@@ -677,7 +685,8 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       display,
     };
     setThreads((prev) => [thread, ...prev.filter((th) => th.id !== id)]);
-    runPersist(id, () => saveThread(tursoConfig, thread));
+    const scope = renameScope();
+    runPersist(id, () => saveThread(tursoConfig, thread), () => confirmSavedName(scope, id, thread.name));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy]);
 
@@ -771,7 +780,8 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       display: sentDisplay,
     };
     setThreads((prev) => (prev.some((th) => th.id === id) ? prev : [inserted, ...prev]));
-    runPersist(id, () => saveThread(tursoConfig, inserted));
+    const scope = renameScope();
+    runPersist(id, () => saveThread(tursoConfig, inserted), () => confirmSavedName(scope, id, inserted.name));
     return id;
   }
 
@@ -797,18 +807,29 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     return tursoMode ? outboxScope(tursoConfig, projectId) : null;
   }
 
+  // §626. The base of a rename edit: the server-confirmed name, or — for a thread neither loaded nor
+  // saved yet in this session — the name it was created with.
+  function confirmedName(target: ChatThread): string {
+    return confirmedNamesRef.current.get(target.id) ?? target.name;
+  }
+
+  // §626. A save of thread `id` carrying `name` resolved: the server now holds `name`. An outbox
+  // entry for exactly that value is settled (value-aware: a newer draft typed while the save was in
+  // flight stays), and a newer one is re-based onto `name`, which is what the next start will load.
+  function confirmSavedName(scope: string | null, id: string, name: string): void {
+    confirmedNamesRef.current.set(id, name);
+    if (!scope) return;
+    settlePendingEdit(scope, RENAME_KIND, id, name);
+    rebasePendingEdit(scope, RENAME_KIND, id, name);
+  }
+
   function applyRename(target: ChatThread, name: string): void {
     const { id } = target;
     const updated: ChatThread = { ...target, name, updatedAt: new Date().toISOString() };
     setThreads((prev) => prev.map((th) => (th.id === id ? updated : th)));
     const scope = renameScope();
-    if (scope) trackPendingEdit(scope, { kind: RENAME_KIND, id, base: target.name, value: name });
-    runPersist(
-      id,
-      () => saveThread(tursoConfig, updated),
-      // Value-aware: a newer draft typed into the same field while this save was in flight stays.
-      scope ? () => settlePendingEdit(scope, RENAME_KIND, id, name) : undefined,
-    );
+    if (scope) trackPendingEdit(scope, { kind: RENAME_KIND, id, base: confirmedName(target), value: name });
+    runPersist(id, () => saveThread(tursoConfig, updated), () => confirmSavedName(scope, id, name));
   }
 
   // §626. Re-issues the renames typed before the last close, once a load for this project has
@@ -832,19 +853,35 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     applyRename(target, name);
   }
 
-  // §626. The open rename input's draft, kept for a page close. A draft equal to the current name
-  // has nothing to lose, so it settles instead.
-  function trackRenameDraft(id: string, value: string): void {
+  // §626. Keeps what the user wants thread `id` to be called — `wanted`, a draft or the committed
+  // name — for a page close. Compared after the commit's own normalization against the
+  // server-confirmed name: equal has nothing to lose, so it settles; anything else is tracked from
+  // that confirmed name, so a rename still in flight is not dropped as `changed` at the next start.
+  function keepRename(id: string, wanted: (target: ChatThread) => string): void {
     const scope = renameScope();
     const target = threads.find((th) => th.id === id);
-    if (!scope || !target) return;
-    if (value.trim() === target.name) settlePendingEdit(scope, RENAME_KIND, id);
-    else trackPendingEdit(scope, { kind: RENAME_KIND, id, base: target.name, value });
+    if (!scope) return;
+    if (!target) {
+      // The thread is gone from the list: there is nothing left to rename.
+      settlePendingEdit(scope, RENAME_KIND, id);
+      return;
+    }
+    const value = wanted(target);
+    const base = confirmedName(target);
+    const unchanged = value === base || normalizeThreadName(value, t(lang, "chatThreadUntitled")) === base;
+    if (unchanged) settlePendingEdit(scope, RENAME_KIND, id);
+    else trackPendingEdit(scope, { kind: RENAME_KIND, id, base, value });
   }
 
+  // §626. The open rename input's draft.
+  function trackRenameDraft(id: string, value: string): void {
+    keepRename(id, () => value);
+  }
+
+  // §626. The draft is dropped; what is left to keep is the committed name, which differs from the
+  // confirmed one while an earlier rename's save has not resolved.
   function cancelRenameDraft(id: string): void {
-    const scope = renameScope();
-    if (scope) settlePendingEdit(scope, RENAME_KIND, id);
+    keepRename(id, (target) => target.name);
   }
 
   async function requestDeleteThread(id: string): Promise<void> {
