@@ -146,3 +146,46 @@
 - [ ] **Step 2: Run** `npm run -s docs:claims:check`, `docs:symbols:check`, `src:symbols:check`, `followups:index:check`, `followups:status:check`, `followups:workitems:check`, `size:check`, `dup:check`, `rownames:check`, plus `npx tsc --noEmit -p .` and `npx eslint --max-warnings=0` on every changed file — all exit 0.
 - [ ] **Step 3: Mutation checks** (node script, each mutant must turn a test red): pagehide listener not installed; settle not called on save success; `base` comparison removed from either replay; replay runs without `tursoMode`/`active`; key sealed only on blur.
 - [ ] **Step 4: Commit** `docs: close §626 with the pending-edits outbox`.
+
+---
+
+## Added 2026-09-29 (owner-approved designs in chat): §604 and §603
+
+These two tasks ride the same branch. They do not depend on Tasks 1–5.
+
+### Task 6: Chat thread writes stay in the Turso database they started in (§604, #385)
+
+**Files:**
+- Modify: `src/app/use-chat-threads.ts`
+- Test: `src/app/use-chat-threads.test.tsx` (or a new `use-chat-threads.target.test.tsx` if the file is near the size limit)
+- Modify: `docs/open-followups.md` §604 (close), `src/app/chat-panel.tsx` comment near `switchedAway` that points to §604
+
+**Interfaces:**
+- The busy-persist effect records the `tursoConfig` of the render where `busy` turns TRUE (a `turnConfigRef`, set on the rising edge next to `prevBusyRef`) and saves with that config on the falling edge, never the live one.
+- `renameThread` uses the config of its click render (already so) — pin it explicitly in the closure passed to `runPersist`.
+- `requestDeleteThread` captures `tursoConfig` into a local BEFORE its confirm `await` and passes that local to `deleteThreadRow`.
+- A `targetEpochRef` increments in an effect on `[tursoConfig]`. `retryLoad` captures it with `issuedAtEpoch` and drops its settle when it moved, logging `storage.chatThreadsStaleTargetDropped` (no URL, no token in the log).
+
+- [ ] **Step 1: Failing tests:** `"a send whose Turso config changes mid-turn persists to the database it started in"` (config A → start send → rerender with config B → finish → the saveThread fetch goes to A's URL, none to B's); `"a delete confirmed after a config change deletes in the database the dialog was opened in"`; `"a load retry issued before a config change is dropped when it settles"` (logDiag called with `storage.chatThreadsStaleTargetDropped`, threads unchanged).
+- [ ] **Step 2: Run** — FAIL.
+- [ ] **Step 3: Implement** as in Interfaces; update the §604 comments in `use-chat-threads.ts` and `chat-panel.tsx`.
+- [ ] **Step 4: Run** the chat-thread and chat-panel test files — PASS; mutation: persist uses live config; delete reads config after the await; retry epoch check removed — all killed.
+- [ ] **Step 5:** close §604 in the register (remove its Work item line, rebuild the index), commit `fix: keep chat thread writes in the Turso database they started in (§604)`.
+
+### Task 7: The picked-file write skips a backend replaced while it queued (§603, #384)
+
+**Files:**
+- Modify: `src/app/use-load-truncation.ts` (`guardedWrite`)
+- Modify: `src/app/use-storage-file-ops.ts` (`onPickStorageFile` overwrite branch; the other `guardedWrite` call site keeps today's behaviour unless it has a current-backend check to pass)
+- Test: `src/app/use-storage-backend.superseded-gate.test.tsx` (it already hangs `first.save`)
+- Modify: `docs/open-followups.md` §603 (close, with the residual)
+
+**Interfaces:**
+- `guardedWrite(backend, ws, isCurrent?: () => boolean): Promise<boolean>` — when `isCurrent` is given, the thunk passed to `enqueueSave` checks it right before `backend.save(ws)`; if false it does not call `save`, logs `storage.supersededLoadDropped` with `{ writer: "onPickStorageFile", stage: "write-queued" }`, and `guardedWrite` resolves false. Existing callers without `isCurrent` are unchanged.
+- `onPickStorageFile` passes `deps.isBackendCurrent`; a false result takes the existing superseded exit (no `allowSavesToActiveBackend`).
+
+- [ ] **Step 1: Failing test:** `"a picked-file write queued behind an autosave never reaches a backend replaced while it waited"` — an autosave hangs on `first`, pick the file (write queues), rebuild the backend, release the autosave → `first.save` was never called with the picked workspace, the gate stays closed, logDiag has `stage: "write-queued"`.
+- [ ] **Step 2: Run** — FAIL.
+- [ ] **Step 3: Implement.**
+- [ ] **Step 4: Run** the superseded-gate, pick-overwrite and load-truncation test files — PASS; mutation: the in-thunk check removed; `isCurrent` not passed — both killed.
+- [ ] **Step 5:** close §603 in the register: the queued window is closed; a save already RUNNING when the rebuild lands cannot be aborted (no backend can abort an in-flight write), a one-write window, recorded as the residual. Commit `fix: skip a picked-file write whose backend was replaced while it queued (§603)`.
