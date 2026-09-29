@@ -462,7 +462,16 @@ describe("§590 — the cases that must NOT be interrupted", () => {
   //   op's own catch, the write never happens and the file keeps its junk).
   it("writes normally, without asking, when the picked file is unparseable", async () => {
     const junk = "this is not a workspace at all {{{";
-    const { confirmSpy } = await setupPick({ fileBytes: junk });
+    // ★ §4 R12 — the write is a deliberate blind overwrite: the unparseable read recorded no
+    //   revision, so only a forced save can land. KILLED BY: dropping the `force` option at the write.
+    const forceSpy = vi.spyOn(LocalFileBackend.prototype, "forceNextSave");
+    let confirmSpy: Awaited<ReturnType<typeof setupPick>>["confirmSpy"];
+    try {
+      ({ confirmSpy } = await setupPick({ fileBytes: junk }));
+      expect(forceSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      forceSpy.mockRestore();
+    }
     expect(confirmSpy).not.toHaveBeenCalled();
     // ★★ ON THE BYTES, not on `tasksInFile()`. Mutation-measured: with `readPickedProject`'s
     //   `catch` deleted the write never happens and the junk stays on disk — yet a task-count

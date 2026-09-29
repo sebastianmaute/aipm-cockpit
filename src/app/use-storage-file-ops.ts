@@ -511,14 +511,20 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
    */
   async function readPickedProject(
     handle: FsHandle,
-  ): Promise<{ workspace: Workspace; records: number } | null> {
+  ): Promise<{ workspace: Workspace; records: number } | "unparseable" | null> {
     const load = loadFromHandleForBackend(deps.backend, handle);
     if (!load) return null; // not a file backend — unreachable here, since the pick above returned non-null on the same `instanceof`.
     try {
       const workspace = await load;
       return { workspace, records: authoredRecordCount(workspace) };
-    } catch {
-      return null;
+    } catch (err) {
+      // ★★ §4 R12 — "unparseable" is kept apart from "unreadable" because only the first earns a
+      //   forced write below. The read reached the bytes and the CODEC threw, so no revision was
+      //   recorded (R11) and an unforced save would fail closed; the user's pick IS the intent to
+      //   overwrite that file. A file-system failure (`StorageNotReadyError`, or the `DOMException`
+      //   a rejecting getFile()/text() raises) is NOT that intent: it stays unforced and fails closed.
+      if (err instanceof StorageNotReadyError || (typeof DOMException !== "undefined" && err instanceof DOMException)) return null;
+      return "unparseable";
     }
   }
 
@@ -659,7 +665,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       //   `grep -n "export function workspaceRecordCount" -A 20 src/app/workspace-metrics.ts`.
       // ★★★ It is `authoredRecordCount`, NOT `isWorkspaceEmpty` — read its docstring before changing
       //   this line. The obvious predicate counts auto-seeded reference data and fires over nothing.
-      if (existing !== null && existing.records > 0 && authoredRecordCount(deps.currentWorkspace()) === 0) {
+      if (existing !== null && existing !== "unparseable" && existing.records > 0 && authoredRecordCount(deps.currentWorkspace()) === 0) {
         // ★★★ `window.confirm`, NOT the branded `useConfirm()`, and this is measured rather than
         //   preferred: `useStorageBackend` is called in `TaskManagerInner`'s BODY
         //   (task-manager.tsx), while `ConfirmProvider` is rendered in that same component's own
@@ -733,7 +739,11 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       //   bound" — measured as a SURVIVOR before that test existed, with its load-instead sibling in
       //   place: the two branches carry separate guards and the branch is chosen before either runs.
       if (!deps.isBackendCurrent()) { logDiag("warn", "storage.supersededPickDropped", { stage: "bind-overwrite" }); return; }
-      if (!(await deps.truncationOps.guardedWrite(deps.backend, deps.currentWorkspace(), deps.isBackendCurrent))) return; // ★★ §603: `isBackendCurrent` is re-asked inside the queued write, right before the save, so a write queued behind an autosave never reaches a backend replaced while it waited. ★ Kept as the backstop: the pre-check above is the one that matters, but a truncating load landing between them must still not commit.
+      // ★★ §4 R12 — `force` ONLY for an unparseable pick (see `readPickedProject`). Every other file
+      //   in this branch was read cleanly, so `setBackendFileHandle` adopted its revision. The force
+      //   is armed INSIDE `guardedWrite`'s queued job, right before its `save()`: armed here instead,
+      //   a refusal would leave it set for the next autosave, and a save queued ahead could spend it.
+      if (!(await deps.truncationOps.guardedWrite(deps.backend, deps.currentWorkspace(), { force: existing === "unparseable", isCurrent: deps.isBackendCurrent }))) return; // ★★ §603: `isBackendCurrent` is re-asked inside the queued write, right before the save, so a write queued behind an autosave never reaches a backend replaced while it waited. ★ Kept as the backstop: the pre-check above is the one that matters, but a truncating load landing between them must still not commit.
       // ★★ §588 — THE WRITE GUARD, for a DIFFERENT window: `guardedWrite` is itself an await, so a
       //   rebuild can land inside it, after every guard above has already said "current". One guard
       //   per await, because one guard cannot see past the next one. ★ Its hazard set is a STRICT

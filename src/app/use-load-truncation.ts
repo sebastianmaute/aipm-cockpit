@@ -226,8 +226,17 @@ export interface TruncationOps {
    *  ALREADY RUNNING when the replacement lands cannot be aborted (no backend can abort an
    *  in-flight write) — that one-write window is the recorded residual.
    *  ★ `isCurrent` is for the picked-file write only (the skip is logged under that writer's label), and a
-   *  skipped write has still spent the destructive-save one-shot taken above. */
-  guardedWrite: (backend: Pick<StorageBackend, "save">, ws: Workspace, isCurrent?: () => boolean) => Promise<boolean>;
+   *  skipped write has still spent the destructive-save one-shot taken above.
+   *
+   *  §4 R12 — `force` calls `backend.forceNextSave()` INSIDE the queued job,
+   *  synchronously before its `save()`: never on a refusal (it would linger for
+   *  the next autosave), never on an `isCurrent` skip (same reason), and never
+   *  where an earlier queued save could spend it. */
+  guardedWrite: (
+    backend: Pick<StorageBackend, "save" | "forceNextSave">,
+    ws: Workspace,
+    options?: { force?: boolean; isCurrent?: () => boolean },
+  ) => Promise<boolean>;
   /** The refusal WITHOUT the write — for a caller that must decline BEFORE its
    *  own irreversible side effect rather than after it.
    *
@@ -795,7 +804,7 @@ export function useLoadTruncation(
       }
       if (parts.length > 0) showToast("error", parts.join(" "));
     },
-    guardedWrite: async (backend, ws, isCurrent) => {
+    guardedWrite: async (backend, ws, options) => {
       // ★ ONE implementation of the refusal, shared with `refuseWrite` above, so
       // a caller that declines early and one that declines at the write cannot
       // report the loss differently.
@@ -809,7 +818,7 @@ export function useLoadTruncation(
       // Nothing identifying the storage target is logged.
       let skipped = false;
       await enqueueSave(backend, async () => {
-        if (isCurrent && !isCurrent()) {
+        if (options?.isCurrent && !options.isCurrent()) {
           skipped = true;
           logDiag("warn", "storage.supersededLoadDropped", { writer: "onPickStorageFile", stage: "write-queued" });
           // ★★ NOT a plain return: that settles "saved", and `settleReplacedAsOwn` would hand "saved" to an
@@ -817,6 +826,8 @@ export function useLoadTruncation(
           // unload-journal entry for edits nothing wrote. "superseded" makes the whole chain read not-saved.
           return "superseded";
         }
+        // §4 R12 — armed after the §603 skip check, synchronously before `save()`.
+        if (options?.force) backend.forceNextSave?.();
         await backend.save(ws);
       }, { settleReplacedAsOwn: true });
       return !skipped;
