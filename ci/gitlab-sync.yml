@@ -68,5 +68,6 @@ mirror-releases:
   script:
     - test -n "$GITHUB_SYNC_TOKEN" && test -n "$GITLAB_RELEASE_TOKEN" || { echo "release token variable missing" >&2; exit 2; }
     - rm -f /tmp/gitlab-release-mirror.mjs
-    - wget -q --header "Authorization: Bearer ${GITHUB_SYNC_TOKEN}" --header "Accept: application/vnd.github.raw" -O /tmp/gitlab-release-mirror.mjs "https://api.github.com/repos/sebastianmaute/aipm-cockpit/contents/scripts/gitlab-release-mirror.mjs?ref=main"
+    # Single-quoted: its ": " (in the headers) would otherwise make YAML read a mapping (§646).
+    - 'wget -q --header "Authorization: Bearer ${GITHUB_SYNC_TOKEN}" --header "Accept: application/vnd.github.raw" -O /tmp/gitlab-release-mirror.mjs "https://api.github.com/repos/sebastianmaute/aipm-cockpit/contents/scripts/gitlab-release-mirror.mjs?ref=main"'
     - node /tmp/gitlab-release-mirror.mjs
