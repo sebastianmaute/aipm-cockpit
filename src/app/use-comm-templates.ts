@@ -152,11 +152,20 @@ export function useCommTemplates(args: UseCommTemplatesArgs): UseCommTemplatesRe
    *  draft typed while the write was in flight stays. A stale landing changes nothing, so its row can
    *  never become the `existing` of a later write and push older values back to the server. A rejection
    *  leaves the edit tracked. */
-  const writeField = useCallback(async (existing: CommTemplate, patch: FieldPatch) => {
+  const writeField = useCallback(async (existing: CommTemplate, ownPatch: FieldPatch) => {
     const cfg = cfgRef.current;
     if (!active || !cfg) return;
     const seq = (opSeqRef.current += 1);
     setBusy(true);
+    // §653. `existing` is the row as last CONFIRMED, so a field another write is still saving would go
+    // out with its old value and, landing last, put it back on the server. Every write therefore also
+    // carries the value each other field's in-flight write is saving: the write that lands last holds
+    // the newest of both fields, in either landing order.
+    const patch: FieldPatch = { ...ownPatch };
+    for (const field of ["name", "body"] as const) {
+      const carried = inFlightRef.current.get(`${DRAFT_KIND[field]}:${existing.id}`);
+      if (patch[field] === undefined && carried !== undefined) patch[field] = carried;
+    }
     const saving = (["name", "body"] as const).flatMap((field) => {
       const saved = patch[field];
       return saved === undefined ? [] : [{ field, saved, key: `${DRAFT_KIND[field]}:${existing.id}` }];

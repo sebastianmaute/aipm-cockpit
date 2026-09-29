@@ -217,23 +217,45 @@ describe("useCommTemplates — pending edits outbox", () => {
   });
 
   // R18. Every upsert writes the whole row, so the newest issued write's row, name AND body, is the base.
-  it("a body save landing after a newer name save confirms the name save's whole row and keeps the body draft", async () => {
+  // §653. A rename sent while a body save is in flight carries that body, not the confirmed one.
+  it("a rename sent while a body save is in flight carries the new body, so the name save that lands first holds both", async () => {
     const { result } = await renderLoaded();
     let resolveBody: () => void = () => {};
     upsertTemplate.mockReturnValueOnce(new Promise<void>((r) => { resolveBody = r; }));
     act(() => result.current.trackDraft("d", "body", "<p>new</p>"));
     let body: Promise<void> = Promise.resolve();
     act(() => { body = result.current.saveBody("d", "<p>new</p>"); });
-    // Built from the same snapshot, this row carries the old body back: the server holds {B, <p>hi</p>}.
     await act(async () => { await result.current.rename("d", "B"); });
+    expect(upsertTemplate).toHaveBeenLastCalledWith(CFG, expect.objectContaining({ id: "d", name: "B", body: "<p>new</p>" }));
     await act(async () => { resolveBody(); await body; });
+    expect(result.current.templates[0]).toEqual(expect.objectContaining({ name: "B", body: "<p>new</p>" }));
     act(() => result.current.trackDraft("d", "name", "D"));
     pagehide();
-    expect(stored()).toEqual(expect.arrayContaining([
-      expect.objectContaining({ kind: "template-name", id: "d", base: "B", value: "D" }),
-      expect.objectContaining({ kind: "template-body", id: "d", base: "<p>hi</p>", value: "<p>new</p>" }),
-    ]));
-    expect(stored()).toHaveLength(2);
+    // The body the name save carried has landed: its draft is settled, only the new name draft is left.
+    expect(stored()).toEqual([expect.objectContaining({ kind: "template-name", id: "d", base: "B", value: "D" })]);
+  });
+
+  // §653 — the pre-merge review's scenario: the two saves land IN ORDER, body first.
+  it("a body save and a later rename landing in order keep the new body on the server and on screen", async () => {
+    const { result } = await renderLoaded();
+    let resolveBody: () => void = () => {};
+    let resolveName: () => void = () => {};
+    upsertTemplate
+      .mockReturnValueOnce(new Promise<void>((r) => { resolveBody = r; }))
+      .mockReturnValueOnce(new Promise<void>((r) => { resolveName = r; }));
+    act(() => result.current.trackDraft("d", "body", "<p>Y</p>"));
+    let body: Promise<void> = Promise.resolve();
+    let name: Promise<void> = Promise.resolve();
+    act(() => { body = result.current.saveBody("d", "<p>Y</p>"); });
+    act(() => { name = result.current.rename("d", "B"); });
+    await act(async () => { resolveBody(); await body; });
+    await act(async () => { resolveName(); await name; });
+
+    // The last write to land carried Y: nothing puts the old body back.
+    expect(upsertTemplate).toHaveBeenLastCalledWith(CFG, expect.objectContaining({ name: "B", body: "<p>Y</p>" }));
+    expect(result.current.templates[0]).toEqual(expect.objectContaining({ name: "B", body: "<p>Y</p>" }));
+    await act(async () => { await result.current.saveBody("d", "<p>Z</p>"); });
+    expect(upsertTemplate).toHaveBeenLastCalledWith(CFG, expect.objectContaining({ name: "B", body: "<p>Z</p>" }));
   });
 
   // R18 (c). A stale landing must not become the `existing` of the next write.
@@ -251,14 +273,15 @@ describe("useCommTemplates — pending edits outbox", () => {
     await act(async () => { resolveName(); await name; });
     await act(async () => { resolveBody(); await body; });
 
-    // The row the newest write carried, which is what the server holds in issue order.
-    expect(result.current.templates[0]).toEqual(expect.objectContaining({ name: "B", body: "<p>hi</p>" }));
+    // The row the newest write carried — the new name AND the in-flight body (§653) — which is what the
+    // server holds in issue order; the older body save landing after it changes nothing.
+    expect(result.current.templates[0]).toEqual(expect.objectContaining({ name: "B", body: "<p>new</p>" }));
     act(() => result.current.trackDraft("d", "name", "D"));
     act(() => result.current.trackDraft("d", "body", "<p>draft</p>"));
     pagehide();
     expect(stored()).toEqual(expect.arrayContaining([
       expect.objectContaining({ kind: "template-name", base: "B" }),
-      expect.objectContaining({ kind: "template-body", base: "<p>hi</p>" }),
+      expect.objectContaining({ kind: "template-body", base: "<p>new</p>" }),
     ]));
 
     await act(async () => { await result.current.saveBody("d", "<p>third</p>"); });
