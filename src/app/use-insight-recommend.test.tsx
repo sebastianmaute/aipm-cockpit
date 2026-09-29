@@ -82,7 +82,7 @@ describe("useInsightRecommend", () => {
     const args = makeArgs();
     const { result } = renderHook(() => useInsightRecommend(args));
     await act(async () => { await result.current.generate(1); });
-    expect(args.onError).toHaveBeenCalledWith("limit");
+    expect(args.onError).toHaveBeenCalledWith("limit", expect.anything());
     expect(args.applyRecommendation).not.toHaveBeenCalled();
     expect(result.current.generatingId).toBeNull();
   });
@@ -92,7 +92,7 @@ describe("useInsightRecommend", () => {
     const args = makeArgs();
     const { result } = renderHook(() => useInsightRecommend(args));
     await act(async () => { await result.current.generate(1); });
-    expect(args.onError).toHaveBeenCalledWith("generic");
+    expect(args.onError).toHaveBeenCalledWith("generic", expect.anything());
   });
 
   it("does nothing in a popout or for an unknown insight", async () => {

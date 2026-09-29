@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { NextActionsSection } from "./next-actions-section";
 import { defaultSettings, defaultNextActionsConfig } from "../settings-types";
@@ -6,11 +6,12 @@ import { t } from "../i18n";
 import { expectNoLabelBoundToButton } from "../../test/label-binding";
 
 // Mock the AI hook so the AI-suggested column renders without any network call.
+const suggestState = vi.hoisted(() => ({ error: null as string | null }));
 vi.mock("../use-weight-suggestions", () => ({
   useWeightSuggestions: () => ({
     run: vi.fn(),
     busy: false,
-    error: null,
+    error: suggestState.error,
     clear: vi.fn(),
     result: {
       suggestions: [{ field: "clarityBonus", current: 15, suggested: 20, rationale: "act on clear" }],
@@ -175,5 +176,25 @@ describe("NextActionsSection AI weight suggestions", () => {
       />,
     );
     expectNoLabelBoundToButton();
+  });
+});
+
+describe("§650 weight suggestions — a refused key is not a network problem", () => {
+  afterEach(() => { suggestState.error = null; });
+
+  it.each([
+    ["401", "aiKeyRejected"],
+    ["403", "aiKeyForbidden"],
+  ] as const)("a %s shows %s, not the network message", (token, key) => {
+    suggestState.error = token;
+    render(<NextActionsSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} buildWeightSuggestionContext={() => "ctx"} />);
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", key));
+    expect(screen.queryByText(t("en-US", "weightSuggestErrorNetwork"))).toBeNull();
+  });
+
+  it("a network failure still says so (control)", () => {
+    suggestState.error = "network";
+    render(<NextActionsSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} buildWeightSuggestionContext={() => "ctx"} />);
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "weightSuggestErrorNetwork"));
   });
 });

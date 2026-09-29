@@ -22,6 +22,7 @@ import { type LogActivityAsFn } from "./activity-log-context";
 import { type UndoStackApi } from "./undo/use-undo-stack";
 import { useToastContext } from "./toast-context";
 import { AiHttpError, classifyAiError } from "./ai-errors";
+import { aiKeyMessageKeyForError } from "./ai-key-status";
 import { isAbortError } from "./abort-error";
 import { runDedupProposal } from "./task-dedup-call";
 import {
@@ -135,8 +136,13 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
     } catch (e) {
       if (reqId !== reqIdRef.current) return; // stale failure — ignore
       if (isAbortError(e)) return;
+      // §650 — a refused key (401/403) is named as the key problem, ahead of the response's own
+      // message ("invalid x-api-key"), which does not say what to do.
+      const keyMsg = aiKeyMessageKeyForError(e);
       if (e instanceof AiHttpError && classifyAiError(e.status, e.errorType) === "limit") {
         showToast("error", t(lang, "aiUsageLimitReached"));
+      } else if (keyMsg) {
+        showToast("error", t(lang, keyMsg));
       } else if (e instanceof AiHttpError && e.safeMessage) {
         // The response body's error.message carries no secret — safe to surface.
         showToast("error", e.safeMessage);

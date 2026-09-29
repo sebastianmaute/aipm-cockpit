@@ -361,3 +361,14 @@ describe("Step0ImportPanel SharePoint import", () => {
     expect(data).not.toContain("x()");
   });
 });
+
+describe("§650 AI project proposal — a refused key shows the key message", () => {
+  it.each([
+    ["401", "aiKeyRejected"],
+    ["403", "aiKeyForbidden"],
+  ] as const)("aiError %s shows %s, not the generic proposal error", (token, key) => {
+    render(<Step0ImportPanel {...baseProps} aiError={token} onIngest={vi.fn()} />);
+    expect(screen.getByText(t("en-US", key))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "aiCreateError"))).toBeNull();
+  });
+});

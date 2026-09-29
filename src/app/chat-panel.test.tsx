@@ -3243,3 +3243,35 @@ describe("cache-token usage recording", () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// §650 — a refused key reads as a KEY problem, not "Chat failed: 401 — invalid x-api-key".
+// ---------------------------------------------------------------------------
+describe("§650 a refused key shows the key message", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    [401, "authentication_error", "Claude rejected your Anthropic API key. Enter a new key in Settings → AI."],
+    [403, "permission_error", "Your Anthropic API key isn't allowed to make this request."],
+  ] as const)("a %i shows the key message instead of the raw failure", async (status, type, copy) => {
+    const body = { error: { type, message: "invalid x-api-key" } };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status,
+      json: () => Promise.resolve(body),
+      text: () => Promise.resolve(JSON.stringify(body)),
+    } as unknown as Response);
+
+    render(
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "list tasks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(copy);
+    expect(alert).not.toHaveTextContent(/Chat failed/i);
+    expect(alert).not.toHaveTextContent(/invalid x-api-key/);
+  });
+});

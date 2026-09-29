@@ -435,3 +435,14 @@ describe("ActionsPanel — fed grouped data from above (spec C)", () => {
     expect(screen.queryByRole("region", { name: /Do this first/i })).toBeNull();
   });
 });
+
+describe("§650 Analyze with AI — a refused key shows the key message", () => {
+  it.each([
+    ["401", "aiKeyRejected"],
+    ["403", "aiKeyForbidden"],
+  ] as const)("a %s shows %s, not the bare 'Analysis failed' status", (token, key) => {
+    render(<ActionsPanel lang="en-US" actions={[]} onOpen={vi.fn()} aiAnalysis={{ enabled: true, busy: false, error: token, result: null, onAnalyze: vi.fn(), onCancel: vi.fn(), onClear: vi.fn(), onActAi: vi.fn() }} />);
+    expect(screen.getByText(t("en-US", key))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "actionAiErrorStatus", token))).toBeNull();
+  });
+});

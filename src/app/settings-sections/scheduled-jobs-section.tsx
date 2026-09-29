@@ -9,6 +9,7 @@
 
 import { useState } from "react";
 import { type Lang, t, tPlural, type TranslationKey } from "../i18n";
+import { aiKeyMessageKeyForStatusToken } from "../ai-key-status";
 import { FieldHint } from "../field-hint";
 import { isAiEnabled, type Settings } from "../settings-types";
 import type { TursoConfig } from "../turso-config";
@@ -16,6 +17,14 @@ import { useScheduledJobs } from "../use-scheduled-jobs";
 import type { JobCadence, ScheduledJob } from "../scheduled-jobs/types";
 import { INTERACTIVE } from "../interaction-styles";
 import { Input, Select } from "../form-controls";
+
+/** A failed run's recorded error token as text. §650 — "401"/"403" name the refused key; the
+ *  token is the digit string the runner stores, so history recorded before this change reads the
+ *  same way. */
+function runFailureText(lang: Lang, error: string | undefined): string {
+  const keyMsg = aiKeyMessageKeyForStatusToken(error);
+  return keyMsg ? t(lang, keyMsg) : t(lang, "scheduledJobFailed", error ?? "");
+}
 
 export interface ScheduledJobsSectionProps {
   lang: Lang;
@@ -160,7 +169,7 @@ function JobRow({
               ? tPlural(lang, "scheduledJobActionsN", lastRun.actionCount, String(lastRun.actionCount))
               : lastRun.error === "limit"
                 ? t(lang, "aiUsageLimitReached")
-                : t(lang, "scheduledJobFailed", lastRun.error ?? "")}
+                : runFailureText(lang, lastRun.error)}
           </span>
         ) : (
           <span>{t(lang, "scheduledJobNeverRun")}</span>
@@ -187,7 +196,7 @@ function JobRow({
                     ? tPlural(lang, "scheduledJobActionsN", run.actionCount, String(run.actionCount))
                     : run.error === "limit"
                       ? t(lang, "aiUsageLimitReached")
-                      : t(lang, "scheduledJobFailed", run.error ?? "")}
+                      : runFailureText(lang, run.error)}
                 </li>
               ))}
             </ul>

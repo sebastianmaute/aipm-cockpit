@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import * as recommendCall from "./insights/recommend-call";
+import { AiHttpError } from "./ai-errors";
 import { useInsightRecommendations, type InsightRecommendationDeps } from "./use-insight-recommendations";
 import { entityToken } from "./ai-entity-token";
 import { t } from "./i18n";
@@ -294,4 +295,19 @@ it("DOES invoke the background runner's tick once the project load is no longer 
   renderHook(() => useInsightRecommendations(recommendationRunnerDeps(false, store)));
   await act(async () => {}); // flush the runner's mount-tick effect
   expect(generate).toHaveBeenCalled();
+});
+
+describe("§650 a refused key shows the key message on the insight recommendation toast", () => {
+  it.each([
+    [401, "aiKeyRejected"],
+    [403, "aiKeyForbidden"],
+  ] as const)("a %i toasts %s", async (status, key) => {
+    vi.spyOn(recommendCall, "runInsightRecommendation").mockRejectedValue(new AiHttpError(status));
+    const deps = mkDeps({ insights: [mkInsight()] });
+    const { result } = renderHook(() => useInsightRecommendations(deps));
+    await act(async () => { result.current.insightActions.onGenerateRecommendation(1); });
+    await act(async () => { await Promise.resolve(); });
+    expect(deps.showToast).toHaveBeenCalledWith("error", t("en-US", key));
+    expect(deps.showToast).not.toHaveBeenCalledWith("error", t("en-US", "insightRecommendationError"));
+  });
 });
