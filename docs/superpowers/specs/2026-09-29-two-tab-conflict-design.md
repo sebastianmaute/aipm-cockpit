@@ -45,6 +45,8 @@ Each backend instance holds `baseRevision`: what it last loaded or wrote. `backe
 
 **No revision yet** (data saved before this change): the first save treats the stored revision as 0, compares against a `baseRevision` of 0, and stamps 1. A backend whose load finds no revision sets `baseRevision = 0`.
 
+**Turso after §637.** §637 (in progress in another session, 2026-09-29) turns a transactional pipeline into one Hrana `batch` whose steps run only while every earlier step succeeded, with a conditional ROLLBACK. Once it merges, the compare moves INTO the batch as its first statement after BEGIN: a statement that fails when the stored revision differs from `baseRevision` (for example a `SELECT` that forces an SQL error on mismatch), so every later step is skipped and the batch rolls back. That makes the Turso check atomic against every writer, other devices included, and removes the SELECT-then-batch window. The plan builds the Turso part on the merged §637 and keeps the `withWriteLock` compare only as the fallback if the forced-error statement proves unreliable on a live database.
+
 **SharePoint `If-Match`** must be checked against a real tenant before this ships. If Graph ignores it on the content upload, the fallback is a metadata GET of the eTag under a Web Lock, compare, then PUT (atomic only within this browser), and the register says so.
 
 ### 3. The revision message
