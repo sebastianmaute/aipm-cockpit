@@ -911,14 +911,16 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       //   ★ §603 — and a write that CHOSE not to write (a picked-file write whose backend was replaced while
       //   it queued) settles "superseded", which a save it replaced inherits: the early return below then
       //   keeps the baselines, the unload-journal entry and the outcome for edits nothing wrote.
-      enqueueSave(backend, () => backend.save(outgoing)).then((result) => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
+      // §4 — the revision this save is checked against, read INSIDE the job right before the write: the job may wait behind others, and one replaced by a guarded write never runs it (`undefined`).
+      let baseRevision: string | null | undefined;
+      enqueueSave(backend, () => { baseRevision = backend.revision?.() ?? null; return backend.save(outgoing); }).then((result) => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
         if (result === "superseded") return;
         committedBaselineRef.current = { collections: curCollections, records: curRecords }; // the write landed: these are on disk now
         unloadJournal.noteSaveConfirmed(journalSavedAt, outgoing); // §629 — clears this tab's journal for it and rolls the base forward
         emitOutcome(null);
         // §4 — tell the windows mirroring this storage which revision the write produced, or their next save is refused as stale.
         const revision = backend.revision?.();
-        if (revision != null) postRevision(syncContext, revision);
+        if (baseRevision != null && revision != null) postRevision(syncContext, revision, baseRevision); // `undefined`: this job never ran (replaced, settled as saved) and wrote nothing
       }).catch((err) => {
         // ★★★ PUT THE BASELINES BACK — nothing was written, so the guard must not
         //   believe the destroyed counts are stored. Left adopted they disarm the
@@ -1064,8 +1066,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     () => (args.isPopout ? { role: "popout", openerId: readPopoutOpenerFromUrl() } : { role: "main", scope: syncScope, getEpoch: getScopeEpoch, isLoadedValue }),
     [args.isPopout, syncScope, getScopeEpoch, isLoadedValue],
   );
-  const adoptPeerRevision = useCallback((revision: string) => {
-    if (whenSaved(backend) !== null) return; // a running/queued save was built without the peer's slices; adopting would let it overwrite them, so it must meet the newer revision and pause
+  const adoptPeerRevision = useCallback((revision: string, baseRevision: string) => {
+    // Adopt only from the revision this window holds: `fromLoad` slices are not mirrored, so a window that missed a reload (or is paused on a real conflict) would otherwise adopt and then save its stale copy over it.
+    if (backend.revision?.() !== baseRevision) return; // also false for a null/absent revision: `baseRevision` is always a string
+    // Idle only: a running/queued save was built without the peer's slices and must meet the newer revision and pause. Residual: a save released by the 30 s stall timer (`SAVE_STALL_MS`) reads idle while still running — narrow, accepted.
+    if (whenSaved(backend) !== null) return;
     backend.adoptRevision?.(revision);
   }, [backend]);
   useRevisionSync(syncContext, adoptPeerRevision);

@@ -12,7 +12,7 @@ import type { StorageConfig } from "./storage";
 import { useStorageBackend } from "./use-storage-backend";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
 import { useBroadcastSync, useRevisionSync, postRevision, type SyncContext } from "./broadcast-sync";
-import { whenSaved } from "./save-queue";
+import { enqueueSave, whenSaved } from "./save-queue";
 import { useWorkspace } from "./workspace-context";
 import { TestProviders } from "./test-providers";
 import { useUndoStack } from "./undo/use-undo-stack";
@@ -483,11 +483,18 @@ describe("useStorageBackend — save effect", () => {
       await settle();
     };
 
-    it("posts backend.revision() after a confirmed save, under the window's sync context", async () => {
-      revisioned.revision = vi.fn(() => "42");
+    // The writer's revision follows its saves: `save` moves it from "1" to "2".
+    const trackRevision = () => {
+      let rev = "1";
+      revisioned.revision = vi.fn(() => rev);
+      mockBackend.save.mockImplementation(async () => { rev = "2"; });
+    };
+
+    it("posts the new revision and the revision the save was checked against, under the window's sync context", async () => {
+      trackRevision();
       await editOnce();
       const ctx = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[3] as SyncContext;
-      expect(postRevision).toHaveBeenCalledWith(ctx, "42");
+      expect(postRevision).toHaveBeenCalledWith(ctx, "2", "1");
     });
 
     it("posts nothing when the backend has no revision, or its revision is null", async () => {
@@ -506,48 +513,103 @@ describe("useStorageBackend — save effect", () => {
       expect(postRevision).not.toHaveBeenCalled();
     });
 
+    // A save replaced under settleReplacedAsOwn (a guardedWrite / pre-switch flush queued behind it) never
+    // runs its thunk yet resolves "saved"; it wrote nothing, so it must not announce a revision.
+    it("posts nothing for an autosave replaced by a guarded write", async () => {
+      trackRevision();
+      mockBackend.save.mockImplementation(() => new Promise<void>((resolve) => { finishPending = resolve; }));
+      const { result } = renderBackend();
+      await settle();
+      (postRevision as ReturnType<typeof vi.fn>).mockClear();
+      await act(async () => { result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]); });
+      await settle(); // autosave 1 is running and unsettled
+      await act(async () => { result.current.setTasks([{ id: 2, taskName: "T2" } as unknown as Task]); });
+      await settle(); // autosave 2 waits behind it
+      await act(async () => { void enqueueSave(mockBackend, async () => undefined, { settleReplacedAsOwn: true }); });
+      await act(async () => { finishPending?.(); await whenSaved(mockBackend); });
+      expect(postRevision).toHaveBeenCalledTimes(1); // autosave 1 alone; the replaced autosave 2 ran nothing
+    });
+
     it("adopts an incoming revision through backend.adoptRevision, under the same context", async () => {
       const adopt = vi.fn();
       revisioned.adoptRevision = adopt;
+      revisioned.revision = () => "2";
       renderBackend();
       await settle();
       const calls = (useRevisionSync as ReturnType<typeof vi.fn>).mock.calls;
-      const [ctx, onRevision] = calls.at(-1) as [SyncContext, (rev: string) => void];
+      const [ctx, onRevision] = calls.at(-1) as [SyncContext, (rev: string, base: string) => void];
       expect(ctx).toBe((useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[3]);
-      onRevision("9");
-      expect(adopt).toHaveBeenCalledWith("9");
+      onRevision("3", "2");
+      expect(adopt).toHaveBeenCalledWith("3");
     });
 
-    const latestOnRevision = () => (useRevisionSync as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1] as (rev: string) => void;
+    const latestOnRevision = () => (useRevisionSync as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1] as (rev: string, base: string) => void;
+
+    // The Critical: a window that does not hold the state a revision was written from (it missed a
+    // `fromLoad` slice, or is paused on a real conflict) must not adopt it, or its next save writes stale data.
+    it("does NOT adopt a revision whose base is not the revision this window holds", async () => {
+      const adopt = vi.fn();
+      revisioned.adoptRevision = adopt;
+      revisioned.revision = () => "1";
+      renderBackend();
+      await settle();
+      act(() => { latestOnRevision()("3", "2"); });
+      expect(adopt).not.toHaveBeenCalled();
+    });
+
+    it("does NOT adopt when this window has no revision of its own", async () => {
+      const adopt = vi.fn();
+      revisioned.adoptRevision = adopt;
+      revisioned.revision = () => null;
+      renderBackend();
+      await settle();
+      act(() => { latestOnRevision()("3", "2"); });
+      expect(adopt).not.toHaveBeenCalled();
+    });
+
+    it("adopts a chain: each message's base is the revision the receiver holds after the previous adopt", async () => {
+      let held = "2";
+      revisioned.revision = () => held;
+      const adopt = vi.fn((rev: string) => { held = rev; });
+      revisioned.adoptRevision = adopt;
+      renderBackend();
+      await settle();
+      act(() => { latestOnRevision()("3", "2"); });
+      act(() => { latestOnRevision()("4", "3"); });
+      act(() => { latestOnRevision()("6", "5"); }); // a gap: not held
+      expect(adopt.mock.calls.map((c) => c[0])).toEqual(["3", "4"]);
+    });
 
     // A save running or queued was built from a workspace that may lack the peer's slices; adopting would
     // let it pass the revision check and overwrite them. Left alone it meets the newer revision and pauses.
     it("does NOT adopt while a save of its own is in flight", async () => {
       const adopt = vi.fn();
       revisioned.adoptRevision = adopt;
+      revisioned.revision = () => "2";
       mockBackend.save.mockImplementation(() => new Promise<void>((resolve) => { finishPending = resolve; }));
       const { result } = renderBackend();
       await settle();
       await act(async () => { result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]); });
       await settle(); // the debounced save has started and never settles
       expect(mockBackend.save).toHaveBeenCalled();
-      act(() => { latestOnRevision()("9"); });
+      act(() => { latestOnRevision()("9", "2"); });
       expect(adopt).not.toHaveBeenCalled();
       await act(async () => { finishPending?.(); await Promise.resolve(); });
-      act(() => { latestOnRevision()("10"); });
+      act(() => { latestOnRevision()("10", "2"); });
       expect(adopt).toHaveBeenCalledWith("10"); // idle again
     });
 
     it("saves the peer's mirrored slice, not the pending snapshot, after adopting while idle", async () => {
       const adopt = vi.fn();
       revisioned.adoptRevision = adopt;
+      revisioned.revision = () => "2";
       const { result } = renderBackend();
       await settle();
       mockBackend.save.mockClear();
       await act(async () => { result.current.setTasks([{ id: 1, taskName: "mine" } as unknown as Task]); });
       const applyTasks = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.filter((c) => c[0] === "tasks").at(-1)![2] as (v: Task[]) => void;
       await act(async () => { applyTasks([{ id: 2, taskName: "peer" } as unknown as Task]); });
-      act(() => { latestOnRevision()("9"); }); // debounce still pending: queue idle
+      act(() => { latestOnRevision()("9", "2"); }); // debounce still pending: queue idle
       expect(adopt).toHaveBeenCalledWith("9");
       await act(async () => { vi.advanceTimersByTime(600); });
       await act(async () => { await Promise.resolve(); });
@@ -556,10 +618,10 @@ describe("useStorageBackend — save effect", () => {
     });
 
     it("tolerates a backend without adoptRevision", async () => {
+      revisioned.revision = () => "2";
       renderBackend();
       await settle();
-      const [, onRevision] = (useRevisionSync as ReturnType<typeof vi.fn>).mock.calls.at(-1) as [SyncContext, (rev: string) => void];
-      expect(() => onRevision("9")).not.toThrow();
+      expect(() => latestOnRevision()("3", "2")).not.toThrow();
     });
   });
 

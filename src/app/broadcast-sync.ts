@@ -193,13 +193,13 @@ export function useBroadcastSync<T>(
 const REVISION_KIND = "__revision";
 const REVISION_CLIENT_ID = newClientId();
 
-type RevisionMessage = { clientId: string; windowId: string; kind: typeof REVISION_KIND; scope: string | null; revision: string };
+type RevisionMessage = { clientId: string; windowId: string; kind: typeof REVISION_KIND; scope: string | null; revision: string; baseRevision: string };
 
-/** Tells the other windows on this storage which revision a confirmed save produced. Main windows with a scope only. */
-export function postRevision(sync: SyncContext, revision: string): void {
+/** Tells the other windows on this storage which revision a confirmed save produced, and the revision that save was checked against. Main windows with a scope only. */
+export function postRevision(sync: SyncContext, revision: string, baseRevision: string): void {
   if (typeof BroadcastChannel === "undefined") return;
   if (sync.role !== "main" || sync.scope === null) return;
-  const msg: RevisionMessage = { clientId: REVISION_CLIENT_ID, windowId: getWindowId(), kind: REVISION_KIND, scope: sync.scope, revision };
+  const msg: RevisionMessage = { clientId: REVISION_CLIENT_ID, windowId: getWindowId(), kind: REVISION_KIND, scope: sync.scope, revision, baseRevision };
   const channel = new BroadcastChannel(CHANNEL_NAME);
   try {
     channel.postMessage(msg);
@@ -209,7 +209,7 @@ export function postRevision(sync: SyncContext, revision: string): void {
 }
 
 /** Calls `onRevision` for a revision another window on the same scope announced. Mirrors `useBroadcastSync`'s main-window gates. */
-export function useRevisionSync(sync: SyncContext, onRevision: (revision: string) => void): void {
+export function useRevisionSync(sync: SyncContext, onRevision: (revision: string, baseRevision: string) => void): void {
   const syncRef = useRef(sync);
   const committedEpochRef = useRef(sync.role === "main" ? sync.getEpoch() : 0);
   useLayoutEffect(() => {
@@ -222,12 +222,12 @@ export function useRevisionSync(sync: SyncContext, onRevision: (revision: string
     const onMessage = (ev: MessageEvent<Partial<RevisionMessage>>) => {
       const msg = ev.data;
       if (!msg || msg.kind !== REVISION_KIND || msg.clientId === REVISION_CLIENT_ID) return;
-      if (typeof msg.revision !== "string") return;
+      if (typeof msg.revision !== "string" || typeof msg.baseRevision !== "string") return;
       const ctx = syncRef.current;
       if (ctx.role !== "main") return;
       if (ctx.scope === null || msg.scope !== ctx.scope) return;
       if (ctx.getEpoch() !== committedEpochRef.current) return;
-      onRevision(msg.revision);
+      onRevision(msg.revision, msg.baseRevision);
     };
     channel.addEventListener("message", onMessage);
     return () => {

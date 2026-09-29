@@ -141,12 +141,13 @@ describe("useBroadcastSync", () => {
 // next save would be refused as stale.
 describe("revision message (§4)", () => {
   const raw = (msg: Record<string, unknown>) =>
-    new BroadcastChannel("aipm-cockpit:sync").postMessage({ clientId: "other-client", windowId: "other-window", kind: "__revision", scope: "p", revision: "7", ...msg });
+    new BroadcastChannel("aipm-cockpit:sync").postMessage({ clientId: "other-client", windowId: "other-window", kind: "__revision", scope: "p", revision: "7", baseRevision: "6", ...msg });
   function revisionReceiver(initialCtx: SyncContext) {
     const adopted: string[] = [];
-    const onRevision = (rev: string) => { adopted.push(rev); };
+    const bases: string[] = [];
+    const onRevision = (rev: string, base: string) => { adopted.push(rev); bases.push(base); };
     const hook = renderHook(({ ctx }: { ctx: SyncContext }) => useRevisionSync(ctx, onRevision), { initialProps: { ctx: initialCtx } });
-    return { adopted, rerender: (ctx: SyncContext) => hook.rerender({ ctx }) };
+    return { adopted, bases, rerender: (ctx: SyncContext) => hook.rerender({ ctx }) };
   }
 
   describe("receiving", () => {
@@ -154,8 +155,9 @@ describe("revision message (§4)", () => {
 
     it("adopts a revision sent for the same non-null scope", () => {
       const r = revisionReceiver(main("p"));
-      raw({ revision: "7" });
+      raw({ revision: "7", baseRevision: "6" });
       expect(r.adopted).toEqual(["7"]);
+      expect(r.bases).toEqual(["6"]); // the callback gets the revision the writer checked against
     });
 
     it("ignores another scope, a null scope and a non-revision kind", () => {
@@ -173,6 +175,8 @@ describe("revision message (§4)", () => {
       const r = revisionReceiver(main("p"));
       raw({ revision: 7 });
       raw({ revision: undefined });
+      raw({ baseRevision: 6 });
+      raw({ baseRevision: undefined });
       expect(r.adopted).toEqual([]);
     });
 
@@ -204,7 +208,7 @@ describe("revision message (§4)", () => {
 
     it("ignores this page's own post", () => {
       const r = revisionReceiver(main("p"));
-      postRevision(main("p"), "5");
+      postRevision(main("p"), "5", "4");
       expect(r.adopted).toEqual([]);
     });
   });
@@ -215,14 +219,14 @@ describe("revision message (§4)", () => {
       vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel as unknown as typeof BroadcastChannel);
     });
 
-    it("posts exactly clientId, windowId, kind, scope and revision from a main window", () => {
-      postRevision(main("p"), "5");
-      expect(posted).toEqual([{ clientId: expect.any(String), windowId: getWindowId(), kind: "__revision", scope: "p", revision: "5" }]);
+    it("posts exactly clientId, windowId, kind, scope, revision and baseRevision from a main window", () => {
+      postRevision(main("p"), "5", "4");
+      expect(posted).toEqual([{ clientId: expect.any(String), windowId: getWindowId(), kind: "__revision", scope: "p", revision: "5", baseRevision: "4" }]);
     });
 
     it("never posts from a pop-out, nor for a null scope", () => {
-      postRevision(popout(getWindowId()), "5");
-      postRevision(main(null), "5");
+      postRevision(popout(getWindowId()), "5", "4");
+      postRevision(main(null), "5", "4");
       expect(posted).toEqual([]);
     });
   });
