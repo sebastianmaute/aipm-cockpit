@@ -7,6 +7,7 @@ import { defaultTimelogConfig } from "./timelog-types";
 import { sealDevice, sealPassphrase, SECRET_IDS } from "./secrets";
 import { saveSealed } from "./secrets-store";
 import * as secretsStoreModule from "./secrets-store";
+import { __resetAiKeyStatusForTests, getAiKeyStatus } from "./ai-key-status";
 
 afterEach(() => {
   localStorage.clear();
@@ -158,5 +159,43 @@ describe("on-load unreadable-secret probe", () => {
       const probed = spy.mock.calls.map((call) => call[0]).sort();
       expect(probed).toEqual([...SECRET_IDS].sort());
     });
+  });
+});
+
+describe("§650 — the unreadable probe feeds the AI key verdict for the Anthropic key only", () => {
+  async function mountWithUnreadable(ids: readonly string[]) {
+    __resetAiKeyStatusForTests();
+    writeSettings(defaultSettings);
+    vi.spyOn(secretsStoreModule, "probeDeviceSecretReadable").mockImplementation(async (id) =>
+      ids.includes(id) ? "unreadable" : "empty",
+    );
+    const events: Event[] = [];
+    const onEvent = (e: Event) => events.push(e);
+    window.addEventListener("aipm-cockpit-secret-unreadable", onEvent);
+    const { result } = renderHook(() => useSettings());
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    // Let the post-hydration probe settle.
+    await waitFor(() => expect(secretsStoreModule.probeDeviceSecretReadable).toHaveBeenCalledTimes(SECRET_IDS.length));
+    await act(async () => { await Promise.resolve(); });
+    window.removeEventListener("aipm-cockpit-secret-unreadable", onEvent);
+    return events;
+  }
+
+  it("an unreadable Anthropic key sets the verdict to unreadable — and no generic toast event", async () => {
+    const events = await mountWithUnreadable(["anthropicApiKey"]);
+    await waitFor(() => expect(getAiKeyStatus()).toBe("unreadable"));
+    expect(events).toHaveLength(0);
+  });
+
+  it("another unreadable secret keeps the generic event and leaves the AI verdict alone", async () => {
+    const events = await mountWithUnreadable(["jiraApiToken"]);
+    await waitFor(() => expect(events).toHaveLength(1));
+    expect(getAiKeyStatus()).toBe("unknown");
+  });
+
+  it("both unreadable → the AI verdict AND the generic event (for the other secret)", async () => {
+    const events = await mountWithUnreadable(["anthropicApiKey", "tursoAuthToken"]);
+    await waitFor(() => expect(getAiKeyStatus()).toBe("unreadable"));
+    expect(events).toHaveLength(1);
   });
 });

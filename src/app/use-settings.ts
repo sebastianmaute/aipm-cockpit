@@ -15,6 +15,7 @@ import { isPlainObject } from "./sanitize";
 import { isSafeMode } from "./safe-mode";
 import { migratePlaintextSecrets, readDeviceSecret, probeDeviceSecretReadable } from "./secrets-store";
 import { SECRET_IDS } from "./secrets";
+import { reportAiKeyUnreadable } from "./ai-key-status";
 import { dropLegacyActivityLog } from "./activity-log";
 import { sanitizeJiraExtraProjects } from "./jira-projects";
 import { logDiag } from "./diagnostics";
@@ -455,7 +456,12 @@ export function useSettings(): {
               try {
                 // §567 — every sealed id, from the one runtime list (see secrets.ts).
                 const states = await Promise.all(SECRET_IDS.map((id) => probeDeviceSecretReadable(id)));
-                if (states.some((s) => s === "unreadable")) {
+                // §650 — the Anthropic key gets its OWN, persistent surface (the AI key banner +
+                // the Settings → AI notice, via the in-memory verdict), so it is taken out of the
+                // one-shot generic toast, which stays for the other secrets.
+                const unreadable = SECRET_IDS.filter((_, i) => states[i] === "unreadable");
+                if (unreadable.includes("anthropicApiKey")) reportAiKeyUnreadable();
+                if (unreadable.some((id) => id !== "anthropicApiKey")) {
                   window.dispatchEvent(new CustomEvent("aipm-cockpit-secret-unreadable"));
                 }
               } catch { /* probe is best-effort; never block hydration */ }

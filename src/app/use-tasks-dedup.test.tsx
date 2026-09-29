@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { AiHttpError } from "./ai-errors";
+import { t } from "./i18n";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { useTasksDedup } from "./use-tasks-dedup";
@@ -248,5 +250,19 @@ describe("useTasksDedup (plan-then-apply)", () => {
     // The hook returns at `isAbortError(e)` — BEFORE the `setPhase("idle")`
     // further down — so the preview must never open on this path.
     expect(screen.queryByRole("button", { name: /merge selected/i })).toBeNull();
+  });
+});
+
+describe("useTasksDedup — §650 a refused key shows the key message", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  it.each([
+    [401, "aiKeyRejected"],
+    [403, "aiKeyForbidden"],
+  ] as const)("a %i toasts %s, not the response's own message", async (status, key) => {
+    vi.mocked(call.runDedupProposal).mockRejectedValue(new AiHttpError(status, "authentication_error", "invalid x-api-key"));
+    renderHarness();
+    fireEvent.click(screen.getByRole("button", { name: "Deduplicate & unify" }));
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", key)));
+    expect(showToast).not.toHaveBeenCalledWith("error", "invalid x-api-key");
   });
 });

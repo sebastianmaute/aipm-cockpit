@@ -120,6 +120,31 @@ export function StorageBanner({
   );
 }
 
+/** §650 — the saved Anthropic API key was rejected (401), is not allowed (403), or cannot be read
+ *  on this device. Mirrors `StorageBanner`: one action into Settings → AI, and a dismiss that
+ *  holds for this page only (the verdict is re-derived on the next load). */
+export function AiKeyBanner({
+  status, lang, onOpenSettings, onDismiss,
+}: { status: "rejected" | "forbidden" | "unreadable"; lang: Lang; onOpenSettings: () => void; onDismiss: () => void }) {
+  const msg =
+    status === "rejected"
+      ? t(lang, "aiKeyRejected")
+      : status === "forbidden"
+        ? t(lang, "aiKeyForbidden")
+        : t(lang, "aiKeyUnreadable");
+  return (
+    <AlertBanner severity="error" ariaLabel={t(lang, "aiKeyBannerAria")} icon="⚠"
+      actions={<>
+        <Button variant="primary" size="xs" onClick={onOpenSettings}>
+          {t(lang, "aiKeyOpenSettings")}
+        </Button>
+        <DismissButton lang={lang} onClick={onDismiss} />
+      </>}>
+      <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{msg}</p>
+    </AlertBanner>
+  );
+}
+
 /** §629 — the unload journal's conflict notice: the last session's unsaved changes were kept
  *  but not applied, because the project changed elsewhere since. No dismiss: it stays until the
  *  user decides, since the journal it describes stays in storage until then. */

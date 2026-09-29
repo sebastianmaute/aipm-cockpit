@@ -2303,6 +2303,12 @@ export const de: Record<TranslationKey, string> = {
   aiKeyInvalid: "Das sieht nicht wie ein gültiger Anthropic-API-Schlüssel aus (sk-ant-…). Er wurde nicht gespeichert.",
   aiModelTooltip: "Welches Claude-Modell der Assistent verwendet.",
   aiModelNeedsKey: "Geben Sie einen gültigen Anthropic-API-Schlüssel ein, um verfügbare Modelle zu laden.",
+  aiKeyRejected: "Claude hat Ihren Anthropic-API-Schlüssel abgelehnt. Geben Sie unter Einstellungen → KI einen neuen Schlüssel ein.",
+  aiKeyForbidden:
+    "Ihr Anthropic-API-Schlüssel darf diese Anfrage nicht ausführen. Prüfen Sie die Berechtigungen des Schlüssels in der Anthropic Console, oder geben Sie unter Einstellungen → KI einen anderen Schlüssel ein.",
+  aiKeyUnreadable: "Ihr gespeicherter Anthropic-API-Schlüssel konnte auf diesem Gerät nicht gelesen werden. Geben Sie ihn unter Einstellungen → KI erneut ein.",
+  aiKeyOpenSettings: "KI-Einstellungen öffnen",
+  aiKeyBannerAria: "Problem mit dem Anthropic-API-Schlüssel",
   inlineAiEdit: "Claude fragen",
   inlineAiEditTitle: "Claude bitten, diese Aufgabe zu bearbeiten",
   inlineAiEditPlaceholder: "z. B. Fälligkeit um 3 Tage verschieben, auf In Arbeit setzen, Marco zuweisen",

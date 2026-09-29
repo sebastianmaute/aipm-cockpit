@@ -4,6 +4,7 @@
 // handlers read live deps each call. Returns undefined in popouts (read-only).
 import { useRef, useState } from "react";
 import { t, type Lang } from "./i18n";
+import { aiKeyMessageKeyForError } from "./ai-key-status";
 import type { SteeringCommittee, Resource } from "./types";
 import type { Settings } from "./settings-types";
 import { isAiEnabled } from "./settings-types";
@@ -168,12 +169,12 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
       if (ctrl.signal.aborted) return;
       // onSaveReport sanitizes (AI output is untrusted) before it lands.
       onSaveReport(meetingId, html);
-    } catch {
+    } catch (e) {
       // A user stop is not a failure — no toast (§125).
       if (ctrl.signal.aborted) return;
       // Status-only — never surface the response body (runMeetingReport already
-      // throws status-digits/"parse" only).
-      deps.showToast("error", t(deps.lang, "reportGenerateFailed"));
+      // throws status-digits/"parse" only). §650 — a refused key (401/403) names the key.
+      deps.showToast("error", t(deps.lang, aiKeyMessageKeyForError(e) ?? "reportGenerateFailed"));
     } finally {
       if (generateCtrlRef.current === ctrl) generateCtrlRef.current = null;
       setGenerateBusyMeetingId(null);

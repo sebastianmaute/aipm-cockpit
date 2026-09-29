@@ -1,4 +1,6 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import { __resetAiKeyStatusForTests, getAiKeyStatus } from "./ai-key-status";
+import { AiHttpError } from "./ai-errors";
 import { asTimeZoneForTests } from "./timezone";
 import {
   buildSystemPrompt,
@@ -482,5 +484,46 @@ describe("callClaude", () => {
     const res = await callClaude("k", "claude-sonnet-5", [], [], {});
     expect(res.usage.cache_creation_input_tokens).toBe(0);
     expect(res.usage.cache_read_input_tokens).toBe(0);
+  });
+});
+
+describe("callClaude — §650 reports the key verdict at the envelope", () => {
+  const KEY = "sk-ant-api03-EnvelopeKey0000000000";
+  beforeEach(() => __resetAiKeyStatusForTests());
+  afterEach(() => vi.unstubAllGlobals());
+
+  function stubStatus(status: number) {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: status >= 200 && status < 300,
+      status,
+      json: async () => (status === 200
+        ? { content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1 } }
+        : { error: { type: status === 401 ? "authentication_error" : "permission_error", message: "x" } }),
+    }));
+  }
+
+  it.each([
+    [401, "rejected"],
+    [403, "forbidden"],
+  ] as const)("a %i reports %s", async (status, expected) => {
+    stubStatus(status);
+    await expect(callClaude(KEY, "claude-sonnet-5", [], [], {})).rejects.toBeInstanceOf(AiHttpError);
+    expect(getAiKeyStatus()).toBe(expected);
+  });
+
+  it("a 200 reports ok", async () => {
+    stubStatus(401);
+    await expect(callClaude(KEY, "claude-sonnet-5", [], [], {})).rejects.toBeInstanceOf(AiHttpError);
+    stubStatus(200);
+    await callClaude(KEY, "claude-sonnet-5", [], [], {});
+    expect(getAiKeyStatus()).toBe("ok");
+  });
+
+  it("a network failure leaves the verdict unchanged", async () => {
+    stubStatus(401);
+    await expect(callClaude(KEY, "claude-sonnet-5", [], [], {})).rejects.toBeInstanceOf(AiHttpError);
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    await expect(callClaude(KEY, "claude-sonnet-5", [], [], {})).rejects.toBeInstanceOf(TypeError);
+    expect(getAiKeyStatus()).toBe("rejected");
   });
 });

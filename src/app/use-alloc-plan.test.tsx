@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { AiHttpError } from "./ai-errors";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { useState } from "react";
 import { useAllocPlan } from "./use-alloc-plan";
@@ -399,5 +400,20 @@ describe("useAllocPlan (plan-then-apply)", () => {
     // Second toggle: back to the original selection.
     fireEvent.click(checkbox);
     expect(checkbox).toBeChecked();
+  });
+});
+
+describe("useAllocPlan — §650 a refused key shows the key message", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  it.each([
+    [401, "aiKeyRejected"],
+    [403, "aiKeyForbidden"],
+  ] as const)("a %i toasts %s, not the response's own message", async (status, key) => {
+    vi.mocked(call.runAllocProposal).mockRejectedValue(new AiHttpError(status, "authentication_error", "invalid x-api-key"));
+    renderHarness();
+    openAndType();
+    fireEvent.click(screen.getByRole("button", { name: /^propose$/i }));
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", key)));
+    expect(showToast).not.toHaveBeenCalledWith("error", "invalid x-api-key");
   });
 });

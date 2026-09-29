@@ -56,6 +56,7 @@ import {
 } from "./chat-api";
 import { buildWireMessages } from "./chat-cache-layout";
 import { AiHttpError, classifyAiError } from "./ai-errors";
+import { aiKeyMessageKeyForError, syncAiKey } from "./ai-key-status";
 import { ToolBlock } from "./chat-tool-block";
 import type { TursoConfig } from "./turso-config";
 import { dropStaleScopeWrite, isScopeStale, type ScopeEpochReader } from "./scope-epoch";
@@ -1010,6 +1011,7 @@ function ChatPanelInner({
       // Suppress when the user switched project or thread mid-send (the abort/
       // error belongs to the old conversation, not the one now on screen).
       if (projectIdRef.current === sendProjectId && chatThreads.threadIdRef.current === sendThreadId) {
+        const keyMsg = aiKeyMessageKeyForError(err);
         if (errName === "AbortError") {
           setDisplay((prev) => [
             ...prev,
@@ -1025,6 +1027,10 @@ function ChatPanelInner({
             ...prev,
             { kind: "notice", text: t(lang, "aiUsageLimitReached") },
           ]);
+        } else if (keyMsg) {
+          // §650 — a refused key (401/403) is named as the KEY problem, with the way out,
+          // instead of "Chat failed: 401 — invalid x-api-key".
+          setError(t(lang, keyMsg));
         } else {
           // AiHttpError.message is status-only ("400"); its `safeMessage` (the
           // sanitized RESPONSE error.message, e.g. "prompt is too long: N > M")
@@ -1240,6 +1246,10 @@ function ChatPanelInner({
     const v = await unlockSecret("anthropicApiKey", unlockPass);
     if (v) {
       setUnlockedKey(v);
+      // §650 — a passphrase-wrapped key reads "" in settings, so the verdict's live key is ""; make
+      // the unlocked key the live one, or every report made with it is dropped as stale. In memory
+      // only — the store never persists it.
+      syncAiKey(v);
       setUnlockPass("");
       setUnlockError(false);
     } else {

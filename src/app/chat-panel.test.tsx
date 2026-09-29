@@ -3,6 +3,7 @@ import { asTimeZoneForTests } from "./timezone";
 import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import { __resetAiKeyStatusForTests, getAiKeyStatus, syncAiKey } from "./ai-key-status";
 import { useState } from "react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -3241,5 +3242,77 @@ describe("cache-token usage recording", () => {
     expect(recordSpy).toHaveBeenCalledWith(
       expect.objectContaining({ cacheRead: 2000, cacheWrite: 500 }),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §650 — a refused key reads as a KEY problem, not "Chat failed: 401 — invalid x-api-key".
+// ---------------------------------------------------------------------------
+describe("§650 a refused key shows the key message", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    [401, "authentication_error", "Claude rejected your Anthropic API key. Enter a new key in Settings → AI."],
+    [403, "permission_error", "Your Anthropic API key isn't allowed to make this request."],
+  ] as const)("a %i shows the key message instead of the raw failure", async (status, type, copy) => {
+    const body = { error: { type, message: "invalid x-api-key" } };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status,
+      json: () => Promise.resolve(body),
+      text: () => Promise.resolve(JSON.stringify(body)),
+    } as unknown as Response);
+
+    render(
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "list tasks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(copy);
+    expect(alert).not.toHaveTextContent(/Chat failed/i);
+    expect(alert).not.toHaveTextContent(/invalid x-api-key/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §650 fix round — a passphrase-UNLOCKED key is the live key for the verdict. The settings key reads
+// "" for a passphrase-wrapped record, so task-manager syncs "" and, without the panel syncing the
+// unlocked key, every report made with it would be dropped as stale.
+// ---------------------------------------------------------------------------
+describe("§650 a passphrase-unlocked key feeds the key verdict", () => {
+  beforeEach(() => __resetAiKeyStatusForTests());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it("an unlocked key rejected with 401 sets the verdict to rejected", async () => {
+    await saveSealed(await sealPassphrase("anthropicApiKey", "sk-ant-api03-UnlockedKey0000000000", "pw"));
+    syncAiKey(""); // what task-manager syncs for a passphrase-wrapped key
+    const body = { error: { type: "authentication_error", message: "invalid x-api-key" } };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve(body),
+      text: () => Promise.resolve(JSON.stringify(body)),
+    } as unknown as Response);
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "" }}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(/^passphrase$/i), { target: { value: "pw" } });
+    fireEvent.click(screen.getByRole("button", { name: /^unlock$/i }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: /^unlock$/i })).toBeNull());
+    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "list tasks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await screen.findByRole("alert");
+    expect(getAiKeyStatus()).toBe("rejected");
   });
 });

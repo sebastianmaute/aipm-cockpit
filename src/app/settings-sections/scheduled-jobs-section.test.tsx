@@ -150,4 +150,20 @@ describe("ScheduledJobsSection", () => {
     setup(withKey({ scheduledJobs: true }));
     expect(screen.getByText(/Run failed \(429\)/)).toBeInTheDocument();
   });
+
+  it.each([
+    ["401", "aiKeyRejected"],
+    ["403", "aiKeyForbidden"],
+  ] as const)("§650 a run that failed with %s shows %s, not the bare status", (token, key) => {
+    mockJobs = [
+      job({
+        id: 1,
+        name: "Alpha",
+        history: [{ ranAt: "2026-06-18T09:00:00Z", summary: "", actionCount: 0, ok: false, error: token }],
+      }),
+    ];
+    setup(withKey({ scheduledJobs: true }));
+    expect(screen.getByText(t("en-US", key), { exact: false })).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "scheduledJobFailed", token), { exact: false })).toBeNull();
+  });
 });

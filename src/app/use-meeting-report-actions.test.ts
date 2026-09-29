@@ -4,6 +4,8 @@ import { useMeetingReportActions, type MeetingReportActionsDeps } from "./use-me
 import type { SteeringCommittee, Resource } from "./types";
 import type { DashboardModel } from "./dashboard";
 import { defaultSettings } from "./settings-types";
+import { AiHttpError } from "./ai-errors";
+import { t } from "./i18n";
 
 const sendMail = vi.fn<(token: string, msg: unknown) => Promise<void>>(async () => {});
 const runMeetingReport = vi.fn<() => Promise<string>>(async () => "<p>ai draft</p>");
@@ -219,5 +221,19 @@ describe("useMeetingReportActions", () => {
   it("loadVersions returns [] on file backends", async () => {
     const { result } = renderHook(() => useMeetingReportActions(makeDeps()));
     await expect(result.current!.loadVersions(10)).resolves.toEqual([]);
+  });
+});
+
+describe("§650 a refused key shows the key message on the report draft toast", () => {
+  it.each([
+    [401, "aiKeyRejected"],
+    [403, "aiKeyForbidden"],
+  ] as const)("a %i toasts %s instead of 'Could not draft the report'", async (status, key) => {
+    runMeetingReport.mockRejectedValueOnce(new AiHttpError(status));
+    const showToast = vi.fn();
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ showToast })));
+    await act(async () => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", key)));
+    expect(showToast).not.toHaveBeenCalledWith("error", t("en-US", "reportGenerateFailed"));
   });
 });

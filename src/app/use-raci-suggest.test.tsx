@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { AiHttpError } from "./ai-errors";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { foldCellsByStakeholder, useRaciSuggest } from "./use-raci-suggest";
@@ -392,5 +393,19 @@ describe("useRaciSuggest (plan-then-apply)", () => {
     fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("info", expect.stringMatching(/no assignments/i)));
     expect(screen.queryByRole("button", { name: /apply selected/i })).toBeNull();
+  });
+});
+
+describe("useRaciSuggest — §650 a refused key shows the key message", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  it.each([
+    [401, "aiKeyRejected"],
+    [403, "aiKeyForbidden"],
+  ] as const)("a %i toasts %s, not the response's own message", async (status, key) => {
+    vi.mocked(call.runRaciSuggestion).mockRejectedValue(new AiHttpError(status, "authentication_error", "invalid x-api-key"));
+    renderHarness();
+    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", key)));
+    expect(showToast).not.toHaveBeenCalledWith("error", "invalid x-api-key");
   });
 });

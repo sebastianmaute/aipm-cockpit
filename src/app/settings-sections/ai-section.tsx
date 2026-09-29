@@ -12,7 +12,9 @@ import {
   clampInsightRecInterval,
 } from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
-import { FieldNotice } from "../field-feedback";
+import { FieldError, FieldNotice } from "../field-feedback";
+import { aiKeyMessageKey } from "../ai-key-status";
+import { useAiKeyStatus } from "../use-ai-key-check";
 import { Banner } from "../banner";
 import { FieldHint } from "../field-hint";
 import { AiUsagePanel } from "./ai-usage-panel";
@@ -96,6 +98,12 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const confirm = useConfirm();
   const showToast = useToastContext();
   const { options: modelOptions, loaded: modelsLoaded } = useChatModels(settings.ai.apiKey, settings.ai.enabled === true, settings.ai.model);
+  // §650 — the in-memory key verdict (rejected / forbidden / unreadable), shown beside the key field
+  // and, for a key that IS present but was refused, in place of the "enter a valid key" model hint.
+  const apiKeyStatusId = useId();
+  const keyStatusMsg = aiKeyMessageKey(useAiKeyStatus());
+  const modelHintKey =
+    keyStatusMsg && keyStatusMsg !== "aiKeyUnreadable" && settings.ai.apiKey.trim() ? keyStatusMsg : "aiModelNeedsKey";
   const sessionCap = settings.ai.sessionTokenCap ?? DEFAULT_SESSION_TOKEN_CAP;
   const weeklyCap = settings.ai.weeklyTokenCap ?? DEFAULT_WEEKLY_TOKEN_CAP;
 
@@ -256,9 +264,11 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
             onChange={(e) => handleApiKeyChange(e.target.value)}
             onBlur={handleApiKeyBlur}
             placeholder={t(lang, "aiApiKeyPlaceholder")}
-            aria-describedby={apiKeyNoteId}
+            aria-describedby={keyStatusMsg ? `${apiKeyStatusId} ${apiKeyNoteId}` : apiKeyNoteId}
+            aria-invalid={keyStatusMsg ? true : undefined}
           />
         </HintedLabel>
+        {keyStatusMsg && <FieldError id={apiKeyStatusId}>{t(lang, keyStatusMsg)}</FieldError>}
         <FieldNotice id={apiKeyNoteId}>{t(lang, "credentialStorageNote")}</FieldNotice>
       </div>
       <div className="mt-2">
@@ -346,7 +356,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       </HintedLabel>
       {!modelsLoaded && (
         <FieldHint id={modelHintId} className="mt-1">
-          {t(lang, "aiModelNeedsKey")}
+          {t(lang, modelHintKey)}
         </FieldHint>
       )}
       </div>
