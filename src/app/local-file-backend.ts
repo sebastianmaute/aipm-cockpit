@@ -106,7 +106,11 @@ export class LocalFileBackend implements StorageBackend {
    *  only once its write has actually succeeded (R10 change 4) — a forced
    *  save that fails (e.g. the write throws) keeps the flag set for the
    *  retry, rather than silently falling back to a compare it was never
-   *  meant to face. */
+   *  meant to face. §645 fix round 3 — ALSO cleared by `setHandle()`,
+   *  `pickFile()`, a successful `loadFrom()` of the BOUND target,
+   *  `adoptRevision()` and `adoptFrom()`, each of which establishes a genuine
+   *  new (or different) target/baseline that a leftover forced-write intent
+   *  must not silently carry past. */
   private forceNext = false;
   /**
    * §645 fix round 1 (R10 change 2, "R6 one-shot pre-read") — the
@@ -183,6 +187,12 @@ export class LocalFileBackend implements StorageBackend {
     this.currentRevision =
       this.pendingRead && this.pendingRead.handle === handle ? this.pendingRead.revision : null;
     this.pendingRead = null;
+    // §645 fix round 3 (Important #1) — a re-bind to a (possibly different)
+    // target must drop any FAILED forced save's leftover intent: without
+    // this, a forced save to A that failed, followed by re-binding to B,
+    // would let the next save on B skip BOTH the null check and the compare
+    // — a silent overwrite of whatever B actually holds.
+    this.forceNext = false;
   }
 
   /** Reads back the handle currently bound to this backend (after a pick/open),
@@ -229,6 +239,9 @@ export class LocalFileBackend implements StorageBackend {
     // that commits a NEW handle to the active slot.
     this.boundHandle = handle;
     this.currentRevision = null;
+    // §645 fix round 3 — same reasoning as setHandle(): a re-bind must drop a
+    // leftover forced-save intent from whatever the PREVIOUS target was.
+    this.forceNext = false;
   }
 
   /**
@@ -380,23 +393,46 @@ export class LocalFileBackend implements StorageBackend {
       const file = await handle.getFile();
       const text = await file.text();
       const revision = fileRevision(file);
-      // R10 change 2 — remember this exact read for `setHandle()`'s one-shot
-      // pre-read adoption, for ANY handle (bound or not): overwrites whatever
-      // the previous `loadFrom()` call remembered, so only the most recent
-      // read is ever available to adopt.
-      this.pendingRead = { handle, revision };
-      // Only when `handle` is the ACTIVE bound handle: `loadFrom` is also the
-      // read half of the commit-on-accept split (§287/§590), called directly
-      // with a candidate handle nobody has committed to yet. Adopting THAT
-      // file's revision here would silently swap this instance's save baseline
-      // to a file it may never bind.
-      if (handle === this.boundHandle) {
-        this.currentRevision = revision;
+      // §645 fix round 3 (controller ruling R11) — recording the pre-read and
+      // adopting the revision happens ONLY after the content has actually
+      // parsed successfully (called right before each successful return
+      // below, never before a throw). A half-written or corrupt file that
+      // fails to parse (e.g. `jsonToWorkspace(strict)` throwing) must NOT
+      // become the save baseline: adopting it here, before the parse even
+      // ran, let the very next save overwrite that same corrupt file without
+      // a conflict, because `currentRevision` already matched it.
+      const recordSuccessfulRead = (): void => {
+        // R10 change 2 — remember this exact read for `setHandle()`'s
+        // one-shot pre-read adoption, for ANY handle (bound or not):
+        // overwrites whatever the previous `loadFrom()` call remembered, so
+        // only the most recent SUCCESSFUL read is ever available to adopt.
+        this.pendingRead = { handle, revision };
+        // Only when `handle` is the ACTIVE bound handle: `loadFrom` is also
+        // the read half of the commit-on-accept split (§287/§590), called
+        // directly with a candidate handle nobody has committed to yet.
+        // Adopting THAT file's revision here would silently swap this
+        // instance's save baseline to a file it may never bind.
+        if (handle === this.boundHandle) {
+          this.currentRevision = revision;
+          // §645 fix round 3 (Important #1) — a genuine load of the bound
+          // target is a real new baseline; any forced-write intent left over
+          // from an earlier FAILED forced save must not silently carry
+          // forward past it.
+          this.forceNext = false;
+        }
+      };
+      if (!text.trim()) {
+        recordSuccessfulRead();
+        return emptyWorkspace();
       }
-      if (!text.trim()) return emptyWorkspace();
-      if (this.format === "json") return jsonToWorkspace(text, { strict: true, diag });
+      if (this.format === "json") {
+        const ws = jsonToWorkspace(text, { strict: true, diag });
+        recordSuccessfulRead();
+        return ws;
+      }
       const ws =
         this.format === "csv" ? csvToWorkspace(text, diag) : markdownToWorkspace(text, diag);
+      recordSuccessfulRead();
       this.lastImportDroppedRows = diag.droppedRows;
       this.lastImportDroppedBySection = diag.droppedBySection;
       this.lastImportUnterminatedQuote = diag.unterminatedQuote ?? false;
@@ -547,9 +583,14 @@ export class LocalFileBackend implements StorageBackend {
     return this.currentRevision;
   }
 
-  /** §645: adopt `rev` as this instance's current revision without a load/save. */
+  /** §645: adopt `rev` as this instance's current revision without a
+   *  load/save. §645 fix round 3 — also clears `forceNext`: adopting a real
+   *  revision from elsewhere is a genuine new baseline, same as a real load,
+   *  so it must not leave a stale forced-write intent standing (symmetry
+   *  with `BrowserBackend.adoptRevision`, which does the same). */
   adoptRevision(rev: string): void {
     this.currentRevision = rev;
+    this.forceNext = false;
   }
 
   /** §645: make the next `save()` skip the revision compare and write
@@ -571,5 +612,9 @@ export class LocalFileBackend implements StorageBackend {
   adoptFrom(other: LocalFileBackend): void {
     this.boundHandle = other.boundHandle;
     this.currentRevision = other.currentRevision;
+    // §645 fix round 3 — adopting another instance's state establishes a
+    // fresh, genuine baseline; a forced-write intent left over from THIS
+    // instance's own past (failed) save no longer applies to it.
+    this.forceNext = false;
   }
 }

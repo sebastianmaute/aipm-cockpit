@@ -146,7 +146,12 @@ export class BrowserBackend implements StorageBackend {
 
   /** §4 — the revision this instance last loaded or wrote; `null` before any load. */
   private currentRevision: number | null = null;
-  /** §4 — one-shot: set by `forceNextSave()`, consumed by the very next `save()`. */
+  /** §4 — one-shot: set by `forceNextSave()`, consumed by `saveLocked()` only
+   *  once its write has actually succeeded (R10 change 4). §4 fix round 3 —
+   *  ALSO cleared by a successful `load()`, `adoptRevision()` and
+   *  `adoptFrom()`, each of which establishes a genuine new baseline that a
+   *  leftover forced-write intent from an earlier FAILED forced save must not
+   *  silently carry past. */
   private forceNext = false;
 
   /** What the most recent load() discarded to stay inside the document caps. */
@@ -545,6 +550,15 @@ export class BrowserBackend implements StorageBackend {
     // fallback. Leaving it `null` (UNKNOWN) means the next save on this
     // instance fails closed (R10 change 1) instead.
     this.currentRevision = dataLoadSucceeded ? revision : null;
+    // §4 fix round 3 (Important #1) — a genuine successful load is a real new
+    // baseline; any forced-write intent left over from an earlier FAILED
+    // forced save must not silently carry forward past it (e.g. a forced
+    // save that failed, then another tab saves, then THIS instance reloads —
+    // the next save here must compare again, not blindly full-rewrite over
+    // what the other tab just wrote). Only on the genuinely-succeeded path:
+    // a failed/fallback load establishes nothing new, so a pending force
+    // (still exactly as valid or invalid as before) is left untouched.
+    if (dataLoadSucceeded) this.forceNext = false;
     this.lastLoadTruncation = {
       entries: diag.truncatedEntries ?? 0,
       blocks: diag.truncatedBlocks ?? 0,
@@ -833,6 +847,11 @@ export class BrowserBackend implements StorageBackend {
   adoptRevision(rev: string): void {
     if (!/^\d+$/.test(rev)) return;
     this.currentRevision = Number.parseInt(rev, 10);
+    // §4 fix round 3 — also clears `forceNext`: adopting a real revision from
+    // elsewhere (e.g. catching up to another tab after a conflict) is a
+    // genuine new baseline, same as a real load, so it must not leave a
+    // stale forced-write intent standing.
+    this.forceNext = false;
   }
 
   /** §4 — make the next `save()` skip the revision compare and force a full
@@ -861,6 +880,10 @@ export class BrowserBackend implements StorageBackend {
     this.disciplinesBaseline = other.disciplinesBaseline;
     this.gradesBaseline = other.gradesBaseline;
     this.budgetsBaseline = other.budgetsBaseline;
+    // §4 fix round 3 — adopting another instance's state establishes a fresh,
+    // genuine baseline; a forced-write intent left over from THIS instance's
+    // own past (failed) save no longer applies to it.
+    this.forceNext = false;
   }
 
   /**

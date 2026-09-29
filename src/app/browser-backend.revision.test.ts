@@ -367,6 +367,96 @@ describe("BrowserBackend §4 revision guard", () => {
     expect(reloaded.tasks.map((t) => t.id).sort()).toEqual([2]);
   });
 
+  // §4 fix round 3 (Important #1) — a leftover force from a FAILED forced
+  // save must not carry over past a genuine new baseline.
+  describe("a failed forced save's leftover force does not carry over (fix round 3)", () => {
+    it("is cleared by a successful reload, so a later stale save refuses instead of full-rewriting", async () => {
+      const b = new BrowserBackend();
+      await b.load(); // revision 0
+
+      b.forceNextSave();
+      writeFailCtl.armed = true;
+      await expect(b.save({ ...emptyWorkspace(), tasks: [taskB] })).rejects.toThrow(
+        /simulated write failure/,
+      );
+
+      // b reloads — a genuine new baseline (still revision 0 here).
+      await b.load();
+
+      // NOW another tab (a) saves.
+      const a = new BrowserBackend();
+      await a.load();
+      await a.save({ ...emptyWorkspace(), tasks: [taskA] }); // revision -> 1
+
+      // b's NEXT save (no forceNextSave() call this time) must refuse: b is
+      // stale relative to a's write, and the leftover force from the earlier
+      // FAILED attempt must not have survived b's reload to skip this compare.
+      await expect(b.save({ ...emptyWorkspace(), tasks: [taskB] })).rejects.toBeInstanceOf(
+        SaveConflictError,
+      );
+
+      const reloaded = await new BrowserBackend().load();
+      expect(reloaded.tasks.map((t) => t.id)).toEqual([1]); // a's task intact, b never wrote
+    });
+
+    it("is cleared by adoptFrom on the LIVE instance", async () => {
+      const live = new BrowserBackend();
+      await live.load();
+      live.forceNextSave();
+      writeFailCtl.armed = true;
+      await expect(live.save({ ...emptyWorkspace(), tasks: [taskB] })).rejects.toThrow(
+        /simulated write failure/,
+      );
+
+      const a = new BrowserBackend();
+      await a.load();
+      await a.save({ ...emptyWorkspace(), tasks: [taskA] }); // revision -> 1
+
+      const op = new BrowserBackend();
+      await op.load(); // sees taskA, revision 1
+
+      live.adoptFrom(op); // live's leftover force must be cleared here
+
+      const d = new BrowserBackend();
+      await d.load();
+      await d.save({ ...emptyWorkspace(), tasks: [taskA, taskD] }); // revision -> 2
+
+      await expect(live.save({ ...emptyWorkspace(), tasks: [taskB] })).rejects.toBeInstanceOf(
+        SaveConflictError,
+      );
+
+      const reloaded = await new BrowserBackend().load();
+      expect(reloaded.tasks.map((t) => t.id).sort()).toEqual([1, 3]); // a's + d's intact
+    });
+
+    it("is cleared by adoptRevision", async () => {
+      const b = new BrowserBackend();
+      await b.load();
+      b.forceNextSave();
+      writeFailCtl.armed = true;
+      await expect(b.save({ ...emptyWorkspace(), tasks: [taskB] })).rejects.toThrow(
+        /simulated write failure/,
+      );
+
+      const a = new BrowserBackend();
+      await a.load();
+      await a.save({ ...emptyWorkspace(), tasks: [taskA] }); // revision -> 1
+
+      b.adoptRevision("1"); // catches b up; must ALSO clear the leftover force
+
+      const d = new BrowserBackend();
+      await d.load();
+      await d.save({ ...emptyWorkspace(), tasks: [taskA, taskD] }); // revision -> 2
+
+      await expect(b.save({ ...emptyWorkspace(), tasks: [taskB] })).rejects.toBeInstanceOf(
+        SaveConflictError,
+      );
+
+      const reloaded = await new BrowserBackend().load();
+      expect(reloaded.tasks.map((t) => t.id).sort()).toEqual([1, 3]);
+    });
+  });
+
   // §4 fix round 1 (R10 change 3) — adoptFrom.
   it("adoptFrom(other): an instance adopted from a loaded instance saves without conflict", async () => {
     const op = new BrowserBackend();

@@ -334,6 +334,129 @@ describe("LocalFileBackend §4 §645 revision guard", () => {
     expect(await yFile.text()).toBe("Y-original");
   });
 
+  // §4 fix round 3 (Important #1) — a leftover force from a FAILED forced
+  // save must not carry over to a different target (or a genuinely
+  // re-established baseline).
+  describe("a failed forced save's leftover force does not carry over (fix round 3)", () => {
+    it("is cleared by setHandle, so re-binding to a different target still refuses", async () => {
+      const be = new LocalFileBackend("local-json");
+      const a = revisionFakeHandle({ text: "", lastModified: 1000 });
+      await be.setHandle(a);
+      await be.load();
+
+      a.externalWrite("mutated-by-someone-else");
+      a.armWriteFailure();
+      be.forceNextSave();
+      await expect(be.save(emptyWorkspace())).rejects.toThrow(); // the forced write itself fails
+
+      // Re-bind to a DIFFERENT target B. Without the fix, the leftover force
+      // would let the next save on B skip BOTH the null check and the
+      // compare — a silent overwrite of whatever B actually holds.
+      const b = revisionFakeHandle({ text: "B-original", lastModified: 2000 });
+      await be.setHandle(b);
+
+      await expect(be.save(emptyWorkspace())).rejects.toBeInstanceOf(SaveConflictError);
+      const bFile = await b.getFile();
+      expect(await bFile.text()).toBe("B-original");
+    });
+
+    it("is cleared by a successful reload of the bound target", async () => {
+      const be = new LocalFileBackend("local-json");
+      const handle = revisionFakeHandle({ text: "", lastModified: 1000 });
+      await be.setHandle(handle);
+      await be.load();
+
+      // Bump the revision without touching content validity — `be.load()`
+      // below must successfully re-parse it (empty text takes the
+      // empty-workspace short-circuit), so this is NOT about a parse failure.
+      handle.externalWrite("");
+      handle.armWriteFailure();
+      be.forceNextSave();
+      await expect(be.save(emptyWorkspace())).rejects.toThrow();
+
+      // A real reload of the SAME bound handle re-establishes a genuine
+      // baseline — the leftover force must not survive it.
+      await be.load();
+
+      // Another foreign write lands AFTER this reload.
+      handle.externalWrite("");
+
+      await expect(be.save(emptyWorkspace())).rejects.toBeInstanceOf(SaveConflictError);
+    });
+
+    it("is cleared by adoptRevision", async () => {
+      const be = new LocalFileBackend("local-json");
+      const handle = revisionFakeHandle({ text: "", lastModified: 1000 });
+      await be.setHandle(handle);
+      await be.load();
+
+      handle.externalWrite("mutated-by-someone-else");
+      handle.armWriteFailure();
+      be.forceNextSave();
+      await expect(be.save(emptyWorkspace())).rejects.toThrow();
+
+      // Catch up via adoptRevision instead of retrying the forced write.
+      const file = await handle.getFile();
+      be.adoptRevision(rev(file.lastModified, await file.text()));
+
+      handle.externalWrite("mutated-again");
+
+      await expect(be.save(emptyWorkspace())).rejects.toBeInstanceOf(SaveConflictError);
+    });
+
+    it("is cleared by adoptFrom on the LIVE instance", async () => {
+      const live = new LocalFileBackend("local-json");
+      const handle = revisionFakeHandle({ text: "", lastModified: 1000 });
+      await live.setHandle(handle);
+      await live.load();
+      handle.externalWrite("mutated");
+      handle.armWriteFailure();
+      live.forceNextSave();
+      await expect(live.save(emptyWorkspace())).rejects.toThrow();
+
+      const op = new LocalFileBackend("local-json");
+      const other = revisionFakeHandle({ text: "", lastModified: 5000 });
+      await op.setHandle(other);
+      await op.load();
+
+      live.adoptFrom(op);
+      other.externalWrite("mutated-other");
+
+      await expect(live.save(emptyWorkspace())).rejects.toBeInstanceOf(SaveConflictError);
+    });
+  });
+
+  // §4 fix round 3 (controller ruling R11) — a parse failure must not become
+  // the save baseline.
+  describe("a parse failure does not become the save baseline (R11)", () => {
+    it("leaves revision() unchanged when the BOUND handle's content fails to parse", async () => {
+      const be = new LocalFileBackend("local-json");
+      const handle = revisionFakeHandle({ text: "", lastModified: 1000 });
+      await be.setHandle(handle);
+      await be.load(); // establishes a real baseline
+      const before = be.revision();
+
+      handle.externalWrite("{not valid json"); // corrupt + bumps the revision
+
+      await expect(be.load()).rejects.toThrow(); // WorkspaceParseError (strict JSON)
+
+      expect(be.revision()).toBe(before); // the corrupt read was never adopted
+    });
+
+    it("records no pendingRead when an unbound preview handle fails to parse", async () => {
+      const be = new LocalFileBackend("local-json");
+      const handle = revisionFakeHandle({ text: "{not valid json", lastModified: 1000 });
+
+      // Preview via loadFrom on an UNBOUND handle (§287/§590) — fails to parse.
+      await expect(be.loadFrom(handle)).rejects.toThrow();
+
+      // Binding it now must NOT pick up a pendingRead from the failed parse —
+      // there is none, so this falls back to unknown.
+      await be.setHandle(handle);
+      expect(be.revision()).toBeNull();
+    });
+  });
+
   describe("with navigator.locks present", () => {
     const defineLocks = (
       request: (name: string, options: unknown, cb: () => Promise<unknown>) => Promise<unknown>,
