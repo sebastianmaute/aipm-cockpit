@@ -212,6 +212,20 @@ describe("OtherJournalsBanner", () => {
   });
 });
 
+describe("OtherJournalsBanner — §4 kept slots", () => {
+  it("names a kept slot after its project, translating browser, and keeps two versions of one project row-unique", () => {
+    const first = entry("browser:kept", null, 1);
+    const second = { ...entry("browser:kept:1799999000000", null, 1), journal: { ...entry("browser:kept:1799999000000", null, 1).journal, savedAt: NOW - 3_600_000 } };
+    const plain = entry("tp-9:kept", null, 1);
+    render(<OtherJournalsBanner lang="en-US" others={[first, second, plain]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
+    const discards = screen.getAllByRole("button", { name: /^Discard: / }).map((b) => b.getAttribute("aria-label"));
+    expect(discards.filter((n) => n!.startsWith("Discard: Browser workspace (no project)"))).toHaveLength(2);
+    expect(new Set(discards).size).toBe(discards.length); // row-unique
+    expect(discards).toContain("Discard: tp-9"); // a lone entry keeps its plain name
+    expect(screen.getAllByText(/^Browser workspace \(no project\) — from /)).toHaveLength(2);
+  });
+});
+
 describe("ExpiredJournalsBanner", () => {
   it("counts and names the removed drafts, singular and plural, offering Download but no Discard", () => {
     const onDownload = vi.fn(() => true);

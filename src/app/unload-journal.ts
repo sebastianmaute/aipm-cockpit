@@ -82,13 +82,22 @@ export function journalProjectKey(
  *  the prefix, so the §632 list and 30-day expiry, the size cap and the factory reset all cover it.
  *  No real key contains a colon (registry ids and Turso ids are UUIDs; "browser" / "turso"). */
 export const UNLOAD_JOURNAL_KEPT_SUFFIX = ":kept";
+/** A kept slot: `<project>:kept`, or `<project>:kept:<savedAt>` for a further version kept while the
+ *  first is still unresolved (fix round 3 — every kept version gets a slot of its own). */
+const KEPT_KEY_RE = /:kept(:\d+)?$/;
 
-export function keptProjectKey(projectKey: string): string {
-  return `${projectKey}${UNLOAD_JOURNAL_KEPT_SUFFIX}`;
+/** The project's kept slot; with `savedAt`, a numbered one beside it. */
+export function keptProjectKey(projectKey: string, savedAt?: number): string {
+  return savedAt === undefined ? `${projectKey}${UNLOAD_JOURNAL_KEPT_SUFFIX}` : `${projectKey}${UNLOAD_JOURNAL_KEPT_SUFFIX}:${savedAt}`;
 }
 
 export function isKeptProjectKey(projectKey: string): boolean {
-  return projectKey.endsWith(UNLOAD_JOURNAL_KEPT_SUFFIX);
+  return KEPT_KEY_RE.test(projectKey);
+}
+
+/** The project a journal key belongs to: the key itself, or a kept slot's project. */
+export function journalKeyProject(projectKey: string): string {
+  return projectKey.replace(KEPT_KEY_RE, "");
 }
 
 // --- Fingerprint -------------------------------------------------------

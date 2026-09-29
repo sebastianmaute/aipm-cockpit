@@ -12,6 +12,7 @@ import { formatExpiryDate, formatFetchedAt } from "./date-format";
 import type { OtherJournal } from "./use-other-journals";
 import type { JiraTokenAlert } from "./jira-token-status";
 import type { StorageErrorKind } from "./storage-error";
+import { journalKeyProject } from "./unload-journal";
 import { Banner, type BannerSeverity } from "./banner";
 import { Button } from "./button";
 
@@ -170,9 +171,10 @@ export function UnloadJournalConflictBanner({
  *  the `browser` and `turso` fallback keys translated. */
 function journalName(lang: Lang, entry: OtherJournal): string {
   if (entry.label !== null) return entry.label;
-  if (entry.journal.projectKey === "browser") return t(lang, "unloadJournalKeyBrowser");
-  if (entry.journal.projectKey === "turso") return t(lang, "unloadJournalKeyTurso");
-  return entry.journal.projectKey;
+  const key = journalKeyProject(entry.journal.projectKey); // §4 — a kept slot is named after its project
+  if (key === "browser") return t(lang, "unloadJournalKeyBrowser");
+  if (key === "turso") return t(lang, "unloadJournalKeyTurso");
+  return key;
 }
 
 /** §632 — one line per journal (name, date, size) with Download and, when `onDiscard` is given,
@@ -186,16 +188,19 @@ function JournalList({
   onDiscard?: (entry: OtherJournal) => void;
 }) {
   const [downloadFailed, setDownloadFailed] = useState<string | null>(null);
+  const names = entries.map((entry) => journalName(lang, entry));
   return (
     <>
       <ul className="mt-2 flex flex-col gap-1">
-        {entries.map((entry) => {
-          const name = journalName(lang, entry);
+        {entries.map((entry, i) => {
+          const shown = names[i];
+          const date = formatFetchedAt(new Date(entry.journal.savedAt).toISOString(), lang);
+          // §4 — two kept versions of one project share a name: the buttons then add the date, so each is row-unique.
+          const name = names.indexOf(shown) === names.lastIndexOf(shown) ? shown : `${shown} (${date})`;
           return (
             <li key={`${entry.journal.projectKey}:${entry.journal.tabId}:${entry.journal.savedAt}`} className="flex flex-wrap items-center gap-2 text-sm">
               <span className="min-w-0 break-all">
-                {t(lang, "unloadJournalOthersEntry", name,
-                  formatFetchedAt(new Date(entry.journal.savedAt).toISOString(), lang),
+                {t(lang, "unloadJournalOthersEntry", shown, date,
                   Math.max(1, Math.ceil(entry.journal.workspace.length / 1024)))}
               </span>
               <Button variant="secondary" size="xs" aria-label={`${t(lang, "unloadJournalDownload")}: ${name}`}

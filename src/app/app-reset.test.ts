@@ -33,9 +33,11 @@ describe("clearAppConfig", () => {
   it("§4 removes both unload-journal slots of a project: the ordinary one and the kept one", () => {
     localStorage.setItem(`${UNLOAD_JOURNAL_PREFIX}p1`, "{}");
     localStorage.setItem(`${UNLOAD_JOURNAL_PREFIX}${keptProjectKey("p1")}`, "{}");
+    localStorage.setItem(`${UNLOAD_JOURNAL_PREFIX}${keptProjectKey("p1", 123)}`, "{}");
     clearAppConfig();
     expect(localStorage.getItem(`${UNLOAD_JOURNAL_PREFIX}p1`)).toBeNull();
     expect(localStorage.getItem(`${UNLOAD_JOURNAL_PREFIX}${keptProjectKey("p1")}`)).toBeNull();
+    expect(localStorage.getItem(`${UNLOAD_JOURNAL_PREFIX}${keptProjectKey("p1", 123)}`)).toBeNull();
   });
 
   it("deletes the config IndexedDB databases (secrets device key + file handles)", () => {

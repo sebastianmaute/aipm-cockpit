@@ -205,10 +205,10 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
    *  stale) at once to the project's KEPT slot (`keptProjectKey`). Nothing restores from that slot, so
    *  its base is "". An unresolved kept record there is never replaced: after a return the live
    *  workspace is built on the other writer's version, not on the kept one, so replacing it would lose
-   *  edits the user has not seen since. The newer version goes to the project's own slot instead,
-   *  where §629 would have journalled it at pagehide. */
+   *  edits the user has not seen since. The newer version gets a numbered kept slot of its own — never
+   *  the project's own slot, where this tab's next confirmation or "Reload project" would clear it. */
   const keep = useCallback((entry: Unconfirmed): void => {
-    if (readUnloadJournal(keptProjectKey(entry.projectKey)) !== null) { write(entry); return; }
+    const slot = readUnloadJournal(keptProjectKey(entry.projectKey)) === null ? keptProjectKey(entry.projectKey) : keptProjectKey(entry.projectKey, entry.savedAt);
     let workspace: string;
     try {
       workspace = workspaceToJson(entry.workspace);
@@ -216,8 +216,8 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
       logDiag("warn", "workspace.unloadJournalSkipped", { projectKey: entry.projectKey, message: err instanceof Error ? err.message : String(err) });
       return;
     }
-    writeUnloadJournal({ projectKey: keptProjectKey(entry.projectKey), tabId: UNLOAD_JOURNAL_TAB_ID, savedAt: entry.savedAt, baseFingerprint: "", workspace });
-  }, [write]);
+    writeUnloadJournal({ projectKey: slot, tabId: UNLOAD_JOURNAL_TAB_ID, savedAt: entry.savedAt, baseFingerprint: "", workspace });
+  }, []);
 
   const noteSaveStarted = useCallback((outgoing: Workspace): number => {
     const savedAt = nextSavedAt();

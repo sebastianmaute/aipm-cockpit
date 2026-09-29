@@ -269,14 +269,49 @@ describe("useStorageBackend — a stale save pauses saving and keeps the edits j
       expect(stored(KEPT_P)).toEqual(kept);
     });
 
-    it("a second paused switch away does not replace the unresolved kept record: the newer edits go to the own slot", async () => {
+    /** The kept record, then a return to `p`, a second pause there and a second switch away. */
+    async function keptTwice() {
       const { app, file, kept } = await keptThenSwitched();
       await switchBackToP(app);
       await pauseOnP(app, file, [task(7, "PEER"), task(8, "SECOND-KEEP")], 2);
       await act(async () => { await app.ops().switchToProject("b"); });
       await settle();
+      const numbered = journals().filter((j) => j.key.startsWith(`${KEPT_P}:`));
+      return { app, file, kept, second: numbered[0] };
+    }
+
+    it("a second paused switch away does not replace the unresolved kept record: the newer edits get a kept slot of their own", async () => {
+      const { kept, second } = await keptTwice();
+      expect(journals().filter((j) => j.key.startsWith(`${KEPT_P}:`))).toHaveLength(1);
       expect(stored(KEPT_P)).toEqual(kept);
-      expect(stored(OWN_P)?.workspace).toContain("SECOND-KEEP");
+      expect(second.journal.workspace).toContain("SECOND-KEEP");
+      expect(stored(OWN_P)?.workspace ?? "").not.toContain("SECOND-KEEP");
+    });
+
+    it("both kept versions survive a return and a confirmed save", async () => {
+      const { app, file, kept } = await keptTwice();
+      await switchBackToP(app);
+      await edit(app, [task(7, "PEER"), task(9, "AFTER-SECOND-RETURN")]);
+      await waitFor(() => expect(file.text()).toContain("AFTER-SECOND-RETURN"), { timeout: 4000 });
+      await settle();
+      expect(stored(KEPT_P)).toEqual(kept);
+      expect(journals().some((j) => j.journal.workspace.includes("SECOND-KEEP"))).toBe(true);
+    });
+
+    it("both kept versions survive a return and Reload project", async () => {
+      const { app, kept } = await keptTwice();
+      await switchBackToP(app);
+      await act(async () => { await app.ops().reloadCurrentProject(); });
+      await settle();
+      expect(stored(KEPT_P)).toEqual(kept);
+      expect(journals().some((j) => j.journal.workspace.includes("SECOND-KEEP"))).toBe(true);
+    });
+
+    it("the list shows both kept versions, each under its project's name", async () => {
+      const { app, second } = await keptTwice();
+      const listed = app.ops().otherJournals.others.filter((o) => o.journal.projectKey.startsWith(keptProjectKey("p")));
+      expect(listed.map((o) => o.journal.projectKey).sort()).toEqual([keptProjectKey("p"), second.key.slice(UNLOAD_JOURNAL_PREFIX.length)].sort());
+      expect(listed.map((o) => o.label)).toEqual(["Project p", "Project p"]);
     });
   });
 

@@ -522,13 +522,16 @@ describe("§629 — useUnloadJournal on its own", () => {
     expect(localStorage.getItem(KEY)).toBeNull();
   });
 
-  it("§4 a second keep never replaces the kept record the user has not resolved: it goes to the own slot", () => {
+  it("§4 a second keep never replaces the kept record the user has not resolved: it gets a numbered kept slot, never the own one", () => {
     const { result } = renderJournal();
     act(() => { result.current.followLive(WS_1, true); });
     const kept = readJournal(KEPT_KEY)!;
     act(() => { result.current.followLive(WS_2, true); });
     expect(readJournal(KEPT_KEY)).toEqual(kept);
-    expect(jsonToWorkspace(readJournal(KEY)!.workspace).tasks.map((x) => x.id)).toEqual([2]);
+    expect(localStorage.getItem(KEY)).toBeNull();
+    const numbered = journalKeys().filter((k) => k.startsWith(`${KEPT_KEY}:`));
+    expect(numbered).toHaveLength(1);
+    expect(jsonToWorkspace(readJournal(numbered[0])!.workspace).tasks.map((x) => x.id)).toEqual([2]);
   });
 
   it("§4 noteSaveRefused — a stale save whose backend was replaced goes to the kept slot, under the key it was started for, and leaves no entry", () => {

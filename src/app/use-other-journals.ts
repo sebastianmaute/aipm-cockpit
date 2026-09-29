@@ -23,7 +23,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { downloadJson } from "./download-json";
 import { loadRegistry } from "./projects-registry";
-import { clearUnloadJournal, expireUnloadJournals, isKeptProjectKey, listUnloadJournals, UNLOAD_JOURNAL_KEPT_SUFFIX, type UnloadJournal } from "./unload-journal";
+import { clearUnloadJournal, expireUnloadJournals, isKeptProjectKey, journalKeyProject, listUnloadJournals, type UnloadJournal } from "./unload-journal";
 import { UNLOAD_JOURNAL_TAB_ID } from "./use-unload-journal";
 
 export type OtherJournal = {
@@ -44,7 +44,7 @@ export type UseOtherJournalsArgs = {
 };
 
 function toEntry(journal: UnloadJournal): OtherJournal {
-  const projectId = isKeptProjectKey(journal.projectKey) ? journal.projectKey.slice(0, -UNLOAD_JOURNAL_KEPT_SUFFIX.length) : journal.projectKey; // §4 — a kept slot is labelled with its project
+  const projectId = journalKeyProject(journal.projectKey); // §4 — a kept slot is labelled with its project
   return { journal, label: loadRegistry().projects.find((p) => p.id === projectId)?.name ?? null };
 }
 

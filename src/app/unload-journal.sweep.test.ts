@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as diagnostics from "./diagnostics";
 import {
   UNLOAD_JOURNAL_MAX_AGE_MS, UNLOAD_JOURNAL_MAX_CHARS, UNLOAD_JOURNAL_PREFIX,
-  clearUnloadJournal, expireUnloadJournals, isKeptProjectKey, keptProjectKey, listUnloadJournals, readUnloadJournal, writeUnloadJournal,
+  clearUnloadJournal, expireUnloadJournals, isKeptProjectKey, journalKeyProject, keptProjectKey, listUnloadJournals, readUnloadJournal, writeUnloadJournal,
 } from "./unload-journal";
 
 const NOW = 1_800_000_000_000;
@@ -135,6 +135,22 @@ describe("§4 the kept slot (`keptProjectKey`)", () => {
     put(keptProjectKey("p1"), NOW - UNLOAD_JOURNAL_MAX_AGE_MS - 1);
     expect(expireUnloadJournals(NOW, "p1").map((j) => j.projectKey)).toEqual([keptProjectKey("p1")]);
     expect(readUnloadJournal(keptProjectKey("p1"))).toBeNull();
+  });
+
+  it("a NUMBERED kept slot (a second keep) is a kept slot too: recognised, listed, of its project, and expired", () => {
+    const numbered = keptProjectKey("p1", 123);
+    expect(numbered).toBe("p1:kept:123");
+    expect(isKeptProjectKey(numbered)).toBe(true);
+    expect(isKeptProjectKey("p1:kept:")).toBe(false);
+    expect(journalKeyProject(numbered)).toBe("p1");
+    expect(journalKeyProject(keptProjectKey("p1"))).toBe("p1");
+    expect(journalKeyProject("p1")).toBe("p1");
+    put(numbered, NOW - UNLOAD_JOURNAL_MAX_AGE_MS - 1);
+    put(keptProjectKey("p1"), NOW);
+    expect(listUnloadJournals().map((j) => j.projectKey).sort()).toEqual([keptProjectKey("p1"), numbered].sort());
+    expect(expireUnloadJournals(NOW, "p1").map((j) => j.projectKey)).toEqual([numbered]);
+    expect(readUnloadJournal(numbered)).toBeNull();
+    expect(readUnloadJournal(keptProjectKey("p1"))).not.toBeNull();
   });
 
   it("is written only under the size cap", () => {
