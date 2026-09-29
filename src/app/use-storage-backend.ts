@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { postRevision, useBroadcastSync, useRevisionSync, type SyncContext } from "./broadcast-sync";
 import { t, type TranslationKey } from "./i18n";
 import {
@@ -32,6 +32,7 @@ import { useDestructiveSaveGuard } from "./use-destructive-save-guard";
 import { resolveJournalProjectKey, useUnloadJournal } from "./use-unload-journal";
 import { useOtherJournals } from "./use-other-journals";
 import { enqueueSave, whenSaved } from "./save-queue";
+import { createMirrorLedger } from "./mirror-ledger";
 import type { ToastAction } from "./use-toast";
 import type { UseStorageBackendArgs } from "./use-storage-backend-types";
 
@@ -326,39 +327,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // load's values count; a restored journal is not recorded, since it is unsaved work (review I3).
   const loadedValuesRef = useRef<WeakSet<object>>(new WeakSet());
   const isLoadedValue = useCallback((value: unknown) => typeof value === "object" && value !== null && loadedValuesRef.current.has(value), []);
-  // §4 — a window that only MIRRORS a peer's edit must not autosave it: both windows would write the same
-  // content from the same revision and one would be refused as a conflict. `savedWorkspaceRef` is what this
-  // window last loaded (the suppressed run after a load or op) or last WROTE (a landed save); `mirroredRef`
-  // holds, per slice, the last value applied from a peer since then. A run in which each slice either holds
-  // its mirrored value or is still `savedWorkspaceRef`'s, at least one mirrored, writes nothing (`isMirroredOnly`).
-  // ★ Cleared whenever `savedWorkspaceRef` moves: a live entry means "the peer wrote this and this window has
-  //   written nothing since", so a later value equal to it is already what storage holds.
-  // ★★ CONTESTED: a peer value that lands on an own UNSAVED value of the same slice (both windows edited it
-  //   within one delivery) is not mirrored — each window would show the other's copy and neither would save
-  //   it. `contestedRef` makes that slice count as own, so the run writes and meets the revision check
-  //   (a reported conflict, never a silent drop). Cleared with `mirroredRef`.
-  const savedWorkspaceRef = useRef<Workspace | null>(null);
-  const mirroredRef = useRef(new Map<string, unknown>());
-  const contestedRef = useRef(new Set<string>());
-  const peerValuesRef = useRef(new Map<string, Set<unknown>>()); // per slice: every peer value applied since then
-  const markWorkspaceSaved = (ws: Workspace): void => { savedWorkspaceRef.current = ws; mirroredRef.current = new Map(); contestedRef.current = new Set(); peerValuesRef.current = new Map(); };
-  // The applier tab sync calls for a peer's value. `live` is the updater's `prev`: the slice with every
-  // update queued before this one applied — an own edit a setter queued but React has not committed yet
-  // included — so it is current where committed state can lag.
-  // ★★ The SAME ANSWER HOWEVER OFTEN REACT RUNS IT: StrictMode runs an updater processed in render twice.
-  //   `live` is own-unsaved when it is neither the saved value nor ANY peer value applied since; the set only
-  //   gains `value`, never `live`, so a second run judges `live` exactly as the first. Every write repeats
-  //   harmlessly. Judging against the LATEST mirrored entry instead flipped the second run to contested, as
-  //   the first had just moved that entry to `value`. No early return on "entry already === value": a
-  //   replayed render may carry an own edit in `live` that the first run did not see.
+  // §4 — which changes this window only MIRRORED from a peer, so the autosave skips them (mirror-ledger.ts).
+  // Tab sync applies a peer value through `mirrorApply`, whose updater hands the ledger its `prev`.
+  const [mirrorLedger] = useState(createMirrorLedger);
   const mirrorApply = useMemo(() => {
-    const judge = (kind: string, live: unknown, value: unknown): void => {
-      const peerValues = peerValuesRef.current.get(kind) ?? new Set<unknown>();
-      if (!Object.is(live, savedWorkspaceRef.current?.[kind as keyof Workspace]) && !peerValues.has(live)) contestedRef.current.add(kind);
-      peerValuesRef.current.set(kind, peerValues.add(value));
-      mirroredRef.current.set(kind, value);
-    };
-    const into = <T,>(kind: keyof Workspace, set: Dispatch<SetStateAction<T>>) => (value: T): void => { set((live) => { judge(kind, live, value); return value; }); };
+    const into = <T,>(kind: keyof Workspace, set: Dispatch<SetStateAction<T>>) => (value: T): void => { set((live) => { mirrorLedger.judge(kind, live, value); return value; }); };
     return {
       tasks: into("tasks", setTasks), raid: into("raid", setRaid), absences: into("absences", setAbsences), shifts: into("shifts", setShifts),
       resources: into("resources", setResources), roles: into("roles", setRoles), disciplines: into("disciplines", setDisciplines), grades: into("grades", setGrades),
@@ -370,26 +343,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       activityLog: into("activityLog", setActivityLog), budgetHistory: into("budgetHistory", setBudgetHistory), settingsOverrides: into("settingsOverrides", setSettingsOverrides),
       calendarEvents: into("calendarEvents", setCalendarEvents), documentAssets: into("documentAssets", setDocumentAssets),
     };
-  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setFieldVisibility, setFeatures, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setDocuments, setDocumentVersions, setActivityLog, setBudgetHistory, setSettingsOverrides, setCalendarEvents, setDocumentAssets]);
-  // ★ False when nothing differs: a run with no change still writes (the incomplete-load "save anyway", an
-  //   opened save gate), and false before any load or save, so only a mirror can ever skip a write.
-  // ★ A slice with a mirrored entry is judged against THAT entry, not against the saved value: storage holds
-  //   the peer's value there now, so putting back exactly the last-saved reference is an own change.
-  const isMirroredOnly = (ws: Workspace): boolean => {
-    const saved = savedWorkspaceRef.current;
-    if (saved === null) return false;
-    let changed = false;
-    for (const key of Object.keys(ws) as (keyof Workspace)[]) {
-      if (contestedRef.current.has(key)) return false;
-      if (mirroredRef.current.has(key)) {
-        if (!Object.is(mirroredRef.current.get(key), ws[key])) return false;
-        changed = true;
-        continue;
-      }
-      if (!Object.is(ws[key], saved[key])) return false;
-    }
-    return changed;
-  };
+  }, [mirrorLedger, setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setFieldVisibility, setFeatures, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setDocuments, setDocumentVersions, setActivityLog, setBudgetHistory, setSettingsOverrides, setCalendarEvents, setDocumentAssets]);
+  // ★ Once per COMMIT, in a layout effect: it runs before any later render can process a queued updater, so
+  //   the next `judge` finds every value it can see as `live` (mirror-ledger.ts `prune`). No deps on purpose.
+  useLayoutEffect(() => { mirrorLedger.prune(currentWorkspace()); });
   // §596 — the swap-in-flight reader, published for the same reason and with the same contract as
   // `getScopeEpoch`: STABLE for the hook's lifetime, reads a synchronously-maintained ref, never a
   // render value.
@@ -894,7 +851,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // ★ The spend that used to sit here is now at the TOP of this effect, so
       // this branch spends by construction like every other. The resync
       // rationale above is unchanged and still the reason it is SAFE to spend.
-      markWorkspaceSaved(outgoing); // §4 — what scope holds after the load/op is what storage holds
+      mirrorLedger.markSaved(outgoing); // §4 — what scope holds after the load/op is what storage holds
       return;
     }
     // §4 — only mirrored changes since the last load or landed write: the peer that made them saves them.
@@ -902,7 +859,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // timer of an earlier run is gone only if that run's own change has since been replaced by a mirror.
     // ★ Any arm was spent at the top; an arm comes with a local mutation in the same commit, and a run
     //   carrying one is not mirrored-only.
-    if (isMirroredOnly(outgoing)) return;
+    if (mirrorLedger.isMirroredOnly(outgoing)) return;
     // ★ DATA-LOSS INVARIANTS at the persistence choke point (all backends): L3 and
     //   Layer B, both decided by the pure `evaluateSaveGuard` (save-guard.ts) — read the
     //   two invariants there, not here. An explicit user bulk-op (clear-all / bulk delete)
@@ -987,7 +944,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       enqueueSave(backend, () => { baseRevision = backend.revision?.() ?? null; return backend.save(outgoing); }).then((result) => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
         if (result === "superseded") return;
         committedBaselineRef.current = { collections: curCollections, records: curRecords }; // the write landed: these are on disk now
-        markWorkspaceSaved(outgoing); // §4 — and this is what storage holds
+        mirrorLedger.markSaved(outgoing); // §4 — and this is what storage holds
         unloadJournal.noteSaveConfirmed(journalSavedAt, outgoing); // §629 — clears this tab's journal for it and rolls the base forward
         emitOutcome(null);
         // §4 — tell the windows mirroring this storage which revision the write produced, or their next save is refused as stale.

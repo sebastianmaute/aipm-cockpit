@@ -73,8 +73,15 @@ function makeBackend() {
  *  graph, so B would drop A's revision as its own echo. The bus gives each revision message a fresh
  *  id, as a second page would; the poster then hears its own too, which it cannot adopt (it no longer
  *  holds the base its save was checked against). Slice messages already carry a per-hook id.
- *  While `bus.hold` is set, deliveries wait for `bus.release()`, which runs them all in one go. */
-const bus = { hold: false, held: [] as (() => void)[], release() { const due = this.held.splice(0); for (const deliver of due) deliver(); } };
+ *  While `bus.hold` is set, deliveries wait for `bus.release()`, which runs them all in one go.
+ *  `heldPosts(kind)` counts the POSTS waiting, not their per-channel deliveries. */
+type Held = { sent: { kind?: string }; deliver: () => void };
+const bus = {
+  hold: false,
+  held: [] as Held[],
+  release() { const due = this.held.splice(0); for (const h of due) h.deliver(); },
+  heldPosts(kind: string) { return new Set(this.held.filter((h) => h.sent.kind === kind).map((h) => h.sent)).size; },
+};
 function installBus() {
   bus.hold = false;
   bus.held = [];
@@ -89,7 +96,7 @@ function installBus() {
         if (channel === this) continue;
         const data = structuredClone(sent);
         const deliver = () => { for (const l of channel.listeners) l({ data } as MessageEvent); };
-        if (bus.hold) bus.held.push(deliver);
+        if (bus.hold) bus.held.push({ sent, deliver });
         else queueMicrotask(deliver);
       }
     }
@@ -152,8 +159,8 @@ describe.each([false, true])("useStorageBackend — a mirrored edit is saved onc
     const b = openWindow(strict);
     await run(0);
     await run(1000); // both loads applied, their suppressed runs spent
-    expect(a.backend.load).toHaveBeenCalled(); // twice under StrictMode: its first effect run is cancelled
-    expect(b.backend.load).toHaveBeenCalled();
+    expect(a.backend.load).toHaveBeenCalledTimes(strict ? 2 : 1); // StrictMode re-runs the load effect; its first run is cancelled
+    expect(b.backend.load).toHaveBeenCalledTimes(strict ? 2 : 1);
     return { a, b };
   }
 
@@ -237,12 +244,30 @@ describe.each([false, true])("useStorageBackend — a mirrored edit is saved onc
     await act(async () => { a.hook.result.current.setTasks([task(1, "A1")]); });
     await act(async () => { a.hook.result.current.setTasks([task(1, "A2")]); });
     bus.hold = false;
-    expect(bus.held.length).toBeGreaterThanOrEqual(2); // both of A's tasks messages are waiting for B
+    expect(bus.heldPosts("tasks")).toBe(2); // both of A's tasks messages are waiting for B
     await act(async () => { bus.release(); });
     expect(b.hook.result.current.tasks.map((x) => x.taskName)).toEqual(["A2"]);
     await run(500 + LATENCY_MS + 100);
     expect(b.backend.save).not.toHaveBeenCalled();
     expect(a.conflicts() + b.conflicts()).toBe(0);
     expect(store.workspace.tasks.map((x) => x.taskName)).toEqual(["A2"]);
+  });
+
+  // B puts a part back to the reference of an OLDER peer value; a newer peer value then crosses that
+  // own edit before it saves. It is an own edit, so B must save it or report the conflict.
+  it("an own edit back to an older peer value, crossed by a newer one, is saved or reported", async () => {
+    const { a, b } = await openBoth();
+    await act(async () => { a.hook.result.current.setTasks([task(1, "A1")]); });
+    await run(0);
+    const olderPeerValue = b.hook.result.current.tasks;
+    expect(olderPeerValue.map((x) => x.taskName)).toEqual(["A1"]);
+    await act(async () => { a.hook.result.current.setTasks([task(1, "A2")]); });
+    await run(500 + LATENCY_MS + 100); // A saves A2; B mirrors it and adopts
+    expect(b.backend.save).not.toHaveBeenCalled();
+    await act(async () => { b.hook.result.current.setTasks(olderPeerValue); });
+    await act(async () => { a.hook.result.current.setTasks([task(1, "A3")]); });
+    await run(0);
+    await run(500 + LATENCY_MS + 500);
+    expect(b.backend.save.mock.calls.length + b.conflicts()).toBeGreaterThan(0);
   });
 });
