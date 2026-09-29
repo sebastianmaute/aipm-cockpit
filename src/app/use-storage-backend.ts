@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { postRevision, useBroadcastSync, useRevisionSync, type SyncContext } from "./broadcast-sync";
 import { t, type TranslationKey } from "./i18n";
 import {
@@ -329,24 +329,57 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // §4 — a window that only MIRRORS a peer's edit must not autosave it: both windows would write the same
   // content from the same revision and one would be refused as a conflict. `savedWorkspaceRef` is what this
   // window last loaded (the suppressed run after a load or op) or last WROTE (a landed save); `mirroredRef`
-  // holds, per slice, the last value applied from a peer since then. A run whose every slice that differs
-  // from `savedWorkspaceRef` is exactly that slice's mirrored value writes nothing (`isMirroredOnly`).
+  // holds, per slice, the last value applied from a peer since then. A run in which each slice either holds
+  // its mirrored value or is still `savedWorkspaceRef`'s, at least one mirrored, writes nothing (`isMirroredOnly`).
   // ★ Cleared whenever `savedWorkspaceRef` moves: a live entry means "the peer wrote this and this window has
   //   written nothing since", so a later value equal to it is already what storage holds.
+  // ★★ CONTESTED: a peer value that lands on an own UNSAVED value of the same slice (both windows edited it
+  //   within one delivery) is not mirrored — each window would show the other's copy and neither would save
+  //   it. `contestedRef` makes that slice count as own, so the run writes and meets the revision check
+  //   (a reported conflict, never a silent drop). Cleared with `mirroredRef`.
   const savedWorkspaceRef = useRef<Workspace | null>(null);
   const mirroredRef = useRef(new Map<string, unknown>());
-  const noteMirrored = useCallback((kind: string, value: unknown) => { mirroredRef.current.set(kind, value); }, []);
-  const markWorkspaceSaved = (ws: Workspace): void => { savedWorkspaceRef.current = ws; mirroredRef.current = new Map(); };
+  const contestedRef = useRef(new Set<string>());
+  const markWorkspaceSaved = (ws: Workspace): void => { savedWorkspaceRef.current = ws; mirroredRef.current = new Map(); contestedRef.current = new Set(); };
+  // The applier tab sync calls for a peer's value. `live` is the updater's `prev`: the slice with every
+  // update queued before this one applied — an own edit a setter queued but React has not committed yet
+  // included — so it is current where committed state can lag. Idempotent, as an updater may run twice.
+  const mirrorApply = useMemo(() => {
+    const judge = (kind: string, live: unknown, value: unknown): void => {
+      const saved = savedWorkspaceRef.current;
+      const isOwnUnsaved = !Object.is(live, saved?.[kind as keyof Workspace]) && !(mirroredRef.current.has(kind) && Object.is(live, mirroredRef.current.get(kind)));
+      if (isOwnUnsaved || contestedRef.current.has(kind)) { contestedRef.current.add(kind); mirroredRef.current.delete(kind); return; }
+      mirroredRef.current.set(kind, value);
+    };
+    const into = <T,>(kind: keyof Workspace, set: Dispatch<SetStateAction<T>>) => (value: T): void => { set((live) => { judge(kind, live, value); return value; }); };
+    return {
+      tasks: into("tasks", setTasks), raid: into("raid", setRaid), absences: into("absences", setAbsences), shifts: into("shifts", setShifts),
+      resources: into("resources", setResources), roles: into("roles", setRoles), disciplines: into("disciplines", setDisciplines), grades: into("grades", setGrades),
+      plan: into("plan", setPlan), budgets: into("budgets", setBudgets), fxRates: into("fxRates", setFxRates), status: into("status", setStatus),
+      project: into("project", setProject), fieldVisibility: into("fieldVisibility", setFieldVisibility), features: into("features", setFeatures),
+      milestones: into("milestones", setMilestones), changes: into("changes", setChanges), stakeholders: into("stakeholders", setStakeholders),
+      steeringCommittee: into("steeringCommittee", setSteeringCommittee), timelogLinks: into("timelogLinks", setTimelogLinks), knowledgeItems: into("knowledgeItems", setKnowledgeItems),
+      insights: into("insights", setInsights), documents: into("documents", setDocuments), documentVersions: into("documentVersions", setDocumentVersions),
+      activityLog: into("activityLog", setActivityLog), budgetHistory: into("budgetHistory", setBudgetHistory), settingsOverrides: into("settingsOverrides", setSettingsOverrides),
+      calendarEvents: into("calendarEvents", setCalendarEvents), documentAssets: into("documentAssets", setDocumentAssets),
+    };
+  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setFieldVisibility, setFeatures, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setDocuments, setDocumentVersions, setActivityLog, setBudgetHistory, setSettingsOverrides, setCalendarEvents, setDocumentAssets]);
   // ★ False when nothing differs: a run with no change still writes (the incomplete-load "save anyway", an
   //   opened save gate), and false before any load or save, so only a mirror can ever skip a write.
+  // ★ A slice with a mirrored entry is judged against THAT entry, not against the saved value: storage holds
+  //   the peer's value there now, so putting back exactly the last-saved reference is an own change.
   const isMirroredOnly = (ws: Workspace): boolean => {
     const saved = savedWorkspaceRef.current;
     if (saved === null) return false;
     let changed = false;
     for (const key of Object.keys(ws) as (keyof Workspace)[]) {
-      if (Object.is(ws[key], saved[key])) continue;
-      if (!mirroredRef.current.has(key) || !Object.is(mirroredRef.current.get(key), ws[key])) return false;
-      changed = true;
+      if (contestedRef.current.has(key)) return false;
+      if (mirroredRef.current.has(key)) {
+        if (!Object.is(mirroredRef.current.get(key), ws[key])) return false;
+        changed = true;
+        continue;
+      }
+      if (!Object.is(ws[key], saved[key])) return false;
     }
     return changed;
   };
@@ -1095,8 +1128,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     [args.settings.storageConfig, tursoUrlForBackend, tursoProjectId],
   );
   const syncContext = useMemo<SyncContext>(
-    () => (args.isPopout ? { role: "popout", openerId: readPopoutOpenerFromUrl() } : { role: "main", scope: syncScope, getEpoch: getScopeEpoch, isLoadedValue, onMirrored: noteMirrored }),
-    [args.isPopout, syncScope, getScopeEpoch, isLoadedValue, noteMirrored],
+    () => (args.isPopout ? { role: "popout", openerId: readPopoutOpenerFromUrl() } : { role: "main", scope: syncScope, getEpoch: getScopeEpoch, isLoadedValue }),
+    [args.isPopout, syncScope, getScopeEpoch, isLoadedValue],
   );
   const adoptPeerRevision = useCallback((revision: string, baseRevision: string) => {
     // Adopt only from the revision this window holds: `fromLoad` slices are not mirrored, so a window that missed a reload (or is paused on a real conflict) would otherwise adopt and then save its stale copy over it.
@@ -1106,37 +1139,37 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     backend.adoptRevision?.(revision);
   }, [backend]);
   useRevisionSync(syncContext, adoptPeerRevision);
-  useBroadcastSync("tasks", tasks, setTasks, syncContext);
-  useBroadcastSync("raid", raid, setRaid, syncContext);
-  useBroadcastSync("absences", absences, setAbsences, syncContext);
-  useBroadcastSync("shifts", shifts, setShifts, syncContext);
-  useBroadcastSync("resources", resources, setResources, syncContext);
-  useBroadcastSync("roles", roles, setRoles, syncContext);
-  useBroadcastSync("disciplines", disciplines, setDisciplines, syncContext);
-  useBroadcastSync("grades", grades, setGrades, syncContext);
-  useBroadcastSync("budgets", budgets, setBudgets, syncContext);
-  useBroadcastSync("milestones", milestones, setMilestones, syncContext);
-  useBroadcastSync("changes", changes, setChanges, syncContext);
-  useBroadcastSync("stakeholders", stakeholders, setStakeholders, syncContext);
-  useBroadcastSync("documents", documents, setDocuments, syncContext); useBroadcastSync("documentVersions", documentVersions, setDocumentVersions, syncContext); // ★ PAIRED on one line: written when the size ratchet's LIMIT was 800 and this file sat at it (check-file-sizes.mjs counts split("\n").length = wc -l + 1); the LIMIT is 1600 now. They must also stay in step: the autosave writes the WHOLE workspace, so a tab holding a stale half overwrites the other tab's work — the same reason `documents` is synced. ★ Secondary: `deletedDocumentVersions` derives tombstones from BOTH slices, and `documents-panel.tsx` renders that list (its deleted-documents section and the toolbar count), so a desynced tab produces a WRONG visible list with Restore buttons on it — an observable symptom, not a latent one.
-  useBroadcastSync("activityLog", activityLog, setActivityLog, syncContext); // ★ Now the WORKSPACE slice, not a per-device arg: the autosave writes the WHOLE workspace, so a tab holding a stale log would overwrite the other tab's entries — the same reason `documents` is synced above. `mergeActivityLogs` cannot cover this; it runs on LOAD, not on a broadcast.
-  useBroadcastSync("budgetHistory", budgetHistory, setBudgetHistory, syncContext); // ★ Same reason as `activityLog`: the autosave writes the whole workspace, so a tab with a stale history would overwrite the other tab's entries.
+  useBroadcastSync("tasks", tasks, mirrorApply.tasks, syncContext);
+  useBroadcastSync("raid", raid, mirrorApply.raid, syncContext);
+  useBroadcastSync("absences", absences, mirrorApply.absences, syncContext);
+  useBroadcastSync("shifts", shifts, mirrorApply.shifts, syncContext);
+  useBroadcastSync("resources", resources, mirrorApply.resources, syncContext);
+  useBroadcastSync("roles", roles, mirrorApply.roles, syncContext);
+  useBroadcastSync("disciplines", disciplines, mirrorApply.disciplines, syncContext);
+  useBroadcastSync("grades", grades, mirrorApply.grades, syncContext);
+  useBroadcastSync("budgets", budgets, mirrorApply.budgets, syncContext);
+  useBroadcastSync("milestones", milestones, mirrorApply.milestones, syncContext);
+  useBroadcastSync("changes", changes, mirrorApply.changes, syncContext);
+  useBroadcastSync("stakeholders", stakeholders, mirrorApply.stakeholders, syncContext);
+  useBroadcastSync("documents", documents, mirrorApply.documents, syncContext); useBroadcastSync("documentVersions", documentVersions, mirrorApply.documentVersions, syncContext); // ★ PAIRED on one line: written when the size ratchet's LIMIT was 800 and this file sat at it (check-file-sizes.mjs counts split("\n").length = wc -l + 1); the LIMIT is 1600 now. They must also stay in step: the autosave writes the WHOLE workspace, so a tab holding a stale half overwrites the other tab's work — the same reason `documents` is synced. ★ Secondary: `deletedDocumentVersions` derives tombstones from BOTH slices, and `documents-panel.tsx` renders that list (its deleted-documents section and the toolbar count), so a desynced tab produces a WRONG visible list with Restore buttons on it — an observable symptom, not a latent one.
+  useBroadcastSync("activityLog", activityLog, mirrorApply.activityLog, syncContext); // ★ Now the WORKSPACE slice, not a per-device arg: the autosave writes the WHOLE workspace, so a tab holding a stale log would overwrite the other tab's entries — the same reason `documents` is synced above. `mergeActivityLogs` cannot cover this; it runs on LOAD, not on a broadcast.
+  useBroadcastSync("budgetHistory", budgetHistory, mirrorApply.budgetHistory, syncContext); // ★ Same reason as `activityLog`: the autosave writes the whole workspace, so a tab with a stale history would overwrite the other tab's entries.
   // §4 — the remaining workspace parts: the autosave writes the WHOLE workspace, so a window holding a stale copy of any of them would overwrite the other window's edit.
-  useBroadcastSync("plan", plan, setPlan, syncContext);
-  useBroadcastSync("fxRates", fxRates, setFxRates, syncContext);
-  useBroadcastSync("status", status, setStatus, syncContext);
-  useBroadcastSync("fieldVisibility", fieldVisibility, setFieldVisibility, syncContext);
-  useBroadcastSync("features", features, setFeatures, syncContext);
-  useBroadcastSync("steeringCommittee", steeringCommittee, setSteeringCommittee, syncContext);
-  useBroadcastSync("timelogLinks", timelogLinks, setTimelogLinks, syncContext);
-  useBroadcastSync("knowledgeItems", knowledgeItems, setKnowledgeItems, syncContext);
-  useBroadcastSync("insights", insights, setInsights, syncContext);
-  useBroadcastSync("settingsOverrides", settingsOverrides, setSettingsOverrides, syncContext);
-  useBroadcastSync("calendarEvents", calendarEvents, setCalendarEvents, syncContext);
-  useBroadcastSync("documentAssets", documentAssets, setDocumentAssets, syncContext);
+  useBroadcastSync("plan", plan, mirrorApply.plan, syncContext);
+  useBroadcastSync("fxRates", fxRates, mirrorApply.fxRates, syncContext);
+  useBroadcastSync("status", status, mirrorApply.status, syncContext);
+  useBroadcastSync("fieldVisibility", fieldVisibility, mirrorApply.fieldVisibility, syncContext);
+  useBroadcastSync("features", features, mirrorApply.features, syncContext);
+  useBroadcastSync("steeringCommittee", steeringCommittee, mirrorApply.steeringCommittee, syncContext);
+  useBroadcastSync("timelogLinks", timelogLinks, mirrorApply.timelogLinks, syncContext);
+  useBroadcastSync("knowledgeItems", knowledgeItems, mirrorApply.knowledgeItems, syncContext);
+  useBroadcastSync("insights", insights, mirrorApply.insights, syncContext);
+  useBroadcastSync("settingsOverrides", settingsOverrides, mirrorApply.settingsOverrides, syncContext);
+  useBroadcastSync("calendarEvents", calendarEvents, mirrorApply.calendarEvents, syncContext);
+  useBroadcastSync("documentAssets", documentAssets, mirrorApply.documentAssets, syncContext);
   // `project` (ProjectMeta | undefined) so a main-window project switch live-updates
   // the read-only project header in popout windows. The generic handles undefined.
-  useBroadcastSync("project", project, setProject, syncContext);
+  useBroadcastSync("project", project, mirrorApply.project, syncContext);
 
   // Snapshot the live workspace from the render-scope closure — same pattern as
   // the file-picker handlers in use-storage-file-ops.ts (onPickStorageFile /

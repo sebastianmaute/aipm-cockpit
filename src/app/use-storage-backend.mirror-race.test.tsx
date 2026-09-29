@@ -188,4 +188,37 @@ describe("useStorageBackend — a mirrored edit is saved once, by its writer (§
     const bSaved = b.backend.save.mock.calls.map(([ws]) => ws.raid.map((x) => x.title));
     expect(bSaved).toContainEqual(["from B"]);
   });
+
+  // Both windows change the SAME part within one delivery: each then shows the other's value. Neither
+  // copy may be left to the other window to save — at least one writes, and a refusal is reported.
+  it("a crossing edit to one part in both windows is saved or reported, never dropped by both", async () => {
+    const { a, b } = await openBoth();
+    await act(async () => {
+      a.hook.result.current.setTasks([task(1, "from A")]);
+      b.hook.result.current.setTasks([task(2, "from B")]);
+    });
+    await run(0);
+    expect(a.hook.result.current.tasks.map((x) => x.taskName)).toEqual(["from B"]); // they really crossed
+    expect(b.hook.result.current.tasks.map((x) => x.taskName)).toEqual(["from A"]);
+    await run(500 + LATENCY_MS + 500);
+    expect(a.backend.save.mock.calls.length + b.backend.save.mock.calls.length).toBeGreaterThan(0);
+    expect(store.rev > 1 || a.conflicts() + b.conflicts() > 0).toBe(true);
+  });
+
+  // After a mirror, putting a part back to EXACTLY the value this window last saved is its own change:
+  // storage holds the peer's value there now, so the run must write (or be refused), not skip.
+  it("restoring the last-saved value of a mirrored part saves it", async () => {
+    const { a, b } = await openBoth();
+    const savedTasks = b.hook.result.current.tasks; // what B loaded, and so last "saved"
+    await act(async () => {
+      a.hook.result.current.setTasks([task(1, "from A")]);
+      a.hook.result.current.setRaid([raidItem("r1", "from A")]);
+    });
+    await run(500 + LATENCY_MS + 100); // A saves; B mirrors both parts and adopts A's revision
+    expect(b.backend.save).not.toHaveBeenCalled();
+    await act(async () => { b.hook.result.current.setTasks(savedTasks); });
+    await run(500 + LATENCY_MS + 100);
+    expect(b.backend.save.mock.calls.length + b.conflicts()).toBeGreaterThan(0);
+    expect(store.workspace.tasks).toEqual([]);
+  });
 });

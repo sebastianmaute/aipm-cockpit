@@ -54,8 +54,6 @@ export type SyncContext =
       getEpoch: () => number;
       /** True for a value the latest load applied from storage; sent as `fromLoad`. */
       isLoadedValue: (value: unknown) => boolean;
-      /** §4 — told of every peer value this window applies, just before it is applied, so the autosave can tell a mirrored change from its own. */
-      onMirrored: (kind: string, value: unknown) => void;
     }
   | {
       role: "popout";
@@ -148,7 +146,6 @@ export function useBroadcastSync<T>(
         if (msg.fromLoad) return;
         if (ctx.scope === null || msg.scope !== ctx.scope) return;
         if (ctx.getEpoch() !== committedEpochRef.current) return;
-        ctx.onMirrored(kind, msg.value);
       }
       lastSeenRef.current = msg.value;
       applyIncoming(msg.value);
