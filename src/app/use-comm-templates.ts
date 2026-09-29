@@ -78,9 +78,16 @@ export function useCommTemplates(args: UseCommTemplatesArgs): UseCommTemplatesRe
   // only once a write resolves. The outbox `base` comes from here, never from optimistic local state,
   // so a draft typed while an earlier save is still in flight is based on what the server holds.
   const confirmedRef = useRef(new Map<string, { name: string; body: string }>());
-  const confirm = useCallback((tpl: CommTemplate, patch: Partial<Pick<CommTemplate, "name" | "body">> = {}) => {
-    confirmedRef.current.set(tpl.id, { name: patch.name ?? tpl.name, body: patch.body ?? tpl.body });
+  // Moves only the fields in `patch`: a field this write did not save keeps its confirmed value, which
+  // a write for that field may have moved on since `tpl` was read. `tpl` fills an id not yet confirmed.
+  const confirm = useCallback((tpl: CommTemplate, patch: FieldPatch = {}) => {
+    const current = confirmedRef.current.get(tpl.id) ?? { name: tpl.name, body: tpl.body };
+    confirmedRef.current.set(tpl.id, { ...current, ...patch });
   }, []);
+  // §626 (R14). Per `kind:id`, the `opSeqRef` number of the newest write that has landed for that field.
+  // Writes can resolve out of order; an older write landing after a newer one must not move the field's
+  // confirmed value, or settle its edit, back to what it saved.
+  const landedSeqRef = useRef(new Map<string, number>());
   const adoptLoaded = useCallback((list: readonly CommTemplate[]) => {
     confirmedRef.current = new Map(list.map((t) => [t.id, { name: t.name, body: t.body }]));
   }, []);
@@ -140,13 +147,13 @@ export function useCommTemplates(args: UseCommTemplatesArgs): UseCommTemplatesRe
     }
   }, [active, templates, confirm]);
 
-  /** Writes `patch` onto `existing`. Once the durable write resolves, each patched field's outbox
-   *  edit is settled with the value just saved: a newer draft typed while the write was in flight
-   *  stays. A rejection leaves the edit tracked. */
+  /** Writes `patch` onto `existing`. Once the durable write resolves, each patched field that no newer
+   *  write has landed for is confirmed and its outbox edit settled with the value just saved: a newer
+   *  draft typed while the write was in flight stays. A rejection leaves the edit tracked. */
   const writeField = useCallback(async (existing: CommTemplate, patch: FieldPatch) => {
     const cfg = cfgRef.current;
     if (!active || !cfg) return;
-    opSeqRef.current += 1;
+    const seq = (opSeqRef.current += 1);
     setBusy(true);
     const saving = (["name", "body"] as const).flatMap((field) => {
       const saved = patch[field];
@@ -156,9 +163,11 @@ export function useCommTemplates(args: UseCommTemplatesArgs): UseCommTemplatesRe
     try {
       const next: CommTemplate = { ...existing, ...patch, updatedAt: new Date().toISOString() };
       await storeUpsert(cfg, next);
-      confirm(existing, patch);
+      const landed = saving.filter(({ key }) => (landedSeqRef.current.get(key) ?? 0) < seq);
+      for (const { key } of landed) landedSeqRef.current.set(key, seq);
+      confirm(existing, Object.fromEntries(landed.map(({ field, saved }) => [field, saved])));
       const scope = outboxScope(cfg);
-      if (scope) for (const { field, saved } of saving) settlePendingEdit(scope, DRAFT_KIND[field], existing.id, saved);
+      if (scope) for (const { field, saved } of landed) settlePendingEdit(scope, DRAFT_KIND[field], existing.id, saved);
       setTemplates((prev) => prev.map((t) => (t.id === existing.id ? next : t)));
     } finally {
       for (const { key, saved } of saving) if (inFlightRef.current.get(key) === saved) inFlightRef.current.delete(key);

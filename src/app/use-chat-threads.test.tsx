@@ -2562,5 +2562,69 @@ describe("useChatThreads — pending rename outbox", () => {
 
       expect(stored()).toEqual([expect.objectContaining({ id, base: "First message", value: "C" })]);
     });
+
+    // R11 (N1). The server holds B once the superseded save lands, whatever becomes of the later one.
+    it("a superseded save that lands confirms its name, so a later failed save's edit is based on it", async () => {
+      let resolveFirst: () => void = () => undefined;
+      let rejectSecond: (e: Error) => void = () => undefined;
+      saveThreadMock
+        .mockReturnValueOnce(new Promise<void>((resolve) => { resolveFirst = resolve; }))
+        .mockReturnValueOnce(new Promise<void>((_, reject) => { rejectSecond = reject; }));
+      const { result } = await renderLoaded();
+
+      act(() => result.current.renameThread("t1", "B"));
+      act(() => result.current.renameThread("t1", "C"));
+      await act(async () => { resolveFirst(); });
+      await act(async () => { rejectSecond(new Error("network down")); });
+      await waitFor(() => expect(result.current.threadsError).toBe(true));
+      pagehide();
+
+      expect(stored()).toEqual([expect.objectContaining({ id: "t1", base: "B", value: "C" })]);
+    });
+
+    it("an older save landing after a newer one does not move the confirmed name back", async () => {
+      let resolveFirst: () => void = () => undefined;
+      let resolveSecond: () => void = () => undefined;
+      saveThreadMock
+        .mockReturnValueOnce(new Promise<void>((resolve) => { resolveFirst = resolve; }))
+        .mockReturnValueOnce(new Promise<void>((resolve) => { resolveSecond = resolve; }));
+      const { result } = await renderLoaded();
+
+      act(() => result.current.renameThread("t1", "B"));
+      act(() => result.current.renameThread("t1", "C"));
+      await act(async () => { resolveSecond(); });
+      await act(async () => { resolveFirst(); });
+      act(() => result.current.trackRenameDraft("t1", "D"));
+      pagehide();
+
+      expect(stored()).toEqual([expect.objectContaining({ id: "t1", base: "C", value: "D" })]);
+    });
+
+    // R11 (d). The reload may have read the thread before the save landed.
+    it("a Retry reload that started before a save landed keeps that save's name confirmed", async () => {
+      const { result } = await renderLoaded();
+      let resolveReload: (list: ChatThread[]) => void = () => undefined;
+      loadThreadsMock.mockReturnValueOnce(new Promise<ChatThread[]>((resolve) => { resolveReload = resolve; }));
+
+      act(() => result.current.retryLoad());
+      await act(async () => { result.current.renameThread("t1", "B"); });
+      await act(async () => { resolveReload([thread("t1", { name: "Old name" })]); });
+      act(() => result.current.trackRenameDraft("t1", "C"));
+      pagehide();
+
+      expect(stored()).toEqual([expect.objectContaining({ id: "t1", base: "B", value: "C" })]);
+    });
+
+    it("a Retry reload that started after a save landed adopts the name it loaded", async () => {
+      const { result } = await renderLoaded();
+      await act(async () => { result.current.renameThread("t1", "B"); });
+      loadThreadsMock.mockResolvedValueOnce([thread("t1", { name: "Elsewhere" })]);
+
+      await act(async () => { result.current.retryLoad(); });
+      act(() => result.current.trackRenameDraft("t1", "C"));
+      pagehide();
+
+      expect(stored()).toEqual([expect.objectContaining({ id: "t1", base: "Elsewhere", value: "C" })]);
+    });
   });
 });

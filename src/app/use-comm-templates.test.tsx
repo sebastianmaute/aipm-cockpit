@@ -179,6 +179,56 @@ describe("useCommTemplates — pending edits outbox", () => {
     expect(stored()).toEqual([]);
   });
 
+  // R14. Writes resolve out of order; the confirmed value follows the order they were issued in.
+  it("an older name save landing after a newer one does not move the confirmed name back", async () => {
+    const { result } = await renderLoaded();
+    let resolveFirst: () => void = () => {};
+    let resolveSecond: () => void = () => {};
+    upsertTemplate
+      .mockReturnValueOnce(new Promise<void>((r) => { resolveFirst = r; }))
+      .mockReturnValueOnce(new Promise<void>((r) => { resolveSecond = r; }));
+    let first: Promise<void> = Promise.resolve();
+    let second: Promise<void> = Promise.resolve();
+    act(() => { first = result.current.rename("d", "B"); });
+    act(() => { second = result.current.rename("d", "C"); });
+    await act(async () => { resolveSecond(); await second; });
+    await act(async () => { resolveFirst(); await first; });
+    act(() => result.current.trackDraft("d", "name", "D"));
+    pagehide();
+    expect(stored()).toEqual([expect.objectContaining({ kind: "template-name", id: "d", base: "C", value: "D" })]);
+  });
+
+  it("an older save landing after a newer one does not settle the draft the newer one left", async () => {
+    const { result } = await renderLoaded();
+    let resolveFirst: () => void = () => {};
+    let resolveSecond: () => void = () => {};
+    upsertTemplate
+      .mockReturnValueOnce(new Promise<void>((r) => { resolveFirst = r; }))
+      .mockReturnValueOnce(new Promise<void>((r) => { resolveSecond = r; }));
+    let first: Promise<void> = Promise.resolve();
+    let second: Promise<void> = Promise.resolve();
+    act(() => { first = result.current.rename("d", "B"); });
+    act(() => { second = result.current.rename("d", "C"); });
+    await act(async () => { resolveSecond(); await second; });
+    act(() => result.current.trackDraft("d", "name", "B"));
+    await act(async () => { resolveFirst(); await first; });
+    pagehide();
+    expect(stored()).toEqual([expect.objectContaining({ kind: "template-name", id: "d", base: "C", value: "B" })]);
+  });
+
+  it("a body save landing after a name save does not move the confirmed name back", async () => {
+    const { result } = await renderLoaded();
+    let resolveBody: () => void = () => {};
+    upsertTemplate.mockReturnValueOnce(new Promise<void>((r) => { resolveBody = r; }));
+    let body: Promise<void> = Promise.resolve();
+    act(() => { body = result.current.saveBody("d", "<p>new</p>"); });
+    await act(async () => { await result.current.rename("d", "B"); });
+    await act(async () => { resolveBody(); await body; });
+    act(() => result.current.trackDraft("d", "name", "D"));
+    pagehide();
+    expect(stored()).toEqual([expect.objectContaining({ kind: "template-name", id: "d", base: "B", value: "D" })]);
+  });
+
   it("a replay write still in flight keeps its edit, and the ones queued behind it, across a pagehide", async () => {
     seedEdits(
       { kind: "template-name", id: "d", base: "Def", value: "Replayed" },

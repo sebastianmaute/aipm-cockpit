@@ -71,6 +71,23 @@ function takeRenameReplays(scope: string, loaded: readonly ChatThread[]): { targ
   return replays;
 }
 
+/** A thread's newest landed write: its issue `seq`, and `at`, the landing count when it landed. */
+type LandedWrite = { seq: number; at: number };
+
+/** §626 (R11). Adopts a load's names as the confirmed ones, except for a thread whose save landed
+ *  after the load started (`landingsAtStart`): that name is newer than anything the load can have read. */
+function adoptConfirmedNames(
+  confirmed: Map<string, string>,
+  landed: ReadonlyMap<string, LandedWrite>,
+  loaded: readonly ChatThread[],
+  landingsAtStart: number,
+): void {
+  for (const th of loaded) {
+    if ((landed.get(th.id)?.at ?? 0) > landingsAtStart) continue;
+    confirmed.set(th.id, th.name);
+  }
+}
+
 /** Live render-scope values the Turso thread flows read each render. */
 export interface UseChatThreadsDeps {
   tursoMode: boolean;
@@ -341,6 +358,13 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // replay drops an edit whose base differs from the loaded name.
   const confirmedNamesRef = useRef<Map<string, string>>(new Map());
 
+  // §626 (R11). Per thread id, the newest write that has LANDED: its `seq`, and `at`, the value of
+  // `landingsRef` when it landed. `seq` keeps an older save resolving after a newer one from moving
+  // the confirmed name backwards; `at` lets a load that started before that landing leave the
+  // confirmed name alone, since what it read may predate the save.
+  const landedRef = useRef<Map<string, LandedWrite>>(new Map());
+  const landingsRef = useRef(0);
+
   // Fire a Turso WRITE (save or delete), tracking it as the retry target
   // (keyed by the thread id it targets) on failure and clearing just THAT
   // key on success — the error banner only clears once nothing is left
@@ -362,24 +386,30 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // A superseded call therefore returns without touching either the retry map
   // or the banner; the write that owns the key decides both.
   //
-  // `onSuccess` runs only for the write that OWNS the key, after it resolves — a superseded write
-  // must not settle an outbox entry a later write for the same thread still depends on.
-  function runPersist(key: string, action: () => Promise<void>, onSuccess?: () => void): void {
+  // §626 (R11). `onLanded` runs for EVERY write that resolves, superseded or not, unless a newer
+  // write for the key has already landed: the server holds what a superseded save carried until a
+  // later one lands, so its name must be confirmed. `owns` tells it whether this write owns the key —
+  // only the owner may settle an outbox entry, which a later write may still depend on.
+  function runPersist(key: string, action: () => Promise<void>, onLanded?: (owns: boolean) => void): void {
     const seq = (persistSeqRef.current += 1);
     latestSeqRef.current.set(key, seq);
     const owns = () => latestSeqRef.current.get(key) === seq;
     action()
       .then(() => {
         persistSettledRef.current += 1;
+        if ((landedRef.current.get(key)?.seq ?? 0) < seq) {
+          landingsRef.current += 1;
+          landedRef.current.set(key, { seq, at: landingsRef.current });
+          onLanded?.(owns());
+        }
         if (!owns()) return;
-        onSuccess?.();
         pendingRetryRef.current.delete(key);
         setThreadsError(pendingRetryRef.current.size > 0);
       })
       .catch(() => {
         persistSettledRef.current += 1;
         if (!owns()) return;
-        pendingRetryRef.current.set(key, () => runPersist(key, action, onSuccess));
+        pendingRetryRef.current.set(key, () => runPersist(key, action, onLanded));
         setThreadsError(true);
       });
   }
@@ -403,6 +433,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // auto-sends from a MOUNT effect, in the same commit that starts this
     // fetch), or a "New chat" / thread click.
     const startedOn = threadIdRef.current;
+    const landingsAtStart = landingsRef.current;
     loadThreads(tursoConfig, projectId)
       .then((loaded) => {
         if (cancelled) return;
@@ -437,7 +468,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         setLoadedProjectId(projectId);
         // §626. A rename typed before the last close and never saved: re-issue it now that the
         // server's own copy is in hand to check the draft's base against.
-        for (const th of loaded) confirmedNamesRef.current.set(th.id, th.name);
+        adoptConfirmedNames(confirmedNamesRef.current, landedRef.current, loaded, landingsAtStart);
         replayRenamesRef.current(loaded); // the ref is synced by the effect beside `replayRenames`, below
         if (settled.stale) return;
         setActiveThreadId(settled.next?.id ?? null);
@@ -604,6 +635,10 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // before it by `persistInFlightAtClick` — so no mutant could kill it alone.
     const persistInFlightAtClick = persistSeqRef.current > persistSettledRef.current;
     const persistSeqAtClick = persistSeqRef.current;
+    // §626 (R11). A save that lands while this reload is out keeps its confirmed name — see
+    // adoptConfirmedNames. Not shouldPreserveLive(): that is project-wide and also true for a write
+    // that FAILS, so it would freeze every thread's confirmed name, not just the one that landed.
+    const landingsAtClick = landingsRef.current;
     // §313. The project epoch this reload is FOR, compared at settle against
     // the live one. The mount effect's `cancelled` local cannot serve here —
     // retryLoad runs from an event handler, outside that effect's closure.
@@ -631,7 +666,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         const settled = mergeThreadsAfterLoad(startedOn, threadIdRef.current, projectId, loaded, preserveLive);
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
-        for (const th of loaded) confirmedNamesRef.current.set(th.id, th.name);
+        adoptConfirmedNames(confirmedNamesRef.current, landedRef.current, loaded, landingsAtClick);
         replayRenamesRef.current(loaded); // same replay as the load effect's success branch
         if (settled.stale) return;
         setActiveThreadId(settled.next?.id ?? null);
@@ -686,7 +721,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     };
     setThreads((prev) => [thread, ...prev.filter((th) => th.id !== id)]);
     const scope = renameScope();
-    runPersist(id, () => saveThread(tursoConfig, thread), () => confirmSavedName(scope, id, thread.name));
+    runPersist(id, () => saveThread(tursoConfig, thread), (owns) => confirmSavedName(scope, id, thread.name, owns));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy]);
 
@@ -781,7 +816,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     };
     setThreads((prev) => (prev.some((th) => th.id === id) ? prev : [inserted, ...prev]));
     const scope = renameScope();
-    runPersist(id, () => saveThread(tursoConfig, inserted), () => confirmSavedName(scope, id, inserted.name));
+    runPersist(id, () => saveThread(tursoConfig, inserted), (owns) => confirmSavedName(scope, id, inserted.name, owns));
     return id;
   }
 
@@ -813,13 +848,15 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     return confirmedNamesRef.current.get(target.id) ?? target.name;
   }
 
-  // §626. A save of thread `id` carrying `name` resolved: the server now holds `name`. An outbox
-  // entry for exactly that value is settled (value-aware: a newer draft typed while the save was in
-  // flight stays), and a newer one is re-based onto `name`, which is what the next start will load.
-  function confirmSavedName(scope: string | null, id: string, name: string): void {
+  // §626. A save of thread `id` carrying `name` landed, and no newer write for it has: the server now
+  // holds `name`. A waiting outbox entry is re-based onto `name`, which is what the next start will
+  // load. Only the write that `owns` the key settles an entry for exactly that value (value-aware: a
+  // newer draft typed while the save was in flight stays); a superseded one leaves the entry to the
+  // later write it still depends on.
+  function confirmSavedName(scope: string | null, id: string, name: string, owns: boolean): void {
     confirmedNamesRef.current.set(id, name);
     if (!scope) return;
-    settlePendingEdit(scope, RENAME_KIND, id, name);
+    if (owns) settlePendingEdit(scope, RENAME_KIND, id, name);
     rebasePendingEdit(scope, RENAME_KIND, id, name);
   }
 
@@ -829,7 +866,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     setThreads((prev) => prev.map((th) => (th.id === id ? updated : th)));
     const scope = renameScope();
     if (scope) trackPendingEdit(scope, { kind: RENAME_KIND, id, base: confirmedName(target), value: name });
-    runPersist(id, () => saveThread(tursoConfig, updated), () => confirmSavedName(scope, id, name));
+    runPersist(id, () => saveThread(tursoConfig, updated), (owns) => confirmSavedName(scope, id, name, owns));
   }
 
   // §626. Re-issues the renames typed before the last close, once a load for this project has
