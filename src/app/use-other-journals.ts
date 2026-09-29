@@ -15,14 +15,15 @@
 // use-unload-journal.ts): a load that skips it (an incomplete load) or a project op (switch, create,
 // which loads without a restore) leaves its key's journal listed; reloading the page with that
 // project open restores it. Records this page wrote itself are left out too: they are this
-// session's, not an earlier one's — except a record it KEPT on a switch away from a project paused on a
-// conflict (§4): a switch back loads without a restore, so this list is its only way out in this page.
-// The key in scope is never expired.
+// session's, not an earlier one's. A project's KEPT slot (§4, `keptProjectKey`: a version left behind
+// while its saves were refused as stale) is always listed, whichever tab wrote it: no restore reads that
+// slot, so Download / Discard here are its only way out. The key in scope is never expired (its kept
+// slot is a different key, so it is).
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { downloadJson } from "./download-json";
 import { loadRegistry } from "./projects-registry";
-import { clearUnloadJournal, expireUnloadJournals, listUnloadJournals, type UnloadJournal } from "./unload-journal";
+import { clearUnloadJournal, expireUnloadJournals, isKeptProjectKey, listUnloadJournals, UNLOAD_JOURNAL_KEPT_SUFFIX, type UnloadJournal } from "./unload-journal";
 import { UNLOAD_JOURNAL_TAB_ID } from "./use-unload-journal";
 
 export type OtherJournal = {
@@ -43,7 +44,8 @@ export type UseOtherJournalsArgs = {
 };
 
 function toEntry(journal: UnloadJournal): OtherJournal {
-  return { journal, label: loadRegistry().projects.find((p) => p.id === journal.projectKey)?.name ?? null };
+  const projectId = isKeptProjectKey(journal.projectKey) ? journal.projectKey.slice(0, -UNLOAD_JOURNAL_KEPT_SUFFIX.length) : journal.projectKey; // §4 — a kept slot is labelled with its project
+  return { journal, label: loadRegistry().projects.find((p) => p.id === projectId)?.name ?? null };
 }
 
 /** The download's file name. The key never holds a credential (see `journalProjectKey`); anything
@@ -65,7 +67,7 @@ export function useOtherJournals({ projectKey, restoredKeys, enabled, isPopout }
    *  page (use-unload-journal.ts owns those) and those this page wrote. Newest first. */
   const relist = useCallback((): void => {
     setOthers(listUnloadJournals()
-      .filter((j) => (j.kept === true && j.tabId === UNLOAD_JOURNAL_TAB_ID) || (!restoredKeys.has(j.projectKey) && j.tabId !== UNLOAD_JOURNAL_TAB_ID)) // §4 — a record this page KEPT on a switch away is listed here too: nothing else in this page offers it
+      .filter((j) => isKeptProjectKey(j.projectKey) || (!restoredKeys.has(j.projectKey) && j.tabId !== UNLOAD_JOURNAL_TAB_ID)) // §4 — a KEPT slot is listed whoever wrote it: no restore ever reads it, so this list is its only way out
       .sort((a, b) => b.savedAt - a.savedAt)
       .map(toEntry));
   }, [restoredKeys]);

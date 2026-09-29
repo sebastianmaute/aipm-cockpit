@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as diagnostics from "./diagnostics";
 import {
-  UNLOAD_JOURNAL_MAX_AGE_MS, UNLOAD_JOURNAL_PREFIX,
-  clearUnloadJournal, expireUnloadJournals, listUnloadJournals, readUnloadJournal, writeUnloadJournal,
+  UNLOAD_JOURNAL_MAX_AGE_MS, UNLOAD_JOURNAL_MAX_CHARS, UNLOAD_JOURNAL_PREFIX,
+  clearUnloadJournal, expireUnloadJournals, isKeptProjectKey, keptProjectKey, listUnloadJournals, readUnloadJournal, writeUnloadJournal,
 } from "./unload-journal";
 
 const NOW = 1_800_000_000_000;
@@ -116,5 +116,31 @@ describe("clearUnloadJournal's result", () => {
     expect(readUnloadJournal("p")).not.toBeNull();
     expect(clearUnloadJournal("p", { tabId: "tab-a", ifSavedAtAtMost: NOW })).toBe(true);
     expect(readUnloadJournal("p")).toBeNull();
+  });
+});
+
+describe("§4 the kept slot (`keptProjectKey`)", () => {
+  it("is its own key under the journal prefix: listed, and never read or cleared through the project's own key", () => {
+    put(keptProjectKey("p1"), NOW);
+    expect(isKeptProjectKey(keptProjectKey("p1"))).toBe(true);
+    expect(isKeptProjectKey("p1")).toBe(false);
+    expect(window.localStorage.getItem(`${UNLOAD_JOURNAL_PREFIX}${keptProjectKey("p1")}`)).not.toBeNull();
+    expect(listUnloadJournals().map((j) => j.projectKey)).toEqual([keptProjectKey("p1")]);
+    expect(readUnloadJournal("p1")).toBeNull();
+    expect(clearUnloadJournal("p1")).toBe(true); // the project's own slot…
+    expect(readUnloadJournal(keptProjectKey("p1"))).not.toBeNull(); // …is a different key
+  });
+
+  it("expires past the age limit even while its project is the one in scope", () => {
+    put(keptProjectKey("p1"), NOW - UNLOAD_JOURNAL_MAX_AGE_MS - 1);
+    expect(expireUnloadJournals(NOW, "p1").map((j) => j.projectKey)).toEqual([keptProjectKey("p1")]);
+    expect(readUnloadJournal(keptProjectKey("p1"))).toBeNull();
+  });
+
+  it("is written only under the size cap", () => {
+    vi.spyOn(diagnostics, "logDiag").mockImplementation(() => undefined);
+    const big = "x".repeat(UNLOAD_JOURNAL_MAX_CHARS + 1);
+    expect(writeUnloadJournal({ projectKey: keptProjectKey("p1"), tabId: "t", savedAt: NOW, baseFingerprint: "", workspace: big })).toBe(false);
+    expect(readUnloadJournal(keptProjectKey("p1"))).toBeNull();
   });
 });

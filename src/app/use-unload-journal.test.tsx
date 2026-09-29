@@ -50,7 +50,7 @@ vi.mock("./unload-journal", async (importOriginal) => {
 
 import * as storageMod from "./storage";
 import { TestProviders } from "./test-providers";
-import { fingerprintWorkspace, UNLOAD_JOURNAL_PREFIX, type UnloadJournal } from "./unload-journal";
+import { fingerprintWorkspace, keptProjectKey, UNLOAD_JOURNAL_PREFIX, type UnloadJournal } from "./unload-journal";
 import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
 import { useStorageBackend } from "./use-storage-backend";
 import { UNLOAD_JOURNAL_TAB_ID, useUnloadJournal } from "./use-unload-journal";
@@ -354,6 +354,8 @@ describe("§629 — useUnloadJournal on its own", () => {
   const WS_1: Workspace = { ...emptyWorkspace(), tasks: [{ id: 1, taskName: "One" } as unknown as Task] };
   const WS_2: Workspace = { ...emptyWorkspace(), tasks: [{ id: 2, taskName: "Two" } as unknown as Task] };
   const KEY = `${UNLOAD_JOURNAL_PREFIX}p1`;
+  const KEPT_KEY = `${UNLOAD_JOURNAL_PREFIX}${keptProjectKey("p1")}`;
+  const EXTRA: Workspace = { ...emptyWorkspace(), tasks: [{ id: 3, taskName: "Three" } as unknown as Task] };
 
   function renderJournal(isPopout = false) {
     return renderHook(() => useUnloadJournal({ projectKey: "p1", enabled: true, isPopout }));
@@ -489,43 +491,54 @@ describe("§629 — useUnloadJournal on its own", () => {
     expect(jsonToWorkspace(readJournal(KEY)!.workspace).tasks.map((x) => x.id)).toEqual([2]);
   });
 
-  it("§4 followLive(ws, true) writes at once, under the base of the last confirmed state", () => {
+  it("§4 followLive(ws, true) writes at once into the KEPT slot, never the project's own", () => {
     const { result } = renderJournal();
     result.current.setBase(WS_1, "p1");
     act(() => { result.current.followLive(WS_2, true); });
-    const rec = readJournal(KEY)!;
-    expect(jsonToWorkspace(rec.workspace).tasks.map((x) => x.id)).toEqual([2]);
-    expect(rec.baseFingerprint).toBe(fingerprintWorkspace(WS_1));
+    expect(jsonToWorkspace(readJournal(KEPT_KEY)!.workspace).tasks.map((x) => x.id)).toEqual([2]);
+    expect(localStorage.getItem(KEY)).toBeNull();
   });
 
-  it("§4 followLive(ws, true) keeps its record: this tab neither clears it on a confirmed save nor rewrites it", () => {
-    const { result } = renderJournal();
-    result.current.setBase(WS_1, "p1");
-    act(() => { result.current.followLive(WS_2, true); });
-    const kept = readJournal(KEY)!;
-    expect(kept.kept).toBe(true);
-    const later = result.current.noteSaveStarted(WS_1);
-    result.current.noteSaveConfirmed(later, WS_1); // a later save of this tab, confirmed
-    pageHide();
-    expect(readJournal(KEY)).toEqual(kept);
-  });
-
-  it("§4 a kept record is not replaced by this tab's next unconfirmed save of that key", () => {
+  it("§4 ordinary journalling of the key stays on beside a kept record: confirmations, unconfirmed saves and pagehide use the own slot only", () => {
     const { result } = renderJournal();
     act(() => { result.current.followLive(WS_2, true); });
-    const kept = readJournal(KEY)!;
-    result.current.noteSaveStarted(WS_1); // started, never confirmed
+    const kept = readJournal(KEPT_KEY)!;
+    const confirmed = result.current.noteSaveStarted(WS_1);
+    result.current.noteSaveConfirmed(confirmed, WS_1);
+    expect(readJournal(KEPT_KEY)).toEqual(kept);
+    result.current.noteSaveStarted(EXTRA); // started, never confirmed
     pageHide();
-    expect(readJournal(KEY)).toEqual(kept);
+    expect(jsonToWorkspace(readJournal(KEY)!.workspace).tasks.map((x) => x.id)).toEqual([3]);
+    expect(readJournal(KEPT_KEY)).toEqual(kept);
+    result.current.dropUnconfirmed("p1"); // "Reload project"
+    expect(readJournal(KEPT_KEY)).toEqual(kept);
   });
 
-  it("§4 followLive(ws, true) keeps no entry: once a restore has taken the record over, pagehide still does not rewrite it", () => {
+  it("§4 followLive(ws, true) consumes the pause's live entry: pagehide does not also write it to the own slot", () => {
     const { result } = renderJournal();
     act(() => { result.current.followLive(WS_1); }); // the pause's live entry…
     act(() => { result.current.followLive(WS_2, true); }); // …then the switch away keeps the newest
-    act(() => { result.current.restoreOnLoad(WS_1, "p1", "browser"); }); // a mismatch: published as the notice
     pageHide();
-    expect(readJournal(KEY)?.kept).toBe(true);
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("§4 a second keep never replaces the kept record the user has not resolved: it goes to the own slot", () => {
+    const { result } = renderJournal();
+    act(() => { result.current.followLive(WS_1, true); });
+    const kept = readJournal(KEPT_KEY)!;
+    act(() => { result.current.followLive(WS_2, true); });
+    expect(readJournal(KEPT_KEY)).toEqual(kept);
+    expect(jsonToWorkspace(readJournal(KEY)!.workspace).tasks.map((x) => x.id)).toEqual([2]);
+  });
+
+  it("§4 noteSaveRefused — a stale save whose backend was replaced goes to the kept slot, under the key it was started for, and leaves no entry", () => {
+    const { result } = renderJournal();
+    const at = result.current.noteSaveStarted(WS_2);
+    act(() => { result.current.noteSaveRefused(at, WS_2); });
+    expect(jsonToWorkspace(readJournal(KEPT_KEY)!.workspace).tasks.map((x) => x.id)).toEqual([2]);
+    result.current.setBase(WS_1, "p1"); // the new backend's load
+    pageHide();
+    expect(localStorage.getItem(KEY)).toBeNull();
   });
 
   it("§4 a live entry is dropped when its key's base moves by setBase: pagehide writes nothing", () => {
@@ -550,6 +563,7 @@ describe("§629 — useUnloadJournal on its own", () => {
     act(() => { result.current.followLive(WS_2, true); });
     pageHide();
     expect(localStorage.getItem(KEY)).toBeNull();
+    expect(localStorage.getItem(KEPT_KEY)).toBeNull();
   });
 
   it("setBase stores the fingerprint of the workspace it is given", () => {

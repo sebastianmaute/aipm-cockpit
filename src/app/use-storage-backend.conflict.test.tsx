@@ -38,7 +38,7 @@ import type { FsHandle, StorageConfig } from "./storage";
 import { emptyWorkspace, workspaceToJson } from "./storage";
 import { SaveConflictError } from "./storage-error";
 import { TestProviders } from "./test-providers";
-import { UNLOAD_JOURNAL_PREFIX, type UnloadJournal } from "./unload-journal";
+import { keptProjectKey, UNLOAD_JOURNAL_PREFIX, type UnloadJournal } from "./unload-journal";
 import { useStorageBackend } from "./use-storage-backend";
 import { useWorkspace } from "./workspace-context";
 
@@ -76,7 +76,7 @@ function renderApp(initial: StorageConfig) {
       settings, lang: "en-US" as Lang, hydrated: true, isPopout: false, showToast, showToastAction,
       onRevealSavingPaused: vi.fn(), setStorageConfig, onStorageOutcome,
     });
-    return { ops, workspace: useWorkspace() };
+    return { ops, workspace: useWorkspace(), setStorageConfig };
   }, { wrapper: TestProviders });
   return {
     hook,
@@ -179,7 +179,17 @@ describe("useStorageBackend — a stale save pauses saving and keeps the edits j
     expect(journals().some(({ journal }) => journal.workspace.includes("PAUSED-EDIT"))).toBe(true);
   });
 
-  describe("the record kept on a switch away from a paused project (fix round 1)", () => {
+  describe("the record kept on a switch away from a paused project (fix rounds 1 and 2)", () => {
+    const KEPT_P = `${UNLOAD_JOURNAL_PREFIX}${keptProjectKey("p")}`;
+    const OWN_P = `${UNLOAD_JOURNAL_PREFIX}p`;
+    const stored = (key: string) => journals().find((j) => j.key === key)?.journal ?? null;
+    /** A peer writes `p`, then an edit's save meets it and pauses. */
+    async function pauseOnP(app: App, file: FakeFile, tasks: Task[], conflictsAfter: number) {
+      file.foreignWrite(workspaceToJson({ ...emptyWorkspace(), tasks: [task(7, "PEER")] }));
+      await edit(app, tasks);
+      await waitFor(() => expect(app.conflicts()).toBe(conflictsAfter), { timeout: 4000 });
+      await settle();
+    }
     /** Registry project `p` (a bound local file) is current, `b` is browser storage. Boots on `p`, lets a
      *  peer write it, pauses on the next save, edits once more and switches to `b`. */
     async function keptThenSwitched() {
@@ -192,16 +202,14 @@ describe("useStorageBackend — a stale save pauses saving and keeps the edits j
       const app = renderApp({ kind: "local-json" });
       await waitFor(() => expect(app.ops().loadPending).toBe(false));
       await settle();
-      file.foreignWrite(workspaceToJson({ ...emptyWorkspace(), tasks: [task(7, "PEER")] }));
-      await edit(app, [task(1, "FIRST")]);
-      await waitFor(() => expect(app.conflicts()).toBe(1), { timeout: 4000 });
-      await settle();
+      await pauseOnP(app, file, [task(1, "FIRST")], 1);
       await edit(app, [task(2, "KEPT-EDIT")]);
       await settle();
       await act(async () => { await app.ops().switchToProject("b"); });
       await settle();
-      const kept = journals().find(({ key }) => key === `${UNLOAD_JOURNAL_PREFIX}p`)!.journal;
+      const kept = stored(KEPT_P)!;
       expect(kept.workspace).toContain("KEPT-EDIT");
+      expect(stored(OWN_P)).toBeNull(); // the kept slot, not the project's own
       return { app, file, kept };
     }
     async function switchBackToP(app: App) {
@@ -209,34 +217,86 @@ describe("useStorageBackend — a stale save pauses saving and keeps the edits j
       await settle();
       expect(app.hook.result.current.workspace.tasks.map((x) => x.taskName)).toEqual(["PEER"]);
     }
-    const storedP = () => journals().find(({ key }) => key === `${UNLOAD_JOURNAL_PREFIX}p`)?.journal ?? null;
 
     it("is listed as an unsaved version in this tab too", async () => {
       const { app } = await keptThenSwitched();
-      expect(app.ops().otherJournals.others.map((o) => o.journal.projectKey)).toContain("p");
+      expect(app.ops().otherJournals.others.map((o) => o.journal.projectKey)).toContain(keptProjectKey("p"));
     });
 
-    it("switching back and closing the tab does not re-base it onto the peer's version, and the next open asks instead of applying", async () => {
+    it("switching back and closing the tab leaves it exactly as kept, and the next open neither applies it nor raises the restore notice", async () => {
       const { app, kept } = await keptThenSwitched();
       await switchBackToP(app);
       act(() => { window.dispatchEvent(new Event("pagehide")); });
-      expect(storedP()?.baseFingerprint).toBe(kept.baseFingerprint);
+      expect(stored(KEPT_P)).toEqual(kept);
       app.hook.unmount();
       const next = renderApp({ kind: "local-json" });
       await waitFor(() => expect(next.ops().loadPending).toBe(false));
       await settle();
-      expect(next.ops().unloadJournalConflict).toBe(true);
+      expect(next.ops().unloadJournalConflict).toBe(false); // the notice reads only the own slot
       expect(next.hook.result.current.workspace.tasks.map((x) => x.taskName)).toEqual(["PEER"]);
+      expect(next.ops().otherJournals.others.map((o) => o.journal.projectKey)).toContain(keptProjectKey("p"));
     });
 
     it("a later confirmed save in this tab does not clear it", async () => {
-      const { app, file } = await keptThenSwitched();
+      const { app, file, kept } = await keptThenSwitched();
       await switchBackToP(app);
       await edit(app, [task(7, "PEER"), task(3, "AFTER-RETURN")]);
       await waitFor(() => expect(file.text()).toContain("AFTER-RETURN"), { timeout: 4000 });
       await settle();
-      expect(storedP()?.workspace).toContain("KEPT-EDIT");
+      expect(stored(KEPT_P)).toEqual(kept);
     });
+
+    it("after a Discard of it, a save in flight at pagehide is journalled in the own slot", async () => {
+      const { app } = await keptThenSwitched();
+      await switchBackToP(app);
+      const entry = app.ops().otherJournals.others.find((o) => o.journal.projectKey === keptProjectKey("p"))!;
+      act(() => { app.ops().otherJournals.discard(entry); });
+      expect(stored(KEPT_P)).toBeNull();
+      await edit(app, [task(7, "PEER"), task(4, "IN-FLIGHT")]);
+      act(() => { window.dispatchEvent(new Event("pagehide")); }); // flushes the pending save while hiding: journalled as it starts
+      expect(stored(OWN_P)?.workspace).toContain("IN-FLIGHT");
+      await settle(); // (its confirmation then clears it, as §629 does for any save that lands)
+    });
+
+    it("a second pause on p after returning: pagehide journals the post-return edits in the own slot, and the kept record stays", async () => {
+      const { app, file, kept } = await keptThenSwitched();
+      await switchBackToP(app);
+      await pauseOnP(app, file, [task(7, "PEER"), task(5, "SECOND-PAUSE")], 2);
+      await edit(app, [task(7, "PEER"), task(5, "SECOND-PAUSE"), task(6, "POST-RETURN")]);
+      await settle();
+      act(() => { window.dispatchEvent(new Event("pagehide")); });
+      expect(stored(OWN_P)?.workspace).toContain("POST-RETURN");
+      expect(stored(KEPT_P)).toEqual(kept);
+    });
+
+    it("a second paused switch away does not replace the unresolved kept record: the newer edits go to the own slot", async () => {
+      const { app, file, kept } = await keptThenSwitched();
+      await switchBackToP(app);
+      await pauseOnP(app, file, [task(7, "PEER"), task(8, "SECOND-KEEP")], 2);
+      await act(async () => { await app.ops().switchToProject("b"); });
+      await settle();
+      expect(stored(KEPT_P)).toEqual(kept);
+      expect(stored(OWN_P)?.workspace).toContain("SECOND-KEEP");
+    });
+  });
+
+  it("C1: a stale save whose backend a settings rebuild replaced is kept, and nothing ordinary is re-based onto the new load", async () => {
+    const file = fakeFile("p.json", workspaceToJson(emptyWorkspace()));
+    KV.set("file-handle:local-json", file);
+    const app = renderApp({ kind: "local-json" });
+    await waitFor(() => expect(app.ops().loadPending).toBe(false));
+    await settle();
+    file.foreignWrite(workspaceToJson({ ...emptyWorkspace(), tasks: [task(7, "PEER")] }));
+    await edit(app, [task(1, "REBUILD-EDIT")]); // inside the debounce: the rebuild's cleanup flush writes it
+    await act(async () => { app.hook.result.current.setStorageConfig({ kind: "local-json" }); }); // a new identity: the backend is rebuilt
+    await waitFor(() => expect(app.conflicts()).toBe(1), { timeout: 4000 });
+    await settle(200);
+    expect(app.hook.result.current.workspace.tasks.map((x) => x.taskName)).toEqual(["PEER"]); // the new backend's load
+    act(() => { window.dispatchEvent(new Event("pagehide")); });
+    const byKey = new Map(journals().map((j) => [j.key, j.journal]));
+    expect(byKey.get(`${UNLOAD_JOURNAL_PREFIX}${keptProjectKey("browser")}`)?.workspace).toContain("REBUILD-EDIT");
+    expect(byKey.get(`${UNLOAD_JOURNAL_PREFIX}browser`)?.workspace ?? "").not.toContain("REBUILD-EDIT");
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConflictNotSavedOnSwitch"));
   });
 
   it("a conflict in the pre-switch flush: the switch happens, the journal keeps the outgoing edits, and a toast says so", async () => {
@@ -255,5 +315,6 @@ describe("useStorageBackend — a stale save pauses saving and keeps the edits j
     expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConflictNotSavedOnSwitch"));
     expect(journals().some(({ journal }) => journal.workspace.includes("OUTGOING-EDIT"))).toBe(true);
     expect(app.ops().conflictPause).toBe(false); // the pause belongs to the project left behind
+    expect(showToast.mock.calls.filter(([, text]) => text === t("en-US", "storageConflictNotSavedOnSwitch"))).toHaveLength(1); // the op's cleanup flush meets the conflict too: kept and toasted once
   });
 });

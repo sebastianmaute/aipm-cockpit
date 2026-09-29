@@ -38,10 +38,6 @@ export type UnloadJournal = {
   baseFingerprint: string;
   /** `workspaceToJson` of the unconfirmed outgoing workspace. */
   workspace: string;
-  /** §4 — written when a project was left while its save was refused as stale (use-unload-journal.ts
-   *  `followLive(ws, true)`). Only the user's decision removes it: this tab's own confirmations and
-   *  reloads spare it (`spareKept`). Optional, so a record without it reads as before. */
-  kept?: true;
 };
 
 /** Storage kinds whose relational round trip through Turso cannot be made
@@ -77,6 +73,22 @@ export function journalProjectKey(
     return tursoProjectId && tursoProjectId.length > 0 ? tursoProjectId : "turso";
   }
   return currentProjectId && currentProjectId.length > 0 ? currentProjectId : "browser";
+}
+
+/** §4 — the KEPT slot's suffix. A project left while its saves were refused as stale keeps that
+ *  version under `keptProjectKey(projectKey)`, a key of its own beside the project's journal: the
+ *  restore, the save confirmations and "Reload project" address only the project's own key, so none of
+ *  them reads, clears or overwrites it, and ordinary journalling of the project carries on. It shares
+ *  the prefix, so the §632 list and 30-day expiry, the size cap and the factory reset all cover it.
+ *  No real key contains a colon (registry ids and Turso ids are UUIDs; "browser" / "turso"). */
+export const UNLOAD_JOURNAL_KEPT_SUFFIX = ":kept";
+
+export function keptProjectKey(projectKey: string): string {
+  return `${projectKey}${UNLOAD_JOURNAL_KEPT_SUFFIX}`;
+}
+
+export function isKeptProjectKey(projectKey: string): boolean {
+  return projectKey.endsWith(UNLOAD_JOURNAL_KEPT_SUFFIX);
 }
 
 // --- Fingerprint -------------------------------------------------------
@@ -271,14 +283,11 @@ export function readUnloadJournal(projectKey: string): UnloadJournal | null {
  *    one from the same tab), never a different tab's newer write or a
  *    different tab's write at all.
  *
- *  - `guard.spareKept`: a `kept` record is left in place too (§4) — the
- *    tab's own save confirmations and reloads pass it; a Discard does not.
- *
  *  Returns true when it removed a record (an unguarded clear always reports
  *  true), false when it left the key as it was. */
 export function clearUnloadJournal(
   projectKey: string,
-  guard?: { tabId: string; ifSavedAtAtMost: number; spareKept?: boolean },
+  guard?: { tabId: string; ifSavedAtAtMost: number },
 ): boolean {
   if (typeof window === "undefined") return false;
   const key = journalKey(projectKey);
@@ -293,8 +302,7 @@ export function clearUnloadJournal(
     if (
       isUnloadJournal(parsed) &&
       parsed.tabId === guard.tabId &&
-      parsed.savedAt <= guard.ifSavedAtAtMost &&
-      !(guard.spareKept === true && parsed.kept === true)
+      parsed.savedAt <= guard.ifSavedAtAtMost
     ) {
       window.localStorage.removeItem(key);
       return true;
