@@ -107,6 +107,40 @@ describe("classic layout — a banner's open-settings action opens the header se
   }, 45000);
 });
 
+describe("classic layout — the controlled popover follows the gear and dies with the layout", () => {
+  it("the gear opens and closes the controlled menu", async () => {
+    seed("classic");
+    await mount();
+    const gear = screen.getByRole("button", { name: "Settings" });
+    fireEvent.click(gear);
+    expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+    expect(gear).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(gear);
+    await waitFor(() => expect(settingsPopover()).toBeNull());
+    expect(gear).toHaveAttribute("aria-expanded", "false");
+  }, 45000);
+
+  it("a layout switch closes it: open in classic, pick Modern in it, switch back to Classic — the popover is closed", async () => {
+    seed("classic");
+    reportAiKeyResponse(KEY, 401); // gives the modern shell a way back into Settings (the banner)
+    await mount();
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    const popover = await screen.findByRole("dialog", { name: "Settings" });
+    fireEvent.click(within(popover).getByRole("radio", { name: "Modern" }));
+    // Modern shell: no classic header, so no popover.
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Open AI settings" })).not.toBeNull());
+    expect(settingsPopover()).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Open AI settings" }));
+    await screen.findByRole("navigation", { name: "Settings" });
+    fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
+    fireEvent.click(await screen.findByRole("radio", { name: "Classic" }));
+    // Back in classic: the header (and its gear) is back, and the popover must NOT reappear.
+    await screen.findByRole("button", { name: "Settings" });
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(settingsPopover()).toBeNull();
+  }, 45000);
+});
+
 describe("modern layout — unchanged: the actions navigate to the Settings view", () => {
   it("the AI key banner's action lands on Settings → AI, with no popover", async () => {
     seed("modern");

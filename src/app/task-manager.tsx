@@ -1296,6 +1296,13 @@ function TaskManagerInner() {
   // child-side "handled" seed to swallow a request on a fresh mount.
   const [classicSettingsOpen, setClassicSettingsOpen] = useState(false);
   const isClassicLayout = settings.layout === "classic";
+  // ★★ The popover holds the Layout control, so picking "Modern" in it unmounts the classic header
+  // while this parent-owned state is still `true`. Before the state was lifted here it died with
+  // the unmount; now it must be CLEARED when the layout leaves classic (render-time reconcile —
+  // set-state-in-effect is banned), or a later switch back to classic reopens it. The `open` passed
+  // down is also derived (`isClassicLayout && …`) so the render that switches layout never feeds a
+  // stale `true` to anything.
+  if (!isClassicLayout && classicSettingsOpen) setClassicSettingsOpen(false);
   const onOpenSettingsSection = useCallback((id: SettingsSectionId) => {
     if (isClassicLayout) {
       setClassicSettingsOpen(true);
@@ -2983,7 +2990,7 @@ function TaskManagerInner() {
     handleSaveTemplate,
     handleApplyTemplate,
     undoControl: undoControlEl,
-    settingsMenuOpen: classicSettingsOpen,
+    settingsMenuOpen: isClassicLayout && classicSettingsOpen,
     onSettingsMenuOpenChange: setClassicSettingsOpen,
   });
 
