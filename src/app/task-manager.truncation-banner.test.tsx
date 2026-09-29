@@ -623,3 +623,70 @@ describe("task-manager → load-pause banner mount", () => {
     await waitFor(() => expect(footerSeen.storageReady).toContain(true), { timeout: 40000 });
   }, 45000);
 });
+
+// ── §4: the CONFLICT pause ────────────────────────────────────────────────────
+// A save was refused because another tab or device saved first. The hook publishes it as
+// `loadPause === "conflict"` (and `conflictPause`); the banner says so and offers Reload. Overwrite
+// and Download are wired by the hook's resolve handlers, so this pins only what task-manager mounts.
+describe("task-manager → conflict banner mount", () => {
+  let reload: ReturnType<typeof vi.fn>;
+  const HEADLINE = "This project was changed in another tab or on another device. Your changes since then are not saved yet.";
+
+  function conflictBanner() {
+    const el = screen.queryByRole("alert", { name: t("en-US", "storageSavingPaused") });
+    return el !== null && el.textContent?.includes(HEADLINE) ? el : null;
+  }
+
+  beforeEach(() => {
+    reload = vi.fn(async () => {});
+    override.value = {
+      storageReady: true,
+      truncation: null,
+      loadWasIncomplete: false,
+      allowIncompleteSave: override.allowIncompleteSave,
+      destructiveRefusal: null,
+      loadPause: "conflict",
+      conflictPause: true,
+      reloadCurrentProject: reload,
+    };
+  });
+
+  it("mounts the conflict banner with its headline, not the load-pause one", async () => {
+    await mountApp();
+    const el = conflictBanner();
+    expect(el).not.toBeNull();
+    expect(within(el as HTMLElement).queryByText(t("en-US", "storageSavePausedLoadFailed"))).toBeNull();
+    expect(within(el as HTMLElement).queryByRole("button", { name: t("en-US", "reloadProject") })).toBeNull();
+    expect(banner()).toBeNull();
+    expect(destructiveBanner()).toBeNull();
+  }, 45000);
+
+  it("Reload asks first, then reloads the project", async () => {
+    await mountApp();
+    fireEvent.click(within(conflictBanner() as HTMLElement).getByRole("button", { name: t("en-US", "storageConflictReload") }));
+    const dialog = await screen.findByRole("dialog", { name: /please confirm/i });
+    expect(within(dialog).getByText("Reload the saved version and discard your unsaved changes?")).toBeInTheDocument();
+    expect(reload).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: t("en-US", "storageConflictReloadConfirmAction") }));
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+  }, 45000);
+
+  it("dismiss hides the banner without resolving the pause, and the sidebar indicator brings it back", async () => {
+    await mountApp();
+    fireEvent.click(within(conflictBanner() as HTMLElement).getByRole("button", { name: /dismiss/i }));
+    await waitFor(() => expect(conflictBanner()).toBeNull());
+    expect(reload).not.toHaveBeenCalled();
+
+    const control = pausedControl();
+    expect(control).not.toBeNull();
+    fireEvent.click(control as HTMLElement);
+    await waitFor(() => expect(conflictBanner()).not.toBeNull());
+  }, 45000);
+
+  it("shows the sidebar's saving-paused indicator and stops reporting storage as healthy while the conflict pause holds", async () => {
+    await mountApp();
+    expect(pausedControl()).not.toBeNull();
+    await waitFor(() => expect(footerSeen.storageReady.length).toBeGreaterThan(0));
+    expect(footerSeen.storageReady.some((v) => v === true)).toBe(false);
+  }, 45000);
+});

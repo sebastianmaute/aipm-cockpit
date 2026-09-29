@@ -189,14 +189,18 @@ function JournalList({
 }) {
   const [downloadFailed, setDownloadFailed] = useState<string | null>(null);
   const names = entries.map((entry) => journalName(lang, entry));
+  const dates = entries.map((entry) => formatFetchedAt(new Date(entry.journal.savedAt).toISOString(), lang));
+  // §4 — two kept versions of one project share a name: the buttons then add the date, so each is row-unique.
+  const dated = names.map((shown, i) => (names.indexOf(shown) === names.lastIndexOf(shown) ? shown : `${shown} (${dates[i]})`));
+  // ...and the date is shown to the minute, so two written within one minute still collide: an ordinal separates them.
+  const labels = dated.map((label, i) => (dated.indexOf(label) === dated.lastIndexOf(label) ? label : `${label} (${dated.slice(0, i + 1).filter((d) => d === label).length})`));
   return (
     <>
       <ul className="mt-2 flex flex-col gap-1">
         {entries.map((entry, i) => {
           const shown = names[i];
-          const date = formatFetchedAt(new Date(entry.journal.savedAt).toISOString(), lang);
-          // §4 — two kept versions of one project share a name: the buttons then add the date, so each is row-unique.
-          const name = names.indexOf(shown) === names.lastIndexOf(shown) ? shown : `${shown} (${date})`;
+          const date = dates[i];
+          const name = labels[i];
           return (
             <li key={`${entry.journal.projectKey}:${entry.journal.tabId}:${entry.journal.savedAt}`} className="flex flex-wrap items-center gap-2 text-sm">
               <span className="min-w-0 break-all">
@@ -297,6 +301,12 @@ export type SavingPausedCause =
        *  target's project — so the primary action is a non-destructive "Reload project". */
       kind: "load";
       reason: "load-failed" | "empty-refused";
+    }
+  | {
+      /** §4: a save was refused because another tab or device saved first. Three exits, and two of them
+       *  throw a version away, so each asks: Reload (the stored version wins; `onSaveAnyway`), Overwrite
+       *  (this one wins; `onOverwrite`), and Download my version (`onDownload`, discards nothing). */
+      kind: "conflict";
     };
 
 /** The headline, aria-label and count line for the TRUNCATION cause. Pure
@@ -405,6 +415,37 @@ function loadCopy(c: Extract<SavingPausedCause, { kind: "load" }>): {
   };
 }
 
+/** The CONFLICT cause's actions (§4). Reload and Overwrite each confirm first, with the exact question and a
+ *  commit label of its own: the dialog opens over this banner, so the commit may not share the trigger's
+ *  name. ★ Overwrite and Download render only when their handler is given — a banner that offered an
+ *  action wired to nothing would be a promise with no one behind it. */
+function ConflictActions({ lang, onReload, onOverwrite, onDownload }: {
+  lang: Lang; onReload: () => void; onOverwrite?: () => void; onDownload?: () => void;
+}) {
+  const confirm = useConfirm();
+  const askThen = async (message: "storageConflictReloadConfirm" | "storageConflictOverwriteConfirm",
+    confirmLabel: "storageConflictReloadConfirmAction" | "storageConflictOverwriteConfirmAction", act: () => void) => {
+    if (await confirm({ message: t(lang, message), confirmLabel: t(lang, confirmLabel) })) act();
+  };
+  return (
+    <>
+      <Button variant="destructive" size="xs" onClick={() => { void askThen("storageConflictReloadConfirm", "storageConflictReloadConfirmAction", onReload); }}>
+        {t(lang, "storageConflictReload")}
+      </Button>
+      {onOverwrite && (
+        <Button variant="destructive" size="xs" onClick={() => { void askThen("storageConflictOverwriteConfirm", "storageConflictOverwriteConfirmAction", onOverwrite); }}>
+          {t(lang, "storageConflictOverwrite")}
+        </Button>
+      )}
+      {onDownload && (
+        <Button variant="secondary" size="xs" onClick={onDownload}>
+          {t(lang, "storageConflictDownload")}
+        </Button>
+      )}
+    </>
+  );
+}
+
 /** The ONE banner for "saving is paused", rendering whichever cause holds. It
  *  is the ONLY route out of either lockout, and dismissing it hides the banner
  *  but must NOT clear the underlying guard — only the confirmed primary action
@@ -450,7 +491,7 @@ function loadCopy(c: Extract<SavingPausedCause, { kind: "load" }>): {
  *  toast auto-dismisses and is single-slot: a bad host for an irreversible
  *  button that needs to stay reachable until the user acts. */
 export function SavingPausedBanner({
-  lang, cause, dismissed, hasFooterIndicator, onSaveAnyway, onDismiss, onReopen,
+  lang, cause, dismissed, hasFooterIndicator, onSaveAnyway, onOverwrite, onDownload, onDismiss, onReopen,
 }: {
   lang: Lang;
   cause: SavingPausedCause;
@@ -460,8 +501,13 @@ export function SavingPausedBanner({
    *  shell's sidebar footer). FALSE in the classic layout, which has none. */
   hasFooterIndicator: boolean;
   /** The primary action: "save anyway" for truncation/destructive. For `load` it is "Reload
-   *  project", rendered secondary and unconfirmed because it discards nothing. */
+   *  project", rendered secondary and unconfirmed because it discards nothing. For `conflict` it is
+   *  "Reload", confirmed, because it discards the unsaved edits. */
   onSaveAnyway: () => void;
+  /** `conflict` only: save this version over the other one. Not rendered when absent. */
+  onOverwrite?: () => void;
+  /** `conflict` only: download this version. Not rendered when absent. */
+  onDownload?: () => void;
   onDismiss: () => void;
   onReopen: () => void;
 }) {
@@ -473,7 +519,8 @@ export function SavingPausedBanner({
   const { countText, bannerKey, bannerAriaKey } =
     cause.kind === "destructive" ? destructiveCopy(lang, cause)
       : cause.kind === "load" ? loadCopy(cause)
-        : truncationCopy(lang, cause);
+        : cause.kind === "conflict" ? { countText: null, bannerKey: "storageSavePausedConflict" as const, bannerAriaKey: "storageSavingPaused" as const }
+          : truncationCopy(lang, cause);
   // ★★ THREE trigger labels, not two.
   // ★ It stays distinct from `storageDestructiveWipeSaveAnyway`, the wipe
   // dialog's commit button: that dialog opens OVER this banner, so the two are
@@ -562,6 +609,8 @@ export function SavingPausedBanner({
             <Button variant="secondary" size="xs" onClick={onSaveAnyway}>
               {t(lang, "reloadProject")}
             </Button>
+          ) : cause.kind === "conflict" ? (
+            <ConflictActions lang={lang} onReload={onSaveAnyway} onOverwrite={onOverwrite} onDownload={onDownload} />
           ) : (
           <Button variant="destructive" size="xs" onClick={() => {
             if (cause.kind === "destructive" && cause.fullWipe) { setWipeConfirmOpen(true); return; }

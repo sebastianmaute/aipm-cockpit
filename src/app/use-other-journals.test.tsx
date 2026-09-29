@@ -224,6 +224,19 @@ describe("OtherJournalsBanner — §4 kept slots", () => {
     expect(discards).toContain("Discard: tp-9"); // a lone entry keeps its plain name
     expect(screen.getAllByText(/^Browser workspace \(no project\) — from /)).toHaveLength(2);
   });
+
+  it("keeps two versions of one project row-unique when they were written in the same displayed minute", () => {
+    // §4 — the date is shown to the minute, so two keeps 20 s apart still share it: an ordinal separates them.
+    const first = entry("tp-9:kept", null, 1);
+    const second = { ...entry("tp-9:kept:1799999980000", null, 1), journal: { ...entry("tp-9:kept:1799999980000", null, 1).journal, savedAt: NOW + 20_000 } };
+    render(<OtherJournalsBanner lang="en-US" others={[first, second]} onDownload={vi.fn(() => true)} onDiscard={vi.fn()} onDismiss={vi.fn()} />);
+    for (const verb of ["Download", "Discard"]) {
+      const labels = screen.getAllByRole("button", { name: new RegExp(`^${verb}: `) }).map((b) => b.getAttribute("aria-label"));
+      expect(labels).toHaveLength(2);
+      expect(new Set(labels).size).toBe(2);
+      expect(labels[1]).toMatch(/\(2\)$/);
+    }
+  });
 });
 
 describe("ExpiredJournalsBanner", () => {
