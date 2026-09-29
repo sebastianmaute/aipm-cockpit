@@ -15,7 +15,9 @@
 // use-unload-journal.ts): a load that skips it (an incomplete load) or a project op (switch, create,
 // which loads without a restore) leaves its key's journal listed; reloading the page with that
 // project open restores it. Records this page wrote itself are left out too: they are this
-// session's, not an earlier one's. The key in scope is never expired.
+// session's, not an earlier one's — except a record it KEPT on a switch away from a project paused on a
+// conflict (§4): a switch back loads without a restore, so this list is its only way out in this page.
+// The key in scope is never expired.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { downloadJson } from "./download-json";
@@ -63,7 +65,7 @@ export function useOtherJournals({ projectKey, restoredKeys, enabled, isPopout }
    *  page (use-unload-journal.ts owns those) and those this page wrote. Newest first. */
   const relist = useCallback((): void => {
     setOthers(listUnloadJournals()
-      .filter((j) => !restoredKeys.has(j.projectKey) && j.tabId !== UNLOAD_JOURNAL_TAB_ID)
+      .filter((j) => (j.kept === true && j.tabId === UNLOAD_JOURNAL_TAB_ID) || (!restoredKeys.has(j.projectKey) && j.tabId !== UNLOAD_JOURNAL_TAB_ID)) // §4 — a record this page KEPT on a switch away is listed here too: nothing else in this page offers it
       .sort((a, b) => b.savedAt - a.savedAt)
       .map(toEntry));
   }, [restoredKeys]);

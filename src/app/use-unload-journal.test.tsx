@@ -498,6 +498,53 @@ describe("§629 — useUnloadJournal on its own", () => {
     expect(rec.baseFingerprint).toBe(fingerprintWorkspace(WS_1));
   });
 
+  it("§4 followLive(ws, true) keeps its record: this tab neither clears it on a confirmed save nor rewrites it", () => {
+    const { result } = renderJournal();
+    result.current.setBase(WS_1, "p1");
+    act(() => { result.current.followLive(WS_2, true); });
+    const kept = readJournal(KEY)!;
+    expect(kept.kept).toBe(true);
+    const later = result.current.noteSaveStarted(WS_1);
+    result.current.noteSaveConfirmed(later, WS_1); // a later save of this tab, confirmed
+    pageHide();
+    expect(readJournal(KEY)).toEqual(kept);
+  });
+
+  it("§4 a kept record is not replaced by this tab's next unconfirmed save of that key", () => {
+    const { result } = renderJournal();
+    act(() => { result.current.followLive(WS_2, true); });
+    const kept = readJournal(KEY)!;
+    result.current.noteSaveStarted(WS_1); // started, never confirmed
+    pageHide();
+    expect(readJournal(KEY)).toEqual(kept);
+  });
+
+  it("§4 followLive(ws, true) keeps no entry: once a restore has taken the record over, pagehide still does not rewrite it", () => {
+    const { result } = renderJournal();
+    act(() => { result.current.followLive(WS_1); }); // the pause's live entry…
+    act(() => { result.current.followLive(WS_2, true); }); // …then the switch away keeps the newest
+    act(() => { result.current.restoreOnLoad(WS_1, "p1", "browser"); }); // a mismatch: published as the notice
+    pageHide();
+    expect(readJournal(KEY)?.kept).toBe(true);
+  });
+
+  it("§4 a live entry is dropped when its key's base moves by setBase: pagehide writes nothing", () => {
+    const { result } = renderJournal();
+    act(() => { result.current.followLive(WS_2); });
+    result.current.setBase(WS_1, "p1");
+    pageHide();
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("§4 a live entry is dropped when its key's base moves by adoptHeldBase: pagehide writes nothing", () => {
+    const { result } = renderJournal();
+    act(() => { result.current.followLive(WS_2); });
+    result.current.holdBase(WS_1);
+    result.current.adoptHeldBase("p1");
+    pageHide();
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
   it("§4 followLive never writes from a popout", () => {
     const { result } = renderJournal(true);
     act(() => { result.current.followLive(WS_2, true); });

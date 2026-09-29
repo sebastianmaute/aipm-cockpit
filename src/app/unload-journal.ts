@@ -38,6 +38,10 @@ export type UnloadJournal = {
   baseFingerprint: string;
   /** `workspaceToJson` of the unconfirmed outgoing workspace. */
   workspace: string;
+  /** §4 — written when a project was left while its save was refused as stale (use-unload-journal.ts
+   *  `followLive(ws, true)`). Only the user's decision removes it: this tab's own confirmations and
+   *  reloads spare it (`spareKept`). Optional, so a record without it reads as before. */
+  kept?: true;
 };
 
 /** Storage kinds whose relational round trip through Turso cannot be made
@@ -267,11 +271,14 @@ export function readUnloadJournal(projectKey: string): UnloadJournal | null {
  *    one from the same tab), never a different tab's newer write or a
  *    different tab's write at all.
  *
+ *  - `guard.spareKept`: a `kept` record is left in place too (§4) — the
+ *    tab's own save confirmations and reloads pass it; a Discard does not.
+ *
  *  Returns true when it removed a record (an unguarded clear always reports
  *  true), false when it left the key as it was. */
 export function clearUnloadJournal(
   projectKey: string,
-  guard?: { tabId: string; ifSavedAtAtMost: number },
+  guard?: { tabId: string; ifSavedAtAtMost: number; spareKept?: boolean },
 ): boolean {
   if (typeof window === "undefined") return false;
   const key = journalKey(projectKey);
@@ -286,7 +293,8 @@ export function clearUnloadJournal(
     if (
       isUnloadJournal(parsed) &&
       parsed.tabId === guard.tabId &&
-      parsed.savedAt <= guard.ifSavedAtAtMost
+      parsed.savedAt <= guard.ifSavedAtAtMost &&
+      !(guard.spareKept === true && parsed.kept === true)
     ) {
       window.localStorage.removeItem(key);
       return true;
