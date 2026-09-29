@@ -875,6 +875,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§645](#645-a-project-switch-in-one-tab-redirects-every-other-tabs-saves-for-browser-storage-and-local-files--open) | A project switch in one tab redirects every other tab's saves for browser storage and local files | — | — | open |
 | [§646](#646-gitlab-rejected-cigitlab-syncyml-as-invalid-yaml-so-the-gitlab-copy-stopped-syncing--closed-2026-09-29) | GitLab rejected ci/gitlab-sync.yml as invalid YAML, so the GitLab copy stopped syncing | — | — | **CLOSED** 2026-09-29 |
 | [§650](#650-a-rejected-or-unreadable-anthropic-api-key-was-never-named-as-the-cause-of-ai-failures--closed-2026-09-29) | A rejected or unreadable Anthropic API key was never named as the cause of AI failures | — | — | **CLOSED** 2026-09-29 |
+| [§651](#651-a-sharepoint-file-whose-name-contains--or--gets-a-broken-graph-url--open) | A SharePoint file whose name contains # or % gets a broken Graph URL | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -43555,3 +43556,13 @@ Registry projects on browser storage or on a local-file kind do not have storage
 **Original status:** found 2026-09-29. `classifyAiError` already returned `"auth"` for 401 and 403, but no surface used it to name the key: most sites showed their generic failure ("Couldn't reach Claude", "Analysis failed (401)", "Could not draft the report"), weight suggestions said the AI service could not be reached, the chat showed "Chat failed: 401 — invalid x-api-key", the digest narrative and the recommendation runner were silent, and a `/v1/models` 401 was swallowed so Settings showed the same "enter a valid key" hint as for no key at all. A sealed key that could not be decrypted read as `""`, indistinguishable from never configured, with one generic one-shot toast as the only signal.
 
 **Source:** the owner, 2026-09-29.
+
+## 651. A SharePoint file whose name contains # or % gets a broken Graph URL — open
+
+**Status:** open 2026-09-29, found by the review of §4 Task 4. Never machine-verified: read off `src/app/sharepoint-backend.ts`, where `parseSharePointFileUrl` decodes each path segment with `decodeURIComponent` and `graphUrlFor` puts the decoded `itemPath` into the Graph URL without encoding it again.
+
+**Work item:** #490
+
+SharePoint Online allows `#` and `%` in file and folder names. For such a name, a `#` in the decoded path starts a URL fragment, so the Graph request is cut off there and reaches the wrong item or none. A `%` that decodes into a reserved character changes what the URL means. Loads and saves of such a file go to the wrong place. On the §4 branch the item-metadata load appends `?$select=…` and a create appends `?@microsoft.graph.conflictBehavior=fail`; after a `#` both land in the fragment, so the create-only guard is lost too. Fix direction: apply `encodeURIComponent` to each segment when building the Graph URL, and pin it with a test using a `#` and a `%` in a filename.
+
+**Source:** the review of §4 Task 4, 2026-09-29.
