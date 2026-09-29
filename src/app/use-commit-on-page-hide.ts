@@ -9,7 +9,11 @@
 //  editor classified). An editor that commits
 //  asynchronously (a fetch, a Promise, a WebCrypto seal) cannot be made safe by
 //  this hook: it only STARTS the commit, and nothing guarantees it lands after
-//  unload. Register §626 names the three editors that therefore do not register.
+//  unload. The three such editors (chat thread rename, template name and body,
+//  the speech-to-text key) do not register: the first two keep their draft in
+//  the pending-edits outbox (`pending-edits.ts`, flushed synchronously to
+//  localStorage on `pagehide`, replayed at the next start), and the key is
+//  sealed on every change instead of on blur (register §626).
 // ★★★ WHAT THIS HOOK GUARANTEES ENDS AT THE COMMIT. The draft is COMMITTED and
 //  the workspace save it triggers is STARTED on `pagehide`; that save is itself
 //  asynchronous on every workspace backend (FS-Access writable, fetch without

@@ -204,6 +204,27 @@ it. Read §629 before touching either file.
 ★ The journal key starts `aipm-cockpit:`, so the factory reset's prefix sweep deletes any pending
 journal (`grep -n "UNLOAD_JOURNAL_PREFIX =" src/app/unload-journal.ts`).
 
+### Pending edits (§626)
+
+The unload journal holds workspaces; `pending-edits.ts` holds the drafts of the three Turso-only
+async editors that a workspace save never carries: a chat thread rename, a template name and a
+template body.
+- **What.** `{ v, kind, id, base, value, savedAt }` per edit, where `base` is the last value the
+  server CONFIRMED (loaded, or a save that landed), never the optimistic one on screen.
+- **Scope.** One key per scope: `PENDING_EDITS_PREFIX` + a hash of the Turso `httpUrl`
+  (`hashForStorageKey`) + `:<projectId>` or `:templates`. Neither the URL nor the token is in the
+  key or the record.
+- **When.** Live edits stay in memory until `pagehide`, which writes each touched scope with one
+  synchronous `setItem`, merged with what other tabs stored: only entries this tab tracked or
+  settled are replaced. An edit is settled when its save lands with the same value.
+- **Replay.** After a successful load of that project (or the templates), once per scope per page
+  lifetime: an edit younger than `UNLOAD_JOURNAL_MAX_AGE_MS` is re-applied through the normal
+  commit only when the stored value still equals `base`; otherwise it is dropped and logged
+  (`storage.pendingEditDropped`, `reason` `missing` or `changed`, kind and id only).
+- The speech-to-text key is not in the outbox: `dictation-section.tsx` seals it on every change.
+- ★ Proven in jsdom only: that the write happens inside `pagehide`, not that a real browser keeps
+  it across a close.
+
 ### Concurrency
 
 - **Turso** saves run inside `withWriteLock`: an exclusive cross-tab Web Lock per database and

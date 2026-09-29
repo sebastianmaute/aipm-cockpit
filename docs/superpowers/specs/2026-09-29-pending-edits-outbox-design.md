@@ -68,7 +68,9 @@ An edit is live from the first keystroke that makes the draft differ from `base`
 write resolves:
 
 - Draft differs from base → `trackPendingEdit` (updated on each change).
-- Draft cancelled (Escape), or equal to base again → `settlePendingEdit`.
+- Draft cancelled (Escape), or equal to base again → `settlePendingEdit`, unless an earlier
+  commit's save is still in flight: then that commit's value stays tracked (implementation note,
+  2026-09-29; `base` is the server-confirmed value throughout).
 - Commit starts (blur/Enter) → the edit stays tracked, with the committed value.
 - The Turso write resolves → `settlePendingEdit`. A rejected write leaves it tracked; the existing
   retry paths (`runPersist`) keep working as today.
