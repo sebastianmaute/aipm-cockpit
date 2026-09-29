@@ -61,13 +61,14 @@ const tpl = (over: Partial<CommTemplate> = {}): CommTemplate => ({
   id: "t1", category: "status-inquiry", name: "Inquiry A", body: "Hello ", isDefault: false, createdAt: "", updatedAt: "", ...over,
 });
 
-type Handlers = Pick<CommTemplatesSectionProps, "onCreate" | "onRename" | "onSaveBody" | "onRemove" | "onSetDefault">;
+type Handlers = Pick<CommTemplatesSectionProps, "onCreate" | "onRename" | "onSaveBody" | "trackDraft" | "onRemove" | "onSetDefault">;
 
 function setup(templates: CommTemplate[], onChange = vi.fn(), overrides: Partial<Handlers> = {}) {
   const handlers: Handlers = {
     onCreate: vi.fn(async () => {}),
     onRename: vi.fn(async () => {}),
     onSaveBody: vi.fn(async () => {}),
+    trackDraft: vi.fn(),
     onRemove: vi.fn(async () => {}),
     onSetDefault: vi.fn(async () => {}),
     ...overrides,
@@ -94,6 +95,28 @@ describe("CommTemplatesSection", () => {
     const body = (await screen.findByLabelText("Body")) as HTMLTextAreaElement;
     fireEvent.click(screen.getByRole("button", { name: "Task name" }));
     expect(body.value).toContain("{{taskName}}");
+  });
+
+  it("typing a template name reports the draft", () => {
+    const h = setup([tpl()]);
+    fireEvent.click(screen.getByRole("button", { name: "Inquiry A" }));
+    fireEvent.change(screen.getByLabelText("Rename template"), { target: { value: "Inquiry B" } });
+    expect(h.trackDraft).toHaveBeenCalledWith("t1", "name", "Inquiry B");
+  });
+
+  it("editing the body reports the draft", async () => {
+    const h = setup([tpl()]);
+    fireEvent.click(screen.getByRole("button", { name: "Inquiry A" }));
+    fireEvent.change(await screen.findByLabelText("Body"), { target: { value: "Hello there" } });
+    expect(h.trackDraft).toHaveBeenCalledWith("t1", "body", "Hello there");
+  });
+
+  it("cancelling the body edit reports the stored body so the draft is dropped", async () => {
+    const h = setup([tpl({ body: "Hello " })]);
+    fireEvent.click(screen.getByRole("button", { name: "Inquiry A" }));
+    fireEvent.change(await screen.findByLabelText("Body"), { target: { value: "Hello CHANGED" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel editing" }));
+    expect(h.trackDraft).toHaveBeenLastCalledWith("t1", "body", "Hello ");
   });
 
   it("sets a template as default", () => {

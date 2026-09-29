@@ -20,6 +20,7 @@ import { reportSilentFailure } from "../guard-feedback";
 import { useToastContext } from "../toast-context";
 import { RichTextEditor } from "../rich-text-editor-lazy";
 import { buildRowTokens, rowLabel } from "../row-tokens";
+import { normalizeTemplateName, type TemplateDraftField } from "../use-comm-templates";
 
 const CAT_LABEL_KEY: Record<CommTemplateCategory, TranslationKey> = {
   "status-inquiry": "commTplCat_statusInquiry",
@@ -32,6 +33,8 @@ export interface CommTemplatesSectionProps {
   onCreate: (category: CommTemplateCategory, name: string, body: string) => Promise<void>;
   onRename: (id: string, name: string) => Promise<void>;
   onSaveBody: (id: string, body: string) => Promise<void>;
+  /** §626 — reports the typed draft of a name or body field to the pending-edits outbox. */
+  trackDraft: (id: string, field: TemplateDraftField, value: string) => void;
   onRemove: (id: string) => Promise<void>;
   onSetDefault: (category: CommTemplateCategory, id: string) => Promise<void>;
   config: TursoConfig | null;
@@ -127,6 +130,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
   function cancelEdit() {
     if (!selected) return;
     setBodyDraft(selected.body);
+    props.trackDraft(selected.id, "body", selected.body);
     setRestoreNonce((n) => n + 1);
   }
 
@@ -294,9 +298,10 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
               type="text"
               defaultValue={selected.name}
               aria-label={t(lang, "commTplRename")}
+              onChange={(e) => props.trackDraft(selected.id, "name", e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
               onBlur={(e) => {
-                const n = e.target.value.trim();
+                const n = normalizeTemplateName(e.target.value);
                 if (n && n !== selected.name) {
                   void props.onRename(selected.id, n).catch((err) =>
                     reportSilentFailure(showToast, lang, "commTemplates.saveFailed", err, "guardCommTemplateSaveFailed"),
@@ -330,7 +335,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
             <RichTextEditor
               key={`${selected.id}:${restoreNonce}`}
               value={bodyDraft}
-              onChange={setBodyDraft}
+              onChange={(html) => { setBodyDraft(html); props.trackDraft(selected.id, "body", html); }}
               label={t(lang, "commTplBody")}
               mergeFields={CATEGORY_FIELDS[category]}
               fieldLabel={(f) => t(lang, ("commTplField_" + f) as TranslationKey)}
