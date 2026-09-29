@@ -134,3 +134,39 @@ describe("DictationSection — STT key seal vs a clear (§609)", () => {
     expect(await readDeviceSecret("sttApiKey")).toBe("other-tab-key");
   });
 });
+
+// §626 — the key is sealed on every change, not only on blur, so closing the page after typing
+// keeps it.
+describe("DictationSection — STT key sealed on every change (§626)", () => {
+  function renderStt() {
+    function Harness() {
+      const [s, setS] = useState<Settings>({ ...defaultSettings, dictation: { engine: "stt", hotkey: "F4" } });
+      return <DictationSection lang="en-US" settings={s} onChange={setS} />;
+    }
+    render(<Harness />);
+    return screen.getByLabelText(t("en-US", "dictationSttKey"), { selector: "input" });
+  }
+
+  it("each non-empty change seals the key", async () => {
+    const sealSpy = vi.spyOn(secrets, "sealDevice");
+    const input = renderStt();
+    fireEvent.change(input, { target: { value: "a" } });
+    fireEvent.change(input, { target: { value: "ab" } });
+    expect(sealSpy.mock.calls.map((c) => c[1])).toEqual(["a", "ab"]);
+    await waitFor(async () => expect(await readDeviceSecret("sttApiKey")).toBe("ab"));
+  });
+
+  it("emptying the field removes the seal and does not seal", async () => {
+    const sealSpy = vi.spyOn(secrets, "sealDevice");
+    const input = renderStt();
+    fireEvent.change(input, { target: { value: "ab" } });
+    await waitFor(async () => expect(await readDeviceSecret("sttApiKey")).toBe("ab"));
+    sealSpy.mockClear();
+    fireEvent.change(input, { target: { value: "" } });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(sealSpy).not.toHaveBeenCalled();
+    expect(loadSealed("sttApiKey")).toBeNull();
+  });
+});

@@ -39,6 +39,9 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
     // a field that was already blank (another tab saved the key since this one rendered) must
     // not delete a key the user never touched here.
     if (value.trim() === "") removeSealed("sttApiKey");
+    // §626: every non-empty change seals too, so closing the page right after typing keeps the key.
+    // The plaintext goes to saveSecretValue only; beginSealedWrite (§609) lets the newest seal win.
+    else void saveSecretValue("sttApiKey", value.trim(), "device");
   }
 
   function handleSttKeyBlur() {
