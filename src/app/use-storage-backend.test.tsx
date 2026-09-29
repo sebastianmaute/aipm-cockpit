@@ -12,6 +12,7 @@ import type { StorageConfig } from "./storage";
 import { useStorageBackend } from "./use-storage-backend";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
 import { useBroadcastSync, useRevisionSync, postRevision, type SyncContext } from "./broadcast-sync";
+import { whenSaved } from "./save-queue";
 import { useWorkspace } from "./workspace-context";
 import { TestProviders } from "./test-providers";
 import { useUndoStack } from "./undo/use-undo-stack";
@@ -456,9 +457,18 @@ describe("useStorageBackend — save effect", () => {
   // failed or skipped one must not, or they would adopt a revision nothing wrote.
   describe("revision message (§4)", () => {
     const revisioned = mockBackend as typeof mockBackend & { revision?: () => string | null; adoptRevision?: (rev: string) => void };
-    afterEach(() => {
+    // ★ The save queue is module-level and keyed by the SHARED mock backend, so a save a test leaves
+    //   unsettled (an assertion failing mid-test) would poison every later test's queue. Settle it here.
+    let finishPending: (() => void) | undefined;
+    afterEach(async () => {
       delete revisioned.revision;
       delete revisioned.adoptRevision;
+      const settled = finishPending;
+      finishPending = undefined;
+      await act(async () => {
+        settled?.();
+        await whenSaved(mockBackend);
+      });
     });
     const settle = async () => {
       await act(async () => { await Promise.resolve(); });
@@ -515,8 +525,7 @@ describe("useStorageBackend — save effect", () => {
     it("does NOT adopt while a save of its own is in flight", async () => {
       const adopt = vi.fn();
       revisioned.adoptRevision = adopt;
-      let finish: () => void = () => {};
-      mockBackend.save.mockImplementation(() => new Promise<void>((resolve) => { finish = resolve; }));
+      mockBackend.save.mockImplementation(() => new Promise<void>((resolve) => { finishPending = resolve; }));
       const { result } = renderBackend();
       await settle();
       await act(async () => { result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]); });
@@ -524,7 +533,7 @@ describe("useStorageBackend — save effect", () => {
       expect(mockBackend.save).toHaveBeenCalled();
       act(() => { latestOnRevision()("9"); });
       expect(adopt).not.toHaveBeenCalled();
-      await act(async () => { finish(); await Promise.resolve(); });
+      await act(async () => { finishPending?.(); await Promise.resolve(); });
       act(() => { latestOnRevision()("10"); });
       expect(adopt).toHaveBeenCalledWith("10"); // idle again
     });
