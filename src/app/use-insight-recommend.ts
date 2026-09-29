@@ -23,7 +23,8 @@ export interface UseInsightRecommendArgs {
   applyRecommendation: (id: number, rec: InsightRecommendation) => void;
   isPopout?: boolean;
   /** Caller surfaces the toast for a failed generate. */
-  onError?: (kind: AiErrorClass) => void;
+  /** `error` is the thrown value, so a caller can name a refused key (§650, `aiKeyMessageKeyForError`). */
+  onError?: (kind: AiErrorClass, error: unknown) => void;
   /** §548 — `useStorageBackend`'s scope-epoch reader. Captured before the billed call and re-read
    *  before `applyRecommendation`, so a generate started in one project cannot store its result in
    *  the next one. Omitted by a caller outside the storage hook's reach (tests). */
@@ -82,7 +83,7 @@ export function useInsightRecommend(args: UseInsightRecommendArgs): UseInsightRe
           // lives here because run() only carries a message string.
           // NEVER log/echo the api key or response body — classify + surface only.
           if (!isAbortError(e)) {
-            current.onError?.(e instanceof AiHttpError ? classifyAiError(e.status, e.errorType) : "generic");
+            current.onError?.(e instanceof AiHttpError ? classifyAiError(e.status, e.errorType) : "generic", e);
           }
           throw e;
         }

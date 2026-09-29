@@ -3,6 +3,7 @@ import { useState } from "react";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AiSection } from "./ai-section";
+import { __resetAiKeyStatusForTests, reportAiKeyResponse, reportAiKeyUnreadable } from "../ai-key-status";
 import { defaultSettings as baseSettings, type Settings } from "../settings-types";
 import {
   DEFAULT_SESSION_TOKEN_CAP,
@@ -35,9 +36,13 @@ vi.mock("../confirm-dialog", () => ({
 }));
 
 beforeEach(() => {
+  // §650 — the 401 stub below now REPORTS into the module-level key verdict, which
+  // outlives a test; start every test from "unknown" or a verdict from an earlier
+  // test's key shows up as a notice in the next one.
+  __resetAiKeyStatusForTests();
   // A well-formed key + enabled AI makes useChatModels fire a browser-direct
   // fetch to api.anthropic.com. Stub it for EVERY test so none hits the network
-  // (the hook swallows the !ok response → falls back to the registry options).
+  // (the hook falls back to the registry options on the !ok response).
   vi.spyOn(globalThis, "fetch").mockResolvedValue({
     ok: false,
     status: 401,
@@ -681,5 +686,57 @@ describe("AiSection API-key validation", () => {
 
     expect(loadSealed("anthropicApiKey")).toBeNull();
     expect(screen.queryByRole("button", { name: /remove stored secret/i })).toBeNull();
+  });
+});
+
+describe("AiSection — §650 the key verdict next to the key field", () => {
+  const KEY = "sk-ant-api03-SettingsNoticeKey000000";
+  const withKey = { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: KEY } };
+  const NO_KEY_HINT = t("en-US", "aiModelNeedsKey");
+
+  beforeEach(() => __resetAiKeyStatusForTests());
+
+  function keyField() {
+    return screen.getByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"));
+  }
+
+  it.each([
+    [401, "aiKeyRejected"],
+    [403, "aiKeyForbidden"],
+  ] as const)("a %i verdict shows its notice, described on the key field", async (status, key) => {
+    reportAiKeyResponse(KEY, status);
+    render(<AiSection lang="en-US" settings={withKey} onChange={vi.fn()} />);
+    const notice = screen.getByRole("alert");
+    expect(notice).toHaveTextContent(t("en-US", key));
+    expect(keyField()).toHaveAccessibleDescription(expect.stringContaining(t("en-US", key)));
+    expect(keyField()).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("a rejected key does NOT get the 'enter a valid key' model hint — it gets the key message", async () => {
+    reportAiKeyResponse(KEY, 401);
+    render(<AiSection lang="en-US" settings={withKey} onChange={vi.fn()} />);
+    const select = screen.getByRole("combobox", { name: t("en-US", "aiModel") });
+    expect(select).not.toHaveAccessibleDescription(NO_KEY_HINT);
+    expect(select).toHaveAccessibleDescription(t("en-US", "aiKeyRejected"));
+  });
+
+  it("with no key at all the model hint stays the no-key hint (control for the test above)", async () => {
+    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    const select = screen.getByRole("combobox", { name: t("en-US", "aiModel") });
+    expect(select).toHaveAccessibleDescription(NO_KEY_HINT);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("an unreadable key shows the unreadable notice", async () => {
+    reportAiKeyUnreadable();
+    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "aiKeyUnreadable"));
+  });
+
+  it("an accepted key shows no notice", async () => {
+    reportAiKeyResponse(KEY, 200);
+    render(<AiSection lang="en-US" settings={withKey} onChange={vi.fn()} />);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(keyField()).not.toHaveAttribute("aria-invalid", "true");
   });
 });

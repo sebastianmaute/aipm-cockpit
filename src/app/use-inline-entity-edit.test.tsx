@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { it, expect, vi, afterEach, describe } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import * as call from "./inline-ai-edit-call";
+import { AiHttpError } from "./ai-errors";
 import * as tools from "./chat-tools";
 import * as planMod from "./inline-ai-edit/plan";
 import { useInlineAiEdit, type InlineAiEditDeps } from "./use-inline-ai-edit";
@@ -847,5 +848,27 @@ describe("optimistic concurrency across the submit → apply window", () => {
     const de = t("de", "inlineAiEditStale");
     expect(de).not.toBe(t("en-US", "inlineAiEditStale"));
     expect(de).toMatch(/geändert/);
+  });
+});
+
+describe("§650 inline AI edit — a refused key shows the key message", () => {
+  it.each([
+    [401, "aiKeyRejected"],
+    [403, "aiKeyForbidden"],
+  ] as const)("a %i sets %s as the error text, not 'Couldn't reach Claude'", async (status, key) => {
+    vi.spyOn(call, "callInlineEdit").mockRejectedValue(new AiHttpError(status));
+    const { result } = renderHook(() => useInlineAiEdit(mkDeps()));
+    act(() => result.current.openFor(task));
+    await act(async () => { await result.current.submit("x"); });
+    expect(result.current.phase).toBe("error");
+    expect(result.current.errorText).toBe(t("en-US", key));
+  });
+
+  it("a non-key failure keeps the generic text (control)", async () => {
+    vi.spyOn(call, "callInlineEdit").mockRejectedValue(new AiHttpError(500));
+    const { result } = renderHook(() => useInlineAiEdit(mkDeps()));
+    act(() => result.current.openFor(task));
+    await act(async () => { await result.current.submit("x"); });
+    expect(result.current.errorText).toBe(t("en-US", "inlineAiEditError"));
   });
 });

@@ -4,6 +4,7 @@
 // them" pattern); `chat-panel.tsx` consumes everything here.
 import { TOOL_DEFS, type ToolDispatcher } from "./chat-tools";
 import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
+import { reportAiKeyResponse } from "./ai-key-status";
 import type { Lang } from "./i18n";
 import { selectActiveGuides, assembleGuideBlocks, type OperatingGuide } from "./operating-guide";
 import type { AttachmentBlock } from "./chat-attachments";
@@ -660,8 +661,11 @@ export async function callClaude(
     } catch {
       // Non-JSON / unreadable body — status alone is enough to classify.
     }
+    // §650 — report the key verdict at the envelope (401 → rejected, 403 → forbidden).
+    reportAiKeyResponse(apiKey, res.status, errorType);
     throw new AiHttpError(res.status, errorType, safeMessage);
   }
+  reportAiKeyResponse(apiKey, 200);
   const json = await res.json() as { content: ContentBlock[]; stop_reason: string; usage?: WireUsage };
   return {
     content: json.content,

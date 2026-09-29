@@ -59,6 +59,11 @@ export interface ShellChromeDeps {
   /** Top-bar undo control (or null in popouts / empty stack). Placed in BOTH
    *  header mounts so it can't go missing in one layout. */
   undoControl: ReactNode;
+  /** §650 — the CLASSIC header's settings popover, controlled by task-manager so a banner's "open
+   *  settings" action can open it. Classic-only: the modern top bar has no settings popover (the
+   *  modern shell navigates to the Settings view instead). */
+  settingsMenuOpen: AppHeaderProps["settingsMenuOpen"];
+  onSettingsMenuOpenChange: AppHeaderProps["onSettingsMenuOpenChange"];
 }
 
 // NOT a hook — a plain builder that returns render output (JSX). It calls no
@@ -92,6 +97,8 @@ export function buildShellChrome(deps: ShellChromeDeps): { appHeaderEl: ReactNod
     handleSaveTemplate,
     handleApplyTemplate,
     undoControl,
+    settingsMenuOpen,
+    onSettingsMenuOpenChange,
   } = deps;
 
   // Session display-timezone switcher. Sits in both header sites alongside the
@@ -140,6 +147,8 @@ export function buildShellChrome(deps: ShellChromeDeps): { appHeaderEl: ReactNod
       currentView={activeTab}
       onAskClaude={isAiEnabled(settings.ai) ? (body) => requestChat(body, true) : undefined}
       projectSwitcher={projectSwitcher}
+      settingsMenuOpen={settingsMenuOpen}
+      onSettingsMenuOpenChange={onSettingsMenuOpenChange}
       trailing={
         // §618 — no `min-w-0` here on purpose. The search wrapper below
         // already carries its own `min-w-0 lg:min-w-56`, which zeroes its

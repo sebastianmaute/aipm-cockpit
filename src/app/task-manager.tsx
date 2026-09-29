@@ -62,8 +62,10 @@ import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { GlobalSearchConnected } from "./global-search-box";
-import { BirthdayBanner, JiraTokenBanner, StorageBanner, SavingPausedBanner, UnloadJournalConflictBanner, OtherJournalsBanner, ExpiredJournalsBanner } from "./notifications";
+import { AiKeyBanner, BirthdayBanner, JiraTokenBanner, StorageBanner, SavingPausedBanner, UnloadJournalConflictBanner, OtherJournalsBanner, ExpiredJournalsBanner } from "./notifications";
 import { classifyStorageError, type StorageErrorKind } from "./storage-error";
+import { useAiKeyCheck, useAiKeyStatus } from "./use-ai-key-check";
+import { isAiKeyStatusBad } from "./ai-key-status";
 import { useStakeholderComms } from "./use-stakeholder-comms";
 import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
 import { getJiraTokenAlert } from "./jira-token-status";
@@ -474,6 +476,17 @@ function TaskManagerInner() {
     window.addEventListener("aipm-cockpit-secret-unreadable", onSecretUnreadable);
     return () => window.removeEventListener("aipm-cockpit-secret-unreadable", onSecretUnreadable);
   }, [showToast, lang]);
+
+  // §650 — the Anthropic key verdict: the start-up / on-save key check (main window only; the hook
+  // gates on `isPopout` itself) and the banner's read of the in-memory verdict. The banner's dismiss
+  // holds for this page only; the next load re-derives the verdict and re-shows it if still bad.
+  useAiKeyCheck({ ai: settings.ai, hydrated, isPopout });
+  const aiKeyStatus = useAiKeyStatus();
+  const [aiKeyBannerDismissed, setAiKeyBannerDismissed] = useState(false);
+  // A dismissal belongs to the bad verdict it dismissed: once the verdict leaves the bad states (a new
+  // key resets it to "unknown", or a call succeeds) the dismissal is cleared, so a NEW refusal shows
+  // the banner again. Render-time reconcile, not an effect (set-state-in-effect is banned).
+  if (aiKeyBannerDismissed && !isAiKeyStatusBad(aiKeyStatus)) setAiKeyBannerDismissed(false);
 
   // ★★★ FIX ROUND 1 (M3): THE ONLY VersionInfoModal IN THE APP, and its
   // `openVersion` is now the ONE way anything opens it — the desktop shell's
@@ -1276,11 +1289,34 @@ function TaskManagerInner() {
   // even after the previous one was consumed/cleared — robust whether SettingsView
   // remounts (modern) or stays mounted.
   const settingsSectionNonceRef = useRef(0);
+  // §650 — the CLASSIC layout has no Settings view (the classic-fallback effect above bounces
+  // "settings" to chat); its settings are the header `SettingsMenu` popover, controlled from here so
+  // an "open settings" request opens it. The popover has no sections, so it opens at the top. No
+  // nonce is involved on this path: the state lives HERE and the menu is controlled, so there is no
+  // child-side "handled" seed to swallow a request on a fresh mount.
+  const [classicSettingsOpen, setClassicSettingsOpen] = useState(false);
+  const isClassicLayout = settings.layout === "classic";
+  // ★★ The popover holds the Layout control, so picking "Modern" in it unmounts the classic header
+  // while this parent-owned state is still `true`. Before the state was lifted here it died with
+  // the unmount; now it must be CLEARED when the layout leaves classic (render-time reconcile —
+  // set-state-in-effect is banned), or a later switch back to classic reopens it. The `open` passed
+  // down is also derived (`isClassicLayout && …`) so the render that switches layout never feeds a
+  // stale `true` to anything.
+  if (!isClassicLayout && classicSettingsOpen) setClassicSettingsOpen(false);
   const onOpenSettingsSection = useCallback((id: SettingsSectionId) => {
+    if (isClassicLayout) {
+      setClassicSettingsOpen(true);
+      return;
+    }
     settingsSectionNonceRef.current += 1;
     setSettingsSectionRequest({ id, nonce: settingsSectionNonceRef.current });
     setActiveTab("settings");
-  }, [setActiveTab]);
+  }, [setActiveTab, isClassicLayout]);
+  /** The un-sectioned "open settings" request (the storage banner's action), in either layout. */
+  const onOpenSettings = useCallback(() => {
+    if (isClassicLayout) setClassicSettingsOpen(true);
+    else setActiveTab("settings");
+  }, [setActiveTab, isClassicLayout]);
   const onOpenLearningSettings = useCallback(() => onOpenSettingsSection("nextActions"), [onOpenSettingsSection]);
   const clearSettingsSectionRequest = useCallback(() => setSettingsSectionRequest(undefined), []);
   const openAction = useCallback(
@@ -2954,6 +2990,8 @@ function TaskManagerInner() {
     handleSaveTemplate,
     handleApplyTemplate,
     undoControl: undoControlEl,
+    settingsMenuOpen: isClassicLayout && classicSettingsOpen,
+    onSettingsMenuOpenChange: setClassicSettingsOpen,
   });
 
   // The Birthday / Jira-token / Storage reminder banners, shared by the classic
@@ -2969,7 +3007,11 @@ function TaskManagerInner() {
         <JiraTokenBanner alert={jiraTokenAlert} lang={lang} onSnooze={jiraTokenSnooze.snooze} onDismiss={() => setJiraTokenDismissed(true)} />
       )}
       {!isPopout && storageError && !storageErrorDismissed && (
-        <StorageBanner kind={storageError.kind} lang={lang} onOpenSettings={() => setActiveTab("settings")} onDismiss={() => setStorageErrorDismissed(true)} />
+        <StorageBanner kind={storageError.kind} lang={lang} onOpenSettings={onOpenSettings} onDismiss={() => setStorageErrorDismissed(true)} />
+      )}
+      {/* §650 — gated on the AI switch too: a verdict about a key the user has turned off is not news. */}
+      {!isPopout && settings.ai?.enabled === true && isAiKeyStatusBad(aiKeyStatus) && !aiKeyBannerDismissed && (
+        <AiKeyBanner status={aiKeyStatus} lang={lang} onOpenSettings={() => onOpenSettingsSection("ai")} onDismiss={() => setAiKeyBannerDismissed(true)} />
       )}
       {unloadJournalConflict && (
         <UnloadJournalConflictBanner lang={lang} onRestoreAnyway={restoreUnloadJournalAnyway} onDiscard={discardUnloadJournal} />

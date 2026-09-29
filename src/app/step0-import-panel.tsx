@@ -14,6 +14,7 @@
 
 import { useRef, useState } from "react";
 import { t, type Lang } from "./i18n";
+import { aiKeyMessageKeyForStatusToken } from "./ai-key-status";
 import { FieldError } from "./field-feedback";
 import { type Settings } from "./settings-types";
 import { type ProposalContent } from "./use-project-proposal";
@@ -411,7 +412,8 @@ export function Step0ImportPanel({
                   ? "aiCreateNeedsKey"
                   : aiError === "limit"
                     ? "aiUsageLimitReached"
-                    : "aiCreateError",
+                    // §650 — a "401"/"403" status token names the key.
+                    : aiKeyMessageKeyForStatusToken(aiError) ?? "aiCreateError",
               )}
           </FieldError>
         )}

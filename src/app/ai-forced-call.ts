@@ -17,6 +17,7 @@
 // routed through here.
 import type { ApiMessage, SystemBlock } from "./chat-api";
 import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
+import { reportAiKeyResponse } from "./ai-key-status";
 
 const ANTHROPIC_VERSION = "2023-06-01";
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
@@ -87,8 +88,12 @@ export async function runForcedToolCall(
     } catch {
       // Non-JSON / unreadable body — the status alone is enough to classify.
     }
+    // §650 — the key verdict is reported HERE, at the envelope, so every forced-call
+    // feature (the silent ones included) feeds the banner: 401 → rejected, 403 → forbidden.
+    reportAiKeyResponse(args.apiKey, res.status, errorType);
     throw new AiHttpError(res.status, errorType, safeMessage);
   }
+  reportAiKeyResponse(args.apiKey, 200);
 
   const json = (await res.json()) as { content?: ToolUseBlock[] };
   const toolUse = (json.content ?? []).find(
