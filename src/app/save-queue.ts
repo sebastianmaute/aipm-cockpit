@@ -45,8 +45,12 @@ export type EnqueueOptions = {
 /** How long a running save may hold the queue before the next one starts anyway. */
 export const SAVE_STALL_MS = 30_000;
 
+/** What a queued save reports: nothing (it wrote), or "superseded" (it chose NOT to write, e.g. its backend was
+ *  replaced while it waited) — which settles the entry, and any save it replaced as its own, as NOT saved. */
+type SaveRun = () => Promise<void | SaveResult>;
+
 type Waiting = {
-  run: () => Promise<void>;
+  run: SaveRun;
   resolve: (result: SaveResult) => void;
   reject: (err: unknown) => void;
 };
@@ -57,7 +61,7 @@ const queues = new WeakMap<object, Queue>();
 
 function start(queue: Queue, entry: Waiting): void {
   queue.running = true;
-  let result: Promise<void>;
+  let result: Promise<void | SaveResult>;
   try {
     result = Promise.resolve(entry.run());
   } catch (err) {
@@ -86,7 +90,7 @@ function start(queue: Queue, entry: Waiting): void {
     release();
   }, SAVE_STALL_MS);
   result.then(
-    () => { release(); entry.resolve("saved"); },
+    (outcome) => { release(); entry.resolve(outcome === "superseded" ? "superseded" : "saved"); },
     (err: unknown) => { release(); entry.reject(err); },
   );
 }
@@ -94,8 +98,10 @@ function start(queue: Queue, entry: Waiting): void {
 /** Run `save` for `backend` now if nothing is saving to it, else after the save
  *  in progress, replacing any save still waiting. Resolves "saved" when this save
  *  landed, "superseded" when a newer one replaced it (after that one settled);
- *  rejects with this save's own error. See the header for `settleReplacedAsOwn`. */
-export function enqueueSave(backend: object, save: () => Promise<void>, options: EnqueueOptions = {}): Promise<SaveResult> {
+ *  rejects with this save's own error. See the header for `settleReplacedAsOwn`.
+ *  §603 — a `save` that resolves "superseded" wrote nothing: this call resolves "superseded" and a save it
+ *  replaced under `settleReplacedAsOwn` inherits that, so no caller mistakes the skip for a landed write. */
+export function enqueueSave(backend: object, save: SaveRun, options: EnqueueOptions = {}): Promise<SaveResult> {
   let queue = queues.get(backend);
   if (!queue) {
     queue = { running: false, waiting: null, idle: [] };

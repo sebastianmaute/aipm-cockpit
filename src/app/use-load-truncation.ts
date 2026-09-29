@@ -224,7 +224,9 @@ export interface TruncationOps {
    *  a write queued behind a running save waits, and the backend can be replaced meanwhile.
    *  A false answer skips the write, logs `stage: "write-queued"` and resolves false. ★ A save
    *  ALREADY RUNNING when the replacement lands cannot be aborted (no backend can abort an
-   *  in-flight write) — that one-write window is the recorded residual. */
+   *  in-flight write) — that one-write window is the recorded residual.
+   *  ★ `isCurrent` is for the picked-file write only (the skip is logged under that writer's label), and a
+   *  skipped write has still spent the destructive-save one-shot taken above. */
   guardedWrite: (backend: Pick<StorageBackend, "save">, ws: Workspace, isCurrent?: () => boolean) => Promise<boolean>;
   /** The refusal WITHOUT the write — for a caller that must decline BEFORE its
    *  own irreversible side effect rather than after it.
@@ -810,7 +812,10 @@ export function useLoadTruncation(
         if (isCurrent && !isCurrent()) {
           skipped = true;
           logDiag("warn", "storage.supersededLoadDropped", { writer: "onPickStorageFile", stage: "write-queued" });
-          return;
+          // ★★ NOT a plain return: that settles "saved", and `settleReplacedAsOwn` would hand "saved" to an
+          // autosave this write replaced — whose handler then moves baselines, reports success and clears its
+          // unload-journal entry for edits nothing wrote. "superseded" makes the whole chain read not-saved.
+          return "superseded";
         }
         await backend.save(ws);
       }, { settleReplacedAsOwn: true });
