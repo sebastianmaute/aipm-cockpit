@@ -34,7 +34,12 @@ describe("fetchTextWithTimeout", () => {
 
   it("returns status, ok and the body text", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("hello", { status: 201 })));
-    await expect(fetchTextWithTimeout("https://x.test/a", { method: "GET" }, 1000)).resolves.toEqual({ status: 201, ok: true, text: "hello" });
+    await expect(fetchTextWithTimeout("https://x.test/a", { method: "GET" }, 1000)).resolves.toEqual({ status: 201, ok: true, text: "hello", etag: null });
+  });
+
+  it("returns the ETag response header (§4)", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("x", { status: 200, headers: { ETag: '"abc,1"' } })));
+    await expect(fetchTextWithTimeout("https://x.test/a", { method: "GET" }, 1000)).resolves.toMatchObject({ etag: '"abc,1"' });
   });
 
   it("aborts a hung fetch at timeoutMs, not before, with a FetchTimeoutError", async () => {

@@ -20,6 +20,8 @@ export interface FetchTextResult {
   status: number;
   ok: boolean;
   text: string;
+  /** The `ETag` response header, or null when the response carried none (§4). */
+  etag: string | null;
 }
 
 /** True only for the abort OUR timer raises (a real `AbortError`, from either `fetch` or the body
@@ -56,7 +58,7 @@ export async function fetchTextWithTimeout(url: string, init: Omit<RequestInit, 
   try {
     const res = await fetch(url, { ...init, signal: controller.signal });
     const text = await res.text();
-    return { status: res.status, ok: res.ok, text };
+    return { status: res.status, ok: res.ok, text, etag: res.headers.get("ETag") };
   } catch (err) {
     // Only OUR abort is a timeout. A non-abort error that happens to arrive after the timer fired
     // (e.g. a coincidental network failure) must pass through unchanged, not be misreported.

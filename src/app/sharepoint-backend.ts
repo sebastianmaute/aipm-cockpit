@@ -14,6 +14,7 @@ import {
   type Workspace,
 } from "./workspace";
 import type { ImportSectionKey } from "./csv-codecs-sections";
+import { SaveConflictError } from "./storage-error";
 import { FetchTimeoutError, LOAD_TIMEOUT_MS, fetchTextWithTimeout, type FetchTextResult } from "./fetch-with-timeout";
 
 export interface SpFileLocation {
@@ -56,6 +57,17 @@ export class SharePointBackend implements StorageBackend {
    *  exactly like `lastLoadTruncation`, for the same stale-value reason. */
   lastDecodeFailures: readonly string[] = [];
   private location: SpFileLocation;
+  /** §4 — THREE states, not two (controller ruling R8), and `revision()` alone cannot tell them apart:
+   *  never loaded (`baselineKnown` false — save REFUSES), loaded with an ETag (`currentRevision` set —
+   *  save sends `If-Match`), loaded WITHOUT one (`baselineKnown` true, `currentRevision` null — save
+   *  goes without `If-Match`, i.e. today's behaviour, and does not refuse). */
+  private baselineKnown = false;
+  /** §4 — the driveItem eTag this instance last loaded or wrote; null = none known. */
+  private currentRevision: string | null = null;
+  /** §4 — one-shot from `forceNextSave()`: the next save omits `If-Match`. Cleared only after that
+   *  write SUCCEEDS (a failed forced save keeps it for the retry), and by a successful load, `adoptRevision`
+   *  and `adoptFrom` — each establishes a genuine baseline a leftover force must not carry past. */
+  private forceNext = false;
   private acquireToken: (
     scopes: readonly string[],
     options?: { interactive?: boolean },
@@ -98,6 +110,14 @@ export class SharePointBackend implements StorageBackend {
     const token = await this.acquireToken(["Files.ReadWrite.All"], { interactive: true });
     if (!token) throw new StorageNotReadyError("Sign in to Microsoft first");
     return token;
+  }
+
+  /** §4 — record a successful read as this instance's baseline (called only once the body has decoded,
+   *  so a corrupt file never becomes the baseline the next save would overwrite). */
+  private adoptLoaded(etag: string | null): void {
+    this.baselineKnown = true;
+    this.currentRevision = etag;
+    this.forceNext = false;
   }
 
   async load(): Promise<Workspace> {
@@ -148,7 +168,11 @@ export class SharePointBackend implements StorageBackend {
         }
         throw err;
       }
-      if (res.status === 404) return emptyWorkspace();
+      if (res.status === 404) {
+        // No file yet: a genuine read of "nothing there", so the first save may create it.
+        this.adoptLoaded(null);
+        return emptyWorkspace();
+      }
       if (res.status === 401) {
         throw new StorageNotReadyError(
           "Sign-in expired. Re-authenticate from Settings.",
@@ -169,11 +193,14 @@ export class SharePointBackend implements StorageBackend {
         this.lastImportDroppedBySection = diag.droppedBySection;
         this.lastImportUnterminatedQuote = diag.unterminatedQuote ?? false;
         this.lastImportMalformedQuotes = diag.malformedQuotes ?? 0;
+        this.adoptLoaded(res.etag);
         return ws;
       }
       // Validate + migrate like every other JSON backend (was a raw cast that
       // risked a downstream TypeError on a malformed-but-valid-JSON file).
-      return jsonToWorkspace(res.text, { strict: true, diag });
+      const ws = jsonToWorkspace(res.text, { strict: true, diag });
+      this.adoptLoaded(res.etag);
+      return ws;
     } finally {
       this.lastLoadTruncation = {
         entries: diag.truncatedEntries ?? 0,
@@ -184,6 +211,10 @@ export class SharePointBackend implements StorageBackend {
   }
 
   async save(workspace: Workspace): Promise<void> {
+    // §4 — fail closed: an instance that never loaded has no baseline and must not win against
+    // whatever another window already put there. Blind writes go through `forceNextSave()`.
+    const force = this.forceNext;
+    if (!force && !this.baselineKnown) throw new SaveConflictError(this.kind);
     const token = await this.getToken();
     const body =
       this.kind === "sp-csv"
@@ -198,9 +229,12 @@ export class SharePointBackend implements StorageBackend {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": contentType,
+        // Only a loaded instance WITH an ETag is guarded; forced and degraded saves omit it.
+        ...(!force && this.currentRevision !== null ? { "If-Match": this.currentRevision } : {}),
       },
       body,
     });
+    if (res.status === 412) throw new SaveConflictError(this.kind);
     if (res.status === 401) {
       throw new StorageNotReadyError(
         "Sign-in expired. Re-authenticate from Settings.",
@@ -214,6 +248,48 @@ export class SharePointBackend implements StorageBackend {
     if (!res.ok) {
       throw new Error(`SharePoint returned ${res.status}. Try again later.`);
     }
+    // Written: adopt the new eTag (body first, header as fallback) and consume the force.
+    this.baselineKnown = true;
+    this.currentRevision = await this.writtenEtag(res);
+    if (force) this.forceNext = false;
+  }
+
+  /** The driveItem eTag a successful PUT returned — the body's `eTag`, else the `ETag` header, else null. */
+  private async writtenEtag(res: Response): Promise<string | null> {
+    try {
+      const parsed: unknown = JSON.parse(await res.text());
+      const tag = (parsed as { eTag?: unknown } | null)?.eTag;
+      if (typeof tag === "string" && tag !== "") return tag;
+    } catch {
+      // An empty or non-JSON body carries no eTag; fall through to the header.
+    }
+    return res.headers.get("ETag");
+  }
+
+  /** §4: the eTag this instance last loaded or wrote; null when none is known (never loaded, OR loaded
+   *  from a response that carried no ETag — the two are told apart internally, not here). */
+  revision(): string | null {
+    return this.currentRevision;
+  }
+
+  /** §4: adopt `rev` as the baseline without a load/save; also drops a pending force. */
+  adoptRevision(rev: string): void {
+    this.baselineKnown = true;
+    this.currentRevision = rev;
+    this.forceNext = false;
+  }
+
+  /** §4: make the next save omit `If-Match`; consumed only once that write succeeds. */
+  forceNextSave(): void {
+    this.forceNext = true;
+  }
+
+  /** §4: copy another instance's revision state (a throwaway backend's result handed to the live one).
+   *  `other` must have read or written the SAME file; this does not verify that. */
+  adoptFrom(other: SharePointBackend): void {
+    this.baselineKnown = other.baselineKnown;
+    this.currentRevision = other.currentRevision;
+    this.forceNext = false;
   }
 }
 

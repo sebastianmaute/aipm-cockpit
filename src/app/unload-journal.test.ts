@@ -476,10 +476,10 @@ describe("fingerprint round-trip: sp-json (SharePoint JSON)", () => {
     fetchSpy = vi.fn(async (_url: string, init?: RequestInit) => {
       if (init?.method === "PUT") {
         stored = init.body as string;
-        return { ok: true, status: 200, text: async () => "" } as unknown as Response;
+        return { ok: true, status: 200, headers: new Headers(), text: async () => "" } as unknown as Response;
       }
-      if (stored === null) return { ok: false, status: 404, text: async () => "" } as unknown as Response;
-      return { ok: true, status: 200, text: async () => stored as string } as unknown as Response;
+      if (stored === null) return { ok: false, status: 404, headers: new Headers(), text: async () => "" } as unknown as Response;
+      return { ok: true, status: 200, headers: new Headers(), text: async () => stored as string } as unknown as Response;
     });
     vi.stubGlobal("fetch", fetchSpy);
   });
@@ -498,6 +498,7 @@ describe("fingerprint round-trip: sp-json (SharePoint JSON)", () => {
   it("small sample workspace", async () => {
     const before = fingerprintWorkspace(smallWs);
     const backend = spBackend();
+    backend.forceNextSave(); // §4: a never-loaded SharePoint save refuses unless forced
     await backend.save(smallWs);
     const loaded = await backend.load();
     expect(fingerprintWorkspace(loaded)).toBe(before);
@@ -506,6 +507,7 @@ describe("fingerprint round-trip: sp-json (SharePoint JSON)", () => {
   it("bigger sample workspace (documents included)", async () => {
     const before = fingerprintWorkspace(bigWs);
     const backend = spBackend();
+    backend.forceNextSave(); // §4: a never-loaded SharePoint save refuses unless forced
     await backend.save(bigWs);
     const loaded = await backend.load();
     expect(fingerprintWorkspace(loaded)).toBe(before);

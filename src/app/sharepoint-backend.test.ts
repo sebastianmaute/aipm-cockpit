@@ -4,6 +4,7 @@ import { http, HttpResponse } from "msw";
 import { server } from "../test/msw-server";
 import { LOAD_TIMEOUT_MS } from "./fetch-with-timeout";
 import { parseSharePointFileUrl, parseSharePointSiteUrl } from "./sharepoint-backend";
+import { SaveConflictError } from "./storage-error";
 
 describe("parseSharePointFileUrl", () => {
   it("parses a standard SharePoint Sites URL", () => {
@@ -437,6 +438,7 @@ describe("SharePointBackend", () => {
       return new HttpResponse("", { status: 201 });
     }));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
+    be.forceNextSave();
     await be.save(EMPTY_WORKSPACE);
     expect(captured?.url).toBe(CONTENT_URL);
     expect(captured?.method).toBe("PUT");
@@ -454,6 +456,7 @@ describe("SharePointBackend", () => {
       return new HttpResponse("", { status: 200 });
     }));
     const be = new SharePointBackend({ kind: "sp-csv", ...FAKE_LOCATION }, acquireToken);
+    be.forceNextSave();
     await be.save(EMPTY_WORKSPACE);
     expect(captured?.headers.get("Content-Type")).toBe("text/csv;charset=utf-8");
   });
@@ -468,5 +471,199 @@ describe("SharePointBackend", () => {
     const be = new SharePointBackend({ kind: "sp-json", hostname: "c.sharepoint.com", sitePath: "/sites/p", itemPath: "f.json" }, acquire);
     await be.isReady();
     expect(acquire).toHaveBeenCalledWith(["Files.ReadWrite.All"]);
+  });
+});
+
+// §4 — SharePoint revision = the driveItem eTag. THREE states (R8): never loaded (refuse), loaded
+// with an ETag (If-Match; 412 = conflict), loaded WITHOUT one (degrade: save without If-Match).
+describe("SharePointBackend revision guard (§4)", () => {
+  let acquireToken: Mock;
+  beforeEach(() => { acquireToken = vi.fn().mockResolvedValue("fake-token"); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+  const make = () => new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
+  const loadOk = (etag?: string) => server.use(http.get(CONTENT_RE, () =>
+    HttpResponse.json(EMPTY_WORKSPACE, etag ? { headers: { ETag: etag } } : undefined)));
+  /** Captures each PUT's If-Match (null when absent) and answers with `respond`. */
+  function capturePuts(respond: () => Response = () => HttpResponse.json({ eTag: '"new,2"' }, { status: 200 })) {
+    const seen: (string | null)[] = [];
+    server.use(http.put(CONTENT_RE, ({ request }) => { seen.push(request.headers.get("If-Match")); return respond(); }));
+    return seen;
+  }
+
+  it("starts with an unknown revision", () => {
+    expect(make().revision()).toBeNull();
+  });
+
+  it("load captures the response ETag as revision()", async () => {
+    loadOk('"v1,1"');
+    const be = make();
+    await be.load();
+    expect(be.revision()).toBe('"v1,1"');
+  });
+
+  it("save sends If-Match with the loaded revision", async () => {
+    loadOk('"v1,1"');
+    const seen = capturePuts();
+    const be = make();
+    await be.load();
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual(['"v1,1"']);
+  });
+
+  it("a 412 rejects with SaveConflictError and keeps the old revision", async () => {
+    loadOk('"v1,1"');
+    capturePuts(() => new HttpResponse("", { status: 412 }));
+    const be = make();
+    await be.load();
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+    expect(be.revision()).toBe('"v1,1"');
+  });
+
+  it("a 200 adopts the body's eTag, and the next save sends it", async () => {
+    loadOk('"v1,1"');
+    const seen = capturePuts();
+    const be = make();
+    await be.load();
+    await be.save(EMPTY_WORKSPACE);
+    expect(be.revision()).toBe('"new,2"');
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual(['"v1,1"', '"new,2"']);
+  });
+
+  it("a 201 whose body has no eTag falls back to the ETag header", async () => {
+    loadOk('"v1,1"');
+    capturePuts(() => HttpResponse.json({}, { status: 201, headers: { ETag: '"hdr,3"' } }));
+    const be = make();
+    await be.load();
+    await be.save(EMPTY_WORKSPACE);
+    expect(be.revision()).toBe('"hdr,3"');
+  });
+
+  it("a never-loaded save refuses with SaveConflictError and sends nothing", async () => {
+    const seen = capturePuts();
+    await expect(make().save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+    expect(seen).toEqual([]);
+  });
+
+  it("a forced never-loaded save writes without If-Match, then adopts the response eTag", async () => {
+    const seen = capturePuts();
+    const be = make();
+    be.forceNextSave();
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual([null]);
+    expect(be.revision()).toBe('"new,2"');
+    await be.save(EMPTY_WORKSPACE); // one-shot: now guarded by the adopted revision
+    expect(seen).toEqual([null, '"new,2"']);
+  });
+
+  it("forceNextSave omits If-Match once on a loaded instance", async () => {
+    loadOk('"v1,1"');
+    const seen = capturePuts();
+    const be = make();
+    await be.load();
+    be.forceNextSave();
+    await be.save(EMPTY_WORKSPACE);
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual([null, '"new,2"']);
+  });
+
+  it("a failed forced save keeps the force for the retry", async () => {
+    let calls = 0;
+    const seen = capturePuts(() => (++calls === 1 ? new HttpResponse("", { status: 500 }) : HttpResponse.json({ eTag: '"ok,4"' })));
+    const be = make();
+    be.forceNextSave();
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toThrow(/sharepoint returned 500/i);
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual([null, null]);
+    expect(be.revision()).toBe('"ok,4"');
+  });
+
+  it("a load without an ETag degrades: revision() is null and the save omits If-Match without refusing", async () => {
+    loadOk();
+    const seen = capturePuts(() => new HttpResponse("", { status: 200 }));
+    const be = make();
+    await be.load();
+    expect(be.revision()).toBeNull();
+    await be.save(EMPTY_WORKSPACE);
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual([null, null]);
+    expect(be.revision()).toBeNull();
+  });
+
+  it("a load that 404s (no file yet) is a loaded baseline with no ETag", async () => {
+    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 404 })));
+    const seen = capturePuts(() => new HttpResponse("", { status: 201 }));
+    const be = make();
+    await be.load();
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual([null]);
+  });
+
+  it("a failed load leaves a fresh instance never-loaded (save refuses)", async () => {
+    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 500, headers: { ETag: '"x"' } })));
+    const seen = capturePuts();
+    const be = make();
+    await expect(be.load()).rejects.toThrow(/sharepoint returned 500/i);
+    expect(be.revision()).toBeNull();
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+    expect(seen).toEqual([]);
+  });
+
+  it("a load whose body fails to parse does not become the baseline", async () => {
+    server.use(http.get(CONTENT_RE, () => new HttpResponse("{not json", { status: 200, headers: { ETag: '"bad"' } })));
+    const be = make();
+    await expect(be.load()).rejects.toThrow();
+    expect(be.revision()).toBeNull();
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+  });
+
+  it("a successful load clears a pending force (the load is the new baseline)", async () => {
+    loadOk('"v1,1"');
+    const seen = capturePuts();
+    const be = make();
+    be.forceNextSave();
+    await be.load();
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual(['"v1,1"']);
+  });
+
+  it("adoptRevision sets a baseline (so a never-loaded instance may save) and clears a pending force", async () => {
+    const seen = capturePuts();
+    const be = make();
+    be.forceNextSave();
+    be.adoptRevision('"adopted"');
+    expect(be.revision()).toBe('"adopted"');
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual(['"adopted"']);
+  });
+
+  it("adoptFrom copies the loaded revision state and clears this instance's force", async () => {
+    loadOk('"v1,1"');
+    const seen = capturePuts();
+    const source = make();
+    await source.load();
+    const live = make();
+    live.forceNextSave();
+    live.adoptFrom(source);
+    expect(live.revision()).toBe('"v1,1"');
+    await live.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual(['"v1,1"']);
+  });
+
+  it("adoptFrom a degraded (loaded, no ETag) source lets the target save without If-Match", async () => {
+    loadOk();
+    const seen = capturePuts(() => new HttpResponse("", { status: 200 }));
+    const source = make();
+    await source.load();
+    const live = make();
+    live.adoptFrom(source);
+    await live.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual([null]);
+  });
+
+  it("adoptFrom a never-loaded source leaves the target refusing", async () => {
+    const live = make();
+    live.adoptFrom(make());
+    await expect(live.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
   });
 });
