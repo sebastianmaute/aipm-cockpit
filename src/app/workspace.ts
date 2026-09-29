@@ -486,6 +486,12 @@ export interface StorageBackend {
    * saving on a healthy project.
    */
   lastDecodeFailures?: readonly string[];
+  /** §4: the revision this instance last loaded or wrote; `null` before any load. */
+  revision?(): string | null;
+  /** §4: adopt `rev` as this instance's current revision without a load/save. */
+  adoptRevision?(rev: string): void;
+  /** §4: make the next `save()` skip the revision compare and force a rewrite, then clear itself. */
+  forceNextSave?(): void;
 }
 
 /** Serialize a workspace to the JSON envelope (schemaVersion + entity arrays). */

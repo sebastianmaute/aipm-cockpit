@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import { StorageNotReadyError } from "./storage";
 import {
   classifyStorageError,
+  isSaveConflict,
   isTursoErrorMessageKey,
   isTursoLockTimeout,
+  SaveConflictError,
   tursoErrorKind,
   tursoErrorMessageKey,
 } from "./storage-error";
@@ -102,6 +104,21 @@ describe("isTursoErrorMessageKey", () => {
     expect(isTursoErrorMessageKey("portfolio-load-failed")).toBe(false);
     expect(isTursoErrorMessageKey("boom")).toBe(false);
     expect(isTursoErrorMessageKey("")).toBe(false);
+  });
+});
+
+describe("SaveConflictError / isSaveConflict (§4)", () => {
+  it("sets name to SaveConflictError and carries the backend kind", () => {
+    const err = new SaveConflictError("browser");
+    expect(err.name).toBe("SaveConflictError");
+    expect(err.kind).toBe("browser");
+  });
+
+  it("isSaveConflict is true only for a SaveConflictError", () => {
+    expect(isSaveConflict(new SaveConflictError("browser"))).toBe(true);
+    expect(isSaveConflict(new Error("x"))).toBe(false);
+    expect(isSaveConflict(null)).toBe(false);
+    expect(isSaveConflict(new StorageNotReadyError("storage-unreachable"))).toBe(false);
   });
 });
 

@@ -6,10 +6,26 @@
 // Turso-specific failures map to a kind; anything else (local-file permission
 // hints, unrelated errors) returns null so no false storage banner appears.
 
-import { StorageNotReadyError } from "./storage";
+import { StorageNotReadyError, type StorageKind } from "./storage";
 import { TursoLockTimeoutError } from "./turso-backend";
 
 export type StorageErrorKind = "unreachable" | "auth" | "auth-env" | "generic";
+
+/** §4 — thrown by a `StorageBackend.save()` when its revision guard finds the
+ *  backend holds a NEWER revision than the one this instance last loaded or
+ *  wrote (another tab/window won a concurrent save). Callers pause instead of
+ *  overwriting: reload the latest revision, or call `forceNextSave()` and
+ *  retry to intentionally clobber it. */
+export class SaveConflictError extends Error {
+  constructor(public readonly kind: StorageKind) {
+    super(`Save conflict: another writer changed this ${kind} backend`);
+    this.name = "SaveConflictError";
+  }
+}
+
+export function isSaveConflict(err: unknown): err is SaveConflictError {
+  return err instanceof SaveConflictError;
+}
 
 /** True when a save failed because the cross-tab Web Locks wait timed out
  *  (another tab is writing). Deliberately NOT a StorageErrorKind — it's
