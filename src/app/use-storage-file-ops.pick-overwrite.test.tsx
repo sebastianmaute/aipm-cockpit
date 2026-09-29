@@ -65,7 +65,7 @@ vi.mock("./idb", async (importOriginal) => ({
 }));
 // Cross-tab plumbing and the per-project handle store: neither is on any path this file exercises,
 // and both reach for browser stores jsdom has no use for.
-vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn() }));
+vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn() }));
 // §641 — the REAL queue, observable: one test below holds `whenSaved` open to see what the pick does meanwhile.
 vi.mock("./save-queue", async (importOriginal) => {
   const real = await importOriginal<typeof import("./save-queue")>();

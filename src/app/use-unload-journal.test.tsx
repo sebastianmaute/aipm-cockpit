@@ -40,7 +40,7 @@ vi.mock("./project-file-handles", () => ({
   saveHandle: vi.fn().mockResolvedValue(undefined),
   deleteHandle: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn() }));
+vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn() }));
 vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
 // A pass-through spy: every fingerprint the hook computes is counted (fix round 1, M1).
 vi.mock("./unload-journal", async (importOriginal) => {
