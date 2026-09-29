@@ -737,8 +737,12 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     if (!wasBusy && busy) turnConfigRef.current = tursoConfig;
     if (!tursoMode || !wasBusy || busy) return;
     const turnConfig = turnConfigRef.current;
+    // §604. The turn is saved in the database it started in. When the config has moved since, the
+    // live list is the NEW database's: the thread is not put into it (nor made active there), or a
+    // later send or rename on it would upsert A's conversation into B by a second route.
+    const movedAway = turnConfig !== tursoConfig;
     const id = activeThreadId ?? newThreadId();
-    setActiveThreadId((prev) => prev ?? id);
+    if (!movedAway) setActiveThreadId((prev) => prev ?? id);
     const existing = threads.find((th) => th.id === id);
     const now = new Date().toISOString();
     const thread: ChatThread = {
@@ -750,7 +754,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       history: stripAttachmentsForPersistence(history),
       display,
     };
-    setThreads((prev) => [thread, ...prev.filter((th) => th.id !== id)]);
+    if (!movedAway) setThreads((prev) => [thread, ...prev.filter((th) => th.id !== id)]);
     const scope = renameScope(turnConfig);
     runPersist(id, () => saveThread(turnConfig, thread), (owns) => confirmSavedName(scope, id, thread.name, owns));
     // eslint-disable-next-line react-hooks/exhaustive-deps

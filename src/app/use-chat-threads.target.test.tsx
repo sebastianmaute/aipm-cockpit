@@ -132,6 +132,23 @@ describe("useChatThreads — writes stay in the Turso database they started in (
     expect((saveThreadMock.mock.calls[0]![1] as ChatThread).history).toEqual(turn.history);
   });
 
+  it("a turn finished after a config change stays out of the new database's thread list", async () => {
+    const inB = [thread("tB", { name: "In B" })];
+    loadsByDatabase([thread("t1")], undefined, inB);
+    const { result, rerender, initialProps } = renderChatThreads();
+    await waitFor(() => expect(result.current.activeThreadId).toBe("t1"));
+
+    rerender({ ...initialProps, ...turn, busy: true });
+    rerender({ ...initialProps, ...turn, busy: true, tursoConfig: CFG_B });
+    await waitFor(() => expect(result.current.threads).toEqual(inB));
+    rerender({ ...initialProps, ...turn, busy: false, tursoConfig: CFG_B });
+
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalled());
+    expect((saveThreadMock.mock.calls.at(-1)![0] as TursoConfig).httpUrl).toBe(CFG_A.httpUrl);
+    expect(result.current.threads).toEqual(inB);
+    expect(result.current.activeThreadId).not.toBe("t1");
+  });
+
   it("a send started after a config change persists to the new database", async () => {
     loadsByDatabase([thread("t1")], undefined, [thread("tB", { name: "In B" })]);
     const { result, rerender, initialProps } = renderChatThreads();
