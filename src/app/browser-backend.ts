@@ -93,6 +93,11 @@ const KV_REVISION_KEY = "revision";
 // the compare-then-write critical section, so two tabs racing a save can't
 // both read the same stored revision before either writes.
 const BROWSER_SAVE_LOCK_NAME = "aipm-cockpit:save:browser";
+// §4 fix round 1 (R10 change 6) — upper bound on waiting for that lock, on
+// the pattern of `turso-backend.ts`'s `LOCK_WAIT_TIMEOUT_MS`. IndexedDB has no
+// network round-trip, so a much shorter bound than Turso's 20s is still
+// generous for a healthy lock holder to finish first.
+const BROWSER_LOCK_WAIT_TIMEOUT_MS = 10_000;
 import {
   type StorageBackend,
   type Workspace,
@@ -101,7 +106,7 @@ import {
 } from "./workspace";
 import { sanitizeActivityLog } from "./activity-log";
 import { sanitizeBudgetHistory } from "./budget-history";
-import { SaveConflictError } from "./storage-error";
+import { SaveConflictError, SaveLockTimeoutError } from "./storage-error";
 
 /**
  * Browser-local persistence backed by IndexedDB record stores (one row per
@@ -199,6 +204,17 @@ export class BrowserBackend implements StorageBackend {
     let documentAssets: Workspace["documentAssets"] | undefined;
     // §4 — stamped by `saveLocked()`; missing (never saved yet) → 0.
     let revision = 0;
+    // §4 fix round 1 (R10 change 5) — true only once EVERY read/sanitize step
+    // in the try below has completed without throwing (set at the very end of
+    // the try, never inside it). A throw anywhere in the try — including the
+    // revision read itself — means the returned workspace is a FALLBACK
+    // (defaults/partial state, per the outer catch's comment), and adopting
+    // the revision that was read moments before that failure would let this
+    // instance's next save pass the compare while overwriting real data with
+    // that fallback. Guarded by fail-closed (R10 change 1): `false` here
+    // leaves `currentRevision` at `null` (see the end of this method), so the
+    // next save on this instance REFUSES instead of silently winning.
+    let dataLoadSucceeded = false;
     try {
       // §4 fix round 1 — read BEFORE the parallel data reads below, in its
       // OWN await/transaction, not alongside them in the same Promise.all.
@@ -433,6 +449,11 @@ export class BrowserBackend implements StorageBackend {
           .filter((a): a is DocumentAsset => a !== null);
         documentAssets = assets.length ? assets : undefined;
       }
+      // R10 change 5 — reached only when every read/sanitize step above
+      // completed. The per-slice `documents`/`documentVersions` catches above
+      // do NOT prevent this: they swallow their own throw and continue, so a
+      // dropped rich-field slice does not make the CORE data read a failure.
+      dataLoadSucceeded = true;
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -514,9 +535,16 @@ export class BrowserBackend implements StorageBackend {
     this.disciplinesBaseline = new Map(ws.disciplines.map((d) => [d.id, d]));
     this.gradesBaseline = new Map(ws.grades.map((g) => [g.id, g]));
     this.budgetsBaseline = new Map((ws.budgets ?? []).map((b) => [b.id, b]));
-    // §4 — adopt whatever revision this load actually saw, even on the IDB-
-    // unavailable/empty path above (where `revision` stays its 0 default).
-    this.currentRevision = revision;
+    // §4 fix round 1 (R10 change 5) — adopt the revision this load actually
+    // saw ONLY when the data read that revision was paired with genuinely
+    // succeeded. On the IDB-unavailable/fallback path `revision` may still
+    // hold a real number (the revision read can succeed before a LATER data
+    // read fails), but the workspace just assembled is a fallback, not what
+    // that revision describes — adopting it would let this instance's next
+    // save pass the compare while silently overwriting real data with that
+    // fallback. Leaving it `null` (UNKNOWN) means the next save on this
+    // instance fails closed (R10 change 1) instead.
+    this.currentRevision = dataLoadSucceeded ? revision : null;
     this.lastLoadTruncation = {
       entries: diag.truncatedEntries ?? 0,
       blocks: diag.truncatedBlocks ?? 0,
@@ -585,11 +613,32 @@ export class BrowserBackend implements StorageBackend {
     // read the same stored revision before either has written. jsdom (and
     // older browsers) has no `navigator.locks`: fall back to a direct call —
     // the compare still runs, just without cross-tab mutual exclusion.
+    //
+    // §4 fix round 1 (R10 change 6) — bounded wait, on the pattern of
+    // `turso-backend.ts`'s `withWriteLock`: if the lock is not GRANTED within
+    // `BROWSER_LOCK_WAIT_TIMEOUT_MS`, the wait itself is aborted and this
+    // throws `SaveLockTimeoutError` instead of hanging forever — nothing is
+    // written. `granted` distinguishes that from a real failure INSIDE
+    // `saveLocked()` once the lock WAS granted, which must pass through
+    // unchanged.
     const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
-    if (locks) {
-      await locks.request(BROWSER_SAVE_LOCK_NAME, () => this.saveLocked(ws));
-    } else {
+    if (!locks) {
       await this.saveLocked(ws);
+      return;
+    }
+    let granted = false;
+    try {
+      await locks.request(
+        BROWSER_SAVE_LOCK_NAME,
+        { mode: "exclusive", signal: AbortSignal.timeout(BROWSER_LOCK_WAIT_TIMEOUT_MS) },
+        () => {
+          granted = true;
+          return this.saveLocked(ws);
+        },
+      );
+    } catch (err) {
+      if (!granted) throw new SaveLockTimeoutError("browser", { cause: err });
+      throw err;
     }
   }
 
@@ -602,18 +651,28 @@ export class BrowserBackend implements StorageBackend {
    * after every data write below has succeeded, at the same point the
    * baselines refresh.
    *
+   * §4 fix round 1 (R10 change 1, fail closed) — `currentRevision === null`
+   * means UNKNOWN (never loaded, and not adopted or forced), and now REFUSES
+   * with `SaveConflictError` rather than skipping the compare: a save on an
+   * instance that never established a real baseline must not silently win
+   * against whatever another tab already stored. An intentional blind write —
+   * Save-As, create, demo, a storage conversion — goes through
+   * `forceNextSave()`.
+   *
    * `forceNextSave()` (one-shot) skips the compare and instead makes this
    * save a full rewrite: every id-keyed store is physically cleared first —
    * reading its REAL current contents, not this instance's possibly-stale
    * in-memory baseline — and the baselines reset to empty, so a row only a
    * concurrent writer had (this instance never loaded it) does not survive.
+   * The force flag is cleared, like the revision adopt below, only AFTER
+   * every write has actually succeeded (R10 change 4) — a forced save that
+   * fails keeps the flag set for the retry.
    */
   private async saveLocked(ws: Workspace): Promise<void> {
     const force = this.forceNext;
-    this.forceNext = false;
 
     const storedRevision = (await idbGet<number>(KV_REVISION_KEY)) ?? 0;
-    if (!force && this.currentRevision !== null && storedRevision !== this.currentRevision) {
+    if (!force && (this.currentRevision === null || storedRevision !== this.currentRevision)) {
       throw new SaveConflictError("browser");
     }
 
@@ -741,7 +800,9 @@ export class BrowserBackend implements StorageBackend {
     this.gradesBaseline = new Map(ws.grades.map((g) => [g.id, g]));
     this.budgetsBaseline = new Map((ws.budgets ?? []).map((b) => [b.id, b]));
 
-    // §4 — bump + adopt only now that every data write above has succeeded.
+    // §4 — bump + adopt only now that every data write above has succeeded;
+    // clear the force flag at the same point (R10 change 4).
+    if (force) this.forceNext = false;
     const newRevision = storedRevision + 1;
     await idbSet(KV_REVISION_KEY, newRevision);
     this.currentRevision = newRevision;
@@ -762,16 +823,44 @@ export class BrowserBackend implements StorageBackend {
     return this.currentRevision === null ? null : String(this.currentRevision);
   }
 
-  /** §4 — adopt `rev` as this instance's current revision without a load/save. */
+  /** §4 — adopt `rev` as this instance's current revision without a
+   *  load/save. R10 change 7 — revisions are opaque strings to CALLERS, but
+   *  this backend's own encoding is an integer, so anything not made ENTIRELY
+   *  of digits (a stray local-file `"lastModified:size"` string handed to the
+   *  wrong backend, garbage, `""`) is ignored rather than partially parsed —
+   *  `Number.parseInt` would otherwise silently accept a numeric PREFIX
+   *  (`"12abc"` → `12`) and adopt a fabricated baseline. */
   adoptRevision(rev: string): void {
-    const parsed = Number.parseInt(rev, 10);
-    if (!Number.isNaN(parsed)) this.currentRevision = parsed;
+    if (!/^\d+$/.test(rev)) return;
+    this.currentRevision = Number.parseInt(rev, 10);
   }
 
   /** §4 — make the next `save()` skip the revision compare and force a full
-   *  rewrite (see `saveLocked()`), then clear itself. */
+   *  rewrite (see `saveLocked()`), then clear itself (R10 change 4 — only
+   *  once that save's write actually succeeds). */
   forceNextSave(): void {
     this.forceNext = true;
+  }
+
+  /**
+   * §4 fix round 1 (R10 change 3) — copies another `BrowserBackend`
+   * instance's revision and per-store diff baselines, so a throwaway backend
+   * used to perform an op can hand its resulting state to the LIVE instance
+   * in one step. Same-class only, not part of `StorageBackend`. `other` must
+   * have loaded or written the SAME (single shared) IndexedDB this instance
+   * targets; this does not verify that itself.
+   */
+  adoptFrom(other: BrowserBackend): void {
+    this.currentRevision = other.currentRevision;
+    this.tasksBaseline = other.tasksBaseline;
+    this.raidBaseline = other.raidBaseline;
+    this.absencesBaseline = other.absencesBaseline;
+    this.shiftsBaseline = other.shiftsBaseline;
+    this.resourcesBaseline = other.resourcesBaseline;
+    this.rolesBaseline = other.rolesBaseline;
+    this.disciplinesBaseline = other.disciplinesBaseline;
+    this.gradesBaseline = other.gradesBaseline;
+    this.budgetsBaseline = other.budgetsBaseline;
   }
 
   /**

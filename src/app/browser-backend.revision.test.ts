@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
 import { BrowserBackend } from "./browser-backend";
 import { emptyWorkspace } from "./workspace";
-import { SaveConflictError } from "./storage-error";
+import { SaveConflictError, SaveLockTimeoutError } from "./storage-error";
 import type { Milestone, Task } from "./types";
 
 // Fix round 1 — lets one test hold back the REAL `idbGet("revision")` call
@@ -22,6 +22,15 @@ import type { Milestone, Task } from "./types";
 // revision too (to compare/bump it) and must not be blocked by the same gate,
 // or the test deadlocks on itself.
 const revisionReadCtl = vi.hoisted(() => ({ gate: null as Promise<void> | null }));
+// Fix round 2 (R10 change 5) — makes the NEXT `idbGetAll` call (one of
+// load()'s parallel data reads, which all run AFTER the revision read
+// succeeds) throw once, so a test can model "the revision read succeeded but
+// a data read rejected" without touching the revision-read gate above.
+const dataReadFailCtl = vi.hoisted(() => ({ armed: false }));
+// Fix round 2 (R10 change 4) — makes the NEXT `idbBulkUpdate` call (one of
+// saveLocked()'s parallel writes) throw once, so a test can prove a forced
+// save's flag survives a genuine write failure.
+const writeFailCtl = vi.hoisted(() => ({ armed: false }));
 vi.mock("./idb", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./idb")>();
   return {
@@ -33,6 +42,20 @@ vi.mock("./idb", async (importOriginal) => {
         await gate;
       }
       return actual.idbGet(key);
+    },
+    idbGetAll: async (...args: Parameters<typeof actual.idbGetAll>) => {
+      if (dataReadFailCtl.armed) {
+        dataReadFailCtl.armed = false;
+        throw new Error("simulated data read failure");
+      }
+      return actual.idbGetAll(...args);
+    },
+    idbBulkUpdate: async (...args: Parameters<typeof actual.idbBulkUpdate>) => {
+      if (writeFailCtl.armed) {
+        writeFailCtl.armed = false;
+        throw new Error("simulated write failure");
+      }
+      return actual.idbBulkUpdate(...args);
     },
   };
 });
@@ -76,6 +99,8 @@ describe("BrowserBackend §4 revision guard", () => {
     // Fresh in-memory IDB per test so saves don't leak across cases.
     globalThis.indexedDB = new IDBFactory();
     revisionReadCtl.gate = null;
+    dataReadFailCtl.armed = false;
+    writeFailCtl.armed = false;
   });
 
   afterEach(() => {
@@ -224,15 +249,19 @@ describe("BrowserBackend §4 revision guard", () => {
   });
 
   describe("with navigator.locks present", () => {
+    // Fix round 1 (R10 change 6) — 3-arg shape: real code now calls
+    // `locks.request(name, options, cb)` (the options carry `mode` +
+    // `signal`), so a 2-arg fake would bind `cb`'s parameter to the OPTIONS
+    // object instead of the real callback and throw "cb is not a function".
     const defineLocks = (
-      request: (name: string, cb: () => Promise<unknown>) => Promise<unknown>,
+      request: (name: string, options: unknown, cb: () => Promise<unknown>) => Promise<unknown>,
     ) => {
       Object.defineProperty(navigator, "locks", { value: { request }, configurable: true });
     };
 
     it("runs save() under navigator.locks.request with the fixed lock name", async () => {
       const seenNames: string[] = [];
-      defineLocks((name, cb) => {
+      defineLocks((name, _options, cb) => {
         seenNames.push(name);
         return cb();
       });
@@ -246,7 +275,7 @@ describe("BrowserBackend §4 revision guard", () => {
     });
 
     it("still compares and rejects a stale save (same result as without a lock)", async () => {
-      defineLocks((_name, cb) => cb());
+      defineLocks((_name, _options, cb) => cb());
 
       const a = new BrowserBackend();
       const b = new BrowserBackend();
@@ -257,6 +286,137 @@ describe("BrowserBackend §4 revision guard", () => {
       await expect(b.save({ ...emptyWorkspace(), tasks: [taskB] })).rejects.toBeInstanceOf(
         SaveConflictError,
       );
+    });
+
+    // §4 fix round 1 (R10 change 6) — lock-wait timeout.
+    it("a lock-wait timeout surfaces as SaveLockTimeoutError and writes nothing", async () => {
+      const backend = new BrowserBackend();
+      await backend.load();
+      // The wait itself is aborted before the callback ever runs — modelling
+      // AbortSignal.timeout firing while another tab still holds the lock.
+      defineLocks(async () => {
+        throw new DOMException("The operation was aborted.", "AbortError");
+      });
+
+      await expect(backend.save({ ...emptyWorkspace(), tasks: [taskA] })).rejects.toBeInstanceOf(
+        SaveLockTimeoutError,
+      );
+
+      const reloaded = await new BrowserBackend().load();
+      expect(reloaded.tasks).toEqual([]);
+    });
+
+    it("a real failure INSIDE the held lock (e.g. a save conflict) passes through unchanged, not as a timeout", async () => {
+      defineLocks((_name, _options, cb) => cb());
+
+      const a = new BrowserBackend();
+      const b = new BrowserBackend();
+      await a.load();
+      await b.load();
+      await a.save({ ...emptyWorkspace(), tasks: [taskA] });
+
+      await expect(b.save({ ...emptyWorkspace(), tasks: [taskB] })).rejects.toBeInstanceOf(
+        SaveConflictError,
+      );
+    });
+  });
+
+  // §4 fix round 1 (R10 change 1) — fail closed.
+  describe("fail-closed on an unknown revision (R10 change 1)", () => {
+    it("a never-loaded instance refuses to save, and writes nothing", async () => {
+      const backend = new BrowserBackend();
+      // Never loaded, never forced, never adopted: currentRevision is UNKNOWN.
+
+      await expect(backend.save({ ...emptyWorkspace(), tasks: [taskA] })).rejects.toBeInstanceOf(
+        SaveConflictError,
+      );
+
+      const reloaded = await new BrowserBackend().load();
+      expect(reloaded.tasks).toEqual([]);
+    });
+
+    it("forceNextSave lets a never-loaded instance write anyway (the intentional-blind-write escape hatch)", async () => {
+      const backend = new BrowserBackend();
+      backend.forceNextSave();
+
+      await expect(backend.save({ ...emptyWorkspace(), tasks: [taskA] })).resolves.toBeUndefined();
+
+      const reloaded = await new BrowserBackend().load();
+      expect(reloaded.tasks.map((t) => t.id)).toEqual([1]);
+    });
+  });
+
+  // §4 fix round 1 (R10 change 4) — force flag survives a failed write.
+  it("forceNextSave keeps the flag when the forced write fails, for a retry", async () => {
+    const a = new BrowserBackend();
+    const b = new BrowserBackend();
+    await a.load();
+    await b.load();
+    await a.save({ ...emptyWorkspace(), tasks: [taskA] }); // b is now stale
+
+    b.forceNextSave();
+    writeFailCtl.armed = true;
+    await expect(b.save({ ...emptyWorkspace(), tasks: [taskB] })).rejects.toThrow(
+      /simulated write failure/,
+    );
+
+    // The flag must still be set: a retry (the write will succeed this time)
+    // must STILL skip the compare, even though b is still stale.
+    await expect(b.save({ ...emptyWorkspace(), tasks: [taskB] })).resolves.toBeUndefined();
+    const reloaded = await new BrowserBackend().load();
+    expect(reloaded.tasks.map((t) => t.id).sort()).toEqual([2]);
+  });
+
+  // §4 fix round 1 (R10 change 3) — adoptFrom.
+  it("adoptFrom(other): an instance adopted from a loaded instance saves without conflict", async () => {
+    const op = new BrowserBackend();
+    await op.load();
+    await op.save({ ...emptyWorkspace(), tasks: [taskA] });
+
+    const live = new BrowserBackend();
+    // live never loaded — would fail-closed on its own.
+    live.adoptFrom(op);
+
+    await expect(live.save({ ...emptyWorkspace(), tasks: [taskA, taskB] })).resolves.toBeUndefined();
+
+    const reloaded = await new BrowserBackend().load();
+    expect(reloaded.tasks.map((t) => t.id).sort()).toEqual([1, 2]);
+  });
+
+  // §4 fix round 1 (R10 change 5) — a failed data read must not adopt a revision.
+  describe("a failed browser load must not adopt a revision (R10 change 5)", () => {
+    it("load() with a real stored revision but a rejecting data read leaves the revision UNKNOWN", async () => {
+      const seed = new BrowserBackend();
+      seed.forceNextSave();
+      await seed.save({ ...emptyWorkspace(), tasks: [taskA] }); // stores revision 1
+
+      const b = new BrowserBackend();
+      dataReadFailCtl.armed = true;
+      const ws = await b.load(); // revision read succeeds (1); a data read then throws
+
+      expect(ws.tasks).toEqual([]); // the outer catch's fallback/empty state
+      expect(b.revision()).toBeNull();
+      await expect(b.save({ ...emptyWorkspace(), tasks: [taskB] })).rejects.toBeInstanceOf(
+        SaveConflictError,
+      );
+    });
+  });
+
+  // §4 fix round 1 (R10 change 7) — adoptRevision only accepts an all-digit string.
+  describe("adoptRevision accepts only an all-digit string (R10 change 7)", () => {
+    it("ignores a non-digit string rather than partially parsing it", async () => {
+      const backend = new BrowserBackend();
+      await backend.load();
+      expect(backend.revision()).toBe("0");
+
+      backend.adoptRevision("12abc");
+      expect(backend.revision()).toBe("0"); // unchanged — not silently parsed as 12
+
+      backend.adoptRevision("");
+      expect(backend.revision()).toBe("0");
+
+      backend.adoptRevision("7");
+      expect(backend.revision()).toBe("7");
     });
   });
 });
