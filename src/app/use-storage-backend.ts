@@ -33,6 +33,7 @@ import { resolveJournalProjectKey, useUnloadJournal } from "./use-unload-journal
 import { useOtherJournals } from "./use-other-journals";
 import { enqueueSave, whenSaved } from "./save-queue";
 import { createMirrorLedger } from "./mirror-ledger";
+import { handOverRevision } from "./storage-handover";
 import type { ToastAction } from "./use-toast";
 import type { UseStorageBackendArgs } from "./use-storage-backend-types";
 
@@ -419,6 +420,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const suppressNextSaveRef = useRef(false);
   // Suppresses the load effect that fires after onRequestStorageSwitch sets new config
   const suppressNextLoadRef = useRef(false);
+  const handOverFromRef = useRef<ReturnType<typeof createBackend> | null>(null); // §4 §645 — the op's own instance, set beside `suppressNextLoadRef`; the suppress branch hands it to the live one
   // M4: projects whose unsafe-email notice this session already showed (see `FileProjectOpsDeps`).
   const announcedUnsafeEmailsRef = useRef<Set<string>>(new Set());
   // Guards reloadCurrentProject against re-entrant clicks (redundant round-trips)
@@ -641,6 +643,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     (async () => {
       if (suppressNextLoadRef.current) {
         suppressNextLoadRef.current = false;
+        // §4 §645 — THE hand-over: the op loaded or wrote through its own instance, and this one skipped its load, so it knows no revision (and, for a local file, no bound handle) and would refuse its first save. BEFORE `allowSavesTo`.
+        const handOverFrom = handOverFromRef.current; handOverFromRef.current = null; if (handOverFrom) handOverRevision(backend, handOverFrom);
         // ★★★ REQUIRED re-stamp (open-followups §77 — seven arm sites, the
         // reproduce grep and the full argument live there). Every op that arms
         // this ref already put the right workspace in render scope, but does so
@@ -1243,6 +1247,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     reportProjectError,
     suppressNextLoadRef,
     suppressNextSaveRef,
+    handOverFromRef,
     announcedUnsafeEmailsRef,
   });
 
@@ -1262,6 +1267,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     settingsRef,
     suppressNextSaveRef,
     suppressNextLoadRef,
+    handOverFromRef,
     emitStorageConfig,
     allowSavesToActiveBackend: () => allowSavesTo(backend),
     loadSucceeded: () => savesAllowedForRef.current === backend,
