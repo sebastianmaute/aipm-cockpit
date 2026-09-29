@@ -80,7 +80,7 @@ export function reportAiKeyUnreadable(): void {
   setStatus("unreadable");
 }
 
-export function isAiKeyStatusBad(s: AiKeyStatus): boolean {
+export function isAiKeyStatusBad(s: AiKeyStatus): s is "rejected" | "forbidden" | "unreadable" {
   return s === "rejected" || s === "forbidden" || s === "unreadable";
 }
 

@@ -62,8 +62,10 @@ import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { GlobalSearchConnected } from "./global-search-box";
-import { BirthdayBanner, JiraTokenBanner, StorageBanner, SavingPausedBanner, UnloadJournalConflictBanner, OtherJournalsBanner, ExpiredJournalsBanner } from "./notifications";
+import { AiKeyBanner, BirthdayBanner, JiraTokenBanner, StorageBanner, SavingPausedBanner, UnloadJournalConflictBanner, OtherJournalsBanner, ExpiredJournalsBanner } from "./notifications";
 import { classifyStorageError, type StorageErrorKind } from "./storage-error";
+import { useAiKeyCheck, useAiKeyStatus } from "./use-ai-key-check";
+import { isAiKeyStatusBad } from "./ai-key-status";
 import { useStakeholderComms } from "./use-stakeholder-comms";
 import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
 import { getJiraTokenAlert } from "./jira-token-status";
@@ -474,6 +476,13 @@ function TaskManagerInner() {
     window.addEventListener("aipm-cockpit-secret-unreadable", onSecretUnreadable);
     return () => window.removeEventListener("aipm-cockpit-secret-unreadable", onSecretUnreadable);
   }, [showToast, lang]);
+
+  // §650 — the Anthropic key verdict: the start-up / on-save key check (main window only; the hook
+  // gates on `isPopout` itself) and the banner's read of the in-memory verdict. The banner's dismiss
+  // holds for this page only; the next load re-derives the verdict and re-shows it if still bad.
+  useAiKeyCheck({ ai: settings.ai, hydrated, isPopout });
+  const aiKeyStatus = useAiKeyStatus();
+  const [aiKeyBannerDismissed, setAiKeyBannerDismissed] = useState(false);
 
   // ★★★ FIX ROUND 1 (M3): THE ONLY VersionInfoModal IN THE APP, and its
   // `openVersion` is now the ONE way anything opens it — the desktop shell's
@@ -2970,6 +2979,10 @@ function TaskManagerInner() {
       )}
       {!isPopout && storageError && !storageErrorDismissed && (
         <StorageBanner kind={storageError.kind} lang={lang} onOpenSettings={() => setActiveTab("settings")} onDismiss={() => setStorageErrorDismissed(true)} />
+      )}
+      {/* §650 — gated on the AI switch too: a verdict about a key the user has turned off is not news. */}
+      {!isPopout && settings.ai?.enabled === true && isAiKeyStatusBad(aiKeyStatus) && !aiKeyBannerDismissed && (
+        <AiKeyBanner status={aiKeyStatus} lang={lang} onOpenSettings={() => onOpenSettingsSection("ai")} onDismiss={() => setAiKeyBannerDismissed(true)} />
       )}
       {unloadJournalConflict && (
         <UnloadJournalConflictBanner lang={lang} onRestoreAnyway={restoreUnloadJournalAnyway} onDiscard={discardUnloadJournal} />
