@@ -294,9 +294,16 @@ export class SharePointBackend implements StorageBackend {
       throw new Error(`SharePoint returned ${res.status}. Try again later.`);
     }
     // Written: adopt the new eTag (body first, header as fallback) and consume the force.
-    this.baselineKnown = true;
+    // ★ Final review m3: the ETag header is not CORS-exposed, so a body without `eTag` may leave both
+    //   empty. Then read what storage holds; if that fails too, the baseline is UNKNOWN and the next save
+    //   refuses (R8) rather than going out without `If-Match` for the rest of the session (fail open).
+    //   Residual: a peer write landing between the PUT and that read is adopted as this instance's own.
+    //   An instance that was ALREADY degraded (loaded without an eTag) stays so: the documented exception.
+    const wasDegraded = !force && expected === null && this.baselineKnown && !this.baselineAbsent && this.currentRevision === null;
+    const written = (await this.writtenEtag(res)) ?? (await this.storedEtag(token));
+    this.baselineKnown = written !== null || wasDegraded;
     this.baselineAbsent = false;
-    this.currentRevision = await this.writtenEtag(res);
+    this.currentRevision = written;
     if (force) this.forceNext = false;
   }
 

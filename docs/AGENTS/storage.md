@@ -259,7 +259,8 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
 
 - **Fail closed.** An instance that knows no revision (never loaded, or its load failed) refuses
   its first save. The one exception is a SharePoint file loaded without an eTag, which saves without
-  `If-Match` as before. A Turso conflict is recognised by WHICH step failed (`isRevisionGuard`),
+  `If-Match` as before. A SharePoint PUT whose response carries no eTag (the `ETag` header is not
+  CORS-exposed) reads the stored one with a metadata GET; if that fails too, the next save refuses. A Turso conflict is recognised by WHICH step failed (`isRevisionGuard`),
   never by the error text.
 - **Hand-over.** A project op (switch, open, create, demo, conversion) loads or writes through an
   instance of its own and then points the app at that target, and the live instance skips its load.

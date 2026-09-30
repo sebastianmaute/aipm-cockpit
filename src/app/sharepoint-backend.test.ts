@@ -564,6 +564,32 @@ describe("SharePointBackend revision guard (§4)", () => {
     expect(be.revision()).toBe('"hdr,3"');
   });
 
+  // Final review m3 — the ETag header is not CORS-exposed, so a 2xx body without `eTag` left the
+  // instance "loaded" with no revision, and every later save went out without `If-Match` (fail OPEN).
+  it("a 2xx with no eTag in body or header reads the stored eTag, and the next save sends it", async () => {
+    loadOk('"v1,1"');
+    const seen = capturePuts(() => HttpResponse.json({}, { status: 200 }));
+    const be = make();
+    await be.load();
+    server.use(http.get(META_RE, () => HttpResponse.json({ eTag: '"meta,2"' })));
+    await be.save(EMPTY_WORKSPACE);
+    expect(be.revision()).toBe('"meta,2"');
+    await be.save(EMPTY_WORKSPACE);
+    expect(seen).toEqual(['"v1,1"', '"meta,2"']);
+  });
+
+  it("a 2xx with no eTag anywhere, whose stored eTag cannot be read either, makes the next save refuse", async () => {
+    loadOk('"v1,1"');
+    const seen = capturePuts(() => HttpResponse.json({}, { status: 200 }));
+    const be = make();
+    await be.load();
+    server.use(http.get(META_RE, () => new HttpResponse("", { status: 500 })));
+    await be.save(EMPTY_WORKSPACE);
+    expect(be.revision()).toBeNull();
+    await expect(be.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
+    expect(seen).toEqual(['"v1,1"']); // the refused save sent nothing
+  });
+
   it("a never-loaded save refuses with SaveConflictError and sends nothing", async () => {
     const seen = capturePuts();
     await expect(make().save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
