@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractXlsx } from "./xlsx-extract";
+import { extractXlsx, MAX_XLSX_SHEET_CELLS, XLSX_SHEET_TRUNCATED } from "./xlsx-extract";
 import { expectLinearScaling } from "../test/scaling";
 
 function enc(s: string): Uint8Array {
@@ -413,5 +413,51 @@ describe("extractXlsx", () => {
     </Relationships>`;
     const mapped = new Map<string, Uint8Array>([...fallback, ["xl/_rels/workbook.xml.rels", enc(rels)]]);
     expect(extractXlsx(mapped)).toBe(expected);
+  });
+
+  // open-followups §579. MAX_XLSX_COLUMNS bounds a row; MAX_XLSX_SHEET_CELLS
+  // bounds the sheet, counting padding. Both halves are checked: sheetRows
+  // stops reading, and renderRows stops before rows x width passes the budget.
+  describe("sheet cell budget (open-followups §579)", () => {
+    const XFD_ROWS_TO_FILL = Math.floor(MAX_XLSX_SHEET_CELLS / 16_384);
+    const sheetOf = (rows: string) => new Map([["xl/worksheets/sheet1.xml", enc(`<worksheet><sheetData>${rows}</sheetData></worksheet>`)]]);
+    const tableRows = (out: string) => out.split("\n").filter((l) => l.startsWith("| ") && !l.startsWith("| ---"));
+
+    it("cuts a sheet of XFD rows at the budget and says so", () => {
+      const n = XFD_ROWS_TO_FILL + 5;
+      const rows = Array.from({ length: n }, (_, i) => `<row r="${i + 1}"><c r="XFD${i + 1}"><v>${i}</v></c></row>`).join("");
+      const out = extractXlsx(sheetOf(rows));
+      const kept = tableRows(out);
+      expect(kept.length).toBe(XFD_ROWS_TO_FILL);
+      expect(kept.length * 16_384).toBeLessThanOrEqual(MAX_XLSX_SHEET_CELLS);
+      expect(out.endsWith(XLSX_SHEET_TRUNCATED)).toBe(true);
+    });
+
+    it("stops READING, not only rendering: empty padded rows count too", () => {
+      // XFD cells with no value pad each row to 16,384 empty strings in memory
+      // but render nothing. Past the budget the data row after them is never
+      // read, so the sheet reports only the cut. Without the sheetRows check it
+      // would hold every padded row and render the data row.
+      const empties = Array.from({ length: XFD_ROWS_TO_FILL + 2 }, (_, i) => `<row r="${i + 1}"><c r="XFD${i + 1}"/></row>`).join("");
+      const out = extractXlsx(sheetOf(`${empties}<row r="999"><c r="A999"><v>7</v></c></row>`));
+      expect(out).toBe(`## Sheet: Sheet1\n\n${XLSX_SHEET_TRUNCATED}`);
+    });
+
+    it("stops before a late wide row pads every earlier row past the budget", () => {
+      // Many one-cell rows are cheap to read, but one XFD row makes the render
+      // width 16,384 for all of them.
+      const narrow = Array.from({ length: 100 }, (_, i) => `<row r="${i + 1}"><c r="A${i + 1}"><v>${i}</v></c></row>`).join("");
+      const out = extractXlsx(sheetOf(`${narrow}<row r="101"><c r="XFD101"><v>x</v></c></row>`));
+      const kept = tableRows(out);
+      const width = kept[0].split(" | ").length;
+      expect(kept.length * width).toBeLessThanOrEqual(MAX_XLSX_SHEET_CELLS);
+      expect(kept.length).toBe(100); // the wide row is the one dropped; the narrow rows keep width 1
+      expect(out.endsWith(XLSX_SHEET_TRUNCATED)).toBe(true);
+    });
+
+    it("adds no marker to a sheet under the budget", () => {
+      const out = extractXlsx(sheetOf(`<row r="1"><c r="A1"><v>1</v></c></row><row r="2"><c r="XFD2"><v>2</v></c></row>`));
+      expect(out).not.toContain(XLSX_SHEET_TRUNCATED);
+    });
   });
 });

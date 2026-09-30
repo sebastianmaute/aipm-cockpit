@@ -152,10 +152,8 @@ const NUMERIC_ENTITY = /&#(x[0-9a-f]+|\d+);/gi;
  *  any other). Anything it declines is returned verbatim — this must never
  *  throw, because it runs inside the entity sanitizers on every load.
  *
- *  ★ NAMED references beyond the small set below are deliberately still
- *  untouched: `&mdash;` continues to count 7. The numeric forms are what an
- *  Office paste actually produces; the named tail is open-followups.md §24's
- *  remainder. */
+ *  ★ NAMED references are `decodeNamedEntities`' job, which runs right after
+ *  this one (open-followups.md §24). */
 function decodeNumericEntities(s: string): string {
   return s.replace(NUMERIC_ENTITY, (whole, body: string) => {
     const hex = body[0] === "x" || body[0] === "X";
@@ -266,6 +264,48 @@ export function descriptionHtml(stored: string | undefined, sink: RichTextSink):
   return isHtmlStart(s, sink) ? s : plainToHtml(s);
 }
 
+/** Named character references decoded in the projection (open-followups.md §24),
+ *  beyond the five `htmlPlainProjection` handles itself (`&lt; &gt; &quot;
+ *  &apos; &amp;`, plus `&nbsp;`). The typographic set a paste from Word,
+ *  Outlook or the web carries, and the Latin-1 letters German and French text
+ *  uses.
+ *
+ *  ★★ It must refuse the same three classes `decodeNumericEntities` does, and
+ *  it does so BY CONSTRUCTION: no value here is `& < >`, a control character or
+ *  a surrogate. Adding one of those here would undo the "&amp; decodes LAST"
+ *  ordering — keep this table to visible, non-markup characters.
+ *  ★ Case-SENSITIVE on purpose: HTML's named references are (`&Auml;` and
+ *  `&auml;` are different letters, and `&MDASH;` is not a reference at all).
+ *  ★ `&amp;mdash;` cannot be read as `&mdash;` here: the `&` is followed by
+ *  `amp;`, so the pattern never sees `&mdash;` as a substring. The `&amp;` pass
+ *  then yields the literal text `&mdash;`, exactly as the numeric pass behaves. */
+const NAMED_ENTITIES: Readonly<Record<string, string>> = {
+  mdash: "\u2014", ndash: "\u2013", hellip: "\u2026", bull: "\u2022", middot: "\u00b7",
+  lsquo: "\u2018", rsquo: "\u2019", sbquo: "\u201a", ldquo: "\u201c", rdquo: "\u201d", bdquo: "\u201e",
+  laquo: "\u00ab", raquo: "\u00bb", lsaquo: "\u2039", rsaquo: "\u203a",
+  copy: "\u00a9", reg: "\u00ae", trade: "\u2122", deg: "\u00b0", plusmn: "\u00b1",
+  times: "\u00d7", divide: "\u00f7", minus: "\u2212", micro: "\u00b5", para: "\u00b6", sect: "\u00a7",
+  frac12: "\u00bd", frac14: "\u00bc", frac34: "\u00be", sup2: "\u00b2", sup3: "\u00b3",
+  euro: "\u20ac", pound: "\u00a3", yen: "\u00a5", cent: "\u00a2",
+  larr: "\u2190", rarr: "\u2192", uarr: "\u2191", darr: "\u2193", harr: "\u2194",
+  auml: "\u00e4", ouml: "\u00f6", uuml: "\u00fc", Auml: "\u00c4", Ouml: "\u00d6", Uuml: "\u00dc", szlig: "\u00df",
+  aacute: "\u00e1", eacute: "\u00e9", iacute: "\u00ed", oacute: "\u00f3", uacute: "\u00fa",
+  agrave: "\u00e0", egrave: "\u00e8", igrave: "\u00ec", ograve: "\u00f2", ugrave: "\u00f9",
+  acirc: "\u00e2", ecirc: "\u00ea", icirc: "\u00ee", ocirc: "\u00f4", ucirc: "\u00fb",
+  Eacute: "\u00c9", ccedil: "\u00e7", Ccedil: "\u00c7", ntilde: "\u00f1", Ntilde: "\u00d1",
+  euml: "\u00eb", iuml: "\u00ef", aring: "\u00e5", Aring: "\u00c5", oslash: "\u00f8", Oslash: "\u00d8",
+  aelig: "\u00e6", AElig: "\u00c6",
+};
+
+const NAMED_ENTITY = new RegExp(`&(${Object.keys(NAMED_ENTITIES).join("|")});`, "g");
+
+/** Decode the named references in `NAMED_ENTITIES`; anything else stays
+ *  literal, exactly as before. Same position in the pipeline as
+ *  `decodeNumericEntities`, and like it, it cannot throw. */
+function decodeNamedEntities(s: string): string {
+  return s.replace(NAMED_ENTITY, (_whole, name: string) => NAMED_ENTITIES[name]);
+}
+
 /** Plain-text projection WITHOUT DOMPurify — the only projection legal in a
  *  sanitizer. `&amp;` decodes LAST, or "&amp;lt;" would double-decode to "<".
  *  For display/search/export use rich-text-projection.ts's descriptionText,
@@ -286,8 +326,8 @@ export function descriptionHtml(stored: string | undefined, sink: RichTextSink):
  *  byte-stability suite in the test file is the gate. */
 export function htmlPlainProjection(html: string, opts?: { preserveBreaks?: boolean }): string {
   const breaks = opts?.preserveBreaks === true;
-  const tagless = decodeNumericEntities(
-    html.replace(BLOCK_TAG, breaks ? "\n" : " ").replace(TAG, ""),
+  const tagless = decodeNamedEntities(
+    decodeNumericEntities(html.replace(BLOCK_TAG, breaks ? "\n" : " ").replace(TAG, "")),
   ).replace(NBSP, " ");
   const spaced = breaks
     ? tagless.replace(WS_RUN_WITH_NEWLINE, "\n").replace(WS_RUN_HORIZONTAL, " ")

@@ -194,6 +194,19 @@ function sheetEntries(entries: Map<string, Uint8Array>): { name: string; path: s
 /** Excel's column count: A..XFD. */
 const MAX_XLSX_COLUMNS = 16_384;
 
+/** Cells one sheet may expand to, counting padding (open-followups §579).
+ *  `MAX_XLSX_COLUMNS` bounds a ROW; this bounds the SHEET. Without it a row of
+ *  about 35 bytes, `<c r="XFD1">`, pads out to 16,384 cells, and a 20 MB
+ *  attachment can hold millions of such rows. It is also a legitimate shape
+ *  (data in column XFD), so this is a budget, not a malformed-input guard. The
+ *  ingest layer then caps the rendered text anyway (`MAX_NODE_EXTRACT_CHARS`,
+ *  200,000 chars), so rows past this budget could never reach the model.
+ *  Exported for the test. */
+export const MAX_XLSX_SHEET_CELLS = 250_000;
+
+/** Appended to a sheet cut at `MAX_XLSX_SHEET_CELLS`. */
+export const XLSX_SHEET_TRUNCATED = "_(sheet truncated - exceeded the cell budget)_";
+
 function colIndex(ref: string): number {
   const m = /^([A-Z]+)/.exec(ref);
   if (!m) return 0;
@@ -300,8 +313,10 @@ function forEachXmlElement(xml: string, name: string, visit: (whole: string) => 
   }
 }
 
-function sheetRows(xml: string, shared: string[]): string[][] {
+function sheetRows(xml: string, shared: string[]): { rows: string[][]; truncated: boolean } {
   const rows: string[][] = [];
+  let cellCount = 0;
+  let truncated = false;
   forEachXmlElement(xml, "row", (rowXml) => {
     const cells: string[] = [];
     forEachXmlElement(rowXml, "c", (cellXml) => {
@@ -314,16 +329,39 @@ function sheetRows(xml: string, shared: string[]): string[][] {
       cells.push(cellValue(cellXml, shared).replace(/\|/g, "\\|"));
       return true;
     });
+    // One row is at most MAX_XLSX_COLUMNS, so the overshoot past the budget is
+    // bounded by a single row (§579).
+    if (cellCount + cells.length > MAX_XLSX_SHEET_CELLS) {
+      truncated = true;
+      return false;
+    }
+    cellCount += cells.length;
     rows.push(cells);
     return true;
   });
-  return rows;
+  return { rows, truncated };
 }
 
-function renderRows(rows: string[][]): string {
+function renderRows(rows: string[][], truncatedEarlier: boolean): string {
   const nonEmpty = rows.filter((r) => r.some((c) => c.trim() !== ""));
-  if (nonEmpty.length === 0) return "";
-  const width = Math.max(...nonEmpty.map((r) => r.length));
+  // A sheet cut before its first data row still says it was cut.
+  if (nonEmpty.length === 0) return truncatedEarlier ? XLSX_SHEET_TRUNCATED : "";
+  // Every rendered row is padded to the widest one, so the budget is on
+  // rows x width: a run of one-cell rows followed by one XFD row would
+  // otherwise pad every earlier row to 16,384 (§579). The width is the running
+  // maximum, so the final width never exceeds what each kept row was checked
+  // against. `reduce`-style, not `Math.max(...)`: a spread over a huge row
+  // list would blow the call-stack argument limit.
+  let width = 0;
+  let kept = 0;
+  for (const r of nonEmpty) {
+    const w = Math.max(width, r.length);
+    if ((kept + 1) * w > MAX_XLSX_SHEET_CELLS) break;
+    width = w;
+    kept += 1;
+  }
+  const truncated = truncatedEarlier || kept < nonEmpty.length;
+  if (kept === 0) return XLSX_SHEET_TRUNCATED;
   const pad = (r: string[]): string[] => {
     const c = [...r];
     while (c.length < width) c.push("");
@@ -334,7 +372,8 @@ function renderRows(rows: string[][]): string {
     `| ${header.join(" | ")} |`,
     `| ${header.map(() => "---").join(" | ")} |`,
   ];
-  for (const r of nonEmpty.slice(1)) lines.push(`| ${pad(r).join(" | ")} |`);
+  for (const r of nonEmpty.slice(1, kept)) lines.push(`| ${pad(r).join(" | ")} |`);
+  if (truncated) lines.push("", XLSX_SHEET_TRUNCATED);
   return lines.join("\n");
 }
 
@@ -343,7 +382,8 @@ export function extractXlsx(entries: Map<string, Uint8Array>): string {
   const shared = sharedStrings(entries);
   const sections: string[] = [];
   for (const { name, path } of sheetEntries(entries)) {
-    const table = renderRows(sheetRows(decodeUtf8(entries.get(path)!), shared));
+    const { rows, truncated } = sheetRows(decodeUtf8(entries.get(path)!), shared);
+    const table = renderRows(rows, truncated);
     if (table === "") continue;
     sections.push(`## Sheet: ${name}\n\n${table}`);
   }

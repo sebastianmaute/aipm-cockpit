@@ -1253,3 +1253,28 @@ describe("sanitizeRichText — the degrade is reported", () => {
     expect(logDiag).not.toHaveBeenCalled();
   });
 });
+
+// open-followups §24. Named references outside the five the projection always
+// handled used to stay literal: `&mdash;` counted 7 against the cap, and a cap
+// could land mid-reference. They now decode alongside the numeric forms.
+describe("named character references (open-followups §24)", () => {
+  it("counts a named reference as the one character it denotes", () => {
+    expect(htmlTextLength("<p>&mdash;</p>")).toBe(1);
+    expect(htmlPlainProjection("<p>Stra&szlig;e &ndash; M&uuml;nchen&hellip;</p>")).toBe("Straße – München…");
+  });
+
+  it("never truncates in the middle of a named reference", () => {
+    const out = capHtmlText("<p>a&mdash;b&mdash;c</p>", 4);
+    expect(out).not.toMatch(/&m(?!dash;)|&md(?!ash;)/);
+    expect(htmlTextLength(out)).toBeLessThanOrEqual(4);
+  });
+
+  it("keeps &amp; LAST: an escaped reference stays literal text", () => {
+    expect(htmlPlainProjection("<p>&amp;mdash;</p>")).toBe("&mdash;");
+  });
+
+  it("leaves unknown and wrong-case names literal", () => {
+    expect(htmlPlainProjection("<p>&MDASH; &notareal; &mdash</p>")).toBe("&MDASH; &notareal; &mdash");
+    expect(htmlPlainProjection("<p>&Auml;&auml;</p>")).toBe("Ää");
+  });
+});

@@ -258,7 +258,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§16](#16-dictation-flattens-rich-formatting--open-needs-a-design) | Dictation flattens rich formatting — open, needs a design | 0.196.0, widened 0.209.0 | M | open |
 | [§21](#21-eye-verification-owed-on-two-editors-and-four-detail-cases--open-slice-b-02090) | Eye verification owed on two editors and four detail cases — open, slice B (0.209.0) | 0.209.0 (Lafferty) | S | open |
 | [§22](#22-cliptext-truncates-on-utf-16-code-units-and-can-split-a-surrogate-pair--closed) | `clipText` truncates on UTF-16 code units and can split a surrogate pair | 0.209.0 (Lafferty) | M | **CLOSED** |
-| [§24](#24-named-entities-are-neither-decoded-nor-counted--open-the-named-tail-only) | NAMED entities are neither decoded nor counted — open, the named tail only | 0.209.0 (Lafferty) | S | open |
+| [§24](#24-named-entities-are-neither-decoded-nor-counted--closed-2026-09-30) | NAMED entities are neither decoded nor counted | 0.209.0 (Lafferty) | S | **CLOSED** 2026-09-30 |
 | [§28](#28-csv--markdown--turso-never-dompurify-a-rich-field-at-load--open-needs-a-new-boundary) | CSV / Markdown / Turso never DOMPurify a rich field at load — open, needs a new boundary | 0.196.0, widened 0.209.0 and again 2026-08-11 | M | open |
 | [§29](#29-formnotelog-is-dead-state-in-the-task-form--closed-in-02111) | ~~`form.noteLog` is dead state in the task form~~ | 0.209.0, promoted 0.210.0 | S | **CLOSED** in 0.211.1 |
 | [§30](#30-a-link-in-a-task-description-loses-its-address-in-document-exports--closed-2026-09-01) | ~~A link in a task description loses its address in document exports~~ | 0.210.0 (Larbalestier) | M | **CLOSED** 2026-09-01 (the decision: real links where the sink allows one, `text (url)` where it does not — non-goals at §329 · §330) |
@@ -320,7 +320,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§86](#86-ai-cannot-read-timelog-entries--deliberate-no-tool-exposes-them) | AI cannot read timelog entries — deliberate, no tool exposes them | view-scoped AI prompts, unreleased | — | open |
 | [§87](#87-ai-cannot-read-the-activity-log--closed-2026-09-13) | AI cannot read the activity log | view-scoped AI prompts, unreleased | — | **CLOSED** 2026-09-13 |
 | [§88](#88-ai-sectiontsxs-own-sub-section-titles-are-not-real-headings--closed-2026-08-31) | `ai-section.tsx`'s own sub-section titles are not real headings | found during view-scoped AI prompts review, unreleased | S | **CLOSED** 2026-08-31 |
-| [§89](#89-ai-cannot-read-absences-and-the-resource-calendar-view-renders-them-beside-meetings) | AI cannot read absences, and the Resource-calendar view renders them beside meetings | view-scoped AI prompts, unreleased | S | open |
+| [§89](#89-ai-cannot-read-absences-and-the-resource-calendar-view-renders-them-beside-meetings--closed-2026-09-30) | AI cannot read absences, and the Resource-calendar view renders them beside meetings | view-scoped AI prompts, unreleased | S | **CLOSED** 2026-09-30 |
 | [§90](#90-oncreateresource-is-unguarded-in-a-popout-and-cannot-take-guardedit--closed-2026-09-14) | `onCreateResource` is unguarded in a popout and cannot take `guardEdit` | found in the help-coverage slice-3 review, unreleased | — | **CLOSED** 2026-09-14 |
 | [§91](#91-a-popout-can-record-an-undo-entry-and-persist-an-activity-line--closed-2026-09-14) | A popout can record an undo entry and persist an activity line | found in the help-coverage slice-3 review, unreleased | S | **CLOSED** 2026-09-14 |
 | [§92](#92-the-settings-types--workspace--document-model-cycle-is-a-standing-trap-for-any-eval-time-snapshot--open) | The `settings-types` ⇄ `workspace` ⇄ `document-model` cycle is a standing trap for any eval-time snapshot | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per instance | open |
@@ -806,7 +806,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§576](#576-sanitizefxrates-reorders-its-rates-object-on-a-second-decode-so-an-fx-snapshot-is-not-byte-stable-through-a-json-round-trip--closed-2026-09-21) | sanitizeFxRates reorders its rates object on a second decode, so an FX snapshot is not byte-stable through a JSON round-trip | json-import-multi-attach-demo-refresh (2026-09-18), found + verified during Task 9; GitLab #361 | S — iterate `SUPPORTED_CURRENCIES` unconditionally instead of conditionally inserting present keys | closed |
 | [§577](#577-the-budgetvariance-insight-compares-full-window-budget-against-to-date-actuals-so-open-buckets-with-future-months-are-flagged-and-an-unstarted-bucket-can-read-100-and-win-worst--closed-2026-09-19) | The budgetVariance insight compares full-window budget against to-date actuals, so open buckets with future months are flagged and an unstarted bucket can read 100% and win "worst" | json-import-multi-attach-demo-refresh (2026-09-18), found + verified against sample-workspace-small.json during Task 9; GitLab #362 | M — scope budgetHours to periods to-date, and/or exclude unstarted buckets from "worst" | **CLOSED** 2026-09-19 |
 | [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open) | Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads | audit (2026-09) | M | open |
-| [§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--open) | An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap | audit (2026-09) | S | open |
+| [§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--closed-2026-09-30) | An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap | audit (2026-09) | S | **CLOSED** 2026-09-30 |
 | [§580](#580-dashboardmodelburn-and-forecast-have-no-reader-outside-dashboardts--closed-2026-09-18) | `DashboardModel.burn` and `forecast` have no reader outside `dashboard.ts` | found 2026-09-18 auditing the dashboard model after spec C removed `ForecastHeadline`; GitLab #365 | S — delete the dead field(s) or give them a reader | closed |
 | [§581](#581-the-kpi-strips-lggrid-cols-5-leaves-a-gap-when-only-one-of-spicpi-shows--closed-2026-09-19) | The KPI strip's `lg:grid-cols-5` leaves a gap when only one of SPI/CPI shows | found 2026-09-18 reading `dashboard-kpi-strip.tsx`'s `cols` ternary; not eye-checked; GitLab #366 | XS — branch the class on the real tile count, not the OR | closed |
 | [§582](#582-the-next-actions-heros-open-cta-renders-and-does-nothing-without-onopenaction--closed-2026-09-19) | The Next-actions hero's Open CTA renders and does nothing without `onOpenAction` | found 2026-09-18 reading `action-hero-card.tsx`/`action-cta-controls.tsx`; latent, every production caller passes it; GitLab #367 | S — hide the CTA when the handler is absent, or make the prop required | closed |
@@ -1875,11 +1875,9 @@ A counter tuned against a single run is itself a flake source, because fast-chec
 
 ---
 
-## 24. NAMED entities are neither decoded nor counted — open, the named tail only
+## 24. NAMED entities are neither decoded nor counted — CLOSED 2026-09-30
 
-**Status:** open — an entity-decoding gap that over-counts named references. Reproduced 2026-08-28 by `grep -n "NBSP" src/app/rich-text-plain.ts`.
-
-**Work item:** #95
+**Status:** CLOSED 2026-09-30. `htmlPlainProjection` now runs `decodeNamedEntities` right after `decodeNumericEntities`, over a fixed `NAMED_ENTITIES` table (`rich-text-plain.ts`): the typographic set a Word, Outlook or web paste carries, plus the Latin-1 letters German and French use. It refuses the three classes below BY CONSTRUCTION: no value in the table is `& < >`, a control character or a surrogate, and the table's docblock says to keep it that way. Matching is case-sensitive, as HTML's is. `&amp;mdash;` still yields the literal text `&mdash;`, because the `&` is followed by `amp;` and the pattern never sees `&mdash;`. So `<p>&mdash;</p>` now counts 1, and a cap can no longer land mid-reference for a name in the table. Names outside the table stay literal, as before. Pinned by `rich-text-plain.test.ts` → "named character references (open-followups §24)"; taking the pass out fails two of its four tests. The golden byte-stability suite is unchanged. The history below is kept as written.
 
 **Narrowed by 0.210.0 "Larbalestier" (`a09e3b70`, `0053232d`), not closed.** The numeric half is
 done; the named tail below is the whole of what remains, and its illustration is unchanged.
@@ -7078,11 +7076,9 @@ this file records elsewhere.
 
 ---
 
-## 89. AI cannot read absences, and the Resource-calendar view renders them beside meetings
+## 89. AI cannot read absences, and the Resource-calendar view renders them beside meetings — CLOSED 2026-09-30
 
-**Status:** open — an AI capability gap, no absence read tool. Reproduced 2026-08-28 by `grep -n "absence" src/app/view-ai-scope.ts`.
-
-**Work item:** #126
+**Status:** CLOSED 2026-09-30. The tool this entry asks for already existed: `list_absences` (with `create_`/`update_`/`delete_absence`) is in `chat-tool-defs.ts`. What was still wrong was the DISCLOSURE: `VIEW_AI_SCOPE.calendar.reading` and `lib/app-feature-guide.md` still told the model absences were "NOT tool-readable", and that it "cannot add or change events". So the model was steered AWAY from the tool that answers a clash question. Both are corrected: the calendar view now hints `list_absences` beside `list_calendar_events` and tells the model to read both before answering a clash or availability question, and the feature guide names the read and write tools. The operating guide was regenerated (`scripts/gen-operating-guide.mjs`). Pinned by `view-ai-scope.test.ts` → "points the calendar view at BOTH list tools the grid needs", which fails on the old text. The history below is kept as written.
 
 `list_calendar_events` returns `CalendarEvent` series only. Absences are a separate entity and no tool
 exposes them (`grep -n "absence" src/app/chat-tool-defs.ts src/app/chat-tools.ts` returns nothing), yet
@@ -40910,14 +40906,9 @@ comment giving its old/new timing, and a mutation proof.
 
 Related: [§558](#558-the-three-ooxml-extractors-were-quadratic-on-repetitive-unclosed-markup--closed-2026-09-18) (the extractor half and the sweep command).
 
-## 579. An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap — OPEN
+## 579. An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap — CLOSED 2026-09-30
 
-**Status:** OPEN 2026-09-18 — established by `grep -n "MAX_XLSX_COLUMNS" src/app/xlsx-extract.ts` (the
-cap is per cell, checked against one row's column index) and
-`grep -nE "MAX_INFLATED_BYTES|MAX_TOTAL_INFLATED_BYTES" src/app/unzip.ts`. The amplification is
-**never machine-verified**: no test or probe has run a many-row XFD sheet through `extractXlsx`.
-
-**Work item:** #364
+**Status:** CLOSED 2026-09-30 — the cell-budget fix shape below. `MAX_XLSX_SHEET_CELLS` (250,000 cells, counting padding) bounds the sheet in two places (`xlsx-extract.ts`). `sheetRows` stops READING once the next row would pass it, so padded rows are never held in memory past the budget; the overshoot is at most one row. `renderRows` stops before rows x width passes it, using the running width, so a late XFD row cannot pad every earlier narrow row out to 16,384. A cut sheet ends with `XLSX_SHEET_TRUNCATED`, including a sheet cut before its first data row. `renderRows` no longer spreads the row list into `Math.max`, which would have hit the call-stack argument limit on a huge sheet. The budget sits comfortably above what reaches the model anyway: `MAX_NODE_EXTRACT_CHARS` caps the rendered text at 200,000 chars. Pinned by `xlsx-extract.test.ts` → "sheet cell budget (open-followups §579)"; removing either check fails a test. ★ Still never timed against a real 20 MB workbook; the budget bounds the work by construction, not by measurement. The history below is kept as written.
 
 §558 capped a cell's column index at Excel's last column, XFD (`MAX_XLSX_COLUMNS`). That removed the
 ~8e9-entry pad that `<c r="ZZZZZZZ1"/>` caused. The cap bounds a ROW, not a SHEET. A row such as
