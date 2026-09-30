@@ -266,7 +266,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§32](#32-html_start-misclassifies-eight-plain-text-prefixes-and-the-text-is-then-deleted--closed-2026-09-13) | `HTML_START` misclassifies eight plain-text prefixes, and the text is then DELETED | pre-existing, reach widened 0.210.0 | S | **CLOSED** 2026-09-13 |
 | [§33](#33-a-multi-paragraph-description-can-overflow-its-pptx-box--closed-2026-09-25) | A multi-paragraph description can overflow its PPTX box | 0.210.0 (Larbalestier) | S | closed |
 | [§34](#34-the-dom-free-guards-filter-is-a-name-list-where-the-real-set-is-an-import-graph--closed-in-02100) | ~~The DOM-free guard's filter is a NAME LIST where the real set is an import GRAPH~~ | 0.210.0 (Larbalestier) | S | **CLOSED** in 0.210.0 |
-| [§35](#35-sanitizeairichtexts-double-pass-can-double-escape-one-exotic-shape--open-suspicion) | `sanitizeAiRichText`'s double pass can double-escape one exotic shape — open, suspicion | 0.210.0 (Larbalestier) | S | open |
+| [§35](#35-sanitizeairichtexts-double-pass-can-double-escape-one-exotic-shape--closed-2026-09-30) | `sanitizeAiRichText`'s double pass can double-escape one exotic shape | 0.210.0 (Larbalestier) | S | **CLOSED** 2026-09-30 |
 | [§36](#36-two-rich-field-writeexport-postures-that-were-claimed-as-recorded-but-were-not--a-fixed-2026-08-28-b-fixed-2026-08-31--closed-2026-08-31) | Two rich-field write/export postures that were CLAIMED as recorded but were not — (a) FIXED 2026-08-28, (b) FIXED 2026-08-31 | 0.210.0 (Larbalestier) | S | **CLOSED** 2026-08-31 |
 | [§37](#37-raiditem-has-no-storage-side-length-cap-on-any-path--open-pre-existing) | `RaidItem` has NO storage-side length cap on any path — open, pre-existing | pre-existing, found 0.210.0 | M | open |
 | [§38](#38-allowed_uri_regexp-silently-strips-target-and-rel-from-every-stored-link--open-pre-existing) | `ALLOWED_URI_REGEXP` silently strips `target` and `rel` from every stored link — open, pre-existing | pre-existing, found 0.210.0 | S–M | open |
@@ -277,7 +277,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§43](#43-two-suggest-raci-reporting-gaps--closed-2026-09-25) | Two "Suggest RACI" reporting gaps | 0.211.0 (Samatar) | S | closed |
 | [§44](#44-the-last-two-ux-roadmap-slices--s6-designed-and-planned-but-unexecuted-s7-undesigned) | The last two UX-roadmap slices — S6 designed and planned but UNEXECUTED, S7 undesigned | roadmap (gitignored, local-only) | L | open |
 | [§45](#45-brace-expansion-advisory-in-the-eslint-dev-chain--closed-in-02111) | ~~`brace-expansion` advisory in the eslint dev chain~~ | 0.211.0 | S | **CLOSED** in 0.211.1 |
-| [§46](#46-a-label-wrapped-file-input-can-never-show-a-focus-ring--pattern-open) | A `<label>`-wrapped file input can never show a focus ring — pattern open | 0.211.1 | S | open |
+| [§46](#46-a-label-wrapped-file-input-can-never-show-a-focus-ring--closed-2026-09-30) | A `<label>`-wrapped file input can never show a focus ring | 0.211.1 | S | **CLOSED** 2026-09-30 |
 | [§47](#47-chat-panel-clicks-a-displaynone-file-input--closed-2026-09-14) | `chat-panel` clicks a `display:none` file input | pre-existing, found 0.211.1 | S | **CLOSED** 2026-09-14 |
 | [§48](#48-raid-editor-destroys-notes-added-while-it-is-open--closed-in-02111) | ~~RAID editor destroys notes added while it is open~~ | pre-existing, found 0.211.1 | M | **CLOSED** in 0.211.1 |
 | [§49](#49-every-ai-edit-to-a-raid-item-erased-its-whole-note-log--closed-in-02111) | ~~Every AI edit to a RAID item erased its whole note log~~ | pre-existing, found 0.211.1 | S | **CLOSED** in 0.211.1 |
@@ -563,7 +563,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§329](#329-real-xlsx-cell-hyperlinks-were-deliberately-not-built--a-hyperlinks-unit-is-the-cell-and-a-description-can-carry-several) | Real XLSX cell hyperlinks were deliberately NOT built — a hyperlink's unit is the CELL, and a description can carry several | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open |
 | [§330](#330-the-flat-pptx-table-cell-keeps-the-inline-text-url-form-while-the-same-decks-text-boxes-carry-real-links) | The flat PPTX table cell keeps the inline `text (url)` form while the same deck's text boxes carry real links | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open (SCOPED 2026-09-01 to `doc-render-pptx.ts`'s table path — `export-pptx.ts`'s row slides now carry real links) |
 | [§331](#331-aria-pressed-carries-a-mutually-exclusive-choice-at-six-sites-which-is-radio-group-semantics-in-toggle-button-clothes) | `aria-pressed` carries a MUTUALLY-EXCLUSIVE choice at six sites, which is radio-group semantics in toggle-button clothes | found 2026-09-01, closing §55 | M | open |
-| [§332](#332-the-reduced-motion-policy-covers-two-utilities-and-nothing-gates-the-next-animation) | The reduced-motion policy covers two utilities and nothing gates the next animation | found 2026-09-01, adding the rule | S | open |
+| [§332](#332-the-reduced-motion-policy-covers-two-utilities-and-nothing-gates-the-next-animation--closed-2026-09-30) | The reduced-motion policy covers two utilities and nothing gates the next animation | found 2026-09-01, adding the rule | S | **CLOSED** 2026-09-30 |
 | [§333](#333-the-chip-clear-buttons-in-labels-input-and-stakeholder-recipient-input-carry-no-onmousedown-guard--closed-2026-09-02) | ~~The chip clear buttons in `labels-input` and `stakeholder-recipient-input` carry no `onMouseDown` guard~~ | found 2026-09-01 while adopting `IconButton`; PRE-EXISTING | S | **CLOSED** 2026-09-02 (**DISPROVED**, not fixed — the clear renders inside the `rootRef` containment check that governs the close; no code written) |
 | [§334](#334-racichippickers-popover-is-positioned-with-no-right-edge-clamp--closed-2026-09-02) | ~~`RaciChipPicker`'s popover is positioned with no right-edge clamp~~ | found 2026-09-01, fixing §55's RACI half; PRE-EXISTING | S | **CLOSED** 2026-09-02 (adopted `PopoverPanel`; closed WIDER than its title — the chips were unreachable by Tab, and the panel's `ariaLabel` was inert without a `role`. One stated constraint, chip-anchored positioning, was DECLINED) |
 | [§335](#335-the-rag-health-chips-override-togglebuttons-derived-state-border-so-amber-and-green-stay-under-31-in-the-four-light-schemes) | The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes | found 2026-09-01 in the §55 fix round, from a cold docs review | S | open |
@@ -2432,11 +2432,9 @@ derivable, derive it.
 
 ---
 
-## 35. `sanitizeAiRichText`'s double pass can double-escape one exotic shape — open, suspicion
+## 35. `sanitizeAiRichText`'s double pass can double-escape one exotic shape — CLOSED 2026-09-30
 
-**Status:** open — a double-escape shape that survives, reachability never established. Reproduced 2026-08-28 by `grep -n "sanitizeAiRichText" src/app/ai-rich-text.ts`.
-
-**Work item:** #99
+**Status:** CLOSED 2026-09-30. The double-pass divergence is unreachable. Since §32's `TAG_TAIL`, pass 1 takes a value as HTML only when it starts with a tag on `RICH_ALLOWED_TAGS`, and DOMPurify keeps every such tag, so pass 3 always sees HTML again and never re-escapes. `ai-rich-text.test.ts` → "open-followups §35" pins both halves: the `<a-b>` shape is plain text escaped exactly once, and a sweep over every allowed tag with a trailing entity finds no `&amp;lt;`/`&amp;amp;`. A mutant that makes pass 3 see bare text fails both. ★ The `<a-b>` value now RENDERS its literal `&lt;` because the whole value is prose, a tag-shaped string that is not a tag, per §32's rule. That is the plain-text contract, not a double escape: the single-pass result is identical. The history below is kept as written.
 
 Recorded from a round-5 audit; **real-world reachability is a suspicion, not established.**
 
@@ -3352,11 +3350,9 @@ Measured rule drift was **ZERO** — `eslint:recommended` is not layered into th
 
 ---
 
-## 46. A `<label>`-wrapped file input can never show a focus ring — pattern open
+## 46. A `<label>`-wrapped file input can never show a focus ring — CLOSED 2026-09-30
 
-**Status:** open — a PATTERN reminder, not a state. 2026-08-28: never machine-verified — no command can settle a prescription; retiring it is a decision, not a probe.
-
-**Work item:** #108
+**Status:** CLOSED 2026-09-30 — the pattern now has a guard. `label-focus-ring.guard.test.ts` scans every non-test `.tsx` under `src/app` (comment-stripped) and fails on a `<label>` opening tag carrying `focus:`, `FOCUS_RING` or `INTERACTIVE`, unless it has a `tabIndex`; `focus-within:` passes. Its first run found one live instance, `timelog-project-scope.tsx`'s project-row label, which carried `INTERACTIVE`. The checkbox inside has its own visible `FOCUS_RING`, so there was no user-facing defect, only a dead ring. The label now keeps `TRANSITION` and `PRESS` and drops the ring. Restoring `INTERACTIVE` there fails the guard. ★ It is a NAME-level scan: classes reaching a label through some other variable are invisible to it. The history below is kept as written.
 
 Found while grounding §15, and not in that entry. `color-scheme-editor.tsx` and
 `branding-image-input.tsx` both put a `focus:ring-2` on a `<label>` that wrapped an `sr-only`
@@ -28015,16 +28011,9 @@ are behind flows the spec never opens. A manual screen-reader pass is the only d
 
 ---
 
-## 332. The reduced-motion policy covers two utilities and nothing gates the next animation
+## 332. The reduced-motion policy covers two utilities and nothing gates the next animation — CLOSED 2026-09-30
 
-**Status:** OPEN, **never machine-verified — and never machine-verifiable.** jsdom does not evaluate
-media queries, so no unit test can observe the rule, and no Playwright spec here emulates the
-preference. Filed 2026-09-01 in the commit that added the rule. Reproduce the covered set with
-`grep -n -A 8 "prefers-reduced-motion" src/app/globals.css` and the animating call sites with
-`grep -rn "animate-" src/app --include=*.tsx | grep -v "\.test\."` (which also returns comment lines
-that are not call sites).
-
-**Work item:** #241
+**Status:** CLOSED 2026-09-30 — all three uncovered bullets below are addressed. (1) Future animations: `reduced-motion.guard.test.ts` fails on any `animate-*` utility used in `src/app` that the `globals.css` block does not name, on an arbitrary `animate-[…]`, and on `@keyframes` or raw `animation:` outside the block. (2) CSS transitions: recorded as a deliberate exclusion in the guard's header and in `docs/AGENTS/theming.md`. (3) JS-driven motion: the grep found three `behavior: "smooth"` scrolls (`use-task-submit.ts`, `help-view.tsx`, `help-content-pane.tsx`), which animated regardless of the preference. They now call `smoothScrollBehavior()` (`reduced-motion.ts`), which returns `"auto"` under `prefers-reduced-motion: reduce`, and the guard fails on a bare `behavior: "smooth"` anywhere else. Mutation-checked: a new `animate-bounce`, a reverted scroll site and an appended `@keyframes` each fail the guard. ★★ It is still a STRING check for the CSS half: it proves each animation is named in the block, not that motion is gone on screen, which stays eye-verify-only. `theming.md`'s stale "the rotation is the entire cue" text, refuted by the amendment below, is corrected. Filed 2026-09-01.
 
 **What landed.** The app had NO reduced-motion handling of any kind before 2026-09-01. `f2839a72` added
 a single `@media (prefers-reduced-motion: reduce)` block to `globals.css`, covering the two utilities
