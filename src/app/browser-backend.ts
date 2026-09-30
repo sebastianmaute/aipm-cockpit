@@ -153,6 +153,10 @@ export class BrowserBackend implements StorageBackend {
    *  leftover forced-write intent from an earlier FAILED forced save must not
    *  silently carry past. */
   private forceNext = false;
+  /** §4 — one-shot from `forceNextSave(expected)`: the next save is the forced FULL rewrite, but only while
+   *  the stored revision is still `expected`. Consumed by that save attempt whatever its outcome (it can
+   *  never write over a version nobody was shown), and dropped with `forceNext` by every new baseline. */
+  private expectNext: string | null = null;
 
   /** What the most recent load() discarded to stay inside the document caps. */
   lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
@@ -558,7 +562,7 @@ export class BrowserBackend implements StorageBackend {
     // what the other tab just wrote). Only on the genuinely-succeeded path:
     // a failed/fallback load establishes nothing new, so a pending force
     // (still exactly as valid or invalid as before) is left untouched.
-    if (dataLoadSucceeded) this.forceNext = false;
+    if (dataLoadSucceeded) { this.forceNext = false; this.expectNext = null; }
     this.lastLoadTruncation = {
       entries: diag.truncatedEntries ?? 0,
       blocks: diag.truncatedBlocks ?? 0,
@@ -684,13 +688,16 @@ export class BrowserBackend implements StorageBackend {
    */
   private async saveLocked(ws: Workspace): Promise<void> {
     const force = this.forceNext;
+    const expected = this.expectNext;
+    this.expectNext = null;
 
     const storedRevision = (await idbGet<number>(KV_REVISION_KEY)) ?? 0;
-    if (!force && (this.currentRevision === null || storedRevision !== this.currentRevision)) {
-      throw new SaveConflictError("browser");
-    }
+    const stale = expected !== null ? String(storedRevision) !== expected : this.currentRevision === null || storedRevision !== this.currentRevision;
+    if (!force && stale) throw new SaveConflictError("browser", String(storedRevision));
 
-    if (force) {
+    // §4 — a conditional Overwrite is the same full rewrite: a per-store diff would MERGE the other
+    //   writer's rows into this version instead of replacing them.
+    if (force || expected !== null) {
       await Promise.all([
         this.clearIdKeyedStore(IDB_TASKS_STORE),
         this.clearIdKeyedStore(IDB_RAID_STORE),
@@ -852,13 +859,16 @@ export class BrowserBackend implements StorageBackend {
     // genuine new baseline, same as a real load, so it must not leave a
     // stale forced-write intent standing.
     this.forceNext = false;
+    this.expectNext = null;
   }
 
   /** §4 — make the next `save()` skip the revision compare and force a full
    *  rewrite (see `saveLocked()`), then clear itself (R10 change 4 — only
    *  once that save's write actually succeeds). */
-  forceNextSave(): void {
+  forceNextSave(expected?: string): void {
+    if (expected !== undefined) { this.forceNext = false; this.expectNext = expected; return; }
     this.forceNext = true;
+    this.expectNext = null;
   }
 
   /**
@@ -884,6 +894,7 @@ export class BrowserBackend implements StorageBackend {
     // genuine baseline; a forced-write intent left over from THIS instance's
     // own past (failed) save no longer applies to it.
     this.forceNext = false;
+    this.expectNext = null;
   }
 
   /**

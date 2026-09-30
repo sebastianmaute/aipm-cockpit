@@ -398,7 +398,6 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const unloadJournal = useUnloadJournal({ projectKey: journalProjectKey, enabled: args.hydrated, isPopout: args.isPopout });
   // §632 — journals under OTHER keys: expired past 30 days, the rest listed. After the first load, so its restore has run.
   const otherJournals = useOtherJournals({ projectKey: journalProjectKey, restoredKeys: unloadJournal.restoredKeys, enabled: args.hydrated && workspaceLoaded, isPopout: args.isPopout });
-  const conflictResolution = useConflictResolution({ backend, currentWorkspace, reload: () => reloadHeld(), openGate: () => { if (conflictPausedForRef.current !== backend) return false; allowSavesTo(backend); return true; }, onDownloadFailed: (name) => emitToast("error", t(langRef.current, "unloadJournalDownloadFailed", name)) }); // §4 — the conflict banner's three actions; `runSaveJob` wraps the autosave job below
   // ★ A `const`, not a `function` declaration: `use-load-truncation.test.ts` keys each `.save(` on the
   // nearest preceding DECLARATION, and one here would rename the `flushCurrent` write's key below.
   const allowSavesTo = (target: ReturnType<typeof createBackend>): void => {
@@ -412,9 +411,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // pause holds — a toast alone disappears after seven seconds (review I1). Published only while the
   // gate for the CURRENT instance is shut, so any opener above clears it by construction.
   // §4 — or a save was refused as stale (`"conflict"`, `emitConflictPause`): another writer saved first.
-  const [savesPaused, setSavesPaused] = useState<{ backend: ReturnType<typeof createBackend>; reason: "load-failed" | "empty-refused" | "conflict" } | null>(null);
+  const [savesPaused, setSavesPaused] = useState<{ backend: ReturnType<typeof createBackend>; reason: "load-failed" | "empty-refused" | "conflict"; seen?: string | null } | null>(null); // `seen`: the revision a conflict's refusal reported
   const loadPause = savesPaused !== null && savesPaused.backend === backend && !savesAllowed ? savesPaused.reason : null;
   const conflictPausedForRef = useRef<ReturnType<typeof createBackend> | null>(null); // §4 — for the pre-switch flush, which runs after this render; cleared by `allowSavesTo`
+  const conflictResolution = useConflictResolution({ backend, seenRevision: loadPause === "conflict" ? savesPaused?.seen ?? null : null, currentWorkspace, reload: () => reloadHeld(), openGate: () => { if (conflictPausedForRef.current !== backend) return false; allowSavesTo(backend); return true; }, onDownloadFailed: (name) => emitToast("error", t(langRef.current, "unloadJournalDownloadFailed", name)) }); // §4 — the conflict banner's three actions; `runSaveJob` wraps the autosave job below
   const keptOnSwitchForRef = useRef<ReturnType<typeof createBackend> | null>(null); // §4 — the instance whose edits the pre-switch flush kept; `doSave`'s catch does not keep them twice
   // The instance the save-paused toast was already shown for — once per backend, not per refused edit.
   const savePausedAnnouncedForRef = useRef<ReturnType<typeof createBackend> | null>(null);
@@ -501,13 +501,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // toasts once and journals the live workspace. Only while the gate is still open for `target`, so a second
   // refused save (one queued behind the first) changes nothing. The announcement ref is reset so THIS pause
   // is toasted even when an earlier pause on the same instance already was.
-  function emitConflictPause(target: ReturnType<typeof createBackend>): void {
+  // The pause keeps the LATEST refusal's revision (`seen`): the one a conditional Overwrite may replace.
+  function emitConflictPause(target: ReturnType<typeof createBackend>, seen: string | null): void {
+    if (mountedRef.current && conflictPausedForRef.current === target && savesAllowedForRef.current !== target) { setSavesPaused({ backend: target, reason: "conflict", seen }); return; }
     if (!mountedRef.current || savesAllowedForRef.current !== target) return;
     savesAllowedForRef.current = null;
     conflictPausedForRef.current = target;
     savePausedAnnouncedForRef.current = null;
     setSavesAllowedFor(null);
-    setSavesPaused({ backend: target, reason: "conflict" });
+    setSavesPaused({ backend: target, reason: "conflict", seen });
   }
   function emitRegistryChange(registry: ProjectsRegistry): void {
     if (!mountedRef.current) return;
@@ -997,7 +999,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         }
         if (!isSaveConflict(err)) emitOutcome(err); // §4 — a refusal is reported by the pause (or the kept-journal toast) alone: the generic outcome raised a sticky storage banner no save could clear while paused
         logDiag("error", "storage.saveFailed", { message: String(err) });
-        if (isSaveConflict(err) && backendRef.current === backend) { emitConflictPause(backend); return; } // §4 — nothing was written; a lock timeout is NOT this and falls through
+        if (isSaveConflict(err) && backendRef.current === backend) { emitConflictPause(backend, err.currentRevision); return; } // §4 — nothing was written; a lock timeout is NOT this and falls through
         if (isSaveConflict(err)) { // §4 — its backend was replaced meanwhile (a rebuild, or an op's §589 cleanup flush): no pause can hold these edits and the next load would re-base their entry, so they are kept now — unless the op's own flush kept them already
           const keptByFlush = keptOnSwitchForRef.current === backend;
           unloadJournal.noteSaveRefused(journalSavedAt, keptByFlush ? null : outgoing);
@@ -1506,7 +1508,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // Measure: node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
   const reloadHeld = holdDuring(reloadCurrentProject, "same-scope"); // one wrapper, shared by the conflict banner's Reload
   return {
-    storageDescription, storageReady, workspaceLoaded, loadPause, conflictPause: loadPause === "conflict", loadPending, getScopeEpoch, isSwapInFlight,
+    storageDescription, storageReady, workspaceLoaded, loadPause, conflictPause: loadPause === "conflict", canOverwriteConflict: loadPause === "conflict" && savesPaused?.seen != null, loadPending, getScopeEpoch, isSwapInFlight,
     // ★★★ §590 PUT `onPickStorageFile` UNDER THE HOLD, and it was deliberately outside it before.
     //   The exclusion was right while the op only ever wrote the live workspace OUTWARD — nothing was
     //   replaced, so there was nothing for a background writer to land in the middle of. Its

@@ -33,7 +33,7 @@ vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn(), useRevisionSync:
 vi.mock("./diagnostics", async (importOriginal) => ({ ...(await importOriginal<typeof import("./diagnostics")>()), logDiag: vi.fn() }));
 vi.mock("./download-json", () => ({ downloadJson: vi.fn(() => true) }));
 
-import { useRevisionSync } from "./broadcast-sync";
+import { postRevision, useRevisionSync } from "./broadcast-sync";
 import { downloadJson } from "./download-json";
 import { LocalFileBackend } from "./local-file-backend";
 import { addProject, emptyRegistry, loadRegistry, saveRegistry } from "./projects-registry";
@@ -393,13 +393,20 @@ describe("useStorageBackend — resolving a conflict pause: Reload, Overwrite, D
 
   it("Overwrite writes the LIVE workspace over the peer's, lifts the pause, and later saves check against the revision it wrote", async () => {
     const force = vi.spyOn(LocalFileBackend.prototype, "forceNextSave");
-    const { app, file } = await pausedOnConflict();
+    const { app, file, held } = await pausedOnConflict();
+    const shown = file.revision(); // the peer's version, the one the pause told the user about
+    expect(app.ops().canOverwriteConflict).toBe(true);
     await edit(app, [task(1, "FIRST"), task(2, "LIVE")]); // made AFTER the pause: the refused save never held it
     await settle(900);
     expect(force).not.toHaveBeenCalled();
     act(() => { app.ops().resolveConflictOverwrite(); });
     await waitFor(() => expect(file.text()).toContain("LIVE"), { timeout: 4000 });
     expect(force).toHaveBeenCalledTimes(1);
+    expect(force).toHaveBeenCalledWith(shown); // conditional on the version shown, never blind
+    const [, posted, base] = vi.mocked(postRevision).mock.calls.at(-1)!;
+    expect(posted).toBe(file.revision());
+    expect(base).toBe(held); // the pre-overwrite own revision: a peer holding the overwritten version does not adopt it
+    expect(base).not.toBe(shown);
     expect(file.text()).not.toContain("PEER");
     expect(app.ops().conflictPause).toBe(false);
     await edit(app, [task(1, "FIRST"), task(2, "LIVE"), task(3, "NEXT")]);
@@ -455,5 +462,56 @@ describe("useStorageBackend — resolving a conflict pause: Reload, Overwrite, D
     expect((JSON.parse(json) as { tasks: Task[] }).tasks.map((x) => x.taskName)).toEqual(["FIRST", "LIVE"]);
     await settle(900);
     expect(app.ops().conflictPause).toBe(true);
+  });
+
+  it("a peer write between the click and the Overwrite's job re-pauses and writes nothing (fix round 1)", async () => {
+    const { app, file } = await pausedOnConflict();
+    await edit(app, [task(1, "FIRST"), task(2, "LIVE")]);
+    act(() => { app.ops().resolveConflictOverwrite(); });
+    file.foreignWrite(workspaceToJson({ ...emptyWorkspace(), tasks: [task(8, "PEER-AGAIN")] })); // inside the debounce
+    await waitFor(() => expect(app.conflicts()).toBe(2), { timeout: 4000 });
+    expect(file.writes).toBe(0);
+    expect(file.text()).toContain("PEER-AGAIN");
+    expect(app.ops().canOverwriteConflict).toBe(true); // offered again, now against the newer version
+  });
+
+  describe("an Overwrite held by a destructive refusal (fix round 1)", () => {
+    // Enough tasks that deleting them all is a mass deletion even beside the seeded reference lists.
+    const MANY = Array.from({ length: 400 }, (_, i) => task(i + 1, `T${i + 1}`));
+    /** Many tasks on disk; a peer writes; a rename is refused (the pause); then every task is deleted while paused. */
+    async function pausedThenWiped() {
+      const file = fakeFile("p.json", workspaceToJson({ ...emptyWorkspace(), tasks: MANY }));
+      KV.set("file-handle:local-json", file);
+      const app = renderApp({ kind: "local-json" });
+      await waitFor(() => expect(app.ops().loadPending).toBe(false));
+      await settle();
+      file.foreignWrite(workspaceToJson({ ...emptyWorkspace(), tasks: [...MANY, task(401, "PEER")] }));
+      await edit(app, MANY.map((x) => (x.id === 1 ? task(1, "RENAMED") : x)));
+      await waitFor(() => expect(app.conflicts()).toBe(1), { timeout: 4000 });
+      await edit(app, []);
+      act(() => { app.ops().resolveConflictOverwrite(); });
+      await waitFor(() => expect(app.ops().destructiveRefusal).not.toBeNull(), { timeout: 4000 });
+      expect(file.writes).toBe(0);
+      return { app, file };
+    }
+
+    it("a peer write while it is held: Save anyway meets the newer version, pauses again and writes nothing", async () => {
+      const { app, file } = await pausedThenWiped();
+      file.foreignWrite(workspaceToJson({ ...emptyWorkspace(), tasks: [task(12, "UNSEEN")] }));
+      act(() => { app.ops().allowDestructiveSaveAnyway(); });
+      await waitFor(() => expect(app.conflicts()).toBe(2), { timeout: 4000 });
+      expect(file.writes).toBe(0);
+      expect(file.text()).toContain("UNSEEN");
+    });
+
+    it("no peer write: Save anyway writes the live workspace once, whole", async () => {
+      const { app, file } = await pausedThenWiped();
+      act(() => { app.ops().allowDestructiveSaveAnyway(); });
+      await waitFor(() => expect(file.writes).toBe(1), { timeout: 4000 });
+      await settle(900);
+      expect(file.writes).toBe(1);
+      expect((JSON.parse(file.text()) as { tasks: Task[] }).tasks).toEqual([]);
+      expect(app.conflicts()).toBe(1);
+    });
   });
 });

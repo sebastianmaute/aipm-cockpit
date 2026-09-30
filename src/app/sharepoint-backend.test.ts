@@ -796,3 +796,80 @@ describe("SharePointBackend revision guard (§4)", () => {
     await expect(live.save(EMPTY_WORKSPACE)).rejects.toBeInstanceOf(SaveConflictError);
   });
 });
+
+// §4 fix round 1 of Task 9 — a refusal reports the stored eTag (one metadata GET), and
+// `forceNextSave(expected)` writes with `If-Match: expected` only, never blind and never create-only.
+describe("SharePointBackend conditional overwrite (§4)", () => {
+  let acquireToken: Mock;
+  beforeEach(() => { acquireToken = vi.fn().mockResolvedValue("fake-token"); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+  const make = () => new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
+  const refusal = (p: Promise<unknown>) => p.then(() => null, (err: unknown) => err as SaveConflictError);
+  const puts: Array<{ ifMatch: string | null; url: string }> = [];
+  function capturePuts(respond: () => Response) {
+    puts.length = 0;
+    server.use(http.put(CONTENT_RE, ({ request }) => { puts.push({ ifMatch: request.headers.get("If-Match"), url: request.url }); return respond(); }));
+  }
+  /** What the item's metadata answers AFTER the load (the refusal's eTag read). */
+  function storedEtag(etag: string | null, status = 200) {
+    server.use(http.get(META_RE, () => (status !== 200 ? new HttpResponse("", { status }) : HttpResponse.json(etag === null ? {} : { eTag: etag }))));
+  }
+
+  it("a 412 reports the stored eTag", async () => {
+    server.use(...serveLoad(() => HttpResponse.json(EMPTY_WORKSPACE), '"v1,1"'));
+    capturePuts(() => new HttpResponse("", { status: 412 }));
+    const be = make();
+    await be.load();
+    storedEtag('"peer,2"');
+    const err = await refusal(be.save(EMPTY_WORKSPACE));
+    expect(err).toBeInstanceOf(SaveConflictError);
+    expect(err!.currentRevision).toBe('"peer,2"');
+  });
+
+  it("a create-only 409 reports the stored eTag too", async () => {
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
+    capturePuts(() => new HttpResponse("", { status: 409 }));
+    const be = make();
+    await be.load();
+    storedEtag('"peer,1"');
+    expect((await refusal(be.save(EMPTY_WORKSPACE)))!.currentRevision).toBe('"peer,1"');
+  });
+
+  it("a failed or eTag-less metadata read reports null", async () => {
+    server.use(...serveLoad(() => HttpResponse.json(EMPTY_WORKSPACE), '"v1,1"'));
+    capturePuts(() => new HttpResponse("", { status: 412 }));
+    const be = make();
+    await be.load();
+    storedEtag(null, 500);
+    expect((await refusal(be.save(EMPTY_WORKSPACE)))!.currentRevision).toBeNull();
+    storedEtag(null);
+    const err = await refusal(be.save(EMPTY_WORKSPACE));
+    expect(err).toBeInstanceOf(SaveConflictError);
+    expect(err!.currentRevision).toBeNull();
+  });
+
+  it("forceNextSave(expected) sends If-Match: expected, never create-only, and adopts the written eTag", async () => {
+    server.use(...serveLoad(() => new HttpResponse("", { status: 404 })));
+    capturePuts(() => HttpResponse.json({ eTag: '"new,2"' }));
+    const be = make();
+    await be.load(); // absent: an ordinary save would be create-only
+    be.forceNextSave('"peer,1"');
+    await be.save(EMPTY_WORKSPACE);
+    expect(puts.map((p) => p.ifMatch)).toEqual(['"peer,1"']);
+    expect(puts[0].url).not.toContain("conflictBehavior");
+    expect(be.revision()).toBe('"new,2"');
+  });
+
+  it("a conditional save that meets a 412 conflicts, and the one-shot is consumed", async () => {
+    server.use(...serveLoad(() => HttpResponse.json(EMPTY_WORKSPACE), '"v1,1"'));
+    capturePuts(() => new HttpResponse("", { status: 412 }));
+    const be = make();
+    await be.load();
+    storedEtag('"peer,3"');
+    be.forceNextSave('"peer,2"');
+    expect(be.revision()).toBe('"v1,1"'); // arming does not move the instance's own revision
+    expect((await refusal(be.save(EMPTY_WORKSPACE)))!.currentRevision).toBe('"peer,3"');
+    await refusal(be.save(EMPTY_WORKSPACE));
+    expect(puts.map((p) => p.ifMatch)).toEqual(['"peer,2"', '"v1,1"']);
+  });
+});

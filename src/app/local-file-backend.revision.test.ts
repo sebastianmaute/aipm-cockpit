@@ -526,3 +526,71 @@ describe("LocalFileBackend §4 §645 revision guard", () => {
     });
   });
 });
+
+// §4 fix round 1 of Task 9 — the conditional overwrite: `forceNextSave(expected)` writes the whole
+// file ONLY while it is still at `expected` (the version the user was shown), and a refusal reports
+// the revision storage holds.
+describe("LocalFileBackend §4 conditional overwrite", () => {
+  beforeEach(() => { kvStore.clear(); });
+
+  async function loaded(text = "") {
+    const be = new LocalFileBackend("local-json");
+    const handle = revisionFakeHandle({ text, lastModified: 1000 });
+    await be.setHandle(handle);
+    await be.load();
+    return { be, handle };
+  }
+  const refusal = (p: Promise<unknown>) => p.then(() => null, (err: unknown) => err as SaveConflictError);
+
+  it("a refused save reports the file's current revision", async () => {
+    const { be, handle } = await loaded();
+    handle.externalWrite("peer");
+    const err = await refusal(be.save(emptyWorkspace()));
+    expect(err).toBeInstanceOf(SaveConflictError);
+    expect(err!.currentRevision).toBe(rev(1001, "peer"));
+  });
+
+  it("a bound-but-never-loaded instance reads the file before refusing, and reports its revision", async () => {
+    const be = new LocalFileBackend("local-json");
+    const handle = revisionFakeHandle({ text: "original", lastModified: 1000 });
+    await be.setHandle(handle);
+    const err = await refusal(be.save(emptyWorkspace()));
+    expect(err).toBeInstanceOf(SaveConflictError);
+    expect(err!.currentRevision).toBe(rev(1000, "original"));
+    expect(await (await handle.getFile()).text()).toBe("original");
+  });
+
+  it("writes when the file is still at the expected revision, and adopts the new one", async () => {
+    const { be, handle } = await loaded();
+    handle.externalWrite("peer");
+    be.forceNextSave(rev(1001, "peer"));
+    expect(be.revision()).toBe(rev(1000, "")); // arming does not move the instance's own revision
+    await be.save(emptyWorkspace());
+    const file = await handle.getFile();
+    expect(await file.text()).toBe(workspaceToJson(emptyWorkspace()));
+    expect(be.revision()).toBe(rev(file.lastModified, await file.text()));
+  });
+
+  it("refuses when the file moved past the expected revision, writes nothing, and reports the new one", async () => {
+    const { be, handle } = await loaded();
+    handle.externalWrite("peer");
+    be.forceNextSave(rev(1001, "peer"));
+    handle.externalWrite("peer again");
+    const err = await refusal(be.save(emptyWorkspace()));
+    expect(err).toBeInstanceOf(SaveConflictError);
+    expect(err!.currentRevision).toBe(rev(1002, "peer again"));
+    expect(await (await handle.getFile()).text()).toBe("peer again");
+  });
+
+  it("the conditional one-shot is consumed by a failed attempt: the next save compares its own revision again", async () => {
+    const { be, handle } = await loaded();
+    handle.externalWrite("peer");
+    handle.armWriteFailure();
+    be.forceNextSave(rev(1001, "peer"));
+    const failed = await refusal(be.save(emptyWorkspace()));
+    expect(failed).toBeInstanceOf(Error);
+    expect(failed).not.toBeInstanceOf(SaveConflictError); // the write failed; nothing refused it
+    await expect(be.save(emptyWorkspace())).rejects.toBeInstanceOf(SaveConflictError);
+    expect(await (await handle.getFile()).text()).toBe("peer");
+  });
+});

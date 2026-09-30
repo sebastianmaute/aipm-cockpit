@@ -1,9 +1,10 @@
 // src/app/use-conflict-resolution.test.ts
 //
-// §4 — the three ways out of a conflict pause, as a unit: the Overwrite force armed only inside a save
-// job that runs AFTER the request, and disarmed again when that write fails; Reload through the given
-// reload; Download of the live workspace under a Windows-safe name. The wiring into the storage hook is
-// pinned end to end in use-storage-backend.conflict.test.tsx.
+// §4 — the three ways out of a conflict pause, as a unit: the Overwrite armed only inside a save job
+// that runs AFTER the request, and only as a CONDITIONAL write against the revision the pause reported
+// (the version the user was shown); Reload through the given reload; Download of the live workspace
+// under a Windows-safe name. The wiring into the storage hook is pinned end to end in
+// use-storage-backend.conflict.test.tsx.
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -13,12 +14,12 @@ import type { Task } from "./types";
 import { conflictFileName, useConflictResolution, type ConflictResolutionDeps } from "./use-conflict-resolution";
 import type { StorageBackend, Workspace } from "./workspace";
 
-function fakeBackend(revision: string | null = "r1") {
+function fakeBackend() {
   const calls: string[] = [];
   const backend = {
     save: vi.fn(async () => { calls.push("save"); }),
-    forceNextSave: vi.fn(() => { calls.push("force"); }),
-    revision: vi.fn(() => revision),
+    forceNextSave: vi.fn((expected?: string) => { calls.push(`force:${expected}`); }),
+    revision: vi.fn(() => "own"),
     adoptRevision: vi.fn((rev: string) => { calls.push(`adopt:${rev}`); }),
   } as unknown as StorageBackend & { save: ReturnType<typeof vi.fn>; forceNextSave: ReturnType<typeof vi.fn>; adoptRevision: ReturnType<typeof vi.fn> };
   return { backend, calls };
@@ -29,6 +30,7 @@ function setup(overrides: Partial<ConflictResolutionDeps> = {}) {
   const live: Workspace = { ...emptyWorkspace(), tasks: [{ id: 1, taskName: "LIVE" } as unknown as Task] };
   const deps: ConflictResolutionDeps = {
     backend,
+    seenRevision: "seen",
     currentWorkspace: () => live,
     reload: vi.fn(async () => {}),
     openGate: vi.fn(() => true),
@@ -55,15 +57,33 @@ describe("conflictFileName", () => {
 });
 
 describe("useConflictResolution — Overwrite", () => {
-  it("opens the gate, then arms the force inside the next save job, right before its write, once", async () => {
+  it("opens the gate, then arms a write conditional on the SEEN revision inside the next save job, right before its write, once", async () => {
     const { r, deps, backend, calls } = setup();
     act(() => { r().resolveConflictOverwrite(); });
     expect(deps.openGate).toHaveBeenCalledTimes(1);
     expect(backend.forceNextSave).not.toHaveBeenCalled(); // never armed outside a job
     await r().runSaveJob(backend, () => backend.save(emptyWorkspace()));
-    expect(calls).toEqual(["force", "save"]);
+    expect(calls).toEqual(["force:seen", "save"]);
     await r().runSaveJob(backend, () => backend.save(emptyWorkspace()));
-    expect(calls).toEqual(["force", "save", "save"]); // one-shot: the next job is an ordinary save
+    expect(calls).toEqual(["force:seen", "save", "save"]); // one-shot: the next job is an ordinary save
+  });
+
+  it("keeps the revision seen at the click, even if the pause is later re-reported with another", async () => {
+    const { backend, calls } = fakeBackend();
+    const deps = (seenRevision: string): ConflictResolutionDeps => ({ backend, seenRevision, currentWorkspace: emptyWorkspace, reload: async () => {}, openGate: () => true, onDownloadFailed: vi.fn() });
+    const hook = renderHook((p: ConflictResolutionDeps) => useConflictResolution(p), { initialProps: deps("first") });
+    act(() => { hook.result.current.resolveConflictOverwrite(); });
+    hook.rerender(deps("second"));
+    await hook.result.current.runSaveJob(backend, () => backend.save(emptyWorkspace()));
+    expect(calls).toEqual(["force:first", "save"]);
+  });
+
+  it("is not offered when the pause's revision is unknown: nothing opens, nothing is armed", async () => {
+    const { r, deps, backend } = setup({ seenRevision: null });
+    act(() => { r().resolveConflictOverwrite(); });
+    expect(deps.openGate).not.toHaveBeenCalled();
+    await r().runSaveJob(backend, () => backend.save(emptyWorkspace()));
+    expect(backend.forceNextSave).not.toHaveBeenCalled();
   });
 
   it("does not arm a job for another backend instance, nor any job when no Overwrite was asked for", async () => {
@@ -93,20 +113,15 @@ describe("useConflictResolution — Overwrite", () => {
     expect(backend.forceNextSave).not.toHaveBeenCalled();
   });
 
-  it("a forced write that fails leaves no force armed, and the failure still reaches the caller", async () => {
+  it("a failed conditional write needs no disarm (the backend consumed it) and the failure reaches the caller", async () => {
     const { r, backend, calls } = setup();
     act(() => { r().resolveConflictOverwrite(); });
     const boom = new Error("disk full");
     await expect(r().runSaveJob(backend, async () => { calls.push("save"); throw boom; })).rejects.toBe(boom);
-    expect(calls).toEqual(["force", "save", "adopt:r1"]); // re-adopting its own revision clears the backend's force
+    expect(calls).toEqual(["force:seen", "save"]);
+    expect(backend.adoptRevision).not.toHaveBeenCalled();
     await r().runSaveJob(backend, () => backend.save(emptyWorkspace()));
     expect(backend.forceNextSave).toHaveBeenCalledTimes(1);
-  });
-
-  it("an ordinary write that fails touches no revision", async () => {
-    const { r, backend } = setup();
-    await expect(r().runSaveJob(backend, async () => { throw new Error("x"); })).rejects.toThrow("x");
-    expect(backend.adoptRevision).not.toHaveBeenCalled();
   });
 
   it("returns what the save job returned, so a skipped job still settles as skipped", async () => {

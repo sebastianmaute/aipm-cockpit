@@ -13,11 +13,13 @@
 // ★★ A job arms only if it STARTS after the request: the request is consumed by the first job that
 //   runs, and a job already running at the click has read no request. A job replaced in the queue
 //   never runs, so the newer job that replaced it carries the request instead.
-// ★★ A FORCED WRITE THAT FAILS IS DISARMED. The backends clear their force only after a write lands
-//   (so a failed one would leave it standing), and the next ordinary autosave would then overwrite the
-//   other writer's data again without the user having confirmed it. Re-adopting the instance's own
-//   revision clears it (`adoptRevision` drops a pending force on every backend that has one); the next
-//   save is checked again and, if the other writer's data still stands, pauses again.
+// ★★★ AND IT IS CONDITIONAL, NEVER BLIND (fix round 1). The job arms `forceNextSave(seen)`, where `seen`
+//   is the revision the refusal reported, i.e. the version the user was told about: the backend replaces
+//   storage wholesale ONLY while it still holds that version, and otherwise refuses as usual, so a
+//   request left pending (a destructive refusal, an incomplete load, a queue wait) can never overwrite
+//   a version nobody was shown. The backend consumes that one-shot on the attempt whatever its outcome,
+//   so nothing needs disarming after a failure. When the refusal could not say what storage holds
+//   (`seen` null), there is no Overwrite at all.
 
 import { useRef } from "react";
 import { downloadJson } from "./download-json";
@@ -27,6 +29,8 @@ import { workspaceToJson, type StorageBackend, type Workspace } from "./workspac
 export type ConflictResolutionDeps = {
   /** The instance saving is paused on (this render's). */
   backend: StorageBackend;
+  /** The revision the refusal that raised the pause reported (the version the user was shown), or null. */
+  seenRevision: string | null;
   /** The LIVE workspace: the user's latest edits, not the refused save's snapshot. */
   currentWorkspace: () => Workspace;
   /** "Reload project" under its hold: it waits for queued saves, applies the stored version, reopens the
@@ -46,15 +50,8 @@ export function conflictFileName(projectName: string | undefined, now: Date): st
 }
 
 export function useConflictResolution(deps: ConflictResolutionDeps) {
-  // The instance an Overwrite was asked for, until a save job to it arms the force.
-  const overwriteForRef = useRef<StorageBackend | null>(null);
-
-  const armOverwrite = (target: StorageBackend): boolean => {
-    if (overwriteForRef.current === null || overwriteForRef.current !== target) return false;
-    overwriteForRef.current = null;
-    target.forceNextSave?.();
-    return true;
-  };
+  // The Overwrite asked for — its instance and the version it may replace — until a save job to it arms it.
+  const overwriteForRef = useRef<{ backend: StorageBackend; expected: string } | null>(null);
 
   return {
     /** Reload: discard the live edits and apply the stored version (the other writer's). */
@@ -65,7 +62,8 @@ export function useConflictResolution(deps: ConflictResolutionDeps) {
     /** Overwrite (already confirmed by the banner): reopen the gate so the next autosave writes the live
      *  workspace, and let that save's job arm the force. */
     resolveConflictOverwrite: (): void => {
-      if (deps.openGate()) overwriteForRef.current = deps.backend;
+      const expected = deps.seenRevision;
+      if (expected !== null && deps.openGate()) overwriteForRef.current = { backend: deps.backend, expected };
     },
     /** Download my version: the live workspace as a JSON file. Resolves nothing; the pause stays. */
     downloadConflictVersion: (): void => {
@@ -77,17 +75,15 @@ export function useConflictResolution(deps: ConflictResolutionDeps) {
     cancelOverwrite: (): void => {
       overwriteForRef.current = null;
     },
-    /** Runs one queued save job's write: arms the force first when an Overwrite is pending for `target`,
-     *  and disarms it again if that write fails. Call it INSIDE the job passed to `enqueueSave`. */
-    runSaveJob: async <R>(target: StorageBackend, write: () => Promise<R>): Promise<R> => {
-      const forced = armOverwrite(target);
-      try {
-        return await write();
-      } catch (err) {
-        const revision = forced ? target.revision?.() : null;
-        if (revision != null) target.adoptRevision?.(revision);
-        throw err;
+    /** Runs one queued save job's write, first arming the conditional overwrite when one is pending for
+     *  `target`. Call it INSIDE the job passed to `enqueueSave`, synchronously before the write. */
+    runSaveJob: <R>(target: StorageBackend, write: () => Promise<R>): Promise<R> => {
+      const pending = overwriteForRef.current;
+      if (pending !== null && pending.backend === target) {
+        overwriteForRef.current = null;
+        target.forceNextSave?.(pending.expected);
       }
+      return write();
     },
   };
 }

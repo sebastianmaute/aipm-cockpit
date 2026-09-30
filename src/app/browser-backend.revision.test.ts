@@ -510,3 +510,64 @@ describe("BrowserBackend §4 revision guard", () => {
     });
   });
 });
+
+// §4 fix round 1 of Task 9 — the conditional overwrite: `forceNextSave(expected)` is a FULL rewrite
+// performed only while the stored revision is still `expected`; a refusal reports the stored revision.
+describe("BrowserBackend §4 conditional overwrite", () => {
+  beforeEach(() => {
+    globalThis.indexedDB = new IDBFactory();
+    revisionReadCtl.gate = null;
+    dataReadFailCtl.armed = false;
+    writeFailCtl.armed = false;
+  });
+  const taskE = { ...taskB, id: 9, taskName: "E's task" } as unknown as Task;
+  const refusal = (p: Promise<unknown>) => p.then(() => null, (err: unknown) => err as SaveConflictError);
+
+  /** Seeds [A, D] (revision 1); `peer` and `mine` both load it; the peer then saves [A, B] (revision 2). */
+  async function peerMovedOn() {
+    const seed = new BrowserBackend();
+    await seed.load();
+    await seed.save({ ...emptyWorkspace(), tasks: [taskA, taskD] });
+    const peer = new BrowserBackend();
+    const mine = new BrowserBackend();
+    await peer.load();
+    await mine.load();
+    await peer.save({ ...emptyWorkspace(), tasks: [taskA, taskB] });
+    return { peer, mine };
+  }
+
+  it("a refused save reports the stored revision", async () => {
+    const { mine } = await peerMovedOn();
+    const err = await refusal(mine.save({ ...emptyWorkspace(), tasks: [taskA, taskE] }));
+    expect(err).toBeInstanceOf(SaveConflictError);
+    expect(err!.currentRevision).toBe("2");
+  });
+
+  it("at the expected revision it is a FULL rewrite: nothing only the peer had survives, nothing it deleted returns", async () => {
+    const { mine } = await peerMovedOn();
+    mine.forceNextSave("2");
+    expect(mine.revision()).toBe("1"); // arming does not move the instance's own revision
+    await mine.save({ ...emptyWorkspace(), tasks: [taskA, taskE] });
+    const stored = await new BrowserBackend().load();
+    expect(stored.tasks.map((t) => t.id).sort()).toEqual([1, 9]); // B (the peer's) gone; D not back
+    expect(mine.revision()).toBe("3");
+  });
+
+  it("refuses when storage moved past the expected revision, writes nothing, and reports the new revision", async () => {
+    const { peer, mine } = await peerMovedOn();
+    mine.forceNextSave("2");
+    await peer.save({ ...emptyWorkspace(), tasks: [taskA, taskB, taskD] }); // revision 3
+    const err = await refusal(mine.save({ ...emptyWorkspace(), tasks: [taskE] }));
+    expect(err).toBeInstanceOf(SaveConflictError);
+    expect(err!.currentRevision).toBe("3");
+    expect((await new BrowserBackend().load()).tasks.map((t) => t.id).sort()).toEqual([1, 2, 3]);
+  });
+
+  it("the conditional one-shot is consumed by a failed attempt: the next save compares its own revision again", async () => {
+    const { mine } = await peerMovedOn();
+    mine.forceNextSave("2");
+    writeFailCtl.armed = true;
+    await expect(mine.save({ ...emptyWorkspace(), tasks: [taskE] })).rejects.toThrow("simulated write failure");
+    await expect(mine.save({ ...emptyWorkspace(), tasks: [taskE] })).rejects.toBeInstanceOf(SaveConflictError);
+  });
+});

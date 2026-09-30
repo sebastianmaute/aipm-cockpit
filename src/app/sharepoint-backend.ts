@@ -83,6 +83,10 @@ export class SharePointBackend implements StorageBackend {
    *  write SUCCEEDS (a failed forced save keeps it for the retry), and by a successful load, `adoptRevision`
    *  and `adoptFrom` — each establishes a genuine baseline a leftover force must not carry past. */
   private forceNext = false;
+  /** §4 — one-shot from `forceNextSave(expected)`: the next save is a PUT with `If-Match: expected` (never
+   *  create-only, never blind). Consumed by that save attempt whatever its outcome, and dropped with
+   *  `forceNext` by every new baseline. */
+  private expectNext: string | null = null;
   private acquireToken: (
     scopes: readonly string[],
     options?: { interactive?: boolean },
@@ -134,6 +138,7 @@ export class SharePointBackend implements StorageBackend {
     this.currentRevision = etag;
     this.baselineAbsent = absent;
     this.forceNext = false;
+    this.expectNext = null;
   }
 
   /** A bounded GET. ★★ §548 — BOUNDED, like Turso's load: the app is held behind a skeleton until this
@@ -248,7 +253,9 @@ export class SharePointBackend implements StorageBackend {
     // §4 — fail closed: an instance that never loaded has no baseline and must not win against
     // whatever another window already put there. Blind writes go through `forceNextSave()`.
     const force = this.forceNext;
-    if (!force && !this.baselineKnown) throw new SaveConflictError(this.kind);
+    const expected = this.expectNext;
+    this.expectNext = null;
+    if (!force && expected === null && !this.baselineKnown) throw new SaveConflictError(this.kind);
     const token = await this.getToken();
     const body =
       this.kind === "sp-csv"
@@ -259,19 +266,20 @@ export class SharePointBackend implements StorageBackend {
     const contentType =
       this.kind === "sp-csv" ? "text/csv;charset=utf-8" : "application/json";
     // A forced save is a deliberate blind write: neither `If-Match` nor create-only.
-    const createOnly = !force && this.baselineAbsent;
+    const createOnly = !force && expected === null && this.baselineAbsent;
     const res = await fetch(graphUrlFor(this.location) + (createOnly ? CREATE_ONLY_QUERY : ""), {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": contentType,
         // Only a loaded instance WITH an ETag is guarded; forced and degraded saves omit it.
-        ...(!force && this.currentRevision !== null ? { "If-Match": this.currentRevision } : {}),
+        // §4 — a conditional Overwrite matches the version the user was shown, not this instance's own.
+        ...(expected !== null ? { "If-Match": expected } : !force && this.currentRevision !== null ? { "If-Match": this.currentRevision } : {}),
       },
       body,
     });
     // 412: stale If-Match. 409: create-only lost the race (the file now exists).
-    if (res.status === 412 || (createOnly && res.status === 409)) throw new SaveConflictError(this.kind);
+    if (res.status === 412 || (createOnly && res.status === 409)) throw new SaveConflictError(this.kind, await this.storedEtag(token));
     if (res.status === 401) {
       throw new StorageNotReadyError(
         "Sign-in expired. Re-authenticate from Settings.",
@@ -290,6 +298,19 @@ export class SharePointBackend implements StorageBackend {
     this.baselineAbsent = false;
     this.currentRevision = await this.writtenEtag(res);
     if (force) this.forceNext = false;
+  }
+
+  /** §4 — the eTag storage holds right now, for a refusal to report (one metadata GET, no content).
+   *  `null` when that read fails or carries none: the conflict banner then offers no Overwrite. */
+  private async storedEtag(token: string): Promise<string | null> {
+    try {
+      const res = await this.boundedGet(graphItemUrlFor(this.location) + "?$select=eTag", { Authorization: `Bearer ${token}` });
+      if (!res.ok) return null;
+      const tag = (JSON.parse(res.text) as { eTag?: unknown } | null)?.eTag;
+      return typeof tag === "string" && tag !== "" ? tag : null;
+    } catch {
+      return null;
+    }
   }
 
   /** The driveItem eTag a successful PUT returned — the body's `eTag`, else the `ETag` header, else null. */
@@ -316,11 +337,14 @@ export class SharePointBackend implements StorageBackend {
     this.baselineAbsent = false;
     this.currentRevision = rev;
     this.forceNext = false;
+    this.expectNext = null;
   }
 
   /** §4: make the next save omit `If-Match`; consumed only once that write succeeds. */
-  forceNextSave(): void {
+  forceNextSave(expected?: string): void {
+    if (expected !== undefined) { this.forceNext = false; this.expectNext = expected; return; }
     this.forceNext = true;
+    this.expectNext = null;
   }
 
   /** §4: copy another instance's revision state (a throwaway backend's result handed to the live one).
@@ -330,6 +354,7 @@ export class SharePointBackend implements StorageBackend {
     this.baselineAbsent = other.baselineAbsent;
     this.currentRevision = other.currentRevision;
     this.forceNext = false;
+    this.expectNext = null;
   }
 }
 

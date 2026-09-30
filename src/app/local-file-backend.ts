@@ -112,6 +112,10 @@ export class LocalFileBackend implements StorageBackend {
    *  new (or different) target/baseline that a leftover forced-write intent
    *  must not silently carry past. */
   private forceNext = false;
+  /** §4 — one-shot from `forceNextSave(expected)`: the next save writes only while the file is still at
+   *  `expected`. Consumed by that save attempt whatever its outcome (it can never write over a version
+   *  nobody was shown), and dropped with `forceNext` by every new baseline. */
+  private expectNext: string | null = null;
   /**
    * §645 fix round 1 (R10 change 2, "R6 one-shot pre-read") — the
    * `{handle, revision}` pair from the MOST RECENT `loadFrom()` read of ANY
@@ -193,6 +197,7 @@ export class LocalFileBackend implements StorageBackend {
     // would let the next save on B skip BOTH the null check and the compare
     // — a silent overwrite of whatever B actually holds.
     this.forceNext = false;
+    this.expectNext = null;
   }
 
   /** Reads back the handle currently bound to this backend (after a pick/open),
@@ -242,6 +247,7 @@ export class LocalFileBackend implements StorageBackend {
     // §645 fix round 3 — same reasoning as setHandle(): a re-bind must drop a
     // leftover forced-save intent from whatever the PREVIOUS target was.
     this.forceNext = false;
+    this.expectNext = null;
   }
 
   /**
@@ -419,6 +425,7 @@ export class LocalFileBackend implements StorageBackend {
           // from an earlier FAILED forced save must not silently carry
           // forward past it.
           this.forceNext = false;
+          this.expectNext = null;
         }
       };
       if (!text.trim()) {
@@ -545,6 +552,8 @@ export class LocalFileBackend implements StorageBackend {
    */
   private async saveLocked(ws: Workspace): Promise<void> {
     const force = this.forceNext;
+    const expected = this.expectNext;
+    this.expectNext = null;
 
     const handle = await this.getHandle();
     if (!handle) throw new StorageNotReadyError("local-file-not-picked");
@@ -557,11 +566,11 @@ export class LocalFileBackend implements StorageBackend {
     }
 
     if (!force) {
-      if (this.currentRevision === null) throw new SaveConflictError(this.kind);
-      const current = await handle.getFile();
-      if (fileRevision(current) !== this.currentRevision) {
-        throw new SaveConflictError(this.kind);
-      }
+      // §4 — read even when this instance's own revision is unknown, so the refusal names the version
+      // storage holds (the conflict banner's Overwrite is conditional on exactly that one).
+      const current = fileRevision(await handle.getFile());
+      const against = expected ?? this.currentRevision;
+      if (against === null || current !== against) throw new SaveConflictError(this.kind, current);
     }
 
     let content: string;
@@ -573,6 +582,8 @@ export class LocalFileBackend implements StorageBackend {
     // §645 — clear the force flag + adopt the new revision only now that the
     // write has succeeded (R10 change 4).
     if (force) this.forceNext = false;
+    // ★ If this read fails, the write landed but its revision is not adopted: the next save then meets
+    //   its OWN write as a foreign change (a spurious self-conflict), which the conflict pause surfaces.
     const written = await handle.getFile();
     this.currentRevision = fileRevision(written);
   }
@@ -591,13 +602,16 @@ export class LocalFileBackend implements StorageBackend {
   adoptRevision(rev: string): void {
     this.currentRevision = rev;
     this.forceNext = false;
+    this.expectNext = null;
   }
 
   /** §645: make the next `save()` skip the revision compare and write
    *  regardless, then clear itself (R10 change 4 — only once that save's
    *  write actually succeeds; see `saveLocked()`). */
-  forceNextSave(): void {
+  forceNextSave(expected?: string): void {
+    if (expected !== undefined) { this.forceNext = false; this.expectNext = expected; return; }
     this.forceNext = true;
+    this.expectNext = null;
   }
 
   /**
@@ -616,5 +630,6 @@ export class LocalFileBackend implements StorageBackend {
     // fresh, genuine baseline; a forced-write intent left over from THIS
     // instance's own past (failed) save no longer applies to it.
     this.forceNext = false;
+    this.expectNext = null;
   }
 }

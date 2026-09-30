@@ -658,6 +658,7 @@ describe("task-manager → conflict banner mount", () => {
       resolveConflictReload: resolveReload,
       resolveConflictOverwrite: overwrite,
       downloadConflictVersion: downloadVersion,
+      canOverwriteConflict: true,
     };
   });
 
@@ -696,6 +697,15 @@ describe("task-manager → conflict banner mount", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: t("en-US", "storageConflictOverwriteConfirmAction") }));
     await waitFor(() => expect(overwrite).toHaveBeenCalledTimes(1));
     expect(overwrite).toHaveBeenCalledWith();
+  }, 45000);
+
+  it("offers no Overwrite when the version on storage is unknown; Reload and Download remain", async () => {
+    override.value = { ...override.value, canOverwriteConflict: false };
+    await mountApp();
+    const el = conflictBanner() as HTMLElement;
+    expect(within(el).queryByRole("button", { name: t("en-US", "storageConflictOverwrite") })).toBeNull();
+    expect(within(el).getByRole("button", { name: t("en-US", "storageConflictReload") })).toBeInTheDocument();
+    expect(within(el).getByRole("button", { name: t("en-US", "storageConflictDownload") })).toBeInTheDocument();
   }, 45000);
 
   it("dismiss hides the banner without resolving the pause, and the sidebar indicator brings it back", async () => {

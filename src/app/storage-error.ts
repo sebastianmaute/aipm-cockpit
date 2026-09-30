@@ -14,10 +14,12 @@ export type StorageErrorKind = "unreachable" | "auth" | "auth-env" | "generic";
 /** §4 — thrown by a `StorageBackend.save()` when its revision guard finds the
  *  backend holds a NEWER revision than the one this instance last loaded or
  *  wrote (another tab/window won a concurrent save). Callers pause instead of
- *  overwriting: reload the latest revision, or call `forceNextSave()` and
- *  retry to intentionally clobber it. */
+ *  overwriting: reload the latest revision, or call `forceNextSave(currentRevision)`
+ *  and retry to replace exactly the version that refused it.
+ *  `currentRevision` — the revision storage held at the refusal (the version the
+ *  user is told about); `null` when the backend could not read it. */
 export class SaveConflictError extends Error {
-  constructor(public readonly kind: StorageKind) {
+  constructor(public readonly kind: StorageKind, public readonly currentRevision: string | null = null) {
     super(`Save conflict: another writer changed this ${kind} backend`);
     this.name = "SaveConflictError";
   }

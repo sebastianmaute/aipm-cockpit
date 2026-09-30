@@ -490,8 +490,11 @@ export interface StorageBackend {
   revision?(): string | null;
   /** §4: adopt `rev` as this instance's current revision without a load/save. */
   adoptRevision?(rev: string): void;
-  /** §4: make the next `save()` skip the revision compare and force a rewrite, then clear itself. */
-  forceNextSave?(): void;
+  /** §4: make the next `save()` skip the revision compare and force a rewrite, then clear itself.
+   *  With `expected` (the conflict banner's Overwrite) it is CONDITIONAL: a full rewrite only while
+   *  storage is still at `expected`, else the usual `SaveConflictError`; consumed by that save attempt
+   *  whatever its outcome, and it leaves the instance's own `revision()` alone until a write lands. */
+  forceNextSave?(expected?: string): void;
 }
 
 /** Serialize a workspace to the JSON envelope (schemaVersion + entity arrays). */
