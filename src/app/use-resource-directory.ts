@@ -72,7 +72,7 @@ export function plainSeed<T>(seed: T | undefined): T | undefined {
   if (seed == null) return undefined;
   if (Object.getPrototypeOf(seed) === Object.prototype) return seed;
   if (process.env.NODE_ENV !== "production") {
-    console.warn("[useResourcePlanner] non-plain seed dropped (event forwarded as seed?)", seed);
+    console.warn("[useResourceDirectory] non-plain seed dropped (event forwarded as seed?)", seed);
   }
   return undefined;
 }
