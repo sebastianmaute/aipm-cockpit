@@ -818,6 +818,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
     const promise = requestWriteAccessForBackend(deps.backend);
     if (!promise) return;
     const granted = await promise;
+    deps.setFileBinding((deps.backend as { fileBinding?: () => string | null }).fileBinding?.() ?? null); // RI2 — the grant binds the handle when no load has: take its binding
     await deps.refreshBackendStatus();
     if (granted) {
       deps.emitToast("info", t(deps.langRef.current, "storagePermissionGranted"));

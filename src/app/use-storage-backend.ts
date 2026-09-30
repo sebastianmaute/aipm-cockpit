@@ -431,6 +431,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const handOverFromRef = useRef<ReturnType<typeof createBackend> | null>(null); // §4 §645 — the op's own instance, set beside `suppressNextLoadRef`; the suppress branch hands it to the live one
   // §645 (final review C1) — the binding of the local file this WINDOW is bound to (`sync-scope.ts`): set by a project op or pick beside its bind, and read at a load from the slot record it opened (`LocalFileBackend.fileBinding`); never the registry's `currentProjectId`, which is every tab's.
   const [fileBinding, setFileBinding] = useState<string | null>(null);
+  // ★ RI2 — read wherever this instance has loaded (or tried to): every load path, not only a successful one. A `const`, not a declaration (see `allowSavesTo`).
+  const captureFileBinding = (): void => setFileBinding((backend as { fileBinding?: () => string | null }).fileBinding?.() ?? null);
   // M4: projects whose unsafe-email notice this session already showed (see `FileProjectOpsDeps`).
   const announcedUnsafeEmailsRef = useRef<Set<string>>(new Set());
   // Guards reloadCurrentProject against re-entrant clicks (redundant round-trips)
@@ -698,6 +700,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       try {
         const workspace = await backend.load();
         if (cancelled) return;
+        captureFileBinding(); // §645 C1 — the binding stored WITH the handle this load opened, never the registry's current project; before the empty-load refusal below too (RI2)
         // ★ DATA-LOSS GUARD (mirrors reloadCurrentProject): never replace a
         // POPULATED in-memory workspace with an EMPTY load. A load returning
         // empty over non-empty state is a transient/edge read (Layer 1 already
@@ -725,7 +728,6 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         const restored = lastLoadWasIncomplete(backend) ? null : unloadJournal.restoreOnLoad(workspace, journalProjectKey, args.settings.storageConfig.kind);
         if (restored !== null) { syncBaselinesToLoaded(workspace); emitToast("success", t(langRef.current, "unloadJournalRestored")); } // BEFORE `reportFor`: single-slot toast
         applyWorkspaceFromLoad(restored ?? workspace, "reset", resolveLogModeAndStamp(), restored !== null ? "restore" : "load");
-        setFileBinding((backend as { fileBinding?: () => string | null }).fileBinding?.() ?? null); // §645 C1 — the binding stored WITH the handle this load opened (`LocalFileBackend.fileBinding`), never the registry's current project
         logDiag("info", "storage.loaded", { records: workspaceRecordCount(workspace) });
         truncationOps.reportFor(backend); // ★ after applyWorkspaceFromLoad only: the empty-load REFUSAL above applies nothing, so neither raising nor lowering the TRUNCATION flag would describe the workspace that is actually live. ★★ That reasoning is TRUNCATION-specific and does NOT extend to the decode cause — the refusal path publishes that one itself, just above.
         suppressNextSaveRef.current = restored === null; // §629 — a restored journal is SAVED back, through every save guard
@@ -733,6 +735,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         emitOutcome(null);
       } catch (err) {
         if (cancelled) return;
+        captureFileBinding(); // RI2 — a failed load has usually bound the handle already (`getHandle` runs before the permission check); unknown stays isolated
         setSettledBackend(backend); // §548 — a FAILED load leaves nothing in flight to overwrite an edit. (`cancelled` above covers teardown.)
         setSavesPaused({ backend, reason: "load-failed" }); // §586: saves stay refused; published as `loadPause` (sticky banner), and the first refused edit toasts once.
         emitOutcome(err);
@@ -1323,6 +1326,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         logDiag("warn", "storage.supersededLoadDropped", { writer: "reloadCurrentProject", outcome: workspace === null ? "waited" : "resolved" }); // "waited": the rebuild was seen before any read
         return;
       }
+      captureFileBinding(); // RI2 — "Reload project" is how a window recovers from a failed load: take the binding of the file it read
       // ★ DATA-LOSS GUARD: a reload that would EMPTY a populated project is
       // almost always a transient/failed backend read, not intent — applying it
       // wipes the in-memory workspace and autosave then persists the empty (a

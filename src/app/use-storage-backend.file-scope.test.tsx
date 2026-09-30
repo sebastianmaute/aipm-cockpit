@@ -38,15 +38,16 @@ import { TestProviders } from "./test-providers";
 import { useStorageBackend } from "./use-storage-backend";
 import { useWorkspace } from "./workspace-context";
 
-type FakeFile = FsHandle & { text: () => string; writes: number };
+type FakeFile = FsHandle & { text: () => string; writes: number; permission: PermissionState };
 function fakeFile(name: string, initial: string): FakeFile {
   let text = initial;
   let counter = 1000;
   const file: FakeFile = {
     name,
     writes: 0,
-    queryPermission: async () => "granted" as PermissionState,
-    requestPermission: async () => "granted" as PermissionState,
+    permission: "granted",
+    queryPermission: async () => file.permission,
+    requestPermission: async () => file.permission,
     getFile: async () => ({ text: async () => text, lastModified: counter, size: text.length }) as unknown as File,
     createWritable: async () => ({
       write: async (data: string | Blob) => { text = String(data); },
@@ -92,7 +93,7 @@ function openWindow() {
     });
     return { ops, workspace: useWorkspace() };
   }, { wrapper: TestProviders });
-  return { hook, ops: () => hook.result.current.ops, taskNames: () => hook.result.current.workspace.tasks.map((x) => x.taskName) };
+  return { hook, ops: () => hook.result.current.ops, taskNames: () => hook.result.current.workspace.tasks.map((x) => x.taskName), paused: () => hook.result.current.ops.conflictPause };
 }
 type Win = ReturnType<typeof openWindow>;
 
@@ -207,8 +208,11 @@ describe("useStorageBackend — local-file windows sync only with windows on the
     expect(w4.taskNames()).toEqual(["B-TASK", "B-AFTER-SWITCH"]);
   });
 
-  // An old slot, written before the binding was stored with the handle, holds the bare handle: the kind alone.
-  it("windows booted from an old slot with no binding fall back to the kind alone, and mirror each other", async () => {
+  // Re-review 2 RI2 — an UNKNOWN binding never means the kind alone for a local file. An old slot (or a tab still
+  // on old code) holds the bare handle: each window booted from it syncs with nobody. Same file, so an edit in
+  // one reaches the other only through storage: the other's own save meets the revision and PAUSES (visible),
+  // and nothing is overwritten.
+  it("(c) windows booted from an old bare-handle slot isolate themselves: no mirroring, and no overwrite", async () => {
     fileA = fakeFile("a.json", workspaceToJson({ ...emptyWorkspace(), tasks: [task(1, "A-TASK")] }));
     KV.set(SLOT, fileA);
     const w1 = openWindow();
@@ -217,8 +221,13 @@ describe("useStorageBackend — local-file windows sync only with windows on the
     await waitFor(() => expect(w2.ops().loadPending).toBe(false));
     await settle();
     await act(async () => { w1.hook.result.current.workspace.setTasks([task(1, "A-TASK"), task(2, "LEGACY-EDIT")]); });
+    await waitFor(() => expect(fileA.text()).toContain("LEGACY-EDIT"), { timeout: 4000 });
     await settle();
-    expect(w2.taskNames()).toEqual(["A-TASK", "LEGACY-EDIT"]);
+    expect(w2.taskNames()).toEqual(["A-TASK"]); // not mirrored
+    await act(async () => { w2.hook.result.current.workspace.setRaid([raidItem("r1", "W2-EDIT")]); });
+    await waitFor(() => expect(w2.paused()).toBe(true), { timeout: 4000 }); // its save met W1's revision
+    expect(fileA.text()).toContain("LEGACY-EDIT");
+    expect(fileA.text()).not.toContain("W2-EDIT");
   });
 });
 
@@ -265,5 +274,98 @@ describe("useStorageBackend — a load after a pick binds the picked file, not t
     await act(async () => { w1.hook.result.current.workspace.setTasks([task(1, "A-TASK"), task(6, "ON-X")]); });
     await settle();
     expect(w2.taskNames()).toEqual(["A-TASK", "ON-X"]);
+  });
+});
+
+// Re-review 2 RI2 — a window whose first load FAILS (a local file's permission is not granted after a
+// browser restart) learns its binding only when it recovers. Its binding must come from the file it
+// recovers onto, and until then it must not share the kind-only scope with other such windows.
+describe("useStorageBackend — a window that recovers from a failed load binds the file it recovers onto (§645)", () => {
+  async function bootFailed(file: FakeFile, binding: string): Promise<Win> {
+    KV.set(SLOT, slot(file, binding));
+    const w = openWindow();
+    await waitFor(() => expect(w.ops().loadPause).toBe("load-failed"));
+    await settle();
+    return w;
+  }
+  async function recover(w: Win) {
+    await act(async () => { await w.ops().reloadCurrentProject(); });
+    await settle();
+    expect(w.ops().loadPause).toBeNull();
+  }
+
+  it("(a) two windows on different files, both recovered by Reload project: neither mirrors the other, and nothing crosses files", async () => {
+    const fileX = fakeFile("x.json", workspaceToJson({ ...emptyWorkspace(), tasks: [task(1, "X-TASK")] }));
+    const fileY = fakeFile("y.json", workspaceToJson({ ...emptyWorkspace(), tasks: [task(1, "Y-TASK")] }));
+    fileX.permission = "prompt";
+    fileY.permission = "prompt";
+    const w1 = await bootFailed(fileX, "x");
+    const w2 = await bootFailed(fileY, "y"); // another tab switched the slot to y before this window opened
+    fileX.permission = "granted";
+    fileY.permission = "granted";
+    await recover(w1);
+    await recover(w2);
+    expect(w1.taskNames()).toEqual(["X-TASK"]);
+    expect(w2.taskNames()).toEqual(["Y-TASK"]);
+    await act(async () => { w2.hook.result.current.workspace.setTasks([task(1, "Y-TASK"), task(2, "FROM-Y")]); });
+    await settle(900);
+    expect(w1.taskNames()).toEqual(["X-TASK"]); // not applied
+    await act(async () => { w1.hook.result.current.workspace.setRaid([raidItem("r1", "X-EDIT")]); });
+    await waitFor(() => expect(fileX.text()).toContain("X-EDIT"), { timeout: 4000 });
+    await settle();
+    expect(fileX.text()).not.toContain("FROM-Y");
+  });
+
+  it("(b) two windows on the same file, both recovered by Reload project, mirror each other again", async () => {
+    const fileX = fakeFile("x.json", workspaceToJson({ ...emptyWorkspace(), tasks: [task(1, "X-TASK")] }));
+    fileX.permission = "prompt";
+    const w1 = await bootFailed(fileX, "x");
+    const w2 = await bootFailed(fileX, "x");
+    fileX.permission = "granted";
+    await recover(w1);
+    await recover(w2);
+    await act(async () => { w1.hook.result.current.workspace.setTasks([task(1, "X-TASK"), task(3, "SHARED")]); });
+    await settle();
+    expect(w2.taskNames()).toEqual(["X-TASK", "SHARED"]);
+  });
+  it("(d) a window whose load failed on a file it did bind mirrors its same-file peer (the catch path learns the binding)", async () => {
+    const fileX = fakeFile("x.json", workspaceToJson({ ...emptyWorkspace(), tasks: [task(1, "X-TASK")] }));
+    KV.set(SLOT, slot(fileX, "x"));
+    const w1 = openWindow();
+    await waitFor(() => expect(w1.ops().loadPending).toBe(false));
+    await settle();
+    fileX.permission = "prompt"; // a later window opens after the browser forgot the permission
+    const w2 = await bootFailed(fileX, "x");
+    await act(async () => { w1.hook.result.current.workspace.setTasks([task(1, "X-TASK"), task(4, "SEEN-WHILE-PAUSED")]); });
+    await settle();
+    expect(w2.taskNames()).toEqual(["X-TASK", "SEEN-WHILE-PAUSED"]);
+  });
+
+  it("(e) two windows that booted with no file bound and recovered onto the same file by Reload project mirror each other", async () => {
+    const w1 = openWindow();
+    const w2 = openWindow();
+    await waitFor(() => expect(w1.ops().loadPause).toBe("load-failed")); // nothing in the slot: no handle to open
+    await waitFor(() => expect(w2.ops().loadPause).toBe("load-failed"));
+    const fileX = fakeFile("x.json", workspaceToJson({ ...emptyWorkspace(), tasks: [task(1, "X-TASK")] }));
+    KV.set(SLOT, slot(fileX, "x")); // another tab bound x meanwhile
+    await recover(w1);
+    await recover(w2);
+    await act(async () => { w1.hook.result.current.workspace.setTasks([task(1, "X-TASK"), task(5, "AFTER-RECOVERY")]); });
+    await settle();
+    expect(w2.taskNames()).toEqual(["X-TASK", "AFTER-RECOVERY"]);
+  });
+  it("(f) a window that booted with no file bound and was granted access to the slot's file mirrors that file's window", async () => {
+    const w1 = openWindow();
+    await waitFor(() => expect(w1.ops().loadPause).toBe("load-failed"));
+    const fileX = fakeFile("x.json", workspaceToJson({ ...emptyWorkspace(), tasks: [task(1, "X-TASK")] }));
+    KV.set(SLOT, slot(fileX, "x"));
+    const w2 = openWindow();
+    await waitFor(() => expect(w2.ops().loadPending).toBe(false));
+    await settle();
+    await act(async () => { await w1.ops().onGrantWriteAccess(); }); // binds the slot's handle to W1's instance
+    await settle();
+    await act(async () => { w2.hook.result.current.workspace.setTasks([task(1, "X-TASK"), task(6, "AFTER-GRANT")]); });
+    await settle();
+    expect(w1.taskNames()).toEqual(["X-TASK", "AFTER-GRANT"]);
   });
 });

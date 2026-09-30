@@ -5,7 +5,7 @@
 // scope a main window's messages carry, the adoption of a peer's revision, and one
 // `useBroadcastSync` per workspace slice. Called unconditionally from `useStorageBackend`, once per
 // render, with live render-scope values; it returns the `SyncContext` the autosave posts revisions with.
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useBroadcastSync, useRevisionSync, type SyncContext } from "./broadcast-sync";
 import { whenSaved } from "./save-queue";
 import type { StorageConfig, Workspace } from "./storage";
@@ -34,6 +34,11 @@ export interface WorkspaceSyncDeps<S extends Slices> {
 
 export function useWorkspaceSync<S extends Slices>(deps: WorkspaceSyncDeps<S>): SyncContext {
   const { isPopout, storageConfig, tursoDatabaseUrl, tursoProjectId, fileBinding, getScopeEpoch, isLoadedValue, backend, slices: ws, mirrorApply } = deps;
+  // §645 (final re-review 2 RI2) — what an UNKNOWN local-file binding scopes to: a token of this window's
+  // own, so a window that has not learnt its binding (a failed or refused load, an old bare-handle slot,
+  // a tab still on old code) syncs with nobody. That errs toward a visible pause, never toward mirroring
+  // a window on another file.
+  const [isolationToken] = useState(() => `unbound:${crypto.randomUUID()}`);
   // ★★ §642/§643 — the channel is shared by every window of the origin. A main window syncs only
   // with main windows whose `syncScopeKey` equals its own: the storage it WRITES (`sync-scope.ts`),
   // never the registry's current project, which every tab shares through localStorage. Windows on
@@ -41,8 +46,8 @@ export function useWorkspaceSync<S extends Slices>(deps: WorkspaceSyncDeps<S>): 
   // store for every tab, so its windows exchange slices whatever registry project each shows; a local
   // file is keyed by the file this window is bound to (`fileBinding`, §645). A pop-out follows its opener.
   const syncScope = useMemo(
-    () => syncScopeKey({ storageConfig, tursoDatabaseUrl, tursoProjectId, fileBinding }),
-    [storageConfig, tursoDatabaseUrl, tursoProjectId, fileBinding],
+    () => syncScopeKey({ storageConfig, tursoDatabaseUrl, tursoProjectId, fileBinding, isolationToken }),
+    [storageConfig, tursoDatabaseUrl, tursoProjectId, fileBinding, isolationToken],
   );
   const syncContext = useMemo<SyncContext>(
     () => (isPopout ? { role: "popout", openerId: readPopoutOpenerFromUrl() } : { role: "main", scope: syncScope, getEpoch: getScopeEpoch, isLoadedValue }),

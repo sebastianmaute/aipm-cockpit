@@ -9,10 +9,11 @@
 // ★★ A LOCAL FILE is not shared that way any more. Since §645 each `LocalFileBackend` writes the
 // handle it was bound with, so two windows of one kind can write two different files, and a scope of
 // the kind alone let one window apply the other's slices and then save them into its own file (final
-// review C1). A local file is therefore keyed on the kind plus `fileBinding`: the registry project id
-// this WINDOW bound its file for (captured by `useStorageBackend` at a project op and at a load, never
-// read from the registry here, since its `currentProjectId` is shared by every tab through
-// localStorage). `null` (no registered project) falls back to the kind alone.
+// review C1). A local file is therefore keyed on the kind plus `fileBinding`: the binding stored WITH
+// the handle this window is bound to (a project's id, or a `picked:` token), never read from the
+// registry, whose `currentProjectId` is shared by every tab through localStorage. ★★ An UNKNOWN
+// binding (`null`: a failed or refused load, an old bare-handle slot) is NEVER the kind alone: it keys
+// on this window's own `isolationToken`, so the window syncs with nobody (final re-review 2 RI2).
 // The §629 journal key (`journalProjectKey`) stays the JOURNAL key; changing it would orphan
 // journals already written.
 //
@@ -26,8 +27,10 @@ export type SyncScopeInput = {
   /** The Turso database URL in use, when the storage is Turso. Never the auth token. */
   tursoDatabaseUrl: string | undefined;
   tursoProjectId: string | null;
-  /** The registry project id this window bound its local file for; `null` when unregistered. Ignored for every other kind. */
+  /** The binding of the local file this window is bound to (`LocalFileBackend.fileBinding`); `null` when unknown. Ignored for every other kind. */
   fileBinding: string | null;
+  /** This window's own token, the scope of a local file whose binding is UNKNOWN (final re-review 2 RI2). */
+  isolationToken: string;
 };
 
 export function syncScopeKey(input: SyncScopeInput): string | null {
@@ -45,7 +48,7 @@ export function syncScopeKey(input: SyncScopeInput): string | null {
     case "local-json":
     case "local-csv":
     case "local-md":
-      return JSON.stringify(input.fileBinding === null ? [config.kind] : [config.kind, input.fileBinding]);
+      return JSON.stringify([config.kind, input.fileBinding ?? input.isolationToken]);
     default: {
       const exhaustiveCheck: never = config;
       throw new Error(`syncScopeKey: unhandled StorageConfig kind ${JSON.stringify(exhaustiveCheck)}`);
