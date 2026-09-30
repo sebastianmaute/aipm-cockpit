@@ -272,9 +272,19 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   (`boundHandle`: taken from the shared slot `file-handle:<kind>` the first time it needs one,
   replaced only by its own `setHandle` or a pick) and writes to it; the slot only tells a newly
   created instance which file to open. So another tab's project switch cannot redirect this window's save.
-  `adoptFrom` carries the bound handle across the hand-over. Browser storage is still ONE store per
-  origin (`new BrowserBackend()` takes no project); the revision turns a cross-project overwrite
-  into a pause, not into separate storage.
+  `adoptFrom` carries the bound handle across the hand-over.
+- **Sync scope per storage.** A main window mirrors only windows whose `syncScopeKey`
+  (`sync-scope.ts`) equals its own. A local file is keyed by the file the WINDOW is bound to
+  (`fileBinding`, final review C1): the registry project id a project op bound it for, set beside
+  its hand-over, or the registry's current project when a load opened the shared slot; a picked or
+  opened file gets a binding unique to that bind; with no registered project it falls back to the
+  kind alone. So local-file windows on different files neither mirror nor adopt each other, and two
+  on the same registered file still do. Residual: a load racing another tab's switch (slot
+  re-pointed, registry not yet committed) can capture the other project's id. Browser storage is
+  still ONE store per origin (`new BrowserBackend()` takes no project) and is keyed by the kind
+  alone: browser windows showing different registry projects mirror each other's slices, adopt
+  each other's revisions and converge on one workspace. The revision check pauses only a writer
+  that is not mirroring: its epoch differs, it is already paused, or its own save is queued or running.
 - **Tab sync.** All 29 workspace slices are mirrored (`useBroadcastSync`, one call each in
   `use-storage-backend.ts`). After an autosave lands, `postRevision` sends the new revision and the
   one it replaced over `aipm-cockpit:sync`. A main window on the same scope and epoch
@@ -290,6 +300,12 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   a full rewrite that is refused if storage has moved on from the version the banner reported;
   **Download my version** (`downloadConflictVersion`) saves the live workspace as a file and keeps
   the pause. The blind `forceNextSave()` with no argument is a one-shot write that skips the compare.
+- **A switch away from a conflict.** The pre-switch flush that meets a conflict, or finds a pause
+  standing, keeps the edits (below) and the op switches. When that kept write FAILS (over
+  `UNLOAD_JOURNAL_MAX_CHARS`, a quota error, a codec throw), `keepNotSavedOnSwitch` raises the pause
+  and rethrows the `SaveConflictError`; every op's flush catch stops on it, so the user stays on the
+  project behind the banner (toast `storageConflictSwitchBlocked`), whose Download works at any size.
+  A settings rebuild cannot be refused; its toast says `storageConflictNotKeptOnRebuild` instead.
 - **Kept versions.** A version left behind while its saves were refused (a switch away, a rebuild)
   goes to a kept journal slot, `keptProjectKey` (`aipm-cockpit:unload-journal:<key>:kept`, then
   `…:kept:<savedAt>`). `OtherJournalsBanner` lists it as "not saved (conflict)" with Download and
