@@ -123,11 +123,14 @@ async function openProject(page: Page): Promise<void> {
 }
 
 /** A and B: two pages of one context, both on Open Points. A is the fixture's
- *  page, whose IndexedDB the fixture seeded; B shares it. */
+ *  page, whose IndexedDB the fixture seeded; B shares it. Returns once the seed's
+ *  insights reconcile has saved (`settledRevision`): landing after a revision bump,
+ *  that save would raise the pause before the test's own edit does. */
 async function openTwo(page: Page, context: BrowserContext): Promise<{ a: Page; b: Page }> {
   await openProject(page);
   const b = await context.newPage();
   await openProject(b);
+  await settledRevision(b);
   return { a: page, b };
 }
 
