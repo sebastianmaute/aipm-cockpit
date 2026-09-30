@@ -19,7 +19,7 @@ import { readPopoutOpenerFromUrl, syncScopeKey } from "./sync-scope";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
 import { loadCurrentTursoProjectId } from "./portfolio-mode";
-import { isSaveConflict, isTursoLockTimeout, tursoErrorKind } from "./storage-error";
+import { isSaveConflict, isTursoLockTimeout, SaveConflictError, tursoErrorKind } from "./storage-error";
 import { mergeActivityLogs } from "./activity-log-merge";
 import { mergeBudgetHistories } from "./budget-history";
 import { storageTargetKey } from "./storage-target-key";
@@ -446,9 +446,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // §629 — the suppress branch's resync, for the one load whose save is NOT suppressed (a restored unload journal): the guard then measures the restore against what the backend returned.
   const syncBaselinesToLoaded = (loaded: Workspace): void => { const collections = nonEmptyCollectionCount(loaded), records = workspaceRecordCount(loaded); destructive.syncBaselines(collections, records); committedBaselineRef.current = { collections, records }; destructive.clearRefusal(); };
   // ★★ §103 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
-  const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, async () => { if (savesAllowedForRef.current === backend) { const ws = currentWorkspace(); try { await enqueueSave(backend, () => backend.save(ws), { settleReplacedAsOwn: true }); } catch (err) { if (!isSaveConflict(err)) throw err; keepNotSavedOnSwitch(ws); } } else if (conflictPausedForRef.current === backend) keepNotSavedOnSwitch(currentWorkspace()); else logDiag("warn", "storage.flushSkippedBeforeLoad", {}); }); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it writes the workspace LIVE WHEN THE FLUSH IS REQUESTED to the CURRENT backend (§627: the write itself may wait behind a save in flight; `holdDuring` blocks edits meanwhile). ★★★ §586: this is `flushCurrent`'s write (the pre-switch flush), so it obeys the save gate too — a switch away from a project whose load failed must not write the empty workspace over it. A skip, not a throw: the flush is best-effort. §4: a conflict — met here, or a pause standing — is kept, not thrown (below).
-  // §4 — the flush above met a newer revision (it wrote nothing), or saving was already paused on one: the op goes ahead, so the journal is written NOW, under the key being left, and a toast says so. Not rethrown, so no op adds its generic flush-failed toast.
-  function keepNotSavedOnSwitch(ws: Workspace): void { keptOnSwitchForRef.current = backend; unloadJournal.followLive(ws, true); emitToast("error", t(langRef.current, "storageConflictNotSavedOnSwitch")); }
+  const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, async () => { if (savesAllowedForRef.current === backend) { const ws = currentWorkspace(); try { await enqueueSave(backend, () => backend.save(ws), { settleReplacedAsOwn: true }); } catch (err) { if (!isSaveConflict(err)) throw err; keepNotSavedOnSwitch(ws, err); } } else if (conflictPausedForRef.current === backend) keepNotSavedOnSwitch(currentWorkspace()); else logDiag("warn", "storage.flushSkippedBeforeLoad", {}); }); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it writes the workspace LIVE WHEN THE FLUSH IS REQUESTED to the CURRENT backend (§627: the write itself may wait behind a save in flight; `holdDuring` blocks edits meanwhile). ★★★ §586: this is `flushCurrent`'s write (the pre-switch flush), so it obeys the save gate too — a switch away from a project whose load failed must not write the empty workspace over it. A skip, not a throw: the flush is best-effort. §4: a conflict — met here, or a pause standing — is kept, not thrown, unless it cannot be kept (I2, below).
+  // §4 — the flush above met a newer revision (it wrote nothing), or saving was already paused on one: the op goes ahead, so the journal is written NOW, under the key being left, and a toast says so. ★ Final review I2: when that kept write FAILS (over the cap, quota, codec), the `SaveConflictError` is thrown instead, and every op's flush catch stops on it (no generic flush-failed toast): the user stays on this project behind the pause, whose Download works at any size.
+  function keepNotSavedOnSwitch(ws: Workspace, refused?: SaveConflictError): void {
+    if (unloadJournal.followLive(ws, true)) { keptOnSwitchForRef.current = backend; emitToast("error", t(langRef.current, "storageConflictNotSavedOnSwitch")); return; }
+    if (refused) emitConflictPause(backend, refused.currentRevision); // met here: raise the pause; a standing one shows already
+    emitToast("error", t(langRef.current, "storageConflictSwitchBlocked"));
+    throw refused ?? new SaveConflictError(args.settings.storageConfig.kind);
+  }
 
   // ── §72: caller-callback teardown guard ─────────────────────────────────────
   // Every callback this hook fires back into the component drives React state up
@@ -1009,8 +1014,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         if (isSaveConflict(err) && backendRef.current === backend) { emitConflictPause(backend, err.currentRevision); return; } // §4 — nothing was written; a lock timeout is NOT this and falls through
         if (isSaveConflict(err)) { // §4 — its backend was replaced meanwhile (a rebuild, or an op's §589 cleanup flush): no pause can hold these edits and the next load would re-base their entry, so they are kept now — unless the op's own flush kept them already
           const keptByFlush = keptOnSwitchForRef.current === backend;
-          unloadJournal.noteSaveRefused(journalSavedAt, keptByFlush ? null : outgoing);
-          if (!keptByFlush) emitToast("error", t(langRef.current, "storageConflictNotSavedOnRebuild")); // no switch here: an op's flush keeps (and toasts) its own
+          const kept = unloadJournal.noteSaveRefused(journalSavedAt, keptByFlush ? null : outgoing);
+          if (!keptByFlush) emitToast("error", t(langRef.current, kept ? "storageConflictNotSavedOnRebuild" : "storageConflictNotKeptOnRebuild")); // no switch here: an op's flush keeps (and toasts) its own. I2: a rebuild cannot be refused, so a failed keep is named
           return;
         }
         // Turso connectivity/auth failures show the persistent banner — skip the toast.

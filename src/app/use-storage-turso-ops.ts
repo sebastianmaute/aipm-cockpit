@@ -31,6 +31,7 @@ import {
 import { writeSettings } from "./use-settings";
 import { summarizeUnsafeEmailRecords } from "./sanitize";
 import { logDiag } from "./diagnostics";
+import { isSaveConflict } from "./storage-error";
 import type { TruncationOps } from "./use-load-truncation";
 
 /** Live closure values the Turso project flows read each render. */
@@ -65,13 +66,17 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
   // while a truncated load is unresolved (see `TruncationOps`). A SKIP is not a
   // failure and must not raise the toast below — the source still holds the
   // documents, which is the whole point of pausing the write.
-  async function flushOutgoing(): Promise<void> {
+  // §4 I2 — `false` when the flush's edits could not be kept (`keepNotSavedOnSwitch`, which toasted):
+  // the op must stop, leaving the user behind the pause.
+  async function flushOutgoing(): Promise<boolean> {
     try {
       await deps.truncationOps.flushCurrent();
     } catch (err) {
+      if (isSaveConflict(err)) return false;
       logDiag("warn", "storage.switchFlushFailed", { message: err instanceof Error ? err.message : String(err) });
       deps.showToast("error", t(deps.langRef.current, "storageSwitchFlushFailed"));
     }
+    return true;
   }
 
   // Shared Turso-guard preamble for every project op: popouts never mutate, and
@@ -93,7 +98,7 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
     if (deps.tursoProjectId === id) return;
     try {
       // Flush the outgoing project to the active backend before switching.
-      await flushOutgoing();
+      if (!(await flushOutgoing())) return;
       const target = new TursoBackend(cfg, id);
       const loaded = await target.load();
       deps.applyWorkspace(loaded);
@@ -115,7 +120,7 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
     if (!cfg) return;
     // Flush the outgoing project first (setting suppressNextSaveRef below cancels
     // the pending debounced save). Mirrors the file createProject flush.
-    await flushOutgoing();
+    if (!(await flushOutgoing())) return;
     const id = crypto.randomUUID();
     // Fresh id space for a new project — clear the session minter so seed ids
     // start at #1, not continuing the previously open project's high-water.
@@ -202,7 +207,7 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       return;
     }
     // Flush the current file project before copying it.
-    await flushOutgoing();
+    if (!(await flushOutgoing())) return;
     const id = crypto.randomUUID();
     try {
       await portfolioCreate(cfg, meta, id);

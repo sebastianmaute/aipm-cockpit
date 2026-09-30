@@ -55,7 +55,7 @@ import { loadPortfolioMode, savePortfolioMode } from "./portfolio-mode";
 import { writeSettings } from "./use-settings";
 import type { TruncationOps } from "./use-load-truncation";
 import { getTursoConfig } from "./turso-config";
-import { isTursoLockTimeout } from "./storage-error";
+import { isSaveConflict, isTursoLockTimeout } from "./storage-error";
 import { STORAGE_LABEL_KEYS } from "./use-storage-backend-types";
 import { summarizeUnsafeEmailRecords } from "./sanitize";
 import type { UseMsAuthResult } from "./use-ms-auth";
@@ -119,7 +119,8 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       //    the documents. `flushCurrent` skips instead.
       try {
         await deps.truncationOps.flushCurrent();
-      } catch {
+      } catch (err) {
+        if (isSaveConflict(err)) return; // §4 I2 — its edits could not be kept (`keepNotSavedOnSwitch`, which toasted): stay behind the pause
         // Swallow — the outgoing backend may be unconfigured (e.g. no file
         // permission). The switch itself is the user's intent.
       }
@@ -179,7 +180,8 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
     // lost. Mirrors switchToProject's flush; must use the CURRENT active backend.
     try {
       await deps.truncationOps.flushCurrent();
-    } catch {
+    } catch (err) {
+      if (isSaveConflict(err)) return; // §4 I2 — its edits could not be kept (`keepNotSavedOnSwitch`, which toasted): stay behind the pause
       // Swallow — the outgoing backend may be unconfigured (e.g. no file
       // permission). Creating the new project is the user's intent.
     }
@@ -255,7 +257,8 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
     // lost. Mirrors switchToProject's flush; must use the CURRENT active backend.
     try {
       await deps.truncationOps.flushCurrent();
-    } catch {
+    } catch (err) {
+      if (isSaveConflict(err)) return; // §4 I2 — its edits could not be kept (`keepNotSavedOnSwitch`, which toasted): stay behind the pause
       // Swallow — the outgoing backend may be unconfigured (e.g. no file
       // permission). Opening the new project is the user's intent.
     }
@@ -344,7 +347,8 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
     // suppressNextSaveRef below cancels the pending debounced save.
     try {
       await deps.truncationOps.flushCurrent();
-    } catch {
+    } catch (err) {
+      if (isSaveConflict(err)) return; // §4 I2 — its edits could not be kept (`keepNotSavedOnSwitch`, which toasted): stay behind the pause
       // Swallow — the outgoing backend may be unconfigured. The demo is the intent.
     }
     const id = crypto.randomUUID();

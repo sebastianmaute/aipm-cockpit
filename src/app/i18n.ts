@@ -4330,6 +4330,8 @@ const enUS = {
   storageSavePausedConflict: "This project was changed in another tab or on another device. Your changes since then are not saved yet.",
   storageConflictNotSavedOnSwitch: "Your changes were not saved before switching, because the project was changed in another tab or on another device.",
   storageConflictNotSavedOnRebuild: "Your changes were not saved, because the project was changed in another tab or on another device.",
+  storageConflictSwitchBlocked: "The project was not switched. Your changes are not saved, because the project was changed in another tab or on another device, and this browser could not keep a copy of them. Use \"Download my version\" to keep them.",
+  storageConflictNotKeptOnRebuild: "Your changes were not saved, because the project was changed in another tab or on another device, and this browser could not keep a copy of them either.",
   storageConflictReload: "Reload",
   storageConflictOverwrite: "Overwrite",
   storageConflictDownload: "Download my version",

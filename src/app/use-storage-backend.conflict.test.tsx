@@ -42,7 +42,7 @@ import type { FsHandle, StorageConfig } from "./storage";
 import { emptyWorkspace, workspaceToJson } from "./storage";
 import { SaveConflictError } from "./storage-error";
 import { TestProviders } from "./test-providers";
-import { keptProjectKey, UNLOAD_JOURNAL_PREFIX, type UnloadJournal } from "./unload-journal";
+import { keptProjectKey, UNLOAD_JOURNAL_MAX_CHARS, UNLOAD_JOURNAL_PREFIX, type UnloadJournal } from "./unload-journal";
 import { useStorageBackend } from "./use-storage-backend";
 import { useWorkspace } from "./workspace-context";
 
@@ -363,6 +363,63 @@ describe("useStorageBackend — a stale save pauses saving and keeps the edits j
     expect(journals().some(({ journal }) => journal.workspace.includes("OUTGOING-EDIT"))).toBe(true);
     expect(app.ops().conflictPause).toBe(false); // the pause belongs to the project left behind
     expect(showToast.mock.calls.filter(([, text]) => text === t("en-US", "storageConflictNotSavedOnSwitch"))).toHaveLength(1); // the op's cleanup flush meets the conflict too: kept and toasted once
+  });
+
+  // Final review I2 — a kept write can fail (over `UNLOAD_JOURNAL_MAX_CHARS`, a quota error, a codec
+  // throw). The switch must not then go ahead and take the only copy of the edits with it: the user
+  // stays on the paused project, whose banner's Download works at any size.
+  describe("a switch whose unsaved edits cannot be kept is refused (I2)", () => {
+    const OVER_CAP = `OVER-CAP-${"x".repeat(UNLOAD_JOURNAL_MAX_CHARS)}`;
+    const blockedToasts = () => showToast.mock.calls.filter(([, text]) => text === t("en-US", "storageConflictSwitchBlocked")).length;
+    async function expectStayedPaused(app: App, file: FakeFile) {
+      expect(loadRegistry().currentProjectId).not.toBe("b");
+      expect(app.hook.result.current.workspace.tasks.map((x) => x.taskName)).toEqual([OVER_CAP]);
+      expect(app.ops().conflictPause).toBe(true);
+      expect(file.writes).toBe(0);
+      expect(blockedToasts()).toBe(1);
+      expect(showToast).not.toHaveBeenCalledWith("error", t("en-US", "storageConflictNotSavedOnSwitch"));
+      expect(journals().some(({ journal }) => journal.workspace.includes("OVER-CAP"))).toBe(false); // nothing was kept
+      act(() => { app.ops().downloadConflictVersion(); });
+      expect(vi.mocked(downloadJson)).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(downloadJson).mock.calls[0][1]).toContain("OVER-CAP");
+    }
+
+    it("when the flush meets the conflict: the pause is raised and the op stops", async () => {
+      saveRegistry(addProject(emptyRegistry(), { id: "b", name: "Project b", code: "B", storageConfig: { kind: "browser" } }, false));
+      const file = fakeFile("p.json", workspaceToJson(emptyWorkspace()));
+      KV.set("file-handle:local-json", file);
+      const app = renderApp({ kind: "local-json" });
+      await waitFor(() => expect(app.ops().loadPending).toBe(false));
+      await settle();
+      file.foreignWrite(workspaceToJson({ ...emptyWorkspace(), tasks: [task(7, "PEER")] }));
+      await edit(app, [task(1, OVER_CAP)]); // still inside the debounce: only the flush can write it
+      await act(async () => { await app.ops().switchToProject("b"); });
+      await settle();
+      await expectStayedPaused(app, file);
+    });
+
+    it("when saving is already paused: the op stops", async () => {
+      const { app, file } = await pausedOnConflict();
+      saveRegistry(addProject(emptyRegistry(), { id: "b", name: "Project b", code: "B", storageConfig: { kind: "browser" } }, false));
+      await edit(app, [task(1, OVER_CAP)]);
+      await settle(900);
+      await act(async () => { await app.ops().switchToProject("b"); });
+      await settle();
+      await expectStayedPaused(app, file);
+    });
+
+    it("a settings rebuild cannot be refused, so its toast says the edits were not kept either", async () => {
+      const file = fakeFile("p.json", workspaceToJson(emptyWorkspace()));
+      KV.set("file-handle:local-json", file);
+      const app = renderApp({ kind: "local-json" });
+      await waitFor(() => expect(app.ops().loadPending).toBe(false));
+      await settle();
+      file.foreignWrite(workspaceToJson({ ...emptyWorkspace(), tasks: [task(7, "PEER")] }));
+      await edit(app, [task(1, OVER_CAP)]); // inside the debounce: the rebuild's cleanup flush writes it
+      await act(async () => { app.hook.result.current.setStorageConfig({ kind: "local-json" }); });
+      await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConflictNotKeptOnRebuild")), { timeout: 4000 });
+      expect(showToast).not.toHaveBeenCalledWith("error", t("en-US", "storageConflictNotSavedOnRebuild"));
+    });
   });
 });
 

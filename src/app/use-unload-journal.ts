@@ -206,17 +206,19 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
    *  its base is "". An unresolved kept record there is never replaced: after a return the live
    *  workspace is built on the other writer's version, not on the kept one, so replacing it would lose
    *  edits the user has not seen since. The newer version gets a numbered kept slot of its own — never
-   *  the project's own slot, where this tab's next confirmation or "Reload project" would clear it. */
-  const keep = useCallback((entry: Unconfirmed): void => {
+   *  the project's own slot, where this tab's next confirmation or "Reload project" would clear it.
+   *  Returns whether the record was WRITTEN (final review I2): over the cap, on a quota error or a codec
+   *  throw it is not, and a caller about to leave the project must not then leave. */
+  const keep = useCallback((entry: Unconfirmed): boolean => {
     const slot = readUnloadJournal(keptProjectKey(entry.projectKey)) === null ? keptProjectKey(entry.projectKey) : keptProjectKey(entry.projectKey, entry.savedAt);
     let workspace: string;
     try {
       workspace = workspaceToJson(entry.workspace);
     } catch (err) {
       logDiag("warn", "workspace.unloadJournalSkipped", { projectKey: entry.projectKey, message: err instanceof Error ? err.message : String(err) });
-      return;
+      return false;
     }
-    writeUnloadJournal({ projectKey: slot, tabId: UNLOAD_JOURNAL_TAB_ID, savedAt: entry.savedAt, baseFingerprint: "", workspace });
+    return writeUnloadJournal({ projectKey: slot, tabId: UNLOAD_JOURNAL_TAB_ID, savedAt: entry.savedAt, baseFingerprint: "", workspace });
   }, []);
 
   const noteSaveStarted = useCallback((outgoing: Workspace): number => {
@@ -233,29 +235,30 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
    *  storage hook hands the LIVE workspace here instead. It becomes the latest unconfirmed one, which
    *  pagehide writes (`boundToBase`); no in-flight entry, as no save's confirmation could clear it.
    *  `now` — the pre-switch flush, which leaves the key behind — `keep`s it instead, and consumes the
-   *  pause's entry for the key: re-written at pagehide after a return, it would be re-based. */
-  const followLive = useCallback((live: Workspace, now = false): void => {
-    if (!activeRef.current) return;
+   *  pause's entry for the key: re-written at pagehide after a return, it would be re-based.
+   *  Returns `false` only when `now` and the kept record could NOT be written (`keep`). */
+  const followLive = useCallback((live: Workspace, now = false): boolean => {
+    if (!activeRef.current) return true; // a pop-out, or before hydration: there is no journal to keep in
     const entry: Unconfirmed = { projectKey: projectKeyRef.current, workspace: live, savedAt: nextSavedAt(), boundToBase: true };
     if (now) {
       if (latestUnconfirmedRef.current?.projectKey === entry.projectKey) latestUnconfirmedRef.current = null;
-      keep(entry);
-      return;
+      return keep(entry);
     }
     latestUnconfirmedRef.current = entry;
     if (isPageHiding() || document.visibilityState === "hidden") write(entry);
+    return true;
   }, [keep, write]);
 
   /** §4 — the save `savedAt` was refused as stale after its backend was replaced (a settings rebuild or a
    *  project op): nothing confirms it, and the next load re-bases whatever entry it left, so the entry
    *  goes. `refused` — its workspace, when no flush kept it already — is `keep`t under the key the save
-   *  was started for. */
-  const noteSaveRefused = useCallback((savedAt: number, refused: Workspace | null): void => {
-    if (!activeRef.current) return;
+   *  was started for. Returns `false` only when `refused` had to be kept and could not be (`keep`). */
+  const noteSaveRefused = useCallback((savedAt: number, refused: Workspace | null): boolean => {
+    if (!activeRef.current) return true;
     const key = inFlightRef.current.get(savedAt) ?? projectKeyRef.current;
     inFlightRef.current.delete(savedAt);
     if (latestUnconfirmedRef.current?.savedAt === savedAt) latestUnconfirmedRef.current = null;
-    if (refused !== null) keep({ projectKey: key, workspace: refused, savedAt });
+    return refused === null || keep({ projectKey: key, workspace: refused, savedAt });
   }, [keep]);
 
   /** §4 — `key`'s base is about to move: an entry bound to the old one goes (see `boundToBase`). */

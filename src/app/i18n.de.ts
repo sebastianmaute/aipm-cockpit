@@ -4093,6 +4093,8 @@ export const de: Record<TranslationKey, string> = {
   storageSavePausedConflict: "Dieses Projekt wurde in einem anderen Tab oder auf einem anderen Gerät geändert. Ihre Änderungen seitdem sind noch nicht gespeichert.",
   storageConflictNotSavedOnSwitch: "Ihre Änderungen wurden vor dem Wechsel nicht gespeichert, weil das Projekt in einem anderen Tab oder auf einem anderen Gerät geändert wurde.",
   storageConflictNotSavedOnRebuild: "Ihre Änderungen wurden nicht gespeichert, weil das Projekt in einem anderen Tab oder auf einem anderen Gerät geändert wurde.",
+  storageConflictSwitchBlocked: "Das Projekt wurde nicht gewechselt. Ihre Änderungen sind nicht gespeichert, weil das Projekt in einem anderen Tab oder auf einem anderen Gerät geändert wurde, und dieser Browser konnte keine Kopie davon aufbewahren. Sichern Sie sie mit „Meine Version herunterladen“.",
+  storageConflictNotKeptOnRebuild: "Ihre Änderungen wurden nicht gespeichert, weil das Projekt in einem anderen Tab oder auf einem anderen Gerät geändert wurde, und dieser Browser konnte auch keine Kopie davon aufbewahren.",
   storageConflictReload: "Neu laden",
   storageConflictOverwrite: "Überschreiben",
   storageConflictDownload: "Meine Version herunterladen",
