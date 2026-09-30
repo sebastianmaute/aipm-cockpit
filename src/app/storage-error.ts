@@ -55,6 +55,31 @@ export function isSaveLockTimeout(err: unknown): err is SaveLockTimeoutError {
   return err instanceof SaveLockTimeoutError;
 }
 
+/** Runs `fn` under the exclusive Web Lock `name`, waiting at most `timeoutMs` for it to be GRANTED
+ *  (the bounded wait of `turso-backend.ts`'s `withWriteLock`; the browser and local-file saves share
+ *  it, final review m5). Not granted in time: the wait is aborted and `SaveLockTimeoutError` thrown,
+ *  and `fn` never ran, so nothing was written. `granted` tells that apart from a failure INSIDE `fn`
+ *  once the lock was held (a real `SaveConflictError` or write failure), which passes through
+ *  unchanged. Without `navigator.locks` (jsdom, older browsers) `fn` runs directly: its compare still
+ *  runs, just without cross-window mutual exclusion. */
+export async function withSaveLock(name: string, kind: StorageKind, timeoutMs: number, fn: () => Promise<void>): Promise<void> {
+  const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
+  if (!locks) {
+    await fn();
+    return;
+  }
+  let granted = false;
+  try {
+    await locks.request(name, { mode: "exclusive", signal: AbortSignal.timeout(timeoutMs) }, () => {
+      granted = true;
+      return fn();
+    });
+  } catch (err) {
+    if (!granted) throw new SaveLockTimeoutError(kind, { cause: err });
+    throw err;
+  }
+}
+
 /** True when a save failed because the cross-tab Web Locks wait timed out
  *  (another tab is writing). Deliberately NOT a StorageErrorKind — it's
  *  transient, so it stays on the toast path; the UI boundary uses this to

@@ -81,7 +81,7 @@ export function journalProjectKey(
  *  them reads, clears or overwrites it, and ordinary journalling of the project carries on. It shares
  *  the prefix, so the §632 list and 30-day expiry, the size cap and the factory reset all cover it.
  *  No real key contains a colon (registry ids and Turso ids are UUIDs; "browser" / "turso"). */
-export const UNLOAD_JOURNAL_KEPT_SUFFIX = ":kept";
+const UNLOAD_JOURNAL_KEPT_SUFFIX = ":kept";
 /** A kept slot: `<project>:kept`, or `<project>:kept:<savedAt>` for a further version kept while the
  *  first is still unresolved (fix round 3 — every kept version gets a slot of its own). */
 const KEPT_KEY_RE = /:kept(:\d+)?$/;

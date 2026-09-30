@@ -400,6 +400,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const otherJournals = useOtherJournals({ projectKey: journalProjectKey, restoredKeys: unloadJournal.restoredKeys, enabled: args.hydrated && workspaceLoaded, isPopout: args.isPopout });
   // ★ A `const`, not a `function` declaration: `use-load-truncation.test.ts` keys each `.save(` on the
   // nearest preceding DECLARATION, and one here would rename the `flushCurrent` write's key below.
+  // ★★ NEVER CALL DURING RENDER (final review, Task 9 M3): it reads `conflictResolution`, declared below it (a TDZ in render); effects and callbacks only, and hoisting that hook is circular (`openGate` needs this).
   const allowSavesTo = (target: ReturnType<typeof createBackend>): void => {
     savesAllowedForRef.current = target;
     conflictPausedForRef.current = null;
@@ -1524,6 +1525,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // (`LIMIT` lives in `scripts/check-file-sizes.mjs`).
   // Measure: node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
   const reloadHeld = holdDuring(reloadCurrentProject, "same-scope"); // one wrapper, shared by the conflict banner's Reload
+  // ★ `conflictPause` below is a TEST SEAM (final review m13): only tests read it; the app reads `loadPause`.
   return {
     storageDescription, storageReady, workspaceLoaded, loadPause, conflictPause: loadPause === "conflict", canOverwriteConflict: loadPause === "conflict" && savesPaused?.seen != null, loadPending, getScopeEpoch, isSwapInFlight,
     // ★★★ §590 PUT `onPickStorageFile` UNDER THE HOLD, and it was deliberately outside it before.

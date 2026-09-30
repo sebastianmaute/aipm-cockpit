@@ -106,7 +106,7 @@ import {
 } from "./workspace";
 import { sanitizeActivityLog } from "./activity-log";
 import { sanitizeBudgetHistory } from "./budget-history";
-import { SaveConflictError, SaveLockTimeoutError } from "./storage-error";
+import { SaveConflictError, withSaveLock } from "./storage-error";
 
 /**
  * Browser-local persistence backed by IndexedDB record stores (one row per
@@ -626,38 +626,10 @@ export class BrowserBackend implements StorageBackend {
   async save(ws: Workspace): Promise<void> {
     if (typeof window === "undefined") return;
 
-    // §4 — run the compare-then-write critical section under the cross-tab
-    // Web Lock when it's available, so two tabs racing a save can't both
-    // read the same stored revision before either has written. jsdom (and
-    // older browsers) has no `navigator.locks`: fall back to a direct call —
-    // the compare still runs, just without cross-tab mutual exclusion.
-    //
-    // §4 fix round 1 (R10 change 6) — bounded wait, on the pattern of
-    // `turso-backend.ts`'s `withWriteLock`: if the lock is not GRANTED within
-    // `BROWSER_LOCK_WAIT_TIMEOUT_MS`, the wait itself is aborted and this
-    // throws `SaveLockTimeoutError` instead of hanging forever — nothing is
-    // written. `granted` distinguishes that from a real failure INSIDE
-    // `saveLocked()` once the lock WAS granted, which must pass through
-    // unchanged.
-    const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
-    if (!locks) {
-      await this.saveLocked(ws);
-      return;
-    }
-    let granted = false;
-    try {
-      await locks.request(
-        BROWSER_SAVE_LOCK_NAME,
-        { mode: "exclusive", signal: AbortSignal.timeout(BROWSER_LOCK_WAIT_TIMEOUT_MS) },
-        () => {
-          granted = true;
-          return this.saveLocked(ws);
-        },
-      );
-    } catch (err) {
-      if (!granted) throw new SaveLockTimeoutError("browser", { cause: err });
-      throw err;
-    }
+    // §4 — the compare-then-write critical section runs under the cross-tab Web Lock, so two tabs
+    // racing a save can't both read the same stored revision before either has written; a lock not
+    // granted within `BROWSER_LOCK_WAIT_TIMEOUT_MS` throws `SaveLockTimeoutError` (`withSaveLock`).
+    await withSaveLock(BROWSER_SAVE_LOCK_NAME, "browser", BROWSER_LOCK_WAIT_TIMEOUT_MS, () => this.saveLocked(ws));
   }
 
   /**

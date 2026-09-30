@@ -26,7 +26,7 @@ import {
   workspaceToJson,
 } from "./workspace";
 import type { ImportSectionKey } from "./csv-codecs-sections";
-import { SaveConflictError, SaveLockTimeoutError } from "./storage-error";
+import { SaveConflictError, withSaveLock } from "./storage-error";
 
 /** §4 fix round 1 (R10 change 7) — the local-file revision encoding:
  *  `lastModified` ALONE is not fine-grained enough on filesystems/OSes with a
@@ -317,6 +317,9 @@ export class LocalFileBackend implements StorageBackend {
     // falls back to re-reading the slot when NOT already bound).
     this.boundHandle = null;
     this.currentRevision = null;
+    this.forceNext = false; // final review m9: all five, as `setHandle` resets them
+    this.expectNext = null;
+    this.pendingRead = null;
   }
 
   async describe(): Promise<string | null> {
@@ -494,39 +497,10 @@ export class LocalFileBackend implements StorageBackend {
   }
 
   async save(ws: Workspace): Promise<void> {
-    // §645 — run the compare-then-write critical section under the cross-tab/
-    // cross-window Web Lock when it's available, so two windows racing a save
-    // can't both read the same file's revision before either has written.
-    // jsdom (and older browsers) has no `navigator.locks`: fall back to a
-    // direct call — the compare still runs, just without cross-window mutual
-    // exclusion.
-    //
-    // R10 change 6 — bounded wait, on the pattern of `turso-backend.ts`'s
-    // `withWriteLock`: if the lock is not GRANTED within
-    // `LOCAL_LOCK_WAIT_TIMEOUT_MS`, the wait itself is aborted and this
-    // throws `SaveLockTimeoutError` instead of hanging forever — nothing is
-    // written. `granted` distinguishes that from a real failure INSIDE
-    // `saveLocked()` (a genuine `SaveConflictError`/write failure once the
-    // lock WAS granted), which must pass through unchanged.
-    const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
-    if (!locks) {
-      await this.saveLocked(ws);
-      return;
-    }
-    let granted = false;
-    try {
-      await locks.request(
-        this.lockName,
-        { mode: "exclusive", signal: AbortSignal.timeout(LOCAL_LOCK_WAIT_TIMEOUT_MS) },
-        () => {
-          granted = true;
-          return this.saveLocked(ws);
-        },
-      );
-    } catch (err) {
-      if (!granted) throw new SaveLockTimeoutError(this.kind, { cause: err });
-      throw err;
-    }
+    // §645 — the compare-then-write critical section runs under the cross-window Web Lock, so two
+    // windows racing a save can't both read the same file's revision before either has written; a lock
+    // not granted within `LOCAL_LOCK_WAIT_TIMEOUT_MS` throws `SaveLockTimeoutError` (`withSaveLock`).
+    await withSaveLock(this.lockName, this.kind, LOCAL_LOCK_WAIT_TIMEOUT_MS, () => this.saveLocked(ws));
   }
 
   /**
@@ -568,6 +542,9 @@ export class LocalFileBackend implements StorageBackend {
     if (!force) {
       // §4 — read even when this instance's own revision is unknown, so the refusal names the version
       // storage holds (the conflict banner's Overwrite is conditional on exactly that one).
+      // ★ A DELETED file makes `getFile()` throw `NotFoundError`, which propagates as a plain save failure,
+      //   deliberately NOT a conflict (final review, Task 9 M1): a missing file is not a newer revision, the
+      //   generic save-failed toast is honest, and Overwrite could not target a file that is gone.
       const current = fileRevision(await handle.getFile());
       const against = expected ?? this.currentRevision;
       if (against === null || current !== against) throw new SaveConflictError(this.kind, current);
