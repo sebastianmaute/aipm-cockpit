@@ -29,7 +29,8 @@ import { describe, expect, it, beforeEach } from "vitest";
 import { DatabaseSync } from "node:sqlite";
 import {
   ENTITY_SPECS, SCHEMA_DDL, selectStatements, workspaceToStatements, rowsToWorkspace,
-  type EntitySpec, type SqlStmt, type PipelineResultLike,
+  REVISION_CONFLICT_MARKER, revisionFromMetaRows, selectRevisionStatement,
+  type EntitySpec, type SqlStmt, type PipelineResultLike, type RevisionStamp,
 } from "./turso-schema";
 import { tenantSchemaDdl, tenantSelectStatements, tenantWorkspaceToStatements } from "./turso-tenant-schema";
 import {
@@ -478,5 +479,142 @@ describe("§617 — a meta slice that parses but sanitizes to nothing is REPORTE
     const ws = loadWithMetaRow("project_meta", JSON.stringify({ name: "Apollo" }), diag);
     expect(ws.project?.name).toBe("Apollo");
     expect(diag.decodeFailedSlices ?? []).not.toContain("project_meta");
+  });
+});
+
+// §4 — the revision row, through the REAL engine, in both layouts. `runBatch` is
+// §637's conditional batch: each step runs only while the one before it
+// succeeded, and a failure skips the rest (COMMIT included) and rolls back.
+describe("§4 revision row", () => {
+  function runBatch(db: DatabaseSync, statements: readonly SqlStmt[]): Error | null {
+    try {
+      runStatements(db, statements);
+      return null;
+    } catch (err) {
+      try { db.exec("ROLLBACK"); } catch { /* no transaction open */ }
+      return err as Error;
+    }
+  }
+
+  const LAYOUTS = [
+    {
+      name: "single-tenant",
+      ddl: () => SCHEMA_DDL,
+      save: (ws: Workspace, dirty: ReadonlySet<string> | undefined, stamp: RevisionStamp) => workspaceToStatements(ws, dirty, stamp),
+      metaRows: (db: DatabaseSync) => db.prepare("SELECT * FROM meta").all(),
+      revisionRows: (db: DatabaseSync) => db.prepare("SELECT value FROM meta WHERE key = 'revision'").all(),
+      taskCount: (db: DatabaseSync) => db.prepare("SELECT * FROM tasks").all().length,
+    },
+    {
+      name: "multi-tenant",
+      ddl: () => tenantSchemaDdl(),
+      save: (ws: Workspace, dirty: ReadonlySet<string> | undefined, stamp: RevisionStamp) =>
+        tenantWorkspaceToStatements(ws, PROJECT_ID, dirty, stamp),
+      metaRows: (db: DatabaseSync) => db.prepare("SELECT * FROM meta WHERE project_id = ?").all(PROJECT_ID),
+      revisionRows: (db: DatabaseSync) =>
+        db.prepare("SELECT value FROM meta WHERE key = 'revision' AND project_id = ?").all(PROJECT_ID),
+      taskCount: (db: DatabaseSync) => db.prepare("SELECT * FROM tasks WHERE project_id = ?").all(PROJECT_ID).length,
+    },
+  ] as const;
+
+  const taskSpec = ENTITY_SPECS.find((s) => s.table === "tasks") as EntitySpec<unknown>;
+  const withTask = (): Workspace => workspaceWith(taskSpec, buildFixture(taskSpec, "1"));
+  const metaResult = (rows: Record<string, unknown>[]): PipelineResultLike => {
+    const cols = rows.length ? Object.keys(rows[0]).map((name) => ({ name })) : [];
+    return { type: "ok", response: { type: "execute", result: { cols, rows: rows.map((r) => cols.map((c) => ({ value: r[c.name] }))) } } };
+  };
+
+  describe.each(LAYOUTS)("$name", (layout) => {
+    let db: DatabaseSync;
+    beforeEach(() => {
+      db = new DatabaseSync(":memory:");
+      for (const ddl of layout.ddl()) db.exec(ddl);
+    });
+
+    it("reads a missing revision row as 0", () => {
+      expect(revisionFromMetaRows(metaResult(layout.metaRows(db)))).toBe("0");
+    });
+
+    it("stamps 1 on the first save and reads it back", () => {
+      expect(runBatch(db, layout.save(emptyWorkspace(), undefined, { expected: "0", next: "1" }))).toBeNull();
+      expect(layout.revisionRows(db)).toEqual([{ value: "1" }]);
+      expect(revisionFromMetaRows(metaResult(layout.metaRows(db)))).toBe("1");
+    });
+
+    it("re-inserts the row when a dirty meta table is rewritten, and when meta is clean", () => {
+      runBatch(db, layout.save(emptyWorkspace(), undefined, { expected: "0", next: "1" }));
+      const ws = emptyWorkspace();
+      // Meta dirty: its DELETE removes every meta row, the revision row included.
+      expect(runBatch(db, layout.save({ ...ws, status: { narrative: "x" } }, new Set(["meta"]), { expected: "1", next: "2" }))).toBeNull();
+      expect(layout.revisionRows(db)).toEqual([{ value: "2" }]);
+      // Meta clean: only tasks is rewritten, and the revision row still moves exactly once.
+      expect(runBatch(db, layout.save(withTask(), new Set(["tasks"]), { expected: "2", next: "3" }))).toBeNull();
+      expect(layout.revisionRows(db)).toEqual([{ value: "3" }]);
+    });
+
+    it("a stale expected revision raises inside the batch and rolls back with nothing written", () => {
+      runBatch(db, layout.save(emptyWorkspace(), undefined, { expected: "0", next: "1" }));
+      const before = layout.metaRows(db);
+      const err = runBatch(db, layout.save(withTask(), undefined, { expected: "0", next: "1" }));
+      // The guard itself is what raised — an SQLite error carrying the marker and the stored revision.
+      expect(err?.message).toContain(`${REVISION_CONFLICT_MARKER}1`);
+      expect(layout.taskCount(db)).toBe(0);
+      expect(layout.metaRows(db)).toEqual(before);
+    });
+
+    it("a stale expected revision on a never-written project (stored 0) is refused too", () => {
+      const err = runBatch(db, layout.save(withTask(), undefined, { expected: "4", next: "5" }));
+      expect(err?.message).toContain(`${REVISION_CONFLICT_MARKER}0`);
+      expect(layout.taskCount(db)).toBe(0);
+      expect(layout.revisionRows(db)).toEqual([]);
+    });
+
+    it("a matching expected revision commits and bumps", () => {
+      runBatch(db, layout.save(emptyWorkspace(), undefined, { expected: "0", next: "1" }));
+      expect(runBatch(db, layout.save(withTask(), undefined, { expected: "1", next: "2" }))).toBeNull();
+      expect(layout.taskCount(db)).toBe(1);
+      expect(layout.revisionRows(db)).toEqual([{ value: "2" }]);
+    });
+
+    it("a blind stamp (expected null) carries no guard and overwrites any stored revision", () => {
+      runBatch(db, layout.save(emptyWorkspace(), undefined, { expected: "0", next: "1" }));
+      const stmts = layout.save(withTask(), undefined, { expected: null, next: "7" });
+      expect(stmts.some((s) => s.sql.includes(REVISION_CONFLICT_MARKER))).toBe(false);
+      expect(runBatch(db, stmts)).toBeNull();
+      expect(layout.revisionRows(db)).toEqual([{ value: "7" }]);
+    });
+  });
+
+  it("keeps the tenant revision per project: another project's save leaves this one's alone", () => {
+    const db = new DatabaseSync(":memory:");
+    try {
+      for (const ddl of tenantSchemaDdl()) db.exec(ddl);
+      runBatch(db, tenantWorkspaceToStatements(emptyWorkspace(), PROJECT_ID, undefined, { expected: "0", next: "1" }));
+      expect(runBatch(db, tenantWorkspaceToStatements(emptyWorkspace(), "other", undefined, { expected: "0", next: "1" }))).toBeNull();
+      expect(runBatch(db, tenantWorkspaceToStatements(emptyWorkspace(), "other", undefined, { expected: "1", next: "2" }))).toBeNull();
+      const rev = (p: string) => db.prepare("SELECT value FROM meta WHERE key = 'revision' AND project_id = ?").all(p);
+      expect(rev(PROJECT_ID)).toEqual([{ value: "1" }]);
+      expect(rev("other")).toEqual([{ value: "2" }]);
+      // And this project's guard reads its OWN row, not the other project's.
+      expect(runBatch(db, tenantWorkspaceToStatements(emptyWorkspace(), PROJECT_ID, undefined, { expected: "1", next: "2" }))).toBeNull();
+    } finally {
+      db.close();
+    }
+  });
+
+  it("reads the stored revision with the layout's SELECT (absent → no row, the backend reads that as 0)", () => {
+    const db = new DatabaseSync(":memory:");
+    try {
+      for (const ddl of tenantSchemaDdl()) db.exec(ddl);
+      const read = () => {
+        const s = selectRevisionStatement(PROJECT_ID);
+        return db.prepare(s.sql).all(...(s.args ?? []).map(bindArg));
+      };
+      expect(read()).toEqual([]);
+      runBatch(db, tenantWorkspaceToStatements(emptyWorkspace(), PROJECT_ID, undefined, { expected: "0", next: "1" }));
+      expect(read()).toEqual([{ value: "1" }]);
+    } finally {
+      db.close();
+    }
   });
 });

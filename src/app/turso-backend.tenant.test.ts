@@ -13,6 +13,11 @@ import type { ProjectMeta } from "./types";
 
 const cfg = { httpUrl: "https://x.turso.io", authToken: "t" };
 
+/** §4 — a backend that knows its revision (0: nothing stored yet), as after a load; a never-loaded one refuses to save. */
+const loaded = (backend: TursoBackend): TursoBackend => { backend.adoptRevision("0"); return backend; };
+const REVISION_DELETE = "DELETE FROM meta WHERE key = 'revision' AND project_id = ?";
+const REVISION_INSERT = "INSERT INTO meta (key, value, project_id) VALUES ('revision', ?, ?)";
+
 function okEmpty() {
   return { type: "ok" as const, response: { type: "execute", result: { cols: [], rows: [] } } };
 }
@@ -97,17 +102,49 @@ describe("TursoBackend (tenant mode)", () => {
 
   it("save uses the default pipeline timeout (no explicit timeoutMs)", async () => {
     const { emptyWorkspace } = await import("./storage");
-    await new TursoBackend(cfg, "p1").save(emptyWorkspace());
+    await loaded(new TursoBackend(cfg, "p1")).save(emptyWorkspace());
     // The overwrite pipeline (after the column-ensure PRAGMA) uses the default.
     expect(savePipelineCalls()[0][2]).toBeUndefined();
   });
 
   it("save runs the scoped DELETE+INSERT transaction", async () => {
     const { emptyWorkspace } = await import("./storage");
-    await new TursoBackend(cfg, "p1").save(emptyWorkspace());
+    await loaded(new TursoBackend(cfg, "p1")).save(emptyWorkspace());
     const stmts = savePipelineCalls()[0][1];
     expect(stmts[0].sql).toBe("BEGIN");
     expect(stmts.some((s) => s.sql.startsWith("DELETE FROM tasks WHERE project_id"))).toBe(true);
+  });
+
+  it("§4 — the save guards and re-stamps THIS project's revision row", async () => {
+    const { emptyWorkspace } = await import("./storage");
+    const backend = new TursoBackend(cfg, "p1");
+    backend.adoptRevision("4");
+    await backend.save(emptyWorkspace());
+    const stmts = savePipelineCalls()[0][1];
+    const guard = stmts[1 + tenantSchemaDdl().length];
+    expect(guard.sql).toContain("turso-revision-conflict:");
+    expect(guard.sql).toContain("AND project_id = ?");
+    expect(guard.args?.map((a) => a.value)).toEqual(["4", "p1"]);
+    expect(stmts.filter((s) => s.sql === REVISION_DELETE).map((s) => s.args?.map((a) => a.value))).toEqual([["p1"]]);
+    expect(stmts.filter((s) => s.sql === REVISION_INSERT).map((s) => s.args?.map((a) => a.value))).toEqual([["5", "p1"]]);
+    expect(backend.revision()).toBe("5");
+  });
+
+  it("§4 — load reads the revision from this project's meta rows", async () => {
+    const ddlCount = tenantSchemaDdl().length;
+    const metaIndex = TABLE_NAMES.indexOf("meta");
+    const metaRows = { type: "ok" as const, response: { type: "execute", result: {
+      cols: [{ name: "key" }, { name: "value" }, { name: "project_id" }],
+      rows: [[{ value: "revision" }, { value: "12" }, { value: "p1" }]],
+    } } };
+    vi.mocked(runTursoPipeline).mockResolvedValueOnce([
+      ...Array.from({ length: ddlCount }, okEmpty),
+      ...TABLE_NAMES.map((_t, i) => (i === metaIndex ? metaRows : okEmpty())),
+      projectsRow("p1", meta()),
+    ]);
+    const backend = new TursoBackend(cfg, "p1");
+    await backend.load();
+    expect(backend.revision()).toBe("12");
   });
 
   describe("dirty-table saves", () => {
@@ -115,12 +152,12 @@ describe("TursoBackend (tenant mode)", () => {
 
     it("first save is full; second save with only tasks changed emits scoped DELETE+INSERT for tasks only", async () => {
       const { emptyWorkspace } = await import("./storage");
-      const backend = new TursoBackend(cfg, "p1");
+      const backend = loaded(new TursoBackend(cfg, "p1"));
       const ws = emptyWorkspace();
       await backend.save(ws);
       const full = savePipelineCalls()[0][1];
       // first save (no baseline) = full rewrite: one scoped DELETE per table
-      expect(full.filter((s) => s.sql.startsWith("DELETE FROM"))).toHaveLength(TABLE_NAMES.length);
+      expect(full.filter((s) => s.sql.startsWith("DELETE FROM"))).toHaveLength(TABLE_NAMES.length + 1);
 
       const ws2 = { ...ws, tasks: [minimalTask as never] };
       await backend.save(ws2);
@@ -128,17 +165,17 @@ describe("TursoBackend (tenant mode)", () => {
       expect(sqls[0]).toBe("BEGIN");
       expect(sqls[sqls.length - 1]).toBe("COMMIT");
       expect(sqls.filter((s) => s.startsWith("CREATE TABLE IF NOT EXISTS"))).toHaveLength(tenantSchemaDdl().length);
-      expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toEqual(["DELETE FROM tasks WHERE project_id = ?"]);
-      const inserts = sqls.filter((s) => s.startsWith("INSERT INTO"));
+      expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toEqual(["DELETE FROM tasks WHERE project_id = ?", REVISION_DELETE]);
+      const inserts = sqls.filter((s) => s.startsWith("INSERT INTO") && s !== REVISION_INSERT);
       expect(inserts).toHaveLength(1);
       expect(inserts[0].startsWith("INSERT INTO tasks")).toBe(true);
-      // BEGIN + DDL + DELETE tasks + 1 task INSERT + COMMIT
-      expect(sqls).toHaveLength(1 + tenantSchemaDdl().length + 1 + 1 + 1);
+      // BEGIN + DDL + guard + DELETE tasks + 1 task INSERT + revision DELETE/INSERT + COMMIT
+      expect(sqls).toHaveLength(1 + tenantSchemaDdl().length + 1 + 1 + 1 + 2 + 1);
     });
 
     it("zero-change save skips the pipeline; a failed save keeps its tables dirty for the next save", async () => {
       const { emptyWorkspace } = await import("./storage");
-      const backend = new TursoBackend(cfg, "p1");
+      const backend = loaded(new TursoBackend(cfg, "p1"));
       const ws = emptyWorkspace();
       await backend.save(ws);
       // First save: column-ensure PRAGMA + the overwrite.
@@ -197,8 +234,8 @@ describe("TursoBackend (tenant mode)", () => {
       });
       const { emptyWorkspace } = await import("./storage");
       // Two backend instances = two tabs pointing at the same DB + project.
-      const tabA = new TursoBackend(cfg, "p1").save(emptyWorkspace());
-      const tabB = new TursoBackend(cfg, "p1").save(emptyWorkspace());
+      const tabA = loaded(new TursoBackend(cfg, "p1")).save(emptyWorkspace());
+      const tabB = loaded(new TursoBackend(cfg, "p1")).save(emptyWorkspace());
       await new Promise((resolve) => setTimeout(resolve, 0));
       // Tab A (holding the lock) has run its column-ensure PRAGMA and started the
       // gated overwrite; tab B is queued behind the lock — not interleaved.

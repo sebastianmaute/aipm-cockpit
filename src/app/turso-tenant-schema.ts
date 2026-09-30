@@ -15,8 +15,8 @@
 // find-status logic still works.
 
 import {
-  ENTITY_SPECS, PLAN_COLUMNS, FX_COLUMNS, rowObjects, TABLE_NAMES,
-  type SqlStmt, type PipelineResultLike, type EntityIdKind,
+  ENTITY_SPECS, PLAN_COLUMNS, FX_COLUMNS, rowObjects, TABLE_NAMES, withRevision,
+  type SqlStmt, type PipelineResultLike, type EntityIdKind, type RevisionStamp,
 } from "./turso-schema";
 import { hasAnyOverride } from "./settings-overrides";
 import {
@@ -105,11 +105,15 @@ function tenantInsert(
  * Like workspaceToStatements: when `dirtyTables` is provided, the scoped
  * DELETE+INSERT pairs are emitted only for those tables; DDL and BEGIN/COMMIT
  * are always emitted. Omitting the param keeps the full project overwrite.
+ * §4: `stamp` guards and re-stamps THIS project's revision row (`withRevision`).
  */
-export function tenantWorkspaceToStatements(ws: Workspace, projectId: string, dirtyTables?: ReadonlySet<string>): SqlStmt[] {
+export function tenantWorkspaceToStatements(
+  ws: Workspace, projectId: string, dirtyTables?: ReadonlySet<string>, stamp?: RevisionStamp,
+): SqlStmt[] {
   const isDirty = (table: string) => dirtyTables === undefined || dirtyTables.has(table);
   const out: SqlStmt[] = [{ sql: "BEGIN" }];
-  for (const ddl of tenantSchemaDdl()) out.push({ sql: ddl });
+  const ddl = tenantSchemaDdl();
+  for (const d of ddl) out.push({ sql: d });
   for (const name of TABLE_NAMES) {
     if (!isDirty(name)) continue;
     out.push({ sql: `DELETE FROM ${name} WHERE project_id = ?`, args: [text(projectId)] });
@@ -177,7 +181,7 @@ export function tenantWorkspaceToStatements(ws: Workspace, projectId: string, di
     }
   }
   out.push({ sql: "COMMIT" });
-  return out;
+  return withRevision(out, ddl.length, stamp, projectId);
 }
 
 // --- projects table CRUD --------------------------------------------------

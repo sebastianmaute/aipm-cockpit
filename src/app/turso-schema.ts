@@ -280,6 +280,79 @@ export function rowsToWorkspace(
   return migrateWorkspaceV10(ws);
 }
 
+// --- §4 revision ------------------------------------------------------------
+//
+// One `meta` row, key "revision" (tenant: per project_id), holding the integer
+// count of saves. No row reads as "0". A save carries a GUARD statement that
+// raises an SQLite error when the stored revision is not the one the saving
+// instance last loaded or wrote; inside §637's conditional batch that error
+// skips every later step, COMMIT included, and the batch rolls back — so the
+// compare and the write are ONE atomic step against every writer, other devices
+// included. The row is not a table, so TABLE_NAMES is untouched, and it rides
+// every save: a dirty `meta` is DELETEd wholesale, so the stamp re-inserts it.
+
+export const REVISION_KEY = "revision";
+/** In the guard's error message, followed by the stored revision. */
+export const REVISION_CONFLICT_MARKER = "turso-revision-conflict:";
+
+/** What a save stamps. `expected` is the revision the guard demands; `null` =
+ *  a blind write with no guard (`forceNextSave()`). */
+export interface RevisionStamp { expected: string | null; next: string }
+
+const revisionWhere = (projectId?: string): { sql: string; args: SqlArg[] } =>
+  projectId === undefined
+    ? { sql: `key = '${REVISION_KEY}'`, args: [] }
+    : { sql: `key = '${REVISION_KEY}' AND project_id = ?`, args: [txt(projectId)] };
+
+/** ★ Raises on mismatch by handing `json_extract` a path that is not a JSON path
+ *  (it must start with `$`). The path is built from the STORED value, so it is not
+ *  a constant SQLite could evaluate up front, and the error names that value. */
+export function revisionGuardStatement(expected: string, projectId?: string): SqlStmt {
+  const where = revisionWhere(projectId);
+  return {
+    sql: `SELECT CASE WHEN r = ? THEN 1 ELSE json_extract('{}', '${REVISION_CONFLICT_MARKER}' || r) END ` +
+      `FROM (SELECT coalesce((SELECT value FROM meta WHERE ${where.sql}), '0') AS r)`,
+    args: [txt(expected), ...where.args],
+  };
+}
+
+export function revisionStampStatements(next: string, projectId?: string): SqlStmt[] {
+  const where = revisionWhere(projectId);
+  return [
+    { sql: `DELETE FROM meta WHERE ${where.sql}`, args: where.args },
+    projectId === undefined
+      ? { sql: `INSERT INTO meta (key, value) VALUES ('${REVISION_KEY}', ?)`, args: [txt(next)] }
+      : { sql: `INSERT INTO meta (key, value, project_id) VALUES ('${REVISION_KEY}', ?, ?)`, args: [txt(next), txt(projectId)] },
+  ];
+}
+
+export function selectRevisionStatement(projectId?: string): SqlStmt {
+  const where = revisionWhere(projectId);
+  return { sql: `SELECT value FROM meta WHERE ${where.sql}`, args: where.args };
+}
+
+/** The stored revision in a `meta` SELECT result (all keys, or just the revision row); "0" when absent. */
+export function revisionFromMetaRows(res: PipelineResultLike | undefined): string {
+  const rows = rowObjects(res);
+  const row = rows.find((r) => r.key === REVISION_KEY) ?? (rows.length && !("key" in rows[0]) ? rows[0] : undefined);
+  return row?.value || "0";
+}
+
+/** The revision a save stamps after `rev`. A value that is not a count restarts at 1. */
+export function nextRevision(rev: string): string {
+  return String((/^\d+$/.test(rev) ? Number(rev) : 0) + 1);
+}
+
+/** BEGIN, the DDL, then the guard — before the first write, and after the DDL so a
+ *  fresh database already has the `meta` table the guard reads. */
+export function withRevision(stmts: SqlStmt[], ddlCount: number, stamp: RevisionStamp | undefined, projectId?: string): SqlStmt[] {
+  if (!stamp) return stmts;
+  const head = stmts.slice(0, 1 + ddlCount);
+  const body = stmts.slice(1 + ddlCount, -1);
+  const guard = stamp.expected === null ? [] : [revisionGuardStatement(stamp.expected, projectId)];
+  return [...head, ...guard, ...body, ...revisionStampStatements(stamp.next, projectId), stmts[stmts.length - 1]];
+}
+
 // Bump on any schema/column change. NOTE: there is no ALTER-migration runner —
 // adding a column means existing Turso databases (created before this column)
 // need re-creation / sample re-import (as with documentLinks/resource-fk columns).
@@ -339,9 +412,10 @@ export function dirtyWorkspaceTables(prev: Workspace, next: Workspace): Set<stri
  * tables (the others are untouched in the DB); the CREATE TABLE IF NOT EXISTS
  * set and BEGIN/COMMIT are ALWAYS emitted — DDL is cheap and guards the first
  * write against a fresh database. Omitting the param keeps the historical
- * full-rewrite behavior.
+ * full-rewrite behavior. §4: `stamp` adds the revision guard and re-stamps the
+ * revision row (see `withRevision`); omitting it leaves the revision alone.
  */
-export function workspaceToStatements(ws: Workspace, dirtyTables?: ReadonlySet<string>): SqlStmt[] {
+export function workspaceToStatements(ws: Workspace, dirtyTables?: ReadonlySet<string>, stamp?: RevisionStamp): SqlStmt[] {
   const isDirty = (table: string) => dirtyTables === undefined || dirtyTables.has(table);
   const out: SqlStmt[] = [{ sql: "BEGIN" }];
   for (const ddl of SCHEMA_DDL) out.push({ sql: ddl });
@@ -487,5 +561,5 @@ export function workspaceToStatements(ws: Workspace, dirtyTables?: ReadonlySet<s
     }
   }
   out.push({ sql: "COMMIT" });
-  return out;
+  return withRevision(out, SCHEMA_DDL.length, stamp);
 }
