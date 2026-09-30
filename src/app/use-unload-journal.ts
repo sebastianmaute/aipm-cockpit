@@ -241,8 +241,11 @@ export function useUnloadJournal({ projectKey, enabled, isPopout }: UseUnloadJou
     if (!activeRef.current) return true; // a pop-out, or before hydration: there is no journal to keep in
     const entry: Unconfirmed = { projectKey: projectKeyRef.current, workspace: live, savedAt: nextSavedAt(), boundToBase: true };
     if (now) {
-      if (latestUnconfirmedRef.current?.projectKey === entry.projectKey) latestUnconfirmedRef.current = null;
-      return keep(entry);
+      // Final re-review r1: consume the pause's entry only once the kept record is WRITTEN. A failed keep
+      // refuses the switch, and the user stays paused here: pagehide must still find that entry.
+      const kept = keep(entry);
+      if (kept && latestUnconfirmedRef.current?.projectKey === entry.projectKey) latestUnconfirmedRef.current = null;
+      return kept;
     }
     latestUnconfirmedRef.current = entry;
     if (isPageHiding() || document.visibilityState === "hidden") write(entry);

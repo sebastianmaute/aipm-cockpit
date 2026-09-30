@@ -50,7 +50,7 @@ vi.mock("./unload-journal", async (importOriginal) => {
 
 import * as storageMod from "./storage";
 import { TestProviders } from "./test-providers";
-import { fingerprintWorkspace, keptProjectKey, UNLOAD_JOURNAL_PREFIX, type UnloadJournal } from "./unload-journal";
+import { fingerprintWorkspace, keptProjectKey, UNLOAD_JOURNAL_MAX_CHARS, UNLOAD_JOURNAL_PREFIX, type UnloadJournal } from "./unload-journal";
 import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
 import { useStorageBackend } from "./use-storage-backend";
 import { UNLOAD_JOURNAL_TAB_ID, useUnloadJournal } from "./use-unload-journal";
@@ -520,6 +520,20 @@ describe("§629 — useUnloadJournal on its own", () => {
     act(() => { result.current.followLive(WS_2, true); }); // …then the switch away keeps the newest
     pageHide();
     expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  // Final re-review r1 — a kept write that FAILS refuses the switch, so the user stays paused on this
+  // project: the pause's own entry must survive it, or closing the tab before the next edit writes nothing.
+  it("§4 a followLive(ws, true) whose kept write fails leaves the pause's live entry for pagehide", () => {
+    const { result } = renderJournal();
+    act(() => { result.current.followLive(WS_1); }); // the pause's live entry
+    const huge: Workspace = { ...emptyWorkspace(), tasks: [{ id: 9, taskName: "x".repeat(UNLOAD_JOURNAL_MAX_CHARS) } as unknown as Task] };
+    let kept = true;
+    act(() => { kept = result.current.followLive(huge, true); });
+    expect(kept).toBe(false);
+    expect(localStorage.getItem(KEPT_KEY)).toBeNull();
+    pageHide();
+    expect(jsonToWorkspace(readJournal(KEY)!.workspace).tasks.map((x) => x.id)).toEqual([1]);
   });
 
   it("§4 a second keep never replaces the kept record the user has not resolved: it gets a numbered kept slot, never the own one", () => {
