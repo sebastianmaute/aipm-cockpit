@@ -281,17 +281,27 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   `setBackendFileHandle` or `pickFileForBackend`: a project op (switch, create, open-project) its
   registry id, and a pick, an open or a conversion a fresh `picked:<uuid>`. The op also sets the
   window's own binding in the same tick. A window reads its instance's binding
-  (`LocalFileBackend.fileBinding`) on every path that binds it: the load effect (before its
-  empty-load refusal, and in its catch), "Reload project" and the write-access grant; never the
-  registry's current project. ★★ An UNKNOWN binding (a failed load that bound nothing, an old slot
-  holding the bare handle, a tab still on old code) is never the kind alone: it keys on a token of
-  the window's own (`isolationToken`, `use-workspace-sync.ts`), so that window syncs with NOBODY,
-  which errs toward a visible pause, never toward mirroring another file. So local-file windows on
-  different files neither mirror nor adopt each other, and windows on one file do once each knows
-  its binding, including a window opened or reloaded after a pick or recovered from a failed load.
-  ★ Exception, a false pause with no loss: picking (or opening) the file a REGISTERED project
-  already uses gives the picker a `picked:` binding while that project's windows hold its id, so the
-  windows on that one file do not mirror, and the one saving second pauses. Browser storage is
+  (`LocalFileBackend.fileBinding`) on every path that binds it: a load that is applied, the load
+  effect's catch, "Reload project" and the write-access grant; never the registry's current
+  project. A load REFUSED as empty keeps the previous content on screen, which belongs to neither
+  file, so it sets the binding to unknown instead. An old slot holding a BARE handle (written before
+  the binding was stored, or by a tab still on old code) is upgraded by the first load that reads
+  it: written back as a record with the id of the registered project whose stored handle is the
+  same file (`isSameEntry`), else a fresh `picked:<uuid>`; the slot is read again just before the
+  write, and a record another tab wrote meanwhile is adopted. ★★ An UNKNOWN binding is never the
+  kind alone: it keys on a token of the window's own (`isolationToken`, `use-workspace-sync.ts`),
+  so that window syncs with NOBODY, which errs toward a visible pause, never toward mirroring
+  another file. So local-file windows on different files neither mirror nor adopt each other, and
+  windows on one file do once each knows the same binding.
+  ★ Where that isolation, or two bindings for one file, gives a FALSE PAUSE (visible, no loss): a
+  load whose slot read failed (the idb read rejected, so nothing was bound); a refused empty load
+  (above); picking or opening the file a REGISTERED project already uses (the picker gets a
+  `picked:` binding while that project's windows hold its id); two windows that each picked the same
+  file on their own (two `picked:` ids); two tabs booting on one bare slot at the same moment (both
+  still find it bare on the re-read, both write, the later write wins, and the earlier tab stays
+  isolated until it reloads); and tabs still running old code, which write bare handles again (their
+  own windows mirror on the kind alone among themselves; a new window upgrades the slot afresh and
+  so does not share a binding with the windows that upgraded it before). Browser storage is
   still ONE store per origin (`new BrowserBackend()` takes no project) and is keyed by the kind
   alone: browser windows showing different registry projects mirror each other's slices, adopt
   each other's revisions and converge on one workspace. The revision check pauses only a writer
