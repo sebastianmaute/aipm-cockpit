@@ -1255,6 +1255,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     currentWorkspace,
     applyWorkspace: applyWorkspaceForOp, // §548 clause (b)
     suppressNextLoadRef,
+    handOverFromRef,
     suppressNextSaveRef,
     reportProjectError,
   });

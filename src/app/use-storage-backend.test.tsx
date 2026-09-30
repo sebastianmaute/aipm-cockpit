@@ -132,6 +132,7 @@ vi.mock("./turso-backend", () => ({
       return { tasks: [], raid: [], absences: [], shifts: [] };
     });
     save = vi.fn().mockResolvedValue(undefined);
+    forceNextSave = vi.fn(); // §4 — createTursoProject declares its blind write
     isReady = vi.fn().mockResolvedValue(true);
     describe = vi.fn().mockResolvedValue("Turso");
   },

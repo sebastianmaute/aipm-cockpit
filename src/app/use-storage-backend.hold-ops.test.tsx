@@ -81,6 +81,7 @@ vi.mock("./turso-backend", () => ({
     constructor(public config: unknown, public projectId: string) {}
     load = vi.fn(() => (seam.tursoLoad ? seam.tursoLoad() : Promise.resolve({ tasks: [], raid: [], absences: [], shifts: [] })));
     save = vi.fn().mockResolvedValue(undefined);
+    forceNextSave = vi.fn(); // §4 — createTursoProject declares its blind write
     isReady = vi.fn().mockResolvedValue(true);
     describe = vi.fn().mockResolvedValue("Turso");
   },
