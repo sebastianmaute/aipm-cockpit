@@ -31,9 +31,13 @@ vi.mock("./project-file-handles", () => ({
 }));
 vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn() }));
 vi.mock("./diagnostics", async (importOriginal) => ({ ...(await importOriginal<typeof import("./diagnostics")>()), logDiag: vi.fn() }));
+vi.mock("./download-json", () => ({ downloadJson: vi.fn(() => true) }));
 
 import { useRevisionSync } from "./broadcast-sync";
+import { downloadJson } from "./download-json";
+import { LocalFileBackend } from "./local-file-backend";
 import { addProject, emptyRegistry, loadRegistry, saveRegistry } from "./projects-registry";
+import { enqueueSave } from "./save-queue";
 import type { FsHandle, StorageConfig } from "./storage";
 import { emptyWorkspace, workspaceToJson } from "./storage";
 import { SaveConflictError } from "./storage-error";
@@ -359,5 +363,97 @@ describe("useStorageBackend — a stale save pauses saving and keeps the edits j
     expect(journals().some(({ journal }) => journal.workspace.includes("OUTGOING-EDIT"))).toBe(true);
     expect(app.ops().conflictPause).toBe(false); // the pause belongs to the project left behind
     expect(showToast.mock.calls.filter(([, text]) => text === t("en-US", "storageConflictNotSavedOnSwitch"))).toHaveLength(1); // the op's cleanup flush meets the conflict too: kept and toasted once
+  });
+});
+
+describe("useStorageBackend — resolving a conflict pause: Reload, Overwrite, Download my version (§4)", () => {
+  const names = (app: App) => app.hook.result.current.workspace.tasks.map((x) => x.taskName);
+  /** The hook's own backend instance: the one the boot load ran on. */
+  function liveBackend(loads: { mock: { contexts: unknown[] } }): LocalFileBackend {
+    return loads.mock.contexts.at(-1) as LocalFileBackend;
+  }
+
+  it("Reload lifts the pause, applies the stored (peer's) version, drops the unconfirmed journal copy, and the next edit saves with no conflict", async () => {
+    const { app, file } = await pausedOnConflict();
+    await edit(app, [task(1, "FIRST"), task(2, "PAUSED")]);
+    await settle(900);
+    await act(async () => { await app.ops().resolveConflictReload(); });
+    await settle();
+    expect(app.ops().conflictPause).toBe(false);
+    expect(app.ops().loadPause).toBeNull();
+    expect(names(app)).toEqual(["PEER"]);
+    act(() => { window.dispatchEvent(new Event("pagehide")); }); // nothing of the discarded edits may come back on the next page load
+    expect(journals().some(({ journal }) => journal.workspace.includes("PAUSED") || journal.workspace.includes("FIRST"))).toBe(false);
+    await edit(app, [task(7, "PEER"), task(3, "AFTER")]);
+    await waitFor(() => expect(file.text()).toContain("AFTER"), { timeout: 4000 });
+    expect(file.text()).toContain("PEER");
+    expect(app.conflicts()).toBe(1);
+    expect(file.writes).toBe(1);
+  });
+
+  it("Overwrite writes the LIVE workspace over the peer's, lifts the pause, and later saves check against the revision it wrote", async () => {
+    const force = vi.spyOn(LocalFileBackend.prototype, "forceNextSave");
+    const { app, file } = await pausedOnConflict();
+    await edit(app, [task(1, "FIRST"), task(2, "LIVE")]); // made AFTER the pause: the refused save never held it
+    await settle(900);
+    expect(force).not.toHaveBeenCalled();
+    act(() => { app.ops().resolveConflictOverwrite(); });
+    await waitFor(() => expect(file.text()).toContain("LIVE"), { timeout: 4000 });
+    expect(force).toHaveBeenCalledTimes(1);
+    expect(file.text()).not.toContain("PEER");
+    expect(app.ops().conflictPause).toBe(false);
+    await edit(app, [task(1, "FIRST"), task(2, "LIVE"), task(3, "NEXT")]);
+    await waitFor(() => expect(file.text()).toContain("NEXT"), { timeout: 4000 });
+    expect(app.conflicts()).toBe(1); // the second save was checked against Overwrite's own revision, and passed
+    expect(file.writes).toBe(2);
+    expect(force).toHaveBeenCalledTimes(1);
+    force.mockRestore();
+  });
+
+  it("a save queued AHEAD of the Overwrite does not spend its force: it is refused, and the Overwrite's own save writes the live workspace", async () => {
+    const loads = vi.spyOn(LocalFileBackend.prototype, "load");
+    const { app, file } = await pausedOnConflict();
+    const live = liveBackend(loads);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    // a write already in the queue when the user confirms (a flush, a picked-file write): it runs AFTER the click
+    const ahead = enqueueSave(live, async () => { await gate; await live.save({ ...emptyWorkspace(), tasks: [task(9, "AHEAD")] }); }).then(() => "wrote", (err: unknown) => err);
+    await edit(app, [task(1, "FIRST"), task(2, "LIVE")]);
+    act(() => { app.ops().resolveConflictOverwrite(); });
+    await settle(900); // the Overwrite's save is queued behind it
+    release();
+    expect(await ahead).toBeInstanceOf(SaveConflictError);
+    await waitFor(() => expect(file.text()).toContain("LIVE"), { timeout: 4000 });
+    expect(file.text()).not.toContain("AHEAD");
+    expect(file.writes).toBe(1);
+    expect(app.ops().conflictPause).toBe(false);
+    loads.mockRestore();
+  });
+
+  it("an Overwrite whose write fails leaves no force armed: the next save is checked again and refused", async () => {
+    const { app, file } = await pausedOnConflict();
+    const createWritable = file.createWritable;
+    file.createWritable = async () => { file.createWritable = createWritable; throw new Error("disk full"); };
+    await edit(app, [task(1, "FIRST"), task(2, "LIVE")]);
+    act(() => { app.ops().resolveConflictOverwrite(); });
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageWriteBlocked")), { timeout: 4000 }); // the local-file backend reports a failed write as blocked
+    expect(file.writes).toBe(0);
+    await edit(app, [task(1, "FIRST"), task(2, "LIVE"), task(3, "AGAIN")]);
+    await waitFor(() => expect(app.conflicts()).toBe(2), { timeout: 4000 }); // unforced, so the peer's revision refuses it
+    expect(file.writes).toBe(0);
+    expect(file.text()).toContain("PEER");
+  });
+
+  it("Download my version saves the LIVE workspace under a conflict name and keeps the pause", async () => {
+    const { app } = await pausedOnConflict();
+    await act(async () => { app.hook.result.current.workspace.setProject({ name: "Apollo: Q3" } as never); });
+    await edit(app, [task(1, "FIRST"), task(2, "LIVE")]);
+    act(() => { app.ops().downloadConflictVersion(); });
+    expect(vi.mocked(downloadJson)).toHaveBeenCalledTimes(1);
+    const [name, json] = vi.mocked(downloadJson).mock.calls[0];
+    expect(name).toMatch(/^aipm-cockpit-apollo-q3-conflict-.+\.json$/);
+    expect((JSON.parse(json) as { tasks: Task[] }).tasks.map((x) => x.taskName)).toEqual(["FIRST", "LIVE"]);
+    await settle(900);
+    expect(app.ops().conflictPause).toBe(true);
   });
 });

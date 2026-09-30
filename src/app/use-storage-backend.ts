@@ -31,6 +31,7 @@ import { lastLoadWasIncomplete, useLoadTruncation } from "./use-load-truncation"
 import { useDestructiveSaveGuard } from "./use-destructive-save-guard";
 import { resolveJournalProjectKey, useUnloadJournal } from "./use-unload-journal";
 import { useOtherJournals } from "./use-other-journals";
+import { useConflictResolution } from "./use-conflict-resolution";
 import { enqueueSave, whenSaved } from "./save-queue";
 import { createMirrorLedger } from "./mirror-ledger";
 import { handOverRevision } from "./storage-handover";
@@ -397,11 +398,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const unloadJournal = useUnloadJournal({ projectKey: journalProjectKey, enabled: args.hydrated, isPopout: args.isPopout });
   // §632 — journals under OTHER keys: expired past 30 days, the rest listed. After the first load, so its restore has run.
   const otherJournals = useOtherJournals({ projectKey: journalProjectKey, restoredKeys: unloadJournal.restoredKeys, enabled: args.hydrated && workspaceLoaded, isPopout: args.isPopout });
+  const conflictResolution = useConflictResolution({ backend, currentWorkspace, reload: () => reloadHeld(), openGate: () => { if (conflictPausedForRef.current !== backend) return false; allowSavesTo(backend); return true; }, onDownloadFailed: (name) => emitToast("error", t(langRef.current, "unloadJournalDownloadFailed", name)) }); // §4 — the conflict banner's three actions; `runSaveJob` wraps the autosave job below
   // ★ A `const`, not a `function` declaration: `use-load-truncation.test.ts` keys each `.save(` on the
   // nearest preceding DECLARATION, and one here would rename the `flushCurrent` write's key below.
   const allowSavesTo = (target: ReturnType<typeof createBackend>): void => {
     savesAllowedForRef.current = target;
     conflictPausedForRef.current = null;
+    conflictResolution.cancelOverwrite(); // §4 — a load (or the Overwrite itself, which re-requests after) sets the baseline
     setSavesAllowedFor(target);
   };
   // Why saving to an instance is paused: its load FAILED, or it came back EMPTY over a populated
@@ -964,7 +967,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       //   keeps the baselines, the unload-journal entry and the outcome for edits nothing wrote.
       // §4 — the revision this save is checked against, read INSIDE the job right before the write: the job may wait behind others, and one replaced by a guarded write never runs it (`undefined`).
       let baseRevision: string | null | undefined;
-      enqueueSave(backend, () => { baseRevision = backend.revision?.() ?? null; return backend.save(outgoing); }).then((result) => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
+      enqueueSave(backend, () => conflictResolution.runSaveJob(backend, () => { baseRevision = backend.revision?.() ?? null; return backend.save(outgoing); })).then((result) => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
         if (result === "superseded") return;
         committedBaselineRef.current = { collections: curCollections, records: curRecords }; // the write landed: these are on disk now
         mirrorLedger.markSaved(outgoing); // §4 — and this is what storage holds
@@ -1501,6 +1504,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // ★ Do not quote the length here either; measure both sides instead
   // (`LIMIT` lives in `scripts/check-file-sizes.mjs`).
   // Measure: node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
+  const reloadHeld = holdDuring(reloadCurrentProject, "same-scope"); // one wrapper, shared by the conflict banner's Reload
   return {
     storageDescription, storageReady, workspaceLoaded, loadPause, conflictPause: loadPause === "conflict", loadPending, getScopeEpoch, isSwapInFlight,
     // ★★★ §590 PUT `onPickStorageFile` UNDER THE HOLD, and it was deliberately outside it before.
@@ -1546,7 +1550,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   epoch — `scope-epoch.ts` says so). If you add a row, add its ground here or the next reader
     //   cannot check your classification.
     onPickStorageFile: holdDuring(onPickStorageFile, "same-scope"), onGrantWriteAccess, onOpenStorageFile: holdDuring(onOpenStorageFile, "same-scope"), onRequestStorageSwitch,
-    reloadCurrentProject: holdDuring(reloadCurrentProject, "same-scope"), allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
+    reloadCurrentProject: reloadHeld, allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     // ★★★ `switchToProject` IS `"same-scope"`, AND IT SHIPPED AS `"changes-scope"` FOR ONE ROUND —
     //   the B1 regression re-opened for four paths by the very fix that closed it. It has abort
     //   paths AFTER the hold is raised: an unknown id (toast + return), the target already being
@@ -1567,5 +1571,6 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     tursoProjectId,
     unloadJournalConflict: unloadJournal.conflict, restoreUnloadJournalAnyway, discardUnloadJournal: unloadJournal.discardConflict, // §629
     otherJournals, // §632
+    resolveConflictReload: conflictResolution.resolveConflictReload, resolveConflictOverwrite: conflictResolution.resolveConflictOverwrite, downloadConflictVersion: conflictResolution.downloadConflictVersion, // §4
   };
 }
