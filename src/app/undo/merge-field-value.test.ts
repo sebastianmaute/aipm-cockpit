@@ -106,12 +106,53 @@ describe("mergeFieldValue", () => {
   });
 
   it("returns a reordered record verbatim when nothing raced", () => {
-    // Key ORDER, not content: `mergeRecord` seeds from `live` and appends
-    // target-only keys, so without the short-circuit it would rebuild this in
-    // live's key order. `toEqual` is order-insensitive for objects, so the
-    // assertion is on `Object.keys` — the thing that actually differs.
+    // Key ORDER, not content: `toEqual` is order-insensitive for objects, so the
+    // assertion is on `Object.keys`. ★ Since §291 `mergeRecord` builds in
+    // target's key order too, so this no longer distinguishes the short-circuit
+    // from the merge body for RECORDS — the array case above, and the
+    // permutation property below, are what kill that mutant now.
     const out = mergeFieldValue({ b: 1, a: 2 }, { a: 2, b: 1 }, { a: 2, b: 1 });
     expect(Object.keys(out as Record<string, unknown>)).toEqual(["b", "a"]);
+  });
+
+  // open-followups §292. The property at the top draws `target` and `other`
+  // independently, so the one shape that separates the no-race short-circuit
+  // from the merge body — same members, different order — turned up in ~0.19%
+  // of draws, and the same mutant was killed on one run and survived the next.
+  // This property draws it ON PURPOSE: `other` is a permutation of `target`, and
+  // the floor counts runs where the order really differs, i.e. runs the merge
+  // body would answer differently.
+  it("returns the target verbatim for any pure reorder when nothing raced", () => {
+    let reordered = 0;
+    const RUNS = 200;
+    const pair = fc
+      .uniqueArray(fc.string(), { minLength: 2, maxLength: 6 })
+      .chain((t) => fc.tuple(fc.constant(t), fc.shuffledSubarray(t, { minLength: t.length, maxLength: t.length })));
+    fc.assert(
+      fc.property(pair, ([target, other]) => {
+        const out = mergeFieldValue(target, other, [...other]);
+        if (JSON.stringify(target) !== JSON.stringify(other)) reordered += 1;
+        expect(out).toEqual(target);
+      }),
+      { numRuns: RUNS },
+    );
+    expect(reordered / RUNS).toBeGreaterThan(0.5);
+  });
+});
+
+describe("mergeRecord key order (open-followups §291)", () => {
+  it("re-inserts a key the op removed at its original position, not at the end", () => {
+    // The op deleted `b`; a concurrent writer then added `d`. Undo restores `b`
+    // between `a` and `c`, and keeps the concurrent `d` after them.
+    const out = mergeFieldValue({ a: 1, b: 2, c: 3 }, { a: 1, c: 3 }, { a: 1, c: 3, d: 4 });
+    expect(out).toEqual({ a: 1, b: 2, c: 3, d: 4 });
+    expect(Object.keys(out as Record<string, unknown>)).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("keeps a concurrent delete of a key the op never touched", () => {
+    const out = mergeFieldValue({ a: 1, b: 2, c: 9 }, { a: 1, b: 2, c: 3 }, { a: 1, c: 3 });
+    expect(out).toEqual({ a: 1, c: 9 });
+    expect(Object.keys(out as Record<string, unknown>)).toEqual(["a", "c"]);
   });
 });
 

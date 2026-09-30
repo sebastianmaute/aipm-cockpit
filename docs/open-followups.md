@@ -292,7 +292,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§58](#58-the-axe-gate-can-pass-against-a-stale-dev-server--gate-half-fixed-post-02120-sibling-worktree-half-open) | The axe gate can pass against a STALE dev server — gate half FIXED post-0.212.0, sibling-worktree half OPEN | 0.212.0 (Nayler) | S | open |
 | [§59](#59-eye-verification-owed-on-02120--and-on-the-two-releases-before-it--open) | Eye verification owed on 0.212.0 — and on the two releases before it | 0.212.0 (Nayler) | S | open |
 | [§60](#60-the-file-size-ratchet-ignores-every-file-at-or-under-800-lines-so-a-sub-limit-baseline-entry-is-inert--closed-2026-08-26) | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | **CLOSED** 2026-08-26 |
-| [§61](#61-three-residuals-from-the-use-resource-planner-split-plus-one-pointer--open-all-small) | Three residuals from the `use-resource-planner` split, plus one pointer — open, all small | post-0.212.0 | S | open |
+| [§61](#61-three-residuals-from-the-use-resource-planner-split-plus-one-pointer--open-narrowed-to-c-and-d) | Three residuals from the `use-resource-planner` split, plus one pointer — open, narrowed to (c) and (d) | post-0.212.0 | S | open |
 | [§62](#62-two-reference-data-handlers-have-no-production-consumer--open-pre-existing) | Two reference-data handlers have no production consumer — open, pre-existing | pre-existing, found post-0.212.0 | S | open |
 | [§63](#63-gantttsx-crossed-800-and-was-baselined-rather-than-split--closed-in-02130-split-after-all) | ~~`gantt.tsx` crossed 800 and was baselined rather than split~~ | post-0.212.0 | M | **CLOSED** in 0.213.0, split after all |
 | [§64](#64-other-surfaces-still-read-0-complete-for-an-all-cancelled-project--closed-2026-09-26) | Other surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S | **CLOSED** 2026-09-26 |
@@ -522,8 +522,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--closed-2026-08-30) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses | found 2026-08-29, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
 | [§289](#289-milestones-should-stamp-localmodifiedat--the-apply-does-not-write-it-and-the-bulk-undo-therefore-does-not-either--closed-2026-08-30) | ~~Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either~~ | found 2026-08-29 | S | **CLOSED** 2026-08-30 (all THREE paths: apply, single-row undo, bulk undo; SUPERSEDES §181) |
 | [§290](#290-differs-and-valuesdiffer-are-two-exported-spellings-of-one-predicate-in-field-groupsts--open) | `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` | found 2026-08-29 | XS | open |
-| [§291](#291-mergerecord-rebuilds-in-lives-key-order-not-targets--open) | `mergeRecord` rebuilds in `live`'s key order, not `target`'s | found 2026-08-29 | S | open |
-| [§292](#292-the-merge-property-tests-anti-vacuity-floor-measures-generator-diversity-not-merge-path-coverage--open) | The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage | found 2026-08-29 | S | open |
+| [§291](#291-mergerecord-rebuilds-in-lives-key-order-not-targets--closed-2026-09-30) | `mergeRecord` rebuilds in `live`'s key order, not `target`'s | found 2026-08-29 | S | **CLOSED** 2026-09-30 |
+| [§292](#292-the-merge-property-tests-anti-vacuity-floor-measures-generator-diversity-not-merge-path-coverage--closed-2026-09-30) | The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage | found 2026-08-29 | S | **CLOSED** 2026-09-30 |
 | [§293](#293-the-destructive-save-arming-gate-covers-the-ai-surface-only--a-new-ui-delete-handler-still-arms-nothing-and-fails-no-gate) | The destructive-save arming gate covers the AI surface only — a new UI delete handler still arms nothing and fails no gate | found 2026-08-29 | M | open (narrowed 2026-08-30 — the refusal is now recoverable; the detection gap is unchanged) |
 | [§294](#294-spending-the-one-shot-destructive-save-bypass-is-a-per-early-return-obligation--two-returns-decide-it-three-leave-it-by-accident-and-nothing-checks-either--closed-2026-08-30) | Spending the one-shot destructive-save bypass is a per-early-return obligation — two returns decide it, three leave it by accident, and nothing checks either | found 2026-08-29 | M | **CLOSED** 2026-08-30 (`consumeArm` hoisted to the effect's first statement; the prospective property is structurally untestable) |
 | [§295](#295-undoredo-re-applies-deletions-without-arming-the-destructive-save-bypass--redoing-a-clear-all-can-be-refused-by-the-guard--closed-2026-08-30) | Undo/redo re-applies deletions without arming the destructive-save bypass — redoing a clear-all can be refused by the guard | found 2026-08-29 | M | **CLOSED** 2026-08-30 (redo arms when the forward images remove rows; pinned by a real clear-all→undo→redo seam test) |
@@ -4780,9 +4780,9 @@ is a slice of its own rather than a tweak. There is no pressure to do either now
 
 ---
 
-## 61. Three residuals from the `use-resource-planner` split, plus one pointer — open, all small
+## 61. Three residuals from the `use-resource-planner` split, plus one pointer — open, narrowed to (c) and (d)
 
-**Status:** open — three small residuals from the resource-planner split, plus one pointer. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** open, narrowed 2026-09-30. (a) and (b) are FIXED: the dev warning now reads `[useResourceDirectory] non-plain seed dropped …`, and `UseResourcePlannerArgs.captureComposite`'s comment names both sub-hooks and every cascade that uses it. What remains is (c), a potential duplication problem with no defect today, and (d), a pointer rather than work. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 **Work item:** #115
 
@@ -25309,11 +25309,9 @@ import instead: `grep -rn "differs" src/app --include=*.ts --include=*.tsx | gre
 a different predicate than it is. One import line and one call site move. Deliberately NOT done in
 the §178 slice: renaming a public export is unrelated to that fix and would have widened its diff.
 
-## 291. `mergeRecord` rebuilds in `live`'s key order, not `target`'s — open
+## 291. `mergeRecord` rebuilds in `live`'s key order, not `target`'s — CLOSED 2026-09-30
 
-**Status:** open — never machine-verified as user-visible; the ORDERING behaviour itself is pinned by a test as of 2026-08-29. Reproduce with `npx vitest run src/app/undo/merge-field-value.test.ts -t "reordered record"`.
-
-**Work item:** #224
+**Status:** CLOSED 2026-09-30. `mergeRecord` now builds its output in `target`'s key order, then appends `live`-only keys (concurrent additions) in `live`'s order, so an undo restores a removed key at its original position. The merged CONTENT is unchanged. Pinned by `merge-field-value.test.ts` → "mergeRecord key order (open-followups §291)"; the old body fails it. ★ Consequence for §292: a pure record REORDER no longer separates the no-race short-circuit from the merge body, so the record reorder case stopped killing that mutant; the array case and §292's permutation property do. The history below is kept as written.
 
 `mergeRecord` seeds `out` from `{ ...live }` and then writes the keys the op touched, so a key
 present only in `target` lands at the END of the key order rather than at its original position.
@@ -25331,11 +25329,9 @@ no-race short-circuit's mutant survive a mutation run: a pure key REORDER is the
 distinguishes the guarded merge from the unguarded one, so the ordering behaviour and the guard's
 detectability are the same fact seen twice. See §292.
 
-## 292. The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage — open
+## 292. The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage — CLOSED 2026-09-30
 
-**Status:** open — measured 2026-08-29 by applying the mutant and running three times (2, 3 and 3 failures; the property test did not fire on the first). Reproduce by deleting `if (!differs(live, other)) return target;` from `src/app/undo/merge-field-value.ts` and running `npx vitest run src/app/undo/merge-field-value.test.ts` repeatedly.
-
-**Work item:** #225
+**Status:** CLOSED 2026-09-30 by the second fix shape below. A new property, "returns the target verbatim for any pure reorder when nothing raced", derives `other` as a permutation of `target` (`fc.shuffledSubarray` over a `uniqueArray`), so the killing shape is drawn on purpose; its floor counts only runs where the order really differs. Deleting `if (!differs(live, other)) return target;` now fails it 3 of 3 runs, where the independent-draw property was a coin flip. The original property keeps its generator-diversity floor, which is still true about what it measures. (Measured 2026-08-29 before this fix: across three runs of the mutant, the old property fired on only two.)
 
 The "returns the target verbatim whenever nothing raced" property counts a run as non-trivial when
 `JSON.stringify(target) !== JSON.stringify(other)` and asserts that fraction exceeds 0.5. That
