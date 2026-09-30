@@ -280,11 +280,18 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   `file-handle:<kind>` holds `{ handle, binding }`, and every binder names one, through
   `setBackendFileHandle` or `pickFileForBackend`: a project op (switch, create, open-project) its
   registry id, and a pick, an open or a conversion a fresh `picked:<uuid>`. The op also sets the
-  window's own binding in the same tick. A load takes the binding of the slot record it opened
-  (`LocalFileBackend.fileBinding`), never the registry's current project. A slot written before
-  this holds the bare handle, and falls back to the kind alone. So local-file windows on different
-  files neither mirror nor adopt each other, and windows on one file do, including a window opened
-  or reloaded after a pick. Browser storage is
+  window's own binding in the same tick. A window reads its instance's binding
+  (`LocalFileBackend.fileBinding`) on every path that binds it: the load effect (before its
+  empty-load refusal, and in its catch), "Reload project" and the write-access grant; never the
+  registry's current project. ★★ An UNKNOWN binding (a failed load that bound nothing, an old slot
+  holding the bare handle, a tab still on old code) is never the kind alone: it keys on a token of
+  the window's own (`isolationToken`, `use-workspace-sync.ts`), so that window syncs with NOBODY,
+  which errs toward a visible pause, never toward mirroring another file. So local-file windows on
+  different files neither mirror nor adopt each other, and windows on one file do once each knows
+  its binding, including a window opened or reloaded after a pick or recovered from a failed load.
+  ★ Exception, a false pause with no loss: picking (or opening) the file a REGISTERED project
+  already uses gives the picker a `picked:` binding while that project's windows hold its id, so the
+  windows on that one file do not mirror, and the one saving second pauses. Browser storage is
   still ONE store per origin (`new BrowserBackend()` takes no project) and is keyed by the kind
   alone: browser windows showing different registry projects mirror each other's slices, adopt
   each other's revisions and converge on one workspace. The revision check pauses only a writer
