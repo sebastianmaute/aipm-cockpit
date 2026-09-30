@@ -22,6 +22,8 @@
 //   its snapshot still holds the value that slice's peer values LANDED ON (`landedOn`): the snapshot
 //   predates them. A snapshot holding the peer value, or an own edit that replaced it, clears it as a load
 //   does — kept, that dead entry made every later mirror of any part count as own (review I1 on 9c639dc21).
+//   ★ The one exception: an own edit back to the exact landed-on reference keeps the dead entry. That only
+//   errs toward writing (a later mirror of another part is saved again), never toward skipping a write.
 
 import type { Workspace } from "./storage";
 
