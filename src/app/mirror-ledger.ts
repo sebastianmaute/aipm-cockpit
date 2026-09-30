@@ -6,7 +6,7 @@
 // ledger per window; this module holds no React and no I/O.
 //
 // - `saved` is what the window last loaded (the suppressed run after a load or op) or last WROTE (a landed
-//   save); `markSaved` sets it and clears everything else. `mirrored` holds, per slice, the last value
+//   save); `markSaved` (a load) sets it and clears everything else. `mirrored` holds, per slice, the last value
 //   applied from a peer since then. A run in which each slice either holds its mirrored value or is still
 //   `saved`'s, at least one mirrored, writes nothing (`isMirroredOnly`). A live `mirrored` entry means "the
 //   peer wrote this and this window has written nothing since", so a value equal to it is what storage holds.
@@ -14,14 +14,21 @@
 //   within one delivery) is not mirrored — each window would show the other's copy and neither would save
 //   it. A contested slice counts as own, so the run writes and meets the revision check (a reported
 //   conflict, never a silent drop).
+// - ★★ A WRITE IS NOT A LOAD (`markWritten`). A save's snapshot is taken before its write lands, so a peer
+//   value applied meanwhile is not in it. Forgetting that value on the landing made it this window's own:
+//   the window saved the peer's part again, from the revision the peer was saving from too (the §4 e2e,
+//   CPU-throttled — A's insights reached B during B's save). The write clears only the slices it holds.
 
 import type { Workspace } from "./storage";
 
 type Kind = keyof Workspace;
 
 export type MirrorLedger = {
-  /** The window loaded or wrote `ws`: storage holds it, so nothing is mirrored or contested any more. */
+  /** The window loaded `ws`: storage holds it, so nothing is mirrored or contested any more. */
   markSaved(ws: Workspace): void;
+  /** The window's write of `ws` landed. A slice whose mirrored value is not `ws`'s keeps its entry (and its
+   *  contested mark): that peer value arrived after the snapshot, so its writer still saves it. */
+  markWritten(ws: Workspace): void;
   /** A peer's `value` is being applied over `live` (the updater's `prev`). */
   judge(kind: Kind, live: unknown, value: unknown): void;
   /** Once per commit: forget peer values that can no longer arrive as `live`. */
@@ -45,6 +52,16 @@ export function createMirrorLedger(): MirrorLedger {
       mirrored = new Map();
       contested = new Set();
       peerValues = new Map();
+    },
+
+    markWritten(ws) {
+      saved = ws;
+      for (const [kind, value] of [...mirrored]) {
+        if (!Object.is(value, ws[kind])) continue;
+        mirrored.delete(kind);
+        contested.delete(kind);
+        peerValues.delete(kind);
+      }
     },
 
     // `live` is the updater's `prev`: the slice with every update queued before this one applied — an own

@@ -71,6 +71,37 @@ describe("createMirrorLedger", () => {
     expect(ledger.isMirroredOnly(next)).toBe(false);
   });
 
+  // A write's snapshot is taken before it lands; a peer value applied meanwhile is still the peer's to save.
+  it("markWritten keeps a peer value its write did not hold, so that part stays mirrored", () => {
+    const { ledger, base } = loaded();
+    const own = [{ id: "own" }] as unknown as Workspace["raid"];
+    const peer = list("peer");
+    const written = { ...base, raid: own }; // the in-flight snapshot: the own edit, the old tasks
+    ledger.judge("tasks", base.tasks, peer);
+    ledger.markWritten(written);
+    expect(ledger.isMirroredOnly({ ...written, tasks: peer })).toBe(true);
+    expect(ledger.isMirroredOnly({ ...written, tasks: list("own again") })).toBe(false);
+  });
+
+  it("markWritten forgets a peer value its write held", () => {
+    const { ledger, base } = loaded();
+    const peer = list("peer");
+    ledger.judge("tasks", base.tasks, peer);
+    const written = { ...base, tasks: peer };
+    ledger.markWritten(written);
+    expect(ledger.peerValueCount("tasks")).toBe(0);
+    expect(ledger.isMirroredOnly(written)).toBe(false); // nothing changed since the write
+  });
+
+  it("markWritten keeps a contested part contested when its write did not hold the peer value", () => {
+    const { ledger, base } = loaded();
+    const own = list("own");
+    const peer = list("peer");
+    ledger.judge("tasks", own, peer);
+    ledger.markWritten({ ...base, tasks: own });
+    expect(ledger.isMirroredOnly({ ...base, tasks: peer })).toBe(false);
+  });
+
   // A window that only mirrors never calls markSaved, so without a prune it keeps every peer value.
   it("keeps at most two peer values per part across many mirrored commits", () => {
     const { ledger, base } = loaded();

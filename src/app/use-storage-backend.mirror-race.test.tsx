@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Settings } from "./settings-types";
 import type { Lang } from "./i18n";
 import type { RaidItem, Task } from "./types";
+import type { Insight } from "./insights/insight";
 import type { StorageConfig, Workspace } from "./storage";
 import { SaveConflictError } from "./storage-error";
 import { useStorageBackend } from "./use-storage-backend";
@@ -49,13 +50,13 @@ type Store = { rev: number; workspace: Workspace };
 let store: Store;
 
 /** A window's backend instance over `store`: it holds the revision it last loaded, wrote or adopted. */
-function makeBackend() {
+function makeBackend(latencyMs = LATENCY_MS) {
   let held: number | null = null;
   return {
     load: vi.fn(async () => { held = store.rev; return structuredClone(store.workspace); }),
     save: vi.fn(async (ws: Workspace) => {
       const expected = held;
-      await new Promise((resolve) => setTimeout(resolve, LATENCY_MS));
+      await new Promise((resolve) => setTimeout(resolve, latencyMs));
       if (expected !== store.rev) throw new SaveConflictError("browser");
       store.rev += 1;
       store.workspace = ws;
@@ -73,11 +74,11 @@ function makeBackend() {
  *  graph, so B would drop A's revision as its own echo. The bus gives each revision message a fresh
  *  id, as a second page would; the poster then hears its own too, which it cannot adopt (it no longer
  *  holds the base its save was checked against). Slice messages already carry a per-hook id.
- *  While `bus.hold` is set, deliveries wait for `bus.release()`, which runs them all in one go.
+ *  While `bus.hold` is set (`true`, or one kind), those deliveries wait for `bus.release()`, which runs them all in one go.
  *  `heldPosts(kind)` counts the POSTS waiting, not their per-channel deliveries. */
 type Held = { sent: { kind?: string }; deliver: () => void };
 const bus = {
-  hold: false,
+  hold: false as boolean | string,
   held: [] as Held[],
   release() { const due = this.held.splice(0); for (const h of due) h.deliver(); },
   heldPosts(kind: string) { return new Set(this.held.filter((h) => h.sent.kind === kind).map((h) => h.sent)).size; },
@@ -96,7 +97,7 @@ function installBus() {
         if (channel === this) continue;
         const data = structuredClone(sent);
         const deliver = () => { for (const l of channel.listeners) l({ data } as MessageEvent); };
-        if (bus.hold) bus.held.push({ sent, deliver });
+        if (bus.hold === true || bus.hold === sent.kind) bus.held.push({ sent, deliver });
         else queueMicrotask(deliver);
       }
     }
@@ -107,8 +108,8 @@ function installBus() {
   vi.stubGlobal("BroadcastChannel", BusChannel as unknown as typeof BroadcastChannel);
 }
 
-function openWindow(reactStrictMode: boolean) {
-  const backend = makeBackend();
+function openWindow(reactStrictMode: boolean, latencyMs?: number) {
+  const backend = makeBackend(latencyMs);
   const storageConfig = { kind: "browser" } as StorageConfig;
   backendFor.set(storageConfig, backend);
   const onStorageOutcome = vi.fn();
@@ -161,9 +162,9 @@ describe.each([false, true])("useStorageBackend — a mirrored edit is saved onc
     vi.unstubAllGlobals();
   });
 
-  async function openBoth() {
-    const a = openWindow(strict);
-    const b = openWindow(strict);
+  async function openBoth(latencyMs?: number) {
+    const a = openWindow(strict, latencyMs);
+    const b = openWindow(strict, latencyMs);
     await run(0);
     await run(1000); // both loads applied, their suppressed runs spent
     expect(a.backend.load).toHaveBeenCalledTimes(strict ? 2 : 1); // StrictMode re-runs the load effect; its first run is cancelled
@@ -276,5 +277,45 @@ describe.each([false, true])("useStorageBackend — a mirrored edit is saved onc
     await run(0);
     await run(500 + LATENCY_MS + 500);
     expect(b.backend.save.mock.calls.length + b.conflicts()).toBeGreaterThan(0);
+  });
+
+  // The e2e shape (two-tab-conflict.spec.ts, CPU throttled): A's insights reconcile writes a part only A
+  // derived, and it reaches B while B's save of B's own edit is in flight. B's autosave re-runs on the
+  // mirror with B's edit still unsaved, so a second save is due — which must not write: B's edit is in the
+  // first, and A saves its own part after B's lands (A adopted B's revision). Written, it is a save of a
+  // peer's content from the revision A is also writing from, so one of them is refused. With a fast backend
+  // the second save starts after the first landed (300 ms), with a slow one it waits in the queue behind it
+  // (1000 ms). ★ Each peer part reaches B BEFORE that peer's revision, as the real posting order has it.
+  // ★ A's part changes again every < 500 ms until B's save has landed: that is what keeps A's debounced
+  //   save after B's (throttled timers did it in the browser), so A's write is not a genuine concurrent one.
+  it.each([LATENCY_MS, 1000])("a peer's part that arrives while this window's save is in flight is not saved again by it (latency %i ms)", async (latency) => {
+    const { a, b } = await openBoth(latency);
+    const part = (n: number) => [{ id: 1, key: `k${n}` }] as unknown as Insight[];
+    let now = 0;
+    const until = async (at: number) => { await run(at - now); now = at; };
+    const aEdits = latency > 500 ? [100, 550, 1000, 1200] : [100, 550]; // the last one is after B's save lands - 500
+    await act(async () => { b.hook.result.current.setTasks([task(1, "from B")]); }); // B's save runs 500 → 500 + latency
+    bus.hold = "insights";
+    for (const [i, at] of aEdits.entries()) {
+      await until(at);
+      await act(async () => { a.hook.result.current.setInsights(part(i)); });
+      if (at === 550) {
+        await until(600);
+        expect(b.backend.save).toHaveBeenCalledTimes(1); // B's save is in flight
+        await act(async () => { bus.release(); }); // A's part reaches B now
+        expect(b.hook.result.current.insights).toEqual(part(1));
+      }
+    }
+    const last = aEdits[aEdits.length - 1];
+    await until(last + 550); // A's save has started (from B's revision, adopted while A was idle), not landed
+    bus.hold = false;
+    await act(async () => { bus.release(); }); // A's latest part reaches B before A's revision does
+    await until(last + 550 + 2 * latency + 1000);
+    expect(a.backend.save).toHaveBeenCalledTimes(1);
+    expect(b.backend.save).toHaveBeenCalledTimes(1);
+    expect(a.conflicts() + b.conflicts()).toBe(0);
+    expect(store.rev).toBe(3);
+    expect(store.workspace.tasks.map((x) => x.taskName)).toEqual(["from B"]);
+    expect(store.workspace.insights).toEqual(part(aEdits.length - 1));
   });
 });

@@ -969,10 +969,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       //   keeps the baselines, the unload-journal entry and the outcome for edits nothing wrote.
       // §4 — the revision this save is checked against, read INSIDE the job right before the write: the job may wait behind others, and one replaced by a guarded write never runs it (`undefined`).
       let baseRevision: string | null | undefined;
-      enqueueSave(backend, () => conflictResolution.runSaveJob(backend, () => { baseRevision = backend.revision?.() ?? null; return backend.save(outgoing); })).then((result) => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
+      // ★★ §4 — the ledger is asked again when the job STARTS: a mirror that arrived while an earlier save was in flight re-ran this effect with that save's edits still unsaved, and once it landed this snapshot's only news is the peer's part, which its writer saves (mirror-ledger.ts `markWritten`). Nothing is written, so nothing moves; its unconfirmed journal entry goes. The landing is recorded INSIDE the job for that reason: the queue starts the next job before this `.then` runs.
+      const job = (): Promise<void | "superseded"> => {
+        if (mirrorLedger.isMirroredOnly(outgoing)) { unloadJournal.noteSaveRefused(journalSavedAt, null); return Promise.resolve("superseded"); }
+        return conflictResolution.runSaveJob(backend, () => { baseRevision = backend.revision?.() ?? null; return backend.save(outgoing).then(() => mirrorLedger.markWritten(outgoing)); });
+      };
+      enqueueSave(backend, job).then((result) => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
         if (result === "superseded") return;
         committedBaselineRef.current = { collections: curCollections, records: curRecords }; // the write landed: these are on disk now
-        mirrorLedger.markSaved(outgoing); // §4 — and this is what storage holds
         unloadJournal.noteSaveConfirmed(journalSavedAt, outgoing); // §629 — clears this tab's journal for it and rolls the base forward
         emitOutcome(null);
         // §4 — tell the windows mirroring this storage which revision the write produced, or their next save is refused as stale.
