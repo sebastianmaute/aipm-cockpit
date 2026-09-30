@@ -407,4 +407,50 @@ describe("useStorageBackend — a refused empty load isolates the window (§645)
     expect(fileE.text()).not.toContain("A-TASK");
     expect(fileE.text()).not.toContain("KEPT-EDIT");
   });
+  // Re-review 5 r5-1 — "Reload project" on a refused window meets the same empty file and asks to replace
+  // the screen with it. Declined, the screen still shows the previous content, so the window stays isolated;
+  // accepted, the file is applied and the window takes its binding.
+  async function refusedOntoEmpty() {
+    const { w1 } = await openTwoOnA();
+    const fileE = fakeFile("e.json", workspaceToJson(emptyWorkspace()));
+    KV.set(SLOT, slot(fileE, "e"));
+    const w2 = openWindow();
+    await waitFor(() => expect(w2.ops().loadPending).toBe(false));
+    await settle();
+    await act(async () => { w1.hook.result.current.setStorageConfig({ kind: "local-json" }); });
+    await waitFor(() => expect(w1.ops().loadPause).toBe("empty-refused"));
+    await settle();
+    return { w1, w2, fileE };
+  }
+  async function reloadAnswering(w: Win, answer: boolean) {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(answer);
+    try {
+      await act(async () => { await w.ops().reloadCurrentProject(); });
+      await settle();
+      expect(confirm).toHaveBeenCalled();
+    } finally {
+      confirm.mockRestore();
+    }
+  }
+
+  it("a declined empty-reload confirm keeps the window isolated from the refused file's window, both ways", async () => {
+    const { w1, w2 } = await refusedOntoEmpty();
+    await reloadAnswering(w1, false);
+    expect(w1.taskNames()).toEqual(["A-TASK"]); // still the previous content
+    await act(async () => { w1.hook.result.current.workspace.setTasks([task(1, "A-TASK"), task(9, "KEPT-EDIT")]); });
+    await settle();
+    expect(w2.taskNames()).toEqual([]);
+    await act(async () => { w2.hook.result.current.workspace.setTasks([task(3, "E-SIDE")]); });
+    await settle();
+    expect(w1.taskNames()).toEqual(["A-TASK", "KEPT-EDIT"]);
+  });
+
+  it("an accepted empty-reload confirm applies the file and binds the window to it", async () => {
+    const { w1, w2 } = await refusedOntoEmpty();
+    await reloadAnswering(w1, true);
+    expect(w1.taskNames()).toEqual([]);
+    await act(async () => { w2.hook.result.current.workspace.setTasks([task(3, "E-SIDE")]); });
+    await settle();
+    expect(w1.taskNames()).toEqual(["E-SIDE"]);
+  });
 });

@@ -286,7 +286,7 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   show the file's content must not share the file's key (re-review 4 RI4): a load REFUSED as empty
   keeps the previous content, and a load that FAILED keeps the boot workspace or the previous
   project, so both set the binding to unknown; the write-access grant loads nothing, so it binds
-  nothing either, and "Reload project" gives the binding once it has applied the file. An old slot holding a BARE handle (written before
+  nothing either, and "Reload project" gives the binding once it has applied the file (not when its empty-load confirm is declined, which keeps the previous content). An old slot holding a BARE handle (written before
   the binding was stored, or by a tab still on old code) is upgraded by the first load that reads
   it: written back as a record with the id of the registered project whose stored handle is the
   same file (`isSameEntry`), else a fresh `picked:<uuid>`; the slot is read again just before the

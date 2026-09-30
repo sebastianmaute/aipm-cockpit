@@ -1327,7 +1327,6 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         logDiag("warn", "storage.supersededLoadDropped", { writer: "reloadCurrentProject", outcome: workspace === null ? "waited" : "resolved" }); // "waited": the rebuild was seen before any read
         return;
       }
-      captureFileBinding(); // RI2 — "Reload project" is how a window recovers from a failed load: take the binding of the file it read
       // ★ DATA-LOSS GUARD: a reload that would EMPTY a populated project is
       // almost always a transient/failed backend read, not intent — applying it
       // wipes the in-memory workspace and autosave then persists the empty (a
@@ -1350,6 +1349,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // §591 — "merge" (a reload must not drop this device's entries) ONLY while scope holds THIS target's
       // project. After a rebuild onto an EMPTY target the refusal left the previous project in scope, and
       // `reloadEmptyConfirm` promises the user a REPLACE.
+      captureFileBinding(); // §645 — only a reload that APPLIES takes the file's binding: below the empty-load confirm, since a declined confirm keeps content that is not the file's (the binding stays as it was, `null` after a refusal)
       unloadJournal.setBase(workspace, journalProjectKey); // §629 R2 — as the load effect
       unloadJournal.dropUnconfirmed(journalProjectKey); // §629 — the reload DISCARDS the in-memory state, so a failed save's journal must not bring it back on the next page load
       applyWorkspaceFromLoad(workspace, "raise", resolveLogModeAndStamp());
