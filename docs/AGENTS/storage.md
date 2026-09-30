@@ -281,10 +281,12 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   `setBackendFileHandle` or `pickFileForBackend`: a project op (switch, create, open-project) its
   registry id, and a pick, an open or a conversion a fresh `picked:<uuid>`. The op also sets the
   window's own binding in the same tick. A window reads its instance's binding
-  (`LocalFileBackend.fileBinding`) on every path that binds it: a load that is applied, the load
-  effect's catch, "Reload project" and the write-access grant; never the registry's current
-  project. A load REFUSED as empty keeps the previous content on screen, which belongs to neither
-  file, so it sets the binding to unknown instead. An old slot holding a BARE handle (written before
+  (`LocalFileBackend.fileBinding`) ONLY where a load of it is APPLIED: the load effect's success
+  path and "Reload project"; never the registry's current project. A window whose screen does not
+  show the file's content must not share the file's key (re-review 4 RI4): a load REFUSED as empty
+  keeps the previous content, and a load that FAILED keeps the boot workspace or the previous
+  project, so both set the binding to unknown; the write-access grant loads nothing, so it binds
+  nothing either, and "Reload project" gives the binding once it has applied the file. An old slot holding a BARE handle (written before
   the binding was stored, or by a tab still on old code) is upgraded by the first load that reads
   it: written back as a record with the id of the registered project whose stored handle is the
   same file (`isSameEntry`), else a fresh `picked:<uuid>`; the slot is read again just before the
@@ -294,7 +296,7 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   another file. So local-file windows on different files neither mirror nor adopt each other, and
   windows on one file do once each knows the same binding.
   ★ Where that isolation, or two bindings for one file, gives a FALSE PAUSE (visible, no loss): a
-  load whose slot read failed (the idb read rejected, so nothing was bound); a refused empty load
+  load that failed (until "Reload project" applies one); a refused empty load
   (above); picking or opening the file a REGISTERED project already uses (the picker gets a
   `picked:` binding while that project's windows hold its id); two windows that each picked the same
   file on their own (two `picked:` ids); two tabs booting on one bare slot at the same moment (both

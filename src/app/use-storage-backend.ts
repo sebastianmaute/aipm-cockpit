@@ -431,7 +431,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const handOverFromRef = useRef<ReturnType<typeof createBackend> | null>(null); // §4 §645 — the op's own instance, set beside `suppressNextLoadRef`; the suppress branch hands it to the live one
   // §645 (final review C1) — the binding of the local file this WINDOW is bound to (`sync-scope.ts`): set by a project op or pick beside its bind, and read at a load from the slot record it opened (`LocalFileBackend.fileBinding`); never the registry's `currentProjectId`, which is every tab's.
   const [fileBinding, setFileBinding] = useState<string | null>(null);
-  // ★ RI2 — read wherever this instance has loaded (or tried to): every load path, not only a successful one. A `const`, not a declaration (see `allowSavesTo`).
+  // ★ RI4 — read ONLY where a load of this instance is APPLIED (the load effect's success path, `reloadCurrentProject`): a failed, refused or grant-only window shows content that is not the file's, so it stays isolated. A `const`, not a declaration (see `allowSavesTo`).
   const captureFileBinding = (): void => setFileBinding((backend as { fileBinding?: () => string | null }).fileBinding?.() ?? null);
   // M4: projects whose unsafe-email notice this session already showed (see `FileProjectOpsDeps`).
   const announcedUnsafeEmailsRef = useRef<Set<string>>(new Set());
@@ -736,7 +736,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         emitOutcome(null);
       } catch (err) {
         if (cancelled) return;
-        captureFileBinding(); // RI2 — a failed load has usually bound the handle already (`getHandle` runs before the permission check); unknown stays isolated
+        setFileBinding(null); // RI4 — a failed load leaves content on screen that is not the file's (the boot workspace, or the previous project): isolate until an APPLIED load gives the binding
         setSettledBackend(backend); // §548 — a FAILED load leaves nothing in flight to overwrite an edit. (`cancelled` above covers teardown.)
         setSavesPaused({ backend, reason: "load-failed" }); // §586: saves stay refused; published as `loadPause` (sticky banner), and the first refused edit toasts once.
         emitOutcome(err);

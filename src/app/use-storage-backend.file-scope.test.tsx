@@ -327,7 +327,9 @@ describe("useStorageBackend — a window that recovers from a failed load binds 
     await settle();
     expect(w2.taskNames()).toEqual(["X-TASK", "SHARED"]);
   });
-  it("(d) a window whose load failed on a file it did bind mirrors its same-file peer (the catch path learns the binding)", async () => {
+  // Re-review 4 RI4 — a window whose load FAILED shows content that is not the file's (the boot workspace, or
+  // the previous project), so it must not share the file's key: not until an applied load gives it the binding.
+  it("(d) a window whose load failed neither applies its same-file peer's edit nor has its own edit applied there", async () => {
     const fileX = fakeFile("x.json", workspaceToJson({ ...emptyWorkspace(), tasks: [task(1, "X-TASK")] }));
     KV.set(SLOT, slot(fileX, "x"));
     const w1 = openWindow();
@@ -335,9 +337,17 @@ describe("useStorageBackend — a window that recovers from a failed load binds 
     await settle();
     fileX.permission = "prompt"; // a later window opens after the browser forgot the permission
     const w2 = await bootFailed(fileX, "x");
-    await act(async () => { w1.hook.result.current.workspace.setTasks([task(1, "X-TASK"), task(4, "SEEN-WHILE-PAUSED")]); });
+    fileX.permission = "granted";
+    await act(async () => { w1.hook.result.current.workspace.setTasks([task(1, "X-TASK"), task(4, "FROM-LOADED")]); });
     await settle();
-    expect(w2.taskNames()).toEqual(["X-TASK", "SEEN-WHILE-PAUSED"]);
+    expect(w2.taskNames()).toEqual([]); // not applied
+    await act(async () => { w2.hook.result.current.workspace.setTasks([task(8, "FROM-FAILED")]); });
+    await settle();
+    expect(w1.taskNames()).toEqual(["X-TASK", "FROM-LOADED"]); // not applied either
+    await recover(w2); // an APPLIED load gives the binding: from here on they mirror
+    await act(async () => { w1.hook.result.current.workspace.setTasks([task(1, "X-TASK"), task(4, "FROM-LOADED"), task(5, "AFTER-RELOAD")]); });
+    await settle();
+    expect(w2.taskNames()).toEqual(["X-TASK", "FROM-LOADED", "AFTER-RELOAD"]);
   });
 
   it("(e) two windows that booted with no file bound and recovered onto the same file by Reload project mirror each other", async () => {
@@ -353,7 +363,8 @@ describe("useStorageBackend — a window that recovers from a failed load binds 
     await settle();
     expect(w2.taskNames()).toEqual(["X-TASK", "AFTER-RECOVERY"]);
   });
-  it("(f) a window that booted with no file bound and was granted access to the slot's file mirrors that file's window", async () => {
+  // Re-review 4 RI4 — the grant loads nothing: the window still shows content that is not the file's.
+  it("(f) a window granted access to the slot's file after a failed boot stays apart from that file's window until Reload project", async () => {
     const w1 = openWindow();
     await waitFor(() => expect(w1.ops().loadPause).toBe("load-failed"));
     const fileX = fakeFile("x.json", workspaceToJson({ ...emptyWorkspace(), tasks: [task(1, "X-TASK")] }));
@@ -361,11 +372,15 @@ describe("useStorageBackend — a window that recovers from a failed load binds 
     const w2 = openWindow();
     await waitFor(() => expect(w2.ops().loadPending).toBe(false));
     await settle();
-    await act(async () => { await w1.ops().onGrantWriteAccess(); }); // binds the slot's handle to W1's instance
+    await act(async () => { await w1.ops().onGrantWriteAccess(); }); // binds the slot's handle to W1's instance, loads nothing
     await settle();
     await act(async () => { w2.hook.result.current.workspace.setTasks([task(1, "X-TASK"), task(6, "AFTER-GRANT")]); });
     await settle();
-    expect(w1.taskNames()).toEqual(["X-TASK", "AFTER-GRANT"]);
+    expect(w1.taskNames()).toEqual([]); // not applied
+    await recover(w1);
+    await act(async () => { w2.hook.result.current.workspace.setTasks([task(1, "X-TASK"), task(6, "AFTER-GRANT"), task(7, "AFTER-RELOAD")]); });
+    await settle();
+    expect(w1.taskNames()).toEqual(["X-TASK", "AFTER-GRANT", "AFTER-RELOAD"]);
   });
 });
 // Re-review 3 m-a — a load that comes back EMPTY over a populated screen is refused: the window keeps the
