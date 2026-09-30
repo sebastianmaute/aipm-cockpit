@@ -389,7 +389,7 @@ describe("§590 — the picked file already holds a project and the app is empty
   //   (binding half); deleting `deps.applyPickedWorkspace(...)` (gate half).
   it("commits the pick and re-opens the save gate when the user accepts", async () => {
     const { result } = await setupPick({ ...POPULATED(), confirmAnswer: true });
-    expect(KV.get(HANDLE_KEY)).toMatchObject({ name: PICKED_FILE });
+    expect(KV.get(HANDLE_KEY)).toMatchObject({ handle: { name: PICKED_FILE }, binding: expect.stringMatching(/^picked:/) }); // §645 C1 — the slot holds the handle with its binding
     await waitFor(() => expect(result.current.loadPause).toBeNull());
   });
 

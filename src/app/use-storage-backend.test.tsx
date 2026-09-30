@@ -2147,7 +2147,7 @@ describe("useStorageBackend — project flows", () => {
     // Outgoing project flushed to the CURRENT (main) backend.
     expect(mockBackend.save).toHaveBeenCalled();
     // Target handle injected BEFORE the target load.
-    expect(storageMod.setBackendFileHandle).toHaveBeenCalledWith(targetBackend, handle);
+    expect(storageMod.setBackendFileHandle).toHaveBeenCalledWith(targetBackend, handle, targetId); // §645 C1 — the project id is stored with its handle
     expect(order.indexOf("setHandle")).toBeLessThan(order.indexOf("targetLoad"));
     // Outgoing save happened before storageConfig was repointed.
     expect(order.indexOf("outgoingSave")).toBeLessThan(order.indexOf("setConfig"));
@@ -2556,7 +2556,7 @@ describe("useStorageBackend — project flows", () => {
     // handle was bound to the CSV backend, and the CSV config was applied.
     expect(storageMod.pickOpenFileAny).toHaveBeenCalled();
     expect(storageMod.formatFromFileName).toHaveBeenCalledWith("exported.csv");
-    expect(storageMod.setBackendFileHandle).toHaveBeenCalledWith(targetBackend, handle);
+    expect(storageMod.setBackendFileHandle).toHaveBeenCalledWith(targetBackend, handle, expect.any(String)); // §645 C1 — with the binding stored in the slot
     expect(storageMod.openFileForBackend).not.toHaveBeenCalled();
     expect(result.current.tasks[0]?.id).toBe(88);
     expect(setStorageConfig).toHaveBeenCalledWith({ kind: "local-csv" });
@@ -5231,7 +5231,7 @@ describe("useStorageBackend — onOpenStorageFile binds the picked handle only o
     await act(async () => { await result.current.onOpenStorageFile(); });
 
     expect(storageMod.setBackendFileHandle).toHaveBeenCalledTimes(1);
-    expect(storageMod.setBackendFileHandle).toHaveBeenCalledWith(backend, picked);
+    expect(storageMod.setBackendFileHandle).toHaveBeenCalledWith(backend, picked, expect.stringMatching(/^picked:/)); // §645 C1 — a fresh binding for an unregistered file
   });
 
   it("applies the opened workspace when the user accepts", async () => {

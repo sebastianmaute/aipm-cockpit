@@ -133,7 +133,7 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
           deps.showToast("error", t(deps.langRef.current, "projectSwitchHandleMissing"));
           return;
         }
-        const attach = setBackendFileHandle(targetBackend, handle);
+        const attach = setBackendFileHandle(targetBackend, handle, id); // §645 C1 — the slot records project `id` with its file
         if (attach) await attach;
         // Re-prompt for permission if it was lost across reloads (user gesture
         // context: switching is triggered from a click).
@@ -201,7 +201,7 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
     try {
       const targetBackend = deps.backendFor(storageConfig);
       // Save picker — grants readwrite implicitly when the user picks a file.
-      const pick = pickFileForBackend(targetBackend);
+      const pick = pickFileForBackend(targetBackend, id); // §645 C1 — the slot records project `id` with its file
       if (pick) await pick;
       targetBackend.forceNextSave?.(); // §4 — a blind write by intent: the new file was never read, so there is no revision to check against. AFTER the pick, which clears a force.
       await targetBackend.save(ws);
@@ -275,7 +275,7 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
         const handle = await pickOpenFileAny();
         resolvedFormat = formatFromFileName(handle.name);
         preopenedBackend = deps.backendFor({ kind: localKindForFormat(resolvedFormat) });
-        await setBackendFileHandle(preopenedBackend, handle);
+        await setBackendFileHandle(preopenedBackend, handle, id); // §645 C1
         await requestWriteAccessForBackend(preopenedBackend);
       }
       const storageConfig: StorageConfig = { kind: localKindForFormat(resolvedFormat) };
@@ -286,7 +286,7 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
         // ★ Adoption IS the intent on this path — there is no confirm to lose,
         //   so the handle is committed straight away. Contrast
         //   `onOpenStorageFile`, which must wait for the user (§287).
-        await setBackendFileHandle(targetBackend, await open);
+        await setBackendFileHandle(targetBackend, await open, id); // §645 C1
       }
       const loaded = await targetBackend.load();
       const fileName = targetBackend.describe ? await targetBackend.describe() : null;
@@ -506,10 +506,10 @@ function authoredRecordCount(workspace: Workspace): number {
     - (workspace.grades?.length ?? 0);
 }
 
-/** §645 (final review C1) — the file binding after a pick or an open, which bind a file that no
- *  registry project names. Unique per bind, so this window syncs with NO other: two windows that
- *  picked different files cannot mirror each other (the kind alone would join them), and two that
- *  picked the same file meet the §4 revision check, a visible pause rather than a silent overwrite. */
+/** §645 (final review C1) — the file binding for a pick, an open or a conversion, which bind a file
+ *  that no registry project names. Unique per bind, and stored WITH the handle in the shared slot
+ *  (`setBackendFileHandle`), so a later load of that file (a reload, a new window) reads it back and
+ *  joins this window, while windows on other files never share it (the kind alone would join them). */
 function unregisteredBinding(): string {
   return `picked:${crypto.randomUUID()}`;
 }
@@ -735,7 +735,8 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
           //   AFTER it and write the pre-pick workspace over the project the user just chose to load.
           const queuedSaves = whenSaved(deps.backend);
           if (queuedSaves) await queuedSaves;
-          await setBackendFileHandle(deps.backend, picked); // ★ commit the pick ONLY now — the §287 shape `onOpenStorageFile` already uses.
+          const binding = unregisteredBinding(); // §645 C1 — stored with the handle, so a later load of this file joins this window
+          await setBackendFileHandle(deps.backend, picked, binding); // ★ commit the pick ONLY now — the §287 shape `onOpenStorageFile` already uses.
           // ★★★ §588 — THE BIND GUARD. `setBackendFileHandle` is a REAL resumption point
           //   (`LocalFileBackend.setHandle` awaits `idbSet`), and it was introduced by §590 between
           //   the read guard and this branch's whole tail. Without it `applyPickedWorkspace` runs
@@ -748,7 +749,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
           //   handle with no apply is recoverable (re-pick, or the next load); a save gate pointed at
           //   a dead backend is not.
           if (!deps.isBackendCurrent()) { logDiag("warn", "storage.supersededPickDropped", { stage: "bind-load" }); return; }
-          deps.setFileBinding(unregisteredBinding()); // §645 C1
+          deps.setFileBinding(binding); // §645 C1
           deps.suppressNextSaveRef.current = true; // ★★★ AFTER the bind, never before: a bind that THROWS jumps to the catch, and an already-armed flag would then swallow the next legitimate save of a workspace nothing had modified. Same landmine as `onOpenStorageFile`.
           deps.applyPickedWorkspace(existing.workspace); // bumps the scope epoch, replaces the activity log, and opens the §586 gate — see its doc on `StorageFilePickerDeps`.
           await deps.refreshBackendStatus();
@@ -779,7 +780,8 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       }
       // The ordinary pick: a new, empty or unparseable file, or a live workspace that is really the
       // user's. Bind, then write — `save()` reads the STORED handle, so the bind cannot follow it.
-      await setBackendFileHandle(deps.backend, picked);
+      const binding = unregisteredBinding(); // §645 C1 — stored with the handle, so a later load of this file joins this window
+      await setBackendFileHandle(deps.backend, picked, binding);
       // ★★ §588 — THE BIND GUARD, this branch's copy. Its sibling above is the load-bearing one; this
       //   one restores the one-guard-per-await doctrine over the same new await, and stops a
       //   wrong-target `guardedWrite` one step earlier than the write guard below.
@@ -787,7 +789,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       //   bound" — measured as a SURVIVOR before that test existed, with its load-instead sibling in
       //   place: the two branches carry separate guards and the branch is chosen before either runs.
       if (!deps.isBackendCurrent()) { logDiag("warn", "storage.supersededPickDropped", { stage: "bind-overwrite" }); return; }
-      deps.setFileBinding(unregisteredBinding()); // §645 C1
+      deps.setFileBinding(binding); // §645 C1
       // ★★ §4 R12 — `force` ONLY for an unparseable pick (see `readPickedProject`). Every other file
       //   in this branch was read cleanly, so `setBackendFileHandle` adopted its revision. The force
       //   is armed INSIDE `guardedWrite`'s queued job, right before its `save()`: armed here instead,
@@ -835,8 +837,9 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       // ★★★ A GUARD CLAUSE INVERTED ON PURPOSE, so ONE report below covers BOTH exits OF THE CONFIRM: the decline path needs the import report and the quoting hold every bit as much as the apply path does — a malformed file drops the same rows whichever way the confirm goes — and an early `return` above would have silently exempted it (§152). ★★ The re-point that used to happen on BOTH exits is GONE — `openFileForBackend` commits nothing now, and the handle is bound inside the accept branch below (§287).
       const accepted = deps.tasks.length === 0 || window.confirm(t(deps.langRef.current, "storageConfirmOverwrite", deps.tasks.length));
       if (accepted) {
-        await setBackendFileHandle(deps.backend, picked); // ★ commit the pick ONLY now (§287) — before this line the backend still points at the previous file, so a decline leaves nothing to undo.
-        deps.setFileBinding(unregisteredBinding()); // §645 C1
+        const binding = unregisteredBinding(); // §645 C1 — stored with the handle, so a later load of this file joins this window
+        await setBackendFileHandle(deps.backend, picked, binding); // ★ commit the pick ONLY now (§287) — before this line the backend still points at the previous file, so a decline leaves nothing to undo.
+        deps.setFileBinding(binding); // §645 C1
         deps.suppressNextSaveRef.current = true; // ★★★ AFTER the bind, never before. The flag suppresses the save that the `setTasks` below triggers, and `setTasks` runs after this line either way — but a bind that THROWS jumps to the catch, and an already-armed flag would then swallow the next legitimate save of a workspace nothing had modified. Arming it here means a failed bind leaves no residue.
         // Seed the session minter from the opened file so its (possibly larger)
         // task/raid ids can't be reused after a delete. "raise" never lowers a
@@ -905,13 +908,14 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       ),
     });
     try {
-      const pick = pickFileForBackend(target);
+      const binding = unregisteredBinding(); // §645 C1 — a new file no registry project names; stored with its handle
+      const pick = pickFileForBackend(target, binding);
       if (pick) await pick;
       // §4 — `force`: a blind write by intent. `target` never loaded, and the conversion replaces whatever the new storage (file, IndexedDB or SharePoint item) held.
       if (!(await deps.truncationOps.guardedWrite(target, deps.currentWorkspace(), { force: true }))) return; // ★★ §103: the conversion writes to a DIFFERENT backend, so the source survives — but `emitStorageConfig` below then repoints the app AT the short copy and the intact original becomes the abandoned one. Refuse loudly instead.
       deps.suppressNextLoadRef.current = true;
       deps.handOverFromRef.current = target; // §4 §645 — the revision (and handle) the forced write produced
-      // §645 C1 — the file binding is left as it is: a conversion keeps the window's project.
+      if (pick) deps.setFileBinding(binding); // §645 C1 — a file target: this window is on the new file's binding
       deps.emitStorageConfig(newConfig);
       deps.emitToast("info", t(deps.langRef.current, "storageConvertedToast", label));
     } catch (err) {

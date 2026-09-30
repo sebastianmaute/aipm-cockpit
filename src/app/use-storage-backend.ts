@@ -14,7 +14,7 @@ import { backfillTaskResourceFks } from "./resource-foundation";
 import { recordDataLossEvent } from "./dataloss-forensics";
 import { logDiag } from "./diagnostics";
 import { seedMintFromWorkspace } from "./id-mint-session";
-import { loadRegistry, saveRegistry, type ProjectsRegistry } from "./projects-registry";
+import { saveRegistry, type ProjectsRegistry } from "./projects-registry";
 import { readPopoutOpenerFromUrl, syncScopeKey } from "./sync-scope";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
@@ -429,7 +429,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // Suppresses the load effect that fires after onRequestStorageSwitch sets new config
   const suppressNextLoadRef = useRef(false);
   const handOverFromRef = useRef<ReturnType<typeof createBackend> | null>(null); // §4 §645 — the op's own instance, set beside `suppressNextLoadRef`; the suppress branch hands it to the live one
-  // §645 (final review C1) — the registry project id this WINDOW bound its local file for (`sync-scope.ts`): set by a project op beside its hand-over and captured at a load, never read live, since the registry's `currentProjectId` is every tab's.
+  // §645 (final review C1) — the binding of the local file this WINDOW is bound to (`sync-scope.ts`): set by a project op or pick beside its bind, and read at a load from the slot record it opened (`LocalFileBackend.fileBinding`); never the registry's `currentProjectId`, which is every tab's.
   const [fileBinding, setFileBinding] = useState<string | null>(null);
   // M4: projects whose unsafe-email notice this session already showed (see `FileProjectOpsDeps`).
   const announcedUnsafeEmailsRef = useRef<Set<string>>(new Set());
@@ -725,7 +725,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         const restored = lastLoadWasIncomplete(backend) ? null : unloadJournal.restoreOnLoad(workspace, journalProjectKey, args.settings.storageConfig.kind);
         if (restored !== null) { syncBaselinesToLoaded(workspace); emitToast("success", t(langRef.current, "unloadJournalRestored")); } // BEFORE `reportFor`: single-slot toast
         applyWorkspaceFromLoad(restored ?? workspace, "reset", resolveLogModeAndStamp(), restored !== null ? "restore" : "load");
-        setFileBinding(loadRegistry().currentProjectId); // §645 C1 — the project whose file the shared slot just opened. Residual: a load racing another tab's switch (slot re-pointed, registry not yet committed) can capture the other id.
+        setFileBinding((backend as { fileBinding?: () => string | null }).fileBinding?.() ?? null); // §645 C1 — the binding stored WITH the handle this load opened (`LocalFileBackend.fileBinding`), never the registry's current project
         logDiag("info", "storage.loaded", { records: workspaceRecordCount(workspace) });
         truncationOps.reportFor(backend); // ★ after applyWorkspaceFromLoad only: the empty-load REFUSAL above applies nothing, so neither raising nor lowering the TRUNCATION flag would describe the workspace that is actually live. ★★ That reasoning is TRUNCATION-specific and does NOT extend to the decode cause — the refusal path publishes that one itself, just above.
         suppressNextSaveRef.current = restored === null; // §629 — a restored journal is SAVED back, through every save guard

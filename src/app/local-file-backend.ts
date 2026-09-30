@@ -46,6 +46,21 @@ function fileRevision(file: File): string {
  *  a healthy lock holder (open a writable, write, close) to finish first. */
 const LOCAL_LOCK_WAIT_TIMEOUT_MS = 10_000;
 
+/** §645 (final re-review RC1) — what the shared slot `file-handle:<kind>` holds: the handle AND the
+ *  tab-sync binding it was bound for (`fileBinding`, `sync-scope.ts`), written in ONE value so a load
+ *  reads the binding of the file it actually opens, never the registry's current project (which a
+ *  pick does not change, and another tab's switch commits only after re-pointing the slot). A slot
+ *  written before this holds the bare handle; its binding is unknown (`null`: the kind alone). */
+type HandleSlot = { handle: FsHandle; binding: string | null };
+function readSlot(raw: unknown): HandleSlot | null {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw === "object" && "handle" in raw) {
+    const rec = raw as { handle: FsHandle; binding?: unknown };
+    return { handle: rec.handle, binding: typeof rec.binding === "string" ? rec.binding : null };
+  }
+  return { handle: raw as FsHandle, binding: null };
+}
+
 export class LocalFileBackend implements StorageBackend {
   readonly kind: LocalKind;
   /** Malformed rows dropped by the most recent CSV/MD load() (0 for JSON). */
@@ -94,6 +109,8 @@ export class LocalFileBackend implements StorageBackend {
    *  every call re-read the slot, so any window's re-point/project-switch
    *  retargeted every other window's next save too). */
   private boundHandle: FsHandle | null = null;
+  /** §645 C1 — the binding `boundHandle` was bound with (see `HandleSlot`); `null` when unknown. */
+  private boundBinding: string | null = null;
   /** §645 fix round 1 (R10 change 1) — the revision this instance last loaded
    *  or wrote from `boundHandle`; `null` means UNKNOWN (never loaded/written
    *  that handle, and not adopted or forced) — `save()` now FAILS CLOSED on
@@ -156,10 +173,19 @@ export class LocalFileBackend implements StorageBackend {
    * (the store itself is broken) is allowed to override the cache.
    */
   private async getHandle(): Promise<FsHandle | null> {
-    const stored = await idbGet<FsHandle>(this.idbKey);
+    const stored = readSlot(await idbGet<unknown>(this.idbKey));
     if (this.boundHandle) return this.boundHandle;
-    if (stored) this.boundHandle = stored;
-    return stored ?? null;
+    if (stored) {
+      this.boundHandle = stored.handle;
+      this.boundBinding = stored.binding;
+    }
+    return stored?.handle ?? null;
+  }
+
+  /** §645 C1 — the tab-sync binding of the file this instance is bound to: the one stored with the
+   *  handle it bound or read. `null` when unbound or bound from an old slot (the kind alone). */
+  fileBinding(): string | null {
+    return this.boundHandle ? this.boundBinding : null;
   }
 
   /**
@@ -173,10 +199,12 @@ export class LocalFileBackend implements StorageBackend {
    * after a page reload; callers should re-grant via requestWriteAccess() from
    * a user gesture if needed.
    */
-  async setHandle(handle: FsHandle): Promise<void> {
-    await idbSet(this.idbKey, handle);
-    // §645 — bind THIS instance to the handle it just committed.
+  async setHandle(handle: FsHandle, binding: string | null = null): Promise<void> {
+    const record: HandleSlot = { handle, binding };
+    await idbSet(this.idbKey, record);
+    // §645 — bind THIS instance to the handle it just committed, and (C1) the binding stored with it.
     this.boundHandle = handle;
+    this.boundBinding = binding;
     // R10 change 2 (R6 one-shot pre-read) — adopt the revision from a PRIOR
     // `loadFrom(handle)` read of this EXACT handle (the §287/§590 preview
     // flow), so committing a file the caller just previewed does not
@@ -236,13 +264,15 @@ export class LocalFileBackend implements StorageBackend {
    * itself — an earlier revision here claimed "exactly those two call sites" beside a grep that did
    * not produce them.
    */
-  async pickFile(): Promise<void> {
+  async pickFile(binding: string | null = null): Promise<void> {
     // showSaveFilePicker grants readwrite implicitly when the user picks a file.
     const handle = await pickSaveFile(this.format);
-    await idbSet(this.idbKey, handle);
+    const record: HandleSlot = { handle, binding };
+    await idbSet(this.idbKey, record);
     // §645 — same bind-and-reset as setHandle() above; this is the other path
     // that commits a NEW handle to the active slot.
     this.boundHandle = handle;
+    this.boundBinding = binding;
     this.currentRevision = null;
     // §645 fix round 3 — same reasoning as setHandle(): a re-bind must drop a
     // leftover forced-save intent from whatever the PREVIOUS target was.
@@ -316,6 +346,7 @@ export class LocalFileBackend implements StorageBackend {
     // keep returning the now-cleared `boundHandle` instead of `null` (it only
     // falls back to re-reading the slot when NOT already bound).
     this.boundHandle = null;
+    this.boundBinding = null;
     this.currentRevision = null;
     this.forceNext = false; // final review m9: all five, as `setHandle` resets them
     this.expectNext = null;
@@ -602,6 +633,7 @@ export class LocalFileBackend implements StorageBackend {
    */
   adoptFrom(other: LocalFileBackend): void {
     this.boundHandle = other.boundHandle;
+    this.boundBinding = other.boundBinding;
     this.currentRevision = other.currentRevision;
     // §645 fix round 3 — adopting another instance's state establishes a
     // fresh, genuine baseline; a forced-write intent left over from THIS

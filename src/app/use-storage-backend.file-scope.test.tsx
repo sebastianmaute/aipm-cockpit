@@ -104,12 +104,15 @@ const raidItem = (id: string, title: string) => ({ id, title }) as unknown as Ra
 
 let fileA: FakeFile;
 let fileB: FakeFile;
+const SLOT = "file-handle:local-json";
+/** What a binder writes into the shared per-kind slot: the handle AND the binding it was bound for (§645 C1). */
+const slot = (handle: FakeFile, binding: string) => ({ handle, binding });
 
-/** Registry projects `a` and `b` are both local JSON files; `a` is current, so both windows boot bound to `a.json`. */
+/** Registry projects `a` and `b` are both local JSON files; `a` is current and its switch left the slot on `a.json`, so both windows boot bound to it. */
 async function openTwoOnA(): Promise<{ w1: Win; w2: Win }> {
   fileA = fakeFile("a.json", workspaceToJson({ ...emptyWorkspace(), tasks: [task(1, "A-TASK")] }));
   fileB = fakeFile("b.json", workspaceToJson({ ...emptyWorkspace(), tasks: [task(1, "B-TASK")] }));
-  KV.set("file-handle:local-json", fileA);
+  KV.set(SLOT, slot(fileA, "a"));
   PROJECT_HANDLES.set("a", fileA);
   PROJECT_HANDLES.set("b", fileB);
   let registry = addProject(emptyRegistry(), { id: "a", name: "Project a", code: "A", storageConfig: { kind: "local-json" } }, true);
@@ -161,11 +164,13 @@ describe("useStorageBackend — local-file windows sync only with windows on the
     await expectKeptApart(w1, w2);
   });
 
-  it("a window that booted on another file neither applies the edit nor saves it into its own file", async () => {
+  // §659 (2) — another tab's switch writes the slot before it commits the registry. A window that boots in
+  // between opens b.json while the registry still names `a`: its binding must come from the slot it opened.
+  it("a window that booted on another file neither applies the edit nor saves it into its own file, even while the registry still names the first", async () => {
     const { w1, w2 } = await openTwoOnA();
     w2.hook.unmount();
-    KV.set("file-handle:local-json", fileB); // another tab's switch to b re-pointed the slot and the registry
-    saveRegistry({ ...loadRegistry(), currentProjectId: "b" });
+    KV.set(SLOT, slot(fileB, "b")); // another tab's switch to b re-pointed the slot; its registry commit has not landed
+    expect(loadRegistry().currentProjectId).toBe("a");
     const w3 = openWindow();
     await waitFor(() => expect(w3.ops().loadPending).toBe(false));
     await settle();
@@ -189,5 +194,76 @@ describe("useStorageBackend — local-file windows sync only with windows on the
     await act(async () => { w2.hook.result.current.workspace.setTasks([task(1, "A-TASK"), task(3, "BACK-ON-A")]); });
     await settle();
     expect(w1.taskNames()).toEqual(["A-TASK", "BACK-ON-A"]);
+  });
+  it("a window booted after another window's switch reads that project from the slot and mirrors it", async () => {
+    const { w2 } = await openTwoOnA();
+    await switchTo(w2, "b");
+    const w4 = openWindow();
+    await waitFor(() => expect(w4.ops().loadPending).toBe(false));
+    await settle();
+    expect(w4.taskNames()).toEqual(["B-TASK"]);
+    await act(async () => { w2.hook.result.current.workspace.setTasks([task(1, "B-TASK"), task(7, "B-AFTER-SWITCH")]); });
+    await settle();
+    expect(w4.taskNames()).toEqual(["B-TASK", "B-AFTER-SWITCH"]);
+  });
+
+  // An old slot, written before the binding was stored with the handle, holds the bare handle: the kind alone.
+  it("windows booted from an old slot with no binding fall back to the kind alone, and mirror each other", async () => {
+    fileA = fakeFile("a.json", workspaceToJson({ ...emptyWorkspace(), tasks: [task(1, "A-TASK")] }));
+    KV.set(SLOT, fileA);
+    const w1 = openWindow();
+    const w2 = openWindow();
+    await waitFor(() => expect(w1.ops().loadPending).toBe(false));
+    await waitFor(() => expect(w2.ops().loadPending).toBe(false));
+    await settle();
+    await act(async () => { w1.hook.result.current.workspace.setTasks([task(1, "A-TASK"), task(2, "LEGACY-EDIT")]); });
+    await settle();
+    expect(w2.taskNames()).toEqual(["A-TASK", "LEGACY-EDIT"]);
+  });
+});
+
+// Re-review RC1 and RI1 — a pick in Settings re-points the slot but not the registry. Every LATER load (a
+// reload of the picking window, or a new window) must take its binding from the slot, i.e. the picked
+// file's, never the registry's current project.
+describe("useStorageBackend — a load after a pick binds the picked file, not the registry's project (§645)", () => {
+  let fileX: FakeFile;
+  /** W1 and W3 on `a`; W1 picks the new, empty file x.json in Settings. */
+  async function pickedInW1() {
+    const { w1, w2: w3 } = await openTwoOnA();
+    fileX = fakeFile("x.json", "");
+    vi.stubGlobal("showSaveFilePicker", vi.fn(async () => fileX));
+    await act(async () => { await w1.ops().onPickStorageFile(); });
+    await settle();
+    await waitFor(() => expect(fileX.text()).toContain("A-TASK")); // the ordinary pick: bind, then write the live workspace
+    expect(loadRegistry().currentProjectId).toBe("a"); // the registry never heard of the pick
+    return { w1, w3 };
+  }
+  async function boot(): Promise<Win> {
+    const w = openWindow();
+    await waitFor(() => expect(w.ops().loadPending).toBe(false));
+    await settle();
+    return w;
+  }
+
+  it("a window booted after the pick does not mirror a window on the registry project's real file, and nothing reaches x.json from it", async () => {
+    const { w1, w3 } = await pickedInW1();
+    w1.hook.unmount(); // the picking window is reloaded
+    const w2 = await boot();
+    expect(w2.taskNames()).toEqual(["A-TASK"]); // x.json's copy
+    await act(async () => { w3.hook.result.current.workspace.setTasks([task(1, "A-TASK"), task(5, "FROM-A-FILE")]); });
+    await settle(900);
+    expect(w2.taskNames()).toEqual(["A-TASK"]); // not applied
+    await act(async () => { w2.hook.result.current.workspace.setRaid([raidItem("r1", "X-EDIT")]); });
+    await waitFor(() => expect(fileX.text()).toContain("X-EDIT"), { timeout: 4000 });
+    await settle();
+    expect(fileX.text()).not.toContain("FROM-A-FILE");
+  });
+
+  it("a window booted after the pick mirrors the picking window, which is on the same file", async () => {
+    const { w1 } = await pickedInW1();
+    const w2 = await boot();
+    await act(async () => { w1.hook.result.current.workspace.setTasks([task(1, "A-TASK"), task(6, "ON-X")]); });
+    await settle();
+    expect(w2.taskNames()).toEqual(["A-TASK", "ON-X"]);
   });
 });

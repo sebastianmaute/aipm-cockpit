@@ -20,8 +20,8 @@ describe("local file picker per-format id", () => {
 
     // pickFile also persists the handle to IndexedDB (unavailable in this env);
     // swallow that — we only care about the picker options passed.
-    await pickFileForBackend(createBackend({ kind: "local-csv" }))?.catch(() => {});
-    await pickFileForBackend(createBackend({ kind: "local-md" }))?.catch(() => {});
+    await pickFileForBackend(createBackend({ kind: "local-csv" }), "p")?.catch(() => {});
+    await pickFileForBackend(createBackend({ kind: "local-md" }), "p")?.catch(() => {});
 
     expect(calls).toHaveLength(2);
     expect(calls[0].id).toBeTruthy();

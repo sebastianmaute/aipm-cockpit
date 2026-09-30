@@ -594,3 +594,49 @@ describe("LocalFileBackend §4 conditional overwrite", () => {
     expect(await (await handle.getFile()).text()).toBe("peer");
   });
 });
+
+// §645 (final re-review RC1) — the shared slot stores the tab-sync binding WITH the handle, so a later
+// instance (a reload, a new window) reads the binding of the file it opens.
+describe("LocalFileBackend §645 the slot's binding", () => {
+  beforeEach(() => { kvStore.clear(); });
+
+  it("setHandle and pickFile store the binding with the handle, and a fresh instance reads it back", async () => {
+    const handle = revisionFakeHandle();
+    const a = new LocalFileBackend("local-json");
+    await a.setHandle(handle, "p1");
+    expect(kvStore.get("file-handle:local-json")).toEqual({ handle, binding: "p1" });
+    expect(a.fileBinding()).toBe("p1");
+    const b = new LocalFileBackend("local-json");
+    expect(b.fileBinding()).toBeNull(); // unbound
+    await b.load();
+    expect(b.fileBinding()).toBe("p1");
+    const picked = revisionFakeHandle();
+    vi.stubGlobal("showSaveFilePicker", vi.fn(async () => picked));
+    try {
+      await a.pickFile("picked:u1");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(kvStore.get("file-handle:local-json")).toEqual({ handle: picked, binding: "picked:u1" });
+    expect(a.fileBinding()).toBe("picked:u1");
+  });
+
+  it("an old slot holding the bare handle reads as no binding (the kind alone), and still opens the file", async () => {
+    const handle = revisionFakeHandle({ text: workspaceToJson(emptyWorkspace()) });
+    kvStore.set("file-handle:local-json", handle);
+    const be = new LocalFileBackend("local-json");
+    await be.load();
+    expect(be.fileBinding()).toBeNull();
+    expect(be.revision()).not.toBeNull(); // it really read the file
+  });
+
+  it("adoptFrom carries the binding, and clearFile drops it", async () => {
+    const from = new LocalFileBackend("local-json");
+    await from.setHandle(revisionFakeHandle(), "p2");
+    const live = new LocalFileBackend("local-json");
+    live.adoptFrom(from);
+    expect(live.fileBinding()).toBe("p2");
+    await live.clearFile();
+    expect(live.fileBinding()).toBeNull();
+  });
+});
