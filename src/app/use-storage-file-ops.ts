@@ -88,6 +88,10 @@ export interface FileProjectOpsDeps {
    *  skips its load, so the load effect's suppress branch hands it this instance's revision (and
    *  bound handle) through `handOverRevision`. Without it the live backend's first save fails closed. */
   handOverFromRef: React.MutableRefObject<StorageBackend | null>;
+  /** §645 (final review C1) — records which registry project's file THIS window is now bound to, the
+   *  tab-sync scope of a local file (`sync-scope.ts`). Called beside each hand-over, in the same tick as
+   *  the config change, so the new scope renders with the new backend. */
+  setFileBinding: (id: string | null) => void;
   /** ★★ M4: registry ids whose unsafe-email notice this SESSION already showed.
    *  An ordinary SWITCH announces a project at most once; an explicit import
    *  (file open, a create with a template or AI seed) always announces and
@@ -154,6 +158,7 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       //    loaded), then point the active backend + registry at the target.
       deps.suppressNextLoadRef.current = true;
       deps.handOverFromRef.current = targetBackend; // §4 §645 — the revision (and handle) this load established
+      deps.setFileBinding(id); // §645 C1 — this window now writes project `id`'s file
       deps.suppressNextSaveRef.current = true;
       deps.setStorageConfig(target.storageConfig);
       deps.commitRegistry(setCurrentProjectInRegistry(registry, id));
@@ -210,6 +215,7 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       deps.truncationOps.clearForFreshWorkspace(); // ★★★ §103: createProject BUILDS its workspace, so no load ever reports for it — without this a fresh project inherits the previous one's pause and every edit to it is silently refused.
       deps.suppressNextLoadRef.current = true;
       deps.handOverFromRef.current = targetBackend; // §4 §645 — the revision (and handle) the forced write produced
+      deps.setFileBinding(id); // §645 C1 — this window now writes project `id`'s file
       deps.suppressNextSaveRef.current = true;
       deps.setStorageConfig(storageConfig);
       deps.showToast("info", t(deps.langRef.current, "projectCreatedToast", meta.name));
@@ -303,6 +309,7 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       deps.truncationOps.reportFor(targetBackend);
       deps.suppressNextLoadRef.current = true;
       deps.handOverFromRef.current = targetBackend; // §4 §645 — the revision (and handle) this load established
+      deps.setFileBinding(id); // §645 C1 — this window now writes project `id`'s file
       deps.suppressNextSaveRef.current = true;
       deps.setStorageConfig(storageConfig);
       // Cross-mode load (portfolio is currently Turso, but the user is loading a
@@ -385,6 +392,7 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       deps.truncationOps.clearForFreshWorkspace(); // ★★★ §103: createDemoProject BUILDS its workspace, so no load ever reports for it — without this a fresh project inherits the previous one's pause and every edit to it is silently refused.
       deps.suppressNextLoadRef.current = true;
       deps.handOverFromRef.current = targetBackend; // §4 §645 — the revision (and per-store baselines) the forced write produced
+      deps.setFileBinding(id); // §645 C1 — this window now writes project `id`'s file
       deps.suppressNextSaveRef.current = true;
       deps.setStorageConfig(storageConfig);
       deps.showToast("info", t(deps.langRef.current, "projectCreatedToast", meta.name));
@@ -415,6 +423,8 @@ export interface StorageFilePickerDeps {
   suppressNextLoadRef: React.MutableRefObject<boolean>;
   /** §4 §645 — same field as `FileProjectOpsDeps.handOverFromRef`; the conversion sets it. */
   handOverFromRef: React.MutableRefObject<StorageBackend | null>;
+  /** §645 C1 — same field as `FileProjectOpsDeps.setFileBinding`: a pick binds a file no registry project names. */
+  setFileBinding: (id: string | null) => void;
   emitStorageConfig: (config: StorageConfig) => void;
   /** §586: open the save gate for the ACTIVE backend — it now holds exactly the live workspace. */
   allowSavesToActiveBackend: () => void;
@@ -490,6 +500,14 @@ function authoredRecordCount(workspace: Workspace): number {
   return workspaceRecordCount(workspace)
     - (workspace.disciplines?.length ?? 0)
     - (workspace.grades?.length ?? 0);
+}
+
+/** §645 (final review C1) — the file binding after a pick or an open, which bind a file that no
+ *  registry project names. Unique per bind, so this window syncs with NO other: two windows that
+ *  picked different files cannot mirror each other (the kind alone would join them), and two that
+ *  picked the same file meet the §4 revision check, a visible pause rather than a silent overwrite. */
+function unregisteredBinding(): string {
+  return `picked:${crypto.randomUUID()}`;
 }
 
 export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
@@ -722,6 +740,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
           //   handle with no apply is recoverable (re-pick, or the next load); a save gate pointed at
           //   a dead backend is not.
           if (!deps.isBackendCurrent()) { logDiag("warn", "storage.supersededPickDropped", { stage: "bind-load" }); return; }
+          deps.setFileBinding(unregisteredBinding()); // §645 C1
           deps.suppressNextSaveRef.current = true; // ★★★ AFTER the bind, never before: a bind that THROWS jumps to the catch, and an already-armed flag would then swallow the next legitimate save of a workspace nothing had modified. Same landmine as `onOpenStorageFile`.
           deps.applyPickedWorkspace(existing.workspace); // bumps the scope epoch, replaces the activity log, and opens the §586 gate — see its doc on `StorageFilePickerDeps`.
           await deps.refreshBackendStatus();
@@ -760,6 +779,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       //   bound" — measured as a SURVIVOR before that test existed, with its load-instead sibling in
       //   place: the two branches carry separate guards and the branch is chosen before either runs.
       if (!deps.isBackendCurrent()) { logDiag("warn", "storage.supersededPickDropped", { stage: "bind-overwrite" }); return; }
+      deps.setFileBinding(unregisteredBinding()); // §645 C1
       // ★★ §4 R12 — `force` ONLY for an unparseable pick (see `readPickedProject`). Every other file
       //   in this branch was read cleanly, so `setBackendFileHandle` adopted its revision. The force
       //   is armed INSIDE `guardedWrite`'s queued job, right before its `save()`: armed here instead,
@@ -807,6 +827,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       const accepted = deps.tasks.length === 0 || window.confirm(t(deps.langRef.current, "storageConfirmOverwrite", deps.tasks.length));
       if (accepted) {
         await setBackendFileHandle(deps.backend, picked); // ★ commit the pick ONLY now (§287) — before this line the backend still points at the previous file, so a decline leaves nothing to undo.
+        deps.setFileBinding(unregisteredBinding()); // §645 C1
         deps.suppressNextSaveRef.current = true; // ★★★ AFTER the bind, never before. The flag suppresses the save that the `setTasks` below triggers, and `setTasks` runs after this line either way — but a bind that THROWS jumps to the catch, and an already-armed flag would then swallow the next legitimate save of a workspace nothing had modified. Arming it here means a failed bind leaves no residue.
         // Seed the session minter from the opened file so its (possibly larger)
         // task/raid ids can't be reused after a delete. "raise" never lowers a
@@ -881,6 +902,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       if (!(await deps.truncationOps.guardedWrite(target, deps.currentWorkspace(), { force: true }))) return; // ★★ §103: the conversion writes to a DIFFERENT backend, so the source survives — but `emitStorageConfig` below then repoints the app AT the short copy and the intact original becomes the abandoned one. Refuse loudly instead.
       deps.suppressNextLoadRef.current = true;
       deps.handOverFromRef.current = target; // §4 §645 — the revision (and handle) the forced write produced
+      // §645 C1 — the file binding is left as it is: a conversion keeps the window's project.
       deps.emitStorageConfig(newConfig);
       deps.emitToast("info", t(deps.langRef.current, "storageConvertedToast", label));
     } catch (err) {

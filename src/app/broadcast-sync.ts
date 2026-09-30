@@ -101,6 +101,13 @@ export function getWindowId(): string {
   return id;
 }
 
+/** The main-window gates a slice and a revision message share, in ONE place so the two cannot drift
+ *  (final review m6): the sender's scope equals this window's own non-null scope, and no project op
+ *  has bumped the scope epoch since this window's last commit. */
+function acceptsFromMain(ctx: Extract<SyncContext, { role: "main" }>, scope: string | null | undefined, committedEpoch: number): boolean {
+  return ctx.scope !== null && scope === ctx.scope && ctx.getEpoch() === committedEpoch;
+}
+
 export function useBroadcastSync<T>(
   kind: string,
   value: T,
@@ -144,8 +151,7 @@ export function useBroadcastSync<T>(
         if (ctx.openerId === null || msg.windowId !== ctx.openerId) return;
       } else {
         if (msg.fromLoad) return;
-        if (ctx.scope === null || msg.scope !== ctx.scope) return;
-        if (ctx.getEpoch() !== committedEpochRef.current) return;
+        if (!acceptsFromMain(ctx, msg.scope, committedEpochRef.current)) return;
       }
       lastSeenRef.current = msg.value;
       applyIncoming(msg.value);
@@ -211,7 +217,7 @@ export function postRevision(sync: SyncContext, revision: string, baseRevision: 
   }
 }
 
-/** Calls `onRevision` for a revision another window on the same scope announced. Mirrors `useBroadcastSync`'s main-window gates. */
+/** Calls `onRevision` for a revision another window on the same scope announced. Shares `useBroadcastSync`'s main-window gates (`acceptsFromMain`). */
 export function useRevisionSync(sync: SyncContext, onRevision: (revision: string, baseRevision: string) => void): void {
   const syncRef = useRef(sync);
   const committedEpochRef = useRef(sync.role === "main" ? sync.getEpoch() : 0);
@@ -227,9 +233,7 @@ export function useRevisionSync(sync: SyncContext, onRevision: (revision: string
       if (!msg || msg.kind !== REVISION_KIND || msg.clientId === REVISION_CLIENT_ID) return;
       if (typeof msg.revision !== "string" || typeof msg.baseRevision !== "string") return;
       const ctx = syncRef.current;
-      if (ctx.role !== "main") return;
-      if (ctx.scope === null || msg.scope !== ctx.scope) return;
-      if (ctx.getEpoch() !== committedEpochRef.current) return;
+      if (ctx.role !== "main" || !acceptsFromMain(ctx, msg.scope, committedEpochRef.current)) return;
       onRevision(msg.revision, msg.baseRevision);
     };
     channel.addEventListener("message", onMessage);

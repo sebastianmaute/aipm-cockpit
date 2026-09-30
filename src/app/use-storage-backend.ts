@@ -14,7 +14,7 @@ import { backfillTaskResourceFks } from "./resource-foundation";
 import { recordDataLossEvent } from "./dataloss-forensics";
 import { logDiag } from "./diagnostics";
 import { seedMintFromWorkspace } from "./id-mint-session";
-import { saveRegistry, type ProjectsRegistry } from "./projects-registry";
+import { loadRegistry, saveRegistry, type ProjectsRegistry } from "./projects-registry";
 import { readPopoutOpenerFromUrl, syncScopeKey } from "./sync-scope";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
@@ -428,6 +428,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // Suppresses the load effect that fires after onRequestStorageSwitch sets new config
   const suppressNextLoadRef = useRef(false);
   const handOverFromRef = useRef<ReturnType<typeof createBackend> | null>(null); // §4 §645 — the op's own instance, set beside `suppressNextLoadRef`; the suppress branch hands it to the live one
+  // §645 (final review C1) — the registry project id this WINDOW bound its local file for (`sync-scope.ts`): set by a project op beside its hand-over and captured at a load, never read live, since the registry's `currentProjectId` is every tab's.
+  const [fileBinding, setFileBinding] = useState<string | null>(null);
   // M4: projects whose unsafe-email notice this session already showed (see `FileProjectOpsDeps`).
   const announcedUnsafeEmailsRef = useRef<Set<string>>(new Set());
   // Guards reloadCurrentProject against re-entrant clicks (redundant round-trips)
@@ -717,6 +719,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         const restored = lastLoadWasIncomplete(backend) ? null : unloadJournal.restoreOnLoad(workspace, journalProjectKey, args.settings.storageConfig.kind);
         if (restored !== null) { syncBaselinesToLoaded(workspace); emitToast("success", t(langRef.current, "unloadJournalRestored")); } // BEFORE `reportFor`: single-slot toast
         applyWorkspaceFromLoad(restored ?? workspace, "reset", resolveLogModeAndStamp(), restored !== null ? "restore" : "load");
+        setFileBinding(loadRegistry().currentProjectId); // §645 C1 — the project whose file the shared slot just opened. Residual: a load racing another tab's switch (slot re-pointed, registry not yet committed) can capture the other id.
         logDiag("info", "storage.loaded", { records: workspaceRecordCount(workspace) });
         truncationOps.reportFor(backend); // ★ after applyWorkspaceFromLoad only: the empty-load REFUSAL above applies nothing, so neither raising nor lowering the TRUNCATION flag would describe the workspace that is actually live. ★★ That reasoning is TRUNCATION-specific and does NOT extend to the decode cause — the refusal path publishes that one itself, just above.
         suppressNextSaveRef.current = restored === null; // §629 — a restored journal is SAVED back, through every save guard
@@ -1123,12 +1126,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // ★★ §642/§643 — the channel is shared by every window of the origin. A main window syncs only
   // with main windows whose `syncScopeKey` equals its own: the storage it WRITES (`sync-scope.ts`),
   // never the registry's current project, which every tab shares through localStorage. Windows on
-  // different storage never apply, and then autosave, each other's slices. ★ Browser storage and
-  // each local-file kind are ONE store or handle slot for every tab, so windows sharing one exchange
-  // slices whatever registry project each shows (§645). A pop-out follows its opener instead.
+  // different storage never apply, and then autosave, each other's slices. ★ Browser storage is ONE
+  // store for every tab, so its windows exchange slices whatever registry project each shows; a local
+  // file is keyed by the file this window is bound to (`fileBinding`, §645). A pop-out follows its opener.
   const syncScope = useMemo(
-    () => syncScopeKey({ storageConfig: args.settings.storageConfig, tursoDatabaseUrl: tursoUrlForBackend, tursoProjectId }),
-    [args.settings.storageConfig, tursoUrlForBackend, tursoProjectId],
+    () => syncScopeKey({ storageConfig: args.settings.storageConfig, tursoDatabaseUrl: tursoUrlForBackend, tursoProjectId, fileBinding }),
+    [args.settings.storageConfig, tursoUrlForBackend, tursoProjectId, fileBinding],
   );
   const syncContext = useMemo<SyncContext>(
     () => (args.isPopout ? { role: "popout", openerId: readPopoutOpenerFromUrl() } : { role: "main", scope: syncScope, getEpoch: getScopeEpoch, isLoadedValue }),
@@ -1284,6 +1287,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     suppressNextLoadRef,
     suppressNextSaveRef,
     handOverFromRef,
+    setFileBinding,
     announcedUnsafeEmailsRef,
   });
 
@@ -1304,6 +1308,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     suppressNextSaveRef,
     suppressNextLoadRef,
     handOverFromRef,
+    setFileBinding,
     emitStorageConfig,
     allowSavesToActiveBackend: () => allowSavesTo(backend),
     loadSucceeded: () => savesAllowedForRef.current === backend,
