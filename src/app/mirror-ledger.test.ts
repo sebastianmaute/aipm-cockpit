@@ -108,6 +108,19 @@ describe("createMirrorLedger", () => {
     expect(ledger.isMirroredOnly({ ...written, raid: peerRaid })).toBe(true);
   });
 
+  // A peer value landed on an own unsaved value (contested), and the write then held that peer value: the
+  // contested mark goes with the entry, or every later mirror of any part would count as own.
+  it("markWritten clears a contested mark when its write held the peer value", () => {
+    const { ledger, base } = loaded();
+    const peer = list("peer");
+    ledger.judge("tasks", list("own"), peer);
+    const written = { ...base, tasks: peer };
+    ledger.markWritten(written);
+    const peerRaid = [{ id: "peer raid" }] as unknown as Workspace["raid"];
+    ledger.judge("raid", written.raid, peerRaid);
+    expect(ledger.isMirroredOnly({ ...written, raid: peerRaid })).toBe(true);
+  });
+
   it("markWritten keeps a contested part contested when its write did not hold the peer value", () => {
     const { ledger, base } = loaded();
     const own = list("own");
