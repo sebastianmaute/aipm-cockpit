@@ -263,7 +263,15 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
   Lock wait, or a revision read in a transaction of its own, in front of the writes lost the save; and
   a transaction left to auto-commit did not commit at the close once it wrote more than one store,
   while `tx.commit()` right after the last write lands it. So `BrowserBackend.save` opens one
-  connection in the caller's turn, runs everything in one transaction and commits it.
+  connection in the caller's turn, runs everything in one transaction and commits it. Three known
+  limits, each recovered by the unload journal rather than by IndexedDB:
+  - (a) A local-file save that has to wait on its Web Lock (`withSaveLock`) at tab close is lost, by the
+    browser-storage measurement above that a lock wait loses the close-time save. That is unverified for
+    files: no e2e closes a tab on a local-file project.
+  - (b) A pagehide save queued behind a save that is already running (`save-queue.ts`) starts in a later
+    task and is lost the same way.
+  - (c) The load's `migrateWorkspaceV10` backfill writes (`idbBulkUpdate` in `BrowserBackend.load`) skip
+    the revision, so they are neither checked nor bumped. This predates the branch.
 - **Fail closed.** An instance that knows no revision (never loaded, or its load failed) refuses
   its first save. The one exception is a SharePoint file loaded without an eTag, which saves without
   `If-Match` as before. A SharePoint PUT whose response carries no eTag (the `ETag` header is not
