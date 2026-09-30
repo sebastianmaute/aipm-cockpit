@@ -255,7 +255,7 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
 | Browser storage | an integer in the `kv` store, key `"revision"` | under the Web Lock `aipm-cockpit:save:browser`: read, compare, write, bump |
 | Local file (`local-*`) | `${lastModified}:${size}` of the bound file | under the Web Lock `aipm-cockpit:save:<kind>`: re-read the file and compare |
 | SharePoint (`sp-*`) | the driveItem eTag | by Graph: the upload carries `If-Match`, and a create after a 404 load carries `conflictBehavior=fail`; 409 and 412 map to `SaveConflictError` |
-| Turso (single and tenant) | a `meta` row, key `REVISION_KEY` (per `project_id` in tenant) | inside the §637 conditional batch: `withRevision` puts `revisionGuardStatement` right after `BEGIN`, which raises an SQL error on a mismatch, so every later step is skipped and the batch rolls back |
+| Turso (single and tenant) | a `meta` row, key `REVISION_KEY` (per `project_id` in tenant) | inside the §637 conditional batch: `withRevision` puts `revisionGuardStatement` after `BEGIN` and the DDL, before the data statements (none when the save is blind), which raises an SQL error on a mismatch, so every later step is skipped and the batch rolls back |
 
 - **Fail closed.** An instance that knows no revision (never loaded, or its load failed) refuses
   its first save. The one exception is a SharePoint file loaded without an eTag, which saves without
