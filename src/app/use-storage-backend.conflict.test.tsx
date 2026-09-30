@@ -408,6 +408,57 @@ describe("useStorageBackend — a stale save pauses saving and keeps the edits j
       await expectStayedPaused(app, file);
     });
 
+    // Re-review r2 — the other three file ops stop on the same rethrow (one test per stop).
+    describe("every other file op stops too", () => {
+      async function pausedOverCap() {
+        const { app, file } = await pausedOnConflict();
+        await edit(app, [task(1, OVER_CAP)]);
+        await settle(900);
+        const projectsBefore = loadRegistry().projects.length;
+        const expectStayed = () => {
+          expect(loadRegistry().projects).toHaveLength(projectsBefore); // nothing registered
+          expect(app.hook.result.current.workspace.tasks.map((x) => x.taskName)).toEqual([OVER_CAP]);
+          expect(app.ops().conflictPause).toBe(true);
+          expect(file.writes).toBe(0);
+          expect(blockedToasts()).toBe(1);
+        };
+        return { app, expectStayed };
+      }
+
+      it("createProject opens no save picker", async () => {
+        const { app, expectStayed } = await pausedOverCap();
+        const picker = vi.fn();
+        vi.stubGlobal("showSaveFilePicker", picker);
+        try {
+          await act(async () => { await app.ops().createProject({ name: "New", code: "N" } as never, "json"); });
+        } finally {
+          vi.unstubAllGlobals();
+        }
+        expect(picker).not.toHaveBeenCalled();
+        expectStayed();
+      });
+
+      it("loadProjectFromFile opens no open picker", async () => {
+        const { app, expectStayed } = await pausedOverCap();
+        const picker = vi.fn();
+        vi.stubGlobal("showOpenFilePicker", picker);
+        try {
+          await act(async () => { await app.ops().loadProjectFromFile(); });
+        } finally {
+          vi.unstubAllGlobals();
+        }
+        expect(picker).not.toHaveBeenCalled();
+        expectStayed();
+      });
+
+      it("createDemoProject writes and registers nothing", async () => {
+        const { app, expectStayed } = await pausedOverCap();
+        await act(async () => { await app.ops().createDemoProject({ ...emptyWorkspace(), tasks: [task(3, "DEMO")] }); });
+        await settle();
+        expectStayed();
+      });
+    });
+
     it("a settings rebuild cannot be refused, so its toast says the edits were not kept either", async () => {
       const file = fakeFile("p.json", workspaceToJson(emptyWorkspace()));
       KV.set("file-handle:local-json", file);

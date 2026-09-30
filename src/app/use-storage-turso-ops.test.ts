@@ -21,6 +21,7 @@ import { useTursoProjectOps, type TursoProjectOpsDeps } from "./use-storage-turs
 import { useLoadTruncation } from "./use-load-truncation";
 import { t, type Lang } from "./i18n";
 import { emptyWorkspace } from "./workspace";
+import { SaveConflictError } from "./storage-error";
 
 // `migrateCurrentProjectToTurso` probes the connection before it migrates, so
 // the real one would reach the network here. Spread the actual module rather
@@ -374,5 +375,35 @@ describe("useTursoProjectOps — §4 hand-over and blind writes", () => {
     })));
     await act(async () => { await result.current.migrateCurrentProjectToTurso(); });
     expect(guardedWrite).toHaveBeenCalledWith(expect.anything(), expect.anything(), { force: true });
+  });
+});
+
+// §4 final review I2 / re-review r2 — the pre-switch flush throws a SaveConflictError only when the
+// unsaved edits met a conflict AND could not be kept (`keepNotSavedOnSwitch`, which already toasted):
+// every op must stop there, so the user stays on the paused project.
+describe("a flush whose edits could not be kept stops the op (§4)", () => {
+  const unkept = async () => { throw new SaveConflictError("browser"); };
+
+  it("switchToTursoProject loads nothing and does not switch", async () => {
+    const setTursoProjectId = vi.fn();
+    const { result } = renderWithRealGuard(unkept, { setTursoProjectId });
+    await act(async () => { await result.current.ops.switchToTursoProject("p-2"); });
+    expect(loadMock).not.toHaveBeenCalled();
+    expect(setTursoProjectId).not.toHaveBeenCalled();
+    expect(result.current.showToast).not.toHaveBeenCalledWith("error", t("en-US", "storageSwitchFlushFailed"));
+  });
+
+  it("createTursoProject writes nothing and does not switch", async () => {
+    const setTursoProjectId = vi.fn();
+    const { result } = renderWithRealGuard(unkept, { setTursoProjectId });
+    await act(async () => { await result.current.ops.createTursoProject({ id: "n-9", name: "New", code: "N" } as never); });
+    expect(saveMock).not.toHaveBeenCalled();
+    expect(setTursoProjectId).not.toHaveBeenCalled();
+  });
+
+  it("migrateCurrentProjectToTurso creates no portfolio row", async () => {
+    const { result } = renderWithRealGuard(unkept, { currentWorkspace: wsWithProject });
+    await act(async () => { await result.current.ops.migrateCurrentProjectToTurso(); });
+    expect(portfolioCreate).not.toHaveBeenCalled();
   });
 });
