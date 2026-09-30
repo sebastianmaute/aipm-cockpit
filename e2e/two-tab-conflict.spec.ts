@@ -251,8 +251,9 @@ test.describe("§4 two tabs on browser storage (IndexedDB, Chromium)", () => {
     expect(movedAgain).toBe(shown + 1);
 
     await confirmBannerAction(a, "Overwrite", "Overwrite the other version");
-    // The gate reopens (the banner goes), the next autosave is refused, and the pause returns.
-    await expect(conflictBanner(a), "the Overwrite reopens the save gate").toHaveCount(0);
+    // The gate reopens, the next autosave is refused, and the pause returns. confirmBannerAction has
+    // waited for the dialog to close; the banner's gap is NOT awaited, since a fast refusal can hide
+    // and re-show it inside one poll interval.
     await expect(conflictBanner(a), "a refused Overwrite pauses again").toBeVisible();
     await expect(sidebarPaused(a)).toBeVisible();
     expect(await storedTasksContain(a, mine), "an Overwrite of a version nobody was shown writes nothing").toBe(false);
