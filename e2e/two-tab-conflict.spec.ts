@@ -12,9 +12,10 @@
 // stamps an integer under the IndexedDB `kv` key "revision" on every save
 // (KV_REVISION_KEY in src/app/browser-backend.ts) and refuses a save when the
 // stored value is not the one it last loaded or wrote. `bumpStoredRevision`
-// raises that value by one "behind A's back", holding the same Web Lock the
-// app's saves take (BROWSER_SAVE_LOCK_NAME), so it can never interleave with a
-// save in flight. It is what a write from another device or a closed tab
+// raises that value by one "behind A's back", in ONE readwrite transaction on
+// `kv`, the store every app save's single transaction also writes (§4 round 7:
+// BrowserBackend.save), so the two run one at a time and it can never
+// interleave with a save in flight. It is what a write from another device or a closed tab
 // looks like to A: the stored revision moved and A was never told.
 //
 // ★★ THE LOAD-BEARING ASSERTIONS ARE ON STORAGE. A refused save must leave A's
@@ -64,15 +65,15 @@ async function storedRevision(page: Page): Promise<number> {
   return page.evaluate(
     () =>
       new Promise<number>((resolve, reject) => {
-        const open = indexedDB.open("aipm-cockpit");
-        open.onerror = () => reject(open.error);
-        open.onsuccess = () => {
-          const db = open.result;
-          const req = db.transaction("kv", "readonly").objectStore("kv").get("revision");
-          req.onerror = () => { db.close(); reject(req.error); };
-          req.onsuccess = () => { db.close(); resolve(Number(req.result ?? 0)); };
-        };
-      }),
+      const open = indexedDB.open("aipm-cockpit");
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const db = open.result;
+        const req = db.transaction("kv", "readonly").objectStore("kv").get("revision");
+        req.onerror = () => { db.close(); reject(req.error); };
+        req.onsuccess = () => { db.close(); resolve(Number(req.result ?? 0)); };
+      };
+    }),
   );
 }
 
@@ -91,29 +92,27 @@ async function settledRevision(page: Page, quietMs = 2_000): Promise<number> {
   return last;
 }
 
-/** A foreign writer: raise the stored revision by one under the app's own save
- *  lock. Returns the new value. */
+/** A foreign writer: raise the stored revision by one in a readwrite transaction on
+ *  `kv`, which serialises with the app's own save transaction. Returns the new value. */
 async function bumpStoredRevision(page: Page): Promise<number> {
   return page.evaluate(() =>
-    navigator.locks.request("aipm-cockpit:save:browser", () =>
-      new Promise<number>((resolve, reject) => {
-        const open = indexedDB.open("aipm-cockpit");
-        open.onerror = () => reject(open.error);
-        open.onsuccess = () => {
-          const db = open.result;
-          const tx = db.transaction("kv", "readwrite");
-          const kv = tx.objectStore("kv");
-          const req = kv.get("revision");
-          let next = 0;
-          req.onsuccess = () => {
-            next = Number(req.result ?? 0) + 1;
-            kv.put(next, "revision");
-          };
-          tx.oncomplete = () => { db.close(); resolve(next); };
-          tx.onerror = () => { db.close(); reject(tx.error); };
+    new Promise<number>((resolve, reject) => {
+      const open = indexedDB.open("aipm-cockpit");
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const db = open.result;
+        const tx = db.transaction("kv", "readwrite");
+        const kv = tx.objectStore("kv");
+        const req = kv.get("revision");
+        let next = 0;
+        req.onsuccess = () => {
+          next = Number(req.result ?? 0) + 1;
+          kv.put(next, "revision");
         };
-      }),
-    ),
+        tx.oncomplete = () => { db.close(); resolve(next); };
+        tx.onerror = () => { db.close(); reject(tx.error); };
+      };
+    }),
   );
 }
 

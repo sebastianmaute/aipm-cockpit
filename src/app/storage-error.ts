@@ -31,7 +31,8 @@ export function isSaveConflict(err: unknown): err is SaveConflictError {
 
 /** §4 fix round 1 (R10 change 6) — a `StorageBackend.save()`'s Web Lock wait
  *  timed out before the lock was ever granted (another window is mid-save).
- *  Generalized by `StorageKind` for the browser + local-file backends, on the
+ *  Generalized by `StorageKind` (the local-file backends; browser storage took it too until §4 round 7
+ *  made its save one IndexedDB transaction with no lock), on the
  *  pattern of `TursoLockTimeoutError` (`turso-backend.ts`'s `withWriteLock`):
  *  same "bounded wait, typed timeout error" shape, but added here rather than
  *  widening `TursoLockTimeoutError` itself — that class is Turso-specific in
@@ -56,8 +57,8 @@ export function isSaveLockTimeout(err: unknown): err is SaveLockTimeoutError {
 }
 
 /** Runs `fn` under the exclusive Web Lock `name`, waiting at most `timeoutMs` for it to be GRANTED
- *  (the bounded wait of `turso-backend.ts`'s `withWriteLock`; the browser and local-file saves share
- *  it, final review m5). Not granted in time: the wait is aborted and `SaveLockTimeoutError` thrown,
+ *  (the bounded wait of `turso-backend.ts`'s `withWriteLock`; final review m5 extracted it for the
+ *  browser and local-file saves, and since §4 round 7 only the local-file save uses it). Not granted in time: the wait is aborted and `SaveLockTimeoutError` thrown,
  *  and `fn` never ran, so nothing was written. `granted` tells that apart from a failure INSIDE `fn`
  *  once the lock was held (a real `SaveConflictError` or write failure), which passes through
  *  unchanged. Without `navigator.locks` (jsdom, older browsers) `fn` runs directly: its compare still

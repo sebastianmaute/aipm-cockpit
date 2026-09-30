@@ -252,11 +252,18 @@ Each backend instance remembers the revision it last loaded or wrote (`revision(
 
 | Storage | Revision | Checked |
 |---|---|---|
-| Browser storage | an integer in the `kv` store, key `"revision"` | under the Web Lock `aipm-cockpit:save:browser`: read, compare, write, bump |
+| Browser storage | an integer in the `kv` store, key `"revision"` | inside ONE readwrite IndexedDB transaction over `kv` and every record store (`idbTransaction`, `idb.ts`): read, compare, write, bump, then an explicit `commit()`. No Web Lock: readwrite transactions over the same stores run one at a time across tabs, which keeps the compare-and-set atomic; and a closing tab's pagehide save must not wait for a lock (below) |
 | Local file (`local-*`) | `${lastModified}:${size}` of the bound file | under the Web Lock `aipm-cockpit:save:<kind>`: re-read the file and compare |
 | SharePoint (`sp-*`) | the driveItem eTag | by Graph: the upload carries `If-Match`, and a create after a 404 load carries `conflictBehavior=fail`; 409 and 412 map to `SaveConflictError` |
 | Turso (single and tenant) | a `meta` row, key `REVISION_KEY` (per `project_id` in tenant) | inside the §637 conditional batch: `withRevision` puts `revisionGuardStatement` after `BEGIN` and the DDL, before the data statements (none when the save is blind), which raises an SQL error on a mismatch, so every later step is skipped and the batch rolls back |
 
+- **The close-time save (browser storage, §4 round 7).** A save started by a CLOSING tab's pagehide
+  flush must request its IndexedDB work at once and commit it explicitly. Measured in Chromium
+  (`e2e/pagehide-draft-persist.spec.ts`, "a tab close whose own IndexedDB write also landed"): a Web
+  Lock wait, or a revision read in a transaction of its own, in front of the writes lost the save; and
+  a transaction left to auto-commit did not commit at the close once it wrote more than one store,
+  while `tx.commit()` right after the last write lands it. So `BrowserBackend.save` opens one
+  connection in the caller's turn, runs everything in one transaction and commits it.
 - **Fail closed.** An instance that knows no revision (never loaded, or its load failed) refuses
   its first save. The one exception is a SharePoint file loaded without an eTag, which saves without
   `If-Match` as before. A SharePoint PUT whose response carries no eTag (the `ETag` header is not

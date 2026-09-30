@@ -42,6 +42,37 @@ vi.mock("./idb", async (importOriginal) => {
       }
       return actual.idbBulkUpdate(store, puts, deleteIds);
     },
+    // §4 round 7 — a save is ONE transaction (`idbTransaction`), so the record-store writes are observed,
+    // and a store's failure forced, at its `put`/`delete` requests: a throw there aborts the whole save.
+    idbTransaction: (storeNames: readonly string[], body: (tx: IDBTransaction, fail: (err: unknown) => void) => void) =>
+      actual.idbTransaction(storeNames, (tx, fail) => {
+        const entry = (store: string) => {
+          let call = ctl.calls.find((c) => c.store === store);
+          if (!call) { call = { store, putIds: [], deleteIds: [] }; ctl.calls.push(call); }
+          return call;
+        };
+        const watched = new Proxy(tx, {
+          get(target, prop) {
+            if (prop === "objectStore") {
+              return (name: string) => {
+                const os = target.objectStore(name);
+                if (name === "kv") return os;
+                return new Proxy(os, {
+                  get(o, q) {
+                    if (q === "put") return (item: { id: number }) => { entry(name).putIds.push(item.id); if (ctl.failStore === name) throw new Error(`forced failure: ${name}`); return o.put(item); };
+                    if (q === "delete") return (id: number) => { entry(name).deleteIds.push(id); return o.delete(id); };
+                    const v = Reflect.get(o, q, o);
+                    return typeof v === "function" ? v.bind(o) : v;
+                  },
+                });
+              };
+            }
+            const v = Reflect.get(target, prop, target);
+            return typeof v === "function" ? v.bind(target) : v;
+          },
+        });
+        body(watched, fail);
+      }),
   };
 });
 

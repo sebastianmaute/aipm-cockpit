@@ -926,7 +926,7 @@ describe("useStorageBackend — save effect", () => {
     );
   });
 
-  // Final review m4 — the browser and local-file saves' own bounded Web Lock wait (`SaveLockTimeoutError`).
+  // Final review m4 — the local-file save's bounded Web Lock wait (`SaveLockTimeoutError`; the kind in the error is incidental).
   it("localizes a browser or local-file save's lock-timeout failure too", async () => {
     const { result } = renderBackend();
     await act(async () => { await Promise.resolve(); });

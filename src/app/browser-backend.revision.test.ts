@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
 import { BrowserBackend } from "./browser-backend";
 import { emptyWorkspace } from "./workspace";
-import { SaveConflictError, SaveLockTimeoutError } from "./storage-error";
+import { SaveConflictError } from "./storage-error";
 import type { Milestone, Task } from "./types";
 
 // Fix round 1 — lets one test hold back the REAL `idbGet("revision")` call
@@ -56,6 +56,14 @@ vi.mock("./idb", async (importOriginal) => {
         throw new Error("simulated write failure");
       }
       return actual.idbBulkUpdate(...args);
+    },
+    // §4 round 7 — the save's one transaction; the same one-shot write failure.
+    idbTransaction: (...args: Parameters<typeof actual.idbTransaction>) => {
+      if (writeFailCtl.armed) {
+        writeFailCtl.armed = false;
+        return Promise.reject(new Error("simulated write failure"));
+      }
+      return actual.idbTransaction(...args);
     },
   };
 });
@@ -248,76 +256,62 @@ describe("BrowserBackend §4 revision guard", () => {
     });
   });
 
-  describe("with navigator.locks present", () => {
-    // Fix round 1 (R10 change 6) — 3-arg shape: real code now calls
-    // `locks.request(name, options, cb)` (the options carry `mode` +
-    // `signal`), so a 2-arg fake would bind `cb`'s parameter to the OPTIONS
-    // object instead of the real callback and throw "cb is not a function".
-    const defineLocks = (
-      request: (name: string, options: unknown, cb: () => Promise<unknown>) => Promise<unknown>,
-    ) => {
+  // §4 round 7 — the whole compare-and-write is ONE readwrite IndexedDB transaction, opened from the one
+  // connection a save requests in its caller's own turn. Measured in Chromium: a page closing lets the IDB
+  // work it requested in the pagehide flush finish, but work requested in a LATER task (after a Web Lock
+  // grant, or in a revision read's callback that then opens another connection) never lands, so the
+  // close-time save was lost (e2e/pagehide-draft-persist.spec.ts). Readwrite transactions over the same
+  // stores serialise across tabs, so the compare-and-set stays atomic without a lock.
+  describe("one transaction, no lock (round 7)", () => {
+    const defineLocks = (request: (...args: unknown[]) => Promise<unknown>) => {
       Object.defineProperty(navigator, "locks", { value: { request }, configurable: true });
     };
 
-    it("runs save() under navigator.locks.request with the fixed lock name", async () => {
-      const seenNames: string[] = [];
-      defineLocks((name, _options, cb) => {
-        seenNames.push(name);
-        return cb();
-      });
-
+    it("takes no Web Lock", async () => {
+      const request = vi.fn((...args: unknown[]) => (args[args.length - 1] as () => Promise<unknown>)());
+      defineLocks(request);
       const backend = new BrowserBackend();
       await backend.load();
       await backend.save({ ...emptyWorkspace(), tasks: [taskA] });
-
-      expect(seenNames).toEqual(["aipm-cockpit:save:browser"]);
+      expect(request).not.toHaveBeenCalled();
       expect(backend.revision()).toBe("1");
     });
 
-    it("still compares and rejects a stale save (same result as without a lock)", async () => {
-      defineLocks((_name, _options, cb) => cb());
-
-      const a = new BrowserBackend();
-      const b = new BrowserBackend();
-      await a.load();
-      await b.load();
-
-      await a.save({ ...emptyWorkspace(), tasks: [taskA] });
-      await expect(b.save({ ...emptyWorkspace(), tasks: [taskB] })).rejects.toBeInstanceOf(
-        SaveConflictError,
-      );
-    });
-
-    // §4 fix round 1 (R10 change 6) — lock-wait timeout.
-    it("a lock-wait timeout surfaces as SaveLockTimeoutError and writes nothing", async () => {
+    it("opens ONE IndexedDB connection per save, requested in the caller's own turn", async () => {
       const backend = new BrowserBackend();
       await backend.load();
-      // The wait itself is aborted before the callback ever runs — modelling
-      // AbortSignal.timeout firing while another tab still holds the lock.
-      defineLocks(async () => {
-        throw new DOMException("The operation was aborted.", "AbortError");
-      });
-
-      await expect(backend.save({ ...emptyWorkspace(), tasks: [taskA] })).rejects.toBeInstanceOf(
-        SaveLockTimeoutError,
-      );
-
+      const open = vi.spyOn(indexedDB, "open");
+      try {
+        const saving = backend.save({ ...emptyWorkspace(), tasks: [taskA], milestones: [milestoneA] });
+        expect(open).toHaveBeenCalledTimes(1); // before the caller's turn ends
+        await saving;
+        expect(open).toHaveBeenCalledTimes(1); // and nothing more afterwards
+      } finally {
+        open.mockRestore();
+      }
       const reloaded = await new BrowserBackend().load();
-      expect(reloaded.tasks).toEqual([]);
+      expect(reloaded.tasks.map((t) => t.id)).toEqual([1]);
+      expect(reloaded.milestones?.map((m) => m.id)).toEqual([5]);
     });
 
-    it("a real failure INSIDE the held lock (e.g. a save conflict) passes through unchanged, not as a timeout", async () => {
-      defineLocks((_name, _options, cb) => cb());
-
+    it("two saves racing from the same revision: exactly one lands, the other is refused and writes nothing", async () => {
       const a = new BrowserBackend();
       const b = new BrowserBackend();
       await a.load();
       await b.load();
-      await a.save({ ...emptyWorkspace(), tasks: [taskA] });
-
-      await expect(b.save({ ...emptyWorkspace(), tasks: [taskB] })).rejects.toBeInstanceOf(
-        SaveConflictError,
-      );
+      const results = await Promise.allSettled([
+        a.save({ ...emptyWorkspace(), tasks: [taskA] }),
+        b.save({ ...emptyWorkspace(), tasks: [taskB] }),
+      ]);
+      expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+      const refused = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+      expect(refused).toHaveLength(1);
+      expect(refused[0].reason).toBeInstanceOf(SaveConflictError);
+      const reloaded = await new BrowserBackend().load();
+      expect(reloaded.tasks).toHaveLength(1);
+      const fresh = new BrowserBackend();
+      await fresh.load();
+      expect(fresh.revision()).toBe("1");
     });
   });
 

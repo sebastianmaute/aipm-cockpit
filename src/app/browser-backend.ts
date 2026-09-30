@@ -62,10 +62,11 @@ import {
   KV_STAKEHOLDERS_KEY,
   KV_PROJECT_KEY,
   idbBulkUpdate,
-  idbDelete,
   idbGet,
   idbGetAll,
   idbSet,
+  idbTransaction,
+  IDB_KV_STORE_NAME,
 } from "./idb";
 import { sanitizeFieldVisibility } from "./field-visibility";
 import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
@@ -89,15 +90,6 @@ const KV_DOCUMENT_ASSETS_KEY = "documentAssets";
 // §4 — the integer save revision this backend stamps on every successful
 // save (see `save()`/`saveLocked()` below); missing on load → 0.
 const KV_REVISION_KEY = "revision";
-// §4 — the cross-tab Web Lock name `save()` acquires (when available) around
-// the compare-then-write critical section, so two tabs racing a save can't
-// both read the same stored revision before either writes.
-const BROWSER_SAVE_LOCK_NAME = "aipm-cockpit:save:browser";
-// §4 fix round 1 (R10 change 6) — upper bound on waiting for that lock, on
-// the pattern of `turso-backend.ts`'s `LOCK_WAIT_TIMEOUT_MS`. IndexedDB has no
-// network round-trip, so a much shorter bound than Turso's 20s is still
-// generous for a healthy lock holder to finish first.
-const BROWSER_LOCK_WAIT_TIMEOUT_MS = 10_000;
 import {
   type StorageBackend,
   type Workspace,
@@ -106,7 +98,7 @@ import {
 } from "./workspace";
 import { sanitizeActivityLog } from "./activity-log";
 import { sanitizeBudgetHistory } from "./budget-history";
-import { SaveConflictError, withSaveLock } from "./storage-error";
+import { SaveConflictError } from "./storage-error";
 
 /**
  * Browser-local persistence backed by IndexedDB record stores (one row per
@@ -623,192 +615,122 @@ export class BrowserBackend implements StorageBackend {
     }
   }
 
-  async save(ws: Workspace): Promise<void> {
-    if (typeof window === "undefined") return;
-
-    // §4 — the compare-then-write critical section runs under the cross-tab Web Lock, so two tabs
-    // racing a save can't both read the same stored revision before either has written; a lock not
-    // granted within `BROWSER_LOCK_WAIT_TIMEOUT_MS` throws `SaveLockTimeoutError` (`withSaveLock`).
-    await withSaveLock(BROWSER_SAVE_LOCK_NAME, "browser", BROWSER_LOCK_WAIT_TIMEOUT_MS, () => this.saveLocked(ws));
-  }
-
   /**
-   * §4 — the actual save. Reads the STORED revision and compares it with
-   * this instance's own BEFORE any data write: a mismatch means another
-   * writer (another tab/window) has saved since this instance last loaded or
-   * wrote, and throws `SaveConflictError` — nothing here is written. On
-   * success, the new revision (`stored + 1`) is stored and adopted only
-   * after every data write below has succeeded, at the same point the
-   * baselines refresh.
+   * §4 — the save, as ONE readwrite IndexedDB transaction (`idbTransaction`) over the `kv` store and
+   * every record store. Inside it: read the STORED revision and compare it with this instance's own; a
+   * mismatch means another writer (another tab or window) saved since this instance last loaded or wrote,
+   * so the transaction is aborted and `SaveConflictError` thrown: nothing is written. Otherwise every
+   * slice's writes and the new revision (`stored + 1`) are issued in the same transaction, which commits
+   * all of them or none; the baselines refresh and the revision is adopted only once it has committed.
    *
-   * §4 fix round 1 (R10 change 1, fail closed) — `currentRevision === null`
-   * means UNKNOWN (never loaded, and not adopted or forced), and now REFUSES
-   * with `SaveConflictError` rather than skipping the compare: a save on an
-   * instance that never established a real baseline must not silently win
-   * against whatever another tab already stored. An intentional blind write —
-   * Save-As, create, demo, a storage conversion — goes through
-   * `forceNextSave()`.
+   * ★★★ §4 round 7 — NO WEB LOCK, AND NOTHING AWAITED BEFORE THE CONNECTION IS REQUESTED. This used to
+   *   take the Web Lock `aipm-cockpit:save:browser`, read the revision in a transaction of its own, then
+   *   write through ~30 more connections. Measured in Chromium (e2e/pagehide-draft-persist.spec.ts, "a tab
+   *   close whose own IndexedDB write also landed"): with either the lock wait OR the separate revision
+   *   read in front of the writes, a save started by the pagehide flush of a CLOSING tab never reached
+   *   the store; with neither, it did. One transaction keeps the compare-and-set atomic by itself, since
+   *   readwrite transactions over overlapping stores run one at a time across tabs.
    *
-   * `forceNextSave()` (one-shot) skips the compare and instead makes this
-   * save a full rewrite: every id-keyed store is physically cleared first —
-   * reading its REAL current contents, not this instance's possibly-stale
-   * in-memory baseline — and the baselines reset to empty, so a row only a
-   * concurrent writer had (this instance never loaded it) does not survive.
-   * The force flag is cleared, like the revision adopt below, only AFTER
-   * every write has actually succeeded (R10 change 4) — a forced save that
-   * fails keeps the flag set for the retry.
+   * §4 fix round 1 (R10 change 1, fail closed) — `currentRevision === null` means UNKNOWN (never loaded,
+   * and not adopted or forced), and REFUSES rather than skipping the compare. An intentional blind write
+   * (Save-As, create, demo, a storage conversion) goes through `forceNextSave()`.
+   *
+   * `forceNextSave()` (one-shot) skips the compare and makes this save a full rewrite: every id-keyed
+   * store is CLEARED inside the transaction (its real contents, not this instance's possibly-stale
+   * baseline), so a row only a concurrent writer had does not survive. A conditional Overwrite
+   * (`forceNextSave(expected)`) is the same full rewrite, but only while storage is still at `expected`.
+   * The force flag is cleared only after the transaction committed (R10 change 4), so a forced save
+   * that fails keeps it for the retry.
    */
-  private async saveLocked(ws: Workspace): Promise<void> {
+  save(ws: Workspace): Promise<void> {
+    if (typeof window === "undefined") return Promise.resolve();
     const force = this.forceNext;
     const expected = this.expectNext;
     this.expectNext = null;
-
-    const storedRevision = (await idbGet<number>(KV_REVISION_KEY)) ?? 0;
-    const stale = expected !== null ? String(storedRevision) !== expected : this.currentRevision === null || storedRevision !== this.currentRevision;
-    if (!force && stale) throw new SaveConflictError("browser", String(storedRevision));
-
-    // §4 — a conditional Overwrite is the same full rewrite: a per-store diff would MERGE the other
-    //   writer's rows into this version instead of replacing them.
-    if (force || expected !== null) {
-      await Promise.all([
-        this.clearIdKeyedStore(IDB_TASKS_STORE),
-        this.clearIdKeyedStore(IDB_RAID_STORE),
-        this.clearIdKeyedStore(IDB_ABSENCES_STORE),
-        this.clearIdKeyedStore(IDB_SHIFTS_STORE),
-        this.clearIdKeyedStore(IDB_RESOURCES_STORE),
-        this.clearIdKeyedStore(IDB_ROLES_STORE),
-        this.clearIdKeyedStore(IDB_DISCIPLINES_STORE),
-        this.clearIdKeyedStore(IDB_GRADES_STORE),
-        this.clearIdKeyedStore(IDB_BUDGETS_STORE),
-      ]);
-      this.tasksBaseline = new Map();
-      this.raidBaseline = new Map();
-      this.absencesBaseline = new Map();
-      this.shiftsBaseline = new Map();
-      this.resourcesBaseline = new Map();
-      this.rolesBaseline = new Map();
-      this.disciplinesBaseline = new Map();
-      this.gradesBaseline = new Map();
-      this.budgetsBaseline = new Map();
-    }
-
-    const taskDelta = this.diff(this.tasksBaseline, ws.tasks);
-    const raidDelta = this.diff(this.raidBaseline, ws.raid);
-    const absenceDelta = this.diff(this.absencesBaseline, ws.absences);
-    const shiftDelta = this.diff(this.shiftsBaseline, ws.shifts);
-    const resourceDelta = this.diff(this.resourcesBaseline, ws.resources);
-    const roleDelta = this.diff(this.rolesBaseline, ws.roles);
-    const discDelta = this.diff(this.disciplinesBaseline, ws.disciplines);
-    const gradeDelta = this.diff(this.gradesBaseline, ws.grades);
-    const budgetDelta = this.diff(this.budgetsBaseline, ws.budgets ?? []);
-
-    // Independent object stores / KV keys — issue every write in parallel
-    // instead of ~17 sequential awaits. If ANY write rejects, the joined
-    // Promise.all rejects before the baseline refresh below runs, so no
-    // baseline advances and the next save re-diffs everything still dirty
-    // (all-or-nothing, matching the previous sequential code, which also
-    // only refreshed baselines after the last await). idbBulkUpdate
-    // short-circuits empty deltas, so unchanged stores stay free.
-    await Promise.all([
-      idbBulkUpdate(IDB_TASKS_STORE, taskDelta.puts, taskDelta.deletes),
-      idbBulkUpdate(IDB_RAID_STORE, raidDelta.puts, raidDelta.deletes),
-      idbBulkUpdate(IDB_ABSENCES_STORE, absenceDelta.puts, absenceDelta.deletes),
-      idbBulkUpdate(IDB_SHIFTS_STORE, shiftDelta.puts, shiftDelta.deletes),
-      idbBulkUpdate(IDB_RESOURCES_STORE, resourceDelta.puts, resourceDelta.deletes),
-      idbBulkUpdate(IDB_ROLES_STORE, roleDelta.puts, roleDelta.deletes),
-      idbBulkUpdate(IDB_DISCIPLINES_STORE, discDelta.puts, discDelta.deletes),
-      idbBulkUpdate(IDB_GRADES_STORE, gradeDelta.puts, gradeDelta.deletes),
-      idbBulkUpdate(IDB_BUDGETS_STORE, budgetDelta.puts, budgetDelta.deletes),
-      idbSet(KV_PLAN_KEY, ws.plan),
-      idbSet(KV_FXRATES_KEY, ws.fxRates ?? null),
-      idbSet(KV_STATUS_KEY, ws.status ?? {}),
-      idbSet(KV_MILESTONES_KEY, ws.milestones ?? []),
-      idbSet(KV_CHANGES_KEY, ws.changes ?? []),
-      idbSet(KV_STAKEHOLDERS_KEY, ws.stakeholders ?? []),
-      ws.project ? idbSet(KV_PROJECT_KEY, ws.project) : idbDelete(KV_PROJECT_KEY),
-      // Delete-on-empty so a cleared config doesn't linger and reload as stale.
-      ws.fieldVisibility && Object.keys(ws.fieldVisibility).length > 0
-        ? idbSet(KV_FIELDVIS_KEY, ws.fieldVisibility)
-        : idbDelete(KV_FIELDVIS_KEY),
-      // Presence gate (NOT length): [] is persisted (Simple mode); absent ⇒ delete.
-      ws.features !== undefined
-        ? idbSet(KV_FEATURES_KEY, ws.features)
-        : idbDelete(KV_FEATURES_KEY),
-      // Delete-on-absent so a cleared committee doesn't linger and reload stale.
-      ws.steeringCommittee
-        ? idbSet(KV_STEERING_KEY, ws.steeringCommittee)
-        : idbDelete(KV_STEERING_KEY),
-      // Delete-on-absent so cleared timelog links don't linger and reload stale.
-      ws.timelogLinks
-        ? idbSet(KV_TIMELOG_LINKS_KEY, ws.timelogLinks)
-        : idbDelete(KV_TIMELOG_LINKS_KEY),
-      // Delete-on-absent so cleared knowledge items don't linger and reload stale.
-      ws.knowledgeItems && ws.knowledgeItems.length
-        ? idbSet(KV_KNOWLEDGE_ITEMS_KEY, ws.knowledgeItems)
-        : idbDelete(KV_KNOWLEDGE_ITEMS_KEY),
-      // Delete-on-absent so cleared insights don't linger and reload stale.
-      ws.insights && ws.insights.length
-        ? idbSet(KV_INSIGHTS_KEY, ws.insights)
-        : idbDelete(KV_INSIGHTS_KEY),
-      // Delete-on-absent so cleared overrides don't linger and reload stale.
-      ws.settingsOverrides && hasAnyOverride(ws.settingsOverrides)
-        ? idbSet(KV_SETTINGS_OVERRIDES_KEY, ws.settingsOverrides)
-        : idbDelete(KV_SETTINGS_OVERRIDES_KEY),
-      // Delete-on-absent so cleared calendar events don't linger and reload stale.
-      ws.calendarEvents && ws.calendarEvents.length
-        ? idbSet(KV_CALENDAR_EVENTS_KEY, ws.calendarEvents)
-        : idbDelete(KV_CALENDAR_EVENTS_KEY),
-      // Delete-on-absent so a cleared document list doesn't linger and reload stale.
-      ws.documents && ws.documents.length
-        ? idbSet(KV_DOCUMENTS_KEY, ws.documents)
-        : idbDelete(KV_DOCUMENTS_KEY),
-      // Delete-on-absent so cleared version history doesn't linger and reload stale.
-      ws.documentVersions && ws.documentVersions.length
-        ? idbSet(KV_DOCUMENT_VERSIONS_KEY, ws.documentVersions)
-        : idbDelete(KV_DOCUMENT_VERSIONS_KEY),
-      // Delete-on-absent so a cleared log doesn't linger and reload stale.
-      ws.activityLog && ws.activityLog.length
-        ? idbSet(KV_ACTIVITY_LOG_KEY, ws.activityLog)
-        : idbDelete(KV_ACTIVITY_LOG_KEY),
-      // Delete-on-absent so a cleared budget history doesn't reload stale.
-      ws.budgetHistory && ws.budgetHistory.length
-        ? idbSet(KV_BUDGET_HISTORY_KEY, ws.budgetHistory)
-        : idbDelete(KV_BUDGET_HISTORY_KEY),
-      // Delete-on-absent so a cleared asset list doesn't linger and reload stale.
-      ws.documentAssets && ws.documentAssets.length
-        ? idbSet(KV_DOCUMENT_ASSETS_KEY, ws.documentAssets)
-        : idbDelete(KV_DOCUMENT_ASSETS_KEY),
-    ]);
-
-    // Refresh baselines so the next save's diff is computed against what's
-    // actually in IDB. Rebuilding the maps is O(N) but only runs after a
-    // successful write, not on every render.
-    this.tasksBaseline = new Map(ws.tasks.map((t) => [t.id, t]));
-    this.raidBaseline = new Map(ws.raid.map((r) => [r.id, r]));
-    this.absencesBaseline = new Map(ws.absences.map((a) => [a.id, a]));
-    this.shiftsBaseline = new Map(ws.shifts.map((s) => [s.id, s]));
-    this.resourcesBaseline = new Map(ws.resources.map((r) => [r.id, r]));
-    this.rolesBaseline = new Map(ws.roles.map((r) => [r.id, r]));
-    this.disciplinesBaseline = new Map(ws.disciplines.map((d) => [d.id, d]));
-    this.gradesBaseline = new Map(ws.grades.map((g) => [g.id, g]));
-    this.budgetsBaseline = new Map((ws.budgets ?? []).map((b) => [b.id, b]));
-
-    // §4 — bump + adopt only now that every data write above has succeeded;
-    // clear the force flag at the same point (R10 change 4).
-    if (force) this.forceNext = false;
-    const newRevision = storedRevision + 1;
-    await idbSet(KV_REVISION_KEY, newRevision);
-    this.currentRevision = newRevision;
-  }
-
-  /** §4 helper for `forceNextSave()`'s full rewrite — physically deletes
-   *  every row REALLY in `storeName` right now (a fresh read, not this
-   *  instance's in-memory baseline, which cannot know about a concurrent
-   *  writer's additions). No-op when the store is already empty. */
-  private async clearIdKeyedStore(storeName: string): Promise<void> {
-    const current = await idbGetAll<{ id: number }>(storeName);
-    if (current.length === 0) return;
-    await idbBulkUpdate(storeName, [], current.map((r) => r.id));
+    const rewrite = force || expected !== null;
+    const from = <T>(baseline: Map<number, T>): Map<number, T> => (rewrite ? new Map() : baseline);
+    const recordWrites: Array<[string, { puts: readonly { id: number }[]; deletes: readonly number[] }]> = [
+      [IDB_TASKS_STORE, this.diff(from(this.tasksBaseline), ws.tasks)],
+      [IDB_RAID_STORE, this.diff(from(this.raidBaseline), ws.raid)],
+      [IDB_ABSENCES_STORE, this.diff(from(this.absencesBaseline), ws.absences)],
+      [IDB_SHIFTS_STORE, this.diff(from(this.shiftsBaseline), ws.shifts)],
+      [IDB_RESOURCES_STORE, this.diff(from(this.resourcesBaseline), ws.resources)],
+      [IDB_ROLES_STORE, this.diff(from(this.rolesBaseline), ws.roles)],
+      [IDB_DISCIPLINES_STORE, this.diff(from(this.disciplinesBaseline), ws.disciplines)],
+      [IDB_GRADES_STORE, this.diff(from(this.gradesBaseline), ws.grades)],
+      [IDB_BUDGETS_STORE, this.diff(from(this.budgetsBaseline), ws.budgets ?? [])],
+    ];
+    // Each KV slot: a value to put, or `undefined` to delete (a cleared config must not linger and reload stale).
+    const kvWrites: Array<[string, unknown]> = [
+      [KV_PLAN_KEY, ws.plan],
+      [KV_FXRATES_KEY, ws.fxRates ?? null],
+      [KV_STATUS_KEY, ws.status ?? {}],
+      [KV_MILESTONES_KEY, ws.milestones ?? []],
+      [KV_CHANGES_KEY, ws.changes ?? []],
+      [KV_STAKEHOLDERS_KEY, ws.stakeholders ?? []],
+      [KV_PROJECT_KEY, ws.project ?? undefined],
+      [KV_FIELDVIS_KEY, ws.fieldVisibility && Object.keys(ws.fieldVisibility).length > 0 ? ws.fieldVisibility : undefined],
+      [KV_FEATURES_KEY, ws.features], // presence gate, NOT length: [] is persisted (Simple mode)
+      [KV_STEERING_KEY, ws.steeringCommittee || undefined],
+      [KV_TIMELOG_LINKS_KEY, ws.timelogLinks || undefined],
+      [KV_KNOWLEDGE_ITEMS_KEY, ws.knowledgeItems && ws.knowledgeItems.length ? ws.knowledgeItems : undefined],
+      [KV_INSIGHTS_KEY, ws.insights && ws.insights.length ? ws.insights : undefined],
+      [KV_SETTINGS_OVERRIDES_KEY, ws.settingsOverrides && hasAnyOverride(ws.settingsOverrides) ? ws.settingsOverrides : undefined],
+      [KV_CALENDAR_EVENTS_KEY, ws.calendarEvents && ws.calendarEvents.length ? ws.calendarEvents : undefined],
+      [KV_DOCUMENTS_KEY, ws.documents && ws.documents.length ? ws.documents : undefined],
+      [KV_DOCUMENT_VERSIONS_KEY, ws.documentVersions && ws.documentVersions.length ? ws.documentVersions : undefined],
+      [KV_ACTIVITY_LOG_KEY, ws.activityLog && ws.activityLog.length ? ws.activityLog : undefined],
+      [KV_BUDGET_HISTORY_KEY, ws.budgetHistory && ws.budgetHistory.length ? ws.budgetHistory : undefined],
+      [KV_DOCUMENT_ASSETS_KEY, ws.documentAssets && ws.documentAssets.length ? ws.documentAssets : undefined],
+    ];
+    let newRevision = 0;
+    return idbTransaction([IDB_KV_STORE_NAME, ...recordWrites.map(([store]) => store)], (tx, fail) => {
+      const kv = tx.objectStore(IDB_KV_STORE_NAME);
+      const read = kv.get(KV_REVISION_KEY);
+      read.onsuccess = () => {
+        try {
+          const storedRevision = (read.result as number | undefined) ?? 0;
+          const stale = expected !== null ? String(storedRevision) !== expected : this.currentRevision === null || storedRevision !== this.currentRevision;
+          if (!force && stale) {
+            fail(new SaveConflictError("browser", String(storedRevision)));
+            return;
+          }
+          for (const [storeName, delta] of recordWrites) {
+            const store = tx.objectStore(storeName);
+            if (rewrite) store.clear();
+            for (const item of delta.puts) store.put(item);
+            for (const id of delta.deletes) store.delete(id);
+          }
+          for (const [key, value] of kvWrites) {
+            if (value === undefined) kv.delete(key);
+            else kv.put(value, key);
+          }
+          newRevision = storedRevision + 1;
+          kv.put(newRevision, KV_REVISION_KEY);
+          // ★★★ §4 round 7 — COMMIT EXPLICITLY, the moment the last write is issued. Measured in Chromium: at a
+          //   tab close a transaction left to AUTO-commit did not commit once it wrote more than one store,
+          //   and this one does (e2e/pagehide-draft-persist.spec.ts); `commit()` lands it. Optional: an
+          //   engine without it auto-commits as before.
+          (tx as IDBTransaction & { commit?: () => void }).commit?.();
+        } catch (err) {
+          fail(err);
+        }
+      };
+    }).then(() => {
+      // Refresh baselines so the next save's diff is computed against what's actually in IDB.
+      this.tasksBaseline = new Map(ws.tasks.map((t) => [t.id, t]));
+      this.raidBaseline = new Map(ws.raid.map((r) => [r.id, r]));
+      this.absencesBaseline = new Map(ws.absences.map((a) => [a.id, a]));
+      this.shiftsBaseline = new Map(ws.shifts.map((s) => [s.id, s]));
+      this.resourcesBaseline = new Map(ws.resources.map((r) => [r.id, r]));
+      this.rolesBaseline = new Map(ws.roles.map((r) => [r.id, r]));
+      this.disciplinesBaseline = new Map(ws.disciplines.map((d) => [d.id, d]));
+      this.gradesBaseline = new Map(ws.grades.map((g) => [g.id, g]));
+      this.budgetsBaseline = new Map((ws.budgets ?? []).map((b) => [b.id, b]));
+      // §4 — adopt the revision and clear the force only now that the transaction committed (R10 change 4).
+      if (force) this.forceNext = false;
+      this.currentRevision = newRevision;
+    });
   }
 
   /** §4 — the revision this instance last loaded or wrote; `null` before any load. */
