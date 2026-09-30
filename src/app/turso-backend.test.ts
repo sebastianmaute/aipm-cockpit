@@ -13,9 +13,9 @@ const CONFIG: TursoConfig = { httpUrl: "https://db.turso.io", authToken: "tok" }
 
 /** §4 — a backend that knows its revision (0: nothing stored yet), as after a load; a never-loaded one refuses to save. */
 const loaded = (backend: TursoBackend): TursoBackend => { backend.adoptRevision("0"); return backend; };
-/** §4 — every save stamps the revision row: the guard after the DDL, then this DELETE + INSERT before COMMIT. */
-const REVISION_DELETE = "DELETE FROM meta WHERE key = 'revision'";
-const REVISION_INSERT = "INSERT INTO meta (key, value) VALUES ('revision', ?)";
+/** §4 — every save stamps the revision row: the guard after the DDL, then this UPDATE + seeding INSERT before COMMIT. */
+const REVISION_UPDATE = "UPDATE meta SET value = CAST(coalesce(nullif(value, ''), '0') AS INTEGER) + 1 WHERE key = 'revision'";
+const REVISION_INSERT = "INSERT INTO meta (key, value) SELECT 'revision', '1' WHERE NOT EXISTS (SELECT 1 FROM meta WHERE key = 'revision')";
 
 /** ★★★ BOTH `json` AND `text` ARE REQUIRED, and the cast is why nothing says so.
  *  A real `Response` carries both; this object literal is asserted `as unknown as
@@ -246,8 +246,8 @@ describe("TursoBackend", () => {
       ws.tasks = [minimalTask as never];
       await loaded(new TursoBackend(CONFIG)).save(ws);
       const sqls = bodySqls(1); // call 0 is the column-ensure PRAGMA pipeline
-      // BEGIN + DDL + guard + one DELETE per table (+ the revision row's) + 1 task INSERT + plan + 2 meta rows + revision INSERT + COMMIT
-      expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toHaveLength(TABLE_NAMES.length + 1);
+      // BEGIN + DDL + guard + one DELETE per table + 1 task INSERT + plan + 2 meta rows + revision UPDATE/INSERT + COMMIT
+      expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toHaveLength(TABLE_NAMES.length);
       expect(sqls).toHaveLength(1 + SCHEMA_DDL.length + 1 + TABLE_NAMES.length + 1 + 1 + 2 + 2 + 1);
     });
 
@@ -265,11 +265,11 @@ describe("TursoBackend", () => {
       expect(sqls[0]).toBe("BEGIN");
       expect(sqls[sqls.length - 1]).toBe("COMMIT");
       expect(sqls.filter((s) => s.startsWith("CREATE TABLE IF NOT EXISTS"))).toHaveLength(SCHEMA_DDL.length);
-      expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toEqual(["DELETE FROM tasks", REVISION_DELETE]);
+      expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toEqual(["DELETE FROM tasks"]);
       const inserts = sqls.filter((s) => s.startsWith("INSERT INTO") && s !== REVISION_INSERT);
       expect(inserts).toHaveLength(2);
       expect(inserts.every((s) => s.startsWith("INSERT INTO tasks"))).toBe(true);
-      // BEGIN + DDL + guard + DELETE tasks + 2 task INSERTs + revision DELETE/INSERT + COMMIT
+      // BEGIN + DDL + guard + DELETE tasks + 2 task INSERTs + revision UPDATE/INSERT + COMMIT
       expect(sqls).toHaveLength(1 + SCHEMA_DDL.length + 1 + 1 + 2 + 2 + 1);
     });
 
@@ -299,7 +299,7 @@ describe("TursoBackend", () => {
       fetchSpy.mockImplementationOnce(okSave); // call 3: retry
       await backend.save(ws2);
       const sqls = bodySqls(3);
-      expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toEqual(["DELETE FROM tasks", REVISION_DELETE]);
+      expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toEqual(["DELETE FROM tasks"]);
       expect(sqls.some((s) => s.startsWith("INSERT INTO tasks"))).toBe(true);
     });
 
@@ -316,7 +316,7 @@ describe("TursoBackend", () => {
       await expect(backend.save(ws2)).rejects.toThrow("Turso error: datatype mismatch");
       fetchSpy.mockImplementationOnce(okSave); // call 3: retry
       await backend.save(ws2);
-      expect(bodySqls(3).filter((s) => s.startsWith("DELETE FROM"))).toEqual(["DELETE FROM tasks", REVISION_DELETE]);
+      expect(bodySqls(3).filter((s) => s.startsWith("DELETE FROM"))).toEqual(["DELETE FROM tasks"]);
     });
   });
 
@@ -516,6 +516,13 @@ describe("TursoBackend", () => {
       if (value !== null) body.results[body.results.length - 1] = okExec(["value"], [[{ value }]]);
       return jsonRes(body);
     };
+    /** An all-ok answer to a save whose blind stamp reads back `value` (the step before COMMIT). */
+    const okSaveReadingBack = (value: string) => (_url: unknown, init?: RequestInit) => {
+      const body = okPipelineBody(init) as { results: { response: { result: { step_results: unknown[] } } }[] };
+      const steps = pipelineSqls(init);
+      body.results[0].response.result.step_results[steps.length - 2] = { cols: [{ name: "value" }], rows: [[{ value }]] };
+      return jsonRes(body);
+    };
     const metaWithRevision = (value: string) =>
       okExec(["key", "value"], [[{ value: "revision" }, { value }]]);
     async function loadedAt(value: string, config: TursoConfig = CONFIG): Promise<TursoBackend> {
@@ -545,8 +552,8 @@ describe("TursoBackend", () => {
       const stmts = sent(2);
       expect(stmts.findIndex((s) => isGuard(s.sql))).toBe(guardIndex);
       expect(argsOf(2, isGuard)).toEqual([["3"]]);
-      expect(argsOf(2, (s) => s === REVISION_INSERT)).toEqual([["4"]]);
-      expect(stmts[stmts.length - 2].sql).toBe(REVISION_INSERT);
+      // The stamp is computed by the database (stored + 1); a guarded save reads nothing back.
+      expect(stmts.slice(-3, -1).map((s) => s.sql)).toEqual([REVISION_UPDATE, REVISION_INSERT]);
       expect(backend.revision()).toBe("4");
     });
 
@@ -558,12 +565,13 @@ describe("TursoBackend", () => {
       expect(fetchSpy.mock.calls.every((_c, i) => !pipelineSqls(fetchSpy.mock.calls[i][1] as RequestInit).includes("BEGIN"))).toBe(true);
     });
 
-    it("the guard's failure is a SaveConflictError naming the stored revision; nothing is adopted and no token leaks", async () => {
+    it("the guard's failure is a SaveConflictError naming the stored revision — recognised by its STEP, not its text", async () => {
       const SECRET = { httpUrl: "https://db.turso.io", authToken: "sekrit-token-4711" };
       const backend = await loadedAt("3", SECRET);
       fetchSpy.mockResolvedValueOnce(upToDatePragma());
+      // ★ No marker in the server's wording: a libSQL that phrases the error its own way is still a conflict.
       fetchSpy.mockImplementationOnce((_url: unknown, init?: RequestInit) =>
-        jsonRes(failedBatchBody(init, guardIndex, `SQLite error: bad JSON path: '${REVISION_CONFLICT_MARKER}4'`)));
+        jsonRes(failedBatchBody(init, guardIndex, "SQLite error: some wording of its own")));
       fetchSpy.mockImplementationOnce(revisionRead("4"));
       const err = await backend.save(withTask()).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(SaveConflictError);
@@ -576,7 +584,21 @@ describe("TursoBackend", () => {
       await backend.save(withTask());
       expect(argsOf(4, isGuard)).toEqual([["3"]]);
       expect(pipelineSqls(fetchSpy.mock.calls[4][1] as RequestInit).filter((s) => s.startsWith("DELETE FROM")))
-        .toHaveLength(TABLE_NAMES.length + 1);
+        .toHaveLength(TABLE_NAMES.length);
+    });
+
+    it("a failing body statement is NOT a conflict, even when its text carries the marker", async () => {
+      const backend = await loadedAt("3");
+      fetchSpy.mockResolvedValueOnce(upToDatePragma());
+      fetchSpy.mockImplementationOnce((_url: unknown, init?: RequestInit) => {
+        const insertAt = pipelineSqls(init).findIndex((sql) => sql.startsWith("INSERT INTO tasks"));
+        return jsonRes(failedBatchBody(init, insertAt, `datatype mismatch near '${REVISION_CONFLICT_MARKER}3'`));
+      });
+      const err = await backend.save(withTask()).catch((e: unknown) => e);
+      expect(err).not.toBeInstanceOf(SaveConflictError);
+      expect((err as Error).message).toBe(`Turso error: datatype mismatch near '${REVISION_CONFLICT_MARKER}3'`);
+      expect(fetchSpy).toHaveBeenCalledTimes(3); // no stored-revision read: not treated as a refusal
+      expect(backend.revision()).toBe("3");
     });
 
     it("a refusal whose stored revision cannot be read carries null", async () => {
@@ -597,32 +619,39 @@ describe("TursoBackend", () => {
       const ws = withTask();
       await backend.save(ws); // call 2: stamps 4, and sets the dirty baseline
       backend.forceNextSave();
-      fetchSpy.mockImplementationOnce(revisionRead("9")); // call 3: the stored revision the blind write stamps past
-      fetchSpy.mockImplementationOnce(okSave); // call 4
+      // call 3: one round-trip — no pre-read; the database stamps stored + 1 and the batch reads it back.
+      fetchSpy.mockImplementationOnce(okSaveReadingBack("10"));
       await backend.save({ ...ws }); // nothing dirty — a forced save rewrites anyway
-      const sqls = pipelineSqls(fetchSpy.mock.calls[4][1] as RequestInit);
+      const sqls = pipelineSqls(fetchSpy.mock.calls[3][1] as RequestInit);
       expect(sqls.some(isGuard)).toBe(false);
-      expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toHaveLength(TABLE_NAMES.length + 1);
-      expect(argsOf(4, (s) => s === REVISION_INSERT)).toEqual([["10"]]);
+      expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toHaveLength(TABLE_NAMES.length);
+      expect(sqls.slice(-4, -1)).toEqual([REVISION_UPDATE, REVISION_INSERT, "SELECT value FROM meta WHERE key = 'revision'"]);
       expect(backend.revision()).toBe("10");
       // One-shot: the next save guards again, on the revision the forced write produced.
       fetchSpy.mockImplementationOnce(okSave);
       await backend.save({ ...ws, tasks: [] });
-      expect(argsOf(5, isGuard)).toEqual([["10"]]);
+      expect(argsOf(4, isGuard)).toEqual([["10"]]);
+    });
+
+    it("a forced save whose read-back comes back empty leaves the revision unknown rather than guessed", async () => {
+      const backend = await loadedAt("3");
+      backend.forceNextSave();
+      fetchSpy.mockResolvedValueOnce(upToDatePragma());
+      fetchSpy.mockImplementationOnce(okSave);
+      await backend.save(withTask());
+      expect(backend.revision()).toBeNull();
     });
 
     it("a forced save that fails stays forced for the retry", async () => {
       fetchSpy.mockResolvedValueOnce(upToDatePragma());
-      fetchSpy.mockImplementationOnce(revisionRead("2"));
       fetchSpy.mockImplementationOnce((_url: unknown, init?: RequestInit) => jsonRes(failedBatchBody(init, 3, "datatype mismatch")));
       const backend = new TursoBackend(CONFIG);
       backend.forceNextSave();
       await expect(backend.save(withTask())).rejects.toThrow("Turso error: datatype mismatch");
       expect(backend.revision()).toBeNull();
-      fetchSpy.mockImplementationOnce(revisionRead("2"));
-      fetchSpy.mockImplementationOnce(okSave);
+      fetchSpy.mockImplementationOnce(okSaveReadingBack("3"));
       await backend.save(withTask());
-      expect(pipelineSqls(fetchSpy.mock.calls[4][1] as RequestInit).some(isGuard)).toBe(false);
+      expect(pipelineSqls(fetchSpy.mock.calls[2][1] as RequestInit).some(isGuard)).toBe(false);
       expect(backend.revision()).toBe("3");
     });
 
@@ -634,7 +663,7 @@ describe("TursoBackend", () => {
       await backend.save(withTask());
       expect(argsOf(2, isGuard)).toEqual([["7"]]);
       expect(pipelineSqls(fetchSpy.mock.calls[2][1] as RequestInit).filter((s) => s.startsWith("DELETE FROM")))
-        .toHaveLength(TABLE_NAMES.length + 1);
+        .toHaveLength(TABLE_NAMES.length);
       expect(backend.revision()).toBe("8");
     });
 

@@ -25,7 +25,7 @@ import {
   type StorageBackend,
   type Workspace,
 } from "./workspace";
-import { LOAD_TIMEOUT_MS, runTursoPipeline } from "./turso-pipeline";
+import { LOAD_TIMEOUT_MS, TursoStepError, runTursoPipeline } from "./turso-pipeline";
 import type { PipelineResultLike, SqlStmt } from "./turso-schema";
 import type { DocTruncationDiag } from "./document-model";
 import type { TursoConfig } from "./turso-config";
@@ -183,7 +183,7 @@ export class TursoBackend implements StorageBackend {
     const expected = this.expectNext;
     this.expectNext = null; // §4 — a conditional overwrite is consumed by this attempt, whatever its outcome.
     // Dynamic import breaks the storage → turso-backend → turso-schema → storage cycle.
-    const { workspaceToStatements, dirtyWorkspaceTables, nextRevision, REVISION_CONFLICT_MARKER } =
+    const { workspaceToStatements, dirtyWorkspaceTables, nextRevision, isRevisionGuard, isRevisionReadback, rowObjects } =
       await import("./turso-schema");
     // Table-level dirty detection by reference equality (React state follows
     // the immutable-update convention). undefined = no baseline → full rewrite.
@@ -205,22 +205,26 @@ export class TursoBackend implements StorageBackend {
     const next = await this.withWriteLock(async () => {
       await this.ensureColumns();
       // §4 — the guard (inside the batch, see `withRevision`) makes compare-and-write one atomic step.
-      // A blind write has no guard and stamps past whatever is stored, so no other window's revision
-      // can match what it wrote.
-      const stamp = { expected: against, next: nextRevision(against ?? (await this.readStoredRevision())) };
+      // The database bumps the stored value, so a blind write (no guard) still stamps past a write another
+      // device made after this window last read, and reads back what it stamped.
+      const stamp = { expected: against };
       const stmts: SqlStmt[] = this.projectId === undefined
         ? workspaceToStatements(workspace, dirty, stamp)
         : (await import("./turso-tenant-schema")).tenantWorkspaceToStatements(workspace, this.projectId, dirty, stamp);
+      let results: PipelineResultLike[];
       try {
-        await runTursoPipeline(this.config, stmts);
+        results = await runTursoPipeline(this.config, stmts);
       } catch (err) {
-        // The guard's SQLite error names the marker; §637's batch skipped everything after it.
-        if (err instanceof Error && err.message.includes(REVISION_CONFLICT_MARKER)) {
+        // Recognised by WHICH step failed, never by the server's wording; §637's batch skipped everything after it.
+        if (err instanceof TursoStepError && isRevisionGuard(stmts[err.stepIndex])) {
           throw new SaveConflictError("turso", await this.storedRevisionOrNull());
         }
         throw err;
       }
-      return stamp.next;
+      if (against !== null) return nextRevision(against);
+      // A blind write adopts what it read back; if that read came back empty the revision stays UNKNOWN
+      // (the next save refuses) rather than guessed.
+      return rowObjects(results[stmts.findIndex(isRevisionReadback)])[0]?.value || null;
     });
     // Reached only when the pipeline succeeded: a failed (or lock-aborted)
     // save keeps the old baseline so the next save retries the dirty tables.

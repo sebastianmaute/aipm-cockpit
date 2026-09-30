@@ -29,7 +29,7 @@ import { describe, expect, it, beforeEach } from "vitest";
 import { DatabaseSync } from "node:sqlite";
 import {
   ENTITY_SPECS, SCHEMA_DDL, selectStatements, workspaceToStatements, rowsToWorkspace,
-  REVISION_CONFLICT_MARKER, revisionFromMetaRows, selectRevisionStatement,
+  REVISION_CONFLICT_MARKER, revisionFromMetaRows, selectRevisionStatement, isRevisionGuard, isRevisionReadback,
   type EntitySpec, type SqlStmt, type PipelineResultLike, type RevisionStamp,
 } from "./turso-schema";
 import { tenantSchemaDdl, tenantSelectStatements, tenantWorkspaceToStatements } from "./turso-tenant-schema";
@@ -536,26 +536,26 @@ describe("§4 revision row", () => {
     });
 
     it("stamps 1 on the first save and reads it back", () => {
-      expect(runBatch(db, layout.save(emptyWorkspace(), undefined, { expected: "0", next: "1" }))).toBeNull();
+      expect(runBatch(db, layout.save(emptyWorkspace(), undefined, { expected: "0" }))).toBeNull();
       expect(layout.revisionRows(db)).toEqual([{ value: "1" }]);
       expect(revisionFromMetaRows(metaResult(layout.metaRows(db)))).toBe("1");
     });
 
-    it("re-inserts the row when a dirty meta table is rewritten, and when meta is clean", () => {
-      runBatch(db, layout.save(emptyWorkspace(), undefined, { expected: "0", next: "1" }));
+    it("keeps and bumps the row when a dirty meta table is rewritten, and when meta is clean", () => {
+      runBatch(db, layout.save(emptyWorkspace(), undefined, { expected: "0" }));
       const ws = emptyWorkspace();
-      // Meta dirty: its DELETE removes every meta row, the revision row included.
-      expect(runBatch(db, layout.save({ ...ws, status: { narrative: "x" } }, new Set(["meta"]), { expected: "1", next: "2" }))).toBeNull();
+      // Meta dirty: its DELETE removes every meta row EXCEPT the revision row, which the stamp bumps.
+      expect(runBatch(db, layout.save({ ...ws, status: { narrative: "x" } }, new Set(["meta"]), { expected: "1" }))).toBeNull();
       expect(layout.revisionRows(db)).toEqual([{ value: "2" }]);
       // Meta clean: only tasks is rewritten, and the revision row still moves exactly once.
-      expect(runBatch(db, layout.save(withTask(), new Set(["tasks"]), { expected: "2", next: "3" }))).toBeNull();
+      expect(runBatch(db, layout.save(withTask(), new Set(["tasks"]), { expected: "2" }))).toBeNull();
       expect(layout.revisionRows(db)).toEqual([{ value: "3" }]);
     });
 
     it("a stale expected revision raises inside the batch and rolls back with nothing written", () => {
-      runBatch(db, layout.save(emptyWorkspace(), undefined, { expected: "0", next: "1" }));
+      runBatch(db, layout.save(emptyWorkspace(), undefined, { expected: "0" }));
       const before = layout.metaRows(db);
-      const err = runBatch(db, layout.save(withTask(), undefined, { expected: "0", next: "1" }));
+      const err = runBatch(db, layout.save(withTask(), undefined, { expected: "0" }));
       // The guard itself is what raised — an SQLite error carrying the marker and the stored revision.
       expect(err?.message).toContain(`${REVISION_CONFLICT_MARKER}1`);
       expect(layout.taskCount(db)).toBe(0);
@@ -563,25 +563,59 @@ describe("§4 revision row", () => {
     });
 
     it("a stale expected revision on a never-written project (stored 0) is refused too", () => {
-      const err = runBatch(db, layout.save(withTask(), undefined, { expected: "4", next: "5" }));
+      const err = runBatch(db, layout.save(withTask(), undefined, { expected: "4" }));
       expect(err?.message).toContain(`${REVISION_CONFLICT_MARKER}0`);
       expect(layout.taskCount(db)).toBe(0);
       expect(layout.revisionRows(db)).toEqual([]);
     });
 
     it("a matching expected revision commits and bumps", () => {
-      runBatch(db, layout.save(emptyWorkspace(), undefined, { expected: "0", next: "1" }));
-      expect(runBatch(db, layout.save(withTask(), undefined, { expected: "1", next: "2" }))).toBeNull();
+      runBatch(db, layout.save(emptyWorkspace(), undefined, { expected: "0" }));
+      expect(runBatch(db, layout.save(withTask(), undefined, { expected: "1" }))).toBeNull();
       expect(layout.taskCount(db)).toBe(1);
       expect(layout.revisionRows(db)).toEqual([{ value: "2" }]);
     });
 
-    it("a blind stamp (expected null) carries no guard and overwrites any stored revision", () => {
-      runBatch(db, layout.save(emptyWorkspace(), undefined, { expected: "0", next: "1" }));
-      const stmts = layout.save(withTask(), undefined, { expected: null, next: "7" });
-      expect(stmts.some((s) => s.sql.includes(REVISION_CONFLICT_MARKER))).toBe(false);
+    it("a blind stamp (expected null) carries no guard, and stamps one past whatever is stored", () => {
+      runBatch(db, layout.save(emptyWorkspace(), undefined, { expected: "0" }));
+      const stmts = layout.save(withTask(), undefined, { expected: null });
+      expect(stmts.some(isRevisionGuard)).toBe(false);
       expect(runBatch(db, stmts)).toBeNull();
-      expect(layout.revisionRows(db)).toEqual([{ value: "7" }]);
+      expect(layout.revisionRows(db)).toEqual([{ value: "2" }]);
+    });
+
+    it("a blind stamp is computed INSIDE the batch: a write landing after this window read stays below it", () => {
+      runBatch(db, layout.save(emptyWorkspace(), undefined, { expected: "0" })); // this window loads at 1
+      runBatch(db, layout.save(emptyWorkspace(), undefined, { expected: "1" })); // another device writes 2
+      expect(runBatch(db, layout.save(withTask(), undefined, { expected: null }))).toBeNull();
+      expect(layout.revisionRows(db)).toEqual([{ value: "3" }]);
+    });
+
+    it("a blind stamp reads the value it wrote back inside the transaction, as its last step before COMMIT", () => {
+      const stmts = layout.save(withTask(), undefined, { expected: null });
+      const i = stmts.findIndex(isRevisionReadback);
+      expect(i).toBe(stmts.length - 2);
+      expect(stmts.filter(isRevisionReadback)).toHaveLength(1);
+      expect(layout.save(withTask(), undefined, { expected: "0" }).some(isRevisionReadback)).toBe(false);
+      expect(runBatch(db, stmts.slice(0, -1))).toBeNull(); // everything up to COMMIT
+      const readback = stmts[i];
+      expect(db.prepare(readback.sql).all(...(readback.args ?? []).map(bindArg))).toEqual([{ value: "1" }]);
+      db.exec("COMMIT");
+    });
+
+    it("a stored empty value reads as 0 on BOTH sides: the guard passes on 0 and the stamp is 1", () => {
+      runBatch(db, layout.save(emptyWorkspace(), undefined, { expected: "0" }));
+      db.prepare("UPDATE meta SET value = '' WHERE key = 'revision'").run();
+      expect(revisionFromMetaRows(metaResult(layout.metaRows(db)))).toBe("0");
+      expect(runBatch(db, layout.save(withTask(), undefined, { expected: "0" }))).toBeNull();
+      expect(layout.revisionRows(db)).toEqual([{ value: "1" }]);
+    });
+
+    it("the guard is found by identity, not by its text", () => {
+      const stmts = layout.save(withTask(), undefined, { expected: "0" });
+      const guard = stmts.find(isRevisionGuard);
+      expect(guard).toBeDefined();
+      expect(isRevisionGuard({ sql: guard?.sql ?? "", args: guard?.args })).toBe(false);
     });
   });
 
@@ -589,14 +623,14 @@ describe("§4 revision row", () => {
     const db = new DatabaseSync(":memory:");
     try {
       for (const ddl of tenantSchemaDdl()) db.exec(ddl);
-      runBatch(db, tenantWorkspaceToStatements(emptyWorkspace(), PROJECT_ID, undefined, { expected: "0", next: "1" }));
-      expect(runBatch(db, tenantWorkspaceToStatements(emptyWorkspace(), "other", undefined, { expected: "0", next: "1" }))).toBeNull();
-      expect(runBatch(db, tenantWorkspaceToStatements(emptyWorkspace(), "other", undefined, { expected: "1", next: "2" }))).toBeNull();
+      runBatch(db, tenantWorkspaceToStatements(emptyWorkspace(), PROJECT_ID, undefined, { expected: "0" }));
+      expect(runBatch(db, tenantWorkspaceToStatements(emptyWorkspace(), "other", undefined, { expected: "0" }))).toBeNull();
+      expect(runBatch(db, tenantWorkspaceToStatements(emptyWorkspace(), "other", undefined, { expected: "1" }))).toBeNull();
       const rev = (p: string) => db.prepare("SELECT value FROM meta WHERE key = 'revision' AND project_id = ?").all(p);
       expect(rev(PROJECT_ID)).toEqual([{ value: "1" }]);
       expect(rev("other")).toEqual([{ value: "2" }]);
       // And this project's guard reads its OWN row, not the other project's.
-      expect(runBatch(db, tenantWorkspaceToStatements(emptyWorkspace(), PROJECT_ID, undefined, { expected: "1", next: "2" }))).toBeNull();
+      expect(runBatch(db, tenantWorkspaceToStatements(emptyWorkspace(), PROJECT_ID, undefined, { expected: "1" }))).toBeNull();
     } finally {
       db.close();
     }
@@ -611,7 +645,7 @@ describe("§4 revision row", () => {
         return db.prepare(s.sql).all(...(s.args ?? []).map(bindArg));
       };
       expect(read()).toEqual([]);
-      runBatch(db, tenantWorkspaceToStatements(emptyWorkspace(), PROJECT_ID, undefined, { expected: "0", next: "1" }));
+      runBatch(db, tenantWorkspaceToStatements(emptyWorkspace(), PROJECT_ID, undefined, { expected: "0" }));
       expect(read()).toEqual([{ value: "1" }]);
     } finally {
       db.close();

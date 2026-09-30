@@ -15,8 +15,8 @@ const cfg = { httpUrl: "https://x.turso.io", authToken: "t" };
 
 /** §4 — a backend that knows its revision (0: nothing stored yet), as after a load; a never-loaded one refuses to save. */
 const loaded = (backend: TursoBackend): TursoBackend => { backend.adoptRevision("0"); return backend; };
-const REVISION_DELETE = "DELETE FROM meta WHERE key = 'revision' AND project_id = ?";
-const REVISION_INSERT = "INSERT INTO meta (key, value, project_id) VALUES ('revision', ?, ?)";
+const REVISION_UPDATE = "UPDATE meta SET value = CAST(coalesce(nullif(value, ''), '0') AS INTEGER) + 1 WHERE key = 'revision' AND project_id = ?";
+const REVISION_INSERT = "INSERT INTO meta (key, value, project_id) SELECT 'revision', '1', ? WHERE NOT EXISTS (SELECT 1 FROM meta WHERE key = 'revision' AND project_id = ?)";
 
 function okEmpty() {
   return { type: "ok" as const, response: { type: "execute", result: { cols: [], rows: [] } } };
@@ -125,8 +125,8 @@ describe("TursoBackend (tenant mode)", () => {
     expect(guard.sql).toContain("turso-revision-conflict:");
     expect(guard.sql).toContain("AND project_id = ?");
     expect(guard.args?.map((a) => a.value)).toEqual(["4", "p1"]);
-    expect(stmts.filter((s) => s.sql === REVISION_DELETE).map((s) => s.args?.map((a) => a.value))).toEqual([["p1"]]);
-    expect(stmts.filter((s) => s.sql === REVISION_INSERT).map((s) => s.args?.map((a) => a.value))).toEqual([["5", "p1"]]);
+    expect(stmts.filter((s) => s.sql === REVISION_UPDATE).map((s) => s.args?.map((a) => a.value))).toEqual([["p1"]]);
+    expect(stmts.filter((s) => s.sql === REVISION_INSERT).map((s) => s.args?.map((a) => a.value))).toEqual([["p1", "p1"]]);
     expect(backend.revision()).toBe("5");
   });
 
@@ -157,7 +157,7 @@ describe("TursoBackend (tenant mode)", () => {
       await backend.save(ws);
       const full = savePipelineCalls()[0][1];
       // first save (no baseline) = full rewrite: one scoped DELETE per table
-      expect(full.filter((s) => s.sql.startsWith("DELETE FROM"))).toHaveLength(TABLE_NAMES.length + 1);
+      expect(full.filter((s) => s.sql.startsWith("DELETE FROM"))).toHaveLength(TABLE_NAMES.length);
 
       const ws2 = { ...ws, tasks: [minimalTask as never] };
       await backend.save(ws2);
@@ -165,11 +165,11 @@ describe("TursoBackend (tenant mode)", () => {
       expect(sqls[0]).toBe("BEGIN");
       expect(sqls[sqls.length - 1]).toBe("COMMIT");
       expect(sqls.filter((s) => s.startsWith("CREATE TABLE IF NOT EXISTS"))).toHaveLength(tenantSchemaDdl().length);
-      expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toEqual(["DELETE FROM tasks WHERE project_id = ?", REVISION_DELETE]);
+      expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toEqual(["DELETE FROM tasks WHERE project_id = ?"]);
       const inserts = sqls.filter((s) => s.startsWith("INSERT INTO") && s !== REVISION_INSERT);
       expect(inserts).toHaveLength(1);
       expect(inserts[0].startsWith("INSERT INTO tasks")).toBe(true);
-      // BEGIN + DDL + guard + DELETE tasks + 1 task INSERT + revision DELETE/INSERT + COMMIT
+      // BEGIN + DDL + guard + DELETE tasks + 1 task INSERT + revision UPDATE/INSERT + COMMIT
       expect(sqls).toHaveLength(1 + tenantSchemaDdl().length + 1 + 1 + 1 + 2 + 1);
     });
 

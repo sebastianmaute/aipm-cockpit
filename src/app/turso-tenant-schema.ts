@@ -15,7 +15,7 @@
 // find-status logic still works.
 
 import {
-  ENTITY_SPECS, PLAN_COLUMNS, FX_COLUMNS, rowObjects, TABLE_NAMES, withRevision,
+  ENTITY_SPECS, PLAN_COLUMNS, FX_COLUMNS, rowObjects, TABLE_NAMES, withRevision, REVISION_KEY,
   type SqlStmt, type PipelineResultLike, type EntityIdKind, type RevisionStamp,
 } from "./turso-schema";
 import { hasAnyOverride } from "./settings-overrides";
@@ -116,7 +116,9 @@ export function tenantWorkspaceToStatements(
   for (const d of ddl) out.push({ sql: d });
   for (const name of TABLE_NAMES) {
     if (!isDirty(name)) continue;
-    out.push({ sql: `DELETE FROM ${name} WHERE project_id = ?`, args: [text(projectId)] });
+    // §4 — the meta DELETE spares the revision row, which the stamp bumps from its stored value.
+    const spare = name === "meta" ? ` AND key IS NOT '${REVISION_KEY}'` : "";
+    out.push({ sql: `DELETE FROM ${name} WHERE project_id = ?${spare}`, args: [text(projectId)] });
   }
   for (const s of ENTITY_SPECS) {
     if (!isDirty(s.table)) continue;
