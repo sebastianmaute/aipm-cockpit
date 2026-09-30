@@ -8,6 +8,7 @@ import {
 import { MAX_HTML_TEXT_CHARS } from "./document-model";
 import { htmlTextLength } from "./rich-text-plain";
 import { TEXTAREA_MAX } from "./sanitize";
+import { RICH_ALLOWED_TAGS } from "./sanitize-html";
 
 // The write boundary for a rich field whose value came from a MODEL. Two layers:
 // upgrade-aware (accept plain OR HTML) and allow-listed (an actual DOMPurify pass,
@@ -253,5 +254,31 @@ describe("open-followups §114 — the nine document-only tags, one leading tag 
     // the escape path — a classifier WIDER than its sink would hand the sink a
     // tag it silently deletes (img is void: nothing unwraps).
     expect(sanitizeAiRichText('<img data-asset-id="7" alt="c">')).toContain("&lt;img");
+  });
+});
+
+// open-followups §35. The third pass re-runs the upgrade layer on DOMPurify's
+// output, so a value pass 1 took as HTML but DOMPurify reduced to bare text
+// would be escaped a SECOND time (`&lt;` → `&amp;lt;`). Pass 1 only takes a value
+// as HTML when it starts with a tag on RICH_ALLOWED_TAGS, and DOMPurify keeps
+// every such tag, so pass 3 always sees HTML again. These pin that.
+describe("open-followups §35 — the double pass never escapes twice", () => {
+  it("treats the original <a-b> shape as plain text, escaped exactly once", () => {
+    // `<a-b>` is not a tag (TAG_TAIL, §32), so the whole value is prose; the
+    // entity the model typed shows literally, as any typed text would.
+    expect(sanitizeAiRichText("<a-b>cost &lt; 5k</a-b>")).toBe("<p>&lt;a-b&gt;cost &amp;lt; 5k&lt;/a-b&gt;</p>");
+  });
+
+  it("keeps an entity single-escaped behind every allowed leading tag", () => {
+    const shapes = RICH_ALLOWED_TAGS.flatMap((tag) => [
+      `<${tag}>x</${tag}> a &lt; b`,
+      `<${tag}> a &lt; b`,
+      `<${tag} class="z">a &amp; b</${tag}>`,
+    ]);
+    expect(shapes.length).toBeGreaterThan(RICH_ALLOWED_TAGS.length * 2); // anti-vacuity
+    const doubled = shapes
+      .map((s) => [s, sanitizeAiRichText(s)] as const)
+      .filter(([, out]) => out.includes("&amp;lt;") || out.includes("&amp;amp;"));
+    expect(doubled).toEqual([]);
   });
 });

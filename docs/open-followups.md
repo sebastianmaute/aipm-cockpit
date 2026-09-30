@@ -266,7 +266,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§32](#32-html_start-misclassifies-eight-plain-text-prefixes-and-the-text-is-then-deleted--closed-2026-09-13) | `HTML_START` misclassifies eight plain-text prefixes, and the text is then DELETED | pre-existing, reach widened 0.210.0 | S | **CLOSED** 2026-09-13 |
 | [§33](#33-a-multi-paragraph-description-can-overflow-its-pptx-box--closed-2026-09-25) | A multi-paragraph description can overflow its PPTX box | 0.210.0 (Larbalestier) | S | closed |
 | [§34](#34-the-dom-free-guards-filter-is-a-name-list-where-the-real-set-is-an-import-graph--closed-in-02100) | ~~The DOM-free guard's filter is a NAME LIST where the real set is an import GRAPH~~ | 0.210.0 (Larbalestier) | S | **CLOSED** in 0.210.0 |
-| [§35](#35-sanitizeairichtexts-double-pass-can-double-escape-one-exotic-shape--open-suspicion) | `sanitizeAiRichText`'s double pass can double-escape one exotic shape — open, suspicion | 0.210.0 (Larbalestier) | S | open |
+| [§35](#35-sanitizeairichtexts-double-pass-can-double-escape-one-exotic-shape--closed-2026-09-30) | `sanitizeAiRichText`'s double pass can double-escape one exotic shape | 0.210.0 (Larbalestier) | S | **CLOSED** 2026-09-30 |
 | [§36](#36-two-rich-field-writeexport-postures-that-were-claimed-as-recorded-but-were-not--a-fixed-2026-08-28-b-fixed-2026-08-31--closed-2026-08-31) | Two rich-field write/export postures that were CLAIMED as recorded but were not — (a) FIXED 2026-08-28, (b) FIXED 2026-08-31 | 0.210.0 (Larbalestier) | S | **CLOSED** 2026-08-31 |
 | [§37](#37-raiditem-has-no-storage-side-length-cap-on-any-path--open-pre-existing) | `RaidItem` has NO storage-side length cap on any path — open, pre-existing | pre-existing, found 0.210.0 | M | open |
 | [§38](#38-allowed_uri_regexp-silently-strips-target-and-rel-from-every-stored-link--open-pre-existing) | `ALLOWED_URI_REGEXP` silently strips `target` and `rel` from every stored link — open, pre-existing | pre-existing, found 0.210.0 | S–M | open |
@@ -277,7 +277,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§43](#43-two-suggest-raci-reporting-gaps--closed-2026-09-25) | Two "Suggest RACI" reporting gaps | 0.211.0 (Samatar) | S | closed |
 | [§44](#44-the-last-two-ux-roadmap-slices--s6-designed-and-planned-but-unexecuted-s7-undesigned) | The last two UX-roadmap slices — S6 designed and planned but UNEXECUTED, S7 undesigned | roadmap (gitignored, local-only) | L | open |
 | [§45](#45-brace-expansion-advisory-in-the-eslint-dev-chain--closed-in-02111) | ~~`brace-expansion` advisory in the eslint dev chain~~ | 0.211.0 | S | **CLOSED** in 0.211.1 |
-| [§46](#46-a-label-wrapped-file-input-can-never-show-a-focus-ring--pattern-open) | A `<label>`-wrapped file input can never show a focus ring — pattern open | 0.211.1 | S | open |
+| [§46](#46-a-label-wrapped-file-input-can-never-show-a-focus-ring--closed-2026-09-30) | A `<label>`-wrapped file input can never show a focus ring | 0.211.1 | S | **CLOSED** 2026-09-30 |
 | [§47](#47-chat-panel-clicks-a-displaynone-file-input--closed-2026-09-14) | `chat-panel` clicks a `display:none` file input | pre-existing, found 0.211.1 | S | **CLOSED** 2026-09-14 |
 | [§48](#48-raid-editor-destroys-notes-added-while-it-is-open--closed-in-02111) | ~~RAID editor destroys notes added while it is open~~ | pre-existing, found 0.211.1 | M | **CLOSED** in 0.211.1 |
 | [§49](#49-every-ai-edit-to-a-raid-item-erased-its-whole-note-log--closed-in-02111) | ~~Every AI edit to a RAID item erased its whole note log~~ | pre-existing, found 0.211.1 | S | **CLOSED** in 0.211.1 |
@@ -288,12 +288,12 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§54](#54-prod-only-csp-blocks-prosemirrors-base-css--closed-2026-08-09) | Prod-only CSP blocks ProseMirror's base CSS | pre-existing, found 0.211.2 | S–M | **CLOSED** 2026-08-09 |
 | [§55](#55-twelve-hand-rolled-aria-pressed-toggles-still-show-their-on-state-by-colour-alone--closed-2026-09-01) | ~~Twelve hand-rolled `aria-pressed` toggles still show their on-state by colour alone~~ | 0.212.0 (Nayler) | M | **CLOSED** 2026-09-01 (8 of 12 migrated to `ToggleButton`, RACI ringed, 3 adjudicated non-defects) |
 | [§56](#56-togglebuttons-pressed-state-is-near-invisible-in-all-three-dark-schemes--closed-2026-09-01) | ~~`ToggleButton`'s pressed state is near-invisible in all three DARK schemes~~ | 0.212.0 (Nayler) | S–M | **CLOSED** 2026-09-01 (state borders DERIVED at a 3:1 floor, so an imported theme is covered too) |
-| [§57](#57-the-four-toolbar-outlook-enable-toggles-carry-an-untested-auto-guard--open) | The four toolbar Outlook enable-toggles carry an untested `auto` guard | 0.212.0 (Nayler) | S | open |
+| [§57](#57-the-four-toolbar-outlook-enable-toggles-carry-an-untested-auto-guard--closed-2026-09-30) | The four toolbar Outlook enable-toggles carry an untested `auto` guard | 0.212.0 (Nayler) | S | **CLOSED** 2026-09-30 |
 | [§58](#58-the-axe-gate-can-pass-against-a-stale-dev-server--gate-half-fixed-post-02120-sibling-worktree-half-open) | The axe gate can pass against a STALE dev server — gate half FIXED post-0.212.0, sibling-worktree half OPEN | 0.212.0 (Nayler) | S | open |
 | [§59](#59-eye-verification-owed-on-02120--and-on-the-two-releases-before-it--open) | Eye verification owed on 0.212.0 — and on the two releases before it | 0.212.0 (Nayler) | S | open |
 | [§60](#60-the-file-size-ratchet-ignores-every-file-at-or-under-800-lines-so-a-sub-limit-baseline-entry-is-inert--closed-2026-08-26) | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | **CLOSED** 2026-08-26 |
-| [§61](#61-three-residuals-from-the-use-resource-planner-split-plus-one-pointer--open-all-small) | Three residuals from the `use-resource-planner` split, plus one pointer — open, all small | post-0.212.0 | S | open |
-| [§62](#62-two-reference-data-handlers-have-no-production-consumer--open-pre-existing) | Two reference-data handlers have no production consumer — open, pre-existing | pre-existing, found post-0.212.0 | S | open |
+| [§61](#61-three-residuals-from-the-use-resource-planner-split-plus-one-pointer--open-narrowed-to-c-and-d) | Three residuals from the `use-resource-planner` split, plus one pointer — open, narrowed to (c) and (d) | post-0.212.0 | S | open |
+| [§62](#62-two-reference-data-handlers-have-no-production-consumer--closed-2026-09-30) | Two reference-data handlers have no production consumer | pre-existing, found post-0.212.0 | S | **CLOSED** 2026-09-30 |
 | [§63](#63-gantttsx-crossed-800-and-was-baselined-rather-than-split--closed-in-02130-split-after-all) | ~~`gantt.tsx` crossed 800 and was baselined rather than split~~ | post-0.212.0 | M | **CLOSED** in 0.213.0, split after all |
 | [§64](#64-other-surfaces-still-read-0-complete-for-an-all-cancelled-project--closed-2026-09-26) | Other surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S | **CLOSED** 2026-09-26 |
 | [§65](#65-a-done-task-with-no-completeddate-shows-the-cross-while-its-tooltip-says-completed--closed-2026-09-25) | A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" | cancelled-work presentation | S | closed |
@@ -495,8 +495,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§261](#261-toolbar-filter-vs-sortable-header-name-collisions-systemic-7-pairs-across-3-panels--closed-2026-08-28) | Toolbar-filter vs sortable-header name collisions, systemic: 7 pairs across 3 panels | row-unique-names round 2 (2026-08-27) | M | **CLOSED** 2026-08-28 |
 | [§262](#262-budget-paneltsx-bucket-qualified-not-bucket-unique--closed-2026-08-28) | `budget-panel.tsx`: bucket-qualified, not bucket-unique | row-unique-names round 2 (2026-08-27), carried from §248 | S | **CLOSED** 2026-08-28 |
 | [§263](#263-budget-panel-totalstsxs-structured-aria-labels-are-untranslated-by-design) | `budget-panel-totals.tsx`'s structured `aria-label`s are untranslated by design | row-unique-names round 2 (2026-08-27) | — | open |
-| [§264](#264-the-i18n-sweep-enumeration-method-has-a-blind-spot-a-literal-inside-a-ternary) | The i18n-sweep enumeration method has a blind spot: a literal inside a ternary | row-unique-names round 2 (2026-08-27) | S | open |
-| [§265](#265-stakeholderrecipientinput-has-no-production-caller) | `StakeholderRecipientInput` has no production caller | row-unique-names round 2 (2026-08-27) | — | open |
+| [§264](#264-the-i18n-sweep-enumeration-method-has-a-blind-spot-a-literal-inside-a-ternary--closed-2026-09-30) | The i18n-sweep enumeration method has a blind spot: a literal inside a ternary | row-unique-names round 2 (2026-08-27) | S | **CLOSED** 2026-09-30 |
+| [§265](#265-stakeholderrecipientinput-has-no-production-caller--closed-2026-09-30) | `StakeholderRecipientInput` has no production caller | row-unique-names round 2 (2026-08-27) | — | **CLOSED** 2026-09-30 |
 | [§266](#266-swimlane-lanes-are-named-by-an-unqualified-resource-display-name--closed-2026-08-28) | Swimlane lanes are named by an unqualified resource display name | row-unique-names round 2 (2026-08-27) | M | **CLOSED** 2026-08-28 |
 | [§267](#267-gantt-task-and-milestone-name-buttons-take-their-accessible-name-from-content--closed-2026-08-28) | Gantt task and milestone name buttons take their accessible name from CONTENT | row-unique-names round 2 (2026-08-27) | M | **CLOSED** 2026-08-28 |
 | [§268](#268-two-resources-sharing-a-mailbox-give-two-identically-named-copy-buttons--a-question-not-a-defect--closed-2026-08-28) | Two resources sharing a mailbox give two identically-named copy buttons — a question, not a defect | row-unique-names round 2 (2026-08-27) | — | **CLOSED** 2026-08-28 |
@@ -522,8 +522,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--closed-2026-08-30) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses | found 2026-08-29, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
 | [§289](#289-milestones-should-stamp-localmodifiedat--the-apply-does-not-write-it-and-the-bulk-undo-therefore-does-not-either--closed-2026-08-30) | ~~Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either~~ | found 2026-08-29 | S | **CLOSED** 2026-08-30 (all THREE paths: apply, single-row undo, bulk undo; SUPERSEDES §181) |
 | [§290](#290-differs-and-valuesdiffer-are-two-exported-spellings-of-one-predicate-in-field-groupsts--closed-2026-09-30) | `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` | found 2026-08-29 | XS | **CLOSED** 2026-09-30 |
-| [§291](#291-mergerecord-rebuilds-in-lives-key-order-not-targets--open) | `mergeRecord` rebuilds in `live`'s key order, not `target`'s | found 2026-08-29 | S | open |
-| [§292](#292-the-merge-property-tests-anti-vacuity-floor-measures-generator-diversity-not-merge-path-coverage--open) | The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage | found 2026-08-29 | S | open |
+| [§291](#291-mergerecord-rebuilds-in-lives-key-order-not-targets--closed-2026-09-30) | `mergeRecord` rebuilds in `live`'s key order, not `target`'s | found 2026-08-29 | S | **CLOSED** 2026-09-30 |
+| [§292](#292-the-merge-property-tests-anti-vacuity-floor-measures-generator-diversity-not-merge-path-coverage--closed-2026-09-30) | The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage | found 2026-08-29 | S | **CLOSED** 2026-09-30 |
 | [§293](#293-the-destructive-save-arming-gate-covers-the-ai-surface-only--a-new-ui-delete-handler-still-arms-nothing-and-fails-no-gate) | The destructive-save arming gate covers the AI surface only — a new UI delete handler still arms nothing and fails no gate | found 2026-08-29 | M | open (narrowed 2026-08-30 — the refusal is now recoverable; the detection gap is unchanged) |
 | [§294](#294-spending-the-one-shot-destructive-save-bypass-is-a-per-early-return-obligation--two-returns-decide-it-three-leave-it-by-accident-and-nothing-checks-either--closed-2026-08-30) | Spending the one-shot destructive-save bypass is a per-early-return obligation — two returns decide it, three leave it by accident, and nothing checks either | found 2026-08-29 | M | **CLOSED** 2026-08-30 (`consumeArm` hoisted to the effect's first statement; the prospective property is structurally untestable) |
 | [§295](#295-undoredo-re-applies-deletions-without-arming-the-destructive-save-bypass--redoing-a-clear-all-can-be-refused-by-the-guard--closed-2026-08-30) | Undo/redo re-applies deletions without arming the destructive-save bypass — redoing a clear-all can be refused by the guard | found 2026-08-29 | M | **CLOSED** 2026-08-30 (redo arms when the forward images remove rows; pinned by a real clear-all→undo→redo seam test) |
@@ -563,7 +563,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§329](#329-real-xlsx-cell-hyperlinks-were-deliberately-not-built--a-hyperlinks-unit-is-the-cell-and-a-description-can-carry-several) | Real XLSX cell hyperlinks were deliberately NOT built — a hyperlink's unit is the CELL, and a description can carry several | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open |
 | [§330](#330-the-flat-pptx-table-cell-keeps-the-inline-text-url-form-while-the-same-decks-text-boxes-carry-real-links) | The flat PPTX table cell keeps the inline `text (url)` form while the same deck's text boxes carry real links | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open (SCOPED 2026-09-01 to `doc-render-pptx.ts`'s table path — `export-pptx.ts`'s row slides now carry real links) |
 | [§331](#331-aria-pressed-carries-a-mutually-exclusive-choice-at-six-sites-which-is-radio-group-semantics-in-toggle-button-clothes) | `aria-pressed` carries a MUTUALLY-EXCLUSIVE choice at six sites, which is radio-group semantics in toggle-button clothes | found 2026-09-01, closing §55 | M | open |
-| [§332](#332-the-reduced-motion-policy-covers-two-utilities-and-nothing-gates-the-next-animation) | The reduced-motion policy covers two utilities and nothing gates the next animation | found 2026-09-01, adding the rule | S | open |
+| [§332](#332-the-reduced-motion-policy-covers-two-utilities-and-nothing-gates-the-next-animation--closed-2026-09-30) | The reduced-motion policy covers two utilities and nothing gates the next animation | found 2026-09-01, adding the rule | S | **CLOSED** 2026-09-30 |
 | [§333](#333-the-chip-clear-buttons-in-labels-input-and-stakeholder-recipient-input-carry-no-onmousedown-guard--closed-2026-09-02) | ~~The chip clear buttons in `labels-input` and `stakeholder-recipient-input` carry no `onMouseDown` guard~~ | found 2026-09-01 while adopting `IconButton`; PRE-EXISTING | S | **CLOSED** 2026-09-02 (**DISPROVED**, not fixed — the clear renders inside the `rootRef` containment check that governs the close; no code written) |
 | [§334](#334-racichippickers-popover-is-positioned-with-no-right-edge-clamp--closed-2026-09-02) | ~~`RaciChipPicker`'s popover is positioned with no right-edge clamp~~ | found 2026-09-01, fixing §55's RACI half; PRE-EXISTING | S | **CLOSED** 2026-09-02 (adopted `PopoverPanel`; closed WIDER than its title — the chips were unreachable by Tab, and the panel's `ariaLabel` was inert without a `role`. One stated constraint, chip-anchored positioning, was DECLINED) |
 | [§335](#335-the-rag-health-chips-override-togglebuttons-derived-state-border-so-amber-and-green-stay-under-31-in-the-four-light-schemes) | The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes | found 2026-09-01 in the §55 fix round, from a cold docs review | S | open |
@@ -576,7 +576,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§342](#342-rolebutton-on-an-img-removes-its-image-semantics--closed-2026-09-25) | `role="button"` on an `<img>` removes its image semantics | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | closed |
 | [§343](#343-the-asset-lightboxs-reopen-frame-is-fixed-but-unpinned--no-test-can-see-it--closed-2026-09-03) | ~~The asset lightbox's reopen frame is fixed but UNPINNED — no test can see it~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") deletion-only review round | S | **CLOSED** 2026-09-03 (eye-verified via a DevTools Performance screenshot capture; the entry records that the deletion control was not captured, so read it at that strength) |
 | [§344](#344-hardcoded-literal-dom-ids-rest-on-an-unstated-single-mount-assumption--and-the-popout-is-not-the-reason-it-holds) | Hardcoded literal DOM ids rest on an unstated single-mount assumption — and the popout is NOT the reason it holds | found 2026-09-02 closing §326 | S | open |
-| [§345](#345-document-block-selectionts-promises-a-dom-free-i18n-free-module-and-nothing-enforces-it) | `document-block-selection.ts` promises a DOM-free, i18n-free module and nothing enforces it | found 2026-09-02 in the §199 cold review | S | open |
+| [§345](#345-document-block-selectionts-promises-a-dom-free-i18n-free-module-and-nothing-enforces-it--closed-2026-09-30) | `document-block-selection.ts` promises a DOM-free, i18n-free module and nothing enforces it | found 2026-09-02 in the §199 cold review | S | **CLOSED** 2026-09-30 |
 | [§346](#346-no-mcp-server--the-ai-can-only-act-from-inside-the-app--open) | No MCP server — the AI can only act from inside the app | found 2026-09-03 benchmarking OpenProject 17.8 | L (architecture decision first) | open |
 | [§347](#347-no-global-guardrails-on-time-entries--roadmap-after-the-ai-write-safety-slice--open) | No global guardrails on time entries — roadmap, after the AI-write-safety slice | found 2026-09-03 benchmarking OpenProject 17.8 | L | open |
 | [§348](#348-a-meetings-activity-is-invisible-from-the-work-it-concerns--roadmap-after-347--open) | A meeting's activity is invisible from the work it concerns — roadmap, after §347 | found 2026-09-03 benchmarking OpenProject 17.8 | M | open |
@@ -2432,11 +2432,9 @@ derivable, derive it.
 
 ---
 
-## 35. `sanitizeAiRichText`'s double pass can double-escape one exotic shape — open, suspicion
+## 35. `sanitizeAiRichText`'s double pass can double-escape one exotic shape — CLOSED 2026-09-30
 
-**Status:** open — a double-escape shape that survives, reachability never established. Reproduced 2026-08-28 by `grep -n "sanitizeAiRichText" src/app/ai-rich-text.ts`.
-
-**Work item:** #99
+**Status:** CLOSED 2026-09-30. The double-pass divergence is unreachable. Since §32's `TAG_TAIL`, pass 1 takes a value as HTML only when it starts with a tag on `RICH_ALLOWED_TAGS`, and DOMPurify keeps every such tag, so pass 3 always sees HTML again and never re-escapes. `ai-rich-text.test.ts` → "open-followups §35" pins both halves: the `<a-b>` shape is plain text escaped exactly once, and a sweep over every allowed tag with a trailing entity finds no `&amp;lt;`/`&amp;amp;`. A mutant that makes pass 3 see bare text fails both. ★ The `<a-b>` value now RENDERS its literal `&lt;` because the whole value is prose, a tag-shaped string that is not a tag, per §32's rule. That is the plain-text contract, not a double escape: the single-pass result is identical. The history below is kept as written.
 
 Recorded from a round-5 audit; **real-world reachability is a suspicion, not established.**
 
@@ -3352,11 +3350,9 @@ Measured rule drift was **ZERO** — `eslint:recommended` is not layered into th
 
 ---
 
-## 46. A `<label>`-wrapped file input can never show a focus ring — pattern open
+## 46. A `<label>`-wrapped file input can never show a focus ring — CLOSED 2026-09-30
 
-**Status:** open — a PATTERN reminder, not a state. 2026-08-28: never machine-verified — no command can settle a prescription; retiring it is a decision, not a probe.
-
-**Work item:** #108
+**Status:** CLOSED 2026-09-30 — the pattern now has a guard. `label-focus-ring.guard.test.ts` scans every non-test `.tsx` under `src/app` (comment-stripped) and fails on a `<label>` opening tag carrying `focus:`, `FOCUS_RING` or `INTERACTIVE`, unless it has a `tabIndex`; `focus-within:` passes. Its first run found one live instance, `timelog-project-scope.tsx`'s project-row label, which carried `INTERACTIVE`. The checkbox inside has its own visible `FOCUS_RING`, so there was no user-facing defect, only a dead ring. The label now keeps `TRANSITION` and `PRESS` and drops the ring. Restoring `INTERACTIVE` there fails the guard. ★ It is a NAME-level scan: classes reaching a label through some other variable are invisible to it. The history below is kept as written.
 
 Found while grounding §15, and not in that entry. `color-scheme-editor.tsx` and
 `branding-image-input.tsx` both put a `focus:ring-2` on a `<label>` that wrapped an `sr-only`
@@ -4562,11 +4558,9 @@ zero times and report green.
 
 ---
 
-## 57. The four toolbar Outlook enable-toggles carry an untested `auto` guard — open
+## 57. The four toolbar Outlook enable-toggles carry an untested `auto` guard — CLOSED 2026-09-30
 
-**Status:** open — four toggle guards no fixture exercises. Reproduced 2026-08-28 by `grep -rn "auto: enabled" src/app --include=*.tsx`.
-
-**Work item:** #112
+**Status:** CLOSED 2026-09-30. The four hand-copied writers are now one pure helper, `withCalendarEnabled` (`calendar-sync-config.ts`), called from `tasks-section.tsx` and the three toggles in `use-calendar-integrations.ts`. `calendar-sync-config.test.ts` drives it with a stored `auto: true` for every entity type: switching off must clear it, and switching on must keep it. Deleting the `enabled ? … : false` guard turns four tests red. The history below is kept as written.
 
 `tasks-section.tsx` and the raid/change/absence writers in `use-calendar-integrations.ts` each read
 the RAW stored `auto` when switching a row on (`auto: enabled ? (s.outlookCalendar?.X?.auto ?? false)
@@ -4780,9 +4774,9 @@ is a slice of its own rather than a tweak. There is no pressure to do either now
 
 ---
 
-## 61. Three residuals from the `use-resource-planner` split, plus one pointer — open, all small
+## 61. Three residuals from the `use-resource-planner` split, plus one pointer — open, narrowed to (c) and (d)
 
-**Status:** open — three small residuals from the resource-planner split, plus one pointer. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** open, narrowed 2026-09-30. (a) and (b) are FIXED: the dev warning now reads `[useResourceDirectory] non-plain seed dropped …`, and `UseResourcePlannerArgs.captureComposite`'s comment names both sub-hooks and every cascade that uses it. What remains is (c), a potential duplication problem with no defect today, and (d), a pointer rather than work. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 **Work item:** #115
 
@@ -4851,11 +4845,9 @@ grep -c use-resource-planner docs/baselines/file-sizes.json
 
 ---
 
-## 62. Two reference-data handlers have no production consumer — open, pre-existing
+## 62. Two reference-data handlers have no production consumer — CLOSED 2026-09-30
 
-**Status:** open — two reference-data handlers with no production consumer, pre-existing. Last asserted 2026-08-25; never machine-verified by a committed probe.
-
-**Work item:** #116
+**Status:** CLOSED 2026-09-30 — both handlers deleted from `use-reference-data.ts`, with their two tests in `use-resource-planner.test.tsx`. Re-verified first: the grep below returned only the definitions, the return keys, comments and those tests. `handleAssignRoleById` (the Directory picker's handler) already assigns a role by id and clears it with `null`, so nothing is lost. The history below is kept as written.
 
 `handleAssignResourceRole` and `handleClearResourceRole` (`use-reference-data.ts`)
 are reachable only from `use-resource-planner.test.tsx`. Nothing
@@ -8986,8 +8978,8 @@ Everything below is what remains open after it:
   *untranslated* `aria-label`, so a German user sees "Einfach" and hears "Apply Simple preset"; and
   `budget-panel-totals.tsx:94`/`:111` use a machine-readable test hook
   (``aria-label={`budget-${ariaPrefix}`}``) as what a screen reader announces for every budget cell.
-  ★ `stakeholder-recipient-input.tsx:160` is Class A in every respect **except** that its name is a
-  hardcoded ``` `Remove ${name}` ```; translate it first, then it is a plain Class A row.
+  ★ `stakeholder-recipient-input.tsx`'s remove button was Class A in every respect **except** that its
+  name was a hardcoded ``` `Remove ${name}` ```. The file was deleted 2026-09-30 (§265), so that row is gone.
 
 ★★ **Two sites were reported into this audit as inventory misses. Both are already `title`-complete,
 and only one of the two reports was correct** — recorded because the *mechanism* of the real miss
@@ -22882,12 +22874,9 @@ separate from an ordinary i18n-sweep edit. Deliberately excluded from the Task-1
 reason; record it here so it is not silently "completed" by a future pass that greps for hardcoded
 `aria-label`s without checking what selects on them.
 
-## 264. The i18n-sweep enumeration method has a blind spot: a literal inside a ternary
+## 264. The i18n-sweep enumeration method has a blind spot: a literal inside a ternary — CLOSED 2026-09-30
 
-**Status:** open. Found 2026-08-26 during the Task-15 i18n sweep, re-verified 2026-08-27 for this
-closure round. Never machine-verified by a committed probe.
-
-**Work item:** #212
+**Status:** CLOSED 2026-09-30. The string is gone: `stakeholder-recipient-input.tsx` was deleted under §265, so there is nothing to translate. ★ The METHOD gap below still stands and is kept as the lesson: a regex over attribute syntax cannot see a literal inside a ternary, so a future i18n sweep using these three patterns will miss that shape. The commands below now return nothing because the file no longer exists. Found 2026-08-26 during the Task-15 i18n sweep.
 
 The sweep's greps match `attr="literal"` and `` attr={`template`} ``. Neither can see a literal sitting
 inside a ternary's branches: `stakeholder-recipient-input.tsx` carries
@@ -22916,12 +22905,9 @@ find it with ``git log -S'} — email`' -- src/app/project-form-fields.tsx`` (fi
 shape the second pattern quoted above DOES match — so widening the patterns would not have caught
 it; the method found it and a reader walked past it.
 
-## 265. `StakeholderRecipientInput` has no production caller
+## 265. `StakeholderRecipientInput` has no production caller — CLOSED 2026-09-30
 
-**Status:** open — a decision, not a fix, is owed. Found 2026-08-25 during the row-unique-names slice
-(round 1), re-verified 2026-08-27 for this closure round. Never machine-verified by a committed probe.
-
-**Work item:** #213
+**Status:** CLOSED 2026-09-30 — resolution (a), decided by the owner: dead code, deleted. `stakeholder-recipient-input.tsx` and its test are gone. The grep below returned only those two files before the delete, and its early history was lost in the repository rewrite, so (b) could not be investigated. Doc citations into the file were removed from `tooltip-inventory.md`, `handrolled-ui-inventory.md`, `docs/AGENTS/ui-shell.md` and §109. Found 2026-08-25 during the row-unique-names slice.
 
 ```bash
 grep -rn "StakeholderRecipientInput" src e2e --include=*.ts --include=*.tsx
@@ -25305,11 +25291,9 @@ import instead: `grep -rn "differs" src/app --include=*.ts --include=*.tsx | gre
 a different predicate than it is. One import line and one call site move. Deliberately NOT done in
 the §178 slice: renaming a public export is unrelated to that fix and would have widened its diff.
 
-## 291. `mergeRecord` rebuilds in `live`'s key order, not `target`'s — open
+## 291. `mergeRecord` rebuilds in `live`'s key order, not `target`'s — CLOSED 2026-09-30
 
-**Status:** open — never machine-verified as user-visible; the ORDERING behaviour itself is pinned by a test as of 2026-08-29. Reproduce with `npx vitest run src/app/undo/merge-field-value.test.ts -t "reordered record"`.
-
-**Work item:** #224
+**Status:** CLOSED 2026-09-30. `mergeRecord` now builds its output in `target`'s key order, then appends `live`-only keys (concurrent additions) in `live`'s order, so an undo restores a removed key at its original position. The merged CONTENT is unchanged. Pinned by `merge-field-value.test.ts` → "mergeRecord key order (open-followups §291)"; the old body fails it. ★ Consequence for §292: a pure record REORDER no longer separates the no-race short-circuit from the merge body, so the record reorder case stopped killing that mutant; the array case and §292's permutation property do. The history below is kept as written.
 
 `mergeRecord` seeds `out` from `{ ...live }` and then writes the keys the op touched, so a key
 present only in `target` lands at the END of the key order rather than at its original position.
@@ -25327,11 +25311,9 @@ no-race short-circuit's mutant survive a mutation run: a pure key REORDER is the
 distinguishes the guarded merge from the unguarded one, so the ordering behaviour and the guard's
 detectability are the same fact seen twice. See §292.
 
-## 292. The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage — open
+## 292. The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage — CLOSED 2026-09-30
 
-**Status:** open — measured 2026-08-29 by applying the mutant and running three times (2, 3 and 3 failures; the property test did not fire on the first). Reproduce by deleting `if (!differs(live, other)) return target;` from `src/app/undo/merge-field-value.ts` and running `npx vitest run src/app/undo/merge-field-value.test.ts` repeatedly.
-
-**Work item:** #225
+**Status:** CLOSED 2026-09-30 by the second fix shape below. A new property, "returns the target verbatim for any pure reorder when nothing raced", derives `other` as a permutation of `target` (`fc.shuffledSubarray` over a `uniqueArray`), so the killing shape is drawn on purpose; its floor counts only runs where the order really differs. Deleting `if (!differs(live, other)) return target;` now fails it 3 of 3 runs, where the independent-draw property was a coin flip. The original property keeps its generator-diversity floor, which is still true about what it measures. (Measured 2026-08-29 before this fix: across three runs of the mutant, the old property fired on only two.)
 
 The "returns the target verbatim whenever nothing raced" property counts a run as non-trivial when
 `JSON.stringify(target) !== JSON.stringify(other)` and asserts that fraction exceeds 0.5. That
@@ -28025,16 +28007,9 @@ are behind flows the spec never opens. A manual screen-reader pass is the only d
 
 ---
 
-## 332. The reduced-motion policy covers two utilities and nothing gates the next animation
+## 332. The reduced-motion policy covers two utilities and nothing gates the next animation — CLOSED 2026-09-30
 
-**Status:** OPEN, **never machine-verified — and never machine-verifiable.** jsdom does not evaluate
-media queries, so no unit test can observe the rule, and no Playwright spec here emulates the
-preference. Filed 2026-09-01 in the commit that added the rule. Reproduce the covered set with
-`grep -n -A 8 "prefers-reduced-motion" src/app/globals.css` and the animating call sites with
-`grep -rn "animate-" src/app --include=*.tsx | grep -v "\.test\."` (which also returns comment lines
-that are not call sites).
-
-**Work item:** #241
+**Status:** CLOSED 2026-09-30 — all three uncovered bullets below are addressed. (1) Future animations: `reduced-motion.guard.test.ts` fails on any `animate-*` utility used in `src/app` that the `globals.css` block does not name, on an arbitrary `animate-[…]`, and on `@keyframes` or raw `animation:` outside the block. (2) CSS transitions: recorded as a deliberate exclusion in the guard's header and in `docs/AGENTS/theming.md`. (3) JS-driven motion: the grep found three `behavior: "smooth"` scrolls (`use-task-submit.ts`, `help-view.tsx`, `help-content-pane.tsx`), which animated regardless of the preference. They now call `smoothScrollBehavior()` (`reduced-motion.ts`), which returns `"auto"` under `prefers-reduced-motion: reduce`, and the guard fails on a bare `behavior: "smooth"` anywhere else. Mutation-checked: a new `animate-bounce`, a reverted scroll site and an appended `@keyframes` each fail the guard. ★★ It is still a STRING check for the CSS half: it proves each animation is named in the block, not that motion is gone on screen, which stays eye-verify-only. `theming.md`'s stale "the rotation is the entire cue" text, refuted by the amendment below, is corrected. Filed 2026-09-01.
 
 **What landed.** The app had NO reduced-motion handling of any kind before 2026-09-01. `f2839a72` added
 a single `@media (prefers-reduced-motion: reduce)` block to `globals.css`, covering the two utilities
@@ -28788,15 +28763,11 @@ one path first; convert the site that has one.
 
 ---
 
-## 345. `document-block-selection.ts` promises a DOM-free, i18n-free module and nothing enforces it
+## 345. `document-block-selection.ts` promises a DOM-free, i18n-free module and nothing enforces it — CLOSED 2026-09-30
 
-**Status:** OPEN, **never machine-verified** — no probe was run and no guard exists; this records a
-structural hazard, not an observed failure. Filed 2026-09-02 in the
+**Status:** CLOSED 2026-09-30 — the remedy below was taken. `document-block-selection.test.ts` now scans the comment-stripped source and fails on any import that is not `import type`, on a value re-export and on a dynamic `import(`, with an anti-vacuity check that the scan found today's import. Changing the one import to `import { type AddableBlockType }` turns it red. The module header was updated to say so. Filed 2026-09-02 in the
 [§199](#199-adding-a-block-at-a-narrow-pane-leaves-the-new-block-collapsed-read-only--closed-2026-09-02)
-closure round, from the cold review of that fix. Reproduce the surface with
-`grep -n "^import" src/app/document-block-selection.ts`.
-
-**Work item:** #249
+closure round.
 
 **What happens.** The module header states "NO React, NO DOM, NO i18n — index arithmetic and nothing
 else, so it is unit-testable without a jsdom environment". §199 gave the module its **first-ever

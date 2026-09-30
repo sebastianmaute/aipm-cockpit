@@ -6,7 +6,7 @@
 "use client";
 import { t, type Lang } from "./i18n";
 import type { TimelogProjectRef } from "./timelog-match";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { FOCUS_RING, PRESS, TRANSITION } from "./interaction-styles";
 import { Input } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 
@@ -100,7 +100,7 @@ export function TimelogProjectScope({
 
           {projects.map((p) => (
             <li key={p.id}>
-              <label className={`flex items-center gap-2 px-2 py-1 text-sm ${INTERACTIVE}`}>
+              <label className={`flex items-center gap-2 px-2 py-1 text-sm ${TRANSITION} ${PRESS}`}>
                 <input
                   type="checkbox"
                   checked={selectedIds.has(p.id)}

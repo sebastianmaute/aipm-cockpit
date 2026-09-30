@@ -23,16 +23,26 @@ function hasDuplicates(xs: readonly unknown[]): boolean {
   return false;
 }
 
+/** Key-wise three-way merge: a key the op touched takes `target`'s value (or is
+ *  removed when `target` lacks it); every other key keeps `live`'s.
+ *  ★ Built in `target`'s key order, then `live`-only keys (concurrent additions)
+ *  in `live`'s order — so an undo restores a key the op removed at its original
+ *  POSITION, not at the end (open-followups §291). Content is independent of
+ *  the order; only enumeration order depends on it. */
 function mergeRecord(
   target: Record<string, unknown>,
   other: Record<string, unknown>,
   live: Record<string, unknown>,
 ): Record<string, unknown> {
-  const out: Record<string, unknown> = { ...live };
-  for (const k of new Set<string>([...Object.keys(target), ...Object.keys(other)])) {
-    if (!differs(target[k], other[k])) continue; // the op never touched it — live wins
-    if (k in target) out[k] = target[k];
-    else delete out[k];
+  const touched = (k: string) => differs(target[k], other[k]);
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(target)) {
+    if (touched(k)) out[k] = target[k];
+    else if (k in live) out[k] = live[k]; // untouched — live wins, including a concurrent delete
+  }
+  for (const k of Object.keys(live)) {
+    if (k in out || touched(k)) continue; // a touched key missing from target stays removed
+    out[k] = live[k];
   }
   return out;
 }

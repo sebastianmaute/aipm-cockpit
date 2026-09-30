@@ -11,10 +11,11 @@
  * and exhaustively checkable against the splice it mirrors. ★ It is no longer
  * PURELY index arithmetic — the insert op branches on a block-kind string — but
  * the kind arrives as an erased `import type` and the arithmetic is otherwise
- * unchanged. ★★ NOTHING ENFORCES ANY OF THAT: turning the type-only import
- * below into a VALUE import silently pulls i18n and DOMPurify into this module
- * graph, and `vitest.config.ts` sets `environment: "jsdom"` globally, so no test
- * would fail. Recorded as open-followups §345.
+ * unchanged. ★★ Turning the type-only import below into a VALUE import would
+ * pull i18n and DOMPurify into this module graph, and `vitest.config.ts` sets
+ * `environment: "jsdom"` globally, so no behavioural test would notice. A source
+ * scan in `document-block-selection.test.ts` fails on any non-`import type`
+ * import instead (open-followups §345).
  *
  * ★★★ THE FALLBACK IN `document-editor.tsx` CANNOT DO THIS JOB, and that is the
  * whole reason this module exists. That component resolves an out-of-range or

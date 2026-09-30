@@ -341,15 +341,17 @@
 - **★★ Reduced motion (`globals.css` `@media (prefers-reduced-motion: reduce)`).** A single block, and it
   is deliberately NARROW and deliberately ASYMMETRIC: `.animate-pulse` is stopped outright
   (`animation: none`) while `.animate-spin` is only SLOWED to a 3s duration.
-  ★★★ THE ASYMMETRY IS THE POINT AND THE ORDER MATTERS IF THIS IS EVER REVERTED. Stopping is safe for
-  the pulse only because everything wearing it now carries a non-motion cue as well — the voice button's
-  listening state got its shape marker FIRST, and before that the pulse WAS the cue. The spinner has no
-  such backstop: on `budget-panel` and `tasks-section` it is an `aria-hidden` icon swapped into an
-  icon-only button, so the rotation is the ENTIRE "in progress" signal, with no marker, no text and no
-  layout change behind it. `animation: none` there would delete a state cue under a conformant-looking
-  rule. Give a spinner a non-motion busy cue and it can join the stopped block; until then do not tidy
-  the two together. ★ The block reaches those two Tailwind utilities and nothing else — a new bespoke
-  `@keyframes` animation is NOT covered and must opt in itself (`docs/open-followups.md` §332).
+  ★★★ ORDER MATTERS IF THIS IS EVER REVERTED. Stopping is safe for the pulse only because everything
+  wearing it now carries a non-motion cue as well — the voice button's listening state got its shape
+  marker FIRST, and before that the pulse WAS the cue. ★★ The spin is slowed rather than stopped as a
+  CONSERVATIVE DEFAULT on a global utility, NOT because any site depends on it: every `animate-spin` site
+  today also has a text label and a disabled or `role="status"` state, so an earlier "the rotation is the
+  entire cue" justification here was false (open-followups §332 carries the adjudication). Do not restore it.
+  ★★ A new animation must be NAMED in the block: `reduced-motion.guard.test.ts` fails on any `animate-*`
+  utility the block does not name, on an arbitrary `animate-[…]`, and on `@keyframes` or raw `animation:`
+  outside it. Script-driven smooth scrolling is the JS half of the policy and goes through
+  `smoothScrollBehavior()` (`reduced-motion.ts`); the same guard fails on a bare `behavior: "smooth"`.
+  CSS colour transitions are deliberately out of scope (not the motion WCAG 2.3.3 targets).
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it; bare
   per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.

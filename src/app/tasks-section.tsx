@@ -42,7 +42,7 @@ import { useEntityCalendarPull } from "./use-entity-calendar-pull";
 import type { ScopeEpochReader } from "./scope-epoch";
 import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
 import { taskToGraphEvent } from "./outlook-calendar-write";
-import { calendarSyncFor } from "./calendar-sync-config";
+import { calendarSyncFor, withCalendarEnabled } from "./calendar-sync-config";
 import { isPushableTask } from "./calendar-pushable";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -802,20 +802,7 @@ export function TasksSection({
           m365Configured={m365Configured}
           isPopout={isPopout}
           calendarEnabled={calendarTaskEnabled}
-          onToggleCalendar={(enabled) =>
-            setSettings((s) => ({
-              ...s,
-              outlookCalendar: {
-                ...s.outlookCalendar,
-                // Disabling here also forces auto off (mirrors the Settings toggle)
-                // so re-enabling from this toggle can't silently reactivate auto-sync.
-                task: {
-                  enabled,
-                  auto: enabled ? (s.outlookCalendar?.task?.auto ?? false) : false,
-                },
-              },
-            }))
-          }
+          onToggleCalendar={(enabled) => setSettings((s) => withCalendarEnabled(s, "task", enabled))}
           onPushCalendar={() => void pushTasksToOutlook()}
           calendarPushBusy={calPushBusy}
           onPullCalendar={() => void taskPull.pull()}
