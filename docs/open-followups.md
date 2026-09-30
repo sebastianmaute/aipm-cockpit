@@ -300,7 +300,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§66](#66-the-rag-tile-counts-a-cancelled-task-green-one-tile-from-the-fix--closed-post-02160) | ~~The R/A/G tile counts a cancelled task GREEN, one tile from the fix~~ | cancelled-work presentation | M | **CLOSED** post-0.216.0 |
 | [§67](#67-a-committed-nul-byte-makes-use-portfolio-healthts-invisible-to-content-greps--closed-post-02160) | ~~A committed NUL byte makes `use-portfolio-health.ts` invisible to content greps~~ | pre-existing (`155a3458`) | XS | **CLOSED** post-0.216.0 |
 | [§68](#68-the-budget-allocation-rows-border-t-sits-on-the-tr-where-it-has-never-painted--closed-2026-08-31) | The budget allocation rows' `border-t` sits on the `<tr>`, where it has never painted | 0.214.0 (Lostetter) | S–M | **CLOSED** 2026-08-31 |
-| [§69](#69-brandingconfigs-is-this-blob-empty-question-is-answered-in-two-places--open) | `BrandingConfig`'s "is this blob empty?" question is answered in TWO places | 0.214.0 (Lostetter) | S | open |
+| [§69](#69-brandingconfigs-is-this-blob-empty-question-is-answered-in-two-places--closed-2026-09-30) | `BrandingConfig`'s "is this blob empty?" question is answered in TWO places | 0.214.0 (Lostetter) | S | **CLOSED** 2026-09-30 |
 | [§70](#70-a-budget-buckets-total-column-and-total-row-silently-follow-the-role-filter--closed-2026-08-31) | A budget bucket's Total column and total row silently follow the role filter | 0.214.0 (Lostetter) | S | **CLOSED** 2026-08-31 |
 | [§71](#71-a-budget-bucket-evaluates-cellbudget-three-times-per-row-period--closed-2026-08-31) | A budget bucket evaluates `cellBudget` three times per (row, period) | 0.214.0 (Lostetter) | S–M | **CLOSED** 2026-08-31 |
 | [§72](#72-caller-callbacks-fire-after-unmount--the-unit-tests-job-exits-1-with-every-test-passing--closed-in-this-slice) | ~~Caller callbacks fire after unmount — the unit-tests job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED** in this slice |
@@ -521,7 +521,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--closed-2026-08-30) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file | found 2026-08-29, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
 | [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--closed-2026-08-30) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses | found 2026-08-29, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
 | [§289](#289-milestones-should-stamp-localmodifiedat--the-apply-does-not-write-it-and-the-bulk-undo-therefore-does-not-either--closed-2026-08-30) | ~~Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either~~ | found 2026-08-29 | S | **CLOSED** 2026-08-30 (all THREE paths: apply, single-row undo, bulk undo; SUPERSEDES §181) |
-| [§290](#290-differs-and-valuesdiffer-are-two-exported-spellings-of-one-predicate-in-field-groupsts--open) | `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` | found 2026-08-29 | XS | open |
+| [§290](#290-differs-and-valuesdiffer-are-two-exported-spellings-of-one-predicate-in-field-groupsts--closed-2026-09-30) | `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` | found 2026-08-29 | XS | **CLOSED** 2026-09-30 |
 | [§291](#291-mergerecord-rebuilds-in-lives-key-order-not-targets--open) | `mergeRecord` rebuilds in `live`'s key order, not `target`'s | found 2026-08-29 | S | open |
 | [§292](#292-the-merge-property-tests-anti-vacuity-floor-measures-generator-diversity-not-merge-path-coverage--open) | The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage | found 2026-08-29 | S | open |
 | [§293](#293-the-destructive-save-arming-gate-covers-the-ai-surface-only--a-new-ui-delete-handler-still-arms-nothing-and-fails-no-gate) | The destructive-save arming gate covers the AI surface only — a new UI delete handler still arms nothing and fails no gate | found 2026-08-29 | M | open (narrowed 2026-08-30 — the refusal is now recoverable; the detection gap is unchanged) |
@@ -616,7 +616,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§384](#384-a-mononym-update_resource-rename-previews-a-rejected-lastname-that-apply-accepts-and-wipes--closed-2026-09-06) | A mononym `update_resource` rename previews a rejected `lastName` that Apply accepts and wipes | found 2026-09-05 in cold review of the §372 fix | S | closed |
 | [§385](#385-srcsymbolscheck-prints-a-remedy-it-does-not-implement--closed-2026-09-26) | `src:symbols:check` prints a remedy it does not implement | found 2026-09-05 while acting on that report's own advice | S | **CLOSED** 2026-09-26 |
 | [§386](#386-fields-hint-pollutes-its-controls-accessible-name--closed-2026-09-14) | `Field`'s `hint` pollutes its control's accessible name | found 2026-09-05 in the edit-task modal rework | S | **CLOSED** 2026-09-14 (both `Field` implementations and 41 hand-rolled labels in 11 files render the tooltip outside a `display: contents` label via shared `HintedLabel`; enumerated by a TS-AST scan, 41 polluting of 58 before, 0 of 17 after; the hint reaches a screen reader via the adjacent tooltip button, not `aria-describedby`; eye-verify in Firefox/Safari + a real screen reader still owed) |
-| [§387](#387-the-relationships-empty-section-guard-is-unpinned--open) | The Relationships empty-section guard is unpinned | found 2026-09-05 in the edit-task modal rework | S | open |
+| [§387](#387-the-relationships-empty-section-guard-is-unpinned--closed-2026-09-30) | The Relationships empty-section guard is unpinned | found 2026-09-05 in the edit-task modal rework | S | **CLOSED** 2026-09-30 |
 | [§388](#388-the-task-name-mic-is-now-invisible-to-the-label-binding-source-scan--closed-2026-09-26) | The task-name mic is now invisible to the label-binding source scan | found 2026-09-05 in the edit-task modal rework | S | **CLOSED** 2026-09-26 |
 | [§389](#389-modalheader-names-every-modals--identically-so-any-two-stacked-modals-collide--closed-2026-09-14) | `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide | found 2026-09-05 in the edit-task modal rework | M | **CLOSED** 2026-09-14 |
 | [§390](#390-the-inline-create-path-writes-link-fields-with-no-preview-at-all--closed-2026-09-06) | The inline CREATE path writes link fields with no preview at all | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
@@ -5506,11 +5506,9 @@ which one is wanted before touching it. ★ If it IS wanted, the mechanism alrea
 
 ---
 
-## 69. `BrandingConfig`'s "is this blob empty?" question is answered in TWO places — open
+## 69. `BrandingConfig`'s "is this blob empty?" question is answered in TWO places — CLOSED 2026-09-30
 
-**Status:** open — two hand-maintained field lists with no shared helper. Reproduced 2026-08-28 by `grep -rn "footerSlogan" src/app --include=*.ts`.
-
-**Work item:** #119
+**Status:** CLOSED 2026-09-30. Both sites now call `hasAnyBrandingField` (`settings-types.ts`), which walks `BRANDING_FIELD_PRESENT` — a TOTAL record over `keyof BrandingConfig`, so a new branding field fails `tsc` until it gets a presence rule, and there is no second list to forget. That also answers the "no runtime keys to walk" objection below: the record IS the key array, and the compiler keeps it complete. Pinned by `settings-types.test.ts` ("hasAnyBrandingField", one case per field set alone); dropping the `startLogo` rule turns four tests red across that file and `appearance-section.test.tsx`. The history below is kept as written.
 
 Adding a branding field means extending **two independent field lists**, and missing either is a
 silent data-loss path rather than an error:
@@ -25288,11 +25286,9 @@ The comment block in `milestones-panel.tsx` that argued §181's case was REPLACE
 standing, because a comment that forbids the present is a defect class this repo has already paid
 for; the separate hoisting reasoning above it is a different claim and survives untouched.
 
-## 290. `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` — open
+## 290. `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` — CLOSED 2026-09-30
 
-**Status:** open — never machine-verified as a defect; it is a tidiness item, found 2026-08-29 while exporting `differs` for §178. Reproduce with `sed -n '/^export function valuesDiffer/,/^}/p' src/app/undo/field-groups.ts`, whose whole body is `return differs(a, b);`.
-
-**Work item:** #223
+**Status:** CLOSED 2026-09-30 — collapsed to `differs`, per the fix shape below. The alias is deleted and `tasks-section.tsx` imports `differs`; `grep -rn valuesDiffer src` returns nothing. (Tidiness item, found 2026-08-29 while exporting `differs` for §178.)
 
 `valuesDiffer` was the public alias while `differs` was module-private. §178's merge module needed
 the predicate directly, so `differs` is now exported too and the file has two exported names for one
@@ -31035,14 +31031,14 @@ through `aria-describedby`. The second was not taken: an `aria-hidden` trigger t
 focusable is itself an axe violation (`aria-hidden-focus`), and `Field` cannot set
 `aria-describedby` on a child it does not own.
 
-## 387. The Relationships empty-section guard is unpinned — OPEN
+## 387. The Relationships empty-section guard is unpinned — CLOSED 2026-09-30
 
-**Status:** OPEN. Filed 2026-09-05 from the edit-task modal rework. **Never machine-verified** — and
-there is nothing to verify, because the claim is that NO test covers the case; the guard itself is
-correct today. Read it with
+**Status:** CLOSED 2026-09-30. `task-form-fields.test.tsx` → "Relationships section guard" unticks
+dependencies and blockers in the per-field checklist with a `budgetLink` supplied, checks that budget
+bucket still renders, and checks that the Relationships heading is gone. A control test keeps the section
+while blockers is still shown. Re-adding the `budgetBucket` disjunct turns the first test red.
+Filed 2026-09-05 from the edit-task modal rework; the guard itself was already correct. Read it with
 `grep -n "isVisible(\"dependencies\") || isVisible(\"blockers\")" src/app/task-form-fields.tsx`.
-
-**Work item:** #267
 
 This slice moved Budget bucket out of Relationships into Effort and narrowed that section's render
 guard to the two fields it still holds, dropping a `budgetBucket` disjunct. With the disjunct left

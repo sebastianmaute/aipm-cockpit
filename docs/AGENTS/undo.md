@@ -197,7 +197,6 @@ undo block the redo, and the next undo then spliced in a second copy.
 - §133 — a redo-created dangling dependency is repaired on only two of six backends.
 - §134 — `use-task-submit.ts` rides the positional-primary fallback.
 - §177 — the whole-row capture paths still revert unlisted concurrent writes.
-- §290 — `differs` and `valuesDiffer` are two exported spellings of one predicate.
 - §291 — `mergeRecord` rebuilds in the live row's key order.
 - §292 — the merge property test's anti-vacuity floor.
 - §299 — an undo/redo that flips a task's delivered-ness writes no completion or reopening entry.

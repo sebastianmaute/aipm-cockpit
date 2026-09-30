@@ -574,9 +574,31 @@ export function sanitizeBranding(obj: unknown): BrandingConfig | undefined {
   if (typeof o.exportFooter === "string") {
     out.exportFooter = o.exportFooter.trim().slice(0, BRANDING_EXPORT_FOOTER_MAX);
   }
-  return out.logo || out.slogan || out.footerSlogan || out.favicon || out.startLogo || out.exportFooter !== undefined
-    ? out
-    : undefined;
+  return hasAnyBrandingField(out) ? out : undefined;
+}
+
+/** Per-field "does this count as set?" rule. A TOTAL record over
+ *  `keyof BrandingConfig`, so adding a branding field fails tsc until it gets
+ *  an entry here — the single source of truth for the presence check that
+ *  `sanitizeBranding` and Settings → Appearance's `setBranding` both use
+ *  (open-followups §69: two hand-kept lists drifted on the first addition and
+ *  destroyed a start logo). */
+const BRANDING_FIELD_PRESENT: { readonly [K in keyof BrandingConfig]-?: (v: BrandingConfig[K]) => boolean } = {
+  logo: (v) => !!v,
+  slogan: (v) => !!v?.trim(),
+  footerSlogan: (v) => !!v?.trim(),
+  favicon: (v) => !!v,
+  startLogo: (v) => !!v,
+  // ★ "" is a real value: the cleared (neutral) export footer, distinct from never set.
+  exportFooter: (v) => v !== undefined,
+};
+
+/** True when any branding field is set, per `BRANDING_FIELD_PRESENT`. A blob for
+ *  which this is false is stored as `branding: undefined` so the defaults apply. */
+export function hasAnyBrandingField(cfg: BrandingConfig): boolean {
+  return (Object.keys(BRANDING_FIELD_PRESENT) as (keyof BrandingConfig)[]).some((k) =>
+    (BRANDING_FIELD_PRESENT[k] as (v: unknown) => boolean)(cfg[k]),
+  );
 }
 
 /** Entity types that can be written back to the Outlook calendar. */

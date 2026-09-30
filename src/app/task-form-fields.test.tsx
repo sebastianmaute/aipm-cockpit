@@ -8,7 +8,7 @@ import { HEALTH_CHIP_ACTIVE_CLASS } from "./task-health-chip-style";
 import { t } from "./i18n";
 import { EMAIL_MAX } from "./sanitize";
 import { useTaskForm } from "./task-form-context";
-import { selectFieldTier } from "../test/field-tier";
+import { fieldTierTrigger, selectFieldTier } from "../test/field-tier";
 import type { TaskBudgetLink } from "./use-task-budget-link";
 import type { BudgetBucket, Task } from "./types";
 
@@ -410,6 +410,45 @@ describe("TaskFormFields", () => {
 
       expect(tracking.compareDocumentPosition(bucket) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(bucket.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    // open-followups §387. Relationships holds dependencies + blockers only;
+    // budget bucket lives in Effort. Hiding BOTH relationship fields while
+    // budget bucket stays shown must drop the whole section — an extra
+    // `budgetBucket` disjunct in the guard would leave an empty numbered heading.
+    // ★ Not a TIER test: all three fields are `advanced`, so a tier switch moves
+    //   them together and can never reach this mixed state. It drives the
+    //   per-field checklist, the only way a user gets here.
+    describe("Relationships section guard", () => {
+      const buckets = [{ id: 1, name: "Design" }] as unknown as BudgetBucket[];
+      const relationships = `5. ${t("en-US", "taskFormSectionRelationships")}`;
+      const headings = () => screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+
+      function hideFields(labelKeys: ("dependencies" | "blockers")[]) {
+        fireEvent.click(fieldTierTrigger());
+        const panel = screen.getByRole("dialog", { name: t("en-US", "configureFields") });
+        for (const k of labelKeys) {
+          fireEvent.click(within(panel).getByRole("checkbox", { name: t("en-US", k) }));
+        }
+        fireEvent.click(fieldTierTrigger());
+        expect(screen.queryByRole("dialog", { name: t("en-US", "configureFields") })).toBeNull();
+      }
+
+      it("drops the section when dependencies and blockers are hidden but budget bucket is shown", () => {
+        render(<VisHarness budgetLink={{ buckets, bucketId: 1, onChange: vi.fn() }} />, { wrapper: TestProviders });
+        expect(headings()).toContain(relationships);
+        hideFields(["dependencies", "blockers"]);
+        // Budget bucket is still rendered (the state that made the old guard true)…
+        expect(screen.getByRole("combobox", { name: t("en-US", "taskBudgetBucket") })).toBeInTheDocument();
+        // …and the Relationships heading is gone rather than left empty.
+        expect(headings()).not.toContain(relationships);
+      });
+
+      it("keeps the section while either relationship field is still shown", () => {
+        render(<VisHarness budgetLink={{ buckets, bucketId: 1, onChange: vi.fn() }} />, { wrapper: TestProviders });
+        hideFields(["dependencies"]);
+        expect(headings()).toContain(relationships);
+      });
     });
   });
 });

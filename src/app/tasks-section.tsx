@@ -36,7 +36,7 @@ import { inlineAssigneeEmailRefusal, sanitizeInlinePatch } from "./task-inline-p
 import { useToastContext } from "./toast-context";
 import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
 import type { UndoStackApi } from "./undo/use-undo-stack";
-import { valuesDiffer } from "./undo/field-groups";
+import { differs } from "./undo/field-groups";
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
 import { useEntityCalendarPull } from "./use-entity-calendar-pull";
 import type { ScopeEpochReader } from "./scope-epoch";
@@ -513,7 +513,7 @@ export function TasksSection({
         ),
       );
       const cleanKeys = Object.keys(clean) as (keyof Task)[];
-      const anyChanged = cleanKeys.some((k) => valuesDiffer(beforeRow[k], clean[k]));
+      const anyChanged = cleanKeys.some((k) => differs(beforeRow[k], clean[k]));
       if (cleanKeys.length > 0 && anyChanged) {
         const before: Partial<Task> = {};
         for (const k of cleanKeys) {
