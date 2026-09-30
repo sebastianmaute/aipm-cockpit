@@ -882,6 +882,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§655](#655-a-conflict-version-that-was-kept-can-be-downloaded-but-not-restored-in-the-app--open) | A conflict version that was kept can be downloaded but not restored in the app | — | — | open |
 | [§656](#656-two-windows-that-reconcile-the-same-derived-slice-at-load-both-save-it-and-only-autosave-posts-a-revision--open) | Two windows that reconcile the same derived slice at load both save it, and only autosave posts a revision | — | — | open |
 | [§657](#657-dropping-the-journal-entry-of-a-skipped-mirrored-only-save-job-has-no-test--open) | Dropping the journal entry of a skipped mirrored-only save job has no test | — | — | open |
+| [§658](#658-a-load-that-turns-an-optional-slice-to-undefined-is-sent-to-other-windows-as-an-edit--open) | A load that turns an optional slice to undefined is sent to other windows as an edit | — | — | open |
+| [§659](#659-a-windows-project-binding-still-leans-on-the-shared-registry--open) | A window's project binding still leans on the shared registry | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -43677,3 +43679,23 @@ Two more false pauses of the same family, found by the final review of §4 (m1, 
 When a queued save's snapshot holds nothing but slices mirrored from a peer (`createMirrorLedger`, `mirror-ledger.ts`), the job writes nothing and drops its unconfirmed journal entry in memory. An entry already written to localStorage while the page was hiding stays, and its peer part may come back on the next load. No test covers either half. It needs a harness that fires `pagehide` while saves are queued, then asserts what the journal holds and what the next load restores.
 
 **Source:** the §4 plan, follow-up F3, 2026-09-30.
+
+## 658. A load that turns an optional slice to undefined is sent to other windows as an edit — open
+
+**Status:** open 2026-09-30, found by the §4 final review (m11). Never machine-verified: read off `use-storage-backend.ts`, where the §644 load marking records only object values (`isLoadedValue` skips a value that is not an object), so a slice a load sets to `undefined` or `null` is never recorded as loaded.
+
+**Work item:** #500
+
+§644 sends a value that a load applied from storage as `fromLoad`, which other main windows ignore. A load that turns an OPTIONAL slice from an object to `undefined` or `null` records nothing, so that value goes out as an ordinary edit, and every same-scope window applies it. §4 widened the exposure: it mirrors twelve more slices, all 29 now, most of the new ones optional (`knowledgeItems`, `insights`, `documentAssets` and `calendarEvents` among them; §644 already names the `project` header case). A same-project window's unsaved first item in such a slice is replaced by `undefined` when another window reloads a store without that slice within the first window's debounce and save latency. Named check: a two-window hook test (the `use-storage-backend.mirror-race.test.tsx` harness) where W2 adds a first knowledge item and W1 reloads a store without `knowledgeItems` inside W2's debounce; W2 must keep its item, and the store must end up holding it. Fix direction: record the loaded non-object values per kind (the kind is known where the load marks its values), and pass the kind to `isLoadedValue`.
+
+**Source:** the §4 final review, m11 (Task 5's parked item), 2026-09-30.
+
+## 659. A window's project binding still leans on the shared registry — open
+
+**Status:** open 2026-09-30, found by the §4 final-fix round (its concerns 4 and 5). Never machine-verified: read off `use-storage-file-ops.ts` (`switchToProject` returns early when `loadRegistry().currentProjectId === id`) and `use-storage-backend.ts` (the load effect captures the file binding with `setFileBinding(loadRegistry().currentProjectId)` after the load has opened the shared handle slot).
+
+**Work item:** #501
+
+Since §645 each window writes the file it is bound to, and since the final review's C1 fix the tab-sync scope of a local file names that binding (`fileBinding`, `sync-scope.ts`). Two places still read the registry every tab shares through localStorage, so what one tab did can decide what another window does. (1) A switch that is silently a no-op: `switchToProject(id)` returns early when the SHARED registry's `currentProjectId` already equals `id`, which it does whenever ANOTHER tab switched there last. A window still showing project A then does nothing when its user picks B: no load, no toast, and it stays on A. Found while writing `use-storage-backend.file-scope.test.tsx`, whose "switched away and back" test is shaped around it. Named check: a two-window hook test in that harness where W2 switches to b and then W1 switches to b; W1 must end up showing b's tasks, bound to `b.json` (its edit reaches b's file and W2 mirrors it). Fix direction: compare against the project this WINDOW has open (its binding or its own last op), never the shared registry. (2) A load racing another tab's switch can capture the wrong id: the other tab re-points the slot `file-handle:<kind>` (`setBackendFileHandle`) before its target load and commits the registry only after it, so a load that runs in between opens the new file and records the old project's id (or the reverse). That window's scope then names the wrong project, and it mirrors, and can save, the other project's slices: C1's loss, in a narrow window. Named check: a hook test that holds another tab's switch between its slot write and its registry commit (the `idb` handle-slot mock gated as in `use-storage-file-ops.pick-overwrite.test.tsx`), boots a window in that gap, and asserts that its binding names the project whose file it opened. Fix direction: derive the binding from the handle itself, for example by comparing the bound handle with each registered project's stored handle (`isSameEntry`), and use a binding unique to the load when none matches.
+
+**Source:** the §4 final-fix round's report, concerns 4 and 5, 2026-09-30.
