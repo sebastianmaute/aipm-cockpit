@@ -25,6 +25,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const kvStore = vi.hoisted(() => new Map<string, unknown>());
 /** Round 4 RI3 — runs after each slot read, so a test can play another tab writing between two reads. */
 const readHook = vi.hoisted(() => ({ current: null as null | ((key: string) => void) }));
+/** Round 5 — runs before each slot write; a test throws from it to play a rejecting `idbSet` (quota). */
+const writeHook = vi.hoisted(() => ({ current: null as null | ((key: string) => void) }));
+const { logDiagSpy } = vi.hoisted(() => ({ logDiagSpy: vi.fn() }));
+vi.mock("./diagnostics", async (importOriginal) => ({ ...(await importOriginal<typeof import("./diagnostics")>()), logDiag: logDiagSpy }));
 const PROJECT_HANDLES = vi.hoisted(() => new Map<string, unknown>());
 vi.mock("./project-file-handles", () => ({
   getHandle: vi.fn(async (id: string) => PROJECT_HANDLES.get(id) ?? null),
@@ -42,6 +46,7 @@ vi.mock("./idb", async (importOriginal) => {
       return value;
     },
     idbSet: async (key: string, value: unknown) => {
+      writeHook.current?.(key);
       kvStore.set(key, value);
     },
     idbDelete: async (key: string) => {
@@ -659,8 +664,23 @@ describe("LocalFileBackend §645 the slot's binding", () => {
 // binding instead of each isolating.
 describe("LocalFileBackend §645 a bare slot is upgraded on first read", () => {
   const SLOT = "file-handle:local-json";
-  beforeEach(() => { kvStore.clear(); PROJECT_HANDLES.clear(); localStorage.clear(); readHook.current = null; });
-  afterEach(() => { readHook.current = null; localStorage.clear(); });
+  beforeEach(() => { kvStore.clear(); PROJECT_HANDLES.clear(); localStorage.clear(); readHook.current = null; writeHook.current = null; logDiagSpy.mockClear(); });
+  afterEach(() => { readHook.current = null; writeHook.current = null; localStorage.clear(); });
+
+  // Final re-review 4, minor: the upgrade is a courtesy to LATER windows. A write that fails must not fail
+  // the load that a bare slot used to serve fine. The window keeps the binding it computed for the handle it
+  // actually opened, so it can never name another file.
+  it("an upgrade whose idbSet rejects still loads, logs it, keeps the computed binding and leaves the slot bare", async () => {
+    const handle = revisionFakeHandle({ text: workspaceToJson(emptyWorkspace()) });
+    kvStore.set(SLOT, handle);
+    writeHook.current = (key) => { if (key === SLOT) throw new DOMException("quota", "QuotaExceededError"); };
+    const be = new LocalFileBackend("local-json");
+    await expect(be.load()).resolves.toBeDefined();
+    expect(be.revision()).not.toBeNull(); // it really read the file
+    expect(be.fileBinding()).toMatch(/^picked:/);
+    expect(kvStore.get(SLOT)).toBe(handle); // still bare: a later window upgrades it
+    expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.slotUpgradeFailed", expect.objectContaining({ kind: "local-json" }));
+  });
 
   it("writes the bare handle back with a fresh picked binding, which the next instance reads", async () => {
     const handle = revisionFakeHandle({ text: workspaceToJson(emptyWorkspace()) });

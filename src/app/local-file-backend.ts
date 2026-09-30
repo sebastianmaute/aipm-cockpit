@@ -16,6 +16,7 @@ import {
   writeHandle,
 } from "./fs-access";
 import { idbDelete, idbGet, idbSet } from "./idb";
+import { logDiag } from "./diagnostics";
 import {
   type LocalKind,
   type StorageBackend,
@@ -217,7 +218,15 @@ export class LocalFileBackend implements StorageBackend {
     const again = readSlot(await idbGet<unknown>(this.idbKey));
     if (again && again.binding !== null) return again; // another tab upgraded or re-bound it first
     const record: HandleSlot = { handle, binding };
-    await idbSet(this.idbKey, record);
+    try {
+      await idbSet(this.idbKey, record);
+    } catch (err) {
+      // ★ Final re-review 4, minor: the upgrade serves LATER windows; a failed write (quota) must not fail a
+      //   load a bare slot used to serve. The slot stays bare, and this window keeps the binding it computed:
+      //   safe, because it was computed for the handle this window actually opened, so it can never name
+      //   another file (a registered id is shared only by that file's windows; a picked id by nobody yet).
+      logDiag("warn", "storage.slotUpgradeFailed", { kind: this.kind, message: err instanceof Error ? err.message : String(err) });
+    }
     return record;
   }
 
