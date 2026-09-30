@@ -243,7 +243,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§1](#1-two-dead-memos-in-the-resources-subtree--fork-open) | Two dead `memo()`s in the Resources subtree — **fork open** | R5 (0.202.0) | S–M | open |
 | [§2](#2-use-resource-plannerts-is-30-over-the-800-line-ceiling--closed-post-02120) | ~~`use-resource-planner.ts` is 30% over the 800-line ceiling~~ | R5 (0.202.0) | M | **CLOSED** post-0.212.0 |
 | [§3](#3-optimize_wbs-never-built--owed-from-r4) | `optimize_wbs` never built — owed from R4 | R4 (0.201.0) | ? | open |
-| [§4](#4-two-tab-last-writer-clobber-on-fileidb-audit-39--parked-own-design) | Two-tab last-writer clobber on file/IDB (audit #39) — parked, own design | audit (2026-07) | L | open |
+| [§4](#4-two-tab-last-writer-clobber-on-fileidb-audit-39--closed-2026-09-30) | Two-tab last-writer clobber on file/IDB (audit #39) | audit (2026-07) | L | **CLOSED** 2026-09-30 |
 | [§5](#5-no-list-virtualization-anywhere-audit-14--parked-own-batch) | No list virtualization anywhere (audit #14) — parked, own batch | audit (2026-07) | L | open |
 | [§6](#6-undo-residuals-audit-11--optional-unscheduled) | Undo residuals (audit #11) — optional, unscheduled | audit (2026-07) | M each | open |
 | [§7](#7-surviving-dedup-seams-from-the-2026-06-refactor-review) | Surviving dedup seams from the 2026-06 refactor review | refactor review | S–M | open |
@@ -872,12 +872,16 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§642](#642-two-tabs-on-different-projects-pushed-their-data-into-each-other-through-tab-sync--closed-2026-09-28) | Two tabs on different projects pushed their data into each other through tab sync | — | — | **CLOSED** 2026-09-28 |
 | [§643](#643-tab-sync-shared-a-scope-between-windows-writing-different-storage--closed-2026-09-28) | Tab sync shared a scope between windows writing different storage | — | — | **CLOSED** 2026-09-28 |
 | [§644](#644-opening-a-project-in-one-tab-replaced-another-tabs-unsaved-edits-to-the-same-project--closed-2026-09-28) | Opening a project in one tab replaced another tab's unsaved edits to the same project | — | — | **CLOSED** 2026-09-28 |
-| [§645](#645-a-project-switch-in-one-tab-redirects-every-other-tabs-saves-for-browser-storage-and-local-files--open) | A project switch in one tab redirects every other tab's saves for browser storage and local files | — | — | open |
+| [§645](#645-a-project-switch-in-one-tab-redirects-every-other-tabs-saves-for-browser-storage-and-local-files--closed-2026-09-30) | A project switch in one tab redirects every other tab's saves for browser storage and local files | — | — | **CLOSED** 2026-09-30 |
 | [§646](#646-gitlab-rejected-cigitlab-syncyml-as-invalid-yaml-so-the-gitlab-copy-stopped-syncing--closed-2026-09-29) | GitLab rejected ci/gitlab-sync.yml as invalid YAML, so the GitLab copy stopped syncing | — | — | **CLOSED** 2026-09-29 |
 | [§650](#650-a-rejected-or-unreadable-anthropic-api-key-was-never-named-as-the-cause-of-ai-failures--closed-2026-09-29) | A rejected or unreadable Anthropic API key was never named as the cause of AI failures | — | — | **CLOSED** 2026-09-29 |
 | [§651](#651-a-sharepoint-file-whose-name-contains--or--gets-a-broken-graph-url--open) | A SharePoint file whose name contains # or % gets a broken Graph URL | — | — | open |
 | [§652](#652-sharepoint-storage-has-never-been-verified-on-a-live-tenant-and-browser-loads-are-likely-blocked-by-the-csp--open) | SharePoint storage has never been verified on a live tenant, and browser loads are likely blocked by the CSP | — | — | open |
 | [§653](#653-a-template-name-save-and-body-save-that-overlap-can-lose-one-field-on-the-server--closed-2026-09-29) | A template name save and body save that overlap can lose one field on the server | — | — | **CLOSED** 2026-09-29 |
+| [§654](#654-the-4-turso-revision-guard-has-never-run-against-a-live-database--open) | The §4 Turso revision guard has never run against a live database | — | — | open |
+| [§655](#655-a-conflict-version-that-was-kept-can-be-downloaded-but-not-restored-in-the-app--open) | A conflict version that was kept can be downloaded but not restored in the app | — | — | open |
+| [§656](#656-two-windows-that-reconcile-the-same-derived-slice-at-load-both-save-it-and-only-autosave-posts-a-revision--open) | Two windows that reconcile the same derived slice at load both save it, and only autosave posts a revision | — | — | open |
+| [§657](#657-dropping-the-journal-entry-of-a-skipped-mirrored-only-save-job-has-no-test--open) | Dropping the journal entry of a skipped mirrored-only save job has no test | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -1125,11 +1129,13 @@ See [[release-4-ai-planning-powers]].
 
 ---
 
-## 4. Two-tab last-writer clobber on file/IDB (audit #39) — parked, own design
+## 4. Two-tab last-writer clobber on file/IDB (audit #39) — CLOSED 2026-09-30
 
-**Status:** open — a cross-tab save lock present only on the Turso backend. Reproduced 2026-08-28 by `grep -rn "navigator.locks" src --include=*.ts`.
+**Status:** CLOSED 2026-09-30 on `feat/two-tab-conflict` (owner decision: detect and pause; design `docs/superpowers/specs/2026-09-29-two-tab-conflict-design.md`, together with §645). Every backend instance now remembers the revision it last loaded or wrote, and a save whose stored revision has moved throws `SaveConflictError` (`storage-error.ts`) and writes nothing. Browser storage keeps an integer in the `kv` store (key `"revision"`), read, compared and bumped under the Web Lock `aipm-cockpit:save:browser`. A local file's revision is `${lastModified}:${size}`, compared under the Web Lock `aipm-cockpit:save:<kind>`. SharePoint sends `If-Match` with the driveItem eTag, and a create after a 404 load sends `conflictBehavior=fail`; 409 and 412 map to the conflict. Turso keeps a `meta` row (key `REVISION_KEY`, per `project_id` in tenant) and checks it INSIDE the §637 conditional Hrana batch: `withRevision` (`turso-schema.ts`) puts `revisionGuardStatement` right after `BEGIN`, which raises an SQL error on a mismatch, so every later step is skipped and the batch rolls back. That is the path Task 10 chose over a compare under `withWriteLock` beforehand, because it is atomic against other devices too. A conflict is recognised by which step failed (`isRevisionGuard`), never by the error text. Backends fail closed: an instance that knows no revision refuses its first save (a SharePoint file loaded without an eTag excepted). `forceNextSave()` is a blind one-shot write; `forceNextSave(expected)` is a conditional full rewrite, refused if storage is no longer at `expected`. A project op hands its own instance over to the live one through `handOverRevision` (`storage-handover.ts`: `adoptFrom` for the same class, else `adoptRevision`); all seven sites that arm it use it, five in `use-storage-file-ops.ts` and two in `use-storage-turso-ops.ts` (`grep -n "handOverFromRef.current = " src/app/use-storage-*-ops.ts`). Tab sync mirrors all 29 workspace slices (`grep -o 'useBroadcastSync("[a-zA-Z]*"' src/app/use-storage-backend.ts`); after an autosave lands, `postRevision` sends the new revision and its base on `aipm-cockpit:sync`, and a main window on the same scope and epoch (`useRevisionSync`) adopts it only while its save queue is idle (`whenSaved` is `null`) AND its own revision equals the sender's base. `createMirrorLedger` (`mirror-ledger.ts`) stops a window re-saving slices it only mirrored. A refused save pauses saving (`savesPaused` with `reason: "conflict"`) behind the banner `SavingPausedCause` `{ kind: "conflict" }`, whose three actions are Reload (`resolveConflictReload`), Overwrite (`resolveConflictOverwrite`, which arms `forceNextSave(expected)` inside the next save job, so it is refused if the other version moved again after the banner showed) and Download my version (`downloadConflictVersion`). A version left behind while its saves were refused goes to a kept journal slot (`keptProjectKey`: `aipm-cockpit:unload-journal:<key>:kept`, then `…:kept:<savedAt>`), which `OtherJournalsBanner` lists as "not saved (conflict)" with Download and Discard. `docs/AGENTS/storage.md` "Conflicts (§4, §645)" describes it. Tests: `browser-backend.revision.test.ts`, `local-file-backend.revision.test.ts`, `sharepoint-backend.test.ts`, `turso-schema.execute.test.ts` (the guard and stamp run on `node:sqlite`), `turso-backend.test.ts`, `turso-backend.tenant.test.ts`, `turso-pipeline.test.ts`, `storage-handover.test.ts`, `mirror-ledger.test.ts`, `broadcast-sync.test.ts`, `use-conflict-resolution.test.ts`, `notifications.test.tsx`, `use-other-journals.test.tsx`, and the `use-storage-backend.*` hook tests (`conflict`, `handover`, `turso-handover`, `mirror-race` among them). End to end, `e2e/two-tab-conflict.spec.ts` (browser storage, two pages of one context; 5 tests) passed 25/25 with `--repeat-each=5`.
 
-**Work item:** #86
+Known limits. Nothing has run against a live service: the SharePoint `If-Match`/412 and `conflictBehavior=fail`/409 behaviour, a non-null revision on a real load and CORS on the download host were not checked on a tenant (Task 4 Step 6 is owed; §652 holds it), and the Turso guard has never run on a live database (§654). Browser storage is still one store per origin, so two registry projects on browser storage share it; the revision turns a save over the other project into a pause, not into storage of its own. A foreign write to a local file is caught at this window's next save, never before (there is no file watcher). Kept conflict versions can be downloaded but not restored in the app (§655). Two windows that reconcile the same derived slice at load both save it, and only autosave posts a revision (§656). A skipped mirrored-only save job's journal drop has no test (§657).
+
+**Original status:** open — a cross-tab save lock present only on the Turso backend. Reproduced 2026-08-28 by `grep -rn "navigator.locks" src --include=*.ts`.
 
 Two browser tabs on the same **file or IndexedDB** project can last-writer-clobber each other's
 saves. `BroadcastChannel` syncs some state but there is no save lock.
@@ -43530,6 +43536,8 @@ the `api` scope and a role that may create releases on protected tags, created b
 `wget` in `node:22-alpine` fetches over HTTPS with the two headers is untested. While the GitHub repository
 is private, the asset links need GitHub access.
 
+**Update 2026-09-29:** `mirror-releases` ran successfully on GitLab on 2026-09-29, after §646 fixed the YAML that had stopped every pipeline in `ci/gitlab-sync.yml`. The first "NOT verified" point above (the job has never run on GitLab) is therefore settled.
+
 **Original status:** open 2026-09-28 — owner question "does GitLab receive the release?". Verified by reading
 `ci/gitlab-sync.yml` (it pushes `refs/heads/*` and `refs/tags/*` only) and
 `grep -rn -i gitlab .github/workflows` (no hit: `release.yml` publishes to GitHub only).
@@ -43570,11 +43578,11 @@ Known limits: a debounce falling due in the few ms between the read resolving an
 
 **Source:** the cold review of §642, 2026-09-28.
 
-## 645. A project switch in one tab redirects every other tab's saves for browser storage and local files — open
+## 645. A project switch in one tab redirects every other tab's saves for browser storage and local files — CLOSED 2026-09-30
 
-**Status:** open 2026-09-28, found by the cold review of §643. Never machine-verified: read off `BrowserBackend` (one IndexedDB store, no project) and `LocalFileBackend` (`idbKey = "file-handle:<kind>"`, re-read by every `save()`; rewritten by `setBackendFileHandle` on a project switch).
+**Status:** CLOSED 2026-09-30 on `feat/two-tab-conflict`, together with §4 (same design). `LocalFileBackend` now keeps the handle it was bound with (`boundHandle`: taken from the shared slot `file-handle:<kind>` the first time the instance needs a handle, and replaced only by its own `setHandle` or a pick) and writes to it; once bound, a save no longer follows the slot, which now only tells a newly created instance which file to open. A project op hands its own instance over to the live one with `adoptFrom` (`handOverRevision`, `storage-handover.ts`), which carries the bound handle, so the handle written is the one the op loaded or wrote, and another tab rewriting the slot cannot redirect this window's save. Tests: `local-file-backend.revision.test.ts` (the bound handle survives a slot rewrite), `storage-handover.test.ts`, `use-storage-backend.handover.test.tsx`. Known limit: browser storage stays ONE IndexedDB store per origin (`new BrowserBackend()` takes no project), since a store per project is a storage-format migration. A window on another registry project that writes the store still writes the same data, but it now bumps the §4 revision, so this window pauses instead of overwriting; tab sync keys browser storage on the kind alone (§643), so windows on the store exchange slices whatever project each shows.
 
-**Work item:** #485
+**Original status:** open 2026-09-28, found by the cold review of §643. Never machine-verified: read off `BrowserBackend` (one IndexedDB store, no project) and `LocalFileBackend` (`idbKey = "file-handle:<kind>"`, re-read by every `save()`; rewritten by `setBackendFileHandle` on a project switch).
 
 Registry projects on browser storage or on a local-file kind do not have storage of their own per tab. Every browser-storage project uses the one IndexedDB store, and a local file is read and written through one handle slot per kind. So when tab A switches to project X, tab B, still showing project Y, goes on saving its whole workspace into X's store or file, over X's data. Since §643 tab sync keys these kinds on the kind alone, which names the storage they really write, but it does not make them safe: tab A's switch is sent as a load, so tab B ignores it, keeps showing Y and autosaves Y over X; and B's later edits to Y reach A, which shows X, so A applies Y's slices under X's name. Windows sharing the store or slot exchange slices whatever registry project each shows. Fix direction: give each backend instance its own handle (or store key), held in memory for the tab rather than re-read from a shared slot, so that one tab's switch cannot redirect another tab's saves. §4 (detect and pause) would catch the overwrite only after the fact.
 
@@ -43614,6 +43622,8 @@ SharePoint Online allows `#` and `%` in file and folder names. For such a name, 
 
 The SharePoint backends (`sp-json`, `sp-csv`) have unit tests only. Those use MSW, which serves every response same-origin, so they cannot show CSP, CORS, or how Graph answers `If-Match` and create-only uploads. On `main`, a browser load is therefore probably blocked outright. The §4 branch (`feat/two-tab-conflict`) changes the load to an item-metadata request plus the `@microsoft.graph.downloadUrl` link, adds `If-Match` and create-only (`@microsoft.graph.conflictBehavior=fail`) saves, and allows `https://*.sharepoint.com` and `https://*.files.1drv.com` in `connect-src`. None of that has run against a real tenant either. Manual check, with a real SharePoint file: (1) a load succeeds and the backend reports a non-null revision; (2) the browser can fetch the download URL cross-origin; (3) a save with a stale eTag gets HTTP 412 and saving pauses; (4) creating a file that already exists after a 404 load gets HTTP 409. If (3) or (4) fails, implement the §4 spec's fallback: a metadata GET of the eTag and a compare under a Web Lock before the PUT.
 
+**Still owed after §4 closed (2026-09-30):** none of (1) to (4) has run; they are the §4 plan's Task 4 Step 6. §4 was closed on its unit and browser-storage evidence only, so on SharePoint the conflict check is unverified until this entry closes.
+
 **Source:** the §4 Task 4 review, 2026-09-29; the owner has no tenant to test with.
 
 ## 653. A template name save and body save that overlap can lose one field on the server — CLOSED 2026-09-29
@@ -43625,3 +43635,43 @@ The SharePoint backends (`sp-json`, `sp-csv`) have unit tests only. Those use MS
 When a rename and a body edit of the same template are saved concurrently, each save carries the other field's OLD value, so whichever lands last writes that old value back to the server. §626 limits the damage: landings are ordered per template, so the confirmed base and the on-screen list never move backwards and a stale row is never reused as the base of the next write, and the pending-edits outbox keeps the losing field's draft tracked, so a page close writes it and the next start replays it. Until that replay, or the next edit of that field, the server row is wrong. A fix serializes template writes per template id (a later save waits for, and rebuilds from, the earlier one), or writes per-field `UPDATE`s instead of full-row upserts.
 
 **Source:** the §626 fix-round review, 2026-09-29; residual (3) of §626.
+
+## 654. The §4 Turso revision guard has never run against a live database — open
+
+**Status:** open 2026-09-30, split out of §4 when it closed. Never machine-verified against a live Turso database: the guard, the stamp and the read-back run only on `node:sqlite` (`npx vitest run src/app/turso-schema.execute.test.ts`) and against a stubbed Hrana client.
+
+**Work item:** #496
+
+§4 checks the Turso revision inside the §637 conditional batch: `withRevision` (`turso-schema.ts`) puts `revisionGuardStatement` right after `BEGIN`, a `SELECT` that raises an SQL error when the stored `meta` row (key `REVISION_KEY`) is not the revision the save expects, so every later step is skipped and the trailing `ROLLBACK` runs. A conflict is recognised by the failing step (`isRevisionGuard`), never by the error text. §637's own live check is owed too. Manual checks, against a real Turso project: (1) a stale guard returns a step error, never NULL followed by COMMIT, and no row changes; a positive control commits and bumps the revision; (2) record the step error text; (3) the trailing `ROLLBACK` leaves no open transaction, and the next save succeeds; (4) a fresh database's first guarded save stamps 1; (5) tenant layout: each project has a revision of its own; (6) two devices: B saves, then A edits, and A pauses with nothing written; (7) the `UPDATE` plus seeding-`INSERT` stamp (`revisionStampStatements`) and the in-transaction read-back of a blind save (`isRevisionReadback`) both run on a live server. If (1) fails, the fallback the §4 spec names is a compare under `withWriteLock` before the batch, atomic only within one browser.
+
+**Source:** the §4 plan's Task 10, 2026-09-30.
+
+## 655. A conflict version that was kept can be downloaded but not restored in the app — open
+
+**Status:** open 2026-09-30, split out of §4 when it closed; out of the §4 scope by the owner's ruling. Reproduced by `grep -rn "keptProjectKey(" src/app --include=*.ts --include=*.tsx`, whose only non-test caller is the writer in `use-unload-journal.ts`.
+
+**Work item:** #497
+
+A version left behind while its saves were refused as stale (a switch away, a rebuild) is written to a kept journal slot (`keptProjectKey`: `aipm-cockpit:unload-journal:<key>:kept`, then `…:kept:<savedAt>`). `OtherJournalsBanner` lists it as "not saved (conflict)" with Download and Discard, and the downloaded JSON can be read by the Step 0 import, but nothing in the app puts it back into the project. Fix direction: a restore that loads the kept workspace as an unsaved edit on top of the current version, which the user then saves or discards, never a blind write.
+
+**Source:** the §4 plan, follow-up F1, 2026-09-30.
+
+## 656. Two windows that reconcile the same derived slice at load both save it, and only autosave posts a revision — open
+
+**Status:** open 2026-09-30, split out of §4 when it closed. Never machine-verified: no test makes two windows reconcile the same value. The two-tab e2e (`e2e/two-tab-conflict.spec.ts`) keeps clear of it, because every test waits for the seed's insights reconcile to save before it counts revisions or edits (commits 995b8adf6 and 238ac6ade).
+
+**Work item:** #498
+
+Two windows that reconcile the same stale value of an effect-derived slice (insights today, any such slice later) within one message delivery of each other both treat the slice as contested, so both save it. The cost so far is one extra revision. On a slow backend the second save can meet the first's revision and raise a false conflict banner. A related gap: only autosave calls `postRevision` (`grep -n "postRevision(" src/app/use-storage-backend.ts` finds one call). `guardedWrite`, the pre-switch flush and the file ops do not post, so a peer window pauses visibly at its next save, though nothing is lost. Named checks: a hook test where two windows reconcile the same stale value and exactly one save follows; and in the e2e, `openTwo` asserting that neither window paused during the settle. Fix direction: a symmetry break, for example by sender window id, and a revision post after every write that lands.
+
+**Source:** the §4 plan, follow-ups F2 and F4, 2026-09-30.
+
+## 657. Dropping the journal entry of a skipped mirrored-only save job has no test — open
+
+**Status:** open 2026-09-30, split out of §4 when it closed. Never machine-verified: read off the save job in `use-storage-backend.ts`, where `isMirroredOnly` short-circuits the job with `noteSaveRefused(journalSavedAt, null)`; `grep -rn "noteSaveRefused" src/app --include=*.test.*` finds only `use-unload-journal.test.tsx`, which calls the journal hook directly.
+
+**Work item:** #499
+
+When a queued save's snapshot holds nothing but slices mirrored from a peer (`createMirrorLedger`, `mirror-ledger.ts`), the job writes nothing and drops its unconfirmed journal entry in memory. An entry already written to localStorage while the page was hiding stays, and its peer part may come back on the next load. No test covers either half. It needs a harness that fires `pagehide` while saves are queued, then asserts what the journal holds and what the next load restores.
+
+**Source:** the §4 plan, follow-up F3, 2026-09-30.

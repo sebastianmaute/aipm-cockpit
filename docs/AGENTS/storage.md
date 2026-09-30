@@ -243,6 +243,61 @@ template body.
   guard drops the click.
 - **IndexedDB** orders its transactions (§627).
 
+### Conflicts (§4, §645)
+
+Two windows, tabs or devices that write the same storage no longer overwrite each other silently.
+Each backend instance remembers the revision it last loaded or wrote (`revision()` on
+`StorageBackend`, `workspace.ts`). A save whose stored revision has moved throws
+`SaveConflictError` (`storage-error.ts`) and writes nothing.
+
+| Storage | Revision | Checked |
+|---|---|---|
+| Browser storage | an integer in the `kv` store, key `"revision"` | under the Web Lock `aipm-cockpit:save:browser`: read, compare, write, bump |
+| Local file (`local-*`) | `${lastModified}:${size}` of the bound file | under the Web Lock `aipm-cockpit:save:<kind>`: re-read the file and compare |
+| SharePoint (`sp-*`) | the driveItem eTag | by Graph: the upload carries `If-Match`, and a create after a 404 load carries `conflictBehavior=fail`; 409 and 412 map to `SaveConflictError` |
+| Turso (single and tenant) | a `meta` row, key `REVISION_KEY` (per `project_id` in tenant) | inside the §637 conditional batch: `withRevision` puts `revisionGuardStatement` right after `BEGIN`, which raises an SQL error on a mismatch, so every later step is skipped and the batch rolls back |
+
+- **Fail closed.** An instance that knows no revision (never loaded, or its load failed) refuses
+  its first save. The one exception is a SharePoint file loaded without an eTag, which saves without
+  `If-Match` as before. A Turso conflict is recognised by WHICH step failed (`isRevisionGuard`),
+  never by the error text.
+- **Hand-over.** A project op (switch, open, create, demo, conversion) loads or writes through an
+  instance of its own and then points the app at that target, and the live instance skips its load.
+  The op stores its instance in `handOverFromRef` (seven sites: five in `use-storage-file-ops.ts`,
+  two in `use-storage-turso-ops.ts`, `grep -n "handOverFromRef.current = " src/app/use-storage-*-ops.ts`),
+  and the live instance takes it over through `handOverRevision` (`storage-handover.ts`): `adoptFrom`
+  for the same class, else `adoptRevision`. Without this the live instance would refuse its first save.
+- **§645, a handle per window.** `LocalFileBackend` keeps the handle it was bound with
+  (`boundHandle`: taken from the shared slot `file-handle:<kind>` the first time it needs one,
+  replaced only by its own `setHandle` or a pick) and writes to it; the slot only tells a newly
+  created instance which file to open. So another tab's project switch cannot redirect this window's save.
+  `adoptFrom` carries the bound handle across the hand-over. Browser storage is still ONE store per
+  origin (`new BrowserBackend()` takes no project); the revision turns a cross-project overwrite
+  into a pause, not into separate storage.
+- **Tab sync.** All 29 workspace slices are mirrored (`useBroadcastSync`, one call each in
+  `use-storage-backend.ts`). After an autosave lands, `postRevision` sends the new revision and the
+  one it replaced over `aipm-cockpit:sync`. A main window on the same scope and epoch
+  (`useRevisionSync`) adopts it only while nothing is queued for its backend (`whenSaved` is
+  `null`) AND its own revision equals the sender's base; otherwise its next save meets the check.
+  The mirror ledger (`createMirrorLedger`, `mirror-ledger.ts`) stops a window re-saving a slice it
+  only received from a peer.
+- **The pause.** A refused save sets `savesPaused` with `reason: "conflict"`, which shuts the save
+  gate, and the banner `SavingPausedCause` `{ kind: "conflict" }` (`notifications.tsx`, copy
+  `storageSavePausedConflict`) offers three actions (`use-conflict-resolution.ts`):
+  **Reload** (`resolveConflictReload`) reads the stored version and drops the unsaved one;
+  **Overwrite** (`resolveConflictOverwrite`) arms `forceNextSave(expected)` inside the next save job,
+  a full rewrite that is refused if storage has moved on from the version the banner reported;
+  **Download my version** (`downloadConflictVersion`) saves the live workspace as a file and keeps
+  the pause. The blind `forceNextSave()` with no argument is a one-shot write that skips the compare.
+- **Kept versions.** A version left behind while its saves were refused (a switch away, a rebuild)
+  goes to a kept journal slot, `keptProjectKey` (`aipm-cockpit:unload-journal:<key>:kept`, then
+  `…:kept:<savedAt>`). `OtherJournalsBanner` lists it as "not saved (conflict)" with Download and
+  Discard. Nothing restores it in the app.
+
+★★ **What is verified.** Unit, hook and `node:sqlite` tests throughout, and
+`e2e/two-tab-conflict.spec.ts` (browser storage, two pages of one context). Nothing has run on a
+live SharePoint tenant (§652) or a live Turso database (§654); those entries list the owed checks.
+
 ## The six write paths
 
 The rule and its warnings live in `AGENTS.md` **New persisted `Workspace` field → SIX write
